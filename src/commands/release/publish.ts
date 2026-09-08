@@ -33,7 +33,8 @@ export interface PublishReleasePublishers {
 
 export interface PublishReleaseCommandDependencies {
   readonly readPackageIdentity: (productDir: string) => Promise<PackageIdentity>;
-  readonly resolveTaggedCommit: (productDir: string, tag: string) => Promise<string>;
+  /** Resolves a ref — the release tag, or the checkout's head — to the commit it names; rejects a ref naming no commit. */
+  readonly resolveCommit: (productDir: string, ref: string) => Promise<string>;
   readonly resolveReleaseData: (productDir: string, version: string, tag: string) => Promise<ReleaseData>;
   /** Reads the changelog as committed at the release tag, so a checkout that moved past the tag cannot change the published notes. */
   readonly readReleaseNotes: (productDir: string, tag: string, changelogPath: string) => Promise<string>;
@@ -41,14 +42,22 @@ export interface PublishReleaseCommandDependencies {
 
 export const DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES: PublishReleaseCommandDependencies = {
   readPackageIdentity,
-  resolveTaggedCommit: async (productDir, tag) => {
+  resolveCommit: async (productDir, ref) => {
+    // `--verify` fails unless the operand names exactly one object, and
+    // `--end-of-options` keeps an option-shaped operand from being echoed back
+    // as if it were a revision.
     const result = await defaultGitDependencies.execa(
       GIT_ROOT_COMMAND.EXECUTABLE,
-      [GIT_ROOT_COMMAND.REV_PARSE, `${tag}${GIT_COMMIT_SUFFIX}`],
+      [
+        GIT_ROOT_COMMAND.REV_PARSE,
+        GIT_ROOT_COMMAND.VERIFY,
+        GIT_ROOT_COMMAND.END_OF_OPTIONS,
+        `${ref}${GIT_COMMIT_SUFFIX}`,
+      ],
       { cwd: productDir, reject: false },
     );
     if (result.exitCode !== 0 || result.stdout.trim().length === 0) {
-      throw new ReleasePublicationError(`Release tag ${tag} does not resolve to a commit`);
+      throw new ReleasePublicationError(`Ref ${ref} does not resolve to a commit`);
     }
     return result.stdout.trim();
   },
@@ -58,7 +67,7 @@ export const DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES: PublishReleaseCommand
     const treePath = committedChangelogTreePath(productDir, changelogPath);
     const changelog = await committedFileContent(tag, treePath, productDir, defaultGitDependencies);
     if (changelog === null) {
-      throw new ReleasePublicationError(`Release tag ${tag} does not commit the changelog ${treePath}`);
+      throw new ReleasePublicationError(`Release tag ${tag} does not commit a changelog file at ${treePath}`);
     }
     return changelog;
   },
@@ -71,8 +80,9 @@ export async function publishReleaseCommand(
 ): Promise<string> {
   const packageIdentity = await deps.readPackageIdentity(options.productDir);
   const tag = options.tag;
-  const [taggedCommit, releaseData, changelog] = await Promise.all([
-    deps.resolveTaggedCommit(options.productDir, tag),
+  const [taggedCommit, checkoutCommit, releaseData, changelog] = await Promise.all([
+    deps.resolveCommit(options.productDir, tag),
+    deps.resolveCommit(options.productDir, GIT_ROOT_COMMAND.HEAD),
     deps.resolveReleaseData(options.productDir, packageIdentity.version, tag),
     deps.readReleaseNotes(options.productDir, tag, options.changelogPath ?? DEFAULT_CHANGELOG_PATH),
   ]);
@@ -80,6 +90,7 @@ export async function publishReleaseCommand(
     releaseData,
     tag,
     taggedCommit,
+    checkoutCommit,
     releaseNotesSection: validatedReleaseNotesSection(changelog, packageIdentity.version),
     packageName: packageIdentity.name,
     packagePublisher: publishers.createPackagePublisher(options.productDir),

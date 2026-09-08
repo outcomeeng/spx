@@ -1,8 +1,10 @@
 import { type PackagePublication, ReleasePublicationError } from "@/domains/release/publication";
 import { DEFAULT_CHANGELOG_PATH } from "@/domains/release/release-notes";
 import { RELEASE_CLI_OUTPUT } from "@/interfaces/cli/release-output";
+import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import {
   arbitraryPublicationCheckoutDriftScenario,
+  arbitraryPublicationCommittedReadScenario,
   arbitraryPublicationIdentityMismatchScenario,
   arbitraryPublicationMissingHostedReleaseScenario,
   arbitraryPublicationRetryScenario,
@@ -13,6 +15,7 @@ import { sampleReleaseTestValue } from "@testing/generators/release/release";
 import {
   createPublicationHarness,
   createPublishReleaseCommandHarness,
+  observeCommittedReleaseReads,
   observeDefaultPublishDependencies,
   observePublication,
   observePublishReleaseCli,
@@ -86,10 +89,10 @@ describe("release publication dispatch", () => {
     );
     expect(observation.tag).toBe(observation.scenario.tag);
     expect(observation.packageIdentityProductDirs).toEqual([observation.scenario.productDir]);
-    expect(observation.taggedCommitRequests).toEqual([{
-      productDir: observation.scenario.productDir,
-      tag: observation.scenario.tag,
-    }]);
+    expect(observation.commitRequests).toEqual([
+      { productDir: observation.scenario.productDir, ref: observation.scenario.tag },
+      { productDir: observation.scenario.productDir, ref: GIT_ROOT_COMMAND.HEAD },
+    ]);
     expect(observation.releaseDataRequests).toEqual([{
       productDir: observation.scenario.productDir,
       version: observation.scenario.releaseData.version,
@@ -122,10 +125,28 @@ describe("release publication dispatch", () => {
     });
     expect(observation.taggedCommit).toBe(observation.tagCommit);
     expect(observation.headCommit).not.toBe(observation.tagCommit);
+    expect(observation.checkoutCommit).toBe(observation.headCommit);
     expect(observation.checkoutChangelog).toBe(observation.scenario.checkoutChangelog);
     expect(observation.checkoutChangelog).not.toBe(observation.scenario.changelog);
     expect(observation.changelog).toBe(observation.scenario.changelog);
     expect(observation.changelogThroughSymlinkedCheckout).toBe(observation.scenario.changelog);
+  });
+
+  it("fails to resolve a release tag that names no commit in the product repository", async () => {
+    const observation = await observeCommittedReleaseReads(
+      sampleReleaseTestValue(arbitraryPublicationCommittedReadScenario()),
+    );
+    expect(observation.taggedCommit).toBe(observation.tagCommit);
+    expect(observation.absentTagFailure).toBeInstanceOf(ReleasePublicationError);
+    expect(observation.optionShapedTagFailure).toBeInstanceOf(ReleasePublicationError);
+  });
+
+  it("rejects the changelog's committed directory in place of the changelog file", async () => {
+    const observation = await observeCommittedReleaseReads(
+      sampleReleaseTestValue(arbitraryPublicationCommittedReadScenario()),
+    );
+    expect(observation.changelog).toBe(observation.scenario.changelog);
+    expect(observation.directoryChangelogFailure).toBeInstanceOf(ReleasePublicationError);
   });
 
   it("dispatches the release publish CLI verb", async () => {

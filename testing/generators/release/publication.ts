@@ -21,6 +21,7 @@ import {
   arbitraryConformantChangelog,
   arbitraryConformantChangelogScenario,
   arbitraryEscapingChangelogPath,
+  arbitraryNestedConfiguredChangelogPathScenario,
   arbitraryRootResolvingChangelogPath,
   changelogWithDuplicateCurrentVersionSections,
   changelogWithFooterReferenceScenario,
@@ -28,12 +29,16 @@ import {
 import { RELEASE_TEST_GENERATOR } from "@testing/generators/release/release";
 
 const MAX_PROCESS_EXIT_CODE = 255;
+/** The prefix git reads as a long option, so an operand carrying it is parsed as an option rather than a revision. */
+const GIT_LONG_OPTION_PREFIX = "--";
 
 interface PublicationBaseScenario {
   readonly productDir: string;
   readonly releaseData: ReleaseData;
   readonly tag: string;
   readonly taggedCommit: string;
+  /** The commit the product checkout's head resolves to; the tagged commit unless a scenario moves it. */
+  readonly checkoutCommit: string;
   readonly changelog: string;
   readonly packagePublication: PackagePublication;
   readonly expectedHostedRelease: HostedRelease;
@@ -83,6 +88,23 @@ export interface PublicationCheckoutDriftScenario extends PublicationScenario {
   readonly checkoutChangelog: string;
 }
 
+/** A publication whose product checkout's head is a release commit other than the tagged one. */
+export interface PublicationCheckoutMismatchScenario extends PublicationScenario {
+  readonly checkoutCommit: string;
+}
+
+/**
+ * A publication read back from a real product repository: the changelog committed at a
+ * nested configured path, plus the inputs a read must reject — a tag naming no commit,
+ * an option-shaped tag operand, and the changelog's directory in place of the file.
+ */
+export interface PublicationCommittedReadScenario extends PublicationScenario {
+  readonly changelogPath: string;
+  readonly changelogDirectory: string;
+  readonly absentTag: string;
+  readonly optionShapedTag: string;
+}
+
 /** Configured changelog paths a publication resolves against its product directory: one inside it, one escaping it, one naming it. */
 export interface PublicationChangelogPathScenario {
   readonly productDir: string;
@@ -116,6 +138,31 @@ function arbitraryWindowsRootedProductDir(): fc.Arbitrary<string> {
       arbitraryPathSegment(),
     )
     .map(([[root], segment]) => `${root}${segment}`);
+}
+
+export function arbitraryPublicationCheckoutMismatchScenario(): fc.Arbitrary<PublicationCheckoutMismatchScenario> {
+  return arbitraryPublicationScenario().map((scenario) => ({
+    ...scenario,
+    checkoutCommit: requireDistinctCommit(scenario.releaseData, scenario.taggedCommit),
+  }));
+}
+
+export function arbitraryPublicationCommittedReadScenario(): fc.Arbitrary<PublicationCommittedReadScenario> {
+  return arbitraryPublicationScenario().chain((scenario) =>
+    fc
+      .record({
+        changelogPath: arbitraryNestedConfiguredChangelogPathScenario(),
+        absentVersion: RELEASE_TEST_GENERATOR.distinctSemverFrom(scenario.releaseData.version),
+        optionName: arbitraryPathSegment(),
+      })
+      .map(({ changelogPath, absentVersion, optionName }) => ({
+        ...scenario,
+        changelogPath: changelogPath.path,
+        changelogDirectory: changelogPath.directory,
+        absentTag: releaseTagForVersion(absentVersion),
+        optionShapedTag: `${GIT_LONG_OPTION_PREFIX}${optionName}`,
+      }))
+  );
 }
 
 export function arbitraryPublicationCheckoutDriftScenario(): fc.Arbitrary<PublicationCheckoutDriftScenario> {
@@ -278,6 +325,7 @@ function arbitraryPublicationBase(): fc.Arbitrary<PublicationBaseScenario> {
           releaseData,
           tag,
           taggedCommit,
+          checkoutCommit: taggedCommit,
           changelog: changelog.content,
           packagePublication: {
             name,

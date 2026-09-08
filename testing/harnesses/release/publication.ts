@@ -24,11 +24,12 @@ import { createReleaseDomain, RELEASE_CLI } from "@/interfaces/cli/release";
 import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import type {
   PublicationCheckoutDriftScenario,
+  PublicationCommittedReadScenario,
   PublicationConfirmationFailureScenario,
   PublicationScenario,
 } from "@testing/generators/release/publication";
 import { GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
-import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
+import { type GitWorktreeEnv, withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 export interface RecordedPublicationRequest<T> {
@@ -54,23 +55,28 @@ export interface PublishReleaseCommandObservation extends PublicationObservation
   /** The tag the command returned; undefined when publication rejected before returning. */
   readonly tag: string | undefined;
   readonly packageIdentityProductDirs: readonly string[];
-  readonly taggedCommitRequests: readonly TaggedCommitRequest[];
+  /** Every ref the command asked to resolve to a commit, in request order. */
+  readonly commitRequests: readonly CommitRequest[];
   readonly releaseDataRequests: readonly ReleaseDataRequest[];
   readonly releaseNotesRequests: readonly ReleaseNotesRequest[];
   readonly packagePublisherProductDirs: readonly string[];
   readonly hostedReleasePublisherProductDirs: readonly string[];
 }
 
-export interface TaggedCommitRequest {
+export interface CommitRequest {
   readonly productDir: string;
+  readonly ref: string;
+}
+
+export interface ReleaseDataRequest {
+  readonly productDir: string;
+  readonly version: string;
   readonly tag: string;
 }
 
-export interface ReleaseDataRequest extends TaggedCommitRequest {
-  readonly version: string;
-}
-
-export interface ReleaseNotesRequest extends TaggedCommitRequest {
+export interface ReleaseNotesRequest {
+  readonly productDir: string;
+  readonly tag: string;
   readonly changelogPath: string;
 }
 
@@ -119,6 +125,8 @@ export interface DefaultPublishDependenciesObservation {
   readonly taggedCommit: string;
   /** The checkout's head after it moved past the tag. */
   readonly headCommit: string;
+  /** The commit the default dependencies resolved for the checkout's head. */
+  readonly checkoutCommit: string;
   /** The changelog the default dependencies read for the tag. */
   readonly changelog: string;
   /** The changelog read with the product directory addressed through a symbolic link to the checkout. */
@@ -126,10 +134,43 @@ export interface DefaultPublishDependenciesObservation {
   /** The changelog the checkout's working tree holds after moving past the tag. */
   readonly checkoutChangelog: string;
 }
+
+/** What the default publish dependencies read back for inputs a real product repository cannot satisfy. */
+export interface CommittedReleaseReadObservation {
+  readonly scenario: PublicationCommittedReadScenario;
+  /** The commit the harness tagged. */
+  readonly tagCommit: string;
+  /** The commit the default dependencies resolved for the tag. */
+  readonly taggedCommit: string;
+  /** The changelog the default dependencies read at the tag from the nested configured path. */
+  readonly changelog: string;
+  /** The error resolving a tag no commit carries rejected with; undefined when it resolved. */
+  readonly absentTagFailure: unknown;
+  /** The error resolving a tag operand git would parse as a long option rejected with; undefined when it resolved. */
+  readonly optionShapedTagFailure: unknown;
+  /** The error reading the changelog's committed directory in place of the file rejected with; undefined when it read. */
+  readonly directoryChangelogFailure: unknown;
+}
 const SYMLINKED_CHECKOUT_PREFIX = "spx-publish-symlinked-checkout-";
 const SYMLINKED_CHECKOUT_NAME = "checkout";
 const CHECKOUT_ADVANCE_COMMIT_MESSAGE = "advance the checkout past the release tag";
 const CHANGELOG_TEXT_ENCODING = "utf8";
+
+/** Commits the scenario's package manifest and changelog at `changelogPath`, tags the commit, and returns its SHA. */
+async function commitTaggedRelease(
+  env: GitWorktreeEnv,
+  scenario: PublicationScenario,
+  changelogPath: string,
+): Promise<string> {
+  await env.writeTracked(
+    PACKAGE_MANIFEST,
+    JSON.stringify({ name: scenario.packagePublication.name, version: scenario.packagePublication.version }),
+  );
+  await env.writeTracked(changelogPath, scenario.changelog);
+  await env.commit(scenario.tag);
+  await env.runGit([GIT_TEST_SUBCOMMANDS.TAG, scenario.tag]);
+  return (await env.runGit([GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD])).trim();
+}
 
 /**
  * Materializes the scenario's package manifest and changelog in a real git
@@ -143,22 +184,16 @@ export async function observeDefaultPublishDependencies(
 ): Promise<DefaultPublishDependenciesObservation> {
   let observation: DefaultPublishDependenciesObservation | undefined;
   await withGitWorktreeEnv(async (env) => {
-    await env.writeTracked(
-      PACKAGE_MANIFEST,
-      JSON.stringify({ name: scenario.packagePublication.name, version: scenario.packagePublication.version }),
-    );
-    await env.writeTracked(DEFAULT_CHANGELOG_PATH, scenario.changelog);
-    await env.commit(scenario.tag);
-    await env.runGit([GIT_TEST_SUBCOMMANDS.TAG, scenario.tag]);
-    const tagCommit = (await env.runGit([GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD])).trim();
+    const tagCommit = await commitTaggedRelease(env, scenario, DEFAULT_CHANGELOG_PATH);
     await env.writeTracked(DEFAULT_CHANGELOG_PATH, scenario.checkoutChangelog);
     await env.commit(CHECKOUT_ADVANCE_COMMIT_MESSAGE);
     const headCommit = (await env.runGit([GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD])).trim();
     const checkoutChangelog = await readFile(join(env.productDir, DEFAULT_CHANGELOG_PATH), CHANGELOG_TEXT_ENCODING);
 
-    const [packageIdentity, taggedCommit, changelog] = await Promise.all([
+    const [packageIdentity, taggedCommit, checkoutCommit, changelog] = await Promise.all([
       DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES.readPackageIdentity(env.productDir),
-      DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES.resolveTaggedCommit(env.productDir, scenario.tag),
+      DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES.resolveCommit(env.productDir, scenario.tag),
+      DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES.resolveCommit(env.productDir, GIT_ROOT_COMMAND.HEAD),
       DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES.readReleaseNotes(
         env.productDir,
         scenario.tag,
@@ -180,6 +215,7 @@ export async function observeDefaultPublishDependencies(
       tagCommit,
       taggedCommit,
       headCommit,
+      checkoutCommit,
       changelog,
       changelogThroughSymlinkedCheckout,
       checkoutChangelog,
@@ -189,6 +225,64 @@ export async function observeDefaultPublishDependencies(
     throw new Error("Default publish dependencies produced no observation");
   }
   return observation;
+}
+
+/**
+ * Materializes the scenario's tagged release with the changelog at its nested
+ * configured path, then reads back through the production default dependencies
+ * both the inputs the repository satisfies and the ones it cannot: a tag naming
+ * no commit, an option-shaped tag operand, and the changelog's directory. The
+ * settled results are observations; the linked test decides what they mean.
+ */
+export async function observeCommittedReleaseReads(
+  scenario: PublicationCommittedReadScenario,
+): Promise<CommittedReleaseReadObservation> {
+  let observation: CommittedReleaseReadObservation | undefined;
+  await withGitWorktreeEnv(async (env) => {
+    const tagCommit = await commitTaggedRelease(env, scenario, scenario.changelogPath);
+    const [taggedCommit, changelog] = await Promise.all([
+      DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES.resolveCommit(env.productDir, scenario.tag),
+      DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES.readReleaseNotes(
+        env.productDir,
+        scenario.tag,
+        scenario.changelogPath,
+      ),
+    ]);
+    const [absentTagFailure, optionShapedTagFailure, directoryChangelogFailure] = await Promise.all([
+      rejectionOf(DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES.resolveCommit(env.productDir, scenario.absentTag)),
+      rejectionOf(DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES.resolveCommit(env.productDir, scenario.optionShapedTag)),
+      rejectionOf(
+        DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES.readReleaseNotes(
+          env.productDir,
+          scenario.tag,
+          scenario.changelogDirectory,
+        ),
+      ),
+    ]);
+    observation = {
+      scenario,
+      tagCommit,
+      taggedCommit,
+      changelog,
+      absentTagFailure,
+      optionShapedTagFailure,
+      directoryChangelogFailure,
+    };
+  });
+  if (observation === undefined) {
+    throw new Error("Committed release reads produced no observation");
+  }
+  return observation;
+}
+
+/** The error a read rejected with, or undefined when it fulfilled — an observation the linked test interprets. */
+async function rejectionOf(read: Promise<unknown>): Promise<unknown> {
+  try {
+    await read;
+    return undefined;
+  } catch (error: unknown) {
+    return error;
+  }
 }
 
 export interface PublishReleaseCommandHarness {
@@ -216,7 +310,7 @@ export function createPublishReleaseCommandHarness(scenario: PublicationScenario
     sequence,
   );
   const packageIdentityProductDirs: string[] = [];
-  const taggedCommitRequests: TaggedCommitRequest[] = [];
+  const commitRequests: CommitRequest[] = [];
   const releaseDataRequests: ReleaseDataRequest[] = [];
   const releaseNotesRequests: ReleaseNotesRequest[] = [];
   const packagePublisherProductDirs: string[] = [];
@@ -244,9 +338,11 @@ export function createPublishReleaseCommandHarness(scenario: PublicationScenario
             version: scenario.packagePublication.version,
           });
         },
-        resolveTaggedCommit: (productDir, requestedTag) => {
-          taggedCommitRequests.push({ productDir, tag: requestedTag });
-          return Promise.resolve(scenario.taggedCommit);
+        resolveCommit: (productDir, ref) => {
+          commitRequests.push({ productDir, ref });
+          if (ref === scenario.tag) return Promise.resolve(scenario.taggedCommit);
+          if (ref === GIT_ROOT_COMMAND.HEAD) return Promise.resolve(scenario.checkoutCommit);
+          return Promise.reject(new Error(`Publication scenario resolves no commit for ref ${ref}`));
         },
         resolveReleaseData: (productDir, version, requestedTag) => {
           releaseDataRequests.push({ productDir, version, tag: requestedTag });
@@ -267,7 +363,7 @@ export function createPublishReleaseCommandHarness(scenario: PublicationScenario
       ...publicationObservation(scenario, packagePublisher, hostedReleasePublisher),
       tag: publishedTag,
       packageIdentityProductDirs,
-      taggedCommitRequests,
+      commitRequests,
       releaseDataRequests,
       releaseNotesRequests,
       packagePublisherProductDirs,
@@ -391,6 +487,7 @@ function publicationInput(
     releaseData: scenario.releaseData,
     tag: scenario.tag,
     taggedCommit: scenario.taggedCommit,
+    checkoutCommit: scenario.checkoutCommit,
     releaseNotesSection: scenario.expectedHostedRelease.body,
     packageName: scenario.packagePublication.name,
     packagePublisher,

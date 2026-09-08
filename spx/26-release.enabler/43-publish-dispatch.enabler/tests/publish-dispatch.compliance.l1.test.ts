@@ -8,10 +8,12 @@ import {
 import { releasePublicationWorkflowViolations } from "@/domains/release/publication-workflow";
 import { ReleaseNotesError, validatedReleaseNotesSection } from "@/domains/release/release-notes";
 import { RELEASE_PUBLISH_INVOCATION } from "@/interfaces/cli/release";
+import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import { GITHUB_RELEASE } from "@/lib/release-publication/github-release-publisher";
 import { NPM_PUBLICATION } from "@/lib/release-publication/npm-package-publisher";
 import {
   arbitraryPublicationChangelogPathScenario,
+  arbitraryPublicationCheckoutMismatchScenario,
   arbitraryPublicationCommandExitCode,
   arbitraryPublicationConfirmationFailureScenario,
   arbitraryPublicationIdentityMismatchScenario,
@@ -22,7 +24,11 @@ import {
 } from "@testing/generators/release/publication";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { observeIndependentVersionSection } from "@testing/harnesses/release/keep-a-changelog-oracle";
-import { createPublicationHarness, observePublication } from "@testing/harnesses/release/publication";
+import {
+  createPublicationHarness,
+  createPublishReleaseCommandHarness,
+  observePublication,
+} from "@testing/harnesses/release/publication";
 import {
   observeGithubReleasePublisher,
   observeNpmPackagePublisher,
@@ -228,6 +234,31 @@ describe("release publication compliance", () => {
         ]);
         expect(observation.hostedReleaseRequests).toEqual([]);
         expect(observation.hostedReleaseState).toEqual(scenario.existingHostedRelease);
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+  });
+
+  it("withholds every registry and repository-host request from a checkout whose head is not the tagged commit", async () => {
+    await assertProperty(
+      arbitraryPublicationCheckoutMismatchScenario(),
+      async (scenario) => {
+        const harness = createPublicationHarness(scenario);
+        await expect(harness.publish()).rejects.toBeInstanceOf(ReleasePublicationError);
+        const observation = harness.observe();
+        expect(observation.packageInspectRequests).toEqual([]);
+        expect(observation.packagePublishRequests).toEqual([]);
+        expect(observation.hostedReleaseRequests).toEqual([]);
+        expect(observation.packageState).toEqual(scenario.existingPackage);
+        expect(observation.hostedReleaseState).toEqual(scenario.existingHostedRelease);
+
+        const commandHarness = createPublishReleaseCommandHarness(scenario);
+        await expect(commandHarness.publish()).rejects.toBeInstanceOf(ReleasePublicationError);
+        const commandObservation = commandHarness.observe();
+        expect(commandObservation.commitRequests.map((request) => request.ref)).toContain(GIT_ROOT_COMMAND.HEAD);
+        expect(commandObservation.packageInspectRequests).toEqual([]);
+        expect(commandObservation.packagePublishRequests).toEqual([]);
+        expect(commandObservation.hostedReleaseRequests).toEqual([]);
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );

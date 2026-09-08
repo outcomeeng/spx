@@ -92,9 +92,22 @@ export function arbitraryConfiguredChangelogPath(): fc.Arbitrary<string> {
 }
 
 export function arbitraryNestedConfiguredChangelogPath(): fc.Arbitrary<string> {
+  return arbitraryNestedConfiguredChangelogPathScenario().map(({ path }) => path);
+}
+
+/** A nested configured changelog path together with the directory segment it nests under. */
+export interface NestedConfiguredChangelogPathScenario {
+  readonly directory: string;
+  readonly path: string;
+}
+
+export function arbitraryNestedConfiguredChangelogPathScenario(): fc.Arbitrary<NestedConfiguredChangelogPathScenario> {
   return fc
     .tuple(fc.stringMatching(CHANGELOG_DIR_PATTERN), fc.stringMatching(CHANGELOG_BASENAME_PATTERN))
-    .map(([directory, basename]) => `${directory}${PATH_SEPARATOR}${basename}${MARKDOWN_SUFFIX}`);
+    .map(([directory, basename]) => ({
+      directory,
+      path: `${directory}${PATH_SEPARATOR}${basename}${MARKDOWN_SUFFIX}`,
+    }));
 }
 
 /**

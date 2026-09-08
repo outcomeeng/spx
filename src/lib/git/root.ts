@@ -102,6 +102,8 @@ export const GIT_ROOT_COMMAND = {
   SYMBOLIC_REF: "symbolic-ref",
   SHOW_REF: "show-ref",
   VERIFY: "--verify",
+  /** Ends option parsing, so an operand shaped like an option is read as a revision and rejected rather than echoed. */
+  END_OF_OPTIONS: "--end-of-options",
   QUIET: "--quiet",
   SHORT: "--short",
   ORIGIN_HEAD_REF: "refs/remotes/origin/HEAD",

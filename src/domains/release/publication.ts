@@ -44,6 +44,12 @@ export interface PublishReleaseInput {
   readonly releaseData: ReleaseData;
   readonly tag: string;
   readonly taggedCommit: string;
+  /**
+   * The commit the product checkout's head resolves to. The registry receives the
+   * checkout's payload and records its head, so publication proceeds only when this
+   * is the tagged commit.
+   */
+  readonly checkoutCommit: string;
   readonly releaseNotesSection: string;
   /** The package name; version, commit, and provenance derive from the verified release inputs. */
   readonly packageName: string;
@@ -120,6 +126,11 @@ export async function publishRelease(input: PublishReleaseInput): Promise<void> 
   if (input.tag !== expectedTag) {
     throw new ReleasePublicationError(
       `Release tag ${input.tag} does not match package version ${input.releaseData.version}`,
+    );
+  }
+  if (input.checkoutCommit !== input.taggedCommit) {
+    throw new ReleasePublicationError(
+      `Checkout head ${input.checkoutCommit} is not the commit tagged ${input.tag} (${input.taggedCommit})`,
     );
   }
   const expectedPackage: PackagePublication = {

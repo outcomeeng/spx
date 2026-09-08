@@ -9,15 +9,17 @@ export interface GitCommit {
 }
 
 const GIT_RELEASE_SUBCOMMAND = {
+  CAT_FILE: "cat-file",
   DESCRIBE: "describe",
   LOG: "log",
-  SHOW: "show",
   TAG: "tag",
 } as const;
 
-/** Separator between a revision and a tree path in a `git show <rev>:<path>` object name. */
+/** The object type `git cat-file` is asked for, so a tree or commit at the path fails rather than printing a listing. */
+const GIT_BLOB_OBJECT_TYPE = "blob";
+/** Separator between a revision and a tree path in a `<rev>:<path>` object name. */
 const REVISION_PATH_SEPARATOR = ":";
-/** Prefix that makes `git show` resolve a tree path relative to the working directory rather than the repository root. */
+/** Prefix that makes a `<rev>:<path>` object name resolve the path relative to the working directory rather than the repository root. */
 const CWD_RELATIVE_TREE_PATH_PREFIX = "./";
 
 const GIT_RELEASE_FLAG = {
@@ -110,7 +112,7 @@ export async function releaseTagsAt(
  * Reads the content of the file at `treePath` — relative to `cwd`, forward-slash
  * separated — as committed at `ref`, keeping the blob's bytes including its
  * final newline. Returns null when the ref does not resolve or its tree holds
- * no such file.
+ * no blob at the path: a directory there is not a file, so it reads as absent.
  */
 export async function committedFileContent(
   ref: string,
@@ -121,7 +123,8 @@ export async function committedFileContent(
   const result = await deps.execa(
     GIT_ROOT_COMMAND.EXECUTABLE,
     [
-      GIT_RELEASE_SUBCOMMAND.SHOW,
+      GIT_RELEASE_SUBCOMMAND.CAT_FILE,
+      GIT_BLOB_OBJECT_TYPE,
       `${ref}${REVISION_PATH_SEPARATOR}${CWD_RELATIVE_TREE_PATH_PREFIX}${treePath}`,
     ],
     { cwd, reject: false, stripFinalNewline: false },
