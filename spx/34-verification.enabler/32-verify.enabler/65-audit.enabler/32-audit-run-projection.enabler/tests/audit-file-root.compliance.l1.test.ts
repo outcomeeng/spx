@@ -4,13 +4,29 @@ import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import {
   TERMINAL_METADATA_VALIDATION_ERROR,
   TERMINAL_REQUIREMENT,
+  type TerminalValidationInput,
   validateAuditTerminal,
   VERIFY_SCOPE_TYPE,
 } from "@/domains/verify/verify";
 import { arbitraryFileAuditScopeScenario } from "@testing/generators/verify/audit";
 import { sampleVerifyTestValue } from "@testing/generators/verify/verify";
+import { AUDIT_FIXTURE, readVerificationFixture } from "@testing/harnesses/verify/audit-fixtures";
 
 describe("audit file-root terminal compliance", () => {
+  it("rejects a complete duplicate-root terminal input and accepts the valid file root", async () => {
+    expect(
+      validateAuditTerminal(await readVerificationFixture<TerminalValidationInput>(AUDIT_FIXTURE.TERMINAL_VALID)).ok,
+    ).toBe(true);
+    expect(
+      validateAuditTerminal(
+        await readVerificationFixture<TerminalValidationInput>(AUDIT_FIXTURE.TERMINAL_DUPLICATE_ROOT),
+      ),
+    ).toStrictEqual({
+      ok: false,
+      error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT,
+      reason: expect.stringContaining(TERMINAL_REQUIREMENT.STATUS_MATCHES_EVIDENCE),
+    });
+  });
   it("rejects approval when a file-scoped run has more than one root", () => {
     expect(validateAuditTerminal({
       terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,

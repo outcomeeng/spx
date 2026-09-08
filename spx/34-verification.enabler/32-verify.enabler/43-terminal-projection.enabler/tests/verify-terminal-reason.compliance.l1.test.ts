@@ -4,6 +4,7 @@ import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import {
   TERMINAL_REQUIREMENT,
   terminalMetadataValidatorFor,
+  type TerminalValidationInput,
   VERIFY_SCOPE_TYPE,
   VERIFY_VERIFICATION_TYPE,
 } from "@/domains/verify/verify";
@@ -11,6 +12,7 @@ import type { JournalEvent, JsonValue } from "@/lib/agent-run-journal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { arbitraryFileAuditScopeScenario } from "@testing/generators/verify/audit";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
+import { AUDIT_FIXTURE, readVerificationFixture } from "@testing/harnesses/verify/audit-fixtures";
 import { finishTestRunWithSuppliedMetadata } from "@testing/harnesses/verify/harness";
 
 /** Project one terminal-completion validation, so a case reads the refusal class and its reason. */
@@ -32,6 +34,13 @@ function validateTerminal(
 }
 
 describe("verify terminal rejection reasons", () => {
+  it("identifies the violated terminal requirement in complete file-backed input", async () => {
+    const result = terminalMetadataValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT)?.(
+      await readVerificationFixture<TerminalValidationInput>(AUDIT_FIXTURE.TERMINAL_METADATA),
+    );
+    expect(result?.ok).toBe(false);
+    expect(result?.ok === false ? result.reason : "").toContain(TERMINAL_REQUIREMENT.NO_METADATA_ACCEPTED);
+  });
   it("names the no-metadata requirement when a deterministic type is handed terminal metadata", () => {
     const metadata = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewApprovedTerminalMetadata());
     const result = validateTerminal(

@@ -4,13 +4,27 @@ import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import {
   TERMINAL_METADATA_VALIDATION_ERROR,
   TERMINAL_REQUIREMENT,
+  type TerminalValidationInput,
   validateAuditTerminal,
   VERIFY_SCOPE_TYPE,
 } from "@/domains/verify/verify";
 import { arbitraryAuditTerminalMetadataScenario } from "@testing/generators/verify/audit";
 import { sampleVerifyTestValue } from "@testing/generators/verify/verify";
+import { AUDIT_FIXTURE, readVerificationFixture } from "@testing/harnesses/verify/audit-fixtures";
 
 describe("audit terminal metadata", () => {
+  it("rejects metadata in a complete terminal input read by path", async () => {
+    expect(
+      validateAuditTerminal(await readVerificationFixture<TerminalValidationInput>(AUDIT_FIXTURE.TERMINAL_METADATA)),
+    ).toStrictEqual({
+      ok: false,
+      error: TERMINAL_METADATA_VALIDATION_ERROR.METADATA_INVALID,
+      reason: expect.stringContaining(TERMINAL_REQUIREMENT.NO_METADATA_ACCEPTED),
+    });
+    expect(
+      validateAuditTerminal(await readVerificationFixture<TerminalValidationInput>(AUDIT_FIXTURE.TERMINAL_VALID)).ok,
+    ).toBe(true);
+  });
   it("rejects supplied terminal metadata", () => {
     expect(validateAuditTerminal({
       terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,

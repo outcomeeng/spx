@@ -11,8 +11,26 @@ import {
   arbitraryFileAuditScopeScenario,
 } from "@testing/generators/verify/audit";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
+import { AUDIT_FIXTURE, withAuditFixtureRun } from "@testing/harnesses/verify/audit-fixtures";
 
 describe("audit scope append order", () => {
+  it("enforces root and parent ordering when complete payload files reach the append command", async () => {
+    await withAuditFixtureRun(async (env) => {
+      const beforeRoot = await env.events();
+      expect((await env.appendScope(AUDIT_FIXTURE.CHILD)).exitCode).not.toBe(0);
+      expect(await env.events()).toEqual(beforeRoot);
+      expect((await env.appendScope(AUDIT_FIXTURE.ROOT)).exitCode).toBe(0);
+      const afterRoot = await env.events();
+      expect(afterRoot.length).toBeGreaterThan(beforeRoot.length);
+      expect((await env.appendScope(AUDIT_FIXTURE.ORPHAN)).exitCode).not.toBe(0);
+      expect(await env.events()).toEqual(afterRoot);
+      expect((await env.appendScope(AUDIT_FIXTURE.CHILD)).exitCode).toBe(0);
+      const afterChild = await env.events();
+      expect(afterChild.length).toBeGreaterThan(afterRoot.length);
+      expect((await env.appendScope(AUDIT_FIXTURE.ROOT)).exitCode).not.toBe(0);
+      expect(await env.events()).toEqual(afterChild);
+    });
+  });
   it("requires the root first and each child after its recorded parent for changesets", () => {
     assertProperty(
       arbitraryAuditChangesetProjectionScenario(),
