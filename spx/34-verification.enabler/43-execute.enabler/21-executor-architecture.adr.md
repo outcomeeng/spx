@@ -27,15 +27,14 @@ A language descriptor's journal-streaming run reports three outcomes: gated out 
 
 - ALWAYS: the `test` runner fold reports an unresolved runner naming the product directory searched when a present language's runner is unresolvable and no language streamed, and `interrupted` when another language streamed alongside it ([compliance])
 - ALWAYS: the executor seals an unresolved-runner outcome `interrupted` and its result names the product directory searched, distinct from the result of a gated-out run ([compliance])
-
-- ALWAYS: the executor records a run's scope, finding, and terminal evidence through the verify recorder lifecycle operations of `spx/34-verification.enabler/32-verify.enabler` ([compliance](tests/execute.compliance.l1.test.ts))
-- ALWAYS: the executor backs the runner's `TestRunEvidenceSink` with the recorder's scope-append and finding-append operations supplied as injected dependencies ([compliance](tests/execute.compliance.l1.test.ts))
-- ALWAYS: the executor opens a run in spx drive mode, recorded at start, so the recorder projection advertises no caller evidence-append next action for that run ([compliance](tests/execute.compliance.l1.test.ts))
-- ALWAYS: the executor resolves the `test` verification type's deterministic runner through `src/test/registry.ts` ([compliance](tests/execute.compliance.l1.test.ts))
-- ALWAYS: an unsupported verification type opens no run ([compliance](tests/execute.compliance.l1.test.ts))
-- ALWAYS: the executor maps every runner terminal status onto a recorder terminal status through a total function before it finishes the run ([mapping](tests/execute.mapping.l1.test.ts))
-- ALWAYS: a runner failure after the run opens finishes the run with an `interrupted` terminal status before the failure surfaces, so the executor leaves no opened run unsealed ([compliance](tests/execute.compliance.l1.test.ts))
-- ALWAYS: the interrupted seal on runner failure is best-effort — a finish failure during cleanup does not mask the runner failure, which surfaces instead ([compliance](tests/execute.compliance.l1.test.ts))
+- ALWAYS: the executor records a run's scope, finding, and terminal evidence through the verify recorder lifecycle operations of `spx/34-verification.enabler/32-verify.enabler` ([compliance])
+- ALWAYS: the executor backs the runner's `TestRunEvidenceSink` with the recorder's scope-append and finding-append operations supplied as injected dependencies ([compliance])
+- ALWAYS: the executor opens a run in spx drive mode, recorded at start, so the recorder projection advertises no caller evidence-append next action for that run ([compliance])
+- ALWAYS: the executor resolves the `test` verification type's deterministic runner through `src/test/registry.ts` ([compliance])
+- ALWAYS: an unsupported verification type opens no run ([compliance])
+- ALWAYS: the executor maps every runner terminal status onto a recorder terminal status through a total function before it finishes the run ([mapping])
+- ALWAYS: a runner failure after the run opens finishes the run with an `interrupted` terminal status before the failure surfaces, so the executor leaves no opened run unsealed ([compliance])
+- ALWAYS: the interrupted seal on runner failure is best-effort — a finish failure during cleanup does not mask the runner failure, which surfaces instead ([compliance])
 
 ### Audit
 
