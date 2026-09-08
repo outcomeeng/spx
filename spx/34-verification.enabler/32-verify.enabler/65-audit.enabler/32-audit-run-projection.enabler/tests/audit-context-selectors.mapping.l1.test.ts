@@ -30,34 +30,37 @@ describe("audit prior-context selectors", () => {
       ], selector)).toEqual([unit]);
     }, { level: PROPERTY_LEVEL.L1 });
   });
-  it.each(Object.entries(sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).mismatches))("filters prior context by selector field %s", (_field, mismatch) => {
-    expect(auditPriorContextSelectorForScopeUnit(
-      sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current,
-    )).toEqual({
-      auditClass: sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.auditClass,
-      auditKind: sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.auditKind,
-      expectedProducer: sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.expectedProducer,
-      subjectPath: sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.subject,
-      changedFilePartition:
-        sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.priorContext.changedFilePartition,
-      concernPartition:
-        sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.priorContext.concernPartition,
-      languagePartition:
-        sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.priorContext.languagePartition,
-      producerIdentity: sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.recordedByRunDriver,
-    });
-    expect(filterAuditScopeUnitsForPriorContext(
-      [
-        mismatch,
+  it.each(Object.entries(sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).mismatches))(
+    "filters prior context by selector field %s",
+    (_field, mismatch) => {
+      expect(auditPriorContextSelectorForScopeUnit(
+        sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current,
+      )).toEqual({
+        auditClass: sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.auditClass,
+        auditKind: sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.auditKind,
+        expectedProducer: sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.expectedProducer,
+        subjectPath: sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.subject,
+        changedFilePartition:
+          sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.priorContext.changedFilePartition,
+        concernPartition:
+          sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.priorContext.concernPartition,
+        languagePartition:
+          sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.priorContext.languagePartition,
+        producerIdentity: sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current.recordedByRunDriver,
+      });
+      expect(filterAuditScopeUnitsForPriorContext(
+        [
+          mismatch,
+          sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).currentWithoutProvenance,
+          sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current,
+        ],
+        auditPriorContextSelectorForScopeUnit(
+          sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current,
+        ),
+      )).toEqual([
         sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).currentWithoutProvenance,
         sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current,
-      ],
-      auditPriorContextSelectorForScopeUnit(
-        sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current,
-      ),
-    )).toEqual([
-      sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).currentWithoutProvenance,
-      sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current,
-    ]);
-  });
+      ]);
+    },
+  );
 });
