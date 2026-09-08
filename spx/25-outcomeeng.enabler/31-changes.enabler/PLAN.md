@@ -10,10 +10,9 @@ The first-half composition horizon contains the governing Change-store PDR at 21
 
 ## Activities
 
-1. Route the decision rules and assertions through `/verify`, then obtain the independent decision audits on a committed subject.
-2. Establish and audit deterministic draft and CLI evidence; implement the corresponding operations through `/apply`.
-3. Exercise local creation, recovery by listing, and exact deletion together with independent coordination/change audit recording.
-4. Converge the affected evidence, implementation, and changeset gates; merge through `/merge` and release the CLI capability.
+1. Finish the focused deterministic checks for draft storage, CLI behavior, and coordination/change audit evidence and projection. Invalid-command cases retain separate test envelopes and their declared generated run counts.
+2. Converge the affected evidence, implementation, and changeset gates on a clean committed subject. The preimplementation evidence audits reported absent behavior; the CLI audit also required specific diagnostic assertions and registry-enumerated operation coverage.
+3. Merge through `/merge` and release the CLI capability before the separate plugin consumer enables the commands.
 
 The separate plugins Product consumes the released commands in its agreed eight-file Change skill prototype. This SPX change creates no hosted Change backend, canonical `.spx/changes/` store, session migration, eval, or Python implementation script.
 
