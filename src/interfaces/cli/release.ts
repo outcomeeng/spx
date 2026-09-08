@@ -11,6 +11,13 @@ import {
   type PublishReleasePublishers,
   releaseNotesCommand,
 } from "@/commands/release";
+import { resolveConfig } from "@/config/index";
+import {
+  RELEASE_SECTION,
+  type ReleaseConfig,
+  releaseConfigDescriptor,
+  type ReleaseNotesPolicyConfig,
+} from "@/domains/release/config";
 import {
   createDocumentationFaithfulnessAuditor,
   type DocumentationFaithfulnessAuditor,
@@ -67,6 +74,7 @@ export interface ReleaseCliDependencies {
     agentRunner: AgentRunner,
     productDir: string,
   ) => DocumentationFaithfulnessAuditor;
+  readonly resolveReleaseNotesPolicy: (productDir: string) => Promise<ReleaseNotesPolicyConfig>;
   readonly releaseNotesCommand: typeof releaseNotesCommand;
   readonly documentationSyncCommand: typeof documentationSyncCommand;
   readonly documentationSyncCommandDependencies: DocumentationSyncCommandDependencies;
@@ -78,6 +86,11 @@ const DEFAULT_RELEASE_CLI_DEPENDENCIES: ReleaseCliDependencies = {
   createDocumentationAgentRunner: () => new ClaudeAgentRunner(),
   createDocumentationFaithfulnessAuditor: (_agentRunner, productDir) =>
     createDocumentationFaithfulnessAuditor(new ClaudeAgentRunner(), productDir),
+  resolveReleaseNotesPolicy: async (productDir) => {
+    const loaded = await resolveConfig(productDir, [releaseConfigDescriptor]);
+    if (!loaded.ok) throw new Error(loaded.error);
+    return (loaded.value[RELEASE_SECTION] as ReleaseConfig).notes;
+  },
   releaseNotesCommand,
   documentationSyncCommand,
   documentationSyncCommandDependencies: DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
@@ -108,13 +121,19 @@ export function createReleaseDomain(
           try {
             const productDir = invocation.resolveProductContext().productDir;
             const agentRunner = new ClaudeAgentRunner();
+            const policy = await deps.resolveReleaseNotesPolicy(productDir);
+            const config = {
+              changelogPath: options.changelogPath,
+              withheldCommitTypes: policy.withheldCommitTypes,
+            };
             const changelogPath = await deps.releaseNotesCommand({
               productDir,
-              config: { changelogPath: options.changelogPath },
+              config,
               agentRunner,
               faithfulnessAuditor: createReleaseNotesFaithfulnessAuditor(
                 agentRunner,
                 productDir,
+                config,
               ),
             });
             invocation.io.writeStdout(formatReleaseNotesOutput(changelogPath));
