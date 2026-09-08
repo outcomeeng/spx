@@ -49,6 +49,19 @@ import {
   withVerificationType,
 } from "@testing/harnesses/verify/harness";
 
+/**
+ * The violating command paths the verification command surface must never register — the
+ * verb-shaped verification-type names `spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md`
+ * forbids — as the compliance evidence's real violating cases.
+ */
+export const FORBIDDEN_TYPE_VERB_COMMAND_NAMES: readonly string[] = ["validate", "eval"];
+
+/**
+ * The violating path-scope flags no verification surface introduces —
+ * `spx/29-verification-path-scope.pdr.md` names them — as the compliance evidence's real violating cases.
+ */
+export const FORBIDDEN_PATH_SCOPE_FLAGS: readonly string[] = ["--files", "--tests", "--nodes"];
+
 /** One executable verification type's command subtree as the real program registers it. */
 export interface TypeNounObservation {
   readonly typeName: string;
