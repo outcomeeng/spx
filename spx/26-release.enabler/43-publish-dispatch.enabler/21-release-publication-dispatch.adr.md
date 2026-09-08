@@ -12,6 +12,7 @@ One product operation keeps registry identity checks, changelog-section extracti
 
 - Successful dispatch implies that the verified package identity exists with provenance and exactly one GitHub Release for the tag exposes the validated changelog section.
 - Repeated dispatch with the same verified release inputs converges on the same registry and GitHub state without attempting a duplicate package publication.
+- Package publication is attempted only from a product checkout whose head is the tagged commit, so the payload the registry receives and the commit it records are the tag's; a mismatch fails before the immutable publish rather than after it.
 - GitHub Release mutation occurs only after package publication is confirmed for the verified release identity.
 
 ## Verification
@@ -21,6 +22,7 @@ One product operation keeps registry identity checks, changelog-section extracti
 - ALWAYS: package publication confirmation compares an existing registry record with the verified package name, version, tagged commit identity, and provenance requirements before treating the package as published ([compliance])
 - ALWAYS: changelog-section extraction returns the exact validated section for the verified release version and rejects changelogs that omit that version or define it more than once ([compliance])
 - ALWAYS: GitHub Release reconciliation derives the tag, title, target commit, and body from verified release inputs and performs an idempotent create-or-update operation only after package confirmation succeeds ([compliance])
+- NEVER: a package publication is attempted from a product checkout whose head is not the tagged commit — publication fails before any package-registry or repository-host request ([compliance])
 - ALWAYS: the publication workflow installs the packaged CLI's runtime dependencies and invokes `spx release publish` with the tag that triggered the run, only after deterministic verification, and grants the publication job the minimum combined authority of `contents: write` and `id-token: write`, while every other job retains read-only repository contents ([compliance])
 
 ### Audit
