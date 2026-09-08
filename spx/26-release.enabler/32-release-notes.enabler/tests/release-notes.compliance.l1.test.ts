@@ -9,6 +9,7 @@ import {
   RELEASE_NOTES_AGENT_MAX_TURNS,
   RELEASE_NOTES_AGENT_PERMISSION_MODE,
   RELEASE_NOTES_AGENT_TOOLS,
+  RELEASE_NOTES_OBSERVABLE_EFFECT_BASIS,
   RELEASE_NOTES_OMITTED_CHANGE_CLASSES,
   RELEASE_VERSION_DATA_BLOCK_CLOSE,
   ReleaseNotesError,
@@ -56,7 +57,7 @@ import {
 } from "@testing/harnesses/release/release-notes-conformance";
 import { describe, expect, it } from "vitest";
 
-it("states one omission contract across the producer prompt and the faithfulness-audit prompt", async () => {
+it("states one observable-effect basis and one omission contract across the producer and audit prompts", async () => {
   const scenario = sampleReleaseNotesFaithfulnessScenario(
     RELEASE_NOTES_FAITHFULNESS_CASE.PRODUCTION_AUDITOR,
   );
@@ -66,8 +67,10 @@ it("states one omission contract across the producer prompt and the faithfulness
   );
   const audit = await observeReleaseNotesFaithfulness(scenario.input);
 
-  expect(producerPrompt).toContain(RELEASE_NOTES_OMITTED_CHANGE_CLASSES);
-  expect(audit.auditPrompt).toContain(RELEASE_NOTES_OMITTED_CHANGE_CLASSES);
+  for (const prompt of [producerPrompt, audit.auditPrompt]) {
+    expect(prompt).toContain(RELEASE_NOTES_OBSERVABLE_EFFECT_BASIS);
+    expect(prompt).toContain(RELEASE_NOTES_OMITTED_CHANGE_CLASSES);
+  }
 });
 
 describe("composeReleaseNotes builds the prompt from the release data and resolved configuration", () => {

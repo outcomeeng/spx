@@ -128,16 +128,20 @@ export const RELEASE_NOTES_VERSION_HEADING_INSTRUCTION = `Construct the release 
 export const CHANGELOG_PRESERVATION_INSTRUCTION =
   "If the changelog path already exists, read it first and preserve existing version sections; replace only this release version's section when it is already present, otherwise insert this release section without deleting older sections.";
 /**
- * The change classes the notes leave out, named once and carried by both the
- * producer instruction and the faithfulness-audit instruction, so the two
- * prompts state one omission contract rather than two that can drift apart.
+ * The two contracts the notes are written and judged against, each named once
+ * and carried by both the producer instruction and the faithfulness-audit
+ * instruction: what makes a change worth describing, and which classes the
+ * notes leave out. One declaration per contract keeps the prompt that writes
+ * the notes and the prompt that judges them from drifting apart.
  */
+export const RELEASE_NOTES_OBSERVABLE_EFFECT_BASIS =
+  "judged by its observable effect rather than by its technical label";
 export const RELEASE_NOTES_OMITTED_CHANGE_CLASSES =
   "spec-only, test-only, release-mechanics, and internal implementation changes that have no observable effect";
 export const RELEASE_NOTES_USER_FACING_INSTRUCTION =
-  `Write for product users. Translate implementation-shaped commit subjects into externally observable capabilities and effects when they change product behavior, and consolidate related commits into one user-facing entry. Omit only ${RELEASE_NOTES_OMITTED_CHANGE_CLASSES}.`;
+  `Write for product users. Every commit is ${RELEASE_NOTES_OBSERVABLE_EFFECT_BASIS}: translate implementation-shaped subjects into externally observable capabilities and effects, and consolidate related commits into one user-facing entry. Omit only ${RELEASE_NOTES_OMITTED_CHANGE_CLASSES}.`;
 export const RELEASE_NOTES_AUDIT_USER_FACING_INSTRUCTION =
-  `Judge each commit by its observable effect rather than its technical label. Approve only when the release section represents every user-visible change and omits ${RELEASE_NOTES_OMITTED_CHANGE_CLASSES}.`;
+  `Every commit is ${RELEASE_NOTES_OBSERVABLE_EFFECT_BASIS}. Approve only when the release section represents every user-visible change and omits ${RELEASE_NOTES_OMITTED_CHANGE_CLASSES}.`;
 export const RELEASE_NOTES_AGENT_TOOLS = [
   AGENT_RUN_TOOLS.READ,
   AGENT_RUN_TOOLS.WRITE,
