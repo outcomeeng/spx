@@ -65,10 +65,7 @@ export function releasePublicationWorkflowViolations(
   } else if (publishIndex >= 0 && installIndex > publishIndex) {
     violations.add(RELEASE_PUBLICATION_WORKFLOW_VIOLATION.DEPENDENCY_INSTALL_AFTER_PUBLISH);
   }
-  if (
-    publishJob === undefined
-    || !publishJob.needs.includes(RELEASE_PUBLICATION_WORKFLOW.JOB.DETERMINISTIC)
-  ) {
+  if (!publishJob?.needs.includes(RELEASE_PUBLICATION_WORKFLOW.JOB.DETERMINISTIC)) {
     violations.add(RELEASE_PUBLICATION_WORKFLOW_VIOLATION.DETERMINISTIC_DEPENDENCY_ABSENT);
   }
   if (
