@@ -13,6 +13,7 @@ import { requireMethodologyVersion } from "@/config/methodology";
 import type { Result } from "@/config/types";
 
 import { formatCompactRecoveryEntryAbsentError, formatFoundationResourceUnreadableError } from "./foundation-manifest";
+import { checkProviderMatch } from "./provider-match";
 import {
   containedTreeResourcePath,
   type MethodologyTreeFileSystem,
@@ -46,6 +47,13 @@ export async function resolveCompactRecoveryDirective(
     fs: options.fs,
   });
   if (!tree.ok) return tree;
+  const match = checkProviderMatch({
+    version: version.value,
+    ...(options.methodology.migratingFrom === undefined ? {} : { migratingFrom: options.methodology.migratingFrom }),
+    sourceRecord: tree.value.sourceRecord,
+    codingAgent: tree.value.codingAgent,
+  });
+  if (!match.ok) return match;
   const resolved = await resolveFoundationManifest(tree.value.treeDir, options.fs);
   if (!resolved.ok) return resolved;
   const { treeDir, manifestPath, manifest } = resolved.value;

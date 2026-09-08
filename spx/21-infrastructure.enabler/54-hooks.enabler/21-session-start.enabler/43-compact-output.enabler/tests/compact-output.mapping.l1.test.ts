@@ -9,6 +9,7 @@ import {
   formatFoundationManifestUnreadableError,
   formatFoundationResourceUnreadableError,
   formatMethodologyLineMissingError,
+  formatProvidesMismatchError,
   FOUNDATION_MANIFEST_NOT_JSON_ERROR,
   resolveCompactRecoveryDirective,
 } from "@/lib/methodology";
@@ -61,6 +62,11 @@ function unresolvedDirectiveRows(): readonly UnresolvedDirectiveRow[] {
     {
       variant: COMPACT_RECOVERY_FIXTURE_VARIANT.RESOURCE_INVALID_UTF8,
       expectedDiagnostic: (fixture) => formatFoundationResourceUnreadableError(fixture.entryPath, fixture.manifestPath),
+    },
+    {
+      variant: COMPACT_RECOVERY_FIXTURE_VARIANT.PROVIDER_MISMATCH,
+      expectedDiagnostic: (fixture) =>
+        formatProvidesMismatchError(fixture.version, fixture.providesVersion, fixture.codingAgent),
     },
   ];
 }

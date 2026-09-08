@@ -23,7 +23,7 @@ methodology tree names no directive
 
 ### Mappings
 
-- Every unresolved-directive condition — an undeclared methodology version, a line spx ships no tree for, an absent, unreadable, or invalid manifest, an absent compact-recovery entry, and an uncontained or unreadable directive resource — maps to no compact-source stdout, a stderr diagnostic naming the failed resolution step, and successful hook completion ([test](tests/compact-output.mapping.l1.test.ts))
+- Every unresolved-directive condition — an undeclared methodology version, a line spx ships no tree for, a shipped record whose provider declaration disagrees with the declared version or migration source, an absent, unreadable, or invalid manifest, an absent compact-recovery entry, and an uncontained or unreadable directive resource — maps to no compact-source stdout, a stderr diagnostic naming the failed resolution step, and successful hook completion ([test](tests/compact-output.mapping.l1.test.ts))
 
 ### Conformance
 

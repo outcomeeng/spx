@@ -24,7 +24,7 @@ Ordering follows cost and ownership: the compact stdout policy resolves first, a
 ### Testing
 
 - ALWAYS: emitted compact-source stdout equals the exact bytes of the manifest-named compact-recovery resource of spx's shipped methodology tree for the line the payload product's top-level `methodology` config descriptor declares and the invoking coding agent ([conformance])
-- ALWAYS: every unresolved-directive condition — an undeclared methodology version, a line spx ships no tree for, an absent, unreadable, or invalid manifest, an absent `compact_recovery` entry, and an uncontained or unreadable resource — yields no compact-source stdout, a stderr diagnostic naming the failed resolution step, and successful hook completion ([mapping])
+- ALWAYS: every unresolved-directive condition — an undeclared methodology version, a line spx ships no tree for, a shipped `source.json` whose provider declaration disagrees with the declared version or migration source per `spx/13-agent-capability-lifecycle.pdr.md`, an absent, unreadable, or invalid manifest, an absent `compact_recovery` entry, and an uncontained or unreadable resource — yields no compact-source stdout, a stderr diagnostic naming the failed resolution step, and successful hook completion ([mapping])
 - NEVER: directive resolution reads the shipped tree for an invocation whose compact stdout policy resolved false or whose lifecycle source is not compact ([compliance])
 
 ### Audit

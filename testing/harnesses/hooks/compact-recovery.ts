@@ -38,8 +38,9 @@ import {
   METHODOLOGY_CODING_AGENT,
   methodologyLine,
   resolveCompactRecoveryDirective,
+  SOURCE_RECORD_RELATIVE_PATH,
 } from "@/lib/methodology";
-import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
+import { arbitraryMethodologyVersion, generatedSourceRecordProviding } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { type HookCliWorktreeEnv, withHookCliWorktreeEnv } from "@testing/harnesses/hook-cli";
@@ -67,6 +68,7 @@ export const COMPACT_RECOVERY_FIXTURE_VARIANT = {
   RESOURCE_MISSING: "resource-missing",
   RESOURCE_ESCAPING: "resource-escaping",
   RESOURCE_INVALID_UTF8: "resource-invalid-utf8",
+  PROVIDER_MISMATCH: "provider-mismatch",
 } as const;
 
 export type CompactRecoveryFixtureVariant =
@@ -89,6 +91,8 @@ export interface CompactRecoveryTreeFixture {
   readonly entryPath: string;
   /** The exact directive text the resolved variant's resource carries. */
   readonly directiveText: string;
+  /** The version the mismatching variant's source record declares the plugin provides. */
+  readonly providesVersion: string;
 }
 
 function manifestJson(compactRecovery?: string): string {
@@ -122,6 +126,9 @@ export async function withCompactRecoveryTree(
   const line = methodologyLine(version.text);
   if (!line.ok) throw new Error(line.error);
   const codingAgent = METHODOLOGY_CODING_AGENT.CODEX;
+  const providesVersion = sampleGeneratedValue(
+    arbitraryMethodologyVersion().filter((candidate) => candidate.text !== version.text),
+  ).text;
   await withTempDir(TEMP_PREFIX, async (treeRoot) => {
     const treeDir = join(treeRoot, line.value, codingAgent, FOUNDATION_PLUGIN_NAME);
     const manifestPath = join(treeDir, FOUNDATION_MANIFEST_RELATIVE_PATH);
@@ -164,6 +171,17 @@ export async function withCompactRecoveryTree(
         await writeFile(resourcePath, Buffer.from([0xff, 0xfe, 0xfd]));
         break;
       }
+      case COMPACT_RECOVERY_FIXTURE_VARIANT.PROVIDER_MISMATCH: {
+        await writeTreeFile(treeDir, FOUNDATION_MANIFEST_RELATIVE_PATH, manifestJson(COMPACT_RECOVERY_PATH));
+        await writeTreeFile(treeDir, CORE_PATH, options.directiveText);
+        await writeTreeFile(treeDir, COMPACT_RECOVERY_PATH, options.directiveText);
+        await writeFile(
+          join(treeRoot, line.value, SOURCE_RECORD_RELATIVE_PATH),
+          JSON.stringify(generatedSourceRecordProviding(providesVersion)),
+          "utf8",
+        );
+        break;
+      }
       case COMPACT_RECOVERY_FIXTURE_VARIANT.RESOURCE_ESCAPING: {
         await writeTreeFile(treeDir, FOUNDATION_MANIFEST_RELATIVE_PATH, manifestJson(COMPACT_RECOVERY_PATH));
         const escapeTarget = join(treeRoot, ESCAPE_TARGET_FILENAME);
@@ -186,6 +204,7 @@ export async function withCompactRecoveryTree(
       manifestPath,
       entryPath: COMPACT_RECOVERY_PATH,
       directiveText: options.directiveText,
+      providesVersion,
     });
   });
 }
