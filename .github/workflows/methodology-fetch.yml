@@ -69,7 +69,15 @@ jobs:
             echo "Shipped methodology trees are current for ${REVISION}."
             exit 0
           fi
-          revision_sha="$(node --input-type=module --eval 'import { readdirSync, existsSync, readFileSync } from "node:fs"; const line = readdirSync("methodology").find((name) => existsSync(`methodology/${name}/source.json`)); process.stdout.write(JSON.parse(readFileSync(`methodology/${line}/source.json`, "utf8")).revision);')"
+          # One fetch replaces exactly one line directory, so the paths git
+          # reports as changed name the line this run wrote — and its own
+          # source.json carries the revision the fetch resolved.
+          changed_lines="$(git status --porcelain -- methodology | cut -c4- | cut -d/ -f2 | sort -u)"
+          if [ "$(printf '%s\n' "$changed_lines" | wc -l)" -ne 1 ]; then
+            printf 'Expected one changed methodology line, found:\n%s\n' "$changed_lines" >&2
+            exit 1
+          fi
+          revision_sha="$(LINE_DIR="methodology/${changed_lines}" node --input-type=module --eval 'import { readFileSync } from "node:fs"; process.stdout.write(JSON.parse(readFileSync(`${process.env.LINE_DIR}/source.json`, "utf8")).revision);')"
           branch="work/methodology-fetch-${revision_sha:0:12}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
