@@ -1,8 +1,6 @@
 import { readFile, symlink } from "node:fs/promises";
 import { join } from "node:path";
 
-import { Command } from "commander";
-
 import { PACKAGE_MANIFEST } from "@/commands/release/package-manifest";
 import {
   DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES,
@@ -19,8 +17,7 @@ import {
   type PublishReleaseInput,
 } from "@/domains/release/publication";
 import { DEFAULT_CHANGELOG_PATH } from "@/domains/release/release-notes";
-import { type CliInvocation, SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
-import { createReleaseDomain, RELEASE_CLI } from "@/interfaces/cli/release";
+import { RELEASE_CLI } from "@/interfaces/cli/release";
 import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import type {
   PublicationCheckoutDriftScenario,
@@ -30,6 +27,12 @@ import type {
 } from "@testing/generators/release/publication";
 import { GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { type GitWorktreeEnv, withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
+import {
+  observeReleaseCliFailure,
+  parseReleaseCli,
+  releaseCliFailureDrives,
+  type ReleaseCliFailureObservation,
+} from "@testing/harnesses/release/cli";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 export interface RecordedPublicationRequest<T> {
@@ -392,104 +395,45 @@ export async function observePublishReleaseCli(
     createPackagePublisher: () => packagePublisher,
     createHostedReleasePublisher: () => hostedReleasePublisher,
   };
-  await parsePublishReleaseCli(scenario, wiredPublishers, {
-    publishReleaseCommand: (options, publishers) => {
-      requests.push(options);
-      receivedPublishers.push(publishers);
-      return Promise.resolve(scenario.tag);
+  await parseReleaseCli({
+    productDir: scenario.productDir,
+    argv: [RELEASE_CLI.COMMAND, RELEASE_CLI.PUBLISH_COMMAND, RELEASE_CLI.TAG_FLAG, scenario.tag],
+    overrides: {
+      publishReleaseCommand: (options, publishers) => {
+        requests.push(options);
+        receivedPublishers.push(publishers);
+        return Promise.resolve(scenario.tag);
+      },
+      publishReleasePublishers: wiredPublishers,
     },
-    writeStdout: (output) => stdout.push(output),
-    writeStderr: () => undefined,
-    exit: (exitCode) => {
-      throw new Error(String(exitCode));
+    io: {
+      writeStdout: (output) => stdout.push(output),
+      writeStderr: () => undefined,
+      exit: (exitCode) => {
+        throw new Error(String(exitCode));
+      },
     },
   });
   return { scenario, requests, wiredPublishers, receivedPublishers, stdout: stdout.join("") };
 }
 
 /** What the `release publish` verb wrote and how it exited when the command it dispatched rejected. */
-export interface PublishReleaseCliFailureObservation {
+export interface PublishReleaseCliFailureObservation extends ReleaseCliFailureObservation {
   readonly scenario: PublicationScenario;
-  readonly failure: Error;
-  readonly stdout: string;
-  readonly stderr: string;
-  readonly exitCodes: readonly number[];
 }
 
-/**
- * Drives the `release publish` verb against a command that rejects with
- * `failure`, recording standard output, standard error, and every exit code the
- * descriptor requested. The process exit is recorded rather than performed.
- */
+/** Drives the `release publish` verb for `scenario` against a command that rejects with `failure`. */
 export async function observePublishReleaseCliFailure(
   scenario: PublicationScenario,
   failure: Error,
 ): Promise<PublishReleaseCliFailureObservation> {
-  const stdout: string[] = [];
-  const stderr: string[] = [];
-  const exitCodes: number[] = [];
-  const wiredPublishers: PublishReleasePublishers = {
-    createPackagePublisher: () => new RecordingPackagePublisher(null, new PublicationRequestSequence(), (p) => p),
-    createHostedReleasePublisher: () => new RecordingHostedReleasePublisher(null, new PublicationRequestSequence()),
-  };
-  try {
-    await parsePublishReleaseCli(scenario, wiredPublishers, {
-      publishReleaseCommand: () => Promise.reject(failure),
-      writeStdout: (output) => stdout.push(output),
-      writeStderr: (output) => stderr.push(output),
-      exit: (exitCode) => {
-        exitCodes.push(exitCode);
-        throw new RecordedCliExit(exitCode);
-      },
-    });
-  } catch (error: unknown) {
-    if (!(error instanceof RecordedCliExit)) throw error;
-  }
-  return { scenario, failure, stdout: stdout.join(""), stderr: stderr.join(""), exitCodes };
-}
-
-/** Stands in for the process exit the descriptor requests, so the harness can record it and unwind. */
-class RecordedCliExit extends Error {
-  constructor(readonly exitCode: number) {
-    super(`release publish requested exit ${exitCode}`);
-    this.name = "RecordedCliExit";
-  }
-}
-
-interface PublishReleaseCliDrive {
-  readonly publishReleaseCommand: typeof publishReleaseCommand;
-  readonly writeStdout: (output: string) => void;
-  readonly writeStderr: (output: string) => void;
-  readonly exit: (exitCode: number) => never;
-}
-
-async function parsePublishReleaseCli(
-  scenario: PublicationScenario,
-  wiredPublishers: PublishReleasePublishers,
-  drive: PublishReleaseCliDrive,
-): Promise<void> {
-  const program = new Command();
-  const invocation: CliInvocation = {
-    io: {
-      writeStdout: drive.writeStdout,
-      writeStderr: drive.writeStderr,
-      setExitCode: () => undefined,
-      exit: drive.exit,
-    },
-    resolveEffectiveInvocationDir: () => scenario.productDir,
-    resolveProductContext: () => ({
-      effectiveInvocationDir: scenario.productDir,
-      productDir: scenario.productDir,
-    }),
-  };
-  createReleaseDomain({
-    publishReleaseCommand: drive.publishReleaseCommand,
-    publishReleasePublishers: wiredPublishers,
-  }).register(program, invocation);
-  await program.parseAsync(
-    [RELEASE_CLI.COMMAND, RELEASE_CLI.PUBLISH_COMMAND, RELEASE_CLI.TAG_FLAG, scenario.tag],
-    { from: SPX_COMMANDER_PARSE_SOURCE },
+  const publishDrive = releaseCliFailureDrives(scenario.tag).find((drive) =>
+    drive.verb === RELEASE_CLI.PUBLISH_COMMAND
   );
+  if (publishDrive === undefined) {
+    throw new Error("Release CLI failure drives name no publish verb");
+  }
+  return { scenario, ...(await observeReleaseCliFailure(scenario.productDir, publishDrive, failure)) };
 }
 
 class PublicationRequestSequence {
