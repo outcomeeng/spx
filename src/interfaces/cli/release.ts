@@ -67,6 +67,8 @@ export interface ReleaseCliDependencies {
     agentRunner: AgentRunner,
     productDir: string,
   ) => DocumentationFaithfulnessAuditor;
+  readonly releaseNotesCommand: typeof releaseNotesCommand;
+  readonly documentationSyncCommand: typeof documentationSyncCommand;
   readonly documentationSyncCommandDependencies: DocumentationSyncCommandDependencies;
   readonly publishReleaseCommand: typeof publishReleaseCommand;
   readonly publishReleasePublishers: PublishReleasePublishers;
@@ -76,6 +78,8 @@ const DEFAULT_RELEASE_CLI_DEPENDENCIES: ReleaseCliDependencies = {
   createDocumentationAgentRunner: () => new ClaudeAgentRunner(),
   createDocumentationFaithfulnessAuditor: (_agentRunner, productDir) =>
     createDocumentationFaithfulnessAuditor(new ClaudeAgentRunner(), productDir),
+  releaseNotesCommand,
+  documentationSyncCommand,
   documentationSyncCommandDependencies: DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
   publishReleaseCommand,
   publishReleasePublishers: {
@@ -104,7 +108,7 @@ export function createReleaseDomain(
           try {
             const productDir = invocation.resolveProductContext().productDir;
             const agentRunner = new ClaudeAgentRunner();
-            const changelogPath = await releaseNotesCommand({
+            const changelogPath = await deps.releaseNotesCommand({
               productDir,
               config: { changelogPath: options.changelogPath },
               agentRunner,
@@ -134,7 +138,7 @@ export function createReleaseDomain(
               agentRunner,
               faithfulnessAuditor: deps.createDocumentationFaithfulnessAuditor(agentRunner, productDir),
             };
-            const paths = await documentationSyncCommand(options, deps.documentationSyncCommandDependencies);
+            const paths = await deps.documentationSyncCommand(options, deps.documentationSyncCommandDependencies);
             for (const path of paths) {
               invocation.io.writeStdout(formatDocumentationSyncOutput(path));
             }
