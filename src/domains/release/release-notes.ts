@@ -487,34 +487,6 @@ function configuredChangelogPath(config: ReleaseNotesConfig): string {
   return config.changelogPath ?? DEFAULT_CHANGELOG_PATH;
 }
 
-/** The filesystem probes canonical changelog-path resolution needs. */
-export interface ReleaseNotesPathProbes {
-  readonly canonicalizePath: PathCanonicalizer;
-  readonly isSymbolicLink: PathSymlinkDetector;
-  readonly isFile: PathFileDetector;
-}
-
-/**
- * The checked canonical path of the configured changelog inside the product
- * working tree: the root is canonicalized, the configured path resolves against
- * it, and only a symlinked final component or an escape from the tree is
- * rejected, so a symlinked ancestor of the working tree is not.
- */
-export async function resolveCanonicalReleaseNotesPath(
-  workingDirectory: string,
-  config: ReleaseNotesConfig,
-  probes: ReleaseNotesPathProbes,
-): Promise<string> {
-  return await assertCanonicalReleaseNotesPath(
-    workingDirectory,
-    configuredChangelogPath(config),
-    resolveReleaseNotesPath(workingDirectory, config),
-    probes.canonicalizePath,
-    probes.isSymbolicLink,
-    probes.isFile,
-  );
-}
-
 async function assertCanonicalReleaseNotesPath(
   workingDirectory: string,
   configuredPath: string,
