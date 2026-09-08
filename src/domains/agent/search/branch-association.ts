@@ -141,7 +141,7 @@ export function branchMetadataOrWorktreeMatchReasons(
 }
 
 export function branchTranscriptCommandMatchReasons(
-  content: string | undefined,
+  content: string,
   branch: string | null,
 ): BranchSearchMatch | null {
   if (branch === null) {
@@ -150,9 +150,7 @@ export function branchTranscriptCommandMatchReasons(
       effectiveCwd: null,
     };
   }
-  return content !== undefined && transcriptHasAcceptedBranchCommand(content, branch)
-    ? branchSearchMatch(null)
-    : null;
+  return transcriptHasAcceptedBranchCommand(content, branch) ? branchSearchMatch(null) : null;
 }
 
 export function coreMatchesSearchScope(
