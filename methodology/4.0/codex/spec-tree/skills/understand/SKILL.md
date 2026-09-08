@@ -21,20 +21,34 @@ The complete Spec Tree foundation loaded eagerly in one skill payload and record
 **TRUTH FLOWS DOWN.** The Spec Tree is a durable, declarative map of what the product does. Its four layers depend on the layer above:
 
 ```text
-PDR/ADR  →  Spec  →  Test  →  Code
-governs     declares   verifies   complies
+PDR/ADR  →  Spec  →  Verification  →  Code
+governs     declares   verifies       complies
 ```
 
 - PDRs and ADRs decide product and architecture truth.
 - Specs declare product output in alignment with those decisions.
-- Tests are executable evidence derived from specs.
-- Code complies with tests.
+- Verification evidence is derived from specs.
+- Code complies with verification evidence.
 
 When layers disagree, the lower layer is in violation.
 
-- NEVER: weaken a decision to match a spec, a spec to match tests, or tests to match code.
+- NEVER: weaken a decision to match a spec, a spec to match verification evidence, or verification evidence to match code.
 
 </layer_precedence>
+
+<product_content>
+
+- ALWAYS: treat as product content every product artifact a spec node governs or must govern, and derive its governing node before reading or modifying it.
+- ALWAYS: contextualize a node before discussing it and before reading or modifying any product content it governs; a compaction empties the set of contextualized nodes.
+- NEVER: read or modify product content that has no governing node — record the coverage gap.
+
+Product content is every artifact of the product a spec node governs or must govern: source, tests, evals, generated output, specs, decisions, coordination notes, and configuration a spec declares. Implementation — the code layer that complies with evidence — is one kind of product content; the term keeps its narrower meaning in `<node_states>` and the placement table. Governance is derived, never assumed: a path under `spx/<node>/` is governed by that node; any other path is governed by the node whose `spx/**/tests/` file names it and whose spec links that test, or whose spec or decision names that path in an `[audit]` assertion; several matching nodes resolve to their lowest common ancestor. That lookup is a search under the live foundation marker and opens no file body. Product content with no governing node is a coverage gap: it is not read or modified, and the gap is recorded.
+
+Not product content: operational configuration — the `spx/local/` overlays and the exclusion mechanism, which `<artifact_placement>` classifies as configuration and which the skill that declares them reads without the foundation marker and with no governing node — and the agent harness's own instruction and settings files it is told to read, tool and command output, the session store, and scratch space.
+
+Work that touches no product content — PR inspection, check wait, merge, deploy, release, `spx session` operations, occupancy proof — is an operational continuation and triggers neither `/understand` nor `/contextualize`.
+
+</product_content>
 
 <future_product_truth>
 
@@ -104,16 +118,24 @@ Specified and failing are valid states. They expose where lower layers must catc
 
 - ALWAYS: classify content by the artifact purpose that owns it.
 
-| Artifact                | Purpose                                            | Contains                                             | Verified by                                  |
-| ----------------------- | -------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------- |
-| ADR                     | Governs how the product is built                   | Architecture decisions, rationale, invariants        | ADR audit                                    |
-| PDR                     | Governs what users can rely on                     | Product decisions and observable properties          | PDR audit                                    |
-| Enabler spec            | Declares infrastructure output                     | `PROVIDES ... SO THAT ... CAN ...` and assertions    | Linked evidence                              |
-| Outcome spec            | Declares an output hypothesis                      | Output, outcome, impact, and assertions              | Linked evidence                              |
-| Test file               | Proves one typed assertion class                   | Executable assertion evidence                        | Test runner                                  |
-| Test infrastructure     | Provides harnesses, generators, and inert fixtures | Governed production code outside `spx/` and `tests/` | Code, architecture, and test-evidence audits |
-| Enforcement             | Constrains source structure                        | Lint rules, AST selectors, and pattern matchers      | Tests against violating fixtures             |
-| `PLAN.md` / `ISSUES.md` | Coordinates pending work or known imperfections    | Stale-prone node-local context                       | Reconciliation on context load               |
+The taxonomy is closed: `spx/` admits no artifact outside this table (whose rows include the root product spec), the canonical node shape, and the optional knowledge root a node or the product root carries.
+
+- Operational files — everything under `spx/local/` (skill overlays and declared configuration such as a generated-source-attribution manifest) and `spx/EXCLUDE` — are configuration, not artifacts.
+- Coordination notes raise no placement question: `PLAN.md` and `ISSUES.md` carry no truth and sit at their node or the product root.
+- Placement decides only between the two authoring layers: content that governs is an ADR or PDR, and content that declares is a spec.
+- Verification and implementation artifacts are never placed by classification: assertion tags derive evidence locations, and node ownership with the language's declared infrastructure home derives implementation locations (see `<test_artifact_boundaries>`).
+
+| Artifact                | Purpose                                            | Contains                                                              | Verified by                                  |
+| ----------------------- | -------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------- |
+| Product spec            | Declares the product's identity and scope          | Product hypothesis, consumers, surfaces, and product-level assertions | Linked evidence                              |
+| ADR                     | Governs how the product is built                   | Architecture decisions, rationale, invariants                         | ADR audit                                    |
+| PDR                     | Governs what users can rely on                     | Product decisions and observable properties                           | PDR audit                                    |
+| Enabler spec            | Declares infrastructure output                     | `PROVIDES ... SO THAT ... CAN ...` and assertions                     | Linked evidence                              |
+| Outcome spec            | Declares an output hypothesis                      | Output, outcome, impact, and assertions                               | Linked evidence                              |
+| Test file               | Proves one typed assertion class                   | Executable assertion evidence                                         | Test runner                                  |
+| Test infrastructure     | Provides harnesses, generators, and inert fixtures | Governed production code outside `spx/` and `tests/`                  | Code, architecture, and test-evidence audits |
+| Enforcement             | Constrains source structure                        | Lint rules, AST selectors, and pattern matchers                       | Tests against violating fixtures             |
+| `PLAN.md` / `ISSUES.md` | Coordinates pending work or known imperfections    | Stale-prone node-local or product-root context                        | Reconciliation on context load               |
 
 ADR versus PDR is decided by content. An ADR governs architecture invisible to the product's users; a PDR governs behavior those users observe. Tree position and numeric prefix determine a decision's reach, so broad or foundational reach never determines its type. Product users differ by product: test-infrastructure layout can be product behavior for a methodology and architecture for an application.
 
@@ -214,14 +236,16 @@ NN-{slug}.{enabler|outcome}/
 ├── {slug}.md
 ├── tests/                              # when the first [test] file exists
 ├── evals/{rule-slug}/                  # when the first [eval] exists
+├── knowledge/                          # optional knowledge root
 ├── PLAN.md                             # optional
 ├── ISSUES.md                           # optional
 └── NN-{child-slug}.{enabler|outcome}/
 ```
 
 - The spec file is `{slug}.md`, with no numeric or type suffix.
+- `knowledge/` is an optional node knowledge root — a knowledge bundle whose `index.md` lists its contents; the product root may carry `spx/knowledge/` the same way.
 - `[test]` evidence is co-located under `tests/`; the directory materializes with the first test file, and its filename encodes one assertion type and execution level according to the product's language convention.
-- `[eval]` evidence is co-located under `evals/{rule-slug}/` with `eval.toml`, `cases.jsonl`, `prompt.md`, and `history.jsonl`; full run transcripts stay ignored under `runs/`.
+- `[eval]` evidence is co-located under `evals/{rule-slug}/`: `eval.toml` plus the case, prompt, and template artifacts it declares by eval-relative path — canonically `cases.jsonl`, `prompt.md`, and `prompt.template.md`. A declared case or prompt path may reach a sibling eval's shared artifact; a declared template stays inside the eval directory. A declared producer source is a repository path outside the eval directory, never a co-located artifact. The eval harness generates `history.jsonl` and the ignored `runs/` transcripts at fixed names it owns; `eval.toml` never declares them.
 - `PLAN.md` and `ISSUES.md` are optional coordination notes, never product truth.
 - ADRs and PDRs are files inside a node directory, never child nodes.
 
@@ -364,6 +388,14 @@ When vocabulary overlaps another grammar, resolve verification vocabulary here f
 
 </vocabulary_boundaries>
 
+<commit_before_another_session_reads>
+
+- ALWAYS: when repository writes are authorized, commit the exact current version before another agent session or human reads it for collaboration or reusable verification; without repository-write authorization, defer a reading that requires a committed subject.
+
+Changes may remain uncommitted while the Author's agent session works on them. When repository writes are authorized, the commit records verification state as `passing`, `failing`, or `not-run`; that state controls gate eligibility, never commit permission. After any further change, commit the new version before another agent session or human reads it for collaboration or reusable verification. An explicit advisory audit or review may inspect modified or untracked work, but its verdict is not reusable gate evidence. An agentic verification gate additionally requires applicable deterministic verification to pass on the exact committed subject.
+
+</commit_before_another_session_reads>
+
 </verification_model>
 
 <imperfection_protocol>
@@ -475,7 +507,7 @@ A blocker exists only when the immediate next action needs operator input or an 
    - `${SKILL_DIR}/templates/decisions/decision-name.pdr.md`
    - `${SKILL_DIR}/templates/nodes/enabler-name.md`
    - `${SKILL_DIR}/templates/nodes/outcome-name.md`
-6. Read the complete root `AGENTS.md` once when present. It routes skill invocation and carries product commands outside the managed router.
+6. Read the complete root `AGENTS.md` from disk only when the live conversation does not already carry it complete; a harness that injects the whole file satisfies this step, and a truncated or absent injection requires the read. It routes skill invocation and carries product commands outside the managed router.
 7. Emit the marker:
 
 ```text
@@ -484,7 +516,7 @@ Loaded inline: truth-hierarchy, artifact-placement, node-model, assertion-model,
 Operational references available: excluded-nodes, product-domain-shapes
 Local lifecycle route: changes route through /merge; spx/local/merging.md refines the route when present
 Default-branch completion boundary: delivered value reaches the default branch on origin through /merge; verified local work remains unfinished unless explicitly limited or stopped at an explicit gate with no independent action remaining
-Routing guide: loaded from AGENTS.md | absent
+Routing guide: AGENTS.md carried complete by the harness | read from disk | absent
 Templates available: product, adr, pdr, enabler, outcome
 Examples available: adr, enabler, outcome, pdr
 </SPEC_TREE_FOUNDATION>

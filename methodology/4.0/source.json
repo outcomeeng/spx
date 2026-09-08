@@ -1,0 +1,14 @@
+{
+  "repository": "outcomeeng/plugins",
+  "revision": "d53e3b0cb2625f0f1bf362527c69f64e04997940",
+  "plugins": {
+    "claude": {
+      "name": "spec-tree",
+      "version": "0.92.10"
+    },
+    "codex": {
+      "name": "spec-tree",
+      "version": "0.92.10"
+    }
+  }
+}
