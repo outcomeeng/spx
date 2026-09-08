@@ -21,7 +21,7 @@
 - `src/interfaces/cli/release.ts:80` — `spx release notes` writes the agent-generated notes through `writeStdout`
 - `src/interfaces/cli/session.ts:87` — `spx session show` writes the session file's content through `writeStdout`
 - `src/interfaces/cli/compact.ts:62` — the compact command writes its result through `writeStdout`
-- `src/interfaces/cli/agent.ts:121` and `:125` — the agent commands relay output through `writeStdout` and `writeStderr`
+- `src/interfaces/cli/agent.ts:242`, `:246`, and `:280` — the resume JSON and list output and the search output reach `writeStdout` through the shared `writeOutput` helper; the composed diagnostics that share `writeError` (`:130`, `:191`, `:228`) are the product's own speech and stay on the composed-text write
 
 **Impact:** none observable today, because both writes take a plain `string` and reach one stream; the channel a command selects states which of the two claims its output makes, and these sites state the wrong one.
 
