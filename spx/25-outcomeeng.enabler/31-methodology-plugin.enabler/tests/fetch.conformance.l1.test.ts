@@ -3,14 +3,16 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { PLUGINS_REPOSITORY, runMethodologyFetch, UNDERSTAND_SKILL_RELATIVE_DIR } from "@/lib/methodology/fetch";
 import {
   FOUNDATION_PLUGIN_NAME,
+  METHODOLOGY_RESOURCE_ENCODING,
   METHODOLOGY_TREE_ROOT,
   parseMethodologySourceRecord,
+  PLUGINS_REPOSITORY,
+  runMethodologyFetch,
   SOURCE_RECORD_RELATIVE_PATH,
-} from "@/lib/methodology/tree";
-import { METHODOLOGY_RESOURCE_ENCODING } from "@/lib/methodology/tree-resource";
+  UNDERSTAND_SKILL_RELATIVE_DIR,
+} from "@/lib/methodology";
 import { arbitraryMethodologyVersion, arbitraryPluginsContent } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { withPluginsRepository } from "@testing/harnesses/methodology/plugins-repository";

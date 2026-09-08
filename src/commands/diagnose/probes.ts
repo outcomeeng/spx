@@ -58,13 +58,14 @@ import {
   mainCheckoutPath,
   resolveDefaultBranch,
 } from "@/lib/git/root";
-import { checkProviderMatch, PROVIDER_MATCH } from "@/lib/methodology/provider-match";
-import { methodologyLine } from "@/lib/methodology/tree";
 import {
+  checkProviderMatch,
   defaultMethodologyTreeFileSystem,
+  methodologyLine,
   type MethodologyTreeFileSystem,
+  PROVIDER_MATCH,
   resolveMethodologyTree,
-} from "@/lib/methodology/tree-resource";
+} from "@/lib/methodology";
 import { worktreesScopeDir } from "@/lib/state-store";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultProcessTable } from "@/lib/worktree-process-table";

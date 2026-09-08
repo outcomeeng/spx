@@ -6,7 +6,7 @@ import {
   METHODOLOGY_TREE_ROOT,
   methodologyLine,
   methodologyTreeRelativeDir,
-} from "@/lib/methodology/tree";
+} from "@/lib/methodology";
 import {
   arbitraryCodingAgentName,
   arbitraryMethodologyLine,

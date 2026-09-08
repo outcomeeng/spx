@@ -27,7 +27,7 @@ import {
   VERDICT_BUCKET,
 } from "@/domains/diagnose/types";
 import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
-import { METHODOLOGY_CODING_AGENTS } from "@/lib/methodology/coding-agent";
+import { METHODOLOGY_CODING_AGENTS } from "@/lib/methodology";
 import { CLI_TIMEOUTS_MS } from "@testing/harnesses/constants";
 import {
   isolatedDiagnoseEnvironment,

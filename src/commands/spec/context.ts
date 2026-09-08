@@ -17,15 +17,16 @@ import {
   listTrackedPaths,
   TRACKED_PATH_DIRECTORY_SEPARATOR,
 } from "@/lib/git/tracked-paths";
-import { formatFoundationResourceUnreadableError, foundationCatalogPaths } from "@/lib/methodology/foundation-manifest";
-import { checkProviderMatch } from "@/lib/methodology/provider-match";
 import {
+  checkProviderMatch,
   containedTreeResourcePath,
   defaultMethodologyTreeFileSystem,
+  formatFoundationResourceUnreadableError,
+  foundationCatalogPaths,
   type MethodologyTreeFileSystem,
   resolveFoundationManifest,
   resolveMethodologyTree,
-} from "@/lib/methodology/tree-resource";
+} from "@/lib/methodology";
 import {
   assembleSpecContextTargetReadSet,
   compareSpecContextOrdinal,

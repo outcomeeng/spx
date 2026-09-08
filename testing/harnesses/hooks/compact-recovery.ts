@@ -29,15 +29,16 @@ import {
   type SessionStartHookResult,
 } from "@/interfaces/hooks/session-start";
 import { defaultGitDependencies } from "@/lib/git/root";
-import { METHODOLOGY_CODING_AGENT } from "@/lib/methodology/coding-agent";
-import { resolveCompactRecoveryDirective } from "@/lib/methodology/compact-recovery";
 import {
+  defaultMethodologyTreeFileSystem,
   FOUNDATION_MANIFEST_FIELDS,
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   FOUNDATION_MANIFEST_SCHEMA_VERSION,
-} from "@/lib/methodology/foundation-manifest";
-import { FOUNDATION_PLUGIN_NAME, methodologyLine } from "@/lib/methodology/tree";
-import { defaultMethodologyTreeFileSystem } from "@/lib/methodology/tree-resource";
+  FOUNDATION_PLUGIN_NAME,
+  METHODOLOGY_CODING_AGENT,
+  methodologyLine,
+  resolveCompactRecoveryDirective,
+} from "@/lib/methodology";
 import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";

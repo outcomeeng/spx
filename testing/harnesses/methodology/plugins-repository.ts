@@ -21,7 +21,7 @@ import {
   type MethodologyFetchDependencies,
   PLUGIN_MANIFEST_FIELDS,
   UNDERSTAND_SKILL_RELATIVE_DIR,
-} from "@/lib/methodology/fetch";
+} from "@/lib/methodology";
 import type { GeneratedPluginsContent } from "@testing/generators/methodology/tree";
 import {
   GIT_TEST_CONFIG,

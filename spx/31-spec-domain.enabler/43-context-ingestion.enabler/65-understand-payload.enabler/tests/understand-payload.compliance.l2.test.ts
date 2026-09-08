@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
 import { SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
-import { METHODOLOGY_CODING_AGENT } from "@/lib/methodology/coding-agent";
+import { METHODOLOGY_CODING_AGENT } from "@/lib/methodology";
 import { KIND_REGISTRY } from "@/lib/spec-tree";
 import { specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
 import { shippedFoundationCoreText, shippedMethodologyVersion } from "@testing/harnesses/methodology/shipped-tree";

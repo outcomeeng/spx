@@ -1,5 +1,5 @@
 import type { ConfigDescriptor, Result } from "@/config/types";
-import { METHODOLOGY_CODING_AGENT, type MethodologyCodingAgent } from "@/lib/methodology/coding-agent";
+import { METHODOLOGY_CODING_AGENT, type MethodologyCodingAgent } from "@/lib/methodology";
 
 export const HARNESS_ENVIRONMENT_SECTION = "harnessEnvironment";
 

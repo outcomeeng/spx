@@ -6,8 +6,7 @@ import {
 } from "@/domains/diagnose/checks/methodology-context";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { OVERALL_VERDICT, VERDICT_BUCKET } from "@/domains/diagnose/types";
-import { METHODOLOGY_CODING_AGENT, METHODOLOGY_CODING_AGENTS } from "@/lib/methodology/coding-agent";
-import { PROVIDER_MATCH } from "@/lib/methodology/provider-match";
+import { METHODOLOGY_CODING_AGENT, METHODOLOGY_CODING_AGENTS, PROVIDER_MATCH } from "@/lib/methodology";
 import { arbitraryMethodologyLine } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {

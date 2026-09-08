@@ -33,8 +33,7 @@ import type { ProcessTable } from "@/domains/worktree/process-table";
 import type { WorktreeScopeOptions } from "@/domains/worktree/resolve";
 import type { RandomBytes } from "@/lib/atomic-file-write";
 import { isPathContained } from "@/lib/file-system/pathContainment";
-import { resolveCompactRecoveryDirective } from "@/lib/methodology/compact-recovery";
-import { defaultMethodologyTreeFileSystem } from "@/lib/methodology/tree-resource";
+import { defaultMethodologyTreeFileSystem, resolveCompactRecoveryDirective } from "@/lib/methodology";
 
 export interface HookEnvFileSystem {
   appendFile(path: string, data: string, encoding: "utf8"): Promise<void>;

@@ -3,9 +3,13 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { FETCH_ARGUMENT_FLAGS, PLUGINS_REPOSITORY, runMethodologyFetch } from "@/lib/methodology/fetch";
-import { METHODOLOGY_TREE_ROOT } from "@/lib/methodology/tree";
-import { METHODOLOGY_RESOURCE_ENCODING } from "@/lib/methodology/tree-resource";
+import {
+  FETCH_ARGUMENT_FLAGS,
+  METHODOLOGY_RESOURCE_ENCODING,
+  METHODOLOGY_TREE_ROOT,
+  PLUGINS_REPOSITORY,
+  runMethodologyFetch,
+} from "@/lib/methodology";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import {
   arbitraryDisagreeingPluginsContent,

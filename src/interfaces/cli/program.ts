@@ -3,7 +3,7 @@ import { type Argument, Command, InvalidArgumentError, type Option } from "comma
 import { resolveProductDir } from "@/domains/config/root";
 import type { Domain } from "@/interfaces/cli/domain";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
-import { methodologyTreeRootDir } from "@/lib/methodology/tree";
+import { methodologyTreeRootDir } from "@/lib/methodology";
 import { authoredText, externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 
 import { type CliIo, createCliInvocation, DEFAULT_CLI_IO, SPX_GLOBAL_OPTIONS } from "./product-context";

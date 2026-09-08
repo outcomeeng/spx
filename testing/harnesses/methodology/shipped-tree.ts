@@ -10,9 +10,15 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { FOUNDATION_MANIFEST_FIELDS, FOUNDATION_MANIFEST_RELATIVE_PATH } from "@/lib/methodology/foundation-manifest";
-import { FOUNDATION_PLUGIN_NAME, methodologyTreeRelativeDir, methodologyTreeRootDir } from "@/lib/methodology/tree";
-import { defaultMethodologyTreeFileSystem, METHODOLOGY_RESOURCE_ENCODING } from "@/lib/methodology/tree-resource";
+import {
+  defaultMethodologyTreeFileSystem,
+  FOUNDATION_MANIFEST_FIELDS,
+  FOUNDATION_MANIFEST_RELATIVE_PATH,
+  FOUNDATION_PLUGIN_NAME,
+  METHODOLOGY_RESOURCE_ENCODING,
+  methodologyTreeRelativeDir,
+  methodologyTreeRootDir,
+} from "@/lib/methodology";
 import { PRODUCT_ROOT } from "@testing/harnesses/constants";
 
 const PATCH_ZERO = ".0";

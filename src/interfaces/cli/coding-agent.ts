@@ -8,7 +8,7 @@
 
 import { METHODOLOGY_CODING_AGENT_BY_AGENT } from "@/domains/agent-environment/config";
 import { HOOK_SESSION_START_ENV, type HookSessionStartEnv } from "@/domains/hooks/session-start";
-import { METHODOLOGY_CODING_AGENT, type MethodologyCodingAgent } from "@/lib/methodology/coding-agent";
+import { METHODOLOGY_CODING_AGENT, type MethodologyCodingAgent } from "@/lib/methodology";
 
 /** The shipped-tree coding agent for each harness agent identity. */
 export const METHODOLOGY_CODING_AGENT_FOR_HARNESS_AGENT = METHODOLOGY_CODING_AGENT_BY_AGENT;

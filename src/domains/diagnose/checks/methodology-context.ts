@@ -2,7 +2,7 @@ import type { MethodologyConfig } from "@/config/methodology";
 import type { CheckRunner } from "@/domains/diagnose/engine";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { type CheckRecord, VERDICT_BUCKET } from "@/domains/diagnose/types";
-import type { ProviderMatch } from "@/lib/methodology/provider-match";
+import { type ProviderMatch } from "@/lib/methodology";
 
 export const METHODOLOGY_CONTEXT_VERDICT = {
   RESOLVED: "resolved",

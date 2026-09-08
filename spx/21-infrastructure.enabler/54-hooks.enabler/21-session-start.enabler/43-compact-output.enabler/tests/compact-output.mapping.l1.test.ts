@@ -2,16 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import { formatMethodologyVersionUndeclaredError } from "@/config/methodology";
 import { HOOK_SESSION_START_SOURCE } from "@/domains/hooks/session-start";
-import { resolveCompactRecoveryDirective } from "@/lib/methodology/compact-recovery";
 import {
+  defaultMethodologyTreeFileSystem,
   formatCompactRecoveryEntryAbsentError,
   formatFoundationManifestInvalidError,
   formatFoundationManifestUnreadableError,
   formatFoundationResourceUnreadableError,
+  formatMethodologyLineMissingError,
   FOUNDATION_MANIFEST_NOT_JSON_ERROR,
-} from "@/lib/methodology/foundation-manifest";
-import { formatMethodologyLineMissingError } from "@/lib/methodology/tree";
-import { defaultMethodologyTreeFileSystem } from "@/lib/methodology/tree-resource";
+  resolveCompactRecoveryDirective,
+} from "@/lib/methodology";
 import { arbitraryCompactDirectiveText } from "@testing/generators/hooks/session-start";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {

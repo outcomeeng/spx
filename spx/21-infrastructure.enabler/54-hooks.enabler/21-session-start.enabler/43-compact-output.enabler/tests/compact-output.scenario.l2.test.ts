@@ -7,8 +7,7 @@ import { METHODOLOGY_SECTION } from "@/config/methodology";
 import { HOOK_SESSION_START_ENV, HOOK_SESSION_START_SOURCE } from "@/domains/hooks/session-start";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { HOOK_CONFIG_ERROR_PREFIX } from "@/interfaces/hooks/cli-runner";
-import { METHODOLOGY_CODING_AGENT } from "@/lib/methodology/coding-agent";
-import { FOUNDATION_MANIFEST_FIELDS } from "@/lib/methodology/foundation-manifest";
+import { FOUNDATION_MANIFEST_FIELDS, METHODOLOGY_CODING_AGENT } from "@/lib/methodology";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import {
   runCompactSessionStartCli,
