@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { statusCommand } from "@/commands/worktree/index";
 import { OCCUPANCY_STATUS } from "@/domains/worktree/occupancy-store";
 import { defaultGitDependencies } from "@/lib/git/root";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { defaultWorktreePathInfo } from "@/lib/worktree-path-info";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { withWorktreePool } from "@testing/harnesses/worktree/harness";
@@ -36,7 +37,7 @@ describe("worktree status non-worktree path compliance", () => {
       if (status.ok) {
         throw new Error(`expected refusal, got status "${status.value}"`);
       }
-      expect(status.error).not.toContain(OCCUPANCY_STATUS.FREE);
+      expect(renderTerminalText(status.error.text)).not.toContain(OCCUPANCY_STATUS.FREE);
     });
   });
 
@@ -62,7 +63,7 @@ describe("worktree status non-worktree path compliance", () => {
       if (status.ok) {
         throw new Error(`expected refusal, got status "${status.value}"`);
       }
-      expect(status.error).not.toContain(OCCUPANCY_STATUS.FREE);
+      expect(renderTerminalText(status.error.text)).not.toContain(OCCUPANCY_STATUS.FREE);
     });
   });
 });

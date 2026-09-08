@@ -35,7 +35,6 @@ import {
   GIT_WORKTREE_PORCELAIN_ROOT_PREFIX,
   type GitDependencies,
 } from "@/lib/git/root";
-export { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
