@@ -24,6 +24,15 @@ export interface PackagePublication {
   readonly provenance: PackageProvenance;
 }
 
+/**
+ * The fields that name which release a registry record is. A record differing on
+ * any of them is another release, which no wait repairs; provenance is excluded
+ * because it is the one field that arrives late on a correct record.
+ */
+export const PACKAGE_IDENTITY_FIELDS = ["name", "version", "commit"] as const;
+
+export type PackageIdentityField = (typeof PACKAGE_IDENTITY_FIELDS)[number];
+
 export interface HostedRelease {
   readonly tag: string;
   readonly title: string;
@@ -144,9 +153,7 @@ export function packagePublicationIdentityMatches(
   expected: PackagePublication,
   actual: PackagePublication,
 ): boolean {
-  return actual.name === expected.name
-    && actual.version === expected.version
-    && actual.commit === expected.commit;
+  return PACKAGE_IDENTITY_FIELDS.every((field) => actual[field] === expected[field]);
 }
 
 /** The first identity field the registry record disagrees with, for the failure message. */
@@ -154,9 +161,9 @@ function packageIdentityMismatch(
   expected: PackagePublication,
   actual: PackagePublication,
 ): string {
-  if (actual.name !== expected.name) return `name ${actual.name} is not ${expected.name}`;
-  if (actual.version !== expected.version) return `version ${actual.version} is not ${expected.version}`;
-  return `commit ${actual.commit} is not ${expected.commit}`;
+  const field = PACKAGE_IDENTITY_FIELDS.find((candidate) => actual[candidate] !== expected[candidate]);
+  if (field === undefined) return "no identity field differs";
+  return `${field} ${actual[field]} is not ${expected[field]}`;
 }
 
 export function hostedReleaseFor(
