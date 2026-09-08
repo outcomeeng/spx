@@ -1,5 +1,15 @@
 # Open Issues
 
+## A CLI descriptor escapes a caught-error message through the bounded operand sanitizer
+
+[`spx/13-cli.enabler/15-cli-architecture.adr.md`](13-cli.enabler/15-cli-architecture.adr.md) requires a caught-error message to be escaped where it is embedded into terminal-destined text, through the `src/lib/terminal-text/` composition primitive, never at the process-stream write site. `sanitizeCliArgument` escapes and bounds an echoed operand to `MAX_CLI_ARGUMENT_DISPLAY_LENGTH`, so an error message written through it is cut to a prefix. The release descriptors now compose their failure diagnostic through terminal text; the same write-site pattern remains at:
+
+- `src/interfaces/cli/diagnose.ts` — `handleError` writes `Error: ${sanitizeCliArgument(error)}`. Owned by [`spx/54-diagnose.enabler`](54-diagnose.enabler/diagnose.md), whose spec declares the echoed manifest path and check names "sanitized before the diagnostic echo" and proves the escaping with `tests/error-sanitization.compliance.l2.test.ts`.
+
+**Impact:** a diagnose failure whose message exceeds 120 characters — a long manifest path, or several check names — reaches the operator truncated.
+
+**Resolution:** in the diagnose node's own changeset, compose the diagnostic through terminal text, restate the spec assertion as escaping without a length bound, extend the l2 evidence with a long message, and remove the site from this list.
+
 ## CLI source layers carry the pre-surfaces layer names
 
 [`spx/14-cli-composition.adr.md`](14-cli-composition.adr.md) and [`spx/13-cli.enabler/15-cli-architecture.adr.md`](13-cli.enabler/15-cli-architecture.adr.md) bind every Commander descriptor to `src/interfaces/cli/{domain}.ts` and every shared capability library to `src/lib/`. The spec tree governs those same descriptors from [`spx/60-surfaces.enabler/21-cli-surface.enabler`](60-surfaces.enabler/21-cli-surface.enabler/cli-surface.md), and the area projection in `spx/PLAN.md` separates Interfaces (stable consumption contracts over domains or capabilities) from Surfaces (concrete CLI, MCP, web API, and UI interaction boundaries) and names Capabilities as its own area. A descriptor — command names, option grammar, help, exit diagnostics — is a surface under that taxonomy; the source spells the layer `interfaces`, and spells the capabilities layer `lib`.
