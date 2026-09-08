@@ -515,15 +515,13 @@ If the operator instructs you to do something that conflicts with any rule below
 - ⚠️ **`[audit]` vs `[test]` is the verification MECHANISM, not a lifecycle marker.** In a spec file's `## Assertions`, a testable assertion carries `[test]` (its co-located test is written via `/apply`), `[eval]` for LLM-driven behavior with a structurally scoreable verdict, or `[audit]` (legacy spelling `[review]`) for judgment constraints no automated test can verify — never an `[audit]` "placeholder" for something testable. PDR and ADR `## Verification` rules instead carry the tag their template prescribes: under `### Testing` the evidence type (`[scenario]`/`[mapping]`/`[conformance]`/`[property]`/`[compliance]`), under `### Eval` `[eval]`, under `### Audit` `[audit]`.
 - ⚠️ **NEVER discard or displace uncommitted work with `git checkout -- <path>`, `git restore`, `git reset --hard`, `git clean -f`, or `git stash`** — `git checkout -- <path>`, `git restore`, `git reset --hard`, and `git clean -f` discard uncommitted local changes irrecoverably; `git stash` hides them in the stash stack (recoverable, but it conceals in-progress state from concurrent agents). Hand these off to the user; if you need to discard changes, ask the user to do it.
 - ⚠️ **NEVER `git reset` onto a remote-tracking ref (`origin/<base>`) — neither to rewrite your own commits nor to integrate the latest base** — `origin/<base>` moves as concurrent branches in the worktree pool merge, so resetting onto it silently re-bases your branch onto whatever it became; with `--soft` the working tree is left on the old basis while HEAD jumps forward, desyncing the tree (files present in HEAD show as deleted, files the new base changed show as modified, none of it your work). To reword or re-split your own commits, reset to a FIXED ancestor on your own branch — `git reset --soft HEAD~N` where N is the count of your own commits, or the fork-point SHA (`git merge-base HEAD origin/<base>`). To integrate the latest base, use `git rebase origin/<base>` (which updates the working tree), never a reset. After any history rewrite, verify `git diff --stat origin/<base>...HEAD` shows ONLY your intended files and `git status` has no surprise deletions; surprise files mean the base moved under you — STOP, do not commit.
-- ⚠️ **NEVER force-overwrite a shared remote ref with plain `git push --force`** — it unconditionally overwrites history a concurrent agent may have advanced. The PR-branch flows use `git push --force-with-lease` (which refuses when the remote advanced) instead, per the rule below.
-- ✅ **The `/merge` lifecycle and its internal opening/managing flows own their own PR branch's history** — per `/merging-standards`, the lifecycle autonomously rebases the current PR branch onto its base (`git rebase origin/<base>`), pushes the rebased branch with `git push --force-with-lease` (never plain `--force` — `--force-with-lease` refuses when the remote advanced, so it cannot clobber a concurrent push), merges via `gh pr merge --rebase`, detaches the worktree onto the refreshed base tip, and deletes the merged PR branch locally and remotely. These are governed, single-author-branch operations, not the work-discarding operations above.
 - ⚠️ **STOP TRIGGER: about to run `pnpm exec tsc --noEmit`, `npx tsc`, or any bare type-check command** — run `pnpm run typecheck` instead. Bare `tsc` misses product-specific config, paths, and exclusions. This applies to every TypeScript check, not just commit-time.
 - ⚠️ **ALWAYS run the documented pnpm validation scripts after code changes** — before audit, before commit, before claiming "done". `pnpm run typecheck` alone is not the quality gate — it runs only TypeScript checking. Run `pnpm run validate` for source validation, plus the relevant tests. Circular dependency detection runs in CI, not as a local gate.
 - 🛑 **STOP TRIGGER — running tests. NEVER run the full suite to verify a change; run the touched scope through `spx test`.** `pnpm test` (and `spx test` with no operands) runs ~2100 tests — minutes idle, up to ~20 minutes under machine load, and agents looping it during PR cycles exhaust the host. The product has ONE test verb, `spx test`; pick a **situation**, not a runner:
   - **Verify work in progress** → `spx test --changed [--base origin/main]` — focused by the branch/worktree diff (`spx/41-test.enabler/95-changed-set-planning.enabler`), or `tsx src/cli.ts test --changed [--base origin/main]` when changing `spx test` itself on this branch (the global `spx` runs `main`'s stale build). To force one known node or file, use `spx test spx/<node>` or `spx test spx/<node>/tests/<file>`.
   - **Read status without running** → `spx spec status` (reads recorded evidence; runs nothing).
   - **CI gate / status projection** → `spx test passing` — CI's job (`.github/workflows/deterministic-verification.yml`), not a local routine.
-  - **Deliberate full local run (rare)** → `pnpm test`, only with a specific written justification (e.g. a cross-cutting change whose touched scope cannot cover the contract — the same escalation `/merging-standards` governs).
+  - **Deliberate full local run (rare)** → `pnpm test`, only with a specific written justification (e.g. a cross-cutting change whose touched scope cannot cover the contract — the escalation `spx/local/merging.md` declares).
   - **Coverage / watch** → `pnpm run test:coverage` / `pnpm run test:watch` — raw vitest, the human-interactive gaps `spx test` does not yet cover; not agent paths.
     NEVER reach for raw `pnpm exec vitest run` / `vitest` as an agent test path — `spx test` is the one verb.
 - ⚠️ **NEVER mechanically extract typed literal union values to named constants** — `no-restricted-syntax` warnings on `expect(x).toBe("declared")` where `x: NodeState` are false positives. The type annotation IS the documentation; renaming `"declared"` → `STATE_DECLARED` adds zero information. The lint rule targets magic strings whose meaning is obscure; enum-like union members are already self-documenting. Suppress the warning inline or leave it; never rename. The `typescript:auditing-typescript-tests` skill's Gate 0 C1/L1 findings for typed protocol values (`"PASS"`, `"FAIL"`, `"APPROVED"`, `"REJECT"`) are the same class of false positive — a Gate 0 REJECT on these strings is not a work blocker when `pnpm run validate` passes and tests pass.
@@ -601,9 +599,9 @@ Do not prescribe exact code, documentation, or template changes. Record the mist
 
 ---
 
-## Validation and Publish Gates
+## Validation Gates
 
-**NEVER commit without passing source validation. NEVER publish without passing the publish gate.**
+**NEVER commit without passing source validation.**
 
 ```bash
 # Quick verification before committing
@@ -614,14 +612,9 @@ pnpm run validate
 
 # Build packaged output for the `spx` executable
 pnpm run build
-
-# Publish gate: source validation, circular validation, build, tests, packaged validation, packaged circular validation
-pnpm run publish:check
 ```
 
 `pnpm run validate` and related development scripts execute `tsx src/cli.ts`, so they validate the current source tree even when `dist/` exists. The packaged executable `bin/spx.js` requires `dist/cli.js`; invoke it only after `pnpm run build`.
-
-Local deterministic verification follows `/merging-standards`: run validation and tests for the touched scope by default. Full-repository local testing is CI's job unless the governing node, product overlay, or risk evidence requires a wider local run, such as changes to validation infrastructure, test runner wiring, generated distribution, package-manager configuration, shared runtime code, or a broad refactor whose touched-scope commands cannot cover the contract. Circular dependency detection is a whole-graph check that runs only in CI, never as a local pre-commit or pre-push gate.
 
 ### Verification Checkpoint Checklist
 
@@ -629,57 +622,7 @@ Before creating a local checkpoint commit for agentic verification:
 
 - [ ] **`/apply` context is loaded and the diff is stabilized**: methodology/context loaded and obvious contradictions resolved before dispatching auditors
 - [ ] **`pnpm run validate`** passes (source CLI aggregate pipeline, circular skipped)
-- [ ] **Focused tests for the touched scope** pass; widen only when `/merging-standards` escalation applies
-
-### Pre-Push Checklist
-
-Before pushing:
-
-- [ ] **`test-evidence-auditor` approved TypeScript test changes** after composing `/audit-typescript-tests` against the exact committed head
-- [ ] **`implementation-auditor` approved TypeScript implementation changes** after composing `/audit-typescript-code` against the exact committed head
-- [ ] **`changes-reviewer` converged** on the exact committed head when `/apply` classifies the changeset as cross-node
-- [ ] **`pnpm run build`** succeeds
-- [ ] **`pnpm run validate`** passes
-- [ ] **Focused tests for the touched scope** pass on the tree being pushed; widen only when `/merging-standards` escalation applies
-
-### Pre-Publish Checklist
-
-Before publishing or tagging a release:
-
-- [ ] **`pnpm run publish:check`** passes, including packaged validation and packaged circular validation
-- [ ] The version in `package.json` matches the release tag
-
-### Releasing CLI-surface changes (interim — remove when the `/release` skill ships)
-
-When a changeset reaching `main` adds a new CLI subcommand, verb, or option, merge completes the PR and then release work begins: drive a release, autonomous up to the publish gate.
-
-Run every release step in the canonical main checkout defined by `spx/15-worktree-management.pdr.md`. That checkout permanently keeps `main` checked out, which makes Git refuse attempts to check out `main` in a linked worktree. Never detach the canonical main checkout, switch it away from `main`, or move `main` to another worktree. Stop the release if the canonical main checkout cannot remain on `main`.
-
-Agent release sequence:
-
-1. In the canonical main checkout, confirm `git branch --show-current` reports `main`, sync it to `origin/main` via `/sync-base`, and run `pnpm version patch --no-git-tag-version` unless directed otherwise. This updates `package.json` only.
-2. Generate the release artifacts from the release data with `spx release notes` and `spx release docs sync`, then review the generated changelog section and documentation updates. The tagged publication reads the changelog section for the released version from the tagged commit and fails when it is absent.
-3. Run `pnpm run publish:check`.
-4. Use `/commit-changes` to commit `package.json`, `CHANGELOG.md`, and the configured documentation paths as `build(release): bump version to X.Y.Z` on `main`.
-5. Tag `vX.Y.Z` with `git tag vX.Y.Z`.
-6. Push both refs with `git push origin main && git push origin vX.Y.Z`. The `main` push is fast-forward only; never use `--force`.
-7. Pause and ask the operator to approve the `vX.Y.Z` run's `npm-publish` deployment. This is the human checkpoint the environment gate exists for. The tagged workflow runs `spx release publish --tag "${GITHUB_REF_NAME}"`, which verifies the tag against the package version, confirms or publishes the provenance-bearing package, and creates or repairs the GitHub Release from the validated changelog section.
-8. After approval, verify the registry with `npm view @outcomeeng/spx version`, provenance with `npm audit signatures`, and the hosted release with `gh release view vX.Y.Z --json tagName,name,targetCommitish,body,url`.
-9. Complete the operator-visible CLI update in the canonical main checkout: run `git fetch --tags origin`, confirm `git branch --show-current` still reports `main`, and require `git rev-parse HEAD`, `git rev-parse origin/main`, and `git rev-parse "vX.Y.Z^{commit}"` to return the same commit. Run `pnpm run build` and verify `spx --version` reports `X.Y.Z`. If either local or fetched `main` advanced beyond the release tag, report the three commit IDs, leave the CLI unchanged, and complete the refresh through a later release that starts from newly synced `main`; never move `main` backward to retry the old release.
-
-Do not refresh the CLI with `pnpm install`, global `pnpm add -g`, or package-manager update commands during release close-out.
-
-### Release request protocol
-
-When the user asks to prepare or publish a release, follow `README.md` "Publishing a Release" and `.github/workflows/publish.yml` as the current manual release procedure for publishing this package. Use those two surfaces as the package-publishing authorities.
-
-For agent execution, treat README shell commands as the human-operator form of the procedure. Apply this file's agent rules while carrying out the same release sequence: sync through `/sync-base` and commit through `/commit-changes`. When a release request also satisfies the "Releasing CLI-surface changes" trigger, follow that section for the agent execution path.
-
-Report deterministic PNPM gate evidence explicitly. A valid release status update names `pnpm run publish:check` and summarizes every stage it ran: source validation, circular dependency validation, build, tests, packaged validation, and packaged circular dependency validation.
-
-Report the exact version bump command too. Use `pnpm version patch --no-git-tag-version` unless the release request specifies `minor`, `major`, or an exact version.
-
-If the publish gate exits 0 with warning-level lint output, report the warning count and continue. Do not turn tracked warning debt into a release blocker.
+- [ ] **Focused tests for the touched scope** pass; widen only when `spx/local/merging.md` escalation applies
 
 ### Committing Changes
 
@@ -695,19 +638,18 @@ git add . && git commit -m "..."
 
 ### Available Validation Commands
 
-The pnpm scripts below are the agent-facing workflow interface for local validation and publish gates:
+The pnpm scripts below are the agent-facing workflow interface for local validation:
 
-| pnpm Script                   | Purpose                                                                                          |
-| ----------------------------- | ------------------------------------------------------------------------------------------------ |
-| `pnpm run validate`           | Source aggregate validation, circular skipped                                                    |
-| `pnpm run validate:published` | Built executable validation, circular skipped                                                    |
-| `pnpm run publish:check`      | Source validation, circular, build, tests, packaged validation, and packaged circular validation |
-| `pnpm run lint`               | ESLint only                                                                                      |
-| `pnpm run lint:fix`           | Auto-fix ESLint issues                                                                           |
-| `pnpm run typecheck`          | TypeScript only                                                                                  |
-| `pnpm run circular`           | Source circular dependency detection                                                             |
-| `pnpm run circular:published` | Built executable circular dependency detection                                                   |
-| `pnpm run knip`               | Find unused code                                                                                 |
+| pnpm Script                   | Purpose                                        |
+| ----------------------------- | ---------------------------------------------- |
+| `pnpm run validate`           | Source aggregate validation, circular skipped  |
+| `pnpm run validate:published` | Built executable validation, circular skipped  |
+| `pnpm run lint`               | ESLint only                                    |
+| `pnpm run lint:fix`           | Auto-fix ESLint issues                         |
+| `pnpm run typecheck`          | TypeScript only                                |
+| `pnpm run circular`           | Source circular dependency detection           |
+| `pnpm run circular:published` | Built executable circular dependency detection |
+| `pnpm run knip`               | Find unused code                               |
 
 ### Formatting Commands
 
@@ -732,63 +674,6 @@ tsx src/cli.ts validation literal | grep spx/41-validation.enabler/32-typescript
 ```
 
 `--files-with-problems` emits one unique file path per line — pipe through `grep <prefix>` to scope to a node.
-
----
-
-## Pull request (PR) audit workflow
-
-Use small PRs with one purpose. A PR that changes specs, tests, architecture, runtime code, deployment, and publishing workflows at once is too hard to review and too easy to merge for the wrong reason. Split the work into the smallest reviewable concern that can pass its own local gate.
-
-Run the right local gate before publishing. Use the documented pnpm validation scripts for default gates and add targeted tests for the node or workflow changed; circular dependency detection runs in CI, not locally. Name those commands in the PR body.
-
-### PR review guidance
-
-`/merge` is the active default-branch lifecycle. It selects transport, delegates to PR opening and managing flows, and classifies automated and human findings by required receiver action using only `BLOCKING` and `DEBT`.
-
-`BLOCKING` and `DEBT` enter the active PR loop and must be fixed in the same PR.
-
-Treat PR-level comments as authoritative review surfaces. This product receives inline review-thread comments. A reviewer comment posted in the PR conversation with `BLOCKING` or `DEBT` findings is a review for the managing-PR gate even when the formal review list and inline review-thread list are empty. Still inspect all three surfaces on every PR pass:
-
-- Formal reviews and PR-level comments via `gh pr view <pr-number> --json reviews,comments`
-- Inline review-thread comments via `gh api repos/{organization}/{repo}/pulls/<pr-number>/comments --paginate`
-- Check results via `gh pr checks <pr-number>` and the PR `statusCheckRollup`
-
-**Validate every review-bot citation against the cited authority before complying — a finding whose cited rule does not exist is an invalid hallucination, not a defect to fix.** The `spec-tree-review` bot reviews from its own system prompt and at times misattributes one of its own prompt rules to this repository's root instruction files. The recurring instance is a comment-style rule — phrased like "Default to writing no comments", "never write multi-line comment blocks", or "one short line max" — cited as `CLAUDE.md` or `AGENTS.md`. No such rule exists in this product's root instruction files (`grep` them to confirm); multi-line comments that capture a non-obvious WHY are permitted here. Reject any `DEBT`/`BLOCKING` finding that cites a root-instruction comment-length or no-comments rule: the citation does not support it, so it carries no receiver action. This is the general rule applied — drop any finding whose cited rule the actual authority does not contain.
-
-### Executing PR workflow
-
-Run `/merge` for default-branch changes. It opens PRs ready once `REVIEW_READINESS` holds: the product's scoped deterministic verification passes, every required audit gate for the changed artifacts has approved, and local `changes-reviewer` review has converged. Review also runs on the ready PR in CI. If the operator explicitly suspends local reviewer agents for resource protection, treat that as a documented exception: do not run `changes-reviewer` locally, name the exception in the PR body, and let CI be the first review surface. The managing phase drives the merge loop: inspect all review surfaces, classify findings, sync to base when needed, fix `BLOCKING` and `DEBT`, rerun the local closure gate before pushing, wait with `gh pr checks <pr-number> --watch --fail-fast --interval 30` when checks or reviews need time, and evaluate the merge authority gates.
-
-```bash
-pr_url="$(gh pr create --title "$title" --body "$body" --base main --head "$branch")"
-pr_number="${pr_url##*/}"
-```
-
-```bash
-gh pr checks "$pr_number"
-gh pr view "$pr_number" --json reviews,comments
-# Replace {organization}/{repo} by the actual organization and repository names
-gh api "repos/{organization}/{repo}/pulls/${pr_number}/comments" --paginate
-```
-
-Do not add or substitute ad hoc waits such as shell polling loops, `sleep`, manual babysitting, repeated manual refreshes, or invented waiting schemes. Skills have precedence. When checks or reviews need time, use the managed PR check wait command from `/merging-standards`: `gh pr checks <pr-number> --watch --fail-fast --interval 30`, then re-inspect PR state, check rollup, PR-level comments, formal reviews, and review-thread comments before acting.
-
-### Ask for adversarial PR audit
-
-Ask the PR reviewers for adversarial auditing of all architecture, security-sensitive workflows, deployment and publishing paths, and any PR that changes production behavior. When checks or reviews need time, use `gh pr checks <pr-number> --watch --fail-fast --interval 30`, then run the full managing inspection before acting. Continue with non-blocking local work only when it does not overlap with the PR wait or review surface.
-
-### Treat PR review findings by receiver action
-
-- Fix `BLOCKING` findings in the same PR, rerun the focused tests and relevant pnpm validation scripts, then update the PR.
-- Fix `DEBT` findings in the same PR, rerun the focused tests and relevant pnpm validation scripts, then update the PR.
-- Findings that expose weak evidence require a test rearchitecture using the `/test-typescript` skill before merge.
-
-### Merge discipline
-
-- Merge stacked PRs in dependency order.
-- Do not deploy or publish from unmerged PR branches.
-- Use selective staging and one commit per concern before pushing using the `/commit-changes` skill.
-- After merge, sync local `main` and verify the worktree is clean before starting the next branch using the `sync-base` skill.
 
 ---
 
