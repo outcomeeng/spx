@@ -3,6 +3,7 @@
   "verification": {
     "test": {
       "overall": "passed",
+      "spx/26-release.enabler/24-release-test-generators.enabler/tests/release-test-generators.conformance.l1.test.ts": "passed",
       "spx/26-release.enabler/24-release-test-generators.enabler/tests/release-test-generators.property.l1.test.ts": "passed"
     }
   }

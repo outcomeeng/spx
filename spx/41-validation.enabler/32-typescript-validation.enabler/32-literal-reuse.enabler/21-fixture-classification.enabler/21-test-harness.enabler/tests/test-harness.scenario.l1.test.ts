@@ -6,8 +6,8 @@ import {
   arbitrarySourceFilePath,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
+import { buildStringDeclaration } from "@testing/generators/literal/snippets";
 import { collectFromFile } from "@testing/harnesses/literal-reuse/fixture-classification";
-import { buildStringDeclaration } from "@testing/harnesses/literal/snippets";
 
 describe("fixture-classification test harness — scenarios", () => {
   it("collectFromFile finds a string literal carried by a source snippet", () => {

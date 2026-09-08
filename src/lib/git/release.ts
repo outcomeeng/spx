@@ -9,16 +9,25 @@ export interface GitCommit {
 }
 
 const GIT_RELEASE_SUBCOMMAND = {
+  CAT_FILE: "cat-file",
   DESCRIBE: "describe",
   LOG: "log",
   TAG: "tag",
 } as const;
+
+/** The object type `git cat-file` is asked for, so a tree or commit at the path fails rather than printing a listing. */
+const GIT_BLOB_OBJECT_TYPE = "blob";
+/** Separator between a revision and a tree path in a `<rev>:<path>` object name. */
+const REVISION_PATH_SEPARATOR = ":";
+/** Prefix that makes a `<rev>:<path>` object name resolve the path relative to the working directory rather than the repository root. */
+const CWD_RELATIVE_TREE_PATH_PREFIX = "./";
 
 const GIT_RELEASE_FLAG = {
   TAGS: "--tags",
   ABBREV_ZERO: "--abbrev=0",
   MATCH: "--match",
   EXCLUDE: "--exclude",
+  DIFF_MERGES_FIRST_PARENT: "--diff-merges=first-parent",
   NAME_ONLY: "--name-only",
   POINTS_AT: "--points-at",
   LIST: "--list",
@@ -100,6 +109,31 @@ export async function releaseTagsAt(
 }
 
 /**
+ * Reads the content of the file at `treePath` — relative to `cwd`, forward-slash
+ * separated — as committed at `ref`, keeping the blob's bytes including its
+ * final newline. Returns null when the ref does not resolve or its tree holds
+ * no blob at the path: a directory there is not a file, so it reads as absent.
+ */
+export async function committedFileContent(
+  ref: string,
+  treePath: string,
+  cwd: string,
+  deps: GitDependencies = defaultGitDependencies,
+): Promise<string | null> {
+  const result = await deps.execa(
+    GIT_ROOT_COMMAND.EXECUTABLE,
+    [
+      GIT_RELEASE_SUBCOMMAND.CAT_FILE,
+      GIT_BLOB_OBJECT_TYPE,
+      `${ref}${REVISION_PATH_SEPARATOR}${CWD_RELATIVE_TREE_PATH_PREFIX}${treePath}`,
+    ],
+    { cwd, reject: false, stripFinalNewline: false },
+  );
+  if (result.exitCode !== 0) return null;
+  return result.stdout;
+}
+
+/**
  * Lists the commits between `fromTag` (exclusive) and `toRef` (inclusive). When
  * `fromTag` is null the full history reachable from `toRef` is returned.
  */
@@ -143,7 +177,13 @@ export async function changedPathsBetween(
 ): Promise<string[]> {
   const result = await deps.execa(
     GIT_ROOT_COMMAND.EXECUTABLE,
-    [GIT_RELEASE_SUBCOMMAND.LOG, EMPTY_LOG_FORMAT, GIT_RELEASE_FLAG.NAME_ONLY, logRange(fromTag, toRef)],
+    [
+      GIT_RELEASE_SUBCOMMAND.LOG,
+      GIT_RELEASE_FLAG.DIFF_MERGES_FIRST_PARENT,
+      EMPTY_LOG_FORMAT,
+      GIT_RELEASE_FLAG.NAME_ONLY,
+      logRange(fromTag, toRef),
+    ],
     { cwd, reject: false },
   );
   if (result.exitCode !== 0) return [];

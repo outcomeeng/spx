@@ -658,13 +658,14 @@ Run every release step in the canonical main checkout defined by `spx/15-worktre
 Agent release sequence:
 
 1. In the canonical main checkout, confirm `git branch --show-current` reports `main`, sync it to `origin/main` via `/sync-base`, and run `pnpm version patch --no-git-tag-version` unless directed otherwise. This updates `package.json` only.
-2. Run `pnpm run publish:check`.
-3. Use `/commit-changes` to commit `build(release): bump version to X.Y.Z` on `main`.
-4. Tag `vX.Y.Z` with `git tag vX.Y.Z`.
-5. Push both refs with `git push origin main && git push origin vX.Y.Z`. The `main` push is fast-forward only; never use `--force`.
-6. Pause and ask the operator to approve the `vX.Y.Z` run's `npm-publish` deployment. This is the human checkpoint the environment gate exists for.
-7. After approval, verify the registry with `npm view @outcomeeng/spx version` and provenance with `npm audit signatures`.
-8. Complete the operator-visible CLI update in the canonical main checkout: run `git fetch --tags origin`, confirm `git branch --show-current` still reports `main`, and require `git rev-parse HEAD`, `git rev-parse origin/main`, and `git rev-parse "vX.Y.Z^{commit}"` to return the same commit. Run `pnpm run build` and verify `spx --version` reports `X.Y.Z`. If either local or fetched `main` advanced beyond the release tag, report the three commit IDs, leave the CLI unchanged, and complete the refresh through a later release that starts from newly synced `main`; never move `main` backward to retry the old release.
+2. Generate the release artifacts from the release data with `spx release notes` and `spx release docs sync`, then review the generated changelog section and documentation updates. The tagged publication reads the changelog section for the released version from the tagged commit and fails when it is absent.
+3. Run `pnpm run publish:check`.
+4. Use `/commit-changes` to commit `package.json`, `CHANGELOG.md`, and the configured documentation paths as `build(release): bump version to X.Y.Z` on `main`.
+5. Tag `vX.Y.Z` with `git tag vX.Y.Z`.
+6. Push both refs with `git push origin main && git push origin vX.Y.Z`. The `main` push is fast-forward only; never use `--force`.
+7. Pause and ask the operator to approve the `vX.Y.Z` run's `npm-publish` deployment. This is the human checkpoint the environment gate exists for. The tagged workflow runs `spx release publish --tag "${GITHUB_REF_NAME}"`, which verifies the tag against the package version, confirms or publishes the provenance-bearing package, and creates or repairs the GitHub Release from the validated changelog section.
+8. After approval, verify the registry with `npm view @outcomeeng/spx version`, provenance with `npm audit signatures`, and the hosted release with `gh release view vX.Y.Z --json tagName,name,targetCommitish,body,url`.
+9. Complete the operator-visible CLI update in the canonical main checkout: run `git fetch --tags origin`, confirm `git branch --show-current` still reports `main`, and require `git rev-parse HEAD`, `git rev-parse origin/main`, and `git rev-parse "vX.Y.Z^{commit}"` to return the same commit. Run `pnpm run build` and verify `spx --version` reports `X.Y.Z`. If either local or fetched `main` advanced beyond the release tag, report the three commit IDs, leave the CLI unchanged, and complete the refresh through a later release that starts from newly synced `main`; never move `main` backward to retry the old release.
 
 Do not refresh the CLI with `pnpm install`, global `pnpm add -g`, or package-manager update commands during release close-out.
 

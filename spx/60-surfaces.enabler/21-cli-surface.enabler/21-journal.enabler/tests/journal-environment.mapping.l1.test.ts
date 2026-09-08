@@ -7,6 +7,8 @@ import {
   TRUTHY_ENV_VALUES,
 } from "@/commands/journal/cli";
 import { JOURNAL_BACKEND } from "@/domains/journal/backend-selection";
+import { arbitraryNonPullRequestEventName } from "@testing/generators/journal/environment";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 
 describe("readJournalCliEnvironment", () => {
   it.each<{ readonly eventName: string; readonly expected: boolean }>([
@@ -15,7 +17,7 @@ describe("readJournalCliEnvironment", () => {
     // GITHUB_REF; full support is tracked in the journal node's ISSUES.md.
     { eventName: "pull_request_target", expected: false },
     // A representative non-pull-request event; any event name outside the set maps to false.
-    { eventName: "push", expected: false },
+    { eventName: sampleGeneratedValue(arbitraryNonPullRequestEventName()), expected: false },
   ])("maps GITHUB_EVENT_NAME $eventName to githubPullRequest $expected", ({ eventName, expected }) => {
     const result = readJournalCliEnvironment({ [JOURNAL_CLI_ENV.GITHUB_EVENT_NAME]: eventName });
 

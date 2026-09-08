@@ -1,4 +1,3 @@
-import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -13,12 +12,14 @@ import {
 import {
   arbitraryDomainLiteral,
   arbitrarySourceFilePath,
+  LITERAL_TEST_GENERATOR,
   literalModuleNamingFixtures,
   sampleLiteralPair,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
+import { buildStringDeclaration } from "@testing/generators/literal/snippets";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
-import { buildStringDeclaration } from "@testing/harnesses/literal/snippets";
 
 import { collectFromSource } from "@testing/harnesses/literal-reuse/detection";
 
@@ -27,7 +28,7 @@ describe("ALWAYS: AST traversal descends only into fields the injected visitor-k
     const emptyKeys: VisitorKeysMap = {};
     const literal = sampleLiteralTestValue(arbitraryDomainLiteral());
     const filename = sampleLiteralTestValue(arbitrarySourceFilePath());
-    const source = `const x = { key: "${literal}" };`;
+    const source = buildStringDeclaration(literal);
 
     const occurrences = collectFromSource(source, filename, {
       ...DEFAULT_LITERAL_COLLECT_OPTIONS,
@@ -40,7 +41,7 @@ describe("ALWAYS: AST traversal descends only into fields the injected visitor-k
   it("default visitor-keys map indexes literals from positions beneath registered node types", () => {
     const literal = sampleLiteralTestValue(arbitraryDomainLiteral());
     const filename = sampleLiteralTestValue(arbitrarySourceFilePath());
-    const source = `const x = { key: "${literal}" };`;
+    const source = buildStringDeclaration(literal);
 
     const occurrences = collectFromSource(source, filename, {
       ...DEFAULT_LITERAL_COLLECT_OPTIONS,
@@ -55,14 +56,9 @@ describe("ALWAYS: domain path filters narrow literal reuse indexing", () => {
   it("skips files excluded through pathConfig while indexing other git-visible files", async () => {
     await withGitWorktreeEnv(async (env) => {
       const [excludedLiteral, activeLiteral] = sampleLiteralPair();
-      const generatedPaths = sampleLiteralTestValue(
-        fc.uniqueArray(arbitrarySourceFilePath(), { minLength: 2, maxLength: 2 }),
+      const [excludedRelativePath, activeRelativePath] = sampleGeneratedValue(
+        LITERAL_TEST_GENERATOR.sourceFilePathPair(),
       );
-      const excludedRelativePath = generatedPaths[0];
-      const activeRelativePath = generatedPaths[1];
-      if (excludedRelativePath === undefined || activeRelativePath === undefined) {
-        throw new Error("literal detection compliance: source path generator returned too few paths");
-      }
 
       await env.writeTracked(excludedRelativePath, buildStringDeclaration(excludedLiteral));
       await env.writeTracked(activeRelativePath, buildStringDeclaration(activeLiteral));
@@ -83,12 +79,17 @@ describe("ALWAYS: domain path filters narrow literal reuse indexing", () => {
 });
 
 describe("NEVER: index literals from module-naming positions", () => {
-  it("every fixture exercises a position that the source-side MODULE_NAMING_SKIP enumerates", () => {
-    for (const fixture of literalModuleNamingFixtures()) {
-      const skipFields = MODULE_NAMING_SKIP[fixture.nodeType];
-      expect(skipFields).toBeDefined();
-      expect(skipFields?.has(fixture.field)).toBe(true);
-    }
+  it("the spec-enumerated positions and the detector's skip registry name the same set", () => {
+    const declaredPositions = new Set(
+      literalModuleNamingFixtures().map((fixture) => `${fixture.nodeType}.${fixture.field}`),
+    );
+    const registryPositions = new Set(
+      Object.entries(MODULE_NAMING_SKIP).flatMap(([nodeType, fields]) =>
+        [...fields].map((field) => `${nodeType}.${field}`)
+      ),
+    );
+
+    expect(declaredPositions).toEqual(registryPositions);
   });
 
   it.each(literalModuleNamingFixtures())(

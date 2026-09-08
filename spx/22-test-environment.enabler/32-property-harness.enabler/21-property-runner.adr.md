@@ -20,10 +20,9 @@ Rejected: a fixed default seed (one sample forever — the exploration breadth a
 
 ### Testing
 
-- ALWAYS: seed resolution yields the parsed `SPX_PROPERTY_SEED` when the variable holds a valid integer, and the drawn seed otherwise ([property])
+- ALWAYS: for every environment value and drawn seed, seed resolution yields the parsed `SPX_PROPERTY_SEED` when the variable holds a valid integer, and the drawn seed otherwise ([property])
 - ALWAYS: classification size maps to the harness-owned run count, one tier per size, and classification level maps to the harness-owned per-run timeout ([mapping])
 - ALWAYS: a failing run throws a structured failure error carrying the seed the run used and the shrunk counterexample ([scenario])
-- NEVER: an unset `SPX_PROPERTY_SEED` resolves to a fixed constant ([compliance])
 - ALWAYS: a predicate dispatched to the synchronous path that returns a thenable fails with a diagnostic directing the caller to declare it `async`, rather than running un-awaited ([scenario])
 
 ### Audit

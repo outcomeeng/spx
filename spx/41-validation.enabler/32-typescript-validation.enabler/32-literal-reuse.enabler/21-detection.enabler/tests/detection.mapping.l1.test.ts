@@ -5,12 +5,13 @@ import {
   arbitraryDomainLiteral,
   arbitrarySourceFilePath,
   arbitraryTestFilePath,
+  LITERAL_TEST_GENERATOR_COUNTS,
   literalAstOccurrenceCases,
   sampleLiteralPair,
   sampleLiteralTestValue,
   sampleTestFilePathPair,
 } from "@testing/generators/literal/literal";
-import { buildStringAssertion, buildStringDeclaration } from "@testing/harnesses/literal/snippets";
+import { buildStringAssertion, buildStringDeclaration } from "@testing/generators/literal/snippets";
 
 import { collectFromSource, indexSources, testOccurrences } from "@testing/harnesses/literal-reuse/detection";
 
@@ -44,7 +45,7 @@ describe("finding-kind → remediation mapping", () => {
     const result = detectReuse({ srcIndex, testOccurrencesByFile: tests, allowlist: createEmptyLiteralAllowlist() });
 
     const findings = result.testDupe.filter((f) => f.value === literal);
-    expect(findings.length).toBeGreaterThanOrEqual(1);
+    expect(findings.length).toBeGreaterThanOrEqual(LITERAL_TEST_GENERATOR_COUNTS.one);
     for (const finding of findings) {
       expect(finding.remediation).toBe(REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR);
     }

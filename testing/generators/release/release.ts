@@ -4,7 +4,7 @@ import * as fc from "fast-check";
 
 import { type ReleaseData, VERSION_DELTA, type VersionDelta } from "@/domains/release/release-data";
 import { type GitCommit, RELEASE_TAG_PREFIX } from "@/lib/git/release";
-import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
+import { arbitraryBranchName, arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 
 const VERSION_COMPONENT_MIN = 0;
@@ -25,7 +25,6 @@ const WINDOWS_DRIVE_LETTER_PATTERN = /^[A-Z]$/;
 const COMMITS_AFTER_TAG = 2;
 const FULL_HISTORY_COMMITS = 2;
 const DETERMINISM_REPO_COMMITS = 3;
-const DETERMINISM_RUNS = 5;
 const COMPLIANCE_COMMITS = 2;
 const RELEASE_NOTES_COMMITS = 3;
 const COMMIT_SHA_PATTERN = /^[0-9a-f]{40}$/;
@@ -46,6 +45,13 @@ export type VersionBump = {
   readonly packageVersion: string;
 };
 
+export type ReleaseDataDeterminismScenario = {
+  readonly commits: readonly ReleaseCommitFixture[];
+  readonly tag: string;
+  readonly packageVersion: string;
+  readonly versionDelta: VersionDelta;
+};
+
 type ReleaseVersionProgression = {
   readonly version: string;
   readonly previousTag: string;
@@ -62,12 +68,11 @@ export const RELEASE_TEST_GENERATOR = {
   counts: {
     commitsAfterTag: COMMITS_AFTER_TAG,
     fullHistoryCommits: FULL_HISTORY_COMMITS,
-    determinismRepoCommits: DETERMINISM_REPO_COMMITS,
-    determinismRuns: DETERMINISM_RUNS,
     complianceCommits: COMPLIANCE_COMMITS,
     releaseNotesCommits: RELEASE_NOTES_COMMITS,
   },
   semver: arbitrarySemver,
+  branchName: arbitraryBranchName,
   distinctSemverFrom: arbitraryDistinctSemverFrom,
   distinctWindowsDriveRoots: arbitraryDistinctWindowsDriveRoots,
   distinctWindowsUncRoots: arbitraryDistinctWindowsUncRoots,
@@ -79,6 +84,7 @@ export const RELEASE_TEST_GENERATOR = {
   distinctPathSegmentTriple: arbitraryDistinctPathSegmentTriple,
   distinctDomainLiteralPair: arbitraryDistinctDomainLiteralPair,
   commitSequence: arbitraryCommitSequence,
+  releaseDataDeterminismScenario: arbitraryReleaseDataDeterminismScenario,
   versionBumpFor: arbitraryVersionBumpFor,
   releaseData: arbitraryReleaseData,
   releaseDataWithoutPreviousTag: arbitraryReleaseDataWithoutPreviousTag,
@@ -215,6 +221,20 @@ function arbitraryCommitSequence(count: number): fc.Arbitrary<readonly ReleaseCo
         subject: `${segment}${COMMIT_SUBJECT_SUFFIX}`,
       }))
     );
+}
+
+function arbitraryReleaseDataDeterminismScenario(): fc.Arbitrary<ReleaseDataDeterminismScenario> {
+  return fc
+    .record({
+      commits: arbitraryCommitSequence(DETERMINISM_REPO_COMMITS),
+      progression: arbitraryReleaseVersionProgression(),
+    })
+    .map(({ commits, progression }) => ({
+      commits,
+      tag: progression.previousTag,
+      packageVersion: progression.version,
+      versionDelta: progression.versionDelta,
+    }));
 }
 
 function arbitraryCommitSha(): fc.Arbitrary<string> {

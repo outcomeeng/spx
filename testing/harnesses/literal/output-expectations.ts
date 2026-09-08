@@ -1,33 +1,32 @@
-import { LITERAL_PROBLEM_KIND } from "@/domains/validation/literal-problem-kind";
-import {
-  type DetectionResult,
-  LITERAL_KIND,
-  type LiteralKind,
-  type LiteralLocation,
-  REMEDIATION,
-} from "@/validation/literal";
+/**
+ * Expected `spx validation literal` output for the generated reuse fixture.
+ *
+ * Every expectation derives from two sources only: the fixture's known layout — one reuse
+ * literal shared by one source file and one test file, one dupe literal shared by two test
+ * files, every literal on line 1 — and the output-modes spec's declared line formats, section
+ * shapes, and orders. Nothing is derived from a `DetectionResult`, and the production
+ * formatter's sorting, grouping, and de-duplication are never replayed here, so a formatter
+ * defect cannot reach the expected side of an assertion.
+ *
+ * @module testing/harnesses/literal/output-expectations
+ */
+
+import { LITERAL_PROBLEM_KIND, type LiteralProblemKind } from "@/domains/validation/literal-problem-kind";
+import { type DetectionResult, LITERAL_KIND, REMEDIATION } from "@/validation/literal";
 import type { LiteralReuseFixtureInputs } from "@testing/generators/literal/literal";
 
+/** Every fixture file is a single declaration or assertion, so every literal sits on line 1. */
 const LITERAL_FIXTURE_LINE = 1;
+/** The fixture yields one src↔test reuse problem and one dupe problem per duplicate test file. */
+const FIXTURE_REUSE_PROBLEMS = 1;
+const FIXTURE_DUPE_PROBLEMS = 2;
 
-interface ExpectedProblem {
-  readonly kind: string;
-  readonly literalKind: LiteralKind;
-  readonly value: string;
-  readonly test: LiteralLocation;
-  readonly related: readonly LiteralLocation[];
-}
-
-export function expectedNoProblemsOfKind(kind: string): string {
-  return `Literal: No problems of type ${kind}`;
-}
-
+/** The detection result the fixture layout implies, optionally narrowed to one problem kind. */
 export function expectedFixtureFindings(
   inputs: LiteralReuseFixtureInputs,
-  kind?: string,
+  kind?: LiteralProblemKind,
 ): DetectionResult {
-  const duplicateTestFiles = [inputs.dupeFirstTestFile, inputs.dupeSecondTestFile]
-    .sort(compareExpectedStrings);
+  const [firstDupeFile, secondDupeFile] = dupeFilesByPath(inputs);
   return {
     srcReuse: kind === LITERAL_PROBLEM_KIND.DUPE
       ? []
@@ -40,125 +39,128 @@ export function expectedFixtureFindings(
       }],
     testDupe: kind === LITERAL_PROBLEM_KIND.REUSE
       ? []
-      : duplicateTestFiles.map((testFile, index) => ({
-        kind: LITERAL_KIND.STRING,
-        value: inputs.dupeLiteral,
-        test: { file: testFile, line: LITERAL_FIXTURE_LINE },
-        otherTests: [{
-          file: duplicateTestFiles[index === 0 ? 1 : 0],
-          line: LITERAL_FIXTURE_LINE,
-        }],
-        remediation: REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR,
-      })),
+      : [
+        {
+          kind: LITERAL_KIND.STRING,
+          value: inputs.dupeLiteral,
+          test: { file: firstDupeFile, line: LITERAL_FIXTURE_LINE },
+          otherTests: [{ file: secondDupeFile, line: LITERAL_FIXTURE_LINE }],
+          remediation: REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR,
+        },
+        {
+          kind: LITERAL_KIND.STRING,
+          value: inputs.dupeLiteral,
+          test: { file: secondDupeFile, line: LITERAL_FIXTURE_LINE },
+          otherTests: [{ file: firstDupeFile, line: LITERAL_FIXTURE_LINE }],
+          remediation: REMEDIATION.REFACTOR_TO_SOURCE_OR_GENERATOR,
+        },
+      ],
   };
 }
 
-export function expectedAffectedFiles(findings: DetectionResult): string[] {
-  return [...new Set(expectedProblems(findings).map((problem) => problem.test.file))]
-    .sort(compareExpectedStrings);
-}
-
-export function expectedLiteralLines(findings: DetectionResult): string[] {
-  const values = new Map<string, { readonly kind: LiteralKind; readonly value: string }>();
-  for (const problem of expectedProblems(findings)) {
-    values.set(`${problem.literalKind}\0${problem.value}`, {
-      kind: problem.literalKind,
-      value: problem.value,
-    });
-  }
-  return [...values.values()]
-    .sort((left, right) =>
-      compareExpectedStrings(left.value, right.value) || compareExpectedStrings(left.kind, right.kind)
-    )
-    .map((entry) => expectedLiteralValue(entry.kind, entry.value));
-}
-
-export function expectedDefaultLines(findings: DetectionResult): string[] {
-  return expectedProblems(findings).map((problem) =>
-    `[${problem.kind}] ${expectedLiteralValue(problem.literalKind, problem.value)} ${expectedLocation(problem.test)}`
-  );
-}
-
-export function expectedVerboseLines(findings: DetectionResult): string[] {
-  const lines = [
-    `Literal: ${
-      findings.srcReuse.length + findings.testDupe.length
-    } problems (reuse: ${findings.srcReuse.length}, dupe: ${findings.testDupe.length})`,
-  ];
-  appendExpectedVerboseSection(
-    lines,
-    LITERAL_PROBLEM_KIND.REUSE.toUpperCase(),
-    expectedProblems({
-      srcReuse: findings.srcReuse,
-      testDupe: [],
-    }),
-  );
-  appendExpectedVerboseSection(
-    lines,
-    LITERAL_PROBLEM_KIND.DUPE.toUpperCase(),
-    expectedProblems({
-      srcReuse: [],
-      testDupe: findings.testDupe,
-    }),
-  );
-  return lines;
-}
-
-function expectedProblems(findings: DetectionResult): ExpectedProblem[] {
+/** Default text: `[kind] "value" path:line`, reuse problems first, then dupe problems by file path. */
+export function expectedDefaultLines(inputs: LiteralReuseFixtureInputs, kind?: LiteralProblemKind): string[] {
   return [
-    ...findings.srcReuse.map((finding) => ({
-      kind: LITERAL_PROBLEM_KIND.REUSE,
-      literalKind: finding.kind,
-      value: finding.value,
-      test: finding.test,
-      related: finding.src,
-    })).sort(compareExpectedProblems),
-    ...findings.testDupe.map((finding) => ({
-      kind: LITERAL_PROBLEM_KIND.DUPE,
-      literalKind: finding.kind,
-      value: finding.value,
-      test: finding.test,
-      related: finding.otherTests,
-    })).sort(compareExpectedProblems),
+    ...(kind === LITERAL_PROBLEM_KIND.DUPE
+      ? []
+      : [problemLine(LITERAL_PROBLEM_KIND.REUSE, inputs.reuseLiteral, inputs.reuseTestFile)]),
+    ...(kind === LITERAL_PROBLEM_KIND.REUSE
+      ? []
+      : dupeFilesByPath(inputs).map((file) => problemLine(LITERAL_PROBLEM_KIND.DUPE, inputs.dupeLiteral, file))),
   ];
 }
 
-function compareExpectedProblems(left: ExpectedProblem, right: ExpectedProblem): number {
-  return compareExpectedStrings(left.test.file, right.test.file)
-    || left.test.line - right.test.line
-    || compareExpectedStrings(left.literalKind, right.literalKind)
-    || compareExpectedStrings(left.value, right.value);
+/** `--files-with-problems`: the affected test files, one per line, lexicographically ordered. */
+export function expectedAffectedFiles(inputs: LiteralReuseFixtureInputs, kind?: LiteralProblemKind): string[] {
+  return lexicographic([
+    ...(kind === LITERAL_PROBLEM_KIND.DUPE ? [] : [inputs.reuseTestFile]),
+    ...(kind === LITERAL_PROBLEM_KIND.REUSE ? [] : [inputs.dupeFirstTestFile, inputs.dupeSecondTestFile]),
+  ]);
 }
 
+/** `--literals`: each distinct string literal in double quotes, one per line, lexicographically ordered. */
+export function expectedLiteralLines(inputs: LiteralReuseFixtureInputs, kind?: LiteralProblemKind): string[] {
+  return lexicographic([
+    ...(kind === LITERAL_PROBLEM_KIND.DUPE ? [] : [quoted(inputs.reuseLiteral)]),
+    ...(kind === LITERAL_PROBLEM_KIND.REUSE ? [] : [quoted(inputs.dupeLiteral)]),
+  ]);
+}
+
+/** The problem counts the `--verbose` summary line states, by kind. */
+export interface ExpectedVerboseSummary {
+  readonly total: number;
+  readonly reuse: number;
+  readonly dupe: number;
+}
+
+/** One problem line the `--verbose` output indents beneath its file header: the literal and where else it occurs. */
+export interface ExpectedVerboseProblem {
+  readonly literal: string;
+  readonly relatedFile: string;
+}
+
+export interface ExpectedVerboseFile {
+  readonly header: string;
+  readonly problems: readonly ExpectedVerboseProblem[];
+}
+
+export interface ExpectedVerboseSection {
+  readonly heading: string;
+  readonly files: readonly ExpectedVerboseFile[];
+}
+
+export function expectedVerboseSummary(): ExpectedVerboseSummary {
+  return {
+    total: FIXTURE_REUSE_PROBLEMS + FIXTURE_DUPE_PROBLEMS,
+    reuse: FIXTURE_REUSE_PROBLEMS,
+    dupe: FIXTURE_DUPE_PROBLEMS,
+  };
+}
+
+/**
+ * `--verbose` structure after the summary line: a REUSE section, then a DUPE section, each a
+ * sequence of file headers with the file's problem lines indented beneath. Only the structure
+ * the spec declares is expected here; the wording of a problem line is the formatter's own.
+ */
+export function expectedVerboseSections(inputs: LiteralReuseFixtureInputs): ExpectedVerboseSection[] {
+  const [firstDupeFile, secondDupeFile] = dupeFilesByPath(inputs);
+  return [
+    {
+      heading: LITERAL_PROBLEM_KIND.REUSE.toUpperCase(),
+      files: [{
+        header: inputs.reuseTestFile,
+        problems: [{ literal: quoted(inputs.reuseLiteral), relatedFile: inputs.reuseSourceFile }],
+      }],
+    },
+    {
+      heading: LITERAL_PROBLEM_KIND.DUPE.toUpperCase(),
+      files: [
+        { header: firstDupeFile, problems: [{ literal: quoted(inputs.dupeLiteral), relatedFile: secondDupeFile }] },
+        { header: secondDupeFile, problems: [{ literal: quoted(inputs.dupeLiteral), relatedFile: firstDupeFile }] },
+      ],
+    },
+  ];
+}
+
+/** Lexicographic (UTF-16 code unit) order — the order the spec declares for every sorted output mode. */
 export function compareExpectedStrings(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
-function appendExpectedVerboseSection(
-  lines: string[],
-  heading: string,
-  problems: readonly ExpectedProblem[],
-): void {
-  if (problems.length === 0) return;
-  lines.push(heading);
-  let currentFile: string | undefined;
-  for (const problem of problems) {
-    if (problem.test.file !== currentFile) {
-      lines.push(problem.test.file);
-      currentFile = problem.test.file;
-    }
-    lines.push(
-      `  line ${problem.test.line}: ${expectedLiteralValue(problem.literalKind, problem.value)} also in ${
-        problem.related.map(expectedLocation).join(", ")
-      }`,
-    );
-  }
+function problemLine(kind: LiteralProblemKind, literal: string, file: string): string {
+  return `[${kind}] ${quoted(literal)} ${file}:${LITERAL_FIXTURE_LINE}`;
 }
 
-function expectedLiteralValue(kind: LiteralKind, value: string): string {
-  return kind === LITERAL_KIND.STRING ? `"${value}"` : value;
+function quoted(literal: string): string {
+  return `"${literal}"`;
 }
 
-function expectedLocation(location: LiteralLocation): string {
-  return `${location.file}:${location.line}`;
+function dupeFilesByPath(inputs: LiteralReuseFixtureInputs): readonly [string, string] {
+  return compareExpectedStrings(inputs.dupeFirstTestFile, inputs.dupeSecondTestFile) < 0
+    ? [inputs.dupeFirstTestFile, inputs.dupeSecondTestFile]
+    : [inputs.dupeSecondTestFile, inputs.dupeFirstTestFile];
+}
+
+function lexicographic(values: readonly string[]): string[] {
+  return [...values].sort(compareExpectedStrings);
 }

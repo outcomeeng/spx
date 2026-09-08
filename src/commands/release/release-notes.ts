@@ -1,6 +1,3 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-
 import type { AgentRunner } from "@/agent/agent-runner";
 import { computeReleaseData, type ReleaseData } from "@/domains/release/release-data";
 import {
@@ -9,10 +6,9 @@ import {
   type ReleaseNotesFaithfulnessAuditor,
 } from "@/domains/release/release-notes";
 import type { GitDependencies } from "@/lib/git/root";
-import { createReleaseNotesFilesystem, type ReleaseNotesFilesystem } from "./release-notes-filesystem";
 
-const PACKAGE_MANIFEST = "package.json";
-export const RELEASE_NOTES_OUTPUT_PREFIX = "Generated release notes";
+import { readPackageVersion } from "./package-manifest";
+import { createReleaseNotesFilesystem, type ReleaseNotesFilesystem } from "./release-notes-filesystem";
 
 export interface ReleaseNotesCommandOptions {
   readonly productDir: string;
@@ -45,15 +41,5 @@ export async function releaseNotesCommand(options: ReleaseNotesCommandOptions): 
     isSymbolicLink: filesystem.isSymbolicLink,
     isFile: filesystem.isFile,
   });
-  return `${RELEASE_NOTES_OUTPUT_PREFIX}: ${result.changelogPath}`;
-}
-
-export async function readPackageVersion(productDir: string): Promise<string> {
-  const manifest = JSON.parse(
-    await readFile(join(productDir, PACKAGE_MANIFEST), "utf8"),
-  ) as { version?: unknown };
-  if (typeof manifest.version !== "string" || manifest.version.trim().length === 0) {
-    throw new Error("package.json version must be a non-empty string");
-  }
-  return manifest.version;
+  return result.changelogPath;
 }

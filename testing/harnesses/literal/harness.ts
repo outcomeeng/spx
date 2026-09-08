@@ -8,12 +8,10 @@ import type {
   LiteralReuseFixtureInputs,
   LiteralSourceReuseFixtureInputs,
 } from "@testing/generators/literal/literal";
-import { arbitraryLiteralReuseFixtureInputs, literalEmptyConfig } from "@testing/generators/literal/literal";
+import { literalEmptyConfig } from "@testing/generators/literal/literal";
+import { buildStringAssertion, buildStringDeclaration } from "@testing/generators/literal/snippets";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
-import { buildStringAssertion, buildStringDeclaration } from "@testing/harnesses/literal/snippets";
-import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
-import { collectHarnessTestCases, expect, it } from "@testing/harnesses/vitest-registration";
 
 const EMPTY_TSCONFIG_CONTENT = "{}\n";
 
@@ -53,18 +51,6 @@ export async function withLiteralFixtureEnv<T>(
   return captured;
 }
 
-export const literalFixtureHarnessPropertyCases = collectHarnessTestCases(() => {
-  it("writeReuseFixture is deterministic over LiteralReuseFixtureInputs", async () => {
-    await assertProperty(
-      arbitraryLiteralReuseFixtureInputs(),
-      async (inputs) => {
-        expect(await captureReuseFixtureFiles(inputs)).toEqual(await captureReuseFixtureFiles(inputs));
-      },
-      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
-    );
-  });
-});
-
 type LiteralFixtureGitEnv = {
   readonly productDir: string;
   writeGitignore(directory: string, content: string): Promise<void>;
@@ -87,7 +73,9 @@ function createLiteralFixtureEnv(gitEnv: LiteralFixtureGitEnv): LiteralFixtureEn
   };
 }
 
-async function captureReuseFixtureFiles(inputs: LiteralReuseFixtureInputs): Promise<Record<string, string>> {
+export async function captureReuseFixtureFiles(
+  inputs: LiteralReuseFixtureInputs,
+): Promise<Record<string, string>> {
   const captured: Record<string, string> = {};
   await withLiteralFixtureEnv(literalEmptyConfig(), async (env) => {
     await env.writeReuseFixture(inputs);

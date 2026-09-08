@@ -20,4 +20,4 @@ CAN distinguish file paths and string payloads inside test fixtures (which contr
 
 - ALWAYS: test-file classification recognizes POSIX `/tests/`, Windows `\tests\`, and `.test.` filename markers as test fixture paths ([test](tests/fixture-classification.compliance.l1.test.ts))
 - NEVER: add, remove, or rename fixture-writer helper methods without updating the detector's fixture-writer call classification in the same change ([test](tests/fixture-classification.compliance.l1.test.ts))
-- NEVER: add words to the detector's fixture-data role segments that are also common non-fixture variable-name components without a corresponding test for the false-positive boundary ([review])
+- NEVER: add words to the detector's fixture-data role segments that are also common non-fixture variable-name components without a corresponding test for the false-positive boundary ([audit])

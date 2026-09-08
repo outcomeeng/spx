@@ -2,7 +2,7 @@
 
 PROVIDES a callback-scoped fixture environment for literal-reuse tests — wraps [22-test-environment.enabler](../../../../22-test-environment.enabler/test-environment.md) with primitives that write the `tsconfig.json` discovery marker, TypeScript source files (`export const NAME = "value";`), TypeScript test files (`expect(v).toBe("value");`), and an orchestrated reuse-and-duplication fixture driven by [`LITERAL_TEST_GENERATOR.reuseFixtureInputs()`](../../../../../testing/generators/literal/literal.ts)
 SO THAT every test under [literal-reuse](../literal-reuse.md) — covering detection, fixture classification, value allowlist, path filter, and CLI output modes
-CAN exercise `literalCommand` against real temp-project fixtures while keeping every TypeScript fixture template outside the file-pattern blind spot the validator exempts from cross-file reuse detection — fixture templates live in production code under `testing/harnesses/literal/`, never in spec-tree `tests/` directories
+CAN exercise `literalCommand` against real temp-project fixtures while keeping TypeScript fixture construction outside the file-pattern blind spot the validator exempts from cross-file reuse detection — canonical snippet builders live in `testing/generators/literal/`, fixture lifecycle lives in `testing/harnesses/literal/`, and neither concern lives in spec-tree `tests/` directories
 
 ## Assertions
 
@@ -26,7 +26,7 @@ CAN exercise `literalCommand` against real temp-project fixtures while keeping e
 ### Compliance
 
 - ALWAYS: the harness writes the discovery marker at the path bound to `TYPESCRIPT_MARKER` from `@/validation/discovery/index` so `detectTypeScript` reports present without any string literal of the marker filename appearing in the harness or its tests ([test](tests/literal-fixture-harness.compliance.l1.test.ts))
-- ALWAYS: the public API is callback-scoped — `withLiteralFixtureEnv(config, callback) → Promise<T>` exposes no caller-owned cleanup handle, matching the test-environment callback pattern ([review](../../../../22-test-environment.enabler/21-callback-scoped-environment.adr.md))
-- ALWAYS: every TypeScript fixture template — source-file shape, test-file shape, reuse-fixture orchestration — lives in `testing/harnesses/literal/`; no spec-tree `tests/` file under [literal-reuse](../literal-reuse.md) authors a TypeScript fixture template that interpolates a literal value into TS source or test code ([review])
-- NEVER: declare test-owned semantic constants in the harness — variable inputs come from `LITERAL_TEST_GENERATOR` per [21-typescript-conventions.adr.md](../../21-typescript-conventions.adr.md) ([review](../../21-typescript-conventions.adr.md))
-- NEVER: use `vi.mock`, `jest.mock`, `memfs`, or any filesystem-mocking mechanism — fixtures are written to a real OS temp directory under `os.tmpdir()` ([review](../../../../22-test-environment.enabler/21-callback-scoped-environment.adr.md))
+- ALWAYS: the public API is callback-scoped — `withLiteralFixtureEnv(config, callback) → Promise<T>` exposes no caller-owned cleanup handle, matching the test-environment callback pattern per [`spx/22-test-environment.enabler/21-callback-scoped-environment.adr.md`](../../../../22-test-environment.enabler/21-callback-scoped-environment.adr.md) ([audit])
+- ALWAYS: canonical TypeScript snippet construction lives in `testing/generators/literal/`, reuse-fixture lifecycle and orchestration live in `testing/harnesses/literal/`, and no spec-tree `tests/` file under [literal-reuse](../literal-reuse.md) authors a TypeScript fixture template that interpolates a literal value into TS source or test code ([audit])
+- NEVER: declare test-owned semantic constants in the harness — variable inputs come from `LITERAL_TEST_GENERATOR` per [21-typescript-conventions.adr.md](../../21-typescript-conventions.adr.md) ([audit])
+- NEVER: use `vi.mock`, `jest.mock`, `memfs`, or any filesystem-mocking mechanism — fixtures are written to a real OS temp directory under `os.tmpdir()` per [`spx/22-test-environment.enabler/21-callback-scoped-environment.adr.md`](../../../../22-test-environment.enabler/21-callback-scoped-environment.adr.md) ([audit])

@@ -14,8 +14,8 @@ import {
   type LiteralReuseFixtureInputs,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
+import { buildStringAssertion, buildStringDeclaration } from "@testing/generators/literal/snippets";
 import { withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
-import { buildStringAssertion, buildStringDeclaration } from "@testing/harnesses/literal/snippets";
 
 describe("withLiteralFixtureEnv", () => {
   it("materializes a temp project and provides productDir to the callback", async () => {

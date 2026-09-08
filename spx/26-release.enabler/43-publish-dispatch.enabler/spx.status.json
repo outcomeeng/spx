@@ -1,4 +1,10 @@
 {
   "schemaVersion": 1,
-  "verification": {}
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/26-release.enabler/43-publish-dispatch.enabler/tests/publish-dispatch.compliance.l1.test.ts": "passed",
+      "spx/26-release.enabler/43-publish-dispatch.enabler/tests/publish-dispatch.scenario.l1.test.ts": "passed"
+    }
+  }
 }

@@ -15,7 +15,7 @@ import { randomInt } from "node:crypto";
 
 import fc from "fast-check";
 
-import { SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
+import { SPEC_TREE_GRAMMAR } from "@/lib/spec-tree/config";
 
 /** Environment variable that pins the seed for deterministic replay. */
 export const SPX_PROPERTY_SEED_ENV = "SPX_PROPERTY_SEED";
@@ -54,13 +54,25 @@ export const PROPERTY_TIMEOUTS_MS: Record<PropertyLevel, number> = {
   [PROPERTY_LEVEL.L3]: 120_000,
 };
 
+const PROPERTY_TEST_ENVELOPE_MARGIN_MS = 5_000;
+
+/** Vitest envelope for evidence that exercises the L1 fast-check timeout. */
+export const PROPERTY_L1_TEST_ENVELOPE_TIMEOUT_MS = PROPERTY_TIMEOUTS_MS[PROPERTY_LEVEL.L1]
+  + PROPERTY_TEST_ENVELOPE_MARGIN_MS;
+
 const SEED_MODULUS = 2 ** 32;
 const INTEGER_TEXT = /^\s*-?\d+\s*$/;
+const ASYNC_PREDICATE_DECLARATION = "async";
 
 export interface PropertyClassification {
   readonly level: PropertyLevel;
   readonly size?: PropertySize;
 }
+
+/** Reusable harness-owned classifications for linked property evidence. */
+export const PROPERTY_CLASSIFICATION = {
+  SMALL_L1: { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+} as const satisfies Record<string, PropertyClassification>;
 
 export interface PropertyRunDeps {
   readonly env?: Record<string, string | undefined>;
@@ -81,6 +93,19 @@ export class PropertyFailureError extends Error {
     this.name = "PropertyFailureError";
     this.seed = args.seed;
     this.counterexample = args.counterexample;
+  }
+}
+
+/** Raised when a synchronous predicate returns a Promise that the harness cannot safely await. */
+export class PromiseReturningSyncPredicateError extends TypeError {
+  readonly requiredDeclaration = ASYNC_PREDICATE_DECLARATION;
+
+  constructor() {
+    super(
+      "assertProperty received a Promise-returning predicate that is not an async function; "
+        + `declare the predicate \`${ASYNC_PREDICATE_DECLARATION}\` so the harness awaits each generated case.`,
+    );
+    this.name = "PromiseReturningSyncPredicateError";
   }
 }
 
@@ -156,10 +181,7 @@ export function assertProperty<T>(
   const guardedSyncPredicate = (value: T): boolean | void => {
     const outcome = predicate(value);
     if (outcome != null && typeof (outcome as { then?: unknown }).then === "function") {
-      throw new TypeError(
-        "assertProperty received a Promise-returning predicate that is not an async function; "
-          + "declare the predicate `async` so the harness awaits each generated case.",
-      );
+      throw new PromiseReturningSyncPredicateError();
     }
     return outcome as boolean | void;
   };

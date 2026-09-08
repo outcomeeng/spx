@@ -11,8 +11,11 @@ import * as fc from "fast-check";
 /** Pinned so a single-draw case is the same on every run and a failure reproduces. */
 const SAMPLE_SEED = 20_260_724;
 
+/** Source-owned fast-check parameters used by the deterministic single-draw sampler. */
+export const SAMPLE_GENERATOR_PARAMETERS = { numRuns: 1, seed: SAMPLE_SEED } as const;
+
 export function sampleGeneratedValue<T>(arbitrary: fc.Arbitrary<T>): T {
-  const [value] = fc.sample(arbitrary, { numRuns: 1, seed: SAMPLE_SEED });
+  const [value] = fc.sample(arbitrary, SAMPLE_GENERATOR_PARAMETERS);
   if (value === undefined) {
     throw new Error("Generator returned no sample");
   }

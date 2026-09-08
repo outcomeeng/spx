@@ -32,6 +32,7 @@ export interface ParsedMarkdownHeading {
   readonly tag: string;
   readonly text: string;
   readonly index: number;
+  readonly lineStart: number;
 }
 
 export interface IndependentMarkdownObservation {
@@ -48,6 +49,53 @@ export function observeIndependentMarkdown(notes: string): IndependentMarkdownOb
 
 export function keepAChangelogVersionHeadingText(version: string): string {
   return `[${version}]`;
+}
+
+export function observeIndependentVersionSection(notes: string, version: string): string | undefined {
+  const lines = notes.split("\n");
+  const headings = parseMarkdownItHeadings(notes);
+  const versionHeadings = headings.filter(
+    (heading) =>
+      heading.tag === MARKDOWN_HEADING_TAG.H2
+      && heading.text === keepAChangelogVersionHeadingText(version),
+  );
+  const versionHeading = versionHeadings[0];
+  if (versionHeadings.length !== 1) {
+    return undefined;
+  }
+  const boundary = headings.find(
+    (heading) =>
+      heading.lineStart > versionHeading.lineStart
+      && (heading.tag === MARKDOWN_HEADING_TAG.H1 || heading.tag === MARKDOWN_HEADING_TAG.H2),
+  );
+  return lines.slice(
+    versionHeading.lineStart,
+    independentSectionBoundary(lines, boundary?.lineStart ?? lines.length),
+  ).join("\n");
+}
+
+function independentSectionBoundary(lines: readonly string[], boundary: number): number {
+  let cursor = boundary - 1;
+  while (cursor >= 0 && normalizeLineEnding(lines[cursor])?.trim().length === 0) {
+    cursor -= 1;
+  }
+  let footerStart = boundary;
+  while (cursor >= 0 && isMarkdownItReferenceDefinition(normalizeLineEnding(lines[cursor]) ?? "")) {
+    footerStart = cursor;
+    cursor -= 1;
+  }
+  return footerStart;
+}
+
+/**
+ * A trailing footer line is a CommonMark link reference definition. markdown-it consumes such a
+ * line into the parse environment's reference map and emits no block token for it, which is an
+ * observation independent of any line-shape pattern the production scanner applies.
+ */
+function isMarkdownItReferenceDefinition(line: string): boolean {
+  const env: { references?: Readonly<Record<string, unknown>> } = {};
+  const tokens = new MarkdownIt({ html: true }).parse(line, env);
+  return tokens.length === 0 && Object.keys(env.references ?? {}).length === 1;
 }
 
 function normalizeLineEnding(line: string | undefined): string | undefined {
@@ -91,7 +139,11 @@ function parseMarkdownItHeadings(notes: string): readonly ParsedMarkdownHeading[
     if (inline === undefined || inline.type !== MARKDOWN_TOKEN.inline) {
       return;
     }
-    headings.push({ tag: token.tag, text: inline.content, index });
+    const lineStart = token.map?.[0];
+    if (lineStart === undefined) {
+      return;
+    }
+    headings.push({ tag: token.tag, text: inline.content, index, lineStart });
   });
   return headings;
 }

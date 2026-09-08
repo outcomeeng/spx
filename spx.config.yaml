@@ -14,6 +14,7 @@ validation:
         - --exclude=
         - "*.test.ts"
         - "*.test.tsx"
+        - "Literal: No problems of type "
         - append-finding
         - append-scope
         - event

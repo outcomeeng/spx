@@ -18,7 +18,7 @@ import {
   LITERAL_KIND,
   type LiteralKind,
   type LiteralLocation,
-  MODULE_NAMING_SKIP,
+  type LiteralOccurrence,
   REMEDIATION,
   type ReuseFinding,
 } from "@/validation/literal/index";
@@ -26,7 +26,8 @@ import {
   buildNumericDeclaration,
   buildStringDeclaration,
   buildTemplateDeclaration,
-} from "@testing/harnesses/literal/snippets";
+} from "@testing/generators/literal/snippets";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 
 const DOMAIN_LITERAL_MIN_LENGTH = DEFAULT_MIN_STRING_LENGTH + 4;
 const DOMAIN_LITERAL_MAX_LENGTH = 32;
@@ -76,32 +77,39 @@ const RESERVED_LITERALS: ReadonlySet<string> = new Set(WEB_PRESET_TOKENS);
 
 const ALL_PRESET_NAMES: ReadonlyArray<PresetName> = Object.values(PRESET_NAMES);
 
-const IMPORT_SYNTAX_EXAMPLES: Readonly<Record<string, { readonly source: string; readonly path: string }>> = {
-  ImportDeclaration: {
-    source: `import { a } from "./import-decl-path";`,
-    path: "./import-decl-path",
+/**
+ * The module-naming positions the detection spec enumerates, each with a source
+ * snippet that places a module specifier at that position. The enumeration's
+ * provenance is the spec assertion, not the detector's skip registry: the linked
+ * compliance evidence cross-checks the two sets both ways, so a position the
+ * registry drops still yields a fixture whose specifier would then be indexed,
+ * and a position the registry adds without a spec entry fails the check. Every
+ * position here is a field the pinned visitor-keys map traverses for its node.
+ */
+const MODULE_NAMING_POSITIONS: readonly {
+  readonly nodeType: string;
+  readonly field: string;
+  readonly buildSource: (specifier: string) => string;
+}[] = [
+  { nodeType: "ImportDeclaration", field: "source", buildSource: (specifier) => `import { a } from "${specifier}";` },
+  {
+    nodeType: "ExportNamedDeclaration",
+    field: "source",
+    buildSource: (specifier) => `export { x } from "${specifier}";`,
   },
-  ExportNamedDeclaration: {
-    source: `export { x } from "./export-named-path";`,
-    path: "./export-named-path",
+  { nodeType: "ExportAllDeclaration", field: "source", buildSource: (specifier) => `export * from "${specifier}";` },
+  {
+    nodeType: "ImportExpression",
+    field: "source",
+    buildSource: (specifier) => `const load = () => import("${specifier}");`,
   },
-  ExportAllDeclaration: {
-    source: `export * from "./export-all-path";`,
-    path: "./export-all-path",
+  { nodeType: "TSImportType", field: "source", buildSource: (specifier) => `type X = import("${specifier}").Thing;` },
+  {
+    nodeType: "TSExternalModuleReference",
+    field: "expression",
+    buildSource: (specifier) => `import eq = require("${specifier}");`,
   },
-  ImportExpression: {
-    source: `const load = () => import("./dynamic-import-path");`,
-    path: "./dynamic-import-path",
-  },
-  TSImportType: {
-    source: `type X = import("./type-only-path").Thing;`,
-    path: "./type-only-path",
-  },
-  TSExternalModuleReference: {
-    source: `import eq = require("./equals-required-path");`,
-    path: "./equals-required-path",
-  },
-};
+];
 
 const AST_OCCURRENCE_MAPPING_LABEL = {
   STRING_DECLARATION: "stringLiteralDeclaration",
@@ -133,6 +141,44 @@ export function arbitraryLiteralSourceSnippet(): fc.Arbitrary<string> {
     arbitraryDomainNumber().map((value) => buildNumericDeclaration(String(value))),
     arbitraryDomainLiteral().map(buildTemplateDeclaration),
   );
+}
+
+export interface LiteralDetectionFixtureFile {
+  readonly filename: string;
+  readonly source: string;
+}
+
+export interface LiteralDetectionFixture {
+  readonly srcFiles: readonly LiteralDetectionFixtureFile[];
+  readonly testFiles: readonly LiteralDetectionFixtureFile[];
+}
+
+function arbitraryLiteralDetectionFixtureFile(
+  filenameArbitrary: fc.Arbitrary<string>,
+): fc.Arbitrary<LiteralDetectionFixtureFile> {
+  return fc.record({
+    filename: filenameArbitrary,
+    source: arbitraryLiteralSourceSnippet(),
+  });
+}
+
+export function arbitraryLiteralDetectionFixture(): fc.Arbitrary<LiteralDetectionFixture> {
+  return fc.record({
+    sharedSource: arbitraryLiteralSourceSnippet(),
+    srcFiles: fc.uniqueArray(arbitraryLiteralDetectionFixtureFile(arbitrarySourceFilePath()), {
+      minLength: LITERAL_TEST_GENERATOR_COUNTS.one,
+      maxLength: LITERAL_TEST_GENERATOR_COUNTS.findingsMax,
+      selector: (entry) => entry.filename,
+    }),
+    testFiles: fc.uniqueArray(arbitraryLiteralDetectionFixtureFile(arbitraryTestFilePath()), {
+      minLength: LITERAL_TEST_GENERATOR_COUNTS.one,
+      maxLength: LITERAL_TEST_GENERATOR_COUNTS.findingsMax,
+      selector: (entry) => entry.filename,
+    }),
+  }).map(({ sharedSource, srcFiles, testFiles }) => ({
+    srcFiles: srcFiles.map((file, index) => index === 0 ? { ...file, source: sharedSource } : file),
+    testFiles: testFiles.map((file, index) => index === 0 ? { ...file, source: sharedSource } : file),
+  }));
 }
 
 export interface LiteralKindValue {
@@ -169,6 +215,19 @@ export function arbitraryDistinctLiteralKindValuePair(): fc.Arbitrary<DistinctLi
       first: { kind: LITERAL_KIND.STRING, value: literal },
       second: { kind: LITERAL_KIND.NUMBER, value: String(number) },
     })),
+  );
+}
+
+export function arbitraryDistinctLiteralIndexEntries(): fc.Arbitrary<readonly [LiteralOccurrence, LiteralOccurrence]> {
+  return fc.record({
+    pair: arbitraryDistinctLiteralKindValuePair(),
+    firstLocation: arbitraryLiteralLocation(arbitrarySourceFilePath()),
+    secondLocation: arbitraryLiteralLocation(arbitrarySourceFilePath()),
+  }).map(({ pair, firstLocation, secondLocation }) =>
+    [
+      { ...pair.first, loc: firstLocation },
+      { ...pair.second, loc: secondLocation },
+    ] as const
   );
 }
 
@@ -239,6 +298,12 @@ export function arbitrarySourceFilePath(): fc.Arbitrary<string> {
   return arbitraryDomainLiteral().map((slug) => `src/${slug}.ts`);
 }
 
+export function arbitraryDistinctSourceFilePathPair(): fc.Arbitrary<readonly [string, string]> {
+  return fc
+    .tuple(arbitrarySourceFilePath(), arbitrarySourceFilePath())
+    .filter(([first, second]) => first !== second);
+}
+
 export function arbitraryTestFilePath(): fc.Arbitrary<string> {
   return arbitraryDomainLiteral().map((slug) => `tests/${slug}.test.ts`);
 }
@@ -280,15 +345,41 @@ export interface LiteralPathScopedSourceReuseFixtureInputs {
   readonly excludedPathPrefix: string;
 }
 
+export interface LiteralSnippetBuilderScenario {
+  readonly stringValue: string;
+  readonly numericValue: string;
+  readonly sourceFile: string;
+  readonly testFile: string;
+}
+
+export function arbitraryLiteralSnippetBuilderScenario(): fc.Arbitrary<LiteralSnippetBuilderScenario> {
+  return fc.record({
+    stringValue: arbitraryDomainLiteral(),
+    numericValue: arbitraryDomainNumber().map(String),
+    sourceFile: arbitrarySourceFilePath(),
+    testFile: arbitraryTestFilePath(),
+  });
+}
+
 export function arbitraryLiteralReuseFixtureInputs(): fc.Arbitrary<LiteralReuseFixtureInputs> {
+  return arbitraryLiteralReuseFixtureInputsWithTestPaths(arbitraryTestFilePath());
+}
+
+export function arbitrarySpecTreeLiteralReuseFixtureInputs(): fc.Arbitrary<LiteralReuseFixtureInputs> {
+  return arbitraryLiteralReuseFixtureInputsWithTestPaths(arbitrarySpecTreeTestFilePath());
+}
+
+function arbitraryLiteralReuseFixtureInputsWithTestPaths(
+  testFilePath: fc.Arbitrary<string>,
+): fc.Arbitrary<LiteralReuseFixtureInputs> {
   return fc
     .record({
       reuseLiteral: arbitraryDomainLiteral(),
       dupeLiteral: arbitraryDomainLiteral(),
       reuseSourceFile: arbitrarySourceFilePath(),
-      reuseTestFile: arbitraryTestFilePath(),
-      dupeFirstTestFile: arbitraryTestFilePath(),
-      dupeSecondTestFile: arbitraryTestFilePath(),
+      reuseTestFile: testFilePath,
+      dupeFirstTestFile: testFilePath,
+      dupeSecondTestFile: testFilePath,
     })
     .filter((inputs) => {
       const values = Object.values(inputs);
@@ -303,6 +394,14 @@ export function arbitraryLiteralSourceReuseFixtureInputs(): fc.Arbitrary<Literal
     literal: arbitraryDomainLiteral(),
     sourceFile: arbitrarySourceFilePath(),
     testFile: arbitraryTestFilePath(),
+  });
+}
+
+export function arbitrarySpecTreeLiteralSourceReuseFixtureInputs(): fc.Arbitrary<LiteralSourceReuseFixtureInputs> {
+  return fc.record({
+    literal: arbitraryDomainLiteral(),
+    sourceFile: arbitrarySourceFilePath(),
+    testFile: arbitrarySpecTreeTestFilePath(),
   });
 }
 
@@ -351,10 +450,16 @@ export interface LiteralModuleNamingFixture {
   readonly path: string;
 }
 
+/** A relative module specifier of the shape import and export positions carry. */
+export function arbitraryModuleSpecifier(): fc.Arbitrary<string> {
+  return arbitraryDomainLiteral().map((slug) => `./${slug}`);
+}
+
+/** One fixture per module-naming position the detection spec enumerates, each carrying a generated specifier. */
 export function literalModuleNamingFixtures(): readonly LiteralModuleNamingFixture[] {
-  return Object.entries(MODULE_NAMING_SKIP).flatMap(([nodeType, fields]) => {
-    const example = IMPORT_SYNTAX_EXAMPLES[nodeType];
-    return [...fields].map((field) => ({ nodeType, field, source: example.source, path: example.path }));
+  return MODULE_NAMING_POSITIONS.map(({ nodeType, field, buildSource }) => {
+    const path = sampleGeneratedValue(arbitraryModuleSpecifier());
+    return { nodeType, field, source: buildSource(path), path };
   });
 }
 
@@ -503,12 +608,14 @@ export const LITERAL_TEST_GENERATOR = {
   domainLiteral: arbitraryDomainLiteral,
   domainNumber: arbitraryDomainNumber,
   sourceFilePath: arbitrarySourceFilePath,
+  sourceFilePathPair: arbitraryDistinctSourceFilePathPair,
   testFilePath: arbitraryTestFilePath,
   webPresetToken: arbitraryWebPresetToken,
   presetName: arbitraryPresetName,
   reuseFixtureInputs: arbitraryLiteralReuseFixtureInputs,
   sourceReuseFixtureInputs: arbitraryLiteralSourceReuseFixtureInputs,
   pathScopedSourceReuseFixtureInputs: arbitraryLiteralPathScopedSourceReuseFixtureInputs,
+  snippetBuilderScenario: arbitraryLiteralSnippetBuilderScenario,
   literalConfig: arbitraryLiteralConfig,
   literalValueConfig: arbitraryLiteralValueConfig,
   detectionResult: arbitraryDetectionResult,

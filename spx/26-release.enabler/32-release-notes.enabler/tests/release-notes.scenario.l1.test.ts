@@ -1,6 +1,5 @@
 import { isAbsolute } from "node:path";
 
-import { RELEASE_NOTES_OUTPUT_PREFIX } from "@/commands/release/release-notes";
 import { changelogVersionHeading } from "@/domains/release/release-notes";
 import { isPathContained } from "@/lib/file-system/pathContainment";
 import { oracleResolvedChangelogPath } from "@testing/generators/release/changelog";
@@ -46,7 +45,7 @@ describe("releaseNotesCommand wires release-note composition into the release wo
   it("writes the changelog through the production command handler", async () => {
     await expect(observeReleaseNotesCommand()).resolves.toSatisfy(
       (observation) =>
-        observation.output === `${RELEASE_NOTES_OUTPUT_PREFIX}: ${observation.resolvedPath}`
+        observation.output === observation.resolvedPath
         && observation.content.includes(changelogVersionHeading(observation.version)),
     );
   });
@@ -54,7 +53,7 @@ describe("releaseNotesCommand wires release-note composition into the release wo
   it("reports the promoted canonical changelog path", async () => {
     await expect(observeCanonicalReleaseNotesCommand()).resolves.toSatisfy(
       (observation) =>
-        observation.output === `${RELEASE_NOTES_OUTPUT_PREFIX}: ${observation.canonicalPath}`
+        observation.output === observation.canonicalPath
         && observation.canonicalPath !== observation.lexicalPath
         && observation.content.includes(changelogVersionHeading(observation.version)),
     );

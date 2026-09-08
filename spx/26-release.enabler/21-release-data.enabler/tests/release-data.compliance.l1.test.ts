@@ -1,49 +1,20 @@
-import { execa } from "execa";
 import { describe, expect, it } from "vitest";
 
 import { computeReleaseData } from "@/domains/release/release-data";
-import { withoutGitEnvironment } from "@/lib/git/environment";
-import { type ExecResult, type GitDependencies } from "@/lib/git/root";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 import { GIT_TEST_COMMAND, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
-
-/**
- * Records the executable of every command release-data computation runs while
- * delegating to real git, so the test can prove git is the only program invoked.
- */
-class RecordingGitRunner implements GitDependencies {
-  readonly invokedExecutables: string[] = [];
-
-  async execa(
-    command: string,
-    args: string[],
-    options?: { cwd?: string; reject?: boolean },
-  ): Promise<ExecResult> {
-    this.invokedExecutables.push(command);
-    const result = await execa(command, [...args], {
-      cwd: options?.cwd,
-      reject: options?.reject,
-      env: withoutGitEnvironment(process.env),
-      extendEnv: false,
-    });
-    return {
-      exitCode: result.exitCode ?? 0,
-      stdout: String(result.stdout),
-      stderr: String(result.stderr),
-    };
-  }
-}
+import { GIT_REMOTE_SUBCOMMANDS, RecordingReleaseGitRunner } from "@testing/harnesses/release/git-runner";
 
 describe("computeReleaseData — git plumbing and the working tree are the only inputs", () => {
-  it("invokes only the git executable through the injected runner", async () => {
+  it("invokes only git, and never a subcommand that reaches a remote", async () => {
     await withGitWorktreeEnv(async (env) => {
       const [base, head] = sampleReleaseTestValue(
         RELEASE_TEST_GENERATOR.commitSequence(RELEASE_TEST_GENERATOR.counts.complianceCommits),
       );
       const tag = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.releaseTag());
       const packageVersion = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.semver());
-      const runner = new RecordingGitRunner();
+      const runner = new RecordingReleaseGitRunner();
 
       await env.writeTracked(base.path, base.content);
       await env.commit(base.subject);
@@ -57,9 +28,23 @@ describe("computeReleaseData — git plumbing and the working tree are the only 
         deps: runner,
       });
 
-      expect(runner.invokedExecutables.length).toBeGreaterThan(0);
-      expect(runner.invokedExecutables.every((executable) => executable === GIT_TEST_COMMAND)).toBe(true);
+      expect(runner.invocations.length).toBeGreaterThan(0);
+      for (const invocation of runner.invocations) {
+        expect(invocation.executable).toBe(GIT_TEST_COMMAND);
+        expect(GIT_REMOTE_SUBCOMMANDS).not.toContain(invocation.args[0]);
+      }
       expect(data.commits.map((commit) => commit.subject)).toEqual([head.subject]);
+    });
+  });
+
+  it("records a remote-reaching subcommand so the evidence above can fail", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const runner = new RecordingReleaseGitRunner();
+
+      await runner.execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.FETCH], { cwd: env.productDir, reject: false });
+
+      expect(runner.invocations.map((invocation) => invocation.args[0])).toEqual([GIT_TEST_SUBCOMMANDS.FETCH]);
+      expect(GIT_REMOTE_SUBCOMMANDS).toContain(GIT_TEST_SUBCOMMANDS.FETCH);
     });
   });
 });
