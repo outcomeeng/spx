@@ -1,7 +1,6 @@
 import {
   buildReleaseNotesPrompt,
   CHANGELOG_PATH_DATA_BLOCK_CLOSE,
-  CHANGELOG_PRESERVATION_INSTRUCTION,
   CHANGELOG_VERSION_SECTION_PREFIX,
   CHANGELOG_VERSION_SECTION_SUFFIX,
   changelogVersionHeading,
@@ -10,8 +9,7 @@ import {
   RELEASE_NOTES_AGENT_MAX_TURNS,
   RELEASE_NOTES_AGENT_PERMISSION_MODE,
   RELEASE_NOTES_AGENT_TOOLS,
-  RELEASE_NOTES_USER_FACING_INSTRUCTION,
-  RELEASE_NOTES_VERSION_HEADING_INSTRUCTION,
+  RELEASE_NOTES_OMITTED_CHANGE_CLASSES,
   RELEASE_VERSION_DATA_BLOCK_CLOSE,
   ReleaseNotesError,
 } from "@/domains/release/release-notes";
@@ -30,7 +28,6 @@ import {
   releaseNotesSubjectScopeAuditInput,
   sampleAbsoluteReleaseNotesPathInput,
   samplePartialWriteReleaseNotesScenario,
-  sampleReleaseNotesCompositionFixture,
   sampleReleaseNotesConfiguredPathRejectionInput,
   sampleReleaseNotesExistingSectionScenario,
   sampleReleaseNotesFaithfulnessScenario,
@@ -59,13 +56,18 @@ import {
 } from "@testing/harnesses/release/release-notes-conformance";
 import { describe, expect, it } from "vitest";
 
-it("instructs the producer to describe user-visible release behavior", () => {
-  const prompt = buildReleaseNotesPrompt(
-    sampleReleaseNotesCompositionFixture().releaseData,
+it("states one omission contract across the producer prompt and the faithfulness-audit prompt", async () => {
+  const scenario = sampleReleaseNotesFaithfulnessScenario(
+    RELEASE_NOTES_FAITHFULNESS_CASE.PRODUCTION_AUDITOR,
+  );
+  const producerPrompt = buildReleaseNotesPrompt(
+    scenario.input.fixture.releaseData,
     DEFAULT_CHANGELOG_PATH,
   );
+  const audit = await observeReleaseNotesFaithfulness(scenario.input);
 
-  expect(prompt).toContain(RELEASE_NOTES_USER_FACING_INSTRUCTION);
+  expect(producerPrompt).toContain(RELEASE_NOTES_OMITTED_CHANGE_CLASSES);
+  expect(audit.auditPrompt).toContain(RELEASE_NOTES_OMITTED_CHANGE_CLASSES);
 });
 
 describe("composeReleaseNotes builds the prompt from the release data and resolved configuration", () => {
@@ -124,7 +126,7 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
     });
   });
 
-  it("instructs the agent to preserve existing changelog sections", async () => {
+  it("gives the agent a staged artifact path separate from and contained by the working directory", async () => {
     const scenario = sampleReleaseNotesExistingSectionScenario(
       RELEASE_NOTES_EXISTING_SECTION_CASE.PROMPT_PRESERVATION,
     );
@@ -140,7 +142,6 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
           observation.stagedPromptPath,
         ),
       ).toBe(true);
-      expect(observation.prompt).toContain(CHANGELOG_PRESERVATION_INSTRUCTION);
       return true;
     });
   });
@@ -282,7 +283,6 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
       expect(JSON.parse(observation.versionDataBlock.data)).toBe(
         input.fixture.releaseData.version,
       );
-      expect(observation.prompt).toContain(RELEASE_NOTES_VERSION_HEADING_INSTRUCTION);
       expect(observation.prompt).toContain(
         JSON.stringify(CHANGELOG_VERSION_SECTION_PREFIX),
       );

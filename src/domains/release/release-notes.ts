@@ -127,10 +127,17 @@ export const RELEASE_NOTES_VERSION_HEADING_INSTRUCTION = `Construct the release 
 }; write no quotes, escapes, or other text on that heading line.`;
 export const CHANGELOG_PRESERVATION_INSTRUCTION =
   "If the changelog path already exists, read it first and preserve existing version sections; replace only this release version's section when it is already present, otherwise insert this release section without deleting older sections.";
+/**
+ * The change classes the notes leave out, named once and carried by both the
+ * producer instruction and the faithfulness-audit instruction, so the two
+ * prompts state one omission contract rather than two that can drift apart.
+ */
+export const RELEASE_NOTES_OMITTED_CHANGE_CLASSES =
+  "spec-only, test-only, release-mechanics, and internal implementation changes that have no observable effect";
 export const RELEASE_NOTES_USER_FACING_INSTRUCTION =
-  "Write for product users. Translate implementation-shaped commit subjects into externally observable capabilities and effects when they change product behavior, and consolidate related commits into one user-facing entry. Omit only spec-only, test-only, release-mechanics, and internal implementation changes that have no observable effect.";
+  `Write for product users. Translate implementation-shaped commit subjects into externally observable capabilities and effects when they change product behavior, and consolidate related commits into one user-facing entry. Omit only ${RELEASE_NOTES_OMITTED_CHANGE_CLASSES}.`;
 export const RELEASE_NOTES_AUDIT_USER_FACING_INSTRUCTION =
-  "Judge each commit by its observable effect rather than its technical label. Approve only when the release section represents every user-visible change and omits spec-only, test-only, release-mechanics, and internal implementation changes that have no observable effect.";
+  `Judge each commit by its observable effect rather than its technical label. Approve only when the release section represents every user-visible change and omits ${RELEASE_NOTES_OMITTED_CHANGE_CLASSES}.`;
 export const RELEASE_NOTES_AGENT_TOOLS = [
   AGENT_RUN_TOOLS.READ,
   AGENT_RUN_TOOLS.WRITE,
