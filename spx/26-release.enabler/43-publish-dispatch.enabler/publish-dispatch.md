@@ -15,6 +15,7 @@ CAN reach its registry with verified provenance, its release notes, and its upda
 - Given a product checkout whose changelog file differs from the changelog committed at the release tag, when `spx release publish` reads the release artifacts, then the changelog it validates is the one committed at the tagged commit, whatever the checkout's changelog file holds ([test](tests/publish-dispatch.scenario.l1.test.ts))
 - Given a release tag that names no commit in the product repository, when `spx release publish` resolves the tagged commit, then publication fails ([test](tests/publish-dispatch.scenario.l1.test.ts))
 - Given a configured changelog path that names a committed directory, when `spx release publish` reads the changelog at the release tag, then publication fails ([test](tests/publish-dispatch.scenario.l1.test.ts))
+- Given a publication that fails, when `spx release publish` reports the failure, then standard error carries the failure message escaped and unabridged and the process exits non-zero ([test](tests/publish-dispatch.scenario.l1.test.ts))
 
 ### Compliance
 
