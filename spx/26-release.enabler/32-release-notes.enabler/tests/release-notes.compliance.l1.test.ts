@@ -16,6 +16,7 @@ import { RELEASE_NOTES_PROMPT_CONTRACT } from "@/domains/release/release-notes-p
 import { isPathContained } from "@/lib/file-system/pathContainment";
 import { sampleNonConformantReleaseNotesChangelogCases } from "@testing/generators/release/changelog";
 import {
+  arbitraryReleaseNotesSubjectScopeScenario,
   RELEASE_NOTES_CONFIGURED_PATH_REJECTION_CASE,
   RELEASE_NOTES_EXISTING_SECTION_CASE,
   RELEASE_NOTES_FAITHFULNESS_CASE,
@@ -24,6 +25,7 @@ import {
   RELEASE_NOTES_PROMPT_CASE,
   releaseNotesPromptPathProse,
   releaseNotesPromptVersionProse,
+  releaseNotesSubjectScopeAuditInput,
   sampleAbsoluteReleaseNotesPathInput,
   samplePartialWriteReleaseNotesScenario,
   sampleReleaseNotesCompositionFixture,
@@ -36,6 +38,7 @@ import {
   sampleReleaseNotesPromptInput,
   sampleSymlinkRootReleaseNotesInput,
 } from "@testing/generators/release/release-notes";
+import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import {
   observeAbsoluteInTreeReleaseNotesPath,
   observeConfiguredReleaseNotesPathRejection,
@@ -45,6 +48,7 @@ import {
   observeReleaseNotesPartialWriteFailure,
   observeReleaseNotesPath,
   observeReleaseNotesPrompt,
+  observeReleaseNotesPromptSubjects,
   observeReleaseNotesSymlinkToRootPath,
 } from "@testing/harnesses/release/release-notes-compliance";
 import {
@@ -716,5 +720,22 @@ describe("isPathContained verifies release path containment edge cases directly"
     for (const input of sampleReleaseNotesPathContainmentInputs()) {
       expect(isPathContained(input.root, input.candidate)).toBe(input.expected);
     }
+  });
+});
+
+describe("release-notes prompts carry only the subjects the notes describe", () => {
+  it("withholds spec, test, refactor, style, docs, ci, and build subjects from the producer and the audit alike", async () => {
+    await assertProperty(
+      arbitraryReleaseNotesSubjectScopeScenario(),
+      async (scenario) => {
+        expect(JSON.parse(observeReleaseNotesPromptSubjects(scenario.releaseData).data)).toEqual(
+          scenario.keptSubjects,
+        );
+        const audit = await observeReleaseNotesFaithfulness(releaseNotesSubjectScopeAuditInput(scenario));
+        expect(audit.auditAttempted).toBe(true);
+        expect(JSON.parse(audit.auditSubjectsDataBlock.data)).toEqual(scenario.keptSubjects);
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
   });
 });

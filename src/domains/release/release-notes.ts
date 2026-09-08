@@ -140,6 +140,36 @@ export const RELEASE_NOTES_AGENT_PERMISSION_MODE = AGENT_PERMISSION_MODES.DONT_A
 export const RELEASE_NOTES_AGENT_MAX_TURNS = 12;
 export const RELEASE_NOTES_FAITHFULNESS_AUDIT_MAX_TURNS = 4;
 
+/**
+ * The conventional commit types whose subjects the notes omit as declared —
+ * spec, test, refactor, style, documentation, CI, and build work carry no
+ * user-visible behavior of their own. Their subjects are withheld from the
+ * producer and the faithfulness audit alike, so neither reads an observable
+ * effect into them.
+ */
+export const RELEASE_NOTES_OMITTED_COMMIT_TYPES = [
+  "spec",
+  "test",
+  "refactor",
+  "style",
+  "docs",
+  "ci",
+  "build",
+] as const;
+/** A conventional commit subject opens with `type`, an optional `(scope)`, an optional `!`, and a colon. */
+const CONVENTIONAL_COMMIT_TYPE_PATTERN = /^([a-z]+)(?:\([^)]*\))?!?:/u;
+
+/** The subjects the notes describe: every release commit except those whose conventional type the notes omit. */
+export function releaseNotesSubjects(commits: ReleaseData["commits"]): string[] {
+  const omittedTypes: ReadonlySet<string> = new Set(RELEASE_NOTES_OMITTED_COMMIT_TYPES);
+  return commits
+    .map((commit) => commit.subject)
+    .filter((subject) => {
+      const type = CONVENTIONAL_COMMIT_TYPE_PATTERN.exec(subject)?.[1];
+      return type === undefined || !omittedTypes.has(type);
+    });
+}
+
 const CARRIAGE_RETURN = "\r";
 const MARKDOWN_HEADING_PREFIX = "#";
 const MARKDOWN_HEADING_SEPARATOR_PATTERN = /^[ \t]/u;
@@ -644,7 +674,7 @@ function formatChangelogPathDataBlock(changelogPath: string): string {
 }
 
 function formatCommitSubjectsDataBlock(releaseData: ReleaseData): string {
-  const commitSubjects = releaseData.commits.map((commit) => commit.subject);
+  const commitSubjects = releaseNotesSubjects(releaseData.commits);
   return [
     COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
     encodeCommitSubjects(commitSubjects),

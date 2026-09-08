@@ -4,6 +4,7 @@ import { basename, dirname, join, resolve, sep } from "node:path";
 import type { AgentAuditor, AgentAuditRequest, AgentRunRequest } from "@/agent/agent-runner";
 import type { ReleaseData } from "@/domains/release/release-data";
 import {
+  buildReleaseNotesPrompt,
   CHANGELOG_PATH_DATA_BLOCK_CLOSE,
   CHANGELOG_PATH_DATA_BLOCK_OPEN,
   COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
@@ -97,6 +98,8 @@ export interface ReleaseNotesFaithfulnessObservation {
   readonly auditRequest: AgentAuditRequest | undefined;
   readonly auditPrompt: string;
   readonly auditSectionDataBlock: ReleaseNotesPromptDataBlockObservation;
+  /** The commit-subjects data block the audit prompt carries. */
+  readonly auditSubjectsDataBlock: ReleaseNotesPromptDataBlockObservation;
   readonly workingDirectory: string;
 }
 
@@ -361,6 +364,15 @@ function requiredPromptChangelogPath(prompt: string): string {
     throw new Error("Release-notes prompt omitted the staged changelog path");
   }
   return changelogPath;
+}
+
+/** The commit-subjects data block the producer prompt carries for `releaseData`, assembled at the default changelog path. */
+export function observeReleaseNotesPromptSubjects(releaseData: ReleaseData): ReleaseNotesPromptDataBlockObservation {
+  return observePromptDataBlock(
+    buildReleaseNotesPrompt(releaseData, DEFAULT_CHANGELOG_PATH),
+    COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
+    COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
+  );
 }
 
 function observePromptDataBlock(
@@ -1101,6 +1113,11 @@ export async function observeReleaseNotesFaithfulness(
         RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_OPEN,
         RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_CLOSE,
       ),
+      auditSubjectsDataBlock: observePromptDataBlock(
+        "",
+        COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
+        COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
+      ),
       workingDirectory: env.workingDirectory,
     };
   });
@@ -1159,6 +1176,11 @@ async function observeProductionFaithfulnessAudit(
         auditRequest?.prompt ?? "",
         RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_OPEN,
         RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_CLOSE,
+      ),
+      auditSubjectsDataBlock: observePromptDataBlock(
+        auditRequest?.prompt ?? "",
+        COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
+        COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
       ),
       workingDirectory: env.workingDirectory,
     };

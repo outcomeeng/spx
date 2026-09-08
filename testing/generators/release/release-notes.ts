@@ -1,5 +1,7 @@
 import { join, sep, win32 } from "node:path";
 
+import * as fc from "fast-check";
+
 import type { ReleaseData } from "@/domains/release/release-data";
 import {
   CHANGELOG_CHANGE_GROUPS,
@@ -16,6 +18,7 @@ import {
   RELEASE_VERSION_DATA_BLOCK_CLOSE,
 } from "@/domains/release/release-notes";
 import { PATH_CONTAINMENT_PARENT_DIRECTORY, PATH_CONTAINMENT_ROOT_CANDIDATE } from "@/lib/file-system/pathContainment";
+import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import {
   arbitraryBlankConfiguredChangelogPath,
   arbitraryConfiguredChangelogPath,
@@ -32,6 +35,91 @@ import {
   changelogWithTruncatedFencedReferenceDefinitionSection,
 } from "@testing/generators/release/changelog";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
+
+/**
+ * The conventional commit types the release-notes spec declares omitted, and a
+ * set it keeps, declared here from the spec rather than imported from the
+ * production registry so the expectation cannot move with a production regression.
+ */
+const ORACLE_OMITTED_COMMIT_TYPES = ["spec", "test", "refactor", "style", "docs", "ci", "build"] as const;
+const ORACLE_KEPT_COMMIT_TYPES = ["feat", "fix", "perf", "revert"] as const;
+const CONVENTIONAL_SCOPE_OPEN = "(";
+const CONVENTIONAL_SCOPE_CLOSE = ")";
+const CONVENTIONAL_BREAKING_MARKER = "!";
+const CONVENTIONAL_TYPE_SEPARATOR = ": ";
+const UNTYPED_SUBJECT_SUFFIX = " update";
+
+/** A release whose commits mix omitted-type, kept-type, and untyped subjects, with the subjects the notes keep in commit order. */
+export interface ReleaseNotesSubjectScopeScenario {
+  readonly releaseData: ReleaseData;
+  readonly keptSubjects: readonly string[];
+  readonly omittedSubjects: readonly string[];
+}
+
+interface ScopedSubject {
+  readonly subject: string;
+  readonly kept: boolean;
+}
+
+function arbitraryConventionalSubject(type: string, kept: boolean): fc.Arbitrary<ScopedSubject> {
+  return fc
+    .tuple(fc.option(arbitraryPathSegment(), { nil: undefined }), fc.boolean(), arbitraryPathSegment())
+    .map(([scope, breaking, description]) => ({
+      subject: `${type}${scope === undefined ? "" : `${CONVENTIONAL_SCOPE_OPEN}${scope}${CONVENTIONAL_SCOPE_CLOSE}`}${
+        breaking ? CONVENTIONAL_BREAKING_MARKER : ""
+      }${CONVENTIONAL_TYPE_SEPARATOR}${description}`,
+      kept,
+    }));
+}
+
+function arbitraryScopedSubject(): fc.Arbitrary<ScopedSubject> {
+  return fc.oneof(
+    fc.constantFrom(...ORACLE_OMITTED_COMMIT_TYPES).chain((type) => arbitraryConventionalSubject(type, false)),
+    fc.constantFrom(...ORACLE_KEPT_COMMIT_TYPES).chain((type) => arbitraryConventionalSubject(type, true)),
+    arbitraryPathSegment().map((segment) => ({ subject: `${segment}${UNTYPED_SUBJECT_SUFFIX}`, kept: true })),
+  );
+}
+
+export function arbitraryReleaseNotesSubjectScopeScenario(): fc.Arbitrary<ReleaseNotesSubjectScopeScenario> {
+  return RELEASE_TEST_GENERATOR.releaseData().chain((releaseData) =>
+    fc
+      .array(arbitraryScopedSubject(), {
+        minLength: releaseData.commits.length,
+        maxLength: releaseData.commits.length,
+      })
+      .filter((subjects) => subjects.some((entry) => entry.kept) && subjects.some((entry) => !entry.kept))
+      .map((subjects) => ({
+        releaseData: {
+          ...releaseData,
+          commits: releaseData.commits.map((commit, index) => ({
+            ...commit,
+            subject: subjects[index]?.subject ?? commit.subject,
+          })),
+        },
+        keptSubjects: subjects.filter((entry) => entry.kept).map((entry) => entry.subject),
+        omittedSubjects: subjects.filter((entry) => !entry.kept).map((entry) => entry.subject),
+      }))
+  );
+}
+
+/** The production-auditor faithfulness input for a subject-scope scenario: a section naming the first kept subject. */
+export function releaseNotesSubjectScopeAuditInput(
+  scenario: ReleaseNotesSubjectScopeScenario,
+): ReleaseNotesFaithfulnessInput {
+  const fixture = sampleReleaseNotesCompositionFixture(scenario.releaseData);
+  const currentSection = [
+    changelogVersionHeading(scenario.releaseData.version),
+    changelogGroupHeading(CHANGELOG_CHANGE_GROUPS[0]),
+    changelogEntry(scenario.keptSubjects.at(0) ?? scenario.releaseData.version),
+  ].join("\n");
+  return {
+    kind: RELEASE_NOTES_FAITHFULNESS_CASE.PRODUCTION_AUDITOR,
+    fixture,
+    existingNotes: CHANGELOG_TITLE,
+    generatedNotes: [CHANGELOG_TITLE, currentSection].join("\n\n"),
+    productionAuditSection: currentSection,
+  };
+}
 
 export const RELEASE_NOTES_EXISTING_SECTION_CASE = {
   PROMPT_PRESERVATION: "prompt-preservation",
