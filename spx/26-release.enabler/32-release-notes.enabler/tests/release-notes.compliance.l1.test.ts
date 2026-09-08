@@ -1,6 +1,7 @@
 import {
   buildReleaseNotesPrompt,
   CHANGELOG_PATH_DATA_BLOCK_CLOSE,
+  CHANGELOG_PRESERVATION_INSTRUCTION,
   CHANGELOG_VERSION_SECTION_PREFIX,
   CHANGELOG_VERSION_SECTION_SUFFIX,
   changelogVersionHeading,
@@ -11,6 +12,7 @@ import {
   RELEASE_NOTES_AGENT_TOOLS,
   RELEASE_NOTES_OBSERVABLE_EFFECT_BASIS,
   RELEASE_NOTES_OMITTED_CHANGE_CLASSES,
+  RELEASE_NOTES_VERSION_HEADING_INSTRUCTION,
   RELEASE_VERSION_DATA_BLOCK_CLOSE,
   ReleaseNotesError,
 } from "@/domains/release/release-notes";
@@ -59,7 +61,7 @@ import {
 } from "@testing/harnesses/release/release-notes-conformance";
 import { describe, expect, it } from "vitest";
 
-it("states one observable-effect basis and one omission contract across the producer and audit prompts", async () => {
+it("assembles the producer prompt from every named instruction and shares both contracts with the audit prompt", async () => {
   const scenario = sampleReleaseNotesFaithfulnessScenario(
     RELEASE_NOTES_FAITHFULNESS_CASE.PRODUCTION_AUDITOR,
   );
@@ -73,6 +75,8 @@ it("states one observable-effect basis and one omission contract across the prod
     expect(prompt).toContain(RELEASE_NOTES_OBSERVABLE_EFFECT_BASIS);
     expect(prompt).toContain(RELEASE_NOTES_OMITTED_CHANGE_CLASSES);
   }
+  expect(producerPrompt).toContain(CHANGELOG_PRESERVATION_INSTRUCTION);
+  expect(producerPrompt).toContain(RELEASE_NOTES_VERSION_HEADING_INSTRUCTION);
 });
 
 describe("composeReleaseNotes builds the prompt from the release data and resolved configuration", () => {
