@@ -181,7 +181,7 @@ describe("output-modes — mappings", () => {
       const problemLines = output
         .split(LITERAL_TEXT_LAYOUT.lineSeparator)
         .filter((l) => l.trimStart().startsWith(VERBOSE_PROBLEM_LINE_PREFIX));
-      expect(problemLines.length).toBe(expectedDefaultLines(inputs).length);
+      expect(problemLines).toHaveLength(expectedDefaultLines(inputs).length);
     });
   });
 
