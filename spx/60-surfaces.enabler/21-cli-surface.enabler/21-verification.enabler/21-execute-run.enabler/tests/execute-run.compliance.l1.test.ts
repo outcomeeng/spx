@@ -5,9 +5,7 @@ import { EXECUTE_RUN_CLI_ERROR, EXECUTE_RUN_CLI_WARNING } from "@/commands/verif
 import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
-import { PATH_OPERAND_CLI_SURFACE } from "@/interfaces/cli/lib/path-operands";
 import { CLI_STREAM_REPORT } from "@/interfaces/cli/lib/stream-report";
-import { EXECUTE_RUN_CLI_SURFACE } from "@/interfaces/cli/verify";
 import { DEL_CHAR_CODE, FIRST_PRINTABLE_CHAR_CODE } from "@/lib/sanitize-cli-argument";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
@@ -16,6 +14,8 @@ import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { arbitraryTerminalUnsafeText } from "@testing/generators/terminal-text/terminal-text";
 import {
+  FORBIDDEN_PATH_SCOPE_FLAGS,
+  FORBIDDEN_TYPE_VERB_COMMAND_NAMES,
   handlerFailingWith,
   handlerReturning,
   inspectExecuteRunCommandTree,
@@ -42,7 +42,7 @@ describe("execute run compliance", () => {
     const tree = inspectExecuteRunCommandTree();
     for (const noun of tree.typeNouns) {
       expect(noun.variadicOperandName).toBeDefined();
-      for (const forbiddenFlag of PATH_OPERAND_CLI_SURFACE.forbiddenScopeFlags) {
+      for (const forbiddenFlag of FORBIDDEN_PATH_SCOPE_FLAGS) {
         expect(noun.runVerbOptionFlags.join(" ")).not.toContain(forbiddenFlag);
       }
     }
@@ -63,6 +63,28 @@ describe("execute run compliance", () => {
     expect(noOperand.diagnostic).toBeUndefined();
     expect(noOperand.report?.testPaths).toEqual([...noOperand.product.testPaths].sort(compareAsciiStrings));
     expect(noOperand.report?.locator.scopeIdentity).toBe(SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+
+    // A file operand beside its own node operand narrows to that node: the node encloses its tests directory.
+    const fileBesideNode = await observeExecuteRunHandler({
+      selectOperands: (product) => [product.testPaths[0], product.nodePaths[0]],
+    });
+    expect(fileBesideNode.diagnostic).toBeUndefined();
+    expect(fileBesideNode.report?.testPaths).toEqual([fileBesideNode.product.testPaths[0]]);
+    expect(fileBesideNode.report?.locator.scopeIdentity).toBe(fileBesideNode.product.nodePaths[0]);
+
+    // Two operands in distinct nodes narrow to the deepest directory enclosing both: every operand
+    // sits under it, and the operands part ways at the very next segment.
+    const twoNodes = await observeExecuteRunHandler({
+      selectOperands: (product) => [product.nodePaths[0], product.nodePaths[1]],
+    });
+    expect(twoNodes.diagnostic).toBeUndefined();
+    expect(twoNodes.report?.testPaths).toEqual([...twoNodes.product.testPaths].sort(compareAsciiStrings));
+    const enclosing = twoNodes.report?.locator.scopeIdentity ?? "";
+    const remainders = twoNodes.product.nodePaths.map((nodePath) => {
+      expect(nodePath === enclosing || nodePath.startsWith(`${enclosing}${posix.sep}`)).toBe(true);
+      return posix.relative(enclosing, nodePath).split(posix.sep)[0];
+    });
+    expect(new Set(remainders).size).toBe(remainders.length);
 
     const descriptor = await observeExecuteRunDescriptor(
       fileOperand.product.testPaths,
@@ -107,7 +129,7 @@ describe("execute run compliance", () => {
 
   it("exposes no verification type as a verb command path", () => {
     const tree = inspectExecuteRunCommandTree();
-    for (const forbiddenVerb of EXECUTE_RUN_CLI_SURFACE.forbiddenTypeVerbNames) {
+    for (const forbiddenVerb of FORBIDDEN_TYPE_VERB_COMMAND_NAMES) {
       expect(tree.verificationChildNames).not.toContain(forbiddenVerb);
     }
   });
