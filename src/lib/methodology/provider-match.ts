@@ -31,9 +31,19 @@ export interface ProviderMatchInput {
   readonly codingAgent: string;
 }
 
-const RANGE_ALTERNATIVE_SEPARATOR = "||";
+/** The comparator operators a `supports` range composes; a bare version reads as an exact match. */
+export const RANGE_COMPARATOR = {
+  GREATER_OR_EQUAL: ">=",
+  LESS_OR_EQUAL: "<=",
+  GREATER: ">",
+  LESS: "<",
+  EQUAL: "=",
+} as const;
+
+/** Alternatives of a `supports` range are joined by this token. */
+export const RANGE_ALTERNATIVE_SEPARATOR = "||";
 const COMPARATOR_SEPARATOR = /\s+/;
-const COMPARATOR_PATTERN = /^(>=|<=|>|<|=)?(.+)$/;
+const COMPARATOR_PATTERN = new RegExp(`^(${Object.values(RANGE_COMPARATOR).join("|")})?(.+)$`);
 const PRERELEASE_SEPARATOR = "-";
 const BUILD_SEPARATOR = "+";
 const COMPONENT_SEPARATOR = ".";
@@ -90,13 +100,13 @@ function satisfiesComparator(version: ParsedVersion, comparator: string): Result
   }
   const difference = compareVersions(version, bound);
   switch (match[1]) {
-    case ">=":
+    case RANGE_COMPARATOR.GREATER_OR_EQUAL:
       return { ok: true, value: difference >= 0 };
-    case "<=":
+    case RANGE_COMPARATOR.LESS_OR_EQUAL:
       return { ok: true, value: difference <= 0 };
-    case ">":
+    case RANGE_COMPARATOR.GREATER:
       return { ok: true, value: difference > 0 };
-    case "<":
+    case RANGE_COMPARATOR.LESS:
       return { ok: true, value: difference < 0 };
     default:
       return { ok: true, value: difference === 0 };
