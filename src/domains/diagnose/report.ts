@@ -176,8 +176,8 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
         header: authoredText(DIAGNOSE_TEXT_HEADER.METHODOLOGY_RESOLVED),
         details: [
           authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_RESOLVED),
-          detail(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE, configuredSource),
-          detail(DIAGNOSE_TEXT_LABEL.OBSERVED_VERSION, observedVersion),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE), configuredSource),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.OBSERVED_VERSION), observedVersion),
         ],
       };
     case METHODOLOGY_CONTEXT_VERDICT.BOOTSTRAP_IDENTITY:
@@ -185,36 +185,42 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
         header: authoredText(DIAGNOSE_TEXT_HEADER.METHODOLOGY_BOOTSTRAP_IDENTITY),
         details: [
           detail(
-            DIAGNOSE_TEXT_LABEL.PROBLEM,
+            authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM),
             authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_BOOTSTRAP_IDENTITY_PROBLEM),
           ),
-          detail(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION, configuredVersion),
-          detail(DIAGNOSE_TEXT_LABEL.OBSERVED_VERSION, observedVersion),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_BOOTSTRAP_IDENTITY_FIX)),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION), configuredVersion),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.OBSERVED_VERSION), observedVersion),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.FIX),
+            authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_BOOTSTRAP_IDENTITY_FIX),
+          ),
         ],
       };
     case METHODOLOGY_CONTEXT_VERDICT.VERSION_MISMATCH:
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.METHODOLOGY_VERSION_MISMATCH),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION, configuredVersion),
-          detail(DIAGNOSE_TEXT_LABEL.OBSERVED_VERSION, observedVersion),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_VERSION_MISMATCH_FIX)),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION), configuredVersion),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.OBSERVED_VERSION), observedVersion),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.FIX),
+            authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_VERSION_MISMATCH_FIX),
+          ),
         ],
       };
     case METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE:
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.METHODOLOGY_UNAVAILABLE),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE, configuredSource),
-          detail(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION, configuredVersion),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_UNAVAILABLE_FIX)),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE), configuredSource),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION), configuredVersion),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_UNAVAILABLE_FIX)),
         ],
       };
     case METHODOLOGY_CONTEXT_VERDICT.UNKNOWN:
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.METHODOLOGY_UNKNOWN),
-        details: [detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY))],
+        details: [detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY))],
       };
     default:
       return fallbackText(check);
@@ -234,14 +240,14 @@ function reading(check: CheckRecord, key: string): TerminalText | undefined {
 
 /**
  * Builds one `label: value` detail line. Both sides arrive already composed, so
- * a caller states whether its value is product-authored or external instead of
- * letting the builder assume, and the composed value is spliced in as it stands
+ * a caller states whether its label and value are product-authored or external
+ * instead of letting the builder assume, and each is spliced in as it stands
  * rather than escaped a second time. An absent reading has no value to state, so
  * it resolves to the sentinel the escaper names for that case — a string this
  * product owns, not one a reading supplied.
  */
-function detail(label: string, value: TerminalText | undefined): TerminalText {
-  return terminal`${authoredText(label)}: ${value ?? authoredText(SENTINEL_UNDEFINED)}`;
+function detail(label: TerminalText, value: TerminalText | undefined): TerminalText {
+  return terminal`${label}: ${value ?? authoredText(SENTINEL_UNDEFINED)}`;
 }
 
 function spxReachabilityText(check: CheckRecord): DiagnoseHumanText {
@@ -254,38 +260,52 @@ function spxReachabilityText(check: CheckRecord): DiagnoseHumanText {
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.SPX_INSTALLED),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.VERSION, version ?? authoredText(SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION)),
-          detail(DIAGNOSE_TEXT_LABEL.PATH, path ?? authoredText(SPX_REACHABILITY_READING_VALUE.UNRESOLVED_PATH)),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.VERSION),
+            version ?? authoredText(SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION),
+          ),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.PATH),
+            path ?? authoredText(SPX_REACHABILITY_READING_VALUE.UNRESOLVED_PATH),
+          ),
         ],
       };
     case SPX_REACHABILITY_VERDICT.BELOW_FLOOR:
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.SPX_BELOW_FLOOR),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.INSTALLED, version ?? authoredText(SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION)),
           detail(
-            DIAGNOSE_TEXT_LABEL.REQUIRED_VERSION,
+            authoredText(DIAGNOSE_TEXT_LABEL.INSTALLED),
+            version ?? authoredText(SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION),
+          ),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.REQUIRED_VERSION),
             floor ?? authoredText(SPX_REACHABILITY_READING_VALUE.ABSENT_FLOOR),
           ),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.SPX_BELOW_FLOOR_FIX)),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.SPX_BELOW_FLOOR_FIX)),
         ],
       };
     case SPX_REACHABILITY_VERDICT.UNREACHABLE:
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.SPX_UNREACHABLE),
-        details: [detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.SPX_UNREACHABLE_FIX))],
+        details: [
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.SPX_UNREACHABLE_FIX)),
+        ],
       };
     case SPX_REACHABILITY_VERDICT.UNKNOWN:
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.SPX_UNKNOWN),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.PROBLEM, authoredText(DIAGNOSE_TEXT_DETAIL.SPX_UNKNOWN_PROBLEM)),
-          detail(DIAGNOSE_TEXT_LABEL.INSTALLED, version ?? authoredText(SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION)),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM), authoredText(DIAGNOSE_TEXT_DETAIL.SPX_UNKNOWN_PROBLEM)),
           detail(
-            DIAGNOSE_TEXT_LABEL.REQUIRED_VERSION,
+            authoredText(DIAGNOSE_TEXT_LABEL.INSTALLED),
+            version ?? authoredText(SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION),
+          ),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.REQUIRED_VERSION),
             floor ?? authoredText(SPX_REACHABILITY_READING_VALUE.ABSENT_FLOOR),
           ),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.SPX_UNKNOWN_FIX)),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.SPX_UNKNOWN_FIX)),
         ],
       };
     default:
@@ -304,16 +324,22 @@ function sessionEnvironmentText(check: CheckRecord): DiagnoseHumanText {
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.AGENT_SESSION_UNLINKED),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.PROBLEM, authoredText(DIAGNOSE_TEXT_DETAIL.AGENT_SESSION_UNLINKED_PROBLEM)),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.AGENT_SESSION_UNLINKED_FIX)),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM),
+            authoredText(DIAGNOSE_TEXT_DETAIL.AGENT_SESSION_UNLINKED_PROBLEM),
+          ),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.AGENT_SESSION_UNLINKED_FIX)),
         ],
       };
     case SESSION_ENVIRONMENT_VERDICT.SILENT_NO_OP:
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.SESSION_START_NO_OP),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.PROBLEM, authoredText(DIAGNOSE_TEXT_DETAIL.SESSION_START_NO_OP_PROBLEM)),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.SESSION_START_NO_OP_FIX)),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM),
+            authoredText(DIAGNOSE_TEXT_DETAIL.SESSION_START_NO_OP_PROBLEM),
+          ),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.SESSION_START_NO_OP_FIX)),
         ],
       };
     case SESSION_ENVIRONMENT_VERDICT.NOT_APPLICABLE:
@@ -325,8 +351,8 @@ function sessionEnvironmentText(check: CheckRecord): DiagnoseHumanText {
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.AGENT_SESSION_UNKNOWN),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.PROBLEM, authoredText(DIAGNOSE_TEXT_DETAIL.SESSION_UNKNOWN_PROBLEM)),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY)),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM), authoredText(DIAGNOSE_TEXT_DETAIL.SESSION_UNKNOWN_PROBLEM)),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY)),
         ],
       };
     default:
@@ -342,7 +368,7 @@ function worktreePoolText(check: CheckRecord): DiagnoseHumanText {
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_VALID),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.WORKTREES, terminal`${running} active, ${free} free`),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.WORKTREES), terminal`${running} active, ${free} free`),
           authoredText(DIAGNOSE_TEXT_DETAIL.WORKTREE_POOL_VALID),
         ],
       };
@@ -350,8 +376,14 @@ function worktreePoolText(check: CheckRecord): DiagnoseHumanText {
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.PROBLEM, authoredText(DIAGNOSE_TEXT_DETAIL.WORKTREE_POOL_NON_COMPLIANT_PROBLEM)),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.WORKTREE_POOL_NON_COMPLIANT_FIX)),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM),
+            authoredText(DIAGNOSE_TEXT_DETAIL.WORKTREE_POOL_NON_COMPLIANT_PROBLEM),
+          ),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.FIX),
+            authoredText(DIAGNOSE_TEXT_DETAIL.WORKTREE_POOL_NON_COMPLIANT_FIX),
+          ),
         ],
       };
     case WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_MISSING:
@@ -359,10 +391,10 @@ function worktreePoolText(check: CheckRecord): DiagnoseHumanText {
         header: authoredText(DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID),
         details: [
           detail(
-            DIAGNOSE_TEXT_LABEL.PROBLEM,
+            authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM),
             authoredText(CANONICAL_CHECKOUT_PROBLEM[WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_MISSING]),
           ),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(check.remediation)),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(check.remediation)),
         ],
       };
     case WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_DETACHED:
@@ -370,10 +402,10 @@ function worktreePoolText(check: CheckRecord): DiagnoseHumanText {
         header: authoredText(DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID),
         details: [
           detail(
-            DIAGNOSE_TEXT_LABEL.PROBLEM,
+            authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM),
             authoredText(CANONICAL_CHECKOUT_PROBLEM[WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_DETACHED]),
           ),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(check.remediation)),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(check.remediation)),
         ],
       };
     case WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_WRONG_BRANCH:
@@ -381,16 +413,16 @@ function worktreePoolText(check: CheckRecord): DiagnoseHumanText {
         header: authoredText(DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID),
         details: [
           detail(
-            DIAGNOSE_TEXT_LABEL.PROBLEM,
+            authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM),
             authoredText(CANONICAL_CHECKOUT_PROBLEM[WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_WRONG_BRANCH]),
           ),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(check.remediation)),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(check.remediation)),
         ],
       };
     case WORKTREE_POOL_VERDICT.UNKNOWN:
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_UNKNOWN),
-        details: [detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY))],
+        details: [detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY))],
       };
     default:
       return fallbackText(check);
@@ -404,14 +436,14 @@ function sessionStoreText(check: CheckRecord): DiagnoseHumanText {
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.SESSION_STORE_CLEAN),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.ORPHANED_DOING_SESSIONS, orphaned),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.ORPHANED_DOING_SESSIONS), orphaned),
           authoredText(DIAGNOSE_TEXT_DETAIL.SESSION_STORE_INFORMATIONAL),
         ],
       };
     case SESSION_STORE_VERDICT.UNKNOWN:
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.SESSION_STORE_UNKNOWN),
-        details: [detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY))],
+        details: [detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY))],
       };
     default:
       return fallbackText(check);
@@ -428,20 +460,33 @@ function marketplaceInstallText(check: CheckRecord): DiagnoseHumanText {
     case MARKETPLACE_INSTALL_VERDICT.DRIFTED:
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.MARKETPLACE_DRIFT),
-        details: [detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.MARKETPLACE_DRIFT_FIX))],
+        details: [
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.MARKETPLACE_DRIFT_FIX)),
+        ],
       };
     case MARKETPLACE_INSTALL_VERDICT.CLI_UNAVAILABLE:
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.MARKETPLACE_CLI_UNAVAILABLE),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.PROBLEM, authoredText(DIAGNOSE_TEXT_DETAIL.MARKETPLACE_CLI_UNAVAILABLE_PROBLEM)),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.MARKETPLACE_CLI_UNAVAILABLE_FIX)),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM),
+            authoredText(DIAGNOSE_TEXT_DETAIL.MARKETPLACE_CLI_UNAVAILABLE_PROBLEM),
+          ),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.FIX),
+            authoredText(DIAGNOSE_TEXT_DETAIL.MARKETPLACE_CLI_UNAVAILABLE_FIX),
+          ),
         ],
       };
     case MARKETPLACE_INSTALL_VERDICT.UNREGISTERED:
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.MARKETPLACE_UNREGISTERED),
-        details: [detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.UNREGISTERED_MARKETPLACE_FIX))],
+        details: [
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.FIX),
+            authoredText(DIAGNOSE_TEXT_DETAIL.UNREGISTERED_MARKETPLACE_FIX),
+          ),
+        ],
       };
     case MARKETPLACE_INSTALL_VERDICT.NOT_APPLICABLE:
       return {
@@ -451,7 +496,7 @@ function marketplaceInstallText(check: CheckRecord): DiagnoseHumanText {
     case MARKETPLACE_INSTALL_VERDICT.UNKNOWN:
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.MARKETPLACE_UNKNOWN),
-        details: [detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY))],
+        details: [detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY))],
       };
     default:
       return fallbackText(check);
@@ -462,8 +507,8 @@ function fallbackText(_check: CheckRecord): DiagnoseHumanText {
   return {
     header: authoredText(DIAGNOSE_TEXT_HEADER.RENDERING_UNAVAILABLE),
     details: [
-      detail(DIAGNOSE_TEXT_LABEL.PROBLEM, authoredText(DIAGNOSE_TEXT_DETAIL.RENDERING_UNAVAILABLE)),
-      detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY)),
+      detail(authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM), authoredText(DIAGNOSE_TEXT_DETAIL.RENDERING_UNAVAILABLE)),
+      detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY)),
     ],
   };
 }

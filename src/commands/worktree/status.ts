@@ -28,7 +28,14 @@ import {
   type WorktreeScopeOptions,
 } from "@/domains/worktree/resolve";
 import { type PlainTreeSection, renderPlainTree } from "@/lib/styled-output/styled-output";
-import { jsonDocument, renderTerminalText } from "@/lib/terminal-text/terminal-text";
+import {
+  authoredText,
+  externalValue,
+  jsonDocument,
+  renderTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 
 export const WORKTREE_STATUS_FORMAT = {
   JSON: "json",
@@ -180,15 +187,15 @@ function toJsonStatusRecord(record: WorktreeStatusRecord): WorktreeJsonStatusRec
 
 function renderTextStatus(records: readonly WorktreeStatusRecord[]): string {
   const sections: PlainTreeSection[] = [];
-  const sectionByParent = new Map<string, string[]>();
+  const sectionByParent = new Map<string, TerminalText[]>();
   for (const record of records) {
-    const parent = renderParentDirectory(dirname(record.worktreeRoot));
+    const parent = dirname(record.worktreeRoot);
     const children = sectionByParent.get(parent);
     const rendered = renderTextStatusChild(record);
     if (children === undefined) {
       const newChildren = [rendered];
       sectionByParent.set(parent, newChildren);
-      sections.push({ header: parent, children: newChildren });
+      sections.push({ header: renderParentDirectory(parent), children: newChildren });
     } else {
       children.push(rendered);
     }
@@ -196,15 +203,25 @@ function renderTextStatus(records: readonly WorktreeStatusRecord[]): string {
   return renderTerminalText(renderPlainTree({ sections }));
 }
 
-function renderParentDirectory(parent: string): string {
-  return parent.endsWith(sep) ? parent : `${parent}${sep}`;
+// The parent directory is a filesystem path, so it is external; the trailing separator that
+// marks it as a directory is the product's own.
+function renderParentDirectory(parent: string): TerminalText {
+  return parent.endsWith(sep)
+    ? terminal`${externalValue(parent)}`
+    : terminal`${externalValue(parent)}${authoredText(sep)}`;
 }
 
-function renderTextStatusChild(record: WorktreeStatusRecord): string {
+// The worktree basename, the agent runtime name, and the pid are readings from the filesystem
+// and the process table; the words and brackets around them are the product's own.
+function renderTextStatusChild(record: WorktreeStatusRecord): TerminalText {
+  const name = externalValue(basename(record.worktreeRoot));
   if (record.status === OCCUPANCY_STATUS.RUNNING) {
-    return `${basename(record.worktreeRoot)}: ${
-      record.runtime ?? WORKTREE_STATUS_RENDER.RUNNING_FALLBACK_RUNTIME
-    } ${WORKTREE_STATUS_RENDER.RUNNING_WORD} [${record.pid}]`;
+    const runtime = record.runtime === undefined
+      ? authoredText(WORKTREE_STATUS_RENDER.RUNNING_FALLBACK_RUNTIME)
+      : externalValue(record.runtime);
+    return terminal`${name}: ${runtime} ${authoredText(WORKTREE_STATUS_RENDER.RUNNING_WORD)} [${
+      externalValue(String(record.pid))
+    }]`;
   }
-  return `${basename(record.worktreeRoot)}: ${WORKTREE_STATUS_RENDER.FREE}`;
+  return terminal`${name}: ${authoredText(WORKTREE_STATUS_RENDER.FREE)}`;
 }

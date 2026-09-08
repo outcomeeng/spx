@@ -11,13 +11,7 @@
 
 import { Chalk } from "chalk";
 
-import {
-  authoredText,
-  externalValue,
-  joinTerminalText,
-  terminal,
-  type TerminalText,
-} from "@/lib/terminal-text/terminal-text";
+import { authoredText, joinTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
 /** The severity vocabulary a styled report keys its glyphs and colors on. */
 export const SEVERITY = {
@@ -95,10 +89,10 @@ export interface StyledReportOptions {
   readonly color: boolean;
 }
 
-/** One section in a plain grouped tree: a header plus indented child lines. */
+/** One section in a plain grouped tree: a header plus indented child lines, each composed where it was produced. */
 export interface PlainTreeSection {
-  readonly header: string;
-  readonly children: readonly string[];
+  readonly header: TerminalText;
+  readonly children: readonly TerminalText[];
 }
 
 /** A plain grouped tree, used by non-severity command output. */
@@ -136,8 +130,9 @@ export function renderStyledReport(model: StyledReportModel, options: StyledRepo
 /**
  * Renders a plain grouped tree with each section header followed by indented
  * children. The tree glyphs, indentation, and line structure are product-authored
- * and keep their bytes; each header and child text is an external segment, so a
- * worktree name or path cannot forge a tree row or rewrite the terminal.
+ * and keep their bytes; each header and child arrives with its escaping decided
+ * where its values were produced, so a worktree name or path inside one cannot
+ * forge a tree row or rewrite the terminal while the words around it keep theirs.
  */
 export function renderPlainTree(model: PlainTreeModel): TerminalText {
   return joinTerminalText(
@@ -145,11 +140,11 @@ export function renderPlainTree(model: PlainTreeModel): TerminalText {
     model.sections.flatMap((section) => {
       const lastIndex = section.children.length - 1;
       return [
-        terminal`${externalValue(section.header)}`,
+        section.header,
         ...section.children.map((child, index) =>
           terminal`${authoredText(DETAIL_INDENT)}${authoredText(index === lastIndex ? DETAIL_ELBOW : DETAIL_TEE)}${
             authoredText(DETAIL_BRANCH_SEPARATOR)
-          }${externalValue(child)}`
+          }${child}`
         ),
       ];
     }),
