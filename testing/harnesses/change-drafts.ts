@@ -43,6 +43,7 @@ export interface ChangeDraftEnv {
   readPath(path: string): Promise<string>;
   retainedNames(): Promise<string[]>;
   listPath(path: string): Promise<string[]>;
+  setDraftDirectoryMode(mode: number): Promise<void>;
   makeVisibleToGit(): Promise<void>;
   obstructStorage(text: string): Promise<string>;
   addUnmanagedFile(name: string, text: string): Promise<string>;
@@ -77,6 +78,10 @@ export async function withChangeDraftEnv<T>(callback: (env: ChangeDraftEnv) => P
       readPath: (path) => fs.readFile(path, "utf8"),
       retainedNames: () => fs.readdir(draftDir),
       listPath: (path) => fs.readdir(path),
+      setDraftDirectoryMode: async (mode) => {
+        await fs.mkdir(draftDir, { recursive: true, mode: CHANGE_DRAFT.directoryMode });
+        await fs.chmod(draftDir, mode);
+      },
       makeVisibleToGit: () =>
         fs.writeFile(
           ignorePath,

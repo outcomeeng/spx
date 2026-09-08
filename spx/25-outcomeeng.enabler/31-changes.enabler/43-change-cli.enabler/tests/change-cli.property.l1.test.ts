@@ -7,7 +7,7 @@ import { escapeCliArgument } from "@/lib/sanitize-cli-argument";
 import {
   arbitraryCliInvalidDraftId,
   arbitraryDraftText,
-  arbitraryInvalidDraftCommands,
+  INVALID_DRAFT_COMMAND_GENERATORS,
 } from "@testing/generators/change-drafts";
 import { withChangeDraftEnv } from "@testing/harnesses/change-drafts";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
@@ -59,62 +59,49 @@ describe("draft CLI", () => {
     }, { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL });
   });
 
-  it("creates in the selected worktree when invoked from a different worktree", async () => {
-    await assertProperty(arbitraryDraftText(), async (text) => {
-      await withChangeDraftEnv(async (env) => {
-        const sibling = await env.sibling();
-        const created = env.runCli([
-          SPX_GLOBAL_OPTIONS.directory.short,
-          sibling.productDir,
-          CHANGE_COMMAND.name,
-          CHANGE_COMMAND.draft,
-          CHANGE_COMMAND.operations.create,
-          CHANGE_COMMAND.inputOption,
-          CHANGE_COMMAND.stdin,
-        ], text);
-        expect(created.status).toBe(0);
-        const draft = changeDraftDescriptorSchema.parse(JSON.parse(created.stdout));
-        expect(await sibling.store.list()).toEqual([draft]);
-        expect(await env.store.list()).toHaveLength(0);
-      });
-    }, { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL });
-  });
-
-  it("lists the selected worktree when invoked from a different worktree", async () => {
-    await assertProperty(arbitraryDraftText(), async (text) => {
-      await withChangeDraftEnv(async (env) => {
-        const sibling = await env.sibling();
-        const draft = await sibling.store.create(text);
-        const listed = env.runCli([
-          SPX_GLOBAL_OPTIONS.directory.short,
-          sibling.productDir,
-          CHANGE_COMMAND.name,
-          CHANGE_COMMAND.draft,
-          CHANGE_COMMAND.operations.list,
-        ]);
-        expect(listed.status).toBe(0);
-        expect(changeDraftDescriptorSchema.array().parse(JSON.parse(listed.stdout))).toEqual([draft]);
-        expect(await env.store.list()).toHaveLength(0);
-      });
-    }, { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL });
-  });
-
-  it("deletes from the selected worktree when invoked from a different worktree", async () => {
+  it.each(Object.values(CHANGE_COMMAND.operations))("resolves %s against the selected worktree", async (operation) => {
     await assertProperty(arbitraryDraftText(), async (text) => {
       await withChangeDraftEnv(async (env) => {
         const sibling = await env.sibling();
         const draft = await sibling.store.create(text);
         const retained = await env.store.create(text);
-        const deleted = env.runCli([
+        const args: string[] = [
           SPX_GLOBAL_OPTIONS.directory.short,
           sibling.productDir,
           CHANGE_COMMAND.name,
           CHANGE_COMMAND.draft,
-          CHANGE_COMMAND.operations.delete,
-          draft.draftId,
-        ]);
-        expect(deleted.status).toBe(0);
-        expect(await sibling.store.list()).toHaveLength(0);
+          operation,
+        ];
+        switch (operation) {
+          case CHANGE_COMMAND.operations.create: {
+            const result = env.runCli([...args, CHANGE_COMMAND.inputOption, CHANGE_COMMAND.stdin], text);
+            expect(result.status).toBe(0);
+            const created = changeDraftDescriptorSchema.parse(JSON.parse(result.stdout));
+            expect(await sibling.store.list()).toEqual(expect.arrayContaining([draft, created]));
+            expect(await env.readPath(created.path)).toBe(text);
+            break;
+          }
+          case CHANGE_COMMAND.operations.list: {
+            const result = env.runCli(args);
+            expect(result.status).toBe(0);
+            expect(changeDraftDescriptorSchema.array().parse(JSON.parse(result.stdout))).toEqual([draft]);
+            expect(await env.readPath(draft.path)).toBe(text);
+            break;
+          }
+          case CHANGE_COMMAND.operations.delete: {
+            const result = env.runCli([...args, draft.draftId]);
+            expect(result.status).toBe(0);
+            expect(changeDraftDeletionSchema.parse(JSON.parse(result.stdout))).toEqual({
+              draftId: draft.draftId,
+              removed: true,
+            });
+            expect(await sibling.store.list()).toHaveLength(0);
+            break;
+          }
+          default:
+            expect.unreachable(operation);
+        }
+        expect(await env.store.list()).toEqual([retained]);
         expect(await env.read(retained)).toBe(text);
       });
     }, { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL });
@@ -123,6 +110,7 @@ describe("draft CLI", () => {
   it("rejects arbitrary malformed delete IDs with an actionable diagnostic", async () => {
     await assertProperty(arbitraryCliInvalidDraftId(), async (draftId) => {
       await withChangeDraftEnv(async (env) => {
+        const retained = await env.store.create(draftId);
         const result = env.runCli([
           CHANGE_COMMAND.name,
           CHANGE_COMMAND.draft,
@@ -132,23 +120,27 @@ describe("draft CLI", () => {
         expect(result.status).not.toBe(0);
         expect(result.stderr).toContain(CHANGE_COMMAND.operations.delete);
         expect(result.stderr).toContain(escapeCliArgument(draftId));
-        await expect(env.inspect(env.draftDir)).rejects.toThrow();
+        expect(await env.store.list()).toEqual([retained]);
+        expect(await env.read(retained)).toBe(draftId);
       });
     }, { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL });
   });
 
-  it("rejects missing input, missing operands, unsupported input, and unknown commands without changing a draft", async () => {
-    await assertProperty(arbitraryInvalidDraftCommands(), async (commands) => {
-      await withChangeDraftEnv(async (env) => {
-        const retained = await env.store.create(JSON.stringify(commands));
-        for (const command of commands) {
-          const result = env.runCli(command);
+  it.each(Object.entries(INVALID_DRAFT_COMMAND_GENERATORS))(
+    "rejects %s without changing a draft",
+    async (_kind, commandArbitrary) => {
+      await assertProperty(commandArbitrary(), async (command) => {
+        await withChangeDraftEnv(async (env) => {
+          const retained = await env.store.create(JSON.stringify(command));
+          const result = env.runCli(command.args);
           expect(result.status).not.toBe(0);
-          expect(result.stderr.length).toBeGreaterThan(0);
-        }
-        expect(await env.read(retained)).toBe(JSON.stringify(commands));
-        expect(await env.store.list()).toEqual([retained]);
-      });
-    }, { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL });
-  });
+          for (const token of command.diagnosticTokens) {
+            expect(result.stderr).toContain(escapeCliArgument(token));
+          }
+          expect(await env.read(retained)).toBe(JSON.stringify(command));
+          expect(await env.store.list()).toEqual([retained]);
+        });
+      }, { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL });
+    },
+  );
 });

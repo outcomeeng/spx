@@ -7,6 +7,7 @@ import {
   arbitraryDraftPair,
   arbitraryDraftText,
   arbitraryInvalidDraftId,
+  arbitraryUnsafeDraftDirectory,
 } from "@testing/generators/change-drafts";
 import {
   collidingDraftDependencies,
@@ -16,6 +17,19 @@ import {
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 
 describe("draft storage safety", () => {
+  it("rejects a non-private draft directory without changing retained content", async () => {
+    await assertProperty(arbitraryUnsafeDraftDirectory(), async ({ text, mode }) => {
+      await withChangeDraftEnv(async (env) => {
+        const retained = await env.store.create(text);
+        const names = await env.retainedNames();
+        await env.setDraftDirectoryMode(mode);
+        await expect(env.store.create(text)).rejects.toMatchObject({ code: CHANGE_DRAFT_ERROR.unsafeStorage });
+        expect(await env.read(retained)).toBe(text);
+        expect(await env.retainedNames()).toEqual(names);
+      });
+    }, { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL });
+  });
+
   it("rejects colliding IDs without replacing the retained candidate", async () => {
     await assertProperty(arbitraryDraftPair(), async (texts) => {
       await withChangeDraftEnv(async (env) => {

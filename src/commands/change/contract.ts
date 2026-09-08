@@ -5,5 +5,6 @@ export const CHANGE_COMMAND = {
   draft: "draft",
   operations: CHANGE_DRAFT_OPERATION,
   inputOption: "--input",
+  idOperand: "<draft-id>",
   stdin: "stdin",
 } as const;
