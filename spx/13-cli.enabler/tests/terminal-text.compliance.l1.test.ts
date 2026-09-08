@@ -2,6 +2,7 @@ import { describe, expectTypeOf, it } from "vitest";
 
 import {
   authoredText,
+  externalToken,
   externalValue,
   joinTerminalText,
   renderTerminalText,
@@ -44,6 +45,17 @@ describe("terminal text external-value boundary", () => {
   it("admits a caught error typed unknown, since its provenance is decided here", () => {
     const caught = sampleGeneratedValue(arbitraryTerminalUnsafeText().map((text): unknown => text));
     expectTypeOf(externalValue(caught)).toEqualTypeOf<TerminalText>();
+  });
+
+  it("refuses already-composed text at the external-token decision too", () => {
+    const composed = authoredText(sampleGeneratedValue(arbitraryTerminalUnsafeText()));
+    expectTypeOf(externalToken(composed)).not.toEqualTypeOf<TerminalText>();
+    expectTypeOf(externalToken(composed)).not.toMatchTypeOf<Parameters<typeof terminal>[1]>();
+  });
+
+  it("admits a plain token at the external-token decision", () => {
+    const plain = sampleGeneratedValue(arbitraryTerminalUnsafeText());
+    expectTypeOf(externalToken(plain)).toEqualTypeOf<TerminalText>();
   });
 
   it("accepts a plain value in its optional shape, so the refusal reaches only composed text", () => {

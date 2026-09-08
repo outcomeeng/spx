@@ -51,10 +51,13 @@ export function authoredText(text: string): TerminalText {
  * empty value is named by its sentinel, and a value past the display length is
  * truncated with an ellipsis, so one caller-supplied token cannot flood the
  * terminal. `externalValue` is the unbounded form, for a value whose full text
- * is the point of the output.
+ * is the point of the output. Text already composed is refused at the type
+ * level exactly as `externalValue` refuses it.
  */
-export function externalToken(value: unknown): TerminalText {
-  return brand(sanitizeCliArgument(value));
+export function externalToken<T>(value: T): ExternalValueResult<T> {
+  // The conditional result is decided by the argument's static type alone; at
+  // runtime every admitted value is sanitized, and the brand is the same string.
+  return brand(sanitizeCliArgument(value)) as ExternalValueResult<T>;
 }
 
 declare const ALREADY_COMPOSED: unique symbol;
