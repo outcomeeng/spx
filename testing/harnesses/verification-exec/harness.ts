@@ -5,35 +5,28 @@
  * The executor is driven over the real verify recorder wired to an in-memory state store, so its
  * evidence flows through the same recorder lifecycle production uses. The runner is a controlled
  * `JournalStreamingRunner` double that streams configured scope units and findings into the injected
- * sink and yields a configured terminal status — no real Vitest run at `l1`. Controlled scope units,
+ * sink and yields a configured invocation — no real Vitest run at `l1`. Controlled scope units,
  * findings, and terminal statuses come from the journal-reporter generators, which own the
- * journal-streaming evidence domain.
+ * journal-streaming evidence domain. Every function here returns observations; the linked tests own
+ * every predicate.
  */
-import { expect } from "vitest";
-
 import {
   executeVerificationRun,
   type ExecutorRecorderOperations,
   type ExecutorRunRequest,
+  type ExecutorRunResult,
   type JournalStreamingRunner,
-  recorderTerminalStatusFor,
   resolveTestRunner,
   resolveVerificationRunner,
 } from "@/commands/verification-exec";
-import { createRecorderOperations, RECORDER_OPERATION_ERROR } from "@/commands/verification-exec/recorder-operations";
-import { verifyRenderCommand, verifyStatusCommand } from "@/commands/verify/cli";
-import { JOURNAL_RUN_STATE_STATUS, type JournalRunStateStatus } from "@/domains/journal/run-state";
+import { createRecorderOperations } from "@/commands/verification-exec/recorder-operations";
+import { verifyRenderCommand, type VerifyRenderReport, verifyStatusCommand } from "@/commands/verify/cli";
+import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import {
   driveModeOf,
   type RunLocator,
-  VERIFY_APPEND_EVENT_TYPE,
-  VERIFY_DRIVE_MODE,
-  VERIFY_EVENT_SOURCE,
   VERIFY_INPUT_SOURCE,
-  VERIFY_LIFECYCLE_ACTION,
-  VERIFY_RUN_CONTEXT_EVENT_TYPE,
   VERIFY_SCOPE_TYPE,
-  VERIFY_TERMINAL_EVENT_TYPE,
   VERIFY_VERIFICATION_TYPE,
 } from "@/domains/verify/verify";
 import type { JournalEvent } from "@/lib/agent-run-journal";
@@ -66,8 +59,8 @@ import {
   withVerificationType,
 } from "@testing/harnesses/verify/harness";
 
-/** The configured output of a controlled runner: the scope and findings it streams and the status it yields. */
-interface ControlledRunOutcome {
+/** The configured output of a controlled runner: the scope and findings it streams and the invocation it yields. */
+export interface ControlledRunOutcome {
   readonly scopeUnits: readonly TestScopeUnit[];
   readonly findings: readonly TestFinding[];
   readonly invocation: JournalRunInvocation;
@@ -97,13 +90,18 @@ function createControlledRunner(outcome: ControlledRunOutcome): ControlledRunner
   };
 }
 
+/** How many times each recorder lifecycle operation ran. */
+export interface RecorderCallCounts {
+  readonly open: number;
+  readonly scope: number;
+  readonly finding: number;
+  readonly finish: number;
+}
+
 /** A recorder that counts each lifecycle call while delegating to a real recorder underneath. */
 interface RecorderSpy {
   readonly recorder: ExecutorRecorderOperations;
-  openCalls(): number;
-  scopeCalls(): number;
-  findingCalls(): number;
-  finishCalls(): number;
+  counts(): RecorderCallCounts;
 }
 
 function spyOnRecorder(base: ExecutorRecorderOperations): RecorderSpy {
@@ -130,10 +128,7 @@ function spyOnRecorder(base: ExecutorRecorderOperations): RecorderSpy {
         return base.finish(run, status);
       },
     },
-    openCalls: () => open,
-    scopeCalls: () => scope,
-    findingCalls: () => finding,
-    finishCalls: () => finish,
+    counts: () => ({ open, scope, finding, finish }),
   };
 }
 
@@ -163,10 +158,7 @@ function createExecutorHarness(): ExecutorHarness {
   return { scenario, fs, recorder, request };
 }
 
-async function renderRunReport(
-  harness: ExecutorHarness,
-  runToken: string,
-): Promise<ReturnType<typeof parseRenderReport>> {
+async function renderRunReport(harness: ExecutorHarness, runToken: string): Promise<VerifyRenderReport> {
   return parseRenderReport(
     (await verifyRenderCommand(
       verifyRenderOptions(harness.scenario, runToken),
@@ -175,18 +167,13 @@ async function renderRunReport(
   );
 }
 
-async function renderRunEvents(
-  harness: ExecutorHarness,
-  runToken: string,
-): Promise<readonly JournalEvent[]> {
-  return (await renderRunReport(harness, runToken)).events;
-}
-
-function eventsOfType(events: readonly JournalEvent[], type: string): readonly JournalEvent[] {
+/** The events of one journal type within a rendered run, a projection the linked test asserts over. */
+export function eventsOfType(events: readonly JournalEvent[], type: string): readonly JournalEvent[] {
   return events.filter((event) => event.type === type);
 }
 
-function passingScopeOutcome(): ControlledRunOutcome {
+/** An outcome whose runner streams one inspected unit and reports a passing terminal status. */
+export function passingScopeOutcome(): ControlledRunOutcome {
   return {
     scopeUnits: [sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.scopeUnit())],
     findings: [],
@@ -194,7 +181,8 @@ function passingScopeOutcome(): ControlledRunOutcome {
   };
 }
 
-function failingMixedOutcome(): ControlledRunOutcome {
+/** An outcome whose runner streams one inspected unit and one failing case and reports a failed terminal status. */
+export function failingMixedOutcome(): ControlledRunOutcome {
   return {
     scopeUnits: [sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.scopeUnit())],
     findings: [sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.finding())],
@@ -203,12 +191,17 @@ function failingMixedOutcome(): ControlledRunOutcome {
 }
 
 /** A gated-out outcome: detection gated the runner out, so it streams no scope or finding and reports no terminal status. */
-function gatedOutOutcome(): ControlledRunOutcome {
+export function gatedOutOutcome(): ControlledRunOutcome {
   return { scopeUnits: [], findings: [], invocation: { invoked: false } };
 }
 
+/** An outcome whose product directory supplied no runner: nothing streamed, and the searched directory is named. */
+export function unresolvedRunnerOutcome(productDir: string): ControlledRunOutcome {
+  return { scopeUnits: [], findings: [], invocation: { invoked: false, unresolvedRunner: { productDir } } };
+}
+
 /** An outcome whose runner reports an interrupted terminal status after streaming one inspected unit. */
-function interruptedRunnerOutcome(): ControlledRunOutcome {
+export function interruptedRunnerOutcome(): ControlledRunOutcome {
   return {
     scopeUnits: [sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.scopeUnit())],
     findings: [],
@@ -216,91 +209,48 @@ function interruptedRunnerOutcome(): ControlledRunOutcome {
   };
 }
 
-/**
- * Scenario S1: spx drives the type's runner over the scope, records the run through the verify
- * lifecycle, and reports the run locator the recorder returns.
- */
-export async function assertExecutorDrivesRunnerAndReportsLocator(): Promise<void> {
-  const harness = createExecutorHarness();
-  const controlled = createControlledRunner(passingScopeOutcome());
-
-  const result = await executeVerificationRun(harness.request, {
-    resolveRunner: () => controlled.runner,
-    recorder: harness.recorder,
-  });
-
-  expect(result.executed).toBe(true);
-  if (!result.executed) return;
-  expect(result.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.PASSED);
-  expect(result.run.runToken.length).toBeGreaterThan(0);
-  expect(result.run.verificationType).toBe(VERIFY_VERIFICATION_TYPE.TEST);
-  expect(result.run.scopeIdentity).toBe(harness.request.scope);
-
-  const driven = controlled.request();
-  expect(driven?.productDir).toBe(harness.request.productDir);
-  expect(driven?.testPaths).toEqual(harness.request.testPaths);
-
-  const events = await renderRunEvents(harness, result.run.runToken);
-  expect(eventsOfType(events, VERIFY_APPEND_EVENT_TYPE.SCOPE)).toHaveLength(1);
-}
-
-/**
- * Scenario S2: a passing unit records a scope event, a failing unit records a finding, and the run
- * finishes with the terminal status derived from the runner's mapped report.
- */
-export async function assertExecutorRecordsScopeFindingAndTerminal(): Promise<void> {
-  const harness = createExecutorHarness();
-  const controlled = createControlledRunner(failingMixedOutcome());
-
-  const result = await executeVerificationRun(harness.request, {
-    resolveRunner: () => controlled.runner,
-    recorder: harness.recorder,
-  });
-
-  expect(result.executed).toBe(true);
-  if (!result.executed) return;
-  expect(result.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.FAILED);
-
-  const report = await renderRunReport(harness, result.run.runToken);
-  expect(eventsOfType(report.events, VERIFY_APPEND_EVENT_TYPE.SCOPE)).toHaveLength(1);
-  expect(eventsOfType(report.events, VERIFY_APPEND_EVENT_TYPE.FINDING)).toHaveLength(1);
-  expect(report.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.FAILED);
-  expect(report.sealed).toBe(true);
-}
-
-/**
- * Scenario: a failing case whose runner-reported errors carry no message records as a finding — the
- * recorder accepts the reporter's message-absent fallback (empty error strings) that the producer
- * legitimately emits, rather than rejecting the finding.
- */
-export async function assertExecutorRecordsFindingWithoutErrorMessages(): Promise<void> {
-  const harness = createExecutorHarness();
-  const finding = sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.findingWithoutErrorMessages());
-  const controlled = createControlledRunner({
+/** An outcome whose single failing case carries no error message — the reporter's message-absent fallback. */
+export function findingWithoutErrorMessagesOutcome(): ControlledRunOutcome {
+  return {
     scopeUnits: [],
-    findings: [finding],
+    findings: [sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.findingWithoutErrorMessages())],
     invocation: { invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.FAILED },
-  });
+  };
+}
 
-  const result = await executeVerificationRun(harness.request, {
-    resolveRunner: () => controlled.runner,
-    recorder: harness.recorder,
-  });
+/** An outcome whose two failing cases straddle the module/case separator differently and must record distinctly. */
+export function collidingFindingsOutcome(): ControlledRunOutcome {
+  const [first, second] = sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.collidingFindingPair());
+  return {
+    scopeUnits: [],
+    findings: [first, second],
+    invocation: { invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.FAILED },
+  };
+}
 
-  expect(result.executed).toBe(true);
-  if (!result.executed) return;
-  const report = await renderRunReport(harness, result.run.runToken);
-  expect(eventsOfType(report.events, VERIFY_APPEND_EVENT_TYPE.FINDING)).toHaveLength(1);
-  expect(report.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.FAILED);
+/** What one executor run over a controlled runner and the real recorder exposes for inspection. */
+export interface ExecutorRunObservation {
+  /** The request the executor was asked to run. */
+  readonly request: ExecutorRunRequest;
+  /** The outcome the controlled runner was configured to stream. */
+  readonly outcome: ControlledRunOutcome;
+  /** The executor's result. */
+  readonly result: ExecutorRunResult;
+  /** The request the controlled runner received, or `undefined` when it never ran. */
+  readonly drivenRequest: JournalRunRequest | undefined;
+  /** How many times each recorder lifecycle operation ran. */
+  readonly recorderCalls: RecorderCallCounts;
+  /** The run rendered from the recorder after the executor returned, when a run was opened. */
+  readonly report: VerifyRenderReport | undefined;
 }
 
 /**
- * Compliance C1: the executor records scope, finding, and terminal evidence only through the verify
- * recorder lifecycle operations, never constructing a journal event of its own.
+ * Drives the executor over a controlled runner streaming the given outcome and the real recorder,
+ * then renders the recorded run; returns the result, the runner's received request, the recorder
+ * call counts, and the rendered run for the test to judge.
  */
-export async function assertExecutorRecordsOnlyThroughRecorderOperations(): Promise<void> {
+export async function observeExecutorRun(outcome: ControlledRunOutcome): Promise<ExecutorRunObservation> {
   const harness = createExecutorHarness();
-  const outcome = failingMixedOutcome();
   const controlled = createControlledRunner(outcome);
   const spy = spyOnRecorder(harness.recorder);
 
@@ -308,35 +258,35 @@ export async function assertExecutorRecordsOnlyThroughRecorderOperations(): Prom
     resolveRunner: () => controlled.runner,
     recorder: spy.recorder,
   });
+  const report = result.executed ? await renderRunReport(harness, result.run.runToken) : undefined;
+  return {
+    request: harness.request,
+    outcome,
+    result,
+    drivenRequest: controlled.request(),
+    recorderCalls: spy.counts(),
+    report,
+  };
+}
 
-  expect(result.executed).toBe(true);
-  if (!result.executed) return;
-
-  expect(spy.openCalls()).toBe(1);
-  expect(spy.scopeCalls()).toBe(outcome.scopeUnits.length);
-  expect(spy.findingCalls()).toBe(outcome.findings.length);
-  expect(spy.finishCalls()).toBe(1);
-
-  const events = await renderRunEvents(harness, result.run.runToken);
-  const evidenceEvents = [
-    ...eventsOfType(events, VERIFY_APPEND_EVENT_TYPE.SCOPE),
-    ...eventsOfType(events, VERIFY_APPEND_EVENT_TYPE.FINDING),
-    ...eventsOfType(events, VERIFY_TERMINAL_EVENT_TYPE),
-    ...eventsOfType(events, VERIFY_RUN_CONTEXT_EVENT_TYPE),
-  ];
-  expect(evidenceEvents.length).toBeGreaterThan(0);
-  for (const event of evidenceEvents) {
-    expect(event.source).toBe(VERIFY_EVENT_SOURCE);
-  }
+/** What the recorder projected for the run before and after the executor sealed it. */
+export interface DriveModeObservation {
+  /** The drive mode the status projection reported while the run was still unsealed. */
+  readonly unsealedDriveMode: string | undefined;
+  /** The next actions the status projection advertised while the run was still unsealed. */
+  readonly unsealedNextActions: readonly string[] | undefined;
+  /** The drive mode recorded in the sealed run's events. */
+  readonly sealedDriveMode: string | undefined;
 }
 
 /**
- * Compliance C2: the executor opens the run in spx drive mode, so the recorder projection advertises
- * no caller evidence-append action for the unsealed run.
+ * Drives the executor over a controlled runner and, at the moment the executor finishes the run,
+ * reads the recorder's status projection of the still-unsealed run; returns that projection
+ * alongside the drive mode the sealed run's events carry.
  */
-export async function assertExecutorOpensSpxDrivenRunWithoutEvidenceAppendActions(): Promise<void> {
+export async function observeDriveModeAroundSeal(outcome: ControlledRunOutcome): Promise<DriveModeObservation> {
   const harness = createExecutorHarness();
-  const controlled = createControlledRunner(failingMixedOutcome());
+  const controlled = createControlledRunner(outcome);
 
   let unsealedDriveMode: string | undefined;
   let unsealedNextActions: readonly string[] | undefined;
@@ -359,19 +309,10 @@ export async function assertExecutorOpensSpxDrivenRunWithoutEvidenceAppendAction
     resolveRunner: () => controlled.runner,
     recorder,
   });
-
-  expect(result.executed).toBe(true);
-  expect(unsealedDriveMode).toBe(VERIFY_DRIVE_MODE.SPX);
-  expect(unsealedNextActions).toBeDefined();
-  expect(unsealedNextActions).not.toContain(VERIFY_LIFECYCLE_ACTION.SCOPE_ADD);
-  expect(unsealedNextActions).not.toContain(VERIFY_LIFECYCLE_ACTION.FINDING_ADD);
-  expect(unsealedNextActions).toContain(VERIFY_LIFECYCLE_ACTION.FINISH);
-
-  const events = await renderRunEvents(
-    harness,
-    (result as { readonly run: { readonly runToken: string } }).run.runToken,
-  );
-  expect(driveModeOf(events)).toBe(VERIFY_DRIVE_MODE.SPX);
+  const sealedDriveMode = result.executed
+    ? driveModeOf((await renderRunReport(harness, result.run.runToken)).events)
+    : undefined;
+  return { unsealedDriveMode, unsealedNextActions, sealedDriveMode };
 }
 
 /** A controlled language descriptor whose journal-streaming run the resolver must reach through the registry. */
@@ -395,37 +336,55 @@ function arbitraryDomainLiteralValue(): string {
 }
 
 /** A streaming descriptor that yields a fixed terminal status without streaming evidence, for fold coverage. */
-function streamingDescriptorYielding(status: JournalRunTerminalStatus): TestingLanguageDescriptor {
+export function streamingDescriptorYielding(status: JournalRunTerminalStatus): TestingLanguageDescriptor {
   return createControlledLanguageDescriptor(async () => ({ invoked: true, terminalStatus: status }));
 }
 
 /** A descriptor whose detection gates its streaming run out, contributing no terminal status to the fold. */
-function gatedOutDescriptor(): TestingLanguageDescriptor {
+export function gatedOutDescriptor(): TestingLanguageDescriptor {
   return createControlledLanguageDescriptor(async () => ({ invoked: false }));
 }
 
 /** A descriptor that exposes no journal-streaming run at all, so the resolver skips it. */
-function nonStreamingDescriptor(): TestingLanguageDescriptor {
+export function nonStreamingDescriptor(): TestingLanguageDescriptor {
   return createControlledLanguageDescriptor(undefined);
 }
 
+/** A present-language descriptor whose product directory supplies no runner, reporting the directory it searched. */
+export function unresolvedRunnerDescriptor(productDir: string): TestingLanguageDescriptor {
+  return createControlledLanguageDescriptor(async () => ({ invoked: false, unresolvedRunner: { productDir } }));
+}
+
 /** Drive the test runner over a controlled registry and return the folded invocation. */
-async function foldRegistryInvocation(registry: TestingRegistry): Promise<JournalRunInvocation> {
+export async function observeTestRunnerFold(
+  languages: readonly TestingLanguageDescriptor[],
+): Promise<JournalRunInvocation> {
+  const registry: TestingRegistry = { languages };
   return resolveTestRunner(registry).runTestsStreaming(
     sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()),
     { sink: { appendScope: () => undefined, appendFinding: () => undefined } },
   );
 }
 
-/**
- * Compliance C3: the executor reaches the `test` type's runner through the testing registry and
- * names no language — the resolver drives whatever descriptors the registry enumerates — while an
- * unsupported verification type resolves to no runner.
- */
-export async function assertExecutorReachesRunnerThroughRegistry(): Promise<void> {
-  expect(resolveVerificationRunner(VERIFY_VERIFICATION_TYPE.TEST)).not.toBeUndefined();
-  expect(resolveVerificationRunner(VERIFY_VERIFICATION_TYPE.AUDIT)).toBeUndefined();
+/** What resolving runners through the verification-type registry and driving one registry language exposes. */
+export interface RegistryResolutionObservation {
+  /** Whether the `test` type resolved to a runner. */
+  readonly testRunnerResolved: boolean;
+  /** Whether the agentic `audit` type resolved to a runner. */
+  readonly auditRunnerResolved: boolean;
+  /** The unit the controlled registry language streamed. */
+  readonly streamedUnit: TestScopeUnit;
+  /** The units the sink received while the test runner drove the controlled registry. */
+  readonly receivedUnits: readonly TestScopeUnit[];
+  /** The invocation the test runner folded over the controlled registry. */
+  readonly invocation: JournalRunInvocation;
+}
 
+/**
+ * Resolves runners for the `test` and `audit` types through the verification-type registry, then
+ * drives the `test` runner over a one-language controlled registry whose language streams one unit.
+ */
+export async function observeRegistryResolution(): Promise<RegistryResolutionObservation> {
   const streamedUnit = sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.scopeUnit());
   const controlledDescriptor = createControlledLanguageDescriptor(
     async (_request: JournalRunRequest, deps: JournalStreamRunDependencies): Promise<JournalRunInvocation> => {
@@ -435,214 +394,82 @@ export async function assertExecutorReachesRunnerThroughRegistry(): Promise<void
   );
   const registry: TestingRegistry = { languages: [controlledDescriptor] };
 
-  const streamed: TestScopeUnit[] = [];
+  const receivedUnits: TestScopeUnit[] = [];
   const invocation = await resolveTestRunner(registry).runTestsStreaming(
     sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()),
-    { sink: { appendScope: (unit) => void streamed.push(unit), appendFinding: () => undefined } },
+    { sink: { appendScope: (unit) => void receivedUnits.push(unit), appendFinding: () => undefined } },
   );
 
-  expect(streamed).toEqual([streamedUnit]);
-  expect(invocation).toEqual({ invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.PASSED });
+  return {
+    testRunnerResolved: resolveVerificationRunner(VERIFY_VERIFICATION_TYPE.TEST) !== undefined,
+    auditRunnerResolved: resolveVerificationRunner(VERIFY_VERIFICATION_TYPE.AUDIT) !== undefined,
+    streamedUnit,
+    receivedUnits,
+    invocation,
+  };
 }
 
-/**
- * Compliance: a verification type that resolves to no runner opens no run — spx reports the run not
- * executed and drives no recorder lifecycle operation, so no journal I/O occurs for an unsupported type.
- */
-export async function assertExecutorGatesUnsupportedTypeWithoutRecording(): Promise<void> {
+/** What executing a verification type that resolves to no runner exposes. */
+export interface UnsupportedTypeObservation {
+  readonly result: ExecutorRunResult;
+  readonly recorderCalls: RecorderCallCounts;
+}
+
+/** Drives the executor with a resolver that knows no runner for the request's type. */
+export async function observeUnsupportedTypeExecution(): Promise<UnsupportedTypeObservation> {
   const harness = createExecutorHarness();
   const spy = spyOnRecorder(harness.recorder);
-
   const result = await executeVerificationRun(harness.request, {
     resolveRunner: () => undefined,
     recorder: spy.recorder,
   });
-
-  expect(result.executed).toBe(false);
-  expect(spy.openCalls()).toBe(0);
-  expect(spy.scopeCalls()).toBe(0);
-  expect(spy.findingCalls()).toBe(0);
-  expect(spy.finishCalls()).toBe(0);
+  return { result, recorderCalls: spy.counts() };
 }
 
-/**
- * Scenario: a runner that detection gates out reports no work, so spx records no scope or finding and
- * finishes the run with the interrupted terminal status the recorder derives for a gated-out run.
- */
-export async function assertExecutorSealsGatedOutRunAsInterrupted(): Promise<void> {
-  const harness = createExecutorHarness();
-  const controlled = createControlledRunner(gatedOutOutcome());
-
-  const result = await executeVerificationRun(harness.request, {
-    resolveRunner: () => controlled.runner,
-    recorder: harness.recorder,
-  });
-
-  expect(result.executed).toBe(true);
-  if (!result.executed) return;
-  expect(result.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.INTERRUPTED);
-
-  const report = await renderRunReport(harness, result.run.runToken);
-  expect(eventsOfType(report.events, VERIFY_APPEND_EVENT_TYPE.SCOPE)).toHaveLength(0);
-  expect(eventsOfType(report.events, VERIFY_APPEND_EVENT_TYPE.FINDING)).toHaveLength(0);
-  expect(report.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.INTERRUPTED);
-  expect(report.sealed).toBe(true);
+/** Deferred recorder lifecycle operations aimed at inputs the recorder rejects, for the test to await. */
+export interface RecorderFailureThunks {
+  /** Opens a run over a scope the recorder cannot canonicalize. */
+  readonly openMalformedScope: () => Promise<RunLocator>;
+  /** Appends a scope unit to a run token the store never opened. */
+  readonly appendScopeToMissingRun: () => Promise<void>;
+  /** Appends a finding to a run token the store never opened. */
+  readonly appendFindingToMissingRun: () => Promise<void>;
+  /** Finishes a run token the store never opened. */
+  readonly finishMissingRun: () => Promise<void>;
 }
 
-/**
- * Compliance: each recorder lifecycle operation surfaces a non-OK recorder command as a raised failure
- * rather than swallowing it — `open` over a malformed scope, and scope, finding, and finish over a run
- * token the store never opened, each raise their operation's failure prefix.
- */
-export async function assertRecorderRaisesWhenLifecycleCommandFails(): Promise<void> {
+/** Builds the real recorder over an in-memory store and returns thunks aimed at inputs it rejects. */
+export async function observeRecorderLifecycleFailures(): Promise<RecorderFailureThunks> {
   const harness = createExecutorHarness();
   const scopeUnit = sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.scopeUnit());
   const finding = sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.finding());
-
-  await expect(
-    harness.recorder.open({ ...harness.request, scope: sampleJournalReporterValue(arbitraryDomainLiteral()) }),
-  ).rejects.toThrow(RECORDER_OPERATION_ERROR.OPEN_FAILED);
-
   const opened = await harness.recorder.open(harness.request);
-  const missingRun: RunLocator = {
-    ...opened,
-    runToken: sampleJournalReporterValue(arbitraryDomainLiteral()),
+  const missingRun: RunLocator = { ...opened, runToken: arbitraryDomainLiteralValue() };
+  return {
+    openMalformedScope: () => harness.recorder.open({ ...harness.request, scope: arbitraryDomainLiteralValue() }),
+    appendScopeToMissingRun: () => harness.recorder.appendScope(missingRun, scopeUnit),
+    appendFindingToMissingRun: () => harness.recorder.appendFinding(missingRun, finding),
+    finishMissingRun: () => harness.recorder.finish(missingRun, JOURNAL_RUN_STATE_STATUS.INTERRUPTED),
   };
-
-  await expect(harness.recorder.appendScope(missingRun, scopeUnit)).rejects.toThrow(
-    RECORDER_OPERATION_ERROR.SCOPE_FAILED,
-  );
-  await expect(harness.recorder.appendFinding(missingRun, finding)).rejects.toThrow(
-    RECORDER_OPERATION_ERROR.FINDING_FAILED,
-  );
-  await expect(
-    harness.recorder.finish(missingRun, JOURNAL_RUN_STATE_STATUS.INTERRUPTED),
-  ).rejects.toThrow(RECORDER_OPERATION_ERROR.FINISH_FAILED);
 }
 
-/**
- * Scenario: a runner that reports an interrupted terminal status finishes the run with the interrupted
- * recorder status the terminal-status map derives — the invoked-runner mapping, distinct from the
- * gated-out path — after recording the unit it streamed before interruption.
- */
-export async function assertExecutorMapsInterruptedRunnerReport(): Promise<void> {
+/** What a runner that fails after the run opened leaves behind. */
+export interface RunnerFailureObservation {
+  /** The failure the runner raised. */
+  readonly failure: Error;
+  /** What the executor rejected with. */
+  readonly rejection: unknown;
+  /** The run the recorder opened before the runner failed, or `undefined` when none opened. */
+  readonly opened: RunLocator | undefined;
+  /** The opened run rendered after the executor rejected, when one opened. */
+  readonly report: VerifyRenderReport | undefined;
+}
+
+/** Drives the executor over a runner that rejects after the run opens and renders whatever run it left. */
+export async function observeRunnerFailure(): Promise<RunnerFailureObservation> {
   const harness = createExecutorHarness();
-  const controlled = createControlledRunner(interruptedRunnerOutcome());
-
-  const result = await executeVerificationRun(harness.request, {
-    resolveRunner: () => controlled.runner,
-    recorder: harness.recorder,
-  });
-
-  expect(result.executed).toBe(true);
-  if (!result.executed) return;
-  expect(result.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.INTERRUPTED);
-
-  const report = await renderRunReport(harness, result.run.runToken);
-  expect(eventsOfType(report.events, VERIFY_APPEND_EVENT_TYPE.SCOPE)).toHaveLength(1);
-  expect(report.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.INTERRUPTED);
-  expect(report.sealed).toBe(true);
-}
-
-/**
- * Mapping: the executor's terminal-status function is total over the runner's terminal-status domain,
- * carrying each of `passed`, `failed`, and `interrupted` onto its information-preserving recorder
- * status — passed→passed, failed→failed, interrupted→interrupted. The mapping's input column equals the
- * whole runner terminal-status enum (totality), and its output column carries distinct recorder statuses
- * (no two runner statuses collapse onto one), so every runner terminal status maps to exactly one
- * recorder terminal status.
- */
-export function assertExecutorMapsEveryRunnerTerminalStatus(): void {
-  const mapping: ReadonlyArray<readonly [JournalRunTerminalStatus, JournalRunStateStatus]> = [
-    [JOURNAL_RUN_TERMINAL_STATUS.PASSED, JOURNAL_RUN_STATE_STATUS.PASSED],
-    [JOURNAL_RUN_TERMINAL_STATUS.FAILED, JOURNAL_RUN_STATE_STATUS.FAILED],
-    [JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED, JOURNAL_RUN_STATE_STATUS.INTERRUPTED],
-  ];
-
-  expect(mapping.map(([runner]) => runner)).toEqual(Object.values(JOURNAL_RUN_TERMINAL_STATUS));
-  for (const [runner, expectedRecorderStatus] of mapping) {
-    expect(recorderTerminalStatusFor(runner)).toBe(expectedRecorderStatus);
-  }
-  expect(new Set(mapping.map(([, recorderStatus]) => recorderStatus)).size).toBe(mapping.length);
-}
-
-/**
- * Compliance: a failing language folds the run's terminal status to failed, taking precedence over
- * passing and interrupted languages that ran alongside it.
- */
-export async function assertTestRunnerFoldsFailedTerminalStatus(): Promise<void> {
-  const invocation = await foldRegistryInvocation({
-    languages: [
-      streamingDescriptorYielding(JOURNAL_RUN_TERMINAL_STATUS.PASSED),
-      streamingDescriptorYielding(JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED),
-      streamingDescriptorYielding(JOURNAL_RUN_TERMINAL_STATUS.FAILED),
-    ],
-  });
-  expect(invocation).toEqual({ invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.FAILED });
-}
-
-/**
- * Compliance: an interrupted language folds the run's terminal status to interrupted when no language
- * failed, taking precedence over passing languages that ran alongside it.
- */
-export async function assertTestRunnerFoldsInterruptedTerminalStatus(): Promise<void> {
-  const invocation = await foldRegistryInvocation({
-    languages: [
-      streamingDescriptorYielding(JOURNAL_RUN_TERMINAL_STATUS.PASSED),
-      streamingDescriptorYielding(JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED),
-    ],
-  });
-  expect(invocation).toEqual({ invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED });
-}
-
-/**
- * Compliance: a registry whose languages are all non-streaming or gated out contributes no terminal
- * status, so the test runner gates the run out rather than reporting a passing empty fold.
- */
-export async function assertTestRunnerGatesOutWhenNoLanguageStreams(): Promise<void> {
-  const invocation = await foldRegistryInvocation({
-    languages: [nonStreamingDescriptor(), gatedOutDescriptor()],
-  });
-  expect(invocation).toEqual({ invoked: false });
-}
-
-/**
- * Compliance: two distinct failing cases whose module id and test name straddle a separator
- * differently — collapsing onto one key under a naive `moduleId + separator + testName` join — both
- * record as findings, because the finding idempotency key encodes the pair without collision.
- */
-export async function assertExecutorRecordsSeparatorStraddlingFindingsDistinctly(): Promise<void> {
-  const harness = createExecutorHarness();
-  const [first, second] = sampleJournalReporterValue(
-    JOURNAL_REPORTER_TEST_GENERATOR.collidingFindingPair(),
-  );
-  const controlled = createControlledRunner({
-    scopeUnits: [],
-    findings: [first, second],
-    invocation: { invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.FAILED },
-  });
-
-  const result = await executeVerificationRun(harness.request, {
-    resolveRunner: () => controlled.runner,
-    recorder: harness.recorder,
-  });
-
-  expect(result.executed).toBe(true);
-  if (!result.executed) return;
-  const report = await renderRunReport(harness, result.run.runToken);
-  expect(eventsOfType(report.events, VERIFY_APPEND_EVENT_TYPE.FINDING)).toHaveLength(2);
-}
-
-/**
- * Compliance: when the runner fails after the run opens, the executor finishes the opened run with an
- * interrupted terminal status before the failure surfaces, so it leaves no spx-driven run unsealed.
- */
-export async function assertExecutorSealsRunWhenRunnerFails(): Promise<void> {
-  const harness = createExecutorHarness();
-  const failure = new Error(sampleJournalReporterValue(arbitraryDomainLiteral()));
-  const runner: JournalStreamingRunner = {
-    runTestsStreaming: () => Promise.reject(failure),
-  };
+  const failure = new Error(arbitraryDomainLiteralValue());
+  const runner: JournalStreamingRunner = { runTestsStreaming: () => Promise.reject(failure) };
   let opened: RunLocator | undefined;
   const recorder: ExecutorRecorderOperations = {
     open: async (request) => {
@@ -654,29 +481,30 @@ export async function assertExecutorSealsRunWhenRunnerFails(): Promise<void> {
     finish: (run, status) => harness.recorder.finish(run, status),
   };
 
-  await expect(
-    executeVerificationRun(harness.request, { resolveRunner: () => runner, recorder }),
-  ).rejects.toBe(failure);
-
-  expect(opened).toBeDefined();
-  if (opened === undefined) return;
-  const report = await renderRunReport(harness, opened.runToken);
-  expect(report.sealed).toBe(true);
-  expect(report.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.INTERRUPTED);
+  let rejection: unknown;
+  try {
+    await executeVerificationRun(harness.request, { resolveRunner: () => runner, recorder });
+  } catch (error: unknown) {
+    rejection = error;
+  }
+  const report = opened === undefined ? undefined : await renderRunReport(harness, opened.runToken);
+  return { failure, rejection, opened, report };
 }
 
-/**
- * Compliance: the interrupted seal is best-effort — when the runner fails after the run opens and the
- * recorder's finish also fails, the original runner failure surfaces rather than the finish failure,
- * so a degraded recorder never masks the runner error the caller needs.
- */
-export async function assertExecutorSurfacesRunnerFailureWhenSealAlsoFails(): Promise<void> {
+/** What a runner failure combined with a failing seal leaves the caller with. */
+export interface RunnerAndSealFailureObservation {
+  readonly runnerFailure: Error;
+  readonly finishFailure: Error;
+  /** What the executor rejected with. */
+  readonly rejection: unknown;
+}
+
+/** Drives the executor over a rejecting runner and a recorder whose finish also rejects. */
+export async function observeRunnerFailureWithSealFailure(): Promise<RunnerAndSealFailureObservation> {
   const harness = createExecutorHarness();
-  const runnerFailure = new Error(sampleJournalReporterValue(arbitraryDomainLiteral()));
-  const finishFailure = new Error(sampleJournalReporterValue(arbitraryDomainLiteral()));
-  const runner: JournalStreamingRunner = {
-    runTestsStreaming: () => Promise.reject(runnerFailure),
-  };
+  const runnerFailure = new Error(arbitraryDomainLiteralValue());
+  const finishFailure = new Error(arbitraryDomainLiteralValue());
+  const runner: JournalStreamingRunner = { runTestsStreaming: () => Promise.reject(runnerFailure) };
   const recorder: ExecutorRecorderOperations = {
     open: (request) => harness.recorder.open(request),
     appendScope: (run, unit) => harness.recorder.appendScope(run, unit),
@@ -684,7 +512,11 @@ export async function assertExecutorSurfacesRunnerFailureWhenSealAlsoFails(): Pr
     finish: () => Promise.reject(finishFailure),
   };
 
-  await expect(
-    executeVerificationRun(harness.request, { resolveRunner: () => runner, recorder }),
-  ).rejects.toBe(runnerFailure);
+  let rejection: unknown;
+  try {
+    await executeVerificationRun(harness.request, { resolveRunner: () => runner, recorder });
+  } catch (error: unknown) {
+    rejection = error;
+  }
+  return { runnerFailure, finishFailure, rejection };
 }
