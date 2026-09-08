@@ -5,9 +5,19 @@ import {
   arbitraryMovingSessionBranchScenario,
 } from "@testing/generators/agent/search";
 import { sampleGeneratedValue } from "@testing/generators/sample";
+import { withPiSearchBranchEvidence } from "@testing/harnesses/agent/pi-search";
 import { searchCodexBranchEvidenceStore, searchMovingSessionStore } from "@testing/harnesses/agent/search";
 
 describe("agent search — locator read bound", () => {
+  it("runs no locator over a Pi store for a branch selector", async () => {
+    await withPiSearchBranchEvidence((evidence) => {
+      expect(evidence.results.map((result) => result.sessionId)).toEqual([evidence.associatedSessionId]);
+      for (const call of evidence.locatorCalls) {
+        expect(call.roots).not.toContain(evidence.piStoreRoot);
+      }
+    });
+  });
+
   it("reads past the head only transcripts the locator named for a content selector", async () => {
     const scenario = sampleGeneratedValue(arbitraryMovingSessionBranchScenario());
     const observation = await searchMovingSessionStore(scenario, { contains: scenario.contentNeedle });

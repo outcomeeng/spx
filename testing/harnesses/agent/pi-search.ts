@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 
-import { agentHomeDirsFromHomeDir } from "@/domains/agent/home";
+import { agentHomeDirsFromHomeDir, piSessionStoreDir } from "@/domains/agent/home";
 import {
   AGENT_SEARCH_MATCH_REASON,
   AGENT_SESSION_JSON_FIELDS,
@@ -28,7 +28,7 @@ import {
   sampleAgentResumeValue,
 } from "@testing/generators/agent/resume";
 import { agentSearchSwitchCommand } from "@testing/generators/agent/search";
-import { MemoryTranscriptLocator } from "@testing/harnesses/agent/locator";
+import { MemoryTranscriptLocator, type TranscriptLocatorCall } from "@testing/harnesses/agent/locator";
 import { piTranscript, piTranscriptPath } from "@testing/harnesses/agent/pi-resume";
 import {
   claudeCodeTranscript,
@@ -85,7 +85,12 @@ export interface PiSearchBranchEvidence {
   readonly associatedSessionId: string;
   readonly unassociatedSessionId: string;
   readonly associatedCwd: string;
+  readonly branch: string;
   readonly branchReason: AgentSearchMatchReason;
+  /** Every locator call the branch search made, with the store roots each searched. */
+  readonly locatorCalls: readonly TranscriptLocatorCall[];
+  /** The root of the Pi store the scenario's transcripts live under. */
+  readonly piStoreRoot: string;
 }
 
 export interface PiSearchCliSelectionEvidence {
@@ -217,6 +222,7 @@ export async function withPiSearchBranchEvidence(
     nowMs - 1,
   );
 
+  const locator = new MemoryTranscriptLocator(fs);
   callback({
     results: await searchAgentSessions({
       agentHomeDirs: agentHomeDirsFromHomeDir(homeDir),
@@ -224,13 +230,19 @@ export async function withPiSearchBranchEvidence(
       productScopeRoot: productRoot,
       branchAssociatedWorktreeRoots: [associatedRoot],
       fs,
-      locator: new MemoryTranscriptLocator(fs),
+      locator,
       query: agentSearchQueryFromOptions({ branch }),
     }),
     associatedSessionId,
     unassociatedSessionId,
     associatedCwd,
+    branch,
     branchReason: AGENT_SEARCH_MATCH_REASON.BRANCH,
+    locatorCalls: locator.calls(),
+    piStoreRoot: piSessionStoreDir(
+      agentHomeDirsFromHomeDir(homeDir).piAgent,
+      agentHomeDirsFromHomeDir(homeDir).piSessions,
+    ),
   });
 }
 

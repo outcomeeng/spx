@@ -201,9 +201,18 @@ async function locateTranscripts(
   const [content, sessionId, branch] = await Promise.all([
     Promise.all(query.contentNeedles.map((needle) => locate(needle.value))),
     query.sessionId === null ? Promise.resolve(null) : locate(query.sessionId),
-    query.branch === null ? Promise.resolve(null) : locate(query.branch),
+    query.branch === null || !consumesTranscriptBranchEvidence(adapter) ? Promise.resolve(null) : locate(query.branch),
   ]);
   return { content, sessionId, branch };
+}
+
+/**
+ * Whether a store's transcripts carry branch evidence the search reads — recorded branch values
+ * or accepted commands. A store carrying neither associates a branch through worktree roots and
+ * opening metadata alone, so locating the branch name in it names transcripts nothing reads.
+ */
+function consumesTranscriptBranchEvidence(adapter: AgentSearchAdapter): boolean {
+  return adapter.readRecords !== null || adapter.acceptsTranscriptCommandEvidence;
 }
 
 /**
