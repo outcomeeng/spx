@@ -16,9 +16,9 @@ export const RELEASE_CLI_OUTPUT = {
  */
 export function formatReleaseErrorOutput(message: string): string {
   return renderTerminalText(
-    terminal`${authoredText(RELEASE_CLI_OUTPUT.ERROR_PREFIX)}${
-      authoredText(RELEASE_CLI_OUTPUT.LABEL_SEPARATOR)
-    }${message}${authoredText(RELEASE_CLI_OUTPUT.LINE_SEPARATOR)}`,
+    terminal`${authoredText(RELEASE_CLI_OUTPUT.ERROR_PREFIX)}${authoredText(RELEASE_CLI_OUTPUT.LABEL_SEPARATOR)}${
+      externalValue(message)
+    }${authoredText(RELEASE_CLI_OUTPUT.LINE_SEPARATOR)}`,
   );
 }
 
