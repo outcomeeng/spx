@@ -3,7 +3,7 @@ import { type Argument, Command, InvalidArgumentError, type Option } from "comma
 import { resolveProductDir } from "@/domains/config/root";
 import type { Domain } from "@/interfaces/cli/domain";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
-import { externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import { authoredText, externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 
 import { type CliIo, createCliInvocation, DEFAULT_CLI_IO, SPX_GLOBAL_OPTIONS } from "./product-context";
 import { CLI_DOMAINS } from "./registry";
@@ -101,9 +101,11 @@ class SafeDiagnosticCommand extends Command {
     super.unknownCommand();
   }
 
-  // Commander's own body, with the escaping applied over the whole message it would raise: the
-  // prefix Commander composed and the text the parser threw, since a parser that names the value
-  // it rejected embeds it a second time. Delegating to the base would escape only the prefix.
+  // Commander's own body, with each part of the message it would raise decided where it is
+  // embedded. Commander's prefix embeds the value verbatim by its own contract, so it is restated
+  // with the value escaped; the text the parser threw is a caught-error message whose shape no
+  // contract fixes — a parser may quote, trim, or recase the value before naming it — so it is
+  // embedded as an external segment rather than searched for the value.
   override _callParseArg(
     target: Option | Argument,
     value: string,
@@ -114,8 +116,10 @@ class SafeDiagnosticCommand extends Command {
       return target.parseArg?.(value, previous);
     } catch (error) {
       if (error instanceof InvalidArgumentError) {
-        const message = withEscapedValue(`${invalidArgumentMessage} ${error.message}`, value);
-        this.error(message, { exitCode: error.exitCode, code: error.code });
+        const message = terminal`${authoredText(withEscapedValue(invalidArgumentMessage, value))} ${
+          externalValue(error.message)
+        }`;
+        this.error(renderTerminalText(message), { exitCode: error.exitCode, code: error.code });
       }
       throw error;
     }

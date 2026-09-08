@@ -12,28 +12,41 @@ export interface CliDiagnosticRun {
   readonly commanderError: CommanderError | undefined;
 }
 
-/** The command and flag of the harness domain whose option parser names the value it rejects. */
+/**
+ * The command and flags of the harness domain whose option parsers name the value they reject:
+ * one repeats it verbatim, the other recases it first.
+ */
 export const REJECTING_PARSER_CLI = {
   COMMAND: "reject",
   FLAG: "--value",
+  REFORMATTING_FLAG: "--recased",
 } as const;
 
 /**
- * A domain with one option whose parser refuses every value and repeats it in the message it
- * throws. Commander appends that message to its own invalid-argument prefix, so the value reaches
+ * A domain with two options whose parsers refuse every value and name it in the message they
+ * throw. Commander appends that message to its own invalid-argument prefix, so the value reaches
  * the diagnostic twice — once where Commander embedded it and once where the parser did — and a
- * program that escapes only the prefix leaves the second copy raw.
+ * program that escapes only the prefix leaves the second copy raw. The recasing parser names a
+ * transformed copy, which a program that escapes by searching the message for the raw value
+ * never finds, while the copy's control bytes survive the transformation.
  */
 function rejectingParserDomain(): Domain {
   return {
     name: REJECTING_PARSER_CLI.COMMAND,
-    description: "Rejects every value through its own parser",
+    description: "Rejects every value through its own parsers",
     register: (program) => {
       program
         .command(REJECTING_PARSER_CLI.COMMAND)
         .option(`${REJECTING_PARSER_CLI.FLAG} <value>`, "A value the parser never accepts", (value: string) => {
           throw new InvalidArgumentError(`got ${value}`);
         })
+        .option(
+          `${REJECTING_PARSER_CLI.REFORMATTING_FLAG} <value>`,
+          "A value the parser never accepts and recases before naming",
+          (value: string) => {
+            throw new InvalidArgumentError(`got ${value.toUpperCase()}`);
+          },
+        )
         .action(() => undefined);
     },
   };

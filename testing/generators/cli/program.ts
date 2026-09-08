@@ -61,6 +61,11 @@ export interface CommanderDiagnosticScenario {
    * throws, so the value is embedded once by Commander and once by the parser.
    */
   readonly rejectingParserArgv: readonly string[];
+  /**
+   * Argv handing the unsafe value to an option whose parser recases it before naming it, so the
+   * copy the parser embeds is not the raw value while its control bytes are.
+   */
+  readonly reformattingParserArgv: readonly string[];
   /** An unknown command one character short of a registered subcommand, answered the same way. */
   readonly nearMatchCommandArgv: readonly string[];
   /** The registered command name Commander suggests for `nearMatchCommandArgv`. */
@@ -108,6 +113,7 @@ export function commanderDiagnosticScenario(): CommanderDiagnosticScenario {
     escapedEscapeByte: ESCAPED_ESCAPE_BYTE,
     invalidChoiceArgv: [DIAGNOSE_CLI.COMMAND, DIAGNOSE_CLI.FORMAT_FLAG, unsafeValue],
     rejectingParserArgv: [REJECTING_PARSER_CLI.COMMAND, REJECTING_PARSER_CLI.FLAG, unsafeValue],
+    reformattingParserArgv: [REJECTING_PARSER_CLI.COMMAND, REJECTING_PARSER_CLI.REFORMATTING_FLAG, unsafeValue],
     nearMatchOption: oneEditFrom(SPX_GLOBAL_OPTIONS.directory.long),
     nearMatchOptionSuggestion: SPX_GLOBAL_OPTIONS.directory.long,
     nearMatchCommandArgv: [oneEditFrom(CONFIG_CLI.commandName)],
