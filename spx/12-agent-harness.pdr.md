@@ -23,8 +23,7 @@ The three scopes keep a repository that declares its capabilities distinct from 
 ## Product properties
 
 1. The agent harness manages repository-scoped agent configuration, instruction files, invocation policy, and isolated execution state, and installs product-scoped marketplaces, plugins, and skills only into the agent home it sets.
-2. The terms harness, agent, agent adapter, and agent session stay separate across configuration, invocation, observation, and resume behavior.
-3. Top-level enablers, outcomes, command domains, and source domains that configure, launch, resume, isolate, equip, or journal verification runs executed by coding agents are part of the agent harness.
+2. A product's tracked working tree never contains an installed plugin, a plugin cache, or a marketplace clone, so a repository declares its capabilities without carrying them.
 
 ## Verification
 
@@ -34,9 +33,3 @@ The three scopes keep a repository that declares its capabilities distinct from 
 - NEVER: the harness writes into the user scope of any coding agent ([compliance])
 - ALWAYS: a plugin, plugin cache, or marketplace clone found under the repository is reported as a defect by diagnostics, naming the path and the agent home it belongs in ([compliance])
 - NEVER: a repository ignore rule admits an installed plugin, skill, or marketplace directory under the repository as tracked content ([compliance])
-
-### Audit
-
-- ALWAYS: top-level specs and decisions that govern Codex, Claude Code, agent selection, agent configuration, agent adapters, agent sessions, plugin bootstrap, skill bootstrap, isolated agent execution, or agent observation identify whether they are describing the harness, an agent, an agent adapter, or an agent session, and which of the three scopes they write ([audit])
-- ALWAYS: root-level placement and decomposition account for top-level enablers, outcomes, command domains, and source domains whose behavior configures, launches, resumes, isolates, equips, or journals verification runs executed by coding agents ([audit])
-- NEVER: use unqualified agent for adapter implementation, session identity, plugin package, marketplace package, or the SPX-managed harness when that specific role is meant ([audit])

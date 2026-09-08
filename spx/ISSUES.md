@@ -23,22 +23,43 @@
 ## The product declares 4.0.0 with 3.2 half-applied
 
 **Evidence:** `spx.config.yaml` declares `version: 4.0.0` and
-`migratingFrom: 3.1.0`. Methodology 3.2.0 (`versions/3.2/README.md` of
+`migratingFrom: 3.2.0`. Methodology 3.2.0 (`versions/3.2/README.md` of
 `outcomeeng/methodology`) adds the per-node status claim and removes
 `spx/EXCLUDE`. This tree carries 200 `spx.status.json` files and still carries
 `spx/EXCLUDE` with 18 entries. The claim shape stores an `overall` field per
 mechanism; 3.2 stores only per-reference outcomes and derives the mechanism
 verdict when read. 114 assertions carry the 3.0 `([review])` tag.
 
-**Impact:** the declared migration source is one version behind the tree's
-own artifacts, and the status projector, the CI gate, and the excluded-node
-classification each run against a mixture of 3.1 and 3.2 rules.
+**Impact:** the tree's own artifacts lag the declared migration source: the
+status projector, the CI gate, and the excluded-node classification each run
+against a mixture of pre-3.2 and 3.2 rules, and the `([review])` tags predate
+both.
 
-**Settlement condition:** `migratingFrom` names `3.2.0`; `spx/EXCLUDE` is
-deleted after every evidence-bearing node carries a claim seeded from a green
-run; the claim writer stops storing `overall`; the `([review])` tags are
-rewritten to the current audit tag; the migration source is removed when the
-earlier-version inventory reaches zero.
+**Settlement condition:** `spx/EXCLUDE` is deleted after every
+evidence-bearing node carries a claim seeded from a green run; the claim
+writer stops storing `overall`; the `([review])` tags are rewritten to the
+current audit tag; the migration source is removed when the earlier-version
+inventory reaches zero.
+
+## The managed router block names a sentinel the config rejects
+
+**Evidence:** the `<!-- SPEC-TREE -->` router block in `CLAUDE.md` and
+`AGENTS.md`, regenerated from the spec-tree plugin's instruction template,
+states that when `methodology.version` is the sentinel `installed` "the
+repository declares no methodology version". `src/config/methodology.ts`
+accepts only an exact `MAJOR.MINOR.PATCH` value for that field and rejects
+`installed` as malformed configuration, per
+`spx/13-agent-capability-lifecycle.pdr.md`.
+
+**Impact:** an agent following the router's literal guidance treats a config
+carrying `methodology.version: installed` as a valid undeclared state, while
+config resolution fails before any command reads it.
+
+**Resolution:** the sentence lives in the plugin's instruction template, so the
+correction is a template change in `outcomeeng/plugins` that drops the
+sentinel clause; `/update-instruction-block` then regenerates both guides.
+Hand-editing the generated block is not a fix: the next regeneration restores
+the template text.
 
 ## Source-graph containment property fails on some generated inputs
 

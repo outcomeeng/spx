@@ -38,11 +38,11 @@ Which methodology version a provider serves is the provider's fact, declared in 
 - NEVER: routine SPX or capability updates change `methodology.version` or `methodology.migratingFrom`, rewrite product truth under `spx/`, or advance managed instruction markers to a different methodology ([compliance])
 - ALWAYS: an interrupted methodology migration preserves its branch, working changes, append-only run journal, and resumable coding-agent session while remaining incomplete ([compliance])
 - ALWAYS: while `methodology.migratingFrom` is declared, an artifact written against either the target version or the migration source resolves without failing on version shape alone ([compliance])
-- ALWAYS: a coding agent that changes an artifact declared at the migration source leaves it conforming to the target methodology version ([audit])
 - ALWAYS: methodology migration completion conforms to a successful sealed target-methodology verification run whose target methodology, branch and head changeset, resolved configuration identity, and migration coding-agent session identity match the migration result, plus the target version in product configuration, matching managed instruction markers, an absent `methodology.migratingFrom`, and closure of that migration coding-agent session ([conformance])
 
 ### Audit
 
+- ALWAYS: a coding agent that changes an artifact declared at the migration source leaves it conforming to the target methodology version ([audit])
 - ALWAYS: the target methodology owns semantic migration decisions while SPX owns isolation, launch, journaling, resumability, and completion-envelope validation ([audit])
 - ALWAYS: SPX consumes coding-agent-native capability packages from declared sources rather than translating one coding agent's capability artifacts into another agent's native package format ([audit])
 - NEVER: SPX guarantees reconciled behavior when a coding-agent platform violates product-over-user configuration precedence ([audit])
