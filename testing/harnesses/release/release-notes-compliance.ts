@@ -4,8 +4,10 @@ import { basename, dirname, join, resolve, sep } from "node:path";
 import type { AgentAuditor, AgentAuditRequest, AgentRunRequest } from "@/agent/agent-runner";
 import type { ReleaseData } from "@/domains/release/release-data";
 import {
+  buildReleaseNotesPrompt,
   CHANGELOG_PATH_DATA_BLOCK_CLOSE,
   CHANGELOG_PATH_DATA_BLOCK_OPEN,
+  CHANGELOG_TITLE,
   COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
   COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
   composeReleaseNotes,
@@ -97,6 +99,8 @@ export interface ReleaseNotesFaithfulnessObservation {
   readonly auditRequest: AgentAuditRequest | undefined;
   readonly auditPrompt: string;
   readonly auditSectionDataBlock: ReleaseNotesPromptDataBlockObservation;
+  /** The commit-subjects data block the audit prompt carries. */
+  readonly auditSubjectsDataBlock: ReleaseNotesPromptDataBlockObservation;
   readonly workingDirectory: string;
 }
 
@@ -361,6 +365,66 @@ function requiredPromptChangelogPath(prompt: string): string {
     throw new Error("Release-notes prompt omitted the staged changelog path");
   }
   return changelogPath;
+}
+
+/** What composing release notes did for a release whose every commit carries an omitted conventional type. */
+export interface ReleaseNotesOmittedOnlyObservation {
+  readonly error: unknown;
+  /** Requests the injected agent runner received; a rejection before the agent runs records none. */
+  readonly agentRequestCount: number;
+  /** Whether the resolved changelog path holds a file once composition returns. */
+  readonly finalPathIsFile: boolean;
+}
+
+/**
+ * Composes release notes for a release whose commits are all omitted-type,
+ * against the real filesystem boundaries and a recording agent runner, and
+ * reports what the composition did. The linked test decides what it means.
+ */
+export async function observeReleaseNotesOmittedOnlyComposition(
+  scenario: { readonly releaseData: ReleaseData },
+): Promise<ReleaseNotesOmittedOnlyObservation> {
+  let observation: ReleaseNotesOmittedOnlyObservation | undefined;
+  await withReleaseNotesEnv(async (env) => {
+    const resolvedPath = resolveReleaseNotesPath(env.workingDirectory, {});
+    const agentRunner = recordingReleaseNotesAgent(env.workingDirectory, resolvedPath, CHANGELOG_TITLE);
+    let error: unknown;
+    try {
+      await composeReleaseNotes({
+        releaseData: scenario.releaseData,
+        config: {},
+        workingDirectory: env.workingDirectory,
+        agentRunner,
+        readArtifact: env.readArtifact,
+        createArtifactStage: env.createArtifactStage,
+        promoteArtifact: env.promoteArtifact,
+        faithfulnessAuditor: approvingReleaseNotesFaithfulnessAuditor,
+        canonicalizePath: env.canonicalizePath,
+        isSymbolicLink: env.isSymbolicLink,
+        isFile: env.isFile,
+      });
+    } catch (caught) {
+      error = caught;
+    }
+    observation = {
+      error,
+      agentRequestCount: agentRunner.requests.length,
+      finalPathIsFile: await env.isFile(resolvedPath),
+    };
+  });
+  if (observation === undefined) {
+    throw new Error("Omitted-only release-notes composition produced no observation");
+  }
+  return observation;
+}
+
+/** The commit-subjects data block the producer prompt carries for `releaseData`, assembled at the default changelog path. */
+export function observeReleaseNotesPromptSubjects(releaseData: ReleaseData): ReleaseNotesPromptDataBlockObservation {
+  return observePromptDataBlock(
+    buildReleaseNotesPrompt(releaseData, DEFAULT_CHANGELOG_PATH),
+    COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
+    COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
+  );
 }
 
 function observePromptDataBlock(
@@ -1101,6 +1165,11 @@ export async function observeReleaseNotesFaithfulness(
         RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_OPEN,
         RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_CLOSE,
       ),
+      auditSubjectsDataBlock: observePromptDataBlock(
+        "",
+        COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
+        COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
+      ),
       workingDirectory: env.workingDirectory,
     };
   });
@@ -1159,6 +1228,11 @@ async function observeProductionFaithfulnessAudit(
         auditRequest?.prompt ?? "",
         RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_OPEN,
         RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_CLOSE,
+      ),
+      auditSubjectsDataBlock: observePromptDataBlock(
+        auditRequest?.prompt ?? "",
+        COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
+        COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
       ),
       workingDirectory: env.workingDirectory,
     };

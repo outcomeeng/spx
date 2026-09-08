@@ -127,10 +127,21 @@ export const RELEASE_NOTES_VERSION_HEADING_INSTRUCTION = `Construct the release 
 }; write no quotes, escapes, or other text on that heading line.`;
 export const CHANGELOG_PRESERVATION_INSTRUCTION =
   "If the changelog path already exists, read it first and preserve existing version sections; replace only this release version's section when it is already present, otherwise insert this release section without deleting older sections.";
+/**
+ * The two contracts the notes are written and judged against, each named once
+ * and carried by both the producer instruction and the faithfulness-audit
+ * instruction: what makes a change worth describing, and which classes the
+ * notes leave out. One declaration per contract keeps the prompt that writes
+ * the notes and the prompt that judges them from drifting apart.
+ */
+export const RELEASE_NOTES_OBSERVABLE_EFFECT_BASIS =
+  "judged by its observable effect rather than by its technical label";
+export const RELEASE_NOTES_OMITTED_CHANGE_CLASSES =
+  "spec-only, test-only, release-mechanics, and internal implementation changes that have no observable effect";
 export const RELEASE_NOTES_USER_FACING_INSTRUCTION =
-  "Write for product users. Translate implementation-shaped commit subjects into externally observable capabilities and effects when they change product behavior, and consolidate related commits into one user-facing entry. Omit only spec-only, test-only, release-mechanics, and internal implementation changes that have no observable effect.";
+  `Write for product users. Every commit is ${RELEASE_NOTES_OBSERVABLE_EFFECT_BASIS}: translate implementation-shaped subjects into externally observable capabilities and effects, and consolidate related commits into one user-facing entry. Omit only ${RELEASE_NOTES_OMITTED_CHANGE_CLASSES}.`;
 export const RELEASE_NOTES_AUDIT_USER_FACING_INSTRUCTION =
-  "Judge each commit by its observable effect rather than its technical label. Approve only when the release section represents every user-visible change and omits spec-only, test-only, release-mechanics, and internal implementation changes that have no observable effect.";
+  `Every commit is ${RELEASE_NOTES_OBSERVABLE_EFFECT_BASIS}. Approve only when the release section represents every user-visible change and omits ${RELEASE_NOTES_OMITTED_CHANGE_CLASSES}.`;
 export const RELEASE_NOTES_AGENT_TOOLS = [
   AGENT_RUN_TOOLS.READ,
   AGENT_RUN_TOOLS.WRITE,
@@ -139,6 +150,36 @@ export const RELEASE_NOTES_AGENT_TOOLS = [
 export const RELEASE_NOTES_AGENT_PERMISSION_MODE = AGENT_PERMISSION_MODES.DONT_ASK satisfies AgentPermissionMode;
 export const RELEASE_NOTES_AGENT_MAX_TURNS = 12;
 export const RELEASE_NOTES_FAITHFULNESS_AUDIT_MAX_TURNS = 4;
+
+/**
+ * The conventional commit types whose subjects the notes omit as declared —
+ * spec, test, refactor, style, documentation, CI, and build work carry no
+ * user-visible behavior of their own. Their subjects are withheld from the
+ * producer and the faithfulness audit alike, so neither reads an observable
+ * effect into them.
+ */
+export const RELEASE_NOTES_OMITTED_COMMIT_TYPES = [
+  "spec",
+  "test",
+  "refactor",
+  "style",
+  "docs",
+  "ci",
+  "build",
+] as const;
+/** A conventional commit subject opens with `type`, an optional `(scope)`, an optional `!`, and a colon. */
+const CONVENTIONAL_COMMIT_TYPE_PATTERN = /^([a-z]+)(?:\([^)]*\))?!?:/u;
+
+/** The subjects the notes describe: every release commit except those whose conventional type the notes omit. */
+export function releaseNotesSubjects(commits: ReleaseData["commits"]): string[] {
+  const omittedTypes: ReadonlySet<string> = new Set(RELEASE_NOTES_OMITTED_COMMIT_TYPES);
+  return commits
+    .map((commit) => commit.subject)
+    .filter((subject) => {
+      const type = CONVENTIONAL_COMMIT_TYPE_PATTERN.exec(subject)?.[1];
+      return type === undefined || !omittedTypes.has(type);
+    });
+}
 
 const CARRIAGE_RETURN = "\r";
 const MARKDOWN_HEADING_PREFIX = "#";
@@ -374,6 +415,11 @@ export async function composeReleaseNotes(
     isSymbolicLink,
     isFile,
   } = options;
+  if (releaseNotesSubjects(releaseData.commits).length === 0) {
+    throw new ReleaseNotesError(
+      `Release ${releaseData.version} has no commit describing a user-visible change, so it carries no release notes`,
+    );
+  }
   const configuredPath = configuredChangelogPath(config);
   const changelogPath = resolveReleaseNotesPath(workingDirectory, config);
   const preAgentCanonicalChangelogPath = await assertCanonicalReleaseNotesPath(
@@ -644,7 +690,7 @@ function formatChangelogPathDataBlock(changelogPath: string): string {
 }
 
 function formatCommitSubjectsDataBlock(releaseData: ReleaseData): string {
-  const commitSubjects = releaseData.commits.map((commit) => commit.subject);
+  const commitSubjects = releaseNotesSubjects(releaseData.commits);
   return [
     COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
     encodeCommitSubjects(commitSubjects),
