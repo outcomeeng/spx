@@ -20,6 +20,78 @@
 
 **Resolution:** truth flows down, so the two ADRs change first: rename the descriptor layer to the surfaces layer and state the capabilities layer's home, reviewed as a `decompose-next` projection and passed through `adr-auditor`; then move `src/interfaces/cli/` and settle `src/lib/` in one pass with `git mv` and import updates. Until the ADRs change, new descriptors follow them as they stand. Re-enter after `spx/PLAN.md`'s configured node-kind support lands, because the surfaces area is not a valid node kind before it.
 
+## The methodology version model has no decision
+
+**Evidence:** `spx/13-agent-capability-lifecycle.pdr.md` uses "compatible"
+three times ("capability versions compatible with the declared methodology",
+"the newest SPX release compatible with the declared methodology", "a
+compatible installed Spec Tree package") and defines it nowhere. It names
+`installed` as bootstrap intent and names no migration source.
+`src/config/methodology.ts` defaults `version` to `installed`. The methodology
+repository's `AUTHORITY.md` states the delivery relationship: a provider
+declares the one version it provides and the range it supports; a consumer
+declares one exact version in a committed config file the provider reads, and
+during a transition the version it migrates from.
+
+**Impact:** the config descriptor, the diagnose check, and the understand
+payload each interpret `methodology.version` on their own. The diagnose probe
+reads it as a plugin-cache directory name under the coding agent's home.
+
+**Settlement condition:** PDR-13 states that `methodology.version` is one
+exact methodology version, that `methodology.migratingFrom` is the version the
+product migrates from while a transition is open, that compatibility is the
+provider's `provides` and `supports` declaration in its `plugin.json`, that no
+sentinel value exists, and it cites `AUTHORITY.md` of `outcomeeng/methodology`
+as its source.
+
+## PDR-12 lists plugins and skills as repository-local
+
+**Evidence:** `spx/12-agent-harness.pdr.md` opens with "The harness manages
+repository-local agent configuration, instruction files, plugin marketplaces,
+plugins, skills, invocation policy, and isolated execution state" and repeats
+the list as its first product property. No decision separates the three
+scopes: user scope (`$HOME/.codex`, `$HOME/.claude`), which spx never
+mutates; the agent home spx sets (`$CODEX_HOME`, `CLAUDE_CONFIG_DIR`), where
+spx installs product-scoped capabilities; and the repository, which carries
+configuration only. `spx/33-harness-environment.enabler/43-plugin-bootstrap.enabler/plugin-bootstrap.md`
+promises "product-scoped capabilities" and names no install location.
+`.gitignore` un-ignores `.codex/skills/*`, a repository-local skills
+directory. A Codex session with this worktree as project root cloned the
+whole marketplace and installed a plugin under `.codex/` here on 2026-07-25,
+and wrote a `[marketplaces.outcomeeng]` stanza into the tracked
+`.codex/config.toml`.
+
+**Impact:** nothing in the tree distinguishes a repository that declares
+which plugins are enabled from a repository that contains them, so a
+project-scoped plugin cache and a tool-written config stanza read as
+ordinary state.
+
+**Settlement condition:** PDR-12 states the three scopes, that the repository
+carries agent configuration only, that plugins, skills, and marketplaces
+install only into the agent home spx sets, and that a plugin cache under the
+repository is a diagnose defect; `43-plugin-bootstrap` names the agent home as
+its only write target; `.gitignore` no longer un-ignores `.codex/skills/*`.
+
+## The product declares 4.0.0 with 3.2 half-applied
+
+**Evidence:** `spx.config.yaml` declares `version: 4.0.0` and
+`migratingFrom: 3.1.0`. Methodology 3.2.0 (`versions/3.2/README.md` of
+`outcomeeng/methodology`) adds the per-node status claim and removes
+`spx/EXCLUDE`. This tree carries 200 `spx.status.json` files and still carries
+`spx/EXCLUDE` with 18 entries. The claim shape stores an `overall` field per
+mechanism; 3.2 stores only per-reference outcomes and derives the mechanism
+verdict when read. 114 assertions carry the 3.0 `([review])` tag.
+
+**Impact:** the declared migration source is one version behind the tree's
+own artifacts, and the status projector, the CI gate, and the excluded-node
+classification each run against a mixture of 3.1 and 3.2 rules.
+
+**Settlement condition:** `migratingFrom` names `3.2.0`; `spx/EXCLUDE` is
+deleted after every evidence-bearing node carries a claim seeded from a green
+run; the claim writer stops storing `overall`; the `([review])` tags are
+rewritten to the current audit tag; the migration source is removed when the
+earlier-version inventory reaches zero.
+
 ## Source-graph containment property fails on some generated inputs
 
 `spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler/tests/source.compliance.l1.test.ts`

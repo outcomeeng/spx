@@ -7,3 +7,24 @@
 - `src/domains/agent-environment/runtime-config.ts`: Claude Code JSON reconciliation does not define key position as a product invariant. When a file lacks the managed `spx` key, reconciliation appends the key after existing user-authored keys; when the key already exists, repeated reconciliation preserves its existing insertion position and byte-stable idempotency. Revisit only if future instruction or review output requires `spx` to appear first in generated JSON.
 - `spx/33-harness-environment.enabler/32-agent-config.enabler/tests/agent-config.scenario.l1.test.ts`: `RuntimeConfigMemoryFileSystem` exercises create-path write failures by returning ENOENT from `readFile`. Add a separate update-path fake if rollback diagnostics need additional evidence for pre-existing files beyond `RuntimeConfigMemoryFileSystem`.
 - `src/domains/agent-environment/runtime-config.ts`: hermetic agent paths intentionally include both the agent namespace directory and the agent's own relative config path, for example `harness-environment/runtime-config/codex/.codex/config.toml`. Revisit only if a future agent owns a relative path that makes the duplication user-visible or ambiguous.
+
+## Codex writes cache bookkeeping into the tracked project config
+
+**Evidence:** `.codex/config.toml` is tracked and enables four `@outcomeeng`
+plugins. On 2026-07-25T04:11:21Z a Codex session resolving that config
+appended a `[marketplaces.outcomeeng]` table carrying `source_type`,
+`source`, and `last_updated = "2026-07-25T04:11:21Z"`, the timestamp of the
+clone it made under `.codex/.tmp/marketplaces/`. The stanza is the agent's
+record of a fetch, in a file the harness owns. `.gitignore` un-ignores
+`.codex/skills/*`, a repository-local skills directory that has never
+existed. No reconciliation asserts what the harness-managed section of that
+file may and may not contain.
+
+**Impact:** a tracked file goes dirty on every marketplace refresh, and a
+tool-written stanza is indistinguishable from an operator declaration.
+
+**Settlement condition:** the spec states which tables of the Codex project
+config are harness-managed and that a marketplace's `last_updated` is never
+committed; reconciliation preserves an agent-written marketplace `source`
+only when the product configuration declares that marketplace; the
+`.codex/skills/*` ignore exception is removed.
