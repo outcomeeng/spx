@@ -22,3 +22,4 @@ CAN run only the tests for the node or file they changed instead of the full sui
 
 - ALWAYS: `spx test passing` with operands applies the configured passing-scope exclusions to the operand-selected set, while `spx test` with operands routes the selected set unfiltered ([test](tests/targeted-execution.compliance.l1.test.ts))
 - ALWAYS: operand-selected files route through the same registry adapters, runner environment, last-run recording, and `--agent` output handling as a full run — operands change the selected set only, per `spx/41-test.enabler/11-test-runner-environments.pdr.md` ([audit])
+- ALWAYS: operand selection is a pure library under `src/lib/test-targeting/` with one public surface, and every verification surface that narrows work by product path — `spx test` and `spx verification <type> run` — consumes it there, per `spx/14-cli-composition.adr.md` and `spx/29-verification-path-scope.pdr.md` ([audit])
