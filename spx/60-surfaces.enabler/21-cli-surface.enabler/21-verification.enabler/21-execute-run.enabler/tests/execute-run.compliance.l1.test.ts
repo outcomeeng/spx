@@ -1,7 +1,11 @@
 import { posix } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { EXECUTE_RUN_CLI_ERROR, EXECUTE_RUN_CLI_WARNING } from "@/commands/verification-exec";
+import {
+  EXECUTE_RUN_CLI_ERROR,
+  EXECUTE_RUN_CLI_WARNING,
+  EXECUTE_RUN_CLI_WARNING_TEXT,
+} from "@/commands/verification-exec";
 import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
@@ -118,7 +122,7 @@ describe("execute run compliance", () => {
 
     const descriptor = await observeExecuteRunDescriptor(
       [],
-      handlerReturning({ exitCode: VERIFY_CLI_EXIT_CODE.OK, warning: EXECUTE_RUN_CLI_WARNING.NOT_GIT_REPOSITORY }),
+      handlerReturning({ exitCode: VERIFY_CLI_EXIT_CODE.OK, warning: EXECUTE_RUN_CLI_WARNING_TEXT.NOT_GIT_REPOSITORY }),
     );
     expect(descriptor.stdout).toHaveLength(0);
     expect(descriptor.stderr.trim()).toBe(EXECUTE_RUN_CLI_WARNING.NOT_GIT_REPOSITORY);

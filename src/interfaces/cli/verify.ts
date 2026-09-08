@@ -32,10 +32,11 @@ import type { CliCommandResult } from "@/config/types";
 import { VERIFY_INPUT_SOURCE, VERIFY_SCOPE_TYPE, VERIFY_VERB } from "@/domains/verify/verify";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
+import { jsonDocument, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 
 import { createJournalStreamBinding, stderrStreamSink } from "./lib/journal-stream-binding";
 import { PATH_OPERAND_CLI_SURFACE, recursiveOptionFlags } from "./lib/path-operands";
-import { CLI_STREAM_REPORT, reportCliResult } from "./lib/stream-report";
+import { reportCliResult } from "./lib/stream-report";
 
 export const VERIFICATION_RUN_CLI_SURFACE = {
   addCommandName: "add",
@@ -284,9 +285,10 @@ export function registerVerifyCommands(
 
 /**
  * Register one noun command per executable verification type, each carrying the `run` verb over
- * positional path operands. The structured result goes to standard output whatever the exit code, a
- * warning and a diagnostic go to standard error, and the run's local event stream stays on standard
- * error so a caller parses one JSON result on stdout. A failure the handler propagates is rendered as
+ * positional path operands. The structured result is serialized to standard output through the
+ * primitive's JSON composition whatever the exit code, the handler's composed warning and diagnostic
+ * go to standard error, and the run's local event stream stays on standard error so a caller parses
+ * one JSON result on stdout. A failure the handler propagates is rendered as
  * the run-failed diagnostic with the error exit code, so no run failure escapes the process boundary.
  */
 function registerExecuteRunCommands(
@@ -333,13 +335,13 @@ async function executeRunOrFailure(
 
 function reportExecuteRunResult(result: ExecuteRunCommandResult, io: CliIo): void {
   if (result.warning !== undefined) {
-    io.writeStderr(`${result.warning}${CLI_STREAM_REPORT.LINE_SEPARATOR}`);
+    io.writeStderr(renderTerminalText(terminal`${result.warning}\n`));
   }
   if (result.report !== undefined) {
-    io.writeStdout(`${JSON.stringify(result.report)}${CLI_STREAM_REPORT.LINE_SEPARATOR}`);
+    io.writeStdout(renderTerminalText(terminal`${jsonDocument(result.report)}\n`));
   }
   if (result.diagnostic !== undefined) {
-    io.writeStderr(`${result.diagnostic}${CLI_STREAM_REPORT.LINE_SEPARATOR}`);
+    io.writeStderr(renderTerminalText(terminal`${result.diagnostic}\n`));
   }
   io.setExitCode(result.exitCode);
 }
