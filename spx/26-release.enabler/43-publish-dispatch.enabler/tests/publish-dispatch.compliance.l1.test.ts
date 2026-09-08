@@ -3,6 +3,7 @@ import {
   hostedReleaseFor,
   PACKAGE_PROVENANCE,
   packagePublicationMatches,
+  PUBLICATION_CONFIRMATION_BACKOFF_MS,
   ReleasePublicationError,
 } from "@/domains/release/publication";
 import { releasePublicationWorkflowViolations } from "@/domains/release/publication-workflow";
@@ -17,6 +18,8 @@ import {
   arbitraryPublicationCommandExitCode,
   arbitraryPublicationConfirmationFailureScenario,
   arbitraryPublicationIdentityMismatchScenario,
+  arbitraryPublicationPostPublishIdentityScenario,
+  arbitraryPublicationProvenanceLagScenario,
   arbitraryPublicationRetryScenario,
   arbitraryPublicationScenario,
   arbitraryPublicationSectionValidationScenario,
@@ -27,6 +30,7 @@ import { observeIndependentVersionSection } from "@testing/harnesses/release/kee
 import {
   createPublicationHarness,
   createPublishReleaseCommandHarness,
+  observeConfirmationRetry,
   observePublication,
 } from "@testing/harnesses/release/publication";
 import {
@@ -217,6 +221,37 @@ describe("release publication compliance", () => {
             && hostedSequence !== undefined
             && packageSequence < hostedSequence,
         );
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+  });
+
+  it("reads past a fresh publication whose provenance the registry has yet to expose", async () => {
+    await assertProperty(
+      arbitraryPublicationProvenanceLagScenario(),
+      async (scenario) => {
+        const observation = await observeConfirmationRetry(scenario);
+        expect(observation.error).toBeUndefined();
+        expect(observation.packagePublishRequests).toHaveLength(1);
+        expect(observation.waits).toEqual(
+          PUBLICATION_CONFIRMATION_BACKOFF_MS.slice(0, scenario.lateReads),
+        );
+        expect(observation.hostedReleaseRequests.map((request) => request.value)).toEqual([
+          scenario.expectedHostedRelease,
+        ]);
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+  });
+
+  it("fails a fresh publication whose registry record names another release without waiting", async () => {
+    await assertProperty(
+      arbitraryPublicationPostPublishIdentityScenario(),
+      async (scenario) => {
+        const observation = await observeConfirmationRetry(scenario);
+        expect(observation.error).toBeInstanceOf(ReleasePublicationError);
+        expect(observation.waits).toEqual([]);
+        expect(observation.hostedReleaseRequests).toEqual([]);
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );

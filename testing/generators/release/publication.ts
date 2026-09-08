@@ -4,6 +4,7 @@ import {
   type HostedRelease,
   PACKAGE_PROVENANCE,
   type PackagePublication,
+  PUBLICATION_CONFIRMATION_BACKOFF_MS,
   releaseTagForVersion,
 } from "@/domains/release/publication";
 import {
@@ -210,6 +211,60 @@ export function arbitraryPublicationConfirmationFailureScenario(): fc.Arbitrary<
         confirmedPackage,
       }))
   );
+}
+
+/**
+ * A fresh publication whose registry record carries the release identity but no
+ * provenance for the first reads, then carries provenance. The registry exposes a
+ * new version's metadata before its attestation, so the confirmation must read
+ * past the early reads rather than treat the first one as the verdict.
+ */
+export interface PublicationProvenanceLagScenario extends PublicationScenario {
+  /** The records the registry serves after publication, one per confirmation attempt. */
+  readonly postPublishStates: readonly PackagePublication[];
+  /** The number of reads that precede the one carrying provenance. */
+  readonly lateReads: number;
+}
+
+export function arbitraryPublicationProvenanceLagScenario(): fc.Arbitrary<PublicationProvenanceLagScenario> {
+  return arbitraryPublicationBase().chain((scenario) =>
+    fc.integer({ min: 1, max: PUBLICATION_CONFIRMATION_BACKOFF_MS.length }).map((lateReads) => ({
+      ...scenario,
+      existingPackage: null,
+      existingHostedRelease: null,
+      lateReads,
+      postPublishStates: [
+        ...Array.from({ length: lateReads }, () => ({
+          ...scenario.packagePublication,
+          provenance: PACKAGE_PROVENANCE.UNVERIFIED,
+        })),
+        scenario.packagePublication,
+      ],
+    }))
+  );
+}
+
+/**
+ * A fresh publication whose registry record names a different commit. No wait
+ * makes a mismatched identity correct, so the confirmation reports it without
+ * consuming the backoff.
+ */
+export interface PublicationPostPublishIdentityScenario extends PublicationScenario {
+  readonly postPublishStates: readonly PackagePublication[];
+}
+
+export function arbitraryPublicationPostPublishIdentityScenario(): fc.Arbitrary<
+  PublicationPostPublishIdentityScenario
+> {
+  return arbitraryPublicationBase().map((scenario) => ({
+    ...scenario,
+    existingPackage: null,
+    existingHostedRelease: null,
+    postPublishStates: [{
+      ...scenario.packagePublication,
+      commit: requireDistinctCommit(scenario.releaseData, scenario.taggedCommit),
+    }],
+  }));
 }
 
 export function arbitraryPublicationMissingHostedReleaseScenario(): fc.Arbitrary<
