@@ -1,4 +1,5 @@
 import * as fc from "fast-check";
+import { posix } from "node:path";
 
 import {
   AUDIT_CLASS,
@@ -17,6 +18,8 @@ import {
   type VerifyAppendEventType,
 } from "@/domains/verify/verify";
 import { CLOUDEVENTS_SPECVERSION, JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
+import { CHANGE_DRAFT } from "@/lib/change-drafts/contract";
+import { worktreeScopeDir } from "@/lib/state-store";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
@@ -95,6 +98,10 @@ interface AuditClassKind {
 
 function arbitraryExecutedAuditClassKind(): fc.Arbitrary<AuditClassKind> {
   return fc.oneof(
+    fc.record({
+      auditClass: fc.constant(AUDIT_CLASS.COORDINATION),
+      auditKind: fc.constant(AUDIT_KIND.CHANGE),
+    }),
     fc.record({
       auditClass: fc.constant(AUDIT_CLASS.INSTRUCTIONS),
       auditKind: fc.constantFrom(AUDIT_KIND.SKILL, AUDIT_KIND.SUBAGENT, AUDIT_KIND.PROMPT, AUDIT_KIND.GUIDE_TEMPLATE),
@@ -181,7 +188,7 @@ export function arbitraryAuditFinding(): fc.Arbitrary<AuditFinding> {
   });
 }
 
-function auditScopePayload(unit: AuditScopeUnit): JsonValue {
+export function auditScopePayload(unit: AuditScopeUnit): JsonValue {
   return structuredClone(unit) as unknown as JsonValue;
 }
 
@@ -202,6 +209,14 @@ export function arbitraryAuditScopePayload(): fc.Arbitrary<JsonValue> {
       }) as unknown as JsonValue
     ),
   );
+}
+
+export function arbitraryChangeAuditScopeUnit(): fc.Arbitrary<AuditScopeUnit> {
+  return arbitraryAuditScopeFields().map((fields) => ({
+    ...fields,
+    auditClass: AUDIT_CLASS.COORDINATION,
+    auditKind: AUDIT_KIND.CHANGE,
+  })).filter((unit) => unit.parentUnitId !== unit.unitId);
 }
 
 function auditEvent(
@@ -472,12 +487,15 @@ export function arbitraryAuditChangesetProjectionScenario(): fc.Arbitrary<AuditC
     });
 }
 
-export function arbitraryFileAuditScopeScenario(): fc.Arbitrary<FileAuditScopeScenario> {
+export function arbitraryFileAuditScopeScenario(
+  filePath: fc.Arbitrary<string> = arbitrarySourceFilePath(),
+  rootUnit: fc.Arbitrary<AuditScopeUnit> = arbitraryExecutedAuditScopeUnit(),
+): fc.Arbitrary<FileAuditScopeScenario> {
   return fc
     .tuple(
+      filePath,
       arbitrarySourceFilePath(),
-      arbitrarySourceFilePath(),
-      arbitraryExecutedAuditScopeUnit(),
+      rootUnit,
       arbitraryExecutedAuditScopeUnit(),
       arbitraryExecutedAuditScopeUnit(),
       arbitraryAuditFinding(),
@@ -566,6 +584,15 @@ export function arbitraryFileAuditScopeScenario(): fc.Arbitrary<FileAuditScopeSc
       };
     });
 }
+
+export const AUDIT_FILE_SCOPE_GENERATORS = {
+  general: () => arbitraryFileAuditScopeScenario(),
+  change: () =>
+    arbitraryFileAuditScopeScenario(
+      fc.uuid().map((id) => posix.join(worktreeScopeDir(""), CHANGE_DRAFT.directory, `${id}${CHANGE_DRAFT.extension}`)),
+      arbitraryChangeAuditScopeUnit(),
+    ),
+} as const;
 
 /**
  * The required top-level fields of the audit scope schema, drawn from the production vocabulary so

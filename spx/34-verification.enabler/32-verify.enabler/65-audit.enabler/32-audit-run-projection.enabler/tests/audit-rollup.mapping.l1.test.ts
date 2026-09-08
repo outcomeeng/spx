@@ -10,11 +10,11 @@ import {
 import {
   arbitraryAuditChangesetProjectionScenario,
   arbitraryChangesetCoherenceScenario,
-  arbitraryFileAuditScopeScenario,
+  AUDIT_FILE_SCOPE_GENERATORS,
 } from "@testing/generators/verify/audit";
 import { sampleVerifyTestValue } from "@testing/generators/verify/verify";
 
-describe("audit terminal rollup", () => {
+describe.each(Object.entries(AUDIT_FILE_SCOPE_GENERATORS))("audit terminal rollup: %s", (_kind, scenarioArbitrary) => {
   it("maps clean changeset coverage to approved", () => {
     expect(validateAuditTerminal({
       terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
@@ -34,12 +34,12 @@ describe("audit terminal rollup", () => {
     expect(validateAuditTerminal({
       terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
       events: [
-        sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).rootEvent,
-        sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).childEvent,
+        sampleVerifyTestValue(scenarioArbitrary()).rootEvent,
+        sampleVerifyTestValue(scenarioArbitrary()).childEvent,
       ],
       selector: {
         scopeType: VERIFY_SCOPE_TYPE.FILE,
-        scopeIdentity: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).scopeIdentity,
+        scopeIdentity: sampleVerifyTestValue(scenarioArbitrary()).scopeIdentity,
       },
     })).toStrictEqual({ ok: true, value: undefined });
   });
@@ -48,12 +48,12 @@ describe("audit terminal rollup", () => {
     expect(validateAuditTerminal({
       terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
       events: [
-        sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).rootEvent,
-        sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).requiredNotApplicableEvent,
+        sampleVerifyTestValue(scenarioArbitrary()).rootEvent,
+        sampleVerifyTestValue(scenarioArbitrary()).requiredNotApplicableEvent,
       ],
       selector: {
         scopeType: VERIFY_SCOPE_TYPE.FILE,
-        scopeIdentity: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).scopeIdentity,
+        scopeIdentity: sampleVerifyTestValue(scenarioArbitrary()).scopeIdentity,
       },
     })).toStrictEqual({ ok: true, value: undefined });
   });
@@ -62,12 +62,12 @@ describe("audit terminal rollup", () => {
     expect(validateAuditTerminal({
       terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
       events: [
-        sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).rootEvent,
-        sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).optionalUncoveredEvent,
+        sampleVerifyTestValue(scenarioArbitrary()).rootEvent,
+        sampleVerifyTestValue(scenarioArbitrary()).optionalUncoveredEvent,
       ],
       selector: {
         scopeType: VERIFY_SCOPE_TYPE.FILE,
-        scopeIdentity: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).scopeIdentity,
+        scopeIdentity: sampleVerifyTestValue(scenarioArbitrary()).scopeIdentity,
       },
     })).toStrictEqual({ ok: true, value: undefined });
   });
@@ -78,7 +78,7 @@ describe("audit terminal rollup", () => {
       events: [],
       selector: {
         scopeType: VERIFY_SCOPE_TYPE.FILE,
-        scopeIdentity: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).scopeIdentity,
+        scopeIdentity: sampleVerifyTestValue(scenarioArbitrary()).scopeIdentity,
       },
     })).toStrictEqual({ ok: true, value: undefined });
   });
@@ -86,36 +86,36 @@ describe("audit terminal rollup", () => {
   it("maps optional and parented sole roots to rejected", () => {
     expect(validateAuditTerminal({
       terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED,
-      events: [sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).optionalRootEvent],
+      events: [sampleVerifyTestValue(scenarioArbitrary()).optionalRootEvent],
       selector: {
         scopeType: VERIFY_SCOPE_TYPE.FILE,
-        scopeIdentity: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).scopeIdentity,
+        scopeIdentity: sampleVerifyTestValue(scenarioArbitrary()).scopeIdentity,
       },
     })).toStrictEqual({ ok: true, value: undefined });
     expect(validateAuditTerminal({
       terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED,
-      events: [sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).parentedRootEvent],
+      events: [sampleVerifyTestValue(scenarioArbitrary()).parentedRootEvent],
       selector: {
         scopeType: VERIFY_SCOPE_TYPE.FILE,
-        scopeIdentity: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).scopeIdentity,
+        scopeIdentity: sampleVerifyTestValue(scenarioArbitrary()).scopeIdentity,
       },
     })).toStrictEqual({ ok: true, value: undefined });
   });
 
   it("maps every required uncovered status to rejected", () => {
     expect(
-      sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).requiredUncoveredEvents.map((event) =>
+      sampleVerifyTestValue(scenarioArbitrary()).requiredUncoveredEvents.map((event) =>
         validateAuditTerminal({
           terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED,
-          events: [sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).rootEvent, event],
+          events: [sampleVerifyTestValue(scenarioArbitrary()).rootEvent, event],
           selector: {
             scopeType: VERIFY_SCOPE_TYPE.FILE,
-            scopeIdentity: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).scopeIdentity,
+            scopeIdentity: sampleVerifyTestValue(scenarioArbitrary()).scopeIdentity,
           },
         })
       ),
     ).toStrictEqual(
-      sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).requiredUncoveredEvents.map(() => ({
+      sampleVerifyTestValue(scenarioArbitrary()).requiredUncoveredEvents.map(() => ({
         ok: true,
         value: undefined,
       })),
@@ -126,30 +126,30 @@ describe("audit terminal rollup", () => {
     expect(validateAuditTerminal({
       terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED,
       events: [
-        sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).rootEvent,
-        sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).requiredCoverageGapEvent,
+        sampleVerifyTestValue(scenarioArbitrary()).rootEvent,
+        sampleVerifyTestValue(scenarioArbitrary()).requiredCoverageGapEvent,
       ],
       selector: {
         scopeType: VERIFY_SCOPE_TYPE.FILE,
-        scopeIdentity: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).scopeIdentity,
+        scopeIdentity: sampleVerifyTestValue(scenarioArbitrary()).scopeIdentity,
       },
     })).toStrictEqual({ ok: true, value: undefined });
   });
 
   it("maps every audit finding severity to rejected", () => {
     expect(
-      sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).findingEvents.map((event) =>
+      sampleVerifyTestValue(scenarioArbitrary()).findingEvents.map((event) =>
         validateAuditTerminal({
           terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED,
-          events: [sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).rootEvent, event],
+          events: [sampleVerifyTestValue(scenarioArbitrary()).rootEvent, event],
           selector: {
             scopeType: VERIFY_SCOPE_TYPE.FILE,
-            scopeIdentity: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).scopeIdentity,
+            scopeIdentity: sampleVerifyTestValue(scenarioArbitrary()).scopeIdentity,
           },
         })
       ),
     ).toStrictEqual(
-      sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).findingEvents.map(() => ({
+      sampleVerifyTestValue(scenarioArbitrary()).findingEvents.map(() => ({
         ok: true,
         value: undefined,
       })),
@@ -173,10 +173,10 @@ describe("audit terminal rollup", () => {
   it("maps a mismatched file root to rejected", () => {
     expect(validateAuditTerminal({
       terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
-      events: [sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).mismatchedRootEvent],
+      events: [sampleVerifyTestValue(scenarioArbitrary()).mismatchedRootEvent],
       selector: {
         scopeType: VERIFY_SCOPE_TYPE.FILE,
-        scopeIdentity: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).scopeIdentity,
+        scopeIdentity: sampleVerifyTestValue(scenarioArbitrary()).scopeIdentity,
       },
     })).toStrictEqual({
       ok: false,
@@ -185,10 +185,10 @@ describe("audit terminal rollup", () => {
     });
     expect(validateAuditTerminal({
       terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED,
-      events: [sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).mismatchedRootEvent],
+      events: [sampleVerifyTestValue(scenarioArbitrary()).mismatchedRootEvent],
       selector: {
         scopeType: VERIFY_SCOPE_TYPE.FILE,
-        scopeIdentity: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).scopeIdentity,
+        scopeIdentity: sampleVerifyTestValue(scenarioArbitrary()).scopeIdentity,
       },
     })).toStrictEqual({ ok: true, value: undefined });
   });
