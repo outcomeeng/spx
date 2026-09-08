@@ -26,16 +26,16 @@ import { type CheckRegistry, runDiagnose } from "@/domains/diagnose/engine";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT } from "@/domains/diagnose/report";
 import type { DiagnoseReport } from "@/domains/diagnose/types";
-import { METHODOLOGY_CODING_AGENTS } from "@/lib/methodology/coding-agent";
-import { FOUNDATION_MANIFEST_RELATIVE_PATH } from "@/lib/methodology/foundation-manifest";
-import { PROVIDER_MATCH, RANGE_COMPARATOR } from "@/lib/methodology/provider-match";
 import {
   formatMethodologySourceRecord,
+  FOUNDATION_MANIFEST_RELATIVE_PATH,
   FOUNDATION_PLUGIN_NAME,
+  METHODOLOGY_CODING_AGENTS,
   methodologyLine,
   type MethodologySourceRecord,
+  PROVIDER_MATCH,
   SOURCE_RECORD_RELATIVE_PATH,
-} from "@/lib/methodology/tree";
+} from "@/lib/methodology";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
@@ -168,46 +168,6 @@ export async function withShippedTreeRoot(
     }
     await callback(treeRoot);
   });
-}
-
-/** A source record naming one provider declaration for every coding agent on a line. */
-export function sourceRecordProviding(provides: string, supports?: string): MethodologySourceRecord {
-  return {
-    repository: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-    revision: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-    plugins: Object.fromEntries(
-      METHODOLOGY_CODING_AGENTS.map((codingAgent) => [codingAgent, {
-        name: FOUNDATION_PLUGIN_NAME,
-        version: sampleGeneratedValue(arbitraryMethodologyVersion()).text,
-        provides,
-        ...(supports === undefined ? {} : { supports }),
-      }]),
-    ),
-  };
-}
-
-/** A `supports` range whose only member is the supplied version. */
-export function supportsRangeContaining(version: string): string {
-  return `${RANGE_COMPARATOR.EQUAL}${version}`;
-}
-
-/** A `supports` range admitting only versions above the supplied one, so the supplied version falls outside it. */
-export function supportsRangeExcluding(version: string): string {
-  return `${RANGE_COMPARATOR.GREATER}${version}`;
-}
-
-/** A source record naming every coding agent's plugin at the supplied plugin version and declaring no provider block. */
-export function sourceRecordWithPluginVersion(pluginVersion: string): MethodologySourceRecord {
-  return {
-    repository: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-    revision: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-    plugins: Object.fromEntries(
-      METHODOLOGY_CODING_AGENTS.map((codingAgent) => [codingAgent, {
-        name: FOUNDATION_PLUGIN_NAME,
-        version: pluginVersion,
-      }]),
-    ),
-  };
 }
 
 /**

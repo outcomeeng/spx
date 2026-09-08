@@ -11,13 +11,19 @@
 
 import * as fc from "fast-check";
 
-import { FETCH_CODING_AGENTS, UNDERSTAND_SKILL_RELATIVE_DIR } from "@/lib/methodology/fetch";
 import {
+  FETCH_CODING_AGENTS,
   FOUNDATION_MANIFEST_FIELDS,
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   FOUNDATION_MANIFEST_SCHEMA_VERSION,
-} from "@/lib/methodology/foundation-manifest";
+  FOUNDATION_PLUGIN_NAME,
+  METHODOLOGY_CODING_AGENTS,
+  type MethodologySourceRecord,
+  RANGE_COMPARATOR,
+  UNDERSTAND_SKILL_RELATIVE_DIR,
+} from "@/lib/methodology";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 
 const VERSION_COMPONENT_MAX = 999;
 const VERSION_SEPARATOR = ".";
@@ -156,15 +162,54 @@ export function arbitraryPluginsContent(provides?: string): fc.Arbitrary<Generat
   }));
 }
 
-/** Plugins content whose agents declare different `provides` values. */
+/** Plugins content whose agents declare `provides` values on different lines. */
 export function arbitraryDisagreeingPluginsContent(): fc.Arbitrary<GeneratedPluginsContent> {
   const agents = Object.keys(FETCH_CODING_AGENTS);
   return fc.tuple(arbitraryMethodologyVersion(), arbitraryMethodologyVersion())
-    .filter(([first, second]) => first.text !== second.text)
+    .filter(([first, second]) => first.line !== second.line)
     .chain(([first, second]) =>
       fc.tuple(...agents.map((_, index) => arbitraryPluginContent(index === 0 ? first.text : second.text)))
     )
     .map((contents) => ({
       agents: new Map(agents.map((agent, index) => [agent, contents[index]])),
     }));
+}
+
+/** A `supports` range whose only member is the supplied version. */
+export function supportsRangeContaining(version: string): string {
+  return `${RANGE_COMPARATOR.EQUAL}${version}`;
+}
+
+/** A `supports` range admitting only versions above the supplied one, so the supplied version falls outside it. */
+export function supportsRangeExcluding(version: string): string {
+  return `${RANGE_COMPARATOR.GREATER}${version}`;
+}
+
+function generatedSourcePlugins(
+  plugin: (codingAgent: string) => MethodologySourceRecord["plugins"][string],
+): MethodologySourceRecord["plugins"] {
+  return Object.fromEntries(METHODOLOGY_CODING_AGENTS.map((codingAgent) => [codingAgent, plugin(codingAgent)]));
+}
+
+/** A source record naming one provider declaration, with an optional supports range, for every coding agent on a line. */
+export function generatedSourceRecordProviding(provides: string, supports?: string): MethodologySourceRecord {
+  return {
+    repository: sampleGeneratedValue(arbitraryPathSegment()),
+    revision: sampleGeneratedValue(arbitraryPathSegment()),
+    plugins: generatedSourcePlugins(() => ({
+      name: FOUNDATION_PLUGIN_NAME,
+      version: sampleGeneratedValue(arbitraryMethodologyVersion()).text,
+      provides,
+      ...(supports === undefined ? {} : { supports }),
+    })),
+  };
+}
+
+/** A source record naming every coding agent's plugin at the supplied plugin version and declaring no provider block. */
+export function generatedSourceRecordWithPluginVersion(pluginVersion: string): MethodologySourceRecord {
+  return {
+    repository: sampleGeneratedValue(arbitraryPathSegment()),
+    revision: sampleGeneratedValue(arbitraryPathSegment()),
+    plugins: generatedSourcePlugins(() => ({ name: FOUNDATION_PLUGIN_NAME, version: pluginVersion })),
+  };
 }

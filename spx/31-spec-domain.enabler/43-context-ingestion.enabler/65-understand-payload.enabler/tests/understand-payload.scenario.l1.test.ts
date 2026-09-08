@@ -9,13 +9,15 @@ import {
   FOUNDATION_MANIFEST_FIELDS,
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   FOUNDATION_MANIFEST_SCHEMA_VERSION,
-} from "@/lib/methodology/foundation-manifest";
+} from "@/lib/methodology";
 import { SPEC_CONTEXT_CONTENT_FIELDS, SPEC_CONTEXT_LISTED_ROLE, SPEC_CONTEXT_READ_ROLE } from "@/lib/spec-tree";
+import { generatedMigratingMethodologySection } from "@testing/generators/config/descriptors";
 import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextCommand,
+  contextCommandFailure,
   contextTextCommand,
   listedPathsForRole,
   methodologyFixtureTreeRoot,
@@ -122,18 +124,47 @@ describe("spec context understand payload", () => {
         // The generator derives the line from its own components, so the
         // diagnostic's three named values are checked against an oracle
         // the production parser and formatter never touch.
-        const failure = await contextCommand({
+        const failure = await contextCommandFailure({
           targets: [target.id],
           cwd: env.productDir,
           understand: true,
           methodologyTreeRoot: fixture.treeRoot,
-        }).then(() => undefined, (error: unknown) => (error instanceof Error ? error.message : String(error)));
+        });
         expect(failure).toBeDefined();
         expect(failure).toContain(declared.text);
         expect(failure).toContain(declared.line);
         expect(failure).toContain(fixture.line);
       },
     );
+  });
+
+  it("serves the declared version's tree and reports the migration source while methodology.migratingFrom is declared", async () => {
+    const migrating = generatedMigratingMethodologySection();
+    await withSpecTreeEnv(methodologyTreeConfig(migrating), async (env) => {
+      await env.materialize();
+      const fixture = await writeMethodologyTree(env, {
+        version: migrating[METHODOLOGY_CONFIG_FIELDS.VERSION] as string,
+      });
+      const snapshot = await env.readFilesystemSnapshot();
+      const target = snapshot.allNodes[0];
+
+      const manifest = parseContextManifest(
+        await contextCommand({
+          targets: [target.id],
+          cwd: env.productDir,
+          understand: true,
+          methodologyTreeRoot: fixture.treeRoot,
+        }),
+      );
+
+      expect(manifest.methodology).toEqual({
+        source: migrating[METHODOLOGY_CONFIG_FIELDS.SOURCE],
+        version: migrating[METHODOLOGY_CONFIG_FIELDS.VERSION],
+        migratingFrom: migrating[METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM],
+      });
+      expect(manifest.read.at(-1)?.path).toBe(fixture.corePath);
+      expect(manifest.read.at(-1)?.content).toBe(fixture.coreText);
+    });
   });
 
   it("fails naming the resolved manifest path when the manifest is absent", async () => {

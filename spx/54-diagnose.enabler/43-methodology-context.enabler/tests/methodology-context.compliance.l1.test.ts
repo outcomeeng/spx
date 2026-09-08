@@ -8,9 +8,19 @@ import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_TEXT_HEADER } from "@/domains/diagnose/report";
 import { DIAGNOSE_RESOLVE_ERROR } from "@/domains/diagnose/resolve";
 import { VERDICT_BUCKET } from "@/domains/diagnose/types";
-import { METHODOLOGY_CODING_AGENT, METHODOLOGY_CODING_AGENTS } from "@/lib/methodology/coding-agent";
-import { formatProvidesMismatchError, PROVIDER_MATCH } from "@/lib/methodology/provider-match";
-import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
+import {
+  formatProvidesMismatchError,
+  METHODOLOGY_CODING_AGENT,
+  METHODOLOGY_CODING_AGENTS,
+  PROVIDER_MATCH,
+} from "@/lib/methodology";
+import {
+  arbitraryMethodologyVersion,
+  generatedSourceRecordProviding,
+  generatedSourceRecordWithPluginVersion,
+  supportsRangeContaining,
+  supportsRangeExcluding,
+} from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   firstCheck,
@@ -27,10 +37,6 @@ import {
   runMethodologyDiagnoseText,
   runMethodologyManifestWithoutFacts,
   shippedObservation,
-  sourceRecordProviding,
-  sourceRecordWithPluginVersion,
-  supportsRangeContaining,
-  supportsRangeExcluding,
   unavailableCheckName,
   undeclaredMethodology,
   unresolvedMethodology,
@@ -95,7 +101,7 @@ describe("methodology-context diagnose compliance", () => {
     await withShippedTreeRoot({
       [line]: {
         codingAgents: [...METHODOLOGY_CODING_AGENTS],
-        sourceRecord: sourceRecordWithPluginVersion(methodology.version as string),
+        sourceRecord: generatedSourceRecordWithPluginVersion(methodology.version as string),
       },
     }, async (treeRoot) => {
       const observed = await probeShippedTree(methodology, treeRoot);
@@ -107,7 +113,7 @@ describe("methodology-context diagnose compliance", () => {
     await withShippedTreeRoot({
       [line]: {
         codingAgents: [...METHODOLOGY_CODING_AGENTS],
-        sourceRecord: sourceRecordProviding(methodology.version as string),
+        sourceRecord: generatedSourceRecordProviding(methodology.version as string),
       },
     }, async (treeRoot) => {
       const observed = await probeShippedTree(methodology, treeRoot);
@@ -150,7 +156,10 @@ describe("methodology-context diagnose compliance", () => {
     );
 
     await withShippedTreeRoot({
-      [line]: { codingAgents: [...METHODOLOGY_CODING_AGENTS], sourceRecord: sourceRecordProviding(otherVersion.text) },
+      [line]: {
+        codingAgents: [...METHODOLOGY_CODING_AGENTS],
+        sourceRecord: generatedSourceRecordProviding(otherVersion.text),
+      },
     }, async (treeRoot) => {
       const observed = await probeShippedTree(methodology, treeRoot);
 
@@ -173,7 +182,7 @@ describe("methodology-context diagnose compliance", () => {
     await withShippedTreeRoot({
       [line]: {
         codingAgents: [...METHODOLOGY_CODING_AGENTS],
-        sourceRecord: sourceRecordProviding(version, supportsRangeContaining(migratingFrom)),
+        sourceRecord: generatedSourceRecordProviding(version, supportsRangeContaining(migratingFrom)),
       },
     }, async (treeRoot) => {
       const observed = await probeShippedTree(methodology, treeRoot);
@@ -184,7 +193,10 @@ describe("methodology-context diagnose compliance", () => {
 
     const excluding = supportsRangeExcluding(migratingFrom);
     await withShippedTreeRoot({
-      [line]: { codingAgents: [...METHODOLOGY_CODING_AGENTS], sourceRecord: sourceRecordProviding(version, excluding) },
+      [line]: {
+        codingAgents: [...METHODOLOGY_CODING_AGENTS],
+        sourceRecord: generatedSourceRecordProviding(version, excluding),
+      },
     }, async (treeRoot) => {
       const observed = await probeShippedTree(methodology, treeRoot);
 

@@ -12,13 +12,18 @@ import { contextOutputForFormat, SPEC_CONTEXT_OUTPUT_FORMAT } from "@/interfaces
 import { GIT_LS_FILES_COMMAND } from "@/lib/git/changed-paths";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 import { TRACKED_PATH_NUL_SEPARATOR } from "@/lib/git/tracked-paths";
-import { METHODOLOGY_CODING_AGENT } from "@/lib/methodology/coding-agent";
 import {
+  formatMethodologySourceRecord,
   FOUNDATION_MANIFEST_FIELDS,
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   FOUNDATION_MANIFEST_SCHEMA_VERSION,
-} from "@/lib/methodology/foundation-manifest";
-import { FOUNDATION_PLUGIN_NAME, METHODOLOGY_TREE_ROOT, methodologyLine } from "@/lib/methodology/tree";
+  FOUNDATION_PLUGIN_NAME,
+  METHODOLOGY_CODING_AGENT,
+  METHODOLOGY_TREE_ROOT,
+  methodologyLine,
+  type MethodologySourceRecord,
+  SOURCE_RECORD_RELATIVE_PATH,
+} from "@/lib/methodology";
 import {
   KIND_REGISTRY,
   SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
@@ -49,6 +54,14 @@ export function parseContextManifest(output: string): SpecContextManifest {
 
 export function contextCommand(options: ContextOptions): Promise<string> {
   return contextOutputForFormat(SPEC_CONTEXT_OUTPUT_FORMAT.JSON, options);
+}
+
+/** The message the context command rejects with, or `undefined` when it succeeds; the test owns every predicate over it. */
+export function contextCommandFailure(options: ContextOptions): Promise<string | undefined> {
+  return contextCommand(options).then(
+    () => undefined,
+    (error: unknown) => (error instanceof Error ? error.message : String(error)),
+  );
 }
 
 export function contextTextCommand(options: ContextOptions): Promise<string> {
@@ -471,7 +484,15 @@ export function methodologyFixtureTreeRoot(env: CurrentSpecTreeEnv): string {
  */
 export async function writeMethodologyTree(
   env: CurrentSpecTreeEnv,
-  overrides?: { readonly coreText?: string; readonly schemaVersion?: number; readonly version?: string },
+  overrides?: {
+    readonly coreText?: string;
+    readonly schemaVersion?: number;
+    readonly version?: string;
+    /** The coding agents the line ships the same tree for; the fixture names the first. */
+    readonly codingAgents?: readonly string[];
+    /** A source record written beside the line, the shape the fetch records. */
+    readonly sourceRecord?: MethodologySourceRecord;
+  },
 ): Promise<MethodologyTreeFixture> {
   const line = methodologyLine(overrides?.version ?? METHODOLOGY_FIXTURE_VERSION);
   if (!line.ok) throw new Error(line.error);
@@ -489,20 +510,33 @@ export async function writeMethodologyTree(
     [FOUNDATION_MANIFEST_FIELDS.EXAMPLES]: [examplePath],
   };
   const treeRoot = methodologyFixtureTreeRoot(env);
-  const treeDir = join(treeRoot, line.value, METHODOLOGY_FIXTURE_CODING_AGENT, FOUNDATION_PLUGIN_NAME);
-  const manifestPath = join(treeDir, FOUNDATION_MANIFEST_RELATIVE_PATH);
-  await mkdir(join(manifestPath, ".."), { recursive: true });
-  await writeFile(manifestPath, JSON.stringify(manifest));
-  await mkdir(join(treeDir, corePath, ".."), { recursive: true });
-  await writeFile(join(treeDir, corePath), coreText);
-  for (const catalogPath of [referencePath, templatePath, examplePath]) {
-    await mkdir(join(treeDir, catalogPath, ".."), { recursive: true });
-    await writeFile(join(treeDir, catalogPath), `# Catalog resource\n`);
+  const codingAgents = overrides?.codingAgents ?? [METHODOLOGY_FIXTURE_CODING_AGENT];
+  const codingAgent = codingAgents.at(0);
+  if (codingAgent === undefined) throw new Error("a methodology tree fixture names at least one coding agent");
+  for (const agent of codingAgents) {
+    const agentTreeDir = join(treeRoot, line.value, agent, FOUNDATION_PLUGIN_NAME);
+    const agentManifestPath = join(agentTreeDir, FOUNDATION_MANIFEST_RELATIVE_PATH);
+    await mkdir(join(agentManifestPath, ".."), { recursive: true });
+    await writeFile(agentManifestPath, JSON.stringify(manifest));
+    await mkdir(join(agentTreeDir, corePath, ".."), { recursive: true });
+    await writeFile(join(agentTreeDir, corePath), coreText);
+    for (const catalogPath of [referencePath, templatePath, examplePath]) {
+      await mkdir(join(agentTreeDir, catalogPath, ".."), { recursive: true });
+      await writeFile(join(agentTreeDir, catalogPath), `# Catalog resource\n`);
+    }
   }
+  if (overrides?.sourceRecord !== undefined) {
+    await writeFile(
+      join(treeRoot, line.value, SOURCE_RECORD_RELATIVE_PATH),
+      formatMethodologySourceRecord(overrides.sourceRecord),
+    );
+  }
+  const treeDir = join(treeRoot, line.value, codingAgent, FOUNDATION_PLUGIN_NAME);
+  const manifestPath = join(treeDir, FOUNDATION_MANIFEST_RELATIVE_PATH);
   return {
     treeRoot,
     line: line.value,
-    codingAgent: METHODOLOGY_FIXTURE_CODING_AGENT,
+    codingAgent,
     treeDir,
     manifestPath,
     corePath,
