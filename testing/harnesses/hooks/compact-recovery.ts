@@ -42,7 +42,11 @@ import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tre
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { type HookCliWorktreeEnv, withHookCliWorktreeEnv } from "@testing/harnesses/hook-cli";
-import { shippedMethodologyVersion, shippedTreeRelativeDir } from "@testing/harnesses/methodology/shipped-tree";
+import {
+  shippedCompactRecoveryText,
+  shippedMethodologyVersion,
+  shippedTreeRelativeDir,
+} from "@testing/harnesses/methodology/shipped-tree";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { runWorktreeCli, type SpxCliResult, withWorktreePool } from "@testing/harnesses/worktree/harness";
 
@@ -54,6 +58,7 @@ const TEMP_PREFIX = "compact-recovery-";
 /** The shipped-tree states the directive resolution mapping exercises. */
 export const COMPACT_RECOVERY_FIXTURE_VARIANT = {
   RESOLVED: "resolved",
+  UNDECLARED_VERSION: "undeclared-version",
   LINE_UNSHIPPED: "line-unshipped",
   MANIFEST_ABSENT: "manifest-absent",
   MANIFEST_INVALID: "manifest-invalid",
@@ -124,6 +129,8 @@ export async function withCompactRecoveryTree(
     }
 
     switch (options.variant) {
+      // The undeclared-version tree is complete, so the declaration is the only step that can fail.
+      case COMPACT_RECOVERY_FIXTURE_VARIANT.UNDECLARED_VERSION:
       case COMPACT_RECOVERY_FIXTURE_VARIANT.RESOLVED: {
         await writeTreeFile(treeDir, FOUNDATION_MANIFEST_RELATIVE_PATH, manifestJson(COMPACT_RECOVERY_PATH));
         await writeTreeFile(treeDir, CORE_PATH, options.directiveText);
@@ -169,7 +176,9 @@ export async function withCompactRecoveryTree(
 
     await callback({
       treeRoot,
-      methodology: { source: DEFAULT_METHODOLOGY_SOURCE, version: version.text },
+      methodology: options.variant === COMPACT_RECOVERY_FIXTURE_VARIANT.UNDECLARED_VERSION
+        ? { source: DEFAULT_METHODOLOGY_SOURCE }
+        : { source: DEFAULT_METHODOLOGY_SOURCE, version: version.text },
       version: version.text,
       line: line.value,
       codingAgent,
@@ -236,7 +245,7 @@ export async function writeMethodologyOnlyConfig(productDir: string, methodology
   );
 }
 
-export { shippedMethodologyVersion, shippedTreeRelativeDir };
+export { shippedCompactRecoveryText, shippedMethodologyVersion, shippedTreeRelativeDir };
 
 export interface CompactHookCaseOptions {
   readonly compactStdout: boolean;

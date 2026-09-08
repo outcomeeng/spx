@@ -12,6 +12,12 @@ import {
 import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
 import { AGENT_HOME_ENV } from "@/domains/agent";
 import {
+  AGENT,
+  type Agent,
+  HARNESS_ENVIRONMENT_CONFIG_FIELDS,
+  HARNESS_ENVIRONMENT_SECTION,
+} from "@/domains/agent-environment/config";
+import {
   type MethodologyContextObservation,
   methodologyContextRunner,
 } from "@/domains/diagnose/checks/methodology-context";
@@ -99,6 +105,14 @@ export function unshippedObservation(
   };
 }
 
+/** An observation of a declared line that ships a tree for only the supplied subset of the enabled coding agents. */
+export function partiallyShippedObservation(
+  methodology: MethodologyConfig,
+  shippedCodingAgents: readonly string[],
+): MethodologyContextObservation {
+  return { ...shippedObservation(methodology), shippedCodingAgents };
+}
+
 /** An observation whose provider-declaration check failed with the supplied diagnostic. */
 export function mismatchedObservation(
   methodology: MethodologyConfig,
@@ -170,6 +184,46 @@ export function sourceRecordProviding(provides: string, supports?: string): Meth
       }]),
     ),
   };
+}
+
+/** A source record naming every coding agent's plugin at the supplied plugin version and declaring no provider block. */
+export function sourceRecordWithPluginVersion(pluginVersion: string): MethodologySourceRecord {
+  return {
+    repository: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+    revision: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+    plugins: Object.fromEntries(
+      METHODOLOGY_CODING_AGENTS.map((codingAgent) => [codingAgent, {
+        name: FOUNDATION_PLUGIN_NAME,
+        version: pluginVersion,
+      }]),
+    ),
+  };
+}
+
+/**
+ * Probes the declared methodology over a tree root from a temp product whose
+ * harness-environment config enables exactly the supplied agents; the probe
+ * resolves the enabled set from that config itself, with no resolver injected.
+ */
+export async function probeShippedTreeForProduct(
+  methodology: MethodologyConfig,
+  treeRoot: string,
+  enabledAgents: readonly Agent[],
+): Promise<MethodologyContextObservation> {
+  let observation: MethodologyContextObservation | undefined;
+  await withTestEnv({
+    [HARNESS_ENVIRONMENT_SECTION]: {
+      [HARNESS_ENVIRONMENT_CONFIG_FIELDS.AGENTS]: Object.fromEntries(
+        Object.values(AGENT).map((agent) => [agent, {
+          [HARNESS_ENVIRONMENT_CONFIG_FIELDS.ENABLED]: enabledAgents.includes(agent),
+        }]),
+      ),
+    },
+  }, async ({ productDir }) => {
+    observation = await createMethodologyContextProbe({ treeRoot, productDir }).probe(methodology);
+  });
+  if (observation === undefined) throw new Error("methodology probe produced no observation");
+  return observation;
 }
 
 /** Probes the declared methodology over a tree root with the supplied enabled coding agents; no product config is read. */

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { METHODOLOGY_SECTION } from "@/config/methodology";
 import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
+import { AGENT, METHODOLOGY_CODING_AGENT_BY_AGENT } from "@/domains/agent-environment/config";
 import { METHODOLOGY_CONTEXT_VERDICT } from "@/domains/diagnose/checks/methodology-context";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_TEXT_HEADER } from "@/domains/diagnose/report";
@@ -17,6 +18,7 @@ import {
   lineOf,
   mismatchedObservation,
   probeShippedTree,
+  probeShippedTreeForProduct,
   runDiagnoseWithLegacyMethodologySection,
   runDiagnoseWithUnavailableCheck,
   runDiagnoseWithUnrelatedLegacyDefect,
@@ -25,23 +27,91 @@ import {
   runMethodologyManifestWithoutFacts,
   shippedObservation,
   sourceRecordProviding,
+  sourceRecordWithPluginVersion,
   unavailableCheckName,
   undeclaredMethodology,
   unresolvedMethodology,
+  unshippedObservation,
   withAgentHomesCarryingVersion,
   withShippedTreeRoot,
 } from "@testing/harnesses/diagnose/methodology-context";
 
 describe("methodology-context diagnose compliance", () => {
-  it("renders methodology-context text from the check record", async () => {
+  it("renders every verdict's text from the same check record as the JSON report", async () => {
+    const declared = generatedMethodology();
+    const mismatch = formatProvidesMismatchError(
+      declared.version as string,
+      sampleGeneratedValue(arbitraryMethodologyVersion()).text,
+      METHODOLOGY_CODING_AGENT.CODEX,
+    );
+    for (
+      const [methodology, observation, header] of [
+        [declared, shippedObservation(declared), DIAGNOSE_TEXT_HEADER.METHODOLOGY_RESOLVED],
+        [declared, unshippedObservation(declared, []), DIAGNOSE_TEXT_HEADER.METHODOLOGY_UNAVAILABLE],
+        [declared, mismatchedObservation(declared, mismatch), DIAGNOSE_TEXT_HEADER.METHODOLOGY_MISMATCHED],
+        [declared, unresolvedMethodology(true), DIAGNOSE_TEXT_HEADER.METHODOLOGY_UNKNOWN],
+        [undeclaredMethodology(), unresolvedMethodology(false), DIAGNOSE_TEXT_HEADER.METHODOLOGY_UNDECLARED],
+      ] as const
+    ) {
+      const check = firstCheck(await runMethodologyDiagnoseJson(methodology, observation));
+      const readings = check.readings as Record<string, string>;
+      const text = await runMethodologyDiagnoseText(methodology, observation);
+
+      expect(text, String(check.verdict)).toContain(header);
+      // The unknown verdict renders only its retry guidance; every other verdict
+      // renders the configured source the JSON record carries, and the verdicts
+      // over a declared version render that version too.
+      if (check.verdict === METHODOLOGY_CONTEXT_VERDICT.UNKNOWN) continue;
+      expect(text, String(check.verdict)).toContain(readings.configuredSource);
+      if (methodology.version !== undefined) {
+        expect(text, String(check.verdict)).toContain(readings.configuredVersion);
+      }
+    }
+  });
+
+  it("resolves the enabled coding agents from the product's harness-environment config when no resolver is injected", async () => {
     const methodology = generatedMethodology();
-    const observation = shippedObservation(methodology);
+    const line = lineOf(methodology);
 
-    const output = await runMethodologyDiagnoseText(methodology, observation);
+    await withShippedTreeRoot({ [line]: { codingAgents: [METHODOLOGY_CODING_AGENT.CLAUDE] } }, async (treeRoot) => {
+      const observed = await probeShippedTreeForProduct(methodology, treeRoot, [AGENT.CLAUDE_CODE]);
 
-    expect(output).toContain(DIAGNOSE_TEXT_HEADER.METHODOLOGY_RESOLVED);
-    expect(output).toContain(methodology.source);
-    expect(output).toContain(methodology.version);
+      expect(observed).toEqual(expect.objectContaining({
+        enabledCodingAgents: [METHODOLOGY_CODING_AGENT_BY_AGENT[AGENT.CLAUDE_CODE]],
+        shippedCodingAgents: [METHODOLOGY_CODING_AGENT.CLAUDE],
+        providerMatch: PROVIDER_MATCH.UNDECLARED,
+        errored: false,
+      }));
+    });
+  });
+
+  it("never compares the declared version against a plugin version: an equal plugin version without a provider block stays undeclared, and a provider match holds under any plugin version", async () => {
+    const methodology = generatedMethodology();
+    const line = lineOf(methodology);
+
+    await withShippedTreeRoot({
+      [line]: {
+        codingAgents: [...METHODOLOGY_CODING_AGENTS],
+        sourceRecord: sourceRecordWithPluginVersion(methodology.version as string),
+      },
+    }, async (treeRoot) => {
+      const observed = await probeShippedTree(methodology, treeRoot);
+
+      expect(observed.providerMatch).toBe(PROVIDER_MATCH.UNDECLARED);
+      expect(observed.providerMismatch).toBeUndefined();
+    });
+
+    await withShippedTreeRoot({
+      [line]: {
+        codingAgents: [...METHODOLOGY_CODING_AGENTS],
+        sourceRecord: sourceRecordProviding(methodology.version as string),
+      },
+    }, async (treeRoot) => {
+      const observed = await probeShippedTree(methodology, treeRoot);
+
+      expect(observed.providerMatch).toBe(PROVIDER_MATCH.VERIFIED);
+      expect(observed.providerMismatch).toBeUndefined();
+    });
   });
 
   it("rejects methodology-context manifests without methodology facts", async () => {

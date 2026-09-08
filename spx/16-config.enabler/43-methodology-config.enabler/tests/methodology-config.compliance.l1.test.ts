@@ -5,19 +5,23 @@ import {
   DEFAULT_METHODOLOGY_SOURCE,
   METHODOLOGY_CONFIG_FIELDS,
   METHODOLOGY_SECTION,
+  requireMethodologyVersion,
 } from "@/config/methodology";
 import {
   HARNESS_ENVIRONMENT_CONFIG_FIELDS,
   HARNESS_ENVIRONMENT_SECTION,
   harnessEnvironmentConfigDescriptor,
 } from "@/domains/agent-environment/config";
+import { METHODOLOGY_LOCATION_FIELD } from "@testing/generators/config/descriptors";
 import {
   observeDeclaredMethodologyVersionResolution,
   observeHarnessEnvironmentMethodologyRejection,
   observeMalformedMethodologyConfigRejections,
+  observeMethodologyLocationFieldResolution,
   observeMethodologyResolverHarnessUnknownFieldRejection,
   observeMethodologyResolverSimilarHarnessField,
   observeNonExactMethodologyVersionResolution,
+  observeNonExactMigrationSourceResolution,
   observeUndeclaredMethodologyVersionResolution,
 } from "@testing/harnesses/config/methodology";
 
@@ -38,6 +42,26 @@ describe("methodology config compliance", () => {
     }
   });
 
+  it("rejects a migration source that is not an exact methodology version, naming the field", async () => {
+    const observation = await observeNonExactMigrationSourceResolution();
+
+    expect(observation.result.ok).toBe(false);
+    if (!observation.result.ok) {
+      expect(observation.result.error).toContain(
+        `${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM}`,
+      );
+    }
+  });
+
+  it("rejects a location field as unrecognized, naming it", async () => {
+    const observation = await observeMethodologyLocationFieldResolution();
+
+    expect(observation.result.ok).toBe(false);
+    if (!observation.result.ok) {
+      expect(observation.result.error).toContain(`${METHODOLOGY_SECTION}.${METHODOLOGY_LOCATION_FIELD}`);
+    }
+  });
+
   it("resolves an undeclared version to no version and the source to the methodology repository", async () => {
     const observation = await observeUndeclaredMethodologyVersionResolution();
 
@@ -48,12 +72,24 @@ describe("methodology config compliance", () => {
     expect(observation.result.value.source).toBe(DEFAULT_METHODOLOGY_SOURCE);
   });
 
-  it("carries a declared version as the exact methodology version", async () => {
+  it("fails naming the version field when a tree-addressing consumer requires an undeclared version", async () => {
+    const observation = await observeUndeclaredMethodologyVersionResolution();
+    if (!observation.result.ok) throw new Error(observation.result.error);
+
+    const required = requireMethodologyVersion(observation.result.value);
+    expect(required.ok).toBe(false);
+    if (!required.ok) {
+      expect(required.error).toContain(`${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.VERSION}`);
+    }
+  });
+
+  it("carries a declared version as the exact methodology version and hands it to a requiring consumer unchanged", async () => {
     const observation = await observeDeclaredMethodologyVersionResolution();
 
     expect(observation.result.ok).toBe(true);
     if (!observation.result.ok) throw new Error(observation.result.error);
     expect(observation.result.value.version).toBe(observation.declared);
+    expect(requireMethodologyVersion(observation.result.value)).toEqual({ ok: true, value: observation.declared });
   });
 
   it("rejects methodology under harnessEnvironment", async () => {

@@ -21,9 +21,11 @@ import {
   generatedHarnessMethodologyConfig,
   generatedHarnessMethodologyWithUnknownFieldsConfig,
   generatedInvalidMethodologyConfigs,
+  generatedMethodologyLocationSection,
   generatedMethodologySection,
   generatedMigratingMethodologySection,
   generatedNonExactMethodologySection,
+  generatedNonExactMigrationSourceSection,
   generatedSimilarHarnessMethodologyFieldConfig,
 } from "@testing/generators/config/descriptors";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -144,6 +146,26 @@ export async function observeMigratingMethodologyResolution(): Promise<Methodolo
 /** Resolves a section whose version is a bare line rather than an exact version. */
 export async function observeNonExactMethodologyVersionResolution(): Promise<MethodologyResolutionObservation> {
   const methodology = generatedNonExactMethodologySection();
+  const result = await withTestEnv(
+    { [METHODOLOGY_SECTION]: methodology },
+    ({ productDir }) => resolveConfig(productDir, [methodologyConfigDescriptor]),
+  );
+  return { methodology, result };
+}
+
+/** Resolves a section whose migration source is a bare line rather than an exact version. */
+export async function observeNonExactMigrationSourceResolution(): Promise<MethodologyResolutionObservation> {
+  const methodology = generatedNonExactMigrationSourceSection();
+  const result = await withTestEnv(
+    { [METHODOLOGY_SECTION]: methodology },
+    ({ productDir }) => resolveConfig(productDir, [methodologyConfigDescriptor]),
+  );
+  return { methodology, result };
+}
+
+/** Resolves a section carrying a location field beside an otherwise valid declaration. */
+export async function observeMethodologyLocationFieldResolution(): Promise<MethodologyResolutionObservation> {
+  const methodology = generatedMethodologyLocationSection();
   const result = await withTestEnv(
     { [METHODOLOGY_SECTION]: methodology },
     ({ productDir }) => resolveConfig(productDir, [methodologyConfigDescriptor]),

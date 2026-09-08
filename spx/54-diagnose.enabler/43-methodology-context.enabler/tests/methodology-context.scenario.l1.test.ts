@@ -6,7 +6,7 @@ import {
 } from "@/domains/diagnose/checks/methodology-context";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { OVERALL_VERDICT, VERDICT_BUCKET } from "@/domains/diagnose/types";
-import { METHODOLOGY_CODING_AGENTS } from "@/lib/methodology/coding-agent";
+import { METHODOLOGY_CODING_AGENT, METHODOLOGY_CODING_AGENTS } from "@/lib/methodology/coding-agent";
 import { PROVIDER_MATCH } from "@/lib/methodology/provider-match";
 import { arbitraryMethodologyLine } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
@@ -15,6 +15,7 @@ import {
   generatedMethodology,
   generatedMigratingMethodology,
   lineOf,
+  partiallyShippedObservation,
   runMethodologyDiagnoseJson,
   runMethodologyManifestJson,
   runMethodologyRunnerWithoutFacts,
@@ -72,6 +73,24 @@ describe("methodology-context diagnose scenarios", () => {
       line: lineOf(methodology),
       shippedLines: shippedLine,
       shippedCodingAgents: METHODOLOGY_CONTEXT_READING_VALUE.NONE,
+    }));
+    expect(report.overall).toBe(OVERALL_VERDICT.DEGRADED);
+  });
+
+  it("reports an unavailable verdict naming the shipped coding agents when the declared line ships a tree for only some enabled agents", async () => {
+    const methodology = generatedMethodology();
+    const observation = partiallyShippedObservation(methodology, [METHODOLOGY_CODING_AGENT.CLAUDE]);
+
+    const report = await runMethodologyDiagnoseJson(methodology, observation);
+    const check = firstCheck(report);
+
+    expect(check.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE);
+    expect(check.bucket).toBe(VERDICT_BUCKET.DEGRADED);
+    expect(check.readings).toEqual(expect.objectContaining({
+      line: lineOf(methodology),
+      shippedLines: lineOf(methodology),
+      shippedCodingAgents: METHODOLOGY_CODING_AGENT.CLAUDE,
+      enabledCodingAgents: [...METHODOLOGY_CODING_AGENTS].join(", "),
     }));
     expect(report.overall).toBe(OVERALL_VERDICT.DEGRADED);
   });

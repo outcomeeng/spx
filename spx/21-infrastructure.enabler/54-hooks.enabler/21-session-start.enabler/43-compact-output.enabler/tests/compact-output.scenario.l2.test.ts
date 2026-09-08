@@ -12,6 +12,7 @@ import { FOUNDATION_MANIFEST_FIELDS } from "@/lib/methodology/foundation-manifes
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import {
   runCompactSessionStartCli,
+  shippedCompactRecoveryText,
   shippedMethodologyVersion,
   shippedTreeRelativeDir,
   withCompactSessionStartCliEnv,
@@ -67,11 +68,17 @@ describe("hook CLI compact stdout boundary", () => {
       });
 
       expect(result.exitCode, result.stderr).toBe(0);
-      // The shipped manifest names no compact-recovery resource, so the
-      // resolution reaches the entry step of the shipped tree and stops there.
-      expect(result.stdout).toHaveLength(0);
-      expect(result.stderr).toContain(FOUNDATION_MANIFEST_FIELDS.COMPACT_RECOVERY);
-      expect(result.stderr).toContain(shippedTreeRelativeDir(version.line, METHODOLOGY_CODING_AGENT.CLAUDE));
+      // The outcome follows the shipped manifest: the resource's exact bytes
+      // when it names a compact-recovery entry, otherwise silence with the
+      // absent entry and the resolved tree named on stderr.
+      const directive = await shippedCompactRecoveryText(version.line, METHODOLOGY_CODING_AGENT.CLAUDE);
+      if (directive === undefined) {
+        expect(result.stdout).toHaveLength(0);
+        expect(result.stderr).toContain(FOUNDATION_MANIFEST_FIELDS.COMPACT_RECOVERY);
+        expect(result.stderr).toContain(shippedTreeRelativeDir(version.line, METHODOLOGY_CODING_AGENT.CLAUDE));
+      } else {
+        expect(result.stdout).toBe(directive);
+      }
     });
   });
 
@@ -146,8 +153,13 @@ describe("hook CLI compact stdout boundary", () => {
       });
 
       expect(result.exitCode, result.stderr).toBe(0);
-      expect(result.stdout).toHaveLength(0);
-      expect(result.stderr).toContain(shippedTreeRelativeDir(version.line, METHODOLOGY_CODING_AGENT.CODEX));
+      const directive = await shippedCompactRecoveryText(version.line, METHODOLOGY_CODING_AGENT.CODEX);
+      if (directive === undefined) {
+        expect(result.stdout).toHaveLength(0);
+        expect(result.stderr).toContain(shippedTreeRelativeDir(version.line, METHODOLOGY_CODING_AGENT.CODEX));
+      } else {
+        expect(result.stdout).toBe(directive);
+      }
     });
   });
 
@@ -171,8 +183,14 @@ describe("hook CLI compact stdout boundary", () => {
       });
 
       expect(result.exitCode, result.stderr).toBe(0);
-      expect(result.stdout).toHaveLength(0);
-      expect(result.stderr).toContain(shippedTreeRelativeDir(version.line, METHODOLOGY_CODING_AGENT.CODEX));
+      const directive = await shippedCompactRecoveryText(version.line, METHODOLOGY_CODING_AGENT.CODEX);
+      if (directive === undefined) {
+        expect(result.stdout).toHaveLength(0);
+        expect(result.stderr).toContain(FOUNDATION_MANIFEST_FIELDS.COMPACT_RECOVERY);
+        expect(result.stderr).toContain(shippedTreeRelativeDir(version.line, METHODOLOGY_CODING_AGENT.CODEX));
+      } else {
+        expect(result.stdout).toBe(directive);
+      }
     });
   });
 });

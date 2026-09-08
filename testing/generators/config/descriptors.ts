@@ -38,6 +38,8 @@ export const CONFIG_TEST_FIELDS = {
 const ENVIRONMENT_SENTINEL_PREFIX = "SPX_TEST_SENTINEL_";
 const INVALID_METHODOLOGY_SOURCES = ["", "../outside", "/outside", "owner/../repo", "owner/repo/extra"] as const;
 const INVALID_METHODOLOGY_VERSIONS = ["", false] as const;
+/** The field a location-bearing methodology section would carry; the descriptor declares no such field. */
+export const METHODOLOGY_LOCATION_FIELD = "location";
 const SIMILAR_HARNESS_METHODOLOGY_FIELD = "methodologySource";
 const STRAY_HARNESS_FIELD = "strayHarnessField";
 
@@ -232,6 +234,23 @@ export function generatedMethodologySource(): string {
   ].join("/");
 }
 
+/** A methodology section whose migration source is a bare line rather than an exact version. */
+export function generatedNonExactMigrationSourceSection(): Record<string, unknown> {
+  return {
+    [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
+    [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleGeneratedValue(arbitraryMethodologyVersion()).text,
+    [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: sampleGeneratedValue(arbitraryMethodologyVersion()).line,
+  };
+}
+
+/** A methodology section carrying a location field beside a valid declaration; the descriptor knows no such field. */
+export function generatedMethodologyLocationSection(): Record<string, unknown> {
+  return {
+    ...generatedMethodologySection(),
+    [METHODOLOGY_LOCATION_FIELD]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+  };
+}
+
 export function generatedInvalidMethodologyConfigs(): readonly GeneratedInvalidMethodologyConfig[] {
   return [
     ...INVALID_METHODOLOGY_SOURCES.map((source) => ({
@@ -250,6 +269,16 @@ export function generatedInvalidMethodologyConfigs(): readonly GeneratedInvalidM
         },
       },
       field: `${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.VERSION}`,
+    })),
+    ...INVALID_METHODOLOGY_VERSIONS.map((migratingFrom) => ({
+      config: {
+        [METHODOLOGY_SECTION]: {
+          [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
+          [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleGeneratedValue(arbitraryMethodologyVersion()).text,
+          [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: migratingFrom,
+        },
+      },
+      field: `${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM}`,
     })),
   ];
 }
