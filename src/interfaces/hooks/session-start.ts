@@ -6,7 +6,6 @@
 
 import { appendFile as nodeAppendFile, open as nodeOpen, realpath as nodeRealPath } from "node:fs/promises";
 
-import { formatMethodologyVersionUndeclaredError } from "@/config/methodology";
 import { resolveMethodologyConfig } from "@/config/methodology-placement";
 import type { Result } from "@/config/types";
 import { resolveAgentHomeDirs } from "@/domains/agent/home";
@@ -125,9 +124,6 @@ async function defaultResolveCompactDirective(input: CompactDirectiveInput): Pro
   }
   const methodology = await resolveMethodologyConfig(input.productDir);
   if (!methodology.ok) return methodology;
-  if (methodology.value.version === undefined) {
-    return { ok: false, error: formatMethodologyVersionUndeclaredError() };
-  }
   return resolveCompactRecoveryDirective({
     treeRoot: input.methodologyTreeRoot,
     methodology: methodology.value,
