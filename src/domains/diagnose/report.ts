@@ -30,12 +30,19 @@ import { WORKTREE_POOL_VERDICT, type WorktreePoolVerdict } from "@/domains/diagn
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { BUCKET_SEVERITY, CANONICAL_CHECKOUT_PROBLEM, OVERALL_SEVERITY } from "@/domains/diagnose/report-contract";
 import { type CheckRecord, type DiagnoseReport } from "@/domains/diagnose/types";
+import { SENTINEL_UNDEFINED } from "@/lib/sanitize-cli-argument";
 import {
   renderStyledReport,
   type StyledReportModel,
   type StyledReportOptions,
 } from "@/lib/styled-output/styled-output";
-import { authoredText, renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
+import {
+  authoredText,
+  externalValue,
+  jsonDocument,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 
 /** The output formats `spx diagnose` emits. */
 export const DIAGNOSE_FORMAT = {
@@ -52,8 +59,8 @@ export const DIAGNOSE_TEXT_OVERALL_LABEL = "Diagnosis";
 const WORKTREE_COUNT_ZERO = "0";
 
 export interface DiagnoseHumanText {
-  readonly header: string;
-  readonly details: readonly string[];
+  readonly header: TerminalText;
+  readonly details: readonly TerminalText[];
 }
 
 export const DIAGNOSE_TEXT_LABEL = {
@@ -136,9 +143,15 @@ export const DIAGNOSE_TEXT_DETAIL = {
   MARKETPLACE_DRIFT_FIX: "install or enable the expected plugins.",
 } as const;
 
-/** Renders the report as indented JSON: a per-check record array plus the overall verdict. */
-export function renderReportJson(report: DiagnoseReport): string {
-  return JSON.stringify(
+const JSON_REPORT_INDENT = 2;
+
+/**
+ * Renders the report as indented JSON: a per-check record array plus the overall verdict. The
+ * readings are external, and the serialized document composition escapes them in JSON's own
+ * notation, which a machine consumer decodes back to the reading it was.
+ */
+export function renderReportJson(report: DiagnoseReport): TerminalText {
+  return jsonDocument(
     {
       checks: report.checks.map((check) => ({
         name: check.name,
@@ -149,8 +162,7 @@ export function renderReportJson(report: DiagnoseReport): string {
       })),
       overall: report.overall,
     },
-    null,
-    2,
+    JSON_REPORT_INDENT,
   );
 }
 
@@ -161,48 +173,54 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
   switch (check.verdict as MethodologyContextVerdict) {
     case METHODOLOGY_CONTEXT_VERDICT.RESOLVED:
       return {
-        header: DIAGNOSE_TEXT_HEADER.METHODOLOGY_RESOLVED,
+        header: authoredText(DIAGNOSE_TEXT_HEADER.METHODOLOGY_RESOLVED),
         details: [
-          DIAGNOSE_TEXT_DETAIL.METHODOLOGY_RESOLVED,
-          detail(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE, configuredSource),
-          detail(DIAGNOSE_TEXT_LABEL.OBSERVED_VERSION, observedVersion),
+          authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_RESOLVED),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE), configuredSource),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.OBSERVED_VERSION), observedVersion),
         ],
       };
     case METHODOLOGY_CONTEXT_VERDICT.BOOTSTRAP_IDENTITY:
       return {
-        header: DIAGNOSE_TEXT_HEADER.METHODOLOGY_BOOTSTRAP_IDENTITY,
+        header: authoredText(DIAGNOSE_TEXT_HEADER.METHODOLOGY_BOOTSTRAP_IDENTITY),
         details: [
           detail(
-            DIAGNOSE_TEXT_LABEL.PROBLEM,
+            authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM),
             authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_BOOTSTRAP_IDENTITY_PROBLEM),
           ),
-          detail(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION, configuredVersion),
-          detail(DIAGNOSE_TEXT_LABEL.OBSERVED_VERSION, observedVersion),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_BOOTSTRAP_IDENTITY_FIX)),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION), configuredVersion),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.OBSERVED_VERSION), observedVersion),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.FIX),
+            authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_BOOTSTRAP_IDENTITY_FIX),
+          ),
         ],
       };
     case METHODOLOGY_CONTEXT_VERDICT.VERSION_MISMATCH:
       return {
-        header: DIAGNOSE_TEXT_HEADER.METHODOLOGY_VERSION_MISMATCH,
+        header: authoredText(DIAGNOSE_TEXT_HEADER.METHODOLOGY_VERSION_MISMATCH),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION, configuredVersion),
-          detail(DIAGNOSE_TEXT_LABEL.OBSERVED_VERSION, observedVersion),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_VERSION_MISMATCH_FIX)),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION), configuredVersion),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.OBSERVED_VERSION), observedVersion),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.FIX),
+            authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_VERSION_MISMATCH_FIX),
+          ),
         ],
       };
     case METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE:
       return {
-        header: DIAGNOSE_TEXT_HEADER.METHODOLOGY_UNAVAILABLE,
+        header: authoredText(DIAGNOSE_TEXT_HEADER.METHODOLOGY_UNAVAILABLE),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE, configuredSource),
-          detail(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION, configuredVersion),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_UNAVAILABLE_FIX)),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE), configuredSource),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION), configuredVersion),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_UNAVAILABLE_FIX)),
         ],
       };
     case METHODOLOGY_CONTEXT_VERDICT.UNKNOWN:
       return {
-        header: DIAGNOSE_TEXT_HEADER.METHODOLOGY_UNKNOWN,
-        details: [detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY))],
+        header: authoredText(DIAGNOSE_TEXT_HEADER.METHODOLOGY_UNKNOWN),
+        details: [detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY))],
       };
     default:
       return fallbackText(check);
@@ -217,17 +235,19 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
  */
 function reading(check: CheckRecord, key: string): TerminalText | undefined {
   const value = check.readings[key];
-  return value === undefined ? undefined : terminal`${value}`;
+  return value === undefined ? undefined : terminal`${externalValue(value)}`;
 }
 
 /**
  * Builds one `label: value` detail line. Both sides arrive already composed, so
- * a caller states whether its value is product-authored or external instead of
- * letting the builder assume; an absent value resolves to the escaper's
- * undefined sentinel.
+ * a caller states whether its label and value are product-authored or external
+ * instead of letting the builder assume, and each is spliced in as it stands
+ * rather than escaped a second time. An absent reading has no value to state, so
+ * it resolves to the sentinel the escaper names for that case — a string this
+ * product owns, not one a reading supplied.
  */
-function detail(label: string, value: TerminalText | undefined): string {
-  return renderTerminalText(terminal`${authoredText(label)}: ${value}`);
+function detail(label: TerminalText, value: TerminalText | undefined): TerminalText {
+  return terminal`${label}: ${value ?? authoredText(SENTINEL_UNDEFINED)}`;
 }
 
 function spxReachabilityText(check: CheckRecord): DiagnoseHumanText {
@@ -238,40 +258,54 @@ function spxReachabilityText(check: CheckRecord): DiagnoseHumanText {
     case SPX_REACHABILITY_VERDICT.REACHABLE:
     case SPX_REACHABILITY_VERDICT.PRESENT:
       return {
-        header: DIAGNOSE_TEXT_HEADER.SPX_INSTALLED,
+        header: authoredText(DIAGNOSE_TEXT_HEADER.SPX_INSTALLED),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.VERSION, version ?? authoredText(SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION)),
-          detail(DIAGNOSE_TEXT_LABEL.PATH, path ?? authoredText(SPX_REACHABILITY_READING_VALUE.UNRESOLVED_PATH)),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.VERSION),
+            version ?? authoredText(SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION),
+          ),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.PATH),
+            path ?? authoredText(SPX_REACHABILITY_READING_VALUE.UNRESOLVED_PATH),
+          ),
         ],
       };
     case SPX_REACHABILITY_VERDICT.BELOW_FLOOR:
       return {
-        header: DIAGNOSE_TEXT_HEADER.SPX_BELOW_FLOOR,
+        header: authoredText(DIAGNOSE_TEXT_HEADER.SPX_BELOW_FLOOR),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.INSTALLED, version ?? authoredText(SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION)),
           detail(
-            DIAGNOSE_TEXT_LABEL.REQUIRED_VERSION,
+            authoredText(DIAGNOSE_TEXT_LABEL.INSTALLED),
+            version ?? authoredText(SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION),
+          ),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.REQUIRED_VERSION),
             floor ?? authoredText(SPX_REACHABILITY_READING_VALUE.ABSENT_FLOOR),
           ),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.SPX_BELOW_FLOOR_FIX)),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.SPX_BELOW_FLOOR_FIX)),
         ],
       };
     case SPX_REACHABILITY_VERDICT.UNREACHABLE:
       return {
-        header: DIAGNOSE_TEXT_HEADER.SPX_UNREACHABLE,
-        details: [detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.SPX_UNREACHABLE_FIX))],
+        header: authoredText(DIAGNOSE_TEXT_HEADER.SPX_UNREACHABLE),
+        details: [
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.SPX_UNREACHABLE_FIX)),
+        ],
       };
     case SPX_REACHABILITY_VERDICT.UNKNOWN:
       return {
-        header: DIAGNOSE_TEXT_HEADER.SPX_UNKNOWN,
+        header: authoredText(DIAGNOSE_TEXT_HEADER.SPX_UNKNOWN),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.PROBLEM, authoredText(DIAGNOSE_TEXT_DETAIL.SPX_UNKNOWN_PROBLEM)),
-          detail(DIAGNOSE_TEXT_LABEL.INSTALLED, version ?? authoredText(SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION)),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM), authoredText(DIAGNOSE_TEXT_DETAIL.SPX_UNKNOWN_PROBLEM)),
           detail(
-            DIAGNOSE_TEXT_LABEL.REQUIRED_VERSION,
+            authoredText(DIAGNOSE_TEXT_LABEL.INSTALLED),
+            version ?? authoredText(SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION),
+          ),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.REQUIRED_VERSION),
             floor ?? authoredText(SPX_REACHABILITY_READING_VALUE.ABSENT_FLOOR),
           ),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.SPX_UNKNOWN_FIX)),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.SPX_UNKNOWN_FIX)),
         ],
       };
     default:
@@ -283,36 +317,42 @@ function sessionEnvironmentText(check: CheckRecord): DiagnoseHumanText {
   switch (check.verdict as SessionEnvironmentVerdict) {
     case SESSION_ENVIRONMENT_VERDICT.WORKING:
       return {
-        header: DIAGNOSE_TEXT_HEADER.AGENT_SESSION_ACTIVE,
-        details: [DIAGNOSE_TEXT_DETAIL.AGENT_SESSION_ACTIVE],
+        header: authoredText(DIAGNOSE_TEXT_HEADER.AGENT_SESSION_ACTIVE),
+        details: [authoredText(DIAGNOSE_TEXT_DETAIL.AGENT_SESSION_ACTIVE)],
       };
     case SESSION_ENVIRONMENT_VERDICT.IDENTITY_ONLY:
       return {
-        header: DIAGNOSE_TEXT_HEADER.AGENT_SESSION_UNLINKED,
+        header: authoredText(DIAGNOSE_TEXT_HEADER.AGENT_SESSION_UNLINKED),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.PROBLEM, authoredText(DIAGNOSE_TEXT_DETAIL.AGENT_SESSION_UNLINKED_PROBLEM)),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.AGENT_SESSION_UNLINKED_FIX)),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM),
+            authoredText(DIAGNOSE_TEXT_DETAIL.AGENT_SESSION_UNLINKED_PROBLEM),
+          ),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.AGENT_SESSION_UNLINKED_FIX)),
         ],
       };
     case SESSION_ENVIRONMENT_VERDICT.SILENT_NO_OP:
       return {
-        header: DIAGNOSE_TEXT_HEADER.SESSION_START_NO_OP,
+        header: authoredText(DIAGNOSE_TEXT_HEADER.SESSION_START_NO_OP),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.PROBLEM, authoredText(DIAGNOSE_TEXT_DETAIL.SESSION_START_NO_OP_PROBLEM)),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.SESSION_START_NO_OP_FIX)),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM),
+            authoredText(DIAGNOSE_TEXT_DETAIL.SESSION_START_NO_OP_PROBLEM),
+          ),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.SESSION_START_NO_OP_FIX)),
         ],
       };
     case SESSION_ENVIRONMENT_VERDICT.NOT_APPLICABLE:
       return {
-        header: DIAGNOSE_TEXT_HEADER.AGENT_SESSION_HOOK_SKIPPED,
-        details: [DIAGNOSE_TEXT_DETAIL.AGENT_SESSION_SKIPPED],
+        header: authoredText(DIAGNOSE_TEXT_HEADER.AGENT_SESSION_HOOK_SKIPPED),
+        details: [authoredText(DIAGNOSE_TEXT_DETAIL.AGENT_SESSION_SKIPPED)],
       };
     case SESSION_ENVIRONMENT_VERDICT.UNKNOWN:
       return {
-        header: DIAGNOSE_TEXT_HEADER.AGENT_SESSION_UNKNOWN,
+        header: authoredText(DIAGNOSE_TEXT_HEADER.AGENT_SESSION_UNKNOWN),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.PROBLEM, authoredText(DIAGNOSE_TEXT_DETAIL.SESSION_UNKNOWN_PROBLEM)),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY)),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM), authoredText(DIAGNOSE_TEXT_DETAIL.SESSION_UNKNOWN_PROBLEM)),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY)),
         ],
       };
     default:
@@ -326,57 +366,63 @@ function worktreePoolText(check: CheckRecord): DiagnoseHumanText {
   switch (check.verdict as WorktreePoolVerdict) {
     case WORKTREE_POOL_VERDICT.COMPLIANT:
       return {
-        header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_VALID,
+        header: authoredText(DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_VALID),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.WORKTREES, terminal`${running} active, ${free} free`),
-          DIAGNOSE_TEXT_DETAIL.WORKTREE_POOL_VALID,
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.WORKTREES), terminal`${running} active, ${free} free`),
+          authoredText(DIAGNOSE_TEXT_DETAIL.WORKTREE_POOL_VALID),
         ],
       };
     case WORKTREE_POOL_VERDICT.NON_COMPLIANT:
       return {
-        header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
+        header: authoredText(DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.PROBLEM, authoredText(DIAGNOSE_TEXT_DETAIL.WORKTREE_POOL_NON_COMPLIANT_PROBLEM)),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.WORKTREE_POOL_NON_COMPLIANT_FIX)),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM),
+            authoredText(DIAGNOSE_TEXT_DETAIL.WORKTREE_POOL_NON_COMPLIANT_PROBLEM),
+          ),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.FIX),
+            authoredText(DIAGNOSE_TEXT_DETAIL.WORKTREE_POOL_NON_COMPLIANT_FIX),
+          ),
         ],
       };
     case WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_MISSING:
       return {
-        header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
+        header: authoredText(DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID),
         details: [
           detail(
-            DIAGNOSE_TEXT_LABEL.PROBLEM,
+            authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM),
             authoredText(CANONICAL_CHECKOUT_PROBLEM[WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_MISSING]),
           ),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(check.remediation)),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(check.remediation)),
         ],
       };
     case WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_DETACHED:
       return {
-        header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
+        header: authoredText(DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID),
         details: [
           detail(
-            DIAGNOSE_TEXT_LABEL.PROBLEM,
+            authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM),
             authoredText(CANONICAL_CHECKOUT_PROBLEM[WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_DETACHED]),
           ),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(check.remediation)),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(check.remediation)),
         ],
       };
     case WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_WRONG_BRANCH:
       return {
-        header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
+        header: authoredText(DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID),
         details: [
           detail(
-            DIAGNOSE_TEXT_LABEL.PROBLEM,
+            authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM),
             authoredText(CANONICAL_CHECKOUT_PROBLEM[WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_WRONG_BRANCH]),
           ),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(check.remediation)),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(check.remediation)),
         ],
       };
     case WORKTREE_POOL_VERDICT.UNKNOWN:
       return {
-        header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_UNKNOWN,
-        details: [detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY))],
+        header: authoredText(DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_UNKNOWN),
+        details: [detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY))],
       };
     default:
       return fallbackText(check);
@@ -388,16 +434,16 @@ function sessionStoreText(check: CheckRecord): DiagnoseHumanText {
   switch (check.verdict as SessionStoreVerdict) {
     case SESSION_STORE_VERDICT.CONSISTENT:
       return {
-        header: DIAGNOSE_TEXT_HEADER.SESSION_STORE_CLEAN,
+        header: authoredText(DIAGNOSE_TEXT_HEADER.SESSION_STORE_CLEAN),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.ORPHANED_DOING_SESSIONS, orphaned),
-          DIAGNOSE_TEXT_DETAIL.SESSION_STORE_INFORMATIONAL,
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.ORPHANED_DOING_SESSIONS), orphaned),
+          authoredText(DIAGNOSE_TEXT_DETAIL.SESSION_STORE_INFORMATIONAL),
         ],
       };
     case SESSION_STORE_VERDICT.UNKNOWN:
       return {
-        header: DIAGNOSE_TEXT_HEADER.SESSION_STORE_UNKNOWN,
-        details: [detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY))],
+        header: authoredText(DIAGNOSE_TEXT_HEADER.SESSION_STORE_UNKNOWN),
+        details: [detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY))],
       };
     default:
       return fallbackText(check);
@@ -408,36 +454,49 @@ function marketplaceInstallText(check: CheckRecord): DiagnoseHumanText {
   switch (check.verdict as MarketplaceInstallVerdict) {
     case MARKETPLACE_INSTALL_VERDICT.INSTALLED:
       return {
-        header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_CONFIGURED,
-        details: [DIAGNOSE_TEXT_DETAIL.MARKETPLACE_CONFIGURED],
+        header: authoredText(DIAGNOSE_TEXT_HEADER.MARKETPLACE_CONFIGURED),
+        details: [authoredText(DIAGNOSE_TEXT_DETAIL.MARKETPLACE_CONFIGURED)],
       };
     case MARKETPLACE_INSTALL_VERDICT.DRIFTED:
       return {
-        header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_DRIFT,
-        details: [detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.MARKETPLACE_DRIFT_FIX))],
+        header: authoredText(DIAGNOSE_TEXT_HEADER.MARKETPLACE_DRIFT),
+        details: [
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.MARKETPLACE_DRIFT_FIX)),
+        ],
       };
     case MARKETPLACE_INSTALL_VERDICT.CLI_UNAVAILABLE:
       return {
-        header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_CLI_UNAVAILABLE,
+        header: authoredText(DIAGNOSE_TEXT_HEADER.MARKETPLACE_CLI_UNAVAILABLE),
         details: [
-          detail(DIAGNOSE_TEXT_LABEL.PROBLEM, authoredText(DIAGNOSE_TEXT_DETAIL.MARKETPLACE_CLI_UNAVAILABLE_PROBLEM)),
-          detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.MARKETPLACE_CLI_UNAVAILABLE_FIX)),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM),
+            authoredText(DIAGNOSE_TEXT_DETAIL.MARKETPLACE_CLI_UNAVAILABLE_PROBLEM),
+          ),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.FIX),
+            authoredText(DIAGNOSE_TEXT_DETAIL.MARKETPLACE_CLI_UNAVAILABLE_FIX),
+          ),
         ],
       };
     case MARKETPLACE_INSTALL_VERDICT.UNREGISTERED:
       return {
-        header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_UNREGISTERED,
-        details: [detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.UNREGISTERED_MARKETPLACE_FIX))],
+        header: authoredText(DIAGNOSE_TEXT_HEADER.MARKETPLACE_UNREGISTERED),
+        details: [
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.FIX),
+            authoredText(DIAGNOSE_TEXT_DETAIL.UNREGISTERED_MARKETPLACE_FIX),
+          ),
+        ],
       };
     case MARKETPLACE_INSTALL_VERDICT.NOT_APPLICABLE:
       return {
-        header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_CHECKS_SKIPPED,
-        details: [DIAGNOSE_TEXT_DETAIL.MARKETPLACE_SKIPPED],
+        header: authoredText(DIAGNOSE_TEXT_HEADER.MARKETPLACE_CHECKS_SKIPPED),
+        details: [authoredText(DIAGNOSE_TEXT_DETAIL.MARKETPLACE_SKIPPED)],
       };
     case MARKETPLACE_INSTALL_VERDICT.UNKNOWN:
       return {
-        header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_UNKNOWN,
-        details: [detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY))],
+        header: authoredText(DIAGNOSE_TEXT_HEADER.MARKETPLACE_UNKNOWN),
+        details: [detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY))],
       };
     default:
       return fallbackText(check);
@@ -446,10 +505,10 @@ function marketplaceInstallText(check: CheckRecord): DiagnoseHumanText {
 
 function fallbackText(_check: CheckRecord): DiagnoseHumanText {
   return {
-    header: DIAGNOSE_TEXT_HEADER.RENDERING_UNAVAILABLE,
+    header: authoredText(DIAGNOSE_TEXT_HEADER.RENDERING_UNAVAILABLE),
     details: [
-      detail(DIAGNOSE_TEXT_LABEL.PROBLEM, authoredText(DIAGNOSE_TEXT_DETAIL.RENDERING_UNAVAILABLE)),
-      detail(DIAGNOSE_TEXT_LABEL.FIX, authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY)),
+      detail(authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM), authoredText(DIAGNOSE_TEXT_DETAIL.RENDERING_UNAVAILABLE)),
+      detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY)),
     ],
   };
 }
@@ -486,13 +545,13 @@ function toStyledModel(report: DiagnoseReport): StyledReportModel {
     }),
     summary: {
       severity: OVERALL_SEVERITY[report.overall],
-      text: `${DIAGNOSE_TEXT_OVERALL_LABEL}: ${report.overall}`,
+      text: authoredText(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${report.overall}`),
     },
   };
 }
 
 /** Renders the report as human-readable diagnosis text through the styled-output primitive. */
-export function renderReportText(report: DiagnoseReport, options: StyledReportOptions): string {
+export function renderReportText(report: DiagnoseReport, options: StyledReportOptions): TerminalText {
   return renderStyledReport(toStyledModel(report), options);
 }
 
@@ -501,6 +560,6 @@ export function renderReport(
   report: DiagnoseReport,
   format: DiagnoseFormat,
   options: StyledReportOptions,
-): string {
+): TerminalText {
   return format === DIAGNOSE_FORMAT.JSON ? renderReportJson(report) : renderReportText(report, options);
 }

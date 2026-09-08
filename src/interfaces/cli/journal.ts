@@ -15,6 +15,7 @@ import {
 import type { CliCommandResult, Result } from "@/config/types";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
+import { authoredText, renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
 import { createJournalStreamBinding } from "./lib/journal-stream-binding";
 import { CLI_STREAM_REPORT } from "./lib/stream-report";
@@ -94,8 +95,13 @@ export const journalDomain: Domain = {
   register: (program: Command, invocation: CliInvocation) => {
     const journalDeps = () => ({
       cwd: invocation.resolveEffectiveInvocationDir(),
-      onWarning: (warning: string | undefined) => {
-        if (warning !== undefined) invocation.io.writeStderr(`${warning}${CLI_STREAM_REPORT.LINE_SEPARATOR}`);
+      // The warning arrives composed where the product root was resolved; the line separator is the product's own.
+      onWarning: (warning: TerminalText | undefined) => {
+        if (warning !== undefined) {
+          invocation.io.writeStderr(
+            renderTerminalText(terminal`${warning}${authoredText(CLI_STREAM_REPORT.LINE_SEPARATOR)}`),
+          );
+        }
       },
     });
     const journalCmd = program.command(JOURNAL_CLI.commandName).description(JOURNAL_CLI.description);

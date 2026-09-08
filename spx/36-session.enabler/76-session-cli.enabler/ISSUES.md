@@ -24,9 +24,12 @@ The session list resolves the `--color`/`--no-color` → `NO_COLOR` → TTY prec
 
 This node's terminal output path passes values that originated outside the product's own source straight to the process streams. [`spx/13-cli.enabler/15-cli-architecture.adr.md`](../../13-cli.enabler/15-cli-architecture.adr.md) makes escaping a property of the composed value: an externally-originated segment is escaped where it is embedded, through the `src/lib/terminal-text/` primitive, while product-authored segments keep their bytes so styling and line structure survive. This node predates that invariant and has not migrated to it.
 
+**Migrated:** the non-git-repo diagnostic arrives composed from the shared root resolution, and the injection warning in `src/commands/session/pickup.ts` composes its listed path as an external segment, so `src/interfaces/cli/session.ts` embeds both as composed text.
+
 **Unescaped sites:**
 
 - `src/interfaces/cli/session.ts` — `writeOutput`, `writeError`, and `formatError` — session file fields (goal, next step, branch, identifiers) and caught session-store errors
+- `src/commands/session/pickup.ts` — `formatInjectedFile` — the listed injection path and the injected file's content, spliced into the pickup output as a plain string that reaches `writeOutput`; the migration decides whether that output is a composed report or a relayed document, since the session body it carries is the session file's own content
 
 **Impact:** a value carrying an escape byte (`0x1b`) can reposition the cursor, recolor the terminal, or clear the screen; a value carrying a line feed can forge an additional diagnostic line that reads as if spx emitted it. Whoever controls the named origins controls those bytes.
 

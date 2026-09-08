@@ -2,6 +2,7 @@ import { execa } from "execa";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
+import { authoredText, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
 import { withoutGitEnvironment } from "./environment";
 
@@ -12,7 +13,7 @@ export interface GitProductDirResult {
   /** Whether the directory is inside a git repository */
   isGitRepo: boolean;
   /** Warning message when not in a git repo (undefined if in repo) */
-  warning?: string;
+  warning?: TerminalText;
 }
 
 /**
@@ -91,6 +92,9 @@ export const defaultGitDependencies: GitDependencies = {
 
 export const NOT_GIT_REPO_WARNING =
   "Warning: Not in a git repository; resolving session storage relative to the current directory.";
+
+/** The same diagnostic composed for a terminal: wholly product-authored, no external segment. */
+export const NOT_GIT_REPO_WARNING_TEXT = authoredText(NOT_GIT_REPO_WARNING);
 
 export const GIT_ROOT_COMMAND = {
   EXECUTABLE: "git",
@@ -236,14 +240,14 @@ export async function detectWorktreeProductRoot(
     return {
       productDir: cwd,
       isGitRepo: false,
-      warning: NOT_GIT_REPO_WARNING,
+      warning: NOT_GIT_REPO_WARNING_TEXT,
     };
   } catch {
     // Command execution failed (git not installed, permission error, etc.)
     return {
       productDir: cwd,
       isGitRepo: false,
-      warning: NOT_GIT_REPO_WARNING,
+      warning: NOT_GIT_REPO_WARNING_TEXT,
     };
   }
 }
@@ -287,7 +291,7 @@ export async function detectGitCommonDirProductRoot(
       return {
         productDir: cwd,
         isGitRepo: false,
-        warning: NOT_GIT_REPO_WARNING,
+        warning: NOT_GIT_REPO_WARNING_TEXT,
         worktreeRoot: cwd,
       };
     }
@@ -331,7 +335,7 @@ export async function detectGitCommonDirProductRoot(
     return {
       productDir: cwd,
       isGitRepo: false,
-      warning: NOT_GIT_REPO_WARNING,
+      warning: NOT_GIT_REPO_WARNING_TEXT,
       worktreeRoot: cwd,
     };
   }

@@ -29,6 +29,11 @@ export async function parseReleaseCli(options: ReleaseCliParseOptions): Promise<
     io: {
       writeStdout: options.io.writeStdout,
       writeStderr: options.io.writeStderr,
+      // Both channels of a stream share one destination, as the production
+      // program's fallback does, so a relayed document is observed where the
+      // drive already reads that stream's composed output.
+      writePassThrough: options.io.writeStdout,
+      writePassThroughError: options.io.writeStderr,
       setExitCode: () => undefined,
       exit: options.io.exit,
     },

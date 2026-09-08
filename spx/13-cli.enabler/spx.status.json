@@ -11,9 +11,11 @@
       "spx/13-cli.enabler/tests/lifecycle.scenario.l1.test.ts": "passed",
       "spx/13-cli.enabler/tests/lifecycle.scenario.l2.test.ts": "passed",
       "spx/13-cli.enabler/tests/package-scripts.compliance.l1.test.ts": "passed",
+      "spx/13-cli.enabler/tests/pass-through-boundary.compliance.l1.test.ts": "passed",
       "spx/13-cli.enabler/tests/sanitize.mapping.l1.test.ts": "passed",
       "spx/13-cli.enabler/tests/sanitize.property.l1.test.ts": "passed",
       "spx/13-cli.enabler/tests/sanitize.scenario.l1.test.ts": "passed",
+      "spx/13-cli.enabler/tests/terminal-text.compliance.l1.test.ts": "passed",
       "spx/13-cli.enabler/tests/terminal-text.property.l1.test.ts": "passed"
     }
   }

@@ -11,6 +11,8 @@
 
 import { Chalk } from "chalk";
 
+import { authoredText, joinTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
+
 /** The severity vocabulary a styled report keys its glyphs and colors on. */
 export const SEVERITY = {
   OK: "ok",
@@ -62,18 +64,18 @@ export const DETAIL_BRANCH_SEPARATOR = "── ";
 export interface StyledSection {
   /** The severity that keys the section's status glyph and color. */
   readonly severity: Severity;
-  /** The bold section header text. */
-  readonly header: string;
-  /** The dim, tree-indented detail lines under the header. */
-  readonly details: readonly string[];
+  /** The bold section header text, composed where it was produced. */
+  readonly header: TerminalText;
+  /** The dim, tree-indented detail lines under the header, each composed where it was produced. */
+  readonly details: readonly TerminalText[];
 }
 
 /** The severity-colored, bold summary line that closes a styled report. */
 export interface StyledSummary {
   /** The severity that colors the summary line. */
   readonly severity: Severity;
-  /** The summary line text. */
-  readonly text: string;
+  /** The summary line text, composed where it was produced. */
+  readonly text: TerminalText;
 }
 
 /** A styled report: a list of sections plus a closing summary line. */
@@ -87,10 +89,10 @@ export interface StyledReportOptions {
   readonly color: boolean;
 }
 
-/** One section in a plain grouped tree: a header plus indented child lines. */
+/** One section in a plain grouped tree: a header plus indented child lines, each composed where it was produced. */
 export interface PlainTreeSection {
-  readonly header: string;
-  readonly children: readonly string[];
+  readonly header: TerminalText;
+  readonly children: readonly TerminalText[];
 }
 
 /** A plain grouped tree, used by non-severity command output. */
@@ -103,38 +105,51 @@ export interface PlainTreeModel {
  * content with no ANSI; with `color: true` the same content carries ANSI, so the
  * ANSI-stripped colored render equals the plain render.
  */
-export function renderStyledReport(model: StyledReportModel, options: StyledReportOptions): string {
+const TREE_LINE_SEPARATOR = authoredText("\n");
+
+export function renderStyledReport(model: StyledReportModel, options: StyledReportOptions): TerminalText {
   const chalk = new Chalk({ level: options.color ? 1 : 0 });
-  const lines: string[] = [];
+  // Every header, detail, and summary arrives with its escaping already decided, so chalk only
+  // wraps ANSI around content the producer settled; each styled line is the product's own and
+  // keeps the bytes chalk added.
+  const lines: TerminalText[] = [];
   for (const section of model.sections) {
     const { glyph, style } = SEVERITY_STYLE[section.severity];
-    lines.push(`${chalk[style](glyph)} ${chalk.bold(section.header)}`);
+    lines.push(authoredText(`${chalk[style](glyph)} ${chalk.bold(section.header)}`));
     const lastIndex = section.details.length - 1;
     section.details.forEach((detail, index) => {
       const branch = index === lastIndex ? DETAIL_ELBOW : DETAIL_TEE;
-      const detailText = `${branch} ${detail}`;
-      lines.push(`${DETAIL_INDENT}${chalk.dim(detailText)}`);
+      const detailLine = chalk.dim(`${branch} ${detail}`);
+      lines.push(authoredText(`${DETAIL_INDENT}${detailLine}`));
     });
   }
   const summaryStyle = SEVERITY_STYLE[model.summary.severity].style;
-  lines.push(chalk.bold(chalk[summaryStyle](model.summary.text)));
-  return lines.join("\n");
+  lines.push(authoredText(chalk.bold(chalk[summaryStyle](model.summary.text))));
+  return joinTerminalText(TREE_LINE_SEPARATOR, lines);
 }
 
-/** Renders a plain grouped tree with each section header followed by indented children. */
-export function renderPlainTree(model: PlainTreeModel): string {
-  return model.sections
-    .flatMap((section) => {
+/**
+ * Renders a plain grouped tree with each section header followed by indented
+ * children. The tree glyphs, indentation, and line structure are product-authored
+ * and keep their bytes; each header and child arrives with its escaping decided
+ * where its values were produced, so a worktree name or path inside one cannot
+ * forge a tree row or rewrite the terminal while the words around it keep theirs.
+ */
+export function renderPlainTree(model: PlainTreeModel): TerminalText {
+  return joinTerminalText(
+    TREE_LINE_SEPARATOR,
+    model.sections.flatMap((section) => {
       const lastIndex = section.children.length - 1;
       return [
         section.header,
-        ...section.children.map((child, index) => {
-          const branch = index === lastIndex ? DETAIL_ELBOW : DETAIL_TEE;
-          return `${DETAIL_INDENT}${branch}${DETAIL_BRANCH_SEPARATOR}${child}`;
-        }),
+        ...section.children.map((child, index) =>
+          terminal`${authoredText(DETAIL_INDENT)}${authoredText(index === lastIndex ? DETAIL_ELBOW : DETAIL_TEE)}${
+            authoredText(DETAIL_BRANCH_SEPARATOR)
+          }${child}`
+        ),
       ];
-    })
-    .join("\n");
+    }),
+  );
 }
 
 /** The inputs the descriptor boundary reads to resolve the color choice. */

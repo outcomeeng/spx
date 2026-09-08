@@ -29,8 +29,8 @@ import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT, type DiagnoseFormat } from "@/domains/diagnose/report";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
-import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { resolveColorChoice } from "@/lib/styled-output/styled-output";
+import { externalToken, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 
 /** Source-owned `spx diagnose` command and flag vocabulary, shared with the CLI tests. */
 export const DIAGNOSE_CLI = {
@@ -59,9 +59,9 @@ function defaultRegistry(productDir: string): CheckRegistry {
 }
 
 function handleError(error: string, io: CliIo): never {
-  // Sanitize before echoing: the error embeds user-supplied manifest path and
-  // check-name bytes.
-  io.writeStderr(`Error: ${sanitizeCliArgument(error)}\n`);
+  // The error embeds user-supplied manifest path and check-name bytes, so it is
+  // an external token of this composition, bounded to the display length.
+  io.writeStderr(renderTerminalText(terminal`Error: ${externalToken(error)}\n`));
   return io.exit(1);
 }
 
@@ -103,7 +103,7 @@ export const diagnoseDomain: Domain = {
         if (!result.ok) {
           handleError(result.error, invocation.io);
         }
-        invocation.io.writeStdout(`${result.value.output}\n`);
+        invocation.io.writeStdout(renderTerminalText(terminal`${result.value.output}\n`));
         invocation.io.setExitCode(result.value.exitCode);
       });
   },

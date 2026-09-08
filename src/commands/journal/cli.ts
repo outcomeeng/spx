@@ -31,6 +31,7 @@ import {
   slugBranchIdentity,
   type StateStoreFileSystem,
 } from "@/lib/state-store";
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 import { SPX_VERIFY_ENV, SPX_VERIFY_HEAD_SHA } from "@/lib/verification-env";
 
 import { createGithubPrStreamSink } from "./github-pr-sink";
@@ -122,7 +123,7 @@ export interface JournalCliDeps {
   readonly fs?: StateStoreFileSystem;
   readonly now?: () => Date;
   readonly randomBytes?: (size: number) => Buffer;
-  readonly onWarning?: (warning: string | undefined) => void;
+  readonly onWarning?: (warning: TerminalText | undefined) => void;
 }
 
 export interface JournalCliScope {

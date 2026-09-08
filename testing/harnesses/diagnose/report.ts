@@ -43,6 +43,7 @@ import {
 } from "@/domains/diagnose/types";
 import { sessionCliDefinition } from "@/interfaces/cli/session/definition";
 import { SEVERITY_STYLE } from "@/lib/styled-output/styled-output";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { arbitraryInvalidSpxFloor, sampleDiagnoseTestValue } from "@testing/generators/diagnose/manifest";
 import { arbitraryReport } from "@testing/generators/diagnose/report";
 import { arbitraryBranchName } from "@testing/generators/git-name/git-name";
@@ -130,7 +131,9 @@ function sectionHeaderLine(check: CheckRecord, header: string): string {
 }
 
 function renderSingleCheckText(check: CheckRecord): string {
-  return renderReportText({ checks: [check], overall: overallForBucket(check.bucket) }, { color: false });
+  return renderTerminalText(
+    renderReportText({ checks: [check], overall: overallForBucket(check.bucket) }, { color: false }),
+  );
 }
 
 function canonicalCheckoutFailureCases(): readonly CanonicalCheckoutFailureCase[] {
@@ -290,7 +293,7 @@ function supportedTranslationBranches(): readonly TranslationBranchCase[] {
 
 export function assertTextReportSummary(): void {
   const report = sampleReport();
-  const text = renderReportText(report, { color: false });
+  const text = renderTerminalText(renderReportText(report, { color: false }));
   expect(text).toContain(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${OVERALL_VERDICT.HEALTHY}`);
   expect(text).toContain(DIAGNOSE_TEXT_HEADER.SPX_INSTALLED);
   expect(text).toContain(`${DIAGNOSE_TEXT_LABEL.VERSION}: ${report.checks[0]?.readings.version}`);
@@ -348,7 +351,7 @@ export function assertInvalidSpxVersionTranslation(): void {
 
 export function assertTextReportHidesMachineFields(): void {
   const report = sampleReport();
-  const text = renderReportText(report, { color: false });
+  const text = renderTerminalText(renderReportText(report, { color: false }));
   const sessionRecord = report.checks[1];
   const worktreeRecord = report.checks[2];
   const marketplaceRecord = report.checks[4];
@@ -374,7 +377,9 @@ export function assertTextReportHidesMachineFields(): void {
 export function assertUnknownTranslationHidesMachineFields(): void {
   const report = sampleReport();
   const fallbackRecord = { ...report.checks[0], verdict: report.checks[0].verdict.toUpperCase() };
-  const text = renderReportText({ checks: [fallbackRecord], overall: report.overall }, { color: false });
+  const text = renderTerminalText(
+    renderReportText({ checks: [fallbackRecord], overall: report.overall }, { color: false }),
+  );
   expect(text).toContain(DIAGNOSE_TEXT_HEADER.RENDERING_UNAVAILABLE);
   expect(text).toContain(DIAGNOSE_TEXT_DETAIL.RENDERING_UNAVAILABLE);
   expect(text).not.toContain(fallbackRecord.name);
@@ -406,16 +411,16 @@ export function assertCanonicalCheckoutFailureTranslations(): void {
 
 export function assertJsonReportPreservesSchema(): void {
   const report = sampleReport();
-  expect(JSON.parse(renderReportJson(report)) as DiagnoseReport).toStrictEqual(report);
+  expect(JSON.parse(renderTerminalText(renderReportJson(report))) as DiagnoseReport).toStrictEqual(report);
 }
 
 export function assertHeadingGlyphsFollowBuckets(): void {
   assertProperty(
     arbitraryReport(),
     (report) => {
-      const headingLines = renderReportText(report, { color: false }).split("\n").filter((line) =>
-        !line.startsWith("  ") && !line.startsWith(DIAGNOSE_TEXT_OVERALL_LABEL)
-      );
+      const headingLines = renderTerminalText(renderReportText(report, { color: false })).split("\n").filter((
+        line: string,
+      ) => !line.startsWith("  ") && !line.startsWith(DIAGNOSE_TEXT_OVERALL_LABEL));
       expect(headingLines).toHaveLength(report.checks.length);
       report.checks.forEach((check, index) => {
         expect(headingLines[index]?.startsWith(`${SEVERITY_STYLE[BUCKET_SEVERITY[check.bucket]].glyph} `)).toBe(
@@ -432,7 +437,7 @@ export function assertOverallColorFollowsVerdict(): void {
   assertProperty(
     arbitraryReport(),
     (report) => {
-      const text = renderReportText(report, { color: true });
+      const text = renderTerminalText(renderReportText(report, { color: true }));
       const style = SEVERITY_STYLE[OVERALL_SEVERITY[report.overall]].style;
       expect(text).toContain(chalk[style](`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${report.overall}`));
     },
@@ -446,5 +451,5 @@ export function assertOverallColorFollowsVerdict(): void {
  * the product deliberately emits when color is on.
  */
 export function renderPlainReport(report: DiagnoseReport): string {
-  return renderReportText(report, { color: false });
+  return renderTerminalText(renderReportText(report, { color: false }));
 }

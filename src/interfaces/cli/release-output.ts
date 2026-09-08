@@ -1,4 +1,4 @@
-import { authoredText, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import { authoredText, externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 
 export const RELEASE_CLI_OUTPUT = {
   DOCUMENTATION_UPDATED_PREFIX: "Updated documentation",
@@ -16,9 +16,9 @@ export const RELEASE_CLI_OUTPUT = {
  */
 export function formatReleaseErrorOutput(message: string): string {
   return renderTerminalText(
-    terminal`${authoredText(RELEASE_CLI_OUTPUT.ERROR_PREFIX)}${
-      authoredText(RELEASE_CLI_OUTPUT.LABEL_SEPARATOR)
-    }${message}${authoredText(RELEASE_CLI_OUTPUT.LINE_SEPARATOR)}`,
+    terminal`${authoredText(RELEASE_CLI_OUTPUT.ERROR_PREFIX)}${authoredText(RELEASE_CLI_OUTPUT.LABEL_SEPARATOR)}${
+      externalValue(message)
+    }${authoredText(RELEASE_CLI_OUTPUT.LINE_SEPARATOR)}`,
   );
 }
 
@@ -26,7 +26,7 @@ export function formatReleaseNotesOutput(changelogPath: string): string {
   return renderTerminalText(
     terminal`${authoredText(RELEASE_CLI_OUTPUT.RELEASE_NOTES_PREFIX)}${
       authoredText(RELEASE_CLI_OUTPUT.LABEL_SEPARATOR)
-    }${changelogPath}${authoredText(RELEASE_CLI_OUTPUT.LINE_SEPARATOR)}`,
+    }${externalValue(changelogPath)}${authoredText(RELEASE_CLI_OUTPUT.LINE_SEPARATOR)}`,
   );
 }
 
@@ -34,7 +34,7 @@ export function formatDocumentationSyncOutput(path: string): string {
   return renderTerminalText(
     terminal`${authoredText(RELEASE_CLI_OUTPUT.DOCUMENTATION_UPDATED_PREFIX)}${
       authoredText(RELEASE_CLI_OUTPUT.LABEL_SEPARATOR)
-    }${path}${authoredText(RELEASE_CLI_OUTPUT.LINE_SEPARATOR)}`,
+    }${externalValue(path)}${authoredText(RELEASE_CLI_OUTPUT.LINE_SEPARATOR)}`,
   );
 }
 
@@ -42,6 +42,6 @@ export function formatReleasePublicationOutput(tag: string): string {
   return renderTerminalText(
     terminal`${authoredText(RELEASE_CLI_OUTPUT.RELEASE_PUBLISHED_PREFIX)}${
       authoredText(RELEASE_CLI_OUTPUT.LABEL_SEPARATOR)
-    }${tag}${authoredText(RELEASE_CLI_OUTPUT.LINE_SEPARATOR)}`,
+    }${externalValue(tag)}${authoredText(RELEASE_CLI_OUTPUT.LINE_SEPARATOR)}`,
   );
 }

@@ -16,10 +16,14 @@ import {
   type StyledSection,
   type StyledSummary,
 } from "@/lib/styled-output/styled-output";
+import { authoredText, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
-/** Printable-ASCII text with no control, ESC, or whitespace bytes that would confuse ANSI stripping or line joins. */
-const arbitrarySafeText = (): fc.Arbitrary<string> =>
-  fc.string({ minLength: 1, maxLength: 24 }).map((value) => value.replaceAll(/[^!-~]/g, "x"));
+/**
+ * Printable-ASCII text with no control, ESC, or whitespace bytes that would confuse ANSI stripping
+ * or line joins, stated as the product's own so the formatter receives content already decided.
+ */
+const arbitrarySafeText = (): fc.Arbitrary<TerminalText> =>
+  fc.string({ minLength: 1, maxLength: 24 }).map((value) => authoredText(value.replaceAll(/[^!-~]/g, "x")));
 
 /** A severity drawn from the production registry. */
 const arbitrarySeverity = (): fc.Arbitrary<Severity> => fc.constantFrom(...Object.values(SEVERITY));

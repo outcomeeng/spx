@@ -14,7 +14,13 @@
  * @module domains/verify/rejection-report
  */
 
-import { authoredText, renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
+import {
+  authoredText,
+  externalValue,
+  renderTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 
 export const VERIFY_REJECTION_TEXT = {
   VERIFICATION_TYPE_LABEL: "verification type",
@@ -51,9 +57,10 @@ export interface VerifyRejectionReport {
   readonly note: string;
 }
 
-function labelledLine(label: string, value: TerminalText): TerminalText {
-  const padded = label.padEnd(LABEL_WIDTH, LABEL_PAD_CHARACTER);
-  return terminal`${authoredText(REJECTION_INDENT)}${authoredText(padded)}${authoredText(LABEL_GAP)}${value}`;
+// The label arrives composed by its producer; the padding that aligns it is the product's own.
+function labelledLine(label: TerminalText, value: TerminalText): TerminalText {
+  const padding = LABEL_PAD_CHARACTER.repeat(Math.max(0, LABEL_WIDTH - label.length));
+  return terminal`${authoredText(REJECTION_INDENT)}${label}${authoredText(padding)}${authoredText(LABEL_GAP)}${value}`;
 }
 
 /**
@@ -62,11 +69,11 @@ function labelledLine(label: string, value: TerminalText): TerminalText {
  */
 export function renderVerifyRejection(report: VerifyRejectionReport): string {
   const lines: readonly TerminalText[] = [
-    terminal`${authoredText(report.headline)}`,
+    authoredText(report.headline),
     authoredText(REJECTION_BLANK_LINE),
-    labelledLine(VERIFY_REJECTION_TEXT.VERIFICATION_TYPE_LABEL, terminal`${report.verificationType}`),
-    labelledLine(VERIFY_REJECTION_TEXT.EVIDENCE_KIND_LABEL, authoredText(report.evidenceKind)),
-    labelledLine(VERIFY_REJECTION_TEXT.REASON_LABEL, authoredText(report.reason)),
+    labelledLine(authoredText(VERIFY_REJECTION_TEXT.VERIFICATION_TYPE_LABEL), externalValue(report.verificationType)),
+    labelledLine(authoredText(VERIFY_REJECTION_TEXT.EVIDENCE_KIND_LABEL), authoredText(report.evidenceKind)),
+    labelledLine(authoredText(VERIFY_REJECTION_TEXT.REASON_LABEL), authoredText(report.reason)),
     authoredText(REJECTION_BLANK_LINE),
     terminal`${authoredText(REJECTION_INDENT)}${authoredText(report.note)}`,
   ];

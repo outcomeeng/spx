@@ -103,7 +103,7 @@ This node's terminal output path passes values that originated outside the produ
 
 **Unescaped sites:**
 
-- `src/interfaces/cli/journal.ts` — the journal command output, the store warnings, and the stdin parse failure — journal event content, stdin JSON, `gh api` responses, and branch slugs
+- `src/interfaces/cli/journal.ts` — the journal command output and the stdin parse failure — journal event content, stdin JSON, `gh api` responses, and branch slugs; the non-git-repo warning already arrives composed from the shared root resolution
 - `src/interfaces/cli/lib/journal-stream-binding.ts` — the streamed event lines — journal events from stdin and file payloads; JSON string escaping covers `0x00`-`0x1f` but leaves `0x7f` raw
 
 **Impact:** a value carrying an escape byte (`0x1b`) can reposition the cursor, recolor the terminal, or clear the screen; a value carrying a line feed can forge an additional diagnostic line that reads as if spx emitted it. Whoever controls the named origins controls those bytes.

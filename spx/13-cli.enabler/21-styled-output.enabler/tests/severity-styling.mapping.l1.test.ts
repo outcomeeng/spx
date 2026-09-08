@@ -2,6 +2,7 @@ import { Chalk, type ChalkInstance } from "chalk";
 import { describe, expect, it } from "vitest";
 
 import { renderStyledReport, SEVERITY, type Severity } from "@/lib/styled-output/styled-output";
+import { authoredText } from "@/lib/terminal-text/terminal-text";
 
 function expectedGlyph(severity: Severity): string {
   switch (severity) {
@@ -37,7 +38,10 @@ describe("each severity maps to its fixed glyph and color", () => {
     for (const severity of Object.values(SEVERITY)) {
       const glyph = expectedGlyph(severity);
       const plain = renderStyledReport(
-        { sections: [{ severity, header: severity, details: [severity] }], summary: { severity, text: severity } },
+        {
+          sections: [{ severity, header: authoredText(severity), details: [authoredText(severity)] }],
+          summary: { severity, text: authoredText(severity) },
+        },
         { color: false },
       );
 
@@ -51,7 +55,10 @@ describe("each severity maps to its fixed glyph and color", () => {
     for (const severity of Object.values(SEVERITY)) {
       const glyph = expectedGlyph(severity);
       const colored = renderStyledReport(
-        { sections: [{ severity, header: severity, details: [severity] }], summary: { severity, text: severity } },
+        {
+          sections: [{ severity, header: authoredText(severity), details: [authoredText(severity)] }],
+          summary: { severity, text: authoredText(severity) },
+        },
         { color: true },
       );
 
