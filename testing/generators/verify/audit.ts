@@ -720,6 +720,9 @@ export interface ChangesetCoherenceScenario {
   readonly reviewUnitFirstPayload: JsonValue;
   readonly lateRootPayload: JsonValue;
   readonly unrootedReviewUnitPayload: JsonValue;
+  readonly coverageGapRootPayload: JsonValue;
+  readonly optionalCoverageGapRootPayload: JsonValue;
+  readonly mismatchedCoverageGapRootPayload: JsonValue;
 }
 
 export function arbitraryChangesetCoherenceScenario(): fc.Arbitrary<ChangesetCoherenceScenario> {
@@ -742,6 +745,12 @@ export function arbitraryChangesetCoherenceScenario(): fc.Arbitrary<ChangesetCoh
     .map(([changeset, rootFields, unitIds, statuses, fileScopeIdentity, finding, unrooted]) => {
       const scopeIdentity = `${changeset.range.base}${VERIFY_SCOPE_SEPARATOR}${changeset.range.head}`;
       const root: AuditScopeUnit = { ...rootFields, subject: scopeIdentity };
+      const { producerProvenance: _rootProvenance, ...rootWithoutProvenance } = root;
+      const coverageGapRoot: AuditScopeUnit = {
+        ...rootWithoutProvenance,
+        auditKind: AUDIT_KIND.COVERAGE_GAP,
+        coverageStatus: AUDIT_COVERAGE_STATUS.MISSING_SKILL,
+      };
       const reviewUnits = statuses.map((coverageStatus, index) => ({
         ...root,
         unitId: unitIds[index % unitIds.length] ?? `${root.unitId}-${index}`,
@@ -781,6 +790,15 @@ export function arbitraryChangesetCoherenceScenario(): fc.Arbitrary<ChangesetCoh
         unrootedReviewUnitPayload: auditScopePayload({
           ...soleReviewUnit,
           parentUnitId: unrooted.unitId,
+        }),
+        coverageGapRootPayload: auditScopePayload(coverageGapRoot),
+        optionalCoverageGapRootPayload: auditScopePayload({
+          ...coverageGapRoot,
+          coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.OPTIONAL,
+        }),
+        mismatchedCoverageGapRootPayload: auditScopePayload({
+          ...coverageGapRoot,
+          subject: fileScopeIdentity,
         }),
       };
     });

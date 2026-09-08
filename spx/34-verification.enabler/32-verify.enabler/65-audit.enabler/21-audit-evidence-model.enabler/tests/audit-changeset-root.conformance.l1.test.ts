@@ -55,16 +55,16 @@ describe("changeset coherence root conformance", () => {
       (scenario) => {
         for (const payload of [scenario.optionalRootPayload, scenario.mismatchedSubjectRootPayload]) {
           expect(unmetRequirement(validateChangesetScopedAudit(payload, [], scenario.scopeIdentity)))
-            .toContain(EVIDENCE_REQUIREMENT.AUDIT_CHANGESET_ROOT_IS_COHERENCE);
+            .toContain(EVIDENCE_REQUIREMENT.AUDIT_CHANGESET_ROOT_ANCHORS_RUN);
         }
         expect(unmetRequirement(
           validateChangesetScopedAudit(scenario.parentedRootPayload, [], scenario.scopeIdentity),
-        )).toContain(EVIDENCE_REQUIREMENT.AUDIT_CHANGESET_ROOT_IS_COHERENCE);
+        )).toContain(EVIDENCE_REQUIREMENT.AUDIT_CHANGESET_ROOT_ANCHORS_RUN);
         expect(unmetRequirement(validateChangesetScopedAudit(
           scenario.lateRootPayload,
           [scenario.rootEvent],
           scenario.scopeIdentity,
-        ))).toContain(EVIDENCE_REQUIREMENT.AUDIT_CHANGESET_ROOT_IS_COHERENCE);
+        ))).toContain(EVIDENCE_REQUIREMENT.AUDIT_CHANGESET_ROOT_ANCHORS_RUN);
       },
       { level: PROPERTY_LEVEL.L1 },
     );
@@ -96,6 +96,26 @@ describe("changeset coherence root conformance", () => {
             validateChangesetScopedAudit(payload, [scenario.rootEvent], scenario.scopeIdentity)
           ),
         ).toStrictEqual(scenario.reviewUnitPayloads.map((payload) => ({ ok: true, value: payload })));
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+
+  it("anchors a coverage-gap root the same way, accepting it required and subject-matched", () => {
+    assertProperty(
+      arbitraryChangesetCoherenceScenario(),
+      (scenario) => {
+        expect(validateChangesetScopedAudit(scenario.coverageGapRootPayload, [], scenario.scopeIdentity))
+          .toEqual({ ok: true, value: scenario.coverageGapRootPayload });
+        for (
+          const payload of [
+            scenario.optionalCoverageGapRootPayload,
+            scenario.mismatchedCoverageGapRootPayload,
+          ]
+        ) {
+          expect(unmetRequirement(validateChangesetScopedAudit(payload, [], scenario.scopeIdentity)))
+            .toContain(EVIDENCE_REQUIREMENT.AUDIT_CHANGESET_ROOT_ANCHORS_RUN);
+        }
       },
       { level: PROPERTY_LEVEL.L1 },
     );
