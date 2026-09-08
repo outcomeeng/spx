@@ -3,6 +3,7 @@ import { win32 } from "node:path";
 import * as fc from "fast-check";
 
 import { type ReleaseData, VERSION_DELTA, type VersionDelta } from "@/domains/release/release-data";
+import { CONVENTIONAL_BREAKING_MARKER, NON_BEHAVIORAL_COMMIT_TYPES } from "@/domains/release/release-notes";
 import { type GitCommit, RELEASE_TAG_PREFIX } from "@/lib/git/release";
 import { arbitraryBranchName, arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
@@ -13,6 +14,7 @@ const VERSION_COMPONENT_RESET = 0;
 const BUMP_INCREMENT_MIN = 1;
 const BUMP_INCREMENT_MAX = 9;
 const COMMIT_SUBJECT_SUFFIX = " update";
+const MIXED_BEHAVIOR_RETAINED_SUBJECTS = 2;
 const SOURCE_FILE_SUFFIX = ".ts";
 const FILE_CONTENT_PREFIX = "// ";
 const FILE_CONTENT_NEWLINE = "\n";
@@ -89,6 +91,7 @@ export const RELEASE_TEST_GENERATOR = {
   releaseData: arbitraryReleaseData,
   releaseDataWithoutPreviousTag: arbitraryReleaseDataWithoutPreviousTag,
   releaseDataWithSubjects: arbitraryReleaseDataWithSubjects,
+  mixedBehaviorCommitSubjects: arbitraryMixedBehaviorCommitSubjects,
 } as const;
 
 // Fixed arbitrary seed so a single-sample draw is reproducible: a failing
@@ -220,6 +223,52 @@ function arbitraryCommitSequence(count: number): fc.Arbitrary<readonly ReleaseCo
         content: `${FILE_CONTENT_PREFIX}${segment}${FILE_CONTENT_NEWLINE}`,
         subject: `${segment}${COMMIT_SUBJECT_SUFFIX}`,
       }))
+    );
+}
+
+/**
+ * A commit-subject set mixing subjects the release-notes prompt withholds with
+ * subjects it carries, plus the retained subset in the order the filter
+ * preserves. One retained subject carries a non-behavioral type with the `!`
+ * breaking-change marker, so the scenario ties the type rule and the marker
+ * override to one coherent expectation.
+ */
+export interface MixedBehaviorCommitSubjects {
+  readonly subjects: readonly string[];
+  readonly behaviorBearing: readonly string[];
+}
+
+function arbitraryMixedBehaviorCommitSubjects(): fc.Arbitrary<MixedBehaviorCommitSubjects> {
+  const segmentCount = NON_BEHAVIORAL_COMMIT_TYPES.length + MIXED_BEHAVIOR_RETAINED_SUBJECTS;
+  return fc
+    .uniqueArray(arbitraryPathSegment(), {
+      minLength: segmentCount,
+      maxLength: segmentCount,
+    })
+    .chain((segments) =>
+      fc.constantFrom(...NON_BEHAVIORAL_COMMIT_TYPES).map((breakingType): MixedBehaviorCommitSubjects => {
+        const withheld = NON_BEHAVIORAL_COMMIT_TYPES.map((type, index) => {
+          const segment = segments[index];
+          return `${type}(${segment}): ${segment}${COMMIT_SUBJECT_SUFFIX}`;
+        });
+        const untypedSegment = segments[NON_BEHAVIORAL_COMMIT_TYPES.length];
+        const breakingSegment = segments[NON_BEHAVIORAL_COMMIT_TYPES.length + 1];
+        const untypedSubject = `${untypedSegment}${COMMIT_SUBJECT_SUFFIX}`;
+        const breakingSubject =
+          `${breakingType}(${breakingSegment})${CONVENTIONAL_BREAKING_MARKER}: ${breakingSegment}${COMMIT_SUBJECT_SUFFIX}`;
+        // The retained subjects sit on either side of the withheld ones so the
+        // expectation also pins the order the filter preserves.
+        const split = Math.floor(withheld.length / MIXED_BEHAVIOR_RETAINED_SUBJECTS);
+        return {
+          subjects: [
+            ...withheld.slice(0, split),
+            untypedSubject,
+            ...withheld.slice(split),
+            breakingSubject,
+          ],
+          behaviorBearing: [untypedSubject, breakingSubject],
+        };
+      })
     );
 }
 

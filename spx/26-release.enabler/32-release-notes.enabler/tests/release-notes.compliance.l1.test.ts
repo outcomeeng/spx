@@ -25,6 +25,7 @@ import {
   releaseNotesPromptPathProse,
   releaseNotesPromptVersionProse,
   sampleAbsoluteReleaseNotesPathInput,
+  sampleMixedBehaviorReleaseNotesFixture,
   samplePartialWriteReleaseNotesScenario,
   sampleReleaseNotesCompositionFixture,
   sampleReleaseNotesConfiguredPathRejectionInput,
@@ -521,6 +522,39 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
       );
       expect(JSON.parse(observation.auditSectionDataBlock.data)).toBe(
         scenario.currentSection,
+      );
+      return true;
+    });
+  });
+
+  it("withholds non-behavioral commit subjects from the producer prompt", async () => {
+    const { behaviorBearingSubjects } = sampleMixedBehaviorReleaseNotesFixture();
+    const input = sampleReleaseNotesPromptInput(
+      RELEASE_NOTES_PROMPT_CASE.NON_BEHAVIORAL_SUBJECTS,
+    );
+
+    await expect(observeReleaseNotesPrompt(input)).resolves.toSatisfy((observation) => {
+      expect(input.fixture.subjects.length).toBeGreaterThan(
+        behaviorBearingSubjects.length,
+      );
+      expect(JSON.parse(observation.subjectsDataBlock.data)).toEqual(
+        behaviorBearingSubjects,
+      );
+      return true;
+    });
+  });
+
+  it("shows the faithfulness auditor the same withheld-subject set the producer saw", async () => {
+    const { behaviorBearingSubjects } = sampleMixedBehaviorReleaseNotesFixture();
+    const scenario = sampleReleaseNotesFaithfulnessScenario(
+      RELEASE_NOTES_FAITHFULNESS_CASE.AUDITOR_NON_BEHAVIORAL_SUBJECTS,
+    );
+
+    await expect(observeReleaseNotesFaithfulness(scenario.input)).resolves.toSatisfy((observation) => {
+      expect(observation.error).toBeUndefined();
+      expect(observation.auditSubjectsDataBlock.start).toBeGreaterThan(-1);
+      expect(JSON.parse(observation.auditSubjectsDataBlock.data)).toEqual(
+        behaviorBearingSubjects,
       );
       return true;
     });

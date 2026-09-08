@@ -58,6 +58,7 @@ export const RELEASE_NOTES_FAITHFULNESS_CASE = {
   REJECTION: "rejection",
   CURRENT_SECTION: "current-section",
   PRODUCTION_AUDITOR: "production-auditor",
+  AUDITOR_NON_BEHAVIORAL_SUBJECTS: "auditor-non-behavioral-subjects",
 } as const;
 
 export type ReleaseNotesFaithfulnessCase =
@@ -81,6 +82,7 @@ export const RELEASE_NOTES_PROMPT_CASE = {
   DELIMITER_VERSION: "delimiter-version",
   DELIMITER_SUBJECT: "delimiter-subject",
   INSTRUCTION_PATH: "instruction-path",
+  NON_BEHAVIORAL_SUBJECTS: "non-behavioral-subjects",
 } as const;
 
 export type ReleaseNotesPromptCase = (typeof RELEASE_NOTES_PROMPT_CASE)[keyof typeof RELEASE_NOTES_PROMPT_CASE];
@@ -203,6 +205,29 @@ export function sampleReleaseNotesCompositionFixture(
   };
 }
 
+/**
+ * A composition fixture whose release data mixes commit subjects the prompt
+ * withholds with subjects it carries, paired with the retained subset the
+ * producer and audit prompts must both show.
+ */
+export interface MixedBehaviorReleaseNotesFixture {
+  readonly fixture: ReleaseNotesCompositionFixture;
+  readonly behaviorBearingSubjects: readonly string[];
+}
+
+export function sampleMixedBehaviorReleaseNotesFixture(): MixedBehaviorReleaseNotesFixture {
+  const mixed = sampleReleaseTestValue(
+    RELEASE_TEST_GENERATOR.mixedBehaviorCommitSubjects(),
+  );
+  const releaseData = sampleReleaseTestValue(
+    RELEASE_TEST_GENERATOR.releaseDataWithSubjects(mixed.subjects),
+  );
+  return {
+    fixture: sampleReleaseNotesCompositionFixture(releaseData),
+    behaviorBearingSubjects: mixed.behaviorBearing,
+  };
+}
+
 export function sampleReleaseNotesPromptInput(
   kind: ReleaseNotesPromptCase,
 ): ReleaseNotesPromptInput {
@@ -219,6 +244,8 @@ export function sampleReleaseNotesPromptInput(
         ]),
       ),
     )
+    : kind === RELEASE_NOTES_PROMPT_CASE.NON_BEHAVIORAL_SUBJECTS
+    ? sampleMixedBehaviorReleaseNotesFixture().fixture
     : sampleReleaseNotesCompositionFixture();
   return {
     kind,
@@ -306,7 +333,9 @@ export function sampleReleaseNotesPathInput(
 export function sampleReleaseNotesFaithfulnessScenario(
   kind: ReleaseNotesFaithfulnessCase,
 ): ReleaseNotesFaithfulnessScenario {
-  const fixture = sampleReleaseNotesCompositionFixture();
+  const fixture = kind === RELEASE_NOTES_FAITHFULNESS_CASE.AUDITOR_NON_BEHAVIORAL_SUBJECTS
+    ? sampleMixedBehaviorReleaseNotesFixture().fixture
+    : sampleReleaseNotesCompositionFixture();
   const priorVersion = sampleReleaseTestValue(
     RELEASE_TEST_GENERATOR.distinctSemverFrom(fixture.releaseData.version),
   );
@@ -331,6 +360,7 @@ export function sampleReleaseNotesFaithfulnessScenario(
         "\n\n",
       ),
       productionAuditSection: kind === RELEASE_NOTES_FAITHFULNESS_CASE.PRODUCTION_AUDITOR
+          || kind === RELEASE_NOTES_FAITHFULNESS_CASE.AUDITOR_NON_BEHAVIORAL_SUBJECTS
         ? currentSection
         : undefined,
     },

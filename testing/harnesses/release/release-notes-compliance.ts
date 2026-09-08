@@ -97,6 +97,7 @@ export interface ReleaseNotesFaithfulnessObservation {
   readonly auditRequest: AgentAuditRequest | undefined;
   readonly auditPrompt: string;
   readonly auditSectionDataBlock: ReleaseNotesPromptDataBlockObservation;
+  readonly auditSubjectsDataBlock: ReleaseNotesPromptDataBlockObservation;
   readonly workingDirectory: string;
 }
 
@@ -1034,7 +1035,10 @@ export async function observeReleaseNotesFaithfulness(
     generatedNotes,
     productionAuditSection,
   } = input;
-  if (input.kind === RELEASE_NOTES_FAITHFULNESS_CASE.PRODUCTION_AUDITOR) {
+  if (
+    input.kind === RELEASE_NOTES_FAITHFULNESS_CASE.PRODUCTION_AUDITOR
+    || input.kind === RELEASE_NOTES_FAITHFULNESS_CASE.AUDITOR_NON_BEHAVIORAL_SUBJECTS
+  ) {
     return await observeProductionFaithfulnessAudit(
       releaseData,
       requiredProductionAuditSection(productionAuditSection),
@@ -1096,6 +1100,11 @@ export async function observeReleaseNotesFaithfulness(
       canonicalOutputPath: await env.canonicalizePath(resolvedPath),
       auditRequest: undefined,
       auditPrompt: "",
+      auditSubjectsDataBlock: observePromptDataBlock(
+        "",
+        COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
+        COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
+      ),
       auditSectionDataBlock: observePromptDataBlock(
         "",
         RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_OPEN,
@@ -1159,6 +1168,11 @@ async function observeProductionFaithfulnessAudit(
         auditRequest?.prompt ?? "",
         RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_OPEN,
         RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_CLOSE,
+      ),
+      auditSubjectsDataBlock: observePromptDataBlock(
+        auditRequest?.prompt ?? "",
+        COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
+        COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
       ),
       workingDirectory: env.workingDirectory,
     };
