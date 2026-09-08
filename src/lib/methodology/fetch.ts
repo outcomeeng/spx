@@ -89,7 +89,8 @@ const GIT_SPARSE_CHECKOUT = { COMMAND: "sparse-checkout", SET: "set", NO_CONE: "
 const GIT_CHECKOUT_COMMAND = "checkout";
 const GIT_REV_PARSE = { COMMAND: "rev-parse", HEAD: "HEAD" } as const;
 const COMMANDER_PARSE_FROM = "user";
-const ARGUMENT_TERMINATOR = "--";
+/** The token a package-script boundary forwards before the fetch arguments; it separates nothing here. */
+export const FETCH_ARGUMENT_TERMINATOR = "--";
 
 /** What the fetch reads from one coding agent's plugin manifest. */
 export type PluginManifest = MethodologySourcePlugin;
@@ -154,7 +155,7 @@ export function parseFetchArguments(argv: readonly string[]): Result<Methodology
     .option(FETCH_ARGUMENT_DEFINITIONS.LINE, "methodology line when no plugin manifest declares it")
     .allowExcessArguments(false);
   // A package-script boundary forwards `--` literally; it separates nothing here.
-  const arguments_ = argv[0] === ARGUMENT_TERMINATOR ? argv.slice(1) : [...argv];
+  const arguments_ = argv[0] === FETCH_ARGUMENT_TERMINATOR ? argv.slice(1) : [...argv];
   try {
     command.parse(arguments_, { from: COMMANDER_PARSE_FROM });
   } catch (error) {
