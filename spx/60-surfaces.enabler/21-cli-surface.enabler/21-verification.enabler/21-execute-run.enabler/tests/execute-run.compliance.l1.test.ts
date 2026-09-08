@@ -5,14 +5,12 @@ import { EXECUTE_RUN_CLI_ERROR, EXECUTE_RUN_CLI_WARNING } from "@/commands/verif
 import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
-import { CLI_STREAM_REPORT } from "@/interfaces/cli/lib/stream-report";
-import { DEL_CHAR_CODE, FIRST_PRINTABLE_CHAR_CODE } from "@/lib/sanitize-cli-argument";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { JOURNAL_RUN_TERMINAL_STATUS } from "@/test/languages/types";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { sampleGeneratedValue } from "@testing/generators/sample";
-import { arbitraryTerminalUnsafeText } from "@testing/generators/terminal-text/terminal-text";
+import { arbitraryTerminalEscapingCase } from "@testing/generators/terminal-text/terminal-text";
 import {
   FORBIDDEN_PATH_SCOPE_FLAGS,
   FORBIDDEN_TYPE_VERB_COMMAND_NAMES,
@@ -203,26 +201,15 @@ describe("execute run compliance", () => {
   });
 
   it("reports a run the handler cannot complete as an escaped diagnostic carrying the failure, with a non-zero exit, never as an unhandled failure", async () => {
-    const failure = sampleGeneratedValue(arbitraryTerminalUnsafeText());
-    const descriptor = await observeExecuteRunDescriptor([], handlerFailingWith(failure));
+    const failure = sampleGeneratedValue(arbitraryTerminalEscapingCase());
+    const descriptor = await observeExecuteRunDescriptor([], handlerFailingWith(failure.input));
 
     expect(descriptor.stdout).toHaveLength(0);
     expect(descriptor.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
     expect(descriptor.stderr).toContain(EXECUTE_RUN_CLI_ERROR.RUN_FAILED);
-    const rendered = descriptor.stderr.replaceAll(CLI_STREAM_REPORT.LINE_SEPARATOR, "");
-    for (const char of rendered) {
-      expect(char.codePointAt(0)).toBeGreaterThanOrEqual(FIRST_PRINTABLE_CHAR_CODE);
-      expect(char.codePointAt(0)).not.toBe(DEL_CHAR_CODE);
-    }
-    // Every printable character of the failure survives, in order, after the run-failed prefix: the
-    // message is carried, not dropped, and only its unsafe bytes are rewritten.
-    let position = rendered.indexOf(EXECUTE_RUN_CLI_ERROR.RUN_FAILED) + EXECUTE_RUN_CLI_ERROR.RUN_FAILED.length;
-    for (const char of failure) {
-      const codePoint = char.codePointAt(0) ?? DEL_CHAR_CODE;
-      if (codePoint < FIRST_PRINTABLE_CHAR_CODE || codePoint === DEL_CHAR_CODE) continue;
-      position = rendered.indexOf(char, position);
-      expect(position).toBeGreaterThanOrEqual(0);
-      position += char.length;
-    }
+    // The rendering the generator derives independently of the product's escaper is what reaches
+    // the stream, and the caught message's own terminal-unsafe bytes never do.
+    expect(descriptor.stderr).toContain(failure.escaped);
+    expect(descriptor.stderr).not.toContain(failure.input);
   });
 });
