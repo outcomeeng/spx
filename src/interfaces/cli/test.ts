@@ -9,6 +9,7 @@ import { detectWorktreeProductRoot } from "@/lib/git/root";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { testingRegistry } from "@/test/registry";
 
+import { PATH_OPERAND_CLI_SURFACE, recursiveOptionFlags } from "./lib/path-operands";
 import {
   createAgentRunnerDepsFor,
   createRelatedDepsFor,
@@ -21,9 +22,9 @@ export const TESTING_CLI = {
   description: "Run spec-tree tests across product languages",
   agentOption: "--agent",
   agentDescription: "Capture raw runner output and print a compact agent summary",
-  recursiveShortFlag: "-r",
-  recursiveLongFlag: "--recursive",
-  recursiveDescription: "Extend a node-path operand to its descendant nodes' tests",
+  recursiveShortFlag: PATH_OPERAND_CLI_SURFACE.recursiveShortFlag,
+  recursiveLongFlag: PATH_OPERAND_CLI_SURFACE.recursiveLongFlag,
+  recursiveDescription: PATH_OPERAND_CLI_SURFACE.recursiveDescription,
   changedLongFlag: "--changed",
   changedDescription: "Run only tests affected by changes against the selected base",
   stagedLongFlag: "--staged",
@@ -245,10 +246,7 @@ export function createTestingDomain(deps?: TestingCliDependencies): Domain {
       const actionDeps = deps ?? defaultTestingCliDependencies(invocation);
       const testCmd = program.command(TESTING_CLI.commandName).description(TESTING_CLI.description);
       testCmd.option(TESTING_CLI.agentOption, TESTING_CLI.agentDescription);
-      testCmd.option(
-        `${TESTING_CLI.recursiveShortFlag}, ${TESTING_CLI.recursiveLongFlag}`,
-        TESTING_CLI.recursiveDescription,
-      );
+      testCmd.option(recursiveOptionFlags(), TESTING_CLI.recursiveDescription);
       testCmd.option(TESTING_CLI.changedLongFlag, TESTING_CLI.changedDescription);
       testCmd.option(TESTING_CLI.stagedLongFlag, TESTING_CLI.stagedDescription);
       testCmd.option(`${TESTING_CLI.baseLongFlag} ${TESTING_CLI.baseOperand}`, TESTING_CLI.baseDescription);
@@ -268,7 +266,7 @@ export function createTestingDomain(deps?: TestingCliDependencies): Domain {
         .command(TESTING_CLI.passingSubcommand)
         .description(TESTING_CLI.passingDescription)
         .option(TESTING_CLI.agentOption, TESTING_CLI.agentDescription)
-        .option(`${TESTING_CLI.recursiveShortFlag}, ${TESTING_CLI.recursiveLongFlag}`, TESTING_CLI.recursiveDescription)
+        .option(recursiveOptionFlags(), TESTING_CLI.recursiveDescription)
         .option(TESTING_CLI.changedLongFlag, TESTING_CLI.changedDescription)
         .option(TESTING_CLI.stagedLongFlag, TESTING_CLI.stagedDescription)
         .option(`${TESTING_CLI.baseLongFlag} ${TESTING_CLI.baseOperand}`, TESTING_CLI.baseDescription)

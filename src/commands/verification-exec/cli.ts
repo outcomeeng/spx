@@ -8,12 +8,12 @@
  * recorder operations rooted at the worktree product root, and returns the run locator, the terminal
  * status, and the runner outcome as one structured result. The product root is the local worktree
  * root the effective invocation directory resolves to, so an invocation from any directory inside
- * the product discovers and records against the same tree. Diagnostics that embed an operand, a
- * product path, or a caught failure message compose through the terminal-text primitive. The
- * handler imports no Commander symbol and writes to no process stream; the descriptor owns that
- * boundary.
+ * the product discovers and records against the same tree; outside a repository the invocation
+ * directory itself is the root and the result carries a warning saying so. Diagnostics that embed an
+ * operand, a product path, or a caught failure message compose through the terminal-text primitive,
+ * and the exit code is zero exactly when the run passed. The handler imports no Commander symbol and
+ * writes to no process stream; the descriptor owns that boundary.
  */
-import type { JournalStreamBinding } from "@/commands/journal/cli";
 import { discoverTestFiles } from "@/commands/test";
 import {
   executeVerificationRun,
@@ -23,14 +23,13 @@ import {
 } from "@/commands/verification-exec/executor";
 import { createRecorderOperations } from "@/commands/verification-exec/recorder-operations";
 import { resolveVerificationRunner } from "@/commands/verification-exec/runner-registry";
-import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
+import { VERIFY_CLI_EXIT_CODE, type VerifyCliDeps } from "@/commands/verify/cli";
 import { JOURNAL_RUN_STATE_STATUS, type JournalRunStateStatus } from "@/domains/journal/run-state";
 import { resolveTargetedTestFiles } from "@/domains/test";
 import { executeRunScopeIdentity } from "@/domains/verification-exec/scope";
 import { type RunLocator, VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
 import { toMessage } from "@/lib/error-message";
-import { detectWorktreeProductRoot, type GitDependencies } from "@/lib/git/root";
-import type { StateStoreFileSystem } from "@/lib/state-store";
+import { detectWorktreeProductRoot } from "@/lib/git/root";
 import { externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 
 /** The diagnostics the execute-run command path raises; each names the command path and the failing input. */
@@ -39,6 +38,12 @@ export const EXECUTE_RUN_CLI_ERROR = {
   UNSUPPORTED_VERIFICATION_TYPE: "spx verification <type> run has no runner for verification type",
   UNRESOLVED_RUNNER: "spx verification <type> run found no runner in the product directory",
   RUN_FAILED: "spx verification <type> run did not complete:",
+} as const;
+
+/** The warnings the execute-run command path reports beside a result. */
+export const EXECUTE_RUN_CLI_WARNING = {
+  NOT_GIT_REPOSITORY:
+    "Warning: Not in a git repository. Rooting the verification run at the current working directory.",
 } as const;
 
 /** The input source recorded at start for an spx-driven run: the run input is the executor's request, not a caller source. */
@@ -54,14 +59,25 @@ export interface ExecuteRunCliOptions {
   readonly recursive: boolean;
 }
 
-/** The recorder dependencies the handler roots the run's recorder operations in: the state store, git, clock, branch, environment, and journal binding. */
-export interface ExecuteRunRecorderDeps {
-  readonly git?: GitDependencies;
-  readonly branch?: string;
-  readonly processEnv?: NodeJS.ProcessEnv;
-  readonly fs?: StateStoreFileSystem;
-  readonly now?: () => Date;
-  readonly journalBinding?: JournalStreamBinding;
+/** The recorder dependencies the handler and its recorder operations supply themselves: the product root, the input readers, and the drive mode. */
+interface SuppliedRecorderDeps {
+  readonly cwd: VerifyCliDeps["cwd"];
+  readonly readInputSource: VerifyCliDeps["readInputSource"];
+  readonly readPayloadSource: VerifyCliDeps["readPayloadSource"];
+  readonly driveMode: VerifyCliDeps["driveMode"];
+}
+
+/**
+ * The recorder dependencies the handler roots the run's recorder operations in — the recorder's own
+ * dependency shape minus what the handler and its recorder operations supply themselves.
+ */
+export type ExecuteRunRecorderDeps = Omit<VerifyCliDeps, keyof SuppliedRecorderDeps>;
+
+/** The product root a run is rooted at, and whether a repository supplied it. */
+export interface ExecuteRunProductRoot {
+  readonly productDir: string;
+  /** False when the invocation directory lies outside a git repository and stands in for the root. */
+  readonly isGitRepo: boolean;
 }
 
 /** The handler's injected boundary: the invocation directory, product-root resolution, discovery, the runner resolver, and the recorder. */
@@ -69,7 +85,7 @@ export interface ExecuteRunCliDeps {
   /** The effective invocation directory the product root is resolved from. */
   readonly cwd: string;
   /** Resolves the product root the run is rooted at; production resolves the local worktree root, falling back to the invocation directory outside a repository. */
-  readonly resolveProductDir?: (cwd: string) => Promise<string>;
+  readonly resolveProductDir?: (cwd: string) => Promise<ExecuteRunProductRoot>;
   /** Discovers the product's test files; production walks the spec tree. */
   readonly discoverTestFiles?: (productDir: string) => Promise<readonly string[]>;
   /** Resolves a verification type's streaming runner; production reads the verification-type registry. */
@@ -95,11 +111,15 @@ export interface ExecuteRunReport {
   readonly unresolvedRunner?: UnresolvedRunner;
 }
 
-/** The handler's result: an exit code, the structured report when a run executed, and a rendered diagnostic when one applies. */
+/**
+ * The handler's result: an exit code, the structured report when a run executed, a rendered
+ * diagnostic when one applies, and a warning when the run was rooted outside a repository.
+ */
 export interface ExecuteRunCommandResult {
   readonly exitCode: number;
   readonly report?: ExecuteRunReport;
   readonly diagnostic?: string;
+  readonly warning?: string;
 }
 
 function unresolvedOperandsDiagnostic(operands: readonly string[]): string {
@@ -125,30 +145,33 @@ export function executeRunFailureDiagnostic(error: unknown): string {
   return renderTerminalText(terminal`${EXECUTE_RUN_CLI_ERROR.RUN_FAILED} ${externalValue(toMessage(error))}`);
 }
 
-async function resolveWorktreeProductDir(cwd: string): Promise<string> {
-  return (await detectWorktreeProductRoot(cwd)).productDir;
-}
-
 /**
  * Execute an spx-driven verification of the named type over the selected test files: resolve the
  * product root and the operands, open and drive the run through the executor, and report the run
  * and its outcome. A recorder or runner failure propagates to the caller after the executor's
- * best-effort seal; the descriptor renders it as a diagnostic. An
- * operand selecting no discovered test file opens no run; a product directory supplying no runner
- * seals the run and is named in the diagnostic; the exit code is zero exactly when the run passed.
+ * best-effort seal; the descriptor renders it as a diagnostic. An operand selecting no discovered
+ * test file opens no run; a product directory supplying no runner seals the run and is named in the
+ * diagnostic; a root outside a repository carries a warning; the exit code is zero exactly when the
+ * run passed.
  */
 export async function executeRunCommand(
   options: ExecuteRunCliOptions,
   deps: ExecuteRunCliDeps,
 ): Promise<ExecuteRunCommandResult> {
-  const productDir = await (deps.resolveProductDir ?? resolveWorktreeProductDir)(deps.cwd);
+  const root = await (deps.resolveProductDir ?? detectWorktreeProductRoot)(deps.cwd);
+  const productDir = root.productDir;
+  const warning = root.isGitRepo ? {} : { warning: EXECUTE_RUN_CLI_WARNING.NOT_GIT_REPOSITORY };
   const discovered = await (deps.discoverTestFiles ?? discoverTestFiles)(productDir);
   const resolution = resolveTargetedTestFiles(discovered, {
     operands: options.operands,
     recursive: options.recursive,
   });
   if (resolution.unresolved.length > 0) {
-    return { exitCode: VERIFY_CLI_EXIT_CODE.ERROR, diagnostic: unresolvedOperandsDiagnostic(resolution.unresolved) };
+    return {
+      exitCode: VERIFY_CLI_EXIT_CODE.ERROR,
+      diagnostic: unresolvedOperandsDiagnostic(resolution.unresolved),
+      ...warning,
+    };
   }
   const testPaths = options.operands.length === 0 ? discovered : resolution.selected;
   const inputDocument: ExecuteRunInputDocument = {
@@ -173,7 +196,11 @@ export async function executeRunCommand(
     recorder,
   });
   if (!result.executed) {
-    return { exitCode: VERIFY_CLI_EXIT_CODE.ERROR, diagnostic: unsupportedTypeDiagnostic(options.verificationType) };
+    return {
+      exitCode: VERIFY_CLI_EXIT_CODE.ERROR,
+      diagnostic: unsupportedTypeDiagnostic(options.verificationType),
+      ...warning,
+    };
   }
   const report: ExecuteRunReport = {
     runToken: result.run.runToken,
@@ -186,6 +213,6 @@ export async function executeRunCommand(
     ? VERIFY_CLI_EXIT_CODE.OK
     : VERIFY_CLI_EXIT_CODE.ERROR;
   return result.unresolvedRunner === undefined
-    ? { exitCode, report }
-    : { exitCode, report, diagnostic: unresolvedRunnerDiagnostic(result.unresolvedRunner) };
+    ? { exitCode, report, ...warning }
+    : { exitCode, report, diagnostic: unresolvedRunnerDiagnostic(result.unresolvedRunner), ...warning };
 }

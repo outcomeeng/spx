@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import type { Command } from "commander";
 
+import type { JournalStreamBinding } from "@/commands/journal/cli";
 import {
   EXECUTABLE_VERIFICATION_TYPES,
   type ExecuteRunCliDeps,
@@ -33,6 +34,7 @@ import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 
 import { createJournalStreamBinding, stderrStreamSink } from "./lib/journal-stream-binding";
+import { PATH_OPERAND_CLI_SURFACE, recursiveOptionFlags } from "./lib/path-operands";
 import { CLI_STREAM_REPORT, reportCliResult } from "./lib/stream-report";
 
 export const VERIFICATION_RUN_CLI_SURFACE = {
@@ -48,10 +50,10 @@ export const VERIFICATION_RUN_CLI_SURFACE = {
 
 /**
  * The spx-driven `spx verification <type> run [paths…]` command surface. Each executable verification
- * type is a noun command carrying the `run` verb; positional path operands narrow the run and the
- * recursive flag widens a node operand to its subtree, mirroring `spx test`. The verb forms a type is
- * never exposed as and the path-scope flags the operand vocabulary forbids are named here so the
- * surface's boundary is source-owned.
+ * type is a noun command carrying the `run` verb; positional path operands narrow the run, and the
+ * shared recursive modifier of `PATH_OPERAND_CLI_SURFACE` widens a node operand to its subtree as it
+ * does for `spx test`. The verb-shaped type names the surface never registers are declared here so
+ * the surface's boundary is source-owned.
  */
 export const EXECUTE_RUN_CLI_SURFACE = {
   runVerbName: VERIFICATION_RUN_CLI_SURFACE.runCommandName,
@@ -59,10 +61,8 @@ export const EXECUTE_RUN_CLI_SURFACE = {
   typeNounDescription: "An spx-driven verification type",
   pathOperand: "[paths...]",
   pathOperandDescription: "Product path operands narrowing the run; omit to run the whole spec tree",
-  recursiveFlags: "-r, --recursive",
-  recursiveDescription: "Extend a node-path operand to its descendant nodes' tests",
+  recursiveDescription: PATH_OPERAND_CLI_SURFACE.recursiveDescription,
   forbiddenTypeVerbNames: ["validate", "eval"],
-  forbiddenPathScopeFlags: ["--files", "--tests", "--nodes"],
 } as const;
 
 export const VERIFY_CLI = {
@@ -176,16 +176,18 @@ export function registerVerifyCommands(
   invocation: CliInvocation,
   handlers: VerifyCliHandlers = DEFAULT_VERIFY_CLI_HANDLERS,
 ): void {
+  // Every command path in the family writes a single structured JSON result to stdout, so the run's
+  // event stream goes to stderr under the local backend rather than sharing the result channel.
+  const journalBinding = (): JournalStreamBinding =>
+    createJournalStreamBinding(invocation.io, stderrStreamSink(invocation.io));
   const deps = () => ({
     cwd: invocation.resolveEffectiveInvocationDir(),
     readInputSource: readCliSource,
     readPayloadSource: readCliSource,
-    // The append verbs write a single structured JSON result to stdout, so the run's event
-    // stream goes to stderr under the local backend rather than sharing the result channel.
-    journalBinding: createJournalStreamBinding(invocation.io, stderrStreamSink(invocation.io)),
+    journalBinding: journalBinding(),
   });
   const command = program.command(VERIFY_CLI.commandName).description(VERIFY_CLI.description);
-  registerExecuteRunCommands(command, invocation, handlers);
+  registerExecuteRunCommands(command, invocation, handlers, journalBinding);
   const runCommand = command
     .command(VERIFY_CLI.runCommandName)
     .description("Manage a typed verification run lifecycle");
@@ -285,15 +287,19 @@ export function registerVerifyCommands(
 /**
  * Register one noun command per executable verification type, each carrying the `run` verb over
  * positional path operands. The structured result goes to standard output whatever the exit code, a
- * diagnostic goes to standard error, and the run's local event stream stays on standard error so a
- * caller parses one JSON result on stdout.
+ * warning and a diagnostic go to standard error, and the run's local event stream stays on standard
+ * error so a caller parses one JSON result on stdout. A failure the handler propagates is rendered as
+ * the run-failed diagnostic with the error exit code, so no run failure escapes the process boundary.
  */
-function registerExecuteRunCommands(command: Command, invocation: CliInvocation, handlers: VerifyCliHandlers): void {
+function registerExecuteRunCommands(
+  command: Command,
+  invocation: CliInvocation,
+  handlers: VerifyCliHandlers,
+  journalBinding: () => JournalStreamBinding,
+): void {
   const deps = (): ExecuteRunCliDeps => ({
     cwd: invocation.resolveEffectiveInvocationDir(),
-    recorder: {
-      journalBinding: createJournalStreamBinding(invocation.io, stderrStreamSink(invocation.io)),
-    },
+    recorder: { journalBinding: journalBinding() },
   });
   for (const verificationType of EXECUTABLE_VERIFICATION_TYPES) {
     command
@@ -302,27 +308,35 @@ function registerExecuteRunCommands(command: Command, invocation: CliInvocation,
       .command(EXECUTE_RUN_CLI_SURFACE.runVerbName)
       .description(EXECUTE_RUN_CLI_SURFACE.runVerbDescription)
       .argument(EXECUTE_RUN_CLI_SURFACE.pathOperand, EXECUTE_RUN_CLI_SURFACE.pathOperandDescription)
-      .option(EXECUTE_RUN_CLI_SURFACE.recursiveFlags, EXECUTE_RUN_CLI_SURFACE.recursiveDescription)
+      .option(recursiveOptionFlags(), EXECUTE_RUN_CLI_SURFACE.recursiveDescription)
       .action(async (operands: readonly string[], options: ExecuteRunActionOptions) => {
-        try {
-          reportExecuteRunResult(
-            await handlers.executeRun(
-              { verificationType, operands, recursive: options.recursive === true },
-              deps(),
-            ),
-            invocation.io,
-          );
-        } catch (error) {
-          reportExecuteRunResult(
-            { exitCode: VERIFY_CLI_EXIT_CODE.ERROR, diagnostic: executeRunFailureDiagnostic(error) },
-            invocation.io,
-          );
-        }
+        const result = await executeRunOrFailure(
+          handlers,
+          { verificationType, operands, recursive: options.recursive === true },
+          deps(),
+        );
+        reportExecuteRunResult(result, invocation.io);
       });
   }
 }
 
+/** Runs the execute-run handler, turning a propagated failure into the run-failed result. */
+async function executeRunOrFailure(
+  handlers: VerifyCliHandlers,
+  options: ExecuteRunCliOptions,
+  deps: ExecuteRunCliDeps,
+): Promise<ExecuteRunCommandResult> {
+  try {
+    return await handlers.executeRun(options, deps);
+  } catch (error) {
+    return { exitCode: VERIFY_CLI_EXIT_CODE.ERROR, diagnostic: executeRunFailureDiagnostic(error) };
+  }
+}
+
 function reportExecuteRunResult(result: ExecuteRunCommandResult, io: CliIo): void {
+  if (result.warning !== undefined) {
+    io.writeStderr(`${result.warning}${CLI_STREAM_REPORT.LINE_SEPARATOR}`);
+  }
   if (result.report !== undefined) {
     io.writeStdout(`${JSON.stringify(result.report)}${CLI_STREAM_REPORT.LINE_SEPARATOR}`);
   }
