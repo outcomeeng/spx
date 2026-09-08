@@ -3,7 +3,10 @@ import * as fc from "fast-check";
 import {
   AGENT_RESUME_RECENT_WINDOW_MS,
   AGENT_SEARCH_RECENT_WINDOW_MS,
+  AGENT_SEARCH_SESSION_KINDS,
+  AGENT_SESSION_KIND,
   AGENT_TRANSCRIPT_GIT_COMMAND,
+  type AgentSearchSessionKind,
 } from "@/domains/agent/protocol";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import type { ClaudeTranscriptRecord, ClaudeTranscriptRecords } from "@testing/harnesses/agent/resume";
@@ -315,10 +318,16 @@ export function arbitraryMovingSessionBranchScenario(): fc.Arbitrary<GeneratedMo
  * so an enumeration of the store is distinguishable from an addressed lookup.
  */
 export interface GeneratedSessionIdentityScenario {
+  /** The agent whose store holds every transcript of the scenario. */
+  readonly agent: AgentSearchSessionKind;
   readonly homeDir: string;
   readonly productScopeRoot: string;
   readonly foreignRoot: string;
   readonly sessionId: string;
+  /**
+   * The session's recorded positions. A Codex or Pi transcript carries its working directory in
+   * the opening row alone, so only a Claude Code transcript records later positions.
+   */
   readonly records: ClaudeTranscriptRecords;
   /**
    * The working directories the result may report: every in-product recorded directory when the
@@ -333,9 +342,12 @@ export interface GeneratedSessionIdentityScenario {
   readonly nowMs: number;
 }
 
-export function arbitrarySessionIdentityScenario(): fc.Arbitrary<GeneratedSessionIdentityScenario> {
+export function arbitrarySessionIdentityScenario(
+  agents: readonly AgentSearchSessionKind[] = AGENT_SEARCH_SESSION_KINDS,
+): fc.Arbitrary<GeneratedSessionIdentityScenario> {
   return fc
     .tuple(
+      fc.constantFrom(...agents),
       arbitraryAgentSessionId(),
       arbitraryAgentSessionId(),
       arbitraryAgentSessionId(),
@@ -348,12 +360,13 @@ export function arbitrarySessionIdentityScenario(): fc.Arbitrary<GeneratedSessio
       fc.boolean(),
       fc.integer({ min: 0, max: MAX_TRAILING_RECORDS }),
     )
-    .filter(([sessionId, productDecoySessionId, foreignDecoySessionId, homeDir, productScopeRoot, foreignRoot]) =>
+    .filter(([, sessionId, productDecoySessionId, foreignDecoySessionId, homeDir, productScopeRoot, foreignRoot]) =>
       distinct([sessionId, productDecoySessionId, foreignDecoySessionId])
       && distinct([homeDir, productScopeRoot, foreignRoot])
     )
     .chain((
       [
+        agent,
         sessionId,
         productDecoySessionId,
         foreignDecoySessionId,
@@ -361,7 +374,7 @@ export function arbitrarySessionIdentityScenario(): fc.Arbitrary<GeneratedSessio
         productScopeRoot,
         foreignRoot,
         nowMs,
-        trailing,
+        trailingDraw,
         recordsProductCwd,
         productCwdUnderPayload,
         productRecordOffset,
@@ -376,6 +389,8 @@ export function arbitrarySessionIdentityScenario(): fc.Arbitrary<GeneratedSessio
           arbitraryAgentSessionCwd(foreignRoot),
         )
         .map(([openingCwd, productCwd, secondProductCwd, decoyProductCwd, decoyForeignCwd]) => {
+          // Only a Claude Code transcript records positions after the opening row.
+          const trailing = agent === AGENT_SESSION_KIND.CLAUDE_CODE ? trailingDraw : 0;
           const stamp = (index: number): string =>
             new Date(nowMs - (trailing + 1 - index) * RECORD_INTERVAL_MS).toISOString();
           // The opening record decides the project directory the store files this
@@ -400,6 +415,7 @@ export function arbitrarySessionIdentityScenario(): fc.Arbitrary<GeneratedSessio
             cwdUnderPayload: recordsProductPosition && index === firstProductIndex ? productCwdUnderPayload : false,
           }));
           return {
+            agent,
             homeDir,
             productScopeRoot,
             foreignRoot,

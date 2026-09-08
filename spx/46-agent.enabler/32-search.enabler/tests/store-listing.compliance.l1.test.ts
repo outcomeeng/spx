@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { AGENT_SESSION_KIND } from "@/domains/agent/protocol";
+
 import {
   arbitraryMovingSessionBranchScenario,
   arbitrarySessionIdentityScenario,
@@ -9,7 +11,7 @@ import { searchMovingSessionStore, searchSessionIdentityStore } from "@testing/h
 
 describe("agent search — store listing bound", () => {
   it("lists no session-store project directory when resolving a session id", async () => {
-    const scenario = sampleGeneratedValue(arbitrarySessionIdentityScenario());
+    const scenario = sampleGeneratedValue(arbitrarySessionIdentityScenario([AGENT_SESSION_KIND.CLAUDE_CODE]));
     const observation = await searchSessionIdentityStore(scenario, { sessionId: scenario.sessionId });
 
     expect(observation.results.map((result) => result.sessionId)).toEqual([scenario.sessionId]);

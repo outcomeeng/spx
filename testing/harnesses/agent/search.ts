@@ -8,7 +8,7 @@ import {
   resolveAgentSearchProductScopeRoot,
 } from "@/commands/agent/search";
 import { DEFAULT_CONFIG } from "@/config/defaults";
-import { agentHomeDirsFromHomeDir } from "@/domains/agent/home";
+import { agentHomeDirsFromHomeDir, piSessionStoreDir } from "@/domains/agent/home";
 import {
   AGENT_RESUME_SCOPE,
   AGENT_SEARCH_DEFAULT_LIMIT,
@@ -25,6 +25,7 @@ import {
 import {
   agentSessionJsonlName,
   claudeCodeSessionStoreDir,
+  codexSessionStoreDir,
   discoverAgentResumeCandidates,
 } from "@/domains/agent/resume";
 import type { AgentResumeCandidate } from "@/domains/agent/resume";
@@ -86,9 +87,11 @@ import {
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 
 import { MemoryTranscriptLocator } from "./locator";
+import { piTranscript, piTranscriptPath } from "./pi-resume";
 
 import {
   agentResumeWorktreeRootResolver,
+  type ClaudeTranscriptRecords,
   codexTranscript,
   ImmediateExit,
   MemoryAgentSessionFileSystem,
@@ -2571,27 +2574,71 @@ export interface SessionIdentitySearchObservation {
   readonly projectDirs: readonly string[];
 }
 
-/** The located session filed under a foreign project directory, beside decoys in their own. */
+/** Writes one session's transcript where the scenario's agent files it, and returns that path. */
+function writeSessionIdentityTranscript(
+  fs: MemoryAgentSessionFileSystem,
+  scenario: GeneratedSessionIdentityScenario,
+  sessionId: string,
+  records: ClaudeTranscriptRecords,
+): string {
+  const [opening] = records;
+  switch (scenario.agent) {
+    case AGENT_SESSION_KIND.CLAUDE_CODE:
+      return writeClaudeMultiRecordTranscriptFile(fs, scenario.homeDir, {
+        sessionId,
+        records,
+        modifiedAtMs: scenario.nowMs,
+      });
+    case AGENT_SESSION_KIND.CODEX:
+      return writeCodexTranscriptFile(fs, scenario.homeDir, {
+        sessionId,
+        cwd: opening.cwd,
+        timestamp: opening.timestamp,
+        modifiedAtMs: scenario.nowMs,
+      });
+    case AGENT_SESSION_KIND.PI: {
+      const path = piTranscriptPath(scenario.homeDir, agentSessionJsonlName(sessionId));
+      fs.writeFile(path, piTranscript({ sessionId, cwd: opening.cwd, timestamp: opening.timestamp }), scenario.nowMs);
+      return path;
+    }
+  }
+}
+
+/** The root of the store the scenario's agent files its transcripts under. */
+function sessionIdentityStoreRoot(scenario: GeneratedSessionIdentityScenario): string {
+  const homes = agentHomeDirsFromHomeDir(scenario.homeDir);
+  switch (scenario.agent) {
+    case AGENT_SESSION_KIND.CLAUDE_CODE:
+      return claudeCodeSessionStoreDir(homes.claudeCode);
+    case AGENT_SESSION_KIND.CODEX:
+      return codexSessionStoreDir(homes.codex);
+    case AGENT_SESSION_KIND.PI:
+      return piSessionStoreDir(homes.piAgent, homes.piSessions);
+  }
+}
+
+/**
+ * The located session beside decoys, filed where the scenario's agent keeps transcripts: under a
+ * foreign project directory for Claude Code, and directly under the store for Codex and Pi.
+ */
 export async function searchSessionIdentityStore(
   scenario: GeneratedSessionIdentityScenario,
   query: AgentSearchQueryOptions,
 ): Promise<SessionIdentitySearchObservation> {
   const fs = new MemoryAgentSessionFileSystem();
-  const targetPath = writeClaudeMultiRecordTranscriptFile(fs, scenario.homeDir, {
-    sessionId: scenario.sessionId,
-    records: scenario.records,
-    modifiedAtMs: scenario.nowMs,
-  });
-  const productDecoyPath = writeClaudeMultiRecordTranscriptFile(fs, scenario.homeDir, {
-    sessionId: scenario.productDecoySessionId,
-    records: scenario.productDecoyRecords,
-    modifiedAtMs: scenario.nowMs,
-  });
-  const foreignDecoyPath = writeClaudeMultiRecordTranscriptFile(fs, scenario.homeDir, {
-    sessionId: scenario.foreignDecoySessionId,
-    records: scenario.foreignDecoyRecords,
-    modifiedAtMs: scenario.nowMs,
-  });
+  const targetPath = writeSessionIdentityTranscript(fs, scenario, scenario.sessionId, scenario.records);
+  const productDecoyPath = writeSessionIdentityTranscript(
+    fs,
+    scenario,
+    scenario.productDecoySessionId,
+    scenario.productDecoyRecords,
+  );
+  const foreignDecoyPath = writeSessionIdentityTranscript(
+    fs,
+    scenario,
+    scenario.foreignDecoySessionId,
+    scenario.foreignDecoyRecords,
+  );
 
   const locator = new MemoryTranscriptLocator(fs);
   const results = await searchAgentSessions({
@@ -2604,14 +2651,15 @@ export async function searchSessionIdentityStore(
     query: agentSearchQueryFromOptions(query),
   });
 
+  const storedPaths = [targetPath, productDecoyPath, foreignDecoyPath];
   return {
     results,
     fs,
     locator,
-    storeRoot: claudeCodeSessionStoreDir(agentHomeDirsFromHomeDir(scenario.homeDir).claudeCode),
+    storeRoot: sessionIdentityStoreRoot(scenario),
     targetPath,
-    storedPaths: [targetPath, productDecoyPath, foreignDecoyPath],
-    projectDirs: [targetPath, productDecoyPath, foreignDecoyPath].map((path) => dirname(path)),
+    storedPaths,
+    projectDirs: scenario.agent === AGENT_SESSION_KIND.CLAUDE_CODE ? storedPaths.map((path) => dirname(path)) : [],
   };
 }
 
