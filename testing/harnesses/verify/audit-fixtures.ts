@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { journalReadCommand } from "@/commands/journal/cli";
-import { verifyAppendFindingCommand, verifyAppendScopeCommand, type VerifyCliDeps } from "@/commands/verify/cli";
+import { verifyAppendFindingCommand, verifyAppendScopeCommand, verifyFinishCommand, type VerifyCliDeps, type VerifyFinishCliOptions } from "@/commands/verify/cli";
 import { type AuditScopeUnit, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
 import { JOURNAL_SEQ_BASE, type JournalEvent } from "@/lib/agent-run-journal";
 import { defaultStateStoreFileSystem } from "@/lib/state-store";
@@ -48,6 +48,7 @@ export async function withAuditFixtureRun<T>(
   callback: (env: {
     appendScope(path: string): ReturnType<typeof verifyAppendScopeCommand>;
     appendFinding(path: string): ReturnType<typeof verifyAppendFindingCommand>;
+    finish(options: Pick<VerifyFinishCliOptions, "terminalStatus" | "terminalMetadata">): ReturnType<typeof verifyFinishCommand>;
     events(): Promise<readonly JournalEvent[]>;
   }) => Promise<T>,
 ): Promise<T> {
@@ -90,6 +91,7 @@ export async function withAuditFixtureRun<T>(
     };
     const run = await startedRunToken(scenario, deps);
     return callback({
+      finish: (options) => verifyFinishCommand({ verificationType: scenario.verificationType, scopeType: scenario.scopeType, scope: scenario.scope, run, ...options }, deps),
       appendScope: (payload) =>
         verifyAppendScopeCommand(verifyAppendOptions(scenario, { run, payload, idempotencyKey: randomUUID() }), deps),
       appendFinding: (payload) =>
