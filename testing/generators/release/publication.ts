@@ -17,8 +17,11 @@ import { RELEASE_PUBLISH_INVOCATION } from "@/interfaces/cli/release";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import {
+  arbitraryConfiguredChangelogPath,
   arbitraryConformantChangelog,
   arbitraryConformantChangelogScenario,
+  arbitraryEscapingChangelogPath,
+  arbitraryRootResolvingChangelogPath,
   changelogWithDuplicateCurrentVersionSections,
   changelogWithFooterReferenceScenario,
 } from "@testing/generators/release/changelog";
@@ -80,12 +83,29 @@ export interface PublicationCheckoutDriftScenario extends PublicationScenario {
   readonly checkoutChangelog: string;
 }
 
+/** Configured changelog paths a publication resolves against its product directory: one inside it, one escaping it, one naming it. */
+export interface PublicationChangelogPathScenario {
+  readonly productDir: string;
+  readonly containedPath: string;
+  readonly escapingPath: string;
+  readonly rootResolvingPath: string;
+}
+
 export function arbitraryPublicationScenario(): fc.Arbitrary<PublicationScenario> {
   return arbitraryPublicationBase().map((scenario) => ({
     ...scenario,
     existingPackage: null,
     existingHostedRelease: null,
   }));
+}
+
+export function arbitraryPublicationChangelogPathScenario(): fc.Arbitrary<PublicationChangelogPathScenario> {
+  return fc.record({
+    productDir: arbitraryPathSegment(),
+    containedPath: arbitraryConfiguredChangelogPath(),
+    escapingPath: arbitraryEscapingChangelogPath(),
+    rootResolvingPath: arbitraryRootResolvingChangelogPath(),
+  });
 }
 
 export function arbitraryPublicationCheckoutDriftScenario(): fc.Arbitrary<PublicationCheckoutDriftScenario> {

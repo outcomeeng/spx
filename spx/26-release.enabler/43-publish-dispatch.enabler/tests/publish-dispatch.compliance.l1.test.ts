@@ -1,4 +1,5 @@
 import {
+  committedChangelogTreePath,
   hostedReleaseFor,
   PACKAGE_PROVENANCE,
   packagePublicationMatches,
@@ -10,6 +11,7 @@ import { RELEASE_PUBLISH_INVOCATION } from "@/interfaces/cli/release";
 import { GITHUB_RELEASE } from "@/lib/release-publication/github-release-publisher";
 import { NPM_PUBLICATION } from "@/lib/release-publication/npm-package-publisher";
 import {
+  arbitraryPublicationChangelogPathScenario,
   arbitraryPublicationCommandExitCode,
   arbitraryPublicationConfirmationFailureScenario,
   arbitraryPublicationIdentityMismatchScenario,
@@ -238,6 +240,22 @@ describe("release publication compliance", () => {
       arbitraryPublicationCommandExitCode(),
       async (exitCode) => {
         expect((await runExitingPublicationCommand(exitCode)).exitCode).toBe(exitCode);
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+  });
+
+  it("rejects a configured changelog path that escapes or names the product directory", () => {
+    assertProperty(
+      arbitraryPublicationChangelogPathScenario(),
+      (scenario) => {
+        expect(committedChangelogTreePath(scenario.productDir, scenario.containedPath)).toBe(scenario.containedPath);
+        expect(() => committedChangelogTreePath(scenario.productDir, scenario.escapingPath)).toThrow(
+          ReleasePublicationError,
+        );
+        expect(() => committedChangelogTreePath(scenario.productDir, scenario.rootResolvingPath)).toThrow(
+          ReleasePublicationError,
+        );
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
