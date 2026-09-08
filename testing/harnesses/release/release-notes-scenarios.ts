@@ -99,7 +99,7 @@ export async function observeReleaseNotesCommand(): Promise<ReleaseNotesCommandO
         resolvedPath,
         releaseData.commits.map((commit) => commit.subject),
       ),
-      faithfulnessAuditor: approvingReleaseNotesFaithfulnessAuditor,
+      createFaithfulnessAuditor: () => approvingReleaseNotesFaithfulnessAuditor,
       filesystem: env,
     });
     observation = {
@@ -136,7 +136,7 @@ export async function observeCanonicalReleaseNotesCommand(): Promise<CanonicalRe
         canonicalPath,
         releaseData.commits.map((commit) => commit.subject),
       ),
-      faithfulnessAuditor: approvingReleaseNotesFaithfulnessAuditor,
+      createFaithfulnessAuditor: () => approvingReleaseNotesFaithfulnessAuditor,
       filesystem: env,
     });
     observation = {

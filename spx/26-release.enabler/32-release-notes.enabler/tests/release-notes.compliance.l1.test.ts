@@ -1,3 +1,4 @@
+import { RELEASE_CONFIG_FIELDS, releaseConfigDescriptor } from "@/domains/release/config";
 import {
   buildReleaseNotesPrompt,
   CHANGELOG_PATH_DATA_BLOCK_CLOSE,
@@ -41,6 +42,7 @@ import {
 import {
   observeAbsoluteInTreeReleaseNotesPath,
   observeConfiguredReleaseNotesPathRejection,
+  observeConfiguredWithheldCommitTypes,
   observeExistingReleaseNotesSection,
   observeReleaseNotesFaithfulness,
   observeReleaseNotesMutation,
@@ -560,6 +562,46 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
       );
       return true;
     });
+  });
+
+  it("reads the withheld types from a configured release section", async () => {
+    const vocabulary = withheldSubjectVocabulary();
+    const { fixture } = sampleMixedBehaviorReleaseNotesFixture(vocabulary);
+    // One type out of the declared default, so falling back to that default
+    // would withhold the other seven and produce a different prompt.
+    const [onlyWithheldType] = vocabulary.withheldTypes;
+    const expected = fixture.subjects.filter(
+      (subject) => !subject.startsWith(`${onlyWithheldType}(`),
+    );
+
+    await expect(
+      observeConfiguredWithheldCommitTypes(fixture.releaseData, [onlyWithheldType]),
+    ).resolves.toSatisfy((observation) => {
+      expect(expected.length).toBeGreaterThan(0);
+      expect(observation.releaseSubjects.length).toBeGreaterThan(expected.length);
+      expect(observation.promptSubjects).toEqual(expected);
+      return true;
+    });
+  });
+
+  it("rejects a configured withheld-type set that repeats or blanks a type", () => {
+    const [duplicated] = withheldSubjectVocabulary().withheldTypes;
+    for (
+      const withheldCommitTypes of [
+        [duplicated, duplicated],
+        [duplicated, ""],
+        [duplicated, 1],
+        duplicated,
+      ]
+    ) {
+      expect(
+        releaseConfigDescriptor.validate({
+          [RELEASE_CONFIG_FIELDS.NOTES]: {
+            [RELEASE_CONFIG_FIELDS.WITHHELD_COMMIT_TYPES]: withheldCommitTypes,
+          },
+        }).ok,
+      ).toBe(false);
+    }
   });
 
   it("withholds the declared default types when the release configures none", async () => {

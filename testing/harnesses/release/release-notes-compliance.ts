@@ -2,6 +2,9 @@ import { mkdir, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve, sep } from "node:path";
 
 import type { AgentAuditor, AgentAuditRequest, AgentRunRequest } from "@/agent/agent-runner";
+import { releaseNotesCommand } from "@/commands/release";
+import { CONFIG_FILENAMES } from "@/config/index";
+import { RELEASE_CONFIG_FIELDS, RELEASE_SECTION } from "@/domains/release/config";
 import type { ReleaseData } from "@/domains/release/release-data";
 import {
   CHANGELOG_PATH_DATA_BLOCK_CLOSE,
@@ -21,6 +24,8 @@ import {
   resolveReleaseNotesPath,
 } from "@/domains/release/release-notes";
 import { PATH_CONTAINMENT_PARENT_DIRECTORY } from "@/lib/file-system/pathContainment";
+import { arbitraryConformantChangelog } from "@testing/generators/release/changelog";
+import { sampleReleaseTestValue } from "@testing/generators/release/release";
 import {
   type AbsoluteReleaseNotesPathInput,
   type PartialWriteReleaseNotesInput,
@@ -1715,6 +1720,70 @@ async function observeExistingReleaseNotesSectionInEnv(
     stagedInput,
     stagedCanonicalPath,
   };
+}
+
+export interface ConfiguredWithheldTypesObservation {
+  /** The commit subjects the producer prompt carried, decoded from its data block. */
+  readonly promptSubjects: readonly string[];
+  /** The subjects the release data held before the configured set was applied. */
+  readonly releaseSubjects: readonly string[];
+}
+
+/**
+ * Runs the release-notes command against a real `spx.config.json` carrying the
+ * withheld types, so the configured set reaches the prompt through the release
+ * config descriptor and the command's own resolution rather than an injected
+ * value.
+ */
+export async function observeConfiguredWithheldCommitTypes(
+  releaseData: ReleaseData,
+  withheldCommitTypes: readonly string[],
+): Promise<ConfiguredWithheldTypesObservation> {
+  let observation: ConfiguredWithheldTypesObservation | undefined;
+  await withReleaseNotesEnv(async (env) => {
+    await writeFile(
+      join(env.workingDirectory, CONFIG_FILENAMES.json),
+      JSON.stringify({
+        [RELEASE_SECTION]: {
+          [RELEASE_CONFIG_FIELDS.NOTES]: {
+            [RELEASE_CONFIG_FIELDS.WITHHELD_COMMIT_TYPES]: withheldCommitTypes,
+          },
+        },
+      }),
+    );
+    const resolvedPath = resolveReleaseNotesPath(env.workingDirectory, {});
+    const agentRunner = recordingReleaseNotesAgent(
+      env.workingDirectory,
+      resolvedPath,
+      sampleReleaseTestValue(
+        arbitraryConformantChangelog(
+          releaseData.version,
+          releaseData.commits.map((commit) => commit.subject),
+        ),
+      ),
+    );
+    await releaseNotesCommand({
+      productDir: env.workingDirectory,
+      config: {},
+      releaseData,
+      agentRunner,
+      createFaithfulnessAuditor: () => async () => {},
+      filesystem: env,
+    });
+    const block = observePromptDataBlock(
+      agentRunner.lastPrompt,
+      COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
+      COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
+    );
+    observation = {
+      promptSubjects: JSON.parse(block.data) as readonly string[],
+      releaseSubjects: releaseData.commits.map((commit) => commit.subject),
+    };
+  });
+  if (observation === undefined) {
+    throw new Error("Configured withheld-type observation produced no result");
+  }
+  return observation;
 }
 
 export { DEFAULT_CHANGELOG_PATH };
