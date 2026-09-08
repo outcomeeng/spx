@@ -5,6 +5,7 @@
  */
 export {
   EXECUTE_RUN_CLI_ERROR,
+  EXECUTE_RUN_CLI_WARNING,
   EXECUTE_RUN_INPUT_SOURCE,
   type ExecuteRunCliDeps,
   type ExecuteRunCliOptions,
@@ -12,6 +13,7 @@ export {
   type ExecuteRunCommandResult,
   executeRunFailureDiagnostic,
   type ExecuteRunInputDocument,
+  type ExecuteRunProductRoot,
   type ExecuteRunRecorderDeps,
   type ExecuteRunReport,
 } from "@/commands/verification-exec/cli";
