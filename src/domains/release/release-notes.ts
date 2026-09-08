@@ -110,6 +110,60 @@ export const CHANGELOG_CHANGE_GROUPS = [
 
 export type ChangelogChangeGroup = (typeof CHANGELOG_CHANGE_GROUPS)[number];
 
+/**
+ * Conventional commit types whose subjects state no user-visible behavior. A
+ * subject carrying one of these types is withheld from the producer prompt and
+ * from the faithfulness-audit prompt alike, so the producer cannot infer an
+ * observable effect the subject does not carry and the auditor cannot be asked
+ * to weigh one. A `!` breaking-change marker overrides the type, because a
+ * breaking change is user-visible whatever the change's shape.
+ */
+export const NON_BEHAVIORAL_COMMIT_TYPES = [
+  "build",
+  "chore",
+  "ci",
+  "docs",
+  "refactor",
+  "spec",
+  "style",
+  "test",
+] as const;
+
+export type NonBehavioralCommitType = (typeof NON_BEHAVIORAL_COMMIT_TYPES)[number];
+
+/** The conventional-commit marker that declares a subject a breaking change. */
+export const CONVENTIONAL_BREAKING_MARKER = "!";
+
+const CONVENTIONAL_SUBJECT_PATTERN = /^([a-z]+)(?:\([^)]*\))?(!?):/u;
+
+const NON_BEHAVIORAL_COMMIT_TYPE_SET: ReadonlySet<string> = new Set(NON_BEHAVIORAL_COMMIT_TYPES);
+
+/**
+ * Whether a commit subject may carry a user-visible change. A subject with no
+ * conventional type prefix is behavior-bearing, because nothing about it proves
+ * the change is internal.
+ */
+export function isBehaviorBearingSubject(subject: string): boolean {
+  const match = CONVENTIONAL_SUBJECT_PATTERN.exec(subject);
+  if (match === null) {
+    return true;
+  }
+  const [, type, breaking] = match;
+  if (breaking === CONVENTIONAL_BREAKING_MARKER) {
+    return true;
+  }
+  return !NON_BEHAVIORAL_COMMIT_TYPE_SET.has(type);
+}
+
+/** The release's commit subjects that may carry a user-visible change. */
+export function behaviorBearingCommitSubjects(
+  releaseData: ReleaseData,
+): readonly string[] {
+  return releaseData.commits
+    .map((commit) => commit.subject)
+    .filter((subject) => isBehaviorBearingSubject(subject));
+}
+
 /** The prompt markers that delimit commit subjects as data rather than instructions. */
 export const COMMIT_SUBJECTS_DATA_BLOCK_OPEN = "<commit-subjects>";
 export const COMMIT_SUBJECTS_DATA_BLOCK_CLOSE = "</commit-subjects>";
@@ -644,7 +698,7 @@ function formatChangelogPathDataBlock(changelogPath: string): string {
 }
 
 function formatCommitSubjectsDataBlock(releaseData: ReleaseData): string {
-  const commitSubjects = releaseData.commits.map((commit) => commit.subject);
+  const commitSubjects = behaviorBearingCommitSubjects(releaseData);
   return [
     COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
     encodeCommitSubjects(commitSubjects),
