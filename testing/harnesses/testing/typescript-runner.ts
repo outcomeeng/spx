@@ -1,7 +1,6 @@
 import { execa } from "execa";
 import { copyFile, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join, resolve, sep } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { runTestsCommand } from "@/commands/test";
@@ -18,7 +17,6 @@ import {
 import { testingRegistry } from "@/test/registry";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import {
   expectedFindingsForScenario,
@@ -185,37 +183,61 @@ export function withTempVitestProductAt(
   });
 }
 
-export function registerTempVitestProductScenarioEvidence(): void {
-  describe("withTempVitestProduct", () => {
-    it("materializes the Vitest fixture suite under the OS temp root and removes the product after the callback returns", async () => {
-      const tempRootPrefix = resolve(tmpdir()) + sep;
-      let capturedProductDir = "";
+export interface TempVitestProductObservation {
+  /** The product directory the callback received. */
+  readonly productDir: string;
+  /** The product's directory entries while the callback ran. */
+  readonly entriesDuringCallback: readonly string[];
+  /** Whether the product directory still exists once the callback has settled. */
+  readonly existsAfterCallback: boolean;
+}
 
-      await withTempVitestProduct(VITEST_FIXTURE.PASSING, async (productDir) => {
-        capturedProductDir = productDir;
+// Runs a callback through `withTempVitestProduct` and reports what the product looked like
+// during the callback and whether it survived it; the linked test owns every predicate.
+export async function observeTempVitestProductLifecycle(
+  fixture: VitestFixture,
+): Promise<TempVitestProductObservation> {
+  let productDir = "";
+  let entriesDuringCallback: readonly string[] = [];
 
-        expect(resolve(productDir).startsWith(tempRootPrefix)).toBe(true);
-        expect(await readdir(productDir)).toEqual([COPIED_SUITE_NAME]);
-      });
-
-      expect(await pathExists(capturedProductDir)).toBe(false);
-    });
-
-    it("removes the Vitest product and rethrows the original error when the callback throws", async () => {
-      let capturedProductDir = "";
-      const failure = new Error(sampleLiteralTestValue(arbitraryDomainLiteral()));
-
-      await expect(
-        withTempVitestProduct(VITEST_FIXTURE.FAILING, async (productDir) => {
-          capturedProductDir = productDir;
-          expect(await pathExists(productDir)).toBe(true);
-          throw failure;
-        }),
-      ).rejects.toBe(failure);
-
-      expect(await pathExists(capturedProductDir)).toBe(false);
-    });
+  await withTempVitestProduct(fixture, async (receivedProductDir) => {
+    productDir = receivedProductDir;
+    entriesDuringCallback = await readdir(receivedProductDir);
   });
+
+  return { productDir, entriesDuringCallback, existsAfterCallback: await pathExists(productDir) };
+}
+
+export interface TempVitestProductFailureObservation {
+  /** Whether the product directory existed when the callback threw. */
+  readonly existedDuringCallback: boolean;
+  /** Whether the product directory still exists once the failed callback has settled. */
+  readonly existsAfterCallback: boolean;
+  /** What `withTempVitestProduct` rejected with. */
+  readonly rejection: unknown;
+}
+
+// Runs a throwing callback through `withTempVitestProduct` and reports the product's existence
+// around the throw and the rejection the caller observes.
+export async function observeTempVitestProductAfterThrow(
+  fixture: VitestFixture,
+  failure: Error,
+): Promise<TempVitestProductFailureObservation> {
+  let productDir = "";
+  let existedDuringCallback = false;
+  let rejection: unknown;
+
+  try {
+    await withTempVitestProduct(fixture, async (receivedProductDir) => {
+      productDir = receivedProductDir;
+      existedDuringCallback = await pathExists(receivedProductDir);
+      throw failure;
+    });
+  } catch (error: unknown) {
+    rejection = error;
+  }
+
+  return { existedDuringCallback, existsAfterCallback: await pathExists(productDir), rejection };
 }
 
 async function pathExists(path: string): Promise<boolean> {
