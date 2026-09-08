@@ -13,6 +13,10 @@ export interface DeclaredTextDiagnostic {
   /** The Commander error code the path raises, so a run proves it took this path and no other. */
   readonly code: string;
   readonly argv: readonly string[];
+  /** The escape byte this case's own argv carries, so the assertion names the bytes the run was given. */
+  readonly rawEscapeByte: string;
+  /** The forged line this case's own argv carries, preceded by its raw line feed. */
+  readonly rawForgedLineBreak: string;
 }
 
 /** Commander's own error codes for the diagnostics it composes from declarations alone. */
@@ -142,40 +146,52 @@ export function commanderDiagnosticScenario(): CommanderDiagnosticScenario {
     reformattingParserArgv: [REJECTING_PARSER_CLI.COMMAND, REJECTING_PARSER_CLI.REFORMATTING_FLAG, unsafeValue],
     nearMatchOption: oneEditFrom(SPX_GLOBAL_OPTIONS.directory.long),
     nearMatchOptionSuggestion: SPX_GLOBAL_OPTIONS.directory.long,
-    declaredTextDiagnostics: [
-      {
-        code: COMMANDER_DECLARED_TEXT_CODE.MISSING_ARGUMENT,
-        argv: [DECLARED_TEXT_CLI.COMMAND, DECLARED_TEXT_CLI.MANDATORY_FLAG, unsafeValue],
-      },
-      {
-        code: COMMANDER_DECLARED_TEXT_CODE.OPTION_MISSING_ARGUMENT,
-        argv: [DECLARED_TEXT_CLI.COMMAND, unsafeValue, DECLARED_TEXT_CLI.MANDATORY_FLAG],
-      },
-      {
-        code: COMMANDER_DECLARED_TEXT_CODE.MISSING_MANDATORY_OPTION_VALUE,
-        argv: [DECLARED_TEXT_CLI.COMMAND, unsafeValue],
-      },
-      {
-        code: COMMANDER_DECLARED_TEXT_CODE.EXCESS_ARGUMENTS,
-        argv: [DECLARED_TEXT_CLI.COMMAND, DECLARED_TEXT_CLI.MANDATORY_FLAG, unsafeValue, unsafeValue, unsafeValue],
-      },
-      {
-        code: COMMANDER_DECLARED_TEXT_CODE.CONFLICTING_OPTION,
-        argv: [
-          DECLARED_TEXT_CLI.CONFLICT_COMMAND,
-          DECLARED_TEXT_CLI.LEFT_FLAG,
-          unsafeValue,
-          DECLARED_TEXT_CLI.RIGHT_FLAG,
-          unsafeValue,
-        ],
-      },
-      {
-        code: COMMANDER_DECLARED_TEXT_CODE.HELP,
-        argv: [DECLARED_TEXT_CLI.HELP_COMMAND, unsafeValue],
-      },
-    ],
+    declaredTextDiagnostics: declaredTextDiagnostics(unsafeValue, rawEscapeByte, `${LINE_FEED}${forgedLine}`),
     nearMatchCommandArgv: [oneEditFrom(CONFIG_CLI.commandName)],
     nearMatchCommandSuggestion: CONFIG_CLI.commandName,
     escapedLineFeed: ESCAPED_LINE_FEED,
   };
+}
+
+/**
+ * Every diagnostic Commander composes from declarations alone, each carrying the exact bytes its
+ * own argv puts in front of that path, so an assertion names what the run was actually given.
+ */
+function declaredTextDiagnostics(
+  unsafeValue: string,
+  rawEscapeByte: string,
+  rawForgedLineBreak: string,
+): readonly DeclaredTextDiagnostic[] {
+  return [
+    {
+      code: COMMANDER_DECLARED_TEXT_CODE.MISSING_ARGUMENT,
+      argv: [DECLARED_TEXT_CLI.COMMAND, DECLARED_TEXT_CLI.MANDATORY_FLAG, unsafeValue],
+    },
+    {
+      code: COMMANDER_DECLARED_TEXT_CODE.OPTION_MISSING_ARGUMENT,
+      argv: [DECLARED_TEXT_CLI.COMMAND, unsafeValue, DECLARED_TEXT_CLI.MANDATORY_FLAG],
+    },
+    {
+      code: COMMANDER_DECLARED_TEXT_CODE.MISSING_MANDATORY_OPTION_VALUE,
+      argv: [DECLARED_TEXT_CLI.COMMAND, unsafeValue],
+    },
+    {
+      code: COMMANDER_DECLARED_TEXT_CODE.EXCESS_ARGUMENTS,
+      argv: [DECLARED_TEXT_CLI.COMMAND, DECLARED_TEXT_CLI.MANDATORY_FLAG, unsafeValue, unsafeValue, unsafeValue],
+    },
+    {
+      code: COMMANDER_DECLARED_TEXT_CODE.CONFLICTING_OPTION,
+      argv: [
+        DECLARED_TEXT_CLI.CONFLICT_COMMAND,
+        DECLARED_TEXT_CLI.LEFT_FLAG,
+        unsafeValue,
+        DECLARED_TEXT_CLI.RIGHT_FLAG,
+        unsafeValue,
+      ],
+    },
+    {
+      code: COMMANDER_DECLARED_TEXT_CODE.HELP,
+      argv: [DECLARED_TEXT_CLI.HELP_COMMAND, unsafeValue],
+    },
+  ].map((diagnostic) => ({ ...diagnostic, rawEscapeByte, rawForgedLineBreak }));
 }

@@ -75,17 +75,16 @@ describe("Commander diagnostics — terminal byte-safety compliance", () => {
 
   it.each(commanderDiagnosticScenario().declaredTextDiagnostics)(
     "leaves no control byte in the $code diagnostic, which embeds only text the product declared",
-    async ({ code, argv }) => {
-      const scenario = commanderDiagnosticScenario();
-
+    async ({ code, argv, rawEscapeByte, rawForgedLineBreak }) => {
       const run = await runCliDiagnostic(argv, { registerDeclaredTextDomain: true });
 
       // The code proves the run took this path and not one of the three overridden hooks; the
-      // byte assertions then hold for the diagnostic Commander composed on its own.
+      // byte assertions then hold for the diagnostic Commander composed on its own, against the
+      // bytes this case's own argv carried rather than a second draw's.
       expect(run.commanderError).toBeInstanceOf(CommanderError);
       expect(run.commanderError?.code).toBe(code);
-      expect(run.stderr).not.toContain(scenario.rawEscapeByte);
-      expect(run.stderr).not.toContain(scenario.rawForgedLineBreak);
+      expect(run.stderr).not.toContain(rawEscapeByte);
+      expect(run.stderr).not.toContain(rawForgedLineBreak);
     },
   );
 
