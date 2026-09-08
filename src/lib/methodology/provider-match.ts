@@ -140,6 +140,11 @@ export function formatProvidesMismatchError(version: string, provides: string, c
   return `Declared methodology version ${version} differs from the version the ${codingAgent} plugin provides, ${provides}`;
 }
 
+/** Diagnostic for a declared migration source the provider records no supported range for. */
+export function formatSupportsUndeclaredError(migratingFrom: string, codingAgent: string): string {
+  return `Declared migration source ${migratingFrom} cannot be checked: the ${codingAgent} plugin declares no supported range`;
+}
+
 /** Diagnostic for a declared migration source outside the provider's supported range. */
 export function formatSupportsMismatchError(migratingFrom: string, supports: string, codingAgent: string): string {
   return `Declared migration source ${migratingFrom} falls outside the range the ${codingAgent} plugin supports, ${supports}`;
@@ -148,7 +153,9 @@ export function formatSupportsMismatchError(migratingFrom: string, supports: str
 /**
  * Checks the product's declaration against the provider declaration recorded
  * for the coding agent, failing on a mismatch and reporting `undeclared` when
- * the record carries no `provides`.
+ * the record carries no `provides`. A provider declaring `provides` declares
+ * `supports` too, so a declared migration source against a missing range is a
+ * mismatch rather than a verified match.
  */
 export function checkProviderMatch(input: ProviderMatchInput): Result<ProviderMatch> {
   const plugin = input.sourceRecord?.plugins[input.codingAgent];
@@ -158,7 +165,10 @@ export function checkProviderMatch(input: ProviderMatchInput): Result<ProviderMa
   if (plugin.provides !== input.version) {
     return { ok: false, error: formatProvidesMismatchError(input.version, plugin.provides, input.codingAgent) };
   }
-  if (input.migratingFrom !== undefined && plugin.supports !== undefined) {
+  if (input.migratingFrom !== undefined) {
+    if (plugin.supports === undefined) {
+      return { ok: false, error: formatSupportsUndeclaredError(input.migratingFrom, input.codingAgent) };
+    }
     const satisfied = satisfiesMethodologyRange(input.migratingFrom, plugin.supports);
     if (!satisfied.ok) return satisfied;
     if (!satisfied.value) {

@@ -19,8 +19,10 @@ import { join } from "node:path";
 import { Command, CommanderError } from "commander";
 
 import type { Result } from "@/config/types";
+
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 
+import { METHODOLOGY_CODING_AGENT, METHODOLOGY_CODING_AGENTS, type MethodologyCodingAgent } from "./coding-agent";
 import {
   formatMethodologyLineInvalidError,
   formatMethodologySourceRecord,
@@ -48,19 +50,23 @@ export const FETCH_DEFAULT_REVISION = "main";
 /** Plugin-relative directory of the understand skill, the one directory the fetch copies per coding agent. */
 export const UNDERSTAND_SKILL_RELATIVE_DIR = "skills/understand";
 
-/** Where each coding agent's built plugin lives in the plugins repository, and where its manifest sits inside it. */
-export const FETCH_CODING_AGENTS = {
-  claude: {
+/** Where one coding agent's built plugin lives in the plugins repository, and where its manifest sits inside it. */
+export interface FetchCodingAgentLocations {
+  readonly distRelativeDir: string;
+  readonly pluginManifestRelativePath: string;
+}
+
+/** Those locations for every coding agent the shipped layout names, so the two registries cannot diverge. */
+export const FETCH_CODING_AGENTS: Readonly<Record<MethodologyCodingAgent, FetchCodingAgentLocations>> = {
+  [METHODOLOGY_CODING_AGENT.CLAUDE]: {
     distRelativeDir: "dist/claude/spec-tree",
     pluginManifestRelativePath: ".claude-plugin/plugin.json",
   },
-  codex: {
+  [METHODOLOGY_CODING_AGENT.CODEX]: {
     distRelativeDir: "dist/codex/spec-tree",
     pluginManifestRelativePath: ".codex-plugin/plugin.json",
   },
-} as const;
-
-export type FetchCodingAgent = keyof typeof FETCH_CODING_AGENTS;
+};
 
 export const FETCH_ARGUMENT_FLAGS = {
   REVISION: "--revision",
@@ -176,7 +182,7 @@ export function parseFetchArguments(argv: readonly string[]): Result<Methodology
 
 /** One copy the fetch performs: a coding agent's understand skill from the clone into the shipped layout. */
 export interface MethodologyFetchCopy {
-  readonly codingAgent: FetchCodingAgent;
+  readonly codingAgent: MethodologyCodingAgent;
   /** Clone-relative source directory. */
   readonly from: string;
   /** Package-relative target directory. */
@@ -198,7 +204,7 @@ export interface MethodologyFetchPlanInput {
   /** The line named on the command line, when any. */
   readonly line?: string;
   /** Each coding agent's plugin-manifest text at the revision. */
-  readonly manifests: Readonly<Record<FetchCodingAgent, string>>;
+  readonly manifests: Readonly<Record<MethodologyCodingAgent, string>>;
 }
 
 /** Diagnostic for a fetch that can take its line from no manifest and no argument. */
@@ -218,8 +224,8 @@ export function formatFetchLineConflictError(argumentLine: string, providedLine:
   return `${FETCH_ARGUMENT_FLAGS.LINE} ${argumentLine} conflicts with the line the plugin manifests provide, ${providedLine}`;
 }
 
-function fetchCodingAgents(): readonly FetchCodingAgent[] {
-  return Object.keys(FETCH_CODING_AGENTS) as FetchCodingAgent[];
+function fetchCodingAgents(): readonly MethodologyCodingAgent[] {
+  return METHODOLOGY_CODING_AGENTS;
 }
 
 interface ParsedManifests {
@@ -228,7 +234,7 @@ interface ParsedManifests {
   readonly providedLines: Readonly<Record<string, string>>;
 }
 
-function parseManifests(manifests: Readonly<Record<FetchCodingAgent, string>>): Result<ParsedManifests> {
+function parseManifests(manifests: Readonly<Record<MethodologyCodingAgent, string>>): Result<ParsedManifests> {
   const plugins: Record<string, MethodologySourcePlugin> = {};
   const providedLines: Record<string, string> = {};
   for (const codingAgent of fetchCodingAgents()) {
@@ -378,8 +384,8 @@ async function cloneAtRevision(
 async function readPluginManifests(
   cloneDir: string,
   fs: MethodologyFetchFileSystem,
-): Promise<Result<Readonly<Record<FetchCodingAgent, string>>>> {
-  const manifests: Partial<Record<FetchCodingAgent, string>> = {};
+): Promise<Result<Readonly<Record<MethodologyCodingAgent, string>>>> {
+  const manifests: Partial<Record<MethodologyCodingAgent, string>> = {};
   for (const codingAgent of fetchCodingAgents()) {
     const layout = FETCH_CODING_AGENTS[codingAgent];
     try {
@@ -393,7 +399,7 @@ async function readPluginManifests(
       };
     }
   }
-  return { ok: true, value: manifests as Readonly<Record<FetchCodingAgent, string>> };
+  return { ok: true, value: manifests as Readonly<Record<MethodologyCodingAgent, string>> };
 }
 
 async function applyFetchPlan(

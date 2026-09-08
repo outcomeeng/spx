@@ -26,7 +26,7 @@ import {
 } from "@testing/harnesses/spec/context";
 
 describe("spec context understand payload provider match", () => {
-  it("fails naming both declarations when the recorded provides differs, fails naming the migration source and the range when it falls outside supports, and serves the tree when both agree", async () => {
+  it("fails naming both declarations when the recorded provides differs, fails naming the migration source when no range holds it or the record declares none, and serves the tree when both agree", async () => {
     const migrating = generatedMigratingMethodologySection();
     const version = migrating[METHODOLOGY_CONFIG_FIELDS.VERSION] as string;
     const migratingFrom = migrating[METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM] as string;
@@ -62,6 +62,18 @@ describe("spec context understand payload provider match", () => {
       });
       expect(outside).toContain(migratingFrom);
       expect(outside).toContain(excluding);
+
+      const noSupports = await writeMethodologyTree(env, {
+        version,
+        sourceRecord: generatedSourceRecordProviding(version),
+      });
+      const unverifiable = await contextCommandFailure({
+        targets: [target.id],
+        cwd: env.productDir,
+        understand: true,
+        methodologyTreeRoot: noSupports.treeRoot,
+      });
+      expect(unverifiable).toContain(migratingFrom);
 
       const agreeing = await writeMethodologyTree(env, {
         version,

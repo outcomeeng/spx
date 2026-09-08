@@ -40,7 +40,11 @@ import {
   resolveCompactRecoveryDirective,
   SOURCE_RECORD_RELATIVE_PATH,
 } from "@/lib/methodology";
-import { arbitraryMethodologyVersion, generatedSourceRecordProviding } from "@testing/generators/methodology/tree";
+import {
+  arbitraryMethodologyVersion,
+  generatedSourceRecordProviding,
+  supportsRangeExcluding,
+} from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { type HookCliWorktreeEnv, withHookCliWorktreeEnv } from "@testing/harnesses/hook-cli";
@@ -69,6 +73,7 @@ export const COMPACT_RECOVERY_FIXTURE_VARIANT = {
   RESOURCE_ESCAPING: "resource-escaping",
   RESOURCE_INVALID_UTF8: "resource-invalid-utf8",
   PROVIDER_MISMATCH: "provider-mismatch",
+  MIGRATION_UNSUPPORTED: "migration-unsupported",
 } as const;
 
 export type CompactRecoveryFixtureVariant =
@@ -93,6 +98,10 @@ export interface CompactRecoveryTreeFixture {
   readonly directiveText: string;
   /** The version the mismatching variant's source record declares the plugin provides. */
   readonly providesVersion: string;
+  /** The migration source the unsupported variant declares. */
+  readonly migratingFrom: string;
+  /** The supports range the unsupported variant's source record records, which excludes that migration source. */
+  readonly supportsRange: string;
 }
 
 function manifestJson(compactRecovery?: string): string {
@@ -113,6 +122,21 @@ async function writeTreeFile(treeDir: string, relativePath: string, content: str
   return absolute;
 }
 
+/** The declaration each variant serves: the undeclared variant omits the version, the unsupported variant adds the migration source. */
+function methodologyFor(
+  variant: CompactRecoveryFixtureVariant,
+  version: string,
+  migratingFrom: string,
+): MethodologyConfig {
+  if (variant === COMPACT_RECOVERY_FIXTURE_VARIANT.UNDECLARED_VERSION) {
+    return { source: DEFAULT_METHODOLOGY_SOURCE };
+  }
+  if (variant === COMPACT_RECOVERY_FIXTURE_VARIANT.MIGRATION_UNSUPPORTED) {
+    return { source: DEFAULT_METHODOLOGY_SOURCE, version, migratingFrom };
+  }
+  return { source: DEFAULT_METHODOLOGY_SOURCE, version };
+}
+
 /**
  * Materializes one shipped-tree state under a temp tree root and hands its
  * locations to the callback. The callback owns every assertion; the harness
@@ -129,6 +153,8 @@ export async function withCompactRecoveryTree(
   const providesVersion = sampleGeneratedValue(
     arbitraryMethodologyVersion().filter((candidate) => candidate.text !== version.text),
   ).text;
+  const migratingFrom = sampleGeneratedValue(arbitraryMethodologyVersion()).text;
+  const supportsRange = supportsRangeExcluding(migratingFrom);
   await withTempDir(TEMP_PREFIX, async (treeRoot) => {
     const treeDir = join(treeRoot, line.value, codingAgent, FOUNDATION_PLUGIN_NAME);
     const manifestPath = join(treeDir, FOUNDATION_MANIFEST_RELATIVE_PATH);
@@ -182,6 +208,17 @@ export async function withCompactRecoveryTree(
         );
         break;
       }
+      case COMPACT_RECOVERY_FIXTURE_VARIANT.MIGRATION_UNSUPPORTED: {
+        await writeTreeFile(treeDir, FOUNDATION_MANIFEST_RELATIVE_PATH, manifestJson(COMPACT_RECOVERY_PATH));
+        await writeTreeFile(treeDir, CORE_PATH, options.directiveText);
+        await writeTreeFile(treeDir, COMPACT_RECOVERY_PATH, options.directiveText);
+        await writeFile(
+          join(treeRoot, line.value, SOURCE_RECORD_RELATIVE_PATH),
+          JSON.stringify(generatedSourceRecordProviding(version.text, supportsRange)),
+          "utf8",
+        );
+        break;
+      }
       case COMPACT_RECOVERY_FIXTURE_VARIANT.RESOURCE_ESCAPING: {
         await writeTreeFile(treeDir, FOUNDATION_MANIFEST_RELATIVE_PATH, manifestJson(COMPACT_RECOVERY_PATH));
         const escapeTarget = join(treeRoot, ESCAPE_TARGET_FILENAME);
@@ -195,9 +232,7 @@ export async function withCompactRecoveryTree(
 
     await callback({
       treeRoot,
-      methodology: options.variant === COMPACT_RECOVERY_FIXTURE_VARIANT.UNDECLARED_VERSION
-        ? { source: DEFAULT_METHODOLOGY_SOURCE }
-        : { source: DEFAULT_METHODOLOGY_SOURCE, version: version.text },
+      methodology: methodologyFor(options.variant, version.text, migratingFrom),
       version: version.text,
       line: line.value,
       codingAgent,
@@ -205,6 +240,8 @@ export async function withCompactRecoveryTree(
       entryPath: COMPACT_RECOVERY_PATH,
       directiveText: options.directiveText,
       providesVersion,
+      migratingFrom,
+      supportsRange,
     });
   });
 }
