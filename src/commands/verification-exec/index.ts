@@ -10,6 +10,7 @@ export {
   type ExecuteRunCliOptions,
   executeRunCommand,
   type ExecuteRunCommandResult,
+  executeRunFailureDiagnostic,
   type ExecuteRunInputDocument,
   type ExecuteRunRecorderDeps,
   type ExecuteRunReport,

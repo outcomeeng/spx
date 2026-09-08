@@ -5,10 +5,13 @@
  * files through the testing selection domain, records one `file`-scoped run whose selector is the
  * narrowest directory enclosing every operand with the executor's request as the recorded run
  * input, drives the type's streaming runner through the verification-type registry over production
- * recorder operations rooted at the effective invocation directory, and returns the run locator, the
- * terminal status, and the runner outcome as one structured result. Diagnostics that embed an
- * operand or product path compose through the terminal-text primitive. The handler imports no
- * Commander symbol and writes to no process stream; the descriptor owns that boundary.
+ * recorder operations rooted at the worktree product root, and returns the run locator, the terminal
+ * status, and the runner outcome as one structured result. The product root is the local worktree
+ * root the effective invocation directory resolves to, so an invocation from any directory inside
+ * the product discovers and records against the same tree. Diagnostics that embed an operand, a
+ * product path, or a caught failure message compose through the terminal-text primitive. The
+ * handler imports no Commander symbol and writes to no process stream; the descriptor owns that
+ * boundary.
  */
 import type { JournalStreamBinding } from "@/commands/journal/cli";
 import { discoverTestFiles } from "@/commands/test";
@@ -21,19 +24,21 @@ import {
 import { createRecorderOperations } from "@/commands/verification-exec/recorder-operations";
 import { resolveVerificationRunner } from "@/commands/verification-exec/runner-registry";
 import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
-import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
+import { JOURNAL_RUN_STATE_STATUS, type JournalRunStateStatus } from "@/domains/journal/run-state";
 import { resolveTargetedTestFiles } from "@/domains/test";
 import { executeRunScopeIdentity } from "@/domains/verification-exec/scope";
 import { type RunLocator, VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
-import type { GitDependencies } from "@/lib/git/root";
+import { toMessage } from "@/lib/error-message";
+import { detectWorktreeProductRoot, type GitDependencies } from "@/lib/git/root";
 import type { StateStoreFileSystem } from "@/lib/state-store";
 import { externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 
-/** The diagnostics the execute-run handler raises; each names the command path and the failing input. */
+/** The diagnostics the execute-run command path raises; each names the command path and the failing input. */
 export const EXECUTE_RUN_CLI_ERROR = {
-  UNRESOLVED_OPERANDS: "spx verification run matched no discovered test file for",
-  UNSUPPORTED_VERIFICATION_TYPE: "spx verification run has no runner for verification type",
-  UNRESOLVED_RUNNER: "spx verification run found no runner in the product directory",
+  UNRESOLVED_OPERANDS: "spx verification <type> run matched no discovered test file for",
+  UNSUPPORTED_VERIFICATION_TYPE: "spx verification <type> run has no runner for verification type",
+  UNRESOLVED_RUNNER: "spx verification <type> run found no runner in the product directory",
+  RUN_FAILED: "spx verification <type> run did not complete:",
 } as const;
 
 /** The input source recorded at start for an spx-driven run: the run input is the executor's request, not a caller source. */
@@ -59,10 +64,12 @@ export interface ExecuteRunRecorderDeps {
   readonly journalBinding?: JournalStreamBinding;
 }
 
-/** The handler's injected boundary: the invocation directory, discovery, the runner resolver, and the recorder. */
+/** The handler's injected boundary: the invocation directory, product-root resolution, discovery, the runner resolver, and the recorder. */
 export interface ExecuteRunCliDeps {
-  /** The effective invocation directory the run is rooted at. */
+  /** The effective invocation directory the product root is resolved from. */
   readonly cwd: string;
+  /** Resolves the product root the run is rooted at; production resolves the local worktree root, falling back to the invocation directory outside a repository. */
+  readonly resolveProductDir?: (cwd: string) => Promise<string>;
   /** Discovers the product's test files; production walks the spec tree. */
   readonly discoverTestFiles?: (productDir: string) => Promise<readonly string[]>;
   /** Resolves a verification type's streaming runner; production reads the verification-type registry. */
@@ -83,7 +90,7 @@ export interface ExecuteRunInputDocument {
 export interface ExecuteRunReport {
   readonly runToken: string;
   readonly locator: RunLocator;
-  readonly terminalStatus: string;
+  readonly terminalStatus: JournalRunStateStatus;
   readonly testPaths: readonly string[];
   readonly unresolvedRunner?: UnresolvedRunner;
 }
@@ -113,9 +120,20 @@ function unresolvedRunnerDiagnostic(unresolvedRunner: UnresolvedRunner): string 
   );
 }
 
+/** The diagnostic for a run the handler could not complete — a recorder or runner failure — with the caught message as an external segment. */
+export function executeRunFailureDiagnostic(error: unknown): string {
+  return renderTerminalText(terminal`${EXECUTE_RUN_CLI_ERROR.RUN_FAILED} ${externalValue(toMessage(error))}`);
+}
+
+async function resolveWorktreeProductDir(cwd: string): Promise<string> {
+  return (await detectWorktreeProductRoot(cwd)).productDir;
+}
+
 /**
  * Execute an spx-driven verification of the named type over the selected test files: resolve the
- * operands, open and drive the run through the executor, and report the run and its outcome. An
+ * product root and the operands, open and drive the run through the executor, and report the run
+ * and its outcome. A recorder or runner failure propagates to the caller after the executor's
+ * best-effort seal; the descriptor renders it as a diagnostic. An
  * operand selecting no discovered test file opens no run; a product directory supplying no runner
  * seals the run and is named in the diagnostic; the exit code is zero exactly when the run passed.
  */
@@ -123,7 +141,7 @@ export async function executeRunCommand(
   options: ExecuteRunCliOptions,
   deps: ExecuteRunCliDeps,
 ): Promise<ExecuteRunCommandResult> {
-  const productDir = deps.cwd;
+  const productDir = await (deps.resolveProductDir ?? resolveWorktreeProductDir)(deps.cwd);
   const discovered = await (deps.discoverTestFiles ?? discoverTestFiles)(productDir);
   const resolution = resolveTargetedTestFiles(discovered, {
     operands: options.operands,
