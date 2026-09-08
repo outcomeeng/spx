@@ -102,9 +102,14 @@ describe("release publication dispatch", () => {
     }]);
     expect(observation.packagePublisherProductDirs).toEqual([observation.scenario.productDir]);
     expect(observation.hostedReleasePublisherProductDirs).toEqual([observation.scenario.productDir]);
+    expect(observation.packagePublishRequests.map((request) => request.value)).toEqual([
+      observation.scenario.packagePublication,
+    ]);
+    expect(observation.packageState).toEqual(observation.scenario.packagePublication);
     expect(observation.hostedReleaseRequests.map((request) => request.value)).toEqual([
       observation.scenario.expectedHostedRelease,
     ]);
+    expect(observation.hostedReleaseState).toEqual(observation.scenario.expectedHostedRelease);
   });
 
   it("reads the release artifacts committed at the tag after the checkout moves past it", async () => {
