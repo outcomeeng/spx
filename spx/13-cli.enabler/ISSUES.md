@@ -6,7 +6,7 @@
 
 **Impact:** the invariant is currently enforced by review rather than by the compiler. Until the signature narrows, a new write site can skip composition without any gate objecting.
 
-**Blocked by:** narrowing the signature breaks every unmigrated write site at once. Seventeen nodes still pass raw strings and each carries its own `ISSUES.md` entry naming its sites — among them `spx/41-validation.enabler/21-validation-cli.enabler`, `spx/36-session.enabler/76-session-cli.enabler`, `spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler`, and `spx/46-agent.enabler/21-resume.enabler`. This node cannot close the boundary alone.
+**Blocked by:** narrowing the signature breaks every unmigrated write site at once. Sixteen nodes still pass raw strings and each carries its own `ISSUES.md` entry naming its sites — among them `spx/41-validation.enabler/21-validation-cli.enabler`, `spx/36-session.enabler/76-session-cli.enabler`, `spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler`, and `spx/46-agent.enabler/21-resume.enabler`. This node cannot close the boundary alone.
 
 **Resolution:** after those nodes migrate to `src/lib/terminal-text/`, narrow both `CliIo` write signatures to `TerminalText`, unwrap once inside `DEFAULT_CLI_IO`, and add the compliance assertion and evidence that no write site accepts an unescaped string.
 
@@ -18,7 +18,6 @@
 
 [`spx/13-cli.enabler/15-cli-architecture.adr.md`](15-cli-architecture.adr.md) names a relayed document — agent-authored release notes, a session file's own content, a subprocess's own output — as the case for the pass-through channel that `CliIo.writePassThrough` and `CliIo.writePassThroughError` now carry. The descriptors that relay such documents still hand them to the composed-text write:
 
-- `src/interfaces/cli/release.ts:80` — `spx release notes` writes the agent-generated notes through `writeStdout`
 - `src/interfaces/cli/session.ts:87` — `spx session show` writes the session file's content through `writeStdout`
 - `src/interfaces/cli/compact.ts:62` — the compact command writes its result through `writeStdout`
 - `src/interfaces/cli/spec.ts:61` — `spx spec context` hands the context bundle, whose document content is the exact bytes of each read spec, decision, and methodology file, to `writeStdout` through the shared `writeOutput` helper; the `spx spec status` and `spx spec next` reports that share the helper are composed and stay on the composed-text write
@@ -26,7 +25,7 @@
 
 **Impact:** none observable today, because both writes take a plain `string` and reach one stream; the channel a command selects states which of the two claims its output makes, and these sites state the wrong one.
 
-**Resolution:** each owning node migrates its descriptor to select the pass-through channel for the document it relays and the composed-text write for the report it composes — `spx/26-release.enabler`, `spx/36-session.enabler/76-session-cli.enabler`, `spx/37-compact.enabler`, `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler`, `spx/46-agent.enabler/21-resume.enabler`, and `spx/46-agent.enabler/32-search.enabler` — under the same per-node migration that clears the write-boundary entry above.
+**Resolution:** each owning node migrates its descriptor to select the pass-through channel for the document it relays and the composed-text write for the report it composes — `spx/36-session.enabler/76-session-cli.enabler`, `spx/37-compact.enabler`, `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler`, `spx/46-agent.enabler/21-resume.enabler`, and `spx/46-agent.enabler/32-search.enabler` — under the same per-node migration that clears the write-boundary entry above.
 
 **Skills:** `/apply`, `/audit-typescript-code`.
 
