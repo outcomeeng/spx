@@ -8,6 +8,7 @@ import {
   DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES,
   publishReleaseCommand,
   type PublishReleaseCommandOptions,
+  type PublishReleasePublishers,
 } from "@/commands/release/publish";
 import {
   type HostedRelease,
@@ -76,6 +77,10 @@ export interface ReleaseNotesRequest {
 export interface PublishReleaseCliObservation {
   readonly scenario: PublicationScenario;
   readonly requests: readonly PublishReleaseCommandOptions[];
+  /** The publisher ports the descriptor was configured with. */
+  readonly wiredPublishers: PublishReleasePublishers;
+  /** The publisher ports the command received on each invocation. */
+  readonly receivedPublishers: readonly PublishReleasePublishers[];
   readonly stdout: string;
 }
 
@@ -253,7 +258,22 @@ export async function observePublishReleaseCli(
   scenario: PublicationScenario,
 ): Promise<PublishReleaseCliObservation> {
   const requests: PublishReleaseCommandOptions[] = [];
+  const receivedPublishers: PublishReleasePublishers[] = [];
   const stdout: string[] = [];
+  const sequence = new PublicationRequestSequence();
+  const packagePublisher = new RecordingPackagePublisher(
+    scenario.existingPackage,
+    sequence,
+    (publication) => publication,
+  );
+  const hostedReleasePublisher = new RecordingHostedReleasePublisher(
+    scenario.existingHostedRelease,
+    sequence,
+  );
+  const wiredPublishers: PublishReleasePublishers = {
+    createPackagePublisher: () => packagePublisher,
+    createHostedReleasePublisher: () => hostedReleasePublisher,
+  };
   const program = new Command();
   const invocation: CliInvocation = {
     io: {
@@ -271,16 +291,18 @@ export async function observePublishReleaseCli(
     }),
   };
   createReleaseDomain({
-    publishReleaseCommand: (options) => {
+    publishReleaseCommand: (options, publishers) => {
       requests.push(options);
+      receivedPublishers.push(publishers);
       return Promise.resolve(scenario.tag);
     },
+    publishReleasePublishers: wiredPublishers,
   }).register(program, invocation);
   await program.parseAsync(
     [RELEASE_CLI.COMMAND, RELEASE_CLI.PUBLISH_COMMAND, RELEASE_CLI.TAG_FLAG, scenario.tag],
     { from: SPX_COMMANDER_PARSE_SOURCE },
   );
-  return { scenario, requests, stdout: stdout.join("") };
+  return { scenario, requests, wiredPublishers, receivedPublishers, stdout: stdout.join("") };
 }
 
 class PublicationRequestSequence {

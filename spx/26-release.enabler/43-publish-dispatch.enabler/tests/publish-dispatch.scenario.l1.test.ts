@@ -127,6 +127,8 @@ describe("release publication dispatch", () => {
       tag: observation.scenario.tag,
       changelogPath: undefined,
     }]);
+    expect(observation.receivedPublishers).toHaveLength(1);
+    expect(observation.receivedPublishers.at(0)).toBe(observation.wiredPublishers);
     expect(observation.stdout).toBe(
       `${RELEASE_CLI_OUTPUT.RELEASE_PUBLISHED_PREFIX}${RELEASE_CLI_OUTPUT.LABEL_SEPARATOR}${observation.scenario.tag}${RELEASE_CLI_OUTPUT.LINE_SEPARATOR}`,
     );
