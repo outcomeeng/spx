@@ -40,24 +40,41 @@ export const arbitraryTerminalUnsafeCodePoint = (): fc.Arbitrary<number> =>
 export const arbitraryPrintableCodePoint = (): fc.Arbitrary<number> =>
   fc.integer({ min: ORACLE_FIRST_PRINTABLE_CODE_POINT, max: ORACLE_DEL_CODE_POINT - 1 });
 
+const DEFAULT_SEGMENT_MAX_LENGTH = 8;
+
+/** Bounds on the text around the guaranteed unsafe byte; `minLength` lifts the whole value past a given length. */
+export interface TerminalUnsafeTextOptions {
+  readonly minLength?: number;
+}
+
 /**
  * Text carrying at least one terminal-unsafe byte among printable characters —
  * the shape an environment-supplied value takes when it embeds a control
  * sequence. The guaranteed unsafe byte is what makes an assertion about
- * escaping non-vacuous.
+ * escaping non-vacuous. A `minLength` pads the printable head so the value is at
+ * least that long, for consumers that must render long values unabridged.
  */
-export const arbitraryTerminalUnsafeText = (): fc.Arbitrary<string> =>
-  fc
+export const arbitraryTerminalUnsafeText = (options: TerminalUnsafeTextOptions = {}): fc.Arbitrary<string> => {
+  const headMinLength = options.minLength ?? 0;
+  return fc
     .tuple(
-      fc.array(arbitraryPrintableCodePoint(), { maxLength: 8 }),
+      fc.array(arbitraryPrintableCodePoint(), {
+        minLength: headMinLength,
+        maxLength: headMinLength + DEFAULT_SEGMENT_MAX_LENGTH,
+      }),
       arbitraryTerminalUnsafeCodePoint(),
-      fc.array(fc.oneof(arbitraryPrintableCodePoint(), arbitraryTerminalUnsafeCodePoint()), { maxLength: 8 }),
+      fc.array(fc.oneof(arbitraryPrintableCodePoint(), arbitraryTerminalUnsafeCodePoint()), {
+        maxLength: DEFAULT_SEGMENT_MAX_LENGTH,
+      }),
     )
     .map(([head, unsafe, tail]) => String.fromCodePoint(...head, unsafe, ...tail));
+};
 
 /** Unsafe text paired with an escape rendering computed independently from production. */
-export const arbitraryTerminalEscapingCase = (): fc.Arbitrary<TerminalEscapingCase> =>
-  arbitraryTerminalUnsafeText().map((input) => ({
+export const arbitraryTerminalEscapingCase = (
+  options: TerminalUnsafeTextOptions = {},
+): fc.Arbitrary<TerminalEscapingCase> =>
+  arbitraryTerminalUnsafeText(options).map((input) => ({
     input,
     escaped: independentlyEscapeTerminalText(input),
   }));

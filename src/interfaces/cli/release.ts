@@ -22,12 +22,12 @@ import { PACKAGED_CLI_INVOCATION } from "@/interfaces/cli/invocation";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import {
   formatDocumentationSyncOutput,
+  formatReleaseErrorOutput,
   formatReleaseNotesOutput,
   formatReleasePublicationOutput,
 } from "@/interfaces/cli/release-output";
 import { createGithubReleasePublisher } from "@/lib/release-publication/github-release-publisher";
 import { createNpmPackagePublisher } from "@/lib/release-publication/npm-package-publisher";
-import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 
 const RELEASE_TAG_FLAG = "--tag";
 
@@ -115,7 +115,7 @@ export function createReleaseDomain(
             });
             invocation.io.writeStdout(formatReleaseNotesOutput(changelogPath));
           } catch (error) {
-            invocation.io.writeStderr(`Error: ${sanitizeCliArgument(errorMessage(error))}\n`);
+            invocation.io.writeStderr(formatReleaseErrorOutput(errorMessage(error)));
             invocation.io.exit(1);
           }
         });
@@ -139,7 +139,7 @@ export function createReleaseDomain(
               invocation.io.writeStdout(formatDocumentationSyncOutput(path));
             }
           } catch (error) {
-            invocation.io.writeStderr(`Error: ${sanitizeCliArgument(errorMessage(error))}\n`);
+            invocation.io.writeStderr(formatReleaseErrorOutput(errorMessage(error)));
             invocation.io.exit(1);
           }
         });
@@ -161,7 +161,7 @@ export function createReleaseDomain(
             );
             invocation.io.writeStdout(formatReleasePublicationOutput(tag));
           } catch (error) {
-            invocation.io.writeStderr(`Error: ${sanitizeCliArgument(errorMessage(error))}\n`);
+            invocation.io.writeStderr(formatReleaseErrorOutput(errorMessage(error)));
             invocation.io.exit(1);
           }
         });
