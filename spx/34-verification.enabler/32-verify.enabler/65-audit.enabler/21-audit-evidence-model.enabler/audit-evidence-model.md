@@ -15,7 +15,7 @@ CAN record complete audit coverage and findings under `--verification-type audit
 
 ### Mappings
 
-- Every registered audit kind maps to accepted or rejected under audit class `changeset`: `coherence` and `review-unit` are accepted and every other registered kind is rejected ([test](tests/audit-changeset-class.mapping.l1.test.ts))
+- Every registered audit kind maps to accepted or rejected under audit class `changeset`: `coherence`, `review-unit`, and the class-independent `coverage-gap` are accepted and every other registered kind is rejected ([test](tests/audit-changeset-class.mapping.l1.test.ts))
 
 ### Compliance
 
