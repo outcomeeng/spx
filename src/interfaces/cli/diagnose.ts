@@ -30,7 +30,7 @@ import { DIAGNOSE_FORMAT, type DiagnoseFormat } from "@/domains/diagnose/report"
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { resolveColorChoice } from "@/lib/styled-output/styled-output";
-import { externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import { externalToken, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 
 /** Source-owned `spx diagnose` command and flag vocabulary, shared with the CLI tests. */
 export const DIAGNOSE_CLI = {
@@ -60,8 +60,8 @@ function defaultRegistry(productDir: string): CheckRegistry {
 
 function handleError(error: string, io: CliIo): never {
   // The error embeds user-supplied manifest path and check-name bytes, so it is
-  // an external segment of this composition.
-  io.writeStderr(renderTerminalText(terminal`Error: ${externalValue(error)}\n`));
+  // an external token of this composition, bounded to the display length.
+  io.writeStderr(renderTerminalText(terminal`Error: ${externalToken(error)}\n`));
   return io.exit(1);
 }
 
