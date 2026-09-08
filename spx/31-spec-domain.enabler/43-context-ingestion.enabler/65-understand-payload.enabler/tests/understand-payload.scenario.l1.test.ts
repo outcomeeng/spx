@@ -10,7 +10,6 @@ import {
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   FOUNDATION_MANIFEST_SCHEMA_VERSION,
 } from "@/lib/methodology/foundation-manifest";
-import { formatMethodologyLineMissingError, methodologyLine } from "@/lib/methodology/tree";
 import { SPEC_CONTEXT_CONTENT_FIELDS, SPEC_CONTEXT_LISTED_ROLE, SPEC_CONTEXT_READ_ROLE } from "@/lib/spec-tree";
 import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
@@ -119,17 +118,20 @@ describe("spec context understand payload", () => {
         const fixture = await writeMethodologyTree(env);
         const snapshot = await env.readFilesystemSnapshot();
         const target = snapshot.allNodes[0];
-        const line = methodologyLine(declared.text);
-        if (!line.ok) throw new Error(line.error);
-        if (line.value === fixture.line) return;
-        await expect(
-          contextCommand({
-            targets: [target.id],
-            cwd: env.productDir,
-            understand: true,
-            methodologyTreeRoot: fixture.treeRoot,
-          }),
-        ).rejects.toThrow(formatMethodologyLineMissingError(declared.text, line.value, [fixture.line]));
+        if (declared.line === fixture.line) return;
+        // The generator derives the line from its own components, so the
+        // diagnostic's three named values are checked against an oracle
+        // the production parser and formatter never touch.
+        const failure = await contextCommand({
+          targets: [target.id],
+          cwd: env.productDir,
+          understand: true,
+          methodologyTreeRoot: fixture.treeRoot,
+        }).then(() => undefined, (error: unknown) => (error instanceof Error ? error.message : String(error)));
+        expect(failure).toBeDefined();
+        expect(failure).toContain(declared.text);
+        expect(failure).toContain(declared.line);
+        expect(failure).toContain(fixture.line);
       },
     );
   });

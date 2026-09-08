@@ -15,6 +15,7 @@ import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   firstCheck,
   generatedMethodology,
+  generatedMigratingMethodology,
   lineOf,
   mismatchedObservation,
   probeShippedTree,
@@ -28,6 +29,8 @@ import {
   shippedObservation,
   sourceRecordProviding,
   sourceRecordWithPluginVersion,
+  supportsRangeContaining,
+  supportsRangeExcluding,
   unavailableCheckName,
   undeclaredMethodology,
   unresolvedMethodology,
@@ -158,6 +161,37 @@ describe("methodology-context diagnose compliance", () => {
           METHODOLOGY_CODING_AGENTS[0] as string,
         ),
       );
+    });
+  });
+
+  it("checks a declared migration source against the recorded supports range: a range holding it verifies, a range excluding it reports the supports mismatch naming both", async () => {
+    const methodology = generatedMigratingMethodology();
+    const line = lineOf(methodology);
+    const version = methodology.version as string;
+    const migratingFrom = methodology.migratingFrom as string;
+
+    await withShippedTreeRoot({
+      [line]: {
+        codingAgents: [...METHODOLOGY_CODING_AGENTS],
+        sourceRecord: sourceRecordProviding(version, supportsRangeContaining(migratingFrom)),
+      },
+    }, async (treeRoot) => {
+      const observed = await probeShippedTree(methodology, treeRoot);
+
+      expect(observed.providerMatch).toBe(PROVIDER_MATCH.VERIFIED);
+      expect(observed.providerMismatch).toBeUndefined();
+    });
+
+    const excluding = supportsRangeExcluding(migratingFrom);
+    await withShippedTreeRoot({
+      [line]: { codingAgents: [...METHODOLOGY_CODING_AGENTS], sourceRecord: sourceRecordProviding(version, excluding) },
+    }, async (treeRoot) => {
+      const observed = await probeShippedTree(methodology, treeRoot);
+
+      expect(observed.providerMatch).toBeUndefined();
+      expect(observed.providerMismatch).toContain(migratingFrom);
+      expect(observed.providerMismatch).toContain(excluding);
+      expect(observed.providerMismatch).not.toContain(version);
     });
   });
 

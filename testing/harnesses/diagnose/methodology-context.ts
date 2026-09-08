@@ -28,7 +28,7 @@ import { DIAGNOSE_FORMAT } from "@/domains/diagnose/report";
 import type { DiagnoseReport } from "@/domains/diagnose/types";
 import { METHODOLOGY_CODING_AGENTS } from "@/lib/methodology/coding-agent";
 import { FOUNDATION_MANIFEST_RELATIVE_PATH } from "@/lib/methodology/foundation-manifest";
-import { PROVIDER_MATCH } from "@/lib/methodology/provider-match";
+import { PROVIDER_MATCH, RANGE_COMPARATOR } from "@/lib/methodology/provider-match";
 import {
   formatMethodologySourceRecord,
   FOUNDATION_PLUGIN_NAME,
@@ -184,6 +184,16 @@ export function sourceRecordProviding(provides: string, supports?: string): Meth
       }]),
     ),
   };
+}
+
+/** A `supports` range whose only member is the supplied version. */
+export function supportsRangeContaining(version: string): string {
+  return `${RANGE_COMPARATOR.EQUAL}${version}`;
+}
+
+/** A `supports` range admitting only versions above the supplied one, so the supplied version falls outside it. */
+export function supportsRangeExcluding(version: string): string {
+  return `${RANGE_COMPARATOR.GREATER}${version}`;
 }
 
 /** A source record naming every coding agent's plugin at the supplied plugin version and declaring no provider block. */
