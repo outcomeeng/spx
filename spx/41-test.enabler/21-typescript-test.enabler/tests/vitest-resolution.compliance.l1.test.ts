@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { VITEST_PACKAGE_NAME, VITEST_RUN_MODE } from "@/test/languages/journal-reporter";
 import { expectedFindingsForScenario } from "@testing/generators/testing/journal-reporter";
+import { TYPESCRIPT_RUNNER_TEST_GENERATOR } from "@testing/generators/testing/typescript-runner";
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import {
   observeHoistedVitestRun,
   observeImportConditionedVitestRun,
@@ -11,7 +13,10 @@ import {
   observeProductsWithoutNodeApi,
   observeRunnerlessStreamingRun,
 } from "@testing/harnesses/testing/journal-reporter";
-import { readProductRuntimeDependencyNames } from "@testing/harnesses/testing/typescript-runner";
+import {
+  consumerInstalledPackageNames,
+  readProductRuntimeDependencyNames,
+} from "@testing/harnesses/testing/typescript-runner";
 
 describe("journal-streaming run resolves the Vitest Node API from the product under test", () => {
   it("resolves against the request's product directory and imports the specifier that resolution returned", async () => {
@@ -138,6 +143,16 @@ describe("journal-streaming run over a product that supplies no runner", () => {
 });
 
 describe("adapter package runtime dependencies", () => {
+  it("detects Vitest declared under any manifest field a package manager installs for consumers", () => {
+    assertProperty(
+      TYPESCRIPT_RUNNER_TEST_GENERATOR.manifestInstalling(VITEST_PACKAGE_NAME),
+      (manifestText) => {
+        expect(consumerInstalledPackageNames(manifestText)).toContain(VITEST_PACKAGE_NAME);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+
   it("never declares Vitest a runtime dependency of the adapter's own package", async () => {
     await expect(readProductRuntimeDependencyNames()).resolves.not.toContain(VITEST_PACKAGE_NAME);
   });

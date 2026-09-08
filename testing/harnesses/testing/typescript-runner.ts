@@ -64,18 +64,26 @@ interface PackageManifestDependencies {
 }
 
 /**
- * Reads the names of every package this product's own manifest installs for its consumers —
- * its dependencies, optional dependencies, and peer dependencies — the manifest being the
- * oracle for what the shipped adapter installs alongside itself.
+ * The names of every package a manifest installs for its consumers — its dependencies,
+ * optional dependencies, and peer dependencies — read from the manifest's text.
  */
-export async function readProductRuntimeDependencyNames(): Promise<readonly string[]> {
-  const manifestText = await readFile(join(CONFIG_PROCESS_CWD.read(), PACKAGE_MANIFEST_FILENAME), "utf8");
+export function consumerInstalledPackageNames(manifestText: string): readonly string[] {
   const manifest = JSON.parse(manifestText) as PackageManifestDependencies;
   return [
     ...Object.keys(manifest.dependencies ?? {}),
     ...Object.keys(manifest.optionalDependencies ?? {}),
     ...Object.keys(manifest.peerDependencies ?? {}),
   ];
+}
+
+/**
+ * Reads the names of every package this product's own manifest installs for its consumers,
+ * the manifest being the oracle for what the shipped adapter installs alongside itself.
+ */
+export async function readProductRuntimeDependencyNames(): Promise<readonly string[]> {
+  return consumerInstalledPackageNames(
+    await readFile(join(CONFIG_PROCESS_CWD.read(), PACKAGE_MANIFEST_FILENAME), "utf8"),
+  );
 }
 
 // Committed inert fixture suites copied into a temporary product for the real Vitest run.

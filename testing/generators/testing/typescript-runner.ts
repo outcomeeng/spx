@@ -27,8 +27,18 @@ const MIN_EXIT_CODE = 0;
 const MIN_NON_ZERO_EXIT_CODE = 1;
 const MAX_EXIT_CODE = 255;
 
+/**
+ * The manifest fields a package manager installs for a package's consumers — held here
+ * independently of the harness reader, so a reader that stops reading one of them fails the
+ * consuming test instead of agreeing with it.
+ */
+const CONSUMER_INSTALL_FIELDS = ["dependencies", "optionalDependencies", "peerDependencies"] as const;
+/** The manifest field naming the package. */
+const MANIFEST_NAME_FIELD = "name";
+
 export const TYPESCRIPT_RUNNER_TEST_GENERATOR = {
   testFilePath: arbitraryTypeScriptTestFilePath,
+  manifestInstalling: arbitraryManifestInstalling,
   nonTestFilePath: arbitraryNonTestFilePath,
   nodePath: arbitraryNodePath,
   nodePathPair: arbitraryNodePathPair,
@@ -128,4 +138,17 @@ function arbitraryNonZeroExitCode(): fc.Arbitrary<number> {
 
 function arbitraryPresence(): fc.Arbitrary<boolean> {
   return fc.boolean();
+}
+
+/**
+ * A package manifest, as text, that installs the named package for its consumers through one
+ * of the consumer-install fields at some version — the shape a manifest violating the
+ * no-runtime-Vitest rule takes.
+ */
+function arbitraryManifestInstalling(packageName: string): fc.Arbitrary<string> {
+  return fc
+    .tuple(fc.constantFrom(...CONSUMER_INSTALL_FIELDS), CONFIG_TEST_GENERATOR.key(), CONFIG_TEST_GENERATOR.key())
+    .map(([field, manifestName, version]) =>
+      JSON.stringify({ [MANIFEST_NAME_FIELD]: manifestName, [field]: { [packageName]: version } })
+    );
 }
