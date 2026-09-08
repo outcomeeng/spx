@@ -22,12 +22,12 @@ import { PACKAGED_CLI_INVOCATION } from "@/interfaces/cli/invocation";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import {
   formatDocumentationSyncOutput,
+  formatReleaseErrorOutput,
   formatReleaseNotesOutput,
   formatReleasePublicationOutput,
 } from "@/interfaces/cli/release-output";
 import { createGithubReleasePublisher } from "@/lib/release-publication/github-release-publisher";
 import { createNpmPackagePublisher } from "@/lib/release-publication/npm-package-publisher";
-import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 
 const RELEASE_TAG_FLAG = "--tag";
 
@@ -67,6 +67,8 @@ export interface ReleaseCliDependencies {
     agentRunner: AgentRunner,
     productDir: string,
   ) => DocumentationFaithfulnessAuditor;
+  readonly releaseNotesCommand: typeof releaseNotesCommand;
+  readonly documentationSyncCommand: typeof documentationSyncCommand;
   readonly documentationSyncCommandDependencies: DocumentationSyncCommandDependencies;
   readonly publishReleaseCommand: typeof publishReleaseCommand;
   readonly publishReleasePublishers: PublishReleasePublishers;
@@ -76,6 +78,8 @@ const DEFAULT_RELEASE_CLI_DEPENDENCIES: ReleaseCliDependencies = {
   createDocumentationAgentRunner: () => new ClaudeAgentRunner(),
   createDocumentationFaithfulnessAuditor: (_agentRunner, productDir) =>
     createDocumentationFaithfulnessAuditor(new ClaudeAgentRunner(), productDir),
+  releaseNotesCommand,
+  documentationSyncCommand,
   documentationSyncCommandDependencies: DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
   publishReleaseCommand,
   publishReleasePublishers: {
@@ -104,7 +108,7 @@ export function createReleaseDomain(
           try {
             const productDir = invocation.resolveProductContext().productDir;
             const agentRunner = new ClaudeAgentRunner();
-            const changelogPath = await releaseNotesCommand({
+            const changelogPath = await deps.releaseNotesCommand({
               productDir,
               config: { changelogPath: options.changelogPath },
               agentRunner,
@@ -115,7 +119,7 @@ export function createReleaseDomain(
             });
             invocation.io.writeStdout(formatReleaseNotesOutput(changelogPath));
           } catch (error) {
-            invocation.io.writeStderr(`Error: ${sanitizeCliArgument(errorMessage(error))}\n`);
+            invocation.io.writeStderr(formatReleaseErrorOutput(errorMessage(error)));
             invocation.io.exit(1);
           }
         });
@@ -134,12 +138,12 @@ export function createReleaseDomain(
               agentRunner,
               faithfulnessAuditor: deps.createDocumentationFaithfulnessAuditor(agentRunner, productDir),
             };
-            const paths = await documentationSyncCommand(options, deps.documentationSyncCommandDependencies);
+            const paths = await deps.documentationSyncCommand(options, deps.documentationSyncCommandDependencies);
             for (const path of paths) {
               invocation.io.writeStdout(formatDocumentationSyncOutput(path));
             }
           } catch (error) {
-            invocation.io.writeStderr(`Error: ${sanitizeCliArgument(errorMessage(error))}\n`);
+            invocation.io.writeStderr(formatReleaseErrorOutput(errorMessage(error)));
             invocation.io.exit(1);
           }
         });
@@ -161,7 +165,7 @@ export function createReleaseDomain(
             );
             invocation.io.writeStdout(formatReleasePublicationOutput(tag));
           } catch (error) {
-            invocation.io.writeStderr(`Error: ${sanitizeCliArgument(errorMessage(error))}\n`);
+            invocation.io.writeStderr(formatReleaseErrorOutput(errorMessage(error)));
             invocation.io.exit(1);
           }
         });

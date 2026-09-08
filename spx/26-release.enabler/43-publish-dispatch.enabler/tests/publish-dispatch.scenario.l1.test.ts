@@ -2,6 +2,7 @@ import { type PackagePublication, ReleasePublicationError } from "@/domains/rele
 import { DEFAULT_CHANGELOG_PATH } from "@/domains/release/release-notes";
 import { RELEASE_CLI_OUTPUT } from "@/interfaces/cli/release-output";
 import { GIT_ROOT_COMMAND } from "@/lib/git/root";
+import { MAX_CLI_ARGUMENT_DISPLAY_LENGTH } from "@/lib/sanitize-cli-argument";
 import {
   arbitraryPublicationCheckoutDriftScenario,
   arbitraryPublicationCommittedReadScenario,
@@ -12,6 +13,7 @@ import {
   arbitraryPublicationTagMismatchScenario,
 } from "@testing/generators/release/publication";
 import { sampleReleaseTestValue } from "@testing/generators/release/release";
+import { arbitraryTerminalEscapingCase } from "@testing/generators/terminal-text/terminal-text";
 import {
   createPublicationHarness,
   createPublishReleaseCommandHarness,
@@ -19,6 +21,7 @@ import {
   observeDefaultPublishDependencies,
   observePublication,
   observePublishReleaseCli,
+  observePublishReleaseCliFailure,
   observePublishReleaseCommand,
   type PublicationObservation,
   type PublishReleaseCliObservation,
@@ -163,6 +166,21 @@ describe("release publication dispatch", () => {
     expect(observation.stdout).toBe(
       `${RELEASE_CLI_OUTPUT.RELEASE_PUBLISHED_PREFIX}${RELEASE_CLI_OUTPUT.LABEL_SEPARATOR}${observation.scenario.tag}${RELEASE_CLI_OUTPUT.LINE_SEPARATOR}`,
     );
+  });
+
+  it("reports a failed publication in full on standard error and exits non-zero", async () => {
+    const escapingCase = sampleReleaseTestValue(
+      arbitraryTerminalEscapingCase({ minLength: MAX_CLI_ARGUMENT_DISPLAY_LENGTH }),
+    );
+    const observation = await observePublishReleaseCliFailure(
+      sampleReleaseTestValue(arbitraryPublicationScenario()),
+      new ReleasePublicationError(escapingCase.input),
+    );
+    expect(observation.stdout).toHaveLength(0);
+    expect(observation.stderr).toBe(
+      `${RELEASE_CLI_OUTPUT.ERROR_PREFIX}${RELEASE_CLI_OUTPUT.LABEL_SEPARATOR}${escapingCase.escaped}${RELEASE_CLI_OUTPUT.LINE_SEPARATOR}`,
+    );
+    expect(observation.exitCodes).toEqual([1]);
   });
 
   it("creates an absent hosted release for an existing package", async () => {

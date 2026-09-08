@@ -10,5 +10,5 @@ CAN reach users as a released version carrying accurate, current release informa
 
 - ALWAYS: a release derives its contents from the product's git history — commits, tags, and version — so a release describes the product without depending on any domain ([audit])
 - ALWAYS: release notes, documentation updates, and publication operate from one shared release-data description, so they agree on what the release contains ([audit])
-- ALWAYS: release CLI output escapes control bytes in every externally-originated value it reports — the changelog path, the updated documentation paths, and the release tag — while preserving product-authored labels and line structure ([test](tests/release-cli.compliance.l1.test.ts))
+- ALWAYS: release CLI output escapes control bytes in every externally-originated value it reports — the changelog path, the updated documentation paths, the release tag, and a failed command's error message, which it reports unabridged at any length — while preserving product-authored labels and line structure ([test](tests/release-cli.compliance.l1.test.ts))
 - NEVER: gate a release on an in-tree domain — running validation, testing, or agentic verification before a release is the product exercising its own commands, not a release dependency ([audit])
