@@ -41,6 +41,36 @@ describe("worktree status non-worktree path compliance", () => {
     });
   });
 
+  it("NEVER reports an unresolved sibling of a resolved target as a free worktree", async () => {
+    const [worktreeName, absentName] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
+    const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
+
+    await withWorktreePool({ worktreeName, holder }, async (env) => {
+      // Shell expansion supplies both a real pool worktree and a sibling path that was
+      // never provisioned, so the report is produced rather than refused and the
+      // unresolved path has to be excluded from it.
+      const nonWorktreePath = join(env.container, absentName);
+
+      const status = await statusCommand({
+        cwd: env.worktreePath,
+        fs: env.fs,
+        gitDeps: defaultGitDependencies,
+        worktrees: [env.worktreePath, nonWorktreePath],
+        worktreesDir: env.worktreesDir,
+        processTable: env.processTable,
+        pathInfo: defaultWorktreePathInfo,
+      });
+
+      expect(status.ok).toBe(true);
+      if (!status.ok) {
+        throw new Error(`expected a report, got refusal "${renderTerminalText(status.error.text)}"`);
+      }
+      const report = renderTerminalText(status.value);
+      expect(report).toContain(worktreeName);
+      expect(report).not.toContain(absentName);
+    });
+  });
+
   it("NEVER reports an existing non-directory path as a free worktree", async () => {
     const [worktreeName, fileName] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
     const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
