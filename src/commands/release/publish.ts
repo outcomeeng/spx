@@ -11,8 +11,6 @@ import {
   validatedReleaseNotesSection,
 } from "@/domains/release/release-notes";
 import { defaultGitDependencies, GIT_ROOT_COMMAND } from "@/lib/git/root";
-import { createGithubReleasePublisher } from "@/lib/release-publication/github-release-publisher";
-import { createNpmPackagePublisher } from "@/lib/release-publication/npm-package-publisher";
 
 import { type PackageIdentity, readPackageIdentity } from "./package-manifest";
 import { createReleaseNotesFilesystem } from "./release-notes-filesystem";
@@ -26,13 +24,21 @@ export interface PublishReleaseCommandOptions {
   readonly changelogPath?: string;
 }
 
+/**
+ * The package-registry and repository-host publication ports the CLI descriptor
+ * wires into the command; their production adapters live with the release-publication
+ * backend concern, so the command constructs neither.
+ */
+export interface PublishReleasePublishers {
+  readonly createPackagePublisher: (productDir: string) => PackagePublisher;
+  readonly createHostedReleasePublisher: (productDir: string) => HostedReleasePublisher;
+}
+
 export interface PublishReleaseCommandDependencies {
   readonly readPackageIdentity: (productDir: string) => Promise<PackageIdentity>;
   readonly resolveTaggedCommit: (productDir: string, tag: string) => Promise<string>;
   readonly resolveReleaseData: (productDir: string, version: string, tag: string) => Promise<ReleaseData>;
   readonly readReleaseNotes: (productDir: string, changelogPath: string) => Promise<string>;
-  readonly createPackagePublisher: (productDir: string) => PackagePublisher;
-  readonly createHostedReleasePublisher: (productDir: string) => HostedReleasePublisher;
 }
 
 const releaseNotesFilesystem = createReleaseNotesFilesystem();
@@ -60,12 +66,11 @@ export const DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES: PublishReleaseCommand
     );
     return await releaseNotesFilesystem.readArtifact(canonicalPath, canonicalPath);
   },
-  createPackagePublisher: (productDir) => createNpmPackagePublisher({ productDir }),
-  createHostedReleasePublisher: (productDir) => createGithubReleasePublisher({ productDir }),
 };
 
 export async function publishReleaseCommand(
   options: PublishReleaseCommandOptions,
+  publishers: PublishReleasePublishers,
   deps: PublishReleaseCommandDependencies = DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES,
 ): Promise<string> {
   const packageIdentity = await deps.readPackageIdentity(options.productDir);
@@ -81,8 +86,8 @@ export async function publishReleaseCommand(
     taggedCommit,
     releaseNotesSection: validatedReleaseNotesSection(changelog, packageIdentity.version),
     packageName: packageIdentity.name,
-    packagePublisher: deps.createPackagePublisher(options.productDir),
-    hostedReleasePublisher: deps.createHostedReleasePublisher(options.productDir),
+    packagePublisher: publishers.createPackagePublisher(options.productDir),
+    hostedReleasePublisher: publishers.createHostedReleasePublisher(options.productDir),
   });
   return tag;
 }

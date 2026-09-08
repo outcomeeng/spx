@@ -9,6 +9,7 @@ export {
   publishReleaseCommand,
   type PublishReleaseCommandDependencies,
   type PublishReleaseCommandOptions,
+  type PublishReleasePublishers,
 } from "./publish";
 export { releaseNotesCommand, type ReleaseNotesCommandOptions } from "./release-notes";
 export {

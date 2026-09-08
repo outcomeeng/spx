@@ -200,6 +200,16 @@ export function createPublishReleaseCommandHarness(scenario: PublicationScenario
     publishedTag = await publishReleaseCommand(
       { productDir: scenario.productDir, tag: scenario.tag },
       {
+        createPackagePublisher: (productDir) => {
+          packagePublisherProductDirs.push(productDir);
+          return packagePublisher;
+        },
+        createHostedReleasePublisher: (productDir) => {
+          hostedReleasePublisherProductDirs.push(productDir);
+          return hostedReleasePublisher;
+        },
+      },
+      {
         readPackageIdentity: (productDir) => {
           packageIdentityProductDirs.push(productDir);
           return Promise.resolve({
@@ -218,14 +228,6 @@ export function createPublishReleaseCommandHarness(scenario: PublicationScenario
         readReleaseNotes: (productDir, changelogPath) => {
           releaseNotesRequests.push({ productDir, changelogPath });
           return Promise.resolve(scenario.changelog);
-        },
-        createPackagePublisher: (productDir) => {
-          packagePublisherProductDirs.push(productDir);
-          return packagePublisher;
-        },
-        createHostedReleasePublisher: (productDir) => {
-          hostedReleasePublisherProductDirs.push(productDir);
-          return hostedReleasePublisher;
         },
       },
     );

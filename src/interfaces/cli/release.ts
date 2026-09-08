@@ -8,6 +8,7 @@ import {
   type DocumentationSyncCommandDependencies,
   type DocumentationSyncCommandOptions,
   publishReleaseCommand,
+  type PublishReleasePublishers,
   releaseNotesCommand,
 } from "@/commands/release";
 import {
@@ -24,6 +25,8 @@ import {
   formatReleaseNotesOutput,
   formatReleasePublicationOutput,
 } from "@/interfaces/cli/release-output";
+import { createGithubReleasePublisher } from "@/lib/release-publication/github-release-publisher";
+import { createNpmPackagePublisher } from "@/lib/release-publication/npm-package-publisher";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 
 const RELEASE_TAG_FLAG = "--tag";
@@ -63,6 +66,7 @@ export interface ReleaseCliDependencies {
   ) => DocumentationFaithfulnessAuditor;
   readonly documentationSyncCommandDependencies: DocumentationSyncCommandDependencies;
   readonly publishReleaseCommand: typeof publishReleaseCommand;
+  readonly publishReleasePublishers: PublishReleasePublishers;
 }
 
 const DEFAULT_RELEASE_CLI_DEPENDENCIES: ReleaseCliDependencies = {
@@ -71,6 +75,10 @@ const DEFAULT_RELEASE_CLI_DEPENDENCIES: ReleaseCliDependencies = {
     createDocumentationFaithfulnessAuditor(new ClaudeAgentRunner(), productDir),
   documentationSyncCommandDependencies: DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
   publishReleaseCommand,
+  publishReleasePublishers: {
+    createPackagePublisher: (productDir) => createNpmPackagePublisher({ productDir }),
+    createHostedReleasePublisher: (productDir) => createGithubReleasePublisher({ productDir }),
+  },
 };
 
 export function createReleaseDomain(
@@ -140,11 +148,14 @@ export function createReleaseDomain(
         .option(RELEASE_CLI.CHANGELOG_PATH_OPTION, "Changelog path within the product working tree")
         .action(async (options: { tag: string; changelogPath?: string }) => {
           try {
-            const tag = await deps.publishReleaseCommand({
-              productDir: invocation.resolveProductContext().productDir,
-              tag: options.tag,
-              changelogPath: options.changelogPath,
-            });
+            const tag = await deps.publishReleaseCommand(
+              {
+                productDir: invocation.resolveProductContext().productDir,
+                tag: options.tag,
+                changelogPath: options.changelogPath,
+              },
+              deps.publishReleasePublishers,
+            );
             invocation.io.writeStdout(formatReleasePublicationOutput(tag));
           } catch (error) {
             invocation.io.writeStderr(`Error: ${sanitizeCliArgument(errorMessage(error))}\n`);
