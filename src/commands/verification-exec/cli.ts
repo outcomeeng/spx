@@ -3,7 +3,7 @@
  *
  * The handler composes the spx-driven executor: it resolves the verb's positional operands to test
  * files through the shared operand-selection library, records one `file`-scoped run whose selector is the
- * narrowest directory enclosing every operand with the executor's request as the recorded run
+ * narrowest directory enclosing every operand with its own input document as the recorded run
  * input, drives the type's streaming runner through the verification-type registry over production
  * recorder operations rooted at the worktree product root, and returns the run locator, the terminal
  * status, and the runner outcome as one structured result. The product root is the local worktree
@@ -52,7 +52,7 @@ export const EXECUTE_RUN_CLI_WARNING_TEXT = {
   NOT_GIT_REPOSITORY: authoredText(EXECUTE_RUN_CLI_WARNING.NOT_GIT_REPOSITORY),
 } as const;
 
-/** The input source recorded at start for an spx-driven run: the run input is the executor's request, not a caller source. */
+/** The input source recorded at start for an spx-driven run: the run input is the handler's own document, not a caller source. */
 export const EXECUTE_RUN_INPUT_SOURCE = "spx-driven";
 
 const OPERAND_SEPARATOR = ", ";
@@ -100,7 +100,7 @@ export interface ExecuteRunCliDeps {
   readonly recorder: ExecuteRunRecorderDeps;
 }
 
-/** The run input recorded at start: the executor's request, replayable through `spx verification run input`. */
+/** The run input recorded at start: the invocation as issued and the test paths it selected, replayable through `spx verification run input`. */
 export interface ExecuteRunInputDocument {
   readonly verificationType: string;
   readonly operands: readonly string[];
