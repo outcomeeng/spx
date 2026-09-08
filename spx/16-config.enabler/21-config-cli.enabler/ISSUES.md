@@ -4,6 +4,8 @@
 
 This node's terminal output path passes values that originated outside the product's own source straight to the process streams. [`spx/13-cli.enabler/15-cli-architecture.adr.md`](../../13-cli.enabler/15-cli-architecture.adr.md) makes escaping a property of the composed value: an externally-originated segment is escaped where it is embedded, through the `src/lib/terminal-text/` primitive, while product-authored segments keep their bytes so styling and line structure survive. This node predates that invariant and has not migrated to it.
 
+**Migrated:** the non-git-worktree fallback warning is composed where the product directory is resolved, in `src/domains/config/root.ts`, escaping the effective invocation directory, and the program-level warning write embeds it as composed text.
+
 **Unescaped sites:**
 
 - `src/interfaces/cli/config.ts` — `emit()` writes `result.stdout` and `result.stderr` — resolved config file content, and config-validation diagnostics quoting config field values and paths
