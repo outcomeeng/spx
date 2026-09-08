@@ -3,7 +3,27 @@ import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
 import { SPX_GLOBAL_OPTIONS } from "@/interfaces/cli/product-context";
 import { ESCAPE_CONTROL_CHAR_CODE, MAX_CLI_ARGUMENT_DISPLAY_LENGTH } from "@/lib/sanitize-cli-argument";
 import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
-import { REJECTING_PARSER_CLI } from "@testing/harnesses/cli/diagnostics";
+import { DECLARED_TEXT_CLI, REJECTING_PARSER_CLI } from "@testing/harnesses/cli/diagnostics";
+
+/**
+ * One diagnostic path the program leaves to Commander, with argv that reaches it while carrying
+ * the unsafe value wherever the path admits caller bytes.
+ */
+export interface DeclaredTextDiagnostic {
+  /** The Commander error code the path raises, so a run proves it took this path and no other. */
+  readonly code: string;
+  readonly argv: readonly string[];
+}
+
+/** Commander's own error codes for the diagnostics it composes from declarations alone. */
+const COMMANDER_DECLARED_TEXT_CODE = {
+  MISSING_ARGUMENT: "commander.missingArgument",
+  OPTION_MISSING_ARGUMENT: "commander.optionMissingArgument",
+  MISSING_MANDATORY_OPTION_VALUE: "commander.missingMandatoryOptionValue",
+  CONFLICTING_OPTION: "commander.conflictingOption",
+  EXCESS_ARGUMENTS: "commander.excessArguments",
+  HELP: "commander.help",
+} as const;
 
 /**
  * A single Commander-diagnostic scenario: user-supplied argv carrying an ANSI
@@ -66,6 +86,12 @@ export interface CommanderDiagnosticScenario {
    * copy the parser embeds is not the raw value while its control bytes are.
    */
   readonly reformattingParserArgv: readonly string[];
+  /**
+   * Argv reaching each diagnostic Commander raises besides the three hooks the program overrides.
+   * None of these paths receives the caller's token, so the bytes beside them in argv must never
+   * reach the diagnostic.
+   */
+  readonly declaredTextDiagnostics: readonly DeclaredTextDiagnostic[];
   /** An unknown command one character short of a registered subcommand, answered the same way. */
   readonly nearMatchCommandArgv: readonly string[];
   /** The registered command name Commander suggests for `nearMatchCommandArgv`. */
@@ -116,6 +142,38 @@ export function commanderDiagnosticScenario(): CommanderDiagnosticScenario {
     reformattingParserArgv: [REJECTING_PARSER_CLI.COMMAND, REJECTING_PARSER_CLI.REFORMATTING_FLAG, unsafeValue],
     nearMatchOption: oneEditFrom(SPX_GLOBAL_OPTIONS.directory.long),
     nearMatchOptionSuggestion: SPX_GLOBAL_OPTIONS.directory.long,
+    declaredTextDiagnostics: [
+      {
+        code: COMMANDER_DECLARED_TEXT_CODE.MISSING_ARGUMENT,
+        argv: [DECLARED_TEXT_CLI.COMMAND, DECLARED_TEXT_CLI.MANDATORY_FLAG, unsafeValue],
+      },
+      {
+        code: COMMANDER_DECLARED_TEXT_CODE.OPTION_MISSING_ARGUMENT,
+        argv: [DECLARED_TEXT_CLI.COMMAND, unsafeValue, DECLARED_TEXT_CLI.MANDATORY_FLAG],
+      },
+      {
+        code: COMMANDER_DECLARED_TEXT_CODE.MISSING_MANDATORY_OPTION_VALUE,
+        argv: [DECLARED_TEXT_CLI.COMMAND, unsafeValue],
+      },
+      {
+        code: COMMANDER_DECLARED_TEXT_CODE.EXCESS_ARGUMENTS,
+        argv: [DECLARED_TEXT_CLI.COMMAND, DECLARED_TEXT_CLI.MANDATORY_FLAG, unsafeValue, unsafeValue, unsafeValue],
+      },
+      {
+        code: COMMANDER_DECLARED_TEXT_CODE.CONFLICTING_OPTION,
+        argv: [
+          DECLARED_TEXT_CLI.CONFLICT_COMMAND,
+          DECLARED_TEXT_CLI.LEFT_FLAG,
+          unsafeValue,
+          DECLARED_TEXT_CLI.RIGHT_FLAG,
+          unsafeValue,
+        ],
+      },
+      {
+        code: COMMANDER_DECLARED_TEXT_CODE.HELP,
+        argv: [DECLARED_TEXT_CLI.HELP_COMMAND, unsafeValue],
+      },
+    ],
     nearMatchCommandArgv: [oneEditFrom(CONFIG_CLI.commandName)],
     nearMatchCommandSuggestion: CONFIG_CLI.commandName,
     escapedLineFeed: ESCAPED_LINE_FEED,

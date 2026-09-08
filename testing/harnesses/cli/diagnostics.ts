@@ -1,4 +1,4 @@
-import { type Command, CommanderError, InvalidArgumentError } from "commander";
+import { type Command, CommanderError, InvalidArgumentError, Option } from "commander";
 
 import type { Domain } from "@/interfaces/cli/domain";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
@@ -52,9 +52,57 @@ function rejectingParserDomain(): Domain {
   };
 }
 
+/**
+ * The commands, argument, and flags of the harness domain whose diagnostics Commander composes
+ * from declarations alone. Its paths are the ones Commander raises besides the three the program
+ * overrides: a missing required argument, an option missing its argument, a mandatory option left
+ * unspecified, two conflicting options, excess arguments, and help requested for an unknown
+ * command.
+ */
+export const DECLARED_TEXT_CLI = {
+  COMMAND: "declared",
+  CONFLICT_COMMAND: "conflict",
+  REQUIRED_ARGUMENT: "<required>",
+  MANDATORY_FLAG: "--must",
+  LEFT_FLAG: "--left",
+  RIGHT_FLAG: "--right",
+  HELP_COMMAND: "help",
+} as const;
+
+/**
+ * A domain reaching every diagnostic Commander raises without handing the program the caller's
+ * token. The caller's bytes sit in argv beside the path each diagnostic takes, so a diagnostic
+ * that embedded anything beyond the names, flags, and counts the product declared would carry
+ * them to stderr. Excess arguments are refused explicitly because Commander admits them by
+ * default, which would leave that path unreachable.
+ */
+function declaredTextDomain(): Domain {
+  return {
+    name: DECLARED_TEXT_CLI.COMMAND,
+    description: "Raises Commander's declaration-only diagnostics",
+    register: (program) => {
+      program
+        .command(DECLARED_TEXT_CLI.COMMAND)
+        .argument(DECLARED_TEXT_CLI.REQUIRED_ARGUMENT, "An operand the command requires")
+        .requiredOption(`${DECLARED_TEXT_CLI.MANDATORY_FLAG} <value>`, "An option the command requires")
+        .allowExcessArguments(false)
+        .action(() => undefined);
+      program
+        .command(DECLARED_TEXT_CLI.CONFLICT_COMMAND)
+        .addOption(
+          new Option(`${DECLARED_TEXT_CLI.LEFT_FLAG} <value>`, "An option its sibling excludes").conflicts("right"),
+        )
+        .option(`${DECLARED_TEXT_CLI.RIGHT_FLAG} <value>`, "The sibling the first option excludes")
+        .action(() => undefined);
+    },
+  };
+}
+
 export interface CliDiagnosticOptions {
   /** Register the harness domain whose option parser repeats the rejected value in its own message. */
   readonly registerRejectingParser?: boolean;
+  /** Register the harness domain whose diagnostics Commander composes from declarations alone. */
+  readonly registerDeclaredTextDomain?: boolean;
   /**
    * Register the production domain registry so Commander builds every subcommand
    * through the program's own `createCommand`. Left off, the program carries no
@@ -88,6 +136,7 @@ function createCapturingProgram(stderr: string[], options: CliDiagnosticOptions)
     domains: [
       ...(options.registerProductionDomains === true ? CLI_DOMAINS : []),
       ...(options.registerRejectingParser === true ? [rejectingParserDomain()] : []),
+      ...(options.registerDeclaredTextDomain === true ? [declaredTextDomain()] : []),
     ],
     writeStderr: (output) => stderr.push(output),
   });
