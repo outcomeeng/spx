@@ -42,7 +42,9 @@ Governance surfaces the reviewer judges against, so a base delta touching one re
 
 ## Merge command
 
-Default: `gh pr merge <pr-number> --merge --delete-branch=false`, followed by the worktree-safe cleanup sequence in `merge-cleanup.md`. Stacked pull requests merge in dependency order.
+Default: `gh pr merge <pr-number> --merge --delete-branch=false`, followed by the worktree-safe cleanup sequence in `merge-cleanup.md`, which detaches the assigned worktree onto the refreshed `main` tip and then deletes the merged branch on origin and locally. Stacked pull requests merge in dependency order.
+
+Rationale: a merge commit keeps every branch commit reachable, so the merged tip is a true ancestor of `main` and branch deletion needs only the ancestry proof. Rebase and squash rewrite commit identities and reach deletion only through the patch-equivalence fallback, so neither is opted in. `main` carries no branch protection that would require a linear history. The PR branch itself is still rebased onto `origin/main` before every push through `/sync-base` and published with `--force-with-lease`; the merge flag decides only how the reviewed head joins `main`.
 
 ## Preview
 
