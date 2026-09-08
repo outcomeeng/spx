@@ -74,6 +74,7 @@ export const COMPACT_RECOVERY_FIXTURE_VARIANT = {
   RESOURCE_INVALID_UTF8: "resource-invalid-utf8",
   PROVIDER_MISMATCH: "provider-mismatch",
   MIGRATION_UNSUPPORTED: "migration-unsupported",
+  MIGRATION_UNVERIFIABLE: "migration-unverifiable",
 } as const;
 
 export type CompactRecoveryFixtureVariant =
@@ -131,7 +132,10 @@ function methodologyFor(
   if (variant === COMPACT_RECOVERY_FIXTURE_VARIANT.UNDECLARED_VERSION) {
     return { source: DEFAULT_METHODOLOGY_SOURCE };
   }
-  if (variant === COMPACT_RECOVERY_FIXTURE_VARIANT.MIGRATION_UNSUPPORTED) {
+  if (
+    variant === COMPACT_RECOVERY_FIXTURE_VARIANT.MIGRATION_UNSUPPORTED
+    || variant === COMPACT_RECOVERY_FIXTURE_VARIANT.MIGRATION_UNVERIFIABLE
+  ) {
     return { source: DEFAULT_METHODOLOGY_SOURCE, version, migratingFrom };
   }
   return { source: DEFAULT_METHODOLOGY_SOURCE, version };
@@ -215,6 +219,17 @@ export async function withCompactRecoveryTree(
         await writeFile(
           join(treeRoot, line.value, SOURCE_RECORD_RELATIVE_PATH),
           JSON.stringify(generatedSourceRecordProviding(version.text, supportsRange)),
+          "utf8",
+        );
+        break;
+      }
+      case COMPACT_RECOVERY_FIXTURE_VARIANT.MIGRATION_UNVERIFIABLE: {
+        await writeTreeFile(treeDir, FOUNDATION_MANIFEST_RELATIVE_PATH, manifestJson(COMPACT_RECOVERY_PATH));
+        await writeTreeFile(treeDir, CORE_PATH, options.directiveText);
+        await writeTreeFile(treeDir, COMPACT_RECOVERY_PATH, options.directiveText);
+        await writeFile(
+          join(treeRoot, line.value, SOURCE_RECORD_RELATIVE_PATH),
+          JSON.stringify(generatedSourceRecordProviding(version.text)),
           "utf8",
         );
         break;
