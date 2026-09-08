@@ -68,7 +68,7 @@ export const DIAGNOSE_TEXT_LABEL = {
   INSTALLED: "Installed",
   CONFIGURED_SOURCE: "Configured source",
   CONFIGURED_VERSION: "Configured version",
-  OBSERVED_VERSION: "Observed version",
+  SHIPPED_CODING_AGENTS: "Shipped coding agents",
   PATH: "Path",
   PROBLEM: "Problem",
   REQUIRED_VERSION: "Required version",
@@ -88,11 +88,11 @@ export const DIAGNOSE_TEXT_HEADER = {
   MARKETPLACE_DRIFT: "plugin installation drift",
   MARKETPLACE_UNREGISTERED: "plugin marketplace unregistered",
   MARKETPLACE_UNKNOWN: "plugin marketplace state unknown",
-  METHODOLOGY_BOOTSTRAP_IDENTITY: "methodology identity undeclared",
+  METHODOLOGY_UNDECLARED: "methodology version undeclared",
   METHODOLOGY_RESOLVED: "methodology context resolved",
   METHODOLOGY_UNAVAILABLE: "methodology context unavailable",
+  METHODOLOGY_MISMATCHED: "methodology declaration mismatched",
   METHODOLOGY_UNKNOWN: "methodology context unknown",
-  METHODOLOGY_VERSION_MISMATCH: "methodology version mismatch",
   RENDERING_UNAVAILABLE: "diagnosis detail unavailable",
   SESSION_START_NO_OP: "SessionStart hook did not establish a session",
   SESSION_STORE_CLEAN: "session store readable",
@@ -115,13 +115,13 @@ export const DIAGNOSE_TEXT_DETAIL = {
   MARKETPLACE_CLI_UNAVAILABLE_PROBLEM:
     "A marketplace check is configured, but no plugin CLI is available to inspect it.",
   MARKETPLACE_CONFIGURED: "Configured plugins are installed and enabled.",
-  METHODOLOGY_BOOTSTRAP_IDENTITY_PROBLEM:
-    "this product carries a tracked spec tree but declares the bootstrap methodology sentinel, so its methodology identity is not durable.",
-  METHODOLOGY_BOOTSTRAP_IDENTITY_FIX: "declare an exact top-level methodology.version in spx.config.",
-  METHODOLOGY_RESOLVED: "Configured methodology context is visible to the local agent runtime.",
-  METHODOLOGY_UNAVAILABLE_FIX: "Install the configured methodology source or adjust top-level methodology config.",
-  METHODOLOGY_VERSION_MISMATCH_FIX:
-    "Install the configured methodology version or change top-level methodology.version.",
+  METHODOLOGY_UNDECLARED_PROBLEM: "this product declares no methodology version, so it has no methodology identity.",
+  METHODOLOGY_UNDECLARED_FIX: "declare a top-level methodology.version in spx.config.",
+  METHODOLOGY_RESOLVED: "The declared methodology version resolves to the methodology trees spx ships.",
+  METHODOLOGY_UNAVAILABLE_FIX:
+    "Declare a methodology version whose line spx ships for every enabled coding agent, or update spx.",
+  METHODOLOGY_MISMATCHED_FIX:
+    "Align methodology.version and methodology.migratingFrom with the provider declaration the shipped tree records.",
   MARKETPLACE_SKIPPED: "Plugin marketplace checks are not configured.",
   RENDERING_UNAVAILABLE: "This check produced a record this version cannot translate into diagnosis text.",
   SESSION_STORE_INFORMATIONAL: "This count is informational and requires no session action.",
@@ -169,7 +169,8 @@ export function renderReportJson(report: DiagnoseReport): TerminalText {
 function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
   const configuredSource = reading(check, "configuredSource");
   const configuredVersion = reading(check, "configuredVersion");
-  const observedVersion = reading(check, "observedVersion");
+  const shippedCodingAgents = reading(check, "shippedCodingAgents");
+  const providerMatch = reading(check, "providerMatch");
   switch (check.verdict as MethodologyContextVerdict) {
     case METHODOLOGY_CONTEXT_VERDICT.RESOLVED:
       return {
@@ -177,35 +178,20 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
         details: [
           authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_RESOLVED),
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE), configuredSource),
-          detail(authoredText(DIAGNOSE_TEXT_LABEL.OBSERVED_VERSION), observedVersion),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION), configuredVersion),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.SHIPPED_CODING_AGENTS), shippedCodingAgents),
         ],
       };
-    case METHODOLOGY_CONTEXT_VERDICT.BOOTSTRAP_IDENTITY:
+    case METHODOLOGY_CONTEXT_VERDICT.UNDECLARED:
       return {
-        header: authoredText(DIAGNOSE_TEXT_HEADER.METHODOLOGY_BOOTSTRAP_IDENTITY),
+        header: authoredText(DIAGNOSE_TEXT_HEADER.METHODOLOGY_UNDECLARED),
         details: [
           detail(
             authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM),
-            authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_BOOTSTRAP_IDENTITY_PROBLEM),
+            authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_UNDECLARED_PROBLEM),
           ),
-          detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION), configuredVersion),
-          detail(authoredText(DIAGNOSE_TEXT_LABEL.OBSERVED_VERSION), observedVersion),
-          detail(
-            authoredText(DIAGNOSE_TEXT_LABEL.FIX),
-            authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_BOOTSTRAP_IDENTITY_FIX),
-          ),
-        ],
-      };
-    case METHODOLOGY_CONTEXT_VERDICT.VERSION_MISMATCH:
-      return {
-        header: authoredText(DIAGNOSE_TEXT_HEADER.METHODOLOGY_VERSION_MISMATCH),
-        details: [
-          detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION), configuredVersion),
-          detail(authoredText(DIAGNOSE_TEXT_LABEL.OBSERVED_VERSION), observedVersion),
-          detail(
-            authoredText(DIAGNOSE_TEXT_LABEL.FIX),
-            authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_VERSION_MISMATCH_FIX),
-          ),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE), configuredSource),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_UNDECLARED_FIX)),
         ],
       };
     case METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE:
@@ -215,6 +201,16 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE), configuredSource),
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION), configuredVersion),
           detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_UNAVAILABLE_FIX)),
+        ],
+      };
+    case METHODOLOGY_CONTEXT_VERDICT.MISMATCHED:
+      return {
+        header: authoredText(DIAGNOSE_TEXT_HEADER.METHODOLOGY_MISMATCHED),
+        details: [
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM), providerMatch),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE), configuredSource),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION), configuredVersion),
+          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_MISMATCHED_FIX)),
         ],
       };
     case METHODOLOGY_CONTEXT_VERDICT.UNKNOWN:

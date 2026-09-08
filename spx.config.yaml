@@ -1,11 +1,9 @@
 methodology:
-  source: outcomeeng/spec-tree
-  version: 0.85.0
+  source: outcomeeng/methodology
+  version: 4.0.0
+  migratingFrom: 3.2.0
 
 validation:
-  paths:
-    exclude:
-      - .work/
   literal:
     values:
       include:

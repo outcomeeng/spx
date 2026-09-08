@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 import { join } from "node:path";
 
-import { DEFAULT_METHODOLOGY_VERSION, METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import {
   PATH_FILTER_CONFIG_FIELDS,
   type PathFilterConfig,
@@ -27,6 +27,9 @@ import {
   unknownSpecTreeKindError,
 } from "@/lib/spec-tree";
 import { TESTING_CONFIG_FIELDS, TESTING_SECTION, type TestingConfig } from "@/test/config";
+import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
+import { arbitraryMethodologyVersion, arbitraryNonVersionText } from "@testing/generators/methodology/tree";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 
 export const CONFIG_TEST_FIELDS = {
   TOKEN: "token",
@@ -34,8 +37,10 @@ export const CONFIG_TEST_FIELDS = {
 } as const;
 
 const ENVIRONMENT_SENTINEL_PREFIX = "SPX_TEST_SENTINEL_";
-const INVALID_METHODOLOGY_SOURCES = ["", "../outside", "/outside", "owner/../repo", "owner/repo/extra"] as const;
-const INVALID_METHODOLOGY_VERSIONS = ["", false] as const;
+/** How many malformed values each field draws when the rejection cases are generated. */
+const MALFORMED_METHODOLOGY_SAMPLES = 4;
+/** The field a location-bearing methodology section would carry; the descriptor declares no such field. */
+export const METHODOLOGY_LOCATION_FIELD = "location";
 const SIMILAR_HARNESS_METHODOLOGY_FIELD = "methodologySource";
 const STRAY_HARNESS_FIELD = "strayHarnessField";
 
@@ -197,7 +202,29 @@ export function sampleConfigTestValues<T>(arbitrary: fc.Arbitrary<T>, numRuns: n
 export function generatedMethodologySection(): Record<string, unknown> {
   return {
     [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
-    [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+    [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleGeneratedValue(arbitraryMethodologyVersion()).text,
+  };
+}
+
+/** A methodology section with an open migration window: two distinct exact versions. */
+export function generatedMigratingMethodologySection(): Record<string, unknown> {
+  const [target, source] = sampleGeneratedValue(
+    fc.tuple(arbitraryMethodologyVersion(), arbitraryMethodologyVersion()).filter(([left, right]) =>
+      left.text !== right.text
+    ),
+  );
+  return {
+    [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
+    [METHODOLOGY_CONFIG_FIELDS.VERSION]: target.text,
+    [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: source.text,
+  };
+}
+
+/** A methodology section whose version is not an exact version, the shape the descriptor rejects. */
+export function generatedNonExactMethodologySection(): Record<string, unknown> {
+  return {
+    [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
+    [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleGeneratedValue(arbitraryMethodologyVersion()).line,
   };
 }
 
@@ -208,19 +235,49 @@ export function generatedMethodologySource(): string {
   ].join("/");
 }
 
-/** Draws from the config-key domain minus the bootstrap sentinel, which that domain can otherwise emit. */
-export function generatedExactMethodologySection(): Record<string, unknown> {
+/** A methodology section whose migration source is a bare line rather than an exact version. */
+export function generatedNonExactMigrationSourceSection(): Record<string, unknown> {
   return {
     [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
-    [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleConfigTestValue(
-      CONFIG_TEST_GENERATOR.key().filter((version) => version !== DEFAULT_METHODOLOGY_VERSION),
-    ),
+    [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleGeneratedValue(arbitraryMethodologyVersion()).text,
+    [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: sampleGeneratedValue(arbitraryMethodologyVersion()).line,
   };
 }
 
+/** A methodology section carrying a location field beside a valid declaration; the descriptor knows no such field. */
+export function generatedMethodologyLocationSection(): Record<string, unknown> {
+  return {
+    ...generatedMethodologySection(),
+    [METHODOLOGY_LOCATION_FIELD]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+  };
+}
+
+/**
+ * Text that is not an `owner/repository` identifier: empty, a single segment,
+ * a traversal or absolute path, or more than two segments.
+ */
+export function arbitraryMalformedMethodologySource(): fc.Arbitrary<string> {
+  const segment = arbitraryPathSegment();
+  return fc.oneof(
+    fc.constant(""),
+    segment,
+    segment.map((name) => `../${name}`),
+    segment.map((name) => `/${name}`),
+    fc.tuple(segment, segment).map(([owner, repository]) => `${owner}/../${repository}`),
+    fc.tuple(segment, segment, segment).map((parts) => parts.join("/")),
+  );
+}
+
+/** A value that is not an exact methodology version: empty, a non-string, or version-shaped text that is not exact. */
+export function arbitraryMalformedMethodologyVersion(): fc.Arbitrary<unknown> {
+  return fc.oneof(fc.constant(""), fc.boolean(), fc.nat(), arbitraryNonVersionText());
+}
+
 export function generatedInvalidMethodologyConfigs(): readonly GeneratedInvalidMethodologyConfig[] {
+  const sources = sampleConfigTestValues(arbitraryMalformedMethodologySource(), MALFORMED_METHODOLOGY_SAMPLES);
+  const versions = sampleConfigTestValues(arbitraryMalformedMethodologyVersion(), MALFORMED_METHODOLOGY_SAMPLES);
   return [
-    ...INVALID_METHODOLOGY_SOURCES.map((source) => ({
+    ...sources.map((source) => ({
       config: {
         [METHODOLOGY_SECTION]: {
           [METHODOLOGY_CONFIG_FIELDS.SOURCE]: source,
@@ -228,7 +285,7 @@ export function generatedInvalidMethodologyConfigs(): readonly GeneratedInvalidM
       },
       field: `${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.SOURCE}`,
     })),
-    ...INVALID_METHODOLOGY_VERSIONS.map((version) => ({
+    ...versions.map((version) => ({
       config: {
         [METHODOLOGY_SECTION]: {
           [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
@@ -236,6 +293,16 @@ export function generatedInvalidMethodologyConfigs(): readonly GeneratedInvalidM
         },
       },
       field: `${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.VERSION}`,
+    })),
+    ...versions.map((migratingFrom) => ({
+      config: {
+        [METHODOLOGY_SECTION]: {
+          [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
+          [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleGeneratedValue(arbitraryMethodologyVersion()).text,
+          [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: migratingFrom,
+        },
+      },
+      field: `${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM}`,
     })),
   ];
 }
@@ -283,7 +350,12 @@ function arbitraryConfigShape(): fc.Arbitrary<Config> {
 
 function arbitraryProductionSubsetConfig(): fc.Arbitrary<GeneratedProductionSubsetConfig> {
   return fc
-    .tuple(arbitrarySpecTreeSubsetConfig(), arbitraryConfigKey(), arbitraryConfigKey(), arbitraryConfigKey())
+    .tuple(
+      arbitrarySpecTreeSubsetConfig(),
+      arbitraryConfigKey(),
+      arbitraryConfigKey(),
+      arbitraryMethodologyVersion().map((version) => version.text),
+    )
     .map(([specTree, owner, repository, version]) => ({
       config: {
         ...specTree,

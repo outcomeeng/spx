@@ -6,7 +6,6 @@
 # Agent runtime config
 .codex/*
 !.codex/config.toml
-!.codex/skills/*
 
 # Pi project plugin runtime
 .pi/*

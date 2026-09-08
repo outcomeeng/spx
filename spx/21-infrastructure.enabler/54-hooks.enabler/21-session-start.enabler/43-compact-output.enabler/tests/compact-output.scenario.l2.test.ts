@@ -7,16 +7,17 @@ import { METHODOLOGY_SECTION } from "@/config/methodology";
 import { HOOK_SESSION_START_ENV, HOOK_SESSION_START_SOURCE } from "@/domains/hooks/session-start";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { HOOK_CONFIG_ERROR_PREFIX } from "@/interfaces/hooks/cli-runner";
-import { arbitraryCompactDirectiveText } from "@testing/generators/hooks/session-start";
-import { sampleGeneratedValue } from "@testing/generators/sample";
+import { FOUNDATION_MANIFEST_FIELDS, METHODOLOGY_CODING_AGENT, METHODOLOGY_CODING_AGENTS } from "@/lib/methodology";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import {
   runCompactSessionStartCli,
+  shippedCompactRecoveryText,
+  shippedMethodologyVersion,
+  shippedTreeRelativeDir,
   withCompactSessionStartCliEnv,
   writeCodexCompactStdoutConfig,
   writeMalformedMethodologyConfig,
   writeMethodologyOnlyConfig,
-  writeResolvedCompactRecoveryPackage,
 } from "@testing/harnesses/hooks/compact-recovery";
 
 describe("hook CLI compact stdout boundary", () => {
@@ -53,12 +54,10 @@ describe("hook CLI compact stdout boundary", () => {
     });
   });
 
-  it("emits compact stdout for Claude Code compact source under the default agent policy", async () => {
-    const directiveText = sampleGeneratedValue(arbitraryCompactDirectiveText());
-
+  it("resolves the Claude Code compact directive against spx's shipped tree for the product's declared version", async () => {
     await withCompactSessionStartCliEnv(async (env) => {
-      const methodologyPackage = await writeResolvedCompactRecoveryPackage(env.worktreePath, directiveText);
-      await writeMethodologyOnlyConfig(env.worktreePath, methodologyPackage.packageDir);
+      const version = await shippedMethodologyVersion();
+      await writeMethodologyOnlyConfig(env.worktreePath, version.text);
       const result = await runCompactSessionStartCli(env, HOOK_SESSION_START_SOURCE.COMPACT, {
         env: {
           [CONTROLLING_PID_ENV]: String(process.pid),
@@ -68,7 +67,44 @@ describe("hook CLI compact stdout boundary", () => {
       });
 
       expect(result.exitCode, result.stderr).toBe(0);
-      expect(result.stdout).toBe(directiveText);
+      // The outcome follows the shipped manifest: the resource's exact bytes
+      // when it names a compact-recovery entry, otherwise silence with the
+      // absent entry and the resolved tree named on stderr.
+      const directive = await shippedCompactRecoveryText(version.line, METHODOLOGY_CODING_AGENT.CLAUDE);
+      if (directive === undefined) {
+        expect(result.stdout).toHaveLength(0);
+        expect(result.stderr).toContain(FOUNDATION_MANIFEST_FIELDS.COMPACT_RECOVERY);
+        expect(result.stderr).toContain(shippedTreeRelativeDir(version.line, METHODOLOGY_CODING_AGENT.CLAUDE));
+      } else {
+        expect(result.stdout).toBe(directive);
+      }
+    });
+  });
+
+  it("names every coding agent the declared line ships when no marker identifies the invoking one", async () => {
+    await withCompactSessionStartCliEnv(async (env) => {
+      const version = await shippedMethodologyVersion();
+      // Compact stdout is enabled so the invocation reaches tree selection; the
+      // policy that enables it is the Codex default an unmarked invocation
+      // takes, which is exactly what must not decide the tree.
+      await writeCodexCompactStdoutConfig(env.worktreePath, true, version.text);
+      const result = await runCompactSessionStartCli(env, HOOK_SESSION_START_SOURCE.COMPACT, {
+        env: {
+          [CONTROLLING_PID_ENV]: String(process.pid),
+          [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: "",
+          [HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]: "",
+          [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: "",
+        },
+      });
+
+      // No marker identifies an agent, so tree selection reaches the shipped
+      // layout's own resolution rather than the compact-policy default: the
+      // line ships more than one agent, so it names them instead of choosing.
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(result.stdout).toHaveLength(0);
+      for (const codingAgent of METHODOLOGY_CODING_AGENTS) {
+        expect(result.stderr, codingAgent).toContain(codingAgent);
+      }
     });
   });
 
@@ -124,16 +160,15 @@ describe("hook CLI compact stdout boundary", () => {
     });
   });
 
-  it("loads compact stdout policy from the product root for a nested hook invocation", async () => {
+  it("loads compact stdout policy and the methodology declaration from the product root for a nested hook invocation", async () => {
     const nestedDirectoryName = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolWorktreeName());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
-    const directiveText = sampleGeneratedValue(arbitraryCompactDirectiveText());
 
     await withCompactSessionStartCliEnv(async (env) => {
       const nestedInvocationDir = join(env.worktreePath, nestedDirectoryName);
       await mkdir(nestedInvocationDir);
-      const methodologyPackage = await writeResolvedCompactRecoveryPackage(env.worktreePath, directiveText);
-      await writeCodexCompactStdoutConfig(env.worktreePath, true, methodologyPackage.packageDir);
+      const version = await shippedMethodologyVersion();
+      await writeCodexCompactStdoutConfig(env.worktreePath, true, version.text);
 
       const result = await runCompactSessionStartCli(env, HOOK_SESSION_START_SOURCE.COMPACT, {
         env: {
@@ -144,21 +179,26 @@ describe("hook CLI compact stdout boundary", () => {
       });
 
       expect(result.exitCode, result.stderr).toBe(0);
-      expect(result.stdout).toBe(directiveText);
+      const directive = await shippedCompactRecoveryText(version.line, METHODOLOGY_CODING_AGENT.CODEX);
+      if (directive === undefined) {
+        expect(result.stdout).toHaveLength(0);
+        expect(result.stderr).toContain(shippedTreeRelativeDir(version.line, METHODOLOGY_CODING_AGENT.CODEX));
+      } else {
+        expect(result.stdout).toBe(directive);
+      }
     });
   });
 
-  it("loads compact stdout policy from the payload product root for an external hook invocation", async () => {
+  it("loads compact stdout policy and the methodology declaration from the payload product root for an external hook invocation", async () => {
     // The distinct pair keeps the outside directory from colliding with the deterministically sampled worktree name.
     const [, outsideDirectoryName] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
     const sessionId = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.sessionId());
-    const directiveText = sampleGeneratedValue(arbitraryCompactDirectiveText());
 
     await withCompactSessionStartCliEnv(async (env) => {
       const externalInvocationDir = join(env.worktreePath, "..", outsideDirectoryName);
       await mkdir(externalInvocationDir);
-      const methodologyPackage = await writeResolvedCompactRecoveryPackage(env.worktreePath, directiveText);
-      await writeCodexCompactStdoutConfig(env.worktreePath, true, methodologyPackage.packageDir);
+      const version = await shippedMethodologyVersion();
+      await writeCodexCompactStdoutConfig(env.worktreePath, true, version.text);
 
       const result = await runCompactSessionStartCli(env, HOOK_SESSION_START_SOURCE.COMPACT, {
         env: {
@@ -169,7 +209,14 @@ describe("hook CLI compact stdout boundary", () => {
       });
 
       expect(result.exitCode, result.stderr).toBe(0);
-      expect(result.stdout).toBe(directiveText);
+      const directive = await shippedCompactRecoveryText(version.line, METHODOLOGY_CODING_AGENT.CODEX);
+      if (directive === undefined) {
+        expect(result.stdout).toHaveLength(0);
+        expect(result.stderr).toContain(FOUNDATION_MANIFEST_FIELDS.COMPACT_RECOVERY);
+        expect(result.stderr).toContain(shippedTreeRelativeDir(version.line, METHODOLOGY_CODING_AGENT.CODEX));
+      } else {
+        expect(result.stdout).toBe(directive);
+      }
     });
   });
 });

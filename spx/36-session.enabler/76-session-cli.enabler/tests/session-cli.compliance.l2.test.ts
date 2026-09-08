@@ -88,6 +88,7 @@ const fixtureDefaultBranch = "main";
 
 function descriptorInvocation(): CliInvocation {
   return {
+    methodologyTreeRoot: undefined,
     io: {
       writeStdout: () => {},
       writeStderr: () => {},

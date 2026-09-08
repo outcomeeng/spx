@@ -9,13 +9,17 @@
  * @module commands/diagnose/probes
  */
 
-import { readdir } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname } from "node:path";
 
 import { execa } from "execa";
 
-import { DEFAULT_METHODOLOGY_VERSION, type MethodologyConfig } from "@/config/methodology";
-import { resolveAgentHomeDirs } from "@/domains/agent";
+import { resolveConfig } from "@/config/index";
+import {
+  type Agent,
+  type HarnessEnvironmentConfig,
+  harnessEnvironmentConfigDescriptor,
+  METHODOLOGY_CODING_AGENT_BY_AGENT,
+} from "@/domains/agent-environment/config";
 import type {
   MarketplaceInstallProbe,
   MarketplaceInstallProbeReading,
@@ -50,13 +54,20 @@ import {
   defaultGitDependencies,
   gatherGitFacts,
   GIT_ROOT_COMMAND,
-  type GitDependencies,
   type GitFacts,
   mainCheckoutPath,
   resolveDefaultBranch,
 } from "@/lib/git/root";
-import { listTrackedPaths, TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
-import { compareNumericVersionIdentifiers, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import {
+  checkProviderMatch,
+  compareCodeUnitOrder,
+  defaultMethodologyTreeFileSystem,
+  methodologyLine,
+  methodologyLineDir,
+  type MethodologyTreeFileSystem,
+  PROVIDER_MATCH,
+  resolveMethodologyTree,
+} from "@/lib/methodology";
 import { worktreesScopeDir } from "@/lib/state-store";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultProcessTable } from "@/lib/worktree-process-table";
@@ -64,10 +75,6 @@ import { defaultProcessTable } from "@/lib/worktree-process-table";
 export const DIAGNOSE_SPX_EXECUTABLE = "spx";
 export const DIAGNOSE_DOING_SESSION_ARGS = ["session", "list", "--status", "doing", "--json"] as const;
 
-/** The agent-home-relative path segments a methodology plugin cache resolves under. */
-export const PLUGIN_CACHE_SEGMENTS = ["plugins", "cache"] as const;
-const NOT_FOUND_ERROR_CODE = "ENOENT";
-const VERSION_DIRECTORY_PATTERN = /^\d+(?:\.\d+)*$/;
 const MAIN_CHECKOUT_SYMBOLIC_REF_ARGS = [
   GIT_ROOT_COMMAND.SYMBOLIC_REF,
   GIT_ROOT_COMMAND.QUIET,
@@ -550,123 +557,115 @@ export const defaultMarketplaceInstallProbe: MarketplaceInstallProbe = {
   },
 };
 
-interface LatestDirectoryReading {
+export interface MethodologyContextProbeOptions {
+  /** Absolute path of spx's `methodology/` directory; absent when the host supplies none. */
+  readonly treeRoot: string | undefined;
+  /** The product directory whose harness-environment config names the enabled coding agents. */
+  readonly productDir: string;
+  readonly fs?: MethodologyTreeFileSystem;
+  readonly resolveEnabledCodingAgents?: (productDir: string) => Promise<readonly string[]>;
+}
+
+async function defaultEnabledCodingAgents(productDir: string): Promise<readonly string[]> {
+  const loaded = await resolveConfig(productDir, [harnessEnvironmentConfigDescriptor]);
+  const harnessEnvironment = loaded.ok
+    ? loaded.value[harnessEnvironmentConfigDescriptor.section] as HarnessEnvironmentConfig
+    : harnessEnvironmentConfigDescriptor.defaults;
+  return (Object.keys(harnessEnvironment.agents) as Agent[])
+    .filter((agent) => harnessEnvironment.agents[agent].enabled)
+    .map((agent) => METHODOLOGY_CODING_AGENT_BY_AGENT[agent])
+    .sort(compareCodeUnitOrder);
+}
+
+interface ShippedLineObservation {
+  readonly shippedCodingAgents: readonly string[];
+  readonly providerMatch: MethodologyContextObservation["providerMatch"];
+  readonly providerMismatch: string | undefined;
   readonly errored: boolean;
-  readonly version: string | null;
 }
 
-interface VersionDirectoriesReading {
-  readonly errored: boolean;
-  readonly versions: readonly string[];
-}
-
-function isNodeErrorCode(error: unknown, code: string): boolean {
-  return error instanceof Error
-    && "code" in error
-    && (error as { readonly code?: unknown }).code === code;
-}
-
-async function versionDirectories(path: string): Promise<VersionDirectoriesReading> {
-  try {
-    const entries = await readdir(path, { withFileTypes: true });
-    const versions = entries
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name);
-    return { errored: false, versions };
-  } catch (error) {
-    if (isNodeErrorCode(error, NOT_FOUND_ERROR_CODE)) {
-      return { errored: false, versions: [] };
+async function observeShippedLine(
+  options: MethodologyContextProbeOptions,
+  fs: MethodologyTreeFileSystem,
+  treeRoot: string,
+  config: { readonly version: string; readonly migratingFrom?: string },
+  line: string,
+  enabledCodingAgents: readonly string[],
+): Promise<ShippedLineObservation> {
+  const lineDir = methodologyLineDir(treeRoot, line);
+  if (!lineDir.ok) {
+    return { shippedCodingAgents: [], providerMatch: undefined, providerMismatch: undefined, errored: true };
+  }
+  const shippedCodingAgents = await fs.readDirectoryNames(lineDir.value);
+  let providerMatch: MethodologyContextObservation["providerMatch"];
+  for (const codingAgent of enabledCodingAgents) {
+    if (!shippedCodingAgents.includes(codingAgent)) continue;
+    const tree = await resolveMethodologyTree({ treeRoot, version: config.version, codingAgent, fs });
+    if (!tree.ok) {
+      return { shippedCodingAgents, providerMatch: undefined, providerMismatch: undefined, errored: true };
     }
-    return { errored: true, versions: [] };
+    const match = checkProviderMatch({
+      version: config.version,
+      ...(config.migratingFrom === undefined ? {} : { migratingFrom: config.migratingFrom }),
+      sourceRecord: tree.value.sourceRecord,
+      codingAgent,
+    });
+    if (!match.ok) {
+      return { shippedCodingAgents, providerMatch: undefined, providerMismatch: match.error, errored: false };
+    }
+    // One undeclared agent leaves the whole line undeclared: a verified match on the other agent proves nothing for it.
+    providerMatch = providerMatch === PROVIDER_MATCH.UNDECLARED ? providerMatch : match.value;
   }
-}
-
-function isVersionDirectoryName(name: string): boolean {
-  return VERSION_DIRECTORY_PATTERN.test(name);
-}
-
-function selectConfiguredVersion(
-  readings: readonly VersionDirectoriesReading[],
-  config: MethodologyConfig,
-): LatestDirectoryReading {
-  const versions = readings.flatMap((reading) => reading.versions);
-  const validVersions = versions
-    .filter(isVersionDirectoryName)
-    .sort(compareNumericVersionIdentifiers);
-  let version: string | null;
-  if (config.version === DEFAULT_METHODOLOGY_VERSION) {
-    version = validVersions.at(-1) ?? null;
-  } else {
-    version = versions.find((candidate) => candidate === config.version)
-      ?? validVersions.at(-1)
-      ?? null;
-  }
-  return {
-    errored: readings.some((reading) => reading.errored),
-    version,
-  };
-}
-
-async function configuredVersionDirectory(
-  paths: readonly string[],
-  config: MethodologyConfig,
-): Promise<LatestDirectoryReading> {
-  return selectConfiguredVersion(
-    await Promise.all(paths.map((path) => versionDirectories(path))),
-    config,
-  );
+  return { shippedCodingAgents, providerMatch, providerMismatch: undefined, errored: false };
 }
 
 /**
- * Whether the product directory carries a tracked spec tree. A tracked tree makes the product's
- * methodology identity durable product truth, so the bootstrap sentinel can no longer stand in for
- * it — the classifier judges that, and this probe supplies the observation.
- *
- * Tracked means git-tracked, the same meaning the rest of the product gives the word: a spec tree
- * exists as product truth once git carries a file under it. A directory present on disk but absent
- * from the index is a product still bootstrapping — exactly the case the sentinel is intended to
- * cover — so presence alone must not make methodology identity mandatory. Outside a git repository,
- * and on any git failure, `listTrackedPaths` yields no paths, which reads as no tracked tree rather
- * than as a distinct error: an unestablished tree cannot make methodology identity mandatory.
+ * Observes spx's shipped methodology trees against the declared methodology:
+ * the lines spx ships, the coding agents the declared line ships, the agents
+ * the product enables, and the provider-declaration check for each enabled
+ * agent. The observation reads spx's package root and the product's
+ * configuration; a coding agent's home never participates, per
+ * `spx/25-outcomeeng.enabler/31-methodology-plugin.enabler`.
  */
-async function hasTrackedSpecTree(
-  productDir: string,
-  deps: GitDependencies = defaultGitDependencies,
-): Promise<boolean> {
-  const trackedPaths = await listTrackedPaths(productDir, deps);
-  if (trackedPaths === undefined) return false;
-  const prefix = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${TRACKED_PATH_DIRECTORY_SEPARATOR}`;
-  for (const trackedPath of trackedPaths) {
-    if (trackedPath.startsWith(prefix)) return true;
-  }
-  return false;
-}
-
-/**
- * The methodology-context probe for one product directory. Agent home directories default to the
- * environment-resolved ones read at probe time, so an exported home set after construction is seen.
- */
-export function createMethodologyContextProbe(
-  productDir: string,
-  ...agentHomeDirs: readonly string[]
-): MethodologyContextProbe {
+export function createMethodologyContextProbe(options: MethodologyContextProbeOptions): MethodologyContextProbe {
+  const fs = options.fs ?? defaultMethodologyTreeFileSystem;
+  const resolveEnabled = options.resolveEnabledCodingAgents ?? defaultEnabledCodingAgents;
   return {
     async probe(config): Promise<MethodologyContextObservation> {
-      const resolvedHomes = resolveAgentHomeDirs();
-      const homeDirs = agentHomeDirs.length > 0 ? agentHomeDirs : [resolvedHomes.codex, resolvedHomes.claudeCode];
-      const sourcePaths = homeDirs.map((home) => join(home, ...PLUGIN_CACHE_SEGMENTS, ...config.source.split("/")));
-      const reading = await configuredVersionDirectory(sourcePaths, config);
-      const trackedSpecTree = await hasTrackedSpecTree(productDir);
-      const errored = reading.errored;
-      if (reading.version === null) {
-        return { source: null, version: null, trackedSpecTree, errored };
-      }
-      return {
-        source: config.source,
-        version: reading.version,
-        trackedSpecTree,
-        errored,
+      const enabledCodingAgents = await resolveEnabled(options.productDir);
+      const line = config.version === undefined ? undefined : methodologyLine(config.version);
+      const base: MethodologyContextObservation = {
+        line: line?.ok === true ? line.value : undefined,
+        shippedLines: [],
+        shippedCodingAgents: [],
+        enabledCodingAgents,
+        providerMatch: undefined,
+        providerMismatch: undefined,
+        errored: false,
       };
+      if (options.treeRoot === undefined || config.version === undefined || line?.ok !== true) {
+        return base;
+      }
+      try {
+        const shippedLines = await fs.readDirectoryNames(options.treeRoot);
+        if (!shippedLines.includes(line.value)) {
+          return { ...base, shippedLines };
+        }
+        const observed = await observeShippedLine(
+          options,
+          fs,
+          options.treeRoot,
+          {
+            version: config.version,
+            ...(config.migratingFrom === undefined ? {} : { migratingFrom: config.migratingFrom }),
+          },
+          line.value,
+          enabledCodingAgents,
+        );
+        return { ...base, shippedLines, ...observed };
+      } catch {
+        return { ...base, errored: true };
+      }
     },
   };
 }

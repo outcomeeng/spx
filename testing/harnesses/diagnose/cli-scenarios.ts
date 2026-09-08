@@ -4,13 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
-import {
-  DEFAULT_METHODOLOGY_SOURCE,
-  DEFAULT_METHODOLOGY_VERSION,
-  METHODOLOGY_CONFIG_FIELDS,
-  METHODOLOGY_SECTION,
-  methodologyVersionIntent,
-} from "@/config/methodology";
+import { DEFAULT_METHODOLOGY_SOURCE, METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import { MARKETPLACE_INSTALL_VERDICT } from "@/domains/diagnose/checks/marketplace-install";
 import {
   METHODOLOGY_CONTEXT_READING_VALUE,
@@ -33,6 +27,7 @@ import {
   VERDICT_BUCKET,
 } from "@/domains/diagnose/types";
 import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
+import { METHODOLOGY_CODING_AGENTS } from "@/lib/methodology";
 import { CLI_TIMEOUTS_MS } from "@testing/harnesses/constants";
 import {
   isolatedDiagnoseEnvironment,
@@ -41,6 +36,7 @@ import {
   writeSpxReachabilityManifest,
   writeSpxReachabilityManifestFixture,
 } from "@testing/harnesses/diagnose/cli";
+import { METHODOLOGY_FIXTURE_VERSION } from "@testing/harnesses/spec/context";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 // Every test here spawns the CLI as a cold `node bin/spx.js` subprocess running real probes;
@@ -137,7 +133,7 @@ export function registerDiagnoseCliScenarios(): void {
       const marketplaceCheck = report.checks.find((check) => check.name === CHECK_NAME.MARKETPLACE_INSTALL);
       expect(Object.values(METHODOLOGY_CONTEXT_VERDICT)).toContain(methodologyCheck?.verdict);
       expect(methodologyCheck?.readings.configuredSource).toBe(DEFAULT_METHODOLOGY_SOURCE);
-      expect(methodologyCheck?.readings.configuredVersion).toBe(DEFAULT_METHODOLOGY_VERSION);
+      expect(methodologyCheck?.readings.configuredVersion).toBe(METHODOLOGY_FIXTURE_VERSION);
       expect(marketplaceCheck?.readings.configured).toBe(String(true));
       expect(marketplaceCheck?.verdict).not.toBe(MARKETPLACE_INSTALL_VERDICT.NOT_APPLICABLE);
       expect(report.overall).toBe(foldedOverall(report));
@@ -218,7 +214,7 @@ export function registerDiagnoseCliScenarios(): void {
           `  ${DIAGNOSE_CONFIG_FIELDS.CHECKS}: ["${CHECK_NAME.SPX_REACHABILITY}"]`,
           `${METHODOLOGY_SECTION}:`,
           `  ${METHODOLOGY_CONFIG_FIELDS.SOURCE}: "${invalidMethodologySource}"`,
-          `  ${METHODOLOGY_CONFIG_FIELDS.VERSION}: "${DEFAULT_METHODOLOGY_VERSION}"`,
+          `  ${METHODOLOGY_CONFIG_FIELDS.VERSION}: "${METHODOLOGY_FIXTURE_VERSION}"`,
         ].join("\n");
         await writeFile(join(cwd, DEFAULT_CONFIG_FILENAME), `${config}\n`);
 
@@ -238,7 +234,7 @@ export function registerDiagnoseCliScenarios(): void {
         const config = [
           `${METHODOLOGY_SECTION}:`,
           `  ${METHODOLOGY_CONFIG_FIELDS.SOURCE}: "${invalidMethodologySource}"`,
-          `  ${METHODOLOGY_CONFIG_FIELDS.VERSION}: "${DEFAULT_METHODOLOGY_VERSION}"`,
+          `  ${METHODOLOGY_CONFIG_FIELDS.VERSION}: "${METHODOLOGY_FIXTURE_VERSION}"`,
         ].join("\n");
         await writeFile(join(cwd, DEFAULT_CONFIG_FILENAME), `${config}\n`);
 
@@ -324,15 +320,17 @@ export function registerDiagnoseCliScenarios(): void {
           unregistered: String(false),
           drifted: String(false),
         });
-        expect(methodologyRecord.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE);
+        expect(methodologyRecord.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.UNDECLARED);
         expect(methodologyRecord.readings).toEqual({
           configured: String(true),
           configuredSource: DEFAULT_METHODOLOGY_SOURCE,
-          configuredVersion: DEFAULT_METHODOLOGY_VERSION,
-          observedSource: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
-          observedVersion: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
-          versionIntent: methodologyVersionIntent(DEFAULT_METHODOLOGY_VERSION),
-          trackedSpecTree: String(false),
+          configuredVersion: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
+          migratingFrom: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
+          line: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
+          shippedLines: METHODOLOGY_CONTEXT_READING_VALUE.NONE,
+          shippedCodingAgents: METHODOLOGY_CONTEXT_READING_VALUE.NONE,
+          enabledCodingAgents: [...METHODOLOGY_CODING_AGENTS].join(", "),
+          providerMatch: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
         });
         expect(report.overall).toBe(foldedOverall(report));
         expect(textRun.stdout).toContain(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${foldedOverall(report)}`);

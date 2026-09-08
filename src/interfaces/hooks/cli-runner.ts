@@ -23,6 +23,10 @@ export interface HookProcessIo {
 
 export interface HookCliRunOptions {
   readonly compactStdout: boolean;
+  /** The invoking coding agent in the shipped-tree vocabulary, when identified. */
+  readonly codingAgent?: string;
+  /** Absolute path of spx's `methodology/` directory, when the host supplies one. */
+  readonly methodologyTreeRoot?: string;
   readonly stdinContent?: Result<string | undefined>;
   readonly cwd: string;
   readonly envFile?: string;
@@ -76,6 +80,8 @@ export async function runHookCli(options: HookCliRunOptions): Promise<Result<voi
   const runEvent = options.runEvent ?? runHookEvent;
   const result = await runEvent({
     compactStdout: options.compactStdout,
+    codingAgent: options.codingAgent,
+    methodologyTreeRoot: options.methodologyTreeRoot,
     content,
     cwd: options.cwd,
     env: options.env,

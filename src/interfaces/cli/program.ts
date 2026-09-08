@@ -3,6 +3,7 @@ import { type Argument, Command, InvalidArgumentError, type Option } from "comma
 import { resolveProductDir } from "@/domains/config/root";
 import type { Domain } from "@/interfaces/cli/domain";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
+import { methodologyTreeRootDir } from "@/lib/methodology";
 import { authoredText, externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 
 import { type CliIo, createCliInvocation, DEFAULT_CLI_IO, SPX_GLOBAL_OPTIONS } from "./product-context";
@@ -14,6 +15,8 @@ const SPX_PROGRAM_DESCRIPTION = "Fast, deterministic CLI tool for spec workflow 
 export type CliProgramOptions = Partial<CliIo> & {
   readonly domains?: readonly Domain[];
   readonly processCwd?: () => string;
+  /** Absolute path of spx's package root; the shipped methodology trees resolve beneath it. */
+  readonly packageRoot?: string;
   readonly version?: string;
 };
 
@@ -154,6 +157,9 @@ export function createCliProgram(options: CliProgramOptions = {}): Command {
 
   const invocation = createCliInvocation({
     readDirectoryOption: () => program.opts<CliGlobalOptions>().directory,
+    ...(options.packageRoot === undefined
+      ? {}
+      : { methodologyTreeRoot: methodologyTreeRootDir(options.packageRoot) }),
     processCwd: options.processCwd ?? CONFIG_PROCESS_CWD.read,
     resolveProductDir,
     writeWarning: (warning) => {

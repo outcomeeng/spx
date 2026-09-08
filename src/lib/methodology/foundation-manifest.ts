@@ -1,17 +1,17 @@
 /**
- * Pure consumption of the installed methodology package's foundation-resource
+ * Pure consumption of a shipped methodology tree's foundation-resource
  * manifest: shape validation with a schema-version acceptance gate, the core
  * foundation entry, and the extended-resource catalog in manifest order.
  *
- * The installed-package read enters the command handler through an injected
- * reader; every function here operates on supplied text.
+ * The tree read enters the command handler through an injected reader; every
+ * function here operates on supplied text.
  *
  * @module lib/methodology/foundation-manifest
  */
 
 import type { Result } from "@/config/types";
 
-/** Package-relative location of the foundation-resource manifest inside the installed methodology package. */
+/** Plugin-relative location of the foundation-resource manifest inside a shipped methodology tree. */
 export const FOUNDATION_MANIFEST_RELATIVE_PATH = "skills/understand/manifest.json";
 
 /** The manifest schema version this consumer accepts; unknown versions fail the projection. */
@@ -45,10 +45,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * A package-relative resource path stays inside the installed package by
+ * A plugin-relative resource path stays inside the shipped tree by
  * construction: no absolute form, no backslash semantics, and no empty,
  * current-directory, or parent-directory segment that could traverse above
- * the package root.
+ * the tree root.
  */
 function isPackageRelativePath(value: string): boolean {
   if (value.length === 0 || value.startsWith("/") || value.includes("\\")) return false;
@@ -153,7 +153,7 @@ export function foundationCatalogPaths(manifest: FoundationResourceManifest): re
 /** Diagnostic for an unreadable or absent foundation-resource manifest; names the resolved path and contract. */
 export function formatFoundationManifestUnreadableError(manifestPath: string): string {
   return `Foundation-resource manifest unreadable: ${manifestPath}`
-    + ` (expected ${FOUNDATION_MANIFEST_RELATIVE_PATH} in the installed methodology package)`;
+    + ` (expected ${FOUNDATION_MANIFEST_RELATIVE_PATH} in the shipped methodology tree)`;
 }
 
 /** Diagnostic for an invalid foundation-resource manifest; names the resolved path and the exact defect. */
@@ -164,11 +164,6 @@ export function formatFoundationManifestInvalidError(manifestPath: string, detai
 /** Diagnostic for a foundation resource the manifest names but the package does not satisfy. */
 export function formatFoundationResourceUnreadableError(resourcePath: string, manifestPath: string): string {
   return `Foundation resource unreadable: ${resourcePath} (named by ${manifestPath})`;
-}
-
-/** Diagnostic for an understand request with no configured installed methodology package location. */
-export function formatFoundationPackageUnconfiguredError(section: string, field: string): string {
-  return `Foundation methodology requested but no installed package location is configured; set ${section}.${field}`;
 }
 
 /** Diagnostic for a manifest that carries no compact-recovery entry. */

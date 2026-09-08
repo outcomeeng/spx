@@ -1,7 +1,12 @@
 import { readdir, readFile, realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION, resolveMethodologyIdentity } from "@/config/methodology";
+import {
+  type MethodologyConfig,
+  type MethodologyIdentity,
+  requireMethodologyVersion,
+  resolveMethodologyIdentity,
+} from "@/config/methodology";
 import { resolveMethodologyConfig } from "@/config/methodology-placement";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { isPathContained } from "@/lib/file-system/pathContainment";
@@ -13,15 +18,15 @@ import {
   TRACKED_PATH_DIRECTORY_SEPARATOR,
 } from "@/lib/git/tracked-paths";
 import {
-  formatFoundationPackageUnconfiguredError,
+  checkProviderMatch,
+  containedTreeResourcePath,
+  defaultMethodologyTreeFileSystem,
   formatFoundationResourceUnreadableError,
   foundationCatalogPaths,
-} from "@/lib/methodology/foundation-manifest";
-import {
-  containedPackageResourcePath,
-  defaultMethodologyPackageFileSystem,
+  type MethodologyTreeFileSystem,
   resolveFoundationManifest,
-} from "@/lib/methodology/package-resource";
+  resolveMethodologyTree,
+} from "@/lib/methodology";
 import {
   assembleSpecContextTargetReadSet,
   compareSpecContextOrdinal,
@@ -69,8 +74,14 @@ export interface ContextOptions {
   readonly cwd?: string;
   /** When true, every read-class entry carries the document's exact content, digest, and byte count. */
   readonly content?: boolean;
-  /** When true, the manifest carries the foundation methodology payload from the installed package. */
+  /** When true, the manifest carries the foundation methodology payload from spx's shipped methodology tree. */
   readonly understand?: boolean;
+  /** The coding agent whose shipped tree the methodology payload reads; when absent, the line must ship exactly one. */
+  readonly codingAgent?: string;
+  /** Absolute path of spx's `methodology/` directory; the host supplies it, and the payload fails without it. */
+  readonly methodologyTreeRoot?: string;
+  /** Injected shipped-tree filesystem; defaults to the real one. */
+  readonly methodologyFileSystem?: MethodologyTreeFileSystem;
   readonly gitDependencies?: GitDependencies;
   readonly onWarning?: SpecProductDirWarningHandler;
 }
@@ -87,6 +98,7 @@ export const SPEC_CONTEXT_TEXT_LABEL = {
   READ: "Read",
   LISTED: "Listed",
   METHODOLOGY_DOCUMENT: "Methodology document",
+  MIGRATING_FROM: "migrating from",
 } as const;
 
 const TEXT_LIST_INDENT = "  - ";
@@ -414,40 +426,67 @@ async function withDocumentContent(
   return enriched;
 }
 
-/** The methodology payload read from the installed package: the core body plus the catalog paths. */
+/** Diagnostic for an understand request whose host supplied no shipped methodology tree root. */
+export const METHODOLOGY_TREE_ROOT_ABSENT_ERROR = "No shipped methodology tree root is available to this invocation";
+
+/** The methodology payload read from the shipped tree: the core body plus the catalog paths. */
 interface MethodologyPayload {
   readonly core: SpecContextReadDocument;
   readonly catalog: readonly string[];
 }
 
+interface MethodologyPayloadOptions {
+  readonly treeRoot: string | undefined;
+  readonly methodology: MethodologyConfig;
+  readonly codingAgent: string | undefined;
+  readonly targets: readonly string[];
+  readonly fs: MethodologyTreeFileSystem;
+}
+
 /**
- * Reads the foundation-resource manifest and the core foundation body from the
- * configured installed methodology package. An unconfigured location, an
- * absent or invalid manifest, an unrecognized schema version, or an unreadable
- * named resource fails the whole projection naming the resolved path.
+ * Reads the foundation-resource manifest and the core foundation body from
+ * spx's shipped tree for the declared line and the coding agent in scope. An
+ * undeclared version, a line spx does not ship, an unresolvable coding agent, a
+ * provider declaration the product's declaration does not match, an absent or
+ * invalid manifest, an unrecognized schema version, or an unreadable named
+ * resource fails the whole projection naming the resolved path.
  */
-async function readMethodologyPayload(
-  productDir: string,
-  packageDir: string | undefined,
-  targets: readonly string[],
-): Promise<MethodologyPayload> {
-  if (packageDir === undefined) {
-    throw new Error(
-      formatFoundationPackageUnconfiguredError(METHODOLOGY_SECTION, METHODOLOGY_CONFIG_FIELDS.PACKAGE_DIR),
-    );
+async function readMethodologyPayload(options: MethodologyPayloadOptions): Promise<MethodologyPayload> {
+  if (options.treeRoot === undefined) {
+    throw new Error(METHODOLOGY_TREE_ROOT_ABSENT_ERROR);
   }
-  const resolved = await resolveFoundationManifest(productDir, packageDir, defaultMethodologyPackageFileSystem);
-  if (!resolved.ok) throw new Error(resolved.error);
-  const { packageDir: resolvedPackageDir, manifestPath, manifest } = resolved.value;
+  const declaredVersion = requireMethodologyVersion(options.methodology);
+  if (!declaredVersion.ok) {
+    throw new Error(declaredVersion.error);
+  }
+  const tree = await resolveMethodologyTree({
+    treeRoot: options.treeRoot,
+    version: declaredVersion.value,
+    codingAgent: options.codingAgent,
+    fs: options.fs,
+  });
+  if (!tree.ok) {
+    throw new Error(tree.error);
+  }
+  const match = checkProviderMatch({
+    version: declaredVersion.value,
+    ...(options.methodology.migratingFrom === undefined ? {} : { migratingFrom: options.methodology.migratingFrom }),
+    sourceRecord: tree.value.sourceRecord,
+    codingAgent: tree.value.codingAgent,
+  });
+  if (!match.ok) {
+    throw new Error(match.error);
+  }
+  const resolved = await resolveFoundationManifest(tree.value.treeDir, options.fs);
+  if (!resolved.ok) {
+    throw new Error(resolved.error);
+  }
+  const { treeDir, manifestPath, manifest } = resolved.value;
   // The manifest is validated data, not a trusted read authority: the core
   // path binds a read only when it resolves — through any symbolic link —
-  // inside the installed package location, the same containment every
-  // product-document read gets from the product root.
-  const corePath = await containedPackageResourcePath(
-    resolvedPackageDir,
-    manifest.core,
-    defaultMethodologyPackageFileSystem,
-  );
+  // inside the shipped tree, the same containment every product-document
+  // read gets from the product root.
+  const corePath = await containedTreeResourcePath(treeDir, manifest.core, options.fs);
   if (corePath === undefined) {
     throw new Error(formatFoundationResourceUnreadableError(manifest.core, manifestPath));
   }
@@ -460,7 +499,7 @@ async function readMethodologyPayload(
   return {
     core: {
       path: manifest.core,
-      roles: targets.map((target) => ({ target, role: SPEC_CONTEXT_READ_ROLE.METHODOLOGY })),
+      roles: options.targets.map((target) => ({ target, role: SPEC_CONTEXT_READ_ROLE.METHODOLOGY })),
       content: decodeContextDocumentOrThrow(manifest.core, coreBytes),
       digest: specContextDigest(coreBytes),
       bytes: coreBytes.byteLength,
@@ -519,7 +558,13 @@ export async function resolveContextManifest(options: ContextOptions): Promise<S
   let listed = bundle.listed;
   let coverage = bundle.coverage;
   if (options.understand === true) {
-    const payload = await readMethodologyPayload(productDir, methodologyConfig.value.packageDir, bundle.targets);
+    const payload = await readMethodologyPayload({
+      treeRoot: options.methodologyTreeRoot,
+      methodology: methodologyConfig.value,
+      codingAgent: options.codingAgent,
+      targets: bundle.targets,
+      fs: options.methodologyFileSystem ?? defaultMethodologyTreeFileSystem,
+    });
     read = [...read, payload.core];
     listed = [
       ...listed,
@@ -568,11 +613,19 @@ function renderReadDocument(document: SpecContextReadDocument): string {
   return `${renderRoleBindings(document.roles)}: ${document.path}${provenance}`;
 }
 
+/** The declared identity as `source@version`, or the source alone while no version is declared. */
+function renderMethodologyIdentity(identity: MethodologyIdentity): string {
+  const declared = identity.version === undefined ? identity.source : `${identity.source}@${identity.version}`;
+  return identity.migratingFrom === undefined
+    ? declared
+    : `${declared} (${SPEC_CONTEXT_TEXT_LABEL.MIGRATING_FROM} ${identity.migratingFrom})`;
+}
+
 export function renderSpecContextText(manifest: SpecContextManifest): string {
   const lines = [
     `${SPEC_CONTEXT_TEXT_LABEL.TARGETS}: ${manifest.targets.join(", ")}`,
     `${SPEC_CONTEXT_TEXT_LABEL.PRODUCT_ROOT}: ${manifest.productDir}`,
-    `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${manifest.methodology.source}@${manifest.methodology.version}`,
+    `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${renderMethodologyIdentity(manifest.methodology)}`,
     `${SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION}: ${manifest.schemaVersion}`,
     `${SPEC_CONTEXT_TEXT_LABEL.BOOTSTRAP}: ${manifest.bootstrap}`,
   ];

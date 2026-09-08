@@ -17,12 +17,12 @@ import {
   harnessEnvironmentConfigDescriptor,
 } from "@/domains/agent-environment/config";
 import {
-  HOOK_SESSION_START_ENV,
   type HookSessionStartEnv,
   parseHookSessionStartPayload,
   resolveHookSessionStartEnvFile,
   resolveHookSessionStartProductDir,
 } from "@/domains/hooks/session-start";
+import { inferInvokingCodingAgent, resolveInvokingAgent } from "@/interfaces/cli/coding-agent";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import {
@@ -59,11 +59,14 @@ interface HookExecutionContext {
   readonly warnings: readonly string[];
 }
 
+/**
+ * The agent whose compact stdout policy applies: the invoking agent, defaulting
+ * to Codex when no marker identifies one. Tree selection reads the invoking
+ * agent directly, so an unidentified invocation reaches the shipped layout's
+ * own single-agent-or-fail resolution rather than this policy default.
+ */
 function resolveHookCliAgent(env: HookSessionStartEnv): Agent {
-  if (env[HOOK_SESSION_START_ENV.CODEX_THREAD_ID]?.trim()) return AGENT.CODEX;
-  if (env[HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]?.trim()) return AGENT.CLAUDE_CODE;
-  if (env[HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]?.trim()) return AGENT.CLAUDE_CODE;
-  return AGENT.CODEX;
+  return resolveInvokingAgent(env) ?? AGENT.CODEX;
 }
 
 async function resolveHookCliCompactStdout(productDir: string, env: HookSessionStartEnv): Promise<Result<boolean>> {
@@ -94,6 +97,8 @@ async function resolveHookExecutionContext(
   return {
     runOptions: {
       compactStdout: compactStdout.ok ? compactStdout.value : defaultHookCliCompactStdout(env),
+      codingAgent: inferInvokingCodingAgent(env),
+      methodologyTreeRoot: invocation.methodologyTreeRoot,
       cwd,
       env,
       envFile: resolveHookSessionStartEnvFile(env, options.hookEnvFile),

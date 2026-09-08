@@ -8,12 +8,12 @@ CAN understand compatibility and migrate product truth without routine tooling u
 
 ### Scenarios
 
-- Given a product declares an exact methodology version, when methodology identity is inspected, then the result reports the declaration, managed instruction markers, installed Spec Tree package compatibility, and any mismatch without mutation or required network access ([test](tests/methodology-show.scenario.l1.test.ts))
-- Given a target methodology version, when managed migration starts, then SPX resolves the target methodology package in isolated harness state and launches that target methodology's migration coding agent without changing the invoking coding agent's state ([test](tests/methodology-migration.scenario.l1.test.ts))
+- Given a product declares an exact methodology version, when methodology identity is inspected, then the result reports the declared version, the migration source while `methodology.migratingFrom` is declared, managed instruction markers, and the match between the declaration and the provider declaration spx's shipped tree records — verified, undeclared, or mismatched — without mutation or required network access ([test](tests/methodology-show.scenario.l1.test.ts))
+- Given a target methodology version, when managed migration starts, then SPX addresses the target version's shipped methodology tree, isolates the migration in harness state, and launches that target methodology's migration coding agent without changing the invoking coding agent's state ([test](tests/methodology-migration.scenario.l1.test.ts))
 
 ### Conformance
 
-- A completed methodology migration conforms to a successful sealed target-methodology verification run bound to the migration's target methodology, branch and head changeset, resolved configuration identity, and coding-agent session identity, with matching product configuration, instruction markers, installed Spec Tree package, and session closure ([test](tests/migration-completion.conformance.l1.test.ts))
+- A completed methodology migration conforms to a successful sealed target-methodology verification run bound to the migration's target methodology, branch and head changeset, resolved configuration identity, and coding-agent session identity, with the target version in product configuration, matching instruction markers, an absent `methodology.migratingFrom`, and session closure ([test](tests/migration-completion.conformance.l1.test.ts))
 
 ### Compliance
 

@@ -1,6 +1,6 @@
 # Methodology Config
 
-PROVIDES the top-level `methodology` config descriptor carrying methodology source and version intent
+PROVIDES the top-level `methodology` config descriptor carrying the methodology repository, the exact methodology version the product targets, and the exact version it migrates from
 SO THAT config consumers, diagnose checks, and spec-context ingestion
 CAN read methodology selection through the static config registry without depending on harness-environment configuration
 
@@ -8,8 +8,8 @@ CAN read methodology selection through the static config registry without depend
 
 ### Scenarios
 
-- Given no product config exists, when config resolves through the production registry, then the resolved config includes top-level `methodology` defaults with source `outcomeeng/spec-tree` and the bootstrap-only version sentinel `installed` ([test](tests/methodology-config.scenario.l1.test.ts))
-- Given a product config declares top-level `methodology.source` and `methodology.version`, when config resolves, then the resolved methodology section carries those values ([test](tests/methodology-config.scenario.l1.test.ts))
+- Given a product config declares top-level `methodology.source`, `methodology.version`, and `methodology.migratingFrom`, when config resolves, then the resolved methodology section carries all three values ([test](tests/methodology-config.scenario.l1.test.ts))
+- Given a product config declares `methodology.version` without `methodology.migratingFrom`, when config resolves, then the resolved methodology section carries no migration source and the product runs one methodology version ([test](tests/methodology-config.scenario.l1.test.ts))
 
 ### Mappings
 
@@ -17,8 +17,11 @@ CAN read methodology selection through the static config registry without depend
 
 ### Compliance
 
-- ALWAYS: the methodology descriptor rejects malformed source and version fields before any consumer resolves methodology context ([test](tests/methodology-config.compliance.l1.test.ts))
-- NEVER: the methodology descriptor represents `installed` as an exact methodology version; it preserves that value as bootstrap intent so product-context consumers can reject it as durable identity when a tracked `spx/` tree exists ([test](tests/methodology-config.compliance.l1.test.ts))
-- ALWAYS: `methodology.source` rejects traversal and absolute-path shapes before any consumer builds a filesystem path from it ([test](tests/methodology-config.compliance.l1.test.ts))
+- ALWAYS: `methodology.source` defaults to `outcomeeng/methodology`; `methodology.version` and `methodology.migratingFrom` have no default and no sentinel, and a consumer that addresses a methodology tree fails naming the field when `methodology.version` is absent ([test](tests/methodology-config.compliance.l1.test.ts))
+- ALWAYS: the methodology descriptor rejects malformed source, version, and migration-source fields before any consumer resolves methodology context ([test](tests/methodology-config.compliance.l1.test.ts))
+- ALWAYS: `methodology.source` names the repository the methodology is published from as an `owner/repository` identifier, distinct from the marketplace and plugin coordinates that address capability packages ([test](tests/methodology-config.compliance.l1.test.ts), [audit])
+- ALWAYS: `methodology.version` and `methodology.migratingFrom` each name one exact methodology version ([test](tests/methodology-config.compliance.l1.test.ts))
+- NEVER: a consumer derives a plugin version, package version, or filesystem install location from `methodology.version` or `methodology.migratingFrom` ([audit])
 - ALWAYS: `harnessEnvironment.methodology` is rejected as an unknown `harnessEnvironment` field rather than treated as methodology intent ([test](tests/methodology-config.compliance.l1.test.ts))
 - NEVER: methodology source or version defaults are declared by the harness-environment descriptor ([test](tests/methodology-config.compliance.l1.test.ts))
+- NEVER: the methodology descriptor carries a location field naming where methodology resources are installed; spx's shipped tree is addressed by the declared version's `MAJOR.MINOR` line and the coding agent in scope, per `spx/25-outcomeeng.enabler/31-methodology-plugin.enabler` ([test](tests/methodology-config.compliance.l1.test.ts))

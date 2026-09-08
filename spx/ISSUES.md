@@ -31,6 +31,68 @@ Execa leaves `exitCode` undefined when a subprocess could not be spawned or was 
 
 **Resolution:** in each owning node's own changeset, make the wrapper fail (or expose a distinct incomplete state) when `exitCode` is undefined, add the violating case to that node's evidence, and remove the site from this list.
 
+## The product declares 4.0.0 with 3.2 half-applied
+
+**Evidence:** `spx.config.yaml` declares `version: 4.0.0` and
+`migratingFrom: 3.2.0`. Methodology 3.2.0 (`versions/3.2/README.md` of
+`outcomeeng/methodology`) adds the per-node status claim and removes
+`spx/EXCLUDE`. This tree carries 200 `spx.status.json` files and still carries
+`spx/EXCLUDE` with 18 entries. The claim shape stores an `overall` field per
+mechanism; 3.2 stores only per-reference outcomes and derives the mechanism
+verdict when read. 114 assertions carry the 3.0 `([review])` tag.
+
+**Impact:** the tree's own artifacts lag the declared migration source: the
+status projector, the CI gate, and the excluded-node classification each run
+against a mixture of pre-3.2 and 3.2 rules, and the `([review])` tags predate
+both.
+
+**Settlement condition:** `spx/EXCLUDE` is deleted after every
+evidence-bearing node carries a claim seeded from a green run; the claim
+writer stops storing `overall`; the `([review])` tags are rewritten to the
+current audit tag; the migration source is removed when the earlier-version
+inventory reaches zero.
+
+## The managed router block names a sentinel the config rejects
+
+**Evidence:** the `<!-- SPEC-TREE -->` router block in `CLAUDE.md` and
+`AGENTS.md`, regenerated from the spec-tree plugin's instruction template,
+states that when `methodology.version` is the sentinel `installed` "the
+repository declares no methodology version". `src/config/methodology.ts`
+accepts only an exact `MAJOR.MINOR.PATCH` value for that field and rejects
+`installed` as malformed configuration, per
+`spx/13-agent-capability-lifecycle.pdr.md`.
+
+**Impact:** an agent following the router's literal guidance treats a config
+carrying `methodology.version: installed` as a valid undeclared state, while
+config resolution fails before any command reads it.
+
+**Resolution:** the sentence lives in the plugin's instruction template, so the
+correction is a template change in `outcomeeng/plugins` that drops the
+sentinel clause; `/update-instruction-block` then regenerates both guides.
+Hand-editing the generated block is not a fix: the next regeneration restores
+the template text.
+
+## Source-graph containment property fails on some generated inputs
+
+`spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler/tests/source.compliance.l1.test.ts`
+— "rejects fact paths that escape or never enter the product directory" — failed after
+34 runs under seed `2488147906` and passed on the next run with a fresh seed. The failure
+reproduces on demand:
+
+```bash
+SPX_PROPERTY_SEED=2488147906 tsx src/cli.ts test spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler
+```
+
+**Impact:** the containment property holds for most generated paths and fails for a shape
+the generator reaches rarely, so the gate passes or fails depending on the seed. Either
+the containment rule rejects a path it should accept, or it accepts one it should reject;
+the seed names the exact case.
+
+**Resolution:** replay the seed, read the shrunk counterexample, and decide whether the
+defect is in the containment rule under `src/outcomeeng/spec-tree/graph/source/` or in the
+generator's path domain. Fix the owning side and keep the counterexample as a scenario
+alongside the property.
+
 ## Locale-dependent ordering remains in projection and listing paths
 
 `String.prototype.localeCompare` without a pinned locale orders by the host locale and ICU build, so equal input can project in different orders across machines. The spec-context manifest (`src/lib/spec-tree/context-manifest.ts`, `src/lib/spec-tree/context-target.ts`) orders ordinally via `compareSpecContextOrdinal`; the same class remains at:
@@ -112,12 +174,65 @@ PR #138 migrates product-level assertions in [spx.product.md](spx.product.md) fr
 
 ## Test assertion flow lives in harnesses instead of executed test files
 
-Across the product, 31 executed `spx/.../tests/*.test.ts` files are two-line shims that import and call a `register*()` function, while the `describe`/`it`/`expect` assertion flow they should own lives in `testing/harnesses/` register-suite modules — for example `testing/harnesses/literal/output-modes-scenario.ts`, `testing/harnesses/session/session-identity-scenarios.ts`, and `testing/harnesses/process-lifecycle/compliance.ts`.
+Across the product, 34 executed `spx/.../tests/*.test.ts` files are two-line shims that import and call a `register*()` function, while the `describe`/`it`/`expect` assertion flow they should own lives in `testing/harnesses/` register-suite modules — for example `testing/harnesses/literal/output-modes-scenario.ts`, `testing/harnesses/session/session-identity-scenarios.ts`, and `testing/harnesses/process-lifecycle/compliance.ts`.
 
-[`spx/12-test-infrastructure.adr.md`](12-test-infrastructure.adr.md) requires executed spec-tree test files to own the assertion flow, and the `what-goes-where` methodology reference states test infrastructure does not contain test assertion code. The register-suite-in-harness shape inverts that boundary: the harness owns the suite and the `tests/` file owns nothing. Sibling nodes such as [`spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler`](41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler) keep `describe`/`it`/`expect` directly in their `tests/*.test.ts` files, so the pattern is inconsistent product-wide. [`spx/41-test.enabler/26-test-harness.enabler/test-harness.md`](41-test.enabler/26-test-harness.enabler/test-harness.md) still prescribes the register shape in its first NEVER assertion ("they register harness cases and assert the governed outcome"), so that assertion is rewritten alongside the suites it sanctions when the unwind reaches the testing harness nodes.
+[`spx/12-test-infrastructure.adr.md`](12-test-infrastructure.adr.md) requires executed spec-tree test files to own the assertion flow, and the `what-goes-where` methodology reference states test infrastructure does not contain test assertion code. The register-suite-in-harness shape inverts that boundary: the harness owns the suite and the `tests/` file owns nothing. Sibling nodes such as [`spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler`](41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler) keep `describe`/`it`/`expect` directly in their `tests/*.test.ts` files, so the pattern is inconsistent product-wide.
 
 **Impact:** Each node's `tests/` directory no longer carries the node's evidence; assertion titles and structure sit one indirection away from the node. Cross-file duplication analysis reads test-suite duplication as harness duplication.
 
 **Skills:** `/test-typescript`, `/audit-typescript-tests`, `/apply`.
 
-**Scope:** Product-wide — 31 test files and roughly 25 harness modules; the typescript and python runner test-harness nodes under `41-test.enabler/` already own their assertion flow over harness observation functions and show the target shape. Unwind one owning subtree at a time: move each `register*()` harness function's `describe`/`it`/`expect` body into the node's executed `tests/*.test.ts` file, leaving genuine lifecycle and setup helpers (`withLiteralFixtureEnv`, expected-value builders, seed and run-count machinery) in the harness. Retire redundant scenario/compliance duplicates as encountered, and re-run each node's tests plus its test-evidence audit after the move.
+**Scope:** Product-wide — 34 test files and roughly 25 harness modules. Unwind one owning subtree at a time: move each `register*()` harness function's `describe`/`it`/`expect` body into the node's executed `tests/*.test.ts` file, leaving genuine lifecycle and setup helpers (`withLiteralFixtureEnv`, expected-value builders, seed and run-count machinery) in the harness. Retire redundant scenario/compliance duplicates as encountered, and re-run each node's tests plus its test-evidence audit after the move.
+
+## The shipped Specified-state definition is narrower than this product's EXCLUDE practice
+
+`methodology/4.0/{coding-agent}/spec-tree/skills/understand/references/excluded-nodes.md`
+defines `spx/EXCLUDE` as listing nodes in Specified state — spec and evidence
+exist while implementation is absent — and its EXCLUDE template comment reads
+"Specs and tests exist. Implementation does not." All fifteen entries in
+[spx/EXCLUDE](EXCLUDE) are Declared instead: none carries a `tests/` directory
+with any file, and several link tests their spec names but that do not exist on
+disk, among them
+[spx/33-harness-environment.enabler/43-plugin-bootstrap.enabler](33-harness-environment.enabler/43-plugin-bootstrap.enabler)
+and [spx/57-methodology-lifecycle.enabler](57-methodology-lifecycle.enabler).
+This product's own EXCLUDE header already states the broader rule: entries are
+omitted "while implementation or referenced evidence is absent".
+
+**Impact:** the shipped definition and this product's practice disagree about
+which node states `spx/EXCLUDE` admits, so the file reads as fifteen conformance
+violations against a contract it was never written to satisfy.
+
+**Resolution:** the definition lives in the methodology tree fetched verbatim
+from `outcomeeng/plugins`, held byte-identical by the conformance assertion of
+[spx/25-outcomeeng.enabler/31-methodology-plugin.enabler](25-outcomeeng.enabler/31-methodology-plugin.enabler),
+so it is never corrected in this repository. Either the upstream definition
+widens to admit Declared nodes and arrives through a later fetch, or each entry
+gains the evidence its spec links and graduates. Graduating an entry regenerates
+the committed `spx.status.json` through the projector; never hand-write the
+outcome values.
+
+## The agent-harness placement rules carry no implementing evidence
+
+[spx/12-agent-harness.pdr.md](12-agent-harness.pdr.md) states four placement
+rules under `### Testing`, each tagged `[compliance]`: every harness write of a
+marketplace, plugin, or skill targets the agent home spx sets; the harness never
+writes into a coding agent's user scope; a plugin, plugin cache, or marketplace
+clone found under the repository is reported as a defect naming the path and the
+agent home it belongs in; and no repository ignore rule admits installed plugin,
+skill, or marketplace content as tracked.
+
+**Impact:** the tag names testable evidence, and none of the four rules has an
+implementing spec assertion backed by a test. A reader takes the rules for
+verified behavior when only the fourth is even exercised, and then only
+incidentally, by the removal of the `.codex/skills/*` ignore exception.
+
+**Resolution:** the capability writes belong to
+[spx/33-harness-environment.enabler/43-plugin-bootstrap.enabler](33-harness-environment.enabler/43-plugin-bootstrap.enabler),
+whose implementation is absent and whose node is excluded, and the repository
+scan belongs to
+[spx/54-diagnose.enabler/43-marketplace-install.enabler](54-diagnose.enabler/43-marketplace-install.enabler),
+whose plan records it as a pending step. Both plans carry the work. Retagging
+the rules `[audit]` would misclassify deterministic behavior, so they stay
+`[compliance]` and the implementing nodes supply the evidence when their packets
+run. The tracked-content rule is the cheapest to close first: it reads the
+repository's own ignore rules and needs no new capability.

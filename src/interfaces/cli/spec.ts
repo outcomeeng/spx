@@ -9,6 +9,7 @@ import {
 import { nextCommand } from "@/commands/spec/next";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec/status";
+import { inferInvokingCodingAgent } from "@/interfaces/cli/coding-agent";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
@@ -26,6 +27,8 @@ export const SPEC_DOMAIN_CLI = {
   JSON_OPTION: "--json",
   CONTENT_OPTION: "--content",
   UNDERSTAND_OPTION: "--understand",
+  CODING_AGENT_OPTION: "--coding-agent",
+  CODING_AGENT_OPTION_DEFINITION: "--coding-agent <name>",
   FORMAT_OPTION_FLAG: "--format",
   FORMAT_OPTION_DEFINITION: "--format <format>",
   UPDATE_OPTION: "--update",
@@ -154,28 +157,39 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
     )
     .option(
       SPEC_DOMAIN_CLI.UNDERSTAND_OPTION,
-      "Include the foundation methodology payload from the installed methodology package",
+      "Include the foundation methodology payload from spx's shipped tree for the declared methodology version",
     )
-    .action(async (targets: string[], options: { json?: boolean; content?: boolean; understand?: boolean }) => {
-      try {
-        if (options.content === true && options.json !== true) {
-          throw new Error(SPEC_CONTEXT_CONTENT_MESSAGE.REQUIRES_JSON);
+    .option(
+      SPEC_DOMAIN_CLI.CODING_AGENT_OPTION_DEFINITION,
+      "Coding agent whose shipped methodology tree the payload reads; defaults to the invoking agent",
+    )
+    .action(
+      async (
+        targets: string[],
+        options: { json?: boolean; content?: boolean; understand?: boolean; codingAgent?: string },
+      ) => {
+        try {
+          if (options.content === true && options.json !== true) {
+            throw new Error(SPEC_CONTEXT_CONTENT_MESSAGE.REQUIRES_JSON);
+          }
+          const format = options.json === true
+            ? SPEC_CONTEXT_OUTPUT_FORMAT.JSON
+            : SPEC_CONTEXT_OUTPUT_FORMAT.TEXT;
+          const output = await contextOutputForFormat(format, {
+            targets,
+            cwd: productDir(),
+            content: options.content === true,
+            understand: options.understand === true,
+            codingAgent: options.codingAgent ?? inferInvokingCodingAgent(process.env),
+            methodologyTreeRoot: invocation.methodologyTreeRoot,
+            onWarning,
+          });
+          writeOutput(invocation.io, output);
+        } catch (error) {
+          handleCommandError(invocation.io, error);
         }
-        const format = options.json === true
-          ? SPEC_CONTEXT_OUTPUT_FORMAT.JSON
-          : SPEC_CONTEXT_OUTPUT_FORMAT.TEXT;
-        const output = await contextOutputForFormat(format, {
-          targets,
-          cwd: productDir(),
-          content: options.content === true,
-          understand: options.understand === true,
-          onWarning,
-        });
-        writeOutput(invocation.io, output);
-      } catch (error) {
-        handleCommandError(invocation.io, error);
-      }
-    });
+      },
+    );
 
   specCmd
     .command(SPEC_DOMAIN_CLI.STATUS_COMMAND)

@@ -18,7 +18,7 @@ Per `spx/14-cli-composition.adr.md` and `spx/23-spec-tree.enabler/spec-tree.md`,
 
 ## Invariants
 
-- The read class is a total order: for equal tree content and equal methodology resources, repeated projections produce byte-identical output.
+- The read class is a total order: for equal tree content and equal shipped methodology trees, repeated projections produce byte-identical output.
 - Every permutation of the same resolved target set produces byte-identical structured output.
 - Every cited-decision entry carries at least one citing path, and every citing path names a read-class spec or decision document.
 - With content mode active, every read-class entry carries content, digest, and byte count; no listed-class entry ever does.
@@ -45,7 +45,7 @@ Per `spx/14-cli-composition.adr.md` and `spx/23-spec-tree.enabler/spec-tree.md`,
 
 - ALWAYS: pure projection computation lives in the spec-tree library behind `src/lib/spec-tree/index.ts`, and the command handler performs only product-root resolution, snapshot construction, and byte reads through injected dependencies ([audit])
 - ALWAYS: role classification, read-order construction, citation extraction, digest computation, and bundle composition are pure functions accepting all external state as parameters, with filesystem and git reads confined to the command handler per `spx/14-cli-composition.adr.md` ([audit])
-- ALWAYS: the command handler reaches git through injected dependencies and reads documents only from the resolved worktree-local product directory, so tests exercise the real projection code paths over temp-directory fixtures ([audit])
+- ALWAYS: the command handler reaches git through injected dependencies, reads product documents only from the resolved worktree-local product directory, and reads methodology bytes only through the injected methodology reader rooted at spx's package root, so tests exercise the real projection code paths over temp-directory fixtures ([audit])
 - ALWAYS: the content-mode digest is computed over raw file bytes before text decoding, and the digest value names its algorithm ([audit])
 - NEVER: citation discovery treats coordination notes, guides, or overlays as citation sources — citations bind only from read-class spec and decision documents ([audit])
 - NEVER: `vi.mock()`, `jest.mock()`, or filesystem interception replaces the projection or read boundary in tests — tests construct real spec trees under temp directories through the shared test environment ([audit])
