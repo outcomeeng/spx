@@ -57,6 +57,9 @@ const RELEASE_DOCS_DESCRIPTION = "Manage release documentation";
 const RELEASE_DOCS_SYNC_DESCRIPTION = "Update release documentation for the current package version";
 const RELEASE_PUBLISH_DESCRIPTION = "Publish the tagged package and reconcile its GitHub Release";
 const RELEASE_PUBLISH_TAG_DESCRIPTION = "Release tag that triggered publication, verified against the package version";
+const RELEASE_NOTES_CHANGELOG_PATH_DESCRIPTION = "Changelog path within the product working tree";
+const RELEASE_PUBLISH_CHANGELOG_PATH_DESCRIPTION =
+  "Changelog path within the product directory, read as committed at the release tag";
 
 export interface ReleaseCliDependencies {
   readonly createDocumentationAgentRunner: () => AgentRunner;
@@ -96,7 +99,7 @@ export function createReleaseDomain(
       release
         .command(RELEASE_CLI.NOTES_COMMAND)
         .description(RELEASE_NOTES_DESCRIPTION)
-        .option(RELEASE_CLI.CHANGELOG_PATH_OPTION, "Changelog path within the product working tree")
+        .option(RELEASE_CLI.CHANGELOG_PATH_OPTION, RELEASE_NOTES_CHANGELOG_PATH_DESCRIPTION)
         .action(async (options: { changelogPath?: string }) => {
           try {
             const productDir = invocation.resolveProductContext().productDir;
@@ -145,7 +148,7 @@ export function createReleaseDomain(
         .command(RELEASE_CLI.PUBLISH_COMMAND)
         .description(RELEASE_PUBLISH_DESCRIPTION)
         .requiredOption(RELEASE_CLI.TAG_OPTION, RELEASE_PUBLISH_TAG_DESCRIPTION)
-        .option(RELEASE_CLI.CHANGELOG_PATH_OPTION, "Changelog path within the product working tree")
+        .option(RELEASE_CLI.CHANGELOG_PATH_OPTION, RELEASE_PUBLISH_CHANGELOG_PATH_DESCRIPTION)
         .action(async (options: { tag: string; changelogPath?: string }) => {
           try {
             const tag = await deps.publishReleaseCommand(
