@@ -16,6 +16,7 @@ import {
   RELEASE_NOTES_FAITHFULNESS_APPROVED,
   RELEASE_VERSION_DATA_BLOCK_CLOSE,
   RELEASE_VERSION_DATA_BLOCK_OPEN,
+  type ReleaseNotesConfig,
   ReleaseNotesError,
   resolveReleaseNotesPath,
 } from "@/domains/release/release-notes";
@@ -187,7 +188,10 @@ export async function observeReleaseNotesPrompt(
   let observation: ReleaseNotesPromptObservation | undefined;
   await withReleaseNotesEnv(async (env) => {
     const { fixture, changelogPath } = input;
-    const config = changelogPath === undefined ? {} : { changelogPath };
+    const config = {
+      ...(changelogPath === undefined ? {} : { changelogPath }),
+      ...(input.withheldCommitTypes === undefined ? {} : { withheldCommitTypes: input.withheldCommitTypes }),
+    };
     const resolvedPath = resolveReleaseNotesPath(env.workingDirectory, config);
     const canonicalOutputPath = await canonicalRelativeChangelogPath(
       env.workingDirectory,
@@ -1042,6 +1046,7 @@ export async function observeReleaseNotesFaithfulness(
     return await observeProductionFaithfulnessAudit(
       releaseData,
       requiredProductionAuditSection(productionAuditSection),
+      input.withheldCommitTypes === undefined ? {} : { withheldCommitTypes: input.withheldCommitTypes },
     );
   }
   let observation: ReleaseNotesFaithfulnessObservation | undefined;
@@ -1131,6 +1136,7 @@ function requiredProductionAuditSection(
 async function observeProductionFaithfulnessAudit(
   releaseData: ReleaseData,
   currentSection: string,
+  config: ReleaseNotesConfig,
 ): Promise<ReleaseNotesFaithfulnessObservation> {
   let observation: ReleaseNotesFaithfulnessObservation | undefined;
   await withReleaseNotesEnv(async (env) => {
@@ -1146,6 +1152,7 @@ async function observeProductionFaithfulnessAudit(
       await createReleaseNotesFaithfulnessAuditor(
         agentAuditor,
         env.workingDirectory,
+        config,
       )({
         releaseData,
         notes: currentSection,

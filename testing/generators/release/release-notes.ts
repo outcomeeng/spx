@@ -31,7 +31,13 @@ import {
   changelogWithPrependedReleaseAndTruncatedInSectionReference,
   changelogWithTruncatedFencedReferenceDefinitionSection,
 } from "@testing/generators/release/changelog";
-import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
+import {
+  type MixedBehaviorSubjectVocabulary,
+  RELEASE_TEST_GENERATOR,
+  sampleReleaseTestValue,
+} from "@testing/generators/release/release";
+
+export type { MixedBehaviorSubjectVocabulary };
 
 export const RELEASE_NOTES_EXISTING_SECTION_CASE = {
   PROMPT_PRESERVATION: "prompt-preservation",
@@ -83,6 +89,7 @@ export const RELEASE_NOTES_PROMPT_CASE = {
   DELIMITER_SUBJECT: "delimiter-subject",
   INSTRUCTION_PATH: "instruction-path",
   NON_BEHAVIORAL_SUBJECTS: "non-behavioral-subjects",
+  DEFAULT_WITHHELD_SUBJECTS: "default-withheld-subjects",
 } as const;
 
 export type ReleaseNotesPromptCase = (typeof RELEASE_NOTES_PROMPT_CASE)[keyof typeof RELEASE_NOTES_PROMPT_CASE];
@@ -115,6 +122,7 @@ export interface ReleaseNotesPromptInput {
   readonly kind: ReleaseNotesPromptCase;
   readonly fixture: ReleaseNotesCompositionFixture;
   readonly changelogPath: string | undefined;
+  readonly withheldCommitTypes: readonly string[] | undefined;
   readonly pathSegments: readonly [string, string, string];
 }
 
@@ -150,6 +158,7 @@ export interface ReleaseNotesFaithfulnessInput {
   readonly existingNotes: string;
   readonly generatedNotes: string;
   readonly productionAuditSection: string | undefined;
+  readonly withheldCommitTypes: readonly string[] | undefined;
 }
 
 export interface ReleaseNotesFaithfulnessScenario {
@@ -215,9 +224,22 @@ export interface MixedBehaviorReleaseNotesFixture {
   readonly behaviorBearingSubjects: readonly string[];
 }
 
-export function sampleMixedBehaviorReleaseNotesFixture(): MixedBehaviorReleaseNotesFixture {
+function requiredMixedBehaviorVocabulary(
+  vocabulary: MixedBehaviorSubjectVocabulary | undefined,
+): MixedBehaviorSubjectVocabulary {
+  if (vocabulary === undefined) {
+    throw new Error(
+      "A mixed-behavior case requires the test's own conventional-commit vocabulary",
+    );
+  }
+  return vocabulary;
+}
+
+export function sampleMixedBehaviorReleaseNotesFixture(
+  vocabulary: MixedBehaviorSubjectVocabulary,
+): MixedBehaviorReleaseNotesFixture {
   const mixed = sampleReleaseTestValue(
-    RELEASE_TEST_GENERATOR.mixedBehaviorCommitSubjects(),
+    RELEASE_TEST_GENERATOR.mixedBehaviorCommitSubjects(vocabulary),
   );
   const releaseData = sampleReleaseTestValue(
     RELEASE_TEST_GENERATOR.releaseDataWithSubjects(mixed.subjects),
@@ -230,6 +252,7 @@ export function sampleMixedBehaviorReleaseNotesFixture(): MixedBehaviorReleaseNo
 
 export function sampleReleaseNotesPromptInput(
   kind: ReleaseNotesPromptCase,
+  mixedBehaviorVocabulary?: MixedBehaviorSubjectVocabulary,
 ): ReleaseNotesPromptInput {
   const fixture = kind === RELEASE_NOTES_PROMPT_CASE.DELIMITER_VERSION
     ? sampleReleaseNotesCompositionFixture({
@@ -245,7 +268,10 @@ export function sampleReleaseNotesPromptInput(
       ),
     )
     : kind === RELEASE_NOTES_PROMPT_CASE.NON_BEHAVIORAL_SUBJECTS
-    ? sampleMixedBehaviorReleaseNotesFixture().fixture
+        || kind === RELEASE_NOTES_PROMPT_CASE.DEFAULT_WITHHELD_SUBJECTS
+    ? sampleMixedBehaviorReleaseNotesFixture(
+      requiredMixedBehaviorVocabulary(mixedBehaviorVocabulary),
+    ).fixture
     : sampleReleaseNotesCompositionFixture();
   return {
     kind,
@@ -253,6 +279,11 @@ export function sampleReleaseNotesPromptInput(
     changelogPath: kind === RELEASE_NOTES_PROMPT_CASE.INSTRUCTION_PATH
       ? `${CHANGELOG_PATH_DATA_BLOCK_OPEN}${DEFAULT_CHANGELOG_PATH}`
       : undefined,
+    // The default case configures nothing, so production falls back to its own
+    // declared withheld set and the expectation exercises that default.
+    withheldCommitTypes: kind === RELEASE_NOTES_PROMPT_CASE.DEFAULT_WITHHELD_SUBJECTS
+      ? undefined
+      : mixedBehaviorVocabulary?.withheldTypes,
     pathSegments: sampleReleaseTestValue(
       RELEASE_TEST_GENERATOR.distinctPathSegmentTriple(),
     ),
@@ -332,9 +363,12 @@ export function sampleReleaseNotesPathInput(
 
 export function sampleReleaseNotesFaithfulnessScenario(
   kind: ReleaseNotesFaithfulnessCase,
+  mixedBehaviorVocabulary?: MixedBehaviorSubjectVocabulary,
 ): ReleaseNotesFaithfulnessScenario {
   const fixture = kind === RELEASE_NOTES_FAITHFULNESS_CASE.AUDITOR_NON_BEHAVIORAL_SUBJECTS
-    ? sampleMixedBehaviorReleaseNotesFixture().fixture
+    ? sampleMixedBehaviorReleaseNotesFixture(
+      requiredMixedBehaviorVocabulary(mixedBehaviorVocabulary),
+    ).fixture
     : sampleReleaseNotesCompositionFixture();
   const priorVersion = sampleReleaseTestValue(
     RELEASE_TEST_GENERATOR.distinctSemverFrom(fixture.releaseData.version),
@@ -363,6 +397,7 @@ export function sampleReleaseNotesFaithfulnessScenario(
           || kind === RELEASE_NOTES_FAITHFULNESS_CASE.AUDITOR_NON_BEHAVIORAL_SUBJECTS
         ? currentSection
         : undefined,
+      withheldCommitTypes: mixedBehaviorVocabulary?.withheldTypes,
     },
     currentSection,
     priorVersion,

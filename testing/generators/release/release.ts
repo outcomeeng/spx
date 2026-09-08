@@ -3,7 +3,6 @@ import { win32 } from "node:path";
 import * as fc from "fast-check";
 
 import { type ReleaseData, VERSION_DELTA, type VersionDelta } from "@/domains/release/release-data";
-import { CONVENTIONAL_BREAKING_MARKER, NON_BEHAVIORAL_COMMIT_TYPES } from "@/domains/release/release-notes";
 import { type GitCommit, RELEASE_TAG_PREFIX } from "@/lib/git/release";
 import { arbitraryBranchName, arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
@@ -14,7 +13,7 @@ const VERSION_COMPONENT_RESET = 0;
 const BUMP_INCREMENT_MIN = 1;
 const BUMP_INCREMENT_MAX = 9;
 const COMMIT_SUBJECT_SUFFIX = " update";
-const MIXED_BEHAVIOR_RETAINED_SUBJECTS = 2;
+const MIXED_BEHAVIOR_RETAINED_SUBJECTS = 3;
 const SOURCE_FILE_SUFFIX = ".ts";
 const FILE_CONTENT_PREFIX = "// ";
 const FILE_CONTENT_NEWLINE = "\n";
@@ -227,46 +226,67 @@ function arbitraryCommitSequence(count: number): fc.Arbitrary<readonly ReleaseCo
 }
 
 /**
- * A commit-subject set mixing subjects the release-notes prompt withholds with
- * subjects it carries, plus the retained subset in the order the filter
- * preserves. One retained subject carries a non-behavioral type with the `!`
- * breaking-change marker, so the scenario ties the type rule and the marker
- * override to one coherent expectation.
+ * The conventional-commit vocabulary a mixed-behavior scenario is built from.
+ * The caller supplies it, so the generated cases and the expectation do not both
+ * read the production declaration this evidence exists to pin — a change to that
+ * declaration moves the actual result while the expectation stays put.
+ */
+export interface MixedBehaviorSubjectVocabulary {
+  /** Types whose subjects the release-notes prompts are expected to withhold. */
+  readonly withheldTypes: readonly string[];
+  /** A type whose subjects the prompts are expected to carry. */
+  readonly retainedType: string;
+  /** The marker that makes a withheld type's subject a breaking change. */
+  readonly breakingMarker: string;
+}
+
+/**
+ * A commit-subject set mixing subjects the release-notes prompts withhold with
+ * subjects they carry, plus the retained subset in the order the filter
+ * preserves. The retained subjects cover the three ways a subject earns its
+ * place: no conventional type, a carried type, and a withheld type rescued by
+ * the breaking-change marker.
  */
 export interface MixedBehaviorCommitSubjects {
   readonly subjects: readonly string[];
   readonly behaviorBearing: readonly string[];
 }
 
-function arbitraryMixedBehaviorCommitSubjects(): fc.Arbitrary<MixedBehaviorCommitSubjects> {
-  const segmentCount = NON_BEHAVIORAL_COMMIT_TYPES.length + MIXED_BEHAVIOR_RETAINED_SUBJECTS;
+function arbitraryMixedBehaviorCommitSubjects(
+  vocabulary: MixedBehaviorSubjectVocabulary,
+): fc.Arbitrary<MixedBehaviorCommitSubjects> {
+  const { withheldTypes, retainedType, breakingMarker } = vocabulary;
+  const segmentCount = withheldTypes.length + MIXED_BEHAVIOR_RETAINED_SUBJECTS;
   return fc
     .uniqueArray(arbitraryPathSegment(), {
       minLength: segmentCount,
       maxLength: segmentCount,
     })
     .chain((segments) =>
-      fc.constantFrom(...NON_BEHAVIORAL_COMMIT_TYPES).map((breakingType): MixedBehaviorCommitSubjects => {
-        const withheld = NON_BEHAVIORAL_COMMIT_TYPES.map((type, index) => {
+      fc.constantFrom(...withheldTypes).map((breakingType): MixedBehaviorCommitSubjects => {
+        const withheld = withheldTypes.map((type, index) => {
           const segment = segments[index];
           return `${type}(${segment}): ${segment}${COMMIT_SUBJECT_SUFFIX}`;
         });
-        const untypedSegment = segments[NON_BEHAVIORAL_COMMIT_TYPES.length];
-        const breakingSegment = segments[NON_BEHAVIORAL_COMMIT_TYPES.length + 1];
+        const untypedSegment = segments[withheldTypes.length];
+        const retainedSegment = segments[withheldTypes.length + 1];
+        const breakingSegment = segments[withheldTypes.length + 2];
         const untypedSubject = `${untypedSegment}${COMMIT_SUBJECT_SUFFIX}`;
+        const retainedSubject = `${retainedType}(${retainedSegment}): ${retainedSegment}${COMMIT_SUBJECT_SUFFIX}`;
         const breakingSubject =
-          `${breakingType}(${breakingSegment})${CONVENTIONAL_BREAKING_MARKER}: ${breakingSegment}${COMMIT_SUBJECT_SUFFIX}`;
-        // The retained subjects sit on either side of the withheld ones so the
-        // expectation also pins the order the filter preserves.
+          `${breakingType}(${breakingSegment})${breakingMarker}: ${breakingSegment}${COMMIT_SUBJECT_SUFFIX}`;
+        // The retained subjects sit among the withheld ones so the expectation
+        // also pins the order the filter preserves.
         const split = Math.floor(withheld.length / MIXED_BEHAVIOR_RETAINED_SUBJECTS);
         return {
           subjects: [
             ...withheld.slice(0, split),
             untypedSubject,
+            retainedSubject,
             ...withheld.slice(split),
             breakingSubject,
           ],
-          behaviorBearing: [untypedSubject, breakingSubject],
+          behaviorBearing: [untypedSubject, retainedSubject, breakingSubject],
         };
       })
     );

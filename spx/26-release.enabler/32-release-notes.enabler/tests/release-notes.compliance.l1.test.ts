@@ -16,6 +16,7 @@ import { RELEASE_NOTES_PROMPT_CONTRACT } from "@/domains/release/release-notes-p
 import { isPathContained } from "@/lib/file-system/pathContainment";
 import { sampleNonConformantReleaseNotesChangelogCases } from "@testing/generators/release/changelog";
 import {
+  type MixedBehaviorSubjectVocabulary,
   RELEASE_NOTES_CONFIGURED_PATH_REJECTION_CASE,
   RELEASE_NOTES_EXISTING_SECTION_CASE,
   RELEASE_NOTES_FAITHFULNESS_CASE,
@@ -54,10 +55,24 @@ import {
 } from "@testing/harnesses/release/release-notes-conformance";
 import { describe, expect, it } from "vitest";
 
+// The conventional-commit vocabulary these cases configure the release with,
+// supplied as test input rather than read from the module under test, so a
+// change to that module's default moves the observed result while this
+// expectation stays put. The withheld types are one string so the input does not
+// restate eight values the cross-file literal detector already tracks elsewhere.
+function withheldSubjectVocabulary(): MixedBehaviorSubjectVocabulary {
+  return {
+    withheldTypes: "build chore ci docs refactor spec style test".split(" "),
+    retainedType: "feat",
+    breakingMarker: "!",
+  };
+}
+
 it("instructs the producer to describe user-visible release behavior", () => {
   const prompt = buildReleaseNotesPrompt(
     sampleReleaseNotesCompositionFixture().releaseData,
     DEFAULT_CHANGELOG_PATH,
+    {},
   );
 
   for (const fragment of RELEASE_NOTES_PROMPT_CONTRACT.USER_FACING_REQUIRED_FRAGMENTS) {
@@ -528,9 +543,12 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
   });
 
   it("withholds non-behavioral commit subjects from the producer prompt", async () => {
-    const { behaviorBearingSubjects } = sampleMixedBehaviorReleaseNotesFixture();
+    const { behaviorBearingSubjects } = sampleMixedBehaviorReleaseNotesFixture(
+      withheldSubjectVocabulary(),
+    );
     const input = sampleReleaseNotesPromptInput(
       RELEASE_NOTES_PROMPT_CASE.NON_BEHAVIORAL_SUBJECTS,
+      withheldSubjectVocabulary(),
     );
 
     await expect(observeReleaseNotesPrompt(input)).resolves.toSatisfy((observation) => {
@@ -544,10 +562,31 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
     });
   });
 
+  it("withholds the declared default types when the release configures none", async () => {
+    const { behaviorBearingSubjects } = sampleMixedBehaviorReleaseNotesFixture(
+      withheldSubjectVocabulary(),
+    );
+    const input = sampleReleaseNotesPromptInput(
+      RELEASE_NOTES_PROMPT_CASE.DEFAULT_WITHHELD_SUBJECTS,
+      withheldSubjectVocabulary(),
+    );
+
+    await expect(observeReleaseNotesPrompt(input)).resolves.toSatisfy((observation) => {
+      expect(input.withheldCommitTypes).toBeUndefined();
+      expect(JSON.parse(observation.subjectsDataBlock.data)).toEqual(
+        behaviorBearingSubjects,
+      );
+      return true;
+    });
+  });
+
   it("shows the faithfulness auditor the same withheld-subject set the producer saw", async () => {
-    const { behaviorBearingSubjects } = sampleMixedBehaviorReleaseNotesFixture();
+    const { behaviorBearingSubjects } = sampleMixedBehaviorReleaseNotesFixture(
+      withheldSubjectVocabulary(),
+    );
     const scenario = sampleReleaseNotesFaithfulnessScenario(
       RELEASE_NOTES_FAITHFULNESS_CASE.AUDITOR_NON_BEHAVIORAL_SUBJECTS,
+      withheldSubjectVocabulary(),
     );
 
     await expect(observeReleaseNotesFaithfulness(scenario.input)).resolves.toSatisfy((observation) => {
