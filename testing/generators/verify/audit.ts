@@ -11,6 +11,7 @@ import {
   type AuditFinding,
   type AuditProducerIdentity,
   type AuditProducerProvenance,
+  type AuditPriorContextSelector,
   type AuditScopeUnit,
   buildAppendEvent,
   VERIFY_APPEND_EVENT_TYPE,
@@ -343,7 +344,7 @@ export function arbitraryAuditFindingValidationScenario(): fc.Arbitrary<AuditFin
 export interface AuditPriorContextScenario {
   readonly current: AuditScopeUnit;
   readonly currentWithoutProvenance: AuditScopeUnit;
-  readonly mismatches: readonly AuditScopeUnit[];
+  readonly mismatches: Readonly<Record<keyof AuditPriorContextSelector, AuditScopeUnit>>;
 }
 
 export function arbitraryAuditPriorContextScenario(): fc.Arbitrary<AuditPriorContextScenario> {
@@ -368,31 +369,31 @@ export function arbitraryAuditPriorContextScenario(): fc.Arbitrary<AuditPriorCon
         return {
           current,
           currentWithoutProvenance,
-          mismatches: [
-            { ...current, auditClass: AUDIT_CLASS.SPEC },
-            { ...current, auditKind: AUDIT_KIND.CODE },
-            {
+          mismatches: {
+            auditClass: { ...current, auditClass: AUDIT_CLASS.SPEC },
+            auditKind: { ...current, auditKind: AUDIT_KIND.CODE },
+            expectedProducer: {
               ...current,
               expectedProducer: { ...current.expectedProducer, invocationRole: alternates[0] },
             },
-            {
+            producerIdentity: {
               ...current,
               recordedByRunDriver: { ...current.recordedByRunDriver, invocationRole: alternates[1] },
             },
-            { ...current, subject: alternates[2] },
-            {
+            subjectPath: { ...current, subject: alternates[2] },
+            changedFilePartition: {
               ...current,
               priorContext: { ...current.priorContext, changedFilePartition: alternates[3] },
             },
-            {
+            concernPartition: {
               ...current,
               priorContext: { ...current.priorContext, concernPartition: alternates[4] },
             },
-            {
+            languagePartition: {
               ...current,
               priorContext: { ...current.priorContext, languagePartition: alternates[5] },
             },
-          ],
+          },
         };
       })
   );

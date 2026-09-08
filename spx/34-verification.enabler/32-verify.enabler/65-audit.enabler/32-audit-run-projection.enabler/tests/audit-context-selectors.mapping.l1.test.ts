@@ -30,7 +30,7 @@ describe("audit prior-context selectors", () => {
       ], selector)).toEqual([unit]);
     }, { level: PROPERTY_LEVEL.L1 });
   });
-  it("filters prior context by every audit selector field", () => {
+  it.each(Object.entries(sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).mismatches))("filters prior context by selector field %s", (_field, mismatch) => {
     expect(auditPriorContextSelectorForScopeUnit(
       sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current,
     )).toEqual({
@@ -48,7 +48,7 @@ describe("audit prior-context selectors", () => {
     });
     expect(filterAuditScopeUnitsForPriorContext(
       [
-        ...sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).mismatches,
+        mismatch,
         sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).currentWithoutProvenance,
         sampleVerifyTestValue(arbitraryAuditPriorContextScenario()).current,
       ],
