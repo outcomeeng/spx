@@ -10,7 +10,7 @@ import { claimCommand, releaseCommand, statusCommand, WORKTREE_STATUS_FORMAT } f
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { defaultGitDependencies } from "@/lib/git/root";
-import { renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
+import { authoredText, renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultWorktreePathInfo } from "@/lib/worktree-path-info";
 import { defaultProcessTable } from "@/lib/worktree-process-table";
@@ -30,12 +30,14 @@ export const WORKTREE_CLI = {
 
 const WORKTREE_DOMAIN_DESCRIPTION = "Coordinate worktree occupancy across a bare-repository pool";
 
-function writeOutput(invocation: CliInvocation, output: string): void {
-  invocation.io.writeStdout(`${output}\n`);
+// The report arrives composed by the command that produced it, so it is embedded as it stands
+// and only the terminating newline is the descriptor's own.
+function writeOutput(invocation: CliInvocation, output: TerminalText): void {
+  invocation.io.writeStdout(renderTerminalText(terminal`${output}\n`));
 }
 
-function writeError(invocation: CliInvocation, output: string): void {
-  invocation.io.writeStderr(`${output}\n`);
+function writeError(invocation: CliInvocation, output: TerminalText): void {
+  invocation.io.writeStderr(renderTerminalText(terminal`${output}\n`));
 }
 
 // The warning arrives composed where the shared root was resolved, so it is embedded as it stands.
@@ -45,8 +47,11 @@ function writeInvocationWarning(invocation: CliInvocation, warning: TerminalText
   }
 }
 
-function handleError(invocation: CliInvocation, error: string): never {
-  writeError(invocation, `Error: ${error}`);
+const WORKTREE_ERROR_PREFIX = "Error: ";
+
+// Each producer composed its own diagnostic, so the prefix is all this boundary adds.
+function handleError(invocation: CliInvocation, error: TerminalText): never {
+  writeError(invocation, terminal`${authoredText(WORKTREE_ERROR_PREFIX)}${error}`);
   return invocation.io.exit(1);
 }
 
@@ -96,7 +101,7 @@ function registerWorktreeCommands(worktreeCmd: Command, invocation: CliInvocatio
           worktreesDir: options.worktreesDir,
           onWarning: (warning) => writeInvocationWarning(invocation, warning),
         });
-        if (!result.ok) handleError(invocation, result.error);
+        if (!result.ok) handleError(invocation, result.error.text);
         writeOutput(invocation, result.value);
       },
     );
