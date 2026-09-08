@@ -32,6 +32,7 @@ Rejected: widening the branch-associated worktree-root set while preserving open
 - For a branch selector, transcript-borne branch evidence — recorded branch values and accepted commands — is drawn only from transcripts in the branch needle's result set; worktree-root association reads opening metadata only.
 - For a session-id selector, every result row's transcript lies in the id's result set, and its opening metadata carries that id.
 - A session-id selector's result set is a function of the session id and the store alone, independent of the invocation's product scope.
+- For a content or session-id selector without a branch selector, candidate transcripts are drawn from the locator's result sets, and no session-store project directory is listed.
 - A selector needle reaches the locator only when it is non-empty and carries no line terminator; a session id reaches the store only as a locator needle, never as a path component.
 - The candidate set a store collector yields is a superset of the set any selector matches; no collector decision removes a session whose transcript contents the selector would match.
 - When the locator executable cannot be started, no locator-dependent invocation reads a transcript, and a selector-free listing's result is unchanged.
@@ -45,6 +46,7 @@ Rejected: widening the branch-associated worktree-root set while preserving open
 - ALWAYS: a session-store directory name whose encoded working directory lies outside the invocation product scope still yields its transcripts as candidates when the selector's evidence is transcript-borne ([compliance])
 - NEVER: a locator-dependent selector reads a transcript past its metadata head that the locator did not name for that invocation, in candidate scanning or in branch-evidence collection ([compliance])
 - NEVER: a selector-free search reads any transcript past its metadata head ([compliance])
+- NEVER: a content or session-id selector without a branch selector lists a session-store project directory; its candidates come from the locator's result sets and the store root alone ([compliance])
 - ALWAYS: the reach window search applies to its default candidate set bounds transcript file modification time and is independent of the window a resume consumer applies, so changing one leaves the other's candidate set unchanged ([property])
 - ALWAYS: a Pi session without branch metadata matches a branch search only when its recorded working directory is inside a same-product worktree root associated with that branch ([compliance])
 - ALWAYS: a session-id selector returns the session whose opening metadata carries that id, whichever agent adapter holds it, whichever recorded working directories its transcript carries, and whichever product the invocation addresses ([property])

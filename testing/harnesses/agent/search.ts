@@ -2567,6 +2567,8 @@ export interface SessionIdentitySearchObservation {
   readonly targetPath: string;
   /** Every transcript path the store holds; a read of any other path was composed, not listed or located. */
   readonly storedPaths: readonly string[];
+  /** The project directories holding those transcripts. */
+  readonly projectDirs: readonly string[];
 }
 
 /** The located session filed under a foreign project directory, beside decoys in their own. */
@@ -2609,6 +2611,7 @@ export async function searchSessionIdentityStore(
     storeRoot: claudeCodeSessionStoreDir(agentHomeDirsFromHomeDir(scenario.homeDir).claudeCode),
     targetPath,
     storedPaths: [targetPath, productDecoyPath, foreignDecoyPath],
+    projectDirs: [targetPath, productDecoyPath, foreignDecoyPath].map((path) => dirname(path)),
   };
 }
 

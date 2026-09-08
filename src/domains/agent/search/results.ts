@@ -1,3 +1,5 @@
+import { dirname, resolve } from "node:path";
+
 import { piSessionStoreDir } from "../home";
 import type { AgentHomeDirs } from "../home";
 import {
@@ -61,6 +63,8 @@ interface AgentSearchAdapter {
     options: AgentSearchOptions,
     acceptsClaudeDir: (dirName: string) => boolean,
   ) => Promise<readonly string[]>;
+  /** Whether a located transcript sits where this store files a top-level session's transcript. */
+  readonly isTopLevelTranscriptPath: (path: string, storeRoot: string) => boolean;
   readonly parseHead: AgentHeadParser;
   readonly readRecords: TranscriptRecordReader | null;
   readonly acceptsTranscriptCommandEvidence: boolean;
@@ -71,6 +75,7 @@ const AGENT_SEARCH_ADAPTER_REGISTRY: Readonly<Record<AgentSearchSessionKind, Age
   [AGENT_SESSION_KIND.CODEX]: {
     storeRoot: (agentHomeDirs) => codexSessionStoreDir(agentHomeDirs.codex),
     collectPaths: (options) => collectJsonlFiles(codexSessionStoreDir(options.agentHomeDirs.codex), options.fs),
+    isTopLevelTranscriptPath: acceptsEveryStorePath,
     parseHead: parseCodexHead,
     readRecords: null,
     acceptsTranscriptCommandEvidence: true,
@@ -84,6 +89,7 @@ const AGENT_SEARCH_ADAPTER_REGISTRY: Readonly<Record<AgentSearchSessionKind, Age
         options.fs,
         acceptsClaudeDir,
       ),
+    isTopLevelTranscriptPath: isClaudeProjectTranscriptPath,
     parseHead: parseClaudeHead,
     readRecords: parseClaudeTranscriptRecords,
     acceptsTranscriptCommandEvidence: true,
@@ -93,6 +99,7 @@ const AGENT_SEARCH_ADAPTER_REGISTRY: Readonly<Record<AgentSearchSessionKind, Age
     storeRoot: (agentHomeDirs) => piSessionStoreDir(agentHomeDirs.piAgent, agentHomeDirs.piSessions),
     collectPaths: (options) =>
       collectJsonlFiles(piSessionStoreDir(options.agentHomeDirs.piAgent, options.agentHomeDirs.piSessions), options.fs),
+    isTopLevelTranscriptPath: acceptsEveryStorePath,
     parseHead: parsePiHead,
     readRecords: null,
     acceptsTranscriptCommandEvidence: false,
@@ -149,7 +156,7 @@ async function searchAgentStore(
 ): Promise<AgentSearchResult[]> {
   const adapter = AGENT_SEARCH_ADAPTER_REGISTRY[agent];
   const located = await locateTranscripts(options, adapter);
-  const paths = await adapter.collectPaths(options, claudeDirAdmission(options));
+  const paths = await candidatePaths(options, adapter, located);
   const parser = adapter.parseHead;
   const needsBranchEvidence = options.query.branch !== null;
   const recentWindowMs = searchRecentWindowMs(options.query);
@@ -197,6 +204,39 @@ async function locateTranscripts(
     query.branch === null ? Promise.resolve(null) : locate(query.branch),
   ]);
   return { content, sessionId, branch };
+}
+
+/**
+ * The paths a store contributes as candidates. A branch selector and a selector-free or
+ * agent-only listing walk the store, because worktree-root association and the opening-directory
+ * scope read opening metadata the locator cannot see. A content or session-id selector without a
+ * branch draws its candidates from the locator's result sets alone, keeping only paths filed
+ * where the store keeps a top-level session's transcript, so no project directory is listed.
+ */
+async function candidatePaths(
+  options: AgentSearchOptions,
+  adapter: AgentSearchAdapter,
+  located: LocatedTranscripts,
+): Promise<readonly string[]> {
+  if (options.query.branch !== null || !hasLocatorNeedle(options.query)) {
+    return adapter.collectPaths(options, claudeDirAdmission(options));
+  }
+  const storeRoot = adapter.storeRoot(options.agentHomeDirs);
+  const sets = [...located.content, ...(located.sessionId === null ? [] : [located.sessionId])];
+  const [first = new Set<string>(), ...rest] = sets;
+  return [...first]
+    .filter((path) => rest.every((set) => set.has(path)))
+    .filter((path) => adapter.isTopLevelTranscriptPath(path, storeRoot))
+    .sort(compareAgentSessionText);
+}
+
+function acceptsEveryStorePath(): boolean {
+  return true;
+}
+
+/** Claude Code files a top-level session's transcript directly under its project directory. */
+function isClaudeProjectTranscriptPath(path: string, storeRoot: string): boolean {
+  return resolve(dirname(dirname(path))) === resolve(storeRoot);
 }
 
 /**

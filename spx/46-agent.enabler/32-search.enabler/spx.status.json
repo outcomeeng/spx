@@ -19,6 +19,7 @@
       "spx/46-agent.enabler/32-search.enabler/tests/search.scenario.l1.test.ts": "passed",
       "spx/46-agent.enabler/32-search.enabler/tests/selector-needle.property.l1.test.ts": "passed",
       "spx/46-agent.enabler/32-search.enabler/tests/session-identity.property.l1.test.ts": "passed",
+      "spx/46-agent.enabler/32-search.enabler/tests/store-listing.compliance.l1.test.ts": "passed",
       "spx/46-agent.enabler/32-search.enabler/tests/store-placement.property.l1.test.ts": "passed"
     }
   }
