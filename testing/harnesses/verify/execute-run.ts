@@ -30,6 +30,7 @@ import type { Domain } from "@/interfaces/cli/domain";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { EXECUTE_RUN_CLI_SURFACE, registerVerifyCommands, VERIFICATION_RUN_CLI_SURFACE } from "@/interfaces/cli/verify";
+import { GIT_SHOW_TOPLEVEL_ARGS, type GitDependencies } from "@/lib/git/root";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { JOURNAL_RUN_TERMINAL_STATUS, type JournalRunInvocation, type JournalRunRequest } from "@/test/languages/types";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
@@ -42,7 +43,9 @@ import { withTestingTempProductDir, writeTestFileFixture } from "@testing/harnes
 import {
   createVerifyRunContextScenario,
   verifyDeps,
+  verifyGitDeps,
   verifyInputOptions,
+  type VerifyRunContextScenario,
   withVerificationType,
 } from "@testing/harnesses/verify/harness";
 
@@ -144,11 +147,38 @@ function controlledRunner(invocation: JournalRunInvocation): ControlledRunner {
   };
 }
 
+/** Git dependencies answering as the scenario's, recording the directory each worktree-root probe ran in. */
+interface ProbeRecordingGitDeps {
+  readonly git: GitDependencies;
+  probeCwds(): readonly string[];
+}
+
+// The recorder resolves its store root by probing `git rev-parse --show-toplevel` from the
+// directory it is rooted at; recording that directory exposes where the handler rooted the
+// recorder, while the probe's answer stays the scenario's product root.
+function probeRecordingGitDeps(scenario: VerifyRunContextScenario): ProbeRecordingGitDeps {
+  const probeCwds: string[] = [];
+  const answering = verifyGitDeps(scenario);
+  return {
+    git: {
+      execa: (command, args, options) => {
+        if (args.join(" ") === GIT_SHOW_TOPLEVEL_ARGS.join(" ") && options?.cwd !== undefined) {
+          probeCwds.push(options.cwd);
+        }
+        return answering.execa(command, args, options);
+      },
+    },
+    probeCwds: () => probeCwds,
+  };
+}
+
 /** What one handler invocation over a generated product and a controlled runner exposes. */
 export interface ExecuteRunHandlerObservation {
   readonly product: GeneratedTestProduct;
   /** The directory the handler was invoked from. */
   readonly invocationDir: string;
+  /** The directories the recorder's worktree-root probes ran in during the handler's run. */
+  readonly recorderProbeCwds: readonly string[];
   readonly operands: readonly string[];
   readonly invocation: JournalRunInvocation;
   readonly exitCode: number;
@@ -227,13 +257,15 @@ async function driveExecuteRun(drive: ExecuteRunDrive): Promise<ExecuteRunHandle
       drive.verificationType,
     );
     const fs = createInMemoryStateStoreFileSystem();
-    const recorderDeps = verifyDeps(scenario, fs);
+    const probes = probeRecordingGitDeps(scenario);
+    const recorderDeps = { ...verifyDeps(scenario, fs), git: probes.git };
     const controlled = controlledRunner(invocation);
 
     const result = await executeRunCommand(
       { verificationType: drive.verificationType, operands, recursive: false },
       { cwd: invocationDir, resolveRunner: drive.resolveRunner(controlled), recorder: recorderDeps },
     );
+    const recorderProbeCwds = [...probes.probeCwds()];
     const recordedInput = result.report === undefined
       ? undefined
       : JSON.parse(
@@ -249,6 +281,7 @@ async function driveExecuteRun(drive: ExecuteRunDrive): Promise<ExecuteRunHandle
     observation = {
       product,
       invocationDir,
+      recorderProbeCwds,
       operands,
       invocation,
       exitCode: result.exitCode,
