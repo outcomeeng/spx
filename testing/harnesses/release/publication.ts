@@ -119,6 +119,11 @@ export function createPublicationHarness(
   };
 }
 
+/** The message a rejected publication carried, for evidence that reads the failure text. */
+export function publicationFailureMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export interface ConfirmationRetryObservation extends PublicationObservation {
   /** The error the publication rejected with; undefined when it confirmed. */
   readonly error: unknown;

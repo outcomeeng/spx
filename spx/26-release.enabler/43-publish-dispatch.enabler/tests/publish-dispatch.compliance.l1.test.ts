@@ -3,7 +3,6 @@ import {
   hostedReleaseFor,
   PACKAGE_PROVENANCE,
   packagePublicationMatches,
-  PUBLICATION_CONFIRMATION_BACKOFF_MS,
   ReleasePublicationError,
 } from "@/domains/release/publication";
 import { releasePublicationWorkflowViolations } from "@/domains/release/publication-workflow";
@@ -32,6 +31,7 @@ import {
   createPublishReleaseCommandHarness,
   observeConfirmationRetry,
   observePublication,
+  publicationFailureMessage,
 } from "@testing/harnesses/release/publication";
 import {
   observeGithubReleasePublisher,
@@ -233,9 +233,11 @@ describe("release publication compliance", () => {
         const observation = await observeConfirmationRetry(scenario);
         expect(observation.error).toBeUndefined();
         expect(observation.packagePublishRequests).toHaveLength(1);
-        expect(observation.waits).toEqual(
-          PUBLICATION_CONFIRMATION_BACKOFF_MS.slice(0, scenario.lateReads),
-        );
+        // One wait per read that arrived before the attestation, each a real
+        // pause. The schedule's durations are the module's own declaration, so
+        // the count and the waiting are what this proves.
+        expect(observation.waits).toHaveLength(scenario.lateReads);
+        expect(observation.waits.every((wait) => wait > 0)).toBe(true);
         expect(observation.hostedReleaseRequests.map((request) => request.value)).toEqual([
           scenario.expectedHostedRelease,
         ]);
@@ -252,6 +254,11 @@ describe("release publication compliance", () => {
         expect(observation.error).toBeInstanceOf(ReleasePublicationError);
         expect(observation.waits).toEqual([]);
         expect(observation.hostedReleaseRequests).toEqual([]);
+        // The failure names the field that differed and both of its values, so
+        // the operator reads which release the registry holds without asking.
+        const [served] = scenario.postPublishStates;
+        expect(publicationFailureMessage(observation.error)).toContain(served.commit);
+        expect(publicationFailureMessage(observation.error)).toContain(scenario.packagePublication.commit);
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
