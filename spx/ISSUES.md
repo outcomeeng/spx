@@ -236,3 +236,23 @@ the rules `[audit]` would misclassify deterministic behavior, so they stay
 `[compliance]` and the implementing nodes supply the evidence when their packets
 run. The tracked-content rule is the cheapest to close first: it reads the
 repository's own ignore rules and needs no new capability.
+
+## The load wait sits outside the commands that need it
+
+Every test, evaluation, build, and validation command is preceded by a separate
+waiter the agent harness invokes, and nothing in spx enforces that. The waiter
+belongs inside the product: `spx test` and `spx validation` wait for the host to
+be ready before dispatching work, and a `spx wait-for-load` command exposes the
+same wait for callers that need it on its own, so a harness-side waiter becomes a
+thin call rather than the enforcement point.
+
+**Impact:** the wait is advisory. An agent that forgets it starts a heavy run on a
+saturated host, and no command refuses. Placing the check outside the commands
+also puts the readiness policy where the product cannot verify it.
+
+**Resolution:** author the wait as product behavior under `spx/41-test.enabler`
+and `spx/41-validation.enabler`, with the command surface under
+`spx/13-cli.enabler`. The readiness predicate reads more than load averages: a
+waiter that observes only the one-, five-, and fifteen-minute averages against
+the logical CPU count reports ready while memory is exhausted, and a run started
+on that signal is killed rather than slowed.
