@@ -5,14 +5,21 @@ import { EXECUTE_RUN_CLI_ERROR, recorderTerminalStatusFor } from "@/commands/ver
 import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
+import { CLI_STREAM_REPORT } from "@/interfaces/cli/lib/stream-report";
 import { EXECUTE_RUN_CLI_SURFACE } from "@/interfaces/cli/verify";
+import { DEL_CHAR_CODE, FIRST_PRINTABLE_CHAR_CODE } from "@/lib/sanitize-cli-argument";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { sampleGeneratedValue } from "@testing/generators/sample";
+import { arbitraryTerminalUnsafeText } from "@testing/generators/terminal-text/terminal-text";
 import {
+  handlerFailingWith,
+  handlerReturning,
   inspectExecuteRunCommandTree,
   invokedInvocations,
+  invokeFromFirstTestDir,
+  invokeFromProductRoot,
   observeExecuteRunDescriptor,
   observeExecuteRunHandler,
   unresolvedRunnerInvocation,
@@ -55,12 +62,25 @@ describe("execute run compliance", () => {
     expect(noOperand.report?.testPaths).toEqual([...noOperand.product.testPaths].sort(compareAsciiStrings));
     expect(noOperand.report?.locator.scopeIdentity).toBe(SPEC_TREE_CONFIG.ROOT_DIRECTORY);
 
-    const descriptor = await observeExecuteRunDescriptor(fileOperand.product.testPaths, {
-      exitCode: VERIFY_CLI_EXIT_CODE.OK,
-    });
+    const descriptor = await observeExecuteRunDescriptor(
+      fileOperand.product.testPaths,
+      handlerReturning({ exitCode: VERIFY_CLI_EXIT_CODE.OK }),
+    );
     expect(descriptor.handlerOptions).toEqual([
       { verificationType: VERIFY_VERIFICATION_TYPE.TEST, operands: fileOperand.product.testPaths },
     ]);
+  });
+
+  it("roots the run at the worktree product root from any invocation directory inside the product", async () => {
+    const fromRoot = await observeExecuteRunHandler(() => [], invokedInvocations()[0], invokeFromProductRoot);
+    expect(fromRoot.drivenRequest?.productDir).toBe(fromRoot.product.productDir);
+
+    const fromInside = await observeExecuteRunHandler(() => [], invokedInvocations()[0], invokeFromFirstTestDir);
+    expect(fromInside.invocationDir).not.toBe(fromInside.product.productDir);
+    expect(fromInside.drivenRequest?.productDir).toBe(fromInside.product.productDir);
+    expect(fromInside.report?.testPaths).toEqual([...fromInside.product.testPaths].sort(compareAsciiStrings));
+    expect(fromInside.report?.locator.scopeIdentity).toBe(SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+    expect(fromInside.recordedInput).toBeDefined();
   });
 
   it("exposes no verification type as a verb command path", () => {
@@ -92,7 +112,10 @@ describe("execute run compliance", () => {
     }
 
     const passed = await observeExecuteRunHandler(() => [], invokedInvocations()[0]);
-    const descriptor = await observeExecuteRunDescriptor([], { exitCode: passed.exitCode, report: passed.report });
+    const descriptor = await observeExecuteRunDescriptor(
+      [],
+      handlerReturning({ exitCode: passed.exitCode, report: passed.report }),
+    );
     expect(descriptor.stdout.trim()).toBe(JSON.stringify(passed.report));
     expect(descriptor.stderr).toHaveLength(0);
     expect(descriptor.exitCode).toBe(passed.exitCode);
@@ -115,12 +138,25 @@ describe("execute run compliance", () => {
     expect(runnerless.diagnostic).toContain(EXECUTE_RUN_CLI_ERROR.UNRESOLVED_RUNNER);
     expect(runnerless.diagnostic).toContain(unresolvedRunner.productDir);
 
-    const descriptor = await observeExecuteRunDescriptor([], {
-      exitCode: noMatch.exitCode,
-      diagnostic: noMatch.diagnostic,
-    });
+    const descriptor = await observeExecuteRunDescriptor(
+      [],
+      handlerReturning({ exitCode: noMatch.exitCode, diagnostic: noMatch.diagnostic }),
+    );
     expect(descriptor.stdout).toHaveLength(0);
     expect(descriptor.stderr.trim()).toBe(noMatch.diagnostic);
     expect(descriptor.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+  });
+
+  it("reports a run the handler cannot complete as an escaped diagnostic with a non-zero exit, never as an unhandled failure", async () => {
+    const failure = sampleGeneratedValue(arbitraryTerminalUnsafeText());
+    const descriptor = await observeExecuteRunDescriptor([], handlerFailingWith(failure));
+
+    expect(descriptor.stdout).toHaveLength(0);
+    expect(descriptor.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(descriptor.stderr).toContain(EXECUTE_RUN_CLI_ERROR.RUN_FAILED);
+    for (const char of descriptor.stderr.replaceAll(CLI_STREAM_REPORT.LINE_SEPARATOR, "")) {
+      expect(char.codePointAt(0)).toBeGreaterThanOrEqual(FIRST_PRINTABLE_CHAR_CODE);
+      expect(char.codePointAt(0)).not.toBe(DEL_CHAR_CODE);
+    }
   });
 });

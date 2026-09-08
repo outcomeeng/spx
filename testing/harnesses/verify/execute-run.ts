@@ -3,15 +3,23 @@
  * (`spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-execute-run.enabler`).
  *
  * The command tree is inspected on the real CLI program. The handler is driven over a temp product
- * holding generated spec-tree test files, the real verify recorder wired to an in-memory state store,
- * and a controlled streaming runner that yields a configured invocation (Stage 5 exception 7, a
- * contract probe at the runner boundary) — no real Vitest run at `l1`. The descriptor's process
- * boundary is observed through recording standard streams. Every function returns observations; the
+ * that is a real git repository holding generated spec-tree test files — so the production worktree
+ * root resolver is exercised, not injected — the real verify recorder wired to an in-memory state
+ * store, and a controlled streaming runner that yields a configured invocation (Stage 5 exception 7,
+ * a contract probe at the runner boundary) — no real Vitest run at `l1`. The descriptor's process
+ * boundary is observed through recording standard streams, with a handler that either returns a
+ * configured result or fails with a configured error. Every function returns observations; the
  * linked test owns every predicate.
  */
+import { realpath } from "node:fs/promises";
+import { join, posix } from "node:path";
+
+import { execa } from "execa";
+
 import {
   EXECUTABLE_VERIFICATION_TYPES,
   executeRunCommand,
+  type ExecuteRunCommandResult,
   type ExecuteRunReport,
   type JournalStreamingRunner,
 } from "@/commands/verification-exec";
@@ -27,6 +35,7 @@ import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
+import { GIT_TEST_COMMAND, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
 import { withTestingTempProductDir, writeTestFileFixture } from "@testing/harnesses/testing/harness";
 import {
@@ -82,6 +91,7 @@ export function inspectExecuteRunCommandTree(): ExecuteRunCommandTreeObservation
 
 /** A temp product's generated spec-tree layout: two distinct nodes, each holding one TypeScript test file. */
 export interface GeneratedTestProduct {
+  /** The product root as git resolves it — the canonical path of the temp directory. */
   readonly productDir: string;
   /** The two nodes as product-root paths — the operand form a caller passes, e.g. `spx/<node>`. */
   readonly nodePaths: readonly [string, string];
@@ -95,7 +105,11 @@ function productRootNodePath(nodePath: string): string {
   return `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${PATH_SEPARATOR}${nodePath}`;
 }
 
-async function materializeTestProduct(productDir: string): Promise<GeneratedTestProduct> {
+// Initializes the temp directory as a git repository so the production worktree-root resolver
+// finds it, and materializes the generated test files under its spec tree.
+async function materializeTestProduct(tempDir: string): Promise<GeneratedTestProduct> {
+  await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET], { cwd: tempDir });
+  const productDir = await realpath(tempDir);
   const [firstNode, secondNode] = sampleGeneratedValue(TEST_DISPATCH_GENERATOR.distinctNodePaths());
   const firstTest = sampleGeneratedValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, firstNode));
   const secondTest = sampleGeneratedValue(
@@ -132,6 +146,8 @@ function controlledRunner(invocation: JournalRunInvocation): ControlledRunner {
 /** What one handler invocation over a generated product and a controlled runner exposes. */
 export interface ExecuteRunHandlerObservation {
   readonly product: GeneratedTestProduct;
+  /** The directory the handler was invoked from. */
+  readonly invocationDir: string;
   readonly operands: readonly string[];
   readonly invocation: JournalRunInvocation;
   readonly exitCode: number;
@@ -143,21 +159,34 @@ export interface ExecuteRunHandlerObservation {
   readonly recordedInput: VerifyInputReport | undefined;
 }
 
+/** The product root itself — the default invocation directory. */
+export function invokeFromProductRoot(product: GeneratedTestProduct): string {
+  return product.productDir;
+}
+
+/** The directory of the product's first generated test file — an invocation directory inside the product. */
+export function invokeFromFirstTestDir(product: GeneratedTestProduct): string {
+  return join(product.productDir, posix.dirname(product.testPaths[0]));
+}
+
 /**
  * Drives the execute-run handler over a generated temp product with the given operands and a
- * controlled runner yielding the given invocation, against the real recorder over an in-memory
- * store, and reads back the recorded run input when a run opened.
+ * controlled runner yielding the given invocation, from the selected invocation directory, against
+ * the real recorder over an in-memory store and the production worktree-root resolver, and reads
+ * back the recorded run input when a run opened.
  */
 export async function observeExecuteRunHandler(
   selectOperands: (product: GeneratedTestProduct) => readonly string[],
   invocation: JournalRunInvocation,
+  selectInvocationDir: (product: GeneratedTestProduct) => string = invokeFromProductRoot,
 ): Promise<ExecuteRunHandlerObservation> {
   let observation: ExecuteRunHandlerObservation | undefined;
-  await withTestingTempProductDir(async (productDir) => {
-    const product = await materializeTestProduct(productDir);
+  await withTestingTempProductDir(async (tempDir) => {
+    const product = await materializeTestProduct(tempDir);
     const operands = selectOperands(product);
+    const invocationDir = selectInvocationDir(product);
     const scenario = withVerificationType(
-      { ...createVerifyRunContextScenario(), productDir },
+      { ...createVerifyRunContextScenario(), productDir: product.productDir },
       VERIFY_VERIFICATION_TYPE.TEST,
     );
     const fs = createInMemoryStateStoreFileSystem();
@@ -166,7 +195,7 @@ export async function observeExecuteRunHandler(
 
     const result = await executeRunCommand(
       { verificationType: VERIFY_VERIFICATION_TYPE.TEST, operands, recursive: false },
-      { cwd: productDir, resolveRunner: () => controlled.runner, recorder: recorderDeps },
+      { cwd: invocationDir, resolveRunner: () => controlled.runner, recorder: recorderDeps },
     );
     const recordedInput = result.report === undefined
       ? undefined
@@ -182,6 +211,7 @@ export async function observeExecuteRunHandler(
       ) as VerifyInputReport;
     observation = {
       product,
+      invocationDir,
       operands,
       invocation,
       exitCode: result.exitCode,
@@ -218,13 +248,30 @@ export interface ExecuteRunDescriptorObservation {
   readonly handlerOptions: readonly { readonly verificationType: string; readonly operands: readonly string[] }[];
 }
 
+/** What the recording handler does when the descriptor invokes it: return a result, or fail with an error. */
+export type ExecuteRunHandlerOutcome =
+  | { readonly kind: "result"; readonly result: ExecuteRunCommandResult }
+  | { readonly kind: "failure"; readonly error: Error };
+
+/** A handler outcome returning the given result. */
+export function handlerReturning(result: ExecuteRunCommandResult): ExecuteRunHandlerOutcome {
+  return { kind: "result", result };
+}
+
+/** A handler outcome failing with an error carrying the given message. */
+export function handlerFailingWith(message: string): ExecuteRunHandlerOutcome {
+  return { kind: "failure", error: new Error(message) };
+}
+
+const RECORD_RUN_HANDLER_NOT_UNDER_TEST = "record-run handler not under test";
+
 /**
  * Parses `spx verification <type> run <operands…>` on a program whose execute-run handler is a
- * recording double returning the given handler result, and observes what reached the process streams.
+ * recording double with the given outcome, and observes what reached the process streams.
  */
 export async function observeExecuteRunDescriptor(
   operands: readonly string[],
-  handlerResult: { readonly exitCode: number; readonly report?: ExecuteRunReport; readonly diagnostic?: string },
+  handlerOutcome: ExecuteRunHandlerOutcome,
 ): Promise<ExecuteRunDescriptorObservation> {
   const stdout: string[] = [];
   const stderr: string[] = [];
@@ -235,17 +282,19 @@ export async function observeExecuteRunDescriptor(
     description: VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
     register: (program, invocation) => {
       registerVerifyCommands(program, invocation, {
-        appendFinding: () => Promise.reject(new Error("record-run handler not under test")),
-        appendScope: () => Promise.reject(new Error("record-run handler not under test")),
+        appendFinding: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+        appendScope: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
         executeRun: (options) => {
           handlerOptions.push({ verificationType: options.verificationType, operands: options.operands });
-          return Promise.resolve(handlerResult);
+          return handlerOutcome.kind === "result"
+            ? Promise.resolve(handlerOutcome.result)
+            : Promise.reject(handlerOutcome.error);
         },
-        finish: () => Promise.reject(new Error("record-run handler not under test")),
-        input: () => Promise.reject(new Error("record-run handler not under test")),
-        render: () => Promise.reject(new Error("record-run handler not under test")),
-        start: () => Promise.reject(new Error("record-run handler not under test")),
-        status: () => Promise.reject(new Error("record-run handler not under test")),
+        finish: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+        input: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+        render: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+        start: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+        status: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
       });
     },
   };
