@@ -1,12 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import {
-  DEL_CHAR_CODE,
-  ELLIPSIS_TOKEN,
-  FIRST_PRINTABLE_CHAR_CODE,
-  MAX_CLI_ARGUMENT_DISPLAY_LENGTH,
-} from "@/lib/sanitize-cli-argument";
+import { ELLIPSIS_TOKEN, MAX_CLI_ARGUMENT_DISPLAY_LENGTH } from "@/lib/sanitize-cli-argument";
 import {
   authoredText,
   externalToken,
@@ -17,15 +12,15 @@ import {
   terminal,
   type TerminalText,
 } from "@/lib/terminal-text/terminal-text";
-import { arbitraryTerminalUnsafeText } from "@testing/generators/terminal-text/terminal-text";
+import { arbitraryTerminalUnsafeText, TERMINAL_ORACLE } from "@testing/generators/terminal-text/terminal-text";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 describe("terminal text composition invariants", () => {
   it("renders an external segment with no control byte and no DEL", () => {
     assertProperty(arbitraryTerminalUnsafeText(), (input) => {
       for (const char of renderTerminalText(terminal`${externalValue(input)}`)) {
-        expect(char.codePointAt(0)).toBeGreaterThanOrEqual(FIRST_PRINTABLE_CHAR_CODE);
-        expect(char.codePointAt(0)).not.toBe(DEL_CHAR_CODE);
+        expect(char.codePointAt(0)).toBeGreaterThanOrEqual(TERMINAL_ORACLE.FIRST_PRINTABLE_CODE_POINT);
+        expect(char.codePointAt(0)).not.toBe(TERMINAL_ORACLE.DEL_CODE_POINT);
       }
     }, { level: PROPERTY_LEVEL.L1 });
   });
@@ -78,8 +73,8 @@ describe("terminal text composition invariants", () => {
         const value = input.repeat(repeat);
         const rendered = renderTerminalText(externalToken(value));
         for (const char of rendered) {
-          expect(char.codePointAt(0)).toBeGreaterThanOrEqual(FIRST_PRINTABLE_CHAR_CODE);
-          expect(char.codePointAt(0)).not.toBe(DEL_CHAR_CODE);
+          expect(char.codePointAt(0)).toBeGreaterThanOrEqual(TERMINAL_ORACLE.FIRST_PRINTABLE_CODE_POINT);
+          expect(char.codePointAt(0)).not.toBe(TERMINAL_ORACLE.DEL_CODE_POINT);
         }
         expect(rendered.length).toBeLessThanOrEqual(MAX_CLI_ARGUMENT_DISPLAY_LENGTH);
         // The unbounded escape is the oracle for whether the bound had to cut: a value whose
@@ -103,9 +98,9 @@ describe("terminal text composition invariants", () => {
         for (const char of document) {
           const codePoint = char.codePointAt(0);
           if (codePoint !== LINE_FEED_CODE_POINT) {
-            expect(codePoint).toBeGreaterThanOrEqual(FIRST_PRINTABLE_CHAR_CODE);
+            expect(codePoint).toBeGreaterThanOrEqual(TERMINAL_ORACLE.FIRST_PRINTABLE_CODE_POINT);
           }
-          expect(codePoint).not.toBe(DEL_CHAR_CODE);
+          expect(codePoint).not.toBe(TERMINAL_ORACLE.DEL_CODE_POINT);
         }
         expect(JSON.parse(document)).toStrictEqual(value);
       },

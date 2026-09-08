@@ -10,6 +10,7 @@ import {
   MAX_CLI_ARGUMENT_DISPLAY_LENGTH,
   sanitizeCliArgument,
 } from "@/lib/sanitize-cli-argument";
+import { TERMINAL_ORACLE } from "@testing/generators/terminal-text/terminal-text";
 
 describe("sanitizeCliArgument invariants", () => {
   it("is idempotent: applying sanitize to its own output returns the same string", () => {
@@ -22,15 +23,15 @@ describe("sanitizeCliArgument invariants", () => {
     );
   });
 
-  it("output contains no code point below FIRST_PRINTABLE_CHAR_CODE and never DEL_CHAR_CODE", () => {
+  it("output contains no code point below the first printable byte and never DEL", () => {
     fc.assert(
       fc.property(fc.string(), (input) => {
         const output = sanitizeCliArgument(input);
         for (const char of output) {
           const code = char.codePointAt(0);
           if (code === undefined) continue;
-          expect(code).toBeGreaterThanOrEqual(FIRST_PRINTABLE_CHAR_CODE);
-          expect(code).not.toBe(DEL_CHAR_CODE);
+          expect(code).toBeGreaterThanOrEqual(TERMINAL_ORACLE.FIRST_PRINTABLE_CODE_POINT);
+          expect(code).not.toBe(TERMINAL_ORACLE.DEL_CODE_POINT);
         }
       }),
     );
