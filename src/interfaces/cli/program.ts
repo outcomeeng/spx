@@ -25,7 +25,8 @@ type CliGlobalOptions = {
  * Commander builds each diagnostic itself, fusing its own words with whatever the caller typed,
  * so by the time a message reaches `error` the two are no longer separable. These three hooks are
  * where they are still apart: every other diagnostic Commander raises embeds only declarations
- * the product wrote — an option's flags, an argument's name, the command's own name, a count.
+ * the product wrote — an option's flags, an argument's name, the command's own name, the name of
+ * an environment variable an option declares, a count.
  * Commander marks all three `@api private` and omits them from its published typings, as it omits
  * the parser an argument carries; this states the runtime shape the overrides bind to.
  */
