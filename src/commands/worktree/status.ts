@@ -60,6 +60,7 @@ export const WORKTREE_STATUS_ERROR = {
 export const WORKTREE_STATUS_ERROR_KIND = {
   ALL_WITH_EXPLICIT_TARGETS: "all-with-explicit-targets",
   NO_TARGETS_RESOLVED: "no-targets-resolved",
+  OCCUPANCY_UNREADABLE: "occupancy-unreadable",
 } as const;
 
 export type WorktreeStatusErrorKind = (typeof WORKTREE_STATUS_ERROR_KIND)[keyof typeof WORKTREE_STATUS_ERROR_KIND];
@@ -120,11 +121,13 @@ export async function statusCommand(
   for (const target of targets.value) {
     const worktreesDir = await resolveWorktreesDir({ ...options, cwd: target.worktreeRoot });
     const claimResult = await readClaim(worktreesDir, target.name, { fs: options.fs });
-    // The occupancy store composed its own diagnostic, so it is carried as it stands.
+    // The target resolved and only its occupancy could not be read, which is a different
+    // failure from resolving no target at all. The store composed its own diagnostic, so it
+    // is carried as it stands.
     if (!claimResult.ok) {
       return {
         ok: false,
-        error: { kind: WORKTREE_STATUS_ERROR_KIND.NO_TARGETS_RESOLVED, text: claimResult.error },
+        error: { kind: WORKTREE_STATUS_ERROR_KIND.OCCUPANCY_UNREADABLE, text: claimResult.error },
       };
     }
     const claim = claimResult.value;
