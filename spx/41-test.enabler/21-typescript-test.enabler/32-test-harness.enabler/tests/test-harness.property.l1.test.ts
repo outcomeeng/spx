@@ -36,11 +36,13 @@ describe("typescript recording command runner", () => {
 
 describe("typescript runner node-path generator", () => {
   it("yields a non-empty list of distinct node paths", () => {
-    fc.assert(
-      fc.property(TYPESCRIPT_RUNNER_TEST_GENERATOR.nodePaths(), (nodePaths) => {
+    assertProperty(
+      TYPESCRIPT_RUNNER_TEST_GENERATOR.nodePaths(),
+      (nodePaths) => {
         expect(nodePaths.length).toBeGreaterThan(0);
         expect(new Set(nodePaths).size).toBe(nodePaths.length);
-      }),
+      },
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 });

@@ -36,11 +36,13 @@ describe("python recording command runner", () => {
 
 describe("python runner test-path generator", () => {
   it("yields a non-empty list of distinct python test paths", () => {
-    fc.assert(
-      fc.property(PYTHON_RUNNER_TEST_GENERATOR.nonEmptyTestPaths(), (paths) => {
+    assertProperty(
+      PYTHON_RUNNER_TEST_GENERATOR.nonEmptyTestPaths(),
+      (paths) => {
         expect(paths.length).toBeGreaterThan(0);
         expect(new Set(paths).size).toBe(paths.length);
-      }),
+      },
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 });

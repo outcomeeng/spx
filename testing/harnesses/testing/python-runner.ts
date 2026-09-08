@@ -1,8 +1,7 @@
 import { execa } from "execa";
 import assert from "node:assert";
 import { copyFile, mkdir, stat, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join, resolve, sep } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { pythonTestingLanguage } from "@/test/languages/python";
@@ -10,7 +9,6 @@ import { PYTEST_INVOKE_ARGS, UV_COMMAND } from "@/test/languages/python-pytest-c
 import type { TestRunCommandResult, TestRunnerDependencies } from "@/test/languages/types";
 import { PYTHON_MARKER } from "@/validation/discovery/language-finder";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { PYTHON_RUNNER_TEST_GENERATOR, samplePythonRunnerValue } from "@testing/generators/testing/python-runner";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import { withTestingTempProductDir } from "@testing/harnesses/testing/harness";
@@ -224,41 +222,73 @@ export function registerPythonRunnerComplianceEvidence(): void {
   });
 }
 
-export function registerTempPytestProductScenarioEvidence(): void {
-  describe("withTempPytestProduct", () => {
-    it("materializes the fixture suite under the OS temp root and removes the product after the callback returns", async () => {
-      const tempRootPrefix = resolve(tmpdir()) + sep;
-      let capturedProductDir = "";
-      let capturedSuitePath = "";
+export interface TempPytestProductObservation {
+  /** The product directory the callback received. */
+  readonly productDir: string;
+  /** The suite path the callback received. */
+  readonly suitePath: string;
+  /** Whether the suite path existed while the callback ran. */
+  readonly suiteExistedDuringCallback: boolean;
+  /** Whether the product directory still exists once the callback has settled. */
+  readonly productExistsAfterCallback: boolean;
+  /** Whether the suite path still exists once the callback has settled. */
+  readonly suiteExistsAfterCallback: boolean;
+}
 
-      await withTempPytestProduct(PYTEST_FIXTURE.PASSING, async ({ productDir, suitePath }) => {
-        capturedProductDir = productDir;
-        capturedSuitePath = suitePath;
+// Runs a callback through `withTempPytestProduct` and reports what the product looked like
+// during the callback and whether it survived it; the linked test owns every predicate.
+export async function observeTempPytestProductLifecycle(
+  fixture: PytestFixture,
+): Promise<TempPytestProductObservation> {
+  let productDir = "";
+  let suitePath = "";
+  let suiteExistedDuringCallback = false;
 
-        expect(resolve(productDir).startsWith(tempRootPrefix)).toBe(true);
-        expect(suitePath.startsWith(productDir)).toBe(true);
-        expect(await pathExists(suitePath)).toBe(true);
-      });
-
-      expect(await pathExists(capturedProductDir)).toBe(false);
-      expect(await pathExists(capturedSuitePath)).toBe(false);
-    });
-
-    it("removes the product and rethrows the original error when the callback throws", async () => {
-      let capturedProductDir = "";
-      const failure = new Error(sampleLiteralTestValue(arbitraryDomainLiteral()));
-
-      await expect(
-        withTempPytestProduct(PYTEST_FIXTURE.FAILING, async ({ productDir }) => {
-          capturedProductDir = productDir;
-          expect(await pathExists(productDir)).toBe(true);
-          throw failure;
-        }),
-      ).rejects.toBe(failure);
-
-      expect(await pathExists(capturedProductDir)).toBe(false);
-    });
+  await withTempPytestProduct(fixture, async (product) => {
+    productDir = product.productDir;
+    suitePath = product.suitePath;
+    suiteExistedDuringCallback = await pathExists(product.suitePath);
   });
+
+  return {
+    productDir,
+    suitePath,
+    suiteExistedDuringCallback,
+    productExistsAfterCallback: await pathExists(productDir),
+    suiteExistsAfterCallback: await pathExists(suitePath),
+  };
+}
+
+export interface TempPytestProductFailureObservation {
+  /** Whether the product directory existed when the callback threw. */
+  readonly existedDuringCallback: boolean;
+  /** Whether the product directory still exists once the failed callback has settled. */
+  readonly existsAfterCallback: boolean;
+  /** What `withTempPytestProduct` rejected with. */
+  readonly rejection: unknown;
+}
+
+// Runs a throwing callback through `withTempPytestProduct` and reports the product's existence
+// around the throw and the rejection the caller observes.
+export async function observeTempPytestProductAfterThrow(
+  fixture: PytestFixture,
+  failure: Error,
+): Promise<TempPytestProductFailureObservation> {
+  let productDir = "";
+  let existedDuringCallback = false;
+  let rejection: unknown;
+
+  try {
+    await withTempPytestProduct(fixture, async (product) => {
+      productDir = product.productDir;
+      existedDuringCallback = await pathExists(product.productDir);
+      throw failure;
+    });
+  } catch (error: unknown) {
+    rejection = error;
+  }
+
+  return { existedDuringCallback, existsAfterCallback: await pathExists(productDir), rejection };
 }
 
 async function pathExists(path: string): Promise<boolean> {
