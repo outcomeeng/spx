@@ -15,10 +15,8 @@ plugins. On 2026-07-25T04:11:21Z a Codex session resolving that config
 appended a `[marketplaces.outcomeeng]` table carrying `source_type`,
 `source`, and `last_updated = "2026-07-25T04:11:21Z"`, the timestamp of the
 clone it made under `.codex/.tmp/marketplaces/`. The stanza is the agent's
-record of a fetch, in a file the harness owns. `.gitignore` un-ignores
-`.codex/skills/*`, a repository-local skills directory that has never
-existed. No reconciliation asserts what the harness-managed section of that
-file may and may not contain.
+record of a fetch, in a file the harness owns. No reconciliation asserts what
+the harness-managed section of that file may and may not contain.
 
 **Impact:** a tracked file goes dirty on every marketplace refresh, and a
 tool-written stanza is indistinguishable from an operator declaration.
@@ -26,5 +24,4 @@ tool-written stanza is indistinguishable from an operator declaration.
 **Settlement condition:** the spec states which tables of the Codex project
 config are harness-managed and that a marketplace's `last_updated` is never
 committed; reconciliation preserves an agent-written marketplace `source`
-only when the product configuration declares that marketplace; the
-`.codex/skills/*` ignore exception is removed.
+only when the product configuration declares that marketplace.
