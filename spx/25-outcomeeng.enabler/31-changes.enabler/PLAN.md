@@ -10,8 +10,8 @@ The first-half composition horizon contains the governing Change-store PDR at 21
 
 ## Activities
 
-1. Finish the focused deterministic checks for draft storage, CLI behavior, and coordination/change audit evidence and projection. Invalid-command cases retain separate test envelopes and their declared generated run counts.
-2. Converge the affected evidence, implementation, and changeset gates on a clean committed subject. The preimplementation evidence audits reported absent behavior; the CLI audit also required specific diagnostic assertions and registry-enumerated operation coverage.
+1. Preserve passing build, source validation, and focused verification for draft storage, CLI behavior, and coordination/change audit evidence and projection. The committed prototype passed 158 focused tests on 2026-09-08.
+2. Complete changeset review and the remaining delivery checks on a clean committed subject. The operator-approved prototype evidence deferrals are recorded in `spx/25-outcomeeng.enabler/31-changes.enabler/ISSUES.md`; shared verification-harness maintenance and audit execution limitations are recorded in `spx/34-verification.enabler/32-verify.enabler/ISSUES.md`. Preserve the actual rejected or incomplete audit results when reporting readiness; the operator's delivery exception supplies the disposition for those recorded findings.
 3. Merge through `/merge` and release the CLI capability before the separate plugin consumer enables the commands.
 
 The separate plugins Product consumes the released commands in its agreed eight-file Change skill prototype. This SPX change creates no hosted Change backend, canonical `.spx/changes/` store, session migration, eval, or Python implementation script.

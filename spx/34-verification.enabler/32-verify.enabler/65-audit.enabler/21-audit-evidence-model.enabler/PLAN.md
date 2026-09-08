@@ -12,7 +12,7 @@ The contract in `spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/
 
 The consumer is the spec-tree plugin's Change auditor. Authors draft, revise, and repair one local Change file. An independent auditor reads that file and records coverage and findings through `spx verification run`. Passing verification permits the authoring workflow to publish the approved file to its configured Change store. SPX's audit contract remains independent of that store. Verification records stay outside the Change body.
 
-1. Finish the focused deterministic checks and independent audits for this node and `spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler` on the committed implementation.
+1. Preserve the passing focused checks and the approved evidence-model and terminal-reason audits. The latest projection audit stopped with incomplete dependency inspection; the implementation audit recorded shared-harness and draft-generator findings. Their operator-approved prototype disposition is recorded in `spx/34-verification.enabler/32-verify.enabler/ISSUES.md` and `spx/25-outcomeeng.enabler/31-changes.enabler/ISSUES.md`. Complete changeset review and the remaining delivery checks without expanding this slice into the deferred repairs.
 2. Deliver and release the SPX capability. The plugin consumer must require the published version that supports the pair before enabling its auditor. An unreleased executable cannot satisfy that dependency.
 
 No new eval work, Python scripts, publication command, or Change-file storage policy is part of this contract addition. Local working-file location and publication belong to the authoring workflow and configured coordination infrastructure.

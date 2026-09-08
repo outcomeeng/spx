@@ -1,5 +1,29 @@
 # Issues: verify
 
+## Shared verification harness owns test predicates and unclassified Git doubles
+
+`testing/harnesses/verify/harness.ts` contains behavioral assertions and complete exported `assert*` test bodies. `assertFinishReportMatchesJournal` compares expected projection fields and throws on mismatch; functions such as `assertCallerDrivenRunAdvertisesEvidenceAppendActions` execute `expect` assertions. The executed test files must own those predicates under `spx/12-test-infrastructure.adr.md` and the TypeScript test standards.
+
+The same module's `verifyGitDeps` returns canned product-directory, branch, HEAD, and changed-file responses. `verifyDeps` installs it for ordinary lifecycle cases without naming a testing-methodology exception. The real temporary Git repository used by `testing/harnesses/verify/audit-fixtures.ts` provides an existing resource pattern to assess for those cases.
+
+Both patterns exist in the base branch of the local Change draft prototype. That changeset's net edit to the shared module removes the unused `finishTestRunWithSuppliedMetadata` helper; it introduces neither pattern. An inspection on 2026-09-08 found 25 test files under `spx/34-verification.enabler/32-verify.enabler` importing the shared module. The product-wide assertion-ownership issue remains in `spx/ISSUES.md`; this entry owns its verification-subtree instance and the related Git-boundary issue.
+
+**Repair scope:** inventory the called assertion functions and their owning tests, move behavioral predicates into those test callbacks, and retain observation and resource APIs in the harness. Use real Git for ordinary lifecycle cases. Keep a controlled dependency only where a named testing-methodology exception applies, documenting the exception and preserving its typed boundary. Migrate one coherent lifecycle concern at a time through `/apply`, `/test`, `typescript:test-typescript`, and `typescript:code-typescript`; run its focused checks and audits before proceeding.
+
+**Disposition:** the operator approved separate maintenance on 2026-09-08. This broader repair is deferred from the first-use local Change draft prototype. Revisit when scheduling verification-harness maintenance or before a subsequent change extends the affected shared lifecycle harness. The prototype's new real-Git fixture harness remains in use.
+
+## Local Change prototype audit limitations and delivery exception
+
+The inspected source and evidence subject is `c9b565f798325fa11b69e76828f2ca00ee3a8465`. Build, source validation, and 158 focused tests passed. The audit evidence model and terminal-reason evidence audits approved it. The CLI and storage evidence audits rejected the gaps recorded in `spx/25-outcomeeng.enabler/31-changes.enabler/ISSUES.md`.
+
+Implementation audit `2026-09-08_06-18-55-520-09b5a967319d` sealed as `rejected` after recording 95 coverage units and three findings: the shared assertion ownership and Git-double issues above, plus the constant-only draft-command generators. Earlier empty implementation-audit runs establish no coverage.
+
+The audit-run-projection evidence auditor confirmed the selector enumeration repair, then returned an incomplete-audit rejection. It reported 316 resolved dependency modules with unfinished inspection and withdrew unsupported earlier inspection claims. That result is an audit execution limitation, not evidence of a defect in the projection implementation. A later audit must finish the required inspection and record an accurate inventory before claiming approval.
+
+On 2026-09-08 the operator authorized keeping the wider harness repair separate, recording the remaining test issues, and merging the prototype without further test refinement. This is an explicit delivery exception for these recorded rejected and incomplete audits over the unchanged source and test content; it is not an approval verdict. Subsequent coordination-note updates carry the disposition forward. Deterministic failures, new functional or safety defects, changeset review, and the remaining merge and release checks still require their ordinary handling.
+
+**Revisit condition:** before relying on these audits as approval evidence, or when the prototype is retained beyond its first-use evaluation. Complete the missing audit inspection and reassess the deferred evidence against the then-current contract. Keep verification records outside Change bodies and metadata.
+
 ## `status` next-actions advertise evidence actions without registered validators
 
 `projectVerifyRun` (`src/domains/verify/verify.ts`) advertises an unsealed run's next actions

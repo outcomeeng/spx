@@ -174,7 +174,9 @@ PR #138 migrates product-level assertions in [spx.product.md](spx.product.md) fr
 
 ## Test assertion flow lives in harnesses instead of executed test files
 
-Across the product, 34 executed `spx/.../tests/*.test.ts` files are two-line shims that import and call a `register*()` function, while the `describe`/`it`/`expect` assertion flow they should own lives in `testing/harnesses/` register-suite modules — for example `testing/harnesses/literal/output-modes-scenario.ts`, `testing/harnesses/session/session-identity-scenarios.ts`, and `testing/harnesses/process-lifecycle/compliance.ts`.
+Some executed `spx/.../tests/*.test.ts` files delegate their assertion flow to `register*()` or `assert*()` functions in `testing/harnesses/`. The issue includes register-suite modules such as `testing/harnesses/literal/output-modes-scenario.ts`, `testing/harnesses/session/session-identity-scenarios.ts`, and `testing/harnesses/process-lifecycle/compliance.ts`, plus assertion functions in `testing/harnesses/verify/harness.ts`.
+
+The verification-subtree instance, its related canned Git responses, repair scope, and operator-approved separation from the local Change draft prototype are recorded in `spx/34-verification.enabler/32-verify.enabler/ISSUES.md`. The 2026-09-08 inspection found 25 verification test files importing that shared module; this is a subtree inventory, not a product-wide count.
 
 The same ownership defect also occurs when an executed test delegates its predicates to a helper outside the linked test callback. `spx/31-spec-domain.enabler/76-spec-cli-contract-tests.enabler/tests/spec-cli-contract.scenario.l2.test.ts` delegates status predicates to `assertDeclaredStatusRows`, and `spx/31-spec-domain.enabler/32-spec-cli-rendering.enabler/tests/spec-cli-rendering.conformance.l1.test.ts` imports the assertion-owning `expectPresent` helper from `testing/harnesses/spec-tree/assertions.ts`.
 
@@ -184,7 +186,7 @@ The same ownership defect also occurs when an executed test delegates its predic
 
 **Skills:** `/test-typescript`, `/audit-typescript-tests`, `/apply`.
 
-**Scope:** Product-wide — 34 test-file shims, roughly 25 harness modules, and assertion-owning helpers called outside linked test callbacks. Unwind one owning subtree at a time: move each `register*()` harness function's `describe`/`it`/`expect` body into the node's executed `tests/*.test.ts` file and move helper-owned predicates into the linked test callback, leaving genuine lifecycle and setup helpers (`withLiteralFixtureEnv`, expected-value builders, seed and run-count machinery) in the harness. Retire redundant scenario/compliance duplicates as encountered, and re-run each node's tests plus its test-evidence audit after the move.
+**Scope:** Product-wide, repaired one owning subtree at a time. Move each `register*()` or `assert*()` function's behavioral predicates into the node's executed `tests/*.test.ts` callbacks. Keep resource lifecycle, operation observations, and seed and run-count machinery in the harness; inspect expected-value construction for independent ownership. Retire redundant scenario/compliance duplicates as encountered, and run each node's tests plus its test-evidence audit after the move. Recount the affected callers when selecting a subtree rather than treating an earlier inventory as the current scope.
 
 ## Spec CLI rendering Mapping evidence enumerates formats as separate tests
 
