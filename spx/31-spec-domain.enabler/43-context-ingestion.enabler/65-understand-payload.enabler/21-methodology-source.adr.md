@@ -22,13 +22,15 @@ Version declaration is configuration-driven through the `methodology` descriptor
 
 ## Verification
 
-- ALWAYS: foundation bodies and the extended methodology catalog come from spx's shipped methodology tree addressed by the declared methodology line and the coding agent in scope, resolved from spx's package root
-- ALWAYS: tree selection reads the declared methodology version's line and the coding agent in scope and performs no version comparison, range evaluation, directory search, or consumer-path resolution
-- ALWAYS: manifest consumption validates the manifest's schema version and fails on an unrecognized version, naming the resolved manifest path
-- ALWAYS: manifest parsing, schema validation, `source.json` parsing, and catalog mapping are pure functions over supplied bytes, and the tree read enters through an injected reader rooted at an injected tree root
-- NEVER: methodology resource resolution reaches the network, reads a coding agent's plugin cache or installed plugin, reads a consumer-side copy, or reads outside the selected shipped tree
-- NEVER: the reader compares the declared methodology version against the recorded plugin version, or derives one from the other
+### Testing
+
+- ALWAYS: foundation bodies and the extended methodology catalog come from spx's shipped methodology tree addressed by the declared methodology line and the coding agent in scope, resolved from spx's package root ([compliance])
+- ALWAYS: tree selection reads the declared methodology version's line and the coding agent in scope and performs no version comparison, range evaluation, directory search, or consumer-path resolution ([compliance])
+- ALWAYS: manifest consumption validates the manifest's schema version and fails on an unrecognized version, naming the resolved manifest path ([compliance])
+- NEVER: methodology resource resolution reaches the network, reads a coding agent's plugin cache or installed plugin, reads a consumer-side copy, or reads outside the selected shipped tree ([compliance])
+- NEVER: the reader compares the declared methodology version against the recorded plugin version, or derives one from the other ([compliance])
 
 ### Audit
 
+- ALWAYS: manifest parsing, schema validation, `source.json` parsing, and catalog mapping are pure functions over supplied bytes, and the tree read enters through an injected reader rooted at an injected tree root ([audit])
 - ALWAYS: methodology-catalog listed entries are projections of parsed manifest data only — no filesystem probe, existence check, or containment resolution participates in their inclusion ([audit])

@@ -28,10 +28,12 @@ The three scopes keep a repository that declares its capabilities distinct from 
 
 ## Verification
 
-- ALWAYS: every write of a marketplace, plugin, or skill by the harness targets the agent home SPX sets for that coding agent
-- NEVER: the harness writes into the user scope of any coding agent
-- ALWAYS: a plugin, plugin cache, or marketplace clone found under the repository is reported as a defect by diagnostics, naming the path and the agent home it belongs in
-- NEVER: a repository ignore rule admits an installed plugin, skill, or marketplace directory under the repository as tracked content
+### Testing
+
+- ALWAYS: every write of a marketplace, plugin, or skill by the harness targets the agent home SPX sets for that coding agent ([compliance])
+- NEVER: the harness writes into the user scope of any coding agent ([compliance])
+- ALWAYS: a plugin, plugin cache, or marketplace clone found under the repository is reported as a defect by diagnostics, naming the path and the agent home it belongs in ([compliance])
+- NEVER: a repository ignore rule admits an installed plugin, skill, or marketplace directory under the repository as tracked content ([compliance])
 
 ### Audit
 
