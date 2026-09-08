@@ -74,8 +74,9 @@ export interface UnresolvedRunner {
 /**
  * The outcome of an spx-driven run: an unsupported verification type opens no run, otherwise the run
  * executes and yields its locator and the terminal status the executor recorded. A run whose product
- * directory supplied no runner seals `interrupted` and names the directory searched, so a caller
- * distinguishes it from a run detection gated out and from a run that started and failed.
+ * directory supplied no runner seals `interrupted` and, when no other language streamed, names the
+ * directory searched, so a caller distinguishes it from a run detection gated out and from a run that
+ * started and failed.
  */
 export type ExecutorRunResult =
   | { readonly executed: false }
