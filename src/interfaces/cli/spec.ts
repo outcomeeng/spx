@@ -9,6 +9,7 @@ import {
 import { nextCommand } from "@/commands/spec/next";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec/status";
+import { inferInvokingCodingAgent } from "@/interfaces/cli/coding-agent";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
@@ -26,6 +27,7 @@ export const SPEC_DOMAIN_CLI = {
   JSON_OPTION: "--json",
   CONTENT_OPTION: "--content",
   UNDERSTAND_OPTION: "--understand",
+  CODING_AGENT_OPTION: "--coding-agent",
   CODING_AGENT_OPTION_DEFINITION: "--coding-agent <name>",
   FORMAT_OPTION_FLAG: "--format",
   FORMAT_OPTION_DEFINITION: "--format <format>",
@@ -155,11 +157,11 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
     )
     .option(
       SPEC_DOMAIN_CLI.UNDERSTAND_OPTION,
-      "Include the foundation methodology payload from the committed methodology tree",
+      "Include the foundation methodology payload from spx's shipped tree for the declared methodology version",
     )
     .option(
       SPEC_DOMAIN_CLI.CODING_AGENT_OPTION_DEFINITION,
-      "Coding agent whose committed methodology tree the payload reads",
+      "Coding agent whose shipped methodology tree the payload reads; defaults to the invoking agent",
     )
     .action(
       async (
@@ -178,7 +180,8 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
             cwd: productDir(),
             content: options.content === true,
             understand: options.understand === true,
-            codingAgent: options.codingAgent,
+            codingAgent: options.codingAgent ?? inferInvokingCodingAgent(process.env),
+            methodologyTreeRoot: invocation.methodologyTreeRoot,
             onWarning,
           });
           writeOutput(invocation.io, output);

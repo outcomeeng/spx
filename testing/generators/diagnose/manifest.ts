@@ -13,6 +13,7 @@ import fc from "fast-check";
 
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import { CHECK_NAME, type CheckName } from "@/domains/diagnose/manifest";
+import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 
 const DIAGNOSE_SAMPLE_SEED = 7;
 const METHODOLOGY_SOURCE_SEGMENT_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
@@ -73,7 +74,7 @@ export const arbitraryManifestFacts = (): fc.Arbitrary<ManifestFacts> =>
     marketplaceName: arbitraryNameToken(),
     marketplaceSource: arbitraryMarketplaceSource(),
     methodologySource: arbitraryMethodologySource(),
-    methodologyVersion: arbitraryNameToken(),
+    methodologyVersion: arbitraryMethodologyVersion().map((version) => version.text),
     expectedPlugins: fc.array(arbitraryNameToken(), { minLength: 1, maxLength: 5 }),
   });
 

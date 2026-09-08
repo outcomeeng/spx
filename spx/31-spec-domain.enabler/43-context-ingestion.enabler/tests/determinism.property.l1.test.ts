@@ -6,9 +6,9 @@ import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextCommand,
   contextTextCommand,
-  methodologyPackageConfig,
+  methodologyTreeConfig,
   specTreeKindsConfig,
-  writeMethodologyPackage,
+  writeMethodologyTree,
 } from "@testing/harnesses/spec/context";
 
 describe("spec context determinism", () => {
@@ -16,9 +16,9 @@ describe("spec context determinism", () => {
     await assertProperty(
       arbitraryContextDeterminismCase(specTreeKindsConfig()),
       async ({ extraDecision, extraNode }) => {
-        await withSpecTreeEnv(methodologyPackageConfig(), async (env) => {
+        await withSpecTreeEnv(methodologyTreeConfig(), async (env) => {
           await env.materialize();
-          await writeMethodologyPackage(env);
+          const fixture = await writeMethodologyTree(env);
           await env.writeRaw(extraNode.fixturePath, extraNode.contents);
           await env.writeRaw(extraDecision.fixturePath, extraDecision.contents);
           const snapshot = await env.readFilesystemSnapshot();
@@ -30,8 +30,18 @@ describe("spec context determinism", () => {
           const secondText = await contextTextCommand({ targets, cwd: env.productDir });
           const firstContent = await contextCommand({ targets, cwd: env.productDir, content: true });
           const secondContent = await contextCommand({ targets, cwd: env.productDir, content: true });
-          const firstUnderstand = await contextCommand({ targets, cwd: env.productDir, understand: true });
-          const secondUnderstand = await contextCommand({ targets, cwd: env.productDir, understand: true });
+          const firstUnderstand = await contextCommand({
+            targets,
+            cwd: env.productDir,
+            understand: true,
+            methodologyTreeRoot: fixture.treeRoot,
+          });
+          const secondUnderstand = await contextCommand({
+            targets,
+            cwd: env.productDir,
+            understand: true,
+            methodologyTreeRoot: fixture.treeRoot,
+          });
           expect(secondJson).toBe(firstJson);
           expect(secondText).toBe(firstText);
           expect(secondContent).toBe(firstContent);

@@ -10,7 +10,8 @@
     "dist/**/*.js",
     "dist/**/*.js.map",
     "dist/**/*.d.ts",
-    "bin"
+    "bin",
+    "methodology"
   ],
   "engines": {
     "node": ">=24.0.0"
@@ -33,6 +34,7 @@
   },
   "scripts": {
     "build": "tsup",
+    "methodology:fetch": "tsx scripts/fetch-methodology.ts",
     "dev": "tsup --watch",
     "test": "pnpm run build && vitest run",
     "test:watch": "vitest",

@@ -2,7 +2,12 @@ import { mkdir, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { CONFIG_FILENAMES } from "@/config/index";
-import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
+import {
+  DEFAULT_METHODOLOGY_SOURCE,
+  METHODOLOGY_CONFIG_FIELDS,
+  METHODOLOGY_SECTION,
+  type MethodologyConfig,
+} from "@/config/methodology";
 import type { Result } from "@/config/types";
 import {
   AGENT,
@@ -18,30 +23,38 @@ import {
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { HOOK_CLI } from "@/interfaces/cli/hook";
 import { HOOK_EVENT } from "@/interfaces/hooks/registry";
-import { runSessionStartHook, type SessionStartHookResult } from "@/interfaces/hooks/session-start";
+import {
+  type CompactDirectiveInput,
+  runSessionStartHook,
+  type SessionStartHookResult,
+} from "@/interfaces/hooks/session-start";
 import { defaultGitDependencies } from "@/lib/git/root";
+import { METHODOLOGY_CODING_AGENT } from "@/lib/methodology/coding-agent";
 import { resolveCompactRecoveryDirective } from "@/lib/methodology/compact-recovery";
 import {
   FOUNDATION_MANIFEST_FIELDS,
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   FOUNDATION_MANIFEST_SCHEMA_VERSION,
 } from "@/lib/methodology/foundation-manifest";
-import { defaultMethodologyPackageFileSystem } from "@/lib/methodology/package-resource";
+import { FOUNDATION_PLUGIN_NAME, methodologyLine } from "@/lib/methodology/tree";
+import { defaultMethodologyTreeFileSystem } from "@/lib/methodology/tree-resource";
+import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { type HookCliWorktreeEnv, withHookCliWorktreeEnv } from "@testing/harnesses/hook-cli";
+import { shippedMethodologyVersion, shippedTreeRelativeDir } from "@testing/harnesses/methodology/shipped-tree";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import { runWorktreeCli, type SpxCliResult, withWorktreePool } from "@testing/harnesses/worktree/harness";
 
-const PACKAGE_DIRECTORY = "methodology-package";
 const CORE_PATH = "skills/understand/SKILL.md";
 const COMPACT_RECOVERY_PATH = "skills/understand/compact-recovery.md";
 const ESCAPE_TARGET_FILENAME = "outside-directive.md";
 const TEMP_PREFIX = "compact-recovery-";
 
-/** The materialized-package states the directive resolution mapping exercises. */
+/** The shipped-tree states the directive resolution mapping exercises. */
 export const COMPACT_RECOVERY_FIXTURE_VARIANT = {
   RESOLVED: "resolved",
-  PACKAGE_UNCONFIGURED: "package-unconfigured",
+  LINE_UNSHIPPED: "line-unshipped",
   MANIFEST_ABSENT: "manifest-absent",
   MANIFEST_INVALID: "manifest-invalid",
   ENTRY_ABSENT: "entry-absent",
@@ -53,14 +66,20 @@ export const COMPACT_RECOVERY_FIXTURE_VARIANT = {
 export type CompactRecoveryFixtureVariant =
   (typeof COMPACT_RECOVERY_FIXTURE_VARIANT)[keyof typeof COMPACT_RECOVERY_FIXTURE_VARIANT];
 
-export interface CompactRecoveryPackageFixture {
-  /** The temp product directory the package sits under. */
-  readonly productDir: string;
-  /** The product-relative package directory, or undefined for the unconfigured variant. */
-  readonly packageDir: string | undefined;
+export interface CompactRecoveryTreeFixture {
+  /** The temp directory standing in for spx's `methodology/` directory. */
+  readonly treeRoot: string;
+  /** The payload product's methodology declaration the fixture tree serves. */
+  readonly methodology: MethodologyConfig;
+  /** The declared exact version. */
+  readonly version: string;
+  /** The line the declared version derives to. */
+  readonly line: string;
+  /** The coding agent the fixture tree belongs to. */
+  readonly codingAgent: string;
   /** The absolute path of the written manifest file. */
   readonly manifestPath: string;
-  /** The package-relative compact-recovery entry the manifest names. */
+  /** The plugin-relative compact-recovery entry the manifest names. */
   readonly entryPath: string;
   /** The exact directive text the resolved variant's resource carries. */
   readonly directiveText: string;
@@ -77,65 +96,71 @@ function manifestJson(compactRecovery?: string): string {
   });
 }
 
-async function writePackageFile(packageRoot: string, relativePath: string, content: string): Promise<string> {
-  const absolute = join(packageRoot, relativePath);
+async function writeTreeFile(treeDir: string, relativePath: string, content: string): Promise<string> {
+  const absolute = join(treeDir, relativePath);
   await mkdir(dirname(absolute), { recursive: true });
   await writeFile(absolute, content, "utf8");
   return absolute;
 }
 
 /**
- * Materializes one installed-methodology-package state under a temp product
- * directory and hands its locations to the callback. The callback owns every
- * assertion; the harness only builds and removes the fixture.
+ * Materializes one shipped-tree state under a temp tree root and hands its
+ * locations to the callback. The callback owns every assertion; the harness
+ * only builds and removes the fixture.
  */
-export async function withCompactRecoveryPackage(
+export async function withCompactRecoveryTree(
   options: { readonly directiveText: string; readonly variant: CompactRecoveryFixtureVariant },
-  callback: (fixture: CompactRecoveryPackageFixture) => Promise<void>,
+  callback: (fixture: CompactRecoveryTreeFixture) => Promise<void>,
 ): Promise<void> {
-  await withTempDir(TEMP_PREFIX, async (productDir) => {
-    const packageRoot = join(productDir, PACKAGE_DIRECTORY);
-    const manifestPath = join(packageRoot, FOUNDATION_MANIFEST_RELATIVE_PATH);
-    await mkdir(packageRoot, { recursive: true });
+  const version = sampleGeneratedValue(arbitraryMethodologyVersion());
+  const line = methodologyLine(version.text);
+  if (!line.ok) throw new Error(line.error);
+  const codingAgent = METHODOLOGY_CODING_AGENT.CODEX;
+  await withTempDir(TEMP_PREFIX, async (treeRoot) => {
+    const treeDir = join(treeRoot, line.value, codingAgent, FOUNDATION_PLUGIN_NAME);
+    const manifestPath = join(treeDir, FOUNDATION_MANIFEST_RELATIVE_PATH);
+    if (options.variant !== COMPACT_RECOVERY_FIXTURE_VARIANT.LINE_UNSHIPPED) {
+      await mkdir(treeDir, { recursive: true });
+    }
 
     switch (options.variant) {
       case COMPACT_RECOVERY_FIXTURE_VARIANT.RESOLVED: {
-        await writePackageFile(packageRoot, FOUNDATION_MANIFEST_RELATIVE_PATH, manifestJson(COMPACT_RECOVERY_PATH));
-        await writePackageFile(packageRoot, CORE_PATH, options.directiveText);
-        await writePackageFile(packageRoot, COMPACT_RECOVERY_PATH, options.directiveText);
+        await writeTreeFile(treeDir, FOUNDATION_MANIFEST_RELATIVE_PATH, manifestJson(COMPACT_RECOVERY_PATH));
+        await writeTreeFile(treeDir, CORE_PATH, options.directiveText);
+        await writeTreeFile(treeDir, COMPACT_RECOVERY_PATH, options.directiveText);
         break;
       }
-      case COMPACT_RECOVERY_FIXTURE_VARIANT.PACKAGE_UNCONFIGURED:
+      case COMPACT_RECOVERY_FIXTURE_VARIANT.LINE_UNSHIPPED:
       case COMPACT_RECOVERY_FIXTURE_VARIANT.MANIFEST_ABSENT: {
         break;
       }
       case COMPACT_RECOVERY_FIXTURE_VARIANT.MANIFEST_INVALID: {
         // A leading brace with no closing structure cannot parse as JSON whatever the text.
-        await writePackageFile(packageRoot, FOUNDATION_MANIFEST_RELATIVE_PATH, `{${options.directiveText}`);
+        await writeTreeFile(treeDir, FOUNDATION_MANIFEST_RELATIVE_PATH, `{${options.directiveText}`);
         break;
       }
       case COMPACT_RECOVERY_FIXTURE_VARIANT.ENTRY_ABSENT: {
-        await writePackageFile(packageRoot, FOUNDATION_MANIFEST_RELATIVE_PATH, manifestJson());
-        await writePackageFile(packageRoot, CORE_PATH, options.directiveText);
+        await writeTreeFile(treeDir, FOUNDATION_MANIFEST_RELATIVE_PATH, manifestJson());
+        await writeTreeFile(treeDir, CORE_PATH, options.directiveText);
         break;
       }
       case COMPACT_RECOVERY_FIXTURE_VARIANT.RESOURCE_MISSING: {
-        await writePackageFile(packageRoot, FOUNDATION_MANIFEST_RELATIVE_PATH, manifestJson(COMPACT_RECOVERY_PATH));
+        await writeTreeFile(treeDir, FOUNDATION_MANIFEST_RELATIVE_PATH, manifestJson(COMPACT_RECOVERY_PATH));
         break;
       }
       case COMPACT_RECOVERY_FIXTURE_VARIANT.RESOURCE_INVALID_UTF8: {
-        await writePackageFile(packageRoot, FOUNDATION_MANIFEST_RELATIVE_PATH, manifestJson(COMPACT_RECOVERY_PATH));
-        const resourcePath = join(packageRoot, COMPACT_RECOVERY_PATH);
+        await writeTreeFile(treeDir, FOUNDATION_MANIFEST_RELATIVE_PATH, manifestJson(COMPACT_RECOVERY_PATH));
+        const resourcePath = join(treeDir, COMPACT_RECOVERY_PATH);
         await mkdir(dirname(resourcePath), { recursive: true });
         // 0xff can begin no UTF-8 sequence, so a strict decode always rejects this content.
         await writeFile(resourcePath, Buffer.from([0xff, 0xfe, 0xfd]));
         break;
       }
       case COMPACT_RECOVERY_FIXTURE_VARIANT.RESOURCE_ESCAPING: {
-        await writePackageFile(packageRoot, FOUNDATION_MANIFEST_RELATIVE_PATH, manifestJson(COMPACT_RECOVERY_PATH));
-        const escapeTarget = join(productDir, ESCAPE_TARGET_FILENAME);
+        await writeTreeFile(treeDir, FOUNDATION_MANIFEST_RELATIVE_PATH, manifestJson(COMPACT_RECOVERY_PATH));
+        const escapeTarget = join(treeRoot, ESCAPE_TARGET_FILENAME);
         await writeFile(escapeTarget, options.directiveText, "utf8");
-        const linkPath = join(packageRoot, COMPACT_RECOVERY_PATH);
+        const linkPath = join(treeDir, COMPACT_RECOVERY_PATH);
         await mkdir(dirname(linkPath), { recursive: true });
         await symlink(escapeTarget, linkPath);
         break;
@@ -143,10 +168,11 @@ export async function withCompactRecoveryPackage(
     }
 
     await callback({
-      productDir,
-      packageDir: options.variant === COMPACT_RECOVERY_FIXTURE_VARIANT.PACKAGE_UNCONFIGURED
-        ? undefined
-        : PACKAGE_DIRECTORY,
+      treeRoot,
+      methodology: { source: DEFAULT_METHODOLOGY_SOURCE, version: version.text },
+      version: version.text,
+      line: line.value,
+      codingAgent,
       manifestPath,
       entryPath: COMPACT_RECOVERY_PATH,
       directiveText: options.directiveText,
@@ -155,29 +181,13 @@ export async function withCompactRecoveryPackage(
 }
 
 /**
- * Materializes the resolved-variant installed methodology package under an
- * existing product directory and returns the product-relative package
- * directory a `methodology.packageDir` declaration points at.
- */
-export async function writeResolvedCompactRecoveryPackage(
-  productDir: string,
-  directiveText: string,
-): Promise<{ readonly packageDir: string }> {
-  const packageRoot = join(productDir, PACKAGE_DIRECTORY);
-  await writePackageFile(packageRoot, FOUNDATION_MANIFEST_RELATIVE_PATH, manifestJson(COMPACT_RECOVERY_PATH));
-  await writePackageFile(packageRoot, CORE_PATH, directiveText);
-  await writePackageFile(packageRoot, COMPACT_RECOVERY_PATH, directiveText);
-  return { packageDir: PACKAGE_DIRECTORY };
-}
-
-/**
  * Writes the payload product's config document declaring the Codex compact
- * stdout policy, optionally alongside a `methodology.packageDir` declaration.
+ * stdout policy, optionally alongside a `methodology.version` declaration.
  */
 export async function writeCodexCompactStdoutConfig(
   productDir: string,
   compactStdout: unknown = true,
-  methodologyPackageDir?: string,
+  methodologyVersion?: string,
 ): Promise<void> {
   await writeFile(
     join(productDir, CONFIG_FILENAMES.json),
@@ -193,47 +203,46 @@ export async function writeCodexCompactStdoutConfig(
           },
         },
       },
-      ...(methodologyPackageDir === undefined ? {} : {
+      ...(methodologyVersion === undefined ? {} : {
         [METHODOLOGY_SECTION]: {
-          [METHODOLOGY_CONFIG_FIELDS.PACKAGE_DIR]: methodologyPackageDir,
+          [METHODOLOGY_CONFIG_FIELDS.VERSION]: methodologyVersion,
         },
       }),
     }),
   );
 }
 
-/** Writes a config document whose `methodology` section fails typed resolution: `packageDir` is not a string. */
+/** Writes a config document whose `methodology` section fails typed resolution: `version` is not a string. */
 export async function writeMalformedMethodologyConfig(productDir: string): Promise<void> {
   await writeFile(
     join(productDir, CONFIG_FILENAMES.json),
     JSON.stringify({
       [METHODOLOGY_SECTION]: {
-        [METHODOLOGY_CONFIG_FIELDS.PACKAGE_DIR]: false,
+        [METHODOLOGY_CONFIG_FIELDS.VERSION]: false,
       },
     }),
   );
 }
 
-/** Writes the payload product's config document declaring only `methodology.packageDir`. */
-export async function writeMethodologyOnlyConfig(
-  productDir: string,
-  methodologyPackageDir: string,
-): Promise<void> {
+/** Writes the payload product's config document declaring only `methodology.version`. */
+export async function writeMethodologyOnlyConfig(productDir: string, methodologyVersion: string): Promise<void> {
   await writeFile(
     join(productDir, CONFIG_FILENAMES.json),
     JSON.stringify({
       [METHODOLOGY_SECTION]: {
-        [METHODOLOGY_CONFIG_FIELDS.PACKAGE_DIR]: methodologyPackageDir,
+        [METHODOLOGY_CONFIG_FIELDS.VERSION]: methodologyVersion,
       },
     }),
   );
 }
+
+export { shippedMethodologyVersion, shippedTreeRelativeDir };
 
 export interface CompactHookCaseOptions {
   readonly compactStdout: boolean;
   /** The payload lifecycle source the case exercises. */
   readonly source: string;
-  readonly resolveCompactDirective: (productDir: string) => Promise<Result<string>>;
+  readonly resolveCompactDirective: (input: CompactDirectiveInput) => Promise<Result<string>>;
 }
 
 /**
@@ -329,7 +338,7 @@ export async function withCompactSessionStartCliEnv(
 }
 
 /**
- * Materializes the resolved-variant package for the supplied directive text and
+ * Materializes the resolved-variant tree for the supplied directive text and
  * runs one compact-source hook invocation through the real library resolver,
  * handing the raw result and fixture to the callback.
  */
@@ -337,10 +346,10 @@ export async function withResolvedCompactOutputCase(
   directiveText: string,
   callback: (
     result: Result<SessionStartHookResult>,
-    fixture: CompactRecoveryPackageFixture,
+    fixture: CompactRecoveryTreeFixture,
   ) => Promise<void> | void,
 ): Promise<void> {
-  await withCompactRecoveryPackage(
+  await withCompactRecoveryTree(
     { directiveText, variant: COMPACT_RECOVERY_FIXTURE_VARIANT.RESOLVED },
     async (fixture) => {
       const result = await runCompactOutputHookCase({
@@ -348,9 +357,10 @@ export async function withResolvedCompactOutputCase(
         source: HOOK_SESSION_START_SOURCE.COMPACT,
         resolveCompactDirective: () =>
           resolveCompactRecoveryDirective({
-            productDir: fixture.productDir,
-            packageDir: fixture.packageDir,
-            fs: defaultMethodologyPackageFileSystem,
+            treeRoot: fixture.treeRoot,
+            methodology: fixture.methodology,
+            codingAgent: fixture.codingAgent,
+            fs: defaultMethodologyTreeFileSystem,
           }),
       });
       await callback(result, fixture);
@@ -359,7 +369,7 @@ export async function withResolvedCompactOutputCase(
 }
 
 export interface RecordingCompactDirectiveResolver {
-  readonly resolver: (productDir: string) => Promise<Result<string>>;
+  readonly resolver: (input: CompactDirectiveInput) => Promise<Result<string>>;
   /** One entry per invocation: the product directory the adapter resolved against. */
   readonly invocations: readonly string[];
 }
@@ -369,8 +379,8 @@ export function createRecordingCompactDirectiveResolver(directiveText: string): 
   const invocations: string[] = [];
   return {
     invocations,
-    resolver: (productDir: string) => {
-      invocations.push(productDir);
+    resolver: (input: CompactDirectiveInput) => {
+      invocations.push(input.productDir);
       return Promise.resolve({ ok: true, value: directiveText });
     },
   };

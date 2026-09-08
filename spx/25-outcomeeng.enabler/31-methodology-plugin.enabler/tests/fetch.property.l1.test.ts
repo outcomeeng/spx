@@ -9,6 +9,7 @@ import { readDirectoryTree, withPluginsRepository } from "@testing/harnesses/met
 import {
   assertProperty,
   PROPERTY_LEVEL,
+  PROPERTY_RUN_COUNTS,
   PROPERTY_SIZE,
   PROPERTY_TIMEOUTS_MS,
 } from "@testing/harnesses/property/property";
@@ -38,5 +39,5 @@ describe("methodology fetch determinism", () => {
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
-  }, PROPERTY_TIMEOUTS_MS.l2);
+  }, PROPERTY_RUN_COUNTS[PROPERTY_SIZE.SMALL] * PROPERTY_TIMEOUTS_MS[PROPERTY_LEVEL.L1]);
 });

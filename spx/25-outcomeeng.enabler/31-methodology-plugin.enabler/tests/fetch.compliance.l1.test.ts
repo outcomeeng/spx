@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { FETCH_ARGUMENT_FLAGS, PLUGINS_REPOSITORY, runMethodologyFetch } from "@/lib/methodology/fetch";
 import { METHODOLOGY_TREE_ROOT } from "@/lib/methodology/tree";
+import { METHODOLOGY_RESOURCE_ENCODING } from "@/lib/methodology/tree-resource";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import {
   arbitraryDisagreeingPluginsContent,
@@ -45,8 +46,8 @@ describe("methodology fetch compliance", () => {
 
       expect(outcome.ok).toBe(true);
       await expect(access(stalePath)).rejects.toThrow();
-      await expect(readFile(otherLinePath, "utf8")).resolves.toBe(bystanderText);
-      await expect(readFile(rootPath, "utf8")).resolves.toBe(bystanderText);
+      await expect(readFile(otherLinePath, METHODOLOGY_RESOURCE_ENCODING)).resolves.toBe(bystanderText);
+      await expect(readFile(rootPath, METHODOLOGY_RESOURCE_ENCODING)).resolves.toBe(bystanderText);
     });
   });
 

@@ -1,89 +1,47 @@
 import { describe, expect, it } from "vitest";
 
-import { createMethodologyContextProbe } from "@/commands/diagnose/probes";
-import { DEFAULT_METHODOLOGY_VERSION, METHODOLOGY_SECTION, METHODOLOGY_VERSION_INTENT } from "@/config/methodology";
+import { METHODOLOGY_SECTION } from "@/config/methodology";
 import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
 import { METHODOLOGY_CONTEXT_VERDICT } from "@/domains/diagnose/checks/methodology-context";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_TEXT_HEADER } from "@/domains/diagnose/report";
 import { DIAGNOSE_RESOLVE_ERROR } from "@/domains/diagnose/resolve";
+import { VERDICT_BUCKET } from "@/domains/diagnose/types";
+import { METHODOLOGY_CODING_AGENT, METHODOLOGY_CODING_AGENTS } from "@/lib/methodology/coding-agent";
+import { formatProvidesMismatchError, PROVIDER_MATCH } from "@/lib/methodology/provider-match";
+import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   firstCheck,
   generatedMethodology,
-  installMethodologyVersion,
-  METHODOLOGY_CACHE_VERSION,
-  observedMethodology,
-  probeConstructedBeforeAgentHomeEnv,
-  probeOverAgentHomes,
+  lineOf,
+  mismatchedObservation,
+  probeShippedTree,
   runDiagnoseWithLegacyMethodologySection,
   runDiagnoseWithUnavailableCheck,
   runDiagnoseWithUnrelatedLegacyDefect,
   runMethodologyDiagnoseJson,
   runMethodologyDiagnoseText,
   runMethodologyManifestWithoutFacts,
-  SPEC_TREE_PRESENCE,
+  shippedObservation,
+  sourceRecordProviding,
   unavailableCheckName,
-  withAgentHome,
-  withAgentHomePair,
-  withProductDir,
+  undeclaredMethodology,
+  unresolvedMethodology,
+  withAgentHomesCarryingVersion,
+  withShippedTreeRoot,
 } from "@testing/harnesses/diagnose/methodology-context";
 
 describe("methodology-context diagnose compliance", () => {
-  it.each([false, true])(
-    "never converts an observed installed version into exact methodology identity (tracked tree: %s)",
-    async (trackedSpecTree) => {
-      const methodology = generatedMethodology();
-      const observation = observedMethodology(methodology, trackedSpecTree);
-
-      const report = await runMethodologyDiagnoseJson(methodology, observation);
-      const check = firstCheck(report);
-
-      expect(observation.version).not.toBe(DEFAULT_METHODOLOGY_VERSION);
-      expect(check.readings).toEqual(expect.objectContaining({
-        configuredVersion: DEFAULT_METHODOLOGY_VERSION,
-        observedVersion: observation.version,
-        versionIntent: METHODOLOGY_VERSION_INTENT.BOOTSTRAP,
-      }));
-    },
-  );
-
-  it.each([
-    [SPEC_TREE_PRESENCE.ABSENT, false],
-    [SPEC_TREE_PRESENCE.UNTRACKED, false],
-    [SPEC_TREE_PRESENCE.TRACKED, true],
-    [SPEC_TREE_PRESENCE.NO_REPOSITORY, false],
-  ])(
-    "observes a %s spec tree as trackedSpecTree=%s through the probe",
-    async (presence, expected) => {
-      const methodology = generatedMethodology();
-
-      await withProductDir(presence, async (productDir) => {
-        const observed = await createMethodologyContextProbe(productDir).probe(methodology);
-
-        expect(observed.trackedSpecTree).toBe(expected);
-      });
-    },
-  );
-
   it("renders methodology-context text from the check record", async () => {
     const methodology = generatedMethodology();
-    const observation = observedMethodology(methodology, false);
+    const observation = shippedObservation(methodology);
 
     const output = await runMethodologyDiagnoseText(methodology, observation);
 
     expect(output).toContain(DIAGNOSE_TEXT_HEADER.METHODOLOGY_RESOLVED);
     expect(output).toContain(methodology.source);
-    expect(output).toContain(observation.version);
-  });
-
-  it("renders the bootstrap-identity line when a tracked spec tree declares the sentinel", async () => {
-    const methodology = generatedMethodology();
-    const observation = observedMethodology(methodology, true);
-
-    const output = await runMethodologyDiagnoseText(methodology, observation);
-
-    expect(output).toContain(DIAGNOSE_TEXT_HEADER.METHODOLOGY_BOOTSTRAP_IDENTITY);
-    expect(output).not.toContain(DIAGNOSE_TEXT_HEADER.METHODOLOGY_RESOLVED);
+    expect(output).toContain(methodology.version);
   });
 
   it("rejects methodology-context manifests without methodology facts", async () => {
@@ -91,6 +49,95 @@ describe("methodology-context diagnose compliance", () => {
 
     expect(error).toContain(CHECK_NAME.METHODOLOGY_CONTEXT);
     expect(error).toContain(METHODOLOGY_SECTION);
+  });
+
+  it("reports the declared version, the migration source, and the shipped trees for the declared line", async () => {
+    const methodology = generatedMethodology();
+    const line = lineOf(methodology);
+
+    await withShippedTreeRoot({ [line]: { codingAgents: [METHODOLOGY_CODING_AGENT.CLAUDE] } }, async (treeRoot) => {
+      const observed = await probeShippedTree(methodology, treeRoot);
+
+      expect(observed).toEqual(expect.objectContaining({
+        line,
+        shippedLines: [line],
+        shippedCodingAgents: [METHODOLOGY_CODING_AGENT.CLAUDE],
+        enabledCodingAgents: [...METHODOLOGY_CODING_AGENTS],
+        providerMatch: PROVIDER_MATCH.UNDECLARED,
+        errored: false,
+      }));
+    });
+  });
+
+  it("reports the provider match as undeclared when the shipped record carries no provides, and mismatched when it disagrees", async () => {
+    const methodology = generatedMethodology();
+    const line = lineOf(methodology);
+    const otherVersion = sampleGeneratedValue(
+      arbitraryMethodologyVersion().filter((version) => version.text !== methodology.version),
+    );
+
+    await withShippedTreeRoot({
+      [line]: { codingAgents: [...METHODOLOGY_CODING_AGENTS], sourceRecord: sourceRecordProviding(otherVersion.text) },
+    }, async (treeRoot) => {
+      const observed = await probeShippedTree(methodology, treeRoot);
+
+      expect(observed.providerMismatch).toBe(
+        formatProvidesMismatchError(
+          methodology.version as string,
+          otherVersion.text,
+          METHODOLOGY_CODING_AGENTS[0] as string,
+        ),
+      );
+    });
+  });
+
+  it("classifies a provider mismatch as broken", async () => {
+    const methodology = generatedMethodology();
+    const diagnostic = formatProvidesMismatchError(
+      methodology.version as string,
+      sampleGeneratedValue(arbitraryMethodologyVersion()).text,
+      METHODOLOGY_CODING_AGENT.CODEX,
+    );
+
+    const report = await runMethodologyDiagnoseJson(methodology, mismatchedObservation(methodology, diagnostic));
+    const check = firstCheck(report);
+
+    expect(check.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.MISMATCHED);
+    expect(check.bucket).toBe(VERDICT_BUCKET.BROKEN);
+    expect(check.readings).toEqual(expect.objectContaining({ providerMatch: diagnostic }));
+  });
+
+  it("classifies an undeclared version as degraded without probing a tree", async () => {
+    const methodology = undeclaredMethodology();
+
+    const report = await runMethodologyDiagnoseJson(methodology, unresolvedMethodology(false));
+    const check = firstCheck(report);
+
+    expect(check.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.UNDECLARED);
+    expect(check.bucket).toBe(VERDICT_BUCKET.DEGRADED);
+  });
+
+  it("never reads a coding agent's home: a plugin cache carrying the declared line changes nothing the probe observes", async () => {
+    const methodology = generatedMethodology();
+
+    await withShippedTreeRoot({}, async (treeRoot) => {
+      await withAgentHomesCarryingVersion(methodology, async () => {
+        const observed = await probeShippedTree(methodology, treeRoot);
+
+        expect(observed.shippedLines).toEqual([]);
+        expect(observed.shippedCodingAgents).toEqual([]);
+        expect(observed.errored).toBe(false);
+      });
+    });
+  });
+
+  it("observes no shipped tree when the host supplies no tree root", async () => {
+    const methodology = generatedMethodology();
+
+    const observed = await probeShippedTree(methodology, undefined);
+
+    expect(observed.shippedLines).toEqual([]);
+    expect(observed.errored).toBe(false);
   });
 
   it("rejects stale harness methodology config before probing", async () => {
@@ -101,7 +148,7 @@ describe("methodology-context diagnose compliance", () => {
 
   it("ignores unrelated harness config defects before probing", async () => {
     const methodology = generatedMethodology();
-    const observation = observedMethodology(methodology, false);
+    const observation = shippedObservation(methodology);
 
     const report = await runDiagnoseWithUnrelatedLegacyDefect(methodology, observation);
 
@@ -116,100 +163,5 @@ describe("methodology-context diagnose compliance", () => {
     expect(error).toContain(DIAGNOSE_RESOLVE_ERROR.UNAVAILABLE_CONFIGURED_CHECKS);
     expect(error).toContain(unavailableCheck);
     expect(error).not.toContain(`${LEGACY_METHODOLOGY_CONFIG_SECTION}.${METHODOLOGY_SECTION}`);
-  });
-
-  it("orders observed methodology versions numerically", async () => {
-    const methodology = generatedMethodology();
-
-    await withAgentHome(async (codexHome) => {
-      await installMethodologyVersion(codexHome, methodology, METHODOLOGY_CACHE_VERSION.PATCH_2);
-      await installMethodologyVersion(codexHome, methodology, METHODOLOGY_CACHE_VERSION.PATCH_10);
-
-      const observed = await probeOverAgentHomes(methodology, codexHome);
-
-      expect(observed.version).toBe(METHODOLOGY_CACHE_VERSION.PATCH_10);
-    });
-  });
-
-  it("ignores non-version cache directories when resolving installed methodology", async () => {
-    const methodology = generatedMethodology();
-
-    await withAgentHome(async (codexHome) => {
-      await installMethodologyVersion(codexHome, methodology, METHODOLOGY_CACHE_VERSION.PATCH_10);
-      await installMethodologyVersion(codexHome, methodology, METHODOLOGY_CACHE_VERSION.UNORDERED);
-
-      const observed = await probeOverAgentHomes(methodology, codexHome);
-
-      expect(observed.version).toBe(METHODOLOGY_CACHE_VERSION.PATCH_10);
-    });
-  });
-
-  it("prefers the configured exact methodology version when installed", async () => {
-    const methodology = generatedMethodology(METHODOLOGY_CACHE_VERSION.PATCH_1);
-
-    await withAgentHome(async (codexHome) => {
-      await installMethodologyVersion(codexHome, methodology, METHODOLOGY_CACHE_VERSION.PATCH_1);
-      await installMethodologyVersion(codexHome, methodology, METHODOLOGY_CACHE_VERSION.PATCH_10);
-
-      const observed = await probeOverAgentHomes(methodology, codexHome);
-
-      expect(observed.version).toBe(methodology.version);
-    });
-  });
-
-  it("reports an installed methodology version when a configured exact version is missing", async () => {
-    const methodology = generatedMethodology(METHODOLOGY_CACHE_VERSION.PATCH_1);
-
-    await withAgentHome(async (codexHome) => {
-      await installMethodologyVersion(codexHome, methodology, METHODOLOGY_CACHE_VERSION.PATCH_10);
-
-      const observed = await probeOverAgentHomes(methodology, codexHome);
-
-      expect(observed.version).toBe(METHODOLOGY_CACHE_VERSION.PATCH_10);
-    });
-  });
-
-  it("accepts configured exact methodology versions with non-version directory names", async () => {
-    const methodology = generatedMethodology(METHODOLOGY_CACHE_VERSION.EXACT_ONLY);
-
-    await withAgentHome(async (codexHome) => {
-      await installMethodologyVersion(codexHome, methodology, METHODOLOGY_CACHE_VERSION.EXACT_ONLY);
-      await installMethodologyVersion(codexHome, methodology, METHODOLOGY_CACHE_VERSION.PATCH_10);
-
-      const observed = await probeOverAgentHomes(methodology, codexHome);
-
-      expect(observed.version).toBe(METHODOLOGY_CACHE_VERSION.EXACT_ONLY);
-    });
-  });
-
-  it("reads supported local agent methodology caches", async () => {
-    const methodology = generatedMethodology();
-
-    await withAgentHomePair(async (codexHome, claudeHome) => {
-      await installMethodologyVersion(claudeHome, methodology, METHODOLOGY_CACHE_VERSION.PATCH_10);
-
-      const observed = await probeOverAgentHomes(methodology, codexHome, claudeHome);
-
-      expect(observed.version).toBe(METHODOLOGY_CACHE_VERSION.PATCH_10);
-    });
-  });
-
-  it("resolves agent homes at probe time rather than at construction", async () => {
-    const methodology = generatedMethodology();
-
-    await withProductDir(SPEC_TREE_PRESENCE.ABSENT, async (productDir) => {
-      await withAgentHomePair(async (codexHome, claudeHome) => {
-        await installMethodologyVersion(codexHome, methodology, METHODOLOGY_CACHE_VERSION.PATCH_10);
-
-        const observed = await probeConstructedBeforeAgentHomeEnv(
-          methodology,
-          productDir,
-          codexHome,
-          claudeHome,
-        );
-
-        expect(observed.version).toBe(METHODOLOGY_CACHE_VERSION.PATCH_10);
-      });
-    });
   });
 });

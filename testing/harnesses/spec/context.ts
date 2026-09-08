@@ -1,4 +1,4 @@
-import { mkdir, readFile, realpath } from "node:fs/promises";
+import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { join, parse } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -12,12 +12,13 @@ import { contextOutputForFormat, SPEC_CONTEXT_OUTPUT_FORMAT } from "@/interfaces
 import { GIT_LS_FILES_COMMAND } from "@/lib/git/changed-paths";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 import { TRACKED_PATH_NUL_SEPARATOR } from "@/lib/git/tracked-paths";
+import { METHODOLOGY_CODING_AGENT } from "@/lib/methodology/coding-agent";
 import {
   FOUNDATION_MANIFEST_FIELDS,
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   FOUNDATION_MANIFEST_SCHEMA_VERSION,
 } from "@/lib/methodology/foundation-manifest";
-import { FOUNDATION_PLUGIN_NAME, METHODOLOGY_TREE_ROOT } from "@/lib/methodology/tree";
+import { FOUNDATION_PLUGIN_NAME, METHODOLOGY_TREE_ROOT, methodologyLine } from "@/lib/methodology/tree";
 import {
   KIND_REGISTRY,
   SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
@@ -420,34 +421,32 @@ export async function withRichContextEnv(
 /** Filename of the escape-target fixture a containment scenario writes outside the probed boundary. */
 export const SPEC_CONTEXT_ESCAPE_TARGET_FILENAME = "outside-secret.md";
 
-/** The materialized committed-methodology-tree fixture: locations and exact resource text. */
-export interface MethodologyPackageFixture {
-  /** Product-relative tree root, addressed by declared methodology version and coding agent. */
-  readonly packageDir: string;
-  /** The methodology version the fixture tree serves. */
-  readonly methodologyVersion: string;
+/** The materialized shipped-tree fixture: locations and exact resource text. */
+export interface MethodologyTreeFixture {
+  /** Absolute path of the directory standing in for spx's `methodology/` directory. */
+  readonly treeRoot: string;
+  /** The line the fixture tree serves, derived from the declared fixture version. */
+  readonly line: string;
   /** The coding agent the fixture tree belongs to. */
   readonly codingAgent: string;
-  /** Product-relative path of the written manifest file. */
+  /** Absolute path of the fixture tree. */
+  readonly treeDir: string;
+  /** Absolute path of the written manifest file. */
   readonly manifestPath: string;
-  /** Package-relative path of the core foundation document. */
+  /** Plugin-relative path of the core foundation document. */
   readonly corePath: string;
   /** Exact text written to the core foundation document; multi-byte content catches decode defects. */
   readonly coreText: string;
-  /** Package-relative catalog paths in manifest order: references, templates, examples. */
+  /** Plugin-relative catalog paths in manifest order: references, templates, examples. */
   readonly catalogPaths: readonly string[];
 }
 
-export const METHODOLOGY_FIXTURE_CODING_AGENT = "claude";
-const METHODOLOGY_TREE_DIRECTORY = [
-  METHODOLOGY_TREE_ROOT,
-  METHODOLOGY_FIXTURE_VERSION,
-  METHODOLOGY_FIXTURE_CODING_AGENT,
-  FOUNDATION_PLUGIN_NAME,
-].join("/");
+export const METHODOLOGY_FIXTURE_CODING_AGENT = METHODOLOGY_CODING_AGENT.CLAUDE;
+/** Product-relative directory standing in for the spx package the tree ships in; never part of the product's own tree. */
+const PACKAGE_FIXTURE_DIRECTORY = "spx-package";
 
-/** The config sections a committed-methodology-tree test passes to `withSpecTreeEnv`. */
-export function methodologyPackageConfig(identity?: Record<string, unknown>): Config {
+/** The config sections a shipped-tree test passes to `withSpecTreeEnv`. */
+export function methodologyTreeConfig(identity?: Record<string, unknown>): Config {
   const base = specTreeKindsConfig();
   return {
     ...base,
@@ -458,16 +457,24 @@ export function methodologyPackageConfig(identity?: Record<string, unknown>): Co
   };
 }
 
+/** The tree root a shipped-tree test injects: a package stand-in beside the product, holding `methodology/`. */
+export function methodologyFixtureTreeRoot(env: CurrentSpecTreeEnv): string {
+  return join(env.productDir, PACKAGE_FIXTURE_DIRECTORY, METHODOLOGY_TREE_ROOT);
+}
+
 /**
  * Writes a schema-version-1 foundation-resource manifest and its named
- * resources under the product-relative package directory the
- * `methodologyPackageConfig` sections point at. `coreText` overrides the core
- * body so a test can prove output tracks the installed resource bytes.
+ * resources under the fixture tree root, addressed by the line of the version
+ * the `methodologyTreeConfig` sections declare and the fixture coding agent.
+ * `coreText` overrides the core body so a test can prove output tracks the
+ * shipped resource bytes.
  */
-export async function writeMethodologyPackage(
+export async function writeMethodologyTree(
   env: CurrentSpecTreeEnv,
-  overrides?: { readonly coreText?: string; readonly schemaVersion?: number },
-): Promise<MethodologyPackageFixture> {
+  overrides?: { readonly coreText?: string; readonly schemaVersion?: number; readonly version?: string },
+): Promise<MethodologyTreeFixture> {
+  const line = methodologyLine(overrides?.version ?? METHODOLOGY_FIXTURE_VERSION);
+  if (!line.ok) throw new Error(line.error);
   const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
   const corePath = `skills/${slug}/SKILL.md`;
   const referencePath = `skills/${slug}/references/${slug}-reference.md`;
@@ -481,16 +488,22 @@ export async function writeMethodologyPackage(
     [FOUNDATION_MANIFEST_FIELDS.TEMPLATES]: [templatePath],
     [FOUNDATION_MANIFEST_FIELDS.EXAMPLES]: [examplePath],
   };
-  const manifestPath = `${METHODOLOGY_TREE_DIRECTORY}/${FOUNDATION_MANIFEST_RELATIVE_PATH}`;
-  await env.writeRaw(manifestPath, JSON.stringify(manifest));
-  await env.writeRaw(`${METHODOLOGY_TREE_DIRECTORY}/${corePath}`, coreText);
+  const treeRoot = methodologyFixtureTreeRoot(env);
+  const treeDir = join(treeRoot, line.value, METHODOLOGY_FIXTURE_CODING_AGENT, FOUNDATION_PLUGIN_NAME);
+  const manifestPath = join(treeDir, FOUNDATION_MANIFEST_RELATIVE_PATH);
+  await mkdir(join(manifestPath, ".."), { recursive: true });
+  await writeFile(manifestPath, JSON.stringify(manifest));
+  await mkdir(join(treeDir, corePath, ".."), { recursive: true });
+  await writeFile(join(treeDir, corePath), coreText);
   for (const catalogPath of [referencePath, templatePath, examplePath]) {
-    await env.writeRaw(`${METHODOLOGY_TREE_DIRECTORY}/${catalogPath}`, `# Catalog resource\n`);
+    await mkdir(join(treeDir, catalogPath, ".."), { recursive: true });
+    await writeFile(join(treeDir, catalogPath), `# Catalog resource\n`);
   }
   return {
-    packageDir: METHODOLOGY_TREE_DIRECTORY,
-    methodologyVersion: METHODOLOGY_FIXTURE_VERSION,
+    treeRoot,
+    line: line.value,
     codingAgent: METHODOLOGY_FIXTURE_CODING_AGENT,
+    treeDir,
     manifestPath,
     corePath,
     coreText,

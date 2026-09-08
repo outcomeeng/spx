@@ -13,10 +13,10 @@ import {
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextCommand,
-  methodologyPackageConfig,
+  methodologyTreeConfig,
   parseContextManifest,
   withRichContextEnv,
-  writeMethodologyPackage,
+  writeMethodologyTree,
 } from "@testing/harnesses/spec/context";
 
 describe("spec context content-field boundary", () => {
@@ -65,13 +65,18 @@ describe("spec context content-field boundary", () => {
   });
 
   it("never carries content, digest, or byte count on an entry outside the methodology group when the methodology payload is present and content is not requested", async () => {
-    await withSpecTreeEnv(methodologyPackageConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyTreeConfig(), async (env) => {
       await env.materialize();
-      const fixture = await writeMethodologyPackage(env);
+      const fixture = await writeMethodologyTree(env);
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
       const manifest = parseContextManifest(
-        await contextCommand({ targets: [target.id], cwd: env.productDir, understand: true }),
+        await contextCommand({
+          targets: [target.id],
+          cwd: env.productDir,
+          understand: true,
+          methodologyTreeRoot: fixture.treeRoot,
+        }),
       );
       // The boundary is only proven when the methodology group is actually
       // present and body-bearing in the same response.

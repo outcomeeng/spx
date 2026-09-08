@@ -27,6 +27,7 @@ import {
   VERDICT_BUCKET,
 } from "@/domains/diagnose/types";
 import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
+import { METHODOLOGY_CODING_AGENTS } from "@/lib/methodology/coding-agent";
 import { CLI_TIMEOUTS_MS } from "@testing/harnesses/constants";
 import {
   isolatedDiagnoseEnvironment,
@@ -325,7 +326,11 @@ export function registerDiagnoseCliScenarios(): void {
           configuredSource: DEFAULT_METHODOLOGY_SOURCE,
           configuredVersion: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
           migratingFrom: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
-          materializedCodingAgents: METHODOLOGY_CONTEXT_READING_VALUE.NONE,
+          line: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
+          shippedLines: METHODOLOGY_CONTEXT_READING_VALUE.NONE,
+          shippedCodingAgents: METHODOLOGY_CONTEXT_READING_VALUE.NONE,
+          enabledCodingAgents: [...METHODOLOGY_CODING_AGENTS].join(", "),
+          providerMatch: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
         });
         expect(report.overall).toBe(foldedOverall(report));
         expect(textRun.stdout).toContain(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${foldedOverall(report)}`);

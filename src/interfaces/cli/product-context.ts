@@ -53,12 +53,15 @@ export type CliIo = {
 
 export type CliInvocation = {
   readonly io: CliIo;
+  /** Absolute path of spx's shipped `methodology/` directory, derived by the CLI entry from the package root. */
+  readonly methodologyTreeRoot: string | undefined;
   resolveEffectiveInvocationDir(): string;
   resolveProductContext(): ProductContext;
 };
 
 export type CliInvocationOptions = {
   readonly readDirectoryOption: () => string | undefined;
+  readonly methodologyTreeRoot?: string;
   readonly processCwd: () => string;
   readonly resolveProductDir?: (cwd: string) => ResolvedProductDir;
   readonly writeWarning: (warning: TerminalText | undefined) => void;
@@ -76,6 +79,7 @@ export function createCliInvocation(options: CliInvocationOptions): CliInvocatio
 
   return {
     io: options.io,
+    methodologyTreeRoot: options.methodologyTreeRoot,
     resolveEffectiveInvocationDir,
     resolveProductContext: () => {
       if (cachedContext !== undefined) {

@@ -1,4 +1,5 @@
 import type { ConfigDescriptor, Result } from "@/config/types";
+import { METHODOLOGY_CODING_AGENT, type MethodologyCodingAgent } from "@/lib/methodology/coding-agent";
 
 export const HARNESS_ENVIRONMENT_SECTION = "harnessEnvironment";
 
@@ -8,6 +9,12 @@ export const AGENT = {
 } as const;
 
 export type Agent = (typeof AGENT)[keyof typeof AGENT];
+
+/** The shipped-methodology-tree coding agent each harness agent identity maps onto. */
+export const METHODOLOGY_CODING_AGENT_BY_AGENT: Readonly<Record<Agent, MethodologyCodingAgent>> = {
+  [AGENT.CLAUDE_CODE]: METHODOLOGY_CODING_AGENT.CLAUDE,
+  [AGENT.CODEX]: METHODOLOGY_CODING_AGENT.CODEX,
+};
 
 export const HARNESS_ENVIRONMENT_CONFIG_FIELDS = {
   INSTRUCTIONS: "instructions",

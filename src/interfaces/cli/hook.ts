@@ -23,6 +23,7 @@ import {
   resolveHookSessionStartEnvFile,
   resolveHookSessionStartProductDir,
 } from "@/domains/hooks/session-start";
+import { METHODOLOGY_CODING_AGENT_FOR_HARNESS_AGENT } from "@/interfaces/cli/coding-agent";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import {
@@ -94,6 +95,8 @@ async function resolveHookExecutionContext(
   return {
     runOptions: {
       compactStdout: compactStdout.ok ? compactStdout.value : defaultHookCliCompactStdout(env),
+      codingAgent: METHODOLOGY_CODING_AGENT_FOR_HARNESS_AGENT[resolveHookCliAgent(env)],
+      methodologyTreeRoot: invocation.methodologyTreeRoot,
       cwd,
       env,
       envFile: resolveHookSessionStartEnvFile(env, options.hookEnvFile),

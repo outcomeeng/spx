@@ -10,6 +10,28 @@ export const METHODOLOGY_CONFIG_FIELDS = {
 
 export const DEFAULT_METHODOLOGY_SOURCE = "outcomeeng/methodology";
 
+const NUMERIC_COMPONENT = String.raw`(0|[1-9]\d*)`;
+const IDENTIFIER_RUN = "[0-9A-Za-z.-]+";
+
+/** An exact SemVer methodology version: `MAJOR.MINOR.PATCH` with optional prerelease and build metadata. */
+export const METHODOLOGY_VERSION_PATTERN = new RegExp(
+  String
+    .raw`^${NUMERIC_COMPONENT}\.${NUMERIC_COMPONENT}\.${NUMERIC_COMPONENT}(?:-${IDENTIFIER_RUN})?(?:\+${IDENTIFIER_RUN})?$`,
+);
+
+/** A methodology line: `MAJOR.MINOR`, the shape of a shipped tree directory name. */
+export const METHODOLOGY_LINE_PATTERN = new RegExp(String.raw`^${NUMERIC_COMPONENT}\.${NUMERIC_COMPONENT}$`);
+
+/** Whether `value` is an exact methodology version. */
+export function isMethodologyVersion(value: string): boolean {
+  return METHODOLOGY_VERSION_PATTERN.test(value);
+}
+
+/** Diagnostic for a methodology field whose value is not an exact version; no sentinel stands in for one. */
+export function formatMethodologyVersionInvalidError(path: string, version: string): string {
+  return `${path} must be an exact MAJOR.MINOR.PATCH methodology version; rejected ${JSON.stringify(version)}`;
+}
+
 export interface MethodologyConfig {
   /** The repository the methodology is published from, as `owner/repository`. */
   readonly source: string;
@@ -23,6 +45,8 @@ export interface MethodologyIdentity {
   readonly source: string;
   /** Absent when the product declares no methodology version; no sentinel stands in for one. */
   readonly version?: string;
+  /** The version the product migrates from, present only while a migration window is open. */
+  readonly migratingFrom?: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -74,7 +98,13 @@ function validateMethodologySource(path: string, value: unknown): Result<string>
 
 function validateOptionalVersion(field: string, raw: unknown): Result<string | undefined> {
   if (raw === undefined) return { ok: true, value: undefined };
-  return validateNonEmptyString(`${METHODOLOGY_SECTION}.${field}`, raw);
+  const path = `${METHODOLOGY_SECTION}.${field}`;
+  const text = validateNonEmptyString(path, raw);
+  if (!text.ok) return text;
+  if (!isMethodologyVersion(text.value)) {
+    return { ok: false, error: formatMethodologyVersionInvalidError(path, text.value) };
+  }
+  return text;
 }
 
 export function validateMethodologyConfig(value: unknown): Result<MethodologyConfig> {
@@ -115,9 +145,11 @@ export function validateMethodologyConfig(value: unknown): Result<MethodologyCon
 
 /** The product's methodology identity, carrying the declared version when the product declares one. */
 export function resolveMethodologyIdentity(config: MethodologyConfig): MethodologyIdentity {
-  return config.version === undefined
-    ? { source: config.source }
-    : { source: config.source, version: config.version };
+  return {
+    source: config.source,
+    ...(config.version === undefined ? {} : { version: config.version }),
+    ...(config.migratingFrom === undefined ? {} : { migratingFrom: config.migratingFrom }),
+  };
 }
 
 /**

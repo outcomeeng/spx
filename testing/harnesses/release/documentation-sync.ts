@@ -1696,6 +1696,7 @@ async function runDocumentationSyncCli(options: ComposeDocumentationSyncOptions)
   const stderr: string[] = [];
   const program = new Command();
   const invocation: CliInvocation = {
+    methodologyTreeRoot: undefined,
     io: {
       writeStdout: () => undefined,
       writeStderr: (output) => stderr.push(output),

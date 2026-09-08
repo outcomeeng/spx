@@ -14,8 +14,7 @@ import type { Dirent } from "node:fs";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 
-import { execa } from "execa";
-
+import { defaultGitDependencies } from "@/lib/git/root";
 import {
   defaultMethodologyFetchFileSystem,
   FETCH_CODING_AGENTS,
@@ -143,7 +142,7 @@ export async function withPluginsRepository<T>(
       content,
       packageRoot,
       dependencies: {
-        git: { execa },
+        git: defaultGitDependencies,
         fs: defaultMethodologyFetchFileSystem,
         createCloneDir: async () => {
           cloneCount += 1;

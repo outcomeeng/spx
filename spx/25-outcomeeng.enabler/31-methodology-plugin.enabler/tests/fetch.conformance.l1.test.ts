@@ -10,6 +10,7 @@ import {
   parseMethodologySourceRecord,
   SOURCE_RECORD_RELATIVE_PATH,
 } from "@/lib/methodology/tree";
+import { METHODOLOGY_RESOURCE_ENCODING } from "@/lib/methodology/tree-resource";
 import { arbitraryMethodologyVersion, arbitraryPluginsContent } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { withPluginsRepository } from "@testing/harnesses/methodology/plugins-repository";
@@ -38,7 +39,7 @@ describe("methodology fetch conformance", () => {
               UNDERSTAND_SKILL_RELATIVE_DIR,
               relativePath,
             ),
-            "utf8",
+            METHODOLOGY_RESOURCE_ENCODING,
           )).resolves.toBe(text);
         }
       }
@@ -59,7 +60,7 @@ describe("methodology fetch conformance", () => {
       const record = parseMethodologySourceRecord(
         await readFile(
           join(repository.packageRoot, METHODOLOGY_TREE_ROOT, version.line, SOURCE_RECORD_RELATIVE_PATH),
-          "utf8",
+          METHODOLOGY_RESOURCE_ENCODING,
         ),
       );
       expect(record).toEqual({

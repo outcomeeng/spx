@@ -1,5 +1,4 @@
 import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -9,22 +8,27 @@ import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextCommand,
   listedPathsForRole,
-  methodologyPackageConfig,
+  methodologyTreeConfig,
   parseContextManifest,
   rootedSpecPath,
-  writeMethodologyPackage,
+  writeMethodologyTree,
 } from "@testing/harnesses/spec/context";
 
 describe("spec context methodology catalog", () => {
   it("maps each extended reference, template, and example to a listed methodology-catalog entry carrying no body", async () => {
-    await withSpecTreeEnv(methodologyPackageConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyTreeConfig(), async (env) => {
       await env.materialize();
-      const fixture = await writeMethodologyPackage(env);
+      const fixture = await writeMethodologyTree(env);
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
 
       const manifest = parseContextManifest(
-        await contextCommand({ targets: [target.id], cwd: env.productDir, understand: true }),
+        await contextCommand({
+          targets: [target.id],
+          cwd: env.productDir,
+          understand: true,
+          methodologyTreeRoot: fixture.treeRoot,
+        }),
       );
 
       expect(listedPathsForRole(manifest, SPEC_CONTEXT_LISTED_ROLE.METHODOLOGY_CATALOG)).toEqual(
@@ -46,13 +50,13 @@ describe("spec context methodology catalog", () => {
   });
 
   it("maps a manifest-declared identity with no file on disk to a listed entry unchanged", async () => {
-    await withSpecTreeEnv(methodologyPackageConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyTreeConfig(), async (env) => {
       await env.materialize();
-      const fixture = await writeMethodologyPackage(env);
+      const fixture = await writeMethodologyTree(env);
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
       // Catalog entries are projections of parsed manifest data: an absent
-      // resource stays visible instead of being silently dropped, so package
+      // resource stays visible instead of being silently dropped, so plugin
       // breakage the manifest declares is not hidden by the projection.
       const absentCatalogPath = `${fixture.corePath}-absent.md`;
       const manifest = {
@@ -62,10 +66,15 @@ describe("spec context methodology catalog", () => {
         [FOUNDATION_MANIFEST_FIELDS.TEMPLATES]: [],
         [FOUNDATION_MANIFEST_FIELDS.EXAMPLES]: [],
       };
-      await writeFile(join(env.productDir, fixture.manifestPath), JSON.stringify(manifest));
+      await writeFile(fixture.manifestPath, JSON.stringify(manifest));
 
       const projected = parseContextManifest(
-        await contextCommand({ targets: [target.id], cwd: env.productDir, understand: true }),
+        await contextCommand({
+          targets: [target.id],
+          cwd: env.productDir,
+          understand: true,
+          methodologyTreeRoot: fixture.treeRoot,
+        }),
       );
       expect(listedPathsForRole(projected, SPEC_CONTEXT_LISTED_ROLE.METHODOLOGY_CATALOG)).toEqual([
         absentCatalogPath,

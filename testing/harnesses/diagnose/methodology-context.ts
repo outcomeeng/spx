@@ -2,9 +2,9 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { diagnoseCommand } from "@/commands/diagnose";
-import { createMethodologyContextProbe, PLUGIN_CACHE_SEGMENTS } from "@/commands/diagnose/probes";
+import { createMethodologyContextProbe } from "@/commands/diagnose/probes";
 import {
-  DEFAULT_METHODOLOGY_VERSION,
+  DEFAULT_METHODOLOGY_SOURCE,
   METHODOLOGY_CONFIG_FIELDS,
   METHODOLOGY_SECTION,
   type MethodologyConfig,
@@ -20,202 +20,199 @@ import { type CheckRegistry, runDiagnose } from "@/domains/diagnose/engine";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT } from "@/domains/diagnose/report";
 import type { DiagnoseReport } from "@/domains/diagnose/types";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { METHODOLOGY_CODING_AGENTS } from "@/lib/methodology/coding-agent";
+import { FOUNDATION_MANIFEST_RELATIVE_PATH } from "@/lib/methodology/foundation-manifest";
+import { PROVIDER_MATCH } from "@/lib/methodology/provider-match";
+import {
+  formatMethodologySourceRecord,
+  FOUNDATION_PLUGIN_NAME,
+  methodologyLine,
+  type MethodologySourceRecord,
+  SOURCE_RECORD_RELATIVE_PATH,
+} from "@/lib/methodology/tree";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
+import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
-/**
- * Methodology-cache fixture inputs. Version-shaped names order numerically rather than
- * lexically, so `PATCH_10` sorts above `PATCH_2`; `UNORDERED` and `EXACT_ONLY` are the
- * non-version directory names a cache can also carry.
- */
-export const METHODOLOGY_CACHE_VERSION = {
-  PATCH_2: "0.74.2",
-  PATCH_1: "0.74.1",
-  PATCH_10: "0.74.10",
-  UNORDERED: "999x",
-  EXACT_ONLY: "stable",
-} as const;
+const PLUGIN_CACHE_SEGMENTS = ["plugins", "cache"] as const;
+const MANIFEST_PLACEHOLDER = "{}";
 
-const BROKEN_PLUGIN_CACHE_SEGMENT = "plugins";
-const BROKEN_PLUGIN_CACHE_FILE_CONTENT = "not a directory";
-
-async function withAgentHomeEnv(
-  codexHome: string,
-  claudeHome: string,
-  callback: () => Promise<void>,
-): Promise<void> {
-  const previousCodexHome = process.env[AGENT_HOME_ENV.CODEX];
-  const previousClaudeHome = process.env[AGENT_HOME_ENV.CLAUDE];
-  process.env[AGENT_HOME_ENV.CODEX] = codexHome;
-  process.env[AGENT_HOME_ENV.CLAUDE] = claudeHome;
-  try {
-    await callback();
-  } finally {
-    if (previousCodexHome === undefined) {
-      delete process.env[AGENT_HOME_ENV.CODEX];
-    } else {
-      process.env[AGENT_HOME_ENV.CODEX] = previousCodexHome;
-    }
-    if (previousClaudeHome === undefined) {
-      delete process.env[AGENT_HOME_ENV.CLAUDE];
-    } else {
-      process.env[AGENT_HOME_ENV.CLAUDE] = previousClaudeHome;
-    }
-  }
+/** A methodology declaration with an exact generated version and no migration window. */
+export function generatedMethodology(): MethodologyConfig {
+  return { source: DEFAULT_METHODOLOGY_SOURCE, version: sampleGeneratedValue(arbitraryMethodologyVersion()).text };
 }
 
-export function generatedMethodology(version = DEFAULT_METHODOLOGY_VERSION): MethodologyConfig {
-  return {
-    source: [
-      sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-      sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-    ].join("/"),
-    version,
-  };
+/** A methodology declaration with an open migration window between two distinct exact versions. */
+export function generatedMigratingMethodology(): MethodologyConfig {
+  const [target, source] = sampleGeneratedValue(
+    arbitraryMethodologyVersion().chain((first) =>
+      arbitraryMethodologyVersion().filter((second) => second.text !== first.text).map((second) =>
+        [first, second] as const
+      )
+    ),
+  );
+  return { source: DEFAULT_METHODOLOGY_SOURCE, version: target.text, migratingFrom: source.text };
 }
 
-/** An observation of the configured source at a concrete installed version, parameterized by tracked-tree presence. */
-export function observedMethodology(
-  methodology: MethodologyConfig,
-  trackedSpecTree: boolean,
-): MethodologyContextObservation {
+/** A methodology declaration carrying no version. */
+export function undeclaredMethodology(): MethodologyConfig {
+  return { source: DEFAULT_METHODOLOGY_SOURCE };
+}
+
+/** The line a declared version derives to, for observations that name it. */
+export function lineOf(methodology: MethodologyConfig): string {
+  if (methodology.version === undefined) throw new Error("methodology declares no version");
+  const line = methodologyLine(methodology.version);
+  if (!line.ok) throw new Error(line.error);
+  return line.value;
+}
+
+/** An observation of a declared line that ships a tree for every enabled coding agent, with no provider declaration. */
+export function shippedObservation(methodology: MethodologyConfig): MethodologyContextObservation {
+  const line = lineOf(methodology);
   return {
-    source: methodology.source,
-    version: METHODOLOGY_CACHE_VERSION.PATCH_2,
-    trackedSpecTree,
+    line,
+    shippedLines: [line],
+    shippedCodingAgents: [...METHODOLOGY_CODING_AGENTS],
+    enabledCodingAgents: [...METHODOLOGY_CODING_AGENTS],
+    providerMatch: PROVIDER_MATCH.UNDECLARED,
+    providerMismatch: undefined,
     errored: false,
   };
 }
 
-/** An observation carrying no resolvable source or version, parameterized by probe failure. */
-export function unresolvedMethodology(errored: boolean): MethodologyContextObservation {
-  return { source: null, version: null, trackedSpecTree: false, errored };
+/** An observation of a declared line spx does not ship; `shippedLines` names what it does ship. */
+export function unshippedObservation(
+  methodology: MethodologyConfig,
+  shippedLines: readonly string[],
+): MethodologyContextObservation {
+  return {
+    line: lineOf(methodology),
+    shippedLines,
+    shippedCodingAgents: [],
+    enabledCodingAgents: [...METHODOLOGY_CODING_AGENTS],
+    providerMatch: undefined,
+    providerMismatch: undefined,
+    errored: false,
+  };
 }
 
-/** How a temp product directory carries its spec-tree root, for the tracked-tree observation. */
-export const SPEC_TREE_PRESENCE = {
-  /** No spec-tree root on disk at all. */
-  ABSENT: "absent",
-  /** A spec-tree root present on disk that git does not track — a product still bootstrapping. */
-  UNTRACKED: "untracked",
-  /** A spec-tree root git tracks, so the product carries durable product truth. */
-  TRACKED: "tracked",
-  /** A spec-tree root on disk with no git repository at all, so no tracked tree can be established. */
-  NO_REPOSITORY: "no-repository",
-} as const;
+/** An observation whose provider-declaration check failed with the supplied diagnostic. */
+export function mismatchedObservation(
+  methodology: MethodologyConfig,
+  diagnostic: string,
+): MethodologyContextObservation {
+  return { ...shippedObservation(methodology), providerMatch: undefined, providerMismatch: diagnostic };
+}
 
-export type SpecTreePresence = (typeof SPEC_TREE_PRESENCE)[keyof typeof SPEC_TREE_PRESENCE];
+/** An observation carrying no derived line, parameterized by probe failure. */
+export function unresolvedMethodology(errored: boolean): MethodologyContextObservation {
+  return {
+    line: undefined,
+    shippedLines: [],
+    shippedCodingAgents: [],
+    enabledCodingAgents: [...METHODOLOGY_CODING_AGENTS],
+    providerMatch: undefined,
+    providerMismatch: undefined,
+    errored,
+  };
+}
 
-const SPEC_FIXTURE_FILENAME = "fixture.md";
-const SPEC_FIXTURE_CONTENT = "# fixture\n";
-const FIXTURE_COMMIT_MESSAGE = "add spec tree";
+/** What a temp tree root carries per line: the coding agents with a tree, and an optional source record. */
+export interface ShippedLineLayout {
+  readonly codingAgents: readonly string[];
+  readonly sourceRecord?: MethodologySourceRecord;
+}
 
-/**
- * Materializes a temp product directory whose spec-tree root is absent, present but untracked,
- * git-tracked, or present outside any repository, and hands its path to the callback. The first
- * three initialize a real repository, so the untracked case differs from the tracked one only in
- * whether git carries the file — the distinction the tracked-tree observation is required to make.
- * The fourth omits the repository entirely, so no tracked tree can be established at all.
- */
-export async function withProductDir(
-  presence: SpecTreePresence,
-  callback: (productDir: string) => Promise<void>,
+/** Materializes a temp directory standing in for spx's `methodology/` directory with the supplied lines. */
+export async function withShippedTreeRoot(
+  layout: Readonly<Record<string, ShippedLineLayout>>,
+  callback: (treeRoot: string) => Promise<void>,
 ): Promise<void> {
-  await withTempDir("spx-methodology-product-", async (productDir) => {
-    if (presence !== SPEC_TREE_PRESENCE.NO_REPOSITORY) {
-      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
-      // A commit needs an author, and a CI runner carries no global identity.
-      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL]);
-      await runGit(productDir, [
-        GIT_TEST_SUBCOMMANDS.CONFIG,
-        GIT_TEST_CONFIG.USER_NAME_KEY,
-        GIT_TEST_CONFIG.USER_NAME,
-      ]);
+  await withTempDir("spx-methodology-tree-root-", async (treeRoot) => {
+    for (const [line, lineLayout] of Object.entries(layout)) {
+      await mkdir(join(treeRoot, line), { recursive: true });
+      for (const codingAgent of lineLayout.codingAgents) {
+        const manifestPath = join(
+          treeRoot,
+          line,
+          codingAgent,
+          FOUNDATION_PLUGIN_NAME,
+          FOUNDATION_MANIFEST_RELATIVE_PATH,
+        );
+        await mkdir(join(manifestPath, ".."), { recursive: true });
+        await writeFile(manifestPath, MANIFEST_PLACEHOLDER);
+      }
+      if (lineLayout.sourceRecord !== undefined) {
+        await writeFile(
+          join(treeRoot, line, SOURCE_RECORD_RELATIVE_PATH),
+          formatMethodologySourceRecord(lineLayout.sourceRecord),
+        );
+      }
     }
-    if (presence !== SPEC_TREE_PRESENCE.ABSENT) {
-      const specRoot = join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
-      await mkdir(specRoot, { recursive: true });
-      await writeFile(join(specRoot, SPEC_FIXTURE_FILENAME), SPEC_FIXTURE_CONTENT);
-    }
-    if (presence === SPEC_TREE_PRESENCE.TRACKED) {
-      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, SPEC_TREE_CONFIG.ROOT_DIRECTORY]);
-      await runGit(productDir, [
-        GIT_TEST_SUBCOMMANDS.COMMIT,
-        GIT_TEST_FLAGS.COMMIT_MESSAGE,
-        FIXTURE_COMMIT_MESSAGE,
-      ]);
-    }
-    await callback(productDir);
+    await callback(treeRoot);
   });
 }
 
-/** Materializes one temp agent home for methodology-cache fixtures. */
-export async function withAgentHome(callback: (agentHome: string) => Promise<void>): Promise<void> {
-  await withTempDir("spx-methodology-agent-home-", callback);
+/** A source record naming one provider declaration for every coding agent on a line. */
+export function sourceRecordProviding(provides: string, supports?: string): MethodologySourceRecord {
+  return {
+    repository: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+    revision: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+    plugins: Object.fromEntries(
+      METHODOLOGY_CODING_AGENTS.map((codingAgent) => [codingAgent, {
+        name: FOUNDATION_PLUGIN_NAME,
+        version: sampleGeneratedValue(arbitraryMethodologyVersion()).text,
+        provides,
+        ...(supports === undefined ? {} : { supports }),
+      }]),
+    ),
+  };
 }
 
-/** Materializes two temp agent homes so a fixture can span the Codex and Claude Code caches. */
-export async function withAgentHomePair(
-  callback: (codexHome: string, claudeHome: string) => Promise<void>,
+/** Probes the declared methodology over a tree root with the supplied enabled coding agents; no product config is read. */
+export function probeShippedTree(
+  methodology: MethodologyConfig,
+  treeRoot: string | undefined,
+  enabledCodingAgents: readonly string[] = METHODOLOGY_CODING_AGENTS,
+): Promise<MethodologyContextObservation> {
+  return createMethodologyContextProbe({
+    treeRoot,
+    productDir: treeRoot ?? "",
+    resolveEnabledCodingAgents: () => Promise.resolve(enabledCodingAgents),
+  }).probe(methodology);
+}
+
+/**
+ * Writes a plugin cache carrying the declared version under each supplied coding-agent home and exports
+ * those homes for the callback, so a probe that reads any home would observe a line the tree root lacks.
+ */
+export async function withAgentHomesCarryingVersion(
+  methodology: MethodologyConfig,
+  callback: () => Promise<void>,
 ): Promise<void> {
-  await withAgentHome(async (codexHome) => {
-    await withAgentHome(async (claudeHome) => {
-      await callback(codexHome, claudeHome);
+  await withTempDir("spx-methodology-codex-home-", async (codexHome) => {
+    await withTempDir("spx-methodology-claude-home-", async (claudeHome) => {
+      for (const home of [codexHome, claudeHome]) {
+        await mkdir(join(home, ...PLUGIN_CACHE_SEGMENTS, ...methodology.source.split("/"), lineOf(methodology)), {
+          recursive: true,
+        });
+      }
+      const previous = new Map(Object.values(AGENT_HOME_ENV).map((key) => [key, process.env[key]]));
+      process.env[AGENT_HOME_ENV.CODEX] = codexHome;
+      process.env[AGENT_HOME_ENV.CLAUDE] = claudeHome;
+      try {
+        await callback();
+      } finally {
+        for (const [key, value] of previous) {
+          if (value === undefined) delete process.env[key];
+          else process.env[key] = value;
+        }
+      }
     });
   });
-}
-
-/** Creates the plugin-cache directory one methodology source version resolves from under an agent home. */
-export async function installMethodologyVersion(
-  agentHome: string,
-  methodology: MethodologyConfig,
-  version: string,
-): Promise<void> {
-  await mkdir(join(agentHome, ...PLUGIN_CACHE_SEGMENTS, ...methodology.source.split("/"), version), {
-    recursive: true,
-  });
-}
-
-/** Writes a file where the plugin-cache directory belongs, so reading that cache errors. */
-export async function breakMethodologyCache(agentHome: string): Promise<void> {
-  await writeFile(join(agentHome, BROKEN_PLUGIN_CACHE_SEGMENT), BROKEN_PLUGIN_CACHE_FILE_CONTENT);
-}
-
-/**
- * Probes the configured methodology with the supplied agent homes named explicitly. Cache-resolution
- * assertions judge observed-version selection only, so the first agent home — a temp directory
- * carrying no tracked spec tree — serves as the product directory.
- */
-export function probeOverAgentHomes(
-  methodology: MethodologyConfig,
-  ...agentHomeDirs: readonly string[]
-): Promise<MethodologyContextObservation> {
-  return createMethodologyContextProbe(agentHomeDirs[0], ...agentHomeDirs).probe(methodology);
-}
-
-/**
- * Constructs a probe through the default shape the CLI uses — a product directory and no explicit
- * agent homes — BEFORE the agent-home environment variables name the supplied homes, then probes
- * inside that environment. Construction outside the environment window and probing inside it is
- * what makes the observation evidence of at-probe-time home resolution: a probe that resolved its
- * homes eagerly at construction would miss the homes exported afterwards.
- */
-export async function probeConstructedBeforeAgentHomeEnv(
-  methodology: MethodologyConfig,
-  productDir: string,
-  codexHome: string,
-  claudeHome: string,
-): Promise<MethodologyContextObservation> {
-  const probe = createMethodologyContextProbe(productDir);
-  let observed: MethodologyContextObservation | undefined;
-  await withAgentHomeEnv(codexHome, claudeHome, async () => {
-    observed = await probe.probe(methodology);
-  });
-  if (observed === undefined) throw new Error("methodology probe produced no observation");
-  return observed;
 }
 
 function registryFor(observation: MethodologyContextObservation): CheckRegistry {
@@ -229,7 +226,10 @@ function registryFor(observation: MethodologyContextObservation): CheckRegistry 
 function methodologySection(methodology: MethodologyConfig): Record<string, string> {
   return {
     [METHODOLOGY_CONFIG_FIELDS.SOURCE]: methodology.source,
-    [METHODOLOGY_CONFIG_FIELDS.VERSION]: methodology.version,
+    ...(methodology.version === undefined ? {} : { [METHODOLOGY_CONFIG_FIELDS.VERSION]: methodology.version }),
+    ...(methodology.migratingFrom === undefined
+      ? {}
+      : { [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: methodology.migratingFrom }),
   };
 }
 
@@ -336,7 +336,7 @@ export async function runDiagnoseWithLegacyMethodologySection(): Promise<string>
   let error: string | undefined;
   await withTestEnv({
     [LEGACY_METHODOLOGY_CONFIG_SECTION]: {
-      [METHODOLOGY_SECTION]: generatedMethodology(),
+      [METHODOLOGY_SECTION]: methodologySection(generatedMethodology()),
     },
   }, async ({ productDir }) => {
     const result = await diagnoseCommand({
@@ -361,7 +361,7 @@ export async function runDiagnoseWithUnrelatedLegacyDefect(
   await withTestEnv({
     [METHODOLOGY_SECTION]: methodologySection(methodology),
     [LEGACY_METHODOLOGY_CONFIG_SECTION]: {
-      unrelated: generatedMethodology(),
+      unrelated: methodologySection(generatedMethodology()),
     },
   }, async ({ productDir }) => {
     const result = await diagnoseCommand({
@@ -391,7 +391,7 @@ export async function runDiagnoseWithUnavailableCheck(unavailableCheck: string):
       [DIAGNOSE_CONFIG_FIELDS.CHECKS]: [CHECK_NAME.METHODOLOGY_CONTEXT, unavailableCheck],
     },
     [LEGACY_METHODOLOGY_CONFIG_SECTION]: {
-      [METHODOLOGY_SECTION]: generatedMethodology(),
+      [METHODOLOGY_SECTION]: methodologySection(generatedMethodology()),
     },
   }, async ({ productDir }) => {
     const result = await diagnoseCommand({

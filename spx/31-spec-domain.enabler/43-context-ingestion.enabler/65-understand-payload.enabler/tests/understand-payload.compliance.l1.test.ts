@@ -9,28 +9,36 @@ import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/gene
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextCommand,
-  methodologyPackageConfig,
+  methodologyTreeConfig,
   parseContextManifest,
-  writeMethodologyPackage,
+  writeMethodologyTree,
 } from "@testing/harnesses/spec/context";
 
 describe("spec context understand payload sourcing", () => {
-  it("always sources foundation bodies from the installed manifest resources stamped with the configured methodology identity", async () => {
-    // Two runs over two different installed core bodies: the emitted body,
-    // digest, and byte count track the installed resource bytes exactly, so
+  it("always sources foundation bodies from the shipped tree's manifest resources stamped with the configured methodology identity", async () => {
+    // Two runs over two different shipped core bodies: the emitted body,
+    // digest, and byte count track the shipped resource bytes exactly, so
     // no embedded snapshot can be the source.
     const identity = generatedMethodologySection();
     const firstBody = `# Foundation body A — ${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug())}\n`;
     const secondBody = `# Foundation body B — ${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug())}\n`;
     for (const coreText of [firstBody, secondBody]) {
-      await withSpecTreeEnv(methodologyPackageConfig(identity), async (env) => {
+      await withSpecTreeEnv(methodologyTreeConfig(identity), async (env) => {
         await env.materialize();
-        const fixture = await writeMethodologyPackage(env, { coreText });
+        const fixture = await writeMethodologyTree(env, {
+          coreText,
+          version: identity[METHODOLOGY_CONFIG_FIELDS.VERSION] as string,
+        });
         const snapshot = await env.readFilesystemSnapshot();
         const target = snapshot.allNodes[0];
 
         const manifest = parseContextManifest(
-          await contextCommand({ targets: [target.id], cwd: env.productDir, understand: true }),
+          await contextCommand({
+            targets: [target.id],
+            cwd: env.productDir,
+            understand: true,
+            methodologyTreeRoot: fixture.treeRoot,
+          }),
         );
         const entry = manifest.read.find((document) => document.path === fixture.corePath);
         expect(entry?.content).toBe(coreText);

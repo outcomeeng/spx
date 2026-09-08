@@ -12,21 +12,15 @@ import {
   listTrackedPaths,
   TRACKED_PATH_DIRECTORY_SEPARATOR,
 } from "@/lib/git/tracked-paths";
+import { formatFoundationResourceUnreadableError, foundationCatalogPaths } from "@/lib/methodology/foundation-manifest";
+import { checkProviderMatch } from "@/lib/methodology/provider-match";
 import {
-  formatFoundationResourceUnreadableError,
-  foundationCatalogPaths,
-} from "@/lib/methodology/foundation-manifest";
-import {
-  containedPackageResourcePath,
-  defaultMethodologyPackageFileSystem,
+  containedTreeResourcePath,
+  defaultMethodologyTreeFileSystem,
+  type MethodologyTreeFileSystem,
   resolveFoundationManifest,
-} from "@/lib/methodology/package-resource";
-import {
-  formatCodingAgentUnresolvedError,
-  formatMethodologyTreeMissingError,
-  METHODOLOGY_TREE_ROOT,
-  methodologyTreeRelativeDir,
-} from "@/lib/methodology/tree";
+  resolveMethodologyTree,
+} from "@/lib/methodology/tree-resource";
 import {
   assembleSpecContextTargetReadSet,
   compareSpecContextOrdinal,
@@ -63,7 +57,6 @@ import {
   type SpecTreeSnapshot,
   type SpecTreeSourceRef,
 } from "@/lib/spec-tree";
-import { compareCodeUnits } from "@/outcomeeng/spec-tree/graph/source/order";
 import { resolveSpecProductDir, type SpecProductDirWarningHandler } from "./root";
 
 export type SpecContextManifestResolution =
@@ -75,10 +68,14 @@ export interface ContextOptions {
   readonly cwd?: string;
   /** When true, every read-class entry carries the document's exact content, digest, and byte count. */
   readonly content?: boolean;
-  /** When true, the manifest carries the foundation methodology payload from the committed methodology tree. */
+  /** When true, the manifest carries the foundation methodology payload from spx's shipped methodology tree. */
   readonly understand?: boolean;
-  /** The coding agent whose committed tree the methodology payload reads; inferred when exactly one exists. */
+  /** The coding agent whose shipped tree the methodology payload reads; when absent, the line must ship exactly one. */
   readonly codingAgent?: string;
+  /** Absolute path of spx's `methodology/` directory; the host supplies it, and the payload fails without it. */
+  readonly methodologyTreeRoot?: string;
+  /** Injected shipped-tree filesystem; defaults to the real one. */
+  readonly methodologyFileSystem?: MethodologyTreeFileSystem;
   readonly gitDependencies?: GitDependencies;
   readonly onWarning?: SpecProductDirWarningHandler;
 }
@@ -422,80 +419,67 @@ async function withDocumentContent(
   return enriched;
 }
 
-/** The methodology payload read from the installed package: the core body plus the catalog paths. */
+/** Diagnostic for an understand request whose host supplied no shipped methodology tree root. */
+export const METHODOLOGY_TREE_ROOT_ABSENT_ERROR = "No shipped methodology tree root is available to this invocation";
+
+/** The methodology payload read from the shipped tree: the core body plus the catalog paths. */
 interface MethodologyPayload {
   readonly core: SpecContextReadDocument;
   readonly catalog: readonly string[];
 }
 
-/**
- * Reads the foundation-resource manifest and the core foundation body from the
- * configured installed methodology package. An unconfigured location, an
- * absent or invalid manifest, an unrecognized schema version, or an unreadable
- * named resource fails the whole projection naming the resolved path.
- */
-/**
- * The coding agent whose committed tree the payload reads. An explicit name is
- * used as given; otherwise the version's tree root must hold exactly one coding
- * agent, because guessing between two would silently change the foundation an
- * agent receives.
- */
-async function resolveCodingAgent(
-  productDir: string,
-  methodologyVersion: string,
-  requested: string | undefined,
-): Promise<string> {
-  if (requested !== undefined) return requested;
-  const versionRoot = join(productDir, METHODOLOGY_TREE_ROOT, methodologyVersion);
-  const relativeRoot = join(METHODOLOGY_TREE_ROOT, methodologyVersion);
-  let entries: string[];
-  try {
-    entries = (await readdir(versionRoot, { withFileTypes: true }))
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name)
-      .sort(compareCodeUnits);
-  } catch {
-    throw new Error(formatCodingAgentUnresolvedError(relativeRoot, []));
-  }
-  if (entries.length !== 1) {
-    throw new Error(formatCodingAgentUnresolvedError(relativeRoot, entries));
-  }
-  return entries[0] ?? "";
+interface MethodologyPayloadOptions {
+  readonly treeRoot: string | undefined;
+  readonly methodology: MethodologyConfig;
+  readonly codingAgent: string | undefined;
+  readonly targets: readonly string[];
+  readonly fs: MethodologyTreeFileSystem;
 }
 
-async function readMethodologyPayload(
-  productDir: string,
-  methodologyConfig: MethodologyConfig,
-  requestedCodingAgent: string | undefined,
-  targets: readonly string[],
-): Promise<MethodologyPayload> {
-  const declaredVersion = requireMethodologyVersion(methodologyConfig);
+/**
+ * Reads the foundation-resource manifest and the core foundation body from
+ * spx's shipped tree for the declared line and the coding agent in scope. An
+ * undeclared version, a line spx does not ship, an unresolvable coding agent, a
+ * provider declaration the product's declaration does not match, an absent or
+ * invalid manifest, an unrecognized schema version, or an unreadable named
+ * resource fails the whole projection naming the resolved path.
+ */
+async function readMethodologyPayload(options: MethodologyPayloadOptions): Promise<MethodologyPayload> {
+  if (options.treeRoot === undefined) {
+    throw new Error(METHODOLOGY_TREE_ROOT_ABSENT_ERROR);
+  }
+  const declaredVersion = requireMethodologyVersion(options.methodology);
   if (!declaredVersion.ok) {
     throw new Error(declaredVersion.error);
   }
-  const codingAgent = await resolveCodingAgent(productDir, declaredVersion.value, requestedCodingAgent);
-  const treeRelativeDir = methodologyTreeRelativeDir(declaredVersion.value, codingAgent);
-  if (!treeRelativeDir.ok) {
-    throw new Error(treeRelativeDir.error);
+  const tree = await resolveMethodologyTree({
+    treeRoot: options.treeRoot,
+    version: declaredVersion.value,
+    codingAgent: options.codingAgent,
+    fs: options.fs,
+  });
+  if (!tree.ok) {
+    throw new Error(tree.error);
   }
-  const resolved = await resolveFoundationManifest(
-    productDir,
-    treeRelativeDir.value,
-    defaultMethodologyPackageFileSystem,
-  );
+  const match = checkProviderMatch({
+    version: declaredVersion.value,
+    ...(options.methodology.migratingFrom === undefined ? {} : { migratingFrom: options.methodology.migratingFrom }),
+    sourceRecord: tree.value.sourceRecord,
+    codingAgent: tree.value.codingAgent,
+  });
+  if (!match.ok) {
+    throw new Error(match.error);
+  }
+  const resolved = await resolveFoundationManifest(tree.value.treeDir, options.fs);
   if (!resolved.ok) {
-    throw new Error(`${formatMethodologyTreeMissingError(treeRelativeDir.value)}: ${resolved.error}`);
+    throw new Error(resolved.error);
   }
-  const { packageDir: resolvedPackageDir, manifestPath, manifest } = resolved.value;
+  const { treeDir, manifestPath, manifest } = resolved.value;
   // The manifest is validated data, not a trusted read authority: the core
   // path binds a read only when it resolves — through any symbolic link —
-  // inside the installed package location, the same containment every
-  // product-document read gets from the product root.
-  const corePath = await containedPackageResourcePath(
-    resolvedPackageDir,
-    manifest.core,
-    defaultMethodologyPackageFileSystem,
-  );
+  // inside the shipped tree, the same containment every product-document
+  // read gets from the product root.
+  const corePath = await containedTreeResourcePath(treeDir, manifest.core, options.fs);
   if (corePath === undefined) {
     throw new Error(formatFoundationResourceUnreadableError(manifest.core, manifestPath));
   }
@@ -508,7 +492,7 @@ async function readMethodologyPayload(
   return {
     core: {
       path: manifest.core,
-      roles: targets.map((target) => ({ target, role: SPEC_CONTEXT_READ_ROLE.METHODOLOGY })),
+      roles: options.targets.map((target) => ({ target, role: SPEC_CONTEXT_READ_ROLE.METHODOLOGY })),
       content: decodeContextDocumentOrThrow(manifest.core, coreBytes),
       digest: specContextDigest(coreBytes),
       bytes: coreBytes.byteLength,
@@ -567,12 +551,13 @@ export async function resolveContextManifest(options: ContextOptions): Promise<S
   let listed = bundle.listed;
   let coverage = bundle.coverage;
   if (options.understand === true) {
-    const payload = await readMethodologyPayload(
-      productDir,
-      methodologyConfig.value,
-      options.codingAgent,
-      bundle.targets,
-    );
+    const payload = await readMethodologyPayload({
+      treeRoot: options.methodologyTreeRoot,
+      methodology: methodologyConfig.value,
+      codingAgent: options.codingAgent,
+      targets: bundle.targets,
+      fs: options.methodologyFileSystem ?? defaultMethodologyTreeFileSystem,
+    });
     read = [...read, payload.core];
     listed = [
       ...listed,
@@ -625,7 +610,9 @@ export function renderSpecContextText(manifest: SpecContextManifest): string {
   const lines = [
     `${SPEC_CONTEXT_TEXT_LABEL.TARGETS}: ${manifest.targets.join(", ")}`,
     `${SPEC_CONTEXT_TEXT_LABEL.PRODUCT_ROOT}: ${manifest.productDir}`,
-    `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${manifest.methodology.source}@${manifest.methodology.version}`,
+    `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${manifest.methodology.source}@${manifest.methodology.version}${
+      manifest.methodology.migratingFrom === undefined ? "" : ` (migrating from ${manifest.methodology.migratingFrom})`
+    }`,
     `${SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION}: ${manifest.schemaVersion}`,
     `${SPEC_CONTEXT_TEXT_LABEL.BOOTSTRAP}: ${manifest.bootstrap}`,
   ];

@@ -44,7 +44,7 @@ export const DIAGNOSE_CLI = {
 const DIAGNOSE_DOMAIN_DESCRIPTION =
   "Run deterministic environment-diagnostics checks, resolving facts from spx.config or a --manifest";
 
-function defaultRegistry(productDir: string): CheckRegistry {
+function defaultRegistry(productDir: string, methodologyTreeRoot: string | undefined): CheckRegistry {
   const worktreePoolSnapshot = createWorktreePoolSnapshotProvider();
   return {
     [CHECK_NAME.SPX_REACHABILITY]: spxReachabilityRunner(defaultSpxReachabilityProbe),
@@ -54,7 +54,9 @@ function defaultRegistry(productDir: string): CheckRegistry {
     [CHECK_NAME.WORKTREE_POOL]: worktreePoolRunner(worktreePoolProbeFromSnapshotProvider(worktreePoolSnapshot)),
     [CHECK_NAME.SESSION_STORE]: sessionStoreRunner(sessionStoreProbeFromSnapshotProvider(worktreePoolSnapshot)),
     [CHECK_NAME.MARKETPLACE_INSTALL]: marketplaceInstallRunner(defaultMarketplaceInstallProbe),
-    [CHECK_NAME.METHODOLOGY_CONTEXT]: methodologyContextRunner(createMethodologyContextProbe(productDir)),
+    [CHECK_NAME.METHODOLOGY_CONTEXT]: methodologyContextRunner(
+      createMethodologyContextProbe({ treeRoot: methodologyTreeRoot, productDir }),
+    ),
   };
 }
 
@@ -97,7 +99,7 @@ export const diagnoseDomain: Domain = {
             noColor: process.env.NO_COLOR,
             isTty: Boolean(process.stdout.isTTY),
           }),
-          registry: defaultRegistry(productDir),
+          registry: defaultRegistry(productDir, invocation.methodologyTreeRoot),
           fs: { readFile: (path) => readFile(path, "utf8") },
         });
         if (!result.ok) {

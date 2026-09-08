@@ -18,11 +18,12 @@ import { productionRegistry } from "@/config/registry";
 import type { Config, Result } from "@/config/types";
 import { harnessEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
 import {
-  generatedExactMethodologySection,
   generatedHarnessMethodologyConfig,
   generatedHarnessMethodologyWithUnknownFieldsConfig,
   generatedInvalidMethodologyConfigs,
   generatedMethodologySection,
+  generatedMigratingMethodologySection,
+  generatedNonExactMethodologySection,
   generatedSimilarHarnessMethodologyFieldConfig,
 } from "@testing/generators/config/descriptors";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -115,7 +116,7 @@ export async function observeUndeclaredMethodologyVersionResolution(): Promise<M
 }
 
 export async function observeDeclaredMethodologyVersionResolution(): Promise<MethodologyVersionObservation> {
-  const methodology = generatedExactMethodologySection();
+  const methodology = generatedMethodologySection();
   const result = await withTestEnv(
     { [METHODOLOGY_SECTION]: methodology },
     ({ productDir }) => resolveMethodologyConfig(productDir),
@@ -128,4 +129,24 @@ export async function observeMethodologyResolverSimilarHarnessField(): Promise<R
     generatedSimilarHarnessMethodologyFieldConfig(),
     ({ productDir }) => resolveMethodologyConfig(productDir),
   );
+}
+
+/** Resolves a section declaring both the target version and the version the product migrates from. */
+export async function observeMigratingMethodologyResolution(): Promise<MethodologyResolutionObservation> {
+  const methodology = generatedMigratingMethodologySection();
+  const result = await withTestEnv(
+    { [METHODOLOGY_SECTION]: methodology },
+    ({ productDir }) => resolveConfig(productDir, [methodologyConfigDescriptor]),
+  );
+  return { methodology, result };
+}
+
+/** Resolves a section whose version is a bare line rather than an exact version. */
+export async function observeNonExactMethodologyVersionResolution(): Promise<MethodologyResolutionObservation> {
+  const methodology = generatedNonExactMethodologySection();
+  const result = await withTestEnv(
+    { [METHODOLOGY_SECTION]: methodology },
+    ({ productDir }) => resolveConfig(productDir, [methodologyConfigDescriptor]),
+  );
+  return { methodology, result };
 }

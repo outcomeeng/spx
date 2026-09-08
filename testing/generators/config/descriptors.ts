@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 import { join } from "node:path";
 
-import { DEFAULT_METHODOLOGY_VERSION, METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import {
   PATH_FILTER_CONFIG_FIELDS,
   type PathFilterConfig,
@@ -27,6 +27,8 @@ import {
   unknownSpecTreeKindError,
 } from "@/lib/spec-tree";
 import { TESTING_CONFIG_FIELDS, TESTING_SECTION, type TestingConfig } from "@/test/config";
+import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 
 export const CONFIG_TEST_FIELDS = {
   TOKEN: "token",
@@ -197,7 +199,29 @@ export function sampleConfigTestValues<T>(arbitrary: fc.Arbitrary<T>, numRuns: n
 export function generatedMethodologySection(): Record<string, unknown> {
   return {
     [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
-    [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
+    [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleGeneratedValue(arbitraryMethodologyVersion()).text,
+  };
+}
+
+/** A methodology section with an open migration window: two distinct exact versions. */
+export function generatedMigratingMethodologySection(): Record<string, unknown> {
+  const [target, source] = sampleGeneratedValue(
+    fc.tuple(arbitraryMethodologyVersion(), arbitraryMethodologyVersion()).filter(([left, right]) =>
+      left.text !== right.text
+    ),
+  );
+  return {
+    [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
+    [METHODOLOGY_CONFIG_FIELDS.VERSION]: target.text,
+    [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: source.text,
+  };
+}
+
+/** A methodology section whose version is not an exact version, the shape the descriptor rejects. */
+export function generatedNonExactMethodologySection(): Record<string, unknown> {
+  return {
+    [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
+    [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleGeneratedValue(arbitraryMethodologyVersion()).line,
   };
 }
 
@@ -206,16 +230,6 @@ export function generatedMethodologySource(): string {
     sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
     sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
   ].join("/");
-}
-
-/** Draws from the config-key domain minus the bootstrap sentinel, which that domain can otherwise emit. */
-export function generatedExactMethodologySection(): Record<string, unknown> {
-  return {
-    [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
-    [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleConfigTestValue(
-      CONFIG_TEST_GENERATOR.key().filter((version) => version !== DEFAULT_METHODOLOGY_VERSION),
-    ),
-  };
 }
 
 export function generatedInvalidMethodologyConfigs(): readonly GeneratedInvalidMethodologyConfig[] {
@@ -283,7 +297,12 @@ function arbitraryConfigShape(): fc.Arbitrary<Config> {
 
 function arbitraryProductionSubsetConfig(): fc.Arbitrary<GeneratedProductionSubsetConfig> {
   return fc
-    .tuple(arbitrarySpecTreeSubsetConfig(), arbitraryConfigKey(), arbitraryConfigKey(), arbitraryConfigKey())
+    .tuple(
+      arbitrarySpecTreeSubsetConfig(),
+      arbitraryConfigKey(),
+      arbitraryConfigKey(),
+      arbitraryMethodologyVersion().map((version) => version.text),
+    )
     .map(([specTree, owner, repository, version]) => ({
       config: {
         ...specTree,

@@ -6,6 +6,7 @@
 
 import { appendFile as nodeAppendFile, open as nodeOpen, realpath as nodeRealPath } from "node:fs/promises";
 
+import { formatMethodologyVersionUndeclaredError } from "@/config/methodology";
 import { resolveMethodologyConfig } from "@/config/methodology-placement";
 import type { Result } from "@/config/types";
 import { resolveAgentHomeDirs } from "@/domains/agent/home";
@@ -33,7 +34,7 @@ import type { WorktreeScopeOptions } from "@/domains/worktree/resolve";
 import type { RandomBytes } from "@/lib/atomic-file-write";
 import { isPathContained } from "@/lib/file-system/pathContainment";
 import { resolveCompactRecoveryDirective } from "@/lib/methodology/compact-recovery";
-import { defaultMethodologyPackageFileSystem } from "@/lib/methodology/package-resource";
+import { defaultMethodologyTreeFileSystem } from "@/lib/methodology/tree-resource";
 
 export interface HookEnvFileSystem {
   appendFile(path: string, data: string, encoding: "utf8"): Promise<void>;
@@ -60,6 +61,10 @@ export interface SessionStartHookResult extends HookEventResult {
 export interface SessionStartHookOptions extends WorktreeScopeOptions {
   /** Resolved per-runtime compact stdout policy. */
   readonly compactStdout: boolean;
+  /** The invoking coding agent in the shipped-tree vocabulary, when identified. */
+  readonly codingAgent?: string;
+  /** Absolute path of spx's `methodology/` directory; absent when the host supplies none. */
+  readonly methodologyTreeRoot?: string;
   /** Raw hook stdin JSON. */
   readonly content?: string;
   /** Random bytes source used for the atomic claim temp path. */
@@ -79,7 +84,14 @@ export interface SessionStartHookOptions extends WorktreeScopeOptions {
   /** Injected bounded transcript reader for native session identity. */
   readonly transcriptFileSystem?: HookTranscriptFileSystem;
   /** Injected compact-recovery directive resolution over the payload product directory. */
-  readonly resolveCompactDirective?: (productDir: string) => Promise<Result<string>>;
+  readonly resolveCompactDirective?: (input: CompactDirectiveInput) => Promise<Result<string>>;
+}
+
+/** What compact-directive resolution reads: the payload product, the shipped tree root, and the invoking agent. */
+export interface CompactDirectiveInput {
+  readonly productDir: string;
+  readonly methodologyTreeRoot: string | undefined;
+  readonly codingAgent: string | undefined;
 }
 
 const defaultHookEnvFileSystem: HookEnvFileSystem = {
@@ -104,13 +116,24 @@ const defaultHookTranscriptFileSystem: HookTranscriptFileSystem = {
 
 const ERROR_DETAIL_SEPARATOR = ": ";
 
-async function defaultResolveCompactDirective(productDir: string): Promise<Result<string>> {
-  const methodology = await resolveMethodologyConfig(productDir);
+/** Diagnostic for a compact-directive read with no shipped tree root supplied by the host. */
+export const COMPACT_DIRECTIVE_TREE_ROOT_ABSENT_ERROR =
+  "No shipped methodology tree root is available to this invocation";
+
+async function defaultResolveCompactDirective(input: CompactDirectiveInput): Promise<Result<string>> {
+  if (input.methodologyTreeRoot === undefined) {
+    return { ok: false, error: COMPACT_DIRECTIVE_TREE_ROOT_ABSENT_ERROR };
+  }
+  const methodology = await resolveMethodologyConfig(input.productDir);
   if (!methodology.ok) return methodology;
+  if (methodology.value.version === undefined) {
+    return { ok: false, error: formatMethodologyVersionUndeclaredError() };
+  }
   return resolveCompactRecoveryDirective({
-    productDir,
-    packageDir: methodology.value.packageDir,
-    fs: defaultMethodologyPackageFileSystem,
+    treeRoot: input.methodologyTreeRoot,
+    methodology: methodology.value,
+    codingAgent: input.codingAgent,
+    fs: defaultMethodologyTreeFileSystem,
   });
 }
 
@@ -157,7 +180,11 @@ export async function runSessionStartHook(options: SessionStartHookOptions): Pro
 
   let compactDirective: string | undefined;
   if (payload.source === HOOK_SESSION_START_SOURCE.COMPACT && options.compactStdout) {
-    const directive = await (options.resolveCompactDirective ?? defaultResolveCompactDirective)(productDir);
+    const directive = await (options.resolveCompactDirective ?? defaultResolveCompactDirective)({
+      productDir,
+      methodologyTreeRoot: options.methodologyTreeRoot,
+      codingAgent: options.codingAgent,
+    });
     if (directive.ok) {
       compactDirective = directive.value;
     } else {

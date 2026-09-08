@@ -106,7 +106,13 @@ export function arbitraryMarkdownBody(): fc.Arbitrary<string> {
 }
 
 function skillFiles(): fc.Arbitrary<ReadonlyMap<string, string>> {
-  return fc.tuple(arbitraryPathSegment(), arbitraryMarkdownBody(), arbitraryMarkdownBody(), arbitraryMarkdownBody(), arbitraryMarkdownBody())
+  return fc.tuple(
+    arbitraryPathSegment(),
+    arbitraryMarkdownBody(),
+    arbitraryMarkdownBody(),
+    arbitraryMarkdownBody(),
+    arbitraryMarkdownBody(),
+  )
     .map(([slug, core, reference, template, example]) => {
       const corePath = "SKILL.md";
       const referencePath = `references/${slug}.md`;
@@ -146,7 +152,7 @@ export function arbitraryPluginContent(provides?: string): fc.Arbitrary<Generate
 export function arbitraryPluginsContent(provides?: string): fc.Arbitrary<GeneratedPluginsContent> {
   const agents = Object.keys(FETCH_CODING_AGENTS);
   return fc.tuple(...agents.map(() => arbitraryPluginContent(provides))).map((contents) => ({
-    agents: new Map(agents.map((agent, index) => [agent, contents[index] as GeneratedPluginContent])),
+    agents: new Map(agents.map((agent, index) => [agent, contents[index]])),
   }));
 }
 
@@ -159,6 +165,6 @@ export function arbitraryDisagreeingPluginsContent(): fc.Arbitrary<GeneratedPlug
       fc.tuple(...agents.map((_, index) => arbitraryPluginContent(index === 0 ? first.text : second.text)))
     )
     .map((contents) => ({
-      agents: new Map(agents.map((agent, index) => [agent, contents[index] as GeneratedPluginContent])),
+      agents: new Map(agents.map((agent, index) => [agent, contents[index]])),
     }));
 }
