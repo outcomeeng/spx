@@ -76,6 +76,7 @@ describe("draft storage safety", () => {
         await expect(env.store.list()).rejects.toMatchObject({ code: CHANGE_DRAFT_ERROR.unsafeStorage });
         await expect(env.store.delete(draftId)).rejects.toMatchObject({ code: CHANGE_DRAFT_ERROR.unsafeStorage });
         expect((await env.inspect(target)).isDirectory()).toBe(true);
+        expect(await env.listPath(target)).toHaveLength(0);
       });
     }, { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL });
   });
@@ -83,10 +84,11 @@ describe("draft storage safety", () => {
   it("rejects a regular file where a storage directory is required", async () => {
     await assertProperty(arbitraryDraftId(), async (draftId) => {
       await withChangeDraftEnv(async (env) => {
-        await env.obstructStorage(draftId);
+        const obstruction = await env.obstructStorage(draftId);
         await expect(env.store.create(draftId)).rejects.toMatchObject({ code: CHANGE_DRAFT_ERROR.unsafeStorage });
         await expect(env.store.list()).rejects.toMatchObject({ code: CHANGE_DRAFT_ERROR.unsafeStorage });
         await expect(env.store.delete(draftId)).rejects.toMatchObject({ code: CHANGE_DRAFT_ERROR.unsafeStorage });
+        expect(await env.readPath(obstruction)).toBe(draftId);
       });
     }, { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL });
   });

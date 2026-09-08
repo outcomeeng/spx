@@ -42,8 +42,9 @@ export interface ChangeDraftEnv {
   inspect(path: string): Promise<Stats>;
   readPath(path: string): Promise<string>;
   retainedNames(): Promise<string[]>;
+  listPath(path: string): Promise<string[]>;
   makeVisibleToGit(): Promise<void>;
-  obstructStorage(text: string): Promise<void>;
+  obstructStorage(text: string): Promise<string>;
   addUnmanagedFile(name: string, text: string): Promise<string>;
   sibling(): Promise<{ productDir: string; store: ChangeDraftStore }>;
   symlinkStorage(): Promise<string>;
@@ -75,12 +76,17 @@ export async function withChangeDraftEnv<T>(callback: (env: ChangeDraftEnv) => P
       inspect: (path) => fs.lstat(path),
       readPath: (path) => fs.readFile(path, "utf8"),
       retainedNames: () => fs.readdir(draftDir),
+      listPath: (path) => fs.readdir(path),
       makeVisibleToGit: () =>
         fs.writeFile(
           ignorePath,
           `!${STATE_STORE_SCOPE_PATH.SPX_DIR}/\n!${STATE_STORE_SCOPE_PATH.SPX_DIR}/**\n`,
         ),
-      obstructStorage: (text) => fs.writeFile(join(productDir, STATE_STORE_SCOPE_PATH.SPX_DIR), text),
+      obstructStorage: async (text) => {
+        const path = join(productDir, STATE_STORE_SCOPE_PATH.SPX_DIR);
+        await fs.writeFile(path, text);
+        return path;
+      },
       addUnmanagedFile: async (name, text) => {
         const path = join(draftDir, `notes-${name}${CHANGE_DRAFT.extension}`);
         await fs.writeFile(path, text);

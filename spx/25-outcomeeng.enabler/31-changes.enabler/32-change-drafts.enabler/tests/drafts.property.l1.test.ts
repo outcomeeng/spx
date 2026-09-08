@@ -35,7 +35,9 @@ describe("local draft lifecycle", () => {
         const unmanaged = await env.addUnmanagedFile(created[0].draftId, texts[0]);
         const listed = await env.store.list();
         expect(new Set(listed.map((draft) => draft.draftId))).toEqual(new Set(created.map((draft) => draft.draftId)));
-        expect(listed.map((draft) => draft.draftId)).toEqual(created.map((draft) => draft.draftId).sort());
+        for (let index = 1; index < listed.length; index += 1) {
+          expect(listed[index - 1].draftId < listed[index].draftId).toBe(true);
+        }
         expect(await Promise.all(created.map((draft) => env.read(draft)))).toEqual(texts);
         expect(await env.store.list()).toEqual(listed);
         expect(await env.readPath(unmanaged)).toBe(texts[0]);
@@ -68,6 +70,9 @@ describe("local draft lifecycle", () => {
         expect(await env.read(siblingDraft)).toBe(texts.first);
         expect(await env.store.list()).toEqual([retained]);
         expect((await env.store.delete(first.draftId)).removed).toBe(false);
+        expect(await env.store.list()).toEqual([retained]);
+        expect(await env.read(retained)).toBe(texts.second);
+        expect(await env.read(siblingDraft)).toBe(texts.first);
       });
     }, { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL });
   });
