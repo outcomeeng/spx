@@ -45,14 +45,28 @@ export function authoredText(text: string): TerminalText {
   return brand(text);
 }
 
+declare const ALREADY_COMPOSED: unique symbol;
+
+/**
+ * What the external-value decision resolves to when handed text that is already
+ * composed. The brand is erased at runtime, so the primitive cannot detect a
+ * composed value by inspection; it rejects one by type instead, resolving to a
+ * shape no composition accepts, so escaping composed text a second time fails
+ * to compile rather than corrupting the styling an authored segment carries.
+ */
+export type AlreadyComposedText = { readonly [ALREADY_COMPOSED]: "embed composed text as it stands" };
+
 /**
  * A value that originated outside the product's own source: subprocess output,
  * filesystem paths, file content, environment variables, argv, caught-error
  * messages, or API responses. Control bytes are escaped through the shared
  * argument-escaping contract, so an escape byte cannot rewrite the terminal and
- * a line feed cannot forge a diagnostic line.
+ * a line feed cannot forge a diagnostic line. Text already composed is not an
+ * external value and is refused at the type level.
  */
-export function externalValue(value: unknown): TerminalText {
+export function externalValue(value: TerminalText): AlreadyComposedText;
+export function externalValue(value: unknown): TerminalText;
+export function externalValue(value: unknown): TerminalText | AlreadyComposedText {
   return brand(escapeCliArgument(value));
 }
 
