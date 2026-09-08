@@ -47,18 +47,15 @@ export function arbitraryDraftBatch(): fc.Arbitrary<string[]> {
 
 export interface InvalidDraftCommand {
   readonly args: string[];
-  readonly diagnosticTokens: string[];
 }
 
 function arbitraryInvalidDraftCommands() {
   return fc.string({ maxLength: 32 }).map((suffix) => ({
     missingInput: {
       args: [CHANGE_COMMAND.name, CHANGE_COMMAND.draft, CHANGE_COMMAND.operations.create],
-      diagnosticTokens: ["required option", CHANGE_COMMAND.inputOption],
     },
     missingId: {
       args: [CHANGE_COMMAND.name, CHANGE_COMMAND.draft, CHANGE_COMMAND.operations.delete],
-      diagnosticTokens: ["missing required argument", CHANGE_COMMAND.idOperand.slice(1, -1)],
     },
     unsupportedInput: {
       args: [
@@ -68,15 +65,12 @@ function arbitraryInvalidDraftCommands() {
         CHANGE_COMMAND.inputOption,
         `${CHANGE_COMMAND.stdin}!${suffix}`,
       ],
-      diagnosticTokens: [CHANGE_COMMAND.inputOption, "Allowed choices", CHANGE_COMMAND.stdin],
     },
     unknownChangeCommand: {
       args: [CHANGE_COMMAND.name, `unknown-${suffix}`],
-      diagnosticTokens: ["unknown command", `unknown-${suffix}`],
     },
     unknownDraftCommand: {
       args: [CHANGE_COMMAND.name, CHANGE_COMMAND.draft, `unknown-${suffix}`],
-      diagnosticTokens: ["unknown command", `unknown-${suffix}`],
     },
   } satisfies Record<string, InvalidDraftCommand>));
 }

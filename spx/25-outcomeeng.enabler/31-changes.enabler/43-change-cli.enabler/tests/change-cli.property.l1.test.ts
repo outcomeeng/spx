@@ -9,7 +9,7 @@ import {
   arbitraryDraftText,
   INVALID_DRAFT_COMMAND_GENERATORS,
 } from "@testing/generators/change-drafts";
-import { withChangeDraftEnv } from "@testing/harnesses/change-drafts";
+import { referenceDraftDiagnostic, withChangeDraftEnv } from "@testing/harnesses/change-drafts";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 
 describe("draft CLI", () => {
@@ -134,9 +134,9 @@ describe("draft CLI", () => {
           const retained = await env.store.create(JSON.stringify(command));
           const result = env.runCli(command.args);
           expect(result.status).not.toBe(0);
-          for (const token of command.diagnosticTokens) {
-            expect(result.stderr).toContain(escapeCliArgument(token));
-          }
+          const expectedDiagnostic = referenceDraftDiagnostic(command.args);
+          expect(expectedDiagnostic.length).toBeGreaterThan(0);
+          expect(result.stderr).toContain(expectedDiagnostic);
           expect(await env.read(retained)).toBe(JSON.stringify(command));
           expect(await env.store.list()).toEqual([retained]);
         });

@@ -1,8 +1,10 @@
+import { Command, CommanderError, Option } from "commander";
 import { spawnSync } from "node:child_process";
 import type { Stats } from "node:fs";
 import * as fs from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
+import { CHANGE_COMMAND } from "@/commands/change/contract";
 import { createChangeDraftStore } from "@/lib/change-drafts";
 import {
   CHANGE_DRAFT,
@@ -12,6 +14,7 @@ import {
   type ChangeDraftStore,
 } from "@/lib/change-drafts/contract";
 import { withoutGitEnvironment } from "@/lib/git/environment";
+import { escapeCliArgument } from "@/lib/sanitize-cli-argument";
 import { STATE_STORE_SCOPE_PATH, worktreeScopeDir } from "@/lib/state-store";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
@@ -26,6 +29,29 @@ const TEMP_GIT_ENV = {
   GIT_COMMITTER_NAME: "Draft fixture",
   GIT_COMMITTER_EMAIL: "draft@example.invalid",
 };
+
+/** Independent Commander grammar: no product registry, handlers, or error formatter is invoked. */
+export function referenceDraftDiagnostic(args: readonly string[]): string {
+  let stderr = "";
+  const program = new Command().exitOverride().configureOutput({
+    writeErr: (text) => {
+      stderr += text;
+    },
+  });
+  const draft = program.command(CHANGE_COMMAND.name).command(CHANGE_COMMAND.draft);
+  draft.command(CHANGE_COMMAND.operations.create)
+    .addOption(
+      new Option(`${CHANGE_COMMAND.inputOption} <source>`).choices([CHANGE_COMMAND.stdin]).makeOptionMandatory(),
+    );
+  draft.command(CHANGE_COMMAND.operations.delete).argument(CHANGE_COMMAND.idOperand);
+  draft.command(CHANGE_COMMAND.operations.list);
+  try {
+    program.parse([...args], { from: "user" });
+  } catch (error) {
+    if (!(error instanceof CommanderError)) throw error;
+  }
+  return escapeCliArgument(stderr.trim());
+}
 
 export interface DraftCliObservation {
   readonly status: number | null;
