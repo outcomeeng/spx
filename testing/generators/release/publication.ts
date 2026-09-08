@@ -101,11 +101,21 @@ export function arbitraryPublicationScenario(): fc.Arbitrary<PublicationScenario
 
 export function arbitraryPublicationChangelogPathScenario(): fc.Arbitrary<PublicationChangelogPathScenario> {
   return fc.record({
-    productDir: arbitraryPathSegment(),
+    productDir: fc.oneof(arbitraryPathSegment(), arbitraryWindowsRootedProductDir()),
     containedPath: arbitraryConfiguredChangelogPath(),
     escapingPath: arbitraryEscapingChangelogPath(),
     rootResolvingPath: arbitraryRootResolvingChangelogPath(),
   });
+}
+
+/** A product directory under a Windows drive or UNC root, so containment runs under Windows path semantics. */
+function arbitraryWindowsRootedProductDir(): fc.Arbitrary<string> {
+  return fc
+    .tuple(
+      fc.oneof(RELEASE_TEST_GENERATOR.distinctWindowsDriveRoots(), RELEASE_TEST_GENERATOR.distinctWindowsUncRoots()),
+      arbitraryPathSegment(),
+    )
+    .map(([[root], segment]) => `${root}${segment}`);
 }
 
 export function arbitraryPublicationCheckoutDriftScenario(): fc.Arbitrary<PublicationCheckoutDriftScenario> {
