@@ -1,7 +1,7 @@
 methodology:
   source: outcomeeng/methodology
   version: 4.0.0
-  migratingFrom: 3.1.0
+  migratingFrom: 3.2.0
 
 validation:
   literal:
