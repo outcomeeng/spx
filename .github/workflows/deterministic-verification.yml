@@ -126,7 +126,7 @@ jobs:
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       # The agent-search locator shells out to ripgrep, which the hosted Ubuntu
-      # image does not carry; the L1 locator scenario runs against the real binary.
+      # image does not carry; the L2 locator scenario runs against the real binary.
       - name: Provision ripgrep
         run: |
           sudo apt-get update
