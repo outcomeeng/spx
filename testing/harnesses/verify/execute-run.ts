@@ -3,13 +3,13 @@
  * (`spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-execute-run.enabler`).
  *
  * The command tree is inspected on the real CLI program. The handler is driven over a temp product
- * that is a real git repository holding generated spec-tree test files — so the production worktree
- * root resolver is exercised, not injected — the real verify recorder wired to an in-memory state
- * store, and a controlled streaming runner that yields a configured invocation (Stage 5 exception 7,
- * a contract probe at the runner boundary) — no real Vitest run at `l1`. The descriptor's process
- * boundary is observed through recording standard streams, with a handler that either returns a
- * configured result or fails with a configured error. Every function returns observations; the
- * linked test owns every predicate.
+ * holding generated spec-tree test files — a real git repository by default, or a bare directory
+ * outside any repository — so the production worktree-root resolver is exercised, not injected;
+ * the real verify recorder is wired to an in-memory state store, and a controlled streaming runner
+ * yields a configured invocation (Stage 5 exception 7, a contract probe at the runner boundary) — no
+ * real Vitest run at `l1`. The descriptor's process boundary is observed through recording standard
+ * streams, with a handler that either returns a configured result or fails with a configured error.
+ * Every function returns observations; the linked test owns every predicate.
  */
 import { realpath } from "node:fs/promises";
 import { join, posix } from "node:path";
@@ -95,8 +95,10 @@ export function inspectExecuteRunCommandTree(): ExecuteRunCommandTreeObservation
 
 /** A temp product's generated spec-tree layout: two distinct nodes, each holding one TypeScript test file. */
 export interface GeneratedTestProduct {
-  /** The product root as git resolves it — the canonical path of the temp directory. */
+  /** The product root — the canonical path of the temp directory, as git resolves it when the product is a repository. */
   readonly productDir: string;
+  /** Whether the product directory was initialized as a git repository. */
+  readonly gitRepository: boolean;
   /** The two nodes as product-root paths — the operand form a caller passes, e.g. `spx/<node>`. */
   readonly nodePaths: readonly [string, string];
   /** The two test files as product-root paths, one under each node's `tests/`. */
@@ -109,10 +111,10 @@ function productRootNodePath(nodePath: string): string {
   return `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${PATH_SEPARATOR}${nodePath}`;
 }
 
-// Initializes the temp directory as a git repository so the production worktree-root resolver
-// finds it, and materializes the generated test files under its spec tree.
-async function materializeTestProduct(tempDir: string): Promise<GeneratedTestProduct> {
-  await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET], { cwd: tempDir });
+// Initializes the temp directory as a git repository when asked, so the production worktree-root
+// resolver finds it, and materializes the generated test files under its spec tree.
+async function materializeTestProduct(tempDir: string, gitRepository: boolean): Promise<GeneratedTestProduct> {
+  if (gitRepository) await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET], { cwd: tempDir });
   const productDir = await realpath(tempDir);
   const [firstNode, secondNode] = sampleGeneratedValue(TEST_DISPATCH_GENERATOR.distinctNodePaths());
   const firstTest = sampleGeneratedValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, firstNode));
@@ -123,6 +125,7 @@ async function materializeTestProduct(tempDir: string): Promise<GeneratedTestPro
   await writeTestFileFixture(productDir, secondTest);
   return {
     productDir,
+    gitRepository,
     nodePaths: [productRootNodePath(firstNode), productRootNodePath(secondNode)],
     testPaths: [firstTest, secondTest],
   };
@@ -184,6 +187,7 @@ export interface ExecuteRunHandlerObservation {
   readonly exitCode: number;
   readonly report: ExecuteRunReport | undefined;
   readonly diagnostic: string | undefined;
+  readonly warning: string | undefined;
   /** The request the controlled runner received, or `undefined` when no run opened. */
   readonly drivenRequest: JournalRunRequest | undefined;
   /** The run input the recorder replays for the opened run, or `undefined` when no run opened. */
@@ -200,33 +204,45 @@ export function invokeFromFirstTestDir(product: GeneratedTestProduct): string {
   return join(product.productDir, posix.dirname(product.testPaths[0]));
 }
 
-interface ExecuteRunDrive {
+/** How the handler is driven: which operands, from where, over which product, yielding which invocation. */
+export interface ExecuteRunHandlerDrive {
+  /** The operands to pass, chosen over the generated product; defaults to none. */
+  readonly selectOperands?: (product: GeneratedTestProduct) => readonly string[];
+  /** The directory to invoke from, chosen over the generated product; defaults to the product root. */
+  readonly selectInvocationDir?: (product: GeneratedTestProduct) => string;
+  /** Whether the generated product is a git repository; defaults to true. */
+  readonly gitRepository?: boolean;
+  /** The invocation the controlled runner yields; defaults to the first invoked invocation. */
+  readonly invocation?: JournalRunInvocation;
+}
+
+interface ExecuteRunDrive extends Required<ExecuteRunHandlerDrive> {
   readonly verificationType: VerifyVerificationType;
-  readonly selectOperands: (product: GeneratedTestProduct) => readonly string[];
-  readonly selectInvocationDir: (product: GeneratedTestProduct) => string;
-  readonly invocation: JournalRunInvocation;
   /** Resolves the runner the handler drives; the controlled runner, or the production registry. */
   readonly resolveRunner: (
     controlled: ControlledRunner,
   ) => (verificationType: string) => JournalStreamingRunner | undefined;
 }
 
+function resolvedDrive(drive: ExecuteRunHandlerDrive): Required<ExecuteRunHandlerDrive> {
+  return {
+    selectOperands: drive.selectOperands ?? (() => []),
+    selectInvocationDir: drive.selectInvocationDir ?? invokeFromProductRoot,
+    gitRepository: drive.gitRepository ?? true,
+    invocation: drive.invocation ?? invokedInvocations()[0],
+  };
+}
+
 /**
- * Drives the execute-run handler over a generated temp product with the given operands and a
- * controlled runner yielding the given invocation, from the selected invocation directory, against
- * the real recorder over an in-memory store and the production worktree-root resolver, and reads
- * back the recorded run input when a run opened.
+ * Drives the execute-run handler for the `test` type over a generated temp product with the drive's
+ * operands and a controlled runner yielding the drive's invocation, from the drive's invocation
+ * directory, against the real recorder over an in-memory store and the production worktree-root
+ * resolver, and reads back the recorded run input when a run opened.
  */
-export function observeExecuteRunHandler(
-  selectOperands: (product: GeneratedTestProduct) => readonly string[],
-  invocation: JournalRunInvocation,
-  selectInvocationDir: (product: GeneratedTestProduct) => string = invokeFromProductRoot,
-): Promise<ExecuteRunHandlerObservation> {
+export function observeExecuteRunHandler(drive: ExecuteRunHandlerDrive = {}): Promise<ExecuteRunHandlerObservation> {
   return driveExecuteRun({
+    ...resolvedDrive(drive),
     verificationType: VERIFY_VERIFICATION_TYPE.TEST,
-    selectOperands,
-    selectInvocationDir,
-    invocation,
     resolveRunner: (controlled) => () => controlled.runner,
   });
 }
@@ -237,10 +253,8 @@ export function observeExecuteRunHandler(
  */
 export function observeExecuteRunWithAgenticType(): Promise<ExecuteRunHandlerObservation> {
   return driveExecuteRun({
+    ...resolvedDrive({}),
     verificationType: VERIFY_VERIFICATION_TYPE.AUDIT,
-    selectOperands: () => [],
-    selectInvocationDir: invokeFromProductRoot,
-    invocation: invokedInvocations()[0],
     resolveRunner: () => resolveVerificationRunner,
   });
 }
@@ -249,7 +263,7 @@ async function driveExecuteRun(drive: ExecuteRunDrive): Promise<ExecuteRunHandle
   const { invocation } = drive;
   let observation: ExecuteRunHandlerObservation | undefined;
   await withTestingTempProductDir(async (tempDir) => {
-    const product = await materializeTestProduct(tempDir);
+    const product = await materializeTestProduct(tempDir, drive.gitRepository);
     const operands = drive.selectOperands(product);
     const invocationDir = drive.selectInvocationDir(product);
     const scenario = withVerificationType(
@@ -287,6 +301,7 @@ async function driveExecuteRun(drive: ExecuteRunDrive): Promise<ExecuteRunHandle
       exitCode: result.exitCode,
       report: result.report,
       diagnostic: result.diagnostic,
+      warning: result.warning,
       drivenRequest: controlled.request(),
       recordedInput,
     };

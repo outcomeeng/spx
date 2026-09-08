@@ -1,10 +1,11 @@
 import { posix } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { EXECUTE_RUN_CLI_ERROR } from "@/commands/verification-exec";
+import { EXECUTE_RUN_CLI_ERROR, EXECUTE_RUN_CLI_WARNING } from "@/commands/verification-exec";
 import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
+import { PATH_OPERAND_CLI_SURFACE } from "@/interfaces/cli/lib/path-operands";
 import { CLI_STREAM_REPORT } from "@/interfaces/cli/lib/stream-report";
 import { EXECUTE_RUN_CLI_SURFACE } from "@/interfaces/cli/verify";
 import { DEL_CHAR_CODE, FIRST_PRINTABLE_CHAR_CODE } from "@/lib/sanitize-cli-argument";
@@ -20,7 +21,6 @@ import {
   inspectExecuteRunCommandTree,
   invokedInvocations,
   invokeFromFirstTestDir,
-  invokeFromProductRoot,
   observeExecuteRunDescriptor,
   observeExecuteRunHandler,
   observeExecuteRunWithAgenticType,
@@ -42,24 +42,24 @@ describe("execute run compliance", () => {
     const tree = inspectExecuteRunCommandTree();
     for (const noun of tree.typeNouns) {
       expect(noun.variadicOperandName).toBeDefined();
-      for (const forbiddenFlag of EXECUTE_RUN_CLI_SURFACE.forbiddenPathScopeFlags) {
+      for (const forbiddenFlag of PATH_OPERAND_CLI_SURFACE.forbiddenScopeFlags) {
         expect(noun.runVerbOptionFlags.join(" ")).not.toContain(forbiddenFlag);
       }
     }
 
-    const fileOperand = await observeExecuteRunHandler((product) => [product.testPaths[0]], invokedInvocations()[0]);
+    const fileOperand = await observeExecuteRunHandler({ selectOperands: (product) => [product.testPaths[0]] });
     expect(fileOperand.diagnostic).toBeUndefined();
     expect(fileOperand.report?.testPaths).toEqual([fileOperand.product.testPaths[0]]);
     expect(fileOperand.drivenRequest?.testPaths).toEqual([fileOperand.product.testPaths[0]]);
     expect(fileOperand.report?.locator.scopeType).toBe(VERIFY_SCOPE_TYPE.FILE);
     expect(fileOperand.report?.locator.scopeIdentity).toBe(posix.dirname(fileOperand.product.testPaths[0]));
 
-    const nodeOperand = await observeExecuteRunHandler((product) => [product.nodePaths[1]], invokedInvocations()[0]);
+    const nodeOperand = await observeExecuteRunHandler({ selectOperands: (product) => [product.nodePaths[1]] });
     expect(nodeOperand.diagnostic).toBeUndefined();
     expect(nodeOperand.report?.testPaths).toEqual([nodeOperand.product.testPaths[1]]);
     expect(nodeOperand.report?.locator.scopeIdentity).toBe(nodeOperand.product.nodePaths[1]);
 
-    const noOperand = await observeExecuteRunHandler(() => [], invokedInvocations()[0]);
+    const noOperand = await observeExecuteRunHandler();
     expect(noOperand.diagnostic).toBeUndefined();
     expect(noOperand.report?.testPaths).toEqual([...noOperand.product.testPaths].sort(compareAsciiStrings));
     expect(noOperand.report?.locator.scopeIdentity).toBe(SPEC_TREE_CONFIG.ROOT_DIRECTORY);
@@ -73,11 +73,12 @@ describe("execute run compliance", () => {
     ]);
   });
 
-  it("roots the run at the worktree product root from any invocation directory inside the product", async () => {
-    const fromRoot = await observeExecuteRunHandler(() => [], invokedInvocations()[0], invokeFromProductRoot);
+  it("roots the run at the worktree product root from any directory inside the product, and at the invocation directory with a warning outside a repository", async () => {
+    const fromRoot = await observeExecuteRunHandler();
     expect(fromRoot.drivenRequest?.productDir).toBe(fromRoot.product.productDir);
+    expect(fromRoot.warning).toBeUndefined();
 
-    const fromInside = await observeExecuteRunHandler(() => [], invokedInvocations()[0], invokeFromFirstTestDir);
+    const fromInside = await observeExecuteRunHandler({ selectInvocationDir: invokeFromFirstTestDir });
     expect(fromInside.invocationDir).not.toBe(fromInside.product.productDir);
     expect(fromInside.drivenRequest?.productDir).toBe(fromInside.product.productDir);
     expect(fromInside.recorderProbeCwds.length).toBeGreaterThan(0);
@@ -85,6 +86,23 @@ describe("execute run compliance", () => {
     expect(fromInside.report?.testPaths).toEqual([...fromInside.product.testPaths].sort(compareAsciiStrings));
     expect(fromInside.report?.locator.scopeIdentity).toBe(SPEC_TREE_CONFIG.ROOT_DIRECTORY);
     expect(fromInside.recordedInput).toBeDefined();
+    expect(fromInside.warning).toBeUndefined();
+
+    const outsideRepository = await observeExecuteRunHandler({ gitRepository: false });
+    expect(outsideRepository.product.gitRepository).toBe(false);
+    expect(outsideRepository.drivenRequest?.productDir).toBe(outsideRepository.invocationDir);
+    expect(outsideRepository.report?.testPaths).toEqual(
+      [...outsideRepository.product.testPaths].sort(compareAsciiStrings),
+    );
+    expect(outsideRepository.warning).toBe(EXECUTE_RUN_CLI_WARNING.NOT_GIT_REPOSITORY);
+
+    const descriptor = await observeExecuteRunDescriptor(
+      [],
+      handlerReturning({ exitCode: VERIFY_CLI_EXIT_CODE.OK, warning: EXECUTE_RUN_CLI_WARNING.NOT_GIT_REPOSITORY }),
+    );
+    expect(descriptor.stdout).toHaveLength(0);
+    expect(descriptor.stderr.trim()).toBe(EXECUTE_RUN_CLI_WARNING.NOT_GIT_REPOSITORY);
+    expect(descriptor.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
   });
 
   it("exposes no verification type as a verb command path", () => {
@@ -96,7 +114,10 @@ describe("execute run compliance", () => {
 
   it("reports one structured result with the run locator and terminal status, exiting zero exactly when passed", async () => {
     for (const invocation of invokedInvocations()) {
-      const observation = await observeExecuteRunHandler((product) => [product.nodePaths[0]], invocation);
+      const observation = await observeExecuteRunHandler({
+        selectOperands: (product) => [product.nodePaths[0]],
+        invocation,
+      });
       if (!invocation.invoked) continue;
 
       expect(observation.report?.runToken).toBe(observation.report?.locator.runToken);
@@ -108,6 +129,7 @@ describe("execute run compliance", () => {
           ? VERIFY_CLI_EXIT_CODE.OK
           : VERIFY_CLI_EXIT_CODE.ERROR,
       );
+      expect(observation.recordedInput).toBeDefined();
       expect(JSON.parse(observation.recordedInput?.content ?? "")).toMatchObject({
         verificationType: VERIFY_VERIFICATION_TYPE.TEST,
         operands: observation.operands,
@@ -115,7 +137,7 @@ describe("execute run compliance", () => {
       });
     }
 
-    const passed = await observeExecuteRunHandler(() => [], invokedInvocations()[0]);
+    const passed = await observeExecuteRunHandler();
     const descriptor = await observeExecuteRunDescriptor(
       [],
       handlerReturning({ exitCode: passed.exitCode, report: passed.report }),
@@ -127,7 +149,7 @@ describe("execute run compliance", () => {
 
   it("reports an operand selecting no test file or a type without a runner without opening a run, and names a runnerless product directory after sealing", async () => {
     const unresolvedOperand = sampleGeneratedValue(arbitrarySourceFilePath());
-    const noMatch = await observeExecuteRunHandler(() => [unresolvedOperand], invokedInvocations()[0]);
+    const noMatch = await observeExecuteRunHandler({ selectOperands: () => [unresolvedOperand] });
     expect(noMatch.report).toBeUndefined();
     expect(noMatch.drivenRequest).toBeUndefined();
     expect(noMatch.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
@@ -142,7 +164,7 @@ describe("execute run compliance", () => {
     expect(agenticType.diagnostic).toContain(VERIFY_VERIFICATION_TYPE.AUDIT);
 
     const unresolvedRunner = unresolvedRunnerInvocation();
-    const runnerless = await observeExecuteRunHandler(() => [], unresolvedRunner.invocation);
+    const runnerless = await observeExecuteRunHandler({ invocation: unresolvedRunner.invocation });
     expect(runnerless.report?.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.INTERRUPTED);
     expect(runnerless.report?.unresolvedRunner).toEqual({ productDir: unresolvedRunner.productDir });
     expect(runnerless.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
@@ -158,16 +180,27 @@ describe("execute run compliance", () => {
     expect(descriptor.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
   });
 
-  it("reports a run the handler cannot complete as an escaped diagnostic with a non-zero exit, never as an unhandled failure", async () => {
+  it("reports a run the handler cannot complete as an escaped diagnostic carrying the failure, with a non-zero exit, never as an unhandled failure", async () => {
     const failure = sampleGeneratedValue(arbitraryTerminalUnsafeText());
     const descriptor = await observeExecuteRunDescriptor([], handlerFailingWith(failure));
 
     expect(descriptor.stdout).toHaveLength(0);
     expect(descriptor.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
     expect(descriptor.stderr).toContain(EXECUTE_RUN_CLI_ERROR.RUN_FAILED);
-    for (const char of descriptor.stderr.replaceAll(CLI_STREAM_REPORT.LINE_SEPARATOR, "")) {
+    const rendered = descriptor.stderr.replaceAll(CLI_STREAM_REPORT.LINE_SEPARATOR, "");
+    for (const char of rendered) {
       expect(char.codePointAt(0)).toBeGreaterThanOrEqual(FIRST_PRINTABLE_CHAR_CODE);
       expect(char.codePointAt(0)).not.toBe(DEL_CHAR_CODE);
+    }
+    // Every printable character of the failure survives, in order, after the run-failed prefix: the
+    // message is carried, not dropped, and only its unsafe bytes are rewritten.
+    let position = rendered.indexOf(EXECUTE_RUN_CLI_ERROR.RUN_FAILED) + EXECUTE_RUN_CLI_ERROR.RUN_FAILED.length;
+    for (const char of failure) {
+      const codePoint = char.codePointAt(0) ?? DEL_CHAR_CODE;
+      if (codePoint < FIRST_PRINTABLE_CHAR_CODE || codePoint === DEL_CHAR_CODE) continue;
+      position = rendered.indexOf(char, position);
+      expect(position).toBeGreaterThanOrEqual(0);
+      position += char.length;
     }
   });
 });
