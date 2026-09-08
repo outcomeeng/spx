@@ -34,6 +34,18 @@ describe("terminal text external-value boundary", () => {
     expectTypeOf(externalValue(maybeComposed)).not.toEqualTypeOf<TerminalText>();
   });
 
+  it("refuses a union of composed text with a plain string, since such a value may already carry its decision", () => {
+    const maybeComposed = sampleGeneratedValue(
+      arbitraryTerminalUnsafeText().map((text): TerminalText | string => authoredText(text)),
+    );
+    expectTypeOf(externalValue(maybeComposed)).not.toEqualTypeOf<TerminalText>();
+  });
+
+  it("admits a caught error typed unknown, since its provenance is decided here", () => {
+    const caught = sampleGeneratedValue(arbitraryTerminalUnsafeText().map((text): unknown => text));
+    expectTypeOf(externalValue(caught)).toEqualTypeOf<TerminalText>();
+  });
+
   it("accepts a plain value in its optional shape, so the refusal reaches only composed text", () => {
     const maybePlain = sampleGeneratedValue(arbitraryTerminalUnsafeText().map((text): string | undefined => text));
     expectTypeOf(externalValue(maybePlain)).toEqualTypeOf<TerminalText>();

@@ -69,18 +69,29 @@ declare const ALREADY_COMPOSED: unique symbol;
 export type AlreadyComposedText = { readonly [ALREADY_COMPOSED]: "embed composed text as it stands" };
 
 /**
+ * The type the external-value decision resolves to for an argument of static
+ * type `T`. The check distributes over a union, so the branded type, its
+ * optional shape, and any union that includes it resolve to a type no
+ * composition admits, because such a value may already carry its escaping
+ * decision; a plain string, another primitive, or a caught error typed
+ * `unknown` resolves to composed text and is escaped here.
+ */
+export type ExternalValueResult<T> = T extends TerminalText ? AlreadyComposedText : TerminalText;
+
+/**
  * A value that originated outside the product's own source: subprocess output,
  * filesystem paths, file content, environment variables, argv, caught-error
  * messages, or API responses. Control bytes are escaped through the shared
  * argument-escaping contract, so an escape byte cannot rewrite the terminal and
  * a line feed cannot forge a diagnostic line. Text already composed is not an
- * external value and is refused at the type level, in its optional shape too,
- * so an unnarrowed optional field cannot slip past the refusal.
+ * external value and is refused at the type level for every static type that
+ * carries the branded type, so neither an unnarrowed optional field nor a union
+ * with a plain string can slip past the refusal.
  */
-export function externalValue(value: TerminalText | undefined | null): AlreadyComposedText;
-export function externalValue(value: unknown): TerminalText;
-export function externalValue(value: unknown): TerminalText | AlreadyComposedText {
-  return brand(escapeCliArgument(value));
+export function externalValue<T>(value: T): ExternalValueResult<T> {
+  // The conditional result is decided by the argument's static type alone; at
+  // runtime every admitted value is escaped, and the brand is the same string.
+  return brand(escapeCliArgument(value)) as ExternalValueResult<T>;
 }
 
 /**
