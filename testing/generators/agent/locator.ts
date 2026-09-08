@@ -10,6 +10,7 @@ import {
 } from "@/domains/agent/search";
 import { RIPGREP_EXIT_CODE, type RipgrepProcessOutcome } from "@/lib/ripgrep/runner";
 
+import { arbitraryAgentWorktreeRoot } from "./resume";
 import { arbitraryTranscriptNeedleCase, type GeneratedMovingSessionScenario } from "./search";
 
 const MAX_NEEDLE_GRAPHEMES = 8;
@@ -115,24 +116,30 @@ export const RIPGREP_RUN_EXIT_STATUSES: readonly (number | null)[] = [
   null,
 ];
 
-/** One ripgrep run per exit status, over the same generated output. */
+/** One ripgrep run per exit status, over the same generated output, root, and needle. */
 export interface GeneratedRipgrepRunCase {
   readonly exitCode: number | null;
   readonly result: TranscriptLocatorRunResult;
   readonly printedPaths: readonly string[];
+  readonly root: string;
+  readonly needle: string;
 }
 
 export function arbitraryRipgrepRunCases(): fc.Arbitrary<readonly GeneratedRipgrepRunCase[]> {
   return fc
     .tuple(
       arbitraryRipgrepPathList(),
-      fc.string({ unit: "grapheme", maxLength: MAX_LOCATOR_STDERR_GRAPHEMES }),
+      fc.string({ unit: "grapheme", minLength: 1, maxLength: MAX_LOCATOR_STDERR_GRAPHEMES }),
+      arbitraryAgentWorktreeRoot(),
+      arbitraryAgentSearchNeedle(),
     )
-    .map(([pathList, stderr]) =>
+    .map(([pathList, stderr, root, needle]) =>
       RIPGREP_RUN_EXIT_STATUSES.map((exitCode) => ({
         exitCode,
         result: { exitCode, stdout: pathList.stdout, stderr },
         printedPaths: pathList.paths,
+        root,
+        needle,
       }))
     );
 }
@@ -191,7 +198,7 @@ export function arbitraryRipgrepProcessOutcomeCases(): fc.Arbitrary<readonly Gen
   return fc
     .tuple(
       arbitraryRipgrepPathList(),
-      fc.string({ unit: "grapheme", maxLength: MAX_LOCATOR_STDERR_GRAPHEMES }),
+      fc.string({ unit: "grapheme", minLength: 1, maxLength: MAX_LOCATOR_STDERR_GRAPHEMES }),
       fc.constantFrom(...TERMINATING_SIGNALS),
       fc.constantFrom(...SPAWN_FAILURE_CODES),
     )

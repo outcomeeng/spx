@@ -23,6 +23,7 @@ import type {
   GeneratedInvalidNeedleCase,
   GeneratedLocatorStoreCase,
   GeneratedRipgrepProcessOutcomeCase,
+  GeneratedRipgrepRunCase,
 } from "@testing/generators/agent/locator";
 import type { GeneratedMovingSessionScenario } from "@testing/generators/agent/search";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
@@ -179,6 +180,32 @@ export async function searchWithRejectedNeedle(
   const fs = movingSessionStore(scenario);
   const locator = new MemoryTranscriptLocator(fs);
   return { ...(await observeSearch(scenario, fs, locator, invalidCase.query)), locator };
+}
+
+export interface LocatorRunObservation {
+  readonly runCase: GeneratedRipgrepRunCase;
+  /** The paths the locator named, or null when the locate call threw. */
+  readonly paths: readonly string[] | null;
+  readonly error: unknown;
+}
+
+/**
+ * Drives each run case through the production locator over a runner reporting that run — the
+ * contract probe at the process boundary — so the locate call's own outcome is observed.
+ */
+export async function observeLocatorRuns(
+  cases: readonly GeneratedRipgrepRunCase[],
+): Promise<readonly LocatorRunObservation[]> {
+  const observations: LocatorRunObservation[] = [];
+  for (const runCase of cases) {
+    const locator = createRipgrepTranscriptLocator(async () => runCase.result);
+    try {
+      observations.push({ runCase, paths: await locator.locate([runCase.root], runCase.needle), error: null });
+    } catch (error: unknown) {
+      observations.push({ runCase, paths: null, error });
+    }
+  }
+  return observations;
 }
 
 export interface RunnerOutcomeObservation {
