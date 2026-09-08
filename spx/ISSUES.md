@@ -183,3 +183,30 @@ Across the product, 34 executed `spx/.../tests/*.test.ts` files are two-line shi
 **Skills:** `/test-typescript`, `/audit-typescript-tests`, `/apply`.
 
 **Scope:** Product-wide — 34 test files and roughly 25 harness modules. Unwind one owning subtree at a time: move each `register*()` harness function's `describe`/`it`/`expect` body into the node's executed `tests/*.test.ts` file, leaving genuine lifecycle and setup helpers (`withLiteralFixtureEnv`, expected-value builders, seed and run-count machinery) in the harness. Retire redundant scenario/compliance duplicates as encountered, and re-run each node's tests plus its test-evidence audit after the move.
+
+## The shipped Specified-state definition is narrower than this product's EXCLUDE practice
+
+`methodology/4.0/{coding-agent}/spec-tree/skills/understand/references/excluded-nodes.md`
+defines `spx/EXCLUDE` as listing nodes in Specified state — spec and evidence
+exist while implementation is absent — and its EXCLUDE template comment reads
+"Specs and tests exist. Implementation does not." All fifteen entries in
+[spx/EXCLUDE](EXCLUDE) are Declared instead: none carries a `tests/` directory
+with any file, and several link tests their spec names but that do not exist on
+disk, among them
+[spx/33-harness-environment.enabler/43-plugin-bootstrap.enabler](33-harness-environment.enabler/43-plugin-bootstrap.enabler)
+and [spx/57-methodology-lifecycle.enabler](57-methodology-lifecycle.enabler).
+This product's own EXCLUDE header already states the broader rule: entries are
+omitted "while implementation or referenced evidence is absent".
+
+**Impact:** the shipped definition and this product's practice disagree about
+which node states `spx/EXCLUDE` admits, so the file reads as fifteen conformance
+violations against a contract it was never written to satisfy.
+
+**Resolution:** the definition lives in the methodology tree fetched verbatim
+from `outcomeeng/plugins`, held byte-identical by the conformance assertion of
+[spx/25-outcomeeng.enabler/31-methodology-plugin.enabler](25-outcomeeng.enabler/31-methodology-plugin.enabler),
+so it is never corrected in this repository. Either the upstream definition
+widens to admit Declared nodes and arrives through a later fetch, or each entry
+gains the evidence its spec links and graduates. Graduating an entry regenerates
+the committed `spx.status.json` through the projector; never hand-write the
+outcome values.
