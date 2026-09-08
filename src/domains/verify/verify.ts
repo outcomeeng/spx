@@ -1387,9 +1387,11 @@ function auditScopeUnitsFromEvents(events: readonly JournalEvent[]): readonly Au
 
 /**
  * A changeset-class unit judges the changeset itself, so it belongs only to a changeset-scoped run,
- * a run it roots as a required parentless `coherence` unit named for the run's own scope. Every
- * review unit the run then records hangs off that root, which is what makes the recorded review
- * units countable as one decomposition rather than an unordered set of siblings.
+ * a run it roots as a required parentless unit named for the run's own scope. Every review unit the
+ * run then records hangs off that root, which is what makes the recorded review units countable as
+ * one decomposition rather than an unordered set of siblings. The root is a `coherence` unit when a
+ * coherence producer executed and a `coverage-gap` unit when none did; both anchor the run, so the
+ * anchoring check cannot be reached only through the `coherence` kind.
  */
 function validateChangesetAuditScope(
   scope: AuditScopeUnit,
@@ -1399,20 +1401,52 @@ function validateChangesetAuditScope(
   if (selector.scopeType !== VERIFY_SCOPE_TYPE.CHANGESET) {
     return EVIDENCE_REQUIREMENT.AUDIT_CHANGESET_CLASS_NEEDS_CHANGESET_SCOPE;
   }
-  if (scope.auditKind === AUDIT_KIND.COHERENCE) {
-    return recordedScopes.length === 0
-        && scope.parentUnitId === undefined
-        && scope.coverageRequirement === AUDIT_COVERAGE_REQUIREMENT.REQUIRED
-        && scope.subject === selector.scopeIdentity
+  if (scope.auditKind === AUDIT_KIND.REVIEW_UNIT) {
+    return recordedScopes.some((recorded) =>
+        recorded.auditKind === AUDIT_KIND.COHERENCE && recorded.unitId === scope.parentUnitId
+      )
       ? undefined
-      : EVIDENCE_REQUIREMENT.AUDIT_CHANGESET_ROOT_IS_COHERENCE;
+      : EVIDENCE_REQUIREMENT.AUDIT_REVIEW_UNIT_PARENT_IS_COHERENCE_ROOT;
   }
-  if (scope.auditKind !== AUDIT_KIND.REVIEW_UNIT) return undefined;
-  return recordedScopes.some((recorded) =>
-      recorded.auditKind === AUDIT_KIND.COHERENCE && recorded.unitId === scope.parentUnitId
-    )
+  return recordedScopes.length === 0
+      && scope.parentUnitId === undefined
+      && scope.coverageRequirement === AUDIT_COVERAGE_REQUIREMENT.REQUIRED
+      && scope.subject === selector.scopeIdentity
     ? undefined
-    : EVIDENCE_REQUIREMENT.AUDIT_REVIEW_UNIT_PARENT_IS_COHERENCE_ROOT;
+    : EVIDENCE_REQUIREMENT.AUDIT_CHANGESET_ROOT_ANCHORS_RUN;
+}
+
+/** The run's first unit: parentless always, and anchored to the selector in a file-scoped run. */
+function validateAuditRootUnit(
+  scope: AuditScopeUnit,
+  selector: VerifyRunSelector,
+): EvidenceRequirement | undefined {
+  if (scope.parentUnitId !== undefined) return EVIDENCE_REQUIREMENT.AUDIT_FIRST_UNIT_IS_ROOT;
+  if (selector.scopeType !== VERIFY_SCOPE_TYPE.FILE) return undefined;
+  return scope.coverageRequirement === AUDIT_COVERAGE_REQUIREMENT.REQUIRED
+      && scope.subject === selector.scopeIdentity
+    ? undefined
+    : EVIDENCE_REQUIREMENT.AUDIT_FILE_ROOT_MATCHES_SCOPE;
+}
+
+/** The nesting rules every audit unit satisfies: root first, one file root, and a recorded parent. */
+function validateAuditUnitNesting(
+  scope: AuditScopeUnit,
+  recordedScopes: readonly AuditScopeUnit[],
+  selector: VerifyRunSelector,
+): EvidenceRequirement | undefined {
+  if (recordedScopes.length === 0) return validateAuditRootUnit(scope, selector);
+  if (scope.parentUnitId !== undefined) {
+    return recordedScopes.some((recorded) => recorded.unitId === scope.parentUnitId)
+      ? undefined
+      : EVIDENCE_REQUIREMENT.AUDIT_PARENT_IS_RECORDED;
+  }
+  if (selector.scopeType === VERIFY_SCOPE_TYPE.FILE) {
+    return EVIDENCE_REQUIREMENT.AUDIT_FILE_RUN_HAS_ONE_ROOT;
+  }
+  return recordedScopes.some((recorded) => recorded.parentUnitId !== undefined)
+    ? EVIDENCE_REQUIREMENT.AUDIT_PARENT_IS_RECORDED
+    : undefined;
 }
 
 function validateAuditScopeForRun(input: EvidenceValidationInput): EvidenceValidationResult<AuditScopeUnit> {
@@ -1420,31 +1454,10 @@ function validateAuditScopeForRun(input: EvidenceValidationInput): EvidenceValid
   if (!validated.ok) return validated;
   const scope = validated.value;
   const recordedScopes = auditScopeUnitsFromEvents(input.events);
-  if (scope.auditClass === AUDIT_CLASS.CHANGESET) {
-    const unmet = validateChangesetAuditScope(scope, recordedScopes, input.selector);
-    if (unmet !== undefined) return rejectEvidenceRequirement(unmet);
-  }
-  if (recordedScopes.length === 0) {
-    if (scope.parentUnitId !== undefined) {
-      return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.AUDIT_FIRST_UNIT_IS_ROOT);
-    }
-    if (input.selector.scopeType !== VERIFY_SCOPE_TYPE.FILE) return validated;
-    return scope.coverageRequirement === AUDIT_COVERAGE_REQUIREMENT.REQUIRED
-        && scope.subject === input.selector.scopeIdentity
-      ? validated
-      : rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.AUDIT_FILE_ROOT_MATCHES_SCOPE);
-  }
-  if (scope.parentUnitId === undefined) {
-    if (input.selector.scopeType === VERIFY_SCOPE_TYPE.FILE) {
-      return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.AUDIT_FILE_RUN_HAS_ONE_ROOT);
-    }
-    return recordedScopes.some((recordedScope) => recordedScope.parentUnitId !== undefined)
-      ? rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.AUDIT_PARENT_IS_RECORDED)
-      : validated;
-  }
-  return recordedScopes.some((recordedScope) => recordedScope.unitId === scope.parentUnitId)
-    ? validated
-    : rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.AUDIT_PARENT_IS_RECORDED);
+  const unmet = (scope.auditClass === AUDIT_CLASS.CHANGESET
+    ? validateChangesetAuditScope(scope, recordedScopes, input.selector)
+    : undefined) ?? validateAuditUnitNesting(scope, recordedScopes, input.selector);
+  return unmet === undefined ? validated : rejectEvidenceRequirement(unmet);
 }
 
 /**
