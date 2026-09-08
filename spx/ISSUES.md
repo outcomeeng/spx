@@ -210,3 +210,29 @@ widens to admit Declared nodes and arrives through a later fetch, or each entry
 gains the evidence its spec links and graduates. Graduating an entry regenerates
 the committed `spx.status.json` through the projector; never hand-write the
 outcome values.
+
+## The agent-harness placement rules carry no implementing evidence
+
+[spx/12-agent-harness.pdr.md](12-agent-harness.pdr.md) states four placement
+rules under `### Testing`, each tagged `[compliance]`: every harness write of a
+marketplace, plugin, or skill targets the agent home spx sets; the harness never
+writes into a coding agent's user scope; a plugin, plugin cache, or marketplace
+clone found under the repository is reported as a defect naming the path and the
+agent home it belongs in; and no repository ignore rule admits installed plugin,
+skill, or marketplace content as tracked.
+
+**Impact:** the tag names testable evidence, and none of the four rules has an
+implementing spec assertion backed by a test. A reader takes the rules for
+verified behavior when only the fourth is even exercised, and then only
+incidentally, by the removal of the `.codex/skills/*` ignore exception.
+
+**Resolution:** the capability writes belong to
+[spx/33-harness-environment.enabler/43-plugin-bootstrap.enabler](33-harness-environment.enabler/43-plugin-bootstrap.enabler),
+whose implementation is absent and whose node is excluded, and the repository
+scan belongs to
+[spx/54-diagnose.enabler/43-marketplace-install.enabler](54-diagnose.enabler/43-marketplace-install.enabler),
+whose plan records it as a pending step. Both plans carry the work. Retagging
+the rules `[audit]` would misclassify deterministic behavior, so they stay
+`[compliance]` and the implementing nodes supply the evidence when their packets
+run. The tracked-content rule is the cheapest to close first: it reads the
+repository's own ignore rules and needs no new capability.

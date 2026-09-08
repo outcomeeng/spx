@@ -19,6 +19,7 @@ import {
   FOUNDATION_PLUGIN_NAME,
   METHODOLOGY_CODING_AGENTS,
   type MethodologySourceRecord,
+  RANGE_ALTERNATIVE_SEPARATOR,
   RANGE_COMPARATOR,
   UNDERSTAND_SKILL_RELATIVE_DIR,
 } from "@/lib/methodology";
@@ -175,6 +176,8 @@ export function arbitraryDisagreeingPluginsContent(): fc.Arbitrary<GeneratedPlug
     }));
 }
 
+const COMPARATOR_JOINER = " ";
+
 /** A `supports` range whose only member is the supplied version. */
 export function supportsRangeContaining(version: string): string {
   return `${RANGE_COMPARATOR.EQUAL}${version}`;
@@ -183,6 +186,30 @@ export function supportsRangeContaining(version: string): string {
 /** A `supports` range admitting only versions above the supplied one, so the supplied version falls outside it. */
 export function supportsRangeExcluding(version: string): string {
   return `${RANGE_COMPARATOR.GREATER}${version}`;
+}
+
+/** A comparator set whose lower and upper bounds both admit the supplied version. */
+export function supportsRangeSpanning(version: string): string {
+  return [
+    `${RANGE_COMPARATOR.GREATER_OR_EQUAL}${version}`,
+    `${RANGE_COMPARATOR.LESS_OR_EQUAL}${version}`,
+  ].join(COMPARATOR_JOINER);
+}
+
+/** A comparator set whose upper bound excludes the supplied version its lower bound admits. */
+export function supportsRangeSpanningBelow(version: string): string {
+  return [
+    `${RANGE_COMPARATOR.GREATER_OR_EQUAL}${version}`,
+    `${RANGE_COMPARATOR.LESS}${version}`,
+  ].join(COMPARATOR_JOINER);
+}
+
+/** Alternatives admitting the supplied version through the second branch alone. */
+export function supportsRangeAlternatives(version: string): string {
+  return [
+    `${RANGE_COMPARATOR.LESS}${version}`,
+    `${RANGE_COMPARATOR.EQUAL}${version}`,
+  ].join(`${COMPARATOR_JOINER}${RANGE_ALTERNATIVE_SEPARATOR}${COMPARATOR_JOINER}`);
 }
 
 function generatedSourcePlugins(

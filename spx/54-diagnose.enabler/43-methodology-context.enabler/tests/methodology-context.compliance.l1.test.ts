@@ -18,8 +18,11 @@ import {
   arbitraryMethodologyVersion,
   generatedSourceRecordProviding,
   generatedSourceRecordWithPluginVersion,
+  supportsRangeAlternatives,
   supportsRangeContaining,
   supportsRangeExcluding,
+  supportsRangeSpanning,
+  supportsRangeSpanningBelow,
 } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
@@ -178,38 +181,52 @@ describe("methodology-context diagnose compliance", () => {
     });
   });
 
-  it("checks a declared migration source against the recorded supports range: a range holding it verifies, a range excluding it reports the supports mismatch naming both", async () => {
+  it("checks a declared migration source against every recorded supports form: an exact range, a comparator set, and alternatives each hold it, while a range above it and a comparator set closed below it report the mismatch naming both", async () => {
     const methodology = generatedMigratingMethodology();
     const line = lineOf(methodology);
     const version = methodology.version as string;
     const migratingFrom = methodology.migratingFrom as string;
+    // Each form the module's grammar admits: one exact version, a comparator
+    // set both of whose bounds must hold, and alternatives of which one must.
+    const holding = [
+      supportsRangeContaining(migratingFrom),
+      supportsRangeSpanning(migratingFrom),
+      supportsRangeAlternatives(migratingFrom),
+    ];
+    const excluding = [
+      supportsRangeExcluding(migratingFrom),
+      supportsRangeSpanningBelow(migratingFrom),
+    ];
 
-    await withShippedTreeRoot({
-      [line]: {
-        codingAgents: [...METHODOLOGY_CODING_AGENTS],
-        sourceRecord: generatedSourceRecordProviding(version, supportsRangeContaining(migratingFrom)),
-      },
-    }, async (treeRoot) => {
-      const observed = await probeShippedTree(methodology, treeRoot);
+    for (const supports of holding) {
+      await withShippedTreeRoot({
+        [line]: {
+          codingAgents: [...METHODOLOGY_CODING_AGENTS],
+          sourceRecord: generatedSourceRecordProviding(version, supports),
+        },
+      }, async (treeRoot) => {
+        const observed = await probeShippedTree(methodology, treeRoot);
 
-      expect(observed.providerMatch).toBe(PROVIDER_MATCH.VERIFIED);
-      expect(observed.providerMismatch).toBeUndefined();
-    });
+        expect(observed.providerMatch, supports).toBe(PROVIDER_MATCH.VERIFIED);
+        expect(observed.providerMismatch, supports).toBeUndefined();
+      });
+    }
 
-    const excluding = supportsRangeExcluding(migratingFrom);
-    await withShippedTreeRoot({
-      [line]: {
-        codingAgents: [...METHODOLOGY_CODING_AGENTS],
-        sourceRecord: generatedSourceRecordProviding(version, excluding),
-      },
-    }, async (treeRoot) => {
-      const observed = await probeShippedTree(methodology, treeRoot);
+    for (const supports of excluding) {
+      await withShippedTreeRoot({
+        [line]: {
+          codingAgents: [...METHODOLOGY_CODING_AGENTS],
+          sourceRecord: generatedSourceRecordProviding(version, supports),
+        },
+      }, async (treeRoot) => {
+        const observed = await probeShippedTree(methodology, treeRoot);
 
-      expect(observed.providerMatch).toBeUndefined();
-      expect(observed.providerMismatch).toContain(migratingFrom);
-      expect(observed.providerMismatch).toContain(excluding);
-      expect(observed.providerMismatch).not.toContain(version);
-    });
+        expect(observed.providerMatch, supports).toBeUndefined();
+        expect(observed.providerMismatch, supports).toContain(migratingFrom);
+        expect(observed.providerMismatch, supports).toContain(supports);
+        expect(observed.providerMismatch, supports).not.toContain(version);
+      });
+    }
   });
 
   it("classifies a provider mismatch as broken", async () => {
