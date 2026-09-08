@@ -194,8 +194,17 @@ async function runIsolatedNodeEntry(
 }
 
 export async function runSpecCliWithIsolation(productDir: string, ...args: readonly string[]) {
+  return runSpecCliWithIsolationInEnv(productDir, {}, ...args);
+}
+
+/** Runs the built CLI under the isolation contract with the supplied variables added to the isolated environment. */
+export async function runSpecCliWithIsolationInEnv(
+  productDir: string,
+  extraEnv: Readonly<Record<string, string>>,
+  ...args: readonly string[]
+) {
   const isolation = await createSpecCliIsolation(productDir);
-  const result = await runIsolatedNodeEntry(productDir, isolation, [CLI_PATH, ...args]);
+  const result = await runIsolatedNodeEntry(productDir, isolation, [CLI_PATH, ...args], { ...extraEnv });
   const networkAttempts = JSON.parse(await readFile(isolation.networkAttemptsFile, "utf8")) as readonly unknown[];
   return {
     networkAttempts,

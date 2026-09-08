@@ -17,7 +17,7 @@ CAN receive the foundation and the product context bundle in one deterministic p
 
 ### Mappings
 
-- `--coding-agent <name>` names the coding agent in scope; absent the option, the invocation markers map to the invoking coding agent — `CODEX_THREAD_ID` to Codex before `CLAUDE_SESSION_ID` or `CLAUDE_ENV_FILE` to Claude Code — else the one coding agent the declared line ships, else the command fails naming the coding agents spx ships trees for ([test](tests/understand-payload.mapping.l1.test.ts))
+- `--coding-agent <name>` names the coding agent in scope; absent the option, the invocation markers map to the invoking coding agent — `CODEX_THREAD_ID` to Codex before `CLAUDE_SESSION_ID` or `CLAUDE_ENV_FILE` to Claude Code — else the one coding agent the declared line ships, else the command fails naming the coding agents spx ships trees for ([test](tests/understand-payload.mapping.l1.test.ts), [test](tests/understand-payload.mapping.l2.test.ts))
 - Foundation-resource manifest catalog entries map to listed `methodology-catalog` entries carrying each resource's identity and no body ([test](tests/understand-payload.mapping.l1.test.ts))
 
 ### Compliance

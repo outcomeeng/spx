@@ -27,7 +27,8 @@ import {
   unknownSpecTreeKindError,
 } from "@/lib/spec-tree";
 import { TESTING_CONFIG_FIELDS, TESTING_SECTION, type TestingConfig } from "@/test/config";
-import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
+import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
+import { arbitraryMethodologyVersion, arbitraryNonVersionText } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 
 export const CONFIG_TEST_FIELDS = {
@@ -36,8 +37,8 @@ export const CONFIG_TEST_FIELDS = {
 } as const;
 
 const ENVIRONMENT_SENTINEL_PREFIX = "SPX_TEST_SENTINEL_";
-const INVALID_METHODOLOGY_SOURCES = ["", "../outside", "/outside", "owner/../repo", "owner/repo/extra"] as const;
-const INVALID_METHODOLOGY_VERSIONS = ["", false] as const;
+/** How many malformed values each field draws when the rejection cases are generated. */
+const MALFORMED_METHODOLOGY_SAMPLES = 4;
 /** The field a location-bearing methodology section would carry; the descriptor declares no such field. */
 export const METHODOLOGY_LOCATION_FIELD = "location";
 const SIMILAR_HARNESS_METHODOLOGY_FIELD = "methodologySource";
@@ -251,9 +252,32 @@ export function generatedMethodologyLocationSection(): Record<string, unknown> {
   };
 }
 
+/**
+ * Text that is not an `owner/repository` identifier: empty, a single segment,
+ * a traversal or absolute path, or more than two segments.
+ */
+export function arbitraryMalformedMethodologySource(): fc.Arbitrary<string> {
+  const segment = arbitraryPathSegment();
+  return fc.oneof(
+    fc.constant(""),
+    segment,
+    segment.map((name) => `../${name}`),
+    segment.map((name) => `/${name}`),
+    fc.tuple(segment, segment).map(([owner, repository]) => `${owner}/../${repository}`),
+    fc.tuple(segment, segment, segment).map((parts) => parts.join("/")),
+  );
+}
+
+/** A value that is not an exact methodology version: empty, a non-string, or version-shaped text that is not exact. */
+export function arbitraryMalformedMethodologyVersion(): fc.Arbitrary<unknown> {
+  return fc.oneof(fc.constant(""), fc.boolean(), fc.nat(), arbitraryNonVersionText());
+}
+
 export function generatedInvalidMethodologyConfigs(): readonly GeneratedInvalidMethodologyConfig[] {
+  const sources = sampleConfigTestValues(arbitraryMalformedMethodologySource(), MALFORMED_METHODOLOGY_SAMPLES);
+  const versions = sampleConfigTestValues(arbitraryMalformedMethodologyVersion(), MALFORMED_METHODOLOGY_SAMPLES);
   return [
-    ...INVALID_METHODOLOGY_SOURCES.map((source) => ({
+    ...sources.map((source) => ({
       config: {
         [METHODOLOGY_SECTION]: {
           [METHODOLOGY_CONFIG_FIELDS.SOURCE]: source,
@@ -261,7 +285,7 @@ export function generatedInvalidMethodologyConfigs(): readonly GeneratedInvalidM
       },
       field: `${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.SOURCE}`,
     })),
-    ...INVALID_METHODOLOGY_VERSIONS.map((version) => ({
+    ...versions.map((version) => ({
       config: {
         [METHODOLOGY_SECTION]: {
           [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
@@ -270,7 +294,7 @@ export function generatedInvalidMethodologyConfigs(): readonly GeneratedInvalidM
       },
       field: `${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.VERSION}`,
     })),
-    ...INVALID_METHODOLOGY_VERSIONS.map((migratingFrom) => ({
+    ...versions.map((migratingFrom) => ({
       config: {
         [METHODOLOGY_SECTION]: {
           [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
