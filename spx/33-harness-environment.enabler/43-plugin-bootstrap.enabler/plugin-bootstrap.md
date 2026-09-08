@@ -14,6 +14,4 @@ CAN depend on exact product-scoped capabilities without manual installation step
 - ALWAYS: `spx agent config update` selects only package versions whose declared `methodology.supports` range contains the declared methodology version, persists exact pins through the config owner, and applies those versions ([test](tests/capability-update.compliance.l1.test.ts))
 - NEVER: silently install network-fetched capabilities during offline core operations ([audit])
 - NEVER: translate one coding agent's capability artifacts into another coding agent's native package format ([audit])
-- ALWAYS: every capability source, native package, plugin, and skill that apply or update installs is written into the agent home spx sets for the target coding agent — `$CODEX_HOME` for Codex, `CLAUDE_CONFIG_DIR` for Claude Code — and into no other location ([test](tests/capability-boundary.compliance.l1.test.ts))
-- ALWAYS: spx sets the agent home for a coding agent before launching or preparing it, so the agent's own capability lookups resolve there ([test](tests/capability-boundary.compliance.l1.test.ts))
 - NEVER: capability reconciliation mutates user-scope coding-agent configuration or targets a disabled or unavailable coding agent ([test](tests/capability-boundary.compliance.l1.test.ts))

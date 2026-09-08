@@ -25,12 +25,16 @@ Bootstrap configured plugin marketplaces, plugins, and skills for supported agen
 - Persist exact compatible package pins through the config owner before update applies them.
 - Record exact installed versions or digests when the coding agent exposes them.
 - Consume coding-agent-native packages from declared sources without translating another coding agent's artifacts.
+- Write every installed capability source, native package, plugin, and skill into the agent home spx sets for the target coding agent — `$CODEX_HOME` for Codex, `CLAUDE_CONFIG_DIR` for Claude Code — and into no other location.
+- Set that agent home before launching or preparing the coding agent, so the agent's own capability lookups resolve there.
+- Author both placement rules as assertions through `/author`, and route them through `/apply` and `/verify`, which select their verification type before any evidence is added.
 
 ## Evidence required
 
 - Status tests cover installed, missing, stale, and failed entries.
 - Dry-run tests cover planned marketplace, plugin, and skill actions without writes.
 - Safety tests cover offline mode and malformed configured entries.
+- Boundary tests cover the agent-home write location and the agent home spx sets before launch.
 
 ## Parallelization
 
