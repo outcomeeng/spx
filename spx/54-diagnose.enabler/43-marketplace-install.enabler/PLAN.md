@@ -7,4 +7,5 @@
    agent, per `spx/12-agent-harness.pdr.md`. The probe inspects the project-scoped
    install locations each coding agent uses under the repository root (`.codex/`,
    `.claude/`) for plugin content; tracked configuration files there are not defects.
-   Route the new assertion through `/apply` and `/verify` before adding evidence.
+   Author the assertion through `/author` and route it through `/apply` and
+   `/verify`, which select its verification type before any evidence is added.
