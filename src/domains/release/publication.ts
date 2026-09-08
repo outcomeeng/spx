@@ -218,11 +218,11 @@ export async function publishRelease(input: PublishReleaseInput): Promise<void> 
 
 /**
  * Re-reads the registry until the freshly published record carries verified
- * provenance. The registry serves a new version's metadata before its provenance
- * attestation, so a record that matches the release identity but reports no
- * provenance is a read that arrived early and is retried under the backoff. A
- * record naming a different release fails at once, because no wait makes a
- * mismatched identity correct.
+ * provenance. Two read outcomes are early rather than wrong and are retried under
+ * the backoff: no record yet, and a record that matches the release identity but
+ * reports no provenance, because the registry serves a new version's metadata
+ * before its attestation. A record naming a different release fails at once,
+ * because no wait makes a mismatched identity correct.
  */
 async function confirmFreshPublication(
   input: PublishReleaseInput,

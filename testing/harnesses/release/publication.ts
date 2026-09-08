@@ -137,7 +137,7 @@ export interface ConfirmationRetryObservation extends PublicationObservation {
  * over a schedule no test spends.
  */
 export async function observeConfirmationRetry(
-  scenario: PublicationScenario & { readonly postPublishStates: readonly PackagePublication[] },
+  scenario: PublicationScenario & { readonly postPublishStates: readonly (PackagePublication | null)[] },
 ): Promise<ConfirmationRetryObservation> {
   const sequence = new PublicationRequestSequence();
   const packagePublisher = new RecordingPackagePublisher(

@@ -223,26 +223,29 @@ export function arbitraryPublicationConfirmationFailureScenario(): fc.Arbitrary<
  */
 export interface PublicationProvenanceLagScenario extends PublicationScenario {
   /** The records the registry serves after publication, one per confirmation attempt. */
-  readonly postPublishStates: readonly PackagePublication[];
+  readonly postPublishStates: readonly (PackagePublication | null)[];
   /** The number of reads that precede the one carrying provenance. */
   readonly lateReads: number;
 }
 
 export function arbitraryPublicationProvenanceLagScenario(): fc.Arbitrary<PublicationProvenanceLagScenario> {
   return arbitraryPublicationBase().chain((scenario) =>
-    fc.integer({ min: 1, max: PUBLICATION_CONFIRMATION_BACKOFF_MS.length }).map((lateReads) => ({
-      ...scenario,
-      existingPackage: null,
-      existingHostedRelease: null,
-      lateReads,
-      postPublishStates: [
-        ...Array.from({ length: lateReads }, () => ({
-          ...scenario.packagePublication,
-          provenance: PACKAGE_PROVENANCE.UNVERIFIED,
-        })),
-        scenario.packagePublication,
-      ],
-    }))
+    fc
+      .array(fc.boolean(), { minLength: 1, maxLength: PUBLICATION_CONFIRMATION_BACKOFF_MS.length })
+      .map((earlyReadIsAbsent) => ({
+        ...scenario,
+        existingPackage: null,
+        existingHostedRelease: null,
+        lateReads: earlyReadIsAbsent.length,
+        // Both early outcomes the registry can serve after a publish: no record
+        // yet, and a record whose attestation has not appeared. Each is retried.
+        postPublishStates: [
+          ...earlyReadIsAbsent.map((absent) =>
+            absent ? null : { ...scenario.packagePublication, provenance: PACKAGE_PROVENANCE.UNVERIFIED }
+          ),
+          scenario.packagePublication,
+        ],
+      }))
   );
 }
 
