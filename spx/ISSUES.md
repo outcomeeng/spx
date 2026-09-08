@@ -20,58 +20,6 @@
 
 **Resolution:** truth flows down, so the two ADRs change first: rename the descriptor layer to the surfaces layer and state the capabilities layer's home, reviewed as a `decompose-next` projection and passed through `adr-auditor`; then move `src/interfaces/cli/` and settle `src/lib/` in one pass with `git mv` and import updates. Until the ADRs change, new descriptors follow them as they stand. Re-enter after `spx/PLAN.md`'s configured node-kind support lands, because the surfaces area is not a valid node kind before it.
 
-## The methodology version model has no decision
-
-**Evidence:** `spx/13-agent-capability-lifecycle.pdr.md` uses "compatible"
-three times ("capability versions compatible with the declared methodology",
-"the newest SPX release compatible with the declared methodology", "a
-compatible installed Spec Tree package") and defines it nowhere. It names
-`installed` as bootstrap intent and names no migration source.
-`src/config/methodology.ts` defaults `version` to `installed`. The methodology
-repository's `AUTHORITY.md` states the delivery relationship: a provider
-declares the one version it provides and the range it supports; a consumer
-declares one exact version in a committed config file the provider reads, and
-during a transition the version it migrates from.
-
-**Impact:** the config descriptor, the diagnose check, and the understand
-payload each interpret `methodology.version` on their own. The diagnose probe
-reads it as a plugin-cache directory name under the coding agent's home.
-
-**Settlement condition:** PDR-13 states that `methodology.version` is one
-exact methodology version, that `methodology.migratingFrom` is the version the
-product migrates from while a transition is open, that compatibility is the
-provider's `provides` and `supports` declaration in its `plugin.json`, that no
-sentinel value exists, and it cites `AUTHORITY.md` of `outcomeeng/methodology`
-as its source.
-
-## PDR-12 lists plugins and skills as repository-local
-
-**Evidence:** `spx/12-agent-harness.pdr.md` opens with "The harness manages
-repository-local agent configuration, instruction files, plugin marketplaces,
-plugins, skills, invocation policy, and isolated execution state" and repeats
-the list as its first product property. No decision separates the three
-scopes: user scope (`$HOME/.codex`, `$HOME/.claude`), which spx never
-mutates; the agent home spx sets (`$CODEX_HOME`, `CLAUDE_CONFIG_DIR`), where
-spx installs product-scoped capabilities; and the repository, which carries
-configuration only. `spx/33-harness-environment.enabler/43-plugin-bootstrap.enabler/plugin-bootstrap.md`
-promises "product-scoped capabilities" and names no install location.
-`.gitignore` un-ignores `.codex/skills/*`, a repository-local skills
-directory. A Codex session with this worktree as project root cloned the
-whole marketplace and installed a plugin under `.codex/` here on 2026-07-25,
-and wrote a `[marketplaces.outcomeeng]` stanza into the tracked
-`.codex/config.toml`.
-
-**Impact:** nothing in the tree distinguishes a repository that declares
-which plugins are enabled from a repository that contains them, so a
-project-scoped plugin cache and a tool-written config stanza read as
-ordinary state.
-
-**Settlement condition:** PDR-12 states the three scopes, that the repository
-carries agent configuration only, that plugins, skills, and marketplaces
-install only into the agent home spx sets, and that a plugin cache under the
-repository is a diagnose defect; `43-plugin-bootstrap` names the agent home as
-its only write target; `.gitignore` no longer un-ignores `.codex/skills/*`.
-
 ## The product declares 4.0.0 with 3.2 half-applied
 
 **Evidence:** `spx.config.yaml` declares `version: 4.0.0` and
@@ -194,12 +142,12 @@ PR #138 migrates product-level assertions in [spx.product.md](spx.product.md) fr
 
 ## Test assertion flow lives in harnesses instead of executed test files
 
-Across the product, 31 executed `spx/.../tests/*.test.ts` files are two-line shims that import and call a `register*()` function, while the `describe`/`it`/`expect` assertion flow they should own lives in `testing/harnesses/` register-suite modules — for example `testing/harnesses/literal/output-modes-scenario.ts`, `testing/harnesses/session/session-identity-scenarios.ts`, and `testing/harnesses/process-lifecycle/compliance.ts`.
+Across the product, 34 executed `spx/.../tests/*.test.ts` files are two-line shims that import and call a `register*()` function, while the `describe`/`it`/`expect` assertion flow they should own lives in `testing/harnesses/` register-suite modules — for example `testing/harnesses/literal/output-modes-scenario.ts`, `testing/harnesses/session/session-identity-scenarios.ts`, and `testing/harnesses/process-lifecycle/compliance.ts`.
 
-[`spx/12-test-infrastructure.adr.md`](12-test-infrastructure.adr.md) requires executed spec-tree test files to own the assertion flow, and the `what-goes-where` methodology reference states test infrastructure does not contain test assertion code. The register-suite-in-harness shape inverts that boundary: the harness owns the suite and the `tests/` file owns nothing. Sibling nodes such as [`spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler`](41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler) keep `describe`/`it`/`expect` directly in their `tests/*.test.ts` files, so the pattern is inconsistent product-wide. [`spx/41-test.enabler/26-test-harness.enabler/test-harness.md`](41-test.enabler/26-test-harness.enabler/test-harness.md) still prescribes the register shape in its first NEVER assertion ("they register harness cases and assert the governed outcome"), so that assertion is rewritten alongside the suites it sanctions when the unwind reaches the testing harness nodes.
+[`spx/12-test-infrastructure.adr.md`](12-test-infrastructure.adr.md) requires executed spec-tree test files to own the assertion flow, and the `what-goes-where` methodology reference states test infrastructure does not contain test assertion code. The register-suite-in-harness shape inverts that boundary: the harness owns the suite and the `tests/` file owns nothing. Sibling nodes such as [`spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler`](41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler) keep `describe`/`it`/`expect` directly in their `tests/*.test.ts` files, so the pattern is inconsistent product-wide.
 
 **Impact:** Each node's `tests/` directory no longer carries the node's evidence; assertion titles and structure sit one indirection away from the node. Cross-file duplication analysis reads test-suite duplication as harness duplication.
 
 **Skills:** `/test-typescript`, `/audit-typescript-tests`, `/apply`.
 
-**Scope:** Product-wide — 31 test files and roughly 25 harness modules; the typescript and python runner test-harness nodes under `41-test.enabler/` already own their assertion flow over harness observation functions and show the target shape. Unwind one owning subtree at a time: move each `register*()` harness function's `describe`/`it`/`expect` body into the node's executed `tests/*.test.ts` file, leaving genuine lifecycle and setup helpers (`withLiteralFixtureEnv`, expected-value builders, seed and run-count machinery) in the harness. Retire redundant scenario/compliance duplicates as encountered, and re-run each node's tests plus its test-evidence audit after the move.
+**Scope:** Product-wide — 34 test files and roughly 25 harness modules. Unwind one owning subtree at a time: move each `register*()` harness function's `describe`/`it`/`expect` body into the node's executed `tests/*.test.ts` file, leaving genuine lifecycle and setup helpers (`withLiteralFixtureEnv`, expected-value builders, seed and run-count machinery) in the harness. Retire redundant scenario/compliance duplicates as encountered, and re-run each node's tests plus its test-evidence audit after the move.
