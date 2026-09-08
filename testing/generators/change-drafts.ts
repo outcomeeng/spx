@@ -30,6 +30,12 @@ export function arbitraryDraftId(): fc.Arbitrary<string> {
 export function arbitraryInvalidDraftId(): fc.Arbitrary<string> {
   return fc.oneof(
     fc.string({ maxLength: 35 }),
+    arbitraryPathLikeDraftId(),
+  );
+}
+
+function arbitraryPathLikeDraftId(): fc.Arbitrary<string> {
+  return fc.oneof(
     fc.uuid().map((id) => `../${id}`),
     fc.uuid().map((id) => `/${id}`),
     fc.uuid().map((id) => `${id}/child`),
@@ -37,8 +43,11 @@ export function arbitraryInvalidDraftId(): fc.Arbitrary<string> {
 }
 
 export function arbitraryCliInvalidDraftId(): fc.Arbitrary<string> {
-  return fc.tuple(fc.uuid(), fc.integer({ min: 1, max: 31 }))
-    .map(([id, control]) => `!${id}${String.fromCodePoint(control)}`);
+  return fc.oneof(
+    arbitraryPathLikeDraftId(),
+    fc.tuple(fc.uuid(), fc.integer({ min: 1, max: 31 }))
+      .map(([id, control]) => `!${id}${String.fromCodePoint(control)}`),
+  );
 }
 
 export function arbitraryDraftBatch(): fc.Arbitrary<string[]> {
