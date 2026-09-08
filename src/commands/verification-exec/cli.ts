@@ -9,9 +9,10 @@
  * status, and the runner outcome as one structured result. The product root is the local worktree
  * root the effective invocation directory resolves to, so an invocation from any directory inside
  * the product discovers and records against the same tree; outside a repository the invocation
- * directory itself is the root and the result carries a warning saying so. Diagnostics that embed an
- * operand, a product path, or a caught failure message compose through the terminal-text primitive,
- * and the exit code is zero exactly when the run passed. The handler imports no Commander symbol and
+ * directory itself is the root and the result carries a warning saying so. The warning and every
+ * diagnostic that embeds an operand, a product path, or a caught failure message are composed
+ * through the terminal-text primitive here, where each value's provenance is still known, and reach
+ * the descriptor as composed text; the exit code is zero exactly when the run passed. The handler imports no Commander symbol and
  * writes to no process stream; the descriptor owns that boundary.
  */
 import { discoverTestFiles } from "@/commands/test";
@@ -29,7 +30,7 @@ import { executeRunScopeIdentity } from "@/domains/verification-exec/scope";
 import { type RunLocator, VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
 import { toMessage } from "@/lib/error-message";
 import { detectWorktreeProductRoot } from "@/lib/git/root";
-import { externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import { authoredText, externalValue, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { resolveTargetedTestFiles } from "@/lib/test-targeting";
 
 /** The diagnostics the execute-run command path raises; each names the command path and the failing input. */
@@ -44,6 +45,11 @@ export const EXECUTE_RUN_CLI_ERROR = {
 export const EXECUTE_RUN_CLI_WARNING = {
   NOT_GIT_REPOSITORY:
     "Warning: Not in a git repository. Rooting the verification run at the current working directory.",
+} as const;
+
+/** The same warning composed for a terminal: wholly product-authored, carrying no external segment. */
+export const EXECUTE_RUN_CLI_WARNING_TEXT = {
+  NOT_GIT_REPOSITORY: authoredText(EXECUTE_RUN_CLI_WARNING.NOT_GIT_REPOSITORY),
 } as const;
 
 /** The input source recorded at start for an spx-driven run: the run input is the executor's request, not a caller source. */
@@ -118,31 +124,31 @@ export interface ExecuteRunReport {
 export interface ExecuteRunCommandResult {
   readonly exitCode: number;
   readonly report?: ExecuteRunReport;
-  readonly diagnostic?: string;
-  readonly warning?: string;
+  readonly diagnostic?: TerminalText;
+  readonly warning?: TerminalText;
 }
 
-function unresolvedOperandsDiagnostic(operands: readonly string[]): string {
-  return renderTerminalText(
-    terminal`${EXECUTE_RUN_CLI_ERROR.UNRESOLVED_OPERANDS} ${externalValue(operands.join(OPERAND_SEPARATOR))}`,
-  );
+function unresolvedOperandsDiagnostic(operands: readonly string[]): TerminalText {
+  return terminal`${authoredText(EXECUTE_RUN_CLI_ERROR.UNRESOLVED_OPERANDS)} ${
+    externalValue(operands.join(OPERAND_SEPARATOR))
+  }`;
 }
 
-function unsupportedTypeDiagnostic(verificationType: string): string {
-  return renderTerminalText(
-    terminal`${EXECUTE_RUN_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE} ${externalValue(verificationType)}`,
-  );
+function unsupportedTypeDiagnostic(verificationType: string): TerminalText {
+  return terminal`${authoredText(EXECUTE_RUN_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE)} ${
+    externalValue(verificationType)
+  }`;
 }
 
-function unresolvedRunnerDiagnostic(unresolvedRunner: UnresolvedRunner): string {
-  return renderTerminalText(
-    terminal`${EXECUTE_RUN_CLI_ERROR.UNRESOLVED_RUNNER} ${externalValue(unresolvedRunner.productDir)}`,
-  );
+function unresolvedRunnerDiagnostic(unresolvedRunner: UnresolvedRunner): TerminalText {
+  return terminal`${authoredText(EXECUTE_RUN_CLI_ERROR.UNRESOLVED_RUNNER)} ${
+    externalValue(unresolvedRunner.productDir)
+  }`;
 }
 
 /** The diagnostic for a run the handler could not complete — a recorder or runner failure — with the caught message as an external segment. */
-export function executeRunFailureDiagnostic(error: unknown): string {
-  return renderTerminalText(terminal`${EXECUTE_RUN_CLI_ERROR.RUN_FAILED} ${externalValue(toMessage(error))}`);
+export function executeRunFailureDiagnostic(error: unknown): TerminalText {
+  return terminal`${authoredText(EXECUTE_RUN_CLI_ERROR.RUN_FAILED)} ${externalValue(toMessage(error))}`;
 }
 
 /**
@@ -160,7 +166,7 @@ export async function executeRunCommand(
 ): Promise<ExecuteRunCommandResult> {
   const root = await (deps.resolveProductDir ?? detectWorktreeProductRoot)(deps.cwd);
   const productDir = root.productDir;
-  const warning = root.isGitRepo ? {} : { warning: EXECUTE_RUN_CLI_WARNING.NOT_GIT_REPOSITORY };
+  const warning = root.isGitRepo ? {} : { warning: EXECUTE_RUN_CLI_WARNING_TEXT.NOT_GIT_REPOSITORY };
   const discovered = await (deps.discoverTestFiles ?? discoverTestFiles)(productDir);
   const resolution = resolveTargetedTestFiles(discovered, {
     operands: options.operands,

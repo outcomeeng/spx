@@ -6,6 +6,7 @@
 export {
   EXECUTE_RUN_CLI_ERROR,
   EXECUTE_RUN_CLI_WARNING,
+  EXECUTE_RUN_CLI_WARNING_TEXT,
   EXECUTE_RUN_INPUT_SOURCE,
   type ExecuteRunCliDeps,
   type ExecuteRunCliOptions,

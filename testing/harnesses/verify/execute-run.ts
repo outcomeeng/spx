@@ -32,6 +32,7 @@ import { createCliProgram } from "@/interfaces/cli/program";
 import { EXECUTE_RUN_CLI_SURFACE, registerVerifyCommands, VERIFICATION_RUN_CLI_SURFACE } from "@/interfaces/cli/verify";
 import { GIT_SHOW_TOPLEVEL_ARGS, type GitDependencies } from "@/lib/git/root";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 import { JOURNAL_RUN_TERMINAL_STATUS, type JournalRunInvocation, type JournalRunRequest } from "@/test/languages/types";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { sampleGeneratedValue } from "@testing/generators/sample";
@@ -199,8 +200,8 @@ export interface ExecuteRunHandlerObservation {
   readonly invocation: JournalRunInvocation;
   readonly exitCode: number;
   readonly report: ExecuteRunReport | undefined;
-  readonly diagnostic: string | undefined;
-  readonly warning: string | undefined;
+  readonly diagnostic: TerminalText | undefined;
+  readonly warning: TerminalText | undefined;
   /** The request the controlled runner received, or `undefined` when no run opened. */
   readonly drivenRequest: JournalRunRequest | undefined;
   /** The run input the recorder replays for the opened run, or `undefined` when no run opened. */
