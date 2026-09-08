@@ -25,6 +25,20 @@ describe("terminal text external-value boundary", () => {
     expectTypeOf(refused).not.toMatchTypeOf<Parameters<typeof joinTerminalText>[0]>();
   });
 
+  it("refuses already-composed text in its optional shape, so an unnarrowed field cannot slip past", () => {
+    // The draw is widened to the optional type by the mapper's declared return type; annotating
+    // an assigned value instead would let the compiler narrow it back to the composed type.
+    const maybeComposed = sampleGeneratedValue(
+      arbitraryTerminalUnsafeText().map((text): TerminalText | undefined => authoredText(text)),
+    );
+    expectTypeOf(externalValue(maybeComposed)).not.toEqualTypeOf<TerminalText>();
+  });
+
+  it("accepts a plain value in its optional shape, so the refusal reaches only composed text", () => {
+    const maybePlain = sampleGeneratedValue(arbitraryTerminalUnsafeText().map((text): string | undefined => text));
+    expectTypeOf(externalValue(maybePlain)).toEqualTypeOf<TerminalText>();
+  });
+
   it("accepts the same text once it has left the type's protection", () => {
     const composed = authoredText(sampleGeneratedValue(arbitraryTerminalUnsafeText()));
     expectTypeOf(externalValue(renderTerminalText(composed))).toEqualTypeOf<TerminalText>();

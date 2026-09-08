@@ -74,9 +74,10 @@ export type AlreadyComposedText = { readonly [ALREADY_COMPOSED]: "embed composed
  * messages, or API responses. Control bytes are escaped through the shared
  * argument-escaping contract, so an escape byte cannot rewrite the terminal and
  * a line feed cannot forge a diagnostic line. Text already composed is not an
- * external value and is refused at the type level.
+ * external value and is refused at the type level, in its optional shape too,
+ * so an unnarrowed optional field cannot slip past the refusal.
  */
-export function externalValue(value: TerminalText): AlreadyComposedText;
+export function externalValue(value: TerminalText | undefined | null): AlreadyComposedText;
 export function externalValue(value: unknown): TerminalText;
 export function externalValue(value: unknown): TerminalText | AlreadyComposedText {
   return brand(escapeCliArgument(value));
