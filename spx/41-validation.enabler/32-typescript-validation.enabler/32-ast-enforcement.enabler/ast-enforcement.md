@@ -20,7 +20,6 @@ CAN focus on behavior, trusting that structural compliance — correct imports, 
 - String literals in assertion arguments map to lint error — import source-owned values from their owning module; if none exists, refactor production code to export a semantic `as const` registry ([test](tests/ast-enforcement.mapping.l1.test.ts))
 
 - Internal import, export, dynamic import, and TypeScript import-type sources ending in `.js`, `.mjs`, `.cjs`, `.cts`, `.mts`, `.ts`, `.tsx`, `.d.ts`, `.d.cts`, or `.d.mts`, including before query/hash suffixes, map to lint error with autofix to the extensionless source ([test](tests/ast-enforcement.mapping.l1.test.ts), [enforce](../../../../eslint-rules/no-import-source-extensions.ts))
-- A root build-config file — one outside the TypeScript project's own trees, loaded by its tool's native module loader rather than by the project's path resolution — carries the extension its loader requires, so the extensionless-source rule governs the project's trees alone ([audit])
 - Relative import, export, dynamic import, and TypeScript import-type sources that climb more than one parent directory (`../../` or deeper) map to lint error — use a configured alias or a local module boundary ([test](tests/ast-enforcement.mapping.l1.test.ts), [enforce](../../../../eslint-rules/no-deep-relative-imports.ts))
 - Direct `process.cwd()` calls in product source outside `src/lib/config/cwd.ts` map to lint error — product-root callers use the config-owned cwd boundary or an explicit product context instead ([test](tests/no-process-cwd-for-product-roots.mapping.l1.test.ts), [enforce](../../../../eslint-rules/no-process-cwd-for-product-roots.ts))
 
@@ -51,6 +50,7 @@ CAN focus on behavior, trusting that structural compliance — correct imports, 
 
 ### Compliance
 
+- ALWAYS: the extensionless-source rule governs the TypeScript project's own trees alone — a root build-config file outside those trees, loaded by its tool's native module loader rather than by the project's path resolution, carries the extension that loader requires ([audit])
 - ALWAYS: structural validation configuration references project-specific rules from the enforcement rule set ([review])
 - NEVER: reference ADR-NN / PDR-NN by number in code comments, strings, or template literals — code complies silently, never cites decision numbers ([test](tests/ast-enforcement.mapping.l1.test.ts), [enforce](../../../../eslint-rules/no-spec-references.ts))
 - ALWAYS: each enforcement rule references the ADR or PDR it enforces — traceability from rule to decision ([review])
