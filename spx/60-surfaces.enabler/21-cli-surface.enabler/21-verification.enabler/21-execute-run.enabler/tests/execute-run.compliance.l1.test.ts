@@ -1,7 +1,7 @@
 import { posix } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { EXECUTE_RUN_CLI_ERROR, recorderTerminalStatusFor } from "@/commands/verification-exec";
+import { EXECUTE_RUN_CLI_ERROR } from "@/commands/verification-exec";
 import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
@@ -10,6 +10,7 @@ import { EXECUTE_RUN_CLI_SURFACE } from "@/interfaces/cli/verify";
 import { DEL_CHAR_CODE, FIRST_PRINTABLE_CHAR_CODE } from "@/lib/sanitize-cli-argument";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
+import { JOURNAL_RUN_TERMINAL_STATUS } from "@/test/languages/types";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { arbitraryTerminalUnsafeText } from "@testing/generators/terminal-text/terminal-text";
@@ -79,6 +80,8 @@ describe("execute run compliance", () => {
     const fromInside = await observeExecuteRunHandler(() => [], invokedInvocations()[0], invokeFromFirstTestDir);
     expect(fromInside.invocationDir).not.toBe(fromInside.product.productDir);
     expect(fromInside.drivenRequest?.productDir).toBe(fromInside.product.productDir);
+    expect(fromInside.recorderProbeCwds.length).toBeGreaterThan(0);
+    expect(new Set(fromInside.recorderProbeCwds)).toEqual(new Set([fromInside.product.productDir]));
     expect(fromInside.report?.testPaths).toEqual([...fromInside.product.testPaths].sort(compareAsciiStrings));
     expect(fromInside.report?.locator.scopeIdentity).toBe(SPEC_TREE_CONFIG.ROOT_DIRECTORY);
     expect(fromInside.recordedInput).toBeDefined();
@@ -98,10 +101,10 @@ describe("execute run compliance", () => {
 
       expect(observation.report?.runToken).toBe(observation.report?.locator.runToken);
       expect(observation.report?.locator.verificationType).toBe(VERIFY_VERIFICATION_TYPE.TEST);
-      expect(observation.report?.terminalStatus).toBe(recorderTerminalStatusFor(invocation.terminalStatus));
+      expect(observation.report?.terminalStatus).toBe(invocation.terminalStatus);
       expect(observation.report?.unresolvedRunner).toBeUndefined();
       expect(observation.exitCode).toBe(
-        recorderTerminalStatusFor(invocation.terminalStatus) === JOURNAL_RUN_STATE_STATUS.PASSED
+        invocation.terminalStatus === JOURNAL_RUN_TERMINAL_STATUS.PASSED
           ? VERIFY_CLI_EXIT_CODE.OK
           : VERIFY_CLI_EXIT_CODE.ERROR,
       );
