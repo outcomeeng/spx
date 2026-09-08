@@ -17,6 +17,7 @@ import {
   arbitraryMethodologyLine,
   arbitraryMethodologyVersion,
   arbitraryPluginsContent,
+  arbitraryUnsafeTreeSegment,
 } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { withPluginsRepository } from "@testing/harnesses/methodology/plugins-repository";
@@ -96,6 +97,24 @@ describe("methodology fetch compliance", () => {
         dependencies: repository.dependencies,
       });
       expect(outcome.ok).toBe(false);
+      await expect(readdir(join(repository.packageRoot, METHODOLOGY_TREE_ROOT))).rejects.toThrow();
+    });
+  });
+
+  it("rejects a manifest declaring a traversal-shaped provides and creates no directory for it", async () => {
+    // The declared provides reaches the line the fetch writes, so a traversal,
+    // separator, or empty value is refused before any path is composed.
+    const unsafe = sampleGeneratedValue(arbitraryUnsafeTreeSegment());
+    await withPluginsRepository(sampleGeneratedValue(arbitraryPluginsContent(unsafe)), async (repository) => {
+      const outcome = await runMethodologyFetch({
+        repository: PLUGINS_REPOSITORY,
+        repositoryUrl: repository.repositoryDir,
+        revision: repository.revision,
+        packageRoot: repository.packageRoot,
+        dependencies: repository.dependencies,
+      });
+
+      expect(outcome.ok, unsafe).toBe(false);
       await expect(readdir(join(repository.packageRoot, METHODOLOGY_TREE_ROOT))).rejects.toThrow();
     });
   });

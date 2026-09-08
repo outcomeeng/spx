@@ -7,7 +7,7 @@ import { METHODOLOGY_SECTION } from "@/config/methodology";
 import { HOOK_SESSION_START_ENV, HOOK_SESSION_START_SOURCE } from "@/domains/hooks/session-start";
 import { CONTROLLING_PID_ENV } from "@/domains/worktree/controlling-process";
 import { HOOK_CONFIG_ERROR_PREFIX } from "@/interfaces/hooks/cli-runner";
-import { FOUNDATION_MANIFEST_FIELDS, METHODOLOGY_CODING_AGENT } from "@/lib/methodology";
+import { FOUNDATION_MANIFEST_FIELDS, METHODOLOGY_CODING_AGENT, METHODOLOGY_CODING_AGENTS } from "@/lib/methodology";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import {
   runCompactSessionStartCli,
@@ -77,6 +77,33 @@ describe("hook CLI compact stdout boundary", () => {
         expect(result.stderr).toContain(shippedTreeRelativeDir(version.line, METHODOLOGY_CODING_AGENT.CLAUDE));
       } else {
         expect(result.stdout).toBe(directive);
+      }
+    });
+  });
+
+  it("names every coding agent the declared line ships when no marker identifies the invoking one", async () => {
+    await withCompactSessionStartCliEnv(async (env) => {
+      const version = await shippedMethodologyVersion();
+      // Compact stdout is enabled so the invocation reaches tree selection; the
+      // policy that enables it is the Codex default an unmarked invocation
+      // takes, which is exactly what must not decide the tree.
+      await writeCodexCompactStdoutConfig(env.worktreePath, true, version.text);
+      const result = await runCompactSessionStartCli(env, HOOK_SESSION_START_SOURCE.COMPACT, {
+        env: {
+          [CONTROLLING_PID_ENV]: String(process.pid),
+          [HOOK_SESSION_START_ENV.CODEX_THREAD_ID]: "",
+          [HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID]: "",
+          [HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE]: "",
+        },
+      });
+
+      // No marker identifies an agent, so tree selection reaches the shipped
+      // layout's own resolution rather than the compact-policy default: the
+      // line ships more than one agent, so it names them instead of choosing.
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(result.stdout).toHaveLength(0);
+      for (const codingAgent of METHODOLOGY_CODING_AGENTS) {
+        expect(result.stderr, codingAgent).toContain(codingAgent);
       }
     });
   });

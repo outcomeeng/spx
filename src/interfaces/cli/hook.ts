@@ -22,7 +22,7 @@ import {
   resolveHookSessionStartEnvFile,
   resolveHookSessionStartProductDir,
 } from "@/domains/hooks/session-start";
-import { METHODOLOGY_CODING_AGENT_FOR_HARNESS_AGENT, resolveInvokingAgent } from "@/interfaces/cli/coding-agent";
+import { inferInvokingCodingAgent, resolveInvokingAgent } from "@/interfaces/cli/coding-agent";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import {
@@ -59,7 +59,12 @@ interface HookExecutionContext {
   readonly warnings: readonly string[];
 }
 
-/** The agent whose compact stdout policy applies: the invoking agent, defaulting to Codex when no marker identifies one. */
+/**
+ * The agent whose compact stdout policy applies: the invoking agent, defaulting
+ * to Codex when no marker identifies one. Tree selection reads the invoking
+ * agent directly, so an unidentified invocation reaches the shipped layout's
+ * own single-agent-or-fail resolution rather than this policy default.
+ */
 function resolveHookCliAgent(env: HookSessionStartEnv): Agent {
   return resolveInvokingAgent(env) ?? AGENT.CODEX;
 }
@@ -92,7 +97,7 @@ async function resolveHookExecutionContext(
   return {
     runOptions: {
       compactStdout: compactStdout.ok ? compactStdout.value : defaultHookCliCompactStdout(env),
-      codingAgent: METHODOLOGY_CODING_AGENT_FOR_HARNESS_AGENT[resolveHookCliAgent(env)],
+      codingAgent: inferInvokingCodingAgent(env),
       methodologyTreeRoot: invocation.methodologyTreeRoot,
       cwd,
       env,

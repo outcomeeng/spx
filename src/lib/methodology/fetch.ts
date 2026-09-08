@@ -376,7 +376,12 @@ async function cloneAtRevision(
     ...fetchCodingAgents().map((codingAgent) => `/${FETCH_CODING_AGENTS[codingAgent].distRelativeDir}/`),
   ]);
   if (!sparse.ok) return sparse;
-  const checkout = await git(gitDependencies, cloneDir, [GIT_CHECKOUT_COMMAND, options.revision]);
+  // --end-of-options keeps an option-shaped revision from being read as a flag.
+  const checkout = await git(gitDependencies, cloneDir, [
+    GIT_CHECKOUT_COMMAND,
+    GIT_ROOT_COMMAND.END_OF_OPTIONS,
+    options.revision,
+  ]);
   if (!checkout.ok) return checkout;
   return git(gitDependencies, cloneDir, [GIT_REV_PARSE.COMMAND, GIT_REV_PARSE.HEAD]);
 }
