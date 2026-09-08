@@ -2,7 +2,9 @@ import * as fc from "fast-check";
 
 import {
   type HostedRelease,
+  PACKAGE_IDENTITY_FIELDS,
   PACKAGE_PROVENANCE,
+  type PackageIdentityField,
   type PackagePublication,
   PUBLICATION_CONFIRMATION_BACKOFF_MS,
   releaseTagForVersion,
@@ -251,20 +253,41 @@ export function arbitraryPublicationProvenanceLagScenario(): fc.Arbitrary<Public
  */
 export interface PublicationPostPublishIdentityScenario extends PublicationScenario {
   readonly postPublishStates: readonly PackagePublication[];
+  /** The identity field the served record differs on, and both of its values. */
+  readonly differingField: {
+    readonly served: string;
+    readonly verified: string;
+  };
 }
 
 export function arbitraryPublicationPostPublishIdentityScenario(): fc.Arbitrary<
   PublicationPostPublishIdentityScenario
 > {
-  return arbitraryPublicationBase().map((scenario) => ({
-    ...scenario,
-    existingPackage: null,
-    existingHostedRelease: null,
-    postPublishStates: [{
-      ...scenario.packagePublication,
-      commit: requireDistinctCommit(scenario.releaseData, scenario.taggedCommit),
-    }],
-  }));
+  return arbitraryPublicationBase().chain((scenario) =>
+    fc
+      .record({
+        name: arbitraryDomainLiteral().filter((name) => name !== scenario.packagePublication.name),
+        version: RELEASE_TEST_GENERATOR.distinctSemverFrom(scenario.packagePublication.version),
+        field: fc.constantFrom(...PACKAGE_IDENTITY_FIELDS),
+      })
+      .map(({ name, version, field }) => {
+        const served: Record<PackageIdentityField, string> = {
+          name,
+          version,
+          commit: requireDistinctCommit(scenario.releaseData, scenario.taggedCommit),
+        };
+        return {
+          ...scenario,
+          existingPackage: null,
+          existingHostedRelease: null,
+          postPublishStates: [{ ...scenario.packagePublication, [field]: served[field] }],
+          differingField: {
+            served: served[field],
+            verified: scenario.packagePublication[field],
+          },
+        };
+      })
+  );
 }
 
 export function arbitraryPublicationMissingHostedReleaseScenario(): fc.Arbitrary<

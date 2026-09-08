@@ -256,9 +256,8 @@ describe("release publication compliance", () => {
         expect(observation.hostedReleaseRequests).toEqual([]);
         // The failure names the field that differed and both of its values, so
         // the operator reads which release the registry holds without asking.
-        const [served] = scenario.postPublishStates;
-        expect(publicationFailureMessage(observation.error)).toContain(served.commit);
-        expect(publicationFailureMessage(observation.error)).toContain(scenario.packagePublication.commit);
+        expect(publicationFailureMessage(observation.error)).toContain(scenario.differingField.served);
+        expect(publicationFailureMessage(observation.error)).toContain(scenario.differingField.verified);
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
