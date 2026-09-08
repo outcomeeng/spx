@@ -30,13 +30,19 @@ import { WORKTREE_POOL_VERDICT, type WorktreePoolVerdict } from "@/domains/diagn
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { BUCKET_SEVERITY, CANONICAL_CHECKOUT_PROBLEM, OVERALL_SEVERITY } from "@/domains/diagnose/report-contract";
 import { type CheckRecord, type DiagnoseReport } from "@/domains/diagnose/types";
-import { DEL_CHAR_CODE, SENTINEL_UNDEFINED } from "@/lib/sanitize-cli-argument";
+import { SENTINEL_UNDEFINED } from "@/lib/sanitize-cli-argument";
 import {
   renderStyledReport,
   type StyledReportModel,
   type StyledReportOptions,
 } from "@/lib/styled-output/styled-output";
-import { authoredText, externalValue, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
+import {
+  authoredText,
+  externalValue,
+  jsonDocument,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 
 /** The output formats `spx diagnose` emits. */
 export const DIAGNOSE_FORMAT = {
@@ -137,33 +143,26 @@ export const DIAGNOSE_TEXT_DETAIL = {
   MARKETPLACE_DRIFT_FIX: "install or enable the expected plugins.",
 } as const;
 
-/** The JSON escape for DEL, the one control byte `JSON.stringify` leaves as it stands. */
-const JSON_DEL_ESCAPE = String.raw`\u007f`;
-const DEL_CHAR = String.fromCodePoint(DEL_CHAR_CODE);
+const JSON_REPORT_INDENT = 2;
 
 /**
  * Renders the report as indented JSON: a per-check record array plus the overall verdict. The
- * serializer escapes every reading byte below U+0020 in JSON's own notation, which a machine
- * consumer decodes back to the reading it was; DEL sits above that range, so it is written in the
- * same notation here, and the document reaches the terminal with no raw control byte in it while
- * parsing it still yields every reading verbatim.
+ * readings are external, and the serialized document composition escapes them in JSON's own
+ * notation, which a machine consumer decodes back to the reading it was.
  */
 export function renderReportJson(report: DiagnoseReport): TerminalText {
-  return authoredText(
-    JSON.stringify(
-      {
-        checks: report.checks.map((check) => ({
-          name: check.name,
-          verdict: check.verdict,
-          bucket: check.bucket,
-          readings: check.readings,
-          remediation: check.remediation,
-        })),
-        overall: report.overall,
-      },
-      null,
-      2,
-    ).replaceAll(DEL_CHAR, JSON_DEL_ESCAPE),
+  return jsonDocument(
+    {
+      checks: report.checks.map((check) => ({
+        name: check.name,
+        verdict: check.verdict,
+        bucket: check.bucket,
+        readings: check.readings,
+        remediation: check.remediation,
+      })),
+      overall: report.overall,
+    },
+    JSON_REPORT_INDENT,
   );
 }
 
