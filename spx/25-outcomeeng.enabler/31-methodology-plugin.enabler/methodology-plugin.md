@@ -10,13 +10,21 @@ CAN serve the foundation for the methodology version a product declares from spx
 
 ## Assertions
 
-- A shipped tree is addressed by methodology line — the `MAJOR.MINOR` of a declared methodology version — then coding agent, then plugin name, resolved from spx's package root; a consumer product commits no tree, and no consumer path participates in resolution
-- Each `methodology/{MAJOR.MINOR}/{coding-agent}/spec-tree/` holds the `skills/understand/` directory of that coding agent's built plugin exactly as the plugins repository publishes it at the fetched revision, so every path the foundation-resource manifest names resolves unchanged
-- Each `methodology/{MAJOR.MINOR}/` carries one `source.json` naming the source repository, the resolved commit the bytes were fetched from, and, per coding agent, the plugin name and version read from that agent's `plugin.json` at that revision together with its `methodology.provides` and `methodology.supports` values when the manifest declares them
-- The fetch, `pnpm run methodology:fetch`, reads `outcomeeng/plugins` at a named revision — a branch, tag, or commit — through a sparse, blobless clone limited to `dist/{coding-agent}/spec-tree/`, resolves the revision to one commit, replaces the whole `methodology/{MAJOR.MINOR}/` directory it targets, and writes nothing else
-- The fetch takes the methodology line from `methodology.provides` in the fetched `plugin.json` when that block exists, requires an explicit `--line <MAJOR.MINOR>` argument when it does not, and fails when the coding agents' manifests disagree on the line
-- The fetch is deterministic: the same revision and line produce byte-identical trees and `source.json`
-- A repository dispatch from the plugins repository's push to its default branch, and a manual dispatch, run the fetch in spx's continuous integration and open a pull request carrying the refreshed tree through the normal gate
-- NEVER: the fetch, the reader, or any consumer reads a coding agent's plugin cache, installed plugin, marketplace clone, or user-scope directory to resolve, verify, or enumerate methodology resources
-- NEVER: a tree is derived from another coding agent's tree, per `spx/13-agent-capability-lifecycle.pdr.md`
-- NEVER: a directory under `methodology/` carries a patch version in its name
+### Properties
+
+- A shipped tree is addressed by methodology line — the `MAJOR.MINOR` of a declared methodology version — then coding agent, then plugin name, resolved from spx's package root; a consumer product commits no tree, and no consumer path participates in resolution ([test](tests/tree-address.property.l1.test.ts))
+- The fetch is deterministic: the same revision and line produce byte-identical trees and `source.json` ([test](tests/fetch.property.l1.test.ts))
+
+### Conformance
+
+- Each `methodology/{MAJOR.MINOR}/{coding-agent}/spec-tree/` holds the `skills/understand/` directory of that coding agent's built plugin exactly as the plugins repository publishes it at the fetched revision, so every path the foundation-resource manifest names resolves unchanged ([test](tests/fetch.conformance.l1.test.ts))
+- Each `methodology/{MAJOR.MINOR}/` carries one `source.json` naming the source repository, the resolved commit the bytes were fetched from, and, per coding agent, the plugin name and version read from that agent's `plugin.json` at that revision together with its `methodology.provides` and `methodology.supports` values when the manifest declares them ([test](tests/fetch.conformance.l1.test.ts))
+
+### Compliance
+
+- ALWAYS: the fetch, `pnpm run methodology:fetch`, reads `outcomeeng/plugins` at a named revision — a branch, tag, or commit — resolves it to one commit, replaces the whole `methodology/{MAJOR.MINOR}/` directory it targets, and writes nothing else ([test](tests/fetch.compliance.l1.test.ts))
+- ALWAYS: the fetch takes the methodology line from `methodology.provides` in the fetched `plugin.json` when that block exists, requires an explicit `--line <MAJOR.MINOR>` argument when it does not, and fails when the coding agents' manifests disagree on the line ([test](tests/fetch.compliance.l1.test.ts))
+- NEVER: a directory under `methodology/` carries a patch version in its name ([test](tests/fetch.compliance.l1.test.ts))
+- ALWAYS: a repository dispatch from the plugins repository's push to its default branch, and a manual dispatch, run the fetch in spx's continuous integration and open a pull request carrying the refreshed tree through the normal gate ([audit])
+- NEVER: the fetch, the reader, or any consumer reads a coding agent's plugin cache, installed plugin, marketplace clone, or user-scope directory to resolve, verify, or enumerate methodology resources ([audit])
+- NEVER: a tree is derived from another coding agent's tree, per `spx/13-agent-capability-lifecycle.pdr.md` ([audit])
