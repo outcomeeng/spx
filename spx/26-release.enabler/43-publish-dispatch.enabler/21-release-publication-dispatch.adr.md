@@ -28,7 +28,7 @@ One product operation keeps registry identity checks, changelog-section extracti
 
 ### Audit
 
-- ALWAYS: release-publication orchestration receives typed release data, a validated changelog section, a package publisher, and a repository-host release publisher through explicit inputs and injected interfaces ([audit])
+- ALWAYS: release-publication orchestration receives typed release data, a validated changelog section, a package publisher, a repository-host release publisher, and the confirmation's wait between attempts through explicit inputs and injected interfaces, so the orchestration holds no timer of its own ([audit])
 - ALWAYS: package-registry and repository-host transport mechanics live with their owning backend concerns behind the injected publication boundaries ([audit])
 - NEVER: publication orchestration invokes a model, regenerates release prose, or accepts independently authored GitHub Release content ([audit])
 - NEVER: workflow scripts reimplement release identity checks, changelog-section extraction, retry classification, or hosted-release reconciliation owned by `spx release publish` ([audit])
