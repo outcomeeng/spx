@@ -41,6 +41,7 @@ import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { toMessage } from "@/lib/error-message";
 import { foregroundProcessRunner, lifecycleSignalSuspender } from "@/lib/process-lifecycle";
+import { renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { launchAgent } from "./session/pick/launch-agent";
 import { PICK_NON_TTY_MESSAGE, runPicker } from "./session/pick/run-picker";
 
@@ -91,9 +92,10 @@ function writeError(invocation: CliInvocation, output: string): void {
   invocation.io.writeStderr(`${output}\n`);
 }
 
-function writeInvocationWarning(invocation: CliInvocation, warning: string | undefined): void {
+// The warning arrives composed where the shared root was resolved, so it is embedded as it stands.
+function writeInvocationWarning(invocation: CliInvocation, warning: TerminalText | undefined): void {
   if (warning !== undefined) {
-    writeError(invocation, warning);
+    invocation.io.writeStderr(renderTerminalText(terminal`${warning}\n`));
   }
 }
 

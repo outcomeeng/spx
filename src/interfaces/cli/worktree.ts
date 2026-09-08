@@ -10,6 +10,7 @@ import { claimCommand, releaseCommand, statusCommand, WORKTREE_STATUS_FORMAT } f
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { defaultGitDependencies } from "@/lib/git/root";
+import { renderTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultWorktreePathInfo } from "@/lib/worktree-path-info";
 import { defaultProcessTable } from "@/lib/worktree-process-table";
@@ -37,9 +38,10 @@ function writeError(invocation: CliInvocation, output: string): void {
   invocation.io.writeStderr(`${output}\n`);
 }
 
-function writeInvocationWarning(invocation: CliInvocation, warning: string | undefined): void {
+// The warning arrives composed where the shared root was resolved, so it is embedded as it stands.
+function writeInvocationWarning(invocation: CliInvocation, warning: TerminalText | undefined): void {
   if (warning !== undefined) {
-    writeError(invocation, warning);
+    invocation.io.writeStderr(renderTerminalText(terminal`${warning}\n`));
   }
 }
 

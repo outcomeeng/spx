@@ -23,6 +23,7 @@ import {
   SessionStatus,
 } from "@/domains/session/types";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
+import { authoredText, externalValue, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { resolveSessionConfigSurfacingWarning, type SessionWarningHandler } from "./resolve-config";
 
 /** Status of sessions after being claimed. */
@@ -118,11 +119,12 @@ function formatInjectedFile(listedPath: string, content: string): string {
  * Builds the warning for a listed injection path that could not be read, naming
  * the path. An absent path reports the missing-file prefix; any other read
  * failure, such as a directory entry's EISDIR, reports the unreadable prefix.
+ * The listed path is session-file content, so it is an external segment.
  */
-function formatInjectionWarning(error: unknown, listedPath: string): string {
+function formatInjectionWarning(error: unknown, listedPath: string): TerminalText {
   const isAbsent = error instanceof Error && "code" in error && error.code === SESSION_FILE_ERROR_CODE.NOT_FOUND;
   const prefix = isAbsent ? SESSION_INJECTION_MISSING_WARNING_PREFIX : SESSION_INJECTION_UNREADABLE_WARNING_PREFIX;
-  return `${prefix}: ${listedPath}`;
+  return terminal`${authoredText(prefix)}: ${externalValue(listedPath)}`;
 }
 
 async function readInjectedFiles(

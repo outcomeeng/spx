@@ -11,6 +11,7 @@ import type { Result } from "@/config/types";
 import { worktreeClaimName } from "@/domains/worktree/worktree-name";
 import { detectWorktreeProductRoot, gatherGitFacts, type GitDependencies } from "@/lib/git/root";
 import { resolveWorktreesScopeDir } from "@/lib/state-store";
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 
 export const WORKTREE_RESOLVE_ERROR = {
   AMBIGUOUS_WORKTREE_BASENAME: "ambiguous worktree basename",
@@ -19,7 +20,7 @@ export const WORKTREE_RESOLVE_ERROR = {
 } as const;
 
 /** Receives a non-git-repo diagnostic for an interface boundary to surface. */
-export type WorktreeWarningHandler = (warning: string | undefined) => void;
+export type WorktreeWarningHandler = (warning: TerminalText | undefined) => void;
 
 export interface WorktreePathInfo {
   isExistingNonDirectory(path: string): Promise<boolean>;
