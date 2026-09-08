@@ -44,10 +44,10 @@ Define and implement deterministic management for agent instructions, agent conf
 - `spx agent config status` is read-only. `spx agent config apply` reproduces committed versions. `spx agent config update` advances only package versions compatible with the declared methodology, persists those pins, and applies them.
 - Capability apply and update require network access and the newest SPX release compatible with the declared methodology. Interactive execution offers an owner-supported SPX update and aborts when declined; noninteractive execution fails without updating SPX.
 - SPX never mutates user-scope agent configuration. Outcome Engineering entries detected there are degraded hidden input. Product-over-user precedence is an external agent-platform assumption.
-- `spx methodology version show` reports the declared version, managed instruction markers, and installed compatibility without mutation or required network access.
-- `spx methodology version migrate <target>` resolves the target methodology package in isolated harness state and launches the target methodology's managed migration agent. SPX never infers or mechanically rewrites product truth.
+- `spx methodology version show` reports the declared version, the migration source while one is declared, managed instruction markers, and the provider-declaration match of spx's shipped tree without mutation or required network access.
+- `spx methodology version migrate <target>` addresses the target version's shipped methodology tree, isolates the migration in harness state, and launches the target methodology's managed migration agent. SPX never infers or mechanically rewrites product truth.
 - Interrupted methodology migrations preserve their branch, working changes, run journal, and resumable agent session and remain incomplete.
-- Migration completion requires target-methodology verification plus SPX envelope checks: a successful sealed run, target version in product configuration, matching managed instruction markers, a compatible installed Spec Tree package, and migration-session closure.
+- Migration completion requires target-methodology verification plus SPX envelope checks: a successful sealed run, target version in product configuration, matching managed instruction markers, an absent `methodology.migratingFrom`, and migration-session closure.
 
 ### Declaration alignment
 
