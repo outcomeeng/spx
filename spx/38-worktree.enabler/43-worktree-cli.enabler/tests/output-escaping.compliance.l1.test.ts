@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { WORKTREE_STATUS_FORMAT } from "@/commands/worktree/index";
 import { AGENT_RUNTIME_DISPLAY_NAME } from "@/domains/worktree/controlling-process";
-import { DEL_CHAR_CODE, FIRST_PRINTABLE_CHAR_CODE } from "@/lib/sanitize-cli-argument";
 import { DETAIL_BRANCH_SEPARATOR, DETAIL_ELBOW } from "@/lib/styled-output/styled-output";
 import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
+import { TERMINAL_ORACLE } from "@testing/generators/terminal-text/terminal-text";
 import {
   arbitraryUnsafeWorktreeRefusalCase,
   arbitraryUnsafeWorktreeStatusCase,
@@ -22,8 +22,8 @@ describe("worktree status output the terminal receives is escaped", () => {
         // The tree's own newlines are the product's line structure; every other byte below the
         // printable range, and DEL, entered through the worktree path and must have left escaped.
         for (const character of report.replaceAll("\n", "")) {
-          expect(character.codePointAt(0)).toBeGreaterThanOrEqual(FIRST_PRINTABLE_CHAR_CODE);
-          expect(character.codePointAt(0)).not.toBe(DEL_CHAR_CODE);
+          expect(character.codePointAt(0)).toBeGreaterThanOrEqual(TERMINAL_ORACLE.FIRST_PRINTABLE_CODE_POINT);
+          expect(character.codePointAt(0)).not.toBe(TERMINAL_ORACLE.DEL_CODE_POINT);
         }
         // The glyph and the runtime name are the product's own speech and survive composition.
         expect(report).toContain(`${DETAIL_ELBOW}${DETAIL_BRANCH_SEPARATOR}`);
@@ -39,8 +39,8 @@ describe("worktree status output the terminal receives is escaped", () => {
       expect(status.ok).toBe(false);
       if (status.ok) throw new Error(renderTerminalText(status.value));
       for (const character of renderTerminalText(status.error.text).replaceAll("\n", "")) {
-        expect(character.codePointAt(0)).toBeGreaterThanOrEqual(FIRST_PRINTABLE_CHAR_CODE);
-        expect(character.codePointAt(0)).not.toBe(DEL_CHAR_CODE);
+        expect(character.codePointAt(0)).toBeGreaterThanOrEqual(TERMINAL_ORACLE.FIRST_PRINTABLE_CODE_POINT);
+        expect(character.codePointAt(0)).not.toBe(TERMINAL_ORACLE.DEL_CODE_POINT);
       }
     }, { level: PROPERTY_LEVEL.L1 });
   });
@@ -53,8 +53,8 @@ describe("worktree status output the terminal receives is escaped", () => {
         // The serializer's indentation is the product's own line structure; every other byte below
         // the printable range, and DEL, must have left as a JSON escape.
         for (const character of renderTerminalText(status.value).replaceAll("\n", "")) {
-          expect(character.codePointAt(0)).toBeGreaterThanOrEqual(FIRST_PRINTABLE_CHAR_CODE);
-          expect(character.codePointAt(0)).not.toBe(DEL_CHAR_CODE);
+          expect(character.codePointAt(0)).toBeGreaterThanOrEqual(TERMINAL_ORACLE.FIRST_PRINTABLE_CODE_POINT);
+          expect(character.codePointAt(0)).not.toBe(TERMINAL_ORACLE.DEL_CODE_POINT);
         }
       });
     }, { level: PROPERTY_LEVEL.L1 });

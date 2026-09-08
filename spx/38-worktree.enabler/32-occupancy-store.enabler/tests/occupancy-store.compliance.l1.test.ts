@@ -10,10 +10,9 @@ import {
   OCCUPANCY_ERROR,
   OCCUPANCY_STATUS,
 } from "@/domains/worktree/occupancy-store";
-import { DEL_CHAR_CODE, FIRST_PRINTABLE_CHAR_CODE } from "@/lib/sanitize-cli-argument";
 import { resolveWorktreesScopeDir, STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
-import { arbitraryTerminalUnsafeText } from "@testing/generators/terminal-text/terminal-text";
+import { arbitraryTerminalUnsafeText, TERMINAL_ORACLE } from "@testing/generators/terminal-text/terminal-text";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import { createSessionGitDeps, SESSION_GIT_DEPS_PATHS, WORKTREE_KIND } from "@testing/harnesses/session/harness";
@@ -56,8 +55,8 @@ describe("worktree occupancy compliance", () => {
       // reach the terminal as the bytes it carried.
       expect(diagnostic.startsWith(OCCUPANCY_ERROR.CLAIM_WRITE_FAILED)).toBe(true);
       for (const character of diagnostic) {
-        expect(character.codePointAt(0)).toBeGreaterThanOrEqual(FIRST_PRINTABLE_CHAR_CODE);
-        expect(character.codePointAt(0)).not.toBe(DEL_CHAR_CODE);
+        expect(character.codePointAt(0)).toBeGreaterThanOrEqual(TERMINAL_ORACLE.FIRST_PRINTABLE_CODE_POINT);
+        expect(character.codePointAt(0)).not.toBe(TERMINAL_ORACLE.DEL_CODE_POINT);
       }
     }, { level: PROPERTY_LEVEL.L1 });
   });

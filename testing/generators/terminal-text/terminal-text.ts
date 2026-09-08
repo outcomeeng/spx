@@ -27,6 +27,17 @@ const ORACLE_HEX_DIGITS = 2;
 const ORACLE_HEX_ESCAPE_PREFIX = String.raw`\x`;
 const ORACLE_HEX_PAD_CHARACTER = "0";
 
+/**
+ * The escaping boundary an assertion judges rendered output against, declared here
+ * from the ASCII standard rather than imported from the sanitizer under test: an
+ * oracle sharing production's own boundary constants would move in lockstep with a
+ * regression in them and could never detect it.
+ */
+export const TERMINAL_ORACLE = {
+  DEL_CODE_POINT: ORACLE_DEL_CODE_POINT,
+  FIRST_PRINTABLE_CODE_POINT: ORACLE_FIRST_PRINTABLE_CODE_POINT,
+} as const;
+
 export interface TerminalEscapingCase {
   readonly input: string;
   readonly escaped: string;
