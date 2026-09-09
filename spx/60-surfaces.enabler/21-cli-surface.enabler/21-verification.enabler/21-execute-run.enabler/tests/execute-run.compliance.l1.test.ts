@@ -81,7 +81,9 @@ describe("execute run compliance", () => {
       selectOperands: (product) => [product.nodePaths[0], product.nodePaths[1]],
     });
     expect(twoNodes.diagnostic).toBeUndefined();
-    expect(twoNodes.report?.testPaths).toEqual([...twoNodes.product.testPaths].sort(compareAsciiStrings));
+    expect(twoNodes.report?.testPaths).toEqual(
+      [twoNodes.product.testPaths[0], twoNodes.product.testPaths[1]].sort(compareAsciiStrings),
+    );
     const enclosing = twoNodes.report?.locator.scopeIdentity ?? "";
     const remainders = twoNodes.product.nodePaths.map((nodePath) => {
       expect(nodePath === enclosing || nodePath.startsWith(`${enclosing}${posix.sep}`)).toBe(true);
@@ -89,16 +91,29 @@ describe("execute run compliance", () => {
     });
     expect(new Set(remainders).size).toBe(remainders.length);
 
-    // The recursive modifier widens a node operand to its subtree; the node still encloses every
-    // file it selects, so the selector is that node.
+    // The same node operand without the modifier selects only the node's own tests, leaving its
+    // descendant node's out.
+    const descendantExcluded = await observeExecuteRunHandler({
+      selectOperands: (product) => [product.nodePaths[1]],
+    });
+    expect(descendantExcluded.diagnostic).toBeUndefined();
+    expect(descendantExcluded.report?.testPaths).toEqual([descendantExcluded.product.testPaths[1]]);
+
+    // The recursive modifier widens that operand to the node's whole subtree, so the descendant
+    // node's test joins the selection; the node still encloses every file, so it stays the selector.
     const recursiveNode = await observeExecuteRunHandler({
       selectOperands: (product) => [product.nodePaths[1]],
       recursive: true,
     });
     expect(recursiveNode.recursive).toBe(true);
     expect(recursiveNode.diagnostic).toBeUndefined();
-    expect(recursiveNode.report?.testPaths).toEqual([recursiveNode.product.testPaths[1]]);
+    expect(recursiveNode.report?.testPaths).toEqual(
+      [recursiveNode.product.testPaths[1], recursiveNode.product.testPaths[2]].sort(compareAsciiStrings),
+    );
+    expect(recursiveNode.drivenRequest?.testPaths).toEqual(recursiveNode.report?.testPaths);
     expect(recursiveNode.report?.locator.scopeIdentity).toBe(recursiveNode.product.nodePaths[1]);
+    expect(recursiveNode.product.descendantNodePath.startsWith(`${recursiveNode.product.nodePaths[1]}${posix.sep}`))
+      .toBe(true);
 
     // The product-root operand encloses the whole tree, so it selects every discovered file and
     // records the same selector the operandless invocation records — it narrows nothing.
