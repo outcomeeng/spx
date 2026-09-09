@@ -12,5 +12,6 @@ export {
   WORKTREE_STATUS_ERROR,
   WORKTREE_STATUS_FORMAT,
   WORKTREE_STATUS_RENDER,
+  type WorktreeStatusError,
   type WorktreeStatusFormat,
 } from "./status";

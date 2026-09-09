@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { statusCommand } from "@/commands/worktree/index";
 import { OCCUPANCY_STATUS } from "@/domains/worktree/occupancy-store";
 import { defaultGitDependencies } from "@/lib/git/root";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { defaultWorktreePathInfo } from "@/lib/worktree-path-info";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { withWorktreePool } from "@testing/harnesses/worktree/harness";
@@ -36,7 +37,37 @@ describe("worktree status non-worktree path compliance", () => {
       if (status.ok) {
         throw new Error(`expected refusal, got status "${status.value}"`);
       }
-      expect(status.error).not.toContain(OCCUPANCY_STATUS.FREE);
+      expect(renderTerminalText(status.error.text)).not.toContain(OCCUPANCY_STATUS.FREE);
+    });
+  });
+
+  it("NEVER reports an unresolved sibling of a resolved target as a free worktree", async () => {
+    const [worktreeName, absentName] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
+    const holder = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.poolHolder());
+
+    await withWorktreePool({ worktreeName, holder }, async (env) => {
+      // Shell expansion supplies both a real pool worktree and a sibling path that was
+      // never provisioned, so the report is produced rather than refused and the
+      // unresolved path has to be excluded from it.
+      const nonWorktreePath = join(env.container, absentName);
+
+      const status = await statusCommand({
+        cwd: env.worktreePath,
+        fs: env.fs,
+        gitDeps: defaultGitDependencies,
+        worktrees: [env.worktreePath, nonWorktreePath],
+        worktreesDir: env.worktreesDir,
+        processTable: env.processTable,
+        pathInfo: defaultWorktreePathInfo,
+      });
+
+      expect(status.ok).toBe(true);
+      if (!status.ok) {
+        throw new Error(`expected a report, got refusal "${renderTerminalText(status.error.text)}"`);
+      }
+      const report = renderTerminalText(status.value);
+      expect(report).toContain(worktreeName);
+      expect(report).not.toContain(absentName);
     });
   });
 
@@ -62,7 +93,7 @@ describe("worktree status non-worktree path compliance", () => {
       if (status.ok) {
         throw new Error(`expected refusal, got status "${status.value}"`);
       }
-      expect(status.error).not.toContain(OCCUPANCY_STATUS.FREE);
+      expect(renderTerminalText(status.error.text)).not.toContain(OCCUPANCY_STATUS.FREE);
     });
   });
 });

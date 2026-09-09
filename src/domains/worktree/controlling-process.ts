@@ -10,6 +10,7 @@
 import { basename } from "node:path";
 
 import type { Result } from "@/config/types";
+import { authoredText, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
 import { unreadableStartedAt } from "./occupancy-store";
 import type { ProcessTable } from "./process-table";
@@ -59,14 +60,14 @@ export function resolveControllingProcess(
   selfPid: number,
   table: ProcessTable,
   env: ControllingProcessEnv,
-): Result<ControllingProcess> {
+): Result<ControllingProcess, TerminalText> {
   const host = table.currentHost();
   for (const pid of controllingPidCandidates(selfPid, table, env)) {
     const startedAt = table.startTimeOf(pid);
     if (startedAt !== undefined) return { ok: true, value: { pid, startedAt, host } };
     if (table.isAlive(pid)) return { ok: true, value: { pid, startedAt: unreadableStartedAt(pid), host } };
   }
-  return { ok: false, error: CONTROLLING_PROCESS_ERROR.UNRESOLVED };
+  return { ok: false, error: authoredText(CONTROLLING_PROCESS_ERROR.UNRESOLVED) };
 }
 
 function* controllingPidCandidates(
@@ -94,9 +95,15 @@ function findAgentAncestor(selfPid: number, table: ProcessTable): number | undef
   return undefined;
 }
 
-export function agentRuntimeDisplayName(command: string | undefined): string | undefined {
+/**
+ * The display name for the agent runtime a process command names. The name is
+ * drawn from the product's own table rather than from the command, so it is
+ * authored text: the process command decides which entry is selected, never what
+ * the entry says.
+ */
+export function agentRuntimeDisplayName(command: string | undefined): TerminalText | undefined {
   const name = agentRuntimeName(command);
-  return name === undefined ? undefined : AGENT_RUNTIME_DISPLAY_NAME[name];
+  return name === undefined ? undefined : authoredText(AGENT_RUNTIME_DISPLAY_NAME[name]);
 }
 
 function agentRuntimeName(command: string | undefined): AgentRuntimeName | undefined {

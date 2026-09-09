@@ -17,6 +17,7 @@ import {
   GIT_WORKTREE_PORCELAIN_ROOT_PREFIX,
   type GitDependencies,
 } from "@/lib/git/root";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system";
 import { defaultWorktreePathInfo } from "@/lib/worktree-path-info";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
@@ -124,8 +125,8 @@ describe("worktree status path-form resolution", () => {
           pathInfo: defaultWorktreePathInfo,
         });
         expect(status.ok, `form ${form}`).toBe(true);
-        if (!status.ok) throw new Error(`form ${form}: ${status.error}`);
-        expect(status.value, `form ${form}`).toContain(
+        if (!status.ok) throw new Error(`form ${form}: ${renderTerminalText(status.error.text)}`);
+        expect(renderTerminalText(status.value), `form ${form}`).toContain(
           `${WORKTREE_STATUS_RENDER.RUNNING_FALLBACK_RUNTIME} ${WORKTREE_STATUS_RENDER.RUNNING_WORD} [${holder.pid}]`,
         );
       }
@@ -174,9 +175,9 @@ describe("worktree status path-form resolution", () => {
           });
 
           expect(status.ok).toBe(true);
-          if (!status.ok) throw new Error(status.error);
-          expect(status.value).toContain(`${claimedName}:`);
-          expect(status.value).toContain(
+          if (!status.ok) throw new Error(renderTerminalText(status.error.text));
+          expect(renderTerminalText(status.value)).toContain(`${claimedName}:`);
+          expect(renderTerminalText(status.value)).toContain(
             `${WORKTREE_STATUS_RENDER.RUNNING_FALLBACK_RUNTIME} ${WORKTREE_STATUS_RENDER.RUNNING_WORD} [${holder.pid}]`,
           );
         });
@@ -212,7 +213,9 @@ describe("worktree status path-form resolution", () => {
 
       expect(status.ok).toBe(false);
       if (status.ok) throw new Error(`expected ambiguous basename refusal, got status "${status.value}"`);
-      expect(status.error).toBe(`${WORKTREE_RESOLVE_ERROR.AMBIGUOUS_WORKTREE_BASENAME}: ${duplicateBasename}`);
+      expect(renderTerminalText(status.error.text)).toBe(
+        `${WORKTREE_RESOLVE_ERROR.AMBIGUOUS_WORKTREE_BASENAME}: ${duplicateBasename}`,
+      );
     });
   });
 
@@ -244,7 +247,9 @@ describe("worktree status path-form resolution", () => {
 
       expect(status.ok).toBe(false);
       if (status.ok) throw new Error(`expected mixed-target ambiguity refusal, got status "${status.value}"`);
-      expect(status.error).toBe(`${WORKTREE_RESOLVE_ERROR.AMBIGUOUS_WORKTREE_BASENAME}: ${duplicateBasename}`);
+      expect(renderTerminalText(status.error.text)).toBe(
+        `${WORKTREE_RESOLVE_ERROR.AMBIGUOUS_WORKTREE_BASENAME}: ${duplicateBasename}`,
+      );
     });
   });
 });

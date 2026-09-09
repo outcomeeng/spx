@@ -11,6 +11,7 @@ import { acquireClaim, createClaimOperationRecord, type OccupancyFileSystem } fr
 import type { ProcessTable } from "@/domains/worktree/process-table";
 import type { RandomBytes } from "@/lib/atomic-file-write";
 
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 import { resolveCurrentWorktreeName, resolveWorktreesDir, type WorktreeScopeOptions } from "./resolve";
 
 export interface ClaimWorktreeOccupancyOptions extends WorktreeScopeOptions {
@@ -29,7 +30,9 @@ export interface ClaimWorktreeOccupancyOptions extends WorktreeScopeOptions {
 }
 
 /** Records a claim for the running worktree; returns the written claim path. */
-export async function claimWorktreeOccupancy(options: ClaimWorktreeOccupancyOptions): Promise<Result<string>> {
+export async function claimWorktreeOccupancy(
+  options: ClaimWorktreeOccupancyOptions,
+): Promise<Result<string, TerminalText>> {
   const controlling = resolveControllingProcess(options.selfPid, options.processTable, options.env);
   if (!controlling.ok) return controlling;
 

@@ -13,6 +13,7 @@ import type { Result } from "@/config/types";
 import { type RandomBytes, writeFileAtomic } from "@/lib/atomic-file-write";
 import { toMessage } from "@/lib/error-message";
 import { ERROR_CODE_FILE_EXISTS, ERROR_CODE_NOT_FOUND, hasErrorCode, validateScopeToken } from "@/lib/state-store";
+import { authoredText, externalValue, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
 export const OCCUPANCY_STATUS = {
   FREE: "free",
@@ -99,9 +100,9 @@ export function claimFileName(name: string): string {
 }
 
 /** Composes the `.claim` path for `name` under `worktreesDir`, rejecting unsafe names. */
-export function claimFilePath(worktreesDir: string, name: string): Result<string> {
+export function claimFilePath(worktreesDir: string, name: string): Result<string, TerminalText> {
   const validated = validateScopeToken(name);
-  if (!validated.ok) return { ok: false, error: OCCUPANCY_ERROR.INVALID_NAME };
+  if (!validated.ok) return { ok: false, error: authoredText(OCCUPANCY_ERROR.INVALID_NAME) };
   return { ok: true, value: join(worktreesDir, claimFileName(validated.value)) };
 }
 
@@ -174,7 +175,7 @@ export async function writeClaim(
   name: string,
   record: WorktreeClaimRecord,
   options: OccupancyWriteOptions,
-): Promise<Result<string>> {
+): Promise<Result<string, TerminalText>> {
   const pathResult = claimFilePath(worktreesDir, name);
   if (!pathResult.ok) return pathResult;
   const claimPath = pathResult.value;
@@ -198,7 +199,7 @@ export async function acquireClaim(
   record: WorktreeClaimRecord,
   probe: ProcessProbe,
   options: OccupancyAcquireOptions,
-): Promise<Result<string>> {
+): Promise<Result<string, TerminalText>> {
   const pathResult = claimFilePath(worktreesDir, name);
   if (!pathResult.ok) return pathResult;
   const claimPath = pathResult.value;
@@ -212,7 +213,7 @@ export async function acquireClaim(
   const lock = await acquireClaimLock(claimLockPath(claimPath), options.operation, probe, options.fs);
   if (!lock.ok) return lock;
 
-  let acquired: Result<string>;
+  let acquired: Result<string, TerminalText>;
   try {
     acquired = await acquireClaimWhileLocked(claimPath, record, probe, options);
   } catch (error) {
@@ -228,7 +229,7 @@ export async function readClaim(
   worktreesDir: string,
   name: string,
   options: OccupancyFsOptions,
-): Promise<Result<WorktreeClaimRecord | undefined>> {
+): Promise<Result<WorktreeClaimRecord | undefined, TerminalText>> {
   const pathResult = claimFilePath(worktreesDir, name);
   if (!pathResult.ok) return pathResult;
 
@@ -242,7 +243,7 @@ export async function removeClaim(
   owner: WorktreeClaimRecord,
   probe: ProcessProbe,
   options: OccupancyMutationOptions,
-): Promise<Result<void>> {
+): Promise<Result<void, TerminalText>> {
   const pathResult = claimFilePath(worktreesDir, name);
   if (!pathResult.ok) return pathResult;
 
@@ -256,7 +257,7 @@ export async function removeClaim(
   const lock = await acquireClaimLock(claimLockPath(claimPath), options.operation, probe, options.fs);
   if (!lock.ok) return lock;
 
-  let removed: Result<void>;
+  let removed: Result<void, TerminalText>;
   try {
     removed = await removeClaimWhileLocked(claimPath, owner, options.fs);
   } catch (error) {
@@ -271,11 +272,13 @@ async function removeClaimWhileLocked(
   claimPath: string,
   owner: WorktreeClaimRecord,
   fs: OccupancyFileSystem,
-): Promise<Result<void>> {
+): Promise<Result<void, TerminalText>> {
   const current = await readClaimAtPath(claimPath, fs);
   if (!current.ok) return current;
   if (current.value === undefined) return { ok: true, value: undefined };
-  if (!sameClaimOwner(current.value, owner)) return { ok: false, error: OCCUPANCY_ERROR.CLAIM_RELEASE_NOT_OWNER };
+  if (!sameClaimOwner(current.value, owner)) {
+    return { ok: false, error: authoredText(OCCUPANCY_ERROR.CLAIM_RELEASE_NOT_OWNER) };
+  }
 
   try {
     await fs.rm(claimPath, { force: true });
@@ -291,7 +294,7 @@ export async function readOccupancy(
   name: string,
   probe: ProcessProbe,
   options: OccupancyFsOptions,
-): Promise<Result<OccupancyStatus>> {
+): Promise<Result<OccupancyStatus, TerminalText>> {
   const claimResult = await readClaim(worktreesDir, name, options);
   if (!claimResult.ok) return claimResult;
   return { ok: true, value: classifyOccupancy(claimResult.value, probe) };
@@ -302,14 +305,14 @@ async function acquireClaimWhileLocked(
   record: WorktreeClaimRecord,
   probe: ProcessProbe,
   options: OccupancyWriteOptions,
-): Promise<Result<string>> {
+): Promise<Result<string, TerminalText>> {
   const current = await readClaimAtPath(claimPath, options.fs);
   if (!current.ok) return current;
   if (current.value !== undefined && sameClaimOwner(current.value, record)) {
     return { ok: true, value: claimPath };
   }
   if (classifyOccupancy(current.value, probe) === OCCUPANCY_STATUS.RUNNING) {
-    return { ok: false, error: OCCUPANCY_ERROR.CLAIM_HELD };
+    return { ok: false, error: authoredText(OCCUPANCY_ERROR.CLAIM_HELD) };
   }
   return writeClaimAtPath(claimPath, record, options);
 }
@@ -319,7 +322,7 @@ async function acquireClaimLock(
   owner: WorktreeClaimRecord,
   probe: ProcessProbe,
   fs: OccupancyFileSystem,
-): Promise<Result<void>> {
+): Promise<Result<void, TerminalText>> {
   try {
     await fs.symlink(claimLockTarget(owner), lockPath);
     return { ok: true, value: undefined };
@@ -332,14 +335,14 @@ async function acquireClaimLock(
   const recovered = await recoverClaimLock(lockPath, owner, probe, fs);
   if (!recovered.ok) return recovered;
   if (recovered.value) return { ok: true, value: undefined };
-  return { ok: false, error: OCCUPANCY_ERROR.CLAIM_LOCK_BUSY };
+  return { ok: false, error: authoredText(OCCUPANCY_ERROR.CLAIM_LOCK_BUSY) };
 }
 
 async function releaseClaimLock(
   lockPath: string,
   owner: WorktreeClaimRecord,
   fs: OccupancyFileSystem,
-): Promise<Result<void>> {
+): Promise<Result<void, TerminalText>> {
   try {
     const currentTarget = await fs.readlink(lockPath);
     if (currentTarget !== claimLockTarget(owner)) return { ok: true, value: undefined };
@@ -356,7 +359,7 @@ async function removeOwnedClaimLock(
   lockPath: string,
   expectedTarget: string,
   fs: OccupancyFileSystem,
-): Promise<Result<boolean>> {
+): Promise<Result<boolean, TerminalText>> {
   try {
     const currentTarget = await fs.readlink(lockPath);
     if (currentTarget !== expectedTarget) return { ok: true, value: false };
@@ -372,7 +375,7 @@ async function writeClaimAtPath(
   claimPath: string,
   record: WorktreeClaimRecord,
   options: OccupancyWriteOptions,
-): Promise<Result<string>> {
+): Promise<Result<string, TerminalText>> {
   try {
     await writeFileAtomic(claimPath, serializeClaim(record), options);
     return { ok: true, value: claimPath };
@@ -384,7 +387,7 @@ async function writeClaimAtPath(
 async function readClaimAtPath(
   claimPath: string,
   fs: OccupancyFileSystem,
-): Promise<Result<WorktreeClaimRecord | undefined>> {
+): Promise<Result<WorktreeClaimRecord | undefined, TerminalText>> {
   let content: string;
   try {
     content = await fs.readFile(claimPath, OCCUPANCY_FS_TEXT_ENCODING);
@@ -405,14 +408,14 @@ function serializeClaim(record: WorktreeClaimRecord): string {
   });
 }
 
-function parseClaim(content: string): Result<WorktreeClaimRecord> {
+function parseClaim(content: string): Result<WorktreeClaimRecord, TerminalText> {
   let parsed: unknown;
   try {
     parsed = JSON.parse(content);
   } catch {
-    return { ok: false, error: OCCUPANCY_ERROR.CLAIM_MALFORMED };
+    return { ok: false, error: authoredText(OCCUPANCY_ERROR.CLAIM_MALFORMED) };
   }
-  if (!isWorktreeClaimRecord(parsed)) return { ok: false, error: OCCUPANCY_ERROR.CLAIM_MALFORMED };
+  if (!isWorktreeClaimRecord(parsed)) return { ok: false, error: authoredText(OCCUPANCY_ERROR.CLAIM_MALFORMED) };
   return { ok: true, value: parsed };
 }
 
@@ -421,12 +424,12 @@ async function recoverClaimLock(
   owner: WorktreeClaimRecord,
   probe: ProcessProbe,
   fs: OccupancyFileSystem,
-): Promise<Result<boolean>> {
+): Promise<Result<boolean, TerminalText>> {
   const recoveryPath = claimLockRecoveryPath(lockPath);
   const recoveryMarker = await acquireClaimRecoveryMarker(recoveryPath, owner, probe, fs);
   if (!recoveryMarker.ok || !recoveryMarker.value) return recoveryMarker;
 
-  let recovered: Result<boolean>;
+  let recovered: Result<boolean, TerminalText>;
   try {
     const cleared = await clearRecoverableClaimLock(lockPath, probe, fs);
     if (!cleared.ok || !cleared.value) {
@@ -448,7 +451,7 @@ async function acquireClaimRecoveryMarker(
   owner: WorktreeClaimRecord,
   probe: ProcessProbe,
   fs: OccupancyFileSystem,
-): Promise<Result<boolean>> {
+): Promise<Result<boolean, TerminalText>> {
   const acquired = await writeClaimRecoveryMarker(recoveryPath, owner, fs);
   if (acquired.ok && acquired.value) return acquired;
   if (!acquired.ok) return acquired;
@@ -462,7 +465,7 @@ async function writeClaimRecoveryMarker(
   recoveryPath: string,
   owner: WorktreeClaimRecord,
   fs: OccupancyFileSystem,
-): Promise<Result<boolean>> {
+): Promise<Result<boolean, TerminalText>> {
   try {
     await fs.symlink(claimLockTarget(owner), recoveryPath);
     return { ok: true, value: true };
@@ -476,7 +479,7 @@ async function publishRecoveredClaimLock(
   lockPath: string,
   owner: WorktreeClaimRecord,
   fs: OccupancyFileSystem,
-): Promise<Result<boolean>> {
+): Promise<Result<boolean, TerminalText>> {
   try {
     await fs.symlink(claimLockTarget(owner), lockPath);
     return { ok: true, value: true };
@@ -490,7 +493,7 @@ async function clearRecoverableClaimLock(
   lockPath: string,
   probe: ProcessProbe,
   fs: OccupancyFileSystem,
-): Promise<Result<boolean>> {
+): Promise<Result<boolean, TerminalText>> {
   let content: string;
   try {
     content = await fs.readlink(lockPath);
@@ -531,7 +534,7 @@ async function removeRecoverableClaimLock(
   lockPath: string,
   expectedTarget: string,
   fs: OccupancyFileSystem,
-): Promise<Result<boolean>> {
+): Promise<Result<boolean, TerminalText>> {
   try {
     const currentTarget = await fs.readlink(lockPath);
     if (currentTarget !== expectedTarget) return { ok: true, value: false };
@@ -567,8 +570,11 @@ function isWorktreeClaimRecord(value: unknown): value is WorktreeClaimRecord {
   );
 }
 
-function formatOccupancyError(code: OccupancyErrorCode, detail: string): string {
-  return `${code}${ERROR_DETAIL_SEPARATOR}${detail}`;
+// The code is the product's own; the detail is a caught error's message, which the
+// failing filesystem or the claim's own content decided, so it is escaped here where
+// the two are joined.
+function formatOccupancyError(code: OccupancyErrorCode, detail: string): TerminalText {
+  return terminal`${authoredText(code)}${authoredText(ERROR_DETAIL_SEPARATOR)}${externalValue(detail)}`;
 }
 
 function toErrorMessage(error: unknown): string {

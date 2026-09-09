@@ -8,6 +8,7 @@ This node's terminal output path passes values that originated outside the produ
 
 - `src/interfaces/cli/hook.ts` — the hook warnings and the agent-environment config read error — filesystem paths, git state, and environment values
 - `src/interfaces/hooks/cli-runner.ts` — the stdin read error, the hook-event error, the hook diagnostics, and the hook payload written to stdout — stdin JSON, environment variables, and session file content
+- `src/interfaces/hooks/session-start.ts` — the producers of the diagnostics `cli-runner.ts` writes: `trustedPath.error` from a caught `fs.realPath` failure, and `describeError(error)` from a caught transcript read and a caught env-file write — filesystem paths and caught-error messages. The worktree-claim diagnostic pushed into the same array reaches it already escaped, because `formatOccupancyError` in `src/domains/worktree/occupancy-store.ts` composes it through the primitive, so the stream carries escaped and unescaped entries side by side until these three compose too.
 
 **Impact:** a value carrying an escape byte (`0x1b`) can reposition the cursor, recolor the terminal, or clear the screen; a value carrying a line feed can forge an additional diagnostic line that reads as if spx emitted it. Whoever controls the named origins controls those bytes.
 

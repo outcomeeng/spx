@@ -27,6 +27,17 @@ const ORACLE_HEX_DIGITS = 2;
 const ORACLE_HEX_ESCAPE_PREFIX = String.raw`\x`;
 const ORACLE_HEX_PAD_CHARACTER = "0";
 
+/**
+ * The escaping boundary an assertion judges rendered output against, declared here
+ * from the ASCII standard rather than imported from the sanitizer under test: an
+ * oracle sharing production's own boundary constants would move in lockstep with a
+ * regression in them and could never detect it.
+ */
+export const TERMINAL_ORACLE = {
+  DEL_CODE_POINT: ORACLE_DEL_CODE_POINT,
+  FIRST_PRINTABLE_CODE_POINT: ORACLE_FIRST_PRINTABLE_CODE_POINT,
+} as const;
+
 export interface TerminalEscapingCase {
   readonly input: string;
   readonly escaped: string;
@@ -70,6 +81,37 @@ export const arbitraryTerminalUnsafeText = (options: TerminalUnsafeTextOptions =
     .map(([head, unsafe, tail]) => String.fromCodePoint(...head, unsafe, ...tail));
 };
 
+/** Text whose every byte renders as itself. */
+const arbitraryPrintableText = (): fc.Arbitrary<string> =>
+  fc
+    .array(arbitraryPrintableCodePoint(), { maxLength: DEFAULT_SEGMENT_MAX_LENGTH })
+    .map((points) => String.fromCodePoint(...points));
+
+/**
+ * Text over both byte classes, guaranteeing neither — the open domain a "for every
+ * input" assertion quantifies over. `fc.string()` cannot serve it: its unit is
+ * printable, so an escaping assertion drawn from it never reaches the escape branch
+ * and would hold against an identity escaper.
+ */
+export const arbitraryTerminalText = (): fc.Arbitrary<string> =>
+  fc.oneof(arbitraryPrintableText(), arbitraryTerminalUnsafeText());
+
+/**
+ * A path segment carrying at least one terminal-unsafe byte a filesystem can hold.
+ * NUL terminates a path at the syscall boundary and the separator would split the
+ * segment, so both are excluded — the escape byte and line feed, the bytes that
+ * rewrite a terminal or forge a line, remain in the domain.
+ */
+export const arbitraryTerminalUnsafePathSegment = (): fc.Arbitrary<string> =>
+  arbitraryTerminalUnsafeText()
+    .map((text) => Array.from(text).filter((character) => character !== "\u0000" && character !== "/").join(""))
+    .filter((text) =>
+      Array.from(text).some((character) => {
+        const codePoint = character.codePointAt(0) ?? 0;
+        return codePoint <= ORACLE_C0_CONTROL_UPPER_BOUND || codePoint === ORACLE_DEL_CODE_POINT;
+      })
+    );
+
 /** Unsafe text paired with an escape rendering computed independently from production. */
 export const arbitraryTerminalEscapingCase = (
   options: TerminalUnsafeTextOptions = {},
@@ -78,6 +120,18 @@ export const arbitraryTerminalEscapingCase = (
     input,
     escaped: independentlyEscapeTerminalText(input),
   }));
+
+/** The escape a terminal-unsafe code point renders as, computed independently of production. */
+export const terminalOracleHexEscape = (codePoint: number): string =>
+  `${ORACLE_HEX_ESCAPE_PREFIX}${
+    codePoint.toString(ORACLE_HEX_RADIX).padStart(ORACLE_HEX_DIGITS, ORACLE_HEX_PAD_CHARACTER)
+  }`;
+
+/** Every code point a terminal reads as a command: the C0 controls and DEL. */
+export const TERMINAL_ORACLE_UNSAFE_CODE_POINTS: readonly number[] = [
+  ...Array.from({ length: ORACLE_C0_CONTROL_UPPER_BOUND + 1 }, (_unused, codePoint) => codePoint),
+  ORACLE_DEL_CODE_POINT,
+];
 
 function independentlyEscapeTerminalText(input: string): string {
   return Array.from(input, (character) => {

@@ -12,6 +12,7 @@ import type { OccupancyFileSystem } from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
 import type { WorktreeScopeOptions } from "@/domains/worktree/resolve";
 import type { RandomBytes } from "@/lib/atomic-file-write";
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 
 export interface ClaimCommandOptions extends WorktreeScopeOptions {
   /** The claiming agent's session id. */
@@ -29,6 +30,6 @@ export interface ClaimCommandOptions extends WorktreeScopeOptions {
 }
 
 /** Records a claim for the running worktree; returns the written claim path. */
-export async function claimCommand(options: ClaimCommandOptions): Promise<Result<string>> {
+export async function claimCommand(options: ClaimCommandOptions): Promise<Result<string, TerminalText>> {
   return claimWorktreeOccupancy(options);
 }

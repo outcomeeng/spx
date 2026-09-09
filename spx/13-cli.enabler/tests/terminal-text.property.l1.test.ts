@@ -1,12 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import {
-  DEL_CHAR_CODE,
-  ELLIPSIS_TOKEN,
-  FIRST_PRINTABLE_CHAR_CODE,
-  MAX_CLI_ARGUMENT_DISPLAY_LENGTH,
-} from "@/lib/sanitize-cli-argument";
+import { ELLIPSIS_TOKEN, MAX_CLI_ARGUMENT_DISPLAY_LENGTH } from "@/lib/sanitize-cli-argument";
 import {
   authoredText,
   externalToken,
@@ -17,15 +12,19 @@ import {
   terminal,
   type TerminalText,
 } from "@/lib/terminal-text/terminal-text";
-import { arbitraryTerminalUnsafeText } from "@testing/generators/terminal-text/terminal-text";
+import {
+  arbitraryTerminalEscapingCase,
+  arbitraryTerminalUnsafeText,
+  TERMINAL_ORACLE,
+} from "@testing/generators/terminal-text/terminal-text";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 describe("terminal text composition invariants", () => {
   it("renders an external segment with no control byte and no DEL", () => {
     assertProperty(arbitraryTerminalUnsafeText(), (input) => {
       for (const char of renderTerminalText(terminal`${externalValue(input)}`)) {
-        expect(char.codePointAt(0)).toBeGreaterThanOrEqual(FIRST_PRINTABLE_CHAR_CODE);
-        expect(char.codePointAt(0)).not.toBe(DEL_CHAR_CODE);
+        expect(char.codePointAt(0)).toBeGreaterThanOrEqual(TERMINAL_ORACLE.FIRST_PRINTABLE_CODE_POINT);
+        expect(char.codePointAt(0)).not.toBe(TERMINAL_ORACLE.DEL_CODE_POINT);
       }
     }, { level: PROPERTY_LEVEL.L1 });
   });
@@ -73,19 +72,21 @@ describe("terminal text composition invariants", () => {
 
   it("bounds an external display token to the display length, escaped, and ends a truncated one in the ellipsis", () => {
     assertProperty(
-      fc.tuple(arbitraryTerminalUnsafeText(), fc.integer({ min: 1, max: MAX_CLI_ARGUMENT_DISPLAY_LENGTH })),
-      ([input, repeat]) => {
+      fc.tuple(arbitraryTerminalEscapingCase(), fc.integer({ min: 1, max: MAX_CLI_ARGUMENT_DISPLAY_LENGTH })),
+      ([{ input, escaped }, repeat]) => {
         const value = input.repeat(repeat);
         const rendered = renderTerminalText(externalToken(value));
         for (const char of rendered) {
-          expect(char.codePointAt(0)).toBeGreaterThanOrEqual(FIRST_PRINTABLE_CHAR_CODE);
-          expect(char.codePointAt(0)).not.toBe(DEL_CHAR_CODE);
+          expect(char.codePointAt(0)).toBeGreaterThanOrEqual(TERMINAL_ORACLE.FIRST_PRINTABLE_CODE_POINT);
+          expect(char.codePointAt(0)).not.toBe(TERMINAL_ORACLE.DEL_CODE_POINT);
         }
         expect(rendered.length).toBeLessThanOrEqual(MAX_CLI_ARGUMENT_DISPLAY_LENGTH);
-        // The unbounded escape is the oracle for whether the bound had to cut: a value whose
-        // escaped form exceeds the display length ends in the ellipsis, and one within it does not.
-        const unbounded = renderTerminalText(externalValue(value));
-        expect(rendered.endsWith(ELLIPSIS_TOKEN)).toBe(unbounded.length > MAX_CLI_ARGUMENT_DISPLAY_LENGTH);
+        // Whether the bound had to cut is decided by the independently escaped form: each code
+        // point escapes on its own, so a repeated value's escape is the repeated escape, and the
+        // length that answers it is never computed by the escaper under test.
+        expect(rendered.endsWith(ELLIPSIS_TOKEN)).toBe(
+          escaped.repeat(repeat).length > MAX_CLI_ARGUMENT_DISPLAY_LENGTH,
+        );
       },
       { level: PROPERTY_LEVEL.L1 },
     );
@@ -103,9 +104,9 @@ describe("terminal text composition invariants", () => {
         for (const char of document) {
           const codePoint = char.codePointAt(0);
           if (codePoint !== LINE_FEED_CODE_POINT) {
-            expect(codePoint).toBeGreaterThanOrEqual(FIRST_PRINTABLE_CHAR_CODE);
+            expect(codePoint).toBeGreaterThanOrEqual(TERMINAL_ORACLE.FIRST_PRINTABLE_CODE_POINT);
           }
-          expect(codePoint).not.toBe(DEL_CHAR_CODE);
+          expect(codePoint).not.toBe(TERMINAL_ORACLE.DEL_CODE_POINT);
         }
         expect(JSON.parse(document)).toStrictEqual(value);
       },

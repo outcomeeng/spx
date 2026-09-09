@@ -10,6 +10,7 @@ import { type ControllingProcessEnv, resolveControllingProcess } from "@/domains
 import { createClaimOperationRecord, type OccupancyFileSystem, removeClaim } from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
 import { resolveCurrentWorktreeName, resolveWorktreesDir, type WorktreeScopeOptions } from "@/domains/worktree/resolve";
+import { authoredText, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
 export const WORKTREE_RELEASE_ERROR = {
   SESSION_UNRESOLVED: "worktree release session id could not be resolved",
@@ -29,9 +30,9 @@ export interface ReleaseCommandOptions extends WorktreeScopeOptions {
 }
 
 /** Removes the running worktree's claim. Idempotent — a missing claim is success. */
-export async function releaseCommand(options: ReleaseCommandOptions): Promise<Result<void>> {
+export async function releaseCommand(options: ReleaseCommandOptions): Promise<Result<void, TerminalText>> {
   const sessionId = resolveReleaseSessionId(options.sessionId, options.env);
-  if (sessionId === undefined) return { ok: false, error: WORKTREE_RELEASE_ERROR.SESSION_UNRESOLVED };
+  if (sessionId === undefined) return { ok: false, error: authoredText(WORKTREE_RELEASE_ERROR.SESSION_UNRESOLVED) };
   const controlling = resolveControllingProcess(options.selfPid, options.processTable, options.env);
   if (!controlling.ok) return controlling;
 

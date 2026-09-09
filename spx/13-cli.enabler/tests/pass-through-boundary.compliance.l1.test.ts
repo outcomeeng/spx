@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DEL_CHAR_CODE, FIRST_PRINTABLE_CHAR_CODE } from "@/lib/sanitize-cli-argument";
-import { arbitraryTerminalUnsafeText } from "@testing/generators/terminal-text/terminal-text";
+import { arbitraryTerminalUnsafeText, TERMINAL_ORACLE } from "@testing/generators/terminal-text/terminal-text";
 import { OUTPUT_CHANNEL_VERB, runOutputChannelVerb } from "@testing/harnesses/cli/output-channels";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
@@ -15,8 +14,8 @@ describe("the two channels of each standard stream", () => {
       // The bounds are the escaper's own published contract, so the expectation does not rerun
       // the escaper: whatever it turned each unsafe byte into, none may remain in the output.
       for (const char of composed) {
-        expect(char.codePointAt(0)).toBeGreaterThanOrEqual(FIRST_PRINTABLE_CHAR_CODE);
-        expect(char.codePointAt(0)).not.toBe(DEL_CHAR_CODE);
+        expect(char.codePointAt(0)).toBeGreaterThanOrEqual(TERMINAL_ORACLE.FIRST_PRINTABLE_CODE_POINT);
+        expect(char.codePointAt(0)).not.toBe(TERMINAL_ORACLE.DEL_CODE_POINT);
       }
       // The generator guarantees at least one terminal-unsafe byte, so escaping must have
       // changed the payload; an identity escaper would relay and compose the same bytes.
@@ -55,8 +54,8 @@ describe("the two channels of each standard stream", () => {
 
       expect(relayed).toBe(payload);
       for (const char of composed) {
-        expect(char.codePointAt(0)).toBeGreaterThanOrEqual(FIRST_PRINTABLE_CHAR_CODE);
-        expect(char.codePointAt(0)).not.toBe(DEL_CHAR_CODE);
+        expect(char.codePointAt(0)).toBeGreaterThanOrEqual(TERMINAL_ORACLE.FIRST_PRINTABLE_CODE_POINT);
+        expect(char.codePointAt(0)).not.toBe(TERMINAL_ORACLE.DEL_CODE_POINT);
       }
       expect(composed).not.toBe(relayed);
     }, { level: PROPERTY_LEVEL.L1 });
