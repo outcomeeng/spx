@@ -12,7 +12,11 @@ import {
   terminal,
   type TerminalText,
 } from "@/lib/terminal-text/terminal-text";
-import { arbitraryTerminalUnsafeText, TERMINAL_ORACLE } from "@testing/generators/terminal-text/terminal-text";
+import {
+  arbitraryTerminalEscapingCase,
+  arbitraryTerminalUnsafeText,
+  TERMINAL_ORACLE,
+} from "@testing/generators/terminal-text/terminal-text";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 describe("terminal text composition invariants", () => {
@@ -68,8 +72,8 @@ describe("terminal text composition invariants", () => {
 
   it("bounds an external display token to the display length, escaped, and ends a truncated one in the ellipsis", () => {
     assertProperty(
-      fc.tuple(arbitraryTerminalUnsafeText(), fc.integer({ min: 1, max: MAX_CLI_ARGUMENT_DISPLAY_LENGTH })),
-      ([input, repeat]) => {
+      fc.tuple(arbitraryTerminalEscapingCase(), fc.integer({ min: 1, max: MAX_CLI_ARGUMENT_DISPLAY_LENGTH })),
+      ([{ input, escaped }, repeat]) => {
         const value = input.repeat(repeat);
         const rendered = renderTerminalText(externalToken(value));
         for (const char of rendered) {
@@ -77,10 +81,12 @@ describe("terminal text composition invariants", () => {
           expect(char.codePointAt(0)).not.toBe(TERMINAL_ORACLE.DEL_CODE_POINT);
         }
         expect(rendered.length).toBeLessThanOrEqual(MAX_CLI_ARGUMENT_DISPLAY_LENGTH);
-        // The unbounded escape is the oracle for whether the bound had to cut: a value whose
-        // escaped form exceeds the display length ends in the ellipsis, and one within it does not.
-        const unbounded = renderTerminalText(externalValue(value));
-        expect(rendered.endsWith(ELLIPSIS_TOKEN)).toBe(unbounded.length > MAX_CLI_ARGUMENT_DISPLAY_LENGTH);
+        // Whether the bound had to cut is decided by the independently escaped form: each code
+        // point escapes on its own, so a repeated value's escape is the repeated escape, and the
+        // length that answers it is never computed by the escaper under test.
+        expect(rendered.endsWith(ELLIPSIS_TOKEN)).toBe(
+          escaped.repeat(repeat).length > MAX_CLI_ARGUMENT_DISPLAY_LENGTH,
+        );
       },
       { level: PROPERTY_LEVEL.L1 },
     );
