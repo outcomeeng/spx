@@ -6,7 +6,7 @@
  * the deterministic key that names what the caller asked for.
  */
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
-import { normalizeTargetOperand } from "@/lib/test-targeting";
+import { isProductRootOperand, normalizeTargetOperand } from "@/lib/test-targeting";
 
 const PATH_SEGMENT_SEPARATOR = "/";
 
@@ -28,7 +28,8 @@ function commonPrefix(paths: ReadonlyArray<readonly string[]>): readonly string[
 
 /**
  * The run selector for the given operands over the discovered test files: an operand naming a
- * discovered test file contributes its directory, any other operand contributes itself, and the
+ * discovered test file contributes its directory, an operand naming the product root contributes
+ * nothing because it encloses the whole tree, any other operand contributes itself, and the
  * selector is the directory those share — the spec-tree root when they share none or when no
  * operand was given.
  */
@@ -39,6 +40,10 @@ export function executeRunScopeIdentity(
   if (operands.length === 0) return SPEC_TREE_CONFIG.ROOT_DIRECTORY;
   const discovered = new Set(discoveredTestFiles);
   const enclosing = operands.map((operand) => {
+    // A product-root operand encloses the whole tree, so it contributes no segment; splitting its
+    // empty normalized form would instead yield one empty segment and name a root-relative key the
+    // recorder rejects.
+    if (isProductRootOperand(operand)) return [];
     const normalized = normalizeTargetOperand(operand);
     const segments = normalized.split(PATH_SEGMENT_SEPARATOR);
     return discovered.has(normalized) ? parentDirectorySegments(segments) : segments;

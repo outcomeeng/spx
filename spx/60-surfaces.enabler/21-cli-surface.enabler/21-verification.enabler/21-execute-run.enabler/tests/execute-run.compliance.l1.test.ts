@@ -11,6 +11,7 @@ import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
+import { TARGET_OPERAND } from "@/lib/test-targeting";
 import { JOURNAL_RUN_TERMINAL_STATUS } from "@/test/languages/types";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { sampleGeneratedValue } from "@testing/generators/sample";
@@ -87,6 +88,28 @@ describe("execute run compliance", () => {
       return posix.relative(enclosing, nodePath).split(posix.sep)[0];
     });
     expect(new Set(remainders).size).toBe(remainders.length);
+
+    // The recursive modifier widens a node operand to its subtree; the node still encloses every
+    // file it selects, so the selector is that node.
+    const recursiveNode = await observeExecuteRunHandler({
+      selectOperands: (product) => [product.nodePaths[1]],
+      recursive: true,
+    });
+    expect(recursiveNode.recursive).toBe(true);
+    expect(recursiveNode.diagnostic).toBeUndefined();
+    expect(recursiveNode.report?.testPaths).toEqual([recursiveNode.product.testPaths[1]]);
+    expect(recursiveNode.report?.locator.scopeIdentity).toBe(recursiveNode.product.nodePaths[1]);
+
+    // The product-root operand encloses the whole tree, so it selects every discovered file and
+    // records the same selector the operandless invocation records — it narrows nothing.
+    const rootOperand = await observeExecuteRunHandler({
+      selectOperands: () => [TARGET_OPERAND.PRODUCT_ROOT],
+      recursive: true,
+    });
+    expect(rootOperand.diagnostic).toBeUndefined();
+    expect(rootOperand.report?.testPaths).toEqual([...rootOperand.product.testPaths].sort(compareAsciiStrings));
+    expect(rootOperand.report?.locator.scopeIdentity).toBe(SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+    expect(rootOperand.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
 
     const descriptor = await observeExecuteRunDescriptor(
       fileOperand.product.testPaths,
