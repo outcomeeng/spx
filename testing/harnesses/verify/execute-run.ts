@@ -107,16 +107,22 @@ export function inspectExecuteRunCommandTree(): ExecuteRunCommandTreeObservation
   };
 }
 
-/** A temp product's generated spec-tree layout: two distinct nodes, each holding one TypeScript test file. */
+/**
+ * A temp product's generated spec-tree layout: two distinct nodes, each holding one TypeScript test
+ * file, and a descendant node under the second holding a third — the shape a recursive operand
+ * widens to and a default node operand leaves out.
+ */
 export interface GeneratedTestProduct {
   /** The product root — the canonical path of the temp directory, as git resolves it when the product is a repository. */
   readonly productDir: string;
   /** Whether the product directory was initialized as a git repository. */
   readonly gitRepository: boolean;
-  /** The two nodes as product-root paths — the operand form a caller passes, e.g. `spx/<node>`. */
+  /** The two top-level nodes as product-root paths — the operand form a caller passes, e.g. `spx/<node>`. */
   readonly nodePaths: readonly [string, string];
-  /** The two test files as product-root paths, one under each node's `tests/`. */
-  readonly testPaths: readonly [string, string];
+  /** The descendant node under the second top-level node, as a product-root path. */
+  readonly descendantNodePath: string;
+  /** Every test file as a product-root path: the first node's, the second node's, then the descendant's. */
+  readonly testPaths: readonly [string, string, string];
 }
 
 const PATH_SEPARATOR = "/";
@@ -131,17 +137,23 @@ async function materializeTestProduct(tempDir: string, gitRepository: boolean): 
   if (gitRepository) await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET], { cwd: tempDir });
   const productDir = await realpath(tempDir);
   const [firstNode, secondNode] = sampleGeneratedValue(TEST_DISPATCH_GENERATOR.distinctNodePaths());
+  const descendantNode = sampleGeneratedValue(TEST_DISPATCH_GENERATOR.descendantOf(secondNode));
   const firstTest = sampleGeneratedValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, firstNode));
   const secondTest = sampleGeneratedValue(
     TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, secondNode),
   );
+  const descendantTest = sampleGeneratedValue(
+    TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, descendantNode),
+  );
   await writeTestFileFixture(productDir, firstTest);
   await writeTestFileFixture(productDir, secondTest);
+  await writeTestFileFixture(productDir, descendantTest);
   return {
     productDir,
     gitRepository,
     nodePaths: [productRootNodePath(firstNode), productRootNodePath(secondNode)],
-    testPaths: [firstTest, secondTest],
+    descendantNodePath: productRootNodePath(descendantNode),
+    testPaths: [firstTest, secondTest, descendantTest],
   };
 }
 
