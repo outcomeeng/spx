@@ -11,6 +11,13 @@ This node materializes `audit` as an independent verification type sibling of `r
 - Audit evidence schema, validation, stable producer identity, and producer provenance: `spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/PLAN.md`.
 - Audit scope projection, terminal rollup, and prior-context selectors: `spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/32-audit-run-projection.enabler/PLAN.md`.
 
+## Node-level evidence
+
+`spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/audit.md` links its command-surface
+assertions to `tests/audit-command-surface.compliance.l1.test.ts`, which the node does not yet
+carry, so `spx/EXCLUDE` covers this node while its children carry passing evidence. Write that
+evidence and remove the exclusion entry when the command-surface assertions are applied.
+
 ## Ordering evidence
 
 | Predecessor                                                                                      | Basis               | Successor                                                                                        | Reason                                                                                                                                                                                            |

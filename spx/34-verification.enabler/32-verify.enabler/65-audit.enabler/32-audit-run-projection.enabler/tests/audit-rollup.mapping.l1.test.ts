@@ -9,6 +9,7 @@ import {
 } from "@/domains/verify/verify";
 import {
   arbitraryAuditChangesetProjectionScenario,
+  arbitraryChangesetCoherenceScenario,
   arbitraryFileAuditScopeScenario,
 } from "@testing/generators/verify/audit";
 import { sampleVerifyTestValue } from "@testing/generators/verify/verify";
@@ -153,6 +154,20 @@ describe("audit terminal rollup", () => {
         value: undefined,
       })),
     );
+  });
+
+  it("maps more than one recorded review unit to rejected", () => {
+    expect(validateAuditTerminal({
+      terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED,
+      events: [
+        sampleVerifyTestValue(arbitraryChangesetCoherenceScenario()).rootEvent,
+        ...sampleVerifyTestValue(arbitraryChangesetCoherenceScenario()).reviewUnitEvents,
+      ],
+      selector: {
+        scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+        scopeIdentity: sampleVerifyTestValue(arbitraryChangesetCoherenceScenario()).scopeIdentity,
+      },
+    })).toStrictEqual({ ok: true, value: undefined });
   });
 
   it("maps a mismatched file root to rejected", () => {
