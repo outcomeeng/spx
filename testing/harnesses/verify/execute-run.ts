@@ -197,6 +197,8 @@ export interface ExecuteRunHandlerObservation {
   /** The directories the recorder's worktree-root probes ran in during the handler's run. */
   readonly recorderProbeCwds: readonly string[];
   readonly operands: readonly string[];
+  /** Whether the drive widened node operands to their subtrees. */
+  readonly recursive: boolean;
   readonly invocation: JournalRunInvocation;
   readonly exitCode: number;
   readonly report: ExecuteRunReport | undefined;
@@ -226,6 +228,8 @@ export interface ExecuteRunHandlerDrive {
   readonly selectInvocationDir?: (product: GeneratedTestProduct) => string;
   /** Whether the generated product is a git repository; defaults to true. */
   readonly gitRepository?: boolean;
+  /** Whether a node-path operand selects its whole subtree; defaults to false. */
+  readonly recursive?: boolean;
   /** The invocation the controlled runner yields; defaults to the first invoked invocation. */
   readonly invocation?: JournalRunInvocation;
 }
@@ -243,6 +247,7 @@ function resolvedDrive(drive: ExecuteRunHandlerDrive): Required<ExecuteRunHandle
     selectOperands: drive.selectOperands ?? (() => []),
     selectInvocationDir: drive.selectInvocationDir ?? invokeFromProductRoot,
     gitRepository: drive.gitRepository ?? true,
+    recursive: drive.recursive ?? false,
     invocation: drive.invocation ?? invokedInvocations()[0],
   };
 }
@@ -290,7 +295,7 @@ async function driveExecuteRun(drive: ExecuteRunDrive): Promise<ExecuteRunHandle
     const controlled = controlledRunner(invocation);
 
     const result = await executeRunCommand(
-      { verificationType: drive.verificationType, operands, recursive: false },
+      { verificationType: drive.verificationType, operands, recursive: drive.recursive },
       { cwd: invocationDir, resolveRunner: drive.resolveRunner(controlled), recorder: recorderDeps },
     );
     const recorderProbeCwds = [...probes.probeCwds()];
@@ -311,6 +316,7 @@ async function driveExecuteRun(drive: ExecuteRunDrive): Promise<ExecuteRunHandle
       invocationDir,
       recorderProbeCwds,
       operands,
+      recursive: drive.recursive,
       invocation,
       exitCode: result.exitCode,
       report: result.report,
