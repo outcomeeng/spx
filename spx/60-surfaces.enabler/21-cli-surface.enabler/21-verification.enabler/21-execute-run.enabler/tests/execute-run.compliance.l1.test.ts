@@ -115,16 +115,19 @@ describe("execute run compliance", () => {
     expect(recursiveNode.product.descendantNodePath.startsWith(`${recursiveNode.product.nodePaths[1]}${posix.sep}`))
       .toBe(true);
 
-    // The product-root operand encloses the whole tree, so it selects every discovered file and
-    // records the same selector the operandless invocation records — it narrows nothing.
-    const rootOperand = await observeExecuteRunHandler({
-      selectOperands: () => [TARGET_OPERAND.PRODUCT_ROOT],
-      recursive: true,
-    });
-    expect(rootOperand.diagnostic).toBeUndefined();
-    expect(rootOperand.report?.testPaths).toEqual([...rootOperand.product.testPaths].sort(compareAsciiStrings));
-    expect(rootOperand.report?.locator.scopeIdentity).toBe(SPEC_TREE_CONFIG.ROOT_DIRECTORY);
-    expect(rootOperand.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    // The product-root operand encloses the whole tree, so whether or not it recurses it selects
+    // every discovered file and records the same selector the operandless invocation records — it
+    // narrows nothing.
+    for (const recursive of [false, true]) {
+      const rootOperand = await observeExecuteRunHandler({
+        selectOperands: () => [TARGET_OPERAND.PRODUCT_ROOT],
+        recursive,
+      });
+      expect(rootOperand.diagnostic).toBeUndefined();
+      expect(rootOperand.report?.testPaths).toEqual([...rootOperand.product.testPaths].sort(compareAsciiStrings));
+      expect(rootOperand.report?.locator.scopeIdentity).toBe(SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+      expect(rootOperand.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    }
 
     const descriptor = await observeExecuteRunDescriptor(
       fileOperand.product.testPaths,

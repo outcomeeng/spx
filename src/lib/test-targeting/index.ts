@@ -45,8 +45,10 @@ export function normalizeTargetOperand(operand: string): string {
   return normalizePathPrefix(operand);
 }
 
-// A single operand's matches against the discovered set. An exact file operand, or
-// any operand under `recursive`, uses the operand itself as the include prefix — it
+// A single operand's matches against the discovered set. An operand naming the
+// product root encloses the whole tree, so it selects every discovered file and the
+// recursive modifier has nothing left to widen. An exact file operand, or any other
+// operand under `recursive`, uses the operand itself as the include prefix — it
 // matches the file exactly or the whole node subtree. A default node operand uses
 // the node's own `tests/` directory as the prefix, so a descendant node's `tests/`
 // under `{operand}/{child}/` is left out.
@@ -56,6 +58,7 @@ function matchOperand(
   recursive: boolean,
 ): readonly string[] {
   const normalized = normalizeTargetOperand(operand);
+  if (normalized.length === 0) return [...discovered];
   if (recursive || discovered.includes(normalized)) {
     return applyPathFilter(discovered, { include: [normalized] });
   }
@@ -67,8 +70,9 @@ function matchOperand(
 /**
  * Resolves explicit caller operands against the discovered test-file set. Each
  * operand selects a test-file path exactly, a node's own `tests/` files, or — under
- * `recursive` — the node's whole subtree; an operand matching no discovered file is
- * reported as unresolved. The selected set is the deduplicated, ascending union
+ * `recursive` — the node's whole subtree; an operand naming the product root selects
+ * every discovered file, and an operand matching no discovered file is reported as
+ * unresolved. The selected set is the deduplicated, ascending union
  * across operands, so resolution is independent of operand order and repetition.
  */
 export function resolveTargetedTestFiles(

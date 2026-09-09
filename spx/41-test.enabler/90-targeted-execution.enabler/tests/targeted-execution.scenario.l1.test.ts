@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { type RecordedTestRun, runTests, type TestDispatchResult } from "@/commands/test";
 import { UNSUPPORTED_TEST_SELECTION_EXIT_CODE } from "@/domains/test";
 import { TESTING_CLI } from "@/interfaces/cli/test";
-import { resolveTargetedTestFiles } from "@/lib/test-targeting";
+import { resolveTargetedTestFiles, TARGET_OPERAND } from "@/lib/test-targeting";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { testingRegistry } from "@/test/registry";
 import { TEST_RUN_STATE_FIELDS, TEST_RUN_STATE_STATUS } from "@/test/run-state";
@@ -48,6 +48,23 @@ function recordedRun(dispatch: TestDispatchResult): RecordedTestRun {
 }
 
 describe("targeted execution operand resolution", () => {
+  it("selects every discovered file for a product-root operand, recursive or not", () => {
+    const [nodeA, nodeB] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.distinctNodePaths());
+    const fileA = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodeA));
+    const fileB = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodeB));
+    const discovered = [fileA, fileB];
+
+    for (const recursive of [false, true]) {
+      const resolution = resolveTargetedTestFiles(discovered, {
+        operands: [TARGET_OPERAND.PRODUCT_ROOT],
+        recursive,
+      });
+
+      expect(new Set(resolution.selected)).toEqual(new Set(discovered));
+      expect(resolution.unresolved).toEqual([]);
+    }
+  });
+
   it("selects a test-file-path operand's own file and nothing else", () => {
     const [nodeA, nodeB] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.distinctNodePaths());
     const fileA = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodeA));
