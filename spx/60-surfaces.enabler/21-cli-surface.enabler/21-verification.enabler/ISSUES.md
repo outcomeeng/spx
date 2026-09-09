@@ -32,7 +32,7 @@ This node's terminal output path passes values that originated outside the produ
 
 **Unescaped sites:**
 
-- `src/interfaces/cli/verify.ts` — the caller-driven `spx verification run` command paths' output — git refs and journal file content; the spx-driven `spx verification <type> run` path composes its diagnostics through the primitive and writes its structured result verbatim to standard output
+- `src/interfaces/cli/verify.ts` — the caller-driven `spx verification run` command paths' output — git refs and journal file content; the spx-driven `spx verification <type> run` path composes its warning and diagnostics through the primitive and serializes its structured result through the primitive's JSON composition, so it carries none of this debt
 
 **Impact:** a value carrying an escape byte (`0x1b`) can reposition the cursor, recolor the terminal, or clear the screen; a value carrying a line feed can forge an additional diagnostic line that reads as if spx emitted it. Whoever controls the named origins controls those bytes.
 
