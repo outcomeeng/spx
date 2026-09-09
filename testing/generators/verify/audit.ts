@@ -158,6 +158,13 @@ function arbitraryExecutedAuditScopeUnit(): fc.Arbitrary<AuditScopeUnit> {
   }));
 }
 
+function arbitraryChangesetClassAuditScopeUnit(): fc.Arbitrary<AuditScopeUnit> {
+  return fc
+    .tuple(fc.constantFrom(AUDIT_KIND.COHERENCE, AUDIT_KIND.REVIEW_UNIT), arbitraryAuditScopeFields())
+    .map(([auditKind, fields]) => ({ ...fields, auditClass: AUDIT_CLASS.CHANGESET, auditKind }))
+    .filter((unit) => unit.parentUnitId !== unit.unitId);
+}
+
 export function arbitraryAuditFinding(): fc.Arbitrary<AuditFinding> {
   return fc.record({
     unitId: STATE_STORE_TEST_GENERATOR.scopeToken(),
@@ -181,6 +188,7 @@ function auditScopePayload(unit: AuditScopeUnit): JsonValue {
 export function arbitraryAuditScopePayload(): fc.Arbitrary<JsonValue> {
   return fc.oneof(
     arbitraryAuditScopeUnit().map(auditScopePayload),
+    arbitraryChangesetClassAuditScopeUnit().map(auditScopePayload),
     arbitraryAuditScopeUnit().map(({ producerProvenance: _producerProvenance, ...unit }) =>
       structuredClone(unit) as unknown as JsonValue
     ),
@@ -738,10 +746,11 @@ export function arbitraryChangesetCoherenceScenario(): fc.Arbitrary<ChangesetCoh
       VERIFY_TEST_GENERATOR.changesetScopeScenario(),
       arbitraryAuditScopeFieldsForChangeset(),
       fc.uniqueArray(STATE_STORE_TEST_GENERATOR.scopeToken(), { minLength: 6, maxLength: 8 }),
-      fc.array(fc.constantFrom(...AUDIT_COVERED_COVERAGE_STATUSES), { minLength: 2, maxLength: 5 }),
+      fc.array(fc.constantFrom(...AUDIT_COVERAGE_STATUSES), { minLength: 2, maxLength: 5 }),
       arbitrarySourceFilePath(),
       arbitraryAuditFinding(),
       arbitraryExecutedAuditScopeUnit(),
+      fc.constantFrom(...AUDIT_COVERED_COVERAGE_STATUSES),
     )
     .filter(([_changeset, root, unitIds, _statuses, fileScopeIdentity, _finding, unrooted]) =>
       !unitIds.includes(root.unitId)
@@ -749,7 +758,7 @@ export function arbitraryChangesetCoherenceScenario(): fc.Arbitrary<ChangesetCoh
       && root.unitId !== unrooted.unitId
       && !fileScopeIdentity.includes(VERIFY_SCOPE_SEPARATOR)
     )
-    .map(([changeset, rootFields, unitIds, statuses, fileScopeIdentity, finding, unrooted]) => {
+    .map(([changeset, rootFields, unitIds, statuses, fileScopeIdentity, finding, unrooted, soleStatus]) => {
       const scopeIdentity = `${changeset.range.base}${VERIFY_SCOPE_SEPARATOR}${changeset.range.head}`;
       const root: AuditScopeUnit = { ...rootFields, subject: scopeIdentity };
       const { producerProvenance: _rootProvenance, ...rootWithoutProvenance } = root;
@@ -769,7 +778,10 @@ export function arbitraryChangesetCoherenceScenario(): fc.Arbitrary<ChangesetCoh
       const uniqueReviewUnits = reviewUnits.filter(
         (unit, index) => reviewUnits.findIndex((other) => other.unitId === unit.unitId) === index,
       );
-      const soleReviewUnit = uniqueReviewUnits[0] ?? { ...root, auditKind: AUDIT_KIND.REVIEW_UNIT };
+      const soleReviewUnit = {
+        ...(uniqueReviewUnits[0] ?? { ...root, auditKind: AUDIT_KIND.REVIEW_UNIT }),
+        coverageStatus: soleStatus,
+      };
       return {
         scopeIdentity,
         fileScopeIdentity,
