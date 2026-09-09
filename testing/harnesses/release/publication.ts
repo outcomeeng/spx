@@ -13,6 +13,7 @@ import {
   type HostedReleasePublisher,
   type PackagePublication,
   type PackagePublisher,
+  type PublicationDelay,
   publishRelease,
   type PublishReleaseInput,
 } from "@/domains/release/publication";
@@ -115,6 +116,50 @@ export function createPublicationHarness(
   return {
     publish: () => publishRelease(publicationInput(scenario, packagePublisher, hostedReleasePublisher)),
     observe: () => publicationObservation(scenario, packagePublisher, hostedReleasePublisher),
+  };
+}
+
+/** The message a rejected publication carried, for evidence that reads the failure text. */
+export function publicationFailureMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+export interface ConfirmationRetryObservation extends PublicationObservation {
+  /** The error the publication rejected with; undefined when it confirmed. */
+  readonly error: unknown;
+  /** The waits the confirmation asked for, in order. */
+  readonly waits: readonly number[];
+}
+
+/**
+ * Drives a publication whose registry serves one record per confirmation attempt,
+ * so the confirmation's reads, waits, and hosted-release request are observable
+ * over a schedule no test spends.
+ */
+export async function observeConfirmationRetry(
+  scenario: PublicationScenario & { readonly postPublishStates: readonly (PackagePublication | null)[] },
+): Promise<ConfirmationRetryObservation> {
+  const sequence = new PublicationRequestSequence();
+  const packagePublisher = new RecordingPackagePublisher(
+    scenario.existingPackage,
+    sequence,
+    (publication) => publication,
+    scenario.postPublishStates,
+  );
+  const hostedReleasePublisher = new RecordingHostedReleasePublisher(scenario.existingHostedRelease, sequence);
+  const recorded = recordingDelay();
+  let error: unknown;
+  try {
+    await publishRelease(
+      publicationInput(scenario, packagePublisher, hostedReleasePublisher, recorded.delay),
+    );
+  } catch (caught) {
+    error = caught;
+  }
+  return {
+    ...publicationObservation(scenario, packagePublisher, hostedReleasePublisher),
+    error,
+    waits: recorded.waits,
   };
 }
 
@@ -334,6 +379,7 @@ export function createPublishReleaseCommandHarness(scenario: PublicationScenario
         },
       },
       {
+        delay: recordingDelay().delay,
         readPackageIdentity: (productDir) => {
           packageIdentityProductDirs.push(productDir);
           return Promise.resolve({
@@ -454,11 +500,20 @@ class RecordingPackagePublisher implements PackagePublisher {
     private current: PackagePublication | null,
     private readonly sequence: PublicationRequestSequence,
     private readonly registryStateAfterPublish: (publication: PackagePublication) => PackagePublication | null,
+    private readonly postPublishStates: readonly (PackagePublication | null)[] = [],
   ) {}
 
   inspect(publication: PackagePublication): Promise<PackagePublication | null> {
     this.inspectRequests.push(this.sequence.record(publication));
-    return Promise.resolve(this.current);
+    // The first read is the dispatch's own pre-check and sees the registry as it
+    // stands. Every read after it is a confirmation attempt, served one state at a
+    // time so a scenario can stage propagation whether or not this dispatch
+    // published; the last state repeats once the sequence is exhausted.
+    if (this.postPublishStates.length === 0 || this.inspectRequests.length === 1) {
+      return Promise.resolve(this.current);
+    }
+    const index = Math.min(this.inspectRequests.length - 2, this.postPublishStates.length - 1);
+    return Promise.resolve(this.postPublishStates[index]);
   }
 
   publish(publication: PackagePublication): Promise<void> {
@@ -495,6 +550,7 @@ function publicationInput(
   scenario: PublicationScenario,
   packagePublisher: PackagePublisher,
   hostedReleasePublisher: HostedReleasePublisher,
+  delay: PublicationDelay = recordingDelay().delay,
 ): PublishReleaseInput {
   return {
     releaseData: scenario.releaseData,
@@ -505,6 +561,29 @@ function publicationInput(
     packageName: scenario.packagePublication.name,
     packagePublisher,
     hostedReleasePublisher,
+    delay,
+  };
+}
+
+export interface RecordingDelay {
+  /** The waits the confirmation asked for, in the order it asked for them. */
+  readonly waits: number[];
+  readonly delay: PublicationDelay;
+}
+
+/**
+ * The confirmation's wait boundary, recorded rather than spent. Evidence observes
+ * the backoff schedule and the attempt count without holding a test for the ten
+ * minutes the production schedule spans.
+ */
+export function recordingDelay(): RecordingDelay {
+  const waits: number[] = [];
+  return {
+    waits,
+    delay: (milliseconds) => {
+      waits.push(milliseconds);
+      return Promise.resolve();
+    },
   };
 }
 

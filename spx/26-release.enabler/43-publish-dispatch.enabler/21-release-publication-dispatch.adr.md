@@ -20,6 +20,7 @@ One product operation keeps registry identity checks, changelog-section extracti
 ### Testing
 
 - ALWAYS: package publication confirmation compares an existing registry record with the verified package name, version, tagged commit identity, and provenance requirements before treating the package as published ([compliance])
+- ALWAYS: a fresh publication's confirmation classifies each read before it waits — no record yet, or a record matching the verified name, version, and tagged commit but carrying no provenance, is re-read under a bounded backoff, while a record naming another name, version, or commit fails at once with the differing field named, and an exhausted backoff fails the publication with the hosted release unchanged ([compliance])
 - ALWAYS: changelog-section extraction returns the exact validated section for the verified release version and rejects changelogs that omit that version or define it more than once ([compliance])
 - ALWAYS: GitHub Release reconciliation derives the tag, title, target commit, and body from verified release inputs and performs an idempotent create-or-update operation only after package confirmation succeeds ([compliance])
 - NEVER: a package publication is attempted from a product checkout whose head is not the tagged commit — publication fails before any package-registry or repository-host request ([compliance])
@@ -27,7 +28,7 @@ One product operation keeps registry identity checks, changelog-section extracti
 
 ### Audit
 
-- ALWAYS: release-publication orchestration receives typed release data, a validated changelog section, a package publisher, and a repository-host release publisher through explicit inputs and injected interfaces ([audit])
+- ALWAYS: release-publication orchestration receives typed release data, a validated changelog section, a package publisher, a repository-host release publisher, and the confirmation's wait between attempts through explicit inputs and injected interfaces, so the orchestration holds no timer of its own ([audit])
 - ALWAYS: package-registry and repository-host transport mechanics live with their owning backend concerns behind the injected publication boundaries ([audit])
 - NEVER: publication orchestration invokes a model, regenerates release prose, or accepts independently authored GitHub Release content ([audit])
 - NEVER: workflow scripts reimplement release identity checks, changelog-section extraction, retry classification, or hosted-release reconciliation owned by `spx release publish` ([audit])

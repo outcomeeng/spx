@@ -2,8 +2,11 @@ import * as fc from "fast-check";
 
 import {
   type HostedRelease,
+  PACKAGE_IDENTITY_FIELDS,
   PACKAGE_PROVENANCE,
+  type PackageIdentityField,
   type PackagePublication,
+  PUBLICATION_CONFIRMATION_BACKOFF_MS,
   releaseTagForVersion,
 } from "@/domains/release/publication";
 import {
@@ -209,6 +212,116 @@ export function arbitraryPublicationConfirmationFailureScenario(): fc.Arbitrary<
         existingHostedRelease: { ...scenario.expectedHostedRelease, body: staleBody },
         confirmedPackage,
       }))
+  );
+}
+
+/**
+ * A fresh publication whose registry record carries the release identity but no
+ * provenance for the first reads, then carries provenance. The registry exposes a
+ * new version's metadata before its attestation, so the confirmation must read
+ * past the early reads rather than treat the first one as the verdict.
+ */
+export interface PublicationProvenanceLagScenario extends PublicationScenario {
+  /** The records the registry serves after publication, one per confirmation attempt. */
+  readonly postPublishStates: readonly (PackagePublication | null)[];
+  /** The number of reads that precede the one carrying provenance. */
+  readonly lateReads: number;
+}
+
+export function arbitraryPublicationProvenanceLagScenario(): fc.Arbitrary<PublicationProvenanceLagScenario> {
+  return arbitraryPublicationBase().chain((scenario) =>
+    fc
+      .array(fc.boolean(), { minLength: 1, maxLength: PUBLICATION_CONFIRMATION_BACKOFF_MS.length })
+      .map((earlyReadIsAbsent) => ({
+        ...scenario,
+        existingPackage: null,
+        existingHostedRelease: null,
+        lateReads: earlyReadIsAbsent.length,
+        // Both early outcomes the registry can serve after a publish: no record
+        // yet, and a record whose attestation has not appeared. Each is retried.
+        postPublishStates: [
+          ...earlyReadIsAbsent.map((absent) =>
+            absent ? null : { ...scenario.packagePublication, provenance: PACKAGE_PROVENANCE.UNVERIFIED }
+          ),
+          scenario.packagePublication,
+        ],
+      }))
+  );
+}
+
+/**
+ * A fresh publication whose registry record names a different commit. No wait
+ * makes a mismatched identity correct, so the confirmation reports it without
+ * consuming the backoff.
+ */
+export interface PublicationPostPublishIdentityScenario extends PublicationScenario {
+  readonly postPublishStates: readonly PackagePublication[];
+  /** The identity field the served record differs on, and both of its values. */
+  readonly differingField: {
+    readonly served: string;
+    readonly verified: string;
+  };
+}
+
+/**
+ * A dispatch resumed after a prior run published: the registry already holds the
+ * record, and its attestation appears only after the first reads. Nothing is
+ * published again, and the confirmation waits the propagation out.
+ */
+export interface PublicationResumedProvenanceLagScenario extends PublicationScenario {
+  readonly postPublishStates: readonly (PackagePublication | null)[];
+  readonly lateReads: number;
+}
+
+export function arbitraryPublicationResumedProvenanceLagScenario(): fc.Arbitrary<
+  PublicationResumedProvenanceLagScenario
+> {
+  return arbitraryPublicationBase().chain((scenario) =>
+    fc
+      .integer({ min: 1, max: PUBLICATION_CONFIRMATION_BACKOFF_MS.length })
+      .map((lateReads) => ({
+        ...scenario,
+        existingPackage: { ...scenario.packagePublication, provenance: PACKAGE_PROVENANCE.UNVERIFIED },
+        existingHostedRelease: null,
+        lateReads,
+        postPublishStates: [
+          ...Array.from({ length: lateReads }, () => ({
+            ...scenario.packagePublication,
+            provenance: PACKAGE_PROVENANCE.UNVERIFIED,
+          })),
+          scenario.packagePublication,
+        ],
+      }))
+  );
+}
+
+export function arbitraryPublicationPostPublishIdentityScenario(): fc.Arbitrary<
+  PublicationPostPublishIdentityScenario
+> {
+  return arbitraryPublicationBase().chain((scenario) =>
+    fc
+      .record({
+        name: arbitraryDomainLiteral().filter((name) => name !== scenario.packagePublication.name),
+        version: RELEASE_TEST_GENERATOR.distinctSemverFrom(scenario.packagePublication.version),
+        field: fc.constantFrom(...PACKAGE_IDENTITY_FIELDS),
+      })
+      .map(({ name, version, field }) => {
+        const served: Record<PackageIdentityField, string> = {
+          name,
+          version,
+          commit: requireDistinctCommit(scenario.releaseData, scenario.taggedCommit),
+        };
+        return {
+          ...scenario,
+          existingPackage: null,
+          existingHostedRelease: null,
+          postPublishStates: [{ ...scenario.packagePublication, [field]: served[field] }],
+          differingField: {
+            served: served[field],
+            verified: scenario.packagePublication[field],
+          },
+        };
+      })
   );
 }
 

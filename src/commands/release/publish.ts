@@ -2,6 +2,7 @@ import {
   committedChangelogTreePath,
   type HostedReleasePublisher,
   type PackagePublisher,
+  type PublicationDelay,
   publishRelease,
   ReleasePublicationError,
 } from "@/domains/release/publication";
@@ -33,6 +34,8 @@ export interface PublishReleasePublishers {
 
 export interface PublishReleaseCommandDependencies {
   readonly readPackageIdentity: (productDir: string) => Promise<PackageIdentity>;
+  /** The wait between publication-confirmation attempts; the domain stays free of timers. */
+  readonly delay: PublicationDelay;
   /** Resolves a ref — the release tag, or the checkout's head — to the commit it names; rejects a ref naming no commit. */
   readonly resolveCommit: (productDir: string, ref: string) => Promise<string>;
   readonly resolveReleaseData: (productDir: string, version: string, tag: string) => Promise<ReleaseData>;
@@ -42,6 +45,11 @@ export interface PublishReleaseCommandDependencies {
 
 export const DEFAULT_PUBLISH_RELEASE_COMMAND_DEPENDENCIES: PublishReleaseCommandDependencies = {
   readPackageIdentity,
+  delay: async (milliseconds) => {
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, milliseconds);
+    });
+  },
   resolveCommit: async (productDir, ref) => {
     // `--verify` fails unless the operand names exactly one object, and
     // `--end-of-options` keeps an option-shaped operand from being echoed back
@@ -95,6 +103,7 @@ export async function publishReleaseCommand(
     packageName: packageIdentity.name,
     packagePublisher: publishers.createPackagePublisher(options.productDir),
     hostedReleasePublisher: publishers.createHostedReleasePublisher(options.productDir),
+    delay: deps.delay,
   });
   return tag;
 }

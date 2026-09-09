@@ -24,6 +24,15 @@ export interface PackagePublication {
   readonly provenance: PackageProvenance;
 }
 
+/**
+ * The fields that name which release a registry record is. A record differing on
+ * any of them is another release, which no wait repairs; provenance is excluded
+ * because it is the one field that arrives late on a correct record.
+ */
+export const PACKAGE_IDENTITY_FIELDS = ["name", "version", "commit"] as const;
+
+export type PackageIdentityField = (typeof PACKAGE_IDENTITY_FIELDS)[number];
+
 export interface HostedRelease {
   readonly tag: string;
   readonly title: string;
@@ -55,7 +64,36 @@ export interface PublishReleaseInput {
   readonly packageName: string;
   readonly packagePublisher: PackagePublisher;
   readonly hostedReleasePublisher: HostedReleasePublisher;
+  /**
+   * The injected wait between confirmation attempts. Production sleeps; evidence
+   * passes a controlled implementation that records the requested delays without
+   * spending them, so the backoff schedule is observable without wall-clock time.
+   */
+  readonly delay: PublicationDelay;
 }
+
+/** Waits the requested number of milliseconds before the next confirmation attempt. */
+export type PublicationDelay = (milliseconds: number) => Promise<void>;
+
+/**
+ * The confirmation backoff. A freshly published version is readable from the
+ * registry before its provenance attestation is, so the first re-read can see a
+ * record that is correct in every compared field except provenance. Each entry is
+ * the wait before the next attempt; the schedule spans roughly ten minutes, which
+ * absorbs registry propagation while still failing a release that never reaches
+ * the registry.
+ */
+export const PUBLICATION_CONFIRMATION_BACKOFF_MS = [
+  2_000,
+  3_000,
+  6_000,
+  12_000,
+  24_000,
+  48_000,
+  96_000,
+  192_000,
+  217_000,
+] as const;
 
 export class ReleasePublicationError extends Error {
   constructor(message: string) {
@@ -102,10 +140,30 @@ export function packagePublicationMatches(
   expected: PackagePublication,
   actual: PackagePublication,
 ): boolean {
-  return actual.name === expected.name
-    && actual.version === expected.version
-    && actual.commit === expected.commit
+  return packagePublicationIdentityMatches(expected, actual)
     && actual.provenance === expected.provenance;
+}
+
+/**
+ * Whether the record names the release the publication verified. Identity is the
+ * dimension a wait can never repair: a record naming another package, version, or
+ * commit is a defect to report, not a registry that has yet to catch up.
+ */
+export function packagePublicationIdentityMatches(
+  expected: PackagePublication,
+  actual: PackagePublication,
+): boolean {
+  return PACKAGE_IDENTITY_FIELDS.every((field) => actual[field] === expected[field]);
+}
+
+/** The first identity field the registry record disagrees with, for the failure message. */
+function packageIdentityMismatch(
+  expected: PackagePublication,
+  actual: PackagePublication,
+): string {
+  const field = PACKAGE_IDENTITY_FIELDS.find((candidate) => actual[candidate] !== expected[candidate]);
+  if (field === undefined) return "no identity field differs";
+  return `${field} ${actual[field]} is not ${expected[field]}`;
 }
 
 export function hostedReleaseFor(
@@ -141,20 +199,58 @@ export async function publishRelease(input: PublishReleaseInput): Promise<void> 
   };
 
   const existingPackage = await input.packagePublisher.inspect(expectedPackage);
-  if (existingPackage !== null && !packagePublicationMatches(expectedPackage, existingPackage)) {
-    throw new ReleasePublicationError("Published package does not match the verified release identity");
+  if (existingPackage !== null && !packagePublicationIdentityMatches(expectedPackage, existingPackage)) {
+    throw new ReleasePublicationError(
+      `Published package does not match the verified release identity: ${
+        packageIdentityMismatch(expectedPackage, existingPackage)
+      }`,
+    );
   }
   if (existingPackage === null) {
     await input.packagePublisher.publish(expectedPackage);
   }
 
-  // An already-published matching record is its own confirmation; only a fresh publish is re-read.
-  const confirmedPackage = existingPackage ?? await input.packagePublisher.inspect(expectedPackage);
-  if (confirmedPackage === null || !packagePublicationMatches(expectedPackage, confirmedPackage)) {
-    throw new ReleasePublicationError("Package publication could not be confirmed with verified provenance");
+  // A record already carrying provenance is its own confirmation. Everything else
+  // is confirmed under the backoff: a publish this dispatch just made, and a
+  // record a prior dispatch published whose attestation has yet to appear — the
+  // resumed run this operation exists to converge.
+  if (existingPackage === null || !packagePublicationMatches(expectedPackage, existingPackage)) {
+    await confirmPublication(input, expectedPackage);
   }
 
   await input.hostedReleasePublisher.reconcile(
     hostedReleaseFor(input.tag, input.taggedCommit, input.releaseNotesSection),
   );
+}
+
+/**
+ * Re-reads the registry until the record carries verified provenance, whether
+ * this dispatch published it or a prior one did. Two read outcomes are early rather than wrong and are retried under
+ * the backoff: no record yet, and a record that matches the release identity but
+ * reports no provenance, because the registry serves a new version's metadata
+ * before its attestation. A record naming a different release fails at once,
+ * because no wait makes a mismatched identity correct.
+ */
+async function confirmPublication(
+  input: PublishReleaseInput,
+  expectedPackage: PackagePublication,
+): Promise<void> {
+  for (let attempt = 0;; attempt += 1) {
+    const actual = await input.packagePublisher.inspect(expectedPackage);
+    if (actual !== null) {
+      if (!packagePublicationIdentityMatches(expectedPackage, actual)) {
+        throw new ReleasePublicationError(
+          `Published package does not match the verified release identity: ${
+            packageIdentityMismatch(expectedPackage, actual)
+          }`,
+        );
+      }
+      if (packagePublicationMatches(expectedPackage, actual)) return;
+    }
+    const wait = PUBLICATION_CONFIRMATION_BACKOFF_MS.at(attempt);
+    if (wait === undefined) {
+      throw new ReleasePublicationError("Package publication could not be confirmed with verified provenance");
+    }
+    await input.delay(wait);
+  }
 }

@@ -17,6 +17,9 @@ import {
   arbitraryPublicationCommandExitCode,
   arbitraryPublicationConfirmationFailureScenario,
   arbitraryPublicationIdentityMismatchScenario,
+  arbitraryPublicationPostPublishIdentityScenario,
+  arbitraryPublicationProvenanceLagScenario,
+  arbitraryPublicationResumedProvenanceLagScenario,
   arbitraryPublicationRetryScenario,
   arbitraryPublicationScenario,
   arbitraryPublicationSectionValidationScenario,
@@ -27,7 +30,9 @@ import { observeIndependentVersionSection } from "@testing/harnesses/release/kee
 import {
   createPublicationHarness,
   createPublishReleaseCommandHarness,
+  observeConfirmationRetry,
   observePublication,
+  publicationFailureMessage,
 } from "@testing/harnesses/release/publication";
 import {
   observeGithubReleasePublisher,
@@ -217,6 +222,61 @@ describe("release publication compliance", () => {
             && hostedSequence !== undefined
             && packageSequence < hostedSequence,
         );
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+  });
+
+  it("reads past a fresh publication whose provenance the registry has yet to expose", async () => {
+    await assertProperty(
+      arbitraryPublicationProvenanceLagScenario(),
+      async (scenario) => {
+        const observation = await observeConfirmationRetry(scenario);
+        expect(observation.error).toBeUndefined();
+        expect(observation.packagePublishRequests).toHaveLength(1);
+        // One wait per read that arrived before the attestation, each a real
+        // pause. The schedule's durations are the module's own declaration, so
+        // the count and the waiting are what this proves.
+        expect(observation.waits).toHaveLength(scenario.lateReads);
+        expect(observation.waits.every((wait) => wait > 0)).toBe(true);
+        expect(observation.hostedReleaseRequests.map((request) => request.value)).toEqual([
+          scenario.expectedHostedRelease,
+        ]);
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+  });
+
+  it("waits out the attestation for a record a prior dispatch already published", async () => {
+    await assertProperty(
+      arbitraryPublicationResumedProvenanceLagScenario(),
+      async (scenario) => {
+        const observation = await observeConfirmationRetry(scenario);
+        expect(observation.error).toBeUndefined();
+        // The record is already published, so this dispatch publishes nothing
+        // and converges by waiting rather than failing on the unverified read.
+        expect(observation.packagePublishRequests).toEqual([]);
+        expect(observation.waits).toHaveLength(scenario.lateReads);
+        expect(observation.hostedReleaseRequests.map((request) => request.value)).toEqual([
+          scenario.expectedHostedRelease,
+        ]);
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+  });
+
+  it("fails a fresh publication whose registry record names another release without waiting", async () => {
+    await assertProperty(
+      arbitraryPublicationPostPublishIdentityScenario(),
+      async (scenario) => {
+        const observation = await observeConfirmationRetry(scenario);
+        expect(observation.error).toBeInstanceOf(ReleasePublicationError);
+        expect(observation.waits).toEqual([]);
+        expect(observation.hostedReleaseRequests).toEqual([]);
+        // The failure names the field that differed and both of its values, so
+        // the operator reads which release the registry holds without asking.
+        expect(publicationFailureMessage(observation.error)).toContain(scenario.differingField.served);
+        expect(publicationFailureMessage(observation.error)).toContain(scenario.differingField.verified);
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
