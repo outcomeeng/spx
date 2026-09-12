@@ -4,7 +4,8 @@
     "instructions@outcomeeng": true,
     "typescript@outcomeeng": true,
     "spec-tree@outcomeeng": true,
-    "sonarqube@claude-plugins-official": true
+    "sonarqube@claude-plugins-official": true,
+    "coding-agents@outcomeeng": true
   },
   "extraKnownMarketplaces": {
     "outcomeeng": {
