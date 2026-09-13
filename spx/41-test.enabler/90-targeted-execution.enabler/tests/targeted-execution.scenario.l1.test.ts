@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { type RecordedTestRun, runTests, type TestDispatchResult } from "@/commands/test";
-import { resolveTargetedTestFiles, UNSUPPORTED_TEST_SELECTION_EXIT_CODE } from "@/domains/test";
+import { UNSUPPORTED_TEST_SELECTION_EXIT_CODE } from "@/domains/test";
 import { TESTING_CLI } from "@/interfaces/cli/test";
+import { resolveTargetedTestFiles } from "@/lib/test-targeting";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { testingRegistry } from "@/test/registry";
 import { TEST_RUN_STATE_FIELDS, TEST_RUN_STATE_STATUS } from "@/test/run-state";

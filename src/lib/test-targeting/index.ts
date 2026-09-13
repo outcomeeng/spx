@@ -1,9 +1,29 @@
+/**
+ * Positional product-path operand selection over a discovered test-file set — the shared capability
+ * every verification surface that narrows work by product path consumes, per
+ * `spx/29-verification-path-scope.pdr.md`. `spx test` and `spx verification <type> run` resolve
+ * their operands here, so a file operand, a node operand, and the recursive widening mean one thing
+ * across surfaces; the library is pure over its inputs and names no surface or language.
+ */
 import { applyPathFilter, normalizePathPrefix } from "@/config/primitives/path-filter";
 import { SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 
 const TESTS_DIRECTORY_NAME = SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME;
 const PATH_SEGMENT_SEPARATOR = "/";
+
+/**
+ * The operand forms this vocabulary gives a name. The product-root operand normalizes to the empty
+ * string — the form `normalizePathPrefix` produces for a bare dot — and selects the whole tree.
+ */
+export const TARGET_OPERAND = {
+  PRODUCT_ROOT: ".",
+} as const;
+
+/** Whether the operand names the product root itself, so it encloses every discovered file. */
+export function isProductRootOperand(operand: string): boolean {
+  return normalizeTargetOperand(operand).length === 0;
+}
 
 /** Operand-selection request: the caller's operands and whether node operands recurse. */
 export interface TargetSelection {

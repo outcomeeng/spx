@@ -14,8 +14,8 @@ import { compareAsciiStrings } from "@/lib/state-store";
 import type { RelatedTestDependencies } from "@/test/languages/types";
 import type { TestingRegistry } from "@/test/registry";
 
-import { mergeChangedSetOperands, partitionChangedPaths, resolveTargetedTestFiles } from "@/domains/test";
-import type { TargetSelection } from "@/domains/test/targeting";
+import { mergeChangedSetOperands, partitionChangedPaths } from "@/domains/test";
+import { resolveTargetedTestFiles, type TargetSelection } from "@/lib/test-targeting";
 
 import { discoverTestFiles } from "./discovery";
 

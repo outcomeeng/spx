@@ -1,7 +1,7 @@
 import type { RecordedTestRun } from "@/commands/test";
-import type { TargetSelection } from "@/domains/test";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { createTestingDomain, type TestingCliDependencies } from "@/interfaces/cli/test";
+import type { TargetSelection } from "@/lib/test-targeting";
 import { testingCliCommanderParseSource } from "@testing/generators/testing/dispatch";
 
 export interface TestingCliCall {

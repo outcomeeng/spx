@@ -41,6 +41,7 @@ export const TEST_DISPATCH_GENERATOR = {
   nodePath: arbitraryNodePath,
   distinctNodePaths: arbitraryDistinctNodePaths,
   nodeWithDescendant: arbitraryNodeWithDescendant,
+  descendantOf: arbitraryDescendantOf,
   specFileUnder,
   testFileUnder: arbitraryTestFileUnder,
   supportFileUnder: arbitrarySupportFileUnder,
@@ -111,6 +112,12 @@ function arbitraryNodeWithDescendant(): fc.Arbitrary<readonly [string, string]> 
   return fc
     .tuple(arbitraryNodePath(), arbitraryNodeSegment())
     .map(([parent, childSegment]) => [parent, `${parent}${PATH_SEPARATOR}${childSegment}`] as const);
+}
+
+// A descendant node path under the given parent — the shape a recursive operand widens to and a
+// default node operand leaves out, so a fixture can hold both without composing the path by hand.
+function arbitraryDescendantOf(nodePath: string): fc.Arbitrary<string> {
+  return arbitraryNodeSegment().map((segment) => `${nodePath}${PATH_SEPARATOR}${segment}`);
 }
 
 function testsDirectoryFor(nodePath: string): string {

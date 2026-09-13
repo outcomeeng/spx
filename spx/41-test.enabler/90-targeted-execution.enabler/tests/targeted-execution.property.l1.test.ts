@@ -1,9 +1,10 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { resolveTargetedTestFiles } from "@/domains/test";
+import { resolveTargetedTestFiles } from "@/lib/test-targeting";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { nodeOperand, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 // A node path paired with one own test file under it, so a list of these yields a
 // discovered set whose every entry is reachable by its node operand.
@@ -36,43 +37,43 @@ function arbitraryNestedFiles(): fc.Arbitrary<{
 
 describe("targeted execution resolution invariants", () => {
   it("selects the order- and repetition-independent union of operand resolutions", () => {
-    fc.assert(
-      fc.property(
-        fc.uniqueArray(arbitraryNodeWithOwnFile(), {
-          minLength: 1,
-          maxLength: 4,
-          selector: (entry) => entry.node,
-        }),
-        (entries) => {
-          const discovered = entries.map((entry) => entry.file);
-          const operands = entries.map((entry) => nodeOperand(entry.node));
+    assertProperty(
+      fc.uniqueArray(arbitraryNodeWithOwnFile(), {
+        minLength: 1,
+        maxLength: 4,
+        selector: (entry) => entry.node,
+      }),
+      (entries) => {
+        const discovered = entries.map((entry) => entry.file);
+        const operands = entries.map((entry) => nodeOperand(entry.node));
 
-          const base = resolveTargetedTestFiles(discovered, { operands, recursive: false }).selected;
-          const reversed = resolveTargetedTestFiles(discovered, {
-            operands: [...operands].reverse(),
-            recursive: false,
-          }).selected;
-          const duplicated = resolveTargetedTestFiles(discovered, {
-            operands: [...operands, ...operands],
-            recursive: false,
-          }).selected;
+        const base = resolveTargetedTestFiles(discovered, { operands, recursive: false }).selected;
+        const reversed = resolveTargetedTestFiles(discovered, {
+          operands: [...operands].reverse(),
+          recursive: false,
+        }).selected;
+        const duplicated = resolveTargetedTestFiles(discovered, {
+          operands: [...operands, ...operands],
+          recursive: false,
+        }).selected;
 
-          // Order and repetition of operands never change the selected set.
-          expect([...reversed]).toEqual([...base]);
-          expect([...duplicated]).toEqual([...base]);
-          // The selected set carries no duplicates and covers every operand's own file.
-          expect(new Set(base).size).toBe(base.length);
-          for (const entry of entries) {
-            expect(base).toContain(entry.file);
-          }
-        },
-      ),
+        // Order and repetition of operands never change the selected set.
+        expect([...reversed]).toEqual([...base]);
+        expect([...duplicated]).toEqual([...base]);
+        // The selected set carries no duplicates and covers every operand's own file.
+        expect(new Set(base).size).toBe(base.length);
+        for (const entry of entries) {
+          expect(base).toContain(entry.file);
+        }
+      },
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 
   it("deduplicates a file matched by more than one distinct operand", () => {
-    fc.assert(
-      fc.property(arbitraryNestedFiles(), ({ parent, descendant, ownFile, descendantFile }) => {
+    assertProperty(
+      arbitraryNestedFiles(),
+      ({ parent, descendant, ownFile, descendantFile }) => {
         // The recursive parent operand matches the whole subtree (own + descendant
         // file); the descendant operand matches the descendant file too. Their union
         // keeps the overlapping file exactly once.
@@ -85,7 +86,8 @@ describe("targeted execution resolution invariants", () => {
         expect(selected.filter((file) => file === descendantFile)).toHaveLength(1);
         expect(new Set(selected).size).toBe(selected.length);
         expect(selected).toContain(ownFile);
-      }),
+      },
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 });
