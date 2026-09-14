@@ -4,6 +4,7 @@ import type { Stats } from "node:fs";
 import * as fs from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { Readable } from "node:stream";
+import { fileURLToPath } from "node:url";
 
 import { CHANGE_COMMAND } from "@/commands/change/contract";
 import { createChangeDomain } from "@/interfaces/cli/change";
@@ -20,6 +21,7 @@ import {
 import { withoutGitEnvironment } from "@/lib/git/environment";
 import { escapeCliArgument } from "@/lib/sanitize-cli-argument";
 import { STATE_STORE_SCOPE_PATH, worktreeScopeDir } from "@/lib/state-store";
+import { PROPERTY_LEVEL, PROPERTY_TIMEOUTS_MS } from "@testing/harnesses/property/property";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const DRAFT_TEMP_PREFIX = "spx-change-draft-";
@@ -80,6 +82,7 @@ export interface ChangeDraftEnv {
   symlinkStorage(): Promise<string>;
   symlinkDraft(draftId: string, text: string): Promise<{ path: string; target: string }>;
   runCli(args: readonly string[], input?: string, cwd?: string): Promise<DraftCliObservation>;
+  runPackagedCli(args: readonly string[], input?: string): DraftCliObservation;
 }
 
 function git(productDir: string, args: readonly string[]): void {
@@ -177,6 +180,22 @@ export async function withChangeDraftEnv<T>(callback: (env: ChangeDraftEnv) => P
           status = error.exitCode;
         }
         return { status, stdout, stderr };
+      },
+      runPackagedCli: (args, input) => {
+        const result = spawnSync(process.execPath, [
+          fileURLToPath(new URL("../../bin/spx.js", import.meta.url)),
+          ...args,
+        ], {
+          cwd: productDir,
+          env: TEMP_GIT_ENV,
+          input,
+          encoding: "utf8",
+          timeout: PROPERTY_TIMEOUTS_MS[PROPERTY_LEVEL.L1],
+        });
+        if (result.error) {
+          throw new Error(`Packaged draft command could not complete: ${result.stderr}`, { cause: result.error });
+        }
+        return { status: result.status, stdout: result.stdout, stderr: result.stderr };
       },
     };
     return callback(env);

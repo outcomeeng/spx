@@ -11,6 +11,10 @@ export function arbitraryDraftText(): fc.Arbitrary<string> {
   );
 }
 
+export function arbitraryNonemptyDraftText(): fc.Arbitrary<string> {
+  return arbitraryDraftText().filter((text) => text.length > 0);
+}
+
 export function arbitraryUnsafeDraftDirectory(): fc.Arbitrary<{ text: string; mode: number }> {
   return fc.record({
     text: arbitraryDraftText(),
