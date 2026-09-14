@@ -6,6 +6,10 @@ CAN supply draft text through stdin, recover returned file coordinates, and dele
 
 ## Assertions
 
+### Mappings
+
+- Every local draft operation is reachable through the packaged CLI and returns the operation's declared JSON result and exit status ([test](tests/packaged-commands.mapping.l1.test.ts)).
+
 ### Properties
 
 - The create command with `--input stdin` reads the supplied text and emits one JSON draft descriptor; list emits a JSON array of descriptors; delete with one managed ID emits its deletion result, and each successful operation exits zero ([test](tests/change-cli.property.l1.test.ts)).
