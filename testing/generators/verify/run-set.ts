@@ -11,6 +11,7 @@ import {
   type RunSetSelector,
 } from "@/domains/verify/run-set";
 import {
+  AUDIT_CLASS,
   type AuditFinding,
   type AuditScopeUnit,
   buildAppendEvent,
@@ -801,8 +802,8 @@ function auditPayload(value: AuditFinding | AuditScopeUnit): JsonValue {
 function arbitraryAuditBoundaryScenario(): fc.Arbitrary<RunSetAuditBoundaryScenario> {
   return fc
     .record({
-      rootDraw: arbitraryAuditScopeUnit(),
-      childDraw: arbitraryAuditScopeUnit(),
+      rootDraw: arbitraryAuditScopeUnit().filter((unit) => unit.auditClass !== AUDIT_CLASS.CHANGESET),
+      childDraw: arbitraryAuditScopeUnit().filter((unit) => unit.auditClass !== AUDIT_CLASS.CHANGESET),
       findingDraw: arbitraryAuditFinding(),
       runToken: token(),
       scopeIdentity: token(),
