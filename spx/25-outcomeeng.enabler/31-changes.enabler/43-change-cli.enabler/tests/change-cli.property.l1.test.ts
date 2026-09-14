@@ -16,7 +16,7 @@ describe("draft CLI", () => {
   it("preserves stdin text and reports created coordinates as JSON", async () => {
     await assertProperty(arbitraryDraftText(), async (text) => {
       await withChangeDraftEnv(async (env) => {
-        const created = env.runCli([
+        const created = await env.runCli([
           CHANGE_COMMAND.name,
           CHANGE_COMMAND.draft,
           CHANGE_COMMAND.operations.create,
@@ -34,7 +34,7 @@ describe("draft CLI", () => {
     await assertProperty(arbitraryDraftText(), async (text) => {
       await withChangeDraftEnv(async (env) => {
         const draft = await env.store.create(text);
-        const listed = env.runCli([CHANGE_COMMAND.name, CHANGE_COMMAND.draft, CHANGE_COMMAND.operations.list]);
+        const listed = await env.runCli([CHANGE_COMMAND.name, CHANGE_COMMAND.draft, CHANGE_COMMAND.operations.list]);
         expect(listed.status).toBe(0);
         expect(changeDraftDescriptorSchema.array().parse(JSON.parse(listed.stdout))).toEqual([draft]);
         expect(await env.read(draft)).toBe(text);
@@ -46,7 +46,7 @@ describe("draft CLI", () => {
     await assertProperty(arbitraryDraftText(), async (text) => {
       await withChangeDraftEnv(async (env) => {
         const draft = await env.store.create(text);
-        const deleted = env.runCli([
+        const deleted = await env.runCli([
           CHANGE_COMMAND.name,
           CHANGE_COMMAND.draft,
           CHANGE_COMMAND.operations.delete,
@@ -74,7 +74,7 @@ describe("draft CLI", () => {
         ];
         switch (operation) {
           case CHANGE_COMMAND.operations.create: {
-            const result = env.runCli([...args, CHANGE_COMMAND.inputOption, CHANGE_COMMAND.stdin], text);
+            const result = await env.runCli([...args, CHANGE_COMMAND.inputOption, CHANGE_COMMAND.stdin], text);
             expect(result.status).toBe(0);
             const created = changeDraftDescriptorSchema.parse(JSON.parse(result.stdout));
             expect(await sibling.store.list()).toEqual(expect.arrayContaining([draft, created]));
@@ -82,14 +82,14 @@ describe("draft CLI", () => {
             break;
           }
           case CHANGE_COMMAND.operations.list: {
-            const result = env.runCli(args);
+            const result = await env.runCli(args);
             expect(result.status).toBe(0);
             expect(changeDraftDescriptorSchema.array().parse(JSON.parse(result.stdout))).toEqual([draft]);
             expect(await env.readPath(draft.path)).toBe(text);
             break;
           }
           case CHANGE_COMMAND.operations.delete: {
-            const result = env.runCli([...args, draft.draftId]);
+            const result = await env.runCli([...args, draft.draftId]);
             expect(result.status).toBe(0);
             expect(changeDraftDeletionSchema.parse(JSON.parse(result.stdout))).toEqual({
               draftId: draft.draftId,
@@ -111,7 +111,7 @@ describe("draft CLI", () => {
     await assertProperty(arbitraryCliInvalidDraftId(), async (draftId) => {
       await withChangeDraftEnv(async (env) => {
         const retained = await env.store.create(draftId);
-        const result = env.runCli([
+        const result = await env.runCli([
           CHANGE_COMMAND.name,
           CHANGE_COMMAND.draft,
           CHANGE_COMMAND.operations.delete,
@@ -132,7 +132,7 @@ describe("draft CLI", () => {
       await assertProperty(commandArbitrary(), async (command) => {
         await withChangeDraftEnv(async (env) => {
           const retained = await env.store.create(JSON.stringify(command));
-          const result = env.runCli(command.args);
+          const result = await env.runCli(command.args);
           expect(result.status).not.toBe(0);
           const expectedDiagnostic = referenceDraftDiagnostic(command.args);
           expect(expectedDiagnostic.length).toBeGreaterThan(0);

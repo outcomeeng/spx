@@ -2,9 +2,13 @@ import { Command, CommanderError, Option } from "commander";
 import { spawnSync } from "node:child_process";
 import type { Stats } from "node:fs";
 import * as fs from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
+import { Readable } from "node:stream";
 
 import { CHANGE_COMMAND } from "@/commands/change/contract";
+import { createChangeDomain } from "@/interfaces/cli/change";
+import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
+import { createCliProgram } from "@/interfaces/cli/program";
 import { createChangeDraftStore } from "@/lib/change-drafts";
 import {
   CHANGE_DRAFT,
@@ -19,7 +23,6 @@ import { STATE_STORE_SCOPE_PATH, worktreeScopeDir } from "@/lib/state-store";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const DRAFT_TEMP_PREFIX = "spx-change-draft-";
-const CLI_ENTRY = resolve(import.meta.dirname, "../../bin/spx.js");
 const TEMP_GIT_ENV = {
   ...withoutGitEnvironment(process.env),
   GIT_CONFIG_GLOBAL: "/dev/null",
@@ -76,7 +79,7 @@ export interface ChangeDraftEnv {
   sibling(): Promise<{ productDir: string; store: ChangeDraftStore }>;
   symlinkStorage(): Promise<string>;
   symlinkDraft(draftId: string, text: string): Promise<{ path: string; target: string }>;
-  runCli(args: readonly string[], input?: string, cwd?: string): DraftCliObservation;
+  runCli(args: readonly string[], input?: string, cwd?: string): Promise<DraftCliObservation>;
 }
 
 function git(productDir: string, args: readonly string[]): void {
@@ -84,6 +87,11 @@ function git(productDir: string, args: readonly string[]): void {
   if (result.error || result.status !== 0) {
     throw new Error(`Temporary repository command failed: ${result.stderr}`, { cause: result.error });
   }
+}
+
+function captureCommandExits(command: Command): void {
+  command.exitOverride();
+  for (const child of command.commands) captureCommandExits(child);
 }
 
 export async function withChangeDraftEnv<T>(callback: (env: ChangeDraftEnv) => Promise<T>): Promise<T> {
@@ -144,15 +152,31 @@ export async function withChangeDraftEnv<T>(callback: (env: ChangeDraftEnv) => P
         await fs.symlink(target, path);
         return { path, target };
       },
-      runCli: (args, input, cwd = productDir) => {
-        const result = spawnSync(process.execPath, [CLI_ENTRY, ...args], {
-          cwd,
-          input,
-          encoding: "utf8",
-          env: TEMP_GIT_ENV,
+      runCli: async (args, input, cwd = productDir) => {
+        let status = 0;
+        let stdout = "";
+        let stderr = "";
+        const program = createCliProgram({
+          domains: [createChangeDomain(Readable.from([input ?? ""]))],
+          processCwd: () => cwd,
+          writeStdout: (text) => {
+            stdout += text;
+          },
+          writeStderr: (text) => {
+            stderr += text;
+          },
+          setExitCode: (code) => {
+            status = code;
+          },
         });
-        if (result.error) throw result.error;
-        return { status: result.status, stdout: result.stdout, stderr: result.stderr };
+        captureCommandExits(program);
+        try {
+          await program.parseAsync([...args], { from: SPX_COMMANDER_PARSE_SOURCE });
+        } catch (error) {
+          if (!(error instanceof CommanderError)) throw error;
+          status = error.exitCode;
+        }
+        return { status, stdout, stderr };
       },
     };
     return callback(env);
