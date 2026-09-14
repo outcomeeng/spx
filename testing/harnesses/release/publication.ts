@@ -148,14 +148,9 @@ export async function observeConfirmationRetry(
   );
   const hostedReleasePublisher = new RecordingHostedReleasePublisher(scenario.existingHostedRelease, sequence);
   const recorded = recordingDelay();
-  let error: unknown;
-  try {
-    await publishRelease(
-      publicationInput(scenario, packagePublisher, hostedReleasePublisher, recorded.delay),
-    );
-  } catch (caught) {
-    error = caught;
-  }
+  const error = await rejectionOf(
+    publishRelease(publicationInput(scenario, packagePublisher, hostedReleasePublisher, recorded.delay)),
+  );
   return {
     ...publicationObservation(scenario, packagePublisher, hostedReleasePublisher),
     error,
@@ -323,10 +318,10 @@ export async function observeCommittedReleaseReads(
   return observation;
 }
 
-/** The error a read rejected with, or undefined when it fulfilled — an observation the linked test interprets. */
-async function rejectionOf(read: Promise<unknown>): Promise<unknown> {
+/** The error an operation rejected with, or undefined when it fulfilled — an observation the linked test interprets. */
+async function rejectionOf(operation: Promise<unknown>): Promise<unknown> {
   try {
-    await read;
+    await operation;
     return undefined;
   } catch (error: unknown) {
     return error;
