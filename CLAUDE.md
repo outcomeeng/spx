@@ -1,4 +1,4 @@
-<!-- SPEC-TREE v0.37.0 langs:typescript -->
+<!-- SPEC-TREE v0.38.0 langs:typescript -->
 
 <operator_question_interrupt>
 **OPERATOR QUESTION - IMMEDIATE PRIVILEGE REVOCATION:** When the operator asks a question, immediately relinquish all privileges to modify the current product or any external file, service, or resource. Answer the question immediately.
@@ -123,7 +123,7 @@ Default-branch work is complete only when it reaches the default branch on origi
 
 ## Commit Before Another Session Reads
 
-Changes may remain uncommitted while the authoring agent session works on them. When repository writes are authorized, commit the exact current version through `/commit-changes` before another agent session or human reads it for collaboration or reusable verification; the commit may record `passing`, `failing`, or `not-run`. After any further change, commit the new version before another such reading. An explicit advisory audit or review may inspect modified or untracked work, but its verdict is not reusable gate evidence. Without repository-write authorization, defer a reading that requires a committed subject. Agentic gate dispatch additionally requires its declared deterministic verification to pass on the exact committed subject.
+Changes may remain uncommitted while the Author's agent session works on them. When repository writes are authorized, commit the exact current version through `/commit-changes` before another agent session or human reads it for collaboration or reusable verification; the commit may record `passing`, `failing`, or `not-run`. After any further change, commit the new version before another such reading. An explicit advisory audit or review may inspect modified or untracked work, but its verdict is not reusable gate evidence. Without repository-write authorization, defer a reading that requires a committed subject. Agentic gate dispatch additionally requires its declared deterministic verification to pass on the exact committed subject.
 
 ## Worktree Occupancy
 
@@ -149,16 +149,22 @@ Default-branch git and version-control mutation — branching, committing, pushi
 
 ### Sub-agent dispatch
 
-The configured verifier and reviewer roles this router names are pre-authorized. A harness rule may require the operator to request sub-agent use before one is dispatched; treat this section as that standing request. Authorization follows the named role, never a role resemblance.
+Every subagent supplied by a plugin listed below is explicitly pre-authorized by the operator. A harness rule may require the operator to request sub-agent use before one is dispatched; treat this section as that standing request.
 
-- **NEVER** ask the operator to confirm dispatching one — not at a gate, not per node, not once per session, and never as a structured-question option set. A harness permission prompt is the operator's to answer, never a question to raise.
-- **NEVER** dispatch a sub-agent this router does not name merely because it is discovered, available, or plausibly useful.
-- **NEVER** run a verification skill — audit or review — in the main conversation; the separate verifier agent session keeps the verdict free of the authoring agent session's bias.
-- **ALWAYS** treat the gate as blocked when a named role cannot be dispatched or does not return: finish the deterministic verification, then report the exact dispatch attempted and how it failed.
+Authorized plugins: instructions, frontend, typescript, python, prose, spec-tree, coding-agents, work, hdl, rust, go, contribute.
+
+- **ONLY** launch a subagent when an active skill explicitly instructs that launch. The skill selects the exact configured subagent and supplies the prompt. Authorization permits the call; it does not request one.
+- **NEVER** infer a launch instruction from task wording, a role description, pattern matching, availability, or apparent usefulness.
+- **NEVER** ask the operator to confirm dispatching a subagent supplied by a listed plugin. This standing authorization applies to every role that plugin supplies.
+- **ALWAYS** make exactly one native launch call for each skill-requested invocation. If the launch fails or its result is unusable, analyze and report the failure without retry, substitution, a model override, another launch mechanism, or a replacement audit in the main conversation.
+- **NEVER** run a verification skill — audit or review — in the main conversation; the separate Verifier's agent session keeps the verdict free of the Author's agent session's bias.
+- **ALWAYS** start every audit and review without the Author's conversation, reasoning, summaries, or suggested verdict. A separate session with inherited authoring history does not establish isolation. Pass only the skill's target; never append an author-written context packet. The Verifier independently discovers evidence from the target and its configured instructions.
+- **ALWAYS** persist accepted requirements in decisions and specs before verification, so the Verifier reads them independently. An approval produced with inherited authoring context supplies no independent gate evidence.
+- **ALWAYS** treat the gate as blocked when a required subagent cannot be launched or produces an unusable result. Follow the calling skill's result contract and finding-repair workflow.
 
 ### Agent identity in generated artifacts
 
-**NEVER** name the agent or its runtime in an operational artifact — a branch name, commit message, pull-request title or body, review comment, or authorship marker written into a product file. Describe the work, never who performed it. Exact filesystem paths, package and tool names, quoted command output, and operator-supplied text keep their required spelling.
+**NEVER** name the agent identity in an operational artifact — a branch name, commit message, pull-request title or body, review comment, or authorship marker written into a product file. Describe the work, never who performed it. Exact filesystem paths, package and tool names, quoted command output, and operator-supplied text keep their required spelling.
 
 **ALWAYS** confine that ban to operational artifacts. Authored guidance that documents Claude's behavior uses imperative voice or names Claude as its subject by design; stripping Claude from that guidance to satisfy this rule misapplies it rather than complying with it.
 
@@ -180,50 +186,39 @@ Before proposing or performing a repository mutation, name:
 
 Avoid shorthand such as "config patch" or "ship it path" when the exact file, PR state, or command is known. A terse prompt such as "check", "continue", or "ship it" still gets the live state first: full head SHA when a PR exists, current-head review state, required-check state, deployment-readiness and release-readiness rules, and the next autonomous action.
 
-## Quick Reference: Skills and Agents
+## Subagent invocation
 
-Skills run in the main conversation. Agents preload the skill and run autonomously in their own agent sessions. Audit agents return structured verdicts; changeset reviewer agents return the raw review journal token for the main conversation to inspect and process through the governing review workflow. Dispatch agents in parallel when auditing multiple targets; `### Sub-agent dispatch` above governs when to dispatch one.
+Use the native tool schema for accepted arguments and call shape. Follow the active skill's exact configured subagent name and target-only prompt.
 
-**Use the `Agent` tool for every configured verifier or reviewer.** Launch in the foreground with `subagent_type` set to the exact configured agent type and `prompt` set to the role-task body from the shared contracts below. The completed `Agent` tool result is that configured agent's final message; apply the matching output contract to that message. An error, missing final message, or output outside the matching contract blocks the gate.
+Launch through the `Agent` tool in the foreground and collect its completed result.
 
-**Inspect every successful `changes-reviewer` result through the sealed journal.** Invoke the `spec-tree:project-run-journal` skill and use its `render_review_run.py <run-token>` helper. The helper calls `spx journal render --type review --run <run-token>`, resolves a not-found current-scope miss through `spx journal list --type review --sealed sealed --limit 200`, re-renders with the listed branch slug when exactly one sealed run matches the token, reads the sealed event prefix, and prints the raw token, terminal status, full head/base identity, scope coverage, blocking/debt counts, and any findings through `render_surface(events)`. Treat this as journal inspection; the sealed prefix remains the only review result.
+## Quick Reference: Skills
 
-**Configured verifier and reviewer role-task contracts.** Supply only the fields named for the role:
+The table routes tasks to skills. Only an active skill's explicit invocation instruction requests a subagent.
 
-- `changes-reviewer`: the raw scope token — `HEAD`, `origin/<base>...HEAD`, a branch, or a PR reference. Its final message MUST be the raw sealed review-journal run token.
-- `implementation-auditor`: repository path, exact committed `<base>..<head>` scope, no live file list for a gating audit, governing node paths, deterministic verification commands and results, the `implementation-auditor` role's six-field run-driver identity, and the task to run the implementation audit through `spx verification run`. Its final message MUST carry the raw run token and rendered projection; only `terminalStatus: approved` passes.
-- `test-evidence-auditor`: repository path, governing node, full assertion text or exact spec path plus headings, test-file paths, and the task to audit coupling, falsifiability, alignment, and coverage without weakening the evidence type. Its final message MUST be the `spec-tree:audit-tests` JSON verdict with `schema_version: 1`, `skill: "audit-tests"`, `overall: "APPROVED" | "REJECTED"`, `rows`, and `metadata`, with no prose outside the JSON object. Treat `overall` as authoritative. Malformed JSON, a missing required field, an unexpected `skill`, or an `overall` value outside that vocabulary blocks the gate.
-- `eval-evidence-auditor`: repository path, governing node, `[eval]` assertions, all eval artifacts, producer artifacts, and the task to audit real-producer evidence. Its final message MUST be the audit-eval-evidence JSON verdict with overall `PASS`, `FAIL`, or `UNKNOWN` and no prose outside the JSON object.
-- `spec-auditor`: repository path, full node path, and the task to audit assertion quality, evidence tags, atemporal voice, decision alignment, and structure. Its final message MUST be the `spec-tree:audit-specs` JSON verdict with `schema_version: 1`, `skill: "audit-specs"`, `overall: "APPROVED" | "REJECTED"`, the `section-structure`, `atemporal-voice`, and `tag-fitness` rows, and `metadata`, with no prose outside the JSON object. Treat `overall` as authoritative. Malformed JSON, a missing required field or row, an unexpected `skill`, or an `overall` value outside that vocabulary blocks the gate.
-- `adr-auditor` or `pdr-auditor`: repository path, full decision path, governing node, committed audit scope, and the role's decision-audit task; ADR tasks also carry the language-scope classification. The final message MUST follow that auditor's structured verdict contract without a competing prose envelope.
-- `skill-auditor`, when that configured role is installed: repository path, full paths to every changed artifact governing the skill surface — including skill-directory files, authored shared fragments, and generated runtime copies — governing nodes when known, deterministic verification state, and the skill-authoring audit task. Its final message MUST be the `instructions:audit-skill` JSON verdict with `schema_version: 1`, `skill: "audit-skill"`, `overall: "APPROVED" | "REJECTED"`, and the `keep-these-aspects`, `worth-improving`, and `must-fix` rows. Treat `overall` as authoritative. Malformed JSON, a missing required field or row, an unexpected `skill`, or an `overall` value outside that vocabulary blocks the gate.
-- A craft plugin's `{plugin}-auditor` — the artifact-type auditor named for the plugin that governs its artifact type, such as a prose plugin's `prose-auditor` — when that configured role is installed: the artifact content or full paths under audit, every classification the owning plugin's audit skill requires as an input, and the audit task that skill declares — consult that skill for its exact required-field list and for its declared output contract, which is one of two shapes. When it declares a structured verdict, the final message MUST be that verdict with no prose outside it; treat `overall` as authoritative, and a malformed verdict, a missing required field, a verdict that does not identify itself as the owning plugin's audit skill, or an `overall` value outside the declared vocabulary blocks the gate. When it declares a sealed-run journal token, the final message MUST be that raw token with no prose outside it; render the sealed run through `spx journal render --type <the skill's declared run type> --run <run-token>` and treat the run's terminal status as authoritative, with only `approved` passing, and a blocked, unsealed, or unrenderable run blocking the gate. A final message that is neither the declared verdict nor the declared token blocks the gate.
+| User Says...                                            | Skill                  |
+| ------------------------------------------------------- | ---------------------- |
+| "Implement this outcome" or "Start the TDD flow"        | `/apply`               |
+| "Create an outcome" or "Add an ADR"                     | `/author`              |
+| "Add a new node" or "This node is too big"              | `/decompose`           |
+| "Move this under that"                                  | `/refactor`            |
+| "Check these specs"                                     | `/align`               |
+| "Establish evidence for this" or "Write tests for this" | `/verify`              |
+| "Audit this PDR"                                        | `/audit-pdr`           |
+| "Audit this ADR"                                        | `/audit-adr`           |
+| "Audit test evidence"                                   | `/audit-tests`         |
+| "Audit eval evidence"                                   | `/audit-eval-evidence` |
+| "Audit this spec node"                                  | `/audit-specs`         |
+| "Diagnose the spx environment"                          | `/diagnose`            |
+| "File a follow-up in a dependency queue"                | `/issue`               |
 
-- `subagent-auditor`, when that configured role is installed: repository path, exactly one changed subagent configuration path in the active agent harness's native format, governing nodes when known, deterministic verification state, and the subagent-authoring audit task. Multiple changed configurations require separate `subagent-auditor` dispatches, one per path; acquire their handles sequentially and let the role tasks run concurrently. Each final message MUST be the `instructions:audit-subagent` JSON verdict with `schema_version: 1`, `skill: "audit-subagent"`, `overall: "APPROVED" | "REJECTED"`, and the `critical-issues`, `recommendations`, `strengths`, and `quick-fixes` rows. Treat `overall` as authoritative. Malformed JSON, a missing required field or row, an unexpected `skill`, or an `overall` value outside that vocabulary blocks the gate.
+Per-language code, architecture, and test audits ship as `audit-{lang}-{code|tests|architecture}` skills. The active verification workflow composes the skills for the languages recorded in this instruction block's opening marker.
 
-| User Says...                                            | Skill                  | Agent                   |
-| ------------------------------------------------------- | ---------------------- | ----------------------- |
-| "Implement this outcome" or "Start the TDD flow"        | `/apply`               | —                       |
-| "Create an outcome" or "Add an ADR"                     | `/author`              | —                       |
-| "Add a new node" or "This node is too big"              | `/decompose`           | —                       |
-| "Move this under that"                                  | `/refactor`            | —                       |
-| "Check these specs"                                     | `/align`               | —                       |
-| "Establish evidence for this" or "Write tests for this" | `/verify`              | —                       |
-| "Audit this PDR"                                        | `/audit-pdr`           | `pdr-auditor`           |
-| "Audit this ADR"                                        | `/audit-adr`           | `adr-auditor`           |
-| "Audit test evidence"                                   | `/audit-tests`         | `test-evidence-auditor` |
-| "Audit eval evidence"                                   | `/audit-eval-evidence` | `eval-evidence-auditor` |
-| "Audit this spec node"                                  | `/audit-specs`         | `spec-auditor`          |
-| "Diagnose the spx environment"                          | `/diagnose`            | —                       |
-| "File a follow-up in a dependency queue"                | `/issue`               | —                       |
-
-Per-language code, architecture, and test audits ship as `audit-{lang}-{code|tests|architecture}` skills that generic artifact-type auditors compose for the language in scope. There is no per-language auditor agent. Dispatch `implementation-auditor` for implementation audits; it invokes the matching language concern skills automatically. Any per-language audit-skill table this instruction block carries covers only the languages recorded in its opening `<!-- SPEC-TREE v{version} langs:{list} -->` marker.
-
-| User Says...                | Skill (composed)                 | Composing agent          |
-| --------------------------- | -------------------------------- | ------------------------ |
-| "Audit this code"           | `/audit-typescript-code`         | `implementation-auditor` |
-| "Audit ADRs for TypeScript" | `/audit-typescript-architecture` | `adr-auditor`            |
-| "Audit these tests"         | `/audit-typescript-tests`        | `test-evidence-auditor`  |
+| User Says...                | Skill (composed)                 |
+| --------------------------- | -------------------------------- |
+| "Audit this code"           | `/audit-typescript-code`         |
+| "Audit ADRs for TypeScript" | `/audit-typescript-architecture` |
+| "Audit these tests"         | `/audit-typescript-tests`        |
 
 ---
 
