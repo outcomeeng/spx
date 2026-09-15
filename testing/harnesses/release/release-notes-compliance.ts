@@ -445,7 +445,7 @@ function requiredPromptChangelogPath(prompt: string): string {
   return changelogPath;
 }
 
-/** What composing release notes did for a release whose every commit carries an omitted conventional type. */
+/** What composing release notes did for a release whose commits all carry maintenance labels. */
 export interface ReleaseNotesMaintenanceObservation {
   readonly error: unknown;
   /** Requests the injected agent runner received; a rejection before the agent runs records none. */
@@ -455,7 +455,7 @@ export interface ReleaseNotesMaintenanceObservation {
 }
 
 /**
- * Composes release notes for a release whose commits are all omitted-type,
+ * Composes release notes for a release whose commits all carry maintenance labels,
  * against the real filesystem boundaries and a recording agent runner, and
  * reports what the composition did. The linked test decides what it means.
  */
