@@ -103,7 +103,7 @@ Sessions are stored in `.spx/sessions/` with priority-based ordering (high > med
 
 ### Local Change drafts
 
-Keep a Change draft local while you edit and audit it:
+While you edit and audit a Change draft, keep it local:
 
 ```bash
 # Retain the complete Markdown document, including any metadata
@@ -112,13 +112,13 @@ spx change draft create --input stdin < change.md
 # List retained drafts
 spx change draft list
 
-# Delete a draft when it is no longer needed
+# When a draft is no longer needed, delete it
 spx change draft delete <draft-id>
 ```
 
-Creation returns JSON with `draftId`, an absolute `path`, and a repository-relative `relativePath`. Edit the returned file directly to revise the same draft.
+The `create` command returns JSON with `draftId`, an absolute `path`, and a repository-relative `relativePath`. Edit the returned file directly to revise the same draft.
 
-Draft operations work offline. File-scoped verification audits support `auditClass: coordination` and `auditKind: change`; use the returned relative path to identify the candidate.
+Draft operations work offline. File-scoped verification audits support `auditClass: coordination` and `auditKind: change`. Use the returned relative path to identify the candidate.
 
 Publication to a remote Change store belongs to the authoring workflow. Draft operations leave that store untouched.
 
