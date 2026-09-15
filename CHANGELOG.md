@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.7.0] - 2026-09-15
+
+### Added
+
+- `spx change draft create`, `list`, and `delete` manage local Markdown drafts without a remote store. Creation returns a stable identifier and file paths.
+- File-scoped audit runs accept `auditClass: coordination` with `auditKind: change`, so independent auditors can record findings against a local Change draft.
+- Changeset audits accept `auditKind: changeset-coherence` and reject a changeset when its audit requires a split.
+- SPX ships methodology foundation trees and accepts `methodology.migratingFrom` for projects whose tree uses an earlier supported version.
+
+### Changed
+
+- Foundation loading, compaction recovery, and methodology diagnostics read the shipped methodology tree and check its provider declaration.
+
+### Fixed
+
+- Release publication waits for registry provenance on both new and resumed publications, so delayed attestations no longer cause an immediate confirmation failure.
+- Changeset audit roots must match the run's subject and required coverage, including coverage-gap roots.
+- Compaction recovery selects the methodology tree for the invoking agent. An unidentified invocation uses the single available agent tree or reports ambiguity.
+- Worktree status distinguishes an unreadable occupancy record from an unresolved target and escapes external values in diagnostics.
+
 ## [0.6.27]
 
 ### Added

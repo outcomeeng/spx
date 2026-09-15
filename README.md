@@ -2,7 +2,7 @@
 
 Developer CLI for code validation and session management.
 
-Current release: 0.6.27
+Current release: 0.7.0
 
 ## What is spx?
 
@@ -17,7 +17,7 @@ The `spx` CLI orchestrates linting, type checking, circular dependency detection
 - Text and JSON output for CI and automation
 - OIDC Trusted Publishing with Sigstore provenance via GitHub Actions
 
-All commands are domain-scoped (e.g., `spx validation`, `spx session`) and support `--quiet` and `--json` flags for CI and automation.
+Commands are domain-scoped, such as `spx validation` and `spx session`. Run a command with `--help` to see its output options.
 
 ## Installation
 
@@ -100,6 +100,27 @@ spx session delete <session-id>
 ```
 
 Sessions are stored in `.spx/sessions/` with priority-based ordering (high > medium > low) and FIFO within the same priority. Commands output parseable `<PICKUP_ID>`, `<HANDOFF_ID>`, and `<SESSION_FILE>` tags for automation.
+
+### Local Change drafts
+
+Keep a Change draft local while you edit and audit it:
+
+```bash
+# Retain the complete Markdown document, including any metadata
+spx change draft create --input stdin < change.md
+
+# List retained drafts
+spx change draft list
+
+# Delete a draft when it is no longer needed
+spx change draft delete <draft-id>
+```
+
+Creation returns JSON with `draftId`, an absolute `path`, and a repository-relative `relativePath`. Edit the returned file directly to revise the same draft.
+
+Draft operations work offline. File-scoped verification audits support `auditClass: coordination` and `auditKind: change`; use the returned relative path to identify the candidate.
+
+Publication to a remote Change store belongs to the authoring workflow. Draft operations leave that store untouched.
 
 ### Spec Management
 
