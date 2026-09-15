@@ -162,16 +162,13 @@ export async function assertFilesystemSourceMapsRecognizedEntryRole(
         return;
       case SPEC_TREE_ENTRY_TYPE.EVIDENCE: {
         const evidenceFiles = Object.values(SPEC_TREE_EVIDENCE_FILE.TAILS).map((tail) => evidenceFileName(tail));
-        const nonEvidenceSuffix = sampleSpecTreeTestValue(
-          SPEC_TREE_TEST_GENERATOR.unregisteredNodeSuffix(KIND_REGISTRY),
-        );
         const firstEvidenceFile = expectPresent(evidenceFiles[0]);
         const evidencePath = evidenceFilePath(rootDirectory, firstEvidenceFile);
         const ambiguousEvidencePath = evidenceFilePath(rootDirectory, ambiguousEvidenceFileName());
         for (const evidenceFile of evidenceFiles) {
           await env.writeRaw(evidenceFilePath(rootDirectory, evidenceFile), "");
         }
-        await env.writeRaw(`${evidencePath}${nonEvidenceSuffix}`, "");
+        await env.writeRaw(`${evidencePath}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`, "");
         await env.writeRaw(ambiguousEvidencePath, "");
         const evidenceSnapshot = await readSpecTree({ source: env.filesystemSource() });
         const evidence = evidenceSnapshot.entries.filter(isEvidenceEntry);

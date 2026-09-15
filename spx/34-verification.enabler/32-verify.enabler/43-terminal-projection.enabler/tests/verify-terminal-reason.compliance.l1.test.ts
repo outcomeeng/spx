@@ -4,6 +4,7 @@ import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import {
   TERMINAL_REQUIREMENT,
   terminalMetadataValidatorFor,
+  type TerminalValidationInput,
   VERIFY_SCOPE_TYPE,
   VERIFY_VERIFICATION_TYPE,
 } from "@/domains/verify/verify";
@@ -11,7 +12,11 @@ import type { JournalEvent, JsonValue } from "@/lib/agent-run-journal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { arbitraryFileAuditScopeScenario } from "@testing/generators/verify/audit";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
-import { finishTestRunWithSuppliedMetadata } from "@testing/harnesses/verify/harness";
+import {
+  AUDIT_FIXTURE,
+  readVerificationFixture,
+  withVerificationFixtureRun,
+} from "@testing/harnesses/verify/audit-fixtures";
 
 /** Project one terminal-completion validation, so a case reads the refusal class and its reason. */
 function validateTerminal(
@@ -32,6 +37,32 @@ function validateTerminal(
 }
 
 describe("verify terminal rejection reasons", () => {
+  it("reports evidence and metadata refusals through finish without sealing or appending", async () => {
+    await withVerificationFixtureRun(async (env) => {
+      expect((await env.appendScope(AUDIT_FIXTURE.ROOT)).exitCode).toBe(0);
+      const before = await env.events();
+      const evidence = await env.finish({ terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED });
+      expect(evidence.exitCode).not.toBe(0);
+      expect(evidence.output).toContain(TERMINAL_REQUIREMENT.STATUS_MATCHES_EVIDENCE);
+      expect(await env.events()).toEqual(before);
+      const metadata = await env.finish({
+        terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
+        terminalMetadata: AUDIT_FIXTURE.TERMINAL_METADATA,
+      });
+      expect(metadata.exitCode).not.toBe(0);
+      expect(metadata.output).toContain(TERMINAL_REQUIREMENT.NO_METADATA_ACCEPTED);
+      expect(await env.events()).toEqual(before);
+      expect((await env.appendScope(AUDIT_FIXTURE.CHILD)).exitCode).toBe(0);
+      expect((await env.events()).length).toBeGreaterThan(before.length);
+    });
+  });
+  it("identifies the violated terminal requirement in complete file-backed input", async () => {
+    const result = terminalMetadataValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT)?.(
+      await readVerificationFixture<TerminalValidationInput>(AUDIT_FIXTURE.TERMINAL_METADATA),
+    );
+    expect(result?.ok).toBe(false);
+    expect(result?.ok === false ? result.reason : "").toContain(TERMINAL_REQUIREMENT.NO_METADATA_ACCEPTED);
+  });
   it("names the no-metadata requirement when a deterministic type is handed terminal metadata", () => {
     const metadata = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewApprovedTerminalMetadata());
     const result = validateTerminal(
@@ -114,9 +145,14 @@ describe("verify terminal rejection reasons", () => {
     expect(result?.ok).toBe(false);
     expect(result?.ok === false ? result.reason : "").toContain(TERMINAL_REQUIREMENT.METADATA_MATCHES_EVIDENCE);
   });
-  it("reports the terminal validator's reason in the command layer's rejection diagnostic", async () => {
-    const rejected = await finishTestRunWithSuppliedMetadata();
-    expect(rejected.exitCode).not.toBe(0);
-    expect(rejected.output).toContain(TERMINAL_REQUIREMENT.NO_METADATA_ACCEPTED);
+  it("reports the type vocabulary refusal through finish without changing the journal", async () => {
+    await withVerificationFixtureRun(async (env) => {
+      const before = await env.events();
+      const rejected = await env.finish({ terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED });
+      expect(rejected.exitCode).not.toBe(0);
+      expect(rejected.output).toContain(TERMINAL_REQUIREMENT.STATUS_IN_TYPE_VOCABULARY);
+      expect(await env.events()).toEqual(before);
+      expect((await env.finish({ terminalStatus: JOURNAL_RUN_STATE_STATUS.PASSED })).exitCode).toBe(0);
+    }, VERIFY_VERIFICATION_TYPE.TEST);
   });
 });

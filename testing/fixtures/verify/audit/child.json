@@ -1,0 +1,29 @@
+{
+  "unitId": "child",
+  "auditClass": "coordination",
+  "auditKind": "change",
+  "subject": "related.md",
+  "coverageRequirement": "required",
+  "coverageStatus": "audited",
+  "priorContext": {
+    "changedFilePartition": "draft.md",
+    "concernPartition": "change"
+  },
+  "expectedProducer": {
+    "producerKind": "agent",
+    "agentName": "change-auditor",
+    "agentOwningPluginName": "work",
+    "skillName": "audit-change",
+    "skillOwningPluginName": "work",
+    "invocationRole": "audit"
+  },
+  "recordedByRunDriver": {
+    "producerKind": "agent",
+    "agentName": "change-auditor",
+    "agentOwningPluginName": "work",
+    "skillName": "audit-change",
+    "skillOwningPluginName": "work",
+    "invocationRole": "audit"
+  },
+  "parentUnitId": "draft"
+}

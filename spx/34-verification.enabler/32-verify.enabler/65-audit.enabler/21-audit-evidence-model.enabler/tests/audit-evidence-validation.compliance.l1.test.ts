@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { EVIDENCE_REQUIREMENT } from "@/domains/verify/evidence-rejection";
 import {
+  AUDIT_PAYLOAD_FIELD,
   evidenceValidatorFor,
   VERIFY_EVIDENCE_KIND,
   VERIFY_SCOPE_TYPE,
@@ -20,8 +21,34 @@ import {
 } from "@testing/generators/verify/audit";
 import { sampleVerifyTestValue } from "@testing/generators/verify/verify";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
+import { AUDIT_FIXTURE, withVerificationFixtureRun } from "@testing/harnesses/verify/audit-fixtures";
 
 describe("audit evidence validation", () => {
+  it("rejects whole invalid payload files without appending journal events and identifies the violation", async () => {
+    await withVerificationFixtureRun(async (env) => {
+      const beforeRoot = await env.events();
+      const invalidScope = await env.appendScope(AUDIT_FIXTURE.MISSING_CLASS);
+      expect(invalidScope.exitCode).not.toBe(0);
+      expect(invalidScope.output).toContain(AUDIT_PAYLOAD_FIELD.AUDIT_CLASS);
+      expect(await env.events()).toEqual(beforeRoot);
+
+      expect((await env.appendScope(AUDIT_FIXTURE.ROOT)).exitCode).toBe(0);
+      const beforeFindings = await env.events();
+      expect(beforeFindings.length).toBeGreaterThan(beforeRoot.length);
+      const missingMessage = await env.appendFinding(AUDIT_FIXTURE.MISSING_MESSAGE);
+      expect(missingMessage.exitCode).not.toBe(0);
+      expect(missingMessage.output).toContain(AUDIT_PAYLOAD_FIELD.MESSAGE);
+      expect(await env.events()).toEqual(beforeFindings);
+      const unknownUnit = await env.appendFinding(AUDIT_FIXTURE.UNKNOWN_UNIT);
+      expect(unknownUnit.exitCode).not.toBe(0);
+      expect(unknownUnit.output).toContain(EVIDENCE_REQUIREMENT.AUDIT_FINDING_UNIT_IS_RECORDED);
+      expect(await env.events()).toEqual(beforeFindings);
+      const emptyEvidence = await env.appendFinding(AUDIT_FIXTURE.EMPTY_EVIDENCE);
+      expect(emptyEvidence.exitCode).not.toBe(0);
+      expect(emptyEvidence.output).toContain(AUDIT_PAYLOAD_FIELD.EVIDENCE);
+      expect(await env.events()).toEqual(beforeFindings);
+    });
+  });
   it("rejects invalid audit scope payloads before append", () => {
     assertProperty(
       arbitraryInvalidAuditScopeScenario(),

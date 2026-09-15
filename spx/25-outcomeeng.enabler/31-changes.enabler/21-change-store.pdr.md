@@ -1,27 +1,30 @@
 # Change Store
 
-Change records expose one backend-neutral product model while each backend maps its own status labels into shared query and selection semantics. A record carries a backend-qualified handle, backend-local id, title, context, next step, maturity, product identities, product-qualified node anchors, priority, blocker handles, origin, and backend status; the worktree backend stores shared records under `.spx/changes/` at the Git common-dir product root and encodes current status and owner in the record path.
+Changes retain product intent through a configured backend, independently of the working copy used to author them. SPX manages local Markdown drafts through create, list, and exact-delete operations; authoring workflows own draft content, independent-verification requirements, publication, and cleanup timing. A draft's local identifier and path carry no backend identity or published lifecycle state.
 
 ## Rationale
 
-Backend-neutral records let agents and users refine, query, claim, and implement work without coupling the product model to a local file queue, hosted tracker, or interaction surface. Path-derived worktree status removes duplicated status fields and makes ownership unambiguous even when a worktree disappears.
+Local iteration lets authors refine and repair content before presenting it as settled intent through a shared backend. Separating temporary drafts, persisted Changes, and verification records prevents unfinished or rejected revisions from confusing collaborators. Verification records may persist locally or in private hosted storage through the environment-configured verification channel, while the authoring workflow publishes the approved candidate and keeps audit records separate from the Change.
 
 ## Product properties
 
-1. Every backend exposes change records through the same product fields: `handle`, `id`, `title`, `context`, `next_step`, `maturity`, `products`, `nodes`, `priority`, `blocked_by`, `origin`, and `backend_status`.
-2. Maturity is one of `intent`, `planning`, or `implementation`: `intent` carries useful perspective before ownership or implementation path is refined, `planning` carries enough product-tree context to create or update durable coordination artifacts, and `implementation` is ready for `/apply` or an equivalent governed execution workflow.
-3. A change is claimable only when it is available and each `blocked_by` handle resolves to an archived change; priority orders claimable records after dependency filtering.
-4. The worktree backend stores shared records under `.spx/changes/{available,running/<owner-token>,archive}/` at the Git common-dir product root, derives `backend_status` from the path, derives the current owner from the `running/<owner-token>/` path segment, and omits a frontmatter `status` field.
+1. A caller creates a draft from supplied text and receives its unique local ID, absolute path, and product-relative path. Listing finds retained drafts in the invoking working copy without changing them.
+2. Drafts remain local, Git-ignored working files. Their complete supplied text, including any YAML metadata, is preserved without content refinement or backend publication by SPX.
+3. Explicit deletion removes only the identified managed draft. Publication, interruption, failed verification, and elapsed time do not implicitly remove drafts or alter verification evidence.
 
 ## Verification
 
+### Testing
+
+- ALWAYS: draft creation preserves the supplied text and returns a unique identifier with absolute and product-relative paths ([property]).
+- ALWAYS: draft storage resolves to `.spx/worktree/change-drafts/` in the invoking working copy, independently of sibling worktrees ([property]).
+- ALWAYS: draft files use owner-only access permissions on permission-enforcing filesystems and creation refuses storage that Git would publish by default ([compliance]).
+- ALWAYS: listing is read-only and reports retained regular draft files in deterministic identifier order ([property]).
+- NEVER: draft creation overwrites an existing file, or draft deletion accepts an arbitrary path, traversal, or a symlink as a managed draft ([property]).
+- NEVER: draft deletion changes published Changes, verification records, or another local draft ([property]).
+
 ### Audit
 
-- ALWAYS: changes specs and backends expose backend-qualified handles, backend-local ids, titles, contexts, next steps, maturity, product identities, product-qualified node anchors, priorities, blocker handles, origins, and backend-owned status through the shared change-record model ([audit])
-- ALWAYS: change records use only the `intent`, `planning`, and `implementation` maturity values with the semantics declared by this PDR ([audit])
-- ALWAYS: exact-node and related-node queries use product-qualified node anchors, where related-node matching includes the anchored node, its ancestors, and its descendants inside the same product identity ([audit])
-- ALWAYS: worktree-backed changes resolve `.spx/changes/` as shared state at the Git common-dir product root and derive status from `.spx/changes/available/`, `.spx/changes/running/<owner-token>/`, and `.spx/changes/archive/` rather than from frontmatter ([audit])
-- ALWAYS: worktree-backed running changes derive their authoritative current owner from the `running/<owner-token>/` path segment while any open ownership-log entry remains diagnostic context ([audit])
-- NEVER: a worktree-backed change is claimable while any `blocked_by` handle is missing, non-archived, or part of a dependency cycle ([audit])
-- NEVER: a worktree-backed change record stores a frontmatter `status` field or lets an ownership log override the current owner encoded by the path ([audit])
-- NEVER: session files under `.spx/sessions/` are projected into changes, read as change records, or extended with change-record fields ([audit])
+- ALWAYS: authoring workflows own Change semantics, candidate verification, publication, and the decision to retain or delete a local draft ([audit]).
+- ALWAYS: authoring workflows publish the unchanged candidate after passing independent verification and keep drafts and verification records separate from the published Change ([audit]).
+- NEVER: local draft storage acts as the canonical shared Change backend or treats `.spx/sessions/` records as Changes ([audit]).

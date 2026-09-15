@@ -186,6 +186,7 @@ export interface ReviewTerminalMetadata {
 
 export const AUDIT_CLASS = {
   CHANGESET: "changeset",
+  COORDINATION: "coordination",
   IMPLEMENTATION: "implementation",
   INSTRUCTIONS: "instructions",
   SPEC: "spec",
@@ -196,6 +197,7 @@ export type AuditClass = (typeof AUDIT_CLASS)[keyof typeof AUDIT_CLASS];
 export const AUDIT_KIND = {
   ADR: "adr",
   ARCHITECTURE: "architecture",
+  CHANGE: "change",
   CODE: "code",
   COHERENCE: "coherence",
   COVERAGE_GAP: "coverage-gap",
@@ -755,6 +757,7 @@ function isAuditFindingSeverity(value: JsonValue | undefined): value is AuditFin
 
 function isCompatibleAuditKind(auditClass: AuditClass, auditKind: AuditKind): boolean {
   if (auditKind === AUDIT_KIND.COVERAGE_GAP) return true;
+  if (auditClass === AUDIT_CLASS.COORDINATION) return auditKind === AUDIT_KIND.CHANGE;
   if (auditClass === AUDIT_CLASS.INSTRUCTIONS) {
     return (
       auditKind === AUDIT_KIND.SKILL

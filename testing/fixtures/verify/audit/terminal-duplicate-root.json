@@ -1,0 +1,93 @@
+{
+  "terminalStatus": "approved",
+  "events": [
+    {
+      "specversion": "1.0",
+      "id": "root",
+      "source": "/spx/verify",
+      "type": "sh.spx.verify.scope",
+      "time": "2026-09-08T00:00:00.000Z",
+      "attempt": 1,
+      "data": {
+        "idempotencyKey": "root",
+        "payload": {
+          "unitId": "draft",
+          "auditClass": "coordination",
+          "auditKind": "change",
+          "subject": "draft.md",
+          "coverageRequirement": "required",
+          "coverageStatus": "audited",
+          "priorContext": {
+            "changedFilePartition": "draft.md",
+            "concernPartition": "change"
+          },
+          "expectedProducer": {
+            "producerKind": "agent",
+            "agentName": "change-auditor",
+            "agentOwningPluginName": "work",
+            "skillName": "audit-change",
+            "skillOwningPluginName": "work",
+            "invocationRole": "audit"
+          },
+          "recordedByRunDriver": {
+            "producerKind": "agent",
+            "agentName": "change-auditor",
+            "agentOwningPluginName": "work",
+            "skillName": "audit-change",
+            "skillOwningPluginName": "work",
+            "invocationRole": "audit"
+          }
+        }
+      },
+      "streamid": "fixture",
+      "seq": 1,
+      "runid": "fixture"
+    },
+    {
+      "specversion": "1.0",
+      "id": "duplicate",
+      "source": "/spx/verify",
+      "type": "sh.spx.verify.scope",
+      "time": "2026-09-08T00:00:00.000Z",
+      "attempt": 1,
+      "data": {
+        "idempotencyKey": "duplicate",
+        "payload": {
+          "unitId": "duplicate",
+          "auditClass": "coordination",
+          "auditKind": "change",
+          "subject": "draft.md",
+          "coverageRequirement": "required",
+          "coverageStatus": "audited",
+          "priorContext": {
+            "changedFilePartition": "draft.md",
+            "concernPartition": "change"
+          },
+          "expectedProducer": {
+            "producerKind": "agent",
+            "agentName": "change-auditor",
+            "agentOwningPluginName": "work",
+            "skillName": "audit-change",
+            "skillOwningPluginName": "work",
+            "invocationRole": "audit"
+          },
+          "recordedByRunDriver": {
+            "producerKind": "agent",
+            "agentName": "change-auditor",
+            "agentOwningPluginName": "work",
+            "skillName": "audit-change",
+            "skillOwningPluginName": "work",
+            "invocationRole": "audit"
+          }
+        }
+      },
+      "streamid": "fixture",
+      "seq": 2,
+      "runid": "fixture"
+    }
+  ],
+  "selector": {
+    "scopeType": "file",
+    "scopeIdentity": "draft.md"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "unitId": "draft",
+  "producerIdentity": {
+    "producerKind": "agent",
+    "agentName": "change-auditor",
+    "agentOwningPluginName": "work",
+    "skillName": "audit-change",
+    "skillOwningPluginName": "work",
+    "invocationRole": "audit"
+  },
+  "producerProvenance": {
+    "agentOwningPluginVersion": "1.0.0",
+    "skillOwningPluginVersion": "1.0.0"
+  },
+  "rule": "change-intent",
+  "severity": "blocking",
+  "location": "draft.md:1",
+  "evidence": {
+    "observed": "No output section",
+    "expected": "A declared output"
+  }
+}
