@@ -698,11 +698,9 @@ export function arbitraryAuditScopeParentedToSelf(): fc.Arbitrary<JsonValue> {
 }
 
 /**
- * The audit kinds the changeset class accepts, declared from
- * `spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/15-audit-payload.pdr.md` rather
- * than read from the production compatibility check, so a mapping case has an oracle the
- * implementation under test does not supply. The decision names `coherence` and `review-unit` as
- * the class's own kinds and keeps `coverage-gap` valid under every class, so all three are here.
+ * Keep the expected kinds independent of the production compatibility check so the mapping
+ * detects a change to that check. The changeset-specific kinds and the class-independent
+ * coverage gap are accepted.
  */
 const CHANGESET_CLASS_ACCEPTED_KINDS: readonly string[] = [
   AUDIT_KIND.COHERENCE,
