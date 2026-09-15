@@ -15,6 +15,7 @@ CAN present current spec-tree state and deterministic context without parsing so
 - An empty context-show projection renders as empty text or `{ "entries": [] }`.
 
 ### Mappings
+
 - Spec-tree status projections map to text, table, markdown, and JSON command output with registry labels, node paths, and derived states ([test](tests/spec-cli-rendering.mapping.l1.test.ts))
 
 ### Conformance
