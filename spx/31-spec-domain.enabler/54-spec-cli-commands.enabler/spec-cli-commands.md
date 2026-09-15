@@ -1,10 +1,14 @@
 # Spec CLI Commands
 
-PROVIDES deterministic `spx spec status` and `spx spec next` command handlers over the spec-tree library surface
+PROVIDES deterministic `spx spec status`, `spx spec next`, and `spx spec context` command handlers over the spec-tree library surface
 SO THAT agents and developers working in a product checkout
-CAN inspect current node state and select the next non-passing node without hand-walking `spx/`
+CAN inspect current node state, select the next non-passing node, discover relevant subtrees, and load deterministic context without hand-walking `spx/`
 
 ## Assertions
+
+- `spx spec context list <targets...>` emits the context library's versioned structural manifest for one or more accepted targets.
+- `spx spec context show [targets...]` emits the context library's targetless or targeted document projection and accepts `--methodology`, `--coding-agent <name>`, `--loaded-product`, repeatable `--loaded-target <path>`, and `--loaded-methodology` under their declared compatibility rules.
+- `--json` changes only the representation of `list` or `show`; `show` exposes no `--content` option.
 
 ### Scenarios
 

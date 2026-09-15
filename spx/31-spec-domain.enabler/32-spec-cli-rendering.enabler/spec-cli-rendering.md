@@ -1,10 +1,14 @@
 # Spec CLI Rendering
 
-PROVIDES terminal and machine-readable renderers for spec-tree command output from `SpecTreeProjection`
+PROVIDES terminal and machine-readable renderers for spec-tree status, navigation, manifest, and document projections
 SO THAT `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/` and automation callers
-CAN present current spec-tree state without parsing source records, walking directories, or owning spec-tree vocabulary
+CAN present current spec-tree state and deterministic context without parsing source records, walking directories, or owning spec-tree vocabulary
 
 ## Assertions
+
+- Context-list projections render as the versioned human and JSON manifest representations without changing the selected manifest information.
+- Context-show projections render as ordered `spx-document` and `spx-reference` entries in text, or the equivalent ordered JSON `entries`, without changing selection, metadata, or source content.
+- An empty context-show projection renders as empty text or `{ "entries": [] }`.
 
 ### Mappings
 

@@ -4,6 +4,9 @@ CAN catch broken cross-references and structural defects before they reach the r
 
 ## Assertions
 
+- Every product spec carries a complete `OFFERS` opening, every ADR and PDR carries a complete `GOVERNS` opening, and every output-node spec carries the opening resolved from its registered kind or parent kind.
+- Context-renderable Markdown fails validation when a required opening is absent or malformed, an admitted output-node kind has no resolvable opening, front matter is malformed, an explicit `malleability` value is unsupported, strict UTF-8 decoding fails, a Markdown decision citation is unresolved, or an outcome-record filename differs from its owning node slug.
+
 ### Scenarios
 
 - Given a markdown file with a valid relative link to an existing file, when validation runs, then no error is reported for that link ([test](tests/markdown-validation.scenario.l1.test.ts))
