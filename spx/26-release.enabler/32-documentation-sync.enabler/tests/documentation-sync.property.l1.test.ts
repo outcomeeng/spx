@@ -1,6 +1,7 @@
 import { AGENT_PERMISSION_MODES, AGENT_TOOL_PERMISSION_BEHAVIOR } from "@/agent/agent-runner";
 import { RELEASE_CONFIG_FIELDS, releaseConfigDescriptor } from "@/domains/release/config";
 import { releaseVersionFromTag } from "@/domains/release/release-data";
+import { RELEASE_PRODUCT_TRUTH_STANDARDS } from "@/domains/release/release-notes-standards";
 import { isPathContained } from "@/lib/file-system/pathContainment";
 import { RELEASE_TAG_PREFIX } from "@/lib/git/release";
 import {
@@ -12,14 +13,36 @@ import {
   arbitraryUnrelatedVersionRewriteScenario,
   documentationContentEntries,
 } from "@testing/generators/release/documentation";
+import { arbitraryReleaseContextScenario } from "@testing/generators/release/product-context";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import {
   observeConfiguredDocumentationPathSet,
   observeDocumentationAgentFileToolBoundary,
+  observeDocumentationContextTransport,
   observeDocumentationVersionPreservation,
   observeUnrelatedVersionRewrite,
 } from "@testing/harnesses/release/documentation-sync";
+import fc from "fast-check";
 import { describe, expect, it } from "vitest";
+
+it("preserves identical product truth and release inputs for both documentation agents", async () => {
+  await assertProperty(
+    fc.tuple(arbitraryConfiguredDocumentationSyncScenario(), arbitraryReleaseContextScenario()),
+    async ([scenario, context]) => {
+      const observation = await observeDocumentationContextTransport(scenario, context);
+      for (const input of [observation.producerSource, observation.auditorSource]) {
+        expect(input).toEqual({
+          productContext: context.documents,
+          releaseData: { ...scenario.releaseData, changedPaths: context.releaseData.changedPaths },
+        });
+      }
+      for (const prompt of [observation.producerPrompt, observation.auditPrompt]) {
+        expect(prompt).toContain(RELEASE_PRODUCT_TRUTH_STANDARDS);
+      }
+    },
+    { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+  );
+});
 
 describe("documentation sync path properties", () => {
   it("preserves every generated configured documentation path set", async () => {

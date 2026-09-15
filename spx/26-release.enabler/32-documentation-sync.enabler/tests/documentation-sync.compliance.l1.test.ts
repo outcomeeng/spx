@@ -1,7 +1,6 @@
 import { join } from "node:path";
 
 import { DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE } from "@/domains/release/documentation-sync";
-import { RELEASE_PRODUCT_TRUTH_STANDARDS } from "@/domains/release/release-notes-standards";
 import {
   arbitraryConfiguredDocumentationSyncScenario,
   arbitraryMultiDocumentSyncScenario,
@@ -12,7 +11,6 @@ import {
   documentationPathFailureCases,
   documentationTransformationEntries,
 } from "@testing/generators/release/documentation";
-import { sampleReleaseContextScenario } from "@testing/generators/release/product-context";
 import { sampleReleaseTestValue } from "@testing/generators/release/release";
 import {
   DOCUMENTATION_AUDIT_CASE,
@@ -25,7 +23,6 @@ import {
   DOCUMENTATION_VERSION_VALIDATION_CASE,
   observeAtomicDocumentationPromotion,
   observeDocumentationAudit,
-  observeDocumentationContextTransport,
   observeDocumentationFailure,
   observeDocumentationFifoRejection,
   observeDocumentationIdentityRejection,
@@ -37,21 +34,6 @@ import {
   REJECTING_DOCUMENTATION_AUDIT_MESSAGE,
 } from "@testing/harnesses/release/documentation-sync";
 import { describe, expect, it } from "vitest";
-
-it("gives both documentation agents identical product truth and release inputs", async () => {
-  const scenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
-  const context = sampleReleaseContextScenario();
-  const observation = await observeDocumentationContextTransport(scenario, context);
-  for (const input of [observation.producerSource, observation.auditorSource]) {
-    expect(input).toEqual({
-      productContext: context.documents,
-      releaseData: { ...scenario.releaseData, changedPaths: context.releaseData.changedPaths },
-    });
-  }
-  for (const prompt of [observation.producerPrompt, observation.auditPrompt]) {
-    expect(prompt).toContain(RELEASE_PRODUCT_TRUTH_STANDARDS);
-  }
-});
 
 describe("documentation sync compliance", () => {
   it("rejects every generated invalid path before generation or promotion", async () => {

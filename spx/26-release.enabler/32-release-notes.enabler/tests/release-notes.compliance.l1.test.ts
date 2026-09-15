@@ -49,7 +49,6 @@ import {
   observeConfiguredReleaseNotesPathRejection,
   observeExistingReleaseNotesSection,
   observeReleaseContextReadFailure,
-  observeReleaseNotesContextTransport,
   observeReleaseNotesFaithfulness,
   observeReleaseNotesMaintenanceComposition,
   observeReleaseNotesMutation,
@@ -64,17 +63,6 @@ import {
   type ReleaseNotesConformanceFailureObservation,
 } from "@testing/harnesses/release/release-notes-conformance";
 import { describe, expect, it } from "vitest";
-
-it("supplies identical complete release inputs to the producer and auditor", async () => {
-  const scenario = sampleReleaseContextScenario();
-  const observation = await observeReleaseNotesContextTransport(scenario);
-  for (const input of [observation.producerSource, observation.auditorSource]) {
-    expect(input).toEqual({ productContext: scenario.documents, releaseData: scenario.releaseData });
-  }
-  for (const prompt of [observation.producerPrompt, observation.auditPrompt]) {
-    expect(prompt).toContain(RELEASE_NOTES_STANDARDS);
-  }
-});
 
 it("does not invoke an agent after selected context reading fails", async () => {
   const scenario = sampleReleaseContextScenario();

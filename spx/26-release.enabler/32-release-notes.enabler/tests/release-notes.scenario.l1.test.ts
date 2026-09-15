@@ -1,8 +1,8 @@
 import { isAbsolute } from "node:path";
 
-import { changelogVersionHeading } from "@/domains/release/release-notes";
 import { isPathContained } from "@/lib/file-system/pathContainment";
 import { oracleResolvedChangelogPath } from "@testing/generators/release/changelog";
+import { observeIndependentVersionSection } from "@testing/harnesses/release/keep-a-changelog-oracle";
 import {
   observeCanonicalReleaseNotesCommand,
   observeComposedReleaseNotes,
@@ -36,7 +36,7 @@ describe("resolveReleaseNotesPath resolves the changelog within the product work
 describe("composeReleaseNotes writes the changelog at the resolved path", () => {
   it("writes the changelog carrying a section for the release version", async () => {
     await expect(observeComposedReleaseNotes()).resolves.toSatisfy(
-      (observation) => observation.content.includes(changelogVersionHeading(observation.version)),
+      (observation) => observeIndependentVersionSection(observation.content, observation.version) !== undefined,
     );
   });
 });
@@ -46,7 +46,7 @@ describe("releaseNotesCommand wires release-note composition into the release wo
     await expect(observeReleaseNotesCommand()).resolves.toSatisfy(
       (observation) =>
         observation.output === observation.resolvedPath
-        && observation.content.includes(changelogVersionHeading(observation.version)),
+        && observeIndependentVersionSection(observation.content, observation.version) !== undefined,
     );
   });
 
@@ -55,7 +55,7 @@ describe("releaseNotesCommand wires release-note composition into the release wo
       (observation) =>
         observation.output === observation.canonicalPath
         && observation.canonicalPath !== observation.lexicalPath
-        && observation.content.includes(changelogVersionHeading(observation.version)),
+        && observeIndependentVersionSection(observation.content, observation.version) !== undefined,
     );
   });
 });
