@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/tests/drafts.property.l1.test.ts": "passed",
+      "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/tests/storage-safety.property.l1.test.ts": "passed"
+    }
+  }
+}
