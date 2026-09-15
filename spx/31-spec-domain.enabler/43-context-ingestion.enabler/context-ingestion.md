@@ -1,19 +1,18 @@
+---
+malleability: spec
+---
+
 # Context Ingestion
 
-PROVIDES deterministic spec-tree context ingestion for CLI consumers
+PROVIDES deterministic Product Tree discovery and context delivery for CLI consumers
 SO THAT agents and developers requesting work context
-CAN receive the complete read set for one or more nodes — methodology identity, product root, bootstrap state, schema version, specs, decisions with citing-file provenance, coordination notes, and local overlays — and, on request, every read document's exact content and the foundation methodology in one machine-readable response without LLM inference
+CAN first locate relevant subtrees and then load only the product truth required for one or more accepted targets through a structural `list` manifest or source-faithful `show` entries, with optional methodology foundation and caller-declared reuse inside one conversation window
 
 ## Assertions
 
-### Properties
-
-- The projection is deterministic: identical tracked tree content and identical shipped methodology trees produce byte-identical machine output across repeated runs, with and without document content ([test](tests/determinism.property.l1.test.ts))
-
-### Compliance
-
-- ALWAYS: context ingestion reads tracked `spx/` files from the worktree-local product directory ([test](tests/context-ingestion.compliance.l1.test.ts))
-- ALWAYS: the machine manifest carries the manifest schema version and the snapshot-derived bootstrap flag ([test](tests/context-ingestion.compliance.l1.test.ts))
-- ALWAYS: context ingestion exposes machine-readable manifest output for automation and human-readable output for terminal inspection when the requested output mode names each format ([test](tests/context-ingestion.compliance.l1.test.ts))
-- ALWAYS: configured methodology source and version are read from the top-level `methodology` config descriptor ([test](tests/context-ingestion.compliance.l1.test.ts))
-- NEVER: select context by keyword search, semantic similarity, or LLM judgment ([audit])
+- Equal tracked product content, shipped methodology content, options, and targets produce byte-identical output.
+- `spx spec context list <targets...>` emits the versioned structural manifest, while `spx spec context show [targets...]` emits selected document content and path references without manifest fields.
+- Targetless `show` supplies the complete product spec and a depth-bounded Product Tree map from which an agent can choose a target.
+- Targeted `show` supplies Full target and ancestor context, Digest sibling and immediate-child awareness, applicable decisions, and the agreed path-only references.
+- Context ingestion resolves the complete projection before output and emits no partial result after any target, source, citation, or methodology failure.
+- Context selection is structural and never uses keyword search, semantic similarity, or LLM judgment.

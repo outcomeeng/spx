@@ -1,24 +1,20 @@
+---
+malleability: spec
+---
+
 # Multi-Target Composition
 
-PROVIDES composition of one or more resolved context targets into a single deduplicated bundle — each shared document emitted once with every role and requiring target preserved, under canonical ordering and atomic validation
-SO THAT agents and workflows loading context for several nodes at once
-CAN receive one complete bundle instead of merging repeated single-target responses without provenance
+PROVIDES canonical composition and caller-declared incremental suppression across product, methodology, and one or more target projections
+SO THAT agents adding targets within one conversation window
+CAN receive every newly required entry once, upgrade Digest entries to Full, and reload complete context after compaction without a persisted receipt
 
 ## Assertions
 
-### Scenarios
-
-- Given two targets sharing product, ancestor, decision, and lower-index-sibling documents, when the bundle is built, then each shared document appears exactly once carrying every role it holds and every target that requires it ([test](tests/multi-target-composition.scenario.l1.test.ts))
-- Given one target of a multi-target set fails resolution or a required document check, when the bundle is built, then the whole command fails and no partial bundle is emitted ([test](tests/multi-target-composition.scenario.l1.test.ts))
-
-### Mappings
-
-- Each requested target maps to its complete per-target read set through references into the deduplicated entry list, so per-target coverage is reconstructible from one bundle ([test](tests/multi-target-composition.mapping.l1.test.ts))
-
-### Properties
-
-- Target-order permutation stability: every ordering of the same target set produces byte-identical structured output ([test](tests/multi-target-composition.property.l1.test.ts))
-
-### Compliance
-
-- ALWAYS: the context command accepts one or more node-path operands, and a single-target invocation preserves the documented single-target contract ([test](tests/multi-target-composition.compliance.l1.test.ts))
+- SPX resolves every requested and loaded target, computes each complete projection and transitive citation closure, merges entries by canonical identity, applies Full-over-Digest precedence, and only then suppresses already-present entries.
+- Target and loaded-declaration order never changes the remaining entry order; shared documents and references appear once.
+- `--loaded-product` reconstructs the complete targetless projection, and each `--loaded-target <path>` reconstructs that target's complete projection at every entry's selected mode.
+- Suppression applies to targeted and targetless calls. Prior Full satisfies Full or Digest; prior Digest satisfies only Digest.
+- Loaded declarations may appear without requested targets, repeat declarations are deduplicated, and a target may also appear as loaded; a fully suppressed projection succeeds with empty text or `{ "entries": [] }`.
+- A changed covered entry invalidates every declaration whose projection contains it; after compaction the caller supplies no loaded declaration and requests every target the continuing work requires.
+- `--loaded-methodology` affects only methodology content, while `--loaded-product` and `--loaded-target` affect product entries. `--methodology --loaded-product` is valid.
+- Any requested or loaded target failure or any selected document failure aborts the whole projection before output.

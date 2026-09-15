@@ -1,8 +1,17 @@
+---
+malleability: spec
+---
+
+# Markdown Validation
+
 PROVIDES markdownlint-cli2-based link integrity and structural quality checking for markdown files in `spx/` and `docs/`
 SO THAT `spx validation all` and `spx validation markdown`
 CAN catch broken cross-references and structural defects before they reach the repository
 
 ## Assertions
+
+- Every target-version product spec carries a complete `OFFERS` opening, every target-version ADR and PDR carries a complete `GOVERNS` opening, and every output-node spec carries the opening resolved from its registered kind or parent kind; while `methodology.migratingFrom` is declared, a source-version product or decision may supply its first prose paragraph after the title instead.
+- Context-renderable Markdown fails validation when a required target- or source-version opening is absent or malformed, an admitted output-node kind has no resolvable opening, front matter is malformed, an explicit `malleability` value is unsupported, strict UTF-8 decoding fails, a Markdown decision citation is unresolved, or an outcome-record filename differs from its owning node slug.
 
 ### Scenarios
 

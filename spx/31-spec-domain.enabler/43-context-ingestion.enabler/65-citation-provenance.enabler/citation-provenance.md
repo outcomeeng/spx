@@ -1,13 +1,17 @@
+---
+malleability: spec
+---
+
 # Citation Provenance
 
-PROVIDES full-path decision-citation discovery over the read class — transitive scanning, citing-file provenance, and atomic failure on unsatisfied citations
-SO THAT context consumers and the composition projection under `spx/31-spec-domain.enabler/43-context-ingestion.enabler`
-CAN receive every governing decision a loaded document cites, with the citing paths that justify each entry, without scanning documents themselves
+PROVIDES transitive decision selection from explicit citations in rendered spec and decision content
+SO THAT targeted context consumers
+CAN receive every selected governing decision once and diagnose an unsatisfied citation at its declaring document
 
 ## Assertions
 
-### Scenarios
-
-- Given a read-class spec or decision cites a full-path decision absent from the structural context, when the manifest is built, then the cited decision appears exactly once as a `cited-decision` read entry carrying every citing document path, including citations discovered transitively inside cited decisions ([test](tests/cited-decisions.scenario.l1.test.ts))
-- Given a read-class spec or decision cites a full-path decision that no tracked file satisfies, when the manifest is built, then the command fails naming the cited path and the citing document ([test](tests/cited-decisions.scenario.l1.test.ts))
-- Given a read-class document contains a citation-shaped path carrying a relative path segment, continuing past the decision suffix, or embedding the tree root inside a longer path, when the manifest is built, then the path binds no read entry, reaches no filesystem probe, and the command succeeds ([test](tests/cited-decisions.scenario.l1.test.ts))
+- A decision citation is a Markdown inline link whose href begins `spx/` and ends `.adr.md` or `.pdr.md`; bare path text, other link destinations, coordination notes, and undisplayed source content contribute no citation.
+- Selected Full content and selected Digest opening paragraphs contribute citations; citation scanning follows cited decisions transitively until no unread decision remains.
+- A cited decision already selected structurally appears once, and repeated citations and cycles add no duplicate.
+- Cited decisions outside the structural tree walk append in canonical product-root-relative path order.
+- A citation that resolves to no tracked decision fails the whole projection naming both the cited path and the citing document.

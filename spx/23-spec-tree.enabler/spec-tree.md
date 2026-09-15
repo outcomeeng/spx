@@ -1,3 +1,7 @@
+---
+malleability: spec
+---
+
 # Spec Tree
 
 PROVIDES a backend-neutral spec-tree library with a single public TypeScript surface for source records, tree snapshots, node state, projections, and next-node selection, plus config-owned kind vocabulary
