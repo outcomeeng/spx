@@ -12,12 +12,12 @@ CAN present current spec-tree state and deterministic context without parsing so
 
 ### Mappings
 
-- Spec-tree projections map to text, table, markdown, and JSON command output with registry labels, node paths, and derived states ([test](tests/spec-cli-rendering.mapping.l1.test.ts))
+- Spec-tree status projections map to text, table, markdown, and JSON command output with registry labels, node paths, and derived states ([test](tests/spec-cli-rendering.mapping.l1.test.ts))
 
 ### Conformance
 
-- JSON output conforms to the stable `SpecTreeProjection` contract consumed by automation callers ([test](tests/spec-cli-rendering.conformance.l1.test.ts))
+- Status JSON output conforms to the stable `SpecTreeProjection` contract consumed by automation callers ([test](tests/spec-cli-rendering.conformance.l1.test.ts))
 
 ### Compliance
 
-- NEVER: rendering code parses filesystem paths, node suffixes, decision suffixes, source records, or snapshots — it consumes `SpecTreeProjection` and registry-owned labels only ([review])
+- NEVER: rendering code parses filesystem paths, node suffixes, decision suffixes, source records, or snapshots — it consumes library-owned projection values and registry-owned labels only ([review])
