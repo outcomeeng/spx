@@ -9,8 +9,8 @@ A release describes the changes a product ships, so deriving it from git history
 ## Product properties
 
 1. A release's contents derive from the product's git history, including changes to decisions and specifications; commit types never determine whether a change has a user-visible effect. Identical repository state yields identical release data.
-2. Release notes, documentation updates, and publication all read from one shared release-data description, so they agree on what the release contains.
-3. Computing release data is deterministic and offline; generating release notes and documentation updates is the only part that consults a model.
+2. Release notes, documentation updates, and publication agree on the released version and the changes it contains.
+3. Release data can be computed deterministically and offline without model credentials.
 
 ## Verification
 

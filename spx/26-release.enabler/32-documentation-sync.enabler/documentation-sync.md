@@ -23,7 +23,7 @@ CAN reflect the released version's behavior and product release-version referenc
 
 ### Compliance
 
-- ALWAYS: documentation sync's prompt carries the release data and the resolved documentation set ([test](tests/documentation-sync.compliance.l1.test.ts))
+- ALWAYS: documentation sync's producer and auditor receive identical shared product-truth standards, release data, and deterministically selected product context; their role-specific inputs carry the resolved documentation set and original-to-updated transformations respectively ([test](tests/documentation-sync.compliance.l1.test.ts))
 - NEVER: accept product staging or staged read-back content unless canonical containment, regular non-symlink file identity, and the bytes read all belong to the same validated file throughout the operation; a binding violation leaves product documentation unpromoted ([test](tests/documentation-sync.compliance.l1.test.ts))
 - NEVER: overwrite a configured document whose path identity or product content changes after staging or before atomic replacement; drift in any configured document leaves the complete staged set unpromoted ([test](tests/documentation-sync.compliance.l1.test.ts))
 - NEVER: overwrite during rollback when a configured document changed after its promotion; rollback restores only the promoted file identity and content ([test](tests/documentation-sync.compliance.l1.test.ts))
