@@ -1,4 +1,4 @@
-# Verification Path Scope
+# Product Path Resolution and Verification Scope
 
 GOVERNS how product commands resolve caller-supplied product paths and how verification commands apply those paths as scope operands. A command declares the target classes it accepts; every unambiguous spelling of an accepted target resolves to one canonical identity, while unresolved, ambiguous, and outside-product operands fail without guessing. Verification commands accept those paths positionally and map them only to work owned by the invoked verification surface.
 
