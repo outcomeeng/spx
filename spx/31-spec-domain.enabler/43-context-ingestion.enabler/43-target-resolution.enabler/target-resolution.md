@@ -1,15 +1,13 @@
 # Target Resolution
 
-PROVIDES canonical resolution of caller-supplied context target operands over the parsed spec-tree snapshot
-SO THAT the read-set, citation, content, methodology, and composition projections under `spx/31-spec-domain.enabler/43-context-ingestion.enabler`
-CAN operate on canonical full node paths with typed failures for unknown, ambiguous, and artifact-path inputs instead of re-deriving target identity
+PROVIDES canonical resolution of context operands to accepted Product Tree target identities
+SO THAT context selection and loaded-context reconstruction
+CAN accept convenient unambiguous paths while rejecting unknown, ambiguous, unsupported, and outside-product inputs without guessing
 
 ## Assertions
 
-### Mappings
-
-- Context target forms map to resolution outcomes as follows: canonical node paths, paths with an optional leading `spx/`, paths with trailing separators, and paths whose node-directory segments uniquely prefix one sibling resolve to the canonical full node path; unknown segments identify the unresolved input; ambiguous segments identify every matching sibling; node-owned artifact paths identify their owning node without selecting it; and product-root artifact paths — the product spec, root decisions, and product-root coordination notes — direct the caller to choose a node whose context includes the artifact ([test](tests/context-target-resolution.mapping.l1.test.ts))
-
-### Compliance
-
-- NEVER: target resolution selects the first ambiguous sibling, lets a matching descendant disambiguate an ambiguous ancestor, or treats a canonical segment as ambiguous when another valid sibling segment begins with it ([test](../tests/context-ingestion.compliance.l1.test.ts))
+- Context targets accept the product root or product spec, a node directory or its spec, and an ADR or PDR; every other artifact class is rejected.
+- A node directory and its spec identify the same node; a decision identifies its directly containing node or product root and selects that container's projection.
+- Absolute operands resolve as written, while relative operands collect candidates from the effective invocation directory, the product root, and complete-path-component suffix matches over accepted target paths only.
+- Candidate sources have no precedence; candidates are normalized, resolved through symbolic links, confined to the resolved product root, and collapsed by target identity before zero, one, or several identities produce unresolved, success, or ambiguous results.
+- Ambiguity reports every canonical accepted-target match and never selects the first match or uses a descendant to disambiguate an ambiguous ancestor.

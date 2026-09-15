@@ -1,18 +1,15 @@
 # Content Projection
 
-PROVIDES opt-in exact document content for the read class — strict UTF-8 bodies, raw-byte digests naming the hash algorithm, and byte counts — with atomic failure on any unreadable or undecodable document
-SO THAT machine consumers of `spx/31-spec-domain.enabler/43-context-ingestion.enabler` output
-CAN load every read-required byte from one response without agent-side file orchestration or partial context
+PROVIDES source-faithful Full and Digest document representations with text and JSON framing
+SO THAT agents and automation consuming context
+CAN receive complete working documents and concise navigation statements without generated summaries, duplicated metadata, or manifest noise
 
 ## Assertions
 
-### Scenarios
-
-- Given a read document whose bytes are not valid UTF-8, when document content is requested, then the command fails naming the exact document path ([test](tests/content.scenario.l1.test.ts))
-- Given a read document that cannot be read, when document content is requested, then the command fails naming the exact document path ([test](tests/content.scenario.l1.test.ts))
-- Given a citation-scanned structural document that cannot be read, when document content is not requested, then the document stays a read entry and the command succeeds ([test](tests/content.scenario.l1.test.ts))
-
-### Compliance
-
-- ALWAYS: when document content is requested, every read entry carries the document's exact UTF-8 content, its raw-byte digest naming the hash algorithm, and its byte count, and no listed entry carries content, a digest, or a byte count ([test](tests/content.compliance.l1.test.ts))
-- NEVER: an entry outside the methodology group carries content, a digest, or a byte count when document content is not requested ([test](tests/content.compliance.l1.test.ts))
+- Full contains explicitly selected front matter followed by the complete source body; Digest contains the same selected metadata followed by the complete required opening paragraph.
+- Front matter is recognized only by opening and closing `---` lines at the start of the file, selected only by named keys, and fails projection when unterminated. Context projection selects only source-present `malleability` for output nodes and never emits its default.
+- Digest selects methodology-fixed `OFFERS` for products, methodology-fixed `GOVERNS` for decisions, and the configured kind registry's resolved opening keyword for output nodes. A missing required opening or unresolved kind opening fails the whole projection without a title fallback or generated summary.
+- The opening is the first paragraph beginning at column one with the case-sensitive keyword followed by one space and ending before the next blank or whitespace-only line or end of file.
+- Every source document decodes as strict UTF-8, selected source whitespace remains unchanged, and a framing line break is added only when required to place the closing delimiter on its own line.
+- Text output uses ordered `spx-document` and `spx-reference` frames with one blank line between entries; source text matching a delimiter remains verbatim.
+- JSON output carries the same ordered entries, metadata, and selected source strings without text delimiters, YAML rendering, separators, or framing-only line breaks.

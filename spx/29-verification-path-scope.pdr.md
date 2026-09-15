@@ -1,26 +1,21 @@
 # Verification Path Scope
 
-Verification commands that accept caller-selected product paths take those paths as positional operands, not through a `--files` flag or a verification-type-specific option. The operand vocabulary is shared across validation, testing, status refresh, and verification launchers that narrow work by product path: operands may name files or directories, resolve from the effective product invocation directory, and select only work the invoked verification surface owns.
+GOVERNS how product commands resolve caller-supplied product paths and how verification commands apply those paths as scope operands. A command declares the target classes it accepts; every unambiguous spelling of an accepted target resolves to one canonical identity, while unresolved, ambiguous, and outside-product operands fail without guessing. Verification commands accept those paths positionally and map them only to work owned by the invoked verification surface.
 
 ## Rationale
 
-Paths are already the noun a caller supplies, so repeating the noun as a flag adds ceremony and lets verification surfaces drift into incompatible scope models. A shared operand vocabulary keeps focused verification portable across validation, testing, and status-refresh workflows while leaving each surface responsible for mapping selected paths to its own executable work.
+Callers know paths by several stable spellings: from their invocation directory, from the product root, or by an unambiguous suffix of a canonical target path. One shared resolution rule preserves that convenience without giving candidate sources precedence or expanding a command's accepted target classes. Positional verification operands keep the shared path vocabulary visible without duplicating it in surface-specific flags.
 
 ## Product properties
 
-1. A caller narrows a verification command by appending product path operands after command options; omitting operands runs the command over its configured default scope.
-2. File operands select the verification work that owns the file, and directory operands expand to the invoked surface's relevant product files or nodes before dispatch.
-3. Surface-specific filtering, such as passing-scope exclusions or validation path filters, applies after explicit operand resolution and cannot silently erase an explicitly requested product path.
+1. Absolute operands resolve as written; relative operands collect candidates from the effective invocation directory, the product root, and complete-path-component suffix matches over the invoked command's accepted canonical target paths.
+2. Candidate paths are normalized lexically, resolved through symbolic links, discarded when their resolved location lies outside the resolved product root, collapsed by canonical target identity, and accepted only when exactly one identity remains; ambiguity reports every canonical match.
+3. A verification command accepts zero or more positional product path operands after options, expands them to work the surface owns, and preserves its configured unscoped behavior when operands are omitted.
 
 ## Verification
 
-### Testing
-
-- ALWAYS: verification CLI surfaces that expose path-scoped execution accept zero or more positional product path operands after options, and omitted operands preserve unscoped default execution ([compliance])
-- ALWAYS: directory operands expand to the invoked surface's relevant product files or nodes before runner, tool, or status-refresh dispatch ([compliance])
-- ALWAYS: explicit path operands resolve before surface-specific filters, so filters can report or narrow execution without silently discarding caller intent ([compliance])
-- NEVER: introduce a verification path-scope flag such as `--files`, `--tests`, or `--nodes` when positional operands express the same product path scope ([compliance])
-
-### Audit
-
-- ALWAYS: every verification surface reuses the positional product path operand vocabulary unless its scoped subject is not a product path ([audit])
+- ALWAYS: each path-taking command declares its accepted target classes, and suffix matching considers only canonical paths in those classes.
+- ALWAYS: candidate sources have no precedence; several distinct canonical identities fail as ambiguous and zero identities fail as unresolved.
+- NEVER: a path operand escaping the resolved product root through lexical traversal or symbolic-link resolution is accepted.
+- ALWAYS: verification path operands resolve before surface-specific filters and select only work owned by the invoked surface.
+- NEVER: introduce a verification path-scope flag such as `--files`, `--tests`, or `--nodes` when positional operands express the same product path scope.
