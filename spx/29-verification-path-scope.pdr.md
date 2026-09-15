@@ -14,8 +14,10 @@ Callers know paths by several stable spellings: from their invocation directory,
 
 ## Verification
 
-- ALWAYS: each path-taking command declares its accepted target classes, and suffix matching considers only canonical paths in those classes.
-- ALWAYS: candidate sources have no precedence; several distinct canonical identities fail as ambiguous and zero identities fail as unresolved.
-- NEVER: a path operand escaping the resolved product root through lexical traversal or symbolic-link resolution is accepted.
-- ALWAYS: verification path operands resolve before surface-specific filters and select only work owned by the invoked surface.
-- NEVER: introduce a verification path-scope flag such as `--files`, `--tests`, or `--nodes` when positional operands express the same product path scope.
+### Audit
+
+- ALWAYS: each path-taking command declares its accepted target classes, and suffix matching considers only canonical paths in those classes ([audit])
+- ALWAYS: candidate sources have no precedence; several distinct canonical identities fail as ambiguous and zero identities fail as unresolved ([audit])
+- NEVER: a path operand escaping the resolved product root through lexical traversal or symbolic-link resolution is accepted ([audit])
+- ALWAYS: verification path operands resolve before surface-specific filters and select only work owned by the invoked surface ([audit])
+- NEVER: introduce a verification path-scope flag such as `--files`, `--tests`, or `--nodes` when positional operands express the same product path scope ([audit])

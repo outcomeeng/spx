@@ -18,7 +18,12 @@ The reviewed, agent-specific foundation already ships inside spx. Reusing its ma
 
 ## Verification
 
-- ALWAYS: manifest schema, core containment, strict UTF-8 decoding, and configured `provides` and `supports` compatibility are validated before output.
-- ALWAYS: an absent line, agent tree, manifest, supported schema, or contained core fails the complete projection with the existing typed methodology failure.
-- NEVER: methodology selection scans directories, compares package versions, reaches the network, reads an installed plugin or cache, or reads a consumer-side copy.
-- ALWAYS: methodology parsing and validation are pure over supplied bytes and tree reads enter through the injected methodology reader rooted at spx's package root.
+### Testing
+
+- ALWAYS: manifest schema, core containment, strict UTF-8 decoding, and configured `provides` and `supports` compatibility are validated before output ([test](tests/understand-payload.compliance.l1.test.ts))
+- ALWAYS: an absent line, agent tree, manifest, supported schema, or contained core fails the complete projection with the existing typed methodology failure ([test](tests/understand-payload.compliance.l1.test.ts))
+- NEVER: methodology selection scans directories, compares package versions, reaches the network, reads an installed plugin or cache, or reads a consumer-side copy ([test](tests/understand-payload.compliance.l1.test.ts))
+
+### Audit
+
+- ALWAYS: methodology parsing and validation are pure over supplied bytes and tree reads enter through the injected methodology reader rooted at spx's package root ([audit])

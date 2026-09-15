@@ -18,8 +18,10 @@ One registry prevents path parsing, rendering, validation, and configuration fro
 
 ## Verification
 
-- ALWAYS: every kind entry carries category, label, suffix, aliases, and its opening selector.
-- ALWAYS: derived registries and types are computed from `KIND_REGISTRY` without parallel kind, suffix, category, label, alias, or opening constants.
-- ALWAYS: the spec-tree configuration descriptor is co-located with the registry and validates selections against it.
-- NEVER: a renderer, parser, validator, or command module owns a separate kind-to-opening mapping.
-- NEVER: tests intercept the production registry; they pass explicit test-scoped registries.
+### Audit
+
+- ALWAYS: every kind entry carries category, label, suffix, aliases, and its opening selector ([audit])
+- ALWAYS: derived registries and types are computed from `KIND_REGISTRY` without parallel kind, suffix, category, label, alias, or opening constants ([audit])
+- ALWAYS: the spec-tree configuration descriptor is co-located with the registry and validates selections against it ([audit])
+- NEVER: a renderer, parser, validator, or command module owns a separate kind-to-opening mapping ([audit])
+- NEVER: tests intercept the production registry; they pass explicit test-scoped registries ([audit])
