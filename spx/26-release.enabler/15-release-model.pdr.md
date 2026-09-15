@@ -1,6 +1,6 @@
 # Release Model
 
-spx offers release as a capability applied to any product it runs against: it derives each release's contents from that product's git history — the package version, the commits since the last release tag, the version delta, and the changed paths — and turns them into Keep a Changelog release notes, updates to a configured documentation set, and a governed, provenance-bearing publication. A release depends on no in-tree domain.
+spx offers release as a capability applied to any product it runs against: it derives each release's contents from that product's git history — the package version, the commits since the last release tag, the version delta, and the changed paths — and turns them into Keep a Changelog release notes, updates to a configured documentation set, and a governed, provenance-bearing publication. Product specifications and decision records establish the meaning of those changes in product context. Products without a spec tree remain supported.
 
 ## Rationale
 
@@ -8,7 +8,7 @@ A release describes the changes a product ships, so deriving it from git history
 
 ## Product properties
 
-1. A release's contents derive solely from the product's git history, so identical repository state always yields identical release data.
+1. A release's contents derive from the product's git history, including changes to decisions and specifications; commit types never determine whether a change has a user-visible effect. Identical repository state yields identical release data.
 2. Release notes, documentation updates, and publication all read from one shared release-data description, so they agree on what the release contains.
 3. Computing release data is deterministic and offline; generating release notes and documentation updates is the only part that consults a model.
 
@@ -16,14 +16,15 @@ A release describes the changes a product ships, so deriving it from git history
 
 ### Testing
 
-- ALWAYS: release data is the package version, the commits since the previous release tag, the version delta, and the changed paths, computed from the product's git history ([scenario])
+- ALWAYS: release data is the package version, the commits since the previous release tag, the version delta, and the changed paths, computed from the product's git history ([conformance])
 - ALWAYS: release-data computation is deterministic — identical repository state yields identical release data ([property])
 - ALWAYS: release notes conform to the Keep a Changelog structure ([conformance])
-- ALWAYS: publication proceeds only when the release tag equals the package version prefixed with `v` ([scenario])
+- ALWAYS: publication proceeds only when the release tag equals the package version prefixed with `v` ([compliance])
 - NEVER: computing release data performs network access or invokes a model — git plumbing and the local working tree are its only inputs ([compliance])
 
 ### Audit
 
-- ALWAYS: generated release notes and documentation updates stay faithful to the underlying commits and introduce no claim absent from the release's changes ([audit])
+- ALWAYS: generated release notes and documentation updates interpret changes through the product specification, governing decisions, and affected specifications, in that order, when present; evidence and implementation establish what the release delivers, and a declaration alone never establishes implemented behavior ([audit])
+- ALWAYS: generated release notes and documentation updates stay faithful to the release's changes; each producer and its independent faithfulness auditor judge against identical product context, release inputs, and shared standards ([audit])
 - ALWAYS: publication carries build provenance through the registry's trusted-publishing mechanism ([audit])
 - NEVER: a release is gated on an in-tree domain — running validation, testing, or agentic verification before a release is the product exercising its own commands, not a release dependency ([audit])
