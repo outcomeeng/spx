@@ -17,13 +17,13 @@ CAN reflect the released version's behavior and product release-version referenc
 
 ### Properties
 
+- For every release input and selected product context, documentation sync preserves identical shared product-truth standards and source inputs for producer and auditor; their role-specific inputs carry the resolved documentation set and original-to-updated transformations respectively ([test](tests/documentation-sync.property.l1.test.ts))
 - Configuration resolution preserves every generated non-empty documentation path set in declared order and rejects every generated duplicate-bearing set, including paths that alias across platform separators ([test](tests/documentation-sync.property.l1.test.ts))
 - Structural version validation preserves every generated semantic version other than the exact standalone previous product release-version token identified by the release data, including exact release values embedded in larger non-whitespace tokens and first releases whose release data identifies no previous version ([test](tests/documentation-sync.property.l1.test.ts))
 - Agent file-tool authorization permits every generated staged read, write, or edit target and rejects every generated absolute or parent-relative target outside the isolated staging workspace ([test](tests/documentation-sync.property.l1.test.ts))
 
 ### Compliance
 
-- ALWAYS: documentation sync's producer and auditor receive identical shared product-truth standards, release data, and deterministically selected product context; their role-specific inputs carry the resolved documentation set and original-to-updated transformations respectively ([test](tests/documentation-sync.compliance.l1.test.ts))
 - NEVER: accept product staging or staged read-back content unless canonical containment, regular non-symlink file identity, and the bytes read all belong to the same validated file throughout the operation; a binding violation leaves product documentation unpromoted ([test](tests/documentation-sync.compliance.l1.test.ts))
 - NEVER: overwrite a configured document whose path identity or product content changes after staging or before atomic replacement; drift in any configured document leaves the complete staged set unpromoted ([test](tests/documentation-sync.compliance.l1.test.ts))
 - NEVER: overwrite during rollback when a configured document changed after its promotion; rollback restores only the promoted file identity and content ([test](tests/documentation-sync.compliance.l1.test.ts))
