@@ -16,4 +16,7 @@ CAN first locate relevant subtrees and then load only the product truth required
 - ALWAYS: targetless `show` supplies the complete product spec and a depth-bounded Product Tree map from which an agent can choose a target ([test](tests/context-ingestion.compliance.l1.test.ts))
 - ALWAYS: targeted `show` supplies Full target and ancestor context, Digest sibling and immediate-child awareness, applicable decisions, and the agreed path-only references ([test](tests/context-ingestion.compliance.l1.test.ts))
 - ALWAYS: context ingestion resolves the complete projection before output and emits no partial result after any target, source, citation, or methodology failure ([test](tests/context-ingestion.compliance.l1.test.ts))
+
+### Audit
+
 - NEVER: context selection uses keyword search, semantic similarity, or LLM judgment ([audit])
