@@ -65,7 +65,7 @@ interface SemverParts {
  * @remarks Defined only for a package version that advances beyond the previous
  * tag. For equal versions the return value is unspecified — re-releasing the
  * same version is governed by publish dispatch's precondition, and callers must
- * not rely on the delta until that decision lands.
+ * not rely on the delta for equal versions.
  */
 export function classifyVersionDelta(previousTag: string, packageVersion: string): VersionDelta {
   const previous = parseSemver(releaseVersionFromTag(previousTag));

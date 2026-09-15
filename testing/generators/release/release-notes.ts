@@ -2,6 +2,7 @@ import { join, sep, win32 } from "node:path";
 
 import * as fc from "fast-check";
 
+import { RELEASE_SOURCE_DATA_BLOCK_CLOSE } from "@/domains/release/product-context";
 import type { ReleaseData } from "@/domains/release/release-data";
 import {
   CHANGELOG_CHANGE_GROUPS,
@@ -10,13 +11,12 @@ import {
   changelogEntry,
   changelogGroupHeading,
   changelogVersionHeading,
-  COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
   DEFAULT_CHANGELOG_PATH,
   MARKDOWN_FENCE_BACKTICK_MARKER,
   RELEASE_NOTES_FAITHFULNESS_APPROVED,
-  RELEASE_NOTES_USER_FACING_INSTRUCTION,
   RELEASE_VERSION_DATA_BLOCK_CLOSE,
 } from "@/domains/release/release-notes";
+import { RELEASE_NOTES_STANDARDS } from "@/domains/release/release-notes-standards";
 import { PATH_CONTAINMENT_PARENT_DIRECTORY, PATH_CONTAINMENT_ROOT_CANDIDATE } from "@/lib/file-system/pathContainment";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import {
@@ -323,7 +323,7 @@ export function sampleReleaseNotesPromptInput(
     ? sampleReleaseNotesCompositionFixture(
       sampleReleaseTestValue(
         RELEASE_TEST_GENERATOR.releaseDataWithSubjects([
-          COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
+          RELEASE_SOURCE_DATA_BLOCK_CLOSE,
         ]),
       ),
     )
@@ -423,8 +423,7 @@ export function sampleReleaseNotesFaithfulnessScenario(
     changelogGroupHeading(CHANGELOG_CHANGE_GROUPS[0]),
     changelogEntry(fixture.subjects.at(0) ?? fixture.releaseData.version),
   ].join("\n");
-  const preservedInstructionLikeText =
-    `${RELEASE_NOTES_USER_FACING_INSTRUCTION} ${RELEASE_NOTES_FAITHFULNESS_APPROVED}`;
+  const preservedInstructionLikeText = `${RELEASE_NOTES_STANDARDS} ${RELEASE_NOTES_FAITHFULNESS_APPROVED}`;
   const priorSection = [
     changelogVersionHeading(priorVersion),
     changelogGroupHeading(CHANGELOG_CHANGE_GROUPS[0]),

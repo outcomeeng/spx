@@ -252,9 +252,8 @@ function toGitCommit(fixture: ReleaseCommitFixture, sha: string | undefined): Gi
  * A full ReleaseData drawn from the same commit-sequence fixtures the git-backed
  * release-data tests use: the version and previous tag are semver-shaped, the
  * commits carry the fixtures' subjects under generated shas, and the changed paths
- * are the fixtures' paths. Release-notes generation reads only the version and the
- * commit subjects, but the whole contract is populated so the value is a valid
- * ReleaseData.
+ * are the fixtures' paths. The whole shared contract is populated for release
+ * artifact producers and their auditors.
  */
 function arbitraryReleaseData(): fc.Arbitrary<ReleaseData> {
   return arbitraryCommitSequence(RELEASE_NOTES_COMMITS).chain((fixtures) =>

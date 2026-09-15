@@ -52,6 +52,7 @@ import {
   type DocumentationSyncPromptInput,
   type StagedDocumentationReader,
 } from "@/domains/release/documentation-sync";
+import { RELEASE_SOURCE_DATA_BLOCK_CLOSE, RELEASE_SOURCE_DATA_BLOCK_OPEN } from "@/domains/release/product-context";
 import { encodeReleasePromptData } from "@/domains/release/prompt-data";
 import { type ReleaseData, releaseVersionFromTag } from "@/domains/release/release-data";
 import { type CliInvocation, SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
@@ -578,10 +579,12 @@ function parseDocumentationSyncPromptInput(prompt: string): {
 
 function documentationSyncPromptInstruction(prompt: string): string {
   const blockStart = prompt.indexOf(DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN);
-  if (blockStart < 0) {
-    throw new Error("Documentation sync prompt has no data block");
+  const sourceStart = prompt.indexOf(RELEASE_SOURCE_DATA_BLOCK_OPEN);
+  const sourceEnd = prompt.indexOf(RELEASE_SOURCE_DATA_BLOCK_CLOSE);
+  if (blockStart < 0 || sourceStart < 0 || sourceEnd < sourceStart || sourceEnd > blockStart) {
+    throw new Error("Documentation sync prompt has invalid data blocks");
   }
-  return prompt.slice(0, blockStart);
+  return prompt.slice(0, sourceStart) + prompt.slice(sourceEnd + RELEASE_SOURCE_DATA_BLOCK_CLOSE.length, blockStart);
 }
 
 async function writeGeneratedDocumentation(
@@ -1731,7 +1734,11 @@ function parseDocumentationPromptDataBlock(prompt: string): unknown {
     throw new Error("Documentation prompt contains an invalid data envelope");
   }
   const encodedStart = blockStart + DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN.length;
-  return JSON.parse(prompt.slice(encodedStart, blockEnd).trim());
+  const source = releaseSourceFromPrompt(prompt);
+  if (source === null || typeof source !== "object") {
+    throw new Error("Documentation prompt has no release source input");
+  }
+  return { ...source, ...JSON.parse(prompt.slice(encodedStart, blockEnd).trim()) };
 }
 
 async function runDocumentationSyncCli(options: ComposeDocumentationSyncOptions): Promise<void> {

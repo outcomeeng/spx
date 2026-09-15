@@ -478,7 +478,7 @@ describe("documentation sync compliance", () => {
     );
   });
 
-  it("passes only release data and staged document paths to the producing agent", async () => {
+  it("passes release source inputs and staged document paths to the producing agent", async () => {
     await expect(
       observeDocumentationPrompt(
         DOCUMENTATION_PROMPT_CASE.PRODUCER_INPUT,
@@ -488,6 +488,7 @@ describe("documentation sync compliance", () => {
       (observation) => {
         expect(observation.producerRequestCount).toBe(1);
         expect(observation.actualProducerInput).toEqual({
+          productContext: [],
           releaseData: observation.scenario.releaseData,
           documents: observation.scenario.paths.map((sourcePath: string) => ({
             sourcePath,
@@ -508,6 +509,7 @@ describe("documentation sync compliance", () => {
     ).resolves.toSatisfy(
       (observation) => {
         expect(observation.actualProducerInput).toEqual({
+          productContext: [],
           releaseData: observation.scenario.releaseData,
           documents: observation.scenario.paths.map((sourcePath: string) => ({
             sourcePath,
@@ -518,6 +520,7 @@ describe("documentation sync compliance", () => {
         expect(observation.producerInstruction).toContain(observation.encodedVersion.slice(1, -1));
         expect(observation.auditRequestCount).toBe(1);
         expect(observation.actualAuditInput).toEqual({
+          productContext: [],
           releaseData: observation.scenario.releaseData,
           documents: documentationTransformationEntries(observation.scenario),
         });

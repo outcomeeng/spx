@@ -1,12 +1,11 @@
 import { readReleaseProductContext } from "@/commands/release/product-context";
+import { RELEASE_SOURCE_DATA_BLOCK_CLOSE } from "@/domains/release/product-context";
 import {
   buildReleaseNotesPrompt,
   CHANGELOG_PATH_DATA_BLOCK_CLOSE,
   CHANGELOG_PRESERVATION_INSTRUCTION,
   CHANGELOG_VERSION_SECTION_PREFIX,
   CHANGELOG_VERSION_SECTION_SUFFIX,
-  changelogVersionHeading,
-  COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
   DEFAULT_CHANGELOG_PATH,
   RELEASE_NOTES_AGENT_MAX_TURNS,
   RELEASE_NOTES_AGENT_PERMISSION_MODE,
@@ -44,6 +43,7 @@ import {
 } from "@testing/generators/release/release-notes";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
+import { observeIndependentVersionSection } from "@testing/harnesses/release/keep-a-changelog-oracle";
 import {
   observeAbsoluteInTreeReleaseNotesPath,
   observeConfiguredReleaseNotesPathRejection,
@@ -55,7 +55,7 @@ import {
   observeReleaseNotesPartialWriteFailure,
   observeReleaseNotesPath,
   observeReleaseNotesPrompt,
-  observeReleaseNotesPromptSubjects,
+  observeReleaseNotesPromptSource,
   observeReleaseNotesSymlinkToRootPath,
 } from "@testing/harnesses/release/release-notes-compliance";
 import {
@@ -136,12 +136,12 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
       expect(JSON.parse(observation.versionDataBlock.data)).toBe(
         input.fixture.releaseData.version,
       );
-      expect(observation.subjectsDataBlock.start).toBeGreaterThan(-1);
-      expect(observation.subjectsDataBlock.end).toBeGreaterThan(
-        observation.subjectsDataBlock.start,
+      expect(observation.sourceDataBlock.start).toBeGreaterThan(-1);
+      expect(observation.sourceDataBlock.end).toBeGreaterThan(
+        observation.sourceDataBlock.start,
       );
-      expect(JSON.parse(observation.subjectsDataBlock.data)).toEqual(
-        input.fixture.subjects,
+      expect(JSON.parse(observation.sourceDataBlock.data)).toEqual(
+        { productContext: [], releaseData: input.fixture.releaseData },
       );
       expect(observation.stagedPromptPath).not.toBe(
         observation.canonicalOutputPath,
@@ -341,7 +341,7 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
         JSON.stringify(CHANGELOG_VERSION_SECTION_SUFFIX),
       );
       expect(observation.prompt).not.toContain(
-        changelogVersionHeading(input.fixture.releaseData.version),
+        `## [${input.fixture.releaseData.version}]`,
       );
       expect(observation.prompt).not.toContain(
         releaseNotesPromptVersionProse(input.fixture.releaseData.version),
@@ -355,15 +355,15 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
       RELEASE_NOTES_PROMPT_CASE.DELIMITER_SUBJECT,
     );
     await expect(observeReleaseNotesPrompt(input)).resolves.toSatisfy((observation) => {
-      expect(observation.subjectsDataBlock.start).toBeGreaterThan(-1);
-      expect(observation.subjectsDataBlock.end).toBeGreaterThan(
-        observation.subjectsDataBlock.start,
+      expect(observation.sourceDataBlock.start).toBeGreaterThan(-1);
+      expect(observation.sourceDataBlock.end).toBeGreaterThan(
+        observation.sourceDataBlock.start,
       );
-      expect(observation.subjectsDataBlock.data).not.toContain(
-        COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
+      expect(observation.sourceDataBlock.data).not.toContain(
+        RELEASE_SOURCE_DATA_BLOCK_CLOSE,
       );
-      expect(JSON.parse(observation.subjectsDataBlock.data)).toEqual(
-        input.fixture.subjects,
+      expect(JSON.parse(observation.sourceDataBlock.data)).toEqual(
+        { productContext: [], releaseData: input.fixture.releaseData },
       );
       return true;
     });
@@ -528,9 +528,8 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
       expect(observation.actualReleaseData).toBe(
         scenario.input.fixture.releaseData,
       );
-      expect(observation.auditedSection).toContain(
-        changelogVersionHeading(scenario.input.fixture.releaseData.version),
-      );
+      expect(observeIndependentVersionSection(observation.auditedSection, scenario.input.fixture.releaseData.version))
+        .toBeDefined();
       expect(observation.promotionAttempted).toBe(false);
       expect(observation.canonicalOutputPath).toBeUndefined();
       return true;
@@ -775,8 +774,8 @@ describe("release-notes prompts preserve release inputs regardless of commit typ
     await assertProperty(
       arbitraryReleaseNotesMaintenanceScenario(),
       async (scenario) => {
-        expect(JSON.parse(observeReleaseNotesPromptSubjects(scenario.releaseData).data)).toEqual(
-          scenario.releaseData.commits.map((commit) => commit.subject),
+        expect(JSON.parse(observeReleaseNotesPromptSource(scenario.releaseData).data)).toEqual(
+          { productContext: [], releaseData: scenario.releaseData },
         );
         const observation = await observeReleaseNotesMaintenanceComposition(scenario);
         expect(observation.error).toBeInstanceOf(ReleaseNotesError);
@@ -791,13 +790,13 @@ describe("release-notes prompts preserve release inputs regardless of commit typ
     await assertProperty(
       arbitraryReleaseNotesSubjectScopeScenario(),
       async (scenario) => {
-        expect(JSON.parse(observeReleaseNotesPromptSubjects(scenario.releaseData).data)).toEqual(
-          scenario.releaseData.commits.map((commit) => commit.subject),
+        expect(JSON.parse(observeReleaseNotesPromptSource(scenario.releaseData).data)).toEqual(
+          { productContext: [], releaseData: scenario.releaseData },
         );
         const audit = await observeReleaseNotesFaithfulness(releaseNotesSubjectScopeAuditInput(scenario));
         expect(audit.auditAttempted).toBe(true);
-        expect(JSON.parse(audit.auditSubjectsDataBlock.data)).toEqual(
-          scenario.releaseData.commits.map((commit) => commit.subject),
+        expect(JSON.parse(audit.auditSourceDataBlock.data)).toEqual(
+          { productContext: [], releaseData: scenario.releaseData },
         );
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },

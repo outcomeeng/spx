@@ -3,14 +3,13 @@ import { basename, dirname, join, resolve, sep } from "node:path";
 
 import type { AgentAuditor, AgentAuditRequest, AgentRunRequest } from "@/agent/agent-runner";
 import { releaseNotesCommand } from "@/commands/release/release-notes";
+import { RELEASE_SOURCE_DATA_BLOCK_CLOSE, RELEASE_SOURCE_DATA_BLOCK_OPEN } from "@/domains/release/product-context";
 import type { ReleaseData } from "@/domains/release/release-data";
 import {
   buildReleaseNotesPrompt,
   CHANGELOG_PATH_DATA_BLOCK_CLOSE,
   CHANGELOG_PATH_DATA_BLOCK_OPEN,
   CHANGELOG_TITLE,
-  COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
-  COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
   composeReleaseNotes,
   createReleaseNotesFaithfulnessAuditor,
   DEFAULT_CHANGELOG_PATH,
@@ -178,8 +177,8 @@ export interface ReleaseNotesFaithfulnessObservation {
   readonly auditRequest: AgentAuditRequest | undefined;
   readonly auditPrompt: string;
   readonly auditSectionDataBlock: ReleaseNotesPromptDataBlockObservation;
-  /** The commit-subjects data block the audit prompt carries. */
-  readonly auditSubjectsDataBlock: ReleaseNotesPromptDataBlockObservation;
+  /** The complete source data block the audit prompt carries. */
+  readonly auditSourceDataBlock: ReleaseNotesPromptDataBlockObservation;
   readonly workingDirectory: string;
 }
 
@@ -226,7 +225,7 @@ export interface ReleaseNotesSymlinkRootObservation {
 export interface ReleaseNotesPromptObservation {
   readonly prompt: string;
   readonly versionDataBlock: ReleaseNotesPromptDataBlockObservation;
-  readonly subjectsDataBlock: ReleaseNotesPromptDataBlockObservation;
+  readonly sourceDataBlock: ReleaseNotesPromptDataBlockObservation;
   readonly pathDataBlock: ReleaseNotesPromptDataBlockObservation;
   readonly stagedPromptPath: string;
   readonly canonicalOutputPath: string | undefined;
@@ -314,10 +313,10 @@ export async function observeReleaseNotesPrompt(
         RELEASE_VERSION_DATA_BLOCK_OPEN,
         RELEASE_VERSION_DATA_BLOCK_CLOSE,
       ),
-      subjectsDataBlock: observePromptDataBlock(
+      sourceDataBlock: observePromptDataBlock(
         recordingAgentRunner.lastPrompt,
-        COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
-        COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
+        RELEASE_SOURCE_DATA_BLOCK_OPEN,
+        RELEASE_SOURCE_DATA_BLOCK_CLOSE,
       ),
       pathDataBlock: observePromptDataBlock(
         recordingAgentRunner.lastPrompt,
@@ -397,10 +396,10 @@ async function observeCanonicalParentTraversalPrompt(
         RELEASE_VERSION_DATA_BLOCK_OPEN,
         RELEASE_VERSION_DATA_BLOCK_CLOSE,
       ),
-      subjectsDataBlock: observePromptDataBlock(
+      sourceDataBlock: observePromptDataBlock(
         agentRunner.lastPrompt,
-        COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
-        COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
+        RELEASE_SOURCE_DATA_BLOCK_OPEN,
+        RELEASE_SOURCE_DATA_BLOCK_CLOSE,
       ),
       pathDataBlock: observePromptDataBlock(
         agentRunner.lastPrompt,
@@ -497,12 +496,12 @@ export async function observeReleaseNotesMaintenanceComposition(
   return observation;
 }
 
-/** The commit-subjects data block the producer prompt carries for `releaseData`, assembled at the default changelog path. */
-export function observeReleaseNotesPromptSubjects(releaseData: ReleaseData): ReleaseNotesPromptDataBlockObservation {
+/** The source data block the producer prompt carries, assembled at the default changelog path. */
+export function observeReleaseNotesPromptSource(releaseData: ReleaseData): ReleaseNotesPromptDataBlockObservation {
   return observePromptDataBlock(
     buildReleaseNotesPrompt(releaseData, DEFAULT_CHANGELOG_PATH),
-    COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
-    COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
+    RELEASE_SOURCE_DATA_BLOCK_OPEN,
+    RELEASE_SOURCE_DATA_BLOCK_CLOSE,
   );
 }
 
@@ -1244,10 +1243,10 @@ export async function observeReleaseNotesFaithfulness(
         RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_OPEN,
         RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_CLOSE,
       ),
-      auditSubjectsDataBlock: observePromptDataBlock(
+      auditSourceDataBlock: observePromptDataBlock(
         "",
-        COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
-        COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
+        RELEASE_SOURCE_DATA_BLOCK_OPEN,
+        RELEASE_SOURCE_DATA_BLOCK_CLOSE,
       ),
       workingDirectory: env.workingDirectory,
     };
@@ -1308,10 +1307,10 @@ async function observeProductionFaithfulnessAudit(
         RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_OPEN,
         RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_CLOSE,
       ),
-      auditSubjectsDataBlock: observePromptDataBlock(
+      auditSourceDataBlock: observePromptDataBlock(
         auditRequest?.prompt ?? "",
-        COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
-        COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
+        RELEASE_SOURCE_DATA_BLOCK_OPEN,
+        RELEASE_SOURCE_DATA_BLOCK_CLOSE,
       ),
       workingDirectory: env.workingDirectory,
     };

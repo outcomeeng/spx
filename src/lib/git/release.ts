@@ -1,6 +1,6 @@
 import { defaultGitDependencies, GIT_ROOT_COMMAND, type GitDependencies } from "./root";
 
-/** A commit on the release range — its full SHA and its subject line. */
+/** A commit on the release range — its full SHA, subject, and message body. */
 export interface GitCommit {
   /** Full commit SHA. */
   readonly sha: string;
@@ -33,6 +33,7 @@ const GIT_RELEASE_FLAG = {
   NAME_ONLY: "--name-only",
   POINTS_AT: "--points-at",
   LIST: "--list",
+  NULL_TERMINATED: "-z",
 } as const;
 
 /** The prefix publication puts on a release tag (`v1.2.3`). The single source the release domain and its test generator import so the prefix, the strip, and the glob never drift. */
@@ -41,12 +42,9 @@ export const RELEASE_TAG_PREFIX = "v";
 const RELEASE_TAG_GLOB = `${RELEASE_TAG_PREFIX}*`;
 /** Two-dot range listing commits reachable from the right side but not the left. */
 const RANGE_SEPARATOR = "..";
-/** The unit-separator byte (U+001F) git emits between a commit's SHA and subject. */
-const UNIT_SEPARATOR_CODE = 0x1f;
-const COMMIT_FIELD_SEPARATOR = String.fromCodePoint(UNIT_SEPARATOR_CODE);
-/** Git pretty-format escape directing git to emit the unit-separator byte. */
-const GIT_FORMAT_UNIT_SEPARATOR = "%x1f";
-const COMMIT_LOG_FORMAT = `--format=%H${GIT_FORMAT_UNIT_SEPARATOR}%s`;
+const COMMIT_FIELD_SEPARATOR = "\0";
+const COMMIT_FIELD_COUNT = 3;
+const COMMIT_LOG_FORMAT = "--format=%H%x00%s%x00%b";
 /** Empty pretty-format, so `git log --name-only` emits only the changed paths. */
 const EMPTY_LOG_FORMAT = "--format=";
 const LINE_SEPARATOR = "\n";
@@ -147,23 +145,19 @@ export async function commitsBetween(
 ): Promise<GitCommit[]> {
   const result = await deps.execa(
     GIT_ROOT_COMMAND.EXECUTABLE,
-    [GIT_RELEASE_SUBCOMMAND.LOG, COMMIT_LOG_FORMAT, logRange(fromTag, toRef)],
-    { cwd, reject: false },
+    [GIT_RELEASE_SUBCOMMAND.LOG, GIT_RELEASE_FLAG.NULL_TERMINATED, COMMIT_LOG_FORMAT, logRange(fromTag, toRef)],
+    { cwd, reject: false, stripFinalNewline: false },
   );
   if (result.exitCode !== 0) return [];
-  return nonEmptyLines(result.stdout).map(parseCommitRecord);
-}
-
-function parseCommitRecord(line: string): GitCommit {
-  const separatorIndex = line.indexOf(COMMIT_FIELD_SEPARATOR);
-  if (separatorIndex === -1) {
-    return { sha: line, subject: "", body: "" };
+  const fields = result.stdout.split(COMMIT_FIELD_SEPARATOR);
+  if (fields.at(-1) === "") fields.pop();
+  if (fields.length % COMMIT_FIELD_COUNT !== 0) throw new Error("Git returned an incomplete release commit record");
+  const commits: GitCommit[] = [];
+  for (let index = 0; index < fields.length; index += COMMIT_FIELD_COUNT) {
+    const [sha, subject, body] = fields.slice(index, index + COMMIT_FIELD_COUNT);
+    commits.push({ sha, subject, body });
   }
-  return {
-    sha: line.slice(0, separatorIndex),
-    subject: line.slice(separatorIndex + COMMIT_FIELD_SEPARATOR.length),
-    body: "",
-  };
+  return commits;
 }
 
 /**

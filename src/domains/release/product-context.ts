@@ -1,3 +1,4 @@
+import { encodeReleasePromptData } from "./prompt-data";
 import type { ReleaseData } from "./release-data";
 
 export const RELEASE_CONTEXT_KIND = {
@@ -26,3 +27,11 @@ export type ReleaseContextReader = (
 
 export const RELEASE_SOURCE_DATA_BLOCK_OPEN = "<release-source>";
 export const RELEASE_SOURCE_DATA_BLOCK_CLOSE = "</release-source>";
+
+export function formatReleaseSourceInput(input: ReleaseSourceInput): string {
+  return [
+    RELEASE_SOURCE_DATA_BLOCK_OPEN,
+    encodeReleasePromptData({ productContext: input.productContext ?? [], releaseData: input.releaseData }),
+    RELEASE_SOURCE_DATA_BLOCK_CLOSE,
+  ].join("\n");
+}

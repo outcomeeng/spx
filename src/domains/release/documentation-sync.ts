@@ -1,8 +1,9 @@
 import { AGENT_PERMISSION_MODES, AGENT_RUN_TOOLS, type AgentAuditor, type AgentRunner } from "@/agent/agent-runner";
 import { DEFAULT_RELEASE_DOCUMENTATION_PATHS, type DocumentationSyncConfig } from "@/domains/release/config";
-import type { ReleaseSourceInput } from "@/domains/release/product-context";
+import { formatReleaseSourceInput, type ReleaseSourceInput } from "@/domains/release/product-context";
 import { encodeReleasePromptData } from "@/domains/release/prompt-data";
 import { type ReleaseData, releaseVersionFromTag } from "@/domains/release/release-data";
+import { RELEASE_PRODUCT_TRUTH_STANDARDS } from "@/domains/release/release-notes-standards";
 import { RELEASE_TAG_PREFIX } from "@/lib/git/release";
 
 export const DOCUMENTATION_FILE_EXTENSION = ".md";
@@ -61,9 +62,17 @@ export function buildDocumentationSyncPrompt(
   input: DocumentationSyncPromptInput,
 ): string {
   const encodedVersion = encodeReleasePromptData(input.releaseData.version).slice(1, -1);
-  return `${DOCUMENTATION_SYNC_PROMPT_INSTRUCTION}\n${DOCUMENTATION_SYNC_RELEASE_VERSION_INSTRUCTION} ${encodedVersion}.\n${DOCUMENTATION_SYNC_REPLACE_PREVIOUS_VERSION_INSTRUCTION}\n${DOCUMENTATION_SYNC_VERSIONLESS_INSTRUCTION}\n\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN}\n${
-    encodeReleasePromptData(input)
-  }\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE}`;
+  return [
+    DOCUMENTATION_SYNC_PROMPT_INSTRUCTION,
+    RELEASE_PRODUCT_TRUTH_STANDARDS,
+    formatReleaseSourceInput(input),
+    `${DOCUMENTATION_SYNC_RELEASE_VERSION_INSTRUCTION} ${encodedVersion}.`,
+    DOCUMENTATION_SYNC_REPLACE_PREVIOUS_VERSION_INSTRUCTION,
+    DOCUMENTATION_SYNC_VERSIONLESS_INSTRUCTION,
+    DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN,
+    encodeReleasePromptData({ documents: input.documents }),
+    DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
+  ].join("\n\n");
 }
 
 export type DocumentationStager = (
@@ -122,7 +131,11 @@ export async function composeDocumentationSync(
   try {
     const promptDocuments = stage.documents.map(({ sourcePath, stagedPath }) => ({ sourcePath, stagedPath }));
     await options.agentRunner.run({
-      prompt: buildDocumentationSyncPrompt({ releaseData: options.releaseData, documents: promptDocuments }),
+      prompt: buildDocumentationSyncPrompt({
+        releaseData: options.releaseData,
+        productContext: options.productContext,
+        documents: promptDocuments,
+      }),
       workingDirectory: stage.workingDirectory,
       tools: DOCUMENTATION_SYNC_AGENT_TOOLS,
       allowedTools: DOCUMENTATION_SYNC_AGENT_TOOLS,
@@ -142,6 +155,7 @@ export async function composeDocumentationSync(
     }));
     await options.faithfulnessAuditor({
       releaseData: options.releaseData,
+      productContext: options.productContext,
       documents: documents.map(({ path, originalContent, updatedContent }) => ({
         path,
         originalContent,
@@ -210,12 +224,14 @@ function buildDocumentationFaithfulnessAuditPrompt(
   input: Parameters<DocumentationFaithfulnessAuditor>[0],
 ): string {
   return [
+    RELEASE_PRODUCT_TRUTH_STANDARDS,
+    formatReleaseSourceInput(input),
     "Audit whether every original-to-updated documentation transformation faithfully applies the supplied release data, including updating each previous-release reference rather than deleting it.",
     DOCUMENTATION_SYNC_AUDIT_VERSIONLESS_INSTRUCTION,
     `Return exactly ${DOCUMENTATION_SYNC_AUDIT_APPROVED} when every changed claim is supported and every previous-release reference remains represented by the released version.`,
     `Return ${DOCUMENTATION_SYNC_AUDIT_REJECTED} followed by a concise reason for any unsupported claim, deleted previous-release reference, or omitted release update.`,
     DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN,
-    encodeReleasePromptData(input),
+    encodeReleasePromptData({ documents: input.documents }),
     DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
   ].join("\n\n");
 }

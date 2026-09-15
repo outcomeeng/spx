@@ -13,10 +13,12 @@ import {
   type DocumentationStager,
   type StagedDocumentationReader,
 } from "@/domains/release/documentation-sync";
+import type { ReleaseContextReader } from "@/domains/release/product-context";
 import { computeReleaseData, type ReleaseData } from "@/domains/release/release-data";
 
 import { createDocumentationSyncFilesystem } from "./documentation-sync-filesystem";
 import { readPackageVersion } from "./package-manifest";
+import { readReleaseProductContext } from "./product-context";
 
 export interface DocumentationSyncCommandOptions {
   readonly productDir: string;
@@ -25,6 +27,7 @@ export interface DocumentationSyncCommandOptions {
 }
 
 export interface DocumentationSyncCommandDependencies {
+  readonly readProductContext: ReleaseContextReader;
   readonly resolveReleaseData: (productDir: string) => Promise<ReleaseData>;
   readonly resolveDocumentationConfig: (productDir: string) => Promise<DocumentationSyncConfig>;
   readonly stageDocumentation: DocumentationStager;
@@ -35,6 +38,7 @@ export interface DocumentationSyncCommandDependencies {
 const documentationSyncFilesystem = createDocumentationSyncFilesystem();
 
 export const DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES: DocumentationSyncCommandDependencies = {
+  readProductContext: readReleaseProductContext,
   resolveReleaseData: async (productDir) =>
     await computeReleaseData({
       productDir,
@@ -58,8 +62,10 @@ export async function documentationSyncCommand(
     deps.resolveReleaseData(options.productDir),
     deps.resolveDocumentationConfig(options.productDir),
   ]);
+  const productContext = await deps.readProductContext(options.productDir, releaseData.changedPaths);
   const result = await composeDocumentationSync({
     releaseData,
+    productContext,
     config,
     productDir: options.productDir,
     agentRunner: options.agentRunner,

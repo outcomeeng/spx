@@ -9,6 +9,7 @@ import {
 import type { GitDependencies } from "@/lib/git/root";
 
 import { readPackageVersion } from "./package-manifest";
+import { readReleaseProductContext } from "./product-context";
 import { createReleaseNotesFilesystem, type ReleaseNotesFilesystem } from "./release-notes-filesystem";
 
 export interface ReleaseNotesCommandOptions {
@@ -29,9 +30,14 @@ export async function releaseNotesCommand(options: ReleaseNotesCommandOptions): 
     packageVersion: options.packageVersion ?? await readPackageVersion(options.productDir),
     deps: options.gitDeps,
   });
+  const productContext = await (options.readProductContext ?? readReleaseProductContext)(
+    options.productDir,
+    releaseData.changedPaths,
+  );
   const filesystem = options.filesystem ?? createReleaseNotesFilesystem();
   const result = await composeReleaseNotes({
     releaseData,
+    productContext,
     config: options.config,
     workingDirectory: options.productDir,
     agentRunner: options.agentRunner,
