@@ -2,6 +2,8 @@
 
 ## [0.7.0]
 
+Release date: 2026-09-15
+
 ### Added
 
 - `spx change draft create`, `list`, and `delete` manage local Markdown drafts without a remote store. The `create` command returns a stable identifier and file paths.
