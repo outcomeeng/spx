@@ -12,7 +12,7 @@ The package version is the product's, not the harness's. Release applies to any 
 
 `ReleaseData` is one typed record because release notes, documentation sync, and publish dispatch all describe the same release; a single contract is what lets them agree on its version, commits, version delta, and changed paths. The package version travels in the record so the children read one version — the notes heading, the documentation version references, and the publish precondition all draw from the same field rather than re-resolving it.
 
-The dependency-injected git runner, the sanitized git environment, the prohibition on mocking, the no-network/no-model boundary, and the three-layer command structure are governed by [18-release-architecture.adr.md](../18-release-architecture.adr.md) and [spx/14-cli-composition.adr.md](../../14-cli-composition.adr.md); this decision refines them with the placement, version source, and contract specific to release data.
+The dependency-injected git runner, the sanitized git environment, the prohibition on mocking, the no-network/no-model boundary, and the three-layer command structure are governed by `spx/26-release.enabler/18-release-architecture.adr.md` and `spx/14-cli-composition.adr.md`; this decision refines them with the placement, version source, and contract specific to release data.
 
 ## Invariants
 
