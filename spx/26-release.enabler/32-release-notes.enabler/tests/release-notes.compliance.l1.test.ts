@@ -6,6 +6,7 @@ import {
   CHANGELOG_PRESERVATION_INSTRUCTION,
   CHANGELOG_VERSION_SECTION_PREFIX,
   CHANGELOG_VERSION_SECTION_SUFFIX,
+  changelogVersionHeading,
   DEFAULT_CHANGELOG_PATH,
   RELEASE_NOTES_AGENT_MAX_TURNS,
   RELEASE_NOTES_AGENT_PERMISSION_MODE,
@@ -341,7 +342,7 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
         JSON.stringify(CHANGELOG_VERSION_SECTION_SUFFIX),
       );
       expect(observation.prompt).not.toContain(
-        `## [${input.fixture.releaseData.version}]`,
+        changelogVersionHeading(input.fixture.releaseData.version),
       );
       expect(observation.prompt).not.toContain(
         releaseNotesPromptVersionProse(input.fixture.releaseData.version),
