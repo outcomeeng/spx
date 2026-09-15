@@ -14,6 +14,8 @@ import {
   specContextAncestors,
   specContextDecisions,
   specContextLowerIndexSiblings,
+  type SpecTreeNode,
+  type SpecTreeSnapshot,
   type SpecTreeSourceRef,
 } from "@/lib/spec-tree";
 
@@ -36,11 +38,7 @@ export const readReleaseProductContext: ReleaseContextReader = async (productDir
   for (const decision of specContextDecisions(snapshot, [])) {
     await addDocument(RELEASE_CONTEXT_KIND.DECISION, decision.ref);
   }
-  const targets = snapshot.allNodes.filter((node) => {
-    const path = node.ref?.path;
-    return path !== undefined && changedPaths.some((changed) => changed.startsWith(`${posix.dirname(path)}/`));
-  });
-  for (const target of targets) {
+  for (const target of changedContextTargets(snapshot, changedPaths)) {
     const contextNodes = [...specContextAncestors(snapshot, target), target];
     for (const decision of specContextDecisions(snapshot, contextNodes)) {
       await addDocument(RELEASE_CONTEXT_KIND.DECISION, decision.ref);
@@ -64,3 +62,10 @@ export const readReleaseProductContext: ReleaseContextReader = async (productDir
     [...documents.values()].filter((document) => document.kind === kind)
   );
 };
+
+function changedContextTargets(snapshot: SpecTreeSnapshot, changedPaths: readonly string[]): readonly SpecTreeNode[] {
+  return snapshot.allNodes.filter((node) => {
+    const path = node.ref?.path;
+    return path !== undefined && changedPaths.some((changed) => changed.startsWith(`${posix.dirname(path)}/`));
+  });
+}
