@@ -1,3 +1,7 @@
+---
+malleability: spec
+---
+
 # Spec CLI Contract Tests
 
 PROVIDES local process-level contract tests for `spx spec` command routing, flags, errors, and package-script invocation
@@ -6,11 +10,11 @@ CAN still prove the user-facing CLI entry point routes current spec-domain comma
 
 ## Assertions
 
-### Scenarios
+- The packaged executable exposes targetless and targeted `spx spec context show` in text and JSON, preserving the selected document and reference entries across representations.
+- The packaged executable exposes `spx spec context list <targets...>` as the structural manifest command and rejects `--content` on `show`.
+- The packaged executable accepts caller-declared loaded product, target, and methodology context, suppresses only entries covered at a sufficient projection mode, and rejects incompatible methodology flags.
 
-- Given targetless and targeted context requests in text and JSON, when the packaged executable runs `spx spec context show`, then it preserves the selected document and reference entries across representations ([test](tests/context-target.scenario.l2.test.ts))
-- Given context targets and legacy content-mode input, when the packaged executable runs, then `spx spec context list <targets...>` is the structural manifest command and `show --content` is rejected ([test](tests/spec-cli-contract.scenario.l2.test.ts))
-- Given caller-declared loaded product, target, and methodology context, when the packaged executable runs, then it suppresses only entries covered at a sufficient projection mode and rejects incompatible methodology flags ([test](tests/spec-cli-contract.scenario.l2.test.ts))
+### Scenarios
 - Given the packaged executable runs in a temp product directory with a current `spx/` tree, when `spx spec status` is invoked through the process boundary, then it exits successfully and renders current spec-tree status output ([test](tests/spec-cli-contract.scenario.l2.test.ts))
 - Given the packaged executable runs in a temp product directory whose current `spx/` tree carries no co-located tests, when `spx spec status --update` is invoked through the process boundary, then it exits successfully and renders each node's lifecycle state ([test](tests/spec-cli-contract.scenario.l2.test.ts))
 - Given the packaged executable runs in a temp product directory with a current `spx/` tree, when `spx spec next` is invoked through the process boundary, then it exits successfully and renders the selected next node ([test](tests/spec-cli-contract.scenario.l2.test.ts))

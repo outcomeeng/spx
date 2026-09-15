@@ -21,10 +21,10 @@ Text `show` output is an ordered stream of `<spx-document path="…">…</spx-do
 
 ## Verification
 
-### Testing
+### Audit
 
-- ALWAYS: `list` alone emits the versioned manifest and `show` alone emits framed document and reference entries ([test](tests/context-ingestion.compliance.l1.test.ts))
-- ALWAYS: `--json` changes representation only and an empty selected projection succeeds as empty stdout or `{ "entries": [] }` ([test](tests/context-ingestion.compliance.l1.test.ts))
-- NEVER: `show` emits manifest fields, content hashes, byte counts, a receipt, or partial output ([test](tests/context-ingestion.compliance.l1.test.ts))
-- ALWAYS: loaded declarations are resolved through the same accepted-target and projection rules as requested targets before suppression ([test](tests/context-ingestion.compliance.l1.test.ts))
-- NEVER: `--methodology` and `--loaded-methodology` appear together; `--methodology --loaded-product` remains valid ([test](tests/context-ingestion.compliance.l1.test.ts))
+- ALWAYS: `list` alone emits the versioned manifest and `show` alone emits framed document and reference entries ([audit])
+- ALWAYS: `--json` changes representation only and an empty selected projection succeeds as empty stdout or `{ "entries": [] }` ([audit])
+- NEVER: `show` emits manifest fields, content hashes, byte counts, a receipt, or partial output ([audit])
+- ALWAYS: loaded declarations are resolved through the same accepted-target and projection rules as requested targets before suppression ([audit])
+- NEVER: `--methodology` and `--loaded-methodology` appear together; `--methodology --loaded-product` remains valid ([audit])

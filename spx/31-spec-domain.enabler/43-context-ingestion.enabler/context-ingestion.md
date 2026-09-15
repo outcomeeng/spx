@@ -1,3 +1,7 @@
+---
+malleability: spec
+---
+
 # Context Ingestion
 
 PROVIDES deterministic Product Tree discovery and context delivery for CLI consumers
@@ -6,17 +10,9 @@ CAN first locate relevant subtrees and then load only the product truth required
 
 ## Assertions
 
-### Properties
-
-- Equal tracked product content, shipped methodology content, options, and targets produce byte-identical output ([test](tests/determinism.property.l1.test.ts))
-
-### Compliance
-
-- ALWAYS: `spx spec context list <targets...>` emits the versioned structural manifest, while `spx spec context show [targets...]` emits selected document content and path references without manifest fields ([test](tests/context-ingestion.compliance.l1.test.ts))
-- ALWAYS: targetless `show` supplies the complete product spec and a depth-bounded Product Tree map from which an agent can choose a target ([test](tests/context-ingestion.compliance.l1.test.ts))
-- ALWAYS: targeted `show` supplies Full target and ancestor context, Digest sibling and immediate-child awareness, applicable decisions, and the agreed path-only references ([test](tests/context-ingestion.compliance.l1.test.ts))
-- ALWAYS: context ingestion resolves the complete projection before output and emits no partial result after any target, source, citation, or methodology failure ([test](tests/context-ingestion.compliance.l1.test.ts))
-
-### Audit
-
-- NEVER: context selection uses keyword search, semantic similarity, or LLM judgment ([audit])
+- Equal tracked product content, shipped methodology content, options, and targets produce byte-identical output.
+- `spx spec context list <targets...>` emits the versioned structural manifest, while `spx spec context show [targets...]` emits selected document content and path references without manifest fields.
+- Targetless `show` supplies the complete product spec and a depth-bounded Product Tree map from which an agent can choose a target.
+- Targeted `show` supplies Full target and ancestor context, Digest sibling and immediate-child awareness, applicable decisions, and the agreed path-only references.
+- Context ingestion resolves the complete projection before output and emits no partial result after any target, source, citation, or methodology failure.
+- Context selection is structural and never uses keyword search, semantic similarity, or LLM judgment.
