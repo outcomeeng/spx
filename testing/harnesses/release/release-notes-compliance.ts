@@ -2,6 +2,7 @@ import { mkdir, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve, sep } from "node:path";
 
 import type { AgentAuditor, AgentAuditRequest, AgentRunRequest } from "@/agent/agent-runner";
+import { releaseNotesCommand } from "@/commands/release/release-notes";
 import type { ReleaseData } from "@/domains/release/release-data";
 import {
   buildReleaseNotesPrompt,
@@ -22,6 +23,8 @@ import {
   resolveReleaseNotesPath,
 } from "@/domains/release/release-notes";
 import { PATH_CONTAINMENT_PARENT_DIRECTORY } from "@/lib/file-system/pathContainment";
+import type { ReleaseContextScenario } from "@testing/generators/release/product-context";
+import { sampleReleaseNotesCompositionFixture } from "@testing/generators/release/release-notes";
 import {
   type AbsoluteReleaseNotesPathInput,
   type PartialWriteReleaseNotesInput,
@@ -38,7 +41,13 @@ import {
   type ReleaseNotesPromptInput,
   type SymlinkRootReleaseNotesInput,
 } from "@testing/generators/release/release-notes";
-import { promptChangelogPath, RecordingWritingAgentRunner } from "@testing/harnesses/release/agent-runner";
+import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
+import {
+  promptChangelogPath,
+  RecordingWritingAgentRunner,
+  type ReleaseContextTransportObservation,
+  releaseSourceFromPrompt,
+} from "@testing/harnesses/release/agent-runner";
 import {
   approvingReleaseNotesFaithfulnessAuditor,
   canonicalRelativeChangelogPath,
@@ -54,6 +63,76 @@ import {
   withReleaseNotesEnv,
 } from "@testing/harnesses/release/release-notes-env";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
+
+export async function observeReleaseNotesContextTransport(
+  scenario: ReleaseContextScenario,
+): Promise<ReleaseContextTransportObservation> {
+  let observation: ReleaseContextTransportObservation | undefined;
+  await withGitWorktreeEnv(async (env) => {
+    for (const document of scenario.documents) {
+      await env.writeTracked(document.path, document.content);
+    }
+    await env.commit(scenario.subject);
+    const fixture = sampleReleaseNotesCompositionFixture(scenario.releaseData);
+    const runner = new RecordingWritingAgentRunner(
+      env.productDir,
+      join(env.productDir, DEFAULT_CHANGELOG_PATH),
+      fixture.conformant,
+    );
+    let auditPrompt = "";
+    const auditor: AgentAuditor = {
+      audit: async (request) => {
+        auditPrompt = request.prompt;
+        return RELEASE_NOTES_FAITHFULNESS_APPROVED;
+      },
+    };
+    await releaseNotesCommand({
+      productDir: env.productDir,
+      config: {},
+      releaseData: scenario.releaseData,
+      agentRunner: runner,
+      faithfulnessAuditor: createReleaseNotesFaithfulnessAuditor(auditor, env.productDir),
+    });
+    observation = {
+      producerPrompt: runner.lastPrompt,
+      auditPrompt,
+      producerSource: releaseSourceFromPrompt(runner.lastPrompt),
+      auditorSource: releaseSourceFromPrompt(auditPrompt),
+    };
+  });
+  if (observation === undefined) throw new Error("Release context transport produced no observation");
+  return observation;
+}
+
+export async function observeReleaseContextReadFailure(
+  scenario: ReleaseContextScenario,
+): Promise<{ readonly error: unknown; readonly invocations: number }> {
+  let error: unknown;
+  let invocations = 0;
+  await withGitWorktreeEnv(async (env) => {
+    await env.writeTracked(scenario.product.path, scenario.product.content);
+    await env.writeTracked(scenario.missingSpecificationPath, scenario.specification.content);
+    await env.commit(scenario.subject);
+    try {
+      await releaseNotesCommand({
+        productDir: env.productDir,
+        config: {},
+        releaseData: scenario.releaseData,
+        agentRunner: {
+          run: async () => {
+            invocations += 1;
+          },
+        },
+        faithfulnessAuditor: async () => {
+          invocations += 1;
+        },
+      });
+    } catch (caught) {
+      error = caught;
+    }
+  });
+  return { error, invocations };
+}
 
 export interface ReleaseNotesExistingSectionObservation {
   readonly error: unknown;
@@ -368,7 +447,7 @@ function requiredPromptChangelogPath(prompt: string): string {
 }
 
 /** What composing release notes did for a release whose every commit carries an omitted conventional type. */
-export interface ReleaseNotesOmittedOnlyObservation {
+export interface ReleaseNotesMaintenanceObservation {
   readonly error: unknown;
   /** Requests the injected agent runner received; a rejection before the agent runs records none. */
   readonly agentRequestCount: number;
@@ -381,10 +460,10 @@ export interface ReleaseNotesOmittedOnlyObservation {
  * against the real filesystem boundaries and a recording agent runner, and
  * reports what the composition did. The linked test decides what it means.
  */
-export async function observeReleaseNotesOmittedOnlyComposition(
+export async function observeReleaseNotesMaintenanceComposition(
   scenario: { readonly releaseData: ReleaseData },
-): Promise<ReleaseNotesOmittedOnlyObservation> {
-  let observation: ReleaseNotesOmittedOnlyObservation | undefined;
+): Promise<ReleaseNotesMaintenanceObservation> {
+  let observation: ReleaseNotesMaintenanceObservation | undefined;
   await withReleaseNotesEnv(async (env) => {
     const resolvedPath = resolveReleaseNotesPath(env.workingDirectory, {});
     const agentRunner = recordingReleaseNotesAgent(env.workingDirectory, resolvedPath, CHANGELOG_TITLE);
@@ -413,7 +492,7 @@ export async function observeReleaseNotesOmittedOnlyComposition(
     };
   });
   if (observation === undefined) {
-    throw new Error("Omitted-only release-notes composition produced no observation");
+    throw new Error("Maintenance-label release-notes composition produced no observation");
   }
   return observation;
 }

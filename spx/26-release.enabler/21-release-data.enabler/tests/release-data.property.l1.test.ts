@@ -29,18 +29,17 @@ describe("computeReleaseData — release data is a deterministic function of rep
           }
 
           const expectedCommits = [...releaseCommits].reverse();
-          const expectedReleaseData = {
-            version: packageVersion,
-            previousTag: tag,
-            versionDelta,
-            commits: expectedCommits.map(({ sha, subject }) => ({ sha, subject })),
-            changedPaths: expectedCommits.map(({ path }) => path),
-          };
           const first = await computeReleaseData({ productDir: env.productDir, packageVersion });
           const second = await computeReleaseData({ productDir: env.productDir, packageVersion });
 
-          expect(first).toEqual(expectedReleaseData);
-          expect(second).toEqual(expectedReleaseData);
+          expect(first).toEqual({
+            version: packageVersion,
+            previousTag: tag,
+            versionDelta,
+            commits: expectedCommits.map(({ sha, subject }) => ({ sha, subject, body: "" })),
+            changedPaths: expectedCommits.map(({ path }) => path),
+          });
+          expect(second).toEqual(first);
         });
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },

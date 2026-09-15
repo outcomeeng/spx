@@ -18,7 +18,10 @@ import {
   ClaudeAgentRunner,
   type ClaudeQueryExecutor,
 } from "@/agent/claude-agent-runner";
-import { DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES } from "@/commands/release/documentation-sync";
+import {
+  DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
+  documentationSyncCommand,
+} from "@/commands/release/documentation-sync";
 import {
   createDocumentationAtomicWriter,
   createDocumentationSyncFilesystem,
@@ -67,6 +70,11 @@ import {
   type DocumentationUnrelatedVersionRewriteScenario,
   type DocumentationVersionPreservationScenarios,
 } from "@testing/generators/release/documentation";
+import type { ReleaseContextScenario } from "@testing/generators/release/product-context";
+import {
+  type ReleaseContextTransportObservation,
+  releaseSourceFromPrompt,
+} from "@testing/harnesses/release/agent-runner";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const PRODUCT_DIRECTORY_PREFIX = "spx-documentation-sync-";
@@ -82,7 +90,7 @@ const DOCUMENTATION_READ_RACE_TARGET = {
   PRODUCT: "product",
   STAGED: "staged",
 } as const;
-const DOCUMENTATION_PATH_SEMANTICS = [
+export const DOCUMENTATION_PATH_SEMANTICS = [
   {
     label: "POSIX",
     join: posix.join,
@@ -488,6 +496,39 @@ async function withDocumentationScenario(
 
 const approvingDocumentationAuditor: DocumentationFaithfulnessAuditor = async () => {};
 
+export async function observeDocumentationContextTransport(
+  scenario: DocumentationSyncScenario,
+  context: ReleaseContextScenario,
+): Promise<ReleaseContextTransportObservation> {
+  let observation: ReleaseContextTransportObservation | undefined;
+  await withDocumentationScenario(scenario, async (options, _readDocument, agent) => {
+    for (const document of context.documents) {
+      const path = join(options.productDir, document.path);
+      await mkdir(dirname(path), { recursive: true });
+      await writeFile(path, document.content);
+    }
+    const auditor = new RecordingDocumentationAuditor();
+    await documentationSyncCommand({
+      productDir: options.productDir,
+      agentRunner: agent,
+      faithfulnessAuditor: createDocumentationFaithfulnessAuditor(auditor, options.productDir),
+    }, {
+      ...DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
+      resolveReleaseData: async () => ({ ...scenario.releaseData, changedPaths: context.releaseData.changedPaths }),
+    });
+    const producerPrompt = agent.requests.at(0)?.prompt ?? "";
+    const auditPrompt = auditor.requests.at(0)?.prompt ?? "";
+    observation = {
+      producerPrompt,
+      auditPrompt,
+      producerSource: releaseSourceFromPrompt(producerPrompt),
+      auditorSource: releaseSourceFromPrompt(auditPrompt),
+    };
+  });
+  if (observation === undefined) throw new Error("Documentation context transport produced no observation");
+  return observation;
+}
+
 const rejectingDocumentationAuditor: DocumentationFaithfulnessAuditor = async () => {
   throw new Error(REJECTING_DOCUMENTATION_AUDIT_MESSAGE);
 };
@@ -803,8 +844,9 @@ async function observeDocumentationPathMappings(
 
 function observeDocumentationPathSemantics(
   scenario: DocumentationSyncScenario,
+  semantics: readonly (typeof DOCUMENTATION_PATH_SEMANTICS)[number][],
 ): readonly DocumentationPathSemanticsObservation[] {
-  return DOCUMENTATION_PATH_SEMANTICS.map(({ join: joinPath, operations }) => {
+  return semantics.map(({ join: joinPath, operations }) => {
     const sourcePath = scenario.paths.at(0);
     if (sourcePath === undefined) {
       throw new Error("Generated nested documentation scenario has no source path");

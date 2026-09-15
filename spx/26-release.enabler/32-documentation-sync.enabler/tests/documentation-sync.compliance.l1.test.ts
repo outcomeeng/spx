@@ -1,13 +1,6 @@
 import { join } from "node:path";
 
 import { DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE } from "@/domains/release/documentation-sync";
-import {
-  buildDocumentationSyncPrompt,
-  createDocumentationFaithfulnessAuditor,
-  DOCUMENTATION_SYNC_AUDIT_APPROVED,
-} from "@/domains/release/documentation-sync";
-import { RELEASE_SOURCE_DATA_BLOCK_CLOSE, RELEASE_SOURCE_DATA_BLOCK_OPEN } from "@/domains/release/product-context";
-import { encodeReleasePromptData } from "@/domains/release/prompt-data";
 import { RELEASE_PRODUCT_TRUTH_STANDARDS } from "@/domains/release/release-notes-standards";
 import {
   arbitraryConfiguredDocumentationSyncScenario,
@@ -19,7 +12,7 @@ import {
   documentationPathFailureCases,
   documentationTransformationEntries,
 } from "@testing/generators/release/documentation";
-import { RELEASE_CONTEXT_DOCUMENTS, RELEASE_CONTEXT_FIXTURE } from "@testing/generators/release/product-context";
+import { sampleReleaseContextScenario } from "@testing/generators/release/product-context";
 import { sampleReleaseTestValue } from "@testing/generators/release/release";
 import {
   DOCUMENTATION_AUDIT_CASE,
@@ -32,6 +25,7 @@ import {
   DOCUMENTATION_VERSION_VALIDATION_CASE,
   observeAtomicDocumentationPromotion,
   observeDocumentationAudit,
+  observeDocumentationContextTransport,
   observeDocumentationFailure,
   observeDocumentationFifoRejection,
   observeDocumentationIdentityRejection,
@@ -46,25 +40,16 @@ import { describe, expect, it } from "vitest";
 
 it("gives both documentation agents identical product truth and release inputs", async () => {
   const scenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
-  const productContext = RELEASE_CONTEXT_DOCUMENTS;
-  const releaseData = scenario.releaseData;
-  const producerPrompt = buildDocumentationSyncPrompt({ releaseData, productContext, documents: [] });
-  let auditPrompt = "";
-  const audit = createDocumentationFaithfulnessAuditor({
-    audit: async (request) => {
-      auditPrompt = request.prompt;
-      return DOCUMENTATION_SYNC_AUDIT_APPROVED;
-    },
-  }, RELEASE_CONTEXT_FIXTURE.product.path);
-  await audit({ releaseData, productContext, documents: [] });
-  const source = [
-    RELEASE_SOURCE_DATA_BLOCK_OPEN,
-    encodeReleasePromptData({ productContext, releaseData }),
-    RELEASE_SOURCE_DATA_BLOCK_CLOSE,
-  ].join("\n");
-  for (const prompt of [producerPrompt, auditPrompt]) {
+  const context = sampleReleaseContextScenario();
+  const observation = await observeDocumentationContextTransport(scenario, context);
+  for (const input of [observation.producerSource, observation.auditorSource]) {
+    expect(input).toEqual({
+      productContext: context.documents,
+      releaseData: { ...scenario.releaseData, changedPaths: context.releaseData.changedPaths },
+    });
+  }
+  for (const prompt of [observation.producerPrompt, observation.auditPrompt]) {
     expect(prompt).toContain(RELEASE_PRODUCT_TRUTH_STANDARDS);
-    expect(prompt).toContain(source);
   }
 });
 

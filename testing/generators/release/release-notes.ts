@@ -56,17 +56,17 @@ export interface ReleaseNotesSubjectScopeScenario {
 
 interface ScopedSubject {
   readonly subject: string;
-  readonly kept: boolean;
+  readonly otherLabel: boolean;
 }
 
-function arbitraryConventionalSubject(type: string, kept: boolean): fc.Arbitrary<ScopedSubject> {
+function arbitraryConventionalSubject(type: string, otherLabel: boolean): fc.Arbitrary<ScopedSubject> {
   return fc
     .tuple(fc.option(arbitraryPathSegment(), { nil: undefined }), fc.boolean(), arbitraryPathSegment())
     .map(([scope, breaking, description]) => ({
       subject: `${type}${scope === undefined ? "" : `${CONVENTIONAL_SCOPE_OPEN}${scope}${CONVENTIONAL_SCOPE_CLOSE}`}${
         breaking ? CONVENTIONAL_BREAKING_MARKER : ""
       }${CONVENTIONAL_TYPE_SEPARATOR}${description}`,
-      kept,
+      otherLabel,
     }));
 }
 
@@ -76,12 +76,12 @@ function arbitraryScopedSubject(): fc.Arbitrary<ScopedSubject> {
       arbitraryConventionalSubject(type, false)
     ),
     fc.constantFrom(...BEHAVIOR_COMMIT_TYPES).chain((type) => arbitraryConventionalSubject(type, true)),
-    arbitraryPathSegment().map((segment) => ({ subject: `${segment}${UNTYPED_SUBJECT_SUFFIX}`, kept: true })),
+    arbitraryPathSegment().map((segment) => ({ subject: `${segment}${UNTYPED_SUBJECT_SUFFIX}`, otherLabel: true })),
   );
 }
 
 /** A release whose labels all come from the declaration-and-maintenance regression domain. */
-export function arbitraryReleaseNotesOmittedOnlyScenario(): fc.Arbitrary<ReleaseNotesSubjectScopeScenario> {
+export function arbitraryReleaseNotesMaintenanceScenario(): fc.Arbitrary<ReleaseNotesSubjectScopeScenario> {
   return RELEASE_TEST_GENERATOR.releaseData().chain((releaseData) =>
     fc
       .array(
@@ -109,7 +109,7 @@ export function arbitraryReleaseNotesSubjectScopeScenario(): fc.Arbitrary<Releas
         minLength: releaseData.commits.length,
         maxLength: releaseData.commits.length,
       })
-      .filter((subjects) => subjects.some((entry) => entry.kept) && subjects.some((entry) => !entry.kept))
+      .filter((subjects) => subjects.some((entry) => entry.otherLabel) && subjects.some((entry) => !entry.otherLabel))
       .map((subjects) => ({
         releaseData: {
           ...releaseData,

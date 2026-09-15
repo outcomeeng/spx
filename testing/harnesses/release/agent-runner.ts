@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 import type { AgentRunner, AgentRunRequest } from "@/agent/agent-runner";
+import { RELEASE_SOURCE_DATA_BLOCK_CLOSE, RELEASE_SOURCE_DATA_BLOCK_OPEN } from "@/domains/release/product-context";
 import {
   CHANGELOG_PATH_DATA_BLOCK_CLOSE,
   CHANGELOG_PATH_DATA_BLOCK_OPEN,
@@ -11,6 +12,21 @@ import {
 import { isPathContained } from "@/lib/file-system/pathContainment";
 import { arbitraryConformantChangelog } from "@testing/generators/release/changelog";
 import { sampleReleaseTestValue } from "@testing/generators/release/release";
+
+export interface ReleaseContextTransportObservation {
+  readonly producerPrompt: string;
+  readonly auditPrompt: string;
+  readonly producerSource: unknown;
+  readonly auditorSource: unknown;
+}
+
+export function releaseSourceFromPrompt(prompt: string): unknown {
+  const start = prompt.indexOf(RELEASE_SOURCE_DATA_BLOCK_OPEN);
+  const end = prompt.indexOf(RELEASE_SOURCE_DATA_BLOCK_CLOSE);
+  return start < 0 || end < start
+    ? undefined
+    : JSON.parse(prompt.slice(start + RELEASE_SOURCE_DATA_BLOCK_OPEN.length, end));
+}
 
 /**
  * A recording + writing AgentRunner double for release-notes composition tests.

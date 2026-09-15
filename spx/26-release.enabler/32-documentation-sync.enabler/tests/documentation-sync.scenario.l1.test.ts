@@ -3,6 +3,7 @@ import type { DocumentationSyncPromptInput } from "@/domains/release/documentati
 import {
   arbitraryConfiguredDocumentationSyncScenario,
   arbitraryDefaultDocumentationSyncScenario,
+  arbitraryDocumentationConfigIndependenceScenario,
   arbitraryFirstReleaseDocumentationSyncScenario,
   arbitraryVersionlessSubsequentReleaseDocumentationSyncScenario,
   documentationContentEntries,
@@ -12,11 +13,17 @@ import {
   observeConfiguredDocumentationSync,
   observeDefaultDocumentationSync,
   observeFirstReleaseDocumentationSync,
+  observeIndependentDocumentationConfigResolution,
   observeVersionlessSubsequentReleaseDocumentationSync,
 } from "@testing/harnesses/release/documentation-sync";
 import { describe, expect, it } from "vitest";
 
 describe("documentation sync scenarios", () => {
+  it("resolves a documentation configuration alongside unrelated sections", async () => {
+    const scenario = sampleReleaseTestValue(arbitraryDocumentationConfigIndependenceScenario());
+    const observation = await observeIndependentDocumentationConfigResolution(scenario);
+    expect(observation.actual).toEqual(scenario.scenario.config);
+  });
   it("updates the default product README to the released version", async () => {
     await expect(
       observeDefaultDocumentationSync(
