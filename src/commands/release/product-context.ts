@@ -47,6 +47,17 @@ export const readReleaseProductContext: ReleaseContextReader = async (productDir
       await addDocument(RELEASE_CONTEXT_KIND.SPECIFICATION, node.ref);
     }
   }
+  await addCitedDecisions(snapshot, documents, addDocument);
+  return Object.values(RELEASE_CONTEXT_KIND).flatMap((kind) =>
+    [...documents.values()].filter((document) => document.kind === kind)
+  );
+};
+
+async function addCitedDecisions(
+  snapshot: SpecTreeSnapshot,
+  documents: ReadonlyMap<string, ReleaseContextDocument>,
+  addDocument: (kind: ReleaseContextDocument["kind"], ref: SpecTreeSourceRef | undefined) => Promise<void>,
+): Promise<void> {
   const decisionsByPath = new Map(snapshot.decisions.map((decision) => [decision.ref?.path, decision.ref]));
   // Map iteration visits appended decisions, resolving citations transitively once per path.
   for (const document of documents.values()) {
@@ -58,10 +69,7 @@ export const readReleaseProductContext: ReleaseContextReader = async (productDir
       await addDocument(RELEASE_CONTEXT_KIND.DECISION, ref);
     }
   }
-  return Object.values(RELEASE_CONTEXT_KIND).flatMap((kind) =>
-    [...documents.values()].filter((document) => document.kind === kind)
-  );
-};
+}
 
 function changedContextTargets(snapshot: SpecTreeSnapshot, changedPaths: readonly string[]): readonly SpecTreeNode[] {
   return snapshot.allNodes.filter((node) => {
