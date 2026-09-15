@@ -2,6 +2,14 @@ import { join } from "node:path";
 
 import { DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE } from "@/domains/release/documentation-sync";
 import {
+  buildDocumentationSyncPrompt,
+  createDocumentationFaithfulnessAuditor,
+  DOCUMENTATION_SYNC_AUDIT_APPROVED,
+} from "@/domains/release/documentation-sync";
+import { RELEASE_SOURCE_DATA_BLOCK_CLOSE, RELEASE_SOURCE_DATA_BLOCK_OPEN } from "@/domains/release/product-context";
+import { encodeReleasePromptData } from "@/domains/release/prompt-data";
+import { RELEASE_PRODUCT_TRUTH_STANDARDS } from "@/domains/release/release-notes-standards";
+import {
   arbitraryConfiguredDocumentationSyncScenario,
   arbitraryMultiDocumentSyncScenario,
   arbitraryPromptBoundaryDocumentationSyncScenario,
@@ -11,6 +19,7 @@ import {
   documentationPathFailureCases,
   documentationTransformationEntries,
 } from "@testing/generators/release/documentation";
+import { RELEASE_CONTEXT_DOCUMENTS, RELEASE_CONTEXT_FIXTURE } from "@testing/generators/release/product-context";
 import { sampleReleaseTestValue } from "@testing/generators/release/release";
 import {
   DOCUMENTATION_AUDIT_CASE,
@@ -34,6 +43,30 @@ import {
   REJECTING_DOCUMENTATION_AUDIT_MESSAGE,
 } from "@testing/harnesses/release/documentation-sync";
 import { describe, expect, it } from "vitest";
+
+it("gives both documentation agents identical product truth and release inputs", async () => {
+  const scenario = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
+  const productContext = RELEASE_CONTEXT_DOCUMENTS;
+  const releaseData = scenario.releaseData;
+  const producerPrompt = buildDocumentationSyncPrompt({ releaseData, productContext, documents: [] });
+  let auditPrompt = "";
+  const audit = createDocumentationFaithfulnessAuditor({
+    audit: async (request) => {
+      auditPrompt = request.prompt;
+      return DOCUMENTATION_SYNC_AUDIT_APPROVED;
+    },
+  }, RELEASE_CONTEXT_FIXTURE.product.path);
+  await audit({ releaseData, productContext, documents: [] });
+  const source = [
+    RELEASE_SOURCE_DATA_BLOCK_OPEN,
+    encodeReleasePromptData({ productContext, releaseData }),
+    RELEASE_SOURCE_DATA_BLOCK_CLOSE,
+  ].join("\n");
+  for (const prompt of [producerPrompt, auditPrompt]) {
+    expect(prompt).toContain(RELEASE_PRODUCT_TRUTH_STANDARDS);
+    expect(prompt).toContain(source);
+  }
+});
 
 describe("documentation sync compliance", () => {
   it("rejects every generated invalid path before generation or promotion", async () => {
@@ -526,7 +559,7 @@ describe("documentation sync compliance", () => {
     );
   });
 
-  it("excludes ambient spec-tree and domain state from the producing prompt", async () => {
+  it("excludes files outside the selected product context from the producing prompt", async () => {
     await expect(
       observeDocumentationPrompt(
         DOCUMENTATION_PROMPT_CASE.AMBIENT_EXCLUSION,

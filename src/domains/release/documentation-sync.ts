@@ -1,5 +1,6 @@
 import { AGENT_PERMISSION_MODES, AGENT_RUN_TOOLS, type AgentAuditor, type AgentRunner } from "@/agent/agent-runner";
 import { DEFAULT_RELEASE_DOCUMENTATION_PATHS, type DocumentationSyncConfig } from "@/domains/release/config";
+import type { ReleaseSourceInput } from "@/domains/release/product-context";
 import { encodeReleasePromptData } from "@/domains/release/prompt-data";
 import { type ReleaseData, releaseVersionFromTag } from "@/domains/release/release-data";
 import { RELEASE_TAG_PREFIX } from "@/lib/git/release";
@@ -48,7 +49,7 @@ export interface DocumentationFileIdentity {
   readonly inode: number;
 }
 
-export interface DocumentationSyncPromptInput {
+export interface DocumentationSyncPromptInput extends ReleaseSourceInput {
   readonly releaseData: ReleaseData;
   readonly documents: readonly {
     readonly sourcePath: string;
@@ -82,7 +83,7 @@ export interface DocumentationPromotion {
 export type DocumentationPromoter = (documents: readonly DocumentationPromotion[]) => Promise<void>;
 
 export type DocumentationFaithfulnessAuditor = (
-  input: {
+  input: ReleaseSourceInput & {
     readonly releaseData: ReleaseData;
     readonly documents: readonly {
       readonly path: string;
@@ -92,7 +93,7 @@ export type DocumentationFaithfulnessAuditor = (
   },
 ) => Promise<void>;
 
-export interface ComposeDocumentationSyncOptions {
+export interface ComposeDocumentationSyncOptions extends ReleaseSourceInput {
   readonly releaseData: ReleaseData;
   readonly config: DocumentationSyncConfig;
   readonly productDir: string;

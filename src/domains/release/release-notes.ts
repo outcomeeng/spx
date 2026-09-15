@@ -2,6 +2,7 @@ import { isAbsolute, resolve, sep } from "node:path";
 
 import { AGENT_PERMISSION_MODES, AGENT_RUN_TOOLS } from "@/agent/agent-runner";
 import type { AgentAuditor, AgentPermissionMode, AgentRunner, AgentRunTool } from "@/agent/agent-runner";
+import type { ReleaseProductContext, ReleaseSourceInput } from "@/domains/release/product-context";
 import { encodeReleasePromptData } from "@/domains/release/prompt-data";
 import type { ReleaseData } from "@/domains/release/release-data";
 import { canonicalTargetPath, isPathContained, nearestExistingCanonicalPath } from "@/lib/file-system/pathContainment";
@@ -40,8 +41,7 @@ export type ArtifactPromoter = (
   content: string,
 ) => Promise<void>;
 
-export interface ReleaseNotesFaithfulnessAuditRequest {
-  readonly releaseData: ReleaseData;
+export interface ReleaseNotesFaithfulnessAuditRequest extends ReleaseSourceInput {
   readonly notes: string;
 }
 
@@ -374,7 +374,7 @@ export function resolveReleaseNotesPath(
   return resolvedPath;
 }
 
-export interface ComposeReleaseNotesOptions {
+export interface ComposeReleaseNotesOptions extends ReleaseSourceInput {
   /** The release data the prompt describes. */
   readonly releaseData: ReleaseData;
   /** The release-notes child's resolved configuration. */
@@ -629,6 +629,7 @@ function canonicalCheckPath(
 export function buildReleaseNotesPrompt(
   releaseData: ReleaseData,
   changelogPath: string,
+  _productContext?: ReleaseProductContext,
 ): string {
   return [
     `Write release notes for the release version in this ${COMMIT_SUBJECTS_DATA_ENCODING} data block:`,

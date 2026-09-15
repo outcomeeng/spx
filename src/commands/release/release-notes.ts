@@ -1,4 +1,5 @@
 import type { AgentRunner } from "@/agent/agent-runner";
+import type { ReleaseContextReader } from "@/domains/release/product-context";
 import { computeReleaseData, type ReleaseData } from "@/domains/release/release-data";
 import {
   composeReleaseNotes,
@@ -19,6 +20,7 @@ export interface ReleaseNotesCommandOptions {
   readonly agentRunner: AgentRunner;
   readonly faithfulnessAuditor: ReleaseNotesFaithfulnessAuditor;
   readonly filesystem?: ReleaseNotesFilesystem;
+  readonly readProductContext?: ReleaseContextReader;
 }
 
 export async function releaseNotesCommand(options: ReleaseNotesCommandOptions): Promise<string> {

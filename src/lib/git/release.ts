@@ -6,6 +6,8 @@ export interface GitCommit {
   readonly sha: string;
   /** Commit subject (first line of the message). */
   readonly subject: string;
+  /** Remaining commit message, including paragraph boundaries. */
+  readonly body: string;
 }
 
 const GIT_RELEASE_SUBCOMMAND = {
@@ -155,11 +157,12 @@ export async function commitsBetween(
 function parseCommitRecord(line: string): GitCommit {
   const separatorIndex = line.indexOf(COMMIT_FIELD_SEPARATOR);
   if (separatorIndex === -1) {
-    return { sha: line, subject: "" };
+    return { sha: line, subject: "", body: "" };
   }
   return {
     sha: line.slice(0, separatorIndex),
     subject: line.slice(separatorIndex + COMMIT_FIELD_SEPARATOR.length),
+    body: "",
   };
 }
 

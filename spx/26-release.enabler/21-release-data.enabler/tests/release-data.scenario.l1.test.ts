@@ -1,9 +1,24 @@
 import { describe, expect, it } from "vitest";
 
 import { computeReleaseData } from "@/domains/release/release-data";
+import { RELEASE_CONTEXT_FIXTURE } from "@testing/generators/release/product-context";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
+
+it("retains a decision commit's multiline explanation", async () => {
+  await withGitWorktreeEnv(async (env) => {
+    const { product, subject, body } = RELEASE_CONTEXT_FIXTURE;
+    await env.writeTracked(product.path, product.content);
+    await env.commit(`${subject}\n\n${body}`);
+    const data = await computeReleaseData({
+      productDir: env.productDir,
+      packageVersion: sampleReleaseTestValue(RELEASE_TEST_GENERATOR.semver()),
+    });
+    expect(data.commits).toHaveLength(1);
+    expect(data.commits[0]).toMatchObject({ subject, body });
+  });
+});
 
 describe("computeReleaseData — release contents derive from git history", () => {
   it("carries the package version it was computed with, so downstream children read one version", async () => {

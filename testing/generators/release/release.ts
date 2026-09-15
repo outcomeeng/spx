@@ -245,7 +245,7 @@ function toGitCommit(fixture: ReleaseCommitFixture, sha: string | undefined): Gi
   if (sha === undefined) {
     throw new Error("Release data generator drew fewer commit shas than commit fixtures");
   }
-  return { sha, subject: fixture.subject };
+  return { sha, subject: fixture.subject, body: "" };
 }
 
 /**
@@ -306,7 +306,7 @@ function arbitraryReleaseDataWithSubjects(subjects: readonly string[]): fc.Arbit
     })
     .map(({ progression, shas, changedPaths }): ReleaseData => ({
       ...progression,
-      commits: subjects.map((subject, index) => ({ sha: shas[index], subject })),
+      commits: subjects.map((subject, index) => ({ sha: shas[index], subject, body: "" })),
       changedPaths: changedPaths.map((fixture) => fixture.path),
     }));
 }

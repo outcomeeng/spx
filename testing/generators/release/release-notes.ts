@@ -37,23 +37,21 @@ import {
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 
 /**
- * The conventional commit types the release-notes spec declares omitted, and a
- * set it keeps, declared here from the spec rather than imported from the
- * production registry so the expectation cannot move with a production regression.
+ * Regression inputs from the commit-label exclusion that discarded product
+ * declarations. These labels select cases; expected payloads derive from the
+ * complete supplied commits, independently of production filtering.
  */
-const ORACLE_OMITTED_COMMIT_TYPES = ["spec", "test", "refactor", "style", "docs", "ci", "build"] as const;
-const ORACLE_KEPT_COMMIT_TYPES = ["feat", "fix", "perf", "revert"] as const;
+const DECLARATION_AND_MAINTENANCE_COMMIT_TYPES = ["spec", "test", "refactor", "style", "docs", "ci", "build"] as const;
+const BEHAVIOR_COMMIT_TYPES = ["feat", "fix", "perf", "revert"] as const;
 const CONVENTIONAL_SCOPE_OPEN = "(";
 const CONVENTIONAL_SCOPE_CLOSE = ")";
 const CONVENTIONAL_BREAKING_MARKER = "!";
 const CONVENTIONAL_TYPE_SEPARATOR = ": ";
 const UNTYPED_SUBJECT_SUFFIX = " update";
 
-/** A release whose commits mix omitted-type, kept-type, and untyped subjects, with the subjects the notes keep in commit order. */
+/** A release with varied commit-label forms, all of which remain source inputs. */
 export interface ReleaseNotesSubjectScopeScenario {
   readonly releaseData: ReleaseData;
-  readonly keptSubjects: readonly string[];
-  readonly omittedSubjects: readonly string[];
 }
 
 interface ScopedSubject {
@@ -74,18 +72,22 @@ function arbitraryConventionalSubject(type: string, kept: boolean): fc.Arbitrary
 
 function arbitraryScopedSubject(): fc.Arbitrary<ScopedSubject> {
   return fc.oneof(
-    fc.constantFrom(...ORACLE_OMITTED_COMMIT_TYPES).chain((type) => arbitraryConventionalSubject(type, false)),
-    fc.constantFrom(...ORACLE_KEPT_COMMIT_TYPES).chain((type) => arbitraryConventionalSubject(type, true)),
+    fc.constantFrom(...DECLARATION_AND_MAINTENANCE_COMMIT_TYPES).chain((type) =>
+      arbitraryConventionalSubject(type, false)
+    ),
+    fc.constantFrom(...BEHAVIOR_COMMIT_TYPES).chain((type) => arbitraryConventionalSubject(type, true)),
     arbitraryPathSegment().map((segment) => ({ subject: `${segment}${UNTYPED_SUBJECT_SUFFIX}`, kept: true })),
   );
 }
 
-/** A release whose every commit carries an omitted conventional type, so no subject reaches the prompts. */
+/** A release whose labels all come from the declaration-and-maintenance regression domain. */
 export function arbitraryReleaseNotesOmittedOnlyScenario(): fc.Arbitrary<ReleaseNotesSubjectScopeScenario> {
   return RELEASE_TEST_GENERATOR.releaseData().chain((releaseData) =>
     fc
       .array(
-        fc.constantFrom(...ORACLE_OMITTED_COMMIT_TYPES).chain((type) => arbitraryConventionalSubject(type, false)),
+        fc.constantFrom(...DECLARATION_AND_MAINTENANCE_COMMIT_TYPES).chain((type) =>
+          arbitraryConventionalSubject(type, false)
+        ),
         { minLength: releaseData.commits.length, maxLength: releaseData.commits.length },
       )
       .map((subjects) => ({
@@ -96,8 +98,6 @@ export function arbitraryReleaseNotesOmittedOnlyScenario(): fc.Arbitrary<Release
             subject: subjects[index]?.subject ?? commit.subject,
           })),
         },
-        keptSubjects: [],
-        omittedSubjects: subjects.map((entry) => entry.subject),
       }))
   );
 }
@@ -118,13 +118,11 @@ export function arbitraryReleaseNotesSubjectScopeScenario(): fc.Arbitrary<Releas
             subject: subjects[index]?.subject ?? commit.subject,
           })),
         },
-        keptSubjects: subjects.filter((entry) => entry.kept).map((entry) => entry.subject),
-        omittedSubjects: subjects.filter((entry) => !entry.kept).map((entry) => entry.subject),
       }))
   );
 }
 
-/** The production-auditor faithfulness input for a subject-scope scenario: a section naming the first kept subject. */
+/** The production-auditor input for a subject-scope scenario, naming its first commit. */
 export function releaseNotesSubjectScopeAuditInput(
   scenario: ReleaseNotesSubjectScopeScenario,
 ): ReleaseNotesFaithfulnessInput {
@@ -132,7 +130,7 @@ export function releaseNotesSubjectScopeAuditInput(
   const currentSection = [
     changelogVersionHeading(scenario.releaseData.version),
     changelogGroupHeading(CHANGELOG_CHANGE_GROUPS[0]),
-    changelogEntry(scenario.keptSubjects.at(0) ?? scenario.releaseData.version),
+    changelogEntry(scenario.releaseData.commits.at(0)?.subject ?? scenario.releaseData.version),
   ].join("\n");
   return {
     kind: RELEASE_NOTES_FAITHFULNESS_CASE.PRODUCTION_AUDITOR,

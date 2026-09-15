@@ -1,3 +1,7 @@
+import { readReleaseProductContext } from "@/commands/release/product-context";
+import { releaseNotesCommand } from "@/commands/release/release-notes";
+import { RELEASE_SOURCE_DATA_BLOCK_CLOSE, RELEASE_SOURCE_DATA_BLOCK_OPEN } from "@/domains/release/product-context";
+import { encodeReleasePromptData } from "@/domains/release/prompt-data";
 import {
   buildReleaseNotesPrompt,
   CHANGELOG_PATH_DATA_BLOCK_CLOSE,
@@ -6,18 +10,21 @@ import {
   CHANGELOG_VERSION_SECTION_SUFFIX,
   changelogVersionHeading,
   COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
+  createReleaseNotesFaithfulnessAuditor,
   DEFAULT_CHANGELOG_PATH,
   RELEASE_NOTES_AGENT_MAX_TURNS,
   RELEASE_NOTES_AGENT_PERMISSION_MODE,
   RELEASE_NOTES_AGENT_TOOLS,
-  RELEASE_NOTES_OBSERVABLE_EFFECT_BASIS,
-  RELEASE_NOTES_OMITTED_CHANGE_CLASSES,
+  RELEASE_NOTES_FAITHFULNESS_APPROVED,
   RELEASE_NOTES_VERSION_HEADING_INSTRUCTION,
   RELEASE_VERSION_DATA_BLOCK_CLOSE,
   ReleaseNotesError,
 } from "@/domains/release/release-notes";
+import { RELEASE_NOTES_STANDARDS } from "@/domains/release/release-notes-standards";
 import { isPathContained } from "@/lib/file-system/pathContainment";
 import { sampleNonConformantReleaseNotesChangelogCases } from "@testing/generators/release/changelog";
+import { RELEASE_CONTEXT_DOCUMENTS, RELEASE_CONTEXT_FIXTURE } from "@testing/generators/release/product-context";
+import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 import {
   arbitraryReleaseNotesOmittedOnlyScenario,
   arbitraryReleaseNotesSubjectScopeScenario,
@@ -41,6 +48,7 @@ import {
   sampleReleaseNotesPromptInput,
   sampleSymlinkRootReleaseNotesInput,
 } from "@testing/generators/release/release-notes";
+import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import {
   observeAbsoluteInTreeReleaseNotesPath,
@@ -61,7 +69,87 @@ import {
 } from "@testing/harnesses/release/release-notes-conformance";
 import { describe, expect, it } from "vitest";
 
-it("assembles the producer prompt from every named instruction and shares both contracts with the audit prompt", async () => {
+it("supplies identical complete release inputs to the producer and auditor", async () => {
+  const data = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.releaseData());
+  const releaseData = {
+    ...data,
+    commits: data.commits.map((commit) => ({ ...commit, body: RELEASE_CONTEXT_FIXTURE.body })),
+  };
+  const productContext = RELEASE_CONTEXT_DOCUMENTS;
+  const producerPrompt = buildReleaseNotesPrompt(releaseData, DEFAULT_CHANGELOG_PATH, productContext);
+  let auditPrompt = "";
+  const audit = createReleaseNotesFaithfulnessAuditor({
+    audit: async (request) => {
+      auditPrompt = request.prompt;
+      return RELEASE_NOTES_FAITHFULNESS_APPROVED;
+    },
+  }, DEFAULT_CHANGELOG_PATH);
+  await audit({ releaseData, productContext, notes: RELEASE_CONTEXT_FIXTURE.body });
+  const expected = [
+    RELEASE_SOURCE_DATA_BLOCK_OPEN,
+    encodeReleasePromptData({ productContext, releaseData }),
+    RELEASE_SOURCE_DATA_BLOCK_CLOSE,
+  ].join("\n");
+  for (const prompt of [producerPrompt, auditPrompt]) {
+    expect(prompt).toContain(expected);
+    expect(prompt).toContain(RELEASE_NOTES_STANDARDS);
+  }
+});
+
+it("does not invoke an agent after selected context reading fails", async () => {
+  await withGitWorktreeEnv(async (env) => {
+    let invocations = 0;
+    await expect(releaseNotesCommand({
+      productDir: env.productDir,
+      config: {},
+      releaseData: sampleReleaseTestValue(RELEASE_TEST_GENERATOR.releaseData()),
+      readProductContext: async () => {
+        throw new Error(RELEASE_CONTEXT_FIXTURE.specification.path);
+      },
+      agentRunner: {
+        run: async () => {
+          invocations += 1;
+        },
+      },
+      faithfulnessAuditor: async () => {
+        invocations += 1;
+      },
+    })).rejects.toThrow(RELEASE_CONTEXT_FIXTURE.specification.path);
+    expect(invocations).toBe(0);
+  });
+});
+
+it("reads product truth even when every changed declaration has a spec commit label", async () => {
+  await withGitWorktreeEnv(async (env) => {
+    for (const document of RELEASE_CONTEXT_DOCUMENTS) {
+      await env.writeTracked(document.path, document.content);
+    }
+    await env.commit(RELEASE_CONTEXT_FIXTURE.subject);
+    await expect(readReleaseProductContext(env.productDir, [RELEASE_CONTEXT_FIXTURE.specification.path]))
+      .resolves.toEqual(RELEASE_CONTEXT_DOCUMENTS);
+  });
+});
+
+it("permits a product without a spec tree", async () => {
+  await withGitWorktreeEnv(async (env) => {
+    await expect(readReleaseProductContext(env.productDir, [])).resolves.toEqual([]);
+  });
+});
+
+it("rejects selected nodes whose specification cannot be read", async () => {
+  await withGitWorktreeEnv(async (env) => {
+    await env.writeTracked(RELEASE_CONTEXT_FIXTURE.product.path, RELEASE_CONTEXT_FIXTURE.product.content);
+    await env.writeTracked(
+      RELEASE_CONTEXT_FIXTURE.specification.path + ".missing",
+      RELEASE_CONTEXT_FIXTURE.specification.content,
+    );
+    await env.commit(RELEASE_CONTEXT_FIXTURE.subject);
+    await expect(readReleaseProductContext(env.productDir, [RELEASE_CONTEXT_FIXTURE.specification.path]))
+      .rejects.toThrow(RELEASE_CONTEXT_FIXTURE.specification.path);
+  });
+});
+
+it("carries the complete shared standards in the producer and audit prompts", async () => {
   const scenario = sampleReleaseNotesFaithfulnessScenario(
     RELEASE_NOTES_FAITHFULNESS_CASE.PRODUCTION_AUDITOR,
   );
@@ -72,8 +160,7 @@ it("assembles the producer prompt from every named instruction and shares both c
   const audit = await observeReleaseNotesFaithfulness(scenario.input);
 
   for (const prompt of [producerPrompt, audit.auditPrompt]) {
-    expect(prompt).toContain(RELEASE_NOTES_OBSERVABLE_EFFECT_BASIS);
-    expect(prompt).toContain(RELEASE_NOTES_OMITTED_CHANGE_CLASSES);
+    expect(prompt).toContain(RELEASE_NOTES_STANDARDS);
   }
   expect(producerPrompt).toContain(CHANGELOG_PRESERVATION_INSTRUCTION);
   expect(producerPrompt).toContain(RELEASE_NOTES_VERSION_HEADING_INSTRUCTION);
@@ -728,31 +815,35 @@ describe("isPathContained verifies release path containment edge cases directly"
   });
 });
 
-describe("release-notes prompts carry only the subjects the notes describe", () => {
-  it("fails a release whose every commit carries an omitted type before the agent runs", async () => {
+describe("release-notes prompts preserve release inputs regardless of commit type", () => {
+  it("allows spec, test, refactor, style, docs, ci, and build commits to reach the producer", async () => {
     await assertProperty(
       arbitraryReleaseNotesOmittedOnlyScenario(),
       async (scenario) => {
-        expect(JSON.parse(observeReleaseNotesPromptSubjects(scenario.releaseData).data)).toEqual([]);
+        expect(JSON.parse(observeReleaseNotesPromptSubjects(scenario.releaseData).data)).toEqual(
+          scenario.releaseData.commits.map((commit) => commit.subject),
+        );
         const observation = await observeReleaseNotesOmittedOnlyComposition(scenario);
         expect(observation.error).toBeInstanceOf(ReleaseNotesError);
-        expect(observation.agentRequestCount).toBe(0);
+        expect(observation.agentRequestCount).toBe(1);
         expect(observation.finalPathIsFile).toBe(false);
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
   });
 
-  it("withholds spec, test, refactor, style, docs, ci, and build subjects from the producer and the audit alike", async () => {
+  it("retains every commit subject in the producer and audit inputs", async () => {
     await assertProperty(
       arbitraryReleaseNotesSubjectScopeScenario(),
       async (scenario) => {
         expect(JSON.parse(observeReleaseNotesPromptSubjects(scenario.releaseData).data)).toEqual(
-          scenario.keptSubjects,
+          scenario.releaseData.commits.map((commit) => commit.subject),
         );
         const audit = await observeReleaseNotesFaithfulness(releaseNotesSubjectScopeAuditInput(scenario));
         expect(audit.auditAttempted).toBe(true);
-        expect(JSON.parse(audit.auditSubjectsDataBlock.data)).toEqual(scenario.keptSubjects);
+        expect(JSON.parse(audit.auditSubjectsDataBlock.data)).toEqual(
+          scenario.releaseData.commits.map((commit) => commit.subject),
+        );
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
