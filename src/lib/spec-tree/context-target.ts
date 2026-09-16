@@ -1,210 +1,98 @@
-import { SPEC_TREE_CONFIG, SPEC_TREE_ENTRY_TYPE, SPEC_TREE_GRAMMAR } from "./config";
+import { posix } from "node:path";
+
+import { SPEC_TREE_CONFIG } from "./config";
 import { compareSpecContextOrdinal } from "./context-manifest";
-import type { SpecTreeNode, SpecTreeSnapshot, SpecTreeSourceEntry } from "./index";
+import type { SpecTreeNode, SpecTreeSnapshot } from "./index";
 
 export const SPEC_CONTEXT_TARGET_FAILURE_KIND = {
-  AMBIGUOUS_SEGMENT: "ambiguous-segment",
-  ARTIFACT_PATH: "artifact-path",
-  ROOT_ARTIFACT_PATH: "root-artifact-path",
-  UNKNOWN_SEGMENT: "unknown-segment",
+  AMBIGUOUS: "ambiguous",
+  UNSUPPORTED_ARTIFACT: "unsupported-artifact",
+  OUTSIDE_PRODUCT: "outside-product",
+  UNRESOLVED: "unresolved",
 } as const;
 
 export type SpecContextTargetFailureKind =
   (typeof SPEC_CONTEXT_TARGET_FAILURE_KIND)[keyof typeof SPEC_CONTEXT_TARGET_FAILURE_KIND];
 
-export type SpecContextTargetFailure =
-  | {
-    readonly kind: typeof SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS_SEGMENT;
-    readonly input: string;
-    readonly segment: string;
-    readonly candidates: readonly string[];
-  }
-  | {
-    readonly kind: typeof SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH;
-    readonly input: string;
-    readonly ownerId: string;
-  }
-  | {
-    readonly kind: typeof SPEC_CONTEXT_TARGET_FAILURE_KIND.ROOT_ARTIFACT_PATH;
-    readonly input: string;
-  }
-  | {
-    readonly kind: typeof SPEC_CONTEXT_TARGET_FAILURE_KIND.UNKNOWN_SEGMENT;
-    readonly input: string;
-    readonly segment: string;
-  };
+export interface SpecContextTargetFailure {
+  readonly kind: SpecContextTargetFailureKind;
+  readonly input: string;
+  readonly candidates: readonly string[];
+}
+
+export interface SpecContextTarget {
+  readonly path: string;
+  readonly node?: SpecTreeNode;
+}
+
+export interface SpecContextAcceptedPath {
+  readonly path: string;
+  readonly target: SpecContextTarget;
+}
+
+export interface SpecContextTargetPathFacts {
+  readonly accepted: readonly (SpecContextAcceptedPath & { readonly realPath: string })[];
+  readonly candidates: readonly string[];
+  readonly outsideProduct: boolean;
+  readonly unsupportedArtifact: boolean;
+}
 
 export type SpecContextTargetResolution =
-  | { readonly ok: true; readonly node: SpecTreeNode }
+  | { readonly ok: true; readonly target: SpecContextTarget }
   | { readonly ok: false; readonly failure: SpecContextTargetFailure };
 
-type SpecContextArtifactEntry = Extract<
-  SpecTreeSourceEntry,
-  {
-    readonly type:
-      | typeof SPEC_TREE_ENTRY_TYPE.PRODUCT
-      | typeof SPEC_TREE_ENTRY_TYPE.NODE
-      | typeof SPEC_TREE_ENTRY_TYPE.DECISION
-      | typeof SPEC_TREE_ENTRY_TYPE.EVIDENCE;
+export function specContextAcceptedPaths(snapshot: SpecTreeSnapshot): readonly SpecContextAcceptedPath[] {
+  const root: SpecContextTarget = { path: SPEC_TREE_CONFIG.ROOT_DIRECTORY };
+  const accepted: SpecContextAcceptedPath[] = [];
+  const targets = new Map(snapshot.allNodes.map((node) => [node.id, {
+    node,
+    path: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${node.id}`,
+  }]));
+  if (snapshot.product !== null) {
+    accepted.push({ path: ".", target: root }, { path: root.path, target: root });
+    if (snapshot.product.ref?.path !== undefined) accepted.push({ path: snapshot.product.ref.path, target: root });
   }
->;
-
-const TARGET_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
-const SPEC_TREE_ROOT_SEGMENT = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
-const NON_SNAPSHOT_NODE_ARTIFACT_FILENAMES = [
-  ...SPEC_TREE_GRAMMAR.COORDINATION_NOTES,
-  ...SPEC_TREE_GRAMMAR.GUIDE_FILES,
-  SPEC_TREE_GRAMMAR.STATUS_FILENAME,
-] as const;
-
-function trimTrailingSeparators(target: string): string {
-  let end = target.length;
-  while (end > 0 && target[end - 1] === TARGET_SEPARATOR) end -= 1;
-  return target.slice(0, end);
-}
-
-function normalizeTarget(target: string): string {
-  const withoutTrailingSeparators = trimTrailingSeparators(target);
-  const rootPrefix = `${SPEC_TREE_ROOT_SEGMENT}${TARGET_SEPARATOR}`;
-  return withoutTrailingSeparators.startsWith(rootPrefix)
-    ? withoutTrailingSeparators.slice(rootPrefix.length)
-    : withoutTrailingSeparators;
-}
-
-function rootedTarget(target: string): string {
-  return `${SPEC_TREE_ROOT_SEGMENT}${TARGET_SEPARATOR}${target}`;
-}
-
-function nodeSegment(node: SpecTreeNode): string {
-  return node.id.split(TARGET_SEPARATOR).at(-1) ?? node.id;
-}
-
-function isSpecContextArtifactEntry(entry: SpecTreeSourceEntry): entry is SpecContextArtifactEntry {
-  switch (entry.type) {
-    case SPEC_TREE_ENTRY_TYPE.PRODUCT:
-    case SPEC_TREE_ENTRY_TYPE.NODE:
-    case SPEC_TREE_ENTRY_TYPE.DECISION:
-    case SPEC_TREE_ENTRY_TYPE.EVIDENCE:
-      return true;
-    case SPEC_TREE_ENTRY_TYPE.SUPERSEDED:
-    case SPEC_TREE_ENTRY_TYPE.INVALID:
-      return false;
+  for (const target of targets.values()) {
+    accepted.push({ path: target.path, target });
+    if (target.node.ref?.path !== undefined) accepted.push({ path: target.node.ref.path, target });
   }
-}
-
-function artifactOwnerId(entry: SpecContextArtifactEntry): string | undefined {
-  if (entry.type === SPEC_TREE_ENTRY_TYPE.NODE) return entry.id;
-  if (entry.type === SPEC_TREE_ENTRY_TYPE.PRODUCT) return undefined;
-  return entry.parentId;
-}
-
-function nonSnapshotNodeArtifactOwnerId(snapshot: SpecTreeSnapshot, normalized: string): string | undefined {
-  return snapshot.allNodes.find((node) => {
-    if (
-      NON_SNAPSHOT_NODE_ARTIFACT_FILENAMES.some(
-        (filename) => `${node.id}${TARGET_SEPARATOR}${filename}` === normalized,
-      )
-    ) {
-      return true;
+  for (const decision of snapshot.decisions) {
+    const target = decision.parentId === undefined ? root : targets.get(decision.parentId);
+    if (target !== undefined && decision.ref?.path !== undefined) {
+      accepted.push({ path: decision.ref.path, target });
     }
-    const evalPrefix = `${node.id}${TARGET_SEPARATOR}${SPEC_TREE_GRAMMAR.EVAL.DIRECTORY_NAME}${TARGET_SEPARATOR}`;
-    if (!normalized.startsWith(evalPrefix)) return false;
-    const evalSegments = normalized.slice(evalPrefix.length).split(TARGET_SEPARATOR);
-    if (evalSegments.length !== 2 || evalSegments[0]?.length === 0) return false;
-    const artifactName = evalSegments[1];
-    return artifactName === SPEC_TREE_GRAMMAR.EVAL.RUNS_DIRECTORY_NAME
-      || SPEC_TREE_GRAMMAR.EVAL.FILES.some((filename) => filename === artifactName);
-  })?.id;
+  }
+  return accepted;
 }
 
-/**
- * A product-root coordination note is a syntactic classification — a
- * normalized target equal to a coordination-note filename with no separator —
- * so root notes route to root-artifact guidance without a filesystem probe.
- */
-function isRootCoordinationNoteTarget(normalized: string): boolean {
-  return !normalized.includes(TARGET_SEPARATOR)
-    && SPEC_TREE_GRAMMAR.COORDINATION_NOTES.some((filename) => filename === normalized);
-}
-
-function resolveArtifact(
-  snapshot: SpecTreeSnapshot,
+export function specContextSuffixCandidates(
+  accepted: readonly SpecContextAcceptedPath[],
   input: string,
-  normalized: string,
-): SpecContextTargetFailure | undefined {
-  if (isRootCoordinationNoteTarget(normalized)) {
-    return { input, kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.ROOT_ARTIFACT_PATH };
-  }
-  const nonSnapshotArtifactOwnerId = nonSnapshotNodeArtifactOwnerId(snapshot, normalized);
-  if (nonSnapshotArtifactOwnerId !== undefined) {
-    return {
-      input,
-      kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH,
-      ownerId: nonSnapshotArtifactOwnerId,
-    };
-  }
-  const artifact = snapshot.entries
-    .filter(isSpecContextArtifactEntry)
-    .find((entry) => entry.ref?.path === rootedTarget(normalized));
-  if (artifact === undefined) return undefined;
-  const ownerId = artifactOwnerId(artifact);
-  return ownerId === undefined
-    ? { input, kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.ROOT_ARTIFACT_PATH }
-    : { input, kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH, ownerId };
+): readonly string[] {
+  if (posix.isAbsolute(input) || input.length === 0) return [];
+  const normalized = posix.normalize(input).replace(/\/$/, "");
+  return accepted.filter(({ path }) => path === normalized || path.endsWith(`/${normalized}`))
+    .map(({ path }) => path);
 }
 
-/** Resolves a user-supplied context target against node identities in a parsed snapshot. */
+/** Select identities only after the caller has supplied contained, canonical filesystem facts. */
 export function resolveSpecContextTarget(
-  snapshot: SpecTreeSnapshot,
   input: string,
+  facts: SpecContextTargetPathFacts,
 ): SpecContextTargetResolution {
-  const normalized = normalizeTarget(input);
-  const artifactFailure = resolveArtifact(snapshot, input, normalized);
-  if (artifactFailure !== undefined) return { failure: artifactFailure, ok: false };
-
-  const segments = normalized.split(TARGET_SEPARATOR);
-  let parentId: string | undefined;
-  let resolved: SpecTreeNode | undefined;
-  for (const segment of segments) {
-    if (segment.length === 0) {
-      return {
-        failure: { input, kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.UNKNOWN_SEGMENT, segment },
-        ok: false,
-      };
-    }
-    const siblings = snapshot.allNodes.filter((node) => node.parentId === parentId);
-    const exact = siblings.find((node) => nodeSegment(node) === segment);
-    if (exact !== undefined) {
-      resolved = exact;
-      parentId = exact.id;
-      continue;
-    }
-    const candidates = siblings.filter((node) => nodeSegment(node).startsWith(segment));
-    if (candidates.length === 0) {
-      return {
-        failure: { input, kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.UNKNOWN_SEGMENT, segment },
-        ok: false,
-      };
-    }
-    if (candidates.length > 1) {
-      return {
-        failure: {
-          candidates: candidates.map(nodeSegment).sort(compareSpecContextOrdinal),
-          input,
-          kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS_SEGMENT,
-          segment,
-        },
-        ok: false,
-      };
-    }
-    [resolved] = candidates;
-    parentId = resolved.id;
+  const candidates = new Set(facts.candidates);
+  const matches = new Map<string, SpecContextTarget>();
+  for (const entry of facts.accepted) {
+    if (candidates.has(entry.realPath)) matches.set(entry.target.path, entry.target);
   }
-  if (resolved === undefined) {
-    return {
-      failure: { input, kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.UNKNOWN_SEGMENT, segment: normalized },
-      ok: false,
-    };
-  }
-  return { node: resolved, ok: true };
+  const targets = [...matches.values()].sort((left, right) => compareSpecContextOrdinal(left.path, right.path));
+  if (targets.length === 1) return { ok: true, target: targets[0] };
+  const kind = targets.length > 1
+    ? SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS
+    : facts.outsideProduct
+    ? SPEC_CONTEXT_TARGET_FAILURE_KIND.OUTSIDE_PRODUCT
+    : facts.unsupportedArtifact
+    ? SPEC_CONTEXT_TARGET_FAILURE_KIND.UNSUPPORTED_ARTIFACT
+    : SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED;
+  return { ok: false, failure: { kind, input, candidates: targets.map(({ path }) => path) } };
 }
