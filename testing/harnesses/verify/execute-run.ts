@@ -491,7 +491,7 @@ export interface ExecuteRunDescriptorObservation {
   readonly stderr: string;
   readonly exitCode: number | undefined;
   /** The options the descriptor handed the injected handler, in invocation order. */
-  readonly handlerOptions: readonly { readonly verificationType: string; readonly operands: readonly string[] }[];
+  readonly handlerOptions: readonly ExecuteRunCliOptions[];
 }
 
 /** What the recording handler does when the descriptor invokes it: return a result, or fail with an error. */
@@ -562,7 +562,7 @@ async function parseExecuteRunCommandLine(
   const stdout: string[] = [];
   const stderr: string[] = [];
   let exitCode: number | undefined;
-  const handlerOptions: { verificationType: string; operands: readonly string[] }[] = [];
+  const handlerOptions: ExecuteRunCliOptions[] = [];
   await withTestingTempProductDir(async (tempDir) => {
     const recordingDomain: Domain = {
       name: VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
@@ -572,7 +572,7 @@ async function parseExecuteRunCommandLine(
           appendFinding: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
           appendScope: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
           executeRun: (options) => {
-            handlerOptions.push({ verificationType: options.verificationType, operands: options.operands });
+            handlerOptions.push(options);
             return executeRun(options, tempDir);
           },
           finish: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),

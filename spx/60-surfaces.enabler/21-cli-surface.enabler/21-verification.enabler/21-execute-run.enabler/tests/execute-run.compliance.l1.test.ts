@@ -9,6 +9,7 @@ import {
 import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
+import { PATH_OPERAND_CLI_SURFACE, recursiveOptionFlags } from "@/interfaces/cli/lib/path-operands";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { TARGET_OPERAND } from "@/lib/test-targeting";
@@ -136,8 +137,23 @@ describe("execute run compliance", () => {
       handlerReturning({ exitCode: VERIFY_CLI_EXIT_CODE.OK }),
     );
     expect(descriptor.handlerOptions).toEqual([
-      { verificationType: VERIFY_VERIFICATION_TYPE.TEST, operands: fileOperand.product.testPaths },
+      { verificationType: VERIFY_VERIFICATION_TYPE.TEST, operands: fileOperand.product.testPaths, recursive: false },
     ]);
+
+    // The run verb registers the shared recursive modifier, and either spelling reaches the handler
+    // as the widened selection beside the operands.
+    for (const noun of tree.typeNouns) {
+      expect(noun.runVerbOptionFlags).toContain(recursiveOptionFlags());
+    }
+    for (const flag of [PATH_OPERAND_CLI_SURFACE.recursiveLongFlag, PATH_OPERAND_CLI_SURFACE.recursiveShortFlag]) {
+      const widened = await observeExecuteRunDescriptor(
+        [flag, ...fileOperand.product.nodePaths],
+        handlerReturning({ exitCode: VERIFY_CLI_EXIT_CODE.OK }),
+      );
+      expect(widened.handlerOptions).toEqual([
+        { verificationType: VERIFY_VERIFICATION_TYPE.TEST, operands: fileOperand.product.nodePaths, recursive: true },
+      ]);
+    }
   });
 
   it("roots the run at the worktree product root from any directory inside the product, and at the invocation directory with a warning outside a repository", async () => {
