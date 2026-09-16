@@ -666,7 +666,7 @@ export function sampleDatedReleaseNotesChangelogCase(): DatedReleaseNotesChangel
   return {
     releaseData,
     content: `${preamble}${versionSection}${priorSection}`,
-    versionSection,
+    versionSection: versionSection.slice(0, -LINE_SEPARATOR.length),
     currentOnlyContent: `${preamble}${versionSection}`,
     revisedContent: `${preamble}${undatedSection}${priorSection}`,
     mixedDuplicateContent: `${preamble}${undatedSection}${versionSection}`,

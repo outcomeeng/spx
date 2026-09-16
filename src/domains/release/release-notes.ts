@@ -97,6 +97,7 @@ export const CHANGELOG_TITLE_TEXT = "Changelog";
 /** The Keep a Changelog version-section prefix that every per-release heading opens with. */
 export const CHANGELOG_VERSION_SECTION_PREFIX = "## [";
 export const CHANGELOG_VERSION_SECTION_SUFFIX = "]";
+const CHANGELOG_RELEASE_DATE_SUFFIX = /^ - \d{4}-\d{2}-\d{2}$/u;
 
 /** The Keep a Changelog change-group headings, the closed set a release section groups its entries under. */
 export const CHANGELOG_CHANGE_GROUPS = [
@@ -319,6 +320,12 @@ export function changelogVersionHeading(version: string): string {
 
 export function changelogVersionHeadingText(version: string): string {
   return `[${version}]`;
+}
+
+function isChangelogVersionHeading(text: string, version: string): boolean {
+  const versionText = changelogVersionHeadingText(version);
+  return text === versionText
+    || (text.startsWith(versionText) && CHANGELOG_RELEASE_DATE_SUFFIX.test(text.slice(versionText.length)));
 }
 
 /** The Keep a Changelog change-group heading for a group. */
@@ -759,7 +766,7 @@ function assertConformsToKeepAChangelog(
     MARKDOWN_HEADING_H1_LEVEL,
   );
   const versionHeadingLines = changelogSectionHeadings.filter((line) =>
-    line.level === MARKDOWN_HEADING_H2_LEVEL && line.text === changelogVersionHeadingText(version)
+    line.level === MARKDOWN_HEADING_H2_LEVEL && isChangelogVersionHeading(line.text, version)
   );
   if (versionHeadingLines.length === 0) {
     throw new ReleaseNotesError(
@@ -1375,9 +1382,8 @@ function assertPreservesExistingChangelogSections(
   if (existingNotes === undefined) {
     return;
   }
-  const currentVersionHeadingText = changelogVersionHeadingText(version);
   const preservedSections = changelogVersionSections(existingNotes).filter(
-    (section) => section.heading.text !== currentVersionHeadingText,
+    (section) => !isChangelogVersionHeading(section.heading.text, version),
   );
   const writtenSections = changelogVersionSections(notes);
   const missingSection = preservedSections.find(
@@ -1396,9 +1402,8 @@ function assertPreservesExistingChangelogSections(
 }
 
 function currentReleaseNotesSection(notes: string, version: string): string {
-  const currentVersionHeadingText = changelogVersionHeadingText(version);
   const section = changelogVersionSections(notes).find(
-    (candidate) => candidate.heading.text === currentVersionHeadingText,
+    (candidate) => isChangelogVersionHeading(candidate.heading.text, version),
   );
   if (section === undefined) {
     throw new ReleaseNotesError(
