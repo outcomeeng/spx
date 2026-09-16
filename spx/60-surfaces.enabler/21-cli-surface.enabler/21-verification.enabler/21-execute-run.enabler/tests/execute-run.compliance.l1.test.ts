@@ -231,6 +231,7 @@ describe("execute run compliance", () => {
       expect(JSON.parse(observation.recordedInput?.content ?? "")).toMatchObject({
         verificationType: VERIFY_VERIFICATION_TYPE.TEST,
         operands: observation.operands,
+        recursive: observation.recursive,
         testPaths: observation.report?.testPaths,
       });
     }
