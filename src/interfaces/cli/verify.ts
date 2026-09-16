@@ -53,9 +53,11 @@ export const VERIFICATION_RUN_CLI_SURFACE = {
  * The spx-driven `spx verification <type> run [paths…]` command surface. Each executable verification
  * type is a noun command carrying the `run` verb; positional path operands narrow the run, and the
  * shared recursive modifier of `PATH_OPERAND_CLI_SURFACE` widens a node operand to its subtree as it
- * does for `spx test`.
+ * does for `spx test`. A verification type is never a verb command path, so the verb spellings of
+ * the type nouns are the names this surface forbids.
  */
 export const EXECUTE_RUN_CLI_SURFACE = {
+  forbiddenTypeVerbCommandNames: ["validate", "eval"],
   runVerbName: VERIFICATION_RUN_CLI_SURFACE.runCommandName,
   runVerbDescription: "Execute an spx-driven verification of this type and record the run it drives",
   typeNounDescription: "An spx-driven verification type",

@@ -11,6 +11,7 @@ import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
 import { PATH_OPERAND_CLI_SURFACE, recursiveOptionFlags } from "@/interfaces/cli/lib/path-operands";
+import { EXECUTE_RUN_CLI_SURFACE } from "@/interfaces/cli/verify";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { TARGET_OPERAND } from "@/lib/test-targeting";
@@ -18,9 +19,8 @@ import { JOURNAL_RUN_TERMINAL_STATUS } from "@/test/languages/types";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { arbitraryTerminalEscapingCase } from "@testing/generators/terminal-text/terminal-text";
+import { JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
 import {
-  FORBIDDEN_PATH_SCOPE_FLAGS,
-  FORBIDDEN_TYPE_VERB_COMMAND_NAMES,
   handlerFailingWith,
   handlerReturning,
   inspectExecuteRunCommandTree,
@@ -32,7 +32,6 @@ import {
   observeExecuteRunHandlerFailure,
   observeExecuteRunThroughProduction,
   observeExecuteRunWithAgenticType,
-  unresolvedRunnerInvocation,
 } from "@testing/harnesses/verify/execute-run";
 
 describe("execute run compliance", () => {
@@ -50,7 +49,7 @@ describe("execute run compliance", () => {
     const tree = inspectExecuteRunCommandTree();
     for (const noun of tree.typeNouns) {
       expect(noun.variadicOperandName).toBeDefined();
-      for (const forbiddenFlag of FORBIDDEN_PATH_SCOPE_FLAGS) {
+      for (const forbiddenFlag of PATH_OPERAND_CLI_SURFACE.forbiddenPathScopeFlags) {
         expect(noun.runVerbOptionFlags.join(" ")).not.toContain(forbiddenFlag);
       }
     }
@@ -205,7 +204,7 @@ describe("execute run compliance", () => {
 
   it("exposes no verification type as a verb command path", () => {
     const tree = inspectExecuteRunCommandTree();
-    for (const forbiddenVerb of FORBIDDEN_TYPE_VERB_COMMAND_NAMES) {
+    for (const forbiddenVerb of EXECUTE_RUN_CLI_SURFACE.forbiddenTypeVerbCommandNames) {
       expect(tree.verificationChildNames).not.toContain(forbiddenVerb);
     }
   });
@@ -264,13 +263,15 @@ describe("execute run compliance", () => {
     expect(agenticType.diagnostic).toContain(EXECUTE_RUN_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE);
     expect(agenticType.diagnostic).toContain(VERIFY_VERIFICATION_TYPE.AUDIT);
 
-    const unresolvedRunner = unresolvedRunnerInvocation();
-    const runnerless = await observeExecuteRunHandler({ invocation: unresolvedRunner.invocation });
+    const searchedDir = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()).productDir;
+    const runnerless = await observeExecuteRunHandler({
+      invocation: { invoked: false, unresolvedRunner: { productDir: searchedDir } },
+    });
     expect(runnerless.report?.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.INTERRUPTED);
-    expect(runnerless.report?.unresolvedRunner).toEqual({ productDir: unresolvedRunner.productDir });
+    expect(runnerless.report?.unresolvedRunner).toEqual({ productDir: searchedDir });
     expect(runnerless.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
     expect(runnerless.diagnostic).toContain(EXECUTE_RUN_CLI_ERROR.UNRESOLVED_RUNNER);
-    expect(runnerless.diagnostic).toContain(unresolvedRunner.productDir);
+    expect(runnerless.diagnostic).toContain(searchedDir);
     // The runnerless run is the one the store holds, and it is sealed before the result reports it.
     expect(runnerless.recordedRuns).toEqual([{ runToken: runnerless.report?.runToken, sealed: true }]);
 

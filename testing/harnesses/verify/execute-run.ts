@@ -51,7 +51,6 @@ import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
-import { JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
 import { GIT_TEST_COMMAND, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
 import { withTestingTempProductDir, writeTestFileFixture } from "@testing/harnesses/testing/harness";
@@ -63,19 +62,6 @@ import {
   type VerifyRunContextScenario,
   withVerificationType,
 } from "@testing/harnesses/verify/harness";
-
-/**
- * The violating command paths the verification command surface must never register — the
- * verb-shaped verification-type names the verification command-surface decision forbids — as the
- * compliance evidence's real violating cases.
- */
-export const FORBIDDEN_TYPE_VERB_COMMAND_NAMES: readonly string[] = ["validate", "eval"];
-
-/**
- * The violating path-scope flags no verification surface introduces — the path-scope decision
- * names them — as the compliance evidence's real violating cases.
- */
-export const FORBIDDEN_PATH_SCOPE_FLAGS: readonly string[] = ["--files", "--tests", "--nodes"];
 
 /** One executable verification type's command subtree as the real program registers it. */
 export interface TypeNounObservation {
@@ -511,15 +497,6 @@ export async function observeExecuteRunHandlerFailure(
 /** Every invoked terminal status the runner vocabulary declares, as an invocation each. */
 export function invokedInvocations(): readonly JournalRunInvocation[] {
   return Object.values(JOURNAL_RUN_TERMINAL_STATUS).map((terminalStatus) => ({ invoked: true, terminalStatus }));
-}
-
-/** An unresolved-runner invocation naming a generated product directory, alongside that directory. */
-export function unresolvedRunnerInvocation(): {
-  readonly invocation: JournalRunInvocation;
-  readonly productDir: string;
-} {
-  const productDir = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()).productDir;
-  return { invocation: { invoked: false, unresolvedRunner: { productDir } }, productDir };
 }
 
 /** What the descriptor wrote to the process streams for one parsed command line. */
