@@ -63,7 +63,6 @@ export {
   compareSpecContextOrdinal,
   composeSpecContextBundle,
   decodeContextDocumentUtf8,
-  formatMissingCitedDecisionError,
   isLocalOverlayPath,
   SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
   SPEC_CONTEXT_LISTED_ROLE,
