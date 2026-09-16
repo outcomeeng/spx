@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { runTests } from "@/commands/test";
-import { UNSUPPORTED_TEST_SELECTION_EXIT_CODE } from "@/domains/test";
+import { SUCCESS_EXIT_CODE, UNSUPPORTED_TEST_SELECTION_EXIT_CODE } from "@/domains/test";
 import { TESTING_CLI } from "@/interfaces/cli/test";
 import { resolveTargetedTestFiles } from "@/lib/test-targeting";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
@@ -40,11 +40,8 @@ describe("targeted execution operand resolution", () => {
   });
 
   it("resolves an absolute operand inside the product root like its relative spelling", () => {
-    const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
-    const [parent, descendant] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodeWithDescendant());
-    const ownFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, parent));
-    const descendantFile = sampleDispatchValue(
-      TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, descendant),
+    const { productDir, parent, ownFile, descendantFile } = sampleDispatchValue(
+      TEST_DISPATCH_GENERATOR.nestedFiles(typescriptTestingLanguage),
     );
     const discovered = [ownFile, descendantFile];
 
@@ -96,11 +93,8 @@ describe("targeted execution operand resolution", () => {
   });
 
   it("selects only a node operand's own tests by default, excluding reachable descendant nodes", () => {
-    const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
-    const [parent, descendant] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodeWithDescendant());
-    const ownFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, parent));
-    const descendantFile = sampleDispatchValue(
-      TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, descendant),
+    const { productDir, parent, ownFile, descendantFile } = sampleDispatchValue(
+      TEST_DISPATCH_GENERATOR.nestedFiles(typescriptTestingLanguage),
     );
     const discovered = [ownFile, descendantFile];
 
@@ -125,11 +119,8 @@ describe("targeted execution operand resolution", () => {
   });
 
   it("selects a node operand's own and descendant tests under the recursive flag", () => {
-    const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
-    const [parent, descendant] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodeWithDescendant());
-    const ownFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, parent));
-    const descendantFile = sampleDispatchValue(
-      TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, descendant),
+    const { productDir, parent, ownFile, descendantFile } = sampleDispatchValue(
+      TEST_DISPATCH_GENERATOR.nestedFiles(typescriptTestingLanguage),
     );
 
     const resolution = resolveTargetedTestFiles([ownFile, descendantFile], {
@@ -142,11 +133,8 @@ describe("targeted execution operand resolution", () => {
   });
 
   it("resolves a node operand with a trailing slash like one without", () => {
-    const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
-    const [parent, descendant] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodeWithDescendant());
-    const ownFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, parent));
-    const descendantFile = sampleDispatchValue(
-      TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, descendant),
+    const { productDir, parent, ownFile, descendantFile } = sampleDispatchValue(
+      TEST_DISPATCH_GENERATOR.nestedFiles(typescriptTestingLanguage),
     );
     const discovered = [ownFile, descendantFile];
 
@@ -183,7 +171,7 @@ describe("targeted execution operand resolution", () => {
   it("makes the dispatch exit non-zero when an operand resolves to no test file", async () => {
     const [nodeA, nodeB] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.distinctNodePaths());
     const fileA = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodeA));
-    const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+    const runner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
 
     await withTestingTempProductDir(async (productDir) => {
       await writeTestFileFixture(productDir, fileA);
@@ -194,7 +182,7 @@ describe("targeted execution operand resolution", () => {
       );
 
       expect(result.unresolvedTargets).toEqual([nodeOperand(nodeB)]);
-      expect(result.exitCode).not.toBe(0);
+      expect(result.exitCode).not.toBe(SUCCESS_EXIT_CODE);
     });
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { runTestsCommand } from "@/commands/test";
+import { SUCCESS_EXIT_CODE } from "@/domains/test";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { nodeOperand, sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { invokedArgs, testingCommandDependencies } from "@testing/harnesses/testing/command-support";
@@ -27,13 +28,13 @@ describe("targeted execution passing-scope interaction", () => {
 
       // `spx test passing` reads the exclusion from the staged config and drops the excluded
       // operand's file from the operand-selected set.
-      const passingRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+      const passingRunner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
       await runTestsCommand({ productDir, passing: true, targets }, testingCommandDependencies(passingRunner));
       expect(invokedArgs(passingRunner)).toContain(keptFile);
       expect(invokedArgs(passingRunner)).not.toContain(excludedFile);
 
       // Plain `spx test` leaves the same configured exclusion unread, so both files dispatch.
-      const plainRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+      const plainRunner = createRecordingCommandRunner({ present: true, exitCode: SUCCESS_EXIT_CODE });
       await runTestsCommand({ productDir, passing: false, targets }, testingCommandDependencies(plainRunner));
       expect(invokedArgs(plainRunner)).toContain(keptFile);
       expect(invokedArgs(plainRunner)).toContain(excludedFile);
