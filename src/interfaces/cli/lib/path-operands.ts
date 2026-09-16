@@ -1,6 +1,6 @@
 /**
- * The positional product-path operand vocabulary the verification surfaces share, per
- * `spx/29-verification-path-scope.pdr.md`: the recursive modifier that widens a node-path operand
+ * The positional product-path operand vocabulary the verification surfaces share: the recursive
+ * modifier that widens a node-path operand
  * to its subtree. `spx test` and `spx verification <type> run` register the modifier from this one
  * declaration, so an operand means the same on both surfaces.
  */

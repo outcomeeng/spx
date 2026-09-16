@@ -2,7 +2,7 @@
  * The spx-driven verification executor core.
  *
  * The executor drives a verification type's deterministic runner over a scope and records the run
- * only through the verify recorder lifecycle operations of `spx/34-verification.enabler/32-verify.enabler`.
+ * only through the verify recorder lifecycle operations.
  * Within one invocation it opens a run in spx drive mode, backs the streaming runner's evidence sink
  * with the recorder's scope-append and finding-append operations, maps the runner's terminal status
  * onto the recorder terminal-status vocabulary through a total function, and finishes and seals the
@@ -37,7 +37,7 @@ export interface JournalStreamingRunner {
 
 /**
  * The verify recorder lifecycle operations the executor composes to record an spx-driven run. Each
- * operation records through `spx/34-verification.enabler/32-verify.enabler`; the executor constructs
+ * operation records through the verify recorder; the executor constructs
  * no journal event of its own.
  */
 export interface ExecutorRecorderOperations {

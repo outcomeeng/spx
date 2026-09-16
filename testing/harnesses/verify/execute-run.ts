@@ -1,6 +1,5 @@
 /**
- * Test harness for the `spx verification <type> run` command surface
- * (`spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-execute-run.enabler`).
+ * Test harness for the `spx verification <type> run` command surface.
  *
  * The command tree is inspected on the real CLI program. The handler is driven over a temp product
  * holding generated spec-tree test files — a real git repository by default, or a bare directory
@@ -67,14 +66,14 @@ import {
 
 /**
  * The violating command paths the verification command surface must never register — the
- * verb-shaped verification-type names `spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md`
- * forbids — as the compliance evidence's real violating cases.
+ * verb-shaped verification-type names the verification command-surface decision forbids — as the
+ * compliance evidence's real violating cases.
  */
 export const FORBIDDEN_TYPE_VERB_COMMAND_NAMES: readonly string[] = ["validate", "eval"];
 
 /**
- * The violating path-scope flags no verification surface introduces —
- * `spx/29-verification-path-scope.pdr.md` names them — as the compliance evidence's real violating cases.
+ * The violating path-scope flags no verification surface introduces — the path-scope decision
+ * names them — as the compliance evidence's real violating cases.
  */
 export const FORBIDDEN_PATH_SCOPE_FLAGS: readonly string[] = ["--files", "--tests", "--nodes"];
 

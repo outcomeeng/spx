@@ -3,7 +3,7 @@
  *
  * The executor reaches the `test` runner through `src/test/registry.ts` — it enumerates the
  * registry's language descriptors and drives each one's journal-streaming run, so it names no
- * language, per `spx/19-language-registration.adr.md`. Every present language streams its scope and
+ * language. Every present language streams its scope and
  * findings into the one injected sink; the run's terminal status folds the languages' statuses.
  */
 import {

@@ -1,6 +1,5 @@
 /**
  * Test harness for the spx-driven verification executor
- * (`spx/34-verification.enabler/43-execute.enabler`).
  *
  * The executor is driven over the real verify recorder wired to an in-memory state store, so its
  * evidence flows through the same recorder lifecycle production uses. The runner is a controlled

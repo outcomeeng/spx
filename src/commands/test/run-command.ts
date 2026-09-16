@@ -113,7 +113,7 @@ export interface RecordedTestRun {
 
 export interface RunNodeCommandOptions {
   readonly productDir: string;
-  /** Full product-root path of the node whose tests run, e.g. `spx/41-test.enabler`. */
+  /** Full product-root path of the node whose tests run, the `spx/<node>` form. */
   readonly nodePath: string;
 }
 
