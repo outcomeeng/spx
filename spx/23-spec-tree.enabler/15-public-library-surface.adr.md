@@ -17,10 +17,11 @@ One import boundary lets domain and surface consumers depend on stable tree cont
 ### Testing
 
 - ALWAYS: the public ownership operation accepts a snapshot, a product path, and claimed node identities without reading a filesystem or importing a language adapter, and returns a discriminated resolved or unresolved result; a resolved result carries the ordinal deduplicated candidates and their lowest common ancestor as governing owner, using the product root when candidates span top-level branches ([property])
-- ALWAYS: the public library surface exports the declared source, options, read, projection, next-node, and ownership contracts ([conformance])
+- ALWAYS: the public library surface exports the declared source, options, read, projection, next-node, and ownership contracts ([mapping])
 
 ### Audit
 
 - ALWAYS: consumers that read, project, or select from a spec tree import through `src/lib/spec-tree/index.ts` ([audit])
+- ALWAYS: public tree operations receive source, registry, and evidence dependencies through explicit inputs rather than reading them from ambient process or filesystem state ([audit])
 - NEVER: command modules parse spec-tree records, node suffixes, decision suffixes, or hierarchy independently of the public library surface ([audit])
 - NEVER: tests replace spec-tree dependencies through module interception; explicit source, registry, and evidence inputs preserve the real library boundary ([audit])
