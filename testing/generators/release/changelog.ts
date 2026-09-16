@@ -73,6 +73,9 @@ const PARENT_DIRECTORY = "..";
 const ABSOLUTE_ROOT = "/";
 const BLANK_PATH_CHARACTER_MAX_COUNT = 16;
 const CURRENT_DIRECTORY = ".";
+const CHANGELOG_DATE_MIN = new Date("0001-01-01T00:00:00.000Z");
+const CHANGELOG_DATE_MAX = new Date("9999-12-31T23:59:59.999Z");
+const ISO_DATE_LENGTH = 10;
 
 /**
  * A configured changelog path within the working tree — a markdown file, optionally
@@ -633,6 +636,42 @@ export interface NonConformantChangelogCase {
 export interface ReleaseNotesChangelogCase {
   readonly releaseData: ReleaseData;
   readonly content: string;
+}
+
+export interface DatedReleaseNotesChangelogCase extends ReleaseNotesChangelogCase {
+  readonly versionSection: string;
+  readonly currentOnlyContent: string;
+  readonly revisedContent: string;
+  readonly mixedDuplicateContent: string;
+  readonly datedDuplicateContent: string;
+}
+
+/** Dated release headings follow https://keepachangelog.com/en/2.0.0/. */
+export function sampleDatedReleaseNotesChangelogCase(): DatedReleaseNotesChangelogCase {
+  const { releaseData, subjects } = sampleReleaseNotesFixture();
+  const date = sampleReleaseTestValue(
+    fc.date({ min: CHANGELOG_DATE_MIN, max: CHANGELOG_DATE_MAX, noInvalidDate: true }),
+  ).toISOString().slice(0, ISO_DATE_LENGTH);
+  const priorVersion = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.distinctSemverFrom(releaseData.version));
+  const undatedSection = conformantVersionSectionWith(SAMPLE_CHANGE_GROUP, releaseData.version, subjects);
+  const versionSection = undatedSection.replace(
+    changelogVersionHeading(releaseData.version),
+    `## [${releaseData.version}] - ${date}`,
+  );
+  const priorSection = conformantVersionSectionWith(SAMPLE_CHANGE_GROUP, priorVersion, subjects).replace(
+    changelogVersionHeading(priorVersion),
+    `## [${priorVersion}] - ${date}`,
+  );
+  const preamble = `${CHANGELOG_TITLE}${LINE_SEPARATOR}${LINE_SEPARATOR}`;
+  return {
+    releaseData,
+    content: `${preamble}${versionSection}${priorSection}`,
+    versionSection,
+    currentOnlyContent: `${preamble}${versionSection}`,
+    revisedContent: `${preamble}${undatedSection}${priorSection}`,
+    mixedDuplicateContent: `${preamble}${undatedSection}${versionSection}`,
+    datedDuplicateContent: `${preamble}${versionSection}${versionSection}`,
+  };
 }
 
 export interface NonConformantReleaseNotesChangelogCase extends NonConformantChangelogCase {
