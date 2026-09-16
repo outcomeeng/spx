@@ -220,11 +220,6 @@ export function composeSpecContextBundle(sets: readonly SpecContextTargetReadSet
   };
 }
 
-/** Diagnostic for a citation whose decision file no tracked path satisfies; names both exact paths. */
-export function formatMissingCitedDecisionError(citedPath: string, citingPath: string): string {
-  return `Spec context cited decision not found: ${citedPath} (cited by ${citingPath})`;
-}
-
 /** Snapshot-derived bootstrap state: a tree with no nodes is in bootstrap. */
 export function specContextBootstrap(nodeCount: number): boolean {
   return nodeCount === 0;
