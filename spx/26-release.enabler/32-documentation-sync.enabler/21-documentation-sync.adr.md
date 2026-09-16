@@ -17,6 +17,8 @@ The document set is release policy, so its descriptor lives with the release dom
 
 ## Verification
 
+- ALWAYS: product context is supplied through a command-layer read boundary using public spec-tree context selection and ownership resolution over both release-range endpoint trees; the producer and faithfulness auditor receive the identical resolved context snapshot
+
 ### Testing
 
 - ALWAYS: omitted `release.documentation.paths` resolves to the product README and every configured non-empty path set resolves in declared order without duplicates ([property])

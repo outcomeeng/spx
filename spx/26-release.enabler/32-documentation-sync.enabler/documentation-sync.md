@@ -6,6 +6,8 @@ CAN reflect the released version's behavior and product release-version referenc
 
 ## Assertions
 
+- Every changed implementation path contributes context for each distinct candidate owner and governing lowest common ancestor resolved across the release-range endpoint trees; shared or multiply claimed paths retain every candidate, deleted paths resolve from the earlier endpoint, and a path unresolved at both endpoints fails before the producer or auditor runs
+
 ### Scenarios
 
 - Given computed release data, when `spx release docs sync` runs, then references to the previous product release version in the configured documentation set are updated to the released version ([test](tests/documentation-sync.scenario.l1.test.ts))

@@ -10,6 +10,8 @@ CAN consume the product's spec tree through stable contracts without owning trav
 
 ## Assertions
 
+- Given a product path and node claims supplied by evidence reachability or exact audit-declaration path references, ownership resolution returns the deduplicated candidate nodes and their lowest common ancestor as governing node, or an unresolved result for no candidate; source backend, duplicate claims, and claim order do not change the result
+
 ### Scenarios
 
 - Given a `SpecTreeSource` that exposes product, node, decision, and evidence records, when `readSpecTree({ source })` runs, then it returns a `SpecTreeSnapshot` with recognized entries, assembled parent-child relationships, sorted siblings, decisions, and derived node states ([test](tests/spec-tree-surface.scenario.l1.test.ts))
