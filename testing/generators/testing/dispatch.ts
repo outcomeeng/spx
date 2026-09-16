@@ -2,6 +2,7 @@ import type { Command } from "commander";
 import * as fc from "fast-check";
 
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
+import { TARGET_OPERAND } from "@/lib/test-targeting";
 import { pythonTestingLanguage } from "@/test/languages/python";
 import type { TestingLanguageDescriptor, TestRunInvocation } from "@/test/languages/types";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
@@ -17,6 +18,9 @@ const MAX_UNSUPPORTED_SELECTION_COUNT = 6;
 const NODE_PAIR_LENGTH = 2;
 const MIN_OPERAND_LIST_LENGTH = 1;
 const MAX_OPERAND_LIST_LENGTH = 4;
+const MAX_TRAILING_SEPARATORS = 3;
+const ABSOLUTE_PATH_PREFIX = "/";
+const EMPTY_OPERAND = "";
 const GLOB_WILDCARD = "*";
 const PATH_SEPARATOR = "/";
 const COMMANDER_USER_PARSE_SOURCE = "user";
@@ -44,6 +48,8 @@ export const TEST_DISPATCH_GENERATOR = {
   distinctNodePaths: arbitraryDistinctNodePaths,
   nodeWithDescendant: arbitraryNodeWithDescendant,
   descendantOf: arbitraryDescendantOf,
+  productRootSpelling: arbitraryProductRootSpelling,
+  unresolvableOperands: arbitraryUnresolvableOperands,
   nodeWithOwnFile: arbitraryNodeWithOwnFile,
   distinctNodesWithOwnFiles: arbitraryDistinctNodesWithOwnFiles,
   nestedFiles: arbitraryNestedFiles,
@@ -123,6 +129,23 @@ function arbitraryNodeWithDescendant(): fc.Arbitrary<readonly [string, string]> 
 // default node operand leaves out, so a fixture can hold both without composing the path by hand.
 function arbitraryDescendantOf(nodePath: string): fc.Arbitrary<string> {
   return arbitraryNodeSegment().map((segment) => `${nodePath}${PATH_SEPARATOR}${segment}`);
+}
+
+// The relative spellings of the product root the operand vocabulary recognizes: the bare dot with
+// any run of trailing separators.
+function arbitraryProductRootSpelling(): fc.Arbitrary<string> {
+  return fc
+    .integer({ min: 0, max: MAX_TRAILING_SEPARATORS })
+    .map((count) => `${TARGET_OPERAND.PRODUCT_ROOT}${PATH_SEPARATOR.repeat(count)}`);
+}
+
+// One operand of each spelling that names no product-root-relative path: nothing, the absolute
+// root, and an absolute node path — the first two normalize exactly as the product root does, so
+// a case that covers only one of them proves nothing about the others.
+function arbitraryUnresolvableOperands(): fc.Arbitrary<readonly [string, string, string]> {
+  return arbitraryNodePath().map((nodePath) =>
+    [EMPTY_OPERAND, ABSOLUTE_PATH_PREFIX, `${ABSOLUTE_PATH_PREFIX}${nodePath}`] as const
+  );
 }
 
 /** A node path with one own test file of the language under its `tests/`. */

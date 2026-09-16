@@ -13,16 +13,32 @@ const TESTS_DIRECTORY_NAME = SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME;
 const PATH_SEGMENT_SEPARATOR = "/";
 
 /**
- * The operand forms this vocabulary gives a name. The product-root operand normalizes to the empty
- * string — the form `normalizePathPrefix` produces for a bare dot — and selects the whole tree.
+ * The operand forms this vocabulary gives a name. The product-root operand is the bare dot, spelled
+ * relatively; it selects the whole tree.
  */
 export const TARGET_OPERAND = {
   PRODUCT_ROOT: ".",
 } as const;
 
+const ABSOLUTE_PATH_PREFIX = "/";
+
+// The product root is recognized by its relative spellings before normalization — a bare dot with
+// any run of trailing separators — because normalization also maps an empty operand and the
+// absolute root to the empty string, and neither of those spells a product-root-relative path.
+function isProductRootSpelling(operand: string): boolean {
+  const withoutTrailingSeparators = operand.replace(/[\\/]+$/u, "");
+  return withoutTrailingSeparators === TARGET_OPERAND.PRODUCT_ROOT;
+}
+
 /** Whether the operand names the product root itself, so it encloses every discovered file. */
 export function isProductRootOperand(operand: string): boolean {
-  return normalizeTargetOperand(operand).length === 0;
+  return isProductRootSpelling(operand);
+}
+
+// An operand that spells no product-root-relative path at all: nothing, or an absolute path, which
+// the product-root-relative discovered set cannot contain.
+function isUnresolvableSpelling(operand: string): boolean {
+  return operand.length === 0 || operand.startsWith(ABSOLUTE_PATH_PREFIX);
 }
 
 /** Operand-selection request: the caller's operands and whether node operands recurse. */
@@ -45,9 +61,10 @@ export function normalizeTargetOperand(operand: string): string {
   return normalizePathPrefix(operand);
 }
 
-// A single operand's matches against the discovered set. An operand naming the
+// A single operand's matches against the discovered set. An operand spelling the
 // product root encloses the whole tree, so it selects every discovered file and the
-// recursive modifier has nothing left to widen. An exact file operand, or any other
+// recursive modifier has nothing left to widen; an empty or absolute operand spells no
+// product-root-relative path and matches nothing. An exact file operand, or any other
 // operand under `recursive`, uses the operand itself as the include prefix — it
 // matches the file exactly or the whole node subtree. A default node operand uses
 // the node's own `tests/` directory as the prefix, so a descendant node's `tests/`
@@ -57,8 +74,9 @@ function matchOperand(
   operand: string,
   recursive: boolean,
 ): readonly string[] {
+  if (isProductRootOperand(operand)) return [...discovered];
+  if (isUnresolvableSpelling(operand)) return [];
   const normalized = normalizeTargetOperand(operand);
-  if (normalized.length === 0) return [...discovered];
   if (recursive || discovered.includes(normalized)) {
     return applyPathFilter(discovered, { include: [normalized] });
   }
