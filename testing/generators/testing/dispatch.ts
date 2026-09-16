@@ -1,7 +1,7 @@
 import type { Command } from "commander";
 import * as fc from "fast-check";
 
-import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { TARGET_OPERAND } from "@/lib/test-targeting";
 import { pythonTestingLanguage } from "@/test/languages/python";
 import type { TestingLanguageDescriptor, TestRunInvocation } from "@/test/languages/types";
@@ -24,7 +24,7 @@ const EMPTY_OPERAND = "";
 const PARENT_DIRECTORY = "..";
 const PARENT_SIBLING_SUFFIX = "-beside";
 const GLOB_WILDCARD = "*";
-const PATH_SEPARATOR = "/";
+const PATH_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
 const COMMANDER_USER_PARSE_SOURCE = "user";
 
 export type TestingCliCommanderParseSource = NonNullable<
@@ -37,7 +37,7 @@ const SPEC_ROOT = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
 const TESTS_DIRECTORY = SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME;
 const ENABLER_SUFFIX = KIND_REGISTRY.enabler.suffix;
 const SPEC_NODE_SUFFIXES = [KIND_REGISTRY.enabler.suffix, KIND_REGISTRY.outcome.suffix] as const;
-const NODE_INDEX_SEPARATOR = "-";
+const NODE_INDEX_SEPARATOR = SPEC_TREE_GRAMMAR.ORDER.SEPARATOR;
 
 // The descriptors the dispatch composes; generated matching paths derive their
 // shape from each descriptor's own patterns, and unmatched paths are filtered

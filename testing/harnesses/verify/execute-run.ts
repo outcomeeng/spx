@@ -38,7 +38,7 @@ import {
 } from "@/interfaces/cli/verify";
 import { appendableJournalSealMarkerPath } from "@/lib/appendable-journal-store";
 import { GIT_SHOW_TOPLEVEL_ARGS, type GitDependencies } from "@/lib/git/root";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import {
   defaultStateStoreFileSystem,
   runTokenFromRunFileName,
@@ -125,7 +125,7 @@ export interface GeneratedTestProduct {
   readonly testPaths: readonly [string, string, string];
 }
 
-const PATH_SEPARATOR = "/";
+const PATH_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
 
 function productRootNodePath(nodePath: string): string {
   return `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${PATH_SEPARATOR}${nodePath}`;
