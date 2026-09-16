@@ -4,11 +4,13 @@
  * The executor is driven over the real verify recorder wired to an in-memory state store, so its
  * evidence flows through the same recorder lifecycle production uses. The runner is a controlled
  * `JournalStreamingRunner` double that streams configured scope units and findings into the injected
- * sink and yields a configured invocation — no real Vitest run at `l1`. Controlled scope units,
- * findings, and terminal statuses come from the journal-reporter generators, which own the
- * journal-streaming evidence domain. Every function here returns observations; the linked tests own
- * every predicate.
+ * sink and yields a configured invocation — no real Vitest run at `l1`. The linked test composes
+ * each outcome it drives from the journal-reporter generators and the source-owned terminal
+ * vocabulary; every function here returns observations, and the linked tests own every predicate.
  */
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
 import {
   executeVerificationRun,
   type ExecutorRecorderOperations,
@@ -40,12 +42,12 @@ import {
   type TestScopeUnit,
 } from "@/test/languages/types";
 import type { TestingRegistry } from "@/test/registry";
+import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
-import {
-  JOURNAL_REPORTER_TEST_GENERATOR,
-  sampleJournalReporterValue,
-} from "@testing/generators/testing/journal-reporter";
+import { sampleGeneratedValue } from "@testing/generators/sample";
+import { JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
 import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
+import { withTestingTempProductDir } from "@testing/harnesses/testing/harness";
 import {
   createVerifyRunContextScenario,
   parseRenderReport,
@@ -146,7 +148,7 @@ function createExecutorHarness(): ExecutorHarness {
     input: VERIFY_INPUT_SOURCE.STDIN,
     deps: verifyDeps(scenario, fs),
   });
-  const runRequest = sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest());
+  const runRequest = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest());
   const request: ExecutorRunRequest = {
     verificationType: VERIFY_VERIFICATION_TYPE.TEST,
     scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
@@ -169,62 +171,6 @@ async function renderRunReport(harness: ExecutorHarness, runToken: string): Prom
 /** The events of one journal type within a rendered run, a projection the linked test asserts over. */
 export function eventsOfType(events: readonly JournalEvent[], type: string): readonly JournalEvent[] {
   return events.filter((event) => event.type === type);
-}
-
-/** An outcome whose runner streams one inspected unit and reports a passing terminal status. */
-export function passingScopeOutcome(): ControlledRunOutcome {
-  return {
-    scopeUnits: [sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.scopeUnit())],
-    findings: [],
-    invocation: { invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.PASSED },
-  };
-}
-
-/** An outcome whose runner streams one inspected unit and one failing case and reports a failed terminal status. */
-export function failingMixedOutcome(): ControlledRunOutcome {
-  return {
-    scopeUnits: [sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.scopeUnit())],
-    findings: [sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.finding())],
-    invocation: { invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.FAILED },
-  };
-}
-
-/** A gated-out outcome: detection gated the runner out, so it streams no scope or finding and reports no terminal status. */
-export function gatedOutOutcome(): ControlledRunOutcome {
-  return { scopeUnits: [], findings: [], invocation: { invoked: false } };
-}
-
-/** An outcome whose product directory supplied no runner: nothing streamed, and the searched directory is named. */
-export function unresolvedRunnerOutcome(productDir: string): ControlledRunOutcome {
-  return { scopeUnits: [], findings: [], invocation: { invoked: false, unresolvedRunner: { productDir } } };
-}
-
-/** An outcome whose runner reports an interrupted terminal status after streaming one inspected unit. */
-export function interruptedRunnerOutcome(): ControlledRunOutcome {
-  return {
-    scopeUnits: [sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.scopeUnit())],
-    findings: [],
-    invocation: { invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED },
-  };
-}
-
-/** An outcome whose single failing case carries no error message — the reporter's message-absent fallback. */
-export function findingWithoutErrorMessagesOutcome(): ControlledRunOutcome {
-  return {
-    scopeUnits: [],
-    findings: [sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.findingWithoutErrorMessages())],
-    invocation: { invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.FAILED },
-  };
-}
-
-/** An outcome whose two failing cases straddle the module/case separator differently and must record distinctly. */
-export function collidingFindingsOutcome(): ControlledRunOutcome {
-  const [first, second] = sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.collidingFindingPair());
-  return {
-    scopeUnits: [],
-    findings: [first, second],
-    invocation: { invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.FAILED },
-  };
 }
 
 /** What one executor run over a controlled runner and the real recorder exposes for inspection. */
@@ -331,7 +277,7 @@ function createControlledLanguageDescriptor(
 }
 
 function arbitraryDomainLiteralValue(): string {
-  return sampleJournalReporterValue(arbitraryDomainLiteral());
+  return sampleGeneratedValue(arbitraryDomainLiteral());
 }
 
 /** A streaming descriptor that yields a fixed terminal status without streaming evidence, for fold coverage. */
@@ -360,7 +306,7 @@ export async function observeTestRunnerFold(
 ): Promise<JournalRunInvocation> {
   const registry: TestingRegistry = { languages };
   return resolveTestRunner(registry).runTestsStreaming(
-    sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()),
+    sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()),
     { sink: { appendScope: () => undefined, appendFinding: () => undefined } },
   );
 }
@@ -384,7 +330,7 @@ export interface RegistryResolutionObservation {
  * drives the `test` runner over a one-language controlled registry whose language streams one unit.
  */
 export async function observeRegistryResolution(): Promise<RegistryResolutionObservation> {
-  const streamedUnit = sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.scopeUnit());
+  const streamedUnit = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.scopeUnit());
   const controlledDescriptor = createControlledLanguageDescriptor(
     async (_request: JournalRunRequest, deps: JournalStreamRunDependencies): Promise<JournalRunInvocation> => {
       await deps.sink.appendScope(streamedUnit);
@@ -395,7 +341,7 @@ export async function observeRegistryResolution(): Promise<RegistryResolutionObs
 
   const receivedUnits: TestScopeUnit[] = [];
   const invocation = await resolveTestRunner(registry).runTestsStreaming(
-    sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()),
+    sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()),
     { sink: { appendScope: (unit) => void receivedUnits.push(unit), appendFinding: () => undefined } },
   );
 
@@ -406,6 +352,36 @@ export async function observeRegistryResolution(): Promise<RegistryResolutionObs
     receivedUnits,
     invocation,
   };
+}
+
+/** What driving the `test` type's production runner over a product that declares a language but installs no runner exposes. */
+export interface ProductionRegistryDriveObservation {
+  /** The product root the runner was asked to run over. */
+  readonly productDir: string;
+  /** The invocation the production runner folded over the registry's real languages. */
+  readonly invocation: JournalRunInvocation | undefined;
+}
+
+const EMPTY_TYPESCRIPT_MARKER = "{}";
+
+/**
+ * Resolves the `test` type through the production verification-type registry — no registry
+ * injected — and drives it over a temp product carrying the TypeScript marker and no runner, so the
+ * registry's own TypeScript language is the one that reports.
+ */
+export async function observeProductionRegistryDrive(): Promise<ProductionRegistryDriveObservation> {
+  let observation: ProductionRegistryDriveObservation | undefined;
+  await withTestingTempProductDir(async (productDir) => {
+    await writeFile(join(productDir, TYPESCRIPT_MARKER), EMPTY_TYPESCRIPT_MARKER);
+    const runner = resolveVerificationRunner(VERIFY_VERIFICATION_TYPE.TEST);
+    const invocation = runner === undefined ? undefined : await runner.runTestsStreaming(
+      { ...sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()), productDir },
+      { sink: { appendScope: () => undefined, appendFinding: () => undefined } },
+    );
+    observation = { productDir, invocation };
+  });
+  if (observation === undefined) throw new Error("executor harness produced no production registry observation");
+  return observation;
 }
 
 /** What executing a verification type that resolves to no runner exposes. */
@@ -440,8 +416,8 @@ export interface RecorderFailureThunks {
 /** Builds the real recorder over an in-memory store and returns thunks aimed at inputs it rejects. */
 export async function observeRecorderLifecycleFailures(): Promise<RecorderFailureThunks> {
   const harness = createExecutorHarness();
-  const scopeUnit = sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.scopeUnit());
-  const finding = sampleJournalReporterValue(JOURNAL_REPORTER_TEST_GENERATOR.finding());
+  const scopeUnit = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.scopeUnit());
+  const finding = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.finding());
   const opened = await harness.recorder.open(harness.request);
   const missingRun: RunLocator = { ...opened, runToken: arbitraryDomainLiteralValue() };
   return {

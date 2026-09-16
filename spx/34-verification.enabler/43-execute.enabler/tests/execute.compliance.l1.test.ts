@@ -14,13 +14,12 @@ import { JOURNAL_RUN_TERMINAL_STATUS } from "@/test/languages/types";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
 import {
-  collidingFindingsOutcome,
   eventsOfType,
-  failingMixedOutcome,
   gatedOutDescriptor,
   nonStreamingDescriptor,
   observeDriveModeAroundSeal,
   observeExecutorRun,
+  observeProductionRegistryDrive,
   observeRecorderLifecycleFailures,
   observeRegistryResolution,
   observeRunnerFailure,
@@ -29,12 +28,15 @@ import {
   observeUnsupportedTypeExecution,
   streamingDescriptorYielding,
   unresolvedRunnerDescriptor,
-  unresolvedRunnerOutcome,
 } from "@testing/harnesses/verification-exec/harness";
 
 describe("spx-driven verification executor compliance", () => {
   it("records scope, finding, and terminal evidence only through the verify recorder lifecycle", async () => {
-    const observation = await observeExecutorRun(failingMixedOutcome());
+    const observation = await observeExecutorRun({
+      scopeUnits: [sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.scopeUnit())],
+      findings: [sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.finding())],
+      invocation: { invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.FAILED },
+    });
 
     expect(observation.result.executed).toBe(true);
     expect(observation.recorderCalls).toEqual({
@@ -55,7 +57,11 @@ describe("spx-driven verification executor compliance", () => {
   });
 
   it("opens the run in spx drive mode so an unsealed run advertises no caller evidence-append action", async () => {
-    const observation = await observeDriveModeAroundSeal(failingMixedOutcome());
+    const observation = await observeDriveModeAroundSeal({
+      scopeUnits: [sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.scopeUnit())],
+      findings: [sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.finding())],
+      invocation: { invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.FAILED },
+    });
 
     expect(observation.unsealedDriveMode).toBe(VERIFY_DRIVE_MODE.SPX);
     expect(observation.unsealedNextActions).not.toContain(VERIFY_LIFECYCLE_ACTION.SCOPE_ADD);
@@ -71,6 +77,15 @@ describe("spx-driven verification executor compliance", () => {
     expect(observation.auditRunnerResolved).toBe(false);
     expect(observation.receivedUnits).toEqual([observation.streamedUnit]);
     expect(observation.invocation).toEqual({ invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.PASSED });
+
+    // The production registry, not an injected one, is what the `test` type resolves: over a product
+    // that declares TypeScript and installs no runner, the registry's own TypeScript language is the
+    // one that reports the product directory it searched.
+    const production = await observeProductionRegistryDrive();
+    expect(production.invocation).toEqual({
+      invoked: false,
+      unresolvedRunner: { productDir: production.productDir },
+    });
   });
 
   it("opens no run when the verification type resolves to no runner", async () => {
@@ -125,7 +140,11 @@ describe("spx-driven verification executor compliance", () => {
 
   it("seals an unresolved-runner outcome interrupted and names the product directory searched, unlike a gated-out run", async () => {
     const productDir = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()).productDir;
-    const observation = await observeExecutorRun(unresolvedRunnerOutcome(productDir));
+    const observation = await observeExecutorRun({
+      scopeUnits: [],
+      findings: [],
+      invocation: { invoked: false, unresolvedRunner: { productDir } },
+    });
 
     expect(observation.result.executed).toBe(true);
     if (!observation.result.executed) return;
@@ -137,10 +156,18 @@ describe("spx-driven verification executor compliance", () => {
   });
 
   it("records two separator-straddling findings distinctly rather than collapsing them onto one key", async () => {
-    const observation = await observeExecutorRun(collidingFindingsOutcome());
+    const [first, second] = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.collidingFindingPair());
+    const observation = await observeExecutorRun({
+      scopeUnits: [],
+      findings: [first, second],
+      invocation: { invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.FAILED },
+    });
 
     expect(observation.result.executed).toBe(true);
-    expect(eventsOfType(observation.report?.events ?? [], VERIFY_APPEND_EVENT_TYPE.FINDING)).toHaveLength(2);
+    expect(first).not.toEqual(second);
+    expect(eventsOfType(observation.report?.events ?? [], VERIFY_APPEND_EVENT_TYPE.FINDING)).toHaveLength(
+      observation.outcome.findings.length,
+    );
   });
 
   it("finishes the opened run interrupted when the runner fails, before surfacing the failure", async () => {
