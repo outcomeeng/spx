@@ -25,7 +25,9 @@ import {
   invokedInvocations,
   invokeFromFirstTestDir,
   observeExecuteRunDescriptor,
+  observeExecuteRunDescriptorThroughFailingRunner,
   observeExecuteRunHandler,
+  observeExecuteRunHandlerFailure,
   observeExecuteRunWithAgenticType,
   unresolvedRunnerInvocation,
 } from "@testing/harnesses/verify/execute-run";
@@ -217,6 +219,7 @@ describe("execute run compliance", () => {
     const noMatch = await observeExecuteRunHandler({ selectOperands: () => [unresolvedOperand] });
     expect(noMatch.report).toBeUndefined();
     expect(noMatch.drivenRequest).toBeUndefined();
+    expect(noMatch.recordedRuns).toEqual([]);
     expect(noMatch.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
     expect(noMatch.diagnostic).toContain(EXECUTE_RUN_CLI_ERROR.UNRESOLVED_OPERANDS);
     expect(noMatch.diagnostic).toContain(unresolvedOperand);
@@ -224,6 +227,7 @@ describe("execute run compliance", () => {
     const agenticType = await observeExecuteRunWithAgenticType();
     expect(agenticType.report).toBeUndefined();
     expect(agenticType.drivenRequest).toBeUndefined();
+    expect(agenticType.recordedRuns).toEqual([]);
     expect(agenticType.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
     expect(agenticType.diagnostic).toContain(EXECUTE_RUN_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE);
     expect(agenticType.diagnostic).toContain(VERIFY_VERIFICATION_TYPE.AUDIT);
@@ -235,6 +239,8 @@ describe("execute run compliance", () => {
     expect(runnerless.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
     expect(runnerless.diagnostic).toContain(EXECUTE_RUN_CLI_ERROR.UNRESOLVED_RUNNER);
     expect(runnerless.diagnostic).toContain(unresolvedRunner.productDir);
+    // The runnerless run is the one the store holds, and it is sealed before the result reports it.
+    expect(runnerless.recordedRuns).toEqual([{ runToken: runnerless.report?.runToken, sealed: true }]);
 
     const descriptor = await observeExecuteRunDescriptor(
       [],
@@ -247,14 +253,33 @@ describe("execute run compliance", () => {
 
   it("reports a run the handler cannot complete as an escaped diagnostic carrying the failure, with a non-zero exit, never as an unhandled failure", async () => {
     const failure = sampleGeneratedValue(arbitraryTerminalEscapingCase());
-    const descriptor = await observeExecuteRunDescriptor([], handlerFailingWith(failure.input));
 
+    // A runner failure crosses the handler as a rejection carrying the runner's own error, after the
+    // opened run is sealed — so no run is left open and no failure is folded into a result.
+    const handler = await observeExecuteRunHandlerFailure(new Error(failure.input));
+    expect(handler.drivenRequest).toBeDefined();
+    expect(handler.rejection).toBeInstanceOf(Error);
+    expect((handler.rejection as Error).message).toBe(failure.input);
+    expect(handler.recordedRuns).toHaveLength(1);
+    expect(handler.recordedRuns[0]?.sealed).toBe(true);
+
+    // The same failure, crossing the real handler beneath the real descriptor, reaches the process
+    // boundary as the run-failed diagnostic with the error exit code and nothing on standard output.
+    const descriptor = await observeExecuteRunDescriptorThroughFailingRunner(new Error(failure.input));
     expect(descriptor.stdout).toHaveLength(0);
     expect(descriptor.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
     expect(descriptor.stderr).toContain(EXECUTE_RUN_CLI_ERROR.RUN_FAILED);
+    expect(descriptor.recordedRuns).toHaveLength(1);
+    expect(descriptor.recordedRuns[0]?.sealed).toBe(true);
     // The rendering the generator derives independently of the product's escaper is what reaches
     // the stream, and the caught message's own terminal-unsafe bytes never do.
     expect(descriptor.stderr).toContain(failure.escaped);
     expect(descriptor.stderr).not.toContain(failure.input);
+
+    // The descriptor's own catch renders any propagated failure the same way, whatever produced it.
+    const propagated = await observeExecuteRunDescriptor([], handlerFailingWith(failure.input));
+    expect(propagated.stdout).toHaveLength(0);
+    expect(propagated.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(propagated.stderr).toContain(failure.escaped);
   });
 });

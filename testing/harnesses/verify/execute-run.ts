@@ -18,6 +18,8 @@ import { execa } from "execa";
 
 import {
   EXECUTABLE_VERIFICATION_TYPES,
+  type ExecuteRunCliDeps,
+  type ExecuteRunCliOptions,
   executeRunCommand,
   type ExecuteRunCommandResult,
   type ExecuteRunReport,
@@ -30,8 +32,10 @@ import type { Domain } from "@/interfaces/cli/domain";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { EXECUTE_RUN_CLI_SURFACE, registerVerifyCommands, VERIFICATION_RUN_CLI_SURFACE } from "@/interfaces/cli/verify";
+import { appendableJournalSealMarkerPath } from "@/lib/appendable-journal-store";
 import { GIT_SHOW_TOPLEVEL_ARGS, type GitDependencies } from "@/lib/git/root";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { runTokenFromRunFileName, type StateStoreFileEntry, type StateStoreFileSystem } from "@/lib/state-store";
 import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 import { JOURNAL_RUN_TERMINAL_STATUS, type JournalRunInvocation, type JournalRunRequest } from "@/test/languages/types";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
@@ -163,17 +167,53 @@ interface ControlledRunner {
   request(): JournalRunRequest | undefined;
 }
 
-function controlledRunner(invocation: JournalRunInvocation): ControlledRunner {
+// Yields the invocation, or fails with the configured error after recording the request — the
+// failure-simulation double for a runner that cannot complete (Stage 5 exception 1).
+function controlledRunner(invocation: JournalRunInvocation, failure: Error | undefined): ControlledRunner {
   let captured: JournalRunRequest | undefined;
   return {
     runner: {
       runTestsStreaming: (request) => {
         captured = request;
-        return Promise.resolve(invocation);
+        return failure === undefined ? Promise.resolve(invocation) : Promise.reject(failure);
       },
     },
     request: () => captured,
   };
+}
+
+/** One run the recorder opened in the store, and whether its journal carries the seal marker. */
+export interface RecordedRunObservation {
+  readonly runToken: string;
+  readonly sealed: boolean;
+}
+
+// Walks the in-memory store and reports every run file the recorder wrote, sealed or not — the
+// observation behind "opens no run" and "after the run seals", read from the store rather than
+// from the handler's own return value.
+async function recordedRuns(fs: StateStoreFileSystem, root: string): Promise<readonly RecordedRunObservation[]> {
+  const files = await listStoreFiles(fs, root);
+  const present = new Set(files);
+  return files.flatMap((path) => {
+    const runToken = runTokenFromRunFileName(posix.basename(path));
+    return runToken === undefined ? [] : [{ runToken, sealed: present.has(appendableJournalSealMarkerPath(path)) }];
+  });
+}
+
+async function listStoreFiles(fs: StateStoreFileSystem, directory: string): Promise<readonly string[]> {
+  let entries: readonly StateStoreFileEntry[];
+  try {
+    entries = await fs.readdir(directory, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const listed = await Promise.all(
+    entries.map((entry) => {
+      const path = posix.join(directory, entry.name);
+      return entry.isFile() ? Promise.resolve([path]) : listStoreFiles(fs, path);
+    }),
+  );
+  return listed.flat();
 }
 
 /** Git dependencies answering as the scenario's, recording the directory each worktree-root probe ran in. */
@@ -220,6 +260,8 @@ export interface ExecuteRunHandlerObservation {
   readonly drivenRequest: JournalRunRequest | undefined;
   /** The run input the recorder replays for the opened run, or `undefined` when no run opened. */
   readonly recordedInput: VerifyInputReport | undefined;
+  /** Every run the recorder opened in the store during the drive, with its sealed state. */
+  readonly recordedRuns: readonly RecordedRunObservation[];
 }
 
 /** The product root itself — the default invocation directory. */
@@ -244,9 +286,21 @@ export interface ExecuteRunHandlerDrive {
   readonly recursive?: boolean;
   /** The invocation the controlled runner yields; defaults to the first invoked invocation. */
   readonly invocation?: JournalRunInvocation;
+  /** The error the controlled runner fails with instead of yielding; defaults to none. */
+  readonly runnerFailure?: Error;
 }
 
-interface ExecuteRunDrive extends Required<ExecuteRunHandlerDrive> {
+/** The drive with every handler-side option resolved to a value. */
+interface ResolvedHandlerDrive {
+  readonly selectOperands: (product: GeneratedTestProduct) => readonly string[];
+  readonly selectInvocationDir: (product: GeneratedTestProduct) => string;
+  readonly gitRepository: boolean;
+  readonly recursive: boolean;
+  readonly invocation: JournalRunInvocation;
+  readonly runnerFailure: Error | undefined;
+}
+
+interface ExecuteRunDrive extends ResolvedHandlerDrive {
   readonly verificationType: VerifyVerificationType;
   /** Resolves the runner the handler drives; the controlled runner, or the production registry. */
   readonly resolveRunner: (
@@ -254,13 +308,14 @@ interface ExecuteRunDrive extends Required<ExecuteRunHandlerDrive> {
   ) => (verificationType: string) => JournalStreamingRunner | undefined;
 }
 
-function resolvedDrive(drive: ExecuteRunHandlerDrive): Required<ExecuteRunHandlerDrive> {
+function resolvedDrive(drive: ExecuteRunHandlerDrive): ResolvedHandlerDrive {
   return {
     selectOperands: drive.selectOperands ?? (() => []),
     selectInvocationDir: drive.selectInvocationDir ?? invokeFromProductRoot,
     gitRepository: drive.gitRepository ?? true,
     recursive: drive.recursive ?? false,
     invocation: drive.invocation ?? invokedInvocations()[0],
+    runnerFailure: drive.runnerFailure,
   };
 }
 
@@ -290,55 +345,129 @@ export function observeExecuteRunWithAgenticType(): Promise<ExecuteRunHandlerObs
   });
 }
 
+/** One prepared drive: the generated product, the handler's real dependencies, and the store behind them. */
+interface PreparedDrive {
+  readonly product: GeneratedTestProduct;
+  readonly operands: readonly string[];
+  readonly invocationDir: string;
+  readonly scenario: VerifyRunContextScenario;
+  readonly handlerDeps: ExecuteRunCliDeps;
+  readonly recorderDeps: ReturnType<typeof verifyDeps>;
+  readonly controlled: ControlledRunner;
+  probeCwds(): readonly string[];
+  recordedRuns(): Promise<readonly RecordedRunObservation[]>;
+}
+
+// Materializes the product and wires the real recorder over an in-memory store, the production
+// worktree-root resolver, and the drive's controlled runner — the one setup every drive shares.
+async function prepareDrive(tempDir: string, drive: ExecuteRunDrive): Promise<PreparedDrive> {
+  const product = await materializeTestProduct(tempDir, drive.gitRepository);
+  const scenario = withVerificationType(
+    { ...createVerifyRunContextScenario(), productDir: product.productDir },
+    drive.verificationType,
+  );
+  const fs = createInMemoryStateStoreFileSystem();
+  const probes = probeRecordingGitDeps(scenario);
+  const recorderDeps = { ...verifyDeps(scenario, fs), git: probes.git };
+  const controlled = controlledRunner(drive.invocation, drive.runnerFailure);
+  const invocationDir = drive.selectInvocationDir(product);
+  return {
+    product,
+    operands: drive.selectOperands(product),
+    invocationDir,
+    scenario,
+    handlerDeps: { cwd: invocationDir, resolveRunner: drive.resolveRunner(controlled), recorder: recorderDeps },
+    recorderDeps,
+    controlled,
+    probeCwds: () => [...probes.probeCwds()],
+    recordedRuns: () => recordedRuns(fs, product.productDir),
+  };
+}
+
 async function driveExecuteRun(drive: ExecuteRunDrive): Promise<ExecuteRunHandlerObservation> {
-  const { invocation } = drive;
   let observation: ExecuteRunHandlerObservation | undefined;
   await withTestingTempProductDir(async (tempDir) => {
-    const product = await materializeTestProduct(tempDir, drive.gitRepository);
-    const operands = drive.selectOperands(product);
-    const invocationDir = drive.selectInvocationDir(product);
-    const scenario = withVerificationType(
-      { ...createVerifyRunContextScenario(), productDir: product.productDir },
-      drive.verificationType,
-    );
-    const fs = createInMemoryStateStoreFileSystem();
-    const probes = probeRecordingGitDeps(scenario);
-    const recorderDeps = { ...verifyDeps(scenario, fs), git: probes.git };
-    const controlled = controlledRunner(invocation);
-
+    const prepared = await prepareDrive(tempDir, drive);
     const result = await executeRunCommand(
-      { verificationType: drive.verificationType, operands, recursive: drive.recursive },
-      { cwd: invocationDir, resolveRunner: drive.resolveRunner(controlled), recorder: recorderDeps },
+      { verificationType: drive.verificationType, operands: prepared.operands, recursive: drive.recursive },
+      prepared.handlerDeps,
     );
-    const recorderProbeCwds = [...probes.probeCwds()];
     const recordedInput = result.report === undefined
       ? undefined
       : JSON.parse(
         (await verifyInputCommand(
           {
-            ...verifyInputOptions(scenario, result.report.runToken),
+            ...verifyInputOptions(prepared.scenario, result.report.runToken),
             scopeType: VERIFY_SCOPE_TYPE.FILE,
             scope: result.report.locator.scopeIdentity,
           },
-          recorderDeps,
+          prepared.recorderDeps,
         )).output,
       ) as VerifyInputReport;
     observation = {
-      product,
-      invocationDir,
-      recorderProbeCwds,
-      operands,
+      product: prepared.product,
+      invocationDir: prepared.invocationDir,
+      recorderProbeCwds: prepared.probeCwds(),
+      operands: prepared.operands,
       recursive: drive.recursive,
-      invocation,
+      invocation: drive.invocation,
       exitCode: result.exitCode,
       report: result.report,
       diagnostic: result.diagnostic,
       warning: result.warning,
-      drivenRequest: controlled.request(),
+      drivenRequest: prepared.controlled.request(),
       recordedInput,
+      recordedRuns: await prepared.recordedRuns(),
     };
   });
   if (observation === undefined) throw new Error("execute-run harness produced no observation");
+  return observation;
+}
+
+/** What a handler invocation whose runner fails exposes: the propagated rejection and the store. */
+export interface ExecuteRunHandlerFailureObservation {
+  readonly product: GeneratedTestProduct;
+  /** The request the controlled runner received before failing. */
+  readonly drivenRequest: JournalRunRequest | undefined;
+  /** What the handler rejected with, or `undefined` when it returned instead. */
+  readonly rejection: unknown;
+  /** Every run the recorder opened in the store during the drive, with its sealed state. */
+  readonly recordedRuns: readonly RecordedRunObservation[];
+}
+
+/**
+ * Drives the real execute-run handler for the `test` type over a generated product with a controlled
+ * runner that fails with the given error, and observes what the handler propagated and what the
+ * recorder left in the store.
+ */
+export async function observeExecuteRunHandlerFailure(
+  runnerFailure: Error,
+): Promise<ExecuteRunHandlerFailureObservation> {
+  let observation: ExecuteRunHandlerFailureObservation | undefined;
+  const drive: ExecuteRunDrive = {
+    ...resolvedDrive({ runnerFailure }),
+    verificationType: VERIFY_VERIFICATION_TYPE.TEST,
+    resolveRunner: (controlled) => () => controlled.runner,
+  };
+  await withTestingTempProductDir(async (tempDir) => {
+    const prepared = await prepareDrive(tempDir, drive);
+    let rejection: unknown;
+    try {
+      await executeRunCommand(
+        { verificationType: drive.verificationType, operands: prepared.operands, recursive: drive.recursive },
+        prepared.handlerDeps,
+      );
+    } catch (error: unknown) {
+      rejection = error;
+    }
+    observation = {
+      product: prepared.product,
+      drivenRequest: prepared.controlled.request(),
+      rejection,
+      recordedRuns: await prepared.recordedRuns(),
+    };
+  });
+  if (observation === undefined) throw new Error("execute-run harness produced no failure observation");
   return observation;
 }
 
@@ -386,39 +515,77 @@ const RECORD_RUN_HANDLER_NOT_UNDER_TEST = "record-run handler not under test";
  * Parses `spx verification <type> run <operands…>` on a program whose execute-run handler is a
  * recording double with the given outcome, and observes what reached the process streams.
  */
-export async function observeExecuteRunDescriptor(
+export function observeExecuteRunDescriptor(
   operands: readonly string[],
   handlerOutcome: ExecuteRunHandlerOutcome,
+): Promise<ExecuteRunDescriptorObservation> {
+  return parseExecuteRunCommandLine(operands, () =>
+    handlerOutcome.kind === "result"
+      ? Promise.resolve(handlerOutcome.result)
+      : Promise.reject(handlerOutcome.error));
+}
+
+/** What the descriptor wrote when the real handler ran beneath it over a generated product. */
+export interface ExecuteRunDescriptorThroughHandlerObservation extends ExecuteRunDescriptorObservation {
+  /** Every run the recorder opened in the store during the drive, with its sealed state. */
+  readonly recordedRuns: readonly RecordedRunObservation[];
+}
+
+/**
+ * Parses `spx verification test run` on a program whose execute-run handler is the real one, wired
+ * to a generated product, the real recorder over an in-memory store, and a controlled runner that
+ * fails with the given error — so a runner failure crosses the handler and reaches the descriptor's
+ * process boundary through production code alone.
+ */
+export async function observeExecuteRunDescriptorThroughFailingRunner(
+  runnerFailure: Error,
+): Promise<ExecuteRunDescriptorThroughHandlerObservation> {
+  const drive: ExecuteRunDrive = {
+    ...resolvedDrive({ runnerFailure }),
+    verificationType: VERIFY_VERIFICATION_TYPE.TEST,
+    resolveRunner: (controlled) => () => controlled.runner,
+  };
+  let prepared: PreparedDrive | undefined;
+  const observation = await parseExecuteRunCommandLine([], async (options, tempDir) => {
+    prepared ??= await prepareDrive(tempDir, drive);
+    return executeRunCommand(options, prepared.handlerDeps);
+  });
+  return { ...observation, recordedRuns: prepared === undefined ? [] : await prepared.recordedRuns() };
+}
+
+// Parses one `spx verification test run <operands…>` command line on the real descriptor with the
+// given execute-run handler beneath it, and observes what reached the process streams.
+async function parseExecuteRunCommandLine(
+  operands: readonly string[],
+  executeRun: (options: ExecuteRunCliOptions, tempDir: string) => Promise<ExecuteRunCommandResult>,
 ): Promise<ExecuteRunDescriptorObservation> {
   const stdout: string[] = [];
   const stderr: string[] = [];
   let exitCode: number | undefined;
   const handlerOptions: { verificationType: string; operands: readonly string[] }[] = [];
-  const recordingDomain: Domain = {
-    name: VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
-    description: VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
-    register: (program, invocation) => {
-      registerVerifyCommands(program, invocation, {
-        appendFinding: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
-        appendScope: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
-        executeRun: (options) => {
-          handlerOptions.push({ verificationType: options.verificationType, operands: options.operands });
-          return handlerOutcome.kind === "result"
-            ? Promise.resolve(handlerOutcome.result)
-            : Promise.reject(handlerOutcome.error);
-        },
-        finish: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
-        input: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
-        render: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
-        start: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
-        status: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
-      });
-    },
-  };
-  await withTestingTempProductDir(async (productDir) => {
+  await withTestingTempProductDir(async (tempDir) => {
+    const recordingDomain: Domain = {
+      name: VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
+      description: VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
+      register: (program, invocation) => {
+        registerVerifyCommands(program, invocation, {
+          appendFinding: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+          appendScope: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+          executeRun: (options) => {
+            handlerOptions.push({ verificationType: options.verificationType, operands: options.operands });
+            return executeRun(options, tempDir);
+          },
+          finish: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+          input: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+          render: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+          start: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+          status: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+        });
+      },
+    };
     const program = createCliProgram({
       domains: [recordingDomain],
-      processCwd: () => productDir,
+      processCwd: () => tempDir,
       writeStdout: (output) => stdout.push(output),
       writeStderr: (output) => stderr.push(output),
       setExitCode: (code) => {
