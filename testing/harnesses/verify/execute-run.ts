@@ -468,7 +468,10 @@ export interface ExecuteRunHandlerFailureObservation {
 }
 
 /** Which boundary fails beneath the handler: the runner it drives, or the recorder it records through. */
-export type ExecuteRunFailureOrigin = Pick<ExecuteRunHandlerDrive, "runnerFailure" | "recorderFailure">;
+export interface ExecuteRunFailureOrigin {
+  readonly runnerFailure?: Error;
+  readonly recorderFailure?: Error;
+}
 
 /**
  * Drives the real execute-run handler for the `test` type over a generated product with the given
