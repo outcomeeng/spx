@@ -5,6 +5,7 @@ import {
   EXECUTE_RUN_CLI_ERROR,
   EXECUTE_RUN_CLI_WARNING,
   EXECUTE_RUN_CLI_WARNING_TEXT,
+  RECORDER_OPERATION_ERROR,
 } from "@/commands/verification-exec";
 import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
@@ -26,7 +27,7 @@ import {
   invokedInvocations,
   invokeFromFirstTestDir,
   observeExecuteRunDescriptor,
-  observeExecuteRunDescriptorThroughFailingRunner,
+  observeExecuteRunDescriptorThroughFailure,
   observeExecuteRunHandler,
   observeExecuteRunHandlerFailure,
   observeExecuteRunThroughProduction,
@@ -286,25 +287,41 @@ describe("execute run compliance", () => {
 
     // A runner failure crosses the handler as a rejection carrying the runner's own error, after the
     // opened run is sealed — so no run is left open and no failure is folded into a result.
-    const handler = await observeExecuteRunHandlerFailure(new Error(failure.input));
-    expect(handler.drivenRequest).toBeDefined();
-    expect(handler.rejection).toBeInstanceOf(Error);
-    expect((handler.rejection as Error).message).toBe(failure.input);
-    expect(handler.recordedRuns).toHaveLength(1);
-    expect(handler.recordedRuns[0]?.sealed).toBe(true);
+    const runner = await observeExecuteRunHandlerFailure({ runnerFailure: new Error(failure.input) });
+    expect(runner.drivenRequest).toBeDefined();
+    expect(runner.rejection).toBeInstanceOf(Error);
+    expect((runner.rejection as Error).message).toBe(failure.input);
+    expect(runner.recordedRuns).toHaveLength(1);
+    expect(runner.recordedRuns[0]?.sealed).toBe(true);
 
-    // The same failure, crossing the real handler beneath the real descriptor, reaches the process
+    // A recorder failure — the store refusing every write — crosses the handler the same way: the
+    // run never opens, the runner is never driven, and the rejection names the failed operation.
+    const recorder = await observeExecuteRunHandlerFailure({ recorderFailure: new Error(failure.input) });
+    expect(recorder.drivenRequest).toBeUndefined();
+    expect(recorder.rejection).toBeInstanceOf(Error);
+    expect((recorder.rejection as Error).message).toContain(RECORDER_OPERATION_ERROR.OPEN_FAILED);
+    expect(recorder.recordedRuns).toEqual([]);
+
+    // Either failure, crossing the real handler beneath the real descriptor, reaches the process
     // boundary as the run-failed diagnostic with the error exit code and nothing on standard output.
-    const descriptor = await observeExecuteRunDescriptorThroughFailingRunner(new Error(failure.input));
-    expect(descriptor.stdout).toHaveLength(0);
-    expect(descriptor.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-    expect(descriptor.stderr).toContain(EXECUTE_RUN_CLI_ERROR.RUN_FAILED);
-    expect(descriptor.recordedRuns).toHaveLength(1);
-    expect(descriptor.recordedRuns[0]?.sealed).toBe(true);
+    for (
+      const origin of [
+        { runnerFailure: new Error(failure.input) },
+        { recorderFailure: new Error(failure.input) },
+      ]
+    ) {
+      const descriptor = await observeExecuteRunDescriptorThroughFailure(origin);
+      expect(descriptor.stdout).toHaveLength(0);
+      expect(descriptor.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+      expect(descriptor.stderr).toContain(EXECUTE_RUN_CLI_ERROR.RUN_FAILED);
+      expect(descriptor.recordedRuns.every((run) => run.sealed)).toBe(true);
+    }
+
     // The rendering the generator derives independently of the product's escaper is what reaches
     // the stream, and the caught message's own terminal-unsafe bytes never do.
-    expect(descriptor.stderr).toContain(failure.escaped);
-    expect(descriptor.stderr).not.toContain(failure.input);
+    const escaped = await observeExecuteRunDescriptorThroughFailure({ runnerFailure: new Error(failure.input) });
+    expect(escaped.stderr).toContain(failure.escaped);
+    expect(escaped.stderr).not.toContain(failure.input);
 
     // The descriptor's own catch renders any propagated failure the same way, whatever produced it.
     const propagated = await observeExecuteRunDescriptor([], handlerFailingWith(failure.input));

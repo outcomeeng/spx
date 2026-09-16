@@ -193,6 +193,22 @@ function controlledRunner(invocation: JournalRunInvocation, failure: Error | und
   };
 }
 
+// A store whose every write fails with the configured error while reads pass through — the
+// failure-simulation double for a recorder that cannot record (Stage 5 exception 1).
+function writeRefusingStore(inner: StateStoreFileSystem, failure: Error): StateStoreFileSystem {
+  return {
+    mkdir: () => Promise.reject(failure),
+    writeFile: () => Promise.reject(failure),
+    appendFile: () => Promise.reject(failure),
+    link: () => Promise.reject(failure),
+    rename: () => Promise.reject(failure),
+    rm: () => Promise.reject(failure),
+    readFile: (path, encoding) => inner.readFile(path, encoding),
+    readdir: (path, options) => inner.readdir(path, options),
+    lstat: (path) => inner.lstat(path),
+  };
+}
+
 /** One run the recorder opened in the store, and whether its journal carries the seal marker. */
 export interface RecordedRunObservation {
   readonly runToken: string;
@@ -299,6 +315,8 @@ export interface ExecuteRunHandlerDrive {
   readonly invocation?: JournalRunInvocation;
   /** The error the controlled runner fails with instead of yielding; defaults to none. */
   readonly runnerFailure?: Error;
+  /** The error the recorder's store refuses every write with; defaults to none. */
+  readonly recorderFailure?: Error;
 }
 
 /** The drive with every handler-side option resolved to a value. */
@@ -309,6 +327,7 @@ interface ResolvedHandlerDrive {
   readonly recursive: boolean;
   readonly invocation: JournalRunInvocation;
   readonly runnerFailure: Error | undefined;
+  readonly recorderFailure: Error | undefined;
 }
 
 interface ExecuteRunDrive extends ResolvedHandlerDrive {
@@ -327,6 +346,7 @@ function resolvedDrive(drive: ExecuteRunHandlerDrive): ResolvedHandlerDrive {
     recursive: drive.recursive ?? false,
     invocation: drive.invocation ?? invokedInvocations()[0],
     runnerFailure: drive.runnerFailure,
+    recorderFailure: drive.recorderFailure,
   };
 }
 
@@ -378,8 +398,9 @@ async function prepareDrive(tempDir: string, drive: ExecuteRunDrive): Promise<Pr
     drive.verificationType,
   );
   const fs = createInMemoryStateStoreFileSystem();
+  const recorderStore = drive.recorderFailure === undefined ? fs : writeRefusingStore(fs, drive.recorderFailure);
   const probes = probeRecordingGitDeps(scenario);
-  const recorderDeps = { ...verifyDeps(scenario, fs), git: probes.git };
+  const recorderDeps = { ...verifyDeps(scenario, recorderStore), git: probes.git };
   const controlled = controlledRunner(drive.invocation, drive.runnerFailure);
   const invocationDir = drive.selectInvocationDir(product);
   return {
@@ -446,17 +467,20 @@ export interface ExecuteRunHandlerFailureObservation {
   readonly recordedRuns: readonly RecordedRunObservation[];
 }
 
+/** Which boundary fails beneath the handler: the runner it drives, or the recorder it records through. */
+export type ExecuteRunFailureOrigin = Pick<ExecuteRunHandlerDrive, "runnerFailure" | "recorderFailure">;
+
 /**
- * Drives the real execute-run handler for the `test` type over a generated product with a controlled
- * runner that fails with the given error, and observes what the handler propagated and what the
- * recorder left in the store.
+ * Drives the real execute-run handler for the `test` type over a generated product with the given
+ * boundary failing — a controlled runner that rejects, or a store that refuses the recorder's
+ * writes — and observes what the handler propagated and what the recorder left in the store.
  */
 export async function observeExecuteRunHandlerFailure(
-  runnerFailure: Error,
+  origin: ExecuteRunFailureOrigin,
 ): Promise<ExecuteRunHandlerFailureObservation> {
   let observation: ExecuteRunHandlerFailureObservation | undefined;
   const drive: ExecuteRunDrive = {
-    ...resolvedDrive({ runnerFailure }),
+    ...resolvedDrive(origin),
     verificationType: VERIFY_VERIFICATION_TYPE.TEST,
     resolveRunner: (controlled) => () => controlled.runner,
   };
@@ -544,15 +568,15 @@ export interface ExecuteRunDescriptorThroughHandlerObservation extends ExecuteRu
 
 /**
  * Parses `spx verification test run` on a program whose execute-run handler is the real one, wired
- * to a generated product, the real recorder over an in-memory store, and a controlled runner that
- * fails with the given error — so a runner failure crosses the handler and reaches the descriptor's
- * process boundary through production code alone.
+ * to a generated product, the real recorder over an in-memory store, and the given failing boundary
+ * — a rejecting runner or a write-refusing store — so the failure crosses the handler and reaches
+ * the descriptor's process boundary through production code alone.
  */
-export async function observeExecuteRunDescriptorThroughFailingRunner(
-  runnerFailure: Error,
+export async function observeExecuteRunDescriptorThroughFailure(
+  origin: ExecuteRunFailureOrigin,
 ): Promise<ExecuteRunDescriptorThroughHandlerObservation> {
   const drive: ExecuteRunDrive = {
-    ...resolvedDrive({ runnerFailure }),
+    ...resolvedDrive(origin),
     verificationType: VERIFY_VERIFICATION_TYPE.TEST,
     resolveRunner: (controlled) => () => controlled.runner,
   };
