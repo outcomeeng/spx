@@ -41,13 +41,3 @@ This node's terminal output path passes values that originated outside the produ
 **Skills:** `/apply`, `/test-typescript`, `/audit-typescript-code`.
 
 **Revisit condition:** before the next changeset touching this node's terminal output path.
-
-## The execute-run descriptor's production composition has no linked evidence
-
-The `spx verification <type> run` descriptor composes its handler's dependencies in `src/interfaces/cli/verify.ts` — the effective invocation directory it forwards as `cwd`, the journal stream binding it wraps as the recorder, and the default handler map that binds `executeRunCommand` — and the node's decision routes descriptor verification to the built executable. Every descriptor observation the node's evidence drives injects either the handler or the handler's dependencies, so a mutation that forwards a different invocation directory or binds a different handler in the default map leaves the suite green, and no `l2` test exercises the command through `node bin/spx.js`.
-
-**Evidence:** `src/interfaces/cli/verify.ts` `registerExecuteRunCommands` and `DEFAULT_VERIFY_CLI_HANDLERS`; `testing/harnesses/verify/execute-run.ts` `parseExecuteRunCommandLine`; test-evidence audit of `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-execute-run.enabler` at `b1bb37f0bfb0fa72fb2f8470032d922fa84d9293`.
-
-**Impact:** the three composition lines between the parsed command line and the real handler are covered only by the shared CLI program's own evidence, not by this node's.
-
-**Settlement condition:** an `l2` compliance case runs the built executable over a temp product with a registered runner and observes the recorded run's root and the structured result on standard output, or the descriptor composition is factored so an `l1` observation reaches it without injecting the handler.

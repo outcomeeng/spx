@@ -29,6 +29,7 @@ import {
   observeExecuteRunDescriptorThroughFailingRunner,
   observeExecuteRunHandler,
   observeExecuteRunHandlerFailure,
+  observeExecuteRunThroughProduction,
   observeExecuteRunWithAgenticType,
   unresolvedRunnerInvocation,
 } from "@testing/harnesses/verify/execute-run";
@@ -178,6 +179,19 @@ describe("execute run compliance", () => {
       [...outsideRepository.product.testPaths].sort(compareAsciiStrings),
     );
     expect(outsideRepository.warning).toBe(EXECUTE_RUN_CLI_WARNING.NOT_GIT_REPOSITORY);
+
+    // The whole production command path — the descriptor's own dependency composition and default
+    // handler binding, the real recorder over the product's store, and the production runner
+    // registry — settles on the product root from a nested invocation directory with nothing
+    // beneath the program injected: the registry's runner finds no Vitest in that product, so the
+    // sealed run names the root the command resolved.
+    const production = await observeExecuteRunThroughProduction(invokeFromFirstTestDir);
+    expect(production.invocationDir).not.toBe(production.product.productDir);
+    expect(production.report?.unresolvedRunner?.productDir).toBe(production.product.productDir);
+    expect(production.report?.locator.scopeIdentity).toBe(SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+    expect(production.report?.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.INTERRUPTED);
+    expect(production.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+    expect(production.recordedRuns).toEqual([{ runToken: production.report?.runToken, sealed: true }]);
 
     const descriptor = await observeExecuteRunDescriptor(
       [],

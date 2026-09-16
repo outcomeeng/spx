@@ -11,7 +11,7 @@
  * streams, with a handler that either returns a configured result or fails with a configured error.
  * Every function returns observations; the linked test owns every predicate.
  */
-import { realpath } from "node:fs/promises";
+import { realpath, writeFile } from "node:fs/promises";
 import { join, posix } from "node:path";
 
 import { execa } from "execa";
@@ -31,14 +31,25 @@ import { VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE, type VerifyVerificationTyp
 import type { Domain } from "@/interfaces/cli/domain";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
-import { EXECUTE_RUN_CLI_SURFACE, registerVerifyCommands, VERIFICATION_RUN_CLI_SURFACE } from "@/interfaces/cli/verify";
+import {
+  EXECUTE_RUN_CLI_SURFACE,
+  registerVerifyCommands,
+  VERIFICATION_RUN_CLI_SURFACE,
+  verifyDomain,
+} from "@/interfaces/cli/verify";
 import { appendableJournalSealMarkerPath } from "@/lib/appendable-journal-store";
 import { GIT_SHOW_TOPLEVEL_ARGS, type GitDependencies } from "@/lib/git/root";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
-import { runTokenFromRunFileName, type StateStoreFileEntry, type StateStoreFileSystem } from "@/lib/state-store";
+import {
+  defaultStateStoreFileSystem,
+  runTokenFromRunFileName,
+  type StateStoreFileEntry,
+  type StateStoreFileSystem,
+} from "@/lib/state-store";
 import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 import { JOURNAL_RUN_TERMINAL_STATUS, type JournalRunInvocation, type JournalRunRequest } from "@/test/languages/types";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
+import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
@@ -551,6 +562,74 @@ export async function observeExecuteRunDescriptorThroughFailingRunner(
     return executeRunCommand(options, prepared.handlerDeps);
   });
   return { ...observation, recordedRuns: prepared === undefined ? [] : await prepared.recordedRuns() };
+}
+
+/** What the whole production command path wrote and recorded for one parsed command line. */
+export interface ExecuteRunProductionObservation {
+  readonly product: GeneratedTestProduct;
+  /** The directory the program was started from. */
+  readonly invocationDir: string;
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly exitCode: number | undefined;
+  /** The structured result parsed from standard output, or `undefined` when nothing was written there. */
+  readonly report: ExecuteRunReport | undefined;
+  /** Every run the recorder opened in the product's own store, with its sealed state. */
+  readonly recordedRuns: readonly RecordedRunObservation[];
+}
+
+const EMPTY_TYPESCRIPT_MARKER = "{}";
+
+/**
+ * Parses `spx verification test run` on a program carrying the production verify domain — its
+ * default handler map, its own dependency composition, the real recorder over the product's own
+ * store, and the production runner registry — started from the given directory of a generated
+ * product that declares TypeScript but installs no runner. Nothing beneath the program is
+ * injected: the descriptor forwards the invocation directory it resolves, the handler resolves the
+ * product root from it, and the registry's `test` runner resolves no Vitest in that product, so
+ * the run seals as unresolved and the result names the root the command settled on.
+ */
+export async function observeExecuteRunThroughProduction(
+  selectInvocationDir: (product: GeneratedTestProduct) => string,
+): Promise<ExecuteRunProductionObservation> {
+  const stdout: string[] = [];
+  const stderr: string[] = [];
+  let exitCode: number | undefined;
+  let observation: ExecuteRunProductionObservation | undefined;
+  await withTestingTempProductDir(async (tempDir) => {
+    const product = await materializeTestProduct(tempDir, true);
+    await writeFile(join(product.productDir, TYPESCRIPT_MARKER), EMPTY_TYPESCRIPT_MARKER);
+    const invocationDir = selectInvocationDir(product);
+    const program = createCliProgram({
+      domains: [verifyDomain],
+      processCwd: () => invocationDir,
+      writeStdout: (output) => stdout.push(output),
+      writeStderr: (output) => stderr.push(output),
+      setExitCode: (code) => {
+        exitCode = code;
+      },
+    });
+    await program.parseAsync(
+      [
+        VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
+        VERIFY_VERIFICATION_TYPE.TEST,
+        EXECUTE_RUN_CLI_SURFACE.runVerbName,
+      ],
+      { from: SPX_COMMANDER_PARSE_SOURCE },
+    );
+    const written = stdout.join("");
+    observation = {
+      product,
+      invocationDir,
+      stdout: written,
+      stderr: stderr.join(""),
+      exitCode,
+      report: written.length === 0 ? undefined : JSON.parse(written) as ExecuteRunReport,
+      recordedRuns: await recordedRuns(defaultStateStoreFileSystem, product.productDir),
+    };
+  });
+  if (observation === undefined) throw new Error("execute-run harness produced no production observation");
+  return observation;
 }
 
 // Parses one `spx verification test run <operands…>` command line on the real descriptor with the
