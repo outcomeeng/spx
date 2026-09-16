@@ -14,7 +14,9 @@ A release's deterministic core — the commits since the last tag, the version d
 
 ## Verification
 
-- ALWAYS: the release command layer obtains ownership claims from evidence reachability and exact audit-declaration path references through injected boundaries, resolves candidate and governing-node ownership through the public spec-tree library for both release-range endpoint trees, and fails with the unresolved implementation paths before agent invocation when neither endpoint supplies an owner
+### Testing
+
+- ALWAYS: the release command layer obtains ownership claims from evidence reachability and exact audit-declaration path references through injected boundaries, resolves candidate and governing-node ownership through the public spec-tree library for both release-range endpoint trees, and fails with the unresolved implementation paths before agent invocation when neither endpoint supplies an owner ([property])
 
 ### Audit
 

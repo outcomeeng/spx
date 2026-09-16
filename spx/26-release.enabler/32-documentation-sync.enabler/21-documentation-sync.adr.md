@@ -17,10 +17,9 @@ The document set is release policy, so its descriptor lives with the release dom
 
 ## Verification
 
-- ALWAYS: product context is supplied through a command-layer read boundary using public spec-tree context selection and ownership resolution over both release-range endpoint trees; the producer and faithfulness auditor receive the identical resolved context snapshot
-
 ### Testing
 
+- ALWAYS: product context is supplied through a command-layer read boundary using public spec-tree context selection and ownership resolution over both release-range endpoint trees; the producer and faithfulness auditor receive the identical resolved context snapshot ([property])
 - ALWAYS: omitted `release.documentation.paths` resolves to the product README and every configured non-empty path set resolves in declared order without duplicates ([property])
 - ALWAYS: every staged document contains the released version and, when `ReleaseData.previousTag` exists, contains no exact reference to that previous product release version before the faithfulness audit and promotion run ([compliance])
 - ALWAYS: the faithfulness audit receives the original and staged read-back content for every configured document path before promotion runs ([compliance])

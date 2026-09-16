@@ -6,8 +6,6 @@ CAN reflect the released version's behavior and product release-version referenc
 
 ## Assertions
 
-- Every changed implementation path contributes context for each distinct candidate owner and governing lowest common ancestor resolved across the release-range endpoint trees; shared or multiply claimed paths retain every candidate, deleted paths resolve from the earlier endpoint, and a path unresolved at both endpoints fails before the producer or auditor runs
-
 ### Scenarios
 
 - Given computed release data, when `spx release docs sync` runs, then references to the previous product release version in the configured documentation set are updated to the released version ([test](tests/documentation-sync.scenario.l1.test.ts))
@@ -19,6 +17,7 @@ CAN reflect the released version's behavior and product release-version referenc
 
 ### Properties
 
+- Every changed implementation path contributes context for each distinct candidate owner and governing lowest common ancestor resolved across the release-range endpoint trees; shared or multiply claimed paths retain every candidate, deleted paths resolve from the earlier endpoint, and a path unresolved at both endpoints fails before the producer or auditor runs ([test](tests/documentation-sync.property.l1.test.ts))
 - For every release input and selected product context, documentation sync preserves identical shared product-truth standards and source inputs for producer and auditor; their role-specific inputs carry the resolved documentation set and original-to-updated transformations respectively ([test](tests/documentation-sync.property.l1.test.ts))
 - Configuration resolution preserves every generated non-empty documentation path set in declared order and rejects every generated duplicate-bearing set, including paths that alias across platform separators ([test](tests/documentation-sync.property.l1.test.ts))
 - Structural version validation preserves every generated semantic version other than the exact standalone previous product release-version token identified by the release data, including exact release values embedded in larger non-whitespace tokens and first releases whose release data identifies no previous version ([test](tests/documentation-sync.property.l1.test.ts))
