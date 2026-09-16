@@ -10,6 +10,14 @@ import {
   type SpecTreeSource,
 } from "@/lib/spec-tree";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import {
+  authoredText,
+  externalValue,
+  joinTerminalText,
+  jsonDocument,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 import { resolveSpecProductDir, type SpecProductDirWarningHandler } from "./root";
 
 export const OUTPUT_FORMAT = {
@@ -36,9 +44,9 @@ const TABLE_HEADER = {
   STATE: "State",
 } as const;
 export const SPEC_STATUS_TABLE_HEADER = formatTableRow([
-  TABLE_HEADER.KIND,
-  TABLE_HEADER.PATH,
-  TABLE_HEADER.STATE,
+  authoredText(TABLE_HEADER.KIND),
+  authoredText(TABLE_HEADER.PATH),
+  authoredText(TABLE_HEADER.STATE),
 ]);
 
 export type OutputFormat = (typeof OUTPUT_FORMAT)[keyof typeof OUTPUT_FORMAT];
@@ -85,7 +93,7 @@ export type StatusOptions = StatusReadOptions | StatusUpdateOptions | StatusInMe
 
 export async function statusCommand(
   options: StatusOptions = {},
-): Promise<string> {
+): Promise<TerminalText> {
   if (options.source !== undefined) {
     if (options.update === true) {
       throw new SpecStatusUpdateRequiresProductDirError();
@@ -124,9 +132,9 @@ export async function statusCommand(
 export function renderSpecStatus(
   projection: SpecTreeProjection,
   format: OutputFormat = DEFAULT_FORMAT,
-): string {
+): TerminalText {
   if (projection.nodes.length === 0 && format !== OUTPUT_FORMAT.JSON) {
-    return SPEC_STATUS_MESSAGE.EMPTY;
+    return authoredText(SPEC_STATUS_MESSAGE.EMPTY);
   }
 
   switch (format) {
@@ -145,56 +153,58 @@ export function renderSpecStatus(
   }
 }
 
-function formatJSON(projection: SpecTreeProjection): string {
-  return JSON.stringify(projection, null, JSON_INDENTATION);
+function formatJSON(projection: SpecTreeProjection): TerminalText {
+  return jsonDocument(projection, JSON_INDENTATION);
 }
 
-function formatText(projection: SpecTreeProjection): string {
-  return projection.nodes.map((node) => formatTextNode(node)).join("\n");
+function formatText(projection: SpecTreeProjection): TerminalText {
+  return joinTerminalText(authoredText("\n"), projection.nodes.map((node) => formatTextNode(node)));
 }
 
-function formatTextNode(node: SpecTreeProjectedNode, depth = 0): string {
-  const current = `${NODE_INDENT.repeat(depth)}${formatNodeLabel(node)}`;
+function formatTextNode(node: SpecTreeProjectedNode, depth = 0): TerminalText {
+  const current = terminal`${authoredText(NODE_INDENT.repeat(depth))}${formatNodeLabel(node)}`;
   const children = node.children.map((child) => formatTextNode(child, depth + 1));
-  return [current, ...children].join("\n");
+  return joinTerminalText(authoredText("\n"), [current, ...children]);
 }
 
-function formatMarkdown(projection: SpecTreeProjection): string {
-  return projection.nodes.map((node) => formatMarkdownNode(node)).join("\n");
+function formatMarkdown(projection: SpecTreeProjection): TerminalText {
+  return joinTerminalText(authoredText("\n"), projection.nodes.map((node) => formatMarkdownNode(node)));
 }
 
-function formatMarkdownNode(node: SpecTreeProjectedNode, depth = 0): string {
-  const current = `${NODE_INDENT.repeat(depth)}${MARKDOWN_NODE_PREFIX}${formatNodeLabel(node)}`;
+function formatMarkdownNode(node: SpecTreeProjectedNode, depth = 0): TerminalText {
+  const current = terminal`${authoredText(NODE_INDENT.repeat(depth) + MARKDOWN_NODE_PREFIX)}${formatNodeLabel(node)}`;
   const children = node.children.map((child) => formatMarkdownNode(child, depth + 1));
-  return [current, ...children].join("\n");
+  return joinTerminalText(authoredText("\n"), [current, ...children]);
 }
 
-function formatTable(projection: SpecTreeProjection): string {
+function formatTable(projection: SpecTreeProjection): TerminalText {
   const rows = flattenProjectionNodes(projection.nodes).map((node) => [
-    KIND_REGISTRY[node.kind].label,
-    node.id,
-    node.state,
+    authoredText(KIND_REGISTRY[node.kind].label),
+    externalValue(node.id),
+    externalValue(node.state),
   ]);
-  return [
+  return joinTerminalText(authoredText("\n"), [
     SPEC_STATUS_TABLE_HEADER,
-    formatTableRow([TABLE_HEADER_SEPARATOR, TABLE_HEADER_SEPARATOR, TABLE_HEADER_SEPARATOR]),
+    formatTableRow([TABLE_HEADER_SEPARATOR, TABLE_HEADER_SEPARATOR, TABLE_HEADER_SEPARATOR].map(authoredText)),
     ...rows.map(formatTableRow),
-  ].join("\n");
+  ]);
 }
 
 function flattenProjectionNodes(nodes: readonly SpecTreeProjectedNode[]): readonly SpecTreeProjectedNode[] {
   return nodes.flatMap((node) => [node, ...flattenProjectionNodes(node.children)]);
 }
 
-function formatTableRow(values: readonly string[]): string {
-  const separator = ` ${TABLE_SEPARATOR} `;
-  return `${TABLE_SEPARATOR} ${values.join(separator)} ${TABLE_SEPARATOR}`;
+function formatTableRow(values: readonly TerminalText[]): TerminalText {
+  const separator = authoredText(` ${TABLE_SEPARATOR} `);
+  return terminal`${authoredText(TABLE_SEPARATOR)} ${joinTerminalText(separator, values)} ${
+    authoredText(TABLE_SEPARATOR)
+  }`;
 }
 
-function formatNodeLabel(node: SpecTreeProjectedNode): string {
-  return [
-    KIND_REGISTRY[node.kind].label,
-    node.id,
-    `[${node.state}]`,
-  ].join(STATUS_SEPARATOR);
+function formatNodeLabel(node: SpecTreeProjectedNode): TerminalText {
+  return joinTerminalText(authoredText(STATUS_SEPARATOR), [
+    authoredText(KIND_REGISTRY[node.kind].label),
+    externalValue(node.id),
+    terminal`[${externalValue(node.state)}]`,
+  ]);
 }
