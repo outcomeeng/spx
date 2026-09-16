@@ -1,7 +1,9 @@
 import { isAbsolute } from "node:path";
 
 import { isPathContained } from "@/lib/file-system/pathContainment";
-import { oracleResolvedChangelogPath } from "@testing/generators/release/changelog";
+import { arbitraryConfiguredChangelogPath, oracleResolvedChangelogPath } from "@testing/generators/release/changelog";
+import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
+import { sampleReleaseNotesCompositionFixture } from "@testing/generators/release/release-notes";
 import { observeIndependentVersionSection } from "@testing/harnesses/release/keep-a-changelog-oracle";
 import {
   observeCanonicalReleaseNotesCommand,
@@ -24,7 +26,9 @@ describe("resolveReleaseNotesPath resolves the changelog within the product work
   });
 
   it("resolves a configured changelog path within the working tree", async () => {
-    await expect(observeConfiguredReleaseNotesPath()).resolves.toSatisfy(
+    await expect(
+      observeConfiguredReleaseNotesPath(sampleReleaseTestValue(arbitraryConfiguredChangelogPath())),
+    ).resolves.toSatisfy(
       (observation) =>
         isPathContained(observation.workingDirectory, observation.resolvedPath)
         && observation.resolvedPath
@@ -35,27 +39,39 @@ describe("resolveReleaseNotesPath resolves the changelog within the product work
 
 describe("composeReleaseNotes writes the changelog at the resolved path", () => {
   it("writes the changelog carrying a section for the release version", async () => {
-    await expect(observeComposedReleaseNotes()).resolves.toSatisfy(
-      (observation) => observeIndependentVersionSection(observation.content, observation.version) !== undefined,
+    const fixture = sampleReleaseNotesCompositionFixture();
+    await expect(observeComposedReleaseNotes(fixture)).resolves.toSatisfy(
+      (observation) =>
+        observation.content === fixture.conformant
+        && observeIndependentVersionSection(observation.content, fixture.releaseData.version) !== undefined,
     );
   });
 });
 
 describe("releaseNotesCommand wires release-note composition into the release workflow", () => {
   it("writes the changelog through the production command handler", async () => {
-    await expect(observeReleaseNotesCommand()).resolves.toSatisfy(
+    const fixture = sampleReleaseNotesCompositionFixture();
+    await expect(observeReleaseNotesCommand(fixture)).resolves.toSatisfy(
       (observation) =>
         observation.output === observation.resolvedPath
-        && observeIndependentVersionSection(observation.content, observation.version) !== undefined,
+        && observation.content === fixture.conformant
+        && observeIndependentVersionSection(observation.content, fixture.releaseData.version) !== undefined,
     );
   });
 
   it("reports the promoted canonical changelog path", async () => {
-    await expect(observeCanonicalReleaseNotesCommand()).resolves.toSatisfy(
+    const fixture = sampleReleaseNotesCompositionFixture();
+    await expect(
+      observeCanonicalReleaseNotesCommand(
+        fixture,
+        sampleReleaseTestValue(RELEASE_TEST_GENERATOR.distinctPathSegmentTriple()),
+      ),
+    ).resolves.toSatisfy(
       (observation) =>
         observation.output === observation.canonicalPath
         && observation.canonicalPath !== observation.lexicalPath
-        && observeIndependentVersionSection(observation.content, observation.version) !== undefined,
+        && observation.content === fixture.conformant
+        && observeIndependentVersionSection(observation.content, fixture.releaseData.version) !== undefined,
     );
   });
 });
