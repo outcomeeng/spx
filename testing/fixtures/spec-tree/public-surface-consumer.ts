@@ -4,11 +4,14 @@ import {
   NODE_KINDS,
   projectSpecTree,
   readSpecTree,
+  resolveSpecTreePathOwnership,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_GRAMMAR,
+  SPEC_TREE_PATH_OWNERSHIP_RESULT_KIND,
   type SpecTreeNode,
   type SpecTreeOptions,
+  type SpecTreePathOwnershipResult,
   type SpecTreeProjection,
   type SpecTreeSnapshot,
   type SpecTreeSource,
@@ -38,6 +41,14 @@ export async function consumePublicSpecTreeSurface(): Promise<SpecTreeProjection
   const snapshot: SpecTreeSnapshot = await readSpecTree(options);
   const projection: SpecTreeProjection = projectSpecTree(snapshot);
   const next: SpecTreeNode | null = findNextSpecTreeNode(snapshot);
+  const ownership: SpecTreePathOwnershipResult = resolveSpecTreePathOwnership(
+    snapshot,
+    SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+    next === null ? [] : [next.id],
+  );
   void next;
+  if (ownership.kind === SPEC_TREE_PATH_OWNERSHIP_RESULT_KIND.RESOLVED) {
+    void ownership.governingOwner;
+  }
   return projection;
 }
