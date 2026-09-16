@@ -1,8 +1,6 @@
 # Changelog
 
-## [0.7.0]
-
-Release date: 2026-09-15
+## [0.7.0] - 2026-09-16
 
 ### Added
 
@@ -17,6 +15,7 @@ Release date: 2026-09-15
 
 ### Fixed
 
+- Release-note validation and publication accept dated version headings and reject duplicate versions across dated and undated headings.
 - Release publication waits for registry provenance on both new and resumed publications, so delayed attestations no longer cause an immediate confirmation failure.
 - Changeset audit roots must match the run's subject and required coverage, including coverage-gap roots.
 - Compaction recovery selects the methodology tree for the invoking agent. An unidentified invocation uses the single available agent tree or reports ambiguity.
