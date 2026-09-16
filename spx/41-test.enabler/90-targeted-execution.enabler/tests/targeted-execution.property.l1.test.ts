@@ -1,4 +1,3 @@
-import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { resolveTargetedTestFiles } from "@/lib/test-targeting";
@@ -6,43 +5,10 @@ import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { nodeOperand, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
-// A node path paired with one own test file under it, so a list of these yields a
-// discovered set whose every entry is reachable by its node operand.
-function arbitraryNodeWithOwnFile(): fc.Arbitrary<{ readonly node: string; readonly file: string }> {
-  return TEST_DISPATCH_GENERATOR.nodePath().chain((node) =>
-    TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, node).map((file) => ({ node, file }))
-  );
-}
-
-// A parent node, a descendant under it, and one own test file in each. A recursive
-// parent operand and the descendant operand both match the descendant file, which
-// makes their resolutions overlap on a genuinely distinct discovered candidate.
-function arbitraryNestedFiles(): fc.Arbitrary<{
-  readonly parent: string;
-  readonly descendant: string;
-  readonly ownFile: string;
-  readonly descendantFile: string;
-}> {
-  return TEST_DISPATCH_GENERATOR.nodeWithDescendant().chain(([parent, descendant]) =>
-    TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, parent).chain((ownFile) =>
-      TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, descendant).map((descendantFile) => ({
-        parent,
-        descendant,
-        ownFile,
-        descendantFile,
-      }))
-    )
-  );
-}
-
 describe("targeted execution resolution invariants", () => {
   it("selects the order- and repetition-independent union of operand resolutions", () => {
     assertProperty(
-      fc.uniqueArray(arbitraryNodeWithOwnFile(), {
-        minLength: 1,
-        maxLength: 4,
-        selector: (entry) => entry.node,
-      }),
+      TEST_DISPATCH_GENERATOR.distinctNodesWithOwnFiles(typescriptTestingLanguage),
       (entries) => {
         const discovered = entries.map((entry) => entry.file);
         const operands = entries.map((entry) => nodeOperand(entry.node));
@@ -72,7 +38,7 @@ describe("targeted execution resolution invariants", () => {
 
   it("deduplicates a file matched by more than one distinct operand", () => {
     assertProperty(
-      arbitraryNestedFiles(),
+      TEST_DISPATCH_GENERATOR.nestedFiles(typescriptTestingLanguage),
       ({ parent, descendant, ownFile, descendantFile }) => {
         // The recursive parent operand matches the whole subtree (own + descendant
         // file); the descendant operand matches the descendant file too. Their union

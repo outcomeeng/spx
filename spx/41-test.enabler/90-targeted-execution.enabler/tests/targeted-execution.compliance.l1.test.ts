@@ -1,47 +1,40 @@
 import { describe, expect, it } from "vitest";
 
-import { runTests } from "@/commands/test";
+import { runTestsCommand } from "@/commands/test";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
-import { testingRegistry } from "@/test/registry";
 import { nodeOperand, sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
-import { withTestingTempProductDir, writeTestFileFixture } from "@testing/harnesses/testing/harness";
+import { invokedArgs, testingCommandDependencies } from "@testing/harnesses/testing/command-support";
+import {
+  withTestingTempProductDir,
+  writeTestFileFixture,
+  writeTestingConfig,
+} from "@testing/harnesses/testing/harness";
 import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
 
-function invokedArgs(
-  runner: { readonly calls: ReadonlyArray<{ readonly args: readonly string[] }> },
-): readonly string[] {
-  return runner.calls.flatMap((call) => call.args);
-}
-
 describe("targeted execution passing-scope interaction", () => {
-  it("filters operands under passing scope while running them unfiltered under plain test", async () => {
+  it("filters operands under the configured passing scope while running them unfiltered under plain test", async () => {
     const [keptNode, excludedNode] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.distinctNodePaths());
     const keptFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, keptNode));
     const excludedFile = sampleDispatchValue(
       TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, excludedNode),
     );
-    const operands = [nodeOperand(keptNode), nodeOperand(excludedNode)];
-    const passingScope = { exclude: [nodeOperand(excludedNode)] };
+    const targets = { operands: [nodeOperand(keptNode), nodeOperand(excludedNode)], recursive: false };
 
     await withTestingTempProductDir(async (productDir) => {
       await writeTestFileFixture(productDir, keptFile);
       await writeTestFileFixture(productDir, excludedFile);
+      await writeTestingConfig(productDir, { exclude: [nodeOperand(excludedNode)] });
 
-      // Under `passing`, the passing-scope exclusion drops the excluded operand's file.
+      // `spx test passing` reads the exclusion from the staged config and drops the excluded
+      // operand's file from the operand-selected set.
       const passingRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-      await runTests(
-        { productDir, registry: testingRegistry, targets: { operands, recursive: false }, passingScope },
-        { runnerDepsFor: () => passingRunner },
-      );
+      await runTestsCommand({ productDir, passing: true, targets }, testingCommandDependencies(passingRunner));
       expect(invokedArgs(passingRunner)).toContain(keptFile);
       expect(invokedArgs(passingRunner)).not.toContain(excludedFile);
 
-      // Without passing scope, both operands' files dispatch unfiltered.
+      // Plain `spx test` leaves the same configured exclusion unread, so both files dispatch.
       const plainRunner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-      await runTests(
-        { productDir, registry: testingRegistry, targets: { operands, recursive: false } },
-        { runnerDepsFor: () => plainRunner },
-      );
+      await runTestsCommand({ productDir, passing: false, targets }, testingCommandDependencies(plainRunner));
       expect(invokedArgs(plainRunner)).toContain(keptFile);
       expect(invokedArgs(plainRunner)).toContain(excludedFile);
     });

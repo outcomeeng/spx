@@ -1,7 +1,10 @@
-import type { RecordedTestRun } from "@/commands/test";
+import type { RecordedTestRun, TestDispatchResult } from "@/commands/test";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { createTestingDomain, type TestingCliDependencies } from "@/interfaces/cli/test";
 import type { TargetSelection } from "@/lib/test-targeting";
+import { TEST_RUN_STATE_FIELDS, TEST_RUN_STATE_STATUS } from "@/test/run-state";
+import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import { testingCliCommanderParseSource } from "@testing/generators/testing/dispatch";
 
 export interface TestingCliCall {
@@ -21,6 +24,41 @@ class TestingCliExit extends Error {
   constructor(readonly exitCode: number) {
     super(`Testing CLI exited with code ${exitCode}`);
   }
+}
+
+function recordIdentity(): string {
+  return sampleGeneratedValue(arbitraryDomainLiteral());
+}
+
+/**
+ * The run the recording `runTests` and `runAgentTests` collaborators return for a given dispatch —
+ * a real-shaped `RecordedTestRun` whose run-file and recorded-state identity fields are drawn
+ * values the descriptor never inspects, so a CLI scenario observes only the dispatch it supplied.
+ */
+export function recordedTestRun(dispatch: TestDispatchResult): RecordedTestRun {
+  return {
+    dispatch,
+    runFile: {
+      runsDir: recordIdentity(),
+      runFilePath: recordIdentity(),
+      runFileName: recordIdentity(),
+      runToken: recordIdentity(),
+      runId: recordIdentity(),
+      startedAt: recordIdentity(),
+    },
+    recorded: {
+      branchName: recordIdentity(),
+      headSha: recordIdentity(),
+      testingConfigDigest: recordIdentity(),
+      runnerOutcomes: [],
+      discoveredTestPathsDigest: recordIdentity(),
+      discoveredTestContentDigest: recordIdentity(),
+      productInputDigests: [],
+      startedAt: recordIdentity(),
+      completedAt: recordIdentity(),
+      [TEST_RUN_STATE_FIELDS.STATUS]: TEST_RUN_STATE_STATUS.FAILED,
+    },
+  };
 }
 
 export function testingCliDeps(

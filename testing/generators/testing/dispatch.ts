@@ -15,6 +15,8 @@ const MAX_EXIT_CODE = 255;
 const MIN_NON_ZERO_EXIT_CODE = 1;
 const MAX_UNSUPPORTED_SELECTION_COUNT = 6;
 const NODE_PAIR_LENGTH = 2;
+const MIN_OPERAND_LIST_LENGTH = 1;
+const MAX_OPERAND_LIST_LENGTH = 4;
 const GLOB_WILDCARD = "*";
 const PATH_SEPARATOR = "/";
 const COMMANDER_USER_PARSE_SOURCE = "user";
@@ -42,6 +44,9 @@ export const TEST_DISPATCH_GENERATOR = {
   distinctNodePaths: arbitraryDistinctNodePaths,
   nodeWithDescendant: arbitraryNodeWithDescendant,
   descendantOf: arbitraryDescendantOf,
+  nodeWithOwnFile: arbitraryNodeWithOwnFile,
+  distinctNodesWithOwnFiles: arbitraryDistinctNodesWithOwnFiles,
+  nestedFiles: arbitraryNestedFiles,
   specFileUnder,
   testFileUnder: arbitraryTestFileUnder,
   supportFileUnder: arbitrarySupportFileUnder,
@@ -118,6 +123,54 @@ function arbitraryNodeWithDescendant(): fc.Arbitrary<readonly [string, string]> 
 // default node operand leaves out, so a fixture can hold both without composing the path by hand.
 function arbitraryDescendantOf(nodePath: string): fc.Arbitrary<string> {
   return arbitraryNodeSegment().map((segment) => `${nodePath}${PATH_SEPARATOR}${segment}`);
+}
+
+/** A node path with one own test file of the language under its `tests/`. */
+export interface NodeWithOwnFile {
+  readonly node: string;
+  readonly file: string;
+}
+
+/** A parent node, a descendant under it, and one own test file of the language in each. */
+export interface NestedFiles {
+  readonly parent: string;
+  readonly descendant: string;
+  readonly ownFile: string;
+  readonly descendantFile: string;
+}
+
+// A node paired with one own test file under it, so a discovered set built from
+// these has every entry reachable by its node operand.
+function arbitraryNodeWithOwnFile(descriptor: TestingLanguageDescriptor): fc.Arbitrary<NodeWithOwnFile> {
+  return arbitraryNodePath().chain((node) => arbitraryTestFileUnder(descriptor, node).map((file) => ({ node, file })));
+}
+
+// A bounded list of distinct nodes, each with its own test file — the operand-list
+// domain over which resolution is order- and repetition-independent.
+function arbitraryDistinctNodesWithOwnFiles(
+  descriptor: TestingLanguageDescriptor,
+): fc.Arbitrary<readonly NodeWithOwnFile[]> {
+  return fc.uniqueArray(arbitraryNodeWithOwnFile(descriptor), {
+    minLength: MIN_OPERAND_LIST_LENGTH,
+    maxLength: MAX_OPERAND_LIST_LENGTH,
+    selector: (entry) => entry.node,
+  });
+}
+
+// A parent and a descendant with one own test file each: a recursive parent operand
+// and the descendant operand both match the descendant file, so their resolutions
+// overlap on a distinct discovered candidate.
+function arbitraryNestedFiles(descriptor: TestingLanguageDescriptor): fc.Arbitrary<NestedFiles> {
+  return arbitraryNodeWithDescendant().chain(([parent, descendant]) =>
+    arbitraryTestFileUnder(descriptor, parent).chain((ownFile) =>
+      arbitraryTestFileUnder(descriptor, descendant).map((descendantFile) => ({
+        parent,
+        descendant,
+        ownFile,
+        descendantFile,
+      }))
+    )
+  );
 }
 
 function testsDirectoryFor(nodePath: string): string {
