@@ -1,7 +1,7 @@
 /**
  * Positional product-path operand selection over a discovered test-file set — the shared capability
- * every verification surface that narrows work by product path consumes, per
- * `spx/29-verification-path-scope.pdr.md`. `spx test` and `spx verification <type> run` resolve
+ * every verification surface that narrows work by product path consumes, realizing the product's
+ * shared path-operand vocabulary. `spx test` and `spx verification <type> run` resolve
  * their operands here, so a file operand, a node operand, and the recursive widening mean one thing
  * across surfaces; the library is pure over its inputs and names no surface or language.
  */
@@ -52,11 +52,6 @@ export function canonicalizeOperand(operand: string, productDir: string): string
   const normalized = normalizePathPrefix(relativeToRoot);
   if (normalized === PARENT_DIRECTORY || normalized.startsWith(PARENT_DIRECTORY_PREFIX)) return undefined;
   return normalized;
-}
-
-/** Whether the operand names the product root itself, so it encloses every discovered file. */
-export function isProductRootOperand(operand: string, productDir: string): boolean {
-  return canonicalizeOperand(operand, productDir) === "";
 }
 
 /** Operand-selection request: the caller's operands and whether node operands recurse. */
