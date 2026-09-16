@@ -656,11 +656,11 @@ export function sampleDatedReleaseNotesChangelogCase(): DatedReleaseNotesChangel
   const undatedSection = conformantVersionSectionWith(SAMPLE_CHANGE_GROUP, releaseData.version, subjects);
   const versionSection = undatedSection.replace(
     changelogVersionHeading(releaseData.version),
-    `## [${releaseData.version}] - ${date}`,
+    `${changelogVersionHeading(releaseData.version)} - ${date}`,
   );
   const priorSection = conformantVersionSectionWith(SAMPLE_CHANGE_GROUP, priorVersion, subjects).replace(
     changelogVersionHeading(priorVersion),
-    `## [${priorVersion}] - ${date}`,
+    `${changelogVersionHeading(priorVersion)} - ${date}`,
   );
   const preamble = `${CHANGELOG_TITLE}${LINE_SEPARATOR}${LINE_SEPARATOR}`;
   return {
