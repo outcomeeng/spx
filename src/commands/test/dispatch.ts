@@ -85,7 +85,7 @@ export async function runTests(
   // operands the full discovered set carries through unchanged.
   const targeted = options.targets === undefined
     ? { selected: discovered, unresolved: [] as readonly string[] }
-    : resolveTargetedTestFiles(discovered, options.targets);
+    : resolveTargetedTestFiles(discovered, options.targets, { productDir: options.productDir });
   const testFiles = options.passingScope === undefined
     ? targeted.selected
     : applyPathFilter(targeted.selected, options.passingScope);

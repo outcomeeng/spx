@@ -21,6 +21,8 @@ const MAX_OPERAND_LIST_LENGTH = 4;
 const MAX_TRAILING_SEPARATORS = 3;
 const ABSOLUTE_PATH_PREFIX = "/";
 const EMPTY_OPERAND = "";
+const PARENT_DIRECTORY = "..";
+const PARENT_SIBLING_SUFFIX = "-beside";
 const GLOB_WILDCARD = "*";
 const PATH_SEPARATOR = "/";
 const COMMANDER_USER_PARSE_SOURCE = "user";
@@ -131,27 +133,36 @@ function arbitraryDescendantOf(nodePath: string): fc.Arbitrary<string> {
   return arbitraryNodeSegment().map((segment) => `${nodePath}${PATH_SEPARATOR}${segment}`);
 }
 
-// Every relative spelling of the product root the operand vocabulary recognizes — the bare dot
-// with each run of trailing separators up to the bound — as one list, so a case covers the whole
-// enumeration in one run rather than one member per run.
-function arbitraryProductRootSpellings(): fc.Arbitrary<readonly string[]> {
+// Every spelling of the product root the operand vocabulary recognizes — the bare dot with each
+// run of trailing separators up to the bound, and the root's own absolute path — as one list, so a
+// case covers the whole enumeration in one run rather than one member per run.
+function arbitraryProductRootSpellings(productDir: string): fc.Arbitrary<readonly string[]> {
   return fc
     .integer({ min: 1, max: MAX_TRAILING_SEPARATORS })
-    .map((longest) =>
-      Array.from(
+    .map((longest) => [
+      ...Array.from(
         { length: longest + 1 },
         (_, count) => `${TARGET_OPERAND.PRODUCT_ROOT}${PATH_SEPARATOR.repeat(count)}`,
-      )
-    );
+      ),
+      productDir,
+    ]);
 }
 
-// One operand of each spelling that names no product-root-relative path: nothing, the absolute
-// root, and an absolute node path — the first two normalize exactly as the product root does, so
-// a case that covers only one of them proves nothing about the others.
-function arbitraryUnresolvableOperands(): fc.Arbitrary<readonly [string, string, string]> {
-  return arbitraryNodePath().map((nodePath) =>
-    [EMPTY_OPERAND, ABSOLUTE_PATH_PREFIX, `${ABSOLUTE_PATH_PREFIX}${nodePath}`] as const
-  );
+// One operand of each spelling that names no path inside the product: nothing, the filesystem
+// root, an absolute path beside the product, and a relative path climbing out of it — so a case
+// covers every class in one run rather than one member per run.
+function arbitraryUnresolvableOperands(productDir: string): fc.Arbitrary<readonly string[]> {
+  return arbitraryNodePath().map((nodePath) => [
+    EMPTY_OPERAND,
+    ABSOLUTE_PATH_PREFIX,
+    `${productDir}${PARENT_SIBLING_SUFFIX}${PATH_SEPARATOR}${nodePath}`,
+    `${PARENT_DIRECTORY}${PATH_SEPARATOR}${nodePath}`,
+  ]);
+}
+
+// The absolute spelling of a product-root-relative operand under the given product root.
+export function absoluteOperand(productDir: string, operand: string): string {
+  return `${productDir}${PATH_SEPARATOR}${operand}`;
 }
 
 /** A node path with one own test file of the language under its `tests/`. */
@@ -160,8 +171,15 @@ export interface NodeWithOwnFile {
   readonly file: string;
 }
 
-/** A parent node, a descendant under it, and one own test file of the language in each. */
+/** A bounded list of distinct nodes with their own files, under one product root. */
+export interface DistinctNodesWithOwnFiles {
+  readonly productDir: string;
+  readonly entries: readonly NodeWithOwnFile[];
+}
+
+/** A parent node, a descendant under it, and one own test file of the language in each, under one product root. */
 export interface NestedFiles {
+  readonly productDir: string;
   readonly parent: string;
   readonly descendant: string;
   readonly ownFile: string;
@@ -178,28 +196,36 @@ function arbitraryNodeWithOwnFile(descriptor: TestingLanguageDescriptor): fc.Arb
 // domain over which resolution is order- and repetition-independent.
 function arbitraryDistinctNodesWithOwnFiles(
   descriptor: TestingLanguageDescriptor,
-): fc.Arbitrary<readonly NodeWithOwnFile[]> {
-  return fc.uniqueArray(arbitraryNodeWithOwnFile(descriptor), {
-    minLength: MIN_OPERAND_LIST_LENGTH,
-    maxLength: MAX_OPERAND_LIST_LENGTH,
-    selector: (entry) => entry.node,
-  });
+): fc.Arbitrary<DistinctNodesWithOwnFiles> {
+  return fc
+    .tuple(
+      CONFIG_TEST_GENERATOR.productDir(),
+      fc.uniqueArray(arbitraryNodeWithOwnFile(descriptor), {
+        minLength: MIN_OPERAND_LIST_LENGTH,
+        maxLength: MAX_OPERAND_LIST_LENGTH,
+        selector: (entry) => entry.node,
+      }),
+    )
+    .map(([productDir, entries]) => ({ productDir, entries }));
 }
 
 // A parent and a descendant with one own test file each: a recursive parent operand
 // and the descendant operand both match the descendant file, so their resolutions
 // overlap on a distinct discovered candidate.
 function arbitraryNestedFiles(descriptor: TestingLanguageDescriptor): fc.Arbitrary<NestedFiles> {
-  return arbitraryNodeWithDescendant().chain(([parent, descendant]) =>
-    arbitraryTestFileUnder(descriptor, parent).chain((ownFile) =>
-      arbitraryTestFileUnder(descriptor, descendant).map((descendantFile) => ({
-        parent,
-        descendant,
-        ownFile,
-        descendantFile,
-      }))
-    )
-  );
+  return fc
+    .tuple(CONFIG_TEST_GENERATOR.productDir(), arbitraryNodeWithDescendant())
+    .chain(([productDir, [parent, descendant]]) =>
+      arbitraryTestFileUnder(descriptor, parent).chain((ownFile) =>
+        arbitraryTestFileUnder(descriptor, descendant).map((descendantFile) => ({
+          productDir,
+          parent,
+          descendant,
+          ownFile,
+          descendantFile,
+        }))
+      )
+    );
 }
 
 function testsDirectoryFor(nodePath: string): string {

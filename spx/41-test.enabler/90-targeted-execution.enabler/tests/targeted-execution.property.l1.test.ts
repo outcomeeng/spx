@@ -9,19 +9,19 @@ describe("targeted execution resolution invariants", () => {
   it("selects the order- and repetition-independent union of operand resolutions", () => {
     assertProperty(
       TEST_DISPATCH_GENERATOR.distinctNodesWithOwnFiles(typescriptTestingLanguage),
-      (entries) => {
+      ({ productDir, entries }) => {
         const discovered = entries.map((entry) => entry.file);
         const operands = entries.map((entry) => nodeOperand(entry.node));
 
-        const base = resolveTargetedTestFiles(discovered, { operands, recursive: false }).selected;
+        const base = resolveTargetedTestFiles(discovered, { operands, recursive: false }, { productDir }).selected;
         const reversed = resolveTargetedTestFiles(discovered, {
           operands: [...operands].reverse(),
           recursive: false,
-        }).selected;
+        }, { productDir }).selected;
         const duplicated = resolveTargetedTestFiles(discovered, {
           operands: [...operands, ...operands],
           recursive: false,
-        }).selected;
+        }, { productDir }).selected;
 
         // Order and repetition of operands never change the selected set.
         expect([...reversed]).toEqual([...base]);
@@ -39,14 +39,14 @@ describe("targeted execution resolution invariants", () => {
   it("deduplicates a file matched by more than one distinct operand", () => {
     assertProperty(
       TEST_DISPATCH_GENERATOR.nestedFiles(typescriptTestingLanguage),
-      ({ parent, descendant, ownFile, descendantFile }) => {
+      ({ productDir, parent, descendant, ownFile, descendantFile }) => {
         // The recursive parent operand matches the whole subtree (own + descendant
         // file); the descendant operand matches the descendant file too. Their union
         // keeps the overlapping file exactly once.
         const selected = resolveTargetedTestFiles([ownFile, descendantFile], {
           operands: [nodeOperand(parent), nodeOperand(descendant)],
           recursive: true,
-        }).selected;
+        }, { productDir }).selected;
 
         expect(descendantFile).not.toBe(ownFile);
         expect(selected.filter((file) => file === descendantFile)).toHaveLength(1);

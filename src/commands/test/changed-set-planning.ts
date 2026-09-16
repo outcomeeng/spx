@@ -229,7 +229,11 @@ export async function planChangedTestSelection(
     : [];
   const pathSelectedTests = partition.productInputChanged || partition.operands.length === 0
     ? []
-    : resolveTargetedTestFiles(testPaths, { operands: partition.operands, recursive: true }).selected;
+    : resolveTargetedTestFiles(
+      testPaths,
+      { operands: partition.operands, recursive: true },
+      { productDir: options.productDir },
+    ).selected;
   const related = partition.productInputChanged || partition.sourceFiles.length === 0
     ? { testPaths: [], unresolved: [] }
     : await relatedTestPaths(partition.sourceFiles, options, baseRef, testPaths, deps);

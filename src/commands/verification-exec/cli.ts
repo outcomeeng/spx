@@ -168,10 +168,11 @@ export async function executeRunCommand(
   const productDir = root.productDir;
   const warning = root.isGitRepo ? {} : { warning: EXECUTE_RUN_CLI_WARNING_TEXT.NOT_GIT_REPOSITORY };
   const discovered = await (deps.discoverTestFiles ?? discoverTestFiles)(productDir);
-  const resolution = resolveTargetedTestFiles(discovered, {
-    operands: options.operands,
-    recursive: options.recursive,
-  });
+  const resolution = resolveTargetedTestFiles(
+    discovered,
+    { operands: options.operands, recursive: options.recursive },
+    { productDir },
+  );
   if (resolution.unresolved.length > 0) {
     return {
       exitCode: VERIFY_CLI_EXIT_CODE.ERROR,
@@ -189,7 +190,7 @@ export async function executeRunCommand(
   const request: ExecutorRunRequest = {
     verificationType: options.verificationType,
     scopeType: VERIFY_SCOPE_TYPE.FILE,
-    scope: executeRunScopeIdentity(options.operands, discovered),
+    scope: executeRunScopeIdentity(options.operands, discovered, productDir),
     productDir,
     testPaths,
   };

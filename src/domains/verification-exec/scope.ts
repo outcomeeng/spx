@@ -6,7 +6,7 @@
  * the deterministic key that names what the caller asked for.
  */
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
-import { isProductRootOperand, normalizeTargetOperand } from "@/lib/test-targeting";
+import { canonicalizeOperand } from "@/lib/test-targeting";
 
 const PATH_SEGMENT_SEPARATOR = "/";
 
@@ -27,26 +27,28 @@ function commonPrefix(paths: ReadonlyArray<readonly string[]>): readonly string[
 }
 
 /**
- * The run selector for the given operands over the discovered test files: an operand naming a
- * discovered test file contributes its directory, an operand naming the product root contributes
- * nothing because it encloses the whole tree, any other operand contributes itself, and the
- * selector is the directory those share — the spec-tree root when they share none or when no
- * operand was given.
+ * The run selector for the given operands over the discovered test files, each canonicalized
+ * against the product root: an operand naming a discovered test file contributes its directory,
+ * an operand naming the product root contributes nothing because it encloses the whole tree, any
+ * other operand contributes its canonical spelling, and the selector is the directory those share
+ * — the spec-tree root when they share none or when no operand was given. Every operand reaching
+ * here has resolved to a discovered file, so none names a path outside the product.
  */
 export function executeRunScopeIdentity(
   operands: readonly string[],
   discoveredTestFiles: readonly string[],
+  productDir: string,
 ): string {
   if (operands.length === 0) return SPEC_TREE_CONFIG.ROOT_DIRECTORY;
   const discovered = new Set(discoveredTestFiles);
   const enclosing = operands.map((operand) => {
     // A product-root operand encloses the whole tree, so it contributes no segment; splitting its
-    // empty normalized form would instead yield one empty segment and name a root-relative key the
-    // recorder rejects.
-    if (isProductRootOperand(operand)) return [];
-    const normalized = normalizeTargetOperand(operand);
-    const segments = normalized.split(PATH_SEGMENT_SEPARATOR);
-    return discovered.has(normalized) ? parentDirectorySegments(segments) : segments;
+    // empty canonical form would instead yield one empty segment and name a root-relative key the
+    // recorder rejects. An operand naming no path inside the product never reaches this selector.
+    const canonical = canonicalizeOperand(operand, productDir) ?? "";
+    if (canonical.length === 0) return [];
+    const segments = canonical.split(PATH_SEGMENT_SEPARATOR);
+    return discovered.has(canonical) ? parentDirectorySegments(segments) : segments;
   });
   const shared = commonPrefix(enclosing);
   return shared.length === 0 ? SPEC_TREE_CONFIG.ROOT_DIRECTORY : shared.join(PATH_SEGMENT_SEPARATOR);
