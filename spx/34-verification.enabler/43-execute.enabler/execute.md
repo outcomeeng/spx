@@ -11,6 +11,10 @@ CAN have spx run a deterministic verification and stream its scope and finding e
 - Given a verification type and a scope, when spx executes the run, then spx drives the type's deterministic runner over the scope and records the run through the verify lifecycle, reporting the run locator the recorder returns ([test](tests/execute.scenario.l1.test.ts))
 - Given a runner that reports a passing unit and a failing unit, when spx executes the run, then the passing unit records a scope event and the failing unit records a finding, and the run finishes with the terminal status the recorder derives ([test](tests/execute.scenario.l1.test.ts))
 
+### Mappings
+
+- Every runner terminal status — `passed`, `failed`, `interrupted` — maps to exactly one recorder terminal status through a total function, so a deterministic pass never routes through the agentic `approved` disposition ([test](tests/execute.mapping.l1.test.ts))
+
 ### Compliance
 
 - ALWAYS: spx records an executed run's scope, finding, and terminal evidence through the verify lifecycle operations of `spx/34-verification.enabler/32-verify.enabler`, never by constructing journal events directly ([test](tests/execute.compliance.l1.test.ts))
