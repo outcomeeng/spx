@@ -17,7 +17,7 @@ One import boundary lets domain and surface consumers depend on stable tree cont
 ### Testing
 
 - ALWAYS: the public ownership operation accepts a snapshot, a product path, and claimed node identities without reading a filesystem or importing a language adapter, and returns a discriminated resolved or unresolved result; a resolved result carries the ordinal deduplicated candidates and their lowest common ancestor as governing owner, using the product root when candidates span top-level branches ([property])
-- ALWAYS: the public library surface exports the declared source, options, read, projection, next-node, and ownership contracts ([mapping])
+- ALWAYS: the public library surface conforms to the checked TypeScript consumer contract for the declared source, options, read, projection, next-node, and ownership exports ([conformance])
 
 ### Audit
 
