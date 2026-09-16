@@ -50,6 +50,9 @@ importers:
       ink:
         specifier: ^7.0.6
         version: 7.1.1(@types/react@19.2.18)(react@19.2.8)
+      markdown-it:
+        specifier: ^14.3.2
+        version: 14.3.2
       markdownlint-cli2:
         specifier: ^0.23.0
         version: 0.23.2
@@ -126,9 +129,6 @@ importers:
       lefthook:
         specifier: ^2.1.9
         version: 2.1.12
-      markdown-it:
-        specifier: ^14.2.0
-        version: 14.3.2
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.28)(tsx@4.23.13)(typescript@5.9.3)(yaml@2.9.1)
