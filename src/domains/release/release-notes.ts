@@ -97,7 +97,7 @@ export const CHANGELOG_TITLE_TEXT = "Changelog";
 /** The Keep a Changelog version-section prefix that every per-release heading opens with. */
 export const CHANGELOG_VERSION_SECTION_PREFIX = "## [";
 export const CHANGELOG_VERSION_SECTION_SUFFIX = "]";
-const CHANGELOG_RELEASE_DATE_SUFFIX = /^ - \d{4}-\d{2}-\d{2}$/u;
+const CHANGELOG_RELEASE_DATE_SUFFIX = /^ - (?<date>\d{4}-\d{2}-\d{2})$/u;
 
 /** The Keep a Changelog change-group headings, the closed set a release section groups its entries under. */
 export const CHANGELOG_CHANGE_GROUPS = [
@@ -325,7 +325,14 @@ export function changelogVersionHeadingText(version: string): string {
 function isChangelogVersionHeading(text: string, version: string): boolean {
   const versionText = changelogVersionHeadingText(version);
   return text === versionText
-    || (text.startsWith(versionText) && CHANGELOG_RELEASE_DATE_SUFFIX.test(text.slice(versionText.length)));
+    || (text.startsWith(versionText) && isChangelogReleaseDateSuffix(text.slice(versionText.length)));
+}
+
+function isChangelogReleaseDateSuffix(suffix: string): boolean {
+  const dateText = CHANGELOG_RELEASE_DATE_SUFFIX.exec(suffix)?.groups?.date;
+  if (dateText === undefined) return false;
+  const date = new Date(dateText);
+  return Number.isFinite(date.getTime()) && date.toISOString().startsWith(dateText);
 }
 
 /** The Keep a Changelog change-group heading for a group. */

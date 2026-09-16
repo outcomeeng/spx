@@ -76,6 +76,17 @@ const CURRENT_DIRECTORY = ".";
 const CHANGELOG_DATE_MIN = new Date("0001-01-01T00:00:00.000Z");
 const CHANGELOG_DATE_MAX = new Date("9999-12-31T23:59:59.999Z");
 const ISO_DATE_LENGTH = 10;
+const VALID_CALENDAR_BOUNDARIES = ["1900-02-28", "2000-02-29", "2024-02-29", "2026-04-30", "2026-12-31"];
+const INVALID_CALENDAR_BOUNDARIES = [
+  "2026-00-01",
+  "2026-13-01",
+  "2026-01-00",
+  "2026-01-32",
+  "2026-04-31",
+  "2026-02-29",
+  "1900-02-29",
+  "2000-02-30",
+];
 
 /**
  * A configured changelog path within the working tree — a markdown file, optionally
@@ -644,6 +655,8 @@ export interface DatedReleaseNotesChangelogCase extends ReleaseNotesChangelogCas
   readonly revisedContent: string;
   readonly mixedDuplicateContent: string;
   readonly datedDuplicateContent: string;
+  readonly validCalendarContents: readonly string[];
+  readonly invalidCalendarContents: readonly string[];
 }
 
 /** Dated release headings follow https://keepachangelog.com/en/2.0.0/. */
@@ -671,6 +684,18 @@ export function sampleDatedReleaseNotesChangelogCase(): DatedReleaseNotesChangel
     revisedContent: `${preamble}${undatedSection}${priorSection}`,
     mixedDuplicateContent: `${preamble}${undatedSection}${versionSection}`,
     datedDuplicateContent: `${preamble}${versionSection}${versionSection}`,
+    validCalendarContents: VALID_CALENDAR_BOUNDARIES.map((calendarDate) =>
+      `${preamble}${undatedSection}`.replace(
+        changelogVersionHeading(releaseData.version),
+        `${changelogVersionHeading(releaseData.version)} - ${calendarDate}`,
+      )
+    ),
+    invalidCalendarContents: INVALID_CALENDAR_BOUNDARIES.map((calendarDate) =>
+      `${preamble}${undatedSection}`.replace(
+        changelogVersionHeading(releaseData.version),
+        `${changelogVersionHeading(releaseData.version)} - ${calendarDate}`,
+      )
+    ),
   };
 }
 

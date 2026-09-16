@@ -48,6 +48,21 @@ describe("composeReleaseNotes validates the read-back changelog against Keep a C
     ).toBe(false);
   });
 
+  it("accepts calendar boundaries and leap days", () => {
+    const testCase = sampleDatedReleaseNotesChangelogCase();
+    for (const content of testCase.validCalendarContents) {
+      expect(releaseNotesConformsToKeepAChangelog(content, testCase.releaseData.version)).toBe(true);
+    }
+  });
+
+  it("rejects impossible calendar dates during validation and extraction", () => {
+    const testCase = sampleDatedReleaseNotesChangelogCase();
+    for (const content of testCase.invalidCalendarContents) {
+      expect(releaseNotesConformsToKeepAChangelog(content, testCase.releaseData.version)).toBe(false);
+      expect(() => validatedReleaseNotesSection(content, testCase.releaseData.version)).toThrow(ReleaseNotesError);
+    }
+  });
+
   it("rejects duplicate versions across dated and undated headings", () => {
     const testCase = sampleDatedReleaseNotesChangelogCase();
     expect(() => validatedReleaseNotesSection(testCase.mixedDuplicateContent, testCase.releaseData.version)).toThrow(
