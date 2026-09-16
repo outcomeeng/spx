@@ -3,10 +3,13 @@ import {
   CHANGELOG_TITLE,
   CHANGELOG_TITLE_TEXT,
   changelogVersionHeadingText,
+  releaseNotesConformsToKeepAChangelog,
   ReleaseNotesError,
+  validatedReleaseNotesSection,
 } from "@/domains/release/release-notes";
 import {
   sampleConformantReleaseNotesChangelogCases,
+  sampleDatedReleaseNotesChangelogCase,
   sampleDuplicateCurrentVersionReleaseNotesChangelogCase,
   sampleH1BoundaryBeforeVersionReleaseNotesChangelogCase,
   sampleH1BoundaryReleaseNotesChangelogCase,
@@ -28,6 +31,48 @@ import {
 import { describe, expect, it } from "vitest";
 
 describe("composeReleaseNotes validates the read-back changelog against Keep a Changelog", () => {
+  it("promotes dated release headings and extracts their exact section", async () => {
+    const testCase = sampleDatedReleaseNotesChangelogCase();
+    const observation = await composeReleaseNotesCase(testCase);
+    expect(observation.content).toBe(testCase.content);
+    expect(validatedReleaseNotesSection(observation.content, observation.version)).toBe(testCase.versionSection);
+  });
+
+  it("permits revising the current dated release while preserving older dated releases", () => {
+    const testCase = sampleDatedReleaseNotesChangelogCase();
+    expect(
+      releaseNotesConformsToKeepAChangelog(testCase.revisedContent, testCase.releaseData.version, testCase.content),
+    ).toBe(true);
+    expect(
+      releaseNotesConformsToKeepAChangelog(testCase.currentOnlyContent, testCase.releaseData.version, testCase.content),
+    ).toBe(false);
+  });
+
+  it("accepts calendar boundaries and leap days", () => {
+    const testCase = sampleDatedReleaseNotesChangelogCase();
+    for (const content of testCase.validCalendarContents) {
+      expect(releaseNotesConformsToKeepAChangelog(content, testCase.releaseData.version)).toBe(true);
+    }
+  });
+
+  it("rejects impossible calendar dates during validation and extraction", () => {
+    const testCase = sampleDatedReleaseNotesChangelogCase();
+    for (const content of testCase.invalidCalendarContents) {
+      expect(releaseNotesConformsToKeepAChangelog(content, testCase.releaseData.version)).toBe(false);
+      expect(() => validatedReleaseNotesSection(content, testCase.releaseData.version)).toThrow(ReleaseNotesError);
+    }
+  });
+
+  it("rejects duplicate versions across dated and undated headings", () => {
+    const testCase = sampleDatedReleaseNotesChangelogCase();
+    expect(() => validatedReleaseNotesSection(testCase.mixedDuplicateContent, testCase.releaseData.version)).toThrow(
+      ReleaseNotesError,
+    );
+    expect(() => validatedReleaseNotesSection(testCase.datedDuplicateContent, testCase.releaseData.version)).toThrow(
+      ReleaseNotesError,
+    );
+  });
+
   it("accepts every independently parsed conformant changelog shape", async () => {
     const observations = await Promise.all(
       sampleConformantReleaseNotesChangelogCases().map(async (testCase) => await composeReleaseNotesCase(testCase)),

@@ -73,6 +73,20 @@ const PARENT_DIRECTORY = "..";
 const ABSOLUTE_ROOT = "/";
 const BLANK_PATH_CHARACTER_MAX_COUNT = 16;
 const CURRENT_DIRECTORY = ".";
+const CHANGELOG_DATE_MIN = new Date("0001-01-01T00:00:00.000Z");
+const CHANGELOG_DATE_MAX = new Date("9999-12-31T23:59:59.999Z");
+const ISO_DATE_LENGTH = 10;
+const VALID_CALENDAR_BOUNDARIES = ["1900-02-28", "2000-02-29", "2024-02-29", "2026-04-30", "2026-12-31"];
+const INVALID_CALENDAR_BOUNDARIES = [
+  "2026-00-01",
+  "2026-13-01",
+  "2026-01-00",
+  "2026-01-32",
+  "2026-04-31",
+  "2026-02-29",
+  "1900-02-29",
+  "2000-02-30",
+];
 
 /**
  * A configured changelog path within the working tree — a markdown file, optionally
@@ -633,6 +647,56 @@ export interface NonConformantChangelogCase {
 export interface ReleaseNotesChangelogCase {
   readonly releaseData: ReleaseData;
   readonly content: string;
+}
+
+export interface DatedReleaseNotesChangelogCase extends ReleaseNotesChangelogCase {
+  readonly versionSection: string;
+  readonly currentOnlyContent: string;
+  readonly revisedContent: string;
+  readonly mixedDuplicateContent: string;
+  readonly datedDuplicateContent: string;
+  readonly validCalendarContents: readonly string[];
+  readonly invalidCalendarContents: readonly string[];
+}
+
+/** Dated release headings follow https://keepachangelog.com/en/2.0.0/. */
+export function sampleDatedReleaseNotesChangelogCase(): DatedReleaseNotesChangelogCase {
+  const { releaseData, subjects } = sampleReleaseNotesFixture();
+  const date = sampleReleaseTestValue(
+    fc.date({ min: CHANGELOG_DATE_MIN, max: CHANGELOG_DATE_MAX, noInvalidDate: true }),
+  ).toISOString().slice(0, ISO_DATE_LENGTH);
+  const priorVersion = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.distinctSemverFrom(releaseData.version));
+  const undatedSection = conformantVersionSectionWith(SAMPLE_CHANGE_GROUP, releaseData.version, subjects);
+  const versionSection = undatedSection.replace(
+    changelogVersionHeading(releaseData.version),
+    `${changelogVersionHeading(releaseData.version)} - ${date}`,
+  );
+  const priorSection = conformantVersionSectionWith(SAMPLE_CHANGE_GROUP, priorVersion, subjects).replace(
+    changelogVersionHeading(priorVersion),
+    `${changelogVersionHeading(priorVersion)} - ${date}`,
+  );
+  const preamble = `${CHANGELOG_TITLE}${LINE_SEPARATOR}${LINE_SEPARATOR}`;
+  return {
+    releaseData,
+    content: `${preamble}${versionSection}${priorSection}`,
+    versionSection: versionSection.slice(0, -LINE_SEPARATOR.length),
+    currentOnlyContent: `${preamble}${versionSection}`,
+    revisedContent: `${preamble}${undatedSection}${priorSection}`,
+    mixedDuplicateContent: `${preamble}${undatedSection}${versionSection}`,
+    datedDuplicateContent: `${preamble}${versionSection}${versionSection}`,
+    validCalendarContents: VALID_CALENDAR_BOUNDARIES.map((calendarDate) =>
+      `${preamble}${undatedSection}`.replace(
+        changelogVersionHeading(releaseData.version),
+        `${changelogVersionHeading(releaseData.version)} - ${calendarDate}`,
+      )
+    ),
+    invalidCalendarContents: INVALID_CALENDAR_BOUNDARIES.map((calendarDate) =>
+      `${preamble}${undatedSection}`.replace(
+        changelogVersionHeading(releaseData.version),
+        `${changelogVersionHeading(releaseData.version)} - ${calendarDate}`,
+      )
+    ),
+  };
 }
 
 export interface NonConformantReleaseNotesChangelogCase extends NonConformantChangelogCase {
