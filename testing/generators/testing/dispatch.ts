@@ -6,7 +6,8 @@ import { TARGET_OPERAND } from "@/lib/test-targeting";
 import { pythonTestingLanguage } from "@/test/languages/python";
 import type { TestingLanguageDescriptor, TestRunInvocation } from "@/test/languages/types";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
-import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 
 const NODE_INDEX_MIN = 10;
 const NODE_INDEX_MAX = 99;
@@ -57,6 +58,7 @@ export const TEST_DISPATCH_GENERATOR = {
   nestedFiles: arbitraryNestedFiles,
   specFileUnder,
   testFileUnder: arbitraryTestFileUnder,
+  distinctTestFilesUnder: arbitraryDistinctTestFilesUnder,
   supportFileUnder: arbitrarySupportFileUnder,
   unmatchedTestFileUnder: arbitraryUnmatchedTestFileUnder,
   testFilePath: arbitraryTestFilePath,
@@ -66,7 +68,7 @@ export const TEST_DISPATCH_GENERATOR = {
 } as const;
 
 export function sampleDispatchValue<T>(arbitrary: fc.Arbitrary<T>): T {
-  return sampleConfigTestValue(arbitrary);
+  return sampleGeneratedValue(arbitrary);
 }
 
 export function testingCliCommanderParseSource(): TestingCliCommanderParseSource {
@@ -239,6 +241,21 @@ function arbitraryTestFileUnder(
   return fc
     .tuple(fc.constantFrom(...descriptor.testFilePatterns), CONFIG_TEST_GENERATOR.key())
     .map(([pattern, name]) => `${testsDirectoryFor(nodePath)}${PATH_SEPARATOR}${pattern.replace(GLOB_WILDCARD, name)}`);
+}
+
+// Two distinct test files of a registered language under one node's `tests/` directory — the
+// shape a run reports when one file fails and another passes, drawn as one pair so a seeded
+// single draw cannot collapse them onto one path.
+function arbitraryDistinctTestFilesUnder(
+  descriptor: TestingLanguageDescriptor,
+  nodePath: string,
+): fc.Arbitrary<readonly [string, string]> {
+  return fc
+    .uniqueArray(arbitraryTestFileUnder(descriptor, nodePath), {
+      minLength: NODE_PAIR_LENGTH,
+      maxLength: NODE_PAIR_LENGTH,
+    })
+    .map(([first, second]) => [first, second] as const);
 }
 
 // A non-test source file of a registered language co-located under a node's
