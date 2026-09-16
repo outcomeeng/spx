@@ -21,12 +21,14 @@ export const SPEC_TREE_CONFIG = {
       label: "Enabler",
       suffix: ".enabler",
       aliases: SPEC_TREE_EMPTY_ALIASES,
+      opening: "PROVIDES",
     },
     outcome: {
       category: SPEC_TREE_KIND_CATEGORY_VALUES.NODE,
       label: "Outcome",
       suffix: ".outcome",
       aliases: SPEC_TREE_EMPTY_ALIASES,
+      opening: "WE BELIEVE THAT",
     },
     adr: {
       category: SPEC_TREE_KIND_CATEGORY_VALUES.DECISION,
