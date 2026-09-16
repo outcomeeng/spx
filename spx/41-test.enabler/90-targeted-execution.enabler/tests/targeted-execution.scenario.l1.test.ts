@@ -13,18 +13,22 @@ import { withTestingTempProductDir, writeTestFileFixture } from "@testing/harnes
 import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
 
 describe("targeted execution operand resolution", () => {
-  it("selects every discovered file for a product-root spelling, recursive or not", () => {
+  it("selects every discovered file for each product-root spelling, recursive or not", () => {
     const [nodeA, nodeB] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.distinctNodePaths());
     const fileA = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodeA));
     const fileB = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodeB));
     const discovered = [fileA, fileB];
-    const spelling = sampleDispatchValue(TEST_DISPATCH_GENERATOR.productRootSpelling());
+    const spellings = sampleDispatchValue(TEST_DISPATCH_GENERATOR.productRootSpellings());
 
-    for (const recursive of [false, true]) {
-      const resolution = resolveTargetedTestFiles(discovered, { operands: [spelling], recursive });
+    // The bare dot and every trailing-separator variant are all covered in this one run.
+    expect(spellings.length).toBeGreaterThan(1);
+    for (const spelling of spellings) {
+      for (const recursive of [false, true]) {
+        const resolution = resolveTargetedTestFiles(discovered, { operands: [spelling], recursive });
 
-      expect(new Set(resolution.selected)).toEqual(new Set(discovered));
-      expect(resolution.unresolved).toEqual([]);
+        expect(new Set(resolution.selected)).toEqual(new Set(discovered));
+        expect(resolution.unresolved).toEqual([]);
+      }
     }
   });
 
@@ -100,16 +104,24 @@ describe("targeted execution operand resolution", () => {
   });
 
   it("resolves a node operand with a trailing slash like one without", () => {
-    const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-    const ownFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+    const [parent, descendant] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodeWithDescendant());
+    const ownFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, parent));
+    const descendantFile = sampleDispatchValue(
+      TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, descendant),
+    );
+    const discovered = [ownFile, descendantFile];
 
-    const resolution = resolveTargetedTestFiles([ownFile], {
-      operands: [`${nodeOperand(nodePath)}/`],
-      recursive: false,
-    });
+    // Both spellings resolve to the same selection under either modifier; the descendant file in
+    // the discovered set is what a slash-as-widening reading would wrongly add without the flag.
+    for (const recursive of [false, true]) {
+      const slashed = resolveTargetedTestFiles(discovered, { operands: [`${nodeOperand(parent)}/`], recursive });
+      const plain = resolveTargetedTestFiles(discovered, { operands: [nodeOperand(parent)], recursive });
 
-    expect(resolution.selected).toContain(ownFile);
-    expect(resolution.unresolved).toEqual([]);
+      expect(slashed.selected).toEqual(plain.selected);
+      expect(slashed.unresolved).toEqual(plain.unresolved);
+      expect(slashed.selected).toContain(ownFile);
+      expect(slashed.unresolved).toEqual([]);
+    }
   });
 
   it("reports an operand matching no discovered test file as unresolved", () => {

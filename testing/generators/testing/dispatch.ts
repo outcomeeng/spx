@@ -48,7 +48,7 @@ export const TEST_DISPATCH_GENERATOR = {
   distinctNodePaths: arbitraryDistinctNodePaths,
   nodeWithDescendant: arbitraryNodeWithDescendant,
   descendantOf: arbitraryDescendantOf,
-  productRootSpelling: arbitraryProductRootSpelling,
+  productRootSpellings: arbitraryProductRootSpellings,
   unresolvableOperands: arbitraryUnresolvableOperands,
   nodeWithOwnFile: arbitraryNodeWithOwnFile,
   distinctNodesWithOwnFiles: arbitraryDistinctNodesWithOwnFiles,
@@ -131,12 +131,18 @@ function arbitraryDescendantOf(nodePath: string): fc.Arbitrary<string> {
   return arbitraryNodeSegment().map((segment) => `${nodePath}${PATH_SEPARATOR}${segment}`);
 }
 
-// The relative spellings of the product root the operand vocabulary recognizes: the bare dot with
-// any run of trailing separators.
-function arbitraryProductRootSpelling(): fc.Arbitrary<string> {
+// Every relative spelling of the product root the operand vocabulary recognizes — the bare dot
+// with each run of trailing separators up to the bound — as one list, so a case covers the whole
+// enumeration in one run rather than one member per run.
+function arbitraryProductRootSpellings(): fc.Arbitrary<readonly string[]> {
   return fc
-    .integer({ min: 0, max: MAX_TRAILING_SEPARATORS })
-    .map((count) => `${TARGET_OPERAND.PRODUCT_ROOT}${PATH_SEPARATOR.repeat(count)}`);
+    .integer({ min: 1, max: MAX_TRAILING_SEPARATORS })
+    .map((longest) =>
+      Array.from(
+        { length: longest + 1 },
+        (_, count) => `${TARGET_OPERAND.PRODUCT_ROOT}${PATH_SEPARATOR.repeat(count)}`,
+      )
+    );
 }
 
 // One operand of each spelling that names no product-root-relative path: nothing, the absolute
