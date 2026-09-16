@@ -6,7 +6,7 @@ import {
   RELEASE_TAG_PREFIX,
   releaseTagsAt,
 } from "@/lib/git/release";
-import { defaultGitDependencies, GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
+import { defaultGitDependencies, GIT_ROOT_COMMAND, type GitDependencies, resolveRefSha } from "@/lib/git/root";
 
 /** The semantic-version component a release advances relative to its previous tag. */
 export const VERSION_DELTA = {
@@ -26,6 +26,8 @@ export type VersionDelta = (typeof VERSION_DELTA)[keyof typeof VERSION_DELTA];
 export interface ReleaseData {
   /** The product's package version this release publishes, the one version downstream children read. */
   readonly version: string;
+  /** The full commit identity whose release contents were computed. */
+  readonly releaseRef: string;
   /** The release tag the delta anchors on, or null when no prior release tag exists. */
   readonly previousTag: string | null;
   /** The commits since the previous release tag, or the full history when none exists. */
@@ -89,12 +91,14 @@ export async function computeReleaseData(options: ComputeReleaseDataOptions): Pr
     deps = defaultGitDependencies,
   } = options;
 
-  const previousTag = await resolvePreviousReleaseTag(releaseRef, productDir, deps);
-  const commits = await commitsBetween(previousTag, releaseRef, productDir, deps);
-  const changedPaths = await changedPathsBetween(previousTag, releaseRef, productDir, deps);
+  const resolvedReleaseRef = await resolveRefSha(releaseRef, productDir, deps);
+  if (resolvedReleaseRef === null) throw new Error(`Cannot resolve release ref: ${releaseRef}`);
+  const previousTag = await resolvePreviousReleaseTag(resolvedReleaseRef, productDir, deps);
+  const commits = await commitsBetween(previousTag, resolvedReleaseRef, productDir, deps);
+  const changedPaths = await changedPathsBetween(previousTag, resolvedReleaseRef, productDir, deps);
   const versionDelta = previousTag === null ? null : classifyVersionDelta(previousTag, packageVersion);
 
-  return { version: packageVersion, previousTag, commits, versionDelta, changedPaths };
+  return { version: packageVersion, releaseRef: resolvedReleaseRef, previousTag, commits, versionDelta, changedPaths };
 }
 
 /**

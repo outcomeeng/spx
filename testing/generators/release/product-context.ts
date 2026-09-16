@@ -1,6 +1,11 @@
 import { posix } from "node:path";
 
-import { RELEASE_CONTEXT_KIND, type ReleaseProductContext } from "@/domains/release/product-context";
+import {
+  RELEASE_CONTEXT_KIND,
+  type ReleaseEndpointPathOwnership,
+  type ReleaseOwnershipContextSelection,
+  type ReleaseProductContext,
+} from "@/domains/release/product-context";
 import type { ReleaseData } from "@/domains/release/release-data";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
@@ -11,6 +16,41 @@ import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "./release";
 const CONTEXT_DECISION_INDEX = 10;
 const CONTEXT_NODE_INDEX = 20;
 
+export interface ReleaseOwnershipFixture {
+  readonly productPath: string;
+  readonly tsconfigPath: string;
+  readonly sourcePath: string;
+  readonly unlinkedTestPath: string;
+}
+
+export function sampleReleaseOwnershipFixture(): ReleaseOwnershipFixture {
+  return {
+    productPath: "spx/product.product.md",
+    tsconfigPath: "tsconfig.json",
+    sourcePath: "src/shared.ts",
+    unlinkedTestPath: "tests/source.test.ts",
+  };
+}
+
+export function releaseOwnershipNodeSpec(slug: string, testPath?: string, auditPath?: string): string {
+  const assertions = [
+    ...(testPath === undefined ? [] : [`- Given source input, behavior remains covered ([test](${testPath}))`]),
+    ...(auditPath === undefined ? [] : [`- ALWAYS: \`${auditPath}\` is governed by this node ([audit])`]),
+  ];
+  return `# ${slug}\n\nPROVIDES ${slug}\nSO THAT products\nCAN release it\n\n## Assertions\n\n${
+    assertions.join("\n")
+  }\n`;
+}
+
+export function releaseOwnershipSourceImport(testPath: string): string {
+  const depth = testPath.split("/").length - 1;
+  return `import ${JSON.stringify(`${"../".repeat(depth)}src/shared`)};\n`;
+}
+
+export function releaseOwnershipSourceContent(value: number): string {
+  return `export const value = ${value};\n`;
+}
+
 export interface ReleaseContextScenario {
   readonly documents: ReleaseProductContext;
   readonly product: ReleaseProductContext[number];
@@ -19,6 +59,56 @@ export interface ReleaseContextScenario {
   readonly subject: string;
   readonly body: string;
   readonly releaseData: ReleaseData;
+}
+
+export interface ReleaseEndpointOwnershipScenario {
+  readonly changedPaths: readonly string[];
+  readonly endpointOwnership: readonly ReleaseEndpointPathOwnership[];
+  readonly expected: ReleaseOwnershipContextSelection;
+}
+
+export function arbitraryReleaseEndpointOwnershipScenario(): fc.Arbitrary<ReleaseEndpointOwnershipScenario> {
+  return fc.record({
+    path: arbitraryPathSegment().map((segment) => `src/${segment}.ts`),
+    earlierCandidates: fc.uniqueArray(arbitraryPathSegment(), { maxLength: 3 }),
+    laterCandidates: fc.uniqueArray(arbitraryPathSegment(), { maxLength: 3 }),
+    earlierClassified: fc.boolean(),
+    laterClassified: fc.boolean(),
+  }).map(({ path, earlierCandidates, laterCandidates, earlierClassified, laterClassified }) => {
+    const earlier = earlierClassified ? earlierCandidates : [];
+    const later = laterClassified ? laterCandidates : [];
+    const earlierGoverning = earlier.length > 1 ? `governing-earlier-${earlier[0]}` : undefined;
+    const laterGoverning = later.length > 1 ? `governing-later-${later[0]}` : undefined;
+    const endpointOwnership: readonly ReleaseEndpointPathOwnership[] = [
+      {
+        path,
+        classifiedAsSource: earlierClassified,
+        candidateNodeIds: earlier,
+        ...(earlierGoverning === undefined ? {} : { governingNodeId: earlierGoverning }),
+      },
+      {
+        path,
+        classifiedAsSource: laterClassified,
+        candidateNodeIds: later,
+        ...(laterGoverning === undefined ? {} : { governingNodeId: laterGoverning }),
+      },
+    ];
+    const classified = earlierClassified || laterClassified;
+    const resolved = [
+      ...earlier,
+      ...(earlierGoverning === undefined ? [] : [earlierGoverning]),
+      ...later,
+      ...(laterGoverning === undefined ? [] : [laterGoverning]),
+    ];
+    return {
+      changedPaths: [path],
+      endpointOwnership,
+      expected: {
+        nodeIds: [...new Set(resolved)],
+        unresolvedPaths: classified && resolved.length === 0 ? [path] : [],
+      },
+    };
+  });
 }
 
 export function arbitraryReleaseContextScenario(): fc.Arbitrary<ReleaseContextScenario> {

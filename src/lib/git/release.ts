@@ -13,6 +13,7 @@ export interface GitCommit {
 const GIT_RELEASE_SUBCOMMAND = {
   CAT_FILE: "cat-file",
   DESCRIBE: "describe",
+  LS_TREE: "ls-tree",
   LOG: "log",
   TAG: "tag",
 } as const;
@@ -34,6 +35,7 @@ const GIT_RELEASE_FLAG = {
   POINTS_AT: "--points-at",
   LIST: "--list",
   NULL_TERMINATED: "-z",
+  RECURSIVE: "-r",
 } as const;
 
 /** The prefix publication puts on a release tag (`v1.2.3`). The single source the release domain and its test generator import so the prefix, the strip, and the glob never drift. */
@@ -131,6 +133,27 @@ export async function committedFileContent(
   );
   if (result.exitCode !== 0) return null;
   return result.stdout;
+}
+
+/** Lists every path committed at `ref`, relative to `cwd`, in git's stable tree order. */
+export async function committedPaths(
+  ref: string,
+  cwd: string,
+  deps: GitDependencies = defaultGitDependencies,
+): Promise<readonly string[]> {
+  const result = await deps.execa(
+    GIT_ROOT_COMMAND.EXECUTABLE,
+    [
+      GIT_RELEASE_SUBCOMMAND.LS_TREE,
+      GIT_RELEASE_FLAG.RECURSIVE,
+      GIT_RELEASE_FLAG.NAME_ONLY,
+      GIT_RELEASE_FLAG.NULL_TERMINATED,
+      ref,
+    ],
+    { cwd, reject: false, stripFinalNewline: false },
+  );
+  if (result.exitCode !== 0) return [];
+  return result.stdout.split("\0").filter((path) => path.length > 0);
 }
 
 /**

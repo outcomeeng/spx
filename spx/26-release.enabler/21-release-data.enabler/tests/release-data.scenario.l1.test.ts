@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { computeReleaseData } from "@/domains/release/release-data";
+import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import { sampleReleaseContextScenario } from "@testing/generators/release/product-context";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
@@ -21,6 +22,20 @@ it("retains a decision commit's multiline explanation", async () => {
 });
 
 describe("computeReleaseData — release contents derive from git history", () => {
+  it("carries the full commit identity of the release endpoint", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const [commit] = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.commitSequence(1));
+      const packageVersion = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.semver());
+      await env.writeTracked(commit.path, commit.content);
+      await env.commit(commit.subject);
+
+      const expected = await env.runGit([GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
+      const data = await computeReleaseData({ productDir: env.productDir, packageVersion });
+
+      expect(data.releaseRef).toBe(expected);
+    });
+  });
+
   it("carries the package version it was computed with, so downstream children read one version", async () => {
     await withGitWorktreeEnv(async (env) => {
       const commits = sampleReleaseTestValue(

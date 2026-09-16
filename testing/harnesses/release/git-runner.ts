@@ -1,50 +1,116 @@
-import { execa } from "execa";
+import { constants } from "node:fs";
+import { access, chmod, readFile, writeFile } from "node:fs/promises";
+import { delimiter, join } from "node:path";
 
-import { withoutGitEnvironment } from "@/lib/git/environment";
-import type { ExecResult, GitDependencies } from "@/lib/git/root";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
-/** One command the runner was asked to execute: the executable and its arguments, in order. */
+/** One production Git invocation observed at the process boundary. */
 export interface RecordedGitInvocation {
   readonly executable: string;
   readonly args: readonly string[];
 }
 
-/**
- * The git subcommands that reach a remote, per git's own documentation of its
- * remote-operation commands. Declared here, independently of any production
- * module, so evidence that release-data computation stays local rests on git's
- * contract rather than on the vocabulary the computation happens to use.
- */
+export interface ProductionGitObservation<T> {
+  readonly value: T;
+  readonly invocations: readonly RecordedGitInvocation[];
+}
+
 export const GIT_REMOTE_SUBCOMMANDS = ["clone", "fetch", "pull", "push", "ls-remote", "remote", "submodule"] as const;
 
-/**
- * A git runner for release-data evidence that delegates every command to the real
- * executable under a sanitized git environment while recording each invocation.
- * The record is an observation: the linked test decides what it means.
- */
-export class RecordingReleaseGitRunner implements GitDependencies {
-  readonly invocations: RecordedGitInvocation[] = [];
+const OBSERVER_TEMP_PREFIX = "spx-release-git-observer-";
+const OBSERVER_SCRIPT_NAME = "git-observer.cjs";
+const OBSERVER_LOG_NAME = "git-invocations.jsonl";
+const GIT_EXECUTABLE_NAME = "git";
+const WINDOWS_GIT_EXECUTABLE_NAME = "git.exe";
+const WINDOWS_LAUNCHER_NAME = "git.cmd";
+const MODEL_CREDENTIAL_KEYS = ["ANTHROPIC_API_KEY", "OPENAI_API_KEY"] as const;
 
-  async execa(
-    command: string,
-    args: string[],
-    options?: { cwd?: string; reject?: boolean; stripFinalNewline?: boolean },
-  ): Promise<ExecResult> {
-    this.invocations.push({ executable: command, args: [...args] });
-    const result = await execa(command, [...args], {
-      cwd: options?.cwd,
-      reject: options?.reject,
-      ...(options?.stripFinalNewline === undefined ? {} : { stripFinalNewline: options.stripFinalNewline }),
-      env: withoutGitEnvironment(process.env),
-      extendEnv: false,
-    });
-    if (result.exitCode === undefined) {
-      throw new Error(`${command} ${args.join(" ")} did not complete: ${String(result.shortMessage)}`);
+export async function observeProductionGitInvocations<T>(
+  operation: () => Promise<T>,
+): Promise<ProductionGitObservation<T>> {
+  return withTempDir(OBSERVER_TEMP_PREFIX, async (observerDir) => {
+    const originalPath = process.env.PATH;
+    if (originalPath === undefined) throw new Error("PATH is required to observe production Git invocations");
+    const realGit = await resolveExecutable(originalPath);
+    const logPath = join(observerDir, OBSERVER_LOG_NAME);
+    const scriptPath = join(observerDir, OBSERVER_SCRIPT_NAME);
+    await writeFile(scriptPath, observerScript(realGit, logPath));
+    await writeLaunchers(observerDir, scriptPath);
+    const capturedCredentials = MODEL_CREDENTIAL_KEYS.map((key) => [key, process.env[key]] as const);
+    process.env.PATH = observerDir;
+    for (const key of MODEL_CREDENTIAL_KEYS) delete process.env[key];
+    try {
+      const value = await operation();
+      return { value, invocations: await readInvocations(logPath) };
+    } finally {
+      process.env.PATH = originalPath;
+      for (const [key, value] of capturedCredentials) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
     }
-    return {
-      exitCode: result.exitCode,
-      stdout: String(result.stdout),
-      stderr: String(result.stderr),
-    };
+  });
+}
+
+async function resolveExecutable(pathValue: string): Promise<string> {
+  const executableNames = process.platform === "win32"
+    ? [WINDOWS_GIT_EXECUTABLE_NAME, GIT_EXECUTABLE_NAME]
+    : [GIT_EXECUTABLE_NAME];
+  for (const directory of pathValue.split(delimiter)) {
+    for (const executable of executableNames) {
+      const candidate = join(directory, executable);
+      try {
+        await access(candidate, constants.X_OK);
+        return candidate;
+      } catch {
+        continue;
+      }
+    }
   }
+  throw new Error("Git executable was not found on PATH");
+}
+
+async function writeLaunchers(observerDir: string, scriptPath: string): Promise<void> {
+  const posixLauncher = join(observerDir, GIT_EXECUTABLE_NAME);
+  await writeFile(posixLauncher, `#!/bin/sh\nexec ${shellQuote(process.execPath)} ${shellQuote(scriptPath)} "$@"\n`);
+  await chmod(posixLauncher, constants.S_IRUSR | constants.S_IWUSR | constants.S_IXUSR);
+  await writeFile(
+    join(observerDir, WINDOWS_LAUNCHER_NAME),
+    `@"${process.execPath.replaceAll("\"", "\"\"")}" "${scriptPath.replaceAll("\"", "\"\"")}" %*\r\n`,
+  );
+}
+
+function observerScript(realGit: string, logPath: string): string {
+  return [
+    "const { appendFileSync } = require(\"node:fs\");",
+    "const { spawnSync } = require(\"node:child_process\");",
+    "const args = process.argv.slice(2);",
+    String.raw`appendFileSync(${JSON.stringify(logPath)}, JSON.stringify(args) + "\n");`,
+    `const result = spawnSync(${JSON.stringify(realGit)}, args, { env: process.env, stdio: "inherit" });`,
+    "if (result.error !== undefined) throw result.error;",
+    "process.exit(result.status ?? 1);",
+    "",
+  ].join("\n");
+}
+
+async function readInvocations(logPath: string): Promise<readonly RecordedGitInvocation[]> {
+  let content: string;
+  try {
+    content = await readFile(logPath, "utf8");
+  } catch (error) {
+    if (isMissingFile(error)) return [];
+    throw error;
+  }
+  return content.split("\n").filter(Boolean).map((line) => ({
+    executable: GIT_EXECUTABLE_NAME,
+    args: JSON.parse(line) as string[],
+  }));
+}
+
+function isMissingFile(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error && error.code === "ENOENT";
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
 }

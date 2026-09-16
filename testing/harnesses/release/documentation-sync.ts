@@ -516,6 +516,7 @@ export async function observeDocumentationContextTransport(
     }, {
       ...DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
       resolveReleaseData: async () => ({ ...scenario.releaseData, changedPaths: context.releaseData.changedPaths }),
+      readProductContext: async () => context.documents,
     });
     const producerPrompt = agent.requests.at(0)?.prompt ?? "";
     const auditPrompt = auditor.requests.at(0)?.prompt ?? "";

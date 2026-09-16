@@ -62,7 +62,7 @@ export async function documentationSyncCommand(
     deps.resolveReleaseData(options.productDir),
     deps.resolveDocumentationConfig(options.productDir),
   ]);
-  const productContext = await deps.readProductContext(options.productDir, releaseData.changedPaths);
+  const productContext = await deps.readProductContext(options.productDir, releaseData);
   const result = await composeDocumentationSync({
     releaseData,
     productContext,

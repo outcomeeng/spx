@@ -29,11 +29,13 @@ describe("computeReleaseData — release data is a deterministic function of rep
           }
 
           const expectedCommits = [...releaseCommits].reverse();
+          const releaseRef = await env.runGit([GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
           const first = await computeReleaseData({ productDir: env.productDir, packageVersion });
           const second = await computeReleaseData({ productDir: env.productDir, packageVersion });
 
           expect(first).toEqual({
             version: packageVersion,
+            releaseRef,
             previousTag: tag,
             versionDelta,
             commits: expectedCommits.map(({ sha, subject }) => ({ sha, subject, body: "" })),

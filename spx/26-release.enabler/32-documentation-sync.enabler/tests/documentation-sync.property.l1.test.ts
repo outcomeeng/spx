@@ -1,5 +1,6 @@
 import { AGENT_PERMISSION_MODES, AGENT_TOOL_PERMISSION_BEHAVIOR } from "@/agent/agent-runner";
 import { RELEASE_CONFIG_FIELDS, releaseConfigDescriptor } from "@/domains/release/config";
+import { selectReleaseOwnershipContext } from "@/domains/release/product-context";
 import { releaseVersionFromTag } from "@/domains/release/release-data";
 import { RELEASE_PRODUCT_TRUTH_STANDARDS } from "@/domains/release/release-notes-standards";
 import { isPathContained } from "@/lib/file-system/pathContainment";
@@ -13,7 +14,10 @@ import {
   arbitraryUnrelatedVersionRewriteScenario,
   documentationContentEntries,
 } from "@testing/generators/release/documentation";
-import { arbitraryReleaseContextScenario } from "@testing/generators/release/product-context";
+import {
+  arbitraryReleaseContextScenario,
+  arbitraryReleaseEndpointOwnershipScenario,
+} from "@testing/generators/release/product-context";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import {
   observeConfiguredDocumentationPathSet,
@@ -39,6 +43,18 @@ it("preserves identical product truth and release inputs for both documentation 
       for (const prompt of [observation.producerPrompt, observation.auditPrompt]) {
         expect(prompt).toContain(RELEASE_PRODUCT_TRUTH_STANDARDS);
       }
+    },
+    { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+  );
+});
+
+it("retains every distinct candidate and governing node across both release endpoints", async () => {
+  await assertProperty(
+    arbitraryReleaseEndpointOwnershipScenario(),
+    (scenario) => {
+      expect(selectReleaseOwnershipContext(scenario.changedPaths, scenario.endpointOwnership)).toEqual(
+        scenario.expected,
+      );
     },
     { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
   );

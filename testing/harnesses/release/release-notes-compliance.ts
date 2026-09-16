@@ -89,6 +89,7 @@ export async function observeReleaseNotesContextTransport(
       productDir: env.productDir,
       config: {},
       releaseData: scenario.releaseData,
+      readProductContext: async () => scenario.documents,
       agentRunner: runner,
       faithfulnessAuditor: createReleaseNotesFaithfulnessAuditor(auditor, env.productDir),
     });
@@ -117,6 +118,9 @@ export async function observeReleaseContextReadFailure(
         productDir: env.productDir,
         config: {},
         releaseData: scenario.releaseData,
+        readProductContext: async () => {
+          throw new Error(`Cannot read selected product context: ${scenario.specification.path}`);
+        },
         agentRunner: {
           run: async () => {
             invocations += 1;

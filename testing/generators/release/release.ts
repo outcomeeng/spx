@@ -267,6 +267,7 @@ function arbitraryReleaseData(): fc.Arbitrary<ReleaseData> {
       })
       .map(({ progression, shas }): ReleaseData => ({
         ...progression,
+        releaseRef: shas[0] ?? "0000000000000000000000000000000000000000",
         commits: fixtures.map((fixture, index) => toGitCommit(fixture, shas[index])),
         changedPaths: fixtures.map((fixture) => fixture.path),
       }))
@@ -285,6 +286,7 @@ function arbitraryReleaseDataWithoutPreviousTag(): fc.Arbitrary<ReleaseData> {
       })
       .map(({ version, shas }): ReleaseData => ({
         version,
+        releaseRef: shas[0] ?? "0000000000000000000000000000000000000000",
         previousTag: null,
         versionDelta: null,
         commits: fixtures.map((fixture, index) => toGitCommit(fixture, shas[index])),
@@ -305,6 +307,7 @@ function arbitraryReleaseDataWithSubjects(subjects: readonly string[]): fc.Arbit
     })
     .map(({ progression, shas, changedPaths }): ReleaseData => ({
       ...progression,
+      releaseRef: shas[0] ?? "0000000000000000000000000000000000000000",
       commits: subjects.map((subject, index) => ({ sha: shas[index], subject, body: "" })),
       changedPaths: changedPaths.map((fixture) => fixture.path),
     }));

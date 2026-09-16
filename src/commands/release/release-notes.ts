@@ -32,7 +32,7 @@ export async function releaseNotesCommand(options: ReleaseNotesCommandOptions): 
   });
   const productContext = await (options.readProductContext ?? readReleaseProductContext)(
     options.productDir,
-    releaseData.changedPaths,
+    releaseData,
   );
   const filesystem = options.filesystem ?? createReleaseNotesFilesystem();
   const result = await composeReleaseNotes({
