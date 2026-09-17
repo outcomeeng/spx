@@ -83,15 +83,31 @@ export function promptReleaseVersion(prompt: string): string | undefined {
 export function releaseDataDrivenAgentRunner(
   workingDirectory: string,
   outputPath: string,
-  subjects: readonly string[],
 ): RecordingWritingAgentRunner {
   return new RecordingWritingAgentRunner(workingDirectory, outputPath, (request) => {
     const version = promptReleaseVersion(request.prompt);
     if (version === undefined) {
       throw new Error("release-notes prompt omitted release-version data");
     }
+    const source = releaseSourceFromPrompt(request.prompt);
+    if (!isReleaseSource(source)) {
+      throw new Error("release-notes prompt omitted release source data");
+    }
+    const subjects = source.releaseData.commits.map(({ subject }) => subject);
     return sampleReleaseTestValue(arbitraryConformantChangelog(version, subjects));
   });
+}
+
+function isReleaseSource(value: unknown): value is {
+  readonly releaseData: { readonly commits: readonly { readonly subject: string }[] };
+} {
+  if (typeof value !== "object" || value === null || !("releaseData" in value)) return false;
+  const { releaseData } = value;
+  return typeof releaseData === "object" && releaseData !== null && "commits" in releaseData
+    && Array.isArray(releaseData.commits)
+    && releaseData.commits.every((commit) =>
+      typeof commit === "object" && commit !== null && "subject" in commit && typeof commit.subject === "string"
+    );
 }
 
 export function promptChangelogPath(prompt: string): string | undefined {

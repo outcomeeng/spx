@@ -4,7 +4,7 @@ import { join, sep } from "node:path";
 import { releaseNotesCommand } from "@/commands/release";
 import { composeReleaseNotes, DEFAULT_CHANGELOG_PATH, resolveReleaseNotesPath } from "@/domains/release/release-notes";
 import type { ReleaseNotesCompositionFixture } from "@testing/generators/release/release-notes";
-import { RecordingWritingAgentRunner } from "@testing/harnesses/release/agent-runner";
+import { releaseDataDrivenAgentRunner } from "@testing/harnesses/release/agent-runner";
 import { approvingReleaseNotesFaithfulnessAuditor } from "@testing/harnesses/release/release-notes";
 import {
   RELEASE_NOTES_DIRECTORY_SYMLINK_TYPE,
@@ -67,11 +67,7 @@ export async function observeComposedReleaseNotes(
       releaseData,
       config: {},
       workingDirectory: env.workingDirectory,
-      agentRunner: new RecordingWritingAgentRunner(
-        env.workingDirectory,
-        resolvedPath,
-        fixture.conformant,
-      ),
+      agentRunner: releaseDataDrivenAgentRunner(env.workingDirectory, resolvedPath),
       readArtifact: env.readArtifact,
       createArtifactStage: env.createArtifactStage,
       promoteArtifact: env.promoteArtifact,
@@ -96,11 +92,7 @@ export async function observeReleaseNotesCommand(
       productDir: env.workingDirectory,
       config: {},
       releaseData,
-      agentRunner: new RecordingWritingAgentRunner(
-        env.workingDirectory,
-        resolvedPath,
-        fixture.conformant,
-      ),
+      agentRunner: releaseDataDrivenAgentRunner(env.workingDirectory, resolvedPath),
       faithfulnessAuditor: approvingReleaseNotesFaithfulnessAuditor,
       filesystem: env,
     });
@@ -134,11 +126,7 @@ export async function observeCanonicalReleaseNotesCommand(
       productDir: env.workingDirectory,
       config: { changelogPath },
       releaseData,
-      agentRunner: new RecordingWritingAgentRunner(
-        env.workingDirectory,
-        canonicalPath,
-        fixture.conformant,
-      ),
+      agentRunner: releaseDataDrivenAgentRunner(env.workingDirectory, canonicalPath),
       faithfulnessAuditor: approvingReleaseNotesFaithfulnessAuditor,
       filesystem: env,
     });
