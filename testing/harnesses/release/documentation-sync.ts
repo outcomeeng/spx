@@ -476,7 +476,7 @@ async function withDocumentationScenario(
       await writeFile(absolutePath, content);
     }
     await materializeDocumentationConfig(productDir, scenario.config);
-    const agent = new DocumentationWritingAgent(scenario.updated);
+    const agent = new PromptDrivenDocumentationAgent();
     const auditor = new RecordingDocumentationAuditor();
     const filesystem = createDocumentationSyncFilesystem();
     await run(
