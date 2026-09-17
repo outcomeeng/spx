@@ -45,20 +45,11 @@ export type ContextShowResult =
 async function readProjectedDocument(
   input: ContextInput,
   selection: SpecContextSelection,
-): Promise<{ readonly ok: true; readonly entry: SpecContextEntry } | { readonly ok: false; readonly error: unknown }> {
+): Promise<SpecContextEntry> {
   const source = selection.mode === SPEC_CONTEXT_MODE.REFERENCE && selection.referenceTitle !== true
     ? ""
     : await input.readDocument(selection.path);
-  try {
-    return {
-      ok: true,
-      entry: projectSpecContextDocument(selection, source, input.methodology.migratingFrom !== undefined),
-    };
-  } catch (error) {
-    if (selection.mode !== SPEC_CONTEXT_MODE.DIGEST) throw error;
-    // A later citation can upgrade this document to Full, which needs no opening.
-    return { ok: false, error };
-  }
+  return projectSpecContextDocument(selection, source, input.methodology.migratingFrom !== undefined);
 }
 
 async function projectContext(
@@ -69,19 +60,12 @@ async function projectContext(
   const structuralPaths = new Set(structural.map(({ path }) => path));
   const decisions = new Set(input.snapshot.decisions.flatMap(({ ref }) => ref?.path ?? []));
   const projected = new Map<string, SpecContextProjectedEntry>();
-  const digestFailures = new Map<string, unknown>();
   const pending = [...structural];
   for (let index = 0; index < pending.length; index += 1) {
     const selection = pending[index];
     const previous = projected.get(selection.path);
     if (previous !== undefined && previous.selection.mode >= selection.mode) continue;
-    const result = await readProjectedDocument(input, selection);
-    if (!result.ok) {
-      digestFailures.set(selection.path, result.error);
-      continue;
-    }
-    const { entry } = result;
-    digestFailures.delete(selection.path);
+    const entry = await readProjectedDocument(input, selection);
     projected.set(selection.path, { selection, entry });
     if (entry.type !== "document" || selection.scanCitations !== true) continue;
     for (const path of specContextInlineDecisionCitations(entry.content)) {
@@ -91,7 +75,6 @@ async function projectContext(
       pending.push(specContextCitedSelection(path));
     }
   }
-  for (const error of digestFailures.values()) throw error;
   const additional = [...projected.values()].filter(({ selection }) => !structuralPaths.has(selection.path))
     .sort((left, right) => compareSpecContextOrdinal(left.selection.path, right.selection.path));
   return [
