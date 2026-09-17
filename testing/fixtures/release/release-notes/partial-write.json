@@ -1,0 +1,4 @@
+{
+  "existingContent": "# Changelog\n\n## [1.0.0] - 2026-09-01\n\n### Added\n\n- Existing release.\n",
+  "replacementContent": "# Changelog\n\n## [2.0.0] - 2026-09-17\n\n### Changed\n\n- Replacement release.\n"
+}

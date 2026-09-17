@@ -60,14 +60,18 @@ import {
   observeConfiguredReleaseNotesPathRejection,
   observeExistingReleaseNotesSection,
   observeReleaseContextReadFailure,
+  observeReleaseNotesCommitScopeFixture,
+  observeReleaseNotesEscapingPathFixture,
   observeReleaseNotesFaithfulness,
   observeReleaseNotesMaintenanceComposition,
   observeReleaseNotesMutation,
   observeReleaseNotesPartialWriteFailure,
+  observeReleaseNotesPartialWriteFixture,
   observeReleaseNotesPath,
   observeReleaseNotesPrompt,
   observeReleaseNotesPromptSource,
   observeReleaseNotesSymlinkToRootPath,
+  RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH,
 } from "@testing/harnesses/release/release-notes-compliance";
 import {
   composeEveryReleaseNotesCase,
@@ -919,6 +923,23 @@ describe("isPathContained verifies release path containment edge cases directly"
 });
 
 describe("release-notes prompts preserve release inputs regardless of commit type", () => {
+  it("retains declaration and maintenance commits from a whole release payload", async () => {
+    await observeReleaseNotesCommitScopeFixture(RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH.COMMIT_SCOPE).then(
+      (observation) => {
+        expect(JSON.parse(observation.producerSource.data)).toEqual({
+          productContext: [],
+          releaseData: observation.fixture.releaseData,
+        });
+        expect(observation.composition.agentRequestCount).toBe(1);
+        expect(observation.audit.auditAttempted).toBe(true);
+        expect(JSON.parse(observation.audit.auditSourceDataBlock.data)).toEqual({
+          productContext: [],
+          releaseData: observation.fixture.releaseData,
+        });
+      },
+    );
+  });
+
   it("allows spec, test, refactor, style, docs, ci, and build commits to reach the producer", async () => {
     await assertProperty(
       arbitraryReleaseNotesMaintenanceScenario(),
@@ -949,6 +970,27 @@ describe("release-notes prompts preserve release inputs regardless of commit typ
         );
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+  });
+});
+
+describe("release-notes compliance fixtures", () => {
+  it("preserves the whole existing changelog payload when atomic replacement is interrupted", async () => {
+    await observeReleaseNotesPartialWriteFixture(RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH.PARTIAL_WRITE).then(
+      ({ fixture, observation }) => {
+        expect(observation.error).toBeInstanceOf(ReleaseNotesError);
+        expect(observation.finalContent).toBe(fixture.existingContent);
+        expect(observation.directoryEntries).toEqual([DEFAULT_CHANGELOG_PATH]);
+      },
+    );
+  });
+
+  it("rejects a whole changelog-path payload that escapes the product", async () => {
+    await observeReleaseNotesEscapingPathFixture(RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH.ESCAPING_PATH).then(
+      ({ observation }) => {
+        expect(observation.error).toBeInstanceOf(ReleaseNotesError);
+        expect(observation.agentRequestCount).toBe(0);
+      },
     );
   });
 });

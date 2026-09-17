@@ -2,7 +2,6 @@ import {
   changedPathsBetween,
   closestReleaseTag,
   commitsBetween,
-  GIT_RELEASE_LOCAL_SUBCOMMAND,
   type GitCommit,
   RELEASE_TAG_PREFIX,
   releaseTagsAt,
@@ -17,12 +16,6 @@ export const VERSION_DELTA = {
 } as const;
 
 export type VersionDelta = (typeof VERSION_DELTA)[keyof typeof VERSION_DELTA];
-
-/** Git subcommands the deterministic release-data path may invoke. */
-export const RELEASE_DATA_LOCAL_GIT_SUBCOMMANDS = [
-  ...Object.values(GIT_RELEASE_LOCAL_SUBCOMMAND),
-  GIT_ROOT_COMMAND.REV_PARSE,
-] as const;
 
 /**
  * The deterministic description a release derives from git history — the package

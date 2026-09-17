@@ -20,7 +20,7 @@ CAN consume the product's spec tree through stable contracts without owning trav
 
 ### Properties
 
-- Given a product path and node claims supplied by evidence reachability or exact audit-declaration path references, ownership resolution returns the deduplicated candidate nodes and their lowest common ancestor as governing owner, using the product root when candidates span top-level branches, or an unresolved result for no candidate; source backend, duplicate claims, and claim order do not change the result ([test](tests/spec-tree-ownership.property.l1.test.ts))
+- Given a product path and claimed node identities, ownership resolution returns the deduplicated candidate nodes and their lowest common ancestor as governing owner, using the product root when candidates span top-level branches, or an unresolved result for no candidate; source backend, duplicate claims, and claim order do not change the result ([test](tests/spec-tree-ownership.property.l1.test.ts))
 
 ### Compliance
 

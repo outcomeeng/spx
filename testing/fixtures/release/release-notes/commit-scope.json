@@ -1,0 +1,25 @@
+{
+  "releaseData": {
+    "version": "2.0.0",
+    "releaseRef": "2222222222222222222222222222222222222222",
+    "previousTag": "v1.0.0",
+    "commits": [
+      {
+        "sha": "1111111111111111111111111111111111111111",
+        "subject": "spec: define release ownership",
+        "body": "Carries the product declaration into release judgment."
+      },
+      {
+        "sha": "2222222222222222222222222222222222222222",
+        "subject": "build: prepare publication",
+        "body": "Carries publication behavior into release judgment."
+      }
+    ],
+    "versionDelta": "major",
+    "changedPaths": ["spx/release.md", "package.json"]
+  },
+  "conformant": "# Changelog\n\n## [2.0.0] - 2026-09-17\n\n### Changed\n\n- Preserve every release commit.\n",
+  "existingNotes": "# Changelog\n",
+  "generatedNotes": "# Changelog\n\n## [2.0.0] - 2026-09-17\n\n### Changed\n\n- Preserve every release commit.\n",
+  "auditSection": "## [2.0.0] - 2026-09-17\n\n### Changed\n\n- Preserve every release commit."
+}

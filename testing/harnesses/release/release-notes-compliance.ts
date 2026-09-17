@@ -1,4 +1,4 @@
-import { mkdir, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve, sep } from "node:path";
 
 import type { AgentAuditor, AgentAuditRequest, AgentRunRequest } from "@/agent/agent-runner";
@@ -62,6 +62,67 @@ import {
   withReleaseNotesEnv,
 } from "@testing/harnesses/release/release-notes-env";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
+
+const RELEASE_NOTES_COMPLIANCE_FIXTURE_ROOT = resolve(
+  __dirname,
+  "../../fixtures/release/release-notes",
+);
+const FIXTURE_TEXT_ENCODING = "utf8";
+
+export const RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH = {
+  COMMIT_SCOPE: join(RELEASE_NOTES_COMPLIANCE_FIXTURE_ROOT, "commit-scope.json"),
+  PARTIAL_WRITE: join(RELEASE_NOTES_COMPLIANCE_FIXTURE_ROOT, "partial-write.json"),
+  ESCAPING_PATH: join(RELEASE_NOTES_COMPLIANCE_FIXTURE_ROOT, "escaping-path.json"),
+} as const;
+
+interface ReleaseNotesCommitScopeFixture {
+  readonly releaseData: ReleaseData;
+  readonly conformant: string;
+  readonly existingNotes: string;
+  readonly generatedNotes: string;
+  readonly auditSection: string;
+}
+
+export async function observeReleaseNotesCommitScopeFixture(path: string) {
+  const fixture = await readJsonFixture<ReleaseNotesCommitScopeFixture>(path);
+  const audit = await observeReleaseNotesFaithfulness({
+    kind: RELEASE_NOTES_FAITHFULNESS_CASE.PRODUCTION_AUDITOR,
+    fixture: {
+      releaseData: fixture.releaseData,
+      subjects: fixture.releaseData.commits.map(({ subject }) => subject),
+      conformant: fixture.conformant,
+    },
+    existingNotes: fixture.existingNotes,
+    generatedNotes: fixture.generatedNotes,
+    productionAuditSection: fixture.auditSection,
+  });
+  return {
+    fixture,
+    producerSource: observeReleaseNotesPromptSource(fixture.releaseData),
+    composition: await observeReleaseNotesMaintenanceComposition(fixture),
+    audit,
+  };
+}
+
+export async function observeReleaseNotesPartialWriteFixture(path: string) {
+  const fixture = await readJsonFixture<PartialWriteReleaseNotesInput>(path);
+  return {
+    fixture,
+    observation: await observeReleaseNotesPartialWriteFailure(fixture),
+  };
+}
+
+export async function observeReleaseNotesEscapingPathFixture(path: string) {
+  const fixture = await readJsonFixture<ReleaseNotesPathInput>(path);
+  return {
+    fixture,
+    observation: await observeReleaseNotesPath(fixture),
+  };
+}
+
+async function readJsonFixture<T>(path: string): Promise<T> {
+  return JSON.parse(await readFile(path, FIXTURE_TEXT_ENCODING)) as T;
+}
 
 export async function observeReleaseNotesContextTransport(
   scenario: ReleaseContextScenario,

@@ -10,7 +10,7 @@ export interface GitCommit {
   readonly body: string;
 }
 
-export const GIT_RELEASE_LOCAL_SUBCOMMAND = {
+const GIT_RELEASE_SUBCOMMAND = {
   CAT_FILE: "cat-file",
   DESCRIBE: "describe",
   LS_TREE: "ls-tree",
@@ -76,7 +76,7 @@ export async function closestReleaseTag(
   const result = await deps.execa(
     GIT_ROOT_COMMAND.EXECUTABLE,
     [
-      GIT_RELEASE_LOCAL_SUBCOMMAND.DESCRIBE,
+      GIT_RELEASE_SUBCOMMAND.DESCRIBE,
       GIT_RELEASE_FLAG.TAGS,
       GIT_RELEASE_FLAG.ABBREV_ZERO,
       GIT_RELEASE_FLAG.MATCH,
@@ -103,7 +103,7 @@ export async function releaseTagsAt(
 ): Promise<string[]> {
   const result = await deps.execa(
     GIT_ROOT_COMMAND.EXECUTABLE,
-    [GIT_RELEASE_LOCAL_SUBCOMMAND.TAG, GIT_RELEASE_FLAG.POINTS_AT, ref, GIT_RELEASE_FLAG.LIST, RELEASE_TAG_GLOB],
+    [GIT_RELEASE_SUBCOMMAND.TAG, GIT_RELEASE_FLAG.POINTS_AT, ref, GIT_RELEASE_FLAG.LIST, RELEASE_TAG_GLOB],
     { cwd, reject: false },
   );
   if (result.exitCode !== 0) return [];
@@ -125,7 +125,7 @@ export async function committedFileContent(
   const result = await deps.execa(
     GIT_ROOT_COMMAND.EXECUTABLE,
     [
-      GIT_RELEASE_LOCAL_SUBCOMMAND.CAT_FILE,
+      GIT_RELEASE_SUBCOMMAND.CAT_FILE,
       GIT_BLOB_OBJECT_TYPE,
       `${ref}${REVISION_PATH_SEPARATOR}${CWD_RELATIVE_TREE_PATH_PREFIX}${treePath}`,
     ],
@@ -144,7 +144,7 @@ export async function committedPaths(
   const result = await deps.execa(
     GIT_ROOT_COMMAND.EXECUTABLE,
     [
-      GIT_RELEASE_LOCAL_SUBCOMMAND.LS_TREE,
+      GIT_RELEASE_SUBCOMMAND.LS_TREE,
       GIT_RELEASE_FLAG.RECURSIVE,
       GIT_RELEASE_FLAG.NAME_ONLY,
       GIT_RELEASE_FLAG.NULL_TERMINATED,
@@ -168,7 +168,7 @@ export async function commitsBetween(
 ): Promise<GitCommit[]> {
   const result = await deps.execa(
     GIT_ROOT_COMMAND.EXECUTABLE,
-    [GIT_RELEASE_LOCAL_SUBCOMMAND.LOG, GIT_RELEASE_FLAG.NULL_TERMINATED, COMMIT_LOG_FORMAT, logRange(fromTag, toRef)],
+    [GIT_RELEASE_SUBCOMMAND.LOG, GIT_RELEASE_FLAG.NULL_TERMINATED, COMMIT_LOG_FORMAT, logRange(fromTag, toRef)],
     { cwd, reject: false, stripFinalNewline: false },
   );
   if (result.exitCode !== 0) return [];
@@ -198,7 +198,7 @@ export async function changedPathsBetween(
   const result = await deps.execa(
     GIT_ROOT_COMMAND.EXECUTABLE,
     [
-      GIT_RELEASE_LOCAL_SUBCOMMAND.LOG,
+      GIT_RELEASE_SUBCOMMAND.LOG,
       GIT_RELEASE_FLAG.DIFF_MERGES_FIRST_PARENT,
       EMPTY_LOG_FORMAT,
       GIT_RELEASE_FLAG.NAME_ONLY,

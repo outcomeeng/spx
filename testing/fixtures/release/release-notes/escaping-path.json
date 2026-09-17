@@ -1,0 +1,24 @@
+{
+  "kind": "escaping",
+  "fixture": {
+    "releaseData": {
+      "version": "2.0.0",
+      "releaseRef": "2222222222222222222222222222222222222222",
+      "previousTag": "v1.0.0",
+      "commits": [
+        {
+          "sha": "2222222222222222222222222222222222222222",
+          "subject": "fix: retain contained release notes",
+          "body": "Rejects a changelog path outside the product."
+        }
+      ],
+      "versionDelta": "major",
+      "changedPaths": ["src/release.ts"]
+    },
+    "subjects": ["fix: retain contained release notes"],
+    "conformant": "# Changelog\n\n## [2.0.0] - 2026-09-17\n\n### Fixed\n\n- Retain contained release notes.\n"
+  },
+  "changelogPath": "../outside.md",
+  "pathSegments": ["parent", "child", "leaf"],
+  "replacementContent": "outside replacement"
+}
