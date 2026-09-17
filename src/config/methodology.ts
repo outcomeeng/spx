@@ -27,9 +27,9 @@ export function isMethodologyVersion(value: string): boolean {
   return METHODOLOGY_VERSION_PATTERN.test(value);
 }
 
-/** Diagnostic for a methodology field whose value is not an exact version; no sentinel stands in for one. */
+/** Diagnostic for a methodology field whose value names neither a line nor an exact version. */
 export function formatMethodologyVersionInvalidError(path: string, version: string): string {
-  return `${path} must be an exact MAJOR.MINOR.PATCH methodology version; rejected ${JSON.stringify(version)}`;
+  return `${path} must be a MAJOR.MINOR or MAJOR.MINOR.PATCH methodology version; rejected ${JSON.stringify(version)}`;
 }
 
 export interface MethodologyConfig {
@@ -101,6 +101,9 @@ function validateOptionalVersion(field: string, raw: unknown): Result<string | u
   const path = `${METHODOLOGY_SECTION}.${field}`;
   const text = validateNonEmptyString(path, raw);
   if (!text.ok) return text;
+  if (METHODOLOGY_LINE_PATTERN.test(text.value)) {
+    return { ok: true, value: `${text.value}.0` };
+  }
   if (!isMethodologyVersion(text.value)) {
     return { ok: false, error: formatMethodologyVersionInvalidError(path, text.value) };
   }

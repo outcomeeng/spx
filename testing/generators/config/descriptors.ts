@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 import { join } from "node:path";
 
-import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_LINE_PATTERN, METHODOLOGY_SECTION } from "@/config/methodology";
 import {
   PATH_FILTER_CONFIG_FIELDS,
   type PathFilterConfig,
@@ -220,8 +220,8 @@ export function generatedMigratingMethodologySection(): Record<string, unknown> 
   };
 }
 
-/** A methodology section whose version is not an exact version, the shape the descriptor rejects. */
-export function generatedNonExactMethodologySection(): Record<string, unknown> {
+/** A methodology section whose version names a major.minor line. */
+export function generatedMethodologyLineSection(): Record<string, unknown> {
   return {
     [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
     [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleGeneratedValue(arbitraryMethodologyVersion()).line,
@@ -235,8 +235,8 @@ export function generatedMethodologySource(): string {
   ].join("/");
 }
 
-/** A methodology section whose migration source is a bare line rather than an exact version. */
-export function generatedNonExactMigrationSourceSection(): Record<string, unknown> {
+/** A methodology section whose migration source names a major.minor line. */
+export function generatedMigrationSourceLineSection(): Record<string, unknown> {
   return {
     [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
     [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleGeneratedValue(arbitraryMethodologyVersion()).text,
@@ -268,9 +268,14 @@ export function arbitraryMalformedMethodologySource(): fc.Arbitrary<string> {
   );
 }
 
-/** A value that is not an exact methodology version: empty, a non-string, or version-shaped text that is not exact. */
+/** A value naming neither a methodology line nor an exact version. */
 export function arbitraryMalformedMethodologyVersion(): fc.Arbitrary<unknown> {
-  return fc.oneof(fc.constant(""), fc.boolean(), fc.nat(), arbitraryNonVersionText());
+  return fc.oneof(
+    fc.constant(""),
+    fc.boolean(),
+    fc.nat(),
+    arbitraryNonVersionText().filter((value) => !METHODOLOGY_LINE_PATTERN.test(value)),
+  );
 }
 
 export function generatedInvalidMethodologyConfigs(): readonly GeneratedInvalidMethodologyConfig[] {
