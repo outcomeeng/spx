@@ -46,7 +46,9 @@ async function readProjectedDocument(
   input: ContextInput,
   selection: SpecContextSelection,
 ): Promise<{ readonly ok: true; readonly entry: SpecContextEntry } | { readonly ok: false; readonly error: unknown }> {
-  const source = selection.mode === SPEC_CONTEXT_MODE.REFERENCE ? "" : await input.readDocument(selection.path);
+  const source = selection.mode === SPEC_CONTEXT_MODE.REFERENCE && selection.referenceTitle !== true
+    ? ""
+    : await input.readDocument(selection.path);
   try {
     return {
       ok: true,
