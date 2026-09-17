@@ -14,7 +14,6 @@ export type SpecContextMode = (typeof SPEC_CONTEXT_MODE)[keyof typeof SPEC_CONTE
 
 const DISCOVERY_DEPTH = 2;
 const PRODUCT_OPENING = "OFFERS";
-const DECISION_OPENING = "GOVERNS";
 const ISSUE_FILENAME = "ISSUES.md";
 const KNOWLEDGE_INDEX = "knowledge/index.md";
 const OUTCOME_SUFFIX = ".outcome.md";
@@ -30,10 +29,11 @@ export interface SpecContextSelection {
   readonly migrationFallback?: boolean;
   readonly scanCitations?: boolean;
   readonly optional?: boolean;
+  readonly referenceTitle?: boolean;
 }
 
 export type SpecContextEntry =
-  | { readonly type: "reference"; readonly path: string }
+  | { readonly type: "reference"; readonly path: string; readonly title?: string }
   | {
     readonly type: "document";
     readonly path: string;
@@ -61,7 +61,7 @@ function nodeSelection(node: SpecTreeNode, mode: SpecContextMode): SpecContextSe
     mode,
     opening: KIND_REGISTRY[node.kind].opening,
     outputNode: true,
-    scanCitations: true,
+    scanCitations: mode === SPEC_CONTEXT_MODE.FULL,
   };
 }
 
@@ -158,13 +158,15 @@ export function selectSpecContextDocuments(
     explicitArtifacts(node, directory);
     for (const entry of structuralEntries(node, depth)) {
       if ("child" in entry) walk(entry.child, depth + 1);
-      else {result.push({
+      else {
+        const reference = discovery;
+        result.push({
           path: entry.path,
-          mode: discovery ? SPEC_CONTEXT_MODE.DIGEST : SPEC_CONTEXT_MODE.FULL,
-          opening: DECISION_OPENING,
-          migrationFallback: true,
-          scanCitations: true,
-        });}
+          mode: reference ? SPEC_CONTEXT_MODE.REFERENCE : SPEC_CONTEXT_MODE.FULL,
+          scanCitations: !reference,
+          referenceTitle: reference,
+        });
+      }
     }
   };
   walk(undefined, 0);
@@ -215,7 +217,22 @@ export function projectSpecContextDocument(
   source: string,
   migrating: boolean,
 ): SpecContextEntry {
-  if (selection.mode === SPEC_CONTEXT_MODE.REFERENCE) return { type: "reference", path: selection.path };
+  if (selection.mode === SPEC_CONTEXT_MODE.REFERENCE) {
+    if (selection.referenceTitle !== true) return { type: "reference", path: selection.path };
+    const { body } = splitSpecContextFrontMatter(source, selection.path);
+    const tokens = inlineCitationParser.parse(body, {});
+    for (let index = 0; index < tokens.length; index += 1) {
+      const heading = tokens.at(index);
+      const title = tokens.at(index + 1);
+      if (
+        heading?.type === "heading_open" && heading.tag === "h1"
+        && title?.type === "inline" && title.content.length > 0
+      ) {
+        return { type: "reference", path: selection.path, title: title.content };
+      }
+    }
+    throw new Error(`Missing level-one heading in ${selection.path}`);
+  }
   const { metadata, body } = splitSpecContextFrontMatter(source, selection.path);
   const selectedMetadata = selection.outputNode === true && Object.hasOwn(metadata, MALLEABILITY_KEY)
     ? { [MALLEABILITY_KEY]: metadata[MALLEABILITY_KEY] }
@@ -247,8 +264,6 @@ export function specContextCitedSelection(path: string): SpecContextSelection {
   return {
     path,
     mode: SPEC_CONTEXT_MODE.FULL,
-    opening: DECISION_OPENING,
-    migrationFallback: true,
     scanCitations: true,
   };
 }
@@ -267,11 +282,22 @@ export function suppressLoadedSpecContext(
 
 export function renderSpecContextEntries(entries: readonly SpecContextEntry[]): string {
   return entries.map((entry) => {
-    if (entry.type === "reference") return `<spx-reference path="${entry.path}" />`;
+    const path = escapeSpecContextAttribute(entry.path);
+    if (entry.type === "reference") {
+      const title = entry.title === undefined ? "" : ` title="${escapeSpecContextAttribute(entry.title)}"`;
+      return `<spx-reference path="${path}"${title} />`;
+    }
     const metadata = Object.keys(entry.metadata).length === 0
       ? ""
       : `${FRONT_MATTER_DELIMITER}\n${stringify(entry.metadata)}${FRONT_MATTER_DELIMITER}\n\n`;
     const ending = entry.content.endsWith("\n") ? "" : "\n";
-    return `<spx-document path="${entry.path}">\n${metadata}${entry.content}${ending}</spx-document>`;
+    return `<spx-document path="${path}">\n${metadata}${entry.content}${ending}</spx-document>`;
   }).join("\n\n");
+}
+
+function escapeSpecContextAttribute(value: string): string {
+  return value.replaceAll("&", "&amp;")
+    .replaceAll("\"", "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
 }
