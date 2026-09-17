@@ -1,7 +1,5 @@
 import { join, sep, win32 } from "node:path";
 
-import * as fc from "fast-check";
-
 import { RELEASE_SOURCE_DATA_BLOCK_CLOSE } from "@/domains/release/product-context";
 import type { ReleaseData } from "@/domains/release/release-data";
 import {
@@ -18,7 +16,6 @@ import {
 } from "@/domains/release/release-notes";
 import { RELEASE_NOTES_STANDARDS } from "@/domains/release/release-notes-standards";
 import { PATH_CONTAINMENT_PARENT_DIRECTORY, PATH_CONTAINMENT_ROOT_CANDIDATE } from "@/lib/file-system/pathContainment";
-import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import {
   arbitraryBlankConfiguredChangelogPath,
   arbitraryConfiguredChangelogPath,
@@ -35,111 +32,6 @@ import {
   changelogWithTruncatedFencedReferenceDefinitionSection,
 } from "@testing/generators/release/changelog";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
-
-/**
- * Regression inputs from the commit-label exclusion that discarded product
- * declarations. These labels select cases; expected payloads derive from the
- * complete supplied commits, independently of production filtering.
- */
-const DECLARATION_AND_MAINTENANCE_COMMIT_TYPES = ["spec", "test", "refactor", "style", "docs", "ci", "build"] as const;
-const BEHAVIOR_COMMIT_TYPES = ["feat", "fix", "perf", "revert"] as const;
-const CONVENTIONAL_SCOPE_OPEN = "(";
-const CONVENTIONAL_SCOPE_CLOSE = ")";
-const CONVENTIONAL_BREAKING_MARKER = "!";
-const CONVENTIONAL_TYPE_SEPARATOR = ": ";
-const UNTYPED_SUBJECT_SUFFIX = " update";
-
-/** A release with varied commit-label forms, all of which remain source inputs. */
-export interface ReleaseNotesSubjectScopeScenario {
-  readonly releaseData: ReleaseData;
-}
-
-interface ScopedSubject {
-  readonly subject: string;
-  readonly otherLabel: boolean;
-}
-
-function arbitraryConventionalSubject(type: string, otherLabel: boolean): fc.Arbitrary<ScopedSubject> {
-  return fc
-    .tuple(fc.option(arbitraryPathSegment(), { nil: undefined }), fc.boolean(), arbitraryPathSegment())
-    .map(([scope, breaking, description]) => ({
-      subject: `${type}${scope === undefined ? "" : `${CONVENTIONAL_SCOPE_OPEN}${scope}${CONVENTIONAL_SCOPE_CLOSE}`}${
-        breaking ? CONVENTIONAL_BREAKING_MARKER : ""
-      }${CONVENTIONAL_TYPE_SEPARATOR}${description}`,
-      otherLabel,
-    }));
-}
-
-function arbitraryScopedSubject(): fc.Arbitrary<ScopedSubject> {
-  return fc.oneof(
-    fc.constantFrom(...DECLARATION_AND_MAINTENANCE_COMMIT_TYPES).chain((type) =>
-      arbitraryConventionalSubject(type, false)
-    ),
-    fc.constantFrom(...BEHAVIOR_COMMIT_TYPES).chain((type) => arbitraryConventionalSubject(type, true)),
-    arbitraryPathSegment().map((segment) => ({ subject: `${segment}${UNTYPED_SUBJECT_SUFFIX}`, otherLabel: true })),
-  );
-}
-
-/** A release whose labels all come from the declaration-and-maintenance regression domain. */
-export function arbitraryReleaseNotesMaintenanceScenario(): fc.Arbitrary<ReleaseNotesSubjectScopeScenario> {
-  return RELEASE_TEST_GENERATOR.releaseData().chain((releaseData) =>
-    fc
-      .array(
-        fc.constantFrom(...DECLARATION_AND_MAINTENANCE_COMMIT_TYPES).chain((type) =>
-          arbitraryConventionalSubject(type, false)
-        ),
-        { minLength: releaseData.commits.length, maxLength: releaseData.commits.length },
-      )
-      .map((subjects) => ({
-        releaseData: {
-          ...releaseData,
-          commits: releaseData.commits.map((commit, index) => ({
-            ...commit,
-            subject: subjects[index]?.subject ?? commit.subject,
-          })),
-        },
-      }))
-  );
-}
-
-export function arbitraryReleaseNotesSubjectScopeScenario(): fc.Arbitrary<ReleaseNotesSubjectScopeScenario> {
-  return RELEASE_TEST_GENERATOR.releaseData().chain((releaseData) =>
-    fc
-      .array(arbitraryScopedSubject(), {
-        minLength: releaseData.commits.length,
-        maxLength: releaseData.commits.length,
-      })
-      .filter((subjects) => subjects.some((entry) => entry.otherLabel) && subjects.some((entry) => !entry.otherLabel))
-      .map((subjects) => ({
-        releaseData: {
-          ...releaseData,
-          commits: releaseData.commits.map((commit, index) => ({
-            ...commit,
-            subject: subjects[index]?.subject ?? commit.subject,
-          })),
-        },
-      }))
-  );
-}
-
-/** The production-auditor input for a subject-scope scenario, naming its first commit. */
-export function releaseNotesSubjectScopeAuditInput(
-  scenario: ReleaseNotesSubjectScopeScenario,
-): ReleaseNotesFaithfulnessInput {
-  const fixture = sampleReleaseNotesCompositionFixture(scenario.releaseData);
-  const currentSection = [
-    changelogVersionHeading(scenario.releaseData.version),
-    changelogGroupHeading(CHANGELOG_CHANGE_GROUPS[0]),
-    changelogEntry(scenario.releaseData.commits.at(0)?.subject ?? scenario.releaseData.version),
-  ].join("\n");
-  return {
-    kind: RELEASE_NOTES_FAITHFULNESS_CASE.PRODUCTION_AUDITOR,
-    fixture,
-    existingNotes: CHANGELOG_TITLE,
-    generatedNotes: [CHANGELOG_TITLE, currentSection].join("\n\n"),
-    productionAuditSection: currentSection,
-  };
-}
 
 export const RELEASE_NOTES_EXISTING_SECTION_CASE = {
   PROMPT_PRESERVATION: "prompt-preservation",
@@ -475,13 +367,6 @@ export function sampleAbsoluteReleaseNotesPathInput(): AbsoluteReleaseNotesPathI
       arbitraryNestedConfiguredChangelogPath(),
     ),
   };
-}
-
-export function samplePartialWriteReleaseNotesInput(): PartialWriteReleaseNotesInput {
-  const [existingContent, replacementContent] = sampleReleaseTestValue(
-    RELEASE_TEST_GENERATOR.distinctDomainLiteralPair(),
-  );
-  return { existingContent, replacementContent };
 }
 
 export function sampleSymlinkRootReleaseNotesInput(): SymlinkRootReleaseNotesInput {

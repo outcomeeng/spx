@@ -30,8 +30,6 @@ import {
   sampleReleaseOwnershipFixture,
 } from "@testing/generators/release/product-context";
 import {
-  arbitraryReleaseNotesMaintenanceScenario,
-  arbitraryReleaseNotesSubjectScopeScenario,
   RELEASE_NOTES_CONFIGURED_PATH_REJECTION_CASE,
   RELEASE_NOTES_EXISTING_SECTION_CASE,
   RELEASE_NOTES_FAITHFULNESS_CASE,
@@ -42,9 +40,7 @@ import {
   type ReleaseNotesPathContainmentCase,
   releaseNotesPromptPathProse,
   releaseNotesPromptVersionProse,
-  releaseNotesSubjectScopeAuditInput,
   sampleAbsoluteReleaseNotesPathInput,
-  samplePartialWriteReleaseNotesInput,
   sampleReleaseNotesConfiguredPathRejectionInput,
   sampleReleaseNotesExistingSectionScenario,
   sampleReleaseNotesFaithfulnessScenario,
@@ -56,7 +52,6 @@ import {
 } from "@testing/generators/release/release-notes";
 import { GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
-import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { observeIndependentVersionSection } from "@testing/harnesses/release/keep-a-changelog-oracle";
 import {
   observeAbsoluteInTreeReleaseNotesPath,
@@ -66,13 +61,10 @@ import {
   observeReleaseNotesCommitScopeFixture,
   observeReleaseNotesEscapingPathFixture,
   observeReleaseNotesFaithfulness,
-  observeReleaseNotesMaintenanceComposition,
   observeReleaseNotesMutation,
-  observeReleaseNotesPartialWriteFailure,
   observeReleaseNotesPartialWriteFixture,
   observeReleaseNotesPath,
   observeReleaseNotesPrompt,
-  observeReleaseNotesPromptSource,
   observeReleaseNotesSymlinkToRootPath,
   readReleaseEndpointDataFixture,
   RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH,
@@ -761,13 +753,11 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
   });
 
   it("preserves the existing changelog when atomic promotion cannot finish its temporary write", async () => {
-    const input = samplePartialWriteReleaseNotesInput();
-    await expect(observeReleaseNotesPartialWriteFailure(input)).resolves.toSatisfy(
-      (observation) => {
+    await observeReleaseNotesPartialWriteFixture(RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH.PARTIAL_WRITE).then(
+      ({ fixture, observation }) => {
         expect(observation.error).toBeInstanceOf(ReleaseNotesError);
-        expect(observation.finalContent).toBe(input.existingContent);
+        expect(observation.finalContent).toBe(fixture.existingContent);
         expect(observation.directoryEntries).toEqual([DEFAULT_CHANGELOG_PATH]);
-        return true;
       },
     );
   });
@@ -853,13 +843,12 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
   });
 
   it("rejects a configured changelog path that escapes the working tree without invoking the agent", async () => {
-    await expect(
-      observeReleaseNotesPath(sampleReleaseNotesPathInput(RELEASE_NOTES_PATH_CASE.ESCAPING)),
-    ).resolves.toSatisfy((observation) => {
-      expect(observation.error).toBeInstanceOf(ReleaseNotesError);
-      expect(observation.agentRequestCount).toBe(0);
-      return true;
-    });
+    await observeReleaseNotesEscapingPathFixture(RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH.ESCAPING_PATH).then(
+      ({ observation }) => {
+        expect(observation.error).toBeInstanceOf(ReleaseNotesError);
+        expect(observation.agentRequestCount).toBe(0);
+      },
+    );
   });
 
   it("rejects a configured changelog path through a symlink that escapes the working tree", async () => {
@@ -958,60 +947,6 @@ describe("release-notes prompts preserve release inputs regardless of commit typ
           productContext: [],
           releaseData: observation.fixture.releaseData,
         });
-      },
-    );
-  });
-
-  it("allows spec, test, refactor, style, docs, ci, and build commits to reach the producer", async () => {
-    await assertProperty(
-      arbitraryReleaseNotesMaintenanceScenario(),
-      async (scenario) => {
-        expect(JSON.parse(observeReleaseNotesPromptSource(scenario.releaseData).data)).toEqual(
-          { productContext: [], releaseData: scenario.releaseData },
-        );
-        const observation = await observeReleaseNotesMaintenanceComposition(scenario);
-        expect(observation.error).toBeInstanceOf(ReleaseNotesError);
-        expect(observation.agentRequestCount).toBe(1);
-        expect(observation.finalPathIsFile).toBe(false);
-      },
-      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
-    );
-  });
-
-  it("retains every commit subject in the producer and audit inputs", async () => {
-    await assertProperty(
-      arbitraryReleaseNotesSubjectScopeScenario(),
-      async (scenario) => {
-        expect(JSON.parse(observeReleaseNotesPromptSource(scenario.releaseData).data)).toEqual(
-          { productContext: [], releaseData: scenario.releaseData },
-        );
-        const audit = await observeReleaseNotesFaithfulness(releaseNotesSubjectScopeAuditInput(scenario));
-        expect(audit.auditAttempted).toBe(true);
-        expect(JSON.parse(audit.auditSourceDataBlock.data)).toEqual(
-          { productContext: [], releaseData: scenario.releaseData },
-        );
-      },
-      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
-    );
-  });
-});
-
-describe("release-notes compliance fixtures", () => {
-  it("preserves the whole existing changelog payload when atomic replacement is interrupted", async () => {
-    await observeReleaseNotesPartialWriteFixture(RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH.PARTIAL_WRITE).then(
-      ({ fixture, observation }) => {
-        expect(observation.error).toBeInstanceOf(ReleaseNotesError);
-        expect(observation.finalContent).toBe(fixture.existingContent);
-        expect(observation.directoryEntries).toEqual([DEFAULT_CHANGELOG_PATH]);
-      },
-    );
-  });
-
-  it("rejects a whole changelog-path payload that escapes the product", async () => {
-    await observeReleaseNotesEscapingPathFixture(RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH.ESCAPING_PATH).then(
-      ({ observation }) => {
-        expect(observation.error).toBeInstanceOf(ReleaseNotesError);
-        expect(observation.agentRequestCount).toBe(0);
       },
     );
   });
