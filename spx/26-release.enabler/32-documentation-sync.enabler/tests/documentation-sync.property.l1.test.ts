@@ -52,8 +52,23 @@ it("retains every distinct candidate and governing node across both release endp
   await assertProperty(
     arbitraryReleaseEndpointOwnershipScenario(),
     (scenario) => {
+      const expectedNodeIds = [
+        ...new Set(scenario.changedPaths.flatMap((path) =>
+          scenario.endpointOwnership
+            .filter((result) => result.path === path && result.candidateNodeIds.length > 0)
+            .flatMap((result) => [
+              ...result.candidateNodeIds,
+              ...(result.governingNodeId === undefined ? [] : [result.governingNodeId]),
+            ])
+        )),
+      ];
+      const expectedUnresolvedPaths = scenario.changedPaths.filter((path) => {
+        const endpointResults = scenario.endpointOwnership.filter((result) => result.path === path);
+        return endpointResults.some((result) => result.classifiedAsSource)
+          && endpointResults.every((result) => result.candidateNodeIds.length === 0);
+      });
       expect(selectReleaseOwnershipContext(scenario.changedPaths, scenario.endpointOwnership)).toEqual(
-        scenario.expected,
+        { nodeIds: expectedNodeIds, unresolvedPaths: expectedUnresolvedPaths },
       );
     },
     { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },

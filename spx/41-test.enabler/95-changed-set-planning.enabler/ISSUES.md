@@ -2,14 +2,13 @@
 
 ## Path-consumed test infrastructure has no related-test reachability
 
-`spx test --changed --base origin/main` reports these live changed paths as
+`spx test --changed --base origin/main` reports these surviving changed paths as
 unresolved even though linked test evidence consumes them:
 
 - `testing/fixtures/release/release-notes/commit-scope.json`
 - `testing/fixtures/release/release-notes/escaping-path.json`
 - `testing/fixtures/release/release-notes/partial-write.json`
 - `testing/fixtures/release/release-notes/release-context-endpoints.json`
-- `testing/fixtures/spec-tree/public-surface-consumer.ts`
 - `testing/fixtures/spec-tree/public-surface-contract.ts`
 - `testing/harnesses/release/git-runner.ts`
 
@@ -20,7 +19,8 @@ paths can therefore complete with no owning linked test selected.
 
 **Evidence:** the passing changed-set run on Change #70 selected 410 test files
 and passed 2,466 tests, then emitted `No related-test capability resolved these
-changed source files` followed by the seven paths above.
+changed source files` followed by these six paths and the deleted predecessor
+`testing/fixtures/spec-tree/public-surface-consumer.ts`.
 
 **Impact:** changed-set verification can omit the evidence that consumes an
 isolated fixture or indirectly imported harness, weakening the command's claim

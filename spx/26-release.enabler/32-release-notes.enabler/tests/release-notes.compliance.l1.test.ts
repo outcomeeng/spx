@@ -35,12 +35,14 @@ import {
   RELEASE_NOTES_FAITHFULNESS_CASE,
   RELEASE_NOTES_MUTATION_CASE,
   RELEASE_NOTES_PATH_CASE,
+  RELEASE_NOTES_PATH_CONTAINMENT_CASE,
   RELEASE_NOTES_PROMPT_CASE,
+  type ReleaseNotesPathContainmentCase,
   releaseNotesPromptPathProse,
   releaseNotesPromptVersionProse,
   releaseNotesSubjectScopeAuditInput,
   sampleAbsoluteReleaseNotesPathInput,
-  samplePartialWriteReleaseNotesScenario,
+  samplePartialWriteReleaseNotesInput,
   sampleReleaseNotesConfiguredPathRejectionInput,
   sampleReleaseNotesExistingSectionScenario,
   sampleReleaseNotesFaithfulnessScenario,
@@ -757,14 +759,12 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
   });
 
   it("preserves the existing changelog when atomic promotion cannot finish its temporary write", async () => {
-    const scenario = samplePartialWriteReleaseNotesScenario();
-    await expect(observeReleaseNotesPartialWriteFailure(scenario.input)).resolves.toSatisfy(
+    const input = samplePartialWriteReleaseNotesInput();
+    await expect(observeReleaseNotesPartialWriteFailure(input)).resolves.toSatisfy(
       (observation) => {
         expect(observation.error).toBeInstanceOf(ReleaseNotesError);
-        expect(observation.finalContent).toBe(scenario.input.existingContent);
-        expect(observation.directoryEntries).toEqual(
-          scenario.expectedDirectoryEntries,
-        );
+        expect(observation.finalContent).toBe(input.existingContent);
+        expect(observation.directoryEntries).toEqual([DEFAULT_CHANGELOG_PATH]);
         return true;
       },
     );
@@ -929,8 +929,15 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
 
 describe("isPathContained verifies release path containment edge cases directly", () => {
   it("classifies generated POSIX and Windows containment boundaries", () => {
+    const containedCases = new Set<ReleaseNotesPathContainmentCase>([
+      RELEASE_NOTES_PATH_CONTAINMENT_CASE.CHILD_OF_PARENT_DIRECTORY,
+      RELEASE_NOTES_PATH_CONTAINMENT_CASE.ROOT,
+      RELEASE_NOTES_PATH_CONTAINMENT_CASE.ROOTED_SEGMENT,
+    ]);
     for (const input of sampleReleaseNotesPathContainmentInputs()) {
-      expect(isPathContained(input.root, input.candidate)).toBe(input.expected);
+      expect(isPathContained(input.root, input.candidate)).toBe(
+        containedCases.has(input.kind),
+      );
     }
   });
 });

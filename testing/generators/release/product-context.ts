@@ -3,7 +3,6 @@ import { posix } from "node:path";
 import {
   RELEASE_CONTEXT_KIND,
   type ReleaseEndpointPathOwnership,
-  type ReleaseOwnershipContextSelection,
   type ReleaseProductContext,
 } from "@/domains/release/product-context";
 import type { ReleaseData } from "@/domains/release/release-data";
@@ -64,7 +63,6 @@ export interface ReleaseContextScenario {
 export interface ReleaseEndpointOwnershipScenario {
   readonly changedPaths: readonly string[];
   readonly endpointOwnership: readonly ReleaseEndpointPathOwnership[];
-  readonly expected: ReleaseOwnershipContextSelection;
 }
 
 export function arbitraryReleaseEndpointOwnershipScenario(): fc.Arbitrary<ReleaseEndpointOwnershipScenario> {
@@ -93,20 +91,9 @@ export function arbitraryReleaseEndpointOwnershipScenario(): fc.Arbitrary<Releas
         ...(laterGoverning === undefined ? {} : { governingNodeId: laterGoverning }),
       },
     ];
-    const classified = earlierClassified || laterClassified;
-    const resolved = [
-      ...earlier,
-      ...(earlierGoverning === undefined ? [] : [earlierGoverning]),
-      ...later,
-      ...(laterGoverning === undefined ? [] : [laterGoverning]),
-    ];
     return {
       changedPaths: [path],
       endpointOwnership,
-      expected: {
-        nodeIds: [...new Set(resolved)],
-        unresolvedPaths: classified && resolved.length === 0 ? [path] : [],
-      },
     };
   });
 }

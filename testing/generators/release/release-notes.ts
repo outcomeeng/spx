@@ -211,6 +211,18 @@ export const RELEASE_NOTES_PATH_CASE = {
 
 export type ReleaseNotesPathCase = (typeof RELEASE_NOTES_PATH_CASE)[keyof typeof RELEASE_NOTES_PATH_CASE];
 
+export const RELEASE_NOTES_PATH_CONTAINMENT_CASE = {
+  PARENT_DIRECTORY: "parent-directory",
+  CHILD_OF_PARENT_DIRECTORY: "child-of-parent-directory",
+  ROOT: "root",
+  ESCAPING: "escaping",
+  ROOTED_SEGMENT: "rooted-segment",
+  WINDOWS_DISTINCT_ROOT: "windows-distinct-root",
+} as const;
+
+export type ReleaseNotesPathContainmentCase =
+  (typeof RELEASE_NOTES_PATH_CONTAINMENT_CASE)[keyof typeof RELEASE_NOTES_PATH_CONTAINMENT_CASE];
+
 export interface ReleaseNotesCompositionFixture {
   readonly releaseData: ReleaseData;
   readonly subjects: readonly string[];
@@ -273,9 +285,9 @@ export interface ReleaseNotesMutationInput {
 }
 
 export interface ReleaseNotesPathContainmentInput {
+  readonly kind: ReleaseNotesPathContainmentCase;
   readonly root: string;
   readonly candidate: string;
-  readonly expected: boolean;
 }
 
 export interface AbsoluteReleaseNotesPathInput {
@@ -286,11 +298,6 @@ export interface AbsoluteReleaseNotesPathInput {
 export interface PartialWriteReleaseNotesInput {
   readonly existingContent: string;
   readonly replacementContent: string;
-}
-
-export interface PartialWriteReleaseNotesScenario {
-  readonly input: PartialWriteReleaseNotesInput;
-  readonly expectedDirectoryEntries: readonly string[];
 }
 
 export interface SymlinkRootReleaseNotesInput {
@@ -470,14 +477,11 @@ export function sampleAbsoluteReleaseNotesPathInput(): AbsoluteReleaseNotesPathI
   };
 }
 
-export function samplePartialWriteReleaseNotesScenario(): PartialWriteReleaseNotesScenario {
+export function samplePartialWriteReleaseNotesInput(): PartialWriteReleaseNotesInput {
   const [existingContent, replacementContent] = sampleReleaseTestValue(
     RELEASE_TEST_GENERATOR.distinctDomainLiteralPair(),
   );
-  return {
-    input: { existingContent, replacementContent },
-    expectedDirectoryEntries: [DEFAULT_CHANGELOG_PATH],
-  };
+  return { existingContent, replacementContent };
 }
 
 export function sampleSymlinkRootReleaseNotesInput(): SymlinkRootReleaseNotesInput {
@@ -497,33 +501,33 @@ export function sampleReleaseNotesPathContainmentInputs(): readonly ReleaseNotes
   );
   return [
     {
+      kind: RELEASE_NOTES_PATH_CONTAINMENT_CASE.PARENT_DIRECTORY,
       root: workingDirectory,
       candidate: PATH_CONTAINMENT_PARENT_DIRECTORY,
-      expected: false,
     },
     {
+      kind: RELEASE_NOTES_PATH_CONTAINMENT_CASE.CHILD_OF_PARENT_DIRECTORY,
       root: workingDirectory,
       candidate: `${PATH_CONTAINMENT_PARENT_DIRECTORY}${segment}`,
-      expected: true,
     },
     {
+      kind: RELEASE_NOTES_PATH_CONTAINMENT_CASE.ROOT,
       root: workingDirectory,
       candidate: PATH_CONTAINMENT_ROOT_CANDIDATE,
-      expected: true,
     },
     {
+      kind: RELEASE_NOTES_PATH_CONTAINMENT_CASE.ESCAPING,
       root: workingDirectory,
       candidate: join(
         workingDirectory,
         PATH_CONTAINMENT_PARENT_DIRECTORY,
         DEFAULT_CHANGELOG_PATH,
       ),
-      expected: false,
     },
     {
+      kind: RELEASE_NOTES_PATH_CONTAINMENT_CASE.ROOTED_SEGMENT,
       root: workingDirectory,
       candidate: join(workingDirectory, driveRoot, DEFAULT_CHANGELOG_PATH),
-      expected: true,
     },
     windowsContainmentInput(
       RELEASE_TEST_GENERATOR.distinctWindowsDriveRoots(),
@@ -570,9 +574,9 @@ function windowsContainmentInput(
 ): ReleaseNotesPathContainmentInput {
   const [rootBase, candidateBase] = sampleReleaseTestValue(roots);
   return {
+    kind: RELEASE_NOTES_PATH_CONTAINMENT_CASE.WINDOWS_DISTINCT_ROOT,
     root: win32.join(rootBase, rootSegment),
     candidate: win32.join(candidateBase, DEFAULT_CHANGELOG_PATH),
-    expected: false,
   };
 }
 
