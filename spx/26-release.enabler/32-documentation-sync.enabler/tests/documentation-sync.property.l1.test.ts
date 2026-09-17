@@ -5,6 +5,7 @@ import { releaseVersionFromTag } from "@/domains/release/release-data";
 import { RELEASE_PRODUCT_TRUTH_STANDARDS } from "@/domains/release/release-notes-standards";
 import { isPathContained } from "@/lib/file-system/pathContainment";
 import { RELEASE_TAG_PREFIX } from "@/lib/git/release";
+import { KIND_REGISTRY } from "@/lib/spec-tree";
 import {
   arbitraryConfiguredDocumentationSyncScenario,
   arbitraryDocumentationAgentFileToolBoundaryScenario,
@@ -17,6 +18,9 @@ import {
 import {
   arbitraryReleaseContextScenario,
   arbitraryReleaseEndpointOwnershipScenario,
+  arbitraryReleaseEndpointRepositoryScenario,
+  RELEASE_ENDPOINT_OWNERSHIP_CASE,
+  sampleReleaseOwnershipFixture,
 } from "@testing/generators/release/product-context";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import {
@@ -26,6 +30,7 @@ import {
   observeDocumentationVersionPreservation,
   observeUnrelatedVersionRewrite,
 } from "@testing/harnesses/release/documentation-sync";
+import { observeReleaseEndpointRepository } from "@testing/harnesses/release/product-context";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
@@ -70,6 +75,44 @@ it("retains every distinct candidate and governing node across both release endp
       expect(selectReleaseOwnershipContext(scenario.changedPaths, scenario.endpointOwnership)).toEqual(
         { nodeIds: expectedNodeIds, unresolvedPaths: expectedUnresolvedPaths },
       );
+    },
+    { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+  );
+});
+
+it("resolves generated ownership topologies across release endpoint repositories before invoking agents", async () => {
+  await assertProperty(
+    arbitraryReleaseEndpointRepositoryScenario(),
+    async (scenario) => {
+      const observation = await observeReleaseEndpointRepository(scenario);
+      const contextPaths = observation.context.map(({ path }) => path);
+      switch (scenario.kind) {
+        case RELEASE_ENDPOINT_OWNERSHIP_CASE.CROSS_ENDPOINT:
+          expect(contextPaths).toEqual(expect.arrayContaining([
+            `spx/20-${scenario.earlierNodeSlug}${KIND_REGISTRY.enabler.suffix}/${scenario.earlierNodeSlug}.md`,
+            `spx/30-${scenario.laterNodeSlug}${KIND_REGISTRY.enabler.suffix}/${scenario.laterNodeSlug}.md`,
+          ]));
+          break;
+        case RELEASE_ENDPOINT_OWNERSHIP_CASE.MULTIPLE_CANDIDATES: {
+          const parent = `spx/20-${scenario.parentNodeSlug}${KIND_REGISTRY.enabler.suffix}`;
+          expect(contextPaths).toEqual(expect.arrayContaining([
+            `${parent}/${scenario.parentNodeSlug}.md`,
+            `${parent}/20-${scenario.childNodeSlug}${KIND_REGISTRY.enabler.suffix}/${scenario.childNodeSlug}.md`,
+            `${parent}/30-${scenario.peerNodeSlug}${KIND_REGISTRY.enabler.suffix}/${scenario.peerNodeSlug}.md`,
+          ]));
+          break;
+        }
+        case RELEASE_ENDPOINT_OWNERSHIP_CASE.DELETED:
+          expect(contextPaths).toContain(
+            `spx/20-${scenario.earlierNodeSlug}${KIND_REGISTRY.enabler.suffix}/${scenario.earlierNodeSlug}.md`,
+          );
+          break;
+        case RELEASE_ENDPOINT_OWNERSHIP_CASE.UNRESOLVED:
+          expect(observation.error).toBeInstanceOf(Error);
+          expect((observation.error as Error).message).toContain(sampleReleaseOwnershipFixture().sourcePath);
+          expect(observation.producerInvocations).toBe(0);
+          expect(observation.auditorInvocations).toBe(0);
+      }
     },
     { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
   );

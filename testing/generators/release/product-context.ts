@@ -15,6 +15,16 @@ import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "./release";
 const CONTEXT_DECISION_INDEX = 10;
 const CONTEXT_NODE_INDEX = 20;
 
+export const RELEASE_OWNERSHIP_FIXTURE_CONTENT = {
+  PRODUCT: "# Product\n",
+  TYPESCRIPT_CONFIG: "{\"compilerOptions\":{}}\n",
+} as const;
+
+export const RELEASE_OWNERSHIP_COMMIT_SUBJECT = {
+  EARLIER: "earlier ownership",
+  OWNED_SOURCE: "owned source",
+} as const;
+
 export interface ReleaseOwnershipFixture {
   readonly productPath: string;
   readonly tsconfigPath: string;
@@ -65,6 +75,27 @@ export interface ReleaseEndpointOwnershipScenario {
   readonly endpointOwnership: readonly ReleaseEndpointPathOwnership[];
 }
 
+export const RELEASE_ENDPOINT_OWNERSHIP_CASE = {
+  CROSS_ENDPOINT: "cross-endpoint",
+  MULTIPLE_CANDIDATES: "multiple-candidates",
+  DELETED: "deleted",
+  UNRESOLVED: "unresolved",
+} as const;
+
+export type ReleaseEndpointOwnershipCase =
+  (typeof RELEASE_ENDPOINT_OWNERSHIP_CASE)[keyof typeof RELEASE_ENDPOINT_OWNERSHIP_CASE];
+
+export interface ReleaseEndpointRepositoryScenario {
+  readonly kind: ReleaseEndpointOwnershipCase;
+  readonly earlierNodeSlug: string;
+  readonly laterNodeSlug: string;
+  readonly parentNodeSlug: string;
+  readonly childNodeSlug: string;
+  readonly peerNodeSlug: string;
+  readonly tag: string;
+  readonly releaseData: ReleaseData;
+}
+
 export function arbitraryReleaseEndpointOwnershipScenario(): fc.Arbitrary<ReleaseEndpointOwnershipScenario> {
   return fc.record({
     path: arbitraryPathSegment().map((segment) => `src/${segment}.ts`),
@@ -96,6 +127,32 @@ export function arbitraryReleaseEndpointOwnershipScenario(): fc.Arbitrary<Releas
       endpointOwnership,
     };
   });
+}
+
+export function arbitraryReleaseEndpointRepositoryScenario(): fc.Arbitrary<ReleaseEndpointRepositoryScenario> {
+  return fc.record({
+    kind: fc.constantFrom(...Object.values(RELEASE_ENDPOINT_OWNERSHIP_CASE)),
+    nodeSlugs: fc
+      .tuple(
+        arbitraryPathSegment(),
+        arbitraryPathSegment(),
+        arbitraryPathSegment(),
+        arbitraryPathSegment(),
+        arbitraryPathSegment(),
+      )
+      .filter((slugs) => new Set(slugs).size === slugs.length),
+    tag: arbitraryPathSegment().map((segment) => `release-${segment}`),
+    releaseData: RELEASE_TEST_GENERATOR.releaseData(),
+  }).map(({ kind, nodeSlugs, tag, releaseData }) => ({
+    kind,
+    earlierNodeSlug: nodeSlugs[0],
+    laterNodeSlug: nodeSlugs[1],
+    parentNodeSlug: nodeSlugs[2],
+    childNodeSlug: nodeSlugs[3],
+    peerNodeSlug: nodeSlugs[4],
+    tag,
+    releaseData,
+  }));
 }
 
 export function arbitraryReleaseContextScenario(): fc.Arbitrary<ReleaseContextScenario> {
