@@ -29,3 +29,5 @@ Text `show` output is an ordered stream of `<spx-document path="…">…</spx-do
 - NEVER: `show` emits manifest fields, content hashes, byte counts, a receipt, or partial output ([audit])
 - ALWAYS: loaded declarations are resolved through the same accepted-target and projection rules as requested targets before suppression ([audit])
 - NEVER: `--methodology` and `--loaded-methodology` appear together; `--methodology --loaded-product` remains valid ([audit])
+- ALWAYS: context discovery and source reading enter projection through dependency-injected filesystem capabilities ([audit])
+- NEVER: module-mocking frameworks replace context projection dependencies ([audit])
