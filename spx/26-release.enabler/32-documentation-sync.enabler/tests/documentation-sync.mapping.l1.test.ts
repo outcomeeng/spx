@@ -1,8 +1,10 @@
 import { join } from "node:path";
 
+import { DEFAULT_RELEASE_DOCUMENTATION_PATHS } from "@/domains/release/config";
 import {
   arbitraryDocumentationPathAliasCases,
   arbitraryNestedDocumentationSyncScenario,
+  DOCUMENTATION_PATH_MAPPING_CASE,
   documentationPathMappingCases,
 } from "@testing/generators/release/documentation";
 import { sampleReleaseTestValue } from "@testing/generators/release/release";
@@ -19,7 +21,10 @@ describe("documentation sync path mapping", () => {
     await expect(observeDocumentationPathMappings([mappingCase])).resolves.toSatisfy(
       (observations) => {
         for (const observation of observations) {
-          expect(observation.actual).toEqual(observation.mappingCase.expected);
+          const expected = observation.mappingCase.kind === DOCUMENTATION_PATH_MAPPING_CASE.OMITTED
+            ? DEFAULT_RELEASE_DOCUMENTATION_PATHS
+            : observation.mappingCase.scenario.paths;
+          expect(observation.actual).toEqual(expected);
         }
         return true;
       },

@@ -109,10 +109,17 @@ interface DocumentationVersionReferences {
   readonly updated: readonly string[];
 }
 
+export const DOCUMENTATION_PATH_MAPPING_CASE = {
+  OMITTED: "omitted",
+  CONFIGURED: "configured",
+} as const;
+
+export type DocumentationPathMappingCaseKind =
+  (typeof DOCUMENTATION_PATH_MAPPING_CASE)[keyof typeof DOCUMENTATION_PATH_MAPPING_CASE];
+
 export interface DocumentationPathMappingCase {
-  readonly label: string;
+  readonly kind: DocumentationPathMappingCaseKind;
   readonly scenario: DocumentationSyncScenario;
-  readonly expected: readonly string[];
 }
 
 export interface DocumentationPathAliasCase {
@@ -163,8 +170,8 @@ export function documentationPathMappingCases(): readonly DocumentationPathMappi
   const defaults = sampleReleaseTestValue(arbitraryDefaultDocumentationSyncScenario());
   const configured = sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario());
   return [
-    { label: "omitted", scenario: defaults, expected: DEFAULT_RELEASE_DOCUMENTATION_PATHS },
-    { label: "configured", scenario: configured, expected: configured.paths },
+    { kind: DOCUMENTATION_PATH_MAPPING_CASE.OMITTED, scenario: defaults },
+    { kind: DOCUMENTATION_PATH_MAPPING_CASE.CONFIGURED, scenario: configured },
   ];
 }
 
