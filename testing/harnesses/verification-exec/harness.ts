@@ -342,7 +342,14 @@ export async function observeRegistryResolution(): Promise<RegistryResolutionObs
   const receivedUnits: TestScopeUnit[] = [];
   const invocation = await resolveTestRunner(registry).runTestsStreaming(
     sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()),
-    { sink: { appendScope: (unit) => void receivedUnits.push(unit), appendFinding: () => undefined } },
+    {
+      sink: {
+        appendScope: (unit) => {
+          receivedUnits.push(unit);
+        },
+        appendFinding: () => undefined,
+      },
+    },
   );
 
   return {
