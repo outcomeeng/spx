@@ -30,12 +30,19 @@ export interface OperandResolutionContext {
 const PARENT_DIRECTORY = "..";
 const PARENT_DIRECTORY_PREFIX = `${PARENT_DIRECTORY}${PATH_SEGMENT_SEPARATOR}`;
 
+const WINDOWS_PATH_SEGMENT_SEPARATOR = "\\";
+
+function isPathSeparator(character: string | undefined): boolean {
+  return character === PATH_SEGMENT_SEPARATOR || character === WINDOWS_PATH_SEGMENT_SEPARATOR;
+}
+
 // The product root is recognized by its relative spellings before normalization — a bare dot with
 // any run of trailing separators — because normalization also maps an empty operand to the empty
 // string, and that spells no path at all.
 function isProductRootSpelling(operand: string): boolean {
-  const withoutTrailingSeparators = operand.replace(/[\\/]+$/u, "");
-  return withoutTrailingSeparators === TARGET_OPERAND.PRODUCT_ROOT;
+  let end = operand.length;
+  while (end > 0 && isPathSeparator(operand[end - 1])) end -= 1;
+  return operand.slice(0, end) === TARGET_OPERAND.PRODUCT_ROOT;
 }
 
 /**
