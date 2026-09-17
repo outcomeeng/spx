@@ -470,9 +470,16 @@ export function arbitraryProtectedVersionRewriteScenario(): fc.Arbitrary<Documen
       maxLength: DOCUMENT_COUNT_MAX,
     })
     .chain((paths) =>
-      arbitraryDocumentationSyncScenarioWithUnrelatedVersion(
-        fc.constant(paths),
-        { paths },
+      fc.oneof(
+        arbitraryDocumentationSyncScenarioWithUnrelatedVersion(
+          fc.constant(paths),
+          { paths },
+        ),
+        arbitraryDocumentationSyncScenarioWithUnrelatedVersion(
+          fc.constant(paths),
+          { paths },
+          RELEASE_TEST_GENERATOR.releaseDataWithoutPreviousTag(),
+        ),
       )
     )
     .chain(({ scenario, unrelatedVersion }) =>
