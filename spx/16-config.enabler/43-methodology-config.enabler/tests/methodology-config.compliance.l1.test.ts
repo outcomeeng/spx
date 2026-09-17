@@ -17,11 +17,11 @@ import {
   observeDeclaredMethodologyVersionResolution,
   observeHarnessEnvironmentMethodologyRejection,
   observeMalformedMethodologyConfigRejections,
+  observeMethodologyLineResolution,
   observeMethodologyLocationFieldResolution,
   observeMethodologyResolverHarnessUnknownFieldRejection,
   observeMethodologyResolverSimilarHarnessField,
-  observeNonExactMethodologyVersionResolution,
-  observeNonExactMigrationSourceResolution,
+  observeMigrationSourceLineResolution,
   observeUndeclaredMethodologyVersionResolution,
 } from "@testing/harnesses/config/methodology";
 
@@ -33,24 +33,28 @@ describe("methodology config compliance", () => {
     }
   });
 
-  it("rejects a version that is not an exact methodology version, naming the field", async () => {
-    const observation = await observeNonExactMethodologyVersionResolution();
+  it("resolves a major.minor methodology version with patch zero", async () => {
+    const observation = await observeMethodologyLineResolution();
 
-    expect(observation.result.ok).toBe(false);
-    if (!observation.result.ok) {
-      expect(observation.result.error).toContain(`${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.VERSION}`);
-    }
+    expect(observation.result.ok).toBe(true);
+    if (!observation.result.ok) throw new Error(observation.result.error);
+    expect(observation.result.value[METHODOLOGY_SECTION]).toEqual({
+      ...observation.methodology,
+      [METHODOLOGY_CONFIG_FIELDS.VERSION]: `${observation.methodology[METHODOLOGY_CONFIG_FIELDS.VERSION]}.0`,
+    });
   });
 
-  it("rejects a migration source that is not an exact methodology version, naming the field", async () => {
-    const observation = await observeNonExactMigrationSourceResolution();
+  it("resolves a major.minor migration source with patch zero", async () => {
+    const observation = await observeMigrationSourceLineResolution();
 
-    expect(observation.result.ok).toBe(false);
-    if (!observation.result.ok) {
-      expect(observation.result.error).toContain(
-        `${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM}`,
-      );
-    }
+    expect(observation.result.ok).toBe(true);
+    if (!observation.result.ok) throw new Error(observation.result.error);
+    expect(observation.result.value[METHODOLOGY_SECTION]).toEqual({
+      ...observation.methodology,
+      [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: `${
+        observation.methodology[METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]
+      }.0`,
+    });
   });
 
   it("rejects a location field as unrecognized, naming it", async () => {

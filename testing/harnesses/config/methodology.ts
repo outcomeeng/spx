@@ -21,11 +21,11 @@ import {
   generatedHarnessMethodologyConfig,
   generatedHarnessMethodologyWithUnknownFieldsConfig,
   generatedInvalidMethodologyConfigs,
+  generatedMethodologyLineSection,
   generatedMethodologyLocationSection,
   generatedMethodologySection,
   generatedMigratingMethodologySection,
-  generatedNonExactMethodologySection,
-  generatedNonExactMigrationSourceSection,
+  generatedMigrationSourceLineSection,
   generatedSimilarHarnessMethodologyFieldConfig,
 } from "@testing/generators/config/descriptors";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -143,9 +143,9 @@ export async function observeMigratingMethodologyResolution(): Promise<Methodolo
   return { methodology, result };
 }
 
-/** Resolves a section whose version is a bare line rather than an exact version. */
-export async function observeNonExactMethodologyVersionResolution(): Promise<MethodologyResolutionObservation> {
-  const methodology = generatedNonExactMethodologySection();
+/** Resolves a section whose version names a major.minor line. */
+export async function observeMethodologyLineResolution(): Promise<MethodologyResolutionObservation> {
+  const methodology = generatedMethodologyLineSection();
   const result = await withTestEnv(
     { [METHODOLOGY_SECTION]: methodology },
     ({ productDir }) => resolveConfig(productDir, [methodologyConfigDescriptor]),
@@ -153,9 +153,9 @@ export async function observeNonExactMethodologyVersionResolution(): Promise<Met
   return { methodology, result };
 }
 
-/** Resolves a section whose migration source is a bare line rather than an exact version. */
-export async function observeNonExactMigrationSourceResolution(): Promise<MethodologyResolutionObservation> {
-  const methodology = generatedNonExactMigrationSourceSection();
+/** Resolves a section whose migration source names a major.minor line. */
+export async function observeMigrationSourceLineResolution(): Promise<MethodologyResolutionObservation> {
+  const methodology = generatedMigrationSourceLineSection();
   const result = await withTestEnv(
     { [METHODOLOGY_SECTION]: methodology },
     ({ productDir }) => resolveConfig(productDir, [methodologyConfigDescriptor]),
