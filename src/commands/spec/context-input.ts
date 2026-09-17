@@ -23,11 +23,18 @@ import {
 import { resolveSpecProductDir, type SpecProductDirWarningHandler } from "./root";
 
 export interface ContextFileSystem {
+  readonly createSpecTreeSource: typeof createFilesystemSpecTreeSource;
   readonly realPath: (path: string) => Promise<string>;
   readonly readFile: (path: string) => Promise<Uint8Array>;
+  readonly resolveMethodologyConfig: typeof resolveMethodologyConfig;
 }
 
-export const defaultContextFileSystem: ContextFileSystem = { realPath: realpath, readFile };
+export const defaultContextFileSystem: ContextFileSystem = {
+  createSpecTreeSource: createFilesystemSpecTreeSource,
+  realPath: realpath,
+  readFile,
+  resolveMethodologyConfig,
+};
 
 export interface ContextInputOptions {
   readonly cwd?: string;
@@ -58,8 +65,8 @@ export async function readContextInput(options: ContextInputOptions): Promise<Co
   const realRoot = await fs.realPath(productDir);
   const trackedPaths = await listTrackedPaths(productDir, git);
   const includePath = createTrackedPathInclusion(trackedPaths);
-  const snapshot = await readSpecTree({ source: createFilesystemSpecTreeSource({ productDir, includePath }) });
-  const methodology = await resolveMethodologyConfig(productDir);
+  const snapshot = await readSpecTree({ source: fs.createSpecTreeSource({ productDir, includePath }) });
+  const methodology = await fs.resolveMethodologyConfig(productDir);
   if (!methodology.ok) throw new Error(methodology.error);
   const acceptedPaths = specContextAcceptedPaths(snapshot);
   const accepted: Array<SpecContextTargetPathFacts["accepted"][number]> = [];
