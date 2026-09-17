@@ -10,12 +10,11 @@ import {
   readSpecTree,
   SPEC_TREE_NODE_STATE,
 } from "@/lib/spec-tree";
+import { PUBLIC_SPEC_TREE_CONSUMER_ENTRY } from "@testing/fixtures/spec-tree/public-surface-consumer";
 import { buildRepresentativeFixture, createSource } from "@testing/generators/spec-tree/spec-tree";
 import { expectPresent } from "@testing/harnesses/spec-tree/assertions";
 
 const TYPESCRIPT_CONFIG_NAME = "tsconfig.json";
-const PUBLIC_SURFACE_CONSUMER_FIXTURE = "testing/fixtures/spec-tree/public-surface-consumer.ts";
-
 const DIAGNOSTIC_HOST: ts.FormatDiagnosticsHost = {
   getCanonicalFileName: (fileName) => fileName,
   getCurrentDirectory: () => process.cwd(),
@@ -28,7 +27,7 @@ export function assertPublicSpecTreeSurfaceExportsDeclaredContracts(): void {
   expect(config.error, formatDiagnostic(config.error)).toBeUndefined();
   const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, dirname(configPath), {}, configPath);
   const program = ts.createProgram({
-    rootNames: [resolve(process.cwd(), PUBLIC_SURFACE_CONSUMER_FIXTURE)],
+    rootNames: [resolve(process.cwd(), PUBLIC_SPEC_TREE_CONSUMER_ENTRY)],
     options: parsed.options,
   });
   const diagnostics = [...parsed.errors, ...ts.getPreEmitDiagnostics(program)];
