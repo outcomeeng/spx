@@ -24,7 +24,7 @@ export interface ReleaseNotesWriteObservation {
 
 export interface ReleaseNotesCommandObservation extends ReleaseNotesWriteObservation {
   readonly output: string;
-  readonly resolvedPath: string;
+  readonly expectedPath: string;
 }
 
 export interface CanonicalReleaseNotesCommandObservation extends ReleaseNotesCommandObservation {
@@ -58,11 +58,13 @@ export async function observeConfiguredReleaseNotesPath(configuredPath: string):
 
 export async function observeComposedReleaseNotes(
   fixture: ReleaseNotesCompositionFixture,
+  expectedRelativePath: string,
 ): Promise<ReleaseNotesWriteObservation> {
   let observation: ReleaseNotesWriteObservation | undefined;
   await withReleaseNotesEnv(async (env) => {
     const { releaseData } = fixture;
     const resolvedPath = resolveReleaseNotesPath(env.workingDirectory, {});
+    const expectedPath = join(env.workingDirectory, expectedRelativePath);
     await composeReleaseNotes({
       releaseData,
       config: {},
@@ -76,18 +78,20 @@ export async function observeComposedReleaseNotes(
       isSymbolicLink: env.isSymbolicLink,
       isFile: env.isFile,
     });
-    observation = { content: await env.readArtifact(resolvedPath), version: releaseData.version };
+    observation = { content: await env.readArtifact(expectedPath), version: releaseData.version };
   });
   return requireObservation(observation);
 }
 
 export async function observeReleaseNotesCommand(
   fixture: ReleaseNotesCompositionFixture,
+  expectedRelativePath: string,
 ): Promise<ReleaseNotesCommandObservation> {
   let observation: ReleaseNotesCommandObservation | undefined;
   await withReleaseNotesEnv(async (env) => {
     const { releaseData } = fixture;
     const resolvedPath = resolveReleaseNotesPath(env.workingDirectory, {});
+    const expectedPath = join(env.workingDirectory, expectedRelativePath);
     const output = await releaseNotesCommand({
       productDir: env.workingDirectory,
       config: {},
@@ -98,8 +102,8 @@ export async function observeReleaseNotesCommand(
     });
     observation = {
       output,
-      resolvedPath,
-      content: await env.readArtifact(resolvedPath),
+      expectedPath,
+      content: await env.readArtifact(expectedPath),
       version: releaseData.version,
     };
   });
@@ -132,7 +136,7 @@ export async function observeCanonicalReleaseNotesCommand(
     });
     observation = {
       output,
-      resolvedPath: canonicalPath,
+      expectedPath: canonicalPath,
       canonicalPath,
       lexicalPath,
       content: await env.readArtifact(canonicalPath),

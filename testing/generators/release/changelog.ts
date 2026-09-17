@@ -9,7 +9,6 @@ import {
   changelogGroupHeading,
   changelogVersionHeading,
   changelogVersionHeadingText,
-  DEFAULT_CHANGELOG_PATH,
 } from "@/domains/release/release-notes";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 
@@ -17,6 +16,7 @@ const LINE_SEPARATOR = "\n";
 const BLANK_LINE = "";
 const ENTRY_PREFIX = "- ";
 const EMPTY_CHANGELOG = "";
+const ORACLE_DEFAULT_CHANGELOG_PATH = "CHANGELOG.md";
 const ORACLE_CHANGELOG_VERSION_HEADING_SUFFIX = " - unreleased";
 const ORACLE_CHANGELOG_REFERENCE_DEFINITION_PREFIX = "[";
 const ORACLE_CHANGELOG_REFERENCE_DEFINITION_SEPARATOR = "]: ";
@@ -365,7 +365,12 @@ export function changelogWithTruncatedFencedReferenceDefinitionSection(
 }
 
 export function oracleResolvedChangelogPath(workingDirectory: string, changelogPath: string | undefined): string {
-  return resolve(workingDirectory, changelogPath ?? DEFAULT_CHANGELOG_PATH);
+  return resolve(workingDirectory, changelogPath ?? ORACLE_DEFAULT_CHANGELOG_PATH);
+}
+
+/** The independently specified default path used by release-notes output oracles. */
+export function oracleDefaultChangelogPath(): string {
+  return ORACLE_DEFAULT_CHANGELOG_PATH;
 }
 
 /**

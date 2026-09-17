@@ -1,7 +1,11 @@
 import { isAbsolute } from "node:path";
 
 import { isPathContained } from "@/lib/file-system/pathContainment";
-import { arbitraryConfiguredChangelogPath, oracleResolvedChangelogPath } from "@testing/generators/release/changelog";
+import {
+  arbitraryConfiguredChangelogPath,
+  oracleDefaultChangelogPath,
+  oracleResolvedChangelogPath,
+} from "@testing/generators/release/changelog";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 import { sampleReleaseNotesCompositionFixture } from "@testing/generators/release/release-notes";
 import { observeIndependentVersionSection } from "@testing/harnesses/release/keep-a-changelog-oracle";
@@ -40,7 +44,9 @@ describe("resolveReleaseNotesPath resolves the changelog within the product work
 describe("composeReleaseNotes writes the changelog at the resolved path", () => {
   it("writes the changelog carrying a section for the release version", async () => {
     const fixture = sampleReleaseNotesCompositionFixture();
-    await expect(observeComposedReleaseNotes(fixture)).resolves.toSatisfy(
+    await expect(
+      observeComposedReleaseNotes(fixture, oracleDefaultChangelogPath()),
+    ).resolves.toSatisfy(
       (observation) => observeIndependentVersionSection(observation.content, fixture.releaseData.version) !== undefined,
     );
   });
@@ -49,9 +55,11 @@ describe("composeReleaseNotes writes the changelog at the resolved path", () => 
 describe("releaseNotesCommand wires release-note composition into the release workflow", () => {
   it("writes the changelog through the production command handler", async () => {
     const fixture = sampleReleaseNotesCompositionFixture();
-    await expect(observeReleaseNotesCommand(fixture)).resolves.toSatisfy(
+    await expect(
+      observeReleaseNotesCommand(fixture, oracleDefaultChangelogPath()),
+    ).resolves.toSatisfy(
       (observation) =>
-        observation.output === observation.resolvedPath
+        observation.output === observation.expectedPath
         && observeIndependentVersionSection(observation.content, fixture.releaseData.version) !== undefined,
     );
   });
