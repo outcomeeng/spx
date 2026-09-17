@@ -6,11 +6,11 @@ import {
   arbitraryDocumentationPathAliasCases,
   arbitraryNestedDocumentationSyncScenario,
   DOCUMENTATION_PATH_MAPPING_CASE,
+  DOCUMENTATION_PATH_SEMANTICS,
   documentationPathMappingCases,
 } from "@testing/generators/release/documentation";
 import { sampleReleaseTestValue } from "@testing/generators/release/release";
 import {
-  DOCUMENTATION_PATH_SEMANTICS,
   observeDocumentationPathAliases,
   observeDocumentationPathMappings,
   observeDocumentationPathSemantics,

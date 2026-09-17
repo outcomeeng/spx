@@ -1,6 +1,6 @@
 import { constants } from "node:fs";
 import { link, lstat, mkdir, open, readFile, realpath, rename, rm, symlink, writeFile } from "node:fs/promises";
-import { dirname, join, posix, win32 } from "node:path";
+import { dirname, join, posix } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { Command } from "commander";
@@ -43,7 +43,6 @@ import {
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN,
   DOCUMENTATION_SYNC_PROMPT_INSTRUCTION,
-  type DocumentationFaithfulnessAuditor,
   type DocumentationFileIdentity,
   type DocumentationPromoter,
   type DocumentationSyncPromptInput,
@@ -62,6 +61,7 @@ import {
   DOCUMENTATION_FAILURE_CASE,
   DOCUMENTATION_IDENTITY_CASE,
   DOCUMENTATION_PATH_FAILURE_KIND,
+  DOCUMENTATION_PATH_SEMANTICS,
   DOCUMENTATION_PROMOTION_FAILURE_CASE,
   DOCUMENTATION_ROLLBACK_CASE,
   DOCUMENTATION_VERSION_VALIDATION_CASE,
@@ -104,29 +104,6 @@ const DOCUMENTATION_READ_RACE_TARGET = {
   PRODUCT: "product",
   STAGED: "staged",
 } as const;
-export const DOCUMENTATION_PATH_SEMANTICS = [
-  {
-    label: "POSIX",
-    join: posix.join,
-    operations: {
-      isAbsolute: posix.isAbsolute,
-      relative: posix.relative,
-      resolve: posix.resolve,
-      sep: posix.sep,
-    },
-  },
-  {
-    label: "Windows",
-    join: win32.join,
-    operations: {
-      isAbsolute: win32.isAbsolute,
-      relative: win32.relative,
-      resolve: win32.resolve,
-      sep: win32.sep,
-    },
-  },
-] as const;
-
 class DocumentationWritingAgent implements AgentRunner {
   readonly requests: AgentRunRequest[] = [];
 
@@ -606,12 +583,6 @@ export async function observeDocumentationContextTransport(
   }
   return observation;
 }
-
-const rejectingDocumentationAuditor: DocumentationFaithfulnessAuditor = async () => {
-  throw new Error(REJECTING_DOCUMENTATION_AUDIT_MESSAGE);
-};
-
-const REJECTING_DOCUMENTATION_AUDIT_MESSAGE = "Documentation faithfulness rejected";
 
 const failingDocumentationReader: StagedDocumentationReader = async () => {
   throw new Error("Documentation read-back failed");
@@ -1936,6 +1907,10 @@ async function observeDocumentationAudit(
     scenario,
     respondToAudit,
     async (options, readProductDocument) => {
+      const faithfulnessAuditor = createDocumentationFaithfulnessAuditor(
+        new RecordingDocumentationAuditor(respondToAudit),
+        options.productDir,
+      );
       let actualReleaseData: ReleaseData | undefined;
       let actualDocuments: readonly unknown[] = [];
       let error: unknown;
@@ -1947,10 +1922,8 @@ async function observeDocumentationAudit(
             actualDocuments = auditCase === DOCUMENTATION_AUDIT_CASE.REJECT_BEFORE_PROMOTION
               ? documents.map(({ path }) => path)
               : documents;
-            if (
-              auditCase === DOCUMENTATION_AUDIT_CASE.REJECT_BEFORE_PROMOTION
-            ) {
-              await rejectingDocumentationAuditor({ releaseData, documents });
+            if (auditCase === DOCUMENTATION_AUDIT_CASE.REJECT_BEFORE_PROMOTION) {
+              await faithfulnessAuditor({ releaseData, documents });
             }
           },
           promoteDocumentation: promoter.promote,
@@ -2153,5 +2126,4 @@ export {
   observeIndependentDocumentationConfigResolution,
   observeUnrelatedVersionRewrite,
   observeVersionlessSubsequentReleaseDocumentationSync,
-  REJECTING_DOCUMENTATION_AUDIT_MESSAGE,
 };

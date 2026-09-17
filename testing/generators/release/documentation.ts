@@ -1,5 +1,5 @@
 import * as fc from "fast-check";
-import { posix } from "node:path";
+import { posix, win32 } from "node:path";
 
 import { AGENT_FILE_TOOLS, type AgentRunTool } from "@/agent/agent-runner";
 import { SOURCE_DOMAIN_ROOT_PREFIX } from "@/config/source-roots";
@@ -127,6 +127,30 @@ export interface DocumentationPathAliasCase {
   readonly configuredPath: string;
   readonly content: string;
 }
+
+/** Node's complete pair of platform-specific path implementations. */
+export const DOCUMENTATION_PATH_SEMANTICS = [
+  {
+    label: "POSIX",
+    join: posix.join,
+    operations: {
+      isAbsolute: posix.isAbsolute,
+      relative: posix.relative,
+      resolve: posix.resolve,
+      sep: posix.sep,
+    },
+  },
+  {
+    label: "Windows",
+    join: win32.join,
+    operations: {
+      isAbsolute: win32.isAbsolute,
+      relative: win32.relative,
+      resolve: win32.resolve,
+      sep: win32.sep,
+    },
+  },
+] as const;
 
 export const DOCUMENTATION_FAILURE_CASE = {
   GENERATION: "generation",

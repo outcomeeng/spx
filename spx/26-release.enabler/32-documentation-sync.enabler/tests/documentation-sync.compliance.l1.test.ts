@@ -37,7 +37,6 @@ import {
   observeDocumentationPrompt,
   observeDocumentationRollback,
   observeDocumentationVersionValidation,
-  REJECTING_DOCUMENTATION_AUDIT_MESSAGE,
 } from "@testing/harnesses/release/documentation-sync";
 import { describe, expect, it } from "vitest";
 
@@ -488,18 +487,18 @@ describe("documentation sync compliance", () => {
   });
 
   it("audits the read-back set before promoting any document", async () => {
+    const rejection = new Error("Documentation faithfulness rejected");
     await expect(
       observeDocumentationAudit(
         sampleDocumentationAuditInput(
           DOCUMENTATION_AUDIT_CASE.REJECT_BEFORE_PROMOTION,
         ),
-        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
+        async () => {
+          throw rejection;
+        },
       ),
     ).resolves.toSatisfy((observation) => {
-      expect(observation.error).toBeInstanceOf(Error);
-      expect((observation.error as Error).message).toBe(
-        REJECTING_DOCUMENTATION_AUDIT_MESSAGE,
-      );
+      expect(observation.error).toBe(rejection);
       expect(observation.actualReleaseData).toBe(
         observation.scenario.releaseData,
       );
