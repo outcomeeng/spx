@@ -44,6 +44,9 @@ export const ESLINT_TYPESCRIPT_CONFIG_FILES = {
   PRODUCTION: "./tsconfig.production.json",
 } as const;
 
+/** Root build-config files: outside the TypeScript project's trees, each loaded by its own tool's native module loader. */
+const ROOT_BUILD_CONFIG_FILES = ["*.config.ts", "eslint.config.*.ts"] as const;
+
 export interface BuildEslintConfigOptions {
   readonly typescriptConfigFile?: string;
 }
@@ -275,6 +278,18 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
         [NO_DEEP_RELATIVE_IMPORTS_RULE_ID]: "error",
         [NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID]: "error",
         [NO_SPEC_REFERENCES_RULE_ID]: "error",
+      },
+    },
+
+    // Root build-config files sit outside the TypeScript project's trees and are
+    // loaded by their own tool's native module loader — Vite's native config
+    // loader resolves a relative specifier as Node ESM does and requires its
+    // extension — so the extensionless-source rule governs the project's trees
+    // alone.
+    {
+      files: [...ROOT_BUILD_CONFIG_FILES],
+      rules: {
+        [NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID]: "off",
       },
     },
     {

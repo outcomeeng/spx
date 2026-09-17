@@ -1,11 +1,13 @@
 import type { Command } from "commander";
 import * as fc from "fast-check";
 
-import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
+import { TARGET_OPERAND } from "@/lib/test-targeting";
 import { pythonTestingLanguage } from "@/test/languages/python";
 import type { TestingLanguageDescriptor, TestRunInvocation } from "@/test/languages/types";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
-import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 
 const NODE_INDEX_MIN = 10;
 const NODE_INDEX_MAX = 99;
@@ -15,8 +17,15 @@ const MAX_EXIT_CODE = 255;
 const MIN_NON_ZERO_EXIT_CODE = 1;
 const MAX_UNSUPPORTED_SELECTION_COUNT = 6;
 const NODE_PAIR_LENGTH = 2;
+const MIN_OPERAND_LIST_LENGTH = 1;
+const MAX_OPERAND_LIST_LENGTH = 4;
+const MAX_TRAILING_SEPARATORS = 3;
+const ABSOLUTE_PATH_PREFIX = "/";
+const EMPTY_OPERAND = "";
+const PARENT_DIRECTORY = "..";
+const PARENT_SIBLING_SUFFIX = "-beside";
 const GLOB_WILDCARD = "*";
-const PATH_SEPARATOR = "/";
+const PATH_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
 const COMMANDER_USER_PARSE_SOURCE = "user";
 
 export type TestingCliCommanderParseSource = NonNullable<
@@ -29,7 +38,7 @@ const SPEC_ROOT = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
 const TESTS_DIRECTORY = SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME;
 const ENABLER_SUFFIX = KIND_REGISTRY.enabler.suffix;
 const SPEC_NODE_SUFFIXES = [KIND_REGISTRY.enabler.suffix, KIND_REGISTRY.outcome.suffix] as const;
-const NODE_INDEX_SEPARATOR = "-";
+const NODE_INDEX_SEPARATOR = SPEC_TREE_GRAMMAR.ORDER.SEPARATOR;
 
 // The descriptors the dispatch composes; generated matching paths derive their
 // shape from each descriptor's own patterns, and unmatched paths are filtered
@@ -41,8 +50,15 @@ export const TEST_DISPATCH_GENERATOR = {
   nodePath: arbitraryNodePath,
   distinctNodePaths: arbitraryDistinctNodePaths,
   nodeWithDescendant: arbitraryNodeWithDescendant,
+  descendantOf: arbitraryDescendantOf,
+  productRootSpellings: arbitraryProductRootSpellings,
+  unresolvableOperands: arbitraryUnresolvableOperands,
+  nodeWithOwnFile: arbitraryNodeWithOwnFile,
+  distinctNodesWithOwnFiles: arbitraryDistinctNodesWithOwnFiles,
+  nestedFiles: arbitraryNestedFiles,
   specFileUnder,
   testFileUnder: arbitraryTestFileUnder,
+  distinctTestFilesUnder: arbitraryDistinctTestFilesUnder,
   supportFileUnder: arbitrarySupportFileUnder,
   unmatchedTestFileUnder: arbitraryUnmatchedTestFileUnder,
   testFilePath: arbitraryTestFilePath,
@@ -52,7 +68,7 @@ export const TEST_DISPATCH_GENERATOR = {
 } as const;
 
 export function sampleDispatchValue<T>(arbitrary: fc.Arbitrary<T>): T {
-  return sampleConfigTestValue(arbitrary);
+  return sampleGeneratedValue(arbitrary);
 }
 
 export function testingCliCommanderParseSource(): TestingCliCommanderParseSource {
@@ -113,6 +129,115 @@ function arbitraryNodeWithDescendant(): fc.Arbitrary<readonly [string, string]> 
     .map(([parent, childSegment]) => [parent, `${parent}${PATH_SEPARATOR}${childSegment}`] as const);
 }
 
+// A descendant node path under the given parent — the shape a recursive operand widens to and a
+// default node operand leaves out, so a fixture can hold both without composing the path by hand.
+function arbitraryDescendantOf(nodePath: string): fc.Arbitrary<string> {
+  return arbitraryNodeSegment().map((segment) => `${nodePath}${PATH_SEPARATOR}${segment}`);
+}
+
+// Every spelling of the product root the operand vocabulary recognizes — the bare dot with each
+// run of trailing separators up to the bound, and the root's own absolute path — as one list, so a
+// case covers the whole enumeration in one run rather than one member per run.
+function arbitraryProductRootSpellings(productDir: string): fc.Arbitrary<readonly string[]> {
+  return fc
+    .integer({ min: 1, max: MAX_TRAILING_SEPARATORS })
+    .map((longest) => [
+      ...Array.from(
+        { length: longest + 1 },
+        (_, count) => `${TARGET_OPERAND.PRODUCT_ROOT}${PATH_SEPARATOR.repeat(count)}`,
+      ),
+      productDir,
+    ]);
+}
+
+// One operand of each spelling that names no path inside the product: nothing, the filesystem
+// root, an absolute path beside the product, a relative path climbing out of it from its first
+// segment, and one that descends into a node before climbing out — so a case covers every class in
+// one run rather than one member per run.
+function arbitraryUnresolvableOperands(productDir: string): fc.Arbitrary<readonly string[]> {
+  return arbitraryNodePath().map((nodePath) => {
+    const climbOut = Array.from(
+      { length: nodePath.split(PATH_SEPARATOR).length + 1 },
+      () => PARENT_DIRECTORY,
+    ).join(PATH_SEPARATOR);
+    return [
+      EMPTY_OPERAND,
+      ABSOLUTE_PATH_PREFIX,
+      `${productDir}${PARENT_SIBLING_SUFFIX}${PATH_SEPARATOR}${nodePath}`,
+      `${PARENT_DIRECTORY}${PATH_SEPARATOR}${nodePath}`,
+      `${nodePath}${PATH_SEPARATOR}${climbOut}${PATH_SEPARATOR}${nodePath}`,
+    ];
+  });
+}
+
+// The absolute spelling of a product-root-relative operand under the given product root.
+export function absoluteOperand(productDir: string, operand: string): string {
+  return `${productDir}${PATH_SEPARATOR}${operand}`;
+}
+
+/** A node path with one own test file of the language under its `tests/`. */
+export interface NodeWithOwnFile {
+  readonly node: string;
+  readonly file: string;
+}
+
+/** A bounded list of distinct nodes with their own files, under one product root. */
+export interface DistinctNodesWithOwnFiles {
+  readonly productDir: string;
+  readonly entries: readonly NodeWithOwnFile[];
+}
+
+/** A parent node, a descendant under it, and one own test file of the language in each, under one product root. */
+export interface NestedFiles {
+  readonly productDir: string;
+  readonly parent: string;
+  readonly descendant: string;
+  readonly ownFile: string;
+  readonly descendantFile: string;
+}
+
+// A node paired with one own test file under it, so a discovered set built from
+// these has every entry reachable by its node operand.
+function arbitraryNodeWithOwnFile(descriptor: TestingLanguageDescriptor): fc.Arbitrary<NodeWithOwnFile> {
+  return arbitraryNodePath().chain((node) => arbitraryTestFileUnder(descriptor, node).map((file) => ({ node, file })));
+}
+
+// A bounded list of distinct nodes, each with its own test file — the operand-list
+// domain over which resolution is order- and repetition-independent.
+function arbitraryDistinctNodesWithOwnFiles(
+  descriptor: TestingLanguageDescriptor,
+): fc.Arbitrary<DistinctNodesWithOwnFiles> {
+  return fc
+    .tuple(
+      CONFIG_TEST_GENERATOR.productDir(),
+      fc.uniqueArray(arbitraryNodeWithOwnFile(descriptor), {
+        minLength: MIN_OPERAND_LIST_LENGTH,
+        maxLength: MAX_OPERAND_LIST_LENGTH,
+        selector: (entry) => entry.node,
+      }),
+    )
+    .map(([productDir, entries]) => ({ productDir, entries }));
+}
+
+// A parent and a descendant with one own test file each: a recursive parent operand
+// and the descendant operand both match the descendant file, so their resolutions
+// overlap on a distinct discovered candidate.
+function arbitraryNestedFiles(descriptor: TestingLanguageDescriptor): fc.Arbitrary<NestedFiles> {
+  return fc
+    .tuple(CONFIG_TEST_GENERATOR.productDir(), arbitraryNodeWithDescendant())
+    .chain(([productDir, [parent, descendant]]) =>
+      arbitraryTestFileUnder(descriptor, parent).chain((ownFile) =>
+        arbitraryTestFileUnder(descriptor, descendant).map((descendantFile) => ({
+          productDir,
+          parent,
+          descendant,
+          ownFile,
+          descendantFile,
+        }))
+      )
+    );
+}
+
 function testsDirectoryFor(nodePath: string): string {
   return [SPEC_ROOT, nodePath, TESTS_DIRECTORY].join(PATH_SEPARATOR);
 }
@@ -124,6 +249,21 @@ function arbitraryTestFileUnder(
   return fc
     .tuple(fc.constantFrom(...descriptor.testFilePatterns), CONFIG_TEST_GENERATOR.key())
     .map(([pattern, name]) => `${testsDirectoryFor(nodePath)}${PATH_SEPARATOR}${pattern.replace(GLOB_WILDCARD, name)}`);
+}
+
+// Two distinct test files of a registered language under one node's `tests/` directory — the
+// shape a run reports when one file fails and another passes, drawn as one pair so a seeded
+// single draw cannot collapse them onto one path.
+function arbitraryDistinctTestFilesUnder(
+  descriptor: TestingLanguageDescriptor,
+  nodePath: string,
+): fc.Arbitrary<readonly [string, string]> {
+  return fc
+    .uniqueArray(arbitraryTestFileUnder(descriptor, nodePath), {
+      minLength: NODE_PAIR_LENGTH,
+      maxLength: NODE_PAIR_LENGTH,
+    })
+    .map(([first, second]) => [first, second] as const);
 }
 
 // A non-test source file of a registered language co-located under a node's

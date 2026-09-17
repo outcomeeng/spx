@@ -1,0 +1,765 @@
+/**
+ * Test harness for the `spx verification <type> run` command surface.
+ *
+ * The command tree is inspected on the real CLI program. The handler is driven over a temp product
+ * holding generated spec-tree test files — a real git repository by default, or a bare directory
+ * outside any repository — so the production worktree-root resolver is exercised, not injected;
+ * the real verify recorder is wired to an in-memory state store, and a controlled streaming runner
+ * yields a configured invocation (Stage 5 exception 7, a contract probe at the runner boundary) — no
+ * real Vitest run at `l1`. The descriptor's process boundary is observed through recording standard
+ * streams, with a handler that either returns a configured result or fails with a configured error.
+ * Every function returns observations; the linked test owns every predicate.
+ */
+import { realpath, writeFile } from "node:fs/promises";
+import { join, posix } from "node:path";
+
+import { execa } from "execa";
+
+import {
+  EXECUTABLE_VERIFICATION_TYPES,
+  type ExecuteRunCliDeps,
+  type ExecuteRunCliOptions,
+  executeRunCommand,
+  type ExecuteRunCommandResult,
+  type ExecuteRunReport,
+  type JournalStreamingRunner,
+  resolveVerificationRunner,
+} from "@/commands/verification-exec";
+import { verifyInputCommand, type VerifyInputReport } from "@/commands/verify/cli";
+import { VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE, type VerifyVerificationType } from "@/domains/verify/verify";
+import type { Domain } from "@/interfaces/cli/domain";
+import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
+import { createCliProgram } from "@/interfaces/cli/program";
+import {
+  EXECUTE_RUN_CLI_SURFACE,
+  registerVerifyCommands,
+  VERIFICATION_RUN_CLI_SURFACE,
+  verifyDomain,
+} from "@/interfaces/cli/verify";
+import { appendableJournalSealMarkerPath } from "@/lib/appendable-journal-store";
+import { GIT_SHOW_TOPLEVEL_ARGS, type GitDependencies } from "@/lib/git/root";
+import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
+import {
+  defaultStateStoreFileSystem,
+  runTokenFromRunFileName,
+  type StateStoreFileEntry,
+  type StateStoreFileSystem,
+} from "@/lib/state-store";
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
+import { JOURNAL_RUN_TERMINAL_STATUS, type JournalRunInvocation, type JournalRunRequest } from "@/test/languages/types";
+import { typescriptTestingLanguage } from "@/test/languages/typescript";
+import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
+import { sampleGeneratedValue } from "@testing/generators/sample";
+import { TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
+import { GIT_TEST_COMMAND, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
+import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
+import { withTestingTempProductDir, writeTestFileFixture } from "@testing/harnesses/testing/harness";
+import {
+  createVerifyRunContextScenario,
+  verifyDeps,
+  verifyGitDeps,
+  verifyInputOptions,
+  type VerifyRunContextScenario,
+  withVerificationType,
+} from "@testing/harnesses/verify/harness";
+
+/** One executable verification type's command subtree as the real program registers it. */
+export interface TypeNounObservation {
+  readonly typeName: string;
+  readonly runVerbPresent: boolean;
+  /** The name of the run verb's variadic positional operand, or `undefined` when it declares none. */
+  readonly variadicOperandName: string | undefined;
+  readonly runVerbOptionFlags: readonly string[];
+}
+
+/** The `spx verification` command tree as the real program registers it. */
+export interface ExecuteRunCommandTreeObservation {
+  /** The types the executor's runner registry resolves. */
+  readonly executableTypes: readonly string[];
+  /** The names of every child command under `spx verification`. */
+  readonly verificationChildNames: readonly string[];
+  /** One entry per executable type, inspected on the tree. */
+  readonly typeNouns: readonly TypeNounObservation[];
+}
+
+/** Inspects the real CLI program's `spx verification` subtree for the type-noun command paths. */
+export function inspectExecuteRunCommandTree(): ExecuteRunCommandTreeObservation {
+  const program = createCliProgram();
+  const verificationCommand = program.commands.find(
+    (command) => command.name() === VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
+  );
+  const typeNouns = EXECUTABLE_VERIFICATION_TYPES.map((typeName): TypeNounObservation => {
+    const typeNounCommand = verificationCommand?.commands.find((command) => command.name() === typeName);
+    const runVerbCommand = typeNounCommand?.commands.find(
+      (command) => command.name() === EXECUTE_RUN_CLI_SURFACE.runVerbName,
+    );
+    return {
+      typeName,
+      runVerbPresent: runVerbCommand !== undefined,
+      variadicOperandName: runVerbCommand?.registeredArguments.find((argument) => argument.variadic)?.name(),
+      runVerbOptionFlags: runVerbCommand?.options.map((option) => option.flags) ?? [],
+    };
+  });
+  return {
+    executableTypes: EXECUTABLE_VERIFICATION_TYPES,
+    verificationChildNames: verificationCommand?.commands.map((command) => command.name()) ?? [],
+    typeNouns,
+  };
+}
+
+/**
+ * A temp product's generated spec-tree layout: two distinct nodes, each holding one TypeScript test
+ * file, and a descendant node under the second holding a third — the shape a recursive operand
+ * widens to and a default node operand leaves out.
+ */
+export interface GeneratedTestProduct {
+  /** The product root — the canonical path of the temp directory, as git resolves it when the product is a repository. */
+  readonly productDir: string;
+  /** Whether the product directory was initialized as a git repository. */
+  readonly gitRepository: boolean;
+  /** The two top-level nodes as product-root paths — the operand form a caller passes, e.g. `spx/<node>`. */
+  readonly nodePaths: readonly [string, string];
+  /** The descendant node under the second top-level node, as a product-root path. */
+  readonly descendantNodePath: string;
+  /** Every test file as a product-root path: the first node's, the second node's, then the descendant's. */
+  readonly testPaths: readonly [string, string, string];
+}
+
+const PATH_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
+
+function productRootNodePath(nodePath: string): string {
+  return `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${PATH_SEPARATOR}${nodePath}`;
+}
+
+// Initializes the temp directory as a git repository when asked, so the production worktree-root
+// resolver finds it, and materializes the generated test files under its spec tree.
+async function materializeTestProduct(tempDir: string, gitRepository: boolean): Promise<GeneratedTestProduct> {
+  if (gitRepository) await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET], { cwd: tempDir });
+  const productDir = await realpath(tempDir);
+  const [firstNode, secondNode] = sampleGeneratedValue(TEST_DISPATCH_GENERATOR.distinctNodePaths());
+  const descendantNode = sampleGeneratedValue(TEST_DISPATCH_GENERATOR.descendantOf(secondNode));
+  const firstTest = sampleGeneratedValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, firstNode));
+  const secondTest = sampleGeneratedValue(
+    TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, secondNode),
+  );
+  const descendantTest = sampleGeneratedValue(
+    TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, descendantNode),
+  );
+  await writeTestFileFixture(productDir, firstTest);
+  await writeTestFileFixture(productDir, secondTest);
+  await writeTestFileFixture(productDir, descendantTest);
+  return {
+    productDir,
+    gitRepository,
+    nodePaths: [productRootNodePath(firstNode), productRootNodePath(secondNode)],
+    descendantNodePath: productRootNodePath(descendantNode),
+    testPaths: [firstTest, secondTest, descendantTest],
+  };
+}
+
+/** A controlled runner yielding a configured invocation and recording the request it received. */
+interface ControlledRunner {
+  readonly runner: JournalStreamingRunner;
+  request(): JournalRunRequest | undefined;
+}
+
+// Yields the invocation, or fails with the configured error after recording the request — the
+// failure-simulation double for a runner that cannot complete (Stage 5 exception 1).
+function controlledRunner(invocation: JournalRunInvocation, failure: Error | undefined): ControlledRunner {
+  let captured: JournalRunRequest | undefined;
+  return {
+    runner: {
+      runTestsStreaming: (request) => {
+        captured = request;
+        return failure === undefined ? Promise.resolve(invocation) : Promise.reject(failure);
+      },
+    },
+    request: () => captured,
+  };
+}
+
+// A store whose every write fails with the configured error while reads pass through — the
+// failure-simulation double for a recorder that cannot record (Stage 5 exception 1).
+function writeRefusingStore(inner: StateStoreFileSystem, failure: Error): StateStoreFileSystem {
+  return {
+    mkdir: () => Promise.reject(failure),
+    writeFile: () => Promise.reject(failure),
+    appendFile: () => Promise.reject(failure),
+    link: () => Promise.reject(failure),
+    rename: () => Promise.reject(failure),
+    rm: () => Promise.reject(failure),
+    readFile: (path, encoding) => inner.readFile(path, encoding),
+    readdir: (path, options) => inner.readdir(path, options),
+    lstat: (path) => inner.lstat(path),
+  };
+}
+
+/** One run the recorder opened in the store, and whether its journal carries the seal marker. */
+export interface RecordedRunObservation {
+  readonly runToken: string;
+  readonly sealed: boolean;
+}
+
+// Walks the in-memory store and reports every run file the recorder wrote, sealed or not — the
+// observation behind "opens no run" and "after the run seals", read from the store rather than
+// from the handler's own return value.
+async function recordedRuns(fs: StateStoreFileSystem, root: string): Promise<readonly RecordedRunObservation[]> {
+  const files = await listStoreFiles(fs, root);
+  const present = new Set(files);
+  return files.flatMap((path) => {
+    const runToken = runTokenFromRunFileName(posix.basename(path));
+    return runToken === undefined ? [] : [{ runToken, sealed: present.has(appendableJournalSealMarkerPath(path)) }];
+  });
+}
+
+async function listStoreFiles(fs: StateStoreFileSystem, directory: string): Promise<readonly string[]> {
+  let entries: readonly StateStoreFileEntry[];
+  try {
+    entries = await fs.readdir(directory, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const listed = await Promise.all(
+    entries.map((entry) => {
+      const path = posix.join(directory, entry.name);
+      return entry.isFile() ? Promise.resolve([path]) : listStoreFiles(fs, path);
+    }),
+  );
+  return listed.flat();
+}
+
+/** Git dependencies answering as the scenario's, recording the directory each worktree-root probe ran in. */
+interface ProbeRecordingGitDeps {
+  readonly git: GitDependencies;
+  probeCwds(): readonly string[];
+}
+
+// The recorder resolves its store root by probing `git rev-parse --show-toplevel` from the
+// directory it is rooted at; recording that directory exposes where the handler rooted the
+// recorder, while the probe's answer stays the scenario's product root.
+function probeRecordingGitDeps(scenario: VerifyRunContextScenario): ProbeRecordingGitDeps {
+  const probeCwds: string[] = [];
+  const answering = verifyGitDeps(scenario);
+  return {
+    git: {
+      execa: (command, args, options) => {
+        if (args.join(" ") === GIT_SHOW_TOPLEVEL_ARGS.join(" ") && options?.cwd !== undefined) {
+          probeCwds.push(options.cwd);
+        }
+        return answering.execa(command, args, options);
+      },
+    },
+    probeCwds: () => probeCwds,
+  };
+}
+
+/** What one handler invocation over a generated product and a controlled runner exposes. */
+export interface ExecuteRunHandlerObservation {
+  readonly product: GeneratedTestProduct;
+  /** The directory the handler was invoked from. */
+  readonly invocationDir: string;
+  /** The directories the recorder's worktree-root probes ran in during the handler's run. */
+  readonly recorderProbeCwds: readonly string[];
+  readonly operands: readonly string[];
+  /** Whether the drive widened node operands to their subtrees. */
+  readonly recursive: boolean;
+  readonly invocation: JournalRunInvocation;
+  readonly exitCode: number;
+  readonly report: ExecuteRunReport | undefined;
+  readonly diagnostic: TerminalText | undefined;
+  readonly warning: TerminalText | undefined;
+  /** The request the controlled runner received, or `undefined` when no run opened. */
+  readonly drivenRequest: JournalRunRequest | undefined;
+  /** The run input the recorder replays for the opened run, or `undefined` when no run opened. */
+  readonly recordedInput: VerifyInputReport | undefined;
+  /** Every run the recorder opened in the store during the drive, with its sealed state. */
+  readonly recordedRuns: readonly RecordedRunObservation[];
+}
+
+/** The product root itself — the default invocation directory. */
+export function invokeFromProductRoot(product: GeneratedTestProduct): string {
+  return product.productDir;
+}
+
+/** The directory of the product's first generated test file — an invocation directory inside the product. */
+export function invokeFromFirstTestDir(product: GeneratedTestProduct): string {
+  return join(product.productDir, posix.dirname(product.testPaths[0]));
+}
+
+/** How the handler is driven: which operands, from where, over which product, yielding which invocation. */
+export interface ExecuteRunHandlerDrive {
+  /** The operands to pass, chosen over the generated product; defaults to none. */
+  readonly selectOperands?: (product: GeneratedTestProduct) => readonly string[];
+  /** The directory to invoke from, chosen over the generated product; defaults to the product root. */
+  readonly selectInvocationDir?: (product: GeneratedTestProduct) => string;
+  /** Whether the generated product is a git repository; defaults to true. */
+  readonly gitRepository?: boolean;
+  /** Whether a node-path operand selects its whole subtree; defaults to false. */
+  readonly recursive?: boolean;
+  /** The invocation the controlled runner yields; defaults to the first invoked invocation. */
+  readonly invocation?: JournalRunInvocation;
+  /** The error the controlled runner fails with instead of yielding; defaults to none. */
+  readonly runnerFailure?: Error;
+  /** The error the recorder's store refuses every write with; defaults to none. */
+  readonly recorderFailure?: Error;
+}
+
+/** The drive with every handler-side option resolved to a value. */
+interface ResolvedHandlerDrive {
+  readonly selectOperands: (product: GeneratedTestProduct) => readonly string[];
+  readonly selectInvocationDir: (product: GeneratedTestProduct) => string;
+  readonly gitRepository: boolean;
+  readonly recursive: boolean;
+  readonly invocation: JournalRunInvocation;
+  readonly runnerFailure: Error | undefined;
+  readonly recorderFailure: Error | undefined;
+}
+
+interface ExecuteRunDrive extends ResolvedHandlerDrive {
+  readonly verificationType: VerifyVerificationType;
+  /** Resolves the runner the handler drives; the controlled runner, or the production registry. */
+  readonly resolveRunner: (
+    controlled: ControlledRunner,
+  ) => (verificationType: string) => JournalStreamingRunner | undefined;
+}
+
+function resolvedDrive(drive: ExecuteRunHandlerDrive): ResolvedHandlerDrive {
+  return {
+    selectOperands: drive.selectOperands ?? (() => []),
+    selectInvocationDir: drive.selectInvocationDir ?? invokeFromProductRoot,
+    gitRepository: drive.gitRepository ?? true,
+    recursive: drive.recursive ?? false,
+    invocation: drive.invocation ?? invokedInvocations()[0],
+    runnerFailure: drive.runnerFailure,
+    recorderFailure: drive.recorderFailure,
+  };
+}
+
+/**
+ * Drives the execute-run handler for the `test` type over a generated temp product with the drive's
+ * operands and a controlled runner yielding the drive's invocation, from the drive's invocation
+ * directory, against the real recorder over an in-memory store and the production worktree-root
+ * resolver, and reads back the recorded run input when a run opened.
+ */
+export function observeExecuteRunHandler(drive: ExecuteRunHandlerDrive = {}): Promise<ExecuteRunHandlerObservation> {
+  return driveExecuteRun({
+    ...resolvedDrive(drive),
+    verificationType: VERIFY_VERIFICATION_TYPE.TEST,
+    resolveRunner: (controlled) => () => controlled.runner,
+  });
+}
+
+/**
+ * Drives the execute-run handler with an agentic verification type — one the production registry
+ * resolves no streaming runner for — over the whole generated product, from its root.
+ */
+export function observeExecuteRunWithAgenticType(): Promise<ExecuteRunHandlerObservation> {
+  return driveExecuteRun({
+    ...resolvedDrive({}),
+    verificationType: VERIFY_VERIFICATION_TYPE.AUDIT,
+    resolveRunner: () => resolveVerificationRunner,
+  });
+}
+
+/** One prepared drive: the generated product, the handler's real dependencies, and the store behind them. */
+interface PreparedDrive {
+  readonly product: GeneratedTestProduct;
+  readonly operands: readonly string[];
+  readonly invocationDir: string;
+  readonly scenario: VerifyRunContextScenario;
+  readonly handlerDeps: ExecuteRunCliDeps;
+  readonly recorderDeps: ReturnType<typeof verifyDeps>;
+  readonly controlled: ControlledRunner;
+  probeCwds(): readonly string[];
+  recordedRuns(): Promise<readonly RecordedRunObservation[]>;
+}
+
+// Materializes the product and wires the real recorder over an in-memory store, the production
+// worktree-root resolver, and the drive's controlled runner — the one setup every drive shares.
+async function prepareDrive(tempDir: string, drive: ExecuteRunDrive): Promise<PreparedDrive> {
+  const product = await materializeTestProduct(tempDir, drive.gitRepository);
+  const scenario = withVerificationType(
+    { ...createVerifyRunContextScenario(), productDir: product.productDir },
+    drive.verificationType,
+  );
+  const fs = createInMemoryStateStoreFileSystem();
+  const recorderStore = drive.recorderFailure === undefined ? fs : writeRefusingStore(fs, drive.recorderFailure);
+  const probes = probeRecordingGitDeps(scenario);
+  const recorderDeps = { ...verifyDeps(scenario, recorderStore), git: probes.git };
+  const controlled = controlledRunner(drive.invocation, drive.runnerFailure);
+  const invocationDir = drive.selectInvocationDir(product);
+  return {
+    product,
+    operands: drive.selectOperands(product),
+    invocationDir,
+    scenario,
+    handlerDeps: { cwd: invocationDir, resolveRunner: drive.resolveRunner(controlled), recorder: recorderDeps },
+    recorderDeps,
+    controlled,
+    probeCwds: () => [...probes.probeCwds()],
+    recordedRuns: () => recordedRuns(fs, product.productDir),
+  };
+}
+
+async function driveExecuteRun(drive: ExecuteRunDrive): Promise<ExecuteRunHandlerObservation> {
+  let observation: ExecuteRunHandlerObservation | undefined;
+  await withTestingTempProductDir(async (tempDir) => {
+    const prepared = await prepareDrive(tempDir, drive);
+    const result = await executeRunCommand(
+      { verificationType: drive.verificationType, operands: prepared.operands, recursive: drive.recursive },
+      prepared.handlerDeps,
+    );
+    const recordedInput = result.report === undefined
+      ? undefined
+      : JSON.parse(
+        (await verifyInputCommand(
+          {
+            ...verifyInputOptions(prepared.scenario, result.report.runToken),
+            scopeType: VERIFY_SCOPE_TYPE.FILE,
+            scope: result.report.locator.scopeIdentity,
+          },
+          prepared.recorderDeps,
+        )).output,
+      ) as VerifyInputReport;
+    observation = {
+      product: prepared.product,
+      invocationDir: prepared.invocationDir,
+      recorderProbeCwds: prepared.probeCwds(),
+      operands: prepared.operands,
+      recursive: drive.recursive,
+      invocation: drive.invocation,
+      exitCode: result.exitCode,
+      report: result.report,
+      diagnostic: result.diagnostic,
+      warning: result.warning,
+      drivenRequest: prepared.controlled.request(),
+      recordedInput,
+      recordedRuns: await prepared.recordedRuns(),
+    };
+  });
+  if (observation === undefined) throw new Error("execute-run harness produced no observation");
+  return observation;
+}
+
+/** What a handler invocation whose runner fails exposes: the propagated rejection and the store. */
+export interface ExecuteRunHandlerFailureObservation {
+  readonly product: GeneratedTestProduct;
+  /** The request the controlled runner received before failing. */
+  readonly drivenRequest: JournalRunRequest | undefined;
+  /** What the handler rejected with, or `undefined` when it returned instead. */
+  readonly rejection: unknown;
+  /** Every run the recorder opened in the store during the drive, with its sealed state. */
+  readonly recordedRuns: readonly RecordedRunObservation[];
+}
+
+/** Which boundary fails beneath the handler: the runner it drives, or the recorder it records through. */
+export interface ExecuteRunFailureOrigin {
+  readonly runnerFailure?: Error;
+  readonly recorderFailure?: Error;
+}
+
+/**
+ * Drives the real execute-run handler for the `test` type over a generated product with the given
+ * boundary failing — a controlled runner that rejects, or a store that refuses the recorder's
+ * writes — and observes what the handler propagated and what the recorder left in the store.
+ */
+export async function observeExecuteRunHandlerFailure(
+  origin: ExecuteRunFailureOrigin,
+): Promise<ExecuteRunHandlerFailureObservation> {
+  let observation: ExecuteRunHandlerFailureObservation | undefined;
+  const drive: ExecuteRunDrive = {
+    ...resolvedDrive(origin),
+    verificationType: VERIFY_VERIFICATION_TYPE.TEST,
+    resolveRunner: (controlled) => () => controlled.runner,
+  };
+  await withTestingTempProductDir(async (tempDir) => {
+    const prepared = await prepareDrive(tempDir, drive);
+    let rejection: unknown;
+    try {
+      await executeRunCommand(
+        { verificationType: drive.verificationType, operands: prepared.operands, recursive: drive.recursive },
+        prepared.handlerDeps,
+      );
+    } catch (error: unknown) {
+      rejection = error;
+    }
+    observation = {
+      product: prepared.product,
+      drivenRequest: prepared.controlled.request(),
+      rejection,
+      recordedRuns: await prepared.recordedRuns(),
+    };
+  });
+  if (observation === undefined) throw new Error("execute-run harness produced no failure observation");
+  return observation;
+}
+
+/** Every invoked terminal status the runner vocabulary declares, as an invocation each. */
+export function invokedInvocations(): readonly JournalRunInvocation[] {
+  return Object.values(JOURNAL_RUN_TERMINAL_STATUS).map((terminalStatus) => ({ invoked: true, terminalStatus }));
+}
+
+/** What the descriptor wrote to the process streams for one parsed command line. */
+export interface ExecuteRunDescriptorObservation {
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly exitCode: number | undefined;
+  /** The options the descriptor handed the injected handler, in invocation order. */
+  readonly handlerOptions: readonly ExecuteRunCliOptions[];
+}
+
+/** What the recording handler does when the descriptor invokes it: return a result, or fail with an error. */
+export type ExecuteRunHandlerOutcome =
+  | { readonly kind: "result"; readonly result: ExecuteRunCommandResult }
+  | { readonly kind: "failure"; readonly error: Error };
+
+/** A handler outcome returning the given result. */
+export function handlerReturning(result: ExecuteRunCommandResult): ExecuteRunHandlerOutcome {
+  return { kind: "result", result };
+}
+
+/** A handler outcome failing with an error carrying the given message. */
+export function handlerFailingWith(message: string): ExecuteRunHandlerOutcome {
+  return { kind: "failure", error: new Error(message) };
+}
+
+const RECORD_RUN_HANDLER_NOT_UNDER_TEST = "record-run handler not under test";
+
+/**
+ * Parses `spx verification <type> run <operands…>` on a program whose execute-run handler is a
+ * recording double with the given outcome, and observes what reached the process streams.
+ */
+export function observeExecuteRunDescriptor(
+  operands: readonly string[],
+  handlerOutcome: ExecuteRunHandlerOutcome,
+): Promise<ExecuteRunDescriptorObservation> {
+  return parseExecuteRunCommandLine(operands, () =>
+    handlerOutcome.kind === "result"
+      ? Promise.resolve(handlerOutcome.result)
+      : Promise.reject(handlerOutcome.error));
+}
+
+/** What the descriptor wrote when the real handler ran beneath it over a generated product. */
+export interface ExecuteRunDescriptorThroughHandlerObservation extends ExecuteRunDescriptorObservation {
+  /** Every run the recorder opened in the store during the drive, with its sealed state. */
+  readonly recordedRuns: readonly RecordedRunObservation[];
+}
+
+/**
+ * Parses `spx verification test run` on a program whose execute-run handler is the real one, wired
+ * to a generated product, the real recorder over an in-memory store, and the given failing boundary
+ * — a rejecting runner or a write-refusing store — so the failure crosses the handler and reaches
+ * the descriptor's process boundary through production code alone.
+ */
+export async function observeExecuteRunDescriptorThroughFailure(
+  origin: ExecuteRunFailureOrigin,
+): Promise<ExecuteRunDescriptorThroughHandlerObservation> {
+  const drive: ExecuteRunDrive = {
+    ...resolvedDrive(origin),
+    verificationType: VERIFY_VERIFICATION_TYPE.TEST,
+    resolveRunner: (controlled) => () => controlled.runner,
+  };
+  let prepared: PreparedDrive | undefined;
+  const observation = await parseExecuteRunCommandLine([], async (options, tempDir) => {
+    prepared ??= await prepareDrive(tempDir, drive);
+    return executeRunCommand(options, prepared.handlerDeps);
+  });
+  return { ...observation, recordedRuns: prepared === undefined ? [] : await prepared.recordedRuns() };
+}
+
+/** What the whole production command path wrote and recorded for one parsed command line. */
+export interface ExecuteRunProductionObservation {
+  readonly product: GeneratedTestProduct;
+  /** The directory the program was started from. */
+  readonly invocationDir: string;
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly exitCode: number | undefined;
+  /** The structured result parsed from standard output, or `undefined` when nothing was written there. */
+  readonly report: ExecuteRunReport | undefined;
+  /** Every run the recorder opened in the product's own store, with its sealed state. */
+  readonly recordedRuns: readonly RecordedRunObservation[];
+}
+
+const EMPTY_TYPESCRIPT_MARKER = "{}";
+
+/**
+ * Parses `spx verification test run` on a program carrying the production verify domain — its
+ * default handler map, its own dependency composition, the real recorder over the product's own
+ * store, and the production runner registry — started from the given directory of a generated
+ * product that declares TypeScript but installs no runner. Nothing beneath the program is
+ * injected: the descriptor forwards the invocation directory it resolves, the handler resolves the
+ * product root from it, and the registry's `test` runner resolves no Vitest in that product, so
+ * the run seals as unresolved and the result names the root the command settled on.
+ */
+export async function observeExecuteRunThroughProduction(
+  selectInvocationDir: (product: GeneratedTestProduct) => string,
+): Promise<ExecuteRunProductionObservation> {
+  const stdout: string[] = [];
+  const stderr: string[] = [];
+  let exitCode: number | undefined;
+  let observation: ExecuteRunProductionObservation | undefined;
+  await withTestingTempProductDir(async (tempDir) => {
+    const product = await materializeTestProduct(tempDir, true);
+    await writeFile(join(product.productDir, TYPESCRIPT_MARKER), EMPTY_TYPESCRIPT_MARKER);
+    const invocationDir = selectInvocationDir(product);
+    const program = createCliProgram({
+      domains: [verifyDomain],
+      processCwd: () => invocationDir,
+      writeStdout: (output) => stdout.push(output),
+      writeStderr: (output) => stderr.push(output),
+      setExitCode: (code) => {
+        exitCode = code;
+      },
+    });
+    await program.parseAsync(
+      [
+        VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
+        VERIFY_VERIFICATION_TYPE.TEST,
+        EXECUTE_RUN_CLI_SURFACE.runVerbName,
+      ],
+      { from: SPX_COMMANDER_PARSE_SOURCE },
+    );
+    const written = stdout.join("");
+    observation = {
+      product,
+      invocationDir,
+      stdout: written,
+      stderr: stderr.join(""),
+      exitCode,
+      report: written.length === 0 ? undefined : JSON.parse(written) as ExecuteRunReport,
+      recordedRuns: await recordedRuns(defaultStateStoreFileSystem, product.productDir),
+    };
+  });
+  if (observation === undefined) throw new Error("execute-run harness produced no production observation");
+  return observation;
+}
+
+/** What the production command path wrote and recorded when started inside a linked worktree. */
+export interface ExecuteRunLinkedWorktreeObservation {
+  /** The main checkout's root — the Git common-dir product root the linked worktree shares. */
+  readonly mainDir: string;
+  /** The linked worktree's root — the local worktree root the invocation directory resolves to. */
+  readonly linkedDir: string;
+  /** The directory the program was started from, inside the linked worktree. */
+  readonly invocationDir: string;
+  /** The structured result parsed from standard output, or `undefined` when nothing was written there. */
+  readonly report: ExecuteRunReport | undefined;
+  /** Every run the recorder opened under the main checkout's store, with its sealed state. */
+  readonly mainRecordedRuns: readonly RecordedRunObservation[];
+  /** Every run the recorder opened under the linked worktree's own store, with its sealed state. */
+  readonly linkedRecordedRuns: readonly RecordedRunObservation[];
+}
+
+const LINKED_WORKTREE_DIRECTORY = "linked";
+const INITIAL_COMMIT_MESSAGE = "initial";
+const GIT_IDENTITY_OVERRIDES = ["user.name=spx", "user.email=spx@example.invalid"] as const;
+
+/**
+ * Parses `spx verification test run` on a program carrying the production verify domain, started
+ * from a nested directory of a linked worktree of a generated product that declares TypeScript and
+ * installs no runner. Discovery and the runner root at the linked worktree, while the recorder's
+ * branch-scoped store resolves to the Git common-dir product root the worktrees share, so the run
+ * file lands under the main checkout and not under the linked one.
+ */
+export async function observeExecuteRunThroughLinkedWorktree(): Promise<ExecuteRunLinkedWorktreeObservation> {
+  let observation: ExecuteRunLinkedWorktreeObservation | undefined;
+  await withTestingTempProductDir(async (mainTempDir) => {
+    const product = await materializeTestProduct(mainTempDir, true);
+    await writeFile(join(product.productDir, TYPESCRIPT_MARKER), EMPTY_TYPESCRIPT_MARKER);
+    const git = (args: readonly string[]) => execa(GIT_TEST_COMMAND, [...args], { cwd: product.productDir });
+    await git([GIT_TEST_SUBCOMMANDS.ADD, GIT_TEST_FLAGS.ALL]);
+    await git([
+      ...GIT_IDENTITY_OVERRIDES.flatMap((override) => [GIT_TEST_FLAGS.CONFIG_OVERRIDE, override]),
+      GIT_TEST_SUBCOMMANDS.COMMIT,
+      GIT_TEST_FLAGS.QUIET,
+      GIT_TEST_FLAGS.COMMIT_MESSAGE,
+      INITIAL_COMMIT_MESSAGE,
+    ]);
+    await withTestingTempProductDir(async (linkedParent) => {
+      const linkedTarget = join(await realpath(linkedParent), LINKED_WORKTREE_DIRECTORY);
+      await git([GIT_TEST_SUBCOMMANDS.WORKTREE, GIT_TEST_SUBCOMMANDS.ADD, GIT_TEST_FLAGS.DETACH, linkedTarget]);
+      const linkedDir = await realpath(linkedTarget);
+      const invocationDir = join(linkedDir, posix.dirname(product.testPaths[0]));
+      const stdout: string[] = [];
+      const program = createCliProgram({
+        domains: [verifyDomain],
+        processCwd: () => invocationDir,
+        writeStdout: (output) => stdout.push(output),
+        writeStderr: () => undefined,
+        setExitCode: () => undefined,
+      });
+      await program.parseAsync(
+        [
+          VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
+          VERIFY_VERIFICATION_TYPE.TEST,
+          EXECUTE_RUN_CLI_SURFACE.runVerbName,
+        ],
+        { from: SPX_COMMANDER_PARSE_SOURCE },
+      );
+      const written = stdout.join("");
+      observation = {
+        mainDir: product.productDir,
+        linkedDir,
+        invocationDir,
+        report: written.length === 0 ? undefined : JSON.parse(written) as ExecuteRunReport,
+        mainRecordedRuns: await recordedRuns(defaultStateStoreFileSystem, product.productDir),
+        linkedRecordedRuns: await recordedRuns(defaultStateStoreFileSystem, linkedDir),
+      };
+    });
+  });
+  if (observation === undefined) throw new Error("execute-run harness produced no linked-worktree observation");
+  return observation;
+}
+
+// Parses one `spx verification test run <operands…>` command line on the real descriptor with the
+// given execute-run handler beneath it, and observes what reached the process streams.
+async function parseExecuteRunCommandLine(
+  operands: readonly string[],
+  executeRun: (options: ExecuteRunCliOptions, tempDir: string) => Promise<ExecuteRunCommandResult>,
+): Promise<ExecuteRunDescriptorObservation> {
+  const stdout: string[] = [];
+  const stderr: string[] = [];
+  let exitCode: number | undefined;
+  const handlerOptions: ExecuteRunCliOptions[] = [];
+  await withTestingTempProductDir(async (tempDir) => {
+    const recordingDomain: Domain = {
+      name: VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
+      description: VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
+      register: (program, invocation) => {
+        registerVerifyCommands(program, invocation, {
+          appendFinding: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+          appendScope: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+          executeRun: (options) => {
+            handlerOptions.push(options);
+            return executeRun(options, tempDir);
+          },
+          finish: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+          input: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+          render: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+          start: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+          status: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+        });
+      },
+    };
+    const program = createCliProgram({
+      domains: [recordingDomain],
+      processCwd: () => tempDir,
+      writeStdout: (output) => stdout.push(output),
+      writeStderr: (output) => stderr.push(output),
+      setExitCode: (code) => {
+        exitCode = code;
+      },
+    });
+    await program.parseAsync(
+      [
+        VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
+        VERIFY_VERIFICATION_TYPE.TEST,
+        EXECUTE_RUN_CLI_SURFACE.runVerbName,
+        ...operands,
+      ],
+      { from: SPX_COMMANDER_PARSE_SOURCE },
+    );
+  });
+  return { stdout: stdout.join(""), stderr: stderr.join(""), exitCode, handlerOptions };
+}

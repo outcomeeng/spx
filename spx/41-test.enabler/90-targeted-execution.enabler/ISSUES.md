@@ -16,3 +16,13 @@ This node's terminal output path passes values that originated outside the produ
 **Skills:** `/apply`, `/test-typescript`, `/audit-typescript-code`.
 
 **Revisit condition:** before the next changeset touching this node's terminal output path.
+
+## Operands collect no candidates from the invocation directory or by suffix
+
+`spx/29-verification-path-scope.pdr.md` declares that a relative operand collects candidates from the effective invocation directory, the product root, and complete-path-component suffix matches over the command's accepted canonical target paths, resolved through symbolic links, with exactly one canonical identity accepted and ambiguity reported. The operand-selection library under `src/lib/test-targeting/` canonicalizes an operand against the product root alone — a relative spelling is taken as product-root-relative, an absolute spelling inside the root resolves as written, and an outside or climbing spelling is unresolved — so `spx test` and `spx verification <type> run`, which both consume the library, report an operand spelled relative to a subdirectory invocation, or by a canonical-path suffix, as unresolved, and never report ambiguity.
+
+**Evidence:** `src/lib/test-targeting/index.ts` `canonicalizeOperand` and `matchOperand`; `src/commands/test/run-command.ts` and `src/commands/verification-exec/cli.ts` both resolve operands through `resolveTargetedTestFiles` over product-root-relative discovered paths; the execute-run compliance case that invokes from inside the product passes no operand.
+
+**Impact:** a caller inside the product must spell every relative operand from the product root even though the command already resolves its root from the invocation directory; the PDR's invocation-directory candidates, suffix candidates, symbolic-link resolution, and ambiguity reporting exist in no surface.
+
+**Settlement condition:** the library, or a resolution step every consuming surface runs before it, collects candidates from the invocation directory and canonical-path suffixes beside the product-root and absolute spellings it already canonicalizes, resolves them through symbolic links, fails ambiguous operands as the PDR declares, and this node's evidence covers an invocation from inside the product with a subdirectory-relative operand for both surfaces.

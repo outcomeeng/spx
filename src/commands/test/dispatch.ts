@@ -1,12 +1,7 @@
 import { applyPathFilter, normalizePathPrefix, type PathFilterConfig } from "@/config/primitives/path-filter";
-import {
-  aggregateTestExitCode,
-  groupTestFiles,
-  type LanguageTestGroup,
-  resolveTargetedTestFiles,
-  type TargetSelection,
-} from "@/domains/test";
+import { aggregateTestExitCode, groupTestFiles, type LanguageTestGroup } from "@/domains/test";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { resolveTargetedTestFiles, type TargetSelection } from "@/lib/test-targeting";
 import type {
   TestingLanguageDescriptor,
   TestRunCommandOutput,
@@ -90,7 +85,7 @@ export async function runTests(
   // operands the full discovered set carries through unchanged.
   const targeted = options.targets === undefined
     ? { selected: discovered, unresolved: [] as readonly string[] }
-    : resolveTargetedTestFiles(discovered, options.targets);
+    : resolveTargetedTestFiles(discovered, options.targets, { productDir: options.productDir });
   const testFiles = options.passingScope === undefined
     ? targeted.selected
     : applyPathFilter(targeted.selected, options.passingScope);

@@ -50,6 +50,7 @@ CAN focus on behavior, trusting that structural compliance — correct imports, 
 
 ### Compliance
 
+- ALWAYS: the extensionless-source rule governs the TypeScript project's own trees alone — a root build-config file outside those trees, loaded by its tool's native module loader rather than by the project's path resolution, carries the extension that loader requires ([audit])
 - ALWAYS: structural validation configuration references project-specific rules from the enforcement rule set ([review])
 - NEVER: reference ADR-NN / PDR-NN by number in code comments, strings, or template literals — code complies silently, never cites decision numbers ([test](tests/ast-enforcement.mapping.l1.test.ts), [enforce](../../../../eslint-rules/no-spec-references.ts))
 - ALWAYS: each enforcement rule references the ADR or PDR it enforces — traceability from rule to decision ([review])

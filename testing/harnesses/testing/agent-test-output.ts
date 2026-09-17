@@ -148,8 +148,9 @@ function failingPythonRun(
 export function expectAgentSummaryReportsFailedRunnerDetails(): void {
   const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-  const failingPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
-  const passingPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
+  const [failingPath, passingPath] = sampleDispatchValue(
+    TEST_DISPATCH_GENERATOR.distinctTestFilesUnder(typescriptTestingLanguage, nodePath),
+  );
   const stdoutPath = join(productDir, AGENT_TEST_OUTPUT_TEXT.STDOUT);
   const stderrPath = join(productDir, AGENT_TEST_OUTPUT_TEXT.STDERR);
   const runFilePath = join(productDir, AGENT_TEST_OUTPUT_TEXT.STATE_FILE);

@@ -26,6 +26,7 @@ export const GIT_TEST_SUBCOMMANDS = {
 } as const;
 
 export const GIT_TEST_FLAGS = {
+  ALL: "--all",
   ALLOW_EMPTY: "--allow-empty",
   BARE: "--bare",
   CACHED: "--cached",

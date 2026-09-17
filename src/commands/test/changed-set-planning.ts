@@ -14,8 +14,8 @@ import { compareAsciiStrings } from "@/lib/state-store";
 import type { RelatedTestDependencies } from "@/test/languages/types";
 import type { TestingRegistry } from "@/test/registry";
 
-import { mergeChangedSetOperands, partitionChangedPaths, resolveTargetedTestFiles } from "@/domains/test";
-import type { TargetSelection } from "@/domains/test/targeting";
+import { mergeChangedSetOperands, partitionChangedPaths } from "@/domains/test";
+import { resolveTargetedTestFiles, type TargetSelection } from "@/lib/test-targeting";
 
 import { discoverTestFiles } from "./discovery";
 
@@ -229,7 +229,11 @@ export async function planChangedTestSelection(
     : [];
   const pathSelectedTests = partition.productInputChanged || partition.operands.length === 0
     ? []
-    : resolveTargetedTestFiles(testPaths, { operands: partition.operands, recursive: true }).selected;
+    : resolveTargetedTestFiles(
+      testPaths,
+      { operands: partition.operands, recursive: true },
+      { productDir: options.productDir },
+    ).selected;
   const related = partition.productInputChanged || partition.sourceFiles.length === 0
     ? { testPaths: [], unresolved: [] }
     : await relatedTestPaths(partition.sourceFiles, options, baseRef, testPaths, deps);

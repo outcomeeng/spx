@@ -6,6 +6,7 @@ import * as fc from "fast-check";
 
 import { type JournalCliDeps, journalOpenCommand, journalReadCommand } from "@/commands/journal/cli";
 import type { JournalStreamSink } from "@/commands/journal/runtime";
+import type { ExecuteRunCliOptions } from "@/commands/verification-exec";
 import {
   VERIFY_CLI_ERROR,
   VERIFY_CLI_EXIT_CODE,
@@ -159,6 +160,7 @@ interface ExpectedTerminalProjection {
 export interface VerifyCliRecording {
   readonly appendFindingOptions: readonly VerifyAppendCliOptions[];
   readonly appendScopeOptions: readonly VerifyAppendCliOptions[];
+  readonly executeRunOptions: readonly ExecuteRunCliOptions[];
   readonly finishOptions: readonly VerifyFinishCliOptions[];
   readonly inputOptions: readonly VerifyInputCliOptions[];
   readonly renderOptions: readonly VerifyRenderCliOptions[];
@@ -226,6 +228,7 @@ function okCliResult(): CliCommandResult {
 function createRecordingVerifyHandlers(): VerifyCliRecording {
   const appendFindingOptions: VerifyAppendCliOptions[] = [];
   const appendScopeOptions: VerifyAppendCliOptions[] = [];
+  const executeRunOptions: ExecuteRunCliOptions[] = [];
   const finishOptions: VerifyFinishCliOptions[] = [];
   const inputOptions: VerifyInputCliOptions[] = [];
   const renderOptions: VerifyRenderCliOptions[] = [];
@@ -235,6 +238,7 @@ function createRecordingVerifyHandlers(): VerifyCliRecording {
   return {
     appendFindingOptions,
     appendScopeOptions,
+    executeRunOptions,
     finishOptions,
     inputOptions,
     renderOptions,
@@ -248,6 +252,10 @@ function createRecordingVerifyHandlers(): VerifyCliRecording {
       appendScope: (options) => {
         appendScopeOptions.push(options);
         return Promise.resolve(okCliResult());
+      },
+      executeRun: (options) => {
+        executeRunOptions.push(options);
+        return Promise.resolve({ exitCode: VERIFY_CLI_EXIT_CODE.OK });
       },
       finish: (options) => {
         finishOptions.push(options);
@@ -311,6 +319,7 @@ function requiredOptionDescription(command: Command | undefined, optionExpressio
 function verifyHandlerInvocationCount(recording: VerifyCliRecording): number {
   return recording.appendFindingOptions.length
     + recording.appendScopeOptions.length
+    + recording.executeRunOptions.length
     + recording.finishOptions.length
     + recording.inputOptions.length
     + recording.renderOptions.length

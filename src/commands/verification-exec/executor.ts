@@ -2,7 +2,7 @@
  * The spx-driven verification executor core.
  *
  * The executor drives a verification type's deterministic runner over a scope and records the run
- * only through the verify recorder lifecycle operations of `spx/34-verification.enabler/32-verify.enabler`.
+ * only through the verify recorder lifecycle operations.
  * Within one invocation it opens a run in spx drive mode, backs the streaming runner's evidence sink
  * with the recorder's scope-append and finding-append operations, maps the runner's terminal status
  * onto the recorder terminal-status vocabulary through a total function, and finishes and seals the
@@ -37,7 +37,7 @@ export interface JournalStreamingRunner {
 
 /**
  * The verify recorder lifecycle operations the executor composes to record an spx-driven run. Each
- * operation records through `spx/34-verification.enabler/32-verify.enabler`; the executor constructs
+ * operation records through the verify recorder; the executor constructs
  * no journal event of its own.
  */
 export interface ExecutorRecorderOperations {
@@ -66,13 +66,26 @@ export interface ExecutorDependencies {
   readonly recorder: ExecutorRecorderOperations;
 }
 
+/** The product directory a runner searched and found no runner in. */
+export interface UnresolvedRunner {
+  readonly productDir: string;
+}
+
 /**
  * The outcome of an spx-driven run: an unsupported verification type opens no run, otherwise the run
- * executes and yields its locator and the terminal status the executor recorded.
+ * executes and yields its locator and the terminal status the executor recorded. A run whose product
+ * directory supplied no runner seals `interrupted` and, when no other language streamed, names the
+ * directory searched, so a caller distinguishes it from a run detection gated out and from a run that
+ * started and failed.
  */
 export type ExecutorRunResult =
   | { readonly executed: false }
-  | { readonly executed: true; readonly run: RunLocator; readonly terminalStatus: JournalRunStateStatus };
+  | {
+    readonly executed: true;
+    readonly run: RunLocator;
+    readonly terminalStatus: JournalRunStateStatus;
+    readonly unresolvedRunner?: UnresolvedRunner;
+  };
 
 /**
  * Map a runner's terminal status onto the recorder terminal-status vocabulary through a total,
@@ -86,7 +99,7 @@ const RUNNER_TO_RECORDER_STATUS: Readonly<Record<JournalRunTerminalStatus, Journ
   [JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED]: JOURNAL_RUN_STATE_STATUS.INTERRUPTED,
 };
 
-/** The recorder terminal status a gated-out run seals with: the runner completed no work. */
+/** The recorder terminal status a gated-out or unresolved-runner run seals with: the runner completed no work. */
 const GATED_OUT_TERMINAL_STATUS: JournalRunStateStatus = JOURNAL_RUN_STATE_STATUS.INTERRUPTED;
 
 export function recorderTerminalStatusFor(status: JournalRunTerminalStatus): JournalRunStateStatus {
@@ -132,5 +145,13 @@ export async function executeVerificationRun(
     ? recorderTerminalStatusFor(invocation.terminalStatus)
     : GATED_OUT_TERMINAL_STATUS;
   await deps.recorder.finish(run, terminalStatus);
-  return { executed: true, run, terminalStatus };
+  const unresolvedRunner = unresolvedRunnerOf(invocation);
+  return unresolvedRunner === undefined
+    ? { executed: true, run, terminalStatus }
+    : { executed: true, run, terminalStatus, unresolvedRunner };
+}
+
+/** The unresolved-runner outcome an invocation carries, or `undefined` for a gated-out or invoked run. */
+function unresolvedRunnerOf(invocation: JournalRunInvocation): UnresolvedRunner | undefined {
+  return !invocation.invoked && "unresolvedRunner" in invocation ? invocation.unresolvedRunner : undefined;
 }
