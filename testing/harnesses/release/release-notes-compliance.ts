@@ -73,7 +73,28 @@ export const RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH = {
   COMMIT_SCOPE: join(RELEASE_NOTES_COMPLIANCE_FIXTURE_ROOT, "commit-scope.json"),
   PARTIAL_WRITE: join(RELEASE_NOTES_COMPLIANCE_FIXTURE_ROOT, "partial-write.json"),
   ESCAPING_PATH: join(RELEASE_NOTES_COMPLIANCE_FIXTURE_ROOT, "escaping-path.json"),
+  RELEASE_CONTEXT_ENDPOINTS: join(RELEASE_NOTES_COMPLIANCE_FIXTURE_ROOT, "release-context-endpoints.json"),
 } as const;
+
+interface ReleaseContextEndpointsFixture {
+  readonly withoutPreviousTag: ReleaseData;
+  readonly withPreviousTag: ReleaseData;
+}
+
+export async function readReleaseEndpointDataFixture(
+  path: string,
+  releaseRef: string,
+  previousTag: string | null,
+  changedPaths: readonly string[],
+): Promise<ReleaseData> {
+  const fixture = await readJsonFixture<ReleaseContextEndpointsFixture>(path);
+  return {
+    ...(previousTag === null ? fixture.withoutPreviousTag : fixture.withPreviousTag),
+    releaseRef,
+    previousTag,
+    changedPaths,
+  };
+}
 
 interface ReleaseNotesCommitScopeFixture {
   readonly releaseData: ReleaseData;

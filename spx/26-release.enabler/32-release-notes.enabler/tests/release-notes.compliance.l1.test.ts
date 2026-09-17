@@ -1,7 +1,6 @@
 import { readReleaseProductContext } from "@/commands/release/product-context";
 import { DEFAULT_RELEASE_DOCUMENTATION_PATHS } from "@/domains/release/config";
 import { RELEASE_SOURCE_DATA_BLOCK_CLOSE } from "@/domains/release/product-context";
-import { type ReleaseData, VERSION_DELTA } from "@/domains/release/release-data";
 import {
   buildReleaseNotesPrompt,
   CHANGELOG_PATH_DATA_BLOCK_CLOSE,
@@ -71,6 +70,7 @@ import {
   observeReleaseNotesPrompt,
   observeReleaseNotesPromptSource,
   observeReleaseNotesSymlinkToRootPath,
+  readReleaseEndpointDataFixture,
   RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH,
 } from "@testing/harnesses/release/release-notes-compliance";
 import {
@@ -80,21 +80,6 @@ import {
 import { describe, expect, it } from "vitest";
 
 const releaseContextFixture = sampleReleaseOwnershipFixture();
-
-function endpointReleaseData(
-  releaseRef: string,
-  previousTag: string | null,
-  changedPaths: readonly string[],
-): ReleaseData {
-  return {
-    version: "1.1.0",
-    releaseRef,
-    previousTag,
-    commits: [],
-    versionDelta: previousTag === null ? null : VERSION_DELTA.MINOR,
-    changedPaths,
-  };
-}
 
 it("does not invoke an agent after selected context reading fails", async () => {
   const scenario = sampleReleaseContextScenario();
@@ -125,7 +110,15 @@ it("permits a product without a spec tree", async () => {
     await env.writeTracked(DEFAULT_RELEASE_DOCUMENTATION_PATHS[0], "# Product\n");
     await env.commit("initial product");
     const releaseRef = await env.runGit([GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
-    await expect(readReleaseProductContext(env.productDir, endpointReleaseData(releaseRef, null, [])))
+    await expect(readReleaseProductContext(
+      env.productDir,
+      await readReleaseEndpointDataFixture(
+        RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH.RELEASE_CONTEXT_ENDPOINTS,
+        releaseRef,
+        null,
+        [],
+      ),
+    ))
       .resolves.toEqual([]);
   });
 });
@@ -175,7 +168,12 @@ it("unions shared ownership across both release endpoints", async () => {
 
     const context = await readReleaseProductContext(
       env.productDir,
-      endpointReleaseData(releaseRef, "v1.0.0", [releaseContextFixture.sourcePath]),
+      await readReleaseEndpointDataFixture(
+        RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH.RELEASE_CONTEXT_ENDPOINTS,
+        releaseRef,
+        "v1.0.0",
+        [releaseContextFixture.sourcePath],
+      ),
     );
 
     expect(context.map(({ path }) => path)).toEqual(expect.arrayContaining([
@@ -205,7 +203,12 @@ it("resolves deleted implementation ownership from the earlier endpoint", async 
 
     const context = await readReleaseProductContext(
       env.productDir,
-      endpointReleaseData(releaseRef, "v1.0.0", [releaseContextFixture.sourcePath]),
+      await readReleaseEndpointDataFixture(
+        RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH.RELEASE_CONTEXT_ENDPOINTS,
+        releaseRef,
+        "v1.0.0",
+        [releaseContextFixture.sourcePath],
+      ),
     );
 
     expect(context.map(({ path }) => path)).toContain(`${node}/owned.md`);
@@ -231,7 +234,12 @@ it("uses exact audit-declaration path references as ownership claims", async () 
 
     const context = await readReleaseProductContext(
       env.productDir,
-      endpointReleaseData(releaseRef, null, [releaseContextFixture.sourcePath]),
+      await readReleaseEndpointDataFixture(
+        RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH.RELEASE_CONTEXT_ENDPOINTS,
+        releaseRef,
+        null,
+        [releaseContextFixture.sourcePath],
+      ),
     );
 
     expect(context.map(({ path }) => path)).toContain(`${node}/audit-owned.md`);
@@ -252,7 +260,12 @@ it("rejects a source path classified at an endpoint but unresolved at both endpo
 
     await expect(readReleaseProductContext(
       env.productDir,
-      endpointReleaseData(releaseRef, null, [releaseContextFixture.sourcePath]),
+      await readReleaseEndpointDataFixture(
+        RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH.RELEASE_CONTEXT_ENDPOINTS,
+        releaseRef,
+        null,
+        [releaseContextFixture.sourcePath],
+      ),
     )).rejects.toThrow(releaseContextFixture.sourcePath);
   });
 });
