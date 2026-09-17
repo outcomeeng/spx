@@ -41,8 +41,7 @@ describe("composeReleaseNotes writes the changelog at the resolved path", () => 
   it("writes the changelog carrying a section for the release version", async () => {
     const fixture = sampleReleaseNotesCompositionFixture();
     await expect(observeComposedReleaseNotes(fixture)).resolves.toSatisfy(
-      (observation) =>
-        observeIndependentVersionSection(observation.content, fixture.releaseData.version) !== undefined,
+      (observation) => observeIndependentVersionSection(observation.content, fixture.releaseData.version) !== undefined,
     );
   });
 });
@@ -65,10 +64,10 @@ describe("releaseNotesCommand wires release-note composition into the release wo
         sampleReleaseTestValue(RELEASE_TEST_GENERATOR.distinctPathSegmentTriple()),
       ),
     ).resolves.toSatisfy(
-        (observation) =>
-          observation.output === observation.canonicalPath
-          && observation.canonicalPath !== observation.lexicalPath
-          && observeIndependentVersionSection(observation.content, fixture.releaseData.version) !== undefined,
+      (observation) =>
+        observation.output === observation.canonicalPath
+        && observation.canonicalPath !== observation.lexicalPath
+        && observeIndependentVersionSection(observation.content, fixture.releaseData.version) !== undefined,
     );
   });
 });

@@ -40,7 +40,6 @@ import {
   composeDocumentationSync,
   type ComposeDocumentationSyncOptions,
   createDocumentationFaithfulnessAuditor,
-  DOCUMENTATION_SYNC_AUDIT_APPROVED,
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN,
   DOCUMENTATION_SYNC_PROMPT_INSTRUCTION,
@@ -449,18 +448,21 @@ interface PrimaryDocumentation {
 class RecordingDocumentationAuditor implements AgentAuditor {
   readonly requests: AgentAuditRequest[] = [];
 
+  constructor(private readonly respond: AgentAuditor["audit"]) {}
+
   async audit(request: AgentAuditRequest): Promise<string> {
     this.requests.push(request);
-    return DOCUMENTATION_SYNC_AUDIT_APPROVED;
+    return await this.respond(request);
   }
 }
 
 async function withDocumentationScenario(
   scenario: DocumentationSyncScenario,
+  respondToAudit: AgentAuditor["audit"],
   run: (
     options: ComposeDocumentationSyncOptions,
     readProductDocument: ProductDocumentationReader,
-    agent: DocumentationWritingAgent,
+    agent: PromptDrivenDocumentationAgent,
   ) => Promise<void>,
 ): Promise<void> {
   await withTempDir(PRODUCT_DIRECTORY_PREFIX, async (productDir) => {
@@ -477,7 +479,7 @@ async function withDocumentationScenario(
     }
     await materializeDocumentationConfig(productDir, scenario.config);
     const agent = new PromptDrivenDocumentationAgent();
-    const auditor = new RecordingDocumentationAuditor();
+    const auditor = new RecordingDocumentationAuditor(respondToAudit);
     const filesystem = createDocumentationSyncFilesystem();
     await run(
       {
@@ -499,15 +501,16 @@ async function withDocumentationScenario(
 export async function observeDocumentationContextTransport(
   scenario: DocumentationSyncScenario,
   context: ReleaseContextScenario,
+  respondToAudit: AgentAuditor["audit"],
 ): Promise<ReleaseContextTransportObservation> {
   let observation: ReleaseContextTransportObservation | undefined;
-  await withDocumentationScenario(scenario, async (options, _readDocument, agent) => {
+  await withDocumentationScenario(scenario, respondToAudit, async (options, _readDocument, agent) => {
     for (const document of context.documents) {
       const path = join(options.productDir, document.path);
       await mkdir(dirname(path), { recursive: true });
       await writeFile(path, document.content);
     }
-    const auditor = new RecordingDocumentationAuditor();
+    const auditor = new RecordingDocumentationAuditor(respondToAudit);
     await documentationSyncCommand({
       productDir: options.productDir,
       agentRunner: agent,
@@ -707,31 +710,35 @@ interface VersionlessDocumentationSyncObservation extends DocumentationContentOb
 
 async function observeDefaultDocumentationSync(
   scenario: DocumentationSyncScenario,
+  respondToAudit: AgentAuditor["audit"],
 ): Promise<DocumentationContentObservation> {
-  return await observeDocumentationSync(scenario);
+  return await observeDocumentationSync(scenario, respondToAudit);
 }
 
 async function observeConfiguredDocumentationSync(
   scenario: DocumentationSyncScenario,
+  respondToAudit: AgentAuditor["audit"],
 ): Promise<DocumentationContentObservation> {
-  return await observeDocumentationSync(scenario);
+  return await observeDocumentationSync(scenario, respondToAudit);
 }
 
 async function observeFirstReleaseDocumentationSync(
   scenario: DocumentationSyncScenario,
+  respondToAudit: AgentAuditor["audit"],
 ): Promise<DocumentationContentObservation> {
-  return await observeDocumentationSync(scenario);
+  return await observeDocumentationSync(scenario, respondToAudit);
 }
 
 async function observeVersionlessSubsequentReleaseDocumentationSync(
   scenario: DocumentationSyncScenario,
+  respondToAudit: AgentAuditor["audit"],
 ): Promise<
   VersionlessDocumentationSyncObservation
 > {
-  const auditor = new RecordingDocumentationAuditor();
+  const auditor = new RecordingDocumentationAuditor(respondToAudit);
   const producer = new PromptDrivenDocumentationAgent();
   let observation: VersionlessDocumentationSyncObservation | undefined;
-  await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+  await withDocumentationScenario(scenario, respondToAudit, async (options, readProductDocument) => {
     await runDocumentationSyncCli({
       ...options,
       agentRunner: producer,
@@ -755,10 +762,11 @@ async function observeVersionlessSubsequentReleaseDocumentationSync(
 
 async function observeDocumentationSync(
   scenario: DocumentationSyncScenario,
+  respondToAudit: AgentAuditor["audit"],
 ): Promise<DocumentationContentObservation> {
   const producer = new PromptDrivenDocumentationAgent();
   let observation: DocumentationContentObservation | undefined;
-  await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+  await withDocumentationScenario(scenario, respondToAudit, async (options, readProductDocument) => {
     await runDocumentationSyncCli({ ...options, agentRunner: producer });
     const producerRequest = requiredAgentRequest(producer.requests, "producer");
     observation = {
@@ -829,11 +837,12 @@ interface DocumentationConfigObservation {
 
 async function observeDocumentationPathMappings(
   mappingCases: readonly DocumentationPathMappingCase[],
+  respondToAudit: AgentAuditor["audit"],
 ): Promise<readonly DocumentationPathMappingObservation[]> {
   const observations: DocumentationPathMappingObservation[] = [];
   for (const mappingCase of mappingCases) {
     const { scenario } = mappingCase;
-    await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
+    await withDocumentationScenario(scenario, respondToAudit, async (options, _readProductDocument, agent) => {
       await runDocumentationSyncCli(options);
       observations.push({
         mappingCase,
@@ -949,9 +958,10 @@ interface DocumentationAgentFileToolBoundaryObservation {
 
 async function observeConfiguredDocumentationPathSet(
   scenario: DocumentationSyncScenario,
+  respondToAudit: AgentAuditor["audit"],
 ): Promise<DocumentationPathSetObservation> {
   let observation: DocumentationPathSetObservation | undefined;
-  await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
+  await withDocumentationScenario(scenario, respondToAudit, async (options, _readProductDocument, agent) => {
     await runDocumentationSyncCli(options);
     observation = {
       scenario,
@@ -965,20 +975,22 @@ async function observeConfiguredDocumentationPathSet(
 
 async function observeDocumentationVersionPreservation(
   scenarios: DocumentationVersionPreservationScenarios,
+  respondToAudit: AgentAuditor["audit"],
 ): Promise<readonly DocumentationVersionPreservationObservation[]> {
   return await Promise.all(
     [scenarios.withPreviousTag, scenarios.withoutPreviousTag].map(async (scenario) =>
-      await observeDocumentationSync(scenario)
+      await observeDocumentationSync(scenario, respondToAudit)
     ),
   );
 }
 
 async function observeUnrelatedVersionRewrite(
   testCase: DocumentationUnrelatedVersionRewriteScenario,
+  respondToAudit: AgentAuditor["audit"],
 ): Promise<DocumentationUnrelatedVersionRewriteObservation> {
   const promoter = new RecordingDocumentationPromoter();
   let observation: DocumentationUnrelatedVersionRewriteObservation | undefined;
-  await withDocumentationScenario(testCase.scenario, async (options, readProductDocument) => {
+  await withDocumentationScenario(testCase.scenario, respondToAudit, async (options, readProductDocument) => {
     let actualAuditDocuments: readonly { readonly path: string; readonly updatedContent: string }[] = [];
     let error: unknown;
     try {
@@ -1010,11 +1022,12 @@ async function observeUnrelatedVersionRewrite(
 
 async function observeDocumentationAgentFileToolBoundary(
   scenario: DocumentationAgentFileToolBoundaryScenario,
+  respondToAudit: AgentAuditor["audit"],
 ): Promise<DocumentationAgentFileToolBoundaryObservation> {
   const documentationScenario = scenario.documentationScenario;
   const agent = new DocumentationWritingAgent(documentationScenario.updated);
   let observation: DocumentationAgentFileToolBoundaryObservation | undefined;
-  await withDocumentationScenario(documentationScenario, async (options) => {
+  await withDocumentationScenario(documentationScenario, respondToAudit, async (options) => {
     await composeDocumentationSync({ ...options, agentRunner: agent });
     const request = requiredAgentRequest(agent.requests, "producer");
     let recordedOptions: Parameters<ClaudeQueryExecutor>[1] | undefined;
@@ -1198,6 +1211,7 @@ interface DocumentationPromptObservation {
 
 async function observeDocumentationPathFailures(
   failureCases: readonly DocumentationPathFailureCase[],
+  respondToAudit: AgentAuditor["audit"],
 ): Promise<readonly DocumentationPathFailureObservation[]> {
   return await Promise.all(
     failureCases.map(async (failureCase) =>
@@ -1208,7 +1222,7 @@ async function observeDocumentationPathFailures(
             await materializeDocumentationPathFailure(failureCase, productDir, externalDir);
             const filesystem = createDocumentationSyncFilesystem();
             const agent = new PassiveDocumentationAgent();
-            const auditor = new RecordingDocumentationAuditor();
+            const auditor = new RecordingDocumentationAuditor(respondToAudit);
             const promoter = new RecordingDocumentationPromoter();
             let error: unknown;
             try {
@@ -1252,6 +1266,7 @@ async function observeDocumentationPathFailures(
 async function observeDocumentationFailure(
   failureCase: DocumentationFailureCase,
   scenario: DocumentationSyncScenario,
+  respondToAudit: AgentAuditor["audit"],
 ): Promise<DocumentationRejectionObservation> {
   const promoter = new RecordingDocumentationPromoter();
   const agent = failureCase === DOCUMENTATION_FAILURE_CASE.GENERATION
@@ -1260,8 +1275,8 @@ async function observeDocumentationFailure(
     ? new FirstDocumentationWritingAgent(scenario.updated)
     : new PassiveDocumentationAgent();
   let observation: DocumentationRejectionObservation | undefined;
-  await withDocumentationScenario(scenario, async (options, readProductDocument) => {
-    const auditor = new RecordingDocumentationAuditor();
+  await withDocumentationScenario(scenario, respondToAudit, async (options, readProductDocument) => {
+    const auditor = new RecordingDocumentationAuditor(respondToAudit);
     let error: unknown;
     try {
       await composeDocumentationSync({
@@ -1292,16 +1307,17 @@ async function observeDocumentationFailure(
 async function observeDocumentationVersionValidation(
   validationCase: DocumentationVersionValidationCase,
   scenario: DocumentationSyncScenario,
+  respondToAudit: AgentAuditor["audit"],
 ): Promise<DocumentationRejectionObservation> {
   const agent = validationCase === DOCUMENTATION_VERSION_VALIDATION_CASE.VERSION_VARIANT
     ? new DocumentationWritingAgent(scenario.updated)
     : validationCase === DOCUMENTATION_VERSION_VALIDATION_CASE.PARTIAL_REWRITE
     ? new PartiallyUpdatingDocumentationAgent()
     : new PassiveDocumentationAgent();
-  const auditor = new RecordingDocumentationAuditor();
+  const auditor = new RecordingDocumentationAuditor(respondToAudit);
   const promoter = new RecordingDocumentationPromoter();
   let observation: DocumentationRejectionObservation | undefined;
-  await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+  await withDocumentationScenario(scenario, respondToAudit, async (options, readProductDocument) => {
     let error: unknown;
     try {
       await composeDocumentationSync({
@@ -1329,12 +1345,13 @@ async function observeDocumentationVersionValidation(
 async function observeDocumentationIdentityRejection(
   identityCase: DocumentationIdentityCase,
   scenario: DocumentationSyncScenario,
+  respondToAudit: AgentAuditor["audit"],
 ): Promise<DocumentationRejectionObservation> {
   return await withTempDir(EXTERNAL_DIRECTORY_PREFIX, async (externalDir) => {
     let observation: DocumentationRejectionObservation | undefined;
-    await withDocumentationScenario(scenario, async (options, readProductDocument, agent) => {
+    await withDocumentationScenario(scenario, respondToAudit, async (options, readProductDocument, agent) => {
       const primary = primaryDocumentation(scenario);
-      const auditor = new RecordingDocumentationAuditor();
+      const auditor = new RecordingDocumentationAuditor(respondToAudit);
       const promoter = new RecordingDocumentationPromoter();
       let atomicWriteCount = 0;
       let error: unknown;
@@ -1447,11 +1464,12 @@ async function observeDocumentationIdentityRejection(
 
 async function observeDocumentationFifoRejection(
   scenario: DocumentationSyncScenario,
+  respondToAudit: AgentAuditor["audit"],
 ): Promise<DocumentationFifoObservation> {
   const primary = primaryDocumentation(scenario);
   const promoter = new RecordingDocumentationPromoter();
   let observation: DocumentationFifoObservation | undefined;
-  await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
+  await withDocumentationScenario(scenario, respondToAudit, async (options, _readProductDocument, agent) => {
     const fifoPath = join(options.productDir, primary.path);
     await rm(fifoPath);
     await execa(DOCUMENTATION_FIFO_COMMAND, [fifoPath]);
@@ -1478,6 +1496,7 @@ async function observeDocumentationFifoRejection(
 
 async function observeAtomicDocumentationPromotion(
   scenario: DocumentationSyncScenario,
+  respondToAudit: AgentAuditor["audit"],
 ): Promise<DocumentationAtomicPromotionObservation> {
   const opener = new TrackingDocumentationFileOpener();
   const writer = createDocumentationAtomicWriter({
@@ -1495,7 +1514,7 @@ async function observeAtomicDocumentationPromotion(
     writeDocumentAtomic: writer,
   });
   let observation: DocumentationAtomicPromotionObservation | undefined;
-  await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+  await withDocumentationScenario(scenario, respondToAudit, async (options, readProductDocument) => {
     let result: { readonly paths: readonly string[] } | undefined;
     let error: unknown;
     try {
@@ -1517,11 +1536,12 @@ async function observeAtomicDocumentationPromotion(
 async function observeDocumentationRollback(
   rollbackCase: DocumentationRollbackCase,
   scenario: DocumentationSyncScenario,
+  respondToAudit: AgentAuditor["audit"],
 ): Promise<DocumentationRollbackObservation> {
   const primary = primaryDocumentation(scenario);
   return await withTempDir(EXTERNAL_DIRECTORY_PREFIX, async (externalDir) => {
     let observation: DocumentationRollbackObservation | undefined;
-    await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+    await withDocumentationScenario(scenario, respondToAudit, async (options, readProductDocument) => {
       let error: unknown;
       let failureCount: number;
       if (rollbackCase === DOCUMENTATION_ROLLBACK_CASE.POST_PROMOTION_EDIT) {
@@ -1560,9 +1580,10 @@ async function observeDocumentationRollback(
 async function observeDocumentationPromotionFailure(
   failureCase: DocumentationPromotionFailureCase,
   scenario: DocumentationSyncScenario,
+  respondToAudit: AgentAuditor["audit"],
 ): Promise<DocumentationPromotionFailureObservation> {
   let observation: DocumentationPromotionFailureObservation | undefined;
-  await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+  await withDocumentationScenario(scenario, respondToAudit, async (options, readProductDocument) => {
     let error: unknown;
     let atomicWriteCount = 0;
     let atomicFailureCount = 0;
@@ -1625,10 +1646,11 @@ async function observeDocumentationPromotionFailure(
 async function observeDocumentationAudit(
   auditCase: DocumentationAuditCase,
   scenario: DocumentationSyncScenario,
+  respondToAudit: AgentAuditor["audit"],
 ): Promise<DocumentationAuditObservation> {
   const promoter = new RecordingDocumentationPromoter();
   let observation: DocumentationAuditObservation | undefined;
-  await withDocumentationScenario(scenario, async (options, readProductDocument) => {
+  await withDocumentationScenario(scenario, respondToAudit, async (options, readProductDocument) => {
     let actualReleaseData: ReleaseData | undefined;
     let actualDocuments: readonly unknown[] = [];
     let error: unknown;
@@ -1666,10 +1688,11 @@ async function observeDocumentationAudit(
 async function observeDocumentationPrompt(
   promptCase: DocumentationPromptCase,
   scenario: DocumentationSyncScenario,
+  respondToAudit: AgentAuditor["audit"],
 ): Promise<DocumentationPromptObservation> {
-  const auditor = new RecordingDocumentationAuditor();
+  const auditor = new RecordingDocumentationAuditor(respondToAudit);
   let observation: DocumentationPromptObservation | undefined;
-  await withDocumentationScenario(scenario, async (options, _readProductDocument, agent) => {
+  await withDocumentationScenario(scenario, respondToAudit, async (options, _readProductDocument, agent) => {
     await composeDocumentationSync({
       ...options,
       faithfulnessAuditor: createDocumentationFaithfulnessAuditor(auditor, options.productDir),

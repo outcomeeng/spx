@@ -1,5 +1,5 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { basename, dirname, join, resolve } from "node:path";
 
 import type { AgentRunner, AgentRunRequest } from "@/agent/agent-runner";
 import { RELEASE_SOURCE_DATA_BLOCK_CLOSE, RELEASE_SOURCE_DATA_BLOCK_OPEN } from "@/domains/release/product-context";
@@ -43,6 +43,9 @@ export function releaseSourceFromPrompt(prompt: string): unknown {
  */
 export class RecordingWritingAgentRunner implements AgentRunner {
   readonly requests: AgentRunRequest[] = [];
+  readonly outputPaths: string[] = [];
+  readonly canonicalOutputPaths: string[] = [];
+  readonly initialContents: string[] = [];
 
   constructor(
     private readonly expectedWorkingDirectory: string,
@@ -59,7 +62,15 @@ export class RecordingWritingAgentRunner implements AgentRunner {
     if (outputPath === this.outputPath && !isInsideOrEqual(this.expectedWorkingDirectory, request.workingDirectory)) {
       throw new Error("Agent runner double received the wrong working directory");
     }
+    this.outputPaths.push(outputPath);
     await mkdir(dirname(outputPath), { recursive: true });
+    this.canonicalOutputPaths.push(join(await realpath(dirname(outputPath)), basename(outputPath)));
+    try {
+      this.initialContents.push(await readFile(outputPath, "utf8"));
+    } catch (error) {
+      if (!hasErrorCode(error, "ENOENT")) throw error;
+      this.initialContents.push("");
+    }
     await writeFile(
       outputPath,
       typeof this.changelogContent === "string" ? this.changelogContent : this.changelogContent(request),
@@ -131,4 +142,9 @@ function promptJsonString(prompt: string, openMarker: string, closeMarker: strin
 
 function isInsideOrEqual(parent: string, child: string): boolean {
   return isPathContained(resolve(parent), resolve(child));
+}
+
+function hasErrorCode(error: unknown, code: string): boolean {
+  return typeof error === "object" && error !== null && "code" in error
+    && (error as { readonly code?: unknown }).code === code;
 }

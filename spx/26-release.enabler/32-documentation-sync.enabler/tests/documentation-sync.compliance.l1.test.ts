@@ -1,6 +1,9 @@
 import { join } from "node:path";
 
-import { DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE } from "@/domains/release/documentation-sync";
+import {
+  DOCUMENTATION_SYNC_AUDIT_APPROVED,
+  DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
+} from "@/domains/release/documentation-sync";
 import {
   arbitraryConfiguredDocumentationSyncScenario,
   arbitraryMultiDocumentSyncScenario,
@@ -37,7 +40,12 @@ import { describe, expect, it } from "vitest";
 
 describe("documentation sync compliance", () => {
   it("rejects every generated invalid path before generation or promotion", async () => {
-    await expect(observeDocumentationPathFailures(documentationPathFailureCases())).resolves.toSatisfy(
+    await expect(
+      observeDocumentationPathFailures(
+        documentationPathFailureCases(),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
+      ),
+    ).resolves.toSatisfy(
       (observations) => {
         for (const observation of observations) {
           expect(observation.error).toBeDefined();
@@ -57,6 +65,7 @@ describe("documentation sync compliance", () => {
       observeDocumentationFailure(
         DOCUMENTATION_FAILURE_CASE.GENERATION,
         sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       (observation) => {
@@ -75,6 +84,7 @@ describe("documentation sync compliance", () => {
       observeDocumentationFailure(
         DOCUMENTATION_FAILURE_CASE.READ_BACK,
         sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       (observation) => {
@@ -93,6 +103,7 @@ describe("documentation sync compliance", () => {
       observeDocumentationIdentityRejection(
         DOCUMENTATION_IDENTITY_CASE.STAGED_SYMLINK,
         sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves
       .toSatisfy(
@@ -113,6 +124,7 @@ describe("documentation sync compliance", () => {
       observeDocumentationIdentityRejection(
         DOCUMENTATION_IDENTITY_CASE.PRODUCT_READ,
         sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves
       .toSatisfy(
@@ -133,6 +145,7 @@ describe("documentation sync compliance", () => {
       observeDocumentationIdentityRejection(
         DOCUMENTATION_IDENTITY_CASE.CANONICAL_RESOLUTION,
         sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       (observation) => {
@@ -152,6 +165,7 @@ describe("documentation sync compliance", () => {
       observeDocumentationIdentityRejection(
         DOCUMENTATION_IDENTITY_CASE.STAGED_READ,
         sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       (observation) => {
@@ -170,6 +184,7 @@ describe("documentation sync compliance", () => {
       observeDocumentationIdentityRejection(
         DOCUMENTATION_IDENTITY_CASE.DUPLICATE_FILE,
         sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves
       .toSatisfy(
@@ -189,6 +204,7 @@ describe("documentation sync compliance", () => {
     await expect(
       observeDocumentationFifoRejection(
         sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       (observation) => {
@@ -205,6 +221,7 @@ describe("documentation sync compliance", () => {
       observeDocumentationVersionValidation(
         DOCUMENTATION_VERSION_VALIDATION_CASE.COMPLETE_HISTORY,
         sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       (observation) => {
@@ -224,6 +241,7 @@ describe("documentation sync compliance", () => {
       observeDocumentationVersionValidation(
         DOCUMENTATION_VERSION_VALIDATION_CASE.VERSION_VARIANT,
         sampleReleaseTestValue(arbitraryReleaseVersionVariantOnlyScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       (observation) => {
@@ -243,6 +261,7 @@ describe("documentation sync compliance", () => {
       observeDocumentationVersionValidation(
         DOCUMENTATION_VERSION_VALIDATION_CASE.PARTIAL_REWRITE,
         sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       (observation) => {
@@ -262,6 +281,7 @@ describe("documentation sync compliance", () => {
       observeDocumentationFailure(
         DOCUMENTATION_FAILURE_CASE.INCOMPLETE_SET,
         sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       (observation) => {
@@ -280,6 +300,7 @@ describe("documentation sync compliance", () => {
       observeDocumentationPromotionFailure(
         DOCUMENTATION_PROMOTION_FAILURE_CASE.SECOND_WRITE,
         sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       (observation) => {
@@ -298,6 +319,7 @@ describe("documentation sync compliance", () => {
       observeDocumentationPromotionFailure(
         DOCUMENTATION_PROMOTION_FAILURE_CASE.POST_STAGING_EDIT,
         sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       (observation) => {
@@ -321,6 +343,7 @@ describe("documentation sync compliance", () => {
       observeDocumentationIdentityRejection(
         DOCUMENTATION_IDENTITY_CASE.STAGED_REPLACEMENT,
         sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       (observation) => {
@@ -339,6 +362,7 @@ describe("documentation sync compliance", () => {
       observeDocumentationPromotionFailure(
         DOCUMENTATION_PROMOTION_FAILURE_CASE.DURING_PROMOTION_EDIT,
         sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       (observation) => {
@@ -361,6 +385,7 @@ describe("documentation sync compliance", () => {
       observeDocumentationIdentityRejection(
         DOCUMENTATION_IDENTITY_CASE.PROMOTION_REPLACEMENT,
         sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       (observation) => {
@@ -378,6 +403,7 @@ describe("documentation sync compliance", () => {
     await expect(
       observeAtomicDocumentationPromotion(
         sampleReleaseTestValue(arbitrarySingleDocumentSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       (observation) => {
@@ -397,6 +423,7 @@ describe("documentation sync compliance", () => {
       observeDocumentationRollback(
         DOCUMENTATION_ROLLBACK_CASE.POST_PROMOTION_EDIT,
         sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       (observation) => {
@@ -420,6 +447,7 @@ describe("documentation sync compliance", () => {
       observeDocumentationRollback(
         DOCUMENTATION_ROLLBACK_CASE.IDENTITY_REPLACEMENT,
         sampleReleaseTestValue(arbitraryMultiDocumentSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves
       .toSatisfy(
@@ -444,6 +472,7 @@ describe("documentation sync compliance", () => {
       observeDocumentationAudit(
         DOCUMENTATION_AUDIT_CASE.REJECT_BEFORE_PROMOTION,
         sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       (observation) => {
@@ -465,6 +494,7 @@ describe("documentation sync compliance", () => {
       observeDocumentationAudit(
         DOCUMENTATION_AUDIT_CASE.TRANSFORMATION,
         sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       (observation) => {
@@ -483,6 +513,7 @@ describe("documentation sync compliance", () => {
       observeDocumentationPrompt(
         DOCUMENTATION_PROMPT_CASE.PRODUCER_INPUT,
         sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       (observation) => {
@@ -505,6 +536,7 @@ describe("documentation sync compliance", () => {
       observeDocumentationPrompt(
         DOCUMENTATION_PROMPT_CASE.DATA_BOUNDARY,
         sampleReleaseTestValue(arbitraryPromptBoundaryDocumentationSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       (observation) => {
@@ -534,6 +566,7 @@ describe("documentation sync compliance", () => {
       observeDocumentationPrompt(
         DOCUMENTATION_PROMPT_CASE.AMBIENT_EXCLUSION,
         sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       (observation) => {

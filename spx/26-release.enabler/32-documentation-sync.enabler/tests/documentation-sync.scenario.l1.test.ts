@@ -1,5 +1,8 @@
 import { AGENT_PERMISSION_MODES } from "@/agent/agent-runner";
-import type { DocumentationSyncPromptInput } from "@/domains/release/documentation-sync";
+import {
+  DOCUMENTATION_SYNC_AUDIT_APPROVED,
+  type DocumentationSyncPromptInput,
+} from "@/domains/release/documentation-sync";
 import {
   arbitraryConfiguredDocumentationSyncScenario,
   arbitraryDefaultDocumentationSyncScenario,
@@ -28,6 +31,7 @@ describe("documentation sync scenarios", () => {
     await expect(
       observeDefaultDocumentationSync(
         sampleReleaseTestValue(arbitraryDefaultDocumentationSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       ({ actual, producerInput, scenario }) => {
@@ -42,6 +46,7 @@ describe("documentation sync scenarios", () => {
     await expect(
       observeConfiguredDocumentationSync(
         sampleReleaseTestValue(arbitraryConfiguredDocumentationSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       (observation) => {
@@ -62,6 +67,7 @@ describe("documentation sync scenarios", () => {
     await expect(
       observeFirstReleaseDocumentationSync(
         sampleReleaseTestValue(arbitraryFirstReleaseDocumentationSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       ({ actual, encodedVersion, producerInput, producerInstruction, scenario }) => {
@@ -83,6 +89,7 @@ describe("documentation sync scenarios", () => {
     await expect(
       observeVersionlessSubsequentReleaseDocumentationSync(
         sampleReleaseTestValue(arbitraryVersionlessSubsequentReleaseDocumentationSyncScenario()),
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
       ),
     ).resolves.toSatisfy(
       (observation) => {

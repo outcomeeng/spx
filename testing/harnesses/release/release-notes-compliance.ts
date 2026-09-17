@@ -23,7 +23,6 @@ import {
 } from "@/domains/release/release-notes";
 import { PATH_CONTAINMENT_PARENT_DIRECTORY } from "@/lib/file-system/pathContainment";
 import type { ReleaseContextScenario } from "@testing/generators/release/product-context";
-import { sampleReleaseNotesCompositionFixture } from "@testing/generators/release/release-notes";
 import {
   type AbsoluteReleaseNotesPathInput,
   type PartialWriteReleaseNotesInput,
@@ -45,6 +44,7 @@ import {
   promptChangelogPath,
   RecordingWritingAgentRunner,
   type ReleaseContextTransportObservation,
+  releaseDataDrivenAgentRunner,
   releaseSourceFromPrompt,
 } from "@testing/harnesses/release/agent-runner";
 import {
@@ -147,24 +147,38 @@ async function readJsonFixture<T>(path: string): Promise<T> {
 
 export async function observeReleaseNotesContextTransport(
   scenario: ReleaseContextScenario,
-): Promise<ReleaseContextTransportObservation> {
-  let observation: ReleaseContextTransportObservation | undefined;
+  respondToAudit: AgentAuditor["audit"],
+): Promise<
+  ReleaseContextTransportObservation & {
+    readonly stagedPromptPath: string;
+    readonly stagedCanonicalPath: string;
+    readonly stagedInput: string;
+    readonly generatedNotes: string;
+    readonly auditedSection: unknown;
+  }
+> {
+  let observation:
+    | (ReleaseContextTransportObservation & {
+      readonly stagedPromptPath: string;
+      readonly stagedCanonicalPath: string;
+      readonly stagedInput: string;
+      readonly generatedNotes: string;
+      readonly auditedSection: unknown;
+    })
+    | undefined;
   await withGitWorktreeEnv(async (env) => {
     for (const document of scenario.documents) {
       await env.writeTracked(document.path, document.content);
     }
     await env.commit(scenario.subject);
-    const fixture = sampleReleaseNotesCompositionFixture(scenario.releaseData);
-    const runner = new RecordingWritingAgentRunner(
-      env.productDir,
-      join(env.productDir, DEFAULT_CHANGELOG_PATH),
-      fixture.conformant,
-    );
+    const changelogPath = join(env.productDir, DEFAULT_CHANGELOG_PATH);
+    await writeFile(changelogPath, scenario.existingNotes);
+    const runner = releaseDataDrivenAgentRunner(env.productDir, changelogPath);
     let auditPrompt = "";
     const auditor: AgentAuditor = {
       audit: async (request) => {
         auditPrompt = request.prompt;
-        return RELEASE_NOTES_FAITHFULNESS_APPROVED;
+        return await respondToAudit(request);
       },
     };
     await releaseNotesCommand({
@@ -180,6 +194,17 @@ export async function observeReleaseNotesContextTransport(
       auditPrompt,
       producerSource: releaseSourceFromPrompt(runner.lastPrompt),
       auditorSource: releaseSourceFromPrompt(auditPrompt),
+      stagedPromptPath: runner.outputPaths.at(0) ?? "",
+      stagedCanonicalPath: runner.canonicalOutputPaths.at(0) ?? "",
+      stagedInput: runner.initialContents.at(0) ?? "",
+      generatedNotes: await readFile(changelogPath, FIXTURE_TEXT_ENCODING),
+      auditedSection: JSON.parse(
+        observePromptDataBlock(
+          auditPrompt,
+          RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_OPEN,
+          RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_CLOSE,
+        ).data,
+      ) as unknown,
     };
   });
   if (observation === undefined) throw new Error("Release context transport produced no observation");

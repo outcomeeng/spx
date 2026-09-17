@@ -1,5 +1,6 @@
 import { AGENT_PERMISSION_MODES, AGENT_TOOL_PERMISSION_BEHAVIOR } from "@/agent/agent-runner";
 import { RELEASE_CONFIG_FIELDS, releaseConfigDescriptor } from "@/domains/release/config";
+import { DOCUMENTATION_SYNC_AUDIT_APPROVED } from "@/domains/release/documentation-sync";
 import { selectReleaseOwnershipContext } from "@/domains/release/product-context";
 import { releaseVersionFromTag } from "@/domains/release/release-data";
 import { RELEASE_PRODUCT_TRUTH_STANDARDS } from "@/domains/release/release-notes-standards";
@@ -38,7 +39,11 @@ it("preserves identical product truth and release inputs for both documentation 
   await assertProperty(
     fc.tuple(arbitraryConfiguredDocumentationSyncScenario(), arbitraryReleaseContextScenario()),
     async ([scenario, context]) => {
-      const observation = await observeDocumentationContextTransport(scenario, context);
+      const observation = await observeDocumentationContextTransport(
+        scenario,
+        context,
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
+      );
       for (const input of [observation.producerSource, observation.auditorSource]) {
         expect(input).toEqual({
           productContext: context.documents,
@@ -91,23 +96,21 @@ it.each(Object.values(RELEASE_ENDPOINT_OWNERSHIP_CASE))(
         switch (scenario.kind) {
           case RELEASE_ENDPOINT_OWNERSHIP_CASE.CROSS_ENDPOINT:
             expect(contextPaths).toEqual(expect.arrayContaining([
-              `spx/20-${scenario.earlierNodeSlug}${KIND_REGISTRY.enabler.suffix}/${scenario.earlierNodeSlug}.md`,
-              `spx/30-${scenario.laterNodeSlug}${KIND_REGISTRY.enabler.suffix}/${scenario.laterNodeSlug}.md`,
+              nodeSpecPath(20, scenario.earlierNodeSlug),
+              nodeSpecPath(30, scenario.laterNodeSlug),
             ]));
             break;
           case RELEASE_ENDPOINT_OWNERSHIP_CASE.MULTIPLE_CANDIDATES: {
-            const parent = `spx/20-${scenario.parentNodeSlug}${KIND_REGISTRY.enabler.suffix}`;
+            const parent = nodeDirectoryPath(20, scenario.parentNodeSlug);
             expect(contextPaths).toEqual(expect.arrayContaining([
-              `${parent}/${scenario.parentNodeSlug}.md`,
-              `${parent}/20-${scenario.childNodeSlug}${KIND_REGISTRY.enabler.suffix}/${scenario.childNodeSlug}.md`,
-              `${parent}/30-${scenario.peerNodeSlug}${KIND_REGISTRY.enabler.suffix}/${scenario.peerNodeSlug}.md`,
+              posix.join(parent, `${scenario.parentNodeSlug}.md`),
+              nodeSpecPath(20, scenario.childNodeSlug, parent),
+              nodeSpecPath(30, scenario.peerNodeSlug, parent),
             ]));
             break;
           }
           case RELEASE_ENDPOINT_OWNERSHIP_CASE.DELETED:
-            expect(contextPaths).toContain(
-              `spx/20-${scenario.earlierNodeSlug}${KIND_REGISTRY.enabler.suffix}/${scenario.earlierNodeSlug}.md`,
-            );
+            expect(contextPaths).toContain(nodeSpecPath(20, scenario.earlierNodeSlug));
             break;
           case RELEASE_ENDPOINT_OWNERSHIP_CASE.UNRESOLVED:
             expect(observation.error).toBeInstanceOf(Error);
@@ -121,12 +124,23 @@ it.each(Object.values(RELEASE_ENDPOINT_OWNERSHIP_CASE))(
   },
 );
 
+function nodeDirectoryPath(index: number, slug: string, parent = "spx"): string {
+  return posix.join(parent, `${index}-${slug}${KIND_REGISTRY.enabler.suffix}`);
+}
+
+function nodeSpecPath(index: number, slug: string, parent?: string): string {
+  return posix.join(nodeDirectoryPath(index, slug, parent), `${slug}.md`);
+}
+
 describe("documentation sync path properties", () => {
   it("preserves every generated configured documentation path set", async () => {
     await assertProperty(
       arbitraryConfiguredDocumentationSyncScenario(),
       async (scenario) => {
-        const observation = await observeConfiguredDocumentationPathSet(scenario);
+        const observation = await observeConfiguredDocumentationPathSet(
+          scenario,
+          async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
+        );
         expect(observation.actual).toEqual(scenario.paths);
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
@@ -169,7 +183,12 @@ describe("documentation sync path properties", () => {
     await assertProperty(
       arbitraryDocumentationVersionPreservationScenarios(),
       async (scenarios) => {
-        for (const observation of await observeDocumentationVersionPreservation(scenarios)) {
+        for (
+          const observation of await observeDocumentationVersionPreservation(
+            scenarios,
+            async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
+          )
+        ) {
           const previousVersion = observation.scenario.releaseData.previousTag === null
             ? undefined
             : releaseVersionFromTag(observation.scenario.releaseData.previousTag);
@@ -200,7 +219,10 @@ describe("documentation sync path properties", () => {
     await assertProperty(
       arbitraryUnrelatedVersionRewriteScenario(),
       async (testCase) => {
-        const observation = await observeUnrelatedVersionRewrite(testCase);
+        const observation = await observeUnrelatedVersionRewrite(
+          testCase,
+          async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
+        );
         expect(observation.error).toBeDefined();
         expect(observation.actualAuditDocuments).toEqual(
           testCase.scenario.paths.map((path) => ({
@@ -221,7 +243,10 @@ describe("documentation sync path properties", () => {
     await assertProperty(
       arbitraryDocumentationAgentFileToolBoundaryScenario(),
       async (scenario) => {
-        const observation = await observeDocumentationAgentFileToolBoundary(scenario);
+        const observation = await observeDocumentationAgentFileToolBoundary(
+          scenario,
+          async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
+        );
         expect(
           observation.promptPaths.every((path) => isPathContained(observation.workingDirectory, path)),
         ).toBe(true);
@@ -242,3 +267,4 @@ describe("documentation sync path properties", () => {
     );
   });
 });
+import { posix } from "node:path";

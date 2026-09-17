@@ -6,6 +6,7 @@ import {
   type ReleaseProductContext,
 } from "@/domains/release/product-context";
 import type { ReleaseData } from "@/domains/release/release-data";
+import { CHANGELOG_TITLE } from "@/domains/release/release-notes";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import fc from "fast-check";
@@ -68,6 +69,7 @@ export interface ReleaseContextScenario {
   readonly subject: string;
   readonly body: string;
   readonly releaseData: ReleaseData;
+  readonly existingNotes: string;
 }
 
 export interface ReleaseEndpointOwnershipScenario {
@@ -201,6 +203,7 @@ export function arbitraryReleaseContextScenario(): fc.Arbitrary<ReleaseContextSc
         commits: data.commits.map((commit) => ({ ...commit, body })),
         changedPaths: [specification.path],
       },
+      existingNotes: CHANGELOG_TITLE,
     };
   });
 }

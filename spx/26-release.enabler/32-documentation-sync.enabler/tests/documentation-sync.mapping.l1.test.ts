@@ -1,6 +1,7 @@
 import { join } from "node:path";
 
 import { DEFAULT_RELEASE_DOCUMENTATION_PATHS } from "@/domains/release/config";
+import { DOCUMENTATION_SYNC_AUDIT_APPROVED } from "@/domains/release/documentation-sync";
 import {
   arbitraryDocumentationPathAliasCases,
   arbitraryNestedDocumentationSyncScenario,
@@ -18,7 +19,9 @@ import { describe, expect, it } from "vitest";
 
 describe("documentation sync path mapping", () => {
   it.each(documentationPathMappingCases())("maps documentation path configuration %#", async (mappingCase) => {
-    await expect(observeDocumentationPathMappings([mappingCase])).resolves.toSatisfy(
+    await expect(
+      observeDocumentationPathMappings([mappingCase], async () => DOCUMENTATION_SYNC_AUDIT_APPROVED),
+    ).resolves.toSatisfy(
       (observations) => {
         for (const observation of observations) {
           const expected = observation.mappingCase.kind === DOCUMENTATION_PATH_MAPPING_CASE.OMITTED
