@@ -150,7 +150,7 @@ export function selectSpecContextDocuments(
           mode,
           opening: PRODUCT_OPENING,
           migrationFallback: true,
-          scanCitations: true,
+          scanCitations: !discovery,
         }
         : nodeSelection(node, mode),
     );
