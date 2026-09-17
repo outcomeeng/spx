@@ -635,6 +635,83 @@ export async function observeExecuteRunThroughProduction(
   return observation;
 }
 
+/** What the production command path wrote and recorded when started inside a linked worktree. */
+export interface ExecuteRunLinkedWorktreeObservation {
+  /** The main checkout's root — the Git common-dir product root the linked worktree shares. */
+  readonly mainDir: string;
+  /** The linked worktree's root — the local worktree root the invocation directory resolves to. */
+  readonly linkedDir: string;
+  /** The directory the program was started from, inside the linked worktree. */
+  readonly invocationDir: string;
+  /** The structured result parsed from standard output, or `undefined` when nothing was written there. */
+  readonly report: ExecuteRunReport | undefined;
+  /** Every run the recorder opened under the main checkout's store, with its sealed state. */
+  readonly mainRecordedRuns: readonly RecordedRunObservation[];
+  /** Every run the recorder opened under the linked worktree's own store, with its sealed state. */
+  readonly linkedRecordedRuns: readonly RecordedRunObservation[];
+}
+
+const LINKED_WORKTREE_DIRECTORY = "linked";
+const INITIAL_COMMIT_MESSAGE = "initial";
+const GIT_IDENTITY_OVERRIDES = ["user.name=spx", "user.email=spx@example.invalid"] as const;
+
+/**
+ * Parses `spx verification test run` on a program carrying the production verify domain, started
+ * from a nested directory of a linked worktree of a generated product that declares TypeScript and
+ * installs no runner. Discovery and the runner root at the linked worktree, while the recorder's
+ * branch-scoped store resolves to the Git common-dir product root the worktrees share, so the run
+ * file lands under the main checkout and not under the linked one.
+ */
+export async function observeExecuteRunThroughLinkedWorktree(): Promise<ExecuteRunLinkedWorktreeObservation> {
+  let observation: ExecuteRunLinkedWorktreeObservation | undefined;
+  await withTestingTempProductDir(async (mainTempDir) => {
+    const product = await materializeTestProduct(mainTempDir, true);
+    await writeFile(join(product.productDir, TYPESCRIPT_MARKER), EMPTY_TYPESCRIPT_MARKER);
+    const git = (args: readonly string[]) => execa(GIT_TEST_COMMAND, [...args], { cwd: product.productDir });
+    await git([GIT_TEST_SUBCOMMANDS.ADD, GIT_TEST_FLAGS.ALL]);
+    await git([
+      ...GIT_IDENTITY_OVERRIDES.flatMap((override) => [GIT_TEST_FLAGS.CONFIG_OVERRIDE, override]),
+      GIT_TEST_SUBCOMMANDS.COMMIT,
+      GIT_TEST_FLAGS.QUIET,
+      GIT_TEST_FLAGS.COMMIT_MESSAGE,
+      INITIAL_COMMIT_MESSAGE,
+    ]);
+    await withTestingTempProductDir(async (linkedParent) => {
+      const linkedTarget = join(await realpath(linkedParent), LINKED_WORKTREE_DIRECTORY);
+      await git([GIT_TEST_SUBCOMMANDS.WORKTREE, GIT_TEST_SUBCOMMANDS.ADD, GIT_TEST_FLAGS.DETACH, linkedTarget]);
+      const linkedDir = await realpath(linkedTarget);
+      const invocationDir = join(linkedDir, posix.dirname(product.testPaths[0]));
+      const stdout: string[] = [];
+      const program = createCliProgram({
+        domains: [verifyDomain],
+        processCwd: () => invocationDir,
+        writeStdout: (output) => stdout.push(output),
+        writeStderr: () => undefined,
+        setExitCode: () => undefined,
+      });
+      await program.parseAsync(
+        [
+          VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
+          VERIFY_VERIFICATION_TYPE.TEST,
+          EXECUTE_RUN_CLI_SURFACE.runVerbName,
+        ],
+        { from: SPX_COMMANDER_PARSE_SOURCE },
+      );
+      const written = stdout.join("");
+      observation = {
+        mainDir: product.productDir,
+        linkedDir,
+        invocationDir,
+        report: written.length === 0 ? undefined : JSON.parse(written) as ExecuteRunReport,
+        mainRecordedRuns: await recordedRuns(defaultStateStoreFileSystem, product.productDir),
+        linkedRecordedRuns: await recordedRuns(defaultStateStoreFileSystem, linkedDir),
+      };
+    });
+  });
+  if (observation === undefined) throw new Error("execute-run harness produced no linked-worktree observation");
+  return observation;
+}
+
 // Parses one `spx verification test run <operands…>` command line on the real descriptor with the
 // given execute-run handler beneath it, and observes what reached the process streams.
 async function parseExecuteRunCommandLine(

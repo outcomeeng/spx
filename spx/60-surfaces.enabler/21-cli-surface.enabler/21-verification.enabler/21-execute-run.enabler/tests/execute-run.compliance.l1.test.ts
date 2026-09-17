@@ -30,6 +30,7 @@ import {
   observeExecuteRunDescriptorThroughFailure,
   observeExecuteRunHandler,
   observeExecuteRunHandlerFailure,
+  observeExecuteRunThroughLinkedWorktree,
   observeExecuteRunThroughProduction,
   observeExecuteRunWithAgenticType,
 } from "@testing/harnesses/verify/execute-run";
@@ -192,6 +193,17 @@ describe("execute run compliance", () => {
     expect(production.report?.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.INTERRUPTED);
     expect(production.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
     expect(production.recordedRuns).toEqual([{ runToken: production.report?.runToken, sealed: true }]);
+
+    // From a linked worktree the two roots part ways as the worktree-management decision declares:
+    // discovery and the runner take the linked worktree's own root, while the recorder's
+    // branch-scoped store resolves to the common-dir root the worktrees share, so the sealed run
+    // file lands under the main checkout and nowhere under the linked one.
+    const linked = await observeExecuteRunThroughLinkedWorktree();
+    expect(linked.linkedDir).not.toBe(linked.mainDir);
+    expect(linked.invocationDir.startsWith(linked.linkedDir)).toBe(true);
+    expect(linked.report?.unresolvedRunner?.productDir).toBe(linked.linkedDir);
+    expect(linked.mainRecordedRuns).toEqual([{ runToken: linked.report?.runToken, sealed: true }]);
+    expect(linked.linkedRecordedRuns).toEqual([]);
 
     const descriptor = await observeExecuteRunDescriptor(
       [],
