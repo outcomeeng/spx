@@ -80,43 +80,46 @@ it("retains every distinct candidate and governing node across both release endp
   );
 });
 
-it("resolves generated ownership topologies across release endpoint repositories before invoking agents", async () => {
-  await assertProperty(
-    arbitraryReleaseEndpointRepositoryScenario(),
-    async (scenario) => {
-      const observation = await observeReleaseEndpointRepository(scenario);
-      const contextPaths = observation.context.map(({ path }) => path);
-      switch (scenario.kind) {
-        case RELEASE_ENDPOINT_OWNERSHIP_CASE.CROSS_ENDPOINT:
-          expect(contextPaths).toEqual(expect.arrayContaining([
-            `spx/20-${scenario.earlierNodeSlug}${KIND_REGISTRY.enabler.suffix}/${scenario.earlierNodeSlug}.md`,
-            `spx/30-${scenario.laterNodeSlug}${KIND_REGISTRY.enabler.suffix}/${scenario.laterNodeSlug}.md`,
-          ]));
-          break;
-        case RELEASE_ENDPOINT_OWNERSHIP_CASE.MULTIPLE_CANDIDATES: {
-          const parent = `spx/20-${scenario.parentNodeSlug}${KIND_REGISTRY.enabler.suffix}`;
-          expect(contextPaths).toEqual(expect.arrayContaining([
-            `${parent}/${scenario.parentNodeSlug}.md`,
-            `${parent}/20-${scenario.childNodeSlug}${KIND_REGISTRY.enabler.suffix}/${scenario.childNodeSlug}.md`,
-            `${parent}/30-${scenario.peerNodeSlug}${KIND_REGISTRY.enabler.suffix}/${scenario.peerNodeSlug}.md`,
-          ]));
-          break;
+it.each(Object.values(RELEASE_ENDPOINT_OWNERSHIP_CASE))(
+  "resolves generated %s ownership topologies across release endpoint repositories before invoking agents",
+  async (kind) => {
+    await assertProperty(
+      arbitraryReleaseEndpointRepositoryScenario(kind),
+      async (scenario) => {
+        const observation = await observeReleaseEndpointRepository(scenario);
+        const contextPaths = observation.context.map(({ path }) => path);
+        switch (scenario.kind) {
+          case RELEASE_ENDPOINT_OWNERSHIP_CASE.CROSS_ENDPOINT:
+            expect(contextPaths).toEqual(expect.arrayContaining([
+              `spx/20-${scenario.earlierNodeSlug}${KIND_REGISTRY.enabler.suffix}/${scenario.earlierNodeSlug}.md`,
+              `spx/30-${scenario.laterNodeSlug}${KIND_REGISTRY.enabler.suffix}/${scenario.laterNodeSlug}.md`,
+            ]));
+            break;
+          case RELEASE_ENDPOINT_OWNERSHIP_CASE.MULTIPLE_CANDIDATES: {
+            const parent = `spx/20-${scenario.parentNodeSlug}${KIND_REGISTRY.enabler.suffix}`;
+            expect(contextPaths).toEqual(expect.arrayContaining([
+              `${parent}/${scenario.parentNodeSlug}.md`,
+              `${parent}/20-${scenario.childNodeSlug}${KIND_REGISTRY.enabler.suffix}/${scenario.childNodeSlug}.md`,
+              `${parent}/30-${scenario.peerNodeSlug}${KIND_REGISTRY.enabler.suffix}/${scenario.peerNodeSlug}.md`,
+            ]));
+            break;
+          }
+          case RELEASE_ENDPOINT_OWNERSHIP_CASE.DELETED:
+            expect(contextPaths).toContain(
+              `spx/20-${scenario.earlierNodeSlug}${KIND_REGISTRY.enabler.suffix}/${scenario.earlierNodeSlug}.md`,
+            );
+            break;
+          case RELEASE_ENDPOINT_OWNERSHIP_CASE.UNRESOLVED:
+            expect(observation.error).toBeInstanceOf(Error);
+            expect((observation.error as Error).message).toContain(sampleReleaseOwnershipFixture().sourcePath);
+            expect(observation.producerInvocations).toBe(0);
+            expect(observation.auditorInvocations).toBe(0);
         }
-        case RELEASE_ENDPOINT_OWNERSHIP_CASE.DELETED:
-          expect(contextPaths).toContain(
-            `spx/20-${scenario.earlierNodeSlug}${KIND_REGISTRY.enabler.suffix}/${scenario.earlierNodeSlug}.md`,
-          );
-          break;
-        case RELEASE_ENDPOINT_OWNERSHIP_CASE.UNRESOLVED:
-          expect(observation.error).toBeInstanceOf(Error);
-          expect((observation.error as Error).message).toContain(sampleReleaseOwnershipFixture().sourcePath);
-          expect(observation.producerInvocations).toBe(0);
-          expect(observation.auditorInvocations).toBe(0);
-      }
-    },
-    { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
-  );
-});
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+  },
+);
 
 describe("documentation sync path properties", () => {
   it("preserves every generated configured documentation path set", async () => {

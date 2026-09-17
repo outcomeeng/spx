@@ -129,9 +129,11 @@ export function arbitraryReleaseEndpointOwnershipScenario(): fc.Arbitrary<Releas
   });
 }
 
-export function arbitraryReleaseEndpointRepositoryScenario(): fc.Arbitrary<ReleaseEndpointRepositoryScenario> {
+export function arbitraryReleaseEndpointRepositoryScenario(
+  kind?: ReleaseEndpointOwnershipCase,
+): fc.Arbitrary<ReleaseEndpointRepositoryScenario> {
   return fc.record({
-    kind: fc.constantFrom(...Object.values(RELEASE_ENDPOINT_OWNERSHIP_CASE)),
+    kind: kind === undefined ? fc.constantFrom(...Object.values(RELEASE_ENDPOINT_OWNERSHIP_CASE)) : fc.constant(kind),
     nodeSlugs: fc
       .tuple(
         arbitraryPathSegment(),
