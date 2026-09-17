@@ -5,9 +5,10 @@
  * their operands here, so a file operand, a node operand, and the recursive widening mean one thing
  * across surfaces; the library is pure over its inputs and names no surface or language.
  */
-import { isAbsolute, relative } from "node:path";
+import { relative, resolve } from "node:path";
 
 import { applyPathFilter, normalizePathPrefix } from "@/config/primitives/path-filter";
+import { isPathContained } from "@/lib/file-system/pathContainment";
 import { SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 
@@ -27,38 +28,18 @@ export interface OperandResolutionContext {
   readonly productDir: string;
 }
 
-const PARENT_DIRECTORY = "..";
-const PARENT_DIRECTORY_PREFIX = `${PARENT_DIRECTORY}${PATH_SEGMENT_SEPARATOR}`;
-
-const WINDOWS_PATH_SEGMENT_SEPARATOR = "\\";
-
-function isPathSeparator(character: string | undefined): boolean {
-  return character === PATH_SEGMENT_SEPARATOR || character === WINDOWS_PATH_SEGMENT_SEPARATOR;
-}
-
-// The product root is recognized by its relative spellings before normalization — a bare dot with
-// any run of trailing separators — because normalization also maps an empty operand to the empty
-// string, and that spells no path at all.
-function isProductRootSpelling(operand: string): boolean {
-  let end = operand.length;
-  while (end > 0 && isPathSeparator(operand[end - 1])) end -= 1;
-  return operand.slice(0, end) === TARGET_OPERAND.PRODUCT_ROOT;
-}
-
 /**
  * The product-root-relative spelling an operand canonicalizes to: the empty string for the product
  * root itself — its relative spellings or its own absolute path — and `undefined` for an operand
- * that names no path inside the product: an empty operand, an absolute operand outside the root,
- * or a relative operand climbing out of it. An absolute operand inside the root resolves as
- * written, to the same spelling its product-root-relative form has.
+ * that names no path inside the product: an empty operand, or one whose resolved location lies
+ * outside the root, whether spelled absolutely or by climbing out of it. Containment is the
+ * product's one resolve-then-relativize rule, so an embedded `..` segment collapses before the
+ * check and an absolute operand under another root is rejected as written.
  */
 export function canonicalizeOperand(operand: string, productDir: string): string | undefined {
   if (operand.length === 0) return undefined;
-  if (isProductRootSpelling(operand)) return "";
-  const relativeToRoot = isAbsolute(operand) ? relative(productDir, operand) : operand;
-  const normalized = normalizePathPrefix(relativeToRoot);
-  if (normalized === PARENT_DIRECTORY || normalized.startsWith(PARENT_DIRECTORY_PREFIX)) return undefined;
-  return normalized;
+  if (!isPathContained(productDir, operand)) return undefined;
+  return normalizePathPrefix(relative(productDir, resolve(productDir, operand)));
 }
 
 /** Operand-selection request: the caller's operands and whether node operands recurse. */

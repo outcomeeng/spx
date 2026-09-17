@@ -151,15 +151,23 @@ function arbitraryProductRootSpellings(productDir: string): fc.Arbitrary<readonl
 }
 
 // One operand of each spelling that names no path inside the product: nothing, the filesystem
-// root, an absolute path beside the product, and a relative path climbing out of it — so a case
-// covers every class in one run rather than one member per run.
+// root, an absolute path beside the product, a relative path climbing out of it from its first
+// segment, and one that descends into a node before climbing out — so a case covers every class in
+// one run rather than one member per run.
 function arbitraryUnresolvableOperands(productDir: string): fc.Arbitrary<readonly string[]> {
-  return arbitraryNodePath().map((nodePath) => [
-    EMPTY_OPERAND,
-    ABSOLUTE_PATH_PREFIX,
-    `${productDir}${PARENT_SIBLING_SUFFIX}${PATH_SEPARATOR}${nodePath}`,
-    `${PARENT_DIRECTORY}${PATH_SEPARATOR}${nodePath}`,
-  ]);
+  return arbitraryNodePath().map((nodePath) => {
+    const climbOut = Array.from(
+      { length: nodePath.split(PATH_SEPARATOR).length + 1 },
+      () => PARENT_DIRECTORY,
+    ).join(PATH_SEPARATOR);
+    return [
+      EMPTY_OPERAND,
+      ABSOLUTE_PATH_PREFIX,
+      `${productDir}${PARENT_SIBLING_SUFFIX}${PATH_SEPARATOR}${nodePath}`,
+      `${PARENT_DIRECTORY}${PATH_SEPARATOR}${nodePath}`,
+      `${nodePath}${PATH_SEPARATOR}${climbOut}${PATH_SEPARATOR}${nodePath}`,
+    ];
+  });
 }
 
 // The absolute spelling of a product-root-relative operand under the given product root.
