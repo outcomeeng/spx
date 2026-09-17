@@ -85,6 +85,7 @@ export const RELEASE_TEST_GENERATOR = {
   distinctDomainLiteralPair: arbitraryDistinctDomainLiteralPair,
   commitSequence: arbitraryCommitSequence,
   releaseDataDeterminismScenario: arbitraryReleaseDataDeterminismScenario,
+  versionProgression: arbitraryReleaseVersionProgression,
   versionBumpFor: arbitraryVersionBumpFor,
   releaseData: arbitraryReleaseData,
   releaseDataWithoutPreviousTag: arbitraryReleaseDataWithoutPreviousTag,

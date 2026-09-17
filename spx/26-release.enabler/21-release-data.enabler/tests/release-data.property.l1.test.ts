@@ -1,11 +1,23 @@
 import { describe, expect, it } from "vitest";
 
-import { computeReleaseData } from "@/domains/release/release-data";
+import { classifyVersionDelta, computeReleaseData } from "@/domains/release/release-data";
 import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import { RELEASE_TEST_GENERATOR } from "@testing/generators/release/release";
 import { GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
+
+describe("classifyVersionDelta — advancing versions determine their delta", () => {
+  it("classifies every generated advancing semantic-version pair", async () => {
+    await assertProperty(
+      RELEASE_TEST_GENERATOR.versionProgression(),
+      ({ previousTag, version, versionDelta }) => {
+        expect(classifyVersionDelta(previousTag, version)).toBe(versionDelta);
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+  });
+});
 
 describe("computeReleaseData — release data is a deterministic function of repository state", () => {
   it("produces identical release data for identical repository state", async () => {
