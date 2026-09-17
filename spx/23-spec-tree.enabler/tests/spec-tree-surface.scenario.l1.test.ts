@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
-import { representativeSpecTreeSurfaceFixture } from "@testing/generators/spec-tree/spec-tree";
+import { KIND_REGISTRY, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
+import { sampleGeneratedValue } from "@testing/generators/sample";
+import { SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { observeRepresentativeSpecTreeSurfaceScenario } from "@testing/harnesses/spec-tree/public-surface";
 
 describe("spec-tree stable surface", () => {
   it("reads, projects, and selects the next root by tree order from a representative tree", async () => {
-    await observeRepresentativeSpecTreeSurfaceScenario(representativeSpecTreeSurfaceFixture()).then((observation) => {
+    await observeRepresentativeSpecTreeSurfaceScenario(
+      sampleGeneratedValue(SPEC_TREE_TEST_GENERATOR.representativeFixture(KIND_REGISTRY)),
+    ).then((observation) => {
       expect(observation.snapshot.product?.id).toBe(observation.fixture.product.id);
       expect(observation.snapshot.nodes.map(({ id }) => id)).toEqual([
         observation.fixture.root.id,

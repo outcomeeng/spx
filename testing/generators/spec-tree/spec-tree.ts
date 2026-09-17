@@ -6,7 +6,6 @@ import {
   type DecisionKind,
   type NamingSchemaVersion,
   type NodeKind,
-  SPEC_TREE_ADR_KIND,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_EVIDENCE_FILE,
@@ -224,62 +223,6 @@ export function createSerializedSource(entries: readonly SpecTreeSourceEntry[]):
 
 export function buildRepresentativeFixture(registry: SpecTreeRegistry): RepresentativeSpecTreeFixture {
   return sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.representativeFixture(registry));
-}
-
-export function representativeSpecTreeSurfaceFixture(): RepresentativeSpecTreeFixture {
-  const product = { type: SPEC_TREE_ENTRY_TYPE.PRODUCT, id: "surface-product", title: "Surface Product" } as const;
-  const root = {
-    type: SPEC_TREE_ENTRY_TYPE.NODE,
-    kind: "enabler",
-    id: "surface-root",
-    order: 20,
-    slug: "surface-root",
-  } as const;
-  const child = {
-    type: SPEC_TREE_ENTRY_TYPE.NODE,
-    kind: "enabler",
-    id: "surface-child",
-    order: 30,
-    slug: "surface-child",
-    parentId: root.id,
-  } as const;
-  const peer = {
-    type: SPEC_TREE_ENTRY_TYPE.NODE,
-    kind: "enabler",
-    id: "surface-peer",
-    order: 40,
-    slug: "surface-peer",
-  } as const;
-  const decision = {
-    type: SPEC_TREE_ENTRY_TYPE.DECISION,
-    kind: SPEC_TREE_ADR_KIND,
-    id: "surface-decision",
-    order: 10,
-    slug: "surface-decision",
-    parentId: root.id,
-  } as const;
-  const childEvidence = {
-    type: SPEC_TREE_ENTRY_TYPE.EVIDENCE,
-    id: "surface-child-evidence",
-    parentId: child.id,
-    status: SPEC_TREE_EVIDENCE_STATUS.PASSING,
-  } as const;
-  const peerEvidence = {
-    type: SPEC_TREE_ENTRY_TYPE.EVIDENCE,
-    id: "surface-peer-evidence",
-    parentId: peer.id,
-    status: SPEC_TREE_EVIDENCE_STATUS.FAILING,
-  } as const;
-  return {
-    product,
-    root,
-    child,
-    peer,
-    decision,
-    childEvidence,
-    peerEvidence,
-    entries: [product, root, child, peer, decision, childEvidence, peerEvidence],
-  };
 }
 
 export function sampleNodeKind(registry: SpecTreeRegistry): NodeKind {

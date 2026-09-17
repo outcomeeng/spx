@@ -12,7 +12,10 @@ import {
 import type { RepresentativeSpecTreeFixture } from "@testing/generators/spec-tree/spec-tree";
 
 const TYPESCRIPT_CONFIG_NAME = "tsconfig.json";
-const PUBLIC_SPEC_TREE_CONSUMER_ENTRY = "testing/fixtures/spec-tree/public-surface-contract.ts";
+export const PUBLIC_SPEC_TREE_SURFACE_CONTRACT_FIXTURE_PATH = resolve(
+  __dirname,
+  "../../fixtures/spec-tree/public-surface-contract.ts",
+);
 const DIAGNOSTIC_HOST: ts.FormatDiagnosticsHost = {
   getCanonicalFileName: (fileName) => fileName,
   getCurrentDirectory: () => process.cwd(),
@@ -24,24 +27,13 @@ export interface PublicSpecTreeSurfaceObservation {
   readonly formattedDiagnostics: string;
 }
 
-export function observePublicSpecTreeSurfaceContract(sourceText: string): PublicSpecTreeSurfaceObservation {
+export function observePublicSpecTreeSurfaceContract(fixturePath: string): PublicSpecTreeSurfaceObservation {
   const configPath = resolve(process.cwd(), TYPESCRIPT_CONFIG_NAME);
   const config = ts.readConfigFile(configPath, ts.sys.readFile);
   const parsed = ts.parseJsonConfigFileContent(config.config ?? {}, ts.sys, dirname(configPath), {}, configPath);
-  const consumerPath = resolve(process.cwd(), PUBLIC_SPEC_TREE_CONSUMER_ENTRY);
-  const host = ts.createCompilerHost(parsed.options);
-  const readFile = host.readFile;
-  const fileExists = host.fileExists;
-  host.fileExists = (fileName) => fileName === consumerPath || fileExists(fileName);
-  host.readFile = (fileName) => fileName === consumerPath ? sourceText : readFile(fileName);
-  host.getSourceFile = (fileName, languageVersion) => {
-    const content = host.readFile(fileName);
-    return content === undefined ? undefined : ts.createSourceFile(fileName, content, languageVersion, true);
-  };
   const program = ts.createProgram({
-    rootNames: [consumerPath],
+    rootNames: [fixturePath],
     options: parsed.options,
-    host,
   });
   const diagnostics = [config.error, ...parsed.errors, ...ts.getPreEmitDiagnostics(program)].filter(
     (diagnostic): diagnostic is ts.Diagnostic => diagnostic !== undefined,
