@@ -21,12 +21,9 @@ CAN operate on one accurate, reproducible description of what a release contains
 - Given a merge commit introduces a path beyond either parent commit, when release data is computed, then the changed paths include that merge-commit path ([test](tests/release-data.scenario.l1.test.ts))
 - Given a path is touched by more than one commit since the previous release tag, when release data is computed, then it appears exactly once in the changed paths ([test](tests/release-data.scenario.l1.test.ts))
 
-### Mappings
-
-- The package version and the previous release tag map to the version delta — major, minor, or patch — for a release whose version advances beyond the previous tag ([test](tests/release-data.mapping.l1.test.ts))
-
 ### Properties
 
+- The package version and the previous release tag determine the version delta — major, minor, or patch — for every release whose version advances beyond the previous tag ([test](tests/release-data.property.l1.test.ts))
 - Release-data computation is deterministic: the same repository state always produces the same release data ([test](tests/release-data.property.l1.test.ts))
 
 ### Compliance
