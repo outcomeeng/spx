@@ -9,6 +9,14 @@ describe("resolveSpecTreePathOwnership", () => {
     await assertProperty(
       arbitrarySpecTreePathOwnershipScenario(),
       async (scenario) => {
+        const expectedCandidateIds = [scenario.rootNodeId, scenario.childNodeId, scenario.peerNodeId]
+          .filter((id) => scenario.claimedNodeIds.includes(id));
+        const expectedGoverningOwnerId = (() => {
+          if (expectedCandidateIds.length === 0) return null;
+          if (expectedCandidateIds.length === 1) return expectedCandidateIds[0];
+          if (expectedCandidateIds.includes(scenario.peerNodeId)) return scenario.productId;
+          return scenario.rootNodeId;
+        })();
         const snapshots = await Promise.all([
           readSpecTree({ source: createSource(scenario.entries) }),
           readSpecTree({ source: createSerializedSource(scenario.entries) }),
@@ -16,13 +24,17 @@ describe("resolveSpecTreePathOwnership", () => {
         for (const snapshot of snapshots) {
           const result = resolveSpecTreePathOwnership(snapshot, scenario.path, scenario.claimedNodeIds);
 
-          expect(result.kind).toBe(scenario.expectedKind);
+          expect(result.kind).toBe(
+            expectedCandidateIds.length === 0
+              ? SPEC_TREE_PATH_OWNERSHIP_RESULT_KIND.UNRESOLVED
+              : SPEC_TREE_PATH_OWNERSHIP_RESULT_KIND.RESOLVED,
+          );
           expect(result.path).toBe(scenario.path);
-          expect(result.candidates.map((candidate) => candidate.id)).toEqual(scenario.expectedCandidateIds);
+          expect(result.candidates.map((candidate) => candidate.id)).toEqual(expectedCandidateIds);
           if (result.kind === SPEC_TREE_PATH_OWNERSHIP_RESULT_KIND.RESOLVED) {
-            expect(result.governingOwner.id).toBe(scenario.expectedGoverningOwnerId);
+            expect(result.governingOwner.id).toBe(expectedGoverningOwnerId);
           } else {
-            expect(scenario.expectedGoverningOwnerId).toBeNull();
+            expect(expectedGoverningOwnerId).toBeNull();
           }
         }
       },
