@@ -77,10 +77,10 @@ import {
   type DocumentationPromotionFailureCase,
   type DocumentationPromotionFailureInput,
   type DocumentationPromptInput,
+  type DocumentationProtectedVersionRewriteScenario,
   type DocumentationRollbackCase,
   type DocumentationRollbackInput,
   type DocumentationSyncScenario,
-  type DocumentationUnrelatedVersionRewriteScenario,
   type DocumentationVersionPreservationScenarios,
   type DocumentationVersionValidationInput,
 } from "@testing/generators/release/documentation";
@@ -1070,8 +1070,8 @@ interface DocumentationPathSetObservation {
 
 type DocumentationVersionPreservationObservation = DocumentationContentObservation;
 
-interface DocumentationUnrelatedVersionRewriteObservation extends DocumentationObservedContent {
-  readonly testCase: DocumentationUnrelatedVersionRewriteScenario;
+interface DocumentationProtectedVersionRewriteObservation extends DocumentationObservedContent {
+  readonly testCase: DocumentationProtectedVersionRewriteScenario;
   readonly error: unknown;
   readonly auditRequestCount: number;
   readonly promotionCallCount: number;
@@ -1124,12 +1124,12 @@ async function observeDocumentationVersionPreservation(
   );
 }
 
-async function observeUnrelatedVersionRewrite(
-  testCase: DocumentationUnrelatedVersionRewriteScenario,
+async function observeProtectedVersionRewrite(
+  testCase: DocumentationProtectedVersionRewriteScenario,
   respondToAudit: AgentAuditor["audit"],
-): Promise<DocumentationUnrelatedVersionRewriteObservation> {
+): Promise<DocumentationProtectedVersionRewriteObservation> {
   const promoter = new RecordingDocumentationPromoter();
-  let observation: DocumentationUnrelatedVersionRewriteObservation | undefined;
+  let observation: DocumentationProtectedVersionRewriteObservation | undefined;
   await withDocumentationScenario(
     testCase.scenario,
     respondToAudit,
@@ -2124,6 +2124,6 @@ export {
   observeDocumentationVersionValidation,
   observeFirstReleaseDocumentationSync,
   observeIndependentDocumentationConfigResolution,
-  observeUnrelatedVersionRewrite,
+  observeProtectedVersionRewrite,
   observeVersionlessSubsequentReleaseDocumentationSync,
 };

@@ -82,7 +82,7 @@ export interface DocumentationVersionPreservationScenarios {
   readonly withoutPreviousTag: DocumentationSyncScenario;
 }
 
-export interface DocumentationUnrelatedVersionRewriteScenario {
+export interface DocumentationProtectedVersionRewriteScenario {
   readonly scenario: DocumentationSyncScenario;
   readonly rewritten: Readonly<Partial<Record<string, string>>>;
 }
@@ -463,7 +463,7 @@ export function arbitraryDocumentationVersionPreservationScenarios(): fc.Arbitra
   });
 }
 
-export function arbitraryUnrelatedVersionRewriteScenario(): fc.Arbitrary<DocumentationUnrelatedVersionRewriteScenario> {
+export function arbitraryProtectedVersionRewriteScenario(): fc.Arbitrary<DocumentationProtectedVersionRewriteScenario> {
   return fc
     .uniqueArray(arbitraryDocumentationPath(), {
       minLength: DOCUMENT_COUNT_MIN,
@@ -475,7 +475,32 @@ export function arbitraryUnrelatedVersionRewriteScenario(): fc.Arbitrary<Documen
         { paths },
       )
     )
-    .chain(({ scenario, unrelatedVersion }) => {
+    .chain(({ scenario, unrelatedVersion }) =>
+      fc.oneof(
+        fc.constant({ scenario, protectedToken: unrelatedVersion }),
+        arbitrarySemanticVersionVariant(scenario.releaseData.version).map(
+          (protectedToken) => ({
+            scenario: {
+              ...scenario,
+              original: appendDocumentationVersions(scenario.original, [protectedToken]),
+              updated: appendDocumentationVersions(scenario.updated, [protectedToken]),
+            },
+            protectedToken,
+          }),
+        ),
+        arbitraryEmbeddedSemanticVersion(scenario.releaseData.version).map(
+          (protectedToken) => ({
+            scenario: {
+              ...scenario,
+              original: appendDocumentationVersions(scenario.original, [protectedToken]),
+              updated: appendDocumentationVersions(scenario.updated, [protectedToken]),
+            },
+            protectedToken,
+          }),
+        ),
+      )
+    )
+    .chain(({ scenario, protectedToken }) => {
       const previousVersion = scenario.releaseData.previousTag === null
         ? null
         : releaseVersionFromTag(scenario.releaseData.previousTag);
@@ -484,13 +509,13 @@ export function arbitraryUnrelatedVersionRewriteScenario(): fc.Arbitrary<Documen
           (version) =>
             version !== scenario.releaseData.version
             && version !== previousVersion
-            && version !== unrelatedVersion,
+            && version !== protectedToken,
         )
         .map((rewrittenVersion) => ({
           scenario,
           rewritten: rewriteDocumentationVersion(
             scenario.updated,
-            unrelatedVersion,
+            protectedToken,
             rewrittenVersion,
           ),
         }));

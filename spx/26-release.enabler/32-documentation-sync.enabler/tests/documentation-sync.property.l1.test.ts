@@ -11,8 +11,8 @@ import {
   arbitraryDocumentationAgentFileToolBoundaryScenario,
   arbitraryDocumentationVersionPreservationScenarios,
   arbitraryDuplicateDocumentationPathSet,
+  arbitraryProtectedVersionRewriteScenario,
   arbitrarySparseDocumentationPathSet,
-  arbitraryUnrelatedVersionRewriteScenario,
   documentationContentEntries,
 } from "@testing/generators/release/documentation";
 import {
@@ -27,7 +27,7 @@ import {
   observeDocumentationAgentFileToolBoundary,
   observeDocumentationContextTransport,
   observeDocumentationVersionPreservation,
-  observeUnrelatedVersionRewrite,
+  observeProtectedVersionRewrite,
 } from "@testing/harnesses/release/documentation-sync";
 import { observeReleaseEndpointRepository } from "@testing/harnesses/release/product-context";
 import fc from "fast-check";
@@ -188,11 +188,11 @@ describe("documentation sync path properties", () => {
     );
   });
 
-  it("rejects every generated unrelated semantic-version rewrite before promotion", async () => {
+  it("rejects every generated protected semantic-version rewrite before promotion", async () => {
     await assertProperty(
-      arbitraryUnrelatedVersionRewriteScenario(),
+      arbitraryProtectedVersionRewriteScenario(),
       async (testCase) => {
-        const observation = await observeUnrelatedVersionRewrite(
+        const observation = await observeProtectedVersionRewrite(
           testCase,
           async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
         );
