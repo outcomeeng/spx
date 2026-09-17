@@ -10,7 +10,7 @@ CAN derive complete targetless and targeted entry sets without filesystem heuris
 
 ## Assertions
 
-- Targetless `show` renders the product spec in Full, node specs at depths 1 and 2 in Digest, decisions directly contained at depths 0 through 2 in Digest, and existing `ISSUES.md` files at those depths as path-only references.
+- Targetless `show` renders the product spec in Full, node specs at depths 1 and 2 in Digest, decisions directly contained at depths 0 through 2 as path-and-authored-title references without decision bodies, and existing `ISSUES.md` files at those depths as path-only references.
 - A targeted projection renders each explicit target and ancestor spec in Full, every sibling spec along each target path and every immediate child of an explicit target in Digest, and all decisions directly contained by explicit targets and their ancestors in Full.
 - An explicit product-root target renders the product in Full, its decisions in Full, its immediate children in Digest, and its knowledge-index reference; it intentionally differs from targetless discovery.
 - An explicitly targeted node contributes its outcome record in Full and its `knowledge/index.md` as a path-only reference when present; implicit ancestors, siblings, and children contribute neither.

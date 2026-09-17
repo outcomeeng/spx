@@ -11,7 +11,7 @@ CAN present current spec-tree state and deterministic context without parsing so
 ## Assertions
 
 - Context-list projections render as the versioned human and JSON manifest representations without changing the selected manifest information.
-- Context-show projections render as ordered `spx-document` and `spx-reference` entries in text, or the equivalent ordered JSON `entries`, without changing selection, metadata, or source content.
+- Context-show projections render as ordered `spx-document` and `spx-reference` entries in text, or the equivalent ordered JSON `entries`, without changing selection, metadata, or source content; targetless decision references preserve their selected authored title in both representations.
 - An empty context-show projection renders as empty text or `{ "entries": [] }`.
 
 ### Mappings
