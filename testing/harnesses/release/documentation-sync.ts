@@ -477,6 +477,7 @@ async function withDocumentationScenario(
     }
     await materializeDocumentationConfig(productDir, scenario.config);
     const agent = new DocumentationWritingAgent(scenario.updated);
+    const auditor = new RecordingDocumentationAuditor();
     const filesystem = createDocumentationSyncFilesystem();
     await run(
       {
@@ -487,15 +488,13 @@ async function withDocumentationScenario(
         stageDocumentation: filesystem.stageDocumentation,
         readDocument: filesystem.readDocument,
         promoteDocumentation: filesystem.promoteDocumentation,
-        faithfulnessAuditor: approvingDocumentationAuditor,
+        faithfulnessAuditor: createDocumentationFaithfulnessAuditor(auditor, productDir),
       },
       (path) => readFile(join(productDir, path), "utf8"),
       agent,
     );
   });
 }
-
-const approvingDocumentationAuditor: DocumentationFaithfulnessAuditor = async () => {};
 
 export async function observeDocumentationContextTransport(
   scenario: DocumentationSyncScenario,
@@ -1209,6 +1208,7 @@ async function observeDocumentationPathFailures(
             await materializeDocumentationPathFailure(failureCase, productDir, externalDir);
             const filesystem = createDocumentationSyncFilesystem();
             const agent = new PassiveDocumentationAgent();
+            const auditor = new RecordingDocumentationAuditor();
             const promoter = new RecordingDocumentationPromoter();
             let error: unknown;
             try {
@@ -1220,7 +1220,7 @@ async function observeDocumentationPathFailures(
                 stageDocumentation: filesystem.stageDocumentation,
                 readDocument: filesystem.readDocument,
                 promoteDocumentation: promoter.promote,
-                faithfulnessAuditor: approvingDocumentationAuditor,
+                faithfulnessAuditor: createDocumentationFaithfulnessAuditor(auditor, productDir),
               });
             } catch (caught) {
               error = caught;
