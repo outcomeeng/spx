@@ -10,6 +10,7 @@ import {
   RELEASE_OWNERSHIP_COMMIT_SUBJECT,
   RELEASE_OWNERSHIP_FIXTURE_CONTENT,
   type ReleaseEndpointRepositoryScenario,
+  type ReleaseOwnershipNodePaths,
   releaseOwnershipNodeSpec,
   releaseOwnershipSourceContent,
   releaseOwnershipSourceImport,
@@ -36,6 +37,7 @@ export async function observeReleaseEndpointRepository(
     await materializeEndpointHistory(env, scenario);
     const releaseRef = await env.runGit([GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
     const previousTag = scenario.kind === RELEASE_ENDPOINT_OWNERSHIP_CASE.MULTIPLE_CANDIDATES
+        || scenario.kind === RELEASE_ENDPOINT_OWNERSHIP_CASE.AUDIT_DECLARATION
       ? null
       : scenario.tag;
     const releaseData = {
@@ -84,6 +86,9 @@ async function materializeEndpointHistory(
   scenario: ReleaseEndpointRepositoryScenario,
 ): Promise<void> {
   switch (scenario.kind) {
+    case RELEASE_ENDPOINT_OWNERSHIP_CASE.AUDIT_DECLARATION:
+      await materializeAuditDeclarationHistory(env, scenario);
+      return;
     case RELEASE_ENDPOINT_OWNERSHIP_CASE.CROSS_ENDPOINT:
       await materializeCrossEndpointHistory(env, scenario);
       return;
@@ -103,8 +108,8 @@ async function materializeCrossEndpointHistory(
   scenario: ReleaseEndpointRepositoryScenario,
 ): Promise<void> {
   const fixture = sampleReleaseOwnershipFixture();
-  const earlier = nodePaths(scenario.earlierNodeSlug, 20);
-  const later = nodePaths(scenario.laterNodeSlug, 30);
+  const earlier = scenario.earlierNode;
+  const later = scenario.laterNode;
   await writeOwnedSource(env, earlier, fixture.sourcePath, 1);
   await env.commit(RELEASE_OWNERSHIP_COMMIT_SUBJECT.EARLIER);
   await env.runGit([GIT_TEST_SUBCOMMANDS.TAG, scenario.tag]);
@@ -118,12 +123,12 @@ async function materializeMultipleCandidateHistory(
   scenario: ReleaseEndpointRepositoryScenario,
 ): Promise<void> {
   const fixture = sampleReleaseOwnershipFixture();
-  const parent = nodePaths(scenario.parentNodeSlug, 20);
-  const child = nestedNodePaths(parent.nodeId, scenario.childNodeSlug, 20);
-  const peer = nestedNodePaths(parent.nodeId, scenario.peerNodeSlug, 30);
+  const parent = scenario.parentNode;
+  const child = scenario.childNode;
+  const peer = scenario.peerNode;
   await env.writeTracked(
     parent.specificationPath,
-    releaseOwnershipNodeSpec(scenario.parentNodeSlug),
+    releaseOwnershipNodeSpec(parent.slug),
   );
   await writeOwnedSource(env, child, fixture.sourcePath, 1);
   await writeOwnedSource(env, peer, fixture.sourcePath, 1);
@@ -135,7 +140,7 @@ async function materializeDeletedPathHistory(
   scenario: ReleaseEndpointRepositoryScenario,
 ): Promise<void> {
   const fixture = sampleReleaseOwnershipFixture();
-  const earlier = nodePaths(scenario.earlierNodeSlug, 20);
+  const earlier = scenario.earlierNode;
   await writeOwnedSource(env, earlier, fixture.sourcePath, 1);
   await env.commit(RELEASE_OWNERSHIP_COMMIT_SUBJECT.OWNED_SOURCE);
   await env.runGit([GIT_TEST_SUBCOMMANDS.TAG, scenario.tag]);
@@ -150,7 +155,7 @@ async function materializeUnresolvedPathHistory(
   const fixture = sampleReleaseOwnershipFixture();
   await env.writeTracked(
     fixture.unlinkedTestPath,
-    releaseOwnershipSourceImport(fixture.unlinkedTestPath),
+    releaseOwnershipSourceImport(fixture.unlinkedTestPath, fixture.sourcePath),
   );
   await env.writeTracked(fixture.sourcePath, releaseOwnershipSourceContent(1));
   await env.commit("unresolved source");
@@ -159,36 +164,33 @@ async function materializeUnresolvedPathHistory(
   await env.commit("still unresolved source");
 }
 
-interface OwnershipNodePaths {
-  readonly nodeId: string;
-  readonly specificationPath: string;
-  readonly testPath: string;
-}
-
-function nodePaths(slug: string, index: number): OwnershipNodePaths {
-  return nestedNodePaths("spx", slug, index);
-}
-
-function nestedNodePaths(parentId: string, slug: string, index: number): OwnershipNodePaths {
-  const nodeId = `${parentId}/${index}-${slug}.enabler`;
-  return {
-    nodeId,
-    specificationPath: `${nodeId}/${slug}.md`,
-    testPath: `${nodeId}/tests/${slug}.scenario.l1.test.ts`,
-  };
+async function materializeAuditDeclarationHistory(
+  env: GitWorktreeEnvironment,
+  scenario: ReleaseEndpointRepositoryScenario,
+): Promise<void> {
+  const fixture = sampleReleaseOwnershipFixture();
+  await env.writeTracked(
+    scenario.earlierNode.specificationPath,
+    releaseOwnershipNodeSpec(scenario.earlierNode.slug, undefined, fixture.sourcePath),
+  );
+  await env.writeTracked(
+    fixture.unlinkedTestPath,
+    releaseOwnershipSourceImport(fixture.unlinkedTestPath, fixture.sourcePath),
+  );
+  await env.writeTracked(fixture.sourcePath, releaseOwnershipSourceContent(1));
+  await env.commit("audit ownership");
 }
 
 async function writeOwnedSource(
   env: GitWorktreeEnvironment,
-  node: OwnershipNodePaths,
+  node: ReleaseOwnershipNodePaths,
   sourcePath: string,
   sourceValue: number,
 ): Promise<void> {
-  const slug = node.specificationPath.slice(node.specificationPath.lastIndexOf("/") + 1, -3);
   await env.writeTracked(
     node.specificationPath,
-    releaseOwnershipNodeSpec(slug, `tests/${slug}.scenario.l1.test.ts`),
+    releaseOwnershipNodeSpec(node.slug, node.testPath.slice(node.nodeId.length + 1)),
   );
-  await env.writeTracked(node.testPath, releaseOwnershipSourceImport(node.testPath));
+  await env.writeTracked(node.testPath, releaseOwnershipSourceImport(node.testPath, sourcePath));
   await env.writeTracked(sourcePath, releaseOwnershipSourceContent(sourceValue));
 }

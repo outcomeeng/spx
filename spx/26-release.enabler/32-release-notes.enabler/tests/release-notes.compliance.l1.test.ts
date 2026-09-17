@@ -21,13 +21,8 @@ import { isPathContained } from "@/lib/file-system/pathContainment";
 import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import { sampleNonConformantReleaseNotesChangelogCases } from "@testing/generators/release/changelog";
 import {
-  RELEASE_OWNERSHIP_COMMIT_SUBJECT,
   RELEASE_OWNERSHIP_FIXTURE_CONTENT,
-  releaseOwnershipNodeSpec,
-  releaseOwnershipSourceContent,
-  releaseOwnershipSourceImport,
   sampleReleaseContextScenario,
-  sampleReleaseOwnershipFixture,
 } from "@testing/generators/release/product-context";
 import {
   RELEASE_NOTES_CONFIGURED_PATH_REJECTION_CASE,
@@ -74,8 +69,6 @@ import {
   type ReleaseNotesConformanceFailureObservation,
 } from "@testing/harnesses/release/release-notes-conformance";
 import { describe, expect, it } from "vitest";
-
-const releaseContextFixture = sampleReleaseOwnershipFixture();
 
 it("does not invoke an agent after selected context reading fails", async () => {
   const scenario = sampleReleaseContextScenario();
@@ -134,135 +127,6 @@ it("rejects selected nodes whose specification cannot be read", async () => {
       { ...scenario.releaseData, releaseRef, previousTag: null },
     ))
       .rejects.toThrow(scenario.specification.path);
-  });
-});
-
-it("unions shared ownership across both release endpoints", async () => {
-  await withGitWorktreeEnv(async (env) => {
-    const earlierNode = "spx/20-earlier.enabler";
-    const laterNode = "spx/30-later.enabler";
-    const earlierTest = `${earlierNode}/tests/earlier.scenario.l1.test.ts`;
-    const laterTest = `${laterNode}/tests/later.scenario.l1.test.ts`;
-    await env.writeTracked(releaseContextFixture.productPath, RELEASE_OWNERSHIP_FIXTURE_CONTENT.PRODUCT);
-    await env.writeTracked(releaseContextFixture.tsconfigPath, RELEASE_OWNERSHIP_FIXTURE_CONTENT.TYPESCRIPT_CONFIG);
-    await env.writeTracked(
-      `${earlierNode}/earlier.md`,
-      releaseOwnershipNodeSpec("Earlier", "tests/earlier.scenario.l1.test.ts"),
-    );
-    await env.writeTracked(earlierTest, releaseOwnershipSourceImport(earlierTest));
-    await env.writeTracked(releaseContextFixture.sourcePath, releaseOwnershipSourceContent(1));
-    await env.commit(RELEASE_OWNERSHIP_COMMIT_SUBJECT.EARLIER);
-    await env.runGit([GIT_TEST_SUBCOMMANDS.TAG, "v1.0.0"]);
-    await env.writeTracked(
-      `${laterNode}/later.md`,
-      releaseOwnershipNodeSpec("Later", "tests/later.scenario.l1.test.ts"),
-    );
-    await env.writeTracked(laterTest, releaseOwnershipSourceImport(laterTest));
-    await env.writeTracked(releaseContextFixture.sourcePath, releaseOwnershipSourceContent(2));
-    await env.commit("shared ownership");
-    const releaseRef = await env.runGit([GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
-
-    const context = await readReleaseProductContext(
-      env.productDir,
-      await readReleaseEndpointDataFixture(
-        RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH.RELEASE_CONTEXT_ENDPOINTS,
-        releaseRef,
-        "v1.0.0",
-        [releaseContextFixture.sourcePath],
-      ),
-    );
-
-    expect(context.map(({ path }) => path)).toEqual(expect.arrayContaining([
-      `${earlierNode}/earlier.md`,
-      `${laterNode}/later.md`,
-    ]));
-  });
-});
-
-it("resolves deleted implementation ownership from the earlier endpoint", async () => {
-  await withGitWorktreeEnv(async (env) => {
-    const node = "spx/20-owned.enabler";
-    const testPath = `${node}/tests/owned.scenario.l1.test.ts`;
-    await env.writeTracked(releaseContextFixture.productPath, RELEASE_OWNERSHIP_FIXTURE_CONTENT.PRODUCT);
-    await env.writeTracked(releaseContextFixture.tsconfigPath, RELEASE_OWNERSHIP_FIXTURE_CONTENT.TYPESCRIPT_CONFIG);
-    await env.writeTracked(
-      `${node}/owned.md`,
-      releaseOwnershipNodeSpec("Owned", "tests/owned.scenario.l1.test.ts"),
-    );
-    await env.writeTracked(testPath, releaseOwnershipSourceImport(testPath));
-    await env.writeTracked(releaseContextFixture.sourcePath, releaseOwnershipSourceContent(1));
-    await env.commit(RELEASE_OWNERSHIP_COMMIT_SUBJECT.OWNED_SOURCE);
-    await env.runGit([GIT_TEST_SUBCOMMANDS.TAG, "v1.0.0"]);
-    await env.runGit(["rm", releaseContextFixture.sourcePath, testPath]);
-    await env.commit("delete owned source");
-    const releaseRef = await env.runGit([GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
-
-    const context = await readReleaseProductContext(
-      env.productDir,
-      await readReleaseEndpointDataFixture(
-        RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH.RELEASE_CONTEXT_ENDPOINTS,
-        releaseRef,
-        "v1.0.0",
-        [releaseContextFixture.sourcePath],
-      ),
-    );
-
-    expect(context.map(({ path }) => path)).toContain(`${node}/owned.md`);
-  });
-});
-
-it("uses exact audit-declaration path references as ownership claims", async () => {
-  await withGitWorktreeEnv(async (env) => {
-    const node = "spx/20-audit-owned.enabler";
-    await env.writeTracked(releaseContextFixture.productPath, RELEASE_OWNERSHIP_FIXTURE_CONTENT.PRODUCT);
-    await env.writeTracked(releaseContextFixture.tsconfigPath, RELEASE_OWNERSHIP_FIXTURE_CONTENT.TYPESCRIPT_CONFIG);
-    await env.writeTracked(
-      `${node}/audit-owned.md`,
-      releaseOwnershipNodeSpec("Audit owned", undefined, releaseContextFixture.sourcePath),
-    );
-    await env.writeTracked(
-      releaseContextFixture.unlinkedTestPath,
-      releaseOwnershipSourceImport(releaseContextFixture.unlinkedTestPath),
-    );
-    await env.writeTracked(releaseContextFixture.sourcePath, releaseOwnershipSourceContent(1));
-    await env.commit("audit ownership");
-    const releaseRef = await env.runGit([GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
-
-    const context = await readReleaseProductContext(
-      env.productDir,
-      await readReleaseEndpointDataFixture(
-        RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH.RELEASE_CONTEXT_ENDPOINTS,
-        releaseRef,
-        null,
-        [releaseContextFixture.sourcePath],
-      ),
-    );
-
-    expect(context.map(({ path }) => path)).toContain(`${node}/audit-owned.md`);
-  });
-});
-
-it("rejects a source path classified at an endpoint but unresolved at both endpoints", async () => {
-  await withGitWorktreeEnv(async (env) => {
-    await env.writeTracked(releaseContextFixture.productPath, RELEASE_OWNERSHIP_FIXTURE_CONTENT.PRODUCT);
-    await env.writeTracked(releaseContextFixture.tsconfigPath, RELEASE_OWNERSHIP_FIXTURE_CONTENT.TYPESCRIPT_CONFIG);
-    await env.writeTracked(
-      releaseContextFixture.unlinkedTestPath,
-      releaseOwnershipSourceImport(releaseContextFixture.unlinkedTestPath),
-    );
-    await env.writeTracked(releaseContextFixture.sourcePath, releaseOwnershipSourceContent(1));
-    await env.commit("unowned source");
-    const releaseRef = await env.runGit([GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
-
-    await expect(readReleaseProductContext(
-      env.productDir,
-      await readReleaseEndpointDataFixture(
-        RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH.RELEASE_CONTEXT_ENDPOINTS,
-        releaseRef,
-        null,
-        [releaseContextFixture.sourcePath],
-      ),
-    )).rejects.toThrow(releaseContextFixture.sourcePath);
   });
 });
 

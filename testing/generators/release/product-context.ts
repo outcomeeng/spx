@@ -34,11 +34,20 @@ export interface ReleaseOwnershipFixture {
 }
 
 export function sampleReleaseOwnershipFixture(): ReleaseOwnershipFixture {
+  const evidenceFilename = [
+    "source",
+    SPEC_TREE_GRAMMAR.EVIDENCE.MODES[0],
+    SPEC_TREE_GRAMMAR.EVIDENCE.LEVELS[0],
+    ...SPEC_TREE_GRAMMAR.EVIDENCE.TAILS.TYPESCRIPT,
+  ].join(SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR);
   return {
-    productPath: "spx/product.product.md",
+    productPath: posix.join(
+      SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+      `product${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`,
+    ),
     tsconfigPath: "tsconfig.json",
     sourcePath: "src/shared.ts",
-    unlinkedTestPath: "tests/source.test.ts",
+    unlinkedTestPath: posix.join(SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME, evidenceFilename),
   };
 }
 
@@ -52,9 +61,14 @@ export function releaseOwnershipNodeSpec(slug: string, testPath?: string, auditP
   }\n`;
 }
 
-export function releaseOwnershipSourceImport(testPath: string): string {
-  const depth = testPath.split("/").length - 1;
-  return `import ${JSON.stringify(`${"../".repeat(depth)}src/shared`)};\n`;
+export function releaseOwnershipSourceImport(testPath: string, sourcePath: string): string {
+  const sourceExtension = `.${SPEC_TREE_GRAMMAR.EVIDENCE.TAILS.TYPESCRIPT.at(-1)}`;
+  const relativeSourcePath = posix.relative(posix.dirname(testPath), sourcePath);
+  const extensionlessPath = relativeSourcePath.endsWith(sourceExtension)
+    ? relativeSourcePath.slice(0, -sourceExtension.length)
+    : relativeSourcePath;
+  const importPath = extensionlessPath.startsWith(".") ? extensionlessPath : `./${extensionlessPath}`;
+  return `import ${JSON.stringify(importPath)};\n`;
 }
 
 export function releaseOwnershipSourceContent(value: number): string {
@@ -78,6 +92,7 @@ export interface ReleaseEndpointOwnershipScenario {
 }
 
 export const RELEASE_ENDPOINT_OWNERSHIP_CASE = {
+  AUDIT_DECLARATION: "audit-declaration",
   CROSS_ENDPOINT: "cross-endpoint",
   MULTIPLE_CANDIDATES: "multiple-candidates",
   DELETED: "deleted",
@@ -89,13 +104,22 @@ export type ReleaseEndpointOwnershipCase =
 
 export interface ReleaseEndpointRepositoryScenario {
   readonly kind: ReleaseEndpointOwnershipCase;
-  readonly earlierNodeSlug: string;
-  readonly laterNodeSlug: string;
-  readonly parentNodeSlug: string;
-  readonly childNodeSlug: string;
-  readonly peerNodeSlug: string;
+  readonly earlierNode: ReleaseOwnershipNodePaths;
+  readonly laterNode: ReleaseOwnershipNodePaths;
+  readonly parentNode: ReleaseOwnershipNodePaths;
+  readonly childNode: ReleaseOwnershipNodePaths;
+  readonly peerNode: ReleaseOwnershipNodePaths;
+  readonly expectedContextPaths: readonly string[];
+  readonly changedSourcePath: string;
   readonly tag: string;
   readonly releaseData: ReleaseData;
+}
+
+export interface ReleaseOwnershipNodePaths {
+  readonly slug: string;
+  readonly nodeId: string;
+  readonly specificationPath: string;
+  readonly testPath: string;
 }
 
 export function arbitraryReleaseEndpointOwnershipScenario(): fc.Arbitrary<ReleaseEndpointOwnershipScenario> {
@@ -147,16 +171,55 @@ export function arbitraryReleaseEndpointRepositoryScenario(
       .filter((slugs) => new Set(slugs).size === slugs.length),
     tag: arbitraryPathSegment().map((segment) => `release-${segment}`),
     releaseData: RELEASE_TEST_GENERATOR.releaseData(),
-  }).map(({ kind, nodeSlugs, tag, releaseData }) => ({
-    kind,
-    earlierNodeSlug: nodeSlugs[0],
-    laterNodeSlug: nodeSlugs[1],
-    parentNodeSlug: nodeSlugs[2],
-    childNodeSlug: nodeSlugs[3],
-    peerNodeSlug: nodeSlugs[4],
-    tag,
-    releaseData,
-  }));
+  }).map(({ kind, nodeSlugs, tag, releaseData }) => {
+    const earlierNode = releaseOwnershipNodePaths(nodeSlugs[0], 20);
+    const laterNode = releaseOwnershipNodePaths(nodeSlugs[1], 30);
+    const parentNode = releaseOwnershipNodePaths(nodeSlugs[2], 20);
+    const childNode = releaseOwnershipNodePaths(nodeSlugs[3], 20, parentNode.nodeId);
+    const peerNode = releaseOwnershipNodePaths(nodeSlugs[4], 30, parentNode.nodeId);
+    const expectedContextPaths = kind === RELEASE_ENDPOINT_OWNERSHIP_CASE.CROSS_ENDPOINT
+      ? [earlierNode.specificationPath, laterNode.specificationPath]
+      : kind === RELEASE_ENDPOINT_OWNERSHIP_CASE.MULTIPLE_CANDIDATES
+      ? [parentNode.specificationPath, childNode.specificationPath, peerNode.specificationPath]
+      : kind === RELEASE_ENDPOINT_OWNERSHIP_CASE.UNRESOLVED
+      ? []
+      : [earlierNode.specificationPath];
+    return {
+      kind,
+      earlierNode,
+      laterNode,
+      parentNode,
+      childNode,
+      peerNode,
+      expectedContextPaths,
+      changedSourcePath: sampleReleaseOwnershipFixture().sourcePath,
+      tag,
+      releaseData,
+    };
+  });
+}
+
+function releaseOwnershipNodePaths(
+  slug: string,
+  index: number,
+  parentId: string = SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+): ReleaseOwnershipNodePaths {
+  const nodeId = posix.join(
+    parentId,
+    `${index}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${KIND_REGISTRY.enabler.suffix}`,
+  );
+  const evidenceFilename = [
+    slug,
+    SPEC_TREE_GRAMMAR.EVIDENCE.MODES[0],
+    SPEC_TREE_GRAMMAR.EVIDENCE.LEVELS[0],
+    ...SPEC_TREE_GRAMMAR.EVIDENCE.TAILS.TYPESCRIPT,
+  ].join(SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR);
+  return {
+    slug,
+    nodeId,
+    specificationPath: posix.join(nodeId, `${slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`),
+    testPath: posix.join(nodeId, SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME, evidenceFilename),
+  };
 }
 
 export function arbitraryReleaseContextScenario(): fc.Arbitrary<ReleaseContextScenario> {
