@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { computeReleaseData } from "@/domains/release/release-data";
+import { computeReleaseData, RELEASE_DATA_LOCAL_GIT_SUBCOMMANDS } from "@/domains/release/release-data";
 import { defaultGitDependencies } from "@/lib/git/root";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 import { GIT_TEST_COMMAND, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
-import { GIT_REMOTE_SUBCOMMANDS, observeProductionGitInvocations } from "@testing/harnesses/release/git-runner";
+import { observeProductionGitInvocations } from "@testing/harnesses/release/git-runner";
 
 describe("computeReleaseData — git plumbing and the working tree are the only inputs", () => {
   it("invokes only git, and never a subcommand that reaches a remote", async () => {
@@ -31,7 +31,7 @@ describe("computeReleaseData — git plumbing and the working tree are the only 
       expect(observation.invocations.length).toBeGreaterThan(0);
       for (const invocation of observation.invocations) {
         expect(invocation.executable).toBe(GIT_TEST_COMMAND);
-        expect(GIT_REMOTE_SUBCOMMANDS).not.toContain(invocation.args[0]);
+        expect(RELEASE_DATA_LOCAL_GIT_SUBCOMMANDS).toContain(invocation.args[0]);
       }
       expect(observation.value.commits.map((commit) => commit.subject)).toEqual([head.subject]);
     });
@@ -47,7 +47,7 @@ describe("computeReleaseData — git plumbing and the working tree are the only 
       );
 
       expect(observation.invocations.map((invocation) => invocation.args[0])).toEqual([GIT_TEST_SUBCOMMANDS.FETCH]);
-      expect(GIT_REMOTE_SUBCOMMANDS).toContain(GIT_TEST_SUBCOMMANDS.FETCH);
+      expect(RELEASE_DATA_LOCAL_GIT_SUBCOMMANDS).not.toContain(GIT_TEST_SUBCOMMANDS.FETCH);
     });
   });
 });

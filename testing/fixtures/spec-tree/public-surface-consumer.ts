@@ -18,8 +18,6 @@ import {
   type SpecTreeSourceEntry,
 } from "@/lib/spec-tree";
 
-export const PUBLIC_SPEC_TREE_CONSUMER_ENTRY = "testing/fixtures/spec-tree/public-surface-consumer.ts";
-
 const source: SpecTreeSource = {
   async *entries(): AsyncIterable<SpecTreeSourceEntry> {
     yield {

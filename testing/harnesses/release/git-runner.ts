@@ -15,8 +15,6 @@ export interface ProductionGitObservation<T> {
   readonly invocations: readonly RecordedGitInvocation[];
 }
 
-export const GIT_REMOTE_SUBCOMMANDS = ["clone", "fetch", "pull", "push", "ls-remote", "remote", "submodule"] as const;
-
 const OBSERVER_TEMP_PREFIX = "spx-release-git-observer-";
 const OBSERVER_SCRIPT_NAME = "git-observer.cjs";
 const OBSERVER_LOG_NAME = "git-invocations.jsonl";

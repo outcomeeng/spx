@@ -1,9 +1,11 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { assertPublicSpecTreeSurfaceExportsDeclaredContracts } from "@testing/harnesses/spec-tree/public-surface";
+import { observePublicSpecTreeSurfaceExportsDeclaredContracts } from "@testing/harnesses/spec-tree/public-surface";
 
 describe("spec-tree public TypeScript surface", () => {
   it("exports every declared consumer contract from one import boundary", () => {
-    assertPublicSpecTreeSurfaceExportsDeclaredContracts();
+    const observation = observePublicSpecTreeSurfaceExportsDeclaredContracts();
+
+    expect(observation.diagnostics, observation.formattedDiagnostics).toEqual([]);
   });
 });
