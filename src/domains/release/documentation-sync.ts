@@ -32,6 +32,8 @@ export const DOCUMENTATION_SYNC_AUDIT_VERSIONLESS_INSTRUCTION =
 const REGEXP_SPECIAL_CHARACTER_PATTERN = /[.*+?^${}()|[\]\\]/gu;
 const REGEXP_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const VERSION_REFERENCE_NON_WHITESPACE_PATTERN = String.raw`\S`;
+const WHITESPACE_PATTERN = /\s+/u;
+const SEMANTIC_VERSION_TOKEN_PATTERN = /v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?/u;
 
 export interface StagedDocumentation {
   readonly workingDirectory: string;
@@ -150,7 +152,7 @@ export async function composeDocumentationSync(
       originalContent,
     }) => {
       const updatedContent = await options.readDocument(stage.workingDirectory, stagedPath);
-      assertReleasedVersionReferencesUpdated(updatedContent, options.releaseData, sourcePath);
+      assertReleasedVersionReferencesUpdated(originalContent, updatedContent, options.releaseData, sourcePath);
       return { path: sourcePath, targetPath, originalIdentity, originalContent, updatedContent };
     }));
     await options.faithfulnessAuditor({
@@ -198,18 +200,55 @@ export function createDocumentationFaithfulnessAuditor(
 }
 
 function assertReleasedVersionReferencesUpdated(
-  content: string,
+  originalContent: string,
+  updatedContent: string,
   releaseData: ReleaseData,
   path: string,
 ): void {
-  if (!containsReleaseVersionReference(content, releaseData.version)) {
+  assertUnrelatedVersionTokensPreserved(originalContent, updatedContent, releaseData, path);
+  if (!containsReleaseVersionReference(updatedContent, releaseData.version)) {
     throw new Error(`Updated documentation does not reference release version ${releaseData.version}: ${path}`);
   }
   if (releaseData.previousTag === null) return;
   const previousVersion = releaseVersionFromTag(releaseData.previousTag);
-  if (containsReleaseVersionReference(content, previousVersion)) {
+  if (containsReleaseVersionReference(updatedContent, previousVersion)) {
     throw new Error(`Updated documentation still references previous release version ${previousVersion}: ${path}`);
   }
+}
+
+function assertUnrelatedVersionTokensPreserved(
+  originalContent: string,
+  updatedContent: string,
+  releaseData: ReleaseData,
+  path: string,
+): void {
+  const previousVersion = releaseData.previousTag === null
+    ? undefined
+    : releaseVersionFromTag(releaseData.previousTag);
+  const updatedTokenCounts = tokenCounts(updatedContent);
+  for (const token of semanticVersionTokens(originalContent)) {
+    if (
+      previousVersion !== undefined
+      && (token === previousVersion || token === `${RELEASE_TAG_PREFIX}${previousVersion}`)
+    ) continue;
+    const remaining = updatedTokenCounts.get(token) ?? 0;
+    if (remaining === 0) {
+      throw new Error(`Updated documentation rewrites unrelated version token ${token}: ${path}`);
+    }
+    updatedTokenCounts.set(token, remaining - 1);
+  }
+}
+
+function semanticVersionTokens(content: string): readonly string[] {
+  return content.split(WHITESPACE_PATTERN).filter((token) => SEMANTIC_VERSION_TOKEN_PATTERN.test(token));
+}
+
+function tokenCounts(content: string): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const token of content.split(WHITESPACE_PATTERN)) {
+    counts.set(token, (counts.get(token) ?? 0) + 1);
+  }
+  return counts;
 }
 
 function containsReleaseVersionReference(content: string, version: string): boolean {

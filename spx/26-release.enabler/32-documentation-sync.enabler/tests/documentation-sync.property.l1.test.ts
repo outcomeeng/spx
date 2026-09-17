@@ -197,12 +197,7 @@ describe("documentation sync path properties", () => {
           async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
         );
         expect(observation.error).toBeDefined();
-        expect(observation.actualAuditDocuments).toEqual(
-          testCase.scenario.paths.map((path) => ({
-            path,
-            updatedContent: testCase.rewritten[path],
-          })),
-        );
+        expect(observation.auditRequestCount).toBe(0);
         expect(observation.promotionCallCount).toBe(0);
         expect(observation.actual).toEqual(
           documentationContentEntries(testCase.scenario, testCase.scenario.original),

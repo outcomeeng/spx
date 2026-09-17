@@ -43,8 +43,6 @@ import {
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN,
   DOCUMENTATION_SYNC_PROMPT_INSTRUCTION,
-  DOCUMENTATION_SYNC_REPLACE_PREVIOUS_VERSION_INSTRUCTION,
-  DOCUMENTATION_SYNC_VERSIONLESS_INSTRUCTION,
   type DocumentationFaithfulnessAuditor,
   type DocumentationFileIdentity,
   type DocumentationPromoter,
@@ -125,14 +123,13 @@ class DocumentationWritingAgent implements AgentRunner {
   }
 }
 
-class PromptDrivenDocumentationAgent implements AgentRunner {
+class ReleaseDataDrivenDocumentationAgent implements AgentRunner {
   readonly requests: AgentRunRequest[] = [];
 
   async run(request: AgentRunRequest): Promise<void> {
     this.requests.push(request);
     const input = parseDocumentationSyncPromptInput(request.prompt);
-    await writePromptDrivenDocumentation(
-      documentationSyncPromptInstruction(request.prompt),
+    await writeReleaseDataDrivenDocumentation(
       input.releaseData,
       input.documents,
     );
@@ -462,7 +459,7 @@ async function withDocumentationScenario(
   run: (
     options: ComposeDocumentationSyncOptions,
     readProductDocument: ProductDocumentationReader,
-    agent: PromptDrivenDocumentationAgent,
+    agent: ReleaseDataDrivenDocumentationAgent,
   ) => Promise<void>,
 ): Promise<void> {
   await withTempDir(PRODUCT_DIRECTORY_PREFIX, async (productDir) => {
@@ -478,7 +475,7 @@ async function withDocumentationScenario(
       await writeFile(absolutePath, content);
     }
     await materializeDocumentationConfig(productDir, scenario.config);
-    const agent = new PromptDrivenDocumentationAgent();
+    const agent = new ReleaseDataDrivenDocumentationAgent();
     const auditor = new RecordingDocumentationAuditor(respondToAudit);
     const filesystem = createDocumentationSyncFilesystem();
     await run(
@@ -601,8 +598,7 @@ async function writeGeneratedDocumentation(
   }
 }
 
-async function writePromptDrivenDocumentation(
-  instruction: string,
+async function writeReleaseDataDrivenDocumentation(
   releaseData: ReleaseData,
   documents: readonly { readonly stagedPath: string }[],
 ): Promise<void> {
@@ -617,18 +613,16 @@ async function writePromptDrivenDocumentation(
       }(?!\S)`,
       "gu",
     );
-  const replacementEnabled = instruction.includes(DOCUMENTATION_SYNC_REPLACE_PREVIOUS_VERSION_INSTRUCTION);
-  const additionEnabled = instruction.includes(DOCUMENTATION_SYNC_VERSIONLESS_INSTRUCTION);
   for (const document of documents) {
     const content = await readFile(document.stagedPath, "utf8");
     let replacementCount = 0;
-    const rewritten = previousReferencePattern === undefined || !replacementEnabled
+    const rewritten = previousReferencePattern === undefined
       ? content
       : content.replace(previousReferencePattern, () => {
         replacementCount += 1;
         return releaseData.version;
       });
-    const updated = replacementCount === 0 && additionEnabled
+    const updated = replacementCount === 0
       ? `${content.trimEnd()}\n${releaseData.version}\n`
       : rewritten;
     await writeFile(document.stagedPath, updated);
@@ -736,7 +730,7 @@ async function observeVersionlessSubsequentReleaseDocumentationSync(
   VersionlessDocumentationSyncObservation
 > {
   const auditor = new RecordingDocumentationAuditor(respondToAudit);
-  const producer = new PromptDrivenDocumentationAgent();
+  const producer = new ReleaseDataDrivenDocumentationAgent();
   let observation: VersionlessDocumentationSyncObservation | undefined;
   await withDocumentationScenario(scenario, respondToAudit, async (options, readProductDocument) => {
     await runDocumentationSyncCli({
@@ -764,7 +758,7 @@ async function observeDocumentationSync(
   scenario: DocumentationSyncScenario,
   respondToAudit: AgentAuditor["audit"],
 ): Promise<DocumentationContentObservation> {
-  const producer = new PromptDrivenDocumentationAgent();
+  const producer = new ReleaseDataDrivenDocumentationAgent();
   let observation: DocumentationContentObservation | undefined;
   await withDocumentationScenario(scenario, respondToAudit, async (options, readProductDocument) => {
     await runDocumentationSyncCli({ ...options, agentRunner: producer });
@@ -940,7 +934,7 @@ type DocumentationVersionPreservationObservation = DocumentationContentObservati
 interface DocumentationUnrelatedVersionRewriteObservation extends DocumentationObservedContent {
   readonly testCase: DocumentationUnrelatedVersionRewriteScenario;
   readonly error: unknown;
-  readonly actualAuditDocuments: readonly { readonly path: string; readonly updatedContent: string }[];
+  readonly auditRequestCount: number;
   readonly promotionCallCount: number;
 }
 
@@ -991,16 +985,13 @@ async function observeUnrelatedVersionRewrite(
   const promoter = new RecordingDocumentationPromoter();
   let observation: DocumentationUnrelatedVersionRewriteObservation | undefined;
   await withDocumentationScenario(testCase.scenario, respondToAudit, async (options, readProductDocument) => {
-    let actualAuditDocuments: readonly { readonly path: string; readonly updatedContent: string }[] = [];
+    const auditor = new RecordingDocumentationAuditor(respondToAudit);
     let error: unknown;
     try {
       await composeDocumentationSync({
         ...options,
         agentRunner: new DocumentationWritingAgent(testCase.rewritten),
-        faithfulnessAuditor: async (request) => {
-          actualAuditDocuments = request.documents.map(({ path, updatedContent }) => ({ path, updatedContent }));
-          await rejectingDocumentationAuditor(request);
-        },
+        faithfulnessAuditor: createDocumentationFaithfulnessAuditor(auditor, options.productDir),
         promoteDocumentation: promoter.promote,
       });
     } catch (caught) {
@@ -1012,7 +1003,7 @@ async function observeUnrelatedVersionRewrite(
       testCase,
       actual: content.actual,
       error,
-      actualAuditDocuments,
+      auditRequestCount: auditor.requests.length,
       promotionCallCount: promoter.calls.length,
     };
   });
