@@ -111,10 +111,7 @@ describe("documentation sync path properties", () => {
     await assertProperty(
       arbitraryConfiguredDocumentationSyncScenario(),
       async (scenario) => {
-        const observation = await observeConfiguredDocumentationPathSet(
-          scenario,
-          async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
-        );
+        const observation = observeConfiguredDocumentationPathSet(scenario);
         expect(observation.actual).toEqual(scenario.paths);
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },

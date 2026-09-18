@@ -1,7 +1,4 @@
-import {
-  DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
-  documentationSyncCommand,
-} from "@/commands/release/documentation-sync";
+import { documentationSyncCommand } from "@/commands/release/documentation-sync";
 import { readReleaseProductContext, type ReleaseEndpointReader } from "@/commands/release/product-context";
 import type { ReleaseProductContext } from "@/domains/release/product-context";
 import {
@@ -40,11 +37,19 @@ export async function observeReleaseEndpointSources(
           auditorInvocations += 1;
         },
       }, {
-        ...DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
         readProductContext: async (productDir, releaseData) =>
           await readReleaseProductContext(productDir, releaseData, { endpointReader }),
         resolveReleaseData: async () => scenario.releaseData,
         resolveDocumentationConfig: async () => ({}),
+        stageDocumentation: async () => ({
+          workingDirectory: IN_MEMORY_PRODUCT_DIRECTORY,
+          documents: [],
+          cleanup: async () => undefined,
+        }),
+        readDocument: async () => {
+          throw new Error("Unresolved endpoint property must not read staged documentation");
+        },
+        promoteDocumentation: async () => undefined,
       });
     } else {
       context = await readReleaseProductContext(

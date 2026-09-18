@@ -45,7 +45,10 @@ import {
   DOCUMENTATION_SYNC_PROMPT_INSTRUCTION,
   type DocumentationFileIdentity,
   type DocumentationPromoter,
+  type DocumentationStager,
   type DocumentationSyncPromptInput,
+  resolveDocumentationPaths,
+  type StagedDocumentation,
   type StagedDocumentationReader,
 } from "@/domains/release/documentation-sync";
 import { RELEASE_SOURCE_DATA_BLOCK_CLOSE, RELEASE_SOURCE_DATA_BLOCK_OPEN } from "@/domains/release/product-context";
@@ -126,6 +129,26 @@ class ReleaseDataDrivenDocumentationAgent implements AgentRunner {
       input.releaseData,
       input.documents,
     );
+  }
+}
+
+class InMemoryDocumentationWritingAgent implements AgentRunner {
+  readonly requests: AgentRunRequest[] = [];
+
+  constructor(
+    private readonly stagedDocuments: Map<string, string>,
+    private readonly updated: DocumentationSyncScenario["updated"],
+  ) {}
+
+  async run(request: AgentRunRequest): Promise<void> {
+    this.requests.push(request);
+    for (const document of parseDocumentationSyncPromptInput(request.prompt).documents) {
+      const content = this.updated[document.sourcePath];
+      if (content === undefined) {
+        throw new Error(`No generated documentation update for ${document.sourcePath}`);
+      }
+      this.stagedDocuments.set(document.stagedPath, content);
+    }
   }
 }
 
@@ -534,22 +557,122 @@ async function withDocumentationScenario(
   });
 }
 
+class InMemoryDocumentationEnvironment {
+  readonly productDir = join("/", "documentation-product");
+  readonly stageDirectory = join("/", "documentation-stage");
+  readonly stagedDocuments = new Map<string, string>();
+  private readonly productDocuments = new Map<string, string>();
+  private readonly identities = new Map<string, DocumentationFileIdentity>();
+
+  constructor(scenario: DocumentationSyncScenario) {
+    let inode = 1;
+    for (const [path, content] of Object.entries(scenario.original)) {
+      if (content === undefined) throw new Error(`No original documentation for ${path}`);
+      const targetPath = join(this.productDir, path);
+      this.productDocuments.set(targetPath, content);
+      this.identities.set(targetPath, { device: 1, inode });
+      inode += 1;
+    }
+  }
+
+  readonly stageDocumentation: DocumentationStager = async (productDir, paths) => {
+    if (productDir !== this.productDir) {
+      throw new Error(`Unexpected in-memory product directory: ${productDir}`);
+    }
+    const documents = paths.map((sourcePath) => {
+      const targetPath = join(this.productDir, sourcePath);
+      const originalContent = this.productDocuments.get(targetPath);
+      const originalIdentity = this.identities.get(targetPath);
+      if (originalContent === undefined || originalIdentity === undefined) {
+        throw new Error(`No in-memory source document for ${sourcePath}`);
+      }
+      const stagedPath = join(this.stageDirectory, sourcePath);
+      this.stagedDocuments.set(stagedPath, originalContent);
+      return {
+        sourcePath,
+        stagedPath,
+        targetPath,
+        originalIdentity,
+        originalContent,
+      };
+    });
+    return {
+      workingDirectory: this.stageDirectory,
+      documents,
+      cleanup: async () => {
+        this.stagedDocuments.clear();
+      },
+    } satisfies StagedDocumentation;
+  };
+
+  readonly readDocument: StagedDocumentationReader = async (_workingDirectory, path) => {
+    const content = this.stagedDocuments.get(path);
+    if (content === undefined) throw new Error(`No in-memory staged document for ${path}`);
+    return content;
+  };
+
+  readonly promoteDocumentation: DocumentationPromoter = async (documents) => {
+    for (const document of documents) {
+      this.productDocuments.set(document.path, document.content);
+    }
+  };
+
+  readonly readProductDocument: ProductDocumentationReader = async (path) => {
+    const content = this.productDocuments.get(join(this.productDir, path));
+    if (content === undefined) throw new Error(`No in-memory product document for ${path}`);
+    return content;
+  };
+}
+
+async function withInMemoryDocumentationScenario(
+  scenario: DocumentationSyncScenario,
+  respondToAudit: AgentAuditor["audit"],
+  run: (
+    options: ComposeDocumentationSyncOptions,
+    readProductDocument: ProductDocumentationReader,
+    agent: InMemoryDocumentationWritingAgent,
+    auditor: RecordingDocumentationAuditor,
+    environment: InMemoryDocumentationEnvironment,
+  ) => Promise<void>,
+): Promise<void> {
+  const environment = new InMemoryDocumentationEnvironment(scenario);
+  const agent = new InMemoryDocumentationWritingAgent(
+    environment.stagedDocuments,
+    scenario.updated,
+  );
+  const auditor = new RecordingDocumentationAuditor(respondToAudit);
+  await run(
+    {
+      releaseData: scenario.releaseData,
+      productContext: [],
+      config: scenario.config,
+      productDir: environment.productDir,
+      agentRunner: agent,
+      stageDocumentation: environment.stageDocumentation,
+      readDocument: environment.readDocument,
+      promoteDocumentation: environment.promoteDocumentation,
+      faithfulnessAuditor: createDocumentationFaithfulnessAuditor(
+        auditor,
+        environment.productDir,
+      ),
+    },
+    environment.readProductDocument,
+    agent,
+    auditor,
+    environment,
+  );
+}
+
 export async function observeDocumentationContextTransport(
   scenario: DocumentationSyncScenario,
   context: ReleaseContextScenario,
   respondToAudit: AgentAuditor["audit"],
 ): Promise<ReleaseContextTransportObservation> {
   let observation: ReleaseContextTransportObservation | undefined;
-  await withDocumentationScenario(
+  await withInMemoryDocumentationScenario(
     scenario,
     respondToAudit,
-    async (options, _readDocument, agent) => {
-      for (const document of context.documents) {
-        const path = join(options.productDir, document.path);
-        await mkdir(dirname(path), { recursive: true });
-        await writeFile(path, document.content);
-      }
-      const auditor = new RecordingDocumentationAuditor(respondToAudit);
+    async (options, _readDocument, agent, auditor) => {
       await documentationSyncCommand(
         {
           productDir: options.productDir,
@@ -560,12 +683,15 @@ export async function observeDocumentationContextTransport(
           ),
         },
         {
-          ...DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
           resolveReleaseData: async () => ({
             ...scenario.releaseData,
             changedPaths: context.releaseData.changedPaths,
           }),
+          resolveDocumentationConfig: async () => scenario.config,
           readProductContext: async () => context.documents,
+          stageDocumentation: options.stageDocumentation,
+          readDocument: options.readDocument,
+          promoteDocumentation: options.promoteDocumentation,
         },
       );
       const producerPrompt = agent.requests.at(0)?.prompt ?? "";
@@ -1089,28 +1215,10 @@ interface DocumentationAgentFileToolBoundaryObservation {
   readonly escapedHookResults: readonly unknown[];
 }
 
-async function observeConfiguredDocumentationPathSet(
+function observeConfiguredDocumentationPathSet(
   scenario: DocumentationSyncScenario,
-  respondToAudit: AgentAuditor["audit"],
-): Promise<DocumentationPathSetObservation> {
-  let observation: DocumentationPathSetObservation | undefined;
-  await withDocumentationScenario(
-    scenario,
-    respondToAudit,
-    async (options, _readProductDocument, agent) => {
-      await runDocumentationSyncCli(options);
-      observation = {
-        scenario,
-        actual: parseDocumentationSyncPromptInput(
-          requiredAgentRequest(agent.requests, "producer").prompt,
-        ).documents.map(({ sourcePath }) => sourcePath),
-      };
-    },
-  );
-  if (observation === undefined) {
-    throw new Error("Documentation path-set property produced no observation");
-  }
-  return observation;
+): DocumentationPathSetObservation {
+  return { scenario, actual: resolveDocumentationPaths(scenario.config) };
 }
 
 async function observeDocumentationVersionPreservation(
@@ -1119,9 +1227,34 @@ async function observeDocumentationVersionPreservation(
 ): Promise<readonly DocumentationVersionPreservationObservation[]> {
   return await Promise.all(
     [scenarios.withPreviousTag, scenarios.withoutPreviousTag].map(
-      async (scenario) => await observeDocumentationSync(scenario, respondToAudit),
+      async (scenario) => await observeInMemoryDocumentationSync(scenario, respondToAudit),
     ),
   );
+}
+
+async function observeInMemoryDocumentationSync(
+  scenario: DocumentationSyncScenario,
+  respondToAudit: AgentAuditor["audit"],
+): Promise<DocumentationContentObservation> {
+  let observation: DocumentationContentObservation | undefined;
+  await withInMemoryDocumentationScenario(
+    scenario,
+    respondToAudit,
+    async (options, readProductDocument, agent) => {
+      await composeDocumentationSync(options);
+      const producerRequest = requiredAgentRequest(agent.requests, "producer");
+      observation = {
+        ...(await observeDocumentationContent(scenario, readProductDocument)),
+        producerInput: parseDocumentationSyncPromptInput(producerRequest.prompt),
+        producerInstruction: documentationSyncPromptInstruction(producerRequest.prompt),
+        encodedVersion: JSON.stringify(scenario.releaseData.version),
+      };
+    },
+  );
+  if (observation === undefined) {
+    throw new Error("In-memory documentation sync produced no content observation");
+  }
+  return observation;
 }
 
 async function observeProtectedVersionRewrite(
@@ -1130,16 +1263,19 @@ async function observeProtectedVersionRewrite(
 ): Promise<DocumentationProtectedVersionRewriteObservation> {
   const promoter = new RecordingDocumentationPromoter();
   let observation: DocumentationProtectedVersionRewriteObservation | undefined;
-  await withDocumentationScenario(
+  await withInMemoryDocumentationScenario(
     testCase.scenario,
     respondToAudit,
-    async (options, readProductDocument) => {
+    async (options, readProductDocument, _agent, _auditor, environment) => {
       const auditor = new RecordingDocumentationAuditor(respondToAudit);
       let error: unknown;
       try {
         await composeDocumentationSync({
           ...options,
-          agentRunner: new DocumentationWritingAgent(testCase.rewritten),
+          agentRunner: new InMemoryDocumentationWritingAgent(
+            environment.stagedDocuments,
+            testCase.rewritten,
+          ),
           faithfulnessAuditor: createDocumentationFaithfulnessAuditor(
             auditor,
             options.productDir,
@@ -1174,12 +1310,15 @@ async function observeDocumentationAgentFileToolBoundary(
   respondToAudit: AgentAuditor["audit"],
 ): Promise<DocumentationAgentFileToolBoundaryObservation> {
   const documentationScenario = scenario.documentationScenario;
-  const agent = new DocumentationWritingAgent(documentationScenario.updated);
   let observation: DocumentationAgentFileToolBoundaryObservation | undefined;
-  await withDocumentationScenario(
+  await withInMemoryDocumentationScenario(
     documentationScenario,
     respondToAudit,
-    async (options) => {
+    async (options, _readDocument, _defaultAgent, _auditor, environment) => {
+      const agent = new InMemoryDocumentationWritingAgent(
+        environment.stagedDocuments,
+        documentationScenario.updated,
+      );
       await composeDocumentationSync({ ...options, agentRunner: agent });
       const request = requiredAgentRequest(agent.requests, "producer");
       let recordedOptions: Parameters<ClaudeQueryExecutor>[1] | undefined;

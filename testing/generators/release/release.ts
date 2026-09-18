@@ -48,7 +48,11 @@ export type VersionBump = {
 export type ReleaseDataDeterminismScenario = {
   readonly productDir: string;
   readonly releaseRef: string;
-  readonly expected: ReleaseData;
+  readonly resolvedReleaseRef: string;
+  readonly packageVersion: string;
+  readonly previousTag: string;
+  readonly commits: ReleaseData["commits"];
+  readonly changedPaths: ReleaseData["changedPaths"];
 };
 
 export type ReleaseDataOperationViolation = {
@@ -232,7 +236,20 @@ function arbitraryCommitSequence(count: number): fc.Arbitrary<readonly ReleaseCo
 function arbitraryReleaseDataDeterminismScenario(): fc.Arbitrary<ReleaseDataDeterminismScenario> {
   return fc
     .tuple(arbitraryPathSegment(), arbitraryReleaseData())
-    .map(([productDir, expected]) => ({ productDir, releaseRef: GIT_ROOT_COMMAND.HEAD, expected }));
+    .map(([productDir, releaseData]) => {
+      if (releaseData.previousTag === null) {
+        throw new Error("Release-data determinism scenarios require a previous release tag");
+      }
+      return {
+        productDir,
+        releaseRef: GIT_ROOT_COMMAND.HEAD,
+        resolvedReleaseRef: releaseData.releaseRef,
+        packageVersion: releaseData.version,
+        previousTag: releaseData.previousTag,
+        commits: releaseData.commits,
+        changedPaths: releaseData.changedPaths,
+      };
+    });
 }
 
 function arbitraryReleaseDataOperationViolations(): fc.Arbitrary<readonly ReleaseDataOperationViolation[]> {

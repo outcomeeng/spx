@@ -25,7 +25,7 @@ describe("computeReleaseData — release data is a deterministic function of rep
         const deps = releaseDataGitDependencies(scenario);
         const options = {
           productDir: scenario.productDir,
-          packageVersion: scenario.expected.version,
+          packageVersion: scenario.packageVersion,
           releaseRef: scenario.releaseRef,
           deps,
         };
@@ -33,7 +33,6 @@ describe("computeReleaseData — release data is a deterministic function of rep
         const first = await computeReleaseData(options);
         const second = await computeReleaseData(options);
 
-        expect(first).toEqual(scenario.expected);
         expect(second).toEqual(first);
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },

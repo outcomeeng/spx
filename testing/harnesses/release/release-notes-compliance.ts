@@ -1,8 +1,9 @@
 import { mkdir, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve, sep } from "node:path";
 
-import type { AgentAuditor, AgentAuditRequest, AgentRunRequest } from "@/agent/agent-runner";
+import type { AgentAuditor, AgentAuditRequest, AgentRunner, AgentRunRequest } from "@/agent/agent-runner";
 import { releaseNotesCommand } from "@/commands/release/release-notes";
+import type { ReleaseNotesFilesystem } from "@/commands/release/release-notes-filesystem";
 import { RELEASE_SOURCE_DATA_BLOCK_CLOSE, RELEASE_SOURCE_DATA_BLOCK_OPEN } from "@/domains/release/product-context";
 import type { ReleaseData } from "@/domains/release/release-data";
 import {
@@ -44,7 +45,6 @@ import {
   promptChangelogPath,
   RecordingWritingAgentRunner,
   type ReleaseContextTransportObservation,
-  releaseDataDrivenAgentRunner,
   releaseSourceFromPrompt,
 } from "@testing/harnesses/release/agent-runner";
 import {
@@ -157,58 +157,120 @@ export async function observeReleaseNotesContextTransport(
     readonly auditedSection: unknown;
   }
 > {
-  let observation:
-    | (ReleaseContextTransportObservation & {
-      readonly stagedPromptPath: string;
-      readonly stagedCanonicalPath: string;
-      readonly stagedInput: string;
-      readonly generatedNotes: string;
-      readonly auditedSection: unknown;
-    })
-    | undefined;
-  await withGitWorktreeEnv(async (env) => {
-    for (const document of scenario.documents) {
-      await env.writeTracked(document.path, document.content);
-    }
-    await env.commit(scenario.subject);
-    const changelogPath = join(env.productDir, DEFAULT_CHANGELOG_PATH);
-    await writeFile(changelogPath, scenario.existingNotes);
-    const runner = releaseDataDrivenAgentRunner(env.productDir, changelogPath);
-    let auditPrompt = "";
-    const auditor: AgentAuditor = {
-      audit: async (request) => {
-        auditPrompt = request.prompt;
-        return await respondToAudit(request);
-      },
-    };
-    await releaseNotesCommand({
-      productDir: env.productDir,
-      config: {},
-      releaseData: scenario.releaseData,
-      readProductContext: async () => scenario.documents,
-      agentRunner: runner,
-      faithfulnessAuditor: createReleaseNotesFaithfulnessAuditor(auditor, env.productDir),
-    });
-    observation = {
-      producerPrompt: runner.lastPrompt,
-      auditPrompt,
-      producerSource: releaseSourceFromPrompt(runner.lastPrompt),
-      auditorSource: releaseSourceFromPrompt(auditPrompt),
-      stagedPromptPath: runner.outputPaths.at(0) ?? "",
-      stagedCanonicalPath: runner.canonicalOutputPaths.at(0) ?? "",
-      stagedInput: runner.initialContents.at(0) ?? "",
-      generatedNotes: await readFile(changelogPath, FIXTURE_TEXT_ENCODING),
-      auditedSection: JSON.parse(
-        observePromptDataBlock(
-          auditPrompt,
-          RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_OPEN,
-          RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_CLOSE,
-        ).data,
-      ) as unknown,
-    };
+  const productDir = resolve("/release-product");
+  const changelogPath = join(productDir, DEFAULT_CHANGELOG_PATH);
+  const stageDirectory = resolve("/release-stage");
+  const stagePath = join(stageDirectory, DEFAULT_CHANGELOG_PATH);
+  const artifacts = new Map<string, string>([[changelogPath, scenario.existingNotes]]);
+  const runner = new InMemoryReleaseNotesAgentRunner(artifacts, scenario.generatedNotes);
+  const filesystem = inMemoryReleaseNotesFilesystem(
+    artifacts,
+    productDir,
+    stageDirectory,
+    stagePath,
+  );
+  let auditPrompt = "";
+  const auditor: AgentAuditor = {
+    audit: async (request) => {
+      auditPrompt = request.prompt;
+      return await respondToAudit(request);
+    },
+  };
+  await releaseNotesCommand({
+    productDir,
+    config: {},
+    releaseData: scenario.releaseData,
+    readProductContext: async () => scenario.documents,
+    agentRunner: runner,
+    faithfulnessAuditor: createReleaseNotesFaithfulnessAuditor(auditor, productDir),
+    filesystem,
   });
-  if (observation === undefined) throw new Error("Release context transport produced no observation");
-  return observation;
+  const producerPrompt = runner.lastPrompt;
+  return {
+    producerPrompt,
+    auditPrompt,
+    producerSource: releaseSourceFromPrompt(producerPrompt),
+    auditorSource: releaseSourceFromPrompt(auditPrompt),
+    stagedPromptPath: runner.outputPaths.at(0) ?? "",
+    stagedCanonicalPath: runner.canonicalOutputPaths.at(0) ?? "",
+    stagedInput: runner.initialContents.at(0) ?? "",
+    generatedNotes: requiredArtifact(artifacts, changelogPath),
+    auditedSection: JSON.parse(
+      observePromptDataBlock(
+        auditPrompt,
+        RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_OPEN,
+        RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_CLOSE,
+      ).data,
+    ) as unknown,
+  };
+}
+
+class InMemoryReleaseNotesAgentRunner implements AgentRunner {
+  readonly requests: AgentRunRequest[] = [];
+  readonly outputPaths: string[] = [];
+  readonly canonicalOutputPaths: string[] = [];
+  readonly initialContents: string[] = [];
+
+  constructor(
+    private readonly artifacts: Map<string, string>,
+    private readonly generatedNotes: string,
+  ) {}
+
+  async run(request: AgentRunRequest): Promise<void> {
+    this.requests.push(request);
+    const outputPath = promptChangelogPath(request.prompt);
+    if (outputPath === undefined) {
+      throw new Error("release-notes prompt omitted the staged changelog path");
+    }
+    this.outputPaths.push(outputPath);
+    this.canonicalOutputPaths.push(outputPath);
+    this.initialContents.push(this.artifacts.get(outputPath) ?? "");
+    this.artifacts.set(outputPath, this.generatedNotes);
+  }
+
+  get lastPrompt(): string {
+    const request = this.requests.at(-1);
+    if (request === undefined) {
+      throw new Error("In-memory release-notes agent received no request");
+    }
+    return request.prompt;
+  }
+}
+
+function inMemoryReleaseNotesFilesystem(
+  artifacts: Map<string, string>,
+  productDir: string,
+  stageDirectory: string,
+  stagePath: string,
+): ReleaseNotesFilesystem {
+  return {
+    readArtifact: async (path) => requiredArtifact(artifacts, path),
+    createArtifactStage: async (_targetPath, existingContent) => {
+      if (existingContent !== undefined) artifacts.set(stagePath, existingContent);
+      return {
+        workingDirectory: stageDirectory,
+        path: stagePath,
+        cleanup: async () => {
+          artifacts.delete(stagePath);
+        },
+      };
+    },
+    promoteArtifact: async (_stagedPath, targetPath, content) => {
+      artifacts.set(targetPath, content);
+    },
+    canonicalizePath: async (path) => {
+      if (path === productDir || path === stageDirectory || artifacts.has(path)) return path;
+      return undefined;
+    },
+    isSymbolicLink: async () => false,
+    isFile: async (path) => artifacts.has(path),
+  };
+}
+
+function requiredArtifact(artifacts: ReadonlyMap<string, string>, path: string): string {
+  const content = artifacts.get(path);
+  if (content === undefined) throw new Error(`No in-memory release artifact for ${path}`);
+  return content;
 }
 
 export async function observeReleaseContextReadFailure(

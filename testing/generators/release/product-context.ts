@@ -10,6 +10,7 @@ import { CHANGELOG_TITLE } from "@/domains/release/release-notes";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
+import { arbitraryConformantChangelog } from "@testing/generators/release/changelog";
 import fc from "fast-check";
 
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "./release";
@@ -80,6 +81,7 @@ export interface ReleaseContextScenario {
   readonly body: string;
   readonly releaseData: ReleaseData;
   readonly existingNotes: string;
+  readonly generatedNotes: string;
 }
 
 export interface ReleaseEndpointOwnershipScenario {
@@ -325,7 +327,7 @@ export function arbitraryReleaseContextScenario(): fc.Arbitrary<ReleaseContextSc
     arbitraryPathSegment(),
     arbitraryPathSegment(),
     RELEASE_TEST_GENERATOR.releaseData(),
-  ).map(([productName, capability, firstParagraph, secondParagraph, data]) => {
+  ).chain(([productName, capability, firstParagraph, secondParagraph, data]) => {
     const product = {
       kind: RELEASE_CONTEXT_KIND.PRODUCT,
       path: posix.join(SPEC_TREE_CONFIG.ROOT_DIRECTORY, `${productName}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`),
@@ -350,20 +352,25 @@ export function arbitraryReleaseContextScenario(): fc.Arbitrary<ReleaseContextSc
     };
     const subject = `spec: ${capability}`;
     const body = `${firstParagraph}\n\n${secondParagraph}\n`;
-    return {
+    const releaseData = {
+      ...data,
+      commits: data.commits.map((commit) => ({ ...commit, body })),
+      changedPaths: [specification.path],
+    };
+    return arbitraryConformantChangelog(
+      releaseData.version,
+      releaseData.commits.map(({ subject: commitSubject }) => commitSubject),
+    ).map((generatedNotes) => ({
       documents: [product, decision, specification],
       product,
       specification,
       missingSpecificationPath: `${specification.path}.${productName}`,
       subject,
       body,
-      releaseData: {
-        ...data,
-        commits: data.commits.map((commit) => ({ ...commit, body })),
-        changedPaths: [specification.path],
-      },
+      releaseData,
       existingNotes: CHANGELOG_TITLE,
-    };
+      generatedNotes,
+    }));
   });
 }
 

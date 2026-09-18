@@ -11,17 +11,12 @@ const COMMIT_FIELD_SEPARATOR = "\0";
 const PATH_SEPARATOR = "\n";
 
 export function releaseDataGitDependencies(scenario: ReleaseDataDeterminismScenario): GitDependencies {
-  const { expected } = scenario;
-  if (expected.previousTag === null) {
-    throw new Error("Release-data determinism scenarios require a previous release tag");
-  }
-
   const steps: readonly ControlledGitStep[] = [
-    { subcommand: GIT_ROOT_COMMAND.REV_PARSE, stdout: expected.releaseRef },
+    { subcommand: GIT_ROOT_COMMAND.REV_PARSE, stdout: scenario.resolvedReleaseRef },
     { subcommand: GIT_RELEASE_SUBCOMMAND.TAG, stdout: "" },
-    { subcommand: GIT_RELEASE_SUBCOMMAND.DESCRIBE, stdout: expected.previousTag },
-    { subcommand: GIT_RELEASE_SUBCOMMAND.LOG, stdout: serializeCommits(expected.commits) },
-    { subcommand: GIT_RELEASE_SUBCOMMAND.LOG, stdout: expected.changedPaths.join(PATH_SEPARATOR) },
+    { subcommand: GIT_RELEASE_SUBCOMMAND.DESCRIBE, stdout: scenario.previousTag },
+    { subcommand: GIT_RELEASE_SUBCOMMAND.LOG, stdout: serializeCommits(scenario.commits) },
+    { subcommand: GIT_RELEASE_SUBCOMMAND.LOG, stdout: scenario.changedPaths.join(PATH_SEPARATOR) },
   ];
   let invocationIndex = 0;
 
