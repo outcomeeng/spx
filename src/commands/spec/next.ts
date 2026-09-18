@@ -9,6 +9,13 @@ import {
   type SpecTreeSource,
 } from "@/lib/spec-tree";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import {
+  authoredText,
+  externalValue,
+  joinTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 import { resolveSpecProductDir, type SpecProductDirWarningHandler } from "./root";
 
 export const SPEC_NEXT_MESSAGE = {
@@ -29,7 +36,7 @@ export interface NextOptions {
   source?: SpecTreeSource;
 }
 
-export async function nextCommand(options: NextOptions = {}): Promise<string> {
+export async function nextCommand(options: NextOptions = {}): Promise<TerminalText> {
   if (options.source !== undefined) {
     // Injected sources bypass filesystem and git resolution.
     const snapshot = await readSpecTree({ source: options.source });
@@ -47,26 +54,26 @@ export async function nextCommand(options: NextOptions = {}): Promise<string> {
   return formatNextSpecTreeNode(snapshot);
 }
 
-function formatNextSpecTreeNode(snapshot: SpecTreeSnapshot): string {
+function formatNextSpecTreeNode(snapshot: SpecTreeSnapshot): TerminalText {
   if (snapshot.allNodes.length === 0) {
-    return SPEC_NEXT_MESSAGE.EMPTY;
+    return authoredText(SPEC_NEXT_MESSAGE.EMPTY);
   }
 
   const next = findNextSpecTreeNode(snapshot);
 
   if (next === null) {
-    return SPEC_NEXT_MESSAGE.COMPLETE;
+    return authoredText(SPEC_NEXT_MESSAGE.COMPLETE);
   }
 
   return formatNextNode(next);
 }
 
-function formatNextNode(node: SpecTreeNode): string {
-  return [
-    SPEC_NEXT_MESSAGE.HEADING,
-    "",
-    `${INDENT}${SPEC_NEXT_MESSAGE.PATH_LABEL}: ${node.id}`,
-    `${INDENT}${SPEC_NEXT_MESSAGE.KIND_LABEL}: ${KIND_REGISTRY[node.kind].label}`,
-    `${INDENT}${SPEC_NEXT_MESSAGE.STATE_LABEL}: ${node.state}`,
-  ].join("\n");
+function formatNextNode(node: SpecTreeNode): TerminalText {
+  return joinTerminalText(authoredText("\n"), [
+    authoredText(SPEC_NEXT_MESSAGE.HEADING),
+    authoredText(""),
+    terminal`${authoredText(INDENT + SPEC_NEXT_MESSAGE.PATH_LABEL)}: ${externalValue(node.id)}`,
+    terminal`${authoredText(INDENT + SPEC_NEXT_MESSAGE.KIND_LABEL)}: ${authoredText(KIND_REGISTRY[node.kind].label)}`,
+    terminal`${authoredText(INDENT + SPEC_NEXT_MESSAGE.STATE_LABEL)}: ${externalValue(node.state)}`,
+  ]);
 }

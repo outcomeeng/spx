@@ -1,25 +1,12 @@
 import { OUTPUT_FORMAT } from "@/commands/spec/status";
 import { DEFAULT_CONFIG_FILENAME } from "@/config";
 import { SPEC_STATUS_FORMAT_MESSAGE, SPEC_STATUS_OUTPUT_FORMATS } from "@/interfaces/cli/spec";
-import { TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
-import {
-  SPEC_TREE_NODE_STATE,
-  type SpecTreeNode,
-  type SpecTreeNodeState,
-  type SpecTreeSnapshot,
-} from "@/lib/spec-tree";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
-import { specContextAbbreviatedTarget } from "@testing/generators/spec-tree/context-target";
+import { KIND_REGISTRY, SPEC_TREE_NODE_STATE, type SpecTreeNodeState } from "@/lib/spec-tree";
 import {
   type RepresentativeSpecTreeFixture,
   RETIRED_SPEC_APPLY_FIXTURE,
   specTreeFixtureNodeDirectoryName,
 } from "@testing/generators/spec-tree/spec-tree";
-
-export type SpecCliContextTargetFixture = {
-  readonly expectedTarget: string;
-  readonly invocationTarget: string;
-};
 
 export type SpecCliApplyProtectionFixture = {
   readonly excludeContent: string;
@@ -37,20 +24,6 @@ export type SpecCliUnsupportedStatusFormatFixture = {
   readonly expectedDiagnostic: string;
   readonly format: string;
 };
-
-export function specCliContextTargetFixture(
-  snapshot: SpecTreeSnapshot,
-  target: SpecTreeNode,
-): SpecCliContextTargetFixture {
-  const rootedTarget = [
-    SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-    specContextAbbreviatedTarget(snapshot, target),
-  ].join(TRACKED_PATH_DIRECTORY_SEPARATOR);
-  return {
-    expectedTarget: [SPEC_TREE_CONFIG.ROOT_DIRECTORY, target.id].join(TRACKED_PATH_DIRECTORY_SEPARATOR),
-    invocationTarget: `${rootedTarget}${TRACKED_PATH_DIRECTORY_SEPARATOR}`,
-  };
-}
 
 export function specCliApplyProtectionFixture(
   fixture: RepresentativeSpecTreeFixture,

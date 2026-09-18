@@ -63,13 +63,7 @@ export {
   compareSpecContextOrdinal,
   composeSpecContextBundle,
   decodeContextDocumentUtf8,
-  extractDecisionCitations,
-  formatInvalidContextDocumentError,
-  formatMissingCitedDecisionError,
-  formatUnreadableContextDocumentError,
   isLocalOverlayPath,
-  SPEC_CONTEXT_CONTENT_FIELDS,
-  SPEC_CONTEXT_DIGEST_ALGORITHM,
   SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
   SPEC_CONTEXT_LISTED_ROLE,
   SPEC_CONTEXT_LOCAL_OVERLAY_DIRECTORY,
@@ -77,7 +71,6 @@ export {
   SPEC_CONTEXT_READ_ROLE,
   SPEC_CONTEXT_READ_ROLE_ORDER,
   specContextBootstrap,
-  specContextDigest,
 } from "./context-manifest";
 export type {
   SpecContextBundle,
@@ -94,6 +87,18 @@ export type {
   SpecContextTargetReadSet,
 } from "./context-manifest";
 export {
+  mergeSpecContextSelections,
+  projectSpecContextDocument,
+  renderSpecContextEntries,
+  selectSpecContextDocuments,
+  SPEC_CONTEXT_MODE,
+  specContextCitedSelection,
+  specContextInlineDecisionCitations,
+  splitSpecContextFrontMatter,
+  suppressLoadedSpecContext,
+} from "./context-projection";
+export type { SpecContextEntry, SpecContextProjectedEntry, SpecContextSelection } from "./context-projection";
+export {
   assembleSpecContextTargetReadSet,
   specContextAncestors,
   specContextDecisions,
@@ -102,10 +107,18 @@ export {
   specContextSiblings,
 } from "./context-read-set";
 export type { SpecContextReadSetCandidates } from "./context-read-set";
-export { resolveSpecContextTarget, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "./context-target";
+export {
+  resolveSpecContextTarget,
+  SPEC_CONTEXT_TARGET_FAILURE_KIND,
+  specContextAcceptedPaths,
+  specContextSuffixCandidates,
+} from "./context-target";
 export type {
+  SpecContextAcceptedPath,
+  SpecContextTarget,
   SpecContextTargetFailure,
   SpecContextTargetFailureKind,
+  SpecContextTargetPathFacts,
   SpecContextTargetResolution,
 } from "./context-target";
 
