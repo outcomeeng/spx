@@ -107,21 +107,6 @@ describe("spx-driven verification executor compliance", () => {
     await expect(thunks.finishMissingRun()).rejects.toThrow(RECORDER_OPERATION_ERROR.FINISH_FAILED);
   });
 
-  it("folds a failing language to a failed run terminal status over passing and interrupted languages", async () => {
-    await expect(observeTestRunnerFold([
-      streamingDescriptorYielding(JOURNAL_RUN_TERMINAL_STATUS.PASSED),
-      streamingDescriptorYielding(JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED),
-      streamingDescriptorYielding(JOURNAL_RUN_TERMINAL_STATUS.FAILED),
-    ])).resolves.toEqual({ invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.FAILED });
-  });
-
-  it("folds an interrupted language to an interrupted run terminal status when no language failed", async () => {
-    await expect(observeTestRunnerFold([
-      streamingDescriptorYielding(JOURNAL_RUN_TERMINAL_STATUS.PASSED),
-      streamingDescriptorYielding(JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED),
-    ])).resolves.toEqual({ invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED });
-  });
-
   it("gates the run out when every registry language is non-streaming or gated out", async () => {
     await expect(observeTestRunnerFold([nonStreamingDescriptor(), gatedOutDescriptor()])).resolves.toEqual({
       invoked: false,

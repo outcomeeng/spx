@@ -14,6 +14,7 @@ CAN have spx run a deterministic verification and stream its scope and finding e
 ### Mappings
 
 - Every runner terminal status — `passed`, `failed`, `interrupted` — maps to exactly one recorder terminal status through a total function, so a deterministic pass never routes through the agentic `approved` disposition ([test](tests/execute.mapping.l1.test.ts))
+- Every non-empty combination of terminal statuses the `test` type's streaming languages yield maps to one run terminal status: `failed` when any language failed, otherwise `interrupted` when any language was interrupted, otherwise `passed` ([test](tests/execute.mapping.l1.test.ts))
 
 ### Compliance
 

@@ -284,6 +284,20 @@ function arbitraryAppendMix(): fc.Arbitrary<GeneratedAppendMix> {
   return fc.record({ units: arbitraryDistinctScopeUnits(), findings: arbitraryDistinctFindings() });
 }
 
+/**
+ * Every non-empty combination of runner terminal statuses — the statuses a run's streaming languages
+ * can jointly yield — enumerated from the source-owned vocabulary so a fold over them is judged on
+ * the whole finite domain.
+ */
+function terminalStatusCombinations(): readonly (readonly JournalRunTerminalStatus[])[] {
+  const statuses = Object.values(JOURNAL_RUN_TERMINAL_STATUS);
+  const combinations: (readonly JournalRunTerminalStatus[])[] = [];
+  for (let mask = 1; mask < 2 ** statuses.length; mask += 1) {
+    combinations.push(statuses.filter((_status, index) => (mask & (2 ** index)) !== 0));
+  }
+  return combinations;
+}
+
 export const JOURNAL_REPORTER_TEST_GENERATOR = {
   runScenario: arbitraryRunScenario,
   runScenarioBatch: arbitraryRunScenarioBatch,
@@ -302,6 +316,7 @@ export const JOURNAL_REPORTER_TEST_GENERATOR = {
   invalidFinding: arbitraryInvalidFinding,
   findings: arbitraryFindings,
   terminalStatus: arbitraryTerminalStatus,
+  terminalStatusCombinations,
   runRequest: arbitraryRunRequest,
   scopeUnitMissingRequiredField: arbitraryScopeUnitMissingRequiredField,
   findingMissingRequiredField: arbitraryFindingMissingRequiredField,
