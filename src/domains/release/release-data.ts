@@ -1,9 +1,13 @@
 import {
   changedPathsBetween,
   closestReleaseTag,
+  COMMIT_LOG_FORMAT,
   commitsBetween,
+  EMPTY_LOG_FORMAT,
+  GIT_RELEASE_FLAG,
   GIT_RELEASE_SUBCOMMAND,
   type GitCommit,
+  RELEASE_TAG_GLOB,
   RELEASE_TAG_PREFIX,
   releaseTagsAt,
 } from "@/lib/git/release";
@@ -54,15 +58,6 @@ const SEMVER_SEPARATOR = ".";
 const SEMVER_RADIX = 10;
 const ABSENT_COMPONENT = 0;
 
-export const RELEASE_DATA_GIT_SUBCOMMANDS = [
-  GIT_ROOT_COMMAND.REV_PARSE,
-  GIT_RELEASE_SUBCOMMAND.DESCRIBE,
-  GIT_RELEASE_SUBCOMMAND.TAG,
-  GIT_RELEASE_SUBCOMMAND.LOG,
-] as const;
-
-const RELEASE_DATA_GIT_SUBCOMMAND_SET: ReadonlySet<string> = new Set(RELEASE_DATA_GIT_SUBCOMMANDS);
-
 class ReleaseDataExternalOperationError extends Error {
   public constructor(
     public readonly command: string,
@@ -73,20 +68,105 @@ class ReleaseDataExternalOperationError extends Error {
   }
 }
 
-export function restrictReleaseDataGitDependencies(deps: GitDependencies): GitDependencies {
+export function restrictReleaseDataGitDependencies(deps: GitDependencies, productDir: string): GitDependencies {
   return {
     execa: async (command, args, options) => {
       const subcommand = args.at(0);
       if (
         command !== GIT_ROOT_COMMAND.EXECUTABLE
         || subcommand === undefined
-        || !RELEASE_DATA_GIT_SUBCOMMAND_SET.has(subcommand)
+        || !isReleaseDataGitOperation(args, options, productDir)
       ) {
         throw new ReleaseDataExternalOperationError(command, subcommand);
       }
       return deps.execa(command, args, options);
     },
   };
+}
+
+function isReleaseDataGitOperation(
+  args: readonly string[],
+  options: Parameters<GitDependencies["execa"]>[2],
+  productDir: string,
+): boolean {
+  if (matchesResolveRef(args)) return hasExactGitOptions(options, productDir, false);
+  if (matchesReleaseTagsAt(args)) return hasExactGitOptions(options, productDir, false);
+  if (matchesClosestReleaseTag(args)) return hasExactGitOptions(options, productDir, false);
+  if (matchesCommitListing(args)) return hasExactGitOptions(options, productDir, true);
+  if (matchesChangedPathListing(args)) return hasExactGitOptions(options, productDir, false);
+  return false;
+}
+
+function matchesResolveRef(args: readonly string[]): boolean {
+  return args.length === 2
+    && args[0] === GIT_ROOT_COMMAND.REV_PARSE
+    && isSafeGitOperand(args[1]);
+}
+
+function matchesReleaseTagsAt(args: readonly string[]): boolean {
+  return args.length === 5
+    && args[0] === GIT_RELEASE_SUBCOMMAND.TAG
+    && args[1] === GIT_RELEASE_FLAG.POINTS_AT
+    && isSafeGitOperand(args[2])
+    && args[3] === GIT_RELEASE_FLAG.LIST
+    && args[4] === RELEASE_TAG_GLOB;
+}
+
+function matchesClosestReleaseTag(args: readonly string[]): boolean {
+  const prefix = [
+    GIT_RELEASE_SUBCOMMAND.DESCRIBE,
+    GIT_RELEASE_FLAG.TAGS,
+    GIT_RELEASE_FLAG.ABBREV_ZERO,
+    GIT_RELEASE_FLAG.MATCH,
+    RELEASE_TAG_GLOB,
+  ] as const;
+  if (args.length < prefix.length + 1 || !prefix.every((value, index) => args[index] === value)) return false;
+
+  const ref = args.at(-1);
+  if (!isSafeGitOperand(ref)) return false;
+
+  const exclusions = args.slice(prefix.length, -1);
+  if (exclusions.length % 2 !== 0) return false;
+  for (let index = 0; index < exclusions.length; index += 2) {
+    if (exclusions[index] !== GIT_RELEASE_FLAG.EXCLUDE || !isSafeGitOperand(exclusions[index + 1])) return false;
+  }
+  return true;
+}
+
+function matchesCommitListing(args: readonly string[]): boolean {
+  return args.length === 4
+    && args[0] === GIT_RELEASE_SUBCOMMAND.LOG
+    && args[1] === GIT_RELEASE_FLAG.NULL_TERMINATED
+    && args[2] === COMMIT_LOG_FORMAT
+    && isSafeGitOperand(args[3]);
+}
+
+function matchesChangedPathListing(args: readonly string[]): boolean {
+  return args.length === 5
+    && args[0] === GIT_RELEASE_SUBCOMMAND.LOG
+    && args[1] === GIT_RELEASE_FLAG.DIFF_MERGES_FIRST_PARENT
+    && args[2] === EMPTY_LOG_FORMAT
+    && args[3] === GIT_RELEASE_FLAG.NAME_ONLY
+    && isSafeGitOperand(args[4]);
+}
+
+function isSafeGitOperand(value: string | undefined): value is string {
+  return value !== undefined && value.length > 0 && !value.startsWith("-");
+}
+
+function hasExactGitOptions(
+  options: Parameters<GitDependencies["execa"]>[2],
+  productDir: string,
+  stripsFinalNewline: boolean,
+): boolean {
+  if (options === undefined) return false;
+  const keys = Object.keys(options);
+  const expectedKeyCount = stripsFinalNewline ? 3 : 2;
+  return keys.length === expectedKeyCount
+    && keys.every((key) => key === "cwd" || key === "reject" || (stripsFinalNewline && key === "stripFinalNewline"))
+    && options.cwd === productDir
+    && options.reject === false
+    && (stripsFinalNewline ? options.stripFinalNewline === false : options.stripFinalNewline === undefined);
 }
 
 interface SemverParts {
@@ -127,7 +207,7 @@ export async function computeReleaseData(options: ComputeReleaseDataOptions): Pr
     deps = defaultGitDependencies,
   } = options;
 
-  const releaseDataDeps = restrictReleaseDataGitDependencies(deps);
+  const releaseDataDeps = restrictReleaseDataGitDependencies(deps, productDir);
   const resolvedReleaseRef = await resolveRefSha(releaseRef, productDir, releaseDataDeps);
   if (resolvedReleaseRef === null) throw new Error(`Cannot resolve release ref: ${releaseRef}`);
   const previousTag = await resolvePreviousReleaseTag(resolvedReleaseRef, productDir, releaseDataDeps);

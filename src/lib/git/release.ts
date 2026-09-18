@@ -25,7 +25,7 @@ const REVISION_PATH_SEPARATOR = ":";
 /** Prefix that makes a `<rev>:<path>` object name resolve the path relative to the working directory rather than the repository root. */
 const CWD_RELATIVE_TREE_PATH_PREFIX = "./";
 
-const GIT_RELEASE_FLAG = {
+export const GIT_RELEASE_FLAG = {
   TAGS: "--tags",
   ABBREV_ZERO: "--abbrev=0",
   MATCH: "--match",
@@ -41,14 +41,14 @@ const GIT_RELEASE_FLAG = {
 /** The prefix publication puts on a release tag (`v1.2.3`). The single source the release domain and its test generator import so the prefix, the strip, and the glob never drift. */
 export const RELEASE_TAG_PREFIX = "v";
 /** Glob matching the release tags publication produces, derived from the prefix. */
-const RELEASE_TAG_GLOB = `${RELEASE_TAG_PREFIX}*`;
+export const RELEASE_TAG_GLOB = `${RELEASE_TAG_PREFIX}*`;
 /** Two-dot range listing commits reachable from the right side but not the left. */
 const RANGE_SEPARATOR = "..";
 const COMMIT_FIELD_SEPARATOR = "\0";
 const COMMIT_FIELD_COUNT = 3;
-const COMMIT_LOG_FORMAT = "--format=%H%x00%s%x00%b";
+export const COMMIT_LOG_FORMAT = "--format=%H%x00%s%x00%b";
 /** Empty pretty-format, so `git log --name-only` emits only the changed paths. */
-const EMPTY_LOG_FORMAT = "--format=";
+export const EMPTY_LOG_FORMAT = "--format=";
 const LINE_SEPARATOR = "\n";
 
 function nonEmptyLines(stdout: string): string[] {

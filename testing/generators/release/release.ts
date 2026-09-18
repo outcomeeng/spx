@@ -3,7 +3,15 @@ import { win32 } from "node:path";
 import * as fc from "fast-check";
 
 import { type ReleaseData, VERSION_DELTA, type VersionDelta } from "@/domains/release/release-data";
-import { type GitCommit, RELEASE_TAG_PREFIX } from "@/lib/git/release";
+import {
+  COMMIT_LOG_FORMAT,
+  EMPTY_LOG_FORMAT,
+  GIT_RELEASE_FLAG,
+  GIT_RELEASE_SUBCOMMAND,
+  type GitCommit,
+  RELEASE_TAG_GLOB,
+  RELEASE_TAG_PREFIX,
+} from "@/lib/git/release";
 import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import { arbitraryBranchName, arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
@@ -56,8 +64,10 @@ export type ReleaseDataDeterminismScenario = {
 };
 
 export type ReleaseDataOperationViolation = {
+  readonly label: string;
   readonly command: string;
   readonly args: string[];
+  readonly productDir: string;
 };
 
 type ReleaseVersionProgression = {
@@ -253,11 +263,120 @@ function arbitraryReleaseDataDeterminismScenario(): fc.Arbitrary<ReleaseDataDete
 }
 
 function arbitraryReleaseDataOperationViolations(): fc.Arbitrary<readonly ReleaseDataOperationViolation[]> {
-  return arbitraryDomainLiteral()
-    .filter((command) => command !== GIT_ROOT_COMMAND.EXECUTABLE)
-    .map((command) => [
-      { command, args: [GIT_ROOT_COMMAND.REV_PARSE] },
-      { command: GIT_ROOT_COMMAND.EXECUTABLE, args: [GIT_ROOT_COMMAND.REMOTE] },
+  return fc
+    .tuple(
+      arbitraryDomainLiteral().filter((command) => command !== GIT_ROOT_COMMAND.EXECUTABLE),
+      arbitraryPathSegment(),
+    )
+    .map(([command, productDir]) => [
+      { label: "a non-git executable", command, args: [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD], productDir },
+      {
+        label: "an unrecognized git subcommand",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: [GIT_ROOT_COMMAND.REMOTE],
+        productDir,
+      },
+      {
+        label: "a rev-parse flag operand",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: [GIT_ROOT_COMMAND.REV_PARSE, "--exec-path"],
+        productDir,
+      },
+      {
+        label: "extra rev-parse arguments",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD, GIT_ROOT_COMMAND.VERIFY],
+        productDir,
+      },
+      {
+        label: "tag deletion",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: ["tag", "-d", "v1.0.0"],
+        productDir,
+      },
+      {
+        label: "tag mutation",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: ["tag", "-f", "v1.0.0", GIT_ROOT_COMMAND.HEAD],
+        productDir,
+      },
+      {
+        label: "a destructive suffix on the release-tag query",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: [
+          GIT_RELEASE_SUBCOMMAND.TAG,
+          GIT_RELEASE_FLAG.POINTS_AT,
+          GIT_ROOT_COMMAND.HEAD,
+          GIT_RELEASE_FLAG.LIST,
+          RELEASE_TAG_GLOB,
+          "-d",
+          "v1.0.0",
+        ],
+        productDir,
+      },
+      {
+        label: "an unrelated describe mode",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: ["describe", "--all", GIT_ROOT_COMMAND.HEAD],
+        productDir,
+      },
+      {
+        label: "an unrelated suffix on the previous-tag query",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: [
+          GIT_RELEASE_SUBCOMMAND.DESCRIBE,
+          GIT_RELEASE_FLAG.TAGS,
+          GIT_RELEASE_FLAG.ABBREV_ZERO,
+          GIT_RELEASE_FLAG.MATCH,
+          RELEASE_TAG_GLOB,
+          GIT_ROOT_COMMAND.HEAD,
+          "--all",
+        ],
+        productDir,
+      },
+      {
+        label: "log text conversion",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: ["log", "--textconv", GIT_ROOT_COMMAND.HEAD],
+        productDir,
+      },
+      {
+        label: "text conversion appended to the commit query",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: [
+          GIT_RELEASE_SUBCOMMAND.LOG,
+          GIT_RELEASE_FLAG.NULL_TERMINATED,
+          COMMIT_LOG_FORMAT,
+          GIT_ROOT_COMMAND.HEAD,
+          "--textconv",
+        ],
+        productDir,
+      },
+      {
+        label: "an external diff command",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: ["log", "--ext-diff", GIT_ROOT_COMMAND.HEAD],
+        productDir,
+      },
+      {
+        label: "an external diff appended to the changed-path query",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: [
+          GIT_RELEASE_SUBCOMMAND.LOG,
+          GIT_RELEASE_FLAG.DIFF_MERGES_FIRST_PARENT,
+          EMPTY_LOG_FORMAT,
+          GIT_RELEASE_FLAG.NAME_ONLY,
+          GIT_ROOT_COMMAND.HEAD,
+          "--ext-diff",
+        ],
+        productDir,
+      },
+      {
+        label: "log file output",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: ["log", "--output=release-data.log", GIT_ROOT_COMMAND.HEAD],
+        productDir,
+      },
     ]);
 }
 
