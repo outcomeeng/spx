@@ -2,7 +2,7 @@
 
 Developer CLI for code validation and session management.
 
-Current release: 0.7.0
+Current release: 0.7.1
 
 ## What is spx?
 
@@ -60,6 +60,20 @@ spx validation all src/session/              # Validate specific files or direct
 ```
 
 All validation commands support `--quiet` for CI and `--json` for machine-readable output.
+
+### Verification Runs
+
+Execute a verification type over the spec tree and record the run:
+
+```bash
+# Run a verification type across the whole product
+spx verification <type> run
+
+# Narrow the run to one or more spec-tree operands
+spx verification <type> run <path...>
+```
+
+Operands resolve from the product root using the same vocabulary as `spx test`; a product-root operand selects the whole tree. The run is rooted at the worktree, warns when that root lies outside a repository, and reports a verification type without a runner instead of opening a run.
 
 ### Session Management
 

@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.7.1] - 2026-09-18
+
+### Added
+
+- `spx verification test run [paths...]` runs the product's test runner over the selected product paths as a recorded verification run. Each module and each failing case is written to the run journal as it resolves, the run is sealed when the runner ends, and the command exits zero exactly when the run passes. The run reads back through `spx verification run status` and `spx verification run render`.
+- A run whose selected verification type has no runner for the product's language is reported without opening a run, naming the directory searched. A run rooted outside a git repository proceeds with a warning. A failure the command cannot recover from is rendered with its diagnostic.
+
+### Changed
+
+- `spx test` and `spx verification test run` resolve path operands through one shared rule. An operand resolves against the product root; `.` or the product root's own path selects the whole tree; an absolute path inside the product resolves like its relative spelling; a path outside the product root, written absolutely or by climbing out with `..`, is reported as unresolved.
+- Verification runs resolve operands from the worktree the invocation directory belongs to and store the run under the repository's shared `.spx/` root, so a run started in a linked worktree is readable from every worktree.
+
+### Fixed
+
+- The extensionless-source validation rule no longer flags the product's root build configuration files.
+
 ## [0.7.0] - 2026-09-16
 
 ### Added
