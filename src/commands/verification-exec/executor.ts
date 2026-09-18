@@ -4,11 +4,11 @@
  * The executor drives a verification type's deterministic runner over a scope and records the run
  * only through the verify recorder lifecycle operations.
  * Within one invocation it opens a run in spx drive mode, backs the streaming runner's evidence sink
- * with the recorder's scope-append and finding-append operations, maps the runner's terminal status
- * onto the recorder terminal-status vocabulary through a total function, and finishes and seals the
- * run — constructing no journal event and performing no journal I/O itself. The runner and recorder
- * operations arrive through injected parameters, so the executor names no language and verifies
- * against controlled implementations.
+ * with the recorder's scope-append and finding-append operations behind a single-writer queue, maps
+ * the runner's terminal status onto the recorder terminal-status vocabulary through a total function,
+ * and finishes and seals the run — constructing no journal event and performing no journal I/O
+ * itself. The runner and recorder operations arrive through injected parameters, so the executor
+ * names no language and verifies against controlled implementations.
  */
 import { JOURNAL_RUN_STATE_STATUS, type JournalRunStateStatus } from "@/domains/journal/run-state";
 import type { RunLocator } from "@/domains/verify/verify";
@@ -106,6 +106,31 @@ export function recorderTerminalStatusFor(status: JournalRunTerminalStatus): Jou
   return RUNNER_TO_RECORDER_STATUS[status];
 }
 
+/** A settled queue tail: the outcome of the previous append is the previous caller's to observe, never the queue's. */
+function settle(): void {}
+
+/**
+ * A single-writer sink over the recorder's append operations: each append starts once the previous
+ * append has settled, in arrival order, and each caller observes its own append's outcome. The
+ * recorder assigns a run's sequence numbers by reading the run's history and taking the next one,
+ * which holds for one sequential driver only, while a runner reporting from parallel workers fires
+ * appends that overlap; the executor is the run's driver, so this is where that premise is kept
+ * true. A rejected append rejects its own caller and leaves the queue running, so one refused unit
+ * neither hides behind a neighbour nor blocks the units queued after it.
+ */
+function createSingleWriterSink(sink: TestRunEvidenceSink): TestRunEvidenceSink {
+  let tail: Promise<void> = Promise.resolve();
+  const enqueue = (append: () => void | Promise<void>): Promise<void> => {
+    const turn = tail.then(async () => append(), async () => append());
+    tail = turn.then(settle, settle);
+    return turn;
+  };
+  return {
+    appendScope: (unit) => enqueue(() => sink.appendScope(unit)),
+    appendFinding: (finding) => enqueue(() => sink.appendFinding(finding)),
+  };
+}
+
 /**
  * Execute a verification run: resolve the type's runner, open a run in spx drive mode, drive the
  * runner while streaming its scope and findings into the run through the recorder, and finish the
@@ -119,10 +144,10 @@ export async function executeVerificationRun(
   if (runner === undefined) return { executed: false };
 
   const run = await deps.recorder.open(request);
-  const sink: TestRunEvidenceSink = {
+  const sink = createSingleWriterSink({
     appendScope: (unit) => deps.recorder.appendScope(run, unit),
     appendFinding: (finding) => deps.recorder.appendFinding(run, finding),
-  };
+  });
   let invocation: JournalRunInvocation;
   try {
     invocation = await runner.runTestsStreaming(

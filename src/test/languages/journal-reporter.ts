@@ -235,10 +235,20 @@ export interface VitestRunStarter {
 /** The Vitest case-result state the reporter records as a finding. */
 const VITEST_FAILED_CASE_STATE = "failed";
 
-/** A journal reporter: a Vitest reporter streaming scope and finding evidence, plus the terminal status it captured. */
+/** The first sink append a reporter saw rejected, retained so the run can surface it once Vitest returns. */
+export interface RetainedSinkFailure {
+  readonly failure: unknown;
+}
+
+/**
+ * A journal reporter: a Vitest reporter streaming scope and finding evidence, plus the terminal
+ * status it captured and the first sink failure it observed.
+ */
 export interface JournalReporter extends Reporter {
   /** The terminal status captured from the run's end reason, or undefined before the run ends. */
   readonly terminalStatus: JournalRunTerminalStatus | undefined;
+  /** The first sink append that rejected, or undefined while every append has succeeded. */
+  readonly sinkFailure: RetainedSinkFailure | undefined;
 }
 
 function terminalStatusFromReason(reason: TestRunEndReason): JournalRunTerminalStatus {
@@ -257,30 +267,47 @@ function findingErrorMessages(errors: ReadonlyArray<{ readonly message?: string 
  * it fires: a started module records a scope, a failing case records a finding, a
  * passing case records nothing, and run end captures the terminal status. Each hook
  * awaits its sink append before returning, and Vitest awaits the hook, so an async
- * sink's write completes before the run advances to the next hook or run end.
- * Constructs no journal events and performs no I/O — every durable effect flows
- * through the sink.
+ * sink's write completes before the run advances to the next hook or run end. A
+ * rejected append still rejects its hook, and the reporter retains the first such
+ * failure: Vitest catches a rejecting hook into the run's own error list rather than
+ * failing the run, so without the retained failure a lost append would vanish behind
+ * the terminal status. Constructs no journal events and performs no I/O — every
+ * durable effect flows through the sink.
  */
 export function createJournalReporter(sink: TestRunEvidenceSink): JournalReporter {
   let terminalStatus: JournalRunTerminalStatus | undefined;
+  let sinkFailure: RetainedSinkFailure | undefined;
+  const forward = async (append: () => void | Promise<void>): Promise<void> => {
+    try {
+      await append();
+    } catch (failure: unknown) {
+      sinkFailure ??= { failure };
+      throw failure;
+    }
+  };
   return {
     async onTestModuleStart(module: TestModule): Promise<void> {
-      await sink.appendScope({ moduleId: module.moduleId });
+      await forward(() => sink.appendScope({ moduleId: module.moduleId }));
     },
     async onTestCaseResult(testCase: TestCase): Promise<void> {
       const result = testCase.result();
       if (result.state !== VITEST_FAILED_CASE_STATE) return;
-      await sink.appendFinding({
-        moduleId: testCase.module.moduleId,
-        testName: testCase.fullName,
-        errors: findingErrorMessages(result.errors),
-      });
+      await forward(() =>
+        sink.appendFinding({
+          moduleId: testCase.module.moduleId,
+          testName: testCase.fullName,
+          errors: findingErrorMessages(result.errors),
+        })
+      );
     },
     onTestRunEnd(_modules, _errors, reason: TestRunEndReason): void {
       terminalStatus = terminalStatusFromReason(reason);
     },
     get terminalStatus(): JournalRunTerminalStatus | undefined {
       return terminalStatus;
+    },
+    get sinkFailure(): RetainedSinkFailure | undefined {
+      return sinkFailure;
     },
   };
 }
@@ -304,7 +331,9 @@ export type JournalRunOutcome =
  * Drives a journal-streaming Vitest run: registers a journal reporter forwarding to
  * the sink, starts the run through the injected starter, and yields the terminal
  * status the reporter captured — or the unresolved outcome when the starter found no
- * Vitest Node API in the product directory.
+ * Vitest Node API in the product directory. A run in which any sink append rejected
+ * rejects with the first such failure once the starter returns and yields no terminal
+ * status, so a journal missing a unit is never sealed as complete.
  */
 export async function runTestsStreaming(
   request: JournalRunRequest,
@@ -316,6 +345,7 @@ export async function runTestsStreaming(
     testPaths: request.testPaths,
     reporters: [reporter],
   });
+  if (reporter.sinkFailure !== undefined) throw reporter.sinkFailure.failure;
   if (!start.started) return start;
   return {
     started: true,
