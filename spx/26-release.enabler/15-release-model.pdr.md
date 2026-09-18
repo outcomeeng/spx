@@ -16,7 +16,7 @@ A release describes the changes a product ships, so deriving it from git history
 
 ### Testing
 
-- ALWAYS: release data is the package version, the commits since the previous release tag, the version delta, and the changed paths, computed from the product's git history ([mapping])
+- ALWAYS: release data is the package version, the commits since the previous release tag, the version delta, and the changed paths, computed from the product's git history ([property])
 - ALWAYS: release-data computation is deterministic — identical repository state yields identical release data ([property])
 - NEVER: computing release data reaches a network or model-capable operation — every dependency required to produce its result is local to the product repository ([compliance])
 - ALWAYS: release notes conform to the Keep a Changelog structure ([conformance])
