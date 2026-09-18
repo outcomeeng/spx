@@ -21,11 +21,11 @@ describe("spx-driven verification executor terminal-status mapping", () => {
     );
   });
 
-  it("folds every combination of streamed language statuses to failed over interrupted over passed", async () => {
-    const combinations = JOURNAL_REPORTER_TEST_GENERATOR.terminalStatusCombinations();
+  it("folds every combination of streamed language statuses, in every order, to failed over interrupted over passed", async () => {
+    const sequences = JOURNAL_REPORTER_TEST_GENERATOR.terminalStatusSequences();
 
-    expect(combinations.length).toBeGreaterThan(0);
-    for (const statuses of combinations) {
+    expect(sequences.length).toBeGreaterThan(0);
+    for (const statuses of sequences) {
       const expected = statuses.includes(JOURNAL_RUN_TERMINAL_STATUS.FAILED)
         ? JOURNAL_RUN_TERMINAL_STATUS.FAILED
         : statuses.includes(JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED)
