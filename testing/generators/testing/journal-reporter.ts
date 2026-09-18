@@ -265,6 +265,25 @@ function arbitraryFindingMissingRequiredField(): fc.Arbitrary<TestMissingFieldSc
     .map(([finding, missingField]) => ({ payload: testPayloadWithoutField(finding, missingField), missingField }));
 }
 
+/** One or more findings with pairwise-distinct case identities, so none collapses onto a neighbour's idempotency key. */
+function arbitraryDistinctFindings(): fc.Arbitrary<readonly TestFinding[]> {
+  return fc.uniqueArray(arbitraryFinding(), {
+    minLength: MIN_ERRORS,
+    maxLength: MAX_FINDINGS,
+    selector: (finding) => JSON.stringify([finding.moduleId, finding.testName]),
+  });
+}
+
+/** The appends one run fires at once across both evidence kinds: distinct scope units and distinct findings. */
+export interface GeneratedAppendMix {
+  readonly units: readonly TestScopeUnit[];
+  readonly findings: readonly TestFinding[];
+}
+
+function arbitraryAppendMix(): fc.Arbitrary<GeneratedAppendMix> {
+  return fc.record({ units: arbitraryDistinctScopeUnits(), findings: arbitraryDistinctFindings() });
+}
+
 export const JOURNAL_REPORTER_TEST_GENERATOR = {
   runScenario: arbitraryRunScenario,
   runScenarioBatch: arbitraryRunScenarioBatch,
@@ -275,6 +294,7 @@ export const JOURNAL_REPORTER_TEST_GENERATOR = {
   scopeUnit: arbitraryScopeUnit,
   scopeUnits: arbitraryScopeUnits,
   distinctScopeUnits: arbitraryDistinctScopeUnits,
+  appendMix: arbitraryAppendMix,
   invalidScopeUnit: arbitraryInvalidScopeUnit,
   finding: arbitraryFinding,
   findingWithoutErrorMessages: arbitraryFindingWithoutErrorMessages,

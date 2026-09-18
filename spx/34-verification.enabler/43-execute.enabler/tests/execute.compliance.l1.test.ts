@@ -175,16 +175,17 @@ describe("spx-driven verification executor compliance", () => {
 
   it("serializes overlapping runner appends so each reaches the recorder alone, in arrival order, and none is lost", async () => {
     await assertProperty(
-      JOURNAL_REPORTER_TEST_GENERATOR.distinctScopeUnits(),
-      async (units) => {
-        const observation = await observeOverlappingAppends(units);
+      JOURNAL_REPORTER_TEST_GENERATOR.appendMix(),
+      async (mix) => {
+        const observation = await observeOverlappingAppends(mix);
         expect(observation.peakInFlight).toBe(1);
         expect(observation.received).toEqual(observation.fired);
         expect(observation.result.executed).toBe(true);
-        expect(observation.report?.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.PASSED);
-        expect(eventsOfType(observation.report?.events ?? [], VERIFY_APPEND_EVENT_TYPE.SCOPE)).toHaveLength(
-          units.length,
-        );
+        expect(observation.report?.sealed).toBe(true);
+        expect(observation.report?.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.FAILED);
+        const events = observation.report?.events ?? [];
+        expect(eventsOfType(events, VERIFY_APPEND_EVENT_TYPE.SCOPE)).toHaveLength(mix.units.length);
+        expect(eventsOfType(events, VERIFY_APPEND_EVENT_TYPE.FINDING)).toHaveLength(mix.findings.length);
       },
       { level: PROPERTY_LEVEL.L1 },
     );
@@ -192,16 +193,16 @@ describe("spx-driven verification executor compliance", () => {
 
   it("rejects only the append the recorder refused while the appends queued behind it still reach the recorder", async () => {
     await assertProperty(
-      JOURNAL_REPORTER_TEST_GENERATOR.distinctScopeUnits(),
-      async (units) => {
-        const observation = await observeRejectedAppendAmongQueued(units);
+      JOURNAL_REPORTER_TEST_GENERATOR.appendMix(),
+      async (mix) => {
+        const observation = await observeRejectedAppendAmongQueued(mix);
         const [first, ...later] = observation.rejections;
         expect(first).toBe(observation.failure);
         for (const rejection of later) expect(rejection).toBeUndefined();
         expect(observation.received).toEqual(observation.fired.slice(1));
-        expect(eventsOfType(observation.report?.events ?? [], VERIFY_APPEND_EVENT_TYPE.SCOPE)).toHaveLength(
-          units.length - 1,
-        );
+        const events = observation.report?.events ?? [];
+        expect(eventsOfType(events, VERIFY_APPEND_EVENT_TYPE.SCOPE)).toHaveLength(mix.units.length - 1);
+        expect(eventsOfType(events, VERIFY_APPEND_EVENT_TYPE.FINDING)).toHaveLength(mix.findings.length);
       },
       { level: PROPERTY_LEVEL.L1 },
     );
