@@ -413,11 +413,29 @@ export async function observeReporterWithAsyncSink(
   return { scopesAfterModuleStart, findingsAfterCases: [...sink.findings] };
 }
 
-/** Builds a sink whose every append rejects with the given failure (Stage 5 exception 1: failure simulation). */
-function createRejectingEvidenceSink(failure: Error): TestRunEvidenceSink {
+/** A sink whose every append rejects with its own fresh failure, plus those failures in the order they were issued. */
+interface RejectingEvidenceSink extends TestRunEvidenceSink {
+  readonly issuedFailures: readonly Error[];
+}
+
+/**
+ * Builds a sink whose every append rejects with a fresh failure (Stage 5 exception 1: failure
+ * simulation), each a distinct instance so a reader can tell which of several rejected appends a
+ * run surfaced.
+ */
+function createRejectingEvidenceSink(message: string): RejectingEvidenceSink {
+  const issuedFailures: Error[] = [];
+  const reject = (): Promise<void> => {
+    const failure = new Error(message);
+    issuedFailures.push(failure);
+    return Promise.reject(failure);
+  };
   return {
-    appendScope: () => Promise.reject(failure),
-    appendFinding: () => Promise.reject(failure),
+    appendScope: reject,
+    appendFinding: reject,
+    get issuedFailures(): readonly Error[] {
+      return issuedFailures;
+    },
   };
 }
 
@@ -451,8 +469,8 @@ async function driveReporterCatchingHookRejections(
 
 /** What a streaming run over a rejecting sink and a Vitest-like starter left the caller with. */
 export interface RejectingSinkRunObservation {
-  /** The failure every sink append rejected with. */
-  readonly failure: Error;
+  /** The distinct failures the sink issued, one per append, in the order the appends were made. */
+  readonly issuedFailures: readonly Error[];
   /** How many reporter hook rejections the starter caught instead of propagating. */
   readonly hookRejectionsCaught: number;
   /** What the streaming run rejected with, or `undefined` when it resolved. */
@@ -470,7 +488,7 @@ export async function observeStreamingRunWithRejectingSink(
   scenario: GeneratedRunScenario,
   reason: JournalRunTerminalStatus,
 ): Promise<RejectingSinkRunObservation> {
-  const failure = new Error(sampleGeneratedValue(arbitraryDomainLiteral()));
+  const sink = createRejectingEvidenceSink(sampleGeneratedValue(arbitraryDomainLiteral()));
   let hookRejectionsCaught = 0;
   const starter: VitestRunStarter = {
     async start(options: VitestRunStartOptions): Promise<VitestRunStart> {
@@ -484,13 +502,13 @@ export async function observeStreamingRunWithRejectingSink(
   let resolved: JournalRunOutcome | undefined;
   try {
     resolved = await runTestsStreaming(sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()), {
-      sink: createRejectingEvidenceSink(failure),
+      sink,
       starter,
     });
   } catch (error: unknown) {
     rejection = error;
   }
-  return { failure, hookRejectionsCaught, rejection, resolved };
+  return { issuedFailures: sink.issuedFailures, hookRejectionsCaught, rejection, resolved };
 }
 
 /** Drives a journal-streaming run through a spy starter and returns the start options the run supplied it. */
