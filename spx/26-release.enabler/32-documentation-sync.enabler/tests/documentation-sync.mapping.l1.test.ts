@@ -42,9 +42,7 @@ describe("documentation sync path mapping", () => {
       ),
     ).toSatisfy((observations) => {
       for (const observation of observations) {
-        expect(observation.actual).toBe(
-          observation.resolve(observation.productDir, observation.sourcePath),
-        );
+        expect(observation.actual).toBe(semantics.join(observation.productDir, observation.sourcePath));
       }
       return true;
     });

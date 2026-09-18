@@ -56,15 +56,20 @@ describe("computeReleaseData — release contents derive from git history", () =
 
   it("lists the commits between the most recent release tag preceding the release and HEAD", async () => {
     await withGitWorktreeEnv(async (env) => {
-      const [base, ...rest] = sampleReleaseTestValue(
-        RELEASE_TEST_GENERATOR.commitSequence(RELEASE_TEST_GENERATOR.counts.commitsAfterTag + 1),
+      const [oldest, recent, ...rest] = sampleReleaseTestValue(
+        RELEASE_TEST_GENERATOR.commitSequence(RELEASE_TEST_GENERATOR.counts.commitsAfterTag + 2),
       );
-      const tag = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.releaseTag());
+      const { earlier: oldestTag, later: recentTag } = sampleReleaseTestValue(
+        RELEASE_TEST_GENERATOR.releaseTagPair(),
+      );
       const packageVersion = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.semver());
 
-      await env.writeTracked(base.path, base.content);
-      await env.commit(base.subject);
-      await env.runGit([GIT_TEST_SUBCOMMANDS.TAG, tag]);
+      await env.writeTracked(oldest.path, oldest.content);
+      await env.commit(oldest.subject);
+      await env.runGit([GIT_TEST_SUBCOMMANDS.TAG, oldestTag]);
+      await env.writeTracked(recent.path, recent.content);
+      await env.commit(recent.subject);
+      await env.runGit([GIT_TEST_SUBCOMMANDS.TAG, recentTag]);
       for (const commit of rest) {
         await env.writeTracked(commit.path, commit.content);
         await env.commit(commit.subject);
@@ -73,9 +78,10 @@ describe("computeReleaseData — release contents derive from git history", () =
       const data = await computeReleaseData({ productDir: env.productDir, packageVersion });
 
       const subjects = data.commits.map((commit) => commit.subject);
-      expect(data.previousTag).toBe(tag);
+      expect(data.previousTag).toBe(recentTag);
       expect(subjects).toEqual(expect.arrayContaining(rest.map((commit) => commit.subject)));
-      expect(subjects).not.toContain(base.subject);
+      expect(subjects).not.toContain(oldest.subject);
+      expect(subjects).not.toContain(recent.subject);
       expect(data.commits).toHaveLength(rest.length);
     });
   });
@@ -139,6 +145,7 @@ describe("computeReleaseData — release contents derive from git history", () =
       await env.writeTracked(release.path, release.content);
       await env.commit(release.subject);
       await env.runGit([GIT_TEST_SUBCOMMANDS.TAG, releaseTag]);
+      const releaseSha = await env.runGit([GIT_TEST_SUBCOMMANDS.REV_PARSE, releaseTag]);
       await env.writeTracked(later.path, later.content);
       await env.commit(later.subject);
 
@@ -149,6 +156,7 @@ describe("computeReleaseData — release contents derive from git history", () =
       });
 
       expect(data.previousTag).toBe(earlier);
+      expect(data.releaseRef).toBe(releaseSha);
       expect(data.commits.map((commit) => commit.subject)).toEqual([release.subject]);
       expect(data.changedPaths).toEqual([release.path]);
     });

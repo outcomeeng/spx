@@ -1053,7 +1053,6 @@ interface DocumentationPathSemanticsObservation {
   readonly actual: string | undefined;
   readonly productDir: string;
   readonly sourcePath: string;
-  readonly resolve: (path: string, ...paths: string[]) => string;
 }
 
 interface DocumentationPathAliasObservation {
@@ -1120,7 +1119,6 @@ function observeDocumentationPathSemantics(
       ),
       productDir,
       sourcePath,
-      resolve: operations.resolve,
     };
   });
 }
