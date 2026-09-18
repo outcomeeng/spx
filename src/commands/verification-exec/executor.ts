@@ -106,7 +106,10 @@ export function recorderTerminalStatusFor(status: JournalRunTerminalStatus): Jou
   return RUNNER_TO_RECORDER_STATUS[status];
 }
 
-/** A settled queue tail: the outcome of the previous append is the previous caller's to observe, never the queue's. */
+/**
+ * Settles the queue tail after a rejected append: the outcome of the previous append is the previous
+ * caller's to observe, never the queue's, so the tail always fulfils and the next append always runs.
+ */
 function settle(): void {}
 
 /**
@@ -121,8 +124,8 @@ function settle(): void {}
 function createSingleWriterSink(sink: TestRunEvidenceSink): TestRunEvidenceSink {
   let tail: Promise<void> = Promise.resolve();
   const enqueue = (append: () => void | Promise<void>): Promise<void> => {
-    const turn = tail.then(async () => append(), async () => append());
-    tail = turn.then(settle, settle);
+    const turn = tail.then(append);
+    tail = turn.catch(settle);
     return turn;
   };
   return {
