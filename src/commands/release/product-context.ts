@@ -10,6 +10,7 @@ import {
 import { committedFileContent, committedPaths } from "@/lib/git/release";
 import { defaultGitDependencies, type GitDependencies } from "@/lib/git/root";
 import {
+  compareSpecContextOrdinal,
   extractDecisionCitations,
   readSpecTree,
   recognizeSpecTreeFilesystemEntry,
@@ -240,7 +241,7 @@ async function* walkCommittedDirectory(
       directory: true,
     })),
     ...[...files].filter((path) => parentDirectory(path) === directory).map((path) => ({ path, directory: false })),
-  ].sort((left, right) => posix.basename(left.path).localeCompare(posix.basename(right.path)));
+  ].sort((left, right) => compareSpecContextOrdinal(posix.basename(left.path), posix.basename(right.path)));
 
   for (const child of children) {
     const sourceEntry = recognizeSpecTreeFilesystemEntry({
