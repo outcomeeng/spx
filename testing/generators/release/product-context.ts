@@ -212,8 +212,9 @@ export function arbitraryReleaseEndpointSourceScenario(
         break;
       case RELEASE_ENDPOINT_OWNERSHIP_CASE.MULTIPLE_CANDIDATES:
         currentFiles.push(releaseEndpointFile(parentNode.specificationPath, releaseOwnershipNodeSpec(parentNode.slug)));
-        addOwnedSource(currentFiles, childNode, changedSourcePath, 1);
-        addOwnedSource(currentFiles, peerNode, changedSourcePath, 1);
+        addOwnedNode(currentFiles, childNode, changedSourcePath);
+        addOwnedNode(currentFiles, peerNode, changedSourcePath);
+        currentFiles.push(releaseEndpointFile(changedSourcePath, releaseOwnershipSourceContent(1)));
         break;
       case RELEASE_ENDPOINT_OWNERSHIP_CASE.DELETED:
         currentFiles.push(
@@ -264,13 +265,21 @@ function addOwnedSource(
   sourcePath: string,
   sourceValue: number,
 ): void {
+  addOwnedNode(files, node, sourcePath);
+  files.push(releaseEndpointFile(sourcePath, releaseOwnershipSourceContent(sourceValue)));
+}
+
+function addOwnedNode(
+  files: ReleaseEndpointFile[],
+  node: ReleaseOwnershipNodePaths,
+  sourcePath: string,
+): void {
   files.push(
     releaseEndpointFile(
       node.specificationPath,
       releaseOwnershipNodeSpec(node.slug, node.testPath.slice(node.nodeId.length + 1)),
     ),
     releaseEndpointFile(node.testPath, releaseOwnershipSourceImport(node.testPath, sourcePath)),
-    releaseEndpointFile(sourcePath, releaseOwnershipSourceContent(sourceValue)),
   );
 }
 

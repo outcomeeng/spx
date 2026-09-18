@@ -54,11 +54,11 @@ export interface ReleaseEndpointReader {
 }
 
 /** Reads one product-context snapshot before any release agent is invoked. */
-export const readReleaseProductContext: ReleaseContextReader = async (
-  productDir,
-  releaseData,
+export async function readReleaseProductContext(
+  productDir: Parameters<ReleaseContextReader>[0],
+  releaseData: Parameters<ReleaseContextReader>[1],
   dependencies: ReleaseProductContextDependencies = {},
-) => {
+): ReturnType<ReleaseContextReader> {
   const endpointReader = dependencies.endpointReader
     ?? createGitReleaseEndpointReader(dependencies.git ?? defaultGitDependencies);
   const registry = dependencies.registry ?? testingRegistry;
@@ -92,7 +92,7 @@ export const readReleaseProductContext: ReleaseContextReader = async (
   return Object.values(RELEASE_CONTEXT_KIND).flatMap((kind) =>
     [...documents.values()].filter((document) => document.kind === kind)
   );
-};
+}
 
 async function readReleaseEndpoints(
   productDir: string,

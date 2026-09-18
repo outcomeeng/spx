@@ -1,11 +1,8 @@
 import {
-  type ReleaseEndpointReader,
-  readReleaseProductContext,
-} from "@/commands/release/product-context";
-import {
   DEFAULT_DOCUMENTATION_SYNC_COMMAND_DEPENDENCIES,
   documentationSyncCommand,
 } from "@/commands/release/documentation-sync";
+import { readReleaseProductContext, type ReleaseEndpointReader } from "@/commands/release/product-context";
 import type { ReleaseProductContext } from "@/domains/release/product-context";
 import {
   RELEASE_ENDPOINT_OWNERSHIP_CASE,
