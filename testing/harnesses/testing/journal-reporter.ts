@@ -571,6 +571,38 @@ export interface RealMixedRunObservation {
  * starter over the product-resolving loader and a recording sink, and returns what the
  * sink recorded, the run's outcome, and the process exit code before and after the run.
  */
+/** What a real Vitest run over the mixed fixture left when every sink append rejected. */
+export interface RealRejectingSinkRunObservation {
+  /** The distinct failures the sink issued, one per append, in the order the appends were made. */
+  readonly issuedFailures: readonly Error[];
+  /** What the streaming run rejected with, or `undefined` when it resolved. */
+  readonly rejection: unknown;
+  /** What the streaming run resolved to, or `undefined` when it rejected. */
+  readonly resolved: JournalRunOutcome | undefined;
+}
+
+/**
+ * Runs real Vitest over the mixed fixture with a sink whose every append rejects, observing
+ * whether the run Vitest returns from surfaces the sink's first failure or hides it behind a
+ * terminal status.
+ */
+export function observeRealRunWithRejectingSink(): Promise<RealRejectingSinkRunObservation> {
+  return withMixedVitestProduct(async (productDir, testFileName) => {
+    const sink = createRejectingEvidenceSink(sampleGeneratedValue(arbitraryDomainLiteral()));
+    let rejection: unknown;
+    let resolved: JournalRunOutcome | undefined;
+    try {
+      resolved = await runTestsStreaming(
+        { productDir, testPaths: [testFileName] },
+        { sink, starter: createVitestRunStarter(productVitestNodeApiLoader) },
+      );
+    } catch (error: unknown) {
+      rejection = error;
+    }
+    return { issuedFailures: sink.issuedFailures, rejection, resolved };
+  });
+}
+
 export function observeRealMixedRun(): Promise<RealMixedRunObservation> {
   return withMixedVitestProduct(async (productDir, testFileName) => {
     const exitCodeBeforeRun = process.exitCode;
