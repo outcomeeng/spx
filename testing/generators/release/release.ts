@@ -4,6 +4,7 @@ import * as fc from "fast-check";
 
 import { type ReleaseData, VERSION_DELTA, type VersionDelta } from "@/domains/release/release-data";
 import { type GitCommit, RELEASE_TAG_PREFIX } from "@/lib/git/release";
+import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import { arbitraryBranchName, arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 
@@ -52,6 +53,11 @@ export type ReleaseDataDeterminismScenario = {
   readonly versionDelta: VersionDelta;
 };
 
+export type ReleaseDataOperationViolation = {
+  readonly command: string;
+  readonly args: string[];
+};
+
 type ReleaseVersionProgression = {
   readonly version: string;
   readonly previousTag: string;
@@ -85,6 +91,7 @@ export const RELEASE_TEST_GENERATOR = {
   distinctDomainLiteralPair: arbitraryDistinctDomainLiteralPair,
   commitSequence: arbitraryCommitSequence,
   releaseDataDeterminismScenario: arbitraryReleaseDataDeterminismScenario,
+  releaseDataOperationViolations: arbitraryReleaseDataOperationViolations,
   versionProgression: arbitraryReleaseVersionProgression,
   versionBumpFor: arbitraryVersionBumpFor,
   releaseData: arbitraryReleaseData,
@@ -236,6 +243,15 @@ function arbitraryReleaseDataDeterminismScenario(): fc.Arbitrary<ReleaseDataDete
       packageVersion: progression.version,
       versionDelta: progression.versionDelta,
     }));
+}
+
+function arbitraryReleaseDataOperationViolations(): fc.Arbitrary<readonly ReleaseDataOperationViolation[]> {
+  return arbitraryDomainLiteral()
+    .filter((command) => command !== GIT_ROOT_COMMAND.EXECUTABLE)
+    .map((command) => [
+      { command, args: [GIT_ROOT_COMMAND.REV_PARSE] },
+      { command: GIT_ROOT_COMMAND.EXECUTABLE, args: [GIT_ROOT_COMMAND.REMOTE] },
+    ]);
 }
 
 function arbitraryCommitSha(): fc.Arbitrary<string> {

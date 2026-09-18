@@ -2,6 +2,7 @@ import {
   changedPathsBetween,
   closestReleaseTag,
   commitsBetween,
+  GIT_RELEASE_SUBCOMMAND,
   type GitCommit,
   RELEASE_TAG_PREFIX,
   releaseTagsAt,
@@ -53,6 +54,41 @@ const SEMVER_SEPARATOR = ".";
 const SEMVER_RADIX = 10;
 const ABSENT_COMPONENT = 0;
 
+export const RELEASE_DATA_GIT_SUBCOMMANDS = [
+  GIT_ROOT_COMMAND.REV_PARSE,
+  GIT_RELEASE_SUBCOMMAND.DESCRIBE,
+  GIT_RELEASE_SUBCOMMAND.TAG,
+  GIT_RELEASE_SUBCOMMAND.LOG,
+] as const;
+
+const RELEASE_DATA_GIT_SUBCOMMAND_SET: ReadonlySet<string> = new Set(RELEASE_DATA_GIT_SUBCOMMANDS);
+
+class ReleaseDataExternalOperationError extends Error {
+  public constructor(
+    public readonly command: string,
+    public readonly subcommand: string | undefined,
+  ) {
+    super(`Release-data computation rejected external operation: ${command} ${subcommand ?? ""}`.trim());
+    this.name = "ReleaseDataExternalOperationError";
+  }
+}
+
+export function restrictReleaseDataGitDependencies(deps: GitDependencies): GitDependencies {
+  return {
+    execa: async (command, args, options) => {
+      const subcommand = args.at(0);
+      if (
+        command !== GIT_ROOT_COMMAND.EXECUTABLE
+        || subcommand === undefined
+        || !RELEASE_DATA_GIT_SUBCOMMAND_SET.has(subcommand)
+      ) {
+        throw new ReleaseDataExternalOperationError(command, subcommand);
+      }
+      return deps.execa(command, args, options);
+    },
+  };
+}
+
 interface SemverParts {
   readonly major: number;
   readonly minor: number;
@@ -91,11 +127,12 @@ export async function computeReleaseData(options: ComputeReleaseDataOptions): Pr
     deps = defaultGitDependencies,
   } = options;
 
-  const resolvedReleaseRef = await resolveRefSha(releaseRef, productDir, deps);
+  const releaseDataDeps = restrictReleaseDataGitDependencies(deps);
+  const resolvedReleaseRef = await resolveRefSha(releaseRef, productDir, releaseDataDeps);
   if (resolvedReleaseRef === null) throw new Error(`Cannot resolve release ref: ${releaseRef}`);
-  const previousTag = await resolvePreviousReleaseTag(resolvedReleaseRef, productDir, deps);
-  const commits = await commitsBetween(previousTag, resolvedReleaseRef, productDir, deps);
-  const changedPaths = await changedPathsBetween(previousTag, resolvedReleaseRef, productDir, deps);
+  const previousTag = await resolvePreviousReleaseTag(resolvedReleaseRef, productDir, releaseDataDeps);
+  const commits = await commitsBetween(previousTag, resolvedReleaseRef, productDir, releaseDataDeps);
+  const changedPaths = await changedPathsBetween(previousTag, resolvedReleaseRef, productDir, releaseDataDeps);
   const versionDelta = previousTag === null ? null : classifyVersionDelta(previousTag, packageVersion);
 
   return { version: packageVersion, releaseRef: resolvedReleaseRef, previousTag, commits, versionDelta, changedPaths };

@@ -10,7 +10,7 @@ export interface GitCommit {
   readonly body: string;
 }
 
-const GIT_RELEASE_SUBCOMMAND = {
+export const GIT_RELEASE_SUBCOMMAND = {
   CAT_FILE: "cat-file",
   DESCRIBE: "describe",
   LS_TREE: "ls-tree",
