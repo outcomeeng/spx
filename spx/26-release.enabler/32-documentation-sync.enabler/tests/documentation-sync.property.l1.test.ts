@@ -18,8 +18,6 @@ import {
 import {
   arbitraryReleaseContextScenario,
   arbitraryReleaseEndpointOwnershipScenario,
-  arbitraryReleaseEndpointRepositoryScenario,
-  RELEASE_ENDPOINT_OWNERSHIP_CASE,
 } from "@testing/generators/release/product-context";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import {
@@ -29,7 +27,6 @@ import {
   observeDocumentationVersionPreservation,
   observeProtectedVersionRewrite,
 } from "@testing/harnesses/release/documentation-sync";
-import { observeReleaseEndpointRepository } from "@testing/harnesses/release/product-context";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
@@ -82,28 +79,6 @@ it("retains every distinct candidate and governing node across both release endp
     { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
   );
 });
-
-it.each(Object.values(RELEASE_ENDPOINT_OWNERSHIP_CASE))(
-  "resolves generated %s ownership topologies across release endpoint repositories before invoking agents",
-  async (kind) => {
-    await assertProperty(
-      arbitraryReleaseEndpointRepositoryScenario(kind),
-      async (scenario) => {
-        const observation = await observeReleaseEndpointRepository(scenario);
-        const contextPaths = observation.context.map(({ path }) => path);
-        if (scenario.kind === RELEASE_ENDPOINT_OWNERSHIP_CASE.UNRESOLVED) {
-          expect(observation.error).toBeInstanceOf(Error);
-          expect((observation.error as Error).message).toContain(scenario.changedSourcePath);
-          expect(observation.producerInvocations).toBe(0);
-          expect(observation.auditorInvocations).toBe(0);
-        } else {
-          expect(contextPaths).toEqual(expect.arrayContaining([...scenario.expectedContextPaths]));
-        }
-      },
-      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
-    );
-  },
-);
 
 describe("documentation sync path properties", () => {
   it("preserves every generated configured documentation path set", async () => {

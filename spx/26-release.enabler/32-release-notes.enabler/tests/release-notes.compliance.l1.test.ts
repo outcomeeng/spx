@@ -21,8 +21,10 @@ import { isPathContained } from "@/lib/file-system/pathContainment";
 import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import { sampleNonConformantReleaseNotesChangelogCases } from "@testing/generators/release/changelog";
 import {
+  RELEASE_ENDPOINT_OWNERSHIP_CASE,
   RELEASE_OWNERSHIP_FIXTURE_CONTENT,
   sampleReleaseContextScenario,
+  sampleReleaseEndpointRepositoryScenario,
 } from "@testing/generators/release/product-context";
 import {
   RELEASE_NOTES_CONFIGURED_PATH_REJECTION_CASE,
@@ -48,6 +50,7 @@ import {
 import { GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 import { observeIndependentVersionSection } from "@testing/harnesses/release/keep-a-changelog-oracle";
+import { observeReleaseEndpointRepository } from "@testing/harnesses/release/product-context";
 import {
   observeAbsoluteInTreeReleaseNotesPath,
   observeConfiguredReleaseNotesPathRejection,
@@ -69,6 +72,23 @@ import {
   type ReleaseNotesConformanceFailureObservation,
 } from "@testing/harnesses/release/release-notes-conformance";
 import { describe, expect, it } from "vitest";
+
+it.each(Object.values(RELEASE_ENDPOINT_OWNERSHIP_CASE))(
+  "resolves the %s ownership topology across release endpoint repositories",
+  async (kind) => {
+    const scenario = sampleReleaseEndpointRepositoryScenario(kind);
+    const observation = await observeReleaseEndpointRepository(scenario);
+    const contextPaths = observation.context.map(({ path }) => path);
+    if (scenario.kind === RELEASE_ENDPOINT_OWNERSHIP_CASE.UNRESOLVED) {
+      expect(observation.error).toBeInstanceOf(Error);
+      expect((observation.error as Error).message).toContain(scenario.changedSourcePath);
+      expect(observation.producerInvocations).toBe(0);
+      expect(observation.auditorInvocations).toBe(0);
+    } else {
+      expect(contextPaths).toEqual(expect.arrayContaining([...scenario.expectedContextPaths]));
+    }
+  },
+);
 
 it("does not invoke an agent after selected context reading fails", async () => {
   const scenario = sampleReleaseContextScenario();

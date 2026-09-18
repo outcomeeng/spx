@@ -199,6 +199,12 @@ export function arbitraryReleaseEndpointRepositoryScenario(
   });
 }
 
+export function sampleReleaseEndpointRepositoryScenario(
+  kind: ReleaseEndpointOwnershipCase,
+): ReleaseEndpointRepositoryScenario {
+  return sampleReleaseTestValue(arbitraryReleaseEndpointRepositoryScenario(kind));
+}
+
 function releaseOwnershipNodePaths(
   slug: string,
   index: number,
