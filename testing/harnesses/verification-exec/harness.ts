@@ -543,7 +543,7 @@ export async function observeOverlappingAppends(
   };
   const runner: JournalStreamingRunner = {
     async runTestsStreaming(_request, deps) {
-      await Promise.all(units.map((unit) => deps.sink.appendScope(unit)));
+      await Promise.all(units.map(async (unit) => deps.sink.appendScope(unit)));
       return { invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.PASSED };
     },
   };
@@ -590,7 +590,7 @@ export async function observeRejectedAppendAmongQueued(
   let rejections: readonly unknown[] = [];
   const runner: JournalStreamingRunner = {
     async runTestsStreaming(_request, deps) {
-      const settled = await Promise.allSettled(units.map((unit) => deps.sink.appendScope(unit)));
+      const settled = await Promise.allSettled(units.map(async (unit) => deps.sink.appendScope(unit)));
       rejections = settled.map((outcome) => (outcome.status === "rejected" ? outcome.reason : undefined));
       return { invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.PASSED };
     },

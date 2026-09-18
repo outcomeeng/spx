@@ -280,9 +280,9 @@ export function createJournalReporter(sink: TestRunEvidenceSink): JournalReporte
   const forward = async (append: () => void | Promise<void>): Promise<void> => {
     try {
       await append();
-    } catch (failure: unknown) {
-      sinkFailure ??= { failure };
-      throw failure;
+    } catch (error: unknown) {
+      sinkFailure ??= { failure: error };
+      throw error;
     }
   };
   return {

@@ -56,7 +56,7 @@ describe("journal reporter lost-append surfacing", () => {
       async ({ scenario, reason }) => {
         const observation = await observeStreamingRunWithRejectingSink(scenario, reason);
         expect(observation.hookRejectionsCaught).toBeGreaterThan(1);
-        expect(observation.issuedFailures.length).toBe(observation.hookRejectionsCaught);
+        expect(observation.issuedFailures).toHaveLength(observation.hookRejectionsCaught);
         expect(observation.rejection).toBe(observation.issuedFailures[0]);
         expect(observation.resolved).toBeUndefined();
       },

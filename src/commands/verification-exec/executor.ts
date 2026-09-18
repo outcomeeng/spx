@@ -110,7 +110,7 @@ export function recorderTerminalStatusFor(status: JournalRunTerminalStatus): Jou
  * Settles the queue tail after a rejected append: the outcome of the previous append is the previous
  * caller's to observe, never the queue's, so the tail always fulfils and the next append always runs.
  */
-function settle(): void {}
+const settle = (): void => undefined;
 
 /**
  * A single-writer sink over the recorder's append operations: each append starts once the previous
