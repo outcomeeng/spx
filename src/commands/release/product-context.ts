@@ -43,8 +43,14 @@ interface ReleaseContextEndpoint {
 }
 
 export interface ReleaseProductContextDependencies {
+  readonly endpointReader?: ReleaseEndpointReader;
   readonly git?: GitDependencies;
   readonly registry?: TestingRegistry;
+}
+
+export interface ReleaseEndpointReader {
+  readonly listPaths: (productDir: string, ref: string) => Promise<readonly string[]>;
+  readonly readText: (productDir: string, ref: string, path: string) => Promise<string | null>;
 }
 
 /** Reads one product-context snapshot before any release agent is invoked. */
@@ -53,9 +59,10 @@ export const readReleaseProductContext: ReleaseContextReader = async (
   releaseData,
   dependencies: ReleaseProductContextDependencies = {},
 ) => {
-  const git = dependencies.git ?? defaultGitDependencies;
+  const endpointReader = dependencies.endpointReader
+    ?? createGitReleaseEndpointReader(dependencies.git ?? defaultGitDependencies);
   const registry = dependencies.registry ?? testingRegistry;
-  const endpoints = await readReleaseEndpoints(productDir, releaseData, git);
+  const endpoints = await readReleaseEndpoints(productDir, releaseData, endpointReader);
   if (endpoints.every(({ snapshot }) => !hasSpecTree(snapshot))) return [];
   assertCompleteSpecTrees(endpoints);
   const selection = await resolveReleaseOwnershipSelection(productDir, releaseData, endpoints, registry);
@@ -90,11 +97,11 @@ export const readReleaseProductContext: ReleaseContextReader = async (
 async function readReleaseEndpoints(
   productDir: string,
   releaseData: Parameters<ReleaseContextReader>[1],
-  git: GitDependencies,
+  endpointReader: ReleaseEndpointReader,
 ): Promise<readonly ReleaseContextEndpoint[]> {
-  const current = await readEndpoint(productDir, releaseData.releaseRef, git);
+  const current = await readEndpoint(productDir, releaseData.releaseRef, endpointReader);
   if (releaseData.previousTag === null) return [current];
-  return [current, await readEndpoint(productDir, releaseData.previousTag, git)];
+  return [current, await readEndpoint(productDir, releaseData.previousTag, endpointReader)];
 }
 
 function assertCompleteSpecTrees(endpoints: readonly ReleaseContextEndpoint[]): void {
@@ -170,10 +177,10 @@ type ContextDocumentAdder = (
 async function readEndpoint(
   productDir: string,
   ref: string,
-  git: GitDependencies,
+  endpointReader: ReleaseEndpointReader,
 ): Promise<ReleaseContextEndpoint> {
-  const paths = await committedPaths(ref, productDir, git);
-  const source = createCommittedSpecTreeSource(productDir, ref, paths, git);
+  const paths = await endpointReader.listPaths(productDir, ref);
+  const source = createReleaseEndpointSpecTreeSource(productDir, ref, paths, endpointReader);
   return {
     ref,
     paths,
@@ -183,20 +190,27 @@ async function readEndpoint(
   };
 }
 
-function createCommittedSpecTreeSource(
+function createReleaseEndpointSpecTreeSource(
   productDir: string,
   ref: string,
   paths: readonly string[],
-  git: GitDependencies,
+  endpointReader: ReleaseEndpointReader,
 ): SpecTreeSource {
   return {
     entries: () => committedSpecTreeEntries(paths),
     async readText(sourceRef): Promise<string> {
       if (sourceRef.path === undefined) throw new Error("Committed source refs require a path");
-      const content = await committedFileContent(ref, sourceRef.path, productDir, git);
+      const content = await endpointReader.readText(productDir, ref, sourceRef.path);
       if (content === null) throw missingCommittedFile(sourceRef.path, ref);
       return content;
     },
+  };
+}
+
+function createGitReleaseEndpointReader(git: GitDependencies): ReleaseEndpointReader {
+  return {
+    listPaths: async (productDir, ref) => await committedPaths(ref, productDir, git),
+    readText: async (productDir, ref, path) => await committedFileContent(ref, path, productDir, git),
   };
 }
 
