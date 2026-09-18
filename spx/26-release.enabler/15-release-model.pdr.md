@@ -18,6 +18,7 @@ A release describes the changes a product ships, so deriving it from git history
 
 - ALWAYS: release data is the package version, the commits since the previous release tag, the version delta, and the changed paths, computed from the product's git history ([mapping])
 - ALWAYS: release-data computation is deterministic — identical repository state yields identical release data ([property])
+- NEVER: computing release data reaches a network or model-capable operation — every dependency required to produce its result is local to the product repository ([compliance])
 - ALWAYS: release notes conform to the Keep a Changelog structure ([conformance])
 - ALWAYS: publication proceeds only when the release tag equals the package version prefixed with `v` ([compliance])
 
@@ -27,4 +28,3 @@ A release describes the changes a product ships, so deriving it from git history
 - ALWAYS: generated release notes and documentation updates stay faithful to the release's changes; each producer and its independent faithfulness auditor judge against identical product context, release inputs, and shared standards ([audit])
 - ALWAYS: publication carries build provenance through the registry's trusted-publishing mechanism ([audit])
 - NEVER: a release is gated on an in-tree domain — running validation, testing, or agentic verification before a release is the product exercising its own commands, not a release dependency ([audit])
-- NEVER: computing release data performs network access or invokes a model — git plumbing and the local working tree are its only inputs ([audit])
