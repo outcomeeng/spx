@@ -13,15 +13,18 @@ import {
 import { JOURNAL_RUN_TERMINAL_STATUS } from "@/test/languages/types";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import {
   eventsOfType,
   gatedOutDescriptor,
   nonStreamingDescriptor,
   observeDriveModeAroundSeal,
   observeExecutorRun,
+  observeOverlappingAppends,
   observeProductionRegistryDrive,
   observeRecorderLifecycleFailures,
   observeRegistryResolution,
+  observeRejectedAppendAmongQueued,
   observeRunnerFailure,
   observeRunnerFailureWithSealFailure,
   observeTestRunnerFold,
@@ -167,6 +170,40 @@ describe("spx-driven verification executor compliance", () => {
     expect(first).not.toEqual(second);
     expect(eventsOfType(observation.report?.events ?? [], VERIFY_APPEND_EVENT_TYPE.FINDING)).toHaveLength(
       observation.outcome.findings.length,
+    );
+  });
+
+  it("serializes overlapping runner appends so each reaches the recorder alone, in arrival order, and none is lost", async () => {
+    await assertProperty(
+      JOURNAL_REPORTER_TEST_GENERATOR.distinctScopeUnits(),
+      async (units) => {
+        const observation = await observeOverlappingAppends(units);
+        expect(observation.peakInFlight).toBe(1);
+        expect(observation.received).toEqual(observation.fired);
+        expect(observation.result.executed).toBe(true);
+        expect(observation.report?.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.PASSED);
+        expect(eventsOfType(observation.report?.events ?? [], VERIFY_APPEND_EVENT_TYPE.SCOPE)).toHaveLength(
+          units.length,
+        );
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+
+  it("rejects only the append the recorder refused while the appends queued behind it still reach the recorder", async () => {
+    await assertProperty(
+      JOURNAL_REPORTER_TEST_GENERATOR.distinctScopeUnits(),
+      async (units) => {
+        const observation = await observeRejectedAppendAmongQueued(units);
+        const [first, ...later] = observation.rejections;
+        expect(first).toBe(observation.failure);
+        for (const rejection of later) expect(rejection).toBeUndefined();
+        expect(observation.received).toEqual(observation.fired.slice(1));
+        expect(eventsOfType(observation.report?.events ?? [], VERIFY_APPEND_EVENT_TYPE.SCOPE)).toHaveLength(
+          units.length - 1,
+        );
+      },
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 

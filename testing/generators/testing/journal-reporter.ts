@@ -129,6 +129,22 @@ function arbitraryScopeUnits(): fc.Arbitrary<readonly TestScopeUnit[]> {
   return fc.array(arbitraryScopeUnit(), { maxLength: MAX_SCOPE_UNITS });
 }
 
+/** The fewest modules a run needs for two appends to overlap: one append can never race itself. */
+const MIN_OVERLAPPING_SCOPE_UNITS = 2;
+
+/**
+ * Two or more scope units with pairwise-distinct module identities — the modules of one run whose
+ * appends can overlap, distinct so each unit's evidence is its own and none collapses onto a
+ * neighbour's idempotency key.
+ */
+function arbitraryDistinctScopeUnits(): fc.Arbitrary<readonly TestScopeUnit[]> {
+  return fc.uniqueArray(arbitraryScopeUnit(), {
+    minLength: MIN_OVERLAPPING_SCOPE_UNITS,
+    maxLength: MAX_SCOPE_UNITS,
+    selector: (unit) => unit.moduleId,
+  });
+}
+
 function arbitraryFindings(): fc.Arbitrary<readonly TestFinding[]> {
   return fc.array(arbitraryFinding(), { maxLength: MAX_FINDINGS });
 }
@@ -258,6 +274,7 @@ export const JOURNAL_REPORTER_TEST_GENERATOR = {
   failingCase: arbitraryFailingCase,
   scopeUnit: arbitraryScopeUnit,
   scopeUnits: arbitraryScopeUnits,
+  distinctScopeUnits: arbitraryDistinctScopeUnits,
   invalidScopeUnit: arbitraryInvalidScopeUnit,
   finding: arbitraryFinding,
   findingWithoutErrorMessages: arbitraryFindingWithoutErrorMessages,

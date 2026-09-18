@@ -502,3 +502,101 @@ export async function observeRunnerFailureWithSealFailure(): Promise<RunnerAndSe
   }
   return { runnerFailure, finishFailure, rejection };
 }
+
+/** What a run whose runner fired every scope append at once left in the recorder. */
+export interface OverlappingAppendsObservation {
+  readonly result: ExecutorRunResult;
+  /** The scope units the runner appended, in the order it fired them. */
+  readonly fired: readonly TestScopeUnit[];
+  /** The scope units the recorder received, in the order their appends began. */
+  readonly received: readonly TestScopeUnit[];
+  /** The most recorder appends in flight at any one moment. */
+  readonly peakInFlight: number;
+  /** The run rendered after the executor finished it, when one opened. */
+  readonly report: VerifyRenderReport | undefined;
+}
+
+/**
+ * Drives the executor over a runner that fires one scope append per unit without awaiting any of
+ * them — the overlap a runner reporting from parallel workers produces — against the real recorder,
+ * observing how many recorder appends overlapped and in what order they began.
+ */
+export async function observeOverlappingAppends(
+  units: readonly TestScopeUnit[],
+): Promise<OverlappingAppendsObservation> {
+  const harness = createExecutorHarness();
+  const received: TestScopeUnit[] = [];
+  let inFlight = 0;
+  let peakInFlight = 0;
+  const recorder: ExecutorRecorderOperations = {
+    ...harness.recorder,
+    appendScope: async (run, unit) => {
+      received.push(unit);
+      inFlight += 1;
+      peakInFlight = Math.max(peakInFlight, inFlight);
+      try {
+        await harness.recorder.appendScope(run, unit);
+      } finally {
+        inFlight -= 1;
+      }
+    },
+  };
+  const runner: JournalStreamingRunner = {
+    async runTestsStreaming(_request, deps) {
+      await Promise.all(units.map((unit) => deps.sink.appendScope(unit)));
+      return { invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.PASSED };
+    },
+  };
+
+  const result = await executeVerificationRun(harness.request, { resolveRunner: () => runner, recorder });
+  const report = result.executed ? await renderRunReport(harness, result.run.runToken) : undefined;
+  return { result, fired: units, received, peakInFlight, report };
+}
+
+/** What a run whose first scope append the recorder rejected left for the appends fired after it. */
+export interface RejectedAppendObservation {
+  /** The failure the recorder raised for the first unit's append. */
+  readonly failure: Error;
+  /** The scope units the runner appended, in the order it fired them; the first is the rejected one. */
+  readonly fired: readonly TestScopeUnit[];
+  /** What each unit's own sink append rejected with, in fired order — `undefined` where it fulfilled. */
+  readonly rejections: readonly unknown[];
+  /** The scope units the recorder recorded, in the order their appends began. */
+  readonly received: readonly TestScopeUnit[];
+  /** The run rendered after the executor finished it, when one opened. */
+  readonly report: VerifyRenderReport | undefined;
+}
+
+/**
+ * Drives the executor over a runner that fires every scope append at once against a recorder that
+ * rejects the first unit's append and records the rest, observing how each unit's own append settled
+ * and which units the recorder went on to record.
+ */
+export async function observeRejectedAppendAmongQueued(
+  units: readonly TestScopeUnit[],
+): Promise<RejectedAppendObservation> {
+  const harness = createExecutorHarness();
+  const failure = new Error(arbitraryDomainLiteralValue());
+  const [rejectedUnit] = units;
+  const received: TestScopeUnit[] = [];
+  const recorder: ExecutorRecorderOperations = {
+    ...harness.recorder,
+    appendScope: async (run, unit) => {
+      if (unit === rejectedUnit) throw failure;
+      received.push(unit);
+      await harness.recorder.appendScope(run, unit);
+    },
+  };
+  let rejections: readonly unknown[] = [];
+  const runner: JournalStreamingRunner = {
+    async runTestsStreaming(_request, deps) {
+      const settled = await Promise.allSettled(units.map((unit) => deps.sink.appendScope(unit)));
+      rejections = settled.map((outcome) => (outcome.status === "rejected" ? outcome.reason : undefined));
+      return { invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.PASSED };
+    },
+  };
+
+  const result = await executeVerificationRun(harness.request, { resolveRunner: () => runner, recorder });
+  const report = result.executed ? await renderRunReport(harness, result.run.runToken) : undefined;
+  return { failure, fired: units, rejections, received, report };
+}

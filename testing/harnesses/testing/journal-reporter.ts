@@ -31,6 +31,7 @@ import type {
 } from "@/test/languages/types";
 import { runTestsStreaming as descriptorRunTestsStreaming } from "@/test/languages/typescript";
 import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";
+import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import type { GeneratedRunCase, GeneratedRunScenario } from "@testing/generators/testing/journal-reporter";
 import { JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
@@ -410,6 +411,86 @@ export async function observeReporterWithAsyncSink(
     await reporter.onTestCaseResult?.(buildTestCaseDouble(scenario.moduleId, runCase));
   }
   return { scopesAfterModuleStart, findingsAfterCases: [...sink.findings] };
+}
+
+/** Builds a sink whose every append rejects with the given failure (Stage 5 exception 1: failure simulation). */
+function createRejectingEvidenceSink(failure: Error): TestRunEvidenceSink {
+  return {
+    appendScope: () => Promise.reject(failure),
+    appendFinding: () => Promise.reject(failure),
+  };
+}
+
+/**
+ * Fires a reporter's lifecycle hooks over a scenario the way Vitest dispatches them: each hook is
+ * awaited, a hook that rejects is caught and counted rather than propagated, and run end fires with
+ * the given reason regardless — so a rejecting append leaves no trace in the run the starter reports.
+ */
+async function driveReporterCatchingHookRejections(
+  reporter: Reporter,
+  scenario: GeneratedRunScenario,
+  reason: JournalRunTerminalStatus,
+): Promise<number> {
+  let caught = 0;
+  const fire = async (hook: () => unknown): Promise<void> => {
+    try {
+      await hook();
+    } catch {
+      caught += 1;
+    }
+  };
+  const testModule = buildTestModuleDouble(scenario.moduleId);
+  await fire(() => reporter.onTestModuleStart?.(testModule));
+  for (const runCase of scenario.cases) {
+    await fire(() => reporter.onTestCaseResult?.(buildTestCaseDouble(scenario.moduleId, runCase)));
+  }
+  await fire(() => reporter.onTestModuleEnd?.(testModule));
+  await fire(() => reporter.onTestRunEnd?.([testModule], [], reason));
+  return caught;
+}
+
+/** What a streaming run over a rejecting sink and a Vitest-like starter left the caller with. */
+export interface RejectingSinkRunObservation {
+  /** The failure every sink append rejected with. */
+  readonly failure: Error;
+  /** How many reporter hook rejections the starter caught instead of propagating. */
+  readonly hookRejectionsCaught: number;
+  /** What the streaming run rejected with, or `undefined` when it resolved. */
+  readonly rejection: unknown;
+  /** What the streaming run resolved to, or `undefined` when it rejected. */
+  readonly resolved: JournalRunOutcome | undefined;
+}
+
+/**
+ * Drives a journal-streaming run over a generated scenario with a sink whose appends reject and a
+ * starter that, like Vitest, catches a rejecting reporter hook and still ends the run with a reason —
+ * observing whether the run's own settlement carries the failure the starter hid.
+ */
+export async function observeStreamingRunWithRejectingSink(
+  scenario: GeneratedRunScenario,
+  reason: JournalRunTerminalStatus,
+): Promise<RejectingSinkRunObservation> {
+  const failure = new Error(sampleGeneratedValue(arbitraryDomainLiteral()));
+  let hookRejectionsCaught = 0;
+  const starter: VitestRunStarter = {
+    async start(options: VitestRunStartOptions): Promise<VitestRunStart> {
+      for (const reporter of options.reporters) {
+        hookRejectionsCaught += await driveReporterCatchingHookRejections(reporter, scenario, reason);
+      }
+      return STARTED_RUN;
+    },
+  };
+  let rejection: unknown;
+  let resolved: JournalRunOutcome | undefined;
+  try {
+    resolved = await runTestsStreaming(sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()), {
+      sink: createRejectingEvidenceSink(failure),
+      starter,
+    });
+  } catch (error: unknown) {
+    rejection = error;
+  }
+  return { failure, hookRejectionsCaught, rejection, resolved };
 }
 
 /** Drives a journal-streaming run through a spy starter and returns the start options the run supplied it. */
