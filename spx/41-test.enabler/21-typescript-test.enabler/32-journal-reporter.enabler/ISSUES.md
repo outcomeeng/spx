@@ -43,27 +43,3 @@ fuller evidence contract when that work lands.
 **Evidence:** CI review on PR #406; `src/test/languages/journal-reporter.ts`
 `onTestCaseResult`/`onTestRunEnd`; `testing/generators/testing/journal-reporter.ts`
 `GENERATED_CASE_STATE`; and the `journal-reporter.md` Mappings assertion.
-
-## FOLLOW-UP: the recorder-backed sink needs a single-writer guarantee under multi-module runs
-
-The reporter forwards each event to its injected `TestRunEvidenceSink` and awaits the
-append, but it serializes nothing across hooks: if a run over multiple test modules
-interleaves `onTestModuleStart`/`onTestCaseResult` appends, the sink sees overlapping
-writes. The shipped reporter is a stateless translator with no racing state, and its tests
-drive race-free recording sinks, so no evidence is dropped here. The race matters only once
-the executor backs the sink with the recorder's evidence-append ports:
-`createJournal().append()` (`src/lib/agent-run-journal/index.ts`) assigns `seq` from the
-current history length and the appendable backend rejects a duplicate sequence, so
-overlapping recorder-backed appends can race and drop or fail evidence before the run seals.
-
-**Resolution:** when the executor (`spx/34-verification.enabler/43-execute.enabler`) wires
-the recorder-backed sink, establish a single-writer guarantee — serialize the sink writes in
-the executor's run driver, or make the reporter's `TestRunEvidenceSink` contract
-single-writer and have the run queue appends — decided against Vitest's actual reporter-hook
-dispatch order. Adding a write queue to the reporter itself is deferred here because the
-reporter's `21-reporter-architecture.adr.md` keeps it a pure translator holding no execution
-state, so the serialization belongs with the executor that owns the recorder-backed sink.
-
-**Evidence:** CI review on PR #406; `src/test/languages/journal-reporter.ts`
-`createJournalReporter`/`runTestsStreaming`; `src/lib/agent-run-journal/index.ts` `append`
-sequence assignment.

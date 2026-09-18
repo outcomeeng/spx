@@ -13,15 +13,18 @@ import {
 import { JOURNAL_RUN_TERMINAL_STATUS } from "@/test/languages/types";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import {
   eventsOfType,
   gatedOutDescriptor,
   nonStreamingDescriptor,
   observeDriveModeAroundSeal,
   observeExecutorRun,
+  observeOverlappingAppends,
   observeProductionRegistryDrive,
   observeRecorderLifecycleFailures,
   observeRegistryResolution,
+  observeRejectedAppendAmongQueued,
   observeRunnerFailure,
   observeRunnerFailureWithSealFailure,
   observeTestRunnerFold,
@@ -104,21 +107,6 @@ describe("spx-driven verification executor compliance", () => {
     await expect(thunks.finishMissingRun()).rejects.toThrow(RECORDER_OPERATION_ERROR.FINISH_FAILED);
   });
 
-  it("folds a failing language to a failed run terminal status over passing and interrupted languages", async () => {
-    await expect(observeTestRunnerFold([
-      streamingDescriptorYielding(JOURNAL_RUN_TERMINAL_STATUS.PASSED),
-      streamingDescriptorYielding(JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED),
-      streamingDescriptorYielding(JOURNAL_RUN_TERMINAL_STATUS.FAILED),
-    ])).resolves.toEqual({ invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.FAILED });
-  });
-
-  it("folds an interrupted language to an interrupted run terminal status when no language failed", async () => {
-    await expect(observeTestRunnerFold([
-      streamingDescriptorYielding(JOURNAL_RUN_TERMINAL_STATUS.PASSED),
-      streamingDescriptorYielding(JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED),
-    ])).resolves.toEqual({ invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.INTERRUPTED });
-  });
-
   it("gates the run out when every registry language is non-streaming or gated out", async () => {
     await expect(observeTestRunnerFold([nonStreamingDescriptor(), gatedOutDescriptor()])).resolves.toEqual({
       invoked: false,
@@ -167,6 +155,41 @@ describe("spx-driven verification executor compliance", () => {
     expect(first).not.toEqual(second);
     expect(eventsOfType(observation.report?.events ?? [], VERIFY_APPEND_EVENT_TYPE.FINDING)).toHaveLength(
       observation.outcome.findings.length,
+    );
+  });
+
+  it("serializes overlapping runner appends so each reaches the recorder alone, in arrival order, and none is lost", async () => {
+    await assertProperty(
+      JOURNAL_REPORTER_TEST_GENERATOR.appendMix(),
+      async (mix) => {
+        const observation = await observeOverlappingAppends(mix);
+        expect(observation.peakInFlight).toBe(1);
+        expect(observation.received).toEqual(observation.fired);
+        expect(observation.result.executed).toBe(true);
+        expect(observation.report?.sealed).toBe(true);
+        expect(observation.report?.terminalStatus).toBe(JOURNAL_RUN_STATE_STATUS.FAILED);
+        const events = observation.report?.events ?? [];
+        expect(eventsOfType(events, VERIFY_APPEND_EVENT_TYPE.SCOPE)).toHaveLength(mix.units.length);
+        expect(eventsOfType(events, VERIFY_APPEND_EVENT_TYPE.FINDING)).toHaveLength(mix.findings.length);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+
+  it("rejects only the append the recorder refused while the appends queued behind it still reach the recorder", async () => {
+    await assertProperty(
+      JOURNAL_REPORTER_TEST_GENERATOR.appendMix(),
+      async (mix) => {
+        const observation = await observeRejectedAppendAmongQueued(mix);
+        const [first, ...later] = observation.rejections;
+        expect(first).toBe(observation.failure);
+        for (const rejection of later) expect(rejection).toBeUndefined();
+        expect(observation.received).toEqual(observation.fired.slice(1));
+        const events = observation.report?.events ?? [];
+        expect(eventsOfType(events, VERIFY_APPEND_EVENT_TYPE.SCOPE)).toHaveLength(mix.units.length - 1);
+        expect(eventsOfType(events, VERIFY_APPEND_EVENT_TYPE.FINDING)).toHaveLength(mix.findings.length);
+      },
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 

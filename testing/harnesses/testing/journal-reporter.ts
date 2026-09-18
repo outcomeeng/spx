@@ -31,6 +31,7 @@ import type {
 } from "@/test/languages/types";
 import { runTestsStreaming as descriptorRunTestsStreaming } from "@/test/languages/typescript";
 import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";
+import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import type { GeneratedRunCase, GeneratedRunScenario } from "@testing/generators/testing/journal-reporter";
 import { JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
@@ -412,6 +413,104 @@ export async function observeReporterWithAsyncSink(
   return { scopesAfterModuleStart, findingsAfterCases: [...sink.findings] };
 }
 
+/** A sink whose every append rejects with its own fresh failure, plus those failures in the order they were issued. */
+interface RejectingEvidenceSink extends TestRunEvidenceSink {
+  readonly issuedFailures: readonly Error[];
+}
+
+/**
+ * Builds a sink whose every append rejects with a fresh failure (Stage 5 exception 1: failure
+ * simulation), each a distinct instance so a reader can tell which of several rejected appends a
+ * run surfaced.
+ */
+function createRejectingEvidenceSink(message: string): RejectingEvidenceSink {
+  const issuedFailures: Error[] = [];
+  const reject = (): Promise<void> => {
+    const failure = new Error(message);
+    issuedFailures.push(failure);
+    return Promise.reject(failure);
+  };
+  return {
+    appendScope: reject,
+    appendFinding: reject,
+    get issuedFailures(): readonly Error[] {
+      return issuedFailures;
+    },
+  };
+}
+
+/**
+ * Fires a reporter's lifecycle hooks over a scenario the way Vitest dispatches them: each hook is
+ * awaited, a hook that rejects is caught and counted rather than propagated, and run end fires with
+ * the given reason regardless — so a rejecting append leaves no trace in the run the starter reports.
+ */
+async function driveReporterCatchingHookRejections(
+  reporter: Reporter,
+  scenario: GeneratedRunScenario,
+  reason: JournalRunTerminalStatus,
+): Promise<number> {
+  let caught = 0;
+  const fire = async (hook: () => unknown): Promise<void> => {
+    try {
+      await hook();
+    } catch {
+      caught += 1;
+    }
+  };
+  const testModule = buildTestModuleDouble(scenario.moduleId);
+  await fire(() => reporter.onTestModuleStart?.(testModule));
+  for (const runCase of scenario.cases) {
+    await fire(() => reporter.onTestCaseResult?.(buildTestCaseDouble(scenario.moduleId, runCase)));
+  }
+  await fire(() => reporter.onTestModuleEnd?.(testModule));
+  await fire(() => reporter.onTestRunEnd?.([testModule], [], reason));
+  return caught;
+}
+
+/** What a streaming run over a rejecting sink and a Vitest-like starter left the caller with. */
+export interface RejectingSinkRunObservation {
+  /** The distinct failures the sink issued, one per append, in the order the appends were made. */
+  readonly issuedFailures: readonly Error[];
+  /** How many reporter hook rejections the starter caught instead of propagating. */
+  readonly hookRejectionsCaught: number;
+  /** What the streaming run rejected with, or `undefined` when it resolved. */
+  readonly rejection: unknown;
+  /** What the streaming run resolved to, or `undefined` when it rejected. */
+  readonly resolved: JournalRunOutcome | undefined;
+}
+
+/**
+ * Drives a journal-streaming run over a generated scenario with a sink whose appends reject and a
+ * starter that, like Vitest, catches a rejecting reporter hook and still ends the run with a reason —
+ * observing whether the run's own settlement carries the failure the starter hid.
+ */
+export async function observeStreamingRunWithRejectingSink(
+  scenario: GeneratedRunScenario,
+  reason: JournalRunTerminalStatus,
+): Promise<RejectingSinkRunObservation> {
+  const sink = createRejectingEvidenceSink(sampleGeneratedValue(arbitraryDomainLiteral()));
+  let hookRejectionsCaught = 0;
+  const starter: VitestRunStarter = {
+    async start(options: VitestRunStartOptions): Promise<VitestRunStart> {
+      for (const reporter of options.reporters) {
+        hookRejectionsCaught += await driveReporterCatchingHookRejections(reporter, scenario, reason);
+      }
+      return STARTED_RUN;
+    },
+  };
+  let rejection: unknown;
+  let resolved: JournalRunOutcome | undefined;
+  try {
+    resolved = await runTestsStreaming(sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()), {
+      sink,
+      starter,
+    });
+  } catch (error: unknown) {
+    rejection = error;
+  }
+  return { issuedFailures: sink.issuedFailures, hookRejectionsCaught, rejection, resolved };
+}
+
 /** Drives a journal-streaming run through a spy starter and returns the start options the run supplied it. */
 export async function observeStreamingRunStart(
   request: JournalRunRequest,
@@ -472,6 +571,38 @@ export interface RealMixedRunObservation {
  * starter over the product-resolving loader and a recording sink, and returns what the
  * sink recorded, the run's outcome, and the process exit code before and after the run.
  */
+/** What a real Vitest run over the mixed fixture left when every sink append rejected. */
+export interface RealRejectingSinkRunObservation {
+  /** The distinct failures the sink issued, one per append, in the order the appends were made. */
+  readonly issuedFailures: readonly Error[];
+  /** What the streaming run rejected with, or `undefined` when it resolved. */
+  readonly rejection: unknown;
+  /** What the streaming run resolved to, or `undefined` when it rejected. */
+  readonly resolved: JournalRunOutcome | undefined;
+}
+
+/**
+ * Runs real Vitest over the mixed fixture with a sink whose every append rejects, observing
+ * whether the run Vitest returns from surfaces the sink's first failure or hides it behind a
+ * terminal status.
+ */
+export function observeRealRunWithRejectingSink(): Promise<RealRejectingSinkRunObservation> {
+  return withMixedVitestProduct(async (productDir, testFileName) => {
+    const sink = createRejectingEvidenceSink(sampleGeneratedValue(arbitraryDomainLiteral()));
+    let rejection: unknown;
+    let resolved: JournalRunOutcome | undefined;
+    try {
+      resolved = await runTestsStreaming(
+        { productDir, testPaths: [testFileName] },
+        { sink, starter: createVitestRunStarter(productVitestNodeApiLoader) },
+      );
+    } catch (error: unknown) {
+      rejection = error;
+    }
+    return { issuedFailures: sink.issuedFailures, rejection, resolved };
+  });
+}
+
 export function observeRealMixedRun(): Promise<RealMixedRunObservation> {
   return withMixedVitestProduct(async (productDir, testFileName) => {
     const exitCodeBeforeRun = process.exitCode;

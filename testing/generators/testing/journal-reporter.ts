@@ -129,6 +129,22 @@ function arbitraryScopeUnits(): fc.Arbitrary<readonly TestScopeUnit[]> {
   return fc.array(arbitraryScopeUnit(), { maxLength: MAX_SCOPE_UNITS });
 }
 
+/** The fewest modules a run needs for two appends to overlap: one append can never race itself. */
+const MIN_OVERLAPPING_SCOPE_UNITS = 2;
+
+/**
+ * Two or more scope units with pairwise-distinct module identities — the modules of one run whose
+ * appends can overlap, distinct so each unit's evidence is its own and none collapses onto a
+ * neighbour's idempotency key.
+ */
+function arbitraryDistinctScopeUnits(): fc.Arbitrary<readonly TestScopeUnit[]> {
+  return fc.uniqueArray(arbitraryScopeUnit(), {
+    minLength: MIN_OVERLAPPING_SCOPE_UNITS,
+    maxLength: MAX_SCOPE_UNITS,
+    selector: (unit) => unit.moduleId,
+  });
+}
+
 function arbitraryFindings(): fc.Arbitrary<readonly TestFinding[]> {
   return fc.array(arbitraryFinding(), { maxLength: MAX_FINDINGS });
 }
@@ -249,6 +265,48 @@ function arbitraryFindingMissingRequiredField(): fc.Arbitrary<TestMissingFieldSc
     .map(([finding, missingField]) => ({ payload: testPayloadWithoutField(finding, missingField), missingField }));
 }
 
+/** One or more findings with pairwise-distinct case identities, so none collapses onto a neighbour's idempotency key. */
+function arbitraryDistinctFindings(): fc.Arbitrary<readonly TestFinding[]> {
+  return fc.uniqueArray(arbitraryFinding(), {
+    minLength: MIN_ERRORS,
+    maxLength: MAX_FINDINGS,
+    selector: (finding) => JSON.stringify([finding.moduleId, finding.testName]),
+  });
+}
+
+/** The appends one run fires at once across both evidence kinds: distinct scope units and distinct findings. */
+export interface GeneratedAppendMix {
+  readonly units: readonly TestScopeUnit[];
+  readonly findings: readonly TestFinding[];
+}
+
+function arbitraryAppendMix(): fc.Arbitrary<GeneratedAppendMix> {
+  return fc.record({ units: arbitraryDistinctScopeUnits(), findings: arbitraryDistinctFindings() });
+}
+
+/** Every ordering of the given statuses. */
+function permutations(statuses: readonly JournalRunTerminalStatus[]): readonly (readonly JournalRunTerminalStatus[])[] {
+  if (statuses.length <= 1) return [statuses];
+  return statuses.flatMap((status, index) =>
+    permutations([...statuses.slice(0, index), ...statuses.slice(index + 1)]).map((rest) => [status, ...rest])
+  );
+}
+
+/**
+ * Every non-empty combination of runner terminal statuses — the statuses a run's streaming languages
+ * can jointly yield — in every order the languages could yield them, enumerated from the
+ * source-owned vocabulary so a fold over them is judged on the whole finite domain and cannot pass
+ * by reading only the position a status arrives in.
+ */
+function terminalStatusSequences(): readonly (readonly JournalRunTerminalStatus[])[] {
+  const statuses = Object.values(JOURNAL_RUN_TERMINAL_STATUS);
+  const sequences: (readonly JournalRunTerminalStatus[])[] = [];
+  for (let mask = 1; mask < 2 ** statuses.length; mask += 1) {
+    sequences.push(...permutations(statuses.filter((_status, index) => (mask & (2 ** index)) !== 0)));
+  }
+  return sequences;
+}
+
 export const JOURNAL_REPORTER_TEST_GENERATOR = {
   runScenario: arbitraryRunScenario,
   runScenarioBatch: arbitraryRunScenarioBatch,
@@ -258,6 +316,8 @@ export const JOURNAL_REPORTER_TEST_GENERATOR = {
   failingCase: arbitraryFailingCase,
   scopeUnit: arbitraryScopeUnit,
   scopeUnits: arbitraryScopeUnits,
+  distinctScopeUnits: arbitraryDistinctScopeUnits,
+  appendMix: arbitraryAppendMix,
   invalidScopeUnit: arbitraryInvalidScopeUnit,
   finding: arbitraryFinding,
   findingWithoutErrorMessages: arbitraryFindingWithoutErrorMessages,
@@ -265,6 +325,7 @@ export const JOURNAL_REPORTER_TEST_GENERATOR = {
   invalidFinding: arbitraryInvalidFinding,
   findings: arbitraryFindings,
   terminalStatus: arbitraryTerminalStatus,
+  terminalStatusSequences,
   runRequest: arbitraryRunRequest,
   scopeUnitMissingRequiredField: arbitraryScopeUnitMissingRequiredField,
   findingMissingRequiredField: arbitraryFindingMissingRequiredField,

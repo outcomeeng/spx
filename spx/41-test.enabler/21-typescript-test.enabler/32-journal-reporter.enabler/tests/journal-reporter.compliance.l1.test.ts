@@ -10,6 +10,7 @@ import {
   observeReporterPerHook,
   observeReporterWithAsyncSink,
   observeStreamingRunStart,
+  observeStreamingRunWithRejectingSink,
 } from "@testing/harnesses/testing/journal-reporter";
 
 describe("journal reporter streaming", () => {
@@ -40,6 +41,24 @@ describe("journal reporter streaming", () => {
         const observation = await observeReporterWithAsyncSink(scenario);
         expect(observation.scopesAfterModuleStart).toEqual([{ moduleId: scenario.moduleId }]);
         expect(observation.findingsAfterCases).toEqual(expectedFindingsForScenario(scenario));
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+});
+
+describe("journal reporter lost-append surfacing", () => {
+  it("rejects the streaming run with the first sink failure after the run returns, yielding no terminal status", async () => {
+    await assertProperty(
+      JOURNAL_REPORTER_TEST_GENERATOR.mixedRunScenario().chain((scenario) =>
+        JOURNAL_REPORTER_TEST_GENERATOR.terminalStatus().map((reason) => ({ scenario, reason }))
+      ),
+      async ({ scenario, reason }) => {
+        const observation = await observeStreamingRunWithRejectingSink(scenario, reason);
+        expect(observation.hookRejectionsCaught).toBeGreaterThan(1);
+        expect(observation.issuedFailures).toHaveLength(observation.hookRejectionsCaught);
+        expect(observation.rejection).toBe(observation.issuedFailures[0]);
+        expect(observation.resolved).toBeUndefined();
       },
       { level: PROPERTY_LEVEL.L1 },
     );

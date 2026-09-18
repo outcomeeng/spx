@@ -14,10 +14,13 @@ CAN have spx run a deterministic verification and stream its scope and finding e
 ### Mappings
 
 - Every runner terminal status — `passed`, `failed`, `interrupted` — maps to exactly one recorder terminal status through a total function, so a deterministic pass never routes through the agentic `approved` disposition ([test](tests/execute.mapping.l1.test.ts))
+- Every non-empty combination of terminal statuses the `test` type's streaming languages yield, in whatever order they yield them, maps to one run terminal status: `failed` when any language failed, otherwise `interrupted` when any language was interrupted, otherwise `passed` ([test](tests/execute.mapping.l1.test.ts))
 
 ### Compliance
 
 - ALWAYS: spx records an executed run's scope, finding, and terminal evidence through the verify lifecycle operations of `spx/34-verification.enabler/32-verify.enabler`, never by constructing journal events directly ([test](tests/execute.compliance.l1.test.ts))
+- ALWAYS: the executor's sink serializes overlapping runner appends — no recorder append operation is in flight while another is, appends reach the recorder in arrival order, and every unit the runner appended is recorded ([test](tests/execute.compliance.l1.test.ts))
+- ALWAYS: a rejected recorder append rejects that append's own sink call while later queued appends still reach the recorder, so one failed unit neither hides behind a neighbour nor blocks the units after it ([test](tests/execute.compliance.l1.test.ts))
 - ALWAYS: an executed run's next actions filter by the run's drive mode recorded at `start`, so an unsealed spx-driven run advertises no caller evidence-append action such as `scope add` or `finding add` ([test](tests/execute.compliance.l1.test.ts))
 - ALWAYS: spx reaches the `test` type's runner through `src/test/registry.ts`, so the executor names no language, per `spx/19-language-registration.adr.md`; each verification type resolves its runner through that type's own registry module ([test](tests/execute.compliance.l1.test.ts))
 - ALWAYS: when the type's runner fails after the run opens, spx finishes the opened run with an `interrupted` terminal status before the failure surfaces, so an spx-driven run is never left unsealed ([test](tests/execute.compliance.l1.test.ts))

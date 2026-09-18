@@ -39,13 +39,14 @@ import {
   type JournalStreamRunDependencies,
   type TestFinding,
   type TestingLanguageDescriptor,
+  type TestRunEvidenceSink,
   type TestScopeUnit,
 } from "@/test/languages/types";
 import type { TestingRegistry } from "@/test/registry";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import { sampleGeneratedValue } from "@testing/generators/sample";
-import { JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
+import { type GeneratedAppendMix, JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
 import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
 import { withTestingTempProductDir } from "@testing/harnesses/testing/harness";
 import {
@@ -501,4 +502,155 @@ export async function observeRunnerFailureWithSealFailure(): Promise<RunnerAndSe
     rejection = error;
   }
   return { runnerFailure, finishFailure, rejection };
+}
+
+/** One append a runner fired or a recorder received, tagged by evidence kind so cross-kind order is observable. */
+export type ObservedAppend =
+  | { readonly kind: "scope"; readonly unit: TestScopeUnit }
+  | { readonly kind: "finding"; readonly finding: TestFinding };
+
+/** The appends of a mix interleaved by kind — scope, finding, scope, finding, … — then the longer kind's remainder. */
+function interleaveAppends(mix: GeneratedAppendMix): readonly ObservedAppend[] {
+  const fired: ObservedAppend[] = [];
+  for (let i = 0; i < Math.max(mix.units.length, mix.findings.length); i += 1) {
+    if (i < mix.units.length) fired.push({ kind: "scope", unit: mix.units[i] });
+    if (i < mix.findings.length) fired.push({ kind: "finding", finding: mix.findings[i] });
+  }
+  return fired;
+}
+
+/** Fires one append against the sink for the observed append's kind. */
+function fireAppend(sink: TestRunEvidenceSink, append: ObservedAppend): Promise<void> {
+  return append.kind === "scope"
+    ? Promise.resolve(sink.appendScope(append.unit))
+    : Promise.resolve(sink.appendFinding(append.finding));
+}
+
+/**
+ * A recorder that tags and orders every append it receives and tracks how many are in flight at
+ * once; every append is forwarded, and `admit` decides only which ones the received order records.
+ */
+interface ObservingRecorder {
+  readonly recorder: ExecutorRecorderOperations;
+  readonly received: readonly ObservedAppend[];
+  peakInFlight(): number;
+}
+
+function observeRecorderAppends(
+  base: ExecutorRecorderOperations,
+  admit: (append: ObservedAppend) => boolean,
+): ObservingRecorder {
+  const received: ObservedAppend[] = [];
+  let inFlight = 0;
+  let peakInFlight = 0;
+  const observe = async (append: ObservedAppend, forward: () => Promise<void>): Promise<void> => {
+    if (admit(append)) received.push(append);
+    inFlight += 1;
+    peakInFlight = Math.max(peakInFlight, inFlight);
+    try {
+      await forward();
+    } finally {
+      inFlight -= 1;
+    }
+  };
+  return {
+    recorder: {
+      ...base,
+      appendScope: (run, unit) => observe({ kind: "scope", unit }, () => base.appendScope(run, unit)),
+      appendFinding: (run, finding) => observe({ kind: "finding", finding }, () => base.appendFinding(run, finding)),
+    },
+    received,
+    peakInFlight: () => peakInFlight,
+  };
+}
+
+/** What a run whose runner fired every append at once, across both kinds, left in the recorder. */
+export interface OverlappingAppendsObservation {
+  readonly result: ExecutorRunResult;
+  /** The appends the runner fired, in the order it fired them. */
+  readonly fired: readonly ObservedAppend[];
+  /** The appends the recorder received, in the order their appends began. */
+  readonly received: readonly ObservedAppend[];
+  /** The most recorder appends in flight at any one moment. */
+  readonly peakInFlight: number;
+  /** The run rendered after the executor finished it, when one opened. */
+  readonly report: VerifyRenderReport | undefined;
+}
+
+/**
+ * Drives the executor over a runner that fires every scope and finding append at once without
+ * awaiting any of them — the overlap a runner reporting from parallel workers produces — against the
+ * real recorder, observing how many recorder appends overlapped and in what order they began. The
+ * runner reports `failed`, the one terminal status the `test` type admits over recorded findings.
+ */
+export async function observeOverlappingAppends(mix: GeneratedAppendMix): Promise<OverlappingAppendsObservation> {
+  const harness = createExecutorHarness();
+  const fired = interleaveAppends(mix);
+  const observing = observeRecorderAppends(harness.recorder, () => true);
+  const runner: JournalStreamingRunner = {
+    async runTestsStreaming(_request, deps) {
+      await Promise.all(fired.map(async (append) => fireAppend(deps.sink, append)));
+      return { invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.FAILED };
+    },
+  };
+
+  const result = await executeVerificationRun(harness.request, {
+    resolveRunner: () => runner,
+    recorder: observing.recorder,
+  });
+  const report = result.executed ? await renderRunReport(harness, result.run.runToken) : undefined;
+  return { result, fired, received: observing.received, peakInFlight: observing.peakInFlight(), report };
+}
+
+/** What a run whose first append the recorder rejected left for the appends fired after it. */
+export interface RejectedAppendObservation {
+  /** The failure the recorder raised for the first append. */
+  readonly failure: Error;
+  /** The appends the runner fired, in the order it fired them; the first is the rejected one. */
+  readonly fired: readonly ObservedAppend[];
+  /** What each append rejected with, in fired order — `undefined` where it fulfilled. */
+  readonly rejections: readonly unknown[];
+  /** The appends the recorder recorded, in the order their appends began. */
+  readonly received: readonly ObservedAppend[];
+  /** The run rendered after the executor finished it, when one opened. */
+  readonly report: VerifyRenderReport | undefined;
+}
+
+/**
+ * Drives the executor over a runner that fires every scope and finding append at once against a
+ * recorder that rejects the first append and records the rest, observing how each append settled
+ * and which appends the recorder went on to record.
+ */
+export async function observeRejectedAppendAmongQueued(mix: GeneratedAppendMix): Promise<RejectedAppendObservation> {
+  const harness = createExecutorHarness();
+  const failure = new Error(arbitraryDomainLiteralValue());
+  const fired = interleaveAppends(mix);
+  // The interleaving opens with the first scope unit, so it is the append the recorder refuses.
+  const [rejectedUnit] = mix.units;
+  const rejecting: ExecutorRecorderOperations = {
+    ...harness.recorder,
+    appendScope: (run, unit) => {
+      if (unit === rejectedUnit) throw failure;
+      return harness.recorder.appendScope(run, unit);
+    },
+  };
+  const observing = observeRecorderAppends(
+    rejecting,
+    (append) => !(append.kind === "scope" && append.unit === rejectedUnit),
+  );
+  let rejections: readonly unknown[] = [];
+  const runner: JournalStreamingRunner = {
+    async runTestsStreaming(_request, deps) {
+      const settled = await Promise.allSettled(fired.map(async (append) => fireAppend(deps.sink, append)));
+      rejections = settled.map((outcome) => (outcome.status === "rejected" ? outcome.reason : undefined));
+      return { invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.FAILED };
+    },
+  };
+
+  const result = await executeVerificationRun(harness.request, {
+    resolveRunner: () => runner,
+    recorder: observing.recorder,
+  });
+  const report = result.executed ? await renderRunReport(harness, result.run.runToken) : undefined;
+  return { failure, fired, rejections, received: observing.received, report };
 }
