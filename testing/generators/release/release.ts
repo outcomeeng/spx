@@ -25,7 +25,6 @@ const WINDOWS_DRIVE_LETTER_PATTERN = /^[A-Z]$/;
 
 const COMMITS_AFTER_TAG = 2;
 const FULL_HISTORY_COMMITS = 2;
-const DETERMINISM_REPO_COMMITS = 3;
 const COMPLIANCE_COMMITS = 2;
 const RELEASE_NOTES_COMMITS = 3;
 const COMMIT_SHA_PATTERN = /^[0-9a-f]{40}$/;
@@ -47,10 +46,9 @@ export type VersionBump = {
 };
 
 export type ReleaseDataDeterminismScenario = {
-  readonly commits: readonly ReleaseCommitFixture[];
-  readonly tag: string;
-  readonly packageVersion: string;
-  readonly versionDelta: VersionDelta;
+  readonly productDir: string;
+  readonly releaseRef: string;
+  readonly expected: ReleaseData;
 };
 
 export type ReleaseDataOperationViolation = {
@@ -233,16 +231,8 @@ function arbitraryCommitSequence(count: number): fc.Arbitrary<readonly ReleaseCo
 
 function arbitraryReleaseDataDeterminismScenario(): fc.Arbitrary<ReleaseDataDeterminismScenario> {
   return fc
-    .record({
-      commits: arbitraryCommitSequence(DETERMINISM_REPO_COMMITS),
-      progression: arbitraryReleaseVersionProgression(),
-    })
-    .map(({ commits, progression }) => ({
-      commits,
-      tag: progression.previousTag,
-      packageVersion: progression.version,
-      versionDelta: progression.versionDelta,
-    }));
+    .tuple(arbitraryPathSegment(), arbitraryReleaseData())
+    .map(([productDir, expected]) => ({ productDir, releaseRef: GIT_ROOT_COMMAND.HEAD, expected }));
 }
 
 function arbitraryReleaseDataOperationViolations(): fc.Arbitrary<readonly ReleaseDataOperationViolation[]> {
