@@ -47,33 +47,25 @@ describe("agent-run-journal compliance", () => {
     );
   });
 
-  it("rejects a journal write that targets an already-consumed sequence number", async () => {
+  it("never overwrites a persisted event when two journals race for one sequence number", async () => {
     const [inputA, inputB] = fc.sample(arbitraryJournalEventInput(), 2);
     const [identity] = fc.sample(arbitraryJournalIdentity(), 1);
 
-    // Two journals over one shared backend assign the same next seq when both read
-    // the backend before either appends; the backend's exclusive append makes the
-    // losing journal's write reject rather than overwrite the persisted event.
+    // Two journals over one shared backend read the same history before either
+    // publishes, so both target the same next seq; the backend's exclusive append
+    // lets one win, and the other allocates again instead of writing over it.
     const backend = createInMemoryAppendableBackend();
     const journalA = createJournal(backend, identity);
     const journalB = createJournal(backend, identity);
 
-    const outcomes = await Promise.all([
-      journalA.append(inputA).then(
-        () => null,
-        (error: Error) => error,
-      ),
-      journalB.append(inputB).then(
-        () => null,
-        (error: Error) => error,
-      ),
-    ]);
-    const failures = outcomes.filter((outcome): outcome is Error => outcome !== null);
+    const [eventA, eventB] = await Promise.all([journalA.append(inputA), journalB.append(inputB)]);
+    const persisted = await backend.readAll();
 
-    expect(failures).toHaveLength(1);
-    expect(failures[0].message).toBe(JOURNAL_ERROR.SEQ_CONSUMED);
-
-    // the persisted event is the winner's; it was not overwritten
-    expect(await backend.readAll()).toHaveLength(1);
+    // both events are persisted, at distinct contiguous sequences
+    expect(persisted).toHaveLength(2);
+    expect(persisted.map((event) => event.seq)).toEqual([JOURNAL_SEQ_BASE, JOURNAL_SEQ_BASE + 1]);
+    // the winner's event is exactly what it returned — never overwritten by the loser's write
+    expect(persisted[0]).toEqual([eventA, eventB].find((event) => event.seq === JOURNAL_SEQ_BASE));
+    expect(persisted[1]).toEqual([eventA, eventB].find((event) => event.seq === JOURNAL_SEQ_BASE + 1));
   });
 });

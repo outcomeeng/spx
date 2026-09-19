@@ -62,6 +62,25 @@ export function arbitraryJournalIdentity(): fc.Arbitrary<JournalIdentity> {
   });
 }
 
+/** How many competitors win contested sequences ahead of one appender under contention. */
+export function arbitraryCompetitorCount(): fc.Arbitrary<number> {
+  return fc.integer({ min: 1, max: 8 });
+}
+
+export interface ContendedAppendInput {
+  readonly input: JournalEventInput;
+  readonly identity: JournalIdentity;
+  readonly competitorCount: number;
+}
+
+export function arbitraryContendedAppendInput(): fc.Arbitrary<ContendedAppendInput> {
+  return fc.record({
+    input: arbitraryJournalEventInput(),
+    identity: arbitraryJournalIdentity(),
+    competitorCount: arbitraryCompetitorCount(),
+  });
+}
+
 export interface JournalSequenceInput {
   readonly inputs: readonly JournalEventInput[];
   readonly identity: JournalIdentity;

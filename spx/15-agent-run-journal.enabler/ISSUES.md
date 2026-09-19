@@ -77,19 +77,3 @@ CloudEvents input field (`id`/`source`/`type`/`time` non-empty strings, integer
 `attempt`) before it reaches the journal. The deferred decision is now narrowed to
 deep *value* rules for URI-reference `source`, RFC 3339 `time`, and serialisable-`JsonValue`
 `data` at the library `append`, still unspecified.
-
-## The backend consumed-sequence error contract is implicit
-
-`AppendableBackend.append` is documented as rejecting a record whose `seq` is
-already consumed, but the interface names no error type or message; the journal
-propagates the backend's error unchanged. The compliance test asserts the thrown
-message equals `JOURNAL_ERROR.SEQ_CONSUMED`, which holds only because the
-in-memory backend imports and throws that exact constant. A real adapter
-(state-store, GitHub) that surfaced its own storage error would prevent the
-overwrite correctly yet break the test.
-
-Settle when the first real Appendable adapter is implemented: either document a
-required error type/message on `AppendableBackend.append` for the consumed-seq
-case, or have the journal catch and re-throw a typed `JournalError` so the
-contract is the journal's, not each backend's. Surfaced by spec-tree-review on
-PR #160.
