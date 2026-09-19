@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { createJournal, JOURNAL_ERROR, JOURNAL_SEQ_BASE } from "@/lib/agent-run-journal";
 import { arbitraryJournalPairInput, sampleAgentRunJournalValue } from "@testing/generators/agent-run-journal";
-import { createSealingOnCollisionBackend } from "@testing/harnesses/agent-run-journal/contending-backends";
+import {
+  createRecordingAppendableBackend,
+  createSealingOnCollisionBackend,
+} from "@testing/harnesses/agent-run-journal/contending-backends";
 import { createInMemoryAppendableBackend } from "@testing/harnesses/agent-run-journal/in-memory-backend";
 
 describe("agent-run-journal compliance", () => {
@@ -33,13 +36,15 @@ describe("agent-run-journal compliance", () => {
     // Two journals over one shared backend read the same history before either
     // publishes, so both target the same next seq; the backend's exclusive append
     // lets one win, and the other allocates again instead of writing over it.
-    const backend = createInMemoryAppendableBackend();
+    const backend = createRecordingAppendableBackend();
     const journalA = createJournal(backend, identity);
     const journalB = createJournal(backend, identity);
 
     const [eventA, eventB] = await Promise.all([journalA.append(firstInput), journalB.append(secondInput)]);
     const persisted = await backend.readAll();
 
+    // the race really happened: the first sequence was written twice, and the loser re-allocated
+    expect(backend.observation.attemptedSequences).toEqual([JOURNAL_SEQ_BASE, JOURNAL_SEQ_BASE, JOURNAL_SEQ_BASE + 1]);
     // both events are persisted, at distinct contiguous sequences
     expect(persisted).toHaveLength(2);
     expect(persisted.map((event) => event.seq)).toEqual([JOURNAL_SEQ_BASE, JOURNAL_SEQ_BASE + 1]);

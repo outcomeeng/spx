@@ -1,9 +1,9 @@
 /**
- * Controlled Appendable backends for the journal's allocation-under-contention
- * evidence. Each is a real `AppendableBackend` implementation that simulates a
- * storage condition the in-memory backend cannot produce on demand (failure
- * simulation) and records how the journal drives it (observability); the linked
- * test owns every predicate over the recorded observations.
+ * Recording Appendable backends for the journal's allocation-under-contention
+ * evidence. Each is a real `AppendableBackend` implementation that records how the
+ * journal drives it (observability); the variants additionally simulate a storage
+ * condition the plain backend cannot produce on demand (failure simulation). The
+ * linked test owns every predicate over the recorded observations.
  */
 
 import {
@@ -59,6 +59,9 @@ class RecordingBackend implements ControlledAppendableBackend {
   }
 
   protected onAppend(record: JournalEvent): void {
+    if (this.events.some((event) => event.seq === record.seq)) {
+      throw new Error(JOURNAL_ERROR.SEQ_CONSUMED);
+    }
     this.events.push(record);
   }
 }
@@ -84,15 +87,12 @@ class ContendingBackend extends RecordingBackend {
   }
 
   protected override onAppend(record: JournalEvent): void {
-    if (this.events.some((event) => event.seq === record.seq)) {
-      throw new Error(JOURNAL_ERROR.SEQ_CONSUMED);
-    }
     if (this.remainingCompetitors > 0) {
       this.remainingCompetitors -= 1;
       this.events.push({ ...record, id: `competitor-${record.seq}` });
       throw new Error(JOURNAL_ERROR.SEQ_CONSUMED);
     }
-    this.events.push(record);
+    super.onAppend(record);
   }
 }
 
@@ -111,8 +111,13 @@ class SealingOnCollisionBackend extends RecordingBackend {
       this.markSealed();
       throw new Error(JOURNAL_ERROR.SEQ_CONSUMED);
     }
-    this.events.push(record);
+    super.onAppend(record);
   }
+}
+
+/** A real in-memory Appendable backend that also records how the journal drives it. */
+export function createRecordingAppendableBackend(): ControlledAppendableBackend {
+  return new RecordingBackend();
 }
 
 /** A backend whose every append rejects with `SEQ_CONSUMED` and whose history never grows. */
