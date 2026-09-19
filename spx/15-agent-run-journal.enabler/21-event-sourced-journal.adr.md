@@ -18,7 +18,7 @@ For any journal `J`:
 - **Replay equivalence.** `read(J, from=c)` equals `read(J, from=0)` with every event of `seq < c` removed, for any cursor `c`.
 - **Terminal seal.** After `seal(J)`, no `append(J, …)` has a successful outcome; the sealed sequence is final.
 - **Cursor stability.** An event's `seq` identifies it identically across backends, restarts, and re-run attempts.
-- **Allocation under contention.** For concurrent appends to one journal, a consumed-sequence collision is resolved by allocating the next sequence from the refreshed history; an append fails on a collision only when the refreshed history has not grown since the colliding attempt.
+- **Allocation under contention.** For concurrent appends to one journal, a consumed-sequence collision is resolved by allocating the next sequence from the refreshed history unless the journal was sealed meanwhile, in which case the append fails under the terminal seal; an append fails on a collision itself only when the refreshed history has not grown since the colliding attempt.
 
 ## Verification
 
@@ -33,7 +33,7 @@ For any journal `J`:
 - NEVER: An append returns success on a sealed journal. ([compliance])
 - ALWAYS: For any sequence of appends, the prior history is an unchanged prefix of the new history and the appended event is its only addition. ([property])
 - ALWAYS: Overlapping appends through independent journal instances over one shared run history persist unique contiguous sequence numbers and every append returns its persisted event. ([property])
-- NEVER: An append retries a consumed sequence the refreshed history already holds, or fails on a collision the refreshed history explains. ([compliance])
+- NEVER: An append retries a consumed sequence the refreshed history already holds, or fails on a collision the refreshed history explains while the journal remains unsealed. ([compliance])
 
 ### Eval
 
