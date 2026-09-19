@@ -346,8 +346,8 @@ Additional skills ship with the plugin and are invoked by name: `/commit-changes
 <skill_sources>
 
 HARD STOP: Like every directory outside the current `$CWD`, the Outcome Engineering plugin repository is OFF LIMITS.
-Access it read-only only to inspect plugin behavior and form improvement suggestions. The one write it admits is a Change draft in that repository's untracked `.spx/` change store, and nothing else.
-Never edit, branch, commit, test, audit, PR, or merge there; a separate session in that repository has its own instructions.
+Access it read-only only to inspect plugin behavior and form improvement suggestions. The writes it admits are a Change draft in that repository's untracked `.spx/` change store and the verification-run journal of that draft's Change audit, and nothing else.
+Never edit, branch, commit, test, audit, PR, or merge its product content there; a separate session in that repository has its own instructions.
 
 Outcome Engineering plugin skills live in the plugin repository resolved by:
 
