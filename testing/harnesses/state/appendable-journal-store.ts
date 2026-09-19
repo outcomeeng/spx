@@ -4,6 +4,7 @@ import { execa } from "execa";
 
 import {
   createJournal,
+  createJournalEvent,
   JOURNAL_SEQ_BASE,
   type JournalEvent,
   type JournalEventInput,
@@ -23,7 +24,6 @@ import {
   arbitraryJournalIdentity,
   arbitraryJournalPairInput,
   arbitraryMalformedJournalLines,
-  journalEventFromInput,
   journalRunFilePath,
   sampleAgentRunJournalValue,
 } from "@testing/generators/agent-run-journal";
@@ -95,13 +95,13 @@ export async function observeOverlappingAppendSequence(
   const leftStore = createAppendableJournalStore({ runFilePath, fs });
   const rightStore = createAppendableJournalStore({ runFilePath, fs });
   const contested = await Promise.allSettled([
-    leftStore.append(journalEventFromInput(leftInput, identity, JOURNAL_SEQ_BASE)),
-    rightStore.append(journalEventFromInput(rightInput, identity, JOURNAL_SEQ_BASE)),
+    leftStore.append(createJournalEvent(leftInput, identity, JOURNAL_SEQ_BASE)),
+    rightStore.append(createJournalEvent(rightInput, identity, JOURNAL_SEQ_BASE)),
   ]);
   const loserInput = isFulfilledOutcome(contested[0]) ? rightInput : leftInput;
   const loserStore = isFulfilledOutcome(contested[0]) ? rightStore : leftStore;
   const followUp = await Promise.allSettled([
-    loserStore.append(journalEventFromInput(loserInput, identity, JOURNAL_SEQ_BASE + 1)),
+    loserStore.append(createJournalEvent(loserInput, identity, JOURNAL_SEQ_BASE + 1)),
   ]);
   const outcomes = [...contested, ...followUp];
   return {
@@ -257,7 +257,7 @@ async function observeMalformedLine(
 ): Promise<MalformedReplayObservation> {
   const fs = createInMemoryStateStoreFileSystem();
   const runFilePath = journalRunFilePath(identity.streamid);
-  const event = journalEventFromInput(input, identity, JOURNAL_SEQ_BASE);
+  const event = createJournalEvent(input, identity, JOURNAL_SEQ_BASE);
   await fs.mkdir(dirname(runFilePath), { recursive: true });
   await fs.writeFile(runFilePath, `${serializeJsonlRecord({ ...event })}${malformedLine}`);
   await fs.writeFile(

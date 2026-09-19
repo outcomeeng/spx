@@ -226,7 +226,8 @@ function isConsumedSequenceRejection(error: unknown): boolean {
   return error instanceof Error && error.message === JOURNAL_ERROR.SEQ_CONSUMED;
 }
 
-function eventAtSequence(input: JournalEventInput, identity: JournalIdentity, seq: number): JournalEvent {
+/** The complete event a journal persists for an input under one identity at one sequence. */
+export function createJournalEvent(input: JournalEventInput, identity: JournalIdentity, seq: number): JournalEvent {
   return {
     id: input.id,
     source: input.source,
@@ -250,7 +251,7 @@ export function createJournal(backend: AppendableBackend, identity: JournalIdent
       }
       let history = await backend.readAll();
       for (;;) {
-        const event = eventAtSequence(input, identity, JOURNAL_SEQ_BASE + history.length);
+        const event = createJournalEvent(input, identity, JOURNAL_SEQ_BASE + history.length);
         try {
           await backend.append(event);
           return event;
