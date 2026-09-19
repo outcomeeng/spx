@@ -29,9 +29,9 @@ For any journal `J`:
 - ALWAYS: For any cursor `c`, `read(from=c)` returns exactly `read(from=0)` with every event of `seq < c` removed. ([property])
 - ALWAYS: `render` over a given event prefix yields byte-identical output across every backend and across repeated calls. ([property])
 - ALWAYS: An event's sequence number identifies it identically across backends, restarts, and re-run attempts. ([property])
-- NEVER: A write targeting an already-consumed sequence number overwrites the persisted event; the journal rejects it. ([compliance])
+- NEVER: A write targeting an already-consumed sequence number overwrites the persisted event; the backend rejects it and the journal allocates again. ([compliance])
 - NEVER: An append returns success on a sealed journal. ([compliance])
-- NEVER: A persisted event is mutated or removed; a correction appends a new event referencing the original. ([compliance])
+- ALWAYS: For any sequence of appends, the prior history is an unchanged prefix of the new history and the appended event is its only addition. ([property])
 - ALWAYS: Overlapping appends through independent journal instances over one shared run history persist unique contiguous sequence numbers and every append returns its persisted event. ([property])
 - NEVER: An append retries a consumed sequence the refreshed history already holds, or fails on a collision the refreshed history explains. ([compliance])
 
@@ -43,5 +43,6 @@ For any journal `J`:
 
 ### Audit
 
+- ALWAYS: A correction to a persisted event is a later appended event referencing the original, never a mutation of it. ([audit])
 - ALWAYS: Every backend is either an Appendable journal store or a Snapshot projection sink, and neither kind alters the `append` / `read` / cursor / `render` contract. ([audit])
 - NEVER: A governed skill treats a projection — PR comment, rendered report, or cache blob — as the source of truth for run state. ([audit])
