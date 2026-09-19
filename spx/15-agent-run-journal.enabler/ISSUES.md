@@ -124,13 +124,14 @@ allocation-under-contention changeset.
   `journal.read(JOURNAL_SEQ_BASE)` filtered by cursor — the same `read` path under
   test — so a defect that alters `read` uniformly changes both sides; the events
   `append` returned are the independent oracle.
-- `tests/agent-run-journal.property.l1.test.ts` (render across adapters): the "across
-  every adapter" clause compares two instances of the one in-memory harness class; no
-  second adapter kind, such as the store-backed adapter under
-  `src/lib/appendable-journal-store/`, participates.
+- `tests/agent-run-journal.property.l1.test.ts` (render across adapters, and sequence
+  identity across backends): each "across every adapter" and "across backends" clause
+  compares two instances of the one in-memory harness class; no second adapter kind,
+  such as the store-backed adapter under `src/lib/appendable-journal-store/`,
+  participates.
 
 **Impact:** each case leaves one clause of its assertion unobserved.
 
 **Settlement condition:** the cursor property derives its expectation from the appended
-events; the render property binds a second adapter kind. Surfaced by the test-evidence audit on the allocation-under-contention
+events; the render and sequence-identity properties bind a second adapter kind. Surfaced by the test-evidence audit on the allocation-under-contention
 changeset.
