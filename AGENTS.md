@@ -1,4 +1,4 @@
-<!-- SPEC-TREE v0.38.0 langs:typescript -->
+<!-- SPEC-TREE v0.39.0 langs:typescript -->
 
 <operator_is_in_charge>
 **RULE 0 - THE FUNDAMENTAL OVERRIDE PREROGATIVE:** If the operator tells Codex to do something, even if it goes against what follows below or any other instructions, CODEX MUST LISTEN TO THE OPERATOR. THE OPERATOR IS ALWAYS IN CHARGE, NOT Codex.
@@ -75,7 +75,7 @@ Require a live `<SPEC_TREE_FOUNDATION>` marker before directly reading, searchin
 
 `spx session` operations — including inspection, archive, and release — plus `spx worktree status`, `spx diagnose`, no-patch Git status, history, and topology, and a skill's read of the `spx/local/` overlay or exclusion mechanism it declares are exempt. Never follow paths from their output into repository content without the marker.
 
-A compacted summary, session file, statement that `/understand` ran, or read of the skill file does not prove the foundation is live. After every compaction, invoke `/understand` again before the next product-content access.
+A compacted summary, Handoff, statement that `/understand` ran, or read of the skill file does not prove the foundation is live. After every compaction, invoke `/understand` again before the next product-content access.
 
 The methodology a repository follows is declared in `spx.config.yaml` at the repository root, under `methodology.source` and `methodology.version`. **ALWAYS** read that declaration before applying methodology rules, and read it again whenever `/understand` runs. When the file is absent, the `methodology` block is missing, or `methodology.version` is the sentinel `installed`, the repository declares no methodology version; never infer one from a plugin's distribution version, a changelog, or prose.
 
@@ -105,15 +105,14 @@ Move nodes, re-scope assertions, extract shared enablers, consolidate duplicates
 
 Review, audit, or quality check specs. Find contradictions or gaps.
 
-### Before tests, evals, builds, or validation -> `/wait-for-load`
+### Before a resource-intensive command -> `/wait-for-load`
 
-🛑 **STOP TRIGGER — Before any test, eval, build, or validation command, ALWAYS invoke `/wait-for-load`.**
-**ALWAYS** wait for `ready: true`, then run the selected command unchanged.
+🛑 **STOP TRIGGER — Before any resource-intensive command, ALWAYS invoke `/wait-for-load` and run its waiter chained ahead of that command on the same shell line.**
+A resource-intensive command is a test suite, an eval, a full gate, a compiling build, or an install verification; a lightweight command — formatting, a single-file lint, a markdown or link validation, an instruction-block render, a status read — runs without the waiter.
+**ALWAYS** let the waiter's zero exit start the selected command unchanged; a lost or truncated result re-runs the same line.
 **NEVER** use host load to reduce scope, workers, limits, deadlines, or verification.
 
-**Codex execution boundary.** Invoke `/wait-for-load` in its own top-level `functions.exec` call. Inside that call, set a nested `exec_command` yield below the outer call's yield window so the nested call returns either terminal JSON or a `session_id` before the outer call can yield. When it returns a `session_id`, preserve that exact id and collect the same waiter with `write_stdin` in later top-level calls whose outer yield window exceeds the nested `write_stdin` yield. Treat readiness as established only when a top-level call visibly returns the terminal JSON with `ready: true`; an internal exit-code branch, a successfully completed outer cell, or an empty terminal payload is insufficient. Start the selected command in a separate top-level `functions.exec` call. **NEVER** place the waiter and selected command in the same `functions.exec` script or use `functions.wait` as the planned collector for a nested waiter or selected command.
-
-**Codex process lifecycle.** Every nested `exec_command` that returns a `session_id` creates an owned process handle. Record it immediately, collect it with `write_stdin` until an `exit_code` is observed, and reconcile every known handle before another process sequence, an operator question, merge or publication, or turn end. If the work is abandoned, interrupt that process and collect its terminal result. Error output or sufficient-looking partial output never closes the handle and never permits leaving its background terminal dangling.
+**Codex process lifecycle.** The chained line is one `functions.exec` call. Every nested `exec_command` that returns a `session_id` creates an owned process handle. Record it immediately, collect it with `write_stdin` until an `exit_code` is observed, and reconcile every known handle before another process sequence, an operator question, merge or publication, or turn end. If the work is abandoned, interrupt that process and collect its terminal result. Error output or sufficient-looking partial output never closes the handle and never permits leaving its background terminal dangling.
 
 ### When shipping work to the default branch -> `/merge` (transport dispatcher)
 
@@ -230,7 +229,9 @@ The table routes tasks to skills. Only an active skill's explicit invocation ins
 | "Audit eval evidence"                                   | `/audit-eval-evidence` |
 | "Audit this spec node"                                  | `/audit-specs`         |
 | "Diagnose the spx environment"                          | `/diagnose`            |
-| "File a follow-up in a dependency queue"                | `/issue`               |
+| "Claim this Change"                                     | `/claim-change`        |
+| "Release this Change" or "Hand this off"                | `/release-change`      |
+| "Close this Change as Applied"                          | `/close-change`        |
 
 Per-language code, architecture, and test audits ship as `audit-{lang}-{code|tests|architecture}` skills. The active verification workflow composes the skills for the languages recorded in this instruction block's opening marker.
 
@@ -256,11 +257,9 @@ Test level is encoded in the filename. The `{evidence}` segment is chosen by `/t
 
 ---
 
-## Session Management
+## Change Lifecycle
 
-Sessions are shared across every worktree. Hand off each session via `/handoff` so it can be resumed from any other worktree: the handoff leaves the worktree clean and persists all state on origin. Propose one when the session's goal is met or the work must pause; resume with `/pickup`. When a claimed session is complete and should leave the active queue, close it through `/handoff` or `/handoff --no-session` so claimed-session accounting archives it. To return a wrongly claimed session to the shared queue instead, run `spx session release <session-id>`.
-
-An explicit request to inspect, archive, or release identified session documents routes directly through the corresponding `spx session` command as operational-state management; `/handoff` is reserved for closing active work through reflection, persistence, continuation disposition, and claimed-session accounting. Direct session operations require `/understand` only before following their output into `spx/`, source, or test content.
+Work is coordinated through Changes in the store `spx/local/coordination.md` declares. Hold a Change through `/claim-change` before refining or executing it. When the work stops with continuation remaining, `/release-change` writes the Handoff, removes the holder, and returns the Change to Available for any agent to claim; when the Change reaches a terminal Lifecycle, `/close-change <Applied|Refined|Abandoned>` writes the terminal record and closes it. A follow-up is a Proposed Change created through `/author-change`. Maturity moves only through `/author-change`; the three Lifecycle skills move Lifecycle and nothing else.
 
 <!-- /SPEC-TREE -->
 
