@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createJournal, JOURNAL_ERROR, JOURNAL_SEQ_BASE } from "@/lib/agent-run-journal";
 import { arbitraryJournalPairInput, sampleAgentRunJournalValue } from "@testing/generators/agent-run-journal";
+import { createSealingOnCollisionBackend } from "@testing/harnesses/agent-run-journal/contending-backends";
 import { createInMemoryAppendableBackend } from "@testing/harnesses/agent-run-journal/in-memory-backend";
 
 describe("agent-run-journal compliance", () => {
@@ -13,6 +14,17 @@ describe("agent-run-journal compliance", () => {
     await journal.seal();
 
     await expect(journal.append(secondInput)).rejects.toThrow(JOURNAL_ERROR.SEALED);
+  });
+
+  it("rejects an append whose collision retry meets a seal that landed during the collision", async () => {
+    const { firstInput, identity } = sampleAgentRunJournalValue(arbitraryJournalPairInput());
+    const backend = createSealingOnCollisionBackend();
+
+    await expect(createJournal(backend, identity).append(firstInput)).rejects.toThrow(JOURNAL_ERROR.SEALED);
+
+    // the collision explained a retry, but the seal barrier ends the run before any second attempt
+    expect(backend.observation.attemptedSequences).toEqual([JOURNAL_SEQ_BASE]);
+    expect((await backend.readAll()).some((event) => event.id === firstInput.id)).toBe(false);
   });
 
   it("never overwrites a persisted event when two journals race for one sequence number", async () => {

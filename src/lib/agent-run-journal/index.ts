@@ -259,9 +259,11 @@ export function createJournal(backend: AppendableBackend, identity: JournalIdent
           if (!isConsumedSequenceRejection(error)) throw error;
           // A consumed sequence means another appender published: allocate again from
           // the refreshed history. A collision the history does not explain is a
-          // backend defect and surfaces unchanged rather than looping.
+          // backend defect and surfaces unchanged rather than looping, and a seal that
+          // landed meanwhile ends the run before any further attempt.
           const refreshed = await backend.readAll();
           if (refreshed.length <= history.length) throw error;
+          if (await backend.isSealed()) throw new Error(JOURNAL_ERROR.SEALED);
           history = refreshed;
         }
       }

@@ -47,6 +47,10 @@ class RecordingBackend implements ControlledAppendableBackend {
   }
 
   async seal(): Promise<void> {
+    this.markSealed();
+  }
+
+  protected markSealed(): void {
     this.sealed = true;
   }
 
@@ -92,6 +96,25 @@ class ContendingBackend extends RecordingBackend {
   }
 }
 
+/**
+ * Rejects the first append as a consumed sequence — a competitor's event lands at the
+ * contested sequence — and seals the journal in the same moment, so a retry that
+ * ignores the seal barrier would publish on a sealed journal.
+ */
+class SealingOnCollisionBackend extends RecordingBackend {
+  private collided = false;
+
+  protected override onAppend(record: JournalEvent): void {
+    if (!this.collided) {
+      this.collided = true;
+      this.events.push({ ...record, id: `competitor-${record.seq}` });
+      this.markSealed();
+      throw new Error(JOURNAL_ERROR.SEQ_CONSUMED);
+    }
+    this.events.push(record);
+  }
+}
+
 /** A backend whose every append rejects with `SEQ_CONSUMED` and whose history never grows. */
 export function createNonGrowingRejectingBackend(): ControlledAppendableBackend {
   return new NonGrowingRejectingBackend();
@@ -100,4 +123,9 @@ export function createNonGrowingRejectingBackend(): ControlledAppendableBackend 
 /** A backend on which `competitorCount` competitors each win one contested sequence before the caller's append lands. */
 export function createContendingBackend(competitorCount: number): ControlledAppendableBackend {
   return new ContendingBackend(competitorCount);
+}
+
+/** A backend on which one competitor wins the contested sequence and the journal is sealed in the same moment. */
+export function createSealingOnCollisionBackend(): ControlledAppendableBackend {
+  return new SealingOnCollisionBackend();
 }
