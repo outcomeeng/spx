@@ -328,7 +328,7 @@ Additional skills ship with the plugin and are invoked by name: `/commit-changes
 <skill_sources>
 
 HARD STOP: Like every directory outside the current `$CWD`, the Outcome Engineering plugin repository is OFF LIMITS.
-Access it read-only only to inspect plugin behavior and form improvement suggestions.
+Access it read-only only to inspect plugin behavior and form improvement suggestions. The one write it admits is a Change draft in that repository's untracked `.spx/` change store, and nothing else.
 Never edit, branch, commit, test, audit, PR, or merge there; a separate session in that repository has its own instructions.
 
 Outcome Engineering plugin skills live in the plugin repository resolved by:
@@ -339,7 +339,11 @@ claude plugin marketplace list | sed -nEe 's#.*Directory.*\((.*outcomeeng.*)\).*
 
 If a file under that resolved repository, or a generated/cache copy of those plugin files, appears wrong, stale, incomplete, unsafe, confusing, or responsible for incorrect workflow behavior, do not edit it from this product workflow.
 
-Instead, file the follow-up as a Proposed Change with Product `plugins` in the store `spx/local/coordination.md` declares, through `/author-change` run from this repository; the record is store-independent, and the `Product` field selects the plugins product. In the Change, describe what happened, what was unclear, what you checked, and what facts would help the future plugin workflow.
+Instead, file the follow-up as a Proposed Change for the plugins product:
+
+1. Read that repository's `spx/local/coordination.md` for the store and the Product value.
+2. From its designated main checkout, without changing its branch or its tracked files, run `/author-change` for a Proposed Change with Product `plugins` that describes what happened, what was unclear, what you checked, and what facts would help the future plugin workflow.
+3. Publish it to the declared store and record nothing else there.
 
 Do not prescribe exact code, documentation, or template changes. Record the mistaken assumption, the trigger that led to it, and the facts that would help the plugin-repository workflow target the misconception precisely.
 
