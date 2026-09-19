@@ -328,7 +328,7 @@ Additional skills ship with the plugin and are invoked by name: `/commit-changes
 <skill_sources>
 
 HARD STOP: Like every directory outside the current `$CWD`, the Outcome Engineering plugin repository is OFF LIMITS.
-Access it read-only only to inspect plugin behavior and form improvement suggestions, or to draft a Proposed Change carrying those suggestions in that repository's own `.spx/` change store, which is untracked local state and not repository content.
+Access it read-only only to inspect plugin behavior and form improvement suggestions, or to hand off a session containing those suggestions.
 Never edit, branch, commit, test, audit, PR, or merge there; a separate session in that repository has its own instructions.
 
 Outcome Engineering plugin skills live in the plugin repository resolved by:
@@ -339,14 +339,10 @@ claude plugin marketplace list | sed -nEe 's#.*Directory.*\((.*outcomeeng.*)\).*
 
 If a file under that resolved repository, or a generated/cache copy of those plugin files, appears wrong, stale, incomplete, unsafe, confusing, or responsible for incorrect workflow behavior, do not edit it from this product workflow.
 
-Instead, file the follow-up work as a Proposed Change for the plugin product:
+Instead, file the follow-up work as a Proposed Change:
 
-1. Resolve the plugin repository with the command above.
-2. Go to that repository's default checkout.
-3. Get it current with `origin/main`:
-   `git checkout --detach origin/main`
-4. Run `/author-change` from that checkout. The plugin repository's own `spx/local/coordination.md` supplies the store and its `Product` value; this repository's overlay declares `Product: spx` for the Changes this repository picks up or hands off and does not govern that draft.
-5. In the Change, describe what happened, what was unclear, what you checked, and what facts would help the future plugin workflow.
+1. Author a Proposed Change through `/author-change` in the store `spx/local/coordination.md` declares, with the `Product` field set to `plugins`.
+2. In the Change, describe what happened, what was unclear, what you checked, and what facts would help the future plugin workflow.
 
 Do not prescribe exact code, documentation, or template changes. Record the mistaken assumption, the trigger that led to it, and the facts that would help the plugin-repository workflow target the misconception precisely.
 
