@@ -12,6 +12,7 @@ CAN persist each run's truth once as an event history and render it into PR comm
 - Reading from a cursor returns exactly the events at a sequence at or above that cursor ([test](tests/agent-run-journal.property.l1.test.ts))
 - Rendering a projection over an event prefix is identical across every adapter and across repeated calls ([test](tests/agent-run-journal.property.l1.test.ts))
 - An event's sequence number identifies it identically across backends, restarts, and re-run attempts ([test](tests/agent-run-journal.property.l1.test.ts))
+- After every append, the prior history is an unchanged prefix of the new history and the appended event is its only addition — a persisted event is never mutated or removed ([test](tests/agent-run-journal-append-only.property.l1.test.ts))
 - Across overlapping appends through independent journal instances bound to one shared run history, no two persisted events carry the same sequence number, the persisted sequences are contiguous from the journal's base, and every append returns the event it persisted without surfacing `JOURNAL_ERROR.SEQ_CONSUMED` ([test](tests/agent-run-journal-concurrency.property.l1.test.ts))
 
 ### Conformance
@@ -20,7 +21,7 @@ CAN persist each run's truth once as an event history and render it into PR comm
 
 ### Compliance
 
-- NEVER: a persisted event is mutated or removed ([test](tests/agent-run-journal.compliance.l1.test.ts))
+- ALWAYS: a correction to a persisted event is a later appended event referencing the original, never a mutation of it ([audit])
 - NEVER: an append to a sealed journal succeeds ([test](tests/agent-run-journal.compliance.l1.test.ts))
 - NEVER: a write to an already-consumed sequence number overwrites the persisted event ([test](tests/agent-run-journal.compliance.l1.test.ts))
 - NEVER: an append that observes `JOURNAL_ERROR.SEQ_CONSUMED` retries at a sequence the refreshed history already holds; when the refreshed history has not grown since the colliding attempt, the append fails with `JOURNAL_ERROR.SEQ_CONSUMED` ([test](tests/agent-run-journal-concurrency.compliance.l1.test.ts))

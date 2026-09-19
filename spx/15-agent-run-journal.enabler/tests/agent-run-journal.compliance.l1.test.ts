@@ -1,15 +1,8 @@
-import { isDeepStrictEqual } from "node:util";
-
 import { describe, expect, it } from "vitest";
 
-import { createJournal, JOURNAL_ERROR, JOURNAL_SEQ_BASE, type JournalEvent } from "@/lib/agent-run-journal";
-import {
-  arbitraryJournalPairInput,
-  arbitraryJournalSequenceInput,
-  sampleAgentRunJournalValue,
-} from "@testing/generators/agent-run-journal";
+import { createJournal, JOURNAL_ERROR, JOURNAL_SEQ_BASE } from "@/lib/agent-run-journal";
+import { arbitraryJournalPairInput, sampleAgentRunJournalValue } from "@testing/generators/agent-run-journal";
 import { createInMemoryAppendableBackend } from "@testing/harnesses/agent-run-journal/in-memory-backend";
-import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 describe("agent-run-journal compliance", () => {
   it("rejects an append to a sealed journal", async () => {
@@ -20,30 +13,6 @@ describe("agent-run-journal compliance", () => {
     await journal.seal();
 
     await expect(journal.append(secondInput)).rejects.toThrow(JOURNAL_ERROR.SEALED);
-  });
-
-  it("never mutates or removes a persisted event; each append leaves the prior history intact", async () => {
-    await assertProperty(
-      arbitraryJournalSequenceInput(),
-      async ({ inputs, identity }) => {
-        const journal = createJournal(createInMemoryAppendableBackend(), identity);
-        const appended: JournalEvent[] = [];
-        for (const input of inputs) {
-          const before = await journal.read(JOURNAL_SEQ_BASE);
-          const event = await journal.append(input);
-          appended.push(event);
-          const after = await journal.read(JOURNAL_SEQ_BASE);
-
-          // every previously persisted event is still present and unchanged (not removed, not
-          // mutated), and the new event is appended at the end
-          if (!isDeepStrictEqual(after.slice(0, before.length), before)) return false;
-          if (after.length !== before.length + 1) return false;
-          if (!isDeepStrictEqual(after[after.length - 1], event)) return false;
-        }
-        return isDeepStrictEqual(await journal.read(JOURNAL_SEQ_BASE), appended);
-      },
-      { level: PROPERTY_LEVEL.L1 },
-    );
   });
 
   it("never overwrites a persisted event when two journals race for one sequence number", async () => {
