@@ -6,6 +6,8 @@ Every agentic verification run executed by a coding-agent skill is one named, ap
 
 A contract phrased in facts and derivations — `append`, `read`, cursor, `render` — survives backend substitution, because no backend's storage shape appears in it. Separating the canonical event history from its projections keeps mutable, size-bounded displayed output from contaminating the run's source of truth: the journal accumulates facts, and a projection re-renders from them on demand and serves as the run's final output.
 
+Sequence allocation is the journal's, not the appender's: concurrent appenders — verification work in different worktrees or agent sessions writing one run's history — compete for the next sequence, and the store settles each contest by publishing one sequence at most once. A consumed-sequence rejection therefore proves that another appender published, so the journal allocates again from the refreshed history instead of failing the appender; a rejection the refreshed history cannot explain is a backend defect and surfaces unchanged. Splitting one run's sequence space per worktree or per session is rejected because it breaks the contiguity every replay and cursor rests on.
+
 ## Invariants
 
 For any journal `J`:
@@ -16,6 +18,7 @@ For any journal `J`:
 - **Replay equivalence.** `read(J, from=c)` equals `read(J, from=0)` with every event of `seq < c` removed, for any cursor `c`.
 - **Terminal seal.** After `seal(J)`, no `append(J, …)` has a successful outcome; the sealed sequence is final.
 - **Cursor stability.** An event's `seq` identifies it identically across backends, restarts, and re-run attempts.
+- **Allocation under contention.** For concurrent appends to one journal, a consumed-sequence collision is resolved by allocating the next sequence from the refreshed history; an append fails on a collision only when the refreshed history has not grown since the colliding attempt.
 
 ## Verification
 
@@ -29,6 +32,8 @@ For any journal `J`:
 - NEVER: A write targeting an already-consumed sequence number overwrites the persisted event; the journal rejects it. ([compliance])
 - NEVER: An append returns success on a sealed journal. ([compliance])
 - NEVER: A persisted event is mutated or removed; a correction appends a new event referencing the original. ([compliance])
+- ALWAYS: Overlapping appends through independent journal instances over one shared run history persist unique contiguous sequence numbers and every append returns its persisted event. ([property])
+- NEVER: An append retries a consumed sequence the refreshed history already holds, or fails on a collision the refreshed history explains. ([compliance])
 
 ### Eval
 
