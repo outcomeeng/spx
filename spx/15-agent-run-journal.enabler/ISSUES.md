@@ -78,18 +78,60 @@ CloudEvents input field (`id`/`source`/`type`/`time` non-empty strings, integer
 deep *value* rules for URI-reference `source`, RFC 3339 `time`, and serialisable-`JsonValue`
 `data` at the library `append`, still unspecified.
 
-## The backend consumed-sequence error contract is implicit
+## The conformance evidence validates the producer with its own module
 
-`AppendableBackend.append` is documented as rejecting a record whose `seq` is
-already consumed, but the interface names no error type or message; the journal
-propagates the backend's error unchanged. The compliance test asserts the thrown
-message equals `JOURNAL_ERROR.SEQ_CONSUMED`, which holds only because the
-in-memory backend imports and throws that exact constant. A real adapter
-(state-store, GitHub) that surfaced its own storage error would prevent the
-overwrite correctly yet break the test.
+`tests/agent-run-journal.conformance.l1.test.ts` checks each appended event with
+`checkJournalEventConformance` from `src/lib/agent-run-journal/index.ts`, the module
+that also produces the event and declares `CLOUDEVENTS_SPECVERSION` and the attribute
+set. Changing the shared specversion constant to a value CloudEvents v1.0 forbids moves
+producer and validator together, so the test still passes: the module validates itself.
 
-Settle when the first real Appendable adapter is implemented: either document a
-required error type/message on `AppendableBackend.append` for the consumed-seq
-case, or have the journal catch and re-throw a typed `JournalError` so the
-contract is the journal's, not each backend's. Surfaced by spec-tree-review on
-PR #160.
+**Impact:** the conformance assertion "Each appended event conforms to the CloudEvents
+attribute set and the journal stream extensions" rests on no oracle independent of the
+producer; only the per-field derivation checks are independent.
+
+**Settlement condition:** the conformance evidence reads the CloudEvents v1.0 attribute
+contract from an oracle outside the producer module — a schema fixture read by path or a
+separately owned validator — and a specversion mutation in the producer fails the test.
+Surfaced by the test-evidence audit on the allocation-under-contention changeset.
+
+## Two evidence files own their input domains or replay policy
+
+- `tests/runtime-config.compliance.l1.test.ts` composes the violating-override domain
+  inline (`fc.oneof` of blank strings and non-string types) instead of drawing it from a
+  generator under `testing/generators/`.
+- `tests/agent-run-journal.conformance.l1.test.ts` draws single cases with seedless
+  `fc.sample`, so a failing draw carries no replay path; the owning generator module
+  exports the seeded `sampleAgentRunJournalValue`.
+- `tests/agent-run-journal.property.l1.test.ts`, `tests/agent-run-journal.conformance.l1.test.ts`,
+  and `tests/runtime-config.compliance.l1.test.ts` route property evidence through bare
+  `fc.assert` instead of the `assertProperty` harness that owns run count, timeout, and
+  `SPX_PROPERTY_SEED` replay; the concurrency and compliance files in this node use the
+  harness, so the node's replay contract is split.
+
+**Impact:** the violating classes are an author-picked partial enumeration, and a
+failure in the seedless or bare-`fc.assert` cases is not replayable through the
+repository's seed contract.
+
+**Settlement condition:** the violating-override domain lives in a spec-governed
+generator, every single draw uses the seeded sampler, and every property case in the node
+routes through `assertProperty`. Surfaced by the test-evidence audit on the
+allocation-under-contention changeset.
+
+## Two evidence cases prove less than their assertion states
+
+- `tests/agent-run-journal.property.l1.test.ts` (cursor read): the expected value is
+  `journal.read(JOURNAL_SEQ_BASE)` filtered by cursor — the same `read` path under
+  test — so a defect that alters `read` uniformly changes both sides; the events
+  `append` returned are the independent oracle.
+- `tests/agent-run-journal.property.l1.test.ts` (render across adapters, and sequence
+  identity across backends): each "across every adapter" and "across backends" clause
+  compares two instances of the one in-memory harness class; no second adapter kind,
+  such as the store-backed adapter under `src/lib/appendable-journal-store/`,
+  participates.
+
+**Impact:** each case leaves one clause of its assertion unobserved.
+
+**Settlement condition:** the cursor property derives its expectation from the appended
+events; the render and sequence-identity properties bind a second adapter kind. Surfaced by the test-evidence audit on the allocation-under-contention
+changeset.

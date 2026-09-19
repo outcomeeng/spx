@@ -54,7 +54,12 @@ export interface JournalEventInput {
  */
 export interface AppendableBackend {
   readonly kind: typeof JOURNAL_BACKEND_KIND.APPENDABLE;
-  /** Persist an event. Rejects a record whose `seq` is already consumed. */
+  /**
+   * Persist an event. Rejects a record whose `seq` is already consumed by
+   * throwing an `Error` whose message is `JOURNAL_ERROR.SEQ_CONSUMED`; the
+   * journal recognizes that rejection as a collision it may resolve by
+   * allocating the next sequence from the refreshed history.
+   */
   append(record: JournalEvent): Promise<void>;
   /** The full event history, oldest first. */
   readAll(): Promise<readonly JournalEvent[]>;
@@ -216,6 +221,27 @@ export interface Journal {
   seal(): Promise<void>;
 }
 
+/** Whether a backend rejection is the consumed-sequence collision the journal resolves by re-allocating. */
+function isConsumedSequenceRejection(error: unknown): boolean {
+  return error instanceof Error && error.message === JOURNAL_ERROR.SEQ_CONSUMED;
+}
+
+/** The complete event a journal persists for an input under one identity at one sequence. */
+export function createJournalEvent(input: JournalEventInput, identity: JournalIdentity, seq: number): JournalEvent {
+  return {
+    id: input.id,
+    source: input.source,
+    type: input.type,
+    specversion: CLOUDEVENTS_SPECVERSION,
+    time: input.time,
+    streamid: identity.streamid,
+    seq,
+    runid: identity.runid,
+    attempt: input.attempt,
+    ...(input.data === undefined ? {} : { data: input.data }),
+  };
+}
+
 /** Bind the journal contract to an Appendable backend for one run's stream. */
 export function createJournal(backend: AppendableBackend, identity: JournalIdentity): Journal {
   return {
@@ -223,21 +249,24 @@ export function createJournal(backend: AppendableBackend, identity: JournalIdent
       if (await backend.isSealed()) {
         throw new Error(JOURNAL_ERROR.SEALED);
       }
-      const history = await backend.readAll();
-      const event: JournalEvent = {
-        id: input.id,
-        source: input.source,
-        type: input.type,
-        specversion: CLOUDEVENTS_SPECVERSION,
-        time: input.time,
-        streamid: identity.streamid,
-        seq: JOURNAL_SEQ_BASE + history.length,
-        runid: identity.runid,
-        attempt: input.attempt,
-        ...(input.data === undefined ? {} : { data: input.data }),
-      };
-      await backend.append(event);
-      return event;
+      let history = await backend.readAll();
+      for (;;) {
+        const event = createJournalEvent(input, identity, JOURNAL_SEQ_BASE + history.length);
+        try {
+          await backend.append(event);
+          return event;
+        } catch (error) {
+          if (!isConsumedSequenceRejection(error)) throw error;
+          // A seal that landed meanwhile ends the run before anything else is decided.
+          // Otherwise a consumed sequence means another appender published: allocate
+          // again from the refreshed history. A collision the history does not explain
+          // is a backend defect and surfaces unchanged rather than looping.
+          if (await backend.isSealed()) throw new Error(JOURNAL_ERROR.SEALED);
+          const refreshed = await backend.readAll();
+          if (refreshed.length <= history.length) throw error;
+          history = refreshed;
+        }
+      }
     },
 
     async read(fromCursor: number): Promise<readonly JournalEvent[]> {

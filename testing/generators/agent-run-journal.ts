@@ -62,6 +62,25 @@ export function arbitraryJournalIdentity(): fc.Arbitrary<JournalIdentity> {
   });
 }
 
+/** How many competitors win contested sequences ahead of one appender under contention. */
+export function arbitraryCompetitorCount(): fc.Arbitrary<number> {
+  return fc.integer({ min: 1, max: 8 });
+}
+
+export interface ContendedAppendInput {
+  readonly input: JournalEventInput;
+  readonly identity: JournalIdentity;
+  readonly competitorCount: number;
+}
+
+export function arbitraryContendedAppendInput(): fc.Arbitrary<ContendedAppendInput> {
+  return fc.record({
+    input: arbitraryJournalEventInput(),
+    identity: arbitraryJournalIdentity(),
+    competitorCount: arbitraryCompetitorCount(),
+  });
+}
+
 export interface JournalSequenceInput {
   readonly inputs: readonly JournalEventInput[];
   readonly identity: JournalIdentity;
@@ -97,26 +116,6 @@ export function arbitraryMalformedJournalLines(): fc.Arbitrary<readonly [string,
       }
     }),
   );
-}
-
-/** Build the complete event expected when a journal assigns identity and sequence to an input. */
-export function journalEventFromInput(
-  input: JournalEventInput,
-  identity: JournalIdentity,
-  sequence: number,
-): JournalEvent {
-  return {
-    id: input.id,
-    source: input.source,
-    type: input.type,
-    specversion: CLOUDEVENTS_SPECVERSION,
-    time: input.time,
-    streamid: identity.streamid,
-    seq: sequence,
-    runid: identity.runid,
-    attempt: input.attempt,
-    ...(input.data === undefined ? {} : { data: input.data }),
-  };
 }
 
 const SAMPLE_SEED = 0x6a726e6c;
