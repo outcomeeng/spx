@@ -72,26 +72,6 @@ sentinel clause; `/update-instruction-block` then regenerates both guides.
 Hand-editing the generated block is not a fix: the next regeneration restores
 the template text.
 
-## The product content below the router routes to retired session skills
-
-**Evidence:** the product content below the managed router block in
-`CLAUDE.md` and `AGENTS.md` lists `/handoff` and `/pickup` as skills the
-spec-tree plugin ships, and its `<skill_sources>` procedure routes plugin
-follow-up work through `spx session handoff` in the plugin repository. The
-installed spec-tree plugin ships neither skill, the router block routes
-continuation through the Change lifecycle, and `spx/local/coordination.md`
-declares `Product: spx` for every Change this repository picks up or hands
-off. Review runs `2026-09-19_20-39-02-295-8d04292e49a6` and
-`2026-09-19_20-43-28-798-a1cecb821acf` record the contradiction.
-
-**Impact:** an agent following that section reaches retired skills, and the
-follow-up procedure it is given contradicts the section's own HARD STOP on
-the plugin repository and the coordination overlay.
-
-**Settlement condition:** a Change on this repository's instruction content,
-decided by the operator, reconciles the follow-up procedure with the Change
-lifecycle and both coordination overlays.
-
 ## Source-graph containment property fails on some generated inputs
 
 `spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler/tests/source.compliance.l1.test.ts`
