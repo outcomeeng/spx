@@ -115,6 +115,14 @@ class SealingOnCollisionBackend extends RecordingBackend {
   }
 }
 
+/** Rejects the first append as a consumed sequence without growing its history and seals in the same moment. */
+class SealingNonGrowingBackend extends RecordingBackend {
+  protected override onAppend(): void {
+    this.markSealed();
+    throw new Error(JOURNAL_ERROR.SEQ_CONSUMED);
+  }
+}
+
 /** A real in-memory Appendable backend that also records how the journal drives it. */
 export function createRecordingAppendableBackend(): ControlledAppendableBackend {
   return new RecordingBackend();
@@ -133,4 +141,9 @@ export function createContendingBackend(competitorCount: number): ControlledAppe
 /** A backend on which one competitor wins the contested sequence and the journal is sealed in the same moment. */
 export function createSealingOnCollisionBackend(): ControlledAppendableBackend {
   return new SealingOnCollisionBackend();
+}
+
+/** A backend that rejects the contested sequence without growing its history and seals the journal in the same moment. */
+export function createSealingNonGrowingBackend(): ControlledAppendableBackend {
+  return new SealingNonGrowingBackend();
 }

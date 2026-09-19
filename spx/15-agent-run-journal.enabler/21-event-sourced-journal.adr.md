@@ -6,7 +6,7 @@ Every agentic verification run executed by a coding-agent skill is one named, ap
 
 A contract phrased in facts and derivations — `append`, `read`, cursor, `render` — survives backend substitution, because no backend's storage shape appears in it. Separating the canonical event history from its projections keeps mutable, size-bounded displayed output from contaminating the run's source of truth: the journal accumulates facts, and a projection re-renders from them on demand and serves as the run's final output.
 
-Sequence allocation is the journal's, not the appender's: concurrent appenders — verification work in different worktrees or agent sessions writing one run's history — compete for the next sequence, and the store settles each contest by publishing one sequence at most once. A consumed-sequence rejection therefore proves that another appender published, so the journal allocates again from the refreshed history instead of failing the appender; a rejection the refreshed history cannot explain is a backend defect and surfaces unchanged. Splitting one run's sequence space per worktree or per session is rejected because it breaks the contiguity every replay and cursor rests on.
+Sequence allocation is the journal's, not the appender's: concurrent appenders — verification work in different worktrees or agent sessions writing one run's history — compete for the next sequence, and the store settles each contest by publishing one sequence at most once. A consumed-sequence rejection therefore proves that another appender published, so the journal allocates again from the refreshed history instead of failing the appender; a seal that landed meanwhile takes precedence and ends the append under the terminal seal, and a rejection the refreshed history cannot explain is a backend defect and surfaces unchanged. Splitting one run's sequence space per worktree or per session is rejected because it breaks the contiguity every replay and cursor rests on.
 
 ## Invariants
 
@@ -18,7 +18,7 @@ For any journal `J`:
 - **Replay equivalence.** `read(J, from=c)` equals `read(J, from=0)` with every event of `seq < c` removed, for any cursor `c`.
 - **Terminal seal.** After `seal(J)`, no `append(J, …)` has a successful outcome; the sealed sequence is final.
 - **Cursor stability.** An event's `seq` identifies it identically across backends, restarts, and re-run attempts.
-- **Allocation under contention.** For concurrent appends to one journal, a consumed-sequence collision is resolved by allocating the next sequence from the refreshed history unless the journal was sealed meanwhile, in which case the append fails under the terminal seal; an append fails on a collision itself only when the refreshed history has not grown since the colliding attempt.
+- **Allocation under contention.** For concurrent appends to one journal, a consumed-sequence collision observed after the journal was sealed fails under the terminal seal; a collision observed while the journal is unsealed is resolved by allocating the next sequence from the refreshed history, and fails as the collision itself only when that history has not grown since the colliding attempt.
 
 ## Verification
 

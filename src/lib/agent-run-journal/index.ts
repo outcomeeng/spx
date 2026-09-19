@@ -257,13 +257,13 @@ export function createJournal(backend: AppendableBackend, identity: JournalIdent
           return event;
         } catch (error) {
           if (!isConsumedSequenceRejection(error)) throw error;
-          // A consumed sequence means another appender published: allocate again from
-          // the refreshed history. A collision the history does not explain is a
-          // backend defect and surfaces unchanged rather than looping, and a seal that
-          // landed meanwhile ends the run before any further attempt.
+          // A seal that landed meanwhile ends the run before anything else is decided.
+          // Otherwise a consumed sequence means another appender published: allocate
+          // again from the refreshed history. A collision the history does not explain
+          // is a backend defect and surfaces unchanged rather than looping.
+          if (await backend.isSealed()) throw new Error(JOURNAL_ERROR.SEALED);
           const refreshed = await backend.readAll();
           if (refreshed.length <= history.length) throw error;
-          if (await backend.isSealed()) throw new Error(JOURNAL_ERROR.SEALED);
           history = refreshed;
         }
       }

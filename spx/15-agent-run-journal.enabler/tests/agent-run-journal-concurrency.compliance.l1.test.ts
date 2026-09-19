@@ -9,6 +9,7 @@ import {
 import {
   createContendingBackend,
   createNonGrowingRejectingBackend,
+  createSealingNonGrowingBackend,
 } from "@testing/harnesses/agent-run-journal/contending-backends";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
@@ -21,6 +22,16 @@ describe("agent-run-journal — consumed-sequence retry boundary", () => {
 
     // the initial read plus exactly one refreshed read: no retry at a sequence the history already held
     expect(backend.observation.readAllCount).toBe(2);
+    expect(backend.observation.attemptedSequences).toEqual([JOURNAL_SEQ_BASE]);
+  });
+
+  it("fails with SEALED, not SEQ_CONSUMED, when a collision meets a seal even though the history has not grown", async () => {
+    const { firstInput, identity } = sampleAgentRunJournalValue(arbitraryJournalPairInput());
+    const backend = createSealingNonGrowingBackend();
+
+    await expect(createJournal(backend, identity).append(firstInput)).rejects.toThrow(JOURNAL_ERROR.SEALED);
+
+    // the seal is decided before the growth of the history is consulted: one attempt, no retry
     expect(backend.observation.attemptedSequences).toEqual([JOURNAL_SEQ_BASE]);
   });
 
