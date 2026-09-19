@@ -20,7 +20,7 @@ CAN persist each run's truth once as an event history and render it into PR comm
 
 ### Compliance
 
-- NEVER: a persisted event is mutated or removed; a correction appends a new event referencing the original ([test](tests/agent-run-journal.compliance.l1.test.ts))
+- NEVER: a persisted event is mutated or removed ([test](tests/agent-run-journal.compliance.l1.test.ts))
 - NEVER: an append to a sealed journal succeeds ([test](tests/agent-run-journal.compliance.l1.test.ts))
 - NEVER: a write to an already-consumed sequence number overwrites the persisted event ([test](tests/agent-run-journal.compliance.l1.test.ts))
 - NEVER: an append that observes `JOURNAL_ERROR.SEQ_CONSUMED` retries at a sequence the refreshed history already holds; when the refreshed history has not grown since the colliding attempt, the append fails with `JOURNAL_ERROR.SEQ_CONSUMED` ([test](tests/agent-run-journal-concurrency.compliance.l1.test.ts))

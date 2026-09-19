@@ -118,7 +118,7 @@ generator, every single draw uses the seeded sampler, and every property case in
 routes through `assertProperty`. Surfaced by the test-evidence audit on the
 allocation-under-contention changeset.
 
-## Three evidence cases prove less than their assertion states
+## Two evidence cases prove less than their assertion states
 
 - `tests/agent-run-journal.property.l1.test.ts` (cursor read): the expected value is
   `journal.read(JOURNAL_SEQ_BASE)` filtered by cursor — the same `read` path under
@@ -128,15 +128,9 @@ allocation-under-contention changeset.
   every adapter" clause compares two instances of the one in-memory harness class; no
   second adapter kind, such as the store-backed adapter under
   `src/lib/appendable-journal-store/`, participates.
-- `tests/agent-run-journal.compliance.l1.test.ts` (mutation): the clause "a correction
-  appends a new event referencing the original" names appender behavior the journal
-  library exposes no API for; the ADR's `[eval]` rules verify it, and the test reaches
-  only the mutation and removal clause.
 
 **Impact:** each case leaves one clause of its assertion unobserved.
 
 **Settlement condition:** the cursor property derives its expectation from the appended
-events; the render property binds a second adapter kind; the spec's mutation assertion is
-narrowed to the journal's own clause or the correction clause moves to the eval rule that
-verifies it. Surfaced by the test-evidence audit on the allocation-under-contention
+events; the render property binds a second adapter kind. Surfaced by the test-evidence audit on the allocation-under-contention
 changeset.

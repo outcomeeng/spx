@@ -35,8 +35,7 @@ describe("agent-run-journal compliance", () => {
           const after = await journal.read(JOURNAL_SEQ_BASE);
 
           // every previously persisted event is still present and unchanged (not removed, not
-          // mutated), and the new event is appended at the end — a correction is a new event,
-          // never a replacement
+          // mutated), and the new event is appended at the end
           if (!isDeepStrictEqual(after.slice(0, before.length), before)) return false;
           if (after.length !== before.length + 1) return false;
           if (!isDeepStrictEqual(after[after.length - 1], event)) return false;
