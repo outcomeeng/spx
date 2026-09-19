@@ -339,7 +339,7 @@ The **spec-tree** plugin is the active system for managing specification trees. 
 | `/align`         | Review for gaps, contradictions, and consistency                   |
 | `/merge`         | Route PR lifecycle work through opening, managing, and merge gates |
 
-Additional skills ship with the plugin and are invoked by name: `/commit-changes`, `/interview`, `/audit-tests`, `/audit-pdr`, `/audit-adr`, `/audit-specs`, `/handoff`, `/pickup`, `/refocus`, `/bootstrap`, `/open-pr`, `/manage-pr`, `/merge`, `/sync-base`, `/merging-standards`, `/diagnose`. See the spec-tree plugin's `skills/` directory for the full list.
+Additional skills ship with the plugin and are invoked by name: `/commit-changes`, `/interview`, `/audit-tests`, `/audit-pdr`, `/audit-adr`, `/audit-specs`, `/claim-change`, `/release-change`, `/close-change`, `/author-change`, `/refocus`, `/bootstrap`, `/open-pr`, `/manage-pr`, `/merge`, `/sync-base`, `/merging-standards`, `/diagnose`. See the spec-tree plugin's `skills/` directory for the full list.
 
 </skill_router>
 
@@ -357,14 +357,7 @@ claude plugin marketplace list | sed -nEe 's#.*Directory.*\((.*outcomeeng.*)\).*
 
 If a file under that resolved repository, or a generated/cache copy of those plugin files, appears wrong, stale, incomplete, unsafe, confusing, or responsible for incorrect workflow behavior, do not edit it from this product workflow.
 
-Instead, create follow-up work in the plugin repository:
-
-1. Resolve the plugin repository with the command above.
-2. Go to that repository's default checkout.
-3. Get it current with `origin/main`:
-   `git checkout --detach origin/main`
-4. Run `spx session handoff` from that checkout.
-5. In the handoff, describe what happened, what was unclear, what you checked, and what facts would help the future plugin workflow.
+Instead, file the follow-up as a Proposed Change with Product `plugins` in the store `spx/local/coordination.md` declares, through `/author-change` run from this repository; the record is store-independent, and the `Product` field selects the plugins product. In the Change, describe what happened, what was unclear, what you checked, and what facts would help the future plugin workflow.
 
 Do not prescribe exact code, documentation, or template changes. Record the mistaken assumption, the trigger that led to it, and the facts that would help the plugin-repository workflow target the misconception precisely.
 
