@@ -63,17 +63,16 @@ describe("verify status compliance", () => {
     const renderReport = parseRenderReport(
       (await verifyRenderCommand(verifyRenderOptions(scenario, runToken), deps)).output,
     );
-    for (const counts of [finishReport.findingCounts, statusReport.findingCounts, renderReport.findingCounts]) {
-      expect(counts.total).toBe(defects.length + filedOrStale.length);
-      expect(counts[VERIFY_FINDING_DISPOSITION.BLOCKING] + counts[VERIFY_FINDING_DISPOSITION.DEBT]).toBe(
-        defects.length,
-      );
-      expect(counts[VERIFY_FINDING_DISPOSITION.FILED] + counts[VERIFY_FINDING_DISPOSITION.STALE]).toBe(
-        filedOrStale.length,
-      );
+    // The spec spells a review disposition in upper case and its count in lower case.
+    const recorded = [...defects, ...filedOrStale].map((entry) => entry.finding.finding.disposition.toLowerCase());
+    for (const report of [finishReport, statusReport, renderReport]) {
+      expect(report.runToken).toBe(runToken);
+      expect(report.findingCount).toBe(recorded.length);
+      expect(report.findingCounts.total).toBe(recorded.length);
+      for (const disposition of Object.values(VERIFY_FINDING_DISPOSITION)) {
+        expect(report.findingCounts[disposition]).toBe(recorded.filter((value) => value === disposition).length);
+      }
     }
-    expect(statusReport.findingCounts).toStrictEqual(finishReport.findingCounts);
-    expect(renderReport.findingCounts).toStrictEqual(finishReport.findingCounts);
   });
 
   it("reports the finding count per disposition with the total across finish, status, and render for a sealed audit run", async () => {
@@ -113,16 +112,17 @@ describe("verify status compliance", () => {
     const renderReport = parseRenderReport(
       (await verifyRenderCommand(verifyRenderOptions(scenario, runToken), deps)).output,
     );
-    const retained = sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).filedOrStaleFindingPayloads;
-    for (const counts of [finishReport.findingCounts, statusReport.findingCounts, renderReport.findingCounts]) {
-      expect(counts.total).toBe(retained.length);
-      expect(counts[VERIFY_FINDING_DISPOSITION.BLOCKING]).toBe(0);
-      expect(counts[VERIFY_FINDING_DISPOSITION.DEBT]).toBe(0);
-      expect(counts[VERIFY_FINDING_DISPOSITION.FILED] + counts[VERIFY_FINDING_DISPOSITION.STALE]).toBe(retained.length);
+    const recorded = sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).filedOrStaleFindingPayloads.map(
+      (payload) => (payload as { readonly severity: string }).severity,
+    );
+    for (const report of [finishReport, statusReport, renderReport]) {
+      expect(report.runToken).toBe(runToken);
+      expect(report.findingCount).toBe(recorded.length);
+      expect(report.findingCounts.total).toBe(recorded.length);
+      for (const disposition of Object.values(VERIFY_FINDING_DISPOSITION)) {
+        expect(report.findingCounts[disposition]).toBe(recorded.filter((value) => value === disposition).length);
+      }
     }
-    expect(statusReport.findingCounts).toStrictEqual(finishReport.findingCounts);
-    expect(renderReport.findingCounts).toStrictEqual(finishReport.findingCounts);
-    expect(finishReport.findingCount).toBe(retained.length);
   });
 
   it("projects status and render from the journal when a hydrated run has no recorded input file", async () => {
