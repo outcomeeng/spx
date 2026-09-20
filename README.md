@@ -2,7 +2,7 @@
 
 Developer CLI for code validation and session management.
 
-Current release: 0.7.1
+Current release: 0.7.2
 
 ## What is spx?
 
