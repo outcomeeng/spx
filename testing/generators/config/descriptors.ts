@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 import { join } from "node:path";
 
-import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION, METHODOLOGY_VERSION_FORM } from "@/config/methodology";
 import {
   PATH_FILTER_CONFIG_FIELDS,
   type PathFilterConfig,
@@ -239,6 +239,29 @@ export function generatedLineFormMethodologySection(): Record<string, unknown> {
   return {
     [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
     [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleGeneratedValue(arbitraryMethodologyLineVersion()).text,
+  };
+}
+
+/**
+ * A migrating section whose migration source is the `MAJOR.MINOR` form of one
+ * drawn line, beside that line's patched form for a consumer to bound against;
+ * the target version sits on another line.
+ */
+export function generatedLineFormMigratingMethodologySection(): {
+  readonly section: Record<string, unknown>;
+  readonly forms: GeneratedMethodologyVersionForms;
+} {
+  const forms = sampleGeneratedValue(arbitraryMethodologyVersionForms());
+  const target = sampleGeneratedValue(
+    arbitraryMethodologyVersion().filter((candidate) => candidate.line !== forms.line),
+  );
+  return {
+    forms,
+    section: {
+      [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
+      [METHODOLOGY_CONFIG_FIELDS.VERSION]: target.text,
+      [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: forms.byForm[METHODOLOGY_VERSION_FORM.LINE],
+    },
   };
 }
 

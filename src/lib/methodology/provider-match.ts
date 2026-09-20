@@ -12,9 +12,10 @@
  * @module lib/methodology/provider-match
  */
 
+import { METHODOLOGY_PATCHED_VERSION_PATTERN } from "@/config/methodology";
 import type { Result } from "@/config/types";
 
-import { METHODOLOGY_VERSION_PATTERN, type MethodologySourceRecord } from "./tree";
+import type { MethodologySourceRecord } from "./tree";
 
 export const PROVIDER_MATCH = {
   VERIFIED: "verified",
@@ -48,6 +49,12 @@ const PRERELEASE_SEPARATOR = "-";
 const BUILD_SEPARATOR = "+";
 const COMPONENT_SEPARATOR = ".";
 const NUMERIC_PATTERN = /^\d+$/;
+/**
+ * A range operand carries every component the comparison reads, so the
+ * `MAJOR.MINOR` form a declaration may take is rejected here with the typed
+ * error rather than compared with a component missing.
+ */
+const RANGE_OPERAND_PATTERN = METHODOLOGY_PATCHED_VERSION_PATTERN;
 
 interface ParsedVersion {
   readonly components: readonly number[];
@@ -55,7 +62,7 @@ interface ParsedVersion {
 }
 
 function parseVersion(text: string): ParsedVersion | undefined {
-  if (!METHODOLOGY_VERSION_PATTERN.test(text)) return undefined;
+  if (!RANGE_OPERAND_PATTERN.test(text)) return undefined;
   const withoutBuild = text.split(BUILD_SEPARATOR)[0];
   const prereleaseIndex = withoutBuild.indexOf(PRERELEASE_SEPARATOR);
   const core = prereleaseIndex === -1 ? withoutBuild : withoutBuild.slice(0, prereleaseIndex);

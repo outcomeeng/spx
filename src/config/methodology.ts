@@ -21,15 +21,18 @@ export type MethodologyVersionForm = (typeof METHODOLOGY_VERSION_FORM)[keyof typ
 const NUMERIC_COMPONENT = String.raw`(0|[1-9]\d*)`;
 const IDENTIFIER_RUN = "[0-9A-Za-z.-]+";
 
+const LINE_BODY = String.raw`${NUMERIC_COMPONENT}\.${NUMERIC_COMPONENT}`;
+const PATCH_SUFFIX_BODY = String.raw`\.${NUMERIC_COMPONENT}(?:-${IDENTIFIER_RUN})?(?:\+${IDENTIFIER_RUN})?`;
+
 /**
  * An exact methodology version in either accepted form: the `MAJOR.MINOR` line
  * itself, or `MAJOR.MINOR.PATCH` with optional prerelease and build metadata.
  * The first two capture groups are the line's components in both forms.
  */
-export const METHODOLOGY_VERSION_PATTERN = new RegExp(
-  String
-    .raw`^${NUMERIC_COMPONENT}\.${NUMERIC_COMPONENT}(?:\.${NUMERIC_COMPONENT}(?:-${IDENTIFIER_RUN})?(?:\+${IDENTIFIER_RUN})?)?$`,
-);
+export const METHODOLOGY_VERSION_PATTERN = new RegExp(`^${LINE_BODY}(?:${PATCH_SUFFIX_BODY})?$`);
+
+/** The `MAJOR.MINOR.PATCH` form alone, for a consumer whose comparison reads every component. */
+export const METHODOLOGY_PATCHED_VERSION_PATTERN = new RegExp(`^${LINE_BODY}${PATCH_SUFFIX_BODY}$`);
 
 /** The accepted forms as a diagnostic phrase, each form its own token. */
 export const METHODOLOGY_VERSION_FORMS_TEXT = Object.values(METHODOLOGY_VERSION_FORM).join(" or ");

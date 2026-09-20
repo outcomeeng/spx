@@ -2,9 +2,10 @@ import { createHash } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
-import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_VERSION_FORM } from "@/config/methodology";
 import { SPEC_CONTEXT_DIGEST_ALGORITHM } from "@/lib/spec-tree";
 import {
+  generatedLineFormMigratingMethodologySection,
   generatedMethodologySection,
   generatedMigratingMethodologySection,
 } from "@testing/generators/config/descriptors";
@@ -88,6 +89,32 @@ describe("spec context understand payload provider match", () => {
         }),
       );
       expect(manifest.read.at(-1)?.content).toBe(agreeing.coreText);
+    });
+  });
+
+  it("fails naming a MAJOR.MINOR migration source checked against a patched supports bound instead of serving the tree on a verdict that read no patch component", async () => {
+    const { section, forms } = generatedLineFormMigratingMethodologySection();
+    const version = section[METHODOLOGY_CONFIG_FIELDS.VERSION] as string;
+    const migratingFrom = forms.byForm[METHODOLOGY_VERSION_FORM.LINE];
+    await withSpecTreeEnv(methodologyTreeConfig(section), async (env) => {
+      await env.materialize();
+      const snapshot = await env.readFilesystemSnapshot();
+      const target = snapshot.allNodes[0];
+      const patchedBound = await writeMethodologyTree(env, {
+        version,
+        sourceRecord: generatedSourceRecordProviding(
+          version,
+          supportsRangeContaining(forms.byForm[METHODOLOGY_VERSION_FORM.PATCHED]),
+        ),
+      });
+      const failure = await contextCommandFailure({
+        targets: [target.id],
+        cwd: env.productDir,
+        understand: true,
+        methodologyTreeRoot: patchedBound.treeRoot,
+      });
+      expect(failure).toBeDefined();
+      expect(failure).toContain(migratingFrom);
     });
   });
 });
