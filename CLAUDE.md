@@ -473,26 +473,18 @@ Choose by what the command's result depends on:
 
 #### Fixing the global `spx`
 
-`pnpm link --global` was **removed in pnpm 11**; (re)create the global `spx` with `pnpm add -g .`, run from the **`main`** worktree (locate it with `git worktree list` — the one on `[main]`).
+The global `spx` is symlinked from the **`main`** worktree — the canonical main checkout `spx diagnose` reports as `mainCheckoutPath` (require a `compliant` `worktree-pool` verdict). The only mutation product instructions authorize in that checkout is `git pull` and its `rebuild-dist` hook, which runs `pnpm install --frozen-lockfile`, the main-checkout gate, and `pnpm run build`. Never run `pnpm install` or an explicit `pnpm run build` there.
 
-- **Missing or broken** (`command -v spx` returns nothing, or `spx` errors): restore it immediately — external dependents rely on it. From the `main` worktree:
-
-  ```bash
-  git pull        # update main
-  pnpm install
-  pnpm run build  # ensure dist/cli.js exists — the global shim resolves bin/spx.js -> dist/cli.js
-  pnpm add -g .   # register this package globally; the shim is symlinked from main
-  # first run on a machine: if `pnpm add -g .` errors about the global bin directory,
-  # run `pnpm setup`, restart your shell, then re-run `pnpm add -g .`
-  which spx       # verify
-  ```
-
-- **Stale** (present but an old build that lags `origin/main`): the global `spx` is symlinked from the `main` worktree, so refresh that worktree's `dist/` — its Lefthook `post-merge`/`post-rewrite` `rebuild-dist` hook rebuilds on pull:
+- **Missing, broken, or stale** (`command -v spx` returns nothing, `spx` errors, or the build lags `origin/main`): confirm no other session holds the canonical checkout (`spx worktree status`) and that it is clean, then from the main worktree:
 
   ```bash
-  git pull        # in the main worktree; fires rebuild-dist
-  # or, if already current: pnpm run build
+  git pull        # fires post-merge/post-rewrite rebuild-dist: install, gate, build
+  spx --version   # verify the hook produced the executable
   ```
+
+  A pull that reports already up to date has fired no hook and is no build evidence. A failed hook leaves the source advanced without a usable build; stop and report it for operator direction. Never recover by running the install or build by hand, and never repair the checkout's content directly — a source correction goes through an assigned-worktree branch and a pull request.
+
+- **First-time registration on a machine** (`pnpm link --global` was **removed in pnpm 11**): register the package in the global pnpm store with `pnpm add -g .`, run from the main worktree after a pull has built `dist/cli.js`. This writes the global store, not the checkout. If `pnpm add -g .` errors about the global bin directory, run `pnpm setup`, restart your shell, then re-run `pnpm add -g .`; verify with `which spx`.
 
 Because the global `spx` tracks the `main` worktree's build, feature worktrees use `pnpm run` / `tsx src/cli.ts` for their own work and never rely on `spx` reflecting uncommitted or unmerged changes.
 
