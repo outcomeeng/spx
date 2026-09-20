@@ -74,12 +74,11 @@ function arbitraryNonDisposition(): fc.Arbitrary<string> {
   return fc.string().filter((value) => !(REVIEW_FINDING_DISPOSITIONS as readonly string[]).includes(value));
 }
 
-/** An `ISSUES.md` entry reference: a coordination-note path under a node plus the entry's heading. */
+/** An `ISSUES.md` entry reference: the issues note's path under a node plus the entry's heading. */
 export function arbitraryIssuesEntryReference(): fc.Arbitrary<IssuesEntryReference> {
   return fc.record({
-    [ISSUES_ENTRY_FIELD.PATH]: fc
-      .tuple(STATE_STORE_TEST_GENERATOR.scopeToken(), fc.constantFrom(...SPEC_TREE_GRAMMAR.COORDINATION_NOTES))
-      .map(([node, note]) => posix.join(node, note)),
+    [ISSUES_ENTRY_FIELD.PATH]: STATE_STORE_TEST_GENERATOR.scopeToken()
+      .map((node) => posix.join(node, SPEC_TREE_GRAMMAR.COORDINATION_NOTE.ISSUES)),
     [ISSUES_ENTRY_FIELD.HEADING]: STATE_STORE_TEST_GENERATOR.scopeToken(),
   });
 }
