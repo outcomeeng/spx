@@ -29,6 +29,7 @@ import {
   type ReviewFinding,
   type ReviewScopeUnit,
   type ReviewTerminalMetadata,
+  type ReviewTerminalState,
   VERIFY_FINDING_DISPOSITION,
   VERIFY_SCOPE_SEPARATOR,
   VERIFY_SCOPE_TYPE,
@@ -1108,6 +1109,10 @@ export const VERIFY_TEST_GENERATOR = {
       arbitraryReviewTerminalMetadata(REVIEW_TERMINAL_STATE.CHANGES_REQUESTED),
       arbitraryReviewTerminalMetadata(REVIEW_TERMINAL_STATE.COMMENTED),
     ),
+  reviewTerminalMetadataForState: (state: ReviewTerminalState): fc.Arbitrary<ReviewTerminalMetadata> =>
+    arbitraryReviewTerminalMetadata(state),
+  findingReviewScopeUnit: (): fc.Arbitrary<ReviewScopeUnit> =>
+    arbitraryReviewScopeUnit().map((unit) => ({ ...unit, coverageState: REVIEW_SCOPE_COVERAGE_STATE.FINDING })),
   reviewApprovedTerminalMetadata: (): fc.Arbitrary<ReviewTerminalMetadata> =>
     arbitraryReviewTerminalMetadata(REVIEW_TERMINAL_STATE.APPROVED),
   reviewApprovedTerminalMetadataWithProvider: (): fc.Arbitrary<ReviewTerminalMetadata> =>
