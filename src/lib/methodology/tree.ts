@@ -2,7 +2,7 @@
  * The layout grammar of spx's shipped methodology trees.
  *
  * A tree is addressed by methodology line — the `MAJOR.MINOR` of an exact
- * version, derived by a pure parse — then coding agent, then plugin name, under
+ * version in either accepted form, derived by a pure parse — then coding agent, then plugin name, under
  * a tree root the caller supplies. Every function here is pure over its
  * arguments; reads enter their consumers through injected interfaces.
  *
@@ -11,7 +11,11 @@
 
 import { join } from "node:path";
 
-import { METHODOLOGY_LINE_PATTERN, METHODOLOGY_VERSION_PATTERN } from "@/config/methodology";
+import {
+  METHODOLOGY_LINE_PATTERN,
+  METHODOLOGY_VERSION_FORMS_TEXT,
+  METHODOLOGY_VERSION_PATTERN,
+} from "@/config/methodology";
 import type { Result } from "@/config/types";
 
 /** Package-relative root holding every shipped methodology tree. */
@@ -62,9 +66,11 @@ export function isMethodologyLine(value: string): boolean {
   return METHODOLOGY_LINE_PATTERN.test(value);
 }
 
-/** Diagnostic for a value no methodology line derives from: it is not an exact version. */
+/** Diagnostic for a value no methodology line derives from: it is not an exact version in an accepted form. */
 export function formatMethodologyLineParseError(version: string): string {
-  return `No methodology line derives from ${JSON.stringify(version)}; an exact MAJOR.MINOR.PATCH version is required`;
+  return `No methodology line derives from ${
+    JSON.stringify(version)
+  }; an exact ${METHODOLOGY_VERSION_FORMS_TEXT} version is required`;
 }
 
 /** Diagnostic for a value that is not a methodology line. */
@@ -72,7 +78,7 @@ export function formatMethodologyLineInvalidError(line: string): string {
   return `Methodology line must be MAJOR.MINOR with no patch component; rejected ${JSON.stringify(line)}`;
 }
 
-/** The line of an exact methodology version: its major and minor components. */
+/** The line of an exact methodology version in either accepted form: its major and minor components. */
 export function methodologyLine(version: string): Result<string> {
   const match = METHODOLOGY_VERSION_PATTERN.exec(version);
   if (match === null) {

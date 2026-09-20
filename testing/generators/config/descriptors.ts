@@ -28,7 +28,13 @@ import {
 } from "@/lib/spec-tree";
 import { TESTING_CONFIG_FIELDS, TESTING_SECTION, type TestingConfig } from "@/test/config";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
-import { arbitraryMethodologyVersion, arbitraryNonVersionText } from "@testing/generators/methodology/tree";
+import {
+  arbitraryMalformedVersionText,
+  arbitraryMethodologyLineVersion,
+  arbitraryMethodologyVersion,
+  arbitraryMethodologyVersionForms,
+  type GeneratedMethodologyVersionForms,
+} from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 
 export const CONFIG_TEST_FIELDS = {
@@ -224,7 +230,33 @@ export function generatedMigratingMethodologySection(): Record<string, unknown> 
 export function generatedNonExactMethodologySection(): Record<string, unknown> {
   return {
     [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
-    [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleGeneratedValue(arbitraryMethodologyVersion()).line,
+    [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleGeneratedValue(arbitraryMalformedVersionText()),
+  };
+}
+
+/** A methodology section declaring its version in the `MAJOR.MINOR` form. */
+export function generatedLineFormMethodologySection(): Record<string, unknown> {
+  return {
+    [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
+    [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleGeneratedValue(arbitraryMethodologyLineVersion()).text,
+  };
+}
+
+/** One line in every accepted form, each spelled as a methodology section declaring that form. */
+export function generatedMethodologyVersionFormSections(): {
+  readonly forms: GeneratedMethodologyVersionForms;
+  readonly sections: Readonly<Record<string, Record<string, unknown>>>;
+} {
+  const forms = sampleGeneratedValue(arbitraryMethodologyVersionForms());
+  const source = generatedMethodologySource();
+  return {
+    forms,
+    sections: Object.fromEntries(
+      Object.entries(forms.byForm).map(([form, version]) => [form, {
+        [METHODOLOGY_CONFIG_FIELDS.SOURCE]: source,
+        [METHODOLOGY_CONFIG_FIELDS.VERSION]: version,
+      }]),
+    ),
   };
 }
 
@@ -240,7 +272,7 @@ export function generatedNonExactMigrationSourceSection(): Record<string, unknow
   return {
     [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
     [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleGeneratedValue(arbitraryMethodologyVersion()).text,
-    [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: sampleGeneratedValue(arbitraryMethodologyVersion()).line,
+    [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: sampleGeneratedValue(arbitraryMalformedVersionText()),
   };
 }
 
@@ -270,7 +302,7 @@ export function arbitraryMalformedMethodologySource(): fc.Arbitrary<string> {
 
 /** A value that is not an exact methodology version: empty, a non-string, or version-shaped text that is not exact. */
 export function arbitraryMalformedMethodologyVersion(): fc.Arbitrary<unknown> {
-  return fc.oneof(fc.constant(""), fc.boolean(), fc.nat(), arbitraryNonVersionText());
+  return fc.oneof(fc.constant(""), fc.boolean(), fc.nat(), arbitraryMalformedVersionText());
 }
 
 export function generatedInvalidMethodologyConfigs(): readonly GeneratedInvalidMethodologyConfig[] {

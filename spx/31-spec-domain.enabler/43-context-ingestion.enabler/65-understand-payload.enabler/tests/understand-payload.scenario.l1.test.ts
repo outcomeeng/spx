@@ -11,7 +11,10 @@ import {
   FOUNDATION_MANIFEST_SCHEMA_VERSION,
 } from "@/lib/methodology";
 import { SPEC_CONTEXT_CONTENT_FIELDS, SPEC_CONTEXT_LISTED_ROLE, SPEC_CONTEXT_READ_ROLE } from "@/lib/spec-tree";
-import { generatedMigratingMethodologySection } from "@testing/generators/config/descriptors";
+import {
+  generatedLineFormMethodologySection,
+  generatedMigratingMethodologySection,
+} from "@testing/generators/config/descriptors";
 import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -161,6 +164,34 @@ describe("spec context understand payload", () => {
         source: migrating[METHODOLOGY_CONFIG_FIELDS.SOURCE],
         version: migrating[METHODOLOGY_CONFIG_FIELDS.VERSION],
         migratingFrom: migrating[METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM],
+      });
+      expect(manifest.read.at(-1)?.path).toBe(fixture.corePath);
+      expect(manifest.read.at(-1)?.content).toBe(fixture.coreText);
+    });
+  });
+
+  it("serves the declared line's tree when methodology.version is declared in the MAJOR.MINOR form", async () => {
+    const lineForm = generatedLineFormMethodologySection();
+    await withSpecTreeEnv(methodologyTreeConfig(lineForm), async (env) => {
+      await env.materialize();
+      const fixture = await writeMethodologyTree(env, {
+        version: lineForm[METHODOLOGY_CONFIG_FIELDS.VERSION] as string,
+      });
+      const snapshot = await env.readFilesystemSnapshot();
+      const target = snapshot.allNodes[0];
+
+      const manifest = parseContextManifest(
+        await contextCommand({
+          targets: [target.id],
+          cwd: env.productDir,
+          understand: true,
+          methodologyTreeRoot: fixture.treeRoot,
+        }),
+      );
+
+      expect(manifest.methodology).toEqual({
+        source: lineForm[METHODOLOGY_CONFIG_FIELDS.SOURCE],
+        version: lineForm[METHODOLOGY_CONFIG_FIELDS.VERSION],
       });
       expect(manifest.read.at(-1)?.path).toBe(fixture.corePath);
       expect(manifest.read.at(-1)?.content).toBe(fixture.coreText);

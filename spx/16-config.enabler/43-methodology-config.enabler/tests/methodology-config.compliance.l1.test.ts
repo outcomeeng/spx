@@ -5,6 +5,7 @@ import {
   DEFAULT_METHODOLOGY_SOURCE,
   METHODOLOGY_CONFIG_FIELDS,
   METHODOLOGY_SECTION,
+  METHODOLOGY_VERSION_FORM,
   requireMethodologyVersion,
 } from "@/config/methodology";
 import {
@@ -16,6 +17,7 @@ import { METHODOLOGY_LOCATION_FIELD } from "@testing/generators/config/descripto
 import {
   observeDeclaredMethodologyVersionResolution,
   observeHarnessEnvironmentMethodologyRejection,
+  observeLineFormMethodologyVersionResolution,
   observeMalformedMethodologyConfigRejections,
   observeMethodologyLocationFieldResolution,
   observeMethodologyResolverHarnessUnknownFieldRejection,
@@ -33,16 +35,21 @@ describe("methodology config compliance", () => {
     }
   });
 
-  it("rejects a version that is not an exact methodology version, naming the field", async () => {
+  it("rejects a version that is not an exact methodology version, naming the field and both accepted forms", async () => {
     const observation = await observeNonExactMethodologyVersionResolution();
 
     expect(observation.result.ok).toBe(false);
     if (!observation.result.ok) {
       expect(observation.result.error).toContain(`${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.VERSION}`);
+      // Each form is named as its own token: the line form is a prefix of the
+      // patched form, so a plain substring check would pass with one form absent.
+      for (const form of Object.values(METHODOLOGY_VERSION_FORM)) {
+        expect(observation.result.error.split(/[^A-Z.]+/)).toContain(form);
+      }
     }
   });
 
-  it("rejects a migration source that is not an exact methodology version, naming the field", async () => {
+  it("rejects a migration source that is not an exact methodology version, naming the field and both accepted forms", async () => {
     const observation = await observeNonExactMigrationSourceResolution();
 
     expect(observation.result.ok).toBe(false);
@@ -50,6 +57,11 @@ describe("methodology config compliance", () => {
       expect(observation.result.error).toContain(
         `${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM}`,
       );
+      // Each form is named as its own token: the line form is a prefix of the
+      // patched form, so a plain substring check would pass with one form absent.
+      for (const form of Object.values(METHODOLOGY_VERSION_FORM)) {
+        expect(observation.result.error.split(/[^A-Z.]+/)).toContain(form);
+      }
     }
   });
 
@@ -85,6 +97,15 @@ describe("methodology config compliance", () => {
 
   it("carries a declared version as the exact methodology version and hands it to a requiring consumer unchanged", async () => {
     const observation = await observeDeclaredMethodologyVersionResolution();
+
+    expect(observation.result.ok).toBe(true);
+    if (!observation.result.ok) throw new Error(observation.result.error);
+    expect(observation.result.value.version).toBe(observation.declared);
+    expect(requireMethodologyVersion(observation.result.value)).toEqual({ ok: true, value: observation.declared });
+  });
+
+  it("carries a version declared in the MAJOR.MINOR form as the exact methodology version and hands it to a requiring consumer unchanged", async () => {
+    const observation = await observeLineFormMethodologyVersionResolution();
 
     expect(observation.result.ok).toBe(true);
     if (!observation.result.ok) throw new Error(observation.result.error);
