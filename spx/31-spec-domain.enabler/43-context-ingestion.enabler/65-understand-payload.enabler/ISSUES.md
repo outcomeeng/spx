@@ -1,16 +1,12 @@
 # Open Issues
 
-## Provider match compares `provides` to the declared version by string equality
+## The supports range check reads only the patched form
 
-**Evidence:** `checkProviderMatch` in `src/lib/methodology/provider-match.ts` rejects a declaration when `plugin.provides !== input.version`. `spx/13-agent-capability-lifecycle.pdr.md` admits both `MAJOR.MINOR` and `MAJOR.MINOR.PATCH` as exact methodology versions and requires the declared version and `methodology.provides` to select the same `MAJOR.MINOR` line, so a product declaring `4.0.0` against a provider declaring `provides: "4.0"` — or the reverse — is a match by the decision and a mismatch by the code. `satisfiesMethodologyRange` parses both operands through the shared `METHODOLOGY_VERSION_PATTERN`, and `compareVersions` iterates over the left operand's component count, so a `MAJOR.MINOR` migration source compared against a `MAJOR.MINOR.PATCH` bound ignores the bound's patch: `satisfiesMethodologyRange("3.2", "=3.2.9")` and `satisfiesMethodologyRange("3.2", ">=3.2.5 <5.0.0")` both return `true`. The shipped `methodology/4.0/source.json` declares no `provides`, so every current match reports `undeclared` and no consumer observes either divergence.
+**Evidence:** `satisfiesMethodologyRange` in `src/lib/methodology/provider-match.ts` parses its operand and every comparator bound through `METHODOLOGY_PATCHED_VERSION_PATTERN`, so a `MAJOR.MINOR` migration source is refused naming the operand's form rather than evaluated and, on a mismatch, named beside the `supports` declaration as `spx/13-agent-capability-lifecycle.pdr.md` requires, and a `supports` range written with `MAJOR.MINOR` bounds fails as naming no exact version. `compareVersions` iterates over the left operand's component count, which is why the patched form is required: a two-component operand against a three-component bound would ignore the bound's patch. The shipped `methodology/4.0/source.json` declares no `supports`, so no current match observes it.
 
-`tests/understand-payload.compliance.l1.test.ts` selects its "recorded provides differs" case by the same string inequality (`candidate.text !== version`), so a same-line patched `provides` is drawn as a mismatch and the line rule, once implemented, breaks that case.
+**Impact:** once a fetched line records `supports`, a product declaring `methodology.migratingFrom` in the `MAJOR.MINOR` form is refused by `spx spec context show --methodology`, compact recovery, and the diagnose methodology-context check.
 
-The range check reads only the `MAJOR.MINOR.PATCH` form for the operand and for every comparator bound, so a `MAJOR.MINOR` migration source is refused naming the operand's form rather than evaluated and, on a mismatch, named beside the `supports` declaration as the decision requires; a `supports` range written with `MAJOR.MINOR` bounds fails as naming no exact version.
-
-**Impact:** once a fetched line records a `provides` in the other form, `spx spec context show --methodology`, compact recovery, and the diagnose methodology-context check fail a product whose declaration selects the provided line.
-
-**Settlement condition:** `checkProviderMatch` compares the two declarations by their `MAJOR.MINOR` line, the mismatch case draws a `provides` on another line, the `supports` range check evaluates a `MAJOR.MINOR` migration source and `MAJOR.MINOR` bounds against every component they carry and fails naming both declarations, and a linked test under this node or the config node exercises a `provides` in each form against a declaration in the other and a line-form migration source against a patched bound.
+**Settlement condition:** the range check evaluates a `MAJOR.MINOR` migration source and `MAJOR.MINOR` bounds against every component they carry and fails naming both declarations, and a linked test under this node exercises a line-form migration source against a patched bound and a patched source against line-form bounds.
 
 ## The linked tests pin production where the spec leads it
 

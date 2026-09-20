@@ -33,6 +33,7 @@ import {
   arbitraryMethodologyLineVersion,
   arbitraryMethodologyVersion,
   arbitraryMethodologyVersionForms,
+  type GeneratedMethodologyVersion,
   type GeneratedMethodologyVersionForms,
   malformedVersionTextShapes,
 } from "@testing/generators/methodology/tree";
@@ -212,18 +213,31 @@ export function generatedMethodologySection(): Record<string, unknown> {
   };
 }
 
-/** A methodology section with an open migration window: two distinct exact versions. */
-export function generatedMigratingMethodologySection(): Record<string, unknown> {
+/** A migrating declaration with the drawn target and source, each carrying the line its construction derives. */
+export function generatedMigratingMethodology(): {
+  readonly section: Record<string, unknown>;
+  readonly target: GeneratedMethodologyVersion;
+  readonly source: GeneratedMethodologyVersion;
+} {
   const [target, source] = sampleGeneratedValue(
     fc.tuple(arbitraryMethodologyVersion(), arbitraryMethodologyVersion()).filter(([left, right]) =>
       left.text !== right.text
     ),
   );
   return {
-    [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
-    [METHODOLOGY_CONFIG_FIELDS.VERSION]: target.text,
-    [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: source.text,
+    section: {
+      [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
+      [METHODOLOGY_CONFIG_FIELDS.VERSION]: target.text,
+      [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: source.text,
+    },
+    target,
+    source,
   };
+}
+
+/** A methodology section with an open migration window: two distinct exact versions. */
+export function generatedMigratingMethodologySection(): Record<string, unknown> {
+  return generatedMigratingMethodology().section;
 }
 
 /** A methodology section whose version is malformed text, not an exact version in either accepted form. */

@@ -1,9 +1,10 @@
 /**
  * The check between a product's methodology declaration and the provider
  * declaration a shipped line's source record carries: the declared version
- * is compared with `provides` as text, and a declared migration source must
- * fall within `supports`. A record without a provider declaration yields an
- * undeclared match, never a verified one.
+ * and `provides` must select the same `MAJOR.MINOR` line, whichever accepted
+ * form each declares, and a declared migration source must fall within
+ * `supports`. A record without a provider declaration yields an undeclared
+ * match, never a verified one.
  *
  * `supports` is read as comparator sets — `>=3.2.0 <5.0.0`, joined by `||`
  * for alternatives, or one exact version — evaluated by SemVer precedence over
@@ -17,7 +18,7 @@
 import { METHODOLOGY_PATCHED_VERSION_PATTERN, METHODOLOGY_VERSION_FORM } from "@/config/methodology";
 import type { Result } from "@/config/types";
 
-import type { MethodologySourceRecord } from "./tree";
+import { methodologyLine, type MethodologySourceRecord } from "./tree";
 
 export const PROVIDER_MATCH = {
   VERIFIED: "verified",
@@ -151,9 +152,9 @@ export function formatRangeOperandFormError(version: string): string {
   } is not in the ${METHODOLOGY_VERSION_FORM.PATCHED} form the supports range check reads`;
 }
 
-/** Diagnostic for a declared version the provider does not provide. */
+/** Diagnostic for a declared version whose line differs from the line the provider provides. */
 export function formatProvidesMismatchError(version: string, provides: string, codingAgent: string): string {
-  return `Declared methodology version ${version} differs from the version the ${codingAgent} plugin provides, ${provides}`;
+  return `Declared methodology version ${version} selects a different line from the version the ${codingAgent} plugin provides, ${provides}`;
 }
 
 /** Diagnostic for a declared migration source the provider records no supported range for. */
@@ -178,7 +179,11 @@ export function checkProviderMatch(input: ProviderMatchInput): Result<ProviderMa
   if (plugin?.provides === undefined) {
     return { ok: true, value: PROVIDER_MATCH.UNDECLARED };
   }
-  if (plugin.provides !== input.version) {
+  const declaredLine = methodologyLine(input.version);
+  if (!declaredLine.ok) return declaredLine;
+  const providedLine = methodologyLine(plugin.provides);
+  if (!providedLine.ok) return providedLine;
+  if (declaredLine.value !== providedLine.value) {
     return { ok: false, error: formatProvidesMismatchError(input.version, plugin.provides, input.codingAgent) };
   }
   if (input.migratingFrom !== undefined) {
