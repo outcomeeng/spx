@@ -44,3 +44,19 @@ agent-appropriate wording at its source in `outcomeeng/plugins`, and a later
 conformance assertion holds each `methodology/{MAJOR.MINOR}/{coding-agent}/spec-tree/`
 byte-identical to the published plugin, so the wording is never corrected in
 this repository.
+
+## The tree-address evidence never binds an address to a supplied root
+
+**Evidence:** `tests/tree-address.property.l1.test.ts` exercises `methodologyLine` and `methodologyTreeRelativeDir` only; `methodologyTreeDir` and `methodologyLineDir` in `src/lib/methodology/tree.ts`, the functions that join an address to a supplied tree root, are reached by no test in this node.
+
+**Impact:** the clause "resolved from spx's package root … no consumer path participates in resolution" is carried by the `[audit]` rules of `21-tree-fetch.adr.md` and by structure, not by executed evidence.
+
+**Settlement condition:** the property drives `methodologyTreeDir` and `methodologyLineDir` with a generated root and line and asserts the composed path against the generator's construction.
+
+## The fetch evidence rests on hand-picked argument rows and a harness-composed manifest
+
+**Evidence:** `tests/fetch.mapping.l1.test.ts` enumerates five argument-vector rows by hand over the `FETCH_ARGUMENT_FLAGS` × terminator domain, omitting the terminator with `--revision`, the terminator with both flags, and a bare terminator. `testing/harnesses/methodology/plugins-repository.ts` composes every published `plugin.json` from `PLUGIN_MANIFEST_FIELDS` in `src/lib/methodology/fetch.ts`, the table `parsePluginManifest` reads, so no captured real manifest anchors the field vocabulary the plugins repository owns. `tests/fetch.compliance.l1.test.ts` calls `runMethodologyFetch` directly; `scripts/fetch-methodology.ts` has no thin script test and a tag revision is never passed.
+
+**Impact:** a drift between spx's manifest field table and the published schema moves harness and parser together and is undetectable here; an argument combination outside the five rows is unverified; the script entry's parse, root derivation, and exit mapping carry no evidence.
+
+**Settlement condition:** the mapping domain is generated from the source-owned flag registry; a captured real `plugin.json`, read by path and naming its plugins-repository revision, anchors the manifest oracle; a thin script test drives `scripts/fetch-methodology.ts` and a tag revision reaches `cloneAtRevision`.
