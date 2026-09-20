@@ -2,18 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import { VERIFY_CLI_ERROR, VERIFY_CLI_EXIT_CODE, verifyFinishCommand } from "@/commands/verify/cli";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
-import { VERIFY_FINDING_DISPOSITION, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
+import { VERIFY_FINDING_DISPOSITION } from "@/domains/verify/verify";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import {
   appendFindingBatch,
   assertFinishStatusAndRenderProjectTerminalMetadata,
   assertReviewTerminalMetadataStateMapsTerminalStatus,
-  createVerifyAppendScenario,
-  createVerifyRunContextScenario,
   parseFinishReport,
-  startedRunToken,
+  reviewAppendScenario,
   verifyFinishOptions,
-  withVerificationType,
 } from "@testing/harnesses/verify/harness";
 
 describe("review envelope projection", () => {
@@ -42,10 +39,7 @@ describe("review envelope projection", () => {
         ],
       ] as const
     ) {
-      const { scenario, deps } = createVerifyAppendScenario(
-        withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
-      );
-      const runToken = await startedRunToken(scenario, deps);
+      const { scenario, deps, runToken } = await reviewAppendScenario();
       const findings = await appendFindingBatch(
         scenario,
         deps,
@@ -73,10 +67,7 @@ describe("review envelope projection", () => {
   });
 
   it("lets a BLOCKING or DEBT finding determine rejection whatever the envelope states", async () => {
-    const { scenario, deps } = createVerifyAppendScenario(
-      withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
-    );
-    const runToken = await startedRunToken(scenario, deps);
+    const { scenario, deps, runToken } = await reviewAppendScenario();
     const batches = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.mixedDispositionReviewFindingBatches());
     await appendFindingBatch(scenario, deps, runToken, batches.filedOrStale);
     await appendFindingBatch(scenario, deps, runToken, batches.defects);

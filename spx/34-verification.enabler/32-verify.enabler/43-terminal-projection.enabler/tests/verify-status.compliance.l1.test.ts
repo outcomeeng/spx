@@ -27,6 +27,7 @@ import {
   finishRun,
   parseRenderReport,
   parseStatusReport,
+  reviewAppendScenario,
   startedRunToken,
   verifyAppendOptions,
   verifyRenderOptions,
@@ -49,10 +50,7 @@ describe("verify status compliance", () => {
   });
 
   it("reports the finding count per disposition with the total across finish, status, and render for a sealed review run", async () => {
-    const { scenario, deps } = createVerifyAppendScenario(
-      withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
-    );
-    const runToken = await startedRunToken(scenario, deps);
+    const { scenario, deps, runToken } = await reviewAppendScenario();
     const batches = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.mixedDispositionReviewFindingBatches());
     const defects = await appendFindingBatch(scenario, deps, runToken, batches.defects);
     const filedOrStale = await appendFindingBatch(scenario, deps, runToken, batches.filedOrStale);

@@ -119,6 +119,11 @@ import { arbitrarySourceFilePath, sampleLiteralTestValue } from "@testing/genera
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
 import {
+  arbitraryAuditFinding,
+  arbitraryDefectAuditFinding,
+  arbitraryInvalidAuditFinding,
+} from "@testing/generators/verify/audit";
+import {
   type FileScopeCanonicalizationScenario,
   type FindingWithKey,
   formatNameStatusZ,
@@ -929,7 +934,7 @@ export async function runFileScopeExistingCommandsScenario(
     coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
   };
   const finding = {
-    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditFinding()),
+    ...sampleVerifyTestValue(arbitraryDefectAuditFinding()),
     unitId: scope.unitId,
   };
   const keys = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKeyPair());
@@ -1582,7 +1587,8 @@ async function assertVerifyProperty<T>(
   await assertProperty(arbitrary, assertion, { level: PROPERTY_LEVEL.L1 });
 }
 
-async function reviewAppendScenario(): Promise<{
+/** A started review run over the in-memory store and recording sink, throwing when the start fails. */
+export async function reviewAppendScenario(): Promise<{
   readonly scenario: VerifyRunContextScenario;
   readonly fs: VerifyStateStoreFileSystem;
   readonly deps: VerifyCliDeps;
@@ -1591,10 +1597,7 @@ async function reviewAppendScenario(): Promise<{
   const { scenario, fs, deps } = createVerifyAppendScenario(
     withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
   );
-  const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
-  const startReport = parseStartReport(started.output);
-  const runToken = startReport.runToken;
+  const runToken = await startedRunToken(scenario, deps);
   return { scenario, fs, deps, runToken };
 }
 
@@ -1937,7 +1940,7 @@ export async function assertAuditScopePayloadsConformToSchema(): Promise<void> {
 }
 
 export async function assertAuditFindingPayloadsConformToSchema(): Promise<void> {
-  await assertVerifyProperty(VERIFY_TEST_GENERATOR.auditFinding(), async (finding) => {
+  await assertVerifyProperty(arbitraryAuditFinding(), async (finding) => {
     const payload = toJsonValue(finding);
     expect(validateAuditFinding(payload)).toEqual({ ok: true, value: finding });
   });
@@ -1976,7 +1979,7 @@ export async function assertInvalidAuditFindingRejectedBeforeAppend(): Promise<v
   const key = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
   const eventsBeforeInvalidFinding = await readVerifyRunEvents(scenario, runToken, fs);
 
-  await assertVerifyProperty(VERIFY_TEST_GENERATOR.invalidAuditFinding(), async (invalidFinding) => {
+  await assertVerifyProperty(arbitraryInvalidAuditFinding(), async (invalidFinding) => {
     const appended = await verifyAppendFindingCommand(
       verifyAppendOptions(scenario, {
         run: runToken,
@@ -2003,7 +2006,7 @@ export async function assertAuditFindingUnknownUnitRejectedBeforeAppend(): Promi
   const { scenario, fs, deps, runToken } = await auditAppendScenario();
   const scope = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit());
   const finding = {
-    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditFinding()),
+    ...sampleVerifyTestValue(arbitraryAuditFinding()),
     unitId: selectAlternateString(scope.unitId, [
       sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
       sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken()),
@@ -2032,7 +2035,7 @@ export async function assertAuditFindingEmptyEvidenceRejectedBeforeAppend(): Pro
   const { scenario, fs, deps, runToken } = await auditAppendScenario();
   const scope = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit());
   const finding = {
-    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditFinding()),
+    ...sampleVerifyTestValue(arbitraryAuditFinding()),
     unitId: scope.unitId,
     evidence: {},
   };

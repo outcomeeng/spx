@@ -243,6 +243,11 @@ export function arbitraryFiledOrStaleAuditFinding(): fc.Arbitrary<AuditFinding> 
   return arbitraryAuditFindingWith(FILED_OR_STALE_AUDIT_FINDING_SEVERITIES);
 }
 
+/** An audit finding whose severity records a defect the changeset introduces, so the run it enters rejects. */
+export function arbitraryDefectAuditFinding(): fc.Arbitrary<AuditFinding> {
+  return arbitraryAuditFindingWith(DEFECT_AUDIT_FINDING_SEVERITIES);
+}
+
 export function auditScopePayload(unit: AuditScopeUnit): JsonValue {
   return structuredClone(unit) as unknown as JsonValue;
 }
@@ -334,13 +339,28 @@ export function invalidCoveredCoverageGapAuditScopePayloads(): readonly JsonValu
   );
 }
 
-function arbitraryInvalidAuditFinding(): fc.Arbitrary<JsonValue> {
+const EMPTY_STRING = "";
+
+/** Audit finding payloads the finding schema rejects: wrong shapes, missing or empty required fields, and an unregistered severity. */
+export function arbitraryInvalidAuditFinding(): fc.Arbitrary<JsonValue> {
   return fc.oneof(
     fc.constant(null),
     fc.integer(),
     fc.array(STATE_STORE_TEST_GENERATOR.scopeToken()),
     arbitraryAuditFinding().map(({ unitId: _unitId, ...finding }) => finding),
     arbitraryAuditFinding().map((finding) => ({ ...finding, evidence: {} })),
+    arbitraryAuditFinding().chain((finding) =>
+      STATE_STORE_TEST_GENERATOR.scopeToken()
+        .filter((value) => !(AUDIT_FINDING_SEVERITIES as readonly string[]).includes(value))
+        .map((severity) => ({ ...finding, severity }))
+    ),
+    arbitraryAuditFinding().map((finding) => ({ ...finding, message: EMPTY_STRING })),
+    arbitraryAuditFinding().map(({ producerProvenance: _producerProvenance, ...finding }) => finding),
+    arbitraryAuditFinding().map((finding) => ({
+      ...finding,
+      producerIdentity: { ...finding.producerIdentity, producerKind: EMPTY_STRING },
+    })),
+    arbitraryAuditFindingMissingDispositionEvidence().map((scenario) => scenario.payload),
   ) as fc.Arbitrary<JsonValue>;
 }
 

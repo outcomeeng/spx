@@ -13,9 +13,7 @@ import {
   AUDIT_CLASS,
   AUDIT_COVERAGE_REQUIREMENT,
   AUDIT_COVERAGE_STATUS,
-  AUDIT_FINDING_SEVERITY,
   AUDIT_KIND,
-  type AuditFinding,
   type AuditProducerIdentity,
   type AuditProducerProvenance,
   type AuditScopeUnit,
@@ -66,7 +64,6 @@ const AUDIT_COVERAGE_STATUSES = Object.values(AUDIT_COVERAGE_STATUS);
 const AUDIT_UNCOVERED_COVERAGE_STATUSES = AUDIT_COVERAGE_STATUSES.filter((status) =>
   status !== AUDIT_COVERAGE_STATUS.AUDITED && status !== AUDIT_COVERAGE_STATUS.NOT_APPLICABLE
 );
-const AUDIT_FINDING_SEVERITIES = Object.values(AUDIT_FINDING_SEVERITY);
 const TERMINAL_STATUSES: readonly string[] = Object.values(JOURNAL_RUN_STATE_STATUS);
 const EMPTY_SUMMARY = "";
 const EMPTY_REVIEW_BODY = "";
@@ -552,22 +549,6 @@ function arbitraryAuditScopeUnitWithoutOptionalFields(): fc.Arbitrary<AuditScope
   );
 }
 
-function arbitraryAuditFinding(): fc.Arbitrary<AuditFinding> {
-  return fc.record({
-    unitId: STATE_STORE_TEST_GENERATOR.scopeToken(),
-    producerIdentity: arbitraryAuditProducerIdentity(),
-    producerProvenance: arbitraryAuditProducerProvenance(),
-    rule: STATE_STORE_TEST_GENERATOR.scopeToken(),
-    severity: fc.constantFrom(...AUDIT_FINDING_SEVERITIES),
-    location: arbitrarySourceFilePath(),
-    message: STATE_STORE_TEST_GENERATOR.scopeToken(),
-    evidence: fc.record({
-      observed: STATE_STORE_TEST_GENERATOR.scopeToken(),
-      expected: STATE_STORE_TEST_GENERATOR.scopeToken(),
-    }),
-  });
-}
-
 const SAMPLE_SEED = 0x5645524659;
 const CHANGED_PATH_MIN = 1;
 const CHANGED_PATH_MAX = 5;
@@ -1018,7 +999,6 @@ export const VERIFY_TEST_GENERATOR = {
   auditScopeUnit: (): fc.Arbitrary<AuditScopeUnit> => arbitraryAuditScopeUnit(),
   auditScopeUnitWithoutOptionalFields: (): fc.Arbitrary<AuditScopeUnit> =>
     arbitraryAuditScopeUnitWithoutOptionalFields(),
-  auditFinding: (): fc.Arbitrary<AuditFinding> => arbitraryAuditFinding(),
   invalidAuditScopeUnit: (): fc.Arbitrary<unknown> =>
     fc.oneof(
       fc.constant(null),
@@ -1076,55 +1056,6 @@ export const VERIFY_TEST_GENERATOR = {
         auditKind: AUDIT_KIND.COVERAGE_GAP,
         coverageStatus: AUDIT_COVERAGE_STATUS.NOT_APPLICABLE,
         producerProvenance: undefined,
-      })),
-    ),
-  invalidAuditFinding: (): fc.Arbitrary<unknown> =>
-    fc.oneof(
-      fc.constant(null),
-      fc.integer(),
-      fc.array(STATE_STORE_TEST_GENERATOR.scopeToken()),
-      arbitraryAuditFinding().map(({ unitId: _unitId, ...finding }) => finding),
-      arbitraryAuditFinding().chain((finding) =>
-        STATE_STORE_TEST_GENERATOR.scopeToken().filter(
-          (value) => !(AUDIT_FINDING_SEVERITIES as readonly string[]).includes(value),
-        ).map((severity) => ({
-          ...finding,
-          severity,
-        }))
-      ),
-      arbitraryAuditFinding().map((finding) => ({
-        ...finding,
-        message: EMPTY_SUMMARY,
-      })),
-      arbitraryAuditFinding().map(({ producerProvenance: _producerProvenance, ...finding }) => finding),
-      arbitraryAuditFinding().map((finding) => ({
-        ...finding,
-        producerIdentity: {
-          ...finding.producerIdentity,
-          producerKind: EMPTY_SUMMARY,
-        },
-      })),
-      arbitraryAuditFinding().chain((finding) =>
-        STATE_STORE_TEST_GENERATOR.scopeToken().map((evidence) => ({
-          ...finding,
-          evidence,
-        }))
-      ),
-      arbitraryAuditFinding().map((finding) => ({
-        ...finding,
-        evidence: {},
-      })),
-      arbitraryAuditFinding().map((finding) => ({
-        ...finding,
-        evidence: {
-          expected: finding.evidence.expected,
-        },
-      })),
-      arbitraryAuditFinding().map((finding) => ({
-        ...finding,
-        evidence: {
-          observed: finding.evidence.observed,
-        },
       })),
     ),
   invalidReviewScopeUnit: (): fc.Arbitrary<unknown> =>

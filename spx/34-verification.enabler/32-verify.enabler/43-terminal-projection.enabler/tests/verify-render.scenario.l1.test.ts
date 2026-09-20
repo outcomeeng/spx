@@ -2,23 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import { verifyRenderCommand } from "@/commands/verify/cli";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
-import {
-  VERIFY_FINDING_DISPOSITION,
-  VERIFY_VERIFICATION_TYPE,
-  type VerifyFindingDisposition,
-} from "@/domains/verify/verify";
+import { VERIFY_FINDING_DISPOSITION, type VerifyFindingDisposition } from "@/domains/verify/verify";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import {
   appendFindingBatch,
   assertRenderSealedRunProjectionReadOnly,
-  createVerifyAppendScenario,
-  createVerifyRunContextScenario,
   finishRun,
   parseRenderReport,
   readVerifyRunEvents,
-  startedRunToken,
+  reviewAppendScenario,
   verifyRenderOptions,
-  withVerificationType,
 } from "@testing/harnesses/verify/harness";
 
 describe("verify render scenario", () => {
@@ -27,10 +20,7 @@ describe("verify render scenario", () => {
   });
 
   it("renders per-disposition counts and lists filed and stale findings in their own sections apart from blocking and debt", async () => {
-    const { scenario, fs, deps } = createVerifyAppendScenario(
-      withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
-    );
-    const runToken = await startedRunToken(scenario, deps);
+    const { scenario, fs, deps, runToken } = await reviewAppendScenario();
     const batches = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.mixedDispositionReviewFindingBatches());
     const defects = await appendFindingBatch(scenario, deps, runToken, batches.defects);
     const filedOrStale = await appendFindingBatch(scenario, deps, runToken, batches.filedOrStale);
