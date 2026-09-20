@@ -303,3 +303,13 @@ and `spx/41-validation.enabler`, with the command surface under
 waiter that observes only the one-, five-, and fifteen-minute averages against
 the logical CPU count reports ready while memory is exhausted, and a run started
 on that signal is killed rather than slowed.
+
+## The README's release procedure has no governing node
+
+`README.md` "Publishing a Release" states the operator-facing release procedure — the four phases `spx/local/merging.md` declares under Deploy and Release. No spec assertion or linked test governs that prose: [`spx/26-release.enabler/32-documentation-sync.enabler`](26-release.enabler/32-documentation-sync.enabler/documentation-sync.md) names the README only as the default target of `spx release docs sync`, whose contract is rewriting product release-version references, and no other node names the file.
+
+**Impact:** an overlay change that alters the release sequence invalidates the README's guidance with no verification that exposes the drift; the two are kept aligned by hand under the touched-file rule.
+
+**Scope:** `README.md` "Publishing a Release"; `spx/local/merging.md` Deploy and Release; `spx/15-worktree-management.pdr.md`.
+
+**Resolution:** decide which node owns the human-facing release procedure — a release node whose assertion names `README.md` "Publishing a Release" as the human form of the overlay's Release sequence, or an audit rule on the PDR — and link it, so a later overlay change reaches the README through governed context instead of a manual sweep.
