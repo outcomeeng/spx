@@ -7,7 +7,7 @@ import {
 } from "@testing/generators/release/product-context";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { observeIndependentVersionSection } from "@testing/harnesses/release/keep-a-changelog-oracle";
-import { observeReleaseEndpointSources } from "@testing/harnesses/release/product-context";
+import { observeReleaseEndpointSources, RELEASE_ENDPOINT_COMMAND } from "@testing/harnesses/release/product-context";
 import { observeReleaseNotesContextTransport } from "@testing/harnesses/release/release-notes-compliance";
 import { expect, it } from "vitest";
 
@@ -41,7 +41,7 @@ it.each(Object.values(RELEASE_ENDPOINT_OWNERSHIP_CASE))(
     await assertProperty(
       arbitraryReleaseEndpointSourceScenario(kind),
       async (scenario) => {
-        const observation = await observeReleaseEndpointSources(scenario);
+        const observation = await observeReleaseEndpointSources(scenario, RELEASE_ENDPOINT_COMMAND.RELEASE_NOTES);
         const contextPaths = observation.context.map(({ path }) => path);
         if (scenario.kind === RELEASE_ENDPOINT_OWNERSHIP_CASE.UNRESOLVED) {
           expect(observation.error).toBeInstanceOf(Error);

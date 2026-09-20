@@ -87,6 +87,10 @@ export interface ReleaseContextScenario {
 export interface ReleaseEndpointOwnershipScenario {
   readonly changedPaths: readonly string[];
   readonly endpointOwnership: readonly ReleaseEndpointPathOwnership[];
+  /** The node identities the generator placed as candidates or governing owners at a classified endpoint. */
+  readonly expectedNodeIds: readonly string[];
+  /** The changed paths the generator classified as source at some endpoint while placing no owner at any. */
+  readonly expectedUnresolvedPaths: readonly string[];
 }
 
 export const RELEASE_ENDPOINT_OWNERSHIP_CASE = {
@@ -151,9 +155,18 @@ export function arbitraryReleaseEndpointOwnershipScenario(): fc.Arbitrary<Releas
         ...(laterGoverning === undefined ? {} : { governingNodeId: laterGoverning }),
       },
     ];
+    const placedOwners = [
+      ...earlier,
+      ...(earlierGoverning === undefined ? [] : [earlierGoverning]),
+      ...later,
+      ...(laterGoverning === undefined ? [] : [laterGoverning]),
+    ];
+    const classifiedSomewhere = earlierClassified || laterClassified;
     return {
       changedPaths: [path],
       endpointOwnership,
+      expectedNodeIds: [...new Set(placedOwners)],
+      expectedUnresolvedPaths: classifiedSomewhere && placedOwners.length === 0 ? [path] : [],
     };
   });
 }

@@ -1,5 +1,7 @@
 import { documentationSyncCommand } from "@/commands/release/documentation-sync";
 import { readReleaseProductContext, type ReleaseEndpointReader } from "@/commands/release/product-context";
+import { releaseNotesCommand } from "@/commands/release/release-notes";
+import type { ReleaseNotesFilesystem } from "@/commands/release/release-notes-filesystem";
 import type { ReleaseProductContext } from "@/domains/release/product-context";
 import {
   RELEASE_ENDPOINT_OWNERSHIP_CASE,
@@ -8,6 +10,14 @@ import {
 } from "@testing/generators/release/product-context";
 
 const IN_MEMORY_PRODUCT_DIRECTORY = "/release-product";
+
+/** The release command whose pre-agent failure the unresolved-path case observes. */
+export const RELEASE_ENDPOINT_COMMAND = {
+  DOCUMENTATION_SYNC: "documentation-sync",
+  RELEASE_NOTES: "release-notes",
+} as const;
+
+export type ReleaseEndpointCommand = (typeof RELEASE_ENDPOINT_COMMAND)[keyof typeof RELEASE_ENDPOINT_COMMAND];
 
 export interface ReleaseEndpointSourceObservation {
   readonly context: ReleaseProductContext;
@@ -18,27 +28,41 @@ export interface ReleaseEndpointSourceObservation {
 
 export async function observeReleaseEndpointSources(
   scenario: ReleaseEndpointSourceScenario,
+  command: ReleaseEndpointCommand = RELEASE_ENDPOINT_COMMAND.DOCUMENTATION_SYNC,
 ): Promise<ReleaseEndpointSourceObservation> {
   const endpointReader = createInMemoryReleaseEndpointReader(scenario.endpoints);
+  const readProductContext = async (productDir: string, releaseData: ReleaseEndpointSourceScenario["releaseData"]) =>
+    await readReleaseProductContext(productDir, releaseData, { endpointReader });
   let context: ReleaseProductContext = [];
   let error: unknown;
   let producerInvocations = 0;
   let auditorInvocations = 0;
+  const countProducer = async () => {
+    producerInvocations += 1;
+  };
+  const countAuditor = async () => {
+    auditorInvocations += 1;
+  };
   try {
-    if (scenario.kind === RELEASE_ENDPOINT_OWNERSHIP_CASE.UNRESOLVED) {
+    if (scenario.kind !== RELEASE_ENDPOINT_OWNERSHIP_CASE.UNRESOLVED) {
+      context = await readProductContext(IN_MEMORY_PRODUCT_DIRECTORY, scenario.releaseData);
+    } else if (command === RELEASE_ENDPOINT_COMMAND.RELEASE_NOTES) {
+      await releaseNotesCommand({
+        productDir: IN_MEMORY_PRODUCT_DIRECTORY,
+        config: {},
+        releaseData: scenario.releaseData,
+        readProductContext,
+        agentRunner: { run: countProducer },
+        faithfulnessAuditor: countAuditor,
+        filesystem: unreachableReleaseNotesFilesystem(),
+      });
+    } else {
       await documentationSyncCommand({
         productDir: IN_MEMORY_PRODUCT_DIRECTORY,
-        agentRunner: {
-          run: async () => {
-            producerInvocations += 1;
-          },
-        },
-        faithfulnessAuditor: async () => {
-          auditorInvocations += 1;
-        },
+        agentRunner: { run: countProducer },
+        faithfulnessAuditor: countAuditor,
       }, {
-        readProductContext: async (productDir, releaseData) =>
-          await readReleaseProductContext(productDir, releaseData, { endpointReader }),
+        readProductContext,
         resolveReleaseData: async () => scenario.releaseData,
         resolveDocumentationConfig: async () => ({}),
         stageDocumentation: async () => ({
@@ -51,17 +75,26 @@ export async function observeReleaseEndpointSources(
         },
         promoteDocumentation: async () => undefined,
       });
-    } else {
-      context = await readReleaseProductContext(
-        IN_MEMORY_PRODUCT_DIRECTORY,
-        scenario.releaseData,
-        { endpointReader },
-      );
     }
   } catch (caught) {
     error = caught;
   }
   return { context, error, producerInvocations, auditorInvocations };
+}
+
+/** A filesystem boundary the unresolved-path case must fail before reaching. */
+function unreachableReleaseNotesFilesystem(): ReleaseNotesFilesystem {
+  const unreachable = (): never => {
+    throw new Error("Unresolved endpoint property must not reach the release-notes filesystem");
+  };
+  return {
+    readArtifact: unreachable,
+    createArtifactStage: unreachable,
+    promoteArtifact: unreachable,
+    canonicalizePath: unreachable,
+    isSymbolicLink: unreachable,
+    isFile: unreachable,
+  };
 }
 
 function createInMemoryReleaseEndpointReader(
