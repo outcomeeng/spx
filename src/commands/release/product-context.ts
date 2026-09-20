@@ -1,38 +1,34 @@
-import { posix } from "node:path";
-
 import {
+  auditDeclarationOwners,
+  changedContextTargets,
+  committedSpecTreeEntries,
+  hasSpecTree,
+  linkedTestOwners,
+  orderReleaseContextDocuments,
+  reduceEndpointClaims,
   RELEASE_CONTEXT_KIND,
   type ReleaseContextDocument,
   type ReleaseContextReader,
+  type ReleaseEndpointDeclaration,
   type ReleaseEndpointPathOwnership,
   selectReleaseOwnershipContext,
+  uniqueNodes,
 } from "@/domains/release/product-context";
 import { committedFileContent, committedPaths } from "@/lib/git/release";
 import { defaultGitDependencies, type GitDependencies } from "@/lib/git/root";
 import {
-  compareSpecContextOrdinal,
   extractDecisionCitations,
   readSpecTree,
-  recognizeSpecTreeFilesystemEntry,
-  resolveSpecTreePathOwnership,
-  SPEC_TREE_ENTRY_TYPE,
-  SPEC_TREE_FILESYSTEM_RECORD_TYPE,
-  SPEC_TREE_PATH_OWNERSHIP_RESULT_KIND,
   specContextAncestors,
   specContextDecisions,
   specContextLowerIndexSiblings,
   type SpecTreeNode,
   type SpecTreeSnapshot,
   type SpecTreeSource,
-  type SpecTreeSourceEntry,
   type SpecTreeSourceRef,
 } from "@/lib/spec-tree";
 import { type TestingRegistry, testingRegistry } from "@/test/registry";
 
-const SPEC_TREE_DIRECTORY = "spx";
-const TEST_LINK_PATTERN = /\[test\]\(([^)]+)\)/gu;
-const INLINE_CODE_PATTERN = /`([^`]+)`/gu;
-const AUDIT_TAG = "[audit";
 const NOT_FOUND_ERROR_CODE = "ENOENT";
 
 interface ReleaseContextEndpoint {
@@ -90,9 +86,7 @@ export async function readReleaseProductContext(
   for (const endpoint of endpoints) {
     await addCitedDecisions(endpoint, documents, documentSources, addDocument);
   }
-  return Object.values(RELEASE_CONTEXT_KIND).flatMap((kind) =>
-    [...documents.values()].filter((document) => document.kind === kind)
-  );
+  return orderReleaseContextDocuments(documents.values());
 }
 
 async function readReleaseEndpoints(
@@ -198,7 +192,9 @@ function createReleaseEndpointSpecTreeSource(
   endpointReader: ReleaseEndpointReader,
 ): SpecTreeSource {
   return {
-    entries: () => committedSpecTreeEntries(paths),
+    async *entries() {
+      yield* committedSpecTreeEntries(paths);
+    },
     async readText(sourceRef): Promise<string> {
       if (sourceRef.path === undefined) throw new Error("Committed source refs require a path");
       const content = await endpointReader.readText(productDir, ref, sourceRef.path);
@@ -215,67 +211,14 @@ function createGitReleaseEndpointReader(git: GitDependencies): ReleaseEndpointRe
   };
 }
 
-async function* committedSpecTreeEntries(paths: readonly string[]): AsyncIterable<SpecTreeSourceEntry> {
-  const prefix = `${SPEC_TREE_DIRECTORY}/`;
-  const files = paths.filter((path) => path.startsWith(prefix)).map((path) => path.slice(prefix.length));
-  const directories = new Set<string>();
-  for (const file of files) {
-    let directory = posix.dirname(file);
-    while (directory !== ".") {
-      directories.add(directory);
-      directory = posix.dirname(directory);
-    }
-  }
-  yield* walkCommittedDirectory("", undefined, directories, new Set(files));
-}
-
-async function* walkCommittedDirectory(
-  directory: string,
-  parentId: string | undefined,
-  directories: ReadonlySet<string>,
-  files: ReadonlySet<string>,
-): AsyncIterable<SpecTreeSourceEntry> {
-  const children = [
-    ...[...directories].filter((path) => parentDirectory(path) === directory).map((path) => ({
-      path,
-      directory: true,
-    })),
-    ...[...files].filter((path) => parentDirectory(path) === directory).map((path) => ({ path, directory: false })),
-  ].sort((left, right) => compareSpecContextOrdinal(posix.basename(left.path), posix.basename(right.path)));
-
-  for (const child of children) {
-    const sourceEntry = recognizeSpecTreeFilesystemEntry({
-      type: child.directory
-        ? SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY
-        : SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
-      relativePath: child.path,
-      ...(parentId === undefined ? {} : { parentId }),
-    });
-    if (sourceEntry !== null) yield sourceEntry;
-    if (child.directory && (sourceEntry === null || sourceEntry.type === SPEC_TREE_ENTRY_TYPE.NODE)) {
-      yield* walkCommittedDirectory(
-        child.path,
-        sourceEntry?.type === SPEC_TREE_ENTRY_TYPE.NODE ? sourceEntry.id : parentId,
-        directories,
-        files,
-      );
-    }
-  }
-}
-
-function parentDirectory(path: string): string {
-  const directory = posix.dirname(path);
-  return directory === "." ? "" : directory;
-}
-
 async function resolveEndpointOwnership(
   productDir: string,
   endpoint: ReleaseContextEndpoint,
   changedPaths: readonly string[],
   registry: TestingRegistry,
 ): Promise<readonly ReleaseEndpointPathOwnership[]> {
-  const linkedOwners = await linkedEvidenceOwners(endpoint);
-  const auditOwners = await auditDeclarationOwners(endpoint, changedPaths);
+  const linkedOwners = linkedTestOwners(await readNodeDeclarations(endpoint));
+  const auditOwners = auditDeclarationOwners(await readAuditDeclarations(endpoint), changedPaths);
   return Promise.all(
     changedPaths.map((path) =>
       resolveEndpointPathOwnership(productDir, endpoint, path, registry, linkedOwners, auditOwners.get(path) ?? [])
@@ -342,68 +285,34 @@ async function resolveLanguageClaims(
   }
 }
 
-function reduceEndpointClaims(
-  snapshot: SpecTreeSnapshot,
-  path: string,
-  claimedNodeIds: readonly string[],
-): ReleaseEndpointPathOwnership {
-  const ownership = resolveSpecTreePathOwnership(snapshot, path, claimedNodeIds);
-  if (ownership.kind === SPEC_TREE_PATH_OWNERSHIP_RESULT_KIND.UNRESOLVED) {
-    return { path, classifiedAsSource: true, candidateNodeIds: [] };
-  }
-  const governingNodeId = snapshot.allNodes.some(({ id }) => id === ownership.governingOwner.id)
-    ? ownership.governingOwner.id
-    : undefined;
-  return {
-    path,
-    classifiedAsSource: true,
-    candidateNodeIds: ownership.candidates.map(({ id }) => id),
-    ...(governingNodeId === undefined ? {} : { governingNodeId }),
-  };
-}
-
-async function linkedEvidenceOwners(endpoint: ReleaseContextEndpoint): Promise<ReadonlyMap<string, string>> {
-  const owners = new Map<string, string>();
+/** Every node specification at the endpoint, read once, owned by its node. */
+async function readNodeDeclarations(endpoint: ReleaseContextEndpoint): Promise<readonly ReleaseEndpointDeclaration[]> {
+  const declarations: ReleaseEndpointDeclaration[] = [];
   for (const node of endpoint.snapshot.allNodes) {
     if (node.ref?.path === undefined) continue;
-    const content = await readCommittedPath(endpoint, node.ref.path);
-    for (const match of content.matchAll(TEST_LINK_PATTERN)) {
-      const linkedPath = match[1];
-      owners.set(posix.normalize(posix.join(posix.dirname(node.ref.path), linkedPath)), node.id);
-    }
+    declarations.push({
+      path: node.ref.path,
+      ownerNodeId: node.id,
+      content: await readCommittedPath(endpoint, node.ref.path),
+    });
   }
-  return owners;
+  return declarations;
 }
 
-async function auditDeclarationOwners(
+/** Every node specification and decision record at the endpoint, each owned by the node whose subtree it governs. */
+async function readAuditDeclarations(
   endpoint: ReleaseContextEndpoint,
-  changedPaths: readonly string[],
-): Promise<ReadonlyMap<string, readonly string[]>> {
-  const owners = new Map<string, Set<string>>();
-  const declarations = [
-    ...endpoint.snapshot.allNodes.flatMap((node) =>
-      node.ref?.path === undefined ? [] : [{ path: node.ref.path, owner: node.id }]
-    ),
-    ...endpoint.snapshot.decisions.flatMap((decision) =>
-      decision.ref?.path === undefined || decision.parentId === undefined
-        ? []
-        : [{ path: decision.ref.path, owner: decision.parentId }]
-    ),
-  ];
-  for (const declaration of declarations) {
-    const content = await readCommittedPath(endpoint, declaration.path);
-    for (const line of content.split("\n")) {
-      if (!line.includes(AUDIT_TAG)) continue;
-      const references = new Set([...line.matchAll(INLINE_CODE_PATTERN)].map((match) => match[1]));
-      for (const path of changedPaths) {
-        if (!references.has(path)) continue;
-        const pathOwners = owners.get(path) ?? new Set<string>();
-        pathOwners.add(declaration.owner);
-        owners.set(path, pathOwners);
-      }
-    }
+): Promise<readonly ReleaseEndpointDeclaration[]> {
+  const decisions = endpoint.snapshot.decisions.flatMap((decision) =>
+    decision.ref?.path === undefined || decision.parentId === undefined
+      ? []
+      : [{ path: decision.ref.path, ownerNodeId: decision.parentId }]
+  );
+  const declarations = [...await readNodeDeclarations(endpoint)];
+  for (const decision of decisions) {
+    declarations.push({ ...decision, content: await readCommittedPath(endpoint, decision.path) });
   }
-  return new Map([...owners].map(([path, pathOwners]) => [path, [...pathOwners]]));
+  return declarations;
 }
 
 async function readCommittedPath(endpoint: ReleaseContextEndpoint, path: string): Promise<string> {
@@ -423,28 +332,11 @@ function hasErrorCode(error: unknown, code: string): boolean {
     && (error as { readonly code?: unknown }).code === code;
 }
 
-function hasSpecTree(snapshot: SpecTreeSnapshot): boolean {
-  return snapshot.product !== null || snapshot.allNodes.length > 0 || snapshot.decisions.length > 0;
-}
-
-function uniqueNodes(nodes: readonly SpecTreeNode[]): readonly SpecTreeNode[] {
-  const seen = new Set<string>();
-  return nodes.filter((node) => {
-    if (seen.has(node.id)) return false;
-    seen.add(node.id);
-    return true;
-  });
-}
-
 async function addCitedDecisions(
   endpoint: ReleaseContextEndpoint,
   documents: ReadonlyMap<string, ReleaseContextDocument>,
   documentSources: ReadonlyMap<string, ReleaseContextEndpoint>,
-  addDocument: (
-    endpoint: ReleaseContextEndpoint,
-    kind: ReleaseContextDocument["kind"],
-    ref: SpecTreeSourceRef | undefined,
-  ) => Promise<void>,
+  addDocument: ContextDocumentAdder,
 ): Promise<void> {
   const decisionsByPath = new Map(endpoint.snapshot.decisions.map((decision) => [decision.ref?.path, decision.ref]));
   for (const document of documents.values()) {
@@ -457,11 +349,4 @@ async function addCitedDecisions(
       await addDocument(endpoint, RELEASE_CONTEXT_KIND.DECISION, ref);
     }
   }
-}
-
-function changedContextTargets(snapshot: SpecTreeSnapshot, changedPaths: readonly string[]): readonly SpecTreeNode[] {
-  return snapshot.allNodes.filter((node) => {
-    const path = node.ref?.path;
-    return path !== undefined && changedPaths.some((changed) => changed.startsWith(`${posix.dirname(path)}/`));
-  });
 }

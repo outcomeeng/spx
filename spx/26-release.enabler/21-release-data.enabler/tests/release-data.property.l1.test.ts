@@ -33,6 +33,14 @@ describe("computeReleaseData — release data is a deterministic function of rep
         const first = await computeReleaseData(options);
         const second = await computeReleaseData(options);
 
+        expect(first).toEqual({
+          version: scenario.packageVersion,
+          releaseRef: scenario.resolvedReleaseRef,
+          previousTag: scenario.previousTag,
+          commits: scenario.commits,
+          versionDelta: scenario.versionDelta,
+          changedPaths: scenario.changedPaths,
+        });
         expect(second).toEqual(first);
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },

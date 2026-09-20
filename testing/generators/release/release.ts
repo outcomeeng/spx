@@ -60,6 +60,7 @@ export type ReleaseDataDeterminismScenario = {
   readonly packageVersion: string;
   readonly previousTag: string;
   readonly commits: ReleaseData["commits"];
+  readonly versionDelta: ReleaseData["versionDelta"];
   readonly changedPaths: ReleaseData["changedPaths"];
 };
 
@@ -257,6 +258,7 @@ function arbitraryReleaseDataDeterminismScenario(): fc.Arbitrary<ReleaseDataDete
         packageVersion: releaseData.version,
         previousTag: releaseData.previousTag,
         commits: releaseData.commits,
+        versionDelta: releaseData.versionDelta,
         changedPaths: releaseData.changedPaths,
       };
     });

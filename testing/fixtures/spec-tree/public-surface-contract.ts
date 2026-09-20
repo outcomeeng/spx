@@ -14,21 +14,20 @@ import {
 } from "@/lib/spec-tree";
 
 declare const source: SpecTreeSource;
-declare const options: SpecTreeOptions;
 declare const snapshot: SpecTreeSnapshot;
-declare const node: SpecTreeNode;
-declare const projection: SpecTreeProjection;
-declare const ownership: SpecTreePathOwnershipResult;
+declare const productPath: string;
+declare const claimedNodeIds: readonly string[];
 
-void source;
-void options;
-void snapshot;
-void node;
-void projection;
-void ownership;
-void readSpecTree;
-void projectSpecTree;
-void findNextSpecTreeNode;
-void resolveSpecTreePathOwnership;
-void KIND_REGISTRY;
-void SPEC_TREE_GRAMMAR;
+const options: SpecTreeOptions = { source, registry: KIND_REGISTRY };
+
+/** Applies every exported operation with declared inputs and binds each result to its declared type. */
+export async function consumePublicSpecTreeSurface(): Promise<SpecTreeProjection> {
+  const read: SpecTreeSnapshot = await readSpecTree(options);
+  const projection: SpecTreeProjection = projectSpecTree(read);
+  const next: SpecTreeNode | null = findNextSpecTreeNode(read);
+  const ownership: SpecTreePathOwnershipResult = resolveSpecTreePathOwnership(snapshot, productPath, claimedNodeIds);
+  void next;
+  void ownership;
+  void SPEC_TREE_GRAMMAR;
+  return projection;
+}
