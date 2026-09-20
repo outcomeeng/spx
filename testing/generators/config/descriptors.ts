@@ -34,6 +34,7 @@ import {
   arbitraryMethodologyVersion,
   arbitraryMethodologyVersionForms,
   type GeneratedMethodologyVersionForms,
+  malformedVersionTextShapes,
 } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 
@@ -44,7 +45,6 @@ export const CONFIG_TEST_FIELDS = {
 
 const ENVIRONMENT_SENTINEL_PREFIX = "SPX_TEST_SENTINEL_";
 /** How many malformed values each field draws when the rejection cases are generated. */
-const MALFORMED_METHODOLOGY_SAMPLES = 4;
 /** The field a location-bearing methodology section would carry; the descriptor declares no such field. */
 export const METHODOLOGY_LOCATION_FIELD = "location";
 const SIMILAR_HARNESS_METHODOLOGY_FIELD = "methodologySource";
@@ -308,29 +308,40 @@ export function generatedMethodologyLocationSection(): Record<string, unknown> {
 }
 
 /**
- * Text that is not an `owner/repository` identifier: empty, a single segment,
- * a traversal or absolute path, or more than two segments.
+ * The shape classes of text that is not an `owner/repository` identifier: empty,
+ * a single segment, a traversal or absolute path, or more than two segments.
  */
-export function arbitraryMalformedMethodologySource(): fc.Arbitrary<string> {
+export function malformedMethodologySourceShapes(): readonly fc.Arbitrary<string>[] {
   const segment = arbitraryPathSegment();
-  return fc.oneof(
+  return [
     fc.constant(""),
     segment,
     segment.map((name) => `../${name}`),
     segment.map((name) => `/${name}`),
     fc.tuple(segment, segment).map(([owner, repository]) => `${owner}/../${repository}`),
     fc.tuple(segment, segment, segment).map((parts) => parts.join("/")),
-  );
+  ];
 }
 
-/** A value that is not an exact methodology version: empty, a non-string, or version-shaped text that is not exact. */
+/** Text that is not an `owner/repository` identifier, drawn across every malformed shape class. */
+export function arbitraryMalformedMethodologySource(): fc.Arbitrary<string> {
+  return fc.oneof(...malformedMethodologySourceShapes());
+}
+
+/** The shape classes of a value that is not an exact methodology version: empty, a non-string, or malformed text. */
+export function malformedMethodologyVersionShapes(): readonly fc.Arbitrary<unknown>[] {
+  return [fc.constant(""), fc.boolean(), fc.nat(), ...malformedVersionTextShapes()];
+}
+
+/** A value that is not an exact methodology version, drawn across every malformed shape class. */
 export function arbitraryMalformedMethodologyVersion(): fc.Arbitrary<unknown> {
-  return fc.oneof(fc.constant(""), fc.boolean(), fc.nat(), arbitraryMalformedVersionText());
+  return fc.oneof(...malformedMethodologyVersionShapes());
 }
 
+/** One seeded draw per malformed shape class, so every rejection branch is exercised and replayable. */
 export function generatedInvalidMethodologyConfigs(): readonly GeneratedInvalidMethodologyConfig[] {
-  const sources = sampleConfigTestValues(arbitraryMalformedMethodologySource(), MALFORMED_METHODOLOGY_SAMPLES);
-  const versions = sampleConfigTestValues(arbitraryMalformedMethodologyVersion(), MALFORMED_METHODOLOGY_SAMPLES);
+  const sources = malformedMethodologySourceShapes().map((shape) => sampleGeneratedValue(shape));
+  const versions = malformedMethodologyVersionShapes().map((shape) => sampleGeneratedValue(shape));
   return [
     ...sources.map((source) => ({
       config: {

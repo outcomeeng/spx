@@ -22,6 +22,7 @@ import {
   generatedHarnessMethodologyWithUnknownFieldsConfig,
   generatedInvalidMethodologyConfigs,
   generatedLineFormMethodologySection,
+  generatedLineFormMigratingMethodologySection,
   generatedMethodologyLocationSection,
   generatedMethodologySection,
   generatedMethodologyVersionFormSections,
@@ -62,6 +63,14 @@ export interface MethodologyVersionObservation {
 export interface MethodologyVersionFormObservation {
   readonly form: string;
   readonly declared: string;
+  readonly result: Result<MethodologyConfig>;
+}
+
+export interface LineFormMigrationObservation {
+  /** The declared target version and the declared `MAJOR.MINOR` migration source. */
+  readonly declared: { readonly version: string; readonly migratingFrom: string };
+  /** The migration source's line from the generator's construction. */
+  readonly migratingFromLine: string;
   readonly result: Result<MethodologyConfig>;
 }
 
@@ -148,6 +157,23 @@ export async function observeLineFormMethodologyVersionResolution(): Promise<Met
     ({ productDir }) => resolveMethodologyConfig(productDir),
   );
   return { declared: methodology[METHODOLOGY_CONFIG_FIELDS.VERSION] as string, result };
+}
+
+/** Resolves a migrating section whose migration source is declared in the `MAJOR.MINOR` form. */
+export async function observeLineFormMigrationSourceResolution(): Promise<LineFormMigrationObservation> {
+  const { section, forms } = generatedLineFormMigratingMethodologySection();
+  const result = await withTestEnv(
+    { [METHODOLOGY_SECTION]: section },
+    ({ productDir }) => resolveMethodologyConfig(productDir),
+  );
+  return {
+    declared: {
+      version: section[METHODOLOGY_CONFIG_FIELDS.VERSION] as string,
+      migratingFrom: section[METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM] as string,
+    },
+    migratingFromLine: forms.line,
+    result,
+  };
 }
 
 /** Resolves one line declared in each accepted version form, one section per form. */

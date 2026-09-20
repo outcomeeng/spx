@@ -86,15 +86,29 @@ export function arbitraryMethodologyVersionForms(): fc.Arbitrary<GeneratedMethod
   }));
 }
 
-/** Non-empty text that is not an exact methodology version: one component, words, a word component, or too many components. */
-export function arbitraryMalformedVersionText(): fc.Arbitrary<string> {
-  return fc.oneof(
+/**
+ * The shape classes of non-empty text that is not an exact methodology version:
+ * one component, words, a word component, or too many components. Each class
+ * is its own arbitrary so a consumer can draw every class deterministically.
+ */
+export function malformedVersionTextShapes(): readonly fc.Arbitrary<string>[] {
+  return [
     versionComponent().map(String),
     arbitraryPathSegment(),
     fc.tuple(versionComponent(), arbitraryPathSegment()).map((parts) => parts.join(VERSION_SEPARATOR)),
     fc.array(versionComponent(), { minLength: LINE_COMPONENT_COUNT + 2, maxLength: LINE_COMPONENT_COUNT + 3 })
       .map((parts) => parts.join(VERSION_SEPARATOR)),
-  );
+  ];
+}
+
+/** Non-empty text that is not an exact methodology version, drawn across every malformed shape class. */
+export function arbitraryMalformedVersionText(): fc.Arbitrary<string> {
+  return fc.oneof(...malformedVersionTextShapes());
+}
+
+/** An exact methodology version in either accepted form. */
+export function arbitraryAcceptedMethodologyVersion(): fc.Arbitrary<GeneratedMethodologyVersion> {
+  return fc.oneof(arbitraryMethodologyVersion(), arbitraryMethodologyLineVersion());
 }
 
 /** Text that is not an exact methodology version: malformed text or empty. */

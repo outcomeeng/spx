@@ -13,11 +13,13 @@ import {
   HARNESS_ENVIRONMENT_SECTION,
   harnessEnvironmentConfigDescriptor,
 } from "@/domains/agent-environment/config";
+import { methodologyLine } from "@/lib/methodology";
 import { METHODOLOGY_LOCATION_FIELD } from "@testing/generators/config/descriptors";
 import {
   observeDeclaredMethodologyVersionResolution,
   observeHarnessEnvironmentMethodologyRejection,
   observeLineFormMethodologyVersionResolution,
+  observeLineFormMigrationSourceResolution,
   observeMalformedMethodologyConfigRejections,
   observeMethodologyLocationFieldResolution,
   observeMethodologyResolverHarnessUnknownFieldRejection,
@@ -111,6 +113,19 @@ describe("methodology config compliance", () => {
     if (!observation.result.ok) throw new Error(observation.result.error);
     expect(observation.result.value.version).toBe(observation.declared);
     expect(requireMethodologyVersion(observation.result.value)).toEqual({ ok: true, value: observation.declared });
+  });
+
+  it("carries a migration source declared in the MAJOR.MINOR form as the exact version it names, selecting that source's line", async () => {
+    const observation = await observeLineFormMigrationSourceResolution();
+
+    expect(observation.result.ok).toBe(true);
+    if (!observation.result.ok) throw new Error(observation.result.error);
+    expect(observation.result.value.version).toBe(observation.declared.version);
+    expect(observation.result.value.migratingFrom).toBe(observation.declared.migratingFrom);
+    expect(methodologyLine(observation.declared.migratingFrom)).toEqual({
+      ok: true,
+      value: observation.migratingFromLine,
+    });
   });
 
   it("rejects methodology under harnessEnvironment", async () => {
