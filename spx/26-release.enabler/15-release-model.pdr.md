@@ -22,7 +22,7 @@ Release preparation — the version edit, the generated artifacts, and their ver
 - ALWAYS: release-data computation is deterministic — identical repository state yields identical release data ([property])
 - NEVER: computing release data reaches a network or model-capable operation — every dependency required to produce its result is local to the product repository ([compliance])
 - ALWAYS: release notes conform to the Keep a Changelog structure ([conformance])
-- ALWAYS: publication proceeds only when the release tag equals the package version prefixed with `v` ([compliance])
+- ALWAYS: publication proceeds only when the release tag equals the package version prefixed with `v` ([scenario])
 
 ### Audit
 

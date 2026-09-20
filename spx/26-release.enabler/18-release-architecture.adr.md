@@ -11,6 +11,7 @@ A release's deterministic core — the commits since the last tag, the version d
 - Release data is a pure function of git state — identical repository state yields identical release data.
 - Every external operation requested during release-data computation passes through the release-data boundary before the injected runner, and the runner receives only source-owned local git operations.
 - Governing-node selection is a pure function of the release-range endpoint trees, changed paths classified as source by the injected evidence-reachability provider at either endpoint, and ownership claims from evidence reachability and exact audit-declaration path references: each endpoint yields a deduplicated candidate set plus its governing lowest common ancestor, or unresolved, and the release context contains every distinct candidate and governing owner.
+- Audit-declaration claims come from node specifications and from decisions, each attributed to the node whose subtree the declaration governs; a root decision's exact `[audit]` path reference attributes the path to the product root, which resolves the path without adding a node to the release context.
 - Every agent-produced artifact is read back from disk and validated against its contract; the release proceeds only when validation passes.
 
 ## Verification
