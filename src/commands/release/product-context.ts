@@ -299,15 +299,19 @@ async function readNodeDeclarations(endpoint: ReleaseContextEndpoint): Promise<r
   return declarations;
 }
 
-/** Every node specification and decision record at the endpoint, each owned by the node whose subtree it governs. */
+/**
+ * The node specifications plus every decision record at the endpoint, each decision owned by the
+ * node whose subtree it governs; a root decision is owned by the product.
+ */
 async function readAuditDeclarations(
   endpoint: ReleaseContextEndpoint,
 ): Promise<readonly ReleaseEndpointDeclaration[]> {
-  const decisions = endpoint.snapshot.decisions.flatMap((decision) =>
-    decision.ref?.path === undefined || decision.parentId === undefined
+  const decisions = endpoint.snapshot.decisions.flatMap((decision) => {
+    const ownerNodeId = decision.parentId ?? endpoint.snapshot.product?.id;
+    return decision.ref?.path === undefined || ownerNodeId === undefined
       ? []
-      : [{ path: decision.ref.path, ownerNodeId: decision.parentId }]
-  );
+      : [{ path: decision.ref.path, ownerNodeId }];
+  });
   const declarations = [...await readNodeDeclarations(endpoint)];
   for (const decision of decisions) {
     declarations.push({ ...decision, content: await readCommittedPath(endpoint, decision.path) });

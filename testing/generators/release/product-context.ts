@@ -48,6 +48,11 @@ export function sampleReleaseOwnershipFixture(): ReleaseOwnershipFixture {
   };
 }
 
+/** A root decision whose one audit rule claims the given path for the product. */
+export function releaseOwnershipRootDecision(slug: string, auditPath: string): string {
+  return `# ${slug}\n\nWE BELIEVE THAT products own their shared source\n\n## Verification\n\n### Audit\n\n- ALWAYS: \`${auditPath}\` is governed by the product ([audit])\n`;
+}
+
 export function releaseOwnershipNodeSpec(slug: string, testPath?: string, auditPath?: string): string {
   const assertions = [
     ...(testPath === undefined ? [] : [`- Given source input, behavior remains covered ([test](${testPath}))`]),
@@ -95,6 +100,7 @@ export interface ReleaseEndpointOwnershipScenario {
 
 export const RELEASE_ENDPOINT_OWNERSHIP_CASE = {
   AUDIT_DECLARATION: "audit-declaration",
+  ROOT_DECISION: "root-decision",
   CROSS_ENDPOINT: "cross-endpoint",
   MULTIPLE_CANDIDATES: "multiple-candidates",
   DELETED: "deleted",
@@ -199,6 +205,10 @@ export function arbitraryReleaseEndpointSourceScenario(
       SPEC_TREE_CONFIG.ROOT_DIRECTORY,
       `${nodeSlugs[5]}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`,
     );
+    const rootDecisionPath = posix.join(
+      SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+      `${CONTEXT_DECISION_INDEX}-${nodeSlugs[0]}${KIND_REGISTRY.adr.suffix}`,
+    );
     const changedSourcePath = `src/${sourceSlug}.ts`;
     const unlinkedTestPath = releaseOwnershipTestPath(sourceSlug);
     const currentFiles = releaseEndpointFiles(productPath, nodeSlugs[5]);
@@ -209,6 +219,8 @@ export function arbitraryReleaseEndpointSourceScenario(
       ? [parentNode.specificationPath, childNode.specificationPath, peerNode.specificationPath]
       : kind === RELEASE_ENDPOINT_OWNERSHIP_CASE.UNRESOLVED
       ? []
+      : kind === RELEASE_ENDPOINT_OWNERSHIP_CASE.ROOT_DECISION
+      ? [rootDecisionPath]
       : [earlierNode.specificationPath];
     switch (kind) {
       case RELEASE_ENDPOINT_OWNERSHIP_CASE.AUDIT_DECLARATION:
@@ -217,6 +229,13 @@ export function arbitraryReleaseEndpointSourceScenario(
             earlierNode.specificationPath,
             releaseOwnershipNodeSpec(earlierNode.slug, undefined, changedSourcePath),
           ),
+          releaseEndpointFile(unlinkedTestPath, releaseOwnershipSourceImport(unlinkedTestPath, changedSourcePath)),
+          releaseEndpointFile(changedSourcePath, releaseOwnershipSourceContent(1)),
+        );
+        break;
+      case RELEASE_ENDPOINT_OWNERSHIP_CASE.ROOT_DECISION:
+        currentFiles.push(
+          releaseEndpointFile(rootDecisionPath, releaseOwnershipRootDecision(nodeSlugs[0], changedSourcePath)),
           releaseEndpointFile(unlinkedTestPath, releaseOwnershipSourceImport(unlinkedTestPath, changedSourcePath)),
           releaseEndpointFile(changedSourcePath, releaseOwnershipSourceContent(1)),
         );
@@ -248,6 +267,7 @@ export function arbitraryReleaseEndpointSourceScenario(
     }
     const previousTag = kind === RELEASE_ENDPOINT_OWNERSHIP_CASE.MULTIPLE_CANDIDATES
         || kind === RELEASE_ENDPOINT_OWNERSHIP_CASE.AUDIT_DECLARATION
+        || kind === RELEASE_ENDPOINT_OWNERSHIP_CASE.ROOT_DECISION
       ? null
       : tag;
     return {

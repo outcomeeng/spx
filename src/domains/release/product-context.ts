@@ -39,6 +39,8 @@ export interface ReleaseEndpointPathOwnership {
   readonly classifiedAsSource: boolean;
   readonly candidateNodeIds: readonly string[];
   readonly governingNodeId?: string;
+  /** The product root governs the path: a root decision claims it and no node candidate exists. */
+  readonly governedByProduct?: boolean;
 }
 
 export interface ReleaseOwnershipContextSelection {
@@ -68,7 +70,9 @@ export function selectReleaseOwnershipContext(
   for (const path of changedPaths) {
     const endpointResults = endpointOwnership.filter((result) => result.path === path);
     if (!endpointResults.some((result) => result.classifiedAsSource)) continue;
-    const resolved = endpointResults.filter((result) => result.candidateNodeIds.length > 0);
+    const resolved = endpointResults.filter((result) =>
+      result.candidateNodeIds.length > 0 || result.governedByProduct === true
+    );
     if (resolved.length === 0) {
       unresolvedPaths.push(path);
       continue;
@@ -150,7 +154,11 @@ function parentDirectory(path: string): string {
   return directory === "." ? "" : directory;
 }
 
-/** Reduces claimed node identities for one source path into that endpoint's ownership record. */
+/**
+ * Reduces claimed identities for one source path into that endpoint's ownership record. A claim
+ * carrying the product's own identity comes from a root decision and, with no node candidate,
+ * attributes the path to the product root instead of leaving it unresolved.
+ */
 export function reduceEndpointClaims(
   snapshot: SpecTreeSnapshot,
   path: string,
@@ -158,7 +166,8 @@ export function reduceEndpointClaims(
 ): ReleaseEndpointPathOwnership {
   const ownership = resolveSpecTreePathOwnership(snapshot, path, claimedNodeIds);
   if (ownership.kind === SPEC_TREE_PATH_OWNERSHIP_RESULT_KIND.UNRESOLVED) {
-    return { path, classifiedAsSource: true, candidateNodeIds: [] };
+    const rootClaim = snapshot.product !== null && claimedNodeIds.includes(snapshot.product.id);
+    return { path, classifiedAsSource: true, candidateNodeIds: [], ...(rootClaim ? { governedByProduct: true } : {}) };
   }
   const governingNodeId = snapshot.allNodes.some(({ id }) => id === ownership.governingOwner.id)
     ? ownership.governingOwner.id
