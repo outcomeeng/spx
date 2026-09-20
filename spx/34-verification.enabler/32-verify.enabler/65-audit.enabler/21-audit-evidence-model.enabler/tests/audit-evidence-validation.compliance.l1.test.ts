@@ -9,6 +9,7 @@ import {
   VERIFY_VERIFICATION_TYPE,
 } from "@/domains/verify/verify";
 import {
+  arbitraryAuditFindingMissingDispositionEvidence,
   arbitraryAuditFindingMissingRequiredField,
   arbitraryAuditFindingValidationScenario,
   arbitraryAuditScopeCoverageGapWithProvenance,
@@ -146,6 +147,22 @@ describe("audit evidence validation", () => {
   it("names the missing required field when it rejects an audit finding payload", () => {
     assertProperty(
       arbitraryAuditFindingMissingRequiredField(),
+      (scenario) => {
+        const result = evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.FINDING)?.({
+          payload: scenario.payload,
+          events: [],
+          selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: scenario.scopeIdentity },
+        });
+        expect(result?.ok).toBe(false);
+        expect(result?.ok === false ? result.reason : "").toContain(scenario.missingField);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+
+  it("rejects a filed or stale finding lacking its entry reference or base-ref evidence, naming the missing field path", () => {
+    assertProperty(
+      arbitraryAuditFindingMissingDispositionEvidence(),
       (scenario) => {
         const result = evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.FINDING)?.({
           payload: scenario.payload,

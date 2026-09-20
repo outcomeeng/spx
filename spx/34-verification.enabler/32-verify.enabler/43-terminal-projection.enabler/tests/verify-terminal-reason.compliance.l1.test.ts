@@ -92,7 +92,7 @@ describe("verify terminal rejection reasons", () => {
       VERIFY_VERIFICATION_TYPE.TEST,
       JOURNAL_RUN_STATE_STATUS.PASSED,
       undefined,
-      scenario.findingEvents,
+      scenario.defectFindingEvents,
     );
     expect(result?.ok).toBe(false);
     expect(result?.ok === false ? result.reason : "").toContain(TERMINAL_REQUIREMENT.PASSED_HAS_NO_FINDINGS);
@@ -115,7 +115,7 @@ describe("verify terminal rejection reasons", () => {
       VERIFY_VERIFICATION_TYPE.AUDIT,
       JOURNAL_RUN_STATE_STATUS.APPROVED,
       undefined,
-      scenario.findingEvents,
+      scenario.defectFindingEvents,
     );
     expect(result?.ok).toBe(false);
     expect(result?.ok === false ? result.reason : "").toContain(TERMINAL_REQUIREMENT.STATUS_MATCHES_EVIDENCE);
@@ -140,7 +140,7 @@ describe("verify terminal rejection reasons", () => {
       VERIFY_VERIFICATION_TYPE.REVIEW,
       JOURNAL_RUN_STATE_STATUS.APPROVED,
       metadata as unknown as JsonValue,
-      scenario.findingEvents,
+      scenario.defectFindingEvents,
     );
     expect(result?.ok).toBe(false);
     expect(result?.ok === false ? result.reason : "").toContain(TERMINAL_REQUIREMENT.METADATA_MATCHES_EVIDENCE);

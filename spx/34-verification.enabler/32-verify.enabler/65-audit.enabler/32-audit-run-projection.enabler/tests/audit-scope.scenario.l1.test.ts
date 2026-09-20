@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { projectVerifyRun } from "@/domains/verify/verify";
+import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
+import {
+  projectVerifyRun,
+  validateAuditTerminal,
+  VERIFY_FINDING_DISPOSITION,
+  VERIFY_SCOPE_TYPE,
+  type VerifyFindingDisposition,
+} from "@/domains/verify/verify";
 import {
   arbitraryAuditChangesetProjectionScenario,
   arbitraryFileAuditScopeScenario,
@@ -30,5 +37,36 @@ describe("audit scope projection", () => {
       auditScopeUnits: [sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).rootPayload],
       findingCount: 0,
     });
+  });
+
+  it("seals approved when every finding is filed or stale, retaining each under its own disposition", () => {
+    const events = [
+      sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).rootEvent,
+      ...sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).filedOrStaleFindingEvents,
+    ];
+    expect(validateAuditTerminal({
+      terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
+      events,
+      selector: {
+        scopeType: VERIFY_SCOPE_TYPE.FILE,
+        scopeIdentity: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).scopeIdentity,
+      },
+    })).toStrictEqual({ ok: true, value: undefined });
+    const projection = projectVerifyRun(events);
+    const retained = sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).filedOrStaleFindingPayloads;
+    expect(projection.findingCount).toBe(retained.length);
+    expect(projection.findingCounts.total).toBe(retained.length);
+    expect(
+      projection.findingCounts[VERIFY_FINDING_DISPOSITION.FILED]
+        + projection.findingCounts[VERIFY_FINDING_DISPOSITION.STALE],
+    ).toBe(retained.length);
+    expect(projection.findingCounts[VERIFY_FINDING_DISPOSITION.BLOCKING]).toBe(0);
+    expect(projection.findingCounts[VERIFY_FINDING_DISPOSITION.DEBT]).toBe(0);
+    expect(projection.findings[VERIFY_FINDING_DISPOSITION.BLOCKING]).toStrictEqual([]);
+    expect(projection.findings[VERIFY_FINDING_DISPOSITION.DEBT]).toStrictEqual([]);
+    for (const payload of retained) {
+      const { severity } = payload as { readonly severity: VerifyFindingDisposition };
+      expect(projection.findings[severity].map((finding) => finding.payload)).toContainEqual(payload);
+    }
   });
 });

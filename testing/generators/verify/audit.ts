@@ -14,16 +14,28 @@ import {
   type AuditProducerProvenance,
   type AuditScopeUnit,
   buildAppendEvent,
+  isDefectDisposition,
+  ISSUES_ENTRY_FIELD,
+  type IssuesEntryReference,
   VERIFY_APPEND_EVENT_TYPE,
+  VERIFY_FINDING_DISPOSITION,
   VERIFY_SCOPE_SEPARATOR,
   type VerifyAppendEventType,
+  type VerifyFindingDisposition,
 } from "@/domains/verify/verify";
 import { CLOUDEVENTS_SPECVERSION, JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
 import { CHANGE_DRAFT } from "@/lib/change-drafts/contract";
 import { worktreeScopeDir } from "@/lib/state-store";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
-import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
+import {
+  arbitraryBaseRefEvidence,
+  arbitraryIssuesEntryReference,
+  findingDispositionEvidenceFor,
+  sampleVerifyTestValue,
+  VERIFY_TEST_GENERATOR,
+  withoutNestedField,
+} from "@testing/generators/verify/verify";
 
 const AUDIT_COVERAGE_REQUIREMENTS = Object.values(AUDIT_COVERAGE_REQUIREMENT);
 const AUDIT_COVERAGE_STATUSES = Object.values(AUDIT_COVERAGE_STATUS);
@@ -35,6 +47,10 @@ const AUDIT_UNCOVERED_COVERAGE_STATUSES = AUDIT_COVERAGE_STATUSES.filter((status
   status !== AUDIT_COVERAGE_STATUS.AUDITED && status !== AUDIT_COVERAGE_STATUS.NOT_APPLICABLE
 );
 const AUDIT_FINDING_SEVERITIES = Object.values(AUDIT_FINDING_SEVERITY);
+const DEFECT_AUDIT_FINDING_SEVERITIES = AUDIT_FINDING_SEVERITIES.filter(isDefectDisposition);
+const FILED_OR_STALE_AUDIT_FINDING_SEVERITIES = AUDIT_FINDING_SEVERITIES.filter(
+  (severity) => !isDefectDisposition(severity),
+);
 
 export interface FileAuditScopeScenario {
   readonly scopeIdentity: string;
@@ -56,7 +72,9 @@ export interface FileAuditScopeScenario {
   readonly optionalUncoveredEvent: JournalEvent;
   readonly requiredUncoveredEvents: readonly JournalEvent[];
   readonly requiredCoverageGapEvent: JournalEvent;
-  readonly findingEvents: readonly JournalEvent[];
+  readonly defectFindingEvents: readonly JournalEvent[];
+  readonly filedOrStaleFindingEvents: readonly JournalEvent[];
+  readonly filedOrStaleFindingPayloads: readonly JsonValue[];
 }
 
 export interface AuditChangesetProjectionScenario {
@@ -173,20 +191,48 @@ function arbitraryChangesetClassAuditScopeUnit(): fc.Arbitrary<AuditScopeUnit> {
     .filter((unit) => unit.parentUnitId !== unit.unitId);
 }
 
+/** An audit finding at the given severity, carrying the evidence that severity demands. */
+export function auditFindingAtSeverity(
+  finding: AuditFinding,
+  severity: VerifyFindingDisposition,
+  issuesEntry: IssuesEntryReference,
+  baseRefEvidence: string,
+): AuditFinding {
+  const { issuesEntry: _entry, baseRefEvidence: _baseRef, ...bare } = finding;
+  return { ...bare, severity, ...findingDispositionEvidenceFor(severity, issuesEntry, baseRefEvidence) };
+}
+
+function arbitraryAuditFindingWith(severities: readonly VerifyFindingDisposition[]): fc.Arbitrary<AuditFinding> {
+  return fc
+    .tuple(
+      fc.record({
+        unitId: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        producerIdentity: arbitraryAuditProducerIdentity(),
+        producerProvenance: arbitraryAuditProducerProvenance(),
+        rule: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        location: arbitrarySourceFilePath(),
+        message: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        evidence: fc.record({
+          observed: STATE_STORE_TEST_GENERATOR.scopeToken(),
+          expected: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        }),
+      }),
+      fc.constantFrom(...severities),
+      arbitraryIssuesEntryReference(),
+      arbitraryBaseRefEvidence(),
+    )
+    .map(([base, severity, issuesEntry, baseRefEvidence]) =>
+      auditFindingAtSeverity({ ...base, severity }, severity, issuesEntry, baseRefEvidence)
+    );
+}
+
 export function arbitraryAuditFinding(): fc.Arbitrary<AuditFinding> {
-  return fc.record({
-    unitId: STATE_STORE_TEST_GENERATOR.scopeToken(),
-    producerIdentity: arbitraryAuditProducerIdentity(),
-    producerProvenance: arbitraryAuditProducerProvenance(),
-    rule: STATE_STORE_TEST_GENERATOR.scopeToken(),
-    severity: fc.constantFrom(...AUDIT_FINDING_SEVERITIES),
-    location: arbitrarySourceFilePath(),
-    message: STATE_STORE_TEST_GENERATOR.scopeToken(),
-    evidence: fc.record({
-      observed: STATE_STORE_TEST_GENERATOR.scopeToken(),
-      expected: STATE_STORE_TEST_GENERATOR.scopeToken(),
-    }),
-  });
+  return arbitraryAuditFindingWith(AUDIT_FINDING_SEVERITIES);
+}
+
+/** An audit finding whose severity is `filed` or `stale`, so it determines no terminal status. */
+export function arbitraryFiledOrStaleAuditFinding(): fc.Arbitrary<AuditFinding> {
+  return arbitraryAuditFindingWith(FILED_OR_STALE_AUDIT_FINDING_SEVERITIES);
 }
 
 export function auditScopePayload(unit: AuditScopeUnit): JsonValue {
@@ -501,6 +547,8 @@ export function arbitraryFileAuditScopeScenario(
       arbitraryExecutedAuditScopeUnit(),
       arbitraryAuditFinding(),
       STATE_STORE_TEST_GENERATOR.scopeToken(),
+      arbitraryIssuesEntryReference(),
+      arbitraryBaseRefEvidence(),
     )
     .filter(([scopeIdentity, relatedSubject, root, child, duplicateRoot, _finding, orphanParent]) =>
       scopeIdentity !== relatedSubject
@@ -510,7 +558,19 @@ export function arbitraryFileAuditScopeScenario(
       && orphanParent !== root.unitId
       && orphanParent !== child.unitId
     )
-    .map(([scopeIdentity, relatedSubject, rootCandidate, childCandidate, duplicateCandidate, finding, orphan]) => {
+    .map((
+      [
+        scopeIdentity,
+        relatedSubject,
+        rootCandidate,
+        childCandidate,
+        duplicateCandidate,
+        finding,
+        orphan,
+        issuesEntry,
+        baseRefEvidence,
+      ],
+    ) => {
       const { parentUnitId: _rootParent, ...rootFields } = rootCandidate;
       const { parentUnitId: _duplicateParent, ...duplicateFields } = duplicateCandidate;
       const root: AuditScopeUnit = {
@@ -578,8 +638,22 @@ export function arbitraryFileAuditScopeScenario(
           )
         ),
         requiredCoverageGapEvent: auditScopeEvent(requiredCoverageGap, JOURNAL_SEQ_BASE + 1),
-        findingEvents: AUDIT_FINDING_SEVERITIES.map((severity, index) =>
-          auditFindingEvent({ ...finding, unitId: root.unitId, severity }, JOURNAL_SEQ_BASE + 1 + index)
+        defectFindingEvents: DEFECT_AUDIT_FINDING_SEVERITIES.map((severity, index) =>
+          auditFindingEvent(
+            auditFindingAtSeverity({ ...finding, unitId: root.unitId }, severity, issuesEntry, baseRefEvidence),
+            JOURNAL_SEQ_BASE + 1 + index,
+          )
+        ),
+        filedOrStaleFindingEvents: FILED_OR_STALE_AUDIT_FINDING_SEVERITIES.map((severity, index) =>
+          auditFindingEvent(
+            auditFindingAtSeverity({ ...finding, unitId: root.unitId }, severity, issuesEntry, baseRefEvidence),
+            JOURNAL_SEQ_BASE + 1 + index,
+          )
+        ),
+        filedOrStaleFindingPayloads: FILED_OR_STALE_AUDIT_FINDING_SEVERITIES.map((severity) =>
+          structuredClone(
+            auditFindingAtSeverity({ ...finding, unitId: root.unitId }, severity, issuesEntry, baseRefEvidence),
+          ) as unknown as JsonValue
         ),
         duplicateRootEvent: auditScopeEvent(duplicateRoot, JOURNAL_SEQ_BASE + 1),
       };
@@ -663,6 +737,34 @@ export function arbitraryAuditFindingMissingRequiredField(): fc.Arbitrary<Missin
       missingField,
       scopeIdentity,
     }));
+}
+
+const AUDIT_FIELD_PATH_SEPARATOR = ".";
+
+/**
+ * The evidence field each entry-referencing severity demands, as the dotted payload path a
+ * rejection names: the entry itself, its path or heading, or the base-ref evidence a `filed`
+ * finding carries. The list is the declared relationship, not the validator's branch order.
+ */
+function missingAuditDispositionEvidencePaths(severity: VerifyFindingDisposition): readonly (readonly string[])[] {
+  const entry = [AUDIT_PAYLOAD_FIELD.ISSUES_ENTRY];
+  const entryFields = [entry, [...entry, ISSUES_ENTRY_FIELD.PATH], [...entry, ISSUES_ENTRY_FIELD.HEADING]];
+  return severity === VERIFY_FINDING_DISPOSITION.FILED
+    ? [...entryFields, [AUDIT_PAYLOAD_FIELD.BASE_REF_EVIDENCE]]
+    : entryFields;
+}
+
+/** Audit findings each missing one piece of the evidence their `filed` or `stale` severity demands. */
+export function arbitraryAuditFindingMissingDispositionEvidence(): fc.Arbitrary<MissingFieldScenario> {
+  return fc
+    .tuple(arbitraryFiledOrStaleAuditFinding(), STATE_STORE_TEST_GENERATOR.scopeToken())
+    .chain(([finding, scopeIdentity]) =>
+      fc.constantFrom(...missingAuditDispositionEvidencePaths(finding.severity)).map((path) => ({
+        payload: withoutNestedField(JSON.parse(JSON.stringify(finding)) as JsonValue, path),
+        missingField: path.join(AUDIT_FIELD_PATH_SEPARATOR),
+        scopeIdentity,
+      }))
+    );
 }
 
 /**

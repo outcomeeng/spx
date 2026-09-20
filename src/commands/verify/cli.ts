@@ -50,6 +50,8 @@ import {
   VERIFY_VERB,
   type VerifyAppendEventType,
   type VerifyDriveMode,
+  type VerifyFindingCounts,
+  type VerifyFindingsByDisposition,
   verifyInputRecordPath,
   type VerifyRunProjection,
   type VerifyRunScope,
@@ -229,6 +231,7 @@ export interface VerifyFinishReport {
   readonly terminalMetadata?: JsonValue;
   readonly sealed: boolean;
   readonly findingCount: number;
+  readonly findingCounts: VerifyFindingCounts;
   readonly lastSequence: number;
 }
 
@@ -242,12 +245,15 @@ export interface VerifyStatusReport {
   readonly terminalStatus?: string;
   readonly terminalMetadata?: JsonValue;
   readonly findingCount: number;
+  readonly findingCounts: VerifyFindingCounts;
   readonly nextActions: readonly string[];
 }
 
 export interface VerifyRenderReport {
   readonly runToken: string;
   readonly findingCount: number;
+  readonly findingCounts: VerifyFindingCounts;
+  readonly findings: VerifyFindingsByDisposition;
   readonly sealed: boolean;
   readonly driveMode: string;
   readonly terminalStatus?: string;
@@ -1252,6 +1258,7 @@ function verifyFinishReport(runToken: string, projection: VerifyRunProjection): 
     ...(projection.terminalMetadata === undefined ? {} : { terminalMetadata: projection.terminalMetadata }),
     sealed: projection.sealed,
     findingCount: projection.findingCount,
+    findingCounts: projection.findingCounts,
     lastSequence: projection.lastSequence,
   };
 }
@@ -1439,6 +1446,7 @@ export async function verifyStatusCommand(
     ...(projection.terminalStatus === undefined ? {} : { terminalStatus: projection.terminalStatus }),
     ...(projection.terminalMetadata === undefined ? {} : { terminalMetadata: projection.terminalMetadata }),
     findingCount: projection.findingCount,
+    findingCounts: projection.findingCounts,
     nextActions: projection.nextActions,
   };
   return okResult(JSON.stringify(report));
@@ -1467,6 +1475,8 @@ export async function verifyRenderCommand(
   const report: VerifyRenderReport = {
     runToken: run.value.runToken,
     findingCount: projection.findingCount,
+    findingCounts: projection.findingCounts,
+    findings: projection.findings,
     sealed: projection.sealed,
     driveMode: projection.driveMode,
     ...(projection.terminalStatus === undefined ? {} : { terminalStatus: projection.terminalStatus }),

@@ -136,9 +136,9 @@ describe.each(Object.entries(AUDIT_FILE_SCOPE_GENERATORS))("audit terminal rollu
     })).toStrictEqual({ ok: true, value: undefined });
   });
 
-  it("maps every audit finding severity to rejected", () => {
+  it("maps every defect finding severity to rejected", () => {
     expect(
-      sampleVerifyTestValue(scenarioArbitrary()).findingEvents.map((event) =>
+      sampleVerifyTestValue(scenarioArbitrary()).defectFindingEvents.map((event) =>
         validateAuditTerminal({
           terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED,
           events: [sampleVerifyTestValue(scenarioArbitrary()).rootEvent, event],
@@ -149,7 +149,69 @@ describe.each(Object.entries(AUDIT_FILE_SCOPE_GENERATORS))("audit terminal rollu
         })
       ),
     ).toStrictEqual(
-      sampleVerifyTestValue(scenarioArbitrary()).findingEvents.map(() => ({
+      sampleVerifyTestValue(scenarioArbitrary()).defectFindingEvents.map(() => ({
+        ok: true,
+        value: undefined,
+      })),
+    );
+  });
+
+  it("maps every filed or stale finding severity to no terminal status, so clean coverage still approves", () => {
+    expect(
+      sampleVerifyTestValue(scenarioArbitrary()).filedOrStaleFindingEvents.map((event) =>
+        validateAuditTerminal({
+          terminalStatus: JOURNAL_RUN_STATE_STATUS.APPROVED,
+          events: [sampleVerifyTestValue(scenarioArbitrary()).rootEvent, event],
+          selector: {
+            scopeType: VERIFY_SCOPE_TYPE.FILE,
+            scopeIdentity: sampleVerifyTestValue(scenarioArbitrary()).scopeIdentity,
+          },
+        })
+      ),
+    ).toStrictEqual(
+      sampleVerifyTestValue(scenarioArbitrary()).filedOrStaleFindingEvents.map(() => ({
+        ok: true,
+        value: undefined,
+      })),
+    );
+    expect(
+      sampleVerifyTestValue(scenarioArbitrary()).filedOrStaleFindingEvents.map((event) =>
+        validateAuditTerminal({
+          terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED,
+          events: [sampleVerifyTestValue(scenarioArbitrary()).rootEvent, event],
+          selector: {
+            scopeType: VERIFY_SCOPE_TYPE.FILE,
+            scopeIdentity: sampleVerifyTestValue(scenarioArbitrary()).scopeIdentity,
+          },
+        })
+      ),
+    ).toStrictEqual(
+      sampleVerifyTestValue(scenarioArbitrary()).filedOrStaleFindingEvents.map(() => ({
+        ok: false,
+        error: TERMINAL_METADATA_VALIDATION_ERROR.STATUS_CONFLICT,
+        reason: expect.stringContaining(TERMINAL_REQUIREMENT.STATUS_MATCHES_EVIDENCE),
+      })),
+    );
+  });
+
+  it("maps a filed or stale finding beside a required coverage gap to rejected by the coverage alone", () => {
+    expect(
+      sampleVerifyTestValue(scenarioArbitrary()).filedOrStaleFindingEvents.map((event) =>
+        validateAuditTerminal({
+          terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED,
+          events: [
+            sampleVerifyTestValue(scenarioArbitrary()).rootEvent,
+            sampleVerifyTestValue(scenarioArbitrary()).requiredCoverageGapEvent,
+            { ...event, seq: event.seq + 1 },
+          ],
+          selector: {
+            scopeType: VERIFY_SCOPE_TYPE.FILE,
+            scopeIdentity: sampleVerifyTestValue(scenarioArbitrary()).scopeIdentity,
+          },
+        })
+      ),
+    ).toStrictEqual(
+      sampleVerifyTestValue(scenarioArbitrary()).filedOrStaleFindingEvents.map(() => ({
         ok: true,
         value: undefined,
       })),

@@ -18,8 +18,12 @@ import {
   type AuditProducerIdentity,
   type AuditProducerProvenance,
   type AuditScopeUnit,
+  type FindingDispositionEvidence,
+  ISSUES_ENTRY_FIELD,
+  type IssuesEntryReference,
   REVIEW_ANCHOR_SIDE,
   REVIEW_FINDING_DISPOSITION,
+  REVIEW_FINDING_DISPOSITION_CLASS,
   REVIEW_PAYLOAD_FIELD,
   REVIEW_SCOPE_COVERAGE_STATE,
   REVIEW_TERMINAL_STATE,
@@ -27,13 +31,16 @@ import {
   type ReviewFinding,
   type ReviewScopeUnit,
   type ReviewTerminalMetadata,
+  VERIFY_FINDING_DISPOSITION,
   VERIFY_SCOPE_SEPARATOR,
   VERIFY_SCOPE_TYPE,
   VERIFY_VERIFICATION_TYPE,
+  type VerifyFindingDisposition,
 } from "@/domains/verify/verify";
 import { VERIFICATION_RUN_CLI_SURFACE, VERIFY_CLI } from "@/interfaces/cli/verify";
 import type { JsonValue } from "@/lib/agent-run-journal";
 import { GIT_MODIFY_STATUS_EXAMPLE, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
+import { SPEC_TREE_GRAMMAR } from "@/lib/spec-tree/config";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 
@@ -42,6 +49,10 @@ const VERIFY_SCOPE_TYPES = Object.values(VERIFY_SCOPE_TYPE);
 const SUPPORTED_SCOPE_TYPES: ReadonlySet<string> = new Set(VERIFY_SCOPE_TYPES);
 const REVIEW_RUN_SET_RUN_INTERVAL_MS = 60_000;
 const REVIEW_FINDING_DISPOSITIONS = Object.values(REVIEW_FINDING_DISPOSITION);
+const DEFECT_REVIEW_FINDING_DISPOSITIONS = REVIEW_FINDING_DISPOSITIONS.filter((disposition) =>
+  REVIEW_FINDING_DISPOSITION_CLASS[disposition] === VERIFY_FINDING_DISPOSITION.BLOCKING
+  || REVIEW_FINDING_DISPOSITION_CLASS[disposition] === VERIFY_FINDING_DISPOSITION.DEBT
+);
 const REVIEW_ANCHOR_SIDES = Object.values(REVIEW_ANCHOR_SIDE);
 const REVIEW_SCOPE_COVERAGE_STATES = Object.values(REVIEW_SCOPE_COVERAGE_STATE);
 const AUDIT_COVERAGE_REQUIREMENTS = Object.values(AUDIT_COVERAGE_REQUIREMENT);
@@ -59,22 +70,66 @@ function arbitraryNonDisposition(): fc.Arbitrary<string> {
   return fc.string().filter((value) => !(REVIEW_FINDING_DISPOSITIONS as readonly string[]).includes(value));
 }
 
-function arbitraryReviewFindingMetadata(): fc.Arbitrary<ReviewFinding["finding"]> {
+/** An `ISSUES.md` entry reference: a coordination-note path under a node plus the entry's heading. */
+export function arbitraryIssuesEntryReference(): fc.Arbitrary<IssuesEntryReference> {
   return fc.record({
-    disposition: fc.constantFrom(...REVIEW_FINDING_DISPOSITIONS),
-    summary: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    [ISSUES_ENTRY_FIELD.PATH]: fc
+      .tuple(STATE_STORE_TEST_GENERATOR.scopeToken(), fc.constantFrom(...SPEC_TREE_GRAMMAR.COORDINATION_NOTES))
+      .map(([node, note]) => posix.join(node, note)),
+    [ISSUES_ENTRY_FIELD.HEADING]: STATE_STORE_TEST_GENERATOR.scopeToken(),
   });
 }
 
+/** Base-ref evidence: a location observable at the scope's base ref. */
+export function arbitraryBaseRefEvidence(): fc.Arbitrary<string> {
+  return arbitrarySourceFilePath();
+}
+
+/**
+ * The evidence a disposition class demands, by the declared relationship: a `filed` finding names
+ * its entry and base-ref evidence, a `stale` finding names its entry, and a defect finding names
+ * neither.
+ */
+export function findingDispositionEvidenceFor(
+  disposition: VerifyFindingDisposition,
+  issuesEntry: IssuesEntryReference,
+  baseRefEvidence: string,
+): FindingDispositionEvidence {
+  if (disposition === VERIFY_FINDING_DISPOSITION.FILED) return { issuesEntry, baseRefEvidence };
+  if (disposition === VERIFY_FINDING_DISPOSITION.STALE) return { issuesEntry };
+  return {};
+}
+
+function arbitraryReviewFindingMetadataWith(
+  dispositions: readonly ReviewFinding["finding"]["disposition"][],
+): fc.Arbitrary<ReviewFinding["finding"]> {
+  return fc
+    .tuple(
+      fc.constantFrom(...dispositions),
+      STATE_STORE_TEST_GENERATOR.scopeToken(),
+      arbitraryIssuesEntryReference(),
+      arbitraryBaseRefEvidence(),
+    )
+    .map(([disposition, summary, issuesEntry, baseRefEvidence]) => ({
+      disposition,
+      summary,
+      ...findingDispositionEvidenceFor(REVIEW_FINDING_DISPOSITION_CLASS[disposition], issuesEntry, baseRefEvidence),
+    }));
+}
+
+function arbitraryReviewFindingMetadata(): fc.Arbitrary<ReviewFinding["finding"]> {
+  return arbitraryReviewFindingMetadataWith(REVIEW_FINDING_DISPOSITIONS);
+}
+
 /** A valid review finding: an anchored review comment with SPX finding metadata. */
-function arbitraryReviewFinding(): fc.Arbitrary<ReviewFinding> {
+function arbitraryReviewFindingWith(finding: fc.Arbitrary<ReviewFinding["finding"]>): fc.Arbitrary<ReviewFinding> {
   const base = {
     path: arbitrarySourceFilePath(),
     side: fc.constantFrom(...REVIEW_ANCHOR_SIDES),
     originalCommit: STATE_STORE_TEST_GENERATOR.headSha(),
     diffHunk: STATE_STORE_TEST_GENERATOR.scopeToken(),
     body: STATE_STORE_TEST_GENERATOR.scopeToken(),
-    finding: arbitraryReviewFindingMetadata(),
+    finding,
   };
   return fc.oneof(
     fc.record({
@@ -94,6 +149,24 @@ function arbitraryReviewFinding(): fc.Arbitrary<ReviewFinding> {
       providerIdentity: STATE_STORE_TEST_GENERATOR.scopeToken(),
       url: STATE_STORE_TEST_GENERATOR.scopeToken(),
     }),
+  );
+}
+
+function arbitraryReviewFinding(): fc.Arbitrary<ReviewFinding> {
+  return arbitraryReviewFindingWith(arbitraryReviewFindingMetadata());
+}
+
+/** A review finding whose disposition records a defect the changeset introduces, so the run it enters rejects. */
+function arbitraryDefectReviewFinding(): fc.Arbitrary<ReviewFinding> {
+  return arbitraryReviewFindingWith(arbitraryReviewFindingMetadataWith(DEFECT_REVIEW_FINDING_DISPOSITIONS));
+}
+
+/** A review finding whose disposition is `FILED` or `STALE`, so it determines no terminal status. */
+function arbitraryFiledOrStaleReviewFinding(): fc.Arbitrary<ReviewFinding> {
+  return arbitraryReviewFindingWith(
+    arbitraryReviewFindingMetadataWith(
+      REVIEW_FINDING_DISPOSITIONS.filter((disposition) => !DEFECT_REVIEW_FINDING_DISPOSITIONS.includes(disposition)),
+    ),
   );
 }
 
@@ -770,9 +843,19 @@ export const VERIFY_TEST_GENERATOR = {
   blankTerminalStatus: (): fc.Arbitrary<string> => arbitraryBlankArgument(),
   reviewFindingBatch: (): fc.Arbitrary<readonly FindingWithKey[]> =>
     fc.uniqueArray(
-      fc.record({ finding: arbitraryReviewFinding(), idempotencyKey: STATE_STORE_TEST_GENERATOR.scopeToken() }),
+      fc.record({ finding: arbitraryDefectReviewFinding(), idempotencyKey: STATE_STORE_TEST_GENERATOR.scopeToken() }),
       { selector: (entry) => entry.idempotencyKey, minLength: FINDING_BATCH_MIN, maxLength: FINDING_BATCH_MAX },
     ),
+  filedOrStaleReviewFindingBatch: (): fc.Arbitrary<readonly FindingWithKey[]> =>
+    fc.uniqueArray(
+      fc.record({
+        finding: arbitraryFiledOrStaleReviewFinding(),
+        idempotencyKey: STATE_STORE_TEST_GENERATOR.scopeToken(),
+      }),
+      { selector: (entry) => entry.idempotencyKey, minLength: FINDING_BATCH_MIN, maxLength: FINDING_BATCH_MAX },
+    ),
+  defectReviewFinding: (): fc.Arbitrary<ReviewFinding> => arbitraryDefectReviewFinding(),
+  filedOrStaleReviewFinding: (): fc.Arbitrary<ReviewFinding> => arbitraryFiledOrStaleReviewFinding(),
   reviewFindingAnchorVariants: (): fc.Arbitrary<readonly ReviewFinding[]> =>
     fc.tuple(
       arbitraryLineReviewFinding(),
@@ -834,6 +917,7 @@ export const VERIFY_TEST_GENERATOR = {
         }),
         line: fc.integer({ min: 1 }),
       }),
+      arbitraryReviewFindingMissingDispositionEvidence().map((scenario) => scenario.payload),
       fc.record({
         path: arbitrarySourceFilePath(),
         side: fc.constantFrom(...REVIEW_ANCHOR_SIDES),
@@ -1145,6 +1229,61 @@ export function arbitraryReviewFindingMissingRequiredField(): fc.Arbitrary<Revie
   return fc
     .tuple(arbitraryReviewFinding(), fc.constantFrom(...REQUIRED_REVIEW_FINDING_FIELDS))
     .map(([finding, missingField]) => ({ payload: reviewPayloadWithoutField(finding, missingField), missingField }));
+}
+
+const FINDING_PATH_SEPARATOR = ".";
+
+/**
+ * The evidence field each entry-referencing disposition demands, as the dotted payload path a
+ * rejection names: the entry itself, its path or heading, or the base-ref evidence a `filed`
+ * finding carries. The field list is the declared relationship, not the validator's branch order.
+ */
+function missingDispositionEvidencePaths(disposition: VerifyFindingDisposition): readonly (readonly string[])[] {
+  const entry = [REVIEW_PAYLOAD_FIELD.ISSUES_ENTRY];
+  const entryFields = [
+    entry,
+    [...entry, ISSUES_ENTRY_FIELD.PATH],
+    [...entry, ISSUES_ENTRY_FIELD.HEADING],
+  ];
+  return disposition === VERIFY_FINDING_DISPOSITION.FILED
+    ? [...entryFields, [REVIEW_PAYLOAD_FIELD.BASE_REF_EVIDENCE]]
+    : entryFields;
+}
+
+/** Remove one nested field named by its path segments from a JSON record. */
+export function withoutNestedField(payload: JsonValue, path: readonly string[]): JsonValue {
+  if (path.length === 0) return payload;
+  const record = payload as { readonly [key: string]: JsonValue };
+  const [head, ...rest] = path;
+  if (rest.length === 0) {
+    const { [head]: _removed, ...remaining } = record;
+    return remaining;
+  }
+  return { ...record, [head]: withoutNestedField(record[head] ?? {}, rest) };
+}
+
+/** One review finding whose `FILED` or `STALE` disposition lacks exactly one field the disposition demands. */
+export interface ReviewMissingDispositionEvidenceScenario {
+  readonly payload: JsonValue;
+  readonly missingField: string;
+}
+
+/** Review findings each missing one piece of the evidence their `FILED` or `STALE` disposition demands. */
+export function arbitraryReviewFindingMissingDispositionEvidence(): fc.Arbitrary<
+  ReviewMissingDispositionEvidenceScenario
+> {
+  return arbitraryFiledOrStaleReviewFinding()
+    .chain((finding) =>
+      fc
+        .constantFrom(...missingDispositionEvidencePaths(REVIEW_FINDING_DISPOSITION_CLASS[finding.finding.disposition]))
+        .map((path) => ({
+          payload: withoutNestedField(JSON.parse(JSON.stringify(finding)) as JsonValue, [
+            REVIEW_PAYLOAD_FIELD.FINDING,
+            ...path,
+          ]),
+          missingField: [REVIEW_PAYLOAD_FIELD.FINDING, ...path].join(FINDING_PATH_SEPARATOR),
+        }))
+    );
 }
 
 /**

@@ -105,15 +105,81 @@ export function isVerifyVerificationType(value: string): value is VerifyVerifica
   return VERIFY_VERIFICATION_TYPES.has(value);
 }
 
+/**
+ * The disposition classes every recorded finding rolls up under, per the merge lifecycle's
+ * finding-disposition rule. Each verification type spells the class on its own axis — audit
+ * `severity`, review `disposition` — and the projection reads one class per finding:
+ * `blocking` and `debt` name a defect the changeset introduces; `filed` names a defect the
+ * changeset does not introduce, already owed in the owning node's `ISSUES.md`; `stale` names an
+ * `ISSUES.md` entry whose defect is no longer observable and carries no defect.
+ */
+export const VERIFY_FINDING_DISPOSITION = {
+  BLOCKING: "blocking",
+  DEBT: "debt",
+  FILED: "filed",
+  STALE: "stale",
+} as const;
+
+export type VerifyFindingDisposition = (typeof VERIFY_FINDING_DISPOSITION)[keyof typeof VERIFY_FINDING_DISPOSITION];
+
+/** The dispositions that record a defect the changeset introduces; a terminal rollup reads these alone. */
+export const DEFECT_FINDING_DISPOSITIONS: ReadonlySet<VerifyFindingDisposition> = new Set([
+  VERIFY_FINDING_DISPOSITION.BLOCKING,
+  VERIFY_FINDING_DISPOSITION.DEBT,
+]);
+
+/** The dispositions whose finding names an `ISSUES.md` entry rather than a defect of the changeset. */
+const ENTRY_REFERENCING_DISPOSITIONS: ReadonlySet<VerifyFindingDisposition> = new Set([
+  VERIFY_FINDING_DISPOSITION.FILED,
+  VERIFY_FINDING_DISPOSITION.STALE,
+]);
+
+/** Whether a disposition records a defect the changeset introduces. */
+export function isDefectDisposition(disposition: VerifyFindingDisposition): boolean {
+  return DEFECT_FINDING_DISPOSITIONS.has(disposition);
+}
+
+/** The `ISSUES.md` entry a `filed` or `stale` finding names: the note's path and the entry's heading. */
+export interface IssuesEntryReference {
+  readonly path: string;
+  readonly heading: string;
+}
+
+/** The field names of the `ISSUES.md` entry reference, shared by the audit and review finding schemas. */
+export const ISSUES_ENTRY_FIELD = {
+  PATH: "path",
+  HEADING: "heading",
+} as const;
+
+/**
+ * The evidence a finding carries beyond its disposition: the entry reference a `filed` or `stale`
+ * finding names, and the base-ref evidence — a location observable at the scope's base ref — a
+ * `filed` finding names to place its defect outside the changeset.
+ */
+export interface FindingDispositionEvidence {
+  readonly issuesEntry?: IssuesEntryReference;
+  readonly baseRefEvidence?: string;
+}
+
 /** The receiver-action classes a review finding carries, per the merge lifecycle's finding disposition. */
 export const REVIEW_FINDING_DISPOSITION = {
   BLOCKING: "BLOCKING",
   DEBT: "DEBT",
+  FILED: "FILED",
+  STALE: "STALE",
 } as const;
 
 export type ReviewFindingDisposition = (typeof REVIEW_FINDING_DISPOSITION)[keyof typeof REVIEW_FINDING_DISPOSITION];
 
-export interface ReviewFindingMetadata {
+/** The disposition class each review disposition rolls up under. */
+export const REVIEW_FINDING_DISPOSITION_CLASS: Readonly<Record<ReviewFindingDisposition, VerifyFindingDisposition>> = {
+  [REVIEW_FINDING_DISPOSITION.BLOCKING]: VERIFY_FINDING_DISPOSITION.BLOCKING,
+  [REVIEW_FINDING_DISPOSITION.DEBT]: VERIFY_FINDING_DISPOSITION.DEBT,
+  [REVIEW_FINDING_DISPOSITION.FILED]: VERIFY_FINDING_DISPOSITION.FILED,
+  [REVIEW_FINDING_DISPOSITION.STALE]: VERIFY_FINDING_DISPOSITION.STALE,
+};
+
+export interface ReviewFindingMetadata extends FindingDispositionEvidence {
   readonly disposition: ReviewFindingDisposition;
   readonly summary: string;
 }
@@ -232,12 +298,10 @@ export const AUDIT_COVERAGE_STATUS = {
 
 export type AuditCoverageStatus = (typeof AUDIT_COVERAGE_STATUS)[keyof typeof AUDIT_COVERAGE_STATUS];
 
-export const AUDIT_FINDING_SEVERITY = {
-  BLOCKING: "blocking",
-  DEBT: "debt",
-} as const;
+/** An audit finding's severity is its disposition class, spelled on the audit axis. */
+export const AUDIT_FINDING_SEVERITY = VERIFY_FINDING_DISPOSITION;
 
-export type AuditFindingSeverity = (typeof AUDIT_FINDING_SEVERITY)[keyof typeof AUDIT_FINDING_SEVERITY];
+export type AuditFindingSeverity = VerifyFindingDisposition;
 
 export interface AuditProducerIdentity {
   readonly producerKind: string;
@@ -285,7 +349,7 @@ export interface AuditPriorContextSelector {
   readonly producerIdentity?: AuditProducerIdentity;
 }
 
-export interface AuditFinding {
+export interface AuditFinding extends FindingDispositionEvidence {
   readonly unitId: string;
   readonly producerIdentity: AuditProducerIdentity;
   readonly producerProvenance: AuditProducerProvenance;
@@ -805,6 +869,8 @@ export const REVIEW_PAYLOAD_FIELD = {
   FINDING: "finding",
   DISPOSITION: "disposition",
   SUMMARY: "summary",
+  ISSUES_ENTRY: "issuesEntry",
+  BASE_REF_EVIDENCE: "baseRefEvidence",
   LINE: "line",
   POSITION: "position",
   PROVIDER_IDENTITY: "providerIdentity",
@@ -852,6 +918,8 @@ export const AUDIT_PAYLOAD_FIELD = {
   LANGUAGE_PARTITION: "languagePartition",
   RULE: "rule",
   SEVERITY: "severity",
+  ISSUES_ENTRY: "issuesEntry",
+  BASE_REF_EVIDENCE: "baseRefEvidence",
   LOCATION: "location",
   MESSAGE: "message",
   EVIDENCE: "evidence",
@@ -880,6 +948,65 @@ export const TEST_PAYLOAD_FIELD = {
   ERRORS: "errors",
 } as const;
 
+function readIssuesEntryReference(
+  payload: JsonValue | undefined,
+  ...path: readonly string[]
+): EvidenceValidationResult<IssuesEntryReference> {
+  if (!isJsonRecord(payload)) return rejectEvidenceField(...path);
+  const entryPath = readRequiredString(payload, ISSUES_ENTRY_FIELD.PATH);
+  if (entryPath === undefined) return rejectEvidenceField(...path, ISSUES_ENTRY_FIELD.PATH);
+  const heading = readRequiredString(payload, ISSUES_ENTRY_FIELD.HEADING);
+  if (heading === undefined) return rejectEvidenceField(...path, ISSUES_ENTRY_FIELD.HEADING);
+  return acceptEvidence({ path: entryPath, heading });
+}
+
+/**
+ * Read the evidence a finding's disposition demands beyond the disposition itself. A `filed` or
+ * `stale` finding names its `ISSUES.md` entry, and a `filed` finding additionally names the base-ref
+ * evidence that places its defect outside the changeset; a `blocking` or `debt` finding may carry
+ * either field but needs neither. Each field is read under the same payload path whichever axis —
+ * audit `severity` or review `disposition` — selected the class.
+ */
+function readFindingDispositionEvidence(
+  payload: { readonly [key: string]: JsonValue },
+  disposition: VerifyFindingDisposition,
+  fields: { readonly issuesEntry: string; readonly baseRefEvidence: string },
+  ...path: readonly string[]
+): EvidenceValidationResult<FindingDispositionEvidence> {
+  const entry = readOptionalRecord(payload, fields.issuesEntry);
+  const requiresEntry = ENTRY_REFERENCING_DISPOSITIONS.has(disposition);
+  if (entry.state === OPTIONAL_FIELD_STATE.INVALID || (requiresEntry && entry.state === OPTIONAL_FIELD_STATE.ABSENT)) {
+    return rejectEvidenceField(...path, fields.issuesEntry);
+  }
+  const issuesEntry = entry.state === OPTIONAL_FIELD_STATE.PRESENT
+    ? readIssuesEntryReference(entry.value, ...path, fields.issuesEntry)
+    : undefined;
+  if (issuesEntry !== undefined && !issuesEntry.ok) return forwardEvidenceRejection(issuesEntry);
+  const baseRef = readOptionalString(payload, fields.baseRefEvidence);
+  const requiresBaseRef = disposition === VERIFY_FINDING_DISPOSITION.FILED;
+  if (
+    baseRef.state === OPTIONAL_FIELD_STATE.INVALID
+    || (requiresBaseRef && baseRef.state === OPTIONAL_FIELD_STATE.ABSENT)
+  ) {
+    return rejectEvidenceField(...path, fields.baseRefEvidence);
+  }
+  const baseRefEvidence = optionalFieldValue(baseRef);
+  return acceptEvidence({
+    ...(issuesEntry === undefined ? {} : { issuesEntry: issuesEntry.value }),
+    ...(baseRefEvidence === undefined ? {} : { baseRefEvidence }),
+  });
+}
+
+const REVIEW_DISPOSITION_EVIDENCE_FIELDS = {
+  issuesEntry: REVIEW_PAYLOAD_FIELD.ISSUES_ENTRY,
+  baseRefEvidence: REVIEW_PAYLOAD_FIELD.BASE_REF_EVIDENCE,
+} as const;
+
+const AUDIT_DISPOSITION_EVIDENCE_FIELDS = {
+  issuesEntry: AUDIT_PAYLOAD_FIELD.ISSUES_ENTRY,
+  baseRefEvidence: AUDIT_PAYLOAD_FIELD.BASE_REF_EVIDENCE,
+} as const;
+
 function readReviewFindingMetadata(
   payload: JsonValue | undefined,
   ...path: readonly string[]
@@ -892,7 +1019,14 @@ function readReviewFindingMetadata(
   if (typeof summary !== "string" || summary.length === 0) {
     return rejectEvidenceField(...path, REVIEW_PAYLOAD_FIELD.SUMMARY);
   }
-  return acceptEvidence({ disposition, summary });
+  const evidence = readFindingDispositionEvidence(
+    payload,
+    REVIEW_FINDING_DISPOSITION_CLASS[disposition],
+    REVIEW_DISPOSITION_EVIDENCE_FIELDS,
+    ...path,
+  );
+  if (!evidence.ok) return forwardEvidenceRejection(evidence);
+  return acceptEvidence({ disposition, summary, ...evidence.value });
 }
 
 /** Validate a `review` finding payload as a platform-neutral anchored review comment. */
@@ -1255,6 +1389,8 @@ export function validateAuditFinding(payload: JsonValue): EvidenceValidationResu
   if (!required.ok) return forwardEvidenceRejection(required);
   const { severity } = payload;
   if (!isAuditFindingSeverity(severity)) return rejectEvidenceField(AUDIT_PAYLOAD_FIELD.SEVERITY);
+  const dispositionEvidence = readFindingDispositionEvidence(payload, severity, AUDIT_DISPOSITION_EVIDENCE_FIELDS);
+  if (!dispositionEvidence.ok) return forwardEvidenceRejection(dispositionEvidence);
   const producerIdentity = validateAuditProducerIdentity(
     readRequiredRecord(payload, AUDIT_PAYLOAD_FIELD.PRODUCER_IDENTITY),
     AUDIT_PAYLOAD_FIELD.PRODUCER_IDENTITY,
@@ -1276,6 +1412,7 @@ export function validateAuditFinding(payload: JsonValue): EvidenceValidationResu
     producerProvenance: producerProvenance.value,
     rule: required.value[AUDIT_PAYLOAD_FIELD.RULE],
     severity,
+    ...dispositionEvidence.value,
     location: required.value[AUDIT_PAYLOAD_FIELD.LOCATION],
     message: required.value[AUDIT_PAYLOAD_FIELD.MESSAGE],
     evidence: evidence.value,
@@ -1511,7 +1648,7 @@ export function terminalMetadataValidatorFor(verificationType: string): Terminal
 }
 
 function expectedReviewEvidenceTerminalStatus(events: readonly JournalEvent[]): string | undefined {
-  if (countVerifyFindings(events) > 0 || countReviewScopeFindingUnits(events) > 0) {
+  if (countDefectFindings(events) > 0 || countReviewScopeFindingUnits(events) > 0) {
     return JOURNAL_RUN_STATE_STATUS.REJECTED;
   }
   return undefined;
@@ -1551,7 +1688,7 @@ function auditReviewUnitsRejectRun(scopes: readonly AuditScopeUnit[]): boolean {
 }
 
 function expectedAuditTerminalStatus(input: TerminalValidationInput): string {
-  const hasFinding = countVerifyFindings(input.events) > 0;
+  const hasFinding = countDefectFindings(input.events) > 0;
   const auditScopes = auditScopeUnitsFromEvents(input.events);
   const hasUncoveredRequiredScope = auditScopes.some(auditCoverageRejectsRun);
   return hasFinding
@@ -1697,6 +1834,20 @@ export function buildTerminalEvent(args: {
   };
 }
 
+/** One recorded finding as the projection lists it: the journal sequence and the validated payload. */
+export interface VerifyRecordedFinding {
+  readonly seq: number;
+  readonly payload: JsonValue;
+}
+
+/** The recorded findings grouped by disposition class, each group in journal order. */
+export type VerifyFindingsByDisposition = Readonly<Record<VerifyFindingDisposition, readonly VerifyRecordedFinding[]>>;
+
+/** The recorded finding count per disposition class, with the total of every recorded finding beside them. */
+export interface VerifyFindingCounts extends Readonly<Record<VerifyFindingDisposition, number>> {
+  readonly total: number;
+}
+
 /** The run's projected lifecycle state, folded from its journal event history. */
 export interface VerifyRunProjection {
   readonly sealed: boolean;
@@ -1704,6 +1855,8 @@ export interface VerifyRunProjection {
   readonly terminalStatus?: string;
   readonly terminalMetadata?: JsonValue;
   readonly findingCount: number;
+  readonly findingCounts: VerifyFindingCounts;
+  readonly findings: VerifyFindingsByDisposition;
   readonly lastSequence: number;
   readonly nextActions: readonly string[];
   readonly auditScopeUnits: readonly AuditScopeUnit[];
@@ -1749,6 +1902,66 @@ export function countVerifyFindings(events: readonly JournalEvent[]): number {
   ).length;
 }
 
+/**
+ * The disposition class a recorded finding payload rolls up under: an audit finding's severity, a
+ * review finding's disposition class, and no class for a finding shape that carries neither — a
+ * `test` finding is a failing case, not a disposed defect.
+ */
+export function findingDispositionOf(payload: JsonValue): VerifyFindingDisposition | undefined {
+  const audit = validateAuditFinding(payload);
+  if (audit.ok) return audit.value.severity;
+  const review = validateReviewFinding(payload);
+  if (review.ok) return REVIEW_FINDING_DISPOSITION_CLASS[review.value.finding.disposition];
+  return undefined;
+}
+
+function recordedFindingsOf(events: readonly JournalEvent[]): readonly (VerifyRecordedFinding & {
+  readonly disposition: VerifyFindingDisposition | undefined;
+})[] {
+  return events.flatMap((event) => {
+    if (event.type !== VERIFY_APPEND_EVENT_TYPE.FINDING || !isJsonRecord(event.data)) return [];
+    const payload = event.data[VERIFY_APPEND_EVENT_FIELD.PAYLOAD];
+    return [{ seq: event.seq, payload, disposition: findingDispositionOf(payload) }];
+  });
+}
+
+/** The recorded findings grouped by disposition class, in journal order. */
+export function groupVerifyFindingsByDisposition(events: readonly JournalEvent[]): VerifyFindingsByDisposition {
+  const groups: Record<VerifyFindingDisposition, VerifyRecordedFinding[]> = {
+    [VERIFY_FINDING_DISPOSITION.BLOCKING]: [],
+    [VERIFY_FINDING_DISPOSITION.DEBT]: [],
+    [VERIFY_FINDING_DISPOSITION.FILED]: [],
+    [VERIFY_FINDING_DISPOSITION.STALE]: [],
+  };
+  for (const finding of recordedFindingsOf(events)) {
+    if (finding.disposition === undefined) continue;
+    groups[finding.disposition].push({ seq: finding.seq, payload: finding.payload });
+  }
+  return groups;
+}
+
+/** The recorded finding count per disposition class, with the total of every recorded finding. */
+export function countVerifyFindingsByDisposition(events: readonly JournalEvent[]): VerifyFindingCounts {
+  const groups = groupVerifyFindingsByDisposition(events);
+  return {
+    [VERIFY_FINDING_DISPOSITION.BLOCKING]: groups[VERIFY_FINDING_DISPOSITION.BLOCKING].length,
+    [VERIFY_FINDING_DISPOSITION.DEBT]: groups[VERIFY_FINDING_DISPOSITION.DEBT].length,
+    [VERIFY_FINDING_DISPOSITION.FILED]: groups[VERIFY_FINDING_DISPOSITION.FILED].length,
+    [VERIFY_FINDING_DISPOSITION.STALE]: groups[VERIFY_FINDING_DISPOSITION.STALE].length,
+    total: countVerifyFindings(events),
+  };
+}
+
+/**
+ * The number of recorded findings that record a defect the changeset introduces — the findings a
+ * terminal rollup reads. A `filed` or `stale` finding determines no terminal status.
+ */
+export function countDefectFindings(events: readonly JournalEvent[]): number {
+  return recordedFindingsOf(events).filter(
+    (finding) => finding.disposition !== undefined && isDefectDisposition(finding.disposition),
+  ).length;
+}
+
 function countReviewScopeFindingUnits(events: readonly JournalEvent[]): number {
   return events.filter((event) => {
     if (event.type !== VERIFY_APPEND_EVENT_TYPE.SCOPE || !isJsonRecord(event.data)) return false;
@@ -1784,6 +1997,8 @@ export function projectVerifyRun(
     ...(terminalStatus === undefined ? {} : { terminalStatus }),
     ...(terminalMetadata === undefined ? {} : { terminalMetadata }),
     findingCount: countVerifyFindings(events),
+    findingCounts: countVerifyFindingsByDisposition(events),
+    findings: groupVerifyFindingsByDisposition(events),
     lastSequence: lastSequenceOf(events),
     nextActions: sealed ? [] : unsealedNextActionsForDriveMode(driveMode),
     auditScopeUnits: auditScopeUnitsFromEvents(events),
