@@ -350,6 +350,11 @@ export function arbitraryInvalidAuditFinding(): fc.Arbitrary<JsonValue> {
     arbitraryAuditFinding().map(({ unitId: _unitId, ...finding }) => finding),
     arbitraryAuditFinding().map((finding) => ({ ...finding, evidence: {} })),
     arbitraryAuditFinding().chain((finding) =>
+      STATE_STORE_TEST_GENERATOR.scopeToken().map((evidence) => ({ ...finding, evidence }))
+    ),
+    arbitraryAuditFinding().map((finding) => ({ ...finding, evidence: { expected: finding.evidence.expected } })),
+    arbitraryAuditFinding().map((finding) => ({ ...finding, evidence: { observed: finding.evidence.observed } })),
+    arbitraryAuditFinding().chain((finding) =>
       STATE_STORE_TEST_GENERATOR.scopeToken()
         .filter((value) => !(AUDIT_FINDING_SEVERITIES as readonly string[]).includes(value))
         .map((severity) => ({ ...finding, severity }))
