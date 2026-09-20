@@ -1,20 +1,24 @@
 /**
  * The check between a product's methodology declaration and the provider
  * declaration a shipped line's source record carries: the declared version
- * must equal `provides`, and a declared migration source must fall within
+ * and `provides` must select the same `MAJOR.MINOR` line, whichever accepted
+ * form each declares, and a declared migration source must fall within
  * `supports`. A record without a provider declaration yields an undeclared
  * match, never a verified one.
  *
  * `supports` is read as comparator sets — `>=3.2.0 <5.0.0`, joined by `||`
  * for alternatives, or one exact version — evaluated by SemVer precedence over
- * the numeric components and prerelease identifiers.
+ * the numeric components and prerelease identifiers. Every operand the
+ * comparison reads carries the `MAJOR.MINOR.PATCH` form; an operand in the
+ * `MAJOR.MINOR` form fails the check naming that form.
  *
  * @module lib/methodology/provider-match
  */
 
+import { METHODOLOGY_PATCHED_VERSION_PATTERN, METHODOLOGY_VERSION_FORM } from "@/config/methodology";
 import type { Result } from "@/config/types";
 
-import { METHODOLOGY_VERSION_PATTERN, type MethodologySourceRecord } from "./tree";
+import { methodologyLine, type MethodologySourceRecord } from "./tree";
 
 export const PROVIDER_MATCH = {
   VERIFIED: "verified",
@@ -48,6 +52,12 @@ const PRERELEASE_SEPARATOR = "-";
 const BUILD_SEPARATOR = "+";
 const COMPONENT_SEPARATOR = ".";
 const NUMERIC_PATTERN = /^\d+$/;
+/**
+ * A range operand carries every component the comparison reads, so the
+ * `MAJOR.MINOR` form a declaration may take is rejected here with the typed
+ * error rather than compared with a component missing.
+ */
+const RANGE_OPERAND_PATTERN = METHODOLOGY_PATCHED_VERSION_PATTERN;
 
 interface ParsedVersion {
   readonly components: readonly number[];
@@ -55,7 +65,7 @@ interface ParsedVersion {
 }
 
 function parseVersion(text: string): ParsedVersion | undefined {
-  if (!METHODOLOGY_VERSION_PATTERN.test(text)) return undefined;
+  if (!RANGE_OPERAND_PATTERN.test(text)) return undefined;
   const withoutBuild = text.split(BUILD_SEPARATOR)[0];
   const prereleaseIndex = withoutBuild.indexOf(PRERELEASE_SEPARATOR);
   const core = prereleaseIndex === -1 ? withoutBuild : withoutBuild.slice(0, prereleaseIndex);
@@ -117,7 +127,7 @@ function satisfiesComparator(version: ParsedVersion, comparator: string): Result
 export function satisfiesMethodologyRange(version: string, range: string): Result<boolean> {
   const parsed = parseVersion(version);
   if (parsed === undefined) {
-    return { ok: false, error: `not an exact methodology version: ${JSON.stringify(version)}` };
+    return { ok: false, error: formatRangeOperandFormError(version) };
   }
   for (const alternative of range.split(RANGE_ALTERNATIVE_SEPARATOR)) {
     const comparators = alternative.trim().split(COMPARATOR_SEPARATOR).filter((part) => part.length > 0);
@@ -135,9 +145,16 @@ export function satisfiesMethodologyRange(version: string, range: string): Resul
   return { ok: true, value: false };
 }
 
-/** Diagnostic for a declared version the provider does not provide. */
+/** Diagnostic for a range operand outside the form the comparison reads: an accepted declaration the check cannot yet evaluate. */
+export function formatRangeOperandFormError(version: string): string {
+  return `${
+    JSON.stringify(version)
+  } is not in the ${METHODOLOGY_VERSION_FORM.PATCHED} form the supports range check reads`;
+}
+
+/** Diagnostic for a declared version whose line differs from the line the provider provides. */
 export function formatProvidesMismatchError(version: string, provides: string, codingAgent: string): string {
-  return `Declared methodology version ${version} differs from the version the ${codingAgent} plugin provides, ${provides}`;
+  return `Declared methodology version ${version} selects a different line from the version the ${codingAgent} plugin provides, ${provides}`;
 }
 
 /** Diagnostic for a declared migration source the provider records no supported range for. */
@@ -162,7 +179,11 @@ export function checkProviderMatch(input: ProviderMatchInput): Result<ProviderMa
   if (plugin?.provides === undefined) {
     return { ok: true, value: PROVIDER_MATCH.UNDECLARED };
   }
-  if (plugin.provides !== input.version) {
+  const declaredLine = methodologyLine(input.version);
+  if (!declaredLine.ok) return declaredLine;
+  const providedLine = methodologyLine(plugin.provides);
+  if (!providedLine.ok) return providedLine;
+  if (declaredLine.value !== providedLine.value) {
     return { ok: false, error: formatProvidesMismatchError(input.version, plugin.provides, input.codingAgent) };
   }
   if (input.migratingFrom !== undefined) {

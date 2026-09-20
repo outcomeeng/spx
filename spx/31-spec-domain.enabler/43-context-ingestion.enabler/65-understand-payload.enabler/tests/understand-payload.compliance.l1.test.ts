@@ -2,11 +2,13 @@ import { createHash } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
-import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_VERSION_FORM } from "@/config/methodology";
+import { formatRangeOperandFormError } from "@/lib/methodology";
 import { SPEC_CONTEXT_DIGEST_ALGORITHM } from "@/lib/spec-tree";
 import {
+  generatedLineFormMigratingMethodologySection,
   generatedMethodologySection,
-  generatedMigratingMethodologySection,
+  generatedMigratingMethodology,
 } from "@testing/generators/config/descriptors";
 import {
   arbitraryMethodologyVersion,
@@ -26,11 +28,16 @@ import {
 } from "@testing/harnesses/spec/context";
 
 describe("spec context understand payload provider match", () => {
-  it("fails naming both declarations when the recorded provides differs, fails naming the migration source when no range holds it or the record declares none, and serves the tree when both agree", async () => {
-    const migrating = generatedMigratingMethodologySection();
-    const version = migrating[METHODOLOGY_CONFIG_FIELDS.VERSION] as string;
+  it("fails naming both declarations when the recorded provides selects another line, fails naming the migration source when no range holds it or the record declares none, and serves the tree when both agree, the provides in either accepted form", async () => {
+    const { section: migrating, target: declared } = generatedMigratingMethodology();
+    const version = declared.text;
     const migratingFrom = migrating[METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM] as string;
-    const other = sampleGeneratedValue(arbitraryMethodologyVersion().filter((candidate) => candidate.text !== version));
+    // The generator constructs each version's line beside its text, so the
+    // other-line draw and the same-line other-form provides below are chosen
+    // by an oracle the production line parse never touches.
+    const other = sampleGeneratedValue(
+      arbitraryMethodologyVersion().filter((candidate) => candidate.line !== declared.line),
+    );
     await withSpecTreeEnv(methodologyTreeConfig(migrating), async (env) => {
       await env.materialize();
       const snapshot = await env.readFilesystemSnapshot();
@@ -88,6 +95,47 @@ describe("spec context understand payload provider match", () => {
         }),
       );
       expect(manifest.read.at(-1)?.content).toBe(agreeing.coreText);
+
+      const sameLineOtherForm = await writeMethodologyTree(env, {
+        version,
+        sourceRecord: generatedSourceRecordProviding(declared.line, supportsRangeContaining(migratingFrom)),
+      });
+      const servedAcrossForms = parseContextManifest(
+        await contextCommand({
+          targets: [target.id],
+          cwd: env.productDir,
+          understand: true,
+          methodologyTreeRoot: sameLineOtherForm.treeRoot,
+        }),
+      );
+      expect(servedAcrossForms.read.at(-1)?.content).toBe(sameLineOtherForm.coreText);
+    });
+  });
+
+  it("fails naming a MAJOR.MINOR migration source checked against a patched supports bound instead of serving the tree on a verdict that read no patch component", async () => {
+    const { section, forms } = generatedLineFormMigratingMethodologySection();
+    const version = section[METHODOLOGY_CONFIG_FIELDS.VERSION] as string;
+    const migratingFrom = forms.byForm[METHODOLOGY_VERSION_FORM.LINE];
+    await withSpecTreeEnv(methodologyTreeConfig(section), async (env) => {
+      await env.materialize();
+      const snapshot = await env.readFilesystemSnapshot();
+      const target = snapshot.allNodes[0];
+      const patchedBound = await writeMethodologyTree(env, {
+        version,
+        sourceRecord: generatedSourceRecordProviding(
+          version,
+          supportsRangeContaining(forms.byForm[METHODOLOGY_VERSION_FORM.PATCHED]),
+        ),
+      });
+      const failure = await contextCommandFailure({
+        targets: [target.id],
+        cwd: env.productDir,
+        understand: true,
+        methodologyTreeRoot: patchedBound.treeRoot,
+      });
+      // The range check's own diagnostic, never the config descriptor's
+      // rejection, proves the declaration resolved and the supports check ran.
+      expect(failure).toContain(formatRangeOperandFormError(migratingFrom));
     });
   });
 });

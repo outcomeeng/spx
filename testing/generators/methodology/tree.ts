@@ -11,6 +11,7 @@
 
 import * as fc from "fast-check";
 
+import { METHODOLOGY_VERSION_FORM, type MethodologyVersionForm } from "@/config/methodology";
 import {
   FETCH_CODING_AGENTS,
   FOUNDATION_MANIFEST_FIELDS,
@@ -35,6 +36,12 @@ const LINE_COMPONENT_COUNT = 2;
 export interface GeneratedMethodologyVersion {
   readonly text: string;
   readonly line: string;
+}
+
+/** One `MAJOR.MINOR` line spelled in every accepted exact-version form. */
+export interface GeneratedMethodologyVersionForms {
+  readonly line: string;
+  readonly byForm: Readonly<Record<MethodologyVersionForm, string>>;
 }
 
 function versionComponent(): fc.Arbitrary<number> {
@@ -63,16 +70,50 @@ export function arbitraryMethodologyLine(): fc.Arbitrary<string> {
   return fc.tuple(versionComponent(), versionComponent()).map((parts) => parts.join(VERSION_SEPARATOR));
 }
 
-/** Text that is not an exact methodology version: too few components, a bare line, words, or empty. */
-export function arbitraryNonVersionText(): fc.Arbitrary<string> {
-  return fc.oneof(
-    fc.constant(""),
-    arbitraryMethodologyLine(),
+/** An exact version in the `MAJOR.MINOR` form: the line is the version text itself. */
+export function arbitraryMethodologyLineVersion(): fc.Arbitrary<GeneratedMethodologyVersion> {
+  return arbitraryMethodologyLine().map((line) => ({ text: line, line }));
+}
+
+/** One drawn line in both accepted forms, the patched form carrying a drawn patch component. */
+export function arbitraryMethodologyVersionForms(): fc.Arbitrary<GeneratedMethodologyVersionForms> {
+  return fc.tuple(arbitraryMethodologyLine(), versionComponent()).map(([line, patch]) => ({
+    line,
+    byForm: {
+      [METHODOLOGY_VERSION_FORM.LINE]: line,
+      [METHODOLOGY_VERSION_FORM.PATCHED]: [line, patch].join(VERSION_SEPARATOR),
+    },
+  }));
+}
+
+/**
+ * The shape classes of non-empty text that is not an exact methodology version:
+ * one component, words, a word component, or too many components. Each class
+ * is its own arbitrary so a consumer can draw every class deterministically.
+ */
+export function malformedVersionTextShapes(): readonly fc.Arbitrary<string>[] {
+  return [
+    versionComponent().map(String),
     arbitraryPathSegment(),
     fc.tuple(versionComponent(), arbitraryPathSegment()).map((parts) => parts.join(VERSION_SEPARATOR)),
     fc.array(versionComponent(), { minLength: LINE_COMPONENT_COUNT + 2, maxLength: LINE_COMPONENT_COUNT + 3 })
       .map((parts) => parts.join(VERSION_SEPARATOR)),
-  );
+  ];
+}
+
+/** Non-empty text that is not an exact methodology version, drawn across every malformed shape class. */
+export function arbitraryMalformedVersionText(): fc.Arbitrary<string> {
+  return fc.oneof(...malformedVersionTextShapes());
+}
+
+/** An exact methodology version in either accepted form. */
+export function arbitraryAcceptedMethodologyVersion(): fc.Arbitrary<GeneratedMethodologyVersion> {
+  return fc.oneof(arbitraryMethodologyVersion(), arbitraryMethodologyLineVersion());
+}
+
+/** Text that is not an exact methodology version: malformed text or empty. */
+export function arbitraryNonVersionText(): fc.Arbitrary<string> {
+  return fc.oneof(fc.constant(""), arbitraryMalformedVersionText());
 }
 
 /** A coding-agent directory name: one plain lowercase path segment. */

@@ -10,14 +10,32 @@ export const METHODOLOGY_CONFIG_FIELDS = {
 
 export const DEFAULT_METHODOLOGY_SOURCE = "outcomeeng/methodology";
 
+/** The forms an exact methodology version takes; either form selects the `MAJOR.MINOR` line. */
+export const METHODOLOGY_VERSION_FORM = {
+  LINE: "MAJOR.MINOR",
+  PATCHED: "MAJOR.MINOR.PATCH",
+} as const;
+
+export type MethodologyVersionForm = (typeof METHODOLOGY_VERSION_FORM)[keyof typeof METHODOLOGY_VERSION_FORM];
+
 const NUMERIC_COMPONENT = String.raw`(0|[1-9]\d*)`;
 const IDENTIFIER_RUN = "[0-9A-Za-z.-]+";
 
-/** An exact SemVer methodology version: `MAJOR.MINOR.PATCH` with optional prerelease and build metadata. */
-export const METHODOLOGY_VERSION_PATTERN = new RegExp(
-  String
-    .raw`^${NUMERIC_COMPONENT}\.${NUMERIC_COMPONENT}\.${NUMERIC_COMPONENT}(?:-${IDENTIFIER_RUN})?(?:\+${IDENTIFIER_RUN})?$`,
-);
+const LINE_BODY = String.raw`${NUMERIC_COMPONENT}\.${NUMERIC_COMPONENT}`;
+const PATCH_SUFFIX_BODY = String.raw`\.${NUMERIC_COMPONENT}(?:-${IDENTIFIER_RUN})?(?:\+${IDENTIFIER_RUN})?`;
+
+/**
+ * An exact methodology version in either accepted form: the `MAJOR.MINOR` line
+ * itself, or `MAJOR.MINOR.PATCH` with optional prerelease and build metadata.
+ * The first two capture groups are the line's components in both forms.
+ */
+export const METHODOLOGY_VERSION_PATTERN = new RegExp(`^${LINE_BODY}(?:${PATCH_SUFFIX_BODY})?$`);
+
+/** The `MAJOR.MINOR.PATCH` form alone, for a consumer whose comparison reads every component. */
+export const METHODOLOGY_PATCHED_VERSION_PATTERN = new RegExp(`^${LINE_BODY}${PATCH_SUFFIX_BODY}$`);
+
+/** The accepted forms as a diagnostic phrase, each form its own token. */
+export const METHODOLOGY_VERSION_FORMS_TEXT = Object.values(METHODOLOGY_VERSION_FORM).join(" or ");
 
 /** A methodology line: `MAJOR.MINOR`, the shape of a shipped tree directory name. */
 export const METHODOLOGY_LINE_PATTERN = new RegExp(String.raw`^${NUMERIC_COMPONENT}\.${NUMERIC_COMPONENT}$`);
@@ -27,9 +45,11 @@ export function isMethodologyVersion(value: string): boolean {
   return METHODOLOGY_VERSION_PATTERN.test(value);
 }
 
-/** Diagnostic for a methodology field whose value is not an exact version; no sentinel stands in for one. */
+/** Diagnostic for a methodology field whose value is not an exact version in an accepted form; no sentinel stands in for one. */
 export function formatMethodologyVersionInvalidError(path: string, version: string): string {
-  return `${path} must be an exact MAJOR.MINOR.PATCH methodology version; rejected ${JSON.stringify(version)}`;
+  return `${path} must be an exact methodology version, ${METHODOLOGY_VERSION_FORMS_TEXT}; rejected ${
+    JSON.stringify(version)
+  }`;
 }
 
 export interface MethodologyConfig {

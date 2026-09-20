@@ -12,7 +12,7 @@ import {
 } from "@/lib/methodology";
 import { SPEC_CONTEXT_CONTENT_FIELDS, SPEC_CONTEXT_LISTED_ROLE, SPEC_CONTEXT_READ_ROLE } from "@/lib/spec-tree";
 import { generatedMigratingMethodologySection } from "@testing/generators/config/descriptors";
-import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
+import { arbitraryMethodologyLineVersion, arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
@@ -165,6 +165,36 @@ describe("spec context understand payload", () => {
       expect(manifest.read.at(-1)?.path).toBe(fixture.corePath);
       expect(manifest.read.at(-1)?.content).toBe(fixture.coreText);
     });
+  });
+
+  it("serves the declared line's tree when methodology.version is declared in the MAJOR.MINOR form", async () => {
+    const declared = sampleGeneratedValue(arbitraryMethodologyLineVersion());
+    await withSpecTreeEnv(
+      methodologyTreeConfig({ [METHODOLOGY_CONFIG_FIELDS.VERSION]: declared.text }),
+      async (env) => {
+        await env.materialize();
+        const fixture = await writeMethodologyTree(env, { version: declared.text });
+        // The generator constructs the line beside the text, so the directory
+        // the fixture tree lands in is checked against an oracle the production
+        // parser never touches before the read is trusted.
+        expect(fixture.line).toBe(declared.line);
+        const snapshot = await env.readFilesystemSnapshot();
+        const target = snapshot.allNodes[0];
+
+        const manifest = parseContextManifest(
+          await contextCommand({
+            targets: [target.id],
+            cwd: env.productDir,
+            understand: true,
+            methodologyTreeRoot: fixture.treeRoot,
+          }),
+        );
+
+        expect(manifest.methodology).toMatchObject({ version: declared.text });
+        expect(manifest.read.at(-1)?.path).toBe(fixture.corePath);
+        expect(manifest.read.at(-1)?.content).toBe(fixture.coreText);
+      },
+    );
   });
 
   it("fails naming the resolved manifest path when the manifest is absent", async () => {

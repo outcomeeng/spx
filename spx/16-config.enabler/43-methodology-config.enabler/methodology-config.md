@@ -14,13 +14,14 @@ CAN read methodology selection through the static config registry without depend
 ### Mappings
 
 - `spx.config.json`, `spx.config.yaml`, and `spx.config.toml` produce equivalent resolved methodology config when they declare the same top-level methodology shape ([test](tests/methodology-config.mapping.l1.test.ts))
+- For each accepted form of `methodology.version` — `MAJOR.MINOR` and `MAJOR.MINOR.PATCH` — the resolved methodology line is the same `MAJOR.MINOR` ([test](tests/methodology-config.mapping.l1.test.ts))
 
 ### Compliance
 
 - ALWAYS: `methodology.source` defaults to `outcomeeng/methodology`; `methodology.version` and `methodology.migratingFrom` have no default and no sentinel, and a consumer that addresses a methodology tree fails naming the field when `methodology.version` is absent ([test](tests/methodology-config.compliance.l1.test.ts))
-- ALWAYS: the methodology descriptor rejects malformed source, version, and migration-source fields before any consumer resolves methodology context ([test](tests/methodology-config.compliance.l1.test.ts))
+- ALWAYS: the methodology descriptor rejects malformed source, version, and migration-source fields before any consumer resolves methodology context, and the rejection of a version field names both accepted forms, `MAJOR.MINOR` and `MAJOR.MINOR.PATCH` ([test](tests/methodology-config.compliance.l1.test.ts))
 - ALWAYS: `methodology.source` names the repository the methodology is published from as an `owner/repository` identifier, distinct from the marketplace and plugin coordinates that address capability packages ([test](tests/methodology-config.compliance.l1.test.ts), [audit])
-- ALWAYS: `methodology.version` and `methodology.migratingFrom` each name one exact methodology version ([test](tests/methodology-config.compliance.l1.test.ts))
+- ALWAYS: `methodology.version` and `methodology.migratingFrom` each name one exact methodology version in a form the selected methodology accepts, `MAJOR.MINOR` or `MAJOR.MINOR.PATCH`; both forms select the `MAJOR.MINOR` line ([test](tests/methodology-config.compliance.l1.test.ts))
 - NEVER: a consumer derives a plugin version, package version, or filesystem install location from `methodology.version` or `methodology.migratingFrom` ([audit])
 - ALWAYS: `harnessEnvironment.methodology` is rejected as an unknown `harnessEnvironment` field rather than treated as methodology intent ([test](tests/methodology-config.compliance.l1.test.ts))
 - NEVER: methodology source or version defaults are declared by the harness-environment descriptor ([test](tests/methodology-config.compliance.l1.test.ts))

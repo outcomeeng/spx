@@ -5,6 +5,7 @@ import {
   DEFAULT_METHODOLOGY_SOURCE,
   METHODOLOGY_CONFIG_FIELDS,
   METHODOLOGY_SECTION,
+  METHODOLOGY_VERSION_FORM,
   requireMethodologyVersion,
 } from "@/config/methodology";
 import {
@@ -12,10 +13,13 @@ import {
   HARNESS_ENVIRONMENT_SECTION,
   harnessEnvironmentConfigDescriptor,
 } from "@/domains/agent-environment/config";
+import { methodologyLine } from "@/lib/methodology";
 import { METHODOLOGY_LOCATION_FIELD } from "@testing/generators/config/descriptors";
 import {
   observeDeclaredMethodologyVersionResolution,
   observeHarnessEnvironmentMethodologyRejection,
+  observeLineFormMethodologyVersionResolution,
+  observeLineFormMigrationSourceResolution,
   observeMalformedMethodologyConfigRejections,
   observeMethodologyLocationFieldResolution,
   observeMethodologyResolverHarnessUnknownFieldRejection,
@@ -33,16 +37,21 @@ describe("methodology config compliance", () => {
     }
   });
 
-  it("rejects a version that is not an exact methodology version, naming the field", async () => {
+  it("rejects a version that is not an exact methodology version, naming the field and both accepted forms", async () => {
     const observation = await observeNonExactMethodologyVersionResolution();
 
     expect(observation.result.ok).toBe(false);
     if (!observation.result.ok) {
       expect(observation.result.error).toContain(`${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.VERSION}`);
+      // Each form is named as its own token: the line form is a prefix of the
+      // patched form, so a plain substring check would pass with one form absent.
+      for (const form of Object.values(METHODOLOGY_VERSION_FORM)) {
+        expect(observation.result.error.split(/[^A-Z.]+/)).toContain(form);
+      }
     }
   });
 
-  it("rejects a migration source that is not an exact methodology version, naming the field", async () => {
+  it("rejects a migration source that is not an exact methodology version, naming the field and both accepted forms", async () => {
     const observation = await observeNonExactMigrationSourceResolution();
 
     expect(observation.result.ok).toBe(false);
@@ -50,6 +59,11 @@ describe("methodology config compliance", () => {
       expect(observation.result.error).toContain(
         `${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM}`,
       );
+      // Each form is named as its own token: the line form is a prefix of the
+      // patched form, so a plain substring check would pass with one form absent.
+      for (const form of Object.values(METHODOLOGY_VERSION_FORM)) {
+        expect(observation.result.error.split(/[^A-Z.]+/)).toContain(form);
+      }
     }
   });
 
@@ -90,6 +104,28 @@ describe("methodology config compliance", () => {
     if (!observation.result.ok) throw new Error(observation.result.error);
     expect(observation.result.value.version).toBe(observation.declared);
     expect(requireMethodologyVersion(observation.result.value)).toEqual({ ok: true, value: observation.declared });
+  });
+
+  it("carries a version declared in the MAJOR.MINOR form as the exact methodology version and hands it to a requiring consumer unchanged", async () => {
+    const observation = await observeLineFormMethodologyVersionResolution();
+
+    expect(observation.result.ok).toBe(true);
+    if (!observation.result.ok) throw new Error(observation.result.error);
+    expect(observation.result.value.version).toBe(observation.declared);
+    expect(requireMethodologyVersion(observation.result.value)).toEqual({ ok: true, value: observation.declared });
+  });
+
+  it("carries a migration source declared in the MAJOR.MINOR form as the exact version it names, selecting that source's line", async () => {
+    const observation = await observeLineFormMigrationSourceResolution();
+
+    expect(observation.result.ok).toBe(true);
+    if (!observation.result.ok) throw new Error(observation.result.error);
+    expect(observation.result.value.version).toBe(observation.declared.version);
+    expect(observation.result.value.migratingFrom).toBe(observation.declared.migratingFrom);
+    expect(methodologyLine(observation.declared.migratingFrom)).toEqual({
+      ok: true,
+      value: observation.migratingFromLine,
+    });
   });
 
   it("rejects methodology under harnessEnvironment", async () => {

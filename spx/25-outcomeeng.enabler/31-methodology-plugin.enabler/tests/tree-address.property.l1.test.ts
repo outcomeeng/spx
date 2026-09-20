@@ -8,17 +8,17 @@ import {
   methodologyTreeRelativeDir,
 } from "@/lib/methodology";
 import {
+  arbitraryAcceptedMethodologyVersion,
   arbitraryCodingAgentName,
   arbitraryMethodologyLine,
-  arbitraryMethodologyVersion,
   arbitraryNonVersionText,
   arbitraryUnsafeTreeSegment,
 } from "@testing/generators/methodology/tree";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 describe("methodology tree address", () => {
-  it("derives the line as the major and minor components of every exact version", () => {
-    assertProperty(arbitraryMethodologyVersion(), (version) => {
+  it("derives the line as the major and minor components of every exact version in either accepted form", () => {
+    assertProperty(arbitraryAcceptedMethodologyVersion(), (version) => {
       expect(methodologyLine(version.text)).toEqual({ ok: true, value: version.line });
     }, { level: PROPERTY_LEVEL.L1 });
   });

@@ -16,6 +16,7 @@ import {
   specContextBootstrap,
 } from "@/lib/spec-tree";
 import {
+  generatedLineFormMethodologySection,
   generatedMethodologySection,
   generatedMethodologySource,
   generatedMigratingMethodologySection,
@@ -100,6 +101,23 @@ describe("spec context ingestion compliance", () => {
       const manifest = parseContextManifest(await contextCommand({ targets: [target.id], cwd: env.productDir }));
       expect(manifest.targets).toEqual([rootedSpecPath(target.id)]);
       expect(manifest.productDir).toBe(env.productDir);
+      expect(manifest.methodology).toMatchObject({
+        source: methodology[METHODOLOGY_CONFIG_FIELDS.SOURCE],
+        version: methodology[METHODOLOGY_CONFIG_FIELDS.VERSION],
+      });
+    });
+  });
+
+  it("includes a methodology version declared in the MAJOR.MINOR form in the manifest", async () => {
+    const methodology = generatedLineFormMethodologySection();
+    await withSpecTreeEnv({
+      ...specTreeKindsConfig(),
+      [METHODOLOGY_SECTION]: methodology,
+    }, async (env) => {
+      await env.materialize();
+      const snapshot = await env.readFilesystemSnapshot();
+      const target = snapshot.allNodes[0];
+      const manifest = parseContextManifest(await contextCommand({ targets: [target.id], cwd: env.productDir }));
       expect(manifest.methodology).toMatchObject({
         source: methodology[METHODOLOGY_CONFIG_FIELDS.SOURCE],
         version: methodology[METHODOLOGY_CONFIG_FIELDS.VERSION],

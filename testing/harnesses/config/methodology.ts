@@ -21,8 +21,11 @@ import {
   generatedHarnessMethodologyConfig,
   generatedHarnessMethodologyWithUnknownFieldsConfig,
   generatedInvalidMethodologyConfigs,
+  generatedLineFormMethodologySection,
+  generatedLineFormMigratingMethodologySection,
   generatedMethodologyLocationSection,
   generatedMethodologySection,
+  generatedMethodologyVersionFormSections,
   generatedMigratingMethodologySection,
   generatedNonExactMethodologySection,
   generatedNonExactMigrationSourceSection,
@@ -55,6 +58,26 @@ export interface InvalidMethodologyObservation {
 export interface MethodologyVersionObservation {
   readonly declared: string | undefined;
   readonly result: Result<MethodologyConfig>;
+}
+
+export interface MethodologyVersionFormObservation {
+  readonly form: string;
+  readonly declared: string;
+  readonly result: Result<MethodologyConfig>;
+}
+
+export interface LineFormMigrationObservation {
+  /** The declared target version and the declared `MAJOR.MINOR` migration source. */
+  readonly declared: { readonly version: string; readonly migratingFrom: string };
+  /** The migration source's line from the generator's construction. */
+  readonly migratingFromLine: string;
+  readonly result: Result<MethodologyConfig>;
+}
+
+export interface MethodologyVersionFormsObservation {
+  /** The `MAJOR.MINOR` line every declared form spells, from the generator's construction. */
+  readonly line: string;
+  readonly forms: readonly MethodologyVersionFormObservation[];
 }
 
 export async function observeMethodologyDefaultsResolveFromProductionRegistry(): Promise<Result<Config>> {
@@ -126,6 +149,47 @@ export async function observeDeclaredMethodologyVersionResolution(): Promise<Met
   return { declared: methodology[METHODOLOGY_CONFIG_FIELDS.VERSION] as string, result };
 }
 
+/** Resolves a section declaring its version in the `MAJOR.MINOR` form. */
+export async function observeLineFormMethodologyVersionResolution(): Promise<MethodologyVersionObservation> {
+  const methodology = generatedLineFormMethodologySection();
+  const result = await withTestEnv(
+    { [METHODOLOGY_SECTION]: methodology },
+    ({ productDir }) => resolveMethodologyConfig(productDir),
+  );
+  return { declared: methodology[METHODOLOGY_CONFIG_FIELDS.VERSION] as string, result };
+}
+
+/** Resolves a migrating section whose migration source is declared in the `MAJOR.MINOR` form. */
+export async function observeLineFormMigrationSourceResolution(): Promise<LineFormMigrationObservation> {
+  const { section, forms } = generatedLineFormMigratingMethodologySection();
+  const result = await withTestEnv(
+    { [METHODOLOGY_SECTION]: section },
+    ({ productDir }) => resolveMethodologyConfig(productDir),
+  );
+  return {
+    declared: {
+      version: section[METHODOLOGY_CONFIG_FIELDS.VERSION] as string,
+      migratingFrom: section[METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM] as string,
+    },
+    migratingFromLine: forms.line,
+    result,
+  };
+}
+
+/** Resolves one line declared in each accepted version form, one section per form. */
+export async function observeMethodologyVersionFormsResolution(): Promise<MethodologyVersionFormsObservation> {
+  const { forms, sections } = generatedMethodologyVersionFormSections();
+  const observations: MethodologyVersionFormObservation[] = [];
+  for (const [form, methodology] of Object.entries(sections)) {
+    const result = await withTestEnv(
+      { [METHODOLOGY_SECTION]: methodology },
+      ({ productDir }) => resolveMethodologyConfig(productDir),
+    );
+    observations.push({ form, declared: methodology[METHODOLOGY_CONFIG_FIELDS.VERSION] as string, result });
+  }
+  return { line: forms.line, forms: observations };
+}
+
 export async function observeMethodologyResolverSimilarHarnessField(): Promise<Result<MethodologyConfig>> {
   return withTestEnv(
     generatedSimilarHarnessMethodologyFieldConfig(),
@@ -143,7 +207,7 @@ export async function observeMigratingMethodologyResolution(): Promise<Methodolo
   return { methodology, result };
 }
 
-/** Resolves a section whose version is a bare line rather than an exact version. */
+/** Resolves a section whose version is malformed text, not an exact version in either accepted form. */
 export async function observeNonExactMethodologyVersionResolution(): Promise<MethodologyResolutionObservation> {
   const methodology = generatedNonExactMethodologySection();
   const result = await withTestEnv(
@@ -153,7 +217,7 @@ export async function observeNonExactMethodologyVersionResolution(): Promise<Met
   return { methodology, result };
 }
 
-/** Resolves a section whose migration source is a bare line rather than an exact version. */
+/** Resolves a section whose migration source is malformed text, not an exact version in either accepted form. */
 export async function observeNonExactMigrationSourceResolution(): Promise<MethodologyResolutionObservation> {
   const methodology = generatedNonExactMigrationSourceSection();
   const result = await withTestEnv(

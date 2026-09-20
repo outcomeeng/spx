@@ -58,8 +58,8 @@ inventory reaches zero.
 `AGENTS.md`, regenerated from the spec-tree plugin's instruction template,
 states that when `methodology.version` is the sentinel `installed` "the
 repository declares no methodology version". `src/config/methodology.ts`
-accepts only an exact `MAJOR.MINOR.PATCH` value for that field and rejects
-`installed` as malformed configuration, per
+accepts only an exact `MAJOR.MINOR` or `MAJOR.MINOR.PATCH` value for that
+field and rejects `installed` as malformed configuration, per
 `spx/13-agent-capability-lifecycle.pdr.md`.
 
 **Impact:** an agent following the router's literal guidance treats a config

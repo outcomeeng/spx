@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 import { join } from "node:path";
 
-import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION, METHODOLOGY_VERSION_FORM } from "@/config/methodology";
 import {
   PATH_FILTER_CONFIG_FIELDS,
   type PathFilterConfig,
@@ -28,7 +28,15 @@ import {
 } from "@/lib/spec-tree";
 import { TESTING_CONFIG_FIELDS, TESTING_SECTION, type TestingConfig } from "@/test/config";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
-import { arbitraryMethodologyVersion, arbitraryNonVersionText } from "@testing/generators/methodology/tree";
+import {
+  arbitraryMalformedVersionText,
+  arbitraryMethodologyLineVersion,
+  arbitraryMethodologyVersion,
+  arbitraryMethodologyVersionForms,
+  type GeneratedMethodologyVersion,
+  type GeneratedMethodologyVersionForms,
+  malformedVersionTextShapes,
+} from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 
 export const CONFIG_TEST_FIELDS = {
@@ -38,7 +46,6 @@ export const CONFIG_TEST_FIELDS = {
 
 const ENVIRONMENT_SENTINEL_PREFIX = "SPX_TEST_SENTINEL_";
 /** How many malformed values each field draws when the rejection cases are generated. */
-const MALFORMED_METHODOLOGY_SAMPLES = 4;
 /** The field a location-bearing methodology section would carry; the descriptor declares no such field. */
 export const METHODOLOGY_LOCATION_FIELD = "location";
 const SIMILAR_HARNESS_METHODOLOGY_FIELD = "methodologySource";
@@ -206,25 +213,87 @@ export function generatedMethodologySection(): Record<string, unknown> {
   };
 }
 
-/** A methodology section with an open migration window: two distinct exact versions. */
-export function generatedMigratingMethodologySection(): Record<string, unknown> {
+/** A migrating declaration with the drawn target and source, each carrying the line its construction derives. */
+export function generatedMigratingMethodology(): {
+  readonly section: Record<string, unknown>;
+  readonly target: GeneratedMethodologyVersion;
+  readonly source: GeneratedMethodologyVersion;
+} {
   const [target, source] = sampleGeneratedValue(
     fc.tuple(arbitraryMethodologyVersion(), arbitraryMethodologyVersion()).filter(([left, right]) =>
       left.text !== right.text
     ),
   );
   return {
-    [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
-    [METHODOLOGY_CONFIG_FIELDS.VERSION]: target.text,
-    [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: source.text,
+    section: {
+      [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
+      [METHODOLOGY_CONFIG_FIELDS.VERSION]: target.text,
+      [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: source.text,
+    },
+    target,
+    source,
   };
 }
 
-/** A methodology section whose version is not an exact version, the shape the descriptor rejects. */
+/** A methodology section with an open migration window: two distinct exact versions. */
+export function generatedMigratingMethodologySection(): Record<string, unknown> {
+  return generatedMigratingMethodology().section;
+}
+
+/** A methodology section whose version is malformed text, not an exact version in either accepted form. */
 export function generatedNonExactMethodologySection(): Record<string, unknown> {
   return {
     [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
-    [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleGeneratedValue(arbitraryMethodologyVersion()).line,
+    [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleGeneratedValue(arbitraryMalformedVersionText()),
+  };
+}
+
+/** A methodology section declaring its version in the `MAJOR.MINOR` form. */
+export function generatedLineFormMethodologySection(): Record<string, unknown> {
+  return {
+    [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
+    [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleGeneratedValue(arbitraryMethodologyLineVersion()).text,
+  };
+}
+
+/**
+ * A migrating section whose migration source is the `MAJOR.MINOR` form of one
+ * drawn line, beside that line's patched form for a consumer to bound against;
+ * the target version sits on another line.
+ */
+export function generatedLineFormMigratingMethodologySection(): {
+  readonly section: Record<string, unknown>;
+  readonly forms: GeneratedMethodologyVersionForms;
+} {
+  const forms = sampleGeneratedValue(arbitraryMethodologyVersionForms());
+  const target = sampleGeneratedValue(
+    arbitraryMethodologyVersion().filter((candidate) => candidate.line !== forms.line),
+  );
+  return {
+    forms,
+    section: {
+      [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
+      [METHODOLOGY_CONFIG_FIELDS.VERSION]: target.text,
+      [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: forms.byForm[METHODOLOGY_VERSION_FORM.LINE],
+    },
+  };
+}
+
+/** One line in every accepted form, each spelled as a methodology section declaring that form. */
+export function generatedMethodologyVersionFormSections(): {
+  readonly forms: GeneratedMethodologyVersionForms;
+  readonly sections: Readonly<Record<string, Record<string, unknown>>>;
+} {
+  const forms = sampleGeneratedValue(arbitraryMethodologyVersionForms());
+  const source = generatedMethodologySource();
+  return {
+    forms,
+    sections: Object.fromEntries(
+      Object.entries(forms.byForm).map(([form, version]) => [form, {
+        [METHODOLOGY_CONFIG_FIELDS.SOURCE]: source,
+        [METHODOLOGY_CONFIG_FIELDS.VERSION]: version,
+      }]),
+    ),
   };
 }
 
@@ -235,12 +304,12 @@ export function generatedMethodologySource(): string {
   ].join("/");
 }
 
-/** A methodology section whose migration source is a bare line rather than an exact version. */
+/** A methodology section whose migration source is malformed text, not an exact version in either accepted form. */
 export function generatedNonExactMigrationSourceSection(): Record<string, unknown> {
   return {
     [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
     [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleGeneratedValue(arbitraryMethodologyVersion()).text,
-    [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: sampleGeneratedValue(arbitraryMethodologyVersion()).line,
+    [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: sampleGeneratedValue(arbitraryMalformedVersionText()),
   };
 }
 
@@ -253,29 +322,40 @@ export function generatedMethodologyLocationSection(): Record<string, unknown> {
 }
 
 /**
- * Text that is not an `owner/repository` identifier: empty, a single segment,
- * a traversal or absolute path, or more than two segments.
+ * The shape classes of text that is not an `owner/repository` identifier: empty,
+ * a single segment, a traversal or absolute path, or more than two segments.
  */
-export function arbitraryMalformedMethodologySource(): fc.Arbitrary<string> {
+export function malformedMethodologySourceShapes(): readonly fc.Arbitrary<string>[] {
   const segment = arbitraryPathSegment();
-  return fc.oneof(
+  return [
     fc.constant(""),
     segment,
     segment.map((name) => `../${name}`),
     segment.map((name) => `/${name}`),
     fc.tuple(segment, segment).map(([owner, repository]) => `${owner}/../${repository}`),
     fc.tuple(segment, segment, segment).map((parts) => parts.join("/")),
-  );
+  ];
 }
 
-/** A value that is not an exact methodology version: empty, a non-string, or version-shaped text that is not exact. */
+/** Text that is not an `owner/repository` identifier, drawn across every malformed shape class. */
+export function arbitraryMalformedMethodologySource(): fc.Arbitrary<string> {
+  return fc.oneof(...malformedMethodologySourceShapes());
+}
+
+/** The shape classes of a value that is not an exact methodology version: empty, a non-string, or malformed text. */
+export function malformedMethodologyVersionShapes(): readonly fc.Arbitrary<unknown>[] {
+  return [fc.constant(""), fc.boolean(), fc.nat(), ...malformedVersionTextShapes()];
+}
+
+/** A value that is not an exact methodology version, drawn across every malformed shape class. */
 export function arbitraryMalformedMethodologyVersion(): fc.Arbitrary<unknown> {
-  return fc.oneof(fc.constant(""), fc.boolean(), fc.nat(), arbitraryNonVersionText());
+  return fc.oneof(...malformedMethodologyVersionShapes());
 }
 
+/** One seeded draw per malformed shape class, so every rejection branch is exercised and replayable. */
 export function generatedInvalidMethodologyConfigs(): readonly GeneratedInvalidMethodologyConfig[] {
-  const sources = sampleConfigTestValues(arbitraryMalformedMethodologySource(), MALFORMED_METHODOLOGY_SAMPLES);
-  const versions = sampleConfigTestValues(arbitraryMalformedMethodologyVersion(), MALFORMED_METHODOLOGY_SAMPLES);
+  const sources = malformedMethodologySourceShapes().map((shape) => sampleGeneratedValue(shape));
+  const versions = malformedMethodologyVersionShapes().map((shape) => sampleGeneratedValue(shape));
   return [
     ...sources.map((source) => ({
       config: {
