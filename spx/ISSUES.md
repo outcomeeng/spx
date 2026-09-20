@@ -313,3 +313,11 @@ on that signal is killed rather than slowed.
 **Scope:** `README.md` "Publishing a Release"; `spx/local/merging.md` Deploy and Release; `spx/15-worktree-management.pdr.md`.
 
 **Resolution:** decide which node owns the human-facing release procedure — a release node whose assertion names `README.md` "Publishing a Release" as the human form of the overlay's Release sequence, or an audit rule on the PDR — and link it, so a later overlay change reaches the README through governed context instead of a manual sweep.
+
+## The file-not-found predicate is declared in every module that needs it
+
+`ENOENT` is compared, and an error-code predicate declared, module by module: `src/lib/state-store/index.ts` exports `hasErrorCode` and `ERROR_CODE_NOT_FOUND`, while `src/config/index.ts`, `src/lib/spec-tree/index.ts`, `src/lib/methodology/tree-resource.ts`, `src/commands/release/release-notes-filesystem.ts`, `src/commands/release/product-context.ts`, `src/test/languages/typescript.ts`, `src/domains/session/types.ts`, `src/domains/agent-environment/runtime-config.ts`, and `testing/harnesses/release/agent-runner.ts` each declare the code or the predicate again.
+
+**Impact:** a change to how a missing file is recognized — the code set, the narrowing — is repeated in every module, and a module can drift from the others without any test noticing.
+
+**Settlement condition:** one product-owned home exports the not-found code and the error-code predicate, every listed module imports it, and no module under `src/` or `testing/` declares the code or the predicate again.

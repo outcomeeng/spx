@@ -16,7 +16,7 @@ CAN consume the product's spec tree through stable contracts without owning trav
 
 ### Conformance
 
-- `src/lib/spec-tree/index.ts` exports the declared source, options, snapshot, node, read, projection, next-node, registry, and grammar contracts ([test](tests/spec-tree-surface.conformance.l1.test.ts))
+- `src/lib/spec-tree/index.ts` exports the declared source, options, snapshot, node, read, projection, next-node, ownership, registry, and grammar contracts ([test](tests/spec-tree-surface.conformance.l1.test.ts))
 
 ### Properties
 

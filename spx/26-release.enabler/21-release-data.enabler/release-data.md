@@ -13,7 +13,6 @@ CAN operate on one accurate, reproducible description of what a release contains
 ### Scenarios
 
 - Given a commit message with a multiline explanation, when release data is computed, then the commit retains its subject and complete body ([test](tests/release-data.scenario.l1.test.ts))
-
 - Given a package version, when release data is computed, then the release data carries that package version so downstream children read one version ([test](tests/release-data.scenario.l1.test.ts))
 - Given a symbolic or tagged release ref, when release data is computed, then the release data carries the full commit identity of that release endpoint ([test](tests/release-data.scenario.l1.test.ts))
 - Given a previous release tag exists, when release data is computed for a release at HEAD, then it lists the commits between the most recent release tag preceding the release and HEAD ([test](tests/release-data.scenario.l1.test.ts))
