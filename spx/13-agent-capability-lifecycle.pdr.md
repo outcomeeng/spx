@@ -22,7 +22,7 @@ Which methodology version a provider serves is the provider's fact, declared in 
 ### Testing
 
 - ALWAYS: `methodology.version` and `methodology.migratingFrom` each carry one exact methodology version; a value that is not an exact version, including any sentinel, fails configuration resolution naming the field ([property])
-- ALWAYS: where a provider's `plugin.json` carries a `methodology` block, SPX requires the product's `methodology.version` to equal `methodology.provides` and its `methodology.migratingFrom`, when declared, to fall within `methodology.supports`, and fails naming both declarations otherwise ([compliance])
+- ALWAYS: where a provider's `plugin.json` carries a `methodology` block, SPX requires the product's `methodology.version` and `methodology.provides` to select the same `MAJOR.MINOR` line, whichever accepted form each declares, and its `methodology.migratingFrom`, when declared, to fall within `methodology.supports`, and fails naming both declarations otherwise ([compliance])
 - ALWAYS: where a provider's `plugin.json` carries no `methodology` block, SPX reports the match between the product's declaration and that provider as undeclared rather than as verified ([compliance])
 - ALWAYS: every resolved product configuration for a product carrying a tracked `spx/` tree declares an exact `methodology.version`, an optional exact `methodology.migratingFrom`, exact Outcome Engineering package versions, enabled coding agents, and capability sources in an equivalent shape across `spx.config.yaml`, `spx.config.toml`, and `spx.config.json` ([conformance])
 - ALWAYS: coding-agent participation maps to enabled and available together; every other enabled/available combination maps to not participating ([mapping])
