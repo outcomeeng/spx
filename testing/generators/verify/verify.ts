@@ -565,6 +565,12 @@ export interface FindingWithKey {
   readonly idempotencyKey: string;
 }
 
+/** Two review finding batches for one run — defect findings and filed-or-stale findings — with idempotency keys unique across both. */
+export interface MixedDispositionReviewFindingBatches {
+  readonly defects: readonly FindingWithKey[];
+  readonly filedOrStale: readonly FindingWithKey[];
+}
+
 export interface FileScopeIdentityScenario {
   readonly input: string;
   readonly normalized: string;
@@ -846,6 +852,31 @@ export const VERIFY_TEST_GENERATOR = {
       fc.record({ finding: arbitraryDefectReviewFinding(), idempotencyKey: STATE_STORE_TEST_GENERATOR.scopeToken() }),
       { selector: (entry) => entry.idempotencyKey, minLength: FINDING_BATCH_MIN, maxLength: FINDING_BATCH_MAX },
     ),
+  mixedDispositionReviewFindingBatches: (): fc.Arbitrary<MixedDispositionReviewFindingBatches> =>
+    fc
+      .uniqueArray(
+        fc.record({
+          finding: fc.oneof(arbitraryDefectReviewFinding(), arbitraryFiledOrStaleReviewFinding()),
+          idempotencyKey: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        }),
+        {
+          selector: (entry) => entry.idempotencyKey,
+          minLength: FINDING_BATCH_MIN + FINDING_BATCH_MIN,
+          maxLength: FINDING_BATCH_MAX + FINDING_BATCH_MAX,
+        },
+      )
+      .filter((entries) =>
+        entries.some((entry) => DEFECT_REVIEW_FINDING_DISPOSITIONS.includes(entry.finding.finding.disposition))
+        && entries.some((entry) => !DEFECT_REVIEW_FINDING_DISPOSITIONS.includes(entry.finding.finding.disposition))
+      )
+      .map((entries) => ({
+        defects: entries.filter((entry) =>
+          DEFECT_REVIEW_FINDING_DISPOSITIONS.includes(entry.finding.finding.disposition)
+        ),
+        filedOrStale: entries.filter((entry) =>
+          !DEFECT_REVIEW_FINDING_DISPOSITIONS.includes(entry.finding.finding.disposition)
+        ),
+      })),
   filedOrStaleReviewFindingBatch: (): fc.Arbitrary<readonly FindingWithKey[]> =>
     fc.uniqueArray(
       fc.record({

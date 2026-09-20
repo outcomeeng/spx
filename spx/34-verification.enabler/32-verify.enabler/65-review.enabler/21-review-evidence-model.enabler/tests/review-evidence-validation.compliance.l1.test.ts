@@ -9,6 +9,7 @@ import {
 } from "@/domains/verify/verify";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import {
+  arbitraryReviewFindingMissingDispositionEvidence,
   arbitraryReviewFindingMissingRequiredField,
   arbitraryReviewFindingWithoutAnchor,
   arbitraryReviewScopeMissingRequiredField,
@@ -39,6 +40,25 @@ describe("review evidence validation", () => {
   it("names the missing required field when it rejects a review finding payload", () => {
     assertProperty(
       arbitraryReviewFindingMissingRequiredField(),
+      (scenario) => {
+        const result = evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.REVIEW, VERIFY_EVIDENCE_KIND.FINDING)?.({
+          payload: scenario.payload,
+          events: [],
+          selector: {
+            scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+            scopeIdentity: sampleReviewScopeIdentity(),
+          },
+        });
+        expect(result?.ok).toBe(false);
+        expect(result?.ok === false ? result.reason : "").toContain(scenario.missingField);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+
+  it("rejects a FILED or STALE finding lacking its entry reference or base-ref evidence, naming the missing field path", () => {
+    assertProperty(
+      arbitraryReviewFindingMissingDispositionEvidence(),
       (scenario) => {
         const result = evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.REVIEW, VERIFY_EVIDENCE_KIND.FINDING)?.({
           payload: scenario.payload,

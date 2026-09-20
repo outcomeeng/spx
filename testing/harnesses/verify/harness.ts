@@ -1486,13 +1486,17 @@ export async function startedRunToken(scenario: VerifyRunContextScenario, deps: 
   return parseStartReport(started.output).runToken;
 }
 
-/** Append a generated batch of review findings to a run and return the batch, throwing on failure. */
+/**
+ * Append a batch of review findings to a run and return the batch, throwing on failure. The
+ * default batch records defect findings; a caller supplies another generated batch to record
+ * findings of other dispositions.
+ */
 export async function appendFindingBatch(
   scenario: VerifyRunContextScenario,
   deps: VerifyCliDeps,
   runToken: string,
+  findings: readonly FindingWithKey[] = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewFindingBatch()),
 ): Promise<readonly FindingWithKey[]> {
-  const findings = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewFindingBatch());
   for (const entry of findings) {
     const appended = await verifyAppendFindingCommand(
       verifyAppendOptions(scenario, {
