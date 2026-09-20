@@ -268,8 +268,14 @@ while the major version is zero; otherwise `patch`.
    review. If base movement or conflict resolution changes the candidate,
    verify the result in the assigned worktree before merging.
 2. Run `spx diagnose` and require a `compliant` `worktree-pool` verdict; use its
-   `mainCheckoutPath`. Confirm no other session holds the canonical checkout
-   and that it is clean before touching it.
+   `mainCheckoutPath`. Before touching the canonical checkout, confirm from the
+   assigned worktree that no other session holds it, that it is clean, and that
+   after `git fetch origin main` its `HEAD` is an ancestor of `origin/main`, so
+   the pull fast-forwards:
+
+   ```bash
+   git merge-base --is-ancestor "$(git -C <mainCheckoutPath> rev-parse HEAD)" origin/main
+   ```
 3. In the canonical checkout run only `git pull`. Its hook builds the shared
    `spx`. Never bump, generate, commit, tag, install, or run an explicit build
    there, and keep `main` checked out.

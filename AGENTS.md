@@ -493,7 +493,7 @@ Choose by what the command's result depends on:
 
 The global `spx` is symlinked from the **`main`** worktree — the canonical main checkout `spx diagnose` reports as `mainCheckoutPath` (require a `compliant` `worktree-pool` verdict). The only mutation product instructions authorize in that checkout is `git pull` and its `rebuild-dist` hook, which runs `pnpm install --frozen-lockfile`, the main-checkout gate, and `pnpm run build`. Never run `pnpm install` or an explicit `pnpm run build` there.
 
-- **Missing, broken, or stale** (`command -v spx` returns nothing, `spx` errors, or the build lags `origin/main`): confirm no other session holds the canonical checkout (`spx worktree status`) and that it is clean, then from the main worktree:
+- **Missing, broken, or stale** (`command -v spx` returns nothing, `spx` errors, or the build lags `origin/main`): confirm from your assigned worktree that no other session holds the canonical checkout (`spx worktree status`), that it is clean, and that after `git fetch origin main` its `HEAD` is an ancestor of `origin/main` (`git merge-base --is-ancestor "$(git -C <mainCheckoutPath> rev-parse HEAD)" origin/main`), so the pull fast-forwards; then from the main worktree:
 
   ```bash
   git pull        # fires post-merge/post-rewrite rebuild-dist: install, gate, build
