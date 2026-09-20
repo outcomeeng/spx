@@ -6,9 +6,11 @@
 
 `tests/understand-payload.compliance.l1.test.ts` selects its "recorded provides differs" case by the same string inequality (`candidate.text !== version`), so a same-line patched `provides` is drawn as a mismatch and the line rule, once implemented, breaks that case.
 
+The range check reads only the `MAJOR.MINOR.PATCH` form for the operand and for every comparator bound, so a `MAJOR.MINOR` migration source is refused naming the operand's form rather than evaluated and, on a mismatch, named beside the `supports` declaration as the decision requires; a `supports` range written with `MAJOR.MINOR` bounds fails as naming no exact version.
+
 **Impact:** once a fetched line records a `provides` in the other form, `spx spec context show --methodology`, compact recovery, and the diagnose methodology-context check fail a product whose declaration selects the provided line.
 
-**Settlement condition:** `checkProviderMatch` compares the two declarations by their `MAJOR.MINOR` line, the mismatch case draws a `provides` on another line, the `supports` range check evaluates a `MAJOR.MINOR` migration source against every bound component or rejects it with the typed error, and a linked test under this node or the config node exercises a `provides` in each form against a declaration in the other and a line-form migration source against a patched bound.
+**Settlement condition:** `checkProviderMatch` compares the two declarations by their `MAJOR.MINOR` line, the mismatch case draws a `provides` on another line, the `supports` range check evaluates a `MAJOR.MINOR` migration source and `MAJOR.MINOR` bounds against every component they carry and fails naming both declarations, and a linked test under this node or the config node exercises a `provides` in each form against a declaration in the other and a line-form migration source against a patched bound.
 
 ## The linked tests pin production where the spec leads it
 

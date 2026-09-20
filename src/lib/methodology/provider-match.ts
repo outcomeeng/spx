@@ -1,13 +1,15 @@
 /**
  * The check between a product's methodology declaration and the provider
  * declaration a shipped line's source record carries: the declared version
- * must equal `provides`, and a declared migration source must fall within
- * `supports`. A record without a provider declaration yields an undeclared
- * match, never a verified one.
+ * is compared with `provides` as text, and a declared migration source must
+ * fall within `supports`. A record without a provider declaration yields an
+ * undeclared match, never a verified one.
  *
  * `supports` is read as comparator sets — `>=3.2.0 <5.0.0`, joined by `||`
  * for alternatives, or one exact version — evaluated by SemVer precedence over
- * the numeric components and prerelease identifiers.
+ * the numeric components and prerelease identifiers. Every operand the
+ * comparison reads carries the `MAJOR.MINOR.PATCH` form; an operand in the
+ * `MAJOR.MINOR` form fails the check naming that form.
  *
  * @module lib/methodology/provider-match
  */
