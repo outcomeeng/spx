@@ -61,4 +61,14 @@ describe("review payload conformance", () => {
       { level: PROPERTY_LEVEL.L1 },
     );
   });
+
+  it("conforms FILED and STALE review findings carrying their entry reference and base-ref evidence, read back unchanged", () => {
+    assertProperty(
+      VERIFY_TEST_GENERATOR.filedOrStaleReviewFinding(),
+      (finding) => {
+        expect(validateReviewFinding(finding as unknown as JsonValue)).toEqual({ ok: true, value: finding });
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
 });

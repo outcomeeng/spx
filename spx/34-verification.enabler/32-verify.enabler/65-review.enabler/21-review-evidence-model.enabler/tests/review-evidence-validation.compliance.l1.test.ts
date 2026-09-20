@@ -9,6 +9,7 @@ import {
 } from "@/domains/verify/verify";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import {
+  arbitraryReviewFindingMissingDispositionEvidence,
   arbitraryReviewFindingMissingRequiredField,
   arbitraryReviewFindingWithoutAnchor,
   arbitraryReviewScopeMissingRequiredField,
@@ -36,23 +37,30 @@ describe("review evidence validation", () => {
     );
   });
 
-  it("names the missing required field when it rejects a review finding payload", () => {
-    assertProperty(
-      arbitraryReviewFindingMissingRequiredField(),
-      (scenario) => {
-        const result = evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.REVIEW, VERIFY_EVIDENCE_KIND.FINDING)?.({
-          payload: scenario.payload,
-          events: [],
-          selector: {
-            scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
-            scopeIdentity: sampleReviewScopeIdentity(),
-          },
-        });
-        expect(result?.ok).toBe(false);
-        expect(result?.ok === false ? result.reason : "").toContain(scenario.missingField);
-      },
-      { level: PROPERTY_LEVEL.L1 },
-    );
+  it("names the missing required field, entry reference, or base-ref evidence when it rejects a review finding payload", () => {
+    for (
+      const scenarios of [
+        arbitraryReviewFindingMissingRequiredField(),
+        arbitraryReviewFindingMissingDispositionEvidence(),
+      ]
+    ) {
+      assertProperty(
+        scenarios,
+        (scenario) => {
+          const result = evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.REVIEW, VERIFY_EVIDENCE_KIND.FINDING)?.({
+            payload: scenario.payload,
+            events: [],
+            selector: {
+              scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+              scopeIdentity: sampleReviewScopeIdentity(),
+            },
+          });
+          expect(result?.ok).toBe(false);
+          expect(result?.ok === false ? result.reason : "").toContain(scenario.missingField);
+        },
+        { level: PROPERTY_LEVEL.L1 },
+      );
+    }
   });
 
   it("names the unmet structural requirement when a review scope payload is not a JSON object", () => {

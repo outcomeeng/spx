@@ -77,6 +77,12 @@ export const DECISION_KINDS: readonly DecisionKind[] = (Object.keys(KIND_REGISTR
 export const NODE_SUFFIXES: readonly string[] = NODE_KINDS.map((k) => KIND_REGISTRY[k].suffix);
 export const DECISION_SUFFIXES: readonly string[] = DECISION_KINDS.map((k) => KIND_REGISTRY[k].suffix);
 
+/** The coordination notes a node may carry, each named once; the grammar lists them as `COORDINATION_NOTES`. */
+export const SPEC_TREE_COORDINATION_NOTE = {
+  PLAN: "PLAN.md",
+  ISSUES: "ISSUES.md",
+} as const;
+
 export const SPEC_TREE_GRAMMAR = {
   PRODUCT_SUFFIX: SPEC_TREE_CONFIG.PRODUCT.SUFFIX,
   EVIDENCE: {
@@ -96,7 +102,8 @@ export const SPEC_TREE_GRAMMAR = {
     PATTERN: /^\d+$/,
   },
   PATH_SEPARATOR: "/",
-  COORDINATION_NOTES: ["PLAN.md", "ISSUES.md"],
+  COORDINATION_NOTE: SPEC_TREE_COORDINATION_NOTE,
+  COORDINATION_NOTES: [SPEC_TREE_COORDINATION_NOTE.PLAN, SPEC_TREE_COORDINATION_NOTE.ISSUES],
   GUIDE_FILES: ["CLAUDE.md", "AGENTS.md"],
   STATUS_FILENAME: "spx.status.json",
   LOCAL_OVERLAYS: {

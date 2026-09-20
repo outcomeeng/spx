@@ -9,6 +9,7 @@ import {
   VERIFY_VERIFICATION_TYPE,
 } from "@/domains/verify/verify";
 import {
+  arbitraryAuditFindingMissingDispositionEvidence,
   arbitraryAuditFindingMissingRequiredField,
   arbitraryAuditFindingValidationScenario,
   arbitraryAuditScopeCoverageGapWithProvenance,
@@ -77,7 +78,7 @@ describe("audit evidence validation", () => {
           },
         })?.ok
       ),
-    ).toStrictEqual([false, false]);
+    ).toStrictEqual(invalidCoveredCoverageGapAuditScopePayloads().map(() => false));
   });
 
   it("rejects invalid audit finding payloads before append", () => {
@@ -143,20 +144,27 @@ describe("audit evidence validation", () => {
     );
   });
 
-  it("names the missing required field when it rejects an audit finding payload", () => {
-    assertProperty(
-      arbitraryAuditFindingMissingRequiredField(),
-      (scenario) => {
-        const result = evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.FINDING)?.({
-          payload: scenario.payload,
-          events: [],
-          selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: scenario.scopeIdentity },
-        });
-        expect(result?.ok).toBe(false);
-        expect(result?.ok === false ? result.reason : "").toContain(scenario.missingField);
-      },
-      { level: PROPERTY_LEVEL.L1 },
-    );
+  it("names the missing required field, entry reference, or base-ref evidence when it rejects an audit finding payload", () => {
+    for (
+      const scenarios of [
+        arbitraryAuditFindingMissingRequiredField(),
+        arbitraryAuditFindingMissingDispositionEvidence(),
+      ]
+    ) {
+      assertProperty(
+        scenarios,
+        (scenario) => {
+          const result = evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.AUDIT, VERIFY_EVIDENCE_KIND.FINDING)?.({
+            payload: scenario.payload,
+            events: [],
+            selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: scenario.scopeIdentity },
+          });
+          expect(result?.ok).toBe(false);
+          expect(result?.ok === false ? result.reason : "").toContain(scenario.missingField);
+        },
+        { level: PROPERTY_LEVEL.L1 },
+      );
+    }
   });
 
   it("names the unmet structural requirement when a scope payload carries a covered coverage-gap status", () => {

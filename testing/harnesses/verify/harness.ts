@@ -58,6 +58,7 @@ import {
   findTerminalEvent,
   projectVerifyRun,
   REVIEW_SCOPE_COVERAGE_STATE,
+  type ReviewTerminalMetadata,
   type RunLocator,
   validateAuditFinding,
   validateAuditScope,
@@ -118,6 +119,11 @@ import {
 import { arbitrarySourceFilePath, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
+import {
+  arbitraryAuditFinding,
+  arbitraryDefectAuditFinding,
+  arbitraryInvalidAuditFinding,
+} from "@testing/generators/verify/audit";
 import {
   type FileScopeCanonicalizationScenario,
   type FindingWithKey,
@@ -929,7 +935,7 @@ export async function runFileScopeExistingCommandsScenario(
     coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
   };
   const finding = {
-    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditFinding()),
+    ...sampleVerifyTestValue(arbitraryDefectAuditFinding()),
     unitId: scope.unitId,
   };
   const keys = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKeyPair());
@@ -1443,6 +1449,36 @@ export function verifyFinishOptions(
   };
 }
 
+/** Finish a run with a terminal status and a review envelope, returning the command's own result for the test to judge. */
+export async function finishWithEnvelope(
+  scenario: VerifyRunContextScenario,
+  deps: VerifyCliDeps,
+  runToken: string,
+  terminalStatus: string,
+  terminalMetadata: ReviewTerminalMetadata,
+): Promise<CliCommandResult> {
+  return verifyFinishCommand(
+    {
+      ...verifyFinishOptions(scenario, { run: runToken, terminalStatus }),
+      terminalMetadata: JSON.stringify(terminalMetadata),
+    },
+    deps,
+  );
+}
+
+/** Read a run's status and render reports through their commands, throwing when either read fails. */
+export async function readRunReports(
+  scenario: VerifyRunContextScenario,
+  deps: VerifyCliDeps,
+  runToken: string,
+): Promise<{ readonly status: VerifyStatusReport; readonly render: VerifyRenderReport }> {
+  const status = await verifyStatusCommand(verifyStatusOptions(scenario, runToken), deps);
+  if (status.exitCode !== VERIFY_CLI_EXIT_CODE.OK) throw new Error(`verify status failed in harness: ${status.output}`);
+  const render = await verifyRenderCommand(verifyRenderOptions(scenario, runToken), deps);
+  if (render.exitCode !== VERIFY_CLI_EXIT_CODE.OK) throw new Error(`verify render failed in harness: ${render.output}`);
+  return { status: parseStatusReport(status.output), render: parseRenderReport(render.output) };
+}
+
 export function verifyStatusOptions(scenario: VerifyRunContextScenario, runToken: string): VerifyStatusCliOptions {
   return {
     verificationType: scenario.verificationType,
@@ -1486,13 +1522,17 @@ export async function startedRunToken(scenario: VerifyRunContextScenario, deps: 
   return parseStartReport(started.output).runToken;
 }
 
-/** Append a generated batch of review findings to a run and return the batch, throwing on failure. */
+/**
+ * Append a batch of review findings to a run and return the batch, throwing on failure. The
+ * default batch records defect findings; a caller supplies another generated batch to record
+ * findings of other dispositions.
+ */
 export async function appendFindingBatch(
   scenario: VerifyRunContextScenario,
   deps: VerifyCliDeps,
   runToken: string,
+  findings: readonly FindingWithKey[] = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewFindingBatch()),
 ): Promise<readonly FindingWithKey[]> {
-  const findings = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewFindingBatch());
   for (const entry of findings) {
     const appended = await verifyAppendFindingCommand(
       verifyAppendOptions(scenario, {
@@ -1578,7 +1618,8 @@ async function assertVerifyProperty<T>(
   await assertProperty(arbitrary, assertion, { level: PROPERTY_LEVEL.L1 });
 }
 
-async function reviewAppendScenario(): Promise<{
+/** A started review run over the in-memory store and recording sink, throwing when the start fails. */
+export async function reviewAppendScenario(): Promise<{
   readonly scenario: VerifyRunContextScenario;
   readonly fs: VerifyStateStoreFileSystem;
   readonly deps: VerifyCliDeps;
@@ -1587,10 +1628,7 @@ async function reviewAppendScenario(): Promise<{
   const { scenario, fs, deps } = createVerifyAppendScenario(
     withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.REVIEW),
   );
-  const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
-  expect(started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
-  const startReport = parseStartReport(started.output);
-  const runToken = startReport.runToken;
+  const runToken = await startedRunToken(scenario, deps);
   return { scenario, fs, deps, runToken };
 }
 
@@ -1607,7 +1645,8 @@ async function auditAppendScenario(): Promise<{
   return { scenario, fs, deps, runToken };
 }
 
-async function testAppendScenario(): Promise<{
+/** A started `test` run over the in-memory store and recording sink, throwing when the start fails. */
+export async function testAppendScenario(): Promise<{
   readonly scenario: VerifyRunContextScenario;
   readonly fs: VerifyStateStoreFileSystem;
   readonly deps: VerifyCliDeps;
@@ -1933,7 +1972,7 @@ export async function assertAuditScopePayloadsConformToSchema(): Promise<void> {
 }
 
 export async function assertAuditFindingPayloadsConformToSchema(): Promise<void> {
-  await assertVerifyProperty(VERIFY_TEST_GENERATOR.auditFinding(), async (finding) => {
+  await assertVerifyProperty(arbitraryAuditFinding(), async (finding) => {
     const payload = toJsonValue(finding);
     expect(validateAuditFinding(payload)).toEqual({ ok: true, value: finding });
   });
@@ -1972,7 +2011,7 @@ export async function assertInvalidAuditFindingRejectedBeforeAppend(): Promise<v
   const key = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
   const eventsBeforeInvalidFinding = await readVerifyRunEvents(scenario, runToken, fs);
 
-  await assertVerifyProperty(VERIFY_TEST_GENERATOR.invalidAuditFinding(), async (invalidFinding) => {
+  await assertVerifyProperty(arbitraryInvalidAuditFinding(), async (invalidFinding) => {
     const appended = await verifyAppendFindingCommand(
       verifyAppendOptions(scenario, {
         run: runToken,
@@ -1999,7 +2038,7 @@ export async function assertAuditFindingUnknownUnitRejectedBeforeAppend(): Promi
   const { scenario, fs, deps, runToken } = await auditAppendScenario();
   const scope = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit());
   const finding = {
-    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditFinding()),
+    ...sampleVerifyTestValue(arbitraryAuditFinding()),
     unitId: selectAlternateString(scope.unitId, [
       sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
       sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken()),
@@ -2028,7 +2067,7 @@ export async function assertAuditFindingEmptyEvidenceRejectedBeforeAppend(): Pro
   const { scenario, fs, deps, runToken } = await auditAppendScenario();
   const scope = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit());
   const finding = {
-    ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditFinding()),
+    ...sampleVerifyTestValue(arbitraryAuditFinding()),
     unitId: scope.unitId,
     evidence: {},
   };
