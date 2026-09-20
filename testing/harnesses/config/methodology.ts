@@ -181,7 +181,7 @@ export async function observeMigratingMethodologyResolution(): Promise<Methodolo
   return { methodology, result };
 }
 
-/** Resolves a section whose version is a bare line rather than an exact version. */
+/** Resolves a section whose version is malformed text, not an exact version in either accepted form. */
 export async function observeNonExactMethodologyVersionResolution(): Promise<MethodologyResolutionObservation> {
   const methodology = generatedNonExactMethodologySection();
   const result = await withTestEnv(
@@ -191,7 +191,7 @@ export async function observeNonExactMethodologyVersionResolution(): Promise<Met
   return { methodology, result };
 }
 
-/** Resolves a section whose migration source is a bare line rather than an exact version. */
+/** Resolves a section whose migration source is malformed text, not an exact version in either accepted form. */
 export async function observeNonExactMigrationSourceResolution(): Promise<MethodologyResolutionObservation> {
   const methodology = generatedNonExactMigrationSourceSection();
   const result = await withTestEnv(

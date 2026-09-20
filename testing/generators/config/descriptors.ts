@@ -226,7 +226,7 @@ export function generatedMigratingMethodologySection(): Record<string, unknown> 
   };
 }
 
-/** A methodology section whose version is not an exact version, the shape the descriptor rejects. */
+/** A methodology section whose version is malformed text, not an exact version in either accepted form. */
 export function generatedNonExactMethodologySection(): Record<string, unknown> {
   return {
     [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
@@ -267,7 +267,7 @@ export function generatedMethodologySource(): string {
   ].join("/");
 }
 
-/** A methodology section whose migration source is a bare line rather than an exact version. */
+/** A methodology section whose migration source is malformed text, not an exact version in either accepted form. */
 export function generatedNonExactMigrationSourceSection(): Record<string, unknown> {
   return {
     [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
