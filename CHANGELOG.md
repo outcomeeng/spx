@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.2]
+
+### Added
+
+- The methodology version in project configuration accepts the `MAJOR.MINOR` form.
+- Verification accepts `filed` and `stale` as finding dispositions.
+
+### Fixed
+
+- Methodology version ranges resolve correctly: a provider is matched by its methodology line, range operands are kept in the patched form, and the range diagnostic names the operand form it expects.
+- Journal appends that hit an explained sequence collision re-allocate their sequence and retry. Every retry re-checks the seal barrier and decides the seal before handling the collision, so a sealed journal is honored on each attempt.
+- Verification run recording serializes recorder appends, and an append that is lost is surfaced rather than silently dropped.
+
 ## [0.7.1] - 2026-09-18
 
 ### Added
