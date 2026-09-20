@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_VERSION_FORM } from "@/config/methodology";
+import { formatRangeOperandFormError } from "@/lib/methodology";
 import { SPEC_CONTEXT_DIGEST_ALGORITHM } from "@/lib/spec-tree";
 import {
   generatedLineFormMigratingMethodologySection,
@@ -113,8 +114,9 @@ describe("spec context understand payload provider match", () => {
         understand: true,
         methodologyTreeRoot: patchedBound.treeRoot,
       });
-      expect(failure).toBeDefined();
-      expect(failure).toContain(migratingFrom);
+      // The range check's own diagnostic, never the config descriptor's
+      // rejection, proves the declaration resolved and the supports check ran.
+      expect(failure).toContain(formatRangeOperandFormError(migratingFrom));
     });
   });
 });

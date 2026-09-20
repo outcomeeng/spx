@@ -12,7 +12,7 @@
  * @module lib/methodology/provider-match
  */
 
-import { METHODOLOGY_PATCHED_VERSION_PATTERN } from "@/config/methodology";
+import { METHODOLOGY_PATCHED_VERSION_PATTERN, METHODOLOGY_VERSION_FORM } from "@/config/methodology";
 import type { Result } from "@/config/types";
 
 import type { MethodologySourceRecord } from "./tree";
@@ -124,7 +124,7 @@ function satisfiesComparator(version: ParsedVersion, comparator: string): Result
 export function satisfiesMethodologyRange(version: string, range: string): Result<boolean> {
   const parsed = parseVersion(version);
   if (parsed === undefined) {
-    return { ok: false, error: `not an exact methodology version: ${JSON.stringify(version)}` };
+    return { ok: false, error: formatRangeOperandFormError(version) };
   }
   for (const alternative of range.split(RANGE_ALTERNATIVE_SEPARATOR)) {
     const comparators = alternative.trim().split(COMPARATOR_SEPARATOR).filter((part) => part.length > 0);
@@ -140,6 +140,13 @@ export function satisfiesMethodologyRange(version: string, range: string): Resul
     if (satisfied) return { ok: true, value: true };
   }
   return { ok: true, value: false };
+}
+
+/** Diagnostic for a range operand outside the form the comparison reads: an accepted declaration the check cannot yet evaluate. */
+export function formatRangeOperandFormError(version: string): string {
+  return `${
+    JSON.stringify(version)
+  } is not in the ${METHODOLOGY_VERSION_FORM.PATCHED} form the supports range check reads`;
 }
 
 /** Diagnostic for a declared version the provider does not provide. */
