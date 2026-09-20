@@ -1,3 +1,7 @@
+---
+malleability: spec
+---
+
 # Release Notes
 
 PROVIDES agent-authored release notes generated from the release data

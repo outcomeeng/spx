@@ -1,3 +1,7 @@
+---
+malleability: spec
+---
+
 # Release Test Harness
 
 PROVIDES release-specific real-filesystem environments, controlled agent, filesystem, package-registry, and repository-host boundaries, Keep a Changelog and documentation oracles, case registration, cleanup, and diagnostics driven by coherent release scenarios

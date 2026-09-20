@@ -1,3 +1,7 @@
+---
+malleability: spec
+---
+
 # Release
 
 PROVIDES per-release generation of release notes and documentation updates from the product's git history, plus governed, provenance-bearing publication

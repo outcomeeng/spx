@@ -1,3 +1,7 @@
+---
+malleability: spec
+---
+
 # Release Data
 
 PROVIDES deterministic release data — the package version, the resolved release endpoint, the commits since the previous release tag, the version delta, and the changed paths — computed from git without network access or LLM inference

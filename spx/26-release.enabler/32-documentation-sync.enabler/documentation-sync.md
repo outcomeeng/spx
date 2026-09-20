@@ -1,3 +1,7 @@
+---
+malleability: spec
+---
+
 # Documentation Sync
 
 PROVIDES agent-driven updates to the product's documentation for a release
