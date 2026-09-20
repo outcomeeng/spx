@@ -58,7 +58,8 @@ const SEMVER_SEPARATOR = ".";
 const SEMVER_RADIX = 10;
 const ABSENT_COMPONENT = 0;
 
-class ReleaseDataExternalOperationError extends Error {
+/** An external operation the release-data boundary refused to delegate. */
+export class ReleaseDataExternalOperationError extends Error {
   public constructor(
     public readonly command: string,
     public readonly subcommand: string | undefined,

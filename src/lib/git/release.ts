@@ -44,12 +44,14 @@ export const RELEASE_TAG_PREFIX = "v";
 export const RELEASE_TAG_GLOB = `${RELEASE_TAG_PREFIX}*`;
 /** Two-dot range listing commits reachable from the right side but not the left. */
 const RANGE_SEPARATOR = "..";
-const COMMIT_FIELD_SEPARATOR = "\0";
+/** The NUL byte git emits between a commit record's fields under the commit log format. */
+export const COMMIT_FIELD_SEPARATOR = "\0";
 const COMMIT_FIELD_COUNT = 3;
 export const COMMIT_LOG_FORMAT = "--format=%H%x00%s%x00%b";
 /** Empty pretty-format, so `git log --name-only` emits only the changed paths. */
 export const EMPTY_LOG_FORMAT = "--format=";
-const LINE_SEPARATOR = "\n";
+/** The separator between the paths `git log --name-only` emits. */
+export const LINE_SEPARATOR = "\n";
 
 function nonEmptyLines(stdout: string): string[] {
   return stdout.split(LINE_SEPARATOR).filter((line) => line.length > 0);

@@ -8,12 +8,13 @@ import {
   reduceEndpointClaims,
   RELEASE_CONTEXT_KIND,
   type ReleaseContextDocument,
-  type ReleaseContextReader,
   type ReleaseEndpointDeclaration,
   type ReleaseEndpointPathOwnership,
+  type ReleaseProductContext,
   selectReleaseOwnershipContext,
   uniqueNodes,
 } from "@/domains/release/product-context";
+import type { ReleaseData } from "@/domains/release/release-data";
 import { committedFileContent, committedPaths } from "@/lib/git/release";
 import { defaultGitDependencies, type GitDependencies } from "@/lib/git/root";
 import {
@@ -52,10 +53,10 @@ export interface ReleaseEndpointReader {
 
 /** Reads one product-context snapshot before any release agent is invoked. */
 export async function readReleaseProductContext(
-  productDir: Parameters<ReleaseContextReader>[0],
-  releaseData: Parameters<ReleaseContextReader>[1],
+  productDir: string,
+  releaseData: ReleaseData,
   dependencies: ReleaseProductContextDependencies = {},
-): ReturnType<ReleaseContextReader> {
+): Promise<ReleaseProductContext> {
   const endpointReader = memoizeReleaseEndpointReader(
     dependencies.endpointReader ?? createGitReleaseEndpointReader(dependencies.git ?? defaultGitDependencies),
   );
@@ -92,7 +93,7 @@ export async function readReleaseProductContext(
 
 async function readReleaseEndpoints(
   productDir: string,
-  releaseData: Parameters<ReleaseContextReader>[1],
+  releaseData: ReleaseData,
   endpointReader: ReleaseEndpointReader,
 ): Promise<readonly ReleaseContextEndpoint[]> {
   const current = await readEndpoint(productDir, releaseData.releaseRef, endpointReader);
@@ -107,7 +108,7 @@ function assertCompleteSpecTrees(endpoints: readonly ReleaseContextEndpoint[]): 
 
 async function resolveReleaseOwnershipSelection(
   productDir: string,
-  releaseData: Parameters<ReleaseContextReader>[1],
+  releaseData: ReleaseData,
   endpoints: readonly ReleaseContextEndpoint[],
   registry: TestingRegistry,
 ) {
