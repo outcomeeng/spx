@@ -948,16 +948,14 @@ export const TEST_PAYLOAD_FIELD = {
   ERRORS: "errors",
 } as const;
 
+const REQUIRED_ISSUES_ENTRY_STRING_FIELDS = [ISSUES_ENTRY_FIELD.PATH, ISSUES_ENTRY_FIELD.HEADING] as const;
+
 function readIssuesEntryReference(
   payload: JsonValue | undefined,
   ...path: readonly string[]
 ): EvidenceValidationResult<IssuesEntryReference> {
   if (!isJsonRecord(payload)) return rejectEvidenceField(...path);
-  const entryPath = readRequiredString(payload, ISSUES_ENTRY_FIELD.PATH);
-  if (entryPath === undefined) return rejectEvidenceField(...path, ISSUES_ENTRY_FIELD.PATH);
-  const heading = readRequiredString(payload, ISSUES_ENTRY_FIELD.HEADING);
-  if (heading === undefined) return rejectEvidenceField(...path, ISSUES_ENTRY_FIELD.HEADING);
-  return acceptEvidence({ path: entryPath, heading });
+  return readRequiredStrings(payload, REQUIRED_ISSUES_ENTRY_STRING_FIELDS, ...path);
 }
 
 /**
