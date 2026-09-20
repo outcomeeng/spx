@@ -58,6 +58,7 @@ import {
   findTerminalEvent,
   projectVerifyRun,
   REVIEW_SCOPE_COVERAGE_STATE,
+  type ReviewTerminalMetadata,
   type RunLocator,
   validateAuditFinding,
   validateAuditScope,
@@ -1446,6 +1447,36 @@ export function verifyFinishOptions(
     run: args.run,
     terminalStatus: args.terminalStatus,
   };
+}
+
+/** Finish a run with a terminal status and a review envelope, returning the command's own result for the test to judge. */
+export async function finishWithEnvelope(
+  scenario: VerifyRunContextScenario,
+  deps: VerifyCliDeps,
+  runToken: string,
+  terminalStatus: string,
+  terminalMetadata: ReviewTerminalMetadata,
+): Promise<CliCommandResult> {
+  return verifyFinishCommand(
+    {
+      ...verifyFinishOptions(scenario, { run: runToken, terminalStatus }),
+      terminalMetadata: JSON.stringify(terminalMetadata),
+    },
+    deps,
+  );
+}
+
+/** Read a run's status and render reports through their commands, throwing when either read fails. */
+export async function readRunReports(
+  scenario: VerifyRunContextScenario,
+  deps: VerifyCliDeps,
+  runToken: string,
+): Promise<{ readonly status: VerifyStatusReport; readonly render: VerifyRenderReport }> {
+  const status = await verifyStatusCommand(verifyStatusOptions(scenario, runToken), deps);
+  if (status.exitCode !== VERIFY_CLI_EXIT_CODE.OK) throw new Error(`verify status failed in harness: ${status.output}`);
+  const render = await verifyRenderCommand(verifyRenderOptions(scenario, runToken), deps);
+  if (render.exitCode !== VERIFY_CLI_EXIT_CODE.OK) throw new Error(`verify render failed in harness: ${render.output}`);
+  return { status: parseStatusReport(status.output), render: parseRenderReport(render.output) };
 }
 
 export function verifyStatusOptions(scenario: VerifyRunContextScenario, runToken: string): VerifyStatusCliOptions {

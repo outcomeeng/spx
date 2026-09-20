@@ -1,12 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  VERIFY_CLI_EXIT_CODE,
-  verifyAppendFindingCommand,
-  verifyAppendScopeCommand,
-  verifyRenderCommand,
-  verifyStatusCommand,
-} from "@/commands/verify/cli";
+import { VERIFY_CLI_EXIT_CODE, verifyAppendFindingCommand, verifyAppendScopeCommand } from "@/commands/verify/cli";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { VERIFY_FINDING_DISPOSITION, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
 import { arbitraryFileAuditScopeScenario } from "@testing/generators/verify/audit";
@@ -25,13 +19,10 @@ import {
   createVerifyAppendScenario,
   createVerifyRunContextScenario,
   finishRun,
-  parseRenderReport,
-  parseStatusReport,
+  readRunReports,
   reviewAppendScenario,
   startedRunToken,
   verifyAppendOptions,
-  verifyRenderOptions,
-  verifyStatusOptions,
   withFileScope,
   withVerificationType,
 } from "@testing/harnesses/verify/harness";
@@ -49,76 +40,64 @@ describe("verify status compliance", () => {
     await assertFinishStatusAndRenderShareFindingProjection();
   });
 
-  it("reports the finding count per disposition with the total across finish, status, and render for a sealed review run", async () => {
-    const { scenario, deps, runToken } = await reviewAppendScenario();
+  it("reports the finding count per disposition with the total across finish, status, and render for sealed review and audit runs", async () => {
+    // One sealed review run recording defect and filed-or-stale findings, and one sealed audit run
+    // recording filed-or-stale findings; each pairs its run with the dispositions it recorded, in
+    // the spec's lower-case spelling.
+    const review = await reviewAppendScenario();
     const batches = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.mixedDispositionReviewFindingBatches());
-    const defects = await appendFindingBatch(scenario, deps, runToken, batches.defects);
-    const filedOrStale = await appendFindingBatch(scenario, deps, runToken, batches.filedOrStale);
-    const finishReport = await finishRun(scenario, deps, runToken, JOURNAL_RUN_STATE_STATUS.REJECTED);
-    const statusReport = parseStatusReport(
-      (await verifyStatusCommand(verifyStatusOptions(scenario, runToken), deps)).output,
-    );
-    const renderReport = parseRenderReport(
-      (await verifyRenderCommand(verifyRenderOptions(scenario, runToken), deps)).output,
-    );
-    // The spec spells a review disposition in upper case and its count in lower case.
-    const recorded = [...defects, ...filedOrStale].map((entry) => entry.finding.finding.disposition.toLowerCase());
-    for (const report of [finishReport, statusReport, renderReport]) {
-      expect(report.runToken).toBe(runToken);
-      expect(report.findingCount).toBe(recorded.length);
-      expect(report.findingCounts.total).toBe(recorded.length);
-      for (const disposition of Object.values(VERIFY_FINDING_DISPOSITION)) {
-        expect(report.findingCounts[disposition]).toBe(recorded.filter((value) => value === disposition).length);
-      }
-    }
-  });
-
-  it("reports the finding count per disposition with the total across finish, status, and render for a sealed audit run", async () => {
-    const { scenario, deps } = createVerifyAppendScenario(
+    const reviewRecorded = [
+      ...(await appendFindingBatch(review.scenario, review.deps, review.runToken, batches.defects)),
+      ...(await appendFindingBatch(review.scenario, review.deps, review.runToken, batches.filedOrStale)),
+    ].map((entry) => entry.finding.finding.disposition.toLowerCase());
+    const audit = createVerifyAppendScenario(
       withFileScope(
         withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.AUDIT),
         sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).scopeIdentity,
       ),
     );
-    const runToken = await startedRunToken(scenario, deps);
-    expect(
-      (await verifyAppendScopeCommand(
-        verifyAppendOptions(scenario, {
-          run: runToken,
-          payload: JSON.stringify(sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).rootPayload),
-          idempotencyKey: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).rootAppendKey,
-        }),
-        deps,
-      )).exitCode,
-    ).toBe(VERIFY_CLI_EXIT_CODE.OK);
-    for (const append of sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).filedOrStaleFindingAppends) {
+    const auditRunToken = await startedRunToken(audit.scenario, audit.deps);
+    const auditAppends = [
+      {
+        payload: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).rootPayload,
+        idempotencyKey: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).rootAppendKey,
+        command: verifyAppendScopeCommand,
+      },
+      ...sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).filedOrStaleFindingAppends.map((append) => ({
+        ...append,
+        command: verifyAppendFindingCommand,
+      })),
+    ];
+    for (const append of auditAppends) {
       expect(
-        (await verifyAppendFindingCommand(
-          verifyAppendOptions(scenario, {
-            run: runToken,
+        (await append.command(
+          verifyAppendOptions(audit.scenario, {
+            run: auditRunToken,
             payload: JSON.stringify(append.payload),
             idempotencyKey: append.idempotencyKey,
           }),
-          deps,
+          audit.deps,
         )).exitCode,
       ).toBe(VERIFY_CLI_EXIT_CODE.OK);
     }
-    const finishReport = await finishRun(scenario, deps, runToken, JOURNAL_RUN_STATE_STATUS.APPROVED);
-    const statusReport = parseStatusReport(
-      (await verifyStatusCommand(verifyStatusOptions(scenario, runToken), deps)).output,
-    );
-    const renderReport = parseRenderReport(
-      (await verifyRenderCommand(verifyRenderOptions(scenario, runToken), deps)).output,
-    );
-    const recorded = sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).filedOrStaleFindingPayloads.map(
+    const auditRecorded = sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).filedOrStaleFindingPayloads.map(
       (payload) => (payload as { readonly severity: string }).severity,
     );
-    for (const report of [finishReport, statusReport, renderReport]) {
-      expect(report.runToken).toBe(runToken);
-      expect(report.findingCount).toBe(recorded.length);
-      expect(report.findingCounts.total).toBe(recorded.length);
-      for (const disposition of Object.values(VERIFY_FINDING_DISPOSITION)) {
-        expect(report.findingCounts[disposition]).toBe(recorded.filter((value) => value === disposition).length);
+    for (
+      const [scenario, deps, runToken, terminalStatus, recorded] of [
+        [review.scenario, review.deps, review.runToken, JOURNAL_RUN_STATE_STATUS.REJECTED, reviewRecorded],
+        [audit.scenario, audit.deps, auditRunToken, JOURNAL_RUN_STATE_STATUS.APPROVED, auditRecorded],
+      ] as const
+    ) {
+      const finishReport = await finishRun(scenario, deps, runToken, terminalStatus);
+      const reports = await readRunReports(scenario, deps, runToken);
+      for (const report of [finishReport, reports.status, reports.render]) {
+        expect(report.runToken).toBe(runToken);
+        expect(report.findingCount).toBe(recorded.length);
+        expect(report.findingCounts.total).toBe(recorded.length);
+        for (const disposition of Object.values(VERIFY_FINDING_DISPOSITION)) {
+          expect(report.findingCounts[disposition]).toBe(recorded.filter((value) => value === disposition).length);
+        }
       }
     }
   });
