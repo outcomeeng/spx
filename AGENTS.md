@@ -502,7 +502,7 @@ The global `spx` is symlinked from the **`main`** worktree — the canonical mai
 
   A pull that reports already up to date has fired no hook and is no build evidence. A failed hook leaves the source advanced without a usable build; stop and report it for operator direction. Never recover by running the install or build by hand, and never repair the checkout's content directly — a source correction goes through an assigned-worktree branch and a pull request.
 
-- **First-time registration on a machine** (`pnpm link --global` was **removed in pnpm 11**): register the package in the global pnpm store with `pnpm add -g .`, run from the main worktree after a pull has built `dist/cli.js`. This writes the global store, not the checkout. If `pnpm add -g .` errors about the global bin directory, run `pnpm setup`, restart your shell, then re-run `pnpm add -g .`; verify with `which spx`.
+- **First-time registration on a machine** (`pnpm link --global` was **removed in pnpm 11**): register the package in the global pnpm store with `pnpm add -g .`, run from the main worktree after the bootstrap or a pull has built `dist/cli.js`. This writes the global store, not the checkout. If `pnpm add -g .` errors about the global bin directory, run `pnpm setup`, restart your shell, then re-run `pnpm add -g .`; verify with `which spx`.
 
 Because the global `spx` tracks the `main` worktree's build, feature worktrees use `pnpm run` / `tsx src/cli.ts` for their own work and never rely on `spx` reflecting uncommitted or unmerged changes.
 

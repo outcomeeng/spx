@@ -30,11 +30,13 @@ npm install -g @outcomeeng/spx
 ```bash
 git clone https://github.com/outcomeeng/spx.git
 cd spx
-pnpm install && pnpm run build
+pnpm install && pnpm run build   # bootstrap of a fresh checkout: installs the hook and builds dist/
 pnpm add -g .   # `pnpm link --global` was removed in pnpm 11
 # first run on a machine: if `pnpm add -g .` fails with a global-bin-directory error,
 # run `pnpm setup`, restart your shell, then re-run `pnpm add -g .`
 ```
+
+`pnpm install` and `pnpm run build` are the one-time bootstrap of a fresh checkout. A worktree pool's canonical checkout is refreshed afterwards only by `git pull`, whose hook installs and builds.
 
 ## Usage
 
@@ -159,11 +161,13 @@ spx release docs sync
 ```bash
 git clone https://github.com/outcomeeng/spx.git
 cd spx
-pnpm install
-pnpm run build
+pnpm install   # bootstrap of a fresh checkout: installs dependencies and the hook
+pnpm run build # bootstrap: builds dist/
 pnpm add -g .  # optional: makes 'spx' available in your shell (`pnpm link --global` was removed in pnpm 11)
 # if `pnpm add -g .` fails with a global-bin-directory error, run `pnpm setup`, restart your shell, then re-run it
 ```
+
+The install and build are the one-time bootstrap of a fresh checkout. A worktree pool's canonical checkout is refreshed afterwards only by `git pull`, whose hook installs and builds.
 
 ### Build and Test
 

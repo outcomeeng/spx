@@ -52,7 +52,12 @@ None. `PREVIEW` is a no-op.
 
 ## Deploy
 
-After the verified candidate merges through origin, refresh the shared local CLI as described below. `DEPLOYMENT_READINESS` requires the merged candidate and permission to use the canonical checkout without interfering with another session. The only operation performed in that checkout is `git pull`; its hook builds `spx`.
+After every merge through origin, refresh the shared local CLI. `DEPLOYMENT_READINESS` requires the merged commit on `origin/main` and permission to use the canonical checkout without interfering with another session. The only operation performed in that checkout is `git pull`; its hook installs and builds `spx`.
+
+1. Use `/diagnose` to obtain SPX's `worktree-pool` verdict and `mainCheckoutPath`; require `compliant`. Consume SPX's result without reimplementing its Git-layout rules.
+2. From the assigned worktree, check occupancy, cleanliness, and fast-forward standing: another session's claim or uncommitted work blocks mutation until ownership is resolved, and after `git fetch origin main` the canonical checkout's `HEAD` must be an ancestor of `origin/main` (`git merge-base --is-ancestor "$(git -C <mainCheckoutPath> rev-parse HEAD)" origin/main`), so the pull fast-forwards and neither merges nor rebases there.
+3. In the canonical checkout, run only `git pull`. Its `rebuild-dist` hook installs locked dependencies and builds the shared `spx`; that hook is the only mutation there. Never prepare artifacts, bump versions, commit, tag, install packages, or run an explicit build there. Keep `main` checked out.
+4. From the assigned worktree, confirm that the canonical checkout is clean, that its `HEAD` equals the merged commit, that the hook succeeded, and that `spx --version` runs. A pull that reports already up to date fired no hook and is no build evidence. A failed hook leaves the source advanced without a usable build; stop for operator direction. Never repair the canonical checkout directly.
 
 ## Release
 
@@ -77,9 +82,8 @@ Apply the first matching rule to the complete change since the previous release:
 ### Merge, pull, and check
 
 1. Push the branch to origin and complete the PR workflow through `/merge`, including current-head CI and review. All release-preparation changes reach `main` through that PR. If base movement or conflict resolution changes the candidate's content, verify the resulting candidate in the assigned worktree before merging it.
-2. Use `/diagnose` to obtain SPX's `worktree-pool` verdict and `mainCheckoutPath`; require `compliant`. Consume SPX's result without reimplementing its Git-layout rules. Check occupancy, cleanliness, and fast-forward standing before the pull, from the assigned worktree: another session's claim or uncommitted work blocks mutation until ownership is resolved, and after `git fetch origin main` the canonical checkout's `HEAD` must be an ancestor of `origin/main` (`git merge-base --is-ancestor "$(git -C <mainCheckoutPath> rev-parse HEAD)" origin/main`), so the pull fast-forwards and neither merges nor rebases there.
-3. In the canonical checkout, run only `git pull`. Its hook builds the shared `spx`. Never prepare artifacts, bump versions, commit, tag, install packages, or run an explicit build there. Keep `main` checked out.
-4. From the assigned worktree, verify that the canonical checkout is clean and on the expected merged commit, and that its tree matches the locally verified candidate. Confirm the pull and build hook succeeded, `spx --version` reports the prepared version, and the shared executable exposes and correctly executes the changed behavior using isolated verification targets. Check every applicable result; a successful pull or matching version alone is insufficient. On failure or unexpected content, repair and verify on an assigned-worktree branch, then repeat the PR, pull, and verification sequence. Never repair the canonical checkout directly.
+2. Refresh the shared CLI through the Deploy steps above: the `/diagnose` verdict, the occupancy, cleanliness, and fast-forward checks from the assigned worktree, `git pull` in the canonical checkout, and the merged-commit and hook checks.
+3. From the assigned worktree, add the release-specific checks: the canonical checkout's tree matches the locally verified candidate, `spx --version` reports the prepared version, and the shared executable exposes and correctly executes the changed behavior using isolated verification targets. Check every applicable result; a successful pull or matching version alone is insufficient. On failure or unexpected content, repair and verify on an assigned-worktree branch, then repeat the PR, pull, and verification sequence. Never repair the canonical checkout directly.
 
 ### Authorize and publish
 
