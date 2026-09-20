@@ -87,6 +87,37 @@ branch-state record to a skill that does not exist.
 `/release-change` writes, or the Change record the lifecycle skills own, in
 place of `/handoff`.
 
+## Session and worktree specs assert the retired `/handoff` and `/pickup` skills
+
+**Evidence:** the installed spec-tree plugin ships neither `/handoff` nor
+`/pickup`; the router's Change Lifecycle section routes continuation through
+`/claim-change`, `/release-change`, `/close-change`, and `/author-change`.
+Specs, a decision, and tests under `spx/36-session.enabler` and
+`spx/38-worktree.enabler` still name the two skills as the flows the product
+serves: `spx/36-session.enabler/session.md` and
+`spx/38-worktree.enabler/worktree.md` name them in their `SO THAT` clauses;
+`spx/36-session.enabler/87-session-pick.enabler/session-pick.md` asserts that
+`spx session pick` launches an agent with a `pickup <reference>` prompt;
+`spx/38-worktree.enabler/43-worktree-cli.enabler/worktree-cli.md` describes
+them as the flows that invoke `spx worktree release` and `status`;
+`spx/36-session.enabler/43-session-store.enabler/21-list-json-contract.adr.md`
+cites the `/pickup` skill as a convention driver; the co-located tests under
+`spx/36-session.enabler/43-session-store.enabler`,
+`54-auto-injection.enabler`, `65-session-claim.enabler`, and
+`76-session-cli.enabler` carry the same names. The current-head review of the
+instruction-file change that retired the names from `CLAUDE.md` and
+`AGENTS.md` surfaced the gap.
+
+**Impact:** those nodes declare product behavior built on skills no installed
+plugin provides, while the instruction files route continuation elsewhere; a
+reader of either surface receives a different account of how a session hands
+off and resumes.
+
+**Settlement condition:** the session and worktree nodes declare their
+handoff and resume behavior against the Change lifecycle and the Handoff
+`/release-change` writes, or against an SPX-owned session flow named without
+the retired skills, and their tests follow.
+
 ## Source-graph containment property fails on some generated inputs
 
 `spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler/tests/source.compliance.l1.test.ts`
