@@ -1,6 +1,7 @@
 import * as fc from "fast-check";
 import { posix } from "node:path";
 
+import { evidenceFieldPath } from "@/domains/verify/evidence-rejection";
 import {
   AUDIT_CLASS,
   AUDIT_COVERAGE_REQUIREMENT,
@@ -14,7 +15,6 @@ import {
   type AuditProducerProvenance,
   type AuditScopeUnit,
   buildAppendEvent,
-  isDefectDisposition,
   ISSUES_ENTRY_FIELD,
   type IssuesEntryReference,
   VERIFY_APPEND_EVENT_TYPE,
@@ -47,10 +47,10 @@ const AUDIT_UNCOVERED_COVERAGE_STATUSES = AUDIT_COVERAGE_STATUSES.filter((status
   status !== AUDIT_COVERAGE_STATUS.AUDITED && status !== AUDIT_COVERAGE_STATUS.NOT_APPLICABLE
 );
 const AUDIT_FINDING_SEVERITIES = Object.values(AUDIT_FINDING_SEVERITY);
-const DEFECT_AUDIT_FINDING_SEVERITIES = AUDIT_FINDING_SEVERITIES.filter(isDefectDisposition);
-const FILED_OR_STALE_AUDIT_FINDING_SEVERITIES = AUDIT_FINDING_SEVERITIES.filter(
-  (severity) => !isDefectDisposition(severity),
-);
+/** The severities the audit payload decision names as defects of the changeset, enumerated from the vocabulary members. */
+const DEFECT_AUDIT_FINDING_SEVERITIES = [AUDIT_FINDING_SEVERITY.BLOCKING, AUDIT_FINDING_SEVERITY.DEBT] as const;
+/** The severities the audit payload decision names as entry-referencing, enumerated from the vocabulary members. */
+const FILED_OR_STALE_AUDIT_FINDING_SEVERITIES = [AUDIT_FINDING_SEVERITY.FILED, AUDIT_FINDING_SEVERITY.STALE] as const;
 
 export interface FileAuditScopeScenario {
   readonly scopeIdentity: string;
@@ -75,6 +75,14 @@ export interface FileAuditScopeScenario {
   readonly defectFindingEvents: readonly JournalEvent[];
   readonly filedOrStaleFindingEvents: readonly JournalEvent[];
   readonly filedOrStaleFindingPayloads: readonly JsonValue[];
+  readonly rootAppendKey: string;
+  readonly filedOrStaleFindingAppends: readonly AuditFindingAppend[];
+}
+
+/** One filed-or-stale finding payload paired with the caller idempotency key that appends it. */
+export interface AuditFindingAppend {
+  readonly payload: JsonValue;
+  readonly idempotencyKey: string;
 }
 
 export interface AuditChangesetProjectionScenario {
@@ -549,6 +557,10 @@ export function arbitraryFileAuditScopeScenario(
       STATE_STORE_TEST_GENERATOR.scopeToken(),
       arbitraryIssuesEntryReference(),
       arbitraryBaseRefEvidence(),
+      fc.uniqueArray(STATE_STORE_TEST_GENERATOR.scopeToken(), {
+        minLength: 1 + FILED_OR_STALE_AUDIT_FINDING_SEVERITIES.length,
+        maxLength: 1 + FILED_OR_STALE_AUDIT_FINDING_SEVERITIES.length,
+      }),
     )
     .filter(([scopeIdentity, relatedSubject, root, child, duplicateRoot, _finding, orphanParent]) =>
       scopeIdentity !== relatedSubject
@@ -569,6 +581,7 @@ export function arbitraryFileAuditScopeScenario(
         orphan,
         issuesEntry,
         baseRefEvidence,
+        appendKeys,
       ],
     ) => {
       const { parentUnitId: _rootParent, ...rootFields } = rootCandidate;
@@ -655,6 +668,13 @@ export function arbitraryFileAuditScopeScenario(
             auditFindingAtSeverity({ ...finding, unitId: root.unitId }, severity, issuesEntry, baseRefEvidence),
           ) as unknown as JsonValue
         ),
+        rootAppendKey: appendKeys[0] ?? scopeIdentity,
+        filedOrStaleFindingAppends: FILED_OR_STALE_AUDIT_FINDING_SEVERITIES.map((severity, index) => ({
+          payload: structuredClone(
+            auditFindingAtSeverity({ ...finding, unitId: root.unitId }, severity, issuesEntry, baseRefEvidence),
+          ) as unknown as JsonValue,
+          idempotencyKey: appendKeys[index + 1] ?? `${scopeIdentity}${String(index)}`,
+        })),
         duplicateRootEvent: auditScopeEvent(duplicateRoot, JOURNAL_SEQ_BASE + 1),
       };
     });
@@ -739,8 +759,6 @@ export function arbitraryAuditFindingMissingRequiredField(): fc.Arbitrary<Missin
     }));
 }
 
-const AUDIT_FIELD_PATH_SEPARATOR = ".";
-
 /**
  * The evidence field each entry-referencing severity demands, as the dotted payload path a
  * rejection names: the entry itself, its path or heading, or the base-ref evidence a `filed`
@@ -761,7 +779,7 @@ export function arbitraryAuditFindingMissingDispositionEvidence(): fc.Arbitrary<
     .chain(([finding, scopeIdentity]) =>
       fc.constantFrom(...missingAuditDispositionEvidencePaths(finding.severity)).map((path) => ({
         payload: withoutNestedField(JSON.parse(JSON.stringify(finding)) as JsonValue, path),
-        missingField: path.join(AUDIT_FIELD_PATH_SEPARATOR),
+        missingField: evidenceFieldPath(...path),
         scopeIdentity,
       }))
     );

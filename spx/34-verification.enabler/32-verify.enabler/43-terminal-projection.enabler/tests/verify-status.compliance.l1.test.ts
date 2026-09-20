@@ -8,14 +8,8 @@ import {
   verifyStatusCommand,
 } from "@/commands/verify/cli";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
-import {
-  AUDIT_COVERAGE_REQUIREMENT,
-  AUDIT_COVERAGE_STATUS,
-  VERIFY_FINDING_DISPOSITION,
-  VERIFY_VERIFICATION_TYPE,
-  type VerifyFindingCounts,
-} from "@/domains/verify/verify";
-import { arbitraryFiledOrStaleAuditFinding } from "@testing/generators/verify/audit";
+import { VERIFY_FINDING_DISPOSITION, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
+import { arbitraryFileAuditScopeScenario } from "@testing/generators/verify/audit";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import {
   appendFindingBatch,
@@ -37,6 +31,7 @@ import {
   verifyAppendOptions,
   verifyRenderOptions,
   verifyStatusOptions,
+  withFileScope,
   withVerificationType,
 } from "@testing/harnesses/verify/harness";
 
@@ -83,36 +78,34 @@ describe("verify status compliance", () => {
 
   it("reports the finding count per disposition with the total across finish, status, and render for a sealed audit run", async () => {
     const { scenario, deps } = createVerifyAppendScenario(
-      withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.AUDIT),
+      withFileScope(
+        withVerificationType(createVerifyRunContextScenario(), VERIFY_VERIFICATION_TYPE.AUDIT),
+        sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).scopeIdentity,
+      ),
     );
     const runToken = await startedRunToken(scenario, deps);
-    const root = {
-      ...sampleVerifyTestValue(VERIFY_TEST_GENERATOR.auditScopeUnit()),
-      parentUnitId: undefined,
-      coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
-      coverageStatus: AUDIT_COVERAGE_STATUS.AUDITED,
-    };
     expect(
       (await verifyAppendScopeCommand(
         verifyAppendOptions(scenario, {
           run: runToken,
-          payload: JSON.stringify(root),
-          idempotencyKey: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
+          payload: JSON.stringify(sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).rootPayload),
+          idempotencyKey: sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).rootAppendKey,
         }),
         deps,
       )).exitCode,
     ).toBe(VERIFY_CLI_EXIT_CODE.OK);
-    const finding = { ...sampleVerifyTestValue(arbitraryFiledOrStaleAuditFinding()), unitId: root.unitId };
-    expect(
-      (await verifyAppendFindingCommand(
-        verifyAppendOptions(scenario, {
-          run: runToken,
-          payload: JSON.stringify(finding),
-          idempotencyKey: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKeyPair()).second,
-        }),
-        deps,
-      )).exitCode,
-    ).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    for (const append of sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).filedOrStaleFindingAppends) {
+      expect(
+        (await verifyAppendFindingCommand(
+          verifyAppendOptions(scenario, {
+            run: runToken,
+            payload: JSON.stringify(append.payload),
+            idempotencyKey: append.idempotencyKey,
+          }),
+          deps,
+        )).exitCode,
+      ).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    }
     const finishReport = await finishRun(scenario, deps, runToken, JOURNAL_RUN_STATE_STATUS.APPROVED);
     const statusReport = parseStatusReport(
       (await verifyStatusCommand(verifyStatusOptions(scenario, runToken), deps)).output,
@@ -120,17 +113,16 @@ describe("verify status compliance", () => {
     const renderReport = parseRenderReport(
       (await verifyRenderCommand(verifyRenderOptions(scenario, runToken), deps)).output,
     );
-    const expected: VerifyFindingCounts = {
-      [VERIFY_FINDING_DISPOSITION.BLOCKING]: 0,
-      [VERIFY_FINDING_DISPOSITION.DEBT]: 0,
-      [VERIFY_FINDING_DISPOSITION.FILED]: finding.severity === VERIFY_FINDING_DISPOSITION.FILED ? 1 : 0,
-      [VERIFY_FINDING_DISPOSITION.STALE]: finding.severity === VERIFY_FINDING_DISPOSITION.STALE ? 1 : 0,
-      total: 1,
-    };
-    expect(finishReport.findingCounts).toStrictEqual(expected);
-    expect(statusReport.findingCounts).toStrictEqual(expected);
-    expect(renderReport.findingCounts).toStrictEqual(expected);
-    expect(finishReport.findingCount).toBe(expected.total);
+    const retained = sampleVerifyTestValue(arbitraryFileAuditScopeScenario()).filedOrStaleFindingPayloads;
+    for (const counts of [finishReport.findingCounts, statusReport.findingCounts, renderReport.findingCounts]) {
+      expect(counts.total).toBe(retained.length);
+      expect(counts[VERIFY_FINDING_DISPOSITION.BLOCKING]).toBe(0);
+      expect(counts[VERIFY_FINDING_DISPOSITION.DEBT]).toBe(0);
+      expect(counts[VERIFY_FINDING_DISPOSITION.FILED] + counts[VERIFY_FINDING_DISPOSITION.STALE]).toBe(retained.length);
+    }
+    expect(statusReport.findingCounts).toStrictEqual(finishReport.findingCounts);
+    expect(renderReport.findingCounts).toStrictEqual(finishReport.findingCounts);
+    expect(finishReport.findingCount).toBe(retained.length);
   });
 
   it("projects status and render from the journal when a hydrated run has no recorded input file", async () => {

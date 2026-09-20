@@ -78,7 +78,7 @@ describe("audit evidence validation", () => {
           },
         })?.ok
       ),
-    ).toStrictEqual([false, false]);
+    ).toStrictEqual(invalidCoveredCoverageGapAuditScopePayloads().map(() => false));
   });
 
   it("rejects invalid audit finding payloads before append", () => {

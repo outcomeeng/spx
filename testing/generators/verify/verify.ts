@@ -7,6 +7,7 @@ import {
   VERIFICATION_CONTEXT_SUBJECT_KIND,
   type VerificationContextSubject,
 } from "@/domains/verification-context/context";
+import { evidenceFieldPath } from "@/domains/verify/evidence-rejection";
 import { MERGE_PERIOD_BACKEND, type RunSetRunEvidence, type RunSetSelector } from "@/domains/verify/run-set";
 import {
   AUDIT_CLASS,
@@ -23,7 +24,6 @@ import {
   type IssuesEntryReference,
   REVIEW_ANCHOR_SIDE,
   REVIEW_FINDING_DISPOSITION,
-  REVIEW_FINDING_DISPOSITION_CLASS,
   REVIEW_PAYLOAD_FIELD,
   REVIEW_SCOPE_COVERAGE_STATE,
   REVIEW_TERMINAL_STATE,
@@ -49,10 +49,16 @@ const VERIFY_SCOPE_TYPES = Object.values(VERIFY_SCOPE_TYPE);
 const SUPPORTED_SCOPE_TYPES: ReadonlySet<string> = new Set(VERIFY_SCOPE_TYPES);
 const REVIEW_RUN_SET_RUN_INTERVAL_MS = 60_000;
 const REVIEW_FINDING_DISPOSITIONS = Object.values(REVIEW_FINDING_DISPOSITION);
-const DEFECT_REVIEW_FINDING_DISPOSITIONS = REVIEW_FINDING_DISPOSITIONS.filter((disposition) =>
-  REVIEW_FINDING_DISPOSITION_CLASS[disposition] === VERIFY_FINDING_DISPOSITION.BLOCKING
-  || REVIEW_FINDING_DISPOSITION_CLASS[disposition] === VERIFY_FINDING_DISPOSITION.DEBT
-);
+/** The dispositions the review payload decision names as defects of the changeset, enumerated from the vocabulary members. */
+const DEFECT_REVIEW_FINDING_DISPOSITIONS: readonly ReviewFinding["finding"]["disposition"][] = [
+  REVIEW_FINDING_DISPOSITION.BLOCKING,
+  REVIEW_FINDING_DISPOSITION.DEBT,
+];
+/** The dispositions the review payload decision names as entry-referencing, enumerated from the vocabulary members. */
+const FILED_OR_STALE_REVIEW_FINDING_DISPOSITIONS: readonly ReviewFinding["finding"]["disposition"][] = [
+  REVIEW_FINDING_DISPOSITION.FILED,
+  REVIEW_FINDING_DISPOSITION.STALE,
+];
 const REVIEW_ANCHOR_SIDES = Object.values(REVIEW_ANCHOR_SIDE);
 const REVIEW_SCOPE_COVERAGE_STATES = Object.values(REVIEW_SCOPE_COVERAGE_STATE);
 const AUDIT_COVERAGE_REQUIREMENTS = Object.values(AUDIT_COVERAGE_REQUIREMENT);
@@ -100,6 +106,21 @@ export function findingDispositionEvidenceFor(
   return {};
 }
 
+/**
+ * The evidence a review disposition demands, by the declared relationship on the review axis: a
+ * `FILED` finding names its entry and base-ref evidence, a `STALE` finding names its entry, and a
+ * defect finding names neither.
+ */
+export function reviewFindingDispositionEvidenceFor(
+  disposition: ReviewFinding["finding"]["disposition"],
+  issuesEntry: IssuesEntryReference,
+  baseRefEvidence: string,
+): FindingDispositionEvidence {
+  if (disposition === REVIEW_FINDING_DISPOSITION.FILED) return { issuesEntry, baseRefEvidence };
+  if (disposition === REVIEW_FINDING_DISPOSITION.STALE) return { issuesEntry };
+  return {};
+}
+
 function arbitraryReviewFindingMetadataWith(
   dispositions: readonly ReviewFinding["finding"]["disposition"][],
 ): fc.Arbitrary<ReviewFinding["finding"]> {
@@ -113,7 +134,7 @@ function arbitraryReviewFindingMetadataWith(
     .map(([disposition, summary, issuesEntry, baseRefEvidence]) => ({
       disposition,
       summary,
-      ...findingDispositionEvidenceFor(REVIEW_FINDING_DISPOSITION_CLASS[disposition], issuesEntry, baseRefEvidence),
+      ...reviewFindingDispositionEvidenceFor(disposition, issuesEntry, baseRefEvidence),
     }));
 }
 
@@ -163,11 +184,7 @@ function arbitraryDefectReviewFinding(): fc.Arbitrary<ReviewFinding> {
 
 /** A review finding whose disposition is `FILED` or `STALE`, so it determines no terminal status. */
 function arbitraryFiledOrStaleReviewFinding(): fc.Arbitrary<ReviewFinding> {
-  return arbitraryReviewFindingWith(
-    arbitraryReviewFindingMetadataWith(
-      REVIEW_FINDING_DISPOSITIONS.filter((disposition) => !DEFECT_REVIEW_FINDING_DISPOSITIONS.includes(disposition)),
-    ),
-  );
+  return arbitraryReviewFindingWith(arbitraryReviewFindingMetadataWith(FILED_OR_STALE_REVIEW_FINDING_DISPOSITIONS));
 }
 
 function arbitraryLineReviewFinding(): fc.Arbitrary<ReviewFinding> {
@@ -1262,21 +1279,21 @@ export function arbitraryReviewFindingMissingRequiredField(): fc.Arbitrary<Revie
     .map(([finding, missingField]) => ({ payload: reviewPayloadWithoutField(finding, missingField), missingField }));
 }
 
-const FINDING_PATH_SEPARATOR = ".";
-
 /**
  * The evidence field each entry-referencing disposition demands, as the dotted payload path a
  * rejection names: the entry itself, its path or heading, or the base-ref evidence a `filed`
  * finding carries. The field list is the declared relationship, not the validator's branch order.
  */
-function missingDispositionEvidencePaths(disposition: VerifyFindingDisposition): readonly (readonly string[])[] {
+function missingDispositionEvidencePaths(
+  disposition: ReviewFinding["finding"]["disposition"],
+): readonly (readonly string[])[] {
   const entry = [REVIEW_PAYLOAD_FIELD.ISSUES_ENTRY];
   const entryFields = [
     entry,
     [...entry, ISSUES_ENTRY_FIELD.PATH],
     [...entry, ISSUES_ENTRY_FIELD.HEADING],
   ];
-  return disposition === VERIFY_FINDING_DISPOSITION.FILED
+  return disposition === REVIEW_FINDING_DISPOSITION.FILED
     ? [...entryFields, [REVIEW_PAYLOAD_FIELD.BASE_REF_EVIDENCE]]
     : entryFields;
 }
@@ -1306,13 +1323,13 @@ export function arbitraryReviewFindingMissingDispositionEvidence(): fc.Arbitrary
   return arbitraryFiledOrStaleReviewFinding()
     .chain((finding) =>
       fc
-        .constantFrom(...missingDispositionEvidencePaths(REVIEW_FINDING_DISPOSITION_CLASS[finding.finding.disposition]))
+        .constantFrom(...missingDispositionEvidencePaths(finding.finding.disposition))
         .map((path) => ({
           payload: withoutNestedField(JSON.parse(JSON.stringify(finding)) as JsonValue, [
             REVIEW_PAYLOAD_FIELD.FINDING,
             ...path,
           ]),
-          missingField: [REVIEW_PAYLOAD_FIELD.FINDING, ...path].join(FINDING_PATH_SEPARATOR),
+          missingField: evidenceFieldPath(REVIEW_PAYLOAD_FIELD.FINDING, ...path),
         }))
     );
 }

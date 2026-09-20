@@ -60,12 +60,21 @@ export function acceptEvidence<T>(value: T): EvidenceValidationResult<T> {
 }
 
 /**
+ * The dotted field path a rejection names, composed from the path segments a validator reads. A
+ * producer reads the same path in the payload it sent, so the composition is the one grammar a
+ * rejection reason and its reader share.
+ */
+export function evidenceFieldPath(...path: readonly string[]): string {
+  return path.join(FIELD_PATH_SEPARATOR);
+}
+
+/**
  * Refuse a payload because one field is missing or malformed. Path segments compose the dotted
  * field path a producer reads in the payload it sent, so a nested validator names its own leaf
  * while its caller supplies the enclosing field.
  */
 export function rejectEvidenceField(...path: readonly string[]): EvidenceValidationResult<never> {
-  const fieldPath = `${FIELD_PATH_QUOTE}${path.join(FIELD_PATH_SEPARATOR)}${FIELD_PATH_QUOTE}`;
+  const fieldPath = `${FIELD_PATH_QUOTE}${evidenceFieldPath(...path)}${FIELD_PATH_QUOTE}`;
   return { ok: false, reason: `${FIELD_REASON_PREFIX}${fieldPath}${FIELD_REASON_SUFFIX}` };
 }
 
