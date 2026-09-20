@@ -7,10 +7,10 @@ export interface SpecTreePathOwnershipScenario {
   readonly entries: readonly SpecTreeSourceEntry[];
   readonly path: string;
   readonly claimedNodeIds: readonly string[];
-  readonly productId: string;
-  readonly rootNodeId: string;
-  readonly childNodeId: string;
-  readonly peerNodeId: string;
+  /** The distinct claimed nodes in tree order — root, its child, then the peer branch. */
+  readonly expectedCandidateIds: readonly string[];
+  /** The lowest common ancestor of the candidates: the product when they span both branches, null when none is claimed. */
+  readonly expectedGoverningOwnerId: string | null;
 }
 
 export function arbitrarySpecTreePathOwnershipScenario(): fc.Arbitrary<SpecTreePathOwnershipScenario> {
@@ -19,14 +19,29 @@ export function arbitrarySpecTreePathOwnershipScenario(): fc.Arbitrary<SpecTreeP
       arbitrarySourceFilePath(),
       fc.shuffledSubarray([fixture.root.id, fixture.child.id, fixture.peer.id]),
       fc.array(fc.constantFrom(fixture.root.id, fixture.child.id, fixture.peer.id), { maxLength: 4 }),
-    ).map(([path, selected, duplicates]) => ({
-      entries: fixture.entries,
-      path,
-      claimedNodeIds: [...selected, ...duplicates.filter((id) => selected.includes(id))],
-      productId: fixture.product.id,
-      rootNodeId: fixture.root.id,
-      childNodeId: fixture.child.id,
-      peerNodeId: fixture.peer.id,
-    }))
+    ).map(([path, selected, duplicates]) => {
+      const expectedCandidateIds = [fixture.root.id, fixture.child.id, fixture.peer.id]
+        .filter((id) => selected.includes(id));
+      return {
+        entries: fixture.entries,
+        path,
+        claimedNodeIds: [...selected, ...duplicates.filter((id) => selected.includes(id))],
+        expectedCandidateIds,
+        expectedGoverningOwnerId: governingOwner(fixture, expectedCandidateIds),
+      };
+    })
   );
+}
+
+function governingOwner(
+  fixture: {
+    readonly product: { readonly id: string };
+    readonly root: { readonly id: string };
+    readonly peer: { readonly id: string };
+  },
+  candidateIds: readonly string[],
+): string | null {
+  if (candidateIds.length === 0) return null;
+  if (candidateIds.length === 1) return candidateIds[0] ?? null;
+  return candidateIds.includes(fixture.peer.id) ? fixture.product.id : fixture.root.id;
 }

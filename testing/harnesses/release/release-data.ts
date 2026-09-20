@@ -1,4 +1,4 @@
-import { GIT_RELEASE_SUBCOMMAND, type GitCommit } from "@/lib/git/release";
+import { COMMIT_FIELD_SEPARATOR, GIT_RELEASE_SUBCOMMAND, type GitCommit, LINE_SEPARATOR } from "@/lib/git/release";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 import type { ReleaseDataDeterminismScenario } from "@testing/generators/release/release";
 
@@ -7,16 +7,13 @@ interface ControlledGitStep {
   readonly stdout: string;
 }
 
-const COMMIT_FIELD_SEPARATOR = "\0";
-const PATH_SEPARATOR = "\n";
-
 export function releaseDataGitDependencies(scenario: ReleaseDataDeterminismScenario): GitDependencies {
   const steps: readonly ControlledGitStep[] = [
     { subcommand: GIT_ROOT_COMMAND.REV_PARSE, stdout: scenario.resolvedReleaseRef },
     { subcommand: GIT_RELEASE_SUBCOMMAND.TAG, stdout: "" },
     { subcommand: GIT_RELEASE_SUBCOMMAND.DESCRIBE, stdout: scenario.previousTag },
     { subcommand: GIT_RELEASE_SUBCOMMAND.LOG, stdout: serializeCommits(scenario.commits) },
-    { subcommand: GIT_RELEASE_SUBCOMMAND.LOG, stdout: scenario.changedPaths.join(PATH_SEPARATOR) },
+    { subcommand: GIT_RELEASE_SUBCOMMAND.LOG, stdout: scenario.changedPaths.join(LINE_SEPARATOR) },
   ];
   let invocationIndex = 0;
 

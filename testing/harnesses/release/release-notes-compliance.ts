@@ -40,7 +40,6 @@ import {
   type ReleaseNotesPromptInput,
   type SymlinkRootReleaseNotesInput,
 } from "@testing/generators/release/release-notes";
-import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 import {
   promptChangelogPath,
   RecordingWritingAgentRunner,
@@ -68,33 +67,14 @@ const RELEASE_NOTES_COMPLIANCE_FIXTURE_ROOT = resolve(
   "../../fixtures/release/release-notes",
 );
 const FIXTURE_TEXT_ENCODING = "utf8";
+/** The product root the in-memory release-notes boundaries address; nothing is read from disk there. */
+const IN_MEMORY_PRODUCT_DIRECTORY = resolve("/release-product");
 
 export const RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH = {
   COMMIT_SCOPE: join(RELEASE_NOTES_COMPLIANCE_FIXTURE_ROOT, "commit-scope.json"),
   PARTIAL_WRITE: join(RELEASE_NOTES_COMPLIANCE_FIXTURE_ROOT, "partial-write.json"),
   ESCAPING_PATH: join(RELEASE_NOTES_COMPLIANCE_FIXTURE_ROOT, "escaping-path.json"),
-  RELEASE_CONTEXT_ENDPOINTS: join(RELEASE_NOTES_COMPLIANCE_FIXTURE_ROOT, "release-context-endpoints.json"),
 } as const;
-
-interface ReleaseContextEndpointsFixture {
-  readonly withoutPreviousTag: ReleaseData;
-  readonly withPreviousTag: ReleaseData;
-}
-
-export async function readReleaseEndpointDataFixture(
-  path: string,
-  releaseRef: string,
-  previousTag: string | null,
-  changedPaths: readonly string[],
-): Promise<ReleaseData> {
-  const fixture = await readJsonFixture<ReleaseContextEndpointsFixture>(path);
-  return {
-    ...(previousTag === null ? fixture.withoutPreviousTag : fixture.withPreviousTag),
-    releaseRef,
-    previousTag,
-    changedPaths,
-  };
-}
 
 interface ReleaseNotesCommitScopeFixture {
   readonly releaseData: ReleaseData;
@@ -157,7 +137,7 @@ export async function observeReleaseNotesContextTransport(
     readonly auditedSection: unknown;
   }
 > {
-  const productDir = resolve("/release-product");
+  const productDir = IN_MEMORY_PRODUCT_DIRECTORY;
   const changelogPath = join(productDir, DEFAULT_CHANGELOG_PATH);
   const stageDirectory = resolve("/release-stage");
   const stagePath = join(stageDirectory, DEFAULT_CHANGELOG_PATH);
@@ -273,36 +253,32 @@ function requiredArtifact(artifacts: ReadonlyMap<string, string>, path: string):
   return content;
 }
 
+/** Runs the release-notes command against a context reader that fails; no git or filesystem state is needed before that failure. */
 export async function observeReleaseContextReadFailure(
   scenario: ReleaseContextScenario,
 ): Promise<{ readonly error: unknown; readonly invocations: number }> {
   let error: unknown;
   let invocations = 0;
-  await withGitWorktreeEnv(async (env) => {
-    await env.writeTracked(scenario.product.path, scenario.product.content);
-    await env.writeTracked(scenario.missingSpecificationPath, scenario.specification.content);
-    await env.commit(scenario.subject);
-    try {
-      await releaseNotesCommand({
-        productDir: env.productDir,
-        config: {},
-        releaseData: scenario.releaseData,
-        readProductContext: async () => {
-          throw new Error(`Cannot read selected product context: ${scenario.specification.path}`);
-        },
-        agentRunner: {
-          run: async () => {
-            invocations += 1;
-          },
-        },
-        faithfulnessAuditor: async () => {
+  try {
+    await releaseNotesCommand({
+      productDir: IN_MEMORY_PRODUCT_DIRECTORY,
+      config: {},
+      releaseData: scenario.releaseData,
+      readProductContext: async () => {
+        throw new Error(`Cannot read selected product context: ${scenario.specification.path}`);
+      },
+      agentRunner: {
+        run: async () => {
           invocations += 1;
         },
-      });
-    } catch (caught) {
-      error = caught;
-    }
-  });
+      },
+      faithfulnessAuditor: async () => {
+        invocations += 1;
+      },
+    });
+  } catch (caught) {
+    error = caught;
+  }
   return { error, invocations };
 }
 

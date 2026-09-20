@@ -20,10 +20,8 @@ import { RELEASE_NOTES_STANDARDS } from "@/domains/release/release-notes-standar
 import { isPathContained } from "@/lib/file-system/pathContainment";
 import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import { sampleNonConformantReleaseNotesChangelogCases } from "@testing/generators/release/changelog";
-import {
-  RELEASE_OWNERSHIP_FIXTURE_CONTENT,
-  sampleReleaseContextScenario,
-} from "@testing/generators/release/product-context";
+import { sampleReleaseContextScenario } from "@testing/generators/release/product-context";
+import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 import {
   RELEASE_NOTES_CONFIGURED_PATH_REJECTION_CASE,
   RELEASE_NOTES_EXISTING_SECTION_CASE,
@@ -61,7 +59,6 @@ import {
   observeReleaseNotesPath,
   observeReleaseNotesPrompt,
   observeReleaseNotesSymlinkToRootPath,
-  readReleaseEndpointDataFixture,
   RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH,
 } from "@testing/harnesses/release/release-notes-compliance";
 import {
@@ -96,17 +93,17 @@ it("reads product truth even when every changed declaration has a spec commit la
 
 it("permits a product without a spec tree", async () => {
   await withGitWorktreeEnv(async (env) => {
-    await env.writeTracked(DEFAULT_RELEASE_DOCUMENTATION_PATHS[0], RELEASE_OWNERSHIP_FIXTURE_CONTENT.PRODUCT);
-    await env.commit("initial product");
+    const scenario = sampleReleaseContextScenario();
+    await env.writeTracked(DEFAULT_RELEASE_DOCUMENTATION_PATHS[0], scenario.product.content);
+    await env.commit(scenario.subject);
     const releaseRef = await env.runGit([GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
     await expect(readReleaseProductContext(
       env.productDir,
-      await readReleaseEndpointDataFixture(
-        RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH.RELEASE_CONTEXT_ENDPOINTS,
+      {
+        ...sampleReleaseTestValue(RELEASE_TEST_GENERATOR.releaseDataWithoutPreviousTag()),
         releaseRef,
-        null,
-        [],
-      ),
+        changedPaths: [],
+      },
     ))
       .resolves.toEqual([]);
   });

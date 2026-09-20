@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { restrictReleaseDataGitDependencies } from "@/domains/release/release-data";
+import { ReleaseDataExternalOperationError, restrictReleaseDataGitDependencies } from "@/domains/release/release-data";
 import { type GitDependencies } from "@/lib/git/root";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 
@@ -18,7 +18,7 @@ describe("release-data external-operation boundary", () => {
 
       await expect(
         restrictReleaseDataGitDependencies(deps, productDir).execa(command, args, { cwd: productDir, reject: false }),
-      ).rejects.toThrow();
+      ).rejects.toThrow(ReleaseDataExternalOperationError);
       expect(invocations).toEqual([]);
     },
   );
