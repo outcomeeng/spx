@@ -1,6 +1,6 @@
 # Release Architecture
 
-Release computes its data through a release-specific external-operation boundary over a dependency-injected git runner, admitting only git and the exact local subcommands required by release-data computation before delegation. It selects product context by composing endpoint-specific spec-tree snapshots with backend-neutral evidence ownership through the public spec-tree library, produces each agent-authored artifact by invoking the Claude Agent SDK in-process under a restricted tool allowlist, and reads back and validates every produced artifact against its contract before a release proceeds.
+Release computes its data through a release-specific external-operation boundary over a dependency-injected git runner, admitting only git and the exact local subcommands required by release-data computation before delegation. It selects product context by composing endpoint-specific spec-tree snapshots with backend-neutral evidence ownership through the public spec-tree library — the ownership surface `spx/23-spec-tree.enabler` exports — and an injected evidence-reachability provider, consumed by its contract alone: a per-language test-file recognizer and a resolver that reports which changed paths a committed test file reaches. It produces each agent-authored artifact by invoking the Claude Agent SDK in-process under a restricted tool allowlist, and reads back and validates every produced artifact against its contract before a release proceeds.
 
 ## Rationale
 
@@ -10,7 +10,7 @@ A release's deterministic core — the commits since the last tag, the version d
 
 - Release data is a pure function of git state — identical repository state yields identical release data.
 - Every external operation requested during release-data computation passes through the release-data boundary before the injected runner, and the runner receives only source-owned local git operations.
-- Governing-node selection is a pure function of the release-range endpoint trees, changed paths classified as source by registered evidence-reachability providers at either endpoint, and ownership claims from evidence reachability and exact audit-declaration path references: each endpoint yields a deduplicated candidate set plus its governing lowest common ancestor, or unresolved, and the release context contains every distinct candidate and governing owner.
+- Governing-node selection is a pure function of the release-range endpoint trees, changed paths classified as source by the injected evidence-reachability provider at either endpoint, and ownership claims from evidence reachability and exact audit-declaration path references: each endpoint yields a deduplicated candidate set plus its governing lowest common ancestor, or unresolved, and the release context contains every distinct candidate and governing owner.
 - Every agent-produced artifact is read back from disk and validated against its contract; the release proceeds only when validation passes.
 
 ## Verification
