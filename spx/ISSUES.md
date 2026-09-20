@@ -72,6 +72,21 @@ sentinel clause; `/update-instruction-block` then regenerates both guides.
 Hand-editing the generated block is not a fix: the next regeneration restores
 the template text.
 
+## The merge overlay's release closeout names a retired skill
+
+**Evidence:** the Closeout paragraph of `spx/local/merging.md` preserves the
+release-source worktree state "for `/handoff`'s branch-state record". The
+installed spec-tree plugin ships no `/handoff`; the router's Change Lifecycle
+section names `/release-change` as the skill that writes the Handoff when work
+stops. Review run `2026-09-20_04-32-56-862-27443aeb4f94` records it.
+
+**Impact:** a release closeout that follows the overlay's wording routes its
+branch-state record to a skill that does not exist.
+
+**Settlement condition:** the overlay's Closeout paragraph names the Handoff
+`/release-change` writes, or the Change record the lifecycle skills own, in
+place of `/handoff`.
+
 ## Source-graph containment property fails on some generated inputs
 
 `spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler/tests/source.compliance.l1.test.ts`
