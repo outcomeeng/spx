@@ -4,9 +4,9 @@ malleability: spec
 
 # Spec Tree
 
-PROVIDES a backend-neutral spec-tree library with a single public TypeScript surface for source records, tree snapshots, node state, projections, and next-node selection, plus config-owned kind vocabulary
-SO THAT spec commands, spec application, validation, testing, session handoff, and adapters for filesystem, Linear, GitHub Issues, ORM-backed records, or paper ledgers
-CAN consume the product's spec tree through stable contracts without owning traversal, suffix parsing, hierarchy assembly, state derivation, or registry vocabulary themselves
+PROVIDES a backend-neutral spec-tree library with a single public TypeScript surface for source records, tree snapshots, node state, projections, next-node selection, and product-path ownership resolution, plus config-owned kind vocabulary
+SO THAT spec commands, spec application, validation, testing, release context selection, session handoff, and adapters for filesystem, Linear, GitHub Issues, ORM-backed records, or paper ledgers
+CAN consume the product's spec tree through stable contracts without owning traversal, suffix parsing, hierarchy assembly, state derivation, ownership reduction, or registry vocabulary themselves
 
 ## Assertions
 

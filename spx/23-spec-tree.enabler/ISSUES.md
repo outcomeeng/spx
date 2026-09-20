@@ -35,3 +35,13 @@ The canonical ADR template (`plugins/spec-tree/skills/understanding/templates/de
 ## Descent-gating lacks a superseded-directory-specific test
 
 `spx/23-spec-tree.enabler/43-entry-recognition.enabler/21-recognition-classification.adr.md` asserts "directory descent follows only valid node entries; superseded and invalid ordered directories are not traversed." The invalid-directory case is exercised by `32-spec-tree-source.enabler/tests/spec-tree-source.mapping.l1.test.ts` ("does not traverse registered descendants below unregistered ordered directories"), and superseded and invalid directories share the same non-NODE branch of `shouldDescendIntoDirectory`, so the path is covered. Add a superseded-directory-specific descent test (write a valid child under a superseded ordered directory, assert the child is absent from `allNodes`) for completeness.
+
+## Ownership resolution throws on a product-less snapshot
+
+`resolveSpecTreePathOwnership` in `src/lib/spec-tree/path-ownership.ts` is declared total over every product path and claimed node set — the property in [spec-tree.md](spec-tree.md) and the invariant in [15-public-library-surface.adr.md](15-public-library-surface.adr.md) say the operation returns a resolved or unresolved result, with the product root governing candidates that span top-level branches. A `SpecTreeSnapshot` whose `product` is null is a valid `readSpecTree` output, and with claims in different top-level branches `lowestCommonNode` returns null there, so the function throws "snapshot has no product" instead of returning either discriminated result. The property generator draws every snapshot from a fixture that carries a product, so the evidence never reaches that member of the declared domain.
+
+**Evidence:** the changeset review of the release product-context branch at `a3f90bc60dfd626d29151a0a0a8461055c1fea95` (review run `2026-09-20_21-06-22-273-9ddbc84f0bb1`, finding F-004). The release command layer guards the case before calling the library (`hasSpecTree`, `assertCompleteSpecTrees`), so no production caller reaches the throw today.
+
+**Impact:** a consumer that resolves ownership against a product-less snapshot with cross-branch claims gets an exception the declared contract does not name.
+
+**Settlement condition:** either the spec property and the ADR invariant are narrowed to snapshots that carry a product, or the operation is made total — a third discriminated outcome or `unresolved` when no common node exists and the snapshot has no product — with a generated product-less snapshot in the property.

@@ -4,7 +4,7 @@ malleability: spec
 
 # Release
 
-PROVIDES per-release generation of release notes and documentation updates from the product's git history, plus governed, provenance-bearing publication
+PROVIDES per-release generation of release notes and documentation updates from the product's git history interpreted through the product's specifications and decisions, plus governed, provenance-bearing publication
 SO THAT every capability the product ships
 CAN reach users as a released version carrying accurate, current release information
 

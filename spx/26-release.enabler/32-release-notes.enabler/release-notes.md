@@ -4,7 +4,7 @@ malleability: spec
 
 # Release Notes
 
-PROVIDES agent-authored release notes generated from the release data
+PROVIDES agent-authored release notes generated from the release data and the product context selected for the release's changes
 SO THAT a published release
 CAN carry human-readable notes that describe and group the release's changes
 
