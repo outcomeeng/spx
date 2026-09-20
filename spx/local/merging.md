@@ -76,4 +76,4 @@ Never refresh the CLI with `pnpm install`, global `pnpm add -g`, or a package-ma
 
 **Authorities.** `README.md` "Publishing a Release" is the human form of the same sequence; `.github/workflows/publish.yml` runs `spx release publish` on a `v*` tag under the `npm-publish` environment with OIDC Trusted Publishing and Sigstore provenance.
 
-**Closeout.** Preserve the release-source worktree state for `/handoff`'s branch-state record: path, branch, full HEAD SHA, clean or dirty, and sync status.
+**Closeout.** Preserve the release-source worktree state for the branch-state record of the Handoff `/release-change` writes: path, branch, full HEAD SHA, clean or dirty, and sync status.
