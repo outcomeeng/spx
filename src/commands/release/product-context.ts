@@ -56,8 +56,9 @@ export async function readReleaseProductContext(
   releaseData: Parameters<ReleaseContextReader>[1],
   dependencies: ReleaseProductContextDependencies = {},
 ): ReturnType<ReleaseContextReader> {
-  const endpointReader = dependencies.endpointReader
-    ?? createGitReleaseEndpointReader(dependencies.git ?? defaultGitDependencies);
+  const endpointReader = memoizeReleaseEndpointReader(
+    dependencies.endpointReader ?? createGitReleaseEndpointReader(dependencies.git ?? defaultGitDependencies),
+  );
   const registry = dependencies.registry ?? testingRegistry;
   const endpoints = await readReleaseEndpoints(productDir, releaseData, endpointReader);
   if (endpoints.every(({ snapshot }) => !hasSpecTree(snapshot))) return [];
@@ -211,14 +212,29 @@ function createGitReleaseEndpointReader(git: GitDependencies): ReleaseEndpointRe
   };
 }
 
+/** Reads each committed path once per endpoint, however many resolvers and documents ask for it. */
+function memoizeReleaseEndpointReader(reader: ReleaseEndpointReader): ReleaseEndpointReader {
+  const texts = new Map<string, Promise<string | null>>();
+  return {
+    listPaths: reader.listPaths,
+    readText: (productDir, ref, path) => {
+      const key = `${ref}\0${path}`;
+      const memoized = texts.get(key) ?? reader.readText(productDir, ref, path);
+      texts.set(key, memoized);
+      return memoized;
+    },
+  };
+}
+
 async function resolveEndpointOwnership(
   productDir: string,
   endpoint: ReleaseContextEndpoint,
   changedPaths: readonly string[],
   registry: TestingRegistry,
 ): Promise<readonly ReleaseEndpointPathOwnership[]> {
-  const linkedOwners = linkedTestOwners(await readNodeDeclarations(endpoint));
-  const auditOwners = auditDeclarationOwners(await readAuditDeclarations(endpoint), changedPaths);
+  const nodeDeclarations = await readNodeDeclarations(endpoint);
+  const linkedOwners = linkedTestOwners(nodeDeclarations);
+  const auditOwners = auditDeclarationOwners(await readAuditDeclarations(endpoint, nodeDeclarations), changedPaths);
   return Promise.all(
     changedPaths.map((path) =>
       resolveEndpointPathOwnership(productDir, endpoint, path, registry, linkedOwners, auditOwners.get(path) ?? [])
@@ -305,6 +321,7 @@ async function readNodeDeclarations(endpoint: ReleaseContextEndpoint): Promise<r
  */
 async function readAuditDeclarations(
   endpoint: ReleaseContextEndpoint,
+  nodeDeclarations: readonly ReleaseEndpointDeclaration[],
 ): Promise<readonly ReleaseEndpointDeclaration[]> {
   const decisions = endpoint.snapshot.decisions.flatMap((decision) => {
     const ownerNodeId = decision.parentId ?? endpoint.snapshot.product?.id;
@@ -312,7 +329,7 @@ async function readAuditDeclarations(
       ? []
       : [{ path: decision.ref.path, ownerNodeId }];
   });
-  const declarations = [...await readNodeDeclarations(endpoint)];
+  const declarations = [...nodeDeclarations];
   for (const decision of decisions) {
     declarations.push({ ...decision, content: await readCommittedPath(endpoint, decision.path) });
   }
