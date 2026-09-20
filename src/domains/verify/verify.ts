@@ -1841,7 +1841,12 @@ export interface VerifyRecordedFinding {
 /** The recorded findings grouped by disposition class, each group in journal order. */
 export type VerifyFindingsByDisposition = Readonly<Record<VerifyFindingDisposition, readonly VerifyRecordedFinding[]>>;
 
-/** The recorded finding count per disposition class, with the total of every recorded finding beside them. */
+/**
+ * The recorded finding count per disposition class beside the authoritative total of every
+ * recorded finding. The total counts each finding event whatever its shape, so a `test` run's
+ * failing cases — findings that carry no disposition — enter the total and no class; the four
+ * class counts sum to the total only for a run whose every finding is audit- or review-shaped.
+ */
 export interface VerifyFindingCounts extends Readonly<Record<VerifyFindingDisposition, number>> {
   readonly total: number;
 }

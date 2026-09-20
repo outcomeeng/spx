@@ -1645,7 +1645,8 @@ async function auditAppendScenario(): Promise<{
   return { scenario, fs, deps, runToken };
 }
 
-async function testAppendScenario(): Promise<{
+/** A started `test` run over the in-memory store and recording sink, throwing when the start fails. */
+export async function testAppendScenario(): Promise<{
   readonly scenario: VerifyRunContextScenario;
   readonly fs: VerifyStateStoreFileSystem;
   readonly deps: VerifyCliDeps;

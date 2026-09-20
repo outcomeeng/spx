@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { VERIFY_CLI_EXIT_CODE, verifyAppendFindingCommand, verifyAppendScopeCommand } from "@/commands/verify/cli";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { VERIFY_FINDING_DISPOSITION, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
+import { JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
 import { arbitraryFileAuditScopeScenario } from "@testing/generators/verify/audit";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import {
@@ -22,6 +23,7 @@ import {
   readRunReports,
   reviewAppendScenario,
   startedRunToken,
+  testAppendScenario,
   verifyAppendOptions,
   withFileScope,
   withVerificationType,
@@ -99,6 +101,33 @@ describe("verify status compliance", () => {
           expect(report.findingCounts[disposition]).toBe(recorded.filter((value) => value === disposition).length);
         }
       }
+    }
+  });
+
+  it("reports a sealed test run's failing cases in the total and under no disposition class", async () => {
+    const { scenario, deps, runToken } = await testAppendScenario();
+    expect(
+      (await verifyAppendFindingCommand(
+        verifyAppendOptions(scenario, {
+          run: runToken,
+          payload: JSON.stringify(sampleVerifyTestValue(JOURNAL_REPORTER_TEST_GENERATOR.finding())),
+          idempotencyKey: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
+        }),
+        deps,
+      )).exitCode,
+    ).toBe(VERIFY_CLI_EXIT_CODE.OK);
+    const finishReport = await finishRun(scenario, deps, runToken, JOURNAL_RUN_STATE_STATUS.FAILED);
+    const reports = await readRunReports(scenario, deps, runToken);
+    for (const report of [finishReport, reports.status, reports.render]) {
+      expect(report.runToken).toBe(runToken);
+      expect(report.findingCount).toBe(1);
+      expect(report.findingCounts.total).toBe(report.findingCount);
+      for (const disposition of Object.values(VERIFY_FINDING_DISPOSITION)) {
+        expect(report.findingCounts[disposition]).toBe(0);
+      }
+    }
+    for (const disposition of Object.values(VERIFY_FINDING_DISPOSITION)) {
+      expect(reports.render.findings[disposition]).toStrictEqual([]);
     }
   });
 
