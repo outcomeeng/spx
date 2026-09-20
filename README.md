@@ -30,11 +30,13 @@ npm install -g @outcomeeng/spx
 ```bash
 git clone https://github.com/outcomeeng/spx.git
 cd spx
-pnpm install && pnpm run build
+pnpm install && pnpm run build   # bootstrap of a fresh checkout: installs the hook and builds dist/
 pnpm add -g .   # `pnpm link --global` was removed in pnpm 11
 # first run on a machine: if `pnpm add -g .` fails with a global-bin-directory error,
 # run `pnpm setup`, restart your shell, then re-run `pnpm add -g .`
 ```
+
+`pnpm install` and `pnpm run build` are the one-time bootstrap of a fresh checkout. A worktree pool's canonical checkout is refreshed afterwards only by `git pull`, whose hook installs and builds.
 
 ## Usage
 
@@ -159,11 +161,13 @@ spx release docs sync
 ```bash
 git clone https://github.com/outcomeeng/spx.git
 cd spx
-pnpm install
-pnpm run build
+pnpm install   # bootstrap of a fresh checkout: installs dependencies and the hook
+pnpm run build # bootstrap: builds dist/
 pnpm add -g .  # optional: makes 'spx' available in your shell (`pnpm link --global` was removed in pnpm 11)
 # if `pnpm add -g .` fails with a global-bin-directory error, run `pnpm setup`, restart your shell, then re-run it
 ```
+
+The install and build are the one-time bootstrap of a fresh checkout. A worktree pool's canonical checkout is refreshed afterwards only by `git pull`, whose hook installs and builds.
 
 ### Build and Test
 
@@ -226,60 +230,89 @@ The project uses GitHub Actions for continuous integration and publishing:
 
 ### Publishing a Release
 
-Run every step in the canonical main checkout. Keep `main` checked out there for
-the entire release so Git refuses attempts to check out `main` in a linked
-worktree.
+A release moves through four phases in order: version bump, preparation and
+testing on a branch in an assigned worktree, merge through a pull request
+followed by a pull in the canonical main checkout, and operator-authorized
+publication. The canonical main checkout keeps `main` checked out and accepts
+no operation other than `git pull`; its hook installs locked dependencies and
+builds the shared `spx`. Choosing a version or preparing the candidate does not
+authorize publication.
 
-1. Confirm `git branch --show-current` reports `main`, then sync it with
-   `origin/main`: `git pull --ff-only origin main`
-2. Bump the version with `pnpm version patch --no-git-tag-version`, unless the
-   release request specifies `minor`, `major`, or an exact version
-3. Generate the human-readable release artifacts from the release data:
+**Version bump.** Apply the first matching rule to the complete change since
+the previous release: the operator's stated version or bump level; `major`
+when the major version is above zero and existing public behavior becomes
+incompatible; `minor` for a new command, new capability, or incompatible change
+while the major version is zero; otherwise `patch`.
+
+**Prepare and test in the assigned worktree.**
+
+1. On a branch synchronized with `origin/main`, bump the version:
+   `pnpm version <level-or-version> --no-git-tag-version`. Never run it in the
+   canonical checkout.
+2. Generate the release artifacts from this worktree's source:
 
    ```bash
-   spx release notes
-   spx release docs sync
+   tsx src/cli.ts release notes
+   tsx src/cli.ts release docs sync
    ```
 
-4. Review the generated changelog section and documentation updates, then run
-   `pnpm run publish:check`
-5. Commit the version, changelog, and configured documentation paths, then tag:
-   `git add package.json CHANGELOG.md README.md`
-   `git commit -m "build(release): bump version to X.Y.Z"`
-   `git tag vX.Y.Z`
-6. Push: `git push origin main && git push origin vX.Y.Z`
-7. Approve the deployment in the GitHub Actions `npm-publish` environment. The
-   tagged workflow runs `spx release publish --tag "${GITHUB_REF_NAME}"`, which
-   verifies the triggering tag against the package version, then confirms or
-   publishes the provenance-bearing npm package before it creates or repairs
-   the GitHub Release from the exact validated changelog section.
-8. Confirm the published version, provenance, and hosted release:
+   Validate the generated changelog section and documentation updates
+   structurally and audit their faithfulness before accepting them.
+3. Run `pnpm run publish:check` against the complete candidate and report each
+   stage: source validation, circular dependencies, build, tests, packaged
+   validation, and packaged circular dependencies. Exercise the changed commands
+   through this worktree's built `node bin/spx.js` as well.
+4. Commit the candidate and complete the applicable independent audits and
+   review. A repair changes the candidate and repeats the affected verification.
+   Record the verified commit and tree; exactly that content goes to `main`.
 
-```bash
-npm view @outcomeeng/spx version
-npm audit signatures
-gh release view vX.Y.Z --json tagName,name,targetCommitish,body,url
-```
+**Merge, pull, and check.**
 
-9. Require current `main` to equal the release tag commit, then rebuild the
-   operator-visible CLI and confirm it reports the released version:
+1. Push the branch and merge it through a pull request with current-head CI and
+   review. If base movement or conflict resolution changes the candidate,
+   verify the result in the assigned worktree before merging.
+2. Run `spx diagnose` and require a `compliant` `worktree-pool` verdict; use its
+   `mainCheckoutPath`. Before touching the canonical checkout, confirm from the
+   assigned worktree that no other session holds it, that it is clean, and that
+   after `git fetch origin main` its `HEAD` is an ancestor of `origin/main`, so
+   the pull fast-forwards:
 
-```bash
-git fetch --tags origin &&
-  test "$(git branch --show-current)" = main &&
-  test "$(git rev-parse HEAD)" = "$(git rev-parse 'vX.Y.Z^{commit}')" &&
-  test "$(git rev-parse origin/main)" = "$(git rev-parse 'vX.Y.Z^{commit}')" &&
-  pnpm run build &&
-  spx --version
-```
+   ```bash
+   git merge-base --is-ancestor "$(git -C <mainCheckoutPath> rev-parse HEAD)" origin/main
+   ```
+3. In the canonical checkout run only `git pull`. Its hook builds the shared
+   `spx`. Never bump, generate, commit, tag, install, or run an explicit build
+   there, and keep `main` checked out.
+4. From the assigned worktree, confirm the canonical checkout is clean, sits on
+   the merged commit, and matches the verified candidate; that the pull and
+   hook succeeded; that `spx --version` reports the prepared version; and that
+   the shared executable runs the changed behavior against isolated targets. A
+   successful pull or a matching version alone is not enough. On failure,
+   repair on an assigned-worktree branch and repeat the pull request, pull, and
+   checks; never repair the canonical checkout directly.
 
-Do not refresh the CLI with `pnpm install`, global `pnpm add -g`, or package
-manager update commands during release close-out. The operator-visible binary
-comes from the canonical main checkout only while its HEAD and fetched
-`origin/main` both equal the release tag commit. Stop before the build if either
-ref advanced. On a mismatch, leave the CLI unchanged and complete the refresh
-through a later release that starts from newly synced `main`; never move `main`
-backward to retry the old release. The checkout remains on `main` throughout.
+**Authorize and publish.** Present the evidence from the phases above and ask
+the operator to authorize publication of the exact version and merged commit.
+An earlier version choice or release instruction is not that authorization.
+
+1. After authorization, tag the verified merged commit and push the tag from
+   the assigned worktree: `git tag vX.Y.Z` then `git push origin vX.Y.Z`. Do not
+   push a local `main` or add a release commit after verification.
+2. Approve the deployment in the GitHub Actions `npm-publish` environment. The
+   tagged workflow runs `spx release publish --tag "${GITHUB_REF_NAME}"` from a
+   checkout at the tagged commit, confirms the package identity and provenance,
+   then creates or repairs the GitHub Release from the validated changelog
+   section.
+3. Confirm the registry version, tagged commit, provenance, and hosted release:
+
+   ```bash
+   npm view @outcomeeng/spx version
+   npm audit signatures
+   gh release view vX.Y.Z --json tagName,name,targetCommitish,body,url
+   ```
+
+   A matching version string or a green workflow alone establishes none of the
+   four. `spx release publish` is resumable for partial-publication recovery.
 
 ## Technical Stack
 

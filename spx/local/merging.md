@@ -52,28 +52,45 @@ None. `PREVIEW` is a no-op.
 
 ## Deploy
 
-None. `DEPLOY` is a no-op.
+After every merge through origin, refresh the shared local CLI. `DEPLOYMENT_READINESS` requires the merged commit on `origin/main` and permission to use the canonical checkout without interfering with another session. The only operation performed in that checkout is `git pull`; its hook installs and builds `spx`.
+
+1. Use `/diagnose` to obtain SPX's `worktree-pool` verdict and `mainCheckoutPath`; require `compliant`. Consume SPX's result without reimplementing its Git-layout rules.
+2. From the assigned worktree, check occupancy, cleanliness, and fast-forward standing: another session's claim or uncommitted work blocks mutation until ownership is resolved, and after `git fetch origin main` the canonical checkout's `HEAD` must be an ancestor of `origin/main` (`git merge-base --is-ancestor "$(git -C <mainCheckoutPath> rev-parse HEAD)" origin/main`), so the pull fast-forwards and neither merges nor rebases there.
+3. In the canonical checkout, run only `git pull`. Its `rebuild-dist` hook installs locked dependencies and builds the shared `spx`; that hook is the only mutation there. Never prepare artifacts, bump versions, commit, tag, install packages, or run an explicit build there. Keep `main` checked out.
+4. From the assigned worktree, confirm that the canonical checkout is clean, that its `HEAD` equals the merged commit, that the hook succeeded, and that `spx --version` runs. A pull that reports already up to date fired no hook and is no build evidence. A failed hook leaves the source advanced without a usable build; stop for operator direction. Never repair the canonical checkout directly.
 
 ## Release
 
-Every changeset that reaches `main` is release-eligible. Until a release runs, the merged behavior reaches neither package consumers nor the operator-visible `spx` on `PATH`, which builds from the canonical main checkout.
+Local preparation, merge, shared-CLI verification, and package publication are separate phases. Complete them in that order. Choosing a version or authorizing preparation does not authorize publication.
 
-**Predicate (`RELEASE_READINESS`).** The operator has authorized the release in the current turn, naming `patch`, `minor`, `major`, or an exact version; a bare authorization means `patch`. Without that authorization the transport emits `AWAIT_RELEASE_AUTHORIZATION`, preserves the branch-state closeout record, and stops before any release step. The `npm-publish` environment approval on the tag's workflow run is the operator's second, GitHub-side authorization; the action pauses there and never approves it on the operator's behalf.
+### Version bump
 
-**Action.** Run every step in the canonical main checkout defined by `spx/15-worktree-management.pdr.md`: the checkout `git worktree list` reports on `[main]`. That checkout permanently keeps `main` checked out. Never detach it, switch it away from `main`, or move `main` to another worktree; stop the release if it cannot remain on `main`. The release authorization covers that checkout for the release's duration.
+Apply the first matching rule to the complete change since the previous release:
 
-1. Confirm `git branch --show-current` reports `main`, sync it to `origin/main` through `/sync-base`, and run `pnpm version <level> --no-git-tag-version`. This updates `package.json` only.
-2. Generate the release artifacts from the release data with `spx release notes` and `spx release docs sync`, then review the generated changelog section and documentation updates. The tagged publication reads the changelog section for the released version from the tagged commit and fails when it is absent.
-3. Run `pnpm run publish:check`. Report every stage it ran: source validation, circular dependency validation, build, tests, packaged validation, and packaged circular dependency validation. Warning-level lint output with exit 0 is reported by count and does not block.
-4. Commit `package.json`, `CHANGELOG.md`, and the configured documentation paths as `build(release): bump version to X.Y.Z` on `main` through `/commit-changes`.
-5. Tag with `git tag vX.Y.Z`.
-6. Push both refs with `git push origin main && git push origin vX.Y.Z`. The `main` push is fast-forward only; never `--force`.
-7. Pause and ask the operator to approve the `vX.Y.Z` run's `npm-publish` deployment. The tagged workflow runs `spx release publish --tag "${GITHUB_REF_NAME}"`, which verifies the tag against the package version, confirms or publishes the provenance-bearing package, and creates or repairs the GitHub Release from the validated changelog section.
-8. After approval, confirm the registry with `npm view @outcomeeng/spx version`, provenance with `npm audit signatures`, and the hosted release with `gh release view vX.Y.Z --json tagName,name,targetCommitish,body,url`.
-9. Refresh the operator-visible CLI in the canonical main checkout: `git fetch --tags origin`, confirm `git branch --show-current` still reports `main`, and require `git rev-parse HEAD`, `git rev-parse origin/main`, and `git rev-parse "vX.Y.Z^{commit}"` to return the same commit. Then `pnpm run build` and confirm `spx --version` reports `X.Y.Z`. If either ref advanced past the tag, report the three commit identities, leave the CLI unchanged, and complete the refresh through a later release from newly synced `main`; never move `main` backward.
+1. Operator specifies a version or bump → use it.
+2. Major version > 0 and existing public behavior becomes incompatible → **major**.
+3. New command, new capability, or incompatible change while major is zero → **minor**.
+4. Otherwise → **patch**.
 
-Never refresh the CLI with `pnpm install`, global `pnpm add -g`, or a package-manager update during release close-out.
+### Prepare and test in the assigned worktree
 
-**Authorities.** `README.md` "Publishing a Release" is the human form of the same sequence; `.github/workflows/publish.yml` runs `spx release publish` on a `v*` tag under the `npm-publish` environment with OIDC Trusted Publishing and Sigstore provenance.
+1. Work on a local branch in the assigned worktree, synchronized through `/sync-base`. Prepare the complete candidate intended for `main`, including the version bump and generated release artifacts. Run `pnpm version <level-or-version> --no-git-tag-version` here, never in the canonical checkout.
+2. Run the assigned worktree's release commands through `tsx src/cli.ts release notes` and `tsx src/cli.ts release docs sync`. Require structural validation and independent faithfulness audits of the generated changelog and configured documentation before accepting those artifacts.
+3. Run `pnpm run publish:check` in the assigned worktree against the complete candidate. Check source validation, circular dependencies, build, tests, packaged validation, and packaged circular dependencies. Report each stage's result and any warnings. Exercise the changed commands through this worktree's built `node bin/spx.js` as well as their applicable automated verification.
+4. Commit the candidate through `/commit-changes` and complete the applicable independent audits and review. Any repair changes the candidate and requires the affected verification again. Record the verified commit and tree identities; the content sent to `main` must be exactly this verified content.
 
-**Closeout.** Preserve the release-source worktree state for the Handoff `/release-change` writes: the branch in its `Branch or PR` line, and the path, full HEAD SHA, clean or dirty state, and sync status as `Hazards` entries, each with the read-only command that re-confirms it.
+### Merge, pull, and check
+
+1. Push the branch to origin and complete the PR workflow through `/merge`, including current-head CI and review. All release-preparation changes reach `main` through that PR. If base movement or conflict resolution changes the candidate's content, verify the resulting candidate in the assigned worktree before merging it.
+2. Refresh the shared CLI through the Deploy steps above: the `/diagnose` verdict, the occupancy, cleanliness, and fast-forward checks from the assigned worktree, `git pull` in the canonical checkout, and the merged-commit and hook checks.
+3. From the assigned worktree, add the release-specific checks: the canonical checkout's tree matches the locally verified candidate, `spx --version` reports the prepared version, and the shared executable exposes and correctly executes the changed behavior using isolated verification targets. Check every applicable result; a successful pull or matching version alone is insufficient. On failure or unexpected content, repair and verify on an assigned-worktree branch, then repeat the PR, pull, and verification sequence. Never repair the canonical checkout directly.
+
+### Authorize and publish
+
+**Predicate (`RELEASE_READINESS`).** Only after local candidate verification, PR merge, canonical pull and hook build, and shared-CLI verification have passed, present their evidence and ask the operator to authorize publication of the exact version and merged commit. An earlier version choice or release instruction does not satisfy this final authorization. Until it is given, emit `AWAIT_RELEASE_AUTHORIZATION`, preserve the candidate and verification identities, and stop before creating or pushing a release tag.
+
+1. After authorization, create `vX.Y.Z` at the verified merged commit and push that tag from the assigned worktree. Do not push a local `main` branch or create a new release commit after verification. If the candidate changes, repeat verification and obtain authorization for the new candidate.
+2. Ask the operator to approve the tag run's `npm-publish` deployment; never approve it on the operator's behalf. GitHub Actions verifies the tagged candidate and runs `spx release publish --tag "${GITHUB_REF_NAME}"` from a checkout whose `HEAD` equals the tagged commit. Publication confirms the exact package identity and provenance before reconciling the GitHub Release from the validated committed changelog section.
+3. Confirm the exact registry version, tagged commit identity, provenance, and GitHub Release content. A matching version string or successful workflow alone does not establish all four. Use the resumable `spx release publish` contract for partial-publication recovery; never duplicate its registry or hosted-release logic in the overlay.
+
+**Closeout.** Preserve the release-source worktree state for the Handoff `/release-change` writes: the branch in its `Branch or PR` line, and the path, full HEAD SHA, clean or dirty state, and sync status as `Hazards` entries, each with the read-only command that re-confirms it. Preserve also the prepared version, locally verified commit and tree, PR and merged commit, canonical checkout path and pulled commit, hook-build and shared-CLI verification results, operator publication authorization, tag, registry provenance, and GitHub Release.
