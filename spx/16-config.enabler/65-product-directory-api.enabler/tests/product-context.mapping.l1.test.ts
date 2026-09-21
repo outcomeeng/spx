@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { TYPESCRIPT_VALIDATION_MESSAGES } from "@/commands/validation/typescript";
-import { resolveProductDir } from "@/domains/config/root";
+import { PRODUCT_DIR_FALLBACK_WARNING } from "@/domains/config/root";
 import { CONFIG_CLI } from "@/interfaces/cli/config";
 import { SESSION_CLI } from "@/interfaces/cli/session";
 import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
-import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
+import { externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import {
   arbitraryProductContextCase,
   PRODUCT_CONTEXT_MAPPING_COMMANDS,
@@ -57,14 +57,17 @@ describe("product context mapping", () => {
   it("maps absent -C from the process directory and preserves the fallback warning", async () => {
     await runProductContextCases(arbitraryProductContextCase(), async (scenario) => {
       const { processDir, result } = await observeAbsentProductContext(scenario);
-      const expected = resolveProductDir(processDir, { readGitToplevel: () => undefined });
 
       expect(result.exitCodes).toEqual([0]);
       expect(result.stdout).toContain(processDir);
       expect(result.stderr).toContain(processDir);
-      expect(expected.warning).toBeDefined();
-      if (expected.warning === undefined) throw new Error("non-git product context must declare its warning");
-      expect(result.stderr).toContain(renderTerminalText(expected.warning));
+      expect(result.stderr).toContain(
+        renderTerminalText(
+          terminal`${PRODUCT_DIR_FALLBACK_WARNING.beforePath}${
+            externalValue(processDir)
+          }${PRODUCT_DIR_FALLBACK_WARNING.afterPath}`,
+        ),
+      );
     });
   });
 

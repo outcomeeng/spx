@@ -202,10 +202,6 @@ export function sampleConfigTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
   return value;
 }
 
-export function sampleConfigTestValues<T>(arbitrary: fc.Arbitrary<T>, numRuns: number): T[] {
-  return fc.sample(arbitrary, { numRuns });
-}
-
 export function generatedMethodologySection(): Record<string, unknown> {
   return {
     [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
