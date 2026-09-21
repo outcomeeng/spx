@@ -197,3 +197,8 @@ export function renderSpecContextText(manifest: SpecContextManifest): TerminalTe
 export function renderSpecContextJson(manifest: SpecContextManifest): TerminalText {
   return jsonDocument(manifest, 2);
 }
+
+/** The manifest a `list --json` document carries, read back from its text. */
+export function parseSpecContextManifestJson(text: string): SpecContextManifest {
+  return JSON.parse(text) as SpecContextManifest;
+}
