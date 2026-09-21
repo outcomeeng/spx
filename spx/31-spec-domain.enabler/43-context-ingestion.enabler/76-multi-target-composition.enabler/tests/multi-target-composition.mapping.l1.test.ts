@@ -1,32 +1,41 @@
 import { describe, expect, it } from "vitest";
 
-import { contextCommand, parseContextManifest, withRichContextEnv } from "@testing/harnesses/spec/context";
+import { SPEC_CONTEXT_MODE, type SpecContextProjectedEntry, suppressLoadedSpecContext } from "@/lib/spec-tree";
+import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 
-describe("spec context per-target coverage", () => {
-  it("maps each requested target to its complete single-target read set through coverage references", async () => {
-    await withRichContextEnv(async (env, paths) => {
-      const bundle = parseContextManifest(
-        await contextCommand({ targets: [paths.rootDirectory, paths.targetId], cwd: env.productDir }),
-      );
-      const bundleReadPaths = new Set(bundle.read.map((document) => document.path));
-      const bundleListedPaths = new Set(bundle.listed.map((entry) => entry.path));
+function projected(
+  path: string,
+  mode: (typeof SPEC_CONTEXT_MODE)[keyof typeof SPEC_CONTEXT_MODE],
+): SpecContextProjectedEntry {
+  return {
+    selection: { path, mode },
+    entry: mode === SPEC_CONTEXT_MODE.REFERENCE
+      ? { type: "reference", path }
+      : { type: "document", path, metadata: {}, content: path },
+  };
+}
 
-      for (const requested of [paths.rootDirectory, paths.targetId]) {
-        const single = parseContextManifest(
-          await contextCommand({ targets: [requested], cwd: env.productDir }),
-        );
-        const coverage = bundle.coverage.find((entry) => entry.target === single.targets[0]);
-        // Each target's ordered read sequence is reconstructible from the
-        // bundle alone and equals the single-target contract's read order.
-        expect(coverage?.read).toEqual(single.read.map((document) => document.path));
-        expect(coverage?.listed).toEqual(single.listed.map((entry) => entry.path));
-        for (const path of coverage?.read ?? []) {
-          expect(bundleReadPaths.has(path)).toBe(true);
-        }
-        for (const path of coverage?.listed ?? []) {
-          expect(bundleListedPaths.has(path)).toBe(true);
-        }
+describe("spec context suppression precedence", () => {
+  it("maps every prior and requested mode pair to suppression exactly when the prior mode is at least the requested one", () => {
+    const modes = Object.values(SPEC_CONTEXT_MODE);
+    const path = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+    for (const prior of modes) {
+      for (const requested of modes) {
+        const remaining = suppressLoadedSpecContext([projected(path, requested)], [projected(path, prior)]);
+        // Full satisfies Full or Digest; Digest satisfies only Digest or a
+        // reference; the numeric mode order is the source-owned law.
+        expect(remaining.length, `prior ${prior} requested ${requested}`).toBe(prior >= requested ? 0 : 1);
       }
-    });
+    }
+  });
+
+  it("maps an entry no loaded projection covers to itself and merges several loaded projections by their highest mode", () => {
+    const covered = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+    const uncovered = `${covered}-other`;
+    const remaining = suppressLoadedSpecContext(
+      [projected(covered, SPEC_CONTEXT_MODE.FULL), projected(uncovered, SPEC_CONTEXT_MODE.DIGEST)],
+      [projected(covered, SPEC_CONTEXT_MODE.DIGEST), projected(covered, SPEC_CONTEXT_MODE.FULL)],
+    );
+    expect(remaining.map((entry) => entry.path)).toEqual([uncovered]);
   });
 });
