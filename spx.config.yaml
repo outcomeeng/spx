@@ -10,6 +10,7 @@ validation:
         - --idempotency-key <key>
         - --payload <payload-source>
         - --exclude=
+        - --format
         - "*.test.ts"
         - "*.test.tsx"
         - "Literal: No problems of type "

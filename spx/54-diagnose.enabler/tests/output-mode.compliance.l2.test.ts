@@ -5,12 +5,16 @@ import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
 import { DIAGNOSE_OUTPUT_TEST_POLICY, withDiagnoseOutputCli } from "@testing/harnesses/diagnose/output-modes";
 
 describe("diagnose output selectors are mutually exclusive", () => {
+  // The retired selector is spelled here because the rule forbids this exact
+  // token. No production path declares it — the descriptor's job is to not know
+  // it — so the case belongs to the assertion, as the compliance permission says.
   it("rejects the retired format selector", DIAGNOSE_OUTPUT_TEST_POLICY, async () => {
     await withDiagnoseOutputCli(async (env) => {
-      const result = await env.run([DIAGNOSE_CLI.RETIRED_FORMAT_FLAG, DIAGNOSE_FORMAT.JSON]);
+      const result = await env.run(["--format", DIAGNOSE_FORMAT.JSON]);
       expect(result.exitCode).not.toBe(0);
       expect(result.stdout).toHaveLength(0);
-      expect(result.stderr).toContain(DIAGNOSE_CLI.RETIRED_FORMAT_FLAG);
+      // eslint-disable-next-line no-restricted-syntax -- the violating spelling is the case this rule names
+      expect(result.stderr).toContain("--format");
     });
   });
 

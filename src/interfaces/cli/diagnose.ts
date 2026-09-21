@@ -40,10 +40,6 @@ export const DIAGNOSE_CLI = {
   JSON_FLAG: "--json",
   COLOR_FLAG: "--color",
   NO_COLOR_FLAG: "--no-color",
-  // The output selector this command retired. It stays spelled here because the
-  // descriptor is what refuses it, and the same spelling remains a live flag on
-  // other commands, so no shared constant can stand for the one diagnose rejects.
-  RETIRED_FORMAT_FLAG: "--format",
 } as const;
 
 const DIAGNOSE_DOMAIN_DESCRIPTION =
