@@ -7,14 +7,12 @@ import { DEFAULT_CONFIG } from "@/config/defaults";
 import { configFileForFormat, DEFAULT_CONFIG_FILE_FORMAT, serializeConfigFileSections } from "@/config/index";
 import { DIAGNOSE_FORMAT } from "@/domains/diagnose/report";
 import { SESSION_STATUSES } from "@/domains/session/types";
-import { CONFIG_CLI } from "@/interfaces/cli/config";
 import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
-import { SPX_GLOBAL_OPTIONS } from "@/interfaces/cli/product-context";
 import { sessionsScopeDir } from "@/lib/state-store";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import type {
   GeneratedProductContextCase,
-  ProductContextMappingCommand,
+  RedirectedProductContextCommand,
 } from "@testing/generators/config/product-context";
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { type ProductContextCliRun, runProductContextCli } from "@testing/harnesses/product-context/cli";
@@ -58,7 +56,7 @@ export interface ProductContextMappingObservation {
 }
 
 export async function observeProductContextMapping(
-  command: ProductContextMappingCommand,
+  command: RedirectedProductContextCommand,
   scenario: GeneratedProductContextCase,
 ): Promise<ProductContextMappingObservation> {
   return withTestEnv(DEFAULT_CONFIG, async (env) => {
@@ -91,7 +89,7 @@ export async function observeProductContextMapping(
         await mkdir(callerDir, { recursive: true });
         const direct = await runProductContextCli(command.args, { processCwd: nestedProductDir });
         const redirected = await runProductContextCli(
-          [SPX_GLOBAL_OPTIONS.directory.short, nestedProductDir, ...command.args],
+          [command.directoryOption, nestedProductDir, ...command.args],
           { processCwd: callerDir },
         );
         return { productDir, direct, redirected };
@@ -102,17 +100,17 @@ export async function observeProductContextMapping(
   });
 }
 
-export async function observeAbsentProductContext(scenario: GeneratedProductContextCase): Promise<{
+export async function observeAbsentProductContext(
+  args: readonly string[],
+  scenario: GeneratedProductContextCase,
+): Promise<{
   readonly processDir: string;
   readonly result: ProductContextCliRun;
 }> {
   return withTempDir(PRODUCT_CONTEXT_TEMP_PREFIX, async (root) => {
     const processDir = join(root, scenario.caller.productDirectory, scenario.caller.nestedDirectory);
     await mkdir(processDir, { recursive: true });
-    const result = await runProductContextCli(
-      [CONFIG_CLI.commandName, CONFIG_CLI.commands.validate],
-      { processCwd: processDir },
-    );
+    const result = await runProductContextCli(args, { processCwd: processDir });
     return { processDir, result };
   });
 }

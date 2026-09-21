@@ -21,10 +21,26 @@ import {
 
 describe("product context mapping", () => {
   it.each(PRODUCT_CONTEXT_MAPPING_COMMANDS)(
-    "maps -C to the same $domain result as direct invocation",
+    "maps product context for $args with directory option $directoryOption",
     PRODUCT_CONTEXT_MAPPING_TEST_OPTIONS,
     async (command) => {
       await runProductContextCases(arbitraryProductContextCase(), async (scenario) => {
+        if (command.directoryOption === undefined) {
+          const { processDir, result } = await observeAbsentProductContext(command.args, scenario);
+
+          expect(result.exitCodes).toEqual([0]);
+          expect(result.stdout).toContain(processDir);
+          expect(result.stderr).toContain(processDir);
+          expect(result.stderr).toContain(
+            renderTerminalText(
+              terminal`${PRODUCT_DIR_FALLBACK_WARNING.beforePath}${
+                externalValue(processDir)
+              }${PRODUCT_DIR_FALLBACK_WARNING.afterPath}`,
+            ),
+          );
+          return;
+        }
+
         const { productDir, direct, redirected } = await observeProductContextMapping(command, scenario);
 
         expect(redirected.exitCodes).toEqual(direct.exitCodes);
@@ -53,23 +69,6 @@ describe("product context mapping", () => {
       });
     },
   );
-
-  it("maps absent -C from the process directory and preserves the fallback warning", async () => {
-    await runProductContextCases(arbitraryProductContextCase(), async (scenario) => {
-      const { processDir, result } = await observeAbsentProductContext(scenario);
-
-      expect(result.exitCodes).toEqual([0]);
-      expect(result.stdout).toContain(processDir);
-      expect(result.stderr).toContain(processDir);
-      expect(result.stderr).toContain(
-        renderTerminalText(
-          terminal`${PRODUCT_DIR_FALLBACK_WARNING.beforePath}${
-            externalValue(processDir)
-          }${PRODUCT_DIR_FALLBACK_WARNING.afterPath}`,
-        ),
-      );
-    });
-  });
 
   it("captures deferred exit codes from product-context commands", async () => {
     const result = await observeDeferredProductContextExit();
