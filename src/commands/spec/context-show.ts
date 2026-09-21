@@ -14,6 +14,7 @@ import {
   compareSpecContextOrdinal,
   projectSpecContextDocument,
   selectSpecContextDocuments,
+  SPEC_CONTEXT_ENTRY_TYPE,
   SPEC_CONTEXT_MODE,
   specContextCitedSelection,
   type SpecContextEntry,
@@ -89,7 +90,7 @@ async function projectContext(
     const { entry } = result;
     digestFailures.delete(selection.path);
     projected.set(selection.path, { selection, entry });
-    if (entry.type !== "document" || selection.scanCitations !== true) continue;
+    if (entry.type !== SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT || selection.scanCitations !== true) continue;
     for (const path of specContextInlineDecisionCitations(entry.content)) {
       if (!decisions.has(path) || !input.existingPaths.has(path)) {
         throw new Error(`Missing cited decision ${path} in ${selection.path}`);
@@ -154,7 +155,12 @@ async function methodologyDocument(input: ContextInput, options: ContextShowOpti
     throw new Error(formatFoundationResourceUnreadableError(manifest.core, manifestPath));
   }
   const path = posix.join(tree.value.relativeDir, manifest.core);
-  return { type: "document", path, metadata: {}, content: splitSpecContextFrontMatter(source, path).body };
+  return {
+    type: SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT,
+    path,
+    metadata: {},
+    content: splitSpecContextFrontMatter(source, path).body,
+  };
 }
 
 export async function resolveContextShow(options: ContextShowOptions): Promise<ContextShowResult> {
