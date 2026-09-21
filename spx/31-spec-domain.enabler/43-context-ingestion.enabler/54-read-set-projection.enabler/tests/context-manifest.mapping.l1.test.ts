@@ -2,9 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { SPEC_CONTEXT_LISTED_ROLE, SPEC_CONTEXT_READ_ROLE, SPEC_CONTEXT_READ_ROLE_ORDER } from "@/lib/spec-tree";
 import {
-  contextCommand,
+  contextListManifest,
   listedPathsForRole,
-  parseContextManifest,
   readPaths,
   readPathsForRole,
   withRichContextEnv,
@@ -13,9 +12,7 @@ import {
 describe("spec context manifest entry classes", () => {
   it("maps every role to its read or listed entry class", async () => {
     await withRichContextEnv(async (env, paths) => {
-      const manifest = parseContextManifest(
-        await contextCommand({ targets: [paths.targetId], cwd: env.productDir }),
-      );
+      const manifest = await contextListManifest({ targets: [paths.targetId], cwd: env.productDir });
 
       const readRoles = new Set<string>(SPEC_CONTEXT_READ_ROLE_ORDER);
       for (const document of manifest.read) {
@@ -52,9 +49,7 @@ describe("spec context manifest entry classes", () => {
       expect(readPaths(manifest)).not.toContain(paths.evidencePath);
       expect(readPaths(manifest)).not.toContain(paths.listedOverlayPath);
 
-      const rootManifest = parseContextManifest(
-        await contextCommand({ targets: [paths.rootDirectory], cwd: env.productDir }),
-      );
+      const rootManifest = await contextListManifest({ targets: [paths.rootDirectory], cwd: env.productDir });
       expect(listedPathsForRole(rootManifest, SPEC_CONTEXT_LISTED_ROLE.SAME_INDEX_SIBLING)).toContain(
         paths.sameIndexSiblingPath,
       );
@@ -67,9 +62,7 @@ describe("spec context manifest entry classes", () => {
 
   it("orders read entries by the declared role group order", async () => {
     await withRichContextEnv(async (env, paths) => {
-      const manifest = parseContextManifest(
-        await contextCommand({ targets: [paths.targetId], cwd: env.productDir }),
-      );
+      const manifest = await contextListManifest({ targets: [paths.targetId], cwd: env.productDir });
       const groupIndexes = manifest.read.map((document) =>
         Math.min(...document.roles.map((binding) => SPEC_CONTEXT_READ_ROLE_ORDER.indexOf(binding.role)))
       );
