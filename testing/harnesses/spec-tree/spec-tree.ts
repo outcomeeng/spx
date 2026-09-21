@@ -12,6 +12,7 @@ import {
   KIND_REGISTRY,
   projectSpecTree,
   readSpecTree,
+  SPEC_CONTEXT_DOCUMENT_OPENING,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
   type SpecTreeProjection,
@@ -180,14 +181,32 @@ async function materializeSpecTreeFixture(
   registry: SpecTreeRegistry,
   fixture: RepresentativeSpecTreeFixture,
 ): Promise<void> {
-  await env.writeRaw(productFilePath(fixture), specContent(fixture.product.title));
-  await env.writeNode(nodeSpecPath(registry, fixture.root), specContent(nodeTitle(fixture.root)));
-  await env.writeNode(nodeSpecPath(registry, fixture.child, fixture.root), specContent(nodeTitle(fixture.child)));
-  await env.writeNode(nodeSpecPath(registry, fixture.peer), specContent(nodeTitle(fixture.peer)));
+  await env.writeRaw(
+    productFilePath(fixture),
+    specContent(fixture.product.title, SPEC_CONTEXT_DOCUMENT_OPENING.PRODUCT),
+  );
+  await env.writeNode(
+    nodeSpecPath(registry, fixture.root),
+    specContent(nodeTitle(fixture.root), nodeOpening(registry, fixture.root)),
+  );
+  await env.writeNode(
+    nodeSpecPath(registry, fixture.child, fixture.root),
+    specContent(nodeTitle(fixture.child), nodeOpening(registry, fixture.child)),
+  );
+  await env.writeNode(
+    nodeSpecPath(registry, fixture.peer),
+    specContent(nodeTitle(fixture.peer), nodeOpening(registry, fixture.peer)),
+  );
   await env.writeDecision(
     decisionPath(registry, fixture.decision, fixture.root),
-    specContent(decisionTitle(fixture.decision)),
+    specContent(decisionTitle(fixture.decision), SPEC_CONTEXT_DOCUMENT_OPENING.DECISION),
   );
+}
+
+/** The opening keyword the registry declares for the node's kind, so the fixture's Digest projects. */
+function nodeOpening(registry: SpecTreeRegistry, node: RepresentativeSpecTreeFixture["root"]): string {
+  const definition: { readonly opening?: string } = getKindDefinition(node.kind, registry);
+  return definition.opening ?? SPEC_CONTEXT_DOCUMENT_OPENING.DECISION;
 }
 
 function productFilePath(fixture: RepresentativeSpecTreeFixture): string {
@@ -239,8 +258,9 @@ function decisionTitle(decision: RepresentativeSpecTreeFixture["decision"]): str
   return decision.title ?? decision.slug;
 }
 
-function specContent(title: string): string {
-  return `# ${title}\n\nPROVIDES generated fixture content\nSO THAT spec-tree tests\nCAN read current nodes\n`;
+/** Each fixture document opens with the paragraph its class's Digest projection selects. */
+function specContent(title: string, opening: string): string {
+  return `# ${title}\n\n${opening} generated fixture content\nSO THAT spec-tree tests\nCAN read current nodes\n`;
 }
 
 function joinSpecTreeFixturePath(...segments: readonly string[]): string {

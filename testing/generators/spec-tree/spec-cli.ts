@@ -9,7 +9,6 @@ import {
   type SpecTreeSnapshot,
 } from "@/lib/spec-tree";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
-import { specContextAbbreviatedTarget } from "@testing/generators/spec-tree/context-target";
 import {
   type RepresentativeSpecTreeFixture,
   RETIRED_SPEC_APPLY_FIXTURE,
@@ -38,17 +37,18 @@ export type SpecCliUnsupportedStatusFormatFixture = {
   readonly format: string;
 };
 
+/** The nested node's complete-component suffix — its own directory name — spelled with a trailing separator. */
 export function specCliContextTargetFixture(
   snapshot: SpecTreeSnapshot,
   target: SpecTreeNode,
 ): SpecCliContextTargetFixture {
-  const rootedTarget = [
-    SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-    specContextAbbreviatedTarget(snapshot, target),
-  ].join(TRACKED_PATH_DIRECTORY_SEPARATOR);
+  const suffix = target.id.split(TRACKED_PATH_DIRECTORY_SEPARATOR).at(-1) ?? target.id;
+  if (snapshot.allNodes.filter((node) => node.id.endsWith(suffix)).length !== 1) {
+    throw new Error(`Expected exactly one node to end with ${suffix}`);
+  }
   return {
     expectedTarget: [SPEC_TREE_CONFIG.ROOT_DIRECTORY, target.id].join(TRACKED_PATH_DIRECTORY_SEPARATOR),
-    invocationTarget: `${rootedTarget}${TRACKED_PATH_DIRECTORY_SEPARATOR}`,
+    invocationTarget: `${suffix}${TRACKED_PATH_DIRECTORY_SEPARATOR}`,
   };
 }
 
