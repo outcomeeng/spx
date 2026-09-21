@@ -1,16 +1,22 @@
 import { describe, expect, it } from "vitest";
 
+import { parseSpecContextManifestJson } from "@/commands/spec/context";
+import { parseSpecContextEntriesJson } from "@/commands/spec/context-show";
 import { SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import { SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION } from "@/lib/spec-tree";
+import { RETIRED_SPEC_CONTEXT_CONTENT_FIXTURE } from "@testing/generators/spec-tree/spec-cli";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
+  contextListJson,
   contextListManifest,
+  contextListText,
   contextShowEntries,
   contextShowFailure,
   contextShowJson,
   contextShowText,
   entryPaths,
   methodologyTreeConfig,
+  specCliParseDiagnostic,
   withRichContextEnv,
   writeMethodologyTree,
 } from "@testing/harnesses/spec/context";
@@ -63,16 +69,30 @@ describe("spec context command handlers", () => {
     });
   });
 
-  it("changes only the representation between the text and JSON forms of show", async () => {
+  it("changes only the representation between the text and JSON forms of list and show, and exposes no content option", async () => {
     await withRichContextEnv(async (env, paths) => {
       const options = { targets: [paths.targetId], cwd: env.productDir };
       const entries = await contextShowEntries(options);
-      const json = JSON.parse(await contextShowJson(options)) as { readonly entries: readonly unknown[] };
-      expect(json.entries).toEqual(entries);
+      expect(parseSpecContextEntriesJson(await contextShowJson(options))).toEqual(entries);
       const text = await contextShowText(options);
       for (const path of entryPaths(entries)) {
         expect(text).toContain(path);
       }
+      const manifest = await contextListManifest(options);
+      expect(parseSpecContextManifestJson(await contextListJson(options))).toEqual(manifest);
+      const listText = await contextListText(options);
+      for (const target of manifest.targets) {
+        expect(listText).toContain(target);
+      }
+      const refused = await specCliParseDiagnostic(
+        SPEC_DOMAIN_CLI.COMMAND,
+        SPEC_DOMAIN_CLI.CONTEXT_COMMAND,
+        SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND,
+        paths.targetId,
+        RETIRED_SPEC_CONTEXT_CONTENT_FIXTURE.option,
+      );
+      expect(refused).toContain(RETIRED_SPEC_CONTEXT_CONTENT_FIXTURE.unknownOptionPrefix);
+      expect(refused).toContain(RETIRED_SPEC_CONTEXT_CONTENT_FIXTURE.option);
     });
   });
 });

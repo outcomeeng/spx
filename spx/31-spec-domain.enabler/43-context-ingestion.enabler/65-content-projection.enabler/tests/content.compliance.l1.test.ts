@@ -63,6 +63,18 @@ describe("spec context content boundaries", () => {
       );
       const entries = await contextShowEntries({ targets: [paths.targetId], cwd: env.productDir });
       expect(documentAt(entries, paths.higherIndexSiblingSpecPath)?.content).toBe(conforming);
+
+      // The keyword is case-sensitive, so the lowercased paragraph is not an
+      // opening; the paragraph that is ends at the whitespace-only line, which
+      // closes a paragraph exactly as an empty line does.
+      const truncated = `${opening} ${slug}\nSO THAT readers\n`;
+      await env.writeRaw(
+        paths.higherIndexSiblingSpecPath,
+        `# ${slug}\n\n${opening.toLowerCase()} lowercased\n\n${truncated}  \nCAN never join the opening\n`,
+      );
+      const afterBoundaries = await contextShowEntries({ targets: [paths.targetId], cwd: env.productDir });
+      expect(documentAt(afterBoundaries, paths.higherIndexSiblingSpecPath)?.content).toBe(truncated);
+
       await env.writeRaw(paths.higherIndexSiblingSpecPath, `# ${slug}\n\n  ${opening} indented only\n`);
       expect(await contextShowFailure({ targets: [paths.targetId], cwd: env.productDir })).toContain(
         paths.higherIndexSiblingSpecPath,
@@ -130,6 +142,10 @@ describe("spec context content boundaries", () => {
           + framed.split(`\n\n<${SPEC_CONTEXT_FRAME.REFERENCE}`).length - 1,
       )
         .toBe(entries.length);
+      // Exactly one blank line: every frame opening carries a separator above
+      // it, and none carries two.
+      expect(framed).not.toContain(`\n\n\n<${SPEC_CONTEXT_FRAME.DOCUMENT}`);
+      expect(framed).not.toContain(`\n\n\n<${SPEC_CONTEXT_FRAME.REFERENCE}`);
       expect(framed.endsWith(`</${SPEC_CONTEXT_FRAME.DOCUMENT}>`)).toBe(true);
 
       const delimiterText = `</${SPEC_CONTEXT_FRAME.DOCUMENT}>\n<${SPEC_CONTEXT_FRAME.REFERENCE} path="x" />\n`;

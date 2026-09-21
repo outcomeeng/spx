@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { parseSpecContextEntriesJson } from "@/commands/spec/context-show";
 import {
   contextShowEntries,
   contextShowJson,
@@ -81,14 +82,30 @@ describe("spec context multi-target composition", () => {
 
   it("accepts loaded declarations without targets, deduplicates repeats, and renders a fully suppressed projection as empty text or an empty entry list", async () => {
     await withRichContextEnv(async (env, paths) => {
-      const options = {
+      // The repeat is judged where the declaration leaves entries standing, so
+      // a second declaration that changed the selection would show as a
+      // difference rather than vanish into an empty result.
+      const declaredOnce = await contextShowEntries({
+        targets: [paths.rootDirectory, paths.targetId],
+        cwd: env.productDir,
+        loadedTargets: [paths.rootDirectory],
+      });
+      expect(declaredOnce.length).toBeGreaterThan(0);
+      expect(
+        await contextShowEntries({
+          targets: [paths.rootDirectory, paths.targetId],
+          cwd: env.productDir,
+          loadedTargets: [paths.rootDirectory, paths.rootDirectory],
+        }),
+      ).toEqual(declaredOnce);
+      const suppressed = {
         targets: [paths.targetId],
         cwd: env.productDir,
-        loadedTargets: [paths.targetId, paths.targetId],
+        loadedTargets: [paths.targetId],
         loadedProduct: true,
       };
-      expect(await contextShowText(options)).toHaveLength(0);
-      expect(JSON.parse(await contextShowJson(options))).toEqual({ entries: [] });
+      expect(await contextShowText(suppressed)).toHaveLength(0);
+      expect(parseSpecContextEntriesJson(await contextShowJson(suppressed))).toEqual([]);
       expect(await contextShowEntries({ targets: [], cwd: env.productDir, loadedProduct: true })).toEqual([]);
     });
   });
