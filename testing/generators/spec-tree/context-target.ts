@@ -8,7 +8,9 @@ import {
   type SpecTreeFixtureEntry,
 } from "@testing/generators/test-environment/test-environment";
 
+import { HOOK_SESSION_START_ENV } from "@/domains/hooks/session-start";
 import { TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
+import { METHODOLOGY_CODING_AGENT, type MethodologyCodingAgent } from "@/lib/methodology";
 import { CONTROL_CHAR_UPPER_BOUND, DEL_CHAR_CODE, formatHexEscape } from "@/lib/sanitize-cli-argument";
 import {
   DECISION_KINDS,
@@ -522,5 +524,37 @@ export function arbitraryContextDeterminismCase(config: Config): fc.Arbitrary<Ge
       const opening = KIND_REGISTRY[entry.kind as keyof typeof KIND_REGISTRY];
       return withOpening(entry, "opening" in opening ? opening.opening : SPEC_CONTEXT_DOCUMENT_OPENING.DECISION);
     }),
+  });
+}
+
+/** One subset of the invocation markers and the coding agent the declared precedence selects for it. */
+export type SpecContextCodingAgentMarkerCase = {
+  readonly markers: Readonly<Record<string, string>>;
+  readonly expected: MethodologyCodingAgent | undefined;
+  readonly title: string;
+};
+
+/**
+ * The complete subset domain over the source-owned invocation marker keys,
+ * with the spec's precedence law as the expectation: a Codex marker selects
+ * Codex before any Claude Code marker, either Claude Code marker alone selects
+ * Claude Code, and no marker selects no agent.
+ */
+export function specContextCodingAgentMarkerCases(marker: string): readonly SpecContextCodingAgentMarkerCase[] {
+  const codexKeys = [HOOK_SESSION_START_ENV.CODEX_THREAD_ID] as const;
+  const claudeKeys = [HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID, HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE] as const;
+  const keys = [...codexKeys, ...claudeKeys];
+  return Array.from({ length: 2 ** keys.length }, (_unused, mask) => {
+    const present = keys.filter((_key, index) => (mask & (1 << index)) !== 0);
+    const expected = present.some((key) => codexKeys.includes(key as (typeof codexKeys)[number]))
+      ? METHODOLOGY_CODING_AGENT.CODEX
+      : present.some((key) => claudeKeys.includes(key as (typeof claudeKeys)[number]))
+      ? METHODOLOGY_CODING_AGENT.CLAUDE
+      : undefined;
+    return {
+      markers: Object.fromEntries(present.map((key) => [key, marker])),
+      expected,
+      title: `maps markers {${present.join(", ")}} to ${expected ?? "no agent"}`,
+    };
   });
 }

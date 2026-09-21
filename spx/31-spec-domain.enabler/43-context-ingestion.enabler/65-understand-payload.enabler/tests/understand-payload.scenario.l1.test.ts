@@ -3,89 +3,53 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { SPEC_CONTEXT_TEXT_LABEL } from "@/commands/spec/context";
 import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
 import {
   FOUNDATION_MANIFEST_FIELDS,
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   FOUNDATION_MANIFEST_SCHEMA_VERSION,
 } from "@/lib/methodology";
-import { SPEC_CONTEXT_CONTENT_FIELDS, SPEC_CONTEXT_LISTED_ROLE, SPEC_CONTEXT_READ_ROLE } from "@/lib/spec-tree";
+import { SPEC_CONTEXT_FRAME } from "@/lib/spec-tree";
 import { generatedMigratingMethodologySection } from "@testing/generators/config/descriptors";
 import { arbitraryMethodologyLineVersion, arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
-  contextCommand,
-  contextCommandFailure,
-  contextTextCommand,
-  listedPathsForRole,
+  contextShowEntries,
+  contextShowFailure,
+  contextShowText,
+  entryPaths,
   methodologyFixtureTreeRoot,
   methodologyTreeConfig,
-  parseContextManifest,
-  readPathsForRole,
-  rootedSpecPath,
   SPEC_CONTEXT_ESCAPE_TARGET_FILENAME,
   writeMethodologyTree,
 } from "@testing/harnesses/spec/context";
 
 describe("spec context understand payload", () => {
-  it("carries each foundation document with exact content, digest, and byte count in every output mode, ordered after the lifecycle overlay group", async () => {
+  it("emits the core body first as one Full document under the bundle address, and nothing of the manifest or catalog", async () => {
     await withSpecTreeEnv(methodologyTreeConfig(), async (env) => {
       await env.materialize();
       const fixture = await writeMethodologyTree(env);
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
-
-      const manifest = parseContextManifest(
-        await contextCommand({
-          targets: [target.id],
-          cwd: env.productDir,
-          understand: true,
-          methodologyTreeRoot: fixture.treeRoot,
-        }),
-      );
-      const methodologyEntry = manifest.read.find((document) => document.path === fixture.corePath);
-      expect(methodologyEntry?.roles).toEqual([
-        { target: rootedSpecPath(target.id), role: SPEC_CONTEXT_READ_ROLE.METHODOLOGY },
-      ]);
-      // Bodies appear in the machine mode even without content mode — the
-      // consumers of the payload have no other access to the foundation.
-      expect(methodologyEntry?.content).toBe(fixture.coreText);
-      expect(methodologyEntry?.digest).toBeDefined();
-      expect(methodologyEntry?.bytes).toBeDefined();
-      // The methodology group is ordered after every other read entry.
-      expect(manifest.read.at(-1)?.path).toBe(fixture.corePath);
-      expect(manifest.coverage.at(0)?.read.at(-1)).toBe(fixture.corePath);
-
-      const contentManifest = parseContextManifest(
-        await contextCommand({
-          targets: [target.id],
-          cwd: env.productDir,
-          understand: true,
-          content: true,
-          methodologyTreeRoot: fixture.treeRoot,
-        }),
-      );
-      expect(
-        contentManifest.read.find((document) => document.path === fixture.corePath)?.content,
-      ).toBe(fixture.coreText);
-      for (const catalogPath of fixture.catalogPaths) {
-        const catalogEntry = contentManifest.listed.find((entry) => entry.path === catalogPath);
-        expect(catalogEntry).toBeDefined();
-        for (const field of Object.values(SPEC_CONTEXT_CONTENT_FIELDS)) {
-          expect(catalogEntry).not.toHaveProperty(field);
-        }
-      }
-
-      const textOutput = await contextTextCommand({
+      const options = {
         targets: [target.id],
         cwd: env.productDir,
-        understand: true,
+        methodology: true,
         methodologyTreeRoot: fixture.treeRoot,
+      };
+      const entries = await contextShowEntries(options);
+      expect(entries[0]).toEqual({
+        type: "document",
+        path: fixture.documentPath,
+        metadata: {},
+        content: fixture.coreText,
       });
-      expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY_DOCUMENT}: ${fixture.corePath}`);
-      expect(textOutput).toContain(fixture.coreText);
+      for (const catalogPath of fixture.catalogPaths) {
+        expect(entryPaths(entries).some((path) => path.endsWith(catalogPath))).toBe(false);
+      }
+      expect(entryPaths(entries).some((path) => path.endsWith(FOUNDATION_MANIFEST_RELATIVE_PATH))).toBe(false);
+      expect((await contextShowText(options)).startsWith(`<${SPEC_CONTEXT_FRAME.DOCUMENT}`)).toBe(true);
     });
   });
 
@@ -97,15 +61,12 @@ describe("spec context understand payload", () => {
       await env.materialize();
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
-      const manifest = parseContextManifest(
-        await contextCommand({
-          targets: [target.id],
-          cwd: env.productDir,
-          methodologyTreeRoot: methodologyFixtureTreeRoot(env),
-        }),
-      );
-      expect(readPathsForRole(manifest, SPEC_CONTEXT_READ_ROLE.METHODOLOGY)).toEqual([]);
-      expect(listedPathsForRole(manifest, SPEC_CONTEXT_LISTED_ROLE.METHODOLOGY_CATALOG)).toEqual([]);
+      const entries = await contextShowEntries({
+        targets: [target.id],
+        cwd: env.productDir,
+        methodologyTreeRoot: methodologyFixtureTreeRoot(env),
+      });
+      expect(entries[0]?.path).toBe(snapshot.product?.ref?.path);
     });
   });
 
@@ -120,17 +81,19 @@ describe("spec context understand payload", () => {
         const fixture = await writeMethodologyTree(env);
         const snapshot = await env.readFilesystemSnapshot();
         const target = snapshot.allNodes[0];
-        if (declared.line === fixture.line) return;
+        const failure = await contextShowFailure({
+          targets: [target.id],
+          cwd: env.productDir,
+          methodology: true,
+          methodologyTreeRoot: fixture.treeRoot,
+        });
+        if (declared.line === fixture.line) {
+          expect(failure).toBeUndefined();
+          return;
+        }
         // The generator derives the line from its own components, so the
         // diagnostic's three named values are checked against an oracle
         // the production parser and formatter never touch.
-        const failure = await contextCommandFailure({
-          targets: [target.id],
-          cwd: env.productDir,
-          understand: true,
-          methodologyTreeRoot: fixture.treeRoot,
-        });
-        expect(failure).toBeDefined();
         expect(failure).toContain(declared.text);
         expect(failure).toContain(declared.line);
         expect(failure).toContain(fixture.line);
@@ -138,7 +101,7 @@ describe("spec context understand payload", () => {
     );
   });
 
-  it("serves the declared version's tree and reports the migration source while methodology.migratingFrom is declared", async () => {
+  it("serves the declared version's tree while methodology.migratingFrom is declared", async () => {
     const migrating = generatedMigratingMethodologySection();
     await withSpecTreeEnv(methodologyTreeConfig(migrating), async (env) => {
       await env.materialize();
@@ -147,23 +110,13 @@ describe("spec context understand payload", () => {
       });
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
-
-      const manifest = parseContextManifest(
-        await contextCommand({
-          targets: [target.id],
-          cwd: env.productDir,
-          understand: true,
-          methodologyTreeRoot: fixture.treeRoot,
-        }),
-      );
-
-      expect(manifest.methodology).toEqual({
-        source: migrating[METHODOLOGY_CONFIG_FIELDS.SOURCE],
-        version: migrating[METHODOLOGY_CONFIG_FIELDS.VERSION],
-        migratingFrom: migrating[METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM],
+      const entries = await contextShowEntries({
+        targets: [target.id],
+        cwd: env.productDir,
+        methodology: true,
+        methodologyTreeRoot: fixture.treeRoot,
       });
-      expect(manifest.read.at(-1)?.path).toBe(fixture.corePath);
-      expect(manifest.read.at(-1)?.content).toBe(fixture.coreText);
+      expect(entries[0]).toMatchObject({ path: fixture.documentPath, content: fixture.coreText });
     });
   });
 
@@ -180,42 +133,50 @@ describe("spec context understand payload", () => {
         expect(fixture.line).toBe(declared.line);
         const snapshot = await env.readFilesystemSnapshot();
         const target = snapshot.allNodes[0];
-
-        const manifest = parseContextManifest(
-          await contextCommand({
-            targets: [target.id],
-            cwd: env.productDir,
-            understand: true,
-            methodologyTreeRoot: fixture.treeRoot,
-          }),
-        );
-
-        expect(manifest.methodology).toMatchObject({ version: declared.text });
-        expect(manifest.read.at(-1)?.path).toBe(fixture.corePath);
-        expect(manifest.read.at(-1)?.content).toBe(fixture.coreText);
+        const entries = await contextShowEntries({
+          targets: [target.id],
+          cwd: env.productDir,
+          methodology: true,
+          methodologyTreeRoot: fixture.treeRoot,
+        });
+        expect(entries[0]).toMatchObject({ path: fixture.documentPath, content: fixture.coreText });
       },
     );
   });
 
-  it("fails naming the resolved manifest path when the manifest is absent", async () => {
-    await withSpecTreeEnv(methodologyTreeConfig(), async (env) => {
-      await env.materialize();
-      const snapshot = await env.readFilesystemSnapshot();
-      const target = snapshot.allNodes[0];
-      const fixture = await writeMethodologyTree(env);
-      await rm(fixture.manifestPath);
-      await expect(
-        contextCommand({
-          targets: [target.id],
-          cwd: env.productDir,
-          understand: true,
-          methodologyTreeRoot: fixture.treeRoot,
-        }),
-      ).rejects.toThrow(FOUNDATION_MANIFEST_RELATIVE_PATH);
-    });
+  it("fails naming the resolved manifest path when the manifest is absent or carries an unrecognized schema version", async () => {
+    for (
+      const corrupt of [
+        async (fixture: Awaited<ReturnType<typeof writeMethodologyTree>>) => rm(fixture.manifestPath),
+        async (fixture: Awaited<ReturnType<typeof writeMethodologyTree>>) =>
+          writeFile(
+            fixture.manifestPath,
+            JSON.stringify({
+              [FOUNDATION_MANIFEST_FIELDS.SCHEMA_VERSION]: FOUNDATION_MANIFEST_SCHEMA_VERSION + 1,
+              [FOUNDATION_MANIFEST_FIELDS.CORE]: fixture.corePath,
+            }),
+          ),
+      ]
+    ) {
+      await withSpecTreeEnv(methodologyTreeConfig(), async (env) => {
+        await env.materialize();
+        const snapshot = await env.readFilesystemSnapshot();
+        const target = snapshot.allNodes[0];
+        const fixture = await writeMethodologyTree(env);
+        await corrupt(fixture);
+        expect(
+          await contextShowFailure({
+            targets: [target.id],
+            cwd: env.productDir,
+            methodology: true,
+            methodologyTreeRoot: fixture.treeRoot,
+          }),
+        ).toContain(FOUNDATION_MANIFEST_RELATIVE_PATH);
+      });
+    }
   });
 
-  it("fails naming the offending path when the manifest names a core outside the tree", async () => {
+  it("fails naming the offending resource when the core escapes the tree by path or by symbolic link", async () => {
     await withSpecTreeEnv(methodologyTreeConfig(), async (env) => {
       await env.materialize();
       const snapshot = await env.readFilesystemSnapshot();
@@ -223,66 +184,32 @@ describe("spec context understand payload", () => {
       const fixture = await writeMethodologyTree(env);
       // The escape target exists and is readable, so only the containment
       // rule stands between the traversal path and its bytes.
-      const escapeText = "# Outside the tree\n";
-      await writeFile(join(fixture.treeRoot, SPEC_CONTEXT_ESCAPE_TARGET_FILENAME), escapeText);
-      const manifest = {
-        [FOUNDATION_MANIFEST_FIELDS.SCHEMA_VERSION]: FOUNDATION_MANIFEST_SCHEMA_VERSION,
-        [FOUNDATION_MANIFEST_FIELDS.CORE]: `../../../${SPEC_CONTEXT_ESCAPE_TARGET_FILENAME}`,
-        [FOUNDATION_MANIFEST_FIELDS.REFERENCES]: [],
-        [FOUNDATION_MANIFEST_FIELDS.TEMPLATES]: [],
-        [FOUNDATION_MANIFEST_FIELDS.EXAMPLES]: [],
-      };
-      await writeFile(fixture.manifestPath, JSON.stringify(manifest));
-      // The rejection must name the offending value itself, not merely the
-      // failing field, so a traversal defect is distinguishable from any
-      // other core-field defect.
-      await expect(
-        contextCommand({
-          targets: [target.id],
-          cwd: env.productDir,
-          understand: true,
-          methodologyTreeRoot: fixture.treeRoot,
-        }),
-      ).rejects.toThrow(`../../../${SPEC_CONTEXT_ESCAPE_TARGET_FILENAME}`);
-    });
-  });
-
-  it("fails naming the resource when the core resolves through a symbolic link outside the tree", async () => {
-    await withSpecTreeEnv(methodologyTreeConfig(), async (env) => {
-      await env.materialize();
-      const snapshot = await env.readFilesystemSnapshot();
-      const target = snapshot.allNodes[0];
-      const fixture = await writeMethodologyTree(env);
       const escapePath = join(fixture.treeRoot, SPEC_CONTEXT_ESCAPE_TARGET_FILENAME);
       await writeFile(escapePath, "# Outside the tree\n");
-      const corePath = join(fixture.treeDir, fixture.corePath);
+      const traversal = `../../../${SPEC_CONTEXT_ESCAPE_TARGET_FILENAME}`;
+      await writeFile(
+        fixture.manifestPath,
+        JSON.stringify({
+          [FOUNDATION_MANIFEST_FIELDS.SCHEMA_VERSION]: FOUNDATION_MANIFEST_SCHEMA_VERSION,
+          [FOUNDATION_MANIFEST_FIELDS.CORE]: traversal,
+          [FOUNDATION_MANIFEST_FIELDS.REFERENCES]: [],
+          [FOUNDATION_MANIFEST_FIELDS.TEMPLATES]: [],
+          [FOUNDATION_MANIFEST_FIELDS.EXAMPLES]: [],
+        }),
+      );
+      const options = {
+        targets: [target.id],
+        cwd: env.productDir,
+        methodology: true,
+        methodologyTreeRoot: fixture.treeRoot,
+      };
+      expect(await contextShowFailure(options)).toContain(traversal);
+
+      const restored = await writeMethodologyTree(env);
+      const corePath = join(restored.treeDir, restored.corePath);
       await rm(corePath);
       await symlink(escapePath, corePath);
-      await expect(
-        contextCommand({
-          targets: [target.id],
-          cwd: env.productDir,
-          understand: true,
-          methodologyTreeRoot: fixture.treeRoot,
-        }),
-      ).rejects.toThrow(fixture.corePath);
-    });
-  });
-
-  it("fails naming the resolved manifest path when the manifest carries an unrecognized schema version", async () => {
-    await withSpecTreeEnv(methodologyTreeConfig(), async (env) => {
-      await env.materialize();
-      const snapshot = await env.readFilesystemSnapshot();
-      const target = snapshot.allNodes[0];
-      const fixture = await writeMethodologyTree(env, { schemaVersion: FOUNDATION_MANIFEST_SCHEMA_VERSION + 1 });
-      await expect(
-        contextCommand({
-          targets: [target.id],
-          cwd: env.productDir,
-          understand: true,
-          methodologyTreeRoot: fixture.treeRoot,
-        }),
-      ).rejects.toThrow(FOUNDATION_MANIFEST_RELATIVE_PATH);
+      expect(await contextShowFailure(options)).toContain(restored.corePath);
     });
   });
 });

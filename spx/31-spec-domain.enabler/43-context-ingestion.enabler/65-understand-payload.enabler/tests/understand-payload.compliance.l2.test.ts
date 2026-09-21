@@ -5,9 +5,9 @@ import { SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import { METHODOLOGY_CODING_AGENT } from "@/lib/methodology";
 import { KIND_REGISTRY } from "@/lib/spec-tree";
 import { specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
-import { shippedFoundationCoreText, shippedMethodologyVersion } from "@testing/harnesses/methodology/shipped-tree";
+import { shippedFoundationCoreBody, shippedMethodologyVersion } from "@testing/harnesses/methodology/shipped-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
-import { methodologyTreeConfig, parseContextManifest, runSpecCliWithIsolation } from "@testing/harnesses/spec/context";
+import { methodologyTreeConfig, runSpecCliWithIsolation } from "@testing/harnesses/spec/context";
 
 describe("spec context understand payload network abstinence", () => {
   it("sources the foundation from spx's own shipped tree through the packaged executable with zero outbound network attempts", async () => {
@@ -25,16 +25,18 @@ describe("spec context understand payload network abstinence", () => {
           SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND,
           target,
           SPEC_DOMAIN_CLI.JSON_OPTION,
-          SPEC_DOMAIN_CLI.UNDERSTAND_OPTION,
+          SPEC_DOMAIN_CLI.METHODOLOGY_OPTION,
           SPEC_DOMAIN_CLI.CODING_AGENT_OPTION,
           METHODOLOGY_CODING_AGENT.CLAUDE,
         );
 
         expect(execution.result.exitCode, execution.result.stderr).toBe(0);
         expect(execution.networkAttempts).toEqual([]);
-        const manifest = parseContextManifest(execution.result.stdout);
-        const coreText = await shippedFoundationCoreText(shipped.line, METHODOLOGY_CODING_AGENT.CLAUDE);
-        expect(manifest.read.at(-1)?.content).toBe(coreText);
+        const entries =
+          (JSON.parse(execution.result.stdout) as { readonly entries: readonly { readonly content?: string }[] })
+            .entries;
+        const coreText = await shippedFoundationCoreBody(shipped.line, METHODOLOGY_CODING_AGENT.CLAUDE);
+        expect(entries[0]?.content).toBe(coreText);
       },
     );
   });
