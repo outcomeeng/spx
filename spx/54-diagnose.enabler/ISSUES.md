@@ -22,15 +22,25 @@ This is the same defect as the manifest wire keys above, seen from the other sid
 
 **Settlement condition:** each check module publishes its readings-key registry beside its `record()`, the way `CHECK_RECORD_FIELDS` already does for the enclosing record, and every consumer reads the keys from that owner rather than spelling them.
 
-## The determinism property bypasses the property harness
+## Two test files bypass the property harness
 
-[`tests/determinism.property.l1.test.ts`](tests/determinism.property.l1.test.ts) calls `fc.assert(fc.property(...))` directly. The product's property harness `assertProperty` in [`testing/harnesses/property/property.ts`](../../testing/harnesses/property/property.ts) owns run count, per-run timeout, seed selection, and `SPX_PROPERTY_SEED` replay diagnostics, and the node's sibling property evidence [`tests/output-mode.property.l1.test.ts`](tests/output-mode.property.l1.test.ts) routes through it.
+[`tests/determinism.property.l1.test.ts`](tests/determinism.property.l1.test.ts) and [`tests/check-selection.mapping.l1.test.ts`](tests/check-selection.mapping.l1.test.ts) both call `fc.assert(fc.property(...))` directly. The product's property harness `assertProperty` in [`testing/harnesses/property/property.ts`](../../testing/harnesses/property/property.ts) owns run count, per-run timeout, seed selection, and `SPX_PROPERTY_SEED` replay diagnostics, and the node's sibling property evidence [`tests/output-mode.property.l1.test.ts`](tests/output-mode.property.l1.test.ts) routes through it, as does the repository overlay `spx/local/typescript-tests.md`.
 
-**Evidence:** test-evidence audit of `spx/54-diagnose.enabler`, finding `f-004`, severity WARNING, property `declarations`, rule `test-owned configuration`.
+**Evidence:** test-evidence audit of `spx/54-diagnose.enabler`, finding `f-004` in the third round and `f-005` in the fourth, severity WARNING, property `declarations`, rule `test-owned configuration`. The fourth round added the second file.
 
-**Impact:** the run count, timeout, and replay policy for this property fall to fast-check defaults rather than the harness that owns them, so the node's two property files are governed by different execution policies. Fast-check's own failure output still carries a seed and a replay path, so a failure remains reproducible.
+**Impact:** the run count, timeout, and replay policy for both files fall to fast-check defaults rather than the harness that owns them, so the node's property-driven evidence is governed by two different execution policies. Fast-check's own failure output still carries a seed and a replay path, so a failure remains reproducible.
 
-**Settlement condition:** the determinism property passes its arbitrary, its inline predicate, and its level classification to `assertProperty`, and no test file in this node calls `fc.assert` directly.
+**Settlement condition:** each file passes its arbitrary, its inline predicate, and its level classification to `assertProperty`, and no test file in this node calls `fc.assert` directly.
+
+## The check-selection evidence declares its own recording collaborator
+
+[`tests/check-selection.mapping.l1.test.ts`](tests/check-selection.mapping.l1.test.ts) declares `recordingRegistry(invoked)`, which builds the injected `CheckRegistry` over every `CHECK_NAME` and fabricates each returned `CheckRecord` — its verdict, bucket, readings, and remediation. The node's harness already supplies exactly this collaborator for the sibling property evidence: `withDiagnoseOutputScenario` in [`testing/harnesses/diagnose/output-modes.ts`](../../testing/harnesses/diagnose/output-modes.ts) builds a recording registry over the scenario's checks and exposes the calls it observed.
+
+**Evidence:** test-evidence audit of `spx/54-diagnose.enabler`, finding `f-005` in the third round and `f-004` in the fourth, both severity REJECT, property `declarations`, rule `test-owned configuration`.
+
+**Impact:** the controlled implementation and the record shape it returns are arrangement the assertion does not state, owned in the assertion file rather than by the harness. The collaborator is therefore declared twice in one node, and a change to what a recorded check must return reaches one copy and not the other.
+
+**Settlement condition:** the check-selection evidence consumes its recording registry from the node's harness and asserts over the observations that harness exposes, and no executed test file in this node declares a collaborator the harness already owns.
 
 ## Three co-located test files carry no assertion link
 
