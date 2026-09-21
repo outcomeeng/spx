@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { compareSpecContextOrdinal } from "@/lib/spec-tree";
+import { specContextDivergentCitationDecisions } from "@testing/generators/spec-tree/context-target";
 import { contextShowEntries, documentAt, documentPaths, withRichContextEnv } from "@testing/harnesses/spec/context";
 
 describe("spec context cited decisions", () => {
@@ -19,6 +20,25 @@ describe("spec context cited decisions", () => {
           compareSpecContextOrdinal,
         ),
       );
+    });
+  });
+
+  it("appends cited decisions in canonical path order even when the citation order reverses it", async () => {
+    await withRichContextEnv(async (env, paths) => {
+      const divergent = specContextDivergentCitationDecisions(env.fixture);
+      for (const decision of [divergent.citedFirst, divergent.citedSecond]) {
+        await env.writeRaw(decision.path, decision.content);
+      }
+      // The target cites the higher-index decision first, so discovery order
+      // and canonical path order disagree.
+      await env.writeRaw(
+        paths.targetSpecPath,
+        `${
+          paths.sourceText[paths.targetSpecPath]
+        }\nUnder [later](${divergent.citedFirst.path}) then [earlier](${divergent.citedSecond.path}).\n`,
+      );
+      const shown = documentPaths(await contextShowEntries({ targets: [paths.targetId], cwd: env.productDir }));
+      expect(shown.indexOf(divergent.citedSecond.path)).toBeLessThan(shown.indexOf(divergent.citedFirst.path));
     });
   });
 

@@ -11,9 +11,9 @@ import {
   SPEC_TREE_GRAMMAR,
   specContextAncestors,
   specContextBootstrap,
+  specContextBoundCitations,
   specContextDecisions,
   specContextEvidence,
-  specContextInlineDecisionCitations,
   specContextLowerIndexSiblings,
   type SpecContextManifest,
   specContextSiblings,
@@ -61,10 +61,14 @@ async function manifestCitations(
   const pending = [...structural];
   for (let index = 0; index < pending.length; index += 1) {
     const citing = pending[index];
-    for (const path of specContextInlineDecisionCitations(await input.readDocument(citing))) {
-      if (!decisionsByPath.has(path) || !input.existingPaths.has(path)) {
-        throw new Error(`Missing cited decision ${path} in ${citing}`);
-      }
+    for (
+      const path of specContextBoundCitations(
+        await input.readDocument(citing),
+        citing,
+        decisionsByPath,
+        input.existingPaths,
+      )
+    ) {
       if (!selected.has(path)) {
         selected.add(path);
         pending.push(path);

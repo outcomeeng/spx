@@ -118,6 +118,11 @@ export const SPEC_TREE_GRAMMAR = {
     FILES: ["eval.toml", "cases.jsonl", "prompt.md", "history.jsonl"],
     RUNS_DIRECTORY_NAME: "runs",
   },
+  PROBE: {
+    DIRECTORY_NAME: "probes",
+    PROTOCOL_FILENAME: "probe.md",
+    RUNS_DIRECTORY_NAME: "runs",
+  },
   SPEC_FILE: {
     CANONICAL_SUFFIX: ".spec.md",
     PRIOR_SUFFIX: ".md",
@@ -147,6 +152,7 @@ export type NamingSchemaVersion = {
   readonly pathSeparator: string;
   readonly coordinationNotes: readonly string[];
   readonly eval: typeof SPEC_TREE_GRAMMAR.EVAL;
+  readonly probe: typeof SPEC_TREE_GRAMMAR.PROBE;
   readonly specFileSuffix: string;
 };
 
@@ -172,6 +178,7 @@ function namingSchemaVersion(
     pathSeparator: SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
     coordinationNotes: SPEC_TREE_GRAMMAR.COORDINATION_NOTES,
     eval: SPEC_TREE_GRAMMAR.EVAL,
+    probe: SPEC_TREE_GRAMMAR.PROBE,
     specFileSuffix,
   };
 }

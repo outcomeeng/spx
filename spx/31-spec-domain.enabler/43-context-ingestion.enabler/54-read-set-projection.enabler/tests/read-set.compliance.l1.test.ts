@@ -52,6 +52,10 @@ describe("spec context read-set boundaries", () => {
 
   it("keeps evidence, runtime guides, non-lifecycle overlays, and coordination plans outside show", async () => {
     await withRichContextEnv(async (env, paths) => {
+      // Eval and probe artifacts sit beside the tests under the target, so the
+      // three evidence lanes the assertion names are all present on disk.
+      await env.writeRaw(paths.targetEvalPath, "[case]\n");
+      await env.writeRaw(paths.targetProbePath, "# Probe\n");
       for (
         const target of [[], [paths.targetId], [paths.rootDirectory]]
       ) {
@@ -59,6 +63,8 @@ describe("spec context read-set boundaries", () => {
         for (
           const excluded of [
             paths.evidencePath,
+            paths.targetEvalPath,
+            paths.targetProbePath,
             ...paths.rootGuidePaths,
             paths.ancestorGuidePath,
             paths.listedOverlayPath,
@@ -102,6 +108,20 @@ describe("spec context read-set boundaries", () => {
       );
       expect(positions.every((position) => position >= 0)).toBe(true);
       expect(positions).toEqual([...positions].sort((left, right) => left - right));
+    });
+  });
+
+  it("descends into a node's own subtree before its next sibling", async () => {
+    await withRichContextEnv(async (env, paths) => {
+      // The target's descendant follows the target and precedes the target's
+      // next sibling; a breadth-first walk would place it after both.
+      const paths_ = documentPaths(await contextShowEntries({ targets: [paths.targetId], cwd: env.productDir }));
+      const target = paths_.indexOf(paths.targetSpecPath);
+      const descendant = paths_.indexOf(paths.deepDescendantSpecPath);
+      const nextSibling = paths_.indexOf(paths.higherIndexSiblingSpecPath);
+      expect(target).toBeGreaterThanOrEqual(0);
+      expect(descendant).toBeGreaterThan(target);
+      expect(nextSibling).toBeGreaterThan(descendant);
     });
   });
 });

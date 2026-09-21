@@ -15,7 +15,6 @@ import {
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
 } from "@testing/generators/spec-tree/spec-tree";
-import { expectPresent } from "@testing/harnesses/spec-tree/assertions";
 
 describe("spec status JSON rendering", () => {
   it("conforms to the stable spec-tree projection contract for filesystem-domain node ids", async () => {
@@ -45,10 +44,8 @@ describe("spec status JSON rendering", () => {
       readonly version: number;
       readonly nodes: ReadonlyArray<{ readonly id: string; readonly state: string }>;
     };
-    const node = expectPresent(parsed.nodes[0]);
-
     expect(parsed.version).toBe(SPEC_TREE_PROJECTION.VERSION);
-    expect(node).toMatchObject({
+    expect(parsed.nodes[0]).toMatchObject({
       id: nodeId,
       state: SPEC_TREE_NODE_STATE.DECLARED,
     });

@@ -7,7 +7,13 @@ import {
   PROPERTY_CLASSIFICATION,
   propertyTestEnvelopeTimeoutMs,
 } from "@testing/harnesses/property/property";
-import { contextShowJson, contextShowText, withRichContextEnv } from "@testing/harnesses/spec/context";
+import {
+  contextShowEntries,
+  contextShowJson,
+  contextShowText,
+  entryPaths,
+  withRichContextEnv,
+} from "@testing/harnesses/spec/context";
 
 describe("spec context target-order permutation stability", () => {
   it(
@@ -30,6 +36,10 @@ describe("spec context target-order permutation stability", () => {
             const options = { targets: permutation, cwd: env.productDir, loadedTargets: declarations };
             expect(await contextShowText(options)).toBe(canonicalText);
             expect(await contextShowJson(options)).toBe(canonicalJson);
+            // The three targets share documents and references; each appears
+            // once however the operands are ordered.
+            const shown = entryPaths(await contextShowEntries(options));
+            expect(new Set(shown).size).toBe(shown.length);
           },
           PROPERTY_CLASSIFICATION.SMALL_L1,
         );

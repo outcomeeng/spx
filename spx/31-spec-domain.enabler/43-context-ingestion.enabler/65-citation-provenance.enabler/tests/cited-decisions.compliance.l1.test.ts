@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { KIND_REGISTRY } from "@/lib/spec-tree";
-import { specContextNonCitationShapes } from "@testing/generators/spec-tree/context-target";
-import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
+import {
+  specContextAbsentDecisionPath,
+  specContextNonCitationShapes,
+} from "@testing/generators/spec-tree/context-target";
 import {
   contextShowEntries,
   contextShowFailure,
   documentPaths,
   entryPaths,
+  referencePaths,
   rootedSpecPath,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
@@ -23,16 +25,25 @@ describe("spec context citation boundaries", () => {
         paths.targetSpecPath,
         `${paths.sourceText[paths.targetSpecPath]}\nMentions ${shapes.proseShapes.join(", ")} without binding any.\n`,
       );
-      const undisplayed = rootedSpecPath(
-        `${paths.higherIndexSiblingPath.slice(rootedSpecPath("").length)}/98-${
-          sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug())
-        }${KIND_REGISTRY[env.fixture.decision.kind].suffix}`,
+      const undisplayed = specContextAbsentDecisionPath(
+        env.fixture,
+        paths.higherIndexSiblingPath.slice(rootedSpecPath("").length),
       );
       await env.writeRaw(
         paths.sameIndexSiblingSpecPath,
         `${paths.sourceText[paths.sameIndexSiblingSpecPath]}\nBelow the opening: [absent](${undisplayed}).\n`,
       );
+      // The target's ISSUES note is selected as a reference and carries a
+      // citation-shaped inline link to a decision that exists: a scan of the
+      // note's body would bind it, so its absence proves notes contribute none.
+      const notedDecision = specContextAbsentDecisionPath(env.fixture, paths.targetId);
+      await env.writeRaw(
+        paths.targetIssuesPath,
+        `${paths.targetIssuesText}\nUnder [peer](${paths.peerDecisionPath}) and [absent](${notedDecision}).\n`,
+      );
       const entries = await contextShowEntries({ targets: [paths.targetId], cwd: env.productDir });
+      expect(referencePaths(entries)).toContain(paths.targetIssuesPath);
+      expect(entryPaths(entries)).not.toContain(notedDecision);
       expect(entryPaths(entries)).not.toContain(shapes.unboundDecisionPath);
       expect(entryPaths(entries)).not.toContain(undisplayed);
       expect(entryPaths(entries).some((path) => path.includes(".."))).toBe(false);
@@ -59,11 +70,7 @@ describe("spec context citation boundaries", () => {
 
   it("fails the whole projection naming the cited path and the citing document when a citation resolves to no tracked decision", async () => {
     await withRichContextEnv(async (env, paths) => {
-      const missing = rootedSpecPath(
-        `${paths.targetId}/97-${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug())}${
-          KIND_REGISTRY[env.fixture.decision.kind].suffix
-        }`,
-      );
+      const missing = specContextAbsentDecisionPath(env.fixture, paths.targetId);
       await env.writeRaw(
         paths.targetSpecPath,
         `${paths.sourceText[paths.targetSpecPath]}\nGoverned by [absent](${missing}).\n`,

@@ -13,11 +13,11 @@ CAN receive complete working documents and concise navigation statements without
 ### Scenarios
 
 - Full contains explicitly selected front matter followed by the complete source body; Digest contains the same selected metadata followed by the complete required opening paragraph. ([test](tests/content.scenario.l1.test.ts))
-- When `methodology.migratingFrom` is declared and a product or decision lacks its target-version opening, Digest selects the source-version document's first prose paragraph after its title; once migration closes, the missing target-version opening fails projection. ([test](tests/content.scenario.l1.test.ts))
+- When `methodology.migratingFrom` is declared and a decision lacks its target-version opening, Digest selects the source-version document's first prose paragraph after its title; once migration closes, the missing target-version opening fails projection. ([test](tests/content.scenario.l1.test.ts))
 
 ### Mappings
 
-- Digest selects methodology-fixed `OFFERS` for products, methodology-fixed `GOVERNS` for decisions, and the configured kind registry's resolved opening keyword for output nodes, subject only to the declared migration-source fallback. A missing required opening or unresolved kind opening fails the whole projection without a title fallback or generated summary. ([test](tests/content.mapping.l1.test.ts))
+- Digest selects methodology-fixed `GOVERNS` for decisions and the configured kind registry's resolved opening keyword for output nodes, subject only to the declared migration-source fallback; wherever a product document is projected it is projected Full, and `--loaded-product` omits it rather than digesting it, so no product Digest exists. A missing required opening or unresolved kind opening fails the whole projection without a title fallback or generated summary. ([test](tests/content.mapping.l1.test.ts))
 
 ### Compliance
 

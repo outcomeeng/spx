@@ -18,15 +18,21 @@ import {
   KIND_REGISTRY,
   NODE_SUFFIXES,
   SPEC_CONTEXT_DOCUMENT_OPENING,
+  SPEC_CONTEXT_ENTRY_TYPE,
+  SPEC_CONTEXT_MODE,
   SPEC_CONTEXT_TARGET_FAILURE_KIND,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_SUPERSEDED_NODE_SUFFIXES,
+  type SpecContextMode,
+  type SpecContextProjectedEntry,
   type SpecContextTargetFailure,
   type SpecContextTargetFailureKind,
 } from "@/lib/spec-tree";
 import {
   type RepresentativeSpecTreeFixture,
+  sampleSpecTreeTestValue,
+  SPEC_TREE_TEST_GENERATOR,
   specTreeFixtureNodeDirectoryName,
 } from "@testing/generators/spec-tree/spec-tree";
 
@@ -67,6 +73,10 @@ const SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES = {
   EMPTY: "empty",
   UNREGISTERED_SUFFIX: "unregistered-suffix",
   SUPERSEDED_SUFFIX: "superseded-suffix",
+  /** A trailing fragment of a path component, matching no complete component. */
+  PARTIAL_COMPONENT: "partial-component-suffix",
+  /** A complete-component suffix of a tracked path that is no accepted target. */
+  UNACCEPTED_PATH_SUFFIX: "unaccepted-path-suffix",
 } as const;
 
 /** The outside-product shapes the resolution spec confines away. */
@@ -386,6 +396,7 @@ export function specContextRejectedTargetCases(): readonly SpecContextRejectedTa
 export function specContextAmbiguousNestedDirectory(fixture: RepresentativeSpecTreeFixture): {
   readonly nestedTargetPath: string;
   readonly nestedSpecPath: string;
+  readonly nestedSpecContent: string;
   readonly operand: string;
 } {
   const documents = specContextFixtureDocuments(fixture);
@@ -393,9 +404,79 @@ export function specContextAmbiguousNestedDirectory(fixture: RepresentativeSpecT
   return {
     nestedTargetPath,
     nestedSpecPath: `${nestedTargetPath}/${fixture.root.slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`,
+    nestedSpecContent: specContent("Nested namesake", KIND_REGISTRY[fixture.root.kind].opening),
     operand: documents.rootDirectory,
   };
 }
+
+/** The escape-target document a containment case writes outside the product root. */
+export function specContextOutsideDocument(): string {
+  return specContent("Outside the product", SPEC_CONTEXT_DOCUMENT_OPENING.DECISION);
+}
+
+/**
+ * Two decisions under the peer directory whose citation order is the reverse
+ * of their canonical path order: the first cited carries the higher index, so
+ * a projection that appended citations in discovery order would emit them the
+ * other way round.
+ */
+export function specContextDivergentCitationDecisions(fixture: RepresentativeSpecTreeFixture): {
+  readonly citedFirst: { readonly path: string; readonly content: string };
+  readonly citedSecond: { readonly path: string; readonly content: string };
+} {
+  const documents = specContextFixtureDocuments(fixture);
+  const suffix = KIND_REGISTRY[fixture.decision.kind].suffix;
+  const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+  const decision = (order: number, name: string) => ({
+    path: rooted(
+      documents.peerDirectory,
+      `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}-${name}${suffix}`,
+    ),
+    content: specContent(`${slug} ${name}`, SPEC_CONTEXT_DOCUMENT_OPENING.DECISION),
+  });
+  return {
+    citedFirst: decision(fixture.peer.order + 1, "later"),
+    citedSecond: decision(fixture.peer.order, "earlier"),
+  };
+}
+
+/**
+ * A decision path under `directory` that names no tracked file: the order and
+ * slug are drawn, and the kind suffix comes from the fixture's own decision.
+ */
+export function specContextAbsentDecisionPath(fixture: RepresentativeSpecTreeFixture, directory: string): string {
+  const order = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder());
+  const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+  return rooted(
+    directory,
+    `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${KIND_REGISTRY[fixture.decision.kind].suffix}`,
+  );
+}
+
+/**
+ * One projected entry at `path` in `mode`: a path-only reference, or a
+ * document whose content is its own path so a case can name it by content.
+ */
+export function specContextProjectedEntry(path: string, mode: SpecContextMode): SpecContextProjectedEntry {
+  return {
+    selection: { path, mode },
+    entry: mode === SPEC_CONTEXT_MODE.REFERENCE
+      ? { type: SPEC_CONTEXT_ENTRY_TYPE.REFERENCE, path }
+      : { type: SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT, path, metadata: {}, content: path },
+  };
+}
+
+/**
+ * The content each loaded mode carries, as the composition spec states it:
+ * Full satisfies Full or Digest, Digest satisfies only Digest, and a path
+ * present at any mode satisfies a path-only reference. The law is declared
+ * by name so it never leans on the numeric mode encoding under test.
+ */
+export const SPEC_CONTEXT_MODE_CARRIES: Readonly<Record<SpecContextMode, readonly SpecContextMode[]>> = {
+  [SPEC_CONTEXT_MODE.FULL]: [SPEC_CONTEXT_MODE.FULL, SPEC_CONTEXT_MODE.DIGEST, SPEC_CONTEXT_MODE.REFERENCE],
+  [SPEC_CONTEXT_MODE.DIGEST]: [SPEC_CONTEXT_MODE.DIGEST, SPEC_CONTEXT_MODE.REFERENCE],
+  [SPEC_CONTEXT_MODE.REFERENCE]: [SPEC_CONTEXT_MODE.REFERENCE],
+};
 
 /**
  * A top-level directory whose name extends the fixture root's by one more
@@ -476,6 +557,24 @@ export function specContextRejectedTargetOperand(
         case SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES.SUPERSEDED_SUFFIX: {
           const directory = `${fixture.root.order}-${fixture.root.slug}${SPEC_TREE_SUPERSEDED_NODE_SUFFIXES[0]}`;
           return { ...none, operand: directory, directories: [rooted(directory)] };
+        }
+        case SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES.PARTIAL_COMPONENT: {
+          // The root node's directory without its order prefix: a trailing
+          // fragment of the component, never a complete one.
+          return {
+            ...none,
+            operand: documents.rootDirectory.slice(`${fixture.root.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}`.length),
+          };
+        }
+        case SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES.UNACCEPTED_PATH_SUFFIX: {
+          // A complete component of a tracked path that is no accepted
+          // target: the evidence directory under the root node.
+          const directory = rooted(documents.rootDirectory, SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME);
+          return {
+            ...none,
+            operand: SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME,
+            directories: [directory],
+          };
         }
       }
     }

@@ -25,6 +25,13 @@ describe("spec context list rendering", () => {
         expect(text).toContain(target);
       }
       expect(text).toContain(`${SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION}: ${SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION}`);
+      expect(text).toContain(`${SPEC_CONTEXT_TEXT_LABEL.PRODUCT_ROOT}: ${manifest.productDir}`);
+      expect(text).toContain(`${SPEC_CONTEXT_TEXT_LABEL.BOOTSTRAP}: ${String(manifest.bootstrap)}`);
+      expect(text).toContain(
+        `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${manifest.methodology.source}@${
+          String(manifest.methodology.version)
+        }`,
+      );
       for (const document of manifest.read) {
         for (const binding of document.roles) {
           expect(text).toContain(`${binding.role}@${binding.target}`);

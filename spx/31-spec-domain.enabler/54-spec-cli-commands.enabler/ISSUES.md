@@ -39,3 +39,11 @@ This node's terminal output path passes values that originated outside the produ
 **Skills:** `/apply`, `/test-typescript`, `/audit-typescript-code`.
 
 **Revisit condition:** before the next changeset touching this node's terminal output path.
+
+## The status, next, fold, and delegation suites live in harnesses
+
+**Evidence:** `tests/spec-cli-commands.scenario.l1.test.ts`, `tests/spec-status-fold.mapping.l1.test.ts`, and `tests/status-testing-delegation.compliance.l1.test.ts` each call one `register*Evidence()` function and contain no `describe`, `it`, or `expect`; the suites and every predicate live in `testing/harnesses/spec-tree/spec-cli-commands.ts` and `testing/harnesses/spec-tree/status-testing.ts`, whose `readRecordedStatusFile` and injected git double also call the assertion API directly.
+
+**Impact:** inverting any of those assertions changes infrastructure rather than the linked test, so each node's `tests/` directory carries none of its own evidence; [`spx/12-test-infrastructure.adr.md`](../../12-test-infrastructure.adr.md) assigns assertion flow to the executed file.
+
+**Settlement condition:** each linked file owns its `describe`, `it`, and `expect` calls, the harnesses keep resource lifecycle, controlled boundaries, and observations only, and the node's test-evidence audit passes on that shape. The product-wide class is recorded in [`spx/ISSUES.md`](../../ISSUES.md) under "Test assertion flow lives in harnesses instead of executed test files"; this entry names the files of this node.

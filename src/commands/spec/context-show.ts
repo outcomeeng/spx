@@ -16,9 +16,9 @@ import {
   selectSpecContextDocuments,
   SPEC_CONTEXT_ENTRY_TYPE,
   SPEC_CONTEXT_MODE,
+  specContextBoundCitations,
   specContextCitedSelection,
   type SpecContextEntry,
-  specContextInlineDecisionCitations,
   type SpecContextProjectedEntry,
   type SpecContextSelection,
   type SpecContextTarget,
@@ -31,9 +31,23 @@ import { type ContextInput, type ContextInputOptions, readContextInput, resolveC
 
 const JSON_INDENT = 2;
 
-/** The JSON representation of the entry stream: the same ordered entries under one `entries` key. */
+/** The one key of the `show --json` document, carrying the ordered entry stream. */
+export const SPEC_CONTEXT_ENTRIES_KEY = "entries";
+
+/** The `show --json` document: the same ordered entries the text stream frames. */
+export interface SpecContextEntriesDocument {
+  readonly [SPEC_CONTEXT_ENTRIES_KEY]: readonly SpecContextEntry[];
+}
+
+/** The JSON representation of the entry stream. */
 export function renderSpecContextEntriesJson(entries: readonly SpecContextEntry[]): TerminalText {
-  return jsonDocument({ entries }, JSON_INDENT);
+  const document: SpecContextEntriesDocument = { [SPEC_CONTEXT_ENTRIES_KEY]: entries };
+  return jsonDocument(document, JSON_INDENT);
+}
+
+/** The entries a `show --json` document carries, read back from its text. */
+export function parseSpecContextEntriesJson(text: string): readonly SpecContextEntry[] {
+  return (JSON.parse(text) as SpecContextEntriesDocument)[SPEC_CONTEXT_ENTRIES_KEY];
 }
 
 export interface ContextShowOptions extends ContextInputOptions {
@@ -91,10 +105,9 @@ async function projectContext(
     digestFailures.delete(selection.path);
     projected.set(selection.path, { selection, entry });
     if (entry.type !== SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT || selection.scanCitations !== true) continue;
-    for (const path of specContextInlineDecisionCitations(entry.content)) {
-      if (!decisions.has(path) || !input.existingPaths.has(path)) {
-        throw new Error(`Missing cited decision ${path} in ${selection.path}`);
-      }
+    for (
+      const path of specContextBoundCitations(entry.content, selection.path, decisions, input.existingPaths)
+    ) {
       pending.push(specContextCitedSelection(path));
     }
   }

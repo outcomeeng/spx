@@ -280,6 +280,26 @@ export function projectSpecContextDocument(
   return { type: SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT, path: selection.path, metadata: selectedMetadata, content };
 }
 
+/**
+ * The decisions one document's inline links bind, each required to name a
+ * snapshot decision that exists on disk. The one owner of that rule and of
+ * its diagnostic; both the manifest and the document projection consume it.
+ */
+export function specContextBoundCitations(
+  content: string,
+  citing: string,
+  decisionPaths: ReadonlySet<string>,
+  existingPaths: ReadonlySet<string>,
+): readonly string[] {
+  const bound = specContextInlineDecisionCitations(content);
+  for (const path of bound) {
+    if (!decisionPaths.has(path) || !existingPaths.has(path)) {
+      throw new Error(`Missing cited decision ${path} in ${citing}`);
+    }
+  }
+  return bound;
+}
+
 export function specContextInlineDecisionCitations(content: string): readonly string[] {
   const paths = new Set<string>();
   for (const block of inlineCitationParser.parse(content, {})) {

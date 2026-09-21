@@ -23,6 +23,13 @@ describe("spec context multi-target composition", () => {
       expect(documentAt(merged, paths.targetSpecPath)?.content).toBe(paths.bodyText[paths.targetSpecPath]);
       expect(documentAt(merged, paths.rootSpecPath)?.content).toBe(paths.sourceText[paths.rootSpecPath]);
       expect(documentAt(merged, paths.targetOutcomePath)?.content).toBe(paths.bodyText[paths.targetOutcomePath]);
+      // The closure of each projection is computed before the merge: the
+      // target's spec cites one decision, which cites a second, and both
+      // reach the merged stream.
+      expect(documentAt(merged, paths.citedDecisionPath)?.content)
+        .toBe(paths.sourceText[paths.citedDecisionPath]);
+      expect(documentAt(merged, paths.transitiveCitedDecisionPath)?.content)
+        .toBe(paths.sourceText[paths.transitiveCitedDecisionPath]);
       // Suppression happens after the merge: declaring the root loaded removes
       // what the root projection covers at a sufficient mode and keeps the
       // child's Full upgrade of its own spec.
