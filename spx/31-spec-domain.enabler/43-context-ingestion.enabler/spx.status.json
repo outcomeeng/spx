@@ -4,6 +4,8 @@
     "test": {
       "overall": "passed",
       "spx/31-spec-domain.enabler/43-context-ingestion.enabler/tests/context-ingestion.compliance.l1.test.ts": "passed",
+      "spx/31-spec-domain.enabler/43-context-ingestion.enabler/tests/context-ingestion.compliance.l2.test.ts": "passed",
+      "spx/31-spec-domain.enabler/43-context-ingestion.enabler/tests/context-ingestion.scenario.l1.test.ts": "passed",
       "spx/31-spec-domain.enabler/43-context-ingestion.enabler/tests/determinism.property.l1.test.ts": "passed"
     }
   }

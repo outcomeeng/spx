@@ -4,6 +4,8 @@
     "test": {
       "overall": "passed",
       "spx/31-spec-domain.enabler/43-context-ingestion.enabler/54-read-set-projection.enabler/tests/context-manifest.mapping.l1.test.ts": "passed",
+      "spx/31-spec-domain.enabler/43-context-ingestion.enabler/54-read-set-projection.enabler/tests/context-manifest.scenario.l1.test.ts": "passed",
+      "spx/31-spec-domain.enabler/43-context-ingestion.enabler/54-read-set-projection.enabler/tests/read-set.compliance.l1.test.ts": "passed",
       "spx/31-spec-domain.enabler/43-context-ingestion.enabler/54-read-set-projection.enabler/tests/read-set.scenario.l1.test.ts": "passed"
     }
   }
