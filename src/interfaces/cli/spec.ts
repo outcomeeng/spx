@@ -56,8 +56,8 @@ export const SPEC_STATUS_OUTPUT_FORMATS: readonly OutputFormat[] = [
 
 const UNPRINTABLE_ERROR_MESSAGE = "unprintable error";
 
-function writeOutput(io: CliIo, output: TerminalText): void {
-  io.writeStdout(terminal`${output}\n`);
+function writeOutput(io: CliIo, output: string): void {
+  io.writeStdout(`${output}\n`);
 }
 
 function writeInvocationWarning(io: CliIo, warning: string | undefined): void {

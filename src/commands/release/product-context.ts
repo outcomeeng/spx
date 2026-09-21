@@ -18,10 +18,10 @@ import type { ReleaseData } from "@/domains/release/release-data";
 import { committedFileContent, committedPaths } from "@/lib/git/release";
 import { defaultGitDependencies, type GitDependencies } from "@/lib/git/root";
 import {
-  extractDecisionCitations,
   readSpecTree,
   specContextAncestors,
   specContextDecisions,
+  specContextInlineDecisionCitations,
   specContextLowerIndexSiblings,
   type SpecTreeNode,
   type SpecTreeSnapshot,
@@ -363,7 +363,7 @@ async function addCitedDecisions(
   const decisionsByPath = new Map(endpoint.snapshot.decisions.map((decision) => [decision.ref?.path, decision.ref]));
   for (const document of documents.values()) {
     if (documentSources.get(document.path) !== endpoint) continue;
-    for (const citation of extractDecisionCitations(document.content)) {
+    for (const citation of specContextInlineDecisionCitations(document.content)) {
       const ref = decisionsByPath.get(citation);
       if (ref === undefined) {
         throw new Error(`Unresolved product-context decision ${citation} cited by ${document.path}`);
