@@ -157,6 +157,7 @@ export function createCliProgram(options: CliProgramOptions = {}): Command {
 
   const invocation = createCliInvocation({
     readDirectoryOption: () => program.opts<CliGlobalOptions>().directory,
+    ...(options.version === undefined ? {} : { version: options.version }),
     ...(options.packageRoot === undefined
       ? {}
       : { methodologyTreeRoot: methodologyTreeRootDir(options.packageRoot) }),

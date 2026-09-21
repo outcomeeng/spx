@@ -258,7 +258,7 @@ function methodologySection(methodology: MethodologyConfig): Record<string, stri
 }
 
 /**
- * Runs `spx diagnose --format json` over a temp product directory carrying the supplied
+ * Runs `spx diagnose --json` over a temp product directory carrying the supplied
  * methodology config and the supplied injected observation, returning the parsed report.
  * Owns the temp-environment lifecycle only; the calling test file owns every verdict.
  */

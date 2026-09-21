@@ -4,7 +4,7 @@
  * the exit code keyed to the overall verdict. With a manifest path the manifest
  * is read through the injected filesystem and is authoritative; otherwise the
  * facts resolve from the `spx.config` diagnose section read at the product
- * directory and per-check safe defaults, per `spx/54-diagnose.enabler/11-invocation-modes.pdr.md`.
+ * directory and per-check safe defaults.
  * Owns the command-layer filesystem orchestration — manifest read and config
  * resolution — with no Commander binding and no process exit.
  *
@@ -36,6 +36,8 @@ export interface DiagnoseCommandOptions {
   readonly productDir: string;
   /** Output format for the rendered report. */
   readonly format: DiagnoseFormat;
+  /** The executing version supplied by the invocation host. */
+  readonly version?: string;
   /** Whether the text report carries ANSI styling, resolved at the descriptor boundary. */
   readonly color: boolean;
   /** The check runners the engine dispatches the resolved check set to. */
@@ -127,7 +129,7 @@ export async function diagnoseCommand(options: DiagnoseCommandOptions): Promise<
   return {
     ok: true,
     value: {
-      output: renderReport(report.value, options.format, { color: options.color }),
+      output: renderReport(report.value, options.format, { color: options.color, version: options.version }),
       exitCode: overallExitCode(report.value.overall),
     },
   };

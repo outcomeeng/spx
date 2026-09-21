@@ -1,6 +1,6 @@
 /**
  * Diagnose CLI — Commander registration descriptor for `spx diagnose`. Owns the
- * `--manifest` / `--format` parsing, wires the default check registry over the
+ * manifest and output-selector parsing, wires the default check registry over the
  * real probes, and is the sole site of the process exit keyed to the overall
  * verdict.
  */
@@ -30,13 +30,14 @@ import { DIAGNOSE_FORMAT, type DiagnoseFormat } from "@/domains/diagnose/report"
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { resolveColorChoice } from "@/lib/styled-output/styled-output";
-import { externalToken, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import { externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 
 /** Source-owned `spx diagnose` command and flag vocabulary, shared with the CLI tests. */
 export const DIAGNOSE_CLI = {
   COMMAND: "diagnose",
   MANIFEST_FLAG: "--manifest",
-  FORMAT_FLAG: "--format",
+  VERBOSE_FLAG: "--verbose",
+  JSON_FLAG: "--json",
   COLOR_FLAG: "--color",
   NO_COLOR_FLAG: "--no-color",
 } as const;
@@ -61,10 +62,19 @@ function defaultRegistry(productDir: string, methodologyTreeRoot: string | undef
 }
 
 function handleError(error: string, io: CliIo): never {
-  // The error embeds user-supplied manifest path and check-name bytes, so it is
-  // an external token of this composition, bounded to the display length.
-  io.writeStderr(renderTerminalText(terminal`Error: ${externalToken(error)}\n`));
+  io.writeStderr(renderTerminalText(terminal`Error: ${externalValue(error)}\n`));
   return io.exit(1);
+}
+
+export interface DiagnoseOutputSelection {
+  readonly verbose?: boolean;
+  readonly json?: boolean;
+}
+
+/** Maps the mutually exclusive selectors accepted by Commander to their presentation. */
+export function resolveDiagnoseFormat(options: DiagnoseOutputSelection): DiagnoseFormat {
+  if (options.json) return DIAGNOSE_FORMAT.JSON;
+  return options.verbose ? DIAGNOSE_FORMAT.TEXT : DIAGNOSE_FORMAT.CONCISE;
 }
 
 /**
@@ -74,6 +84,10 @@ export const diagnoseDomain: Domain = {
   name: DIAGNOSE_CLI.COMMAND,
   description: DIAGNOSE_DOMAIN_DESCRIPTION,
   register: (program: Command, invocation: CliInvocation) => {
+    const verbose = new Option(DIAGNOSE_CLI.VERBOSE_FLAG, "Show every check and its detailed diagnosis");
+    const json = new Option(DIAGNOSE_CLI.JSON_FLAG, "Print the complete machine-readable report");
+    verbose.conflicts(json.attributeName());
+    json.conflicts(verbose.attributeName());
     program
       .command(DIAGNOSE_CLI.COMMAND)
       .description(DIAGNOSE_DOMAIN_DESCRIPTION)
@@ -81,19 +95,17 @@ export const diagnoseDomain: Domain = {
         `${DIAGNOSE_CLI.MANIFEST_FLAG} <path>`,
         "Path to a declarative diagnose manifest that fully instruments the diagnosis",
       )
-      .addOption(
-        new Option(`${DIAGNOSE_CLI.FORMAT_FLAG} <format>`, "Output format")
-          .choices([DIAGNOSE_FORMAT.TEXT, DIAGNOSE_FORMAT.JSON])
-          .default(DIAGNOSE_FORMAT.TEXT),
-      )
+      .addOption(verbose)
+      .addOption(json)
       .addOption(new Option(`${DIAGNOSE_CLI.COLOR_FLAG}`, "Force colored output"))
       .addOption(new Option(`${DIAGNOSE_CLI.NO_COLOR_FLAG}`, "Disable colored output"))
-      .action(async (options: { manifest?: string; format: DiagnoseFormat; color?: boolean }) => {
+      .action(async (options: DiagnoseOutputSelection & { manifest?: string; color?: boolean }) => {
         const { productDir } = invocation.resolveProductContext();
         const result = await diagnoseCommand({
           manifestPath: options.manifest,
           productDir,
-          format: options.format,
+          format: resolveDiagnoseFormat(options),
+          version: invocation.version,
           color: resolveColorChoice({
             flag: options.color,
             noColor: process.env.NO_COLOR,
