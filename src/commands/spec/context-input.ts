@@ -106,7 +106,7 @@ export async function readContextInput(options: ContextInputOptions): Promise<Co
     }
     return present;
   };
-  const existingPaths = trackedPaths ?? await untrackedPresence(productDir, snapshot, fs, hasDocument);
+  const existingPaths = trackedPaths ?? await untrackedPresence(productDir, realRoot, snapshot, fs);
   const documents = new Map<string, Promise<string>>();
   const readDocument = (path: string): Promise<string> => {
     let document = documents.get(path);
@@ -151,17 +151,27 @@ export async function readContextInput(options: ContextInputOptions): Promise<Co
  */
 async function untrackedPresence(
   productDir: string,
+  realRoot: string,
   snapshot: SpecTreeSnapshot,
   fs: ContextFileSystem,
-  hasDocument: (path: string) => Promise<boolean>,
 ): Promise<ReadonlySet<string>> {
+  // A path escaping the product through a symbolic link is absent for
+  // presence, never an error: nothing selects it, so nothing reads it.
+  const isPresentInside = async (path: string): Promise<boolean> => {
+    try {
+      return isPathContained(realRoot, await fs.realPath(resolve(productDir, path)));
+    } catch (error) {
+      if (isMissingPath(error)) return false;
+      throw error;
+    }
+  };
   const present = new Set<string>();
   const candidates = [
     ...snapshot.entries.flatMap((entry) => entry.ref?.path ?? []),
     ...specContextOptionalArtifactPaths(snapshot),
   ];
   for (const path of candidates) {
-    if (await hasDocument(path)) present.add(path);
+    if (await isPresentInside(path)) present.add(path);
   }
   let overlayEntries: readonly string[] = [];
   try {
@@ -171,7 +181,7 @@ async function untrackedPresence(
   }
   for (const name of overlayEntries) {
     const path = `${SPEC_CONTEXT_LOCAL_OVERLAY_DIRECTORY}/${name}`;
-    if (isLocalOverlayPath(path) && await hasDocument(path)) present.add(path);
+    if (isLocalOverlayPath(path) && await isPresentInside(path)) present.add(path);
   }
   return present;
 }
