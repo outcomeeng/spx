@@ -2,7 +2,6 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { execa } from "execa";
-import { z } from "zod";
 
 import { diagnoseCommand } from "@/commands/diagnose";
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
@@ -16,16 +15,6 @@ import { CLI_PATH, CLI_TIMEOUTS_MS, NODE_EXECUTABLE, VERSION_FLAG } from "@testi
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 export const DIAGNOSE_OUTPUT_TEST_POLICY = { timeout: CLI_TIMEOUTS_MS.E2E_BATCH } as const;
-
-/** Reads the retired invocation as one inert CLI request payload. */
-export async function retiredDiagnoseArgv(): Promise<readonly string[]> {
-  return z.array(z.string()).parse(JSON.parse(
-    await readFile(
-      new URL("../../fixtures/diagnose/retired-format.argv.json", import.meta.url),
-      "utf8",
-    ),
-  ));
-}
 
 export async function withDiagnoseOutputCli<T>(
   callback: (env: {
