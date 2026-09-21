@@ -5,10 +5,22 @@ import { pathToFileURL } from "node:url";
 import { execa } from "execa";
 import { build } from "tsup";
 
-import { type ContextOptions } from "@/commands/spec/context";
+import {
+  type ContextOptions,
+  renderSpecContextJson,
+  renderSpecContextText,
+  resolveContextManifest,
+  type SpecContextManifestResolution,
+} from "@/commands/spec/context";
+import {
+  type ContextShowOptions,
+  type ContextShowResult,
+  renderSpecContextEntriesJson,
+  resolveContextShow,
+} from "@/commands/spec/context-show";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import type { Config } from "@/config/types";
-import { contextOutputForFormat, SPEC_CONTEXT_OUTPUT_FORMAT } from "@/interfaces/cli/spec";
+import { formatSpecContextTargetFailure } from "@/interfaces/cli/spec";
 import { GIT_LS_FILES_COMMAND } from "@/lib/git/changed-paths";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 import { TRACKED_PATH_NUL_SEPARATOR } from "@/lib/git/tracked-paths";
@@ -26,14 +38,20 @@ import {
 } from "@/lib/methodology";
 import {
   KIND_REGISTRY,
+  renderSpecContextEntries,
+  SPEC_CONTEXT_DOCUMENT_OPENING,
   SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
+  SPEC_CONTEXT_SELECTED_METADATA_KEY,
   SPEC_TREE_CONFIG,
   SPEC_TREE_CONFIG_FIELDS,
   SPEC_TREE_GRAMMAR,
+  type SpecContextEntry,
   type SpecContextListedRole,
   type SpecContextManifest,
   type SpecContextReadRole,
 } from "@/lib/spec-tree";
+import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   specContextLowerSiblingDirectoryName as lowerSiblingDirectoryName,
   specContextSameIndexSiblingDirectoryName as sameIndexSiblingDirectoryName,
@@ -52,20 +70,106 @@ export function parseContextManifest(output: string): SpecContextManifest {
   return JSON.parse(output) as SpecContextManifest;
 }
 
-export function contextCommand(options: ContextOptions): Promise<string> {
-  return contextOutputForFormat(SPEC_CONTEXT_OUTPUT_FORMAT.JSON, options);
+/** The `list` handler's resolution: the manifest or the typed target failure, for the test to judge. */
+export function contextList(options: ContextOptions): Promise<SpecContextManifestResolution> {
+  return resolveContextManifest(options);
 }
 
-/** The message the context command rejects with, or `undefined` when it succeeds; the test owns every predicate over it. */
-export function contextCommandFailure(options: ContextOptions): Promise<string | undefined> {
-  return contextCommand(options).then(
-    () => undefined,
-    (error: unknown) => (error instanceof Error ? error.message : String(error)),
+function unresolvedContextError(
+  resolution: { readonly ok: false; readonly failure: Parameters<typeof formatSpecContextTargetFailure>[0] },
+): Error {
+  return new Error(String(formatSpecContextTargetFailure(resolution.failure)));
+}
+
+/** The resolved manifest of a `list` invocation the test expects to succeed; an unresolved target is a setup error. */
+export async function contextListManifest(options: ContextOptions): Promise<SpecContextManifest> {
+  const resolution = await contextList(options);
+  if (!resolution.ok) throw unresolvedContextError(resolution);
+  return resolution.manifest;
+}
+
+/** The exact JSON text the `list --json` command writes, without the trailing newline. */
+export async function contextListJson(options: ContextOptions): Promise<string> {
+  return String(renderSpecContextJson(await contextListManifest(options)));
+}
+
+/** The exact text the `list` command writes, without the trailing newline. */
+export async function contextListText(options: ContextOptions): Promise<string> {
+  return String(renderSpecContextText(await contextListManifest(options)));
+}
+
+/** The `show` handler's result: the entry stream or the typed target failure, for the test to judge. */
+export function contextShow(options: ContextShowOptions): Promise<ContextShowResult> {
+  return resolveContextShow(options);
+}
+
+/** The entries of a `show` invocation the test expects to succeed; an unresolved target is a setup error. */
+export async function contextShowEntries(options: ContextShowOptions): Promise<readonly SpecContextEntry[]> {
+  const result = await contextShow(options);
+  if (!result.ok) throw unresolvedContextError(result);
+  return result.entries;
+}
+
+/** The exact text the `show` command relays, without the trailing newline. */
+export async function contextShowText(options: ContextShowOptions): Promise<string> {
+  return renderSpecContextEntries(await contextShowEntries(options));
+}
+
+/** The exact JSON text the `show --json` command writes, without the trailing newline. */
+export async function contextShowJson(options: ContextShowOptions): Promise<string> {
+  return String(renderSpecContextEntriesJson(await contextShowEntries(options)));
+}
+
+/**
+ * The diagnostic a failing invocation produces — the rendered target failure
+ * or the thrown error's message — and `undefined` when the invocation
+ * succeeds. The test owns every predicate over it.
+ */
+async function contextFailure(
+  invoke: () => Promise<
+    { readonly ok: boolean } & Partial<{ readonly failure: Parameters<typeof formatSpecContextTargetFailure>[0] }>
+  >,
+): Promise<string | undefined> {
+  try {
+    const result = await invoke();
+    if (result.ok || result.failure === undefined) return undefined;
+    return String(formatSpecContextTargetFailure(result.failure));
+  } catch (error: unknown) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
+export function contextListFailure(options: ContextOptions): Promise<string | undefined> {
+  return contextFailure(() => contextList(options));
+}
+
+export function contextShowFailure(options: ContextShowOptions): Promise<string | undefined> {
+  return contextFailure(() => contextShow(options));
+}
+
+/** Paths of the document entries in a `show` stream, in stream order. */
+export function documentPaths(entries: readonly SpecContextEntry[]): readonly string[] {
+  return entries.flatMap((entry) => entry.type === "document" ? [entry.path] : []);
+}
+
+/** Paths of the reference entries in a `show` stream, in stream order. */
+export function referencePaths(entries: readonly SpecContextEntry[]): readonly string[] {
+  return entries.flatMap((entry) => entry.type === "reference" ? [entry.path] : []);
+}
+
+/** Paths of every entry in a `show` stream, in stream order. */
+export function entryPaths(entries: readonly SpecContextEntry[]): readonly string[] {
+  return entries.map((entry) => entry.path);
+}
+
+/** The document entry at `path`, or `undefined` when the stream carries none. */
+export function documentAt(
+  entries: readonly SpecContextEntry[],
+  path: string,
+): Extract<SpecContextEntry, { readonly type: "document" }> | undefined {
+  return entries.find((entry): entry is Extract<SpecContextEntry, { readonly type: "document" }> =>
+    entry.type === "document" && entry.path === path
   );
-}
-
-export function contextTextCommand(options: ContextOptions): Promise<string> {
-  return contextOutputForFormat(SPEC_CONTEXT_OUTPUT_FORMAT.TEXT, options);
 }
 
 export function trackedSpecContextGitDependencies(
@@ -87,15 +191,6 @@ export function trackedSpecContextGitDependencies(
       return { exitCode: 128, stdout: "", stderr: "" };
     },
   };
-}
-
-export async function rejectedContextMessage(target: string, productDir: string): Promise<string> {
-  try {
-    await contextCommand({ targets: [target], cwd: productDir });
-  } catch (error) {
-    return error instanceof Error ? error.message : String(error);
-  }
-  throw new Error(`Expected spec context target to be rejected: ${target}`);
 }
 
 async function buildSpecCliNetworkGuard(isolationDir: string): Promise<string> {
@@ -251,7 +346,8 @@ export async function runIsolatedEscapeWriteProbe(productDir: string) {
   return { escapeFileExists, escapeFilePath, result };
 }
 
-export const METHODOLOGY_FIXTURE_VERSION = "4.0.0";
+/** The exact methodology version every context fixture declares, drawn once from the accepted-form generator. */
+export const METHODOLOGY_FIXTURE_VERSION = sampleGeneratedValue(arbitraryMethodologyVersion()).text;
 
 export function specTreeKindsConfig(): Config {
   return {
@@ -346,6 +442,30 @@ export interface RichContextPaths {
   readonly sameIndexSiblingPath: string;
   readonly sameIndexSiblingSpecPath: string;
   readonly higherIndexSiblingPath: string;
+  readonly higherIndexSiblingSpecPath: string;
+  readonly peerDecisionPath: string;
+  /** The nested target's outcome record, selected in Full only for an explicit target. */
+  readonly targetOutcomePath: string;
+  /** Knowledge indexes at the product root and the nested target, referenced only for explicit targets. */
+  readonly rootKnowledgeIndexPath: string;
+  readonly targetKnowledgeIndexPath: string;
+  /** Exact source text of the documents the `show` projection selects, keyed by path. */
+  readonly sourceText: Readonly<Record<string, string>>;
+  /** The source text after its front matter — the Full content — for the documents that carry front matter. */
+  readonly bodyText: Readonly<Record<string, string>>;
+  /** The front-matter selection the target spec projects: its one selected key and drawn value. */
+  readonly targetSelectedMetadata: Readonly<Record<string, string>>;
+  /** The opening paragraph each Digest-selectable document carries, keyed by path. */
+  readonly openingText: Readonly<Record<string, string>>;
+}
+
+function inlineCitation(path: string): string {
+  return `[${parse(path).name}](${path})`;
+}
+
+/** One opening paragraph as the Digest projection selects it: keyword, subject, and its closing line ending. */
+function openingParagraph(keyword: string, subject: string): string {
+  return `${keyword} ${subject}\nSO THAT readers\nCAN find it\n`;
 }
 
 /**
@@ -378,22 +498,94 @@ export async function withRichContextEnv(
     if (productPath === undefined) {
       throw new Error("Expected the materialized fixture to expose a product spec path");
     }
+    const rootSpecPath = `spx/${rootDirectory}/${fixture.root.slug}.md`;
+    const targetSpecPath = `spx/${targetId}/${fixture.child.slug}.md`;
+    const ancestorDecisionPath =
+      `spx/${rootDirectory}/${fixture.decision.order}-${fixture.decision.slug}${decisionSuffix}`;
+    const higherAncestorDecisionPath =
+      `spx/${rootDirectory}/${fixture.peer.order}-${fixture.decision.slug}${decisionSuffix}`;
+    const higherProductDecisionPath = `spx/${fixture.peer.order}-${fixture.decision.slug}${decisionSuffix}`;
+    const lowerSiblingSpecPath = `spx/${lowerSiblingDirectoryName(fixture)}/${fixture.root.slug}.md`;
+    const citedDecisionPath =
+      `spx/${peerDirectory}/${fixture.decision.order}-${fixture.decision.slug}-cited${decisionSuffix}`;
+    const transitiveCitedDecisionPath =
+      `spx/${peerDirectory}/${fixture.peer.order}-${fixture.decision.slug}-transitive${decisionSuffix}`;
+    const sameIndexSiblingSpecPath = `spx/${sameIndexSiblingDirectoryName(fixture)}/${fixture.root.slug}-same.md`;
+    const higherIndexSiblingSpecPath = `spx/${peerDirectory}/${fixture.peer.slug}.md`;
+    const peerDecisionPath =
+      `spx/${peerDirectory}/${fixture.decision.order}-${fixture.decision.slug}-peer${decisionSuffix}`;
+    const targetOutcomePath = `spx/${targetId}/${fixture.child.slug}.outcome.md`;
+    const rootOpening = KIND_REGISTRY[fixture.root.kind].opening;
+    const openingText: Record<string, string> = {
+      [productPath]: openingParagraph(SPEC_CONTEXT_DOCUMENT_OPENING.PRODUCT, `${fixture.product.title} — Übersicht ✓`),
+      [rootSpecPath]: openingParagraph(rootOpening, fixture.root.slug),
+      [targetSpecPath]: openingParagraph(
+        KIND_REGISTRY[fixture.child.kind].opening,
+        `${fixture.child.slug} under ${inlineCitation(peerDecisionPath)}`,
+      ),
+      [lowerSiblingSpecPath]: openingParagraph(rootOpening, "lower sibling"),
+      [sameIndexSiblingSpecPath]: openingParagraph(rootOpening, "same sibling"),
+      [higherIndexSiblingSpecPath]: openingParagraph(KIND_REGISTRY[fixture.peer.kind].opening, fixture.peer.slug),
+      [ancestorDecisionPath]: openingParagraph(SPEC_CONTEXT_DOCUMENT_OPENING.DECISION, "the ancestor subtree"),
+      [higherAncestorDecisionPath]: openingParagraph(
+        SPEC_CONTEXT_DOCUMENT_OPENING.DECISION,
+        "higher ancestor siblings",
+      ),
+      [higherProductDecisionPath]: openingParagraph(SPEC_CONTEXT_DOCUMENT_OPENING.DECISION, "higher product siblings"),
+      [citedDecisionPath]: openingParagraph(SPEC_CONTEXT_DOCUMENT_OPENING.DECISION, "the cited concern"),
+      [transitiveCitedDecisionPath]: openingParagraph(SPEC_CONTEXT_DOCUMENT_OPENING.DECISION, "the transitive concern"),
+      [peerDecisionPath]: openingParagraph(SPEC_CONTEXT_DOCUMENT_OPENING.DECISION, "the peer subtree"),
+    };
+    // The nested target, the lower sibling, and the cited decision carry
+    // inline-link citations; the target's Digest opening cites the peer
+    // decision so a Digest opening contributes a citation too.
+    const bodyText: Record<string, string> = {
+      [targetSpecPath]: `\n# ${fixture.child.slug}\n\n${openingText[targetSpecPath]}\nGoverned by ${
+        inlineCitation(citedDecisionPath)
+      }.\n`,
+      [targetOutcomePath]: `\n# ${fixture.child.slug} outcome\n\nMoves a metric.\n`,
+    };
+    // The target's front matter carries the one selected key beside an
+    // unselected one; both values are drawn, so the projection cannot pass
+    // by echoing a fixed vocabulary.
+    const targetSelectedMetadata = {
+      [SPEC_CONTEXT_SELECTED_METADATA_KEY]: sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug()),
+    };
+    const unselectedKey = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+    const sourceText: Record<string, string> = {
+      [productPath]: `# ${fixture.product.title}\n\n${openingText[productPath]}\nRoot guidance.\n`,
+      [rootSpecPath]: `# ${fixture.root.slug}\n\n${openingText[rootSpecPath]}\n## Assertions\n\n- Root rule.\n`,
+      [targetSpecPath]: `---\n${SPEC_CONTEXT_SELECTED_METADATA_KEY}: ${
+        targetSelectedMetadata[SPEC_CONTEXT_SELECTED_METADATA_KEY]
+      }\n${unselectedKey}: ignored\n---\n${bodyText[targetSpecPath]}`,
+      [lowerSiblingSpecPath]: `# Lower sibling\n\n${openingText[lowerSiblingSpecPath]}\nAlso governed by ${
+        inlineCitation(citedDecisionPath)
+      }.\n`,
+      [sameIndexSiblingSpecPath]: `# Same sibling\n\n${openingText[sameIndexSiblingSpecPath]}`,
+      [higherIndexSiblingSpecPath]: `# ${fixture.peer.slug}\n\n${openingText[higherIndexSiblingSpecPath]}`,
+      [ancestorDecisionPath]: `# Ancestor decision\n\n${openingText[ancestorDecisionPath]}\n## Rationale\n\nBecause.\n`,
+      [higherAncestorDecisionPath]: `# Higher ancestor decision\n\n${openingText[higherAncestorDecisionPath]}`,
+      [higherProductDecisionPath]: `# Higher product decision\n\n${openingText[higherProductDecisionPath]}`,
+      [citedDecisionPath]: `# Cited decision\n\n${openingText[citedDecisionPath]}\nRefines ${
+        inlineCitation(transitiveCitedDecisionPath)
+      } and cites ${inlineCitation(citedDecisionPath)} itself.\n`,
+      [transitiveCitedDecisionPath]: `# Transitive cited decision\n\n${openingText[transitiveCitedDecisionPath]}`,
+      [peerDecisionPath]: `# Peer decision\n\n${openingText[peerDecisionPath]}`,
+      [targetOutcomePath]: `---\nid: ${fixture.child.slug}\n---\n${bodyText[targetOutcomePath]}`,
+    };
 
     const paths: RichContextPaths = {
       targetId,
       rootDirectory,
       productPath,
-      rootSpecPath: `spx/${rootDirectory}/${fixture.root.slug}.md`,
-      targetSpecPath: `spx/${targetId}/${fixture.child.slug}.md`,
-      ancestorDecisionPath: `spx/${rootDirectory}/${fixture.decision.order}-${fixture.decision.slug}${decisionSuffix}`,
-      higherAncestorDecisionPath:
-        `spx/${rootDirectory}/${fixture.peer.order}-${fixture.decision.slug}${decisionSuffix}`,
-      higherProductDecisionPath: `spx/${fixture.peer.order}-${fixture.decision.slug}${decisionSuffix}`,
-      lowerSiblingSpecPath: `spx/${lowerSiblingDirectoryName(fixture)}/${fixture.root.slug}.md`,
-      citedDecisionPath:
-        `spx/${peerDirectory}/${fixture.decision.order}-${fixture.decision.slug}-cited${decisionSuffix}`,
-      transitiveCitedDecisionPath:
-        `spx/${peerDirectory}/${fixture.peer.order}-${fixture.decision.slug}-transitive${decisionSuffix}`,
+      rootSpecPath,
+      targetSpecPath,
+      ancestorDecisionPath,
+      higherAncestorDecisionPath,
+      higherProductDecisionPath,
+      lowerSiblingSpecPath,
+      citedDecisionPath,
+      transitiveCitedDecisionPath,
       evidencePath: `spx/${targetId}/tests/${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.evidenceFileName())}`,
       rootPlanPath: `spx/${SPEC_TREE_GRAMMAR.COORDINATION_NOTES[0]}`,
       rootIssuesPath: `spx/${SPEC_TREE_GRAMMAR.COORDINATION_NOTES[1]}`,
@@ -407,22 +599,20 @@ export async function withRichContextEnv(
         sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug())
       }${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.EXTENSION}`,
       sameIndexSiblingPath: `spx/${sameIndexSiblingDirectoryName(env.fixture)}`,
-      sameIndexSiblingSpecPath: `spx/${sameIndexSiblingDirectoryName(env.fixture)}/${fixture.root.slug}-same.md`,
+      sameIndexSiblingSpecPath,
       higherIndexSiblingPath: `spx/${peerDirectory}`,
+      higherIndexSiblingSpecPath,
+      peerDecisionPath,
+      targetOutcomePath,
+      rootKnowledgeIndexPath: "spx/knowledge/index.md",
+      targetKnowledgeIndexPath: `spx/${targetId}/knowledge/index.md`,
+      sourceText,
+      bodyText,
+      targetSelectedMetadata,
+      openingText,
     };
 
-    await env.writeRaw(paths.targetSpecPath, `# ${fixture.child.slug}\n\nGoverned by ${paths.citedDecisionPath}\n`);
-    await env.writeRaw(
-      paths.citedDecisionPath,
-      `# Cited decision\n\nRefines ${paths.transitiveCitedDecisionPath}\n`,
-    );
-    await env.writeRaw(paths.transitiveCitedDecisionPath, "# Transitive cited decision\n");
-    await env.writeRaw(
-      paths.lowerSiblingSpecPath,
-      `# Lower sibling\n\nAlso governed by ${paths.citedDecisionPath}\n`,
-    );
-    await env.writeRaw(paths.higherAncestorDecisionPath, "# Higher ancestor decision\n");
-    await env.writeRaw(paths.higherProductDecisionPath, "# Higher product decision\n");
+    for (const [path, text] of Object.entries(paths.sourceText)) await env.writeRaw(path, text);
     await env.writeRaw(paths.evidencePath, "import { describe, it } from \"vitest\";\n");
     await env.writeRaw(paths.rootPlanPath, "# Plan\n\nMentions spx/99-unscanned.pdr.md without binding it.\n");
     await env.writeRaw(paths.rootIssuesPath, "# Issues\n");
@@ -434,7 +624,8 @@ export async function withRichContextEnv(
     await env.writeRaw(paths.ancestorGuidePath, "# Ancestor guide\n");
     await env.writeRaw(paths.lifecycleOverlayPath, "# Lifecycle overlay\n");
     await env.writeRaw(paths.listedOverlayPath, "# Listed overlay\n");
-    await env.writeRaw(paths.sameIndexSiblingSpecPath, "# Same sibling\n");
+    await env.writeRaw(paths.rootKnowledgeIndexPath, "# Root knowledge\n");
+    await env.writeRaw(paths.targetKnowledgeIndexPath, "# Target knowledge\n");
 
     await callback(env, paths);
   });

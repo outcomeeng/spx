@@ -1,17 +1,19 @@
 import { describe, expect, it } from "vitest";
 
+import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
+import { generatedMigratingMethodologySection } from "@testing/generators/config/descriptors";
 import { arbitraryContextDeterminismCase } from "@testing/generators/spec-tree/context-target";
 import {
   assertProperty,
-  PROPERTY_LEVEL,
-  PROPERTY_RUN_COUNTS,
-  PROPERTY_SIZE,
-  PROPERTY_TIMEOUTS_MS,
+  PROPERTY_CLASSIFICATION,
+  propertyTestEnvelopeTimeoutMs,
 } from "@testing/harnesses/property/property";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
-  contextCommand,
-  contextTextCommand,
+  contextListJson,
+  contextListText,
+  contextShowJson,
+  contextShowText,
   methodologyTreeConfig,
   specTreeKindsConfig,
   writeMethodologyTree,
@@ -19,46 +21,49 @@ import {
 
 describe("spec context determinism", () => {
   it(
-    "produces byte-identical machine output across repeated runs on identical tree content and methodology resources",
+    "produces byte-identical list and show output across repeated runs on identical tree content, methodology resources, options, and targets",
     async () => {
       await assertProperty(
         arbitraryContextDeterminismCase(specTreeKindsConfig()),
         async ({ extraDecision, extraNode }) => {
-          await withSpecTreeEnv(methodologyTreeConfig(), async (env) => {
+          // An open migration lets the materialized fixture's decisions, which
+          // carry no target-version opening, project through the declared
+          // source-version fallback in both the targetless and targeted runs.
+          const migrating = generatedMigratingMethodologySection();
+          await withSpecTreeEnv(methodologyTreeConfig(migrating), async (env) => {
             await env.materialize();
-            const fixture = await writeMethodologyTree(env);
+            const fixture = await writeMethodologyTree(env, {
+              version: migrating[METHODOLOGY_CONFIG_FIELDS.VERSION] as string,
+            });
             await env.writeRaw(extraNode.fixturePath, extraNode.contents);
             await env.writeRaw(extraDecision.fixturePath, extraDecision.contents);
             const snapshot = await env.readFilesystemSnapshot();
             const target = snapshot.allNodes[0];
             const targets = [target.id];
-            const firstJson = await contextCommand({ targets, cwd: env.productDir });
-            const secondJson = await contextCommand({ targets, cwd: env.productDir });
-            const firstText = await contextTextCommand({ targets, cwd: env.productDir });
-            const secondText = await contextTextCommand({ targets, cwd: env.productDir });
-            const firstContent = await contextCommand({ targets, cwd: env.productDir, content: true });
-            const secondContent = await contextCommand({ targets, cwd: env.productDir, content: true });
-            const firstUnderstand = await contextCommand({
-              targets,
-              cwd: env.productDir,
-              understand: true,
-              methodologyTreeRoot: fixture.treeRoot,
-            });
-            const secondUnderstand = await contextCommand({
-              targets,
-              cwd: env.productDir,
-              understand: true,
-              methodologyTreeRoot: fixture.treeRoot,
-            });
-            expect(secondJson).toBe(firstJson);
-            expect(secondText).toBe(firstText);
-            expect(secondContent).toBe(firstContent);
-            expect(secondUnderstand).toBe(firstUnderstand);
+            const cwd = env.productDir;
+            const runs = [
+              () => contextListJson({ targets, cwd }),
+              () => contextListText({ targets, cwd }),
+              () => contextShowText({ targets, cwd }),
+              () => contextShowJson({ targets, cwd }),
+              () => contextShowText({ targets: [], cwd }),
+              () =>
+                contextShowText({
+                  targets,
+                  cwd,
+                  methodology: true,
+                  codingAgent: fixture.codingAgent,
+                  methodologyTreeRoot: fixture.treeRoot,
+                }),
+            ];
+            for (const run of runs) {
+              expect(await run()).toBe(await run());
+            }
           });
         },
-        { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+        PROPERTY_CLASSIFICATION.SMALL_L1,
       );
     },
-    PROPERTY_RUN_COUNTS[PROPERTY_SIZE.SMALL] * PROPERTY_TIMEOUTS_MS[PROPERTY_LEVEL.L1],
+    propertyTestEnvelopeTimeoutMs(PROPERTY_CLASSIFICATION.SMALL_L1),
   );
 });

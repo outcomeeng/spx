@@ -60,6 +60,14 @@ const PROPERTY_TEST_ENVELOPE_MARGIN_MS = 5_000;
 export const PROPERTY_L1_TEST_ENVELOPE_TIMEOUT_MS = PROPERTY_TIMEOUTS_MS[PROPERTY_LEVEL.L1]
   + PROPERTY_TEST_ENVELOPE_MARGIN_MS;
 
+/**
+ * Vitest envelope for a complete property run under `classification`: every
+ * generated case may spend the level's per-run timeout, plus the margin.
+ */
+export function propertyTestEnvelopeTimeoutMs(classification: PropertyClassification): number {
+  return resolveRunCount(classification) * resolveTimeout(classification) + PROPERTY_TEST_ENVELOPE_MARGIN_MS;
+}
+
 const SEED_MODULUS = 2 ** 32;
 const INTEGER_TEXT = /^\s*-?\d+\s*$/;
 const ASYNC_PREDICATE_DECLARATION = "async";
