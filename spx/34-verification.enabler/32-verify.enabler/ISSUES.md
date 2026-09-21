@@ -1,5 +1,28 @@
 # Issues: verify
 
+## The verify module-structure decision carries no no-mocking rule of its own
+
+The ADR audit of
+`spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`
+at `8942b1e2389757baedd91b6ecf68487993d061a7` returned `REJECTED` with the
+`missing-testability` finding: "The ADR's Audit verification rules mandate
+injected dependencies but include no no-mocking boundary, leaving the TypeScript
+testability constraint incomplete." Its structure, atemporal voice, and
+tag-validity checks passed.
+
+The governing root decision `spx/12-test-infrastructure.adr.md` prohibits
+`vi.mock()`, `jest.mock()`, framework module replacement, and filesystem
+replacement as substitutes for the production boundary under test. That rule
+reaches the verify node by index. Change #116 holds the verify decision's other
+verification rules unchanged.
+
+**Impact:** a TypeScript-composed audit of this decision rejects because the
+no-mocking rule resides in the governing root decision.
+
+**Settlement condition:** a Change frames either the auditor's reading of the
+governing root rule or an explicit cross-reference to it from this decision,
+and the resulting audit accepts that rule placement.
+
 ## Shared verification harness owns test predicates and unclassified Git doubles
 
 `testing/harnesses/verify/harness.ts` contains behavioral assertions and complete exported `assert*` test bodies. `assertFinishReportMatchesJournal` compares expected projection fields and throws on mismatch; functions such as `assertCallerDrivenRunAdvertisesEvidenceAppendActions` execute `expect` assertions. The executed test files must own those predicates under `spx/12-test-infrastructure.adr.md` and the TypeScript test standards.
