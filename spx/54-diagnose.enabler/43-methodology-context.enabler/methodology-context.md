@@ -8,11 +8,11 @@ CAN report whether the methodology the product declares is configured, shipped, 
 
 ### Scenarios
 
-- Given top-level methodology config declares a version and spx ships a tree for that version's line and each enabled coding agent, when `spx diagnose --format json` runs, then the `methodology-context` check reports the declared selection with a healthy verdict ([test](tests/methodology-context.scenario.l1.test.ts))
-- Given top-level methodology config declares `migratingFrom`, when `spx diagnose --format json` runs, then the `methodology-context` check reports the open migration window alongside the target version ([test](tests/methodology-context.scenario.l1.test.ts))
-- Given spx ships no tree for the declared methodology line, or ships one for only some of the enabled coding agents, when `spx diagnose --format json` runs, then the `methodology-context` check reports an unavailable verdict naming the shipped lines and the shipped coding agents ([test](tests/methodology-context.scenario.l1.test.ts))
-- Given a diagnose manifest carries methodology facts, when `spx diagnose --manifest <path> --format json` runs, then the `methodology-context` check reports against the manifest methodology facts ([test](tests/methodology-context.scenario.l1.test.ts))
-- Given methodology observation errors, when `spx diagnose --format json` runs, then the `methodology-context` check reports an unknown verdict ([test](tests/methodology-context.scenario.l1.test.ts))
+- Given top-level methodology config declares a version and spx ships a tree for that version's line and each enabled coding agent, when `spx diagnose --json` runs, then the `methodology-context` check reports the declared selection with a healthy verdict ([test](tests/methodology-context.scenario.l1.test.ts))
+- Given top-level methodology config declares `migratingFrom`, when `spx diagnose --json` runs, then the `methodology-context` check reports the open migration window alongside the target version ([test](tests/methodology-context.scenario.l1.test.ts))
+- Given spx ships no tree for the declared methodology line, or ships one for only some of the enabled coding agents, when `spx diagnose --json` runs, then the `methodology-context` check reports an unavailable verdict naming the shipped lines and the shipped coding agents ([test](tests/methodology-context.scenario.l1.test.ts))
+- Given a diagnose manifest carries methodology facts, when `spx diagnose --manifest <path> --json` runs, then the `methodology-context` check reports against the manifest methodology facts ([test](tests/methodology-context.scenario.l1.test.ts))
+- Given methodology observation errors, when `spx diagnose --json` runs, then the `methodology-context` check reports an unknown verdict ([test](tests/methodology-context.scenario.l1.test.ts))
 
 ### Compliance
 
