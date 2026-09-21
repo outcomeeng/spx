@@ -108,6 +108,13 @@ export type {
   SpecContextTargetFailureKind,
   SpecContextTargetResolution,
 } from "./context-target";
+export { resolveSpecTreePathOwnership, SPEC_TREE_PATH_OWNERSHIP_RESULT_KIND } from "./path-ownership";
+export type {
+  SpecTreePathOwnershipResolved,
+  SpecTreePathOwnershipResult,
+  SpecTreePathOwnershipResultKind,
+  SpecTreePathOwnershipUnresolved,
+} from "./path-ownership";
 
 const SPEC_TREE_FIELD_KEY = {
   VERSION: "version",

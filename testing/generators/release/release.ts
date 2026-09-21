@@ -3,7 +3,16 @@ import { win32 } from "node:path";
 import * as fc from "fast-check";
 
 import { type ReleaseData, VERSION_DELTA, type VersionDelta } from "@/domains/release/release-data";
-import { type GitCommit, RELEASE_TAG_PREFIX } from "@/lib/git/release";
+import {
+  COMMIT_LOG_FORMAT,
+  EMPTY_LOG_FORMAT,
+  GIT_RELEASE_FLAG,
+  GIT_RELEASE_SUBCOMMAND,
+  type GitCommit,
+  RELEASE_TAG_GLOB,
+  RELEASE_TAG_PREFIX,
+} from "@/lib/git/release";
+import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import { arbitraryBranchName, arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 
@@ -22,9 +31,18 @@ const WINDOWS_EXTENDED_UNC_PATH_PREFIX = "\\\\?\\UNC\\";
 const WINDOWS_DRIVE_SEPARATOR = ":";
 const WINDOWS_DRIVE_LETTER_PATTERN = /^[A-Z]$/;
 
+/** Git options the release-data boundary must refuse: mutation, unrelated modes, and external programs or files. */
+const VIOLATING_GIT_FLAG = {
+  DELETE: "-d",
+  FORCE: "-f",
+  ALL: "--all",
+  TEXTCONV: "--textconv",
+  EXT_DIFF: "--ext-diff",
+  OUTPUT_FILE: "--output=release-data.log",
+} as const;
+
 const COMMITS_AFTER_TAG = 2;
 const FULL_HISTORY_COMMITS = 2;
-const DETERMINISM_REPO_COMMITS = 3;
 const COMPLIANCE_COMMITS = 2;
 const RELEASE_NOTES_COMMITS = 3;
 const COMMIT_SHA_PATTERN = /^[0-9a-f]{40}$/;
@@ -46,10 +64,21 @@ export type VersionBump = {
 };
 
 export type ReleaseDataDeterminismScenario = {
-  readonly commits: readonly ReleaseCommitFixture[];
-  readonly tag: string;
+  readonly productDir: string;
+  readonly releaseRef: string;
+  readonly resolvedReleaseRef: string;
   readonly packageVersion: string;
-  readonly versionDelta: VersionDelta;
+  readonly previousTag: string;
+  readonly commits: ReleaseData["commits"];
+  readonly versionDelta: ReleaseData["versionDelta"];
+  readonly changedPaths: ReleaseData["changedPaths"];
+};
+
+export type ReleaseDataOperationViolation = {
+  readonly label: string;
+  readonly command: string;
+  readonly args: string[];
+  readonly productDir: string;
 };
 
 type ReleaseVersionProgression = {
@@ -85,6 +114,8 @@ export const RELEASE_TEST_GENERATOR = {
   distinctDomainLiteralPair: arbitraryDistinctDomainLiteralPair,
   commitSequence: arbitraryCommitSequence,
   releaseDataDeterminismScenario: arbitraryReleaseDataDeterminismScenario,
+  releaseDataOperationViolations: arbitraryReleaseDataOperationViolations,
+  versionProgression: arbitraryReleaseVersionProgression,
   versionBumpFor: arbitraryVersionBumpFor,
   releaseData: arbitraryReleaseData,
   releaseDataWithoutPreviousTag: arbitraryReleaseDataWithoutPreviousTag,
@@ -225,16 +256,141 @@ function arbitraryCommitSequence(count: number): fc.Arbitrary<readonly ReleaseCo
 
 function arbitraryReleaseDataDeterminismScenario(): fc.Arbitrary<ReleaseDataDeterminismScenario> {
   return fc
-    .record({
-      commits: arbitraryCommitSequence(DETERMINISM_REPO_COMMITS),
-      progression: arbitraryReleaseVersionProgression(),
-    })
-    .map(({ commits, progression }) => ({
-      commits,
-      tag: progression.previousTag,
-      packageVersion: progression.version,
-      versionDelta: progression.versionDelta,
-    }));
+    .tuple(arbitraryPathSegment(), arbitraryReleaseData())
+    .map(([productDir, releaseData]) => {
+      if (releaseData.previousTag === null) {
+        throw new Error("Release-data determinism scenarios require a previous release tag");
+      }
+      return {
+        productDir,
+        releaseRef: GIT_ROOT_COMMAND.HEAD,
+        resolvedReleaseRef: releaseData.releaseRef,
+        packageVersion: releaseData.version,
+        previousTag: releaseData.previousTag,
+        commits: releaseData.commits,
+        versionDelta: releaseData.versionDelta,
+        changedPaths: releaseData.changedPaths,
+      };
+    });
+}
+
+function arbitraryReleaseDataOperationViolations(): fc.Arbitrary<readonly ReleaseDataOperationViolation[]> {
+  return fc
+    .tuple(
+      arbitraryDomainLiteral().filter((command) => command !== GIT_ROOT_COMMAND.EXECUTABLE),
+      arbitraryPathSegment(),
+      arbitraryReleaseTag(),
+    )
+    .map(([command, productDir, releaseTag]) => [
+      { label: "a non-git executable", command, args: [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD], productDir },
+      {
+        label: "an unrecognized git subcommand",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: [GIT_ROOT_COMMAND.REMOTE],
+        productDir,
+      },
+      {
+        label: "a rev-parse flag operand",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: [GIT_ROOT_COMMAND.REV_PARSE, "--exec-path"],
+        productDir,
+      },
+      {
+        label: "extra rev-parse arguments",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD, GIT_ROOT_COMMAND.VERIFY],
+        productDir,
+      },
+      {
+        label: "tag deletion",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: [GIT_RELEASE_SUBCOMMAND.TAG, VIOLATING_GIT_FLAG.DELETE, releaseTag],
+        productDir,
+      },
+      {
+        label: "tag mutation",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: [GIT_RELEASE_SUBCOMMAND.TAG, VIOLATING_GIT_FLAG.FORCE, releaseTag, GIT_ROOT_COMMAND.HEAD],
+        productDir,
+      },
+      {
+        label: "a destructive suffix on the release-tag query",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: [
+          GIT_RELEASE_SUBCOMMAND.TAG,
+          GIT_RELEASE_FLAG.POINTS_AT,
+          GIT_ROOT_COMMAND.HEAD,
+          GIT_RELEASE_FLAG.LIST,
+          RELEASE_TAG_GLOB,
+          VIOLATING_GIT_FLAG.DELETE,
+          releaseTag,
+        ],
+        productDir,
+      },
+      {
+        label: "an unrelated describe mode",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: [GIT_RELEASE_SUBCOMMAND.DESCRIBE, VIOLATING_GIT_FLAG.ALL, GIT_ROOT_COMMAND.HEAD],
+        productDir,
+      },
+      {
+        label: "an unrelated suffix on the previous-tag query",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: [
+          GIT_RELEASE_SUBCOMMAND.DESCRIBE,
+          GIT_RELEASE_FLAG.TAGS,
+          GIT_RELEASE_FLAG.ABBREV_ZERO,
+          GIT_RELEASE_FLAG.MATCH,
+          RELEASE_TAG_GLOB,
+          GIT_ROOT_COMMAND.HEAD,
+          VIOLATING_GIT_FLAG.ALL,
+        ],
+        productDir,
+      },
+      {
+        label: "log text conversion",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: [GIT_RELEASE_SUBCOMMAND.LOG, VIOLATING_GIT_FLAG.TEXTCONV, GIT_ROOT_COMMAND.HEAD],
+        productDir,
+      },
+      {
+        label: "text conversion appended to the commit query",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: [
+          GIT_RELEASE_SUBCOMMAND.LOG,
+          GIT_RELEASE_FLAG.NULL_TERMINATED,
+          COMMIT_LOG_FORMAT,
+          GIT_ROOT_COMMAND.HEAD,
+          VIOLATING_GIT_FLAG.TEXTCONV,
+        ],
+        productDir,
+      },
+      {
+        label: "an external diff command",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: [GIT_RELEASE_SUBCOMMAND.LOG, VIOLATING_GIT_FLAG.EXT_DIFF, GIT_ROOT_COMMAND.HEAD],
+        productDir,
+      },
+      {
+        label: "an external diff appended to the changed-path query",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: [
+          GIT_RELEASE_SUBCOMMAND.LOG,
+          GIT_RELEASE_FLAG.DIFF_MERGES_FIRST_PARENT,
+          EMPTY_LOG_FORMAT,
+          GIT_RELEASE_FLAG.NAME_ONLY,
+          GIT_ROOT_COMMAND.HEAD,
+          VIOLATING_GIT_FLAG.EXT_DIFF,
+        ],
+        productDir,
+      },
+      {
+        label: "log file output",
+        command: GIT_ROOT_COMMAND.EXECUTABLE,
+        args: [GIT_RELEASE_SUBCOMMAND.LOG, VIOLATING_GIT_FLAG.OUTPUT_FILE, GIT_ROOT_COMMAND.HEAD],
+        productDir,
+      },
+    ]);
 }
 
 function arbitraryCommitSha(): fc.Arbitrary<string> {
@@ -245,29 +401,30 @@ function toGitCommit(fixture: ReleaseCommitFixture, sha: string | undefined): Gi
   if (sha === undefined) {
     throw new Error("Release data generator drew fewer commit shas than commit fixtures");
   }
-  return { sha, subject: fixture.subject };
+  return { sha, subject: fixture.subject, body: "" };
 }
 
 /**
  * A full ReleaseData drawn from the same commit-sequence fixtures the git-backed
  * release-data tests use: the version and previous tag are semver-shaped, the
  * commits carry the fixtures' subjects under generated shas, and the changed paths
- * are the fixtures' paths. Release-notes generation reads only the version and the
- * commit subjects, but the whole contract is populated so the value is a valid
- * ReleaseData.
+ * are the fixtures' paths. The whole shared contract is populated for release
+ * artifact producers and their auditors.
  */
 function arbitraryReleaseData(): fc.Arbitrary<ReleaseData> {
   return arbitraryCommitSequence(RELEASE_NOTES_COMMITS).chain((fixtures) =>
     fc
       .record({
         progression: arbitraryReleaseVersionProgression(),
+        releaseRef: arbitraryCommitSha(),
         shas: fc.uniqueArray(arbitraryCommitSha(), {
           minLength: fixtures.length,
           maxLength: fixtures.length,
         }),
       })
-      .map(({ progression, shas }): ReleaseData => ({
+      .map(({ progression, releaseRef, shas }): ReleaseData => ({
         ...progression,
+        releaseRef,
         commits: fixtures.map((fixture, index) => toGitCommit(fixture, shas[index])),
         changedPaths: fixtures.map((fixture) => fixture.path),
       }))
@@ -279,13 +436,15 @@ function arbitraryReleaseDataWithoutPreviousTag(): fc.Arbitrary<ReleaseData> {
     fc
       .record({
         version: arbitrarySemver(),
+        releaseRef: arbitraryCommitSha(),
         shas: fc.uniqueArray(arbitraryCommitSha(), {
           minLength: fixtures.length,
           maxLength: fixtures.length,
         }),
       })
-      .map(({ version, shas }): ReleaseData => ({
+      .map(({ version, releaseRef, shas }): ReleaseData => ({
         version,
+        releaseRef,
         previousTag: null,
         versionDelta: null,
         commits: fixtures.map((fixture, index) => toGitCommit(fixture, shas[index])),
@@ -298,15 +457,17 @@ function arbitraryReleaseDataWithSubjects(subjects: readonly string[]): fc.Arbit
   return fc
     .record({
       progression: arbitraryReleaseVersionProgression(),
+      releaseRef: arbitraryCommitSha(),
       shas: fc.uniqueArray(arbitraryCommitSha(), {
         minLength: subjects.length,
         maxLength: subjects.length,
       }),
       changedPaths: arbitraryCommitSequence(subjects.length),
     })
-    .map(({ progression, shas, changedPaths }): ReleaseData => ({
+    .map(({ progression, releaseRef, shas, changedPaths }): ReleaseData => ({
       ...progression,
-      commits: subjects.map((subject, index) => ({ sha: shas[index], subject })),
+      releaseRef,
+      commits: subjects.map((subject, index) => ({ sha: shas[index], subject, body: "" })),
       changedPaths: changedPaths.map((fixture) => fixture.path),
     }));
 }

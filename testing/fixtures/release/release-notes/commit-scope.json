@@ -1,0 +1,50 @@
+{
+  "releaseData": {
+    "version": "2.0.0",
+    "releaseRef": "2222222222222222222222222222222222222222",
+    "previousTag": "v1.0.0",
+    "commits": [
+      {
+        "sha": "1111111111111111111111111111111111111111",
+        "subject": "spec: define release ownership",
+        "body": "Carries the product declaration into release judgment."
+      },
+      {
+        "sha": "3333333333333333333333333333333333333333",
+        "subject": "test(release): prove full commit scope",
+        "body": "Carries test evidence into release judgment."
+      },
+      {
+        "sha": "4444444444444444444444444444444444444444",
+        "subject": "refactor!: reorganize release context",
+        "body": "Carries refactoring effects into release judgment."
+      },
+      {
+        "sha": "5555555555555555555555555555555555555555",
+        "subject": "style(cli): format release output",
+        "body": "Carries presentation changes into release judgment."
+      },
+      {
+        "sha": "6666666666666666666666666666666666666666",
+        "subject": "docs: explain release ownership",
+        "body": "Carries documentation changes into release judgment."
+      },
+      {
+        "sha": "7777777777777777777777777777777777777777",
+        "subject": "ci!: enforce release checks",
+        "body": "Carries integration changes into release judgment."
+      },
+      {
+        "sha": "2222222222222222222222222222222222222222",
+        "subject": "build: prepare publication",
+        "body": "Carries publication behavior into release judgment."
+      }
+    ],
+    "versionDelta": "major",
+    "changedPaths": ["spx/release.md", "package.json"]
+  },
+  "conformant": "# Changelog\n\n## [2.0.0] - 2026-09-17\n\n### Changed\n\n- Preserve every release commit.\n",
+  "existingNotes": "# Changelog\n",
+  "generatedNotes": "# Changelog\n\n## [2.0.0] - 2026-09-17\n\n### Changed\n\n- Preserve every release commit.\n",
+  "auditSection": "## [2.0.0] - 2026-09-17\n\n### Changed\n\n- Preserve every release commit."
+}

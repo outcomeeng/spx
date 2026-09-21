@@ -11,7 +11,7 @@ The document set is release policy, so its descriptor lives with the release dom
 - Every configured document path resolves canonically to a regular non-symlink file inside the product working tree, and staging reads from the same file identity it validates.
 - The producing query writes only inside the isolated staging workspace; product documentation changes only through the promotion boundary after complete-set validation.
 - Every accepted staged read-back resolves canonically to a regular non-symlink file inside the staging workspace supplied by the stage result, and its accepted content comes from the same file identity.
-- The audit input is exactly the shared release data and the configured document set paired by path with original and staged read-back content.
+- The producer and auditor receive the same shared product-truth standards and product-context snapshot alongside the shared release data. The audit additionally receives the configured document set paired by path with original and staged read-back content.
 - Promotion replaces a staged document only while the target remains bound to the regular canonical file whose content equals the original supplied to the faithfulness audit; rollback restores an earlier write only while the target remains bound to the promoted file and content.
 - Structural version validation rejects only the exact standalone previous product release-version token derived from `ReleaseData.previousTag`; larger non-whitespace tokens and every other semantic version are outside that stale-reference predicate.
 
@@ -19,6 +19,7 @@ The document set is release policy, so its descriptor lives with the release dom
 
 ### Testing
 
+- ALWAYS: product context is supplied through a command-layer read boundary using public spec-tree context selection and ownership resolution over both release-range endpoint trees; the producer and faithfulness auditor receive the identical resolved context snapshot ([property])
 - ALWAYS: omitted `release.documentation.paths` resolves to the product README and every configured non-empty path set resolves in declared order without duplicates ([property])
 - ALWAYS: every staged document contains the released version and, when `ReleaseData.previousTag` exists, contains no exact reference to that previous product release version before the faithfulness audit and promotion run ([compliance])
 - ALWAYS: the faithfulness audit receives the original and staged read-back content for every configured document path before promotion runs ([compliance])

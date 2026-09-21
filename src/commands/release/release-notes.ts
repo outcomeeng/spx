@@ -1,4 +1,5 @@
 import type { AgentRunner } from "@/agent/agent-runner";
+import type { ReleaseContextReader } from "@/domains/release/product-context";
 import { computeReleaseData, type ReleaseData } from "@/domains/release/release-data";
 import {
   composeReleaseNotes,
@@ -8,6 +9,7 @@ import {
 import type { GitDependencies } from "@/lib/git/root";
 
 import { readPackageVersion } from "./package-manifest";
+import { readReleaseProductContext } from "./product-context";
 import { createReleaseNotesFilesystem, type ReleaseNotesFilesystem } from "./release-notes-filesystem";
 
 export interface ReleaseNotesCommandOptions {
@@ -19,6 +21,7 @@ export interface ReleaseNotesCommandOptions {
   readonly agentRunner: AgentRunner;
   readonly faithfulnessAuditor: ReleaseNotesFaithfulnessAuditor;
   readonly filesystem?: ReleaseNotesFilesystem;
+  readonly readProductContext?: ReleaseContextReader;
 }
 
 export async function releaseNotesCommand(options: ReleaseNotesCommandOptions): Promise<string> {
@@ -27,9 +30,14 @@ export async function releaseNotesCommand(options: ReleaseNotesCommandOptions): 
     packageVersion: options.packageVersion ?? await readPackageVersion(options.productDir),
     deps: options.gitDeps,
   });
+  const productContext = await (options.readProductContext ?? readReleaseProductContext)(
+    options.productDir,
+    releaseData,
+  );
   const filesystem = options.filesystem ?? createReleaseNotesFilesystem();
   const result = await composeReleaseNotes({
     releaseData,
+    productContext,
     config: options.config,
     workingDirectory: options.productDir,
     agentRunner: options.agentRunner,

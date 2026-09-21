@@ -212,6 +212,15 @@ export function createSource(entries: readonly SpecTreeSourceEntry[]): SpecTreeS
   };
 }
 
+export function createSerializedSource(entries: readonly SpecTreeSourceEntry[]): SpecTreeSource {
+  const serialized = JSON.stringify(entries);
+  return {
+    async *entries() {
+      yield* JSON.parse(serialized) as SpecTreeSourceEntry[];
+    },
+  };
+}
+
 export function buildRepresentativeFixture(registry: SpecTreeRegistry): RepresentativeSpecTreeFixture {
   return sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.representativeFixture(registry));
 }

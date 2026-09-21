@@ -1,7 +1,8 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { basename, dirname, join, resolve } from "node:path";
 
 import type { AgentRunner, AgentRunRequest } from "@/agent/agent-runner";
+import { RELEASE_SOURCE_DATA_BLOCK_CLOSE, RELEASE_SOURCE_DATA_BLOCK_OPEN } from "@/domains/release/product-context";
 import {
   CHANGELOG_PATH_DATA_BLOCK_CLOSE,
   CHANGELOG_PATH_DATA_BLOCK_OPEN,
@@ -11,6 +12,21 @@ import {
 import { isPathContained } from "@/lib/file-system/pathContainment";
 import { arbitraryConformantChangelog } from "@testing/generators/release/changelog";
 import { sampleReleaseTestValue } from "@testing/generators/release/release";
+
+export interface ReleaseContextTransportObservation {
+  readonly producerPrompt: string;
+  readonly auditPrompt: string;
+  readonly producerSource: unknown;
+  readonly auditorSource: unknown;
+}
+
+export function releaseSourceFromPrompt(prompt: string): unknown {
+  const start = prompt.indexOf(RELEASE_SOURCE_DATA_BLOCK_OPEN);
+  const end = prompt.indexOf(RELEASE_SOURCE_DATA_BLOCK_CLOSE);
+  return start < 0 || end < start
+    ? undefined
+    : JSON.parse(prompt.slice(start + RELEASE_SOURCE_DATA_BLOCK_OPEN.length, end));
+}
 
 /**
  * A recording + writing AgentRunner double for release-notes composition tests.
@@ -27,6 +43,9 @@ import { sampleReleaseTestValue } from "@testing/generators/release/release";
  */
 export class RecordingWritingAgentRunner implements AgentRunner {
   readonly requests: AgentRunRequest[] = [];
+  readonly outputPaths: string[] = [];
+  readonly canonicalOutputPaths: string[] = [];
+  readonly initialContents: string[] = [];
 
   constructor(
     private readonly expectedWorkingDirectory: string,
@@ -43,7 +62,15 @@ export class RecordingWritingAgentRunner implements AgentRunner {
     if (outputPath === this.outputPath && !isInsideOrEqual(this.expectedWorkingDirectory, request.workingDirectory)) {
       throw new Error("Agent runner double received the wrong working directory");
     }
+    this.outputPaths.push(outputPath);
     await mkdir(dirname(outputPath), { recursive: true });
+    this.canonicalOutputPaths.push(join(await realpath(dirname(outputPath)), basename(outputPath)));
+    try {
+      this.initialContents.push(await readFile(outputPath, "utf8"));
+    } catch (error) {
+      if (!hasErrorCode(error, "ENOENT")) throw error;
+      this.initialContents.push("");
+    }
     await writeFile(
       outputPath,
       typeof this.changelogContent === "string" ? this.changelogContent : this.changelogContent(request),
@@ -67,15 +94,31 @@ export function promptReleaseVersion(prompt: string): string | undefined {
 export function releaseDataDrivenAgentRunner(
   workingDirectory: string,
   outputPath: string,
-  subjects: readonly string[],
 ): RecordingWritingAgentRunner {
   return new RecordingWritingAgentRunner(workingDirectory, outputPath, (request) => {
     const version = promptReleaseVersion(request.prompt);
     if (version === undefined) {
       throw new Error("release-notes prompt omitted release-version data");
     }
+    const source = releaseSourceFromPrompt(request.prompt);
+    if (!isReleaseSource(source)) {
+      throw new Error("release-notes prompt omitted release source data");
+    }
+    const subjects = source.releaseData.commits.map(({ subject }) => subject);
     return sampleReleaseTestValue(arbitraryConformantChangelog(version, subjects));
   });
+}
+
+function isReleaseSource(value: unknown): value is {
+  readonly releaseData: { readonly commits: readonly { readonly subject: string }[] };
+} {
+  if (typeof value !== "object" || value === null || !("releaseData" in value)) return false;
+  const { releaseData } = value;
+  return typeof releaseData === "object" && releaseData !== null && "commits" in releaseData
+    && Array.isArray(releaseData.commits)
+    && releaseData.commits.every((commit) =>
+      typeof commit === "object" && commit !== null && "subject" in commit && typeof commit.subject === "string"
+    );
 }
 
 export function promptChangelogPath(prompt: string): string | undefined {
@@ -99,4 +142,9 @@ function promptJsonString(prompt: string, openMarker: string, closeMarker: strin
 
 function isInsideOrEqual(parent: string, child: string): boolean {
   return isPathContained(resolve(parent), resolve(child));
+}
+
+function hasErrorCode(error: unknown, code: string): boolean {
+  return typeof error === "object" && error !== null && "code" in error
+    && (error as { readonly code?: unknown }).code === code;
 }

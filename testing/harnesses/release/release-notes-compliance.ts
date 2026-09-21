@@ -1,15 +1,16 @@
-import { mkdir, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve, sep } from "node:path";
 
-import type { AgentAuditor, AgentAuditRequest, AgentRunRequest } from "@/agent/agent-runner";
+import type { AgentAuditor, AgentAuditRequest, AgentRunner, AgentRunRequest } from "@/agent/agent-runner";
+import { releaseNotesCommand } from "@/commands/release/release-notes";
+import type { ReleaseNotesFilesystem } from "@/commands/release/release-notes-filesystem";
+import { RELEASE_SOURCE_DATA_BLOCK_CLOSE, RELEASE_SOURCE_DATA_BLOCK_OPEN } from "@/domains/release/product-context";
 import type { ReleaseData } from "@/domains/release/release-data";
 import {
   buildReleaseNotesPrompt,
   CHANGELOG_PATH_DATA_BLOCK_CLOSE,
   CHANGELOG_PATH_DATA_BLOCK_OPEN,
   CHANGELOG_TITLE,
-  COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
-  COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
   composeReleaseNotes,
   createReleaseNotesFaithfulnessAuditor,
   DEFAULT_CHANGELOG_PATH,
@@ -22,6 +23,7 @@ import {
   resolveReleaseNotesPath,
 } from "@/domains/release/release-notes";
 import { PATH_CONTAINMENT_PARENT_DIRECTORY } from "@/lib/file-system/pathContainment";
+import type { ReleaseContextScenario } from "@testing/generators/release/product-context";
 import {
   type AbsoluteReleaseNotesPathInput,
   type PartialWriteReleaseNotesInput,
@@ -38,7 +40,12 @@ import {
   type ReleaseNotesPromptInput,
   type SymlinkRootReleaseNotesInput,
 } from "@testing/generators/release/release-notes";
-import { promptChangelogPath, RecordingWritingAgentRunner } from "@testing/harnesses/release/agent-runner";
+import {
+  promptChangelogPath,
+  RecordingWritingAgentRunner,
+  type ReleaseContextTransportObservation,
+  releaseSourceFromPrompt,
+} from "@testing/harnesses/release/agent-runner";
 import {
   approvingReleaseNotesFaithfulnessAuditor,
   canonicalRelativeChangelogPath,
@@ -54,6 +61,226 @@ import {
   withReleaseNotesEnv,
 } from "@testing/harnesses/release/release-notes-env";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
+
+const RELEASE_NOTES_COMPLIANCE_FIXTURE_ROOT = resolve(
+  __dirname,
+  "../../fixtures/release/release-notes",
+);
+const FIXTURE_TEXT_ENCODING = "utf8";
+/** The product root the in-memory release-notes boundaries address; nothing is read from disk there. */
+const IN_MEMORY_PRODUCT_DIRECTORY = resolve("/release-product");
+
+export const RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH = {
+  COMMIT_SCOPE: join(RELEASE_NOTES_COMPLIANCE_FIXTURE_ROOT, "commit-scope.json"),
+  PARTIAL_WRITE: join(RELEASE_NOTES_COMPLIANCE_FIXTURE_ROOT, "partial-write.json"),
+  ESCAPING_PATH: join(RELEASE_NOTES_COMPLIANCE_FIXTURE_ROOT, "escaping-path.json"),
+} as const;
+
+interface ReleaseNotesCommitScopeFixture {
+  readonly releaseData: ReleaseData;
+  readonly conformant: string;
+  readonly existingNotes: string;
+  readonly generatedNotes: string;
+  readonly auditSection: string;
+}
+
+export async function observeReleaseNotesCommitScopeFixture(path: string) {
+  const fixture = await readJsonFixture<ReleaseNotesCommitScopeFixture>(path);
+  const audit = await observeReleaseNotesFaithfulness({
+    kind: RELEASE_NOTES_FAITHFULNESS_CASE.PRODUCTION_AUDITOR,
+    fixture: {
+      releaseData: fixture.releaseData,
+      subjects: fixture.releaseData.commits.map(({ subject }) => subject),
+      conformant: fixture.conformant,
+    },
+    existingNotes: fixture.existingNotes,
+    generatedNotes: fixture.generatedNotes,
+    productionAuditSection: fixture.auditSection,
+  });
+  return {
+    fixture,
+    producerSource: observeReleaseNotesPromptSource(fixture.releaseData),
+    composition: await observeReleaseNotesMaintenanceComposition(fixture),
+    audit,
+  };
+}
+
+export async function observeReleaseNotesPartialWriteFixture(path: string) {
+  const fixture = await readJsonFixture<PartialWriteReleaseNotesInput>(path);
+  return {
+    fixture,
+    observation: await observeReleaseNotesPartialWriteFailure(fixture),
+  };
+}
+
+export async function observeReleaseNotesEscapingPathFixture(path: string) {
+  const fixture = await readJsonFixture<ReleaseNotesPathInput>(path);
+  return {
+    fixture,
+    observation: await observeReleaseNotesPath(fixture),
+  };
+}
+
+async function readJsonFixture<T>(path: string): Promise<T> {
+  return JSON.parse(await readFile(path, FIXTURE_TEXT_ENCODING)) as T;
+}
+
+export async function observeReleaseNotesContextTransport(
+  scenario: ReleaseContextScenario,
+  respondToAudit: AgentAuditor["audit"],
+): Promise<
+  ReleaseContextTransportObservation & {
+    readonly stagedPromptPath: string;
+    readonly stagedCanonicalPath: string;
+    readonly stagedInput: string;
+    readonly generatedNotes: string;
+    readonly auditedSection: unknown;
+  }
+> {
+  const productDir = IN_MEMORY_PRODUCT_DIRECTORY;
+  const changelogPath = join(productDir, DEFAULT_CHANGELOG_PATH);
+  const stageDirectory = resolve("/release-stage");
+  const stagePath = join(stageDirectory, DEFAULT_CHANGELOG_PATH);
+  const artifacts = new Map<string, string>([[changelogPath, scenario.existingNotes]]);
+  const runner = new InMemoryReleaseNotesAgentRunner(artifacts, scenario.generatedNotes);
+  const filesystem = inMemoryReleaseNotesFilesystem(
+    artifacts,
+    productDir,
+    stageDirectory,
+    stagePath,
+  );
+  let auditPrompt = "";
+  const auditor: AgentAuditor = {
+    audit: async (request) => {
+      auditPrompt = request.prompt;
+      return await respondToAudit(request);
+    },
+  };
+  await releaseNotesCommand({
+    productDir,
+    config: {},
+    releaseData: scenario.releaseData,
+    readProductContext: async () => scenario.documents,
+    agentRunner: runner,
+    faithfulnessAuditor: createReleaseNotesFaithfulnessAuditor(auditor, productDir),
+    filesystem,
+  });
+  const producerPrompt = runner.lastPrompt;
+  return {
+    producerPrompt,
+    auditPrompt,
+    producerSource: releaseSourceFromPrompt(producerPrompt),
+    auditorSource: releaseSourceFromPrompt(auditPrompt),
+    stagedPromptPath: runner.outputPaths.at(0) ?? "",
+    stagedCanonicalPath: runner.canonicalOutputPaths.at(0) ?? "",
+    stagedInput: runner.initialContents.at(0) ?? "",
+    generatedNotes: requiredArtifact(artifacts, changelogPath),
+    auditedSection: JSON.parse(
+      observePromptDataBlock(
+        auditPrompt,
+        RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_OPEN,
+        RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_CLOSE,
+      ).data,
+    ) as unknown,
+  };
+}
+
+class InMemoryReleaseNotesAgentRunner implements AgentRunner {
+  readonly requests: AgentRunRequest[] = [];
+  readonly outputPaths: string[] = [];
+  readonly canonicalOutputPaths: string[] = [];
+  readonly initialContents: string[] = [];
+
+  constructor(
+    private readonly artifacts: Map<string, string>,
+    private readonly generatedNotes: string,
+  ) {}
+
+  async run(request: AgentRunRequest): Promise<void> {
+    this.requests.push(request);
+    const outputPath = promptChangelogPath(request.prompt);
+    if (outputPath === undefined) {
+      throw new Error("release-notes prompt omitted the staged changelog path");
+    }
+    this.outputPaths.push(outputPath);
+    this.canonicalOutputPaths.push(outputPath);
+    this.initialContents.push(this.artifacts.get(outputPath) ?? "");
+    this.artifacts.set(outputPath, this.generatedNotes);
+  }
+
+  get lastPrompt(): string {
+    const request = this.requests.at(-1);
+    if (request === undefined) {
+      throw new Error("In-memory release-notes agent received no request");
+    }
+    return request.prompt;
+  }
+}
+
+function inMemoryReleaseNotesFilesystem(
+  artifacts: Map<string, string>,
+  productDir: string,
+  stageDirectory: string,
+  stagePath: string,
+): ReleaseNotesFilesystem {
+  return {
+    readArtifact: async (path) => requiredArtifact(artifacts, path),
+    createArtifactStage: async (_targetPath, existingContent) => {
+      if (existingContent !== undefined) artifacts.set(stagePath, existingContent);
+      return {
+        workingDirectory: stageDirectory,
+        path: stagePath,
+        cleanup: async () => {
+          artifacts.delete(stagePath);
+        },
+      };
+    },
+    promoteArtifact: async (_stagedPath, targetPath, content) => {
+      artifacts.set(targetPath, content);
+    },
+    canonicalizePath: async (path) => {
+      if (path === productDir || path === stageDirectory || artifacts.has(path)) return path;
+      return undefined;
+    },
+    isSymbolicLink: async () => false,
+    isFile: async (path) => artifacts.has(path),
+  };
+}
+
+function requiredArtifact(artifacts: ReadonlyMap<string, string>, path: string): string {
+  const content = artifacts.get(path);
+  if (content === undefined) throw new Error(`No in-memory release artifact for ${path}`);
+  return content;
+}
+
+/** Runs the release-notes command against a context reader that fails; no git or filesystem state is needed before that failure. */
+export async function observeReleaseContextReadFailure(
+  scenario: ReleaseContextScenario,
+): Promise<{ readonly error: unknown; readonly invocations: number }> {
+  let error: unknown;
+  let invocations = 0;
+  try {
+    await releaseNotesCommand({
+      productDir: IN_MEMORY_PRODUCT_DIRECTORY,
+      config: {},
+      releaseData: scenario.releaseData,
+      readProductContext: async () => {
+        throw new Error(`Cannot read selected product context: ${scenario.specification.path}`);
+      },
+      agentRunner: {
+        run: async () => {
+          invocations += 1;
+        },
+      },
+      faithfulnessAuditor: async () => {
+        invocations += 1;
+      },
+    });
+  } catch (caught) {
+    error = caught;
+  }
+  return { error, invocations };
+}
 
 export interface ReleaseNotesExistingSectionObservation {
   readonly error: unknown;
@@ -99,8 +326,8 @@ export interface ReleaseNotesFaithfulnessObservation {
   readonly auditRequest: AgentAuditRequest | undefined;
   readonly auditPrompt: string;
   readonly auditSectionDataBlock: ReleaseNotesPromptDataBlockObservation;
-  /** The commit-subjects data block the audit prompt carries. */
-  readonly auditSubjectsDataBlock: ReleaseNotesPromptDataBlockObservation;
+  /** The complete source data block the audit prompt carries. */
+  readonly auditSourceDataBlock: ReleaseNotesPromptDataBlockObservation;
   readonly workingDirectory: string;
 }
 
@@ -147,7 +374,7 @@ export interface ReleaseNotesSymlinkRootObservation {
 export interface ReleaseNotesPromptObservation {
   readonly prompt: string;
   readonly versionDataBlock: ReleaseNotesPromptDataBlockObservation;
-  readonly subjectsDataBlock: ReleaseNotesPromptDataBlockObservation;
+  readonly sourceDataBlock: ReleaseNotesPromptDataBlockObservation;
   readonly pathDataBlock: ReleaseNotesPromptDataBlockObservation;
   readonly stagedPromptPath: string;
   readonly canonicalOutputPath: string | undefined;
@@ -235,10 +462,10 @@ export async function observeReleaseNotesPrompt(
         RELEASE_VERSION_DATA_BLOCK_OPEN,
         RELEASE_VERSION_DATA_BLOCK_CLOSE,
       ),
-      subjectsDataBlock: observePromptDataBlock(
+      sourceDataBlock: observePromptDataBlock(
         recordingAgentRunner.lastPrompt,
-        COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
-        COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
+        RELEASE_SOURCE_DATA_BLOCK_OPEN,
+        RELEASE_SOURCE_DATA_BLOCK_CLOSE,
       ),
       pathDataBlock: observePromptDataBlock(
         recordingAgentRunner.lastPrompt,
@@ -318,10 +545,10 @@ async function observeCanonicalParentTraversalPrompt(
         RELEASE_VERSION_DATA_BLOCK_OPEN,
         RELEASE_VERSION_DATA_BLOCK_CLOSE,
       ),
-      subjectsDataBlock: observePromptDataBlock(
+      sourceDataBlock: observePromptDataBlock(
         agentRunner.lastPrompt,
-        COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
-        COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
+        RELEASE_SOURCE_DATA_BLOCK_OPEN,
+        RELEASE_SOURCE_DATA_BLOCK_CLOSE,
       ),
       pathDataBlock: observePromptDataBlock(
         agentRunner.lastPrompt,
@@ -367,8 +594,8 @@ function requiredPromptChangelogPath(prompt: string): string {
   return changelogPath;
 }
 
-/** What composing release notes did for a release whose every commit carries an omitted conventional type. */
-export interface ReleaseNotesOmittedOnlyObservation {
+/** What composing release notes did for a release whose commits all carry maintenance labels. */
+export interface ReleaseNotesMaintenanceObservation {
   readonly error: unknown;
   /** Requests the injected agent runner received; a rejection before the agent runs records none. */
   readonly agentRequestCount: number;
@@ -377,14 +604,14 @@ export interface ReleaseNotesOmittedOnlyObservation {
 }
 
 /**
- * Composes release notes for a release whose commits are all omitted-type,
+ * Composes release notes for a release whose commits all carry maintenance labels,
  * against the real filesystem boundaries and a recording agent runner, and
  * reports what the composition did. The linked test decides what it means.
  */
-export async function observeReleaseNotesOmittedOnlyComposition(
+export async function observeReleaseNotesMaintenanceComposition(
   scenario: { readonly releaseData: ReleaseData },
-): Promise<ReleaseNotesOmittedOnlyObservation> {
-  let observation: ReleaseNotesOmittedOnlyObservation | undefined;
+): Promise<ReleaseNotesMaintenanceObservation> {
+  let observation: ReleaseNotesMaintenanceObservation | undefined;
   await withReleaseNotesEnv(async (env) => {
     const resolvedPath = resolveReleaseNotesPath(env.workingDirectory, {});
     const agentRunner = recordingReleaseNotesAgent(env.workingDirectory, resolvedPath, CHANGELOG_TITLE);
@@ -413,17 +640,17 @@ export async function observeReleaseNotesOmittedOnlyComposition(
     };
   });
   if (observation === undefined) {
-    throw new Error("Omitted-only release-notes composition produced no observation");
+    throw new Error("Maintenance-label release-notes composition produced no observation");
   }
   return observation;
 }
 
-/** The commit-subjects data block the producer prompt carries for `releaseData`, assembled at the default changelog path. */
-export function observeReleaseNotesPromptSubjects(releaseData: ReleaseData): ReleaseNotesPromptDataBlockObservation {
+/** The source data block the producer prompt carries, assembled at the default changelog path. */
+export function observeReleaseNotesPromptSource(releaseData: ReleaseData): ReleaseNotesPromptDataBlockObservation {
   return observePromptDataBlock(
     buildReleaseNotesPrompt(releaseData, DEFAULT_CHANGELOG_PATH),
-    COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
-    COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
+    RELEASE_SOURCE_DATA_BLOCK_OPEN,
+    RELEASE_SOURCE_DATA_BLOCK_CLOSE,
   );
 }
 
@@ -1165,10 +1392,10 @@ export async function observeReleaseNotesFaithfulness(
         RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_OPEN,
         RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_CLOSE,
       ),
-      auditSubjectsDataBlock: observePromptDataBlock(
+      auditSourceDataBlock: observePromptDataBlock(
         "",
-        COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
-        COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
+        RELEASE_SOURCE_DATA_BLOCK_OPEN,
+        RELEASE_SOURCE_DATA_BLOCK_CLOSE,
       ),
       workingDirectory: env.workingDirectory,
     };
@@ -1229,10 +1456,10 @@ async function observeProductionFaithfulnessAudit(
         RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_OPEN,
         RELEASE_NOTES_AUDIT_SECTION_DATA_BLOCK_CLOSE,
       ),
-      auditSubjectsDataBlock: observePromptDataBlock(
+      auditSourceDataBlock: observePromptDataBlock(
         auditRequest?.prompt ?? "",
-        COMMIT_SUBJECTS_DATA_BLOCK_OPEN,
-        COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
+        RELEASE_SOURCE_DATA_BLOCK_OPEN,
+        RELEASE_SOURCE_DATA_BLOCK_CLOSE,
       ),
       workingDirectory: env.workingDirectory,
     };

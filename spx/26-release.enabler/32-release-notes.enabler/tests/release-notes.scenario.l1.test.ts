@@ -1,8 +1,14 @@
 import { isAbsolute } from "node:path";
 
-import { changelogVersionHeading } from "@/domains/release/release-notes";
 import { isPathContained } from "@/lib/file-system/pathContainment";
-import { oracleResolvedChangelogPath } from "@testing/generators/release/changelog";
+import {
+  arbitraryConfiguredChangelogPath,
+  oracleDefaultChangelogPath,
+  oracleResolvedChangelogPath,
+} from "@testing/generators/release/changelog";
+import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
+import { sampleReleaseNotesCompositionFixture } from "@testing/generators/release/release-notes";
+import { observeIndependentVersionSection } from "@testing/harnesses/release/keep-a-changelog-oracle";
 import {
   observeCanonicalReleaseNotesCommand,
   observeComposedReleaseNotes,
@@ -24,7 +30,9 @@ describe("resolveReleaseNotesPath resolves the changelog within the product work
   });
 
   it("resolves a configured changelog path within the working tree", async () => {
-    await expect(observeConfiguredReleaseNotesPath()).resolves.toSatisfy(
+    await expect(
+      observeConfiguredReleaseNotesPath(sampleReleaseTestValue(arbitraryConfiguredChangelogPath())),
+    ).resolves.toSatisfy(
       (observation) =>
         isPathContained(observation.workingDirectory, observation.resolvedPath)
         && observation.resolvedPath
@@ -35,27 +43,39 @@ describe("resolveReleaseNotesPath resolves the changelog within the product work
 
 describe("composeReleaseNotes writes the changelog at the resolved path", () => {
   it("writes the changelog carrying a section for the release version", async () => {
-    await expect(observeComposedReleaseNotes()).resolves.toSatisfy(
-      (observation) => observation.content.includes(changelogVersionHeading(observation.version)),
+    const fixture = sampleReleaseNotesCompositionFixture();
+    await expect(
+      observeComposedReleaseNotes(fixture, oracleDefaultChangelogPath()),
+    ).resolves.toSatisfy(
+      (observation) => observeIndependentVersionSection(observation.content, fixture.releaseData.version) !== undefined,
     );
   });
 });
 
 describe("releaseNotesCommand wires release-note composition into the release workflow", () => {
   it("writes the changelog through the production command handler", async () => {
-    await expect(observeReleaseNotesCommand()).resolves.toSatisfy(
+    const fixture = sampleReleaseNotesCompositionFixture();
+    await expect(
+      observeReleaseNotesCommand(fixture, oracleDefaultChangelogPath()),
+    ).resolves.toSatisfy(
       (observation) =>
-        observation.output === observation.resolvedPath
-        && observation.content.includes(changelogVersionHeading(observation.version)),
+        observation.output === observation.expectedPath
+        && observeIndependentVersionSection(observation.content, fixture.releaseData.version) !== undefined,
     );
   });
 
   it("reports the promoted canonical changelog path", async () => {
-    await expect(observeCanonicalReleaseNotesCommand()).resolves.toSatisfy(
+    const fixture = sampleReleaseNotesCompositionFixture();
+    await expect(
+      observeCanonicalReleaseNotesCommand(
+        fixture,
+        sampleReleaseTestValue(RELEASE_TEST_GENERATOR.distinctPathSegmentTriple()),
+      ),
+    ).resolves.toSatisfy(
       (observation) =>
         observation.output === observation.canonicalPath
         && observation.canonicalPath !== observation.lexicalPath
-        && observation.content.includes(changelogVersionHeading(observation.version)),
+        && observeIndependentVersionSection(observation.content, fixture.releaseData.version) !== undefined,
     );
   });
 });

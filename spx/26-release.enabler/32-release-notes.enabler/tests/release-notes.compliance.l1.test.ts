@@ -1,3 +1,6 @@
+import { readReleaseProductContext } from "@/commands/release/product-context";
+import { DEFAULT_RELEASE_DOCUMENTATION_PATHS } from "@/domains/release/config";
+import { RELEASE_SOURCE_DATA_BLOCK_CLOSE } from "@/domains/release/product-context";
 import {
   buildReleaseNotesPrompt,
   CHANGELOG_PATH_DATA_BLOCK_CLOSE,
@@ -5,33 +8,32 @@ import {
   CHANGELOG_VERSION_SECTION_PREFIX,
   CHANGELOG_VERSION_SECTION_SUFFIX,
   changelogVersionHeading,
-  COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
   DEFAULT_CHANGELOG_PATH,
   RELEASE_NOTES_AGENT_MAX_TURNS,
   RELEASE_NOTES_AGENT_PERMISSION_MODE,
   RELEASE_NOTES_AGENT_TOOLS,
-  RELEASE_NOTES_OBSERVABLE_EFFECT_BASIS,
-  RELEASE_NOTES_OMITTED_CHANGE_CLASSES,
   RELEASE_NOTES_VERSION_HEADING_INSTRUCTION,
   RELEASE_VERSION_DATA_BLOCK_CLOSE,
   ReleaseNotesError,
 } from "@/domains/release/release-notes";
+import { RELEASE_NOTES_STANDARDS } from "@/domains/release/release-notes-standards";
 import { isPathContained } from "@/lib/file-system/pathContainment";
+import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import { sampleNonConformantReleaseNotesChangelogCases } from "@testing/generators/release/changelog";
+import { sampleReleaseContextScenario } from "@testing/generators/release/product-context";
+import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 import {
-  arbitraryReleaseNotesOmittedOnlyScenario,
-  arbitraryReleaseNotesSubjectScopeScenario,
   RELEASE_NOTES_CONFIGURED_PATH_REJECTION_CASE,
   RELEASE_NOTES_EXISTING_SECTION_CASE,
   RELEASE_NOTES_FAITHFULNESS_CASE,
   RELEASE_NOTES_MUTATION_CASE,
   RELEASE_NOTES_PATH_CASE,
+  RELEASE_NOTES_PATH_CONTAINMENT_CASE,
   RELEASE_NOTES_PROMPT_CASE,
+  type ReleaseNotesPathContainmentCase,
   releaseNotesPromptPathProse,
   releaseNotesPromptVersionProse,
-  releaseNotesSubjectScopeAuditInput,
   sampleAbsoluteReleaseNotesPathInput,
-  samplePartialWriteReleaseNotesScenario,
   sampleReleaseNotesConfiguredPathRejectionInput,
   sampleReleaseNotesExistingSectionScenario,
   sampleReleaseNotesFaithfulnessScenario,
@@ -41,19 +43,23 @@ import {
   sampleReleaseNotesPromptInput,
   sampleSymlinkRootReleaseNotesInput,
 } from "@testing/generators/release/release-notes";
-import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
+import { GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
+import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
+import { observeIndependentVersionSection } from "@testing/harnesses/release/keep-a-changelog-oracle";
 import {
   observeAbsoluteInTreeReleaseNotesPath,
   observeConfiguredReleaseNotesPathRejection,
   observeExistingReleaseNotesSection,
+  observeReleaseContextReadFailure,
+  observeReleaseNotesCommitScopeFixture,
+  observeReleaseNotesEscapingPathFixture,
   observeReleaseNotesFaithfulness,
   observeReleaseNotesMutation,
-  observeReleaseNotesOmittedOnlyComposition,
-  observeReleaseNotesPartialWriteFailure,
+  observeReleaseNotesPartialWriteFixture,
   observeReleaseNotesPath,
   observeReleaseNotesPrompt,
-  observeReleaseNotesPromptSubjects,
   observeReleaseNotesSymlinkToRootPath,
+  RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH,
 } from "@testing/harnesses/release/release-notes-compliance";
 import {
   composeEveryReleaseNotesCase,
@@ -61,7 +67,67 @@ import {
 } from "@testing/harnesses/release/release-notes-conformance";
 import { describe, expect, it } from "vitest";
 
-it("assembles the producer prompt from every named instruction and shares both contracts with the audit prompt", async () => {
+it("does not invoke an agent after selected context reading fails", async () => {
+  const scenario = sampleReleaseContextScenario();
+  const observation = await observeReleaseContextReadFailure(scenario);
+  expect(observation.error).toBeInstanceOf(Error);
+  expect((observation.error as Error).message).toContain(scenario.specification.path);
+  expect(observation.invocations).toBe(0);
+});
+
+it("reads product truth even when every changed declaration has a spec commit label", async () => {
+  await withGitWorktreeEnv(async (env) => {
+    const scenario = sampleReleaseContextScenario();
+    for (const document of scenario.documents) {
+      await env.writeTracked(document.path, document.content);
+    }
+    await env.commit(scenario.subject);
+    const releaseRef = await env.runGit([GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
+    await expect(readReleaseProductContext(
+      env.productDir,
+      { ...scenario.releaseData, releaseRef, previousTag: null },
+    ))
+      .resolves.toEqual(scenario.documents);
+  });
+});
+
+it("permits a product without a spec tree", async () => {
+  await withGitWorktreeEnv(async (env) => {
+    const scenario = sampleReleaseContextScenario();
+    await env.writeTracked(DEFAULT_RELEASE_DOCUMENTATION_PATHS[0], scenario.product.content);
+    await env.commit(scenario.subject);
+    const releaseRef = await env.runGit([GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
+    await expect(readReleaseProductContext(
+      env.productDir,
+      {
+        ...sampleReleaseTestValue(RELEASE_TEST_GENERATOR.releaseDataWithoutPreviousTag()),
+        releaseRef,
+        changedPaths: [],
+      },
+    ))
+      .resolves.toEqual([]);
+  });
+});
+
+it("rejects selected nodes whose specification cannot be read", async () => {
+  await withGitWorktreeEnv(async (env) => {
+    const scenario = sampleReleaseContextScenario();
+    await env.writeTracked(scenario.product.path, scenario.product.content);
+    await env.writeTracked(
+      scenario.missingSpecificationPath,
+      scenario.specification.content,
+    );
+    await env.commit(scenario.subject);
+    const releaseRef = await env.runGit([GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
+    await expect(readReleaseProductContext(
+      env.productDir,
+      { ...scenario.releaseData, releaseRef, previousTag: null },
+    ))
+      .rejects.toThrow(scenario.specification.path);
+  });
+});
+
+it("carries the complete shared standards in the producer and audit prompts", async () => {
   const scenario = sampleReleaseNotesFaithfulnessScenario(
     RELEASE_NOTES_FAITHFULNESS_CASE.PRODUCTION_AUDITOR,
   );
@@ -72,8 +138,7 @@ it("assembles the producer prompt from every named instruction and shares both c
   const audit = await observeReleaseNotesFaithfulness(scenario.input);
 
   for (const prompt of [producerPrompt, audit.auditPrompt]) {
-    expect(prompt).toContain(RELEASE_NOTES_OBSERVABLE_EFFECT_BASIS);
-    expect(prompt).toContain(RELEASE_NOTES_OMITTED_CHANGE_CLASSES);
+    expect(prompt).toContain(RELEASE_NOTES_STANDARDS);
   }
   expect(producerPrompt).toContain(CHANGELOG_PRESERVATION_INSTRUCTION);
   expect(producerPrompt).toContain(RELEASE_NOTES_VERSION_HEADING_INSTRUCTION);
@@ -94,12 +159,12 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
       expect(JSON.parse(observation.versionDataBlock.data)).toBe(
         input.fixture.releaseData.version,
       );
-      expect(observation.subjectsDataBlock.start).toBeGreaterThan(-1);
-      expect(observation.subjectsDataBlock.end).toBeGreaterThan(
-        observation.subjectsDataBlock.start,
+      expect(observation.sourceDataBlock.start).toBeGreaterThan(-1);
+      expect(observation.sourceDataBlock.end).toBeGreaterThan(
+        observation.sourceDataBlock.start,
       );
-      expect(JSON.parse(observation.subjectsDataBlock.data)).toEqual(
-        input.fixture.subjects,
+      expect(JSON.parse(observation.sourceDataBlock.data)).toEqual(
+        { productContext: [], releaseData: input.fixture.releaseData },
       );
       expect(observation.stagedPromptPath).not.toBe(
         observation.canonicalOutputPath,
@@ -313,15 +378,15 @@ describe("composeReleaseNotes builds the prompt from the release data and resolv
       RELEASE_NOTES_PROMPT_CASE.DELIMITER_SUBJECT,
     );
     await expect(observeReleaseNotesPrompt(input)).resolves.toSatisfy((observation) => {
-      expect(observation.subjectsDataBlock.start).toBeGreaterThan(-1);
-      expect(observation.subjectsDataBlock.end).toBeGreaterThan(
-        observation.subjectsDataBlock.start,
+      expect(observation.sourceDataBlock.start).toBeGreaterThan(-1);
+      expect(observation.sourceDataBlock.end).toBeGreaterThan(
+        observation.sourceDataBlock.start,
       );
-      expect(observation.subjectsDataBlock.data).not.toContain(
-        COMMIT_SUBJECTS_DATA_BLOCK_CLOSE,
+      expect(observation.sourceDataBlock.data).not.toContain(
+        RELEASE_SOURCE_DATA_BLOCK_CLOSE,
       );
-      expect(JSON.parse(observation.subjectsDataBlock.data)).toEqual(
-        input.fixture.subjects,
+      expect(JSON.parse(observation.sourceDataBlock.data)).toEqual(
+        { productContext: [], releaseData: input.fixture.releaseData },
       );
       return true;
     });
@@ -486,9 +551,8 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
       expect(observation.actualReleaseData).toBe(
         scenario.input.fixture.releaseData,
       );
-      expect(observation.auditedSection).toContain(
-        changelogVersionHeading(scenario.input.fixture.releaseData.version),
-      );
+      expect(observeIndependentVersionSection(observation.auditedSection, scenario.input.fixture.releaseData.version))
+        .toBeDefined();
       expect(observation.promotionAttempted).toBe(false);
       expect(observation.canonicalOutputPath).toBeUndefined();
       return true;
@@ -550,15 +614,11 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
   });
 
   it("preserves the existing changelog when atomic promotion cannot finish its temporary write", async () => {
-    const scenario = samplePartialWriteReleaseNotesScenario();
-    await expect(observeReleaseNotesPartialWriteFailure(scenario.input)).resolves.toSatisfy(
-      (observation) => {
+    await observeReleaseNotesPartialWriteFixture(RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH.PARTIAL_WRITE).then(
+      ({ fixture, observation }) => {
         expect(observation.error).toBeInstanceOf(ReleaseNotesError);
-        expect(observation.finalContent).toBe(scenario.input.existingContent);
-        expect(observation.directoryEntries).toEqual(
-          scenario.expectedDirectoryEntries,
-        );
-        return true;
+        expect(observation.finalContent).toBe(fixture.existingContent);
+        expect(observation.directoryEntries).toEqual([DEFAULT_CHANGELOG_PATH]);
       },
     );
   });
@@ -644,13 +704,12 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
   });
 
   it("rejects a configured changelog path that escapes the working tree without invoking the agent", async () => {
-    await expect(
-      observeReleaseNotesPath(sampleReleaseNotesPathInput(RELEASE_NOTES_PATH_CASE.ESCAPING)),
-    ).resolves.toSatisfy((observation) => {
-      expect(observation.error).toBeInstanceOf(ReleaseNotesError);
-      expect(observation.agentRequestCount).toBe(0);
-      return true;
-    });
+    await observeReleaseNotesEscapingPathFixture(RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH.ESCAPING_PATH).then(
+      ({ observation }) => {
+        expect(observation.error).toBeInstanceOf(ReleaseNotesError);
+        expect(observation.agentRequestCount).toBe(0);
+      },
+    );
   });
 
   it("rejects a configured changelog path through a symlink that escapes the working tree", async () => {
@@ -722,39 +781,34 @@ describe("composeReleaseNotes keeps the changelog path within the product workin
 
 describe("isPathContained verifies release path containment edge cases directly", () => {
   it("classifies generated POSIX and Windows containment boundaries", () => {
+    const containedCases = new Set<ReleaseNotesPathContainmentCase>([
+      RELEASE_NOTES_PATH_CONTAINMENT_CASE.CHILD_OF_PARENT_DIRECTORY,
+      RELEASE_NOTES_PATH_CONTAINMENT_CASE.ROOT,
+      RELEASE_NOTES_PATH_CONTAINMENT_CASE.ROOTED_SEGMENT,
+    ]);
     for (const input of sampleReleaseNotesPathContainmentInputs()) {
-      expect(isPathContained(input.root, input.candidate)).toBe(input.expected);
+      expect(isPathContained(input.root, input.candidate)).toBe(
+        containedCases.has(input.kind),
+      );
     }
   });
 });
 
-describe("release-notes prompts carry only the subjects the notes describe", () => {
-  it("fails a release whose every commit carries an omitted type before the agent runs", async () => {
-    await assertProperty(
-      arbitraryReleaseNotesOmittedOnlyScenario(),
-      async (scenario) => {
-        expect(JSON.parse(observeReleaseNotesPromptSubjects(scenario.releaseData).data)).toEqual([]);
-        const observation = await observeReleaseNotesOmittedOnlyComposition(scenario);
-        expect(observation.error).toBeInstanceOf(ReleaseNotesError);
-        expect(observation.agentRequestCount).toBe(0);
-        expect(observation.finalPathIsFile).toBe(false);
+describe("release-notes prompts preserve release inputs regardless of commit type", () => {
+  it("retains declaration and maintenance commits from a whole release payload", async () => {
+    await observeReleaseNotesCommitScopeFixture(RELEASE_NOTES_COMPLIANCE_FIXTURE_PATH.COMMIT_SCOPE).then(
+      (observation) => {
+        expect(JSON.parse(observation.producerSource.data)).toEqual({
+          productContext: [],
+          releaseData: observation.fixture.releaseData,
+        });
+        expect(observation.composition.agentRequestCount).toBe(1);
+        expect(observation.audit.auditAttempted).toBe(true);
+        expect(JSON.parse(observation.audit.auditSourceDataBlock.data)).toEqual({
+          productContext: [],
+          releaseData: observation.fixture.releaseData,
+        });
       },
-      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
-    );
-  });
-
-  it("withholds spec, test, refactor, style, docs, ci, and build subjects from the producer and the audit alike", async () => {
-    await assertProperty(
-      arbitraryReleaseNotesSubjectScopeScenario(),
-      async (scenario) => {
-        expect(JSON.parse(observeReleaseNotesPromptSubjects(scenario.releaseData).data)).toEqual(
-          scenario.keptSubjects,
-        );
-        const audit = await observeReleaseNotesFaithfulness(releaseNotesSubjectScopeAuditInput(scenario));
-        expect(audit.auditAttempted).toBe(true);
-        expect(JSON.parse(audit.auditSubjectsDataBlock.data)).toEqual(scenario.keptSubjects);
-      },
-      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
   });
 });

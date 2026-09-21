@@ -1,6 +1,9 @@
 import { AGENT_PERMISSION_MODES, AGENT_TOOL_PERMISSION_BEHAVIOR } from "@/agent/agent-runner";
 import { RELEASE_CONFIG_FIELDS, releaseConfigDescriptor } from "@/domains/release/config";
+import { DOCUMENTATION_SYNC_AUDIT_APPROVED } from "@/domains/release/documentation-sync";
+import { selectReleaseOwnershipContext } from "@/domains/release/product-context";
 import { releaseVersionFromTag } from "@/domains/release/release-data";
+import { RELEASE_PRODUCT_TRUTH_STANDARDS } from "@/domains/release/release-notes-standards";
 import { isPathContained } from "@/lib/file-system/pathContainment";
 import { RELEASE_TAG_PREFIX } from "@/lib/git/release";
 import {
@@ -8,25 +11,92 @@ import {
   arbitraryDocumentationAgentFileToolBoundaryScenario,
   arbitraryDocumentationVersionPreservationScenarios,
   arbitraryDuplicateDocumentationPathSet,
+  arbitraryProtectedVersionRewriteScenario,
   arbitrarySparseDocumentationPathSet,
-  arbitraryUnrelatedVersionRewriteScenario,
   documentationContentEntries,
 } from "@testing/generators/release/documentation";
+import {
+  arbitraryReleaseContextScenario,
+  arbitraryReleaseEndpointOwnershipScenario,
+  arbitraryReleaseEndpointSourceScenario,
+  RELEASE_ENDPOINT_OWNERSHIP_CASE,
+} from "@testing/generators/release/product-context";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import {
   observeConfiguredDocumentationPathSet,
   observeDocumentationAgentFileToolBoundary,
+  observeDocumentationContextTransport,
   observeDocumentationVersionPreservation,
-  observeUnrelatedVersionRewrite,
+  observeProtectedVersionRewrite,
 } from "@testing/harnesses/release/documentation-sync";
+import { observeReleaseEndpointSources } from "@testing/harnesses/release/product-context";
+import fc from "fast-check";
 import { describe, expect, it } from "vitest";
+
+it("preserves identical product truth and release inputs for both documentation agents", async () => {
+  await assertProperty(
+    fc.tuple(arbitraryConfiguredDocumentationSyncScenario(), arbitraryReleaseContextScenario()),
+    async ([scenario, context]) => {
+      const observation = await observeDocumentationContextTransport(
+        scenario,
+        context,
+        async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
+      );
+      for (const input of [observation.producerSource, observation.auditorSource]) {
+        expect(input).toEqual({
+          productContext: context.documents,
+          releaseData: { ...scenario.releaseData, changedPaths: context.releaseData.changedPaths },
+        });
+      }
+      for (const prompt of [observation.producerPrompt, observation.auditPrompt]) {
+        expect(prompt).toContain(RELEASE_PRODUCT_TRUTH_STANDARDS);
+      }
+    },
+    { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+  );
+});
+
+it("retains every distinct candidate and governing node across both release endpoints", async () => {
+  await assertProperty(
+    arbitraryReleaseEndpointOwnershipScenario(),
+    (scenario) => {
+      expect(selectReleaseOwnershipContext(scenario.changedPaths, scenario.endpointOwnership)).toEqual(
+        { nodeIds: scenario.expectedNodeIds, unresolvedPaths: scenario.expectedUnresolvedPaths },
+      );
+    },
+    { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+  );
+});
+
+it.each(Object.values(RELEASE_ENDPOINT_OWNERSHIP_CASE))(
+  "resolves generated %s ownership topologies across in-memory release endpoints before invoking agents",
+  async (kind) => {
+    await assertProperty(
+      arbitraryReleaseEndpointSourceScenario(kind),
+      async (scenario) => {
+        const observation = await observeReleaseEndpointSources(scenario);
+        const contextPaths = observation.context.map(({ path }) => path);
+        if (scenario.kind === RELEASE_ENDPOINT_OWNERSHIP_CASE.UNRESOLVED) {
+          expect(observation.error).toBeInstanceOf(Error);
+          expect((observation.error as Error).message).toContain(scenario.changedSourcePath);
+          expect(observation.producerInvocations).toBe(0);
+          expect(observation.auditorInvocations).toBe(0);
+        } else {
+          expect(observation.error).toBeUndefined();
+          expect(contextPaths).toEqual(expect.arrayContaining([...scenario.expectedContextPaths]));
+        }
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+  },
+);
 
 describe("documentation sync path properties", () => {
   it("preserves every generated configured documentation path set", async () => {
     await assertProperty(
       arbitraryConfiguredDocumentationSyncScenario(),
       async (scenario) => {
-        const observation = await observeConfiguredDocumentationPathSet(scenario);
+        const observation = observeConfiguredDocumentationPathSet(scenario);
         expect(observation.actual).toEqual(scenario.paths);
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
@@ -69,7 +139,12 @@ describe("documentation sync path properties", () => {
     await assertProperty(
       arbitraryDocumentationVersionPreservationScenarios(),
       async (scenarios) => {
-        for (const observation of await observeDocumentationVersionPreservation(scenarios)) {
+        for (
+          const observation of await observeDocumentationVersionPreservation(
+            scenarios,
+            async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
+          )
+        ) {
           const previousVersion = observation.scenario.releaseData.previousTag === null
             ? undefined
             : releaseVersionFromTag(observation.scenario.releaseData.previousTag);
@@ -96,18 +171,16 @@ describe("documentation sync path properties", () => {
     );
   });
 
-  it("rejects every generated unrelated semantic-version rewrite before promotion", async () => {
+  it("rejects every generated protected semantic-version rewrite before promotion", async () => {
     await assertProperty(
-      arbitraryUnrelatedVersionRewriteScenario(),
+      arbitraryProtectedVersionRewriteScenario(),
       async (testCase) => {
-        const observation = await observeUnrelatedVersionRewrite(testCase);
-        expect(observation.error).toBeDefined();
-        expect(observation.actualAuditDocuments).toEqual(
-          testCase.scenario.paths.map((path) => ({
-            path,
-            updatedContent: testCase.rewritten[path],
-          })),
+        const observation = await observeProtectedVersionRewrite(
+          testCase,
+          async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
         );
+        expect(observation.error).toBeDefined();
+        expect(observation.auditRequestCount).toBe(0);
         expect(observation.promotionCallCount).toBe(0);
         expect(observation.actual).toEqual(
           documentationContentEntries(testCase.scenario, testCase.scenario.original),
@@ -121,7 +194,10 @@ describe("documentation sync path properties", () => {
     await assertProperty(
       arbitraryDocumentationAgentFileToolBoundaryScenario(),
       async (scenario) => {
-        const observation = await observeDocumentationAgentFileToolBoundary(scenario);
+        const observation = await observeDocumentationAgentFileToolBoundary(
+          scenario,
+          async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
+        );
         expect(
           observation.promptPaths.every((path) => isPathContained(observation.workingDirectory, path)),
         ).toBe(true);

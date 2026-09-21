@@ -1,7 +1,9 @@
 import { AGENT_PERMISSION_MODES, AGENT_RUN_TOOLS, type AgentAuditor, type AgentRunner } from "@/agent/agent-runner";
 import { DEFAULT_RELEASE_DOCUMENTATION_PATHS, type DocumentationSyncConfig } from "@/domains/release/config";
+import { formatReleaseSourceInput, type ReleaseSourceInput } from "@/domains/release/product-context";
 import { encodeReleasePromptData } from "@/domains/release/prompt-data";
 import { type ReleaseData, releaseVersionFromTag } from "@/domains/release/release-data";
+import { RELEASE_PRODUCT_TRUTH_STANDARDS } from "@/domains/release/release-notes-standards";
 import { RELEASE_TAG_PREFIX } from "@/lib/git/release";
 
 export const DOCUMENTATION_FILE_EXTENSION = ".md";
@@ -30,6 +32,8 @@ export const DOCUMENTATION_SYNC_AUDIT_VERSIONLESS_INSTRUCTION =
 const REGEXP_SPECIAL_CHARACTER_PATTERN = /[.*+?^${}()|[\]\\]/gu;
 const REGEXP_ESCAPE_REPLACEMENT = String.raw`\$&`;
 const VERSION_REFERENCE_NON_WHITESPACE_PATTERN = String.raw`\S`;
+const WHITESPACE_PATTERN = /\s+/u;
+const SEMANTIC_VERSION_TOKEN_PATTERN = /v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?/u;
 
 export interface StagedDocumentation {
   readonly workingDirectory: string;
@@ -48,7 +52,7 @@ export interface DocumentationFileIdentity {
   readonly inode: number;
 }
 
-export interface DocumentationSyncPromptInput {
+export interface DocumentationSyncPromptInput extends ReleaseSourceInput {
   readonly releaseData: ReleaseData;
   readonly documents: readonly {
     readonly sourcePath: string;
@@ -60,9 +64,17 @@ export function buildDocumentationSyncPrompt(
   input: DocumentationSyncPromptInput,
 ): string {
   const encodedVersion = encodeReleasePromptData(input.releaseData.version).slice(1, -1);
-  return `${DOCUMENTATION_SYNC_PROMPT_INSTRUCTION}\n${DOCUMENTATION_SYNC_RELEASE_VERSION_INSTRUCTION} ${encodedVersion}.\n${DOCUMENTATION_SYNC_REPLACE_PREVIOUS_VERSION_INSTRUCTION}\n${DOCUMENTATION_SYNC_VERSIONLESS_INSTRUCTION}\n\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN}\n${
-    encodeReleasePromptData(input)
-  }\n${DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE}`;
+  return [
+    DOCUMENTATION_SYNC_PROMPT_INSTRUCTION,
+    RELEASE_PRODUCT_TRUTH_STANDARDS,
+    formatReleaseSourceInput(input),
+    `${DOCUMENTATION_SYNC_RELEASE_VERSION_INSTRUCTION} ${encodedVersion}.`,
+    DOCUMENTATION_SYNC_REPLACE_PREVIOUS_VERSION_INSTRUCTION,
+    DOCUMENTATION_SYNC_VERSIONLESS_INSTRUCTION,
+    DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN,
+    encodeReleasePromptData({ documents: input.documents }),
+    DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
+  ].join("\n\n");
 }
 
 export type DocumentationStager = (
@@ -82,7 +94,7 @@ export interface DocumentationPromotion {
 export type DocumentationPromoter = (documents: readonly DocumentationPromotion[]) => Promise<void>;
 
 export type DocumentationFaithfulnessAuditor = (
-  input: {
+  input: ReleaseSourceInput & {
     readonly releaseData: ReleaseData;
     readonly documents: readonly {
       readonly path: string;
@@ -92,7 +104,7 @@ export type DocumentationFaithfulnessAuditor = (
   },
 ) => Promise<void>;
 
-export interface ComposeDocumentationSyncOptions {
+export interface ComposeDocumentationSyncOptions extends ReleaseSourceInput {
   readonly releaseData: ReleaseData;
   readonly config: DocumentationSyncConfig;
   readonly productDir: string;
@@ -121,7 +133,11 @@ export async function composeDocumentationSync(
   try {
     const promptDocuments = stage.documents.map(({ sourcePath, stagedPath }) => ({ sourcePath, stagedPath }));
     await options.agentRunner.run({
-      prompt: buildDocumentationSyncPrompt({ releaseData: options.releaseData, documents: promptDocuments }),
+      prompt: buildDocumentationSyncPrompt({
+        releaseData: options.releaseData,
+        productContext: options.productContext,
+        documents: promptDocuments,
+      }),
       workingDirectory: stage.workingDirectory,
       tools: DOCUMENTATION_SYNC_AGENT_TOOLS,
       allowedTools: DOCUMENTATION_SYNC_AGENT_TOOLS,
@@ -136,11 +152,12 @@ export async function composeDocumentationSync(
       originalContent,
     }) => {
       const updatedContent = await options.readDocument(stage.workingDirectory, stagedPath);
-      assertReleasedVersionReferencesUpdated(updatedContent, options.releaseData, sourcePath);
+      assertReleasedVersionReferencesUpdated(originalContent, updatedContent, options.releaseData, sourcePath);
       return { path: sourcePath, targetPath, originalIdentity, originalContent, updatedContent };
     }));
     await options.faithfulnessAuditor({
       releaseData: options.releaseData,
+      productContext: options.productContext,
       documents: documents.map(({ path, originalContent, updatedContent }) => ({
         path,
         originalContent,
@@ -183,18 +200,55 @@ export function createDocumentationFaithfulnessAuditor(
 }
 
 function assertReleasedVersionReferencesUpdated(
-  content: string,
+  originalContent: string,
+  updatedContent: string,
   releaseData: ReleaseData,
   path: string,
 ): void {
-  if (!containsReleaseVersionReference(content, releaseData.version)) {
+  assertUnrelatedVersionTokensPreserved(originalContent, updatedContent, releaseData, path);
+  if (!containsReleaseVersionReference(updatedContent, releaseData.version)) {
     throw new Error(`Updated documentation does not reference release version ${releaseData.version}: ${path}`);
   }
   if (releaseData.previousTag === null) return;
   const previousVersion = releaseVersionFromTag(releaseData.previousTag);
-  if (containsReleaseVersionReference(content, previousVersion)) {
+  if (containsReleaseVersionReference(updatedContent, previousVersion)) {
     throw new Error(`Updated documentation still references previous release version ${previousVersion}: ${path}`);
   }
+}
+
+function assertUnrelatedVersionTokensPreserved(
+  originalContent: string,
+  updatedContent: string,
+  releaseData: ReleaseData,
+  path: string,
+): void {
+  const previousVersion = releaseData.previousTag === null
+    ? undefined
+    : releaseVersionFromTag(releaseData.previousTag);
+  const updatedTokenCounts = tokenCounts(updatedContent);
+  for (const token of semanticVersionTokens(originalContent)) {
+    if (
+      previousVersion !== undefined
+      && (token === previousVersion || token === `${RELEASE_TAG_PREFIX}${previousVersion}`)
+    ) continue;
+    const remaining = updatedTokenCounts.get(token) ?? 0;
+    if (remaining === 0) {
+      throw new Error(`Updated documentation rewrites unrelated version token ${token}: ${path}`);
+    }
+    updatedTokenCounts.set(token, remaining - 1);
+  }
+}
+
+function semanticVersionTokens(content: string): readonly string[] {
+  return content.split(WHITESPACE_PATTERN).filter((token) => SEMANTIC_VERSION_TOKEN_PATTERN.test(token));
+}
+
+function tokenCounts(content: string): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const token of content.split(WHITESPACE_PATTERN)) {
+    counts.set(token, (counts.get(token) ?? 0) + 1);
+  }
+  return counts;
 }
 
 function containsReleaseVersionReference(content: string, version: string): boolean {
@@ -209,12 +263,14 @@ function buildDocumentationFaithfulnessAuditPrompt(
   input: Parameters<DocumentationFaithfulnessAuditor>[0],
 ): string {
   return [
+    RELEASE_PRODUCT_TRUTH_STANDARDS,
+    formatReleaseSourceInput(input),
     "Audit whether every original-to-updated documentation transformation faithfully applies the supplied release data, including updating each previous-release reference rather than deleting it.",
     DOCUMENTATION_SYNC_AUDIT_VERSIONLESS_INSTRUCTION,
     `Return exactly ${DOCUMENTATION_SYNC_AUDIT_APPROVED} when every changed claim is supported and every previous-release reference remains represented by the released version.`,
     `Return ${DOCUMENTATION_SYNC_AUDIT_REJECTED} followed by a concise reason for any unsupported claim, deleted previous-release reference, or omitted release update.`,
     DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN,
-    encodeReleasePromptData(input),
+    encodeReleasePromptData({ documents: input.documents }),
     DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
   ].join("\n\n");
 }

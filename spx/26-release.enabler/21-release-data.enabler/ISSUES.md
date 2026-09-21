@@ -1,5 +1,13 @@
 # Issues
 
+## Equal package and previous-release versions have no declared delta
+
+`classifyVersionDelta` in [release-data.ts](../../../src/domains/release/release-data.ts) classifies the delta between the previous release tag's version and the package version as the most significant differing component, falling through to `PATCH` when the two encode the same version. Re-releasing the same version is an error, not a patch, so this fall-through has no declared product meaning.
+
+Publish dispatch governs the release tag and package-version relationship in [43-publish-dispatch.enabler](../43-publish-dispatch.enabler). Until that contract is declared, callers cannot rely on the delta for equal versions, and the property evidence in [release-data.property.l1.test.ts](tests/release-data.property.l1.test.ts) covers only versions that advance beyond the previous tag.
+
+**Resolution when addressed:** once publish dispatch declares its tag-version precondition, specify whether an equal version produces a distinct no-delta value or rejects the release in [release-data.md](release-data.md), then extend the property evidence across that case.
+
 ## Prerelease and build-metadata version suffixes are misclassified
 
 `parseSemver` in [release-data.ts](../../../src/domains/release/release-data.ts) splits on `.` and reads each component with `parseInt`, which silently truncates a prerelease or build-metadata suffix: `1.2.3-rc.1` yields patch `3` (from `parseInt("3-rc")`). A product working tree whose `package.json` carries a prerelease version passes through `classifyVersionDelta` without detection. The spec covers only advancing versions; equal versions are deferred to publish dispatch. Prerelease inputs are a third unhandled case.

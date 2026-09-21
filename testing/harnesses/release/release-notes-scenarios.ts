@@ -3,8 +3,7 @@ import { join, sep } from "node:path";
 
 import { releaseNotesCommand } from "@/commands/release";
 import { composeReleaseNotes, DEFAULT_CHANGELOG_PATH, resolveReleaseNotesPath } from "@/domains/release/release-notes";
-import { arbitraryConfiguredChangelogPath } from "@testing/generators/release/changelog";
-import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
+import type { ReleaseNotesCompositionFixture } from "@testing/generators/release/release-notes";
 import { releaseDataDrivenAgentRunner } from "@testing/harnesses/release/agent-runner";
 import { approvingReleaseNotesFaithfulnessAuditor } from "@testing/harnesses/release/release-notes";
 import {
@@ -25,7 +24,7 @@ export interface ReleaseNotesWriteObservation {
 
 export interface ReleaseNotesCommandObservation extends ReleaseNotesWriteObservation {
   readonly output: string;
-  readonly resolvedPath: string;
+  readonly expectedPath: string;
 }
 
 export interface CanonicalReleaseNotesCommandObservation extends ReleaseNotesCommandObservation {
@@ -45,10 +44,9 @@ export async function observeDefaultReleaseNotesPath(): Promise<ReleaseNotesPath
   return requireObservation(observation);
 }
 
-export async function observeConfiguredReleaseNotesPath(): Promise<ReleaseNotesPathObservation> {
+export async function observeConfiguredReleaseNotesPath(configuredPath: string): Promise<ReleaseNotesPathObservation> {
   let observation: ReleaseNotesPathObservation | undefined;
   await withReleaseNotesEnv(async ({ workingDirectory }) => {
-    const configuredPath = sampleReleaseTestValue(arbitraryConfiguredChangelogPath());
     observation = {
       workingDirectory,
       resolvedPath: resolveReleaseNotesPath(workingDirectory, { changelogPath: configuredPath }),
@@ -58,20 +56,20 @@ export async function observeConfiguredReleaseNotesPath(): Promise<ReleaseNotesP
   return requireObservation(observation);
 }
 
-export async function observeComposedReleaseNotes(): Promise<ReleaseNotesWriteObservation> {
+export async function observeComposedReleaseNotes(
+  fixture: ReleaseNotesCompositionFixture,
+  expectedRelativePath: string,
+): Promise<ReleaseNotesWriteObservation> {
   let observation: ReleaseNotesWriteObservation | undefined;
   await withReleaseNotesEnv(async (env) => {
-    const releaseData = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.releaseData());
+    const { releaseData } = fixture;
     const resolvedPath = resolveReleaseNotesPath(env.workingDirectory, {});
+    const expectedPath = join(env.workingDirectory, expectedRelativePath);
     await composeReleaseNotes({
       releaseData,
       config: {},
       workingDirectory: env.workingDirectory,
-      agentRunner: releaseDataDrivenAgentRunner(
-        env.workingDirectory,
-        resolvedPath,
-        releaseData.commits.map((commit) => commit.subject),
-      ),
+      agentRunner: releaseDataDrivenAgentRunner(env.workingDirectory, resolvedPath),
       readArtifact: env.readArtifact,
       createArtifactStage: env.createArtifactStage,
       promoteArtifact: env.promoteArtifact,
@@ -80,45 +78,46 @@ export async function observeComposedReleaseNotes(): Promise<ReleaseNotesWriteOb
       isSymbolicLink: env.isSymbolicLink,
       isFile: env.isFile,
     });
-    observation = { content: await env.readArtifact(resolvedPath), version: releaseData.version };
+    observation = { content: await env.readArtifact(expectedPath), version: releaseData.version };
   });
   return requireObservation(observation);
 }
 
-export async function observeReleaseNotesCommand(): Promise<ReleaseNotesCommandObservation> {
+export async function observeReleaseNotesCommand(
+  fixture: ReleaseNotesCompositionFixture,
+  expectedRelativePath: string,
+): Promise<ReleaseNotesCommandObservation> {
   let observation: ReleaseNotesCommandObservation | undefined;
   await withReleaseNotesEnv(async (env) => {
-    const releaseData = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.releaseData());
+    const { releaseData } = fixture;
     const resolvedPath = resolveReleaseNotesPath(env.workingDirectory, {});
+    const expectedPath = join(env.workingDirectory, expectedRelativePath);
     const output = await releaseNotesCommand({
       productDir: env.workingDirectory,
       config: {},
       releaseData,
-      agentRunner: releaseDataDrivenAgentRunner(
-        env.workingDirectory,
-        resolvedPath,
-        releaseData.commits.map((commit) => commit.subject),
-      ),
+      agentRunner: releaseDataDrivenAgentRunner(env.workingDirectory, resolvedPath),
       faithfulnessAuditor: approvingReleaseNotesFaithfulnessAuditor,
       filesystem: env,
     });
     observation = {
       output,
-      resolvedPath,
-      content: await env.readArtifact(resolvedPath),
+      expectedPath,
+      content: await env.readArtifact(expectedPath),
       version: releaseData.version,
     };
   });
   return requireObservation(observation);
 }
 
-export async function observeCanonicalReleaseNotesCommand(): Promise<CanonicalReleaseNotesCommandObservation> {
+export async function observeCanonicalReleaseNotesCommand(
+  fixture: ReleaseNotesCompositionFixture,
+  pathSegments: readonly [string, string, string],
+): Promise<CanonicalReleaseNotesCommandObservation> {
   let observation: CanonicalReleaseNotesCommandObservation | undefined;
   await withReleaseNotesEnv(async (env) => {
-    const releaseData = sampleReleaseTestValue(RELEASE_TEST_GENERATOR.releaseData());
-    const [actualDirectoryName, childDirectoryName, symlinkName] = sampleReleaseTestValue(
-      RELEASE_TEST_GENERATOR.distinctPathSegmentTriple(),
-    );
+    const { releaseData } = fixture;
+    const [actualDirectoryName, childDirectoryName, symlinkName] = pathSegments;
     const actualDirectory = join(env.workingDirectory, actualDirectoryName);
     const actualChildDirectory = join(actualDirectory, childDirectoryName);
     const symlinkPath = join(env.workingDirectory, symlinkName);
@@ -131,17 +130,13 @@ export async function observeCanonicalReleaseNotesCommand(): Promise<CanonicalRe
       productDir: env.workingDirectory,
       config: { changelogPath },
       releaseData,
-      agentRunner: releaseDataDrivenAgentRunner(
-        env.workingDirectory,
-        canonicalPath,
-        releaseData.commits.map((commit) => commit.subject),
-      ),
+      agentRunner: releaseDataDrivenAgentRunner(env.workingDirectory, canonicalPath),
       faithfulnessAuditor: approvingReleaseNotesFaithfulnessAuditor,
       filesystem: env,
     });
     observation = {
       output,
-      resolvedPath: canonicalPath,
+      expectedPath: canonicalPath,
       canonicalPath,
       lexicalPath,
       content: await env.readArtifact(canonicalPath),

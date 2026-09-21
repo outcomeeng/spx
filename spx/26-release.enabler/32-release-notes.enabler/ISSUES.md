@@ -1,32 +1,11 @@
 # Issues
 
-## Compliance evidence lacks whole-payload violating fixtures
+## Four compliance assertions settle on generated inputs instead of violating fixtures
 
-The test-evidence audit of release candidate
-`b47377e9835717e1f563fa4ceb06f74b114eb279` returned `REJECTED` with three
-`assertion-type-strategy` findings in
-`tests/release-notes.compliance.l1.test.ts`:
+The containment, prompt, faithfulness, and promotion assertions of [release-notes.md](release-notes.md) link [tests/release-notes.compliance.l1.test.ts](tests/release-notes.compliance.l1.test.ts), and the cases there for those four assertions run on generated scenarios and controlled collaborators. The Compliance strategy the test-evidence standards require settles each of them on a whole-payload violating fixture that crosses the governed production boundary.
 
-- `f-001`, line 733: the omitted-commit-type boundary uses generated property
-  cases instead of a real violating whole-payload fixture.
-- `f-002`, line 64: prompt contents, validation, faithfulness auditing, and
-  atomic promotion use generated scenarios and controlled collaborators instead
-  of the required violating fixtures.
-- `f-003`, line 378: canonical containment and path-swap rejection use generated
-  path scenarios rather than the required violating whole-payload fixtures.
+**Evidence:** the test-evidence audit of release candidate `b47377e9835717e1f563fa4ceb06f74b114eb279` returned `REJECTED` with three `assertion-type-strategy` findings against this file; the commit-type case that audit also named is settled, since the branch removed commit-type exclusion as a product rule and the remaining case asserts every commit stays available.
 
-**Impact:** execution reaches the asserted production behavior, but the evidence
-does not use the Compliance strategy required by the test-evidence standards.
-Passing deterministic tests do not resolve this audit rejection.
+**Impact:** the deterministic tests pass while the evidence for those four assertions does not carry the strategy their assertion type declares.
 
-**Release disposition:** the release candidate changes dated-heading conformance
-evidence, its generator, and the version-heading parser. The compliance test file
-and the three cited assertion contracts are unchanged. These findings are recorded
-as out-of-PR evidence subjects under the merge policy's auditor-verdict rule;
-the overall audit verdict remains rejected. Repair spans the compliance suite's
-fixture and collaborator design independently of the dated-heading change.
-
-**Settlement condition:** evidence for all three assertions uses whole-payload
-violating fixtures through the governed production boundaries, passes the node's
-deterministic tests, and receives an approved test-evidence audit. The governing
-workflows are `/test`, `/test-typescript`, and `/audit-tests`.
+**Settlement condition:** each of the four assertions — containment, prompt, faithfulness, promotion — links evidence that drives a whole-payload violating fixture through the production boundary, passes this node's deterministic tests, and receives an approved test-evidence audit.

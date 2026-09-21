@@ -1,6 +1,10 @@
+---
+malleability: spec
+---
+
 # Release Data
 
-PROVIDES deterministic release data — the package version, the commits since the previous release tag, the version delta, and the changed paths — computed from git without network access or LLM inference
+PROVIDES deterministic release data — the package version, the resolved release endpoint, the commits since the previous release tag, the version delta, and the changed paths — computed from git without network access or LLM inference
 SO THAT release-notes authoring, documentation sync, and publish dispatch
 CAN operate on one accurate, reproducible description of what a release contains
 
@@ -8,7 +12,9 @@ CAN operate on one accurate, reproducible description of what a release contains
 
 ### Scenarios
 
+- Given a commit message with a multiline explanation, when release data is computed, then the commit retains its subject and complete body ([test](tests/release-data.scenario.l1.test.ts))
 - Given a package version, when release data is computed, then the release data carries that package version so downstream children read one version ([test](tests/release-data.scenario.l1.test.ts))
+- Given a symbolic or tagged release ref, when release data is computed, then the release data carries the full commit identity of that release endpoint ([test](tests/release-data.scenario.l1.test.ts))
 - Given a previous release tag exists, when release data is computed for a release at HEAD, then it lists the commits between the most recent release tag preceding the release and HEAD ([test](tests/release-data.scenario.l1.test.ts))
 - Given the release commit is itself tagged, when release data is computed, then the delta anchors on the prior release tag rather than the tag at the release commit, so the release is not empty ([test](tests/release-data.scenario.l1.test.ts))
 - Given the release commit carries more than one release tag, when release data is computed, then the delta anchors on the prior release tag rather than any tag at the release commit ([test](tests/release-data.scenario.l1.test.ts))
@@ -18,14 +24,11 @@ CAN operate on one accurate, reproducible description of what a release contains
 - Given a merge commit introduces a path beyond either parent commit, when release data is computed, then the changed paths include that merge-commit path ([test](tests/release-data.scenario.l1.test.ts))
 - Given a path is touched by more than one commit since the previous release tag, when release data is computed, then it appears exactly once in the changed paths ([test](tests/release-data.scenario.l1.test.ts))
 
-### Mappings
-
-- The package version and the previous release tag map to the version delta — major, minor, or patch — for a release whose version advances beyond the previous tag ([test](tests/release-data.mapping.l1.test.ts))
-
 ### Properties
 
+- The package version and the previous release tag determine the version delta — major, minor, or patch — for every release whose version advances beyond the previous tag ([test](tests/release-data.property.l1.test.ts))
 - Release-data computation is deterministic: the same repository state always produces the same release data ([test](tests/release-data.property.l1.test.ts))
 
 ### Compliance
 
-- NEVER: perform network access or invoke an LLM to compute release data — git plumbing and the local working tree are the only inputs ([test](tests/release-data.compliance.l1.test.ts))
+- NEVER: perform network access or invoke an LLM to compute release data — every requested external operation outside the required local git operations is rejected before execution ([test](tests/release-data.compliance.l1.test.ts))
