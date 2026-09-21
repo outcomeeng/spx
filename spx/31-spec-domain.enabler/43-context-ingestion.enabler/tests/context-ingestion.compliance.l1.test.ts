@@ -16,17 +16,19 @@ import {
   specContextBootstrap,
 } from "@/lib/spec-tree";
 import {
+  CONFIG_TEST_GENERATOR,
+  generatedHarnessMethodologyConfig,
+  generatedInvalidMethodologyConfigs,
   generatedLineFormMethodologySection,
   generatedMethodologySection,
   generatedMethodologySource,
   generatedMigratingMethodologySection,
+  sampleConfigTestValue,
 } from "@testing/generators/config/descriptors";
 import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
 import {
-  specContextAmbiguousTargetFixture,
-  specContextExactPrefixTargetFixture,
+  specContextAmbiguousNestedDirectory,
   specContextLowerSiblingDirectoryName,
-  specContextNestedAmbiguousTarget,
 } from "@testing/generators/spec-tree/context-target";
 import {
   sampleSpecTreeTestValue,
@@ -37,11 +39,13 @@ import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   allManifestPaths,
-  contextCommand,
-  contextTextCommand,
+  contextListFailure,
+  contextListJson,
+  contextListManifest,
+  contextListText,
+  contextShowFailure,
   METHODOLOGY_FIXTURE_VERSION,
   parseContextManifest,
-  rejectedContextMessage,
   rootedSpecPath,
   specTreeKindsConfig,
   trackedSpecContextGitDependencies,
@@ -49,80 +53,70 @@ import {
 import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
 describe("spec context ingestion compliance", () => {
-  it("prefers an exact node segment over another sibling that begins with it", async () => {
+  it("never matches a longer path component as a suffix of a shorter operand", async () => {
     await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
       await env.materialize();
-      const fixture = specContextExactPrefixTargetFixture(env.fixture);
-      await env.writeRaw(fixture.candidateSpecPath, "# Exact-prefix sibling\n");
-      const manifest = parseContextManifest(
-        await contextCommand({ targets: [fixture.target], cwd: env.productDir }),
-      );
-      expect(manifest.targets).toEqual([rootedSpecPath(fixture.target)]);
+      const rootDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
+      const extended = `${rootDirectory}-candidate`;
+      await env.writeRaw(rootedSpecPath(`${extended}/${env.fixture.root.slug}.md`), "# Extended sibling\n");
+      const manifest = await contextListManifest({ targets: [rootDirectory], cwd: env.productDir });
+      expect(manifest.targets).toEqual([rootedSpecPath(rootDirectory)]);
     });
   });
 
-  it("rejects ambiguous node-segment prefixes without selecting a candidate", async () => {
+  it("rejects an operand two accepted targets share as a suffix, naming both, for list and for show", async () => {
     await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
       await env.materialize();
-      const ambiguity = specContextAmbiguousTargetFixture(env.fixture);
-      await env.writeRaw(ambiguity.specPath, "# Ambiguous sibling\n");
-      const message = await rejectedContextMessage(ambiguity.prefix, env.productDir);
-      expect(message).toContain(ambiguity.prefix);
-      expect(message).toContain(
-        SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS_SEGMENT],
-      );
-      expect(message).toContain(ambiguity.candidate);
-      expect(message).toContain(specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root));
+      const nested = specContextAmbiguousNestedDirectory(env.fixture);
+      await env.writeRaw(nested.nestedSpecPath, "# Nested namesake\n");
+      const rootTarget = rootedSpecPath(specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root));
+      for (
+        const failure of [
+          await contextListFailure({ targets: [nested.operand], cwd: env.productDir }),
+          await contextShowFailure({ targets: [nested.operand], cwd: env.productDir }),
+        ]
+      ) {
+        expect(failure).toContain(SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS]);
+        expect(failure).toContain(nested.operand);
+        expect(failure).toContain(rootTarget);
+        expect(failure).toContain(nested.nestedTargetPath);
+      }
     });
   });
 
-  it("does not use a matching descendant to disambiguate an ambiguous ancestor", async () => {
+  it("never uses a resolvable descendant to disambiguate an ambiguous ancestor operand", async () => {
     await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
       await env.materialize();
-      const ambiguity = specContextAmbiguousTargetFixture(env.fixture);
-      await env.writeRaw(ambiguity.specPath, "# Ambiguous sibling\n");
-      const snapshot = await env.readFilesystemSnapshot();
-      const target = specContextNestedAmbiguousTarget(snapshot, ambiguity);
-      const message = await rejectedContextMessage(target, env.productDir);
-      expect(message).toContain(ambiguity.candidate);
-      expect(message).toContain(specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root));
-    });
-  });
-
-  it("includes configured methodology identity in the manifest", async () => {
-    const methodology = generatedMethodologySection();
-    await withSpecTreeEnv({
-      ...specTreeKindsConfig(),
-      [METHODOLOGY_SECTION]: methodology,
-    }, async (env) => {
-      await env.materialize();
-      const snapshot = await env.readFilesystemSnapshot();
-      const target = snapshot.allNodes[0];
-      const manifest = parseContextManifest(await contextCommand({ targets: [target.id], cwd: env.productDir }));
-      expect(manifest.targets).toEqual([rootedSpecPath(target.id)]);
-      expect(manifest.productDir).toBe(env.productDir);
-      expect(manifest.methodology).toMatchObject({
-        source: methodology[METHODOLOGY_CONFIG_FIELDS.SOURCE],
-        version: methodology[METHODOLOGY_CONFIG_FIELDS.VERSION],
+      const nested = specContextAmbiguousNestedDirectory(env.fixture);
+      await env.writeRaw(nested.nestedSpecPath, "# Nested namesake\n");
+      // The child directory exists under the fixture root only, so a resolver
+      // that let the descendant pick the ancestor would succeed here.
+      const childDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.child);
+      const resolved = await contextListManifest({
+        targets: [`${nested.operand}/${childDirectory}`],
+        cwd: env.productDir,
       });
+      expect(resolved.targets).toEqual([rootedSpecPath(`${nested.operand}/${childDirectory}`)]);
+      const failure = await contextListFailure({ targets: [nested.operand], cwd: env.productDir });
+      expect(failure).toContain(SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS]);
     });
   });
 
-  it("includes a methodology version declared in the MAJOR.MINOR form in the manifest", async () => {
-    const methodology = generatedLineFormMethodologySection();
-    await withSpecTreeEnv({
-      ...specTreeKindsConfig(),
-      [METHODOLOGY_SECTION]: methodology,
-    }, async (env) => {
-      await env.materialize();
-      const snapshot = await env.readFilesystemSnapshot();
-      const target = snapshot.allNodes[0];
-      const manifest = parseContextManifest(await contextCommand({ targets: [target.id], cwd: env.productDir }));
-      expect(manifest.methodology).toMatchObject({
-        source: methodology[METHODOLOGY_CONFIG_FIELDS.SOURCE],
-        version: methodology[METHODOLOGY_CONFIG_FIELDS.VERSION],
+  it("includes configured methodology identity, in either accepted version form, in the manifest", async () => {
+    for (const methodology of [generatedMethodologySection(), generatedLineFormMethodologySection()]) {
+      await withSpecTreeEnv({ ...specTreeKindsConfig(), [METHODOLOGY_SECTION]: methodology }, async (env) => {
+        await env.materialize();
+        const snapshot = await env.readFilesystemSnapshot();
+        const target = snapshot.allNodes[0];
+        const manifest = await contextListManifest({ targets: [target.id], cwd: env.productDir });
+        expect(manifest.targets).toEqual([rootedSpecPath(target.id)]);
+        expect(manifest.productDir).toBe(env.productDir);
+        expect(manifest.methodology).toMatchObject({
+          source: methodology[METHODOLOGY_CONFIG_FIELDS.SOURCE],
+          version: methodology[METHODOLOGY_CONFIG_FIELDS.VERSION],
+        });
       });
-    });
+    }
   });
 
   it("carries the manifest schema version and the snapshot-derived bootstrap flag", async () => {
@@ -130,13 +124,13 @@ describe("spec context ingestion compliance", () => {
       await env.materialize();
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
-      const manifest = parseContextManifest(await contextCommand({ targets: [target.id], cwd: env.productDir }));
+      const manifest = await contextListManifest({ targets: [target.id], cwd: env.productDir });
       expect(manifest.schemaVersion).toBe(SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION);
       expect(specContextBootstrap(0)).toBe(true);
       expect(specContextBootstrap(snapshot.allNodes.length)).toBe(false);
-      // Literal oracle: the materialized fixture holds nodes by construction,
-      // and a resolvable target implies a non-empty tree, so the emitted flag
-      // is false without re-running the production derivation.
+      // The materialized fixture holds nodes by construction, and a
+      // resolvable target implies a non-empty tree, so the emitted flag is
+      // false without re-running the production derivation.
       expect(manifest.bootstrap).toBe(false);
     });
   });
@@ -153,13 +147,11 @@ describe("spec context ingestion compliance", () => {
       await env.writeRaw(rootedSpecPath(`${scratch}/${env.fixture.root.slug}.md`), "# Scratch\n");
       await env.writeRaw(rootedSpecPath(`${target}/PLAN.md`), "# Scratch plan\n");
 
-      const manifest = parseContextManifest(
-        await contextCommand({
-          targets: [target],
-          cwd: env.productDir,
-          gitDependencies: trackedSpecContextGitDependencies(env.productDir, trackedPaths),
-        }),
-      );
+      const manifest = await contextListManifest({
+        targets: [target],
+        cwd: env.productDir,
+        gitDependencies: trackedSpecContextGitDependencies(env.productDir, trackedPaths),
+      });
 
       expect(allManifestPaths(manifest)).not.toContain(rootedSpecPath(`${scratch}/${env.fixture.root.slug}.md`));
       expect(allManifestPaths(manifest)).not.toContain(rootedSpecPath(`${target}/PLAN.md`));
@@ -170,10 +162,7 @@ describe("spec context ingestion compliance", () => {
     await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
       await env.materialize();
       await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
-      await runGit(
-        env.productDir,
-        [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL],
-      );
+      await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL]);
       await runGit(
         env.productDir,
         [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.USER_NAME_KEY, GIT_TEST_CONFIG.USER_NAME],
@@ -187,16 +176,13 @@ describe("spec context ingestion compliance", () => {
       const linkedParent = await createTempDir("spx-context-linked-");
       try {
         const linkedProductDir = join(linkedParent, sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug()));
-        await runGit(
-          env.productDir,
-          [
-            GIT_TEST_SUBCOMMANDS.WORKTREE,
-            GIT_TEST_SUBCOMMANDS.ADD,
-            GIT_TEST_FLAGS.NEW_BRANCH,
-            `${env.fixture.root.slug}-context`,
-            linkedProductDir,
-          ],
-        );
+        await runGit(env.productDir, [
+          GIT_TEST_SUBCOMMANDS.WORKTREE,
+          GIT_TEST_SUBCOMMANDS.ADD,
+          GIT_TEST_FLAGS.NEW_BRANCH,
+          `${env.fixture.root.slug}-context`,
+          linkedProductDir,
+        ]);
         const nestedCwd = join(
           linkedProductDir,
           sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.nestedDirectory()),
@@ -208,7 +194,7 @@ describe("spec context ingestion compliance", () => {
         await writeFile(join(linkedProductDir, scratchPath), "# Untracked scratch\n");
 
         const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
-        const manifest = parseContextManifest(await contextCommand({ targets: [target], cwd: nestedCwd }));
+        const manifest = await contextListManifest({ targets: [target], cwd: nestedCwd });
 
         expect(manifest.productDir).toBe(await realpath(linkedProductDir));
         expect(manifest.targets).toEqual([rootedSpecPath(target)]);
@@ -224,28 +210,30 @@ describe("spec context ingestion compliance", () => {
       await env.materialize();
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
-      const missingChild = `${target.id}/21-metadata-only.enabler`;
+      const missingChildDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, {
+        ...env.fixture.child,
+        slug: sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug()),
+      });
+      const missingChild = `${target.id}/${missingChildDirectory}`;
       await env.writeRaw(rootedSpecPath(`${missingChild}/${NODE_STATUS_FILENAME}`), "{}");
 
-      const manifest = parseContextManifest(
-        await contextCommand({ targets: [missingChild], cwd: env.productDir }),
-      );
+      const manifest = await contextListManifest({ targets: [missingChild], cwd: env.productDir });
 
-      expect(manifest.targets).toEqual([`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${missingChild}`]);
-      expect(allManifestPaths(manifest)).not.toContain(
-        `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${missingChild}/metadata-only.md`,
+      expect(manifest.targets).toEqual([rootedSpecPath(missingChild)]);
+      expect(allManifestPaths(manifest).some((path) => path.startsWith(`${rootedSpecPath(missingChild)}/`))).toBe(
+        false,
       );
     });
   });
 
-  it("renders deterministic spec-tree context as text", async () => {
+  it("renders the manifest as labelled text beside its JSON representation", async () => {
     await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
       await env.materialize();
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
-      const textOutput = await contextTextCommand({ targets: [target.id], cwd: env.productDir });
-      const jsonOutput = await contextCommand({ targets: [target.id], cwd: env.productDir });
-      expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.TARGETS}: spx/${target.id}`);
+      const textOutput = await contextListText({ targets: [target.id], cwd: env.productDir });
+      const jsonOutput = await contextListJson({ targets: [target.id], cwd: env.productDir });
+      expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.TARGETS}: ${rootedSpecPath(target.id)}`);
       expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.PRODUCT_ROOT}: ${env.productDir}`);
       expect(textOutput).toContain(
         `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${DEFAULT_METHODOLOGY_SOURCE}@${METHODOLOGY_FIXTURE_VERSION}\n`,
@@ -256,7 +244,7 @@ describe("spec context ingestion compliance", () => {
       expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.BOOTSTRAP}: false`);
       expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.READ}:`);
       expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.LISTED}:`);
-      expect(parseContextManifest(jsonOutput).targets).toEqual([`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${target.id}`]);
+      expect(parseContextManifest(jsonOutput).targets).toEqual([rootedSpecPath(target.id)]);
     });
   });
 
@@ -269,7 +257,7 @@ describe("spec context ingestion compliance", () => {
       await env.materialize();
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
-      const textOutput = await contextTextCommand({ targets: [target.id], cwd: env.productDir });
+      const textOutput = await contextListText({ targets: [target.id], cwd: env.productDir });
       // The identity line ends at the source: no version separator and no
       // placeholder stands in for the undeclared version.
       expect(textOutput).toContain(
@@ -282,7 +270,7 @@ describe("spec context ingestion compliance", () => {
       await env.materialize();
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
-      const textOutput = await contextTextCommand({ targets: [target.id], cwd: env.productDir });
+      const textOutput = await contextListText({ targets: [target.id], cwd: env.productDir });
       expect(textOutput).toContain(
         `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${migrating[METHODOLOGY_CONFIG_FIELDS.SOURCE]}@${
           migrating[METHODOLOGY_CONFIG_FIELDS.VERSION]
@@ -291,38 +279,33 @@ describe("spec context ingestion compliance", () => {
     });
   });
 
-  it("rejects malformed methodology config before manifest output", async () => {
-    await withSpecTreeEnv({
-      ...specTreeKindsConfig(),
-      [METHODOLOGY_SECTION]: {
-        [METHODOLOGY_CONFIG_FIELDS.SOURCE]: "",
-      },
-    }, async (env) => {
-      await env.materialize();
-      const snapshot = await env.readFilesystemSnapshot();
-      const target = snapshot.allNodes[0];
-      await expect(contextCommand({ targets: [target.id], cwd: env.productDir })).rejects.toThrow(
-        `${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.SOURCE}`,
-      );
-    });
+  it("rejects every malformed methodology declaration before any output, naming the field", async () => {
+    for (const invalid of generatedInvalidMethodologyConfigs()) {
+      await withSpecTreeEnv({ ...specTreeKindsConfig(), ...invalid.config }, async (env) => {
+        await env.materialize();
+        const snapshot = await env.readFilesystemSnapshot();
+        const target = snapshot.allNodes[0];
+        expect(await contextListFailure({ targets: [target.id], cwd: env.productDir }), invalid.field).toContain(
+          invalid.field,
+        );
+        expect(await contextShowFailure({ targets: [target.id], cwd: env.productDir }), invalid.field).toContain(
+          invalid.field,
+        );
+      });
+    }
   });
 
-  // The two assertions below witness the CONTEXT COMMAND's wiring to the shared
-  // methodology resolver. The resolver's own behavior is owned and deeply tested
-  // by the methodology-config node; these exist so a refactor of this command's
-  // config path cannot silently drop the legacy-placement rejection or start
-  // failing on unrelated config content.
-  it("rejects stale harness methodology config before manifest output", async () => {
-    await withSpecTreeEnv({
-      ...specTreeKindsConfig(),
-      [LEGACY_METHODOLOGY_CONFIG_SECTION]: {
-        [METHODOLOGY_SECTION]: generatedMethodologySection(),
-      },
-    }, async (env) => {
+  // The two cases below witness the context commands' wiring to the shared
+  // methodology resolver. The resolver's own behavior is owned and deeply
+  // tested by the methodology-config node; these exist so a refactor of this
+  // command's config path cannot silently drop the legacy-placement rejection
+  // or start failing on unrelated config content.
+  it("rejects stale harness methodology config before any output", async () => {
+    await withSpecTreeEnv({ ...specTreeKindsConfig(), ...generatedHarnessMethodologyConfig() }, async (env) => {
       await env.materialize();
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
-      await expect(contextCommand({ targets: [target.id], cwd: env.productDir })).rejects.toThrow(
+      expect(await contextListFailure({ targets: [target.id], cwd: env.productDir })).toContain(
         `${LEGACY_METHODOLOGY_CONFIG_SECTION}.${METHODOLOGY_SECTION}`,
       );
     });
@@ -334,13 +317,13 @@ describe("spec context ingestion compliance", () => {
       ...specTreeKindsConfig(),
       [METHODOLOGY_SECTION]: methodology,
       [LEGACY_METHODOLOGY_CONFIG_SECTION]: {
-        unrelated: generatedMethodologySection(),
+        [sampleConfigTestValue(CONFIG_TEST_GENERATOR.key())]: generatedMethodologySection(),
       },
     }, async (env) => {
       await env.materialize();
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
-      const manifest = parseContextManifest(await contextCommand({ targets: [target.id], cwd: env.productDir }));
+      const manifest = await contextListManifest({ targets: [target.id], cwd: env.productDir });
       expect(manifest.methodology).toMatchObject({
         source: methodology[METHODOLOGY_CONFIG_FIELDS.SOURCE],
         version: methodology[METHODOLOGY_CONFIG_FIELDS.VERSION],
