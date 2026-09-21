@@ -3,7 +3,7 @@ import { posix } from "node:path";
 import MarkdownIt from "markdown-it";
 import { parseDocument, stringify } from "yaml";
 
-import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "./config";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "./config";
 import { compareSpecContextOrdinal } from "./context-manifest";
 import { specContextAncestors, specContextSiblings } from "./context-read-set";
 import type { SpecContextTarget } from "./context-target";
@@ -12,14 +12,30 @@ import type { SpecTreeNode, SpecTreeSnapshot } from "./index";
 export const SPEC_CONTEXT_MODE = { REFERENCE: 0, DIGEST: 1, FULL: 2 } as const;
 export type SpecContextMode = (typeof SPEC_CONTEXT_MODE)[keyof typeof SPEC_CONTEXT_MODE];
 
+/** The methodology-fixed opening keywords of the two document classes outside the kind registry. */
+export const SPEC_CONTEXT_DOCUMENT_OPENING = { PRODUCT: "OFFERS", DECISION: "GOVERNS" } as const;
+
+/** The node-local artifacts a projection selects only when present: the issue note, the knowledge index, the outcome record. */
+export const SPEC_CONTEXT_OPTIONAL_ARTIFACT = {
+  ISSUES: SPEC_TREE_GRAMMAR.COORDINATION_NOTE.ISSUES,
+  KNOWLEDGE_INDEX: "knowledge/index.md",
+  OUTCOME_SUFFIX: ".outcome.md",
+} as const;
+
 const DISCOVERY_DEPTH = 2;
-const PRODUCT_OPENING = "OFFERS";
-const DECISION_OPENING = "GOVERNS";
-const ISSUE_FILENAME = "ISSUES.md";
-const KNOWLEDGE_INDEX = "knowledge/index.md";
-const OUTCOME_SUFFIX = ".outcome.md";
+const PRODUCT_OPENING = SPEC_CONTEXT_DOCUMENT_OPENING.PRODUCT;
+const DECISION_OPENING = SPEC_CONTEXT_DOCUMENT_OPENING.DECISION;
+const ISSUE_FILENAME = SPEC_CONTEXT_OPTIONAL_ARTIFACT.ISSUES;
+const KNOWLEDGE_INDEX = SPEC_CONTEXT_OPTIONAL_ARTIFACT.KNOWLEDGE_INDEX;
+const OUTCOME_SUFFIX = SPEC_CONTEXT_OPTIONAL_ARTIFACT.OUTCOME_SUFFIX;
+/** The text frames of the two entry classes: an element per document, a self-closing element per reference. */
+export const SPEC_CONTEXT_FRAME = { DOCUMENT: "spx-document", REFERENCE: "spx-reference" } as const;
+
+/** The one front-matter key an output node's projection selects. */
+export const SPEC_CONTEXT_SELECTED_METADATA_KEY = "malleability";
+
 const FRONT_MATTER_DELIMITER = "---";
-const MALLEABILITY_KEY = "malleability";
+const MALLEABILITY_KEY = SPEC_CONTEXT_SELECTED_METADATA_KEY;
 const inlineCitationParser = new MarkdownIt().disable("reference");
 
 export interface SpecContextSelection {
@@ -63,6 +79,28 @@ function nodeSelection(node: SpecTreeNode, mode: SpecContextMode): SpecContextSe
     outputNode: true,
     scanCitations: true,
   };
+}
+
+/**
+ * Every path a projection may select beyond the snapshot's own entries: the
+ * coordination notes, guides, knowledge index, and outcome record of the
+ * product root and of every node. A caller without a tracked-path set probes
+ * these for presence; a tracked-path set already answers for them.
+ */
+export function specContextOptionalArtifactPaths(snapshot: SpecTreeSnapshot): readonly string[] {
+  const directories: { readonly directory: string; readonly slug: string | undefined }[] = [
+    { directory: SPEC_TREE_CONFIG.ROOT_DIRECTORY, slug: undefined },
+    ...snapshot.allNodes.map((node) => ({ directory: nodeDirectory(node), slug: node.slug })),
+  ];
+  return [
+    ...SPEC_TREE_GRAMMAR.GUIDE_FILES,
+    ...directories.flatMap(({ directory, slug }) => [
+      ...SPEC_TREE_GRAMMAR.COORDINATION_NOTES.map((name) => `${directory}/${name}`),
+      ...SPEC_TREE_GRAMMAR.GUIDE_FILES.map((name) => `${directory}/${name}`),
+      `${directory}/${KNOWLEDGE_INDEX}`,
+      ...(slug === undefined ? [] : [`${directory}/${slug}${OUTCOME_SUFFIX}`]),
+    ]),
+  ];
 }
 
 /** Numeric indices establish order; names break equal-index ties independently of locale. */
@@ -267,11 +305,11 @@ export function suppressLoadedSpecContext(
 
 export function renderSpecContextEntries(entries: readonly SpecContextEntry[]): string {
   return entries.map((entry) => {
-    if (entry.type === "reference") return `<spx-reference path="${entry.path}" />`;
+    if (entry.type === "reference") return `<${SPEC_CONTEXT_FRAME.REFERENCE} path="${entry.path}" />`;
     const metadata = Object.keys(entry.metadata).length === 0
       ? ""
       : `${FRONT_MATTER_DELIMITER}\n${stringify(entry.metadata)}${FRONT_MATTER_DELIMITER}\n\n`;
     const ending = entry.content.endsWith("\n") ? "" : "\n";
-    return `<spx-document path="${entry.path}">\n${metadata}${entry.content}${ending}</spx-document>`;
+    return `<${SPEC_CONTEXT_FRAME.DOCUMENT} path="${entry.path}">\n${metadata}${entry.content}${ending}</${SPEC_CONTEXT_FRAME.DOCUMENT}>`;
   }).join("\n\n");
 }

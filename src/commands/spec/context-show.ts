@@ -25,7 +25,15 @@ import {
   splitSpecContextFrontMatter,
   suppressLoadedSpecContext,
 } from "@/lib/spec-tree";
+import { jsonDocument, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { type ContextInput, type ContextInputOptions, readContextInput, resolveContextTargets } from "./context-input";
+
+const JSON_INDENT = 2;
+
+/** The JSON representation of the entry stream: the same ordered entries under one `entries` key. */
+export function renderSpecContextEntriesJson(entries: readonly SpecContextEntry[]): TerminalText {
+  return jsonDocument({ entries }, JSON_INDENT);
+}
 
 export interface ContextShowOptions extends ContextInputOptions {
   readonly targets: readonly string[];
