@@ -17,7 +17,7 @@ A diagnostic command is expected to run on demand and report health, the way `/d
 
 ### Testing
 
-- ALWAYS: `spx diagnose` with no arguments resolves its diagnostic facts from `spx.config` and per-check defaults and renders the per-check and overall report ([scenario])
+- ALWAYS: `spx diagnose` with no arguments resolves its diagnostic facts from `spx.config` and per-check defaults and renders the per-check and overall report ([compliance])
 - ALWAYS: a `--manifest` supplies the complete diagnostic facts and takes precedence over configuration and per-check defaults ([mapping])
 - ALWAYS: each check judges against its resolved facts, using a sensible default where configuration supplies none — `spx-reachability` reports presence and version, `marketplace-install` reports not-applicable ([mapping])
 - ALWAYS: no output selector maps to the concise human diagnosis, `--verbose` maps to the detailed human diagnosis, and `--json` maps to the complete JSON report ([mapping])
