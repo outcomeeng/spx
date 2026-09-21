@@ -5,7 +5,10 @@ import { describe, expect, it } from "vitest";
 
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
 import { KIND_REGISTRY, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
-import { specContextAmbiguousNestedDirectory } from "@testing/generators/spec-tree/context-target";
+import {
+  specContextAmbiguousNestedDirectory,
+  specContextOutsideDocument,
+} from "@testing/generators/spec-tree/context-target";
 import {
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
@@ -28,7 +31,7 @@ describe("spec context target resolution compliance", () => {
     await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
       await env.materialize();
       const nested = specContextAmbiguousNestedDirectory(env.fixture);
-      await env.writeRaw(nested.nestedSpecPath, "# Nested namesake\n");
+      await env.writeRaw(nested.nestedSpecPath, nested.nestedSpecContent);
       await trackSpecTreeInGit(env);
       // From the peer directory the operand names the nested namesake exactly,
       // while the same operand is a suffix of the top-level node's path.
@@ -59,7 +62,7 @@ describe("spec context target resolution compliance", () => {
       await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
         await env.materialize();
         const outsidePath = join(outsideParent, SPEC_CONTEXT_ESCAPE_TARGET_FILENAME);
-        await writeFile(outsidePath, "# Outside\n");
+        await writeFile(outsidePath, specContextOutsideDocument());
         const alias = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
         await mkdir(join(env.productDir, rootedSpecPath("")), { recursive: true });
         await symlink(outsidePath, join(env.productDir, alias));
@@ -82,7 +85,7 @@ describe("spec context target resolution compliance", () => {
     await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
       await env.materialize();
       const nested = specContextAmbiguousNestedDirectory(env.fixture);
-      await env.writeRaw(nested.nestedSpecPath, "# Nested namesake\n");
+      await env.writeRaw(nested.nestedSpecPath, nested.nestedSpecContent);
       const rootTarget = rootedSpecPath(specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root));
       const childDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.child);
       // The child exists under the fixture root only, so a resolver that let

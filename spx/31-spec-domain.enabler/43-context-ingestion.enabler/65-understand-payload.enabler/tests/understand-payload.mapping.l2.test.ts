@@ -2,14 +2,18 @@ import { describe, expect, it } from "vitest";
 
 import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
 import { SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
-import { KIND_REGISTRY } from "@/lib/spec-tree";
+import { KIND_REGISTRY, SPEC_CONTEXT_ENTRY_TYPE } from "@/lib/spec-tree";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { specContextCodingAgentMarkerCases } from "@testing/generators/spec-tree/context-target";
 import { specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
 import { shippedFoundationCoreBody, shippedMethodologyVersion } from "@testing/harnesses/methodology/shipped-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
-import { methodologyTreeConfig, runSpecCliWithIsolationInEnv } from "@testing/harnesses/spec/context";
+import {
+  methodologyTreeConfig,
+  parseContextEntries,
+  runSpecCliWithIsolationInEnv,
+} from "@testing/harnesses/spec/context";
 
 describe("spec context coding-agent scope through the packaged executable", () => {
   it("maps every marker subset that names an agent, with no --coding-agent option, to that agent's shipped tree", async () => {
@@ -33,12 +37,11 @@ describe("spec context coding-agent scope through the packaged executable", () =
             SPEC_DOMAIN_CLI.METHODOLOGY_OPTION,
           );
           expect(execution.result.exitCode, execution.result.stderr).toBe(0);
-          const entries = (JSON.parse(execution.result.stdout) as {
-            readonly entries: readonly { readonly content?: string }[];
-          }).entries;
-          expect(entries[0]?.content, JSON.stringify(markers)).toBe(
-            await shippedFoundationCoreBody(shipped.line, expected),
-          );
+          const foundation = parseContextEntries(execution.result.stdout)[0];
+          expect(
+            foundation?.type === SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT ? foundation.content : undefined,
+            JSON.stringify(markers),
+          ).toBe(await shippedFoundationCoreBody(shipped.line, expected));
         }
       },
     );

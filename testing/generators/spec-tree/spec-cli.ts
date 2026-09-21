@@ -1,6 +1,6 @@
 import { OUTPUT_FORMAT } from "@/commands/spec/status";
 import { DEFAULT_CONFIG_FILENAME } from "@/config";
-import { SPEC_STATUS_FORMAT_MESSAGE, SPEC_STATUS_OUTPUT_FORMATS } from "@/interfaces/cli/spec";
+import { SPEC_STATUS_OUTPUT_FORMATS } from "@/interfaces/cli/spec";
 import { TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
 import {
   SPEC_TREE_NODE_STATE,
@@ -28,12 +28,12 @@ export type SpecCliApplyProtectionFixture = {
 
 export type SpecCliStatusRow = {
   readonly nodeId: string;
-  readonly output: string;
   readonly state: SpecTreeNodeState;
 };
 
 export type SpecCliUnsupportedStatusFormatFixture = {
-  readonly expectedDiagnostic: string;
+  /** The source-owned values the diagnostic must name: the rejected token and the accepted formats. */
+  readonly namedValues: readonly string[];
   readonly format: string;
 };
 
@@ -82,19 +82,14 @@ export function specCliDeclaredStatusRows(
   return [
     {
       nodeId: rootDirectory,
-      output: `${KIND_REGISTRY[fixture.root.kind].label} ${rootDirectory} [${SPEC_TREE_NODE_STATE.DECLARED}]`,
       state: SPEC_TREE_NODE_STATE.DECLARED,
     },
     {
       nodeId: `${rootDirectory}/${childDirectory}`,
-      output: `  ${
-        KIND_REGISTRY[fixture.child.kind].label
-      } ${rootDirectory}/${childDirectory} [${SPEC_TREE_NODE_STATE.DECLARED}]`,
       state: SPEC_TREE_NODE_STATE.DECLARED,
     },
     {
       nodeId: peerDirectory,
-      output: `${KIND_REGISTRY[fixture.peer.kind].label} ${peerDirectory} [${SPEC_TREE_NODE_STATE.DECLARED}]`,
       state: SPEC_TREE_NODE_STATE.DECLARED,
     },
   ];
@@ -107,10 +102,7 @@ export function specCliUnsupportedStatusFormatFixture(
   let candidate = `${fixture.root.slug}-${fixture.decision.slug}`;
   while (validFormats.has(candidate)) candidate = `${candidate}-${fixture.child.slug}`;
   return {
-    expectedDiagnostic:
-      `${SPEC_STATUS_FORMAT_MESSAGE.ERROR_PREFIX}: ${SPEC_STATUS_FORMAT_MESSAGE.INVALID_PREFIX} "${candidate}". ${SPEC_STATUS_FORMAT_MESSAGE.VALID_OPTIONS_PREFIX}: ${
-        SPEC_STATUS_OUTPUT_FORMATS.join(", ")
-      }`,
+    namedValues: [candidate, ...SPEC_STATUS_OUTPUT_FORMATS],
     format: candidate,
   };
 }

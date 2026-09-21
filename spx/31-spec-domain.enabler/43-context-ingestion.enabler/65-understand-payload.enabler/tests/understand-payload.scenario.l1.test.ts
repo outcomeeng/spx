@@ -10,7 +10,7 @@ import {
   FOUNDATION_MANIFEST_SCHEMA_VERSION,
 } from "@/lib/methodology";
 import { SPEC_CONTEXT_ENTRY_TYPE, SPEC_CONTEXT_FRAME } from "@/lib/spec-tree";
-import { generatedMigratingMethodologySection } from "@testing/generators/config/descriptors";
+import { generatedMigratingMethodology } from "@testing/generators/config/descriptors";
 import { arbitraryMethodologyLineVersion, arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -19,6 +19,7 @@ import {
   contextShowFailure,
   contextShowText,
   entryPaths,
+  METHODOLOGY_FIXTURE_IDENTITY,
   methodologyFixtureTreeRoot,
   methodologyTreeConfig,
   SPEC_CONTEXT_ESCAPE_TARGET_FILENAME,
@@ -71,14 +72,17 @@ describe("spec context understand payload", () => {
   });
 
   it("fails naming the declared version and the shipped lines when spx ships no tree for the declared line", async () => {
-    const declared = sampleGeneratedValue(arbitraryMethodologyVersion());
+    // The declared line differs from the fixture's by construction, so the
+    // tree the fixture ships never serves the declared line.
+    const declared = sampleGeneratedValue(
+      arbitraryMethodologyVersion().filter((candidate) => candidate.line !== METHODOLOGY_FIXTURE_IDENTITY.line),
+    );
     await withSpecTreeEnv(
       methodologyTreeConfig({ [METHODOLOGY_CONFIG_FIELDS.VERSION]: declared.text }),
       async (env) => {
         await env.materialize();
-        // The fixture tree serves the fixture version's line; the declared
-        // version's line ships only when the two happen to coincide.
         const fixture = await writeMethodologyTree(env);
+        expect(fixture.line).not.toBe(declared.line);
         const snapshot = await env.readFilesystemSnapshot();
         const target = snapshot.allNodes[0];
         const failure = await contextShowFailure({
@@ -87,10 +91,6 @@ describe("spec context understand payload", () => {
           methodology: true,
           methodologyTreeRoot: fixture.treeRoot,
         });
-        if (declared.line === fixture.line) {
-          expect(failure).toBeUndefined();
-          return;
-        }
         // The generator derives the line from its own components, so the
         // diagnostic's three named values are checked against an oracle
         // the production parser and formatter never touch.
@@ -102,12 +102,10 @@ describe("spec context understand payload", () => {
   });
 
   it("serves the declared version's tree while methodology.migratingFrom is declared", async () => {
-    const migrating = generatedMigratingMethodologySection();
-    await withSpecTreeEnv(methodologyTreeConfig(migrating), async (env) => {
+    const migrating = generatedMigratingMethodology();
+    await withSpecTreeEnv(methodologyTreeConfig(migrating.section), async (env) => {
       await env.materialize();
-      const fixture = await writeMethodologyTree(env, {
-        version: migrating[METHODOLOGY_CONFIG_FIELDS.VERSION] as string,
-      });
+      const fixture = await writeMethodologyTree(env, { version: migrating.target });
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
       const entries = await contextShowEntries({
@@ -126,7 +124,7 @@ describe("spec context understand payload", () => {
       methodologyTreeConfig({ [METHODOLOGY_CONFIG_FIELDS.VERSION]: declared.text }),
       async (env) => {
         await env.materialize();
-        const fixture = await writeMethodologyTree(env, { version: declared.text });
+        const fixture = await writeMethodologyTree(env, { version: declared });
         // The generator constructs the line beside the text, so the directory
         // the fixture tree lands in is checked against an oracle the production
         // parser never touches before the read is trusted.

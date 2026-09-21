@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
 import { SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import { METHODOLOGY_CODING_AGENT } from "@/lib/methodology";
-import { KIND_REGISTRY } from "@/lib/spec-tree";
+import { KIND_REGISTRY, SPEC_CONTEXT_ENTRY_TYPE } from "@/lib/spec-tree";
 import { specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
 import { shippedFoundationCoreBody, shippedMethodologyVersion } from "@testing/harnesses/methodology/shipped-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
-import { methodologyTreeConfig, runSpecCliWithIsolation } from "@testing/harnesses/spec/context";
+import { methodologyTreeConfig, parseContextEntries, runSpecCliWithIsolation } from "@testing/harnesses/spec/context";
 
 describe("spec context understand payload network abstinence", () => {
   it("sources the foundation from spx's own shipped tree through the packaged executable with zero outbound network attempts", async () => {
@@ -32,11 +32,9 @@ describe("spec context understand payload network abstinence", () => {
 
         expect(execution.result.exitCode, execution.result.stderr).toBe(0);
         expect(execution.networkAttempts).toEqual([]);
-        const entries =
-          (JSON.parse(execution.result.stdout) as { readonly entries: readonly { readonly content?: string }[] })
-            .entries;
+        const foundation = parseContextEntries(execution.result.stdout)[0];
         const coreText = await shippedFoundationCoreBody(shipped.line, METHODOLOGY_CODING_AGENT.CLAUDE);
-        expect(entries[0]?.content).toBe(coreText);
+        expect(foundation?.type === SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT ? foundation.content : undefined).toBe(coreText);
       },
     );
   });
