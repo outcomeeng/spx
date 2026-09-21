@@ -155,8 +155,12 @@ async function untrackedPresence(
   fs: ContextFileSystem,
   hasDocument: (path: string) => Promise<boolean>,
 ): Promise<ReadonlySet<string>> {
-  const present = new Set(snapshot.entries.flatMap((entry) => entry.ref?.path ?? []));
-  for (const path of specContextOptionalArtifactPaths(snapshot)) {
+  const present = new Set<string>();
+  const candidates = [
+    ...snapshot.entries.flatMap((entry) => entry.ref?.path ?? []),
+    ...specContextOptionalArtifactPaths(snapshot),
+  ];
+  for (const path of candidates) {
     if (await hasDocument(path)) present.add(path);
   }
   let overlayEntries: readonly string[] = [];
