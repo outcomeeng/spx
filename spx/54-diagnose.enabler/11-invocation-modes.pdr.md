@@ -11,6 +11,7 @@ A diagnostic command is expected to run on demand and report health, the way `/d
 1. `spx diagnose` with no arguments reports per-check and overall environment health.
 2. Each check judges against facts resolved from `spx.config` and per-check defaults, or from a `--manifest` when one is supplied.
 3. A `--manifest` carries the complete diagnostic facts and takes precedence over configuration and defaults.
+4. One report has three presentation modes: a concise human diagnosis by default, a detailed human diagnosis under `--verbose`, and the complete machine-readable report under `--json`. The explicit selectors are mutually exclusive; selection changes presentation alone, and `--format` is not accepted. The concise diagnosis names the executing SPX version, states the overall verdict, summarizes checks requiring action, and points to both explicit selectors without raw readings or healthy-check detail.
 
 ## Verification
 
@@ -19,6 +20,9 @@ A diagnostic command is expected to run on demand and report health, the way `/d
 - ALWAYS: `spx diagnose` with no arguments resolves its diagnostic facts from `spx.config` and per-check defaults and renders the per-check and overall report ([scenario])
 - ALWAYS: a `--manifest` supplies the complete diagnostic facts and takes precedence over configuration and per-check defaults ([mapping])
 - ALWAYS: each check judges against its resolved facts, using a sensible default where configuration supplies none — `spx-reachability` reports presence and version, `marketplace-install` reports not-applicable ([mapping])
+- ALWAYS: no output selector maps to the concise human diagnosis, `--verbose` maps to the detailed human diagnosis, and `--json` maps to the complete JSON report ([mapping])
+- NEVER: `--verbose` and `--json` are accepted together; the invocation is rejected before any diagnostic provider runs ([compliance])
+- ALWAYS: for every report and output selector, provider execution, classification, folding, remediation, and the exit code remain identical; only the rendered presentation differs ([property])
 
 ### Audit
 
