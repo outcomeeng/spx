@@ -26,7 +26,7 @@ Outcome Engineering requires agents that follow the methodology — ingesting sp
 
 ## Agent Adapters
 
-- Codex, Claude Code, and Pi adapters — launch and resume supported coding agents, with observation and communication capabilities supplied by each adapter's declared contract.
+- Each supported coding agent declares its own adapter contract — session store, agent-session identity, transcript shape, native launch, hook policy, and capability packaging — and the supported set is exactly the set of agents declaring one.
 
 ## Agent Harness Inputs
 
@@ -70,8 +70,8 @@ CONTRIBUTING TO higher engineering velocity — teams ship quality code faster b
 - Deterministic context ingestion — spec-tree context loading from product root, ancestor specs, decisions, lower-index siblings, tests, and escape hatches without LLM inference
 - Spec-tree execution — config-driven execution of deterministic testing and validation governed by `spx.config.{toml,json,yaml}`, with execution persistence for fast status reporting, and a typed `spx verification run` lifecycle agents and launchers drive to record, stream, validate, resume, and render verification runs through the journal substrate
 - Result delivery — kind-agnostic, idempotent publication of a rendered verification, validation, or test result to the environment-bound backend (a local output target, a GitHub pull-request comment, a GitLab merge-request note, or an observability sink), so consumers deliver results without holding backend-specific I/O
-- Harness environment management — deterministic management of `AGENTS.md`, Claude Code and Codex configuration, configured plugin marketplaces, plugins, and skills for agents
-- Agent session coordination — native resume discovery, launch, and transcript-content search for Codex, Claude Code, and Pi agent sessions from the SPX CLI, distinct from SPX handoff session files
+- Harness environment management — deterministic management of `AGENTS.md`, agent-native configuration, configured plugin marketplaces, plugins, and skills for agents
+- Agent session coordination — native resume discovery, launch, and transcript-content search for agent sessions from the SPX CLI, distinct from SPX handoff session files
 - Session management — work handoffs between agent contexts with priority ordering
 - Release — per-release generation of release notes and documentation updates from the product git history, plus governed, provenance-bearing publication
 
@@ -93,7 +93,7 @@ CONTRIBUTING TO higher engineering velocity — teams ship quality code faster b
 - ALWAYS: persist spec-tree execution results so status commands can report last-run results and staleness without re-running the configured execution ([audit])
 - ALWAYS: provide a typed `spx verification run` lifecycle agents and launchers drive to record and stream verification runs, persisting each run's append-only event journal under `.spx/branch/{branch-slug}/` and validating the run type, scope, and finding payload before recording durable evidence ([audit])
 - ALWAYS: deliver a rendered verification, validation, or test result to the environment-bound backend, upserting one backend target per marker and naming no result kind, so consumers publish results without holding backend-specific I/O ([audit])
-- ALWAYS: manage methodology context source/version, harness environment configuration, `AGENTS.md`, Claude Code and Codex configuration, configured plugin marketplaces, plugins, and skills deterministically through typed product configuration ([audit])
+- ALWAYS: manage methodology context source/version, harness environment configuration, `AGENTS.md`, agent-native configuration, configured plugin marketplaces, plugins, and skills deterministically through typed product configuration ([audit])
 - ALWAYS: resolve product root via `git rev-parse` with fallback to `$PWD` — consistent behavior across worktrees and subdirectories ([audit])
 - NEVER: require network access for core operations — offline-first for development environments ([audit])
 - NEVER: use LLM inference for operations that can be computed deterministically — tokens are for decisions, not file scanning ([audit])

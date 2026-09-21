@@ -1,7 +1,7 @@
 # Session Management
 
 PROVIDES CLI commands for session management (list, pick, show, pickup, reconcile, release, handoff, delete, prune, archive) with worktree-aware root resolution
-SO THAT agent orchestration tools (Claude Code plugins, /pickup, /handoff)
+SO THAT agent orchestration tools (agent plugins, /pickup, /handoff)
 CAN create, claim, release, and clean up work handoffs that remain accessible from every worktree of the repository
 
 ## Assertions

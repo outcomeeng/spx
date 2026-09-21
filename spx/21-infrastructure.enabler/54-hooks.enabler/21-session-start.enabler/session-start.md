@@ -11,7 +11,7 @@ CAN establish session continuity through one lifecycle hook invocation
 ### Scenarios
 
 - Given `spx hook run session-start` receives a payload carrying a product directory, a session id, and a transcript path inside a configured agent session-store root, when the invocation supplies worktree scope and controlling process context, then SPX exits successfully and writes a readable worktree claim record carrying the holder agent, agent session id, host, controlling-process id, and start time ([test](tests/session-start.scenario.l2.test.ts))
-- Given `spx hook run session-start` receives a payload whose transcript path resolves inside the Pi session-store root, when the invocation supplies worktree scope and controlling process context, then SPX claims the linked worktree under the Pi agent and that payload's session id, and `spx worktree status --format json` reports that running holder ([test](tests/session-start.scenario.l2.test.ts))
+- Given `spx hook run session-start` receives a payload whose transcript path resolves inside a registered agent's session-store root, when the invocation supplies worktree scope and controlling process context, then SPX claims the linked worktree under that agent and that payload's session id, and `spx worktree status --format json` reports that running holder ([test](tests/session-start.scenario.l2.test.ts))
 
 ### Mappings
 

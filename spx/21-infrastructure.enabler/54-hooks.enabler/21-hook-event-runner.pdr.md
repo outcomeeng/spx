@@ -55,7 +55,7 @@ session under a name SPX does not own.
   running a known hook event, including compact-source stdout policy ([audit])
 - ALWAYS: the hook CLI transport resolves compact-source stdout policy from
   `harnessEnvironment.agents.<agent>.hooks.sessionStart.compactStdout`,
-  defaulting Codex to false and Claude Code to true ([audit])
+  defaulting to the value the classified agent's own node declares ([audit])
 - ALWAYS: for `session-start`, the hook CLI transport resolves compact-source
   stdout policy from the product directory named by the hook payload `cwd` when
   the payload is readable, rather than from the process launch directory

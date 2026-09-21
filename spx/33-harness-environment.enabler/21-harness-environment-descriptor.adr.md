@@ -1,6 +1,6 @@
 # Harness Environment Descriptor
 
-The `harnessEnvironment` config descriptor lives at `src/domains/agent-environment/config.ts`, registers with the production config registry per `spx/16-config.enabler/21-descriptor-registration.adr.md`, and resolves three parent-owned subsections — `instructions`, `agents`, and `pluginBootstrap` — with explicit source-owned agent ids for Codex and Claude Code that instruction reconciliation, agent configuration, hook CLI transport, and plugin bootstrap consume when selecting agent-specific serializers, instruction targets, hook policy, or bootstrap adapters; each agent config carries the session-store root under which that agent writes its transcripts, which the hook CLI transport consumes to classify the agent invoking a lifecycle hook. Methodology source and version belong to the top-level `methodology` descriptor under `spx/16-config.enabler/43-methodology-config.enabler`. The descriptor models shared agent inputs and target agents only: it writes no files, installs no plugins, loads no methodology files, and encodes no agent-specific serializers, and it rejects unknown fields and malformed entry shapes rather than ignoring them, because it is the shared API those boundaries consume.
+The `harnessEnvironment` config descriptor lives at `src/domains/agent-environment/config.ts`, registers with the production config registry per `spx/16-config.enabler/21-descriptor-registration.adr.md`, and resolves three parent-owned subsections — `instructions`, `agents`, and `pluginBootstrap` — with one explicit source-owned agent id per agent declaring an adapter contract, which instruction reconciliation, agent configuration, hook CLI transport, and plugin bootstrap consume when selecting agent-specific serializers, instruction targets, hook policy, or bootstrap adapters; each agent config carries the session-store root under which that agent writes its transcripts, which the hook CLI transport consumes to classify the agent invoking a lifecycle hook. Methodology source and version belong to the top-level `methodology` descriptor under `spx/16-config.enabler/43-methodology-config.enabler`. The descriptor models shared agent inputs and target agents only: it writes no files, installs no plugins, loads no methodology files, and encodes no agent-specific serializers, and it rejects unknown fields and malformed entry shapes rather than ignoring them, because it is the shared API those boundaries consume.
 
 ## Rationale
 
@@ -12,7 +12,8 @@ Rejected: child-owned descriptor sections only (downstream children need a stabl
 
 - Descriptor validation has no filesystem, process, network, or agent side effects.
 - For a resolved `harnessEnvironment` section, every instruction, marketplace, plugin, and skill entry references a registered agent id.
-- Each agent config carries `hooks.sessionStart.compactStdout`; Codex defaults it to false and Claude Code defaults it to true.
+- The registered agent id set equals the set of agents declaring an adapter contract; the descriptor registers no agent absent from that set and omits none present in it.
+- Each agent config carries `hooks.sessionStart.compactStdout`, defaulting to the value that agent's own node declares.
 - Instruction file paths are unique within `instructions.files`.
 - Instruction file target-agent lists are non-empty and do not repeat agents.
 - Marketplace, plugin, and skill names are unique within each agent.
@@ -33,6 +34,7 @@ Rejected: child-owned descriptor sections only (downstream children need a stabl
 
 - ALWAYS: the descriptor resolves `instructions`, `agents`, and `pluginBootstrap` defaults through the static config registry ([compliance])
 - ALWAYS: agent hook policy defaults resolve from the descriptor, and explicit `hooks.sessionStart.compactStdout` booleans override the agent-specific default ([compliance])
+- ALWAYS: the descriptor's registered agent ids and their declared session-store roots and hook policy defaults correspond one-for-one with the agents declaring an adapter contract ([mapping])
 - ALWAYS: instruction targets, marketplace entries, plugin entries, and skill entries reference registered agent ids exported by the descriptor module ([compliance])
 - ALWAYS: the descriptor rejects unknown fields and malformed entry shapes before child reconcilers run ([compliance])
 - ALWAYS: the descriptor section resolves equivalently across JSON, YAML, and TOML config files ([mapping])

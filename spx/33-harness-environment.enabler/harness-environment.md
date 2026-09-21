@@ -10,7 +10,8 @@ CAN run with explicitly enabled and available coding agents, version-matched ins
 
 - ALWAYS: harness environment management treats `AGENTS.md`, coding-agent-native configuration, capability sources, plugins, and skills as coding-agent inputs ([audit])
 - ALWAYS: the `harnessEnvironment` descriptor resolves instruction, agent, marketplace, plugin, and skill configuration through the static config registry ([test](tests/harness-environment-descriptor.compliance.l1.test.ts))
-- ALWAYS: each agent carries hook policy at `hooks.sessionStart.compactStdout`, with Codex defaulting compact `SessionStart` stdout off and Claude Code defaulting it on ([test](tests/harness-environment-descriptor.compliance.l1.test.ts))
+- ALWAYS: each registered agent carries hook policy at `hooks.sessionStart.compactStdout`, defaulting to the value that agent's own node declares ([test](tests/harness-environment-descriptor.compliance.l1.test.ts))
+- ALWAYS: each registered agent carries the session-store root that agent's own node declares, so hook agent classification can place a transcript path inside exactly one registered root ([test](tests/harness-environment-descriptor.compliance.l1.test.ts))
 - ALWAYS: configured instruction files, marketplaces, plugins, and skills reference registered agents exported by the descriptor module ([test](tests/harness-environment-descriptor.compliance.l1.test.ts))
 - ALWAYS: generated or reconciled harness environment configuration is deterministic for the same product directory and resolved config ([audit])
 - ALWAYS: an agentic verification run receives isolated harness environment state rather than mutating the invoking agent's state ([audit])
