@@ -1,5 +1,5 @@
+import { CHANGE_COMMAND } from "@/commands/change/contract";
 import { CONFIG_CLI } from "@/interfaces/cli/config";
-import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
 import { SPX_GLOBAL_OPTIONS } from "@/interfaces/cli/product-context";
 import { ESCAPE_CONTROL_CHAR_CODE, MAX_CLI_ARGUMENT_DISPLAY_LENGTH } from "@/lib/sanitize-cli-argument";
 import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
@@ -141,7 +141,13 @@ export function commanderDiagnosticScenario(): CommanderDiagnosticScenario {
     rawEscapeByte,
     rawForgedLineBreak: `${LINE_FEED}${forgedLine}`,
     escapedEscapeByte: ESCAPED_ESCAPE_BYTE,
-    invalidChoiceArgv: [DIAGNOSE_CLI.COMMAND, DIAGNOSE_CLI.FORMAT_FLAG, unsafeValue],
+    invalidChoiceArgv: [
+      CHANGE_COMMAND.name,
+      CHANGE_COMMAND.draft,
+      CHANGE_COMMAND.operations.create,
+      CHANGE_COMMAND.inputOption,
+      unsafeValue,
+    ],
     rejectingParserArgv: [REJECTING_PARSER_CLI.COMMAND, REJECTING_PARSER_CLI.FLAG, unsafeValue],
     reformattingParserArgv: [REJECTING_PARSER_CLI.COMMAND, REJECTING_PARSER_CLI.REFORMATTING_FLAG, unsafeValue],
     nearMatchOption: oneEditFrom(SPX_GLOBAL_OPTIONS.directory.long),

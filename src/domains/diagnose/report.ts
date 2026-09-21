@@ -29,7 +29,7 @@ import {
 import { WORKTREE_POOL_VERDICT, type WorktreePoolVerdict } from "@/domains/diagnose/checks/worktree-pool";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { BUCKET_SEVERITY, CANONICAL_CHECKOUT_PROBLEM, OVERALL_SEVERITY } from "@/domains/diagnose/report-contract";
-import { type CheckRecord, type DiagnoseReport } from "@/domains/diagnose/types";
+import { type CheckRecord, type DiagnoseReport, VERDICT_BUCKET } from "@/domains/diagnose/types";
 import { SENTINEL_UNDEFINED } from "@/lib/sanitize-cli-argument";
 import {
   renderStyledReport,
@@ -46,6 +46,7 @@ import {
 
 /** The output formats `spx diagnose` emits. */
 export const DIAGNOSE_FORMAT = {
+  CONCISE: "concise",
   JSON: "json",
   TEXT: "text",
 } as const;
@@ -54,6 +55,13 @@ export type DiagnoseFormat = (typeof DIAGNOSE_FORMAT)[keyof typeof DIAGNOSE_FORM
 
 /** The label the text report prefixes the diagnosis line with. */
 export const DIAGNOSE_TEXT_OVERALL_LABEL = "Diagnosis";
+
+export const DIAGNOSE_CONCISE_HINT = "Use --verbose for all check details or --json for the complete report.";
+export const DIAGNOSE_VERSION_LABEL = "SPX";
+
+export interface DiagnoseReportOptions extends StyledReportOptions {
+  readonly version?: string;
+}
 
 /** The count a check reports when it gathered no count reading. */
 const WORKTREE_COUNT_ZERO = "0";
@@ -551,11 +559,38 @@ export function renderReportText(report: DiagnoseReport, options: StyledReportOp
   return renderStyledReport(toStyledModel(report), options);
 }
 
+/** Renders actionable check headings without readings or healthy-check detail. */
+export function renderReportConcise(report: DiagnoseReport, options: DiagnoseReportOptions): TerminalText {
+  const model: StyledReportModel = {
+    sections: report.checks
+      .filter((check) => check.bucket !== VERDICT_BUCKET.HEALTHY && check.bucket !== VERDICT_BUCKET.NOT_APPLICABLE)
+      .map((check) => ({
+        severity: BUCKET_SEVERITY[check.bucket],
+        header: humanText(check).header,
+        details: [],
+      })),
+    summary: {
+      severity: OVERALL_SEVERITY[report.overall],
+      text: authoredText(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${report.overall}`),
+    },
+  };
+  return terminal`${authoredText(DIAGNOSE_VERSION_LABEL)} ${externalValue(options.version)}\n${
+    renderStyledReport(model, options)
+  }\n${authoredText(DIAGNOSE_CONCISE_HINT)}`;
+}
+
 /** Renders the report in the requested format; the color choice applies to the text form only. */
 export function renderReport(
   report: DiagnoseReport,
   format: DiagnoseFormat,
-  options: StyledReportOptions,
+  options: DiagnoseReportOptions,
 ): TerminalText {
-  return format === DIAGNOSE_FORMAT.JSON ? renderReportJson(report) : renderReportText(report, options);
+  switch (format) {
+    case DIAGNOSE_FORMAT.CONCISE:
+      return renderReportConcise(report, options);
+    case DIAGNOSE_FORMAT.JSON:
+      return renderReportJson(report);
+    case DIAGNOSE_FORMAT.TEXT:
+      return renderReportText(report, options);
+  }
 }
