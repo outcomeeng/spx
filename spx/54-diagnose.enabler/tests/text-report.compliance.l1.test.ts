@@ -1,6 +1,8 @@
-import { classifyMarketplaceInstall } from "@/domains/diagnose/checks/marketplace-install";
-import { classifySessionEnvironment } from "@/domains/diagnose/checks/session-environment";
-import { classifySpxReachability } from "@/domains/diagnose/checks/spx-reachability";
+import { classifyMarketplaceInstall, MARKETPLACE_INSTALL_VERDICT } from "@/domains/diagnose/checks/marketplace-install";
+import { classifySessionEnvironment, SESSION_ENVIRONMENT_VERDICT } from "@/domains/diagnose/checks/session-environment";
+import { SESSION_STORE_VERDICT } from "@/domains/diagnose/checks/session-store";
+import { classifySpxReachability, SPX_REACHABILITY_VERDICT } from "@/domains/diagnose/checks/spx-reachability";
+import { WORKTREE_POOL_VERDICT } from "@/domains/diagnose/checks/worktree-pool";
 import {
   DIAGNOSE_TEXT_DETAIL,
   DIAGNOSE_TEXT_HEADER,
@@ -10,7 +12,12 @@ import {
   renderReportJson,
   renderReportText,
 } from "@/domains/diagnose/report";
-import { BUCKET_SEVERITY, CANONICAL_CHECKOUT_PROBLEM, OVERALL_SEVERITY } from "@/domains/diagnose/report-contract";
+import {
+  BUCKET_SEVERITY,
+  CANONICAL_CHECKOUT_PROBLEM,
+  type CanonicalCheckoutFailureVerdict,
+  OVERALL_SEVERITY,
+} from "@/domains/diagnose/report-contract";
 import { CHECK_RECORD_FIELDS, type DiagnoseReport, OVERALL_VERDICT, VERDICT_BUCKET } from "@/domains/diagnose/types";
 import { sessionCliDefinition } from "@/interfaces/cli/session/definition";
 import { SEVERITY_STYLE } from "@/lib/styled-output/styled-output";
@@ -18,11 +25,14 @@ import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { arbitraryInvalidSpxFloor, sampleDiagnoseTestValue } from "@testing/generators/diagnose/manifest";
 import { arbitraryReport } from "@testing/generators/diagnose/report";
 import {
-  canonicalCheckoutFailureCases,
   configuredMarketplaceReading,
+  marketplaceCheckFor,
   reusableSpxReading,
   sampleReport,
-  supportedTranslationBranches,
+  sessionEnvironmentCheckFor,
+  sessionStoreCheckFor,
+  spxCheckFor,
+  worktreePoolCheckFor,
 } from "@testing/generators/diagnose/report-cases";
 import { renderSingleCheckText } from "@testing/harnesses/diagnose/report";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
@@ -122,15 +132,69 @@ describe("the text report translates check records into a human diagnosis", () =
     expect(text).not.toContain(fallbackRecord.verdict);
     expect(text).not.toContain(fallbackRecord.remediation);
   });
-  it("renders a diagnosis heading for every supported verdict", () => {
-    for (const branch of supportedTranslationBranches()) {
-      expect(renderSingleCheckText(branch.check).split("\n")).toContain(
-        `${SEVERITY_STYLE[BUCKET_SEVERITY[branch.check.bucket]].glyph} ${branch.header}`,
-      );
-    }
+  it.each([
+    [SPX_REACHABILITY_VERDICT.REACHABLE, DIAGNOSE_TEXT_HEADER.SPX_INSTALLED],
+    [SPX_REACHABILITY_VERDICT.PRESENT, DIAGNOSE_TEXT_HEADER.SPX_INSTALLED],
+    [SPX_REACHABILITY_VERDICT.BELOW_FLOOR, DIAGNOSE_TEXT_HEADER.SPX_BELOW_FLOOR],
+    [SPX_REACHABILITY_VERDICT.UNREACHABLE, DIAGNOSE_TEXT_HEADER.SPX_UNREACHABLE],
+    [SPX_REACHABILITY_VERDICT.UNKNOWN, DIAGNOSE_TEXT_HEADER.SPX_UNKNOWN],
+  ])("renders the spx-reachability %s verdict as its diagnosis heading", (verdict, header) => {
+    const check = spxCheckFor(verdict);
+    expect(renderSingleCheckText(check).split("\n")).toContain(
+      `${SEVERITY_STYLE[BUCKET_SEVERITY[check.bucket]].glyph} ${header}`,
+    );
   });
-  it("renders each canonical-checkout problem and remediation", () => {
-    for (const { check, verdict } of canonicalCheckoutFailureCases()) {
+  it.each([
+    [SESSION_ENVIRONMENT_VERDICT.WORKING, DIAGNOSE_TEXT_HEADER.AGENT_SESSION_ACTIVE],
+    [SESSION_ENVIRONMENT_VERDICT.IDENTITY_ONLY, DIAGNOSE_TEXT_HEADER.AGENT_SESSION_UNLINKED],
+    [SESSION_ENVIRONMENT_VERDICT.SILENT_NO_OP, DIAGNOSE_TEXT_HEADER.SESSION_START_NO_OP],
+    [SESSION_ENVIRONMENT_VERDICT.NOT_APPLICABLE, DIAGNOSE_TEXT_HEADER.AGENT_SESSION_HOOK_SKIPPED],
+    [SESSION_ENVIRONMENT_VERDICT.UNKNOWN, DIAGNOSE_TEXT_HEADER.AGENT_SESSION_UNKNOWN],
+  ])("renders the session-environment %s verdict as its diagnosis heading", (verdict, header) => {
+    const check = sessionEnvironmentCheckFor(verdict);
+    expect(renderSingleCheckText(check).split("\n")).toContain(
+      `${SEVERITY_STYLE[BUCKET_SEVERITY[check.bucket]].glyph} ${header}`,
+    );
+  });
+  it.each([
+    [WORKTREE_POOL_VERDICT.COMPLIANT, DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_VALID],
+    [WORKTREE_POOL_VERDICT.NON_COMPLIANT, DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID],
+    [WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_MISSING, DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID],
+    [WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_DETACHED, DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID],
+    [WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_WRONG_BRANCH, DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID],
+    [WORKTREE_POOL_VERDICT.UNKNOWN, DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_UNKNOWN],
+  ])("renders the worktree-pool %s verdict as its diagnosis heading", (verdict, header) => {
+    const check = worktreePoolCheckFor(verdict);
+    expect(renderSingleCheckText(check).split("\n")).toContain(
+      `${SEVERITY_STYLE[BUCKET_SEVERITY[check.bucket]].glyph} ${header}`,
+    );
+  });
+  it.each([
+    [SESSION_STORE_VERDICT.CONSISTENT, DIAGNOSE_TEXT_HEADER.SESSION_STORE_CLEAN],
+    [SESSION_STORE_VERDICT.UNKNOWN, DIAGNOSE_TEXT_HEADER.SESSION_STORE_UNKNOWN],
+  ])("renders the session-store %s verdict as its diagnosis heading", (verdict, header) => {
+    const check = sessionStoreCheckFor(verdict);
+    expect(renderSingleCheckText(check).split("\n")).toContain(
+      `${SEVERITY_STYLE[BUCKET_SEVERITY[check.bucket]].glyph} ${header}`,
+    );
+  });
+  it.each([
+    [MARKETPLACE_INSTALL_VERDICT.INSTALLED, DIAGNOSE_TEXT_HEADER.MARKETPLACE_CONFIGURED],
+    [MARKETPLACE_INSTALL_VERDICT.DRIFTED, DIAGNOSE_TEXT_HEADER.MARKETPLACE_DRIFT],
+    [MARKETPLACE_INSTALL_VERDICT.UNREGISTERED, DIAGNOSE_TEXT_HEADER.MARKETPLACE_UNREGISTERED],
+    [MARKETPLACE_INSTALL_VERDICT.CLI_UNAVAILABLE, DIAGNOSE_TEXT_HEADER.MARKETPLACE_CLI_UNAVAILABLE],
+    [MARKETPLACE_INSTALL_VERDICT.NOT_APPLICABLE, DIAGNOSE_TEXT_HEADER.MARKETPLACE_CHECKS_SKIPPED],
+    [MARKETPLACE_INSTALL_VERDICT.UNKNOWN, DIAGNOSE_TEXT_HEADER.MARKETPLACE_UNKNOWN],
+  ])("renders the marketplace-install %s verdict as its diagnosis heading", (verdict, header) => {
+    const check = marketplaceCheckFor(verdict);
+    expect(renderSingleCheckText(check).split("\n")).toContain(
+      `${SEVERITY_STYLE[BUCKET_SEVERITY[check.bucket]].glyph} ${header}`,
+    );
+  });
+  it.each(Object.keys(CANONICAL_CHECKOUT_PROBLEM) as CanonicalCheckoutFailureVerdict[])(
+    "renders the %s problem and its remediation",
+    (verdict) => {
+      const check = worktreePoolCheckFor(verdict);
       const lines = renderSingleCheckText(check).split("\n");
       expect(lines).toContain(
         `${SEVERITY_STYLE[BUCKET_SEVERITY[check.bucket]].glyph} ${DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID}`,
@@ -144,8 +208,8 @@ describe("the text report translates check records into a human diagnosis", () =
       expect(lines).toEqual(
         expect.arrayContaining([expect.stringContaining(`${DIAGNOSE_TEXT_LABEL.FIX}: ${check.remediation}`)]),
       );
-    }
-  });
+    },
+  );
 });
 
 describe("the JSON report remains the complete machine schema", () => {

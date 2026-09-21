@@ -8,6 +8,12 @@
  * one patch below the drawn version and one patch above it — so the boundary is
  * derived rather than chosen, and the construction never consults `meetsFloor`.
  *
+ * Each `*CheckFor` builder takes a source-owned verdict and returns the record
+ * its check classifies for that verdict, so a linked test can range over the
+ * verdict domain and keep the expected diagnosis heading in its own file. A
+ * builder whose readings do not classify to the requested verdict raises a setup
+ * error rather than returning a record the caller did not ask for.
+ *
  * @module testing/generators/diagnose/report-cases
  */
 
@@ -15,36 +21,38 @@ import fc from "fast-check";
 
 import {
   classifyMarketplaceInstall,
+  MARKETPLACE_INSTALL_VERDICT,
   type MarketplaceInstallReading,
+  type MarketplaceInstallVerdict,
 } from "@/domains/diagnose/checks/marketplace-install";
 import {
   classifySessionEnvironment,
+  SESSION_ENVIRONMENT_VERDICT,
   type SessionEnvironmentReading,
+  type SessionEnvironmentVerdict,
 } from "@/domains/diagnose/checks/session-environment";
-import { classifySessionStore } from "@/domains/diagnose/checks/session-store";
-import { classifySpxReachability, type SpxReachabilityReading } from "@/domains/diagnose/checks/spx-reachability";
+import {
+  classifySessionStore,
+  SESSION_STORE_VERDICT,
+  type SessionStoreVerdict,
+} from "@/domains/diagnose/checks/session-store";
+import {
+  classifySpxReachability,
+  SPX_REACHABILITY_VERDICT,
+  type SpxReachabilityReading,
+  type SpxReachabilityVerdict,
+} from "@/domains/diagnose/checks/spx-reachability";
 import {
   classifyWorktreePool,
   WORKTREE_POOL_VERDICT,
   type WorktreePoolReading,
+  type WorktreePoolVerdict,
 } from "@/domains/diagnose/checks/worktree-pool";
-import { DIAGNOSE_TEXT_HEADER } from "@/domains/diagnose/report";
-import type { CanonicalCheckoutFailureVerdict } from "@/domains/diagnose/report-contract";
 import { type CheckRecord, type DiagnoseReport, OVERALL_VERDICT } from "@/domains/diagnose/types";
 import { arbitraryBranchName, arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { sampleMainCheckoutTestValue } from "@testing/generators/main-checkout/main-checkout";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
-
-interface TranslationBranchCase {
-  readonly check: CheckRecord;
-  readonly header: string;
-}
-
-interface CanonicalCheckoutFailureCase {
-  readonly check: CheckRecord;
-  readonly verdict: CanonicalCheckoutFailureVerdict;
-}
 
 /** A version with the floors that straddle it, ordered by semver precedence on the patch component alone. */
 export interface StraddledFloorCase {
@@ -115,30 +123,6 @@ export function orphanedClaimCount(): number {
   return sampleGeneratedValue(fc.integer({ min: 1, max: 99 }));
 }
 
-export function sampleReport(): DiagnoseReport {
-  return {
-    checks: [
-      classifySpxReachability(reusableSpxReading(), undefined),
-      classifySessionEnvironment({
-        errored: false,
-        hookPresent: false,
-        sessionIdentity: false,
-        worktreeClaimed: false,
-      }),
-      classifyWorktreePool(compliantWorktreePoolReading()),
-      classifySessionStore({ errored: false, orphanedClaims: orphanedClaimCount() }),
-      classifyMarketplaceInstall({
-        configured: false,
-        errored: false,
-        surfacePresent: false,
-        unregistered: false,
-        drifted: false,
-      }),
-    ],
-    overall: OVERALL_VERDICT.HEALTHY,
-  };
-}
-
 export function workingSessionReading(): SessionEnvironmentReading {
   return { errored: false, hookPresent: true, sessionIdentity: true, worktreeClaimed: true };
 }
@@ -147,138 +131,157 @@ export function configuredMarketplaceReading(): MarketplaceInstallReading {
   return { configured: true, errored: false, surfacePresent: true, unregistered: false, drifted: false };
 }
 
-export function canonicalCheckoutFailureCases(): readonly CanonicalCheckoutFailureCase[] {
-  const [defaultBranch, wrongBranch] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
-  const pool = compliantWorktreePoolReading();
-  return [
-    {
-      check: classifyWorktreePool({ ...pool, mainCheckoutPath: null, defaultBranch, mainCheckoutBranch: null }),
-      verdict: WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_MISSING,
-    },
-    {
-      check: classifyWorktreePool({
-        ...pool,
-        mainCheckoutPath: defaultBranch,
-        defaultBranch,
-        mainCheckoutBranch: null,
-      }),
-      verdict: WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_DETACHED,
-    },
-    {
-      check: classifyWorktreePool({
-        ...pool,
-        mainCheckoutPath: defaultBranch,
-        defaultBranch,
-        mainCheckoutBranch: wrongBranch,
-      }),
-      verdict: WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_WRONG_BRANCH,
-    },
-  ];
+export function sampleReport(): DiagnoseReport {
+  return {
+    checks: [
+      spxCheckFor(SPX_REACHABILITY_VERDICT.PRESENT),
+      sessionEnvironmentCheckFor(SESSION_ENVIRONMENT_VERDICT.NOT_APPLICABLE),
+      worktreePoolCheckFor(WORKTREE_POOL_VERDICT.COMPLIANT),
+      sessionStoreCheckFor(SESSION_STORE_VERDICT.CONSISTENT),
+      marketplaceCheckFor(MARKETPLACE_INSTALL_VERDICT.NOT_APPLICABLE),
+    ],
+    overall: OVERALL_VERDICT.HEALTHY,
+  };
 }
 
-export function supportedTranslationBranches(): readonly TranslationBranchCase[] {
+/** Raises when a builder's readings do not classify to the verdict the caller asked for. */
+function requireVerdict(record: CheckRecord, requested: string): CheckRecord {
+  if (record.verdict !== requested) {
+    throw new Error(`Generated readings classified as "${record.verdict}" rather than the requested "${requested}"`);
+  }
+  return record;
+}
+
+/** The spx-reachability record for one verdict, over a drawn path, version, and straddling floors. */
+export function spxCheckFor(verdict: SpxReachabilityVerdict): CheckRecord {
   const floors = straddledFloor();
-  const spxReading = {
+  const reading = {
     errored: false,
     resolvedPath: sampleGeneratedValue(arbitraryExecutablePath()),
     version: floors.version,
   };
-  const sessionReading = workingSessionReading();
-  const marketplaceReading = configuredMarketplaceReading();
+  switch (verdict) {
+    case SPX_REACHABILITY_VERDICT.REACHABLE:
+      return requireVerdict(classifySpxReachability(reading, floors.floorBelow), verdict);
+    case SPX_REACHABILITY_VERDICT.PRESENT:
+      return requireVerdict(classifySpxReachability(reading, undefined), verdict);
+    case SPX_REACHABILITY_VERDICT.BELOW_FLOOR:
+      return requireVerdict(classifySpxReachability(reading, floors.floorAbove), verdict);
+    case SPX_REACHABILITY_VERDICT.UNREACHABLE:
+      return requireVerdict(classifySpxReachability({ ...reading, resolvedPath: null }, floors.floorBelow), verdict);
+    case SPX_REACHABILITY_VERDICT.UNKNOWN:
+      return requireVerdict(classifySpxReachability({ ...reading, errored: true }, floors.floorBelow), verdict);
+  }
+}
+
+/** The session-environment record for one verdict, over the hook, identity, and claim flags that reach it. */
+export function sessionEnvironmentCheckFor(verdict: SessionEnvironmentVerdict): CheckRecord {
+  const reading = workingSessionReading();
+  switch (verdict) {
+    case SESSION_ENVIRONMENT_VERDICT.WORKING:
+      return requireVerdict(classifySessionEnvironment(reading), verdict);
+    case SESSION_ENVIRONMENT_VERDICT.IDENTITY_ONLY:
+      return requireVerdict(classifySessionEnvironment({ ...reading, worktreeClaimed: false }), verdict);
+    case SESSION_ENVIRONMENT_VERDICT.SILENT_NO_OP:
+      return requireVerdict(
+        classifySessionEnvironment({ ...reading, sessionIdentity: false, worktreeClaimed: false }),
+        verdict,
+      );
+    case SESSION_ENVIRONMENT_VERDICT.NOT_APPLICABLE:
+      return requireVerdict(
+        classifySessionEnvironment({ ...reading, hookPresent: false, sessionIdentity: false, worktreeClaimed: false }),
+        verdict,
+      );
+    case SESSION_ENVIRONMENT_VERDICT.UNKNOWN:
+      return requireVerdict(
+        classifySessionEnvironment({ ...reading, hookPresent: false, sessionIdentity: false }),
+        verdict,
+      );
+  }
+}
+
+/** The worktree-pool record for one verdict, over the compliant pool reading perturbed to reach it. */
+export function worktreePoolCheckFor(verdict: WorktreePoolVerdict): CheckRecord {
   const pool = compliantWorktreePoolReading();
-  return [
-    { check: classifySpxReachability(spxReading, floors.floorBelow), header: DIAGNOSE_TEXT_HEADER.SPX_INSTALLED },
-    { check: classifySpxReachability(spxReading, undefined), header: DIAGNOSE_TEXT_HEADER.SPX_INSTALLED },
-    { check: classifySpxReachability(spxReading, floors.floorAbove), header: DIAGNOSE_TEXT_HEADER.SPX_BELOW_FLOOR },
-    {
-      check: classifySpxReachability({ ...spxReading, resolvedPath: null }, floors.floorBelow),
-      header: DIAGNOSE_TEXT_HEADER.SPX_UNREACHABLE,
-    },
-    {
-      check: classifySpxReachability({ ...spxReading, errored: true }, floors.floorBelow),
-      header: DIAGNOSE_TEXT_HEADER.SPX_UNKNOWN,
-    },
-    { check: classifySessionEnvironment(sessionReading), header: DIAGNOSE_TEXT_HEADER.AGENT_SESSION_ACTIVE },
-    {
-      check: classifySessionEnvironment({ ...sessionReading, worktreeClaimed: false }),
-      header: DIAGNOSE_TEXT_HEADER.AGENT_SESSION_UNLINKED,
-    },
-    {
-      check: classifySessionEnvironment({ ...sessionReading, sessionIdentity: false, worktreeClaimed: false }),
-      header: DIAGNOSE_TEXT_HEADER.SESSION_START_NO_OP,
-    },
-    {
-      check: classifySessionEnvironment({
-        ...sessionReading,
-        hookPresent: false,
-        sessionIdentity: false,
-        worktreeClaimed: false,
-      }),
-      header: DIAGNOSE_TEXT_HEADER.AGENT_SESSION_HOOK_SKIPPED,
-    },
-    {
-      check: classifySessionEnvironment({ ...sessionReading, hookPresent: false, sessionIdentity: false }),
-      header: DIAGNOSE_TEXT_HEADER.AGENT_SESSION_UNKNOWN,
-    },
-    { check: classifyWorktreePool(pool), header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_VALID },
-    {
-      check: classifyWorktreePool({
-        ...pool,
-        bareRepository: false,
-        linkedWorktrees: true,
-        mainCheckoutPath: null,
-        defaultBranch: null,
-        mainCheckoutBranch: null,
-      }),
-      header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
-    },
-    ...canonicalCheckoutFailureCases().map(({ check }) => ({
-      check,
-      header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_INVALID,
-    })),
-    {
-      check: classifyWorktreePool({
-        ...pool,
-        errored: true,
-        mainCheckoutPath: null,
-        defaultBranch: null,
-        mainCheckoutBranch: null,
-        mainCheckoutBranchRead: false,
-      }),
-      header: DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_UNKNOWN,
-    },
-    {
-      check: classifySessionStore({ errored: false, orphanedClaims: 0 }),
-      header: DIAGNOSE_TEXT_HEADER.SESSION_STORE_CLEAN,
-    },
-    {
-      check: classifySessionStore({ errored: false, orphanedClaims: orphanedClaimCount() }),
-      header: DIAGNOSE_TEXT_HEADER.SESSION_STORE_CLEAN,
-    },
-    {
-      check: classifySessionStore({ errored: true, orphanedClaims: 0 }),
-      header: DIAGNOSE_TEXT_HEADER.SESSION_STORE_UNKNOWN,
-    },
-    { check: classifyMarketplaceInstall(marketplaceReading), header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_CONFIGURED },
-    {
-      check: classifyMarketplaceInstall({ ...marketplaceReading, drifted: true }),
-      header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_DRIFT,
-    },
-    {
-      check: classifyMarketplaceInstall({ ...marketplaceReading, unregistered: true }),
-      header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_UNREGISTERED,
-    },
-    {
-      check: classifyMarketplaceInstall({ ...marketplaceReading, surfacePresent: false }),
-      header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_CLI_UNAVAILABLE,
-    },
-    {
-      check: classifyMarketplaceInstall({ ...marketplaceReading, configured: false, surfacePresent: false }),
-      header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_CHECKS_SKIPPED,
-    },
-    {
-      check: classifyMarketplaceInstall({ ...marketplaceReading, errored: true }),
-      header: DIAGNOSE_TEXT_HEADER.MARKETPLACE_UNKNOWN,
-    },
-  ];
+  const [defaultBranch, wrongBranch] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctPoolWorktreeNames());
+  switch (verdict) {
+    case WORKTREE_POOL_VERDICT.COMPLIANT:
+      return requireVerdict(classifyWorktreePool(pool), verdict);
+    case WORKTREE_POOL_VERDICT.NON_COMPLIANT:
+      return requireVerdict(
+        classifyWorktreePool({
+          ...pool,
+          bareRepository: false,
+          linkedWorktrees: true,
+          mainCheckoutPath: null,
+          defaultBranch: null,
+          mainCheckoutBranch: null,
+        }),
+        verdict,
+      );
+    case WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_MISSING:
+      return requireVerdict(
+        classifyWorktreePool({ ...pool, mainCheckoutPath: null, defaultBranch, mainCheckoutBranch: null }),
+        verdict,
+      );
+    case WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_DETACHED:
+      return requireVerdict(
+        classifyWorktreePool({ ...pool, mainCheckoutPath: defaultBranch, defaultBranch, mainCheckoutBranch: null }),
+        verdict,
+      );
+    case WORKTREE_POOL_VERDICT.MAIN_CHECKOUT_WRONG_BRANCH:
+      return requireVerdict(
+        classifyWorktreePool({
+          ...pool,
+          mainCheckoutPath: defaultBranch,
+          defaultBranch,
+          mainCheckoutBranch: wrongBranch,
+        }),
+        verdict,
+      );
+    case WORKTREE_POOL_VERDICT.UNKNOWN:
+      return requireVerdict(
+        classifyWorktreePool({
+          ...pool,
+          errored: true,
+          mainCheckoutPath: null,
+          defaultBranch: null,
+          mainCheckoutBranch: null,
+          mainCheckoutBranchRead: false,
+        }),
+        verdict,
+      );
+  }
+}
+
+/** The session-store record for one verdict, over a drawn orphan count that never changes the verdict. */
+export function sessionStoreCheckFor(verdict: SessionStoreVerdict): CheckRecord {
+  switch (verdict) {
+    case SESSION_STORE_VERDICT.CONSISTENT:
+      return requireVerdict(classifySessionStore({ errored: false, orphanedClaims: orphanedClaimCount() }), verdict);
+    case SESSION_STORE_VERDICT.UNKNOWN:
+      return requireVerdict(classifySessionStore({ errored: true, orphanedClaims: 0 }), verdict);
+  }
+}
+
+/** The marketplace-install record for one verdict, over the configured reading perturbed to reach it. */
+export function marketplaceCheckFor(verdict: MarketplaceInstallVerdict): CheckRecord {
+  const reading = configuredMarketplaceReading();
+  switch (verdict) {
+    case MARKETPLACE_INSTALL_VERDICT.INSTALLED:
+      return requireVerdict(classifyMarketplaceInstall(reading), verdict);
+    case MARKETPLACE_INSTALL_VERDICT.DRIFTED:
+      return requireVerdict(classifyMarketplaceInstall({ ...reading, drifted: true }), verdict);
+    case MARKETPLACE_INSTALL_VERDICT.UNREGISTERED:
+      return requireVerdict(classifyMarketplaceInstall({ ...reading, unregistered: true }), verdict);
+    case MARKETPLACE_INSTALL_VERDICT.CLI_UNAVAILABLE:
+      return requireVerdict(classifyMarketplaceInstall({ ...reading, surfacePresent: false }), verdict);
+    case MARKETPLACE_INSTALL_VERDICT.NOT_APPLICABLE:
+      return requireVerdict(
+        classifyMarketplaceInstall({ ...reading, configured: false, surfacePresent: false }),
+        verdict,
+      );
+    case MARKETPLACE_INSTALL_VERDICT.UNKNOWN:
+      return requireVerdict(classifyMarketplaceInstall({ ...reading, errored: true }), verdict);
+  }
 }
