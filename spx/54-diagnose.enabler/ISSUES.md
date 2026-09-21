@@ -10,6 +10,18 @@
 
 **Settlement condition:** `src/domains/diagnose/manifest.ts` exports the manifest wire-key registry, the generator, the harness, and the conformance test read the keys from it, and no module outside that owner spells `spx_floor`, `marketplace`, or `expected_plugins`.
 
+## The check records publish no readings-key registry
+
+Each check builds its `readings` object as a literal inside its own `record()` — `hook`, `identity` and `claimed` in [`src/domains/diagnose/checks/session-environment.ts`](../../src/domains/diagnose/checks/session-environment.ts); `bare`, `linked`, `running`, `free`, `mainCheckoutPath`, `defaultBranch`, `mainCheckoutBranch` and `mainCheckoutBranchRead` in [`src/domains/diagnose/checks/worktree-pool.ts`](../../src/domains/diagnose/checks/worktree-pool.ts); `orphaned`, `configured`, `surface`, `unregistered`, `drifted`, and the methodology-context keys in their siblings — and none of those modules exports the key set. A consumer must therefore spell the vocabulary itself, and [`tests/diagnose-cli.scenario.l2.test.ts`](tests/diagnose-cli.scenario.l2.test.ts) does, while the same file imports the source-owned `CHECK_RECORD_FIELDS` from `src/domains/diagnose/types.ts` for the record fields one level up.
+
+This is the same defect as the manifest wire keys above, seen from the other side: that entry is the producer's face of it in the generator, this one the consumer's face in the scenario test.
+
+**Evidence:** test-evidence audit of `spx/54-diagnose.enabler`, findings `f-002` and `f-003`, both severity REJECT, property `source-ownership`.
+
+**Impact:** the readings are the schema field names of a machine contract that consumers decode, and they have two independent declarations. A key renamed in a check's `record()` leaves the consuming test's spelling intact, and the evidence keeps passing against a wire shape the product no longer emits.
+
+**Settlement condition:** each check module publishes its readings-key registry beside its `record()`, the way `CHECK_RECORD_FIELDS` already does for the enclosing record, and every consumer reads the keys from that owner rather than spelling them.
+
 ## The determinism property bypasses the property harness
 
 [`tests/determinism.property.l1.test.ts`](tests/determinism.property.l1.test.ts) calls `fc.assert(fc.property(...))` directly. The product's property harness `assertProperty` in [`testing/harnesses/property/property.ts`](../../testing/harnesses/property/property.ts) owns run count, per-run timeout, seed selection, and `SPX_PROPERTY_SEED` replay diagnostics, and the node's sibling property evidence [`tests/output-mode.property.l1.test.ts`](tests/output-mode.property.l1.test.ts) routes through it.
