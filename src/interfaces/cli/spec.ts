@@ -35,7 +35,8 @@ export const SPEC_DOMAIN_CLI = {
   JSON_OPTION: "--json",
   METHODOLOGY_OPTION: "--methodology",
   LOADED_PRODUCT_OPTION: "--loaded-product",
-  LOADED_TARGET_OPTION: "--loaded-target <path>",
+  LOADED_TARGET_OPTION: "--loaded-target",
+  LOADED_TARGET_OPTION_DEFINITION: "--loaded-target <path>",
   LOADED_METHODOLOGY_OPTION: "--loaded-methodology",
   CODING_AGENT_OPTION: "--coding-agent",
   CODING_AGENT_OPTION_DEFINITION: "--coding-agent <name>",
@@ -163,7 +164,7 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
       "Suppress the targetless product projection already loaded in this conversation window",
     )
     .option(
-      SPEC_DOMAIN_CLI.LOADED_TARGET_OPTION,
+      SPEC_DOMAIN_CLI.LOADED_TARGET_OPTION_DEFINITION,
       "Suppress a target projection already loaded in this conversation window",
       (path: string, paths: string[]) => [...paths, path],
       [],

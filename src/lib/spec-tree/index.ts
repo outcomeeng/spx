@@ -92,6 +92,7 @@ export {
   renderSpecContextEntries,
   selectSpecContextDocuments,
   SPEC_CONTEXT_DOCUMENT_OPENING,
+  SPEC_CONTEXT_ENTRY_TYPE,
   SPEC_CONTEXT_FRAME,
   SPEC_CONTEXT_MODE,
   SPEC_CONTEXT_OPTIONAL_ARTIFACT,
@@ -102,7 +103,12 @@ export {
   splitSpecContextFrontMatter,
   suppressLoadedSpecContext,
 } from "./context-projection";
-export type { SpecContextEntry, SpecContextProjectedEntry, SpecContextSelection } from "./context-projection";
+export type {
+  SpecContextDocumentEntry,
+  SpecContextEntry,
+  SpecContextProjectedEntry,
+  SpecContextSelection,
+} from "./context-projection";
 export {
   assembleSpecContextTargetReadSet,
   specContextAncestors,
