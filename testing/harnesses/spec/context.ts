@@ -2,6 +2,7 @@ import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { join, parse } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { Command } from "commander";
 import { execa } from "execa";
 import { build } from "tsup";
 
@@ -21,7 +22,8 @@ import {
 } from "@/commands/spec/context-show";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import type { Config } from "@/config/types";
-import { formatSpecContextTargetFailure } from "@/interfaces/cli/spec";
+import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
+import { formatSpecContextTargetFailure, specDomain } from "@/interfaces/cli/spec";
 import { GIT_LS_FILES_COMMAND } from "@/lib/git/changed-paths";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 import { TRACKED_PATH_NUL_SEPARATOR } from "@/lib/git/tracked-paths";
@@ -128,6 +130,45 @@ export async function contextShowText(options: ContextShowOptions): Promise<stri
 /** The exact JSON text the `show --json` command writes, without the trailing newline. */
 export async function contextShowJson(options: ContextShowOptions): Promise<string> {
   return String(renderSpecContextEntriesJson(await contextShowEntries(options)));
+}
+
+/**
+ * Parses `argv` through the real spec descriptor registered on a fresh
+ * Commander program, and returns everything the program wrote plus the
+ * message of the error that ended the parse. The descriptor's own option
+ * surface decides the outcome, so an option it does not expose is refused
+ * here exactly as the process boundary refuses it, with no filesystem or
+ * process state involved.
+ */
+export async function specCliParseDiagnostic(...argv: readonly string[]): Promise<string> {
+  let written = "";
+  const record = (output: string): void => {
+    written += output;
+  };
+  const program = new Command().exitOverride().configureOutput({ writeOut: record, writeErr: record });
+  // No handler runs on a refused parse, so no command reads this directory.
+  const invocationDir = process.cwd();
+  const productContext = { effectiveInvocationDir: invocationDir, productDir: invocationDir };
+  specDomain.register(program, {
+    io: {
+      writeStdout: record,
+      writeStderr: record,
+      writePassThrough: record,
+      writePassThroughError: record,
+      setExitCode: () => undefined,
+      exit: (exitCode: number): never => {
+        throw new Error(`The parse exited with ${exitCode}`);
+      },
+    },
+    resolveEffectiveInvocationDir: () => invocationDir,
+    resolveProductContext: () => productContext,
+  });
+  try {
+    await program.parseAsync([...argv], { from: SPX_COMMANDER_PARSE_SOURCE });
+  } catch (error: unknown) {
+    return `${written}${error instanceof Error ? error.message : String(error)}`;
+  }
+  return written;
 }
 
 /**

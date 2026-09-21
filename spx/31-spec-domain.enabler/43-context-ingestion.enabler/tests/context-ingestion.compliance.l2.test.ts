@@ -1,3 +1,6 @@
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
@@ -7,7 +10,10 @@ import { METHODOLOGY_CODING_AGENT } from "@/lib/methodology";
 import { KIND_REGISTRY, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
 import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
-import { specContextUnknownTarget } from "@testing/generators/spec-tree/context-target";
+import {
+  arbitrarySpecContextInvalidUtf8Bytes,
+  specContextUnknownTarget,
+} from "@testing/generators/spec-tree/context-target";
 import {
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
@@ -41,6 +47,25 @@ describe("spec context no partial output", () => {
         SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED],
       );
       expect(result.stderr).toContain(unknown);
+    });
+  });
+
+  it("writes nothing to standard output when a selected document's source cannot be read", async () => {
+    await withRichContextEnv(async (env, paths) => {
+      await writeFile(
+        join(env.productDir, paths.targetSpecPath),
+        Buffer.from(sampleSpecTreeTestValue(arbitrarySpecContextInvalidUtf8Bytes())),
+      );
+      const result = await runSpecCli(
+        env.productDir,
+        SPEC_DOMAIN_CLI.COMMAND,
+        SPEC_DOMAIN_CLI.CONTEXT_COMMAND,
+        SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND,
+        paths.targetId,
+      );
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toHaveLength(0);
+      expect(result.stderr).toContain(paths.targetSpecPath);
     });
   });
 

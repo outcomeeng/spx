@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 
 import { formatSpecContextTargetFailure } from "@/interfaces/cli/spec";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
-import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
 import {
   SPEC_CONTEXT_CASE_TITLE,
@@ -50,7 +49,7 @@ describe("spec context target resolution mapping", () => {
         const cwd = join(env.productDir, rejected.invocationDir);
         const failure = await contextListFailure({ targets: [rejected.operand], cwd });
         expect(failure).toContain(SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[rejected.expectedKind]);
-        expect(failure).toContain(sanitizeCliArgument(rejected.operand));
+        expect(failure).toContain(rejected.operand);
         for (const candidate of rejected.expectedCandidates) {
           expect(failure).toContain(candidate);
         }
@@ -61,11 +60,11 @@ describe("spec context target resolution mapping", () => {
   it.each(specContextTargetDiagnosticSafetyCases())(SPEC_CONTEXT_CASE_TITLE, (safetyCase) => {
     const message = String(formatSpecContextTargetFailure(safetyCase.failure));
     expect(message).toContain(SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[safetyCase.failure.kind]);
-    expect(message).toContain(sanitizeCliArgument(safetyCase.unsafeValue));
+    expect(message).toContain(safetyCase.expectedEscapedValue);
     expect(message).not.toContain(safetyCase.unsafeValue);
     if (safetyCase.failure.kind === SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS) {
-      expect(message.indexOf(sanitizeCliArgument(safetyCase.unsafeValue))).toBeLessThan(
-        message.lastIndexOf(sanitizeCliArgument(safetyCase.unsafeValue)),
+      expect(message.indexOf(safetyCase.expectedEscapedValue)).toBeLessThan(
+        message.lastIndexOf(safetyCase.expectedEscapedValue),
       );
     }
   });

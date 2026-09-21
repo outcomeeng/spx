@@ -232,10 +232,14 @@ describe("spx spec process contract", () => {
       await env.writeRaw(RETIRED_SPEC_APPLY_FIXTURE.excludeFile, fixture.excludeContent);
       await env.writeRaw(RETIRED_SPEC_APPLY_FIXTURE.pythonConfigFile, fixture.pythonConfigContent);
       const before = await Promise.all(fixture.protectedPaths.map((path) => env.readFile(path)));
-      const result = await runSpecCli(env.productDir, SPEC_DOMAIN_CLI.COMMAND, RETIRED_SPEC_APPLY_FIXTURE.command);
+      const result = await runSpecCli(
+        env.productDir,
+        SPEC_DOMAIN_CLI.COMMAND,
+        SPEC_DOMAIN_CLI.RETIRED_APPLY_COMMAND,
+      );
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain(RETIRED_SPEC_APPLY_FIXTURE.unknownCommandPrefix);
-      expect(result.stderr).toContain(RETIRED_SPEC_APPLY_FIXTURE.command);
+      expect(result.stderr).toContain(SPEC_DOMAIN_CLI.RETIRED_APPLY_COMMAND);
       await expect(Promise.all(fixture.protectedPaths.map((path) => env.readFile(path)))).resolves.toEqual(before);
     });
   });

@@ -11,7 +11,6 @@ import {
 import { HOOK_SESSION_START_ENV } from "@/domains/hooks/session-start";
 import { TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
 import { METHODOLOGY_CODING_AGENT, type MethodologyCodingAgent } from "@/lib/methodology";
-import { CONTROL_CHAR_UPPER_BOUND, DEL_CHAR_CODE, formatHexEscape } from "@/lib/sanitize-cli-argument";
 import {
   DECISION_KINDS,
   type DecisionKind,
@@ -35,6 +34,10 @@ import {
   SPEC_TREE_TEST_GENERATOR,
   specTreeFixtureNodeDirectoryName,
 } from "@testing/generators/spec-tree/spec-tree";
+import {
+  TERMINAL_ORACLE_UNSAFE_CODE_POINTS,
+  terminalOracleHexEscape,
+} from "@testing/generators/terminal-text/terminal-text";
 
 /** The accepted context target classes the resolution spec declares. */
 const SPEC_CONTEXT_TARGET_CLASS_VALUES = {
@@ -131,6 +134,8 @@ export type SpecContextTargetDiagnosticSafetyCase = {
   readonly failure: SpecContextTargetFailure;
   readonly title: string;
   readonly unsafeValue: string;
+  /** The rendering the escaping law requires, computed independently of the production sanitizer. */
+  readonly expectedEscapedValue: string;
 };
 
 /** The paths one accepted-target case denotes: the operand to supply and the canonical identity it must resolve to. */
@@ -199,13 +204,6 @@ function unregisteredNodeSuffix(seed: string): string {
   let candidate = `.${seed}`;
   while (registeredSuffixes.has(candidate)) candidate = `${candidate}-${seed}`;
   return candidate;
-}
-
-function unsafeCliDiagnosticCodes(): readonly number[] {
-  return [
-    ...Array.from({ length: CONTROL_CHAR_UPPER_BOUND + 1 }, (_unused, code) => code),
-    DEL_CHAR_CODE,
-  ];
 }
 
 export function specContextLowerSiblingDirectoryName(fixture: RepresentativeSpecTreeFixture): string {
@@ -605,8 +603,8 @@ export function specContextRejectedTargetOperand(
 
 /** Every failure kind with a control-byte or DEL input and candidate, for the diagnostic-safety mapping. */
 export function specContextTargetDiagnosticSafetyCases(): readonly SpecContextTargetDiagnosticSafetyCase[] {
-  return unsafeCliDiagnosticCodes().flatMap((code) => {
-    const escape = formatHexEscape(code);
+  return TERMINAL_ORACLE_UNSAFE_CODE_POINTS.flatMap((code) => {
+    const expectedEscapedValue = terminalOracleHexEscape(code);
     const unsafeValue = String.fromCodePoint(code);
     return Object.values(SPEC_CONTEXT_TARGET_FAILURE_KIND).map((kind) => ({
       failure: {
@@ -614,8 +612,9 @@ export function specContextTargetDiagnosticSafetyCases(): readonly SpecContextTa
         input: unsafeValue,
         candidates: kind === SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS ? [unsafeValue] : [],
       },
-      title: `escapes ${escape} in ${kind} diagnostics`,
+      title: `escapes ${expectedEscapedValue} in ${kind} diagnostics`,
       unsafeValue,
+      expectedEscapedValue,
     }));
   });
 }
