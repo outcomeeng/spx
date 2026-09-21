@@ -1,25 +1,25 @@
 # Context Target Resolution
 
-Spec-context target resolution is a pure operation over a parsed spec-tree snapshot. It normalizes an optional `spx/` root segment and trailing separators, resolves node-directory segments from parent to child, prefers an exact segment match, and accepts an abbreviated segment only when it uniquely prefixes one sibling node segment. Resolution returns a typed result carrying either the canonical node identity or a structured unknown-segment, ambiguous-segment, or artifact-input failure; the CLI interface renders that result for the invocation host.
+Spec-context target resolution separates filesystem canonicalization from pure identity selection over a parsed spec-tree snapshot. An injected path boundary normalizes candidate paths, resolves symbolic links, and supplies containment facts; pure selection combines candidates from the effective invocation directory, the product root, and complete-path-component suffix matches over accepted snapshot targets. Resolution returns a typed canonical target identity or a structured unresolved, ambiguous, unsupported-artifact, or outside-product failure; the CLI interface renders that result for the invocation host.
 
 ## Rationale
 
-Segment-by-segment resolution preserves the tree hierarchy and makes abbreviated input deterministic. Whole-string prefix matching could cross node boundaries or select a node because of an unrelated descendant, while filesystem probing would couple target identity to untracked paths rather than the parsed tree. Typed failures keep target selection free of terminal wording and let every interface present the same resolution facts appropriately.
+Snapshot membership defines accepted targets, while filesystem facts establish which accepted identity a supplied path denotes. Separating those responsibilities admits symbolic-link aliases without admitting untracked artifacts or outside-product targets. Combining candidate sources without precedence exposes ambiguity instead of hiding it behind an exact or invocation-relative match. Complete-component suffix matching accepts convenient unambiguous paths without introducing abbreviated component-prefix semantics. Typed failures keep target selection free of terminal wording and let every interface present the same resolution facts appropriately.
 
 ## Invariants
 
-- Resolving a canonical node identity returns that same canonical identity.
-- Every successful abbreviated segment has exactly one matching sibling node segment at its resolved parent.
-- An exact segment match wins even when the same text prefixes another sibling segment.
+- Candidate enumeration order does not change the resolution result.
+- Multiple accepted artifact paths denoting the same node collapse to one identity.
+- Every successful resolution names exactly one snapshot target inside the resolved product root.
 
 ## Verification
 
 ### Testing
 
-- ALWAYS: each structured target-resolution failure variant maps to an actionable CLI diagnostic that identifies the rejected input and resolution failure ([mapping])
-- NEVER: target resolution selects the first candidate for an ambiguous segment or uses whole-string fuzzy matching ([compliance])
+- ALWAYS: each unresolved, ambiguous, unsupported-artifact, and outside-product target-resolution failure maps to an actionable CLI diagnostic that identifies the rejected input and carries every canonical match the failure requires ([mapping])
+- NEVER: target resolution gives a candidate source precedence, substitutes abbreviated path-component prefixes for complete-component suffix matching, or selects the first identity from an ambiguous result ([compliance])
 
 ### Audit
 
-- ALWAYS: target resolution operates only on the parsed spec-tree snapshot and returns a typed result without filesystem access or process I/O ([audit])
+- ALWAYS: filesystem canonicalization enters through an injected path boundary, while identity selection operates only on the parsed spec-tree snapshot and supplied path facts and returns a typed result without filesystem, process, environment, or terminal access ([audit])
 - NEVER: tests replace target-resolution dependencies through `vi.mock()` or `jest.mock()` ([audit])
