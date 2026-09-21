@@ -62,6 +62,7 @@ import {
   specTreeFixtureNodeDirectoryName,
 } from "@testing/generators/spec-tree/spec-tree";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
+import { GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { type CurrentSpecTreeEnv, withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { SPEC_CLI_ISOLATION } from "@testing/harnesses/spec/spec-cli-isolation-contract";
 import { SPEC_CLI_NETWORK_GUARD_SOURCE_PATH } from "@testing/harnesses/spec/spec-cli-network-guard";
@@ -170,6 +171,17 @@ export function documentAt(
   return entries.find((entry): entry is Extract<SpecContextEntry, { readonly type: "document" }> =>
     entry.type === "document" && entry.path === path
   );
+}
+
+/**
+ * Makes the product directory a git repository whose index tracks the whole
+ * `spx/` tree, so root resolution from a nested invocation directory and
+ * tracked-path scoping both run through real git rather than the no-git
+ * fallback that treats the invocation directory as the product root.
+ */
+export async function trackSpecTreeInGit(env: CurrentSpecTreeEnv): Promise<void> {
+  await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+  await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.ADD, SPEC_TREE_CONFIG.ROOT_DIRECTORY]);
 }
 
 export function trackedSpecContextGitDependencies(
