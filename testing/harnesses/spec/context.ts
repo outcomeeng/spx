@@ -15,6 +15,7 @@ import {
 import {
   type ContextShowOptions,
   type ContextShowResult,
+  parseSpecContextEntriesJson,
   renderSpecContextEntriesJson,
   resolveContextShow,
 } from "@/commands/spec/context-show";
@@ -32,7 +33,6 @@ import {
   FOUNDATION_PLUGIN_NAME,
   METHODOLOGY_CODING_AGENT,
   METHODOLOGY_TREE_ROOT,
-  methodologyLine,
   type MethodologySourceRecord,
   SOURCE_RECORD_RELATIVE_PATH,
 } from "@/lib/methodology";
@@ -42,6 +42,7 @@ import {
   SPEC_CONTEXT_DOCUMENT_OPENING,
   SPEC_CONTEXT_ENTRY_TYPE,
   SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
+  SPEC_CONTEXT_OPTIONAL_ARTIFACT,
   SPEC_CONTEXT_SELECTED_METADATA_KEY,
   SPEC_TREE_CONFIG,
   SPEC_TREE_CONFIG_FIELDS,
@@ -52,7 +53,7 @@ import {
   type SpecContextManifest,
   type SpecContextReadRole,
 } from "@/lib/spec-tree";
-import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
+import { arbitraryMethodologyVersion, type GeneratedMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   specContextLowerSiblingDirectoryName as lowerSiblingDirectoryName,
@@ -76,7 +77,7 @@ export function parseContextManifest(output: string): SpecContextManifest {
 
 /** The entry list of a `show --json` document as the packaged executable wrote it. */
 export function parseContextEntries(output: string): readonly SpecContextEntry[] {
-  return (JSON.parse(output) as { readonly entries: readonly SpecContextEntry[] }).entries;
+  return parseSpecContextEntriesJson(output);
 }
 
 /** The `list` handler's resolution: the manifest or the typed target failure, for the test to judge. */
@@ -205,7 +206,7 @@ export function trackedSpecContextGitDependencies(
       ) {
         return { exitCode: 0, stdout: productDir, stderr: "" };
       }
-      if (command === GIT_ROOT_COMMAND.EXECUTABLE && args.includes("ls-files")) {
+      if (command === GIT_ROOT_COMMAND.EXECUTABLE && args.includes(GIT_LS_FILES_COMMAND)) {
         return { exitCode: 0, stdout: trackedPaths.join(TRACKED_PATH_NUL_SEPARATOR), stderr: "" };
       }
       return { exitCode: 128, stdout: "", stderr: "" };
@@ -366,8 +367,14 @@ export async function runIsolatedEscapeWriteProbe(productDir: string) {
   return { escapeFileExists, escapeFilePath, result };
 }
 
-/** The exact methodology version every context fixture declares, drawn once from the accepted-form generator. */
-export const METHODOLOGY_FIXTURE_VERSION = sampleGeneratedValue(arbitraryMethodologyVersion()).text;
+/**
+ * The exact methodology version every context fixture declares, drawn once
+ * from the accepted-form generator with the line its construction derives.
+ */
+export const METHODOLOGY_FIXTURE_IDENTITY: GeneratedMethodologyVersion = sampleGeneratedValue(
+  arbitraryMethodologyVersion(),
+);
+export const METHODOLOGY_FIXTURE_VERSION = METHODOLOGY_FIXTURE_IDENTITY.text;
 
 export function specTreeKindsConfig(): Config {
   return {
@@ -385,6 +392,28 @@ export function specTreeKindsConfig(): Config {
 /** The tree-rooted form of a node id or tree-relative artifact path, projected from the grammar. */
 export function rootedSpecPath(relativePath: string): string {
   return `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}${relativePath}`;
+}
+
+/** A node's spec file under the tree root, in the prior `{slug}.md` form the fixture materializes. */
+function specFilePath(directory: string, slug: string): string {
+  return rootedSpecPath(
+    [directory, `${slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+  );
+}
+
+/** A decision file under the tree root or under `directory`, named by order, slug, and kind suffix. */
+function decisionFilePath(directory: string | undefined, order: number, slug: string, suffix: string): string {
+  const filename = `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${suffix}`;
+  return rootedSpecPath(
+    directory === undefined ? filename : [directory, filename].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+  );
+}
+
+/** A file under the tree root at `directory`, or at the root when `directory` is undefined. */
+function rootedArtifactPath(directory: string | undefined, filename: string): string {
+  return rootedSpecPath(
+    directory === undefined ? filename : [directory, filename].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+  );
 }
 
 export function readPaths(manifest: SpecContextManifest): readonly string[] {
@@ -434,6 +463,12 @@ export function divergentOrderSlugPair(): { readonly codeUnitFirst: string; read
 /** Paths for the fully populated context fixture `withRichContextEnv` materializes. */
 export interface RichContextPaths {
   readonly targetId: string;
+  /** A node one level below the target, past the targetless walk's depth bound. */
+  readonly deepDescendantId: string;
+  readonly deepDescendantSpecPath: string;
+  /** An eval artifact and a probe protocol under the target, beside its tests. */
+  readonly targetEvalPath: string;
+  readonly targetProbePath: string;
   readonly rootDirectory: string;
   readonly productPath: string;
   readonly rootSpecPath: string;
@@ -485,6 +520,26 @@ function inlineCitation(path: string): string {
   return `[${parse(path).name}](${path})`;
 }
 
+/**
+ * Materializes the fixture and writes `body` as the product spec and the
+ * first decision, returning both paths; the caller owns the body it supplies.
+ */
+export async function writeProductAndDecisionBody(
+  env: CurrentSpecTreeEnv,
+  body: string,
+): Promise<{ readonly productPath: string; readonly decisionPath: string }> {
+  await env.materialize();
+  const snapshot = await env.readFilesystemSnapshot();
+  const productPath = snapshot.product?.ref?.path;
+  const decisionPath = snapshot.decisions[0]?.ref?.path;
+  if (productPath === undefined || decisionPath === undefined) {
+    throw new Error("Expected the fixture to expose a product spec and a decision");
+  }
+  await env.writeRaw(productPath, body);
+  await env.writeRaw(decisionPath, body);
+  return { productPath, decisionPath };
+}
+
 /** One opening paragraph as the Digest projection selects it: keyword, subject, and its closing line ending. */
 export function openingParagraph(keyword: string, subject: string): string {
   return `${keyword} ${subject}\nSO THAT readers\nCAN find it\n`;
@@ -513,30 +568,69 @@ export async function withRichContextEnv(
     const rootDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root);
     const childDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.child);
     const peerDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.peer);
-    const targetId = `${rootDirectory}/${childDirectory}`;
+    const targetId = [rootDirectory, childDirectory].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
+    // One level below the target, so the targetless walk's depth bound
+    // excludes it while a targeted projection of the target includes it.
+    const deepDescendantSlug = `${fixture.child.slug}-deep`;
+    const deepDescendantDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, {
+      ...fixture.child,
+      slug: deepDescendantSlug,
+    });
+    const deepDescendantId = [targetId, deepDescendantDirectory].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
+    const deepDescendantSpecPath = specFilePath(deepDescendantId, deepDescendantSlug);
+    const evidenceSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
     const decisionSuffix = KIND_REGISTRY[fixture.decision.kind].suffix;
     const snapshot = await env.readFilesystemSnapshot();
     const productPath = snapshot.product?.ref?.path;
     if (productPath === undefined) {
       throw new Error("Expected the materialized fixture to expose a product spec path");
     }
-    const rootSpecPath = `spx/${rootDirectory}/${fixture.root.slug}.md`;
-    const targetSpecPath = `spx/${targetId}/${fixture.child.slug}.md`;
-    const ancestorDecisionPath =
-      `spx/${rootDirectory}/${fixture.decision.order}-${fixture.decision.slug}${decisionSuffix}`;
-    const higherAncestorDecisionPath =
-      `spx/${rootDirectory}/${fixture.peer.order}-${fixture.decision.slug}${decisionSuffix}`;
-    const higherProductDecisionPath = `spx/${fixture.peer.order}-${fixture.decision.slug}${decisionSuffix}`;
-    const lowerSiblingSpecPath = `spx/${lowerSiblingDirectoryName(fixture)}/${fixture.root.slug}.md`;
-    const citedDecisionPath =
-      `spx/${peerDirectory}/${fixture.decision.order}-${fixture.decision.slug}-cited${decisionSuffix}`;
-    const transitiveCitedDecisionPath =
-      `spx/${peerDirectory}/${fixture.peer.order}-${fixture.decision.slug}-transitive${decisionSuffix}`;
-    const sameIndexSiblingSpecPath = `spx/${sameIndexSiblingDirectoryName(fixture)}/${fixture.root.slug}-same.md`;
-    const higherIndexSiblingSpecPath = `spx/${peerDirectory}/${fixture.peer.slug}.md`;
-    const peerDecisionPath =
-      `spx/${peerDirectory}/${fixture.decision.order}-${fixture.decision.slug}-peer${decisionSuffix}`;
-    const targetOutcomePath = `spx/${targetId}/${fixture.child.slug}.outcome.md`;
+    const rootSpecPath = specFilePath(rootDirectory, fixture.root.slug);
+    const targetSpecPath = specFilePath(targetId, fixture.child.slug);
+    const ancestorDecisionPath = decisionFilePath(
+      rootDirectory,
+      fixture.decision.order,
+      fixture.decision.slug,
+      decisionSuffix,
+    );
+    const higherAncestorDecisionPath = decisionFilePath(
+      rootDirectory,
+      fixture.peer.order,
+      fixture.decision.slug,
+      decisionSuffix,
+    );
+    const higherProductDecisionPath = decisionFilePath(
+      undefined,
+      fixture.peer.order,
+      fixture.decision.slug,
+      decisionSuffix,
+    );
+    const lowerSiblingSpecPath = specFilePath(lowerSiblingDirectoryName(fixture), fixture.root.slug);
+    const citedDecisionPath = decisionFilePath(
+      peerDirectory,
+      fixture.decision.order,
+      `${fixture.decision.slug}-cited`,
+      decisionSuffix,
+    );
+    const transitiveCitedDecisionPath = decisionFilePath(
+      peerDirectory,
+      fixture.peer.order,
+      `${fixture.decision.slug}-transitive`,
+      decisionSuffix,
+    );
+    const sameIndexSiblingSpecPath = specFilePath(sameIndexSiblingDirectoryName(fixture), `${fixture.root.slug}-same`);
+    const higherIndexSiblingSpecPath = specFilePath(peerDirectory, fixture.peer.slug);
+    const peerDecisionPath = decisionFilePath(
+      peerDirectory,
+      fixture.decision.order,
+      `${fixture.decision.slug}-peer`,
+      decisionSuffix,
+    );
+    const targetOutcomePath = rootedSpecPath(
+      [targetId, `${fixture.child.slug}${SPEC_CONTEXT_OPTIONAL_ARTIFACT.OUTCOME_SUFFIX}`].join(
+        SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
+      ),
+    );
     const rootOpening = KIND_REGISTRY[fixture.root.kind].opening;
     const openingText: Record<string, string> = {
       [productPath]: openingParagraph(SPEC_CONTEXT_DOCUMENT_OPENING.PRODUCT, `${fixture.product.title} — Übersicht ✓`),
@@ -557,6 +651,7 @@ export async function withRichContextEnv(
       [citedDecisionPath]: openingParagraph(SPEC_CONTEXT_DOCUMENT_OPENING.DECISION, "the cited concern"),
       [transitiveCitedDecisionPath]: openingParagraph(SPEC_CONTEXT_DOCUMENT_OPENING.DECISION, "the transitive concern"),
       [peerDecisionPath]: openingParagraph(SPEC_CONTEXT_DOCUMENT_OPENING.DECISION, "the peer subtree"),
+      [deepDescendantSpecPath]: openingParagraph(KIND_REGISTRY[fixture.child.kind].opening, deepDescendantSlug),
     };
     // The nested target, the lower sibling, and the cited decision carry
     // inline-link citations; the target's Digest opening cites the peer
@@ -585,6 +680,7 @@ export async function withRichContextEnv(
       }.\n`,
       [sameIndexSiblingSpecPath]: `# Same sibling\n\n${openingText[sameIndexSiblingSpecPath]}`,
       [higherIndexSiblingSpecPath]: `# ${fixture.peer.slug}\n\n${openingText[higherIndexSiblingSpecPath]}`,
+      [deepDescendantSpecPath]: `# ${deepDescendantSlug}\n\n${openingText[deepDescendantSpecPath]}`,
       [ancestorDecisionPath]: `# Ancestor decision\n\n${openingText[ancestorDecisionPath]}\n## Rationale\n\nBecause.\n`,
       [higherAncestorDecisionPath]: `# Higher ancestor decision\n\n${openingText[higherAncestorDecisionPath]}`,
       [higherProductDecisionPath]: `# Higher product decision\n\n${openingText[higherProductDecisionPath]}`,
@@ -598,6 +694,16 @@ export async function withRichContextEnv(
 
     const paths: RichContextPaths = {
       targetId,
+      deepDescendantId,
+      deepDescendantSpecPath,
+      targetEvalPath: rootedArtifactPath(
+        [targetId, SPEC_TREE_GRAMMAR.EVAL.DIRECTORY_NAME, evidenceSlug].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+        SPEC_TREE_GRAMMAR.EVAL.FILES[0],
+      ),
+      targetProbePath: rootedArtifactPath(
+        [targetId, SPEC_TREE_GRAMMAR.PROBE.DIRECTORY_NAME, evidenceSlug].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+        SPEC_TREE_GRAMMAR.PROBE.PROTOCOL_FILENAME,
+      ),
       rootDirectory,
       productPath,
       rootSpecPath,
@@ -608,27 +714,33 @@ export async function withRichContextEnv(
       lowerSiblingSpecPath,
       citedDecisionPath,
       transitiveCitedDecisionPath,
-      evidencePath: `spx/${targetId}/tests/${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.evidenceFileName())}`,
-      rootPlanPath: `spx/${SPEC_TREE_GRAMMAR.COORDINATION_NOTES[0]}`,
-      rootIssuesPath: `spx/${SPEC_TREE_GRAMMAR.COORDINATION_NOTES[1]}`,
-      ancestorPlanPath: `spx/${rootDirectory}/${SPEC_TREE_GRAMMAR.COORDINATION_NOTES[0]}`,
-      targetIssuesPath: `spx/${targetId}/${SPEC_TREE_GRAMMAR.COORDINATION_NOTES[1]}`,
+      evidencePath: rootedArtifactPath(
+        [targetId, SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+        sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.evidenceFileName()),
+      ),
+      rootPlanPath: rootedArtifactPath(undefined, SPEC_TREE_GRAMMAR.COORDINATION_NOTE.PLAN),
+      rootIssuesPath: rootedArtifactPath(undefined, SPEC_TREE_GRAMMAR.COORDINATION_NOTE.ISSUES),
+      ancestorPlanPath: rootedArtifactPath(rootDirectory, SPEC_TREE_GRAMMAR.COORDINATION_NOTE.PLAN),
+      targetIssuesPath: rootedArtifactPath(targetId, SPEC_TREE_GRAMMAR.COORDINATION_NOTE.ISSUES),
       targetIssuesText: `${BYTE_ORDER_MARK}${TARGET_ISSUES_HEADING}\n`,
       targetIssuesHeading: TARGET_ISSUES_HEADING,
       rootGuidePaths: SPEC_TREE_GRAMMAR.GUIDE_FILES.map((filename) => filename),
-      ancestorGuidePath: `spx/${rootDirectory}/${SPEC_TREE_GRAMMAR.GUIDE_FILES[0]}`,
+      ancestorGuidePath: rootedArtifactPath(rootDirectory, SPEC_TREE_GRAMMAR.GUIDE_FILES[0]),
       lifecycleOverlayPath: SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
-      listedOverlayPath: `spx/${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.DIRECTORY_NAME}/${
-        sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug())
-      }${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.EXTENSION}`,
-      sameIndexSiblingPath: `spx/${sameIndexSiblingDirectoryName(env.fixture)}`,
+      listedOverlayPath: rootedArtifactPath(
+        SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.DIRECTORY_NAME,
+        `${
+          sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug())
+        }${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.EXTENSION}`,
+      ),
+      sameIndexSiblingPath: rootedSpecPath(sameIndexSiblingDirectoryName(env.fixture)),
       sameIndexSiblingSpecPath,
-      higherIndexSiblingPath: `spx/${peerDirectory}`,
+      higherIndexSiblingPath: rootedSpecPath(peerDirectory),
       higherIndexSiblingSpecPath,
       peerDecisionPath,
       targetOutcomePath,
-      rootKnowledgeIndexPath: "spx/knowledge/index.md",
-      targetKnowledgeIndexPath: `spx/${targetId}/knowledge/index.md`,
+      rootKnowledgeIndexPath: rootedArtifactPath(undefined, SPEC_CONTEXT_OPTIONAL_ARTIFACT.KNOWLEDGE_INDEX),
+      targetKnowledgeIndexPath: rootedArtifactPath(targetId, SPEC_CONTEXT_OPTIONAL_ARTIFACT.KNOWLEDGE_INDEX),
       sourceText,
       bodyText,
       targetSelectedMetadata,
@@ -728,15 +840,18 @@ export async function writeMethodologyTree(
   overrides?: {
     readonly coreText?: string;
     readonly schemaVersion?: number;
-    readonly version?: string;
+    /** The declared version with the line its generator derived; the tree lands under that line. */
+    readonly version?: GeneratedMethodologyVersion;
     /** The coding agents the line ships the same tree for; the fixture names the first. */
     readonly codingAgents?: readonly string[];
     /** A source record written beside the line, the shape the fetch records. */
     readonly sourceRecord?: MethodologySourceRecord;
   },
 ): Promise<MethodologyTreeFixture> {
-  const line = methodologyLine(overrides?.version ?? METHODOLOGY_FIXTURE_VERSION);
-  if (!line.ok) throw new Error(line.error);
+  // The line comes from the generator's construction, never from the
+  // production parser the tests judge, so a wrong parse cannot land the
+  // fixture where production then finds it.
+  const line = { value: (overrides?.version ?? METHODOLOGY_FIXTURE_IDENTITY).line };
   const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
   const corePath = `skills/${slug}/SKILL.md`;
   const referencePath = `skills/${slug}/references/${slug}-reference.md`;

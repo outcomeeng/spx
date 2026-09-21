@@ -205,9 +205,21 @@ export function sampleConfigTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
 }
 
 export function generatedMethodologySection(): Record<string, unknown> {
+  return generatedMethodologyIdentity().section;
+}
+
+/** A methodology declaration with the drawn version carrying the line its construction derives. */
+export function generatedMethodologyIdentity(): {
+  readonly section: Record<string, unknown>;
+  readonly version: GeneratedMethodologyVersion;
+} {
+  const version = sampleGeneratedValue(arbitraryMethodologyVersion());
   return {
-    [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
-    [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleGeneratedValue(arbitraryMethodologyVersion()).text,
+    version,
+    section: {
+      [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
+      [METHODOLOGY_CONFIG_FIELDS.VERSION]: version.text,
+    },
   };
 }
 
@@ -262,6 +274,7 @@ export function generatedLineFormMethodologySection(): Record<string, unknown> {
 export function generatedLineFormMigratingMethodologySection(): {
   readonly section: Record<string, unknown>;
   readonly forms: GeneratedMethodologyVersionForms;
+  readonly target: GeneratedMethodologyVersion;
 } {
   const forms = sampleGeneratedValue(arbitraryMethodologyVersionForms());
   const target = sampleGeneratedValue(
@@ -269,6 +282,7 @@ export function generatedLineFormMigratingMethodologySection(): {
   );
   return {
     forms,
+    target,
     section: {
       [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
       [METHODOLOGY_CONFIG_FIELDS.VERSION]: target.text,

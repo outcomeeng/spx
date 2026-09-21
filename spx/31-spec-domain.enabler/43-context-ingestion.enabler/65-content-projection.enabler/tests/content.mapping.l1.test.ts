@@ -1,20 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  DECISION_KINDS,
-  KIND_REGISTRY,
-  NODE_KINDS,
-  SPEC_CONTEXT_DOCUMENT_OPENING,
-  SPEC_TREE_GRAMMAR,
-} from "@/lib/spec-tree";
+import { DECISION_KINDS, KIND_REGISTRY, NODE_KINDS, SPEC_CONTEXT_DOCUMENT_OPENING } from "@/lib/spec-tree";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextShowEntries,
   contextShowFailure,
   documentAt,
+  entryPaths,
   rootedSpecPath,
   specTreeKindsConfig,
+  withRichContextEnv,
 } from "@testing/harnesses/spec/context";
 
 describe("spec context Digest openings", () => {
@@ -53,15 +49,25 @@ describe("spec context Digest openings", () => {
     },
   );
 
-  it("maps the product to the methodology-fixed OFFERS opening in its Full projection", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
-      await env.materialize();
-      const snapshot = await env.readFilesystemSnapshot();
-      const productPath = snapshot.product?.ref?.path;
-      if (productPath === undefined) throw new Error("Expected the fixture to expose a product spec");
-      const entries = await contextShowEntries({ targets: [], cwd: env.productDir });
-      expect(documentAt(entries, productPath)?.content).toContain(`${SPEC_CONTEXT_DOCUMENT_OPENING.PRODUCT} `);
-      expect(productPath.endsWith(SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX)).toBe(true);
+  it("maps a projected product document to Full and omits it under --loaded-product rather than digesting it", async () => {
+    await withRichContextEnv(async (env, paths) => {
+      // Wherever the product is projected it carries its complete source; no
+      // call renders it as an opening paragraph.
+      for (
+        const targets of [[], [paths.targetId], [paths.rootDirectory]]
+      ) {
+        const entries = await contextShowEntries({ targets, cwd: env.productDir });
+        expect(documentAt(entries, paths.productPath)?.content, JSON.stringify(targets))
+          .toBe(paths.sourceText[paths.productPath]);
+      }
+      // Declaring the product loaded removes the entry; it never degrades to a
+      // Digest of the same path.
+      const suppressed = await contextShowEntries({
+        targets: [paths.targetId],
+        cwd: env.productDir,
+        loadedProduct: true,
+      });
+      expect(entryPaths(suppressed)).not.toContain(paths.productPath);
     });
   });
 });

@@ -13,6 +13,7 @@ import {
   contextShowText,
   documentAt,
   openingParagraph,
+  parseContextEntries,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
 
@@ -148,13 +149,11 @@ describe("spec context content boundaries", () => {
         paths.sourceText[paths.transitiveCitedDecisionPath].trimEnd(),
       );
       const entries = await contextShowEntries({ targets: [paths.targetId], cwd: env.productDir });
-      const json = JSON.parse(await contextShowJson({ targets: [paths.targetId], cwd: env.productDir })) as {
-        readonly entries: readonly unknown[];
-      };
-      expect(json.entries).toEqual(entries);
+      const json = await contextShowJson({ targets: [paths.targetId], cwd: env.productDir });
+      expect(parseContextEntries(json)).toEqual(entries);
       const transitive = documentAt(entries, paths.transitiveCitedDecisionPath);
       expect(transitive?.content).toBe(paths.sourceText[paths.transitiveCitedDecisionPath].trimEnd());
-      expect(JSON.stringify(json)).not.toContain(SPEC_CONTEXT_FRAME.DOCUMENT);
+      expect(json).not.toContain(SPEC_CONTEXT_FRAME.DOCUMENT);
     });
   });
 });

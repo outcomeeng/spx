@@ -61,6 +61,15 @@ describe("spec context loaded-declaration boundaries", () => {
       const withMethodologyLoaded = await contextShowEntries({ ...base, loadedMethodology: true });
       expect(withMethodologyLoaded[0]?.path).toBe(productPath);
       expect(entryPaths(withMethodologyLoaded)).not.toContain(fixture.documentPath);
+      // A loaded target declaration is likewise a product-side declaration:
+      // the foundation still leads while the target's own entries are gone.
+      const withTargetLoaded = await contextShowEntries({
+        ...base,
+        methodology: true,
+        loadedTargets: [target.id],
+      });
+      expect(withTargetLoaded[0]?.path).toBe(fixture.documentPath);
+      expect(entryPaths(withTargetLoaded)).not.toContain(target.ref?.path);
     });
   });
 

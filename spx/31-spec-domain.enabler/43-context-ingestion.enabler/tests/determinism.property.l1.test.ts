@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
-import { generatedMigratingMethodologySection } from "@testing/generators/config/descriptors";
+import { generatedMigratingMethodology } from "@testing/generators/config/descriptors";
 import { arbitraryContextDeterminismCase } from "@testing/generators/spec-tree/context-target";
 import {
   assertProperty,
@@ -29,12 +28,10 @@ describe("spec context determinism", () => {
           // An open migration lets the materialized fixture's decisions, which
           // carry no target-version opening, project through the declared
           // source-version fallback in both the targetless and targeted runs.
-          const migrating = generatedMigratingMethodologySection();
-          await withSpecTreeEnv(methodologyTreeConfig(migrating), async (env) => {
+          const migrating = generatedMigratingMethodology();
+          await withSpecTreeEnv(methodologyTreeConfig(migrating.section), async (env) => {
             await env.materialize();
-            const fixture = await writeMethodologyTree(env, {
-              version: migrating[METHODOLOGY_CONFIG_FIELDS.VERSION] as string,
-            });
+            const fixture = await writeMethodologyTree(env, { version: migrating.target });
             await env.writeRaw(extraNode.fixturePath, extraNode.contents);
             await env.writeRaw(extraDecision.fixturePath, extraDecision.contents);
             const snapshot = await env.readFilesystemSnapshot();

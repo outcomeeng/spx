@@ -8,19 +8,21 @@ import {
   SOURCE_RECORD_RELATIVE_PATH,
 } from "@/lib/methodology";
 import { SPEC_CONTEXT_ENTRY_TYPE } from "@/lib/spec-tree";
+import * as fc from "fast-check";
+
 import {
   generatedLineFormMigratingMethodologySection,
-  generatedMethodologySection,
+  generatedMethodologyIdentity,
   generatedMigratingMethodology,
 } from "@testing/generators/config/descriptors";
 import {
+  arbitraryMarkdownBody,
   arbitraryMethodologyVersion,
   generatedSourceRecordProviding,
   supportsRangeContaining,
   supportsRangeExcluding,
 } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
-import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextShowEntries,
@@ -46,7 +48,7 @@ describe("spec context understand payload provider match", () => {
       const target = snapshot.allNodes[0];
 
       const providesOther = await writeMethodologyTree(env, {
-        version,
+        version: declared,
         sourceRecord: generatedSourceRecordProviding(other.text),
       });
       const mismatch = await contextShowFailure({
@@ -60,7 +62,7 @@ describe("spec context understand payload provider match", () => {
 
       const excluding = supportsRangeExcluding(migratingFrom);
       const outsideSupports = await writeMethodologyTree(env, {
-        version,
+        version: declared,
         sourceRecord: generatedSourceRecordProviding(version, excluding),
       });
       const outside = await contextShowFailure({
@@ -73,7 +75,7 @@ describe("spec context understand payload provider match", () => {
       expect(outside).toContain(excluding);
 
       const noSupports = await writeMethodologyTree(env, {
-        version,
+        version: declared,
         sourceRecord: generatedSourceRecordProviding(version),
       });
       const unverifiable = await contextShowFailure({
@@ -85,7 +87,7 @@ describe("spec context understand payload provider match", () => {
       expect(unverifiable).toContain(migratingFrom);
 
       const agreeing = await writeMethodologyTree(env, {
-        version,
+        version: declared,
         sourceRecord: generatedSourceRecordProviding(version, supportsRangeContaining(migratingFrom)),
       });
       const entries = await contextShowEntries({
@@ -97,7 +99,7 @@ describe("spec context understand payload provider match", () => {
       expect(entries[0]).toMatchObject({ path: agreeing.documentPath, content: agreeing.coreText });
 
       const sameLineOtherForm = await writeMethodologyTree(env, {
-        version,
+        version: declared,
         sourceRecord: generatedSourceRecordProviding(declared.line, supportsRangeContaining(migratingFrom)),
       });
       const servedAcrossForms = await contextShowEntries({
@@ -114,15 +116,15 @@ describe("spec context understand payload provider match", () => {
   });
 
   it("fails naming a MAJOR.MINOR migration source checked against a patched supports bound instead of serving the tree on a verdict that read no patch component", async () => {
-    const { section, forms } = generatedLineFormMigratingMethodologySection();
-    const version = section[METHODOLOGY_CONFIG_FIELDS.VERSION] as string;
+    const { section, forms, target: declared } = generatedLineFormMigratingMethodologySection();
+    const version = declared.text;
     const migratingFrom = forms.byForm[METHODOLOGY_VERSION_FORM.LINE];
     await withSpecTreeEnv(methodologyTreeConfig(section), async (env) => {
       await env.materialize();
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
       const patchedBound = await writeMethodologyTree(env, {
-        version,
+        version: declared,
         sourceRecord: generatedSourceRecordProviding(
           version,
           supportsRangeContaining(forms.byForm[METHODOLOGY_VERSION_FORM.PATCHED]),
@@ -147,16 +149,14 @@ describe("spec context understand payload sourcing", () => {
     // tracks the shipped resource bytes exactly, so no embedded snapshot can
     // be the source; a --loaded-methodology run in between leaves nothing
     // behind that changes the next request.
-    const identity = generatedMethodologySection();
-    const firstBody = `# Foundation body A — ${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug())}\n`;
-    const secondBody = `# Foundation body B — ${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug())}\n`;
-    for (const coreText of [firstBody, secondBody]) {
-      await withSpecTreeEnv(methodologyTreeConfig(identity), async (env) => {
+    const identity = generatedMethodologyIdentity();
+    const bodies = sampleGeneratedValue(
+      fc.tuple(arbitraryMarkdownBody(), arbitraryMarkdownBody()).filter(([first, second]) => first !== second),
+    );
+    for (const coreText of bodies) {
+      await withSpecTreeEnv(methodologyTreeConfig(identity.section), async (env) => {
         await env.materialize();
-        const fixture = await writeMethodologyTree(env, {
-          coreText,
-          version: identity[METHODOLOGY_CONFIG_FIELDS.VERSION] as string,
-        });
+        const fixture = await writeMethodologyTree(env, { coreText, version: identity.version });
         const snapshot = await env.readFilesystemSnapshot();
         const target = snapshot.allNodes[0];
 

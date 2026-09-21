@@ -97,6 +97,7 @@ export {
   SPEC_CONTEXT_MODE,
   SPEC_CONTEXT_OPTIONAL_ARTIFACT,
   SPEC_CONTEXT_SELECTED_METADATA_KEY,
+  specContextBoundCitations,
   specContextCitedSelection,
   specContextInlineDecisionCitations,
   specContextOptionalArtifactPaths,
@@ -106,6 +107,7 @@ export {
 export type {
   SpecContextDocumentEntry,
   SpecContextEntry,
+  SpecContextMode,
   SpecContextProjectedEntry,
   SpecContextSelection,
 } from "./context-projection";

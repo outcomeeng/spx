@@ -10,6 +10,11 @@ CAN present current spec-tree state and deterministic context without parsing so
 
 ## Assertions
 
+### Scenarios
+
+- Context-show projections render as ordered `spx-document` and `spx-reference` entries in text, or the equivalent ordered JSON `entries`, without changing selection, metadata, or source content. ([test](tests/context-rendering.scenario.l1.test.ts))
+- An empty context-show projection renders as empty text or `{ "entries": [] }`. ([test](tests/context-rendering.scenario.l1.test.ts))
+
 ### Mappings
 
 - Context-list projections render as the versioned human and JSON manifest representations without changing the selected manifest information. ([test](tests/context-rendering.mapping.l1.test.ts))
@@ -17,8 +22,6 @@ CAN present current spec-tree state and deterministic context without parsing so
 
 ### Conformance
 
-- Context-show projections render as ordered `spx-document` and `spx-reference` entries in text, or the equivalent ordered JSON `entries`, without changing selection, metadata, or source content. ([test](tests/context-rendering.conformance.l1.test.ts))
-- An empty context-show projection renders as empty text or `{ "entries": [] }`. ([test](tests/context-rendering.conformance.l1.test.ts))
 - Status JSON output conforms to the stable `SpecTreeProjection` contract consumed by automation callers ([test](tests/spec-cli-rendering.conformance.l1.test.ts))
 
 ### Compliance
