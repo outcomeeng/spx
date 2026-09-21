@@ -4,6 +4,7 @@
     "test": {
       "overall": "passed",
       "spx/54-diagnose.enabler/tests/check-selection.mapping.l1.test.ts": "passed",
+      "spx/54-diagnose.enabler/tests/concise-report.scenario.l2.test.ts": "passed",
       "spx/54-diagnose.enabler/tests/config.mapping.l1.test.ts": "passed",
       "spx/54-diagnose.enabler/tests/determinism.property.l1.test.ts": "passed",
       "spx/54-diagnose.enabler/tests/diagnose-cli.scenario.l2.test.ts": "passed",
@@ -11,6 +12,9 @@
       "spx/54-diagnose.enabler/tests/exit-code.mapping.l1.test.ts": "passed",
       "spx/54-diagnose.enabler/tests/fold.mapping.l1.test.ts": "passed",
       "spx/54-diagnose.enabler/tests/manifest.conformance.l1.test.ts": "passed",
+      "spx/54-diagnose.enabler/tests/output-mode.compliance.l2.test.ts": "passed",
+      "spx/54-diagnose.enabler/tests/output-mode.mapping.l1.test.ts": "passed",
+      "spx/54-diagnose.enabler/tests/output-mode.property.l1.test.ts": "passed",
       "spx/54-diagnose.enabler/tests/reading-escaping.compliance.l1.test.ts": "passed",
       "spx/54-diagnose.enabler/tests/report.conformance.l1.test.ts": "passed",
       "spx/54-diagnose.enabler/tests/resolve.mapping.l1.test.ts": "passed",
