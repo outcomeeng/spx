@@ -1,7 +1,11 @@
 import type { Command } from "commander";
 
 import { renderSpecContextJson, renderSpecContextText, resolveContextManifest } from "@/commands/spec/context";
-import { type ContextShowOptions, resolveContextShow } from "@/commands/spec/context-show";
+import {
+  type ContextShowOptions,
+  renderSpecContextEntriesJson,
+  resolveContextShow,
+} from "@/commands/spec/context-show";
 import { nextCommand } from "@/commands/spec/next";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec/status";
@@ -15,7 +19,6 @@ import {
   externalToken,
   externalValue,
   joinTerminalText,
-  jsonDocument,
   terminal,
   type TerminalText,
 } from "@/lib/terminal-text/terminal-text";
@@ -192,7 +195,7 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
           });
           if (!result.ok) return writeContextFailure(invocation.io, result.failure);
           if (options.json === true) {
-            invocation.io.writeStdout(terminal`${jsonDocument({ entries: result.entries }, 2)}\n`);
+            invocation.io.writeStdout(terminal`${renderSpecContextEntriesJson(result.entries)}\n`);
           } else invocation.io.writePassThrough(renderSpecContextEntries(result.entries));
         } catch (error) {
           handleCommandError(invocation.io, error);

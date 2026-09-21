@@ -1,4 +1,4 @@
-import { readFile, realpath } from "node:fs/promises";
+import { readdir, readFile, realpath } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
 
 import type { MethodologyConfig } from "@/config/methodology";
@@ -10,10 +10,13 @@ import { createTrackedPathInclusion, listTrackedPaths } from "@/lib/git/tracked-
 import {
   createFilesystemSpecTreeSource,
   decodeContextDocumentUtf8,
+  isLocalOverlayPath,
   readSpecTree,
   resolveSpecContextTarget,
+  SPEC_CONTEXT_LOCAL_OVERLAY_DIRECTORY,
   type SpecContextAcceptedPath,
   specContextAcceptedPaths,
+  specContextOptionalArtifactPaths,
   specContextSuffixCandidates,
   type SpecContextTarget,
   type SpecContextTargetFailure,
@@ -26,6 +29,7 @@ export interface ContextFileSystem {
   readonly createSpecTreeSource: typeof createFilesystemSpecTreeSource;
   readonly realPath: (path: string) => Promise<string>;
   readonly readFile: (path: string) => Promise<Uint8Array>;
+  readonly readDirectory: (path: string) => Promise<readonly string[]>;
   readonly resolveMethodologyConfig: typeof resolveMethodologyConfig;
 }
 
@@ -33,6 +37,7 @@ export const defaultContextFileSystem: ContextFileSystem = {
   createSpecTreeSource: createFilesystemSpecTreeSource,
   realPath: realpath,
   readFile,
+  readDirectory: readdir,
   resolveMethodologyConfig,
 };
 
@@ -50,6 +55,11 @@ export interface ContextInput {
   readonly fs: ContextFileSystem;
   readonly snapshot: SpecTreeSnapshot;
   readonly methodology: MethodologyConfig;
+  /**
+   * The product-relative paths a projection may select: the paths git tracks
+   * when the product is a git repository, else the snapshot's own entries plus
+   * every optional artifact and overlay present on disk inside the product.
+   */
   readonly existingPaths: ReadonlySet<string>;
   readonly acceptedPaths: readonly SpecContextAcceptedPath[];
   readonly accepted: SpecContextTargetPathFacts["accepted"];
@@ -78,8 +88,6 @@ export async function readContextInput(options: ContextInputOptions): Promise<Co
       if (!isMissingPath(error)) throw error;
     }
   }
-  const existingPaths = trackedPaths ?? new Set(snapshot.entries.flatMap((entry) => entry.ref?.path ?? []));
-  const documents = new Map<string, Promise<string>>();
   const availability = new Map<string, Promise<boolean>>();
   const hasDocument = (path: string): Promise<boolean> => {
     let present = availability.get(path);
@@ -98,6 +106,8 @@ export async function readContextInput(options: ContextInputOptions): Promise<Co
     }
     return present;
   };
+  const existingPaths = trackedPaths ?? await untrackedPresence(productDir, snapshot, fs, hasDocument);
+  const documents = new Map<string, Promise<string>>();
   const readDocument = (path: string): Promise<string> => {
     let document = documents.get(path);
     if (document === undefined) {
@@ -131,6 +141,35 @@ export async function readContextInput(options: ContextInputOptions): Promise<Co
     readDocument,
     hasDocument,
   };
+}
+
+/**
+ * Outside a git repository nothing scopes the tree, so presence is the
+ * filesystem's: the snapshot's own entries, every optional artifact the
+ * projection may select that exists inside the product, and every overlay
+ * file directly inside the overlay directory.
+ */
+async function untrackedPresence(
+  productDir: string,
+  snapshot: SpecTreeSnapshot,
+  fs: ContextFileSystem,
+  hasDocument: (path: string) => Promise<boolean>,
+): Promise<ReadonlySet<string>> {
+  const present = new Set(snapshot.entries.flatMap((entry) => entry.ref?.path ?? []));
+  for (const path of specContextOptionalArtifactPaths(snapshot)) {
+    if (await hasDocument(path)) present.add(path);
+  }
+  let overlayEntries: readonly string[] = [];
+  try {
+    overlayEntries = await fs.readDirectory(resolve(productDir, SPEC_CONTEXT_LOCAL_OVERLAY_DIRECTORY));
+  } catch (error) {
+    if (!isMissingPath(error)) throw error;
+  }
+  for (const name of overlayEntries) {
+    const path = `${SPEC_CONTEXT_LOCAL_OVERLAY_DIRECTORY}/${name}`;
+    if (isLocalOverlayPath(path) && await hasDocument(path)) present.add(path);
+  }
+  return present;
 }
 
 function isMissingPath(error: unknown): boolean {
