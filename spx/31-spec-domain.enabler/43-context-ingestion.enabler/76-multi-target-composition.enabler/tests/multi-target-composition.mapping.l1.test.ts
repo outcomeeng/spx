@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { SPEC_CONTEXT_MODE, type SpecContextProjectedEntry, suppressLoadedSpecContext } from "@/lib/spec-tree";
+import {
+  SPEC_CONTEXT_ENTRY_TYPE,
+  SPEC_CONTEXT_MODE,
+  type SpecContextProjectedEntry,
+  suppressLoadedSpecContext,
+} from "@/lib/spec-tree";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 
 function projected(
@@ -10,8 +15,8 @@ function projected(
   return {
     selection: { path, mode },
     entry: mode === SPEC_CONTEXT_MODE.REFERENCE
-      ? { type: "reference", path }
-      : { type: "document", path, metadata: {}, content: path },
+      ? { type: SPEC_CONTEXT_ENTRY_TYPE.REFERENCE, path }
+      : { type: SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT, path, metadata: {}, content: path },
   };
 }
 
@@ -24,7 +29,7 @@ describe("spec context suppression precedence", () => {
         const remaining = suppressLoadedSpecContext([projected(path, requested)], [projected(path, prior)]);
         // Full satisfies Full or Digest; Digest satisfies only Digest or a
         // reference; the numeric mode order is the source-owned law.
-        expect(remaining.length, `prior ${prior} requested ${requested}`).toBe(prior >= requested ? 0 : 1);
+        expect(remaining.length, `loaded ${prior}, requested ${requested}`).toBe(prior >= requested ? 0 : 1);
       }
     }
   });

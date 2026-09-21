@@ -37,6 +37,13 @@ export type SpecCliUnsupportedStatusFormatFixture = {
   readonly format: string;
 };
 
+/** The retired `show --content` request: Commander rejects the option before the show handler runs. */
+export const RETIRED_SPEC_CONTEXT_CONTENT_FIXTURE = {
+  option: "--content",
+  // Commander emits this prefix for unknown options before domain action handlers run.
+  unknownOptionPrefix: "error: unknown option",
+} as const;
+
 /** The nested node's complete-component suffix — its own directory name — spelled with a trailing separator. */
 export function specCliContextTargetFixture(
   snapshot: SpecTreeSnapshot,

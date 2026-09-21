@@ -21,8 +21,8 @@ import {
   contextListManifest,
   specTreeKindsConfig,
   trackSpecTreeInGit,
+  withOutsideProductDir,
 } from "@testing/harnesses/spec/context";
-import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
 describe("spec context target resolution mapping", () => {
   it.each(specContextAcceptedTargetCases())(SPEC_CONTEXT_CASE_TITLE, async (mappingCase) => {
@@ -39,8 +39,7 @@ describe("spec context target resolution mapping", () => {
   });
 
   it.each(specContextRejectedTargetCases())(SPEC_CONTEXT_CASE_TITLE, async (mappingCase) => {
-    const outsideDir = await createTempDir("spx-context-outside-");
-    try {
+    await withOutsideProductDir(async (outsideDir) => {
       await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
         await env.materialize();
         const rejected = specContextRejectedTargetOperand(env.fixture, env.productDir, outsideDir, mappingCase);
@@ -56,9 +55,7 @@ describe("spec context target resolution mapping", () => {
           expect(failure).toContain(candidate);
         }
       });
-    } finally {
-      await removeTempDir(outsideDir);
-    }
+    });
   });
 
   it.each(specContextTargetDiagnosticSafetyCases())(SPEC_CONTEXT_CASE_TITLE, (safetyCase) => {
