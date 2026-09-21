@@ -1,5 +1,26 @@
 # Agent run journal issues
 
+## The event-contract decision carries no injectability or no-mocking rule of its own
+
+The ADR audit of `spx/15-agent-run-journal.enabler/21-event-sourced-journal.adr.md`
+at `27624447d7850dedf54c930da1aa4e9865195f8d` returned `REJECTED` with the
+`missing-testability` finding: "The TypeScript ADR's `### Audit` rules omit
+dependency-injection and no-mocking constraints, leaving the journal's testability
+unenforced." Its structure, atemporal voice, and tag-validity checks passed.
+
+The event-contract decision states the language-neutral journal contract. Its
+companion `spx/15-agent-run-journal.enabler/32-journal-module-structure.adr.md`
+requires storage through an injected `JournalBackend` port and prohibits
+`vi.mock()`, `jest.mock()`, and module interception. Change #116 amends the
+event-contract rationale and holds its verification rules unchanged.
+
+**Impact:** a TypeScript-composed audit of the event contract rejects because the
+injectability and no-mocking rules reside in the companion decision.
+
+**Settlement condition:** a Change frames either an explicit cross-reference from
+the event-contract decision to the module-structure decision's rules or a
+reconciliation of the two decisions, and the resulting decision passes its audit.
+
 ## The `runtime.eventNamespace` override is validated but unused
 
 `runtimeConfigDescriptor` (`src/lib/agent-run-journal/config.ts`) is registered in
