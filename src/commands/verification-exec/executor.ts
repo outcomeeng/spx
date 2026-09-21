@@ -115,11 +115,14 @@ const settle = (): void => undefined;
 /**
  * A single-writer sink over the recorder's append operations: each append starts once the previous
  * append has settled, in arrival order, and each caller observes its own append's outcome. The
- * recorder assigns a run's sequence numbers by reading the run's history and taking the next one,
- * which holds for one sequential driver only, while a runner reporting from parallel workers fires
- * appends that overlap; the executor is the run's driver, so this is where that premise is kept
- * true. A rejected append rejects its own caller and leaves the queue running, so one refused unit
- * neither hides behind a neighbour nor blocks the units queued after it.
+ * recorder dedups a repeated idempotency key and validates each finding against the scope recorded
+ * before it by reading the run's history ahead of every append, which holds for one sequential
+ * driver only, while a runner reporting from parallel workers fires appends that overlap; the
+ * executor is the run's driver, so this is where that premise is kept true. Sequence allocation is
+ * the journal's, resolved beneath the recorder even under contention, so the queue protects the
+ * recorder's checks, never the sequence. A rejected append rejects its own caller and leaves the
+ * queue running, so one refused unit neither hides behind a neighbour nor blocks the units queued
+ * after it.
  */
 function createSingleWriterSink(sink: TestRunEvidenceSink): TestRunEvidenceSink {
   let tail: Promise<void> = Promise.resolve();
