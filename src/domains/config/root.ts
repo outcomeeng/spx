@@ -7,13 +7,6 @@ const GIT_EXECUTABLE = "git";
 const GIT_TOPLEVEL_ARGS = ["rev-parse", "--show-toplevel"] as const;
 const GIT_NOT_REPO_MARKER = "not a git repository";
 
-export const PRODUCT_DIR_FALLBACK_WARNING = {
-  beforePath: authoredText("warning: "),
-  afterPath: authoredText(
-    ` is not inside a git worktree — falling back to the current working directory. ${GIT_NOT_REPO_MARKER}.`,
-  ),
-} as const;
-
 export type ResolvedProductDir = {
   readonly productDir: string;
   readonly warning?: TerminalText;
@@ -35,9 +28,11 @@ export function resolveProductDir(
 
   return {
     productDir: resolvedCwd,
-    warning: terminal`${PRODUCT_DIR_FALLBACK_WARNING.beforePath}${
+    warning: terminal`warning: ${
       externalValue(resolvedCwd)
-    }${PRODUCT_DIR_FALLBACK_WARNING.afterPath}`,
+    } is not inside a git worktree — falling back to the current working directory. ${
+      authoredText(GIT_NOT_REPO_MARKER)
+    }.`,
   };
 }
 

@@ -46,6 +46,17 @@ export type RedirectedProductContextCommand = Extract<
   { readonly directoryOption: string }
 >;
 
+/**
+ * The diagnostic the product promises when a command runs outside a git worktree,
+ * spelled here rather than read from the module that emits it. An oracle importing
+ * production's own composition moves with any wording change and can never fail on
+ * one; this one fails the moment the emitted warning stops saying what is declared.
+ */
+export function expectedProductDirFallbackWarning(processDir: string): string {
+  return `warning: ${processDir} is not inside a git worktree`
+    + ` — falling back to the current working directory. not a git repository.`;
+}
+
 export interface GeneratedProductContextCase {
   readonly target: GeneratedDirectoryScope;
   readonly caller: GeneratedDirectoryScope;

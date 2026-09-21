@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { TYPESCRIPT_VALIDATION_MESSAGES } from "@/commands/validation/typescript";
-import { PRODUCT_DIR_FALLBACK_WARNING } from "@/domains/config/root";
 import { CONFIG_CLI } from "@/interfaces/cli/config";
 import { SESSION_CLI } from "@/interfaces/cli/session";
 import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
-import { externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import {
   arbitraryProductContextCase,
+  expectedProductDirFallbackWarning,
   PRODUCT_CONTEXT_MAPPING_COMMANDS,
 } from "@testing/generators/config/product-context";
 import { parseProductContextJsonConfig, productContextTestingConfig } from "@testing/harnesses/product-context/cli";
@@ -30,13 +29,7 @@ describe("product context mapping", () => {
           expect(result.exitCodes).toEqual([0]);
           expect(result.stdout).toContain(processDir);
           expect(result.stderr).toContain(processDir);
-          expect(result.stderr).toContain(
-            renderTerminalText(
-              terminal`${PRODUCT_DIR_FALLBACK_WARNING.beforePath}${
-                externalValue(processDir)
-              }${PRODUCT_DIR_FALLBACK_WARNING.afterPath}`,
-            ),
-          );
+          expect(result.stderr).toContain(expectedProductDirFallbackWarning(processDir));
           return;
         }
 
