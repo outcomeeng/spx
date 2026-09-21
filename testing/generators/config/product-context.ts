@@ -58,7 +58,7 @@ export function arbitraryProductContextCase(): fc.Arbitrary<GeneratedProductCont
   return fc.record({
     target: CONFIG_TEST_GENERATOR.directoryScope(),
     caller: CONFIG_TEST_GENERATOR.directoryScope(),
-    testing: CONFIG_TEST_GENERATOR.testingConfig(),
+    testing: CONFIG_TEST_GENERATOR.discriminatingTestingConfig(),
     sessionId: arbitrarySessionId(),
     source: fc.tuple(CONFIG_TEST_GENERATOR.key(), CONFIG_TEST_GENERATOR.scalar()).map(([name, value]) => ({
       filename: `${name}.ts`,

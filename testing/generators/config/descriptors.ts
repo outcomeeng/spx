@@ -1,6 +1,7 @@
 import * as fc from "fast-check";
 import { join } from "node:path";
 
+import { canonicalDescriptorJson } from "@/config/index";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION, METHODOLOGY_VERSION_FORM } from "@/config/methodology";
 import {
   PATH_FILTER_CONFIG_FIELDS,
@@ -26,7 +27,7 @@ import {
   type SpecTreeKindCategory,
   unknownSpecTreeKindError,
 } from "@/lib/spec-tree";
-import { TESTING_CONFIG_FIELDS, TESTING_SECTION, type TestingConfig } from "@/test/config";
+import { TESTING_CONFIG_FIELDS, TESTING_SECTION, type TestingConfig, testingConfigDescriptor } from "@/test/config";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import {
   arbitraryMalformedVersionText,
@@ -184,6 +185,7 @@ export const CONFIG_TEST_GENERATOR = {
   productionSubsetConfig: arbitraryProductionSubsetConfig,
   invalidPathFilter: arbitraryInvalidPathFilter,
   testingConfig: arbitraryTestingConfig,
+  discriminatingTestingConfig: arbitraryDiscriminatingTestingConfig,
   directoryScope: arbitraryDirectoryScope,
   resolutionScopeScenario: arbitraryResolutionScopeScenario,
   configFormatScenario: arbitraryConfigFormatScenario,
@@ -477,6 +479,27 @@ function arbitraryPathFilter(): fc.Arbitrary<PathFilterConfig> {
   );
 }
 
+// The root-directory names the product forbids. No production module declares them,
+// so the evidence that proves their absence owns the list.
+export const LEGACY_PRODUCT_ROOT_FIELD_NAMES = ["projectRoot", "projectDir"] as const;
+
+function arbitraryNonEmptyPathFilterArray(): fc.Arbitrary<readonly string[]> {
+  return fc.array(arbitraryPathPattern(), { minLength: 1, maxLength: 4 });
+}
+
+// Every drawn filter carries at least one pattern, so the section it resolves to
+// differs from the descriptor's own default under every draw.
+function arbitraryDiscriminatingPathFilter(): fc.Arbitrary<PathFilterConfig> {
+  return fc.oneof(
+    arbitraryNonEmptyPathFilterArray().map((include) => ({ [PATH_FILTER_CONFIG_FIELDS.INCLUDE]: include })),
+    arbitraryNonEmptyPathFilterArray().map((exclude) => ({ [PATH_FILTER_CONFIG_FIELDS.EXCLUDE]: exclude })),
+    fc.record({
+      [PATH_FILTER_CONFIG_FIELDS.INCLUDE]: arbitraryNonEmptyPathFilterArray(),
+      [PATH_FILTER_CONFIG_FIELDS.EXCLUDE]: arbitraryNonEmptyPathFilterArray(),
+    }),
+  );
+}
+
 // Distinct path keys positioned relative to one prefix: `under` lives beneath
 // the prefix, `sibling` shares the prefix's leading text but crosses no segment
 // boundary, and `outside` lives under an unrelated prefix.
@@ -559,18 +582,18 @@ function arbitraryInvalidPathFilterArray(): fc.Arbitrary<readonly unknown[]> {
   );
 }
 
-function arbitraryTestingConfig(): fc.Arbitrary<GeneratedTestingConfig> {
-  return arbitraryPathFilter().map((passingScope) => {
+function testingConfigFrom(
+  passingScopeFilter: fc.Arbitrary<PathFilterConfig>,
+): fc.Arbitrary<GeneratedTestingConfig> {
+  return passingScopeFilter.map((passingScope) => {
     const result = validatePathFilterConfig(
       passingScope,
       `${TESTING_SECTION}.${TESTING_CONFIG_FIELDS.PASSING_SCOPE}`,
     );
     if (!result.ok) {
-      // Guard the generator contract: arbitraryPathFilter must only emit values accepted by the primitive.
+      // Guard the generator contract: the drawn filter must only emit values accepted by the primitive.
       throw new Error(
-        `CONFIG_TEST_GENERATOR.pathFilter() produced an invalid filter ${
-          JSON.stringify(passingScope)
-        }: ${result.error}`,
+        `The drawn passing-scope filter ${JSON.stringify(passingScope)} is invalid: ${result.error}`,
       );
     }
     return {
@@ -583,6 +606,34 @@ function arbitraryTestingConfig(): fc.Arbitrary<GeneratedTestingConfig> {
         [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: result.value,
       },
     };
+  });
+}
+
+function arbitraryTestingConfig(): fc.Arbitrary<GeneratedTestingConfig> {
+  return testingConfigFrom(arbitraryPathFilter());
+}
+
+function canonicalTestingSection(section: TestingConfig): string {
+  const canonical = canonicalDescriptorJson(section, TESTING_SECTION);
+  if (!canonical.ok) throw new Error(canonical.error);
+  return canonical.value;
+}
+
+/**
+ * A testing section that never equals the descriptor's own default. Evidence that
+ * asserts a resolved section against a generated expectation cannot tell a resolver
+ * honoring its product directory from one falling back to defaults when the two
+ * coincide, so every draw here differs from the default.
+ */
+function arbitraryDiscriminatingTestingConfig(): fc.Arbitrary<GeneratedTestingConfig> {
+  const defaultSection = canonicalTestingSection(testingConfigDescriptor.defaults);
+  return testingConfigFrom(arbitraryDiscriminatingPathFilter()).map((generated) => {
+    if (canonicalTestingSection(generated.expected) === defaultSection) {
+      throw new Error(
+        `CONFIG_TEST_GENERATOR.discriminatingTestingConfig() produced the descriptor default ${defaultSection}`,
+      );
+    }
+    return generated;
   });
 }
 

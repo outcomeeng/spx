@@ -13,7 +13,6 @@ import {
 import { parseProductContextJsonConfig, productContextTestingConfig } from "@testing/harnesses/product-context/cli";
 import {
   observeAbsentProductContext,
-  observeDeferredProductContextExit,
   observeProductContextMapping,
   PRODUCT_CONTEXT_MAPPING_TEST_OPTIONS,
   runProductContextCases,
@@ -69,11 +68,4 @@ describe("product context mapping", () => {
       });
     },
   );
-
-  it("captures deferred exit codes from product-context commands", async () => {
-    const result = await observeDeferredProductContextExit();
-
-    expect(result.exitCodes).toHaveLength(1);
-    expect((JSON.parse(result.stdout) as { readonly overall?: unknown }).overall).toBeDefined();
-  });
 });

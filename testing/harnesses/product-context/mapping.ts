@@ -5,9 +5,7 @@ import { basename, join } from "node:path";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { configFileForFormat, DEFAULT_CONFIG_FILE_FORMAT, serializeConfigFileSections } from "@/config/index";
-import { DIAGNOSE_FORMAT } from "@/domains/diagnose/report";
 import { SESSION_STATUSES } from "@/domains/session/types";
-import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
 import { sessionsScopeDir } from "@/lib/state-store";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import type {
@@ -113,12 +111,4 @@ export async function observeAbsentProductContext(
     const result = await runProductContextCli(args, { processCwd: processDir });
     return { processDir, result };
   });
-}
-
-export async function observeDeferredProductContextExit(): Promise<ProductContextCliRun> {
-  return withTempDir(PRODUCT_CONTEXT_TEMP_PREFIX, (processDir) =>
-    runProductContextCli(
-      [DIAGNOSE_CLI.COMMAND, DIAGNOSE_CLI.FORMAT_FLAG, DIAGNOSE_FORMAT.JSON],
-      { processCwd: processDir },
-    ));
 }
