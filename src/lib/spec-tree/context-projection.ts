@@ -48,14 +48,25 @@ export interface SpecContextSelection {
   readonly optional?: boolean;
 }
 
+/** The two entry kinds of a `show` projection: a document carries selected content, a reference only its path. */
+export const SPEC_CONTEXT_ENTRY_TYPE = {
+  DOCUMENT: "document",
+  REFERENCE: "reference",
+} as const;
+
 export type SpecContextEntry =
-  | { readonly type: "reference"; readonly path: string }
+  | { readonly type: typeof SPEC_CONTEXT_ENTRY_TYPE.REFERENCE; readonly path: string }
   | {
-    readonly type: "document";
+    readonly type: typeof SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT;
     readonly path: string;
     readonly metadata: Readonly<Record<string, unknown>>;
     readonly content: string;
   };
+
+export type SpecContextDocumentEntry = Extract<
+  SpecContextEntry,
+  { readonly type: typeof SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT }
+>;
 
 export interface SpecContextProjectedEntry {
   readonly selection: SpecContextSelection;
@@ -253,7 +264,9 @@ export function projectSpecContextDocument(
   source: string,
   migrating: boolean,
 ): SpecContextEntry {
-  if (selection.mode === SPEC_CONTEXT_MODE.REFERENCE) return { type: "reference", path: selection.path };
+  if (selection.mode === SPEC_CONTEXT_MODE.REFERENCE) {
+    return { type: SPEC_CONTEXT_ENTRY_TYPE.REFERENCE, path: selection.path };
+  }
   const { metadata, body } = splitSpecContextFrontMatter(source, selection.path);
   const selectedMetadata = selection.outputNode === true && Object.hasOwn(metadata, MALLEABILITY_KEY)
     ? { [MALLEABILITY_KEY]: metadata[MALLEABILITY_KEY] }
@@ -264,7 +277,7 @@ export function projectSpecContextDocument(
   if (content === undefined) {
     throw new Error(`Missing ${selection.opening ?? "kind opening"} paragraph in ${selection.path}`);
   }
-  return { type: "document", path: selection.path, metadata: selectedMetadata, content };
+  return { type: SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT, path: selection.path, metadata: selectedMetadata, content };
 }
 
 export function specContextInlineDecisionCitations(content: string): readonly string[] {
@@ -305,7 +318,9 @@ export function suppressLoadedSpecContext(
 
 export function renderSpecContextEntries(entries: readonly SpecContextEntry[]): string {
   return entries.map((entry) => {
-    if (entry.type === "reference") return `<${SPEC_CONTEXT_FRAME.REFERENCE} path="${entry.path}" />`;
+    if (entry.type === SPEC_CONTEXT_ENTRY_TYPE.REFERENCE) {
+      return `<${SPEC_CONTEXT_FRAME.REFERENCE} path="${entry.path}" />`;
+    }
     const metadata = Object.keys(entry.metadata).length === 0
       ? ""
       : `${FRONT_MATTER_DELIMITER}\n${stringify(entry.metadata)}${FRONT_MATTER_DELIMITER}\n\n`;
