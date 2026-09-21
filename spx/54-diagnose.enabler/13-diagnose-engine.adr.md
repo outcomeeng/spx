@@ -34,7 +34,7 @@ Every reading reaches the pipeline through an injected runner so classification,
 
 ### Audit
 
-- ALWAYS: the `diagnose` command domain is composed per [`spx/14-cli-composition.adr.md`](../14-cli-composition.adr.md) — pure classification and fold logic in `src/domains/diagnose/`, reading-gathering orchestration in `src/commands/diagnose/`, and the Commander descriptor carrying the exit-code mapping and `--manifest` / `--format` parsing in `src/interfaces/cli/diagnose.ts` ([audit])
+- ALWAYS: the `diagnose` command domain is composed per [`spx/14-cli-composition.adr.md`](../14-cli-composition.adr.md) — pure classification and fold logic in `src/domains/diagnose/`, reading-gathering orchestration in `src/commands/diagnose/`, and the Commander descriptor carrying the exit-code mapping and `--manifest`, `--verbose`, and `--json` parsing in `src/interfaces/cli/diagnose.ts` ([audit])
 - ALWAYS: every reading — PATH resolution, a tool version, an environment variable, a `git` or `spx` subcommand result, a plugin-CLI result, a filesystem probe — is obtained through a dependency-injected runner parameter, so classification and the fold verify over controlled readings ([audit])
 - ALWAYS: each check is a pure verdict function from its gathered readings to a record carrying the verdict, its bucket, the readings verbatim, and a remediation hint, independently testable in isolation ([audit])
 - ALWAYS: a supplied manifest is parsed and validated at the boundary into a typed contract, and a manifest that selects a check without that check's required consumer facts is rejected ([audit])
