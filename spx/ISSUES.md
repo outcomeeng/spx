@@ -321,3 +321,19 @@ on that signal is killed rather than slowed.
 **Impact:** a change to how a missing file is recognized — the code set, the narrowing — is repeated in every module, and a module can drift from the others without any test noticing.
 
 **Settlement condition:** one product-owned home exports the not-found code and the error-code predicate, every listed module imports it, and no module under `src/` or `testing/` declares the code or the predicate again.
+
+## The managed router promises an undeclared author command
+
+**Evidence:** the managed "Product Commands" section in both `AGENTS.md` and
+`CLAUDE.md` says the product's own instructions declare an `author` command
+to rebuild or regenerate artifacts after a spec, test, or implementation file
+changes. Neither root guide declares that command. The guides name build and
+validation commands without assigning one to the author phase.
+
+**Impact:** a workflow that requires the product's author command cannot resolve
+which command fulfills that phase from the root instructions.
+
+**Settlement condition:** the product declares its author-phase command in the
+shared authored instructions, or the plugin's router contract is revised and
+both managed blocks are regenerated so their command promise matches the
+product's declarations.
