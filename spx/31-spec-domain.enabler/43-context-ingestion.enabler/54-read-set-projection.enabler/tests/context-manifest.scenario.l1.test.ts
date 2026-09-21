@@ -26,9 +26,9 @@ import {
   SPEC_CONTEXT_ESCAPE_TARGET_FILENAME,
   specTreeKindsConfig,
   trackedSpecContextGitDependencies,
+  withOutsideProductDir,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
-import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
 describe("spec context manifest read set", () => {
   it("includes coordination notes from the product root, ancestors, and the target in walk order", async () => {
@@ -162,8 +162,7 @@ describe("spec context manifest read set", () => {
       await env.materialize();
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
-      const outsideParent = await createTempDir("spx-context-outside-");
-      try {
+      await withOutsideProductDir(async (outsideParent) => {
         const outsideSecretPath = join(outsideParent, SPEC_CONTEXT_ESCAPE_TARGET_FILENAME);
         // The marker carries no newline or JSON-escapable character, so it
         // appears verbatim inside a JSON-encoded string — a leak is
@@ -178,9 +177,7 @@ describe("spec context manifest read set", () => {
 
         expect(allManifestPaths(manifest)).not.toContain(escapingGuidePath);
         expect(manifestJson).not.toContain(secretMarker);
-      } finally {
-        await removeTempDir(outsideParent);
-      }
+      });
     });
   });
 });

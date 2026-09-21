@@ -28,6 +28,7 @@ import {
 import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
 import {
   specContextAmbiguousNestedDirectory,
+  specContextExtendedRootDirectory,
   specContextLowerSiblingDirectoryName,
 } from "@testing/generators/spec-tree/context-target";
 import {
@@ -56,11 +57,10 @@ describe("spec context ingestion compliance", () => {
   it("never matches a longer path component as a suffix of a shorter operand", async () => {
     await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
       await env.materialize();
-      const rootDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
-      const extended = `${rootDirectory}-candidate`;
-      await env.writeRaw(rootedSpecPath(`${extended}/${env.fixture.root.slug}.md`), "# Extended sibling\n");
-      const manifest = await contextListManifest({ targets: [rootDirectory], cwd: env.productDir });
-      expect(manifest.targets).toEqual([rootedSpecPath(rootDirectory)]);
+      const extended = specContextExtendedRootDirectory(env.fixture);
+      await env.writeRaw(extended.extendedSpecPath, "# Extended sibling\n");
+      const manifest = await contextListManifest({ targets: [extended.operand], cwd: env.productDir });
+      expect(manifest.targets).toEqual([rootedSpecPath(extended.operand)]);
     });
   });
 

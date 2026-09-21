@@ -12,6 +12,7 @@ import {
   contextShowJson,
   contextShowText,
   documentAt,
+  openingParagraph,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
 
@@ -54,7 +55,7 @@ describe("spec context content boundaries", () => {
       const slug = env.fixture.peer.slug;
       // An indented keyword and a keyword glued to its subject are not openings;
       // the first conforming paragraph, even after other paragraphs, is.
-      const conforming = `${opening} ${slug}\nSO THAT readers\nCAN find it\n`;
+      const conforming = openingParagraph(opening, slug);
       await env.writeRaw(
         paths.higherIndexSiblingSpecPath,
         `# ${slug}\n\n  ${opening} indented\n\n${opening}glued\n\n${conforming}\n${opening} second\n`,

@@ -4,7 +4,7 @@ import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
 import { SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
 import { METHODOLOGY_CODING_AGENT } from "@/lib/methodology";
-import { DECISION_KINDS, KIND_REGISTRY, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
+import { KIND_REGISTRY, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
 import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { specContextUnknownTarget } from "@testing/generators/spec-tree/context-target";
@@ -36,7 +36,7 @@ describe("spec context no partial output", () => {
         unknown,
       );
       expect(result.exitCode).toBe(1);
-      expect(result.stdout).toBe("");
+      expect(result.stdout).toHaveLength(0);
       expect(result.stderr).toContain(
         SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED],
       );
@@ -53,7 +53,7 @@ describe("spec context no partial output", () => {
       if (targetSpecPath === undefined) throw new Error("Expected the fixture target to expose a spec path");
       const missing = rootedSpecPath(
         `${target.id}/${target.order + 1}-${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug())}${
-          KIND_REGISTRY[DECISION_KINDS[0]].suffix
+          KIND_REGISTRY[env.fixture.decision.kind].suffix
         }`,
       );
       await env.writeRaw(
@@ -70,7 +70,7 @@ describe("spec context no partial output", () => {
         target.id,
       );
       expect(result.exitCode).toBe(1);
-      expect(result.stdout).toBe("");
+      expect(result.stdout).toHaveLength(0);
       expect(result.stderr).toContain(missing);
       expect(result.stderr).toContain(targetSpecPath);
     });
@@ -99,7 +99,7 @@ describe("spec context no partial output", () => {
           METHODOLOGY_CODING_AGENT.CLAUDE,
         );
         expect(result.exitCode).toBe(1);
-        expect(result.stdout).toBe("");
+        expect(result.stdout).toHaveLength(0);
         expect(result.stderr).toContain(declared.text);
       },
     );

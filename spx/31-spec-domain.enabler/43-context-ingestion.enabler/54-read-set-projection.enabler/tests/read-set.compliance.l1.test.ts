@@ -34,7 +34,6 @@ describe("spec context read-set boundaries", () => {
 
   it("references issue notes on the target path by path alone and never carries an issue body, heading, excerpt, or count", async () => {
     await withRichContextEnv(async (env, paths) => {
-      const heading = paths.targetIssuesText.replace(/^﻿/, "").split("\n")[0];
       for (
         const output of [
           await contextShowText({ targets: [paths.targetId], cwd: env.productDir }),
@@ -43,7 +42,7 @@ describe("spec context read-set boundaries", () => {
       ) {
         expect(output).toContain(paths.targetIssuesPath);
         expect(output).toContain(paths.rootIssuesPath);
-        expect(output).not.toContain(heading);
+        expect(output).not.toContain(paths.targetIssuesHeading);
       }
       const entries = await contextShowEntries({ targets: [paths.targetId], cwd: env.productDir });
       expect(documentPaths(entries)).not.toContain(paths.targetIssuesPath);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DECISION_KINDS, KIND_REGISTRY } from "@/lib/spec-tree";
+import { KIND_REGISTRY } from "@/lib/spec-tree";
 import { specContextNonCitationShapes } from "@testing/generators/spec-tree/context-target";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import {
@@ -26,7 +26,7 @@ describe("spec context citation boundaries", () => {
       const undisplayed = rootedSpecPath(
         `${paths.higherIndexSiblingPath.slice(rootedSpecPath("").length)}/98-${
           sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug())
-        }${KIND_REGISTRY[DECISION_KINDS[0]].suffix}`,
+        }${KIND_REGISTRY[env.fixture.decision.kind].suffix}`,
       );
       await env.writeRaw(
         paths.sameIndexSiblingSpecPath,
@@ -61,7 +61,7 @@ describe("spec context citation boundaries", () => {
     await withRichContextEnv(async (env, paths) => {
       const missing = rootedSpecPath(
         `${paths.targetId}/97-${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug())}${
-          KIND_REGISTRY[DECISION_KINDS[0]].suffix
+          KIND_REGISTRY[env.fixture.decision.kind].suffix
         }`,
       );
       await env.writeRaw(

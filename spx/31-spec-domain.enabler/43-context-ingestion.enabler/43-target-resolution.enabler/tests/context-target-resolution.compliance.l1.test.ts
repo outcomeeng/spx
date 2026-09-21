@@ -20,8 +20,8 @@ import {
   SPEC_CONTEXT_ESCAPE_TARGET_FILENAME,
   specTreeKindsConfig,
   trackSpecTreeInGit,
+  withOutsideProductDir,
 } from "@testing/harnesses/spec/context";
-import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
 describe("spec context target resolution compliance", () => {
   it("never lets an invocation-relative match take precedence over a suffix match of another identity", async () => {
@@ -55,8 +55,7 @@ describe("spec context target resolution compliance", () => {
   });
 
   it("rejects a symbolic link whose canonical target escapes the product as outside the product", async () => {
-    const outsideParent = await createTempDir("spx-context-outside-");
-    try {
+    await withOutsideProductDir(async (outsideParent) => {
       await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
         await env.materialize();
         const outsidePath = join(outsideParent, SPEC_CONTEXT_ESCAPE_TARGET_FILENAME);
@@ -76,9 +75,7 @@ describe("spec context target resolution compliance", () => {
           expect(failure).toContain(alias);
         }
       });
-    } finally {
-      await removeTempDir(outsideParent);
-    }
+    });
   });
 
   it("never selects the first of several identities and never uses a descendant to disambiguate an ancestor", async () => {

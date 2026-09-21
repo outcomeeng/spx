@@ -397,6 +397,23 @@ export function specContextAmbiguousNestedDirectory(fixture: RepresentativeSpecT
   };
 }
 
+/**
+ * A top-level directory whose name extends the fixture root's by one more
+ * segment, so the root's directory name is a suffix of a longer path
+ * component but never a complete one.
+ */
+export function specContextExtendedRootDirectory(fixture: RepresentativeSpecTreeFixture): {
+  readonly operand: string;
+  readonly extendedSpecPath: string;
+} {
+  const documents = specContextFixtureDocuments(fixture);
+  const extendedDirectory = `${documents.rootDirectory}-${fixture.child.slug}`;
+  return {
+    operand: documents.rootDirectory,
+    extendedSpecPath: `${rooted(extendedDirectory)}/${fixture.root.slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`,
+  };
+}
+
 export function specContextRejectedTargetOperand(
   fixture: RepresentativeSpecTreeFixture,
   productDir: string,

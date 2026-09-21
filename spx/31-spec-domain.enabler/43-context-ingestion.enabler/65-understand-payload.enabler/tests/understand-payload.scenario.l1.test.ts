@@ -9,7 +9,7 @@ import {
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   FOUNDATION_MANIFEST_SCHEMA_VERSION,
 } from "@/lib/methodology";
-import { SPEC_CONTEXT_FRAME } from "@/lib/spec-tree";
+import { SPEC_CONTEXT_ENTRY_TYPE, SPEC_CONTEXT_FRAME } from "@/lib/spec-tree";
 import { generatedMigratingMethodologySection } from "@testing/generators/config/descriptors";
 import { arbitraryMethodologyLineVersion, arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
@@ -40,7 +40,7 @@ describe("spec context understand payload", () => {
       };
       const entries = await contextShowEntries(options);
       expect(entries[0]).toEqual({
-        type: "document",
+        type: SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT,
         path: fixture.documentPath,
         metadata: {},
         content: fixture.coreText,

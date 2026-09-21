@@ -4,12 +4,12 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
-import { SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
+import { compareSpecContextOrdinal, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
 import {
   arbitrarySpecContextInvalidUtf8Bytes,
   specContextUnknownTarget,
 } from "@testing/generators/spec-tree/context-target";
-import { sampleSpecTreeTestValue } from "@testing/generators/spec-tree/spec-tree";
+import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextShowEntries,
@@ -24,15 +24,15 @@ import {
 describe("spec context loaded-declaration boundaries", () => {
   it("persists nothing for a loaded declaration and reconstructs it from the current tree, so a changed covered entry renders as it is now", async () => {
     await withRichContextEnv(async (env, paths) => {
-      const before = (await readdir(env.productDir, { recursive: true })).sort();
+      const before = (await readdir(env.productDir, { recursive: true })).sort(compareSpecContextOrdinal);
       await contextShowEntries({ targets: [paths.targetId], cwd: env.productDir, loadedTargets: [paths.targetId] });
-      expect((await readdir(env.productDir, { recursive: true })).sort()).toEqual(before);
+      expect((await readdir(env.productDir, { recursive: true })).sort(compareSpecContextOrdinal)).toEqual(before);
       // The declaration names the projection as it stands: after the target's
       // spec changes, a run declaring the target loaded still projects the
       // current content and suppresses it, so the caller who wants the change
       // drops the declaration and receives the new content.
-      const changed = `${paths.sourceText[paths.targetSpecPath]}\nChanged after loading.\n`;
-      await env.writeRaw(paths.targetSpecPath, changed);
+      const changeMarker = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+      await env.writeRaw(paths.targetSpecPath, `${paths.sourceText[paths.targetSpecPath]}\n${changeMarker}\n`);
       const declared = await contextShowEntries({
         targets: [paths.targetId],
         cwd: env.productDir,
@@ -40,7 +40,7 @@ describe("spec context loaded-declaration boundaries", () => {
       });
       expect(declared).toEqual([]);
       const fresh = await contextShowEntries({ targets: [paths.targetId], cwd: env.productDir });
-      expect(documentAt(fresh, paths.targetSpecPath)?.content).toContain("Changed after loading.");
+      expect(documentAt(fresh, paths.targetSpecPath)?.content).toContain(changeMarker);
     });
   });
 

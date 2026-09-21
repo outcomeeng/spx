@@ -7,6 +7,7 @@ import {
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   SOURCE_RECORD_RELATIVE_PATH,
 } from "@/lib/methodology";
+import { SPEC_CONTEXT_ENTRY_TYPE } from "@/lib/spec-tree";
 import {
   generatedLineFormMigratingMethodologySection,
   generatedMethodologySection,
@@ -165,7 +166,12 @@ describe("spec context understand payload sourcing", () => {
           methodologyTreeRoot: fixture.treeRoot,
         };
         const served = await contextShowEntries({ ...options, methodology: true });
-        expect(served[0]).toEqual({ type: "document", path: fixture.documentPath, metadata: {}, content: coreText });
+        expect(served[0]).toEqual({
+          type: SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT,
+          path: fixture.documentPath,
+          metadata: {},
+          content: coreText,
+        });
         // The manifest, source record, and catalog resources stay internal.
         for (
           const internal of [FOUNDATION_MANIFEST_RELATIVE_PATH, SOURCE_RECORD_RELATIVE_PATH, ...fixture.catalogPaths]

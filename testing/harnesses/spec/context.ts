@@ -40,11 +40,13 @@ import {
   KIND_REGISTRY,
   renderSpecContextEntries,
   SPEC_CONTEXT_DOCUMENT_OPENING,
+  SPEC_CONTEXT_ENTRY_TYPE,
   SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
   SPEC_CONTEXT_SELECTED_METADATA_KEY,
   SPEC_TREE_CONFIG,
   SPEC_TREE_CONFIG_FIELDS,
   SPEC_TREE_GRAMMAR,
+  type SpecContextDocumentEntry,
   type SpecContextEntry,
   type SpecContextListedRole,
   type SpecContextManifest,
@@ -66,9 +68,15 @@ import { GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-consta
 import { type CurrentSpecTreeEnv, withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { SPEC_CLI_ISOLATION } from "@testing/harnesses/spec/spec-cli-isolation-contract";
 import { SPEC_CLI_NETWORK_GUARD_SOURCE_PATH } from "@testing/harnesses/spec/spec-cli-network-guard";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 export function parseContextManifest(output: string): SpecContextManifest {
   return JSON.parse(output) as SpecContextManifest;
+}
+
+/** The entry list of a `show --json` document as the packaged executable wrote it. */
+export function parseContextEntries(output: string): readonly SpecContextEntry[] {
+  return (JSON.parse(output) as { readonly entries: readonly SpecContextEntry[] }).entries;
 }
 
 /** The `list` handler's resolution: the manifest or the typed target failure, for the test to judge. */
@@ -150,12 +158,12 @@ export function contextShowFailure(options: ContextShowOptions): Promise<string 
 
 /** Paths of the document entries in a `show` stream, in stream order. */
 export function documentPaths(entries: readonly SpecContextEntry[]): readonly string[] {
-  return entries.flatMap((entry) => entry.type === "document" ? [entry.path] : []);
+  return entries.flatMap((entry) => entry.type === SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT ? [entry.path] : []);
 }
 
 /** Paths of the reference entries in a `show` stream, in stream order. */
 export function referencePaths(entries: readonly SpecContextEntry[]): readonly string[] {
-  return entries.flatMap((entry) => entry.type === "reference" ? [entry.path] : []);
+  return entries.flatMap((entry) => entry.type === SPEC_CONTEXT_ENTRY_TYPE.REFERENCE ? [entry.path] : []);
 }
 
 /** Paths of every entry in a `show` stream, in stream order. */
@@ -167,9 +175,9 @@ export function entryPaths(entries: readonly SpecContextEntry[]): readonly strin
 export function documentAt(
   entries: readonly SpecContextEntry[],
   path: string,
-): Extract<SpecContextEntry, { readonly type: "document" }> | undefined {
-  return entries.find((entry): entry is Extract<SpecContextEntry, { readonly type: "document" }> =>
-    entry.type === "document" && entry.path === path
+): SpecContextDocumentEntry | undefined {
+  return entries.find((entry): entry is SpecContextDocumentEntry =>
+    entry.type === SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT && entry.path === path
   );
 }
 
@@ -447,6 +455,8 @@ export interface RichContextPaths {
    * caught.
    */
   readonly targetIssuesText: string;
+  /** The note's heading line without the byte-order mark: the text a leak of the note's body would carry. */
+  readonly targetIssuesHeading: string;
   readonly rootGuidePaths: readonly string[];
   readonly ancestorGuidePath: string;
   readonly lifecycleOverlayPath: string;
@@ -476,7 +486,7 @@ function inlineCitation(path: string): string {
 }
 
 /** One opening paragraph as the Digest projection selects it: keyword, subject, and its closing line ending. */
-function openingParagraph(keyword: string, subject: string): string {
+export function openingParagraph(keyword: string, subject: string): string {
   return `${keyword} ${subject}\nSO THAT readers\nCAN find it\n`;
 }
 
@@ -603,7 +613,8 @@ export async function withRichContextEnv(
       rootIssuesPath: `spx/${SPEC_TREE_GRAMMAR.COORDINATION_NOTES[1]}`,
       ancestorPlanPath: `spx/${rootDirectory}/${SPEC_TREE_GRAMMAR.COORDINATION_NOTES[0]}`,
       targetIssuesPath: `spx/${targetId}/${SPEC_TREE_GRAMMAR.COORDINATION_NOTES[1]}`,
-      targetIssuesText: "\uFEFF# Target issues — Prüfung ✓ 文脈\n",
+      targetIssuesText: `${BYTE_ORDER_MARK}${TARGET_ISSUES_HEADING}\n`,
+      targetIssuesHeading: TARGET_ISSUES_HEADING,
       rootGuidePaths: SPEC_TREE_GRAMMAR.GUIDE_FILES.map((filename) => filename),
       ancestorGuidePath: `spx/${rootDirectory}/${SPEC_TREE_GRAMMAR.GUIDE_FILES[0]}`,
       lifecycleOverlayPath: SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
@@ -645,6 +656,22 @@ export async function withRichContextEnv(
 
 /** Filename of the escape-target fixture a containment scenario writes outside the probed boundary. */
 export const SPEC_CONTEXT_ESCAPE_TARGET_FILENAME = "outside-secret.md";
+
+/** UTF-8 byte-order mark: the fixture leads with it so BOM stripping or a wrong-encoding decode is caught. */
+const BYTE_ORDER_MARK = "\uFEFF";
+/** Multi-byte UTF-8 heading of the target's ISSUES note; a wrong-encoding decode mangles it. */
+const TARGET_ISSUES_HEADING = "# Target issues — Prüfung ✓ 文脈";
+
+const OUTSIDE_PRODUCT_DIRECTORY_PREFIX = "spx-context-outside-";
+
+/**
+ * A directory outside every product directory, removed after the callback,
+ * for the containment cases that point an operand or a symbolic link past
+ * the product root.
+ */
+export function withOutsideProductDir<T>(callback: (outsideDir: string) => Promise<T>): Promise<T> {
+  return withTempDir(OUTSIDE_PRODUCT_DIRECTORY_PREFIX, callback);
+}
 
 /** The materialized shipped-tree fixture: locations and exact resource text. */
 export interface MethodologyTreeFixture {

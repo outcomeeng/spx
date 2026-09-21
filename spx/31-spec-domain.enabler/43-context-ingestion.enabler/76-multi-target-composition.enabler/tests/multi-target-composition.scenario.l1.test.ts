@@ -80,7 +80,7 @@ describe("spec context multi-target composition", () => {
         loadedTargets: [paths.targetId, paths.targetId],
         loadedProduct: true,
       };
-      expect(await contextShowText(options)).toBe("");
+      expect(await contextShowText(options)).toHaveLength(0);
       expect(JSON.parse(await contextShowJson(options))).toEqual({ entries: [] });
       expect(await contextShowEntries({ targets: [], cwd: env.productDir, loadedProduct: true })).toEqual([]);
     });
