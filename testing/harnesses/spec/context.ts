@@ -664,6 +664,8 @@ export interface MethodologyTreeFixture {
   readonly coreText: string;
   /** Plugin-relative catalog paths in manifest order: references, templates, examples. */
   readonly catalogPaths: readonly string[];
+  /** The package-root-relative bundle address followed by the core value: the path `show` frames the foundation under. */
+  readonly documentPath: string;
 }
 
 export const METHODOLOGY_FIXTURE_CODING_AGENT = METHODOLOGY_CODING_AGENT.CLAUDE;
@@ -754,5 +756,6 @@ export async function writeMethodologyTree(
     corePath,
     coreText,
     catalogPaths: [referencePath, templatePath, examplePath],
+    documentPath: [METHODOLOGY_TREE_ROOT, line.value, codingAgent, FOUNDATION_PLUGIN_NAME, corePath].join("/"),
   };
 }

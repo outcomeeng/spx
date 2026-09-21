@@ -61,6 +61,19 @@ export async function shippedFoundationCoreText(line: string, codingAgent: strin
 }
 
 /**
+ * The shipped core body after its skill-runtime front matter: the text that
+ * follows the second delimiter line when the file opens with one. The split
+ * is a plain line scan, independent of the production front-matter parser.
+ */
+export async function shippedFoundationCoreBody(line: string, codingAgent: string): Promise<string> {
+  const text = await shippedFoundationCoreText(line, codingAgent);
+  const lines = text.split("\n");
+  if (lines[0] !== "---") return text;
+  const closing = lines.findIndex((candidate, index) => index > 0 && candidate === "---");
+  return closing === -1 ? text : lines.slice(closing + 1).join("\n");
+}
+
+/**
  * The exact text of the shipped compact-recovery resource for one coding agent
  * on a shipped line, or `undefined` when the shipped manifest names none. The
  * entry is located by plain JSON access, independent of the production parser.

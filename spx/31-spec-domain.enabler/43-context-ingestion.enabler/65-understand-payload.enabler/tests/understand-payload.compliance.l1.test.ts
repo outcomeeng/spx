@@ -1,10 +1,12 @@
-import { createHash } from "node:crypto";
-
 import { describe, expect, it } from "vitest";
 
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_VERSION_FORM } from "@/config/methodology";
-import { formatRangeOperandFormError } from "@/lib/methodology";
-import { SPEC_CONTEXT_DIGEST_ALGORITHM } from "@/lib/spec-tree";
+import { SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
+import {
+  formatRangeOperandFormError,
+  FOUNDATION_MANIFEST_RELATIVE_PATH,
+  SOURCE_RECORD_RELATIVE_PATH,
+} from "@/lib/methodology";
 import {
   generatedLineFormMigratingMethodologySection,
   generatedMethodologySection,
@@ -20,10 +22,9 @@ import { sampleGeneratedValue } from "@testing/generators/sample";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
-  contextCommand,
-  contextCommandFailure,
+  contextShowEntries,
+  contextShowFailure,
   methodologyTreeConfig,
-  parseContextManifest,
   writeMethodologyTree,
 } from "@testing/harnesses/spec/context";
 
@@ -47,10 +48,10 @@ describe("spec context understand payload provider match", () => {
         version,
         sourceRecord: generatedSourceRecordProviding(other.text),
       });
-      const mismatch = await contextCommandFailure({
+      const mismatch = await contextShowFailure({
         targets: [target.id],
         cwd: env.productDir,
-        understand: true,
+        methodology: true,
         methodologyTreeRoot: providesOther.treeRoot,
       });
       expect(mismatch).toContain(version);
@@ -61,10 +62,10 @@ describe("spec context understand payload provider match", () => {
         version,
         sourceRecord: generatedSourceRecordProviding(version, excluding),
       });
-      const outside = await contextCommandFailure({
+      const outside = await contextShowFailure({
         targets: [target.id],
         cwd: env.productDir,
-        understand: true,
+        methodology: true,
         methodologyTreeRoot: outsideSupports.treeRoot,
       });
       expect(outside).toContain(migratingFrom);
@@ -74,10 +75,10 @@ describe("spec context understand payload provider match", () => {
         version,
         sourceRecord: generatedSourceRecordProviding(version),
       });
-      const unverifiable = await contextCommandFailure({
+      const unverifiable = await contextShowFailure({
         targets: [target.id],
         cwd: env.productDir,
-        understand: true,
+        methodology: true,
         methodologyTreeRoot: noSupports.treeRoot,
       });
       expect(unverifiable).toContain(migratingFrom);
@@ -86,29 +87,28 @@ describe("spec context understand payload provider match", () => {
         version,
         sourceRecord: generatedSourceRecordProviding(version, supportsRangeContaining(migratingFrom)),
       });
-      const manifest = parseContextManifest(
-        await contextCommand({
-          targets: [target.id],
-          cwd: env.productDir,
-          understand: true,
-          methodologyTreeRoot: agreeing.treeRoot,
-        }),
-      );
-      expect(manifest.read.at(-1)?.content).toBe(agreeing.coreText);
+      const entries = await contextShowEntries({
+        targets: [target.id],
+        cwd: env.productDir,
+        methodology: true,
+        methodologyTreeRoot: agreeing.treeRoot,
+      });
+      expect(entries[0]).toMatchObject({ path: agreeing.documentPath, content: agreeing.coreText });
 
       const sameLineOtherForm = await writeMethodologyTree(env, {
         version,
         sourceRecord: generatedSourceRecordProviding(declared.line, supportsRangeContaining(migratingFrom)),
       });
-      const servedAcrossForms = parseContextManifest(
-        await contextCommand({
-          targets: [target.id],
-          cwd: env.productDir,
-          understand: true,
-          methodologyTreeRoot: sameLineOtherForm.treeRoot,
-        }),
-      );
-      expect(servedAcrossForms.read.at(-1)?.content).toBe(sameLineOtherForm.coreText);
+      const servedAcrossForms = await contextShowEntries({
+        targets: [target.id],
+        cwd: env.productDir,
+        methodology: true,
+        methodologyTreeRoot: sameLineOtherForm.treeRoot,
+      });
+      expect(servedAcrossForms[0]).toMatchObject({
+        path: sameLineOtherForm.documentPath,
+        content: sameLineOtherForm.coreText,
+      });
     });
   });
 
@@ -127,10 +127,10 @@ describe("spec context understand payload provider match", () => {
           supportsRangeContaining(forms.byForm[METHODOLOGY_VERSION_FORM.PATCHED]),
         ),
       });
-      const failure = await contextCommandFailure({
+      const failure = await contextShowFailure({
         targets: [target.id],
         cwd: env.productDir,
-        understand: true,
+        methodology: true,
         methodologyTreeRoot: patchedBound.treeRoot,
       });
       // The range check's own diagnostic, never the config descriptor's
@@ -141,10 +141,11 @@ describe("spec context understand payload provider match", () => {
 });
 
 describe("spec context understand payload sourcing", () => {
-  it("always sources foundation bodies from the shipped tree's manifest resources stamped with the configured methodology identity", async () => {
-    // Two runs over two different shipped core bodies: the emitted body,
-    // digest, and byte count track the shipped resource bytes exactly, so
-    // no embedded snapshot can be the source.
+  it("always sources the foundation body from the shipped tree's manifest-named core and never persists a loaded-methodology state", async () => {
+    // Two runs over two different shipped core bodies: the emitted body
+    // tracks the shipped resource bytes exactly, so no embedded snapshot can
+    // be the source; a --loaded-methodology run in between leaves nothing
+    // behind that changes the next request.
     const identity = generatedMethodologySection();
     const firstBody = `# Foundation body A — ${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug())}\n`;
     const secondBody = `# Foundation body B — ${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug())}\n`;
@@ -158,27 +159,41 @@ describe("spec context understand payload sourcing", () => {
         const snapshot = await env.readFilesystemSnapshot();
         const target = snapshot.allNodes[0];
 
-        const manifest = parseContextManifest(
-          await contextCommand({
-            targets: [target.id],
-            cwd: env.productDir,
-            understand: true,
-            methodologyTreeRoot: fixture.treeRoot,
-          }),
-        );
-        const entry = manifest.read.find((document) => document.path === fixture.corePath);
-        expect(entry?.content).toBe(coreText);
-        expect(entry?.digest).toBe(
-          `${SPEC_CONTEXT_DIGEST_ALGORITHM}:${
-            createHash(SPEC_CONTEXT_DIGEST_ALGORITHM).update(coreText).digest("hex")
-          }`,
-        );
-        expect(entry?.bytes).toBe(Buffer.byteLength(coreText));
-        expect(manifest.methodology).toEqual({
-          source: identity[METHODOLOGY_CONFIG_FIELDS.SOURCE],
-          version: identity[METHODOLOGY_CONFIG_FIELDS.VERSION],
-        });
+        const options = {
+          targets: [target.id],
+          cwd: env.productDir,
+          methodologyTreeRoot: fixture.treeRoot,
+        };
+        const served = await contextShowEntries({ ...options, methodology: true });
+        expect(served[0]).toEqual({ type: "document", path: fixture.documentPath, metadata: {}, content: coreText });
+        // The manifest, source record, and catalog resources stay internal.
+        for (
+          const internal of [FOUNDATION_MANIFEST_RELATIVE_PATH, SOURCE_RECORD_RELATIVE_PATH, ...fixture.catalogPaths]
+        ) {
+          expect(served.some((entry) => entry.path.endsWith(internal)), internal).toBe(false);
+        }
+        const declaredLoaded = await contextShowEntries({ ...options, loadedMethodology: true });
+        expect(declaredLoaded[0]?.path).toBe(snapshot.product?.ref?.path);
+        expect(await contextShowEntries({ ...options, methodology: true })).toEqual(served);
       });
     }
+  });
+
+  it("never accepts --methodology together with --loaded-methodology", async () => {
+    await withSpecTreeEnv(methodologyTreeConfig(), async (env) => {
+      await env.materialize();
+      const fixture = await writeMethodologyTree(env);
+      const snapshot = await env.readFilesystemSnapshot();
+      const target = snapshot.allNodes[0];
+      const failure = await contextShowFailure({
+        targets: [target.id],
+        cwd: env.productDir,
+        methodology: true,
+        loadedMethodology: true,
+        methodologyTreeRoot: fixture.treeRoot,
+      });
+      expect(failure).toContain(SPEC_DOMAIN_CLI.METHODOLOGY_OPTION);
+      expect(failure).toContain(SPEC_DOMAIN_CLI.LOADED_METHODOLOGY_OPTION);
+    });
   });
 });
