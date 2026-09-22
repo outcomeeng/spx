@@ -1,203 +1,114 @@
+import * as fc from "fast-check";
+import { randomInt } from "node:crypto";
 import { copyFile, mkdir, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
-
-import { TYPESCRIPT_VALIDATION_MESSAGES } from "@/commands/validation/typescript";
 import { DEFAULT_CONFIG } from "@/config/defaults";
-import { resolveProductDir } from "@/domains/config/root";
-import { DIAGNOSE_FORMAT } from "@/domains/diagnose/report";
+import { configFileForFormat, DEFAULT_CONFIG_FILE_FORMAT, serializeConfigFileSections } from "@/config/index";
 import { SESSION_STATUSES } from "@/domains/session/types";
-import { CONFIG_CLI } from "@/interfaces/cli/config";
-import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
-import { SPX_GLOBAL_OPTIONS } from "@/interfaces/cli/product-context";
-import { SESSION_CLI } from "@/interfaces/cli/session";
-import { validationCliDefinition, validationCommonCliOptions } from "@/interfaces/cli/validation-contract";
-import { NOT_GIT_REPO_WARNING } from "@/lib/git/root";
 import { sessionsScopeDir } from "@/lib/state-store";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
-import { VALIDATION_SCOPES } from "@/validation/types";
-import {
-  CONFIG_TEST_GENERATOR,
-  type GeneratedDirectoryScope,
-  sampleConfigTestValue,
-  sampleConfigTestValues,
-} from "@testing/generators/config/descriptors";
-import { sampleSessionId } from "@testing/generators/session/session";
+import type {
+  GeneratedProductContextCase,
+  RedirectedProductContextCommand,
+} from "@testing/generators/config/product-context";
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
-import {
-  parseProductContextJsonConfig,
-  ProductContextTempDirs,
-  productContextTestingConfig,
-  runProductContextCli,
-} from "@testing/harnesses/product-context/cli";
+import { type ProductContextCliRun, runProductContextCli } from "@testing/harnesses/product-context/cli";
+import { PROPERTY_LEVEL, PROPERTY_TIMEOUTS_MS, resolveSeed } from "@testing/harnesses/property/property";
 import { createSessionHarness } from "@testing/harnesses/session/harness";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
-const tempDirs = new ProductContextTempDirs();
-const cleanupTasks: Array<() => Promise<void>> = [];
 const PRODUCT_CONTEXT_MAPPING_CASE_COUNT = 3;
-const resolutionScopes = sampleConfigTestValues(
-  CONFIG_TEST_GENERATOR.directoryScope(),
-  PRODUCT_CONTEXT_MAPPING_CASE_COUNT,
-);
+const PRODUCT_CONTEXT_SEED_BOUND = 2 ** 32;
+const PRODUCT_CONTEXT_TEMP_PREFIX = "spx-product-context-";
 
-function configShowJsonArgs(): readonly string[] {
-  return [
-    CONFIG_CLI.commandName,
-    CONFIG_CLI.commands.show,
-    CONFIG_CLI.flags.json,
-  ];
-}
+export const PRODUCT_CONTEXT_MAPPING_TEST_OPTIONS = {
+  timeout: PRODUCT_CONTEXT_MAPPING_CASE_COUNT * PROPERTY_TIMEOUTS_MS[PROPERTY_LEVEL.L1],
+} as const;
 
-function sessionListJsonArgs(): readonly string[] {
-  return [
-    SESSION_CLI.commandName,
-    SESSION_CLI.commands.list,
-    SESSION_CLI.flags.json,
-  ];
-}
-
-export function registerProductContextMappingEvidence(): void {
-  afterEach(async () => {
-    for (const cleanup of cleanupTasks.splice(0)) await cleanup();
-    await tempDirs.cleanup();
+export async function runProductContextCases<T>(
+  arbitrary: fc.Arbitrary<T>,
+  predicate: (scenario: T) => Promise<void>,
+): Promise<void> {
+  const seed = resolveSeed(process.env, () => randomInt(PRODUCT_CONTEXT_SEED_BOUND));
+  const result = await fc.check(fc.asyncProperty(arbitrary, predicate), {
+    seed,
+    numRuns: PRODUCT_CONTEXT_MAPPING_CASE_COUNT,
+    timeout: PROPERTY_TIMEOUTS_MS[PROPERTY_LEVEL.L1],
   });
-
-  describe("product context mapping", () => {
-    it.each(resolutionScopes)(
-      "maps -C to the same resolved config from $nestedDirectory",
-      (scope) => assertRedirectedConfigMatchesDirectInvocation(scope),
+  if (result.failed) {
+    throw new Error(
+      `Product-context mapping failed after ${result.numRuns} runs; seed ${seed}; replay path ${result.counterexamplePath}; counterexample ${
+        JSON.stringify(result.counterexample)
+      }`,
+      { cause: result.errorInstance },
     );
-    it.each(resolutionScopes)(
-      "maps -C to the same validation result from $nestedDirectory",
-      (scope) => assertRedirectedValidationMatchesDirectInvocation(scope),
-    );
-    it.each(resolutionScopes)(
-      "maps -C to the same session list from caller $nestedDirectory",
-      (scope) => assertRedirectedSessionListMatchesDirectInvocation(scope),
-    );
-    it.each(resolutionScopes)(
-      "maps absent -C from process directory $nestedDirectory and preserves the non-git fallback warning",
-      (scope) => assertAbsentDirectoryUsesProcessDirectory(scope),
-    );
-    it("captures deferred exit codes from product-context commands", () => assertDeferredExitCodeIsCaptured());
-  });
+  }
 }
 
-async function assertRedirectedConfigMatchesDirectInvocation(scope: GeneratedDirectoryScope): Promise<void> {
-  const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.testingConfig());
-  const callerDir = await tempDirs.makeTempDir();
+export interface ProductContextMappingObservation {
+  readonly productDir: string;
+  readonly direct: ProductContextCliRun;
+  readonly redirected: ProductContextCliRun;
+}
 
-  await withTestEnv(generated.config, async ({ productDir }) => {
-    await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
-    const nestedProductDir = join(productDir, scope.nestedDirectory);
+export async function observeProductContextMapping(
+  command: RedirectedProductContextCommand,
+  scenario: GeneratedProductContextCase,
+): Promise<ProductContextMappingObservation> {
+  return withTestEnv(DEFAULT_CONFIG, async (env) => {
+    const productDir = join(env.productDir, scenario.target.productDirectory);
+    const nestedProductDir = join(productDir, scenario.target.nestedDirectory);
     await mkdir(nestedProductDir, { recursive: true });
-
-    const direct = await runProductContextCli(configShowJsonArgs(), { processCwd: nestedProductDir });
-    const redirected = await runProductContextCli(
-      [SPX_GLOBAL_OPTIONS.directory.short, nestedProductDir, ...configShowJsonArgs()],
-      { processCwd: callerDir },
+    await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
+    const configFile = configFileForFormat(productDir, DEFAULT_CONFIG_FILE_FORMAT);
+    const serialized = serializeConfigFileSections(configFile.format, scenario.testing.config);
+    if (!serialized.ok) throw new Error(serialized.error);
+    await writeFile(join(productDir, configFile.filename), serialized.value);
+    await writeFile(join(productDir, scenario.source.filename), scenario.source.contents);
+    await writeFile(
+      join(productDir, TSCONFIG_FILES.full),
+      JSON.stringify({ compilerOptions: { noEmit: true, strict: true }, files: [scenario.source.filename] }),
     );
 
-    expect(redirected.exitCodes).toEqual(direct.exitCodes);
-    expect(redirected.stderr).toBe(direct.stderr);
-    expect(parseProductContextJsonConfig(redirected.stdout, productDir)).toEqual(
-      parseProductContextJsonConfig(direct.stdout, productDir),
-    );
-    expect(productContextTestingConfig(parseProductContextJsonConfig(redirected.stdout, productDir))).toEqual(
-      generated.expected,
-    );
+    const sessionEnv = await createSessionHarness();
+    try {
+      const sessionFile = await sessionEnv.writeSession(SESSION_STATUSES[0], scenario.sessionId);
+      const sharedStatusDir = join(
+        sessionsScopeDir(productDir),
+        DEFAULT_CONFIG.sessions.statusDirs[SESSION_STATUSES[0]],
+      );
+      await mkdir(sharedStatusDir, { recursive: true });
+      await copyFile(sessionFile, join(sharedStatusDir, basename(sessionFile)));
+
+      return await withTempDir(PRODUCT_CONTEXT_TEMP_PREFIX, async (callerRoot) => {
+        const callerDir = join(callerRoot, scenario.caller.productDirectory, scenario.caller.nestedDirectory);
+        await mkdir(callerDir, { recursive: true });
+        const direct = await runProductContextCli(command.args, { processCwd: nestedProductDir });
+        const redirected = await runProductContextCli(
+          [command.directoryOption, nestedProductDir, ...command.args],
+          { processCwd: callerDir },
+        );
+        return { productDir, direct, redirected };
+      });
+    } finally {
+      await sessionEnv.cleanup();
+    }
   });
 }
 
-async function assertRedirectedValidationMatchesDirectInvocation(scope: GeneratedDirectoryScope): Promise<void> {
-  const callerDir = await tempDirs.makeTempDir();
-  const productDir = await tempDirs.makeTempDir();
-  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
-  await mkdir(join(productDir, "src"), { recursive: true });
-  await writeFile(
-    join(productDir, TSCONFIG_FILES.full),
-    JSON.stringify({
-      compilerOptions: { noEmit: true, strict: true },
-      include: ["src/**/*.ts"],
-    }),
-  );
-  await writeFile(join(productDir, "src/index.ts"), "export const productContextValue: string = 'valid';\n");
-  const nestedProductDir = join(productDir, scope.nestedDirectory);
-  await mkdir(nestedProductDir, { recursive: true });
-
-  const validationArgs = [
-    validationCliDefinition.domain.commandName,
-    validationCliDefinition.subcommands.typescript.commandName,
-    validationCommonCliOptions.scope.flag,
-    VALIDATION_SCOPES.FULL,
-  ] as const;
-  const direct = await runProductContextCli(validationArgs, { processCwd: nestedProductDir });
-  const redirected = await runProductContextCli(
-    [SPX_GLOBAL_OPTIONS.directory.short, nestedProductDir, ...validationArgs],
-    { processCwd: callerDir },
-  );
-
-  expect(redirected).toEqual(direct);
-  expect(redirected.stdout).toContain(TYPESCRIPT_VALIDATION_MESSAGES.SUCCESS);
-}
-
-async function assertRedirectedSessionListMatchesDirectInvocation(scope: GeneratedDirectoryScope): Promise<void> {
-  const sessionEnv = await createSessionHarness();
-  cleanupTasks.push(sessionEnv.cleanup);
-  const productDir = await tempDirs.makeTempDir();
-  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
-  const nestedProductDir = join(productDir, scope.nestedDirectory);
-  await mkdir(nestedProductDir, { recursive: true });
-  const callerRoot = await tempDirs.makeTempDir();
-  const callerDir = join(callerRoot, scope.nestedDirectory);
-  await mkdir(callerDir, { recursive: true });
-  const sessionId = sampleSessionId();
-  const sessionFile = await sessionEnv.writeSession(SESSION_STATUSES[0], sessionId);
-  const sharedStatusDir = join(
-    sessionsScopeDir(productDir),
-    DEFAULT_CONFIG.sessions.statusDirs[SESSION_STATUSES[0]],
-  );
-  await mkdir(sharedStatusDir, { recursive: true });
-  await copyFile(sessionFile, join(sharedStatusDir, basename(sessionFile)));
-
-  const direct = await runProductContextCli(sessionListJsonArgs(), { processCwd: nestedProductDir });
-  const redirected = await runProductContextCli(
-    [SPX_GLOBAL_OPTIONS.directory.short, nestedProductDir, ...sessionListJsonArgs()],
-    { processCwd: callerDir },
-  );
-
-  expect(redirected).toEqual(direct);
-  expect(redirected.exitCodes).toEqual([]);
-  expect(redirected.stdout).toContain(sessionId);
-  expect(redirected.stderr).not.toContain(NOT_GIT_REPO_WARNING);
-}
-
-async function assertAbsentDirectoryUsesProcessDirectory(scope: GeneratedDirectoryScope): Promise<void> {
-  const processRoot = await tempDirs.makeTempDir();
-  const processDir = join(processRoot, scope.nestedDirectory);
-  await mkdir(processDir, { recursive: true });
-  const expectedWarning = resolveProductDir(processDir, { readGitToplevel: () => undefined }).warning;
-  if (expectedWarning === undefined) throw new Error("non-git product directory must produce a warning");
-  const result = await runProductContextCli(
-    [CONFIG_CLI.commandName, CONFIG_CLI.commands.validate],
-    { processCwd: processDir },
-  );
-
-  expect(result.exitCodes).toEqual([0]);
-  expect(result.stdout).toContain(processDir);
-  expect(result.stderr).toContain(processDir);
-  expect(result.stderr).toContain(expectedWarning);
-}
-
-async function assertDeferredExitCodeIsCaptured(): Promise<void> {
-  const processDir = await tempDirs.makeTempDir();
-  const result = await runProductContextCli(
-    [DIAGNOSE_CLI.COMMAND, DIAGNOSE_CLI.FORMAT_FLAG, DIAGNOSE_FORMAT.JSON],
-    { processCwd: processDir },
-  );
-
-  expect(result.exitCodes).toHaveLength(1);
-  expect(JSON.parse(result.stdout) as { readonly overall?: unknown }).toHaveProperty("overall");
+export async function observeAbsentProductContext(
+  args: readonly string[],
+  scenario: GeneratedProductContextCase,
+): Promise<{
+  readonly processDir: string;
+  readonly result: ProductContextCliRun;
+}> {
+  return withTempDir(PRODUCT_CONTEXT_TEMP_PREFIX, async (root) => {
+    const processDir = join(root, scenario.caller.productDirectory, scenario.caller.nestedDirectory);
+    await mkdir(processDir, { recursive: true });
+    const result = await runProductContextCli(args, { processCwd: processDir });
+    return { processDir, result };
+  });
 }

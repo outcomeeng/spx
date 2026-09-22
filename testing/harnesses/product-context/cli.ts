@@ -3,8 +3,6 @@ import type { Config } from "@/config/types";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { TESTING_SECTION, type TestingConfig } from "@/test/config";
-import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
 
 export type ProductContextCliRun = {
   readonly exitCodes: readonly number[];
@@ -19,22 +17,6 @@ export type ProductContextCliRunOptions = {
 class ProductContextCliRunExit extends Error {
   constructor(readonly exitCode: number) {
     super();
-  }
-}
-
-export class ProductContextTempDirs {
-  readonly #dirs: string[] = [];
-
-  async makeTempDir(): Promise<string> {
-    const tempDir = await createTempDir(sampleConfigTestValue(CONFIG_TEST_GENERATOR.tempPrefix()));
-    this.#dirs.push(tempDir);
-    return tempDir;
-  }
-
-  async cleanup(): Promise<void> {
-    for (const tempDir of this.#dirs.splice(0)) {
-      await removeTempDir(tempDir);
-    }
   }
 }
 

@@ -16,8 +16,6 @@ export type ProductDirResolverDeps = {
   readonly readGitToplevel: (cwd: string) => string | undefined;
 };
 
-export const LEGACY_PRODUCT_ROOT_FIELD_NAMES = ["projectRoot", "projectDir"] as const;
-
 export function resolveProductDir(
   cwd: string,
   deps: ProductDirResolverDeps = DEFAULT_PRODUCT_DIR_RESOLVER_DEPS,
