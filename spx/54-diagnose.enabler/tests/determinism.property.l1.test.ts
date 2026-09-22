@@ -3,12 +3,10 @@ import { describe, expect, it } from "vitest";
 
 import { classifySpxReachability } from "@/domains/diagnose/checks/spx-reachability";
 import { foldOverallVerdict, overallExitCode } from "@/domains/diagnose/fold";
-import { OVERALL_VERDICT, VERDICT_BUCKET } from "@/domains/diagnose/types";
+import { OVERALL_VERDICT } from "@/domains/diagnose/types";
 import { arbitraryNameToken, arbitrarySpxFloor } from "@testing/generators/diagnose/manifest";
 import { spxReachabilityReading } from "@testing/generators/diagnose/reachability";
-
-const arbitraryBucket = (): fc.Arbitrary<(typeof VERDICT_BUCKET)[keyof typeof VERDICT_BUCKET]> =>
-  fc.constantFrom(...Object.values(VERDICT_BUCKET));
+import { arbitraryBucket } from "@testing/generators/diagnose/report";
 
 describe("the diagnose fold is deterministic over its bucket inputs", () => {
   it("folds an identical bucket set to the same overall verdict on every evaluation", () => {

@@ -13,11 +13,14 @@ import { METHODOLOGY_CONTEXT_VERDICT } from "@/domains/diagnose/checks/methodolo
 import { SPX_REACHABILITY_VERDICT } from "@/domains/diagnose/checks/spx-reachability";
 import { foldOverallVerdict } from "@/domains/diagnose/fold";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
-import { type CheckRecord, type DiagnoseReport, VERDICT_BUCKET } from "@/domains/diagnose/types";
+import { type CheckRecord, type DiagnoseReport, VERDICT_BUCKET, type VerdictBucket } from "@/domains/diagnose/types";
 
 import { arbitraryTerminalUnsafeCodePoint } from "@testing/generators/terminal-text/terminal-text";
 
 import { arbitraryCheckName, arbitraryNameToken } from "./manifest";
+
+/** One verdict bucket, projected from the source-owned registry rather than enumerated here. */
+export const arbitraryBucket = (): fc.Arbitrary<VerdictBucket> => fc.constantFrom(...Object.values(VERDICT_BUCKET));
 
 /** A per-check record with a source-owned name and bucket and token-shaped renderable fields. */
 export const arbitraryCheckRecord = (): fc.Arbitrary<CheckRecord> =>
