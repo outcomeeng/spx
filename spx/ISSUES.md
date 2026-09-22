@@ -337,3 +337,17 @@ which command fulfills that phase from the root instructions.
 shared authored instructions, or the plugin's router contract is revised and
 both managed blocks are regenerated so their command promise matches the
 product's declarations.
+
+## A node directory without a spec file breaks the release product-context read
+
+`spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler/32-python-source-graph.enabler/` carries `PLAN.md` and `spx.status.json` and no spec file. The spec-tree snapshot reports it as a node whose spec ref names `python-source-graph.md`, and `readReleaseProductContext` in `src/commands/release/product-context.ts` reads each node's declarations from the committed tree, so the read throws before any release artifact is generated:
+
+```text
+Error: Committed path spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler/32-python-source-graph.enabler/python-source-graph.md does not exist at HEAD
+```
+
+**Evidence:** observed on 2026-09-22 driving `readReleaseProductContext` over this repository at `HEAD` and at `v0.7.2`, with one changed path and the default endpoint reader; the failure is identical at both refs. `git ls-files` lists only the note and the status file under that directory. No test under `spx/26-release.enabler/` covers a spec-less node directory, which is why the deterministic suite is green while the read is broken.
+
+**Impact:** `spx release notes` and `spx release docs sync` cannot compute product context for this product at any ref while the directory stands, and a release of spx is blocked on it.
+
+**Settlement condition:** the node carries the spec its directory declares, or the directory no longer exists in the tracked tree; and the release product-context read has evidence covering a node directory whose spec ref no tracked path satisfies.
