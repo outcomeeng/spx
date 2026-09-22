@@ -10,7 +10,7 @@ import {
 
 import { HOOK_SESSION_START_ENV } from "@/domains/hooks/session-start";
 import { TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
-import { METHODOLOGY_CODING_AGENT, type MethodologyCodingAgent } from "@/lib/methodology";
+import { METHODOLOGY_CODING_AGENT, METHODOLOGY_CODING_AGENTS, type MethodologyCodingAgent } from "@/lib/methodology";
 import {
   DECISION_KINDS,
   type DecisionKind,
@@ -649,6 +649,25 @@ export type SpecContextCodingAgentMarkerCase = {
   readonly title: string;
 };
 
+/** A marker subset that names one shipped coding agent, so its expectation is never absent. */
+export type SpecContextCodingAgentWitnessCase = SpecContextCodingAgentMarkerCase & {
+  readonly expected: MethodologyCodingAgent;
+};
+
+/**
+ * The invocation marker keys that name each shipped coding agent, listed in the
+ * precedence the harness-environment descriptor declares. The record is total
+ * over the shipped agents, so an agent added to the line without its marker
+ * keys fails to compile.
+ */
+const CODING_AGENT_MARKER_KEYS: Record<MethodologyCodingAgent, readonly [string, ...(readonly string[])]> = {
+  [METHODOLOGY_CODING_AGENT.CLAUDE]: [
+    HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID,
+    HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE,
+  ],
+  [METHODOLOGY_CODING_AGENT.CODEX]: [HOOK_SESSION_START_ENV.CODEX_THREAD_ID],
+};
+
 /**
  * The complete subset domain over the source-owned invocation marker keys,
  * with the spec's precedence law as the expectation: a Codex marker selects
@@ -656,20 +675,37 @@ export type SpecContextCodingAgentMarkerCase = {
  * Claude Code, and no marker selects no agent.
  */
 export function specContextCodingAgentMarkerCases(marker: string): readonly SpecContextCodingAgentMarkerCase[] {
-  const codexKeys = [HOOK_SESSION_START_ENV.CODEX_THREAD_ID] as const;
-  const claudeKeys = [HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID, HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE] as const;
+  const codexKeys = CODING_AGENT_MARKER_KEYS[METHODOLOGY_CODING_AGENT.CODEX];
+  const claudeKeys = CODING_AGENT_MARKER_KEYS[METHODOLOGY_CODING_AGENT.CLAUDE];
   const keys = [...codexKeys, ...claudeKeys];
   return Array.from({ length: 2 ** keys.length }, (_unused, mask) => {
     const present = keys.filter((_key, index) => (mask & (1 << index)) !== 0);
-    const expected = present.some((key) => codexKeys.includes(key as (typeof codexKeys)[number]))
+    const expected = present.some((key) => codexKeys.includes(key))
       ? METHODOLOGY_CODING_AGENT.CODEX
-      : present.some((key) => claudeKeys.includes(key as (typeof claudeKeys)[number]))
+      : present.some((key) => claudeKeys.includes(key))
       ? METHODOLOGY_CODING_AGENT.CLAUDE
       : undefined;
     return {
       markers: Object.fromEntries(present.map((key) => [key, marker])),
       expected,
       title: `maps markers {${present.join(", ")}} to ${expected ?? "no agent"}`,
+    };
+  });
+}
+
+/**
+ * One marker subset per shipped coding agent, each naming that agent alone.
+ * The subprocess boundary needs a witness for every agent the shipped line can
+ * select; the complete subset domain above belongs to the pure derivation,
+ * which reaches it without spawning a process.
+ */
+export function specContextCodingAgentWitnessCases(marker: string): readonly SpecContextCodingAgentWitnessCase[] {
+  return METHODOLOGY_CODING_AGENTS.map((agent) => {
+    const key = CODING_AGENT_MARKER_KEYS[agent][0];
+    return {
+      markers: { [key]: marker },
+      expected: agent,
+      title: `maps markers {${key}} to ${agent}`,
     };
   });
 }
