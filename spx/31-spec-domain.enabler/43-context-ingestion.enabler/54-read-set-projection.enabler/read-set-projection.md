@@ -16,9 +16,13 @@ CAN derive complete targetless and targeted entry sets without filesystem heuris
 - A targeted projection renders each explicit target and ancestor spec in Full, every sibling spec along each target path and every immediate child of an explicit target in Digest, and all decisions directly contained by explicit targets and their ancestors in Full. ([test](tests/read-set.scenario.l1.test.ts))
 - An explicit product-root target renders the product in Full, its decisions in Full, its immediate children in Digest, and its knowledge-index reference; it intentionally differs from targetless discovery. ([test](tests/read-set.scenario.l1.test.ts))
 
+### Mappings
+
+- Every read role of the manifest binds its entries to the read class and every listed role binds its entries to the listed class, over the complete declared role domains. ([test](tests/context-manifest.mapping.l1.test.ts))
+
 ### Compliance
 
 - An explicitly targeted node contributes its outcome record in Full and its `knowledge/index.md` as a path-only reference when present; implicit ancestors, siblings, and children contribute neither. ([test](tests/read-set.compliance.l1.test.ts))
-- Existing `ISSUES.md` files on target paths contribute path-only references. Spec context output never includes issue bodies, headings, excerpts, or counts. ([test](tests/read-set.compliance.l1.test.ts), [test](tests/context-manifest.scenario.l1.test.ts))
-- Evidence under `tests/`, `evals/`, and `probes/`, runtime guides, non-lifecycle overlays, and every unselected file class remain outside `show`. ([test](tests/read-set.compliance.l1.test.ts), [test](tests/context-manifest.scenario.l1.test.ts))
-- Selected tree entries use depth-first numeric-index order with ordinal comparison of the complete directory-entry name as the equal-index tie-break. ([test](tests/read-set.compliance.l1.test.ts), [test](tests/context-manifest.mapping.l1.test.ts))
+- Existing `ISSUES.md` files on target paths contribute path-only references. Spec context output never includes issue bodies, headings, excerpts, or counts. ([test](tests/read-set.compliance.l1.test.ts), [test](tests/context-manifest.compliance.l1.test.ts))
+- Evidence under `tests/`, `evals/`, and `probes/`, runtime guides, non-lifecycle overlays, and every unselected file class remain outside `show`. ([test](tests/read-set.compliance.l1.test.ts), [test](tests/context-manifest.compliance.l1.test.ts))
+- Selected tree entries use depth-first numeric-index order with ordinal comparison of the complete directory-entry name as the equal-index tie-break. ([test](tests/read-set.compliance.l1.test.ts), [test](tests/context-manifest.compliance.l1.test.ts))

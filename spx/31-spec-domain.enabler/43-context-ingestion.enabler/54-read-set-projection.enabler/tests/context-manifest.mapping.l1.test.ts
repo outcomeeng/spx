@@ -59,21 +59,4 @@ describe("spec context manifest entry classes", () => {
       expect(readPaths(rootManifest)).not.toContain(paths.sameIndexSiblingSpecPath);
     });
   });
-
-  it("orders read entries by the declared role group order", async () => {
-    await withRichContextEnv(async (env, paths) => {
-      const manifest = await contextListManifest({ targets: [paths.targetId], cwd: env.productDir });
-      const groupIndexes = manifest.read.map((document) =>
-        Math.min(...document.roles.map((binding) => SPEC_CONTEXT_READ_ROLE_ORDER.indexOf(binding.role)))
-      );
-      for (const groupIndex of groupIndexes) {
-        expect(groupIndex).toBeGreaterThanOrEqual(0);
-      }
-      for (let position = 1; position < groupIndexes.length; position += 1) {
-        expect(groupIndexes[position]).toBeGreaterThanOrEqual(groupIndexes[position - 1]);
-      }
-      const uniquePaths = readPaths(manifest);
-      expect(new Set(uniquePaths).size).toBe(uniquePaths.length);
-    });
-  });
 });

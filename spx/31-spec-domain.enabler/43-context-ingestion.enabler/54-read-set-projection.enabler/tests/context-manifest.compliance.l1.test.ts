@@ -7,6 +7,7 @@ import {
   KIND_REGISTRY,
   SPEC_CONTEXT_LISTED_ROLE,
   SPEC_CONTEXT_READ_ROLE,
+  SPEC_CONTEXT_READ_ROLE_ORDER,
   SPEC_TREE_GRAMMAR,
   type SpecContextManifest,
 } from "@/lib/spec-tree";
@@ -154,6 +155,23 @@ describe("spec context manifest read set", () => {
         listedPathsForRole(manifest, SPEC_CONTEXT_LISTED_ROLE.HIGHER_INDEX_SIBLING)
           .filter((path) => path === rootedSpecPath(higherCodeUnitFirst) || path === rootedSpecPath(higherLocaleFirst)),
       ).toStrictEqual([rootedSpecPath(higherCodeUnitFirst), rootedSpecPath(higherLocaleFirst)]);
+    });
+  });
+
+  it("orders read entries by the declared role group order", async () => {
+    await withRichContextEnv(async (env, paths) => {
+      const manifest = await contextListManifest({ targets: [paths.targetId], cwd: env.productDir });
+      const groupIndexes = manifest.read.map((document) =>
+        Math.min(...document.roles.map((binding) => SPEC_CONTEXT_READ_ROLE_ORDER.indexOf(binding.role)))
+      );
+      for (const groupIndex of groupIndexes) {
+        expect(groupIndex).toBeGreaterThanOrEqual(0);
+      }
+      for (let position = 1; position < groupIndexes.length; position += 1) {
+        expect(groupIndexes[position]).toBeGreaterThanOrEqual(groupIndexes[position - 1]);
+      }
+      const uniquePaths = readPaths(manifest);
+      expect(new Set(uniquePaths).size).toBe(uniquePaths.length);
     });
   });
 

@@ -11,6 +11,7 @@ import {
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_EVIDENCE_STATUS,
+  SPEC_TREE_GRAMMAR,
   SPEC_TREE_KIND_CATEGORY,
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_SOURCE_ENTRY_KEYS,
@@ -241,7 +242,7 @@ export function specTreeFixtureNodeDirectoryName(
   node: RepresentativeSpecTreeFixture["root"],
 ): string {
   const definition = registry[node.kind];
-  return `${node.order}-${node.slug}${definition.suffix}`;
+  return `${node.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${node.slug}${definition.suffix}`;
 }
 
 export function buildNodeEntry(
