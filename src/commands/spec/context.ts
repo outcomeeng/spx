@@ -194,8 +194,11 @@ export function renderSpecContextText(manifest: SpecContextManifest): TerminalTe
   return joinTerminalText(authoredText("\n"), lines);
 }
 
+/** Indentation of every `spx spec context` JSON document, manifest and entry stream alike. */
+export const JSON_INDENTATION = 2;
+
 export function renderSpecContextJson(manifest: SpecContextManifest): TerminalText {
-  return jsonDocument(manifest, 2);
+  return jsonDocument(manifest, JSON_INDENTATION);
 }
 
 /** The manifest a `list --json` document carries, read back from its text. */
