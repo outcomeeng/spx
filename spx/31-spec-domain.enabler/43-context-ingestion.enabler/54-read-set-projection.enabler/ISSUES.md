@@ -1,15 +1,5 @@
 # Open Issues
 
-## Decisions are exercised at two of the three declared discovery depths
-
-The same targetless assertion says decisions directly contained at depths 0 through 2 render in Digest. The rich fixture materializes decisions at the product root and under the two top-level directories and none inside the depth-2 target node, so the depth-2 half of that clause has no case.
-
-**Evidence:** the test-evidence audit of this node at head `9d1d2f16f` returned `REJECTED` with finding `f-001`, rule `scope`, remediation target `harness`. Restricting the discovery decision collection in `selectSpecContextDocuments` to depths below `DISCOVERY_DEPTH` leaves every linked test green.
-
-**Impact:** a projection that dropped the deepest decisions from targetless discovery would satisfy the evidence while the assertion is unfulfilled, and those decisions are the governing context an agent reads before choosing a target.
-
-**Settlement condition:** the rich fixture materializes a decision inside the depth-2 target node and the targetless case asserts its Digest, so the depth-2 half of the clause fails when the collection narrows.
-
 ## The issue-note clause is witnessed at two of its three depths
 
 The same targetless assertion says existing `ISSUES.md` files at depths 0 through 2 contribute path-only references. The rich fixture carries an issue note at the product root and at the target, and a `PLAN.md` but no issue note at depth 1, so the exact-equality reference set would still hold if discovery stopped referencing depth-1 issue notes.
