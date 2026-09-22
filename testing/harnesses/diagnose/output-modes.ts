@@ -5,7 +5,7 @@ import { execa } from "execa";
 
 import { diagnoseCommand } from "@/commands/diagnose";
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
-import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
+import { DEFAULT_METHODOLOGY_SOURCE, METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import type { CheckRegistry } from "@/domains/diagnose/engine";
 import { CHECK_NAME, type CheckName, type DiagnoseManifest } from "@/domains/diagnose/manifest";
 import type { DiagnoseFormat } from "@/domains/diagnose/report";
@@ -22,7 +22,7 @@ export const DIAGNOSE_OUTPUT_TEST_POLICY = { timeout: CLI_TIMEOUTS_MS.E2E_BATCH 
  * check degrades rather than resolving. Its major is far above any released
  * line, which is what makes the outcome independent of what is installed.
  */
-export const UNPROVIDED_METHODOLOGY = { source: "outcomeeng/methodology", version: "9999.0.0" } as const;
+export const UNPROVIDED_METHODOLOGY = { source: DEFAULT_METHODOLOGY_SOURCE, version: "9999.0.0" } as const;
 
 /** Initializes the temp product as a repository so the worktree-pool and session-store checks can read it. */
 async function initProductRepository(productDir: string): Promise<void> {
