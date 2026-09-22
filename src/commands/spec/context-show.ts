@@ -27,9 +27,8 @@ import {
   suppressLoadedSpecContext,
 } from "@/lib/spec-tree";
 import { jsonDocument, type TerminalText } from "@/lib/terminal-text/terminal-text";
+import { JSON_INDENTATION } from "./context";
 import { type ContextInput, type ContextInputOptions, readContextInput, resolveContextTargets } from "./context-input";
-
-const JSON_INDENT = 2;
 
 /** The one key of the `show --json` document, carrying the ordered entry stream. */
 export const SPEC_CONTEXT_ENTRIES_KEY = "entries";
@@ -42,7 +41,7 @@ export interface SpecContextEntriesDocument {
 /** The JSON representation of the entry stream. */
 export function renderSpecContextEntriesJson(entries: readonly SpecContextEntry[]): TerminalText {
   const document: SpecContextEntriesDocument = { [SPEC_CONTEXT_ENTRIES_KEY]: entries };
-  return jsonDocument(document, JSON_INDENT);
+  return jsonDocument(document, JSON_INDENTATION);
 }
 
 /** The entries a `show --json` document carries, read back from its text. */
