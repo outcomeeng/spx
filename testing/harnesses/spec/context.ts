@@ -75,6 +75,9 @@ import { SPEC_CLI_ISOLATION } from "@testing/harnesses/spec/spec-cli-isolation-c
 import { SPEC_CLI_NETWORK_GUARD_SOURCE_PATH } from "@testing/harnesses/spec/spec-cli-network-guard";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
+/** The body a fixture eval carries: a case table header and nothing the projection reads. */
+const EVAL_FIXTURE_BODY = "[case]\n";
+
 export function parseContextManifest(output: string): SpecContextManifest {
   return JSON.parse(output) as SpecContextManifest;
 }
@@ -631,6 +634,16 @@ export async function writeProductAndDecisionBody(
 }
 
 /** One opening paragraph as the Digest projection selects it: keyword, subject, and its closing line ending. */
+/** The body a fixture spec carries: its own title and the opening its kind declares. */
+export function specFixtureBody(slug: string, opening: string): string {
+  return `# ${slug}\n\n${opening} ${slug}\n`;
+}
+
+/** The body a fixture overlay or note carries: its own title and nothing the projection reads. */
+export function markdownFixtureBody(title: string): string {
+  return `# ${title}\n`;
+}
+
 export function openingParagraph(keyword: string, subject: string): string {
   return `${keyword} ${subject}\nSO THAT readers\nCAN find it\n`;
 }
@@ -858,6 +871,8 @@ export async function withRichContextEnv(
     await env.writeRaw(paths.rootPlanPath, "# Plan\n\nMentions spx/99-unscanned.pdr.md without binding it.\n");
     await env.writeRaw(paths.rootIssuesPath, "# Issues\n");
     await env.writeRaw(paths.ancestorPlanPath, "# Ancestor plan\n");
+    await env.writeRaw(paths.targetEvalPath, EVAL_FIXTURE_BODY);
+    await env.writeRaw(paths.targetProbePath, markdownFixtureBody("Probe"));
     await env.writeRaw(paths.targetIssuesPath, paths.targetIssuesText);
     for (const guidePath of paths.rootGuidePaths) {
       await env.writeRaw(guidePath, "# Guide\n");

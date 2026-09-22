@@ -18,6 +18,7 @@ import {
   referencePaths,
   rootedSpecPath,
   specFilePath,
+  specFixtureBody,
   specTreeKindsConfig,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
@@ -57,10 +58,9 @@ describe("spec context read-set boundaries", () => {
 
   it("keeps evidence, runtime guides, non-lifecycle overlays, and coordination plans outside show", async () => {
     await withRichContextEnv(async (env, paths) => {
-      // Eval and probe artifacts sit beside the tests under the target, so the
-      // three evidence lanes the assertion names are all present on disk.
-      await env.writeRaw(paths.targetEvalPath, "[case]\n");
-      await env.writeRaw(paths.targetProbePath, "# Probe\n");
+      // The fixture materializes an eval and a probe beside the tests under
+      // the target, so the three evidence lanes the assertion names are all
+      // present on disk.
       for (
         const target of [[], [paths.targetId], [paths.rootDirectory]]
       ) {
@@ -104,7 +104,7 @@ describe("spec context read-set boundaries", () => {
           [laterDirectory, laterSlug],
         ] as const
       ) {
-        await env.writeRaw(specFilePath(directory, slug), `# ${slug}\n\n${opening} ${slug}\n`);
+        await env.writeRaw(specFilePath(directory, slug), specFixtureBody(slug, opening));
       }
       const entries = await contextShowEntries({ targets: [], cwd: env.productDir });
       // Lower index first; at the shared index the code-unit order wins even
