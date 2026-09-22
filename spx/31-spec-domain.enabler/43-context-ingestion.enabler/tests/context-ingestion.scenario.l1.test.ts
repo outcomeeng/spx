@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { SPEC_CONTEXT_TEXT_LABEL } from "@/commands/spec/context";
 import { SPEC_CONTEXT_ENTRIES_KEY } from "@/commands/spec/context-show";
 import { DEFAULT_METHODOLOGY_SOURCE } from "@/config/methodology";
-import { SPEC_CONTEXT_FRAME, SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION, specContextBootstrap } from "@/lib/spec-tree";
+import { SPEC_CONTEXT_FRAME, SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextListJson,
@@ -19,6 +19,7 @@ import {
   parseContextEntries,
   parseContextManifest,
   referencePaths,
+  rootedArtifactPath,
   rootedSpecPath,
   specTreeKindsConfig,
   withRichContextEnv,
@@ -128,12 +129,23 @@ describe("spec context list and show", () => {
       const target = snapshot.allNodes[0];
       const manifest = await contextListManifest({ targets: [target.id], cwd: env.productDir });
       expect(manifest.schemaVersion).toBe(SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION);
-      expect(specContextBootstrap(0)).toBe(true);
-      expect(specContextBootstrap(snapshot.allNodes.length)).toBe(false);
-      // The materialized fixture holds nodes by construction, and a
-      // resolvable target implies a non-empty tree, so the emitted flag is
-      // false without re-running the production derivation.
+      expect(snapshot.allNodes.length).toBeGreaterThan(0);
       expect(manifest.bootstrap).toBe(false);
+    });
+
+    // The same manifest over a tree carrying the product spec and no node
+    // reports the opposite flag, so a fixed value in place of the derivation
+    // fails one of the two.
+    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+      await env.writeRaw(
+        rootedArtifactPath(undefined, `${env.fixture.product.title}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`),
+        `# ${env.fixture.product.title}\n`,
+      );
+      const manifest = await contextListManifest({
+        targets: [SPEC_TREE_CONFIG.ROOT_DIRECTORY],
+        cwd: env.productDir,
+      });
+      expect(manifest.bootstrap).toBe(true);
     });
   });
 
