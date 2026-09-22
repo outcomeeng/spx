@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { KIND_REGISTRY } from "@/lib/spec-tree";
-import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
+import { KIND_REGISTRY, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
+import {
+  sampleSpecTreeTestValue,
+  SPEC_TREE_TEST_GENERATOR,
+  specTreeFixtureNodeDirectoryName,
+} from "@testing/generators/spec-tree/spec-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextShowEntries,
@@ -13,6 +17,7 @@ import {
   entryPaths,
   referencePaths,
   rootedSpecPath,
+  specFilePath,
   specTreeKindsConfig,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
@@ -83,14 +88,15 @@ describe("spec context read-set boundaries", () => {
     await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
       await env.materialize();
       const fixture = env.fixture;
-      const nodeSuffix = KIND_REGISTRY[fixture.root.kind].suffix;
       const opening = KIND_REGISTRY[fixture.root.kind].opening;
       const pair = divergentOrderSlugPair();
       const sharedOrder = Math.max(fixture.root.order, fixture.peer.order) + 1;
-      const codeUnitFirstDirectory = `${sharedOrder}-${pair.codeUnitFirst}${nodeSuffix}`;
-      const localeFirstDirectory = `${sharedOrder}-${pair.localeFirst}${nodeSuffix}`;
+      const directoryName = (order: number, slug: string): string =>
+        specTreeFixtureNodeDirectoryName(KIND_REGISTRY, { ...fixture.root, order, slug });
+      const codeUnitFirstDirectory = directoryName(sharedOrder, pair.codeUnitFirst);
+      const localeFirstDirectory = directoryName(sharedOrder, pair.localeFirst);
       const laterSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-      const laterDirectory = `${sharedOrder + 1}-${laterSlug}${nodeSuffix}`;
+      const laterDirectory = directoryName(sharedOrder + 1, laterSlug);
       for (
         const [directory, slug] of [
           [codeUnitFirstDirectory, pair.codeUnitFirst],
@@ -98,13 +104,15 @@ describe("spec context read-set boundaries", () => {
           [laterDirectory, laterSlug],
         ] as const
       ) {
-        await env.writeRaw(rootedSpecPath(`${directory}/${slug}.md`), `# ${slug}\n\n${opening} ${slug}\n`);
+        await env.writeRaw(specFilePath(directory, slug), `# ${slug}\n\n${opening} ${slug}\n`);
       }
       const entries = await contextShowEntries({ targets: [], cwd: env.productDir });
       // Lower index first; at the shared index the code-unit order wins even
       // though locale collation reverses the pair; the later index last.
       const positions = [codeUnitFirstDirectory, localeFirstDirectory, laterDirectory].map((directory) =>
-        documentPaths(entries).findIndex((path) => path.startsWith(`${rootedSpecPath(directory)}/`))
+        documentPaths(entries).findIndex((path) =>
+          path.startsWith(`${rootedSpecPath(directory)}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}`)
+        )
       );
       expect(positions.every((position) => position >= 0)).toBe(true);
       expect(positions).toEqual([...positions].sort((left, right) => left - right));

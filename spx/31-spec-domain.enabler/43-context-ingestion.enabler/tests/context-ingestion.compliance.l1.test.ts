@@ -13,6 +13,7 @@ import {
   SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
   SPEC_CONTEXT_TARGET_FAILURE_KIND,
   SPEC_TREE_CONFIG,
+  SPEC_TREE_GRAMMAR,
   specContextBootstrap,
 } from "@/lib/spec-tree";
 import {
@@ -47,7 +48,9 @@ import {
   contextShowFailure,
   METHODOLOGY_FIXTURE_VERSION,
   parseContextManifest,
+  rootedArtifactPath,
   rootedSpecPath,
+  specFilePath,
   specTreeKindsConfig,
   trackedSpecContextGitDependencies,
 } from "@testing/harnesses/spec/context";
@@ -144,8 +147,8 @@ describe("spec context ingestion compliance", () => {
         .filter((path): path is string => path !== undefined);
       const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.peer);
       const scratch = specContextLowerSiblingDirectoryName(env.fixture);
-      await env.writeRaw(rootedSpecPath(`${scratch}/${env.fixture.root.slug}.md`), "# Scratch\n");
-      await env.writeRaw(rootedSpecPath(`${target}/PLAN.md`), "# Scratch plan\n");
+      await env.writeRaw(specFilePath(scratch, env.fixture.root.slug), "# Scratch\n");
+      await env.writeRaw(rootedArtifactPath(target, SPEC_TREE_GRAMMAR.COORDINATION_NOTES[0]), "# Scratch plan\n");
 
       const manifest = await contextListManifest({
         targets: [target],
@@ -153,8 +156,10 @@ describe("spec context ingestion compliance", () => {
         gitDependencies: trackedSpecContextGitDependencies(env.productDir, trackedPaths),
       });
 
-      expect(allManifestPaths(manifest)).not.toContain(rootedSpecPath(`${scratch}/${env.fixture.root.slug}.md`));
-      expect(allManifestPaths(manifest)).not.toContain(rootedSpecPath(`${target}/PLAN.md`));
+      expect(allManifestPaths(manifest)).not.toContain(specFilePath(scratch, env.fixture.root.slug));
+      expect(allManifestPaths(manifest)).not.toContain(
+        rootedArtifactPath(target, SPEC_TREE_GRAMMAR.COORDINATION_NOTES[0]),
+      );
     });
   });
 
@@ -189,7 +194,7 @@ describe("spec context ingestion compliance", () => {
         );
         await mkdir(nestedCwd, { recursive: true });
         const scratch = specContextLowerSiblingDirectoryName(env.fixture);
-        const scratchPath = rootedSpecPath(`${scratch}/${env.fixture.root.slug}.md`);
+        const scratchPath = specFilePath(scratch, env.fixture.root.slug);
         await mkdir(dirname(join(linkedProductDir, scratchPath)), { recursive: true });
         await writeFile(join(linkedProductDir, scratchPath), "# Untracked scratch\n");
 
