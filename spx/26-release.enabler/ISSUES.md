@@ -19,3 +19,13 @@
 **Impact:** a release over N changed paths runs N full candidate-test reachability scans per language per endpoint, current and previous-tag endpoints alike, where one batched scan per language per endpoint covers the same inputs; a release over this changeset's 69 files runs 69 scans per language per endpoint.
 
 **Settlement condition:** `RelatedTestResolution` carries a per-source-path result, or one batched call fans its result out per changed path with the ownership properties under [`18-release-architecture.adr.md`](18-release-architecture.adr.md) and the linked tests unchanged; then `resolveEndpointOwnership` calls `language.relatedTestPaths` once per language per endpoint.
+
+## The release domain's cited-decision discovery carries no linked evidence
+
+`addCitedDecisions` in `src/commands/release/product-context.ts` binds the decisions a selected document cites into the release product context, and no assertion of this node or any descendant links a test that exercises it. The function's citation contract is therefore invisible to every gate: the deterministic suite, the test-evidence audit, and the implementation audit all pass while it binds nothing.
+
+**Evidence:** the implementation audit of `origin/main...e372f08c66ebaa9afbf1363be34378fa01ad512f`, run token `2026-09-21_23-46-04-552-daebe0b3053c`, blocking finding `cross-domain-citation-contract-narrowed` at `src/commands/release/product-context.ts:366`. An earlier revision of that changeset replaced the release domain's own text-shaped discovery with the context-ingestion projection's link-shaped rule, and the 580 backtick-quoted decision paths across 190 tracked spec and decision files that bound citations before it bound none after. No test under `spx/26-release.enabler/` names `addCitedDecisions`, and `git grep -l addCitedDecisions -- 'spx/**/tests'` reports no file.
+
+**Impact:** a change to which citation shapes the release context binds alters what every generated release note and documentation update is written from, and no verification observes it. The revert restored the prior behavior; nothing prevents the next change from narrowing it again.
+
+**Settlement condition:** an assertion of this node declares which citation shapes a release-context document binds, a co-located test drives a document carrying each declared shape through the release product-context assembly, and that test is linked from the assertion.
