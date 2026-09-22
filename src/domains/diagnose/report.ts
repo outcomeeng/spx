@@ -29,7 +29,7 @@ import {
 import { WORKTREE_POOL_VERDICT, type WorktreePoolVerdict } from "@/domains/diagnose/checks/worktree-pool";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { BUCKET_SEVERITY, CANONICAL_CHECKOUT_PROBLEM, OVERALL_SEVERITY } from "@/domains/diagnose/report-contract";
-import { type CheckRecord, type DiagnoseReport, VERDICT_BUCKET } from "@/domains/diagnose/types";
+import { CHECK_RECORD_FIELDS, type CheckRecord, type DiagnoseReport, VERDICT_BUCKET } from "@/domains/diagnose/types";
 import { SENTINEL_UNDEFINED } from "@/lib/sanitize-cli-argument";
 import {
   renderStyledReport,
@@ -161,13 +161,11 @@ const JSON_REPORT_INDENT = 2;
 export function renderReportJson(report: DiagnoseReport): TerminalText {
   return jsonDocument(
     {
-      checks: report.checks.map((check) => ({
-        name: check.name,
-        verdict: check.verdict,
-        bucket: check.bucket,
-        readings: check.readings,
-        remediation: check.remediation,
-      })),
+      // Projected through the declared field set rather than a second listing,
+      // so the emitted record and the schema the product states cannot drift.
+      checks: report.checks.map((check) =>
+        Object.fromEntries(CHECK_RECORD_FIELDS.map((field) => [field, check[field]]))
+      ),
       overall: report.overall,
     },
     JSON_REPORT_INDENT,
