@@ -10,6 +10,16 @@ The same targetless assertion says existing `ISSUES.md` files at depths 0 throug
 
 **Settlement condition:** the rich fixture materializes an issue note at depth 1 and the targetless case's reference set includes it, so the clause fails when discovery narrows.
 
+## The implicit-container clause has no sibling witness
+
+The compliance assertion says an explicitly targeted node contributes its outcome record and knowledge index while implicit ancestors, siblings, and children contribute neither. The evidence witnesses an ancestor and an immediate child; no sibling of the target carries either artifact in the rich fixture, so the sibling third of the clause has no case.
+
+**Evidence:** the test-evidence audit of this node at head `a44c06000` recorded it as `f-002`, rule `scope`, remediation target `harness`, in an otherwise approved verdict. Production gates all three through the one explicit-target predicate in `explicitArtifacts`, so the shared path is exercised and the gap is witness breadth.
+
+**Impact:** a projection that contributed a sibling's outcome record would satisfy the evidence while the assertion is unfulfilled.
+
+**Settlement condition:** the rich fixture gives a sibling of the target an outcome record and a knowledge index, and the compliance case asserts neither reaches the projection.
+
 ## Fixture payload and an unrecorded controlled-dependency exception sit at the assertion sites
 
 Three non-blocking observations from the same audit, recorded together because they share an owner. The executed tests write the eval and probe fixture bodies inline although `withRichContextEnv` declares `targetEvalPath` and `targetProbePath` as part of the fixture contract (`f-002`); the ordering cases write their overlay and spec bodies inline while the paths and the divergent slug pair are owned correctly (`f-003`); and `trackedSpecContextGitDependencies` supplies a controlled git implementation through production's injection seam while naming no testing-methodology exception case, though the same harness exercises the real-git path at the same level (`f-004`).
