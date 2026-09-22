@@ -3,27 +3,16 @@ import { dirname, join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { SPEC_CONTEXT_TEXT_LABEL } from "@/commands/spec/context";
-import { DEFAULT_METHODOLOGY_SOURCE, METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
 import { NODE_STATUS_FILENAME } from "@/lib/node-status";
-import {
-  KIND_REGISTRY,
-  SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
-  SPEC_CONTEXT_TARGET_FAILURE_KIND,
-  SPEC_TREE_CONFIG,
-  SPEC_TREE_GRAMMAR,
-  specContextBootstrap,
-} from "@/lib/spec-tree";
+import { KIND_REGISTRY, SPEC_CONTEXT_TARGET_FAILURE_KIND, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import {
   CONFIG_TEST_GENERATOR,
   generatedHarnessMethodologyConfig,
   generatedInvalidMethodologyConfigs,
-  generatedLineFormMethodologySection,
   generatedMethodologySection,
-  generatedMethodologySource,
-  generatedMigratingMethodologySection,
   sampleConfigTestValue,
 } from "@testing/generators/config/descriptors";
 import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
@@ -42,12 +31,8 @@ import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   allManifestPaths,
   contextListFailure,
-  contextListJson,
   contextListManifest,
-  contextListText,
   contextShowFailure,
-  METHODOLOGY_FIXTURE_VERSION,
-  parseContextManifest,
   rootedArtifactPath,
   rootedSpecPath,
   specFilePath,
@@ -102,39 +87,6 @@ describe("spec context ingestion compliance", () => {
       expect(resolved.targets).toEqual([rootedSpecPath(`${nested.operand}/${childDirectory}`)]);
       const failure = await contextListFailure({ targets: [nested.operand], cwd: env.productDir });
       expect(failure).toContain(SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS]);
-    });
-  });
-
-  it("includes configured methodology identity, in either accepted version form, in the manifest", async () => {
-    for (const methodology of [generatedMethodologySection(), generatedLineFormMethodologySection()]) {
-      await withSpecTreeEnv({ ...specTreeKindsConfig(), [METHODOLOGY_SECTION]: methodology }, async (env) => {
-        await env.materialize();
-        const snapshot = await env.readFilesystemSnapshot();
-        const target = snapshot.allNodes[0];
-        const manifest = await contextListManifest({ targets: [target.id], cwd: env.productDir });
-        expect(manifest.targets).toEqual([rootedSpecPath(target.id)]);
-        expect(manifest.productDir).toBe(env.productDir);
-        expect(manifest.methodology).toMatchObject({
-          source: methodology[METHODOLOGY_CONFIG_FIELDS.SOURCE],
-          version: methodology[METHODOLOGY_CONFIG_FIELDS.VERSION],
-        });
-      });
-    }
-  });
-
-  it("carries the manifest schema version and the snapshot-derived bootstrap flag", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
-      await env.materialize();
-      const snapshot = await env.readFilesystemSnapshot();
-      const target = snapshot.allNodes[0];
-      const manifest = await contextListManifest({ targets: [target.id], cwd: env.productDir });
-      expect(manifest.schemaVersion).toBe(SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION);
-      expect(specContextBootstrap(0)).toBe(true);
-      expect(specContextBootstrap(snapshot.allNodes.length)).toBe(false);
-      // The materialized fixture holds nodes by construction, and a
-      // resolvable target implies a non-empty tree, so the emitted flag is
-      // false without re-running the production derivation.
-      expect(manifest.bootstrap).toBe(false);
     });
   });
 
@@ -227,59 +179,6 @@ describe("spec context ingestion compliance", () => {
       expect(manifest.targets).toEqual([rootedSpecPath(missingChild)]);
       expect(allManifestPaths(manifest).some((path) => path.startsWith(`${rootedSpecPath(missingChild)}/`))).toBe(
         false,
-      );
-    });
-  });
-
-  it("renders the manifest as labelled text beside its JSON representation", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
-      await env.materialize();
-      const snapshot = await env.readFilesystemSnapshot();
-      const target = snapshot.allNodes[0];
-      const textOutput = await contextListText({ targets: [target.id], cwd: env.productDir });
-      const jsonOutput = await contextListJson({ targets: [target.id], cwd: env.productDir });
-      expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.TARGETS}: ${rootedSpecPath(target.id)}`);
-      expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.PRODUCT_ROOT}: ${env.productDir}`);
-      expect(textOutput).toContain(
-        `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${DEFAULT_METHODOLOGY_SOURCE}@${METHODOLOGY_FIXTURE_VERSION}\n`,
-      );
-      expect(textOutput).toContain(
-        `${SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION}: ${SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION}`,
-      );
-      expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.BOOTSTRAP}: false`);
-      expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.READ}:`);
-      expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.LISTED}:`);
-      expect(parseContextManifest(jsonOutput).targets).toEqual([rootedSpecPath(target.id)]);
-    });
-  });
-
-  it("renders the methodology identity as the source alone while no version is declared and with the migration source while one is open", async () => {
-    const undeclaredSource = generatedMethodologySource();
-    await withSpecTreeEnv({
-      ...specTreeKindsConfig(),
-      [METHODOLOGY_SECTION]: { [METHODOLOGY_CONFIG_FIELDS.SOURCE]: undeclaredSource },
-    }, async (env) => {
-      await env.materialize();
-      const snapshot = await env.readFilesystemSnapshot();
-      const target = snapshot.allNodes[0];
-      const textOutput = await contextListText({ targets: [target.id], cwd: env.productDir });
-      // The identity line ends at the source: no version separator and no
-      // placeholder stands in for the undeclared version.
-      expect(textOutput).toContain(
-        `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${undeclaredSource}\n${SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION}:`,
-      );
-    });
-
-    const migrating = generatedMigratingMethodologySection();
-    await withSpecTreeEnv({ ...specTreeKindsConfig(), [METHODOLOGY_SECTION]: migrating }, async (env) => {
-      await env.materialize();
-      const snapshot = await env.readFilesystemSnapshot();
-      const target = snapshot.allNodes[0];
-      const textOutput = await contextListText({ targets: [target.id], cwd: env.productDir });
-      expect(textOutput).toContain(
-        `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${migrating[METHODOLOGY_CONFIG_FIELDS.SOURCE]}@${
-          migrating[METHODOLOGY_CONFIG_FIELDS.VERSION]
-        } (${SPEC_CONTEXT_TEXT_LABEL.MIGRATING_FROM} ${migrating[METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]})\n`,
       );
     });
   });

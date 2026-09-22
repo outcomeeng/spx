@@ -694,10 +694,15 @@ export async function withRichContextEnv(
       decisionSuffix,
     );
     const lowerSiblingSpecPath = specFilePath(lowerSiblingDirectoryName(fixture), fixture.root.slug);
+    // The two decisions the walk appends share one index and take their slugs
+    // from the divergent pair, so their canonical order is the reverse of
+    // their locale order and an ordering assertion over them fails under a
+    // locale-aware comparator instead of varying by host.
+    const appendedPair = divergentOrderSlugPair();
     const citedDecisionPath = decisionFilePath(
       peerDirectory,
       fixture.decision.order,
-      `${fixture.decision.slug}-cited`,
+      `${appendedPair.codeUnitFirst}-cited`,
       decisionSuffix,
     );
     const transitiveCitedDecisionPath = decisionFilePath(
@@ -711,7 +716,7 @@ export async function withRichContextEnv(
     const peerDecisionPath = decisionFilePath(
       peerDirectory,
       fixture.decision.order,
-      `${fixture.decision.slug}-peer`,
+      `${appendedPair.localeFirst}-peer`,
       decisionSuffix,
     );
     const targetOutcomePath = rootedSpecPath(
