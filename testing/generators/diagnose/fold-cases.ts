@@ -3,9 +3,12 @@
  * decisive buckets, each presented in both arrangements of the precedence the
  * assertion states.
  *
- * The subsets are enumerated from the source-owned `VERDICT_BUCKET` registry
- * with not-applicable removed, so the domain follows the product's bucket
- * vocabulary rather than a list written here. Each subset appears twice —
+ * The subsets are enumerated from the source-owned `OVERALL_VERDICT` registry —
+ * the buckets the product declares decisive — so the domain follows the
+ * product's vocabulary rather than a list written here, and a verdict added
+ * there fails to compile until the severity order below places it. The order
+ * itself stays the assertion's, never read back from the fold under test. Each
+ * subset appears twice —
  * ascending and descending — because a fold that answered by argument position
  * would satisfy one arrangement and fail the other, and a domain presented in
  * one order alone cannot tell a precedence scan from a positional shortcut.
@@ -28,19 +31,31 @@ export interface DecisiveBucketArrangement {
   readonly present: readonly OverallVerdict[];
 }
 
-/** The decisive buckets, in the severity order the assertion states, least severe first. */
-const ASCENDING_SEVERITY: readonly OverallVerdict[] = [
-  OVERALL_VERDICT.HEALTHY,
-  OVERALL_VERDICT.DEGRADED,
-  OVERALL_VERDICT.UNKNOWN,
-  OVERALL_VERDICT.BROKEN,
-];
+/**
+ * Each decisive verdict's place in the severity order the assertion states,
+ * least severe first. The key set is the registry's, so a verdict added to
+ * `OVERALL_VERDICT` fails to compile until the order names it.
+ */
+const ASCENDING_SEVERITY_RANK: Readonly<Record<OverallVerdict, number>> = {
+  [OVERALL_VERDICT.HEALTHY]: 0,
+  [OVERALL_VERDICT.DEGRADED]: 1,
+  [OVERALL_VERDICT.UNKNOWN]: 2,
+  [OVERALL_VERDICT.BROKEN]: 3,
+};
+
+/** The registry's decisive verdicts, ordered by the assertion's severity rank. */
+function ascendingSeverity(): readonly OverallVerdict[] {
+  return Object.values(OVERALL_VERDICT).sort((left, right) =>
+    ASCENDING_SEVERITY_RANK[left] - ASCENDING_SEVERITY_RANK[right]
+  );
+}
 
 /** Every subset of the decisive buckets, as bitmasks over the severity order. */
 function decisiveSubsets(): readonly (readonly OverallVerdict[])[] {
+  const ascending = ascendingSeverity();
   return Array.from(
-    { length: 2 ** ASCENDING_SEVERITY.length },
-    (_unused, mask) => ASCENDING_SEVERITY.filter((_verdict, index) => (mask & (1 << index)) !== 0),
+    { length: 2 ** ascending.length },
+    (_unused, mask) => ascending.filter((_verdict, index) => (mask & (1 << index)) !== 0),
   );
 }
 
@@ -50,7 +65,7 @@ function decisiveSubsets(): readonly (readonly OverallVerdict[])[] {
  */
 export function decisiveBucketArrangements(): readonly DecisiveBucketArrangement[] {
   return decisiveSubsets().flatMap((present) => {
-    const ascending = present as readonly VerdictBucket[];
+    const ascending: readonly VerdictBucket[] = present;
     const descending = [...ascending].reverse();
     const surround = (ordered: readonly VerdictBucket[]): readonly VerdictBucket[] => [
       VERDICT_BUCKET.NOT_APPLICABLE,
