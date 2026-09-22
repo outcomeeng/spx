@@ -32,7 +32,7 @@ This is the same defect as the manifest wire keys above, seen from the other sid
 
 **Evidence:** test-evidence audit of `spx/54-diagnose.enabler`, finding `f-004` in the third round and `f-005` in the fourth, severity WARNING, property `declarations`, rule `test-owned configuration`. The fourth round added the second file.
 
-**Impact:** the run count, timeout, and replay policy for both files fall to fast-check defaults rather than the harness that owns them, so the node's property-driven evidence is governed by two different execution policies. Fast-check's own failure output still carries a seed and a replay path, so a failure remains reproducible.
+**Impact:** the run count, timeout, and replay policy for both files fall to fast-check defaults rather than the harness that owns them, so the node's property-driven evidence is governed by two different execution policies. The ninth round raised the severity from a warning to a rejection on a sharper reading of the replay half: fast-check's own failure output carries a seed, but the replay path the product publishes — `SPX_PROPERTY_SEED=<seed>` — is the harness's, so it does not reproduce a failure in a file that bypasses the harness. A reader handed the product's documented replay instruction cannot rerun the failing case.
 
 **Settlement condition:** each file passes its arbitrary, its inline predicate, and its level classification to `assertProperty`, and no test file in this node calls `fc.assert` directly.
 
