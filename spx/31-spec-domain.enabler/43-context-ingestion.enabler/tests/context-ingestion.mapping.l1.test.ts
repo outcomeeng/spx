@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { SPEC_CONTEXT_TEXT_LABEL } from "@/commands/spec/context";
-import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION, METHODOLOGY_VERSION_FORM } from "@/config/methodology";
 import {
-  generatedLineFormMethodologySection,
-  generatedMethodologySection,
   generatedMethodologySource,
+  generatedMethodologyVersionFormSections,
   generatedMigratingMethodologySection,
 } from "@testing/generators/config/descriptors";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -17,8 +16,11 @@ import {
 } from "@testing/harnesses/spec/context";
 
 describe("spec context manifest methodology identity", () => {
-  it("carries each accepted version form of the configured methodology into the manifest", async () => {
-    for (const methodology of [generatedMethodologySection(), generatedLineFormMethodologySection()]) {
+  it.each(Object.values(METHODOLOGY_VERSION_FORM))(
+    "carries a %s methodology version into the manifest",
+    async (form) => {
+      const declared = generatedMethodologyVersionFormSections();
+      const methodology = declared.sections[form];
       await withSpecTreeEnv({ ...specTreeKindsConfig(), [METHODOLOGY_SECTION]: methodology }, async (env) => {
         await env.materialize();
         const snapshot = await env.readFilesystemSnapshot();
@@ -28,11 +30,11 @@ describe("spec context manifest methodology identity", () => {
         expect(manifest.productDir).toBe(env.productDir);
         expect(manifest.methodology).toMatchObject({
           source: methodology[METHODOLOGY_CONFIG_FIELDS.SOURCE],
-          version: methodology[METHODOLOGY_CONFIG_FIELDS.VERSION],
+          version: declared.forms.byForm[form],
         });
       });
-    }
-  });
+    },
+  );
 
   it("renders the identity as the source alone while no version is declared and with the migration source while one is open", async () => {
     const undeclaredSource = generatedMethodologySource();
