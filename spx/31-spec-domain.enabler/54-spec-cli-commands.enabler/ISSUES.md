@@ -47,3 +47,23 @@ This node's terminal output path passes values that originated outside the produ
 **Impact:** inverting any of those assertions changes infrastructure rather than the linked test, so each node's `tests/` directory carries none of its own evidence; [`spx/12-test-infrastructure.adr.md`](../../12-test-infrastructure.adr.md) assigns assertion flow to the executed file.
 
 **Settlement condition:** each linked file owns its `describe`, `it`, and `expect` calls, the harnesses keep resource lifecycle, controlled boundaries, and observations only, and the node's test-evidence audit passes on that shape. The product-wide class is recorded in [`spx/ISSUES.md`](../../ISSUES.md) under "Test assertion flow lives in harnesses instead of executed test files"; this entry names the files of this node.
+
+## The product-configuration rule is evidenced by a command no handler serves
+
+The Compliance assertion `NEVER: command handlers write to product configuration files such as spx.config.toml, spx.config.json, spx.config.yaml, package.json, pyproject.toml, or tsconfig.json` links one case, and that case invokes the retired `apply` command. Commander rejects an unregistered subcommand before any action handler runs, so the invocation never enters `src/commands/spec/status.ts`, `next.ts`, `context.ts`, or `context-show.ts` — the handlers the rule governs.
+
+**Evidence:** the test-evidence audit of this node at `e372f08c66ebaa9afbf1363be34378fa01ad512f` returned `REJECTED` with finding `f-006`, coverage judgment `missing`, against `spx/31-spec-domain.enabler/76-spec-cli-contract-tests.enabler/tests/spec-cli-contract.scenario.l2.test.ts:228`. The `--update` case in the same file exercises a real handler and asserts nothing about the protected configuration paths.
+
+**Impact:** any handler this node owns could write a product configuration file while the linked evidence still passes, because the only case that reads those files back never reaches a handler.
+
+**Settlement condition:** each command handler this node declares runs against a product directory carrying the protected configuration files, and the linked evidence reads every one of them back unchanged after the invocation.
+
+## The rule's evidence file declares the wrong assertion type
+
+The same Compliance assertion links `../76-spec-cli-contract-tests.enabler/tests/spec-cli-contract.scenario.l2.test.ts`, whose canonical filename declares `scenario` — existential evidence — while the assertion is a universal NEVER rule.
+
+**Evidence:** the test-evidence audit of this node at `e372f08c66ebaa9afbf1363be34378fa01ad512f`, finding `f-007`, rule `filename_policy`; the implementation audit run `2026-09-21_23-46-04-552-daebe0b3053c` records the same defect as a debt finding, `assertion-type-filename-mismatch`, and observes that the link and heading are unchanged from the base revision `b5129022a401dfd3cd6365fc30464e3dc1e88dd6`.
+
+**Impact:** a reader following the assertion to its evidence finds a file that declares a different cell, and the artifact permissions the assertion's type requires are not the ones the file's name claims.
+
+**Settlement condition:** the rule's evidence lives in a file whose declared evidence token is `compliance`, or the assertion that links this file states an existential claim.
