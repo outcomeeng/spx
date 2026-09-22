@@ -25,3 +25,13 @@ The Compliance assertion `The manifest, source record, reference catalog, templa
 **Impact:** a projection that emitted the source record as a second entry would satisfy every linked test while the assertion is unfulfilled.
 
 **Settlement condition:** the linked evidence asserts the absence of the manifest, source record, catalog, templates, and examples over a complete entry stream projected from a tree that carries each of them.
+
+## The no-persistence assertion carries an agent-behavior conjunct under a test tag
+
+The Compliance assertion `SPX persists no loaded-methodology state, and after compaction the agent requests --methodology again` links a test, and its second conjunct states what the calling agent does rather than what spx does. No deterministic test can observe an agent's behavior after a compaction.
+
+**Evidence:** the local review of this branch at head `4bb2d5854`, run token `2026-09-22_20-47-59-884-6cc6b61b4e41`, finding `F-002`, severity debt, which names this assertion as the parallel site of the multi-target invalidation clause.
+
+**Impact:** the linked evidence proves the first conjunct — a repeated request returns the same document because nothing was persisted — and cannot fail for the second, so half the assertion is unfalsifiable.
+
+**Settlement condition:** the persistence claim keeps its test evidence and the agent's post-compaction obligation is declared separately with the verification type its verdict admits.
