@@ -11,7 +11,11 @@ import {
   SPEC_TREE_GRAMMAR,
   type SpecContextManifest,
 } from "@/lib/spec-tree";
-import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
+import {
+  sampleSpecTreeTestValue,
+  SPEC_TREE_TEST_GENERATOR,
+  specTreeFixtureNodeDirectoryName,
+} from "@testing/generators/spec-tree/spec-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   allManifestPaths,
@@ -25,6 +29,7 @@ import {
   readPathsForRole,
   rootedSpecPath,
   SPEC_CONTEXT_ESCAPE_TARGET_FILENAME,
+  specFilePath,
   specTreeKindsConfig,
   trackedSpecContextGitDependencies,
   withOutsideProductDir,
@@ -111,40 +116,41 @@ describe("spec context manifest read set", () => {
     await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
       await env.materialize();
       const fixture = env.fixture;
-      const nodeSuffix = KIND_REGISTRY[fixture.root.kind].suffix;
       const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
       const { codeUnitFirst: codeUnitFirstSlug, localeFirst: localeFirstSlug } = divergentOrderSlugPair();
 
       const lowerOrder = Math.max(fixture.root.order, fixture.peer.order) + 1;
       const targetOrder = lowerOrder + 1;
       const higherOrder = targetOrder + 1;
-      const targetDirectory = `${targetOrder}-${slug}${nodeSuffix}`;
+      const directoryName = (order: number, directorySlug: string): string =>
+        specTreeFixtureNodeDirectoryName(KIND_REGISTRY, { ...fixture.root, order, slug: directorySlug });
+      const targetDirectory = directoryName(targetOrder, slug);
       const pairDirectories = (order: number): readonly [string, string] => [
-        `${order}-${codeUnitFirstSlug}${nodeSuffix}`,
-        `${order}-${localeFirstSlug}${nodeSuffix}`,
+        directoryName(order, codeUnitFirstSlug),
+        directoryName(order, localeFirstSlug),
       ];
       const [lowerCodeUnitFirst, lowerLocaleFirst] = pairDirectories(lowerOrder);
       const [sameCodeUnitFirst, sameLocaleFirst] = pairDirectories(targetOrder);
       const [higherCodeUnitFirst, higherLocaleFirst] = pairDirectories(higherOrder);
 
-      await env.writeRaw(rootedSpecPath(`${targetDirectory}/${slug}.md`), "# Ordering target\n");
-      await env.writeRaw(rootedSpecPath(`${lowerCodeUnitFirst}/${codeUnitFirstSlug}.md`), "# Lower pair\n");
-      await env.writeRaw(rootedSpecPath(`${lowerLocaleFirst}/${localeFirstSlug}.md`), "# Lower pair\n");
-      await env.writeRaw(rootedSpecPath(`${sameCodeUnitFirst}/${codeUnitFirstSlug}.md`), "# Same pair\n");
-      await env.writeRaw(rootedSpecPath(`${sameLocaleFirst}/${localeFirstSlug}.md`), "# Same pair\n");
-      await env.writeRaw(rootedSpecPath(`${higherCodeUnitFirst}/${codeUnitFirstSlug}.md`), "# Higher pair\n");
-      await env.writeRaw(rootedSpecPath(`${higherLocaleFirst}/${localeFirstSlug}.md`), "# Higher pair\n");
+      await env.writeRaw(specFilePath(targetDirectory, slug), "# Ordering target\n");
+      await env.writeRaw(specFilePath(lowerCodeUnitFirst, codeUnitFirstSlug), "# Lower pair\n");
+      await env.writeRaw(specFilePath(lowerLocaleFirst, localeFirstSlug), "# Lower pair\n");
+      await env.writeRaw(specFilePath(sameCodeUnitFirst, codeUnitFirstSlug), "# Same pair\n");
+      await env.writeRaw(specFilePath(sameLocaleFirst, localeFirstSlug), "# Same pair\n");
+      await env.writeRaw(specFilePath(higherCodeUnitFirst, codeUnitFirstSlug), "# Higher pair\n");
+      await env.writeRaw(specFilePath(higherLocaleFirst, localeFirstSlug), "# Higher pair\n");
 
       const manifest = await contextListManifest({ targets: [targetDirectory], cwd: env.productDir });
 
       const lowerPair = readPathsForRole(manifest, SPEC_CONTEXT_READ_ROLE.LOWER_INDEX_SIBLING)
         .filter((path) =>
-          path.startsWith(rootedSpecPath(`${lowerCodeUnitFirst}/`))
-          || path.startsWith(rootedSpecPath(`${lowerLocaleFirst}/`))
+          path.startsWith(`${rootedSpecPath(lowerCodeUnitFirst)}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}`)
+          || path.startsWith(`${rootedSpecPath(lowerLocaleFirst)}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}`)
         );
       expect(lowerPair).toStrictEqual([
-        rootedSpecPath(`${lowerCodeUnitFirst}/${codeUnitFirstSlug}.md`),
-        rootedSpecPath(`${lowerLocaleFirst}/${localeFirstSlug}.md`),
+        specFilePath(lowerCodeUnitFirst, codeUnitFirstSlug),
+        specFilePath(lowerLocaleFirst, localeFirstSlug),
       ]);
 
       expect(

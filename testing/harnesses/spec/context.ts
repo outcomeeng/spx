@@ -44,7 +44,9 @@ import {
   SPEC_CONTEXT_DOCUMENT_OPENING,
   SPEC_CONTEXT_ENTRY_TYPE,
   SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
+  SPEC_CONTEXT_LISTED_ROLE,
   SPEC_CONTEXT_OPTIONAL_ARTIFACT,
+  SPEC_CONTEXT_READ_ROLE,
   SPEC_CONTEXT_SELECTED_METADATA_KEY,
   SPEC_TREE_CONFIG,
   SPEC_TREE_CONFIG_FIELDS,
@@ -436,7 +438,7 @@ export function rootedSpecPath(relativePath: string): string {
 }
 
 /** A node's spec file under the tree root, in the prior `{slug}.md` form the fixture materializes. */
-function specFilePath(directory: string, slug: string): string {
+export function specFilePath(directory: string, slug: string): string {
   return rootedSpecPath(
     [directory, `${slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
   );
@@ -451,7 +453,8 @@ function decisionFilePath(directory: string | undefined, order: number, slug: st
 }
 
 /** A file under the tree root at `directory`, or at the root when `directory` is undefined. */
-function rootedArtifactPath(directory: string | undefined, filename: string): string {
+/** Any co-located artifact of a node directory under the tree root. */
+export function rootedArtifactPath(directory: string | undefined, filename: string): string {
   return rootedSpecPath(
     directory === undefined ? filename : [directory, filename].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
   );
@@ -474,6 +477,50 @@ export function readPathsForRole(manifest: SpecContextManifest, role: SpecContex
   return manifest.read
     .filter((document) => document.roles.some((binding) => binding.role === role))
     .map((document) => document.path);
+}
+
+/**
+ * One role's witness in the rich fixture: the entry that carries it and the
+ * target whose manifest binds it. The records below are total over their
+ * source-owned role domain, so a role added to production fails to compile
+ * here rather than leaving a role unwitnessed.
+ */
+export interface RichContextRoleBinding {
+  readonly path: string;
+  readonly targetId: string;
+}
+
+/** Every declared read role, with the rich-fixture entry that carries it. */
+export function richContextReadRoleBindings(
+  paths: RichContextPaths,
+): Record<SpecContextReadRole, RichContextRoleBinding> {
+  const target = (path: string): RichContextRoleBinding => ({ path, targetId: paths.targetId });
+  return {
+    [SPEC_CONTEXT_READ_ROLE.PRODUCT]: target(paths.productPath),
+    [SPEC_CONTEXT_READ_ROLE.ANCESTOR]: target(paths.rootSpecPath),
+    [SPEC_CONTEXT_READ_ROLE.TARGET]: target(paths.targetSpecPath),
+    [SPEC_CONTEXT_READ_ROLE.DECISION]: target(paths.ancestorDecisionPath),
+    [SPEC_CONTEXT_READ_ROLE.LOWER_INDEX_SIBLING]: target(paths.lowerSiblingSpecPath),
+    [SPEC_CONTEXT_READ_ROLE.COORDINATION]: target(paths.rootPlanPath),
+    [SPEC_CONTEXT_READ_ROLE.CITED_DECISION]: target(paths.citedDecisionPath),
+    [SPEC_CONTEXT_READ_ROLE.LIFECYCLE_OVERLAY]: target(paths.lifecycleOverlayPath),
+  };
+}
+
+/** Every declared listed role, with the rich-fixture entry that carries it. */
+export function richContextListedRoleBindings(
+  paths: RichContextPaths,
+): Record<SpecContextListedRole, RichContextRoleBinding> {
+  const target = (path: string): RichContextRoleBinding => ({ path, targetId: paths.targetId });
+  // The sibling roles bind only where the root is the explicit target.
+  const root = (path: string): RichContextRoleBinding => ({ path, targetId: paths.rootDirectory });
+  return {
+    [SPEC_CONTEXT_LISTED_ROLE.EVIDENCE]: target(paths.evidencePath),
+    [SPEC_CONTEXT_LISTED_ROLE.GUIDE]: target(paths.rootGuidePaths[0]),
+    [SPEC_CONTEXT_LISTED_ROLE.OVERLAY]: target(paths.listedOverlayPath),
+    [SPEC_CONTEXT_LISTED_ROLE.SAME_INDEX_SIBLING]: root(paths.sameIndexSiblingPath),
+    [SPEC_CONTEXT_LISTED_ROLE.HIGHER_INDEX_SIBLING]: root(paths.higherIndexSiblingPath),
+  };
 }
 
 /** Listed-entry paths carrying `role` for any target, in manifest order. */
