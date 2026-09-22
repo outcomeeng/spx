@@ -16,9 +16,11 @@ Each check builds its `readings` object as a literal inside its own `record()` �
 
 [`tests/text-report.compliance.l1.test.ts`](tests/text-report.compliance.l1.test.ts) spells the same unowned keys — `version`, `running`, `free`, `orphaned` — to name the values the detailed diagnosis must surface, so a key renamed in a check leaves that expectation reading the absent value on both sides of its comparison and the assertion still passes.
 
-This is the same defect as the manifest wire keys above, seen from the other side: that entry is the producer's face of it in the generator, this one the consumer's face in the tests.
+[`testing/generators/diagnose/report.ts`](../../testing/generators/diagnose/report.ts) spells them a third time — `version`, `path` and `observedVersion` — when `arbitraryUnsafeReadingReport` and `arbitraryAbsentReadingReport` construct their check records, while that module imports `CHECK_NAME`, the verdict registries and `VERDICT_BUCKET` from source. A generator consuming the vocabulary is a consumer like any other.
 
-**Evidence:** test-evidence audit of `spx/54-diagnose.enabler`, findings `f-002` and `f-003` in the third round, `f-002` in the fourth, and `f-001` and `f-003` in the fifth, every one severity REJECT, property `source-ownership`. The fifth round added the compliance test as a second consuming site.
+This is the same defect as the manifest wire keys above, seen from the other side: that entry is the producer's face of it in the generator, this one the consumer's face in the tests and generators that read the emitted records.
+
+**Evidence:** test-evidence audit of `spx/54-diagnose.enabler`, findings `f-002` and `f-003` in the third round, `f-002` in the fourth, `f-001` and `f-003` in the fifth, and `f-002`, `f-003` and `f-004` in the seventh, every one severity REJECT, property `source-ownership`. The fifth round added the compliance test as a second consuming site and the seventh added the report generator as a third.
 
 **Impact:** the readings are the schema field names of a machine contract that consumers decode, and they have two independent declarations. A key renamed in a check's `record()` leaves the consuming test's spelling intact, and the evidence keeps passing against a wire shape the product no longer emits.
 
