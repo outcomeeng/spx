@@ -4,24 +4,20 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
-  KIND_REGISTRY,
   SPEC_CONTEXT_LISTED_ROLE,
   SPEC_CONTEXT_READ_ROLE,
   SPEC_CONTEXT_READ_ROLE_ORDER,
   SPEC_TREE_GRAMMAR,
   type SpecContextManifest,
 } from "@/lib/spec-tree";
-import {
-  sampleSpecTreeTestValue,
-  SPEC_TREE_TEST_GENERATOR,
-  specTreeFixtureNodeDirectoryName,
-} from "@testing/generators/spec-tree/spec-tree";
+import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   allManifestPaths,
   contextListJson,
   contextListManifest,
   divergentOrderSlugPair,
+  freeSiblingOrder,
   listedPaths,
   listedPathsForRole,
   markdownFixtureBody,
@@ -29,6 +25,7 @@ import {
   readPaths,
   readPathsForRole,
   rootedSpecPath,
+  siblingDirectoryName,
   SPEC_CONTEXT_ESCAPE_TARGET_FILENAME,
   specFilePath,
   specTreeKindsConfig,
@@ -120,15 +117,13 @@ describe("spec context manifest read set", () => {
       const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
       const { codeUnitFirst: codeUnitFirstSlug, localeFirst: localeFirstSlug } = divergentOrderSlugPair();
 
-      const lowerOrder = Math.max(fixture.root.order, fixture.peer.order) + 1;
+      const lowerOrder = freeSiblingOrder(fixture);
       const targetOrder = lowerOrder + 1;
       const higherOrder = targetOrder + 1;
-      const directoryName = (order: number, directorySlug: string): string =>
-        specTreeFixtureNodeDirectoryName(KIND_REGISTRY, { ...fixture.root, order, slug: directorySlug });
-      const targetDirectory = directoryName(targetOrder, slug);
+      const targetDirectory = siblingDirectoryName(fixture, targetOrder, slug);
       const pairDirectories = (order: number): readonly [string, string] => [
-        directoryName(order, codeUnitFirstSlug),
-        directoryName(order, localeFirstSlug),
+        siblingDirectoryName(fixture, order, codeUnitFirstSlug),
+        siblingDirectoryName(fixture, order, localeFirstSlug),
       ];
       const [lowerCodeUnitFirst, lowerLocaleFirst] = pairDirectories(lowerOrder);
       const [sameCodeUnitFirst, sameLocaleFirst] = pairDirectories(targetOrder);

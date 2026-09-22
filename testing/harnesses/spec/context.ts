@@ -64,6 +64,7 @@ import {
   specContextSameIndexSiblingDirectoryName as sameIndexSiblingDirectoryName,
 } from "@testing/generators/spec-tree/context-target";
 import {
+  type RepresentativeSpecTreeFixture,
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
   specTreeFixtureNodeDirectoryName,
@@ -77,6 +78,10 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 /** The body a fixture eval carries: a case table header and nothing the projection reads. */
 const EVAL_FIXTURE_BODY = "[case]\n";
+
+/** The decision a coordination note names in prose without linking it; no tracked path satisfies it. */
+const UNSCANNED_DECISION_ORDER = 99;
+const UNSCANNED_DECISION_SLUG = "unscanned";
 
 export function parseContextManifest(output: string): SpecContextManifest {
   return JSON.parse(output) as SpecContextManifest;
@@ -634,6 +639,20 @@ export async function writeProductAndDecisionBody(
 }
 
 /** One opening paragraph as the Digest projection selects it: keyword, subject, and its closing line ending. */
+/** The first index above every index the fixture's own nodes occupy, so a new sibling collides with none. */
+export function freeSiblingOrder(fixture: RepresentativeSpecTreeFixture): number {
+  return Math.max(fixture.root.order, fixture.peer.order) + 1;
+}
+
+/** A sibling node directory at `order` carrying `slug`, in the kind the fixture's own root declares. */
+export function siblingDirectoryName(
+  fixture: RepresentativeSpecTreeFixture,
+  order: number,
+  slug: string,
+): string {
+  return specTreeFixtureNodeDirectoryName(KIND_REGISTRY, { ...fixture.root, order, slug });
+}
+
 /** The body a fixture spec carries: its own title and the opening its kind declares. */
 export function specFixtureBody(slug: string, opening: string): string {
   return `# ${slug}\n\n${opening} ${slug}\n`;
@@ -868,7 +887,12 @@ export async function withRichContextEnv(
 
     for (const [path, text] of Object.entries(paths.sourceText)) await env.writeRaw(path, text);
     await env.writeRaw(paths.evidencePath, "import { describe, it } from \"vitest\";\n");
-    await env.writeRaw(paths.rootPlanPath, "# Plan\n\nMentions spx/99-unscanned.pdr.md without binding it.\n");
+    await env.writeRaw(
+      paths.rootPlanPath,
+      `# Plan\n\nMentions ${
+        decisionFilePath(undefined, UNSCANNED_DECISION_ORDER, UNSCANNED_DECISION_SLUG, KIND_REGISTRY.pdr.suffix)
+      } without binding it.\n`,
+    );
     await env.writeRaw(paths.rootIssuesPath, "# Issues\n");
     await env.writeRaw(paths.ancestorPlanPath, "# Ancestor plan\n");
     await env.writeRaw(paths.targetEvalPath, EVAL_FIXTURE_BODY);
