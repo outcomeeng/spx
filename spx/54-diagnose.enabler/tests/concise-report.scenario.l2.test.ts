@@ -13,13 +13,28 @@ describe("the default diagnose output is concise", () => {
       await withDiagnoseOutputCli(async (env) => {
         const result = await env.run([]);
         expect(result.stdout).toContain(env.version);
-        expect(result.stdout).toContain(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${OVERALL_VERDICT.UNKNOWN}`);
-        expect(result.stdout).toContain(DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_UNKNOWN);
+        expect(result.stdout).toContain(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${OVERALL_VERDICT.DEGRADED}`);
+        expect(result.stdout).toContain(DIAGNOSE_TEXT_HEADER.METHODOLOGY_UNAVAILABLE);
         expect(result.stdout).toContain(DIAGNOSE_CLI.VERBOSE_FLAG);
         expect(result.stdout).toContain(DIAGNOSE_CLI.JSON_FLAG);
-        expect(result.stdout).not.toContain(DIAGNOSE_TEXT_HEADER.MARKETPLACE_CHECKS_SKIPPED);
         expect(result.stdout).not.toContain(`${DIAGNOSE_TEXT_LABEL.WORKTREES}:`);
         expect(result.stdout).not.toContain(`${DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE}:`);
+      });
+    },
+  );
+
+  it(
+    "omits the healthy checks the detailed diagnosis reports",
+    DIAGNOSE_OUTPUT_TEST_POLICY,
+    async () => {
+      await withDiagnoseOutputCli(async (env) => {
+        const concise = await env.run([]);
+        const detailed = await env.run([DIAGNOSE_CLI.VERBOSE_FLAG]);
+        expect(detailed.stdout).toContain(DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_VALID);
+        expect(detailed.stdout).toContain(DIAGNOSE_TEXT_HEADER.SESSION_STORE_CLEAN);
+        expect(concise.stdout).not.toContain(DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_VALID);
+        expect(concise.stdout).not.toContain(DIAGNOSE_TEXT_HEADER.SESSION_STORE_CLEAN);
+        expect(concise.stdout).toContain(DIAGNOSE_TEXT_HEADER.METHODOLOGY_UNAVAILABLE);
       });
     },
   );
