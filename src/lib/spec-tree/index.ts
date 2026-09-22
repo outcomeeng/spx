@@ -63,6 +63,7 @@ export {
   compareSpecContextOrdinal,
   composeSpecContextBundle,
   decodeContextDocumentUtf8,
+  extractDecisionCitations,
   isLocalOverlayPath,
   SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
   SPEC_CONTEXT_LISTED_ROLE,

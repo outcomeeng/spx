@@ -235,6 +235,42 @@ export function compareSpecContextOrdinal(left: string, right: string): number {
 }
 
 /**
+ * A complete tree-rooted decision path anywhere in a document's text, whether
+ * or not a Markdown link carries it. The character class cannot cross
+ * whitespace, brackets, parentheses, or backticks, so link syntax never bleeds
+ * into a match; the boundary assertions reject shapes that continue past the
+ * decision suffix (`….adr.mdx`, `….adr.md.bak`) or embed the root directory
+ * inside a longer path, so only a complete tree-rooted decision path binds.
+ */
+const DECISION_CITATION_PATTERN = /(?<![A-Za-z0-9._/-])spx\/[A-Za-z0-9._/-]+\.(?:adr|pdr)\.md(?![A-Za-z0-9._/-])/g;
+
+/**
+ * A citation binds only through a canonical tree path: every segment is a real
+ * directory or file name, so relative segments never reach the filesystem.
+ */
+function hasRelativePathSegment(path: string): boolean {
+  return path.split(SPEC_TREE_GRAMMAR.PATH_SEPARATOR).some((segment) => segment === "." || segment === "..");
+}
+
+/**
+ * Unique full-path decision citations in `text`, in first-appearance order;
+ * relative-segment shapes bind nothing. Consumers that select context from a
+ * product's own prose — where a decision is as often named in backticks as
+ * linked — read citations through this text-shaped discovery; the document
+ * projection's link-shaped rule is its own and lives beside that projection.
+ */
+export function extractDecisionCitations(text: string): readonly string[] {
+  const seen = new Set<string>();
+  const citations: string[] = [];
+  for (const match of text.matchAll(DECISION_CITATION_PATTERN)) {
+    if (seen.has(match[0]) || hasRelativePathSegment(match[0])) continue;
+    seen.add(match[0]);
+    citations.push(match[0]);
+  }
+  return citations;
+}
+
+/**
  * Decodes raw document bytes as strict UTF-8; any invalid sequence throws.
  * A leading byte-order mark stays in the decoded text so the content
  * preserves the source bytes.
