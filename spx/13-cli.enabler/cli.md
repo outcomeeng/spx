@@ -2,7 +2,7 @@
 
 PROVIDES the SPX command-line interface boundary — sanitization of user-supplied bytes for diagnostic echo, a package-script invocation contract that distinguishes development sources from published distributions, and process-lifecycle handling that forwards termination signals to spawned children and exits cleanly under pipe-close
 SO THAT every domain handler that echoes user input back to a terminal, every consumer of `package.json` scripts, and every long-running subprocess spawned during a CLI invocation
-CAN render diagnostics with no unprintable bytes and bounded length, CAN invoke the CLI through `tsx src/cli.ts` in development and `node bin/spx.js` after `pnpm run build`, and CAN trust that closing stdout, sending SIGINT, sending SIGTERM, or hitting an uncaught exception terminates every spawned child before the parent exits
+CAN render diagnostics with no unprintable bytes, bounding an echoed caller-supplied operand to the display length while carrying a caught-error message whole, CAN invoke the CLI through `tsx src/cli.ts` in development and `node bin/spx.js` after `pnpm run build`, and CAN trust that closing stdout, sending SIGINT, sending SIGTERM, or hitting an uncaught exception terminates every spawned child before the parent exits
 
 ## Assertions
 
