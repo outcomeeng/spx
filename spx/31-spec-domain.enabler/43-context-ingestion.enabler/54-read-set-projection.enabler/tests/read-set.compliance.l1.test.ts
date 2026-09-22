@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { KIND_REGISTRY, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
-import {
-  sampleSpecTreeTestValue,
-  SPEC_TREE_TEST_GENERATOR,
-  specTreeFixtureNodeDirectoryName,
-} from "@testing/generators/spec-tree/spec-tree";
+import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextShowEntries,
@@ -15,8 +11,10 @@ import {
   documentAt,
   documentPaths,
   entryPaths,
+  freeSiblingOrder,
   referencePaths,
   rootedSpecPath,
+  siblingDirectoryName,
   specFilePath,
   specFixtureBody,
   specTreeKindsConfig,
@@ -90,13 +88,11 @@ describe("spec context read-set boundaries", () => {
       const fixture = env.fixture;
       const opening = KIND_REGISTRY[fixture.root.kind].opening;
       const pair = divergentOrderSlugPair();
-      const sharedOrder = Math.max(fixture.root.order, fixture.peer.order) + 1;
-      const directoryName = (order: number, slug: string): string =>
-        specTreeFixtureNodeDirectoryName(KIND_REGISTRY, { ...fixture.root, order, slug });
-      const codeUnitFirstDirectory = directoryName(sharedOrder, pair.codeUnitFirst);
-      const localeFirstDirectory = directoryName(sharedOrder, pair.localeFirst);
+      const sharedOrder = freeSiblingOrder(fixture);
+      const codeUnitFirstDirectory = siblingDirectoryName(fixture, sharedOrder, pair.codeUnitFirst);
+      const localeFirstDirectory = siblingDirectoryName(fixture, sharedOrder, pair.localeFirst);
       const laterSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-      const laterDirectory = directoryName(sharedOrder + 1, laterSlug);
+      const laterDirectory = siblingDirectoryName(fixture, sharedOrder + 1, laterSlug);
       for (
         const [directory, slug] of [
           [codeUnitFirstDirectory, pair.codeUnitFirst],

@@ -52,6 +52,8 @@ describe("spec context read-set selection", () => {
           paths.ancestorDecisionPath,
           paths.higherAncestorDecisionPath,
           paths.higherProductDecisionPath,
+          // The explicit target's own contained decision, not an ancestor's.
+          paths.targetDecisionPath,
         ]
       ) {
         expect(documentAt(entries, full)?.content, full).toBe(paths.sourceText[full]);
