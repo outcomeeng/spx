@@ -1,3 +1,4 @@
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import { DIAGNOSE_CONFIG_FIELDS, DIAGNOSE_SECTION } from "@/domains/diagnose/config";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
@@ -31,9 +32,9 @@ export function unusedMethodologyScenario(): DiagnoseCliScenario {
         [DIAGNOSE_CONFIG_FIELDS.CHECKS]: [CHECK_NAME.SPX_REACHABILITY],
         [DIAGNOSE_CONFIG_FIELDS.SPX_FLOOR]: floor,
       },
-      methodology: {
-        source: `../${sampleGeneratedValue(arbitraryDomainLiteral())}`,
-        version: METHODOLOGY_FIXTURE_VERSION,
+      [METHODOLOGY_SECTION]: {
+        [METHODOLOGY_CONFIG_FIELDS.SOURCE]: `../${sampleGeneratedValue(arbitraryDomainLiteral())}`,
+        [METHODOLOGY_CONFIG_FIELDS.VERSION]: METHODOLOGY_FIXTURE_VERSION,
       },
     },
     floor,
@@ -43,9 +44,9 @@ export function unusedMethodologyScenario(): DiagnoseCliScenario {
 export function invalidMethodologyScenario(): DiagnoseCliScenario {
   return {
     config: {
-      methodology: {
-        source: `../${sampleGeneratedValue(arbitraryDomainLiteral())}`,
-        version: METHODOLOGY_FIXTURE_VERSION,
+      [METHODOLOGY_SECTION]: {
+        [METHODOLOGY_CONFIG_FIELDS.SOURCE]: `../${sampleGeneratedValue(arbitraryDomainLiteral())}`,
+        [METHODOLOGY_CONFIG_FIELDS.VERSION]: METHODOLOGY_FIXTURE_VERSION,
       },
     },
     floor: sampleGeneratedValue(arbitrarySpxFloor()),
