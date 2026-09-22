@@ -562,6 +562,8 @@ export interface RichContextPaths {
   readonly rootSpecPath: string;
   readonly targetSpecPath: string;
   readonly ancestorDecisionPath: string;
+  /** A decision directly contained by the depth-2 target node. */
+  readonly targetDecisionPath: string;
   readonly higherAncestorDecisionPath: string;
   readonly higherProductDecisionPath: string;
   readonly lowerSiblingSpecPath: string;
@@ -681,6 +683,14 @@ export async function withRichContextEnv(
       fixture.decision.slug,
       decisionSuffix,
     );
+    // A decision directly contained by the depth-2 target, so targetless
+    // discovery carries a decision at each declared depth.
+    const targetDecisionPath = decisionFilePath(
+      targetId,
+      fixture.decision.order,
+      fixture.decision.slug,
+      decisionSuffix,
+    );
     const higherAncestorDecisionPath = decisionFilePath(
       rootDirectory,
       fixture.peer.order,
@@ -736,6 +746,7 @@ export async function withRichContextEnv(
       [sameIndexSiblingSpecPath]: openingParagraph(rootOpening, "same sibling"),
       [higherIndexSiblingSpecPath]: openingParagraph(KIND_REGISTRY[fixture.peer.kind].opening, fixture.peer.slug),
       [ancestorDecisionPath]: openingParagraph(SPEC_CONTEXT_DOCUMENT_OPENING.DECISION, "the ancestor subtree"),
+      [targetDecisionPath]: openingParagraph(SPEC_CONTEXT_DOCUMENT_OPENING.DECISION, "the target node"),
       [higherAncestorDecisionPath]: openingParagraph(
         SPEC_CONTEXT_DOCUMENT_OPENING.DECISION,
         "higher ancestor siblings",
@@ -775,6 +786,7 @@ export async function withRichContextEnv(
       [higherIndexSiblingSpecPath]: `# ${fixture.peer.slug}\n\n${openingText[higherIndexSiblingSpecPath]}`,
       [deepDescendantSpecPath]: `# ${deepDescendantSlug}\n\n${openingText[deepDescendantSpecPath]}`,
       [ancestorDecisionPath]: `# Ancestor decision\n\n${openingText[ancestorDecisionPath]}\n## Rationale\n\nBecause.\n`,
+      [targetDecisionPath]: `# Target decision\n\n${openingText[targetDecisionPath]}`,
       [higherAncestorDecisionPath]: `# Higher ancestor decision\n\n${openingText[higherAncestorDecisionPath]}`,
       [higherProductDecisionPath]: `# Higher product decision\n\n${openingText[higherProductDecisionPath]}`,
       [citedDecisionPath]: `# Cited decision\n\n${openingText[citedDecisionPath]}\nRefines ${
@@ -802,6 +814,7 @@ export async function withRichContextEnv(
       rootSpecPath,
       targetSpecPath,
       ancestorDecisionPath,
+      targetDecisionPath,
       higherAncestorDecisionPath,
       higherProductDecisionPath,
       lowerSiblingSpecPath,

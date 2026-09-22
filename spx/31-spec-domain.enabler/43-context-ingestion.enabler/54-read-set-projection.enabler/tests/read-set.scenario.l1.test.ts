@@ -25,6 +25,8 @@ describe("spec context read-set selection", () => {
           paths.higherProductDecisionPath,
           paths.ancestorDecisionPath,
           paths.higherAncestorDecisionPath,
+          // The deepest declared depth: a decision the target node contains.
+          paths.targetDecisionPath,
           paths.citedDecisionPath,
           paths.transitiveCitedDecisionPath,
         ]
