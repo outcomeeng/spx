@@ -34,6 +34,9 @@ describe("spec context read-set selection", () => {
       expect(referencePaths(entries)).toEqual([paths.rootIssuesPath, paths.targetIssuesPath]);
       expect(entryPaths(entries)).not.toContain(paths.targetOutcomePath);
       expect(entryPaths(entries)).not.toContain(paths.rootKnowledgeIndexPath);
+      // The bound holds from above as well: the node one level below the
+      // target stays out of discovery, so widening the depth fails here.
+      expect(entryPaths(entries)).not.toContain(paths.deepDescendantSpecPath);
     });
   });
 
