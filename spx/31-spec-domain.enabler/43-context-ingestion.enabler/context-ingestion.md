@@ -16,11 +16,11 @@ CAN first locate relevant subtrees and then load only the product truth required
 
 ### Scenarios
 
-- `spx spec context list <targets...>` emits the versioned structural manifest, while `spx spec context show [targets...]` emits selected document content and path references without manifest fields. ([test](tests/context-ingestion.scenario.l1.test.ts), [test](tests/context-ingestion.compliance.l1.test.ts))
+- `spx spec context list <targets...>` emits the versioned structural manifest, while `spx spec context show [targets...]` emits selected document content and path references without manifest fields. ([test](tests/context-ingestion.scenario.l1.test.ts))
 - Targetless `show` supplies the complete product spec and a depth-bounded Product Tree map from which an agent can choose a target. ([test](tests/context-ingestion.scenario.l1.test.ts))
 - Targeted `show` supplies Full target and ancestor context, Digest sibling and immediate-child awareness, applicable decisions, and the agreed path-only references. ([test](tests/context-ingestion.scenario.l1.test.ts))
 
 ### Compliance
 
-- Context ingestion resolves the complete projection before output and emits no partial result after any target, source, citation, or methodology failure. ([test](tests/context-ingestion.compliance.l2.test.ts))
+- Context ingestion resolves the complete projection before output and emits no partial result after any target, source, citation, or methodology failure. ([test](tests/context-ingestion.compliance.l1.test.ts), [test](tests/context-ingestion.compliance.l2.test.ts))
 - Context selection is structural and never uses keyword search, semantic similarity, or LLM judgment. ([audit])
