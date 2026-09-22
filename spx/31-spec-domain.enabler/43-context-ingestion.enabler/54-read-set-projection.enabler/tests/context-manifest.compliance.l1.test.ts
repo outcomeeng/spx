@@ -24,6 +24,7 @@ import {
   divergentOrderSlugPair,
   listedPaths,
   listedPathsForRole,
+  markdownFixtureBody,
   parseContextManifest,
   readPaths,
   readPathsForRole,
@@ -82,8 +83,8 @@ describe("spec context manifest read set", () => {
         `${overlayDirectory}/${pair.codeUnitFirst}${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.EXTENSION}`;
       const localeFirstOverlayPath =
         `${overlayDirectory}/${pair.localeFirst}${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.EXTENSION}`;
-      await env.writeRaw(codeUnitFirstOverlayPath, "# Code-unit-first overlay\n");
-      await env.writeRaw(localeFirstOverlayPath, "# Locale-first overlay\n");
+      await env.writeRaw(codeUnitFirstOverlayPath, markdownFixtureBody(pair.codeUnitFirst));
+      await env.writeRaw(localeFirstOverlayPath, markdownFixtureBody(pair.localeFirst));
 
       const overlayPairIn = (manifest: SpecContextManifest): readonly string[] =>
         listedPathsForRole(manifest, SPEC_CONTEXT_LISTED_ROLE.OVERLAY)
@@ -133,13 +134,13 @@ describe("spec context manifest read set", () => {
       const [sameCodeUnitFirst, sameLocaleFirst] = pairDirectories(targetOrder);
       const [higherCodeUnitFirst, higherLocaleFirst] = pairDirectories(higherOrder);
 
-      await env.writeRaw(specFilePath(targetDirectory, slug), "# Ordering target\n");
-      await env.writeRaw(specFilePath(lowerCodeUnitFirst, codeUnitFirstSlug), "# Lower pair\n");
-      await env.writeRaw(specFilePath(lowerLocaleFirst, localeFirstSlug), "# Lower pair\n");
-      await env.writeRaw(specFilePath(sameCodeUnitFirst, codeUnitFirstSlug), "# Same pair\n");
-      await env.writeRaw(specFilePath(sameLocaleFirst, localeFirstSlug), "# Same pair\n");
-      await env.writeRaw(specFilePath(higherCodeUnitFirst, codeUnitFirstSlug), "# Higher pair\n");
-      await env.writeRaw(specFilePath(higherLocaleFirst, localeFirstSlug), "# Higher pair\n");
+      await env.writeRaw(specFilePath(targetDirectory, slug), markdownFixtureBody(slug));
+      await env.writeRaw(specFilePath(lowerCodeUnitFirst, codeUnitFirstSlug), markdownFixtureBody(codeUnitFirstSlug));
+      await env.writeRaw(specFilePath(lowerLocaleFirst, localeFirstSlug), markdownFixtureBody(localeFirstSlug));
+      await env.writeRaw(specFilePath(sameCodeUnitFirst, codeUnitFirstSlug), markdownFixtureBody(codeUnitFirstSlug));
+      await env.writeRaw(specFilePath(sameLocaleFirst, localeFirstSlug), markdownFixtureBody(localeFirstSlug));
+      await env.writeRaw(specFilePath(higherCodeUnitFirst, codeUnitFirstSlug), markdownFixtureBody(codeUnitFirstSlug));
+      await env.writeRaw(specFilePath(higherLocaleFirst, localeFirstSlug), markdownFixtureBody(localeFirstSlug));
 
       const manifest = await contextListManifest({ targets: [targetDirectory], cwd: env.productDir });
 
