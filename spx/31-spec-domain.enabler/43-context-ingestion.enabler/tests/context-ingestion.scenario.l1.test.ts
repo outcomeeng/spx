@@ -1,18 +1,26 @@
 import { describe, expect, it } from "vitest";
 
+import { SPEC_CONTEXT_TEXT_LABEL } from "@/commands/spec/context";
 import { SPEC_CONTEXT_ENTRIES_KEY } from "@/commands/spec/context-show";
-import { compareSpecContextOrdinal, SPEC_CONTEXT_FRAME, SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION } from "@/lib/spec-tree";
+import { DEFAULT_METHODOLOGY_SOURCE } from "@/config/methodology";
+import { SPEC_CONTEXT_FRAME, SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION, specContextBootstrap } from "@/lib/spec-tree";
+import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextListJson,
+  contextListManifest,
+  contextListText,
   contextShowEntries,
   contextShowJson,
   contextShowText,
   documentAt,
   documentPaths,
   entryPaths,
+  METHODOLOGY_FIXTURE_VERSION,
   parseContextEntries,
   parseContextManifest,
   referencePaths,
+  rootedSpecPath,
+  specTreeKindsConfig,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
 
@@ -99,14 +107,55 @@ describe("spec context list and show", () => {
         paths.targetIssuesPath,
         paths.targetKnowledgeIndexPath,
       ]);
-      // Cited decisions the walk did not select append after the structural entries in path order.
-      expect(documentPaths(entries).slice(-3)).toEqual(
-        [paths.citedDecisionPath, paths.transitiveCitedDecisionPath, paths.peerDecisionPath].sort(
-          compareSpecContextOrdinal,
-        ),
+      // Cited decisions the walk did not select append after the structural
+      // entries in canonical path order. The cited and peer decisions share an
+      // index and carry the divergent slug pair, so code-unit order places the
+      // cited decision first while locale collation would reverse them.
+      const appended = documentPaths(entries).slice(-3);
+      expect(new Set(appended)).toEqual(
+        new Set([paths.citedDecisionPath, paths.transitiveCitedDecisionPath, paths.peerDecisionPath]),
       );
+      expect(appended.indexOf(paths.citedDecisionPath)).toBeLessThan(appended.indexOf(paths.peerDecisionPath));
       const rootEntries = await contextShowEntries({ targets: [paths.rootDirectory], cwd: env.productDir });
       expect(documentAt(rootEntries, paths.targetSpecPath)?.content).toBe(paths.openingText[paths.targetSpecPath]);
+    });
+  });
+
+  it("carries the manifest schema version and the snapshot-derived bootstrap flag", async () => {
+    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+      await env.materialize();
+      const snapshot = await env.readFilesystemSnapshot();
+      const target = snapshot.allNodes[0];
+      const manifest = await contextListManifest({ targets: [target.id], cwd: env.productDir });
+      expect(manifest.schemaVersion).toBe(SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION);
+      expect(specContextBootstrap(0)).toBe(true);
+      expect(specContextBootstrap(snapshot.allNodes.length)).toBe(false);
+      // The materialized fixture holds nodes by construction, and a
+      // resolvable target implies a non-empty tree, so the emitted flag is
+      // false without re-running the production derivation.
+      expect(manifest.bootstrap).toBe(false);
+    });
+  });
+
+  it("renders the manifest as labelled text beside its JSON representation", async () => {
+    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+      await env.materialize();
+      const snapshot = await env.readFilesystemSnapshot();
+      const target = snapshot.allNodes[0];
+      const textOutput = await contextListText({ targets: [target.id], cwd: env.productDir });
+      const jsonOutput = await contextListJson({ targets: [target.id], cwd: env.productDir });
+      expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.TARGETS}: ${rootedSpecPath(target.id)}`);
+      expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.PRODUCT_ROOT}: ${env.productDir}`);
+      expect(textOutput).toContain(
+        `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${DEFAULT_METHODOLOGY_SOURCE}@${METHODOLOGY_FIXTURE_VERSION}\n`,
+      );
+      expect(textOutput).toContain(
+        `${SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION}: ${SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION}`,
+      );
+      expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.BOOTSTRAP}: false`);
+      expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.READ}:`);
+      expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.LISTED}:`);
+      expect(parseContextManifest(jsonOutput).targets).toEqual([rootedSpecPath(target.id)]);
     });
   });
 });

@@ -19,6 +19,11 @@ CAN first locate relevant subtrees and then load only the product truth required
 - `spx spec context list <targets...>` emits the versioned structural manifest, while `spx spec context show [targets...]` emits selected document content and path references without manifest fields. ([test](tests/context-ingestion.scenario.l1.test.ts))
 - Targetless `show` supplies the complete product spec and a depth-bounded Product Tree map from which an agent can choose a target. ([test](tests/context-ingestion.scenario.l1.test.ts))
 - Targeted `show` supplies Full target and ancestor context, Digest sibling and immediate-child awareness, applicable decisions, and the agreed path-only references. ([test](tests/context-ingestion.scenario.l1.test.ts))
+- The manifest `list` emits carries its schema version, the bootstrap flag derived from the snapshot, and its labelled text beside the equivalent JSON. ([test](tests/context-ingestion.scenario.l1.test.ts))
+
+### Mappings
+
+- The manifest carries the configured methodology identity: each accepted version form resolves, an undeclared version renders the source alone, and an open migration renders the migration source beside it. ([test](tests/context-ingestion.mapping.l1.test.ts))
 
 ### Compliance
 
