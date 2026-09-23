@@ -271,8 +271,8 @@ while the major version is zero; otherwise `patch`.
 1. Push the branch and merge it through a pull request with current-head CI and
    review. If base movement or conflict resolution changes the candidate,
    verify the result in the assigned worktree before merging.
-2. Run `spx diagnose` and require a `compliant` `worktree-pool` verdict; use its
-   `mainCheckoutPath`. Before touching the canonical checkout, confirm from the
+2. Run `spx diagnose --json` and require a `compliant` `worktree-pool` verdict;
+   use its `mainCheckoutPath`. Before touching the canonical checkout, confirm from the
    assigned worktree that no other session holds it, that it is clean, and that
    after `git fetch origin main` its `HEAD` is an ancestor of `origin/main`, so
    the pull fast-forwards:
