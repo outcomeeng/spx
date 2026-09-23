@@ -1,5 +1,15 @@
 # Open Issues
 
+## The `/diagnose` skill still invokes the retired output selector
+
+[`11-invocation-modes.pdr.md`](11-invocation-modes.pdr.md) declares that `--format` is not accepted and that the invocation is rejected naming the selector. The spec-tree plugin's `/diagnose` skill invokes `spx diagnose --manifest "${CLAUDE_SKILL_DIR}/manifest.json" --format json` at two sites in its `SKILL.md`, and [`spx/local/merging.md`](../local/merging.md) routes the Deploy step's `worktree-pool` verdict and `mainCheckoutPath` read through that skill. Against a build carrying the retirement, Commander rejects the invocation, the skill emits no report, and the Deploy step cannot read the verdict it requires.
+
+**Evidence:** the changeset review of this node's output-mode branch, review run `2026-09-23_00-59-49-639-5868dd322936`, finding `f-001`, severity REJECT; the two invocations at lines 22 and 62 of the installed plugin's `skills/diagnose/SKILL.md`; the consuming Deploy step in `spx/local/merging.md`.
+
+**Impact:** the shared local executable is refreshed after every merge through that Deploy step, so the retirement reaches the executable before its named consumer moves to `--json`. Every consumer inside this repository was carried across in the same changeset; this one lives in another product and cannot be edited from this workflow.
+
+**Settlement condition:** the plugins product's `/diagnose` skill invokes `spx diagnose --manifest <path> --json`, and the Deploy step reads its verdict from that invocation.
+
 ## The manifest wire keys are declared in the evidence rather than owned by source
 
 `src/domains/diagnose/manifest.ts` reads the manifest's consumer-fact keys inline — `parsed.spx_floor`, `parsed.marketplace`, `parsed.expected_plugins` — and exports no registry for them; its exports are `CHECK_NAME`, `DiagnoseManifest`, and `parseManifest`. The same three keys, and `checks` with them, are spelled again as string literals in `manifestJson()` in [`testing/generators/diagnose/manifest.ts`](../../testing/generators/diagnose/manifest.ts), in both `writeReachabilityManifest` and `writeManifestNamingCheck` in [`testing/harnesses/diagnose/cli.ts`](../../testing/harnesses/diagnose/cli.ts), and in [`tests/manifest.conformance.l1.test.ts`](tests/manifest.conformance.l1.test.ts). The prose schema in [`13-diagnose-engine.adr.md`](13-diagnose-engine.adr.md) states the wire shape but publishes no source contract. The same generator function already imports `METHODOLOGY_SECTION` and `METHODOLOGY_CONFIG_FIELDS` from `src/config/methodology.ts` for the methodology keys, so the owning pattern exists beside the violation.
