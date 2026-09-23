@@ -6,6 +6,7 @@ import { execa } from "execa";
 import { diagnoseCommand } from "@/commands/diagnose";
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import { DEFAULT_METHODOLOGY_SOURCE, METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
+import { DIAGNOSE_CONFIG_FIELDS, DIAGNOSE_SECTION } from "@/domains/diagnose/config";
 import type { CheckRegistry } from "@/domains/diagnose/engine";
 import { CHECK_NAME, type CheckName, type DiagnoseManifest } from "@/domains/diagnose/manifest";
 import type { DiagnoseFormat } from "@/domains/diagnose/report";
@@ -61,8 +62,12 @@ export async function withDiagnoseOutputCli<T>(
     await writeFile(
       join(productDir, DEFAULT_CONFIG_FILENAME),
       JSON.stringify({
-        diagnose: {
-          checks: [CHECK_NAME.WORKTREE_POOL, CHECK_NAME.SESSION_STORE, CHECK_NAME.METHODOLOGY_CONTEXT],
+        [DIAGNOSE_SECTION]: {
+          [DIAGNOSE_CONFIG_FIELDS.CHECKS]: [
+            CHECK_NAME.WORKTREE_POOL,
+            CHECK_NAME.SESSION_STORE,
+            CHECK_NAME.METHODOLOGY_CONTEXT,
+          ],
         },
         [METHODOLOGY_SECTION]: {
           [METHODOLOGY_CONFIG_FIELDS.SOURCE]: UNPROVIDED_METHODOLOGY.source,
