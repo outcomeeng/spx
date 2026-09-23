@@ -1,5 +1,15 @@
 # Open Issues
 
+## Admitting the retired selector costs product-wide literal coverage
+
+[`tests/output-mode.compliance.l2.test.ts`](tests/output-mode.compliance.l2.test.ts) must spell `--format`, because the rule it proves is that this exact token is rejected. The literal stage reads that spelling as reuse of a source-owned value, since `src/interfaces/cli/worktree.ts` declares `WORKTREE_CLI.FORMAT_FLAG` and `src/interfaces/cli/spec.ts` declares `SPEC_CLI.FORMAT_OPTION_FLAG` with the same text. Admitting it required adding `--format` to `validation.literal.values.include` in `spx.config.yaml`, and that list is product-wide: it has no path scope.
+
+**Evidence:** the changeset review of this node's output-mode branch, review run `2026-09-23_01-42-19-767-a6726e9f13ec`, finding `f-002`; the allowlist entry in `spx.config.yaml`; the two source declarations above; the value-allowlist shape in `src/validation/literal/config.ts`, which carries `presets`, `include`, and `exclude` and no path dimension.
+
+**Impact:** a worktree-CLI or spec-CLI test that spells `--format` instead of importing its owning constant is no longer reported, so those two nodes lost the cross-file evidence that kept them importing. The product config carries no `validation.paths` section, so scoping the stage to exclude the one file would introduce a whole-file blind spot in place of a token-wide one rather than removing the suppression.
+
+**Settlement condition:** a value-allowlist entry carries the paths it admits, this entry names only the diagnose compliance test, and a `--format` spelling anywhere else is reported again.
+
 ## The `/diagnose` skill still invokes the retired output selector
 
 [`11-invocation-modes.pdr.md`](11-invocation-modes.pdr.md) declares that `--format` is not accepted and that the invocation is rejected naming the selector. The spec-tree plugin's `/diagnose` skill invokes `spx diagnose --manifest "${CLAUDE_SKILL_DIR}/manifest.json" --format json` at two sites in its `SKILL.md`, and [`spx/local/merging.md`](../local/merging.md) routes the Deploy step's `worktree-pool` verdict and `mainCheckoutPath` read through that skill. Against a build carrying the retirement, Commander rejects the invocation, the skill emits no report, and the Deploy step cannot read the verdict it requires.
