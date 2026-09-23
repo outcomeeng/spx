@@ -14,6 +14,24 @@
 
 **Revisit condition:** once the per-node terminal-escaping issues are cleared.
 
+## No product diagnostic composes the bounded external token
+
+[`spx/13-cli.enabler/15-cli-architecture.adr.md`](15-cli-architecture.adr.md) declares that a product diagnostic whose subject is one caller-supplied operand the message echoes back composes that operand as a bounded external token — escaped and truncated to the display length — through the `src/lib/terminal-text/` primitive. `externalToken` in `src/lib/terminal-text/terminal-text.ts` is that composition, and no production module calls it; the only other references are this node's own `tests/terminal-text.compliance.l1.test.ts` and `tests/terminal-text.property.l1.test.ts`. Each diagnostic the decision describes interpolates `sanitizeCliArgument` into a plain string and hands that string to the write boundary instead:
+
+- `src/interfaces/cli/hook.ts:152` — the unknown hook event
+- `src/interfaces/cli/validation.ts:272` — the invalid path operand
+- `src/interfaces/cli/validation.ts:520` — the unknown subcommand
+
+`src/interfaces/hooks/cli-runner.ts:72`, `src/interfaces/cli/spec.ts:91`, `:103`, `:105`, and `src/interfaces/cli/agent.ts:140`, `:144`, `:153`, `:164` escape their operands the same way.
+
+**Impact:** the bytes reaching the terminal are the same today, because the raw sanitizer applies the same escaping and the same display bound. The composition is what is absent: the decision's rule places the escape where the value is embedded, through the primitive, and these sites decide it at the write site instead, so the property holds by repetition rather than by construction and a new operand diagnostic can omit it with no gate objecting.
+
+**Resolution:** each owning node migrates its operand diagnostic to compose the operand through `externalToken` at its embedding point, under the same per-node migration that clears the write-boundary entry above.
+
+**Skills:** `/apply`, `/audit-typescript-code`.
+
+**Revisit condition:** once the per-node terminal-escaping issues are cleared.
+
 ## Relayed documents still travel through the composed-text write
 
 [`spx/13-cli.enabler/15-cli-architecture.adr.md`](15-cli-architecture.adr.md) names a relayed document — agent-authored release notes, a session file's own content, a subprocess's own output — as the case for the pass-through channel that `CliIo.writePassThrough` and `CliIo.writePassThroughError` now carry. The descriptors that relay such documents still hand them to the composed-text write:
