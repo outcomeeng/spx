@@ -156,7 +156,13 @@ describe("spec context understand payload sourcing", () => {
     for (const coreText of bodies) {
       await withSpecTreeEnv(methodologyTreeConfig(identity.section), async (env) => {
         await env.materialize();
-        const fixture = await writeMethodologyTree(env, { coreText, version: identity.version });
+        // The tree carries the source record, so the absence below is the
+        // projection suppressing it rather than the file never existing.
+        const fixture = await writeMethodologyTree(env, {
+          coreText,
+          version: identity.version,
+          sourceRecord: generatedSourceRecordProviding(identity.version.text),
+        });
         const snapshot = await env.readFilesystemSnapshot();
         const target = snapshot.allNodes[0];
 
