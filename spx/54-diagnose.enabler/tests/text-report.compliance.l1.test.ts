@@ -19,6 +19,7 @@ import {
   OVERALL_SEVERITY,
 } from "@/domains/diagnose/report-contract";
 import { CHECK_RECORD_FIELDS, type DiagnoseReport, OVERALL_VERDICT, VERDICT_BUCKET } from "@/domains/diagnose/types";
+import { DIAGNOSE_CONCISE_SELECTORS } from "@/interfaces/cli/diagnose";
 import { sessionCliDefinition } from "@/interfaces/cli/session/definition";
 import { SEVERITY_STYLE } from "@/lib/styled-output/styled-output";
 import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
@@ -254,7 +255,9 @@ describe("the text report renders through the styled-output primitive", () => {
 describe("the concise diagnosis uses the shared styling primitive", () => {
   it("omits healthy and inapplicable check details while retaining the verdict", () => {
     const report = sampleReport();
-    const output = renderTerminalText(renderReportConcise(report, { color: false }));
+    const output = renderTerminalText(
+      renderReportConcise(report, { color: false, selectors: DIAGNOSE_CONCISE_SELECTORS }),
+    );
     expect(output).toContain(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${OVERALL_VERDICT.HEALTHY}`);
     expect(output).not.toContain(DIAGNOSE_TEXT_HEADER.SPX_INSTALLED);
     expect(output).not.toContain(DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_VALID);
@@ -266,7 +269,9 @@ describe("the concise diagnosis uses the shared styling primitive", () => {
 
   it("renders only actionable headings with their bucket glyphs", () => {
     assertProperty(arbitraryReport(), (report) => {
-      const output = renderTerminalText(renderReportConcise(report, { color: false }));
+      const output = renderTerminalText(
+        renderReportConcise(report, { color: false, selectors: DIAGNOSE_CONCISE_SELECTORS }),
+      );
       for (const check of report.checks) {
         if (check.bucket === VERDICT_BUCKET.HEALTHY || check.bucket === VERDICT_BUCKET.NOT_APPLICABLE) continue;
         expect(output).toContain(SEVERITY_STYLE[BUCKET_SEVERITY[check.bucket]].glyph);

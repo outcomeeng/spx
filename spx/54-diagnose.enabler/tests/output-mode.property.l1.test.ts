@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { overallExitCode } from "@/domains/diagnose/fold";
 import { DIAGNOSE_FORMAT, renderReportConcise, renderReportText } from "@/domains/diagnose/report";
+import { DIAGNOSE_CONCISE_SELECTORS } from "@/interfaces/cli/diagnose";
 import { arbitraryOutputModeScenario } from "@testing/generators/diagnose/output-modes";
 import { withDiagnoseOutputScenario } from "@testing/harnesses/diagnose/output-modes";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
@@ -24,7 +25,11 @@ describe("output selection changes presentation alone", () => {
           switch (format) {
             case DIAGNOSE_FORMAT.CONCISE:
               expect(observation.result.value.output).toBe(
-                renderReportConcise(scenario.report, { color: scenario.color, version: scenario.version }),
+                renderReportConcise(scenario.report, {
+                  color: scenario.color,
+                  version: scenario.version,
+                  selectors: DIAGNOSE_CONCISE_SELECTORS,
+                }),
               );
               break;
             case DIAGNOSE_FORMAT.TEXT:

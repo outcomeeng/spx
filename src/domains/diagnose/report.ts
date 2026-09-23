@@ -56,11 +56,26 @@ export type DiagnoseFormat = (typeof DIAGNOSE_FORMAT)[keyof typeof DIAGNOSE_FORM
 /** The label the text report prefixes the diagnosis line with. */
 export const DIAGNOSE_TEXT_OVERALL_LABEL = "Diagnosis";
 
-export const DIAGNOSE_CONCISE_HINT = "Use --verbose for all check details or --json for the complete report.";
 export const DIAGNOSE_VERSION_LABEL = "SPX";
+
+/**
+ * The explicit output selectors the concise diagnosis points the reader at. The
+ * descriptor that registers them owns their spelling, and this layer may not
+ * import it, so they arrive as host facts the way the executing version does.
+ */
+export interface DiagnoseSelectorNames {
+  readonly verbose: string;
+  readonly json: string;
+}
+
+/** Names both explicit selectors in the spelling the descriptor registered. */
+function conciseHint(selectors: DiagnoseSelectorNames): string {
+  return `Use ${selectors.verbose} for all check details or ${selectors.json} for the complete report.`;
+}
 
 export interface DiagnoseReportOptions extends StyledReportOptions {
   readonly version?: string;
+  readonly selectors: DiagnoseSelectorNames;
 }
 
 /** The count a check reports when it gathered no count reading. */
@@ -574,7 +589,7 @@ export function renderReportConcise(report: DiagnoseReport, options: DiagnoseRep
   };
   return terminal`${authoredText(DIAGNOSE_VERSION_LABEL)} ${externalValue(options.version)}\n${
     renderStyledReport(model, options)
-  }\n${authoredText(DIAGNOSE_CONCISE_HINT)}`;
+  }\n${authoredText(conciseHint(options.selectors))}`;
 }
 
 /** Renders the report in the requested format; the color choice applies to the text form only. */

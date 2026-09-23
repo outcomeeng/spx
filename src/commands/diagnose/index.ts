@@ -20,7 +20,7 @@ import { type DiagnoseConfig, diagnoseConfigDescriptor } from "@/domains/diagnos
 import { type CheckRegistry, runDiagnose } from "@/domains/diagnose/engine";
 import { overallExitCode } from "@/domains/diagnose/fold";
 import { CHECK_NAME, type CheckName, type DiagnoseManifest, parseManifest } from "@/domains/diagnose/manifest";
-import { type DiagnoseFormat, renderReport } from "@/domains/diagnose/report";
+import { type DiagnoseFormat, type DiagnoseSelectorNames, renderReport } from "@/domains/diagnose/report";
 import { resolveDiagnoseCheckSet, resolveDiagnoseFacts } from "@/domains/diagnose/resolve";
 import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 
@@ -38,6 +38,8 @@ export interface DiagnoseCommandOptions {
   readonly format: DiagnoseFormat;
   /** The executing version supplied by the invocation host. */
   readonly version?: string;
+  /** The explicit output selectors, spelled by the descriptor that registers them. */
+  readonly selectors: DiagnoseSelectorNames;
   /** Whether the text report carries ANSI styling, resolved at the descriptor boundary. */
   readonly color: boolean;
   /** The check runners the engine dispatches the resolved check set to. */
@@ -129,7 +131,11 @@ export async function diagnoseCommand(options: DiagnoseCommandOptions): Promise<
   return {
     ok: true,
     value: {
-      output: renderReport(report.value, options.format, { color: options.color, version: options.version }),
+      output: renderReport(report.value, options.format, {
+        color: options.color,
+        version: options.version,
+        selectors: options.selectors,
+      }),
       exitCode: overallExitCode(report.value.overall),
     },
   };

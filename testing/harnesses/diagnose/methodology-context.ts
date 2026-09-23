@@ -26,6 +26,7 @@ import { type CheckRegistry, runDiagnose } from "@/domains/diagnose/engine";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT } from "@/domains/diagnose/report";
 import type { DiagnoseReport } from "@/domains/diagnose/types";
+import { DIAGNOSE_CONCISE_SELECTORS } from "@/interfaces/cli/diagnose";
 import {
   formatMethodologySourceRecord,
   FOUNDATION_MANIFEST_RELATIVE_PATH,
@@ -274,6 +275,7 @@ export async function runMethodologyDiagnoseJson(
       productDir,
       format: DIAGNOSE_FORMAT.JSON,
       color: false,
+      selectors: DIAGNOSE_CONCISE_SELECTORS,
       registry: registryFor(observation),
       fs: { readFile: () => Promise.resolve("") },
     });
@@ -297,6 +299,7 @@ export async function runMethodologyDiagnoseText(
       productDir,
       format: DIAGNOSE_FORMAT.TEXT,
       color: false,
+      selectors: DIAGNOSE_CONCISE_SELECTORS,
       registry: registryFor(observation),
       fs: { readFile: () => Promise.resolve("") },
     });
@@ -316,6 +319,7 @@ export async function runMethodologyManifestWithoutFacts(): Promise<string> {
       manifestPath: "diagnose.json",
       format: DIAGNOSE_FORMAT.TEXT,
       color: false,
+      selectors: DIAGNOSE_CONCISE_SELECTORS,
       registry: registryFor(unresolvedMethodology(false)),
       fs: {
         readFile: () => Promise.resolve(JSON.stringify({ checks: [CHECK_NAME.METHODOLOGY_CONTEXT] })),
@@ -339,6 +343,7 @@ export async function runMethodologyManifestJson(
       manifestPath: "diagnose.json",
       format: DIAGNOSE_FORMAT.JSON,
       color: false,
+      selectors: DIAGNOSE_CONCISE_SELECTORS,
       registry: registryFor(observation),
       fs: {
         readFile: () =>
@@ -367,6 +372,7 @@ export async function runDiagnoseWithLegacyMethodologySection(): Promise<string>
       productDir,
       format: DIAGNOSE_FORMAT.TEXT,
       color: false,
+      selectors: DIAGNOSE_CONCISE_SELECTORS,
       registry: registryFor(unresolvedMethodology(false)),
       fs: { readFile: () => Promise.resolve("") },
     });
@@ -392,6 +398,7 @@ export async function runDiagnoseWithUnrelatedLegacyDefect(
       productDir,
       format: DIAGNOSE_FORMAT.JSON,
       color: false,
+      selectors: DIAGNOSE_CONCISE_SELECTORS,
       registry: registryFor(observation),
       fs: { readFile: () => Promise.resolve("") },
     });
@@ -422,6 +429,7 @@ export async function runDiagnoseWithUnavailableCheck(unavailableCheck: string):
       productDir,
       format: DIAGNOSE_FORMAT.TEXT,
       color: false,
+      selectors: DIAGNOSE_CONCISE_SELECTORS,
       registry: registryFor(unresolvedMethodology(false)),
       fs: { readFile: () => Promise.resolve("") },
     });

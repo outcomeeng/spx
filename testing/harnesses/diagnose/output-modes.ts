@@ -9,7 +9,7 @@ import { DEFAULT_METHODOLOGY_SOURCE, METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECT
 import type { CheckRegistry } from "@/domains/diagnose/engine";
 import { CHECK_NAME, type CheckName, type DiagnoseManifest } from "@/domains/diagnose/manifest";
 import type { DiagnoseFormat } from "@/domains/diagnose/report";
-import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
+import { DIAGNOSE_CLI, DIAGNOSE_CONCISE_SELECTORS } from "@/interfaces/cli/diagnose";
 import { manifestJson } from "@testing/generators/diagnose/manifest";
 import type { OutputModeScenario } from "@testing/generators/diagnose/output-modes";
 import { CLI_PATH, CLI_TIMEOUTS_MS, NODE_EXECUTABLE, VERSION_FLAG } from "@testing/harnesses/constants";
@@ -118,6 +118,7 @@ export async function withDiagnoseOutputScenario<T>(
         format,
         color: scenario.color,
         version: scenario.version,
+        selectors: DIAGNOSE_CONCISE_SELECTORS,
         registry,
         fs: { readFile: (path) => readFile(path, "utf8") },
       });

@@ -26,7 +26,7 @@ import { spxReachabilityRunner } from "@/domains/diagnose/checks/spx-reachabilit
 import { worktreePoolRunner } from "@/domains/diagnose/checks/worktree-pool";
 import type { CheckRegistry } from "@/domains/diagnose/engine";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
-import { DIAGNOSE_FORMAT, type DiagnoseFormat } from "@/domains/diagnose/report";
+import { DIAGNOSE_FORMAT, type DiagnoseFormat, type DiagnoseSelectorNames } from "@/domains/diagnose/report";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { resolveColorChoice } from "@/lib/styled-output/styled-output";
@@ -41,6 +41,12 @@ export const DIAGNOSE_CLI = {
   COLOR_FLAG: "--color",
   NO_COLOR_FLAG: "--no-color",
 } as const;
+
+/** The explicit selectors the concise diagnosis points at, in the spelling this descriptor registers. */
+export const DIAGNOSE_CONCISE_SELECTORS: DiagnoseSelectorNames = {
+  verbose: DIAGNOSE_CLI.VERBOSE_FLAG,
+  json: DIAGNOSE_CLI.JSON_FLAG,
+};
 
 const DIAGNOSE_DOMAIN_DESCRIPTION =
   "Run deterministic environment-diagnostics checks, resolving facts from spx.config or a --manifest";
@@ -106,6 +112,7 @@ export const diagnoseDomain: Domain = {
           productDir,
           format: resolveDiagnoseFormat(options),
           version: invocation.version,
+          selectors: DIAGNOSE_CONCISE_SELECTORS,
           color: resolveColorChoice({
             flag: options.color,
             noColor: process.env.NO_COLOR,
