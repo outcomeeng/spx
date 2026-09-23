@@ -15,6 +15,7 @@ import {
   documentAt,
   documentPaths,
   entryPaths,
+  markdownFixtureBody,
   METHODOLOGY_FIXTURE_VERSION,
   parseContextEntries,
   parseContextManifest,
@@ -139,7 +140,7 @@ describe("spec context list and show", () => {
     await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
       await env.writeRaw(
         rootedArtifactPath(undefined, `${env.fixture.product.title}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`),
-        `# ${env.fixture.product.title}\n`,
+        markdownFixtureBody(env.fixture.product.title),
       );
       const manifest = await contextListManifest({
         targets: [SPEC_TREE_CONFIG.ROOT_DIRECTORY],

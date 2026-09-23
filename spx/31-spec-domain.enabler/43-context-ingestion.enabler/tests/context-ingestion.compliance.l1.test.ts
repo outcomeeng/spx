@@ -17,8 +17,10 @@ import {
 } from "@testing/generators/config/descriptors";
 import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
 import {
+  SPEC_CONTEXT_FIXTURE_STATUS_BODY,
   specContextAmbiguousNestedDirectory,
   specContextExtendedRootDirectory,
+  specContextFixtureSpecContent,
   specContextLowerSiblingDirectoryName,
 } from "@testing/generators/spec-tree/context-target";
 import {
@@ -33,6 +35,7 @@ import {
   contextListFailure,
   contextListManifest,
   contextShowFailure,
+  markdownFixtureBody,
   rootedArtifactPath,
   rootedSpecPath,
   specFilePath,
@@ -46,7 +49,7 @@ describe("spec context ingestion compliance", () => {
     await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
       await env.materialize();
       const extended = specContextExtendedRootDirectory(env.fixture);
-      await env.writeRaw(extended.extendedSpecPath, "# Extended sibling\n");
+      await env.writeRaw(extended.extendedSpecPath, extended.extendedSpecContent);
       const manifest = await contextListManifest({ targets: [extended.operand], cwd: env.productDir });
       expect(manifest.targets).toEqual([rootedSpecPath(extended.operand)]);
     });
@@ -56,7 +59,7 @@ describe("spec context ingestion compliance", () => {
     await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
       await env.materialize();
       const nested = specContextAmbiguousNestedDirectory(env.fixture);
-      await env.writeRaw(nested.nestedSpecPath, "# Nested namesake\n");
+      await env.writeRaw(nested.nestedSpecPath, nested.nestedSpecContent);
       const rootTarget = rootedSpecPath(specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root));
       for (
         const failure of [
@@ -76,7 +79,7 @@ describe("spec context ingestion compliance", () => {
     await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
       await env.materialize();
       const nested = specContextAmbiguousNestedDirectory(env.fixture);
-      await env.writeRaw(nested.nestedSpecPath, "# Nested namesake\n");
+      await env.writeRaw(nested.nestedSpecPath, nested.nestedSpecContent);
       // The child directory exists under the fixture root only, so a resolver
       // that let the descendant pick the ancestor would succeed here.
       const childDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.child);
@@ -99,8 +102,14 @@ describe("spec context ingestion compliance", () => {
         .filter((path): path is string => path !== undefined);
       const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.peer);
       const scratch = specContextLowerSiblingDirectoryName(env.fixture);
-      await env.writeRaw(specFilePath(scratch, env.fixture.root.slug), "# Scratch\n");
-      await env.writeRaw(rootedArtifactPath(target, SPEC_TREE_GRAMMAR.COORDINATION_NOTES[0]), "# Scratch plan\n");
+      await env.writeRaw(
+        specFilePath(scratch, env.fixture.root.slug),
+        specContextFixtureSpecContent(env.fixture, "Scratch"),
+      );
+      await env.writeRaw(
+        rootedArtifactPath(target, SPEC_TREE_GRAMMAR.COORDINATION_NOTES[0]),
+        markdownFixtureBody("Scratch plan"),
+      );
 
       const manifest = await contextListManifest({
         targets: [target],
@@ -148,7 +157,10 @@ describe("spec context ingestion compliance", () => {
         const scratch = specContextLowerSiblingDirectoryName(env.fixture);
         const scratchPath = specFilePath(scratch, env.fixture.root.slug);
         await mkdir(dirname(join(linkedProductDir, scratchPath)), { recursive: true });
-        await writeFile(join(linkedProductDir, scratchPath), "# Untracked scratch\n");
+        await writeFile(
+          join(linkedProductDir, scratchPath),
+          specContextFixtureSpecContent(env.fixture, "Untracked scratch"),
+        );
 
         const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
         const manifest = await contextListManifest({ targets: [target], cwd: nestedCwd });
@@ -172,7 +184,7 @@ describe("spec context ingestion compliance", () => {
         slug: sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug()),
       });
       const missingChild = `${target.id}/${missingChildDirectory}`;
-      await env.writeRaw(rootedSpecPath(`${missingChild}/${NODE_STATUS_FILENAME}`), "{}");
+      await env.writeRaw(rootedSpecPath(`${missingChild}/${NODE_STATUS_FILENAME}`), SPEC_CONTEXT_FIXTURE_STATUS_BODY);
 
       const manifest = await contextListManifest({ targets: [missingChild], cwd: env.productDir });
 

@@ -484,14 +484,28 @@ export const SPEC_CONTEXT_MODE_CARRIES: Readonly<Record<SpecContextMode, readonl
 export function specContextExtendedRootDirectory(fixture: RepresentativeSpecTreeFixture): {
   readonly operand: string;
   readonly extendedSpecPath: string;
+  readonly extendedSpecContent: string;
 } {
   const documents = specContextFixtureDocuments(fixture);
   const extendedDirectory = `${documents.rootDirectory}-${fixture.child.slug}`;
   return {
     operand: documents.rootDirectory,
     extendedSpecPath: `${rooted(extendedDirectory)}/${fixture.root.slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`,
+    extendedSpecContent: specContent("Extended sibling", KIND_REGISTRY[fixture.root.kind].opening),
   };
 }
+
+/**
+ * The body a node-shaped fixture document carries: the title plus the opening
+ * its kind declares, so a case that expects a node to be resolved or excluded
+ * is never satisfied by a document the Digest projection cannot read.
+ */
+export function specContextFixtureSpecContent(fixture: RepresentativeSpecTreeFixture, title: string): string {
+  return specContent(title, KIND_REGISTRY[fixture.root.kind].opening);
+}
+
+/** The inert status-claim payload a fixture writes to make a node-shaped directory tracked. */
+export const SPEC_CONTEXT_FIXTURE_STATUS_BODY = "{}";
 
 export function specContextRejectedTargetOperand(
   fixture: RepresentativeSpecTreeFixture,
