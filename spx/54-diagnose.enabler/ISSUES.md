@@ -26,7 +26,7 @@ This is the same defect as the manifest wire keys above, seen from the other sid
 
 **Settlement condition:** each check module publishes its readings-key registry beside its `record()`, the way `CHECK_RECORD_FIELDS` already does for the enclosing record, and every consumer reads the keys from that owner rather than spelling them.
 
-## Four test files bypass the property harness
+## Five test files bypass the property harness
 
 [`tests/determinism.property.l1.test.ts`](tests/determinism.property.l1.test.ts) and [`tests/check-selection.mapping.l1.test.ts`](tests/check-selection.mapping.l1.test.ts) both call `fc.assert(fc.property(...))` directly. The product's property harness `assertProperty` in [`testing/harnesses/property/property.ts`](../../testing/harnesses/property/property.ts) owns run count, per-run timeout, seed selection, and `SPX_PROPERTY_SEED` replay diagnostics, and the node's sibling property evidence [`tests/output-mode.property.l1.test.ts`](tests/output-mode.property.l1.test.ts) routes through it, as does the repository overlay `spx/local/typescript-tests.md`.
 
@@ -34,7 +34,7 @@ This is the same defect as the manifest wire keys above, seen from the other sid
 
 **Impact:** the run count, timeout, and replay policy for both files fall to fast-check defaults rather than the harness that owns them, so the node's property-driven evidence is governed by two different execution policies. The ninth round raised the severity from a warning to a rejection on a sharper reading of the replay half: fast-check's own failure output carries a seed, but the replay path the product publishes — `SPX_PROPERTY_SEED=<seed>` — is the harness's, so it does not reproduce a failure in a file that bypasses the harness. A reader handed the product's documented replay instruction cannot rerun the failing case.
 
-The tenth round named two more files driving generated domains the same way — [`tests/manifest.conformance.l1.test.ts`](tests/manifest.conformance.l1.test.ts) and [`tests/report.conformance.l1.test.ts`](tests/report.conformance.l1.test.ts) — and held them non-blocking because the seed-reporting requirement is scoped to property-typed evidence. Four of the node's fourteen linked tests now generate under a policy the harness does not own.
+The tenth round named two more files driving generated domains the same way — [`tests/manifest.conformance.l1.test.ts`](tests/manifest.conformance.l1.test.ts) and [`tests/report.conformance.l1.test.ts`](tests/report.conformance.l1.test.ts) — and held them non-blocking because the seed-reporting requirement is scoped to property-typed evidence. A later changeset review named a fifth, [`tests/resolve.mapping.l1.test.ts`](tests/resolve.mapping.l1.test.ts), which calls `fc.assert` at three sites; it is one of the unlinked files the last entry records, so it falls inside this entry's node-wide settlement condition while sitting outside the linked-test count. Four of the node's fourteen linked tests, and one file no assertion reaches, now generate under a policy the harness does not own.
 
 **Settlement condition:** each file passes its arbitrary, its inline predicate, and its level classification to `assertProperty`, and no test file in this node calls `fc.assert` directly.
 
