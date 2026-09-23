@@ -22,6 +22,7 @@ A diagnostic command is expected to run on demand and report health, the way `/d
 - ALWAYS: each check judges against its resolved facts, using a sensible default where configuration supplies none — `spx-reachability` reports presence and version, `marketplace-install` reports not-applicable ([mapping])
 - ALWAYS: no output selector maps to the concise human diagnosis, `--verbose` maps to the detailed human diagnosis, and `--json` maps to the complete JSON report ([mapping])
 - NEVER: `--verbose` and `--json` are accepted together; the invocation is rejected before any diagnostic provider runs ([compliance])
+- NEVER: the retired `--format` selector is accepted; the invocation is rejected naming the selector and no report is emitted ([compliance])
 - ALWAYS: for every report and output selector, provider execution, classification, folding, remediation, and the exit code remain identical; only the rendered presentation differs ([property])
 
 ### Audit

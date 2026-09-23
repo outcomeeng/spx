@@ -9,9 +9,9 @@ CAN deterministically self-diagnose a misconfigured environment by running `spx 
 ### Scenarios
 
 - Given no output selector, when `spx diagnose` runs, then the concise diagnosis names the executing SPX version, states the overall verdict, summarizes the checks requiring action, and points to `--verbose` and `--json` without rendering raw readings or healthy-check detail ([test](tests/concise-report.scenario.l2.test.ts))
-- Given a `diagnose` section in `spx.config` and no `--manifest`, when `spx diagnose` runs, it resolves the diagnostic facts from configuration and emits a schema-valid report keyed to the overall verdict ([test](tests/diagnose-cli.scenario.l2.test.ts))
-- Given no `--manifest` and no `diagnose` configuration, when `spx diagnose` runs, each check reports against its per-check default and the report renders keyed to the overall verdict ([test](tests/diagnose-cli.scenario.l2.test.ts))
-- Given a `--manifest`, when `spx diagnose` runs, it judges against the manifest's facts and emits a schema-valid report in the requested format keyed to the overall verdict ([test](tests/diagnose-cli.scenario.l2.test.ts))
+- Given a `diagnose` section in `spx.config` and no `--manifest`, when `spx diagnose --json` runs, it resolves the diagnostic facts from configuration and emits a schema-valid report keyed to the overall verdict ([test](tests/diagnose-cli.scenario.l2.test.ts))
+- Given no `--manifest` and no `diagnose` configuration, when `spx diagnose --json` runs, each check reports against its per-check default and the report renders keyed to the overall verdict ([test](tests/diagnose-cli.scenario.l2.test.ts))
+- Given a `--manifest`, when `spx diagnose --json` runs, it judges against the manifest's facts and emits a schema-valid report keyed to the overall verdict ([test](tests/diagnose-cli.scenario.l2.test.ts))
 
 ### Mappings
 
@@ -33,6 +33,7 @@ CAN deterministically self-diagnose a misconfigured environment by running `spx 
 ### Compliance
 
 - NEVER: `--verbose` and `--json` are accepted together; the descriptor rejects the invocation before any provider runs ([test](tests/output-mode.compliance.l2.test.ts))
+- NEVER: the retired `--format` selector is accepted; the descriptor rejects the invocation naming the selector and emits no report ([test](tests/output-mode.compliance.l2.test.ts))
 - ALWAYS: the JSON report carries the complete per-check schema for machines, while the detailed human diagnosis (`--verbose`) translates the same check records into a conclusion, the active problems, the useful healthy facts, and concrete next actions without raw boolean fields or duplicated verdict/bucket labels ([test](tests/text-report.compliance.l1.test.ts))
 - ALWAYS: the detailed human diagnosis (`--verbose`) renders through the `spx/13-cli.enabler/21-styled-output.enabler` primitive — each diagnosis line carries the status glyph keyed by the check's bucket and the diagnosis line is colored by the overall verdict's severity; the concise diagnosis uses the same primitive ([test](tests/text-report.compliance.l1.test.ts))
 - ALWAYS: a diagnose error escapes terminal-control bytes in the manifest path, the manifest-named checks, and the caught-error message where each is embedded into terminal text, per `spx/13-cli.enabler/15-cli-architecture.adr.md`; the caught-error message is reported unabridged at any length ([test](tests/error-sanitization.compliance.l2.test.ts))
