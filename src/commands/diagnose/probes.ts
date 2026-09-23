@@ -624,8 +624,7 @@ async function observeShippedLine(
  * the lines spx ships, the coding agents the declared line ships, the agents
  * the product enables, and the provider-declaration check for each enabled
  * agent. The observation reads spx's package root and the product's
- * configuration; a coding agent's home never participates, per
- * `spx/25-outcomeeng.enabler/31-methodology-plugin.enabler`.
+ * configuration; a coding agent's home never participates.
  */
 export function createMethodologyContextProbe(options: MethodologyContextProbeOptions): MethodologyContextProbe {
   const fs = options.fs ?? defaultMethodologyTreeFileSystem;
