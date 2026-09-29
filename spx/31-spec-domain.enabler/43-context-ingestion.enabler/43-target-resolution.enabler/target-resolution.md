@@ -5,7 +5,7 @@ malleability: spec
 # Target Resolution
 
 PROVIDES canonical resolution of context operands to accepted Product Tree target identities
-SO THAT context selection and loaded-context reconstruction
+SO THAT context selection
 CAN accept convenient unambiguous paths while rejecting unknown, ambiguous, unsupported, and outside-product inputs without guessing
 
 ## Assertions

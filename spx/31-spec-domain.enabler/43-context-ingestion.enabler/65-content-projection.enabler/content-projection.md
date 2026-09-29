@@ -17,7 +17,7 @@ CAN receive complete working documents and concise navigation statements without
 
 ### Mappings
 
-- Digest selects methodology-fixed `GOVERNS` for decisions and the configured kind registry's resolved opening keyword for output nodes, subject only to the declared migration-source fallback; wherever a product document is projected it is projected Full, and `--loaded-product` omits it rather than digesting it, so no product Digest exists. A missing required opening or unresolved kind opening fails the whole projection without a title fallback or generated summary. ([test](tests/content.mapping.l1.test.ts))
+- Digest selects methodology-fixed `GOVERNS` for decisions and the configured kind registry's resolved opening keyword for output nodes, subject only to the declared migration-source fallback; wherever a product document is projected it is projected Full, so no product Digest exists. A missing required opening or unresolved kind opening fails the whole projection without a title fallback or generated summary. ([test](tests/content.mapping.l1.test.ts))
 
 ### Compliance
 

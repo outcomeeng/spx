@@ -23,5 +23,5 @@ CAN load the methodology foundation and requested product context through one de
 ### Compliance
 
 - The manifest, source record, reference catalog, templates, and examples remain absent from `show`; workflows resolve an explicitly needed core-relative resource against the framed bundle path. ([test](tests/understand-payload.compliance.l1.test.ts))
-- `--loaded-methodology` declares that the foundation and its live marker remain present, emits no methodology document, and is mutually exclusive with `--methodology`. ([test](tests/understand-payload.compliance.l1.test.ts))
-- SPX persists no loaded-methodology state, and after compaction the agent requests `--methodology` again. ([test](tests/understand-payload.compliance.l1.test.ts))
+- SPX persists no context state between `show` invocations; each invocation projects from tracked and shipped content alone. ([test](tests/understand-payload.compliance.l1.test.ts))
+- After compaction the agent requests `show --methodology` again. ([audit])
