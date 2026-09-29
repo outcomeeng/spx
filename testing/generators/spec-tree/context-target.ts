@@ -17,14 +17,10 @@ import {
   KIND_REGISTRY,
   NODE_SUFFIXES,
   SPEC_CONTEXT_DOCUMENT_OPENING,
-  SPEC_CONTEXT_ENTRY_TYPE,
-  SPEC_CONTEXT_MODE,
   SPEC_CONTEXT_TARGET_FAILURE_KIND,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_SUPERSEDED_NODE_SUFFIXES,
-  type SpecContextMode,
-  type SpecContextProjectedEntry,
   type SpecContextTargetFailure,
   type SpecContextTargetFailureKind,
 } from "@/lib/spec-tree";
@@ -450,31 +446,6 @@ export function specContextAbsentDecisionPath(fixture: RepresentativeSpecTreeFix
     `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${KIND_REGISTRY[fixture.decision.kind].suffix}`,
   );
 }
-
-/**
- * One projected entry at `path` in `mode`: a path-only reference, or a
- * document whose content is its own path so a case can name it by content.
- */
-export function specContextProjectedEntry(path: string, mode: SpecContextMode): SpecContextProjectedEntry {
-  return {
-    selection: { path, mode },
-    entry: mode === SPEC_CONTEXT_MODE.REFERENCE
-      ? { type: SPEC_CONTEXT_ENTRY_TYPE.REFERENCE, path }
-      : { type: SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT, path, metadata: {}, content: path },
-  };
-}
-
-/**
- * The content each loaded mode carries, as the composition spec states it:
- * Full satisfies Full or Digest, Digest satisfies only Digest, and a path
- * present at any mode satisfies a path-only reference. The law is declared
- * by name so it never leans on the numeric mode encoding under test.
- */
-export const SPEC_CONTEXT_MODE_CARRIES: Readonly<Record<SpecContextMode, readonly SpecContextMode[]>> = {
-  [SPEC_CONTEXT_MODE.FULL]: [SPEC_CONTEXT_MODE.FULL, SPEC_CONTEXT_MODE.DIGEST, SPEC_CONTEXT_MODE.REFERENCE],
-  [SPEC_CONTEXT_MODE.DIGEST]: [SPEC_CONTEXT_MODE.DIGEST, SPEC_CONTEXT_MODE.REFERENCE],
-  [SPEC_CONTEXT_MODE.REFERENCE]: [SPEC_CONTEXT_MODE.REFERENCE],
-};
 
 /**
  * A top-level directory whose name extends the fixture root's by one more

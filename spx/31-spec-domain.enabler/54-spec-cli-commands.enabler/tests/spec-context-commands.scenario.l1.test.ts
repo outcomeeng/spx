@@ -11,7 +11,6 @@ import {
   contextListManifest,
   contextListText,
   contextShowEntries,
-  contextShowFailure,
   contextShowJson,
   contextShowText,
   entryPaths,
@@ -34,7 +33,7 @@ describe("spec context command handlers", () => {
     });
   });
 
-  it("emits the targetless or targeted projection from show and accepts every declared option under its compatibility rules", async () => {
+  it("emits the targetless or targeted projection from show and accepts --methodology and --coding-agent", async () => {
     await withSpecTreeEnv(methodologyTreeConfig(), async (env) => {
       await env.materialize();
       const fixture = await writeMethodologyTree(env);
@@ -50,22 +49,9 @@ describe("spec context command handlers", () => {
         targets: [target.id],
         methodology: true,
         codingAgent: fixture.codingAgent,
-        loadedProduct: true,
       });
       expect(foundation[0]?.path).toBe(fixture.documentPath);
-      expect(await contextShowEntries({ ...base, targets: [target.id], loadedTargets: [target.id] })).toEqual([]);
-      expect(entryPaths(await contextShowEntries({ ...base, targets: [target.id], loadedMethodology: true })))
-        .toContain(
-          target.ref?.path,
-        );
-      const exclusive = await contextShowFailure({
-        ...base,
-        targets: [target.id],
-        methodology: true,
-        loadedMethodology: true,
-      });
-      expect(exclusive).toContain(SPEC_DOMAIN_CLI.METHODOLOGY_OPTION);
-      expect(exclusive).toContain(SPEC_DOMAIN_CLI.LOADED_METHODOLOGY_OPTION);
+      expect(entryPaths(foundation).slice(1)).toEqual(entryPaths(targeted));
     });
   });
 

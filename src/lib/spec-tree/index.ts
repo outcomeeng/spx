@@ -88,7 +88,6 @@ export type {
   SpecContextTargetReadSet,
 } from "./context-manifest";
 export {
-  mergeSpecContextSelections,
   projectSpecContextDocument,
   renderSpecContextEntries,
   selectSpecContextDocuments,
@@ -103,7 +102,6 @@ export {
   specContextInlineDecisionCitations,
   specContextOptionalArtifactPaths,
   splitSpecContextFrontMatter,
-  suppressLoadedSpecContext,
 } from "./context-projection";
 export type {
   SpecContextDocumentEntry,

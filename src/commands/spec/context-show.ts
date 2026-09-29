@@ -24,7 +24,6 @@ import {
   type SpecContextTarget,
   type SpecContextTargetFailure,
   splitSpecContextFrontMatter,
-  suppressLoadedSpecContext,
 } from "@/lib/spec-tree";
 import { jsonDocument, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { JSON_INDENTATION } from "./context";
@@ -51,9 +50,6 @@ export function parseSpecContextEntriesJson(text: string): readonly SpecContextE
 
 export interface ContextShowOptions extends ContextInputOptions {
   readonly targets: readonly string[];
-  readonly loadedTargets?: readonly string[];
-  readonly loadedProduct?: boolean;
-  readonly loadedMethodology?: boolean;
   readonly methodology?: boolean;
   readonly codingAgent?: string;
   readonly methodologyTreeRoot?: string;
@@ -84,7 +80,7 @@ async function readProjectedDocument(
 async function projectContext(
   input: ContextInput,
   targets: readonly SpecContextTarget[],
-): Promise<readonly SpecContextProjectedEntry[]> {
+): Promise<readonly SpecContextEntry[]> {
   const structural = await existingSelections(input, targets);
   const structuralPaths = new Set(structural.map(({ path }) => path));
   const decisions = new Set(input.snapshot.decisions.flatMap(({ ref }) => ref?.path ?? []));
@@ -117,9 +113,9 @@ async function projectContext(
     ...structural.map(({ path }) => {
       const document = projected.get(path);
       if (document === undefined) throw new Error(`Unresolved context document: ${path}`);
-      return document;
+      return document.entry;
     }),
-    ...additional,
+    ...additional.map(({ entry }) => entry),
   ];
 }
 
@@ -176,19 +172,10 @@ async function methodologyDocument(input: ContextInput, options: ContextShowOpti
 }
 
 export async function resolveContextShow(options: ContextShowOptions): Promise<ContextShowResult> {
-  if (options.methodology === true && options.loadedMethodology === true) {
-    throw new Error("--methodology and --loaded-methodology are mutually exclusive");
-  }
   const input = await readContextInput(options);
   const requested = await resolveContextTargets(input, options.targets);
   if (!requested.ok) return requested;
-  const loaded = await resolveContextTargets(input, options.loadedTargets ?? []);
-  if (!loaded.ok) return loaded;
-  const projection = await projectContext(input, requested.targets);
-  const prior: SpecContextProjectedEntry[] = [];
-  if (options.loadedProduct === true) prior.push(...await projectContext(input, []));
-  for (const target of loaded.targets) prior.push(...await projectContext(input, [target]));
-  const entries = suppressLoadedSpecContext(projection, prior);
+  const entries = await projectContext(input, requested.targets);
   return {
     ok: true,
     entries: options.methodology === true ? [await methodologyDocument(input, options), ...entries] : entries,

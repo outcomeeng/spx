@@ -34,10 +34,6 @@ export const SPEC_DOMAIN_CLI = {
   RETIRED_APPLY_COMMAND: "apply",
   JSON_OPTION: "--json",
   METHODOLOGY_OPTION: "--methodology",
-  LOADED_PRODUCT_OPTION: "--loaded-product",
-  LOADED_TARGET_OPTION: "--loaded-target",
-  LOADED_TARGET_OPTION_DEFINITION: "--loaded-target <path>",
-  LOADED_METHODOLOGY_OPTION: "--loaded-methodology",
   CODING_AGENT_OPTION: "--coding-agent",
   CODING_AGENT_OPTION_DEFINITION: "--coding-agent <name>",
   FORMAT_OPTION_FLAG: "--format",
@@ -160,36 +156,19 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
     .option(SPEC_DOMAIN_CLI.JSON_OPTION, "Output as JSON")
     .option(SPEC_DOMAIN_CLI.METHODOLOGY_OPTION, "Include the shipped methodology foundation")
     .option(
-      SPEC_DOMAIN_CLI.LOADED_PRODUCT_OPTION,
-      "Suppress the targetless product projection already loaded in this conversation window",
-    )
-    .option(
-      SPEC_DOMAIN_CLI.LOADED_TARGET_OPTION_DEFINITION,
-      "Suppress a target projection already loaded in this conversation window",
-      (path: string, paths: string[]) => [...paths, path],
-      [],
-    )
-    .option(
-      SPEC_DOMAIN_CLI.LOADED_METHODOLOGY_OPTION,
-      "Declare the methodology foundation present in this conversation window",
-    )
-    .option(
       SPEC_DOMAIN_CLI.CODING_AGENT_OPTION_DEFINITION,
       "Coding agent whose shipped methodology tree the payload reads; defaults to the invoking agent",
     )
     .action(
       async (
         targets: string[],
-        options: Partial<ContextShowOptions> & { json?: boolean; loadedTarget?: string[] },
+        options: Partial<ContextShowOptions> & { json?: boolean },
       ) => {
         try {
           const result = await resolveContextShow({
             targets,
             cwd: invocation.resolveEffectiveInvocationDir(),
             methodology: options.methodology === true,
-            loadedMethodology: options.loadedMethodology === true,
-            loadedProduct: options.loadedProduct === true,
-            loadedTargets: options.loadedTarget,
             codingAgent: options.codingAgent ?? inferInvokingCodingAgent(process.env),
             methodologyTreeRoot: invocation.methodologyTreeRoot,
             onWarning,
