@@ -7,7 +7,6 @@ import {
   contextShowEntries,
   contextShowFailure,
   documentAt,
-  entryPaths,
   rootedSpecPath,
   specTreeKindsConfig,
   withRichContextEnv,
@@ -49,7 +48,7 @@ describe("spec context Digest openings", () => {
     },
   );
 
-  it("maps a projected product document to Full and omits it under --loaded-product rather than digesting it", async () => {
+  it("maps a projected product document to Full wherever it is projected and never to a Digest", async () => {
     await withRichContextEnv(async (env, paths) => {
       // Wherever the product is projected it carries its complete source; no
       // call renders it as an opening paragraph.
@@ -60,14 +59,6 @@ describe("spec context Digest openings", () => {
         expect(documentAt(entries, paths.productPath)?.content, JSON.stringify(targets))
           .toBe(paths.sourceText[paths.productPath]);
       }
-      // Declaring the product loaded removes the entry; it never degrades to a
-      // Digest of the same path.
-      const suppressed = await contextShowEntries({
-        targets: [paths.targetId],
-        cwd: env.productDir,
-        loadedProduct: true,
-      });
-      expect(entryPaths(suppressed)).not.toContain(paths.productPath);
     });
   });
 });

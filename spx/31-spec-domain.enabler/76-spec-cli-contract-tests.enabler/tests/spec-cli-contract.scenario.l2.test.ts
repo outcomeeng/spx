@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
-import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
 import { SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
-import { METHODOLOGY_CODING_AGENT } from "@/lib/methodology";
-import { KIND_REGISTRY, SPEC_CONTEXT_ENTRY_TYPE, SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION } from "@/lib/spec-tree";
+import { KIND_REGISTRY, SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION } from "@/lib/spec-tree";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import {
   RETIRED_SPEC_CONTEXT_CONTENT_FIXTURE,
@@ -13,13 +11,9 @@ import {
   specCliUnsupportedStatusFormatFixture,
 } from "@testing/generators/spec-tree/spec-cli";
 import { RETIRED_SPEC_APPLY_FIXTURE, specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
-import { shippedFoundationCoreBody, shippedMethodologyVersion } from "@testing/harnesses/methodology/shipped-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextListManifest,
-  entryPaths,
-  methodologyTreeConfig,
-  parseContextEntries,
   parseContextManifest,
   runSpecCli,
   runSpecCliWithIsolation,
@@ -112,99 +106,6 @@ describe("spx spec process contract", () => {
       expect(result.stderr).toContain(RETIRED_SPEC_CONTEXT_CONTENT_FIXTURE.option);
       expect(result.stdout).toHaveLength(0);
     });
-  });
-
-  it("accepts loaded declarations and suppresses only entries covered at a sufficient mode", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
-      await env.materialize();
-      const snapshot = await env.readFilesystemSnapshot();
-      const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
-      const targetSpecPath = snapshot.allNodes.find((node) => node.id === target)?.ref?.path;
-      // A target declared loaded is fully covered, so nothing remains in either representation.
-      const covered = await runSpecCli(
-        env.productDir,
-        SPEC_DOMAIN_CLI.COMMAND,
-        SPEC_DOMAIN_CLI.CONTEXT_COMMAND,
-        SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND,
-        target,
-        SPEC_DOMAIN_CLI.LOADED_TARGET_OPTION,
-        target,
-        SPEC_DOMAIN_CLI.JSON_OPTION,
-      );
-      expect(covered.exitCode, covered.stderr).toBe(0);
-      expect(parseContextEntries(covered.stdout)).toEqual([]);
-      const coveredText = await runSpecCli(
-        env.productDir,
-        SPEC_DOMAIN_CLI.COMMAND,
-        SPEC_DOMAIN_CLI.CONTEXT_COMMAND,
-        SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND,
-        target,
-        SPEC_DOMAIN_CLI.LOADED_TARGET_OPTION,
-        target,
-      );
-      expect(coveredText.exitCode, coveredText.stderr).toBe(0);
-      expect(coveredText.stdout).toHaveLength(0);
-      // The loaded product projection covers the product spec in Full and the
-      // top-level target only as a Digest, so the product spec is suppressed
-      // while the target's Full document is still emitted.
-      const partial = await runSpecCli(
-        env.productDir,
-        SPEC_DOMAIN_CLI.COMMAND,
-        SPEC_DOMAIN_CLI.CONTEXT_COMMAND,
-        SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND,
-        target,
-        SPEC_DOMAIN_CLI.LOADED_PRODUCT_OPTION,
-        SPEC_DOMAIN_CLI.JSON_OPTION,
-      );
-      expect(partial.exitCode, partial.stderr).toBe(0);
-      const remaining = entryPaths(parseContextEntries(partial.stdout));
-      expect(remaining).not.toContain(snapshot.product?.ref?.path);
-      expect(remaining).toContain(targetSpecPath);
-    });
-  });
-
-  it("rejects incompatible methodology flags and accepts --methodology beside --loaded-product", async () => {
-    const shipped = await shippedMethodologyVersion();
-    await withSpecTreeEnv(
-      methodologyTreeConfig({ [METHODOLOGY_CONFIG_FIELDS.VERSION]: shipped.text }),
-      async (env) => {
-        await env.materialize();
-        const snapshot = await env.readFilesystemSnapshot();
-        const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
-        const exclusive = await runSpecCli(
-          env.productDir,
-          SPEC_DOMAIN_CLI.COMMAND,
-          SPEC_DOMAIN_CLI.CONTEXT_COMMAND,
-          SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND,
-          target,
-          SPEC_DOMAIN_CLI.METHODOLOGY_OPTION,
-          SPEC_DOMAIN_CLI.LOADED_METHODOLOGY_OPTION,
-        );
-        expect(exclusive.exitCode).toBe(1);
-        expect(exclusive.stderr).toContain(SPEC_DOMAIN_CLI.METHODOLOGY_OPTION);
-        expect(exclusive.stderr).toContain(SPEC_DOMAIN_CLI.LOADED_METHODOLOGY_OPTION);
-        expect(exclusive.stdout).toHaveLength(0);
-        const valid = await runSpecCli(
-          env.productDir,
-          SPEC_DOMAIN_CLI.COMMAND,
-          SPEC_DOMAIN_CLI.CONTEXT_COMMAND,
-          SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND,
-          target,
-          SPEC_DOMAIN_CLI.METHODOLOGY_OPTION,
-          SPEC_DOMAIN_CLI.LOADED_PRODUCT_OPTION,
-          SPEC_DOMAIN_CLI.CODING_AGENT_OPTION,
-          METHODOLOGY_CODING_AGENT.CLAUDE,
-          SPEC_DOMAIN_CLI.JSON_OPTION,
-        );
-        expect(valid.exitCode, valid.stderr).toBe(0);
-        const entries = parseContextEntries(valid.stdout);
-        const foundation = entries[0];
-        expect(foundation?.type === SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT ? foundation.content : undefined).toBe(
-          await shippedFoundationCoreBody(shipped.line, METHODOLOGY_CODING_AGENT.CLAUDE),
-        );
-        expect(entryPaths(entries)).not.toContain(snapshot.product?.ref?.path);
-      },
-    );
   });
 
   it("rejects an unsupported status output format", async () => {

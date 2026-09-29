@@ -125,17 +125,6 @@ export function compareSpecContextTreeEntries(
     || compareSpecContextOrdinal(leftName, rightName);
 }
 
-export function mergeSpecContextSelections(
-  selections: readonly SpecContextSelection[],
-): readonly SpecContextSelection[] {
-  const merged = new Map<string, SpecContextSelection>();
-  for (const selection of selections) {
-    const previous = merged.get(selection.path);
-    if (previous === undefined || selection.mode > previous.mode) merged.set(selection.path, selection);
-  }
-  return [...merged.values()];
-}
-
 export function selectSpecContextDocuments(
   snapshot: SpecTreeSnapshot,
   targets: readonly SpecContextTarget[],
@@ -322,18 +311,6 @@ export function specContextCitedSelection(path: string): SpecContextSelection {
     migrationFallback: true,
     scanCitations: true,
   };
-}
-
-export function suppressLoadedSpecContext(
-  requested: readonly SpecContextProjectedEntry[],
-  loaded: readonly SpecContextProjectedEntry[],
-): readonly SpecContextEntry[] {
-  const modes = new Map(
-    mergeSpecContextSelections(loaded.map(({ selection }) => selection))
-      .map(({ path, mode }) => [path, mode]),
-  );
-  return requested.filter(({ selection }) => (modes.get(selection.path) ?? -1) < selection.mode)
-    .map(({ entry }) => entry);
 }
 
 export function renderSpecContextEntries(entries: readonly SpecContextEntry[]): string {

@@ -1,13 +1,15 @@
+import { readdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_VERSION_FORM } from "@/config/methodology";
-import { SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import {
   formatRangeOperandFormError,
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   SOURCE_RECORD_RELATIVE_PATH,
 } from "@/lib/methodology";
-import { SPEC_CONTEXT_ENTRY_TYPE } from "@/lib/spec-tree";
+import { compareSpecContextOrdinal, SPEC_CONTEXT_ENTRY_TYPE } from "@/lib/spec-tree";
 import * as fc from "fast-check";
 
 import {
@@ -23,11 +25,14 @@ import {
   supportsRangeExcluding,
 } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
+import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextShowEntries,
   contextShowFailure,
+  documentAt,
   methodologyTreeConfig,
+  withRichContextEnv,
   writeMethodologyTree,
 } from "@testing/harnesses/spec/context";
 
@@ -144,68 +149,66 @@ describe("spec context understand payload provider match", () => {
 });
 
 describe("spec context understand payload sourcing", () => {
-  it("always sources the foundation body from the shipped tree's manifest-named core and never persists a loaded-methodology state", async () => {
-    // Two runs over two different shipped core bodies: the emitted body
-    // tracks the shipped resource bytes exactly, so no embedded snapshot can
-    // be the source; a --loaded-methodology run in between leaves nothing
-    // behind that changes the next request.
+  it("serves the manifest-named core and keeps the manifest, source record, and catalog resources out of show", async () => {
     const identity = generatedMethodologyIdentity();
-    const bodies = sampleGeneratedValue(
-      fc.tuple(arbitraryMarkdownBody(), arbitraryMarkdownBody()).filter(([first, second]) => first !== second),
-    );
-    for (const coreText of bodies) {
-      await withSpecTreeEnv(methodologyTreeConfig(identity.section), async (env) => {
-        await env.materialize();
-        // The tree carries the source record, so the absence below is the
-        // projection suppressing it rather than the file never existing.
-        const fixture = await writeMethodologyTree(env, {
-          coreText,
-          version: identity.version,
-          sourceRecord: generatedSourceRecordProviding(identity.version.text),
-        });
-        const snapshot = await env.readFilesystemSnapshot();
-        const target = snapshot.allNodes[0];
-
-        const options = {
-          targets: [target.id],
-          cwd: env.productDir,
-          methodologyTreeRoot: fixture.treeRoot,
-        };
-        const served = await contextShowEntries({ ...options, methodology: true });
-        expect(served[0]).toEqual({
-          type: SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT,
-          path: fixture.documentPath,
-          metadata: {},
-          content: coreText,
-        });
-        // The manifest, source record, and catalog resources stay internal.
-        for (
-          const internal of [FOUNDATION_MANIFEST_RELATIVE_PATH, SOURCE_RECORD_RELATIVE_PATH, ...fixture.catalogPaths]
-        ) {
-          expect(served.some((entry) => entry.path.endsWith(internal)), internal).toBe(false);
-        }
-        const declaredLoaded = await contextShowEntries({ ...options, loadedMethodology: true });
-        expect(declaredLoaded[0]?.path).toBe(snapshot.product?.ref?.path);
-        expect(await contextShowEntries({ ...options, methodology: true })).toEqual(served);
-      });
-    }
-  });
-
-  it("never accepts --methodology together with --loaded-methodology", async () => {
-    await withSpecTreeEnv(methodologyTreeConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyTreeConfig(identity.section), async (env) => {
       await env.materialize();
-      const fixture = await writeMethodologyTree(env);
+      // The tree carries the source record, so the absence below is the
+      // projection leaving it out rather than the file never existing.
+      const fixture = await writeMethodologyTree(env, {
+        coreText: sampleGeneratedValue(arbitraryMarkdownBody()),
+        version: identity.version,
+        sourceRecord: generatedSourceRecordProviding(identity.version.text),
+      });
       const snapshot = await env.readFilesystemSnapshot();
-      const target = snapshot.allNodes[0];
-      const failure = await contextShowFailure({
-        targets: [target.id],
+      const served = await contextShowEntries({
+        targets: [snapshot.allNodes[0].id],
         cwd: env.productDir,
         methodology: true,
-        loadedMethodology: true,
         methodologyTreeRoot: fixture.treeRoot,
       });
-      expect(failure).toContain(SPEC_DOMAIN_CLI.METHODOLOGY_OPTION);
-      expect(failure).toContain(SPEC_DOMAIN_CLI.LOADED_METHODOLOGY_OPTION);
+      expect(served[0]).toEqual({
+        type: SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT,
+        path: fixture.documentPath,
+        metadata: {},
+        content: fixture.coreText,
+      });
+      for (
+        const internal of [FOUNDATION_MANIFEST_RELATIVE_PATH, SOURCE_RECORD_RELATIVE_PATH, ...fixture.catalogPaths]
+      ) {
+        expect(served.some((entry) => entry.path.endsWith(internal)), internal).toBe(false);
+      }
+    });
+  });
+
+  it("persists no context state between show invocations and projects each invocation from the tracked and shipped content present when it runs", async () => {
+    const [firstCore, laterCore] = sampleGeneratedValue(
+      fc.tuple(arbitraryMarkdownBody(), arbitraryMarkdownBody()).filter(([first, later]) => first !== later),
+    );
+    await withRichContextEnv(async (env, paths) => {
+      const fixture = await writeMethodologyTree(env, { coreText: firstCore });
+      const options = {
+        targets: [paths.targetId],
+        cwd: env.productDir,
+        methodology: true,
+        methodologyTreeRoot: fixture.treeRoot,
+      };
+      // The shipped tree stands under the product directory, so one listing
+      // covers every location an invocation could leave state in.
+      const before = (await readdir(env.productDir, { recursive: true })).sort(compareSpecContextOrdinal);
+      const first = await contextShowEntries(options);
+      expect((await readdir(env.productDir, { recursive: true })).sort(compareSpecContextOrdinal)).toEqual(before);
+      expect(first[0]).toMatchObject({ path: fixture.documentPath, content: firstCore });
+      // A later invocation over changed shipped and tracked content projects
+      // the content as it stands, so nothing the first run produced survives
+      // into the second.
+      const marker = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+      await writeFile(join(fixture.treeDir, fixture.corePath), laterCore);
+      await env.writeRaw(paths.targetSpecPath, `${paths.sourceText[paths.targetSpecPath]}\n${marker}\n`);
+      const later = await contextShowEntries(options);
+      expect(later[0]).toMatchObject({ path: fixture.documentPath, content: laterCore });
+      expect(documentAt(first, paths.targetSpecPath)?.content).not.toContain(marker);
+      expect(documentAt(later, paths.targetSpecPath)?.content).toContain(marker);
     });
   });
 });
