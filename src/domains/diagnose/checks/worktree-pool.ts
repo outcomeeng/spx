@@ -49,6 +49,18 @@ export interface WorktreePoolProbe {
   probe(): Promise<WorktreePoolReading>;
 }
 
+/** The reading keys a worktree-pool check record carries. */
+export const WORKTREE_POOL_READING_KEY = {
+  BARE: "bare",
+  LINKED: "linked",
+  MAIN_CHECKOUT_PATH: "mainCheckoutPath",
+  DEFAULT_BRANCH: "defaultBranch",
+  MAIN_CHECKOUT_BRANCH: "mainCheckoutBranch",
+  MAIN_CHECKOUT_BRANCH_READ: "mainCheckoutBranchRead",
+  RUNNING: "running",
+  FREE: "free",
+} as const;
+
 const REMEDIATION: Readonly<Record<WorktreePoolVerdict, string>> = {
   [WORKTREE_POOL_VERDICT.COMPLIANT]: "Worktree layout is compliant; no action needed.",
   [WORKTREE_POOL_VERDICT.NON_COMPLIANT]:
@@ -72,14 +84,14 @@ function record(
     verdict,
     bucket,
     readings: {
-      bare: String(reading.bareRepository),
-      linked: String(reading.linkedWorktrees),
-      mainCheckoutPath: reading.mainCheckoutPath ?? "",
-      defaultBranch: reading.defaultBranch ?? "",
-      mainCheckoutBranch: reading.mainCheckoutBranch ?? "",
-      mainCheckoutBranchRead: String(reading.mainCheckoutBranchRead),
-      running: String(reading.running),
-      free: String(reading.free),
+      [WORKTREE_POOL_READING_KEY.BARE]: String(reading.bareRepository),
+      [WORKTREE_POOL_READING_KEY.LINKED]: String(reading.linkedWorktrees),
+      [WORKTREE_POOL_READING_KEY.MAIN_CHECKOUT_PATH]: reading.mainCheckoutPath ?? "",
+      [WORKTREE_POOL_READING_KEY.DEFAULT_BRANCH]: reading.defaultBranch ?? "",
+      [WORKTREE_POOL_READING_KEY.MAIN_CHECKOUT_BRANCH]: reading.mainCheckoutBranch ?? "",
+      [WORKTREE_POOL_READING_KEY.MAIN_CHECKOUT_BRANCH_READ]: String(reading.mainCheckoutBranchRead),
+      [WORKTREE_POOL_READING_KEY.RUNNING]: String(reading.running),
+      [WORKTREE_POOL_READING_KEY.FREE]: String(reading.free),
     },
     remediation: REMEDIATION[verdict],
   };

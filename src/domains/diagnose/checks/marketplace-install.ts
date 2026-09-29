@@ -47,6 +47,14 @@ export interface MarketplaceInstallProbe {
   probe(marketplace: MarketplaceIdentity, expectedPlugins: readonly string[]): Promise<MarketplaceInstallProbeReading>;
 }
 
+/** The reading keys a marketplace-install check record carries. */
+export const MARKETPLACE_INSTALL_READING_KEY = {
+  CONFIGURED: "configured",
+  SURFACE: "surface",
+  UNREGISTERED: "unregistered",
+  DRIFTED: "drifted",
+} as const;
+
 const REMEDIATION: Readonly<Record<MarketplaceInstallVerdict, string>> = {
   [MARKETPLACE_INSTALL_VERDICT.INSTALLED]:
     "Marketplace and expected plugins are installed and enabled; no action needed.",
@@ -68,10 +76,10 @@ function record(
     verdict,
     bucket,
     readings: {
-      configured: String(reading.configured),
-      surface: String(reading.surfacePresent),
-      unregistered: String(reading.unregistered),
-      drifted: String(reading.drifted),
+      [MARKETPLACE_INSTALL_READING_KEY.CONFIGURED]: String(reading.configured),
+      [MARKETPLACE_INSTALL_READING_KEY.SURFACE]: String(reading.surfacePresent),
+      [MARKETPLACE_INSTALL_READING_KEY.UNREGISTERED]: String(reading.unregistered),
+      [MARKETPLACE_INSTALL_READING_KEY.DRIFTED]: String(reading.drifted),
     },
     remediation: REMEDIATION[verdict],
   };

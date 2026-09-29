@@ -41,6 +41,11 @@ export function doingSessionBackedByClaim(session: SessionRecord, claimedSession
     && claimedSessionIds.has(normalizeAgentSessionToken(session.agent_session_id));
 }
 
+/** The reading keys a session-store check record carries. */
+export const SESSION_STORE_READING_KEY = {
+  ORPHANED: "orphaned",
+} as const;
+
 const REMEDIATION: Readonly<Record<SessionStoreVerdict, string>> = {
   [SESSION_STORE_VERDICT.CONSISTENT]: "Session store read succeeded; no action needed.",
   [SESSION_STORE_VERDICT.UNKNOWN]: "Re-run diagnose; if it persists, inspect spx session list and occupancy claims.",
@@ -56,7 +61,7 @@ function record(
     verdict,
     bucket,
     readings: {
-      orphaned: String(reading.orphanedClaims),
+      [SESSION_STORE_READING_KEY.ORPHANED]: String(reading.orphanedClaims),
     },
     remediation: REMEDIATION[verdict],
   };

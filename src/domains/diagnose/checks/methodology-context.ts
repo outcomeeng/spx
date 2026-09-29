@@ -19,6 +19,19 @@ export const METHODOLOGY_CONTEXT_READING_VALUE = {
   NONE: "(none)",
 } as const;
 
+/** The reading keys a methodology-context check record carries. */
+export const METHODOLOGY_CONTEXT_READING_KEY = {
+  CONFIGURED: "configured",
+  CONFIGURED_SOURCE: "configuredSource",
+  CONFIGURED_VERSION: "configuredVersion",
+  MIGRATING_FROM: "migratingFrom",
+  LINE: "line",
+  SHIPPED_LINES: "shippedLines",
+  SHIPPED_CODING_AGENTS: "shippedCodingAgents",
+  ENABLED_CODING_AGENTS: "enabledCodingAgents",
+  PROVIDER_MATCH: "providerMatch",
+} as const;
+
 const READING_LIST_SEPARATOR = ", ";
 
 /** What the probe observes about spx's shipped trees against the declared methodology. */
@@ -77,15 +90,15 @@ function record(
     verdict,
     bucket,
     readings: {
-      configured: String(reading.configured),
-      configuredSource: readingValue(reading.configuredSource),
-      configuredVersion: readingValue(reading.configuredVersion),
-      migratingFrom: readingValue(reading.migratingFrom),
-      line: readingValue(reading.line),
-      shippedLines: readingList(reading.shippedLines),
-      shippedCodingAgents: readingList(reading.shippedCodingAgents),
-      enabledCodingAgents: readingList(reading.enabledCodingAgents),
-      providerMatch: readingValue(reading.providerMismatch ?? reading.providerMatch),
+      [METHODOLOGY_CONTEXT_READING_KEY.CONFIGURED]: String(reading.configured),
+      [METHODOLOGY_CONTEXT_READING_KEY.CONFIGURED_SOURCE]: readingValue(reading.configuredSource),
+      [METHODOLOGY_CONTEXT_READING_KEY.CONFIGURED_VERSION]: readingValue(reading.configuredVersion),
+      [METHODOLOGY_CONTEXT_READING_KEY.MIGRATING_FROM]: readingValue(reading.migratingFrom),
+      [METHODOLOGY_CONTEXT_READING_KEY.LINE]: readingValue(reading.line),
+      [METHODOLOGY_CONTEXT_READING_KEY.SHIPPED_LINES]: readingList(reading.shippedLines),
+      [METHODOLOGY_CONTEXT_READING_KEY.SHIPPED_CODING_AGENTS]: readingList(reading.shippedCodingAgents),
+      [METHODOLOGY_CONTEXT_READING_KEY.ENABLED_CODING_AGENTS]: readingList(reading.enabledCodingAgents),
+      [METHODOLOGY_CONTEXT_READING_KEY.PROVIDER_MATCH]: readingValue(reading.providerMismatch ?? reading.providerMatch),
     },
     remediation: REMEDIATION[verdict],
   };

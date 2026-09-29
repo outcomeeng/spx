@@ -10,6 +10,12 @@
 
 import type { Result } from "@/config/types";
 
+/** The wire keys of a marketplace identity, shared by the manifest and the `diagnose` config section. */
+export const MARKETPLACE_IDENTITY_FIELDS = {
+  NAME: "name",
+  SOURCE: "source",
+} as const;
+
 /** The marketplace identity a consumer depends on. */
 export interface MarketplaceIdentity {
   readonly name: string;
@@ -31,10 +37,17 @@ export function isNonEmptyStringArray(value: unknown): value is readonly string[
   return Array.isArray(value) && value.length > 0 && value.every(isNonEmptyString);
 }
 
+function marketplaceIdentityError(field: string): string {
+  return `${field} must carry a non-empty \`${MARKETPLACE_IDENTITY_FIELDS.NAME}\` and \`${MARKETPLACE_IDENTITY_FIELDS.SOURCE}\``;
+}
+
 /** Validates a marketplace-identity value, labelling errors with the supplied field path. */
 export function validateMarketplaceIdentity(value: unknown, field: string): Result<MarketplaceIdentity> {
-  if (!isRecord(value) || !isNonEmptyString(value.name) || !isNonEmptyString(value.source)) {
-    return { ok: false, error: `${field} must carry a non-empty \`name\` and \`source\`` };
+  if (!isRecord(value)) return { ok: false, error: marketplaceIdentityError(field) };
+  const name = value[MARKETPLACE_IDENTITY_FIELDS.NAME];
+  const source = value[MARKETPLACE_IDENTITY_FIELDS.SOURCE];
+  if (!isNonEmptyString(name) || !isNonEmptyString(source)) {
+    return { ok: false, error: marketplaceIdentityError(field) };
   }
-  return { ok: true, value: { name: value.name, source: value.source } };
+  return { ok: true, value: { name, source } };
 }

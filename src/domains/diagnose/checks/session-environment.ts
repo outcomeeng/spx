@@ -40,6 +40,13 @@ export interface SessionEnvironmentProbe {
   probe(): Promise<SessionEnvironmentReading>;
 }
 
+/** The reading keys a session-environment check record carries. */
+export const SESSION_ENVIRONMENT_READING_KEY = {
+  HOOK: "hook",
+  IDENTITY: "identity",
+  CLAIMED: "claimed",
+} as const;
+
 export const SESSION_ENVIRONMENT_REMEDIATION: Readonly<Record<SessionEnvironmentVerdict, string>> = {
   [SESSION_ENVIRONMENT_VERDICT.WORKING]: "Session environment is established; no action needed.",
   [SESSION_ENVIRONMENT_VERDICT.IDENTITY_ONLY]:
@@ -62,9 +69,9 @@ function record(
     verdict,
     bucket,
     readings: {
-      hook: String(reading.hookPresent),
-      identity: String(reading.sessionIdentity),
-      claimed: String(reading.worktreeClaimed),
+      [SESSION_ENVIRONMENT_READING_KEY.HOOK]: String(reading.hookPresent),
+      [SESSION_ENVIRONMENT_READING_KEY.IDENTITY]: String(reading.sessionIdentity),
+      [SESSION_ENVIRONMENT_READING_KEY.CLAIMED]: String(reading.worktreeClaimed),
     },
     remediation: SESSION_ENVIRONMENT_REMEDIATION[verdict],
   };

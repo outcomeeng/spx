@@ -30,6 +30,13 @@ export const SPX_REACHABILITY_READING_VALUE = {
   UNRESOLVED_PATH: "(not on PATH)",
 } as const;
 
+/** The reading keys a spx-reachability check record carries. */
+export const SPX_REACHABILITY_READING_KEY = {
+  PATH: "path",
+  VERSION: "version",
+  FLOOR: "floor",
+} as const;
+
 /** The reading the probe gathers: the resolved path and version, or an error flag. */
 export interface SpxReachabilityReading {
   /** The `spx` path resolved on PATH, or null when `spx` is absent from PATH. */
@@ -132,9 +139,9 @@ function record(
     verdict,
     bucket,
     readings: {
-      path: reading.resolvedPath ?? SPX_REACHABILITY_READING_VALUE.UNRESOLVED_PATH,
-      version: reading.version ?? SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION,
-      floor: floor ?? SPX_REACHABILITY_READING_VALUE.ABSENT_FLOOR,
+      [SPX_REACHABILITY_READING_KEY.PATH]: reading.resolvedPath ?? SPX_REACHABILITY_READING_VALUE.UNRESOLVED_PATH,
+      [SPX_REACHABILITY_READING_KEY.VERSION]: reading.version ?? SPX_REACHABILITY_READING_VALUE.UNREAD_VERSION,
+      [SPX_REACHABILITY_READING_KEY.FLOOR]: floor ?? SPX_REACHABILITY_READING_VALUE.ABSENT_FLOOR,
     },
     remediation: REMEDIATION[verdict],
   };
