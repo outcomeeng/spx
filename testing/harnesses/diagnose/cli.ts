@@ -5,7 +5,7 @@ import { execa } from "execa";
 
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import { DEFAULT_METHODOLOGY_SOURCE } from "@/config/methodology";
-import { CHECK_NAME } from "@/domains/diagnose/manifest";
+import { CHECK_NAME, MANIFEST_FIELDS } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
 import { arbitraryManifestFacts, arbitrarySpxFloor, manifestJson } from "@testing/generators/diagnose/manifest";
 import { sampleGeneratedValue } from "@testing/generators/sample";
@@ -53,7 +53,13 @@ export async function withDiagnoseCli<T>(callback: (env: DiagnoseCliEnvironment)
       },
       writeReachabilityManifest: async () => {
         const spxFloor = sampleGeneratedValue(arbitrarySpxFloor());
-        await writeFile(manifestPath, JSON.stringify({ checks: [CHECK_NAME.SPX_REACHABILITY], spx_floor: spxFloor }));
+        await writeFile(
+          manifestPath,
+          JSON.stringify({
+            [MANIFEST_FIELDS.CHECKS]: [CHECK_NAME.SPX_REACHABILITY],
+            [MANIFEST_FIELDS.SPX_FLOOR]: spxFloor,
+          }),
+        );
         return { manifestPath, spxFloor };
       },
       writeAllChecksManifest: async () => {
@@ -70,7 +76,7 @@ export async function withDiagnoseCli<T>(callback: (env: DiagnoseCliEnvironment)
       },
       absentManifestPath: (infix) => join(productDir, `manifest${infix}.json`),
       writeManifestNamingCheck: async (checkName) => {
-        await writeFile(manifestPath, JSON.stringify({ checks: [checkName] }));
+        await writeFile(manifestPath, JSON.stringify({ [MANIFEST_FIELDS.CHECKS]: [checkName] }));
         return manifestPath;
       },
     });

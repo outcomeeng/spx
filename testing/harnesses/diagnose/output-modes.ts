@@ -10,6 +10,7 @@ import { DIAGNOSE_CONFIG_FIELDS, DIAGNOSE_SECTION } from "@/domains/diagnose/con
 import type { CheckRegistry } from "@/domains/diagnose/engine";
 import { CHECK_NAME, type CheckName, type DiagnoseManifest } from "@/domains/diagnose/manifest";
 import type { DiagnoseFormat } from "@/domains/diagnose/report";
+import type { CheckRecord } from "@/domains/diagnose/types";
 import { DIAGNOSE_CLI, DIAGNOSE_CONCISE_SELECTORS } from "@/interfaces/cli/diagnose";
 import { manifestJson } from "@testing/generators/diagnose/manifest";
 import type { OutputModeScenario } from "@testing/generators/diagnose/output-modes";
@@ -92,6 +93,34 @@ export async function withDiagnoseOutputCli<T>(
   });
 }
 
+/** A registry of recording providers and the observations they accumulate across one run. */
+export interface RecordingCheckRegistry {
+  readonly registry: CheckRegistry;
+  /** The check names in the order the pipeline invoked their providers. */
+  readonly calls: readonly string[];
+  /** The resolved manifest each provider received, in invocation order. */
+  readonly manifests: readonly DiagnoseManifest[];
+}
+
+/**
+ * Builds a provider for each supplied record. A provider records its invocation and the manifest it
+ * received, then returns a copy of its record, so the pipeline's selection and ordering are observable
+ * without any provider touching the environment.
+ */
+export function recordingCheckRegistry(records: readonly CheckRecord[]): RecordingCheckRegistry {
+  const calls: string[] = [];
+  const manifests: DiagnoseManifest[] = [];
+  const registry: CheckRegistry = Object.fromEntries(records.map((check) => [
+    check.name as CheckName,
+    async (manifest: DiagnoseManifest) => {
+      calls.push(check.name);
+      manifests.push(structuredClone(manifest));
+      return structuredClone(check);
+    },
+  ]));
+  return { registry, calls, manifests };
+}
+
 /** Recording providers expose calls and inputs; the real handler still resolves, folds, and renders. */
 export async function withDiagnoseOutputScenario<T>(
   scenario: OutputModeScenario,
@@ -107,16 +136,7 @@ export async function withDiagnoseOutputScenario<T>(
     const manifestPath = join(productDir, "manifest.json");
     await writeFile(manifestPath, manifestJson(scenario.facts));
     return callback(async (format) => {
-      const calls: string[] = [];
-      const manifests: DiagnoseManifest[] = [];
-      const registry: CheckRegistry = Object.fromEntries(scenario.report.checks.map((check) => [
-        check.name as CheckName,
-        async (manifest: DiagnoseManifest) => {
-          calls.push(check.name);
-          manifests.push(structuredClone(manifest));
-          return structuredClone(check);
-        },
-      ]));
+      const { registry, calls, manifests } = recordingCheckRegistry(scenario.report.checks);
       const result = await diagnoseCommand({
         productDir,
         manifestPath,

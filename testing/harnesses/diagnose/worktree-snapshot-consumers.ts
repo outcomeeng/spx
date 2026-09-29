@@ -19,7 +19,11 @@ import {
   type WorktreePoolSnapshotProvider,
 } from "@/commands/diagnose/probes";
 import { classifySessionEnvironment, SESSION_ENVIRONMENT_VERDICT } from "@/domains/diagnose/checks/session-environment";
-import { classifySessionStore, SESSION_STORE_VERDICT } from "@/domains/diagnose/checks/session-store";
+import {
+  classifySessionStore,
+  SESSION_STORE_READING_KEY,
+  SESSION_STORE_VERDICT,
+} from "@/domains/diagnose/checks/session-store";
 import { VERDICT_BUCKET } from "@/domains/diagnose/types";
 import { HOOK_SESSION_START_ENV } from "@/domains/hooks/session-start";
 import { normalizeAgentSessionToken } from "@/domains/session/agent-session";
@@ -200,7 +204,7 @@ export function assertSessionStoreSnapshotMapping(): void {
     const record = classifySessionStore(reading);
 
     expect(reading).toEqual({ errored: false, orphanedClaims: includeOrphanedClaim ? 0 : 1 });
-    expect(record.readings.orphaned).toBe(String(reading.orphanedClaims));
+    expect(record.readings[SESSION_STORE_READING_KEY.ORPHANED]).toBe(String(reading.orphanedClaims));
     expect(record.verdict).toBe(SESSION_STORE_VERDICT.CONSISTENT);
     expect(record.bucket).toBe(VERDICT_BUCKET.HEALTHY);
     expect(record.remediation.length).toBeGreaterThan(0);

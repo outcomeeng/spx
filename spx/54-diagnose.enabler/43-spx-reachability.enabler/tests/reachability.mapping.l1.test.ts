@@ -1,7 +1,11 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { classifySpxReachability, SPX_REACHABILITY_VERDICT } from "@/domains/diagnose/checks/spx-reachability";
+import {
+  classifySpxReachability,
+  SPX_REACHABILITY_READING_KEY,
+  SPX_REACHABILITY_VERDICT,
+} from "@/domains/diagnose/checks/spx-reachability";
 import { VERDICT_BUCKET } from "@/domains/diagnose/types";
 import { arbitraryNameToken, arbitrarySpxFloor } from "@testing/generators/diagnose/manifest";
 import { arbitraryFloorParts, spxReachabilityReading } from "@testing/generators/diagnose/reachability";
@@ -115,8 +119,8 @@ describe("the spx-reachability check classifies spx against the manifest floor",
         const result = classifySpxReachability(spxReachabilityReading({ resolvedPath: path, version }), undefined);
         expect(result.verdict).toBe(SPX_REACHABILITY_VERDICT.PRESENT);
         expect(result.bucket).toBe(VERDICT_BUCKET.HEALTHY);
-        expect(result.readings.path).toBe(path);
-        expect(result.readings.version).toBe(version);
+        expect(result.readings[SPX_REACHABILITY_READING_KEY.PATH]).toBe(path);
+        expect(result.readings[SPX_REACHABILITY_READING_KEY.VERSION]).toBe(version);
         expect(result.remediation.length).toBeGreaterThan(0);
       }),
     );
@@ -131,7 +135,7 @@ describe("the spx-reachability check classifies spx against the manifest floor",
         );
         expect(result.verdict).toBe(SPX_REACHABILITY_VERDICT.PRESENT);
         expect(result.bucket).toBe(VERDICT_BUCKET.HEALTHY);
-        expect(result.readings.path).toBe(path);
+        expect(result.readings[SPX_REACHABILITY_READING_KEY.PATH]).toBe(path);
       }),
     );
   });

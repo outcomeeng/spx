@@ -11,8 +11,9 @@
 
 import fc from "fast-check";
 
-import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
-import { CHECK_NAME, type CheckName } from "@/domains/diagnose/manifest";
+import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
+import { MARKETPLACE_IDENTITY_FIELDS } from "@/domains/diagnose/facts";
+import { CHECK_NAME, type CheckName, MANIFEST_FIELDS } from "@/domains/diagnose/manifest";
 import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 
 const DIAGNOSE_SAMPLE_SEED = 7;
@@ -78,18 +79,23 @@ export const arbitraryManifestFacts = (): fc.Arbitrary<ManifestFacts> =>
     expectedPlugins: fc.array(arbitraryNameToken(), { minLength: 1, maxLength: 5 }),
   });
 
+/** The wire shape of a marketplace identity, keyed by its source-owned fields. */
+export function marketplaceIdentityJson(name: string, source: string): Record<string, string> {
+  return { [MARKETPLACE_IDENTITY_FIELDS.NAME]: name, [MARKETPLACE_IDENTITY_FIELDS.SOURCE]: source };
+}
+
 /** Serializes manifest facts to the manifest JSON, emitting only the consumer facts the selected checks require. */
 export function manifestJson(facts: ManifestFacts): string {
-  const body: Record<string, unknown> = { checks: facts.checks };
+  const body: Record<string, unknown> = { [MANIFEST_FIELDS.CHECKS]: facts.checks };
   if (facts.checks.includes(CHECK_NAME.SPX_REACHABILITY)) {
-    body.spx_floor = facts.spxFloor;
+    body[MANIFEST_FIELDS.SPX_FLOOR] = facts.spxFloor;
   }
   if (facts.checks.includes(CHECK_NAME.MARKETPLACE_INSTALL)) {
-    body.marketplace = { name: facts.marketplaceName, source: facts.marketplaceSource };
-    body.expected_plugins = facts.expectedPlugins;
+    body[MANIFEST_FIELDS.MARKETPLACE] = marketplaceIdentityJson(facts.marketplaceName, facts.marketplaceSource);
+    body[MANIFEST_FIELDS.EXPECTED_PLUGINS] = facts.expectedPlugins;
   }
   if (facts.checks.includes(CHECK_NAME.METHODOLOGY_CONTEXT)) {
-    body[METHODOLOGY_SECTION] = {
+    body[MANIFEST_FIELDS.METHODOLOGY] = {
       [METHODOLOGY_CONFIG_FIELDS.SOURCE]: facts.methodologySource,
       [METHODOLOGY_CONFIG_FIELDS.VERSION]: facts.methodologyVersion,
     };

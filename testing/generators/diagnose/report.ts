@@ -9,8 +9,11 @@
 
 import fc from "fast-check";
 
-import { METHODOLOGY_CONTEXT_VERDICT } from "@/domains/diagnose/checks/methodology-context";
-import { SPX_REACHABILITY_VERDICT } from "@/domains/diagnose/checks/spx-reachability";
+import {
+  METHODOLOGY_CONTEXT_READING_KEY,
+  METHODOLOGY_CONTEXT_VERDICT,
+} from "@/domains/diagnose/checks/methodology-context";
+import { SPX_REACHABILITY_READING_KEY, SPX_REACHABILITY_VERDICT } from "@/domains/diagnose/checks/spx-reachability";
 import { foldOverallVerdict } from "@/domains/diagnose/fold";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { type CheckRecord, type DiagnoseReport, VERDICT_BUCKET, type VerdictBucket } from "@/domains/diagnose/types";
@@ -55,26 +58,27 @@ export const arbitraryUnsafeReadingReport = (): fc.Arbitrary<DiagnoseReport> =>
         name: CHECK_NAME.SPX_REACHABILITY,
         verdict: SPX_REACHABILITY_VERDICT.REACHABLE,
         bucket: VERDICT_BUCKET.HEALTHY,
-        readings: { version, path },
+        readings: { [SPX_REACHABILITY_READING_KEY.VERSION]: version, [SPX_REACHABILITY_READING_KEY.PATH]: path },
         remediation,
       }],
       overall: foldOverallVerdict([VERDICT_BUCKET.HEALTHY]),
     }));
 
 /**
- * A methodology-context report whose `configuredSource` reading is absent
+ * A methodology-context report whose configured-source reading is absent
  * rather than empty — the case the partial readings record admits and the text
- * renderer resolves to the source-owned undefined sentinel.
+ * renderer resolves to the source-owned undefined sentinel. The record carries
+ * the configured-version reading, so the absent key is the only one missing.
  */
 export const arbitraryAbsentReadingReport = (): fc.Arbitrary<DiagnoseReport> =>
   fc
     .tuple(arbitraryNameToken(), arbitraryNameToken())
-    .map(([observedVersion, remediation]) => ({
+    .map(([configuredVersion, remediation]) => ({
       checks: [{
         name: CHECK_NAME.METHODOLOGY_CONTEXT,
         verdict: METHODOLOGY_CONTEXT_VERDICT.RESOLVED,
         bucket: VERDICT_BUCKET.HEALTHY,
-        readings: { observedVersion },
+        readings: { [METHODOLOGY_CONTEXT_READING_KEY.CONFIGURED_VERSION]: configuredVersion },
         remediation,
       }],
       overall: foldOverallVerdict([VERDICT_BUCKET.HEALTHY]),

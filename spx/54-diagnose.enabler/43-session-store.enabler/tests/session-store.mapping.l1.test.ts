@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifySessionStore,
   doingSessionBackedByClaim,
+  SESSION_STORE_READING_KEY,
   SESSION_STORE_VERDICT,
   type SessionStoreReading,
 } from "@/domains/diagnose/checks/session-store";
@@ -60,7 +61,7 @@ describe("the session-store check classifies the store from sessions joined to o
         const result = classifySessionStore(reading({ orphanedClaims }));
         expect(result.verdict).toBe(SESSION_STORE_VERDICT.CONSISTENT);
         expect(result.bucket).toBe(VERDICT_BUCKET.HEALTHY);
-        expect(result.readings.orphaned).toBe(String(orphanedClaims));
+        expect(result.readings[SESSION_STORE_READING_KEY.ORPHANED]).toBe(String(orphanedClaims));
         expect(result.remediation.length).toBeGreaterThan(0);
         expect(result.remediation).not.toContain(
           `${sessionCliDefinition.domain.commandName} ${sessionCliDefinition.subcommands.release.commandName}`,

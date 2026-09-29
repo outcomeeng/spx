@@ -1,15 +1,26 @@
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_METHODOLOGY_SOURCE } from "@/config/methodology";
-import { MARKETPLACE_INSTALL_VERDICT } from "@/domains/diagnose/checks/marketplace-install";
 import {
+  MARKETPLACE_INSTALL_READING_KEY,
+  MARKETPLACE_INSTALL_VERDICT,
+} from "@/domains/diagnose/checks/marketplace-install";
+import {
+  METHODOLOGY_CONTEXT_READING_KEY,
   METHODOLOGY_CONTEXT_READING_VALUE,
   METHODOLOGY_CONTEXT_VERDICT,
 } from "@/domains/diagnose/checks/methodology-context";
-import { SESSION_ENVIRONMENT_VERDICT } from "@/domains/diagnose/checks/session-environment";
-import { SESSION_STORE_VERDICT } from "@/domains/diagnose/checks/session-store";
-import { SPX_REACHABILITY_READING_VALUE, SPX_REACHABILITY_VERDICT } from "@/domains/diagnose/checks/spx-reachability";
-import { WORKTREE_POOL_VERDICT } from "@/domains/diagnose/checks/worktree-pool";
+import {
+  SESSION_ENVIRONMENT_READING_KEY,
+  SESSION_ENVIRONMENT_VERDICT,
+} from "@/domains/diagnose/checks/session-environment";
+import { SESSION_STORE_READING_KEY, SESSION_STORE_VERDICT } from "@/domains/diagnose/checks/session-store";
+import {
+  SPX_REACHABILITY_READING_KEY,
+  SPX_REACHABILITY_READING_VALUE,
+  SPX_REACHABILITY_VERDICT,
+} from "@/domains/diagnose/checks/spx-reachability";
+import { WORKTREE_POOL_READING_KEY, WORKTREE_POOL_VERDICT } from "@/domains/diagnose/checks/worktree-pool";
 import { foldOverallVerdict, overallExitCode } from "@/domains/diagnose/fold";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_TEXT_OVERALL_LABEL } from "@/domains/diagnose/report";
@@ -43,7 +54,7 @@ describe("spx diagnose resolves facts and emits verdict-keyed reports", () => {
       }
       expect(report.checks).toHaveLength(1);
       expect(report.checks[0].name).toBe(CHECK_NAME.SPX_REACHABILITY);
-      expect(report.checks[0].readings.floor).toBe(fixture.spxFloor);
+      expect(report.checks[0].readings[SPX_REACHABILITY_READING_KEY.FLOOR]).toBe(fixture.spxFloor);
       expect(report.overall).toBe(foldOverallVerdict(report.checks.map((check) => check.bucket)));
       expect(result.exitCode).toBe(overallExitCode(report.overall));
     });
@@ -71,9 +82,11 @@ describe("spx diagnose resolves facts and emits verdict-keyed reports", () => {
       const methodology = report.checks.find((check) => check.name === CHECK_NAME.METHODOLOGY_CONTEXT);
       const marketplace = report.checks.find((check) => check.name === CHECK_NAME.MARKETPLACE_INSTALL);
       expect(Object.values(METHODOLOGY_CONTEXT_VERDICT)).toContain(methodology?.verdict);
-      expect(methodology?.readings.configuredSource).toBe(DEFAULT_METHODOLOGY_SOURCE);
-      expect(methodology?.readings.configuredVersion).toBe(METHODOLOGY_FIXTURE_VERSION);
-      expect(marketplace?.readings.configured).toBe(String(true));
+      expect(methodology?.readings[METHODOLOGY_CONTEXT_READING_KEY.CONFIGURED_SOURCE]).toBe(DEFAULT_METHODOLOGY_SOURCE);
+      expect(methodology?.readings[METHODOLOGY_CONTEXT_READING_KEY.CONFIGURED_VERSION]).toBe(
+        METHODOLOGY_FIXTURE_VERSION,
+      );
+      expect(marketplace?.readings[MARKETPLACE_INSTALL_READING_KEY.CONFIGURED]).toBe(String(true));
       expect(marketplace?.verdict).not.toBe(MARKETPLACE_INSTALL_VERDICT.NOT_APPLICABLE);
       expect(report.overall).toBe(foldOverallVerdict(report.checks.map((check) => check.bucket)));
       expect(result.exitCode).toBe(overallExitCode(report.overall));
@@ -117,7 +130,7 @@ describe("spx diagnose resolves facts and emits verdict-keyed reports", () => {
       const result = await env.run([DIAGNOSE_CLI.JSON_FLAG]);
       const report = JSON.parse(result.stdout) as DiagnoseReport;
       expect(report.checks.map((check) => check.name)).toEqual([CHECK_NAME.SPX_REACHABILITY]);
-      expect(report.checks[0].readings.floor).toBe(scenario.floor);
+      expect(report.checks[0].readings[SPX_REACHABILITY_READING_KEY.FLOOR]).toBe(scenario.floor);
       expect(report.checks[0].verdict).not.toBe(SPX_REACHABILITY_VERDICT.PRESENT);
       expect(result.exitCode).toBe(overallExitCode(report.overall));
     });
@@ -128,7 +141,7 @@ describe("spx diagnose resolves facts and emits verdict-keyed reports", () => {
       const result = await env.run([DIAGNOSE_CLI.JSON_FLAG]);
       const report = JSON.parse(result.stdout) as DiagnoseReport;
       expect(report.checks.map((check) => check.name)).toEqual([CHECK_NAME.SPX_REACHABILITY]);
-      expect(report.checks[0].readings.floor).toBe(scenario.floor);
+      expect(report.checks[0].readings[SPX_REACHABILITY_READING_KEY.FLOOR]).toBe(scenario.floor);
       expect(result.exitCode).toBe(overallExitCode(report.overall));
     });
   });
@@ -144,7 +157,7 @@ describe("spx diagnose resolves facts and emits verdict-keyed reports", () => {
         expect(new Set(report.checks.map((check) => check.name))).toEqual(new Set(Object.values(CHECK_NAME)));
         expect(methodology?.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.UNKNOWN);
         expect(methodology?.bucket).toBe(VERDICT_BUCKET.UNKNOWN);
-        expect(methodology?.readings.configured).toBe(String(true));
+        expect(methodology?.readings[METHODOLOGY_CONTEXT_READING_KEY.CONFIGURED]).toBe(String(true));
         expect(result.exitCode).toBe(overallExitCode(report.overall));
       });
     },
@@ -156,7 +169,7 @@ describe("spx diagnose resolves facts and emits verdict-keyed reports", () => {
       const result = await env.run([DIAGNOSE_CLI.MANIFEST_FLAG, fixture.manifestPath, DIAGNOSE_CLI.JSON_FLAG]);
       const report = JSON.parse(result.stdout) as DiagnoseReport;
       expect(report.checks.map((check) => check.name)).toEqual([CHECK_NAME.SPX_REACHABILITY]);
-      expect(report.checks[0].readings.floor).toBe(fixture.spxFloor);
+      expect(report.checks[0].readings[SPX_REACHABILITY_READING_KEY.FLOOR]).toBe(fixture.spxFloor);
       expect(result.exitCode).toBe(overallExitCode(report.overall));
     });
   });
@@ -174,41 +187,45 @@ describe("spx diagnose resolves facts and emits verdict-keyed reports", () => {
       const methodology = report.checks.find((check) => check.name === CHECK_NAME.METHODOLOGY_CONTEXT);
       expect(new Set(report.checks.map((check) => check.name))).toEqual(new Set(Object.values(CHECK_NAME)));
       expect([SPX_REACHABILITY_VERDICT.PRESENT, SPX_REACHABILITY_VERDICT.UNREACHABLE]).toContain(spx?.verdict);
-      expect(spx?.readings.floor).toBe(SPX_REACHABILITY_READING_VALUE.ABSENT_FLOOR);
+      expect(spx?.readings[SPX_REACHABILITY_READING_KEY.FLOOR]).toBe(SPX_REACHABILITY_READING_VALUE.ABSENT_FLOOR);
       expect(session?.verdict).toBe(SESSION_ENVIRONMENT_VERDICT.UNKNOWN);
-      expect(session?.readings).toEqual({ hook: String(false), identity: String(false), claimed: String(false) });
+      expect(session?.readings).toEqual({
+        [SESSION_ENVIRONMENT_READING_KEY.HOOK]: String(false),
+        [SESSION_ENVIRONMENT_READING_KEY.IDENTITY]: String(false),
+        [SESSION_ENVIRONMENT_READING_KEY.CLAIMED]: String(false),
+      });
       expect(worktree?.verdict).toBe(WORKTREE_POOL_VERDICT.UNKNOWN);
       expect(worktree?.readings).toMatchObject({
-        bare: String(false),
-        linked: String(false),
-        mainCheckoutBranchRead: String(false),
-        running: String(0),
-        free: String(0),
+        [WORKTREE_POOL_READING_KEY.BARE]: String(false),
+        [WORKTREE_POOL_READING_KEY.LINKED]: String(false),
+        [WORKTREE_POOL_READING_KEY.MAIN_CHECKOUT_BRANCH_READ]: String(false),
+        [WORKTREE_POOL_READING_KEY.RUNNING]: String(0),
+        [WORKTREE_POOL_READING_KEY.FREE]: String(0),
       });
-      expect(worktree?.readings.mainCheckoutPath).toHaveLength(0);
-      expect(worktree?.readings.defaultBranch).toHaveLength(0);
-      expect(worktree?.readings.mainCheckoutBranch).toHaveLength(0);
+      expect(worktree?.readings[WORKTREE_POOL_READING_KEY.MAIN_CHECKOUT_PATH]).toHaveLength(0);
+      expect(worktree?.readings[WORKTREE_POOL_READING_KEY.DEFAULT_BRANCH]).toHaveLength(0);
+      expect(worktree?.readings[WORKTREE_POOL_READING_KEY.MAIN_CHECKOUT_BRANCH]).toHaveLength(0);
       expect(store?.verdict).toBe(SESSION_STORE_VERDICT.UNKNOWN);
-      expect(store?.readings.orphaned).toBe(String(0));
+      expect(store?.readings[SESSION_STORE_READING_KEY.ORPHANED]).toBe(String(0));
       expect(marketplace?.verdict).toBe(MARKETPLACE_INSTALL_VERDICT.NOT_APPLICABLE);
       expect(marketplace?.readings).toEqual({
-        configured: String(false),
-        surface: String(false),
-        unregistered: String(false),
-        drifted: String(false),
+        [MARKETPLACE_INSTALL_READING_KEY.CONFIGURED]: String(false),
+        [MARKETPLACE_INSTALL_READING_KEY.SURFACE]: String(false),
+        [MARKETPLACE_INSTALL_READING_KEY.UNREGISTERED]: String(false),
+        [MARKETPLACE_INSTALL_READING_KEY.DRIFTED]: String(false),
       });
       expect(methodology?.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.UNDECLARED);
-      expect(methodology?.readings.configuredSource).toBe(DEFAULT_METHODOLOGY_SOURCE);
+      expect(methodology?.readings[METHODOLOGY_CONTEXT_READING_KEY.CONFIGURED_SOURCE]).toBe(DEFAULT_METHODOLOGY_SOURCE);
       expect(methodology?.readings).toEqual({
-        configured: String(true),
-        configuredSource: DEFAULT_METHODOLOGY_SOURCE,
-        configuredVersion: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
-        migratingFrom: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
-        line: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
-        shippedLines: METHODOLOGY_CONTEXT_READING_VALUE.NONE,
-        shippedCodingAgents: METHODOLOGY_CONTEXT_READING_VALUE.NONE,
-        enabledCodingAgents: [...METHODOLOGY_CODING_AGENTS].join(", "),
-        providerMatch: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
+        [METHODOLOGY_CONTEXT_READING_KEY.CONFIGURED]: String(true),
+        [METHODOLOGY_CONTEXT_READING_KEY.CONFIGURED_SOURCE]: DEFAULT_METHODOLOGY_SOURCE,
+        [METHODOLOGY_CONTEXT_READING_KEY.CONFIGURED_VERSION]: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
+        [METHODOLOGY_CONTEXT_READING_KEY.MIGRATING_FROM]: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
+        [METHODOLOGY_CONTEXT_READING_KEY.LINE]: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
+        [METHODOLOGY_CONTEXT_READING_KEY.SHIPPED_LINES]: METHODOLOGY_CONTEXT_READING_VALUE.NONE,
+        [METHODOLOGY_CONTEXT_READING_KEY.SHIPPED_CODING_AGENTS]: METHODOLOGY_CONTEXT_READING_VALUE.NONE,
+        [METHODOLOGY_CONTEXT_READING_KEY.ENABLED_CODING_AGENTS]: [...METHODOLOGY_CODING_AGENTS].join(", "),
+        [METHODOLOGY_CONTEXT_READING_KEY.PROVIDER_MATCH]: METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
       });
       expect(report.overall).toBe(foldOverallVerdict(report.checks.map((check) => check.bucket)));
       expect(textRun.stdout).toContain(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${report.overall}`);

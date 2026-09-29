@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import { METHODOLOGY_SECTION } from "@/config/methodology";
 import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
 import { AGENT, METHODOLOGY_CODING_AGENT_BY_AGENT } from "@/domains/agent-environment/config";
-import { METHODOLOGY_CONTEXT_VERDICT } from "@/domains/diagnose/checks/methodology-context";
+import {
+  METHODOLOGY_CONTEXT_READING_KEY,
+  METHODOLOGY_CONTEXT_VERDICT,
+} from "@/domains/diagnose/checks/methodology-context";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_TEXT_HEADER } from "@/domains/diagnose/report";
 import { DIAGNOSE_RESOLVE_ERROR } from "@/domains/diagnose/resolve";
@@ -76,12 +79,12 @@ describe("methodology-context diagnose compliance", () => {
       // additionally renders the provider diagnostic that names the disagreement,
       // so the text report withholds nothing the JSON record carries.
       if (check.verdict === METHODOLOGY_CONTEXT_VERDICT.UNKNOWN) continue;
-      expect(text, String(check.verdict)).toContain(readings.configuredSource);
+      expect(text, String(check.verdict)).toContain(readings[METHODOLOGY_CONTEXT_READING_KEY.CONFIGURED_SOURCE]);
       if (methodology.version !== undefined) {
-        expect(text, String(check.verdict)).toContain(readings.configuredVersion);
+        expect(text, String(check.verdict)).toContain(readings[METHODOLOGY_CONTEXT_READING_KEY.CONFIGURED_VERSION]);
       }
       if (check.verdict === METHODOLOGY_CONTEXT_VERDICT.MISMATCHED) {
-        expect(text, String(check.verdict)).toContain(readings.providerMatch);
+        expect(text, String(check.verdict)).toContain(readings[METHODOLOGY_CONTEXT_READING_KEY.PROVIDER_MATCH]);
       }
     }
   });
@@ -242,7 +245,9 @@ describe("methodology-context diagnose compliance", () => {
 
     expect(check.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.MISMATCHED);
     expect(check.bucket).toBe(VERDICT_BUCKET.BROKEN);
-    expect(check.readings).toEqual(expect.objectContaining({ providerMatch: diagnostic }));
+    expect(check.readings).toEqual(
+      expect.objectContaining({ [METHODOLOGY_CONTEXT_READING_KEY.PROVIDER_MATCH]: diagnostic }),
+    );
   });
 
   it("classifies an undeclared version as degraded without probing a tree", async () => {

@@ -23,7 +23,7 @@ import {
 } from "@/domains/diagnose/checks/methodology-context";
 import { DIAGNOSE_CONFIG_FIELDS, DIAGNOSE_SECTION } from "@/domains/diagnose/config";
 import { type CheckRegistry, runDiagnose } from "@/domains/diagnose/engine";
-import { CHECK_NAME } from "@/domains/diagnose/manifest";
+import { CHECK_NAME, MANIFEST_FIELDS } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT } from "@/domains/diagnose/report";
 import type { DiagnoseReport } from "@/domains/diagnose/types";
 import { DIAGNOSE_CONCISE_SELECTORS } from "@/interfaces/cli/diagnose";
@@ -322,7 +322,7 @@ export async function runMethodologyManifestWithoutFacts(): Promise<string> {
       selectors: DIAGNOSE_CONCISE_SELECTORS,
       registry: registryFor(unresolvedMethodology(false)),
       fs: {
-        readFile: () => Promise.resolve(JSON.stringify({ checks: [CHECK_NAME.METHODOLOGY_CONTEXT] })),
+        readFile: () => Promise.resolve(JSON.stringify({ [MANIFEST_FIELDS.CHECKS]: [CHECK_NAME.METHODOLOGY_CONTEXT] })),
       },
     });
     if (!result.ok) error = result.error;
@@ -348,8 +348,8 @@ export async function runMethodologyManifestJson(
       fs: {
         readFile: () =>
           Promise.resolve(JSON.stringify({
-            checks: [CHECK_NAME.METHODOLOGY_CONTEXT],
-            [METHODOLOGY_SECTION]: methodologySection(methodology),
+            [MANIFEST_FIELDS.CHECKS]: [CHECK_NAME.METHODOLOGY_CONTEXT],
+            [MANIFEST_FIELDS.METHODOLOGY]: methodologySection(methodology),
           })),
       },
     });

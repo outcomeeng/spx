@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  METHODOLOGY_CONTEXT_READING_KEY,
   METHODOLOGY_CONTEXT_READING_VALUE,
   METHODOLOGY_CONTEXT_VERDICT,
 } from "@/domains/diagnose/checks/methodology-context";
@@ -35,11 +36,11 @@ describe("methodology-context diagnose scenarios", () => {
     expect(check.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.RESOLVED);
     expect(check.bucket).toBe(VERDICT_BUCKET.HEALTHY);
     expect(check.readings).toEqual(expect.objectContaining({
-      configuredSource: methodology.source,
-      configuredVersion: methodology.version,
-      line: lineOf(methodology),
-      shippedCodingAgents: [...METHODOLOGY_CODING_AGENTS].join(", "),
-      providerMatch: PROVIDER_MATCH.UNDECLARED,
+      [METHODOLOGY_CONTEXT_READING_KEY.CONFIGURED_SOURCE]: methodology.source,
+      [METHODOLOGY_CONTEXT_READING_KEY.CONFIGURED_VERSION]: methodology.version,
+      [METHODOLOGY_CONTEXT_READING_KEY.LINE]: lineOf(methodology),
+      [METHODOLOGY_CONTEXT_READING_KEY.SHIPPED_CODING_AGENTS]: [...METHODOLOGY_CODING_AGENTS].join(", "),
+      [METHODOLOGY_CONTEXT_READING_KEY.PROVIDER_MATCH]: PROVIDER_MATCH.UNDECLARED,
     }));
     expect(report.overall).toBe(OVERALL_VERDICT.HEALTHY);
   });
@@ -53,8 +54,8 @@ describe("methodology-context diagnose scenarios", () => {
 
     expect(check.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.RESOLVED);
     expect(check.readings).toEqual(expect.objectContaining({
-      configuredVersion: methodology.version,
-      migratingFrom: methodology.migratingFrom,
+      [METHODOLOGY_CONTEXT_READING_KEY.CONFIGURED_VERSION]: methodology.version,
+      [METHODOLOGY_CONTEXT_READING_KEY.MIGRATING_FROM]: methodology.migratingFrom,
     }));
   });
 
@@ -69,9 +70,9 @@ describe("methodology-context diagnose scenarios", () => {
     expect(check.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE);
     expect(check.bucket).toBe(VERDICT_BUCKET.DEGRADED);
     expect(check.readings).toEqual(expect.objectContaining({
-      line: lineOf(methodology),
-      shippedLines: shippedLine,
-      shippedCodingAgents: METHODOLOGY_CONTEXT_READING_VALUE.NONE,
+      [METHODOLOGY_CONTEXT_READING_KEY.LINE]: lineOf(methodology),
+      [METHODOLOGY_CONTEXT_READING_KEY.SHIPPED_LINES]: shippedLine,
+      [METHODOLOGY_CONTEXT_READING_KEY.SHIPPED_CODING_AGENTS]: METHODOLOGY_CONTEXT_READING_VALUE.NONE,
     }));
     expect(report.overall).toBe(OVERALL_VERDICT.DEGRADED);
   });
@@ -86,10 +87,10 @@ describe("methodology-context diagnose scenarios", () => {
     expect(check.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE);
     expect(check.bucket).toBe(VERDICT_BUCKET.DEGRADED);
     expect(check.readings).toEqual(expect.objectContaining({
-      line: lineOf(methodology),
-      shippedLines: lineOf(methodology),
-      shippedCodingAgents: METHODOLOGY_CODING_AGENT.CLAUDE,
-      enabledCodingAgents: [...METHODOLOGY_CODING_AGENTS].join(", "),
+      [METHODOLOGY_CONTEXT_READING_KEY.LINE]: lineOf(methodology),
+      [METHODOLOGY_CONTEXT_READING_KEY.SHIPPED_LINES]: lineOf(methodology),
+      [METHODOLOGY_CONTEXT_READING_KEY.SHIPPED_CODING_AGENTS]: METHODOLOGY_CODING_AGENT.CLAUDE,
+      [METHODOLOGY_CONTEXT_READING_KEY.ENABLED_CODING_AGENTS]: [...METHODOLOGY_CODING_AGENTS].join(", "),
     }));
     expect(report.overall).toBe(OVERALL_VERDICT.DEGRADED);
   });
@@ -104,8 +105,8 @@ describe("methodology-context diagnose scenarios", () => {
     expect(check.name).toBe(CHECK_NAME.METHODOLOGY_CONTEXT);
     expect(check.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.RESOLVED);
     expect(check.readings).toEqual(expect.objectContaining({
-      configuredSource: methodology.source,
-      configuredVersion: methodology.version,
+      [METHODOLOGY_CONTEXT_READING_KEY.CONFIGURED_SOURCE]: methodology.source,
+      [METHODOLOGY_CONTEXT_READING_KEY.CONFIGURED_VERSION]: methodology.version,
     }));
     expect(report.overall).toBe(OVERALL_VERDICT.HEALTHY);
   });
@@ -126,7 +127,9 @@ describe("methodology-context diagnose scenarios", () => {
     const check = firstCheck(report);
 
     expect(check.verdict).toBe(METHODOLOGY_CONTEXT_VERDICT.UNKNOWN);
-    expect(check.readings).toEqual(expect.objectContaining({ configured: String(false) }));
+    expect(check.readings).toEqual(
+      expect.objectContaining({ [METHODOLOGY_CONTEXT_READING_KEY.CONFIGURED]: String(false) }),
+    );
     expect(report.overall).toBe(OVERALL_VERDICT.UNKNOWN);
   });
 });

@@ -10,51 +10,46 @@ import {
   arbitraryNameToken,
   arbitrarySpxFloor,
 } from "@testing/generators/diagnose/manifest";
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import { METHODOLOGY_FIXTURE_VERSION } from "@testing/harnesses/spec/context";
 
 const availableChecks = Object.values(CHECK_NAME);
 
 describe("diagnostic fact resolution follows the precedence manifest over config over safe defaults", () => {
   it("returns the manifest unchanged when one is supplied, ignoring config", () => {
-    fc.assert(
-      fc.property(arbitrarySpxFloor(), arbitrarySpxFloor(), (manifestFloor, configFloor) => {
-        const manifest: DiagnoseManifest = { checks: [CHECK_NAME.SPX_REACHABILITY], spxFloor: manifestFloor };
-        const config: DiagnoseConfig = { spxFloor: configFloor, checks: [CHECK_NAME.SESSION_STORE] };
+    assertProperty(fc.tuple(arbitrarySpxFloor(), arbitrarySpxFloor()), ([manifestFloor, configFloor]) => {
+      const manifest: DiagnoseManifest = { checks: [CHECK_NAME.SPX_REACHABILITY], spxFloor: manifestFloor };
+      const config: DiagnoseConfig = { spxFloor: configFloor, checks: [CHECK_NAME.SESSION_STORE] };
 
-        const result = resolveDiagnoseFacts({ manifest, config, availableChecks });
+      const result = resolveDiagnoseFacts({ manifest, config, availableChecks });
 
-        expect(result.ok).toBe(true);
-        if (result.ok) expect(result.value).toBe(manifest);
-      }),
-    );
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.value).toBe(manifest);
+    }, { level: PROPERTY_LEVEL.L1 });
   });
 
   it("resolves the check set and facts from config when no manifest is supplied", () => {
-    fc.assert(
-      fc.property(
-        arbitrarySpxFloor(),
-        arbitraryNameToken(),
-        arbitraryMarketplaceSource(),
-        arbitraryNameToken(),
-        (spxFloor, marketplaceName, marketplaceSource, plugin) => {
-          const config: DiagnoseConfig = {
-            spxFloor,
-            marketplace: { name: marketplaceName, source: marketplaceSource },
-            expectedPlugins: [plugin],
-            checks: [CHECK_NAME.SPX_REACHABILITY, CHECK_NAME.MARKETPLACE_INSTALL],
-          };
+    assertProperty(
+      fc.tuple(arbitrarySpxFloor(), arbitraryNameToken(), arbitraryMarketplaceSource(), arbitraryNameToken()),
+      ([spxFloor, marketplaceName, marketplaceSource, plugin]) => {
+        const config: DiagnoseConfig = {
+          spxFloor,
+          marketplace: { name: marketplaceName, source: marketplaceSource },
+          expectedPlugins: [plugin],
+          checks: [CHECK_NAME.SPX_REACHABILITY, CHECK_NAME.MARKETPLACE_INSTALL],
+        };
 
-          const result = resolveDiagnoseFacts({ config, availableChecks });
+        const result = resolveDiagnoseFacts({ config, availableChecks });
 
-          expect(result.ok).toBe(true);
-          if (result.ok) {
-            expect(result.value.checks).toEqual([CHECK_NAME.SPX_REACHABILITY, CHECK_NAME.MARKETPLACE_INSTALL]);
-            expect(result.value.spxFloor).toBe(spxFloor);
-            expect(result.value.marketplace).toEqual({ name: marketplaceName, source: marketplaceSource });
-            expect(result.value.expectedPlugins).toEqual([plugin]);
-          }
-        },
-      ),
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+          expect(result.value.checks).toEqual([CHECK_NAME.SPX_REACHABILITY, CHECK_NAME.MARKETPLACE_INSTALL]);
+          expect(result.value.spxFloor).toBe(spxFloor);
+          expect(result.value.marketplace).toEqual({ name: marketplaceName, source: marketplaceSource });
+          expect(result.value.expectedPlugins).toEqual([plugin]);
+        }
+      },
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 
@@ -86,16 +81,14 @@ describe("diagnostic fact resolution follows the precedence manifest over config
   });
 
   it("rejects a config check absent from the available set", () => {
-    fc.assert(
-      fc.property(arbitraryNameToken(), (unknownCheck) => {
-        fc.pre(!availableChecks.includes(unknownCheck as (typeof availableChecks)[number]));
-        const config: DiagnoseConfig = { checks: [unknownCheck] };
+    assertProperty(arbitraryNameToken(), (unknownCheck) => {
+      fc.pre(!availableChecks.includes(unknownCheck as (typeof availableChecks)[number]));
+      const config: DiagnoseConfig = { checks: [unknownCheck] };
 
-        const result = resolveDiagnoseFacts({ config, availableChecks });
+      const result = resolveDiagnoseFacts({ config, availableChecks });
 
-        expect(result.ok).toBe(false);
-        if (!result.ok) expect(result.error).toContain(unknownCheck);
-      }),
-    );
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error).toContain(unknownCheck);
+    }, { level: PROPERTY_LEVEL.L1 });
   });
 });

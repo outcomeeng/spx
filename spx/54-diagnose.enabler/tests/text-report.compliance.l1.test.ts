@@ -1,8 +1,16 @@
-import { classifyMarketplaceInstall, MARKETPLACE_INSTALL_VERDICT } from "@/domains/diagnose/checks/marketplace-install";
+import {
+  classifyMarketplaceInstall,
+  MARKETPLACE_INSTALL_READING_KEY,
+  MARKETPLACE_INSTALL_VERDICT,
+} from "@/domains/diagnose/checks/marketplace-install";
 import { classifySessionEnvironment, SESSION_ENVIRONMENT_VERDICT } from "@/domains/diagnose/checks/session-environment";
-import { SESSION_STORE_VERDICT } from "@/domains/diagnose/checks/session-store";
-import { classifySpxReachability, SPX_REACHABILITY_VERDICT } from "@/domains/diagnose/checks/spx-reachability";
-import { WORKTREE_POOL_VERDICT } from "@/domains/diagnose/checks/worktree-pool";
+import { SESSION_STORE_READING_KEY, SESSION_STORE_VERDICT } from "@/domains/diagnose/checks/session-store";
+import {
+  classifySpxReachability,
+  SPX_REACHABILITY_READING_KEY,
+  SPX_REACHABILITY_VERDICT,
+} from "@/domains/diagnose/checks/spx-reachability";
+import { WORKTREE_POOL_READING_KEY, WORKTREE_POOL_VERDICT } from "@/domains/diagnose/checks/worktree-pool";
 import {
   DIAGNOSE_TEXT_DETAIL,
   DIAGNOSE_TEXT_HEADER,
@@ -46,13 +54,17 @@ describe("the text report translates check records into a human diagnosis", () =
     const text = renderTerminalText(renderReportText(report, { color: false }));
     expect(text).toContain(`${DIAGNOSE_TEXT_OVERALL_LABEL}: ${OVERALL_VERDICT.HEALTHY}`);
     expect(text).toContain(DIAGNOSE_TEXT_HEADER.SPX_INSTALLED);
-    expect(text).toContain(`${DIAGNOSE_TEXT_LABEL.VERSION}: ${report.checks[0]?.readings.version}`);
+    expect(text).toContain(
+      `${DIAGNOSE_TEXT_LABEL.VERSION}: ${report.checks[0]?.readings[SPX_REACHABILITY_READING_KEY.VERSION]}`,
+    );
     expect(text).toContain(DIAGNOSE_TEXT_HEADER.WORKTREE_POOL_VALID);
-    expect(text).toContain(report.checks[2]?.readings.running);
-    expect(text).toContain(report.checks[2]?.readings.free);
+    expect(text).toContain(report.checks[2]?.readings[WORKTREE_POOL_READING_KEY.RUNNING]);
+    expect(text).toContain(report.checks[2]?.readings[WORKTREE_POOL_READING_KEY.FREE]);
     expect(text).toContain(DIAGNOSE_TEXT_HEADER.SESSION_STORE_CLEAN);
     expect(text).toContain(
-      `${DIAGNOSE_TEXT_LABEL.ORPHANED_DOING_SESSIONS}: ${report.checks[3]?.readings.orphaned}`,
+      `${DIAGNOSE_TEXT_LABEL.ORPHANED_DOING_SESSIONS}: ${
+        report.checks[3]?.readings[SESSION_STORE_READING_KEY.ORPHANED]
+      }`,
     );
     expect(text).toContain(DIAGNOSE_TEXT_DETAIL.SESSION_STORE_INFORMATIONAL);
     expect(text).not.toContain(
@@ -106,7 +118,7 @@ describe("the text report translates check records into a human diagnosis", () =
     const spxRecord = report.checks[0];
     expect(text).not.toContain(`${sessionRecord.verdict} [${sessionRecord.bucket}]`);
     expect(text).not.toContain(`${worktreeRecord.verdict} [${worktreeRecord.bucket}]`);
-    expect(text).not.toMatch(/\bsurface\b/i);
+    expect(text).not.toMatch(new RegExp(String.raw`\b${MARKETPLACE_INSTALL_READING_KEY.SURFACE}\b`, "i"));
     for (const [key, value] of Object.entries(marketplaceRecord.readings)) {
       expect(text).not.toContain(`${key}: ${value}`);
     }

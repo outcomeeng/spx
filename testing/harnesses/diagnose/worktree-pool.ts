@@ -15,6 +15,7 @@ import { expect } from "vitest";
 import { gatherWorktreePoolSnapshot, worktreePoolReadingFromSnapshot } from "@/commands/diagnose/probes";
 import {
   classifyWorktreePool,
+  WORKTREE_POOL_READING_KEY,
   WORKTREE_POOL_VERDICT,
   type WorktreePoolReading,
   type WorktreePoolVerdict,
@@ -161,8 +162,8 @@ export function assertWorktreePoolOccupancyIsInformational(): void {
 
   expect(result.verdict).toBe(WORKTREE_POOL_VERDICT.COMPLIANT);
   expect(result.bucket).toBe(VERDICT_BUCKET.HEALTHY);
-  expect(result.readings.running).toBe(String(running));
-  expect(result.readings.free).toBe(String(free));
+  expect(result.readings[WORKTREE_POOL_READING_KEY.RUNNING]).toBe(String(running));
+  expect(result.readings[WORKTREE_POOL_READING_KEY.FREE]).toBe(String(free));
 }
 
 async function assertSnapshotCase(commonDirIsBare: boolean, writeClaims: boolean): Promise<void> {
@@ -400,13 +401,24 @@ async function verifyFreeWorktreesPreserveLayout(input: WorktreePoolPropertyInpu
 
     expect(baseRecord.verdict).toBe(WORKTREE_POOL_VERDICT.COMPLIANT);
     expect(baseRecord.bucket).toBe(VERDICT_BUCKET.HEALTHY);
-    expect(baseRecord.readings).toMatchObject({ running: "1", free: "0" });
+    expect(baseRecord.readings).toMatchObject({
+      [WORKTREE_POOL_READING_KEY.RUNNING]: String(1),
+      [WORKTREE_POOL_READING_KEY.FREE]: String(0),
+    });
     expect(freeRecord.verdict).toBe(baseRecord.verdict);
     expect(freeRecord.bucket).toBe(baseRecord.bucket);
-    expect(freeRecord.readings).toEqual({ ...baseRecord.readings, running: "1", free: "1" });
+    expect(freeRecord.readings).toEqual({
+      ...baseRecord.readings,
+      [WORKTREE_POOL_READING_KEY.RUNNING]: String(1),
+      [WORKTREE_POOL_READING_KEY.FREE]: String(1),
+    });
     expect(deadRecord.verdict).toBe(baseRecord.verdict);
     expect(deadRecord.bucket).toBe(baseRecord.bucket);
-    expect(deadRecord.readings).toEqual({ ...baseRecord.readings, running: "1", free: "1" });
+    expect(deadRecord.readings).toEqual({
+      ...baseRecord.readings,
+      [WORKTREE_POOL_READING_KEY.RUNNING]: String(1),
+      [WORKTREE_POOL_READING_KEY.FREE]: String(1),
+    });
   });
 }
 
