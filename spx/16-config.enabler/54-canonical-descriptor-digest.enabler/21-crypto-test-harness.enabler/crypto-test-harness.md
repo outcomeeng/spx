@@ -1,3 +1,8 @@
+---
+id: 01a0ebc4-fb66-7372-9288-a127c870cecc
+malleability: spec
+---
+
 # Crypto Test Harness
 
 PROVIDES a shared SHA-256 algorithm token for digest-oriented tests

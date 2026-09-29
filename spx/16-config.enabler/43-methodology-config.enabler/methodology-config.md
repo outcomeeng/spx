@@ -1,3 +1,8 @@
+---
+id: 01a0ebc4-fb66-7372-9288-a12541023141
+malleability: spec
+---
+
 # Methodology Config
 
 PROVIDES the top-level `methodology` config descriptor carrying the methodology repository, the exact methodology version the product targets, and the exact version it migrates from

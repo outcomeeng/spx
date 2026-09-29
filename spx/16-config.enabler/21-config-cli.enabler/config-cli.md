@@ -1,3 +1,8 @@
+---
+id: 01a0ebc4-fb65-724e-9164-6b1e89ef4883
+malleability: spec
+---
+
 # Config CLI
 
 PROVIDES three `spx config` subcommands — `show`, `validate`, `defaults` — each a thin CLI wrapper over `resolveConfig`

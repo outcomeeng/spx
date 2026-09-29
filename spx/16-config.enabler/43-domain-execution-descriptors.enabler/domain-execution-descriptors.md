@@ -1,3 +1,8 @@
+---
+id: 01a0ebc4-fb65-724e-9164-6b20e81ae762
+malleability: spec
+---
+
 # Domain Execution Descriptors
 
 PROVIDES registered config descriptors for deterministic execution domains

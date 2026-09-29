@@ -1,3 +1,8 @@
+---
+id: 01a0ebc4-fb65-724e-9164-6b1f778bf05d
+malleability: spec
+---
+
 # Shared Config Primitives
 
 PROVIDES reusable config value primitives for descriptor-owned sections

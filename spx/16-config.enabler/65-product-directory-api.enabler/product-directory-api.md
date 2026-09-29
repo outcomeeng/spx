@@ -1,3 +1,8 @@
+---
+id: 01a0ebc4-fb67-7421-90c8-76305651b0eb
+malleability: spec
+---
+
 # Product Directory API
 
 PROVIDES product-root, effective-invocation-directory, and Git common-dir product-root vocabulary for config APIs, CLI invocation, and tests
