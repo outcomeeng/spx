@@ -9,7 +9,7 @@
  */
 
 import type { CheckRunner } from "@/domains/diagnose/engine";
-import { CHECK_NAME } from "@/domains/diagnose/manifest";
+import { CHECK_NAME, MANIFEST_FIELDS } from "@/domains/diagnose/manifest";
 import { type CheckRecord, VERDICT_BUCKET } from "@/domains/diagnose/types";
 
 /** The spx-reachability verdict labels. */
@@ -125,7 +125,7 @@ const REMEDIATION: Readonly<Record<SpxReachabilityVerdict, string>> = {
   [SPX_REACHABILITY_VERDICT.BELOW_FLOOR]: "Update spx to at least the required floor (pnpm add -g @outcomeeng/spx).",
   [SPX_REACHABILITY_VERDICT.UNREACHABLE]: "Install spx and ensure it resolves on PATH (pnpm add -g @outcomeeng/spx).",
   [SPX_REACHABILITY_VERDICT.UNKNOWN]:
-    "Re-run diagnose; if it persists, verify the configured or manifest-supplied spx_floor is a valid semver, that spx is on PATH, and that spx --version reports a semver version.",
+    `Re-run diagnose; if it persists, verify the configured or manifest-supplied ${MANIFEST_FIELDS.SPX_FLOOR} is a valid semver, that spx is on PATH, and that spx --version reports a semver version.`,
 };
 
 function record(

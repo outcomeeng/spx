@@ -13,6 +13,7 @@ import {
   type MarketplaceInstallVerdict,
 } from "@/domains/diagnose/checks/marketplace-install";
 import {
+  METHODOLOGY_CONTEXT_READING_KEY,
   METHODOLOGY_CONTEXT_VERDICT,
   type MethodologyContextVerdict,
 } from "@/domains/diagnose/checks/methodology-context";
@@ -20,14 +21,23 @@ import {
   SESSION_ENVIRONMENT_VERDICT,
   type SessionEnvironmentVerdict,
 } from "@/domains/diagnose/checks/session-environment";
-import { SESSION_STORE_VERDICT, type SessionStoreVerdict } from "@/domains/diagnose/checks/session-store";
 import {
+  SESSION_STORE_READING_KEY,
+  SESSION_STORE_VERDICT,
+  type SessionStoreVerdict,
+} from "@/domains/diagnose/checks/session-store";
+import {
+  SPX_REACHABILITY_READING_KEY,
   SPX_REACHABILITY_READING_VALUE,
   SPX_REACHABILITY_VERDICT,
   type SpxReachabilityVerdict,
 } from "@/domains/diagnose/checks/spx-reachability";
-import { WORKTREE_POOL_VERDICT, type WorktreePoolVerdict } from "@/domains/diagnose/checks/worktree-pool";
-import { CHECK_NAME } from "@/domains/diagnose/manifest";
+import {
+  WORKTREE_POOL_READING_KEY,
+  WORKTREE_POOL_VERDICT,
+  type WorktreePoolVerdict,
+} from "@/domains/diagnose/checks/worktree-pool";
+import { CHECK_NAME, MANIFEST_FIELDS } from "@/domains/diagnose/manifest";
 import { BUCKET_SEVERITY, CANONICAL_CHECKOUT_PROBLEM, OVERALL_SEVERITY } from "@/domains/diagnose/report-contract";
 import { CHECK_RECORD_FIELDS, type CheckRecord, type DiagnoseReport, VERDICT_BUCKET } from "@/domains/diagnose/types";
 import { SENTINEL_UNDEFINED } from "@/lib/sanitize-cli-argument";
@@ -154,7 +164,7 @@ export const DIAGNOSE_TEXT_DETAIL = {
   SESSION_START_NO_OP_FIX:
     "verify the agent session is current, re-run the SessionStart hook, or check whether the worktree claim file is stale.",
   SPX_UNKNOWN_FIX:
-    "Verify the configured or manifest-supplied `spx_floor` and `spx --version` are valid semver versions.",
+    `Verify the configured or manifest-supplied \`${MANIFEST_FIELDS.SPX_FLOOR}\` and \`spx --version\` are valid semver versions.`,
   SPX_UNKNOWN_PROBLEM: "Diagnose could not compare the installed spx version with the required version.",
   SESSION_UNKNOWN_PROBLEM: "Diagnose could not reconcile the agent session identity with the worktree claim.",
   SPX_UNREACHABLE_FIX: "Install `@outcomeeng/spx` and ensure `spx` resolves on PATH.",
@@ -188,10 +198,10 @@ export function renderReportJson(report: DiagnoseReport): TerminalText {
 }
 
 function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
-  const configuredSource = reading(check, "configuredSource");
-  const configuredVersion = reading(check, "configuredVersion");
-  const shippedCodingAgents = reading(check, "shippedCodingAgents");
-  const providerMatch = reading(check, "providerMatch");
+  const configuredSource = reading(check, METHODOLOGY_CONTEXT_READING_KEY.CONFIGURED_SOURCE);
+  const configuredVersion = reading(check, METHODOLOGY_CONTEXT_READING_KEY.CONFIGURED_VERSION);
+  const shippedCodingAgents = reading(check, METHODOLOGY_CONTEXT_READING_KEY.SHIPPED_CODING_AGENTS);
+  const providerMatch = reading(check, METHODOLOGY_CONTEXT_READING_KEY.PROVIDER_MATCH);
   switch (check.verdict as MethodologyContextVerdict) {
     case METHODOLOGY_CONTEXT_VERDICT.RESOLVED:
       return {
@@ -268,9 +278,9 @@ function detail(label: TerminalText, value: TerminalText | undefined): TerminalT
 }
 
 function spxReachabilityText(check: CheckRecord): DiagnoseHumanText {
-  const version = reading(check, "version");
-  const path = reading(check, "path");
-  const floor = reading(check, "floor");
+  const version = reading(check, SPX_REACHABILITY_READING_KEY.VERSION);
+  const path = reading(check, SPX_REACHABILITY_READING_KEY.PATH);
+  const floor = reading(check, SPX_REACHABILITY_READING_KEY.FLOOR);
   switch (check.verdict as SpxReachabilityVerdict) {
     case SPX_REACHABILITY_VERDICT.REACHABLE:
     case SPX_REACHABILITY_VERDICT.PRESENT:
@@ -378,8 +388,8 @@ function sessionEnvironmentText(check: CheckRecord): DiagnoseHumanText {
 }
 
 function worktreePoolText(check: CheckRecord): DiagnoseHumanText {
-  const running = reading(check, "running") ?? authoredText(WORKTREE_COUNT_ZERO);
-  const free = reading(check, "free") ?? authoredText(WORKTREE_COUNT_ZERO);
+  const running = reading(check, WORKTREE_POOL_READING_KEY.RUNNING) ?? authoredText(WORKTREE_COUNT_ZERO);
+  const free = reading(check, WORKTREE_POOL_READING_KEY.FREE) ?? authoredText(WORKTREE_COUNT_ZERO);
   switch (check.verdict as WorktreePoolVerdict) {
     case WORKTREE_POOL_VERDICT.COMPLIANT:
       return {
@@ -447,7 +457,7 @@ function worktreePoolText(check: CheckRecord): DiagnoseHumanText {
 }
 
 function sessionStoreText(check: CheckRecord): DiagnoseHumanText {
-  const orphaned = reading(check, "orphaned") ?? authoredText(WORKTREE_COUNT_ZERO);
+  const orphaned = reading(check, SESSION_STORE_READING_KEY.ORPHANED) ?? authoredText(WORKTREE_COUNT_ZERO);
   switch (check.verdict as SessionStoreVerdict) {
     case SESSION_STORE_VERDICT.CONSISTENT:
       return {
