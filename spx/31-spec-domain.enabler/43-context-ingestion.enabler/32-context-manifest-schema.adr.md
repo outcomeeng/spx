@@ -4,18 +4,19 @@ GOVERNS the two representations of deterministic spec context. `spx spec context
 
 Text `show` output is an ordered stream of `<spx-document path="…">…</spx-document>` and self-closing `<spx-reference path="…" />` entries separated by one blank line. The JSON representation is `{ "entries": [...] }` in the same order: documents carry `type`, `path`, selected `metadata`, and selected `content`; references carry only `type` and `path`. Source delimiter text remains unescaped, and JSON is the mechanically separable representation.
 
-`show` supports caller-declared live context through `--loaded-product`, repeatable `--loaded-target <path>`, and `--loaded-methodology`. SPX reconstructs the projections those declarations denote, applies Full-over-Digest precedence, and suppresses entries already present at a sufficient mode. The declarations persist no SPX state, receipt, checksum, or prior version; a caller drops them after compaction or after any covered entry changes.
+Every `show` invocation emits complete context: the whole selected projection for its requested targets, with the methodology foundation first when `--methodology` is requested. No option declares entries as already present, no entry is suppressed because an earlier invocation emitted it, and SPX persists no state, receipt, checksum, or prior version between invocations.
 
 ## Rationale
 
-`list` answers which resources participate and why; `show` answers what the agent should read. Separating them prevents a human-facing command named `show` from printing a session-list-shaped manifest and keeps machine manifest evolution independent from the compact document stream agents consume. Caller-declared live context avoids duplicate content within one conversation window without pretending a filesystem record can observe compaction.
+`list` answers which resources participate and why; `show` answers what the agent should read. Separating them prevents a human-facing command named `show` from printing a session-list-shaped manifest and keeps machine manifest evolution independent from the compact document stream agents consume. A filesystem record cannot observe compaction or what remains in a caller's conversation window, so suppressing entries on a caller's declaration would make output depend on a claim SPX cannot verify. Complete context keeps each invocation self-sufficient and its output a function of tracked and shipped content alone; a caller that needs context again requests it again.
 
 ## Invariants
 
 - Equal tracked product content, shipped methodology content, options, and targets produce byte-identical output.
 - The selected entry set is resolved completely before stdout receives any byte.
 - Full content satisfies a Digest requirement; Digest content never satisfies Full.
-- Target argument order and loaded-declaration order do not change output.
+- Target argument order does not change output.
+- Output depends on no state an earlier invocation persisted.
 - Text and JSON select identical entries, metadata, and source content.
 - Bounded harness output is delivered by redirecting complete stdout to scratch space and reading it natively; delivery never changes selection or rendering.
 
@@ -26,5 +27,4 @@ Text `show` output is an ordered stream of `<spx-document path="…">…</spx-do
 - ALWAYS: `list` alone emits the versioned manifest and `show` alone emits framed document and reference entries ([audit])
 - ALWAYS: `--json` changes representation only and an empty selected projection succeeds as empty stdout or `{ "entries": [] }` ([audit])
 - NEVER: `show` emits manifest fields, content hashes, byte counts, a receipt, or partial output ([audit])
-- ALWAYS: loaded declarations are resolved through the same accepted-target and projection rules as requested targets before suppression ([audit])
-- NEVER: `--methodology` and `--loaded-methodology` appear together; `--methodology --loaded-product` remains valid ([audit])
+- NEVER: `show` accepts a declaration that removes selected entries from its output, or reads state an earlier invocation persisted — every invocation emits the complete selected projection ([audit])

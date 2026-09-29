@@ -6,7 +6,7 @@ malleability: spec
 
 PROVIDES deterministic Product Tree discovery and context delivery for CLI consumers
 SO THAT agents and developers requesting work context
-CAN first locate relevant subtrees and then load only the product truth required for one or more accepted targets through a structural `list` manifest or source-faithful `show` entries, with optional methodology foundation and caller-declared reuse inside one conversation window
+CAN first locate relevant subtrees and then load only the product truth required for one or more accepted targets through a structural `list` manifest or source-faithful `show` entries, with optional methodology foundation
 
 ## Assertions
 
