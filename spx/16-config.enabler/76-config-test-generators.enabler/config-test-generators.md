@@ -1,3 +1,8 @@
+---
+id: 01a0ebc4-fb67-7421-90c8-763178d4b88a
+malleability: spec
+---
+
 # Config Test Generators
 
 PROVIDES source-owned generated config fixtures, descriptor fixtures, config-section variants, and product-directory fixture values

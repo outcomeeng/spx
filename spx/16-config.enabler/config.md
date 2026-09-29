@@ -1,3 +1,8 @@
+---
+id: 01a0ebc4-fb64-7625-b869-a2e669820736
+malleability: spec
+---
+
 # Config
 
 PROVIDES typed, registry-composed configuration for the whole spx harness — spec-tree kinds, session paths, `validation` rules, `testing` scope, language markers, shared config primitives, and any other registered concern

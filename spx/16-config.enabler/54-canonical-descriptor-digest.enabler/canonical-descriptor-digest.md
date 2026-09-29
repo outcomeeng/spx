@@ -1,3 +1,8 @@
+---
+id: 01a0ebc4-fb66-7372-9288-a126c73f17d1
+malleability: spec
+---
+
 # Canonical Descriptor Digest
 
 PROVIDES deterministic descriptor-section serialization and digest computation
