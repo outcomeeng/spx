@@ -1,4 +1,4 @@
-import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { dirname, join, parse } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -51,6 +51,7 @@ import {
 } from "@/lib/spec-tree";
 import { arbitraryMethodologyVersion, type GeneratedMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
+import { specContextFixtureDocuments, specContextRootDecisionPath } from "@testing/generators/spec-tree/context-target";
 import {
   type RichContextPaths,
   type RichContextScenario,
@@ -578,6 +579,41 @@ export async function withEmptyContextTreeEnv(
       throw new Error("Expected the empty tree to expose no product spec, node, or decision");
     }
     await callback(env);
+  });
+}
+
+/** The paths a product-spec-less tree carries: the fixture's root node target and the product-root decision beside it. */
+export interface ProductlessContextTreePaths {
+  readonly nodeTargetPath: string;
+  readonly rootDecisionPath: string;
+}
+
+/**
+ * Hands the callback an environment whose `spx/` directory holds the
+ * representative fixture's nodes and a product-root decision but no product
+ * spec. The harness materializes the fixture, copies the fixture decision's
+ * own text to the product-root decision path, removes the product spec, and
+ * confirms the snapshot sees nodes and that root decision with no product
+ * spec; the callback owns every predicate.
+ */
+export async function withProductlessContextTreeEnv(
+  config: Config,
+  callback: (env: CurrentSpecTreeEnv, paths: ProductlessContextTreePaths) => Promise<void>,
+): Promise<void> {
+  await withSpecTreeEnv(config, async (env) => {
+    await env.materialize();
+    const documents = specContextFixtureDocuments(env.fixture);
+    const rootDecisionPath = specContextRootDecisionPath(env.fixture, env.fixture.decision.kind);
+    await env.writeRaw(rootDecisionPath, await env.readFile(documents.nodeDecisionPath));
+    await rm(join(env.productDir, documents.productSpecPath));
+    const snapshot = await env.readFilesystemSnapshot();
+    if (
+      snapshot.product?.ref !== undefined || snapshot.allNodes.length === 0
+      || !snapshot.decisions.some((decision) => decision.ref?.path === rootDecisionPath)
+    ) {
+      throw new Error("Expected the productless tree to expose nodes and a root decision with no product spec");
+    }
+    await callback(env, { nodeTargetPath: documents.rootTargetPath, rootDecisionPath });
   });
 }
 
