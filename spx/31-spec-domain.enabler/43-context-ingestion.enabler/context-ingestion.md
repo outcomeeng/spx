@@ -16,10 +16,10 @@ CAN first locate relevant subtrees and then load only the product truth required
 
 ### Scenarios
 
-- `spx spec context list <targets...>` emits the versioned structural manifest, while `spx spec context show [targets...]` emits selected document content and path references without manifest fields. ([test](tests/context-ingestion.scenario.l1.test.ts))
-- Targetless `show` supplies the complete product spec and a depth-bounded Product Tree map from which an agent can choose a target. ([test](tests/context-ingestion.scenario.l1.test.ts))
-- Targeted `show` supplies Full target and ancestor context, Digest sibling and immediate-child awareness, applicable decisions, and the agreed path-only references. ([test](tests/context-ingestion.scenario.l1.test.ts))
-- The manifest `list` emits carries its schema version, the bootstrap flag derived from the snapshot, and its labelled text beside the equivalent JSON. ([test](tests/context-ingestion.scenario.l1.test.ts))
+- Given a Product Tree, when `spx spec context list <targets...>` and `spx spec context show [targets...]` run, then `list` emits the versioned structural manifest, while `show` emits selected document content and path references without manifest fields ([test](tests/context-ingestion.scenario.l1.test.ts))
+- Given no target, when `spx spec context show` runs, then it supplies the complete product spec and a depth-bounded Product Tree map from which an agent can choose a target ([test](tests/context-ingestion.scenario.l1.test.ts))
+- Given one or more targets, when `spx spec context show` runs, then it supplies Full target and ancestor context, Digest sibling and immediate-child awareness, applicable decisions, and the agreed path-only references ([test](tests/context-ingestion.scenario.l1.test.ts))
+- Given one or more targets, when `spx spec context list` runs, then the manifest it emits carries its schema version, the bootstrap flag derived from the snapshot, and its labelled text beside the equivalent JSON ([test](tests/context-ingestion.scenario.l1.test.ts))
 
 ### Mappings
 
@@ -27,5 +27,5 @@ CAN first locate relevant subtrees and then load only the product truth required
 
 ### Compliance
 
-- Context ingestion resolves the complete projection before output and emits no partial result after any target, source, citation, or methodology failure. ([test](tests/context-ingestion.compliance.l1.test.ts), [test](tests/context-ingestion.compliance.l2.test.ts))
-- Context selection is structural and never uses keyword search, semantic similarity, or LLM judgment. ([audit])
+- ALWAYS: context ingestion resolves the complete projection before output and emits no partial result after any target, source, citation, or methodology failure ([test](tests/context-ingestion.compliance.l1.test.ts), [test](tests/context-ingestion.compliance.l2.test.ts))
+- ALWAYS: context selection is structural and never uses keyword search, semantic similarity, or LLM judgment ([audit])

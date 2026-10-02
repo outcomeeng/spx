@@ -12,9 +12,9 @@ CAN inspect current node state, select the next non-passing node, discover relev
 
 ### Scenarios
 
-- `spx spec context list <targets...>` emits the context library's versioned structural manifest for one or more accepted targets. ([test](tests/spec-context-commands.scenario.l1.test.ts))
-- `spx spec context show [targets...]` emits the context library's targetless or targeted document projection and accepts `--methodology` and `--coding-agent <name>`. ([test](tests/spec-context-commands.scenario.l1.test.ts))
-- `--json` changes only the representation of `list` or `show`; `show` exposes no `--content` option. ([test](tests/spec-context-commands.scenario.l1.test.ts))
+- Given one or more accepted targets, when `spx spec context list <targets...>` runs, then it emits the context library's versioned structural manifest for those targets ([test](tests/spec-context-commands.scenario.l1.test.ts))
+- Given zero or more targets, when `spx spec context show [targets...]` runs, then it emits the context library's targetless or targeted document projection and accepts `--methodology` and `--coding-agent <name>` ([test](tests/spec-context-commands.scenario.l1.test.ts))
+- Given `list` or `show`, when `--json` is supplied, then only the representation changes, and `show` exposes no `--content` option ([test](tests/spec-context-commands.scenario.l1.test.ts))
 - Given a tracked `spx/` tree contains current spec-tree nodes, when `spx spec status` reads the tree, then it reports registry labels, node paths, and derived node states from the current spec-tree surface ([test](tests/spec-cli-commands.scenario.l1.test.ts))
 - Given a tracked `spx/` tree contains actionable current spec-tree nodes, when `spx spec next` reads the tree, then it reports the first non-passing node selected by the current spec-tree traversal surface ([test](tests/spec-cli-commands.scenario.l1.test.ts))
 - Given a tracked `spx/` tree is read from a nested directory inside a git repository, when `spx spec status` and `spx spec next` run, then both commands resolve the product root through the worktree-local git root and read the tracked `spx/` tree ([test](tests/spec-cli-commands.scenario.l1.test.ts))
