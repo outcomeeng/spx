@@ -9,6 +9,11 @@ export const NODE_STATUS_EXCLUDE_PATH_GRAMMAR = {
   CURRENT_DIRECTORY_SEGMENT: ".",
   PARENT_DIRECTORY_SEGMENT: "..",
 } as const;
+/** Line grammar of the exclude file: one entry per line, with comment lines carrying no entry. */
+export const NODE_STATUS_EXCLUDE_LINE_GRAMMAR = {
+  ENTRY_SEPARATOR: "\n",
+  COMMENT_PREFIX: "#",
+} as const;
 
 type NodeStatusExclusionEntry = {
   readonly id?: string;
@@ -32,9 +37,9 @@ function excludePath(productDir: string): string {
 
 function parseExcludeEntries(content: string): readonly string[] {
   return content
-    .split("\n")
+    .split(NODE_STATUS_EXCLUDE_LINE_GRAMMAR.ENTRY_SEPARATOR)
     .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith("#"))
+    .filter((line) => line.length > 0 && !line.startsWith(NODE_STATUS_EXCLUDE_LINE_GRAMMAR.COMMENT_PREFIX))
     .map(validateExcludeEntry);
 }
 
