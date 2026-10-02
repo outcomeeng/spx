@@ -1,6 +1,6 @@
 # Product Root
 
-PROVIDES product-root resolution by state class — `detectWorktreeProductRoot` for tracked `spx/` and per-worktree `.spx/worktree/` state, and `detectGitCommonDirProductRoot` for shared `.spx/` state — returning a base `GitProductDirResult` and a Git-common-dir variant carrying the worktree root, per [`spx/17-state.adr.md`](../../17-state.adr.md) and [`spx/15-worktree-management.pdr.md`](../../15-worktree-management.pdr.md)
+PROVIDES product-root resolution by state class — `detectWorktreeProductRoot` for tracked `spx/` and per-worktree `.spx/worktree/` state, and `detectGitCommonDirProductRoot` for shared `.spx/` state — returning a base `GitProductDirResult` and a Git-common-dir variant carrying the worktree root, per [spx/17-state.adr.md](spx/17-state.adr.md) and [spx/15-worktree-management.pdr.md](spx/15-worktree-management.pdr.md)
 SO THAT the worktree-topology and scope-addressing siblings and the release, spec-domain, session, and testing consumers
 CAN resolve which directory a command's tracked, per-worktree, and shared state belongs to without re-deriving git topology
 
