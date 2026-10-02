@@ -40,6 +40,12 @@ export const SPEC_DOMAIN_CLI = {
   UPDATE_OPTION: "--update",
 } as const;
 
+/** The command words that invoke each `spx spec context` subcommand, in invocation order. */
+export const SPEC_CONTEXT_COMMAND_PATH = {
+  LIST: [SPEC_DOMAIN_CLI.COMMAND, SPEC_DOMAIN_CLI.CONTEXT_COMMAND, SPEC_DOMAIN_CLI.CONTEXT_LIST_COMMAND],
+  SHOW: [SPEC_DOMAIN_CLI.COMMAND, SPEC_DOMAIN_CLI.CONTEXT_COMMAND, SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND],
+} as const;
+
 export const SPEC_STATUS_FORMAT_MESSAGE = {
   ERROR_PREFIX: "Error",
   INVALID_PREFIX: "Invalid format",

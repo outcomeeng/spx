@@ -31,10 +31,26 @@ const OUTCOME_SUFFIX = SPEC_CONTEXT_OPTIONAL_ARTIFACT.OUTCOME_SUFFIX;
 /** The text frames of the two entry classes: an element per document, a self-closing element per reference. */
 export const SPEC_CONTEXT_FRAME = { DOCUMENT: "spx-document", REFERENCE: "spx-reference" } as const;
 
+/**
+ * The text grammar around framed entries: tag delimiters, the path attribute,
+ * the front-matter fence around selected metadata, the line break, and the one
+ * blank line between consecutive entries.
+ */
+export const SPEC_CONTEXT_FRAME_SYNTAX = {
+  OPEN_TAG_START: "<",
+  CLOSE_TAG_START: "</",
+  PATH_ATTRIBUTE_START: " path=\"",
+  OPEN_TAG_END: "\">",
+  SELF_CLOSING_TAG_END: "\" />",
+  CLOSE_TAG_END: ">",
+  FRONT_MATTER_FENCE: "---",
+  LINE_BREAK: "\n",
+  ENTRY_SEPARATOR: "\n\n",
+} as const;
+
 /** The one front-matter key an output node's projection selects. */
 export const SPEC_CONTEXT_SELECTED_METADATA_KEY = "malleability";
 
-const FRONT_MATTER_DELIMITER = "---";
 const MALLEABILITY_KEY = SPEC_CONTEXT_SELECTED_METADATA_KEY;
 const inlineCitationParser = new MarkdownIt().disable("reference");
 
@@ -314,14 +330,20 @@ export function specContextCitedSelection(path: string): SpecContextSelection {
 }
 
 export function renderSpecContextEntries(entries: readonly SpecContextEntry[]): string {
+  const syntax = SPEC_CONTEXT_FRAME_SYNTAX;
   return entries.map((entry) => {
+    const pathAttribute = `${syntax.PATH_ATTRIBUTE_START}${entry.path}`;
     if (entry.type === SPEC_CONTEXT_ENTRY_TYPE.REFERENCE) {
-      return `<${SPEC_CONTEXT_FRAME.REFERENCE} path="${entry.path}" />`;
+      return `${syntax.OPEN_TAG_START}${SPEC_CONTEXT_FRAME.REFERENCE}${pathAttribute}${syntax.SELF_CLOSING_TAG_END}`;
     }
     const metadata = Object.keys(entry.metadata).length === 0
       ? ""
-      : `${FRONT_MATTER_DELIMITER}\n${stringify(entry.metadata)}${FRONT_MATTER_DELIMITER}\n\n`;
-    const ending = entry.content.endsWith("\n") ? "" : "\n";
-    return `<${SPEC_CONTEXT_FRAME.DOCUMENT} path="${entry.path}">\n${metadata}${entry.content}${ending}</${SPEC_CONTEXT_FRAME.DOCUMENT}>`;
-  }).join("\n\n");
+      : `${syntax.FRONT_MATTER_FENCE}${syntax.LINE_BREAK}${
+        stringify(entry.metadata)
+      }${syntax.FRONT_MATTER_FENCE}${syntax.LINE_BREAK}${syntax.LINE_BREAK}`;
+    const ending = entry.content.endsWith(syntax.LINE_BREAK) ? "" : syntax.LINE_BREAK;
+    const opening = `${syntax.OPEN_TAG_START}${SPEC_CONTEXT_FRAME.DOCUMENT}${pathAttribute}${syntax.OPEN_TAG_END}`;
+    const closing = `${syntax.CLOSE_TAG_START}${SPEC_CONTEXT_FRAME.DOCUMENT}${syntax.CLOSE_TAG_END}`;
+    return `${opening}${syntax.LINE_BREAK}${metadata}${entry.content}${ending}${closing}`;
+  }).join(syntax.ENTRY_SEPARATOR);
 }
