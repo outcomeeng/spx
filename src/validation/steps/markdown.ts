@@ -19,6 +19,8 @@ import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { main as markdownlintMain } from "markdownlint-cli2";
 import relativeLinksRule from "markdownlint-rule-relative-links";
 
+import { markdownLinkShapeRule, type MarkdownlintCustomRule } from "./markdown-link-shape-rule";
+
 // =============================================================================
 // CONSTANTS
 // =============================================================================
@@ -47,7 +49,8 @@ export const MARKDOWN_CONFIG_CONTROL_KEYS = {
 /** Directories where MD024 is disabled entirely (generated/repetitive headings are normal). */
 const MD024_DISABLED_DIRECTORIES = ["docs"] as const;
 
-export const MARKDOWN_CUSTOM_RULE_NAMES = relativeLinksRule.names;
+/** Product-root-relative directories whose first segment selects a directory-specific configuration. */
+const DIRECTORY_SPECIFIC_CONFIG_NAMES: readonly string[] = MARKDOWN_DEFAULT_DIRECTORY_NAMES;
 export const MARKDOWN_VALIDATION_TARGET_KIND = {
   DIRECTORY: "directory",
   FILE: "file",
@@ -81,9 +84,9 @@ export interface MarkdownValidationResult {
 
 /** A markdownlint custom rule object. */
 interface MarkdownlintRule {
-  names: string[];
-  description: string;
-  tags: string[];
+  readonly names: MarkdownlintCustomRule["names"];
+  readonly description: string;
+  readonly tags: MarkdownlintCustomRule["tags"];
 }
 
 /** Options for the validateMarkdown function. */
@@ -155,6 +158,9 @@ const defaultMarkdownValidationDeps: MarkdownValidationDeps = {
  *   under different parents, flags true sibling duplicates
  * - `docs/`: disabled — generated/repetitive docs commonly reuse headings
  *
+ * Link checking is the spec-tree link-shape rule for `spx/` and
+ * `markdownlint-rule-relative-links` for every other directory.
+ *
  * @param directoryName - Basename of the directory being validated (e.g. "spx", "docs")
  * @returns Configuration object for markdownlint-cli2's optionsOverride
  */
@@ -177,7 +183,9 @@ export function buildMarkdownlintConfig(directoryName: string): {
     [MARKDOWN_CONFIG_CONTROL_KEYS.DEFAULT]: false,
     ...MARKDOWN_ENABLED_BUILTIN_RULES,
     [MARKDOWN_CONFIG_CONTROL_KEYS.DUPLICATE_HEADINGS]: md024Disabled ? false : { siblings_only: true },
-    [MARKDOWN_CONFIG_CONTROL_KEYS.CUSTOM_RULES]: [relativeLinksRule],
+    [MARKDOWN_CONFIG_CONTROL_KEYS.CUSTOM_RULES]: [
+      directoryName === SPEC_TREE_CONFIG.ROOT_DIRECTORY ? markdownLinkShapeRule : relativeLinksRule,
+    ],
   };
 }
 
@@ -442,10 +450,11 @@ async function validateTarget(
 
   const { customRules, ...markdownlintConfig } = config;
 
+  const linkRuleConfig = productDir ? { root_path: productDir } : true;
   const optionsOverride: Record<string, unknown> = {
     config: {
       ...markdownlintConfig,
-      "relative-links": productDir ? { root_path: productDir } : true,
+      ...Object.fromEntries(customRules.flatMap((rule) => rule.names.map((name) => [name, linkRuleConfig]))),
     },
     customRules,
     noProgress: true,
@@ -539,7 +548,7 @@ function isExistingFile(path: string, deps: MarkdownValidationTargetDeps): boole
 function markdownlintConfigDirectoryName(directory: string, productDir: string | undefined): string {
   if (productDir !== undefined) {
     const [rootSegment] = pathRelative(productDir, directory).split(/[\\/]/);
-    if (MD024_DISABLED_DIRECTORIES.includes(rootSegment as (typeof MD024_DISABLED_DIRECTORIES)[number])) {
+    if (DIRECTORY_SPECIFIC_CONFIG_NAMES.includes(rootSegment)) {
       return rootSegment;
     }
   }
