@@ -1,6 +1,6 @@
 # Session Reconciliation
 
-PROVIDES reconciliation of a session's recorded references — the `git_ref` branch and the `specs` and `files` entries declared by [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) — against current repository state, resolving each reference to exactly one verdict of confirmed, discrepancy, or unverifiable
+PROVIDES reconciliation of a session's recorded references — the `git_ref` branch and the `specs` and `files` entries declared by [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](spx/36-session.enabler/11-session-frontmatter.pdr.md) — against current repository state, resolving each reference to exactly one verdict of confirmed, discrepancy, or unverifiable
 SO THAT the session-cli enabler and the agent orchestration tools that resume handoffs
 CAN learn which of a session's recorded references still hold before acting on it, without reimplementing reference resolution, restating the recorded field set, or interpreting a git exit status themselves
 
@@ -19,4 +19,4 @@ CAN learn which of a session's recorded references still hold before acting on i
 ### Compliance
 
 - ALWAYS: an unverifiable verdict is distinguishable from a discrepancy verdict in the emitted result, so a caller tells a reference that could not be evaluated from one that was evaluated and contradicted ([test](tests/session-reconciliation.compliance.l1.test.ts))
-- ALWAYS: reconciliation obtains product roots, session scopes, and session records through the state module's injected-dependency API and the session-store primitives rather than reading git plumbing or composing `.spx/` paths itself per [`spx/17-state.adr.md`](../../17-state.adr.md) ([audit])
+- ALWAYS: reconciliation obtains product roots, session scopes, and session records through the state module's injected-dependency API and the session-store primitives rather than reading git plumbing or composing `.spx/` paths itself per [`spx/17-state.adr.md`](spx/17-state.adr.md) ([audit])

@@ -25,7 +25,7 @@ Directory-based status is faster than the alternatives because `readdir()` retur
 
 - ALWAYS: store available sessions in `todo/` and claimed sessions in `doing/` — status is positional ([audit])
 - ALWAYS: use `rename()` between directories for status transitions — it preserves atomicity ([audit])
-- ALWAYS: derive the status-directory names (`todo`, `doing`, `archive`) from `DEFAULT_CONFIG.sessions.statusDirs`, and the `.spx/sessions` base segments from the state module's path tokens per `spx/17-state.adr.md`, with absolute paths resolved at runtime by `resolveSessionConfig`, which composes the sessions scope of `spx/18-state.enabler/32-scope-addressing.enabler` ([audit])
+- ALWAYS: derive the status-directory names (`todo`, `doing`, `archive`) from `DEFAULT_CONFIG.sessions.statusDirs`, and the `.spx/sessions` base segments from the state module's path tokens per [`spx/17-state.adr.md`](spx/17-state.adr.md), with absolute paths resolved at runtime by `resolveSessionConfig`, which composes the sessions scope of `spx/18-state.enabler/32-scope-addressing.enabler` ([audit])
 - NEVER: use filename prefixes (`TODO_`, `DOING_`) for status — that violates positional status ([audit])
 - NEVER: mix sessions of different statuses in one directory — it breaks fast enumeration ([audit])
 - NEVER: parse filenames to determine session status — status is the directory, not the name ([audit])

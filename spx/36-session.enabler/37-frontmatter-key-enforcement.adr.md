@@ -12,5 +12,5 @@ The frontmatter schema is a closed vocabulary with a single runtime source of tr
 
 - ALWAYS: reference `SESSION_FRONT_MATTER` for every session frontmatter key read or written outside the registry definition module — schema usage stays tied to the canonical runtime registry ([audit])
 - ALWAYS: cover the custom ESLint rule with fixtures that include both a violating call site and the allowed registry definition module — proving the rule reports drift without flagging the source of truth ([audit])
-- NEVER: spell a session frontmatter key as a raw string literal in any module outside the registry definition module — duplicated keys drift from `spx/36-session.enabler/11-session-frontmatter.pdr.md` ([audit])
+- NEVER: spell a session frontmatter key as a raw string literal in any module outside the registry definition module — duplicated keys drift from [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](spx/36-session.enabler/11-session-frontmatter.pdr.md) ([audit])
 - NEVER: rely on grep or raw text scanning for frontmatter-key compliance — textual search cannot model TypeScript syntax or the registry-definition exemption ([audit])
