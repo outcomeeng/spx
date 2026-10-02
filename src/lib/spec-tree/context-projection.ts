@@ -236,25 +236,38 @@ export function selectSpecContextDocuments(
   return result;
 }
 
+/**
+ * Separates a terminated front-matter block from the body without reading it:
+ * a document whose keys no projection selects keeps whatever metadata syntax
+ * its own tooling accepts.
+ */
 export function splitSpecContextFrontMatter(source: string, path: string): {
-  readonly metadata: Readonly<Record<string, unknown>>;
+  readonly frontMatter: string | undefined;
   readonly body: string;
 } {
   const opening = /^---\r?\n/.exec(source);
-  if (opening === null) return { metadata: {}, body: source };
+  if (opening === null) return { frontMatter: undefined, body: source };
   const remainder = source.slice(opening[0].length);
   const closing = /^---(?:\r?\n|$)/m.exec(remainder);
   if (closing === null) throw new Error(`Unterminated front matter in ${path}`);
-  const document = parseDocument(remainder.slice(0, closing.index));
-  if (document.errors.length > 0) throw new Error(`Invalid front matter in ${path}: ${document.errors[0]?.message}`);
-  const metadata: unknown = document.toJS();
-  if (metadata !== null && (typeof metadata !== "object" || Array.isArray(metadata))) {
-    throw new Error(`Front matter must be a mapping in ${path}`);
-  }
   return {
-    metadata: metadata === null ? {} : metadata as Readonly<Record<string, unknown>>,
+    frontMatter: remainder.slice(0, closing.index),
     body: remainder.slice(closing.index + closing[0].length),
   };
+}
+
+/** The named keys an output node's front matter supplies, read only for the document that selects them. */
+function selectSpecContextMetadata(frontMatter: string, path: string): Readonly<Record<string, unknown>> {
+  const document = parseDocument(frontMatter);
+  if (document.errors.length > 0) throw new Error(`Invalid front matter in ${path}: ${document.errors[0]?.message}`);
+  const metadata: unknown = document.toJS();
+  if (metadata === null) return {};
+  if (typeof metadata !== "object" || Array.isArray(metadata)) {
+    throw new Error(`Front matter must be a mapping in ${path}`);
+  }
+  return Object.hasOwn(metadata, MALLEABILITY_KEY)
+    ? { [MALLEABILITY_KEY]: (metadata as Readonly<Record<string, unknown>>)[MALLEABILITY_KEY] }
+    : {};
 }
 
 const LINE_FEED = "\n";
@@ -297,9 +310,9 @@ export function projectSpecContextDocument(
   if (selection.mode === SPEC_CONTEXT_MODE.REFERENCE) {
     return { type: SPEC_CONTEXT_ENTRY_TYPE.REFERENCE, path: selection.path };
   }
-  const { metadata, body } = splitSpecContextFrontMatter(source, selection.path);
-  const selectedMetadata = selection.outputNode === true && Object.hasOwn(metadata, MALLEABILITY_KEY)
-    ? { [MALLEABILITY_KEY]: metadata[MALLEABILITY_KEY] }
+  const { frontMatter, body } = splitSpecContextFrontMatter(source, selection.path);
+  const selectedMetadata = selection.outputNode === true && frontMatter !== undefined
+    ? selectSpecContextMetadata(frontMatter, selection.path)
     : {};
   const content = selection.mode === SPEC_CONTEXT_MODE.FULL
     ? body
