@@ -561,6 +561,26 @@ export async function withRichContextEnv(
   }, { fixture: scenario.fixture });
 }
 
+/**
+ * Hands the callback an environment whose `spx/` directory exists and holds
+ * nothing: no product spec, no node, and no decision. The callback receives
+ * the environment unmaterialized; this harness owns only creating the empty
+ * tree directory and confirming the snapshot sees none of the three.
+ */
+export async function withEmptyContextTreeEnv(
+  config: Config,
+  callback: (env: CurrentSpecTreeEnv) => Promise<void>,
+): Promise<void> {
+  await withSpecTreeEnv(config, async (env) => {
+    await mkdir(join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY), { recursive: true });
+    const snapshot = await env.readFilesystemSnapshot();
+    if (snapshot.product?.ref !== undefined || snapshot.allNodes.length > 0 || snapshot.decisions.length > 0) {
+      throw new Error("Expected the empty tree to expose no product spec, node, or decision");
+    }
+    await callback(env);
+  });
+}
+
 const OUTSIDE_PRODUCT_DIRECTORY_PREFIX = "spx-context-outside-";
 
 /**

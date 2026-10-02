@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { SPEC_CONTEXT_TEXT_LABEL } from "@/commands/spec/context";
 import { SPEC_CONTEXT_ENTRIES_KEY } from "@/commands/spec/context-show";
 import { DEFAULT_METHODOLOGY_SOURCE } from "@/config/methodology";
+import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import { SPEC_CONTEXT_FRAME, SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import {
   markdownFixtureBody,
@@ -25,8 +26,10 @@ import {
   parseContextEntries,
   parseContextManifest,
   referencePaths,
+  runSpecDescriptor,
   specTreeKindsConfig,
   trackSpecTreeInGit,
+  withEmptyContextTreeEnv,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
 
@@ -82,6 +85,18 @@ describe("spec context list and show", () => {
       expect(entryPaths(entries)).not.toContain(paths.deepDescendantSpecPath);
       expect(entryPaths(await contextShowEntries({ targets: [paths.targetId], cwd: env.productDir })))
         .toContain(paths.deepDescendantSpecPath);
+    });
+  });
+
+  it("succeeds with empty stdout, and with an empty entry list under --json, when show has no target over a tree with no product spec, node, or decision", async () => {
+    await withEmptyContextTreeEnv(specTreeKindsConfig(), async (env) => {
+      const context = { productDir: env.productDir };
+      const text = await runSpecDescriptor(context, ...SPEC_CONTEXT_COMMAND_PATH.SHOW);
+      expect(text.exitCode, text.stderr).toBeUndefined();
+      expect(text.stdout).toHaveLength(0);
+      const json = await runSpecDescriptor(context, ...SPEC_CONTEXT_COMMAND_PATH.SHOW, SPEC_DOMAIN_CLI.JSON_OPTION);
+      expect(json.exitCode, json.stderr).toBeUndefined();
+      expect(JSON.parse(json.stdout)).toEqual({ [SPEC_CONTEXT_ENTRIES_KEY]: [] });
     });
   });
 
