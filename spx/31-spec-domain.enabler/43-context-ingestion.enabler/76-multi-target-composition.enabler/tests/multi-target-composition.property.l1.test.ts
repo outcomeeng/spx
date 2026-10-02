@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import * as fc from "fast-check";
-
+import { arbitraryRichContextTargetRequest } from "@testing/generators/spec-tree/rich-context";
 import {
   assertProperty,
   PROPERTY_CLASSIFICATION,
@@ -17,23 +16,20 @@ import {
 
 describe("spec context target-order permutation stability", () => {
   it(
-    "produces byte-identical output for every ordering of the same target set",
+    "produces byte-identical output for every reordering of every requested operand set, with each shared entry once",
     async () => {
       await withRichContextEnv(async (env, paths) => {
-        const targets = [paths.rootDirectory, paths.targetId, paths.higherIndexSiblingPath];
-        const canonicalText = await contextShowText({ targets, cwd: env.productDir });
-        const canonicalJson = await contextShowJson({ targets, cwd: env.productDir });
         await assertProperty(
-          // Shuffling the operand order over the same set is the open domain;
-          // a composition keyed on operand order breaks byte identity.
-          fc.shuffledSubarray(targets, { minLength: targets.length }),
-          async (permutation) => {
-            const options = { targets: permutation, cwd: env.productDir };
-            expect(await contextShowText(options)).toBe(canonicalText);
-            expect(await contextShowJson(options)).toBe(canonicalJson);
-            // The three targets share documents and references; each appears
-            // once however the operands are ordered.
-            const shown = entryPaths(await contextShowEntries(options));
+          // Any multiset of accepted operands — aliases of one identity,
+          // repeated operands, and any mix of product-root, ancestor, target,
+          // and sibling targets — beside a reordering of the same operands.
+          arbitraryRichContextTargetRequest(paths),
+          async ({ operands, reordered }) => {
+            const requested = { targets: operands, cwd: env.productDir };
+            const permuted = { targets: reordered, cwd: env.productDir };
+            expect(await contextShowText(permuted)).toBe(await contextShowText(requested));
+            expect(await contextShowJson(permuted)).toBe(await contextShowJson(requested));
+            const shown = entryPaths(await contextShowEntries(requested));
             expect(new Set(shown).size).toBe(shown.length);
           },
           PROPERTY_CLASSIFICATION.SMALL_L1,

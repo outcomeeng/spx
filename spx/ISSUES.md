@@ -221,16 +221,6 @@ The same ownership defect also occurs when an executed test delegates its predic
 
 **Scope:** Product-wide, repaired one owning subtree at a time. Move each `register*()` or `assert*()` function's behavioral predicates into the node's executed `tests/*.test.ts` callbacks. Keep resource lifecycle, operation observations, and seed and run-count machinery in the harness; inspect expected-value construction for independent ownership. Retire redundant scenario/compliance duplicates as encountered, and run each node's tests plus its test-evidence audit after the move. Recount the affected callers when selecting a subtree rather than treating an earlier inventory as the current scope.
 
-## Spec CLI rendering Mapping evidence enumerates formats as separate tests
-
-`spx/31-spec-domain.enabler/32-spec-cli-rendering.enabler/tests/spec-cli-rendering.mapping.l1.test.ts` covers the source-owned status-output format domain with separate example tests. A test-evidence audit rejects that structure because it cannot prove that every member of the finite domain participates in the asserted mapping.
-
-**Impact:** Adding or removing a supported output format can leave the Mapping evidence incomplete while the existing examples still pass.
-
-**Skills:** `/test-typescript`, `/audit-typescript-tests`, `/apply`.
-
-**Scope:** Parameterize the linked Mapping evidence over the source-owned output-format domain, keep the format-specific expected projections in the executed test file, and rerun the node's tests and test-evidence audit.
-
 ## The shipped Specified-state definition is narrower than this product's EXCLUDE practice
 
 `methodology/4.0/{coding-agent}/spec-tree/skills/understand/references/excluded-nodes.md`

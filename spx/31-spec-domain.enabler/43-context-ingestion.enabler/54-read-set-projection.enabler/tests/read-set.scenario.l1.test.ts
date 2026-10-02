@@ -33,7 +33,7 @@ describe("spec context read-set selection", () => {
       ) {
         expect(documentAt(entries, digest)?.content, digest).toBe(paths.openingText[digest]);
       }
-      expect(referencePaths(entries)).toEqual([paths.rootIssuesPath, paths.targetIssuesPath]);
+      expect(referencePaths(entries)).toEqual([paths.rootIssuesPath, paths.ancestorIssuesPath, paths.targetIssuesPath]);
       expect(entryPaths(entries)).not.toContain(paths.targetOutcomePath);
       expect(entryPaths(entries)).not.toContain(paths.rootKnowledgeIndexPath);
       // The bound holds from above as well: the node one level below the

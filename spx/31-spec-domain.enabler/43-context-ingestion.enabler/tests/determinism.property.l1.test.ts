@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { generatedMigratingMethodology } from "@testing/generators/config/descriptors";
 import { arbitraryContextDeterminismCase } from "@testing/generators/spec-tree/context-target";
 import {
   assertProperty,
@@ -24,14 +23,13 @@ describe("spec context determinism", () => {
     async () => {
       await assertProperty(
         arbitraryContextDeterminismCase(specTreeKindsConfig()),
-        async ({ extraDecision, extraNode }) => {
+        async ({ fixture, extraDecision, extraNode, migrating, methodologySlug }) => {
           // An open migration lets the materialized fixture's decisions, which
           // carry no target-version opening, project through the declared
           // source-version fallback in both the targetless and targeted runs.
-          const migrating = generatedMigratingMethodology();
           await withSpecTreeEnv(methodologyTreeConfig(migrating.section), async (env) => {
             await env.materialize();
-            const fixture = await writeMethodologyTree(env, { version: migrating.target });
+            const tree = await writeMethodologyTree(env, { version: migrating.target, slug: methodologySlug });
             await env.writeRaw(extraNode.fixturePath, extraNode.contents);
             await env.writeRaw(extraDecision.fixturePath, extraDecision.contents);
             const snapshot = await env.readFilesystemSnapshot();
@@ -49,14 +47,14 @@ describe("spec context determinism", () => {
                   targets,
                   cwd,
                   methodology: true,
-                  codingAgent: fixture.codingAgent,
-                  methodologyTreeRoot: fixture.treeRoot,
+                  codingAgent: tree.codingAgent,
+                  methodologyTreeRoot: tree.treeRoot,
                 }),
             ];
             for (const run of runs) {
               expect(await run()).toBe(await run());
             }
-          });
+          }, { fixture });
         },
         PROPERTY_CLASSIFICATION.SMALL_L1,
       );

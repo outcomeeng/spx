@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { compareSpecContextOrdinal } from "@/lib/spec-tree";
 import { specContextDivergentCitationDecisions } from "@testing/generators/spec-tree/context-target";
 import { contextShowEntries, documentAt, documentPaths, withRichContextEnv } from "@testing/harnesses/spec/context";
 
@@ -16,8 +15,10 @@ describe("spec context cited decisions", () => {
       }
       const structuralCount = documentPaths(entries).length - 3;
       expect(documentPaths(entries).slice(structuralCount)).toEqual(
-        [paths.citedDecisionPath, paths.transitiveCitedDecisionPath, paths.peerDecisionPath].sort(
-          compareSpecContextOrdinal,
+        // String relational comparison orders by UTF-16 code units: the
+        // canonical ordinal order, computed without the production comparator.
+        [paths.citedDecisionPath, paths.transitiveCitedDecisionPath, paths.peerDecisionPath].sort((left, right) =>
+          left < right ? -1 : left > right ? 1 : 0
         ),
       );
     });
@@ -29,8 +30,8 @@ describe("spec context cited decisions", () => {
       for (const decision of [divergent.citedFirst, divergent.citedSecond]) {
         await env.writeRaw(decision.path, decision.content);
       }
-      // The target cites the higher-index decision first, so discovery order
-      // and canonical path order disagree.
+      // The target cites the canonically later decision first, so discovery
+      // order and canonical path order disagree.
       await env.writeRaw(
         paths.targetSpecPath,
         `${

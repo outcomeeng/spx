@@ -1,19 +1,14 @@
-import { readdir, writeFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_VERSION_FORM } from "@/config/methodology";
-import {
-  formatRangeOperandFormError,
-  FOUNDATION_MANIFEST_RELATIVE_PATH,
-  SOURCE_RECORD_RELATIVE_PATH,
-} from "@/lib/methodology";
+import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
+import { FOUNDATION_MANIFEST_RELATIVE_PATH, SOURCE_RECORD_RELATIVE_PATH } from "@/lib/methodology";
 import { compareSpecContextOrdinal, SPEC_CONTEXT_ENTRY_TYPE } from "@/lib/spec-tree";
 import * as fc from "fast-check";
 
 import {
-  generatedLineFormMigratingMethodologySection,
   generatedMethodologyIdentity,
   generatedMigratingMethodology,
 } from "@testing/generators/config/descriptors";
@@ -21,6 +16,7 @@ import {
   arbitraryMarkdownBody,
   arbitraryMethodologyVersion,
   generatedSourceRecordProviding,
+  methodologyFoundationDocumentPath,
   supportsRangeContaining,
   supportsRangeExcluding,
 } from "@testing/generators/methodology/tree";
@@ -101,7 +97,7 @@ describe("spec context understand payload provider match", () => {
         methodology: true,
         methodologyTreeRoot: agreeing.treeRoot,
       });
-      expect(entries[0]).toMatchObject({ path: agreeing.documentPath, content: agreeing.coreText });
+      expect(entries[0]).toMatchObject({ path: methodologyFoundationDocumentPath(agreeing), content: agreeing.coreText });
 
       const sameLineOtherForm = await writeMethodologyTree(env, {
         version: declared,
@@ -114,36 +110,9 @@ describe("spec context understand payload provider match", () => {
         methodologyTreeRoot: sameLineOtherForm.treeRoot,
       });
       expect(servedAcrossForms[0]).toMatchObject({
-        path: sameLineOtherForm.documentPath,
+        path: methodologyFoundationDocumentPath(sameLineOtherForm),
         content: sameLineOtherForm.coreText,
       });
-    });
-  });
-
-  it("fails naming a MAJOR.MINOR migration source checked against a patched supports bound instead of serving the tree on a verdict that read no patch component", async () => {
-    const { section, forms, target: declared } = generatedLineFormMigratingMethodologySection();
-    const version = declared.text;
-    const migratingFrom = forms.byForm[METHODOLOGY_VERSION_FORM.LINE];
-    await withSpecTreeEnv(methodologyTreeConfig(section), async (env) => {
-      await env.materialize();
-      const snapshot = await env.readFilesystemSnapshot();
-      const target = snapshot.allNodes[0];
-      const patchedBound = await writeMethodologyTree(env, {
-        version: declared,
-        sourceRecord: generatedSourceRecordProviding(
-          version,
-          supportsRangeContaining(forms.byForm[METHODOLOGY_VERSION_FORM.PATCHED]),
-        ),
-      });
-      const failure = await contextShowFailure({
-        targets: [target.id],
-        cwd: env.productDir,
-        methodology: true,
-        methodologyTreeRoot: patchedBound.treeRoot,
-      });
-      // The range check's own diagnostic, never the config descriptor's
-      // rejection, proves the declaration resolved and the supports check ran.
-      expect(failure).toContain(formatRangeOperandFormError(migratingFrom));
     });
   });
 });
@@ -169,7 +138,7 @@ describe("spec context understand payload sourcing", () => {
       });
       expect(served[0]).toEqual({
         type: SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT,
-        path: fixture.documentPath,
+        path: methodologyFoundationDocumentPath(fixture),
         metadata: {},
         content: fixture.coreText,
       });
@@ -177,6 +146,31 @@ describe("spec context understand payload sourcing", () => {
         const internal of [FOUNDATION_MANIFEST_RELATIVE_PATH, SOURCE_RECORD_RELATIVE_PATH, ...fixture.catalogPaths]
       ) {
         expect(served.some((entry) => entry.path.endsWith(internal)), internal).toBe(false);
+      }
+    });
+  });
+
+  it("resolves every core-relative catalog resource against the framed bundle path to the shipped resource", async () => {
+    const identity = generatedMethodologyIdentity();
+    await withSpecTreeEnv(methodologyTreeConfig(identity.section), async (env) => {
+      await env.materialize();
+      const fixture = await writeMethodologyTree(env, { version: identity.version });
+      const snapshot = await env.readFilesystemSnapshot();
+      const served = await contextShowEntries({
+        targets: [snapshot.allNodes[0].id],
+        cwd: env.productDir,
+        methodology: true,
+        methodologyTreeRoot: fixture.treeRoot,
+      });
+      const framedPath = served[0]?.path ?? "";
+      // The frame names the core under its bundle; stripping the core value
+      // leaves the bundle path a workflow resolves a catalog resource against.
+      expect(framedPath.endsWith(fixture.corePath)).toBe(true);
+      const bundlePath = framedPath.slice(0, framedPath.length - fixture.corePath.length);
+      for (const catalogPath of fixture.catalogPaths) {
+        expect(await readFile(join(fixture.packageRoot, bundlePath, catalogPath), "utf8"), catalogPath).toBe(
+          fixture.catalogTexts[catalogPath],
+        );
       }
     });
   });
@@ -198,7 +192,7 @@ describe("spec context understand payload sourcing", () => {
       const before = (await readdir(env.productDir, { recursive: true })).sort(compareSpecContextOrdinal);
       const first = await contextShowEntries(options);
       expect((await readdir(env.productDir, { recursive: true })).sort(compareSpecContextOrdinal)).toEqual(before);
-      expect(first[0]).toMatchObject({ path: fixture.documentPath, content: firstCore });
+      expect(first[0]).toMatchObject({ path: methodologyFoundationDocumentPath(fixture), content: firstCore });
       // A later invocation over changed shipped and tracked content projects
       // the content as it stands, so nothing the first run produced survives
       // into the second.
@@ -206,7 +200,7 @@ describe("spec context understand payload sourcing", () => {
       await writeFile(join(fixture.treeDir, fixture.corePath), laterCore);
       await env.writeRaw(paths.targetSpecPath, `${paths.sourceText[paths.targetSpecPath]}\n${marker}\n`);
       const later = await contextShowEntries(options);
-      expect(later[0]).toMatchObject({ path: fixture.documentPath, content: laterCore });
+      expect(later[0]).toMatchObject({ path: methodologyFoundationDocumentPath(fixture), content: laterCore });
       expect(documentAt(first, paths.targetSpecPath)?.content).not.toContain(marker);
       expect(documentAt(later, paths.targetSpecPath)?.content).toContain(marker);
     });

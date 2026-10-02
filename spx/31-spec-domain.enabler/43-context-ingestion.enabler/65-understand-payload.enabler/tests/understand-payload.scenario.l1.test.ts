@@ -8,11 +8,18 @@ import {
   FOUNDATION_MANIFEST_FIELDS,
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   FOUNDATION_MANIFEST_SCHEMA_VERSION,
+  FOUNDATION_PLUGIN_NAME,
+  METHODOLOGY_TREE_ROOT,
 } from "@/lib/methodology";
 import { SPEC_CONTEXT_ENTRY_TYPE, SPEC_CONTEXT_FRAME } from "@/lib/spec-tree";
 import { generatedMigratingMethodology } from "@testing/generators/config/descriptors";
-import { arbitraryMethodologyLineVersion, arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
+import {
+  arbitraryMethodologyLineVersion,
+  arbitraryMethodologyVersion,
+  methodologyFoundationDocumentPath,
+} from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
+import { SPEC_CONTEXT_ESCAPE_TARGET_FILENAME } from "@testing/generators/spec-tree/rich-context";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextShowEntries,
@@ -22,7 +29,6 @@ import {
   METHODOLOGY_FIXTURE_IDENTITY,
   methodologyFixtureTreeRoot,
   methodologyTreeConfig,
-  SPEC_CONTEXT_ESCAPE_TARGET_FILENAME,
   writeMethodologyTree,
 } from "@testing/harnesses/spec/context";
 
@@ -40,9 +46,13 @@ describe("spec context understand payload", () => {
         methodologyTreeRoot: fixture.treeRoot,
       };
       const entries = await contextShowEntries(options);
+      // The frame path is the bundle address — the package-root-relative
+      // methodology root, the line, the coding agent, and the plugin — followed
+      // by the manifest's core value; it never names a product path.
+      const bundleAddress = [METHODOLOGY_TREE_ROOT, fixture.line, fixture.codingAgent, FOUNDATION_PLUGIN_NAME];
       expect(entries[0]).toEqual({
         type: SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT,
-        path: fixture.documentPath,
+        path: [...bundleAddress, fixture.corePath].join("/"),
         metadata: {},
         content: fixture.coreText,
       });
@@ -114,7 +124,7 @@ describe("spec context understand payload", () => {
         methodology: true,
         methodologyTreeRoot: fixture.treeRoot,
       });
-      expect(entries[0]).toMatchObject({ path: fixture.documentPath, content: fixture.coreText });
+      expect(entries[0]).toMatchObject({ path: methodologyFoundationDocumentPath(fixture), content: fixture.coreText });
     });
   });
 
@@ -137,7 +147,7 @@ describe("spec context understand payload", () => {
           methodology: true,
           methodologyTreeRoot: fixture.treeRoot,
         });
-        expect(entries[0]).toMatchObject({ path: fixture.documentPath, content: fixture.coreText });
+        expect(entries[0]).toMatchObject({ path: methodologyFoundationDocumentPath(fixture), content: fixture.coreText });
       },
     );
   });
