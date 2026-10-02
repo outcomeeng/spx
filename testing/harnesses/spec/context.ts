@@ -244,6 +244,16 @@ export async function trackSpecTreeInGit(env: CurrentSpecTreeEnv): Promise<void>
   await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.ADD, SPEC_TREE_CONFIG.ROOT_DIRECTORY]);
 }
 
+/**
+ * An invocation directory under the product, spelled through the product
+ * directory's canonical path — the spelling git reports as the product root —
+ * so a case's candidates and the resolved root share one spelling however the
+ * temporary directory is reached.
+ */
+export async function canonicalInvocationDir(env: CurrentSpecTreeEnv, relativeDir: string): Promise<string> {
+  return join(await realpath(env.productDir), relativeDir);
+}
+
 export function trackedSpecContextGitDependencies(
   productDir: string,
   trackedPaths: readonly string[],
