@@ -2,20 +2,20 @@
 
 ## Purpose
 
-Wire typed config-backed domain path-filter inputs through the file-inclusion resolver so each `spx validation` and `spx test` consumer narrows scope within the git-tracking default per `spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`.
+Wire typed config-backed domain path-filter inputs through the file-inclusion resolver so each `spx validation` and `spx test` consumer narrows scope within the git-tracking default per [spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md](spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md).
 
 ## Governing Artifacts
 
 - `spx/17-file-inclusion.enabler/file-inclusion.md`
-- `spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`
-- `spx/17-file-inclusion.enabler/15-scope-composition.adr.md`
+- [spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md](spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md)
+- [spx/17-file-inclusion.enabler/15-scope-composition.adr.md](spx/17-file-inclusion.enabler/15-scope-composition.adr.md)
 - `spx/16-config.enabler/32-shared-config-primitives.enabler/shared-config-primitives.md`
 
 ## Implementation Notes
 
 - The scope-resolver accepts a typed domain path filter alongside override flags and explicit caller paths.
 - Domain filters layer on top of the git-tracking default — they narrow or restrict within the git-tracked set, never replace git's view as the default scope source.
-- Operators who want ignored entries processed pass `--no-ignore`, `--no-ignore-vcs`, or `--ignore-file` per `spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`, not a domain filter `include` pattern.
+- Operators who want ignored entries processed pass `--no-ignore`, `--no-ignore-vcs`, or `--ignore-file` per [spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md](spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md), not a domain filter `include` pattern.
 
 ## Evidence Required
 

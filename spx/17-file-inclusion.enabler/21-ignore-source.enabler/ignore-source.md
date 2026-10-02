@@ -1,7 +1,7 @@
 # Ignore Source
 
-PROVIDES the git-tracking reader — invokes `git ls-files --cached --others --exclude-standard --full-name -z` at construction against the worktree resolved per `spx/15-worktree-management.pdr.md` and exposes membership and descendant-membership queries over the resulting typed set of included paths, plus override-aware construction that translates `--no-ignore`, `--no-ignore-vcs`, and `--ignore-file` into the equivalent git plumbing arguments
-SO THAT the path-predicates child (`../32-path-predicates.enabler/`) evaluating the git-tracking layer and the scope-resolver child (`../43-scope-resolver.enabler/`) assembling decision trails
+PROVIDES the git-tracking reader — invokes `git ls-files --cached --others --exclude-standard --full-name -z` at construction against the worktree resolved per [spx/15-worktree-management.pdr.md](spx/15-worktree-management.pdr.md) and exposes membership and descendant-membership queries over the resulting typed set of included paths, plus override-aware construction that translates `--no-ignore`, `--no-ignore-vcs`, and `--ignore-file` into the equivalent git plumbing arguments
+SO THAT the path-predicates child ([`spx/17-file-inclusion.enabler/32-path-predicates.enabler`](spx/17-file-inclusion.enabler/32-path-predicates.enabler/path-predicates.md)) evaluating the git-tracking layer and the scope-resolver child ([`spx/17-file-inclusion.enabler/43-scope-resolver.enabler`](spx/17-file-inclusion.enabler/43-scope-resolver.enabler/scope-resolver.md)) assembling decision trails
 CAN consult the operator's effective scope through one typed surface without re-shelling out to git per path or re-implementing git's ignore-resolution logic
 
 ## Assertions
@@ -25,16 +25,16 @@ CAN consult the operator's effective scope through one typed surface without re-
 
 ### Mappings
 
-- Override flag to git plumbing translation: `--no-ignore` translates to omitting `--exclude-standard`; `--ignore-file <path>` translates to adding `--exclude-from <path>` to the standard argument set; `--no-ignore-vcs` translates to the git plumbing argument shape required to honor `.git/info/exclude` and global gitignore while bypassing top-level and nested `.gitignore` files — the specific argument shape is governed by `21-reader-shape.adr.md` ([test](tests/ignore-source.mapping.l1.test.ts))
+- Override flag to git plumbing translation: `--no-ignore` translates to omitting `--exclude-standard`; `--ignore-file <path>` translates to adding `--exclude-from <path>` to the standard argument set; `--no-ignore-vcs` translates to the git plumbing argument shape required to honor `.git/info/exclude` and global gitignore while bypassing top-level and nested `.gitignore` files — the specific argument shape is governed by [spx/17-file-inclusion.enabler/21-ignore-source.enabler/21-reader-shape.adr.md](21-reader-shape.adr.md) ([test](tests/ignore-source.mapping.l1.test.ts))
 
 ### Compliance
 
 - ALWAYS: the reader's git invocations all happen at construction — query methods are pure over the constructed set and perform no filesystem or subprocess I/O ([review])
-- ALWAYS: the reader resolves its worktree root per `spx/15-worktree-management.pdr.md` and passes it as the `-C` argument or `cwd` of every git invocation ([review])
+- ALWAYS: the reader resolves its worktree root per [spx/15-worktree-management.pdr.md](spx/15-worktree-management.pdr.md) and passes it as the `-C` argument or `cwd` of every git invocation ([review])
 - ALWAYS: override-flag translation happens once at construction; the constructed reader records which overrides were applied so consumers can inspect the normalized override request ([review])
 - ALWAYS: automatic directory walking can ask whether an included descendant exists under a directory without shelling out again or parsing ignore files ([review])
 - NEVER: shell out to git from any module outside this enabler — git plumbing is invoked only here ([review])
 - NEVER: parse `.gitignore`, `.git/info/exclude`, or `core.excludesFile` content directly — spx delegates the ignore-resolution semantics to git plumbing ([review])
-- NEVER: emit tool-specific flag syntax from this enabler — tool-flag production lives in `../54-tool-adapters.enabler/` ([review])
+- NEVER: emit tool-specific flag syntax from this enabler — tool-flag production lives in [`spx/17-file-inclusion.enabler/54-tool-adapters.enabler`](spx/17-file-inclusion.enabler/54-tool-adapters.enabler/tool-adapters.md) ([review])
 - NEVER: write to any file in the worktree or the git repository — the reader is read-only ([review])
-- NEVER: use `vi.mock()`, `jest.mock()`, `memfs`, or any filesystem-mocking mechanism — tests construct real git worktrees under temp directories via `../../22-test-environment.enabler/` ([review])
+- NEVER: use `vi.mock()`, `jest.mock()`, `memfs`, or any filesystem-mocking mechanism — tests construct real git worktrees under temp directories via [`spx/22-test-environment.enabler`](spx/22-test-environment.enabler/test-environment.md) ([review])

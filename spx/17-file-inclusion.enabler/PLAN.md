@@ -3,16 +3,16 @@
 ## Purpose
 
 Implement the git-tracking layer model declared in
-`spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md` and
-`spx/17-file-inclusion.enabler/15-scope-composition.adr.md` across the
+[spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md](11-ignore-defaults.pdr.md) and
+[spx/17-file-inclusion.enabler/15-scope-composition.adr.md](15-scope-composition.adr.md) across the
 file-inclusion subtree and the consumers that wire override flags.
 
 ## Governing Decisions
 
-- `spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md` — git as the default scope source, ripgrep CLI vocabulary for invocation-time overrides, dotfile divergence
-- `spx/17-file-inclusion.enabler/15-scope-composition.adr.md` — pipeline assembly with the git-tracking layer constructed once per resolver invocation
-- `spx/16-config.enabler/21-descriptor-registration.adr.md` — shared config primitives and domain descriptors
-- `spx/15-worktree-management.pdr.md` — `productDir` resolution via `git rev-parse --show-toplevel`
+- [spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md](11-ignore-defaults.pdr.md) — git as the default scope source, ripgrep CLI vocabulary for invocation-time overrides, dotfile divergence
+- [spx/17-file-inclusion.enabler/15-scope-composition.adr.md](15-scope-composition.adr.md) — pipeline assembly with the git-tracking layer constructed once per resolver invocation
+- [spx/16-config.enabler/21-descriptor-registration.adr.md](spx/16-config.enabler/21-descriptor-registration.adr.md) — shared config primitives and domain descriptors
+- [spx/15-worktree-management.pdr.md](spx/15-worktree-management.pdr.md) — `productDir` resolution via `git rev-parse --show-toplevel`
 
 ## Current Tranche
 
