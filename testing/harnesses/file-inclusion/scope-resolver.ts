@@ -1,9 +1,5 @@
-import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
-
 import { DEFAULT_IGNORE_SOURCE_OVERRIDES, EMPTY_INCLUDED_SET_IGNORE_READER } from "@/lib/file-inclusion/ignore-source";
 import type { ScopeResolverConfig, ScopeResolverState } from "@/lib/file-inclusion/pipeline";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
-import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
 import {
   differentPrefixPath,
@@ -15,11 +11,7 @@ import type { GitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktre
 
 export { PROPERTY_NUM_RUNS } from "@testing/harnesses/spec-tree/generators";
 
-export const integrationConfig: Config = MINIMAL_SPEC_TREE_CONFIG;
-
 export const resolverConfig: ScopeResolverConfig = {};
-
-export const specTreePath = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/17-file-inclusion.enabler/file-inclusion.md`;
 
 export type ScopeResolverFixture = {
   readonly trackedFilePath: string;
@@ -52,7 +44,7 @@ export function scopeResolverFixture(): ScopeResolverFixture {
   };
 }
 
-export function distinctPrefixedTrackedPaths(count: number): readonly string[] {
+function distinctPrefixedTrackedPaths(count: number): readonly string[] {
   const paths = new Map<string, string>();
   const maxAttempts = count * 50;
   for (let attempt = 0; attempt < maxAttempts && paths.size < count; attempt += 1) {
