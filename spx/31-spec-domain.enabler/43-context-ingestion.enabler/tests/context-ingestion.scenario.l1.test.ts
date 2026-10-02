@@ -93,11 +93,15 @@ describe("spec context list and show", () => {
           paths.productPath,
           paths.rootSpecPath,
           paths.ancestorDecisionPath,
-          paths.higherAncestorDecisionPath,
-          paths.higherProductDecisionPath,
+          paths.targetDecisionPath,
         ]
       ) {
         expect(documentAt(entries, full)?.content, full).toBe(paths.sourceText[full]);
+      }
+      // An ancestor's decision at or above the index of the child the path
+      // continues through governs no part of the path.
+      for (const unselected of [paths.higherAncestorDecisionPath, paths.higherProductDecisionPath]) {
+        expect(entryPaths(entries), unselected).not.toContain(unselected);
       }
       expect(documentAt(entries, paths.targetOutcomePath)?.content).toBe(paths.bodyText[paths.targetOutcomePath]);
       const target = documentAt(entries, paths.targetSpecPath);
