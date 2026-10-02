@@ -1,4 +1,4 @@
-export { REGISTERED_TOOL_NAMES, TOOL_DEFAULT_FLAGS, toToolArguments } from "./adapters";
+export { REGISTERED_TOOL_NAMES, TOOL_DEFAULT_FLAGS, TOOL_NAMES, toToolArguments } from "./adapters";
 export {
   DEFAULT_SCOPE_CONFIG,
   DEFAULT_TOOLS_CONFIG,
