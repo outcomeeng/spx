@@ -13,18 +13,6 @@ import {
 } from "@/validation/steps/markdown";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 
-const SPX_DIRECTORY_NAME = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
-const [, DOCS_DIRECTORY_NAME] = MARKDOWN_DEFAULT_DIRECTORY_NAMES;
-const DECLARED_NODE_DIRECTORY = "32-declared.outcome";
-const DECLARED_MARKDOWN_FILE = "declared.md";
-const DECLARED_CHILD_DIRECTORY = "43-child.enabler";
-const CHILD_MARKDOWN_FILE = "child.md";
-const TARGET_MARKDOWN_FILE = "target.md";
-const BROKEN_MARKDOWN_FILE = "broken.md";
-const DOCS_DIRECT_FILE_MD024_CONTENT = "# Page\n\n## Repeat\n\n## Repeat\n";
-const VALID_MARKDOWN_TARGET_CONTENT = "# Target\n\nContent.\n";
-const BROKEN_MARKDOWN_CONTENT = "# Broken\n\n[broken](./does-not-exist.md)\n";
-
 export const EXPLICIT_MARKDOWN_OPERAND_KIND = {
   DIRECTORY: "directory",
   FILE: "file",
@@ -68,20 +56,6 @@ export function arbitraryExplicitMarkdownOperandScenario(
       };
     });
 }
-
-export const MARKDOWN_VALIDATION_DATA = {
-  spxDirectoryName: SPX_DIRECTORY_NAME,
-  docsDirectoryName: DOCS_DIRECTORY_NAME,
-  declaredNodeDirectory: DECLARED_NODE_DIRECTORY,
-  declaredMarkdownFile: DECLARED_MARKDOWN_FILE,
-  declaredChildDirectory: DECLARED_CHILD_DIRECTORY,
-  childMarkdownFile: CHILD_MARKDOWN_FILE,
-  targetMarkdownFile: TARGET_MARKDOWN_FILE,
-  brokenMarkdownFile: BROKEN_MARKDOWN_FILE,
-  docsDirectFileMd024Content: DOCS_DIRECT_FILE_MD024_CONTENT,
-  validMarkdownTargetContent: VALID_MARKDOWN_TARGET_CONTENT,
-  brokenMarkdownContent: BROKEN_MARKDOWN_CONTENT,
-} as const;
 
 /** Bounds of the generated link-grammar domain. */
 const SPEC_TREE_LINK_DOMAIN = {

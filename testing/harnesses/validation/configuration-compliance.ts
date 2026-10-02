@@ -1,3 +1,4 @@
+import { posix } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import type { KnipCommandOptions } from "@/commands/validation";
@@ -6,7 +7,7 @@ import { LITERAL_DISABLED_MESSAGE, literalCommand, type LiteralCommandDeps } fro
 import { MARKDOWN_COMMAND_OUTPUT, markdownCommand } from "@/commands/validation/markdown";
 import { VALIDATION_COMMAND_OUTPUT, VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import { resolveConfig } from "@/config/index";
-import { NODE_STATUS_EXCLUDE_FILENAME } from "@/lib/node-status/exclude";
+import { NODE_STATUS_EXCLUDE_FILENAME, NODE_STATUS_EXCLUDE_LINE_GRAMMAR } from "@/lib/node-status/exclude";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import {
   VALIDATION_KNIP_SUBSECTION,
@@ -17,7 +18,7 @@ import {
   validationConfigDescriptor,
 } from "@/validation/config/descriptor";
 import { type KnipStageDeps, runKnipStage } from "@/validation/languages/typescript";
-import { MARKDOWN_DEFAULT_DIRECTORY_NAMES, MARKDOWN_PRIMARY_FILE_EXTENSION } from "@/validation/steps/markdown";
+import { MARKDOWN_DEFAULT_DIRECTORY_NAMES } from "@/validation/steps/markdown";
 import { discardValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import {
@@ -25,11 +26,16 @@ import {
   sampleDistinctDomainLiterals,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   arbitraryExplicitMarkdownOperandScenario,
+  arbitrarySpecTreeLinkScenario,
   EXPLICIT_MARKDOWN_OPERAND_KIND,
   type ExplicitMarkdownOperandKind,
-  MARKDOWN_VALIDATION_DATA,
+  markdownBrokenRelativeLink,
+  markdownRepeatedHeadingUnderDistinctParents,
+  specTreeExcludedNodeCase,
+  type SpecTreeLinkScenario,
 } from "@testing/generators/validation/markdown";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { type LiteralFixtureEnv, withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
@@ -37,6 +43,12 @@ import { validationConfigSection } from "@testing/harnesses/validation/configura
 import { createRecordingKnipCommandDeps, type KnipDiscoveryCall } from "@testing/harnesses/validation/knip-support";
 
 type LiteralFixtureConfig = Parameters<typeof withLiteralFixtureEnv>[0];
+
+const [SPEC_TREE_DIRECTORY_NAME, DOCS_DIRECTORY_NAME] = MARKDOWN_DEFAULT_DIRECTORY_NAMES;
+
+function sampleSpecTreeLinkScenario(): SpecTreeLinkScenario {
+  return sampleGeneratedValue(arbitrarySpecTreeLinkScenario());
+}
 
 function markdownValidationPathsConfig(
   paths: { readonly include?: readonly string[]; readonly exclude?: readonly string[] },
@@ -50,20 +62,18 @@ function markdownValidationPathsConfig(
   };
 }
 
-async function writeDefaultMarkdownPair(
+/**
+ * Writes a problem-free spec-tree markdown file and a docs markdown file carrying a broken relative link, both
+ * composed from one generated scenario.
+ */
+async function writeValidSpecTreeAndBrokenDocsMarkdown(
   env: LiteralFixtureEnv,
-  invalidContent: string,
+  scenario: SpecTreeLinkScenario,
 ): Promise<void> {
-  const [validMarkdownSlug, invalidMarkdownSlug] = sampleDistinctDomainLiterals(2);
-  const [specTreeDirectory, docsDirectory] = MARKDOWN_DEFAULT_DIRECTORY_NAMES;
-  await env.writeRaw(
-    `${specTreeDirectory}/${validMarkdownSlug}${MARKDOWN_PRIMARY_FILE_EXTENSION}`,
-    MARKDOWN_VALIDATION_DATA.validMarkdownTargetContent,
-  );
-  await env.writeRaw(
-    `${docsDirectory}/${invalidMarkdownSlug}${MARKDOWN_PRIMARY_FILE_EXTENSION}`,
-    invalidContent,
-  );
+  const validFile = markdownRepeatedHeadingUnderDistinctParents(scenario, SPEC_TREE_DIRECTORY_NAME);
+  const brokenLink = markdownBrokenRelativeLink(scenario, DOCS_DIRECTORY_NAME);
+  await env.writeRaw(validFile.path, validFile.content);
+  await env.writeRaw(brokenLink.citingFile, brokenLink.content);
 }
 
 async function runExplicitMarkdownOperandBypassingExclude(
@@ -76,7 +86,8 @@ async function runExplicitMarkdownOperandBypassingExclude(
   return await withLiteralFixtureEnv(
     markdownValidationPathsConfig({ exclude: [excludedDirectory] }),
     async (env) => {
-      await env.writeRaw(markdownPath, MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
+      const brokenLink = markdownBrokenRelativeLink(sampleSpecTreeLinkScenario(), posix.dirname(markdownPath));
+      await env.writeRaw(markdownPath, brokenLink.content);
 
       return await markdownCommand({
         cwd: env.productDir,
@@ -93,19 +104,12 @@ async function runMarkdownRootScopeWithExcludedDocs(
     {
       [validationConfigDescriptor.section]: {
         [VALIDATION_PATHS_SUBSECTION]: {
-          exclude: [MARKDOWN_VALIDATION_DATA.docsDirectoryName],
+          exclude: [DOCS_DIRECTORY_NAME],
         },
       },
     },
     async (env) => {
-      await env.writeRaw(
-        `${MARKDOWN_VALIDATION_DATA.spxDirectoryName}/${MARKDOWN_VALIDATION_DATA.targetMarkdownFile}`,
-        MARKDOWN_VALIDATION_DATA.validMarkdownTargetContent,
-      );
-      await env.writeRaw(
-        `${MARKDOWN_VALIDATION_DATA.docsDirectoryName}/${MARKDOWN_VALIDATION_DATA.brokenMarkdownFile}`,
-        MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
-      );
+      await writeValidSpecTreeAndBrokenDocsMarkdown(env, sampleSpecTreeLinkScenario());
 
       return await markdownCommand({
         cwd: env.productDir,
@@ -303,7 +307,7 @@ describe("resolved validation configuration", () => {
         include: [SPEC_TREE_CONFIG.ROOT_DIRECTORY],
       }),
       async (env) => {
-        await writeDefaultMarkdownPair(env, MARKDOWN_VALIDATION_DATA.docsDirectFileMd024Content);
+        await writeValidSpecTreeAndBrokenDocsMarkdown(env, sampleSpecTreeLinkScenario());
 
         const result = await markdownCommand({
           cwd: env.productDir,
@@ -321,7 +325,7 @@ describe("resolved validation configuration", () => {
         include: [SPEC_TREE_CONFIG.ROOT_DIRECTORY],
       }),
       async (env) => {
-        await writeDefaultMarkdownPair(env, MARKDOWN_VALIDATION_DATA.brokenMarkdownContent);
+        await writeValidSpecTreeAndBrokenDocsMarkdown(env, sampleSpecTreeLinkScenario());
 
         const result = await markdownCommand({
           cwd: env.productDir,
@@ -356,24 +360,18 @@ describe("resolved validation configuration", () => {
         [validationConfigDescriptor.section]: {
           [VALIDATION_PATHS_SUBSECTION]: {
             [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: {
-              exclude: [MARKDOWN_VALIDATION_DATA.docsDirectoryName],
+              exclude: [DOCS_DIRECTORY_NAME],
             },
           },
         },
       },
       async (env) => {
-        const markdownPath = [
-          MARKDOWN_VALIDATION_DATA.docsDirectoryName,
-          MARKDOWN_VALIDATION_DATA.brokenMarkdownFile,
-        ].join("/");
-        await env.writeRaw(
-          markdownPath,
-          MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
-        );
+        const brokenLink = markdownBrokenRelativeLink(sampleSpecTreeLinkScenario(), DOCS_DIRECTORY_NAME);
+        await env.writeRaw(brokenLink.citingFile, brokenLink.content);
 
         const result = await markdownCommand({
           cwd: env.productDir,
-          files: [MARKDOWN_VALIDATION_DATA.docsDirectoryName],
+          files: [DOCS_DIRECTORY_NAME],
         });
 
         expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
@@ -447,34 +445,19 @@ describe("resolved validation configuration", () => {
 
   it("preserves explicit markdown operands through node-status excludes", async () => {
     await withLiteralFixtureEnv({}, async (env) => {
-      const excludedNodePath = [
-        MARKDOWN_VALIDATION_DATA.spxDirectoryName,
-        MARKDOWN_VALIDATION_DATA.declaredNodeDirectory,
-      ].join("/");
-      const directMarkdownPath = [
-        excludedNodePath,
-        MARKDOWN_VALIDATION_DATA.declaredMarkdownFile,
-      ].join("/");
-      const childMarkdownPath = [
-        excludedNodePath,
-        MARKDOWN_VALIDATION_DATA.declaredChildDirectory,
-        MARKDOWN_VALIDATION_DATA.childMarkdownFile,
-      ].join("/");
+      const excludedNode = specTreeExcludedNodeCase(sampleSpecTreeLinkScenario());
+      const excludedNodePath = excludedNode.nodeDirectory;
+      const [directMarkdownFile] = excludedNode.directFiles;
+      const directMarkdownPath = directMarkdownFile.citingFile;
+      const childMarkdownPath = excludedNode.childNodeFile.citingFile;
       await env.writeRaw(
-        [
-          MARKDOWN_VALIDATION_DATA.spxDirectoryName,
-          NODE_STATUS_EXCLUDE_FILENAME,
-        ].join("/"),
-        `${MARKDOWN_VALIDATION_DATA.declaredNodeDirectory}\n`,
+        posix.join(SPEC_TREE_CONFIG.ROOT_DIRECTORY, NODE_STATUS_EXCLUDE_FILENAME),
+        `${excludedNode.excludeEntry}${NODE_STATUS_EXCLUDE_LINE_GRAMMAR.ENTRY_SEPARATOR}`,
       );
-      await env.writeRaw(
-        directMarkdownPath,
-        MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
-      );
-      await env.writeRaw(
-        childMarkdownPath,
-        MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
-      );
+      for (const directFile of excludedNode.directFiles) {
+        await env.writeRaw(directFile.citingFile, directFile.content);
+      }
+      await env.writeRaw(childMarkdownPath, excludedNode.childNodeFile.content);
 
       const directoryResult = await markdownCommand({
         cwd: env.productDir,
