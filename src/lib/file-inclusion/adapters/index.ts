@@ -9,22 +9,31 @@ import { vitestAdapter } from "./vitest";
 
 export type { AdapterConfig, ToolAdapterFn, ToolAdaptersConfig } from "../types";
 
+export const TOOL_NAMES = {
+  ESLINT: "eslint",
+  TSC: "tsc",
+  KNIP: "knip",
+  MARKDOWNLINT: "markdownlint",
+  PYTEST: "pytest",
+  VITEST: "vitest",
+} as const;
+
 export const TOOL_DEFAULT_FLAGS: Readonly<Record<string, string>> = {
-  eslint: "--ignore-pattern",
-  tsc: "--exclude",
-  knip: "--exclude",
-  markdownlint: "--ignore",
-  pytest: "--ignore",
-  vitest: "--exclude",
+  [TOOL_NAMES.ESLINT]: "--ignore-pattern",
+  [TOOL_NAMES.TSC]: "--exclude",
+  [TOOL_NAMES.KNIP]: "--exclude",
+  [TOOL_NAMES.MARKDOWNLINT]: "--ignore",
+  [TOOL_NAMES.PYTEST]: "--ignore",
+  [TOOL_NAMES.VITEST]: "--exclude",
 };
 
 const ADAPTER_MAP: Readonly<Partial<Record<string, ToolAdapterFn>>> = {
-  eslint: eslintAdapter,
-  tsc: tscAdapter,
-  knip: knipAdapter,
-  markdownlint: markdownlintAdapter,
-  pytest: pytestAdapter,
-  vitest: vitestAdapter,
+  [TOOL_NAMES.ESLINT]: eslintAdapter,
+  [TOOL_NAMES.TSC]: tscAdapter,
+  [TOOL_NAMES.KNIP]: knipAdapter,
+  [TOOL_NAMES.MARKDOWNLINT]: markdownlintAdapter,
+  [TOOL_NAMES.PYTEST]: pytestAdapter,
+  [TOOL_NAMES.VITEST]: vitestAdapter,
 };
 
 export const REGISTERED_TOOL_NAMES: readonly string[] = Object.keys(ADAPTER_MAP);
