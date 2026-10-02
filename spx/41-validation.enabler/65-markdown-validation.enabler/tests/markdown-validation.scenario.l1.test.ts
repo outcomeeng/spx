@@ -1,11 +1,13 @@
 import { dirname, join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { MARKDOWN_COMMAND_OUTPUT, markdownCommand } from "@/commands/validation/markdown";
 import { createNodeStatusExcludeReader, NODE_STATUS_EXCLUDE_FILENAME } from "@/lib/node-status/exclude";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { validateMarkdown } from "@/validation/steps/markdown";
 import {
+  MARKDOWN_LINK_SHAPE_DATA,
   MARKDOWN_VALIDATION_DATA,
   markdownDirectoryTarget,
   markdownFileTarget,
@@ -44,6 +46,23 @@ describe("Given a markdown file with a relative link to a non-existent file", ()
           detail: expect.stringContaining(MARKDOWN_VALIDATION_DATA.missingFileMarker),
         }),
       ]);
+    });
+  }, MARKDOWN_HARNESS_TIMEOUT);
+});
+
+describe("Given a markdown file inside spx/ with a tree-absolute link", () => {
+  it("resolves the link from the product root when spx validation markdown runs", async () => {
+    await withMarkdownTempProject(async ({ productDir, write }) => {
+      await write(MARKDOWN_LINK_SHAPE_DATA.linkedFile, MARKDOWN_LINK_SHAPE_DATA.linkedContent);
+      await write(
+        MARKDOWN_LINK_SHAPE_DATA.treeAbsoluteLink.citingFile,
+        MARKDOWN_LINK_SHAPE_DATA.treeAbsoluteLink.content,
+      );
+
+      const result = await markdownCommand({ cwd: productDir });
+
+      expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
+      expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.zero);
     });
   }, MARKDOWN_HARNESS_TIMEOUT);
 });

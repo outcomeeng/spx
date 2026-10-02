@@ -1,5 +1,7 @@
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { markdownCommand } from "@/commands/validation/markdown";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { MARKDOWN_VALIDATION_STAGE_PARTICIPATION } from "@/validation/languages/markdown";
 import { VALIDATION_STAGE_PARTICIPATION } from "@/validation/languages/types";
@@ -8,7 +10,16 @@ import {
   MARKDOWN_CONFIG_CONTROL_KEYS,
   MARKDOWN_DEFAULT_DIRECTORY_NAMES,
   MARKDOWN_ENABLED_BUILTIN_RULES,
+  validateMarkdown,
 } from "@/validation/steps/markdown";
+import {
+  MARKDOWN_LINK_SHAPE_DATA,
+  MARKDOWN_VALIDATION_DATA,
+  markdownDirectoryTarget,
+  markdownFileTarget,
+} from "@testing/generators/validation/markdown";
+import { withMarkdownTempProject } from "@testing/harnesses/validation/markdown";
+import { MARKDOWN_HARNESS_TIMEOUT } from "@testing/harnesses/with-markdown-env";
 
 describe("Enabled built-in markdownlint rules", () => {
   it("map every default directory to the curated rule set with all other built-in rules disabled", () => {
@@ -43,4 +54,96 @@ describe("Markdown full-pipeline participation", () => {
       VALIDATION_STAGE_PARTICIPATION.RUN,
     ]);
   });
+});
+
+describe("Link type resolution for command behavior", () => {
+  it.each(MARKDOWN_LINK_SHAPE_DATA.commandResolutionRows)(
+    "resolves the $directory/ link $link.href from the product root",
+    async (row) => {
+      await withMarkdownTempProject(async ({ productDir, write }) => {
+        await write(row.declaredResolution, MARKDOWN_LINK_SHAPE_DATA.linkedContent);
+        await write(row.link.citingFile, row.link.content);
+
+        const result = await markdownCommand({ cwd: productDir, files: [join(productDir, row.directory)] });
+
+        expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.zero);
+      });
+    },
+    MARKDOWN_HARNESS_TIMEOUT,
+  );
+
+  it.each(MARKDOWN_LINK_SHAPE_DATA.commandResolutionRows)(
+    "does not resolve the $directory/ link $link.href from the citing file's directory",
+    async (row) => {
+      await withMarkdownTempProject(async ({ productDir, write }) => {
+        await write(row.otherResolution, MARKDOWN_LINK_SHAPE_DATA.linkedContent);
+        await write(row.link.citingFile, row.link.content);
+
+        const result = await markdownCommand({ cwd: productDir, files: [join(productDir, row.directory)] });
+
+        expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.one);
+        expect(result.output).toContain(row.link.href);
+      });
+    },
+    MARKDOWN_HARNESS_TIMEOUT,
+  );
+});
+
+describe("Link type resolution for local rule behavior", () => {
+  it.each(MARKDOWN_LINK_SHAPE_DATA.ruleResolutionRows)(
+    "resolves the $directory/ link $link.href from the citing file's directory",
+    async (row) => {
+      await withMarkdownTempProject(async ({ productDir, write }) => {
+        await write(row.declaredResolution, MARKDOWN_LINK_SHAPE_DATA.linkedContent);
+        const citingFile = await write(row.link.citingFile, row.link.content);
+
+        const result = await validateMarkdown({
+          targets: [markdownDirectoryTarget(join(productDir, row.directory))],
+          productDir,
+        });
+
+        expect(result.errors.filter((error) => error.file === citingFile)).toEqual([]);
+      });
+    },
+    MARKDOWN_HARNESS_TIMEOUT,
+  );
+
+  it.each(MARKDOWN_LINK_SHAPE_DATA.ruleResolutionRows)(
+    "does not resolve the $directory/ link $link.href from the product root",
+    async (row) => {
+      await withMarkdownTempProject(async ({ productDir, write }) => {
+        await write(row.otherResolution, MARKDOWN_LINK_SHAPE_DATA.linkedContent);
+        const citingFile = await write(row.link.citingFile, row.link.content);
+
+        const result = await validateMarkdown({
+          targets: [markdownDirectoryTarget(join(productDir, row.directory))],
+          productDir,
+        });
+
+        expect(result.errors).toContainEqual(
+          expect.objectContaining({
+            file: citingFile,
+            line: row.link.line,
+            detail: expect.stringContaining(row.link.href),
+          }),
+        );
+      });
+    },
+    MARKDOWN_HARNESS_TIMEOUT,
+  );
+
+  it.each(MARKDOWN_LINK_SHAPE_DATA.uncheckedLinks)(
+    "does not check $href in $citingFile",
+    async (link) => {
+      await withMarkdownTempProject(async ({ productDir, write }) => {
+        const citingFile = await write(link.citingFile, link.content);
+
+        const result = await validateMarkdown({ targets: [markdownFileTarget(citingFile)], productDir });
+
+        expect(result.errors).toEqual([]);
+        expect(result.success).toBe(true);
+      });
+    },
+    MARKDOWN_HARNESS_TIMEOUT,
+  );
 });
