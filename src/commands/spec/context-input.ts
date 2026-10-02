@@ -189,21 +189,17 @@ function operandCandidates(input: ContextInput, operand: string): readonly strin
 async function operandFacts(input: ContextInput, operand: string): Promise<SpecContextTargetPathFacts> {
   const candidates: string[] = [];
   let outsideProduct = false;
-  let unsupportedArtifact = false;
   for (const path of new Set(operandCandidates(input, operand))) {
     try {
       const canonical = await input.fs.realPath(path);
-      if (!isPathContained(input.realRoot, canonical)) outsideProduct = true;
-      else {
-        candidates.push(canonical);
-        if (!input.accepted.some((entry) => entry.realPath === canonical)) unsupportedArtifact = true;
-      }
+      if (isPathContained(input.realRoot, canonical)) candidates.push(canonical);
+      else outsideProduct = true;
     } catch (error) {
       if (!isMissingPath(error)) throw error;
       if (!isPathContained(input.realRoot, await missingPathLocation(input.fs, path))) outsideProduct = true;
     }
   }
-  return { accepted: input.accepted, candidates, outsideProduct, unsupportedArtifact };
+  return { accepted: input.accepted, candidates, outsideProduct };
 }
 
 /**
