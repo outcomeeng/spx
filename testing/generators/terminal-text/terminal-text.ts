@@ -21,6 +21,7 @@ import fc from "fast-check";
 
 const ORACLE_C0_CONTROL_UPPER_BOUND = 0x1f;
 const ORACLE_DEL_CODE_POINT = 0x7f;
+const ORACLE_LINE_FEED_CODE_POINT = 0x0a;
 const ORACLE_FIRST_PRINTABLE_CODE_POINT = 0x20;
 const ORACLE_HEX_RADIX = 16;
 const ORACLE_HEX_DIGITS = 2;
@@ -36,6 +37,8 @@ const ORACLE_HEX_PAD_CHARACTER = "0";
 export const TERMINAL_ORACLE = {
   DEL_CODE_POINT: ORACLE_DEL_CODE_POINT,
   FIRST_PRINTABLE_CODE_POINT: ORACLE_FIRST_PRINTABLE_CODE_POINT,
+  /** The line-structure byte a serialized document may carry between its own lines. */
+  LINE_FEED_CODE_POINT: ORACLE_LINE_FEED_CODE_POINT,
 } as const;
 
 export interface TerminalEscapingCase {
@@ -52,6 +55,10 @@ export const arbitraryPrintableCodePoint = (): fc.Arbitrary<number> =>
   fc.integer({ min: ORACLE_FIRST_PRINTABLE_CODE_POINT, max: ORACLE_DEL_CODE_POINT - 1 });
 
 const DEFAULT_SEGMENT_MAX_LENGTH = 8;
+const ACROSS_BOUND_LENGTH_MULTIPLIER = 2;
+const BEYOND_BOUND_LENGTH_MULTIPLIER = 4;
+const MAX_JOIN_PARTS = 5;
+const MAX_JSON_INDENT = 4;
 
 /** Bounds on the text around the guaranteed unsafe byte; `minLength` lifts the whole value past a given length. */
 export interface TerminalUnsafeTextOptions {
@@ -111,6 +118,102 @@ export const arbitraryTerminalUnsafePathSegment = (): fc.Arbitrary<string> =>
         return codePoint <= ORACLE_C0_CONTROL_UPPER_BOUND || codePoint === ORACLE_DEL_CODE_POINT;
       })
     );
+
+/**
+ * Text over both byte classes on both sides of the given display bound: short text the bound
+ * leaves whole, and text of more code points than the bound — so its escaped form always
+ * exceeds it — whose cut may fall inside an escape sequence.
+ */
+export const arbitraryTerminalTextAcrossBound = (displayBound: number): fc.Arbitrary<string> =>
+  fc.oneof(
+    arbitraryTerminalText(),
+    fc
+      .array(fc.oneof(arbitraryPrintableCodePoint(), arbitraryTerminalUnsafeCodePoint()), {
+        minLength: displayBound + 1,
+        maxLength: displayBound * ACROSS_BOUND_LENGTH_MULTIPLIER,
+      })
+      .map((points) => String.fromCodePoint(...points)),
+  );
+
+/** Non-empty printable text no longer than the given display bound. */
+export const arbitraryPrintableTextWithin = (displayBound: number): fc.Arbitrary<string> =>
+  fc
+    .array(arbitraryPrintableCodePoint(), { minLength: 1, maxLength: displayBound })
+    .map((points) => String.fromCodePoint(...points));
+
+/** Printable text longer than the given display bound, up to several times past it. */
+export const arbitraryPrintableTextBeyond = (displayBound: number): fc.Arbitrary<string> =>
+  fc
+    .array(arbitraryPrintableCodePoint(), {
+      minLength: displayBound + 1,
+      maxLength: displayBound * BEYOND_BOUND_LENGTH_MULTIPLIER,
+    })
+    .map((points) => String.fromCodePoint(...points));
+
+/**
+ * A value of every runtime type other than string, `undefined`, and `null` — the open domain a
+ * sanitizer's non-string branch receives from a caller typed `unknown`.
+ */
+export const arbitraryNonStringValue = (): fc.Arbitrary<unknown> =>
+  fc.oneof(
+    fc.integer(),
+    fc.double(),
+    fc.boolean(),
+    fc.bigInt(),
+    fc.string().map((description) => Symbol(description)),
+    fc.object(),
+    fc.array(fc.integer()),
+    fc.constant(() => {}),
+  );
+
+/** A product-authored label and an external value embedded after it in one composition. */
+export interface TerminalCompositionPair {
+  readonly label: string;
+  readonly value: string;
+}
+
+export const arbitraryTerminalCompositionPair = (): fc.Arbitrary<TerminalCompositionPair> =>
+  fc.record({ label: arbitraryTerminalUnsafeText(), value: arbitraryTerminalUnsafeText() });
+
+/** An authored separator and the non-empty list of parts a join places it between. */
+export interface TerminalJoinCase {
+  readonly separator: string;
+  readonly parts: readonly string[];
+}
+
+export const arbitraryTerminalJoinCase = (): fc.Arbitrary<TerminalJoinCase> =>
+  fc.record({
+    separator: arbitraryTerminalUnsafeText(),
+    parts: fc.array(arbitraryTerminalUnsafeText(), { minLength: 1, maxLength: MAX_JOIN_PARTS }),
+  });
+
+/** An escaping case repeated a number of times up to the given bound, with its independent escape. */
+export interface RepeatedTerminalEscapingCase {
+  readonly value: string;
+  readonly escaped: string;
+}
+
+export const arbitraryRepeatedTerminalEscapingCase = (
+  maxRepeat: number,
+): fc.Arbitrary<RepeatedTerminalEscapingCase> =>
+  fc
+    .tuple(arbitraryTerminalUnsafeText(), fc.integer({ min: 1, max: maxRepeat }))
+    .map(([input, repeat]) => ({
+      value: input.repeat(repeat),
+      escaped: independentlyEscapeTerminalText(input).repeat(repeat),
+    }));
+
+/** A JSON-serializable record keyed and valued by unsafe text, with the indentation it is serialized at. */
+export interface JsonDocumentCase {
+  readonly value: Record<string, string>;
+  readonly indent: number;
+}
+
+export const arbitraryJsonDocumentCase = (): fc.Arbitrary<JsonDocumentCase> =>
+  fc.record({
+    value: fc.dictionary(arbitraryTerminalUnsafeText(), arbitraryTerminalUnsafeText(), { noNullPrototype: true }),
+    indent: fc.integer({ min: 0, max: MAX_JSON_INDENT }),
+  });
 
 /** Unsafe text paired with an escape rendering computed independently from production. */
 export const arbitraryTerminalEscapingCase = (
