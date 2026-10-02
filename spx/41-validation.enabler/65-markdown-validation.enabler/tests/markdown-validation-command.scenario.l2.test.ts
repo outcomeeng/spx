@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 
 import { allCommand } from "@/commands/validation/all";
 import { MARKDOWN_COMMAND_OUTPUT, markdownCommand } from "@/commands/validation/markdown";
+import { VALIDATION_STAGE_DISPLAY_NAMES } from "@/commands/validation/messages";
+import type { AllValidationJsonOutput } from "@/commands/validation/types";
 import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
+import { MARKDOWN_VALIDATION_STAGE_PARTICIPATION } from "@/validation/languages/markdown";
 import { MARKDOWN_VALIDATION_TARGET_DIAGNOSTICS } from "@/validation/steps/markdown";
 import { MARKDOWN_VALIDATION_DATA } from "@testing/generators/validation/markdown";
 import { runValidationSubprocess } from "@testing/harnesses/validation/cli";
@@ -54,9 +57,31 @@ describe("Given spx/ is supplied as a positional operand", () => {
 describe("Given spx validation all runs", () => {
   it("executes markdown validation as a step whose failure fails the pipeline", async () => {
     await withMarkdownEnv({ fixture: MARKDOWN_FIXTURES.BROKEN_LINKS }, async ({ path }) => {
-      const result = await allCommand({ cwd: path, quiet: true });
+      const result = await allCommand({ cwd: path, json: true });
+      const report = JSON.parse(result.output) as AllValidationJsonOutput;
 
+      expect(report.steps).toContainEqual(
+        expect.objectContaining({
+          name: VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN,
+          exitCode: MARKDOWN_VALIDATION_DATA.one,
+        }),
+      );
+      expect(report.success).toBe(false);
       expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.one);
+    });
+  }, MARKDOWN_HARNESS_TIMEOUT);
+
+  it("passes the same pipeline once only the markdown step is skipped", async () => {
+    await withMarkdownEnv({ fixture: MARKDOWN_FIXTURES.BROKEN_LINKS }, async ({ path }) => {
+      const result = await allCommand({
+        cwd: path,
+        quiet: true,
+        participationOverrides: [
+          MARKDOWN_VALIDATION_STAGE_PARTICIPATION[VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN].override.flag,
+        ],
+      });
+
+      expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.zero);
     });
   }, MARKDOWN_HARNESS_TIMEOUT);
 });
@@ -82,6 +107,7 @@ describe("Given a user runs spx validation markdown", () => {
         spxDir,
       ], { cwd: productDir });
 
+      expect(result.stdout).toContain(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
       expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.zero);
     });
   }, MARKDOWN_HARNESS_TIMEOUT);
@@ -95,7 +121,25 @@ describe("Given a user runs spx validation markdown", () => {
         sourceFile,
       ], { cwd: productDir });
 
+      expect(result.stdout).toContain(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
       expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.zero);
+    });
+  }, MARKDOWN_HARNESS_TIMEOUT);
+
+  it("reports the broken link of a direct markdown file operand", async () => {
+    await withMarkdownTempProject(async ({ productDir, spxDir }) => {
+      const brokenFile = await writeMarkdownFile(
+        join(spxDir, MARKDOWN_VALIDATION_DATA.brokenMarkdownFile),
+        MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
+      );
+
+      const result = await runValidationSubprocess([
+        validationCliDefinition.subcommands.markdown.commandName,
+        brokenFile,
+      ], { cwd: productDir });
+
+      expect(result.stderr).toContain(MARKDOWN_VALIDATION_DATA.missingFileMarker);
+      expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.one);
     });
   }, MARKDOWN_HARNESS_TIMEOUT);
 });

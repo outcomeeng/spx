@@ -115,7 +115,7 @@ describe("Inside spx/, a ../ climb, a leading-slash anchor, and a relative link 
   }, MARKDOWN_HARNESS_TIMEOUT);
 });
 
-describe("Inside spx/, a link that resolves to no file fails as a broken link", () => {
+describe("Inside spx/, a link that resolves to no tracked file fails as a broken link", () => {
   it.each(MARKDOWN_LINK_SHAPE_DATA.missingTargetLinks)(
     "reports the broken link $href naming the file, the line, and the link",
     async (link) => {
@@ -132,6 +132,45 @@ describe("Inside spx/, a link that resolves to no file fails as a broken link", 
             detail: expect.stringContaining(link.href),
           }),
         );
+      });
+    },
+    MARKDOWN_HARNESS_TIMEOUT,
+  );
+
+  it.each(MARKDOWN_LINK_SHAPE_DATA.existingTargetLinks)(
+    "reports the broken link $link.href when its target exists but is not tracked",
+    async ({ link, targetFile }) => {
+      await withMarkdownTempProject(async ({ productDir, spxDir, track, write }) => {
+        await write(targetFile, MARKDOWN_LINK_SHAPE_DATA.linkedContent);
+        const citingFile = await write(link.citingFile, link.content);
+        await track([link.citingFile]);
+
+        const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
+
+        expect(result.success).toBe(false);
+        expect(result.errors).toContainEqual(
+          expect.objectContaining({
+            file: citingFile,
+            line: link.line,
+            detail: expect.stringContaining(link.href),
+          }),
+        );
+      });
+    },
+    MARKDOWN_HARNESS_TIMEOUT,
+  );
+
+  it.each(MARKDOWN_LINK_SHAPE_DATA.existingTargetLinks)(
+    "admits the link $link.href once its target is tracked",
+    async ({ link, targetFile }) => {
+      await withMarkdownTempProject(async ({ productDir, spxDir, track, write }) => {
+        await write(targetFile, MARKDOWN_LINK_SHAPE_DATA.linkedContent);
+        const citingFile = await write(link.citingFile, link.content);
+        await track([link.citingFile, targetFile]);
+
+        const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
+
+        expect(result.errors.filter((error) => error.file === citingFile)).toEqual([]);
       });
     },
     MARKDOWN_HARNESS_TIMEOUT,
