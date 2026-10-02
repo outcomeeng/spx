@@ -1,7 +1,7 @@
 # Session Store Check
 
 PROVIDES the session-store diagnose behavior — reports the informational count of doing sessions without a matching live worktree claim, classifies every successful `.spx/` session-store gather as healthy, and pairs gather errors with an unknown verdict and safe remediation for both the whole-product diagnose report and the domain-owned session-store diagnostic provider
-SO THAT the `spx diagnose` engine in [`spx/54-diagnose.enabler/diagnose.md`](../diagnose.md)
+SO THAT the `spx diagnose` engine in [`spx/54-diagnose.enabler/diagnose.md`](spx/54-diagnose.enabler/diagnose.md)
 CAN fold session-store health into the overall environment verdict
 
 ## Assertions
