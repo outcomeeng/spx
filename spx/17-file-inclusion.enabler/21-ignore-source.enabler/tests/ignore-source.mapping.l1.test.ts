@@ -39,12 +39,12 @@ describe("ignore-source — mappings", () => {
             GIT_LS_FILES_ARGS.NULL_TERMINATED,
           ]));
           expect(args.includes(GIT_LS_FILES_ARGS.EXCLUDE_STANDARD)).toBe(!overrides.noIgnore && !overrides.noIgnoreVcs);
-          const expectedExcludeFromOperands = overrides.noIgnore
-            ? []
-            : [
-              ...(overrides.ignoreFile === undefined ? [] : [overrides.ignoreFile]),
-              ...(overrides.noIgnoreVcs ? [sources.infoExcludeFile, sources.globalExcludesFile] : []),
-            ];
+          const expectedExcludeFromOperands = [
+            ...(overrides.ignoreFile === undefined ? [] : [overrides.ignoreFile]),
+            ...(overrides.noIgnoreVcs && !overrides.noIgnore
+              ? [sources.infoExcludeFile, sources.globalExcludesFile]
+              : []),
+          ];
           expect(excludeFromOperands).toHaveLength(expectedExcludeFromOperands.length);
           expect(excludeFromOperands).toEqual(expect.arrayContaining(expectedExcludeFromOperands));
           expect(createIgnoreSourceReader(env.productDir, { overrides }).appliedOverrides()).toEqual(overrides);

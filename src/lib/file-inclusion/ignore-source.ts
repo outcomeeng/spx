@@ -252,7 +252,7 @@ export function buildIgnoreSourceGitLsFilesArgs(
   if (!normalizedOverrides.noIgnore && !normalizedOverrides.noIgnoreVcs) {
     args.push(GIT_LS_FILES_ARGS.EXCLUDE_STANDARD);
   }
-  if (!normalizedOverrides.noIgnore && normalizedOverrides.ignoreFile !== undefined) {
+  if (normalizedOverrides.ignoreFile !== undefined) {
     args.push(...excludeFromArgs(resolveGitPath(productDir, normalizedOverrides.ignoreFile)));
   }
   if (!normalizedOverrides.noIgnore && normalizedOverrides.noIgnoreVcs) {

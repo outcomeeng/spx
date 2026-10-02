@@ -195,25 +195,6 @@ describe("ignore-source — scenarios", () => {
     });
   });
 
-  it("lets --no-ignore take precedence over --ignore-file", async () => {
-    await withGitWorktreeEnv(async (env) => {
-      const ignored = ignoredPattern();
-      const ignoreFile = ignoredPattern();
-      await env.writeUntracked(ignored, fileContent());
-      await env.writeUntracked(ignoreFile, `${ignored}\n`);
-
-      const reader = createIgnoreSourceReader(
-        env.productDir,
-        readerConfig({
-          noIgnore: true,
-          ignoreFile,
-        }),
-      );
-
-      expect(reader.isInIncludedSet(ignored)).toBe(true);
-    });
-  });
-
   it("excludes submodule contents from the included set", async () => {
     await withGitWorktreeEnv(async (env) => {
       const submodule = submodulePath();
