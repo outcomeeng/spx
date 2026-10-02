@@ -22,6 +22,7 @@ import {
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_NODE_STATE,
 } from "./config";
+import { compareSpecContextOrdinal } from "./context-manifest";
 export {
   canonicalNamingSchemaVersion,
   compareNamingSchemaVersions,
@@ -772,7 +773,7 @@ function findFirstNonPassing(nodes: readonly SpecTreeNode[]): SpecTreeNode | nul
 function compareOrderedEntries(left: OrderedEntry, right: OrderedEntry): number {
   const orderComparison = left.order - right.order;
   if (orderComparison !== ORDER_COMPARISON_EQUAL) return orderComparison;
-  return left.id.localeCompare(right.id);
+  return compareSpecContextOrdinal(left.id, right.id);
 }
 
 async function* readFilesystemSourceEntries(
@@ -808,7 +809,7 @@ async function* walkFilesystemDirectory(context: FilesystemWalkContext): AsyncIt
     throw error;
   }
 
-  const sortedEntries = [...entries].sort((left, right) => left.name.localeCompare(right.name));
+  const sortedEntries = [...entries].sort((left, right) => compareSpecContextOrdinal(left.name, right.name));
   for (const entry of sortedEntries) {
     const relativePath = joinSpecTreePath(context.relativePath, entry.name);
     const refPath = joinSpecTreePath(SPEC_TREE_CONFIG.ROOT_DIRECTORY, relativePath);
