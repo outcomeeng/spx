@@ -10,7 +10,10 @@ import {
   SPEC_CONTEXT_FRAME_SYNTAX,
   SPEC_CONTEXT_SELECTED_METADATA_KEY,
 } from "@/lib/spec-tree";
-import { arbitrarySpecContextInvalidUtf8Bytes } from "@testing/generators/spec-tree/context-target";
+import {
+  arbitrarySpecContextInvalidUtf8Bytes,
+  specContextUnreadableFrontMatterBlocks,
+} from "@testing/generators/spec-tree/context-target";
 import { openingParagraph } from "@testing/generators/spec-tree/rich-context";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import {
@@ -53,6 +56,25 @@ describe("spec context content boundaries", () => {
       expect(await contextShowFailure({ targets: [paths.targetId], cwd: env.productDir })).toContain(
         paths.targetSpecPath,
       );
+    });
+  });
+
+  it("strips a terminated front-matter block from a decision and the product spec without reading it, so YAML that parses to no key mapping selects no metadata", async () => {
+    await withRichContextEnv(async (env, paths) => {
+      for (const block of Object.values(specContextUnreadableFrontMatterBlocks())) {
+        await env.writeRaw(
+          paths.ancestorDecisionPath,
+          `---\n${block}---\n${paths.sourceText[paths.ancestorDecisionPath]}`,
+        );
+        await env.writeRaw(paths.productPath, `---\n${block}---\n${paths.sourceText[paths.productPath]}`);
+        const entries = await contextShowEntries({ targets: [paths.targetId], cwd: env.productDir });
+        expect(documentAt(entries, paths.ancestorDecisionPath)?.metadata).toEqual({});
+        expect(documentAt(entries, paths.ancestorDecisionPath)?.content).toBe(
+          paths.sourceText[paths.ancestorDecisionPath],
+        );
+        expect(documentAt(entries, paths.productPath)?.metadata).toEqual({});
+        expect(documentAt(entries, paths.productPath)?.content).toBe(paths.sourceText[paths.productPath]);
+      }
     });
   });
 

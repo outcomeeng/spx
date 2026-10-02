@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   specContextAbsentDecisionPath,
   specContextNonCitationShapes,
+  specContextRelativeSegmentDecisionPath,
 } from "@testing/generators/spec-tree/context-target";
 import { rootedSpecPath } from "@testing/generators/spec-tree/rich-context";
 import {
@@ -46,7 +47,6 @@ describe("spec context citation boundaries", () => {
       expect(entryPaths(entries)).not.toContain(notedDecision);
       expect(entryPaths(entries)).not.toContain(shapes.unboundDecisionPath);
       expect(entryPaths(entries)).not.toContain(undisplayed);
-      expect(entryPaths(entries).some((path) => path.includes(".."))).toBe(false);
     });
   });
 
@@ -77,6 +77,19 @@ describe("spec context citation boundaries", () => {
       );
       const failure = await contextShowFailure({ targets: [paths.targetId], cwd: env.productDir });
       expect(failure).toContain(missing);
+      expect(failure).toContain(paths.targetSpecPath);
+    });
+  });
+
+  it("binds an inline link whose href carries a parent segment between the `spx/` prefix and the decision suffix as a citation, and fails the projection naming it and its citing document", async () => {
+    await withRichContextEnv(async (env, paths) => {
+      const relative = specContextRelativeSegmentDecisionPath(env.fixture, paths.targetId);
+      await env.writeRaw(
+        paths.targetSpecPath,
+        `${paths.sourceText[paths.targetSpecPath]}\nGoverned by [relative](${relative}).\n`,
+      );
+      const failure = await contextShowFailure({ targets: [paths.targetId], cwd: env.productDir });
+      expect(failure).toContain(relative);
       expect(failure).toContain(paths.targetSpecPath);
     });
   });
