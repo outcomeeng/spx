@@ -12,11 +12,15 @@ import {
   MARKDOWN_ENABLED_BUILTIN_RULES,
   validateMarkdown,
 } from "@/validation/steps/markdown";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
-  MARKDOWN_LINK_SHAPE_DATA,
+  arbitrarySpecTreeLinkScenario,
   MARKDOWN_VALIDATION_DATA,
+  markdownCommandResolutionRows,
   markdownDirectoryTarget,
   markdownFileTarget,
+  markdownRuleResolutionRows,
+  markdownUncheckedLinks,
 } from "@testing/generators/validation/markdown";
 import { withMarkdownTempProject } from "@testing/harnesses/validation/markdown";
 import { MARKDOWN_HARNESS_TIMEOUT } from "@testing/harnesses/with-markdown-env";
@@ -57,11 +61,11 @@ describe("Markdown full-pipeline participation", () => {
 });
 
 describe("Link type resolution for command behavior", () => {
-  it.each(MARKDOWN_LINK_SHAPE_DATA.commandResolutionRows)(
+  it.each(markdownCommandResolutionRows(sampleGeneratedValue(arbitrarySpecTreeLinkScenario())))(
     "resolves the $directory/ link $link.href from the product root",
     async (row) => {
       await withMarkdownTempProject(async ({ productDir, write }) => {
-        await write(row.declaredResolution, MARKDOWN_LINK_SHAPE_DATA.linkedContent);
+        await write(row.declaredResolution, row.targetContent);
         await write(row.link.citingFile, row.link.content);
 
         const result = await markdownCommand({ cwd: productDir, files: [join(productDir, row.directory)] });
@@ -72,11 +76,11 @@ describe("Link type resolution for command behavior", () => {
     MARKDOWN_HARNESS_TIMEOUT,
   );
 
-  it.each(MARKDOWN_LINK_SHAPE_DATA.commandResolutionRows)(
+  it.each(markdownCommandResolutionRows(sampleGeneratedValue(arbitrarySpecTreeLinkScenario())))(
     "does not resolve the $directory/ link $link.href from the citing file's directory",
     async (row) => {
       await withMarkdownTempProject(async ({ productDir, write }) => {
-        await write(row.otherResolution, MARKDOWN_LINK_SHAPE_DATA.linkedContent);
+        await write(row.otherResolution, row.targetContent);
         await write(row.link.citingFile, row.link.content);
 
         const result = await markdownCommand({ cwd: productDir, files: [join(productDir, row.directory)] });
@@ -90,11 +94,11 @@ describe("Link type resolution for command behavior", () => {
 });
 
 describe("Link type resolution for local rule behavior", () => {
-  it.each(MARKDOWN_LINK_SHAPE_DATA.ruleResolutionRows)(
+  it.each(markdownRuleResolutionRows(sampleGeneratedValue(arbitrarySpecTreeLinkScenario())))(
     "resolves the $directory/ link $link.href from the citing file's directory",
     async (row) => {
       await withMarkdownTempProject(async ({ productDir, write }) => {
-        await write(row.declaredResolution, MARKDOWN_LINK_SHAPE_DATA.linkedContent);
+        await write(row.declaredResolution, row.targetContent);
         const citingFile = await write(row.link.citingFile, row.link.content);
 
         const result = await validateMarkdown({
@@ -108,11 +112,11 @@ describe("Link type resolution for local rule behavior", () => {
     MARKDOWN_HARNESS_TIMEOUT,
   );
 
-  it.each(MARKDOWN_LINK_SHAPE_DATA.ruleResolutionRows)(
+  it.each(markdownRuleResolutionRows(sampleGeneratedValue(arbitrarySpecTreeLinkScenario())))(
     "does not resolve the $directory/ link $link.href from the product root",
     async (row) => {
       await withMarkdownTempProject(async ({ productDir, write }) => {
-        await write(row.otherResolution, MARKDOWN_LINK_SHAPE_DATA.linkedContent);
+        await write(row.otherResolution, row.targetContent);
         const citingFile = await write(row.link.citingFile, row.link.content);
 
         const result = await validateMarkdown({
@@ -132,7 +136,7 @@ describe("Link type resolution for local rule behavior", () => {
     MARKDOWN_HARNESS_TIMEOUT,
   );
 
-  it.each(MARKDOWN_LINK_SHAPE_DATA.uncheckedLinks)(
+  it.each(markdownUncheckedLinks(sampleGeneratedValue(arbitrarySpecTreeLinkScenario())))(
     "does not check $href in $citingFile",
     async (link) => {
       await withMarkdownTempProject(async ({ productDir, write }) => {

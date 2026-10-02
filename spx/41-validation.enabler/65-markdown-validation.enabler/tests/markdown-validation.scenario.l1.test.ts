@@ -5,11 +5,13 @@ import { MARKDOWN_COMMAND_OUTPUT, markdownCommand } from "@/commands/validation/
 import { createNodeStatusExcludeReader } from "@/lib/node-status/exclude";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { validateMarkdown } from "@/validation/steps/markdown";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
-  MARKDOWN_LINK_SHAPE_DATA,
+  arbitrarySpecTreeLinkScenario,
   MARKDOWN_VALIDATION_DATA,
   markdownDirectoryTarget,
   markdownFileTarget,
+  specTreeTreeAbsoluteLink,
 } from "@testing/generators/validation/markdown";
 import {
   listDirectoryEntries,
@@ -56,11 +58,11 @@ describe("Given a markdown file with a relative link to a non-existent file", ()
 describe("Given a markdown file inside spx/ with a tree-absolute link", () => {
   it("resolves the link from the product root when spx validation markdown runs", async () => {
     await withMarkdownTempProject(async ({ productDir, write }) => {
-      await write(MARKDOWN_LINK_SHAPE_DATA.linkedFile, MARKDOWN_LINK_SHAPE_DATA.linkedContent);
-      await write(
-        MARKDOWN_LINK_SHAPE_DATA.treeAbsoluteLink.citingFile,
-        MARKDOWN_LINK_SHAPE_DATA.treeAbsoluteLink.content,
+      const { link, supportingFiles } = specTreeTreeAbsoluteLink(
+        sampleGeneratedValue(arbitrarySpecTreeLinkScenario()),
       );
+      for (const supportingFile of supportingFiles) await write(supportingFile.path, supportingFile.content);
+      await write(link.citingFile, link.content);
 
       const result = await markdownCommand({ cwd: productDir });
 
