@@ -2,9 +2,9 @@
 
 ## A CLI descriptor escapes a caught-error message through the bounded operand sanitizer
 
-[`spx/13-cli.enabler/15-cli-architecture.adr.md`](13-cli.enabler/15-cli-architecture.adr.md) requires a caught-error message to be escaped where it is embedded into terminal-destined text, through the `src/lib/terminal-text/` composition primitive, never at the process-stream write site. `sanitizeCliArgument` escapes and bounds an echoed operand to `MAX_CLI_ARGUMENT_DISPLAY_LENGTH`, so an error message written through it is cut to a prefix. The release descriptors now compose their failure diagnostic through terminal text. This entry covers caught-error messages written through the sanitizer only. A descriptor that sanitizes an argv operand it echoes — an invalid path operand, an unknown subcommand, an unknown hook event — uses the sanitizer for the purpose the ADR assigns it, and its bounded display is the declared behavior. A descriptor that hands a caught-error message to the write boundary with no composition at all — `handleError` in `src/interfaces/cli/agent.ts`, `src/interfaces/cli/session.ts`, `src/interfaces/cli/worktree.ts`, the error branch of `src/interfaces/cli/spec.ts`, and the caught-error writes in `src/interfaces/cli/test.ts` — belongs to the unescaped-write class [`spx/13-cli.enabler/ISSUES.md`](13-cli.enabler/ISSUES.md) tracks under "The CLI write boundary still accepts unescaped strings", with each owning node's `ISSUES.md` naming its sites. A caught-error message still written through the sanitizer remains at:
+[`spx/13-cli.enabler/15-cli-architecture.adr.md`](spx/13-cli.enabler/15-cli-architecture.adr.md) requires a caught-error message to be escaped where it is embedded into terminal-destined text, through the `src/lib/terminal-text/` composition primitive, never at the process-stream write site. `sanitizeCliArgument` escapes and bounds an echoed operand to `MAX_CLI_ARGUMENT_DISPLAY_LENGTH`, so an error message written through it is cut to a prefix. The release descriptors now compose their failure diagnostic through terminal text. This entry covers caught-error messages written through the sanitizer only. A descriptor that sanitizes an argv operand it echoes — an invalid path operand, an unknown subcommand, an unknown hook event — uses the sanitizer for the purpose the ADR assigns it, and its bounded display is the declared behavior. A descriptor that hands a caught-error message to the write boundary with no composition at all — `handleError` in `src/interfaces/cli/agent.ts`, `src/interfaces/cli/session.ts`, `src/interfaces/cli/worktree.ts`, the error branch of `src/interfaces/cli/spec.ts`, and the caught-error writes in `src/interfaces/cli/test.ts` — belongs to the unescaped-write class [`spx/13-cli.enabler/ISSUES.md`](spx/13-cli.enabler/ISSUES.md) tracks under "The CLI write boundary still accepts unescaped strings", with each owning node's `ISSUES.md` naming its sites. A caught-error message still written through the sanitizer remains at:
 
-- `src/interfaces/cli/diagnose.ts` — `handleError` writes `Error: ${sanitizeCliArgument(error)}`. Owned by [`spx/54-diagnose.enabler`](54-diagnose.enabler/diagnose.md), whose spec declares the echoed manifest path and check names "sanitized before the diagnostic echo" and proves the escaping with `tests/error-sanitization.compliance.l2.test.ts`.
+- `src/interfaces/cli/diagnose.ts` — `handleError` writes `Error: ${sanitizeCliArgument(error)}`. Owned by [`spx/54-diagnose.enabler`](spx/54-diagnose.enabler/diagnose.md), whose spec declares the echoed manifest path and check names "sanitized before the diagnostic echo" and proves the escaping with `tests/error-sanitization.compliance.l2.test.ts`.
 
 **Impact:** a diagnose failure whose message exceeds 120 characters — a long manifest path, or several check names — reaches the operator truncated.
 
@@ -12,9 +12,9 @@
 
 ## CLI source layers carry the pre-surfaces layer names
 
-[`spx/14-cli-composition.adr.md`](14-cli-composition.adr.md) and [`spx/13-cli.enabler/15-cli-architecture.adr.md`](13-cli.enabler/15-cli-architecture.adr.md) bind every Commander descriptor to `src/interfaces/cli/{domain}.ts` and every shared capability library to `src/lib/`. The spec tree governs those same descriptors from [`spx/60-surfaces.enabler/21-cli-surface.enabler`](60-surfaces.enabler/21-cli-surface.enabler/cli-surface.md), and the area projection in `spx/PLAN.md` separates Interfaces (stable consumption contracts over domains or capabilities) from Surfaces (concrete CLI, MCP, web API, and UI interaction boundaries) and names Capabilities as its own area. A descriptor — command names, option grammar, help, exit diagnostics — is a surface under that taxonomy; the source spells the layer `interfaces`, and spells the capabilities layer `lib`.
+[`spx/14-cli-composition.adr.md`](14-cli-composition.adr.md) and [`spx/13-cli.enabler/15-cli-architecture.adr.md`](spx/13-cli.enabler/15-cli-architecture.adr.md) bind every Commander descriptor to `src/interfaces/cli/{domain}.ts` and every shared capability library to `src/lib/`. The spec tree governs those same descriptors from [`spx/60-surfaces.enabler/21-cli-surface.enabler`](spx/60-surfaces.enabler/21-cli-surface.enabler/cli-surface.md), and the area projection in `spx/PLAN.md` separates Interfaces (stable consumption contracts over domains or capabilities) from Surfaces (concrete CLI, MCP, web API, and UI interaction boundaries) and names Capabilities as its own area. A descriptor — command names, option grammar, help, exit diagnostics — is a surface under that taxonomy; the source spells the layer `interfaces`, and spells the capabilities layer `lib`.
 
-**Impact:** every new descriptor lands in a directory the taxonomy supersedes, and every rename inside `src/interfaces/cli/` (the verification family's `verify` → `verification` correction in [`spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/ISSUES.md`](60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/ISSUES.md) is the pending instance) is a move that repeats when the layer itself moves.
+**Impact:** every new descriptor lands in a directory the taxonomy supersedes, and every rename inside `src/interfaces/cli/` (the verification family's `verify` → `verification` correction in [`spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/ISSUES.md`](spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/ISSUES.md) is the pending instance) is a move that repeats when the layer itself moves.
 
 **Scope:** product-wide — the two ADRs, every `src/interfaces/cli/*.ts` descriptor, the CLI registry, and the `src/lib/` libraries whose capability nodes the projection lists.
 
@@ -24,7 +24,7 @@
 
 Execa leaves `exitCode` undefined when a subprocess could not be spawned or was terminated by a signal. Wrappers that normalize that value with `result.exitCode ?? 0` report such a run as a successful exit-code-zero completion to every caller that only checks `exitCode !== 0`. The release publication runner (`src/lib/release-publication/runner.ts`) and the release git-runner harness now fail such a run; the same normalization remains at:
 
-- `src/lib/git/root.ts` — the production git runner default. Owned by [`spx/18-state.enabler`](18-state.enabler/state.md).
+- `src/lib/git/root.ts` — the production git runner default. Owned by [`spx/18-state.enabler`](spx/18-state.enabler/state.md).
 - `testing/harnesses/with-git-env.ts`, `testing/harnesses/testing/typescript-runner.ts`, and `testing/harnesses/git/changed-paths.ts` — harness runners whose owning nodes govern their evidence.
 
 **Impact:** a spawn failure or signal kill of `git` or a test runner can read as a clean run wherever only the exit code is inspected.
@@ -60,7 +60,7 @@ states that when `methodology.version` is the sentinel `installed` "the
 repository declares no methodology version". `src/config/methodology.ts`
 accepts only an exact `MAJOR.MINOR` or `MAJOR.MINOR.PATCH` value for that
 field and rejects `installed` as malformed configuration, per
-`spx/13-agent-capability-lifecycle.pdr.md`.
+[`spx/13-agent-capability-lifecycle.pdr.md`](spx/13-agent-capability-lifecycle.pdr.md).
 
 **Impact:** an agent following the router's literal guidance treats a config
 carrying `methodology.version: installed` as a valid undeclared state, while
@@ -85,7 +85,7 @@ serves: `spx/36-session.enabler/session.md` and
 `spx session pick` launches an agent with a `pickup <reference>` prompt;
 `spx/38-worktree.enabler/43-worktree-cli.enabler/worktree-cli.md` describes
 them as the flows that invoke `spx worktree release` and `status`;
-`spx/36-session.enabler/43-session-store.enabler/21-list-json-contract.adr.md`
+[`spx/36-session.enabler/43-session-store.enabler/21-list-json-contract.adr.md`](spx/36-session.enabler/43-session-store.enabler/21-list-json-contract.adr.md)
 cites the `/pickup` skill as a convention driver; the co-located tests under
 `spx/36-session.enabler/43-session-store.enabler`,
 `54-auto-injection.enabler`, `65-session-claim.enabler`, and
@@ -128,7 +128,7 @@ alongside the property.
 
 `String.prototype.localeCompare` without a pinned locale orders by the host locale and ICU build, so equal input can project in different orders across machines. The spec-context manifest (`src/lib/spec-tree/context-manifest.ts`, `src/lib/spec-tree/context-target.ts`) orders ordinally via `compareSpecContextOrdinal`; the same class remains at:
 
-- `src/lib/spec-tree/index.ts` — sibling and entry ordering inside snapshot assembly, which feeds every spec-tree projection including the context manifest, so the manifest's byte-identity is fully host-independent only once this site is ordinal too. Owned by [`spx/23-spec-tree.enabler`](23-spec-tree.enabler/spec-tree.md).
+- `src/lib/spec-tree/index.ts` — sibling and entry ordering inside snapshot assembly, which feeds every spec-tree projection including the context manifest, so the manifest's byte-identity is fully host-independent only once this site is ordinal too. Owned by [`spx/23-spec-tree.enabler`](spx/23-spec-tree.enabler/spec-tree.md).
 - `src/domains/agent/resume.ts` and `src/domains/agent/search/results.ts` — session listing tie-breakers.
 - `testing/harnesses/agent/resume.ts` — mirrors the production resume ordering and must change together with it.
 
@@ -152,13 +152,13 @@ Resolution condition: group the warnings by rule and owning node, then clear or 
 
 ## Worktree-management PDR names git plumbing in its decision content
 
-`spx/15-worktree-management.pdr.md` carries a "Git mechanism" column in its state-class table and several `### Audit` rules that name specific git commands (`git rev-parse --git-common-dir`, `git rev-parse --show-toplevel`, `git config --get core.bare`) and a code-naming constraint (root-resolution helper-name alignment). A PDR audit argued these describe how root resolution is implemented rather than what users observe, and belong in [`spx/17-state.adr.md`](17-state.adr.md).
+[`spx/15-worktree-management.pdr.md`](spx/15-worktree-management.pdr.md) carries a "Git mechanism" column in its state-class table and several `### Audit` rules that name specific git commands (`git rev-parse --git-common-dir`, `git rev-parse --show-toplevel`, `git config --get core.bare`) and a code-naming constraint (root-resolution helper-name alignment). A PDR audit argued these describe how root resolution is implemented rather than what users observe, and belong in [`spx/17-state.adr.md`](17-state.adr.md).
 
 **Impact:** Contestable. The PDR/ADR boundary is product-relative (`what-goes-where`): for a developer harness whose observable contract is where shared state resolves across worktrees, pinning the resolution rule in the PDR is defensible. The same content passed property-quality, consistency, atemporal-voice, and tag-mechanics checks. This established structure applies across capabilities.
 
 **Scope:** Product-root PDR + `17-state.adr.md`; belongs to a dedicated methodology-cleanup change.
 
-**Resolution:** Decide whether the git-mechanism naming stays as the PDR's observable resolution contract or moves into `spx/17-state.adr.md`, then either close this note or re-home the mechanism content across the PDR and the state ADR in one coherent pass and re-run the PDR and ADR audits.
+**Resolution:** Decide whether the git-mechanism naming stays as the PDR's observable resolution contract or moves into [`spx/17-state.adr.md`](spx/17-state.adr.md), then either close this note or re-home the mechanism content across the PDR and the state ADR in one coherent pass and re-run the PDR and ADR audits.
 
 ## Enabled tests still contain manifest-tracked test-owned named constants
 
@@ -177,11 +177,11 @@ Observed while verifying the spec-tree boundary correction on May 1, 2026: `pnpm
 
 ## Literal-reuse and test-owned literal cleanup remains
 
-Literal-reuse cleanup spans product config, CLI help text, value allowlist tests, and enabled spec-tree test files. Current [spx.config.yaml](../spx.config.yaml) uses the `validation` section and no longer carries the retired literal allowlist structure. The `--allowlist-existing` CLI description and value-allowlist test titles now name `validation.literal.values.include`.
+Literal-reuse cleanup spans product config, CLI help text, value allowlist tests, and enabled spec-tree test files. Current `spx.config.yaml` uses the `validation` section and no longer carries the retired literal allowlist structure. The `--allowlist-existing` CLI description and value-allowlist test titles now name `validation.literal.values.include`.
 
 One concern remains:
 
-1. **ADR-21 test literal ownership** — Some findings reflect test-owned semantic constants per [21-typescript-conventions.adr.md](41-validation.enabler/32-typescript-validation.enabler/21-typescript-conventions.adr.md): output markers, CLI flag strings, and spec-tree file-extension constants. ADR-21 requires source-owned values or generated fixture data instead of duplicated test-owned constants.
+1. **ADR-21 test literal ownership** — Some findings reflect test-owned semantic constants per [21-typescript-conventions.adr.md](spx/41-validation.enabler/32-typescript-validation.enabler/21-typescript-conventions.adr.md): output markers, CLI flag strings, and spec-tree file-extension constants. ADR-21 requires source-owned values or generated fixture data instead of duplicated test-owned constants.
 
 **Skills:** `/typescript:testing-typescript`, `/typescript:auditing-typescript-tests`, `/spec-tree:testing`.
 
@@ -191,7 +191,7 @@ One concern remains:
 
 ## PDR-11 scope does not cover testing
 
-`spx/41-validation.enabler/11-tool-based-validation.pdr.md` governs aggregate-vs-leaf tool naming under the validation subtree. The same principle applies to `41-test.enabler/` (aggregate tool-agnostic, leaves name tools — pytest, vitest), but the PDR's explicit scope excludes testing.
+[`spx/41-validation.enabler/11-tool-based-validation.pdr.md`](spx/41-validation.enabler/11-tool-based-validation.pdr.md) governs aggregate-vs-leaf tool naming under the validation subtree. The same principle applies to `41-test.enabler/` (aggregate tool-agnostic, leaves name tools — pytest, vitest), but the PDR's explicit scope excludes testing.
 
 **Resolution:** Either move the PDR to product root with broader scope ("every spec under `41-validation.enabler/` and `41-test.enabler/`"), or author a sibling PDR for testing. Scope: follow-up work.
 
@@ -213,7 +213,7 @@ The verification-subtree instance, its related canned Git responses, repair scop
 
 The same ownership defect also occurs when an executed test delegates its predicates to a helper outside the linked test callback. `spx/31-spec-domain.enabler/76-spec-cli-contract-tests.enabler/tests/spec-cli-contract.scenario.l2.test.ts` delegates status predicates to `assertDeclaredStatusRows`, and `spx/31-spec-domain.enabler/32-spec-cli-rendering.enabler/tests/spec-cli-rendering.conformance.l1.test.ts` imports the assertion-owning `expectPresent` helper from `testing/harnesses/spec-tree/assertions.ts`.
 
-[`spx/12-test-infrastructure.adr.md`](12-test-infrastructure.adr.md) requires executed spec-tree test files to own the assertion flow, and the `what-goes-where` methodology reference states test infrastructure does not contain test assertion code. The register-suite-in-harness shape inverts that boundary: the harness owns the suite and the `tests/` file owns nothing. Sibling nodes such as [`spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler`](41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler) keep `describe`/`it`/`expect` directly in their `tests/*.test.ts` files, so the pattern is inconsistent product-wide.
+[`spx/12-test-infrastructure.adr.md`](12-test-infrastructure.adr.md) requires executed spec-tree test files to own the assertion flow, and the `what-goes-where` methodology reference states test infrastructure does not contain test assertion code. The register-suite-in-harness shape inverts that boundary: the harness owns the suite and the `tests/` file owns nothing. Sibling nodes such as [`spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler`](spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler) keep `describe`/`it`/`expect` directly in their `tests/*.test.ts` files, so the pattern is inconsistent product-wide.
 
 **Impact:** Each node's `tests/` directory no longer carries the node's evidence; assertion titles and structure sit one indirection away from the node. Cross-file duplication analysis reads test-suite duplication as harness duplication.
 
@@ -240,8 +240,8 @@ exist while implementation is absent — and its EXCLUDE template comment reads
 [spx/EXCLUDE](EXCLUDE) are Declared instead: none carries a `tests/` directory
 with any file, and several link tests their spec names but that do not exist on
 disk, among them
-[spx/33-harness-environment.enabler/43-plugin-bootstrap.enabler](33-harness-environment.enabler/43-plugin-bootstrap.enabler)
-and [spx/57-methodology-lifecycle.enabler](57-methodology-lifecycle.enabler).
+[spx/33-harness-environment.enabler/43-plugin-bootstrap.enabler](spx/33-harness-environment.enabler/43-plugin-bootstrap.enabler)
+and [spx/57-methodology-lifecycle.enabler](spx/57-methodology-lifecycle.enabler).
 This product's own EXCLUDE header already states the broader rule: entries are
 omitted "while implementation or referenced evidence is absent".
 
@@ -251,7 +251,7 @@ violations against a contract it was never written to satisfy.
 
 **Resolution:** the definition lives in the methodology tree fetched verbatim
 from `outcomeeng/plugins`, held byte-identical by the conformance assertion of
-[spx/25-outcomeeng.enabler/31-methodology-plugin.enabler](25-outcomeeng.enabler/31-methodology-plugin.enabler),
+[spx/25-outcomeeng.enabler/31-methodology-plugin.enabler](spx/25-outcomeeng.enabler/31-methodology-plugin.enabler),
 so it is never corrected in this repository. Either the upstream definition
 widens to admit Declared nodes and arrives through a later fetch, or each entry
 gains the evidence its spec links and graduates. Graduating an entry regenerates
@@ -274,10 +274,10 @@ verified behavior when only the fourth is even exercised, and then only
 incidentally, by the removal of the `.codex/skills/*` ignore exception.
 
 **Resolution:** the capability writes belong to
-[spx/33-harness-environment.enabler/43-plugin-bootstrap.enabler](33-harness-environment.enabler/43-plugin-bootstrap.enabler),
+[spx/33-harness-environment.enabler/43-plugin-bootstrap.enabler](spx/33-harness-environment.enabler/43-plugin-bootstrap.enabler),
 whose implementation is absent and whose node is excluded, and the repository
 scan belongs to
-[spx/54-diagnose.enabler/43-marketplace-install.enabler](54-diagnose.enabler/43-marketplace-install.enabler),
+[spx/54-diagnose.enabler/43-marketplace-install.enabler](spx/54-diagnose.enabler/43-marketplace-install.enabler),
 whose plan records it as a pending step. Both plans carry the work. Retagging
 the rules `[audit]` would misclassify deterministic behavior, so they stay
 `[compliance]` and the implementing nodes supply the evidence when their packets
@@ -306,11 +306,11 @@ on that signal is killed rather than slowed.
 
 ## The README's release procedure has no governing node
 
-`README.md` "Publishing a Release" states the operator-facing release procedure — the four phases `spx/local/merging.md` declares under Deploy and Release. No spec assertion or linked test governs that prose: [`spx/26-release.enabler/32-documentation-sync.enabler`](26-release.enabler/32-documentation-sync.enabler/documentation-sync.md) names the README only as the default target of `spx release docs sync`, whose contract is rewriting product release-version references, and no other node names the file.
+`README.md` "Publishing a Release" states the operator-facing release procedure — the four phases `spx/local/merging.md` declares under Deploy and Release. No spec assertion or linked test governs that prose: [`spx/26-release.enabler/32-documentation-sync.enabler`](spx/26-release.enabler/32-documentation-sync.enabler/documentation-sync.md) names the README only as the default target of `spx release docs sync`, whose contract is rewriting product release-version references, and no other node names the file.
 
 **Impact:** an overlay change that alters the release sequence invalidates the README's guidance with no verification that exposes the drift; the two are kept aligned by hand under the touched-file rule.
 
-**Scope:** `README.md` "Publishing a Release"; `spx/local/merging.md` Deploy and Release; `spx/15-worktree-management.pdr.md`.
+**Scope:** `README.md` "Publishing a Release"; `spx/local/merging.md` Deploy and Release; [`spx/15-worktree-management.pdr.md`](spx/15-worktree-management.pdr.md).
 
 **Resolution:** decide which node owns the human-facing release procedure — a release node whose assertion names `README.md` "Publishing a Release" as the human form of the overlay's Release sequence, or an audit rule on the PDR — and link it, so a later overlay change reaches the README through governed context instead of a manual sweep.
 
