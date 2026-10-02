@@ -1,7 +1,7 @@
 # Fixture Classification
 
 PROVIDES the test-vs-source-vs-fixture classification logic — recognizes test-file paths via POSIX, Windows, and `.test.` filename markers, identifies fixture-writer call positions whose arguments are setup data rather than assertion-position semantics, and identifies fixture-data variable identifiers whose contents are payload rather than domain semantics
-SO THAT [21-detection.enabler](../21-detection.enabler/detection.md) building the literal index
+SO THAT [21-detection.enabler](spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler/detection.md) building the literal index
 CAN distinguish file paths and string payloads inside test fixtures (which contribute zero occurrences) from assertion-position semantic literals (which contribute occurrences) without flagging a false-positive on every test that writes a path or a JSON payload to disk
 
 ## Assertions
