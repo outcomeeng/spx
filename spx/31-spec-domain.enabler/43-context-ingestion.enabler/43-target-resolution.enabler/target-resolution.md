@@ -18,5 +18,5 @@ CAN accept convenient unambiguous paths while rejecting unknown, ambiguous, unsu
 
 ### Compliance
 
-- ALWAYS: candidate sources have no precedence; candidates are normalized, resolved through symbolic links, confined to the resolved product root, and collapsed by target identity before zero, one, or several identities produce unresolved, success, or ambiguous results ([test](tests/context-target-resolution.compliance.l1.test.ts))
+- ALWAYS: candidate sources have no precedence; candidates are normalized, resolved through symbolic links, confined to the resolved product root, and collapsed by target identity before one identity produces success and several identities produce an ambiguous result ([test](tests/context-target-resolution.compliance.l1.test.ts))
 - ALWAYS: ambiguity reports every canonical accepted-target match and never selects the first match or uses a descendant to disambiguate an ambiguous ancestor ([test](tests/context-target-resolution.compliance.l1.test.ts))
