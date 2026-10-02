@@ -415,8 +415,9 @@ const CITATION_SIBLING_INDEX = 10;
 const CITATION_LOCAL_DECISION_INDEX = 15;
 const CITATION_CITING_INDEX = 20;
 const CITATION_CITED_INDEX = 30;
+const CITATION_UNTRACKED_DECISION_INDEX = 21;
 const CITATION_CITED_DECISION_INDEX = 31;
-const CITATION_SLUG_COUNT = 10;
+const CITATION_SLUG_COUNT = 11;
 const PARENT_DIRECTORY_SEGMENT = "..";
 
 /**
@@ -424,7 +425,10 @@ const PARENT_DIRECTORY_SEGMENT = "..";
  * node cites decisions of a higher-index sibling through tree-absolute links, as bare text, in an
  * inline code span, and through a `../` link, and the lower-index sibling its context reads cites
  * its own decision through a node-local link. No cited decision enters the context through the tree
- * walk, so each one is present only when its citation binds.
+ * walk, so each one is present only when its citation binds. Uncommitted working-tree content diverges
+ * from the committed endpoint: the citing specification is rewritten to link every decision
+ * tree-absolutely, and an untracked decision sits in the citing node, so content read from the
+ * working tree or an untracked path listed as committed changes which decisions the context holds.
  */
 export interface ReleaseDecisionCitationScenario {
   readonly endpoints: readonly ReleaseEndpointSource[];
@@ -435,6 +439,10 @@ export interface ReleaseDecisionCitationScenario {
   readonly textNamedDecisionPaths: readonly string[];
   /** Decisions reached only through a Markdown link that climbs with `../`. */
   readonly climbingLinkedDecisionPaths: readonly string[];
+  /** Content written to the working tree after the endpoint is committed and left uncommitted. */
+  readonly workingTreeFiles: readonly ReleaseEndpointFile[];
+  /** Decisions present only in the working tree, never committed at the release endpoint. */
+  readonly untrackedDecisionPaths: readonly string[];
 }
 
 export function arbitraryReleaseDecisionCitationScenario(): fc.Arbitrary<ReleaseDecisionCitationScenario> {
@@ -456,6 +464,7 @@ export function arbitraryReleaseDecisionCitationScenario(): fc.Arbitrary<Release
       bareTextSlug,
       inlineCodeSlug,
       climbingSlug,
+      untrackedSlug,
     ] = slugs;
     const productPath = posix.join(
       SPEC_TREE_CONFIG.ROOT_DIRECTORY,
@@ -478,6 +487,10 @@ export function arbitraryReleaseDecisionCitationScenario(): fc.Arbitrary<Release
       posix.relative(SPEC_TREE_CONFIG.ROOT_DIRECTORY, climbingPath),
     );
     const citingSpecificationPath = citationSpecificationPath(citingDirectory, citingSlug);
+    const untrackedDecisionPath = posix.join(
+      citingDirectory,
+      citationDecisionFile(CITATION_UNTRACKED_DECISION_INDEX, untrackedSlug),
+    );
     const files: ReleaseEndpointFile[] = [
       releaseEndpointFile(productPath, `# ${productSlug}\n`),
       releaseEndpointFile(
@@ -500,12 +513,31 @@ export function arbitraryReleaseDecisionCitationScenario(): fc.Arbitrary<Release
         releaseEndpointFile(path, citationDecision(posix.basename(path)))
       ),
     ];
+    const workingTreeLinkedPaths = [
+      treeAbsolutePath,
+      labelledTreeAbsolutePath,
+      bareTextPath,
+      inlineCodePath,
+      climbingPath,
+      untrackedDecisionPath,
+    ];
     return {
       endpoints: [{ ref: releaseData.releaseRef, files }],
       releaseData: { ...releaseData, previousTag: null, changedPaths: [citingSpecificationPath] },
       linkCitedDecisionPaths: [treeAbsolutePath, labelledTreeAbsolutePath, localDecisionPath],
       textNamedDecisionPaths: [bareTextPath, inlineCodePath],
       climbingLinkedDecisionPaths: [climbingPath],
+      workingTreeFiles: [
+        releaseEndpointFile(
+          citingSpecificationPath,
+          citationNodeSpec(
+            citingSlug,
+            workingTreeLinkedPaths.map((path) => `- ALWAYS: ${citingSlug} follows [${posix.basename(path)}](${path})`),
+          ),
+        ),
+        releaseEndpointFile(untrackedDecisionPath, citationDecision(untrackedSlug)),
+      ],
+      untrackedDecisionPaths: [untrackedDecisionPath],
     };
   });
 }
