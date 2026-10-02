@@ -28,10 +28,10 @@ Alternatives considered:
 
 ## Trade-offs accepted
 
-| Trade-off                                                                                | Mitigation / reasoning                                                                                                                                      |
-| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The visitor-keys map must stay in sync with the parser version                           | The composition is a pure function of the parser's public keys export; updating the parser updates the map atomically; no hand-maintained list drifts       |
-| Nodes whose type is absent from the visitor-keys map contribute no literals to the index | Fail-closed behavior: a missing registration surfaces as a zero-literal walk, which property tests catch via a deterministic walk-count invariant           |
+| Trade-off                                                                                | Mitigation / reasoning                                                                                                                                                                                           |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The visitor-keys map must stay in sync with the parser version                           | The composition is a pure function of the parser's public keys export; updating the parser updates the map atomically; no hand-maintained list drifts                                                            |
+| Nodes whose type is absent from the visitor-keys map contribute no literals to the index | Fail-closed behavior: a missing registration surfaces as a zero-literal walk, which property tests catch via a deterministic walk-count invariant                                                                |
 | The public detector API gains one parameter                                              | Dependency injection is already mandated by [21-typescript-conventions.adr.md](spx/41-validation.enabler/32-typescript-validation.enabler/21-typescript-conventions.adr.md); this is consistent with the pattern |
 
 ## Invariants
