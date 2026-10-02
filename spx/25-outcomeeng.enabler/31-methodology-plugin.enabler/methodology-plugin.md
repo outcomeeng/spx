@@ -27,4 +27,4 @@ CAN serve the foundation for the methodology version a product declares from spx
 - NEVER: a directory under `methodology/` carries a patch version in its name ([test](tests/fetch.compliance.l1.test.ts))
 - ALWAYS: a repository dispatch from the plugins repository's push to its default branch, and a manual dispatch, run the fetch in spx's continuous integration and open a pull request carrying the refreshed tree through the normal gate ([audit])
 - NEVER: the fetch, the reader, or any consumer reads a coding agent's plugin cache, installed plugin, marketplace clone, or user-scope directory to resolve, verify, or enumerate methodology resources ([audit])
-- NEVER: a tree is derived from another coding agent's tree, per `spx/13-agent-capability-lifecycle.pdr.md` ([audit])
+- NEVER: a tree is derived from another coding agent's tree, per [`spx/13-agent-capability-lifecycle.pdr.md`](spx/13-agent-capability-lifecycle.pdr.md) ([audit])
