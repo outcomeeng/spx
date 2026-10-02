@@ -126,15 +126,14 @@ alongside the property.
 
 ## Locale-dependent ordering remains in projection and listing paths
 
-`String.prototype.localeCompare` without a pinned locale orders by the host locale and ICU build, so equal input can project in different orders across machines. The spec-context manifest (`src/lib/spec-tree/context-manifest.ts`, `src/lib/spec-tree/context-target.ts`) orders ordinally via `compareSpecContextOrdinal`; the same class remains at:
+`String.prototype.localeCompare` without a pinned locale orders by the host locale and ICU build, so equal input can project in different orders across machines. The spec-tree library (`src/lib/spec-tree/`) — the spec-context manifest and snapshot assembly's sibling and entry ordering alike — orders ordinally via `compareSpecContextOrdinal`; the same class remains at:
 
-- `src/lib/spec-tree/index.ts` — sibling and entry ordering inside snapshot assembly, which feeds every spec-tree projection including the context manifest, so the manifest's byte-identity is fully host-independent only once this site is ordinal too. Owned by [`spx/23-spec-tree.enabler`](23-spec-tree.enabler/spec-tree.md).
 - `src/domains/agent/resume.ts` and `src/domains/agent/search/results.ts` — session listing tie-breakers.
 - `testing/harnesses/agent/resume.ts` — mirrors the production resume ordering and must change together with it.
 
 **Impact:** ordering can differ across hosts for names where locale collation disagrees with code-unit order (hyphen and dot weighting); committed projections and CI comparisons assume one order.
 
-**Resolution:** replace each site with an ordinal code-unit comparator in the owning node's own changeset — a pinned `Intl.Collator` locale is not sufficient, because the ICU collation tables still vary by Node build independent of the locale argument. The spec-tree library change alters observable projection order and needs its node's tests run and its spec audit; remove this entry when the last site is ordinal.
+**Resolution:** replace each site with an ordinal code-unit comparator in the owning node's own changeset — a pinned `Intl.Collator` locale is not sufficient, because the ICU collation tables still vary by Node build independent of the locale argument. Remove this entry when the last site is ordinal.
 
 ## Validation warning baseline remains noisy
 
