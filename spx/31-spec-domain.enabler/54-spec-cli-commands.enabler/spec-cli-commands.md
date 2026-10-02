@@ -31,8 +31,8 @@ CAN inspect current node state, select the next non-passing node, discover relev
 
 ### Compliance
 
-- ALWAYS: command handlers operate on tracked `spx/` files using worktree-local root resolution per `spx/15-worktree-management.pdr.md` ([audit])
-- ALWAYS: `spx spec status --update` writes node verification outcomes only as `spx.status.json` files within the tracked `spx/` tree, per `spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md` ([audit])
+- ALWAYS: command handlers operate on tracked `spx/` files using worktree-local root resolution per [spx/15-worktree-management.pdr.md](spx/15-worktree-management.pdr.md) ([audit])
+- ALWAYS: `spx spec status --update` writes node verification outcomes only as `spx.status.json` files within the tracked `spx/` tree, per [spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md](spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md) ([audit])
 - NEVER: command handlers parse spec-tree suffixes or assemble hierarchy themselves — they consume `src/lib/spec-tree/index.ts` ([audit])
-- ALWAYS: `spx spec status --update` obtains each node's verification outcomes from recorded evidence produced by the owning verification surface, never from a status-owned runner, per `spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md` ([audit])
-- NEVER: `spx spec status` executes verification in any form — with or without `--update`, it reports state derived from recorded verification outcomes or live structure, per `spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md` ([test](tests/status-testing-delegation.compliance.l1.test.ts))
+- ALWAYS: `spx spec status --update` obtains each node's verification outcomes from recorded evidence produced by the owning verification surface, never from a status-owned runner, per [spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md](spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md) ([audit])
+- NEVER: `spx spec status` executes verification in any form — with or without `--update`, it reports state derived from recorded verification outcomes or live structure, per [spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md](spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md) ([test](tests/status-testing-delegation.compliance.l1.test.ts))
