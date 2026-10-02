@@ -16,7 +16,7 @@ One product context keeps root-affecting behavior independent of the command int
 ### Testing
 
 - ALWAYS: the CLI parser maps `spx -C <path> <command>` to a product context whose effective invocation directory is `<path>` and whose resolved product roots match invoking the same command from `<path>` without `-C` ([mapping])
-- ALWAYS: when `-C` is absent, the product context resolves from the process directory and preserves the non-git fallback diagnostic behavior defined by `spx/15-worktree-management.pdr.md` ([mapping])
+- ALWAYS: when `-C` is absent, the product context resolves from the process directory and preserves the non-git fallback diagnostic behavior defined by [spx/15-worktree-management.pdr.md](spx/15-worktree-management.pdr.md) ([mapping])
 - ALWAYS: a command invoked from a dirty unrelated worktree with `-C <target>` resolves config, root directories, and state paths from `<target>` rather than from the caller's worktree ([compliance])
 
 ### Audit

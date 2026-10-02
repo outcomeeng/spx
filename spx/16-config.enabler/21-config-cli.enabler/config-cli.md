@@ -27,7 +27,7 @@ CAN inspect the resolved configuration, verify that the product `spx.config.*` f
 
 ### Compliance
 
-- ALWAYS: `productDir` passed to `resolveConfig` is derived from `git rev-parse --show-toplevel` when the effective invocation directory is inside a git worktree, falling back to that effective invocation directory with a stderr warning otherwise; the effective invocation directory is the `-C <path>` target when present and `process.cwd()` when absent, per `spx/15-worktree-management.pdr.md` ([test](tests/root-resolution.compliance.l1.test.ts))
+- ALWAYS: `productDir` passed to `resolveConfig` is derived from `git rev-parse --show-toplevel` when the effective invocation directory is inside a git worktree, falling back to that effective invocation directory with a stderr warning otherwise; the effective invocation directory is the `-C <path>` target when present and `process.cwd()` when absent, per [spx/15-worktree-management.pdr.md](spx/15-worktree-management.pdr.md) ([test](tests/root-resolution.compliance.l1.test.ts))
 - NEVER: invoking `show`, `validate`, or `defaults` calls `process.exit`, `process.chdir`, or writes to `process.stdout`/`process.stderr` — process-effect observation via runtime sentinel trapping confirms no forbidden call occurs ([test](tests/invariants.compliance.l1.test.ts))
 - ALWAYS: command output to stdout is reserved for the resolved Config (or validation success line); errors and diagnostics route to stderr ([test](tests/invariants.compliance.l1.test.ts))
 - NEVER: handlers write to the filesystem, spawn subprocesses, mutate `process.env`, or call `process.exit` — handlers return a `CliResult` and the registration layer owns process effects ([test](tests/invariants.compliance.l1.test.ts))

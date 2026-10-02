@@ -4,7 +4,7 @@
 
 ## Harness vocabulary guard
 
-Before applying a harness-environment or agent-facing packet from this plan, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
+Before applying a harness-environment or agent-facing packet from this plan, read [spx/12-agent-harness.pdr.md](spx/12-agent-harness.pdr.md) and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
 
 ## Purpose
 
@@ -12,9 +12,9 @@ Coordinate the refactor tranche that moves deterministic execution domains onto 
 
 ## Governing Decisions
 
-- `spx/16-config.enabler/21-descriptor-registration.adr.md` owns the generic descriptor mechanism, shared config primitives, and registry composition.
-- `spx/16-config.enabler/21-config-file-formats.adr.md` owns `spx.config.{json,yaml,toml}` format resolution.
-- `spx/15-worktree-management.pdr.md` owns whether a domain resolves tracked product files from the local worktree root or gitignored state from the Git common-dir product root.
+- [spx/16-config.enabler/21-descriptor-registration.adr.md](21-descriptor-registration.adr.md) owns the generic descriptor mechanism, shared config primitives, and registry composition.
+- [spx/16-config.enabler/21-config-file-formats.adr.md](21-config-file-formats.adr.md) owns `spx.config.{json,yaml,toml}` format resolution.
+- [spx/15-worktree-management.pdr.md](spx/15-worktree-management.pdr.md) owns whether a domain resolves tracked product files from the local worktree root or gitignored state from the Git common-dir product root.
 
 ## Settled foundations
 
