@@ -1,6 +1,6 @@
 # Plan: verification command family
 
-> Reconcile against `spx/60-surfaces.enabler/21-cli-surface.enabler/PLAN.md` and `spx/34-verification.enabler/PLAN.md` first. This note carries child-structure coordination only; product truth lives in the node specs and `spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md`.
+> Reconcile against `spx/60-surfaces.enabler/21-cli-surface.enabler/PLAN.md` and `spx/34-verification.enabler/PLAN.md` first. This note carries child-structure coordination only; product truth lives in the node specs and [`spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md`](spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md).
 
 ## Child structure
 
@@ -20,7 +20,7 @@ The node moved from `21-verification-command-family.enabler` with `git mv`, but 
 ## Pending work
 
 - `spx verification <type> run` exposes the `test` type; the `validation` and `evaluation` type nouns follow when their runners register with the executor of `spx/34-verification.enabler/43-execute.enabler`, per `spx/34-verification.enabler/PLAN.md`.
-- `spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md` declares the `spx verification <type> run` grammar these children realize. `spx test` and `spx validation` still exist as top-level commands, so the CLI is in violation of it until they retire into the verification surface — gated on the per-reference equivalence evidence recorded in `spx/34-verification.enabler/PLAN.md`.
+- [`spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md`](spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md) declares the `spx verification <type> run` grammar these children realize. `spx test` and `spx validation` still exist as top-level commands, so the CLI is in violation of it until they retire into the verification surface — gated on the per-reference equivalence evidence recorded in `spx/34-verification.enabler/PLAN.md`.
 - Splitting `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler` further — run lifecycle, evidence append, and inspection as separate command-path groups — stays deferred; its assertion count does not warrant it.
 
 ## Lower-layer cascade

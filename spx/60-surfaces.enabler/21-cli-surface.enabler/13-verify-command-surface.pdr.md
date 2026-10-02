@@ -18,7 +18,7 @@ Verification runs share one CLI vocabulary even when their judgment and driver d
 
 - ALWAYS: `spx verification run` exposes the command paths `start`, `input`, `scope add`, `finding add`, `finish`, `status`, and `render` ([mapping])
 - ALWAYS: `spx verification <type> run` names the verification type as a noun carrying the `run` verb ([compliance])
-- ALWAYS: `spx verification <type> run` narrows execution through positional product path operands, per `spx/29-verification-path-scope.pdr.md` ([compliance])
+- ALWAYS: `spx verification <type> run` narrows execution through positional product path operands, per [`spx/29-verification-path-scope.pdr.md`](spx/29-verification-path-scope.pdr.md) ([compliance])
 - NEVER: a verification type is exposed as a verb command path such as `spx verification validate` or `spx verification eval` ([compliance])
 - ALWAYS: caller-driven scope options map `changeset` to `<base>..<head>` and `file` to one product-relative path supplied through `--scope` ([mapping])
 - ALWAYS: `start` requires `--input <input-source>` and reports `runToken`, `contextDigest`, `resolvedScope`, `input`, and `locator` ([conformance])
