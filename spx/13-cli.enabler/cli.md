@@ -24,7 +24,6 @@ CAN render diagnostics with no unprintable bytes and bounded length, CAN invoke 
 - For every code point in `[0x00, 0x1F] ∪ {0x7F}`, `escapeCliArgument` maps a single-character input containing that code point to the string `\xNN` where `NN` is the lowercase two-digit hex of the code point ([test](tests/sanitize.mapping.l1.test.ts))
 - The lifecycle signal-to-exit-code mapping is: SIGINT → 130, SIGTERM → 143, EPIPE on stdout → 0, uncaught exception → 1 ([test](tests/lifecycle.mapping.l1.test.ts))
 - Every production validation-step `ProcessRunner` default maps to the shared lifecycle runner exported from `src/lib/process-lifecycle/` ([test](tests/lifecycle.mapping.l1.test.ts))
-- Asynchronous `child_process.spawn` imports outside `src/lib/process-lifecycle/` map to an AST-enforcement violation; synchronous `execSync` and `spawnSync` imports map to no violation ([test](../41-validation.enabler/32-typescript-validation.enabler/32-ast-enforcement.enabler/tests/no-async-spawn-outside-lifecycle.mapping.l1.test.ts))
 
 ### Properties
 
