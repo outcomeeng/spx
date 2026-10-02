@@ -339,7 +339,7 @@ export function projectSpecContextDocument(
 /**
  * The decisions one document's inline links bind, each required to name a
  * snapshot decision that exists on disk. The one owner of that rule and of
- * its diagnostic; both the manifest and the document projection consume it.
+ * its diagnostic, applied to the displayed content of each selected document.
  */
 export function specContextBoundCitations(
   content: string,

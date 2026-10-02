@@ -11,7 +11,6 @@ import {
   SPEC_TREE_GRAMMAR,
   specContextAncestors,
   specContextBootstrap,
-  specContextBoundCitations,
   specContextDecisions,
   specContextEvidence,
   specContextLowerIndexSiblings,
@@ -30,6 +29,7 @@ import {
   terminal,
   type TerminalText,
 } from "@/lib/terminal-text/terminal-text";
+import { resolveSpecContextClosure } from "./context-closure";
 import { type ContextInput, type ContextInputOptions, readContextInput, resolveContextTargets } from "./context-input";
 
 export interface ContextOptions extends ContextInputOptions {
@@ -51,42 +51,17 @@ export const SPEC_CONTEXT_TEXT_LABEL = {
   MIGRATING_FROM: "migrating from",
 } as const;
 
+/**
+ * The cited-decision role of one target: every decision the target's own
+ * `show` closure appends, carrying the documents whose displayed content
+ * cites it.
+ */
 async function manifestCitations(
   input: ContextInput,
-  structural: readonly string[],
+  target: SpecContextTarget,
 ): Promise<readonly SpecContextTargetReadDocument[]> {
-  const structuralPaths = new Set(structural);
-  const selected = new Set(structural);
-  const decisionsByPath = new Set(input.snapshot.decisions.flatMap(({ ref }) => ref?.path ?? []));
-  const cited = new Map<string, Set<string>>();
-  const pending = [...structural];
-  for (let index = 0; index < pending.length; index += 1) {
-    const citing = pending[index];
-    for (
-      const path of specContextBoundCitations(
-        await input.readDocument(citing),
-        citing,
-        decisionsByPath,
-        input.existingPaths,
-      )
-    ) {
-      if (!selected.has(path)) {
-        selected.add(path);
-        pending.push(path);
-      }
-      if (!structuralPaths.has(path)) {
-        const provenance = cited.get(path) ?? new Set<string>();
-        provenance.add(citing);
-        cited.set(path, provenance);
-      }
-    }
-  }
-  return [...cited].sort(([left], [right]) => compareSpecContextOrdinal(left, right))
-    .map(([path, citedBy]) => ({
-      path,
-      role: SPEC_CONTEXT_READ_ROLE.CITED_DECISION,
-      citedBy: [...citedBy].sort(compareSpecContextOrdinal),
-    }));
+  const { cited } = await resolveSpecContextClosure(input, [target]);
+  return cited.map(({ path, citedBy }) => ({ path, role: SPEC_CONTEXT_READ_ROLE.CITED_DECISION, citedBy }));
 }
 
 async function targetReadSet(input: ContextInput, target: SpecContextTarget): Promise<SpecContextTargetReadSet> {
@@ -103,13 +78,7 @@ async function targetReadSet(input: ContextInput, target: SpecContextTarget): Pr
   const lowerIndexSiblings = exists(
     specContextLowerIndexSiblings(input.snapshot, contextNodes).map(({ ref }) => ref?.path),
   );
-  const citedDecisions = await manifestCitations(input, [
-    ...product,
-    ...ancestorPaths,
-    ...targetPaths,
-    ...decisions,
-    ...lowerIndexSiblings,
-  ]);
+  const citedDecisions = await manifestCitations(input, target);
   const directories = [
     SPEC_TREE_CONFIG.ROOT_DIRECTORY,
     ...contextNodes.map(({ id }) => `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${id}`),

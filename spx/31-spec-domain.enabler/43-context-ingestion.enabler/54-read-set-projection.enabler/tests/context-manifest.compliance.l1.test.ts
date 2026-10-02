@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  KIND_REGISTRY,
   SPEC_CONTEXT_LISTED_ROLE,
   SPEC_CONTEXT_READ_ROLE,
   SPEC_CONTEXT_READ_ROLE_ORDER,
@@ -18,6 +19,7 @@ import {
   siblingDirectoryName,
   SPEC_CONTEXT_ESCAPE_TARGET_FILENAME,
   specFilePath,
+  specFixtureBody,
 } from "@testing/generators/spec-tree/rich-context";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -105,6 +107,7 @@ describe("spec context manifest read set", () => {
     await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
       await env.materialize();
       const fixture = env.fixture;
+      const opening = KIND_REGISTRY[fixture.root.kind].opening;
       const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
       const { codeUnitFirst: codeUnitFirstSlug, localeFirst: localeFirstSlug } = divergentOrderSlugPair();
 
@@ -120,13 +123,22 @@ describe("spec context manifest read set", () => {
       const [sameCodeUnitFirst, sameLocaleFirst] = pairDirectories(targetOrder);
       const [higherCodeUnitFirst, higherLocaleFirst] = pairDirectories(higherOrder);
 
-      await env.writeRaw(specFilePath(targetDirectory, slug), markdownFixtureBody(slug));
-      await env.writeRaw(specFilePath(lowerCodeUnitFirst, codeUnitFirstSlug), markdownFixtureBody(codeUnitFirstSlug));
-      await env.writeRaw(specFilePath(lowerLocaleFirst, localeFirstSlug), markdownFixtureBody(localeFirstSlug));
-      await env.writeRaw(specFilePath(sameCodeUnitFirst, codeUnitFirstSlug), markdownFixtureBody(codeUnitFirstSlug));
-      await env.writeRaw(specFilePath(sameLocaleFirst, localeFirstSlug), markdownFixtureBody(localeFirstSlug));
-      await env.writeRaw(specFilePath(higherCodeUnitFirst, codeUnitFirstSlug), markdownFixtureBody(codeUnitFirstSlug));
-      await env.writeRaw(specFilePath(higherLocaleFirst, localeFirstSlug), markdownFixtureBody(localeFirstSlug));
+      await env.writeRaw(specFilePath(targetDirectory, slug), specFixtureBody(slug, opening));
+      await env.writeRaw(
+        specFilePath(lowerCodeUnitFirst, codeUnitFirstSlug),
+        specFixtureBody(codeUnitFirstSlug, opening),
+      );
+      await env.writeRaw(specFilePath(lowerLocaleFirst, localeFirstSlug), specFixtureBody(localeFirstSlug, opening));
+      await env.writeRaw(
+        specFilePath(sameCodeUnitFirst, codeUnitFirstSlug),
+        specFixtureBody(codeUnitFirstSlug, opening),
+      );
+      await env.writeRaw(specFilePath(sameLocaleFirst, localeFirstSlug), specFixtureBody(localeFirstSlug, opening));
+      await env.writeRaw(
+        specFilePath(higherCodeUnitFirst, codeUnitFirstSlug),
+        specFixtureBody(codeUnitFirstSlug, opening),
+      );
+      await env.writeRaw(specFilePath(higherLocaleFirst, localeFirstSlug), specFixtureBody(localeFirstSlug, opening));
 
       const manifest = await contextListManifest({ targets: [targetDirectory], cwd: env.productDir });
 

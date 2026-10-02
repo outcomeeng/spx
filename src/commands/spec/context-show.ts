@@ -11,22 +11,14 @@ import {
   resolveMethodologyTree,
 } from "@/lib/methodology";
 import {
-  compareSpecContextOrdinal,
-  projectSpecContextDocument,
-  selectSpecContextDocuments,
   SPEC_CONTEXT_ENTRY_TYPE,
-  SPEC_CONTEXT_MODE,
-  specContextBoundCitations,
-  specContextCitedSelection,
   type SpecContextEntry,
-  type SpecContextProjectedEntry,
-  type SpecContextSelection,
-  type SpecContextTarget,
   type SpecContextTargetFailure,
   splitSpecContextFrontMatter,
 } from "@/lib/spec-tree";
 import { jsonDocument, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { JSON_INDENTATION } from "./context";
+import { resolveSpecContextClosure } from "./context-closure";
 import { type ContextInput, type ContextInputOptions, readContextInput, resolveContextTargets } from "./context-input";
 
 /** The one key of the `show --json` document, carrying the ordered entry stream. */
@@ -59,77 +51,6 @@ export interface ContextShowOptions extends ContextInputOptions {
 export type ContextShowResult =
   | { readonly ok: true; readonly entries: readonly SpecContextEntry[] }
   | { readonly ok: false; readonly failure: SpecContextTargetFailure };
-
-async function readProjectedDocument(
-  input: ContextInput,
-  selection: SpecContextSelection,
-): Promise<{ readonly ok: true; readonly entry: SpecContextEntry } | { readonly ok: false; readonly error: unknown }> {
-  const source = selection.mode === SPEC_CONTEXT_MODE.REFERENCE ? "" : await input.readDocument(selection.path);
-  try {
-    return {
-      ok: true,
-      entry: projectSpecContextDocument(selection, source, input.methodology.migratingFrom !== undefined),
-    };
-  } catch (error) {
-    if (selection.mode !== SPEC_CONTEXT_MODE.DIGEST) throw error;
-    // A later citation can upgrade this document to Full, which needs no opening.
-    return { ok: false, error };
-  }
-}
-
-async function projectContext(
-  input: ContextInput,
-  targets: readonly SpecContextTarget[],
-): Promise<readonly SpecContextEntry[]> {
-  const structural = await existingSelections(input, targets);
-  const structuralPaths = new Set(structural.map(({ path }) => path));
-  const decisions = new Set(input.snapshot.decisions.flatMap(({ ref }) => ref?.path ?? []));
-  const projected = new Map<string, SpecContextProjectedEntry>();
-  const digestFailures = new Map<string, unknown>();
-  const pending = [...structural];
-  for (let index = 0; index < pending.length; index += 1) {
-    const selection = pending[index];
-    const previous = projected.get(selection.path);
-    if (previous !== undefined && previous.selection.mode >= selection.mode) continue;
-    const result = await readProjectedDocument(input, selection);
-    if (!result.ok) {
-      digestFailures.set(selection.path, result.error);
-      continue;
-    }
-    const { entry } = result;
-    digestFailures.delete(selection.path);
-    projected.set(selection.path, { selection, entry });
-    if (entry.type !== SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT || selection.scanCitations !== true) continue;
-    for (
-      const path of specContextBoundCitations(entry.content, selection.path, decisions, input.existingPaths)
-    ) {
-      pending.push(specContextCitedSelection(path));
-    }
-  }
-  const firstFailure = digestFailures.values().next();
-  if (firstFailure.done !== true) throw firstFailure.value;
-  const additional = [...projected.values()].filter(({ selection }) => !structuralPaths.has(selection.path))
-    .sort((left, right) => compareSpecContextOrdinal(left.selection.path, right.selection.path));
-  return [
-    ...structural.map(({ path }) => {
-      const document = projected.get(path);
-      if (document === undefined) throw new Error(`Unresolved context document: ${path}`);
-      return document.entry;
-    }),
-    ...additional.map(({ entry }) => entry),
-  ];
-}
-
-async function existingSelections(
-  input: ContextInput,
-  targets: readonly SpecContextTarget[],
-): Promise<readonly SpecContextSelection[]> {
-  const result: SpecContextSelection[] = [];
-  for (const selection of selectSpecContextDocuments(input.snapshot, targets, input.existingPaths)) {
-    if (selection.optional !== true || await input.hasDocument(selection.path)) result.push(selection);
-  }
-  return result;
-}
 
 async function methodologyDocument(input: ContextInput, options: ContextShowOptions): Promise<SpecContextEntry> {
   if (options.methodologyTreeRoot === undefined) {
@@ -176,7 +97,7 @@ export async function resolveContextShow(options: ContextShowOptions): Promise<C
   const input = await readContextInput(options);
   const requested = await resolveContextTargets(input, options.targets);
   if (!requested.ok) return requested;
-  const entries = await projectContext(input, requested.targets);
+  const { entries } = await resolveSpecContextClosure(input, requested.targets);
   return {
     ok: true,
     entries: options.methodology === true ? [await methodologyDocument(input, options), ...entries] : entries,

@@ -84,7 +84,7 @@ export interface SpecContextReadDocument {
   readonly path: string;
   /** Every target-role pair this document holds across the requested target set. */
   readonly roles: readonly SpecContextRoleBinding[];
-  /** Present only on cited-decision entries: the read-class documents citing this decision, in read order. */
+  /** Present only on cited-decision entries: every document whose displayed `show` content cites this decision. */
   readonly citedBy?: readonly string[];
 }
 
