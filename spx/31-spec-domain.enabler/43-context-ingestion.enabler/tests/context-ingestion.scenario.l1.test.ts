@@ -4,7 +4,12 @@ import { SPEC_CONTEXT_TEXT_LABEL } from "@/commands/spec/context";
 import { SPEC_CONTEXT_ENTRIES_KEY } from "@/commands/spec/context-show";
 import { DEFAULT_METHODOLOGY_SOURCE } from "@/config/methodology";
 import { SPEC_CONTEXT_FRAME, SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
-import { markdownFixtureBody, rootedArtifactPath, rootedSpecPath } from "@testing/generators/spec-tree/rich-context";
+import {
+  markdownFixtureBody,
+  rootedArtifactPath,
+  rootedSpecPath,
+  specLessNodeDirectories,
+} from "@testing/generators/spec-tree/rich-context";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextListJson,
@@ -21,6 +26,7 @@ import {
   parseContextManifest,
   referencePaths,
   specTreeKindsConfig,
+  trackSpecTreeInGit,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
 
@@ -119,6 +125,25 @@ describe("spec context list and show", () => {
       expect(appended.indexOf(paths.citedDecisionPath)).toBeLessThan(appended.indexOf(paths.peerDecisionPath));
       const rootEntries = await contextShowEntries({ targets: [paths.rootDirectory], cwd: env.productDir });
       expect(documentAt(rootEntries, paths.targetSpecPath)?.content).toBe(paths.openingText[paths.targetSpecPath]);
+    });
+  });
+
+  it("selects the same targetless and targeted show entries when tracked node directories without spec files join the tree", async () => {
+    await withRichContextEnv(async (env, paths) => {
+      await trackSpecTreeInGit(env);
+      const targetless = await contextShowEntries({ targets: [], cwd: env.productDir });
+      const targeted = await contextShowEntries({ targets: [paths.targetId], cwd: env.productDir });
+      const specLess = specLessNodeDirectories(env.fixture, paths);
+      for (const [path, text] of Object.entries(specLess.files)) await env.writeRaw(path, text);
+      await trackSpecTreeInGit(env);
+      // The snapshot walks each directory as a node, so the projection meets
+      // a top-level sibling, a depth-two sibling, and an immediate child of
+      // the target that each name a spec file no tracked path holds.
+      expect((await env.readFilesystemSnapshot()).allNodes.map((node) => node.id)).toEqual(
+        expect.arrayContaining([...specLess.nodeIds]),
+      );
+      expect(await contextShowEntries({ targets: [], cwd: env.productDir })).toEqual(targetless);
+      expect(await contextShowEntries({ targets: [paths.targetId], cwd: env.productDir })).toEqual(targeted);
     });
   });
 

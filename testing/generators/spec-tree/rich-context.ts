@@ -22,6 +22,7 @@ import {
 } from "@/lib/spec-tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
+  SPEC_CONTEXT_FIXTURE_STATUS_BODY,
   specContextLowerSiblingDirectoryName,
   specContextSameIndexSiblingDirectoryName,
 } from "@testing/generators/spec-tree/context-target";
@@ -483,6 +484,42 @@ export function arbitraryRichContextScenario(): fc.Arbitrary<RichContextScenario
       evidenceFileName: SPEC_TREE_TEST_GENERATOR.evidenceFileName(),
     })
     .map(richContextScenario);
+}
+
+/** Node directories a tree tracks without their spec files, with the tracked files that keep them present. */
+export interface SpecLessNodeDirectories {
+  /** The node ids, tree-relative, as the spec-tree snapshot names node directories. */
+  readonly nodeIds: readonly string[];
+  /** Every product-relative file the directories carry, with its exact text; none is a spec file. */
+  readonly files: Readonly<Record<string, string>>;
+}
+
+/**
+ * Three node-shaped directories carrying only a status claim, one at each
+ * position a projection walks: a top-level node (a sibling on every target
+ * path and a depth-one node of targetless discovery), a node under the root
+ * (a sibling of the depth-two target and a depth-two discovery node), and an
+ * immediate child of the target. Each sits at the first free index of its
+ * parent, in the kind the fixture's root declares, so it collides with no
+ * scenario entry.
+ */
+export function specLessNodeDirectories(
+  fixture: RepresentativeSpecTreeFixture,
+  paths: RichContextPaths,
+): SpecLessNodeDirectories {
+  const order = freeSiblingOrder(fixture);
+  const nodeIds = [undefined, paths.rootDirectory, paths.targetId].map((parent, position) => {
+    const directory = siblingDirectoryName(fixture, order, `${fixture.root.slug}-specless-${position}`);
+    return parent === undefined ? directory : [parent, directory].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
+  });
+  return {
+    nodeIds,
+    files: Object.fromEntries(
+      nodeIds.map((
+        nodeId,
+      ) => [rootedArtifactPath(nodeId, SPEC_TREE_GRAMMAR.STATUS_FILENAME), SPEC_CONTEXT_FIXTURE_STATUS_BODY]),
+    ),
+  };
 }
 
 /** The rich-context scenario drawn under the pinned seed, so a failing case replays from its report. */
