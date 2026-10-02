@@ -32,7 +32,7 @@ the applying audit gates between:
    CLI flag. Keep the CLI-flag path (`typescript-test.md`) intact and separate —
    both coexist until the equivalence gate (`spx/34-verification.enabler/PLAN.md`).
    The reporter is TypeScript/Vitest-specific and lives here per
-   `spx/19-language-registration.adr.md`; the executor stays language-neutral and
+   [`spx/19-language-registration.adr.md`](spx/19-language-registration.adr.md); the executor stays language-neutral and
    reaches this runner through `src/test/registry.ts`.
 
 2. **Hook -> journal-event mapping** (from Vitest's `Reporter`,
@@ -62,7 +62,7 @@ the applying audit gates between:
    compliance rules (ports-not-events, per-hook streaming, programmatic
    registration); `l2` for a real programmatic Vitest run over a fixture module
    with one passing and one failing case. `l2` real-tool tests are provisioned in
-   CI per `spx/41-test.enabler/15-ci-runner-toolchain.adr.md`. The reporter's test
+   CI per [`spx/41-test.enabler/15-ci-runner-toolchain.adr.md`](spx/41-test.enabler/15-ci-runner-toolchain.adr.md). The reporter's test
    fixtures (a fake recorder-port sink, synthetic Vitest events) either extend
    `spx/41-test.enabler/21-typescript-test.enabler/32-test-harness.enabler` or are
    owned by a test-harness child of the reporter node — settle in `/test`.

@@ -1,7 +1,7 @@
 # Issues: Journal Reporter
 
 > Coordination note, not product truth. Reconcile against this node's
-> `journal-reporter.md`, `21-reporter-architecture.adr.md`, the child
+> `journal-reporter.md`, [`spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/21-reporter-architecture.adr.md`](spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/21-reporter-architecture.adr.md), the child
 > `32-test-harness.enabler/test-harness.md`, and the executor spec
 > `spx/34-verification.enabler/43-execute.enabler/execute.md` before acting.
 
@@ -37,7 +37,7 @@ the sink with the recorder. Determine Vitest's lifecycle for each undriven path,
 decide the evidence: extend `GENERATED_CASE_STATE` and the mapping coverage to
 `skipped`/`pending`; add a collection-failure fixture; and decide whether a
 collection-failure module and `onTestRunEnd`'s `errors` record scope and/or finding
-evidence. Amend `journal-reporter.md` and `21-reporter-architecture.adr.md` to state the
+evidence. Amend `journal-reporter.md` and [`spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/21-reporter-architecture.adr.md`](spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/21-reporter-architecture.adr.md) to state the
 fuller evidence contract when that work lands.
 
 **Evidence:** CI review on PR #406; `src/test/languages/journal-reporter.ts`
