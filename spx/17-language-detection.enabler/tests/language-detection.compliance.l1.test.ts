@@ -1,35 +1,27 @@
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { detectLanguages } from "@/validation/discovery/language-finder";
 import {
-  detectLanguages,
-  ESLINT_CONFIG_FILES,
-  ESLINT_PRODUCTION_CONFIG_FILES,
-  type LanguageDetectionDeps,
-  PYTHON_MARKER,
-  TYPESCRIPT_MARKER,
-} from "@/validation/discovery/language-finder";
-import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
+  LANGUAGE_DETECTION_FIXTURES,
+  languageDetectionFixturePath,
+} from "@testing/harnesses/language-detection/language-detection";
 
-describe("detectLanguages — compliance", () => {
-  it("probes source-owned marker and config file names rather than walking directories", () => {
-    const productDir = sampleLiteralTestValue(arbitraryDomainLiteral());
-    const probedPaths: string[] = [];
-    const existingPaths = new Set([join(productDir, TYPESCRIPT_MARKER)]);
-    const deps: LanguageDetectionDeps = {
-      existsSync: (filePath: string) => {
-        probedPaths.push(filePath);
-        return existingPaths.has(filePath);
-      },
-    };
+describe("detectLanguages — compliance: marker files only, never file extensions", () => {
+  it("leaves TypeScript undetected in a Python product carrying vendored TypeScript sources but no tsconfig.json", () => {
+    const result = detectLanguages(
+      languageDetectionFixturePath(LANGUAGE_DETECTION_FIXTURES.PYTHON_WITH_VENDORED_TYPESCRIPT),
+    );
 
-    detectLanguages(productDir, deps);
+    expect(result.typescript.present).toBe(false);
+    expect(result.python.present).toBe(true);
+  });
 
-    expect(probedPaths).toEqual([
-      join(productDir, TYPESCRIPT_MARKER),
-      ...ESLINT_CONFIG_FILES.map((configFile) => join(productDir, configFile)),
-      ...ESLINT_PRODUCTION_CONFIG_FILES.map((configFile) => join(productDir, configFile)),
-      join(productDir, PYTHON_MARKER),
-    ]);
+  it("leaves Python undetected in a TypeScript product carrying vendored Python sources but no pyproject.toml", () => {
+    const result = detectLanguages(
+      languageDetectionFixturePath(LANGUAGE_DETECTION_FIXTURES.TYPESCRIPT_WITH_VENDORED_PYTHON),
+    );
+
+    expect(result.python.present).toBe(false);
+    expect(result.typescript.present).toBe(true);
   });
 });
