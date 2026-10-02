@@ -111,13 +111,14 @@ export interface PlainTreeModel {
   readonly sections: readonly PlainTreeSection[];
 }
 
+/** The separator between the rendered lines of a styled report or plain tree. */
+export const TREE_LINE_SEPARATOR = authoredText("\n");
+
 /**
  * Renders the report model to text. With `color: false` the output is identical
  * content with no ANSI; with `color: true` the same content carries ANSI, so the
  * ANSI-stripped colored render equals the plain render.
  */
-const TREE_LINE_SEPARATOR = authoredText("\n");
-
 export function renderStyledReport(model: StyledReportModel, options: StyledReportOptions): TerminalText {
   const chalk = new Chalk({ level: options.color ? COLOR_LEVEL.ENABLED : COLOR_LEVEL.DISABLED });
   // Every header, detail, and summary arrives with its escaping already decided, so chalk only
