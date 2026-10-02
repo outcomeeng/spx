@@ -2,9 +2,12 @@ import * as fc from "fast-check";
 import { posix } from "node:path";
 
 import { DECISION_SUFFIXES, NODE_SUFFIXES, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
+import { SPEC_TREE_LINK_PARENT_SEGMENT, SPEC_TREE_LINK_ROOT_ANCHOR } from "@/lib/spec-tree-link-grammar";
 import {
   MARKDOWN_DEFAULT_DIRECTORY_NAMES,
+  MARKDOWN_FILE_EXTENSIONS,
   MARKDOWN_PRIMARY_FILE_EXTENSION,
+  MARKDOWN_SECONDARY_FILE_EXTENSION,
   MARKDOWN_VALIDATION_TARGET_KIND,
   type MarkdownValidationTarget,
 } from "@/validation/steps/markdown";
@@ -106,17 +109,13 @@ const MARKDOWN_FENCE = "```";
 const MARKDOWN_FENCE_INFO = "text";
 const MARKDOWN_SECTION_PREFIX = "## ";
 const MARKDOWN_SUBSECTION_PREFIX = "### ";
-/** The secondary markdown extension the spec names; directory scope admits only the primary one. */
-const MARKDOWN_SECONDARY_FILE_EXTENSION = ".markdown";
 /** The character the spec names inside a markdown file path. */
 const FILE_NAME_COLON = ":";
 const FILE_EXTENSION_SEPARATOR = ".";
 const FRAGMENT_SEPARATOR = "#";
 /** GitHub heading anchors join the lowercased heading words with hyphens. */
 const HEADING_ANCHOR_WORD_SEPARATOR = "-";
-const PARENT_DIRECTORY_SEGMENT = "..";
 const CURRENT_DIRECTORY_PREFIX = "./";
-const PRODUCT_ROOT_ANCHOR = "/";
 const EXTERNAL_URL_SCHEME = "https://";
 const EXTERNAL_RESERVED_DOMAIN = ".invalid";
 const SENTENCE_END = ".";
@@ -144,6 +143,11 @@ export interface MarkdownSupportingFile {
 export interface MarkdownLinkShapeCase {
   readonly link: MarkdownLinkCase;
   readonly supportingFiles: readonly MarkdownSupportingFile[];
+  /**
+   * Product-relative paths the repository tracks once the case is written; absent when the product root is
+   * no git repository.
+   */
+  readonly trackedPaths?: readonly string[];
 }
 
 /** A link that names an existing file, with that file's product-relative path and content. */
@@ -272,7 +276,7 @@ export function arbitrarySpecTreeLinkScenario(): fc.Arbitrary<SpecTreeLinkScenar
     .filter(({ names }) =>
       !names.some((name) =>
         (MARKDOWN_DEFAULT_DIRECTORY_NAMES as readonly string[]).includes(name)
-        || `${FILE_EXTENSION_SEPARATOR}${name}` === MARKDOWN_SECONDARY_FILE_EXTENSION
+        || MARKDOWN_FILE_EXTENSIONS.has(`${FILE_EXTENSION_SEPARATOR}${name}`)
       )
     )
     .map(({ ancestors, nodeSegment, childNodeSegment, decisionFile, names, citingProse, targetProse }) => {
@@ -397,8 +401,8 @@ export function specTreeRejectedShapeLinks(scenario: SpecTreeLinkScenario): read
     { path: posix.join(scenario.nodeDirectory, descendantTarget), content: targetContent(scenario) },
   ];
   return [
-    posix.join(PARENT_DIRECTORY_SEGMENT, scenario.nodeSegment, scenario.targetFileName),
-    `${PRODUCT_ROOT_ANCHOR}${linkedFile(scenario)}`,
+    posix.join(SPEC_TREE_LINK_PARENT_SEGMENT, scenario.nodeSegment, scenario.targetFileName),
+    `${SPEC_TREE_LINK_ROOT_ANCHOR}${linkedFile(scenario)}`,
     descendantTarget,
   ].map((href) => ({ link: markdownLinkingTo(scenario, citingFile, href), supportingFiles }));
 }
@@ -642,7 +646,7 @@ export function markdownCommandResolutionRows(scenario: SpecTreeLinkScenario): r
     resolutionRow(
       scenario,
       docsDirectory,
-      markdownLinkingTo(scenario, docsCitingFile(scenario), `${PRODUCT_ROOT_ANCHOR}${linkedFile(scenario)}`),
+      markdownLinkingTo(scenario, docsCitingFile(scenario), `${SPEC_TREE_LINK_ROOT_ANCHOR}${linkedFile(scenario)}`),
       true,
     ),
   ];
@@ -690,23 +694,63 @@ export function markdownUncheckedLinks(scenario: SpecTreeLinkScenario): readonly
   ]);
 }
 
-function decisionPathCase(scenario: SpecTreeLinkScenario, link: MarkdownLinkCase): MarkdownLinkShapeCase {
+/** Which of a decision-path case's files the repository tracks. */
+const DECISION_CASE_TRACKING = {
+  /** The citing file and the decision. */
+  ALL: "all",
+  /** The citing file alone, so the decision exists on disk but not in the tracked set. */
+  CITING_ONLY: "citing-only",
+  /** Nothing: the product root is no git repository. */
+  NONE: "none",
+} as const;
+
+type DecisionCaseTracking = (typeof DECISION_CASE_TRACKING)[keyof typeof DECISION_CASE_TRACKING];
+
+function decisionPathCase(
+  scenario: SpecTreeLinkScenario,
+  link: MarkdownLinkCase,
+  tracking: DecisionCaseTracking = DECISION_CASE_TRACKING.ALL,
+): MarkdownLinkShapeCase {
+  const trackedPaths = {
+    [DECISION_CASE_TRACKING.ALL]: [link.citingFile, decisionPath(scenario)],
+    [DECISION_CASE_TRACKING.CITING_ONLY]: [link.citingFile],
+    [DECISION_CASE_TRACKING.NONE]: undefined,
+  }[tracking];
   return {
     link,
     supportingFiles: [{ path: decisionPath(scenario), content: targetContent(scenario) }],
+    ...(trackedPaths === undefined ? {} : { trackedPaths }),
   };
 }
 
-/** A decision path written as text outside a link: bare, and inside an inline code span. */
+function textMentioning(scenario: SpecTreeLinkScenario, written: string, path: string): MarkdownLinkCase {
+  return {
+    citingFile: specTreeCitingFile(scenario),
+    href: path,
+    ...markdownDocument(scenario.citingProse, [`${scenario.citingProse.lead} ${written}${SENTENCE_END}`], 0),
+  };
+}
+
+/** A tracked decision's path written as text outside a link: bare, and inside an inline code span. */
 export function specTreeDecisionPathTextCases(scenario: SpecTreeLinkScenario): readonly MarkdownLinkShapeCase[] {
   const path = decisionPath(scenario);
-  return [path, `\`${path}\``].map((written) =>
-    decisionPathCase(scenario, {
-      citingFile: specTreeCitingFile(scenario),
-      href: path,
-      ...markdownDocument(scenario.citingProse, [`${scenario.citingProse.lead} ${written}${SENTENCE_END}`], 0),
-    })
-  );
+  return [path, `\`${path}\``].map((written) => decisionPathCase(scenario, textMentioning(scenario, written, path)));
+}
+
+/**
+ * Decision-shaped text that names no tracked decision: a decision filename without the spec-tree prefix, an
+ * `spx/` path whose decision exists on disk but is absent from the tracked set, and an `spx/` path when the
+ * product root is no git repository, so no tracked set exists.
+ */
+export function specTreeDecisionPathUntrackedTextCases(
+  scenario: SpecTreeLinkScenario,
+): readonly MarkdownLinkShapeCase[] {
+  const path = decisionPath(scenario);
+  return [
+    decisionPathCase(scenario, textMentioning(scenario, scenario.decisionFile, scenario.decisionFile)),
+    decisionPathCase(scenario, textMentioning(scenario, path, path), DECISION_CASE_TRACKING.CITING_ONLY),
+    decisionPathCase(scenario, textMentioning(scenario, path, path), DECISION_CASE_TRACKING.NONE),
+  ];
 }
 
 /** A decision path inside a fenced code block, and the same path as a tree-absolute link. */

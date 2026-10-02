@@ -34,7 +34,13 @@ import {
 /** Default directories to validate when no path operands are specified. */
 export const MARKDOWN_DEFAULT_DIRECTORY_NAMES = [SPEC_TREE_CONFIG.ROOT_DIRECTORY, "docs"] as const;
 export const MARKDOWN_PRIMARY_FILE_EXTENSION = ".md";
-const MARKDOWN_FILE_EXTENSIONS: ReadonlySet<string> = new Set([".md", ".markdown"]);
+/** The secondary markdown extension: a file operand admits it, while directory scope globs only the primary one. */
+export const MARKDOWN_SECONDARY_FILE_EXTENSION = ".markdown";
+/** Every extension that makes a file operand a markdown target. */
+export const MARKDOWN_FILE_EXTENSIONS: ReadonlySet<string> = new Set([
+  MARKDOWN_PRIMARY_FILE_EXTENSION,
+  MARKDOWN_SECONDARY_FILE_EXTENSION,
+]);
 export const MARKDOWN_DIRECTORY_GLOB = "**/*.md";
 
 /** Built-in markdownlint rules enabled for validation (MD024 excluded — configured per directory). */

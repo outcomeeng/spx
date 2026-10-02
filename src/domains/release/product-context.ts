@@ -13,20 +13,16 @@ import {
   type SpecTreeSnapshot,
   type SpecTreeSourceEntry,
 } from "@/lib/spec-tree";
+import { parseSpecTreeLink, resolveSpecTreeLink, SPEC_TREE_ROOT_PREFIX } from "@/lib/spec-tree-link-grammar";
 
 import { encodeReleasePromptData } from "./prompt-data";
 import type { ReleaseData } from "./release-data";
 
-const SPEC_TREE_DIRECTORY = "spx";
 const TEST_LINK_PATTERN = /\[test\]\(([^)]+)\)/gu;
 const INLINE_CODE_PATTERN = /`([^`]+)`/gu;
 const AUDIT_TAG = "[audit";
 const MARKDOWN_LINK_OPEN_TOKEN = "link_open";
 const MARKDOWN_LINK_HREF_ATTRIBUTE = "href";
-const LINK_TARGET_SUFFIX_PATTERN = /[?#].*$/su;
-const URL_SCHEME_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*:/u;
-const ROOT_ANCHOR = "/";
-const PARENT_DIRECTORY_SEGMENT = "..";
 
 export const RELEASE_CONTEXT_KIND = {
   PRODUCT: "product",
@@ -110,8 +106,9 @@ export interface ReleaseEndpointDeclaration {
 
 /** Spec-tree source entries for the committed paths of one release endpoint, in ordinal order. */
 export function* committedSpecTreeEntries(paths: readonly string[]): Iterable<SpecTreeSourceEntry> {
-  const prefix = `${SPEC_TREE_DIRECTORY}/`;
-  const files = paths.filter((path) => path.startsWith(prefix)).map((path) => path.slice(prefix.length));
+  const files = paths
+    .filter((path) => path.startsWith(SPEC_TREE_ROOT_PREFIX))
+    .map((path) => path.slice(SPEC_TREE_ROOT_PREFIX.length));
   const directories = new Set<string>();
   for (const file of files) {
     let directory = posix.dirname(file);
@@ -247,27 +244,18 @@ export function extractDecisionLinkCitations(documentPath: string, content: stri
       if (token.type !== MARKDOWN_LINK_OPEN_TOKEN) continue;
       const href = token.attrGet(MARKDOWN_LINK_HREF_ATTRIBUTE);
       if (href === null) continue;
-      const citedPath = resolveCitationLink(documentPath, href);
+      const citedPath = resolveSpecTreeLink(documentPath, parseSpecTreeLink(href));
       if (citedPath !== null && isDecisionPath(citedPath)) citations.add(citedPath);
     }
   }
   return [...citations];
 }
 
-function resolveCitationLink(documentPath: string, href: string): string | null {
-  const target = href.replace(LINK_TARGET_SUFFIX_PATTERN, "");
-  if (target.length === 0 || target.startsWith(ROOT_ANCHOR) || URL_SCHEME_PATTERN.test(target)) return null;
-  if (target.split(ROOT_ANCHOR).includes(PARENT_DIRECTORY_SEGMENT)) return null;
-  if (target.startsWith(`${SPEC_TREE_DIRECTORY}/`)) return posix.normalize(target);
-  return posix.join(posix.dirname(documentPath), target);
-}
-
 function isDecisionPath(path: string): boolean {
-  const prefix = `${SPEC_TREE_DIRECTORY}/`;
-  if (!path.startsWith(prefix)) return false;
+  if (!path.startsWith(SPEC_TREE_ROOT_PREFIX)) return false;
   const entry = recognizeSpecTreeFilesystemEntry({
     type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
-    relativePath: path.slice(prefix.length),
+    relativePath: path.slice(SPEC_TREE_ROOT_PREFIX.length),
   });
   return entry?.type === SPEC_TREE_ENTRY_TYPE.DECISION;
 }

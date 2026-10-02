@@ -22,7 +22,10 @@ export interface MarkdownTempProject {
   readonly docsDir: string;
   /** Writes content at a product-relative path, creating parent directories, and returns its absolute path. */
   readonly write: (relativePath: string, content: string) => Promise<string>;
-  /** Writes a link case's supporting files and then its citing file, and returns the citing file's absolute path. */
+  /**
+   * Writes a link case's supporting files and then its citing file, makes the product root a git repository
+   * tracking the case's tracked paths when it names any, and returns the citing file's absolute path.
+   */
   readonly writeLinkCase: (linkCase: MarkdownLinkShapeCase) => Promise<string>;
   /** Writes the spec-tree exclude file listing each spec-tree-relative node directory, and returns its absolute path. */
   readonly writeNodeStatusExclude: (nodeDirectories: readonly string[]) => Promise<string>;
@@ -50,9 +53,15 @@ export function withMarkdownTempProject<T>(callback: (project: MarkdownTempProje
       await writeFile(absolutePath, content);
       return absolutePath;
     };
-    const writeLinkCase = async ({ link, supportingFiles }: MarkdownLinkShapeCase): Promise<string> => {
+    const track = async (relativePaths: readonly string[]): Promise<void> => {
+      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, ...relativePaths]);
+    };
+    const writeLinkCase = async ({ link, supportingFiles, trackedPaths }: MarkdownLinkShapeCase): Promise<string> => {
       for (const supportingFile of supportingFiles) await write(supportingFile.path, supportingFile.content);
-      return await write(link.citingFile, link.content);
+      const citingFile = await write(link.citingFile, link.content);
+      if (trackedPaths !== undefined) await track(trackedPaths);
+      return citingFile;
     };
     const writeNodeStatusExclude = (nodeDirectories: readonly string[]): Promise<string> =>
       write(
@@ -61,10 +70,6 @@ export function withMarkdownTempProject<T>(callback: (project: MarkdownTempProje
           .map((nodeDirectory) => `${nodeDirectory}${NODE_STATUS_EXCLUDE_LINE_GRAMMAR.ENTRY_SEPARATOR}`)
           .join(""),
       );
-    const track = async (relativePaths: readonly string[]): Promise<void> => {
-      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
-      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, ...relativePaths]);
-    };
     return callback({
       productDir,
       spxDir: join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY),

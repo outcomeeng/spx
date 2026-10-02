@@ -13,6 +13,7 @@ import {
   markdownValidRelativeLink,
   specTreeDecisionPathAdmittedCases,
   specTreeDecisionPathTextCases,
+  specTreeDecisionPathUntrackedTextCases,
   specTreeExistingTargetLinks,
   specTreeMissingTargetLinks,
   specTreeRejectedShapeLinks,
@@ -177,12 +178,12 @@ describe("Inside spx/, a link that resolves to no tracked file fails as a broken
   );
 });
 
-describe("Inside spx/, a decision path written as text outside a link fails", () => {
+describe("Inside spx/, a tracked decision's path written as text outside a link fails", () => {
   it.each(specTreeDecisionPathTextCases(sampleGeneratedValue(arbitrarySpecTreeLinkScenario())))(
     "reports the decision path on line $link.line naming the file, the line, and the path",
-    async ({ link, supportingFiles }) => {
+    async ({ link, supportingFiles, trackedPaths }) => {
       await withMarkdownTempProject(async ({ productDir, spxDir, writeLinkCase }) => {
-        const citingFile = await writeLinkCase({ link, supportingFiles });
+        const citingFile = await writeLinkCase({ link, supportingFiles, trackedPaths });
 
         const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
 
@@ -201,9 +202,23 @@ describe("Inside spx/, a decision path written as text outside a link fails", ()
 
   it.each(specTreeDecisionPathAdmittedCases(sampleGeneratedValue(arbitrarySpecTreeLinkScenario())))(
     "does not report the decision path inside a fenced code block or a link (line $link.line)",
-    async ({ link, supportingFiles }) => {
+    async ({ link, supportingFiles, trackedPaths }) => {
       await withMarkdownTempProject(async ({ productDir, spxDir, writeLinkCase }) => {
-        const citingFile = await writeLinkCase({ link, supportingFiles });
+        const citingFile = await writeLinkCase({ link, supportingFiles, trackedPaths });
+
+        const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
+
+        expect(result.errors.filter((error) => error.file === citingFile)).toEqual([]);
+      });
+    },
+    MARKDOWN_HARNESS_TIMEOUT,
+  );
+
+  it.each(specTreeDecisionPathUntrackedTextCases(sampleGeneratedValue(arbitrarySpecTreeLinkScenario())))(
+    "does not report $link.href written as text when it names no tracked decision",
+    async ({ link, supportingFiles, trackedPaths }) => {
+      await withMarkdownTempProject(async ({ productDir, spxDir, writeLinkCase }) => {
+        const citingFile = await writeLinkCase({ link, supportingFiles, trackedPaths });
 
         const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
 

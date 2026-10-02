@@ -3,10 +3,11 @@
  *
  * Inside the spec tree a link takes one of two shapes: node-local (a relative
  * path that stays inside the citing node) or tree-absolute (a path written
- * literally from the spec-tree root). This rule reports every other shape and
- * every decision path written as text instead of as a link. When the rule
- * configuration carries the repository's tracked paths, an admitted link whose
- * target the repository does not track is reported as broken. The remaining
+ * literally from the spec-tree root). This rule reports every other shape. When
+ * the rule configuration carries the repository's tracked paths, it also
+ * reports an admitted link whose target the repository does not track as
+ * broken, and a tracked decision's path written as text instead of as a link;
+ * without tracked paths, no text is a decision path. The remaining
  * admitted links go to `markdownlint-rule-relative-links` for existence and
  * heading-fragment checks, with each tree-absolute href presented as anchored
  * at the product root.
@@ -14,17 +15,26 @@
  * @module validation/steps/markdown-link-shape-rule
  */
 
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { posix, relative, resolve, sep } from "node:path";
 
 import { createTrackedPathInclusion, TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
 import {
   DECISION_SUFFIXES,
   recognizeSpecTreeFilesystemEntry,
-  SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_FILESYSTEM_RECORD_TYPE,
   SPEC_TREE_GRAMMAR,
 } from "@/lib/spec-tree";
+import {
+  parseSpecTreeLink,
+  resolveSpecTreeLink,
+  SPEC_TREE_LINK_KIND,
+  SPEC_TREE_LINK_PARENT_SEGMENT,
+  SPEC_TREE_LINK_ROOT_ANCHOR,
+  SPEC_TREE_ROOT_PREFIX,
+  type SpecTreeLink,
+  specTreeLinkPath,
+} from "@/lib/spec-tree-link-grammar";
 
 import relativeLinksRule from "markdownlint-rule-relative-links";
 
@@ -63,25 +73,22 @@ const LINK_TARGET_ATTRIBUTE = {
   [LINK_TOKEN_TYPE.IMAGE]: "src",
 } as const;
 
-const FRAGMENT_PREFIX = "#";
-const ROOT_ANCHOR = "/";
-const PARENT_DIRECTORY_SEGMENT = "..";
 const CURRENT_DIRECTORY_SEGMENT = ".";
-const URL_SCHEME_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*:/;
-const PATH_SUFFIX_PATTERN = /[?#]/;
-const PARENT_RELATIVE_PREFIX = `${PARENT_DIRECTORY_SEGMENT}${sep}`;
+const TRAILING_SEPARATORS_PATTERN = /\/+$/u;
+const PARENT_RELATIVE_PREFIX = `${SPEC_TREE_LINK_PARENT_SEGMENT}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}`;
 
 function escapeRegExp(value: string): string {
   return value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }
 
 /**
- * A tree-rooted decision path inside prose: it starts at the spec-tree root,
- * ends in a decision suffix, and may be followed by sentence punctuation, but
- * not by further path characters (`….adr.mdx`, `….adr.md.bak`).
+ * A decision-path candidate inside prose: it starts at the spec-tree root, ends
+ * in a decision suffix, and may be followed by sentence punctuation, but not by
+ * further path characters (`….adr.mdx`, `….adr.md.bak`). A candidate is a
+ * decision path only when the tracked set holds it.
  */
 const DECISION_PATH_TEXT_PATTERN = new RegExp(
-  String.raw`(?<![A-Za-z0-9._/-])${escapeRegExp(SPEC_TREE_CONFIG.ROOT_DIRECTORY)}/[A-Za-z0-9._/-]*?(?:${
+  String.raw`(?<![A-Za-z0-9._/-])${escapeRegExp(SPEC_TREE_ROOT_PREFIX)}[A-Za-z0-9._/-]*?(?:${
     DECISION_SUFFIXES.map(escapeRegExp).join("|")
   })(?![A-Za-z0-9_/-]|\.[A-Za-z0-9])`,
   "g",
@@ -141,13 +148,8 @@ function linkTarget(token: MarkdownItToken): string | undefined {
   return token.attrs?.find(([name]) => name === attribute)?.[1];
 }
 
-function isTreeAbsolute(href: string): boolean {
-  return href.startsWith(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}`);
-}
-
 function pathSegments(href: string): string[] {
-  const [path = ""] = href.split(PATH_SUFFIX_PATTERN);
-  return path.split(SPEC_TREE_GRAMMAR.PATH_SEPARATOR).filter((segment) => segment.length > 0);
+  return specTreeLinkPath(href).split(SPEC_TREE_GRAMMAR.PATH_SEPARATOR).filter((segment) => segment.length > 0);
 }
 
 function isNodeDirectoryName(segment: string): boolean {
@@ -170,11 +172,12 @@ function entersDescendantNode(href: string): boolean {
  * grammar admits or does not govern (a fragment-only target or a URL).
  */
 export function classifySpecTreeLinkShape(href: string): LinkShapeDiagnostic | undefined {
-  if (href.startsWith(FRAGMENT_PREFIX) || URL_SCHEME_PATTERN.test(href)) return undefined;
-  if (href.startsWith(ROOT_ANCHOR)) return MARKDOWN_LINK_SHAPE_DIAGNOSTICS.LEADING_SLASH;
-  if (pathSegments(href).includes(PARENT_DIRECTORY_SEGMENT)) return MARKDOWN_LINK_SHAPE_DIAGNOSTICS.PARENT_CLIMB;
-  if (isTreeAbsolute(href)) return undefined;
-  if (entersDescendantNode(href)) return MARKDOWN_LINK_SHAPE_DIAGNOSTICS.DESCENDANT_NODE;
+  const { kind } = parseSpecTreeLink(href);
+  if (kind === SPEC_TREE_LINK_KIND.ROOT_ANCHORED) return MARKDOWN_LINK_SHAPE_DIAGNOSTICS.LEADING_SLASH;
+  if (kind === SPEC_TREE_LINK_KIND.PARENT_CLIMB) return MARKDOWN_LINK_SHAPE_DIAGNOSTICS.PARENT_CLIMB;
+  if (kind === SPEC_TREE_LINK_KIND.NODE_LOCAL && entersDescendantNode(href)) {
+    return MARKDOWN_LINK_SHAPE_DIAGNOSTICS.DESCENDANT_NODE;
+  }
   return undefined;
 }
 
@@ -188,25 +191,31 @@ function quoted(value: string): string {
 
 type TrackedTargetInclusion = (productRelativePath: string) => boolean;
 
-/** Where an admitted link's target resolves and whether the repository tracks it. */
-interface TrackedTargetScope {
-  readonly rootPath: string;
-  readonly citingDirectory: string;
+/** The repository's tracked files, and the inclusion predicate that also admits their ancestor directories. */
+interface TrackedSet {
+  readonly files: ReadonlySet<string>;
   readonly isTracked: TrackedTargetInclusion;
 }
 
-const trackedInclusionCache = new WeakMap<readonly unknown[], TrackedTargetInclusion>();
+/** Where an admitted link's target resolves and what the repository tracks. */
+interface TrackedTargetScope extends TrackedSet {
+  /** Product-relative path of the citing file, with `/` separators. */
+  readonly citingFile: string;
+}
+
+const trackedSetCache = new WeakMap<readonly unknown[], TrackedSet>();
 
 function isStringArray(value: unknown): value is readonly string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === "string");
 }
 
-function trackedInclusion(trackedPaths: readonly string[]): TrackedTargetInclusion {
-  const cached = trackedInclusionCache.get(trackedPaths);
+function trackedSet(trackedPaths: readonly string[]): TrackedSet {
+  const cached = trackedSetCache.get(trackedPaths);
   if (cached !== undefined) return cached;
-  const inclusion = createTrackedPathInclusion(new Set(trackedPaths));
-  trackedInclusionCache.set(trackedPaths, inclusion);
-  return inclusion;
+  const files = new Set(trackedPaths);
+  const set = { files, isTracked: createTrackedPathInclusion(files) };
+  trackedSetCache.set(trackedPaths, set);
+  return set;
 }
 
 /**
@@ -219,40 +228,42 @@ function trackedTargetScope(params: MarkdownlintRuleParams): TrackedTargetScope 
   const trackedPaths = params.config[MARKDOWN_LINK_SHAPE_RULE_CONFIG.TRACKED_PATHS];
   if (typeof rootPath !== "string" || !isStringArray(trackedPaths)) return undefined;
   return {
-    rootPath,
-    citingDirectory: dirname(resolve(params.name)),
-    isTracked: trackedInclusion(trackedPaths),
+    ...trackedSet(trackedPaths),
+    citingFile: relative(rootPath, resolve(params.name)).split(sep).join(TRACKED_PATH_DIRECTORY_SEPARATOR),
   };
 }
 
-function decodedPath(href: string): string {
-  const [path = ""] = href.split(PATH_SUFFIX_PATTERN);
+function decodedLink(link: SpecTreeLink): SpecTreeLink {
   try {
-    return decodeURIComponent(path);
+    return { ...link, path: decodeURIComponent(link.path) };
   } catch {
-    return path;
+    return link;
   }
 }
 
 /**
  * Whether an admitted link's target lies inside the product root and the
  * repository does not track it. A tree-absolute href resolves from the product
- * root and a node-local href from the citing file's directory; a fragment-only
- * target, a URL, and a target outside the product root are not judged here.
+ * root and a node-local href from the citing file's directory; a target the
+ * grammar does not admit and a target outside the product root are not judged here.
  */
 function targetsUntrackedPath(href: string, scope: TrackedTargetScope): boolean {
-  if (href.startsWith(FRAGMENT_PREFIX) || URL_SCHEME_PATTERN.test(href)) return false;
-  const path = decodedPath(href);
-  if (path.length === 0) return false;
-  const absoluteTarget = isTreeAbsolute(href) ? join(scope.rootPath, path) : join(scope.citingDirectory, path);
-  const productRelative = relative(scope.rootPath, absoluteTarget);
+  const resolved = resolveSpecTreeLink(scope.citingFile, decodedLink(parseSpecTreeLink(href)));
+  if (resolved === null) return false;
+  const productRelative = resolved.replace(TRAILING_SEPARATORS_PATTERN, "");
   if (
-    productRelative.length === 0 || productRelative === PARENT_DIRECTORY_SEGMENT
-    || productRelative.startsWith(PARENT_RELATIVE_PREFIX) || isAbsolute(productRelative)
+    productRelative.length === 0 || productRelative === CURRENT_DIRECTORY_SEGMENT
+    || productRelative === SPEC_TREE_LINK_PARENT_SEGMENT || productRelative.startsWith(PARENT_RELATIVE_PREFIX)
+    || posix.isAbsolute(productRelative)
   ) {
     return false;
   }
-  return !scope.isTracked(productRelative.split(sep).join(TRACKED_PATH_DIRECTORY_SEPARATOR));
+  return !scope.isTracked(productRelative);
+}
+
+/** Whether a decision-path candidate written as text names a decision the repository tracks. */
+function isTrackedDecisionPath(candidate: string, scope: TrackedTargetScope | undefined): boolean {
+  return scope?.files.has(candidate) === true;
 }
 
 // =============================================================================
@@ -283,9 +294,9 @@ function presentAdmittedLinks(
       });
       return [];
     }
-    if (!isTreeAbsolute(href)) return [child];
+    if (parseSpecTreeLink(href).kind !== SPEC_TREE_LINK_KIND.TREE_ABSOLUTE) return [child];
 
-    const anchored = `${ROOT_ANCHOR}${href}`;
+    const anchored = `${SPEC_TREE_LINK_ROOT_ANCHOR}${href}`;
     anchoredHrefs.set(quoted(anchored), quoted(href));
     const attribute = LINK_TARGET_ATTRIBUTE[child.type];
     return [{
@@ -297,7 +308,11 @@ function presentAdmittedLinks(
   });
 }
 
-function reportShapeAndTextViolations(token: MarkdownItToken, onError: MarkdownlintOnError): void {
+function reportShapeAndTextViolations(
+  token: MarkdownItToken,
+  trackedScope: TrackedTargetScope | undefined,
+  onError: MarkdownlintOnError,
+): void {
   let linkDepth = 0;
   for (const child of token.children ?? []) {
     if (child.type === LINK_TOKEN_TYPE.LINK_CLOSE) {
@@ -305,27 +320,38 @@ function reportShapeAndTextViolations(token: MarkdownItToken, onError: Markdownl
       continue;
     }
 
-    const href = linkTarget(child);
-    if (href !== undefined) {
-      const diagnostic = classifySpecTreeLinkShape(href);
-      if (diagnostic !== undefined) {
-        onError({ lineNumber: child.lineNumber, detail: `${quoted(href)} ${diagnostic}` });
-      }
-    }
+    reportRejectedShape(child, onError);
     if (child.type === LINK_TOKEN_TYPE.LINK_OPEN) {
       linkDepth += 1;
       continue;
     }
 
-    if (linkDepth > 0 || (child.type !== LINK_TOKEN_TYPE.TEXT && child.type !== LINK_TOKEN_TYPE.CODE_INLINE)) {
-      continue;
-    }
-    for (const [decisionPath] of child.content.matchAll(DECISION_PATH_TEXT_PATTERN)) {
-      onError({
-        lineNumber: child.lineNumber,
-        detail: `${quoted(decisionPath)} ${MARKDOWN_LINK_SHAPE_DIAGNOSTICS.DECISION_PATH_TEXT}`,
-      });
-    }
+    if (linkDepth === 0) reportDecisionPathText(child, trackedScope, onError);
+  }
+}
+
+function reportRejectedShape(child: MarkdownItToken, onError: MarkdownlintOnError): void {
+  const href = linkTarget(child);
+  if (href === undefined) return;
+  const diagnostic = classifySpecTreeLinkShape(href);
+  if (diagnostic !== undefined) {
+    onError({ lineNumber: child.lineNumber, detail: `${quoted(href)} ${diagnostic}` });
+  }
+}
+
+/** Reports each tracked decision's path a text or inline-code token outside a link writes as text. */
+function reportDecisionPathText(
+  child: MarkdownItToken,
+  trackedScope: TrackedTargetScope | undefined,
+  onError: MarkdownlintOnError,
+): void {
+  if (child.type !== LINK_TOKEN_TYPE.TEXT && child.type !== LINK_TOKEN_TYPE.CODE_INLINE) return;
+  for (const [decisionPath] of child.content.matchAll(DECISION_PATH_TEXT_PATTERN)) {
+    if (!isTrackedDecisionPath(decisionPath, trackedScope)) continue;
+    onError({
+      lineNumber: child.lineNumber,
+      detail: `${quoted(decisionPath)} ${MARKDOWN_LINK_SHAPE_DIAGNOSTICS.DECISION_PATH_TEXT}`,
+    });
   }
 }
 
@@ -356,7 +382,7 @@ export const markdownLinkShapeRule: MarkdownlintCustomRule = {
     const trackedScope = trackedTargetScope(params);
     const presentedTokens = params.parsers.markdownit.tokens.map((token) => {
       if (token.type !== LINK_TOKEN_TYPE.INLINE) return token;
-      reportShapeAndTextViolations(token, onError);
+      reportShapeAndTextViolations(token, trackedScope, onError);
       return {
         ...token,
         children: presentAdmittedLinks(token.children ?? [], anchoredHrefs, trackedScope, onError),

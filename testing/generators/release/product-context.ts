@@ -8,6 +8,7 @@ import {
 import type { ReleaseData } from "@/domains/release/release-data";
 import { CHANGELOG_TITLE } from "@/domains/release/release-notes";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
+import { SPEC_TREE_LINK_PARENT_SEGMENT } from "@/lib/spec-tree-link-grammar";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { arbitraryConformantChangelog } from "@testing/generators/release/changelog";
@@ -418,7 +419,6 @@ const CITATION_CITED_INDEX = 30;
 const CITATION_UNTRACKED_DECISION_INDEX = 21;
 const CITATION_CITED_DECISION_INDEX = 31;
 const CITATION_SLUG_COUNT = 11;
-const PARENT_DIRECTORY_SEGMENT = "..";
 
 /**
  * One release endpoint whose selected documents cite decisions in every citation shape: a changed
@@ -483,7 +483,7 @@ export function arbitraryReleaseDecisionCitationScenario(): fc.Arbitrary<Release
     const inlineCodePath = citedDecisionPath(inlineCodeSlug);
     const climbingPath = citedDecisionPath(climbingSlug);
     const climbingHref = posix.join(
-      PARENT_DIRECTORY_SEGMENT,
+      SPEC_TREE_LINK_PARENT_SEGMENT,
       posix.relative(SPEC_TREE_CONFIG.ROOT_DIRECTORY, climbingPath),
     );
     const citingSpecificationPath = citationSpecificationPath(citingDirectory, citingSlug);
