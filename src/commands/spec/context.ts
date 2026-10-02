@@ -99,9 +99,7 @@ async function targetReadSet(input: ContextInput, target: SpecContextTarget): Pr
   const product = exists([input.snapshot.product?.ref?.path]);
   const ancestorPaths = exists(ancestors.map(({ ref }) => ref?.path));
   const targetPaths = exists([node?.ref?.path]);
-  const decisions = exists((node === undefined
-    ? input.snapshot.decisions.filter(({ parentId }) => parentId === undefined)
-    : specContextDecisions(input.snapshot, contextNodes)).map(({ ref }) => ref?.path));
+  const decisions = exists(specContextDecisions(input.snapshot, contextNodes).map(({ ref }) => ref?.path));
   const lowerIndexSiblings = exists(
     specContextLowerIndexSiblings(input.snapshot, contextNodes).map(({ ref }) => ref?.path),
   );
