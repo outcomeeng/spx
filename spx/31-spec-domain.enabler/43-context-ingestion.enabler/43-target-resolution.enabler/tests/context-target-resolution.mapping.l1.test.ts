@@ -16,7 +16,6 @@ import {
 } from "@testing/generators/spec-tree/context-target";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
-  canonicalInvocationDir,
   contextListFailure,
   contextListManifest,
   specTreeKindsConfig,
@@ -53,7 +52,7 @@ describe("spec context target resolution mapping", () => {
           await mkdir(join(env.productDir, directory), { recursive: true });
         }
         await trackSpecTreeInGit(env);
-        const cwd = await canonicalInvocationDir(env, rejected.invocationDir);
+        const cwd = join(env.productDir, rejected.invocationDir);
         const failure = await contextListFailure({ targets: [rejected.operand], cwd });
         expect(failure).toContain(SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[rejected.expectedKind]);
         expect(failure).toContain(rejected.operand);

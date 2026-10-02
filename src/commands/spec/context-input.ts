@@ -1,5 +1,5 @@
 import { readdir, readFile, realpath } from "node:fs/promises";
-import { isAbsolute, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 
 import type { MethodologyConfig } from "@/config/methodology";
 import { resolveMethodologyConfig } from "@/config/methodology-placement";
@@ -215,10 +215,33 @@ async function operandFacts(input: ContextInput, operand: string): Promise<SpecC
       }
     } catch (error) {
       if (!isMissingPath(error)) throw error;
-      if (!isPathContained(input.productDir, path)) outsideProduct = true;
+      if (!isPathContained(input.realRoot, await missingPathLocation(input.fs, path))) outsideProduct = true;
     }
   }
   return { accepted: input.accepted, candidates, outsideProduct, unsupportedArtifact };
+}
+
+/**
+ * Where a path that does not exist would lie once its existing prefix is
+ * resolved through symbolic links: the nearest existing ancestor's canonical
+ * path joined with the missing remainder. Confinement then depends on where the
+ * path resolves, never on how the invocation directory or product root is
+ * spelled.
+ */
+async function missingPathLocation(fs: ContextFileSystem, path: string): Promise<string> {
+  const missing: string[] = [];
+  let ancestor = path;
+  for (;;) {
+    const parent = dirname(ancestor);
+    if (parent === ancestor) throw new Error(`No existing ancestor resolves for context operand path: ${path}`);
+    missing.unshift(basename(ancestor));
+    ancestor = parent;
+    try {
+      return join(await fs.realPath(ancestor), ...missing);
+    } catch (error) {
+      if (!isMissingPath(error)) throw error;
+    }
+  }
 }
 
 export async function resolveContextTargets(

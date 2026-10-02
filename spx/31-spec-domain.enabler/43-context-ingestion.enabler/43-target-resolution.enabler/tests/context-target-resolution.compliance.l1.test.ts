@@ -13,17 +13,17 @@ import {
   specContextUnknownTarget,
 } from "@testing/generators/spec-tree/context-target";
 import {
-  sampleSpecTreeTestValue,
-  SPEC_TREE_TEST_GENERATOR,
-  specTreeFixtureNodeDirectoryName,
-} from "@testing/generators/spec-tree/spec-tree";
-import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
-import {
   rootedArtifactPath,
   rootedSpecPath,
   SPEC_CONTEXT_ESCAPE_TARGET_FILENAME,
   specFilePath,
 } from "@testing/generators/spec-tree/rich-context";
+import {
+  sampleSpecTreeTestValue,
+  SPEC_TREE_TEST_GENERATOR,
+  specTreeFixtureNodeDirectoryName,
+} from "@testing/generators/spec-tree/spec-tree";
+import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextListFailure,
   contextListManifest,
@@ -176,6 +176,31 @@ describe("spec context target resolution compliance", () => {
         expect(failure).toContain(SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED]);
         expect(failure).toContain(operand);
       }
+    });
+  });
+
+  it("confines a missing candidate by where it resolves, so an unknown operand from a symlinked invocation directory fails as unresolved", async () => {
+    await withOutsideProductDir(async (outsideParent) => {
+      await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+        await env.materialize();
+        await trackSpecTreeInGit(env);
+        // The invocation directory reaches the product only through a symbolic
+        // link outside it, while git reports the product root canonically.
+        const invocationAlias = join(outsideParent, sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug()));
+        await symlink(env.productDir, invocationAlias);
+        const operand = specContextUnknownTarget(env.fixture);
+        for (
+          const failure of [
+            await contextListFailure({ targets: [operand], cwd: invocationAlias }),
+            await contextShowFailure({ targets: [operand], cwd: invocationAlias }),
+          ]
+        ) {
+          expect(failure).toContain(
+            SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED],
+          );
+          expect(failure).toContain(operand);
+        }
+      });
     });
   });
 });
