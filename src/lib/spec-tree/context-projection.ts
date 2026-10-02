@@ -5,7 +5,7 @@ import { parseDocument, stringify } from "yaml";
 
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "./config";
 import { compareSpecContextOrdinal } from "./context-manifest";
-import { specContextAncestors, specContextSiblings } from "./context-read-set";
+import { specContextAncestors, specContextDecisions, specContextSiblings } from "./context-read-set";
 import type { SpecContextTarget } from "./context-target";
 import type { SpecTreeNode, SpecTreeSnapshot } from "./index";
 
@@ -152,6 +152,17 @@ export function compareSpecContextTreeEntries(
     || compareSpecContextOrdinal(leftName, rightName);
 }
 
+/** The union over every target of the decisions governing its context path. */
+function specContextGoverningDecisionIds(
+  snapshot: SpecTreeSnapshot,
+  targets: readonly SpecContextTarget[],
+): ReadonlySet<string> {
+  return new Set(targets.flatMap(({ node }) => {
+    const contextPath = node === undefined ? [] : [...specContextAncestors(snapshot, node), node];
+    return specContextDecisions(snapshot, contextPath).map(({ id }) => id);
+  }));
+}
+
 export function selectSpecContextDocuments(
   snapshot: SpecTreeSnapshot,
   targets: readonly SpecContextTarget[],
@@ -165,6 +176,7 @@ export function selectSpecContextDocuments(
     const previous = selected.get(node.id);
     if (previous === undefined || mode > previous) selected.set(node.id, mode);
   };
+  const governingDecisions = specContextGoverningDecisionIds(snapshot, targets);
   for (const { node } of targets) {
     if (node === undefined) {
       for (const child of snapshot.nodes) put(child, SPEC_CONTEXT_MODE.DIGEST);
@@ -193,10 +205,9 @@ export function selectSpecContextDocuments(
     reference(`${directory}/${KNOWLEDGE_INDEX}`);
   };
   const structuralEntries = (node: SpecTreeNode | undefined, depth: number) => {
-    const decisions = discovery || fullContainers.has(node?.id)
-      ? snapshot.decisions.filter((decision) => decision.parentId === node?.id)
-        .map((decision) => ({ decision, path: requiredDocumentPath(decision.ref?.path, decision.id) }))
-      : [];
+    const decisions = snapshot.decisions
+      .filter((decision) => decision.parentId === node?.id && (discovery || governingDecisions.has(decision.id)))
+      .map((decision) => ({ decision, path: requiredDocumentPath(decision.ref?.path, decision.id) }));
     const children = (node?.children ?? snapshot.nodes)
       .filter((child) => discovery ? depth < DISCOVERY_DEPTH : selected.has(child.id))
       .map((child) => ({ child, path: nodeDirectory(child) }));

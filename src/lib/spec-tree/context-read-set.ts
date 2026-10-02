@@ -64,8 +64,12 @@ export function specContextLowerIndexSiblings(
 }
 
 /**
- * Decisions constraining the context path: every decision inside the target,
- * plus each directory's decisions below that directory's constraining order.
+ * The path-governing decisions of one context path — the single owner of that
+ * rule for every context projection: every decision directly inside the
+ * target, plus, at each ancestor directory along the path, every decision
+ * whose index is below the index of the child through which the path
+ * continues. An empty path is the product-root target, whose own decisions
+ * all govern it.
  */
 export function specContextDecisions(
   snapshot: SpecTreeSnapshot,
