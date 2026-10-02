@@ -5,9 +5,8 @@
  * path that stays inside the citing node) or tree-absolute (a path written
  * literally from the spec-tree root). This rule reports every other shape and
  * every decision path written as text instead of as a link. When the rule
- * configuration carries the repository's tracked paths and the repository
- * tracks the citing file, an admitted link whose target the repository does not
- * track is reported as broken. The remaining
+ * configuration carries the repository's tracked paths, an admitted link whose
+ * target the repository does not track is reported as broken. The remaining
  * admitted links go to `markdownlint-rule-relative-links` for existence and
  * heading-fragment checks, with each tree-absolute href presented as anchored
  * at the product root.
@@ -211,36 +210,19 @@ function trackedInclusion(trackedPaths: readonly string[]): TrackedTargetInclusi
 }
 
 /**
- * The product-relative path of an absolute path in git's separator form, or
- * `undefined` when the path is the product root itself or lies outside it.
- */
-function productRelativePath(rootPath: string, absolutePath: string): string | undefined {
-  const productRelative = relative(rootPath, absolutePath);
-  if (
-    productRelative.length === 0 || productRelative === PARENT_DIRECTORY_SEGMENT
-    || productRelative.startsWith(PARENT_RELATIVE_PREFIX) || isAbsolute(productRelative)
-  ) {
-    return undefined;
-  }
-  return productRelative.split(sep).join(TRACKED_PATH_DIRECTORY_SEPARATOR);
-}
-
-/**
- * The tracked-target scope for one citing file, or `undefined` when tracking
- * cannot judge its links: the rule configuration names no product root or no
- * tracked paths (outside a git repository), or the repository does not track
- * the citing file, which is then absent from every checkout of the repository.
- * Without a scope, existence alone decides whether a link resolves.
+ * The tracked-target scope for one citing file, or `undefined` when the rule
+ * configuration names no product root or no tracked paths — outside a git
+ * repository, existence alone decides whether a link resolves.
  */
 function trackedTargetScope(params: MarkdownlintRuleParams): TrackedTargetScope | undefined {
   const rootPath = params.config[MARKDOWN_LINK_SHAPE_RULE_CONFIG.ROOT_PATH];
   const trackedPaths = params.config[MARKDOWN_LINK_SHAPE_RULE_CONFIG.TRACKED_PATHS];
   if (typeof rootPath !== "string" || !isStringArray(trackedPaths)) return undefined;
-  const citingFile = resolve(params.name);
-  const isTracked = trackedInclusion(trackedPaths);
-  const citingPath = productRelativePath(rootPath, citingFile);
-  if (citingPath === undefined || !isTracked(citingPath)) return undefined;
-  return { rootPath, citingDirectory: dirname(citingFile), isTracked };
+  return {
+    rootPath,
+    citingDirectory: dirname(resolve(params.name)),
+    isTracked: trackedInclusion(trackedPaths),
+  };
 }
 
 function decodedPath(href: string): string {
@@ -263,8 +245,14 @@ function targetsUntrackedPath(href: string, scope: TrackedTargetScope): boolean 
   const path = decodedPath(href);
   if (path.length === 0) return false;
   const absoluteTarget = isTreeAbsolute(href) ? join(scope.rootPath, path) : join(scope.citingDirectory, path);
-  const targetPath = productRelativePath(scope.rootPath, absoluteTarget);
-  return targetPath !== undefined && !scope.isTracked(targetPath);
+  const productRelative = relative(scope.rootPath, absoluteTarget);
+  if (
+    productRelative.length === 0 || productRelative === PARENT_DIRECTORY_SEGMENT
+    || productRelative.startsWith(PARENT_RELATIVE_PREFIX) || isAbsolute(productRelative)
+  ) {
+    return false;
+  }
+  return !scope.isTracked(productRelative.split(sep).join(TRACKED_PATH_DIRECTORY_SEPARATOR));
 }
 
 // =============================================================================
