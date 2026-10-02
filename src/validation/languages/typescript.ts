@@ -20,6 +20,9 @@ import {
   type ValidationStageContext,
   type ValidationStageParticipationPolicy,
 } from "@/validation/languages/types";
+import { defaultEslintProcessRunner } from "@/validation/steps/eslint";
+import { defaultKnipProcessRunner } from "@/validation/steps/knip";
+import { defaultTypeScriptProcessRunner } from "@/validation/steps/typescript";
 
 const TYPESCRIPT_LANGUAGE_NAME = "typescript";
 const SKIP_CIRCULAR_REASON = "skip-circular";
@@ -149,18 +152,21 @@ export const typescriptValidationLanguage: TypeScriptValidationLanguageDescripto
       name: VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR,
       failsPipeline: true,
       participation: TYPESCRIPT_VALIDATION_STAGE_PARTICIPATION[VALIDATION_STAGE_DISPLAY_NAMES.CIRCULAR],
+      processRunner: null,
       run: runCircularStage,
     },
     {
       name: VALIDATION_STAGE_DISPLAY_NAMES.KNIP,
       failsPipeline: true,
       participation: TYPESCRIPT_VALIDATION_STAGE_PARTICIPATION[VALIDATION_STAGE_DISPLAY_NAMES.KNIP],
+      processRunner: defaultKnipProcessRunner,
       run: runKnipStage,
     },
     {
       name: VALIDATION_STAGE_DISPLAY_NAMES.ESLINT,
       failsPipeline: true,
       participation: TYPESCRIPT_VALIDATION_STAGE_PARTICIPATION[VALIDATION_STAGE_DISPLAY_NAMES.ESLINT],
+      processRunner: defaultEslintProcessRunner,
       run: (context) =>
         lintCommand({
           cwd: context.cwd,
@@ -177,6 +183,7 @@ export const typescriptValidationLanguage: TypeScriptValidationLanguageDescripto
       name: VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT,
       failsPipeline: true,
       participation: TYPESCRIPT_VALIDATION_STAGE_PARTICIPATION[VALIDATION_STAGE_DISPLAY_NAMES.TYPESCRIPT],
+      processRunner: defaultTypeScriptProcessRunner,
       run: (context) =>
         typescriptCommand({
           cwd: context.cwd,
@@ -192,6 +199,7 @@ export const typescriptValidationLanguage: TypeScriptValidationLanguageDescripto
       name: VALIDATION_STAGE_DISPLAY_NAMES.LITERAL,
       failsPipeline: true,
       participation: TYPESCRIPT_VALIDATION_STAGE_PARTICIPATION[VALIDATION_STAGE_DISPLAY_NAMES.LITERAL],
+      processRunner: null,
       run: runLiteralStage,
     },
   ],

@@ -77,6 +77,7 @@ export const validationRegistryComplianceCases = collectHarnessTestCases(() => {
               stages: stageNames.map((name) => ({
                 name,
                 failsPipeline: true,
+                processRunner: null,
                 participation: registeredParticipationPolicy(),
                 run: () => {
                   executedStageNames.push(name);
