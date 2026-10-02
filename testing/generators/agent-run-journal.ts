@@ -2,6 +2,7 @@ import fc from "fast-check";
 
 import {
   CLOUDEVENTS_SPECVERSION,
+  JOURNAL_SEQ_BASE,
   type JournalEvent,
   type JournalEventInput,
   type JournalIdentity,
@@ -102,6 +103,58 @@ export function arbitraryJournalPairInput(): fc.Arbitrary<JournalPairInput> {
     secondInput: arbitraryJournalEventInput(),
     identity: arbitraryJournalIdentity(),
   });
+}
+
+export interface JournalCursorInput extends JournalSequenceInput {
+  /** A read cursor ranging from below the journal's base to past its last appended sequence. */
+  readonly cursor: number;
+}
+
+/** Appends plus a read cursor spanning before the first, every appended, and past the last sequence. */
+export function arbitraryJournalCursorInput(): fc.Arbitrary<JournalCursorInput> {
+  return arbitraryJournalSequenceInput().chain(({ inputs, identity }) =>
+    fc.integer({ min: JOURNAL_SEQ_BASE - 1, max: JOURNAL_SEQ_BASE + inputs.length }).map((cursor) => ({
+      inputs,
+      identity,
+      cursor,
+    }))
+  );
+}
+
+export interface JournalPrefixInput extends JournalSequenceInput {
+  /** The last sequence of the rendered prefix, from an empty prefix to past the last appended sequence. */
+  readonly throughSeq: number;
+}
+
+/** Appends plus a prefix bound spanning the empty prefix, every appended sequence, and past the last. */
+export function arbitraryJournalPrefixInput(): fc.Arbitrary<JournalPrefixInput> {
+  return arbitraryJournalSequenceInput().chain(({ inputs, identity }) =>
+    fc.integer({ min: JOURNAL_SEQ_BASE - 1, max: JOURNAL_SEQ_BASE + inputs.length }).map((throughSeq) => ({
+      inputs,
+      identity,
+      throughSeq,
+    }))
+  );
+}
+
+/**
+ * An `eventNamespace` override the `runtime` descriptor must reject: a blank string (empty or
+ * whitespace only) or any defined value that is not a string. `undefined` is excluded because an
+ * absent field resolves to the declared default.
+ */
+export function arbitraryInvalidEventNamespace(): fc.Arbitrary<unknown> {
+  return fc.oneof(
+    fc.stringMatching(/^\s*$/),
+    fc.anything().filter((value) => typeof value !== "string" && value !== undefined),
+  );
+}
+
+/** A `runtime` config section value that is not a plain object: any scalar, `null`, or an array. */
+export function arbitraryNonObjectRuntimeSection(): fc.Arbitrary<unknown> {
+  return fc.oneof(
+    fc.anything().filter((value) => typeof value !== "object" || value === null),
+    fc.array(fc.anything()),
+  );
 }
 
 export function arbitraryMalformedJournalLines(): fc.Arbitrary<readonly [string, string]> {
