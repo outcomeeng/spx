@@ -31,8 +31,6 @@ import {
   SPEC_TREE_LINK_KIND,
   SPEC_TREE_LINK_PARENT_SEGMENT,
   SPEC_TREE_LINK_ROOT_ANCHOR,
-  type SpecTreeLink,
-  specTreeLinkPath,
 } from "@/lib/spec-tree-link-grammar";
 
 import relativeLinksRule from "markdownlint-rule-relative-links";
@@ -130,8 +128,8 @@ function linkTarget(token: MarkdownItToken): string | undefined {
   return token.attrs?.find(([name]) => name === attribute)?.[1];
 }
 
-function pathSegments(href: string): string[] {
-  return specTreeLinkPath(href).split(SPEC_TREE_GRAMMAR.PATH_SEPARATOR).filter((segment) => segment.length > 0);
+function pathSegments(path: string): string[] {
+  return path.split(SPEC_TREE_GRAMMAR.PATH_SEPARATOR).filter((segment) => segment.length > 0);
 }
 
 function isNodeDirectoryName(segment: string): boolean {
@@ -142,8 +140,8 @@ function isNodeDirectoryName(segment: string): boolean {
   return entry?.type === SPEC_TREE_ENTRY_TYPE.NODE || entry?.type === SPEC_TREE_ENTRY_TYPE.SUPERSEDED;
 }
 
-function entersDescendantNode(href: string): boolean {
-  const firstSegment = pathSegments(href).find((segment) => segment !== CURRENT_DIRECTORY_SEGMENT);
+function entersDescendantNode(path: string): boolean {
+  const firstSegment = pathSegments(path).find((segment) => segment !== CURRENT_DIRECTORY_SEGMENT);
   return firstSegment !== undefined && isNodeDirectoryName(firstSegment);
 }
 
@@ -154,10 +152,10 @@ function entersDescendantNode(href: string): boolean {
  * grammar admits or does not govern (a fragment-only target or a URL).
  */
 export function classifySpecTreeLinkShape(href: string): LinkShapeDiagnostic | undefined {
-  const { kind } = parseSpecTreeLink(href);
+  const { kind, path } = parseSpecTreeLink(href);
   if (kind === SPEC_TREE_LINK_KIND.ROOT_ANCHORED) return MARKDOWN_LINK_SHAPE_DIAGNOSTICS.LEADING_SLASH;
   if (kind === SPEC_TREE_LINK_KIND.PARENT_CLIMB) return MARKDOWN_LINK_SHAPE_DIAGNOSTICS.PARENT_CLIMB;
-  if (kind === SPEC_TREE_LINK_KIND.NODE_LOCAL && entersDescendantNode(href)) {
+  if (kind === SPEC_TREE_LINK_KIND.NODE_LOCAL && entersDescendantNode(path)) {
     return MARKDOWN_LINK_SHAPE_DIAGNOSTICS.DESCENDANT_NODE;
   }
   return undefined;
@@ -215,14 +213,6 @@ function trackedTargetScope(params: MarkdownlintRuleParams): TrackedTargetScope 
   };
 }
 
-function decodedLink(link: SpecTreeLink): SpecTreeLink {
-  try {
-    return { ...link, path: decodeURIComponent(link.path) };
-  } catch {
-    return link;
-  }
-}
-
 /**
  * Whether an admitted link's target lies inside the product root and the
  * repository does not track it. A tree-absolute href resolves from the product
@@ -230,7 +220,7 @@ function decodedLink(link: SpecTreeLink): SpecTreeLink {
  * grammar does not admit and a target outside the product root are not judged here.
  */
 function targetsUntrackedPath(href: string, scope: TrackedTargetScope): boolean {
-  const resolved = resolveSpecTreeLink(scope.citingFile, decodedLink(parseSpecTreeLink(href)));
+  const resolved = resolveSpecTreeLink(scope.citingFile, parseSpecTreeLink(href));
   if (resolved === null) return false;
   const productRelative = resolved.replace(TRAILING_SEPARATORS_PATTERN, "");
   if (

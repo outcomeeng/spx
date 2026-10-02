@@ -316,10 +316,15 @@ export function specTreeTreeAbsoluteLink(scenario: SpecTreeLinkScenario): Markdo
   };
 }
 
+/** Percent-encodes every character of a path segment, as a link target may spell it. */
+function percentEncodedSegment(segment: string): string {
+  return [...segment].map((character) => `%${(character.codePointAt(0) ?? 0).toString(16).toUpperCase()}`).join("");
+}
+
 /**
- * The link shapes the spec rejects inside `spx/` — a `../` climb, a
- * leading-slash anchor, and a relative path into a descendant node's
- * directory — each naming a file that exists.
+ * The link shapes the spec rejects inside `spx/` — a `../` climb, written
+ * plainly and percent-encoded, a leading-slash anchor, and a relative path
+ * into a descendant node's directory — each naming a file that exists.
  */
 export function specTreeRejectedShapeLinks(scenario: SpecTreeLinkScenario): readonly MarkdownLinkShapeCase[] {
   const citingFile = specTreeCitingFile(scenario);
@@ -330,6 +335,7 @@ export function specTreeRejectedShapeLinks(scenario: SpecTreeLinkScenario): read
   ];
   return [
     posix.join(SPEC_TREE_LINK_PARENT_SEGMENT, scenario.nodeSegment, scenario.targetFileName),
+    posix.join(percentEncodedSegment(SPEC_TREE_LINK_PARENT_SEGMENT), scenario.nodeSegment, scenario.targetFileName),
     `${SPEC_TREE_LINK_ROOT_ANCHOR}${linkedFile(scenario)}`,
     descendantTarget,
   ].map((href) => ({ link: markdownLinkingTo(scenario, citingFile, href), supportingFiles }));

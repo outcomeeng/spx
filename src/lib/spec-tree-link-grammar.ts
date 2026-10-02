@@ -6,8 +6,10 @@
  * relative path from the citing document's directory. A target that anchors at
  * a leading slash or climbs with a parent-directory segment is rejected; a
  * target that carries a URL scheme or names no path — a fragment or query
- * alone — is outside the grammar. Every consumer that classifies or resolves a
- * spec-tree link reads this one declaration.
+ * alone — is outside the grammar. A target's path is classified and resolved
+ * percent-decoded, as every resolver of the link reads it, so an encoded
+ * segment cannot pass as a different shape. Every consumer that classifies or
+ * resolves a spec-tree link reads this one declaration.
  *
  * A decision path is a product-relative path under the spec-tree root that
  * names a decision record. A document cites a decision through an admitted
@@ -64,14 +66,21 @@ export type SpecTreeLinkKind = (typeof SPEC_TREE_LINK_KIND)[keyof typeof SPEC_TR
 /** A link target classified against the spec-tree link grammar. */
 export interface SpecTreeLink {
   readonly kind: SpecTreeLinkKind;
-  /** The target's path as written, without its query or fragment suffix. */
+  /** The target's percent-decoded path, without its query or fragment suffix. */
   readonly path: string;
 }
 
-/** The link target's path as written, without its query or fragment suffix. */
-export function specTreeLinkPath(href: string): string {
+/**
+ * The link target's percent-decoded path, without its query or fragment
+ * suffix; a path whose percent escapes do not decode stays as written.
+ */
+function specTreeLinkPath(href: string): string {
   const [path = ""] = href.split(LINK_TARGET_SUFFIX_PATTERN);
-  return path;
+  try {
+    return decodeURIComponent(path);
+  } catch {
+    return path;
+  }
 }
 
 /** Classifies a link target against the spec-tree link grammar. */
