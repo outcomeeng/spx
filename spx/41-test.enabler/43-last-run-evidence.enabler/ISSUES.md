@@ -8,13 +8,13 @@
 
 **Resolution options (deferred — changes the ADR-mandated reserved-file protocol and would diverge from the reused audit pattern):**
 
-- Replace the reserved-empty-file fill with a separate lock/commit protocol or an append protocol that rejects a second terminal record, making no-overwrite atomic and removing the preflight TOCTOU; update `32-terminal-write-protocol.adr.md` and the `TestRunStateFileSystem` interface, and consider the same change for the audit peer.
+- Replace the reserved-empty-file fill with a separate lock/commit protocol or an append protocol that rejects a second terminal record, making no-overwrite atomic and removing the preflight TOCTOU; update [`spx/41-test.enabler/43-last-run-evidence.enabler/32-terminal-write-protocol.adr.md`](spx/41-test.enabler/43-last-run-evidence.enabler/32-terminal-write-protocol.adr.md) and the `TestRunStateFileSystem` interface, and consider the same change for the audit peer.
 
 **Evidence:** Surfaced by automated review (P2, `src/test/run-state.ts` rename site) on PR #65.
 
 ## FOLLOW-UP: node-scoped selection treats an empty node-path set as no coverage
 
-`selectLatestTerminalTestRunForNode` (via `runCoversNode`) returns `undefined` for a node whose `nodeTestPaths` is empty — no run is considered to cover a node that declares no test paths. This is the correct outcome under the delegation contract (`spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/21-status-testing-delegation.adr.md`): only test-bearing, non-`EXCLUDE` nodes reach the resolver, and those always have at least one test path, so a `declared` node never selects evidence. The empty-paths branch is therefore a defensive guard the delegation contract makes unreachable.
+`selectLatestTerminalTestRunForNode` (via `runCoversNode`) returns `undefined` for a node whose `nodeTestPaths` is empty — no run is considered to cover a node that declares no test paths. This is the correct outcome under the delegation contract ([`spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/21-status-testing-delegation.adr.md`](spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/21-status-testing-delegation.adr.md)): only test-bearing, non-`EXCLUDE` nodes reach the resolver, and those always have at least one test path, so a `declared` node never selects evidence. The empty-paths branch is therefore a defensive guard the delegation contract makes unreachable.
 
 **Impact:** None in the intended flow. The branch is untested because the generator's `testPaths` arbitrary enforces `minLength: 1`; no scenario constructs an empty node-path set.
 

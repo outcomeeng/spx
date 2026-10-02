@@ -18,6 +18,6 @@ CAN verify command construction, the detection gate, and exclusion-flag generati
 ### Compliance
 
 - ALWAYS: the recording command runner is a pure in-memory test double — it records the constructed command and arguments and returns a configured outcome without spawning a process or standing in a mock, so `l1` command-construction and detection-gate tests observe inputs directly ([audit])
-- ALWAYS: the real pytest command runner routes through `uv run` from the temporary product's working directory and relies on the environment to provide the toolchain, per `spx/41-test.enabler/15-ci-runner-toolchain.adr.md` ([audit])
+- ALWAYS: the real pytest command runner routes through `uv run` from the temporary product's working directory and relies on the environment to provide the toolchain, per [`spx/41-test.enabler/15-ci-runner-toolchain.adr.md`](spx/41-test.enabler/15-ci-runner-toolchain.adr.md) ([audit])
 - ALWAYS: the generator's `test_*.py` target shape and the harness's `EXPECTED_PYTEST_PRODUCT_INPUT_PATHS` are held independently of the python descriptor, so a divergence between descriptor and spec fails a consuming test ([audit])
 - ALWAYS: the recording-command-runner property test drives the python runner's recording runner through the shared `observeRecordingCommandRunner` governed by `spx/41-test.enabler/26-test-harness.enabler` and asserts the observation itself, so both language runners share one recording-runner observation while each linked test owns its predicates ([audit])

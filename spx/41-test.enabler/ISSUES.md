@@ -31,7 +31,7 @@ than only the descriptor validator and JSON helper path.
 
 `deriveStatus` in `src/commands/test/run-command.ts` derives status with `outcomes.every(exitCode === SUCCESS_EXIT_CODE)`, so a run that dispatches no runner (no test files discovered, or every matching runner gated out by absent-language detection) records `status: passed` by vacuous truth. A zero-outcome run's `runnerOutcomes` cover no evidence reference, so `selectLatestTerminalTestRunForNode` never selects it. The vacuous `passed` misleads any consumer that reads `state.status` directly without coverage-gating.
 
-**Resolution:** decide the zero-outcome status semantics (a distinct status, or a documented vacuous-pass contract justified by coverage-gating) and amend `spx/41-test.enabler/71-execution-recording.adr.md` accordingly, with a recording test for the empty-outcome path. In the same pass, decide whether `runNodeCommand` should reject a `nodePath` that matches no discovered file — distinct from a matched node whose runner is gated out by absent-language detection — rather than silently recording an empty run.
+**Resolution:** decide the zero-outcome status semantics (a distinct status, or a documented vacuous-pass contract justified by coverage-gating) and amend [`spx/41-test.enabler/71-execution-recording.adr.md`](spx/41-test.enabler/71-execution-recording.adr.md) accordingly, with a recording test for the empty-outcome path. In the same pass, decide whether `runNodeCommand` should reject a `nodePath` that matches no discovered file — distinct from a matched node whose runner is gated out by absent-language detection — rather than silently recording an empty run.
 
 **Evidence:** local changes review on PR-2c; `src/commands/test/run-command.ts` `deriveStatus` and `runNodeCommand`; `src/test/run-state.ts` `selectLatestTerminalTestRunForNode` coverage gating.
 
@@ -39,7 +39,7 @@ than only the descriptor validator and JSON helper path.
 
 `runTestsCommand` and `runNodeCommand` reserve the run file (`createTestRunFile`) before dispatch so `startedAt` marks the run's start. If `runTests` throws after reservation, the file is left empty. `readTestingRuns` classifies it as an incomplete run, so it never corrupts the read path, but repeated dispatch failures accumulate stale empty files under `.spx/worktree/test/runs/`.
 
-**Resolution:** either defer run-file creation until dispatch succeeds (accepting a later `startedAt`), or add a cleanup path that prunes incomplete run files; decide alongside the terminal-write-protocol's lifecycle in `spx/41-test.enabler/43-last-run-evidence.enabler/32-terminal-write-protocol.adr.md`.
+**Resolution:** either defer run-file creation until dispatch succeeds (accepting a later `startedAt`), or add a cleanup path that prunes incomplete run files; decide alongside the terminal-write-protocol's lifecycle in [`spx/41-test.enabler/43-last-run-evidence.enabler/32-terminal-write-protocol.adr.md`](spx/41-test.enabler/43-last-run-evidence.enabler/32-terminal-write-protocol.adr.md).
 
 **Evidence:** local changes review on PR-2c; `src/commands/test/run-command.ts` `reserveRunFile`; `src/test/run-state.ts` `readTestingRuns` incomplete-run classification.
 
@@ -117,7 +117,7 @@ The root cause was that pool worktrees drift stale: dependency install on a
 lockfile change fired only on `post-merge` and `post-rewrite` (pull/rebase), so a
 worktree parked at a new commit through `git switch` or `git worktree add` (which
 fire `post-checkout`) never re-installed. The post-checkout install gate
-`spx/21-infrastructure.enabler/43-precommit.enabler/60-deps-install-on-checkout.adr.md`
+[`spx/21-infrastructure.enabler/43-precommit.enabler/60-deps-install-on-checkout.adr.md`](spx/21-infrastructure.enabler/43-precommit.enabler/60-deps-install-on-checkout.adr.md)
 closes that gap: every checkout that changes the lockfile re-installs in that
 worktree.
 
@@ -125,7 +125,7 @@ worktree.
 operator for the broader package-manager setup issue during agent test-output
 feature work on June 17, 2026.
 
-**Evidence:** `spx/21-infrastructure.enabler/43-precommit.enabler/60-deps-install-on-checkout.adr.md`;
+**Evidence:** [`spx/21-infrastructure.enabler/43-precommit.enabler/60-deps-install-on-checkout.adr.md`](spx/21-infrastructure.enabler/43-precommit.enabler/60-deps-install-on-checkout.adr.md);
 `spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md`; `lefthook.yml`
 `post-checkout` command; `src/lib/precommit/deps-install-gate.ts`.
 
