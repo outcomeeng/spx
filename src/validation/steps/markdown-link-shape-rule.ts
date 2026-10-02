@@ -4,14 +4,19 @@
  * Inside the spec tree a link takes one of two shapes: node-local (a relative
  * path that stays inside the citing node) or tree-absolute (a path written
  * literally from the spec-tree root). This rule reports every other shape and
- * every decision path written as text instead of as a link, then hands the
- * admitted links to `markdownlint-rule-relative-links` for existence and
- * heading-fragment checks, presenting each tree-absolute href as anchored at
- * the product root.
+ * every decision path written as text instead of as a link. When the rule
+ * configuration carries the repository's tracked paths, an admitted link whose
+ * target the repository does not track is reported as broken. The remaining
+ * admitted links go to `markdownlint-rule-relative-links` for existence and
+ * heading-fragment checks, with each tree-absolute href presented as anchored
+ * at the product root.
  *
  * @module validation/steps/markdown-link-shape-rule
  */
 
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+
+import { createTrackedPathInclusion, TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
 import {
   DECISION_SUFFIXES,
   recognizeSpecTreeFilesystemEntry,
@@ -29,12 +34,19 @@ import relativeLinksRule from "markdownlint-rule-relative-links";
 
 export const MARKDOWN_LINK_SHAPE_RULE_NAME = "spx-link-shape";
 
+/** Rule configuration keys: the product root and the repository's tracked product-relative paths. */
+export const MARKDOWN_LINK_SHAPE_RULE_CONFIG = {
+  ROOT_PATH: "root_path",
+  TRACKED_PATHS: "tracked_paths",
+} as const;
+
 /** Diagnostic suffixes, each following the quoted offending link or path. */
 export const MARKDOWN_LINK_SHAPE_DIAGNOSTICS = {
   PARENT_CLIMB: "should not climb with a parent-directory segment; use a node-local or tree-absolute link",
   LEADING_SLASH: "should not start with a slash; write the path from the spec tree root",
   DESCENDANT_NODE: "should not enter a descendant node's directory; use a tree-absolute link",
   DECISION_PATH_TEXT: "is a decision path written as text; cite it with a link",
+  UNTRACKED_TARGET: "should resolve to a file the repository tracks",
 } as const;
 
 const LINK_TOKEN_TYPE = {
@@ -57,6 +69,7 @@ const PARENT_DIRECTORY_SEGMENT = "..";
 const CURRENT_DIRECTORY_SEGMENT = ".";
 const URL_SCHEME_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*:/;
 const PATH_SUFFIX_PATTERN = /[?#]/;
+const PARENT_RELATIVE_PREFIX = `${PARENT_DIRECTORY_SEGMENT}${sep}`;
 
 function escapeRegExp(value: string): string {
   return value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
@@ -170,23 +183,106 @@ function quoted(value: string): string {
 }
 
 // =============================================================================
+// TRACKED TARGETS
+// =============================================================================
+
+type TrackedTargetInclusion = (productRelativePath: string) => boolean;
+
+/** Where an admitted link's target resolves and whether the repository tracks it. */
+interface TrackedTargetScope {
+  readonly rootPath: string;
+  readonly citingDirectory: string;
+  readonly isTracked: TrackedTargetInclusion;
+}
+
+const trackedInclusionCache = new WeakMap<readonly unknown[], TrackedTargetInclusion>();
+
+function isStringArray(value: unknown): value is readonly string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
+
+function trackedInclusion(trackedPaths: readonly string[]): TrackedTargetInclusion {
+  const cached = trackedInclusionCache.get(trackedPaths);
+  if (cached !== undefined) return cached;
+  const inclusion = createTrackedPathInclusion(new Set(trackedPaths));
+  trackedInclusionCache.set(trackedPaths, inclusion);
+  return inclusion;
+}
+
+/**
+ * The tracked-target scope for one citing file, or `undefined` when the rule
+ * configuration names no product root or no tracked paths — outside a git
+ * repository, existence alone decides whether a link resolves.
+ */
+function trackedTargetScope(params: MarkdownlintRuleParams): TrackedTargetScope | undefined {
+  const rootPath = params.config[MARKDOWN_LINK_SHAPE_RULE_CONFIG.ROOT_PATH];
+  const trackedPaths = params.config[MARKDOWN_LINK_SHAPE_RULE_CONFIG.TRACKED_PATHS];
+  if (typeof rootPath !== "string" || !isStringArray(trackedPaths)) return undefined;
+  return {
+    rootPath,
+    citingDirectory: dirname(resolve(params.name)),
+    isTracked: trackedInclusion(trackedPaths),
+  };
+}
+
+function decodedPath(href: string): string {
+  const [path = ""] = href.split(PATH_SUFFIX_PATTERN);
+  try {
+    return decodeURIComponent(path);
+  } catch {
+    return path;
+  }
+}
+
+/**
+ * Whether an admitted link's target lies inside the product root and the
+ * repository does not track it. A tree-absolute href resolves from the product
+ * root and a node-local href from the citing file's directory; a fragment-only
+ * target, a URL, and a target outside the product root are not judged here.
+ */
+function targetsUntrackedPath(href: string, scope: TrackedTargetScope): boolean {
+  if (href.startsWith(FRAGMENT_PREFIX) || URL_SCHEME_PATTERN.test(href)) return false;
+  const path = decodedPath(href);
+  if (path.length === 0) return false;
+  const absoluteTarget = isTreeAbsolute(href) ? join(scope.rootPath, path) : join(scope.citingDirectory, path);
+  const productRelative = relative(scope.rootPath, absoluteTarget);
+  if (
+    productRelative.length === 0 || productRelative === PARENT_DIRECTORY_SEGMENT
+    || productRelative.startsWith(PARENT_RELATIVE_PREFIX) || isAbsolute(productRelative)
+  ) {
+    return false;
+  }
+  return !scope.isTracked(productRelative.split(sep).join(TRACKED_PATH_DIRECTORY_SEPARATOR));
+}
+
+// =============================================================================
 // RULE
 // =============================================================================
 
 /**
  * Rewrites one inline token's children for the composed relative-links check:
- * rejected-shape links are withheld, and each tree-absolute href is anchored at
- * the product root. Returns the rewritten children and the anchored-to-written
+ * rejected-shape links are withheld, a link whose target the repository does
+ * not track is reported and withheld, and each tree-absolute href is anchored
+ * at the product root. Returns the rewritten children and the anchored-to-written
  * href map that restores diagnostics to the link as written.
  */
 function presentAdmittedLinks(
   children: readonly MarkdownItToken[],
   anchoredHrefs: Map<string, string>,
+  trackedScope: TrackedTargetScope | undefined,
+  onError: MarkdownlintOnError,
 ): MarkdownItToken[] {
   return children.flatMap((child) => {
     const href = linkTarget(child);
     if (href === undefined || !isLinkTokenType(child.type)) return [child];
     if (classifySpecTreeLinkShape(href) !== undefined) return [];
+    if (trackedScope !== undefined && targetsUntrackedPath(href, trackedScope)) {
+      onError({
+        lineNumber: child.lineNumber,
+        detail: `${quoted(href)} ${MARKDOWN_LINK_SHAPE_DIAGNOSTICS.UNTRACKED_TARGET}`,
+      });
+      return [];
+    }
     if (!isTreeAbsolute(href)) return [child];
 
     const anchored = `${ROOT_ANCHOR}${href}`;
@@ -247,7 +343,8 @@ function restoreWrittenHref(
 /**
  * The markdownlint custom rule enforcing the spec-tree link grammar. Its rule
  * configuration carries the product root as `root_path`, which the composed
- * relative-links check uses to resolve tree-absolute hrefs.
+ * relative-links check uses to resolve tree-absolute hrefs, and, inside a git
+ * repository, the tracked product-relative paths as `tracked_paths`.
  */
 export const markdownLinkShapeRule: MarkdownlintCustomRule = {
   names: [MARKDOWN_LINK_SHAPE_RULE_NAME],
@@ -256,10 +353,14 @@ export const markdownLinkShapeRule: MarkdownlintCustomRule = {
   parser: "markdownit",
   function: (params, onError) => {
     const anchoredHrefs = new Map<string, string>();
+    const trackedScope = trackedTargetScope(params);
     const presentedTokens = params.parsers.markdownit.tokens.map((token) => {
       if (token.type !== LINK_TOKEN_TYPE.INLINE) return token;
       reportShapeAndTextViolations(token, onError);
-      return { ...token, children: presentAdmittedLinks(token.children ?? [], anchoredHrefs) };
+      return {
+        ...token,
+        children: presentAdmittedLinks(token.children ?? [], anchoredHrefs, trackedScope, onError),
+      };
     });
 
     relativeLinksRule.function(

@@ -12,6 +12,8 @@ import { existsSync, statSync } from "node:fs";
 import { basename, dirname, join, relative as pathRelative } from "node:path";
 
 import { normalizePathPrefix } from "@/config/primitives/path-filter";
+import { defaultGitDependencies } from "@/lib/git/root";
+import { listTrackedPaths, TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
 import { createNodeStatusExcludeReader } from "@/lib/node-status";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 
@@ -19,7 +21,11 @@ import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { main as markdownlintMain } from "markdownlint-cli2";
 import relativeLinksRule from "markdownlint-rule-relative-links";
 
-import { markdownLinkShapeRule, type MarkdownlintCustomRule } from "./markdown-link-shape-rule";
+import {
+  MARKDOWN_LINK_SHAPE_RULE_CONFIG,
+  markdownLinkShapeRule,
+  type MarkdownlintCustomRule,
+} from "./markdown-link-shape-rule";
 
 // =============================================================================
 // CONSTANTS
@@ -112,6 +118,14 @@ export interface MarkdownlintRunOptions {
 
 export interface MarkdownValidationDeps {
   readonly runMarkdownlint: (options: MarkdownlintRunOptions) => Promise<void>;
+  /** The product-relative paths git tracks under the product root, or `undefined` outside a git repository. */
+  readonly listTrackedPaths: (productDir: string) => Promise<ReadonlySet<string> | undefined>;
+}
+
+interface MarkdownTargetScope {
+  readonly productDir: string | undefined;
+  readonly ignoreGlobs: readonly string[];
+  readonly trackedPaths: readonly string[] | undefined;
 }
 
 export interface MarkdownValidationTarget {
@@ -144,6 +158,7 @@ const defaultMarkdownValidationDeps: MarkdownValidationDeps = {
   runMarkdownlint: async (options) => {
     await markdownlintMain(options);
   },
+  listTrackedPaths: (productDir) => listTrackedPaths(productDir, defaultGitDependencies),
 };
 
 // =============================================================================
@@ -403,6 +418,7 @@ export async function validateMarkdown(
   } = options;
   const errors: MarkdownError[] = [];
   const specTreeExcludeEntries = applyNodeStatusExcludes ? getExcludeEntries(productDir) : [];
+  let specTreeTrackedPaths: Promise<readonly string[] | undefined> | undefined;
 
   for (const target of targets) {
     const directory = targetDirectory(target);
@@ -412,7 +428,14 @@ export async function validateMarkdown(
       ...getExcludeGlobsForTarget(target, productDir, specTreeExcludeEntries),
       ...validationPathExcludeGlobsForTarget(target, productDir, validationPathExcludes),
     ];
-    const dirErrors = await validateTarget(target, config, deps, productDir, excludeGlobs);
+    const trackedPaths = dirName === SPEC_TREE_CONFIG.ROOT_DIRECTORY && productDir !== undefined
+      ? await (specTreeTrackedPaths ??= readSpecTreeTrackedPaths(productDir, deps))
+      : undefined;
+    const dirErrors = await validateTarget(target, config, deps, {
+      productDir,
+      ignoreGlobs: excludeGlobs,
+      trackedPaths,
+    });
     errors.push(...dirErrors);
   }
 
@@ -420,6 +443,20 @@ export async function validateMarkdown(
     success: errors.length === 0,
     errors,
   };
+}
+
+/**
+ * The tracked product-relative paths under the spec-tree root, or `undefined`
+ * when the product root is not a git repository.
+ */
+async function readSpecTreeTrackedPaths(
+  productDir: string,
+  deps: MarkdownValidationDeps,
+): Promise<readonly string[] | undefined> {
+  const trackedPaths = await deps.listTrackedPaths(productDir);
+  if (trackedPaths === undefined) return undefined;
+  const specTreePrefix = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${TRACKED_PATH_DIRECTORY_SEPARATOR}`;
+  return [...trackedPaths].filter((path) => path.startsWith(specTreePrefix));
 }
 
 function getExcludeEntries(productDir: string | undefined): readonly string[] {
@@ -432,16 +469,17 @@ function getExcludeEntries(productDir: string | undefined): readonly string[] {
  *
  * @param target - Absolute path target to validate
  * @param config - Markdownlint configuration object
- * @param productDir - Optional product directory for resolving product-absolute links
+ * @param scope - Product directory for resolving product-absolute links, ignore globs, and the
+ *   tracked spec-tree paths the link-shape rule requires link targets to resolve to
  * @returns Array of structured errors found in the directory
  */
 async function validateTarget(
   target: MarkdownValidationTarget,
   config: ReturnType<typeof buildMarkdownlintConfig>,
   deps: MarkdownValidationDeps,
-  productDir?: string,
-  ignoreGlobs: string[] = [],
+  scope: MarkdownTargetScope,
 ): Promise<MarkdownError[]> {
+  const { productDir, ignoreGlobs, trackedPaths } = scope;
   const errors: MarkdownError[] = [];
   const directory = targetDirectory(target);
   const argv = target.kind === MARKDOWN_VALIDATION_TARGET_KIND.FILE
@@ -450,16 +488,22 @@ async function validateTarget(
 
   const { customRules, ...markdownlintConfig } = config;
 
-  const linkRuleConfig = productDir ? { root_path: productDir } : true;
+  const linkRuleConfig = (rule: MarkdownlintRule): true | Record<string, unknown> => {
+    if (!productDir) return true;
+    const rootConfig = { [MARKDOWN_LINK_SHAPE_RULE_CONFIG.ROOT_PATH]: productDir };
+    return rule === markdownLinkShapeRule && trackedPaths !== undefined
+      ? { ...rootConfig, [MARKDOWN_LINK_SHAPE_RULE_CONFIG.TRACKED_PATHS]: trackedPaths }
+      : rootConfig;
+  };
   const optionsOverride: Record<string, unknown> = {
     config: {
       ...markdownlintConfig,
-      ...Object.fromEntries(customRules.flatMap((rule) => rule.names.map((name) => [name, linkRuleConfig]))),
+      ...Object.fromEntries(customRules.flatMap((rule) => rule.names.map((name) => [name, linkRuleConfig(rule)]))),
     },
     customRules,
     noProgress: true,
     noBanner: true,
-    ...(ignoreGlobs.length > 0 ? { ignores: ignoreGlobs } : {}),
+    ...(ignoreGlobs.length > 0 ? { ignores: [...ignoreGlobs] } : {}),
   };
 
   await deps.runMarkdownlint({
