@@ -29,6 +29,7 @@ export const markdownValidationLanguage: ValidationLanguageDescriptor = {
       name: VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN,
       failsPipeline: true,
       participation: MARKDOWN_VALIDATION_STAGE_PARTICIPATION[VALIDATION_STAGE_DISPLAY_NAMES.MARKDOWN],
+      processRunner: null,
       run: (context) => markdownCommand({ cwd: context.cwd, files: context.files, quiet: context.quiet }),
     },
   ],

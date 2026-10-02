@@ -13,6 +13,7 @@ import {
   type ValidationLanguageDescriptor,
   type ValidationStageParticipationPolicy,
 } from "@/validation/languages/types";
+import { defaultFormattingProcessRunner } from "@/validation/steps/formatting";
 
 const FORMATTING_LANGUAGE_NAME = "formatting";
 const SKIP_FORMATTING_REASON = "skip-formatting";
@@ -34,6 +35,7 @@ export const formattingValidationLanguage: ValidationLanguageDescriptor = {
       name: VALIDATION_STAGE_DISPLAY_NAMES.FORMATTING,
       failsPipeline: true,
       participation: FORMATTING_VALIDATION_STAGE_PARTICIPATION[VALIDATION_STAGE_DISPLAY_NAMES.FORMATTING],
+      processRunner: defaultFormattingProcessRunner,
       run: (context) =>
         formattingCommand({
           cwd: context.cwd,
