@@ -3,10 +3,8 @@ import { realpath } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 import { detectWorktreeProductRoot } from "@/lib/git/root";
-import {
-  arbitraryCheckoutLayoutCases,
-  sampleMainCheckoutTestValue,
-} from "@testing/generators/main-checkout/main-checkout";
+import { sampleMainCheckoutTestValue } from "@testing/generators/main-checkout/main-checkout";
+import { arbitraryCheckoutLayoutCases } from "@testing/generators/product-root/product-root";
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 
 describe("detectWorktreeProductRoot — every checkout maps to its own worktree root", () => {
