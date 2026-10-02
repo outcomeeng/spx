@@ -1,6 +1,6 @@
 # Plan: Atomic File Write
 
-The ADR (`21-atomic-file-write.adr.md`) declares that every atomic file replacement in the product routes through `writeFileAtomic`. The primitive and its tests land first; the call-site migrations follow as separate PRs.
+The ADR ([spx/21-infrastructure.enabler/11-atomic-file-write.enabler/21-atomic-file-write.adr.md](spx/21-infrastructure.enabler/11-atomic-file-write.enabler/21-atomic-file-write.adr.md)) declares that every atomic file replacement in the product routes through `writeFileAtomic`. The primitive and its tests land first; the call-site migrations follow as separate PRs.
 
 ## Landed
 
