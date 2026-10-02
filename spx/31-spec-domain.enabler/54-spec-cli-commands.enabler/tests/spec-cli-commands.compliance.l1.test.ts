@@ -20,9 +20,19 @@ describe("spec command handlers and product configuration", () => {
         [SPEC_DOMAIN_CLI.COMMAND, SPEC_DOMAIN_CLI.STATUS_COMMAND],
         [SPEC_DOMAIN_CLI.COMMAND, SPEC_DOMAIN_CLI.STATUS_COMMAND, SPEC_DOMAIN_CLI.UPDATE_OPTION],
         [SPEC_DOMAIN_CLI.COMMAND, SPEC_DOMAIN_CLI.NEXT_COMMAND],
-        [SPEC_DOMAIN_CLI.COMMAND, SPEC_DOMAIN_CLI.CONTEXT_COMMAND, SPEC_DOMAIN_CLI.CONTEXT_LIST_COMMAND, paths.targetId],
+        [
+          SPEC_DOMAIN_CLI.COMMAND,
+          SPEC_DOMAIN_CLI.CONTEXT_COMMAND,
+          SPEC_DOMAIN_CLI.CONTEXT_LIST_COMMAND,
+          paths.targetId,
+        ],
         [SPEC_DOMAIN_CLI.COMMAND, SPEC_DOMAIN_CLI.CONTEXT_COMMAND, SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND],
-        [SPEC_DOMAIN_CLI.COMMAND, SPEC_DOMAIN_CLI.CONTEXT_COMMAND, SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND, paths.targetId],
+        [
+          SPEC_DOMAIN_CLI.COMMAND,
+          SPEC_DOMAIN_CLI.CONTEXT_COMMAND,
+          SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND,
+          paths.targetId,
+        ],
       ];
       for (const argv of invocations) {
         const run = await runSpecDescriptor({ productDir: env.productDir }, ...argv);

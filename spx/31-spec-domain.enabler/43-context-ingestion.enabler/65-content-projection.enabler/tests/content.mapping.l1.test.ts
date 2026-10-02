@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { DECISION_KINDS, KIND_REGISTRY, NODE_KINDS, SPEC_CONTEXT_DOCUMENT_OPENING } from "@/lib/spec-tree";
+import { freeDecisionPath, freeNodeSpecPath } from "@testing/generators/spec-tree/rich-context";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
-import { freeDecisionPath, freeNodeSpecPath } from "@testing/generators/spec-tree/rich-context";
 import {
   contextShowEntries,
   contextShowFailure,

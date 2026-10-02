@@ -4,8 +4,8 @@ import { SPEC_CONTEXT_TEXT_LABEL } from "@/commands/spec/context";
 import { SPEC_CONTEXT_ENTRIES_KEY } from "@/commands/spec/context-show";
 import { DEFAULT_METHODOLOGY_SOURCE } from "@/config/methodology";
 import { SPEC_CONTEXT_FRAME, SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
-import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { markdownFixtureBody, rootedArtifactPath, rootedSpecPath } from "@testing/generators/spec-tree/rich-context";
+import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextListJson,
   contextListManifest,

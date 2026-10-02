@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  OUTPUT_FORMAT,
-  type OutputFormat,
-  renderSpecStatus,
-  SPEC_STATUS_MESSAGE,
-} from "@/commands/spec/status";
+import { OUTPUT_FORMAT, type OutputFormat, renderSpecStatus, SPEC_STATUS_MESSAGE } from "@/commands/spec/status";
 import {
   KIND_REGISTRY,
   projectSpecTree,
@@ -35,7 +30,13 @@ describe("spec status rendering", () => {
       // states differ between rows.
       const projection = projectSpecTree(
         await readSpecTree({
-          source: createSource([fixture.root, fixture.child, fixture.peer, fixture.childEvidence, fixture.peerEvidence]),
+          source: createSource([
+            fixture.root,
+            fixture.child,
+            fixture.peer,
+            fixture.childEvidence,
+            fixture.peerEvidence,
+          ]),
         }),
       );
       const nodes = flattenProjectedNodes(projection.nodes);

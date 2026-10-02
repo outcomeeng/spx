@@ -8,10 +8,7 @@ import { FOUNDATION_MANIFEST_RELATIVE_PATH, SOURCE_RECORD_RELATIVE_PATH } from "
 import { compareSpecContextOrdinal, SPEC_CONTEXT_ENTRY_TYPE } from "@/lib/spec-tree";
 import * as fc from "fast-check";
 
-import {
-  generatedMethodologyIdentity,
-  generatedMigratingMethodology,
-} from "@testing/generators/config/descriptors";
+import { generatedMethodologyIdentity, generatedMigratingMethodology } from "@testing/generators/config/descriptors";
 import {
   arbitraryMarkdownBody,
   arbitraryMethodologyVersion,
@@ -97,7 +94,10 @@ describe("spec context understand payload provider match", () => {
         methodology: true,
         methodologyTreeRoot: agreeing.treeRoot,
       });
-      expect(entries[0]).toMatchObject({ path: methodologyFoundationDocumentPath(agreeing), content: agreeing.coreText });
+      expect(entries[0]).toMatchObject({
+        path: methodologyFoundationDocumentPath(agreeing),
+        content: agreeing.coreText,
+      });
 
       const sameLineOtherForm = await writeMethodologyTree(env, {
         version: declared,
