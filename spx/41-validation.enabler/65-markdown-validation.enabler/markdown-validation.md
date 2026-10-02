@@ -12,6 +12,12 @@ CAN catch broken cross-references and structural defects before they reach the r
 
 - Every target-version product spec carries a complete `OFFERS` opening, every target-version ADR and PDR carries a complete `GOVERNS` opening, and every output-node spec carries the opening resolved from its registered kind or parent kind; while `methodology.migratingFrom` is declared, a source-version product or decision may supply its first prose paragraph after the title instead.
 - Context-renderable Markdown fails validation when a required target- or source-version opening is absent or malformed, an admitted output-node kind has no resolvable opening, front matter is malformed, an explicit `malleability` value is unsupported, strict UTF-8 decoding fails, a Markdown decision citation is unresolved, or an outcome-record filename differs from its owning node slug.
+- Given a markdown file inside `spx/` with a tree-absolute link (e.g., `spx/foo.md`), when `spx validation markdown` runs, then the link resolves from the product root.
+- Link type resolution for command behavior: inside `spx/`, a tree-absolute link (`spx/foo.md`) resolves from the product root; in `docs/`, a product-absolute link (`/spx/foo.md`) resolves from the product root.
+- Link type resolution for local rule behavior: inside `spx/`, a node-local relative link (`tests/foo.md`) resolves from the citing file's directory to a target inside the citing node; in `docs/`, a relative link (`./foo.md`) resolves from the file's directory; an external URL (`https://...`) is not checked; an HTML link (`<a href="...">`) is not checked.
+- Inside `spx/`, a link with a `../` climb, a link with a leading-slash anchor, and a relative link whose path enters a descendant node's directory each fail markdown validation, naming the file, the line, and the link.
+- Inside `spx/`, a link that resolves to no tracked file fails markdown validation as a broken link.
+- Inside `spx/`, a decision path written as text outside a link — bare or in an inline code span — fails markdown validation, naming the file, the line, and the path; a decision path inside a fenced code block is not checked.
 
 ### Scenarios
 
@@ -19,7 +25,6 @@ CAN catch broken cross-references and structural defects before they reach the r
 - Given a markdown file with a relative link to a non-existent file, when validation runs, then an error is reported identifying the file, line number, and broken target ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given a markdown file with a valid heading fragment reference (e.g., `./file.md#heading`), when validation runs, then no error is reported ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given a markdown file with a heading fragment referencing a non-existent heading, when validation runs, then an error is reported ([test](tests/markdown-validation.scenario.l1.test.ts))
-- Given a markdown file with a product-absolute link (e.g., `/spx/foo.md`), when validation runs, then the link resolves relative to the product root ([test](tests/markdown-validation-command.scenario.l2.test.ts))
 - Given `spx/` and `docs/` directories exist, when `spx validation markdown` runs with no arguments, then both directories are validated ([test](tests/markdown-validation-command.scenario.l2.test.ts))
 - Given `spx/` is supplied as a positional operand, when validation runs, then only the specified directory is validated ([test](tests/markdown-validation-command.scenario.l2.test.ts))
 - Given `spx validation all` runs, then markdown validation executes as a step and its failure fails the pipeline ([test](tests/markdown-validation-command.scenario.l2.test.ts))
@@ -41,8 +46,6 @@ CAN catch broken cross-references and structural defects before they reach the r
 
 ### Mappings
 
-- Link type resolution for local rule behavior: relative link (`./foo.md`) resolves from the file's directory; external URL (`https://...`) is not checked; HTML link (`<a href="...">`) is not checked ([test](tests/markdown-validation.mapping.l1.test.ts))
-- Link type resolution for command behavior: product-absolute link (`/spx/foo.md`) resolves from the product root via `root_path` config ([test](tests/markdown-validation.mapping.l1.test.ts))
 - Enabled built-in rules: MD001 (heading increment), MD003 (heading style), MD009 (no trailing spaces), MD010 (no hard tabs), MD024 (no duplicate headings — `siblings_only` for `spx/`, disabled for `docs/`), MD025 (single top-level heading), MD047 (file ends with newline). All other built-in rules are disabled ([test](tests/markdown-validation.mapping.l1.test.ts))
 - Markdown full-pipeline participation defaults to run ([test](tests/markdown-validation.mapping.l1.test.ts))
 
