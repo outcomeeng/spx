@@ -9,12 +9,24 @@
  * alone — is outside the grammar. Every consumer that classifies or resolves a
  * spec-tree link reads this one declaration.
  *
+ * A decision path is a product-relative path under the spec-tree root that
+ * names a decision record. A document cites a decision through an admitted
+ * link that resolves to a decision path; prose can also write a decision path
+ * as text, which cites nothing.
+ *
  * @module lib/spec-tree-link-grammar
  */
 
 import { posix } from "node:path";
 
-import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
+import {
+  DECISION_SUFFIXES,
+  recognizeSpecTreeFilesystemEntry,
+  SPEC_TREE_CONFIG,
+  SPEC_TREE_ENTRY_TYPE,
+  SPEC_TREE_FILESYSTEM_RECORD_TYPE,
+  SPEC_TREE_GRAMMAR,
+} from "@/lib/spec-tree";
 
 /** The prefix every tree-absolute link target and every product-relative spec-tree path starts with. */
 export const SPEC_TREE_ROOT_PREFIX = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}`;
@@ -90,4 +102,53 @@ export function resolveSpecTreeLink(citingDocumentPath: string, link: SpecTreeLi
   if (link.kind === SPEC_TREE_LINK_KIND.TREE_ABSOLUTE) return posix.normalize(link.path);
   if (link.kind === SPEC_TREE_LINK_KIND.NODE_LOCAL) return posix.join(posix.dirname(citingDocumentPath), link.path);
   return null;
+}
+
+// =============================================================================
+// DECISION PATHS AND CITATIONS
+// =============================================================================
+
+function escapeRegExp(value: string): string {
+  return value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+}
+
+/**
+ * A decision-path candidate inside prose: it starts at the spec-tree root, ends
+ * in a decision suffix, and may be followed by sentence punctuation, but not by
+ * further path characters (`….adr.mdx`, `….adr.md.bak`).
+ */
+const DECISION_PATH_TEXT_PATTERN = new RegExp(
+  String.raw`(?<![A-Za-z0-9._/-])${escapeRegExp(SPEC_TREE_ROOT_PREFIX)}[A-Za-z0-9._/-]*?(?:${
+    DECISION_SUFFIXES.map(escapeRegExp).join("|")
+  })(?![A-Za-z0-9_/-]|\.[A-Za-z0-9])`,
+  "g",
+);
+
+/** Whether a product-relative path names a decision record under the spec-tree root. */
+function isSpecTreeDecisionPath(productRelativePath: string): boolean {
+  if (!productRelativePath.startsWith(SPEC_TREE_ROOT_PREFIX)) return false;
+  const entry = recognizeSpecTreeFilesystemEntry({
+    type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
+    relativePath: productRelativePath.slice(SPEC_TREE_ROOT_PREFIX.length),
+  });
+  return entry?.type === SPEC_TREE_ENTRY_TYPE.DECISION;
+}
+
+/** The decision paths a run of prose writes as text, in order of appearance. */
+export function decisionPathsWrittenAsText(text: string): readonly string[] {
+  return [...text.matchAll(DECISION_PATH_TEXT_PATTERN)]
+    .map(([candidate]) => candidate)
+    .filter(isSpecTreeDecisionPath);
+}
+
+/**
+ * The decision path a link target cites from the citing document: the
+ * product-relative path an admitted link resolves to when that path names a
+ * decision record, or `null` for any other target.
+ *
+ * @param citingDocumentPath - Product-relative path of the citing document, with `/` separators
+ */
+export function resolveSpecTreeDecisionCitation(citingDocumentPath: string, href: string): string | null {
+  const citedPath = resolveSpecTreeLink(citingDocumentPath, parseSpecTreeLink(href));
+  return citedPath !== null && isSpecTreeDecisionPath(citedPath) ? citedPath : null;
 }

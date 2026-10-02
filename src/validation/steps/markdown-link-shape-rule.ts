@@ -19,19 +19,18 @@ import { posix, relative, resolve, sep } from "node:path";
 
 import { createTrackedPathInclusion, TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
 import {
-  DECISION_SUFFIXES,
   recognizeSpecTreeFilesystemEntry,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_FILESYSTEM_RECORD_TYPE,
   SPEC_TREE_GRAMMAR,
 } from "@/lib/spec-tree";
 import {
+  decisionPathsWrittenAsText,
   parseSpecTreeLink,
   resolveSpecTreeLink,
   SPEC_TREE_LINK_KIND,
   SPEC_TREE_LINK_PARENT_SEGMENT,
   SPEC_TREE_LINK_ROOT_ANCHOR,
-  SPEC_TREE_ROOT_PREFIX,
   type SpecTreeLink,
   specTreeLinkPath,
 } from "@/lib/spec-tree-link-grammar";
@@ -76,23 +75,6 @@ const LINK_TARGET_ATTRIBUTE = {
 const CURRENT_DIRECTORY_SEGMENT = ".";
 const TRAILING_SEPARATORS_PATTERN = /\/+$/u;
 const PARENT_RELATIVE_PREFIX = `${SPEC_TREE_LINK_PARENT_SEGMENT}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}`;
-
-function escapeRegExp(value: string): string {
-  return value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-}
-
-/**
- * A decision-path candidate inside prose: it starts at the spec-tree root, ends
- * in a decision suffix, and may be followed by sentence punctuation, but not by
- * further path characters (`….adr.mdx`, `….adr.md.bak`). A candidate is a
- * decision path only when the tracked set holds it.
- */
-const DECISION_PATH_TEXT_PATTERN = new RegExp(
-  String.raw`(?<![A-Za-z0-9._/-])${escapeRegExp(SPEC_TREE_ROOT_PREFIX)}[A-Za-z0-9._/-]*?(?:${
-    DECISION_SUFFIXES.map(escapeRegExp).join("|")
-  })(?![A-Za-z0-9_/-]|\.[A-Za-z0-9])`,
-  "g",
-);
 
 // =============================================================================
 // TYPES
@@ -261,9 +243,9 @@ function targetsUntrackedPath(href: string, scope: TrackedTargetScope): boolean 
   return !scope.isTracked(productRelative);
 }
 
-/** Whether a decision-path candidate written as text names a decision the repository tracks. */
-function isTrackedDecisionPath(candidate: string, scope: TrackedTargetScope | undefined): boolean {
-  return scope?.files.has(candidate) === true;
+/** Whether a decision path written as text names a decision the repository tracks. */
+function isTrackedDecisionPath(decisionPath: string, scope: TrackedTargetScope | undefined): boolean {
+  return scope?.files.has(decisionPath) === true;
 }
 
 // =============================================================================
@@ -346,7 +328,7 @@ function reportDecisionPathText(
   onError: MarkdownlintOnError,
 ): void {
   if (child.type !== LINK_TOKEN_TYPE.TEXT && child.type !== LINK_TOKEN_TYPE.CODE_INLINE) return;
-  for (const [decisionPath] of child.content.matchAll(DECISION_PATH_TEXT_PATTERN)) {
+  for (const decisionPath of decisionPathsWrittenAsText(child.content)) {
     if (!isTrackedDecisionPath(decisionPath, trackedScope)) continue;
     onError({
       lineNumber: child.lineNumber,

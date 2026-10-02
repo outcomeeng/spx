@@ -13,7 +13,7 @@ import {
   type SpecTreeSnapshot,
   type SpecTreeSourceEntry,
 } from "@/lib/spec-tree";
-import { parseSpecTreeLink, resolveSpecTreeLink, SPEC_TREE_ROOT_PREFIX } from "@/lib/spec-tree-link-grammar";
+import { resolveSpecTreeDecisionCitation, SPEC_TREE_ROOT_PREFIX } from "@/lib/spec-tree-link-grammar";
 
 import { encodeReleasePromptData } from "./prompt-data";
 import type { ReleaseData } from "./release-data";
@@ -244,20 +244,11 @@ export function extractDecisionLinkCitations(documentPath: string, content: stri
       if (token.type !== MARKDOWN_LINK_OPEN_TOKEN) continue;
       const href = token.attrGet(MARKDOWN_LINK_HREF_ATTRIBUTE);
       if (href === null) continue;
-      const citedPath = resolveSpecTreeLink(documentPath, parseSpecTreeLink(href));
-      if (citedPath !== null && isDecisionPath(citedPath)) citations.add(citedPath);
+      const citedPath = resolveSpecTreeDecisionCitation(documentPath, href);
+      if (citedPath !== null) citations.add(citedPath);
     }
   }
   return [...citations];
-}
-
-function isDecisionPath(path: string): boolean {
-  if (!path.startsWith(SPEC_TREE_ROOT_PREFIX)) return false;
-  const entry = recognizeSpecTreeFilesystemEntry({
-    type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
-    relativePath: path.slice(SPEC_TREE_ROOT_PREFIX.length),
-  });
-  return entry?.type === SPEC_TREE_ENTRY_TYPE.DECISION;
 }
 
 /** Nodes whose own directory holds a changed path. */
