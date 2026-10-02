@@ -1,4 +1,4 @@
-PROVIDES composable `.spx/` scope addressing — branch (`.spx/branch/{slug}`), per-worktree (`.spx/worktree/`), shared changes (`.spx/changes/`), shared sessions (`.spx/sessions/`), and shared worktree-occupancy claims (`.spx/worktrees/`) — with source-owned branch identity and slugging, per [`spx/18-state.enabler/11-state.pdr.md`](../11-state.pdr.md) and [`spx/17-state.adr.md`](../../17-state.adr.md)
+PROVIDES composable `.spx/` scope addressing — branch (`.spx/branch/{slug}`), per-worktree (`.spx/worktree/`), shared changes (`.spx/changes/`), shared sessions (`.spx/sessions/`), and shared worktree-occupancy claims (`.spx/worktrees/`) — with source-owned branch identity and slugging, per [`spx/18-state.enabler/11-state.pdr.md`](spx/18-state.enabler/11-state.pdr.md) and [`spx/17-state.adr.md`](spx/17-state.adr.md)
 SO THAT the verification, testing, compact, change, session, and worktree-occupancy consumers
 CAN address shared branch-scoped, per-worktree, shared change, shared session, and shared worktree-occupancy state without composing `.spx/` paths or duplicating branch slugging
 
