@@ -2,7 +2,7 @@
 
 ## Harness vocabulary guard
 
-Before applying this plan, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
+Before applying this plan, read [spx/12-agent-harness.pdr.md](spx/12-agent-harness.pdr.md) and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
 
 ## Purpose
 
@@ -15,7 +15,7 @@ Manage `AGENTS.md` and agent-specific instruction files through deterministic ge
 
 ## Governing decision
 
-`spx/13-agent-capability-lifecycle.pdr.md` requires exact methodology markers, explicit-enabled-plus-available participation, and routine reconciliation that never advances methodology identity.
+[spx/13-agent-capability-lifecycle.pdr.md](spx/13-agent-capability-lifecycle.pdr.md) requires exact methodology markers, explicit-enabled-plus-available participation, and routine reconciliation that never advances methodology identity.
 
 ## Implementation notes
 
