@@ -4,7 +4,7 @@
 
 **Reference:** [`test-environment.md`](test-environment.md) Scenarios — "the callback's result is returned unchanged." [`21-callback-scoped-environment.adr.md`](21-callback-scoped-environment.adr.md) requires callback result return or error rethrow after cleanup without defining cleanup-failure precedence.
 
-**Evidence:** [`testing/harnesses/with-temp-dir.ts`](../../testing/harnesses/with-temp-dir.ts) swallows cleanup failure via `removeTempDir(dir).catch(() => {})` in `withTempDir`'s `finally`. No test in [`tests/temp-dir.scenario.l1.test.ts`](tests/temp-dir.scenario.l1.test.ts) exercises the path where cleanup fails *after a successful callback* to confirm the callback's result still propagates.
+**Evidence:** `testing/harnesses/with-temp-dir.ts` swallows cleanup failure via `removeTempDir(dir).catch(() => {})` in `withTempDir`'s `finally`. No test in [`tests/temp-dir.scenario.l1.test.ts`](tests/temp-dir.scenario.l1.test.ts) exercises the path where cleanup fails *after a successful callback* to confirm the callback's result still propagates.
 
 **Impact:** Low. The swallow is defensive against an `rm` I/O error on the return path; the creation-side guard (`createTempDir` refusing prefixes that escape `os.tmpdir()`) and the basename prefixes all live callers pass mean the in-`finally` `removeTempDir` guard never throws in practice. The contract "result returned unchanged" is covered for the success-with-clean-cleanup path; only the success-with-failing-cleanup path is unobserved.
 
@@ -14,7 +14,7 @@
 
 [`test-environment.md`](test-environment.md) Compliance carries three ALWAYS/NEVER rules whose subject is an import or call-site boundary a static rule can decide, so their verification mechanism is `[test]` against violating fixtures rather than `[audit]` judgment:
 
-- "every test harness that needs a temp directory composes on the shared temp-directory primitive ... no harness creates or removes a temp directory directly" — a `mkdtemp` or temp-directory `rm` reference outside [`testing/harnesses/with-temp-dir.ts`](../../testing/harnesses/with-temp-dir.ts).
+- "every test harness that needs a temp directory composes on the shared temp-directory primitive ... no harness creates or removes a temp directory directly" — a `mkdtemp` or temp-directory `rm` reference outside `testing/harnesses/with-temp-dir.ts`.
 - "NEVER: `vi.mock()`, `jest.mock()`, `memfs`, or any filesystem-mocking mechanism".
 - "NEVER: read from the production `src/config/registry.ts`".
 
@@ -22,22 +22,22 @@ The other three `[audit]` Compliance rules keep that mechanism correctly. Two as
 
 **Impact:** Keeping statically decidable behavior under `[audit]` weakens the spec-test map, and the boundary holds only while a reviewer notices a violation.
 
-**Scope:** The evidence belongs to [`spx/41-validation.enabler/32-typescript-validation.enabler/32-ast-enforcement.enabler`](../41-validation.enabler/32-typescript-validation.enabler/32-ast-enforcement.enabler/ast-enforcement.md), which owns the enforcement rules and their violating-fixture tests. [`spx/13-cli.enabler`](../13-cli.enabler/cli.md) already carries this shape: its "asynchronous `child_process.spawn` imports outside `src/lib/process-lifecycle/`" mapping assertion links evidence in that node.
+**Scope:** The evidence belongs to [`spx/41-validation.enabler/32-typescript-validation.enabler/32-ast-enforcement.enabler`](spx/41-validation.enabler/32-typescript-validation.enabler/32-ast-enforcement.enabler/ast-enforcement.md), which owns the enforcement rules and their violating-fixture tests. [`spx/13-cli.enabler`](spx/13-cli.enabler/cli.md) already carries this shape: its "asynchronous `child_process.spawn` imports outside `src/lib/process-lifecycle/`" mapping assertion links evidence in that node.
 
 **Resolution:** author one enforcement rule per boundary in the AST-enforcement node, then retag each of the three assertions `[test]` with a link to the rule's mapping evidence. That node already carries a `vi.mock()` rule, so the mocking boundary needs `jest.mock` and `memfs` added rather than a rule from scratch.
 
 ## Sibling generator samplers draw without the seed their contract promises
 
-[`spx/local/typescript-tests.md`](../local/typescript-tests.md) documents the single-draw sampler as drawing "one value with a fixed seed so the test is deterministic". Many generator modules under `testing/generators/` declare their own `sample*TestValue`, and a subset call `fc.sample(arbitrary, { numRuns: 1 })` with no seed, so each run draws a different case and a failing draw carries no replay path. The unseeded ones observed so far:
+[`spx/local/typescript-tests.md`](spx/local/typescript-tests.md) documents the single-draw sampler as drawing "one value with a fixed seed so the test is deterministic". Many generator modules under `testing/generators/` declare their own `sample*TestValue`, and a subset call `fc.sample(arbitrary, { numRuns: 1 })` with no seed, so each run draws a different case and a failing draw carries no replay path. The unseeded ones observed so far:
 
-- [`testing/generators/literal/literal.ts`](../../testing/generators/literal/literal.ts) `sampleLiteralTestValue`
-- [`testing/generators/config/descriptors.ts`](../../testing/generators/config/descriptors.ts) `sampleConfigTestValue`
-- [`testing/generators/spec-tree/spec-tree.ts`](../../testing/generators/spec-tree/spec-tree.ts) `sampleSpecTreeTestValue`
+- `testing/generators/literal/literal.ts` `sampleLiteralTestValue`
+- `testing/generators/config/descriptors.ts` `sampleConfigTestValue`
+- `testing/generators/spec-tree/spec-tree.ts` `sampleSpecTreeTestValue`
 
-[`testing/generators/sample.ts`](../../testing/generators/sample.ts) now holds the one seeded `sampleGeneratedValue` the overlay names, and this node's tests call it. The per-module samplers remain.
+`testing/generators/sample.ts` now holds the one seeded `sampleGeneratedValue` the overlay names, and this node's tests call it. The per-module samplers remain.
 
 **Impact:** a scenario that fails on an unlucky draw cannot be reproduced, and one documented contract maps to many implementations that disagree about determinism.
 
-**Scope:** [`spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler`](../41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler) owns the literal generator, [`spx/16-config.enabler`](../16-config.enabler/config.md) owns the config descriptors, and [`spx/23-spec-tree.enabler`](../23-spec-tree.enabler/spec-tree.md) owns the spec-tree generator, so none of those files belongs to this node.
+**Scope:** [`spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler`](spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/literal-reuse.md) owns the literal generator, [`spx/16-config.enabler`](spx/16-config.enabler/config.md) owns the config descriptors, and [`spx/23-spec-tree.enabler`](spx/23-spec-tree.enabler/spec-tree.md) owns the spec-tree generator, so none of those files belongs to this node.
 
 **Resolution:** repoint each per-module sampler's call sites at `sampleGeneratedValue` and delete the sampler, in its owning node's changeset, taking the unseeded ones first.
