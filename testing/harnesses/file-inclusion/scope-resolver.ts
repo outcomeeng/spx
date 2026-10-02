@@ -1,5 +1,9 @@
+import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
+
 import { DEFAULT_IGNORE_SOURCE_OVERRIDES, EMPTY_INCLUDED_SET_IGNORE_READER } from "@/lib/file-inclusion/ignore-source";
 import type { ScopeResolverConfig, ScopeResolverState } from "@/lib/file-inclusion/pipeline";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
 import {
   differentPrefixPath,
@@ -11,7 +15,11 @@ import type { GitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktre
 
 export { PROPERTY_NUM_RUNS } from "@testing/harnesses/spec-tree/generators";
 
+export const integrationConfig: Config = MINIMAL_SPEC_TREE_CONFIG;
+
 export const resolverConfig: ScopeResolverConfig = {};
+
+export const specTreePath = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/17-file-inclusion.enabler/file-inclusion.md`;
 
 export type ScopeResolverFixture = {
   readonly trackedFilePath: string;
@@ -44,7 +52,7 @@ export function scopeResolverFixture(): ScopeResolverFixture {
   };
 }
 
-function distinctPrefixedTrackedPaths(count: number): readonly string[] {
+export function distinctPrefixedTrackedPaths(count: number): readonly string[] {
   const paths = new Map<string, string>();
   const maxAttempts = count * 50;
   for (let attempt = 0; attempt < maxAttempts && paths.size < count; attempt += 1) {
@@ -81,68 +89,4 @@ export function makeResolverState(
       ...request,
     },
   };
-}
-
-export type FilterLayerViolationFixture = ScopeResolverFixture & {
-  readonly nestedIgnoredPath: string;
-  readonly infoExcludedPath: string;
-  readonly globalExcludedPath: string;
-  readonly ignoreFilePath: string;
-  readonly ignoreFileMatchedPath: string;
-  readonly submoduleContentPath: string;
-};
-
-/**
- * Writes a worktree holding one file per filter-layer exclusion source: a root `.gitignore` match,
- * a nested `.gitignore` match, a `.git/info/exclude` match, a `core.excludesFile` match, a match of a
- * caller-supplied ignore file, the domain include/exclude paths of {@link ScopeResolverFixture}, and a
- * file inside a submodule.
- */
-export async function writeFilterLayerViolationFixture(env: GitWorktreeEnv): Promise<FilterLayerViolationFixture> {
-  const base = scopeResolverFixture();
-  await writeScopeResolverFixture(env, base);
-  const [nestedDirectory, submoduleDirectory] = distinctPrefixedTrackedPaths(2).map((path) => pathPrefix(path));
-  const [nestedPattern, infoExcludedPath, globalExcludedPath, ignoreFileMatchedPath] = distinctIgnoredPatterns(
-    4,
-    base.ignoredPattern,
-  );
-  const [ignoreFilePath] = distinctUntrackedPaths(1);
-  const nestedIgnoredPath = `${nestedDirectory}/${nestedPattern}`;
-  const submoduleContentPath = `${submoduleDirectory}/${
-    sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.trackedFilePath())
-  }`;
-
-  await env.writeGitignore(nestedDirectory, `${nestedPattern}\n`);
-  await env.writeUntracked(nestedIgnoredPath, base.fileContent);
-  await env.writeInfoExclude(`${infoExcludedPath}\n`);
-  await env.writeUntracked(infoExcludedPath, base.fileContent);
-  await env.configureGlobalExcludes(`${globalExcludedPath}\n`);
-  await env.writeUntracked(globalExcludedPath, base.fileContent);
-  await env.writeUntracked(ignoreFilePath, `${ignoreFileMatchedPath}\n`);
-  await env.writeUntracked(ignoreFileMatchedPath, base.fileContent);
-  await env.addSubmodule(submoduleDirectory);
-  await env.writeUntracked(submoduleContentPath, base.fileContent);
-
-  return {
-    ...base,
-    nestedIgnoredPath,
-    infoExcludedPath,
-    globalExcludedPath,
-    ignoreFilePath,
-    ignoreFileMatchedPath,
-    submoduleContentPath,
-  };
-}
-
-function distinctIgnoredPatterns(count: number, taken: string): readonly string[] {
-  const patterns = new Set<string>();
-  const maxAttempts = count * 50;
-  for (let attempt = 0; attempt < maxAttempts && patterns.size < count; attempt += 1) {
-    const candidate = sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.gitignorePattern());
-    if (candidate !== taken) patterns.add(candidate);
-  }
-  if (patterns.size !== count) {
-    throw new Error("Unable to generate distinct ignored patterns");
-  }
-  return [...patterns];
 }

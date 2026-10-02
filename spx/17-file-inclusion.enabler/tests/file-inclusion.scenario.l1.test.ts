@@ -18,10 +18,10 @@ import { DOMAIN_PATH_FILTER_LAYER } from "@/lib/file-inclusion/predicates/domain
 import { GIT_TRACKING_LAYER } from "@/lib/file-inclusion/predicates/git-tracking";
 import { CONFIG_GENERATOR, sampleConfigValue } from "@testing/generators/config/config";
 
+import { writeFilterLayerViolationFixture } from "@testing/harnesses/file-inclusion/filter-layer-violation";
 import {
   resolverConfig,
   scopeResolverFixture,
-  writeFilterLayerViolationFixture,
   writeScopeResolverFixture,
 } from "@testing/harnesses/file-inclusion/scope-resolver";
 import { runEslintOverProduct, writeEslintProbeConfig } from "@testing/harnesses/file-inclusion/tool-invocation";

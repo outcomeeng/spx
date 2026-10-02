@@ -6,8 +6,9 @@ import { DEFAULT_IGNORE_SOURCE_OVERRIDES } from "@/lib/file-inclusion/ignore-sou
 import { DOMAIN_PATH_FILTER_LAYER } from "@/lib/file-inclusion/predicates/domain-path-filter";
 import { GIT_TRACKING_LAYER } from "@/lib/file-inclusion/predicates/git-tracking";
 import type { IgnoreSourceOverrides } from "@/lib/file-inclusion/types";
-import type { FilterLayerViolationFixture } from "@testing/harnesses/file-inclusion/scope-resolver";
-import { resolverConfig, writeFilterLayerViolationFixture } from "@testing/harnesses/file-inclusion/scope-resolver";
+import type { FilterLayerViolationFixture } from "@testing/harnesses/file-inclusion/filter-layer-violation";
+import { writeFilterLayerViolationFixture } from "@testing/harnesses/file-inclusion/filter-layer-violation";
+import { resolverConfig } from "@testing/harnesses/file-inclusion/scope-resolver";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 
 type ViolatingCase = {
