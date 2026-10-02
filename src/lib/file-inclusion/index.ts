@@ -7,7 +7,6 @@ export {
   fileInclusionConfigDescriptor,
 } from "./config";
 export { EXPLICIT_OVERRIDE_LAYER, resolveScope } from "./pipeline";
-export { TOOL_NAMES } from "./tool-names";
 export type {
   AdapterConfig,
   LayerDecision,

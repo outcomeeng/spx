@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { createIgnoreSourceReader, GIT_MISSING_CONTEXT_MESSAGE } from "@/lib/file-inclusion/ignore-source";
+import {
+  CORE_EXCLUDES_FILE_CONFIG_KEY,
+  createIgnoreSourceReader,
+  GIT_MISSING_CONTEXT_MESSAGE,
+} from "@/lib/file-inclusion/ignore-source";
+import { GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 
 import {
-  configureCoreExcludesFile,
   fileContent,
   readerConfig,
   submodulePath,
@@ -52,7 +56,7 @@ describe("ignore-source — compliance", () => {
   it("preserves git failures inside a worktree as non-context failures", async () => {
     await withGitWorktreeEnv(async (env) => {
       await env.writeTracked(trackedFilePath(), fileContent());
-      await configureCoreExcludesFile(env, env.productDir);
+      await env.runGit([GIT_TEST_SUBCOMMANDS.CONFIG, CORE_EXCLUDES_FILE_CONFIG_KEY, env.productDir]);
 
       let thrown: unknown;
       try {

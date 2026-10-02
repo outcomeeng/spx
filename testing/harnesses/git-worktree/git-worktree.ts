@@ -1,7 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { CORE_EXCLUDES_FILE_CONFIG_KEY } from "@/lib/file-inclusion/ignore-source";
 import {
   GIT_TEST_CONFIG,
   GIT_TEST_FLAGS,
@@ -16,6 +15,7 @@ const SUBMODULE_TEMP_DIR_PREFIX = "spx-git-worktree-submodule-";
 const GLOBAL_EXCLUDES_FILENAME = ".git-global-excludes";
 const GITIGNORE_FILENAME = ".gitignore";
 export const INFO_EXCLUDE_RELATIVE_PATH = ".git/info/exclude";
+const CORE_EXCLUDES_FILE_KEY = "core.excludesFile";
 const SUBMODULE_ADD_SUBCOMMAND = "add";
 const PROTOCOL_FILE_ALLOW_CONFIG = "protocol.file.allow=always";
 const INITIAL_SUBMODULE_COMMIT_MESSAGE = "init submodule";
@@ -106,7 +106,7 @@ function buildEnv(productDir: string, innerRepoTempDirs: string[]): GitWorktreeE
       const excludesPath = join(productDir, GLOBAL_EXCLUDES_FILENAME);
       await writeFile(excludesPath, content);
       // core.excludesFile applies at any config level; local config avoids GIT_CONFIG_GLOBAL mutation across the harness scope.
-      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, CORE_EXCLUDES_FILE_CONFIG_KEY, excludesPath]);
+      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, CORE_EXCLUDES_FILE_KEY, excludesPath]);
     },
     addSubmodule: async (relativePath) => {
       await addLocalSubmodule(productDir, relativePath, innerRepoTempDirs);

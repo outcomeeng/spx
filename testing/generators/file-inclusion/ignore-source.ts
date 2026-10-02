@@ -1,124 +1,85 @@
 import * as fc from "fast-check";
 
+import { DEFAULT_IGNORE_SOURCE_OVERRIDES, type IgnoreSourceReaderConfig } from "@/lib/file-inclusion/ignore-source";
+import { SPEC_TREE_CONFIG, specTreeConfigDescriptor } from "@/lib/spec-tree";
 import { GIT_WORKTREE_TEST_GENERATOR } from "@testing/generators/git-worktree/git-worktree";
+import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 
-/** The git ignore sources an ignore-source worktree entry can be listed in. */
-export const WORKTREE_ENTRY_IGNORE_SOURCE = {
-  NONE: "none",
-  GITIGNORE: "gitignore",
-  NESTED_GITIGNORE: "nested-gitignore",
-  INFO_EXCLUDE: "info-exclude",
-  GLOBAL_EXCLUDES: "global-excludes",
+const IGNORE_SOURCE_COMMENT_LINES = {
+  HEADER: "# header comment",
+  INDENTED: "  # indented comment",
+  MIDDLE: "# middle comment",
 } as const;
 
-export type WorktreeEntryIgnoreSource =
-  (typeof WORKTREE_ENTRY_IGNORE_SOURCE)[keyof typeof WORKTREE_ENTRY_IGNORE_SOURCE];
+const INVALID_IGNORE_SOURCE_ENTRIES = [
+  "/absolute/node.enabler",
+  "../outside-spx",
+  "21-example.enabler/../escape",
+  "./21-example.enabler",
+  "21-example.enabler/../..",
+  "21-example.enabler//nested.enabler",
+  "21-example.enabler/",
+] as const;
 
-/** The forms a global gitignore location takes under Git's path semantics. */
-export const GLOBAL_EXCLUDES_CONFIGURATION_FORM = {
-  ABSOLUTE: "absolute",
-  RELATIVE: "relative",
-  TILDE: "tilde",
-  EMPTY: "empty",
-  XDG_DEFAULT: "xdg-default",
-  HOME_DEFAULT: "home-default",
+const IGNORE_SOURCE_PROPERTY_LIMITS = {
+  SEGMENT_MAX: 3,
+  QUERY_MAX: 4,
 } as const;
 
-export type GlobalExcludesConfigurationForm =
-  (typeof GLOBAL_EXCLUDES_CONFIGURATION_FORM)[keyof typeof GLOBAL_EXCLUDES_CONFIGURATION_FORM];
+export const FILE_INCLUSION_IGNORE_SOURCE_GENERATOR = {
+  commentHeader: arbitraryCommentHeader,
+  commentIndented: arbitraryCommentIndented,
+  commentMiddle: arbitraryCommentMiddle,
+  excludeFilename: arbitraryExcludeFilename,
+  integrationConfig: arbitraryIntegrationConfig,
+  invalidEntries: arbitraryInvalidEntries,
+  propertyLimits: arbitraryPropertyLimits,
+  readerConfig: arbitraryReaderConfig,
+  rootSegment: arbitraryRootSegment,
+} as const;
 
-export type IgnoreSourceOverrideCase = {
-  readonly noIgnore: boolean;
-  readonly noIgnoreVcs: boolean;
-  readonly ignoreFilePresent: boolean;
-};
-
-export type IgnoreSourceWorktreeEntry = {
-  readonly directory: string;
-  readonly name: string;
-  readonly tracked: boolean;
-  readonly source: WorktreeEntryIgnoreSource;
-  readonly listedInIgnoreFile: boolean;
-};
-
-export type IgnoreSourceTopLevelNames = {
-  readonly ignoreFile: string;
-  readonly globalExcludesFile: string;
-  readonly added: string;
-};
-
-export type IgnoreSourceWorktreeState = {
-  readonly entries: readonly IgnoreSourceWorktreeEntry[];
-  readonly overrides: IgnoreSourceOverrideCase;
-  readonly topLevelNames: IgnoreSourceTopLevelNames;
-};
-
-const BOOLEAN_DOMAIN = [false, true] as const;
-const ENTRY_COUNT_MIN = 1;
-const ENTRY_COUNT_MAX = 5;
-const TOP_LEVEL_NAME_COUNT = 3;
-const PATH_SEPARATOR = "/";
-
-export function ignoreSourceEntryPath(entry: IgnoreSourceWorktreeEntry): string {
-  return `${entry.directory}${PATH_SEPARATOR}${entry.name}`;
+export function sampleFileInclusionIgnoreSourceValue<T>(arbitrary: fc.Arbitrary<T>): T {
+  const [value] = fc.sample(arbitrary, { numRuns: 1 });
+  if (value === undefined) {
+    throw new Error("File-inclusion ignore-source generator returned no sample");
+  }
+  return value;
 }
 
-/** Every combination of the three structured override flags, with the ignore file present or absent. */
-export function ignoreSourceOverrideDomain(): readonly IgnoreSourceOverrideCase[] {
-  return BOOLEAN_DOMAIN.flatMap((noIgnore) =>
-    BOOLEAN_DOMAIN.flatMap((noIgnoreVcs) =>
-      BOOLEAN_DOMAIN.map((ignoreFilePresent) => ({ noIgnore, noIgnoreVcs, ignoreFilePresent }))
-    )
-  );
+function arbitraryRootSegment(): fc.Arbitrary<string> {
+  return fc.constant(SPEC_TREE_CONFIG.ROOT_DIRECTORY);
 }
 
-export function globalExcludesConfigurationForms(): readonly GlobalExcludesConfigurationForm[] {
-  return Object.values(GLOBAL_EXCLUDES_CONFIGURATION_FORM);
+function arbitraryExcludeFilename(): fc.Arbitrary<string> {
+  return GIT_WORKTREE_TEST_GENERATOR.gitignorePattern();
 }
 
-function arbitraryOverrideCase(): fc.Arbitrary<IgnoreSourceOverrideCase> {
-  return fc.record({
-    noIgnore: fc.boolean(),
-    noIgnoreVcs: fc.boolean(),
-    ignoreFilePresent: fc.boolean(),
+function arbitraryReaderConfig(): fc.Arbitrary<IgnoreSourceReaderConfig> {
+  return fc.constant({ overrides: DEFAULT_IGNORE_SOURCE_OVERRIDES });
+}
+
+function arbitraryIntegrationConfig(): fc.Arbitrary<Config> {
+  return fc.constant({
+    [specTreeConfigDescriptor.section]: specTreeConfigDescriptor.defaults,
   });
 }
 
-function arbitraryWorktreeEntry(): fc.Arbitrary<IgnoreSourceWorktreeEntry> {
-  return fc.record({
-    directory: GIT_WORKTREE_TEST_GENERATOR.nestedDirectory(),
-    name: GIT_WORKTREE_TEST_GENERATOR.gitignorePattern(),
-    tracked: fc.boolean(),
-    source: fc.constantFrom(...Object.values(WORKTREE_ENTRY_IGNORE_SOURCE)),
-    listedInIgnoreFile: fc.boolean(),
-  });
+function arbitraryCommentHeader(): fc.Arbitrary<string> {
+  return fc.constant(IGNORE_SOURCE_COMMENT_LINES.HEADER);
 }
 
-function arbitraryTopLevelNames(): fc.Arbitrary<IgnoreSourceTopLevelNames> {
-  return fc
-    .uniqueArray(GIT_WORKTREE_TEST_GENERATOR.gitignorePattern(), {
-      minLength: TOP_LEVEL_NAME_COUNT,
-      maxLength: TOP_LEVEL_NAME_COUNT,
-    })
-    .map(([ignoreFile, globalExcludesFile, added]) => ({ ignoreFile, globalExcludesFile, added }));
+function arbitraryCommentIndented(): fc.Arbitrary<string> {
+  return fc.constant(IGNORE_SOURCE_COMMENT_LINES.INDENTED);
 }
 
-/**
- * A git worktree whose entries are tracked or untracked and listed in any one git ignore
- * source, plus a structured override request and distinct top-level file names.
- */
-function arbitraryWorktreeState(): fc.Arbitrary<IgnoreSourceWorktreeState> {
-  return fc.record({
-    entries: fc.uniqueArray(arbitraryWorktreeEntry(), {
-      minLength: ENTRY_COUNT_MIN,
-      maxLength: ENTRY_COUNT_MAX,
-      selector: ignoreSourceEntryPath,
-    }),
-    overrides: arbitraryOverrideCase(),
-    topLevelNames: arbitraryTopLevelNames(),
-  });
+function arbitraryCommentMiddle(): fc.Arbitrary<string> {
+  return fc.constant(IGNORE_SOURCE_COMMENT_LINES.MIDDLE);
 }
 
-export const IGNORE_SOURCE_TEST_GENERATOR = {
-  worktreeState: arbitraryWorktreeState,
-} as const;
+function arbitraryInvalidEntries(): fc.Arbitrary<readonly string[]> {
+  return fc.constant(INVALID_IGNORE_SOURCE_ENTRIES);
+}
+
+function arbitraryPropertyLimits(): fc.Arbitrary<typeof IGNORE_SOURCE_PROPERTY_LIMITS> {
+  return fc.constant(IGNORE_SOURCE_PROPERTY_LIMITS);
+}

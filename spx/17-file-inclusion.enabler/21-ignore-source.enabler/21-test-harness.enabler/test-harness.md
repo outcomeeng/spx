@@ -1,6 +1,6 @@
 # Ignore Source Test Harness
 
-PROVIDES generator-sampled ignore-source fixtures — reader config builders, git-worktree path samples, ignore patterns, file content samples, submodule paths, bogus git directories, and property limits — plus generated ignore-source worktree states, the override-flag domain, and the global-gitignore location forms, with harness scopes that materialize and mutate a generated worktree state, write non-VCS exclude sources under a temporary home, add a linked worktree, and supply a directory outside every git working tree
+PROVIDES generator-sampled ignore-source fixtures — reader config builders, git-worktree path samples, ignore patterns, file content samples, submodule paths, bogus git directories, and property limits
 SO THAT the ignore-source enabler's L1 scenario, property, mapping, and compliance tests
 CAN build real git-worktree reader inputs without hardcoded path, pattern, or content literals
 
