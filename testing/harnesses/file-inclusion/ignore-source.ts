@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import type { IgnoreSourceReaderConfig } from "@/lib/file-inclusion/ignore-source";
@@ -39,6 +39,8 @@ const LARGE_SCOPE_FILENAME_STEM = LARGE_SCOPE_FILENAME_STEM_CHARACTER.repeat(LAR
 const LINKED_WORKTREE_TEMP_PREFIX = "spx-ignore-source-linked-";
 const NON_GIT_DIRECTORY_TEMP_PREFIX = "spx-ignore-source-non-git-";
 const GLOBAL_EXCLUDES_HOME_TEMP_PREFIX = "spx-ignore-source-home-";
+const RELOCATED_WORKTREE_TEMP_PREFIX = "spx-ignore-source-relocated-";
+const RELOCATED_WORKTREE_DIRECTORY = "worktree";
 const TOP_LEVEL_DIRECTORY = ".";
 const GIT_HOME_PATH_PREFIX = "~/";
 const EMPTY_CONFIG_VALUE = "";
@@ -336,6 +338,22 @@ export async function materializeIgnoreSourceWorktree(
 export async function mutateIgnoreSourceWorktree(env: GitWorktreeEnv, state: IgnoreSourceWorktreeState): Promise<void> {
   await env.writeUntracked(state.topLevelNames.added, fileContent());
   await env.writeGitignore(TOP_LEVEL_DIRECTORY, ignoreLines(state.entries.map(ignoreSourceEntryPath)));
+}
+
+/**
+ * Moves the whole harness worktree out of its product directory for the callback's duration,
+ * so no file, directory, or git metadata remains at `env.productDir`, then moves it back.
+ */
+export async function withWorktreeRelocated(env: GitWorktreeEnv, callback: () => Promise<void>): Promise<void> {
+  await withTempDir(RELOCATED_WORKTREE_TEMP_PREFIX, async (holder) => {
+    const relocated = join(holder, RELOCATED_WORKTREE_DIRECTORY);
+    await rename(env.productDir, relocated);
+    try {
+      await callback();
+    } finally {
+      await rename(relocated, env.productDir);
+    }
+  });
 }
 
 function ignoreLines(paths: readonly string[]): string {

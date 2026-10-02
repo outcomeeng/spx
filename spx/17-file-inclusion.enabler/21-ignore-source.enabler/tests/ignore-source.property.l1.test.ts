@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import { createIgnoreSourceReader } from "@/lib/file-inclusion/ignore-source";
@@ -8,6 +10,7 @@ import { assertProperty, PROPERTY_CLASSIFICATION } from "@testing/harnesses/prop
 import {
   materializeIgnoreSourceWorktree,
   mutateIgnoreSourceWorktree,
+  withWorktreeRelocated,
 } from "@testing/harnesses/file-inclusion/ignore-source";
 
 describe("ignore-source — properties", () => {
@@ -34,7 +37,7 @@ describe("ignore-source — properties", () => {
     );
   });
 
-  it("membership queries read only the construction-time snapshot after git's view changes", async () => {
+  it("membership queries answer from the construction-time snapshot after git's view changes and the worktree leaves its product directory", async () => {
     await assertProperty(
       IGNORE_SOURCE_TEST_GENERATOR.worktreeState(),
       async (state) => {
@@ -53,10 +56,15 @@ describe("ignore-source — properties", () => {
               state.topLevelNames.added,
             ),
           ).toBe(true);
-          expect(worktree.queryPaths.map((path) => reader.isInIncludedSet(path))).toEqual(pathsAtConstruction);
-          expect(worktree.queryDirectories.map((directory) => reader.hasIncludedDescendant(directory))).toEqual(
-            directoriesAtConstruction,
-          );
+
+          await withWorktreeRelocated(env, async () => {
+            expect(existsSync(env.productDir)).toBe(false);
+            expect(pathsAtConstruction).toContain(true);
+            expect(worktree.queryPaths.map((path) => reader.isInIncludedSet(path))).toEqual(pathsAtConstruction);
+            expect(worktree.queryDirectories.map((directory) => reader.hasIncludedDescendant(directory))).toEqual(
+              directoriesAtConstruction,
+            );
+          });
         });
       },
       PROPERTY_CLASSIFICATION.SMALL_L1,
