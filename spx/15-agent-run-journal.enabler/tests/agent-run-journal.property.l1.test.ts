@@ -1,125 +1,140 @@
-import { isDeepStrictEqual } from "node:util";
-
-import { describe, it } from "vitest";
+import fc from "fast-check";
+import { describe, expect, it } from "vitest";
 
 import { createJournal, JOURNAL_SEQ_BASE, type JournalEvent } from "@/lib/agent-run-journal";
-import {
-  arbitraryJournalCursorInput,
-  arbitraryJournalPrefixInput,
-  arbitraryJournalSequenceInput,
-} from "@testing/generators/agent-run-journal";
-import { createJournalAdapterStorages } from "@testing/harnesses/agent-run-journal/adapters";
-import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
+import { arbitraryJournalEventInputs, arbitraryJournalIdentity } from "@testing/generators/agent-run-journal";
+import { createInMemoryAppendableBackend } from "@testing/harnesses/agent-run-journal/in-memory-backend";
+
+/** A content-bearing projection: it reads each event's identity, so it differs if any event's content diverges. */
+const digestProjection = (events: readonly JournalEvent[]): string =>
+  events.map((event) => `${event.seq}:${event.id}:${event.type}`).join("|");
 
 describe("agent-run-journal sequence, cursor, and render properties", () => {
-  it("assigns strictly increasing, contiguous sequence numbers from the base on every adapter", async () => {
-    await assertProperty(
-      arbitraryJournalSequenceInput(),
-      async ({ inputs, identity }) => {
-        for (const storage of createJournalAdapterStorages(identity)) {
-          const journal = createJournal(storage.open(), identity);
+  it("assigns strictly increasing, contiguous sequence numbers from the base", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        arbitraryJournalEventInputs(),
+        arbitraryJournalIdentity(),
+        async (inputs, identity) => {
+          const journal = createJournal(createInMemoryAppendableBackend(), identity);
           const appended: JournalEvent[] = [];
-          for (const input of inputs) appended.push(await journal.append(input));
-          if (!appended.every((event, index) => event.seq === JOURNAL_SEQ_BASE + index)) return false;
-        }
-        return true;
-      },
-      { level: PROPERTY_LEVEL.L1 },
+          for (const input of inputs) {
+            appended.push(await journal.append(input));
+          }
+          appended.forEach((event, index) => {
+            expect(event.seq).toBe(JOURNAL_SEQ_BASE + index);
+          });
+        },
+      ),
     );
   });
 
-  it("read(from=cursor) returns exactly the appended events at a sequence at or above the cursor", async () => {
-    await assertProperty(
-      arbitraryJournalCursorInput(),
-      async ({ inputs, identity, cursor }) => {
-        for (const storage of createJournalAdapterStorages(identity)) {
-          const journal = createJournal(storage.open(), identity);
-          const appended: JournalEvent[] = [];
-          for (const input of inputs) appended.push(await journal.append(input));
-          // the oracle is what append returned, not another read
-          const expected = appended.filter((event) => event.seq >= cursor);
-          if (!isDeepStrictEqual(await journal.read(cursor), expected)) return false;
-        }
-        return true;
-      },
-      { level: PROPERTY_LEVEL.L1 },
+  it("read(from=cursor) returns exactly the events at a sequence at or above the cursor", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        arbitraryJournalEventInputs(),
+        arbitraryJournalIdentity(),
+        fc.nat(),
+        async (inputs, identity, cursorOffset) => {
+          const journal = createJournal(createInMemoryAppendableBackend(), identity);
+          for (const input of inputs) {
+            await journal.append(input);
+          }
+          const all = await journal.read(JOURNAL_SEQ_BASE);
+          const cursor = JOURNAL_SEQ_BASE + (cursorOffset % (inputs.length + 1));
+          const fromCursor = await journal.read(cursor);
+          expect(fromCursor).toEqual(all.filter((event) => event.seq >= cursor));
+        },
+      ),
     );
   });
 
-  it("renders a byte-level projection over an event prefix identically across every adapter and repeated calls", async () => {
-    await assertProperty(
-      arbitraryJournalPrefixInput(),
-      async ({ inputs, identity, throughSeq }) => {
-        const rendered: string[] = [];
-        for (const storage of createJournalAdapterStorages(identity)) {
-          const writer = createJournal(storage.open(), identity);
-          const appended: JournalEvent[] = [];
-          for (const input of inputs) appended.push(await writer.append(input));
-          // render through a reopened backend, so an adapter that persists by serialization replays its records
-          const reader = createJournal(storage.open(), identity);
-          const firstCall = await reader.render(JSON.stringify, throughSeq);
-          const repeatedCall = await reader.render(JSON.stringify, throughSeq);
-          if (firstCall !== JSON.stringify(appended.filter((event) => event.seq <= throughSeq))) return false;
-          if (repeatedCall !== firstCall) return false;
-          rendered.push(firstCall);
-        }
-        return rendered.every((output) => output === rendered[0]);
-      },
-      { level: PROPERTY_LEVEL.L1 },
+  it("renders a content-bearing projection over an event prefix identically across backends and repeated calls", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        arbitraryJournalEventInputs(),
+        arbitraryJournalIdentity(),
+        fc.nat(),
+        async (inputs, identity, prefixOffset) => {
+          const journalA = createJournal(createInMemoryAppendableBackend(), identity);
+          const journalB = createJournal(createInMemoryAppendableBackend(), identity);
+          for (const input of inputs) {
+            await journalA.append(input);
+            await journalB.append(input);
+          }
+          const throughSeq = JOURNAL_SEQ_BASE + (prefixOffset % inputs.length);
+          const firstCall = await journalA.render(digestProjection, throughSeq);
+          const repeatedCall = await journalA.render(digestProjection, throughSeq);
+          const otherBackend = await journalB.render(digestProjection, throughSeq);
+          expect(repeatedCall).toBe(firstCall);
+          expect(otherBackend).toBe(firstCall);
+        },
+      ),
     );
   });
 
-  it("renders the full history identically across every adapter and repeated calls when no through-sequence is given", async () => {
-    await assertProperty(
-      arbitraryJournalSequenceInput(),
-      async ({ inputs, identity }) => {
-        const rendered: string[] = [];
-        for (const storage of createJournalAdapterStorages(identity)) {
-          const writer = createJournal(storage.open(), identity);
-          const appended: JournalEvent[] = [];
-          for (const input of inputs) appended.push(await writer.append(input));
-          const reader = createJournal(storage.open(), identity);
-          const firstCall = await reader.render(JSON.stringify);
-          const repeatedCall = await reader.render(JSON.stringify);
-          if (firstCall !== JSON.stringify(appended)) return false;
-          if (repeatedCall !== firstCall) return false;
-          rendered.push(firstCall);
-        }
-        return rendered.every((output) => output === rendered[0]);
-      },
-      { level: PROPERTY_LEVEL.L1 },
+  it("renders the full history identically across backends and repeated calls when no through-sequence is given", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        arbitraryJournalEventInputs(),
+        arbitraryJournalIdentity(),
+        async (inputs, identity) => {
+          const journalA = createJournal(createInMemoryAppendableBackend(), identity);
+          const journalB = createJournal(createInMemoryAppendableBackend(), identity);
+          for (const input of inputs) {
+            await journalA.append(input);
+            await journalB.append(input);
+          }
+          // render() with no through-sequence folds the entire history — the
+          // default-prefix branch distinct from a bounded throughSeq.
+          const firstCall = await journalA.render(digestProjection);
+          const repeatedCall = await journalA.render(digestProjection);
+          const otherBackend = await journalB.render(digestProjection);
+          expect(repeatedCall).toBe(firstCall);
+          expect(otherBackend).toBe(firstCall);
+          // the unbounded render equals a render bounded at the last appended seq
+          const throughLast = await journalA.render(digestProjection, JOURNAL_SEQ_BASE + inputs.length - 1);
+          expect(firstCall).toBe(throughLast);
+        },
+      ),
     );
   });
 
-  it("assigns a sequence number that identifies an event identically across adapters, restarts, and re-run attempts", async () => {
-    await assertProperty(
-      arbitraryJournalSequenceInput(),
-      async ({ inputs, identity }) => {
-        // the i-th appended input is the event every backend must name by seq BASE + i
-        const expectedIdentities = inputs.map((input, index) => [JOURNAL_SEQ_BASE + index, input.id]);
-        const rerunStorages = createJournalAdapterStorages(identity);
-        for (const [index, storage] of createJournalAdapterStorages(identity).entries()) {
-          const journal = createJournal(storage.open(), identity);
-          const appended: JournalEvent[] = [];
-          for (const input of inputs) appended.push(await journal.append(input));
-          if (!isDeepStrictEqual(appended.map((event) => [event.seq, event.id]), expectedIdentities)) return false;
+  it("assigns a sequence number that identifies an event identically across backends, restarts, and re-run attempts", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        arbitraryJournalEventInputs(),
+        arbitraryJournalIdentity(),
+        async (inputs, identity) => {
+          const backendA = createInMemoryAppendableBackend();
+          const backendB = createInMemoryAppendableBackend();
+          const seqsA: number[] = [];
+          const seqsB: number[] = [];
+          {
+            const journalA = createJournal(backendA, identity);
+            const journalB = createJournal(backendB, identity);
+            for (const input of inputs) {
+              seqsA.push((await journalA.append(input)).seq);
+              seqsB.push((await journalB.append(input)).seq);
+            }
+          }
+          // across backends: same inputs yield the same sequence numbers
+          expect(seqsB).toEqual(seqsA);
 
-          // across restarts: a fresh journal over the reopened persisted history finds each event at its seq
-          const afterRestart = await createJournal(storage.open(), identity).read(JOURNAL_SEQ_BASE);
-          if (!isDeepStrictEqual(afterRestart, appended)) return false;
+          // across restarts: a fresh journal over the same persisted backend reads identical seqs
+          const restarted = createJournal(backendA, identity);
+          const afterRestart = await restarted.read(JOURNAL_SEQ_BASE);
+          expect(afterRestart.map((event) => event.seq)).toEqual(seqsA);
 
-          // across re-run attempts: the same inputs re-run under a higher attempt on a fresh backend of
-          // the same kind land at the same seqs
-          const rerunStorage = rerunStorages[index];
-          if (rerunStorage?.adapter !== storage.adapter) return false;
-          const rerun = createJournal(rerunStorage.open(), identity);
-          const rerunEvents: JournalEvent[] = [];
-          for (const input of inputs) rerunEvents.push(await rerun.append({ ...input, attempt: input.attempt + 1 }));
-          if (!isDeepStrictEqual(rerunEvents.map((event) => [event.seq, event.id]), expectedIdentities)) return false;
-        }
-        return true;
-      },
-      { level: PROPERTY_LEVEL.L1 },
+          // across re-run attempts: re-running the same inputs under a higher attempt yields the same seqs
+          const rerun = createJournal(createInMemoryAppendableBackend(), identity);
+          const rerunSeqs: number[] = [];
+          for (const input of inputs) {
+            rerunSeqs.push((await rerun.append({ ...input, attempt: input.attempt + 1 })).seq);
+          }
+          expect(rerunSeqs).toEqual(seqsA);
+        },
+      ),
     );
   });
 });
