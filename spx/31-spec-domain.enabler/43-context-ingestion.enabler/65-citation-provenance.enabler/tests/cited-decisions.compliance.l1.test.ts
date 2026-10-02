@@ -1,16 +1,21 @@
 import { describe, expect, it } from "vitest";
 
+import { SPEC_CONTEXT_READ_ROLE } from "@/lib/spec-tree";
 import {
   specContextAbsentDecisionPath,
+  specContextDivergentCitationDecisions,
   specContextNonCitationShapes,
   specContextRelativeSegmentDecisionPath,
 } from "@testing/generators/spec-tree/context-target";
 import { rootedSpecPath } from "@testing/generators/spec-tree/rich-context";
 import {
+  contextListManifest,
   contextShowEntries,
   contextShowFailure,
+  documentAt,
   documentPaths,
   entryPaths,
+  readPathsForRole,
   referencePaths,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
@@ -47,6 +52,48 @@ describe("spec context citation boundaries", () => {
       expect(entryPaths(entries)).not.toContain(notedDecision);
       expect(entryPaths(entries)).not.toContain(shapes.unboundDecisionPath);
       expect(entryPaths(entries)).not.toContain(undisplayed);
+    });
+  });
+
+  it("binds the same cited decisions in list's cited-decision role as show appends, leaving a link below a Digest sibling's opening unbound by both and binding one from the target's Full outcome record in both", async () => {
+    await withRichContextEnv(async (env, paths) => {
+      // Both decisions sit under the peer directory, which no Full container
+      // of the targeted walk reaches, so only a citation can select either.
+      const { citedFirst: outcomeLinked, citedSecond: belowOpening } = specContextDivergentCitationDecisions(
+        env.fixture,
+      );
+      for (const decision of [outcomeLinked, belowOpening]) await env.writeRaw(decision.path, decision.content);
+      // The lower-index sibling is a Digest in the targeted projection, so a
+      // link below its opening paragraph is undisplayed content.
+      await env.writeRaw(
+        paths.lowerSiblingSpecPath,
+        `${paths.sourceText[paths.lowerSiblingSpecPath]}\nBelow the opening: [below](${belowOpening.path}).\n`,
+      );
+      await env.writeRaw(
+        paths.targetOutcomePath,
+        `${paths.sourceText[paths.targetOutcomePath]}\nMoves under [linked](${outcomeLinked.path}).\n`,
+      );
+      const options = { targets: [paths.targetId], cwd: env.productDir };
+      const manifest = await contextListManifest(options);
+      const entries = await contextShowEntries(options);
+      expect(documentAt(entries, paths.lowerSiblingSpecPath)?.content).toBe(
+        paths.openingText[paths.lowerSiblingSpecPath],
+      );
+      // Show's appended cited decisions: every decision it emits that no
+      // container along the target path — product root, ancestor, target —
+      // directly holds, since the targeted walk selects only those.
+      const snapshot = await env.readFilesystemSnapshot();
+      const pathContainers = [undefined, paths.rootDirectory, paths.targetId];
+      const outsideWalk = new Set(
+        snapshot.decisions.filter(({ parentId }) => !pathContainers.includes(parentId)).map(({ ref }) => ref?.path),
+      );
+      const appended = documentPaths(entries).filter((path) => outsideWalk.has(path));
+      const listed = readPathsForRole(manifest, SPEC_CONTEXT_READ_ROLE.CITED_DECISION);
+      expect(new Set(listed)).toEqual(new Set(appended));
+      expect(appended).toContain(outcomeLinked.path);
+      expect(listed).toContain(outcomeLinked.path);
+      expect(appended).not.toContain(belowOpening.path);
+      expect(listed).not.toContain(belowOpening.path);
     });
   });
 
