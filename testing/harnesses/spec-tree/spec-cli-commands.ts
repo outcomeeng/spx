@@ -18,8 +18,8 @@ import {
   SPEC_TREE_TEST_GENERATOR,
   specTreeFixtureNodeDirectoryName,
 } from "@testing/generators/spec-tree/spec-tree";
-import type { CurrentSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
+import type { CurrentSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { writeTestFileFixture } from "@testing/harnesses/testing/harness";
 import { type VitestFixture, writeVitestFixture } from "@testing/harnesses/testing/typescript-runner";
 

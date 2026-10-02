@@ -3,7 +3,6 @@ import { OUTPUT_FORMAT } from "@/commands/spec/status";
 import { DEFAULT_CONFIG_FILENAME } from "@/config";
 import { SPEC_STATUS_OUTPUT_FORMATS } from "@/interfaces/cli/spec";
 import { TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
-import { PYTHON_MARKER, TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import {
   SPEC_TREE_NODE_STATE,
   type SpecTreeNode,
@@ -11,6 +10,7 @@ import {
   type SpecTreeSnapshot,
 } from "@/lib/spec-tree";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { PYTHON_MARKER, TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import {
   type RepresentativeSpecTreeFixture,
   RETIRED_SPEC_APPLY_FIXTURE,

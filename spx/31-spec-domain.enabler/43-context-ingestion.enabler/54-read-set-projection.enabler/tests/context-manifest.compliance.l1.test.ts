@@ -10,8 +10,6 @@ import {
   SPEC_TREE_GRAMMAR,
   type SpecContextManifest,
 } from "@/lib/spec-tree";
-import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
-import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   divergentOrderSlugPair,
   freeSiblingOrder,
@@ -21,6 +19,8 @@ import {
   SPEC_CONTEXT_ESCAPE_TARGET_FILENAME,
   specFilePath,
 } from "@testing/generators/spec-tree/rich-context";
+import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
+import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   allManifestPaths,
   contextListJson,

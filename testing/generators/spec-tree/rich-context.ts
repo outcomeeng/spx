@@ -588,7 +588,9 @@ function arbitraryEntryContent(): fc.Arbitrary<string> {
     .array(
       fc.oneof(
         fc.string({ unit: "grapheme", maxLength: 24 }),
-        SPEC_TREE_TEST_GENERATOR.sourceSlug().chain((slug) => fc.constantFrom(...frameShapedText(rootedSpecPath(slug)))),
+        SPEC_TREE_TEST_GENERATOR.sourceSlug().chain((slug) =>
+          fc.constantFrom(...frameShapedText(rootedSpecPath(slug)))
+        ),
       ),
       { maxLength: 6 },
     )

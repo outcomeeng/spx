@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { KIND_REGISTRY, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
-import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
-import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   divergentOrderSlugPair,
   freeSiblingOrder,
@@ -11,6 +9,8 @@ import {
   specFilePath,
   specFixtureBody,
 } from "@testing/generators/spec-tree/rich-context";
+import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
+import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextShowEntries,
   contextShowJson,

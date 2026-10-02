@@ -147,7 +147,10 @@ describe("spec context understand payload", () => {
           methodology: true,
           methodologyTreeRoot: fixture.treeRoot,
         });
-        expect(entries[0]).toMatchObject({ path: methodologyFoundationDocumentPath(fixture), content: fixture.coreText });
+        expect(entries[0]).toMatchObject({
+          path: methodologyFoundationDocumentPath(fixture),
+          content: fixture.coreText,
+        });
       },
     );
   });

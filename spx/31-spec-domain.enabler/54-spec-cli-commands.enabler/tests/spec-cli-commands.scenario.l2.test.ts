@@ -13,10 +13,7 @@ import {
   recordedEvidenceResolverFor,
 } from "@testing/harnesses/spec-tree/spec-cli-commands";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
-import {
-  createRepoRootedRecordingCommandRunner,
-  VITEST_FIXTURE,
-} from "@testing/harnesses/testing/typescript-runner";
+import { createRepoRootedRecordingCommandRunner, VITEST_FIXTURE } from "@testing/harnesses/testing/typescript-runner";
 
 describe("spx spec status --update over a real TypeScript run", () => {
   it("reports and records the rollup a prior real run produced, executing no further verification", async () => {

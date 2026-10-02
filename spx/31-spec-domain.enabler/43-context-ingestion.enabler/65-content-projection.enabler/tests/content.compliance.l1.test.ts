@@ -10,8 +10,8 @@ import {
   SPEC_CONTEXT_SELECTED_METADATA_KEY,
 } from "@/lib/spec-tree";
 import { arbitrarySpecContextInvalidUtf8Bytes } from "@testing/generators/spec-tree/context-target";
-import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { openingParagraph } from "@testing/generators/spec-tree/rich-context";
+import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import {
   contextShowEntries,
   contextShowFailure,

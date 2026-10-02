@@ -1,7 +1,10 @@
 import * as fc from "fast-check";
 
 import type { Config } from "@/config/types";
-import { arbitraryMigratingMethodology, type GeneratedMigratingMethodology } from "@testing/generators/config/descriptors";
+import {
+  arbitraryMigratingMethodology,
+  type GeneratedMigratingMethodology,
+} from "@testing/generators/config/descriptors";
 
 import {
   arbitraryDecisionEntry,
