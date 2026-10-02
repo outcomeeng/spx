@@ -288,7 +288,15 @@ export async function trackSpecTreeInGit(env: CurrentSpecTreeEnv): Promise<void>
   await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.ADD, SPEC_TREE_CONFIG.ROOT_DIRECTORY]);
 }
 
-async function buildSpecCliNetworkGuard(isolationDir: string): Promise<string> {
+/**
+ * The bundled guard module text, built once per test process. The guard
+ * source does not change while a test process runs, so rebuilding it for every
+ * isolated invocation only repeats a bundler run per CLI call; each isolation
+ * directory still receives its own copy of the identical module.
+ */
+let specCliNetworkGuardBundle: Promise<string> | undefined;
+
+async function bundleSpecCliNetworkGuard(isolationDir: string): Promise<string> {
   await build({
     bundle: true,
     clean: false,
@@ -302,7 +310,24 @@ async function buildSpecCliNetworkGuard(isolationDir: string): Promise<string> {
     splitting: false,
     target: "node24",
   });
-  return pathToFileURL(join(isolationDir, SPEC_CLI_ISOLATION.NETWORK_GUARD_MODULE)).href;
+  return readFile(join(isolationDir, SPEC_CLI_ISOLATION.NETWORK_GUARD_MODULE), "utf8");
+}
+
+async function buildSpecCliNetworkGuard(isolationDir: string): Promise<string> {
+  const modulePath = join(isolationDir, SPEC_CLI_ISOLATION.NETWORK_GUARD_MODULE);
+  if (specCliNetworkGuardBundle === undefined) {
+    const bundle = bundleSpecCliNetworkGuard(isolationDir);
+    specCliNetworkGuardBundle = bundle;
+    try {
+      await bundle;
+    } catch (error) {
+      specCliNetworkGuardBundle = undefined;
+      throw error;
+    }
+  } else {
+    await writeFile(modulePath, await specCliNetworkGuardBundle);
+  }
+  return pathToFileURL(modulePath).href;
 }
 
 export async function runSpecCli(productDir: string, ...args: readonly string[]) {

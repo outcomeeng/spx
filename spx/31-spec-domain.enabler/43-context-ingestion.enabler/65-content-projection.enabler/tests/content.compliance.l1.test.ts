@@ -7,6 +7,7 @@ import {
   KIND_REGISTRY,
   SPEC_CONTEXT_ENTRY_TYPE,
   SPEC_CONTEXT_FRAME,
+  SPEC_CONTEXT_FRAME_SYNTAX,
   SPEC_CONTEXT_SELECTED_METADATA_KEY,
 } from "@/lib/spec-tree";
 import { arbitrarySpecContextInvalidUtf8Bytes } from "@testing/generators/spec-tree/context-target";
@@ -141,9 +142,10 @@ describe("spec context content boundaries", () => {
       // own line, a reference as the self-closing `<spx-reference path="…" />`.
       let cursor = 0;
       for (const entry of entries) {
+        const syntax = SPEC_CONTEXT_FRAME_SYNTAX;
         const opening = entry.type === SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT
-          ? `<${SPEC_CONTEXT_FRAME.DOCUMENT} path="${entry.path}">\n`
-          : `<${SPEC_CONTEXT_FRAME.REFERENCE} path="${entry.path}" />`;
+          ? `${syntax.OPEN_TAG_START}${SPEC_CONTEXT_FRAME.DOCUMENT}${syntax.PATH_ATTRIBUTE_START}${entry.path}${syntax.OPEN_TAG_END}${syntax.LINE_BREAK}`
+          : `${syntax.OPEN_TAG_START}${SPEC_CONTEXT_FRAME.REFERENCE}${syntax.PATH_ATTRIBUTE_START}${entry.path}${syntax.SELF_CLOSING_TAG_END}`;
         const position = framed.indexOf(opening, cursor);
         expect(position, entry.path).toBeGreaterThanOrEqual(cursor);
         cursor = position + opening.length;

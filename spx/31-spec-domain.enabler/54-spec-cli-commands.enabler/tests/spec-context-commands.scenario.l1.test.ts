@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseSpecContextManifestJson, renderSpecContextText } from "@/commands/spec/context";
 import { parseSpecContextEntriesJson } from "@/commands/spec/context-show";
 import { inferInvokingCodingAgent } from "@/interfaces/cli/coding-agent";
-import { SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
+import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import { METHODOLOGY_CODING_AGENTS } from "@/lib/methodology";
 import { renderSpecContextEntries, SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION } from "@/lib/spec-tree";
 import { methodologyFoundationDocumentPath } from "@testing/generators/methodology/tree";
@@ -20,15 +20,12 @@ import {
   writeMethodologyTree,
 } from "@testing/harnesses/spec/context";
 
-const LIST = [SPEC_DOMAIN_CLI.COMMAND, SPEC_DOMAIN_CLI.CONTEXT_COMMAND, SPEC_DOMAIN_CLI.CONTEXT_LIST_COMMAND] as const;
-const SHOW = [SPEC_DOMAIN_CLI.COMMAND, SPEC_DOMAIN_CLI.CONTEXT_COMMAND, SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND] as const;
-
 describe("spec context command handlers", () => {
   it("emits the context library's versioned manifest from list for one or more accepted targets", async () => {
     await withRichContextEnv(async (env, paths) => {
       const run = await runSpecDescriptor(
         { productDir: env.productDir },
-        ...LIST,
+        ...SPEC_CONTEXT_COMMAND_PATH.LIST,
         paths.rootDirectory,
         paths.targetId,
         SPEC_DOMAIN_CLI.JSON_OPTION,
@@ -56,17 +53,26 @@ describe("spec context command handlers", () => {
       const target = snapshot.allNodes[0];
       const context = { productDir: env.productDir, methodologyTreeRoot: fixture.treeRoot };
 
-      const targetless = await runSpecDescriptor(context, ...SHOW, SPEC_DOMAIN_CLI.JSON_OPTION);
+      const targetless = await runSpecDescriptor(
+        context,
+        ...SPEC_CONTEXT_COMMAND_PATH.SHOW,
+        SPEC_DOMAIN_CLI.JSON_OPTION,
+      );
       expect(targetless.exitCode, targetless.stderr).toBeUndefined();
       expect(parseSpecContextEntriesJson(targetless.stdout)[0]?.path).toBe(snapshot.product?.ref?.path);
 
-      const targeted = await runSpecDescriptor(context, ...SHOW, target.id, SPEC_DOMAIN_CLI.JSON_OPTION);
+      const targeted = await runSpecDescriptor(
+        context,
+        ...SPEC_CONTEXT_COMMAND_PATH.SHOW,
+        target.id,
+        SPEC_DOMAIN_CLI.JSON_OPTION,
+      );
       const targetedPaths = entryPaths(parseSpecContextEntriesJson(targeted.stdout));
       expect(targetedPaths).toContain(target.ref?.path);
 
       const foundation = await runSpecDescriptor(
         context,
-        ...SHOW,
+        ...SPEC_CONTEXT_COMMAND_PATH.SHOW,
         target.id,
         SPEC_DOMAIN_CLI.JSON_OPTION,
         SPEC_DOMAIN_CLI.METHODOLOGY_OPTION,
@@ -87,14 +93,24 @@ describe("spec context command handlers", () => {
     await withRichContextEnv(async (env, paths) => {
       const context = { productDir: env.productDir };
       const entries = await contextShowEntries({ targets: [paths.targetId], cwd: env.productDir });
-      const showJson = await runSpecDescriptor(context, ...SHOW, paths.targetId, SPEC_DOMAIN_CLI.JSON_OPTION);
-      const showText = await runSpecDescriptor(context, ...SHOW, paths.targetId);
+      const showJson = await runSpecDescriptor(
+        context,
+        ...SPEC_CONTEXT_COMMAND_PATH.SHOW,
+        paths.targetId,
+        SPEC_DOMAIN_CLI.JSON_OPTION,
+      );
+      const showText = await runSpecDescriptor(context, ...SPEC_CONTEXT_COMMAND_PATH.SHOW, paths.targetId);
       expect(parseSpecContextEntriesJson(showJson.stdout)).toEqual(entries);
       expect(showText.stdout).toBe(renderSpecContextEntries(entries));
 
       const manifest = await contextListManifest({ targets: [paths.targetId], cwd: env.productDir });
-      const listJson = await runSpecDescriptor(context, ...LIST, paths.targetId, SPEC_DOMAIN_CLI.JSON_OPTION);
-      const listText = await runSpecDescriptor(context, ...LIST, paths.targetId);
+      const listJson = await runSpecDescriptor(
+        context,
+        ...SPEC_CONTEXT_COMMAND_PATH.LIST,
+        paths.targetId,
+        SPEC_DOMAIN_CLI.JSON_OPTION,
+      );
+      const listText = await runSpecDescriptor(context, ...SPEC_CONTEXT_COMMAND_PATH.LIST, paths.targetId);
       expect(parseSpecContextManifestJson(listJson.stdout)).toEqual(manifest);
       expect(listText.stdout).toBe(`${String(renderSpecContextText(manifest))}\n`);
 
@@ -103,12 +119,12 @@ describe("spec context command handlers", () => {
       expect(specContextShowOptionFlags()).not.toContain(RETIRED_SPEC_CONTEXT_CONTENT_FIXTURE.option);
       const refused = await runSpecDescriptor(
         context,
-        ...SHOW,
+        ...SPEC_CONTEXT_COMMAND_PATH.SHOW,
         paths.targetId,
         RETIRED_SPEC_CONTEXT_CONTENT_FIXTURE.option,
       );
       expect(refused.parseError).toBeDefined();
-      expect(refused.stdout).toBe("");
+      expect(refused.stdout).toHaveLength(0);
       expect(refused.stderr).toContain(RETIRED_SPEC_CONTEXT_CONTENT_FIXTURE.option);
     });
   });
