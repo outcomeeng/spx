@@ -4,10 +4,12 @@ import {
   selectSpecContextDocuments,
   SPEC_CONTEXT_ENTRY_TYPE,
   SPEC_CONTEXT_MODE,
+  SPEC_CONTEXT_ROLE,
   specContextBoundCitations,
   specContextCitedSelection,
   type SpecContextEntry,
   type SpecContextProjectedEntry,
+  type SpecContextRoleBinding,
   type SpecContextSelection,
   type SpecContextTarget,
 } from "@/lib/spec-tree";
@@ -15,20 +17,69 @@ import type { ContextInput } from "./context-input";
 
 /**
  * The complete selection one target set resolves to: the structural walk in
- * walk order, every cited decision outside it in canonical path order, and
- * the documents whose displayed content cites each decision. `list` and
- * `show` both read their selected documents and cited decisions from here, so
- * the two commands cannot select differently.
+ * walk order, then every cited decision outside it in canonical path order.
+ * `list` and `show` both read their entries from here, so the two commands
+ * cannot select differently.
  */
 export interface SpecContextClosure {
-  readonly entries: readonly SpecContextEntry[];
-  readonly cited: readonly SpecContextClosureCitation[];
+  readonly entries: readonly SpecContextClosureEntry[];
 }
 
-/** One cited decision outside the structural walk, with every document whose displayed content cites it. */
-export interface SpecContextClosureCitation {
-  readonly path: string;
-  readonly citedBy: readonly string[];
+/**
+ * One selected entry with every target-role pair through which the selection
+ * reaches it; a cited decision outside the structural walk also carries every
+ * document whose displayed content cites it.
+ */
+export interface SpecContextClosureEntry {
+  readonly entry: SpecContextEntry;
+  readonly roles: readonly SpecContextRoleBinding[];
+  readonly citedBy?: readonly string[];
+}
+
+/** Adds to `path` every target bound by any of its citers; whether any target was added. */
+function addCitingTargets(
+  path: string,
+  citers: ReadonlySet<string>,
+  targetsByPath: Map<string, Set<string>>,
+): boolean {
+  const targets = targetsByPath.get(path) ?? new Set<string>();
+  targetsByPath.set(path, targets);
+  const before = targets.size;
+  for (const citer of citers) {
+    for (const target of targetsByPath.get(citer) ?? []) targets.add(target);
+  }
+  return targets.size > before;
+}
+
+/**
+ * The cited-decision bindings of every cited decision: a decision is cited for
+ * each target that binds any document citing it, followed transitively through
+ * cited decisions until no binding is added.
+ */
+function citedDecisionRoles(
+  structural: readonly SpecContextSelection[],
+  citedBy: ReadonlyMap<string, ReadonlySet<string>>,
+): ReadonlyMap<string, readonly SpecContextRoleBinding[]> {
+  const targetsByPath = new Map<string, Set<string>>();
+  for (const { path, roles } of structural) {
+    const targets = targetsByPath.get(path) ?? new Set<string>();
+    for (const { target } of roles) targets.add(target);
+    targetsByPath.set(path, targets);
+  }
+  for (const path of citedBy.keys()) targetsByPath.set(path, new Set<string>());
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [path, citers] of citedBy) {
+      if (addCitingTargets(path, citers, targetsByPath)) changed = true;
+    }
+  }
+  return new Map(
+    [...citedBy.keys()].map((path) => [
+      path,
+      [...(targetsByPath.get(path) ?? [])].map((target) => ({ target, role: SPEC_CONTEXT_ROLE.CITED_DECISION })),
+    ]),
+  );
 }
 
 async function readProjectedDocument(
@@ -98,13 +149,12 @@ export async function resolveSpecContextClosure(
         citing.add(selection.path);
         citedBy.set(path, citing);
       }
-      pending.push(specContextCitedSelection(path));
+      pending.push(specContextCitedSelection(path, []));
     }
   }
   const firstFailure = digestFailures.values().next();
   if (firstFailure.done !== true) throw firstFailure.value;
-  const cited = [...citedBy].sort(([left], [right]) => compareSpecContextOrdinal(left, right))
-    .map(([path, citing]) => ({ path, citedBy: [...citing].sort(compareSpecContextOrdinal) }));
+  const citedRoles = citedDecisionRoles(structural, citedBy);
   const projectedEntry = (path: string): SpecContextEntry => {
     const document = projected.get(path);
     if (document === undefined) throw new Error(`Unresolved context document: ${path}`);
@@ -112,9 +162,12 @@ export async function resolveSpecContextClosure(
   };
   return {
     entries: [
-      ...structural.map(({ path }) => projectedEntry(path)),
-      ...cited.map(({ path }) => projectedEntry(path)),
+      ...structural.map(({ path, roles }) => ({ entry: projectedEntry(path), roles })),
+      ...[...citedBy].sort(([left], [right]) => compareSpecContextOrdinal(left, right)).map(([path, citing]) => ({
+        entry: projectedEntry(path),
+        roles: citedRoles.get(path) ?? [],
+        citedBy: [...citing].sort(compareSpecContextOrdinal),
+      })),
     ],
-    cited,
   };
 }

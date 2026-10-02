@@ -62,31 +62,22 @@ export type {
 } from "./config";
 export {
   compareSpecContextOrdinal,
-  composeSpecContextBundle,
+  compareSpecContextRoleBindings,
+  composeSpecContextManifestSelection,
   decodeContextDocumentUtf8,
   extractDecisionCitations,
-  isLocalOverlayPath,
-  SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
-  SPEC_CONTEXT_LISTED_ROLE,
-  SPEC_CONTEXT_LOCAL_OVERLAY_DIRECTORY,
   SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
-  SPEC_CONTEXT_READ_ROLE,
-  SPEC_CONTEXT_READ_ROLE_ORDER,
+  SPEC_CONTEXT_ROLE,
+  SPEC_CONTEXT_ROLE_ORDER,
   specContextBootstrap,
 } from "./context-manifest";
 export type {
-  SpecContextBundle,
-  SpecContextListedEntry,
-  SpecContextListedRole,
-  SpecContextListedRoleBinding,
   SpecContextManifest,
-  SpecContextReadDocument,
-  SpecContextReadRole,
+  SpecContextManifestEntry,
+  SpecContextManifestSelection,
+  SpecContextRole,
   SpecContextRoleBinding,
   SpecContextTargetCoverage,
-  SpecContextTargetListedEntry,
-  SpecContextTargetReadDocument,
-  SpecContextTargetReadSet,
 } from "./context-manifest";
 export {
   projectSpecContextDocument,
@@ -99,6 +90,7 @@ export {
   SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR,
   SPEC_CONTEXT_MODE,
   SPEC_CONTEXT_OPTIONAL_ARTIFACT,
+  SPEC_CONTEXT_ROLE_MODE,
   SPEC_CONTEXT_SELECTED_METADATA_KEY,
   specContextBoundCitations,
   specContextCitedSelection,
@@ -114,14 +106,11 @@ export type {
   SpecContextSelection,
 } from "./context-projection";
 export {
-  assembleSpecContextTargetReadSet,
   specContextAncestors,
   specContextDecisions,
-  specContextEvidence,
   specContextLowerIndexSiblings,
   specContextSiblings,
 } from "./context-read-set";
-export type { SpecContextReadSetCandidates } from "./context-read-set";
 export {
   resolveSpecContextTarget,
   SPEC_CONTEXT_TARGET_FAILURE_KIND,
