@@ -10,10 +10,7 @@ import {
   SIGTERM_NAME,
   UNCAUGHT_EVENT_NAME,
 } from "@/lib/process-lifecycle";
-import { defaultEslintProcessRunner } from "@/validation/steps/eslint";
-import { defaultFormattingProcessRunner } from "@/validation/steps/formatting";
-import { defaultKnipProcessRunner } from "@/validation/steps/knip";
-import { defaultTypeScriptProcessRunner } from "@/validation/steps/typescript";
+import { validationPipelineStages } from "@/validation/registry";
 import { LIFECYCLE_EXIT_ORACLE } from "@testing/generators/process-lifecycle/lifecycle";
 import { RecordingExitController } from "@testing/harnesses/process-lifecycle/lifecycle";
 
@@ -51,12 +48,12 @@ describe("Mapping: lifecycle event to exit code", () => {
 });
 
 describe("Mapping: validation ProcessRunner defaults", () => {
-  it.each([
-    defaultEslintProcessRunner,
-    defaultFormattingProcessRunner,
-    defaultKnipProcessRunner,
-    defaultTypeScriptProcessRunner,
-  ])("validation runner %# maps to the shared lifecycle runner", (runner) => {
-    expect(runner).toBe(lifecycleProcessRunner);
-  });
+  // The domain is every stage the production validation registry composes; each stage declares the
+  // runner its tool subprocess spawns through, or null when it runs in-process.
+  it.each(validationPipelineStages.filter((stage) => stage.processRunner !== null))(
+    "$name stage's default runner maps to the shared lifecycle runner",
+    ({ processRunner }) => {
+      expect(processRunner).toBe(lifecycleProcessRunner);
+    },
+  );
 });
