@@ -6,7 +6,7 @@ malleability: spec
 
 PROVIDES canonical resolution of context operands to accepted Product Tree target identities
 SO THAT context selection
-CAN accept convenient unambiguous paths while rejecting unknown, ambiguous, unsupported, and outside-product inputs without guessing
+CAN accept convenient unambiguous paths while rejecting unresolved, ambiguous, and outside-product inputs without guessing
 
 ## Assertions
 
@@ -15,7 +15,7 @@ CAN accept convenient unambiguous paths while rejecting unknown, ambiguous, unsu
 - Context targets accept the product root or product spec, a node directory or its spec, and an ADR or PDR; every other artifact class is rejected. ([test](tests/context-target-resolution.mapping.l1.test.ts))
 - A node directory and its spec identify the same node; a decision identifies its directly containing node or product root and selects that container's projection. ([test](tests/context-target-resolution.mapping.l1.test.ts))
 - Absolute operands resolve as written, while relative operands collect candidates from the effective invocation directory, the product root, and complete-path-component suffix matches over accepted target paths only. ([test](tests/context-target-resolution.mapping.l1.test.ts))
-- An operand with zero identities after confinement and collapse maps to one failure kind in precedence order: outside-product when any candidate's resolved location lies outside the resolved product root; otherwise unsupported-artifact when some candidate resolves to an existing artifact inside the product that is no accepted target; otherwise unresolved. ([test](tests/context-target-resolution.mapping.l1.test.ts))
+- An operand whose location escapes the resolved product root through lexical traversal or symbolic-link resolution maps to outside-product, decided before identity resolution; every other operand with zero identities after confinement and collapse maps to unresolved, including an operand naming an existing artifact of a class context targets do not accept. ([test](tests/context-target-resolution.mapping.l1.test.ts))
 
 ### Compliance
 
