@@ -720,6 +720,43 @@ export function specContextAbsentDecisionPath(fixture: RepresentativeSpecTreeFix
 }
 
 /**
+ * A decision path that begins at the tree root, ends with the fixture's
+ * decision suffix, and carries a parent segment after `directory`: it keeps
+ * the citation grammar's prefix and suffix while naming no tracked decision.
+ */
+export function specContextRelativeSegmentDecisionPath(
+  fixture: RepresentativeSpecTreeFixture,
+  directory: string,
+): string {
+  const absent = specContextAbsentDecisionPath(fixture, directory);
+  const name = absent.slice(absent.lastIndexOf(TRACKED_PATH_DIRECTORY_SEPARATOR) + 1);
+  return rooted(directory, PARENT_DIRECTORY_SEGMENT, name);
+}
+
+/**
+ * Front-matter block bodies, without their delimiter lines, that no YAML 1.2
+ * reader turns into a key mapping: a compact mapping nesting a second mapping
+ * on one line, which the YAML grammar rejects, and a block sequence, which
+ * parses to a list.
+ */
+export function specContextUnreadableFrontMatterBlocks(): {
+  readonly unparseable: string;
+  readonly nonMapping: string;
+} {
+  const [key, inner, value] = sampleGeneratedValue(
+    fc.tuple(
+      SPEC_TREE_TEST_GENERATOR.sourceSlug(),
+      SPEC_TREE_TEST_GENERATOR.sourceSlug(),
+      SPEC_TREE_TEST_GENERATOR.sourceSlug(),
+    ),
+  );
+  return {
+    unparseable: `${key}: ${inner}: ${value}\n`,
+    nonMapping: `- ${key}\n- ${value}\n`,
+  };
+}
+
+/**
  * The fixture root's directory name with its slug truncated to its first
  * character: a strict prefix of exactly one accepted component, and a
  * complete component of no tracked path. The order prefix it keeps is unique
