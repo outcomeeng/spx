@@ -21,7 +21,7 @@ CAN receive complete working documents and concise navigation statements without
 
 ### Compliance
 
-- ALWAYS: front matter is recognized only by opening and closing `---` lines at the start of the file, selected only by named keys, and fails projection when unterminated, and context projection selects only source-present `malleability` for output nodes and never emits its default ([test](tests/content.compliance.l1.test.ts))
+- ALWAYS: front matter is recognized only by opening and closing `---` lines at the start of the file, selected only by named keys, and fails projection when unterminated, and context projection selects only source-present `malleability` for output nodes, never emits its default, and fails projection when an output-node spec's terminated front matter is not valid YAML or holds a value other than a mapping ([test](tests/content.compliance.l1.test.ts))
 - ALWAYS: the opening is the first paragraph beginning at column one with the case-sensitive keyword followed by one space and ending before the next blank or whitespace-only line or end of file ([test](tests/content.compliance.l1.test.ts))
 - ALWAYS: every source document decodes as strict UTF-8, selected source whitespace remains unchanged, and a framing line break is added only when required to place the closing delimiter on its own line ([test](tests/content.compliance.l1.test.ts))
 - ALWAYS: text output uses ordered `spx-document` and `spx-reference` frames with one blank line between entries; source text matching a delimiter remains verbatim ([test](tests/content.compliance.l1.test.ts))
