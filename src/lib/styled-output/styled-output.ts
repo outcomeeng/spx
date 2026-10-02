@@ -9,7 +9,7 @@
  * @module lib/styled-output/styled-output
  */
 
-import { Chalk, type ColorSupportLevel } from "chalk";
+import { Chalk } from "chalk";
 
 import { authoredText, joinTerminalText, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
@@ -51,24 +51,13 @@ export const SEVERITY_STYLE: Readonly<Record<Severity, SeverityGlyphStyle>> = {
   [SEVERITY.MUTED]: { glyph: "○", style: STYLE_NAME.DIM },
 } as const;
 
-/** The fixed chalk color level a styled render uses: ANSI-16 when color is enabled, none when disabled. */
-export const COLOR_LEVEL = {
-  ENABLED: 1,
-  DISABLED: 0,
-} as const satisfies Record<string, ColorSupportLevel>;
-
-/** The separator between a section's status glyph and its header text. */
-export const GLYPH_HEADER_SEPARATOR = " ";
-/** The separator between a styled detail line's tree-branch glyph and its detail text. */
-export const BRANCH_DETAIL_SEPARATOR = " ";
-
 /** The tree-branch glyph for a non-final detail line. */
 export const DETAIL_TEE = "├";
 /** The tree-branch glyph for the final detail line. */
 export const DETAIL_ELBOW = "└";
 /** The indent that precedes every detail line. */
 export const DETAIL_INDENT = "  ";
-/** The connector that separates a plain tree's branch glyph from its child text. */
+/** The connector that separates a tree-branch glyph from its detail text. */
 export const DETAIL_BRANCH_SEPARATOR = "── ";
 
 /** One section of a styled report: a severity-keyed header with tree-indented detail lines. */
@@ -111,27 +100,26 @@ export interface PlainTreeModel {
   readonly sections: readonly PlainTreeSection[];
 }
 
-/** The separator between the rendered lines of a styled report or plain tree. */
-export const TREE_LINE_SEPARATOR = authoredText("\n");
-
 /**
  * Renders the report model to text. With `color: false` the output is identical
  * content with no ANSI; with `color: true` the same content carries ANSI, so the
  * ANSI-stripped colored render equals the plain render.
  */
+const TREE_LINE_SEPARATOR = authoredText("\n");
+
 export function renderStyledReport(model: StyledReportModel, options: StyledReportOptions): TerminalText {
-  const chalk = new Chalk({ level: options.color ? COLOR_LEVEL.ENABLED : COLOR_LEVEL.DISABLED });
+  const chalk = new Chalk({ level: options.color ? 1 : 0 });
   // Every header, detail, and summary arrives with its escaping already decided, so chalk only
   // wraps ANSI around content the producer settled; each styled line is the product's own and
   // keeps the bytes chalk added.
   const lines: TerminalText[] = [];
   for (const section of model.sections) {
     const { glyph, style } = SEVERITY_STYLE[section.severity];
-    lines.push(authoredText(`${chalk[style](glyph)}${GLYPH_HEADER_SEPARATOR}${chalk.bold(section.header)}`));
+    lines.push(authoredText(`${chalk[style](glyph)} ${chalk.bold(section.header)}`));
     const lastIndex = section.details.length - 1;
     section.details.forEach((detail, index) => {
       const branch = index === lastIndex ? DETAIL_ELBOW : DETAIL_TEE;
-      const detailLine = chalk.dim(`${branch}${BRANCH_DETAIL_SEPARATOR}${detail}`);
+      const detailLine = chalk.dim(`${branch} ${detail}`);
       lines.push(authoredText(`${DETAIL_INDENT}${detailLine}`));
     });
   }
