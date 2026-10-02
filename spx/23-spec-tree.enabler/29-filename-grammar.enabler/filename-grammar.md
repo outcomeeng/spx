@@ -6,7 +6,7 @@ CAN resolve and validate the configured vocabulary, and classify and render file
 
 ## Assertions
 
-- Given `spx.config.yaml` selects kinds in the spec-tree section, when the config resolves, then resolution fails naming the kind-selection field
+- Given product configuration whose `specTree` section carries a `kinds` field, whether a list of kind names or a map of kind definitions, when the config resolves, then resolution fails naming `specTree.kinds`
 - A methodology declaration maps to its valid naming-schema versions: a `methodology.version` on the 3.2 line maps to the 3.x version, a `methodology.version` on the 4.0 line maps to the 4.0 version, and a 4.0 `methodology.version` with a 3.2 `methodology.migratingFrom` maps to both
 - Every node kind maps to its opening keyword: `substrate` to `SUPPLIES`, `capability` to `PROVIDES`, `domain` to `OWNS`, `interface` to `ADAPTS`, `surface` to `EXPOSES`, `enabler` to `PROVIDES`, `outcome` to `WE BELIEVE THAT`, and `variant` to its parent kind's opening keyword
 
