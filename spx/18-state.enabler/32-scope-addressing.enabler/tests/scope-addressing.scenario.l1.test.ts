@@ -1,4 +1,3 @@
-import { realpath } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -13,97 +12,112 @@ import {
   slugBranchIdentity,
   STATE_STORE_DOMAIN,
   STATE_STORE_SCOPE_PATH,
-  worktreeScopeDir,
 } from "@/lib/state-store";
-import {
-  arbitraryNonBareLinkedLayoutCase,
-  sampleMainCheckoutTestValue,
-} from "@testing/generators/main-checkout/main-checkout";
 import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
-import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
+import { createSessionGitDeps, SESSION_GIT_DEPS_PATHS, WORKTREE_KIND } from "@testing/harnesses/session/harness";
 
 describe("scope addressing", () => {
   it("resolves branch scope to the shared Git common-dir product root from main and non-main worktrees", async () => {
-    const layout = sampleMainCheckoutTestValue(arbitraryNonBareLinkedLayoutCase());
     const branchSlug = slugBranchIdentity(sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.branchIdentity()));
-    await withWorktreeLayoutEnv(layout.spec, async (env) => {
-      const mainCheckoutRoot = await realpath(env.worktree(layout.mainCheckoutName));
-      const mainCheckout = await resolveBranchScopeDir(branchSlug, { cwd: env.worktree(layout.mainCheckoutName) });
-      const nonMain = await resolveBranchScopeDir(branchSlug, { cwd: env.worktree(layout.otherNames[0]) });
-
-      expect(mainCheckout).toEqual({
-        ok: true,
-        value: join(mainCheckoutRoot, STATE_STORE_SCOPE_PATH.SPX_DIR, STATE_STORE_SCOPE_PATH.BRANCH_SCOPE, branchSlug),
-      });
-      expect(nonMain).toEqual(mainCheckout);
+    const mainCheckout = await resolveBranchScopeDir(branchSlug, {
+      deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT }),
     });
+    const nonMain = await resolveBranchScopeDir(branchSlug, {
+      deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.NON_MAIN }),
+    });
+
+    expect(mainCheckout.ok).toBe(true);
+    expect(nonMain.ok).toBe(true);
+    if (!mainCheckout.ok) throw new Error(mainCheckout.error);
+    if (!nonMain.ok) throw new Error(nonMain.error);
+    expect(mainCheckout.value).toBe(join(
+      SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
+      STATE_STORE_SCOPE_PATH.SPX_DIR,
+      STATE_STORE_SCOPE_PATH.BRANCH_SCOPE,
+      branchSlug,
+    ));
+    expect(nonMain.value).toBe(mainCheckout.value);
   });
 
   it("resolves worktree scope to each local worktree root", async () => {
-    const layout = sampleMainCheckoutTestValue(arbitraryNonBareLinkedLayoutCase());
-    await withWorktreeLayoutEnv(layout.spec, async (env) => {
-      const mainCheckoutRoot = await realpath(env.worktree(layout.mainCheckoutName));
-      const nonMainRoot = await realpath(env.worktree(layout.otherNames[0]));
-      const mainCheckout = await resolveWorktreeScopeDir({ cwd: env.worktree(layout.mainCheckoutName) });
-      const nonMain = await resolveWorktreeScopeDir({ cwd: env.worktree(layout.otherNames[0]) });
-
-      expect(mainCheckout).toBe(
-        join(mainCheckoutRoot, STATE_STORE_SCOPE_PATH.SPX_DIR, STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE),
-      );
-      expect(nonMain).toBe(join(nonMainRoot, STATE_STORE_SCOPE_PATH.SPX_DIR, STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE));
-      expect(nonMain).not.toBe(mainCheckout);
+    const mainCheckout = await resolveWorktreeScopeDir({
+      deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT }),
     });
+    const nonMain = await resolveWorktreeScopeDir({
+      deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.NON_MAIN }),
+    });
+
+    expect(mainCheckout).toBe(join(
+      SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
+      STATE_STORE_SCOPE_PATH.SPX_DIR,
+      STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE,
+    ));
+    expect(nonMain).toBe(join(
+      SESSION_GIT_DEPS_PATHS.NON_MAIN_TOPLEVEL,
+      STATE_STORE_SCOPE_PATH.SPX_DIR,
+      STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE,
+    ));
   });
 
   it("resolves sessions scope to the shared Git common-dir product root from main and non-main worktrees", async () => {
-    const layout = sampleMainCheckoutTestValue(arbitraryNonBareLinkedLayoutCase());
-    await withWorktreeLayoutEnv(layout.spec, async (env) => {
-      const mainCheckoutRoot = await realpath(env.worktree(layout.mainCheckoutName));
-      const mainCheckout = await resolveSessionsScopeDir({ cwd: env.worktree(layout.mainCheckoutName) });
-      const nonMain = await resolveSessionsScopeDir({ cwd: env.worktree(layout.otherNames[0]) });
-
-      expect(mainCheckout.sessionsDir).toBe(
-        join(mainCheckoutRoot, STATE_STORE_SCOPE_PATH.SPX_DIR, STATE_STORE_SCOPE_PATH.SESSIONS_SCOPE),
-      );
-      expect(nonMain.sessionsDir).toBe(mainCheckout.sessionsDir);
+    const mainCheckout = await resolveSessionsScopeDir({
+      deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT }),
     });
+    const nonMain = await resolveSessionsScopeDir({
+      deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.NON_MAIN }),
+    });
+
+    expect(mainCheckout.sessionsDir).toBe(join(
+      SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
+      STATE_STORE_SCOPE_PATH.SPX_DIR,
+      STATE_STORE_SCOPE_PATH.SESSIONS_SCOPE,
+    ));
+    expect(nonMain.sessionsDir).toBe(mainCheckout.sessionsDir);
   });
 
   it("resolves changes scope to the shared Git common-dir product root from main and non-main worktrees", async () => {
-    const layout = sampleMainCheckoutTestValue(arbitraryNonBareLinkedLayoutCase());
-    await withWorktreeLayoutEnv(layout.spec, async (env) => {
-      const mainCheckoutRoot = await realpath(env.worktree(layout.mainCheckoutName));
-      const mainCheckout = await resolveChangesScopeDir({ cwd: env.worktree(layout.mainCheckoutName) });
-      const nonMain = await resolveChangesScopeDir({ cwd: env.worktree(layout.otherNames[0]) });
-
-      expect(mainCheckout.changesDir).toBe(
-        join(mainCheckoutRoot, STATE_STORE_SCOPE_PATH.SPX_DIR, STATE_STORE_SCOPE_PATH.CHANGES_SCOPE),
-      );
-      expect(nonMain.changesDir).toBe(mainCheckout.changesDir);
+    const mainCheckout = await resolveChangesScopeDir({
+      deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT }),
     });
+    const nonMain = await resolveChangesScopeDir({
+      deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.NON_MAIN }),
+    });
+
+    expect(mainCheckout.changesDir).toBe(join(
+      SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
+      STATE_STORE_SCOPE_PATH.SPX_DIR,
+      STATE_STORE_SCOPE_PATH.CHANGES_SCOPE,
+    ));
+    expect(nonMain.changesDir).toBe(mainCheckout.changesDir);
   });
 
   it("resolves worktrees scope to the shared Git common-dir product root from main and non-main worktrees", async () => {
-    const layout = sampleMainCheckoutTestValue(arbitraryNonBareLinkedLayoutCase());
-    await withWorktreeLayoutEnv(layout.spec, async (env) => {
-      const mainCheckoutRoot = await realpath(env.worktree(layout.mainCheckoutName));
-      const mainCheckout = await resolveWorktreesScopeDir({ cwd: env.worktree(layout.mainCheckoutName) });
-      const nonMain = await resolveWorktreesScopeDir({ cwd: env.worktree(layout.otherNames[0]) });
-
-      expect(mainCheckout.worktreesDir).toBe(
-        join(mainCheckoutRoot, STATE_STORE_SCOPE_PATH.SPX_DIR, STATE_STORE_SCOPE_PATH.WORKTREES_SCOPE),
-      );
-      expect(nonMain.worktreesDir).toBe(mainCheckout.worktreesDir);
+    const mainCheckout = await resolveWorktreesScopeDir({
+      deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT }),
     });
+    const nonMain = await resolveWorktreesScopeDir({
+      deps: createSessionGitDeps({ worktreeKind: WORKTREE_KIND.NON_MAIN }),
+    });
+
+    expect(mainCheckout.worktreesDir).toBe(join(
+      SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
+      STATE_STORE_SCOPE_PATH.SPX_DIR,
+      STATE_STORE_SCOPE_PATH.WORKTREES_SCOPE,
+    ));
+    expect(nonMain.worktreesDir).toBe(mainCheckout.worktreesDir);
   });
 
   it("composes a session token inside the broader scope before the domain directory", () => {
-    const baseScope = worktreeScopeDir(sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.productRoot()));
     const sessionToken = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
+    const baseScope = join(
+      SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
+      STATE_STORE_SCOPE_PATH.SPX_DIR,
+      STATE_STORE_SCOPE_PATH.WORKTREE_SCOPE,
+    );
+    const scoped = composeScopeDir(baseScope, sessionToken, STATE_STORE_DOMAIN.COMPACT);
 
-    expect(composeScopeDir(baseScope, sessionToken, STATE_STORE_DOMAIN.COMPACT)).toEqual({
-      ok: true,
-      value: join(baseScope, sessionToken, STATE_STORE_DOMAIN.COMPACT),
-    });
+    expect(scoped.ok).toBe(true);
+    if (!scoped.ok) throw new Error(scoped.error);
+    expect(scoped.value).toBe(join(baseScope, sessionToken, STATE_STORE_DOMAIN.COMPACT));
   });
 });
