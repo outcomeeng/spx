@@ -1,7 +1,7 @@
 # Value Allowlist
 
 PROVIDES the literal-value suppression layer — `validation.literal.values.{presets,include,exclude}` config in `spx.config.*` resolved into an effective `(kind, value)` set computed once per detection run, with curated preset bundles for common ecosystems
-SO THAT [21-detection.enabler](../21-detection.enabler/detection.md) emitting problems for indexed literals
+SO THAT [21-detection.enabler](spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler/detection.md) emitting problems for indexed literals
 CAN suppress findings for values a project has classified as non-domain (HTTP verbs, framework tokens, ecosystem boilerplate) without re-running config resolution per finding
 
 ## Assertions

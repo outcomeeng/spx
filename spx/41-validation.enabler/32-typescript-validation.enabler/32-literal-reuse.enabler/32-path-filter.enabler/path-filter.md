@@ -1,8 +1,8 @@
 # Path Filter
 
-PROVIDES the validation-class file scoping for the literal-reuse walker — composes the git-tracking layer from [`17-file-inclusion.enabler`](../../../../17-file-inclusion.enabler/file-inclusion.md) and applies the `validation.paths.{exclude,include}` prefix filter from `spx.config.*` to the walker's resolved scope
-SO THAT [21-detection.enabler](../21-detection.enabler/detection.md) walking the project for indexable files
-CAN exclude entries git considers ignored under the working tree and entries an operator has marked as out-of-scope for validation through `validation.paths`, while including dot-prefixed product content under `.github/`, `.changeset/`, `.husky/`, and similar paths by default per [`11-ignore-defaults.pdr.md`](../../../../17-file-inclusion.enabler/11-ignore-defaults.pdr.md)
+PROVIDES the validation-class file scoping for the literal-reuse walker — composes the git-tracking layer from [`17-file-inclusion.enabler`](spx/17-file-inclusion.enabler/file-inclusion.md) and applies the `validation.paths.{exclude,include}` prefix filter from `spx.config.*` to the walker's resolved scope
+SO THAT [21-detection.enabler](spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler/detection.md) walking the project for indexable files
+CAN exclude entries git considers ignored under the working tree and entries an operator has marked as out-of-scope for validation through `validation.paths`, while including dot-prefixed product content under `.github/`, `.changeset/`, `.husky/`, and similar paths by default per [`11-ignore-defaults.pdr.md`](spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md)
 
 ## Assertions
 
@@ -20,5 +20,5 @@ CAN exclude entries git considers ignored under the working tree and entries an 
 
 - ALWAYS: `validation.paths.exclude` suppresses files by path prefix — files under every listed prefix are never parsed and contribute no occurrences ([test](tests/path-filter.compliance.l1.test.ts))
 - ALWAYS: caller-supplied explicit files bypass `validation.paths` because explicit invocation scope is resolved before non-override domain path filters ([test](tests/path-filter.compliance.l1.test.ts))
-- ALWAYS: entries git considers ignored under the working tree are excluded from the walker's scope without requiring restatement in `validation.paths.exclude` — the git-tracking layer is the single default scope source per [`11-ignore-defaults.pdr.md`](../../../../17-file-inclusion.enabler/11-ignore-defaults.pdr.md) ([test](tests/path-filter.compliance.l1.test.ts))
-- NEVER: compose an artifact-directory list or hidden-prefix rule inside the literal-reuse walker — the git-tracking layer subsumes both per [`spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`](../../../../17-file-inclusion.enabler/11-ignore-defaults.pdr.md) ([audit])
+- ALWAYS: entries git considers ignored under the working tree are excluded from the walker's scope without requiring restatement in `validation.paths.exclude` — the git-tracking layer is the single default scope source per [`11-ignore-defaults.pdr.md`](spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md) ([test](tests/path-filter.compliance.l1.test.ts))
+- NEVER: compose an artifact-directory list or hidden-prefix rule inside the literal-reuse walker — the git-tracking layer subsumes both per [`spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`](spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md) ([audit])
