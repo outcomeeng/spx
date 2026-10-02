@@ -1,23 +1,48 @@
+import * as fc from "fast-check";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { detectLanguages, PYTHON_MARKER, TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
-import { arbitraryLanguageDetectionFileView } from "@testing/generators/language-detection/language-detection";
-import { createControlledFilePresence } from "@testing/harnesses/language-detection/language-detection";
-import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
+import {
+  detectLanguages,
+  type LanguageDetectionDeps,
+  PYTHON_MARKER,
+  TYPESCRIPT_MARKER,
+} from "@/validation/discovery/language-finder";
+import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
+
+function makeDeps(existing: ReadonlySet<string>): LanguageDetectionDeps {
+  return {
+    existsSync: (filePath: string) => existing.has(filePath),
+  };
+}
 
 describe("detectLanguages — properties", () => {
-  it("produces the same language set for the same product root and file view", () => {
-    assertProperty(
-      arbitraryLanguageDetectionFileView(),
-      (view) => {
-        const first = detectLanguages(view.productDir, createControlledFilePresence(view.existingPaths));
-        const second = detectLanguages(view.productDir, createControlledFilePresence(view.existingPaths));
+  it("is deterministic for the same product root and dependency view", () => {
+    fc.assert(
+      fc.property(arbitraryDomainLiteral(), fc.boolean(), fc.boolean(), (root, hasTs, hasPy) => {
+        const existing = new Set([
+          ...(hasTs ? [join(root, TYPESCRIPT_MARKER)] : []),
+          ...(hasPy ? [join(root, PYTHON_MARKER)] : []),
+        ]);
+        const deps = makeDeps(existing);
+        const expected = {
+          typescript: hasTs
+            ? {
+              present: true,
+              eslintConfigFile: undefined,
+              productionEslintConfigFile: undefined,
+            }
+            : { present: false },
+          python: { present: hasPy },
+        };
 
+        const first = detectLanguages(root, deps);
+        const second = detectLanguages(root, deps);
+
+        expect(first).toEqual(expected);
+        expect(second).toEqual(expected);
         expect(second).toEqual(first);
-        expect(first.typescript.present).toBe(view.rootFileNames.includes(TYPESCRIPT_MARKER));
-        expect(first.python.present).toBe(view.rootFileNames.includes(PYTHON_MARKER));
-      },
-      { level: PROPERTY_LEVEL.L1 },
+      }),
     );
   });
 });
