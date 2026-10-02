@@ -10,5 +10,5 @@ is reserved.
    `spx spec context show`; the skill changes live in the plugins repository
    and are filed into its session queue via `/issue`.
 2. `spx spec status show [targets...]` with target scoping under
-   `spx/29-verification-path-scope.pdr.md` operand vocabulary — declared under
+   [spx/29-verification-path-scope.pdr.md](spx/29-verification-path-scope.pdr.md) operand vocabulary — declared under
    the status-owning nodes as a separate changeset.
