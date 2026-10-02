@@ -20,7 +20,7 @@ consumer's `migratingFrom: 3.2.0`.
 `supports`; the fetch reads `provides` to choose `methodology/{MAJOR.MINOR}/`
 and records both values in `source.json`; the understand payload and the
 diagnose check compare the declaration against them per
-`spx/13-agent-capability-lifecycle.pdr.md`. Until then the `4.0` tree serves
+[`spx/13-agent-capability-lifecycle.pdr.md`](spx/13-agent-capability-lifecycle.pdr.md). Until then the `4.0` tree serves
 `3.2.0` on the assumption that the provider of the declared version supports
 the version migrated from.
 
