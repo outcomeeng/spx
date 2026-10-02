@@ -140,6 +140,184 @@ export const MARKDOWN_VALIDATION_DATA = {
   two: EXPECTED_TWO,
 } as const;
 
+const LINK_SHAPE_DECISION_FILE = "15-sample.adr.md";
+const LINK_SHAPE_NODE_LOCAL_DIRECTORY = "tests";
+const LINK_SHAPE_EXTERNAL_HREF = "https://example.invalid/does-not-exist.md";
+const LINK_SHAPE_HTML_HREF = "./does-not-exist.md";
+const LINK_SHAPE_CLIMB_SEGMENT = "..";
+const LINK_SHAPE_PRODUCT_ABSOLUTE_PREFIX = "/";
+const LINK_SHAPE_DECISION_CONTENT = "# Sample Decision\n\nThe decision.\n";
+
+/** One markdown file whose single link or path occupies a known line. */
+export interface MarkdownLinkCase {
+  /** Product-relative path of the citing markdown file. */
+  readonly citingFile: string;
+  /** The href or path text the citing file carries. */
+  readonly href: string;
+  /** Complete content of the citing file. */
+  readonly content: string;
+  /** 1-based line carrying the href or path text. */
+  readonly line: number;
+}
+
+/** A link whose resolution base the spec declares, with the file each base would resolve it to. */
+export interface MarkdownLinkResolutionRow {
+  /** Default directory the citing file lives in. */
+  readonly directory: string;
+  readonly link: MarkdownLinkCase;
+  /** Product-relative file the link names when resolved from the declared base. */
+  readonly declaredResolution: string;
+  /** Product-relative file the link names when resolved from the other base. */
+  readonly otherResolution: string;
+}
+
+function markdownLinkCase(citingFile: string, href: string, content: string): MarkdownLinkCase {
+  return { citingFile, href, content, line: lineContaining(content, href) };
+}
+
+function markdownLinkingTo(citingFile: string, href: string): MarkdownLinkCase {
+  return markdownLinkCase(citingFile, href, `# Source\n\n[link](${href})\n`);
+}
+
+/** Resolves an href from the product root: a leading slash anchors at the root, and a bare path starts there. */
+function resolveFromProductRoot(href: string): string {
+  return posix.normalize(href.replace(/^\/+/, ""));
+}
+
+/** Resolves an href from the directory of the citing file. */
+function resolveFromCitingDirectory(citingFile: string, href: string): string {
+  return posix.normalize(posix.join(posix.dirname(citingFile), href.replace(/^\/+/, "")));
+}
+
+const LINK_SHAPE_NODE_DIRECTORY = posix.join(SPX_DIRECTORY_NAME, SAMPLE_DIRECTORY_NAME);
+const LINK_SHAPE_CITING_FILE = posix.join(LINK_SHAPE_NODE_DIRECTORY, SAMPLE_MARKDOWN_FILE);
+const LINK_SHAPE_LINKED_FILE = posix.join(LINK_SHAPE_NODE_DIRECTORY, TARGET_MARKDOWN_FILE);
+const LINK_SHAPE_DESCENDANT_LINKED_FILE = posix.join(
+  LINK_SHAPE_NODE_DIRECTORY,
+  DECLARED_CHILD_DIRECTORY,
+  TARGET_MARKDOWN_FILE,
+);
+const LINK_SHAPE_NODE_LOCAL_HREF = posix.join(LINK_SHAPE_NODE_LOCAL_DIRECTORY, TARGET_MARKDOWN_FILE);
+const LINK_SHAPE_DECISION_PATH = posix.join(LINK_SHAPE_NODE_DIRECTORY, LINK_SHAPE_DECISION_FILE);
+const LINK_SHAPE_DOCS_CITING_FILE = posix.join(DOCS_DIRECTORY_NAME, GUIDE_DIRECTORY_NAME, SOURCE_MARKDOWN_FILE);
+const LINK_SHAPE_DOCS_RELATIVE_HREF = `./${TARGET_MARKDOWN_FILE}`;
+const LINK_SHAPE_TREE_ABSOLUTE_HREF = LINK_SHAPE_LINKED_FILE;
+const LINK_SHAPE_PRODUCT_ABSOLUTE_HREF = `${LINK_SHAPE_PRODUCT_ABSOLUTE_PREFIX}${LINK_SHAPE_LINKED_FILE}`;
+
+/** The resolution base the spec declares for a link type. */
+const LINK_RESOLUTION_BASE = {
+  PRODUCT_ROOT: "productRoot",
+  CITING_DIRECTORY: "citingDirectory",
+} as const;
+
+type LinkResolutionBase = (typeof LINK_RESOLUTION_BASE)[keyof typeof LINK_RESOLUTION_BASE];
+
+function linkResolutionRow(
+  directory: string,
+  link: MarkdownLinkCase,
+  base: LinkResolutionBase,
+): MarkdownLinkResolutionRow {
+  const fromRoot = resolveFromProductRoot(link.href);
+  const fromCitingDirectory = resolveFromCitingDirectory(link.citingFile, link.href);
+  const fromProductRoot = base === LINK_RESOLUTION_BASE.PRODUCT_ROOT;
+  return {
+    directory,
+    link,
+    declaredResolution: fromProductRoot ? fromRoot : fromCitingDirectory,
+    otherResolution: fromProductRoot ? fromCitingDirectory : fromRoot,
+  };
+}
+
+/**
+ * Link-shape cases for the methodology link grammar inside `spx/` and the
+ * link forms `docs/` keeps, each drawn from the markdown validation spec.
+ */
+export const MARKDOWN_LINK_SHAPE_DATA = {
+  specTreeDirectoryName: SPX_DIRECTORY_NAME,
+  docsDirectoryName: DOCS_DIRECTORY_NAME,
+  citingFile: LINK_SHAPE_CITING_FILE,
+  linkedFile: LINK_SHAPE_LINKED_FILE,
+  descendantLinkedFile: LINK_SHAPE_DESCENDANT_LINKED_FILE,
+  linkedContent: VALID_MARKDOWN_TARGET_CONTENT,
+  /** A tree-absolute link from a spec-tree file to an existing file in the same node. */
+  treeAbsoluteLink: markdownLinkingTo(LINK_SHAPE_CITING_FILE, LINK_SHAPE_TREE_ABSOLUTE_HREF),
+  /** Link shapes the spec rejects inside `spx/`, each naming an existing file. */
+  rejectedShapeLinks: [
+    markdownLinkingTo(
+      LINK_SHAPE_CITING_FILE,
+      posix.join(LINK_SHAPE_CLIMB_SEGMENT, SAMPLE_DIRECTORY_NAME, TARGET_MARKDOWN_FILE),
+    ),
+    markdownLinkingTo(LINK_SHAPE_CITING_FILE, LINK_SHAPE_PRODUCT_ABSOLUTE_HREF),
+    markdownLinkingTo(LINK_SHAPE_CITING_FILE, posix.join(DECLARED_CHILD_DIRECTORY, TARGET_MARKDOWN_FILE)),
+  ],
+  /** Admitted link shapes inside `spx/` that name no file. */
+  missingTargetLinks: [
+    markdownLinkingTo(
+      LINK_SHAPE_CITING_FILE,
+      posix.join(LINK_SHAPE_NODE_DIRECTORY, `${MISSING_FILE_MARKER}${MARKDOWN_PRIMARY_FILE_EXTENSION}`),
+    ),
+    markdownLinkingTo(
+      LINK_SHAPE_CITING_FILE,
+      posix.join(LINK_SHAPE_NODE_LOCAL_DIRECTORY, `${MISSING_FILE_MARKER}${MARKDOWN_PRIMARY_FILE_EXTENSION}`),
+    ),
+  ],
+  /** Command-level resolution: tree-absolute in `spx/` and product-absolute in `docs/` resolve from the product root. */
+  commandResolutionRows: [
+    linkResolutionRow(
+      SPX_DIRECTORY_NAME,
+      markdownLinkingTo(LINK_SHAPE_CITING_FILE, LINK_SHAPE_TREE_ABSOLUTE_HREF),
+      LINK_RESOLUTION_BASE.PRODUCT_ROOT,
+    ),
+    linkResolutionRow(
+      DOCS_DIRECTORY_NAME,
+      markdownLinkingTo(LINK_SHAPE_DOCS_CITING_FILE, LINK_SHAPE_PRODUCT_ABSOLUTE_HREF),
+      LINK_RESOLUTION_BASE.PRODUCT_ROOT,
+    ),
+  ],
+  /** Rule-level resolution: node-local in `spx/` and relative in `docs/` resolve from the citing file's directory. */
+  ruleResolutionRows: [
+    linkResolutionRow(
+      SPX_DIRECTORY_NAME,
+      markdownLinkingTo(LINK_SHAPE_CITING_FILE, LINK_SHAPE_NODE_LOCAL_HREF),
+      LINK_RESOLUTION_BASE.CITING_DIRECTORY,
+    ),
+    linkResolutionRow(
+      DOCS_DIRECTORY_NAME,
+      markdownLinkingTo(LINK_SHAPE_DOCS_CITING_FILE, LINK_SHAPE_DOCS_RELATIVE_HREF),
+      LINK_RESOLUTION_BASE.CITING_DIRECTORY,
+    ),
+  ],
+  /** Links the rule never checks — an external URL and an HTML link — in each default directory. */
+  uncheckedLinks: [LINK_SHAPE_CITING_FILE, LINK_SHAPE_DOCS_CITING_FILE].flatMap((citingFile) => [
+    markdownLinkingTo(citingFile, LINK_SHAPE_EXTERNAL_HREF),
+    markdownLinkCase(citingFile, LINK_SHAPE_HTML_HREF, `# Source\n\n<a href="${LINK_SHAPE_HTML_HREF}">link</a>\n`),
+  ]),
+  decisionFile: LINK_SHAPE_DECISION_PATH,
+  decisionContent: LINK_SHAPE_DECISION_CONTENT,
+  /** A decision path written as text outside a link: bare, and inside an inline code span. */
+  decisionPathTextCases: [
+    markdownLinkCase(
+      LINK_SHAPE_CITING_FILE,
+      LINK_SHAPE_DECISION_PATH,
+      `# Source\n\nThe rule lives in ${LINK_SHAPE_DECISION_PATH}.\n`,
+    ),
+    markdownLinkCase(
+      LINK_SHAPE_CITING_FILE,
+      LINK_SHAPE_DECISION_PATH,
+      `# Source\n\nThe rule lives in \`${LINK_SHAPE_DECISION_PATH}\`.\n`,
+    ),
+  ],
+  /** A decision path inside a fenced code block, and the same path as a tree-absolute link. */
+  decisionPathAdmittedCases: [
+    markdownLinkCase(
+      LINK_SHAPE_CITING_FILE,
+      LINK_SHAPE_DECISION_PATH,
+      `# Source\n\n\`\`\`text\n${LINK_SHAPE_DECISION_PATH}\n\`\`\`\n`,
+    ),
+    markdownLinkingTo(LINK_SHAPE_CITING_FILE, LINK_SHAPE_DECISION_PATH),
+  ],
+} as const;
+
 export function markdownDirectoryTarget(path: string): MarkdownValidationTarget {
   return {
     kind: MARKDOWN_VALIDATION_TARGET_KIND.DIRECTORY,
