@@ -23,7 +23,7 @@ import {
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import type { Config } from "@/config/types";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
-import { formatSpecContextTargetFailure, SPEC_DOMAIN_CLI, specDomain } from "@/interfaces/cli/spec";
+import { formatSpecContextTargetFailure, specDomain } from "@/interfaces/cli/spec";
 import { GIT_LS_FILES_COMMAND } from "@/lib/git/changed-paths";
 import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import {
@@ -209,20 +209,26 @@ export async function runSpecDescriptor(
   return { stdout, stderr, exitCode, parseError };
 }
 
-/** The long option flags the registered `spec context show` command declares, in declaration order. */
-export function specContextShowOptionFlags(): readonly string[] {
+/**
+ * The long option flags the real spec descriptor registers on the command
+ * reached by `commandPath` — command words in invocation order — in
+ * declaration order. The test owns every predicate over them.
+ */
+export function specDescriptorOptionFlags(commandPath: readonly string[]): readonly string[] {
   const noop = (): void => undefined;
   const program = createSpecDescriptorProgram({ productDir: process.cwd() }, {
     stdout: noop,
     stderr: noop,
     exitCode: noop,
   });
-  const show = program.commands
-    .find((command) => command.name() === SPEC_DOMAIN_CLI.COMMAND)
-    ?.commands.find((command) => command.name() === SPEC_DOMAIN_CLI.CONTEXT_COMMAND)
-    ?.commands.find((command) => command.name() === SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND);
-  if (show === undefined) throw new Error("Expected the spec descriptor to register context show");
-  return show.options.flatMap((option) => option.long === undefined ? [] : [option.long]);
+  const command = commandPath.reduce<Command | undefined>(
+    (parent, name) => parent?.commands.find((child) => child.name() === name),
+    program,
+  );
+  if (command === undefined) {
+    throw new Error(`Expected the spec descriptor to register ${commandPath.join(" ")}`);
+  }
+  return command.options.flatMap((option) => option.long === undefined ? [] : [option.long]);
 }
 
 /**

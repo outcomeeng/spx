@@ -44,6 +44,17 @@ export const RETIRED_SPEC_CONTEXT_CONTENT_FIXTURE = {
   option: "--content",
 } as const;
 
+/** The retired `--understand` request the spec names: neither context command declares such an option. */
+export const RETIRED_SPEC_CONTEXT_UNDERSTAND_FIXTURE = {
+  option: "--understand",
+} as const;
+
+/** Every retired option the spec forbids `spx spec context show` and `spx spec context list` to register. */
+export const RETIRED_SPEC_CONTEXT_OPTION_FIXTURES = [
+  RETIRED_SPEC_CONTEXT_CONTENT_FIXTURE,
+  RETIRED_SPEC_CONTEXT_UNDERSTAND_FIXTURE,
+] as const;
+
 /** One product configuration file a spec command handler must leave byte-identical. */
 export type SpecCliProtectedConfigFile = {
   readonly path: string;

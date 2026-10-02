@@ -15,7 +15,7 @@ import {
   entryPaths,
   methodologyTreeConfig,
   runSpecDescriptor,
-  specContextShowOptionFlags,
+  specDescriptorOptionFlags,
   withRichContextEnv,
   writeMethodologyTree,
 } from "@testing/harnesses/spec/context";
@@ -116,7 +116,9 @@ describe("spec context command handlers", () => {
 
       // `show` declares no content option, so the descriptor refuses it before
       // any handler writes.
-      expect(specContextShowOptionFlags()).not.toContain(RETIRED_SPEC_CONTEXT_CONTENT_FIXTURE.option);
+      expect(specDescriptorOptionFlags(SPEC_CONTEXT_COMMAND_PATH.SHOW)).not.toContain(
+        RETIRED_SPEC_CONTEXT_CONTENT_FIXTURE.option,
+      );
       const refused = await runSpecDescriptor(
         context,
         ...SPEC_CONTEXT_COMMAND_PATH.SHOW,
