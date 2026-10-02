@@ -98,14 +98,25 @@ function requiredDocumentPath(path: string | undefined, owner: string): string {
   return path;
 }
 
-function nodeSelection(node: SpecTreeNode, mode: SpecContextMode): SpecContextSelection {
-  return {
-    path: requiredDocumentPath(node.ref?.path, nodeDirectory(node)),
+/**
+ * A node's spec selection, or none when no selectable path holds the spec: a
+ * node directory without its spec file still structures the walk, but
+ * contributes no spec entry.
+ */
+function nodeSelection(
+  node: SpecTreeNode,
+  mode: SpecContextMode,
+  existingPaths: ReadonlySet<string>,
+): readonly SpecContextSelection[] {
+  const path = node.ref?.path;
+  if (path === undefined || !existingPaths.has(path)) return [];
+  return [{
+    path,
     mode,
     opening: KIND_REGISTRY[node.kind].opening,
     outputNode: true,
     scanCitations: true,
-  };
+  }];
 }
 
 /**
@@ -198,15 +209,15 @@ export function selectSpecContextDocuments(
       : selected.get(node.id);
     if (mode === undefined) return;
     result.push(
-      node === undefined
-        ? {
+      ...(node === undefined
+        ? [{
           path: requiredDocumentPath(snapshot.product?.ref?.path, directory),
           mode,
           opening: PRODUCT_OPENING,
           migrationFallback: true,
           scanCitations: true,
-        }
-        : nodeSelection(node, mode),
+        }]
+        : nodeSelection(node, mode, existingPaths)),
     );
     if (discovery || fullContainers.has(node?.id)) reference(`${directory}/${ISSUE_FILENAME}`);
     explicitArtifacts(node, directory);
