@@ -1,3 +1,5 @@
+import { join } from "node:path";
+
 import {
   auditDeclarationOwners,
   changedContextTargets,
@@ -15,11 +17,23 @@ import {
   uniqueNodes,
 } from "@/domains/release/product-context";
 import type { ReleaseData } from "@/domains/release/release-data";
+import {
+  CONFIG_FILE_DEFINITIONS,
+  CONFIG_FILE_FORMAT_ORDER,
+  CONFIG_FILE_READ_KIND,
+  type ConfigFile,
+  type ConfigFileReadResult,
+  readConfigSectionFromReadResult,
+} from "@/config/index";
+import { METHODOLOGY_SECTION } from "@/config/methodology";
 import { committedFileContent, committedPaths } from "@/lib/git/release";
 import { defaultGitDependencies, type GitDependencies } from "@/lib/git/root";
 import {
   extractDecisionCitations,
+  type NamingSchemaSelection,
   readSpecTree,
+  resolveNamingSchemaSelection,
+  SPEC_TREE_CONFIG,
   specContextAncestors,
   specContextDecisions,
   specContextLowerIndexSiblings,
@@ -193,10 +207,18 @@ function createReleaseEndpointSpecTreeSource(
   paths: readonly string[],
   endpointReader: ReleaseEndpointReader,
 ): SpecTreeSource {
+  let selection: Promise<NamingSchemaSelection> | undefined;
+  const namingSchemaSelection = (): Promise<NamingSchemaSelection> => {
+    selection ??= readCommittedNamingSchemaSelection(productDir, ref, endpointReader);
+    return selection;
+  };
+  const treePrefix = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/`;
   return {
     async *entries() {
-      yield* committedSpecTreeEntries(paths);
+      if (!paths.some((path) => path.startsWith(treePrefix))) return;
+      yield* committedSpecTreeEntries(paths, await namingSchemaSelection());
     },
+    namingSchemaSelection,
     async readText(sourceRef): Promise<string> {
       if (sourceRef.path === undefined) throw new Error("Committed source refs require a path");
       const content = await endpointReader.readText(productDir, ref, sourceRef.path);
@@ -204,6 +226,47 @@ function createReleaseEndpointSpecTreeSource(
       return content;
     },
   };
+}
+
+/** The naming-schema selection the methodology declaration committed at one release endpoint derives. */
+async function readCommittedNamingSchemaSelection(
+  productDir: string,
+  ref: string,
+  endpointReader: ReleaseEndpointReader,
+): Promise<NamingSchemaSelection> {
+  const section = readConfigSectionFromReadResult(
+    await readCommittedConfigFile(productDir, ref, endpointReader),
+    METHODOLOGY_SECTION,
+  );
+  if (!section.ok) throw new Error(`Configuration at ${ref}: ${section.error}`);
+  const selection = resolveNamingSchemaSelection(section.value);
+  if (!selection.ok) throw new Error(`Cannot read the spec tree at ${ref}: ${selection.error}`);
+  return selection.value;
+}
+
+async function readCommittedConfigFile(
+  productDir: string,
+  ref: string,
+  endpointReader: ReleaseEndpointReader,
+): Promise<ConfigFileReadResult> {
+  const detected: ConfigFile[] = [];
+  for (const format of CONFIG_FILE_FORMAT_ORDER) {
+    const definition = CONFIG_FILE_DEFINITIONS[format];
+    const raw = await endpointReader.readText(productDir, ref, definition.filename);
+    if (raw === null) continue;
+    detected.push({
+      filename: definition.filename,
+      format: definition.format,
+      path: join(productDir, definition.filename),
+      raw,
+    });
+  }
+  const [file] = detected;
+  if (file === undefined) return { kind: CONFIG_FILE_READ_KIND.ABSENT };
+  if (detected.length > 1) {
+    return { kind: CONFIG_FILE_READ_KIND.AMBIGUOUS, detected: detected.map((candidate) => candidate.filename) };
+  }
+  return { kind: CONFIG_FILE_READ_KIND.OK, file };
 }
 
 function createGitReleaseEndpointReader(git: GitDependencies): ReleaseEndpointReader {

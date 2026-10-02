@@ -7,6 +7,7 @@ import {
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_FILESYSTEM_RECORD_TYPE,
   SPEC_TREE_PATH_OWNERSHIP_RESULT_KIND,
+  type NamingSchemaSelection,
   type SpecTreeNode,
   type SpecTreeSnapshot,
   type SpecTreeSourceEntry,
@@ -101,7 +102,10 @@ export interface ReleaseEndpointDeclaration {
 }
 
 /** Spec-tree source entries for the committed paths of one release endpoint, in ordinal order. */
-export function* committedSpecTreeEntries(paths: readonly string[]): Iterable<SpecTreeSourceEntry> {
+export function* committedSpecTreeEntries(
+  paths: readonly string[],
+  selection: NamingSchemaSelection,
+): Iterable<SpecTreeSourceEntry> {
   const prefix = `${SPEC_TREE_DIRECTORY}/`;
   const files = paths.filter((path) => path.startsWith(prefix)).map((path) => path.slice(prefix.length));
   const directories = new Set<string>();
@@ -112,7 +116,7 @@ export function* committedSpecTreeEntries(paths: readonly string[]): Iterable<Sp
       directory = posix.dirname(directory);
     }
   }
-  yield* walkCommittedDirectory("", undefined, directories, new Set(files));
+  yield* walkCommittedDirectory("", undefined, directories, new Set(files), selection);
 }
 
 function* walkCommittedDirectory(
@@ -120,6 +124,7 @@ function* walkCommittedDirectory(
   parentId: string | undefined,
   directories: ReadonlySet<string>,
   files: ReadonlySet<string>,
+  selection: NamingSchemaSelection,
 ): Iterable<SpecTreeSourceEntry> {
   const children = [
     ...[...directories].filter((path) => parentDirectory(path) === directory).map((path) => ({
@@ -136,7 +141,7 @@ function* walkCommittedDirectory(
         : SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
       relativePath: child.path,
       ...(parentId === undefined ? {} : { parentId }),
-    });
+    }, { selection });
     if (sourceEntry !== null) yield sourceEntry;
     if (child.directory && (sourceEntry === null || sourceEntry.type === SPEC_TREE_ENTRY_TYPE.NODE)) {
       yield* walkCommittedDirectory(
@@ -144,6 +149,7 @@ function* walkCommittedDirectory(
         sourceEntry?.type === SPEC_TREE_ENTRY_TYPE.NODE ? sourceEntry.id : parentId,
         directories,
         files,
+        selection,
       );
     }
   }

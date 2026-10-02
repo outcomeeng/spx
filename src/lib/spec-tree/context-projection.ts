@@ -3,7 +3,13 @@ import { posix } from "node:path";
 import MarkdownIt from "markdown-it";
 import { parseDocument, stringify } from "yaml";
 
-import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "./config";
+import {
+  KIND_REGISTRY,
+  resolveKindOpeningKeyword,
+  SPEC_TREE_CONFIG,
+  SPEC_TREE_GRAMMAR,
+  SPEC_TREE_KIND_CATEGORY,
+} from "./config";
 import {
   compareSpecContextOrdinal,
   SPEC_CONTEXT_ROLE,
@@ -132,17 +138,21 @@ function requiredDocumentPath(path: string | undefined, owner: string): string {
  */
 function nodeSelection(
   node: SpecTreeNode,
+  parent: SpecTreeNode | undefined,
   mode: SpecContextMode,
   roles: readonly SpecContextRoleBinding[],
   existingPaths: ReadonlySet<string>,
 ): readonly SpecContextSelection[] {
   const path = node.ref?.path;
   if (path === undefined || !existingPaths.has(path)) return [];
+  if (KIND_REGISTRY[node.kind].category === SPEC_TREE_KIND_CATEGORY.PRODUCT) {
+    return [{ path, mode, roles, opening: PRODUCT_OPENING, migrationFallback: true, scanCitations: true }];
+  }
   return [{
     path,
     mode,
     roles,
-    opening: KIND_REGISTRY[node.kind].opening,
+    opening: resolveKindOpeningKeyword(node.kind, parent?.kind),
     outputNode: true,
     scanCitations: true,
   }];
@@ -354,7 +364,7 @@ export function selectSpecContextDocuments(
       .map((child) => ({ child, path: nodeDirectory(child) }));
     return [...decisions, ...children].sort(compareSpecContextTreeEntries);
   };
-  const walk = (node: SpecTreeNode | undefined, depth: number): void => {
+  const walk = (node: SpecTreeNode | undefined, depth: number, parent?: SpecTreeNode): void => {
     const directory = node === undefined ? SPEC_TREE_CONFIG.ROOT_DIRECTORY : nodeDirectory(node);
     const mode = node === undefined
       ? SPEC_CONTEXT_MODE.FULL
@@ -372,14 +382,14 @@ export function selectSpecContextDocuments(
           migrationFallback: true,
           scanCitations: true,
         }]
-        : nodeSelection(node, mode, roles.nodes.get(node.id), existingPaths)),
+        : nodeSelection(node, parent, mode, roles.nodes.get(node.id), existingPaths)),
     );
     if (discovery || roles.containers.has(node?.id)) {
       reference(`${directory}/${ISSUE_FILENAME}`, roles.containers.get(node?.id));
     }
     explicitArtifacts(node, directory);
     for (const entry of structuralEntries(node, depth)) {
-      if ("child" in entry) walk(entry.child, depth + 1);
+      if ("child" in entry) walk(entry.child, depth + 1, node);
       else {result.push({
           path: entry.path,
           mode: discovery ? SPEC_CONTEXT_MODE.DIGEST : SPEC_CONTEXT_MODE.FULL,

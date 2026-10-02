@@ -1,9 +1,9 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { withoutGitEnvironment } from "@/lib/git/environment";
-import { NODE_SUFFIXES, SPEC_TREE_CONFIG, SPEC_TREE_SUPERSEDED_NODE_SUFFIXES } from "@/lib/spec-tree";
+import { createFilesystemSpecTreeSource, NODE_SUFFIXES, readSpecTree, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { LINT_POLICY_BASE_REFS, LINT_POLICY_MANIFESTS, parseLintPolicyManifest } from "./lint-policy-constants";
 
 const TEST_LINT_DEBT_NODE_MANIFEST_FILE = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.file;
@@ -33,35 +33,11 @@ function manifestExists(productDir: string, file: string): boolean {
   return existsSync(join(productDir, file));
 }
 
-function findDeprecatedSpecNodePath(productDir: string): string | undefined {
-  function visit(relativeDirectory: string): string | undefined {
-    const absoluteDirectory = join(productDir, relativeDirectory);
-    for (const entry of readdirSync(absoluteDirectory, { withFileTypes: true })) {
-      if (!entry.isDirectory()) {
-        continue;
-      }
-
-      const childPath = `${relativeDirectory}/${entry.name}`;
-
-      if (SPEC_TREE_SUPERSEDED_NODE_SUFFIXES.some((suffix) => entry.name.endsWith(suffix))) {
-        return childPath;
-      }
-
-      const nestedDeprecatedPath = visit(childPath);
-      if (nestedDeprecatedPath !== undefined) {
-        return nestedDeprecatedPath;
-      }
-    }
-
-    return undefined;
-  }
-
-  const specTreeRootPath = join(productDir, SPEC_TREE_ROOT);
-  if (!existsSync(specTreeRootPath)) {
-    return undefined;
-  }
-
-  return visit(SPEC_TREE_ROOT);
+/** The first spec-tree entry the product's methodology declaration classifies superseded, if any. */
+async function findDeprecatedSpecNodePath(productDir: string): Promise<string | undefined> {
+  const snapshot = await readSpecTree({ source: createFilesystemSpecTreeSource({ productDir }) });
+  const superseded = snapshot.superseded.at(0);
+  return superseded?.ref?.path ?? superseded?.id;
 }
 
 function assertManifestEntries(
@@ -192,8 +168,8 @@ function assertManifestDoesNotGrow(
   }
 }
 
-function rejectDeprecatedSpecNodeSuffixes(productDir: string): void {
-  const deprecatedSpecNodePath = findDeprecatedSpecNodePath(productDir);
+async function rejectDeprecatedSpecNodeSuffixes(productDir: string): Promise<void> {
+  const deprecatedSpecNodePath = await findDeprecatedSpecNodePath(productDir);
   if (deprecatedSpecNodePath !== undefined) {
     throw new Error(
       `Spec Tree nodes must use current suffixes only: ${deprecatedSpecNodePath}`,
@@ -233,9 +209,9 @@ function validateTestOwnedConstantDebtNodeManifest(productDir: string, entries: 
   );
 }
 
-export function validateLintPolicy(productDir: string): LintPolicyResult {
+export async function validateLintPolicy(productDir: string): Promise<LintPolicyResult> {
   try {
-    rejectDeprecatedSpecNodeSuffixes(productDir);
+    await rejectDeprecatedSpecNodeSuffixes(productDir);
 
     const manifestExistence = [
       manifestExists(productDir, TEST_LINT_DEBT_NODE_MANIFEST_FILE),

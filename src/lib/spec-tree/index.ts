@@ -2,18 +2,23 @@ import type { Dirent } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { parseDocument } from "yaml";
+
+import { readConfigSectionFromReadResult, readProductConfigFile } from "@/config/index";
+import { METHODOLOGY_SECTION, validateMethodologyConfig } from "@/config/methodology";
+import type { Result } from "@/config/types";
+
 import type {
   DecisionKind,
   Kind,
   KindDefinition,
   NamingSchemaVersion,
-  NodeKind,
+  NodeDirectoryKind,
+  ProductKind,
   SpecTreeKindCategory,
   SpecTreeNodeState,
 } from "./config";
 import {
-  canonicalNamingSchemaVersion,
-  compareNamingSchemaVersions,
   KIND_REGISTRY,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
@@ -23,15 +28,22 @@ import {
   SPEC_TREE_NODE_STATE,
 } from "./config";
 import { compareSpecContextOrdinal } from "./context-manifest";
+import { splitSpecContextFrontMatter } from "./context-projection";
+import { deriveNamingSchemaSelection, type NamingSchemaSelection, versionsBeforeTarget } from "./naming-schema-selection";
 export {
-  canonicalNamingSchemaVersion,
   compareNamingSchemaVersions,
   compareNumericVersionIdentifiers,
   DECISION_KINDS,
   DECISION_SUFFIXES,
+  isSpecTreeKind,
   KIND_REGISTRY,
+  newestNamingSchemaVersion,
   NODE_KINDS,
   NODE_SUFFIXES,
+  PRODUCT_KINDS,
+  resolveKindAdmittedChildren,
+  resolveKindOpeningForm,
+  resolveKindOpeningKeyword,
   SPEC_TREE_ADR_KIND,
   SPEC_TREE_CONFIG,
   SPEC_TREE_CONFIG_FIELDS,
@@ -39,27 +51,40 @@ export {
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_KIND_CATEGORY,
+  SPEC_TREE_KIND_SELECTOR,
+  SPEC_TREE_METHODOLOGY_LINE,
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_NAMING_VERSION,
   SPEC_TREE_NODE_STATE,
+  SPEC_TREE_OPENING_KEYWORD,
+  SPEC_TREE_PRODUCT_KIND,
   SPEC_TREE_SECTION,
-  SPEC_TREE_SUPERSEDED_NODE_SUFFIXES,
   specTreeConfigDescriptor,
-  supersededNodeSuffixes,
-  unknownSpecTreeKindError,
+  specTreeKindsFieldError,
 } from "./config";
 export type {
   DecisionKind,
   Kind,
   KindDefinition,
   NamingSchemaVersion,
+  NodeDirectoryKind,
   NodeKind,
+  ProductKind,
   SpecTreeConfig,
   SpecTreeEntryType,
   SpecTreeEvidenceGrammar,
   SpecTreeKindCategory,
   SpecTreeNodeState,
+  SpecTreeOrderGrammar,
 } from "./config";
+export {
+  deriveNamingSchemaSelection,
+  formatUnreadMethodologyLineError,
+  namingSchemaMethodologyLines,
+  supersededNodeSuffixes,
+  versionsBeforeTarget,
+} from "./naming-schema-selection";
+export type { NamingSchemaDeclaration, NamingSchemaSelection } from "./naming-schema-selection";
 export {
   compareSpecContextOrdinal,
   compareSpecContextRoleBindings,
@@ -222,11 +247,13 @@ type SpecTreeSourceEntryBase = {
 export type SpecTreeProductSourceEntry = SpecTreeSourceEntryBase & {
   readonly type: typeof SPEC_TREE_ENTRY_TYPE.PRODUCT;
   readonly title: string;
+  /** The `kind` the product spec's front matter must declare, when its naming-schema version requires one. */
+  readonly frontMatterKind?: ProductKind;
 };
 
 export type SpecTreeNodeSourceEntry = SpecTreeSourceEntryBase & {
   readonly type: typeof SPEC_TREE_ENTRY_TYPE.NODE;
-  readonly kind: NodeKind;
+  readonly kind: NodeDirectoryKind;
   readonly order: number;
   readonly slug: string;
   readonly parentId?: string;
@@ -269,6 +296,8 @@ export type SpecTreeSourceEntry =
 
 export type SpecTreeSource = {
   entries(): AsyncIterable<SpecTreeSourceEntry>;
+  /** The naming-schema versions this source's records classify against, and those its product's methodology declaration selects. */
+  namingSchemaSelection(): Promise<NamingSchemaSelection>;
   readText?(ref: SpecTreeSourceRef): Promise<string>;
 };
 
@@ -289,7 +318,7 @@ export type FilesystemSpecTreeSourceOptions = {
 
 export type SpecTreeRecognitionOptions = {
   readonly registry?: SpecTreeRegistry;
-  readonly schemaVersions?: readonly NamingSchemaVersion[];
+  readonly selection: NamingSchemaSelection;
 };
 
 export type SpecTreeEvidenceProvider = {
@@ -323,7 +352,7 @@ export type SpecTreeDecision = {
 
 export type SpecTreeNode = {
   readonly id: string;
-  readonly kind: NodeKind;
+  readonly kind: NodeDirectoryKind;
   readonly order: number;
   readonly slug: string;
   readonly parentId?: string;
@@ -346,7 +375,7 @@ export type SpecTreeSnapshot = {
 
 export type SpecTreeProjectedNode = {
   readonly id: string;
-  readonly kind: NodeKind;
+  readonly kind: NodeDirectoryKind;
   readonly order: number;
   readonly slug: string;
   readonly state: SpecTreeNodeState;
@@ -388,11 +417,13 @@ const SPEC_TREE_ORDER_SEPARATOR = SPEC_TREE_GRAMMAR.ORDER.SEPARATOR;
 const SPEC_TREE_ORDER_RADIX = 10;
 const SPEC_TREE_TEXT_ENCODING = "utf8";
 const SPEC_TREE_EMPTY_RELATIVE_PATH = "";
-const SPEC_TREE_ORDER_PATTERN = SPEC_TREE_GRAMMAR.ORDER.PATTERN;
 const SPEC_TREE_MIN_EVIDENCE_PATH_SEGMENTS = 2;
 const SPEC_TREE_PARENT_SEGMENT_OFFSET = 2;
 const SPEC_TREE_FIRST_EVIDENCE_MARKER_INDEX = 1;
 const SPEC_TREE_EXACTLY_ONE_EVIDENCE_MARKER = 1;
+const SPEC_TREE_SINGLE_PRODUCT = 1;
+const SPEC_TREE_FRONT_MATTER_KIND_KEY = "kind";
+const SPEC_TREE_LIST_SEPARATOR = ", ";
 
 export function getKindDefinition<K extends keyof SpecTreeRegistry>(
   kind: K,
@@ -401,13 +432,46 @@ export function getKindDefinition<K extends keyof SpecTreeRegistry>(
   return registry[kind];
 }
 
+/**
+ * The selection a product's `methodology` configuration section derives over the
+ * naming-schema versions: the section is validated as methodology configuration, then
+ * its declaration selects the versions a read accepts.
+ */
+export function resolveNamingSchemaSelection(
+  methodologySection: unknown,
+  versions: readonly NamingSchemaVersion[] = SPEC_TREE_NAMING_SCHEMA_VERSIONS,
+): Result<NamingSchemaSelection> {
+  const methodology = validateMethodologyConfig(methodologySection ?? {});
+  if (!methodology.ok) return { ok: false, error: `${METHODOLOGY_SECTION}: ${methodology.error}` };
+  return deriveNamingSchemaSelection(versions, methodology.value);
+}
+
+async function resolveFilesystemNamingSchemaSelection(
+  productDir: string,
+  versions: readonly NamingSchemaVersion[],
+): Promise<NamingSchemaSelection> {
+  const configFile = await readProductConfigFile(productDir);
+  if (!configFile.ok) throw new Error(configFile.error);
+  const section = readConfigSectionFromReadResult(configFile.value, METHODOLOGY_SECTION);
+  if (!section.ok) throw new Error(section.error);
+  const selection = resolveNamingSchemaSelection(section.value, versions);
+  if (!selection.ok) throw new Error(`Cannot read the spec tree under ${productDir}: ${selection.error}`);
+  return selection.value;
+}
+
 export function createFilesystemSpecTreeSource(options: FilesystemSpecTreeSourceOptions): SpecTreeSource {
   const registry = options.registry ?? KIND_REGISTRY;
   const schemaVersions = options.schemaVersions ?? SPEC_TREE_NAMING_SCHEMA_VERSIONS;
   const includePath = options.includePath ?? includeEverySpecTreePath;
+  let selection: Promise<NamingSchemaSelection> | undefined;
+  const namingSchemaSelection = (): Promise<NamingSchemaSelection> => {
+    selection ??= resolveFilesystemNamingSchemaSelection(options.productDir, schemaVersions);
+    return selection;
+  };
 
   return {
-    entries: () => readFilesystemSourceEntries(options.productDir, registry, schemaVersions, includePath),
+    entries: () => readFilesystemSourceEntries(options.productDir, registry, namingSchemaSelection, includePath),
+    namingSchemaSelection,
     async readText(ref: SpecTreeSourceRef): Promise<string> {
       if (ref.path === undefined) {
         throw new Error("Filesystem source refs require a path");
@@ -419,28 +483,24 @@ export function createFilesystemSpecTreeSource(options: FilesystemSpecTreeSource
 
 export function recognizeSpecTreeFilesystemEntry(
   record: SpecTreeFilesystemRecord,
-  options: SpecTreeRecognitionOptions = {},
+  options: SpecTreeRecognitionOptions,
 ): SpecTreeSourceEntry | null {
   const registry = options.registry ?? KIND_REGISTRY;
-  const schemaVersions = options.schemaVersions ?? SPEC_TREE_NAMING_SCHEMA_VERSIONS;
+  const selection = options.selection;
   const name = readLastPathSegment(record.relativePath);
 
-  if (record.type === SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE && isProductFile(record.relativePath)) {
-    return {
-      type: SPEC_TREE_ENTRY_TYPE.PRODUCT,
-      id: record.relativePath,
-      title: stripSuffix(name, SPEC_TREE_CONFIG.PRODUCT.SUFFIX),
-      ref: sourceRefForRelativePath(record.relativePath),
-    };
+  if (record.type === SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE && isProductRootPath(record.relativePath)) {
+    const productEntry = recognizeProductRecord(record, name, selection);
+    if (productEntry !== null) return productEntry;
   }
 
   if (record.type === SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY) {
-    return recognizeDirectoryRecord(record, name, registry, schemaVersions);
+    return recognizeDirectoryRecord(record, name, registry, selection);
   }
 
   if (
     record.parentId !== undefined
-    && isEvidenceFile(record.relativePath, canonicalNamingSchemaVersion(schemaVersions))
+    && selection.selected.some((version) => isEvidenceFile(record.relativePath, version))
   ) {
     return {
       type: SPEC_TREE_ENTRY_TYPE.EVIDENCE,
@@ -453,8 +513,10 @@ export function recognizeSpecTreeFilesystemEntry(
 
   const decisionMatch = matchKindSuffix(name, registry, SPEC_TREE_KIND_CATEGORY.DECISION);
   if (decisionMatch === null) return null;
-  const parsed = parseOrderedSlug(stripSuffix(name, decisionMatch.definition.suffix));
-  if (parsed === null) return null;
+  const parsed = selection.selected
+    .map((version) => parseOrderedSlug(stripSuffix(name, decisionMatch.definition.suffix), version.order.PATTERN))
+    .find((candidate) => candidate !== null);
+  if (parsed === undefined || parsed === null) return null;
   return {
     type: SPEC_TREE_ENTRY_TYPE.DECISION,
     kind: decisionMatch.kind as DecisionKind,
@@ -466,30 +528,61 @@ export function recognizeSpecTreeFilesystemEntry(
   };
 }
 
+function productTitle(name: string, version: NamingSchemaVersion): string | null {
+  if (!name.endsWith(version.productSuffix)) return null;
+  const title = stripSuffix(name, version.productSuffix);
+  return title.length === 0 ? null : title;
+}
+
+function recognizeProductRecord(
+  record: SpecTreeFilesystemRecord,
+  name: string,
+  selection: NamingSchemaSelection,
+): SpecTreeSourceEntry | null {
+  for (const version of selection.selected) {
+    const title = productTitle(name, version);
+    if (title === null) continue;
+    return {
+      type: SPEC_TREE_ENTRY_TYPE.PRODUCT,
+      id: record.relativePath,
+      title,
+      ref: sourceRefForRelativePath(record.relativePath),
+      ...(version.productKind === undefined ? {} : { frontMatterKind: version.productKind }),
+    };
+  }
+  const superseded = versionsBeforeTarget(selection).find((version) => productTitle(name, version) !== null);
+  if (superseded === undefined) return null;
+  return {
+    type: SPEC_TREE_ENTRY_TYPE.SUPERSEDED,
+    id: record.relativePath,
+    version: superseded.version,
+    ref: sourceRefForRelativePath(record.relativePath),
+  };
+}
+
 function recognizeDirectoryRecord(
   record: SpecTreeFilesystemRecord,
   name: string,
   registry: SpecTreeRegistry,
-  schemaVersions: readonly NamingSchemaVersion[],
+  selection: NamingSchemaSelection,
 ): SpecTreeSourceEntry | null {
-  const canonical = canonicalNamingSchemaVersion(schemaVersions);
-  const canonicalMatch = matchNodeSuffixFromVersion(name, canonical);
-  if (canonicalMatch !== null) {
-    const kind = nodeKindForSuffix(canonicalMatch.suffix, registry);
-    if (kind !== null) {
-      return {
-        type: SPEC_TREE_ENTRY_TYPE.NODE,
-        kind,
-        id: record.relativePath,
-        order: canonicalMatch.parsed.order,
-        slug: canonicalMatch.parsed.slug,
-        parentId: record.parentId,
-        ref: sourceRefForNode(record.relativePath, canonicalMatch.parsed.slug),
-      };
-    }
+  for (const version of selection.selected) {
+    const match = matchNodeSuffixFromVersion(name, version);
+    if (match === null) continue;
+    const kind = nodeDirectoryKindForSuffix(match.suffix, registry);
+    if (kind === null) continue;
+    return {
+      type: SPEC_TREE_ENTRY_TYPE.NODE,
+      kind,
+      id: record.relativePath,
+      order: match.parsed.order,
+      slug: match.parsed.slug,
+      parentId: record.parentId,
+      ref: sourceRefForNode(record.relativePath, match.parsed.slug, version.specFileSuffix),
+    };
   }
 
-  const supersededVersion = matchSupersededNodeVersion(name, schemaVersions, canonical);
+  const supersededVersion = matchSupersededNodeVersion(name, selection);
   if (supersededVersion !== null) {
     return {
       type: SPEC_TREE_ENTRY_TYPE.SUPERSEDED,
@@ -504,9 +597,9 @@ function recognizeDirectoryRecord(
 
   // An ordered-form attempt: parseOrderedSlug folds the unrecognized suffix into the
   // slug component (it splits on the first separator and accepts any non-empty slug),
-  // so a `{NN}-{slug}{unknown-suffix}` directory parses here and is retained as invalid
-  // rather than dropped.
-  if (parseOrderedSlug(name) !== null) {
+  // so a `{NN}-{slug}{unknown-suffix}` directory parses here under some version's index
+  // form and is retained as invalid rather than dropped.
+  if (selection.versions.some((version) => parseOrderedSlug(name, version.order.PATTERN) !== null)) {
     return {
       type: SPEC_TREE_ENTRY_TYPE.INVALID,
       id: record.relativePath,
@@ -526,7 +619,7 @@ type NodeSuffixMatch = {
 function matchNodeSuffixFromVersion(name: string, version: NamingSchemaVersion): NodeSuffixMatch | null {
   for (const suffix of version.nodeSuffixes) {
     if (!name.endsWith(suffix)) continue;
-    const parsed = parseOrderedSlug(stripSuffix(name, suffix));
+    const parsed = parseOrderedSlug(stripSuffix(name, suffix), version.order.PATTERN);
     if (parsed !== null) {
       return { suffix, parsed };
     }
@@ -534,39 +627,27 @@ function matchNodeSuffixFromVersion(name: string, version: NamingSchemaVersion):
   return null;
 }
 
-function nodeKindForSuffix(suffix: string, registry: SpecTreeRegistry): NodeKind | null {
+function nodeDirectoryKindForSuffix(suffix: string, registry: SpecTreeRegistry): NodeDirectoryKind | null {
   for (const [kind, definition] of Object.entries(registry) as Array<[Kind, KindDefinition<Kind>]>) {
-    if (definition.category === SPEC_TREE_KIND_CATEGORY.NODE && definition.suffix === suffix) {
-      return kind as NodeKind;
+    if (definition.category === SPEC_TREE_KIND_CATEGORY.DECISION) continue;
+    if (definition.suffix === suffix) {
+      return kind as NodeDirectoryKind;
     }
   }
   return null;
 }
 
-function matchSupersededNodeVersion(
-  name: string,
-  schemaVersions: readonly NamingSchemaVersion[],
-  canonical: NamingSchemaVersion,
-): string | null {
-  const canonicalSuffixes = new Set(canonical.nodeSuffixes);
-  const priorVersions = schemaVersions
-    .filter((version) => version !== canonical)
-    .sort((left, right) => compareNamingSchemaVersions(right, left));
-
-  for (const version of priorVersions) {
-    for (const suffix of version.nodeSuffixes) {
-      if (canonicalSuffixes.has(suffix)) continue;
-      if (name.endsWith(suffix) && parseOrderedSlug(stripSuffix(name, suffix)) !== null) {
-        return version.version;
-      }
-    }
-  }
-  return null;
+function matchSupersededNodeVersion(name: string, selection: NamingSchemaSelection): string | null {
+  if (selection.selected.some((version) => matchNodeSuffixFromVersion(name, version) !== null)) return null;
+  const superseded = versionsBeforeTarget(selection).find((version) =>
+    matchNodeSuffixFromVersion(name, version) !== null
+  );
+  return superseded?.version ?? null;
 }
 
 export async function readSpecTree(options: SpecTreeOptions): Promise<SpecTreeSnapshot> {
   const entries = await collectSourceEntries(options.source);
-  const product = entries.find(isProductEntry) ?? null;
+  const product = await requireSingleProduct(entries.filter(isProductEntry), options.source);
   const superseded = entries.filter(isSupersededEntry);
   const residual = entries.filter(isInvalidEntry);
   const evidenceByParent = groupEvidence(entries.filter(isEvidenceEntry));
@@ -618,6 +699,57 @@ export async function readSpecTree(options: SpecTreeOptions): Promise<SpecTreeSn
     residual,
     entries,
   };
+}
+
+/**
+ * The tree's one root product spec, or none: a tree holding more than one fails naming
+ * each, and a product spec whose naming-schema version requires a front-matter `kind`
+ * fails naming its file when the front matter does not declare that kind.
+ */
+async function requireSingleProduct(
+  products: readonly SpecTreeProductSourceEntry[],
+  source: SpecTreeSource,
+): Promise<SpecTreeProductSourceEntry | null> {
+  if (products.length > SPEC_TREE_SINGLE_PRODUCT) {
+    throw new Error(
+      `A spec tree holds exactly one root product spec; found ${products.length}: ${
+        products.map((product) => product.id).join(SPEC_TREE_LIST_SEPARATOR)
+      }`,
+    );
+  }
+  const product = products.at(0);
+  if (product === undefined) return null;
+  if (product.frontMatterKind !== undefined) {
+    await requireProductFrontMatterKind(product, product.frontMatterKind, source);
+  }
+  return product;
+}
+
+async function requireProductFrontMatterKind(
+  product: SpecTreeProductSourceEntry,
+  kind: ProductKind,
+  source: SpecTreeSource,
+): Promise<void> {
+  const path = product.ref?.path ?? product.id;
+  if (product.ref === undefined || source.readText === undefined) {
+    throw new Error(`Root product spec ${path} must declare kind: ${kind}, and its source cannot read it`);
+  }
+  const declared = frontMatterKind(await source.readText(product.ref), path);
+  if (declared !== kind) {
+    throw new Error(`Root product spec ${path} must declare kind: ${kind} in its front matter`);
+  }
+}
+
+function frontMatterKind(text: string, path: string): unknown {
+  const { frontMatter } = splitSpecContextFrontMatter(text, path);
+  if (frontMatter === undefined) return undefined;
+  const document = parseDocument(frontMatter);
+  if (document.errors.length > 0) {
+    throw new Error(`Invalid front matter in ${path}: ${document.errors[0]?.message}`);
+  }
+  const metadata: unknown = document.toJS();
+  if (typeof metadata !== "object" || metadata === null || Array.isArray(metadata)) return undefined;
+  return (metadata as Readonly<Record<string, unknown>>)[SPEC_TREE_FRONT_MATTER_KIND_KEY];
 }
 
 export function projectSpecTree(snapshot: SpecTreeSnapshot): SpecTreeProjection {
@@ -768,14 +900,17 @@ function compareOrderedEntries(left: OrderedEntry, right: OrderedEntry): number 
 async function* readFilesystemSourceEntries(
   productDir: string,
   registry: SpecTreeRegistry,
-  schemaVersions: readonly NamingSchemaVersion[],
+  namingSchemaSelection: () => Promise<NamingSchemaSelection>,
   includePath: SpecTreePathInclusionPredicate,
 ): AsyncIterable<SpecTreeSourceEntry> {
-  yield* walkFilesystemDirectory({
-    absolutePath: join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY),
+  const absolutePath = join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+  const rootEntries = await readDirectoryEntries(absolutePath);
+  if (rootEntries === null) return;
+  yield* walkFilesystemEntries(rootEntries, {
+    absolutePath,
     relativePath: SPEC_TREE_EMPTY_RELATIVE_PATH,
     registry,
-    schemaVersions,
+    selection: await namingSchemaSelection(),
     includePath,
   });
 }
@@ -784,20 +919,24 @@ type FilesystemWalkContext = {
   readonly absolutePath: string;
   readonly relativePath: string;
   readonly registry: SpecTreeRegistry;
-  readonly schemaVersions: readonly NamingSchemaVersion[];
+  readonly selection: NamingSchemaSelection;
   readonly includePath: SpecTreePathInclusionPredicate;
   readonly parentId?: string;
 };
 
-async function* walkFilesystemDirectory(context: FilesystemWalkContext): AsyncIterable<SpecTreeSourceEntry> {
-  let entries;
+async function readDirectoryEntries(absolutePath: string): Promise<readonly Dirent[] | null> {
   try {
-    entries = await readdir(context.absolutePath, { withFileTypes: true });
+    return await readdir(absolutePath, { withFileTypes: true });
   } catch (error) {
-    if (isFileNotFound(error)) return;
+    if (isFileNotFound(error)) return null;
     throw error;
   }
+}
 
+async function* walkFilesystemEntries(
+  entries: readonly Dirent[],
+  context: FilesystemWalkContext,
+): AsyncIterable<SpecTreeSourceEntry> {
   const sortedEntries = [...entries].sort((left, right) => compareSpecContextOrdinal(left.name, right.name));
   for (const entry of sortedEntries) {
     const relativePath = joinSpecTreePath(context.relativePath, entry.name);
@@ -809,16 +948,19 @@ async function* walkFilesystemDirectory(context: FilesystemWalkContext): AsyncIt
 
     const sourceEntry = recognizeSpecTreeFilesystemEntry(
       { type: recordType, relativePath, parentId: context.parentId },
-      { registry: context.registry, schemaVersions: context.schemaVersions },
+      { registry: context.registry, selection: context.selection },
     );
     if (sourceEntry !== null) yield sourceEntry;
 
     if (entry.isDirectory() && shouldDescendIntoDirectory(sourceEntry)) {
-      yield* walkFilesystemDirectory({
-        absolutePath: join(context.absolutePath, entry.name),
+      const absolutePath = join(context.absolutePath, entry.name);
+      const childEntries = await readDirectoryEntries(absolutePath);
+      if (childEntries === null) continue;
+      yield* walkFilesystemEntries(childEntries, {
+        absolutePath,
         relativePath,
         registry: context.registry,
-        schemaVersions: context.schemaVersions,
+        selection: context.selection,
         includePath: context.includePath,
         parentId: childParentId(context, sourceEntry),
       });
@@ -862,11 +1004,11 @@ type OrderedSlug = {
   readonly slug: string;
 };
 
-function parseOrderedSlug(value: string): OrderedSlug | null {
+function parseOrderedSlug(value: string, orderPattern: RegExp): OrderedSlug | null {
   const separatorIndex = value.indexOf(SPEC_TREE_ORDER_SEPARATOR);
   if (separatorIndex <= ORDER_COMPARISON_EQUAL) return null;
   const orderText = value.slice(0, separatorIndex);
-  if (!SPEC_TREE_ORDER_PATTERN.test(orderText)) return null;
+  if (!orderPattern.test(orderText)) return null;
   const slug = value.slice(separatorIndex + SPEC_TREE_ORDER_SEPARATOR.length);
   if (slug.length === 0) return null;
   return {
@@ -875,8 +1017,8 @@ function parseOrderedSlug(value: string): OrderedSlug | null {
   };
 }
 
-function isProductFile(relativePath: string): boolean {
-  return !relativePath.includes(SPEC_TREE_PATH_SEPARATOR) && relativePath.endsWith(SPEC_TREE_CONFIG.PRODUCT.SUFFIX);
+function isProductRootPath(relativePath: string): boolean {
+  return !relativePath.includes(SPEC_TREE_PATH_SEPARATOR);
 }
 
 function isEvidenceFile(relativePath: string, version: NamingSchemaVersion): boolean {
@@ -931,8 +1073,8 @@ function sourceRefForRelativePath(relativePath: string): SpecTreeSourceRef {
   return { id: path, path };
 }
 
-function sourceRefForNode(relativePath: string, slug: string): SpecTreeSourceRef {
-  return sourceRefForRelativePath(joinSpecTreePath(relativePath, `${slug}.md`));
+function sourceRefForNode(relativePath: string, slug: string, specFileSuffix: string): SpecTreeSourceRef {
+  return sourceRefForRelativePath(joinSpecTreePath(relativePath, `${slug}${specFileSuffix}`));
 }
 
 function stripSuffix(value: string, suffix: string): string {

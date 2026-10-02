@@ -2,41 +2,165 @@ import type { ConfigDescriptor, Result } from "@/config/types";
 
 const SPEC_TREE_KIND_CATEGORY_VALUES = {
   NODE: "node",
+  PRODUCT: "product",
   DECISION: "decision",
 } as const;
 
+/** The registry key of every kind spx reads, each named once; `SPEC_TREE_CONFIG.KINDS` is keyed by these. */
+const SPEC_TREE_KIND_NAME = {
+  ENABLER: "enabler",
+  OUTCOME: "outcome",
+  PRODUCT: "product",
+  SUBSTRATE: "substrate",
+  CAPABILITY: "capability",
+  DOMAIN: "domain",
+  INTERFACE: "interface",
+  SURFACE: "surface",
+  VARIANT: "variant",
+  ADR: "adr",
+  PDR: "pdr",
+} as const;
+
+/** The clause keywords node-kind openings are written with, each named once. */
+export const SPEC_TREE_OPENING_KEYWORD = {
+  PROVIDES: "PROVIDES",
+  SUPPLIES: "SUPPLIES",
+  OWNS: "OWNS",
+  ADAPTS: "ADAPTS",
+  EXPOSES: "EXPOSES",
+  WE_BELIEVE_THAT: "WE BELIEVE THAT",
+  FOR: "FOR",
+  TO: "TO",
+  SO_THAT: "SO THAT",
+  CAN: "CAN",
+  WILL: "WILL",
+  CONTRIBUTING_TO: "CONTRIBUTING TO",
+} as const;
+
+/** How a kind's opening or containment is stated: fixed on the kind, or inherited from the parent kind. */
+export const SPEC_TREE_KIND_SELECTOR = {
+  FIXED: "fixed",
+  INHERIT: "inherit",
+} as const;
+
 const SPEC_TREE_EMPTY_ALIASES = [] as const;
+
+const KEYWORD = SPEC_TREE_OPENING_KEYWORD;
+const SELECTOR = SPEC_TREE_KIND_SELECTOR;
+const KIND_NAME = SPEC_TREE_KIND_NAME;
+
+/** The fixed foundational order of the 4.0 output kinds; each admits its own kind and every kind before it. */
+const SPEC_TREE_OUTPUT_KIND_ORDER = [
+  KIND_NAME.SUBSTRATE,
+  KIND_NAME.CAPABILITY,
+  KIND_NAME.DOMAIN,
+  KIND_NAME.INTERFACE,
+  KIND_NAME.SURFACE,
+] as const;
+
+type SpecTreeOutputKindName = (typeof SPEC_TREE_OUTPUT_KIND_ORDER)[number];
+
+function outputKindAdmits(kind: SpecTreeOutputKindName): readonly string[] {
+  const position = SPEC_TREE_OUTPUT_KIND_ORDER.indexOf(kind);
+  return [...SPEC_TREE_OUTPUT_KIND_ORDER.slice(0, position + 1), KIND_NAME.VARIANT];
+}
+
+function fixedOpening(...form: readonly string[]) {
+  return { selector: SELECTOR.FIXED, form } as const;
+}
+
+function fixedContainment(admits: readonly string[]) {
+  return { selector: SELECTOR.FIXED, admits } as const;
+}
+
+const INHERITED_SELECTOR = { selector: SELECTOR.INHERIT } as const;
 
 export const SPEC_TREE_CONFIG = {
   SECTION: "specTree",
   ROOT_DIRECTORY: "spx",
   PRODUCT: {
-    LABEL: "Product",
     SUFFIX: ".product.md",
   },
   CATEGORY: SPEC_TREE_KIND_CATEGORY_VALUES,
   KINDS: {
-    enabler: {
+    [KIND_NAME.ENABLER]: {
       category: SPEC_TREE_KIND_CATEGORY_VALUES.NODE,
       label: "Enabler",
       suffix: ".enabler",
       aliases: SPEC_TREE_EMPTY_ALIASES,
-      opening: "PROVIDES",
+      opening: fixedOpening(KEYWORD.PROVIDES, KEYWORD.SO_THAT, KEYWORD.CAN),
+      containment: fixedContainment([KIND_NAME.ENABLER]),
     },
-    outcome: {
+    [KIND_NAME.OUTCOME]: {
       category: SPEC_TREE_KIND_CATEGORY_VALUES.NODE,
       label: "Outcome",
       suffix: ".outcome",
       aliases: SPEC_TREE_EMPTY_ALIASES,
-      opening: "WE BELIEVE THAT",
+      opening: fixedOpening(KEYWORD.WE_BELIEVE_THAT, KEYWORD.WILL, KEYWORD.CONTRIBUTING_TO),
+      containment: fixedContainment([KIND_NAME.ENABLER, KIND_NAME.OUTCOME]),
     },
-    adr: {
+    [KIND_NAME.PRODUCT]: {
+      category: SPEC_TREE_KIND_CATEGORY_VALUES.PRODUCT,
+      label: "Product",
+      suffix: ".product",
+      aliases: SPEC_TREE_EMPTY_ALIASES,
+      containment: fixedContainment([...SPEC_TREE_OUTPUT_KIND_ORDER, KIND_NAME.PRODUCT]),
+    },
+    [KIND_NAME.SUBSTRATE]: {
+      category: SPEC_TREE_KIND_CATEGORY_VALUES.NODE,
+      label: "Substrate",
+      suffix: ".substrate",
+      aliases: SPEC_TREE_EMPTY_ALIASES,
+      opening: fixedOpening(KEYWORD.SUPPLIES, KEYWORD.SO_THAT, KEYWORD.CAN),
+      containment: fixedContainment(outputKindAdmits(KIND_NAME.SUBSTRATE)),
+    },
+    [KIND_NAME.CAPABILITY]: {
+      category: SPEC_TREE_KIND_CATEGORY_VALUES.NODE,
+      label: "Capability",
+      suffix: ".capability",
+      aliases: SPEC_TREE_EMPTY_ALIASES,
+      opening: fixedOpening(KEYWORD.PROVIDES, KEYWORD.SO_THAT, KEYWORD.CAN),
+      containment: fixedContainment(outputKindAdmits(KIND_NAME.CAPABILITY)),
+    },
+    [KIND_NAME.DOMAIN]: {
+      category: SPEC_TREE_KIND_CATEGORY_VALUES.NODE,
+      label: "Domain",
+      suffix: ".domain",
+      aliases: SPEC_TREE_EMPTY_ALIASES,
+      opening: fixedOpening(KEYWORD.OWNS, KEYWORD.SO_THAT, KEYWORD.CAN),
+      containment: fixedContainment(outputKindAdmits(KIND_NAME.DOMAIN)),
+    },
+    [KIND_NAME.INTERFACE]: {
+      category: SPEC_TREE_KIND_CATEGORY_VALUES.NODE,
+      label: "Interface",
+      suffix: ".interface",
+      aliases: SPEC_TREE_EMPTY_ALIASES,
+      opening: fixedOpening(KEYWORD.ADAPTS, KEYWORD.FOR, KEYWORD.SO_THAT, KEYWORD.CAN),
+      containment: fixedContainment(outputKindAdmits(KIND_NAME.INTERFACE)),
+    },
+    [KIND_NAME.SURFACE]: {
+      category: SPEC_TREE_KIND_CATEGORY_VALUES.NODE,
+      label: "Surface",
+      suffix: ".surface",
+      aliases: SPEC_TREE_EMPTY_ALIASES,
+      opening: fixedOpening(KEYWORD.EXPOSES, KEYWORD.TO, KEYWORD.SO_THAT, KEYWORD.CAN),
+      containment: fixedContainment(outputKindAdmits(KIND_NAME.SURFACE)),
+    },
+    [KIND_NAME.VARIANT]: {
+      category: SPEC_TREE_KIND_CATEGORY_VALUES.NODE,
+      label: "Variant",
+      suffix: ".variant",
+      aliases: SPEC_TREE_EMPTY_ALIASES,
+      opening: INHERITED_SELECTOR,
+      containment: INHERITED_SELECTOR,
+    },
+    [KIND_NAME.ADR]: {
       category: SPEC_TREE_KIND_CATEGORY_VALUES.DECISION,
       label: "ADR",
       suffix: ".adr.md",
       aliases: SPEC_TREE_EMPTY_ALIASES,
     },
-    pdr: {
+    [KIND_NAME.PDR]: {
       category: SPEC_TREE_KIND_CATEGORY_VALUES.DECISION,
       label: "PDR",
       suffix: ".pdr.md",
@@ -58,31 +182,85 @@ export const KIND_REGISTRY = SPEC_TREE_CONFIG.KINDS;
 export type Kind = keyof typeof KIND_REGISTRY;
 export type KindDefinition<K extends Kind> = (typeof KIND_REGISTRY)[K];
 
-export type NodeKind = {
-  [K in Kind]: (typeof KIND_REGISTRY)[K]["category"] extends typeof SPEC_TREE_KIND_CATEGORY.NODE ? K : never;
+type KindOfCategory<C extends SpecTreeKindCategory> = {
+  [K in Kind]: (typeof KIND_REGISTRY)[K]["category"] extends C ? K : never;
 }[Kind];
 
-export type DecisionKind = {
-  [K in Kind]: (typeof KIND_REGISTRY)[K]["category"] extends typeof SPEC_TREE_KIND_CATEGORY.DECISION ? K : never;
-}[Kind];
+export type NodeKind = KindOfCategory<typeof SPEC_TREE_KIND_CATEGORY.NODE>;
+export type ProductKind = KindOfCategory<typeof SPEC_TREE_KIND_CATEGORY.PRODUCT>;
+export type DecisionKind = KindOfCategory<typeof SPEC_TREE_KIND_CATEGORY.DECISION>;
 
-export const SPEC_TREE_ADR_KIND: DecisionKind = "adr";
+/** A kind a node directory carries: an output or variant kind, or a nested product. */
+export type NodeDirectoryKind = NodeKind | ProductKind;
 
-export const NODE_KINDS: readonly NodeKind[] = (Object.keys(KIND_REGISTRY) as Kind[]).filter(
-  (k): k is NodeKind => KIND_REGISTRY[k].category === SPEC_TREE_KIND_CATEGORY.NODE,
-);
+export const SPEC_TREE_ADR_KIND: DecisionKind = KIND_NAME.ADR;
 
-export const DECISION_KINDS: readonly DecisionKind[] = (Object.keys(KIND_REGISTRY) as Kind[]).filter(
-  (k): k is DecisionKind => KIND_REGISTRY[k].category === SPEC_TREE_KIND_CATEGORY.DECISION,
-);
+/** The product kind's registry key, which a 4.0 root spec's front matter declares as its `kind`. */
+export const SPEC_TREE_PRODUCT_KIND: ProductKind = KIND_NAME.PRODUCT;
+
+function kindsOfCategory<C extends SpecTreeKindCategory>(category: C): readonly KindOfCategory<C>[] {
+  return (Object.keys(KIND_REGISTRY) as Kind[]).filter(
+    (kind): kind is KindOfCategory<C> => KIND_REGISTRY[kind].category === category,
+  );
+}
+
+export const NODE_KINDS: readonly NodeKind[] = kindsOfCategory(SPEC_TREE_KIND_CATEGORY.NODE);
+export const PRODUCT_KINDS: readonly ProductKind[] = kindsOfCategory(SPEC_TREE_KIND_CATEGORY.PRODUCT);
+export const DECISION_KINDS: readonly DecisionKind[] = kindsOfCategory(SPEC_TREE_KIND_CATEGORY.DECISION);
 
 export const NODE_SUFFIXES: readonly string[] = NODE_KINDS.map((k) => KIND_REGISTRY[k].suffix);
 export const DECISION_SUFFIXES: readonly string[] = DECISION_KINDS.map((k) => KIND_REGISTRY[k].suffix);
+
+export function isSpecTreeKind(value: string): value is Kind {
+  return Object.hasOwn(KIND_REGISTRY, value);
+}
+
+/**
+ * The opening form a node kind's spec opens with — its ordered clause keywords, the first
+ * of which is its opening keyword — resolved through parent-kind inheritance. A product
+ * or decision kind carries no opening, and an inheriting kind with no resolvable parent
+ * resolves none.
+ */
+export function resolveKindOpeningForm(kind: Kind, parentKind?: Kind): readonly string[] | undefined {
+  const definition: KindDefinition<Kind> = KIND_REGISTRY[kind];
+  if (!("opening" in definition)) return undefined;
+  if (definition.opening.selector === SELECTOR.FIXED) return definition.opening.form;
+  if (parentKind === undefined || parentKind === kind) return undefined;
+  return resolveKindOpeningForm(parentKind);
+}
+
+/** The opening keyword a node kind's Digest reads: the first clause keyword of its resolved opening form. */
+export function resolveKindOpeningKeyword(kind: Kind, parentKind?: Kind): string | undefined {
+  return resolveKindOpeningForm(kind, parentKind)?.at(0);
+}
+
+/**
+ * The child kinds a kind admits, resolved through parent-kind inheritance: an inheriting
+ * kind admits its parent kind's set less itself. A decision kind admits none, and an
+ * inheriting kind with no resolvable parent resolves none.
+ */
+export function resolveKindAdmittedChildren(kind: Kind, parentKind?: Kind): readonly Kind[] | undefined {
+  const definition: KindDefinition<Kind> = KIND_REGISTRY[kind];
+  if (!("containment" in definition)) return undefined;
+  if (definition.containment.selector === SELECTOR.FIXED) {
+    return definition.containment.admits.filter(isSpecTreeKind);
+  }
+  if (parentKind === undefined || parentKind === kind) return undefined;
+  return resolveKindAdmittedChildren(parentKind)?.filter((admitted) => admitted !== kind);
+}
 
 /** The coordination notes a node may carry, each named once; the grammar lists them as `COORDINATION_NOTES`. */
 export const SPEC_TREE_COORDINATION_NOTE = {
   PLAN: "PLAN.md",
   ISSUES: "ISSUES.md",
+} as const;
+
+/** The methodology lines a naming-schema version serves, each named once. */
+export const SPEC_TREE_METHODOLOGY_LINE = {
+  V3_0: "3.0",
+  V3_1: "3.1",
+  V3_2: "3.2",
+  V4_0: "4.0",
 } as const;
 
 export const SPEC_TREE_GRAMMAR = {
@@ -101,7 +279,8 @@ export const SPEC_TREE_GRAMMAR = {
   RUNNERS: ["vitest", "playwright", "subprocess"],
   ORDER: {
     SEPARATOR: "-",
-    PATTERN: /^\d+$/,
+    DIGIT_RUNS_PATTERN: /^\d+(?:\.\d+)*$/,
+    TWO_DIGIT_PATTERN: /^[1-9]\d(?:\.\d{2})*$/,
   },
   PATH_SEPARATOR: "/",
   COORDINATION_NOTE: SPEC_TREE_COORDINATION_NOTE,
@@ -124,10 +303,11 @@ export const SPEC_TREE_GRAMMAR = {
     RUNS_DIRECTORY_NAME: "runs",
   },
   SPEC_FILE: {
-    CANONICAL_SUFFIX: ".spec.md",
-    PRIOR_SUFFIX: ".md",
+    SPEC_DOCUMENT_SUFFIX: ".spec.md",
+    PLAIN_SUFFIX: ".md",
   },
-  PRIOR_NODE_SUFFIXES: [".capability", ".feature", ".story"],
+  UNREGISTERED_NODE_SUFFIXES: [".feature", ".story"],
+  METHODOLOGY_LINE: SPEC_TREE_METHODOLOGY_LINE,
 } as const;
 
 export const SPEC_TREE_EVIDENCE_FILE = SPEC_TREE_GRAMMAR.EVIDENCE;
@@ -139,13 +319,22 @@ export type SpecTreeEvidenceGrammar = {
   readonly TAILS: Readonly<Record<string, readonly string[]>>;
   readonly SEGMENT_SEPARATOR: string;
 };
-export type SpecTreeOrderGrammar = typeof SPEC_TREE_GRAMMAR.ORDER;
+
+export type SpecTreeOrderGrammar = {
+  readonly SEPARATOR: string;
+  readonly PATTERN: RegExp;
+};
 
 export type NamingSchemaVersion = {
   readonly version: string;
+  /** The `outcomeeng/methodology` lines this version encodes; empty for a version that serves no declaration. */
+  readonly methodologyLines: readonly string[];
   readonly nodeSuffixes: readonly string[];
   readonly decisionSuffixes: readonly string[];
+  /** The suffix of the root product spec directly under `spx/`. */
   readonly productSuffix: string;
+  /** The `kind` the root product spec's front matter declares, for a version whose root carries no suffix of its own. */
+  readonly productKind?: ProductKind;
   readonly evidence: SpecTreeEvidenceGrammar;
   readonly runners: readonly string[];
   readonly order: SpecTreeOrderGrammar;
@@ -157,40 +346,78 @@ export type NamingSchemaVersion = {
 };
 
 const NAMING_SCHEMA_VERSION_ID = {
-  PRIOR_NODES: "1.0.0",
-  PRIOR_SPEC: "2.0.0",
-  CANONICAL: "3.0.0",
+  PRE_3: "1.0.0",
+  METHODOLOGY_3: "2.0.0",
+  METHODOLOGY_4: "4.0.0",
 } as const;
 
-function namingSchemaVersion(
-  version: string,
-  nodeSuffixes: readonly string[],
-  specFileSuffix: string,
-): NamingSchemaVersion {
+type NamingSchemaVersionForms = {
+  readonly version: string;
+  readonly methodologyLines: readonly string[];
+  readonly nodeSuffixes: readonly string[];
+  readonly productSuffix: string;
+  readonly productKind?: ProductKind;
+  readonly orderPattern: RegExp;
+  readonly coordinationNotes: readonly string[];
+  readonly specFileSuffix: string;
+};
+
+function namingSchemaVersion(forms: NamingSchemaVersionForms): NamingSchemaVersion {
   return {
-    version,
-    nodeSuffixes,
+    version: forms.version,
+    methodologyLines: forms.methodologyLines,
+    nodeSuffixes: forms.nodeSuffixes,
     decisionSuffixes: DECISION_SUFFIXES,
-    productSuffix: SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX,
+    productSuffix: forms.productSuffix,
+    ...(forms.productKind === undefined ? {} : { productKind: forms.productKind }),
     evidence: SPEC_TREE_GRAMMAR.EVIDENCE,
     runners: SPEC_TREE_GRAMMAR.RUNNERS,
-    order: SPEC_TREE_GRAMMAR.ORDER,
+    order: { SEPARATOR: SPEC_TREE_GRAMMAR.ORDER.SEPARATOR, PATTERN: forms.orderPattern },
     pathSeparator: SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
-    coordinationNotes: SPEC_TREE_GRAMMAR.COORDINATION_NOTES,
+    coordinationNotes: forms.coordinationNotes,
     eval: SPEC_TREE_GRAMMAR.EVAL,
     probe: SPEC_TREE_GRAMMAR.PROBE,
-    specFileSuffix,
+    specFileSuffix: forms.specFileSuffix,
   };
 }
 
+function kindSuffixes(kinds: readonly Kind[]): readonly string[] {
+  return kinds.map((kind) => KIND_REGISTRY[kind].suffix);
+}
+
 export const SPEC_TREE_NAMING_SCHEMA_VERSIONS: readonly NamingSchemaVersion[] = [
-  namingSchemaVersion(
-    NAMING_SCHEMA_VERSION_ID.PRIOR_NODES,
-    SPEC_TREE_GRAMMAR.PRIOR_NODE_SUFFIXES,
-    SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX,
-  ),
-  namingSchemaVersion(NAMING_SCHEMA_VERSION_ID.PRIOR_SPEC, NODE_SUFFIXES, SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX),
-  namingSchemaVersion(NAMING_SCHEMA_VERSION_ID.CANONICAL, NODE_SUFFIXES, SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX),
+  namingSchemaVersion({
+    version: NAMING_SCHEMA_VERSION_ID.PRE_3,
+    methodologyLines: [],
+    nodeSuffixes: [...kindSuffixes([KIND_NAME.CAPABILITY]), ...SPEC_TREE_GRAMMAR.UNREGISTERED_NODE_SUFFIXES],
+    productSuffix: SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX,
+    orderPattern: SPEC_TREE_GRAMMAR.ORDER.DIGIT_RUNS_PATTERN,
+    coordinationNotes: SPEC_TREE_GRAMMAR.COORDINATION_NOTES,
+    specFileSuffix: SPEC_TREE_GRAMMAR.SPEC_FILE.PLAIN_SUFFIX,
+  }),
+  namingSchemaVersion({
+    version: NAMING_SCHEMA_VERSION_ID.METHODOLOGY_3,
+    methodologyLines: [
+      SPEC_TREE_METHODOLOGY_LINE.V3_0,
+      SPEC_TREE_METHODOLOGY_LINE.V3_1,
+      SPEC_TREE_METHODOLOGY_LINE.V3_2,
+    ],
+    nodeSuffixes: kindSuffixes([KIND_NAME.ENABLER, KIND_NAME.OUTCOME]),
+    productSuffix: SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX,
+    orderPattern: SPEC_TREE_GRAMMAR.ORDER.DIGIT_RUNS_PATTERN,
+    coordinationNotes: SPEC_TREE_GRAMMAR.COORDINATION_NOTES,
+    specFileSuffix: SPEC_TREE_GRAMMAR.SPEC_FILE.PLAIN_SUFFIX,
+  }),
+  namingSchemaVersion({
+    version: NAMING_SCHEMA_VERSION_ID.METHODOLOGY_4,
+    methodologyLines: [SPEC_TREE_METHODOLOGY_LINE.V4_0],
+    nodeSuffixes: kindSuffixes([KIND_NAME.PRODUCT, ...SPEC_TREE_OUTPUT_KIND_ORDER, KIND_NAME.VARIANT]),
+    productSuffix: SPEC_TREE_GRAMMAR.SPEC_FILE.SPEC_DOCUMENT_SUFFIX,
+    productKind: SPEC_TREE_PRODUCT_KIND,
+    orderPattern: SPEC_TREE_GRAMMAR.ORDER.TWO_DIGIT_PATTERN,
+    coordinationNotes: [SPEC_TREE_COORDINATION_NOTE.ISSUES],
+    specFileSuffix: SPEC_TREE_GRAMMAR.SPEC_FILE.SPEC_DOCUMENT_SUFFIX,
+  }),
 ];
 
 const VERSION_COMPONENT_SEPARATOR = ".";
@@ -228,7 +455,8 @@ export function compareNamingSchemaVersions(left: NamingSchemaVersion, right: Na
   return compareNumericVersionIdentifiers(left.version, right.version);
 }
 
-export function canonicalNamingSchemaVersion(versions: readonly NamingSchemaVersion[]): NamingSchemaVersion {
+/** The newest member of a naming-schema version tuple under semantic-version ordering. */
+export function newestNamingSchemaVersion(versions: readonly NamingSchemaVersion[]): NamingSchemaVersion {
   const first = versions.at(0);
   if (first === undefined) {
     throw new Error("Naming-schema version tuple must declare at least one version");
@@ -239,30 +467,11 @@ export function canonicalNamingSchemaVersion(versions: readonly NamingSchemaVers
   );
 }
 
-export function supersededNodeSuffixes(versions: readonly NamingSchemaVersion[]): readonly string[] {
-  const canonical = canonicalNamingSchemaVersion(versions);
-  const canonicalSuffixes = new Set(canonical.nodeSuffixes);
-  const superseded = new Set<string>();
-  for (const version of versions) {
-    if (version === canonical) {
-      continue;
-    }
-    for (const suffix of version.nodeSuffixes) {
-      if (!canonicalSuffixes.has(suffix)) {
-        superseded.add(suffix);
-      }
-    }
-  }
-  return [...superseded];
-}
-
-export const SPEC_TREE_NAMING_VERSION: string = canonicalNamingSchemaVersion(SPEC_TREE_NAMING_SCHEMA_VERSIONS).version;
-export const SPEC_TREE_SUPERSEDED_NODE_SUFFIXES: readonly string[] = supersededNodeSuffixes(
-  SPEC_TREE_NAMING_SCHEMA_VERSIONS,
-);
+/** The dedicated naming-schema version: the newest identifier of the version tuple. */
+export const SPEC_TREE_NAMING_VERSION: string = newestNamingSchemaVersion(SPEC_TREE_NAMING_SCHEMA_VERSIONS).version;
 
 export const SPEC_TREE_ENTRY_TYPE = {
-  PRODUCT: "product",
+  PRODUCT: SPEC_TREE_KIND_CATEGORY_VALUES.PRODUCT,
   NODE: SPEC_TREE_KIND_CATEGORY_VALUES.NODE,
   DECISION: SPEC_TREE_KIND_CATEGORY_VALUES.DECISION,
   EVIDENCE: "evidence",
@@ -281,135 +490,36 @@ export const SPEC_TREE_NODE_STATE = {
 
 export type SpecTreeNodeState = (typeof SPEC_TREE_NODE_STATE)[keyof typeof SPEC_TREE_NODE_STATE];
 
+/**
+ * The resolved `specTree` section, which presents the registry's kind definitions. A product
+ * configuration file never supplies them: the methodology declaration selects the kinds a
+ * read admits, so a `specTree.kinds` field fails resolution.
+ */
 export type SpecTreeConfig = {
-  readonly [SPEC_TREE_CONFIG_FIELDS.KINDS]: { readonly [K in Kind]?: KindDefinition<K> };
+  readonly [SPEC_TREE_CONFIG_FIELDS.KINDS]: typeof KIND_REGISTRY;
 };
 
 export const SPEC_TREE_SECTION = SPEC_TREE_CONFIG.SECTION;
 
-function isKind(value: string): value is Kind {
-  return Object.hasOwn(KIND_REGISTRY, value);
+/** Diagnostic for a `specTree.kinds` field, which no product configuration may carry. */
+export function specTreeKindsFieldError(): string {
+  return `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} is not a configuration field: the methodology declaration selects the kinds a read admits, and kind vocabulary is not configurable`;
 }
 
-function buildDefaults(): SpecTreeConfig {
-  return { kinds: { ...KIND_REGISTRY } };
-}
-
-function buildConfigFromKindNames(kindNames: readonly Kind[]): SpecTreeConfig {
-  const entries = kindNames.map((kind) => [kind, KIND_REGISTRY[kind]] as const);
-  return { kinds: Object.fromEntries(entries) };
-}
+const SPEC_TREE_DEFAULTS: SpecTreeConfig = { [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY };
 
 function validate(value: unknown): Result<SpecTreeConfig> {
-  if (typeof value !== "object" || value === null) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return { ok: false, error: `${SPEC_TREE_SECTION} section must be an object` };
   }
-  const candidate = value as { [SPEC_TREE_CONFIG_FIELDS.KINDS]?: unknown };
-  const kindValue = candidate[SPEC_TREE_CONFIG_FIELDS.KINDS];
-  if (Array.isArray(kindValue)) {
-    return validateKindList(kindValue);
+  if (Object.hasOwn(value, SPEC_TREE_CONFIG_FIELDS.KINDS)) {
+    return { ok: false, error: specTreeKindsFieldError() };
   }
-  if (
-    typeof kindValue !== "object"
-    || kindValue === null
-  ) {
-    return {
-      ok: false,
-      error:
-        `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} must be an array of registry kind names or an object with registry metadata`,
-    };
-  }
-
-  return validateKindDefinitionMap(kindValue as Record<string, unknown>);
-}
-
-export function unknownSpecTreeKindError(kind: string): string {
-  return `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} contains unknown kind "${kind}"`;
-}
-
-function validateKindList(kinds: readonly unknown[]): Result<SpecTreeConfig> {
-  const kindNames: Kind[] = [];
-  for (const entry of kinds) {
-    if (typeof entry !== "string") {
-      return {
-        ok: false,
-        error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} entries must be registry kind names`,
-      };
-    }
-    if (!isKind(entry)) {
-      return { ok: false, error: unknownSpecTreeKindError(entry) };
-    }
-    kindNames.push(entry);
-  }
-
-  const duplicateKinds = kindNames.filter((kind, index) => kindNames.indexOf(kind) !== index);
-  if (duplicateKinds.length > 0) {
-    return {
-      ok: false,
-      error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} contains duplicate kind "${duplicateKinds[0]}"`,
-    };
-  }
-
-  return { ok: true, value: buildConfigFromKindNames(kindNames) };
-}
-
-function validateKindDefinitionMap(kindEntries: Record<string, unknown>): Result<SpecTreeConfig> {
-  const entries: Array<[Kind, KindDefinition<Kind>]> = [];
-  for (const [key, entry] of Object.entries(kindEntries)) {
-    if (!isKind(key)) {
-      return { ok: false, error: unknownSpecTreeKindError(key) };
-    }
-    if (typeof entry !== "object" || entry === null) {
-      return {
-        ok: false,
-        error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS}.${key} must be an object with registry metadata`,
-      };
-    }
-    const def = entry as { category?: unknown; suffix?: unknown };
-    const expected = KIND_REGISTRY[key];
-    if (def.category !== expected.category) {
-      return {
-        ok: false,
-        error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS}.${key}.category must be "${expected.category}"`,
-      };
-    }
-    if ((entry as { label?: unknown }).label !== expected.label) {
-      return {
-        ok: false,
-        error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS}.${key}.label must be "${expected.label}"`,
-      };
-    }
-    if (def.suffix !== expected.suffix) {
-      return {
-        ok: false,
-        error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS}.${key}.suffix must be "${expected.suffix}"`,
-      };
-    }
-    const aliases = (entry as { aliases?: unknown }).aliases;
-    if (!Array.isArray(aliases) || aliases.some((alias) => typeof alias !== "string")) {
-      return {
-        ok: false,
-        error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS}.${key}.aliases must be an array of strings`,
-      };
-    }
-    if (
-      aliases.length !== expected.aliases.length || aliases.some((alias, index) => alias !== expected.aliases[index])
-    ) {
-      return {
-        ok: false,
-        error:
-          `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS}.${key}.aliases must match the registry definition`,
-      };
-    }
-    entries.push([key, expected]);
-  }
-
-  const kinds = Object.fromEntries(entries) as SpecTreeConfig["kinds"];
-  return { ok: true, value: { kinds } };
+  return { ok: true, value: SPEC_TREE_DEFAULTS };
 }
 
 export const specTreeConfigDescriptor: ConfigDescriptor<SpecTreeConfig> = {
   section: SPEC_TREE_SECTION,
-  defaults: buildDefaults(),
+  defaults: SPEC_TREE_DEFAULTS,
   validate,
 };
