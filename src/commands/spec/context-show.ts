@@ -106,7 +106,8 @@ async function projectContext(
       pending.push(specContextCitedSelection(path));
     }
   }
-  for (const error of digestFailures.values()) throw error;
+  const firstFailure = digestFailures.values().next();
+  if (firstFailure.done !== true) throw firstFailure.value;
   const additional = [...projected.values()].filter(({ selection }) => !structuralPaths.has(selection.path))
     .sort((left, right) => compareSpecContextOrdinal(left.selection.path, right.selection.path));
   return [
