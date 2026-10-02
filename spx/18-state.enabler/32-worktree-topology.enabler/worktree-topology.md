@@ -1,6 +1,6 @@
 # Worktree Topology
 
-PROVIDES repository main-checkout designation (`isMainCheckout`, `mainCheckoutPath`) and default-branch resolution over a `GitFacts` probe, per [`spx/18-state.enabler/32-worktree-topology.enabler/21-main-checkout-classifier.adr.md`](21-main-checkout-classifier.adr.md) and [`spx/15-worktree-management.pdr.md`](../../15-worktree-management.pdr.md)
+PROVIDES repository main-checkout designation (`isMainCheckout`, `mainCheckoutPath`) and default-branch resolution over a `GitFacts` probe, per [`spx/18-state.enabler/32-worktree-topology.enabler/21-main-checkout-classifier.adr.md`](21-main-checkout-classifier.adr.md) and [`spx/15-worktree-management.pdr.md`](spx/15-worktree-management.pdr.md)
 SO THAT session handoff's base gate and the precommit dist-rebuild gate
 CAN gate main-checkout-only behaviour and resolve the `origin/<default>` tip without each re-deriving git topology
 
