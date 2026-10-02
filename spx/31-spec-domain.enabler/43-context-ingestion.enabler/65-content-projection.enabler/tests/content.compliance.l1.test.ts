@@ -78,6 +78,24 @@ describe("spec context content boundaries", () => {
     });
   });
 
+  it("fails projection naming an output-node spec, in Full and in Digest, whose terminated front matter is not valid YAML or is not a mapping", async () => {
+    await withRichContextEnv(async (env, paths) => {
+      // The target spec projects in Full and its higher-index sibling in
+      // Digest; both are output nodes, so their front matter is read. Each
+      // case restores the document it broke before breaking the next one.
+      for (const block of Object.values(specContextUnreadableFrontMatterBlocks())) {
+        for (const specPath of [paths.targetSpecPath, paths.higherIndexSiblingSpecPath]) {
+          await env.writeRaw(specPath, `---\n${block}---\n${paths.sourceText[specPath]}`);
+          expect(await contextShowFailure({ targets: [paths.targetId], cwd: env.productDir }), specPath).toContain(
+            specPath,
+          );
+          await env.writeRaw(specPath, paths.sourceText[specPath]);
+        }
+      }
+      expect(await contextShowFailure({ targets: [paths.targetId], cwd: env.productDir })).toBeUndefined();
+    });
+  });
+
   it("selects the opening only as the first paragraph starting at column one with the keyword and one space", async () => {
     await withRichContextEnv(async (env, paths) => {
       const opening = KIND_REGISTRY[env.fixture.peer.kind].opening;
