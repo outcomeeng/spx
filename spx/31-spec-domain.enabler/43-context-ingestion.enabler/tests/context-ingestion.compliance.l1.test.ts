@@ -7,7 +7,7 @@ import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodo
 import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
 import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
-import { SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
+import { SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
 import {
   CONFIG_TEST_GENERATOR,
   generatedHarnessMethodologyConfig,
@@ -28,6 +28,8 @@ import {
   methodologyTreeConfig,
   runSpecDescriptor,
   specTreeKindsConfig,
+  withEmptyContextTreeEnv,
+  withProductlessContextTreeEnv,
   withRichContextEnv,
   writeMethodologyTree,
 } from "@testing/harnesses/spec/context";
@@ -50,6 +52,30 @@ describe("spec context ingestion writes nothing to standard output after a failu
         expect(resolved.exitCode, resolved.stderr).toBeUndefined();
         expect(resolved.stdout).toContain(paths.targetSpecPath);
       }
+    });
+  });
+
+  it("writes no list or show output, targeted or targetless, when the tree holds a node and a root decision but no product spec", async () => {
+    await withProductlessContextTreeEnv(specTreeKindsConfig(), async (env, paths) => {
+      for (
+        const argv of [
+          SPEC_CONTEXT_COMMAND_PATH.SHOW,
+          [...SPEC_CONTEXT_COMMAND_PATH.SHOW, paths.nodeTargetPath],
+          [...SPEC_CONTEXT_COMMAND_PATH.LIST, paths.nodeTargetPath],
+        ]
+      ) {
+        const run = await runSpecDescriptor({ productDir: env.productDir }, ...argv);
+        expect(run.stdout, argv.join(" ")).toHaveLength(0);
+        expect(run.exitCode, argv.join(" ")).toBe(1);
+        expect(run.stderr, argv.join(" ")).toContain(SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR);
+      }
+    });
+    // The same targetless show over a tree holding no product spec, node, or
+    // decision succeeds, so the failure above is the nodes' and decision's doing.
+    await withEmptyContextTreeEnv(specTreeKindsConfig(), async (env) => {
+      const run = await runSpecDescriptor({ productDir: env.productDir }, ...SPEC_CONTEXT_COMMAND_PATH.SHOW);
+      expect(run.exitCode, run.stderr).toBeUndefined();
+      expect(run.stderr).not.toContain(SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR);
     });
   });
 
