@@ -31,7 +31,6 @@ export const SPEC_DOMAIN_CLI = {
   CONTEXT_COMMAND: "context",
   CONTEXT_SHOW_COMMAND: "show",
   CONTEXT_LIST_COMMAND: "list",
-  RETIRED_APPLY_COMMAND: "apply",
   JSON_OPTION: "--json",
   METHODOLOGY_OPTION: "--methodology",
   CODING_AGENT_OPTION: "--coding-agent",
