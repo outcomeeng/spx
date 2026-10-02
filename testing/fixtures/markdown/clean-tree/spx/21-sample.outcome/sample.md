@@ -12,5 +12,5 @@ CONTRIBUTING TO product growth
 
 ## References
 
-See [child outcome](32-child.outcome/child.md) for details.
-See [sibling outcome](43-sibling.outcome/sibling.md) for related work.
+See [child outcome](spx/21-sample.outcome/32-child.outcome/child.md) for details.
+See [sibling outcome](spx/21-sample.outcome/43-sibling.outcome/sibling.md) for related work.
