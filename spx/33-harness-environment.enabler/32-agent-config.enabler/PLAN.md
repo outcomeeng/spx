@@ -2,7 +2,7 @@
 
 ## Harness vocabulary guard
 
-Before applying this plan, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
+Before applying this plan, read [spx/12-agent-harness.pdr.md](spx/12-agent-harness.pdr.md) and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
 
 ## Purpose
 
@@ -15,7 +15,7 @@ Reconcile Claude Code and Codex configuration from configured harness environmen
 
 ## Governing decision
 
-`spx/13-agent-capability-lifecycle.pdr.md` requires native projections for explicitly enabled and available Claude Code, Codex, and Pi coding agents while keeping version selection, methodology identity, and user-scope configuration outside this writer.
+[spx/13-agent-capability-lifecycle.pdr.md](spx/13-agent-capability-lifecycle.pdr.md) requires native projections for explicitly enabled and available Claude Code, Codex, and Pi coding agents while keeping version selection, methodology identity, and user-scope configuration outside this writer.
 
 ## Implementation notes
 
