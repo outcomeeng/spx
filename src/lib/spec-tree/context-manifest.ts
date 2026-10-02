@@ -1,7 +1,7 @@
 /**
- * Pure vocabulary and computation for the spec context manifest: entry-class
- * role registries, the read-class group order, the schema-version-2 bundle
- * shape, per-target read-set composition into one deduplicated bundle,
+ * Pure vocabulary and computation for the spec context manifest: the role
+ * registry naming how `show` selects each entry, the schema-version-4 manifest
+ * shape, composition of the shared selection's entries into one manifest,
  * document decoding primitives and exact-path diagnostics.
  *
  * Filesystem and git reads stay in the command handler; every function here is
@@ -11,94 +11,54 @@
  */
 
 import type { MethodologyIdentity } from "@/config/methodology";
-import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "./config";
+import { SPEC_TREE_GRAMMAR } from "./config";
 
 /** Manifest schema version; changes exactly when the manifest shape changes incompatibly. */
-export const SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION = 3;
+export const SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION = 4;
 
-/** Roles whose entries a consumer reads; the read class. */
-export const SPEC_CONTEXT_READ_ROLE = {
+/**
+ * Every relation through which `show` selects an entry for one target. Each
+ * role names exactly one selection mode, so a manifest role states how `show`
+ * renders the entry for that target.
+ */
+export const SPEC_CONTEXT_ROLE = {
   PRODUCT: "product",
   ANCESTOR: "ancestor",
   TARGET: "target",
   DECISION: "decision",
   LOWER_INDEX_SIBLING: "lower-index-sibling",
-  COORDINATION: "coordination",
-  CITED_DECISION: "cited-decision",
-  LIFECYCLE_OVERLAY: "lifecycle-overlay",
-} as const;
-
-export type SpecContextReadRole = (typeof SPEC_CONTEXT_READ_ROLE)[keyof typeof SPEC_CONTEXT_READ_ROLE];
-
-/** Total group order of the read class; each target's read sequence is ordered by these groups. */
-export const SPEC_CONTEXT_READ_ROLE_ORDER: readonly SpecContextReadRole[] = [
-  SPEC_CONTEXT_READ_ROLE.PRODUCT,
-  SPEC_CONTEXT_READ_ROLE.ANCESTOR,
-  SPEC_CONTEXT_READ_ROLE.TARGET,
-  SPEC_CONTEXT_READ_ROLE.DECISION,
-  SPEC_CONTEXT_READ_ROLE.LOWER_INDEX_SIBLING,
-  SPEC_CONTEXT_READ_ROLE.COORDINATION,
-  SPEC_CONTEXT_READ_ROLE.CITED_DECISION,
-  SPEC_CONTEXT_READ_ROLE.LIFECYCLE_OVERLAY,
-] as const;
-
-/** Roles whose entries the manifest names without a read obligation; the listed class. */
-export const SPEC_CONTEXT_LISTED_ROLE = {
-  EVIDENCE: "evidence",
-  GUIDE: "guide",
-  OVERLAY: "overlay",
   SAME_INDEX_SIBLING: "same-index-sibling",
   HIGHER_INDEX_SIBLING: "higher-index-sibling",
+  IMMEDIATE_CHILD: "immediate-child",
+  OUTCOME_RECORD: "outcome-record",
+  KNOWLEDGE_INDEX: "knowledge-index",
+  COORDINATION: "coordination",
+  CITED_DECISION: "cited-decision",
 } as const;
 
-export type SpecContextListedRole = (typeof SPEC_CONTEXT_LISTED_ROLE)[keyof typeof SPEC_CONTEXT_LISTED_ROLE];
+export type SpecContextRole = (typeof SPEC_CONTEXT_ROLE)[keyof typeof SPEC_CONTEXT_ROLE];
 
-/** Directory holding product-local skill overlays, projected from the grammar relative to the product root. */
-export const SPEC_CONTEXT_LOCAL_OVERLAY_DIRECTORY =
-  `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.DIRECTORY_NAME}`;
+/** Total order of the role domain; one entry's bindings for one target follow it. */
+export const SPEC_CONTEXT_ROLE_ORDER: readonly SpecContextRole[] = Object.values(SPEC_CONTEXT_ROLE);
 
-/** Full path of the one overlay with a read obligation — the merge-lifecycle overlay — projected from the grammar. */
-export const SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH =
-  `${SPEC_CONTEXT_LOCAL_OVERLAY_DIRECTORY}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.LIFECYCLE_FILENAME}`;
-
-/** Whether `path` names a local overlay: a markdown file directly inside the overlay directory. */
-export function isLocalOverlayPath(path: string): boolean {
-  const prefix = `${SPEC_CONTEXT_LOCAL_OVERLAY_DIRECTORY}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}`;
-  if (!path.startsWith(prefix) || !path.endsWith(SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.EXTENSION)) return false;
-  return !path.slice(prefix.length).includes(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
-}
-
-/** One target's role claim on a read document. */
+/** One target's role claim on a selected entry. */
 export interface SpecContextRoleBinding {
   readonly target: string;
-  readonly role: SpecContextReadRole;
+  readonly role: SpecContextRole;
 }
 
-/** One target's role claim on a listed entry. */
-export interface SpecContextListedRoleBinding {
-  readonly target: string;
-  readonly role: SpecContextListedRole;
-}
-
-export interface SpecContextReadDocument {
+/** One entry `show` selects, with every target-role pair it holds across the requested target set. */
+export interface SpecContextManifestEntry {
   readonly path: string;
-  /** Every target-role pair this document holds across the requested target set. */
   readonly roles: readonly SpecContextRoleBinding[];
   /** Present only on cited-decision entries: every document whose displayed `show` content cites this decision. */
   readonly citedBy?: readonly string[];
 }
 
-export interface SpecContextListedEntry {
-  readonly path: string;
-  /** Every target-role pair this entry holds across the requested target set. */
-  readonly roles: readonly SpecContextListedRoleBinding[];
-}
-
-/** One target's ordered read and listed sequences as path references into the deduplicated entry lists. */
+/** One target's entries as path references into the manifest entry list, in that list's order. */
 export interface SpecContextTargetCoverage {
   readonly target: string;
-  readonly read: readonly string[];
-  readonly listed: readonly string[];
+  readonly entries: readonly string[];
 }
 
 export interface SpecContextManifest {
@@ -107,115 +67,46 @@ export interface SpecContextManifest {
   readonly productDir: string;
   readonly targets: readonly string[];
   readonly bootstrap: boolean;
-  readonly read: readonly SpecContextReadDocument[];
-  readonly listed: readonly SpecContextListedEntry[];
+  readonly entries: readonly SpecContextManifestEntry[];
   readonly coverage: readonly SpecContextTargetCoverage[];
 }
 
-/** One document in a single target's ordered read sequence, before bundle composition. */
-export interface SpecContextTargetReadDocument {
-  readonly role: SpecContextReadRole;
-  readonly path: string;
-  readonly citedBy?: readonly string[];
-}
-
-/** One entry in a single target's listed sequence, before bundle composition. */
-export interface SpecContextTargetListedEntry {
-  readonly role: SpecContextListedRole;
-  readonly path: string;
-}
-
-/** One resolved target's complete read and listed sequences in that target's group order. */
-export interface SpecContextTargetReadSet {
-  readonly target: string;
-  readonly read: readonly SpecContextTargetReadDocument[];
-  readonly listed: readonly SpecContextTargetListedEntry[];
-}
-
-export interface SpecContextBundle {
+/** The target-dependent part of a manifest: its canonical target list, entries, and per-target coverage. */
+export interface SpecContextManifestSelection {
   readonly targets: readonly string[];
-  readonly read: readonly SpecContextReadDocument[];
-  readonly listed: readonly SpecContextListedEntry[];
+  readonly entries: readonly SpecContextManifestEntry[];
   readonly coverage: readonly SpecContextTargetCoverage[];
 }
 
-type MergedReadDocument = {
-  readonly roles: SpecContextRoleBinding[];
-  citedBy: string[] | undefined;
-};
-
-function mergeReadDocument(
-  merged: Map<string, MergedReadDocument>,
-  target: string,
-  document: SpecContextTargetReadDocument,
-): void {
-  const existing = merged.get(document.path);
-  if (existing === undefined) {
-    merged.set(document.path, {
-      roles: [{ target, role: document.role }],
-      citedBy: document.citedBy === undefined ? undefined : [...document.citedBy],
-    });
-    return;
-  }
-  if (!existing.roles.some((binding) => binding.target === target && binding.role === document.role)) {
-    existing.roles.push({ target, role: document.role });
-  }
-  for (const citer of document.citedBy ?? []) {
-    existing.citedBy = existing.citedBy ?? [];
-    if (!existing.citedBy.includes(citer)) existing.citedBy.push(citer);
-  }
-}
-
-function mergeListedEntry(
-  merged: Map<string, SpecContextListedRoleBinding[]>,
-  target: string,
-  entry: SpecContextTargetListedEntry,
-): void {
-  const existing = merged.get(entry.path);
-  if (existing === undefined) {
-    merged.set(entry.path, [{ target, role: entry.role }]);
-    return;
-  }
-  if (!existing.some((binding) => binding.target === target && binding.role === entry.role)) {
-    existing.push({ target, role: entry.role });
-  }
+/** Orders bindings by ordinal target identity, then by the role domain's order. */
+export function compareSpecContextRoleBindings(left: SpecContextRoleBinding, right: SpecContextRoleBinding): number {
+  return compareSpecContextOrdinal(left.target, right.target)
+    || SPEC_CONTEXT_ROLE_ORDER.indexOf(left.role) - SPEC_CONTEXT_ROLE_ORDER.indexOf(right.role);
 }
 
 /**
- * Composes per-target read sets into one deduplicated bundle. The resolved
- * target set is canonically ordered by ordinal identity comparison before
- * composition, so every permutation of the same operands yields byte-identical
- * output. Each shared document appears exactly once, carrying every
- * target-role pair it holds and the union of its citing paths in
- * first-appearance order; per-target coverage keeps each target's own ordered
- * sequences reconstructible by path reference.
+ * Composes the shared selection's entries, in `show` order, into the manifest's
+ * target-dependent part. Targets are ordered by ordinal identity and each
+ * entry's bindings by target and role, so every permutation of the same
+ * operands yields byte-identical output; coverage lists each target's entries
+ * in entry order.
  */
-export function composeSpecContextBundle(sets: readonly SpecContextTargetReadSet[]): SpecContextBundle {
-  const orderedSets = [...sets].sort((left, right) => compareSpecContextOrdinal(left.target, right.target));
-  // Map insertion order is the first-appearance composition order, so the
-  // deduplicated arrays project straight from the merge maps.
-  const readByPath = new Map<string, MergedReadDocument>();
-  const listedByPath = new Map<string, SpecContextListedRoleBinding[]>();
-  for (const set of orderedSets) {
-    for (const document of set.read) {
-      mergeReadDocument(readByPath, set.target, document);
-    }
-    for (const entry of set.listed) {
-      mergeListedEntry(listedByPath, set.target, entry);
-    }
-  }
+export function composeSpecContextManifestSelection(
+  targets: readonly string[],
+  entries: readonly SpecContextManifestEntry[],
+): SpecContextManifestSelection {
+  const orderedTargets = [...new Set(targets)].sort(compareSpecContextOrdinal);
+  const orderedEntries = entries.map((entry) => ({
+    ...entry,
+    roles: [...entry.roles].sort(compareSpecContextRoleBindings),
+  }));
   return {
-    targets: orderedSets.map((set) => set.target),
-    read: [...readByPath.entries()].map(([path, merged]) => ({
-      path,
-      roles: merged.roles,
-      ...(merged.citedBy === undefined ? {} : { citedBy: merged.citedBy }),
-    })),
-    listed: [...listedByPath.entries()].map(([path, roles]) => ({ path, roles })),
-    coverage: orderedSets.map((set) => ({
-      target: set.target,
-      read: set.read.map((document) => document.path),
-      listed: set.listed.map((entry) => entry.path),
+    targets: orderedTargets,
+    entries: orderedEntries,
+    coverage: orderedTargets.map((target) => ({
+      target,
+      entries: orderedEntries.filter(({ roles }) => roles.some((binding) => binding.target === target))
+        .map(({ path }) => path),
     })),
   };
 }

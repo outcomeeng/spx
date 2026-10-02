@@ -97,7 +97,8 @@ export async function resolveContextShow(options: ContextShowOptions): Promise<C
   const input = await readContextInput(options);
   const requested = await resolveContextTargets(input, options.targets);
   if (!requested.ok) return requested;
-  const { entries } = await resolveSpecContextClosure(input, requested.targets);
+  const closure = await resolveSpecContextClosure(input, requested.targets);
+  const entries = closure.entries.map(({ entry }) => entry);
   return {
     ok: true,
     entries: options.methodology === true ? [await methodologyDocument(input, options), ...entries] : entries,

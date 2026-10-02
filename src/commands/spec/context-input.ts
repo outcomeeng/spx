@@ -1,4 +1,4 @@
-import { readdir, readFile, realpath } from "node:fs/promises";
+import { readFile, realpath } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
 
 import type { MethodologyConfig } from "@/config/methodology";
@@ -10,10 +10,8 @@ import { createTrackedPathInclusion, listTrackedPaths } from "@/lib/git/tracked-
 import {
   createFilesystemSpecTreeSource,
   decodeContextDocumentUtf8,
-  isLocalOverlayPath,
   readSpecTree,
   resolveSpecContextTarget,
-  SPEC_CONTEXT_LOCAL_OVERLAY_DIRECTORY,
   type SpecContextAcceptedPath,
   specContextAcceptedPaths,
   specContextOptionalArtifactPaths,
@@ -29,7 +27,6 @@ export interface ContextFileSystem {
   readonly createSpecTreeSource: typeof createFilesystemSpecTreeSource;
   readonly realPath: (path: string) => Promise<string>;
   readonly readFile: (path: string) => Promise<Uint8Array>;
-  readonly readDirectory: (path: string) => Promise<readonly string[]>;
   readonly resolveMethodologyConfig: typeof resolveMethodologyConfig;
 }
 
@@ -37,7 +34,6 @@ export const defaultContextFileSystem: ContextFileSystem = {
   createSpecTreeSource: createFilesystemSpecTreeSource,
   realPath: realpath,
   readFile,
-  readDirectory: readdir,
   resolveMethodologyConfig,
 };
 
@@ -58,7 +54,7 @@ export interface ContextInput {
   /**
    * The product-relative paths a projection may select: the paths git tracks
    * when the product is a git repository, else the snapshot's own entries plus
-   * every optional artifact and overlay present on disk inside the product.
+   * every optional artifact present on disk inside the product.
    */
   readonly existingPaths: ReadonlySet<string>;
   readonly acceptedPaths: readonly SpecContextAcceptedPath[];
@@ -145,9 +141,8 @@ export async function readContextInput(options: ContextInputOptions): Promise<Co
 
 /**
  * Outside a git repository nothing scopes the tree, so presence is the
- * filesystem's: the snapshot's own entries, every optional artifact the
- * projection may select that exists inside the product, and every overlay
- * file directly inside the overlay directory.
+ * filesystem's: the snapshot's own entries and every optional artifact the
+ * projection may select that exists inside the product.
  */
 async function untrackedPresence(
   productDir: string,
@@ -172,16 +167,6 @@ async function untrackedPresence(
   ];
   for (const path of candidates) {
     if (await isPresentInside(path)) present.add(path);
-  }
-  let overlayEntries: readonly string[] = [];
-  try {
-    overlayEntries = await fs.readDirectory(resolve(productDir, SPEC_CONTEXT_LOCAL_OVERLAY_DIRECTORY));
-  } catch (error) {
-    if (!isMissingPath(error)) throw error;
-  }
-  for (const name of overlayEntries) {
-    const path = `${SPEC_CONTEXT_LOCAL_OVERLAY_DIRECTORY}/${name}`;
-    if (isLocalOverlayPath(path) && await isPresentInside(path)) present.add(path);
   }
   return present;
 }
