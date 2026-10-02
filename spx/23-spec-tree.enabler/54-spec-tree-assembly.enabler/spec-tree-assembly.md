@@ -12,5 +12,4 @@ CAN read one ordered tree with attached decisions and stable node relationships,
 
 ### Compliance
 
-- ALWAYS: decisions with a parent id attach to that parent node and remain available in the snapshot's flat decision list ([test](../tests/spec-tree-surface.scenario.l1.test.ts))
 - ALWAYS: the snapshot carries every superseded entry and the invalid residual, distinct from the assembled valid tree, so a single read accounts for every name beneath the tree ([test](tests/residual-snapshot.compliance.l1.test.ts))
