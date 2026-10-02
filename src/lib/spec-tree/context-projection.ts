@@ -186,7 +186,9 @@ export function selectSpecContextDocuments(
     if (!isExplicit) return;
     if (node !== undefined) {
       const outcome = `${directory}/${node.slug}${OUTCOME_SUFFIX}`;
-      if (existingPaths.has(outcome)) result.push({ path: outcome, mode: SPEC_CONTEXT_MODE.FULL, optional: true });
+      if (existingPaths.has(outcome)) {
+        result.push({ path: outcome, mode: SPEC_CONTEXT_MODE.FULL, optional: true, scanCitations: true });
+      }
     }
     reference(`${directory}/${KNOWLEDGE_INDEX}`);
   };
