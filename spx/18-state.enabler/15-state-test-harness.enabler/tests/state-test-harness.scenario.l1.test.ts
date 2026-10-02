@@ -3,7 +3,14 @@ import { dirname } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { defaultGitDependencies, GIT_ROOT_COMMAND, GIT_SHOW_TOPLEVEL_ARGS } from "@/lib/git/root";
+import {
+  defaultGitDependencies,
+  detectGitCommonDirProductRoot,
+  detectWorktreeProductRoot,
+  GIT_ROOT_COMMAND,
+  GIT_SHOW_TOPLEVEL_ARGS,
+  NOT_GIT_REPO_WARNING_TEXT,
+} from "@/lib/git/root";
 import {
   arbitraryBarePoolLayoutCase,
   sampleMainCheckoutTestValue,
@@ -37,18 +44,42 @@ describe("state test harness — git-deps double", () => {
     expect(secondResult.exitCode).toBe(0);
   });
 
-  it("simulates the non-git failure mode with a non-zero exit for every command", async () => {
+  it("simulates the non-git failure mode with a non-zero exit that drives each resolver to its not-in-git fallback", async () => {
+    const cwd = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.productRoot());
     const deps = createFailingGitDeps(STATE_GIT_FAILURE_MODE.NON_GIT);
 
-    const result = await deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, []);
+    const result = await deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_SHOW_TOPLEVEL_ARGS], { cwd });
+    const worktree = await detectWorktreeProductRoot(cwd, deps);
+    const gitCommonDir = await detectGitCommonDirProductRoot(cwd, deps);
 
     expect(result.exitCode).not.toBe(0);
+    expect(worktree).toEqual({ productDir: cwd, isGitRepo: false, warning: NOT_GIT_REPO_WARNING_TEXT });
+    expect(gitCommonDir).toEqual({
+      productDir: cwd,
+      isGitRepo: false,
+      warning: NOT_GIT_REPO_WARNING_TEXT,
+      worktreeRoot: cwd,
+    });
   });
 
-  it("simulates the git-error failure mode by rejecting the invocation", async () => {
+  it("simulates the git-error failure mode by rejecting the invocation, which each resolver catches into its not-in-git result", async () => {
+    const cwd = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.productRoot());
     const deps = createFailingGitDeps(STATE_GIT_FAILURE_MODE.GIT_ERROR);
 
-    await expect(deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [])).rejects.toThrow(STATE_GIT_ERROR_MESSAGE);
+    await expect(deps.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_SHOW_TOPLEVEL_ARGS], { cwd })).rejects.toThrow(
+      STATE_GIT_ERROR_MESSAGE,
+    );
+    await expect(detectWorktreeProductRoot(cwd, deps)).resolves.toEqual({
+      productDir: cwd,
+      isGitRepo: false,
+      warning: NOT_GIT_REPO_WARNING_TEXT,
+    });
+    await expect(detectGitCommonDirProductRoot(cwd, deps)).resolves.toEqual({
+      productDir: cwd,
+      isGitRepo: false,
+      warning: NOT_GIT_REPO_WARNING_TEXT,
+      worktreeRoot: cwd,
+    });
   });
 });
 
