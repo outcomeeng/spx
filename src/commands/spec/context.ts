@@ -55,6 +55,7 @@ async function manifestCitations(
   input: ContextInput,
   structural: readonly string[],
 ): Promise<readonly SpecContextTargetReadDocument[]> {
+  const structuralPaths = new Set(structural);
   const selected = new Set(structural);
   const decisionsByPath = new Set(input.snapshot.decisions.flatMap(({ ref }) => ref?.path ?? []));
   const cited = new Map<string, Set<string>>();
@@ -73,7 +74,7 @@ async function manifestCitations(
         selected.add(path);
         pending.push(path);
       }
-      if (!structural.includes(path)) {
+      if (!structuralPaths.has(path)) {
         const provenance = cited.get(path) ?? new Set<string>();
         provenance.add(citing);
         cited.set(path, provenance);
