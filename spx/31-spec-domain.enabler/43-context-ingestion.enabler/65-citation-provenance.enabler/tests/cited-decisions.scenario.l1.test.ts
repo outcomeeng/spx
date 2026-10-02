@@ -43,6 +43,26 @@ describe("spec context cited decisions", () => {
     });
   });
 
+  it("selects a decision linked from an explicitly targeted node's Full outcome record, outside the walk, in Full", async () => {
+    await withRichContextEnv(async (env, paths) => {
+      // The decision sits under the peer directory, which no Full container of
+      // the walk reaches, and no other document cites it: only the target's
+      // outcome record can bring it into the projection.
+      const { citedFirst: linked } = specContextDivergentCitationDecisions(env.fixture);
+      await env.writeRaw(linked.path, linked.content);
+      const unlinked = await contextShowEntries({ targets: [paths.targetId], cwd: env.productDir });
+      expect(documentAt(unlinked, linked.path)).toBeUndefined();
+
+      await env.writeRaw(
+        paths.targetOutcomePath,
+        `${paths.sourceText[paths.targetOutcomePath]}\nMoves under [linked](${linked.path}).\n`,
+      );
+      const entries = await contextShowEntries({ targets: [paths.targetId], cwd: env.productDir });
+      expect(documentAt(entries, paths.targetOutcomePath)?.content).toContain(linked.path);
+      expect(documentAt(entries, linked.path)?.content).toBe(linked.content);
+    });
+  });
+
   it("selects a decision cited from a Digest opening paragraph in Full", async () => {
     await withRichContextEnv(async (env, paths) => {
       // In discovery the target is a Digest whose opening cites the peer
