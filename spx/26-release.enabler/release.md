@@ -1,4 +1,5 @@
 ---
+id: 01a0fce5-3bf2-7bd3-9294-e1d345a15ba5
 malleability: spec
 ---
 
@@ -9,6 +10,8 @@ SO THAT every capability the product ships
 CAN reach users as a released version carrying accurate, current release information
 
 ## Assertions
+
+- ALWAYS: the release product context binds a decision that a selected document cites only through a Markdown citation link — tree-absolute from `spx/` or node-local — that resolves to a tracked decision; a decision path written as text, bare or in an inline code span, and a link that climbs with `../` bind no decision
 
 ### Compliance
 
