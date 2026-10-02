@@ -19,4 +19,4 @@ CAN run only the tools applicable to the languages the product actually uses
 
 ### Compliance
 
-- NEVER: scan directory trees for file extensions — detection uses marker files only, per `spx/17-language-detection.enabler/21-detection-approach.adr.md` ([test](tests/language-detection.compliance.l1.test.ts))
+- NEVER: scan directory trees for file extensions — detection uses marker files only, per [`spx/17-language-detection.enabler/21-detection-approach.adr.md`](21-detection-approach.adr.md) ([test](tests/language-detection.compliance.l1.test.ts))
