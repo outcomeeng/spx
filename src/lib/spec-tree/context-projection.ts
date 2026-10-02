@@ -163,11 +163,18 @@ function specContextGoverningDecisionIds(
   }));
 }
 
+/**
+ * The structural selection for `targets`, in walk order. A tree without a
+ * product spec selects nothing: the walk is rooted at the product spec, so no
+ * entry below it is reachable.
+ */
 export function selectSpecContextDocuments(
   snapshot: SpecTreeSnapshot,
   targets: readonly SpecContextTarget[],
   existingPaths: ReadonlySet<string>,
 ): readonly SpecContextSelection[] {
+  const productPath = snapshot.product?.ref?.path;
+  if (productPath === undefined) return [];
   const selected = new Map<string, SpecContextMode>();
   const fullContainers = new Set<string | undefined>([undefined]);
   const explicit = new Set(targets.flatMap(({ node }) => node === undefined ? [] : [node.id]));
@@ -224,7 +231,7 @@ export function selectSpecContextDocuments(
     result.push(
       ...(node === undefined
         ? [{
-          path: requiredDocumentPath(snapshot.product?.ref?.path, directory),
+          path: productPath,
           mode,
           opening: PRODUCT_OPENING,
           migrationFallback: true,
