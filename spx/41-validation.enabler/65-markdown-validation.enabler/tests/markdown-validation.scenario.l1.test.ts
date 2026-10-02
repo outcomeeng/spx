@@ -2,8 +2,7 @@ import { dirname, join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { MARKDOWN_COMMAND_OUTPUT, markdownCommand } from "@/commands/validation/markdown";
-import { createNodeStatusExcludeReader, NODE_STATUS_EXCLUDE_FILENAME } from "@/lib/node-status/exclude";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { createNodeStatusExcludeReader } from "@/lib/node-status/exclude";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { validateMarkdown } from "@/validation/steps/markdown";
 import {
@@ -12,7 +11,11 @@ import {
   markdownDirectoryTarget,
   markdownFileTarget,
 } from "@testing/generators/validation/markdown";
-import { listDirectoryEntries, withMarkdownTempProject } from "@testing/harnesses/validation/markdown";
+import {
+  listDirectoryEntries,
+  repositoryMarkdownProject,
+  withMarkdownTempProject,
+} from "@testing/harnesses/validation/markdown";
 import { MARKDOWN_FIXTURES, MARKDOWN_HARNESS_TIMEOUT, withMarkdownEnv } from "@testing/harnesses/with-markdown-env";
 
 describe("Given a markdown file with a valid relative link to an existing file", () => {
@@ -179,13 +182,10 @@ describe("Given docs/ contains other markdown errors", () => {
 
 describe("Given spx/EXCLUDE lists a node path", () => {
   it("skips direct markdown files in that node while child-node markdown files remain in scope", async () => {
-    await withMarkdownTempProject(async ({ productDir, spxDir, write }) => {
+    await withMarkdownTempProject(async ({ productDir, spxDir, write, writeNodeStatusExclude }) => {
       const specTreeDir = relative(productDir, spxDir);
       const declaredNodeDir = join(specTreeDir, MARKDOWN_VALIDATION_DATA.declaredNodeDirectory);
-      await write(
-        join(specTreeDir, NODE_STATUS_EXCLUDE_FILENAME),
-        `${MARKDOWN_VALIDATION_DATA.declaredNodeDirectory}\n`,
-      );
+      await writeNodeStatusExclude([MARKDOWN_VALIDATION_DATA.declaredNodeDirectory]);
       const declaredFile = await write(
         join(declaredNodeDir, MARKDOWN_VALIDATION_DATA.declaredMarkdownFile),
         MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
@@ -213,13 +213,10 @@ describe("Given spx/EXCLUDE lists a node path", () => {
   }, MARKDOWN_HARNESS_TIMEOUT);
 
   it("skips direct markdown files when the excluded node itself is the directory target", async () => {
-    await withMarkdownTempProject(async ({ productDir, spxDir, write }) => {
+    await withMarkdownTempProject(async ({ productDir, spxDir, write, writeNodeStatusExclude }) => {
       const specTreeDir = relative(productDir, spxDir);
       const declaredNodeDir = join(specTreeDir, MARKDOWN_VALIDATION_DATA.declaredNodeDirectory);
-      await write(
-        join(specTreeDir, NODE_STATUS_EXCLUDE_FILENAME),
-        `${MARKDOWN_VALIDATION_DATA.declaredNodeDirectory}\n`,
-      );
+      await writeNodeStatusExclude([MARKDOWN_VALIDATION_DATA.declaredNodeDirectory]);
       const declaredFile = await write(
         join(declaredNodeDir, MARKDOWN_VALIDATION_DATA.declaredMarkdownFile),
         MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
@@ -259,8 +256,7 @@ describe("Given a declared-state node with [test] links to files that do not exi
 
 describe("Given repository spx/EXCLUDE lists markdown-skipped nodes", () => {
   it("lists exactly the direct spec-node markdown failures exposed with node-status excludes disabled", async () => {
-    const productDir = process.cwd();
-    const specTreeDir = join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+    const { productDir, spxDir: specTreeDir } = repositoryMarkdownProject();
 
     const result = await validateMarkdown({
       targets: [markdownDirectoryTarget(specTreeDir)],

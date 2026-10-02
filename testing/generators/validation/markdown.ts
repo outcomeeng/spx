@@ -3,14 +3,16 @@ import { posix } from "node:path";
 
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import {
+  MARKDOWN_CONFIG_CONTROL_KEYS,
+  MARKDOWN_DEFAULT_DIRECTORY_NAMES,
   MARKDOWN_PRIMARY_FILE_EXTENSION,
   MARKDOWN_VALIDATION_TARGET_KIND,
   type MarkdownValidationTarget,
 } from "@/validation/steps/markdown";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 
-const SPX_DIRECTORY_NAME = "spx";
-const DOCS_DIRECTORY_NAME = "docs";
+const SPX_DIRECTORY_NAME = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
+const [, DOCS_DIRECTORY_NAME] = MARKDOWN_DEFAULT_DIRECTORY_NAMES;
 const SAMPLE_DIRECTORY_NAME = "21-sample.outcome";
 const DECLARED_NODE_FRAGMENT = "32-declared";
 const DECLARED_NODE_DIRECTORY = "32-declared.outcome";
@@ -20,7 +22,7 @@ const DECLARED_CHILD_DIRECTORY = "43-child.enabler";
 const DATA_URI_MARKER = "data:";
 const MISSING_HEADING_MARKER = "nonexistent-heading";
 const MISSING_FILE_MARKER = "does-not-exist";
-const MD024_RULE_MARKER = "MD024";
+const MD024_RULE_MARKER = MARKDOWN_CONFIG_CONTROL_KEYS.DUPLICATE_HEADINGS;
 const CHILD_MARKDOWN_FILE = "child.md";
 const COLON_MARKDOWN_FILE = "api:v2.md";
 const SAMPLE_MARKDOWN_FILE = "sample.md";
@@ -160,6 +162,13 @@ export interface MarkdownLinkCase {
   readonly line: number;
 }
 
+/** A link that names an existing file, with that file's product-relative path. */
+export interface MarkdownLinkTargetCase {
+  readonly link: MarkdownLinkCase;
+  /** Product-relative path of the file the link names. */
+  readonly targetFile: string;
+}
+
 /** A link whose resolution base the spec declares, with the file each base would resolve it to. */
 export interface MarkdownLinkResolutionRow {
   /** Default directory the citing file lives in. */
@@ -261,6 +270,17 @@ export const MARKDOWN_LINK_SHAPE_DATA = {
       posix.join(LINK_SHAPE_NODE_LOCAL_DIRECTORY, `${MISSING_FILE_MARKER}${MARKDOWN_PRIMARY_FILE_EXTENSION}`),
     ),
   ],
+  /** Admitted link shapes inside `spx/` that name an existing file: tree-absolute and node-local. */
+  existingTargetLinks: [
+    {
+      link: markdownLinkingTo(LINK_SHAPE_CITING_FILE, LINK_SHAPE_TREE_ABSOLUTE_HREF),
+      targetFile: LINK_SHAPE_LINKED_FILE,
+    },
+    {
+      link: markdownLinkingTo(LINK_SHAPE_CITING_FILE, LINK_SHAPE_NODE_LOCAL_HREF),
+      targetFile: posix.join(LINK_SHAPE_NODE_DIRECTORY, LINK_SHAPE_NODE_LOCAL_HREF),
+    },
+  ] satisfies readonly MarkdownLinkTargetCase[],
   /** Command-level resolution: tree-absolute in `spx/` and product-absolute in `docs/` resolve from the product root. */
   commandResolutionRows: [
     linkResolutionRow(
