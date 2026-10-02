@@ -6,7 +6,6 @@ import type { SpecTreeNode, SpecTreeSnapshot } from "./index";
 
 export const SPEC_CONTEXT_TARGET_FAILURE_KIND = {
   AMBIGUOUS: "ambiguous",
-  UNSUPPORTED_ARTIFACT: "unsupported-artifact",
   OUTSIDE_PRODUCT: "outside-product",
   UNRESOLVED: "unresolved",
 } as const;
@@ -34,7 +33,6 @@ export interface SpecContextTargetPathFacts {
   readonly accepted: readonly (SpecContextAcceptedPath & { readonly realPath: string })[];
   readonly candidates: readonly string[];
   readonly outsideProduct: boolean;
-  readonly unsupportedArtifact: boolean;
 }
 
 export type SpecContextTargetResolution =
@@ -91,8 +89,6 @@ export function resolveSpecContextTarget(
     ? SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS
     : facts.outsideProduct
     ? SPEC_CONTEXT_TARGET_FAILURE_KIND.OUTSIDE_PRODUCT
-    : facts.unsupportedArtifact
-    ? SPEC_CONTEXT_TARGET_FAILURE_KIND.UNSUPPORTED_ARTIFACT
     : SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED;
   return { ok: false, failure: { kind, input, candidates: targets.map(({ path }) => path) } };
 }
