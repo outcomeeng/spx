@@ -168,8 +168,8 @@ describe("spec context understand payload sourcing", () => {
       expect(framedPath.endsWith(fixture.corePath)).toBe(true);
       const bundlePath = framedPath.slice(0, framedPath.length - fixture.corePath.length);
       for (const catalogPath of fixture.catalogPaths) {
-        expect(await readFile(join(fixture.packageRoot, bundlePath, catalogPath), "utf8"), catalogPath).toBe(
-          fixture.catalogTexts[catalogPath],
+        expect(await readFile(join(fixture.packageRoot, bundlePath, catalogPath)), catalogPath).toEqual(
+          Buffer.from(fixture.catalogTexts[catalogPath]),
         );
       }
     });

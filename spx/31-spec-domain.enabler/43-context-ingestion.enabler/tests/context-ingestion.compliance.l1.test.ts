@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
-import { SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
+import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
 import { SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
 import {
@@ -32,16 +32,13 @@ import {
   writeMethodologyTree,
 } from "@testing/harnesses/spec/context";
 
-const LIST = [SPEC_DOMAIN_CLI.COMMAND, SPEC_DOMAIN_CLI.CONTEXT_COMMAND, SPEC_DOMAIN_CLI.CONTEXT_LIST_COMMAND] as const;
-const SHOW = [SPEC_DOMAIN_CLI.COMMAND, SPEC_DOMAIN_CLI.CONTEXT_COMMAND, SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND] as const;
-
 describe("spec context ingestion writes nothing to standard output after a failure", () => {
   it("writes no list or show output when one requested target fails to resolve, and the complete output when every target resolves", async () => {
     await withRichContextEnv(async (env, paths) => {
       const unknown = specContextUnknownTarget(env.fixture);
-      for (const command of [LIST, SHOW]) {
+      for (const command of [SPEC_CONTEXT_COMMAND_PATH.LIST, SPEC_CONTEXT_COMMAND_PATH.SHOW]) {
         const failed = await runSpecDescriptor({ productDir: env.productDir }, ...command, paths.targetId, unknown);
-        expect(failed.stdout, command.join(" ")).toBe("");
+        expect(failed.stdout, command.join(" ")).toHaveLength(0);
         expect(failed.exitCode, command.join(" ")).toBe(1);
         expect(failed.stderr).toContain(
           SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED],
@@ -62,8 +59,12 @@ describe("spec context ingestion writes nothing to standard output after a failu
         join(env.productDir, paths.higherIndexSiblingSpecPath),
         Buffer.from(sampleGeneratedValue(arbitrarySpecContextInvalidUtf8Bytes())),
       );
-      const run = await runSpecDescriptor({ productDir: env.productDir }, ...SHOW, paths.targetId);
-      expect(run.stdout).toBe("");
+      const run = await runSpecDescriptor(
+        { productDir: env.productDir },
+        ...SPEC_CONTEXT_COMMAND_PATH.SHOW,
+        paths.targetId,
+      );
+      expect(run.stdout).toHaveLength(0);
       expect(run.exitCode).toBe(1);
       expect(run.stderr).toContain(paths.higherIndexSiblingSpecPath);
     });
@@ -75,8 +76,12 @@ describe("spec context ingestion writes nothing to standard output after a failu
       // runners; restored afterwards so temp-directory cleanup stays quiet.
       await chmod(join(env.productDir, paths.rootSpecPath), 0o000);
       try {
-        const run = await runSpecDescriptor({ productDir: env.productDir }, ...SHOW, paths.targetId);
-        expect(run.stdout).toBe("");
+        const run = await runSpecDescriptor(
+          { productDir: env.productDir },
+          ...SPEC_CONTEXT_COMMAND_PATH.SHOW,
+          paths.targetId,
+        );
+        expect(run.stdout).toHaveLength(0);
         expect(run.exitCode).toBe(1);
         expect(run.stderr).toContain(paths.rootSpecPath);
       } finally {
@@ -92,8 +97,12 @@ describe("spec context ingestion writes nothing to standard output after a failu
         paths.targetSpecPath,
         `${paths.sourceText[paths.targetSpecPath]}\nGoverned by [absent](${missing}).\n`,
       );
-      const run = await runSpecDescriptor({ productDir: env.productDir }, ...SHOW, paths.targetId);
-      expect(run.stdout).toBe("");
+      const run = await runSpecDescriptor(
+        { productDir: env.productDir },
+        ...SPEC_CONTEXT_COMMAND_PATH.SHOW,
+        paths.targetId,
+      );
+      expect(run.stdout).toHaveLength(0);
       expect(run.exitCode).toBe(1);
       expect(run.stderr).toContain(missing);
       expect(run.stderr).toContain(paths.targetSpecPath);
@@ -105,9 +114,9 @@ describe("spec context ingestion writes nothing to standard output after a failu
       await withSpecTreeEnv({ ...specTreeKindsConfig(), ...invalid.config }, async (env) => {
         await env.materialize();
         const target = (await env.readFilesystemSnapshot()).allNodes[0].id;
-        for (const command of [LIST, SHOW]) {
+        for (const command of [SPEC_CONTEXT_COMMAND_PATH.LIST, SPEC_CONTEXT_COMMAND_PATH.SHOW]) {
           const run = await runSpecDescriptor({ productDir: env.productDir }, ...command, target);
-          expect(run.stdout, `${invalid.field} ${command.join(" ")}`).toBe("");
+          expect(run.stdout, `${invalid.field} ${command.join(" ")}`).toHaveLength(0);
           expect(run.exitCode, invalid.field).toBe(1);
           expect(run.stderr, invalid.field).toContain(invalid.field);
         }
@@ -123,9 +132,9 @@ describe("spec context ingestion writes nothing to standard output after a failu
     await withSpecTreeEnv({ ...specTreeKindsConfig(), ...generatedHarnessMethodologyConfig() }, async (env) => {
       await env.materialize();
       const target = (await env.readFilesystemSnapshot()).allNodes[0].id;
-      for (const command of [LIST, SHOW]) {
+      for (const command of [SPEC_CONTEXT_COMMAND_PATH.LIST, SPEC_CONTEXT_COMMAND_PATH.SHOW]) {
         const run = await runSpecDescriptor({ productDir: env.productDir }, ...command, target);
-        expect(run.stdout, command.join(" ")).toBe("");
+        expect(run.stdout, command.join(" ")).toHaveLength(0);
         expect(run.exitCode).toBe(1);
         expect(run.stderr).toContain(`${LEGACY_METHODOLOGY_CONFIG_SECTION}.${METHODOLOGY_SECTION}`);
       }
@@ -143,7 +152,7 @@ describe("spec context ingestion writes nothing to standard output after a failu
     }, async (env) => {
       await env.materialize();
       const target = (await env.readFilesystemSnapshot()).allNodes[0].id;
-      const run = await runSpecDescriptor({ productDir: env.productDir }, ...LIST, target);
+      const run = await runSpecDescriptor({ productDir: env.productDir }, ...SPEC_CONTEXT_COMMAND_PATH.LIST, target);
       expect(run.exitCode, run.stderr).toBeUndefined();
       expect(run.stdout).toContain(String(methodology[METHODOLOGY_CONFIG_FIELDS.VERSION]));
     });
@@ -164,16 +173,16 @@ describe("spec context ingestion writes nothing to standard output after a failu
         const context = { productDir: env.productDir, methodologyTreeRoot: fixture.treeRoot };
         const run = await runSpecDescriptor(
           context,
-          ...SHOW,
+          ...SPEC_CONTEXT_COMMAND_PATH.SHOW,
           target,
           SPEC_DOMAIN_CLI.METHODOLOGY_OPTION,
           SPEC_DOMAIN_CLI.CODING_AGENT_OPTION,
           fixture.codingAgent,
         );
-        expect(run.stdout).toBe("");
+        expect(run.stdout).toHaveLength(0);
         expect(run.exitCode).toBe(1);
         expect(run.stderr).toContain(declared.text);
-        const withoutFoundation = await runSpecDescriptor(context, ...SHOW, target);
+        const withoutFoundation = await runSpecDescriptor(context, ...SPEC_CONTEXT_COMMAND_PATH.SHOW, target);
         expect(withoutFoundation.exitCode, withoutFoundation.stderr).toBeUndefined();
         expect(withoutFoundation.stdout.length).toBeGreaterThan(0);
       },
