@@ -11,52 +11,6 @@ import {
   MARKDOWN_VALIDATION_TARGET_KIND,
   type MarkdownValidationTarget,
 } from "@/validation/steps/markdown";
-import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
-
-export const EXPLICIT_MARKDOWN_OPERAND_KIND = {
-  DIRECTORY: "directory",
-  FILE: "file",
-} as const;
-
-export type ExplicitMarkdownOperandKind =
-  (typeof EXPLICIT_MARKDOWN_OPERAND_KIND)[keyof typeof EXPLICIT_MARKDOWN_OPERAND_KIND];
-
-export interface ExplicitMarkdownOperandScenario {
-  readonly excludedDirectory: string;
-  readonly operand: string;
-  readonly markdownPath: string;
-}
-
-export function arbitraryExplicitMarkdownOperandScenario(
-  kind: ExplicitMarkdownOperandKind,
-): fc.Arbitrary<ExplicitMarkdownOperandScenario> {
-  return fc
-    .tuple(arbitraryDomainLiteral(), arbitraryDomainLiteral(), arbitraryDomainLiteral())
-    .filter((segments) => new Set(segments).size === segments.length)
-    .map(([excludedDirectoryName, childDirectoryName, markdownFileStem]) => {
-      const excludedDirectory = posix.join(
-        SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-        excludedDirectoryName,
-      );
-      const operand = kind === EXPLICIT_MARKDOWN_OPERAND_KIND.DIRECTORY
-        ? posix.join(excludedDirectory, childDirectoryName)
-        : posix.join(
-          excludedDirectory,
-          `${markdownFileStem}${MARKDOWN_PRIMARY_FILE_EXTENSION}`,
-        );
-      return {
-        excludedDirectory,
-        operand,
-        markdownPath: kind === EXPLICIT_MARKDOWN_OPERAND_KIND.DIRECTORY
-          ? posix.join(
-            operand,
-            `${markdownFileStem}${MARKDOWN_PRIMARY_FILE_EXTENSION}`,
-          )
-          : operand,
-      };
-    });
-}
-
 /** Bounds of the generated link-grammar domain. */
 const SPEC_TREE_LINK_DOMAIN = {
   /** Two-digit node index range the methodology's sibling index space admits. */
@@ -572,6 +526,100 @@ export function specTreeExcludedNodeCase(scenario: SpecTreeLinkScenario): SpecTr
       posix.join(scenario.nodeDirectory, scenario.childNodeSegment),
     ),
   };
+}
+
+/** Which kind of path an explicit operand below an excluded directory names. */
+export const EXPLICIT_MARKDOWN_OPERAND_KIND = {
+  DIRECTORY: "directory",
+  FILE: "file",
+} as const;
+
+export type ExplicitMarkdownOperandKind =
+  (typeof EXPLICIT_MARKDOWN_OPERAND_KIND)[keyof typeof EXPLICIT_MARKDOWN_OPERAND_KIND];
+
+/** An explicit operand inside a directory the markdown path filters exclude, and the broken link it reaches. */
+export interface ExplicitMarkdownOperandCase {
+  /** Product-relative directory the markdown path filters exclude. */
+  readonly excludedDirectory: string;
+  /** The explicit operand: a directory below the excluded directory, or a markdown file inside it. */
+  readonly operand: string;
+  /** The markdown file the operand reaches, carrying a relative link to a missing file. */
+  readonly brokenLink: MarkdownLinkCase;
+}
+
+/**
+ * Composes an explicit operand below the scenario's citing node, which the case excludes: a non-node directory
+ * inside the node holding the broken-link file, or the broken-link file directly inside the node.
+ */
+export function explicitMarkdownOperandCase(
+  scenario: SpecTreeLinkScenario,
+  kind: ExplicitMarkdownOperandKind,
+): ExplicitMarkdownOperandCase {
+  const excludedDirectory = scenario.nodeDirectory;
+  if (kind === EXPLICIT_MARKDOWN_OPERAND_KIND.DIRECTORY) {
+    const operand = posix.join(excludedDirectory, scenario.localDirectory);
+    return { excludedDirectory, operand, brokenLink: markdownBrokenRelativeLink(scenario, operand) };
+  }
+  const brokenLink = markdownBrokenRelativeLink(scenario, excludedDirectory);
+  return { excludedDirectory, operand: brokenLink.citingFile, brokenLink };
+}
+
+/** A markdown file inside the given directory carrying only the scenario's citing prose, so it has no problem. */
+export function markdownProblemFreeFile(scenario: SpecTreeLinkScenario, directory: string): MarkdownSupportingFile {
+  return {
+    path: posix.join(directory, scenario.sourceFileName),
+    content: markdownDocument(scenario.citingProse, [scenario.citingProse.lead], 0).content,
+  };
+}
+
+/**
+ * Two spec-tree directories a markdown include filter names, a problem-free file in the first, and a broken-link
+ * file in the second. An explicit operand naming the first directory validates only the problem-free file.
+ */
+export interface ExplicitMarkdownIncludeCase {
+  readonly operandDirectory: string;
+  readonly otherIncludedDirectory: string;
+  readonly problemFreeFile: MarkdownSupportingFile;
+  readonly brokenLink: MarkdownLinkCase;
+}
+
+/** Composes the include case from the scenario's citing node and a non-node directory beside it. */
+export function explicitMarkdownIncludeCase(scenario: SpecTreeLinkScenario): ExplicitMarkdownIncludeCase {
+  const operandDirectory = scenario.nodeDirectory;
+  const otherIncludedDirectory = posix.join(posix.dirname(scenario.nodeDirectory), scenario.localDirectory);
+  return {
+    operandDirectory,
+    otherIncludedDirectory,
+    problemFreeFile: markdownProblemFreeFile(scenario, operandDirectory),
+    brokenLink: markdownBrokenRelativeLink(scenario, otherIncludedDirectory),
+  };
+}
+
+/**
+ * A problem-free file in a product-root directory outside the default markdown directories, and a broken-link
+ * file in the docs directory. An explicit operand naming the outside directory validates only the problem-free
+ * file.
+ */
+export interface ExplicitMarkdownOutsideDefaultsCase {
+  readonly operandDirectory: string;
+  readonly problemFreeFile: MarkdownSupportingFile;
+  readonly brokenLink: MarkdownLinkCase;
+}
+
+export function explicitMarkdownOutsideDefaultsCase(
+  scenario: SpecTreeLinkScenario,
+): ExplicitMarkdownOutsideDefaultsCase {
+  const [, docsDirectory] = MARKDOWN_DEFAULT_DIRECTORY_NAMES;
+  return {
+    operandDirectory: scenario.outsideDirectory,
+    problemFreeFile: markdownProblemFreeFile(scenario, scenario.outsideDirectory),
+    brokenLink: markdownBrokenRelativeLink(scenario, docsDirectory),
+  };
+}
+
+/** The product root spelled as a relative operand: the scenario's outside directory followed by a parent climb. */
+export function markdownProductRootOperand(scenario: SpecTreeLinkScenario): string {
+  return posix.join(scenario.outsideDirectory, SPEC_TREE_LINK_PARENT_SEGMENT);
 }
 
 /** A product-relative markdown path outside the default directories that names no file. */
