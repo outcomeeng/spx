@@ -2,7 +2,6 @@ import * as fc from "fast-check";
 
 import {
   createStateStoreRunToken,
-  resolveBranchIdentity,
   type RunRecency,
   slugBranchIdentity,
   STATE_STORE_RUN_TOKEN,
@@ -29,15 +28,6 @@ export const STATE_STORE_TEST_GENERATOR = {
   emptyNormalizedBranchIdentity: (): fc.Arbitrary<string> =>
     fc.string({ minLength: 1, maxLength: 32 }).filter((value) => !/[A-Za-z0-9]/.test(value)),
   headSha: (): fc.Arbitrary<string> => stringFromCharacters(HEX_ALPHABET, { minLength: 40, maxLength: 40 }),
-  // Every branch identity a consumer can slug: a named branch, a name with no
-  // alphanumeric content (normalizes to an empty prefix), and the detached-HEAD
-  // identity production resolves from a head SHA.
-  anyBranchIdentity: (): fc.Arbitrary<string> =>
-    fc.oneof(
-      STATE_STORE_TEST_GENERATOR.branchIdentity(),
-      STATE_STORE_TEST_GENERATOR.emptyNormalizedBranchIdentity(),
-      STATE_STORE_TEST_GENERATOR.headSha().map((headSha) => resolveBranchIdentity({ headSha })),
-    ),
   scopeToken: (): fc.Arbitrary<string> => stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 48 }),
   branchSlug: (): fc.Arbitrary<string> =>
     stringFromCharacters(BRANCH_SEGMENT_CHARACTERS, { minLength: 1, maxLength: 180 }).map(slugBranchIdentity),
@@ -64,18 +54,6 @@ export const STATE_STORE_TEST_GENERATOR = {
         stringFromCharacters(TOKEN_CHARACTERS, { minLength: 0, maxLength: 12 }),
       )
       .map(([prefix, marker, suffix]) => `${prefix}${marker}${suffix}`),
-  // A product root plus a safe token and an unsafe token, so a composition can
-  // place the unsafe token after an accepted segment.
-  unsafeScopeComposition: (): fc.Arbitrary<{
-    readonly productRoot: string;
-    readonly safeToken: string;
-    readonly unsafeToken: string;
-  }> =>
-    fc.record({
-      productRoot: STATE_STORE_TEST_GENERATOR.productRoot(),
-      safeToken: STATE_STORE_TEST_GENERATOR.scopeToken(),
-      unsafeToken: STATE_STORE_TEST_GENERATOR.scopeTokenContainingUnsafeMarker(),
-    }),
   productRoot: (): fc.Arbitrary<string> =>
     fc.tuple(
       stringFromCharacters(TOKEN_CHARACTERS, { minLength: 1, maxLength: 16 }),

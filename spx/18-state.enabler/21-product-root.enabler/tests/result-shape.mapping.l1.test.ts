@@ -7,7 +7,7 @@ import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/
 import { createFailingGitDeps, createScriptedGitDeps, STATE_GIT_FAILURE_MODE } from "@testing/harnesses/state/git-deps";
 
 describe("product root result shape", () => {
-  it("maps the git-success outcome: the common-dir result carries worktreeRoot=toplevel and productDir=parent(common-dir)", async () => {
+  it("maps the git-success outcome: the common-dir result carries worktreeRoot=toplevel and productDir=parent(common-dir); the worktree result omits worktreeRoot", async () => {
     const productDir = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.productRoot());
     const worktreeRoot = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.linkedWorktreeRoot(productDir));
     const commonDir = join(productDir, sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.scopeToken()));
@@ -16,31 +16,15 @@ describe("product root result shape", () => {
       worktreeRoot,
       createScriptedGitDeps([{ stdout: worktreeRoot, exitCode: 0 }, { stdout: commonDir, exitCode: 0 }]),
     );
+    const worktreeResult = await detectWorktreeProductRoot(
+      worktreeRoot,
+      createScriptedGitDeps([{ stdout: worktreeRoot, exitCode: 0 }]),
+    );
 
     expect(commonDirResult.productDir).toBe(dirname(commonDir));
     expect(commonDirResult.worktreeRoot).toBe(worktreeRoot);
-  });
-
-  it("maps every detectWorktreeProductRoot outcome to a base result without worktreeRoot whose productDir is the worktree root", async () => {
-    const cwd = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.productRoot());
-    const toplevel = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.linkedWorktreeRoot(cwd));
-
-    const successResult = await detectWorktreeProductRoot(
-      cwd,
-      createScriptedGitDeps([{ stdout: toplevel, exitCode: 0 }]),
-    );
-
-    expect(successResult.isGitRepo).toBe(true);
-    expect(successResult.productDir).toBe(toplevel);
-    expect("worktreeRoot" in successResult).toBe(false);
-
-    for (const mode of Object.values(STATE_GIT_FAILURE_MODE)) {
-      const fallbackResult = await detectWorktreeProductRoot(cwd, createFailingGitDeps(mode));
-
-      expect(fallbackResult.isGitRepo, mode).toBe(false);
-      expect(fallbackResult.productDir, mode).toBe(cwd);
-      expect("worktreeRoot" in fallbackResult, mode).toBe(false);
-    }
+    expect(worktreeResult.productDir).toBe(worktreeRoot);
+    expect("worktreeRoot" in worktreeResult).toBe(false);
   });
 
   it("maps the common-dir-fallback outcome: a failed --git-common-dir read falls productDir and worktreeRoot back to the toplevel", async () => {

@@ -1,14 +1,19 @@
 import { Buffer } from "node:buffer";
 import { webcrypto } from "node:crypto";
-import { posix, win32 } from "node:path";
 import { TextEncoder } from "node:util";
 
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { slugBranchIdentity, STATE_STORE_BRANCH_SLUG, validateBranchSlug } from "@/lib/state-store";
-import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
+import {
+  resolveBranchIdentity,
+  slugBranchIdentity,
+  STATE_STORE_BRANCH_IDENTITY,
+  STATE_STORE_BRANCH_SLUG,
+  validateBranchSlug,
+} from "@/lib/state-store";
+import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { WEB_CRYPTO_SHA256_ALGORITHM } from "@testing/harnesses/crypto";
-import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 async function hashPrefix(value: string): Promise<string> {
   const digest = await webcrypto.subtle.digest(WEB_CRYPTO_SHA256_ALGORITHM, new TextEncoder().encode(value));
@@ -16,20 +21,48 @@ async function hashPrefix(value: string): Promise<string> {
 }
 
 describe("state-store branch identity", () => {
-  it("slugs every branch identity deterministically into a path-separator-free, byte-bounded, hash-suffixed slug", async () => {
-    await assertProperty(
-      STATE_STORE_TEST_GENERATOR.anyBranchIdentity(),
-      async (branchIdentity) => {
+  it("normalizes branch identities to filesystem-safe slugs with deterministic hash suffixes", async () => {
+    await fc.assert(
+      fc.asyncProperty(STATE_STORE_TEST_GENERATOR.branchIdentity(), async (branchIdentity) => {
         const slug = slugBranchIdentity(branchIdentity);
 
-        expect(slugBranchIdentity(branchIdentity)).toBe(slug);
-        expect(slug.includes(posix.sep)).toBe(false);
-        expect(slug.includes(win32.sep)).toBe(false);
         expect(validateBranchSlug(slug)).toEqual({ ok: true, value: slug });
-        expect(Buffer.byteLength(slug)).toBeLessThanOrEqual(STATE_STORE_BRANCH_SLUG.DEFAULT_MAX_BYTES);
+        expect(slugBranchIdentity(branchIdentity)).toBe(slug);
         expect(slug.endsWith(await hashPrefix(branchIdentity))).toBe(true);
-      },
-      { level: PROPERTY_LEVEL.L1 },
+      }),
     );
+  });
+
+  it("preserves the hash suffix while respecting configured byte limits", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        STATE_STORE_TEST_GENERATOR.branchIdentity(),
+        fc.integer({ min: 9, max: 120 }),
+        async (branchIdentity, maxBytes) => {
+          const slug = slugBranchIdentity(branchIdentity, maxBytes);
+
+          expect(Buffer.byteLength(slug)).toBeLessThanOrEqual(maxBytes);
+          expect(slug.endsWith(await hashPrefix(branchIdentity))).toBe(true);
+        },
+      ),
+    );
+  });
+
+  it("uses the hash prefix alone when normalization produces an empty branch prefix", async () => {
+    const branchIdentity = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.emptyNormalizedBranchIdentity());
+
+    expect(slugBranchIdentity(branchIdentity)).toBe(await hashPrefix(branchIdentity));
+  });
+
+  it("resolves detached HEAD identity from the head SHA before slugging", () => {
+    const headSha = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.headSha());
+    const identity = resolveBranchIdentity({ headSha });
+
+    expect(identity).toBe(
+      `${STATE_STORE_BRANCH_IDENTITY.DETACHED_HEAD_PREFIX}-${
+        headSha.slice(0, STATE_STORE_BRANCH_IDENTITY.DETACHED_HEAD_SHA_HEX_LENGTH)
+      }`,
+    );
+    expect(validateBranchSlug(slugBranchIdentity(identity))).toEqual({ ok: true, value: slugBranchIdentity(identity) });
   });
 });

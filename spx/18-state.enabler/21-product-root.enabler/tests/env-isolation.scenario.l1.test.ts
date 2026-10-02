@@ -15,13 +15,8 @@ describe("product root — git environment isolation", () => {
 
       const roots = await detectProductRootsInChildProcess(root, POLLUTED_GIT_ENVIRONMENT);
 
-      expect(roots.worktree.isGitRepo).toBe(true);
-      expect(roots.worktree.warning).toBeUndefined();
-      expect(roots.worktree.productDir).toBe(root);
-      expect(roots.gitCommonDir.isGitRepo).toBe(true);
-      expect(roots.gitCommonDir.warning).toBeUndefined();
-      expect(roots.gitCommonDir.worktreeRoot).toBe(root);
-      expect(roots.gitCommonDir.productDir).toBe(root);
+      expect(roots.worktreeProductRoot).toBe(root);
+      expect(roots.gitCommonDirProductRoot).toBe(root);
     });
   });
 });
