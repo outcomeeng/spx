@@ -12,4 +12,4 @@ CONTRIBUTING TO sample adoption
 
 ## References
 
-See [parent sample](../sample.md#assertions) for the assertion this derives from.
+See [parent sample](spx/21-sample.outcome/sample.md#assertions) for the assertion this derives from.
