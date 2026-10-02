@@ -18,12 +18,10 @@ import { DOMAIN_PATH_FILTER_LAYER } from "@/lib/file-inclusion/predicates/domain
 import { GIT_TRACKING_LAYER } from "@/lib/file-inclusion/predicates/git-tracking";
 import { CONFIG_GENERATOR, sampleConfigValue } from "@testing/generators/config/config";
 
-import { fileContent, ignoredPattern, trackedFilePath } from "@testing/harnesses/file-inclusion/ignore-source";
-import { pathPrefix } from "@testing/harnesses/file-inclusion/path-predicates";
 import {
-  distinctPrefixedTrackedPaths,
   resolverConfig,
   scopeResolverFixture,
+  writeFilterLayerViolationFixture,
   writeScopeResolverFixture,
 } from "@testing/harnesses/file-inclusion/scope-resolver";
 import { runEslintOverProduct, writeEslintProbeConfig } from "@testing/harnesses/file-inclusion/tool-invocation";
@@ -78,22 +76,7 @@ describe("file-inclusion service — scenarios", () => {
 
   it("walked scope excludes all git ignore sources, submodule contents, and domain include misses", async () => {
     await withGitWorktreeEnv(async (env) => {
-      const fixture = scopeResolverFixture();
-      await writeScopeResolverFixture(env, fixture);
-      const [nestedDirectory, submodule] = distinctPrefixedTrackedPaths(2).map((path) => pathPrefix(path));
-      const nestedPattern = ignoredPattern();
-      const nestedIgnored = `${nestedDirectory}/${nestedPattern}`;
-      const infoIgnored = ignoredPattern();
-      const globalIgnored = ignoredPattern();
-      const submoduleContent = trackedFilePath();
-      await env.writeGitignore(nestedDirectory, nestedPattern);
-      await env.writeUntracked(nestedIgnored, fileContent());
-      await env.writeInfoExclude(`${infoIgnored}\n`);
-      await env.writeUntracked(infoIgnored, fileContent());
-      await env.configureGlobalExcludes(`${globalIgnored}\n`);
-      await env.writeUntracked(globalIgnored, fileContent());
-      await env.addSubmodule(submodule);
-      await env.writeUntracked(`${submodule}/${submoduleContent}`, fileContent());
+      const fixture = await writeFilterLayerViolationFixture(env);
 
       const gitResult = await resolveScope(
         env.productDir,
@@ -113,53 +96,45 @@ describe("file-inclusion service — scenarios", () => {
         resolverConfig,
       );
 
-      for (const gitExcludedPath of [nestedIgnored, infoIgnored, globalIgnored]) {
+      for (const gitExcludedPath of [fixture.nestedIgnoredPath, fixture.infoExcludedPath, fixture.globalExcludedPath]) {
         const entry = gitResult.excluded.find((candidate) => candidate.path === gitExcludedPath);
-        expect(entry).toBeDefined();
+        expect(entry, `scope.excluded missing entry for "${gitExcludedPath}"`).toBeDefined();
         expect(entry!.decisionTrail.some((decision) => decision.layer === GIT_TRACKING_LAYER)).toBe(true);
       }
 
-      const submoduleInnerPath = `${submodule}/${submoduleContent}`;
-      expect(gitResult.included.some((entry) => entry.path === submoduleInnerPath)).toBe(false);
-      expect(gitResult.excluded.some((entry) => entry.path === submoduleInnerPath)).toBe(false);
+      expect(gitResult.included.some((entry) => entry.path === fixture.submoduleContentPath)).toBe(false);
+      expect(gitResult.excluded.some((entry) => entry.path === fixture.submoduleContentPath)).toBe(false);
 
       const includeMiss = includeResult.excluded.find((entry) => entry.path === fixture.domainIncludeMissPath);
-      expect(includeMiss).toBeDefined();
+      expect(includeMiss, `scope.excluded missing entry for "${fixture.domainIncludeMissPath}"`).toBeDefined();
       expect(includeMiss!.decisionTrail.some((decision) => decision.layer === DOMAIN_PATH_FILTER_LAYER)).toBe(true);
     });
   });
 
   it("walked scope includes every git ignore source when no-ignore is set", async () => {
     await withGitWorktreeEnv(async (env) => {
-      const [nestedDirectory] = distinctPrefixedTrackedPaths(1).map((path) => pathPrefix(path));
-      const nestedPattern = ignoredPattern();
-      const nestedIgnored = `${nestedDirectory}/${nestedPattern}`;
-      const infoIgnored = ignoredPattern();
-      const globalIgnored = ignoredPattern();
-      await env.writeGitignore(nestedDirectory, nestedPattern);
-      await env.writeUntracked(nestedIgnored, fileContent());
-      await env.writeInfoExclude(`${infoIgnored}\n`);
-      await env.writeUntracked(infoIgnored, fileContent());
-      await env.configureGlobalExcludes(`${globalIgnored}\n`);
-      await env.writeUntracked(globalIgnored, fileContent());
+      const fixture = await writeFilterLayerViolationFixture(env);
 
       const result = await resolveScope(
         env.productDir,
         {
           walkRoot: env.productDir,
-          overrides: {
-            noIgnore: true,
-            noIgnoreVcs: false,
-            ignoreFile: undefined,
-          },
+          overrides: { ...DEFAULT_IGNORE_SOURCE_OVERRIDES, noIgnore: true },
         },
         resolverConfig,
       );
 
       expect(result.appliedOverrides.noIgnore).toBe(true);
-      for (const includedPath of [nestedIgnored, infoIgnored, globalIgnored]) {
+      for (
+        const includedPath of [
+          fixture.ignoredFilePath,
+          fixture.nestedIgnoredPath,
+          fixture.infoExcludedPath,
+          fixture.globalExcludedPath,
+        ]
+      ) {
         const entry = result.included.find((candidate) => candidate.path === includedPath);
-        expect(entry).toBeDefined();
+        expect(entry, `scope.included missing entry for "${includedPath}"`).toBeDefined();
         expect(entry!.decisionTrail.some((decision) => decision.layer === GIT_TRACKING_LAYER)).toBe(false);
       }
     });
