@@ -14,7 +14,7 @@ import type { MethodologyIdentity } from "@/config/methodology";
 import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "./config";
 
 /** Manifest schema version; changes exactly when the manifest shape changes incompatibly. */
-export const SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION = 2;
+export const SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION = 3;
 
 /** Roles whose entries a consumer reads; the read class. */
 export const SPEC_CONTEXT_READ_ROLE = {
