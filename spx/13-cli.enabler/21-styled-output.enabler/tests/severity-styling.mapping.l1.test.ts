@@ -1,51 +1,17 @@
-import { Chalk, type ChalkInstance } from "chalk";
+import { Chalk } from "chalk";
 import { describe, expect, it } from "vitest";
 
-import { renderStyledReport, SEVERITY, type Severity } from "@/lib/styled-output/styled-output";
-import { authoredText } from "@/lib/terminal-text/terminal-text";
-
-function expectedGlyph(severity: Severity): string {
-  switch (severity) {
-    case SEVERITY.OK:
-      return "✓";
-    case SEVERITY.WARN:
-      return "⚠";
-    case SEVERITY.ERROR:
-      return "✗";
-    case SEVERITY.UNKNOWN:
-      return "?";
-    case SEVERITY.MUTED:
-      return "○";
-  }
-}
-
-function applyExpectedColor(chalk: ChalkInstance, severity: Severity, text: string): string {
-  switch (severity) {
-    case SEVERITY.OK:
-      return chalk.green(text);
-    case SEVERITY.WARN:
-      return chalk.yellow(text);
-    case SEVERITY.ERROR:
-    case SEVERITY.UNKNOWN:
-      return chalk.red(text);
-    case SEVERITY.MUTED:
-      return chalk.dim(text);
-  }
-}
+import { renderStyledReport, SEVERITY, SEVERITY_STYLE } from "@/lib/styled-output/styled-output";
+import { sampleGeneratedValue } from "@testing/generators/sample";
+import { arbitrarySingleSeverityReport } from "@testing/generators/styled-output/styled-output";
 
 describe("each severity maps to its fixed glyph and color", () => {
-  it("renders the registry glyph for every severity in a plain single-section report", () => {
+  it("renders the registry glyph before the header for every severity when color is disabled", () => {
     for (const severity of Object.values(SEVERITY)) {
-      const glyph = expectedGlyph(severity);
-      const plain = renderStyledReport(
-        {
-          sections: [{ severity, header: authoredText(severity), details: [authoredText(severity)] }],
-          summary: { severity, text: authoredText(severity) },
-        },
-        { color: false },
-      );
+      const model = sampleGeneratedValue(arbitrarySingleSeverityReport(severity));
+      const [headerLine] = renderStyledReport(model, { color: false }).split("\n");
 
-      expect(plain).toContain(glyph);
+      expect(headerLine).toBe(`${SEVERITY_STYLE[severity].glyph} ${model.sections[0].header}`);
     }
   });
 
@@ -53,16 +19,11 @@ describe("each severity maps to its fixed glyph and color", () => {
     const chalk = new Chalk({ level: 1 });
 
     for (const severity of Object.values(SEVERITY)) {
-      const glyph = expectedGlyph(severity);
-      const colored = renderStyledReport(
-        {
-          sections: [{ severity, header: authoredText(severity), details: [authoredText(severity)] }],
-          summary: { severity, text: authoredText(severity) },
-        },
-        { color: true },
-      );
+      const { glyph, style } = SEVERITY_STYLE[severity];
+      const model = sampleGeneratedValue(arbitrarySingleSeverityReport(severity));
+      const [headerLine] = renderStyledReport(model, { color: true }).split("\n");
 
-      expect(colored).toContain(applyExpectedColor(chalk, severity, glyph));
+      expect(headerLine).toBe(`${chalk[style](glyph)} ${chalk.bold(model.sections[0].header)}`);
     }
   });
 });

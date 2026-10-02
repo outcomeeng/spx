@@ -6,32 +6,23 @@ import {
   DETAIL_INDENT,
   DETAIL_TEE,
   renderStyledReport,
-  SEVERITY,
   SEVERITY_STYLE,
 } from "@/lib/styled-output/styled-output";
-import { authoredText } from "@/lib/terminal-text/terminal-text";
+import { sampleGeneratedValue } from "@testing/generators/sample";
+import { arbitraryHeaderDetailsSummaryReport } from "@testing/generators/styled-output/styled-output";
 
 describe("a styled report renders bold headers, dim tree-indented detail, and a severity-colored bold summary", () => {
   it("styles each element per the convention when color is enabled", () => {
     const chalk = new Chalk({ level: 1 });
-    const section = {
-      severity: SEVERITY.OK,
-      header: authoredText(SEVERITY.OK),
-      details: [authoredText(SEVERITY.WARN), authoredText(SEVERITY.ERROR)],
-    };
-    const summary = { severity: SEVERITY.ERROR, text: authoredText(SEVERITY.ERROR) };
+    const model = sampleGeneratedValue(arbitraryHeaderDetailsSummaryReport());
+    const [section] = model.sections;
+    const sectionStyle = SEVERITY_STYLE[section.severity];
 
-    const [headerLine, firstDetail, lastDetail, summaryLine] = renderStyledReport(
-      { sections: [section], summary },
-      { color: true },
-    ).split("\n");
+    const [headerLine, firstDetail, lastDetail, summaryLine] = renderStyledReport(model, { color: true }).split("\n");
 
-    const okStyle = SEVERITY_STYLE[SEVERITY.OK];
-    const firstDetailText = `${DETAIL_TEE} ${section.details[0]}`;
-    const lastDetailText = `${DETAIL_ELBOW} ${section.details[1]}`;
-    expect(headerLine).toBe(`${chalk[okStyle.style](okStyle.glyph)} ${chalk.bold(section.header)}`);
-    expect(firstDetail).toBe(`${DETAIL_INDENT}${chalk.dim(firstDetailText)}`);
-    expect(lastDetail).toBe(`${DETAIL_INDENT}${chalk.dim(lastDetailText)}`);
-    expect(summaryLine).toBe(chalk.bold(chalk[SEVERITY_STYLE[SEVERITY.ERROR].style](summary.text)));
+    expect(headerLine).toBe(`${chalk[sectionStyle.style](sectionStyle.glyph)} ${chalk.bold(section.header)}`);
+    expect(firstDetail).toBe(`${DETAIL_INDENT}${chalk.dim(`${DETAIL_TEE} ${section.details[0]}`)}`);
+    expect(lastDetail).toBe(`${DETAIL_INDENT}${chalk.dim(`${DETAIL_ELBOW} ${section.details[1]}`)}`);
+    expect(summaryLine).toBe(chalk.bold(chalk[SEVERITY_STYLE[model.summary.severity].style](model.summary.text)));
   });
 });
