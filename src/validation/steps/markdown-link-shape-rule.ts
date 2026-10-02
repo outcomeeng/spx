@@ -1,9 +1,10 @@
 /**
  * Spec-tree markdown link-shape rule.
  *
- * Inside the spec tree a link takes one of two shapes: node-local (a relative
- * path that stays inside the citing node) or tree-absolute (a path written
- * literally from the spec-tree root). This rule reports every other shape. When
+ * Inside the spec tree a link takes one of the two shapes the spec-tree link
+ * grammar admits: node-local (a relative path that stays inside the citing
+ * node) or tree-absolute (a path written literally from the spec-tree root).
+ * This rule reports every shape the grammar rejects. When
  * the rule configuration carries the repository's tracked paths, it also
  * reports an admitted link whose target the repository does not track as
  * broken, and a tracked decision's path written as text instead of as a link;
@@ -19,19 +20,15 @@ import { posix, relative, resolve, sep } from "node:path";
 
 import { createTrackedPathInclusion, TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
 import {
-  recognizeSpecTreeFilesystemEntry,
-  SPEC_TREE_ENTRY_TYPE,
-  SPEC_TREE_FILESYSTEM_RECORD_TYPE,
-  SPEC_TREE_GRAMMAR,
-} from "@/lib/spec-tree";
-import {
   decisionPathsWrittenAsText,
   parseSpecTreeLink,
   resolveSpecTreeLink,
+  SPEC_TREE_GRAMMAR,
   SPEC_TREE_LINK_KIND,
   SPEC_TREE_LINK_PARENT_SEGMENT,
   SPEC_TREE_LINK_ROOT_ANCHOR,
-} from "@/lib/spec-tree-link-grammar";
+  type SpecTreeLinkKind,
+} from "@/lib/spec-tree";
 
 import relativeLinksRule from "markdownlint-rule-relative-links";
 
@@ -128,22 +125,12 @@ function linkTarget(token: MarkdownItToken): string | undefined {
   return token.attrs?.find(([name]) => name === attribute)?.[1];
 }
 
-function pathSegments(path: string): string[] {
-  return path.split(SPEC_TREE_GRAMMAR.PATH_SEPARATOR).filter((segment) => segment.length > 0);
-}
-
-function isNodeDirectoryName(segment: string): boolean {
-  const entry = recognizeSpecTreeFilesystemEntry({
-    type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY,
-    relativePath: segment,
-  });
-  return entry?.type === SPEC_TREE_ENTRY_TYPE.NODE || entry?.type === SPEC_TREE_ENTRY_TYPE.SUPERSEDED;
-}
-
-function entersDescendantNode(path: string): boolean {
-  const firstSegment = pathSegments(path).find((segment) => segment !== CURRENT_DIRECTORY_SEGMENT);
-  return firstSegment !== undefined && isNodeDirectoryName(firstSegment);
-}
+/** The diagnostic each link shape the spec-tree link grammar rejects reports. */
+const REJECTED_SHAPE_DIAGNOSTIC: Partial<Record<SpecTreeLinkKind, LinkShapeDiagnostic>> = {
+  [SPEC_TREE_LINK_KIND.ROOT_ANCHORED]: MARKDOWN_LINK_SHAPE_DIAGNOSTICS.LEADING_SLASH,
+  [SPEC_TREE_LINK_KIND.PARENT_CLIMB]: MARKDOWN_LINK_SHAPE_DIAGNOSTICS.PARENT_CLIMB,
+  [SPEC_TREE_LINK_KIND.DESCENDANT_NODE]: MARKDOWN_LINK_SHAPE_DIAGNOSTICS.DESCENDANT_NODE,
+};
 
 /**
  * Classifies a link target against the spec-tree link grammar.
@@ -152,13 +139,7 @@ function entersDescendantNode(path: string): boolean {
  * grammar admits or does not govern (a fragment-only target or a URL).
  */
 export function classifySpecTreeLinkShape(href: string): LinkShapeDiagnostic | undefined {
-  const { kind, path } = parseSpecTreeLink(href);
-  if (kind === SPEC_TREE_LINK_KIND.ROOT_ANCHORED) return MARKDOWN_LINK_SHAPE_DIAGNOSTICS.LEADING_SLASH;
-  if (kind === SPEC_TREE_LINK_KIND.PARENT_CLIMB) return MARKDOWN_LINK_SHAPE_DIAGNOSTICS.PARENT_CLIMB;
-  if (kind === SPEC_TREE_LINK_KIND.NODE_LOCAL && entersDescendantNode(path)) {
-    return MARKDOWN_LINK_SHAPE_DIAGNOSTICS.DESCENDANT_NODE;
-  }
-  return undefined;
+  return REJECTED_SHAPE_DIAGNOSTIC[parseSpecTreeLink(href).kind];
 }
 
 function quoted(value: string): string {

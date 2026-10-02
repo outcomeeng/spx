@@ -5,15 +5,16 @@ import MarkdownIt from "markdown-it";
 import {
   compareSpecContextOrdinal,
   recognizeSpecTreeFilesystemEntry,
+  resolveSpecTreeDecisionCitation,
   resolveSpecTreePathOwnership,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_FILESYSTEM_RECORD_TYPE,
   SPEC_TREE_PATH_OWNERSHIP_RESULT_KIND,
+  SPEC_TREE_ROOT_PREFIX,
   type SpecTreeNode,
   type SpecTreeSnapshot,
   type SpecTreeSourceEntry,
 } from "@/lib/spec-tree";
-import { resolveSpecTreeDecisionCitation, SPEC_TREE_ROOT_PREFIX } from "@/lib/spec-tree-link-grammar";
 
 import { encodeReleasePromptData } from "./prompt-data";
 import type { ReleaseData } from "./release-data";

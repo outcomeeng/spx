@@ -7,8 +7,7 @@ import {
 } from "@/domains/release/product-context";
 import type { ReleaseData } from "@/domains/release/release-data";
 import { CHANGELOG_TITLE } from "@/domains/release/release-notes";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
-import { SPEC_TREE_LINK_PARENT_SEGMENT } from "@/lib/spec-tree-link-grammar";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR, SPEC_TREE_LINK_PARENT_SEGMENT } from "@/lib/spec-tree";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { arbitraryConformantChangelog } from "@testing/generators/release/changelog";
@@ -418,13 +417,16 @@ const CITATION_CITING_INDEX = 20;
 const CITATION_CITED_INDEX = 30;
 const CITATION_UNTRACKED_DECISION_INDEX = 21;
 const CITATION_CITED_DECISION_INDEX = 31;
-const CITATION_SLUG_COUNT = 11;
+const CITATION_DESCENDANT_NODE_INDEX = 32;
+const CITATION_DESCENDANT_DECISION_INDEX = 21;
+const CITATION_SLUG_COUNT = 13;
 
 /**
  * One release endpoint whose selected documents cite decisions in every citation shape: a changed
  * node cites decisions of a higher-index sibling through tree-absolute links, as bare text, in an
- * inline code span, and through a `../` link, and the lower-index sibling its context reads cites
- * its own decision through a node-local link. No cited decision enters the context through the tree
+ * inline code span, and through a `../` link, cites its child node's decision through a relative
+ * link that enters the child's directory, and the lower-index sibling its context reads cites its
+ * own decision through a node-local link. No cited decision enters the context through the tree
  * walk, so each one is present only when its citation binds. Uncommitted working-tree content diverges
  * from the committed endpoint: the citing specification is rewritten to link every decision
  * tree-absolutely, and an untracked decision sits in the citing node, so content read from the
@@ -439,6 +441,8 @@ export interface ReleaseDecisionCitationScenario {
   readonly textNamedDecisionPaths: readonly string[];
   /** Decisions reached only through a Markdown link that climbs with `../`. */
   readonly climbingLinkedDecisionPaths: readonly string[];
+  /** Decisions reached only through a relative Markdown link that enters a descendant node's directory. */
+  readonly descendantLinkedDecisionPaths: readonly string[];
   /** Content written to the working tree after the endpoint is committed and left uncommitted. */
   readonly workingTreeFiles: readonly ReleaseEndpointFile[];
   /** Decisions present only in the working tree, never committed at the release endpoint. */
@@ -465,6 +469,8 @@ export function arbitraryReleaseDecisionCitationScenario(): fc.Arbitrary<Release
       inlineCodeSlug,
       climbingSlug,
       untrackedSlug,
+      descendantNodeSlug,
+      descendantSlug,
     ] = slugs;
     const productPath = posix.join(
       SPEC_TREE_CONFIG.ROOT_DIRECTORY,
@@ -487,6 +493,15 @@ export function arbitraryReleaseDecisionCitationScenario(): fc.Arbitrary<Release
       posix.relative(SPEC_TREE_CONFIG.ROOT_DIRECTORY, climbingPath),
     );
     const citingSpecificationPath = citationSpecificationPath(citingDirectory, citingSlug);
+    const descendantNodeDirectory = posix.join(
+      citingDirectory,
+      posix.basename(citationNodeDirectory(CITATION_DESCENDANT_NODE_INDEX, descendantNodeSlug)),
+    );
+    const descendantPath = posix.join(
+      descendantNodeDirectory,
+      citationDecisionFile(CITATION_DESCENDANT_DECISION_INDEX, descendantSlug),
+    );
+    const descendantHref = posix.relative(citingDirectory, descendantPath);
     const untrackedDecisionPath = posix.join(
       citingDirectory,
       citationDecisionFile(CITATION_UNTRACKED_DECISION_INDEX, untrackedSlug),
@@ -506,8 +521,14 @@ export function arbitraryReleaseDecisionCitationScenario(): fc.Arbitrary<Release
           `- ALWAYS: ${citingSlug} follows ${bareTextPath}`,
           `- ALWAYS: ${citingSlug} follows \`${inlineCodePath}\``,
           `- ALWAYS: ${citingSlug} follows [${climbingSlug}](${climbingHref})`,
+          `- ALWAYS: ${citingSlug} follows [${descendantSlug}](${descendantHref})`,
         ]),
       ),
+      releaseEndpointFile(
+        citationSpecificationPath(descendantNodeDirectory, descendantNodeSlug),
+        citationNodeSpec(descendantNodeSlug, []),
+      ),
+      releaseEndpointFile(descendantPath, citationDecision(descendantSlug)),
       releaseEndpointFile(citationSpecificationPath(citedDirectory, citedSlug), citationNodeSpec(citedSlug, [])),
       ...[treeAbsolutePath, labelledTreeAbsolutePath, bareTextPath, inlineCodePath, climbingPath].map((path) =>
         releaseEndpointFile(path, citationDecision(posix.basename(path)))
@@ -519,6 +540,7 @@ export function arbitraryReleaseDecisionCitationScenario(): fc.Arbitrary<Release
       bareTextPath,
       inlineCodePath,
       climbingPath,
+      descendantPath,
       untrackedDecisionPath,
     ];
     return {
@@ -527,6 +549,7 @@ export function arbitraryReleaseDecisionCitationScenario(): fc.Arbitrary<Release
       linkCitedDecisionPaths: [treeAbsolutePath, labelledTreeAbsolutePath, localDecisionPath],
       textNamedDecisionPaths: [bareTextPath, inlineCodePath],
       climbingLinkedDecisionPaths: [climbingPath],
+      descendantLinkedDecisionPaths: [descendantPath],
       workingTreeFiles: [
         releaseEndpointFile(
           citingSpecificationPath,

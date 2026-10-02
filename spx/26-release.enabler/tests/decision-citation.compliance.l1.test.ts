@@ -16,7 +16,7 @@ describe("release product-context decision citation compliance", () => {
     expect(decisionPaths).toEqual(expect.arrayContaining([...scenario.linkCitedDecisionPaths]));
   });
 
-  it("binds no decision named as bare text, named in an inline code span, linked through a climbing path, or absent from the committed endpoint", async () => {
+  it("binds no decision named as bare text, named in an inline code span, linked through a climbing path, linked through a path entering a descendant node, or absent from the committed endpoint", async () => {
     const scenario = sampleGeneratedValue(arbitraryReleaseDecisionCitationScenario());
 
     const context = await readReleaseEndpointContext(scenario);
@@ -26,6 +26,7 @@ describe("release product-context decision citation compliance", () => {
       .map((document) => document.path);
     expect(decisionPaths.filter((path) => scenario.textNamedDecisionPaths.includes(path))).toEqual([]);
     expect(decisionPaths.filter((path) => scenario.climbingLinkedDecisionPaths.includes(path))).toEqual([]);
+    expect(decisionPaths.filter((path) => scenario.descendantLinkedDecisionPaths.includes(path))).toEqual([]);
     expect(decisionPaths.filter((path) => scenario.untrackedDecisionPaths.includes(path))).toEqual([]);
   });
 });

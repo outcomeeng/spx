@@ -1,8 +1,14 @@
 import * as fc from "fast-check";
 import { posix } from "node:path";
 
-import { DECISION_SUFFIXES, NODE_SUFFIXES, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
-import { SPEC_TREE_LINK_PARENT_SEGMENT, SPEC_TREE_LINK_ROOT_ANCHOR } from "@/lib/spec-tree-link-grammar";
+import {
+  DECISION_SUFFIXES,
+  NODE_SUFFIXES,
+  SPEC_TREE_CONFIG,
+  SPEC_TREE_GRAMMAR,
+  SPEC_TREE_LINK_PARENT_SEGMENT,
+  SPEC_TREE_LINK_ROOT_ANCHOR,
+} from "@/lib/spec-tree";
 import {
   MARKDOWN_DEFAULT_DIRECTORY_NAMES,
   MARKDOWN_FILE_EXTENSIONS,

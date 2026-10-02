@@ -22,6 +22,7 @@ import {
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_NODE_STATE,
 } from "./config";
+import { createSpecTreeLinkGrammar } from "./link-grammar";
 export {
   canonicalNamingSchemaVersion,
   compareNamingSchemaVersions,
@@ -108,6 +109,13 @@ export type {
   SpecContextTargetFailureKind,
   SpecContextTargetResolution,
 } from "./context-target";
+export {
+  SPEC_TREE_LINK_KIND,
+  SPEC_TREE_LINK_PARENT_SEGMENT,
+  SPEC_TREE_LINK_ROOT_ANCHOR,
+  SPEC_TREE_ROOT_PREFIX,
+} from "./link-grammar";
+export type { SpecTreeLink, SpecTreeLinkKind } from "./link-grammar";
 export { resolveSpecTreePathOwnership, SPEC_TREE_PATH_OWNERSHIP_RESULT_KIND } from "./path-ownership";
 export type {
   SpecTreePathOwnershipResolved,
@@ -541,6 +549,39 @@ function matchSupersededNodeVersion(
   }
   return null;
 }
+
+const SPEC_TREE_LINK_GRAMMAR = createSpecTreeLinkGrammar({
+  isNodeDirectoryName: (directoryName) => {
+    const entry = recognizeSpecTreeFilesystemEntry({
+      type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY,
+      relativePath: directoryName,
+    });
+    return entry?.type === SPEC_TREE_ENTRY_TYPE.NODE || entry?.type === SPEC_TREE_ENTRY_TYPE.SUPERSEDED;
+  },
+  isDecisionFile: (specTreeRelativePath) =>
+    recognizeSpecTreeFilesystemEntry({
+      type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
+      relativePath: specTreeRelativePath,
+    })?.type === SPEC_TREE_ENTRY_TYPE.DECISION,
+});
+
+/** Classifies a link target against the spec-tree link grammar. */
+export const parseSpecTreeLink = SPEC_TREE_LINK_GRAMMAR.parseSpecTreeLink;
+
+/**
+ * The product-relative path an admitted spec-tree link names, or `null` for a
+ * link the grammar does not admit.
+ */
+export const resolveSpecTreeLink = SPEC_TREE_LINK_GRAMMAR.resolveSpecTreeLink;
+
+/** The decision paths a run of prose writes as text, in order of appearance. */
+export const decisionPathsWrittenAsText = SPEC_TREE_LINK_GRAMMAR.decisionPathsWrittenAsText;
+
+/**
+ * The decision path a link target cites from the citing document, or `null`
+ * when the target is not an admitted link to a decision record.
+ */
+export const resolveSpecTreeDecisionCitation = SPEC_TREE_LINK_GRAMMAR.resolveSpecTreeDecisionCitation;
 
 export async function readSpecTree(options: SpecTreeOptions): Promise<SpecTreeSnapshot> {
   const entries = await collectSourceEntries(options.source);
