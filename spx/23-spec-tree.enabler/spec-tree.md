@@ -18,7 +18,7 @@ CAN consume the product's spec tree through stable contracts without owning trav
 
 ### Scenarios
 
-- Given a `SpecTreeSource` that exposes product, node, decision, and evidence records, when `readSpecTree({ source })` runs, then it returns a `SpecTreeSnapshot` with recognized entries, assembled parent-child relationships, sorted siblings, decisions, and derived node states ([test](tests/spec-tree-surface.scenario.l1.test.ts))
+- Given a `SpecTreeSource` that exposes product, node, decision, and evidence records named in the grammar a methodology declaration selects, when `readSpecTree({ source, methodology })` runs with that declaration, then it returns a `SpecTreeSnapshot` with recognized entries, assembled parent-child relationships, sorted siblings, decisions, and derived node states ([test](tests/spec-tree-surface.scenario.l1.test.ts))
 
 ### Conformance
 
@@ -32,4 +32,4 @@ CAN consume the product's spec tree through stable contracts without owning trav
 
 - ALWAYS: source consumers import spec-tree contracts through `src/lib/spec-tree/index.ts`; internal modules stay behind this boundary ([audit])
 - NEVER: parse spec-tree source records, directory suffixes, or decision suffixes inside CLI command modules; commands consume snapshots and projections from the public surface ([audit])
-- NEVER: use `vi.mock()`, `jest.mock()`, `memfs`, or module interception for spec-tree registry or source tests, per `spx/23-spec-tree.enabler/21-kind-registry.adr.md` ([audit])
+- NEVER: use `vi.mock()`, `jest.mock()`, `memfs`, or module interception for spec-tree registry or source tests, per `spx/23-spec-tree.enabler/15-public-library-surface.adr.md` and `spx/23-spec-tree.enabler/21-kind-registry.adr.md` ([audit])
