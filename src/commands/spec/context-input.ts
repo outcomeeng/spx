@@ -1,10 +1,10 @@
 import { readdir, readFile, realpath } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, resolve } from "node:path";
+import { isAbsolute, resolve } from "node:path";
 
 import type { MethodologyConfig } from "@/config/methodology";
 import { resolveMethodologyConfig } from "@/config/methodology-placement";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
-import { isPathContained } from "@/lib/file-system/pathContainment";
+import { canonicalTargetPath, isPathContained, nearestExistingCanonicalPath } from "@/lib/file-system/pathContainment";
 import { defaultGitDependencies, type GitDependencies } from "@/lib/git/root";
 import { createTrackedPathInclusion, listTrackedPaths } from "@/lib/git/tracked-paths";
 import {
@@ -94,9 +94,9 @@ export async function readContextInput(options: ContextInputOptions): Promise<Co
     if (present === undefined) {
       present = (async () => {
         try {
-          const canonical = await fs.realPath(resolve(productDir, path));
-          if (!isPathContained(realRoot, canonical)) throw new Error(`Outside-product context document: ${path}`);
-          return true;
+          // A path escaping the product through a symbolic link is absent for
+          // presence, never an error: nothing selects it, so nothing reads it.
+          return isPathContained(realRoot, await fs.realPath(resolve(productDir, path)));
         } catch (error) {
           if (isMissingPath(error)) return false;
           throw error;
@@ -229,19 +229,16 @@ async function operandFacts(input: ContextInput, operand: string): Promise<SpecC
  * spelled.
  */
 async function missingPathLocation(fs: ContextFileSystem, path: string): Promise<string> {
-  const missing: string[] = [];
-  let ancestor = path;
-  for (;;) {
-    const parent = dirname(ancestor);
-    if (parent === ancestor) throw new Error(`No existing ancestor resolves for context operand path: ${path}`);
-    missing.unshift(basename(ancestor));
-    ancestor = parent;
+  const nearest = await nearestExistingCanonicalPath(path, async (candidate) => {
     try {
-      return join(await fs.realPath(ancestor), ...missing);
+      return await fs.realPath(candidate);
     } catch (error) {
-      if (!isMissingPath(error)) throw error;
+      if (isMissingPath(error)) return undefined;
+      throw error;
     }
-  }
+  });
+  if (nearest === undefined) throw new Error(`No existing ancestor resolves for context operand path: ${path}`);
+  return canonicalTargetPath(nearest, path);
 }
 
 export async function resolveContextTargets(
