@@ -1,3 +1,4 @@
+import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -5,12 +6,7 @@ import {
   RUNTIME_EVENT_NAMESPACE_DEFAULT,
   runtimeConfigDescriptor,
 } from "@/lib/agent-run-journal/config";
-import {
-  arbitraryInvalidEventNamespace,
-  arbitraryNonObjectRuntimeSection,
-} from "@testing/generators/agent-run-journal";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
-import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 describe("runtime config descriptor validates its eventNamespace field", () => {
   it("resolves an absent eventNamespace to the declared default", () => {
@@ -21,31 +17,38 @@ describe("runtime config descriptor validates its eventNamespace field", () => {
   });
 
   it("resolves a valid non-blank eventNamespace to itself", () => {
-    assertProperty(
-      arbitraryDomainLiteral(),
-      (namespace) => {
+    fc.assert(
+      fc.property(arbitraryDomainLiteral(), (namespace) => {
         const result = runtimeConfigDescriptor.validate({
           [RUNTIME_CONFIG_FIELDS.EVENT_NAMESPACE]: namespace,
         });
         return result.ok && result.value.eventNamespace === namespace;
-      },
-      { level: PROPERTY_LEVEL.L1 },
+      }),
     );
   });
 
   it("rejects a blank or non-string eventNamespace against its non-empty-string contract", () => {
-    assertProperty(
-      arbitraryInvalidEventNamespace(),
-      (invalid) => !runtimeConfigDescriptor.validate({ [RUNTIME_CONFIG_FIELDS.EVENT_NAMESPACE]: invalid }).ok,
-      { level: PROPERTY_LEVEL.L1 },
+    fc.assert(
+      fc.property(
+        fc.oneof(
+          fc.constant(""),
+          fc.stringMatching(/^\s+$/),
+          fc.integer(),
+          fc.boolean(),
+          fc.constant(null),
+        ),
+        (invalid) =>
+          runtimeConfigDescriptor.validate({ [RUNTIME_CONFIG_FIELDS.EVENT_NAMESPACE]: invalid }).ok === false,
+      ),
     );
   });
 
   it("rejects a runtime section that is not an object", () => {
-    assertProperty(
-      arbitraryNonObjectRuntimeSection(),
-      (invalid) => !runtimeConfigDescriptor.validate(invalid).ok,
-      { level: PROPERTY_LEVEL.L1 },
+    fc.assert(
+      fc.property(
+        fc.oneof(fc.string(), fc.integer(), fc.boolean(), fc.constant(null), fc.array(fc.anything())),
+        (invalid) => runtimeConfigDescriptor.validate(invalid).ok === false,
+      ),
     );
   });
 });
