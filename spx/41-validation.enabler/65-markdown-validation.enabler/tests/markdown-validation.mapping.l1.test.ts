@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { markdownCommand } from "@/commands/validation/markdown";
+import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { MARKDOWN_VALIDATION_STAGE_PARTICIPATION } from "@/validation/languages/markdown";
 import { VALIDATION_STAGE_PARTICIPATION } from "@/validation/languages/types";
@@ -15,7 +16,6 @@ import {
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   arbitrarySpecTreeLinkScenario,
-  MARKDOWN_VALIDATION_DATA,
   markdownCommandResolutionRows,
   markdownDirectoryTarget,
   markdownFileTarget,
@@ -70,7 +70,7 @@ describe("Link type resolution for command behavior", () => {
 
         const result = await markdownCommand({ cwd: productDir, files: [join(productDir, row.directory)] });
 
-        expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.zero);
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
       });
     },
     MARKDOWN_HARNESS_TIMEOUT,
@@ -85,7 +85,7 @@ describe("Link type resolution for command behavior", () => {
 
         const result = await markdownCommand({ cwd: productDir, files: [join(productDir, row.directory)] });
 
-        expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.one);
+        expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
         expect(result.output).toContain(row.link.href);
       });
     },

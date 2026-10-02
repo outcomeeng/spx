@@ -1,12 +1,12 @@
 import { readdirSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { NODE_STATUS_EXCLUDE_FILENAME, NODE_STATUS_EXCLUDE_LINE_GRAMMAR } from "@/lib/node-status/exclude";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { MARKDOWN_DEFAULT_DIRECTORY_NAMES } from "@/validation/steps/markdown";
-import { MARKDOWN_VALIDATION_DATA } from "@testing/generators/validation/markdown";
+import type { MarkdownLinkShapeCase } from "@testing/generators/validation/markdown";
 import { GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
@@ -22,8 +22,8 @@ export interface MarkdownTempProject {
   readonly docsDir: string;
   /** Writes content at a product-relative path, creating parent directories, and returns its absolute path. */
   readonly write: (relativePath: string, content: string) => Promise<string>;
-  /** Writes a linked source/target markdown pair into a directory and returns the source path. */
-  readonly writeValidMarkdownPair: (directory: string) => Promise<string>;
+  /** Writes a link case's supporting files and then its citing file, and returns the citing file's absolute path. */
+  readonly writeLinkCase: (linkCase: MarkdownLinkShapeCase) => Promise<string>;
   /** Writes the spec-tree exclude file listing each spec-tree-relative node directory, and returns its absolute path. */
   readonly writeNodeStatusExclude: (nodeDirectories: readonly string[]) => Promise<string>;
   /** Makes the product root a git repository whose index tracks exactly the given product-relative paths. */
@@ -50,15 +50,9 @@ export function withMarkdownTempProject<T>(callback: (project: MarkdownTempProje
       await writeFile(absolutePath, content);
       return absolutePath;
     };
-    const writeValidMarkdownPair = async (directory: string): Promise<string> => {
-      await mkdir(directory, { recursive: true });
-      await writeFile(
-        join(directory, MARKDOWN_VALIDATION_DATA.targetMarkdownFile),
-        MARKDOWN_VALIDATION_DATA.validMarkdownTargetContent,
-      );
-      const sourceFile = join(directory, MARKDOWN_VALIDATION_DATA.sourceMarkdownFile);
-      await writeFile(sourceFile, MARKDOWN_VALIDATION_DATA.validMarkdownSourceContent);
-      return sourceFile;
+    const writeLinkCase = async ({ link, supportingFiles }: MarkdownLinkShapeCase): Promise<string> => {
+      for (const supportingFile of supportingFiles) await write(supportingFile.path, supportingFile.content);
+      return await write(link.citingFile, link.content);
     };
     const writeNodeStatusExclude = (nodeDirectories: readonly string[]): Promise<string> =>
       write(
@@ -76,23 +70,20 @@ export function withMarkdownTempProject<T>(callback: (project: MarkdownTempProje
       spxDir: join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY),
       docsDir: join(productDir, DOCS_DIRECTORY_NAME),
       write,
-      writeValidMarkdownPair,
+      writeLinkCase,
       writeNodeStatusExclude,
       track,
     });
   });
 }
 
-/** Writes content at an absolute path inside an existing temporary project, creating parent directories. */
-export async function writeMarkdownFile(absolutePath: string, content: string): Promise<string> {
-  await mkdir(dirname(absolutePath), { recursive: true });
-  await writeFile(absolutePath, content);
-  return absolutePath;
-}
-
-/** Observes the entry names directly inside a directory. */
-export function listDirectoryEntries(directory: string): ReadonlySet<string> {
-  return new Set(readdirSync(directory));
+/** Observes every file and directory path beneath a directory, relative to it. */
+export function listTreeEntries(directory: string): ReadonlySet<string> {
+  return new Set(
+    readdirSync(directory, { recursive: true, encoding: "utf8" }).map((entry) =>
+      relative(directory, join(directory, entry))
+    ),
+  );
 }
 
 /** Resolves the repository the test process runs from as a markdown validation product. */

@@ -2,19 +2,33 @@ import { dirname, join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { MARKDOWN_COMMAND_OUTPUT, markdownCommand } from "@/commands/validation/markdown";
+import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import { createNodeStatusExcludeReader } from "@/lib/node-status/exclude";
 import { compareAsciiStrings } from "@/lib/state-store";
-import { validateMarkdown } from "@/validation/steps/markdown";
+import {
+  MARKDOWN_CONFIG_CONTROL_KEYS,
+  MARKDOWN_DEFAULT_DIRECTORY_NAMES,
+  validateMarkdown,
+} from "@/validation/steps/markdown";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   arbitrarySpecTreeLinkScenario,
-  MARKDOWN_VALIDATION_DATA,
+  markdownBrokenRelativeLink,
+  markdownColonNamedBrokenLink,
   markdownDirectoryTarget,
+  markdownDuplicateSiblingHeadings,
+  markdownDuplicateSiblingHeadingsWithBrokenLink,
   markdownFileTarget,
+  markdownMissingFragmentLink,
+  markdownRepeatedHeadingUnderDistinctParents,
+  markdownSecondaryExtensionBrokenLink,
+  markdownValidFragmentLink,
+  markdownValidRelativeLink,
+  specTreeExcludedNodeCase,
   specTreeTreeAbsoluteLink,
 } from "@testing/generators/validation/markdown";
 import {
-  listDirectoryEntries,
+  listTreeEntries,
   repositoryMarkdownProject,
   withMarkdownTempProject,
 } from "@testing/harnesses/validation/markdown";
@@ -22,8 +36,10 @@ import { MARKDOWN_FIXTURES, MARKDOWN_HARNESS_TIMEOUT, withMarkdownEnv } from "@t
 
 describe("Given a markdown file with a valid relative link to an existing file", () => {
   it("reports no error for that link", async () => {
-    await withMarkdownTempProject(async ({ productDir, spxDir, writeValidMarkdownPair }) => {
-      await writeValidMarkdownPair(spxDir);
+    await withMarkdownTempProject(async ({ productDir, spxDir, writeLinkCase }) => {
+      await writeLinkCase(
+        markdownValidRelativeLink(sampleGeneratedValue(arbitrarySpecTreeLinkScenario()), relative(productDir, spxDir)),
+      );
 
       const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
 
@@ -36,10 +52,11 @@ describe("Given a markdown file with a valid relative link to an existing file",
 describe("Given a markdown file with a relative link to a non-existent file", () => {
   it("reports an error identifying the file, line number, and broken target", async () => {
     await withMarkdownTempProject(async ({ productDir, spxDir, write }) => {
-      const brokenFile = await write(
-        join(relative(productDir, spxDir), MARKDOWN_VALIDATION_DATA.brokenMarkdownFile),
-        MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
+      const link = markdownBrokenRelativeLink(
+        sampleGeneratedValue(arbitrarySpecTreeLinkScenario()),
+        relative(productDir, spxDir),
       );
+      const brokenFile = await write(link.citingFile, link.content);
 
       const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
 
@@ -47,8 +64,8 @@ describe("Given a markdown file with a relative link to a non-existent file", ()
       expect(result.errors).toEqual([
         expect.objectContaining({
           file: brokenFile,
-          line: MARKDOWN_VALIDATION_DATA.brokenMarkdownLinkLine,
-          detail: expect.stringContaining(MARKDOWN_VALIDATION_DATA.missingFileMarker),
+          line: link.line,
+          detail: expect.stringContaining(link.href),
         }),
       ]);
     });
@@ -57,28 +74,22 @@ describe("Given a markdown file with a relative link to a non-existent file", ()
 
 describe("Given a markdown file inside spx/ with a tree-absolute link", () => {
   it("resolves the link from the product root when spx validation markdown runs", async () => {
-    await withMarkdownTempProject(async ({ productDir, write }) => {
-      const { link, supportingFiles } = specTreeTreeAbsoluteLink(
-        sampleGeneratedValue(arbitrarySpecTreeLinkScenario()),
-      );
-      for (const supportingFile of supportingFiles) await write(supportingFile.path, supportingFile.content);
-      await write(link.citingFile, link.content);
+    await withMarkdownTempProject(async ({ productDir, writeLinkCase }) => {
+      await writeLinkCase(specTreeTreeAbsoluteLink(sampleGeneratedValue(arbitrarySpecTreeLinkScenario())));
 
       const result = await markdownCommand({ cwd: productDir });
 
       expect(result.output).toContain(MARKDOWN_COMMAND_OUTPUT.NO_ISSUES);
-      expect(result.exitCode).toBe(MARKDOWN_VALIDATION_DATA.zero);
+      expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
     });
   }, MARKDOWN_HARNESS_TIMEOUT);
 });
 
 describe("Given a markdown file with a valid heading fragment reference", () => {
   it("reports no error", async () => {
-    await withMarkdownTempProject(async ({ productDir, spxDir, write, writeValidMarkdownPair }) => {
-      await writeValidMarkdownPair(spxDir);
-      await write(
-        join(relative(productDir, spxDir), MARKDOWN_VALIDATION_DATA.sourceMarkdownFile),
-        MARKDOWN_VALIDATION_DATA.validFragmentSourceContent,
+    await withMarkdownTempProject(async ({ productDir, spxDir, writeLinkCase }) => {
+      await writeLinkCase(
+        markdownValidFragmentLink(sampleGeneratedValue(arbitrarySpecTreeLinkScenario()), relative(productDir, spxDir)),
       );
 
       const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
@@ -91,12 +102,12 @@ describe("Given a markdown file with a valid heading fragment reference", () => 
 
 describe("Given a markdown file with a heading fragment referencing a non-existent heading", () => {
   it("reports an error", async () => {
-    await withMarkdownTempProject(async ({ productDir, spxDir, write, writeValidMarkdownPair }) => {
-      await writeValidMarkdownPair(spxDir);
-      const sourceFile = await write(
-        join(relative(productDir, spxDir), MARKDOWN_VALIDATION_DATA.sourceMarkdownFile),
-        MARKDOWN_VALIDATION_DATA.brokenFragmentSourceContent,
+    await withMarkdownTempProject(async ({ productDir, spxDir, writeLinkCase }) => {
+      const linkCase = markdownMissingFragmentLink(
+        sampleGeneratedValue(arbitrarySpecTreeLinkScenario()),
+        relative(productDir, spxDir),
       );
+      const sourceFile = await writeLinkCase(linkCase);
 
       const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
 
@@ -104,7 +115,8 @@ describe("Given a markdown file with a heading fragment referencing a non-existe
       expect(result.errors).toEqual([
         expect.objectContaining({
           file: sourceFile,
-          detail: expect.stringContaining(MARKDOWN_VALIDATION_DATA.missingHeadingMarker),
+          line: linkCase.link.line,
+          detail: expect.stringContaining(linkCase.link.href),
         }),
       ]);
     });
@@ -113,54 +125,66 @@ describe("Given a markdown file with a heading fragment referencing a non-existe
 
 describe("Given spx/ contains duplicate sibling headings", () => {
   it("reports MD024 errors for the sibling duplicates", async () => {
-    await withMarkdownEnv({ fixture: MARKDOWN_FIXTURES.DUPLICATE_HEADINGS }, async ({ spxDir }) => {
-      const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)] });
+    await withMarkdownTempProject(async ({ productDir, spxDir, write }) => {
+      const duplicates = markdownDuplicateSiblingHeadings(
+        sampleGeneratedValue(arbitrarySpecTreeLinkScenario()),
+        relative(productDir, spxDir),
+      );
+      const duplicatesFile = await write(duplicates.path, duplicates.content);
 
-      expect(
-        result.errors.filter((error) =>
-          error.file.endsWith(MARKDOWN_VALIDATION_DATA.childMarkdownFile)
-          && error.detail.includes(MARKDOWN_VALIDATION_DATA.md024RuleMarker)
-        ),
-      ).not.toEqual([]);
+      const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
+
+      expect(result.errors).toContainEqual(
+        expect.objectContaining({
+          file: duplicatesFile,
+          detail: expect.stringContaining(MARKDOWN_CONFIG_CONTROL_KEYS.DUPLICATE_HEADINGS),
+        }),
+      );
     });
   }, MARKDOWN_HARNESS_TIMEOUT);
 });
 
 describe("Given spx/ contains the same heading under different parent sections", () => {
   it("reports no MD024 error", async () => {
-    await withMarkdownEnv({ fixture: MARKDOWN_FIXTURES.DUPLICATE_HEADINGS }, async ({ spxDir }) => {
-      const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)] });
+    await withMarkdownTempProject(async ({ productDir, spxDir, write }) => {
+      const repeated = markdownRepeatedHeadingUnderDistinctParents(
+        sampleGeneratedValue(arbitrarySpecTreeLinkScenario()),
+        relative(productDir, spxDir),
+      );
+      await write(repeated.path, repeated.content);
 
-      expect(
-        result.errors.filter((error) =>
-          error.file.endsWith(MARKDOWN_VALIDATION_DATA.sampleMarkdownFile)
-          && error.detail.includes(MARKDOWN_VALIDATION_DATA.md024RuleMarker)
-        ),
-      ).toEqual([]);
+      const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
+
+      expect(result.errors).toEqual([]);
+      expect(result.success).toBe(true);
     });
   }, MARKDOWN_HARNESS_TIMEOUT);
 });
 
 describe("Given docs/ contains duplicate sibling headings", () => {
   it("reports no MD024 errors for a docs directory target", async () => {
-    await withMarkdownEnv({ fixture: MARKDOWN_FIXTURES.DUPLICATE_HEADINGS }, async ({ docsDir }) => {
-      const result = await validateMarkdown({ targets: [markdownDirectoryTarget(docsDir)] });
+    await withMarkdownTempProject(async ({ docsDir, productDir, write }) => {
+      const duplicates = markdownDuplicateSiblingHeadings(
+        sampleGeneratedValue(arbitrarySpecTreeLinkScenario()),
+        relative(productDir, docsDir),
+      );
+      await write(duplicates.path, duplicates.content);
 
-      expect(result.errors.filter((error) => error.detail.includes(MARKDOWN_VALIDATION_DATA.md024RuleMarker)))
-        .toEqual([]);
+      const result = await validateMarkdown({ targets: [markdownDirectoryTarget(docsDir)], productDir });
+
+      expect(result.errors).toEqual([]);
+      expect(result.success).toBe(true);
     });
   }, MARKDOWN_HARNESS_TIMEOUT);
 
   it("reports no MD024 errors for a direct docs file target", async () => {
     await withMarkdownTempProject(async ({ docsDir, productDir, write }) => {
-      const docsFile = await write(
-        join(
-          relative(productDir, docsDir),
-          MARKDOWN_VALIDATION_DATA.guideDirectoryName,
-          MARKDOWN_VALIDATION_DATA.sourceMarkdownFile,
-        ),
-        MARKDOWN_VALIDATION_DATA.docsDirectFileMd024Content,
+      const scenario = sampleGeneratedValue(arbitrarySpecTreeLinkScenario());
+      const duplicates = markdownDuplicateSiblingHeadings(
+        scenario,
+        join(relative(productDir, docsDir), scenario.docsSubdirectory),
       );
+      const docsFile = await write(duplicates.path, duplicates.content);
 
       const result = await validateMarkdown({ targets: [markdownFileTarget(docsFile)], productDir });
 
@@ -172,12 +196,19 @@ describe("Given docs/ contains duplicate sibling headings", () => {
 
 describe("Given docs/ contains other markdown errors", () => {
   it("still reports those non-MD024 errors", async () => {
-    await withMarkdownEnv({ fixture: MARKDOWN_FIXTURES.DUPLICATE_HEADINGS }, async ({ docsDir }) => {
-      const result = await validateMarkdown({ targets: [markdownDirectoryTarget(docsDir)] });
+    await withMarkdownTempProject(async ({ docsDir, productDir, write }) => {
+      const link = markdownDuplicateSiblingHeadingsWithBrokenLink(
+        sampleGeneratedValue(arbitrarySpecTreeLinkScenario()),
+        relative(productDir, docsDir),
+      );
+      const docsFile = await write(link.citingFile, link.content);
+
+      const result = await validateMarkdown({ targets: [markdownDirectoryTarget(docsDir)], productDir });
 
       expect(result.success).toBe(false);
-      expect(result.errors.some((error) => error.detail.includes(MARKDOWN_VALIDATION_DATA.missingFileMarker)))
-        .toBe(true);
+      expect(result.errors).toEqual([
+        expect.objectContaining({ file: docsFile, line: link.line, detail: expect.stringContaining(link.href) }),
+      ]);
     });
   }, MARKDOWN_HARNESS_TIMEOUT);
 });
@@ -185,60 +216,33 @@ describe("Given docs/ contains other markdown errors", () => {
 describe("Given spx/EXCLUDE lists a node path", () => {
   it("skips direct markdown files in that node while child-node markdown files remain in scope", async () => {
     await withMarkdownTempProject(async ({ productDir, spxDir, write, writeNodeStatusExclude }) => {
-      const specTreeDir = relative(productDir, spxDir);
-      const declaredNodeDir = join(specTreeDir, MARKDOWN_VALIDATION_DATA.declaredNodeDirectory);
-      await writeNodeStatusExclude([MARKDOWN_VALIDATION_DATA.declaredNodeDirectory]);
-      const declaredFile = await write(
-        join(declaredNodeDir, MARKDOWN_VALIDATION_DATA.declaredMarkdownFile),
-        MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
-      );
-      const declaredMarkdownExtensionFile = await write(
-        join(declaredNodeDir, MARKDOWN_VALIDATION_DATA.declaredMarkdownExtensionFile),
-        MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
-      );
-      const childFile = await write(
-        join(
-          declaredNodeDir,
-          MARKDOWN_VALIDATION_DATA.declaredChildDirectory,
-          MARKDOWN_VALIDATION_DATA.childMarkdownFile,
-        ),
-        MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
-      );
+      const excluded = specTreeExcludedNodeCase(sampleGeneratedValue(arbitrarySpecTreeLinkScenario()));
+      await writeNodeStatusExclude([excluded.excludeEntry]);
+      const directFiles = await Promise.all(excluded.directFiles.map((link) => write(link.citingFile, link.content)));
+      const childFile = await write(excluded.childNodeFile.citingFile, excluded.childNodeFile.content);
 
       const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
       const reportedFiles = result.errors.map((error) => error.file);
 
-      expect(reportedFiles).not.toContain(declaredFile);
-      expect(reportedFiles).not.toContain(declaredMarkdownExtensionFile);
+      for (const directFile of directFiles) expect(reportedFiles).not.toContain(directFile);
       expect(reportedFiles).toContain(childFile);
     });
   }, MARKDOWN_HARNESS_TIMEOUT);
 
   it("skips direct markdown files when the excluded node itself is the directory target", async () => {
-    await withMarkdownTempProject(async ({ productDir, spxDir, write, writeNodeStatusExclude }) => {
-      const specTreeDir = relative(productDir, spxDir);
-      const declaredNodeDir = join(specTreeDir, MARKDOWN_VALIDATION_DATA.declaredNodeDirectory);
-      await writeNodeStatusExclude([MARKDOWN_VALIDATION_DATA.declaredNodeDirectory]);
-      const declaredFile = await write(
-        join(declaredNodeDir, MARKDOWN_VALIDATION_DATA.declaredMarkdownFile),
-        MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
-      );
-      const childFile = await write(
-        join(
-          declaredNodeDir,
-          MARKDOWN_VALIDATION_DATA.declaredChildDirectory,
-          MARKDOWN_VALIDATION_DATA.childMarkdownFile,
-        ),
-        MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
-      );
+    await withMarkdownTempProject(async ({ productDir, write, writeNodeStatusExclude }) => {
+      const excluded = specTreeExcludedNodeCase(sampleGeneratedValue(arbitrarySpecTreeLinkScenario()));
+      await writeNodeStatusExclude([excluded.excludeEntry]);
+      const directFiles = await Promise.all(excluded.directFiles.map((link) => write(link.citingFile, link.content)));
+      const childFile = await write(excluded.childNodeFile.citingFile, excluded.childNodeFile.content);
 
       const result = await validateMarkdown({
-        targets: [markdownDirectoryTarget(join(productDir, declaredNodeDir))],
+        targets: [markdownDirectoryTarget(join(productDir, excluded.nodeDirectory))],
         productDir,
       });
       const reportedFiles = result.errors.map((error) => error.file);
 
-      expect(reportedFiles).not.toContain(declaredFile);
+      for (const directFile of directFiles) expect(reportedFiles).not.toContain(directFile);
       expect(reportedFiles).toContain(childFile);
     });
   }, MARKDOWN_HARNESS_TIMEOUT);
@@ -249,8 +253,7 @@ describe("Given a declared-state node with [test] links to files that do not exi
     await withMarkdownEnv({ fixture: MARKDOWN_FIXTURES.WITH_EXCLUDE }, async ({ path, spxDir }) => {
       const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir: path });
 
-      expect(result.errors.filter((error) => error.file.includes(MARKDOWN_VALIDATION_DATA.declaredNodeFragment)))
-        .toEqual([]);
+      expect(result.errors).toEqual([]);
       expect(result.success).toBe(true);
     });
   }, MARKDOWN_HARNESS_TIMEOUT);
@@ -278,10 +281,11 @@ describe("Given repository spx/EXCLUDE lists markdown-skipped nodes", () => {
 describe("Given a directory scope contains a broken .markdown file and no broken .md file", () => {
   it("reports no error for the directory and reports the broken link for the direct .markdown file", async () => {
     await withMarkdownTempProject(async ({ productDir, spxDir, write }) => {
-      const markdownExtensionFile = await write(
-        join(relative(productDir, spxDir), MARKDOWN_VALIDATION_DATA.brokenMarkdownExtensionFile),
-        MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
+      const link = markdownSecondaryExtensionBrokenLink(
+        sampleGeneratedValue(arbitrarySpecTreeLinkScenario()),
+        relative(productDir, spxDir),
       );
+      const markdownExtensionFile = await write(link.citingFile, link.content);
 
       const directoryResult = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
       const directFileResult = await validateMarkdown({
@@ -295,7 +299,8 @@ describe("Given a directory scope contains a broken .markdown file and no broken
       expect(directFileResult.errors).toEqual([
         expect.objectContaining({
           file: markdownExtensionFile,
-          detail: expect.stringContaining(MARKDOWN_VALIDATION_DATA.missingFileMarker),
+          line: link.line,
+          detail: expect.stringContaining(link.href),
         }),
       ]);
     });
@@ -305,10 +310,11 @@ describe("Given a directory scope contains a broken .markdown file and no broken
 describe("Given a markdown file path contains a colon", () => {
   it("reports the file, line number, and rule detail instead of dropping the error", async () => {
     await withMarkdownTempProject(async ({ productDir, spxDir, write }) => {
-      const colonFile = await write(
-        join(relative(productDir, spxDir), MARKDOWN_VALIDATION_DATA.colonMarkdownFile),
-        MARKDOWN_VALIDATION_DATA.brokenMarkdownContent,
+      const link = markdownColonNamedBrokenLink(
+        sampleGeneratedValue(arbitrarySpecTreeLinkScenario()),
+        relative(productDir, spxDir),
       );
+      const colonFile = await write(link.citingFile, link.content);
 
       const result = await validateMarkdown({ targets: [markdownFileTarget(colonFile)], productDir });
 
@@ -316,8 +322,8 @@ describe("Given a markdown file path contains a colon", () => {
       expect(result.errors).toEqual([
         expect.objectContaining({
           file: colonFile,
-          line: MARKDOWN_VALIDATION_DATA.brokenMarkdownLinkLine,
-          detail: expect.stringContaining(MARKDOWN_VALIDATION_DATA.missingFileMarker),
+          line: link.line,
+          detail: expect.stringContaining(link.href),
         }),
       ]);
     });
@@ -326,15 +332,17 @@ describe("Given a markdown file path contains a colon", () => {
 
 describe("Given a validated markdown directory", () => {
   it("leaves its file set unchanged with no config files or generated artifacts added", async () => {
-    await withMarkdownEnv({ fixture: MARKDOWN_FIXTURES.CLEAN_TREE }, async ({ spxDir }) => {
-      const sampleDir = join(spxDir, MARKDOWN_VALIDATION_DATA.sampleDirectoryName);
-      const rootBefore = listDirectoryEntries(spxDir);
-      const sampleBefore = listDirectoryEntries(sampleDir);
+    await withMarkdownTempProject(async ({ productDir, writeLinkCase }) => {
+      const scenario = sampleGeneratedValue(arbitrarySpecTreeLinkScenario());
+      await writeLinkCase(specTreeTreeAbsoluteLink(scenario));
+      await writeLinkCase(markdownValidRelativeLink(scenario, scenario.nodeDirectory));
+      const [specTreeDirectory] = MARKDOWN_DEFAULT_DIRECTORY_NAMES;
+      const validatedDirectory = join(productDir, specTreeDirectory);
+      const entriesBefore = listTreeEntries(validatedDirectory);
 
-      await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)] });
+      await validateMarkdown({ targets: [markdownDirectoryTarget(validatedDirectory)], productDir });
 
-      expect(listDirectoryEntries(spxDir)).toEqual(rootBefore);
-      expect(listDirectoryEntries(sampleDir)).toEqual(sampleBefore);
+      expect(listTreeEntries(validatedDirectory)).toEqual(entriesBefore);
     });
   }, MARKDOWN_HARNESS_TIMEOUT);
 });

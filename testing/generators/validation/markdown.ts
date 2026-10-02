@@ -3,7 +3,6 @@ import { posix } from "node:path";
 
 import { DECISION_SUFFIXES, NODE_SUFFIXES, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import {
-  MARKDOWN_CONFIG_CONTROL_KEYS,
   MARKDOWN_DEFAULT_DIRECTORY_NAMES,
   MARKDOWN_PRIMARY_FILE_EXTENSION,
   MARKDOWN_VALIDATION_TARGET_KIND,
@@ -13,43 +12,15 @@ import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 
 const SPX_DIRECTORY_NAME = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
 const [, DOCS_DIRECTORY_NAME] = MARKDOWN_DEFAULT_DIRECTORY_NAMES;
-const SAMPLE_DIRECTORY_NAME = "21-sample.outcome";
-const DECLARED_NODE_FRAGMENT = "32-declared";
 const DECLARED_NODE_DIRECTORY = "32-declared.outcome";
 const DECLARED_MARKDOWN_FILE = "declared.md";
-const DECLARED_MARKDOWN_EXTENSION_FILE = "declared.markdown";
 const DECLARED_CHILD_DIRECTORY = "43-child.enabler";
-const DATA_URI_MARKER = "data:";
-const MISSING_HEADING_MARKER = "nonexistent-heading";
-const MISSING_FILE_MARKER = "does-not-exist";
-const MD024_RULE_MARKER = MARKDOWN_CONFIG_CONTROL_KEYS.DUPLICATE_HEADINGS;
 const CHILD_MARKDOWN_FILE = "child.md";
-const COLON_MARKDOWN_FILE = "api:v2.md";
-const SAMPLE_MARKDOWN_FILE = "sample.md";
 const TARGET_MARKDOWN_FILE = "target.md";
-const SOURCE_MARKDOWN_FILE = "source.md";
 const BROKEN_MARKDOWN_FILE = "broken.md";
-const BROKEN_MARKDOWN_EXTENSION_FILE = "broken.markdown";
-const BROKEN_RELATIVE_TARGET_MARKER = "deleted.md";
-const DEFAULT_SPX_BROKEN_FILE = "default-spx-broken.md";
-const DEFAULT_DOCS_BROKEN_FILE = "default-docs-broken.md";
-const EXPLICIT_SCOPE_DOCS_DECOY_FILE = "explicit-scope-docs-decoy.md";
-const OUTSIDE_DEFAULT_DIRECTORY_NAME = "outside";
-const OUTSIDE_DEFAULT_BROKEN_FILE = "outside-default-broken.md";
-const MISSING_MARKDOWN_SCOPE_FILE = "missing.md";
-const UNRELATED_MARKDOWN_SCOPE_FILE = "notes.txt";
-const GUIDE_DIRECTORY_NAME = "guides";
 const DOCS_DIRECT_FILE_MD024_CONTENT = "# Page\n\n## Repeat\n\n## Repeat\n";
 const VALID_MARKDOWN_TARGET_CONTENT = "# Target\n\nContent.\n";
-const VALID_MARKDOWN_SOURCE_CONTENT = "# Source\n\n[valid](./target.md)\n";
 const BROKEN_MARKDOWN_CONTENT = "# Broken\n\n[broken](./does-not-exist.md)\n";
-const VALID_FRAGMENT_SOURCE_CONTENT = "# Source\n\n[valid](./target.md#target)\n";
-const BROKEN_FRAGMENT_SOURCE_CONTENT = "# Source\n\n[broken](./target.md#nonexistent-heading)\n";
-const UNRELATED_MARKDOWN_SCOPE_CONTENT = "plain text\n";
-const MARKDOWN_HELP_FLAG = "--help";
-const EXPECTED_ZERO = 0;
-const EXPECTED_ONE = 1;
-const EXPECTED_TWO = 2;
 
 export const EXPLICIT_MARKDOWN_OPERAND_KIND = {
   DIRECTORY: "directory",
@@ -95,51 +66,18 @@ export function arbitraryExplicitMarkdownOperandScenario(
     });
 }
 
-function lineContaining(content: string, marker: string): number {
-  return content.split("\n").findIndex((line) => line.includes(marker)) + 1;
-}
-
 export const MARKDOWN_VALIDATION_DATA = {
   spxDirectoryName: SPX_DIRECTORY_NAME,
   docsDirectoryName: DOCS_DIRECTORY_NAME,
-  sampleDirectoryName: SAMPLE_DIRECTORY_NAME,
-  declaredNodeFragment: DECLARED_NODE_FRAGMENT,
   declaredNodeDirectory: DECLARED_NODE_DIRECTORY,
   declaredMarkdownFile: DECLARED_MARKDOWN_FILE,
-  declaredMarkdownExtensionFile: DECLARED_MARKDOWN_EXTENSION_FILE,
   declaredChildDirectory: DECLARED_CHILD_DIRECTORY,
-  dataUriMarker: DATA_URI_MARKER,
-  missingHeadingMarker: MISSING_HEADING_MARKER,
-  missingFileMarker: MISSING_FILE_MARKER,
-  md024RuleMarker: MD024_RULE_MARKER,
   childMarkdownFile: CHILD_MARKDOWN_FILE,
-  colonMarkdownFile: COLON_MARKDOWN_FILE,
-  sampleMarkdownFile: SAMPLE_MARKDOWN_FILE,
   targetMarkdownFile: TARGET_MARKDOWN_FILE,
-  sourceMarkdownFile: SOURCE_MARKDOWN_FILE,
   brokenMarkdownFile: BROKEN_MARKDOWN_FILE,
-  brokenMarkdownExtensionFile: BROKEN_MARKDOWN_EXTENSION_FILE,
-  brokenRelativeTargetMarker: BROKEN_RELATIVE_TARGET_MARKER,
-  defaultSpxBrokenFile: DEFAULT_SPX_BROKEN_FILE,
-  defaultDocsBrokenFile: DEFAULT_DOCS_BROKEN_FILE,
-  explicitScopeDocsDecoyFile: EXPLICIT_SCOPE_DOCS_DECOY_FILE,
-  outsideDefaultDirectoryName: OUTSIDE_DEFAULT_DIRECTORY_NAME,
-  outsideDefaultBrokenFile: OUTSIDE_DEFAULT_BROKEN_FILE,
-  missingMarkdownScopeFile: MISSING_MARKDOWN_SCOPE_FILE,
-  unrelatedMarkdownScopeFile: UNRELATED_MARKDOWN_SCOPE_FILE,
-  guideDirectoryName: GUIDE_DIRECTORY_NAME,
   docsDirectFileMd024Content: DOCS_DIRECT_FILE_MD024_CONTENT,
   validMarkdownTargetContent: VALID_MARKDOWN_TARGET_CONTENT,
-  validMarkdownSourceContent: VALID_MARKDOWN_SOURCE_CONTENT,
   brokenMarkdownContent: BROKEN_MARKDOWN_CONTENT,
-  validFragmentSourceContent: VALID_FRAGMENT_SOURCE_CONTENT,
-  brokenFragmentSourceContent: BROKEN_FRAGMENT_SOURCE_CONTENT,
-  brokenMarkdownLinkLine: lineContaining(BROKEN_MARKDOWN_CONTENT, MISSING_FILE_MARKER),
-  unrelatedMarkdownScopeContent: UNRELATED_MARKDOWN_SCOPE_CONTENT,
-  helpFlag: MARKDOWN_HELP_FLAG,
-  zero: EXPECTED_ZERO,
-  one: EXPECTED_ONE,
-  two: EXPECTED_TWO,
 } as const;
 
 /** Bounds of the generated link-grammar domain. */
@@ -153,8 +91,12 @@ const SPEC_TREE_LINK_DOMAIN = {
   FILLER_PARAGRAPH_MAX_COUNT: 3,
   PHRASE_MIN_WORDS: 1,
   PHRASE_MAX_WORDS: 4,
-  /** Distinct names one scenario draws: local, docs, and outside directories; citing, target, and missing stems; host; link text. */
-  NAME_COUNT: 8,
+  /**
+   * Distinct names one scenario draws: local, docs, and outside directories; citing, target, missing, and
+   * source stems; host; link text; a repeated heading and two section headings; a file-name qualifier; and a
+   * non-markdown extension.
+   */
+  NAME_COUNT: 14,
 } as const;
 
 const LOWERCASE_LETTERS = [..."abcdefghijklmnopqrstuvwxyz"];
@@ -162,6 +104,16 @@ const MARKDOWN_LINE_SEPARATOR = "\n";
 const MARKDOWN_HEADING_PREFIX = "# ";
 const MARKDOWN_FENCE = "```";
 const MARKDOWN_FENCE_INFO = "text";
+const MARKDOWN_SECTION_PREFIX = "## ";
+const MARKDOWN_SUBSECTION_PREFIX = "### ";
+/** The secondary markdown extension the spec names; directory scope admits only the primary one. */
+const MARKDOWN_SECONDARY_FILE_EXTENSION = ".markdown";
+/** The character the spec names inside a markdown file path. */
+const FILE_NAME_COLON = ":";
+const FILE_EXTENSION_SEPARATOR = ".";
+const FRAGMENT_SEPARATOR = "#";
+/** GitHub heading anchors join the lowercased heading words with hyphens. */
+const HEADING_ANCHOR_WORD_SEPARATOR = "-";
 const PARENT_DIRECTORY_SEGMENT = "..";
 const CURRENT_DIRECTORY_PREFIX = "./";
 const PRODUCT_ROOT_ANCHOR = "/";
@@ -241,11 +193,22 @@ export interface SpecTreeLinkScenario {
   readonly docsSubdirectory: string;
   /** Product-root directory outside the default markdown directories. */
   readonly outsideDirectory: string;
+  readonly citingStem: string;
   readonly citingFileName: string;
   readonly targetFileName: string;
   readonly missingFileName: string;
+  /** File name of the citing file of a valid link pair. */
+  readonly sourceFileName: string;
   readonly externalHost: string;
   readonly linkText: string;
+  /** Heading text a document repeats. */
+  readonly repeatedHeading: string;
+  /** Two distinct section headings that each parent the repeated heading. */
+  readonly sectionHeadings: readonly [string, string];
+  /** Word joined to the citing stem by a colon. */
+  readonly fileNameQualifier: string;
+  /** Extension, without its separator, of a file that is not markdown. */
+  readonly unrelatedExtension: string;
   readonly citingProse: MarkdownProse;
   readonly targetProse: MarkdownProse;
 }
@@ -307,7 +270,10 @@ export function arbitrarySpecTreeLinkScenario(): fc.Arbitrary<SpecTreeLinkScenar
       targetProse: arbitraryProse(),
     })
     .filter(({ names }) =>
-      !names.some((name) => (MARKDOWN_DEFAULT_DIRECTORY_NAMES as readonly string[]).includes(name))
+      !names.some((name) =>
+        (MARKDOWN_DEFAULT_DIRECTORY_NAMES as readonly string[]).includes(name)
+        || `${FILE_EXTENSION_SEPARATOR}${name}` === MARKDOWN_SECONDARY_FILE_EXTENSION
+      )
     )
     .map(({ ancestors, nodeSegment, childNodeSegment, decisionFile, names, citingProse, targetProse }) => {
       const [
@@ -319,6 +285,12 @@ export function arbitrarySpecTreeLinkScenario(): fc.Arbitrary<SpecTreeLinkScenar
         missingStem = "",
         externalHost = "",
         linkText = "",
+        sourceStem = "",
+        repeatedHeading = "",
+        firstSection = "",
+        secondSection = "",
+        fileNameQualifier = "",
+        unrelatedExtension = "",
       ] = names;
       return {
         nodeDirectory: posix.join(SPEC_TREE_CONFIG.ROOT_DIRECTORY, ...ancestors, nodeSegment),
@@ -328,11 +300,17 @@ export function arbitrarySpecTreeLinkScenario(): fc.Arbitrary<SpecTreeLinkScenar
         localDirectory,
         docsSubdirectory,
         outsideDirectory,
+        citingStem,
         citingFileName: markdownFileName(citingStem),
         targetFileName: markdownFileName(targetStem),
         missingFileName: markdownFileName(missingStem),
+        sourceFileName: markdownFileName(sourceStem),
         externalHost,
         linkText,
+        repeatedHeading,
+        sectionHeadings: [firstSection, secondSection] as const,
+        fileNameQualifier,
+        unrelatedExtension,
         citingProse,
         targetProse,
       };
@@ -448,13 +426,190 @@ export function specTreeExistingTargetLinks(scenario: SpecTreeLinkScenario): rea
   }));
 }
 
+function brokenRelativeLinkFrom(scenario: SpecTreeLinkScenario, citingFile: string): MarkdownLinkCase {
+  return markdownLinkingTo(scenario, citingFile, `${CURRENT_DIRECTORY_PREFIX}${scenario.missingFileName}`);
+}
+
 /** A relative link to a missing file from a citing file inside the given product-relative directory. */
 export function markdownBrokenRelativeLink(scenario: SpecTreeLinkScenario, directory: string): MarkdownLinkCase {
-  return markdownLinkingTo(
+  return brokenRelativeLinkFrom(scenario, posix.join(directory, scenario.citingFileName));
+}
+
+/** The same broken relative link from a citing file carrying the secondary markdown extension. */
+export function markdownSecondaryExtensionBrokenLink(
+  scenario: SpecTreeLinkScenario,
+  directory: string,
+): MarkdownLinkCase {
+  return brokenRelativeLinkFrom(
     scenario,
-    posix.join(directory, scenario.citingFileName),
-    `${CURRENT_DIRECTORY_PREFIX}${scenario.missingFileName}`,
+    posix.join(directory, `${scenario.citingStem}${MARKDOWN_SECONDARY_FILE_EXTENSION}`),
   );
+}
+
+/** The same broken relative link from a citing file whose name contains a colon. */
+export function markdownColonNamedBrokenLink(scenario: SpecTreeLinkScenario, directory: string): MarkdownLinkCase {
+  return brokenRelativeLinkFrom(
+    scenario,
+    posix.join(
+      directory,
+      markdownFileName(`${scenario.citingStem}${FILE_NAME_COLON}${scenario.fileNameQualifier}`),
+    ),
+  );
+}
+
+function targetBeside(scenario: SpecTreeLinkScenario, directory: string): MarkdownSupportingFile {
+  return { path: posix.join(directory, scenario.targetFileName), content: targetContent(scenario) };
+}
+
+function relativeLinkToTarget(
+  scenario: SpecTreeLinkScenario,
+  directory: string,
+  fragment: string,
+): MarkdownLinkShapeCase {
+  return {
+    link: markdownLinkingTo(
+      scenario,
+      posix.join(directory, scenario.sourceFileName),
+      `${CURRENT_DIRECTORY_PREFIX}${scenario.targetFileName}${fragment}`,
+    ),
+    supportingFiles: [targetBeside(scenario, directory)],
+  };
+}
+
+/** A relative link to an existing file beside the citing file inside the given product-relative directory. */
+export function markdownValidRelativeLink(scenario: SpecTreeLinkScenario, directory: string): MarkdownLinkShapeCase {
+  return relativeLinkToTarget(scenario, directory, "");
+}
+
+/** The anchor GitHub derives for a heading of lowercase words. */
+function headingAnchor(heading: string): string {
+  return heading.split(WORD_SEPARATOR).join(HEADING_ANCHOR_WORD_SEPARATOR);
+}
+
+/** A relative link whose fragment names the heading the linked file carries. */
+export function markdownValidFragmentLink(scenario: SpecTreeLinkScenario, directory: string): MarkdownLinkShapeCase {
+  return relativeLinkToTarget(
+    scenario,
+    directory,
+    `${FRAGMENT_SEPARATOR}${headingAnchor(scenario.targetProse.title)}`,
+  );
+}
+
+/** A relative link whose fragment extends the linked file's only heading anchor, so it names no heading. */
+export function markdownMissingFragmentLink(
+  scenario: SpecTreeLinkScenario,
+  directory: string,
+): MarkdownLinkShapeCase {
+  return relativeLinkToTarget(
+    scenario,
+    directory,
+    [
+      FRAGMENT_SEPARATOR,
+      headingAnchor(scenario.targetProse.title),
+      HEADING_ANCHOR_WORD_SEPARATOR,
+      scenario.fileNameQualifier,
+    ].join(""),
+  );
+}
+
+function sectionLines(prefix: string, heading: string, lead: string): readonly string[] {
+  return [`${prefix}${heading}`, "", lead];
+}
+
+function duplicateSiblingHeadingLines(scenario: SpecTreeLinkScenario): readonly string[] {
+  const section = sectionLines(MARKDOWN_SECTION_PREFIX, scenario.repeatedHeading, scenario.citingProse.lead);
+  return [...section, "", ...section];
+}
+
+/** A markdown file inside the given directory whose top heading parents two sibling headings with the same text. */
+export function markdownDuplicateSiblingHeadings(
+  scenario: SpecTreeLinkScenario,
+  directory: string,
+): MarkdownSupportingFile {
+  return {
+    path: posix.join(directory, scenario.citingFileName),
+    content: markdownDocument(scenario.citingProse, duplicateSiblingHeadingLines(scenario), 0).content,
+  };
+}
+
+/** A markdown file inside the given directory that repeats one heading under two distinct parent sections. */
+export function markdownRepeatedHeadingUnderDistinctParents(
+  scenario: SpecTreeLinkScenario,
+  directory: string,
+): MarkdownSupportingFile {
+  const bodyLines = scenario.sectionHeadings.flatMap((sectionHeading, index) => [
+    ...(index === 0 ? [] : [""]),
+    ...sectionLines(MARKDOWN_SECTION_PREFIX, sectionHeading, scenario.citingProse.lead),
+    "",
+    ...sectionLines(MARKDOWN_SUBSECTION_PREFIX, scenario.repeatedHeading, scenario.citingProse.lead),
+  ]);
+  return {
+    path: posix.join(directory, scenario.sourceFileName),
+    content: markdownDocument(scenario.citingProse, bodyLines, 0).content,
+  };
+}
+
+/** A markdown file with duplicate sibling headings that also carries a relative link to a missing file. */
+export function markdownDuplicateSiblingHeadingsWithBrokenLink(
+  scenario: SpecTreeLinkScenario,
+  directory: string,
+): MarkdownLinkCase {
+  const headingLines = duplicateSiblingHeadingLines(scenario);
+  const href = `${CURRENT_DIRECTORY_PREFIX}${scenario.missingFileName}`;
+  return {
+    citingFile: posix.join(directory, scenario.citingFileName),
+    href,
+    ...markdownDocument(
+      scenario.citingProse,
+      [...headingLines, "", `${scenario.linkText} [${scenario.linkText}](${href})`],
+      headingLines.length + 1,
+    ),
+  };
+}
+
+/**
+ * A node listed in the spec-tree exclude file: its spec-tree-relative entry, broken links in its direct
+ * markdown files under both markdown extensions, and a broken link in a markdown file of a child node.
+ */
+export interface SpecTreeExcludedNodeCase {
+  /** Product-relative directory of the excluded node. */
+  readonly nodeDirectory: string;
+  /** The node's entry in the spec-tree exclude file, relative to the spec-tree root. */
+  readonly excludeEntry: string;
+  readonly directFiles: readonly MarkdownLinkCase[];
+  readonly childNodeFile: MarkdownLinkCase;
+}
+
+/** Composes an excluded node from the scenario's citing node and its child node. */
+export function specTreeExcludedNodeCase(scenario: SpecTreeLinkScenario): SpecTreeExcludedNodeCase {
+  return {
+    nodeDirectory: scenario.nodeDirectory,
+    excludeEntry: posix.relative(SPEC_TREE_CONFIG.ROOT_DIRECTORY, scenario.nodeDirectory),
+    directFiles: [
+      markdownBrokenRelativeLink(scenario, scenario.nodeDirectory),
+      markdownSecondaryExtensionBrokenLink(scenario, scenario.nodeDirectory),
+    ],
+    childNodeFile: markdownBrokenRelativeLink(
+      scenario,
+      posix.join(scenario.nodeDirectory, scenario.childNodeSegment),
+    ),
+  };
+}
+
+/** A product-relative markdown path outside the default directories that names no file. */
+export function markdownMissingScopePath(scenario: SpecTreeLinkScenario): string {
+  return posix.join(scenario.outsideDirectory, scenario.missingFileName);
+}
+
+/** A file outside the default directories whose extension is not markdown. */
+export function markdownUnrelatedScopeFile(scenario: SpecTreeLinkScenario): MarkdownSupportingFile {
+  return {
+    path: posix.join(
+      scenario.outsideDirectory,
+      `${scenario.citingStem}${FILE_EXTENSION_SEPARATOR}${scenario.unrelatedExtension}`,
+    ),
+    content: targetContent(scenario),
+  };
 }
 
 function resolutionRow(
@@ -571,6 +726,7 @@ export function specTreeDecisionPathAdmittedCases(scenario: SpecTreeLinkScenario
     decisionPathCase(scenario, markdownLinkingTo(scenario, citingFile, path)),
   ];
 }
+
 export function markdownDirectoryTarget(path: string): MarkdownValidationTarget {
   return {
     kind: MARKDOWN_VALIDATION_TARGET_KIND.DIRECTORY,
