@@ -19,4 +19,4 @@ Three formats with no priority order, erroring on ambiguity, is the strictest po
 - ALWAYS: delegate YAML, JSON, and TOML parsing to a single parse site within `src/config/` — no caller outside that module handles raw file content ([audit])
 - NEVER: apply a silent priority order when multiple config files are present — ambiguity is always an error ([audit])
 - NEVER: accept `spx.config.js`, `spx.config.ts`, or any executable config format — config files are data, not code ([audit])
-- NEVER: search parent directories for a config file — resolution reads the product directory only, per `spx/16-config.enabler/21-descriptor-registration.adr.md` ([audit])
+- NEVER: search parent directories for a config file — resolution reads the product directory only, per [spx/16-config.enabler/21-descriptor-registration.adr.md](21-descriptor-registration.adr.md) ([audit])
