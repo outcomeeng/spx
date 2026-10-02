@@ -12,8 +12,11 @@ CAN present current spec-tree state and deterministic context without parsing so
 
 ### Scenarios
 
-- Context-show projections render as ordered `spx-document` and `spx-reference` entries in text, or the equivalent ordered JSON `entries`, without changing selection, metadata, or source content. ([test](tests/context-rendering.scenario.l1.test.ts))
 - An empty context-show projection renders as empty text or `{ "entries": [] }`. ([test](tests/context-rendering.scenario.l1.test.ts))
+
+### Properties
+
+- Context-show projections render as ordered `spx-document` and `spx-reference` entries in text, or the equivalent ordered JSON `entries`, without changing selection, metadata, or source content. ([test](tests/context-rendering.property.l1.test.ts))
 
 ### Mappings
 
