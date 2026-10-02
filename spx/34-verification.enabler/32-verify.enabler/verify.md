@@ -8,6 +8,6 @@ CAN start one scoped run with a stable run locator, read the exact verification 
 
 ### Compliance
 
-- NEVER: a caller hand-formats the journal event envelope for a verification run; verification-run lifecycle operations construct journal events from typed lifecycle inputs ([test](32-evidence-append.enabler/tests/verify-finding.compliance.l1.test.ts), [test](43-terminal-projection.enabler/tests/verify-lifecycle.scenario.l1.test.ts))
+- NEVER: a caller hand-formats the journal event envelope for a verification run; verification-run lifecycle operations construct journal events from typed lifecycle inputs ([test](spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/tests/verify-finding.compliance.l1.test.ts), [test](spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-lifecycle.scenario.l1.test.ts))
 - ALWAYS: verification-run lifecycle operations record and render a run whichever party drives it — an agent, a launcher, or spx executing a runner ([audit])
-- NEVER: verification-run lifecycle operations launch, configure, or select a verification agent — an agentic verification is judged by an agent the agent harness launches, per `spx/12-agent-harness.pdr.md` ([audit])
+- NEVER: verification-run lifecycle operations launch, configure, or select a verification agent — an agentic verification is judged by an agent the agent harness launches, per [`spx/12-agent-harness.pdr.md`](spx/12-agent-harness.pdr.md) ([audit])

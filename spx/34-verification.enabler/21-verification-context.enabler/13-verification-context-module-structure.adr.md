@@ -1,6 +1,6 @@
 # Verification Context Module Structure
 
-The verification-context command follows the three-layer CLI composition of `spx/14-cli-composition.adr.md`: pure context construction, digesting, and path construction live under `src/domains/verification-context/`; process-agnostic orchestration and persistence live under `src/commands/verification-context/`; and the Commander descriptor lives at `src/interfaces/cli/verification-context.ts`. The domain owns the canonical payload and digest rules with no filesystem or process access, the command layer resolves product root and branch identity and persists through shared state-store dependencies, and the CLI descriptor parses caller-supplied subject, predicate, and workflow options without launching a verifier.
+The verification-context command follows the three-layer CLI composition of [`spx/14-cli-composition.adr.md`](spx/14-cli-composition.adr.md): pure context construction, digesting, and path construction live under `src/domains/verification-context/`; process-agnostic orchestration and persistence live under `src/commands/verification-context/`; and the Commander descriptor lives at `src/interfaces/cli/verification-context.ts`. The domain owns the canonical payload and digest rules with no filesystem or process access, the command layer resolves product root and branch identity and persists through shared state-store dependencies, and the CLI descriptor parses caller-supplied subject, predicate, and workflow options without launching a verifier.
 
 ## Rationale
 
