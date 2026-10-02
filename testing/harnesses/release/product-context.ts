@@ -82,6 +82,21 @@ export async function observeReleaseEndpointSources(
   return { context, error, producerInvocations, auditorInvocations };
 }
 
+/** In-memory release endpoints and the release data whose product context they supply. */
+export interface ReleaseEndpointContextInput {
+  readonly endpoints: readonly ReleaseEndpointSource[];
+  readonly releaseData: ReleaseEndpointSourceScenario["releaseData"];
+}
+
+/** Reads the release product context of in-memory release endpoints through the production assembly. */
+export async function readReleaseEndpointContext(
+  scenario: ReleaseEndpointContextInput,
+): Promise<ReleaseProductContext> {
+  return await readReleaseProductContext(IN_MEMORY_PRODUCT_DIRECTORY, scenario.releaseData, {
+    endpointReader: createInMemoryReleaseEndpointReader(scenario.endpoints),
+  });
+}
+
 /** A filesystem boundary the unresolved-path case must fail before reaching. */
 function unreachableReleaseNotesFilesystem(): ReleaseNotesFilesystem {
   const unreachable = (): never => {
