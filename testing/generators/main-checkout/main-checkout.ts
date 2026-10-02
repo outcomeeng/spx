@@ -417,6 +417,20 @@ export function arbitraryBarePoolLayoutCase(): fc.Arbitrary<WorktreeLayoutCase> 
 }
 
 /**
+ * One generated layout from each checkout layout class git produces — a non-bare
+ * single-tree repository, a non-bare repository with a linked worktree, and a
+ * bare-repository pool — so a real-git test ranges over every class rather than
+ * the single-clone shape where the worktree root and the common-dir parent agree.
+ */
+export function arbitraryCheckoutLayoutCases(): fc.Arbitrary<readonly WorktreeLayoutCase[]> {
+  return fc.tuple(
+    arbitrarySingleTreeLayoutCase(),
+    arbitraryNonBareLinkedLayoutCase(),
+    arbitraryBarePoolLayoutCase(),
+  );
+}
+
+/**
  * A bare-repository pool without an `origin` remote: every worktree is non-main
  * and `mainCheckoutPath` resolves no path because no repository name exists.
  */

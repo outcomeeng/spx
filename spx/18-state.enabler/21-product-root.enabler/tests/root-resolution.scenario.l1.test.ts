@@ -35,16 +35,8 @@ describe("detectGitCommonDirProductRoot — shared root resolves to the common-d
   });
 });
 
-describe("detectWorktreeProductRoot — local root resolves to the worktree toplevel", () => {
-  it("resolves a checkout to its worktree root and falls back to the working directory with a warning outside a git repository", async () => {
-    await withGitWorktreeEnv(async (env) => {
-      const root = await realpath(env.productDir);
-      const result = await detectWorktreeProductRoot(env.productDir);
-      expect(result.isGitRepo).toBe(true);
-      expect(result.productDir).toBe(root);
-      expect(result.warning).toBeUndefined();
-    });
-
+describe("detectWorktreeProductRoot — local root outside a git repository", () => {
+  it("falls back to the working directory with a warning outside a git repository", async () => {
     await withNonGitDirectory(async (nonGitDir) => {
       const result = await detectWorktreeProductRoot(nonGitDir);
       expect(result.isGitRepo).toBe(false);
