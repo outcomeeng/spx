@@ -7,7 +7,6 @@
  * referencing any language or stage by name.
  */
 import type { ValidationCommandResult } from "@/commands/validation/types";
-import type { ProcessRunner } from "@/lib/process-lifecycle";
 import type { ValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
 import type { ValidationScope } from "@/validation/types";
 
@@ -58,12 +57,6 @@ export interface ValidationStage {
   readonly failsPipeline: boolean;
   /** Default full-pipeline participation plus its invocation-local inverse override. */
   readonly participation: ValidationStageParticipationPolicy;
-  /**
-   * The `ProcessRunner` default the stage's tool subprocess spawns through, or
-   * `null` for a stage that runs in-process. Required so every registered stage
-   * declares which of the two it is.
-   */
-  readonly processRunner: ProcessRunner | null;
 }
 
 /** A language's quality-gate participation: the ordered stages it contributes. */
