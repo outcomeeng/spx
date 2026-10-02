@@ -246,10 +246,24 @@ export function splitSpecContextFrontMatter(source: string, path: string): {
   };
 }
 
+const LINE_FEED = "\n";
+
+function linesWithTerminators(body: string): string[] {
+  const lines: string[] = [];
+  let start = 0;
+  while (start < body.length) {
+    const terminator = body.indexOf(LINE_FEED, start);
+    const end = terminator === -1 ? body.length : terminator + LINE_FEED.length;
+    lines.push(body.slice(start, end));
+    start = end;
+  }
+  return lines;
+}
+
 function openingParagraph(body: string, keyword: string | undefined, fallback: boolean): string | undefined {
   const paragraphs: string[] = [];
   let paragraph = "";
-  for (const [line] of body.matchAll(/[^\n]*\n|[^\n]+$/g)) {
+  for (const line of linesWithTerminators(body)) {
     if (line.trim().length === 0) {
       if (paragraph.length > 0) paragraphs.push(paragraph);
       paragraph = "";
