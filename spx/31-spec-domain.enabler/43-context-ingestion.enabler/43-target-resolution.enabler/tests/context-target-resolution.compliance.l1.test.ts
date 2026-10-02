@@ -7,7 +7,9 @@ import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-con
 import { KIND_REGISTRY, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
 import {
   specContextAmbiguousNestedDirectory,
+  specContextLexicalDetourOperand,
   specContextOutsideDocument,
+  specContextUnknownTarget,
 } from "@testing/generators/spec-tree/context-target";
 import {
   sampleSpecTreeTestValue,
@@ -19,8 +21,10 @@ import {
   contextListFailure,
   contextListManifest,
   contextShowFailure,
+  rootedArtifactPath,
   rootedSpecPath,
   SPEC_CONTEXT_ESCAPE_TARGET_FILENAME,
+  specFilePath,
   specTreeKindsConfig,
   trackSpecTreeInGit,
   withOutsideProductDir,
@@ -104,6 +108,58 @@ describe("spec context target resolution compliance", () => {
         expect(failure).toContain(SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS]);
         expect(failure).toContain(rootTarget);
         expect(failure).toContain(nested.nestedTargetPath);
+      }
+    });
+  });
+
+  it("collapses distinct canonical candidates that denote one node into that node's identity", async () => {
+    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+      await env.materialize();
+      const rootDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
+      // From the product root the operand names an alias of the node's spec,
+      // while its suffix match names the node directory: two canonical
+      // candidates, one identity.
+      await symlink(
+        join(env.productDir, specFilePath(rootDirectory, env.fixture.root.slug)),
+        join(env.productDir, rootDirectory),
+      );
+      const manifest = await contextListManifest({ targets: [rootDirectory], cwd: env.productDir });
+      expect(manifest.targets).toEqual([rootedSpecPath(rootDirectory)]);
+    });
+  });
+
+  it("normalizes a candidate lexically before resolving symbolic links", async () => {
+    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+      await env.materialize();
+      const rootDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
+      const childDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.child);
+      const alias = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+      // The alias names the child directory, so a physical walk of the parent
+      // segment lands in the root node rather than the product root.
+      await symlink(
+        join(env.productDir, rootedArtifactPath(rootDirectory, childDirectory)),
+        join(env.productDir, alias),
+      );
+      const manifest = await contextListManifest({
+        targets: [specContextLexicalDetourOperand(alias, rootedSpecPath(rootDirectory))],
+        cwd: env.productDir,
+      });
+      expect(manifest.targets).toEqual([rootedSpecPath(rootDirectory)]);
+    });
+  });
+
+  it("fails as unresolved when no candidate denotes an accepted identity", async () => {
+    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+      await env.materialize();
+      const operand = specContextUnknownTarget(env.fixture);
+      for (
+        const failure of [
+          await contextListFailure({ targets: [operand], cwd: env.productDir }),
+          await contextShowFailure({ targets: [operand], cwd: env.productDir }),
+        ]
+      ) {
+        expect(failure).toContain(SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED]);
+        expect(failure).toContain(operand);
       }
     });
   });
