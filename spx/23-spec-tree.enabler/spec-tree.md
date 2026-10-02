@@ -10,15 +10,15 @@ CAN consume the product's spec tree through stable contracts without owning trav
 
 ## Assertions
 
-- Given a methodology declaration whose `methodology.version` is on the 4.0 line, when `readSpecTree` runs with that declaration, then a root `{name}.spec.md` whose front matter declares `kind: product` and `{index}-{slug}{suffix}/` node directories of the `.product`, `.substrate`, `.capability`, `.domain`, `.interface`, `.surface`, and `.variant` kinds, each holding `{slug}.spec.md`, are valid entries, and `.enabler` and `.outcome` node directories classify superseded
-- Given a methodology declaration whose `methodology.version` is on the 3.2 line, when `readSpecTree` runs with that declaration, then a root `{slug}.product.md` and `.enabler` and `.outcome` node directories, each holding `{slug}.md`, are valid entries, and node directories whose suffix only the 4.0 grammar accepts classify invalid
-- Given a methodology declaration whose `methodology.version` is on the 4.0 line and whose `methodology.migratingFrom` is on the 3.2 line, when `readSpecTree` runs with that declaration, then every name either grammar accepts is a valid entry of the one assembled tree
-- Given a methodology declaration naming a line for which the grammar carries no naming-schema version, when `readSpecTree` runs with that declaration, then the read fails naming the declaration
+- Given a product directory whose methodology declaration's `methodology.version` is on the 4.0 line, when `readSpecTree` reads the source `createFilesystemSpecTreeSource({ productDir })` creates for that directory, then a root `{name}.spec.md` whose front matter declares `kind: product` and `{index}-{slug}{suffix}/` node directories of the `.product`, `.substrate`, `.capability`, `.domain`, `.interface`, `.surface`, and `.variant` kinds, each holding `{slug}.spec.md`, are valid entries, and `.enabler` and `.outcome` node directories classify superseded
+- Given a product directory whose methodology declaration's `methodology.version` is on the 3.2 line, when `readSpecTree` reads the source `createFilesystemSpecTreeSource({ productDir })` creates for that directory, then a root `{slug}.product.md` and `.enabler` and `.outcome` node directories, each holding `{slug}.md`, are valid entries, and node directories whose suffix only the 4.0 grammar accepts classify invalid
+- Given a product directory whose methodology declaration's `methodology.version` is on the 4.0 line and whose `methodology.migratingFrom` is on the 3.2 line, when `readSpecTree` reads the source `createFilesystemSpecTreeSource({ productDir })` creates for that directory, then every name either grammar accepts is a valid entry of the one assembled tree
+- Given a product directory whose methodology declaration names a line for which the grammar carries no naming-schema version, when `readSpecTree` reads the source `createFilesystemSpecTreeSource({ productDir })` creates for that directory, then the read fails naming the declared version and the methodology lines spx reads
 - Given a tree holding more than one root product spec, or a 4.0 root spec whose front matter does not declare `kind: product`, when `readSpecTree` runs, then the read fails naming each offending file
 
 ### Scenarios
 
-- Given a `SpecTreeSource` that exposes product, node, decision, and evidence records named in the grammar a methodology declaration selects, when `readSpecTree({ source, methodology })` runs with that declaration, then it returns a `SpecTreeSnapshot` with recognized entries, assembled parent-child relationships, sorted siblings, decisions, and derived node states ([test](tests/spec-tree-surface.scenario.l1.test.ts))
+- Given a `SpecTreeSource` that exposes product, node, decision, and evidence records, when `readSpecTree({ source })` runs, then it returns a `SpecTreeSnapshot` with recognized entries, assembled parent-child relationships, sorted siblings, decisions, and derived node states ([test](tests/spec-tree-surface.scenario.l1.test.ts))
 
 ### Conformance
 
