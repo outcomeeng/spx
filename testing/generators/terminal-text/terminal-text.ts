@@ -55,7 +55,6 @@ export const arbitraryPrintableCodePoint = (): fc.Arbitrary<number> =>
   fc.integer({ min: ORACLE_FIRST_PRINTABLE_CODE_POINT, max: ORACLE_DEL_CODE_POINT - 1 });
 
 const DEFAULT_SEGMENT_MAX_LENGTH = 8;
-const ACROSS_BOUND_LENGTH_MULTIPLIER = 2;
 const BEYOND_BOUND_LENGTH_MULTIPLIER = 4;
 const MAX_JOIN_PARTS = 5;
 const MAX_JSON_INDENT = 4;
@@ -125,15 +124,7 @@ export const arbitraryTerminalUnsafePathSegment = (): fc.Arbitrary<string> =>
  * exceeds it — whose cut may fall inside an escape sequence.
  */
 export const arbitraryTerminalTextAcrossBound = (displayBound: number): fc.Arbitrary<string> =>
-  fc.oneof(
-    arbitraryTerminalText(),
-    fc
-      .array(fc.oneof(arbitraryPrintableCodePoint(), arbitraryTerminalUnsafeCodePoint()), {
-        minLength: displayBound + 1,
-        maxLength: displayBound * ACROSS_BOUND_LENGTH_MULTIPLIER,
-      })
-      .map((points) => String.fromCodePoint(...points)),
-  );
+  fc.oneof(arbitraryTerminalText(), arbitraryTerminalTextBeyond(displayBound));
 
 /** Non-empty printable text no longer than the given display bound. */
 export const arbitraryPrintableTextWithin = (displayBound: number): fc.Arbitrary<string> =>
@@ -149,6 +140,30 @@ export const arbitraryPrintableTextBeyond = (displayBound: number): fc.Arbitrary
       maxLength: displayBound * BEYOND_BOUND_LENGTH_MULTIPLIER,
     })
     .map((points) => String.fromCodePoint(...points));
+
+/**
+ * Text of more code points than the given display bound, up to several times past it, over both
+ * byte classes — the open domain an assertion over every overlong input quantifies over. One branch
+ * is printable only; the other carries at least one terminal-unsafe byte at a drawn position, so its
+ * escaped form outgrows the input and a cut at the bound may fall inside an escape sequence.
+ */
+export const arbitraryTerminalTextBeyond = (displayBound: number): fc.Arbitrary<string> =>
+  fc.oneof(
+    arbitraryPrintableTextBeyond(displayBound),
+    fc
+      .tuple(
+        fc.array(fc.oneof(arbitraryPrintableCodePoint(), arbitraryTerminalUnsafeCodePoint()), {
+          minLength: displayBound,
+          maxLength: displayBound * BEYOND_BOUND_LENGTH_MULTIPLIER - 1,
+        }),
+        arbitraryTerminalUnsafeCodePoint(),
+        fc.nat(),
+      )
+      .map(([points, unsafe, position]) => {
+        const insertAt = position % (points.length + 1);
+        return String.fromCodePoint(...points.slice(0, insertAt), unsafe, ...points.slice(insertAt));
+      }),
+  );
 
 /**
  * A value of every runtime type other than string, `undefined`, and `null` — the open domain a

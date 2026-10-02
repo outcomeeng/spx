@@ -10,6 +10,7 @@ import {
   arbitraryPrintableTextBeyond,
   arbitraryPrintableTextWithin,
   arbitraryTerminalTextAcrossBound,
+  arbitraryTerminalTextBeyond,
   TERMINAL_ORACLE,
 } from "@testing/generators/terminal-text/terminal-text";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
@@ -38,7 +39,7 @@ describe("sanitizeCliArgument invariants", () => {
   });
 
   it("overlong input is truncated to the display bound and ends with ELLIPSIS_TOKEN", () => {
-    assertProperty(arbitraryPrintableTextBeyond(MAX_CLI_ARGUMENT_DISPLAY_LENGTH), (input) => {
+    assertProperty(arbitraryTerminalTextBeyond(MAX_CLI_ARGUMENT_DISPLAY_LENGTH), (input) => {
       const output = sanitizeCliArgument(input);
       expect(output).toHaveLength(MAX_CLI_ARGUMENT_DISPLAY_LENGTH);
       expect(output.endsWith(ELLIPSIS_TOKEN)).toBe(true);
