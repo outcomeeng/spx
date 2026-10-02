@@ -7,6 +7,7 @@ import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-con
 import { KIND_REGISTRY, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
 import {
   specContextAmbiguousNestedDirectory,
+  specContextExtendedRootDirectory,
   specContextLexicalDetourOperand,
   specContextOutsideDocument,
   specContextUnknownTarget,
@@ -18,13 +19,15 @@ import {
 } from "@testing/generators/spec-tree/spec-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
-  contextListFailure,
-  contextListManifest,
-  contextShowFailure,
   rootedArtifactPath,
   rootedSpecPath,
   SPEC_CONTEXT_ESCAPE_TARGET_FILENAME,
   specFilePath,
+} from "@testing/generators/spec-tree/rich-context";
+import {
+  contextListFailure,
+  contextListManifest,
+  contextShowFailure,
   specTreeKindsConfig,
   trackSpecTreeInGit,
   withOutsideProductDir,
@@ -47,6 +50,18 @@ describe("spec context target resolution compliance", () => {
       expect(failure).toContain(SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS]);
       expect(failure).toContain(nested.nestedTargetPath);
       expect(failure).toContain(rootedSpecPath(specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root)));
+    });
+  });
+
+  it("never matches an operand as an abbreviated prefix of a longer path component", async () => {
+    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+      await env.materialize();
+      // A top-level directory extends the root's name, so a prefix match would
+      // make the root's own name ambiguous between the two.
+      const extended = specContextExtendedRootDirectory(env.fixture);
+      await env.writeRaw(extended.extendedSpecPath, extended.extendedSpecContent);
+      const manifest = await contextListManifest({ targets: [extended.operand], cwd: env.productDir });
+      expect(manifest.targets).toEqual([rootedSpecPath(extended.operand)]);
     });
   });
 

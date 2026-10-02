@@ -8,12 +8,8 @@ import {
   generatedMigratingMethodologySection,
 } from "@testing/generators/config/descriptors";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
-import {
-  contextListManifest,
-  contextListText,
-  rootedSpecPath,
-  specTreeKindsConfig,
-} from "@testing/harnesses/spec/context";
+import { rootedSpecPath } from "@testing/generators/spec-tree/rich-context";
+import { contextListManifest, contextListText, specTreeKindsConfig } from "@testing/harnesses/spec/context";
 
 describe("spec context manifest methodology identity", () => {
   it.each(Object.values(METHODOLOGY_VERSION_FORM))(

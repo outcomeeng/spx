@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { SPEC_CONTEXT_LISTED_ROLE, SPEC_CONTEXT_READ_ROLE_ORDER } from "@/lib/spec-tree";
+import { richContextListedRoleBindings, richContextReadRoleBindings } from "@testing/generators/spec-tree/rich-context";
 import {
   contextListManifest,
   listedPathsForRole,
   readPaths,
   readPathsForRole,
-  richContextListedRoleBindings,
-  richContextReadRoleBindings,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
 

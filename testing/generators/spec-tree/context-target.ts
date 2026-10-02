@@ -1,6 +1,7 @@
 import * as fc from "fast-check";
 
 import type { Config } from "@/config/types";
+import { arbitraryMigratingMethodology, type GeneratedMigratingMethodology } from "@testing/generators/config/descriptors";
 
 import {
   arbitraryDecisionEntry,
@@ -675,8 +676,11 @@ export function specContextOutsideDocument(): string {
 
 /**
  * Two decisions under the peer directory whose citation order is the reverse
- * of their canonical path order: the first cited carries the higher index, so
- * a projection that appended citations in discovery order would emit them the
+ * of their canonical path order. Both share one index and differ only in the
+ * first character of their slug, "Z" against "a": by the canonical ordinal
+ * comparison the "Z" path precedes the "a" path, while locale collation and
+ * citation order both put the "a" path first. A projection that appended
+ * citations in discovery order, or compared paths by locale, emits them the
  * other way round.
  */
 export function specContextDivergentCitationDecisions(fixture: RepresentativeSpecTreeFixture): {
@@ -685,17 +689,17 @@ export function specContextDivergentCitationDecisions(fixture: RepresentativeSpe
 } {
   const documents = specContextFixtureDocuments(fixture);
   const suffix = KIND_REGISTRY[fixture.decision.kind].suffix;
-  const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-  const decision = (order: number, name: string) => ({
+  const slug = sampleGeneratedValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+  const decision = (name: string) => ({
     path: rooted(
       documents.peerDirectory,
-      `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}-${name}${suffix}`,
+      `${fixture.peer.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${name}${suffix}`,
     ),
-    content: specContent(`${slug} ${name}`, SPEC_CONTEXT_DOCUMENT_OPENING.DECISION),
+    content: specContent(name, SPEC_CONTEXT_DOCUMENT_OPENING.DECISION),
   });
   return {
-    citedFirst: decision(fixture.peer.order + 1, "later"),
-    citedSecond: decision(fixture.peer.order, "earlier"),
+    citedFirst: decision(`a${slug}`),
+    citedSecond: decision(`Z${slug}`),
   };
 }
 
@@ -862,10 +866,19 @@ export function specContextTargetDiagnosticSafetyCases(): readonly SpecContextTa
   });
 }
 
-/** One extra node directory and one extra decision file, for a context projection run twice over the same tree. */
+/**
+ * The complete input of one determinism case: the representative tree, one
+ * extra node directory and one extra decision file, an open migration whose
+ * declared version names the shipped fixture tree, and that tree's resource
+ * slug. Every value the case materializes comes from this record, so a
+ * failing case replays and shrinks from its reported seed alone.
+ */
 export type GeneratedContextDeterminismCase = {
+  readonly fixture: RepresentativeSpecTreeFixture;
   readonly extraDecision: SpecTreeFixtureEntry;
   readonly extraNode: SpecTreeFixtureEntry;
+  readonly migrating: GeneratedMigratingMethodology;
+  readonly methodologySlug: string;
 };
 
 function withOpening(entry: SpecTreeFixtureEntry, opening: string): SpecTreeFixtureEntry {
@@ -875,6 +888,7 @@ function withOpening(entry: SpecTreeFixtureEntry, opening: string): SpecTreeFixt
 /** Every generated document carries the opening its Digest projection selects, so both projections render it. */
 export function arbitraryContextDeterminismCase(config: Config): fc.Arbitrary<GeneratedContextDeterminismCase> {
   return fc.record({
+    fixture: SPEC_TREE_TEST_GENERATOR.representativeFixture(KIND_REGISTRY),
     extraDecision: arbitraryDecisionEntry(config).map((entry) =>
       withOpening(entry, SPEC_CONTEXT_DOCUMENT_OPENING.DECISION)
     ),
@@ -882,6 +896,8 @@ export function arbitraryContextDeterminismCase(config: Config): fc.Arbitrary<Ge
       const opening = KIND_REGISTRY[entry.kind as keyof typeof KIND_REGISTRY];
       return withOpening(entry, "opening" in opening ? opening.opening : SPEC_CONTEXT_DOCUMENT_OPENING.DECISION);
     }),
+    migrating: arbitraryMigratingMethodology(),
+    methodologySlug: SPEC_TREE_TEST_GENERATOR.sourceSlug(),
   });
 }
 

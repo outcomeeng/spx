@@ -21,9 +21,9 @@ import {
 } from "@testing/generators/spec-tree/spec-tree";
 import { shippedMethodologyVersion } from "@testing/harnesses/methodology/shipped-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { rootedSpecPath } from "@testing/generators/spec-tree/rich-context";
 import {
   methodologyTreeConfig,
-  rootedSpecPath,
   runSpecCli,
   specTreeKindsConfig,
   withRichContextEnv,

@@ -13,23 +13,25 @@ import {
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
-  allManifestPaths,
-  contextListJson,
-  contextListManifest,
   divergentOrderSlugPair,
   freeSiblingOrder,
-  listedPaths,
-  listedPathsForRole,
   markdownFixtureBody,
-  parseContextManifest,
-  readPaths,
-  readPathsForRole,
   rootedSpecPath,
   siblingDirectoryName,
   SPEC_CONTEXT_ESCAPE_TARGET_FILENAME,
   specFilePath,
+} from "@testing/generators/spec-tree/rich-context";
+import {
+  allManifestPaths,
+  contextListJson,
+  contextListManifest,
+  listedPaths,
+  listedPathsForRole,
+  parseContextManifest,
+  readPaths,
+  readPathsForRole,
   specTreeKindsConfig,
-  trackedSpecContextGitDependencies,
+  trackSpecTreeInGit,
   withOutsideProductDir,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
@@ -42,6 +44,7 @@ describe("spec context manifest read set", () => {
         paths.rootPlanPath,
         paths.rootIssuesPath,
         paths.ancestorPlanPath,
+        paths.ancestorIssuesPath,
         paths.targetIssuesPath,
       ]);
     });
@@ -92,20 +95,8 @@ describe("spec context manifest read set", () => {
 
       // The tracked-paths branch is the one a real git worktree takes; it sorts
       // through the same comparator at a different call site.
-      const snapshot = await env.readFilesystemSnapshot();
-      const trackedPaths = [
-        ...snapshot.entries
-          .map((entry) => entry.ref?.path)
-          .filter((path): path is string => path !== undefined),
-        paths.lifecycleOverlayPath,
-        codeUnitFirstOverlayPath,
-        localeFirstOverlayPath,
-      ];
-      const trackedManifest = await contextListManifest({
-        targets: [paths.targetId],
-        cwd: env.productDir,
-        gitDependencies: trackedSpecContextGitDependencies(env.productDir, trackedPaths),
-      });
+      await trackSpecTreeInGit(env);
+      const trackedManifest = await contextListManifest({ targets: [paths.targetId], cwd: env.productDir });
       expect(overlayPairIn(trackedManifest)).toStrictEqual([codeUnitFirstOverlayPath, localeFirstOverlayPath]);
     });
   });
@@ -188,7 +179,7 @@ describe("spec context manifest read set", () => {
         // appears verbatim inside a JSON-encoded string — a leak is
         // observable in the raw output regardless of JSON string escaping.
         const secretMarker = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-        await writeFile(outsideSecretPath, `# Outside secret ${secretMarker}\n`);
+        await writeFile(outsideSecretPath, markdownFixtureBody(secretMarker));
         const escapingGuidePath = SPEC_TREE_GRAMMAR.GUIDE_FILES[1];
         await symlink(outsideSecretPath, join(env.productDir, escapingGuidePath));
 

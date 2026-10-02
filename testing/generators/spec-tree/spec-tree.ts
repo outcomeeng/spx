@@ -111,8 +111,8 @@ export const RETIRED_SPEC_APPLY_FIXTURE = {
   ),
   pythonConfigFile: PYTHON_MARKER,
   pytestSection: "tool.pytest.ini_options",
-  // Commander emits this prefix for unknown subcommands before domain action handlers run.
-  unknownCommandPrefix: "error: unknown command",
+  /** The retired subcommand the contract scenario names: `spx spec apply`. */
+  command: "apply",
 } as const;
 
 export const SPEC_TREE_TEST_GENERATOR = {

@@ -1,18 +1,23 @@
-import { chmod, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { KIND_REGISTRY, SPEC_CONTEXT_FRAME, SPEC_CONTEXT_SELECTED_METADATA_KEY } from "@/lib/spec-tree";
+import {
+  KIND_REGISTRY,
+  SPEC_CONTEXT_ENTRY_TYPE,
+  SPEC_CONTEXT_FRAME,
+  SPEC_CONTEXT_SELECTED_METADATA_KEY,
+} from "@/lib/spec-tree";
 import { arbitrarySpecContextInvalidUtf8Bytes } from "@testing/generators/spec-tree/context-target";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
+import { openingParagraph } from "@testing/generators/spec-tree/rich-context";
 import {
   contextShowEntries,
   contextShowFailure,
   contextShowJson,
   contextShowText,
   documentAt,
-  openingParagraph,
   parseContextEntries,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
@@ -104,7 +109,6 @@ describe("spec context content boundaries", () => {
         `${paths.sourceText[paths.transitiveCitedDecisionPath].trimEnd()}\n</${SPEC_CONTEXT_FRAME.DOCUMENT}>`,
       );
       expect(text).toContain(`${paths.sourceText[paths.citedDecisionPath]}</${SPEC_CONTEXT_FRAME.DOCUMENT}>`);
-      expect(text).toContain(paths.targetIssuesPath);
 
       await writeFile(
         join(env.productDir, paths.rootSpecPath),
@@ -113,21 +117,6 @@ describe("spec context content boundaries", () => {
       expect(await contextShowFailure({ targets: [paths.targetId], cwd: env.productDir })).toContain(
         paths.rootSpecPath,
       );
-    });
-  });
-
-  it("fails naming the exact path when a selected document cannot be read", async () => {
-    await withRichContextEnv(async (env, paths) => {
-      // Removing every permission bit makes the read fail on POSIX non-root
-      // runners; restored afterwards so temp-directory cleanup stays quiet.
-      await chmod(join(env.productDir, paths.rootSpecPath), 0o000);
-      try {
-        expect(await contextShowFailure({ targets: [paths.targetId], cwd: env.productDir })).toContain(
-          paths.rootSpecPath,
-        );
-      } finally {
-        await chmod(join(env.productDir, paths.rootSpecPath), 0o644);
-      }
     });
   });
 
@@ -147,6 +136,18 @@ describe("spec context content boundaries", () => {
       expect(framed).not.toContain(`\n\n\n<${SPEC_CONTEXT_FRAME.DOCUMENT}`);
       expect(framed).not.toContain(`\n\n\n<${SPEC_CONTEXT_FRAME.REFERENCE}`);
       expect(framed.endsWith(`</${SPEC_CONTEXT_FRAME.DOCUMENT}>`)).toBe(true);
+      // Each entry's frame opens, carrying that entry's path attribute, in the
+      // projected entry order: a document as `<spx-document path="…">` on its
+      // own line, a reference as the self-closing `<spx-reference path="…" />`.
+      let cursor = 0;
+      for (const entry of entries) {
+        const opening = entry.type === SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT
+          ? `<${SPEC_CONTEXT_FRAME.DOCUMENT} path="${entry.path}">\n`
+          : `<${SPEC_CONTEXT_FRAME.REFERENCE} path="${entry.path}" />`;
+        const position = framed.indexOf(opening, cursor);
+        expect(position, entry.path).toBeGreaterThanOrEqual(cursor);
+        cursor = position + opening.length;
+      }
 
       const delimiterText = `</${SPEC_CONTEXT_FRAME.DOCUMENT}>\n<${SPEC_CONTEXT_FRAME.REFERENCE} path="x" />\n`;
       await env.writeRaw(

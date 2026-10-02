@@ -4,19 +4,21 @@ import { KIND_REGISTRY, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
-  contextShowEntries,
-  contextShowJson,
-  contextShowText,
   divergentOrderSlugPair,
-  documentAt,
-  documentPaths,
-  entryPaths,
   freeSiblingOrder,
-  referencePaths,
   rootedSpecPath,
   siblingDirectoryName,
   specFilePath,
   specFixtureBody,
+} from "@testing/generators/spec-tree/rich-context";
+import {
+  contextShowEntries,
+  contextShowJson,
+  contextShowText,
+  documentAt,
+  documentPaths,
+  entryPaths,
+  referencePaths,
   specTreeKindsConfig,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
@@ -33,6 +35,23 @@ describe("spec context read-set boundaries", () => {
       const implicit = await contextShowEntries({ targets: [paths.rootDirectory], cwd: env.productDir });
       expect(entryPaths(implicit)).not.toContain(paths.targetOutcomePath);
       expect(entryPaths(implicit)).not.toContain(paths.targetKnowledgeIndexPath);
+      // A sibling on the target path carries both artifacts and contributes
+      // neither, whether the target or its parent is the explicit target.
+      const siblingArtifacts = [paths.lowerSiblingOutcomePath, paths.lowerSiblingKnowledgeIndexPath];
+      for (const artifact of siblingArtifacts) {
+        expect(entryPaths(explicit), artifact).not.toContain(artifact);
+        expect(entryPaths(implicit), artifact).not.toContain(artifact);
+      }
+      // Targeted explicitly, the same sibling contributes both, so the absence
+      // above is the implicit role's doing rather than an unselectable fixture.
+      const sibling = await contextShowEntries({
+        targets: [rootedSpecPath(paths.lowerSiblingDirectory)],
+        cwd: env.productDir,
+      });
+      expect(documentAt(sibling, paths.lowerSiblingOutcomePath)?.content).toBe(
+        paths.bodyText[paths.lowerSiblingOutcomePath],
+      );
+      expect(referencePaths(sibling)).toContain(paths.lowerSiblingKnowledgeIndexPath);
     });
   });
 
@@ -45,6 +64,7 @@ describe("spec context read-set boundaries", () => {
         ]
       ) {
         expect(output).toContain(paths.targetIssuesPath);
+        expect(output).toContain(paths.ancestorIssuesPath);
         expect(output).toContain(paths.rootIssuesPath);
         expect(output).not.toContain(paths.targetIssuesHeading);
       }

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { inferInvokingCodingAgent } from "@/interfaces/cli/coding-agent";
 import { METHODOLOGY_CODING_AGENT, METHODOLOGY_CODING_AGENTS } from "@/lib/methodology";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
+import { methodologyFoundationDocumentPath } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   SPEC_CONTEXT_CASE_TITLE,
@@ -41,10 +42,10 @@ describe("spec context coding-agent scope", () => {
       expect(missing).toContain(fixture.codingAgent);
 
       const named = await contextShowEntries({ ...options, codingAgent: fixture.codingAgent });
-      expect(named[0]).toMatchObject({ path: fixture.documentPath, content: fixture.coreText });
+      expect(named[0]).toMatchObject({ path: methodologyFoundationDocumentPath(fixture), content: fixture.coreText });
 
       const sole = await contextShowEntries(options);
-      expect(sole[0]).toMatchObject({ path: fixture.documentPath, content: fixture.coreText });
+      expect(sole[0]).toMatchObject({ path: methodologyFoundationDocumentPath(fixture), content: fixture.coreText });
     });
 
     await withSpecTreeEnv(methodologyTreeConfig(), async (env) => {

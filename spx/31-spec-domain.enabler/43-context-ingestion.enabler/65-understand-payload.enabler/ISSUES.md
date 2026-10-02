@@ -15,3 +15,19 @@
 **Impact:** a failure that depends on the drawn slug or source cannot be replayed from its report.
 
 **Settlement condition:** the fixture draws move to the seeded sampler so a failing draw carries its replay seed.
+
+## Provider-match evidence sits under assertions it does not evidence
+
+**Evidence:** the `provider match` block of `tests/understand-payload.compliance.l1.test.ts` exercises `provides` and `supports` compatibility, which [`spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/21-methodology-source.adr.md`](21-methodology-source.adr.md) states as an `[audit]` rule and [`spx/13-agent-capability-lifecycle.pdr.md`](../../../13-agent-capability-lifecycle.pdr.md) states as a `[compliance]` Testing rule. Neither of the two Compliance assertions its file is linked to declares that compatibility. The case that pinned the line-form refusal recorded above was removed, since it held the defect in place rather than the governed behavior.
+
+**Impact:** a provider-match defect fails this node's compliance result under assertions that do not describe it, and the PDR rule reaches no linked assertion of its own here.
+
+**Settlement condition:** the provider-match rule is declared by an assertion of the node that owns methodology compatibility, and the block moves to evidence linked from it.
+
+## Packaged-executable evidence declares l2 for the checkout's in-cycle build
+
+**Evidence:** `tests/understand-payload.scenario.l2.test.ts` and `tests/understand-payload.mapping.l2.test.ts` drive `bin/spx.js` → `dist/cli.js`, which this checkout's own `pnpm run build` produces, under local Node permission flags and a locally built network guard. The shared executable discriminator classifies the product's own in-cycle checkout build as `l1`; the filenames declare `l2`, as do the packaged-executable tests under [`spx/31-spec-domain.enabler/76-spec-cli-contract-tests.enabler`](../../76-spec-cli-contract-tests.enabler/spec-cli-contract-tests.md). The test-evidence audit at `a3083cd04` recorded it as `f-005`, severity warning.
+
+**Impact:** the declared cell of these files disagrees with the dependency class their evidence crosses, and this product's runner and merge overlay rely on the `l2` token to decide when a build precedes a run.
+
+**Settlement condition:** the product decides whether its built-`dist` CLI evidence is `l1` under the discriminator, records that in its governing test-infrastructure decision with the runner's build trigger, and renames the files it covers in one pass.

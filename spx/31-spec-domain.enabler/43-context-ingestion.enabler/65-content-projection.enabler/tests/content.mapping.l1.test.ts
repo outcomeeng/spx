@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 import { DECISION_KINDS, KIND_REGISTRY, NODE_KINDS, SPEC_CONTEXT_DOCUMENT_OPENING } from "@/lib/spec-tree";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { freeDecisionPath, freeNodeSpecPath } from "@testing/generators/spec-tree/rich-context";
 import {
   contextShowEntries,
   contextShowFailure,
   documentAt,
-  rootedSpecPath,
   specTreeKindsConfig,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
@@ -17,9 +17,8 @@ describe("spec context Digest openings", () => {
     await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
       await env.materialize();
       const opening = KIND_REGISTRY[kind].opening;
-      const order = Math.max(env.fixture.root.order, env.fixture.peer.order) + 1;
       const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-      const specPath = rootedSpecPath(`${order}-${slug}${KIND_REGISTRY[kind].suffix}/${slug}.md`);
+      const specPath = freeNodeSpecPath(env.fixture, kind, slug);
       const paragraph = `${opening} ${slug}\nSO THAT the registry keyword\nCAN be selected\n`;
       await env.writeRaw(specPath, `# ${slug}\n\n${paragraph}\nA later paragraph.\n`);
       const entries = await contextShowEntries({ targets: [], cwd: env.productDir });
@@ -37,7 +36,7 @@ describe("spec context Digest openings", () => {
       await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
         await env.materialize();
         const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-        const decisionPath = rootedSpecPath(`${env.fixture.peer.order + 1}-${slug}${KIND_REGISTRY[kind].suffix}`);
+        const decisionPath = freeDecisionPath(env.fixture, kind, slug);
         const paragraph = `${SPEC_CONTEXT_DOCUMENT_OPENING.DECISION} ${slug}\n`;
         await env.writeRaw(decisionPath, `# ${slug}\n\n${paragraph}\n## Rationale\n\nBecause.\n`);
         const entries = await contextShowEntries({ targets: [], cwd: env.productDir });

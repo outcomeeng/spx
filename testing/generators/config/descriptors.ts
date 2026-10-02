@@ -224,25 +224,34 @@ export function generatedMethodologyIdentity(): {
 }
 
 /** A migrating declaration with the drawn target and source, each carrying the line its construction derives. */
-export function generatedMigratingMethodology(): {
+/** A methodology section with an open migration window, with the two exact versions it declares. */
+export type GeneratedMigratingMethodology = {
   readonly section: Record<string, unknown>;
   readonly target: GeneratedMethodologyVersion;
   readonly source: GeneratedMethodologyVersion;
-} {
-  const [target, source] = sampleGeneratedValue(
-    fc.tuple(arbitraryMethodologyVersion(), arbitraryMethodologyVersion()).filter(([left, right]) =>
-      left.text !== right.text
-    ),
-  );
-  return {
-    section: {
-      [METHODOLOGY_CONFIG_FIELDS.SOURCE]: generatedMethodologySource(),
-      [METHODOLOGY_CONFIG_FIELDS.VERSION]: target.text,
-      [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: source.text,
-    },
-    target,
-    source,
-  };
+};
+
+export function arbitraryMigratingMethodology(): fc.Arbitrary<GeneratedMigratingMethodology> {
+  return fc
+    .record({
+      versions: fc.tuple(arbitraryMethodologyVersion(), arbitraryMethodologyVersion()).filter(([left, right]) =>
+        left.text !== right.text
+      ),
+      sourceSegments: fc.tuple(CONFIG_TEST_GENERATOR.key(), CONFIG_TEST_GENERATOR.key()),
+    })
+    .map(({ versions: [target, source], sourceSegments }) => ({
+      section: {
+        [METHODOLOGY_CONFIG_FIELDS.SOURCE]: sourceSegments.join("/"),
+        [METHODOLOGY_CONFIG_FIELDS.VERSION]: target.text,
+        [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: source.text,
+      },
+      target,
+      source,
+    }));
+}
+
+export function generatedMigratingMethodology(): GeneratedMigratingMethodology {
+  return sampleGeneratedValue(arbitraryMigratingMethodology());
 }
 
 /** A methodology section with an open migration window: two distinct exact versions. */

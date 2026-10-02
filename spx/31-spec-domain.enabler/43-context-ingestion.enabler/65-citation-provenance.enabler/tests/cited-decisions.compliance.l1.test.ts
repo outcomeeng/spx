@@ -4,13 +4,13 @@ import {
   specContextAbsentDecisionPath,
   specContextNonCitationShapes,
 } from "@testing/generators/spec-tree/context-target";
+import { rootedSpecPath } from "@testing/generators/spec-tree/rich-context";
 import {
   contextShowEntries,
   contextShowFailure,
   documentPaths,
   entryPaths,
   referencePaths,
-  rootedSpecPath,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
 

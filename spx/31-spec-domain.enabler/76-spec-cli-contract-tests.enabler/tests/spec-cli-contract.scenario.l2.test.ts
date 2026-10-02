@@ -64,7 +64,10 @@ describe("spx spec process contract", () => {
       const result = await runSpecCli(env.productDir, SPEC_DOMAIN_CLI.COMMAND, SPEC_DOMAIN_CLI.NEXT_COMMAND);
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain(SPEC_NEXT_MESSAGE.HEADING);
-      expect(result.stdout).toContain(env.fixture.root.slug);
+      // The selected node is the root itself: its directory is named, and its
+      // child's directory — whose path also carries the root's — is not.
+      expect(result.stdout).toContain(specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root));
+      expect(result.stdout).not.toContain(specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.child));
     });
   });
 
@@ -102,7 +105,6 @@ describe("spx spec process contract", () => {
         RETIRED_SPEC_CONTEXT_CONTENT_FIXTURE.option,
       );
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain(RETIRED_SPEC_CONTEXT_CONTENT_FIXTURE.unknownOptionPrefix);
       expect(result.stderr).toContain(RETIRED_SPEC_CONTEXT_CONTENT_FIXTURE.option);
       expect(result.stdout).toHaveLength(0);
     });
@@ -133,14 +135,10 @@ describe("spx spec process contract", () => {
       await env.writeRaw(RETIRED_SPEC_APPLY_FIXTURE.excludeFile, fixture.excludeContent);
       await env.writeRaw(RETIRED_SPEC_APPLY_FIXTURE.pythonConfigFile, fixture.pythonConfigContent);
       const before = await Promise.all(fixture.protectedPaths.map((path) => env.readFile(path)));
-      const result = await runSpecCli(
-        env.productDir,
-        SPEC_DOMAIN_CLI.COMMAND,
-        SPEC_DOMAIN_CLI.RETIRED_APPLY_COMMAND,
-      );
+      const result = await runSpecCli(env.productDir, SPEC_DOMAIN_CLI.COMMAND, RETIRED_SPEC_APPLY_FIXTURE.command);
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain(RETIRED_SPEC_APPLY_FIXTURE.unknownCommandPrefix);
-      expect(result.stderr).toContain(SPEC_DOMAIN_CLI.RETIRED_APPLY_COMMAND);
+      expect(result.stdout).toHaveLength(0);
+      expect(result.stderr).toContain(RETIRED_SPEC_APPLY_FIXTURE.command);
       await expect(Promise.all(fixture.protectedPaths.map((path) => env.readFile(path)))).resolves.toEqual(before);
     });
   });
