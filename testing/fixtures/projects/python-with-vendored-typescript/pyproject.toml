@@ -1,5 +1,0 @@
-[project]
-name = "fixture-python-with-vendored-typescript"
-version = "0.1.0"
-description = "Python product carrying vendored TypeScript sources and no TypeScript marker"
-requires-python = ">=3.11"
