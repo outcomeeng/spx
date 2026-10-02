@@ -1,76 +1,239 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
   buildIgnoreSourceGitLsFilesArgs,
+  CORE_EXCLUDES_FILE_CONFIG_KEY,
   createIgnoreSourceReader,
+  GIT_DEFAULT_GLOBAL_IGNORE_PATH,
+  GIT_GLOBAL_EXCLUDES_ENV_KEYS,
   GIT_LS_FILES_ARGS,
 } from "@/lib/file-inclusion/ignore-source";
-import {
-  GLOBAL_EXCLUDES_CONFIGURATION_FORM,
-  globalExcludesConfigurationForms,
-  ignoreSourceOverrideDomain,
-} from "@testing/generators/file-inclusion/ignore-source";
+import { GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
-import {
-  ignoreSourceOverridesFor,
-  readerConfig,
-  withNonVcsExcludeSources,
-} from "@testing/harnesses/file-inclusion/ignore-source";
+import { fileContent, ignoredPattern, readerConfig } from "@testing/harnesses/file-inclusion/ignore-source";
+
+const fakeHomePrefix = "spx-ignore-source-home-";
+const fakeXdgConfigHomePrefix = "spx-ignore-source-xdg-";
+const globalExcludesFileName = "global-excludes";
+
+async function withProcessEnvironment(
+  updates: Readonly<Record<string, string | undefined>>,
+  callback: () => Promise<void>,
+): Promise<void> {
+  const previousValues = new Map<string, string | undefined>();
+  for (const [key, value] of Object.entries(updates)) {
+    previousValues.set(key, process.env[key]);
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+  try {
+    await callback();
+  } finally {
+    for (const [key, value] of previousValues) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+}
+
+async function writeDefaultGlobalIgnore(configHome: string, content: string): Promise<void> {
+  const gitConfigDirectory = join(configHome, GIT_DEFAULT_GLOBAL_IGNORE_PATH.GIT_DIRECTORY);
+  await mkdir(gitConfigDirectory, { recursive: true });
+  await writeFile(join(gitConfigDirectory, GIT_DEFAULT_GLOBAL_IGNORE_PATH.IGNORE_FILE), content);
+}
 
 describe("ignore-source — mappings", () => {
-  it.each(ignoreSourceOverrideDomain())(
-    "maps noIgnore=$noIgnore, noIgnoreVcs=$noIgnoreVcs, ignoreFile present=$ignoreFilePresent to git ls-files arguments",
-    async (overrideCase) => {
-      await withGitWorktreeEnv(async (env) => {
-        await withNonVcsExcludeSources(env, GLOBAL_EXCLUDES_CONFIGURATION_FORM.ABSOLUTE, async (sources) => {
-          const overrides = await ignoreSourceOverridesFor(env, overrideCase);
+  it("maps --no-ignore-vcs to bypass .gitignore while still honoring info/exclude and global excludes", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const gitignoreOnly = ignoredPattern();
+      const infoExcluded = ignoredPattern();
+      const globalExcluded = ignoredPattern();
+      await env.writeGitignore(".", gitignoreOnly);
+      await env.writeInfoExclude(`${infoExcluded}\n`);
+      await env.configureGlobalExcludes(`${globalExcluded}\n`);
+      await env.writeUntracked(gitignoreOnly, fileContent());
+      await env.writeUntracked(infoExcluded, fileContent());
+      await env.writeUntracked(globalExcluded, fileContent());
 
-          const args = buildIgnoreSourceGitLsFilesArgs(env.productDir, overrides);
-          const excludeFromOperands = args.flatMap((arg, index) =>
-            arg === GIT_LS_FILES_ARGS.EXCLUDE_FROM ? [args[index + 1]] : []
-          );
+      const reader = createIgnoreSourceReader(env.productDir, readerConfig({ noIgnoreVcs: true }));
 
-          expect(args).toEqual(expect.arrayContaining([
-            GIT_LS_FILES_ARGS.LS_FILES,
-            GIT_LS_FILES_ARGS.CACHED,
-            GIT_LS_FILES_ARGS.OTHERS,
-            GIT_LS_FILES_ARGS.FULL_NAME,
-            GIT_LS_FILES_ARGS.NULL_TERMINATED,
-          ]));
-          expect(args.includes(GIT_LS_FILES_ARGS.EXCLUDE_STANDARD)).toBe(!overrides.noIgnore && !overrides.noIgnoreVcs);
-          const expectedExcludeFromOperands = [
-            ...(overrides.ignoreFile === undefined ? [] : [overrides.ignoreFile]),
-            ...(overrides.noIgnoreVcs && !overrides.noIgnore
-              ? [sources.infoExcludeFile, sources.globalExcludesFile]
-              : []),
-          ];
-          expect(excludeFromOperands).toHaveLength(expectedExcludeFromOperands.length);
-          expect(excludeFromOperands).toEqual(expect.arrayContaining(expectedExcludeFromOperands));
-          expect(createIgnoreSourceReader(env.productDir, { overrides }).appliedOverrides()).toEqual(overrides);
+      expect(reader.isInIncludedSet(gitignoreOnly)).toBe(true);
+      expect(reader.isInIncludedSet(infoExcluded)).toBe(false);
+      expect(reader.isInIncludedSet(globalExcluded)).toBe(false);
+    });
+  });
+
+  it("maps relative core.excludesFile paths from the product directory", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const excluded = ignoredPattern();
+      const relativeExcludesFile = ignoredPattern();
+      await env.writeUntracked(relativeExcludesFile, `${excluded}\n`);
+      await env.runGit([GIT_TEST_SUBCOMMANDS.CONFIG, CORE_EXCLUDES_FILE_CONFIG_KEY, relativeExcludesFile]);
+      await env.writeUntracked(excluded, fileContent());
+
+      const reader = createIgnoreSourceReader(env.productDir, readerConfig({ noIgnoreVcs: true }));
+
+      expect(reader.isInIncludedSet(excluded)).toBe(false);
+    });
+  });
+
+  it("maps unset core.excludesFile to the default XDG global excludes path", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      await withTempDir(fakeXdgConfigHomePrefix, async (fakeXdgConfigHome) => {
+        const excluded = ignoredPattern();
+        await writeDefaultGlobalIgnore(fakeXdgConfigHome, `${excluded}\n`);
+        await env.writeUntracked(excluded, fileContent());
+
+        await withProcessEnvironment({
+          [GIT_GLOBAL_EXCLUDES_ENV_KEYS.XDG_CONFIG_HOME]: fakeXdgConfigHome,
+          [GIT_GLOBAL_EXCLUDES_ENV_KEYS.HOME]: undefined,
+        }, async () => {
+          const reader = createIgnoreSourceReader(env.productDir, readerConfig({ noIgnoreVcs: true }));
+          expect(reader.isInIncludedSet(excluded)).toBe(false);
         });
       });
-    },
-  );
+    });
+  });
 
-  it.each(globalExcludesConfigurationForms())(
-    "maps a %s global gitignore location under --no-ignore-vcs to git's own non-VCS exclusion decisions",
-    async (form) => {
-      await withGitWorktreeEnv(async (env) => {
-        await withNonVcsExcludeSources(env, form, async (sources) => {
-          const standard = createIgnoreSourceReader(env.productDir, readerConfig());
-          const noIgnoreVcs = createIgnoreSourceReader(env.productDir, readerConfig({ noIgnoreVcs: true }));
+  it("maps unset core.excludesFile to the default HOME global excludes path when XDG is absent", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      await withTempDir(fakeHomePrefix, async (fakeHome) => {
+        const excluded = ignoredPattern();
+        const defaultConfigHome = join(fakeHome, GIT_DEFAULT_GLOBAL_IGNORE_PATH.CONFIG_DIRECTORY);
+        await writeDefaultGlobalIgnore(defaultConfigHome, `${excluded}\n`);
+        await env.writeUntracked(excluded, fileContent());
 
-          expect(standard.isInIncludedSet(sources.gitignoredPath)).toBe(false);
-          expect(noIgnoreVcs.isInIncludedSet(sources.gitignoredPath)).toBe(true);
-          expect(noIgnoreVcs.isInIncludedSet(sources.infoExcludedPath)).toBe(
-            standard.isInIncludedSet(sources.infoExcludedPath),
-          );
-          expect(noIgnoreVcs.isInIncludedSet(sources.globalExcludedPath)).toBe(
-            standard.isInIncludedSet(sources.globalExcludedPath),
-          );
+        await withProcessEnvironment({
+          [GIT_GLOBAL_EXCLUDES_ENV_KEYS.XDG_CONFIG_HOME]: undefined,
+          [GIT_GLOBAL_EXCLUDES_ENV_KEYS.HOME]: fakeHome,
+        }, async () => {
+          const reader = createIgnoreSourceReader(env.productDir, readerConfig({ noIgnoreVcs: true }));
+          expect(reader.isInIncludedSet(excluded)).toBe(false);
         });
       });
-    },
-  );
+    });
+  });
+
+  it("maps empty core.excludesFile to no global excludes path", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      await withTempDir(fakeHomePrefix, async (fakeHome) => {
+        const excluded = ignoredPattern();
+        const defaultConfigHome = join(fakeHome, GIT_DEFAULT_GLOBAL_IGNORE_PATH.CONFIG_DIRECTORY);
+        await writeDefaultGlobalIgnore(defaultConfigHome, `${excluded}\n`);
+        await env.runGit([GIT_TEST_SUBCOMMANDS.CONFIG, CORE_EXCLUDES_FILE_CONFIG_KEY, ""]);
+        await env.writeUntracked(excluded, fileContent());
+
+        await withProcessEnvironment({
+          [GIT_GLOBAL_EXCLUDES_ENV_KEYS.XDG_CONFIG_HOME]: undefined,
+          [GIT_GLOBAL_EXCLUDES_ENV_KEYS.HOME]: fakeHome,
+        }, async () => {
+          const reader = createIgnoreSourceReader(env.productDir, readerConfig({ noIgnoreVcs: true }));
+          expect(reader.isInIncludedSet(excluded)).toBe(true);
+        });
+      });
+    });
+  });
+
+  it("maps --ignore-file to an additional exclude source", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const ignored = ignoredPattern();
+      const ignoreFile = ignoredPattern();
+      await env.writeUntracked(ignoreFile, `${ignored}\n`);
+      await env.writeUntracked(ignored, fileContent());
+      const config = readerConfig({ ignoreFile });
+
+      const args = buildIgnoreSourceGitLsFilesArgs(env.productDir, config.overrides);
+      const excludeFromIndex = args.indexOf(GIT_LS_FILES_ARGS.EXCLUDE_FROM);
+      const reader = createIgnoreSourceReader(env.productDir, config);
+
+      expect(args[excludeFromIndex + 1]).toBe(join(env.productDir, ignoreFile));
+      expect(reader.isInIncludedSet(ignored)).toBe(false);
+    });
+  });
+
+  it("maps a missing --ignore-file to git so git reports the invalid caller input", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const ignoreFile = ignoredPattern();
+      const config = readerConfig({ ignoreFile });
+
+      const args = buildIgnoreSourceGitLsFilesArgs(env.productDir, config.overrides);
+      const excludeFromIndex = args.indexOf(GIT_LS_FILES_ARGS.EXCLUDE_FROM);
+
+      expect(args[excludeFromIndex + 1]).toBe(join(env.productDir, ignoreFile));
+    });
+  });
+
+  it("maps tilde-prefixed core.excludesFile paths through git path semantics", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      await withTempDir(fakeHomePrefix, async (fakeHome) => {
+        const excluded = ignoredPattern();
+        await writeFile(join(fakeHome, globalExcludesFileName), `${excluded}\n`);
+        await env.runGit([
+          GIT_TEST_SUBCOMMANDS.CONFIG,
+          CORE_EXCLUDES_FILE_CONFIG_KEY,
+          `~/${globalExcludesFileName}`,
+        ]);
+        await env.writeUntracked(excluded, fileContent());
+
+        await withProcessEnvironment({
+          [GIT_GLOBAL_EXCLUDES_ENV_KEYS.HOME]: fakeHome,
+        }, async () => {
+          const reader = createIgnoreSourceReader(env.productDir, readerConfig({ noIgnoreVcs: true }));
+          expect(reader.isInIncludedSet(excluded)).toBe(false);
+        });
+      });
+    });
+  });
+
+  it("lets --no-ignore take precedence over --no-ignore-vcs", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const ignored = ignoredPattern();
+      await env.writeGitignore(".", ignored);
+      await env.writeInfoExclude(`${ignored}\n`);
+      await env.configureGlobalExcludes(`${ignored}\n`);
+      await env.writeUntracked(ignored, fileContent());
+
+      const reader = createIgnoreSourceReader(
+        env.productDir,
+        readerConfig({
+          noIgnore: true,
+          noIgnoreVcs: true,
+        }),
+      );
+
+      expect(reader.isInIncludedSet(ignored)).toBe(true);
+    });
+  });
+
+  it("reports the structured overrides applied during construction", async () => {
+    await withGitWorktreeEnv(async (env) => {
+      const ignoreFile = ignoredPattern();
+      await env.writeUntracked(ignoreFile, `${ignoredPattern()}\n`);
+
+      const reader = createIgnoreSourceReader(
+        env.productDir,
+        readerConfig({
+          noIgnore: true,
+          ignoreFile,
+        }),
+      );
+
+      expect(reader.appliedOverrides()).toEqual({
+        noIgnore: true,
+        noIgnoreVcs: false,
+        ignoreFile,
+      });
+    });
+  });
 });

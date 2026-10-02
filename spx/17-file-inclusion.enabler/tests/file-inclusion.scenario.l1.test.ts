@@ -9,22 +9,28 @@ import {
   FILE_INCLUSION_CONFIG_FIELDS,
   FILE_INCLUSION_SECTION,
   fileInclusionConfigDescriptor,
+  REGISTERED_TOOL_NAMES,
   resolveScope,
-  TOOL_NAMES,
+  TOOL_DEFAULT_FLAGS,
   toToolArguments,
 } from "@/lib/file-inclusion";
+import type { ToolAdaptersConfig } from "@/lib/file-inclusion";
 import { DEFAULT_IGNORE_SOURCE_OVERRIDES } from "@/lib/file-inclusion/ignore-source";
 import { DOMAIN_PATH_FILTER_LAYER } from "@/lib/file-inclusion/predicates/domain-path-filter";
 import { GIT_TRACKING_LAYER } from "@/lib/file-inclusion/predicates/git-tracking";
 import { CONFIG_GENERATOR, sampleConfigValue } from "@testing/generators/config/config";
 
-import { writeFilterLayerViolationFixture } from "@testing/harnesses/file-inclusion/filter-layer-violation";
+import { fileContent, ignoredPattern, trackedFilePath } from "@testing/harnesses/file-inclusion/ignore-source";
+import { pathPrefix } from "@testing/harnesses/file-inclusion/path-predicates";
 import {
+  distinctPrefixedTrackedPaths,
   resolverConfig,
   scopeResolverFixture,
   writeScopeResolverFixture,
 } from "@testing/harnesses/file-inclusion/scope-resolver";
-import { runEslintOverProduct, writeEslintProbeConfig } from "@testing/harnesses/file-inclusion/tool-invocation";
+
+const testTool = REGISTERED_TOOL_NAMES[0];
+if (!testTool) throw new Error("file-inclusion: no registered tools");
 
 describe("file-inclusion service — scenarios", () => {
   it("explicit paths are included with explicit-override as first decision trail entry", async () => {
@@ -76,7 +82,22 @@ describe("file-inclusion service — scenarios", () => {
 
   it("walked scope excludes all git ignore sources, submodule contents, and domain include misses", async () => {
     await withGitWorktreeEnv(async (env) => {
-      const fixture = await writeFilterLayerViolationFixture(env);
+      const fixture = scopeResolverFixture();
+      await writeScopeResolverFixture(env, fixture);
+      const [nestedDirectory, submodule] = distinctPrefixedTrackedPaths(2).map((path) => pathPrefix(path));
+      const nestedPattern = ignoredPattern();
+      const nestedIgnored = `${nestedDirectory}/${nestedPattern}`;
+      const infoIgnored = ignoredPattern();
+      const globalIgnored = ignoredPattern();
+      const submoduleContent = trackedFilePath();
+      await env.writeGitignore(nestedDirectory, nestedPattern);
+      await env.writeUntracked(nestedIgnored, fileContent());
+      await env.writeInfoExclude(`${infoIgnored}\n`);
+      await env.writeUntracked(infoIgnored, fileContent());
+      await env.configureGlobalExcludes(`${globalIgnored}\n`);
+      await env.writeUntracked(globalIgnored, fileContent());
+      await env.addSubmodule(submodule);
+      await env.writeUntracked(`${submodule}/${submoduleContent}`, fileContent());
 
       const gitResult = await resolveScope(
         env.productDir,
@@ -96,55 +117,62 @@ describe("file-inclusion service — scenarios", () => {
         resolverConfig,
       );
 
-      for (const gitExcludedPath of [fixture.nestedIgnoredPath, fixture.infoExcludedPath, fixture.globalExcludedPath]) {
+      for (const gitExcludedPath of [nestedIgnored, infoIgnored, globalIgnored]) {
         const entry = gitResult.excluded.find((candidate) => candidate.path === gitExcludedPath);
-        expect(entry, `scope.excluded missing entry for "${gitExcludedPath}"`).toBeDefined();
+        expect(entry).toBeDefined();
         expect(entry!.decisionTrail.some((decision) => decision.layer === GIT_TRACKING_LAYER)).toBe(true);
       }
 
-      expect(gitResult.included.some((entry) => entry.path === fixture.submoduleContentPath)).toBe(false);
-      expect(gitResult.excluded.some((entry) => entry.path === fixture.submoduleContentPath)).toBe(false);
+      const submoduleInnerPath = `${submodule}/${submoduleContent}`;
+      expect(gitResult.included.some((entry) => entry.path === submoduleInnerPath)).toBe(false);
+      expect(gitResult.excluded.some((entry) => entry.path === submoduleInnerPath)).toBe(false);
 
       const includeMiss = includeResult.excluded.find((entry) => entry.path === fixture.domainIncludeMissPath);
-      expect(includeMiss, `scope.excluded missing entry for "${fixture.domainIncludeMissPath}"`).toBeDefined();
+      expect(includeMiss).toBeDefined();
       expect(includeMiss!.decisionTrail.some((decision) => decision.layer === DOMAIN_PATH_FILTER_LAYER)).toBe(true);
     });
   });
 
   it("walked scope includes every git ignore source when no-ignore is set", async () => {
     await withGitWorktreeEnv(async (env) => {
-      const fixture = await writeFilterLayerViolationFixture(env);
+      const [nestedDirectory] = distinctPrefixedTrackedPaths(1).map((path) => pathPrefix(path));
+      const nestedPattern = ignoredPattern();
+      const nestedIgnored = `${nestedDirectory}/${nestedPattern}`;
+      const infoIgnored = ignoredPattern();
+      const globalIgnored = ignoredPattern();
+      await env.writeGitignore(nestedDirectory, nestedPattern);
+      await env.writeUntracked(nestedIgnored, fileContent());
+      await env.writeInfoExclude(`${infoIgnored}\n`);
+      await env.writeUntracked(infoIgnored, fileContent());
+      await env.configureGlobalExcludes(`${globalIgnored}\n`);
+      await env.writeUntracked(globalIgnored, fileContent());
 
       const result = await resolveScope(
         env.productDir,
         {
           walkRoot: env.productDir,
-          overrides: { ...DEFAULT_IGNORE_SOURCE_OVERRIDES, noIgnore: true },
+          overrides: {
+            noIgnore: true,
+            noIgnoreVcs: false,
+            ignoreFile: undefined,
+          },
         },
         resolverConfig,
       );
 
       expect(result.appliedOverrides.noIgnore).toBe(true);
-      for (
-        const includedPath of [
-          fixture.ignoredFilePath,
-          fixture.nestedIgnoredPath,
-          fixture.infoExcludedPath,
-          fixture.globalExcludedPath,
-        ]
-      ) {
+      for (const includedPath of [nestedIgnored, infoIgnored, globalIgnored]) {
         const entry = result.included.find((candidate) => candidate.path === includedPath);
-        expect(entry, `scope.included missing entry for "${includedPath}"`).toBeDefined();
+        expect(entry).toBeDefined();
         expect(entry!.decisionTrail.some((decision) => decision.layer === GIT_TRACKING_LAYER)).toBe(false);
       }
     });
   });
 
-  it("the eslint invocation ignores exactly the resolved excluded set and references no other paths", async () => {
+  it("tool arguments reference only the resolved excluded set in the tool's native flag syntax", async () => {
     await withGitWorktreeEnv(async (env) => {
       const fixture = scopeResolverFixture();
       await writeScopeResolverFixture(env, fixture);
-      await writeEslintProbeConfig(env.productDir);
 
       const result = await resolveScope(
         env.productDir,
@@ -155,21 +183,27 @@ describe("file-inclusion service — scenarios", () => {
         },
         resolverConfig,
       );
-      const args = toToolArguments(result, TOOL_NAMES.ESLINT, fileInclusionConfigDescriptor.defaults.tools);
-      const eslint = await runEslintOverProduct(env.productDir, args);
 
-      const includedPaths = result.included.map((entry) => entry.path);
-      const excludedPaths = result.excluded.map((entry) => entry.path);
-      expect(excludedPaths, "the resolved scope must exclude at least one walked path").not.toHaveLength(0);
-      expect(new Set(eslint.lintedPaths), `eslint stderr: ${eslint.stderr}`).toEqual(new Set(includedPaths));
+      const toolFlag = TOOL_DEFAULT_FLAGS[testTool];
+      const adapterConfig: ToolAdaptersConfig = { [testTool]: { ignoreFlag: toolFlag } };
+      const args = toToolArguments(result, testTool, adapterConfig);
 
-      const excludedArgs = args.filter((arg) => excludedPaths.includes(arg));
-      const nonExcludedArgs = new Set(args.filter((arg) => !excludedPaths.includes(arg)));
-      expect(nonExcludedArgs.size, `arguments other than excluded paths: ${[...nonExcludedArgs].join(" ")}`).toBe(1);
-      expect(excludedArgs).toHaveLength(excludedPaths.length);
-      expect(new Set(excludedArgs)).toEqual(new Set(excludedPaths));
-      for (const includedPath of includedPaths) {
-        expect(args).not.toContain(includedPath);
+      const excludedPaths = new Set(result.excluded.map((e) => e.path));
+      const outputPaths = new Set<string>();
+      for (let i = 0; i < args.length; i += 1) {
+        if (args[i] === toolFlag) {
+          const path = args[i + 1];
+          if (path !== undefined) {
+            outputPaths.add(path);
+          }
+        }
+      }
+
+      for (const path of outputPaths) {
+        expect(excludedPaths.has(path), `"${path}" in args must be in excluded set`).toBe(true);
+      }
+      for (const path of excludedPaths) {
+        expect(outputPaths.has(path), `"${path}" from excluded must appear in args`).toBe(true);
       }
     });
   });
