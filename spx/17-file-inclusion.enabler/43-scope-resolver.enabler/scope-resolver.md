@@ -25,10 +25,10 @@ CAN obtain a resolved included set, a resolved excluded set, the decision trail 
 
 - ALWAYS: the pipeline's layer sequence is read from a single declaration site — the resolver imports it and the declaration has exactly one export; tests assert the declaration's shape is a non-empty ordered list of known layer names ([test](tests/scope-resolver.compliance.l1.test.ts))
 - ALWAYS: explicit-override short-circuiting is implemented at the pipeline level — every caller-supplied explicit path reaches the included set without any non-override layer predicate being evaluated against it ([test](tests/scope-resolver.compliance.l1.test.ts))
-- ALWAYS: the git-tracking layer's state is constructed once per resolver invocation via the ignore-source reader at `../21-ignore-source.enabler/`; per-path queries against that state are O(1) ([review])
+- ALWAYS: the git-tracking layer's state is constructed once per resolver invocation via the ignore-source reader at [`spx/17-file-inclusion.enabler/21-ignore-source.enabler`](spx/17-file-inclusion.enabler/21-ignore-source.enabler/ignore-source.md); per-path queries against that state are O(1) ([review])
 - ALWAYS: the resolver's public entry is `resolveScope(productDir: string, request: ScopeRequest, config: ScopeResolverConfig): ScopeResult` — callers supply `config` explicitly so layer vocabulary enters the pipeline without a global registry read, a factory pattern consistent with the ignore-source reader ([review])
 - NEVER: expose a mechanism for consumers to alter, skip, replace, or reorder the layer sequence at runtime — the sequence is architectural and fixed ([review])
 - NEVER: invoke a layer predicate from outside this enabler — predicates are imported and composed only by the resolver ([review])
 - NEVER: shell out to git from this enabler — git invocation is the ignore-source reader's responsibility ([review])
 - NEVER: produce a `ScopeResult` without per-path decision trails on the excluded set, or without the explicit-override trail entry on caller-supplied paths ([test](tests/scope-resolver.compliance.l1.test.ts))
-- NEVER: use `vi.mock()`, `jest.mock()`, `memfs`, or any filesystem-mocking mechanism — tests run the resolver against real temp git worktrees via `../../22-test-environment.enabler/` ([review])
+- NEVER: use `vi.mock()`, `jest.mock()`, `memfs`, or any filesystem-mocking mechanism — tests run the resolver against real temp git worktrees via [`spx/22-test-environment.enabler`](spx/22-test-environment.enabler/test-environment.md) ([review])
