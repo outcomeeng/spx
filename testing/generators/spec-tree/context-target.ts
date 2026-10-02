@@ -720,22 +720,14 @@ export function specContextAbsentDecisionPath(fixture: RepresentativeSpecTreeFix
 }
 
 /**
- * A top-level directory whose name extends the fixture root's by one more
- * segment, so the root's directory name is a suffix of a longer path
- * component but never a complete one.
+ * The fixture root's directory name with its slug truncated to its first
+ * character: a strict prefix of exactly one accepted component, and a
+ * complete component of no tracked path. The order prefix it keeps is unique
+ * among the fixture's nodes and decisions, so a resolver admitting unique
+ * abbreviated prefixes would resolve it to the root node.
  */
-export function specContextExtendedRootDirectory(fixture: RepresentativeSpecTreeFixture): {
-  readonly operand: string;
-  readonly extendedSpecPath: string;
-  readonly extendedSpecContent: string;
-} {
-  const documents = specContextFixtureDocuments(fixture);
-  const extendedDirectory = `${documents.rootDirectory}-${fixture.child.slug}`;
-  return {
-    operand: documents.rootDirectory,
-    extendedSpecPath: `${rooted(extendedDirectory)}/${fixture.root.slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`,
-    extendedSpecContent: specContent("Extended sibling", KIND_REGISTRY[fixture.root.kind].opening),
-  };
+export function specContextAbbreviatedRootPrefix(fixture: RepresentativeSpecTreeFixture): string {
+  return `${fixture.root.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${fixture.root.slug.slice(0, 1)}`;
 }
 
 /**

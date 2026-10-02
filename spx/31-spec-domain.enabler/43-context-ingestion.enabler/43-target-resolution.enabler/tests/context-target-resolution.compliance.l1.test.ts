@@ -6,8 +6,8 @@ import { describe, expect, it } from "vitest";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
 import { KIND_REGISTRY, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
 import {
+  specContextAbbreviatedRootPrefix,
   specContextAmbiguousNestedDirectory,
-  specContextExtendedRootDirectory,
   specContextLexicalDetourOperand,
   specContextOutsideDocument,
   specContextUnknownTarget,
@@ -53,15 +53,24 @@ describe("spec context target resolution compliance", () => {
     });
   });
 
-  it("never matches an operand as an abbreviated prefix of a longer path component", async () => {
+  it("never resolves an operand that uniquely abbreviates one accepted component and matches no complete one", async () => {
     await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
       await env.materialize();
-      // A top-level directory extends the root's name, so a prefix match would
-      // make the root's own name ambiguous between the two.
-      const extended = specContextExtendedRootDirectory(env.fixture);
-      await env.writeRaw(extended.extendedSpecPath, extended.extendedSpecContent);
-      const manifest = await contextListManifest({ targets: [extended.operand], cwd: env.productDir });
-      expect(manifest.targets).toEqual([rootedSpecPath(extended.operand)]);
+      await trackSpecTreeInGit(env);
+      // The operand prefixes the root node's directory name and no other
+      // component, so a resolver admitting unique abbreviated prefixes would
+      // resolve it to the root node instead of failing.
+      const operand = specContextAbbreviatedRootPrefix(env.fixture);
+      expect(specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root).startsWith(operand)).toBe(true);
+      for (
+        const failure of [
+          await contextListFailure({ targets: [operand], cwd: env.productDir }),
+          await contextShowFailure({ targets: [operand], cwd: env.productDir }),
+        ]
+      ) {
+        expect(failure).toContain(SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED]);
+        expect(failure).toContain(operand);
+      }
     });
   });
 
