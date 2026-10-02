@@ -7,6 +7,8 @@ import {
   propertyTestEnvelopeTimeoutMs,
 } from "@testing/harnesses/property/property";
 import {
+  contextListJson,
+  contextListText,
   contextShowEntries,
   contextShowJson,
   contextShowText,
@@ -16,7 +18,7 @@ import {
 
 describe("spec context target-order permutation stability", () => {
   it(
-    "produces byte-identical output for every reordering of every requested operand set, with each shared entry once",
+    "produces byte-identical list and show output for every reordering of every requested operand set, with each shared entry once",
     async () => {
       await withRichContextEnv(async (env, paths) => {
         await assertProperty(
@@ -29,6 +31,8 @@ describe("spec context target-order permutation stability", () => {
             const permuted = { targets: reordered, cwd: env.productDir };
             expect(await contextShowText(permuted)).toBe(await contextShowText(requested));
             expect(await contextShowJson(permuted)).toBe(await contextShowJson(requested));
+            expect(await contextListJson(permuted)).toBe(await contextListJson(requested));
+            expect(await contextListText(permuted)).toBe(await contextListText(requested));
             const shown = entryPaths(await contextShowEntries(requested));
             expect(new Set(shown).size).toBe(shown.length);
           },
