@@ -1,112 +1,86 @@
-import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import {
-  type ChildHandle,
   createHandlers,
   createLifecycleRunner,
   createRegistry,
-  type LifecycleSpawn,
   SIGINT_NAME,
   SIGTERM_NAME,
 } from "@/lib/process-lifecycle";
-import { RecordingChild, RecordingExitController } from "@testing/harnesses/process-lifecycle/lifecycle";
-
-const childPoolSize = 10;
-const maxOperationCount = 50;
-const maxHandlerInvocations = 10;
-const maxSpawnCount = 10;
-
-type RegistryOp =
-  | { kind: "add"; index: number }
-  | { kind: "remove"; index: number };
-
-const registryOpArbitrary = fc.oneof(
-  fc.record({
-    kind: fc.constant("add" as const),
-    index: fc.integer({ min: 0, max: childPoolSize - 1 }),
-  }),
-  fc.record({
-    kind: fc.constant("remove" as const),
-    index: fc.integer({ min: 0, max: childPoolSize - 1 }),
-  }),
-);
+import {
+  arbitraryHandlerInvocationCount,
+  arbitraryRegistryOperationSequence,
+  arbitrarySpawnRequests,
+  REGISTRY_OPERATION,
+} from "@testing/generators/process-lifecycle/lifecycle";
+import {
+  RecordingChild,
+  RecordingExitController,
+  RecordingLifecycleSpawn,
+  trackedChildren,
+} from "@testing/harnesses/process-lifecycle/lifecycle";
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 describe("Property: registry conservation", () => {
   it("the registry is empty after every added child has been removed", () => {
-    fc.assert(
-      fc.property(
-        fc.array(registryOpArbitrary, { maxLength: maxOperationCount }),
-        (operations: readonly RegistryOp[]) => {
-          const registry = createRegistry();
-          const children = Array.from({ length: childPoolSize }, () => new RecordingChild());
+    assertProperty(arbitraryRegistryOperationSequence(), ({ poolSize, operations }) => {
+      const registry = createRegistry();
+      const children = Array.from({ length: poolSize }, () => new RecordingChild());
 
-          for (const op of operations) {
-            const child = children[op.index];
-            if (child === undefined) continue;
-            if (op.kind === "add") registry.add(child);
-            else registry.remove(child);
-          }
+      for (const operation of operations) {
+        const child = children[operation.index];
+        if (child === undefined) continue;
+        if (operation.kind === REGISTRY_OPERATION.ADD) registry.add(child);
+        else registry.remove(child);
+      }
+      for (const child of children) registry.remove(child);
 
-          for (const child of children) registry.remove(child);
-
-          expect(registry.size).toBe(0);
-        },
-      ),
-    );
+      expect(registry.size).toBe(0);
+    }, { level: PROPERTY_LEVEL.L1 });
   });
 });
 
 describe("Property: cleanup idempotence", () => {
   it("invoking onSigint() N times kills each registered child exactly once", () => {
-    fc.assert(
-      fc.property(fc.integer({ min: 1, max: maxHandlerInvocations }), (invocationCount) => {
-        const registry = createRegistry();
-        const exitController = new RecordingExitController();
-        const handlers = createHandlers({ registry, exitController });
-        const child = new RecordingChild();
-        registry.add(child);
+    assertProperty(arbitraryHandlerInvocationCount(), (invocationCount) => {
+      const registry = createRegistry();
+      const handlers = createHandlers({ registry, exitController: new RecordingExitController() });
+      const child = new RecordingChild();
+      registry.add(child);
 
-        for (let i = 0; i < invocationCount; i++) handlers.onSigint();
+      for (let invocation = 0; invocation < invocationCount; invocation++) handlers.onSigint();
 
-        expect(child.killCalls).toEqual([SIGINT_NAME]);
-      }),
-    );
+      expect(child.killCalls).toEqual([SIGINT_NAME]);
+    }, { level: PROPERTY_LEVEL.L1 });
   });
 
   it("invoking onSigterm() N times kills each registered child exactly once", () => {
-    fc.assert(
-      fc.property(fc.integer({ min: 1, max: maxHandlerInvocations }), (invocationCount) => {
-        const registry = createRegistry();
-        const exitController = new RecordingExitController();
-        const handlers = createHandlers({ registry, exitController });
-        const child = new RecordingChild();
-        registry.add(child);
+    assertProperty(arbitraryHandlerInvocationCount(), (invocationCount) => {
+      const registry = createRegistry();
+      const handlers = createHandlers({ registry, exitController: new RecordingExitController() });
+      const child = new RecordingChild();
+      registry.add(child);
 
-        for (let i = 0; i < invocationCount; i++) handlers.onSigterm();
+      for (let invocation = 0; invocation < invocationCount; invocation++) handlers.onSigterm();
 
-        expect(child.killCalls).toEqual([SIGTERM_NAME]);
-      }),
-    );
+      expect(child.killCalls).toEqual([SIGTERM_NAME]);
+    }, { level: PROPERTY_LEVEL.L1 });
   });
 });
 
 describe("Property: lifecycle runner registers every spawned child", () => {
-  it("for every spawn count N, registry.size equals N immediately after N spawns", () => {
-    fc.assert(
-      fc.property(fc.integer({ min: 1, max: maxSpawnCount }), (spawnCount) => {
-        const registry = createRegistry();
-        const fakeSpawn = ((..._args: readonly unknown[]): ChildHandle => {
-          return new RecordingChild();
-        }) as unknown as LifecycleSpawn;
+  it("every handle a spawn returns is tracked by the registry when the spawn returns", () => {
+    assertProperty(arbitrarySpawnRequests(), (requests) => {
+      const registry = createRegistry();
+      const recordingSpawn = new RecordingLifecycleSpawn();
+      const runner = createLifecycleRunner({ registry, spawn: recordingSpawn.spawn });
 
-        const runner = createLifecycleRunner({ registry, spawn: fakeSpawn });
-        for (let i = 0; i < spawnCount; i++) {
-          runner.spawn("test-binary", []);
-        }
+      for (const { command, args } of requests) {
+        const child = runner.spawn(command, args);
+        expect(trackedChildren(registry)).toContain(child);
+      }
 
-        expect(registry.size).toBe(spawnCount);
-      }),
-    );
+      expect(trackedChildren(registry)).toEqual(recordingSpawn.children);
+    }, { level: PROPERTY_LEVEL.L1 });
   });
 });
