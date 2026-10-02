@@ -9,7 +9,7 @@ import {
   sampleMainCheckoutTestValue,
 } from "@testing/generators/main-checkout/main-checkout";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
-import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
+import { withNonGitDirectory } from "@testing/harnesses/state/product-root-probe";
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 
 describe("detectGitCommonDirProductRoot — shared root resolves to the common-dir parent", () => {
@@ -45,14 +45,11 @@ describe("detectWorktreeProductRoot — local root resolves to the worktree topl
       expect(result.warning).toBeUndefined();
     });
 
-    const nonRepoDir = await createTempDir("spx-non-repo-");
-    try {
-      const result = await detectWorktreeProductRoot(nonRepoDir);
+    await withNonGitDirectory(async (nonGitDir) => {
+      const result = await detectWorktreeProductRoot(nonGitDir);
       expect(result.isGitRepo).toBe(false);
-      expect(result.productDir).toBe(nonRepoDir);
+      expect(result.productDir).toBe(nonGitDir);
       expect(result.warning).toBeDefined();
-    } finally {
-      await removeTempDir(nonRepoDir);
-    }
+    });
   });
 });

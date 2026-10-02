@@ -1,9 +1,9 @@
-import { realpath } from "node:fs/promises";
+import { realpath, stat } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { GIT_ROOT_COMMAND } from "@/lib/git/root";
+import { defaultGitDependencies, GIT_ROOT_COMMAND, GIT_SHOW_TOPLEVEL_ARGS } from "@/lib/git/root";
 import {
   arbitraryBarePoolLayoutCase,
   sampleMainCheckoutTestValue,
@@ -16,7 +16,7 @@ import {
   STATE_GIT_ERROR_MESSAGE,
   STATE_GIT_FAILURE_MODE,
 } from "@testing/harnesses/state/git-deps";
-import { detectProductRootsInChildProcess } from "@testing/harnesses/state/product-root-probe";
+import { detectProductRootsInChildProcess, withNonGitDirectory } from "@testing/harnesses/state/product-root-probe";
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 
 describe("state test harness — git-deps double", () => {
@@ -59,8 +59,8 @@ describe("state test harness — product-root probe", () => {
 
       const roots = await detectProductRootsInChildProcess(root, {});
 
-      expect(roots.worktreeProductRoot).toBe(root);
-      expect(roots.gitCommonDirProductRoot).toBe(root);
+      expect(roots.worktree.productDir).toBe(root);
+      expect(roots.gitCommonDir.productDir).toBe(root);
     });
   });
 
@@ -71,8 +71,38 @@ describe("state test harness — product-root probe", () => {
 
       const roots = await detectProductRootsInChildProcess(mainCheckout, {});
 
-      expect(roots.worktreeProductRoot).toBe(mainCheckout);
-      expect(roots.gitCommonDirProductRoot).toBe(dirname(mainCheckout));
+      expect(roots.worktree.productDir).toBe(mainCheckout);
+      expect(roots.gitCommonDir.productDir).toBe(dirname(mainCheckout));
     });
+  });
+});
+
+describe("state test harness — non-git directory", () => {
+  it("passes an existing directory outside every git repository and removes it after the callback returns or throws", async () => {
+    const returnedDir = await withNonGitDirectory(async (dir) => {
+      const entry = await stat(dir);
+      const toplevel = await defaultGitDependencies.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_SHOW_TOPLEVEL_ARGS], {
+        cwd: dir,
+        reject: false,
+      });
+
+      expect(entry.isDirectory()).toBe(true);
+      expect(toplevel.exitCode).not.toBe(0);
+      return dir;
+    });
+
+    await expect(stat(returnedDir)).rejects.toThrow();
+
+    const thrown = new Error();
+    let thrownDir: string | undefined;
+    await expect(
+      withNonGitDirectory(async (dir) => {
+        thrownDir = dir;
+        throw thrown;
+      }),
+    ).rejects.toBe(thrown);
+
+    expect(thrownDir).toBeDefined();
+    await expect(stat(thrownDir ?? returnedDir)).rejects.toThrow();
   });
 });
