@@ -153,6 +153,7 @@ const SPEC_TREE_FIELD_KEY = {
   ORDER: "order",
   SLUG: "slug",
   STATE: "state",
+  TITLE: "title",
 } as const;
 
 export const SPEC_TREE_FILESYSTEM_RECORD_TYPE = {
@@ -192,6 +193,10 @@ export const SPEC_TREE_PROJECTION = {
     KIND: SPEC_TREE_FIELD_KEY.KIND,
     ORDER: SPEC_TREE_FIELD_KEY.ORDER,
     SLUG: SPEC_TREE_FIELD_KEY.SLUG,
+  },
+  PRODUCT_KEYS: {
+    ID: SPEC_TREE_FIELD_KEY.ID,
+    TITLE: SPEC_TREE_FIELD_KEY.TITLE,
   },
 } as const;
 
