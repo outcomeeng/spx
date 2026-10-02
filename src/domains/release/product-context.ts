@@ -1,5 +1,7 @@
 import { posix } from "node:path";
 
+import MarkdownIt from "markdown-it";
+
 import {
   compareSpecContextOrdinal,
   recognizeSpecTreeFilesystemEntry,
@@ -19,6 +21,12 @@ const SPEC_TREE_DIRECTORY = "spx";
 const TEST_LINK_PATTERN = /\[test\]\(([^)]+)\)/gu;
 const INLINE_CODE_PATTERN = /`([^`]+)`/gu;
 const AUDIT_TAG = "[audit";
+const MARKDOWN_LINK_OPEN_TOKEN = "link_open";
+const MARKDOWN_LINK_HREF_ATTRIBUTE = "href";
+const LINK_TARGET_SUFFIX_PATTERN = /[?#].*$/su;
+const URL_SCHEME_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*:/u;
+const ROOT_ANCHOR = "/";
+const PARENT_DIRECTORY_SEGMENT = "..";
 
 export const RELEASE_CONTEXT_KIND = {
   PRODUCT: "product",
@@ -211,6 +219,57 @@ export function auditDeclarationOwners(
     }
   }
   return new Map([...owners].map(([path, pathOwners]) => [path, [...pathOwners]]));
+}
+
+/**
+ * Parses Markdown with link destinations kept exactly as written, so a citation resolves against
+ * the literal path the author linked rather than its percent-encoded form.
+ */
+function createCitationMarkdownParser(): MarkdownIt {
+  const parser = new MarkdownIt();
+  parser.normalizeLink = (url) => url;
+  return parser;
+}
+
+const CITATION_MARKDOWN_PARSER = createCitationMarkdownParser();
+
+/**
+ * Decision paths a document cites through Markdown links, in first-appearance order. A link binds
+ * when its destination is tree-absolute from `spx/` or node-local to the citing document's
+ * directory and names a decision file; a destination that climbs with `../`, starts at `/`, or
+ * carries a URL scheme binds nothing, and a decision path written as text — bare or in an inline
+ * code span — is no link.
+ */
+export function extractDecisionLinkCitations(documentPath: string, content: string): readonly string[] {
+  const citations = new Set<string>();
+  for (const block of CITATION_MARKDOWN_PARSER.parse(content, {})) {
+    for (const token of block.children ?? []) {
+      if (token.type !== MARKDOWN_LINK_OPEN_TOKEN) continue;
+      const href = token.attrGet(MARKDOWN_LINK_HREF_ATTRIBUTE);
+      if (href === null) continue;
+      const citedPath = resolveCitationLink(documentPath, href);
+      if (citedPath !== null && isDecisionPath(citedPath)) citations.add(citedPath);
+    }
+  }
+  return [...citations];
+}
+
+function resolveCitationLink(documentPath: string, href: string): string | null {
+  const target = href.replace(LINK_TARGET_SUFFIX_PATTERN, "");
+  if (target.length === 0 || target.startsWith(ROOT_ANCHOR) || URL_SCHEME_PATTERN.test(target)) return null;
+  if (target.split(ROOT_ANCHOR).includes(PARENT_DIRECTORY_SEGMENT)) return null;
+  if (target.startsWith(`${SPEC_TREE_DIRECTORY}/`)) return posix.normalize(target);
+  return posix.join(posix.dirname(documentPath), target);
+}
+
+function isDecisionPath(path: string): boolean {
+  const prefix = `${SPEC_TREE_DIRECTORY}/`;
+  if (!path.startsWith(prefix)) return false;
+  const entry = recognizeSpecTreeFilesystemEntry({
+    type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
+    relativePath: path.slice(prefix.length),
+  });
+  return entry?.type === SPEC_TREE_ENTRY_TYPE.DECISION;
 }
 
 /** Nodes whose own directory holds a changed path. */
