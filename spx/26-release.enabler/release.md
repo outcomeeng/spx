@@ -1,5 +1,4 @@
 ---
-id: 01a0fce5-3bf2-7bd3-9294-e1d345a15ba5
 malleability: spec
 ---
 
