@@ -1,4 +1,4 @@
-import type { TerminalText } from "@/lib/terminal-text/terminal-text";
+import { renderTerminalText, type TerminalText } from "@/lib/terminal-text/terminal-text";
 import { resolve } from "node:path";
 
 import { type ResolvedProductDir, resolveProductDir } from "@/domains/config/root";
@@ -22,8 +22,8 @@ export type ProductContext = {
 };
 
 export type CliIo = {
-  readonly writeStdout: (output: string) => void;
-  readonly writeStderr: (output: string) => void;
+  readonly writeStdout: (output: TerminalText) => void;
+  readonly writeStderr: (output: TerminalText) => void;
   /**
    * Relays a document the product did not compose — agent-authored release notes, the exact
    * bytes of a read file, or a subprocess's own output — to standard output unchanged.
@@ -101,10 +101,10 @@ export function createCliInvocation(options: CliInvocationOptions): CliInvocatio
 
 export const DEFAULT_CLI_IO: CliIo = {
   writeStdout: (output) => {
-    process.stdout.write(output);
+    process.stdout.write(renderTerminalText(output));
   },
   writeStderr: (output) => {
-    process.stderr.write(output);
+    process.stderr.write(renderTerminalText(output));
   },
   writePassThrough: (document) => {
     process.stdout.write(document);

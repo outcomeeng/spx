@@ -13,6 +13,7 @@ import {
   resolveAgentHomeDirs,
 } from "@/domains/agent";
 import { detectWorktreeProductRoot } from "@/lib/git/root";
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 
 export interface AgentResumeCommandDeps {
   readonly fs: AgentResumeSessionFileSystem;
@@ -92,10 +93,10 @@ export async function loadAgentResumeCandidates(
   });
 }
 
-export async function listAgentResumeSessions(options: AgentResumeCommandOptions): Promise<string> {
+export async function listAgentResumeSessions(options: AgentResumeCommandOptions): Promise<TerminalText> {
   return renderAgentResumeList(await loadAgentResumeCandidates(options));
 }
 
-export async function jsonAgentResumeSessions(options: AgentResumeCommandOptions): Promise<string> {
+export async function jsonAgentResumeSessions(options: AgentResumeCommandOptions): Promise<TerminalText> {
   return renderAgentResumeJson(await loadAgentResumeCandidates(options));
 }

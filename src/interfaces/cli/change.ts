@@ -4,7 +4,7 @@ import { CHANGE_COMMAND } from "@/commands/change/contract";
 import { createDraftCommand, deleteDraftCommand, listDraftsCommand } from "@/commands/change/draft";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
-import { externalValue, jsonDocument, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import { externalValue, jsonDocument, terminal } from "@/lib/terminal-text/terminal-text";
 
 async function readDraftInput(input: AsyncIterable<string | Uint8Array>): Promise<string> {
   const chunks: Buffer[] = [];
@@ -16,11 +16,9 @@ async function readDraftInput(input: AsyncIterable<string | Uint8Array>): Promis
 
 async function writeDraftResult(invocation: CliInvocation, action: () => Promise<object>): Promise<void> {
   try {
-    invocation.io.writeStdout(renderTerminalText(terminal`${jsonDocument(await action())}\n`));
+    invocation.io.writeStdout(terminal`${jsonDocument(await action())}\n`);
   } catch (error) {
-    invocation.io.writeStderr(
-      renderTerminalText(terminal`${externalValue(error instanceof Error ? error.message : error)}\n`),
-    );
+    invocation.io.writeStderr(terminal`${externalValue(error instanceof Error ? error.message : error)}\n`);
     invocation.io.setExitCode(1);
   }
 }

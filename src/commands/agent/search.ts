@@ -23,6 +23,7 @@ import {
   parseGitWorktreePorcelainRecords,
 } from "@/lib/git/root";
 import { defaultRipgrepRunner } from "@/lib/ripgrep/runner";
+import type { TerminalText } from "@/lib/terminal-text/terminal-text";
 
 /**
  * The two roots of `spx/15-worktree-management.pdr.md`. Search filters candidates by
@@ -145,10 +146,10 @@ export async function loadAgentSearchResults(
   });
 }
 
-export async function listAgentSearchSessions(options: AgentSearchCommandOptions): Promise<string> {
+export async function listAgentSearchSessions(options: AgentSearchCommandOptions): Promise<TerminalText> {
   return renderAgentSearchList(await loadAgentSearchResults(options));
 }
 
-export async function jsonAgentSearchSessions(options: AgentSearchCommandOptions): Promise<string> {
+export async function jsonAgentSearchSessions(options: AgentSearchCommandOptions): Promise<TerminalText> {
   return renderAgentSearchJson(await loadAgentSearchResults(options));
 }

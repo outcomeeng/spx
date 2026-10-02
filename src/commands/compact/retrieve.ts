@@ -1,6 +1,7 @@
 import { compactStashPath, parseCompactRecord, resolveCompactSessionToken } from "@/domains/compact";
 import type { AgentSessionEnvironment } from "@/domains/session/agent-session";
 import { readLatestJsonlRecord, resolveWorktreeScopeDir } from "@/lib/state-store";
+import { authoredText, jsonDocument, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
 export interface CompactRetrieveOptions {
   readonly sessionId?: string;
@@ -10,10 +11,10 @@ export interface CompactRetrieveOptions {
 
 export interface CompactRetrieveResult {
   readonly exitCode: 0 | 1;
-  readonly output: string;
+  readonly output: TerminalText;
 }
 
-const EMPTY_OUTPUT = "";
+const EMPTY_OUTPUT = authoredText("");
 
 export async function compactRetrieveCommand(options: CompactRetrieveOptions): Promise<CompactRetrieveResult> {
   const sessionToken = resolveCompactSessionToken(options.sessionId, options.env ?? process.env);
@@ -26,5 +27,5 @@ export async function compactRetrieveCommand(options: CompactRetrieveOptions): P
   if (!latest.ok || latest.value === undefined) return { exitCode: 1, output: EMPTY_OUTPUT };
   const record = parseCompactRecord(latest.value);
   if (!record.ok) return { exitCode: 1, output: EMPTY_OUTPUT };
-  return { exitCode: 0, output: `${JSON.stringify(record.value)}\n` };
+  return { exitCode: 0, output: terminal`${jsonDocument(record.value)}\n` };
 }

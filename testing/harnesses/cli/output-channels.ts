@@ -1,7 +1,7 @@
 import type { Domain } from "@/interfaces/cli/domain";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
-import { externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import { externalValue, terminal } from "@/lib/terminal-text/terminal-text";
 
 /** The four verbs of the channel domain, one per channel on each standard stream. */
 export const OUTPUT_CHANNEL_VERB = {
@@ -56,7 +56,7 @@ function channelDomain(payload: string): Domain {
       program
         .command(OUTPUT_CHANNEL_VERB.COMPOSE)
         .action(() => {
-          invocation.io.writeStdout(renderTerminalText(terminal`${externalValue(payload)}`));
+          invocation.io.writeStdout(terminal`${externalValue(payload)}`);
         });
       program
         .command(OUTPUT_CHANNEL_VERB.RELAY_ERROR)
@@ -66,7 +66,7 @@ function channelDomain(payload: string): Domain {
       program
         .command(OUTPUT_CHANNEL_VERB.COMPOSE_ERROR)
         .action(() => {
-          invocation.io.writeStderr(renderTerminalText(terminal`${externalValue(payload)}`));
+          invocation.io.writeStderr(terminal`${externalValue(payload)}`);
         });
     },
   };

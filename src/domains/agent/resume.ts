@@ -2,6 +2,14 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { isPathContained } from "@/lib/file-system/pathContainment";
+import {
+  authoredText,
+  externalValue,
+  joinTerminalText,
+  jsonDocument,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 
 import { type AgentHomeDirs, piSessionStoreDir } from "./home";
 
@@ -337,20 +345,25 @@ export function buildAgentResumeLaunchCommand(candidate: AgentResumeCandidate): 
   return AGENT_RESUME_ADAPTER_REGISTRY[candidate.agent].launch(candidate);
 }
 
-export function renderAgentResumeList(candidates: readonly AgentResumeCandidate[]): string {
+export function renderAgentResumeList(candidates: readonly AgentResumeCandidate[]): TerminalText {
   if (candidates.length === 0) {
-    return AGENT_RESUME_TEXT.NO_MATCHES;
+    return authoredText(AGENT_RESUME_TEXT.NO_MATCHES);
   }
-  return candidates.map((candidate) => {
-    const updatedAt = candidate.lastActivityAtMs === null
-      ? "unknown"
-      : new Date(candidate.lastActivityAtMs).toISOString();
-    return `${updatedAt} ${AGENT_SESSION_LABEL[candidate.agent]} ${candidate.sessionId} ${candidate.cwd}`;
-  }).join("\n");
+  return joinTerminalText(
+    authoredText("\n"),
+    candidates.map((candidate) => {
+      const updatedAt = candidate.lastActivityAtMs === null
+        ? authoredText("unknown")
+        : authoredText(new Date(candidate.lastActivityAtMs).toISOString());
+      return terminal`${updatedAt} ${authoredText(AGENT_SESSION_LABEL[candidate.agent])} ${
+        externalValue(candidate.sessionId)
+      } ${externalValue(candidate.cwd)}`;
+    }),
+  );
 }
 
-export function renderAgentResumeJson(candidates: readonly AgentResumeCandidate[]): string {
-  return JSON.stringify(candidates, null, 2);
+export function renderAgentResumeJson(candidates: readonly AgentResumeCandidate[]): TerminalText {
+  return jsonDocument(candidates, 2);
 }
 
 export interface AgentSessionHead {

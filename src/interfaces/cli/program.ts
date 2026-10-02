@@ -4,7 +4,13 @@ import { resolveProductDir } from "@/domains/config/root";
 import type { Domain } from "@/interfaces/cli/domain";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { methodologyTreeRootDir } from "@/lib/methodology";
-import { authoredText, externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import {
+  authoredText,
+  externalValue,
+  renderTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 
 import { type CliIo, createCliInvocation, DEFAULT_CLI_IO, SPX_GLOBAL_OPTIONS } from "./product-context";
 import { CLI_DOMAINS } from "./registry";
@@ -12,7 +18,22 @@ import { CLI_DOMAINS } from "./registry";
 export const SPX_PROGRAM_NAME = "spx";
 const SPX_PROGRAM_DESCRIPTION = "Fast, deterministic CLI tool for spec workflow management";
 
-export type CliProgramOptions = Partial<CliIo> & {
+/** A destination for one standard stream's bytes, as they reach the stream. */
+export type CliStreamSink = (output: string) => void;
+
+/**
+ * Where a caller redirects each channel. A destination receives the bytes that would reach the
+ * stream, so it takes a plain string: composed text has already carried its escaping decisions by
+ * the time it is unwrapped for the stream, and a relayed document never claimed any.
+ */
+export type CliOutputDestinations = {
+  readonly writeStdout?: CliStreamSink;
+  readonly writeStderr?: CliStreamSink;
+  readonly writePassThrough?: CliStreamSink;
+  readonly writePassThroughError?: CliStreamSink;
+};
+
+export type CliProgramOptions = Partial<Pick<CliIo, "setExitCode" | "exit">> & CliOutputDestinations & {
   readonly domains?: readonly Domain[];
   readonly processCwd?: () => string;
   /** Absolute path of spx's package root; the shipped methodology trees resolve beneath it. */
@@ -130,11 +151,22 @@ class SafeDiagnosticCommand extends Command {
   }
 }
 
+/** The composed-text write onto a redirected destination: the composed text is unwrapped once, there. */
+function composedWrite(
+  destination: CliStreamSink | undefined,
+  fallback: (output: TerminalText) => void,
+): (output: TerminalText) => void {
+  if (destination === undefined) return fallback;
+  return (output) => {
+    destination(renderTerminalText(output));
+  };
+}
+
 export function createCliProgram(options: CliProgramOptions = {}): Command {
   const program = new SafeDiagnosticCommand();
   const io: CliIo = {
-    writeStdout: options.writeStdout ?? DEFAULT_CLI_IO.writeStdout,
-    writeStderr: options.writeStderr ?? DEFAULT_CLI_IO.writeStderr,
+    writeStdout: composedWrite(options.writeStdout, DEFAULT_CLI_IO.writeStdout),
+    writeStderr: composedWrite(options.writeStderr, DEFAULT_CLI_IO.writeStderr),
     // Pass-through and composed output share one stream, so a caller that redirects standard
     // output receives both unless it redirects the relay separately. The two stay distinct in the
     // type — one claims control-byte safety and the other does not — not in their destination.
@@ -144,7 +176,10 @@ export function createCliProgram(options: CliProgramOptions = {}): Command {
     setExitCode: options.setExitCode ?? DEFAULT_CLI_IO.setExitCode,
     exit: options.exit ?? DEFAULT_CLI_IO.exit,
   };
-  program.configureOutput({ writeErr: io.writeStderr });
+  // Commander composes its own diagnostics, help, and usage from declarations the product wrote,
+  // and the caller-supplied tokens it embeds are escaped by the overrides above before it does,
+  // so what it hands over is the product's speech as it stands.
+  program.configureOutput({ writeErr: (text) => io.writeStderr(authoredText(text)) });
 
   program
     .name(SPX_PROGRAM_NAME)
@@ -164,7 +199,7 @@ export function createCliProgram(options: CliProgramOptions = {}): Command {
     resolveProductDir,
     writeWarning: (warning) => {
       if (warning !== undefined) {
-        io.writeStderr(renderTerminalText(terminal`${warning}\n`));
+        io.writeStderr(terminal`${warning}\n`);
       }
     },
     io,
