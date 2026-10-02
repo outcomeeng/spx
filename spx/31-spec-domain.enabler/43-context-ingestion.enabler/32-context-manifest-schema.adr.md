@@ -18,6 +18,7 @@ Every `show` invocation emits complete context: the whole selected projection fo
 - Target argument order does not change output.
 - Output depends on no state an earlier invocation persisted.
 - Text and JSON select identical entries, metadata, and source content.
+- `list` and `show` select one entry set for the same targets.
 - Bounded harness output is delivered by redirecting complete stdout to scratch space and reading it natively; delivery never changes selection or rendering.
 
 ## Verification
