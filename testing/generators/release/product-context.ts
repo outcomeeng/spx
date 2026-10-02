@@ -410,3 +410,127 @@ export function arbitraryReleaseContextScenario(): fc.Arbitrary<ReleaseContextSc
 export function sampleReleaseContextScenario(): ReleaseContextScenario {
   return sampleReleaseTestValue(arbitraryReleaseContextScenario());
 }
+
+const CITATION_SIBLING_INDEX = 10;
+const CITATION_LOCAL_DECISION_INDEX = 15;
+const CITATION_CITING_INDEX = 20;
+const CITATION_CITED_INDEX = 30;
+const CITATION_CITED_DECISION_INDEX = 31;
+const CITATION_SLUG_COUNT = 10;
+const PARENT_DIRECTORY_SEGMENT = "..";
+
+/**
+ * One release endpoint whose selected documents cite decisions in every citation shape: a changed
+ * node cites decisions of a higher-index sibling through tree-absolute links, as bare text, in an
+ * inline code span, and through a `../` link, and the lower-index sibling its context reads cites
+ * its own decision through a node-local link. No cited decision enters the context through the tree
+ * walk, so each one is present only when its citation binds.
+ */
+export interface ReleaseDecisionCitationScenario {
+  readonly endpoints: readonly ReleaseEndpointSource[];
+  readonly releaseData: ReleaseData;
+  /** Decisions cited through a Markdown link tree-absolute from `spx/` or node-local to the citing node. */
+  readonly linkCitedDecisionPaths: readonly string[];
+  /** Decisions whose path appears only as text, bare or in an inline code span. */
+  readonly textNamedDecisionPaths: readonly string[];
+  /** Decisions reached only through a Markdown link that climbs with `../`. */
+  readonly climbingLinkedDecisionPaths: readonly string[];
+}
+
+export function arbitraryReleaseDecisionCitationScenario(): fc.Arbitrary<ReleaseDecisionCitationScenario> {
+  return fc.record({
+    slugs: fc.uniqueArray(arbitraryPathSegment(), {
+      minLength: CITATION_SLUG_COUNT,
+      maxLength: CITATION_SLUG_COUNT,
+    }),
+    releaseData: RELEASE_TEST_GENERATOR.releaseData(),
+  }).map(({ slugs, releaseData }) => {
+    const [
+      productSlug,
+      siblingSlug,
+      citingSlug,
+      citedSlug,
+      localSlug,
+      treeAbsoluteSlug,
+      labelledTreeAbsoluteSlug,
+      bareTextSlug,
+      inlineCodeSlug,
+      climbingSlug,
+    ] = slugs;
+    const productPath = posix.join(
+      SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+      `${productSlug}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`,
+    );
+    const siblingDirectory = citationNodeDirectory(CITATION_SIBLING_INDEX, siblingSlug);
+    const citingDirectory = citationNodeDirectory(CITATION_CITING_INDEX, citingSlug);
+    const citedDirectory = citationNodeDirectory(CITATION_CITED_INDEX, citedSlug);
+    const localDecisionFile = citationDecisionFile(CITATION_LOCAL_DECISION_INDEX, localSlug);
+    const localDecisionPath = posix.join(siblingDirectory, localDecisionFile);
+    const citedDecisionPath = (slug: string) =>
+      posix.join(citedDirectory, citationDecisionFile(CITATION_CITED_DECISION_INDEX, slug));
+    const treeAbsolutePath = citedDecisionPath(treeAbsoluteSlug);
+    const labelledTreeAbsolutePath = citedDecisionPath(labelledTreeAbsoluteSlug);
+    const bareTextPath = citedDecisionPath(bareTextSlug);
+    const inlineCodePath = citedDecisionPath(inlineCodeSlug);
+    const climbingPath = citedDecisionPath(climbingSlug);
+    const climbingHref = posix.join(
+      PARENT_DIRECTORY_SEGMENT,
+      posix.relative(SPEC_TREE_CONFIG.ROOT_DIRECTORY, climbingPath),
+    );
+    const citingSpecificationPath = citationSpecificationPath(citingDirectory, citingSlug);
+    const files: ReleaseEndpointFile[] = [
+      releaseEndpointFile(productPath, `# ${productSlug}\n`),
+      releaseEndpointFile(
+        citationSpecificationPath(siblingDirectory, siblingSlug),
+        citationNodeSpec(siblingSlug, [`- ALWAYS: ${siblingSlug} follows [${localSlug}](${localDecisionFile})`]),
+      ),
+      releaseEndpointFile(localDecisionPath, citationDecision(localSlug)),
+      releaseEndpointFile(
+        citingSpecificationPath,
+        citationNodeSpec(citingSlug, [
+          `- ALWAYS: ${citingSlug} follows [${treeAbsoluteSlug}](${treeAbsolutePath})`,
+          `- ALWAYS: ${citingSlug} follows [\`${labelledTreeAbsolutePath}\`](${labelledTreeAbsolutePath})`,
+          `- ALWAYS: ${citingSlug} follows ${bareTextPath}`,
+          `- ALWAYS: ${citingSlug} follows \`${inlineCodePath}\``,
+          `- ALWAYS: ${citingSlug} follows [${climbingSlug}](${climbingHref})`,
+        ]),
+      ),
+      releaseEndpointFile(citationSpecificationPath(citedDirectory, citedSlug), citationNodeSpec(citedSlug, [])),
+      ...[treeAbsolutePath, labelledTreeAbsolutePath, bareTextPath, inlineCodePath, climbingPath].map((path) =>
+        releaseEndpointFile(path, citationDecision(posix.basename(path)))
+      ),
+    ];
+    return {
+      endpoints: [{ ref: releaseData.releaseRef, files }],
+      releaseData: { ...releaseData, previousTag: null, changedPaths: [citingSpecificationPath] },
+      linkCitedDecisionPaths: [treeAbsolutePath, labelledTreeAbsolutePath, localDecisionPath],
+      textNamedDecisionPaths: [bareTextPath, inlineCodePath],
+      climbingLinkedDecisionPaths: [climbingPath],
+    };
+  });
+}
+
+function citationNodeDirectory(index: number, slug: string): string {
+  return posix.join(
+    SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+    `${index}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${KIND_REGISTRY.enabler.suffix}`,
+  );
+}
+
+function citationSpecificationPath(directory: string, slug: string): string {
+  return posix.join(directory, `${slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`);
+}
+
+function citationDecisionFile(index: number, slug: string): string {
+  return `${index}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${KIND_REGISTRY.adr.suffix}`;
+}
+
+function citationNodeSpec(slug: string, assertions: readonly string[]): string {
+  return `# ${slug}\n\nPROVIDES ${slug}\nSO THAT products\nCAN release it\n\n## Assertions\n\n${
+    assertions.join("\n")
+  }\n`;
+}
+
+function citationDecision(title: string): string {
+  return `# ${title}\n\nGOVERNS ${title}\n`;
+}
