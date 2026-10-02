@@ -163,17 +163,35 @@ function specContextGoverningDecisionIds(
   }));
 }
 
+/** The context-ingestion failure for a tree whose nodes or root decisions have no product spec to start the walk. */
+export const SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR =
+  `No product spec in ${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/: the context walk starts at the product spec`;
+
 /**
- * The structural selection for `targets`, in walk order. A tree without a
- * product spec selects nothing: the walk is rooted at the product spec, so no
- * entry below it is reachable.
+ * The product spec path the walk starts at, or none for a tree holding no
+ * product spec, node, or decision; a tree whose nodes or decisions lack a
+ * product spec has no walk and fails.
+ */
+function specContextWalkRoot(snapshot: SpecTreeSnapshot): string | undefined {
+  const productPath = snapshot.product?.ref?.path;
+  if (productPath !== undefined || (snapshot.allNodes.length === 0 && snapshot.decisions.length === 0)) {
+    return productPath;
+  }
+  throw new Error(SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR);
+}
+
+/**
+ * The structural selection for `targets`, in walk order. The walk is rooted
+ * at the product spec: a tree holding no product spec, node, or decision
+ * selects nothing, while a tree whose nodes or decisions lack a product spec
+ * fails before any entry is selected.
  */
 export function selectSpecContextDocuments(
   snapshot: SpecTreeSnapshot,
   targets: readonly SpecContextTarget[],
   existingPaths: ReadonlySet<string>,
 ): readonly SpecContextSelection[] {
-  const productPath = snapshot.product?.ref?.path;
+  const productPath = specContextWalkRoot(snapshot);
   if (productPath === undefined) return [];
   const selected = new Map<string, SpecContextMode>();
   const fullContainers = new Set<string | undefined>([undefined]);
