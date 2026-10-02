@@ -133,7 +133,6 @@ async function expectStreamedProgressSurvivesLaterFailure(): Promise<void> {
     {
       name: VALIDATION_PIPELINE_DATA.stageNames.ESLINT,
       failsPipeline: true,
-      processRunner: null,
       participation: registeredParticipationPolicy(VALIDATION_PIPELINE_DATA.stageNames.ESLINT),
       run: async () => ({
         exitCode: VALIDATION_PIPELINE_DATA.exitCodes.SUCCESS,
@@ -143,7 +142,6 @@ async function expectStreamedProgressSurvivesLaterFailure(): Promise<void> {
     {
       name: VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT,
       failsPipeline: true,
-      processRunner: null,
       participation: registeredParticipationPolicy(VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT),
       run: async () => {
         laterStageStarted.resolve();

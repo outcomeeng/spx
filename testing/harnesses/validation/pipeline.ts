@@ -240,7 +240,6 @@ function validationOverrideMetadataTestStage(flag: string): ValidationStage {
   return {
     name: OVERRIDE_METADATA_TEST_STAGE_NAME,
     failsPipeline: true,
-    processRunner: null,
     participation: {
       default: VALIDATION_STAGE_PARTICIPATION.RUN,
       override: {
@@ -606,7 +605,6 @@ async function runStepOrderScenario(
     {
       name: VALIDATION_PIPELINE_DATA.stageNames.ESLINT,
       failsPipeline: true,
-      processRunner: null,
       participation: validationParticipationPolicy(VALIDATION_PIPELINE_DATA.stageNames.ESLINT),
       run: () =>
         Promise.resolve({
@@ -617,7 +615,6 @@ async function runStepOrderScenario(
     {
       name: VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT,
       failsPipeline: true,
-      processRunner: null,
       participation: validationParticipationPolicy(VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT),
       run: async () => {
         secondStageStarted.resolve();
@@ -1036,7 +1033,6 @@ async function executeStableVerdictRun(
       name: stage.name,
       failsPipeline: true,
       participation: stage.participation,
-      processRunner: stage.processRunner,
       run: () => {
         const result = {
           exitCode: scenario.stageFailures[index]
@@ -1084,7 +1080,6 @@ async function runAdditiveVerdictsScenario(
       const addedStage: ValidationStage = {
         name: addedStageName,
         failsPipeline: true,
-        processRunner: null,
         participation: validationParticipationPolicy(VALIDATION_PIPELINE_DATA.stageNames.TYPESCRIPT),
         run: () =>
           Promise.resolve({

@@ -12,7 +12,7 @@ CAN render diagnostics with no unprintable bytes and bounded length, CAN invoke 
 - Given the sanitizer receives `null`, then it returns `SENTINEL_NULL` ([test](tests/sanitize.scenario.l1.test.ts))
 - Given the sanitizer receives the empty string, then it returns `SENTINEL_EMPTY` ([test](tests/sanitize.scenario.l1.test.ts))
 - Given the sanitizer receives a non-string value, then it returns `nonStringSentinel(typeof value)` ([test](tests/sanitize.scenario.l1.test.ts))
-- Given the CLI's stdout is closed mid-write, when the next write fires, then the process exits with code 0 and stderr emits no `uncaughtException` text ([test](tests/stdout-epipe.scenario.l1.test.ts))
+- Given the CLI's stdout is closed mid-write, when the next write fires, then the process exits with code 0 and stderr emits no `uncaughtException` text ([test](tests/lifecycle.scenario.l2.test.ts))
 - Given one tracked child process and a SIGINT signal delivered to the parent, when the handler runs, then the child receives SIGINT and the parent exits with code 130 ([test](tests/lifecycle.scenario.l1.test.ts))
 - Given two or more tracked child processes and a SIGTERM signal delivered to the parent, when the handler runs, then every tracked child receives SIGTERM and the parent exits with code 143 ([test](tests/lifecycle.scenario.l1.test.ts))
 - Given one tracked child process and an uncaught exception reaching the top of the call stack, when the handler runs, then the child is killed and the parent exits with a non-zero code ([test](tests/lifecycle.scenario.l1.test.ts))

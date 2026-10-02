@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { createHandlers, createRegistry, SIGINT_NAME, SIGTERM_NAME } from "@/lib/process-lifecycle";
-import { arbitraryTrackedChildCount, LIFECYCLE_EXIT_ORACLE } from "@testing/generators/process-lifecycle/lifecycle";
-import { sampleGeneratedValue } from "@testing/generators/sample";
+import {
+  createHandlers,
+  createRegistry,
+  SIGINT_EXIT_CODE,
+  SIGINT_NAME,
+  SIGTERM_EXIT_CODE,
+  SIGTERM_NAME,
+} from "@/lib/process-lifecycle";
 import { RecordingChild, RecordingExitController } from "@testing/harnesses/process-lifecycle/lifecycle";
 
 describe("Scenario: SIGINT with one tracked child", () => {
-  it("forwards SIGINT to the registered child and exits with the SIGINT exit code", () => {
+  it("forwards SIGINT to the registered child and exits with SIGINT_EXIT_CODE", () => {
     const registry = createRegistry();
     const exitController = new RecordingExitController();
     const handlers = createHandlers({ registry, exitController });
@@ -16,19 +21,17 @@ describe("Scenario: SIGINT with one tracked child", () => {
     handlers.onSigint();
 
     expect(child.killCalls).toEqual([SIGINT_NAME]);
-    expect(exitController.exits).toEqual([LIFECYCLE_EXIT_ORACLE.signalExitCode(SIGINT_NAME)]);
+    expect(exitController.exits).toEqual([SIGINT_EXIT_CODE]);
   });
 });
 
 describe("Scenario: SIGTERM with multiple tracked children", () => {
-  it("forwards SIGTERM to every registered child and exits with the SIGTERM exit code", () => {
+  it("forwards SIGTERM to every registered child and exits with SIGTERM_EXIT_CODE", () => {
     const registry = createRegistry();
     const exitController = new RecordingExitController();
     const handlers = createHandlers({ registry, exitController });
-    const children = Array.from(
-      { length: sampleGeneratedValue(arbitraryTrackedChildCount()) },
-      () => new RecordingChild(),
-    );
+    const childCount = 3;
+    const children = Array.from({ length: childCount }, () => new RecordingChild());
     for (const child of children) registry.add(child);
 
     handlers.onSigterm();
@@ -36,7 +39,7 @@ describe("Scenario: SIGTERM with multiple tracked children", () => {
     for (const child of children) {
       expect(child.killCalls).toEqual([SIGTERM_NAME]);
     }
-    expect(exitController.exits).toEqual([LIFECYCLE_EXIT_ORACLE.signalExitCode(SIGTERM_NAME)]);
+    expect(exitController.exits).toEqual([SIGTERM_EXIT_CODE]);
   });
 });
 
@@ -52,6 +55,6 @@ describe("Scenario: uncaught exception with one tracked child", () => {
 
     expect(child.killed).toBe(true);
     expect(exitController.exits).toHaveLength(1);
-    expect(exitController.exits[0]).not.toBe(LIFECYCLE_EXIT_ORACLE.SUCCESS);
+    expect(exitController.exits[0]).not.toBe(0);
   });
 });
