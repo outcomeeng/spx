@@ -126,10 +126,9 @@ alongside the property.
 
 ## Locale-dependent ordering remains in projection and listing paths
 
-`String.prototype.localeCompare` without a pinned locale orders by the host locale and ICU build, so equal input can project in different orders across machines. The spec-tree library (`src/lib/spec-tree/`) — the spec-context manifest and snapshot assembly's sibling and entry ordering alike — orders ordinally via `compareSpecContextOrdinal`; the same class remains at:
+`String.prototype.localeCompare` without a pinned locale orders by the host locale and ICU build, so equal input can project in different orders across machines. The spec-tree library (`src/lib/spec-tree/`) — the spec-context manifest and snapshot assembly's sibling and entry ordering alike — orders ordinally via `compareSpecContextOrdinal`, and the agent session listing tie-breakers in `src/domains/agent/resume.ts` and `src/domains/agent/search/results.ts` order ordinally via `compareAgentSessionText`; the same class remains at:
 
-- `src/domains/agent/resume.ts` and `src/domains/agent/search/results.ts` — session listing tie-breakers.
-- `testing/harnesses/agent/resume.ts` — mirrors the production resume ordering and must change together with it.
+- `testing/harnesses/agent/resume.ts` — its expected resume ordering breaks path ties with `localeCompare`, so it diverges from the ordinal production resume ordering it mirrors wherever locale collation disagrees with code-unit order.
 
 **Impact:** ordering can differ across hosts for names where locale collation disagrees with code-unit order (hyphen and dot weighting); committed projections and CI comparisons assume one order.
 
