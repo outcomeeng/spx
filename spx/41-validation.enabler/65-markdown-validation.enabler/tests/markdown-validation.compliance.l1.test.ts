@@ -13,6 +13,7 @@ import {
   markdownDirectoryTarget,
   markdownValidRelativeLink,
   specTreeAdmittedEvidenceShapeLinks,
+  specTreeBackslashSeparatedLinks,
   specTreeDecisionPathAdmittedCases,
   specTreeDecisionPathTextCases,
   specTreeDecisionPathUntrackedTextCases,
@@ -84,7 +85,7 @@ describe("NEVER: validate directories outside spx/ and docs/ by default", () => 
   }, MARKDOWN_HARNESS_TIMEOUT);
 });
 
-describe("Inside spx/, a ../ climb, a leading-slash anchor, and a relative link into a descendant node each fail", () => {
+describe("Inside spx/, a ../ climb, a leading-slash anchor, a relative link into a descendant node, and a backslash-separated href each fail", () => {
   it.each(specTreeRejectedShapeLinks(sampleGeneratedValue(arbitrarySpecTreeLinkScenario())))(
     "reports $link.href by its shape, naming the file, the line, and the link",
     async ({ link, supportingFiles, diagnostic }) => {
@@ -106,6 +107,27 @@ describe("Inside spx/, a ../ climb, a leading-slash anchor, and a relative link 
             file: citingFile,
             line: link.line,
             detail: expect.stringContaining(diagnostic),
+          }),
+        );
+      });
+    },
+    MARKDOWN_HARNESS_TIMEOUT,
+  );
+
+  it.each(specTreeBackslashSeparatedLinks(sampleGeneratedValue(arbitrarySpecTreeLinkScenario())))(
+    "reports the $slashShape path written with $spelling backslashes as $reportedHref, naming the file, the line, and the link, though every reading of it names a tracked file",
+    async ({ link, supportingFiles, trackedPaths, reportedHref }) => {
+      await withMarkdownTempProject(async ({ productDir, spxDir, writeLinkCase }) => {
+        const citingFile = await writeLinkCase({ link, supportingFiles, trackedPaths });
+
+        const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
+
+        expect(result.success).toBe(false);
+        expect(result.errors).toContainEqual(
+          expect.objectContaining({
+            file: citingFile,
+            line: link.line,
+            detail: expect.stringContaining(reportedHref),
           }),
         );
       });

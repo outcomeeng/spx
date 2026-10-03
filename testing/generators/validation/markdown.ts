@@ -404,6 +404,81 @@ export function specTreeRejectedShapeLinks(scenario: SpecTreeLinkScenario): read
   }));
 }
 
+/** How a backslash-separated href spells its separators in the citing file. */
+export const BACKSLASH_HREF_SPELLING = {
+  /** The backslash written as itself. */
+  RAW: "raw",
+  /** The backslash written as its percent-encoding. */
+  PERCENT_ENCODED: "percent-encoded",
+} as const;
+
+export type BackslashHrefSpelling = (typeof BACKSLASH_HREF_SPELLING)[keyof typeof BACKSLASH_HREF_SPELLING];
+
+/** The admitted shape a backslash-separated href would take with its backslashes written as slashes. */
+export const BACKSLASH_HREF_SLASH_SHAPE = {
+  NODE_LOCAL: "node-local",
+  TREE_ABSOLUTE: "tree-absolute",
+} as const;
+
+export type BackslashHrefSlashShape = (typeof BACKSLASH_HREF_SLASH_SHAPE)[keyof typeof BACKSLASH_HREF_SLASH_SHAPE];
+
+/**
+ * A link inside `spx/` whose href separates path segments with a backslash, together with the href a rule
+ * receives for it and a tracked, existing file at every path a reader of the href could resolve it to.
+ */
+export interface MarkdownBackslashHrefCase extends MarkdownLinkShapeCase {
+  readonly spelling: BackslashHrefSpelling;
+  readonly slashShape: BackslashHrefSlashShape;
+  /** The href markdown-it delivers to a rule: each backslash percent-encoded, whichever spelling was written. */
+  readonly reportedHref: string;
+  readonly trackedPaths: readonly string[];
+}
+
+/**
+ * Links inside `spx/` whose hrefs separate path segments with a backslash — a node-local path and a
+ * tree-absolute path, each written with raw backslashes and with percent-encoded backslashes.
+ *
+ * Each case writes and tracks a file at every path the href can be read to name: with each backslash read as a
+ * separator — from the citing file's directory and, for the tree-absolute path, from the product root — and
+ * with each backslash read as a literal filename character from the citing file's directory. Every reading of
+ * the href therefore names a tracked file that exists, so neither a broken-link verdict nor a resolution choice
+ * can fail the link; only the link's backslash-separated shape can.
+ */
+export function specTreeBackslashSeparatedLinks(scenario: SpecTreeLinkScenario): readonly MarkdownBackslashHrefCase[] {
+  const citingFile = specTreeCitingFile(scenario);
+  const slashShapes: ReadonlyArray<{ readonly slashShape: BackslashHrefSlashShape; readonly segments: string[] }> = [
+    {
+      slashShape: BACKSLASH_HREF_SLASH_SHAPE.NODE_LOCAL,
+      segments: [scenario.localDirectory, scenario.targetFileName],
+    },
+    {
+      slashShape: BACKSLASH_HREF_SLASH_SHAPE.TREE_ABSOLUTE,
+      segments: linkedFile(scenario).split(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+    },
+  ];
+  return slashShapes.flatMap(({ slashShape, segments }) => {
+    const slashPath = segments.join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
+    const readings = [
+      posix.join(scenario.nodeDirectory, slashPath),
+      posix.join(scenario.nodeDirectory, segments.join(URL_BACKSLASH_SEPARATOR)),
+      ...(slashShape === BACKSLASH_HREF_SLASH_SHAPE.TREE_ABSOLUTE ? [slashPath] : []),
+    ];
+    const supportingFiles = readings.map((path) => ({ path, content: targetContent(scenario) }));
+    const reportedHref = encodedBackslashJoin(...segments);
+    return [
+      { spelling: BACKSLASH_HREF_SPELLING.RAW, writtenHref: segments.join(URL_BACKSLASH_SEPARATOR) },
+      { spelling: BACKSLASH_HREF_SPELLING.PERCENT_ENCODED, writtenHref: reportedHref },
+    ].map(({ spelling, writtenHref }) => ({
+      link: markdownLinkingTo(scenario, citingFile, writtenHref),
+      supportingFiles,
+      trackedPaths: [citingFile, ...readings],
+      spelling,
+      slashShape,
+      reportedHref,
+    }));
+  });
+}
+
 /** Admitted link shapes inside `spx/` — tree-absolute and node-local — that name no file. */
 export function specTreeMissingTargetLinks(scenario: SpecTreeLinkScenario): readonly MarkdownLinkCase[] {
   const citingFile = specTreeCitingFile(scenario);
