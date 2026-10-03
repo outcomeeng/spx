@@ -6,7 +6,7 @@ When `show --methodology` is requested, the core's complete body after skill-run
 
 ## Rationale
 
-The reviewed, agent-specific foundation already ships inside spx. Reusing its manifest preserves offline, deterministic selection and avoids another methodology layout, consumer copy, installed-plugin dependency, or network lookup. Rendering the eager core alone matches the foundation boundary: extended resources remain available when a workflow explicitly asks for them and do not inflate every context load.
+The reviewed, agent-specific foundation ships inside spx. Reusing its manifest preserves offline, deterministic selection and avoids another methodology layout, consumer copy, installed-plugin dependency, or network lookup. Rendering the eager core alone matches the foundation boundary: extended resources remain available when a workflow explicitly asks for them and do not inflate every context load.
 
 ## Invariants
 
@@ -21,6 +21,6 @@ The reviewed, agent-specific foundation already ships inside spx. Reusing its ma
 ### Audit
 
 - ALWAYS: manifest schema, core containment, strict UTF-8 decoding, and configured `provides` and `supports` compatibility are validated before output ([audit])
-- ALWAYS: an absent line, agent tree, manifest, supported schema, or contained core fails the complete projection with the existing typed methodology failure ([audit])
+- ALWAYS: an absent line, agent tree, manifest, supported schema, or contained core fails the complete projection with the typed methodology failure ([audit])
 - NEVER: methodology selection scans directories, compares package versions, reaches the network, reads an installed plugin or cache, or reads a consumer-side copy ([audit])
 - ALWAYS: methodology parsing and validation are pure over supplied bytes and tree reads enter through the injected methodology reader rooted at spx's package root ([audit])

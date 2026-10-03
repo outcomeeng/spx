@@ -4,7 +4,7 @@ The protocol lives at `probes/context-fidelity/probe.md`, the target of the cont
 
 ## Intent
 
-The operator expects `spx spec context show` and `list` to give an agent the same product truth that `/contextualize` loads for the same target. Then a session can load context through one deterministic command and need not walk `spx/` by hand. Each selection and projection assertion of this node and its children holds on generated fixture trees. Only a run on spx's own tree can show whether the command, read on a real tree with real decisions, citations, notes, and a declared migration, still matches what the skill loads. Each difference must be one an assertion declares, such as Digest in place of a full sibling spec, a path-only reference to `ISSUES.md`, or a tree-absolute citation binding where a code-span path does not. A difference no assertion declares is the misunderstanding this probe exposes.
+The operator expects `spx spec context show` and `list` to give an agent the same product truth that `/contextualize` loads for the same target. Then a session can load context through one deterministic command and need not walk `spx/` by hand. Each selection and projection assertion of this node and its children holds on generated fixture trees. Only a run on spx's own tree can show whether the command, read on a real tree with real decisions, citations, notes, and a declared migration, matches what the skill loads. Each difference must be one an assertion declares, such as Digest in place of a full sibling spec, a path-only reference to `ISSUES.md`, or a tree-absolute citation binding where a code-span path does not. A difference no assertion declares is the misunderstanding this probe exposes.
 
 ## Environment and preconditions
 
