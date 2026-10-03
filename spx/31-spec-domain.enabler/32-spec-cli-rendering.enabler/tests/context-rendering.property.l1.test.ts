@@ -5,6 +5,7 @@ import { parse } from "yaml";
 import {
   renderSpecContextJson,
   renderSpecContextText,
+  SPEC_CONTEXT_TEXT_CITED_BY_LAYOUT,
   SPEC_CONTEXT_TEXT_LABEL,
   SPEC_CONTEXT_TEXT_SELECTION_INDENT,
 } from "@/commands/spec/context";
@@ -89,9 +90,10 @@ describe("spec context list rendering", () => {
         // The human layout is read by the law the manifest decision states, and
         // by nothing it leaves open. Its trailing lines are one line per entry
         // naming its mode and then its path — continuing, on an entry with
-        // citing documents, with one space and `(cited by <path>, <path>)` —
-        // each followed by one indented line per selection naming its reason
-        // and then its target, in manifest order.
+        // citing documents, with the opener, the `cited by` label, the label
+        // separator, and every citing path in order joined by the path
+        // separator, then the closer — each followed by one indented line per
+        // selection naming its reason and then its target, in manifest order.
         const lines = String(renderSpecContextText(manifest)).split("\n");
         const entryBlockLength = manifest.entries.reduce((count, entry) => count + 1 + entry.selections.length, 0);
         const header = lines.slice(0, lines.length - entryBlockLength);
@@ -99,7 +101,11 @@ describe("spec context list rendering", () => {
         for (const entry of manifest.entries) {
           const entryLine = lines[line] ?? "";
           const named = `${entry.path}${
-            entry.citedBy === undefined ? "" : ` (${SPEC_CONTEXT_TEXT_LABEL.CITED_BY} ${entry.citedBy.join(", ")})`
+            entry.citedBy === undefined
+              ? ""
+              : `${SPEC_CONTEXT_TEXT_CITED_BY_LAYOUT.OPEN}${SPEC_CONTEXT_TEXT_LABEL.CITED_BY}${SPEC_CONTEXT_TEXT_CITED_BY_LAYOUT.LABEL_SEPARATOR}${
+                entry.citedBy.join(SPEC_CONTEXT_TEXT_CITED_BY_LAYOUT.PATH_SEPARATOR)
+              }${SPEC_CONTEXT_TEXT_CITED_BY_LAYOUT.CLOSE}`
           }`;
           expect(entryLine.startsWith(entry.mode), entryLine).toBe(true);
           expect(entryLine.endsWith(named), entryLine).toBe(true);
