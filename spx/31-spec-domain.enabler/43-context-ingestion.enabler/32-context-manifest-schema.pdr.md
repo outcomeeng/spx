@@ -22,13 +22,12 @@ Every `show` invocation emits complete context: the whole selected projection fo
 
 ## Verification
 
-- ALWAYS: the selected entry set resolves completely before stdout receives any byte
-- ALWAYS: Full content satisfies a Digest requirement, and Digest content never satisfies a Full requirement
-- ALWAYS: `list` and `show` select one entry set for the same targets
-- NEVER: delivering bounded harness output by redirecting complete stdout to scratch space changes selection or rendering
-
 ### Testing
 
+- ALWAYS: the selected entry set resolves completely before stdout receives any byte ([compliance])
+- ALWAYS: Full content satisfies a Digest requirement, and Digest content never satisfies a Full requirement ([mapping])
+- ALWAYS: `list` and `show` select one entry set for the same targets ([property])
+- NEVER: delivering bounded harness output by redirecting complete stdout to scratch space changes selection or rendering ([compliance])
 - ALWAYS: `list` alone emits the versioned manifest and `show` alone emits framed document and reference entries ([mapping])
 - ALWAYS: `--json` changes representation only, selecting identical entries, metadata, and source content in text and JSON ([property])
 - ALWAYS: a selection holding no entry succeeds as empty text `show` stdout, `{ "entries": [] }` from `show --json`, and a manifest with zero entries from `list` ([mapping])
