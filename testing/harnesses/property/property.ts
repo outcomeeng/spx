@@ -15,7 +15,7 @@ import { randomInt } from "node:crypto";
 
 import fc from "fast-check";
 
-import { SPEC_TREE_GRAMMAR } from "@/lib/spec-tree/config";
+import { SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 
 /** Environment variable that pins the seed for deterministic replay. */
 export const SPX_PROPERTY_SEED_ENV = "SPX_PROPERTY_SEED";

@@ -61,6 +61,9 @@ import {
 } from "@eslint-rules/no-test-owned-domain-constants";
 import {
   NO_RESTRICTED_SYNTAX_RULE_ID,
+  TEST_JEST_MOCK_RULE,
+  TEST_MEMFS_IMPORT_RULE,
+  TEST_VI_DO_MOCK_RULE,
   testRestrictedSyntax,
   tsRestrictedSyntax,
 } from "@eslint-rules/restricted-syntax";
@@ -867,6 +870,49 @@ export function astRestrictedSyntaxRuns(): ValidationGeneratedRuleTesterRun[] {
             code: "const fn = vi.fn();",
             options: [...tsRestrictedSyntax, ...testRestrictedSyntax],
             errors: [{ message: testRestrictedSyntax[SECOND_RULE_INDEX].message }],
+          },
+        ],
+      },
+    },
+    {
+      title: "module interception helpers map to test restricted syntax errors",
+      ruleName: NO_RESTRICTED_SYNTAX_RULE_ID,
+      cases: {
+        valid: [
+          {
+            code: "vi.useFakeTimers();",
+            options: [...tsRestrictedSyntax, ...testRestrictedSyntax],
+          },
+          {
+            code: "import { mkdtemp } from 'node:fs/promises';",
+            options: [...tsRestrictedSyntax, ...testRestrictedSyntax],
+          },
+        ],
+        invalid: [
+          {
+            code: "vi.doMock(\"../src/database\");",
+            options: [...tsRestrictedSyntax, ...testRestrictedSyntax],
+            errors: [{ message: TEST_VI_DO_MOCK_RULE.message }],
+          },
+          {
+            code: "jest.mock(\"../src/database\");",
+            options: [...tsRestrictedSyntax, ...testRestrictedSyntax],
+            errors: [{ message: TEST_JEST_MOCK_RULE.message }],
+          },
+          {
+            code: "jest.doMock(\"../src/database\");",
+            options: [...tsRestrictedSyntax, ...testRestrictedSyntax],
+            errors: [{ message: TEST_JEST_MOCK_RULE.message }],
+          },
+          {
+            code: "import { vol } from 'memfs';",
+            options: [...tsRestrictedSyntax, ...testRestrictedSyntax],
+            errors: [{ message: TEST_MEMFS_IMPORT_RULE.message }],
+          },
+          {
+            code: "import { fs } from 'memfs/lib/index';",
+            options: [...tsRestrictedSyntax, ...testRestrictedSyntax],
+            errors: [{ message: TEST_MEMFS_IMPORT_RULE.message }],
           },
         ],
       },
