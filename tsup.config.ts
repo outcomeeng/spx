@@ -1,6 +1,33 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { defineConfig } from "tsup";
 
-export default defineConfig({
+import { BUILD_IDENTITY_DEFINE_KEY, readBuildIdentity } from "./src/lib/build-identity";
+import { defaultGitDependencies } from "./src/lib/git/root";
+
+const PACKAGE_MANIFEST = new URL("package.json", import.meta.url);
+const PRODUCT_DIR = fileURLToPath(new URL(".", import.meta.url));
+
+function packageVersion(): string {
+  const manifest: unknown = JSON.parse(readFileSync(PACKAGE_MANIFEST, "utf8"));
+  if (
+    typeof manifest !== "object" || manifest === null || !("version" in manifest)
+    || typeof manifest.version !== "string"
+  ) {
+    throw new Error(`${fileURLToPath(PACKAGE_MANIFEST)} declares no string version`);
+  }
+  return manifest.version;
+}
+
+// The version `spx --version` reports is stamped into dist/ here, from the git state of the
+// checkout being built, so the executable never reads git to decide it.
+export default defineConfig(async () => ({
+  define: {
+    [BUILD_IDENTITY_DEFINE_KEY]: JSON.stringify(
+      await readBuildIdentity(packageVersion(), PRODUCT_DIR, defaultGitDependencies),
+    ),
+  },
   entry: ["src/index.ts", "src/cli.ts"],
   format: ["esm"],
   dts: true,
@@ -31,4 +58,4 @@ export default defineConfig({
     "vitest/node",
     "@vitest/ui",
   ],
-});
+}));
