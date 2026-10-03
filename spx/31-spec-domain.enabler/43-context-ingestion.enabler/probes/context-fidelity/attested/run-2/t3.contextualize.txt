@@ -1,0 +1,114 @@
+Invocation: /contextualize spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler
+Sync-base status: already_current
+Synchronized checkout: /Users/shz/Code/outcomeeng/spx/worktrees/change-320-probe
+Synchronized base: origin/main
+
+<SPEC_TREE_CONTEXT target="spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler">
+
+Product: spx
+Target: spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler (enabler)
+Bootstrap: false
+
+Documents loaded:
+  Product spec: spx/spx.product.md
+  Ancestor specs: 1 read (spx/23-spec-tree.enabler/spec-tree.md)
+  Lower-index sibling specs: 11 read
+  ADRs: 10 found, 10 read (6 at the product root, 3 at spx/23-spec-tree.enabler, 1 at the target)
+  PDRs: 4 found, 4 read (4 at the product root)
+  Cited governance decisions: spx/13-cli.enabler/15-cli-architecture.adr.md (cited by spx/14-cli-composition.adr.md); spx/16-config.enabler/21-config-file-formats.adr.md (cited by spx/16-config.enabler/config.md); spx/16-config.enabler/21-descriptor-registration.adr.md (cited by spx/16-config.enabler/config.md and spx/16-config.enabler/21-config-file-formats.adr.md); spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md (cited by spx/17-file-inclusion.enabler/file-inclusion.md); spx/17-language-detection.enabler/21-detection-approach.adr.md (cited by spx/17-language-detection.enabler/language-detection.md); spx/22-test-environment.enabler/21-callback-scoped-environment.adr.md (cited by spx/22-test-environment.enabler/test-environment.md); spx/23-spec-tree.enabler/29-filename-grammar.enabler/21-versioned-grammar-model.adr.md (cited by spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/21-conformance-classification.adr.md and spx/23-spec-tree.enabler/43-entry-recognition.enabler/21-recognition-classification.adr.md); spx/23-spec-tree.enabler/43-entry-recognition.enabler/21-recognition-classification.adr.md (cited by spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/21-conformance-classification.adr.md); already read in the walk: spx/12-agent-harness.pdr.md, spx/15-worktree-management.pdr.md, spx/17-state.adr.md, spx/19-language-registration.adr.md, spx/23-spec-tree.enabler/21-kind-registry.adr.md, spx/23-spec-tree.enabler/26-filename-grammar.adr.md
+  Guide files: CLAUDE.md
+Sync-base status: already_current
+Synchronized checkout: /Users/shz/Code/outcomeeng/spx/worktrees/change-320-probe
+Synchronized base: origin/main
+
+Hierarchy (node target):
+  spx
+  └── spx/23-spec-tree.enabler (enabler)
+      └── spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler (enabler) ← TARGET
+
+Children: 0
+Test links: spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/tests/skill-conformance-oracle.mapping.l1.test.ts, spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/tests/spec-file.mapping.l1.test.ts, spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/tests/skill-conformance-oracle.property.l1.test.ts, spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/tests/skill-conformance-oracle.compliance.l1.test.ts
+Co-located tests: none (no tests/ directory under the target)
+Implementation: unknown
+Coordination notes: spx/PLAN.md, spx/ISSUES.md, spx/23-spec-tree.enabler/PLAN.md, spx/23-spec-tree.enabler/ISSUES.md, spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/PLAN.md
+Local skill overlays: spx/local/coordination.md, spx/local/merging.md, spx/local/typescript-tests.md, spx/local/typescript.md
+Lifecycle overlays read: spx/local/merging.md
+Default-branch completion boundary: delivered value is value merged to the default branch on origin through /merge; local verification, review, audit, and commits are progress, not completion, while the branch carries changes ahead of its resolved base
+Governed next workflow: /merge after local verification when the work changes files and is destined for the default branch, unless explicitly scoped to proposal, analysis, review, or local-only work, or stopped at an explicit lifecycle gate with no independent local action remaining
+Progress verdict rule: status and progress answers must classify the lifecycle as complete, continuing, or blocked; a clean worktree, committed branch, or passing local gate cannot classify default-branch work as complete while changes remain ahead of the resolved base
+Continuation action: if the lifecycle is continuing, proceed to the governed next workflow instead of ending the turn; if blocked, report the exact gate, evidence, and operator decision required
+Lower-index siblings read:
+  spx level: spx/13-cli.enabler/cli.md, spx/15-agent-run-journal.enabler/agent-run-journal.md, spx/16-config.enabler/config.md, spx/17-file-inclusion.enabler/file-inclusion.md, spx/17-language-detection.enabler/language-detection.md, spx/18-state.enabler/state.md, spx/21-infrastructure.enabler/infrastructure.md, spx/22-test-environment.enabler/test-environment.md
+  spx/23-spec-tree.enabler level: spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md, spx/23-spec-tree.enabler/32-spec-tree-source.enabler/spec-tree-source.md, spx/23-spec-tree.enabler/43-entry-recognition.enabler/entry-recognition.md
+Same-index siblings (independent): none at any level
+Higher-index siblings listed:
+  spx level: spx/25-outcomeeng.enabler, spx/26-release.enabler, spx/31-spec-domain.enabler, spx/33-harness-environment.enabler, spx/34-verification.enabler, spx/36-session.enabler, spx/37-compact.enabler, spx/38-worktree.enabler, spx/41-test.enabler, spx/41-validation.enabler, spx/46-agent.enabler, spx/54-diagnose.enabler, spx/57-methodology-lifecycle.enabler, spx/60-surfaces.enabler
+  spx/23-spec-tree.enabler level: spx/23-spec-tree.enabler/54-spec-tree-assembly.enabler, spx/23-spec-tree.enabler/65-spec-tree-traversal.enabler, spx/23-spec-tree.enabler/76-node-state-derivation.enabler, spx/23-spec-tree.enabler/87-spec-tree-projection.enabler
+
+</SPEC_TREE_CONTEXT>
+
+Documents (one per line; read = read in full, listed = listed only):
+spx/spx.product.md read
+spx/12-agent-harness.pdr.md read
+spx/13-agent-capability-lifecycle.pdr.md read
+spx/15-worktree-management.pdr.md read
+spx/29-verification-path-scope.pdr.md read
+spx/12-node-runtime.adr.md read
+spx/12-test-infrastructure.adr.md read
+spx/13-agent-harness-placement.adr.md read
+spx/14-cli-composition.adr.md read
+spx/17-state.adr.md read
+spx/19-language-registration.adr.md read
+spx/ISSUES.md read
+spx/PLAN.md read
+CLAUDE.md read
+spx/local/merging.md read
+spx/local/coordination.md listed
+spx/local/typescript-tests.md listed
+spx/local/typescript.md listed
+spx/23-spec-tree.enabler/spec-tree.md read
+spx/23-spec-tree.enabler/15-public-library-surface.adr.md read
+spx/23-spec-tree.enabler/21-kind-registry.adr.md read
+spx/23-spec-tree.enabler/26-filename-grammar.adr.md read
+spx/23-spec-tree.enabler/ISSUES.md read
+spx/23-spec-tree.enabler/PLAN.md read
+spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/skill-conformance-oracle.md read
+spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/21-conformance-classification.adr.md read
+spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/PLAN.md read
+spx/13-cli.enabler/cli.md read
+spx/15-agent-run-journal.enabler/agent-run-journal.md read
+spx/16-config.enabler/config.md read
+spx/17-file-inclusion.enabler/file-inclusion.md read
+spx/17-language-detection.enabler/language-detection.md read
+spx/18-state.enabler/state.md read
+spx/21-infrastructure.enabler/infrastructure.md read
+spx/22-test-environment.enabler/test-environment.md read
+spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md read
+spx/23-spec-tree.enabler/32-spec-tree-source.enabler/spec-tree-source.md read
+spx/23-spec-tree.enabler/43-entry-recognition.enabler/entry-recognition.md read
+spx/13-cli.enabler/15-cli-architecture.adr.md read
+spx/16-config.enabler/21-config-file-formats.adr.md read
+spx/16-config.enabler/21-descriptor-registration.adr.md read
+spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md read
+spx/17-language-detection.enabler/21-detection-approach.adr.md read
+spx/22-test-environment.enabler/21-callback-scoped-environment.adr.md read
+spx/23-spec-tree.enabler/29-filename-grammar.enabler/21-versioned-grammar-model.adr.md read
+spx/23-spec-tree.enabler/43-entry-recognition.enabler/21-recognition-classification.adr.md read
+spx/25-outcomeeng.enabler listed
+spx/26-release.enabler listed
+spx/31-spec-domain.enabler listed
+spx/33-harness-environment.enabler listed
+spx/34-verification.enabler listed
+spx/36-session.enabler listed
+spx/37-compact.enabler listed
+spx/38-worktree.enabler listed
+spx/41-test.enabler listed
+spx/41-validation.enabler listed
+spx/46-agent.enabler listed
+spx/54-diagnose.enabler listed
+spx/57-methodology-lifecycle.enabler listed
+spx/60-surfaces.enabler listed
+spx/23-spec-tree.enabler/54-spec-tree-assembly.enabler listed
+spx/23-spec-tree.enabler/65-spec-tree-traversal.enabler listed
+spx/23-spec-tree.enabler/76-node-state-derivation.enabler listed
+spx/23-spec-tree.enabler/87-spec-tree-projection.enabler listed

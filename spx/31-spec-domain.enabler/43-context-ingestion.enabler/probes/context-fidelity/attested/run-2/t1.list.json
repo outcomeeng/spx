@@ -1,0 +1,414 @@
+{
+  "schemaVersion": 3,
+  "bootstrap": false,
+  "methodology": {
+    "source": "outcomeeng/methodology",
+    "version": "4.0.0",
+    "migratingFrom": "3.2.0"
+  },
+  "entries": [
+    {
+      "path": "spx/spx.product.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "target"
+        }
+      ]
+    },
+    {
+      "path": "spx/ISSUES.md",
+      "mode": "reference",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "issue"
+        }
+      ]
+    },
+    {
+      "path": "spx/12-agent-harness.pdr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "target"
+        }
+      ]
+    },
+    {
+      "path": "spx/12-node-runtime.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "target"
+        }
+      ]
+    },
+    {
+      "path": "spx/12-test-infrastructure.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "target"
+        }
+      ]
+    },
+    {
+      "path": "spx/13-agent-capability-lifecycle.pdr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "target"
+        }
+      ]
+    },
+    {
+      "path": "spx/13-agent-harness-placement.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "target"
+        }
+      ]
+    },
+    {
+      "path": "spx/13-cli.enabler/cli.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "immediate-child"
+        }
+      ]
+    },
+    {
+      "path": "spx/14-cli-composition.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "target"
+        }
+      ]
+    },
+    {
+      "path": "spx/15-agent-run-journal.enabler/agent-run-journal.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "immediate-child"
+        }
+      ]
+    },
+    {
+      "path": "spx/15-worktree-management.pdr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "target"
+        }
+      ]
+    },
+    {
+      "path": "spx/16-config.enabler/config.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "immediate-child"
+        }
+      ]
+    },
+    {
+      "path": "spx/17-file-inclusion.enabler/file-inclusion.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "immediate-child"
+        }
+      ]
+    },
+    {
+      "path": "spx/17-language-detection.enabler/language-detection.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "immediate-child"
+        }
+      ]
+    },
+    {
+      "path": "spx/17-state.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "target"
+        }
+      ]
+    },
+    {
+      "path": "spx/18-state.enabler/state.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "immediate-child"
+        }
+      ]
+    },
+    {
+      "path": "spx/19-language-registration.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "target"
+        }
+      ]
+    },
+    {
+      "path": "spx/21-infrastructure.enabler/infrastructure.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "immediate-child"
+        }
+      ]
+    },
+    {
+      "path": "spx/22-test-environment.enabler/test-environment.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "immediate-child"
+        }
+      ]
+    },
+    {
+      "path": "spx/23-spec-tree.enabler/spec-tree.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "immediate-child"
+        }
+      ]
+    },
+    {
+      "path": "spx/25-outcomeeng.enabler/outcomeeng.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "immediate-child"
+        }
+      ]
+    },
+    {
+      "path": "spx/26-release.enabler/release.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "immediate-child"
+        }
+      ]
+    },
+    {
+      "path": "spx/29-verification-path-scope.pdr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "target"
+        }
+      ]
+    },
+    {
+      "path": "spx/31-spec-domain.enabler/spec-domain.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "immediate-child"
+        }
+      ]
+    },
+    {
+      "path": "spx/33-harness-environment.enabler/harness-environment.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "immediate-child"
+        }
+      ]
+    },
+    {
+      "path": "spx/34-verification.enabler/verification.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "immediate-child"
+        }
+      ]
+    },
+    {
+      "path": "spx/36-session.enabler/session.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "immediate-child"
+        }
+      ]
+    },
+    {
+      "path": "spx/37-compact.enabler/compact.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "immediate-child"
+        }
+      ]
+    },
+    {
+      "path": "spx/38-worktree.enabler/worktree.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "immediate-child"
+        }
+      ]
+    },
+    {
+      "path": "spx/41-test.enabler/test.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "immediate-child"
+        }
+      ]
+    },
+    {
+      "path": "spx/41-validation.enabler/validation.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "immediate-child"
+        }
+      ]
+    },
+    {
+      "path": "spx/46-agent.enabler/agent.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "immediate-child"
+        }
+      ]
+    },
+    {
+      "path": "spx/54-diagnose.enabler/diagnose.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "immediate-child"
+        }
+      ]
+    },
+    {
+      "path": "spx/57-methodology-lifecycle.enabler/methodology-lifecycle.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "immediate-child"
+        }
+      ]
+    },
+    {
+      "path": "spx/60-surfaces.enabler/surfaces.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "immediate-child"
+        }
+      ]
+    },
+    {
+      "path": "spx/13-cli.enabler/15-cli-architecture.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "cited-decision"
+        }
+      ],
+      "citedBy": [
+        "spx/14-cli-composition.adr.md"
+      ]
+    },
+    {
+      "path": "spx/16-config.enabler/21-descriptor-registration.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "cited-decision"
+        }
+      ],
+      "citedBy": [
+        "spx/41-test.enabler/test.md",
+        "spx/41-validation.enabler/21-validation-configuration.adr.md"
+      ]
+    },
+    {
+      "path": "spx/41-test.enabler/11-test-runner-environments.pdr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "cited-decision"
+        }
+      ],
+      "citedBy": [
+        "spx/41-test.enabler/test.md"
+      ]
+    },
+    {
+      "path": "spx/41-validation.enabler/21-validation-configuration.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/",
+          "reason": "cited-decision"
+        }
+      ],
+      "citedBy": [
+        "spx/41-validation.enabler/validation.md"
+      ]
+    }
+  ]
+}

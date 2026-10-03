@@ -1,0 +1,1200 @@
+{
+  "schemaVersion": 3,
+  "bootstrap": false,
+  "methodology": {
+    "source": "outcomeeng/methodology",
+    "version": "4.0.0",
+    "migratingFrom": "3.2.0"
+  },
+  "entries": [
+    {
+      "path": "spx/spx.product.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "product"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "product"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "product"
+        }
+      ]
+    },
+    {
+      "path": "spx/ISSUES.md",
+      "mode": "reference",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "issue"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "issue"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "issue"
+        }
+      ]
+    },
+    {
+      "path": "spx/12-agent-harness.pdr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "product"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "product"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "product"
+        }
+      ]
+    },
+    {
+      "path": "spx/12-node-runtime.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "product"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "product"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "product"
+        }
+      ]
+    },
+    {
+      "path": "spx/12-test-infrastructure.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "product"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "product"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "product"
+        }
+      ]
+    },
+    {
+      "path": "spx/13-agent-capability-lifecycle.pdr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "product"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "product"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "product"
+        }
+      ]
+    },
+    {
+      "path": "spx/13-agent-harness-placement.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "product"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "product"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "product"
+        }
+      ]
+    },
+    {
+      "path": "spx/13-cli.enabler/cli.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/14-cli-composition.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "product"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "product"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "product"
+        }
+      ]
+    },
+    {
+      "path": "spx/15-agent-run-journal.enabler/agent-run-journal.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/15-worktree-management.pdr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "product"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "product"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "product"
+        }
+      ]
+    },
+    {
+      "path": "spx/16-config.enabler/config.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/17-file-inclusion.enabler/file-inclusion.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/17-language-detection.enabler/language-detection.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/17-state.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "product"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "product"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "product"
+        }
+      ]
+    },
+    {
+      "path": "spx/18-state.enabler/state.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "ancestor"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/18-state.enabler/ISSUES.md",
+      "mode": "reference",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "issue"
+        }
+      ]
+    },
+    {
+      "path": "spx/18-state.enabler/11-state.pdr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "ancestor"
+        }
+      ]
+    },
+    {
+      "path": "spx/18-state.enabler/15-state-test-harness.enabler/state-test-harness.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/18-state.enabler/21-product-root.enabler/product-root.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/18-state.enabler/32-scope-addressing.enabler/scope-addressing.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/18-state.enabler/32-worktree-topology.enabler/worktree-topology.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "target"
+        }
+      ]
+    },
+    {
+      "path": "spx/18-state.enabler/32-worktree-topology.enabler/21-main-checkout-classifier.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "target"
+        }
+      ]
+    },
+    {
+      "path": "spx/18-state.enabler/43-git-utility.enabler/git-utility.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/18-state.enabler/43-record-store.enabler/record-store.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/18-state.enabler/71-appendable-journal-store.enabler/appendable-journal-store.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/18-state.enabler/71-snapshot-store.enabler/snapshot-store.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/19-language-registration.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "cited-decision"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "product"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "product"
+        }
+      ]
+    },
+    {
+      "path": "spx/21-infrastructure.enabler/infrastructure.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/22-test-environment.enabler/test-environment.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/23-spec-tree.enabler/spec-tree.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "ancestor"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/23-spec-tree.enabler/ISSUES.md",
+      "mode": "reference",
+      "selections": [
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "issue"
+        }
+      ]
+    },
+    {
+      "path": "spx/23-spec-tree.enabler/15-public-library-surface.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "ancestor"
+        }
+      ]
+    },
+    {
+      "path": "spx/23-spec-tree.enabler/21-kind-registry.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "ancestor"
+        }
+      ]
+    },
+    {
+      "path": "spx/23-spec-tree.enabler/26-filename-grammar.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "ancestor"
+        }
+      ]
+    },
+    {
+      "path": "spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/23-spec-tree.enabler/32-spec-tree-source.enabler/spec-tree-source.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/23-spec-tree.enabler/43-entry-recognition.enabler/entry-recognition.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/skill-conformance-oracle.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "target"
+        }
+      ]
+    },
+    {
+      "path": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/21-conformance-classification.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "target"
+        }
+      ]
+    },
+    {
+      "path": "spx/23-spec-tree.enabler/54-spec-tree-assembly.enabler/spec-tree-assembly.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/23-spec-tree.enabler/65-spec-tree-traversal.enabler/spec-tree-traversal.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/23-spec-tree.enabler/76-node-state-derivation.enabler/node-state-derivation.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/23-spec-tree.enabler/87-spec-tree-projection.enabler/spec-tree-projection.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/25-outcomeeng.enabler/outcomeeng.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/26-release.enabler/release.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/29-verification-path-scope.pdr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "product"
+        }
+      ]
+    },
+    {
+      "path": "spx/31-spec-domain.enabler/spec-domain.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "ancestor"
+        }
+      ]
+    },
+    {
+      "path": "spx/31-spec-domain.enabler/ISSUES.md",
+      "mode": "reference",
+      "selections": [
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "issue"
+        }
+      ]
+    },
+    {
+      "path": "spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/31-spec-domain.enabler/32-spec-cli-rendering.enabler/spec-cli-rendering.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/context-ingestion.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "ancestor"
+        }
+      ]
+    },
+    {
+      "path": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/ISSUES.md",
+      "mode": "reference",
+      "selections": [
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "issue"
+        }
+      ]
+    },
+    {
+      "path": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/32-context-manifest-schema.pdr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "ancestor"
+        }
+      ]
+    },
+    {
+      "path": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler/target-resolution.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "target"
+        }
+      ]
+    },
+    {
+      "path": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler/21-context-target-resolution.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "target"
+        }
+      ]
+    },
+    {
+      "path": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/54-read-set-projection.enabler/read-set-projection.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-citation-provenance.enabler/citation-provenance.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-content-projection.enabler/content-projection.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/understand-payload.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/76-multi-target-composition.enabler/multi-target-composition.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/31-spec-domain.enabler/76-spec-cli-contract-tests.enabler/spec-cli-contract-tests.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/33-harness-environment.enabler/harness-environment.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/34-verification.enabler/verification.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/36-session.enabler/session.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/37-compact.enabler/compact.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/38-worktree.enabler/worktree.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/41-test.enabler/test.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/41-validation.enabler/validation.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/46-agent.enabler/agent.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/54-diagnose.enabler/diagnose.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/57-methodology-lifecycle.enabler/methodology-lifecycle.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/60-surfaces.enabler/surfaces.md",
+      "mode": "digest",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "sibling"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "sibling"
+        }
+      ]
+    },
+    {
+      "path": "spx/13-cli.enabler/15-cli-architecture.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "cited-decision"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "cited-decision"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "cited-decision"
+        }
+      ],
+      "citedBy": [
+        "spx/14-cli-composition.adr.md"
+      ]
+    },
+    {
+      "path": "spx/15-agent-run-journal.enabler/21-event-sourced-journal.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "cited-decision"
+        }
+      ],
+      "citedBy": [
+        "spx/15-agent-run-journal.enabler/32-journal-module-structure.adr.md"
+      ]
+    },
+    {
+      "path": "spx/15-agent-run-journal.enabler/32-journal-module-structure.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "cited-decision"
+        }
+      ],
+      "citedBy": [
+        "spx/18-state.enabler/71-appendable-journal-store.enabler/appendable-journal-store.md"
+      ]
+    },
+    {
+      "path": "spx/16-config.enabler/21-descriptor-registration.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "cited-decision"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "cited-decision"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "cited-decision"
+        }
+      ],
+      "citedBy": [
+        "spx/41-test.enabler/test.md",
+        "spx/41-validation.enabler/21-validation-configuration.adr.md"
+      ]
+    },
+    {
+      "path": "spx/23-spec-tree.enabler/29-filename-grammar.enabler/21-versioned-grammar-model.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "cited-decision"
+        }
+      ],
+      "citedBy": [
+        "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/21-conformance-classification.adr.md",
+        "spx/23-spec-tree.enabler/43-entry-recognition.enabler/21-recognition-classification.adr.md"
+      ]
+    },
+    {
+      "path": "spx/23-spec-tree.enabler/43-entry-recognition.enabler/21-recognition-classification.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "cited-decision"
+        }
+      ],
+      "citedBy": [
+        "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/21-conformance-classification.adr.md"
+      ]
+    },
+    {
+      "path": "spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "cited-decision"
+        }
+      ],
+      "citedBy": [
+        "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md"
+      ]
+    },
+    {
+      "path": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/21-methodology-source.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "cited-decision"
+        }
+      ],
+      "citedBy": [
+        "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/understand-payload.md"
+      ]
+    },
+    {
+      "path": "spx/41-test.enabler/11-test-runner-environments.pdr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "cited-decision"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "cited-decision"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "cited-decision"
+        }
+      ],
+      "citedBy": [
+        "spx/41-test.enabler/test.md"
+      ]
+    },
+    {
+      "path": "spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "cited-decision"
+        }
+      ],
+      "citedBy": [
+        "spx/18-state.enabler/71-snapshot-store.enabler/snapshot-store.md"
+      ]
+    },
+    {
+      "path": "spx/41-validation.enabler/21-validation-configuration.adr.md",
+      "mode": "full",
+      "selections": [
+        {
+          "target": "spx/18-state.enabler/32-worktree-topology.enabler",
+          "reason": "cited-decision"
+        },
+        {
+          "target": "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler",
+          "reason": "cited-decision"
+        },
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "cited-decision"
+        }
+      ],
+      "citedBy": [
+        "spx/41-validation.enabler/validation.md"
+      ]
+    }
+  ]
+}
