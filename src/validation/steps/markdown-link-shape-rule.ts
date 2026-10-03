@@ -166,11 +166,12 @@ export function classifySpecTreeLinkShape(href: string): LinkShapeDiagnostic | u
  * not govern.
  */
 function classifySpecTreeLink(href: string, linkText: string | undefined): LinkShapeDiagnostic | undefined {
-  const shapeDiagnostic = classifySpecTreeLinkShape(href);
-  if (shapeDiagnostic !== undefined || linkText === undefined) return shapeDiagnostic;
-  return admitsSpecTreeLinkText(linkText, parseSpecTreeLink(href))
-    ? undefined
-    : MARKDOWN_LINK_SHAPE_DIAGNOSTICS.TREE_ABSOLUTE_EVIDENCE;
+  const link = parseSpecTreeLink(href);
+  const shapeDiagnostic = REJECTED_SHAPE_DIAGNOSTIC[link.kind];
+  if (shapeDiagnostic !== undefined || linkText === undefined || admitsSpecTreeLinkText(linkText, link)) {
+    return shapeDiagnostic;
+  }
+  return MARKDOWN_LINK_SHAPE_DIAGNOSTICS.TREE_ABSOLUTE_EVIDENCE;
 }
 
 /**
