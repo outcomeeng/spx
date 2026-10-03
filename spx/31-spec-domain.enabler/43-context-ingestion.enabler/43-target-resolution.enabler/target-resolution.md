@@ -6,7 +6,7 @@ malleability: spec
 
 PROVIDES canonical resolution of context operands to accepted Product Tree target identities
 SO THAT context selection
-CAN accept convenient unambiguous paths while rejecting unresolved, ambiguous, and outside-product inputs without guessing
+CAN accept convenient unambiguous paths while rejecting unresolved and ambiguous inputs without guessing
 
 ## Assertions
 
@@ -19,4 +19,4 @@ CAN accept convenient unambiguous paths while rejecting unresolved, ambiguous, a
 - A node directory and its spec identify the same node.
 - A decision identifies its directly containing node or product root and selects that container's projection.
 - Absolute operands resolve as written, while relative operands collect candidates from the effective invocation directory, the product root, and complete-path-component suffix matches over accepted target paths only.
-- An operand every candidate of which escapes the resolved product root through lexical traversal or symbolic-link resolution maps to outside-product, decided before identity resolution; a discarded escaping candidate never decides the result, so every other operand with zero identities after confinement and collapse maps to unresolved, including an operand naming an existing artifact of a class context targets do not accept, and from `<root>/spx/a.enabler` the operand `../../PLAN.md` maps to unresolved while the operand `../../spx` succeeds.
+- An operand with zero identities after confinement and collapse maps to unresolved, including an operand whose every candidate escapes the resolved product root through lexical traversal or symbolic-link resolution and an operand naming an existing artifact of a class context targets do not accept; an operand with one identity resolves to it even when another of its candidates escaped; and an operand with several identities maps to ambiguous. From the product root the operand `../outside` maps to unresolved, and from `<root>/spx/a.enabler` the operand `../../PLAN.md` maps to unresolved while the operand `../../spx` succeeds.
