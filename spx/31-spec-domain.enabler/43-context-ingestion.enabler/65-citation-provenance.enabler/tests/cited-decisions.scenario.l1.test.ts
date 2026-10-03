@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { specContextDivergentCitationDecisions } from "@testing/generators/spec-tree/context-target";
+import { inlineCitation } from "@testing/generators/spec-tree/rich-context";
 import { contextShowEntries, documentAt, documentPaths, withRichContextEnv } from "@testing/harnesses/spec/context";
 
 describe("spec context cited decisions", () => {
@@ -63,14 +64,28 @@ describe("spec context cited decisions", () => {
     });
   });
 
-  it("selects a decision cited from a Digest opening paragraph in Full", async () => {
+  it("scans the complete source of a Full document and of a Digest document, so a citation below the Digest's displayed paragraph selects its decision", async () => {
     await withRichContextEnv(async (env, paths) => {
-      // In discovery the target is a Digest whose opening cites the peer
-      // decision; the peer decision therefore upgrades from Digest to Full
-      // while the decision the target's body cites stays a Digest.
-      const entries = await contextShowEntries({ targets: [], cwd: env.productDir });
-      expect(documentAt(entries, paths.peerDecisionPath)?.content).toBe(paths.sourceText[paths.peerDecisionPath]);
-      expect(documentAt(entries, paths.citedDecisionPath)?.content).toBe(paths.openingText[paths.citedDecisionPath]);
+      // Both decisions sit under the peer directory, outside every Full
+      // container of the targeted walk, and each has exactly one citer: the
+      // Full target spec cites one, and the lower sibling — a Digest in the
+      // targeted projection — cites the other below its opening paragraph.
+      const { citedFirst: fromFull, citedSecond: fromDigest } = specContextDivergentCitationDecisions(env.fixture);
+      for (const decision of [fromFull, fromDigest]) await env.writeRaw(decision.path, decision.content);
+      await env.writeRaw(
+        paths.targetSpecPath,
+        `${paths.sourceText[paths.targetSpecPath]}\nAlso under ${inlineCitation(fromFull.path)}.\n`,
+      );
+      await env.writeRaw(
+        paths.lowerSiblingSpecPath,
+        `${paths.sourceText[paths.lowerSiblingSpecPath]}\nBelow the opening: ${inlineCitation(fromDigest.path)}.\n`,
+      );
+      const entries = await contextShowEntries({ targets: [paths.targetId], cwd: env.productDir });
+      const siblingShown = documentAt(entries, paths.lowerSiblingSpecPath)?.content;
+      expect(siblingShown).toBe(paths.openingText[paths.lowerSiblingSpecPath]);
+      expect(siblingShown).not.toContain(fromDigest.path);
+      expect(documentAt(entries, fromFull.path)?.content).toBe(fromFull.content);
+      expect(documentAt(entries, fromDigest.path)?.content).toBe(fromDigest.content);
     });
   });
 });

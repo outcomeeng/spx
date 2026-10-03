@@ -1,13 +1,15 @@
+import { posix } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
-import { SPEC_CONTEXT_READ_ROLE } from "@/lib/spec-tree";
+import { SPEC_CONTEXT_MODE, SPEC_CONTEXT_MODE_NAME, SPEC_CONTEXT_SELECTION_REASON } from "@/lib/spec-tree";
 import {
   specContextAbsentDecisionPath,
   specContextDivergentCitationDecisions,
   specContextNonCitationShapes,
   specContextRelativeSegmentDecisionPath,
 } from "@testing/generators/spec-tree/context-target";
-import { rootedSpecPath } from "@testing/generators/spec-tree/rich-context";
+import { inlineCitation, richContextReasonBindings } from "@testing/generators/spec-tree/rich-context";
 import {
   contextListManifest,
   contextShowEntries,
@@ -15,85 +17,77 @@ import {
   documentAt,
   documentPaths,
   entryPaths,
-  readPathsForRole,
+  manifestEntryAt,
+  manifestPathsForReason,
   referencePaths,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
 
 describe("spec context citation boundaries", () => {
-  it("binds no citation from bare path text, other link destinations, off-grammar hrefs, coordination notes, or undisplayed content", async () => {
+  it("binds a Markdown inline link whose href is a decision's full path from `spx/` as a citation of that decision", async () => {
     await withRichContextEnv(async (env, paths) => {
-      const shapes = specContextNonCitationShapes();
-      // Every shape sits in the Full target spec; the product-root PLAN note
-      // already names a decision path that exists nowhere; the same-index
-      // sibling, a Digest, cites an absent decision below its opening.
+      // The decision sits under the peer directory, which no Full container of
+      // the targeted walk reaches, so only the citation can select it.
+      const { citedFirst: decision } = specContextDivergentCitationDecisions(env.fixture);
+      await env.writeRaw(decision.path, decision.content);
+      const options = { targets: [paths.targetId], cwd: env.productDir };
+      expect(entryPaths(await contextShowEntries(options))).not.toContain(decision.path);
+
       await env.writeRaw(
         paths.targetSpecPath,
-        `${paths.sourceText[paths.targetSpecPath]}\nMentions ${shapes.proseShapes.join(", ")} without binding any.\n`,
+        `${paths.sourceText[paths.targetSpecPath]}\nGoverned by ${inlineCitation(decision.path)}.\n`,
       );
-      const undisplayed = specContextAbsentDecisionPath(
-        env.fixture,
-        paths.higherIndexSiblingPath.slice(rootedSpecPath("").length),
-      );
-      await env.writeRaw(
-        paths.sameIndexSiblingSpecPath,
-        `${paths.sourceText[paths.sameIndexSiblingSpecPath]}\nBelow the opening: [absent](${undisplayed}).\n`,
-      );
-      // The target's ISSUES note is selected as a reference and carries a
-      // citation-shaped inline link to a decision that exists: a scan of the
-      // note's body would bind it, so its absence proves notes contribute none.
-      const notedDecision = specContextAbsentDecisionPath(env.fixture, paths.targetId);
-      await env.writeRaw(
-        paths.targetIssuesPath,
-        `${paths.targetIssuesText}\nUnder [peer](${paths.peerDecisionPath}) and [absent](${notedDecision}).\n`,
-      );
-      const entries = await contextShowEntries({ targets: [paths.targetId], cwd: env.productDir });
-      expect(referencePaths(entries)).toContain(paths.targetIssuesPath);
-      expect(entryPaths(entries)).not.toContain(notedDecision);
-      expect(entryPaths(entries)).not.toContain(shapes.unboundDecisionPath);
-      expect(entryPaths(entries)).not.toContain(undisplayed);
+      expect(entryPaths(await contextShowEntries(options))).toContain(decision.path);
     });
   });
 
-  it("binds the same cited decisions in list's cited-decision role as show appends, leaving a link below a Digest sibling's opening unbound by both and binding one from the target's Full outcome record in both", async () => {
+  it("binds no citation from a `../` link, a leading-slash link, another link destination, a bare path, or a code-span path", async () => {
     await withRichContextEnv(async (env, paths) => {
-      // Both decisions sit under the peer directory, which no Full container
-      // of the targeted walk reaches, so only a citation can select either.
-      const { citedFirst: outcomeLinked, citedSecond: belowOpening } = specContextDivergentCitationDecisions(
-        env.fixture,
-      );
-      for (const decision of [outcomeLinked, belowOpening]) await env.writeRaw(decision.path, decision.content);
-      // The lower-index sibling is a Digest in the targeted projection, so a
-      // link below its opening paragraph is undisplayed content.
+      // The decision exists and nothing else cites it: any of these shapes
+      // binding it would bring it into the projection.
+      const { citedFirst: decision } = specContextDivergentCitationDecisions(env.fixture);
+      await env.writeRaw(decision.path, decision.content);
+      const parentRelativeHref = posix.relative(posix.dirname(paths.targetSpecPath), decision.path);
+      expect(parentRelativeHref.startsWith("../")).toBe(true);
+      // The generated shapes name a decision path no tracked file satisfies,
+      // so binding any of them would fail the projection outright.
+      const shapes = specContextNonCitationShapes();
+      const forms = [
+        `[relative](${parentRelativeHref})`,
+        `[rooted](/${decision.path})`,
+        decision.path,
+        `\`${decision.path}\``,
+        ...shapes.proseShapes,
+      ];
       await env.writeRaw(
-        paths.lowerSiblingSpecPath,
-        `${paths.sourceText[paths.lowerSiblingSpecPath]}\nBelow the opening: [below](${belowOpening.path}).\n`,
+        paths.targetSpecPath,
+        `${paths.sourceText[paths.targetSpecPath]}\nMentions ${forms.join(", ")} without binding any.\n`,
       );
-      await env.writeRaw(
-        paths.targetOutcomePath,
-        `${paths.sourceText[paths.targetOutcomePath]}\nMoves under [linked](${outcomeLinked.path}).\n`,
-      );
-      const options = { targets: [paths.targetId], cwd: env.productDir };
-      const manifest = await contextListManifest(options);
-      const entries = await contextShowEntries(options);
-      expect(documentAt(entries, paths.lowerSiblingSpecPath)?.content).toBe(
-        paths.openingText[paths.lowerSiblingSpecPath],
-      );
-      // Show's appended cited decisions: every decision it emits that no
-      // container along the target path — product root, ancestor, target —
-      // directly holds, since the targeted walk selects only those.
-      const snapshot = await env.readFilesystemSnapshot();
-      const pathContainers = [undefined, paths.rootDirectory, paths.targetId];
-      const outsideWalk = new Set(
-        snapshot.decisions.filter(({ parentId }) => !pathContainers.includes(parentId)).map(({ ref }) => ref?.path),
-      );
-      const appended = documentPaths(entries).filter((path) => outsideWalk.has(path));
-      const listed = readPathsForRole(manifest, SPEC_CONTEXT_READ_ROLE.CITED_DECISION);
-      expect(new Set(listed)).toEqual(new Set(appended));
-      expect(appended).toContain(outcomeLinked.path);
-      expect(listed).toContain(outcomeLinked.path);
-      expect(appended).not.toContain(belowOpening.path);
-      expect(listed).not.toContain(belowOpening.path);
+      const entries = await contextShowEntries({ targets: [paths.targetId], cwd: env.productDir });
+      expect(entryPaths(entries)).not.toContain(decision.path);
+      expect(entryPaths(entries)).not.toContain(shapes.unboundDecisionPath);
+    });
+  });
+
+  it("binds no citation from a coordination note, even an inline link naming a decision's full path", async () => {
+    await withRichContextEnv(async (env, paths) => {
+      const { citedFirst: decision } = specContextDivergentCitationDecisions(env.fixture);
+      await env.writeRaw(decision.path, decision.content);
+      // Each note carries a citation-shaped inline link to the existing,
+      // otherwise uncited decision and to a decision no tracked file
+      // satisfies: a scan of any note body would select the one or fail on
+      // the other.
+      const absent = specContextAbsentDecisionPath(env.fixture, paths.targetId);
+      const links = [inlineCitation(decision.path), inlineCitation(absent)].join("\n");
+      await env.writeRaw(paths.targetIssuesPath, `${paths.targetIssuesText}\n${links}`);
+      await env.writeRaw(paths.ancestorIssuesPath, `# Ancestor issues\n\n${links}`);
+      await env.writeRaw(paths.rootPlanPath, `# Plan\n\n${links}`);
+      await env.writeRaw(paths.ancestorPlanPath, `# Ancestor plan\n\n${links}`);
+      const entries = await contextShowEntries({ targets: [paths.targetId], cwd: env.productDir });
+      expect(referencePaths(entries)).toContain(paths.targetIssuesPath);
+      expect(referencePaths(entries)).toContain(paths.ancestorIssuesPath);
+      expect(entryPaths(entries)).not.toContain(decision.path);
+      expect(entryPaths(entries)).not.toContain(absent);
     });
   });
 
@@ -115,6 +109,42 @@ describe("spec context citation boundaries", () => {
     });
   });
 
+  it("projects every decision reached only by citation in Full, in show's content and list's mode alike", async () => {
+    await withRichContextEnv(async (env, paths) => {
+      // The peer, cited, and transitive decisions sit under the peer
+      // directory, outside every structural walk of the nested target: the
+      // target's opening, the target's body, and the cited decision reach them.
+      const options = { targets: [paths.targetId], cwd: env.productDir };
+      const manifest = await contextListManifest(options);
+      const entries = await contextShowEntries(options);
+      const citedOnly = [paths.peerDecisionPath, paths.citedDecisionPath, paths.transitiveCitedDecisionPath];
+      for (const path of citedOnly) {
+        expect(documentAt(entries, path)?.content, path).toBe(paths.sourceText[path]);
+        expect(manifestEntryAt(manifest, path)?.mode, path).toBe(SPEC_CONTEXT_MODE_NAME[SPEC_CONTEXT_MODE.FULL]);
+      }
+      expect(manifestPathsForReason(manifest, SPEC_CONTEXT_SELECTION_REASON.CITED_DECISION)).toEqual(
+        expect.arrayContaining(citedOnly),
+      );
+    });
+  });
+
+  it("records on the list entry of a decision reached only by citation every selected document that cites it, in show's order", async () => {
+    await withRichContextEnv(async (env, paths) => {
+      const witness = richContextReasonBindings(paths)[SPEC_CONTEXT_SELECTION_REASON.CITED_DECISION];
+      const options = { targets: [witness.targetId], cwd: env.productDir };
+      const manifest = await contextListManifest(options);
+      const entries = await contextShowEntries(options);
+      // The citers are the shown documents whose source carries the inline
+      // link the scenario wrote to the witness, taken in show's own order.
+      const citation = inlineCitation(witness.path);
+      const citers = documentPaths(entries).filter((path) => paths.sourceText[path]?.includes(citation) === true);
+      // The Full target spec and the Digest lower sibling, which cites the
+      // witness below its displayed opening, are both among them.
+      expect(citers).toEqual(expect.arrayContaining([paths.targetSpecPath, paths.lowerSiblingSpecPath]));
+      expect(manifestEntryAt(manifest, witness.path)?.citedBy).toEqual(citers);
+    });
+  });
+
   it("fails the whole projection naming the cited path and the citing document when a citation resolves to no tracked decision", async () => {
     await withRichContextEnv(async (env, paths) => {
       const missing = specContextAbsentDecisionPath(env.fixture, paths.targetId);
@@ -125,6 +155,21 @@ describe("spec context citation boundaries", () => {
       const failure = await contextShowFailure({ targets: [paths.targetId], cwd: env.productDir });
       expect(failure).toContain(missing);
       expect(failure).toContain(paths.targetSpecPath);
+    });
+  });
+
+  it("fails the whole projection naming the citation and its citing document when an unresolved citation sits below a Digest's displayed opening", async () => {
+    await withRichContextEnv(async (env, paths) => {
+      // The same-index sibling is a Digest in the targeted projection; its
+      // complete source is scanned, so the link below its opening binds.
+      const missing = specContextAbsentDecisionPath(env.fixture, paths.targetId);
+      await env.writeRaw(
+        paths.sameIndexSiblingSpecPath,
+        `${paths.sourceText[paths.sameIndexSiblingSpecPath]}\nBelow the opening: [absent](${missing}).\n`,
+      );
+      const failure = await contextShowFailure({ targets: [paths.targetId], cwd: env.productDir });
+      expect(failure).toContain(missing);
+      expect(failure).toContain(paths.sameIndexSiblingSpecPath);
     });
   });
 
