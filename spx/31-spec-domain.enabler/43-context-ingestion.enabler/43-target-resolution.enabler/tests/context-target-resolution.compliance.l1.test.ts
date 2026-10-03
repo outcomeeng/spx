@@ -81,7 +81,9 @@ describe("spec context target resolution compliance", () => {
       const alias = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
       await symlink(join(env.productDir, rootedSpecPath(rootDirectory)), join(env.productDir, alias));
       const manifest = await contextListManifest({ targets: [alias], cwd: env.productDir });
-      expect(manifest.targets).toEqual([rootedSpecPath(rootDirectory)]);
+      expect(new Set(manifest.entries.flatMap((entry) => entry.selections.map(({ target }) => target)))).toEqual(
+        new Set([rootedSpecPath(rootDirectory)]),
+      );
     });
   });
 
@@ -122,7 +124,9 @@ describe("spec context target resolution compliance", () => {
         targets: [`${nested.operand}/${childDirectory}`],
         cwd: env.productDir,
       });
-      expect(resolved.targets).toEqual([`${rootTarget}/${childDirectory}`]);
+      expect(new Set(resolved.entries.flatMap((entry) => entry.selections.map(({ target }) => target)))).toEqual(
+        new Set([`${rootTarget}/${childDirectory}`]),
+      );
       for (
         const failure of [
           await contextListFailure({ targets: [nested.operand], cwd: env.productDir }),
@@ -148,7 +152,9 @@ describe("spec context target resolution compliance", () => {
         join(env.productDir, rootDirectory),
       );
       const manifest = await contextListManifest({ targets: [rootDirectory], cwd: env.productDir });
-      expect(manifest.targets).toEqual([rootedSpecPath(rootDirectory)]);
+      expect(new Set(manifest.entries.flatMap((entry) => entry.selections.map(({ target }) => target)))).toEqual(
+        new Set([rootedSpecPath(rootDirectory)]),
+      );
     });
   });
 
@@ -168,7 +174,9 @@ describe("spec context target resolution compliance", () => {
         targets: [specContextLexicalDetourOperand(alias, rootedSpecPath(rootDirectory))],
         cwd: env.productDir,
       });
-      expect(manifest.targets).toEqual([rootedSpecPath(rootDirectory)]);
+      expect(new Set(manifest.entries.flatMap((entry) => entry.selections.map(({ target }) => target)))).toEqual(
+        new Set([rootedSpecPath(rootDirectory)]),
+      );
     });
   });
 

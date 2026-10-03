@@ -33,7 +33,9 @@ describe("spec context target resolution mapping", () => {
       const cwd = join(env.productDir, resolved.invocationDir);
       await mkdir(cwd, { recursive: true });
       const manifest = await contextListManifest({ targets: [resolved.operand], cwd });
-      expect(manifest.targets).toEqual([resolved.expectedTarget]);
+      expect(new Set(manifest.entries.flatMap((entry) => entry.selections.map(({ target }) => target)))).toEqual(
+        new Set([resolved.expectedTarget]),
+      );
       // The operand selects its container's projection: the manifest equals the
       // one the container's canonical path produces when named directly.
       expect(manifest).toEqual(
