@@ -187,18 +187,22 @@ function operandCandidates(input: ContextInput, operand: string): readonly strin
 }
 
 async function operandFacts(input: ContextInput, operand: string): Promise<SpecContextTargetPathFacts> {
+  const operandPaths = new Set(operandCandidates(input, operand));
   const candidates: string[] = [];
-  let outsideProduct = false;
-  for (const path of new Set(operandCandidates(input, operand))) {
+  let escaped = 0;
+  for (const path of operandPaths) {
     try {
       const canonical = await input.fs.realPath(path);
       if (isPathContained(input.realRoot, canonical)) candidates.push(canonical);
-      else outsideProduct = true;
+      else escaped += 1;
     } catch (error) {
       if (!isMissingPath(error)) throw error;
-      if (!isPathContained(input.realRoot, await missingPathLocation(input.fs, path))) outsideProduct = true;
+      if (!isPathContained(input.realRoot, await missingPathLocation(input.fs, path))) escaped += 1;
     }
   }
+  // An escaping candidate is discarded; the operand is outside the product
+  // only when it yields candidates and every one of them escaped.
+  const outsideProduct = operandPaths.size > 0 && escaped === operandPaths.size;
   return { accepted: input.accepted, candidates, outsideProduct };
 }
 

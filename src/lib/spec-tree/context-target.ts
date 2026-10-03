@@ -32,6 +32,7 @@ export interface SpecContextAcceptedPath {
 export interface SpecContextTargetPathFacts {
   readonly accepted: readonly (SpecContextAcceptedPath & { readonly realPath: string })[];
   readonly candidates: readonly string[];
+  /** True exactly when the operand yielded candidates and every one escaped the resolved product root. */
   readonly outsideProduct: boolean;
 }
 
@@ -78,6 +79,9 @@ export function resolveSpecContextTarget(
   input: string,
   facts: SpecContextTargetPathFacts,
 ): SpecContextTargetResolution {
+  if (facts.outsideProduct) {
+    return { ok: false, failure: { kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.OUTSIDE_PRODUCT, input, candidates: [] } };
+  }
   const candidates = new Set(facts.candidates);
   const matches = new Map<string, SpecContextTarget>();
   for (const entry of facts.accepted) {
@@ -87,8 +91,6 @@ export function resolveSpecContextTarget(
   if (targets.length === 1) return { ok: true, target: targets[0] };
   const kind = targets.length > 1
     ? SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS
-    : facts.outsideProduct
-    ? SPEC_CONTEXT_TARGET_FAILURE_KIND.OUTSIDE_PRODUCT
     : SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED;
   return { ok: false, failure: { kind, input, candidates: targets.map(({ path }) => path) } };
 }
