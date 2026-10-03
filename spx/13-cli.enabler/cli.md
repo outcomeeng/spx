@@ -6,9 +6,6 @@ CAN render diagnostics with no unprintable bytes and bounded length, CAN invoke 
 
 ## Assertions
 
-- Each build state maps to its stamped build identity: a clean commit tagged `v<package version>` to the bare package version; a clean commit without that tag to `<package version>+<9-hex-digit commit abbreviation>`; uncommitted changes to tracked files, tagged or not, to `<package version>+<9-hex-digit commit abbreviation>.dirty`; and a build outside a Git checkout to `<package version>+unknown`
-- ALWAYS: the built executable's `--version` prints the build identity stamped at build time, and running it from a directory outside any Git checkout prints the same identity
-
 ### Scenarios
 
 - Given the sanitizer receives `undefined`, then it returns `SENTINEL_UNDEFINED` ([test](tests/sanitize.scenario.l1.test.ts))
@@ -27,6 +24,7 @@ CAN render diagnostics with no unprintable bytes and bounded length, CAN invoke 
 - For every code point in `[0x00, 0x1F] ∪ {0x7F}`, `escapeCliArgument` maps a single-character input containing that code point to the string `\xNN` where `NN` is the lowercase two-digit hex of the code point ([test](tests/sanitize.mapping.l1.test.ts))
 - The lifecycle signal-to-exit-code mapping is: SIGINT → 130, SIGTERM → 143, EPIPE on stdout → 0, uncaught exception → 1 ([test](tests/lifecycle.mapping.l1.test.ts))
 - Every production validation-step `ProcessRunner` default maps to the shared lifecycle runner exported from `src/lib/process-lifecycle/` ([test](tests/lifecycle.mapping.l1.test.ts))
+- Each build state maps to its stamped build identity: a clean commit tagged `v<package version>` to the bare package version; a clean commit without that tag to `<package version>+<9-hex-digit commit abbreviation>`; uncommitted changes to tracked files, tagged or not, to `<package version>+<9-hex-digit commit abbreviation>.dirty`; and a build outside a Git checkout to `<package version>+unknown` ([test](tests/build-identity.mapping.l1.test.ts))
 
 ### Properties
 
@@ -54,3 +52,4 @@ CAN render diagnostics with no unprintable bytes and bounded length, CAN invoke 
 - ALWAYS: on standard output and on standard error alike, the composed-text write accepts only text carrying the escaping decisions made where its values were embedded, while the pass-through write relays a document byte-for-byte, so a control byte inside a relayed document survives and the same byte embedded in composed output is escaped ([test](tests/pass-through-boundary.compliance.l1.test.ts))
 - ALWAYS: on each standard stream, a caller that redirects the composed-text write receives pass-through output at the same destination unless it redirects the relay separately, because both channels write one stream ([test](tests/pass-through-boundary.compliance.l1.test.ts))
 - NEVER: the external-value decision or the external-token decision accepts text already composed; a value whose static type carries a `TerminalText` — the branded type, its optional shape, or a union including it — resolves to a type no composition admits, so escaping composed text a second time fails to compile, while a plain string or a caught error typed `unknown` stays admitted ([test](tests/terminal-text.compliance.l1.test.ts))
+- ALWAYS: the built executable's `--version` prints the build identity stamped at build time, and running it from a directory outside any Git checkout prints the same identity ([test](tests/build-identity.compliance.l2.test.ts))
