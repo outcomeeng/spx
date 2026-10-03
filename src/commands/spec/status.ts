@@ -36,7 +36,8 @@ const JSON_INDENTATION = 2;
 const LINE_SEPARATOR = authoredText("\n");
 const NODE_INDENT = "  ";
 const MARKDOWN_NODE_PREFIX = "- ";
-const TABLE_SEPARATOR = "|";
+/** The column separator of `table` output: it opens, divides, and closes every row. */
+export const SPEC_STATUS_TABLE_SEPARATOR = "|";
 const TABLE_HEADER_SEPARATOR = "---";
 const TABLE_HEADER = {
   KIND: "Kind",
@@ -200,8 +201,8 @@ function flattenProjectionNodes(nodes: readonly SpecTreeProjectedNode[]): readon
 }
 
 function formatTableRow(values: readonly TerminalText[]): TerminalText {
-  const edge = authoredText(TABLE_SEPARATOR);
-  const row = joinTerminalText(authoredText(` ${TABLE_SEPARATOR} `), values);
+  const edge = authoredText(SPEC_STATUS_TABLE_SEPARATOR);
+  const row = joinTerminalText(authoredText(` ${SPEC_STATUS_TABLE_SEPARATOR} `), values);
   return terminal`${edge} ${row} ${edge}`;
 }
 
