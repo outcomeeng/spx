@@ -10,12 +10,17 @@ CAN present current spec-tree state and deterministic context without parsing so
 
 ## Assertions
 
-- Context-list projections render as the versioned human and JSON manifest representations without changing the selected manifest information.
-- Context-show projections render as ordered `spx-document` and `spx-reference` entries in text, or the equivalent ordered JSON `entries`, without changing selection, metadata, or source content.
-- An empty context-show projection renders as empty text or `{ "entries": [] }`.
+### Scenarios
+
+- An empty context-show projection renders as empty text or `{ "entries": [] }`. ([test](tests/context-rendering.scenario.l1.test.ts))
+
+### Properties
+
+- Context-show projections render as ordered `spx-document` and `spx-reference` entries in text, or the equivalent ordered JSON `entries`, without changing selection, metadata, or source content. ([test](tests/context-rendering.property.l1.test.ts))
 
 ### Mappings
 
+- Context-list projections render as the versioned human and JSON manifest representations without changing the selected manifest information. ([test](tests/context-rendering.mapping.l1.test.ts))
 - Spec-tree status projections map to text, table, markdown, and JSON command output with registry labels, node paths, and derived states ([test](tests/spec-cli-rendering.mapping.l1.test.ts))
 
 ### Conformance
@@ -24,4 +29,4 @@ CAN present current spec-tree state and deterministic context without parsing so
 
 ### Compliance
 
-- NEVER: rendering code parses filesystem paths, node suffixes, decision suffixes, source records, or snapshots — it consumes library-owned projection values and registry-owned labels only ([review])
+- NEVER: rendering code parses filesystem paths, node suffixes, decision suffixes, source records, or snapshots — it consumes library-owned projection values and registry-owned labels only ([audit])

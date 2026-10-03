@@ -3,6 +3,7 @@
   "verification": {
     "test": {
       "overall": "passed",
+      "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler/tests/context-target-resolution.compliance.l1.test.ts": "passed",
       "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler/tests/context-target-resolution.mapping.l1.test.ts": "passed"
     }
   }

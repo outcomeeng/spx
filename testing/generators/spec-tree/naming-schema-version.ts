@@ -135,6 +135,7 @@ function buildNamingSchemaVersion(
     pathSeparator: SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
     coordinationNotes: SPEC_TREE_GRAMMAR.COORDINATION_NOTES,
     eval: SPEC_TREE_GRAMMAR.EVAL,
+    probe: SPEC_TREE_GRAMMAR.PROBE,
     specFileSuffix,
   };
 }

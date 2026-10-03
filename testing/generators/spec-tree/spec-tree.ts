@@ -1,5 +1,6 @@
 import * as fc from "fast-check";
 
+import { NODE_STATUS_EXCLUDE_FILENAME, NODE_STATUS_EXCLUDE_PATH_GRAMMAR } from "@/lib/node-status";
 import {
   canonicalNamingSchemaVersion,
   compareNamingSchemaVersions,
@@ -10,6 +11,7 @@ import {
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_EVIDENCE_STATUS,
+  SPEC_TREE_GRAMMAR,
   SPEC_TREE_KIND_CATEGORY,
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_SOURCE_ENTRY_KEYS,
@@ -23,6 +25,7 @@ import {
   type SpecTreeSourceEntry,
   type SpecTreeSourceRef,
 } from "@/lib/spec-tree";
+import { PYTHON_MARKER } from "@/validation/discovery/language-finder";
 
 type SpecTreeEntryDiscriminatorKey =
   | typeof SPEC_TREE_SOURCE_ENTRY_KEYS.TYPE
@@ -103,12 +106,13 @@ const UNREGISTERED_SUFFIX_DISAMBIGUATOR = "-candidate";
 const ASSEMBLY_NODE_ORDER_COUNT: 3 = SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_ORDER_COUNT;
 
 export const RETIRED_SPEC_APPLY_FIXTURE = {
-  command: "apply",
-  excludeFile: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/EXCLUDE`,
-  pythonConfigFile: "pyproject.toml",
+  excludeFile: [SPEC_TREE_CONFIG.ROOT_DIRECTORY, NODE_STATUS_EXCLUDE_FILENAME].join(
+    NODE_STATUS_EXCLUDE_PATH_GRAMMAR.SEGMENT_SEPARATOR,
+  ),
+  pythonConfigFile: PYTHON_MARKER,
   pytestSection: "tool.pytest.ini_options",
-  // Commander emits this prefix for unknown subcommands before domain action handlers run.
-  unknownCommandPrefix: "error: unknown command",
+  /** The retired subcommand the contract scenario names: `spx spec apply`. */
+  command: "apply",
 } as const;
 
 export const SPEC_TREE_TEST_GENERATOR = {
@@ -238,7 +242,7 @@ export function specTreeFixtureNodeDirectoryName(
   node: RepresentativeSpecTreeFixture["root"],
 ): string {
   const definition = registry[node.kind];
-  return `${node.order}-${node.slug}${definition.suffix}`;
+  return `${node.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${node.slug}${definition.suffix}`;
 }
 
 export function buildNodeEntry(

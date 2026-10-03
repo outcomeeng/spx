@@ -1,25 +1,11 @@
 # Open Issues
 
-## Rejection evidence leans on a harness verdict and hand-built violating configs
+## Tracked-content scoping and the linked-worktree root carry no linked context evidence
 
-**Evidence:** `rejectedContextMessage` in `testing/harnesses/spec/context.ts` catches the product failure and throws when the command succeeds, so the rejection predicate behind the two ambiguity cases in `tests/context-ingestion.compliance.l1.test.ts` lives in the harness while the sibling `contextCommandFailure` already exposes the observation without a verdict. The same file hand-builds its violating methodology configs — an empty `source` and a `harnessEnvironment.methodology` section — although `testing/generators/config/descriptors.ts` owns `generatedInvalidMethodologyConfigs` and `generatedHarnessMethodologyConfig`. `tests/determinism.property.l1.test.ts` computes its own runner timeout from `PROPERTY_RUN_COUNTS` and `PROPERTY_TIMEOUTS_MS` although `testing/harnesses/property/property.ts` owns that envelope. A child directory name `21-metadata-only.enabler` is spelled by hand beside the imported `KIND_REGISTRY`, and `METHODOLOGY_FIXTURE_VERSION` in the context harness is a hand-picked version the compliance file reuses as expected output.
+`spx spec context list` and `show` read only the tracked `spx/` tree of the worktree they run in: an untracked node-shaped directory beside tracked nodes stays out of the manifest, and an invocation from a nested directory of a linked worktree resolves that worktree's own root. Those two behaviors were evidenced by cases filed under this node's no-partial-output compliance assertion, which neither exercises; the cases were removed from that file, and no assertion of this node or of [`spx/31-spec-domain.enabler/43-context-ingestion.enabler/54-read-set-projection.enabler`](54-read-set-projection.enabler/read-set-projection.md) declares them. The spec-domain compliance rule "operate on tracked `spx/` files using the worktree-local root" and the product rule "ingest spec-tree context deterministically from the tracked `spx/` tree" govern them as `[audit]` assertions only.
 
-**Impact:** inverting the ambiguity assertion needs a harness change; the violating cases are author-chosen members rather than generator-selected; a registry suffix rename leaves the hand-spelled directory silently stale; a failing draw on the fixture version carries no generator provenance.
+A tracked node directory whose spec file is missing contributes no spec entry to `show`. `tests/context-ingestion.scenario.l1.test.ts` evidences that under the targetless and targeted `show` scenarios, over a top-level sibling, a depth-two sibling, and an immediate child of the target that each carry only a status claim. No assertion declares the behavior for `list`.
 
-**Settlement condition:** the ambiguity cases consume `contextCommandFailure` and own their predicate; violating configs come from the descriptor generators; the determinism property passes its classification and lets the property harness own the envelope; the child directory derives from the registry through `specTreeFixtureNodeDirectoryName`; the fixture version is drawn from `arbitraryMethodologyVersion` or the accepted-form generator.
+**Impact:** a context projection that read untracked scratch content, listed a spec path for a spec-less node directory in the manifest, or resolved a linked worktree to the main checkout's root would pass every linked test.
 
-## The no-partial-output clause is guaranteed by structure only
-
-**Evidence:** the in-process tests reach the failure branches of `resolveContextManifest` and prove rejection, but "emits no partial result" is a stdout-boundary property of the descriptor write in `src/interfaces/cli/spec.ts`, where the whole output is composed before any write, and no test in this node reaches that boundary.
-
-**Impact:** a descriptor change that streams entries before resolution completes would pass every test here.
-
-**Settlement condition:** a test drives the built executable with a failing target and asserts empty stdout beside the diagnostic.
-
-## The `show` projection is declared ahead of its implementation
-
-**Evidence:** the spec's `list`/`show` split, the targetless `show` product map, and the targeted Full/Digest `show` entries describe `<spx-document>` and `<spx-reference>` entries that no production path under `src/` emits and no test in this node exercises; the node declares `malleability: spec`, so the untagged assertions derive Declared.
-
-**Impact:** the declaration leads the implementation; a consumer reading the spec as shipped behavior finds none.
-
-**Settlement condition:** the `show` projection exists in production with co-located evidence for each of the three assertions.
+**Settlement condition:** a context node declares tracked-only selection, spec-less node handling, and worktree-local root resolution as `[test]` assertions, and linked evidence covers an untracked node-shaped directory, a spec-less node directory under both `list` and `show`, and a nested invocation inside a linked worktree.

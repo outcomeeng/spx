@@ -1,12 +1,12 @@
 # Methodology Source
 
-GOVERNS how context ingestion obtains the Outcome Engineering foundation. The reader selects spx's shipped `methodology/{MAJOR.MINOR}/{coding-agent}/spec-tree/` bundle from the exact methodology version declared by the product and the coding agent selected by `--coding-agent` or the established invocation-marker fallback. It reads `skills/understand/manifest.json` at schema version 1 and resolves the singular `core` path through the bundle containment boundary.
+Context ingestion obtains the Outcome Engineering foundation from spx's shipped methodology bundle. The reader selects spx's shipped `methodology/{MAJOR.MINOR}/{coding-agent}/spec-tree/` bundle from the exact methodology version declared by the product and the coding agent selected by `--coding-agent` or, without it, by the invocation markers. Each marker is established by a value that is neither empty nor whitespace-only in the invoking process environment: `CODEX_THREAD_ID` establishes the Codex marker, and `CLAUDE_SESSION_ID` and `CLAUDE_ENV_FILE` each establish a Claude marker. `CODEX_THREAD_ID` takes precedence over `CLAUDE_SESSION_ID`, which takes precedence over `CLAUDE_ENV_FILE`. With no marker established, the single coding agent the line ships is selected, and several shipped agents fail as ambiguous. It reads `skills/understand/manifest.json` at schema version 1 and resolves the singular `core` path through the bundle containment boundary.
 
 When `show --methodology` is requested, the core's complete body after skill-runtime front matter is framed as one Full document. Its displayed path is the bundle address followed by the manifest's `core` value, relative to spx's package root; it identifies a shipped resource, never a consumer-product target. `manifest.json`, `source.json`, references, templates, and examples remain internal selection, provenance, and on-demand catalog data and are absent from `show` output. A core-relative reference resolves against the bundle path carried by the core's document frame.
 
 ## Rationale
 
-The reviewed, agent-specific foundation already ships inside spx. Reusing its manifest preserves offline, deterministic selection and avoids another methodology layout, consumer copy, installed-plugin dependency, or network lookup. Rendering the eager core alone matches the foundation boundary: extended resources remain available when a workflow explicitly asks for them and do not inflate every context load.
+The reviewed, agent-specific foundation ships inside spx. Reusing its manifest preserves offline, deterministic selection and avoids another methodology layout, consumer copy, installed-plugin dependency, or network lookup. Rendering the eager core alone matches the foundation boundary: extended resources remain available when a workflow explicitly asks for them and do not inflate every context load.
 
 ## Invariants
 
@@ -18,9 +18,16 @@ The reviewed, agent-specific foundation already ships inside spx. Reusing its ma
 
 ## Verification
 
+### Testing
+
+- ALWAYS: the manifest schema is validated before output ([compliance])
+- ALWAYS: core containment is validated before output ([compliance])
+- ALWAYS: strict UTF-8 decoding is validated before output ([compliance])
+- ALWAYS: configured `provides` and `supports` compatibility is validated before output ([compliance])
+- ALWAYS: an absent line, agent tree, manifest, supported schema, or contained core fails the complete projection with the typed methodology failure ([mapping])
+
 ### Audit
 
-- ALWAYS: manifest schema, core containment, strict UTF-8 decoding, and configured `provides` and `supports` compatibility are validated before output ([audit])
-- ALWAYS: an absent line, agent tree, manifest, supported schema, or contained core fails the complete projection with the existing typed methodology failure ([audit])
 - NEVER: methodology selection scans directories, compares package versions, reaches the network, reads an installed plugin or cache, or reads a consumer-side copy ([audit])
-- ALWAYS: methodology parsing and validation are pure over supplied bytes and tree reads enter through the injected methodology reader rooted at spx's package root ([audit])
+- ALWAYS: methodology parsing and validation are pure over supplied bytes ([audit])
+- ALWAYS: methodology tree reads enter through the injected methodology reader rooted at spx's package root ([audit])

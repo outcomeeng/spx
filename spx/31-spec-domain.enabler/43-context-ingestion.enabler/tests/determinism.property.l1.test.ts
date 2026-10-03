@@ -1,17 +1,19 @@
 import { describe, expect, it } from "vitest";
 
+import { SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { arbitraryContextDeterminismCase } from "@testing/generators/spec-tree/context-target";
+import { rootedSpecPath } from "@testing/generators/spec-tree/rich-context";
 import {
   assertProperty,
-  PROPERTY_LEVEL,
-  PROPERTY_RUN_COUNTS,
-  PROPERTY_SIZE,
-  PROPERTY_TIMEOUTS_MS,
+  PROPERTY_CLASSIFICATION,
+  propertyTestEnvelopeTimeoutMs,
 } from "@testing/harnesses/property/property";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
-  contextCommand,
-  contextTextCommand,
+  contextListJson,
+  contextListText,
+  contextShowJson,
+  contextShowText,
   methodologyTreeConfig,
   specTreeKindsConfig,
   writeMethodologyTree,
@@ -19,46 +21,54 @@ import {
 
 describe("spec context determinism", () => {
   it(
-    "produces byte-identical machine output across repeated runs on identical tree content and methodology resources",
+    "produces byte-identical list and show output for equal tree content, methodology resources, options, coding agent, and accepted canonical targets",
     async () => {
       await assertProperty(
         arbitraryContextDeterminismCase(specTreeKindsConfig()),
-        async ({ extraDecision, extraNode }) => {
-          await withSpecTreeEnv(methodologyTreeConfig(), async (env) => {
+        async ({ fixture, extraDecision, extraNode, migrating, methodologySlug }) => {
+          await withSpecTreeEnv(methodologyTreeConfig(migrating.section), async (env) => {
             await env.materialize();
-            const fixture = await writeMethodologyTree(env);
+            const tree = await writeMethodologyTree(env, { version: migrating.target, slug: methodologySlug });
             await env.writeRaw(extraNode.fixturePath, extraNode.contents);
             await env.writeRaw(extraDecision.fixturePath, extraDecision.contents);
             const snapshot = await env.readFilesystemSnapshot();
             const target = snapshot.allNodes[0];
-            const targets = [target.id];
-            const firstJson = await contextCommand({ targets, cwd: env.productDir });
-            const secondJson = await contextCommand({ targets, cwd: env.productDir });
-            const firstText = await contextTextCommand({ targets, cwd: env.productDir });
-            const secondText = await contextTextCommand({ targets, cwd: env.productDir });
-            const firstContent = await contextCommand({ targets, cwd: env.productDir, content: true });
-            const secondContent = await contextCommand({ targets, cwd: env.productDir, content: true });
-            const firstUnderstand = await contextCommand({
-              targets,
-              cwd: env.productDir,
-              understand: true,
-              methodologyTreeRoot: fixture.treeRoot,
-            });
-            const secondUnderstand = await contextCommand({
-              targets,
-              cwd: env.productDir,
-              understand: true,
-              methodologyTreeRoot: fixture.treeRoot,
-            });
-            expect(secondJson).toBe(firstJson);
-            expect(secondText).toBe(firstText);
-            expect(secondContent).toBe(firstContent);
-            expect(secondUnderstand).toBe(firstUnderstand);
-          });
+            const cwd = env.productDir;
+            // Three spellings of one accepted canonical target: the tree-rooted
+            // node directory, the same with a trailing separator, and the
+            // node's spec file. Equal canonical targets admit no output change.
+            const spellings = [
+              [rootedSpecPath(target.id)],
+              [`${rootedSpecPath(target.id)}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}`],
+              [target.ref?.path ?? rootedSpecPath(target.id)],
+            ];
+            const runs = [
+              (targets: readonly string[]) => contextListJson({ targets, cwd }),
+              (targets: readonly string[]) => contextListText({ targets, cwd }),
+              (targets: readonly string[]) => contextShowText({ targets, cwd }),
+              (targets: readonly string[]) => contextShowJson({ targets, cwd }),
+              () => contextShowText({ targets: [], cwd }),
+              (targets: readonly string[]) =>
+                contextShowText({
+                  targets,
+                  cwd,
+                  methodology: true,
+                  codingAgent: tree.codingAgent,
+                  methodologyTreeRoot: tree.treeRoot,
+                }),
+            ];
+            for (const run of runs) {
+              const first = await run(spellings[0]);
+              expect(await run(spellings[0])).toBe(first);
+              for (const spelling of spellings.slice(1)) {
+                expect(await run(spelling), spelling.join(" ")).toBe(first);
+              }
+            }
+          }, { fixture });
         },
-        { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+        PROPERTY_CLASSIFICATION.SMALL_L1,
       );
     },
-    PROPERTY_RUN_COUNTS[PROPERTY_SIZE.SMALL] * PROPERTY_TIMEOUTS_MS[PROPERTY_LEVEL.L1],
+    propertyTestEnvelopeTimeoutMs(PROPERTY_CLASSIFICATION.SMALL_L1),
   );
 });
