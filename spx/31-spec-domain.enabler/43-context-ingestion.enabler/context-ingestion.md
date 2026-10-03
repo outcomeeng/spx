@@ -10,6 +10,8 @@ CAN first locate relevant subtrees and then load only the product truth required
 
 ## Assertions
 
+- For each probed target in spx's own tree, `show` and `list` deliver the context `/contextualize` loads for the same target, every difference is one a selection or projection assertion of this node or its children declares, and two runs produce identical output ([probe](probes/context-fidelity/probe.md))
+
 ### Properties
 
 - Equal tracked product content, shipped methodology content, options, and targets produce byte-identical output. ([test](tests/determinism.property.l1.test.ts))
