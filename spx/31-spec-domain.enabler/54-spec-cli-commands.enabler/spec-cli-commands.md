@@ -6,7 +6,7 @@ malleability: spec
 
 PROVIDES deterministic `spx spec status`, `spx spec next`, and `spx spec context` command handlers over the spec-tree library surface
 SO THAT agents and developers working in a product checkout
-CAN inspect current node state, select the next non-passing node, discover relevant subtrees, and load deterministic context without hand-walking `spx/`
+CAN inspect node state, select the next non-passing node, discover relevant subtrees, and load deterministic context without hand-walking `spx/`
 
 ## Assertions
 

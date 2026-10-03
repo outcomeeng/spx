@@ -5,8 +5,8 @@ malleability: spec
 # Spec CLI Rendering
 
 PROVIDES terminal and machine-readable renderers for spec-tree status, navigation, manifest, and document projections
-SO THAT `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/` and automation callers
-CAN present current spec-tree state and deterministic context without parsing source records, walking directories, or owning spec-tree vocabulary
+SO THAT `spx spec` commands and automation callers
+CAN present spec-tree state and deterministic context without parsing source records, walking directories, or owning spec-tree vocabulary
 
 ## Assertions
 

@@ -5,8 +5,8 @@ malleability: spec
 # Spec CLI Contract Tests
 
 PROVIDES local process-level contract tests for `spx spec` command routing, flags, errors, and package-script invocation
-SO THAT `spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/` can stay focused on command behavior
-CAN still prove the user-facing CLI entry point routes current spec-domain commands hermetically
+SO THAT developers and release automation verifying the `spx spec` executable
+CAN prove the user-facing CLI entry point routes the spec-domain commands hermetically while command-behavior evidence stays at the command-handler level
 
 ## Assertions
 
