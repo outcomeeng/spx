@@ -124,17 +124,20 @@ async function existingSelections(
 }
 
 /**
- * Projects the structural selection of `targets` and follows the citations
- * the complete source of each selected document carries — whatever its
- * projection mode displays — transitively, until no unread cited decision
- * remains. Any document failure, and any citation that binds no
- * tracked decision, fails the whole closure.
+ * Projects the structural selection of `targets` and, for a targeted call,
+ * follows the citations the complete source of each selected document
+ * carries — whatever its projection mode displays — transitively, until no
+ * unread cited decision remains. Targetless discovery follows no citation:
+ * it delivers the depth-bounded map alone, upgrading no entry and appending
+ * no decision. Any document failure, and any citation that binds no tracked
+ * decision, fails the whole closure.
  */
 export async function resolveSpecContextClosure(
   input: ContextInput,
   targets: readonly SpecContextTarget[],
 ): Promise<SpecContextClosure> {
   const structural = await existingSelections(input, targets);
+  const followsCitations = targets.length > 0;
   const structuralPaths = new Set(structural.map(({ path }) => path));
   const decisions = new Set(input.snapshot.decisions.flatMap(({ ref }) => ref?.path ?? []));
   const projected = new Map<string, SpecContextProjectedEntry>();
@@ -153,7 +156,9 @@ export async function resolveSpecContextClosure(
     const { entry, source } = result;
     digestFailures.delete(selection.path);
     projected.set(selection.path, { selection, entry });
-    if (entry.type !== SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT || selection.scanCitations !== true) continue;
+    if (!followsCitations || entry.type !== SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT || selection.scanCitations !== true) {
+      continue;
+    }
     for (
       const path of specContextBoundCitations(source, selection.path, decisions, input.existingPaths)
     ) {
