@@ -37,6 +37,18 @@ export const SPEC_CONTEXT_TEXT_LABEL = {
 export const SPEC_CONTEXT_TEXT_SELECTION_INDENT = "  ";
 
 /**
+ * The layout that continues a text `list` entry line after its path when the
+ * entry carries `citedBy`: the opener, the `cited by` label, the separator
+ * between label and paths, the separator between consecutive paths, and the closer.
+ */
+export const SPEC_CONTEXT_TEXT_CITED_BY_LAYOUT = {
+  OPEN: " (",
+  LABEL_SEPARATOR: " ",
+  PATH_SEPARATOR: ", ",
+  CLOSE: ")",
+} as const;
+
+/**
  * The manifest of a target set: every entry the shared closure selects for
  * `show`, in `show` order, with its composed mode and one selection per
  * requested target that selects it.
@@ -81,7 +93,11 @@ export function renderSpecContextText(manifest: SpecContextManifest): TerminalTe
       terminal`${authoredText(entry.mode)} ${externalValue(entry.path)}${
         entry.citedBy === undefined
           ? authoredText("")
-          : terminal` (${authoredText(SPEC_CONTEXT_TEXT_LABEL.CITED_BY)} ${externalValue(entry.citedBy.join(", "))})`
+          : terminal`${authoredText(SPEC_CONTEXT_TEXT_CITED_BY_LAYOUT.OPEN)}${
+            authoredText(SPEC_CONTEXT_TEXT_LABEL.CITED_BY)
+          }${authoredText(SPEC_CONTEXT_TEXT_CITED_BY_LAYOUT.LABEL_SEPARATOR)}${
+            externalValue(entry.citedBy.join(SPEC_CONTEXT_TEXT_CITED_BY_LAYOUT.PATH_SEPARATOR))
+          }${authoredText(SPEC_CONTEXT_TEXT_CITED_BY_LAYOUT.CLOSE)}`
       }`,
       ...entry.selections.map(({ reason, target }) =>
         terminal`${authoredText(SPEC_CONTEXT_TEXT_SELECTION_INDENT)}${authoredText(reason)} ${externalValue(target)}`
