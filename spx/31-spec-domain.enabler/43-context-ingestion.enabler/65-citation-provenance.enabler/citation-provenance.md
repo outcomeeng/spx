@@ -19,9 +19,6 @@ CAN receive every selected governing decision once and diagnose an unsatisfied c
 - ALWAYS: the `list` entry of a decision reached only by citation records the path of every selected document that cites it
 - ALWAYS: in a targeted projection, a citation that resolves to no tracked decision fails the whole projection naming both the cited path and the citing document
 - NEVER: targetless discovery follows a citation
-
-### Scenarios
-
-- Given a targeted projection that selects a document in Full and a document in Digest, when citations are scanned, then the complete source of each contributes citations, including Digest source beyond the displayed paragraph ([test](tests/cited-decisions.scenario.l1.test.ts))
-- Given a targeted projection in which a cited decision itself cites another decision, when citations are scanned, then scanning follows cited decisions transitively until no unread decision remains ([test](tests/cited-decisions.scenario.l1.test.ts))
-- Given a targeted projection with cited decisions outside the structural tree walk, when the projection is composed, then they append in canonical product-root-relative path order ([test](tests/cited-decisions.scenario.l1.test.ts))
+- Given a targeted projection that selects a document in Full and a document in Digest, when citations are scanned, then the complete source of each contributes citations, including Digest source beyond the displayed paragraph
+- Given a targeted projection in which a cited decision itself cites another decision, when citations are scanned, then scanning follows cited decisions transitively until no unread decision remains
+- Given a targeted projection with cited decisions outside the structural tree walk, when the projection is composed, then they append in canonical product-root-relative path order

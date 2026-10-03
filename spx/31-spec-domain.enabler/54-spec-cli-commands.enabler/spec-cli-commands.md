@@ -15,6 +15,7 @@ CAN inspect current node state, select the next non-passing node, discover relev
 - Given `--methodology` and `--coding-agent <name>`, when `spx spec context show` runs, then it accepts both options
 - Given `list` or `show`, when `--json` is supplied, then only the representation changes
 - NEVER: `spx spec context show` or `spx spec context list` registers a `--content` or `--understand` option
+- Given the packaged executable and a tracked node with linked evidence, when `spx spec status --update` runs through the process boundary, then its output reports the same rollup that a subsequent `spx spec status` invocation renders
 
 ### Scenarios
 
@@ -25,7 +26,6 @@ CAN inspect current node state, select the next non-passing node, discover relev
 - Given a node carries a committed `spx.status.json`, when `spx spec status` runs without `--update`, then it derives that node's lifecycle state from the recorded verification outcomes rather than live structural state, and executes no verification ([test](tests/spec-cli-commands.scenario.l1.test.ts))
 - Given an injected in-memory source is supplied with `update: true`, when `spx spec status` runs, then it rejects the request ([test](tests/spec-cli-commands.scenario.l1.test.ts))
 - Given a tracked node has linked evidence, when the `spx spec status --update` handler writes its projection, then the handler reports the same rollup that a subsequent `spx spec status` read renders ([test](tests/spec-cli-commands.scenario.l1.test.ts))
-- Given the packaged executable and a tracked node with linked evidence, when `spx spec status --update` runs through the process boundary, then its output reports the same rollup that a subsequent `spx spec status` invocation renders ([test](tests/spec-cli-commands.scenario.l2.test.ts))
 - Given a git repository whose `spx/` tree holds both a git-tracked node directory and an untracked, node-shaped directory, when `spx spec status` runs without `--update`, then both are reported as nodes ([test](tests/spec-cli-commands.scenario.l1.test.ts))
 
 ### Mappings
