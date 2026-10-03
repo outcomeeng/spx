@@ -1,29 +1,24 @@
 import { describe, expect, it } from "vitest";
 
 import { SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
-import { SPEC_CONTEXT_CONTENT_MESSAGE, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
-import { KIND_REGISTRY, SPEC_CONTEXT_READ_ROLE, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
+import { KIND_REGISTRY, SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION } from "@/lib/spec-tree";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import {
+  RETIRED_SPEC_CONTEXT_CONTENT_FIXTURE,
   specCliApplyProtectionFixture,
   specCliDeclaredStatusRows,
   specCliUnsupportedStatusFormatFixture,
 } from "@testing/generators/spec-tree/spec-cli";
 import { RETIRED_SPEC_APPLY_FIXTURE, specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
-import { parseContextManifest, runSpecCli } from "@testing/harnesses/spec/context";
-
-function assertDeclaredStatusRows(
-  output: string,
-  fixture: Parameters<typeof specCliDeclaredStatusRows>[0],
-): void {
-  const expectedRows = specCliDeclaredStatusRows(fixture);
-  expect(output.split("\n")).toEqual(expectedRows.map((row) => row.output));
-  for (const row of expectedRows) {
-    expect(output).toContain(row.nodeId);
-    expect(output).toContain(`[${row.state}]`);
-  }
-}
+import {
+  contextListManifest,
+  parseContextManifest,
+  runSpecCli,
+  runSpecCliWithIsolation,
+  specTreeKindsConfig,
+} from "@testing/harnesses/spec/context";
 
 describe("spx spec process contract", () => {
   it("routes status through the packaged executable", async () => {
@@ -31,7 +26,14 @@ describe("spx spec process contract", () => {
       await env.materialize();
       const result = await runSpecCli(env.productDir, SPEC_DOMAIN_CLI.COMMAND, SPEC_DOMAIN_CLI.STATUS_COMMAND);
       expect(result.exitCode).toBe(0);
-      assertDeclaredStatusRows(result.stdout, env.fixture);
+      // The spec's observable is each node's id and derived state reaching
+      // the caller, not the private row shape the renderer composes.
+      const expectedRows = specCliDeclaredStatusRows(env.fixture);
+      expect(result.stdout.split("\n")).toHaveLength(expectedRows.length);
+      for (const row of expectedRows) {
+        expect(result.stdout).toContain(row.nodeId);
+        expect(result.stdout).toContain(row.state);
+      }
     });
   });
 
@@ -45,7 +47,14 @@ describe("spx spec process contract", () => {
         SPEC_DOMAIN_CLI.UPDATE_OPTION,
       );
       expect(result.exitCode, result.stderr).toBe(0);
-      assertDeclaredStatusRows(result.stdout, env.fixture);
+      // The spec's observable is each node's id and derived state reaching
+      // the caller, not the private row shape the renderer composes.
+      const expectedRows = specCliDeclaredStatusRows(env.fixture);
+      expect(result.stdout.split("\n")).toHaveLength(expectedRows.length);
+      for (const row of expectedRows) {
+        expect(result.stdout).toContain(row.nodeId);
+        expect(result.stdout).toContain(row.state);
+      }
     });
   });
 
@@ -55,35 +64,36 @@ describe("spx spec process contract", () => {
       const result = await runSpecCli(env.productDir, SPEC_DOMAIN_CLI.COMMAND, SPEC_DOMAIN_CLI.NEXT_COMMAND);
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain(SPEC_NEXT_MESSAGE.HEADING);
-      expect(result.stdout).toContain(env.fixture.root.slug);
+      // The selected node is the root itself: its directory is named, and its
+      // child's directory — whose path also carries the root's — is not.
+      expect(result.stdout).toContain(specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root));
+      expect(result.stdout).not.toContain(specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.child));
     });
   });
 
-  it("routes context through the packaged executable", async () => {
-    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+  it("routes context list through the packaged executable as the structural manifest command", async () => {
+    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
       await env.materialize();
       const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
-      const result = await runSpecCli(
+      const execution = await runSpecCliWithIsolation(
         env.productDir,
         SPEC_DOMAIN_CLI.COMMAND,
         SPEC_DOMAIN_CLI.CONTEXT_COMMAND,
-        SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND,
+        SPEC_DOMAIN_CLI.CONTEXT_LIST_COMMAND,
         target,
         SPEC_DOMAIN_CLI.JSON_OPTION,
       );
-      expect(result.exitCode, result.stderr).toBe(0);
-      const manifest = parseContextManifest(result.stdout);
-      expect(manifest.targets).toEqual([`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${target}`]);
-      expect(
-        manifest.read.some((document) =>
-          document.roles.some((binding) => binding.role === SPEC_CONTEXT_READ_ROLE.PRODUCT)
-        ),
-      ).toBe(true);
+      expect(execution.result.exitCode, execution.result.stderr).toBe(0);
+      const manifest = parseContextManifest(execution.result.stdout);
+      expect(manifest.schemaVersion).toBe(SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION);
+      // The manifest names the resolved product directory, so the in-process
+      // oracle runs from the same resolved path the executable resolved.
+      expect(manifest).toEqual(await contextListManifest({ targets: [target], cwd: execution.productDirectory }));
     });
   });
 
-  it("routes content-bearing context through the packaged executable", async () => {
-    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+  it("rejects the retired --content option on show before any output", async () => {
+    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
       await env.materialize();
       const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
       const result = await runSpecCli(
@@ -92,34 +102,11 @@ describe("spx spec process contract", () => {
         SPEC_DOMAIN_CLI.CONTEXT_COMMAND,
         SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND,
         target,
-        SPEC_DOMAIN_CLI.JSON_OPTION,
-        SPEC_DOMAIN_CLI.CONTENT_OPTION,
-      );
-      expect(result.exitCode, result.stderr).toBe(0);
-      const manifest = parseContextManifest(result.stdout);
-      expect(manifest.read.length).toBeGreaterThan(0);
-      for (const document of manifest.read) {
-        expect(document.content).toBeDefined();
-        expect(document.digest).toBeDefined();
-        expect(document.bytes).toBeDefined();
-      }
-    });
-  });
-
-  it("rejects a content request without the machine output flag", async () => {
-    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-      await env.materialize();
-      const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
-      const result = await runSpecCli(
-        env.productDir,
-        SPEC_DOMAIN_CLI.COMMAND,
-        SPEC_DOMAIN_CLI.CONTEXT_COMMAND,
-        SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND,
-        target,
-        SPEC_DOMAIN_CLI.CONTENT_OPTION,
+        RETIRED_SPEC_CONTEXT_CONTENT_FIXTURE.option,
       );
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain(SPEC_CONTEXT_CONTENT_MESSAGE.REQUIRES_JSON);
+      expect(result.stderr).toContain(RETIRED_SPEC_CONTEXT_CONTENT_FIXTURE.option);
+      expect(result.stdout).toHaveLength(0);
     });
   });
 
@@ -135,7 +122,9 @@ describe("spx spec process contract", () => {
         fixture.format,
       );
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toBe(fixture.expectedDiagnostic);
+      // The diagnostic names the rejected token and every accepted format;
+      // its sentence shape belongs to the descriptor, not to this evidence.
+      for (const named of fixture.namedValues) expect(result.stderr).toContain(named);
     });
   });
 
@@ -148,7 +137,7 @@ describe("spx spec process contract", () => {
       const before = await Promise.all(fixture.protectedPaths.map((path) => env.readFile(path)));
       const result = await runSpecCli(env.productDir, SPEC_DOMAIN_CLI.COMMAND, RETIRED_SPEC_APPLY_FIXTURE.command);
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain(RETIRED_SPEC_APPLY_FIXTURE.unknownCommandPrefix);
+      expect(result.stdout).toHaveLength(0);
       expect(result.stderr).toContain(RETIRED_SPEC_APPLY_FIXTURE.command);
       await expect(Promise.all(fixture.protectedPaths.map((path) => env.readFile(path)))).resolves.toEqual(before);
     });

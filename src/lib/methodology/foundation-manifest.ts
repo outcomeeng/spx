@@ -145,11 +145,6 @@ export function parseFoundationResourceManifest(text: string): Result<Foundation
   };
 }
 
-/** Every extended-resource catalog path in manifest order: references, then templates, then examples. */
-export function foundationCatalogPaths(manifest: FoundationResourceManifest): readonly string[] {
-  return [...manifest.references, ...manifest.templates, ...manifest.examples];
-}
-
 /** Diagnostic for an unreadable or absent foundation-resource manifest; names the resolved path and contract. */
 export function formatFoundationManifestUnreadableError(manifestPath: string): string {
   return `Foundation-resource manifest unreadable: ${manifestPath}`

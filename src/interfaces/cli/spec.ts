@@ -1,11 +1,11 @@
 import type { Command } from "commander";
 
+import { renderSpecContextJson, renderSpecContextText, resolveContextManifest } from "@/commands/spec/context";
 import {
-  type ContextOptions,
-  renderSpecContextJson,
-  renderSpecContextText,
-  resolveContextManifest,
-} from "@/commands/spec/context";
+  type ContextShowOptions,
+  renderSpecContextEntriesJson,
+  resolveContextShow,
+} from "@/commands/spec/context-show";
 import { nextCommand } from "@/commands/spec/next";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec/status";
@@ -13,8 +13,15 @@ import { inferInvokingCodingAgent } from "@/interfaces/cli/coding-agent";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
-import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
-import { SPEC_CONTEXT_TARGET_FAILURE_KIND, type SpecContextTargetFailure } from "@/lib/spec-tree";
+import { renderSpecContextEntries, type SpecContextTargetFailure } from "@/lib/spec-tree";
+import {
+  authoredText,
+  externalToken,
+  externalValue,
+  joinTerminalText,
+  terminal,
+  type TerminalText,
+} from "@/lib/terminal-text/terminal-text";
 import { testingRegistry } from "@/test/registry";
 
 export const SPEC_DOMAIN_CLI = {
@@ -23,10 +30,9 @@ export const SPEC_DOMAIN_CLI = {
   NEXT_COMMAND: "next",
   CONTEXT_COMMAND: "context",
   CONTEXT_SHOW_COMMAND: "show",
-  RETIRED_APPLY_COMMAND: "apply",
+  CONTEXT_LIST_COMMAND: "list",
   JSON_OPTION: "--json",
-  CONTENT_OPTION: "--content",
-  UNDERSTAND_OPTION: "--understand",
+  METHODOLOGY_OPTION: "--methodology",
   CODING_AGENT_OPTION: "--coding-agent",
   CODING_AGENT_OPTION_DEFINITION: "--coding-agent <name>",
   FORMAT_OPTION_FLAG: "--format",
@@ -34,8 +40,10 @@ export const SPEC_DOMAIN_CLI = {
   UPDATE_OPTION: "--update",
 } as const;
 
-export const SPEC_CONTEXT_CONTENT_MESSAGE = {
-  REQUIRES_JSON: `${SPEC_DOMAIN_CLI.CONTENT_OPTION} requires ${SPEC_DOMAIN_CLI.JSON_OPTION}`,
+/** The command words that invoke each `spx spec context` subcommand, in invocation order. */
+export const SPEC_CONTEXT_COMMAND_PATH = {
+  LIST: [SPEC_DOMAIN_CLI.COMMAND, SPEC_DOMAIN_CLI.CONTEXT_COMMAND, SPEC_DOMAIN_CLI.CONTEXT_LIST_COMMAND],
+  SHOW: [SPEC_DOMAIN_CLI.COMMAND, SPEC_DOMAIN_CLI.CONTEXT_COMMAND, SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND],
 } as const;
 
 export const SPEC_STATUS_FORMAT_MESSAGE = {
@@ -43,13 +51,6 @@ export const SPEC_STATUS_FORMAT_MESSAGE = {
   INVALID_PREFIX: "Invalid format",
   VALID_OPTIONS_PREFIX: "Must be one of",
 } as const;
-
-export const SPEC_CONTEXT_OUTPUT_FORMAT = {
-  TEXT: "text",
-  JSON: "json",
-} as const;
-
-export type SpecContextOutputFormat = (typeof SPEC_CONTEXT_OUTPUT_FORMAT)[keyof typeof SPEC_CONTEXT_OUTPUT_FORMAT];
 
 export const SPEC_STATUS_OUTPUT_FORMATS: readonly OutputFormat[] = [
   OUTPUT_FORMAT.TEXT,
@@ -66,7 +67,7 @@ function writeOutput(io: CliIo, output: string): void {
 
 function writeInvocationWarning(io: CliIo, warning: string | undefined): void {
   if (warning !== undefined) {
-    io.writeStderr(`${warning}\n`);
+    io.writeStderr(terminal`${externalValue(warning)}\n`);
   }
 }
 
@@ -83,41 +84,24 @@ function handleCommandError(io: CliIo, error: unknown): never {
       message = UNPRINTABLE_ERROR_MESSAGE;
     }
   }
-  io.writeStderr(`${SPEC_STATUS_FORMAT_MESSAGE.ERROR_PREFIX}: ${message}\n`);
+  io.writeStderr(terminal`${authoredText(SPEC_STATUS_FORMAT_MESSAGE.ERROR_PREFIX)}: ${externalValue(message)}\n`);
   return io.exit(1);
 }
 
-function quotedCliArgument(value: string): string {
-  return JSON.stringify(sanitizeCliArgument(value));
-}
-
 /** Formats a typed target-resolution failure for safe terminal presentation. */
-export function formatSpecContextTargetFailure(failure: SpecContextTargetFailure): string {
+export function formatSpecContextTargetFailure(failure: SpecContextTargetFailure): TerminalText {
   const prefix = SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[failure.kind];
-  switch (failure.kind) {
-    case SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS_SEGMENT:
-      return `${prefix} ${quotedCliArgument(failure.segment)} for input ${
-        quotedCliArgument(failure.input)
-      }. Candidates: ${failure.candidates.map(sanitizeCliArgument).join(", ")}`;
-    case SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH:
-      return `${prefix}: ${sanitizeCliArgument(failure.input)}. Use spx/${sanitizeCliArgument(failure.ownerId)}`;
-    case SPEC_CONTEXT_TARGET_FAILURE_KIND.ROOT_ARTIFACT_PATH:
-      return `${prefix}: ${sanitizeCliArgument(failure.input)}`;
-    case SPEC_CONTEXT_TARGET_FAILURE_KIND.UNKNOWN_SEGMENT:
-      return `${prefix} ${quotedCliArgument(failure.segment)} for input ${quotedCliArgument(failure.input)}`;
-  }
+  const candidates = failure.candidates.length === 0
+    ? authoredText("")
+    : terminal`. Candidates: ${
+      joinTerminalText(authoredText(", "), failure.candidates.map((path) => externalValue(path)))
+    }`;
+  return terminal`${authoredText(prefix)}: ${externalToken(failure.input)}${candidates}`;
 }
 
-/** Routes a named context output format to its deterministic renderer. */
-export async function contextOutputForFormat(
-  format: SpecContextOutputFormat,
-  options: ContextOptions,
-): Promise<string> {
-  const resolution = await resolveContextManifest(options);
-  if (!resolution.ok) throw new Error(formatSpecContextTargetFailure(resolution.failure));
-  return format === SPEC_CONTEXT_OUTPUT_FORMAT.JSON
-    ? renderSpecContextJson(resolution.manifest)
-    : renderSpecContextText(resolution.manifest);
+function writeContextFailure(io: CliIo, failure: SpecContextTargetFailure): void {
+  io.writeStderr(terminal`${formatSpecContextTargetFailure(failure)}\n`);
+  io.setExitCode(1);
 }
 
 function resolveStatusFormat(options: { json?: boolean; format?: string }): OutputFormat {
@@ -144,21 +128,38 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
   const productDir = (): string => invocation.resolveProductContext().productDir;
   const onWarning = (warning: string | undefined): void => writeInvocationWarning(invocation.io, warning);
 
-  specCmd
+  const contextCmd = specCmd
     .command(SPEC_DOMAIN_CLI.CONTEXT_COMMAND)
-    .description("Deterministic context bundles for spec-tree nodes")
-    .command(SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND)
-    .description("Load one deduplicated context bundle for one or more spec-tree nodes")
-    .argument("<targets...>", "Spec-tree node paths")
+    .description("Discover and load deterministic spec-tree context");
+
+  contextCmd
+    .command(SPEC_DOMAIN_CLI.CONTEXT_LIST_COMMAND)
+    .description("List the structural context manifest for accepted targets")
+    .argument("<targets...>", "Product, node, spec, or decision paths")
     .option(SPEC_DOMAIN_CLI.JSON_OPTION, "Output as JSON")
-    .option(
-      SPEC_DOMAIN_CLI.CONTENT_OPTION,
-      `Include each read document's exact content, digest, and byte count (requires ${SPEC_DOMAIN_CLI.JSON_OPTION})`,
-    )
-    .option(
-      SPEC_DOMAIN_CLI.UNDERSTAND_OPTION,
-      "Include the foundation methodology payload from spx's shipped tree for the declared methodology version",
-    )
+    .action(async (targets: string[], options: { json?: boolean }) => {
+      try {
+        const result = await resolveContextManifest({
+          targets,
+          cwd: invocation.resolveEffectiveInvocationDir(),
+          onWarning,
+        });
+        if (!result.ok) return writeContextFailure(invocation.io, result.failure);
+        const output = options.json === true
+          ? renderSpecContextJson(result.manifest)
+          : renderSpecContextText(result.manifest);
+        invocation.io.writeStdout(terminal`${output}\n`);
+      } catch (error) {
+        handleCommandError(invocation.io, error);
+      }
+    });
+
+  contextCmd
+    .command(SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND)
+    .description("Show product discovery or the content selected for accepted targets")
+    .argument("[targets...]", "Product, node, spec, or decision paths", [])
+    .option(SPEC_DOMAIN_CLI.JSON_OPTION, "Output as JSON")
+    .option(SPEC_DOMAIN_CLI.METHODOLOGY_OPTION, "Include the shipped methodology foundation")
     .option(
       SPEC_DOMAIN_CLI.CODING_AGENT_OPTION_DEFINITION,
       "Coding agent whose shipped methodology tree the payload reads; defaults to the invoking agent",
@@ -166,25 +167,21 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
     .action(
       async (
         targets: string[],
-        options: { json?: boolean; content?: boolean; understand?: boolean; codingAgent?: string },
+        options: Partial<ContextShowOptions> & { json?: boolean },
       ) => {
         try {
-          if (options.content === true && options.json !== true) {
-            throw new Error(SPEC_CONTEXT_CONTENT_MESSAGE.REQUIRES_JSON);
-          }
-          const format = options.json === true
-            ? SPEC_CONTEXT_OUTPUT_FORMAT.JSON
-            : SPEC_CONTEXT_OUTPUT_FORMAT.TEXT;
-          const output = await contextOutputForFormat(format, {
+          const result = await resolveContextShow({
             targets,
-            cwd: productDir(),
-            content: options.content === true,
-            understand: options.understand === true,
+            cwd: invocation.resolveEffectiveInvocationDir(),
+            methodology: options.methodology === true,
             codingAgent: options.codingAgent ?? inferInvokingCodingAgent(process.env),
             methodologyTreeRoot: invocation.methodologyTreeRoot,
             onWarning,
           });
-          writeOutput(invocation.io, output);
+          if (!result.ok) return writeContextFailure(invocation.io, result.failure);
+          if (options.json === true) {
+            invocation.io.writeStdout(terminal`${renderSpecContextEntriesJson(result.entries)}\n`);
+          } else invocation.io.writePassThrough(renderSpecContextEntries(result.entries));
         } catch (error) {
           handleCommandError(invocation.io, error);
         }

@@ -22,6 +22,7 @@ import {
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_NODE_STATE,
 } from "./config";
+import { compareSpecContextOrdinal } from "./context-manifest";
 import { createSpecTreeLinkGrammar } from "./link-grammar";
 export {
   canonicalNamingSchemaVersion,
@@ -62,51 +63,74 @@ export type {
 } from "./config";
 export {
   compareSpecContextOrdinal,
-  composeSpecContextBundle,
+  composeSpecContextManifestEntries,
   decodeContextDocumentUtf8,
   extractDecisionCitations,
-  formatInvalidContextDocumentError,
-  formatMissingCitedDecisionError,
-  formatUnreadableContextDocumentError,
-  isLocalOverlayPath,
-  SPEC_CONTEXT_CONTENT_FIELDS,
-  SPEC_CONTEXT_DIGEST_ALGORITHM,
-  SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
-  SPEC_CONTEXT_LISTED_ROLE,
-  SPEC_CONTEXT_LOCAL_OVERLAY_DIRECTORY,
   SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
-  SPEC_CONTEXT_READ_ROLE,
-  SPEC_CONTEXT_READ_ROLE_ORDER,
+  SPEC_CONTEXT_MODE,
+  SPEC_CONTEXT_MODE_NAME,
+  SPEC_CONTEXT_REASON_MODE,
+  SPEC_CONTEXT_SELECTION_REASON,
+  SPEC_CONTEXT_SELECTION_REASON_PRECEDENCE,
   specContextBootstrap,
-  specContextDigest,
+  specContextReasonsMode,
+  specContextTargetSelections,
 } from "./context-manifest";
 export type {
-  SpecContextBundle,
-  SpecContextListedEntry,
-  SpecContextListedRole,
-  SpecContextListedRoleBinding,
   SpecContextManifest,
-  SpecContextReadDocument,
-  SpecContextReadRole,
-  SpecContextRoleBinding,
-  SpecContextTargetCoverage,
-  SpecContextTargetListedEntry,
-  SpecContextTargetReadDocument,
-  SpecContextTargetReadSet,
+  SpecContextManifestEntry,
+  SpecContextMode,
+  SpecContextModeName,
+  SpecContextSelectedEntry,
+  SpecContextSelectionReason,
+  SpecContextTargetSelection,
 } from "./context-manifest";
 export {
-  assembleSpecContextTargetReadSet,
+  projectSpecContextDocument,
+  renderSpecContextEntries,
+  selectSpecContextDocuments,
+  SPEC_CONTEXT_DIGEST_SOURCE,
+  SPEC_CONTEXT_ENTRY_TYPE,
+  SPEC_CONTEXT_FRAME,
+  SPEC_CONTEXT_FRAME_SYNTAX,
+  SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR,
+  SPEC_CONTEXT_OPTIONAL_ARTIFACT,
+  SPEC_CONTEXT_PROJECTION_FAILURE_KIND,
+  SPEC_CONTEXT_SELECTED_METADATA_KEY,
+  specContextBoundCitations,
+  specContextCitedSelection,
+  specContextInlineDecisionCitations,
+  specContextOptionalArtifactPaths,
+  SpecContextProjectionError,
+  splitSpecContextFrontMatter,
+} from "./context-projection";
+export type {
+  SpecContextDocumentEntry,
+  SpecContextEntry,
+  SpecContextKindRegistry,
+  SpecContextProjectedEntry,
+  SpecContextProjectionFailureKind,
+  SpecContextSelection,
+} from "./context-projection";
+export {
   specContextAncestors,
   specContextDecisions,
-  specContextEvidence,
   specContextLowerIndexSiblings,
   specContextSiblings,
 } from "./context-read-set";
-export type { SpecContextReadSetCandidates } from "./context-read-set";
-export { resolveSpecContextTarget, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "./context-target";
+export {
+  resolveSpecContextTarget,
+  SPEC_CONTEXT_PRODUCT_ROOT_TARGET,
+  SPEC_CONTEXT_TARGET_FAILURE_KIND,
+  specContextAcceptedPaths,
+  specContextSuffixCandidates,
+} from "./context-target";
 export type {
+  SpecContextAcceptedPath,
+  SpecContextTarget,
   SpecContextTargetFailure,
   SpecContextTargetFailureKind,
+  SpecContextTargetPathFacts,
   SpecContextTargetResolution,
 } from "./context-target";
 export {
@@ -140,6 +164,7 @@ const SPEC_TREE_FIELD_KEY = {
   ORDER: "order",
   SLUG: "slug",
   STATE: "state",
+  TITLE: "title",
 } as const;
 
 export const SPEC_TREE_FILESYSTEM_RECORD_TYPE = {
@@ -179,6 +204,10 @@ export const SPEC_TREE_PROJECTION = {
     KIND: SPEC_TREE_FIELD_KEY.KIND,
     ORDER: SPEC_TREE_FIELD_KEY.ORDER,
     SLUG: SPEC_TREE_FIELD_KEY.SLUG,
+  },
+  PRODUCT_KEYS: {
+    ID: SPEC_TREE_FIELD_KEY.ID,
+    TITLE: SPEC_TREE_FIELD_KEY.TITLE,
   },
 } as const;
 
@@ -785,7 +814,7 @@ function findFirstNonPassing(nodes: readonly SpecTreeNode[]): SpecTreeNode | nul
 function compareOrderedEntries(left: OrderedEntry, right: OrderedEntry): number {
   const orderComparison = left.order - right.order;
   if (orderComparison !== ORDER_COMPARISON_EQUAL) return orderComparison;
-  return left.id.localeCompare(right.id);
+  return compareSpecContextOrdinal(left.id, right.id);
 }
 
 async function* readFilesystemSourceEntries(
@@ -821,7 +850,7 @@ async function* walkFilesystemDirectory(context: FilesystemWalkContext): AsyncIt
     throw error;
   }
 
-  const sortedEntries = [...entries].sort((left, right) => left.name.localeCompare(right.name));
+  const sortedEntries = [...entries].sort((left, right) => compareSpecContextOrdinal(left.name, right.name));
   for (const entry of sortedEntries) {
     const relativePath = joinSpecTreePath(context.relativePath, entry.name);
     const refPath = joinSpecTreePath(SPEC_TREE_CONFIG.ROOT_DIRECTORY, relativePath);

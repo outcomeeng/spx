@@ -1,17 +1,31 @@
-import { copyFile, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
-import { join, parse } from "node:path";
+import { copyFile, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { dirname, join, parse } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { Command, CommanderError } from "commander";
 import { execa } from "execa";
 import { build } from "tsup";
 
-import { type ContextOptions } from "@/commands/spec/context";
+import {
+  type ContextOptions,
+  renderSpecContextJson,
+  renderSpecContextText,
+  resolveContextManifest,
+  type SpecContextManifestResolution,
+} from "@/commands/spec/context";
+import {
+  type ContextShowOptions,
+  type ContextShowResult,
+  parseSpecContextEntriesJson,
+  renderSpecContextEntriesJson,
+  resolveContextShow,
+} from "@/commands/spec/context-show";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import type { Config } from "@/config/types";
-import { contextOutputForFormat, SPEC_CONTEXT_OUTPUT_FORMAT } from "@/interfaces/cli/spec";
+import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
+import { formatSpecContextTargetFailure, specDomain } from "@/interfaces/cli/spec";
 import { GIT_LS_FILES_COMMAND } from "@/lib/git/changed-paths";
-import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
-import { TRACKED_PATH_NUL_SEPARATOR } from "@/lib/git/tracked-paths";
+import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import {
   formatMethodologySourceRecord,
   FOUNDATION_MANIFEST_FIELDS,
@@ -20,85 +34,276 @@ import {
   FOUNDATION_PLUGIN_NAME,
   METHODOLOGY_CODING_AGENT,
   METHODOLOGY_TREE_ROOT,
-  methodologyLine,
   type MethodologySourceRecord,
   SOURCE_RECORD_RELATIVE_PATH,
 } from "@/lib/methodology";
 import {
   KIND_REGISTRY,
-  SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
+  renderSpecContextEntries,
+  SPEC_CONTEXT_ENTRY_TYPE,
   SPEC_TREE_CONFIG,
   SPEC_TREE_CONFIG_FIELDS,
-  SPEC_TREE_GRAMMAR,
-  type SpecContextListedRole,
+  type SpecContextDocumentEntry,
+  type SpecContextEntry,
   type SpecContextManifest,
-  type SpecContextReadRole,
+  type SpecContextManifestEntry,
+  type SpecContextSelectionReason,
 } from "@/lib/spec-tree";
+import { arbitraryMethodologyVersion, type GeneratedMethodologyVersion } from "@testing/generators/methodology/tree";
+import { sampleGeneratedValue } from "@testing/generators/sample";
+import { specContextFixtureDocuments, specContextRootDecisionPath } from "@testing/generators/spec-tree/context-target";
 import {
-  specContextLowerSiblingDirectoryName as lowerSiblingDirectoryName,
-  specContextSameIndexSiblingDirectoryName as sameIndexSiblingDirectoryName,
-} from "@testing/generators/spec-tree/context-target";
-import {
-  sampleSpecTreeTestValue,
-  SPEC_TREE_TEST_GENERATOR,
-  specTreeFixtureNodeDirectoryName,
-} from "@testing/generators/spec-tree/spec-tree";
+  type RichContextPaths,
+  type RichContextScenario,
+  sampleRichContextScenario,
+} from "@testing/generators/spec-tree/rich-context";
+import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { CLI_PATH, NODE_EXECUTABLE, PRODUCT_ROOT } from "@testing/harnesses/constants";
+import { GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { type CurrentSpecTreeEnv, withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { SPEC_CLI_ISOLATION } from "@testing/harnesses/spec/spec-cli-isolation-contract";
 import { SPEC_CLI_NETWORK_GUARD_SOURCE_PATH } from "@testing/harnesses/spec/spec-cli-network-guard";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 export function parseContextManifest(output: string): SpecContextManifest {
   return JSON.parse(output) as SpecContextManifest;
 }
 
-export function contextCommand(options: ContextOptions): Promise<string> {
-  return contextOutputForFormat(SPEC_CONTEXT_OUTPUT_FORMAT.JSON, options);
+/** The entry list of a `show --json` document as the packaged executable wrote it. */
+export function parseContextEntries(output: string): readonly SpecContextEntry[] {
+  return parseSpecContextEntriesJson(output);
 }
 
-/** The message the context command rejects with, or `undefined` when it succeeds; the test owns every predicate over it. */
-export function contextCommandFailure(options: ContextOptions): Promise<string | undefined> {
-  return contextCommand(options).then(
-    () => undefined,
-    (error: unknown) => (error instanceof Error ? error.message : String(error)),
+/** The `list` handler's resolution: the manifest or the typed target failure, for the test to judge. */
+export function contextList(options: ContextOptions): Promise<SpecContextManifestResolution> {
+  return resolveContextManifest(options);
+}
+
+function unresolvedContextError(
+  resolution: { readonly ok: false; readonly failure: Parameters<typeof formatSpecContextTargetFailure>[0] },
+): Error {
+  return new Error(String(formatSpecContextTargetFailure(resolution.failure)));
+}
+
+/** The resolved manifest of a `list` invocation the test expects to succeed; an unresolved target is a setup error. */
+export async function contextListManifest(options: ContextOptions): Promise<SpecContextManifest> {
+  const resolution = await contextList(options);
+  if (!resolution.ok) throw unresolvedContextError(resolution);
+  return resolution.manifest;
+}
+
+/** The exact JSON text the `list --json` command writes, without the trailing newline. */
+export async function contextListJson(options: ContextOptions): Promise<string> {
+  return String(renderSpecContextJson(await contextListManifest(options)));
+}
+
+/** The exact text the `list` command writes, without the trailing newline. */
+export async function contextListText(options: ContextOptions): Promise<string> {
+  return String(renderSpecContextText(await contextListManifest(options)));
+}
+
+/** The `show` handler's result: the entry stream or the typed target failure, for the test to judge. */
+export function contextShow(options: ContextShowOptions): Promise<ContextShowResult> {
+  return resolveContextShow(options);
+}
+
+/** The entries of a `show` invocation the test expects to succeed; an unresolved target is a setup error. */
+export async function contextShowEntries(options: ContextShowOptions): Promise<readonly SpecContextEntry[]> {
+  const result = await contextShow(options);
+  if (!result.ok) throw unresolvedContextError(result);
+  return result.entries;
+}
+
+/** The exact text the `show` command relays, without the trailing newline. */
+export async function contextShowText(options: ContextShowOptions): Promise<string> {
+  return renderSpecContextEntries(await contextShowEntries(options));
+}
+
+/** The exact JSON text the `show --json` command writes, without the trailing newline. */
+export async function contextShowJson(options: ContextShowOptions): Promise<string> {
+  return String(renderSpecContextEntriesJson(await contextShowEntries(options)));
+}
+
+/** Everything one in-process run of the spec descriptor wrote, for the test to judge. */
+export interface SpecDescriptorRun {
+  /** Every byte the invocation wrote to standard output — composed and relayed alike — in write order. */
+  readonly stdout: string;
+  readonly stderr: string;
+  /** The exit code the invocation set or exited with; `undefined` when it set none. */
+  readonly exitCode: number | undefined;
+  /** The Commander error that ended the parse before any handler ran, if one did. */
+  readonly parseError: CommanderError | undefined;
+}
+
+/** The descriptor's own exit request, raised so a handler that exits stops where the process would. */
+class SpecDescriptorExit extends Error {
+  constructor(readonly exitCode: number) {
+    super(`The spec descriptor exited with ${exitCode}`);
+  }
+}
+
+/** The directories one descriptor run resolves against; the invocation directory defaults to the product root. */
+export interface SpecDescriptorContext {
+  readonly productDir: string;
+  readonly invocationDir?: string;
+  readonly methodologyTreeRoot?: string;
+}
+
+function createSpecDescriptorProgram(
+  context: SpecDescriptorContext,
+  record: { stdout: (output: string) => void; stderr: (output: string) => void; exitCode: (code: number) => void },
+): Command {
+  const program = new Command().exitOverride().configureOutput({ writeOut: record.stdout, writeErr: record.stderr });
+  const invocationDir = context.invocationDir ?? context.productDir;
+  specDomain.register(program, {
+    io: {
+      writeStdout: record.stdout,
+      writeStderr: record.stderr,
+      writePassThrough: record.stdout,
+      writePassThroughError: record.stderr,
+      setExitCode: record.exitCode,
+      exit: (exitCode: number): never => {
+        throw new SpecDescriptorExit(exitCode);
+      },
+    },
+    ...(context.methodologyTreeRoot === undefined ? {} : { methodologyTreeRoot: context.methodologyTreeRoot }),
+    resolveEffectiveInvocationDir: () => invocationDir,
+    resolveProductContext: () => ({ effectiveInvocationDir: invocationDir, productDir: context.productDir }),
+  });
+  return program;
+}
+
+/**
+ * Runs `argv` through the real spec descriptor registered on a fresh
+ * Commander program, with recording streams in place of the process streams.
+ * The descriptor, its option surface, and the handlers it calls all run for
+ * real; only the process boundary is replaced by observations.
+ */
+export async function runSpecDescriptor(
+  context: SpecDescriptorContext,
+  ...argv: readonly string[]
+): Promise<SpecDescriptorRun> {
+  let stdout = "";
+  let stderr = "";
+  let exitCode: number | undefined;
+  let parseError: CommanderError | undefined;
+  const program = createSpecDescriptorProgram(context, {
+    stdout: (output) => {
+      stdout += output;
+    },
+    stderr: (output) => {
+      stderr += output;
+    },
+    exitCode: (code) => {
+      exitCode = code;
+    },
+  });
+  try {
+    await program.parseAsync([...argv], { from: SPX_COMMANDER_PARSE_SOURCE });
+  } catch (error: unknown) {
+    if (error instanceof SpecDescriptorExit) exitCode = error.exitCode;
+    else if (error instanceof CommanderError) {
+      parseError = error;
+      exitCode = error.exitCode;
+    } else throw error;
+  }
+  return { stdout, stderr, exitCode, parseError };
+}
+
+/**
+ * The long option flags the real spec descriptor registers on the command
+ * reached by `commandPath` — command words in invocation order — in
+ * declaration order. The test owns every predicate over them.
+ */
+export function specDescriptorOptionFlags(commandPath: readonly string[]): readonly string[] {
+  const noop = (): void => undefined;
+  const program = createSpecDescriptorProgram({ productDir: process.cwd() }, {
+    stdout: noop,
+    stderr: noop,
+    exitCode: noop,
+  });
+  const command = commandPath.reduce<Command | undefined>(
+    (parent, name) => parent?.commands.find((child) => child.name() === name),
+    program,
+  );
+  if (command === undefined) {
+    throw new Error(`Expected the spec descriptor to register ${commandPath.join(" ")}`);
+  }
+  return command.options.flatMap((option) => option.long === undefined ? [] : [option.long]);
+}
+
+/**
+ * The diagnostic a failing invocation produces — the rendered target failure
+ * or the thrown error's message — and `undefined` when the invocation
+ * succeeds. The test owns every predicate over it.
+ */
+async function contextFailure(
+  invoke: () => Promise<
+    { readonly ok: boolean } & Partial<{ readonly failure: Parameters<typeof formatSpecContextTargetFailure>[0] }>
+  >,
+): Promise<string | undefined> {
+  try {
+    const result = await invoke();
+    if (result.ok || result.failure === undefined) return undefined;
+    return String(formatSpecContextTargetFailure(result.failure));
+  } catch (error: unknown) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
+export function contextListFailure(options: ContextOptions): Promise<string | undefined> {
+  return contextFailure(() => contextList(options));
+}
+
+export function contextShowFailure(options: ContextShowOptions): Promise<string | undefined> {
+  return contextFailure(() => contextShow(options));
+}
+
+/** Paths of the document entries in a `show` stream, in stream order. */
+export function documentPaths(entries: readonly SpecContextEntry[]): readonly string[] {
+  return entries.flatMap((entry) => entry.type === SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT ? [entry.path] : []);
+}
+
+/** Paths of the reference entries in a `show` stream, in stream order. */
+export function referencePaths(entries: readonly SpecContextEntry[]): readonly string[] {
+  return entries.flatMap((entry) => entry.type === SPEC_CONTEXT_ENTRY_TYPE.REFERENCE ? [entry.path] : []);
+}
+
+/** Paths of every entry in a `show` stream, in stream order. */
+export function entryPaths(entries: readonly SpecContextEntry[]): readonly string[] {
+  return entries.map((entry) => entry.path);
+}
+
+/** The document entry at `path`, or `undefined` when the stream carries none. */
+export function documentAt(
+  entries: readonly SpecContextEntry[],
+  path: string,
+): SpecContextDocumentEntry | undefined {
+  return entries.find((entry): entry is SpecContextDocumentEntry =>
+    entry.type === SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT && entry.path === path
   );
 }
 
-export function contextTextCommand(options: ContextOptions): Promise<string> {
-  return contextOutputForFormat(SPEC_CONTEXT_OUTPUT_FORMAT.TEXT, options);
+/**
+ * Makes the product directory a git repository whose index tracks the whole
+ * `spx/` tree, so root resolution from a nested invocation directory and
+ * tracked-path scoping both run through real git rather than the no-git
+ * fallback that treats the invocation directory as the product root.
+ */
+export async function trackSpecTreeInGit(env: CurrentSpecTreeEnv): Promise<void> {
+  await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+  await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.ADD, SPEC_TREE_CONFIG.ROOT_DIRECTORY]);
 }
 
-export function trackedSpecContextGitDependencies(
-  productDir: string,
-  trackedPaths: readonly string[],
-): GitDependencies {
-  return {
-    execa: async (command, args) => {
-      if (
-        command === GIT_ROOT_COMMAND.EXECUTABLE
-        && args.includes(GIT_ROOT_COMMAND.REV_PARSE)
-        && args.includes(GIT_ROOT_COMMAND.SHOW_TOPLEVEL)
-      ) {
-        return { exitCode: 0, stdout: productDir, stderr: "" };
-      }
-      if (command === GIT_ROOT_COMMAND.EXECUTABLE && args.includes("ls-files")) {
-        return { exitCode: 0, stdout: trackedPaths.join(TRACKED_PATH_NUL_SEPARATOR), stderr: "" };
-      }
-      return { exitCode: 128, stdout: "", stderr: "" };
-    },
-  };
-}
+/**
+ * The bundled guard module text, built once per test process. The guard
+ * source does not change while a test process runs, so rebuilding it for every
+ * isolated invocation only repeats a bundler run per CLI call; each isolation
+ * directory still receives its own copy of the identical module.
+ */
+let specCliNetworkGuardBundle: Promise<string> | undefined;
 
-export async function rejectedContextMessage(target: string, productDir: string): Promise<string> {
-  try {
-    await contextCommand({ targets: [target], cwd: productDir });
-  } catch (error) {
-    return error instanceof Error ? error.message : String(error);
-  }
-  throw new Error(`Expected spec context target to be rejected: ${target}`);
-}
-
-async function buildSpecCliNetworkGuard(isolationDir: string): Promise<string> {
+async function bundleSpecCliNetworkGuard(isolationDir: string): Promise<string> {
   await build({
     bundle: true,
     clean: false,
@@ -112,7 +317,24 @@ async function buildSpecCliNetworkGuard(isolationDir: string): Promise<string> {
     splitting: false,
     target: "node24",
   });
-  return pathToFileURL(join(isolationDir, SPEC_CLI_ISOLATION.NETWORK_GUARD_MODULE)).href;
+  return readFile(join(isolationDir, SPEC_CLI_ISOLATION.NETWORK_GUARD_MODULE), "utf8");
+}
+
+async function buildSpecCliNetworkGuard(isolationDir: string): Promise<string> {
+  const modulePath = join(isolationDir, SPEC_CLI_ISOLATION.NETWORK_GUARD_MODULE);
+  if (specCliNetworkGuardBundle === undefined) {
+    const bundle = bundleSpecCliNetworkGuard(isolationDir);
+    specCliNetworkGuardBundle = bundle;
+    try {
+      await bundle;
+    } catch (error) {
+      specCliNetworkGuardBundle = undefined;
+      throw error;
+    }
+  } else {
+    await writeFile(modulePath, await specCliNetworkGuardBundle);
+  }
+  return pathToFileURL(modulePath).href;
 }
 
 export async function runSpecCli(productDir: string, ...args: readonly string[]) {
@@ -270,7 +492,14 @@ export async function installSpecCliProductConfigFixture(
   );
 }
 
-export const METHODOLOGY_FIXTURE_VERSION = "4.0.0";
+/**
+ * The exact methodology version every context fixture declares, drawn once
+ * from the accepted-form generator with the line its construction derives.
+ */
+export const METHODOLOGY_FIXTURE_IDENTITY: GeneratedMethodologyVersion = sampleGeneratedValue(
+  arbitraryMethodologyVersion(),
+);
+export const METHODOLOGY_FIXTURE_VERSION = METHODOLOGY_FIXTURE_IDENTITY.text;
 
 export function specTreeKindsConfig(): Config {
   return {
@@ -285,182 +514,135 @@ export function specTreeKindsConfig(): Config {
   };
 }
 
-/** The tree-rooted form of a node id or tree-relative artifact path, projected from the grammar. */
-export function rootedSpecPath(relativePath: string): string {
-  return `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}${relativePath}`;
-}
-
-export function readPaths(manifest: SpecContextManifest): readonly string[] {
-  return manifest.read.map((document) => document.path);
-}
-
-export function listedPaths(manifest: SpecContextManifest): readonly string[] {
-  return manifest.listed.map((entry) => entry.path);
-}
-
+/** Every manifest entry's path, in manifest order. */
 export function allManifestPaths(manifest: SpecContextManifest): readonly string[] {
-  return [...readPaths(manifest), ...listedPaths(manifest)];
+  return manifest.entries.map((entry) => entry.path);
 }
 
-/** Read-document paths carrying `role` for any target, in manifest order. */
-export function readPathsForRole(manifest: SpecContextManifest, role: SpecContextReadRole): readonly string[] {
-  return manifest.read
-    .filter((document) => document.roles.some((binding) => binding.role === role))
-    .map((document) => document.path);
+/** The manifest entry at `path`, or none when the manifest carries no entry there. */
+export function manifestEntryAt(
+  manifest: SpecContextManifest,
+  path: string,
+): SpecContextManifestEntry | undefined {
+  return manifest.entries.find((entry) => entry.path === path);
 }
 
-/** Listed-entry paths carrying `role` for any target, in manifest order. */
-export function listedPathsForRole(manifest: SpecContextManifest, role: SpecContextListedRole): readonly string[] {
-  return manifest.listed
-    .filter((entry) => entry.roles.some((binding) => binding.role === role))
+/** Paths of the entries any requested target selects for `reason`, in manifest order. */
+export function manifestPathsForReason(
+  manifest: SpecContextManifest,
+  reason: SpecContextSelectionReason,
+): readonly string[] {
+  return manifest.entries
+    .filter((entry) => entry.selections.some((selection) => selection.reason === reason))
     .map((entry) => entry.path);
 }
 
 /**
- * A name pair whose code-unit order is the opposite of its locale order,
- * proven by an in-process divergence check: distinct leading letters — never
- * a case-only difference, which collides on case-insensitive filesystems —
- * where "Z" precedes "a" by code units while locale collation orders "a"
- * before "Z". Shared by every ordering assertion so a locale-aware comparator
- * at any manifest ordering site fails a test instead of varying by host.
+ * Materializes the fixture and writes `body` as the product spec and the
+ * first decision, returning both paths; the caller owns the body it supplies.
  */
-export function divergentOrderSlugPair(): { readonly codeUnitFirst: string; readonly localeFirst: string } {
-  const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-  const codeUnitFirst = `Z${slug}`;
-  const localeFirst = `a${slug}`;
-  if (!(codeUnitFirst < localeFirst) || codeUnitFirst.localeCompare(localeFirst) <= 0) {
-    throw new Error("Expected a slug pair whose code-unit order diverges from its locale order");
+export async function writeProductAndDecisionBody(
+  env: CurrentSpecTreeEnv,
+  body: string,
+): Promise<{ readonly productPath: string; readonly decisionPath: string }> {
+  await env.materialize();
+  const snapshot = await env.readFilesystemSnapshot();
+  const productPath = snapshot.product?.ref?.path;
+  const decisionPath = snapshot.decisions[0]?.ref?.path;
+  if (productPath === undefined || decisionPath === undefined) {
+    throw new Error("Expected the fixture to expose a product spec and a decision");
   }
-  return { codeUnitFirst, localeFirst };
-}
-
-/** Paths for the fully populated context fixture `withRichContextEnv` materializes. */
-export interface RichContextPaths {
-  readonly targetId: string;
-  readonly rootDirectory: string;
-  readonly productPath: string;
-  readonly rootSpecPath: string;
-  readonly targetSpecPath: string;
-  readonly ancestorDecisionPath: string;
-  readonly higherAncestorDecisionPath: string;
-  readonly higherProductDecisionPath: string;
-  readonly lowerSiblingSpecPath: string;
-  readonly citedDecisionPath: string;
-  readonly transitiveCitedDecisionPath: string;
-  readonly evidencePath: string;
-  readonly rootPlanPath: string;
-  readonly rootIssuesPath: string;
-  readonly ancestorPlanPath: string;
-  readonly targetIssuesPath: string;
-  /**
-   * Exact text written to the target ISSUES note; carries a leading byte-order
-   * mark and multi-byte UTF-8 so BOM stripping or a wrong-encoding decode is
-   * caught.
-   */
-  readonly targetIssuesText: string;
-  readonly rootGuidePaths: readonly string[];
-  readonly ancestorGuidePath: string;
-  readonly lifecycleOverlayPath: string;
-  readonly listedOverlayPath: string;
-  readonly sameIndexSiblingPath: string;
-  readonly sameIndexSiblingSpecPath: string;
-  readonly higherIndexSiblingPath: string;
+  await env.writeRaw(productPath, body);
+  await env.writeRaw(decisionPath, body);
+  return { productPath, decisionPath };
 }
 
 /**
- * Materializes a spec tree exercising every manifest role at once: nested
- * target with ancestor, decisions above and below the constraining order,
- * a lower-index sibling that also cites the shared decision (multi-citer
- * provenance), coordination notes at the product root, the ancestor, and the
- * target, runtime guides at the product root and along the node path, both
- * overlay classes, co-located evidence, and a transitive cited-decision chain
- * rooted in the target spec. The product-root PLAN note embeds a
- * citation-shaped path to a decision that does not exist, proving
- * coordination notes never bind citations. The root node directory is a
- * second resolvable target sharing the product spec, the root spec, and the
- * ancestor decision with the nested target, so multi-target composition
- * exercises real shared documents.
+ * Materializes a generated rich-context scenario — the representative fixture
+ * plus every file the scenario declares — and hands the callback the
+ * environment and the scenario's paths. The scenario is pure generated data;
+ * this harness owns only its materialization and the temp-directory lifecycle.
  */
 export async function withRichContextEnv(
   callback: (env: CurrentSpecTreeEnv, paths: RichContextPaths) => Promise<void>,
+  scenario: RichContextScenario = sampleRichContextScenario(),
 ): Promise<void> {
   await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
     await env.materialize();
-    const fixture = env.fixture;
-    const rootDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root);
-    const childDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.child);
-    const peerDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.peer);
-    const targetId = `${rootDirectory}/${childDirectory}`;
-    const decisionSuffix = KIND_REGISTRY[fixture.decision.kind].suffix;
     const snapshot = await env.readFilesystemSnapshot();
-    const productPath = snapshot.product?.ref?.path;
-    if (productPath === undefined) {
-      throw new Error("Expected the materialized fixture to expose a product spec path");
+    if (snapshot.product?.ref?.path !== scenario.paths.productPath) {
+      throw new Error("Expected the materialized fixture to expose the scenario's product spec path");
     }
+    for (const [path, text] of Object.entries(scenario.files)) await env.writeRaw(path, text);
+    await callback(env, scenario.paths);
+  }, { fixture: scenario.fixture });
+}
 
-    const paths: RichContextPaths = {
-      targetId,
-      rootDirectory,
-      productPath,
-      rootSpecPath: `spx/${rootDirectory}/${fixture.root.slug}.md`,
-      targetSpecPath: `spx/${targetId}/${fixture.child.slug}.md`,
-      ancestorDecisionPath: `spx/${rootDirectory}/${fixture.decision.order}-${fixture.decision.slug}${decisionSuffix}`,
-      higherAncestorDecisionPath:
-        `spx/${rootDirectory}/${fixture.peer.order}-${fixture.decision.slug}${decisionSuffix}`,
-      higherProductDecisionPath: `spx/${fixture.peer.order}-${fixture.decision.slug}${decisionSuffix}`,
-      lowerSiblingSpecPath: `spx/${lowerSiblingDirectoryName(fixture)}/${fixture.root.slug}.md`,
-      citedDecisionPath:
-        `spx/${peerDirectory}/${fixture.decision.order}-${fixture.decision.slug}-cited${decisionSuffix}`,
-      transitiveCitedDecisionPath:
-        `spx/${peerDirectory}/${fixture.peer.order}-${fixture.decision.slug}-transitive${decisionSuffix}`,
-      evidencePath: `spx/${targetId}/tests/${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.evidenceFileName())}`,
-      rootPlanPath: `spx/${SPEC_TREE_GRAMMAR.COORDINATION_NOTES[0]}`,
-      rootIssuesPath: `spx/${SPEC_TREE_GRAMMAR.COORDINATION_NOTES[1]}`,
-      ancestorPlanPath: `spx/${rootDirectory}/${SPEC_TREE_GRAMMAR.COORDINATION_NOTES[0]}`,
-      targetIssuesPath: `spx/${targetId}/${SPEC_TREE_GRAMMAR.COORDINATION_NOTES[1]}`,
-      targetIssuesText: "\uFEFF# Target issues — Prüfung ✓ 文脈\n",
-      rootGuidePaths: SPEC_TREE_GRAMMAR.GUIDE_FILES.map((filename) => filename),
-      ancestorGuidePath: `spx/${rootDirectory}/${SPEC_TREE_GRAMMAR.GUIDE_FILES[0]}`,
-      lifecycleOverlayPath: SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
-      listedOverlayPath: `spx/${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.DIRECTORY_NAME}/${
-        sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug())
-      }${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.EXTENSION}`,
-      sameIndexSiblingPath: `spx/${sameIndexSiblingDirectoryName(env.fixture)}`,
-      sameIndexSiblingSpecPath: `spx/${sameIndexSiblingDirectoryName(env.fixture)}/${fixture.root.slug}-same.md`,
-      higherIndexSiblingPath: `spx/${peerDirectory}`,
-    };
-
-    await env.writeRaw(paths.targetSpecPath, `# ${fixture.child.slug}\n\nGoverned by ${paths.citedDecisionPath}\n`);
-    await env.writeRaw(
-      paths.citedDecisionPath,
-      `# Cited decision\n\nRefines ${paths.transitiveCitedDecisionPath}\n`,
-    );
-    await env.writeRaw(paths.transitiveCitedDecisionPath, "# Transitive cited decision\n");
-    await env.writeRaw(
-      paths.lowerSiblingSpecPath,
-      `# Lower sibling\n\nAlso governed by ${paths.citedDecisionPath}\n`,
-    );
-    await env.writeRaw(paths.higherAncestorDecisionPath, "# Higher ancestor decision\n");
-    await env.writeRaw(paths.higherProductDecisionPath, "# Higher product decision\n");
-    await env.writeRaw(paths.evidencePath, "import { describe, it } from \"vitest\";\n");
-    await env.writeRaw(paths.rootPlanPath, "# Plan\n\nMentions spx/99-unscanned.pdr.md without binding it.\n");
-    await env.writeRaw(paths.rootIssuesPath, "# Issues\n");
-    await env.writeRaw(paths.ancestorPlanPath, "# Ancestor plan\n");
-    await env.writeRaw(paths.targetIssuesPath, paths.targetIssuesText);
-    for (const guidePath of paths.rootGuidePaths) {
-      await env.writeRaw(guidePath, "# Guide\n");
+/**
+ * Hands the callback an environment whose `spx/` directory exists and holds
+ * nothing: no product spec, no node, and no decision. The callback receives
+ * the environment unmaterialized; this harness owns only creating the empty
+ * tree directory and confirming the snapshot sees none of the three.
+ */
+export async function withEmptyContextTreeEnv(
+  config: Config,
+  callback: (env: CurrentSpecTreeEnv) => Promise<void>,
+): Promise<void> {
+  await withSpecTreeEnv(config, async (env) => {
+    await mkdir(join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY), { recursive: true });
+    const snapshot = await env.readFilesystemSnapshot();
+    if (snapshot.product?.ref !== undefined || snapshot.allNodes.length > 0 || snapshot.decisions.length > 0) {
+      throw new Error("Expected the empty tree to expose no product spec, node, or decision");
     }
-    await env.writeRaw(paths.ancestorGuidePath, "# Ancestor guide\n");
-    await env.writeRaw(paths.lifecycleOverlayPath, "# Lifecycle overlay\n");
-    await env.writeRaw(paths.listedOverlayPath, "# Listed overlay\n");
-    await env.writeRaw(paths.sameIndexSiblingSpecPath, "# Same sibling\n");
-
-    await callback(env, paths);
+    await callback(env);
   });
 }
 
-/** Filename of the escape-target fixture a containment scenario writes outside the probed boundary. */
-export const SPEC_CONTEXT_ESCAPE_TARGET_FILENAME = "outside-secret.md";
+/** The paths a product-spec-less tree carries: the fixture's root node target and the product-root decision beside it. */
+export interface ProductlessContextTreePaths {
+  readonly nodeTargetPath: string;
+  readonly rootDecisionPath: string;
+}
+
+/**
+ * Hands the callback an environment whose `spx/` directory holds the
+ * representative fixture's nodes and a product-root decision but no product
+ * spec. The harness materializes the fixture, copies the fixture decision's
+ * own text to the product-root decision path, removes the product spec, and
+ * confirms the snapshot sees nodes and that root decision with no product
+ * spec; the callback owns every predicate.
+ */
+export async function withProductlessContextTreeEnv(
+  config: Config,
+  callback: (env: CurrentSpecTreeEnv, paths: ProductlessContextTreePaths) => Promise<void>,
+): Promise<void> {
+  await withSpecTreeEnv(config, async (env) => {
+    await env.materialize();
+    const documents = specContextFixtureDocuments(env.fixture);
+    const rootDecisionPath = specContextRootDecisionPath(env.fixture, env.fixture.decision.kind);
+    await env.writeRaw(rootDecisionPath, await env.readFile(documents.nodeDecisionPath));
+    await rm(join(env.productDir, documents.productSpecPath));
+    const snapshot = await env.readFilesystemSnapshot();
+    if (
+      snapshot.product?.ref !== undefined || snapshot.allNodes.length === 0
+      || !snapshot.decisions.some((decision) => decision.ref?.path === rootDecisionPath)
+    ) {
+      throw new Error("Expected the productless tree to expose nodes and a root decision with no product spec");
+    }
+    await callback(env, { nodeTargetPath: documents.rootTargetPath, rootDecisionPath });
+  });
+}
+
+const OUTSIDE_PRODUCT_DIRECTORY_PREFIX = "spx-context-outside-";
+
+/**
+ * A directory outside every product directory, removed after the callback,
+ * for the containment cases that point an operand or a symbolic link past
+ * the product root.
+ */
+export function withOutsideProductDir<T>(callback: (outsideDir: string) => Promise<T>): Promise<T> {
+  return withTempDir(OUTSIDE_PRODUCT_DIRECTORY_PREFIX, callback);
+}
 
 /** The materialized shipped-tree fixture: locations and exact resource text. */
 export interface MethodologyTreeFixture {
@@ -476,10 +658,16 @@ export interface MethodologyTreeFixture {
   readonly manifestPath: string;
   /** Plugin-relative path of the core foundation document. */
   readonly corePath: string;
-  /** Exact text written to the core foundation document; multi-byte content catches decode defects. */
+  /** Exact text written to the named coding agent's core foundation document; multi-byte content catches decode defects. */
   readonly coreText: string;
+  /** Exact core text per coding agent the line ships; each agent's text is distinct unless `coreText` overrides it. */
+  readonly coreTexts: Readonly<Record<string, string>>;
   /** Plugin-relative catalog paths in manifest order: references, templates, examples. */
   readonly catalogPaths: readonly string[];
+  /** Exact text written to each catalog resource, keyed by its plugin-relative path. */
+  readonly catalogTexts: Readonly<Record<string, string>>;
+  /** Absolute path of the directory standing in for spx's package root, which holds `treeRoot`. */
+  readonly packageRoot: string;
 }
 
 export const METHODOLOGY_FIXTURE_CODING_AGENT = METHODOLOGY_CODING_AGENT.CLAUDE;
@@ -515,21 +703,26 @@ export async function writeMethodologyTree(
   overrides?: {
     readonly coreText?: string;
     readonly schemaVersion?: number;
-    readonly version?: string;
+    /** The declared version with the line its generator derived; the tree lands under that line. */
+    readonly version?: GeneratedMethodologyVersion;
     /** The coding agents the line ships the same tree for; the fixture names the first. */
     readonly codingAgents?: readonly string[];
     /** A source record written beside the line, the shape the fetch records. */
     readonly sourceRecord?: MethodologySourceRecord;
+    /** The generated slug naming the fixture's skill resources; drawn when the caller supplies none. */
+    readonly slug?: string;
   },
 ): Promise<MethodologyTreeFixture> {
-  const line = methodologyLine(overrides?.version ?? METHODOLOGY_FIXTURE_VERSION);
-  if (!line.ok) throw new Error(line.error);
-  const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+  // The line comes from the generator's construction, never from the
+  // production parser the tests judge, so a wrong parse cannot land the
+  // fixture where production then finds it.
+  const line = { value: (overrides?.version ?? METHODOLOGY_FIXTURE_IDENTITY).line };
+  const slug = overrides?.slug ?? sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
   const corePath = `skills/${slug}/SKILL.md`;
   const referencePath = `skills/${slug}/references/${slug}-reference.md`;
   const templatePath = `skills/${slug}/templates/${slug}-template.md`;
   const examplePath = `skills/${slug}/examples/${slug}-example.md`;
-  const coreText = overrides?.coreText ?? `# Foundation — Grundlagen ✓ 基盤 ${slug}\n`;
+  const baseCoreText = `# Foundation — Grundlagen ✓ 基盤 ${slug}\n`;
   const manifest = {
     [FOUNDATION_MANIFEST_FIELDS.SCHEMA_VERSION]: overrides?.schemaVersion ?? FOUNDATION_MANIFEST_SCHEMA_VERSION,
     [FOUNDATION_MANIFEST_FIELDS.CORE]: corePath,
@@ -537,20 +730,25 @@ export async function writeMethodologyTree(
     [FOUNDATION_MANIFEST_FIELDS.TEMPLATES]: [templatePath],
     [FOUNDATION_MANIFEST_FIELDS.EXAMPLES]: [examplePath],
   };
+  const catalogPaths = [referencePath, templatePath, examplePath];
+  const catalogTexts = Object.fromEntries(catalogPaths.map((path) => [path, `# Catalog resource ${path}\n`]));
   const treeRoot = methodologyFixtureTreeRoot(env);
   const codingAgents = overrides?.codingAgents ?? [METHODOLOGY_FIXTURE_CODING_AGENT];
   const codingAgent = codingAgents.at(0);
   if (codingAgent === undefined) throw new Error("a methodology tree fixture names at least one coding agent");
+  const coreTexts = Object.fromEntries(
+    codingAgents.map((agent) => [agent, overrides?.coreText ?? `${baseCoreText}${agent}\n`]),
+  );
   for (const agent of codingAgents) {
     const agentTreeDir = join(treeRoot, line.value, agent, FOUNDATION_PLUGIN_NAME);
     const agentManifestPath = join(agentTreeDir, FOUNDATION_MANIFEST_RELATIVE_PATH);
     await mkdir(join(agentManifestPath, ".."), { recursive: true });
     await writeFile(agentManifestPath, JSON.stringify(manifest));
     await mkdir(join(agentTreeDir, corePath, ".."), { recursive: true });
-    await writeFile(join(agentTreeDir, corePath), coreText);
-    for (const catalogPath of [referencePath, templatePath, examplePath]) {
+    await writeFile(join(agentTreeDir, corePath), coreTexts[agent] ?? baseCoreText);
+    for (const catalogPath of catalogPaths) {
       await mkdir(join(agentTreeDir, catalogPath, ".."), { recursive: true });
-      await writeFile(join(agentTreeDir, catalogPath), `# Catalog resource\n`);
+      await writeFile(join(agentTreeDir, catalogPath), catalogTexts[catalogPath] ?? "");
     }
   }
   if (overrides?.sourceRecord !== undefined) {
@@ -568,7 +766,10 @@ export async function writeMethodologyTree(
     treeDir,
     manifestPath,
     corePath,
-    coreText,
-    catalogPaths: [referencePath, templatePath, examplePath],
+    coreText: coreTexts[codingAgent] ?? baseCoreText,
+    coreTexts,
+    catalogTexts,
+    packageRoot: dirname(treeRoot),
+    catalogPaths,
   };
 }
