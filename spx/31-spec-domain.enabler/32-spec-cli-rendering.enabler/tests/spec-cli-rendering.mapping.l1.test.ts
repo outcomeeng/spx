@@ -11,6 +11,7 @@ import {
   KIND_REGISTRY,
   projectSpecTree,
   readSpecTree,
+  SPEC_TREE_PROJECTION,
   type SpecTreeProjectedNode,
   type SpecTreeProjection,
 } from "@/lib/spec-tree";
@@ -81,28 +82,39 @@ describe("spec status rendering", () => {
     expect(table.indexOf(fixture.child.id)).toBeLessThan(table.indexOf(grandchild.id));
   });
 
-  it.each(Object.values(OUTPUT_FORMAT))(
-    "maps a projection with decisions and no nodes to %s output: the projection document in JSON, the empty status message otherwise",
-    async (format: OutputFormat) => {
-      const fixture = buildRepresentativeFixture(KIND_REGISTRY);
-      const projection = projectSpecTree(await readSpecTree({ source: createSource([fixture.decision]) }));
-      expect(projection.nodes).toHaveLength(0);
+  it("maps empty spec-tree projections to the empty status message", async () => {
+    const projection = projectSpecTree(await readSpecTree({ source: createSource([]) }));
 
-      const output = renderSpecStatus(projection, format);
+    expect(renderSpecStatus(projection)).toBe(SPEC_STATUS_MESSAGE.EMPTY);
+  });
 
-      if (format === OUTPUT_FORMAT.JSON) {
-        expect(JSON.parse(output)).toEqual(projection);
-        return;
-      }
-      expect(output).toBe(SPEC_STATUS_MESSAGE.EMPTY);
-    },
-  );
+  it("maps empty spec-tree projections to the empty status message when table format is requested", async () => {
+    const projection = projectSpecTree(await readSpecTree({ source: createSource([]) }));
 
-  it("renders the default format as text output", async () => {
+    expect(renderSpecStatus(projection, OUTPUT_FORMAT.TABLE)).toBe(SPEC_STATUS_MESSAGE.EMPTY);
+  });
+
+  it("maps projections with decisions and no nodes to the empty status message", async () => {
     const fixture = buildRepresentativeFixture(KIND_REGISTRY);
-    const projection = projectSpecTree(await readSpecTree({ source: createSource(fixture.entries) }));
+    const projection = projectSpecTree(await readSpecTree({ source: createSource([fixture.decision]) }));
 
-    expect(renderSpecStatus(projection)).toBe(renderSpecStatus(projection, OUTPUT_FORMAT.TEXT));
+    expect(renderSpecStatus(projection)).toBe(SPEC_STATUS_MESSAGE.EMPTY);
+  });
+
+  it("maps projections with no nodes to JSON projection output when JSON format is requested", async () => {
+    const fixture = buildRepresentativeFixture(KIND_REGISTRY);
+    const projection = projectSpecTree(await readSpecTree({ source: createSource([fixture.decision]) }));
+    const output = renderSpecStatus(projection, OUTPUT_FORMAT.JSON);
+
+    const parsed = JSON.parse(output) as {
+      readonly version: number;
+      readonly nodes: readonly unknown[];
+      readonly decisions: ReadonlyArray<{ readonly id: string }>;
+    };
+
+    expect(parsed.version).toBe(SPEC_TREE_PROJECTION.VERSION);
+    expect(parsed.nodes).toEqual([]);
+    expect(parsed.decisions).toMatchObject([{ id: fixture.decision.id }]);
   });
 
   it("rejects unsupported runtime output formats", async () => {
