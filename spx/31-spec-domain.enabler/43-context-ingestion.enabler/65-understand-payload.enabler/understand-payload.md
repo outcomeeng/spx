@@ -21,7 +21,7 @@ CAN load the methodology foundation and requested product context through one de
 
 ### Mappings
 
-- `--coding-agent <name>` selects the coding agent; without it, an established `CODEX_THREAD_ID` marker selects Codex, and otherwise an established `CLAUDE_SESSION_ID` or `CLAUDE_ENV_FILE` marker selects Claude, in the precedence `spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/21-methodology-source.adr.md` declares; with no marker established, the single coding agent shipped for the line is selected, and several remaining agents fail as ambiguous. ([test](tests/understand-payload.mapping.l1.test.ts))
+- `--coding-agent <name>` selects the coding agent; without it, an established `CODEX_THREAD_ID` marker selects Codex, and otherwise an established `CLAUDE_SESSION_ID` or `CLAUDE_ENV_FILE` marker selects Claude, in the precedence [spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/21-methodology-source.adr.md](spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/21-methodology-source.adr.md) declares; with no marker established, the single coding agent shipped for the line is selected, and several remaining agents fail as ambiguous. ([test](tests/understand-payload.mapping.l1.test.ts))
 - The packaged executable reads the `CODEX_THREAD_ID`, `CLAUDE_SESSION_ID`, and `CLAUDE_ENV_FILE` markers from its invoking process environment and maps them, with `--coding-agent <name>`, to the coding agent that precedence selects. ([test](tests/understand-payload.mapping.l2.test.ts))
 
 ### Compliance
