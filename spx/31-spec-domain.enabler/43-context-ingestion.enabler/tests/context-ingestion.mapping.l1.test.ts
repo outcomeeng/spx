@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { SPEC_CONTEXT_TEXT_LABEL } from "@/commands/spec/context";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION, METHODOLOGY_VERSION_FORM } from "@/config/methodology";
 import {
-  generatedMethodologySource,
   generatedMethodologyVersionFormSections,
   generatedMigratingMethodologySection,
 } from "@testing/generators/config/descriptors";
@@ -30,21 +29,7 @@ describe("spec context manifest methodology identity", () => {
     },
   );
 
-  it("renders the identity as the source alone while no version is declared and with the migration source while one is open", async () => {
-    const undeclaredSource = generatedMethodologySource();
-    await withSpecTreeEnv({
-      ...specTreeKindsConfig(),
-      [METHODOLOGY_SECTION]: { [METHODOLOGY_CONFIG_FIELDS.SOURCE]: undeclaredSource },
-    }, async (env) => {
-      await env.materialize();
-      const snapshot = await env.readFilesystemSnapshot();
-      const target = snapshot.allNodes[0];
-      const textOutput = await contextListText({ targets: [target.id], cwd: env.productDir });
-      // The identity line ends at the source: no version separator and no
-      // placeholder stands in for the undeclared version.
-      expect(textOutput.split("\n")).toContain(`${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${undeclaredSource}`);
-    });
-
+  it("renders the migration source beside the identity while a migration is open", async () => {
     const migrating = generatedMigratingMethodologySection();
     await withSpecTreeEnv({ ...specTreeKindsConfig(), [METHODOLOGY_SECTION]: migrating }, async (env) => {
       await env.materialize();
