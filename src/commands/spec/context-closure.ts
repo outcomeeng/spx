@@ -117,7 +117,7 @@ async function existingSelections(
   targets: readonly SpecContextTarget[],
 ): Promise<readonly SpecContextSelection[]> {
   const result: SpecContextSelection[] = [];
-  for (const selection of selectSpecContextDocuments(input.snapshot, targets, input.existingPaths)) {
+  for (const selection of selectSpecContextDocuments(input.snapshot, targets, input.existingPaths, input.registry)) {
     if (selection.optional !== true || await input.hasDocument(selection.path)) result.push(selection);
   }
   return result;

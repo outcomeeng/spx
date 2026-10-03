@@ -94,17 +94,21 @@ export {
   SPEC_CONTEXT_FRAME_SYNTAX,
   SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR,
   SPEC_CONTEXT_OPTIONAL_ARTIFACT,
+  SPEC_CONTEXT_PROJECTION_FAILURE_KIND,
   SPEC_CONTEXT_SELECTED_METADATA_KEY,
   specContextBoundCitations,
   specContextCitedSelection,
   specContextInlineDecisionCitations,
   specContextOptionalArtifactPaths,
+  SpecContextProjectionError,
   splitSpecContextFrontMatter,
 } from "./context-projection";
 export type {
   SpecContextDocumentEntry,
   SpecContextEntry,
+  SpecContextKindRegistry,
   SpecContextProjectedEntry,
+  SpecContextProjectionFailureKind,
   SpecContextSelection,
 } from "./context-projection";
 export {

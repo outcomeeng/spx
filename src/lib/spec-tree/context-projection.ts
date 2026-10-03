@@ -3,7 +3,7 @@ import { posix } from "node:path";
 import MarkdownIt from "markdown-it";
 import { parseDocument, stringify } from "yaml";
 
-import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "./config";
+import { type NodeKind, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "./config";
 import {
   compareSpecContextOrdinal,
   SPEC_CONTEXT_MODE,
@@ -33,6 +33,38 @@ export type SpecContextDigest =
     readonly keyword: string | undefined;
   }
   | { readonly source: typeof SPEC_CONTEXT_DIGEST_SOURCE.DECISION_STATEMENT };
+
+/**
+ * The kind registry a projection is given: the opening each configured output
+ * node kind resolves, if any. A kind the registry omits, or one it declares
+ * without an opening, resolves no opening and cannot supply a Digest.
+ */
+export type SpecContextKindRegistry = {
+  readonly [K in NodeKind]?: { readonly opening?: string };
+};
+
+/** The ways a document's required Digest paragraph fails to resolve, each failing the whole projection. */
+export const SPEC_CONTEXT_PROJECTION_FAILURE_KIND = {
+  NO_DIGEST: "no-digest",
+  MISSING_DECISION_STATEMENT: "missing-decision-statement",
+  UNRESOLVED_KIND_OPENING: "unresolved-kind-opening",
+  MISSING_OPENING: "missing-opening",
+} as const;
+
+export type SpecContextProjectionFailureKind =
+  (typeof SPEC_CONTEXT_PROJECTION_FAILURE_KIND)[keyof typeof SPEC_CONTEXT_PROJECTION_FAILURE_KIND];
+
+/** A projection failure naming its kind and the document whose Digest could not be resolved. */
+export class SpecContextProjectionError extends Error {
+  constructor(
+    readonly kind: SpecContextProjectionFailureKind,
+    readonly path: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "SpecContextProjectionError";
+  }
+}
 
 const DECISION_STATEMENT_DIGEST: SpecContextDigest = { source: SPEC_CONTEXT_DIGEST_SOURCE.DECISION_STATEMENT };
 
@@ -119,10 +151,9 @@ function requiredDocumentPath(path: string | undefined, owner: string): string {
   return path;
 }
 
-/** The opening keyword the kind registry resolves for a node's kind, or none when the registry resolves none. */
-function resolvedKindOpening(node: SpecTreeNode): string | undefined {
-  const definition: { readonly opening?: string } = KIND_REGISTRY[node.kind];
-  return definition.opening;
+/** The opening keyword the given kind registry resolves for a node's kind, or none when it resolves none. */
+function resolvedKindOpening(node: SpecTreeNode, registry: SpecContextKindRegistry): string | undefined {
+  return registry[node.kind]?.opening;
 }
 
 /**
@@ -135,6 +166,7 @@ function nodeSelection(
   mode: SpecContextMode,
   reasons: readonly SpecContextTargetSelection[],
   existingPaths: ReadonlySet<string>,
+  registry: SpecContextKindRegistry,
 ): readonly SpecContextSelection[] {
   const path = node.ref?.path;
   if (path === undefined || !existingPaths.has(path)) return [];
@@ -142,7 +174,11 @@ function nodeSelection(
     path,
     mode,
     reasons,
-    digest: { source: SPEC_CONTEXT_DIGEST_SOURCE.OPENING, kind: node.kind, keyword: resolvedKindOpening(node) },
+    digest: {
+      source: SPEC_CONTEXT_DIGEST_SOURCE.OPENING,
+      kind: node.kind,
+      keyword: resolvedKindOpening(node, registry),
+    },
     outputNode: true,
     scanCitations: true,
   }];
@@ -316,12 +352,14 @@ function specContextWalkRoot(snapshot: SpecTreeSnapshot): string | undefined {
  * The structural selection for `targets`, in walk order. The walk is rooted
  * at the product spec: a tree holding no product spec, node, or decision
  * selects nothing, while a tree whose nodes or decisions lack a product spec
- * fails before any entry is selected.
+ * fails before any entry is selected. Each output node's Digest opening is
+ * the one `registry` resolves for its kind.
  */
 export function selectSpecContextDocuments(
   snapshot: SpecTreeSnapshot,
   targets: readonly SpecContextTarget[],
   existingPaths: ReadonlySet<string>,
+  registry: SpecContextKindRegistry,
 ): readonly SpecContextSelection[] {
   const productPath = specContextWalkRoot(snapshot);
   if (productPath === undefined) return [];
@@ -375,7 +413,7 @@ export function selectSpecContextDocuments(
           reasons: reasons.product.get(undefined),
           scanCitations: true,
         }]
-        : nodeSelection(node, mode, reasons.nodes.get(node.id), existingPaths)),
+        : nodeSelection(node, mode, reasons.nodes.get(node.id), existingPaths, registry)),
     );
     if (discovery || reasons.containers.has(node?.id)) {
       reference(`${directory}/${ISSUE_FILENAME}`, reasons.containers.get(node?.id));
@@ -503,17 +541,34 @@ function decisionStatement(paragraphs: readonly string[]): string | undefined {
 
 /** The Digest paragraph `digest` selects from `body`; every missing paragraph fails the projection. */
 function digestParagraph(body: string, digest: SpecContextDigest | undefined, path: string): string {
-  if (digest === undefined) throw new Error(`No Digest is defined for ${path}`);
+  const failure = SPEC_CONTEXT_PROJECTION_FAILURE_KIND;
+  if (digest === undefined) {
+    throw new SpecContextProjectionError(failure.NO_DIGEST, path, `No Digest is defined for ${path}`);
+  }
   const paragraphs = sourceParagraphs(body);
   if (digest.source === SPEC_CONTEXT_DIGEST_SOURCE.DECISION_STATEMENT) {
     const statement = decisionStatement(paragraphs);
-    if (statement === undefined) throw new Error(`Missing decision statement in ${path}`);
+    if (statement === undefined) {
+      throw new SpecContextProjectionError(
+        failure.MISSING_DECISION_STATEMENT,
+        path,
+        `Missing decision statement in ${path}`,
+      );
+    }
     return statement;
   }
   const { keyword } = digest;
-  if (keyword === undefined) throw new Error(`No resolved opening keyword for kind ${digest.kind} in ${path}`);
+  if (keyword === undefined) {
+    throw new SpecContextProjectionError(
+      failure.UNRESOLVED_KIND_OPENING,
+      path,
+      `No resolved opening keyword for kind ${digest.kind} in ${path}`,
+    );
+  }
   const opening = paragraphs.find((paragraph) => paragraph.startsWith(`${keyword} `));
-  if (opening === undefined) throw new Error(`Missing ${keyword} opening in ${path}`);
+  if (opening === undefined) {
+    throw new SpecContextProjectionError(failure.MISSING_OPENING, path, `Missing ${keyword} opening in ${path}`);
+  }
   return opening;
 }
 

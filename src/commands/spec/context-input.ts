@@ -1,8 +1,10 @@
 import { readFile, realpath } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
 
+import { resolveConfig } from "@/config/index";
 import type { MethodologyConfig } from "@/config/methodology";
 import { resolveMethodologyConfig } from "@/config/methodology-placement";
+import type { Result } from "@/config/types";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { canonicalTargetPath, isPathContained, nearestExistingCanonicalPath } from "@/lib/file-system/pathContainment";
 import { defaultGitDependencies, type GitDependencies } from "@/lib/git/root";
@@ -14,11 +16,14 @@ import {
   resolveSpecContextTarget,
   type SpecContextAcceptedPath,
   specContextAcceptedPaths,
+  type SpecContextKindRegistry,
   specContextOptionalArtifactPaths,
   specContextSuffixCandidates,
   type SpecContextTarget,
   type SpecContextTargetFailure,
   type SpecContextTargetPathFacts,
+  type SpecTreeConfig,
+  specTreeConfigDescriptor,
   type SpecTreeSnapshot,
 } from "@/lib/spec-tree";
 import { resolveSpecProductDir, type SpecProductDirWarningHandler } from "./root";
@@ -28,6 +33,16 @@ export interface ContextFileSystem {
   readonly realPath: (path: string) => Promise<string>;
   readonly readFile: (path: string) => Promise<Uint8Array>;
   readonly resolveMethodologyConfig: typeof resolveMethodologyConfig;
+  /** The kind registry the product's configuration selects, from which each output node's Digest opening resolves. */
+  readonly resolveKindRegistry: (productDir: string) => Promise<Result<SpecContextKindRegistry>>;
+}
+
+/** The kinds the product directory's spec-tree configuration section selects. */
+export async function resolveConfiguredKindRegistry(productDir: string): Promise<Result<SpecContextKindRegistry>> {
+  const resolved = await resolveConfig(productDir, [specTreeConfigDescriptor]);
+  if (!resolved.ok) return resolved;
+  const section = resolved.value[specTreeConfigDescriptor.section] as SpecTreeConfig;
+  return { ok: true, value: section.kinds };
 }
 
 export const defaultContextFileSystem: ContextFileSystem = {
@@ -35,6 +50,7 @@ export const defaultContextFileSystem: ContextFileSystem = {
   realPath: realpath,
   readFile,
   resolveMethodologyConfig,
+  resolveKindRegistry: resolveConfiguredKindRegistry,
 };
 
 export interface ContextInputOptions {
@@ -51,6 +67,8 @@ export interface ContextInput {
   readonly fs: ContextFileSystem;
   readonly snapshot: SpecTreeSnapshot;
   readonly methodology: MethodologyConfig;
+  /** The configured kind registry every output node's Digest opening resolves from. */
+  readonly registry: SpecContextKindRegistry;
   /**
    * The product-relative paths a projection may select: the paths git tracks
    * when the product is a git repository, else the snapshot's own entries plus
@@ -74,6 +92,8 @@ export async function readContextInput(options: ContextInputOptions): Promise<Co
   const snapshot = await readSpecTree({ source: fs.createSpecTreeSource({ productDir, includePath }) });
   const methodology = await fs.resolveMethodologyConfig(productDir);
   if (!methodology.ok) throw new Error(methodology.error);
+  const registry = await fs.resolveKindRegistry(productDir);
+  if (!registry.ok) throw new Error(registry.error);
   const acceptedPaths = specContextAcceptedPaths(snapshot);
   const accepted: Array<SpecContextTargetPathFacts["accepted"][number]> = [];
   for (const entry of acceptedPaths) {
@@ -131,6 +151,7 @@ export async function readContextInput(options: ContextInputOptions): Promise<Co
     fs,
     snapshot,
     methodology: methodology.value,
+    registry: registry.value,
     existingPaths,
     acceptedPaths,
     accepted,
