@@ -9,8 +9,12 @@
  * rejected; a target that carries a URL scheme or names no path — a fragment or
  * query alone — is outside the grammar. A target's path is classified and
  * resolved percent-decoded, as every resolver of the link reads it, so an
- * encoded segment cannot pass as a different shape. Every consumer that
- * classifies or resolves a spec-tree link reads this one declaration.
+ * encoded segment cannot pass as a different shape. Its shape is classified
+ * with a backslash separating segments as a slash does, because the URL parser
+ * that resolves a file link reads a backslash as a path separator, so a climb,
+ * an anchor, or a descendant entry spelled with backslashes — written or
+ * percent-encoded — is the same rejected shape. Every consumer that classifies
+ * or resolves a spec-tree link reads this one declaration.
  *
  * A decision path is a product-relative path under the spec-tree root that
  * names a decision record. A document cites a decision through an admitted
@@ -39,6 +43,13 @@ export const SPEC_TREE_LINK_PARENT_SEGMENT = "..";
 
 /** The path segment that names the citing document's own directory. */
 const CURRENT_DIRECTORY_SEGMENT = ".";
+
+/**
+ * Separates a link path's segments for shape classification: the path
+ * separator, and the backslash the URL parser resolving a file link reads as
+ * one.
+ */
+const LINK_PATH_SEGMENT_SEPARATOR_PATTERN = /[/\\]/u;
 
 /** Marks the start of a link target's query or fragment suffix. */
 const LINK_TARGET_SUFFIX_PATTERN = /[?#]/u;
@@ -136,22 +147,19 @@ const DECISION_PATH_TEXT_PATTERN = new RegExp(
 
 /** Binds the spec-tree link grammar to the library's entry recognition. */
 export function createSpecTreeLinkGrammar(recognition: SpecTreeLinkRecognition): SpecTreeLinkGrammar {
-  function entersDescendantNode(path: string): boolean {
-    const firstSegment = path
-      .split(SPEC_TREE_GRAMMAR.PATH_SEPARATOR)
-      .find((segment) => segment.length > 0 && segment !== CURRENT_DIRECTORY_SEGMENT);
+  function entersDescendantNode(segments: readonly string[]): boolean {
+    const firstSegment = segments.find((segment) => segment.length > 0 && segment !== CURRENT_DIRECTORY_SEGMENT);
     return firstSegment !== undefined && recognition.isNodeDirectoryName(firstSegment);
   }
 
   function specTreeLinkKind(href: string, path: string): SpecTreeLinkKind {
     if (URL_SCHEME_PATTERN.test(href)) return SPEC_TREE_LINK_KIND.URL;
     if (path.length === 0) return SPEC_TREE_LINK_KIND.NO_PATH;
-    if (path.startsWith(SPEC_TREE_LINK_ROOT_ANCHOR)) return SPEC_TREE_LINK_KIND.ROOT_ANCHORED;
-    if (path.split(SPEC_TREE_GRAMMAR.PATH_SEPARATOR).includes(SPEC_TREE_LINK_PARENT_SEGMENT)) {
-      return SPEC_TREE_LINK_KIND.PARENT_CLIMB;
-    }
+    const segments = path.split(LINK_PATH_SEGMENT_SEPARATOR_PATTERN);
+    if (segments[0] === "") return SPEC_TREE_LINK_KIND.ROOT_ANCHORED;
+    if (segments.includes(SPEC_TREE_LINK_PARENT_SEGMENT)) return SPEC_TREE_LINK_KIND.PARENT_CLIMB;
     if (path.startsWith(SPEC_TREE_ROOT_PREFIX)) return SPEC_TREE_LINK_KIND.TREE_ABSOLUTE;
-    if (entersDescendantNode(path)) return SPEC_TREE_LINK_KIND.DESCENDANT_NODE;
+    if (entersDescendantNode(segments)) return SPEC_TREE_LINK_KIND.DESCENDANT_NODE;
     return SPEC_TREE_LINK_KIND.NODE_LOCAL;
   }
 
