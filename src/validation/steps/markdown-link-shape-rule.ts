@@ -51,6 +51,7 @@ export const MARKDOWN_LINK_SHAPE_DIAGNOSTICS = {
   PARENT_CLIMB: "should not climb with a parent-directory segment; use a node-local or tree-absolute link",
   LEADING_SLASH: "should not start with a slash; write the path from the spec tree root",
   DESCENDANT_NODE: "should not enter a descendant node's directory; use a tree-absolute link",
+  BACKSLASH_SEPARATED: "should not separate path segments with a backslash; separate them with a slash",
   TREE_ABSOLUTE_EVIDENCE: "is an assertion evidence link; link evidence node-local from inside the asserting node",
   DECISION_PATH_TEXT: "is a decision path written as text; cite it with a link",
   UNTRACKED_TARGET: "should resolve to a file the repository tracks",
@@ -146,6 +147,7 @@ const REJECTED_SHAPE_DIAGNOSTIC: Partial<Record<SpecTreeLinkKind, LinkShapeDiagn
   [SPEC_TREE_LINK_KIND.ROOT_ANCHORED]: MARKDOWN_LINK_SHAPE_DIAGNOSTICS.LEADING_SLASH,
   [SPEC_TREE_LINK_KIND.PARENT_CLIMB]: MARKDOWN_LINK_SHAPE_DIAGNOSTICS.PARENT_CLIMB,
   [SPEC_TREE_LINK_KIND.DESCENDANT_NODE]: MARKDOWN_LINK_SHAPE_DIAGNOSTICS.DESCENDANT_NODE,
+  [SPEC_TREE_LINK_KIND.BACKSLASH_SEPARATED]: MARKDOWN_LINK_SHAPE_DIAGNOSTICS.BACKSLASH_SEPARATED,
 };
 
 /**

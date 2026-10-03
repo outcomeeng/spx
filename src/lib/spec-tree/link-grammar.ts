@@ -5,16 +5,19 @@
  * tree-absolute, written literally from the spec-tree root, or node-local, a
  * relative path from the citing document's directory to a target inside the
  * citing node. A target that anchors at a leading slash, climbs with a
- * parent-directory segment, or enters a descendant node's directory is
- * rejected; a target that carries a URL scheme or names no path — a fragment or
- * query alone — is outside the grammar. A target's path is classified and
- * resolved percent-decoded, as every resolver of the link reads it, so an
- * encoded segment cannot pass as a different shape. Its shape is classified
- * with a backslash separating segments as a slash does, because the URL parser
- * that resolves a file link reads a backslash as a path separator, so a climb,
- * an anchor, or a descendant entry spelled with backslashes — written or
- * percent-encoded — is the same rejected shape. Every consumer that classifies
- * or resolves a spec-tree link reads this one declaration.
+ * parent-directory segment, enters a descendant node's directory, or separates
+ * its path segments with a backslash is rejected; a target that carries a URL
+ * scheme or names no path — a fragment or query alone — is outside the grammar.
+ * A target's path is classified and resolved percent-decoded, as every resolver
+ * of the link reads it, so an encoded segment cannot pass as a different shape.
+ * An admitted path separates its segments with a slash alone: readers disagree
+ * on a backslash — the URL parser that resolves a file link reads it as a
+ * separator, a path join keeps it as a filename character — so a path carrying
+ * one, written or percent-encoded, names no single target and is rejected, and
+ * no admitted shape is ever resolved with a backslash in it. A climb, an anchor,
+ * or a descendant entry spelled with backslashes is classified as that shape, as
+ * the URL parser would read it. Every consumer that classifies or resolves a
+ * spec-tree link reads this one declaration.
  *
  * The two admitted shapes split by purpose. An assertion evidence link — a link
  * whose text is `test`, `eval`, or `probe` — names evidence that lives inside
@@ -52,11 +55,14 @@ export const SPEC_TREE_LINK_PARENT_SEGMENT = "..";
 const CURRENT_DIRECTORY_SEGMENT = ".";
 
 /**
- * Separates a link path's segments for shape classification: the path
+ * Separates a link path's segments for rejected-shape classification: the path
  * separator, and the backslash the URL parser resolving a file link reads as
  * one.
  */
 const LINK_PATH_SEGMENT_SEPARATOR_PATTERN = /[/\\]/u;
+
+/** The backslash, which an admitted link path never carries. */
+const LINK_PATH_BACKSLASH = "\\";
 
 /** Marks the start of a link target's query or fragment suffix. */
 const LINK_TARGET_SUFFIX_PATTERN = /[?#]/u;
@@ -76,6 +82,8 @@ export const SPEC_TREE_LINK_KIND = {
   PARENT_CLIMB: "parent-climb",
   /** A relative path whose first segment enters a descendant node's directory; rejected. */
   DESCENDANT_NODE: "descendant-node",
+  /** A path that separates its segments with a backslash; rejected. */
+  BACKSLASH_SEPARATED: "backslash-separated",
   /** A path written from the spec-tree root; admitted. */
   TREE_ABSOLUTE: "tree-absolute",
   /** A relative path to a target inside the citing node; admitted. */
@@ -194,8 +202,9 @@ export function createSpecTreeLinkGrammar(recognition: SpecTreeLinkRecognition):
     const segments = path.split(LINK_PATH_SEGMENT_SEPARATOR_PATTERN);
     if (segments[0] === "") return SPEC_TREE_LINK_KIND.ROOT_ANCHORED;
     if (segments.includes(SPEC_TREE_LINK_PARENT_SEGMENT)) return SPEC_TREE_LINK_KIND.PARENT_CLIMB;
-    if (path.startsWith(SPEC_TREE_ROOT_PREFIX)) return SPEC_TREE_LINK_KIND.TREE_ABSOLUTE;
     if (entersDescendantNode(segments)) return SPEC_TREE_LINK_KIND.DESCENDANT_NODE;
+    if (path.includes(LINK_PATH_BACKSLASH)) return SPEC_TREE_LINK_KIND.BACKSLASH_SEPARATED;
+    if (path.startsWith(SPEC_TREE_ROOT_PREFIX)) return SPEC_TREE_LINK_KIND.TREE_ABSOLUTE;
     return SPEC_TREE_LINK_KIND.NODE_LOCAL;
   }
 
