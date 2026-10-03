@@ -62,6 +62,19 @@ const LINK_TOKEN_TYPE = {
   CODE_INLINE: "code_inline",
 } as const;
 
+/**
+ * Block tokens whose raw content markdown-it emits with no inline children: an
+ * indented code block and an HTML block. A fenced code block (`fence`) is
+ * absent because a decision path inside it is not checked.
+ */
+const RAW_TEXT_BLOCK_TOKEN_TYPES: ReadonlySet<string> = new Set(["code_block", "html_block"]);
+
+const BLOCK_LINE_SEPARATOR = "\n";
+/** An HTML tag, whose attributes are markup rather than text. */
+const HTML_TAG_PATTERN = /<[^>]*>/gu;
+const NON_LINE_BREAK_PATTERN = /[^\n]/gu;
+const MARKUP_BLANK = " ";
+
 const LINK_TARGET_ATTRIBUTE = {
   [LINK_TOKEN_TYPE.LINK_OPEN]: "href",
   [LINK_TOKEN_TYPE.IMAGE]: "src",
@@ -292,6 +305,18 @@ function reportRejectedShape(child: MarkdownItToken, onError: MarkdownlintOnErro
   }
 }
 
+function reportTrackedDecisionPaths(
+  text: string,
+  lineNumber: number,
+  trackedScope: TrackedTargetScope | undefined,
+  onError: MarkdownlintOnError,
+): void {
+  for (const decisionPath of decisionPathsWrittenAsText(text)) {
+    if (!isTrackedDecisionPath(decisionPath, trackedScope)) continue;
+    onError({ lineNumber, detail: `${quoted(decisionPath)} ${MARKDOWN_LINK_SHAPE_DIAGNOSTICS.DECISION_PATH_TEXT}` });
+  }
+}
+
 /** Reports each tracked decision's path a text or inline-code token outside a link writes as text. */
 function reportDecisionPathText(
   child: MarkdownItToken,
@@ -299,13 +324,28 @@ function reportDecisionPathText(
   onError: MarkdownlintOnError,
 ): void {
   if (child.type !== LINK_TOKEN_TYPE.TEXT && child.type !== LINK_TOKEN_TYPE.CODE_INLINE) return;
-  for (const decisionPath of decisionPathsWrittenAsText(child.content)) {
-    if (!isTrackedDecisionPath(decisionPath, trackedScope)) continue;
-    onError({
-      lineNumber: child.lineNumber,
-      detail: `${quoted(decisionPath)} ${MARKDOWN_LINK_SHAPE_DIAGNOSTICS.DECISION_PATH_TEXT}`,
-    });
-  }
+  reportTrackedDecisionPaths(child.content, child.lineNumber, trackedScope, onError);
+}
+
+/** Blanks every HTML tag while keeping its line breaks, so only the text between tags remains. */
+function withoutHtmlMarkup(content: string): string {
+  return content.replace(HTML_TAG_PATTERN, (tag) => tag.replace(NON_LINE_BREAK_PATTERN, MARKUP_BLANK));
+}
+
+/**
+ * Reports each tracked decision's path an indented code block or an HTML block
+ * writes as text, on the source line that carries it. An HTML block's tags are
+ * markup, so a path inside a tag's attribute is not text.
+ */
+function reportRawTextBlockDecisionPaths(
+  token: MarkdownItToken,
+  trackedScope: TrackedTargetScope | undefined,
+  onError: MarkdownlintOnError,
+): void {
+  if (!RAW_TEXT_BLOCK_TOKEN_TYPES.has(token.type)) return;
+  withoutHtmlMarkup(token.content).split(BLOCK_LINE_SEPARATOR).forEach((line, offset) => {
+    reportTrackedDecisionPaths(line, token.lineNumber + offset, trackedScope, onError);
+  });
 }
 
 function restoreWrittenHref(
@@ -334,6 +374,7 @@ export const markdownLinkShapeRule: MarkdownlintCustomRule = {
     const anchoredHrefs = new Map<string, string>();
     const trackedScope = trackedTargetScope(params);
     const presentedTokens = params.parsers.markdownit.tokens.map((token) => {
+      reportRawTextBlockDecisionPaths(token, trackedScope, onError);
       if (token.type !== LINK_TOKEN_TYPE.INLINE) return token;
       reportShapeAndTextViolations(token, trackedScope, onError);
       return {

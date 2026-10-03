@@ -41,6 +41,10 @@ const MARKDOWN_LINE_SEPARATOR = "\n";
 const MARKDOWN_HEADING_PREFIX = "# ";
 const MARKDOWN_FENCE = "```";
 const MARKDOWN_FENCE_INFO = "text";
+/** Four leading spaces after a blank line open an indented code block. */
+const MARKDOWN_INDENTED_CODE_PREFIX = "    ";
+const MARKDOWN_HTML_BLOCK_OPEN = "<div>";
+const MARKDOWN_HTML_BLOCK_CLOSE = "</div>";
 const MARKDOWN_SECTION_PREFIX = "## ";
 const MARKDOWN_SUBSECTION_PREFIX = "### ";
 /** The character the spec names inside a markdown file path. */
@@ -765,10 +769,34 @@ function textMentioning(scenario: SpecTreeLinkScenario, written: string, path: s
   };
 }
 
-/** A tracked decision's path written as text outside a link: bare, and inside an inline code span. */
+function blockMentioning(
+  scenario: SpecTreeLinkScenario,
+  bodyLines: readonly string[],
+  markedOffset: number,
+): MarkdownLinkCase {
+  return {
+    citingFile: specTreeCitingFile(scenario),
+    href: decisionPath(scenario),
+    ...markdownDocument(scenario.citingProse, bodyLines, markedOffset),
+  };
+}
+
+/**
+ * A tracked decision's path written as text outside a link and outside a fenced code block: bare, inside an
+ * inline code span, inside an indented code block, and inside an HTML block.
+ */
 export function specTreeDecisionPathTextCases(scenario: SpecTreeLinkScenario): readonly MarkdownLinkShapeCase[] {
   const path = decisionPath(scenario);
-  return [path, `\`${path}\``].map((written) => decisionPathCase(scenario, textMentioning(scenario, written, path)));
+  const inlineCases = [path, `\`${path}\``].map((written) => textMentioning(scenario, written, path));
+  const blockCases = [
+    blockMentioning(scenario, [`${MARKDOWN_INDENTED_CODE_PREFIX}${path}`], 0),
+    blockMentioning(
+      scenario,
+      [MARKDOWN_HTML_BLOCK_OPEN, `${scenario.citingProse.lead} ${path}${SENTENCE_END}`, MARKDOWN_HTML_BLOCK_CLOSE],
+      1,
+    ),
+  ];
+  return [...inlineCases, ...blockCases].map((link) => decisionPathCase(scenario, link));
 }
 
 /**
