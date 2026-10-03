@@ -6,7 +6,7 @@ The source-version node kinds remain renderable during migration: `enabler` sele
 
 ## Rationale
 
-One registry prevents path parsing, rendering, validation, and configuration from maintaining parallel kind vocabularies. Making the opening selector kind-owned lets Digest projection and validation consume the same declaration, including parent-kind inheritance for variants, while products and decisions need no selector: the methodology defines no product or decision opening at any version, a product document is projected Full wherever it is projected, and the decision statement the decision templates prescribe is already the decision's Digest.
+One registry prevents path parsing, rendering, validation, and configuration from maintaining parallel kind vocabularies. Making the opening selector kind-owned lets Digest projection and validation consume the same declaration, including parent-kind inheritance for variants, while products and decisions need no selector: the methodology defines no product or decision opening at any version, a product document is projected Full wherever it is projected, and the decision statement the decision templates prescribe is the decision's Digest.
 
 ## Invariants
 
