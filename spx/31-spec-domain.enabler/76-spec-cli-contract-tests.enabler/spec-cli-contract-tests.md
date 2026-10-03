@@ -13,7 +13,8 @@ CAN still prove the user-facing CLI entry point routes current spec-domain comma
 ### Scenarios
 
 - Given the packaged executable, when targetless and targeted `spx spec context show` run in text and JSON, then the selected document and reference entries are preserved across representations ([test](tests/context-target.scenario.l2.test.ts))
-- Given the packaged executable, when `spx spec context list <targets...>` runs, then it emits the structural manifest, and when `show` receives `--content`, then it rejects the option ([test](tests/spec-cli-contract.scenario.l2.test.ts))
+- Given the packaged executable, when `spx spec context list <targets...>` runs, then it emits the structural manifest ([test](tests/spec-cli-contract.scenario.l2.test.ts))
+- Given the packaged executable, when `spx spec context show` receives `--content`, then it rejects the option ([test](tests/spec-cli-contract.scenario.l2.test.ts))
 - Given the packaged executable runs in a temp product directory with a current `spx/` tree, when `spx spec status` is invoked through the process boundary, then it exits successfully and renders current spec-tree status output ([test](tests/spec-cli-contract.scenario.l2.test.ts))
 - Given the packaged executable runs in a temp product directory whose current `spx/` tree carries no co-located tests, when `spx spec status --update` is invoked through the process boundary, then it exits successfully and renders each node's lifecycle state ([test](tests/spec-cli-contract.scenario.l2.test.ts))
 - Given the packaged executable runs in a temp product directory with a current `spx/` tree, when `spx spec next` is invoked through the process boundary, then it exits successfully and renders the selected next node ([test](tests/spec-cli-contract.scenario.l2.test.ts))
