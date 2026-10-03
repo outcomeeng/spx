@@ -47,8 +47,6 @@ describe("spec context show rendering", () => {
             expect(close, entry.path).toBeGreaterThan(cursor);
             expect(parse(text.slice(cursor + fenceLine.length, close + 1)), entry.path).toEqual(entry.metadata);
             cursor = close + 1 + fenceLine.length;
-            expect(text.startsWith(syntax.LINE_BREAK, cursor), entry.path).toBe(true);
-            cursor += syntax.LINE_BREAK.length;
           }
           expect(text.startsWith(entry.content, cursor), entry.path).toBe(true);
           cursor += entry.content.length;
