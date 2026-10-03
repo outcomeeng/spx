@@ -1,8 +1,8 @@
 /**
- * Pure vocabulary and computation for the spec context manifest: the role
- * registry naming how `show` selects each entry, the schema-version-4 manifest
- * shape, composition of the shared selection's entries into one manifest,
- * document decoding primitives and exact-path diagnostics.
+ * Pure vocabulary and computation for the spec context manifest: the
+ * projection-mode and selection-reason registries, the schema-version-3
+ * manifest shape, composition of the shared selection's entries into manifest
+ * entries, document decoding primitives and exact-path diagnostics.
  *
  * Filesystem and git reads stay in the command handler; every function here is
  * a pure function over supplied inputs.
@@ -14,106 +14,149 @@ import type { MethodologyIdentity } from "@/config/methodology";
 import { SPEC_TREE_GRAMMAR } from "./config";
 
 /** Manifest schema version; changes exactly when the manifest shape changes incompatibly. */
-export const SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION = 4;
+export const SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION = 3;
+
+/** Projection modes, ordered so a higher value delivers more of the document: Full satisfies Digest, never the reverse. */
+export const SPEC_CONTEXT_MODE = { REFERENCE: 0, DIGEST: 1, FULL: 2 } as const;
+export type SpecContextMode = (typeof SPEC_CONTEXT_MODE)[keyof typeof SPEC_CONTEXT_MODE];
+
+/** The name each projection mode carries in the manifest. */
+export const SPEC_CONTEXT_MODE_NAME = {
+  [SPEC_CONTEXT_MODE.FULL]: "full",
+  [SPEC_CONTEXT_MODE.DIGEST]: "digest",
+  [SPEC_CONTEXT_MODE.REFERENCE]: "reference",
+} as const satisfies Record<SpecContextMode, string>;
+
+export type SpecContextModeName = (typeof SPEC_CONTEXT_MODE_NAME)[SpecContextMode];
 
 /**
- * Every relation through which `show` selects an entry for one target. Each
- * role names exactly one selection mode, so a manifest role states how `show`
- * renders the entry for that target.
+ * Every structural relation through which one requested target selects an
+ * entry, declared in precedence order: where several relations hold for one
+ * target-entry pair, the manifest records the first.
  */
-export const SPEC_CONTEXT_ROLE = {
+export const SPEC_CONTEXT_SELECTION_REASON = {
+  TARGET: "target",
   PRODUCT: "product",
   ANCESTOR: "ancestor",
-  TARGET: "target",
-  DECISION: "decision",
-  LOWER_INDEX_SIBLING: "lower-index-sibling",
-  SAME_INDEX_SIBLING: "same-index-sibling",
-  HIGHER_INDEX_SIBLING: "higher-index-sibling",
+  SIBLING: "sibling",
   IMMEDIATE_CHILD: "immediate-child",
   OUTCOME_RECORD: "outcome-record",
   KNOWLEDGE_INDEX: "knowledge-index",
-  COORDINATION: "coordination",
   CITED_DECISION: "cited-decision",
+  ISSUE: "issue",
 } as const;
 
-export type SpecContextRole = (typeof SPEC_CONTEXT_ROLE)[keyof typeof SPEC_CONTEXT_ROLE];
+export type SpecContextSelectionReason =
+  (typeof SPEC_CONTEXT_SELECTION_REASON)[keyof typeof SPEC_CONTEXT_SELECTION_REASON];
 
-/** Total order of the role domain; one entry's bindings for one target follow it. */
-export const SPEC_CONTEXT_ROLE_ORDER: readonly SpecContextRole[] = Object.values(SPEC_CONTEXT_ROLE);
+/** The selection-reason precedence: the registry's declaration order. */
+export const SPEC_CONTEXT_SELECTION_REASON_PRECEDENCE: readonly SpecContextSelectionReason[] = Object.values(
+  SPEC_CONTEXT_SELECTION_REASON,
+);
 
-/** One target's role claim on a selected entry. */
-export interface SpecContextRoleBinding {
+/** The one projection mode each selection reason requires. */
+export const SPEC_CONTEXT_REASON_MODE: Readonly<Record<SpecContextSelectionReason, SpecContextMode>> = {
+  [SPEC_CONTEXT_SELECTION_REASON.TARGET]: SPEC_CONTEXT_MODE.FULL,
+  [SPEC_CONTEXT_SELECTION_REASON.PRODUCT]: SPEC_CONTEXT_MODE.FULL,
+  [SPEC_CONTEXT_SELECTION_REASON.ANCESTOR]: SPEC_CONTEXT_MODE.FULL,
+  [SPEC_CONTEXT_SELECTION_REASON.SIBLING]: SPEC_CONTEXT_MODE.DIGEST,
+  [SPEC_CONTEXT_SELECTION_REASON.IMMEDIATE_CHILD]: SPEC_CONTEXT_MODE.DIGEST,
+  [SPEC_CONTEXT_SELECTION_REASON.OUTCOME_RECORD]: SPEC_CONTEXT_MODE.FULL,
+  [SPEC_CONTEXT_SELECTION_REASON.KNOWLEDGE_INDEX]: SPEC_CONTEXT_MODE.REFERENCE,
+  [SPEC_CONTEXT_SELECTION_REASON.CITED_DECISION]: SPEC_CONTEXT_MODE.FULL,
+  [SPEC_CONTEXT_SELECTION_REASON.ISSUE]: SPEC_CONTEXT_MODE.REFERENCE,
+};
+
+/** One requested target's selection of an entry, with the reason it selects it. */
+export interface SpecContextTargetSelection {
   readonly target: string;
-  readonly role: SpecContextRole;
+  readonly reason: SpecContextSelectionReason;
 }
 
-/** One entry `show` selects, with every target-role pair it holds across the requested target set. */
+/** One entry `show` delivers, with its composed mode and one selection per requested target that selects it. */
 export interface SpecContextManifestEntry {
   readonly path: string;
-  readonly roles: readonly SpecContextRoleBinding[];
-  /** Present only on cited-decision entries: every document whose displayed `show` content cites this decision. */
+  readonly mode: SpecContextModeName;
+  readonly selections: readonly SpecContextTargetSelection[];
+  /** Present only on a decision reached only by citation: every selected document that cites it, in `show` order. */
   readonly citedBy?: readonly string[];
-}
-
-/** One target's entries as path references into the manifest entry list, in that list's order. */
-export interface SpecContextTargetCoverage {
-  readonly target: string;
-  readonly entries: readonly string[];
 }
 
 export interface SpecContextManifest {
   readonly schemaVersion: number;
-  readonly methodology: MethodologyIdentity;
-  readonly productDir: string;
-  readonly targets: readonly string[];
   readonly bootstrap: boolean;
+  readonly methodology: MethodologyIdentity;
   readonly entries: readonly SpecContextManifestEntry[];
-  readonly coverage: readonly SpecContextTargetCoverage[];
 }
 
-/** The target-dependent part of a manifest: its canonical target list, entries, and per-target coverage. */
-export interface SpecContextManifestSelection {
-  readonly targets: readonly string[];
-  readonly entries: readonly SpecContextManifestEntry[];
-  readonly coverage: readonly SpecContextTargetCoverage[];
+/** One selected entry with every target-reason pair that holds for it, before precedence applies. */
+export interface SpecContextSelectedEntry {
+  readonly path: string;
+  readonly reasons: readonly SpecContextTargetSelection[];
+  readonly citedBy?: readonly string[];
 }
 
-/** Orders bindings by ordinal target identity, then by the role domain's order. */
-export function compareSpecContextRoleBindings(left: SpecContextRoleBinding, right: SpecContextRoleBinding): number {
-  return compareSpecContextOrdinal(left.target, right.target)
-    || SPEC_CONTEXT_ROLE_ORDER.indexOf(left.role) - SPEC_CONTEXT_ROLE_ORDER.indexOf(right.role);
+/** The highest mode the given reasons require, or none for no reason. */
+export function specContextReasonsMode(
+  reasons: readonly SpecContextTargetSelection[],
+): SpecContextMode | undefined {
+  let highest: SpecContextMode | undefined;
+  for (const { reason } of reasons) {
+    const mode = SPEC_CONTEXT_REASON_MODE[reason];
+    if (highest === undefined || mode > highest) highest = mode;
+  }
+  return highest;
 }
 
 /**
- * Composes the shared selection's entries, in `show` order, into the manifest's
- * target-dependent part. Targets are ordered by ordinal identity and each
- * entry's bindings by target and role, so every permutation of the same
- * operands yields byte-identical output; coverage lists each target's entries
- * in entry order.
+ * One selection per target: the first reason in precedence among those that
+ * hold for that target, in ordinal order of canonical target path.
  */
-export function composeSpecContextManifestSelection(
-  targets: readonly string[],
-  entries: readonly SpecContextManifestEntry[],
-): SpecContextManifestSelection {
-  const orderedTargets = [...new Set(targets)].sort(compareSpecContextOrdinal);
-  const orderedEntries = entries.map((entry) => ({
-    ...entry,
-    roles: [...entry.roles].sort(compareSpecContextRoleBindings),
-  }));
-  return {
-    targets: orderedTargets,
-    entries: orderedEntries,
-    coverage: orderedTargets.map((target) => ({
-      target,
-      entries: orderedEntries.filter(({ roles }) => roles.some((binding) => binding.target === target))
-        .map(({ path }) => path),
-    })),
-  };
+export function specContextTargetSelections(
+  reasons: readonly SpecContextTargetSelection[],
+): readonly SpecContextTargetSelection[] {
+  const byTarget = new Map<string, SpecContextSelectionReason>();
+  for (const { target, reason } of reasons) {
+    const current = byTarget.get(target);
+    if (
+      current === undefined
+      || SPEC_CONTEXT_SELECTION_REASON_PRECEDENCE.indexOf(reason)
+        < SPEC_CONTEXT_SELECTION_REASON_PRECEDENCE.indexOf(current)
+    ) {
+      byTarget.set(target, reason);
+    }
+  }
+  return [...byTarget]
+    .sort(([left], [right]) => compareSpecContextOrdinal(left, right))
+    .map(([target, reason]) => ({ target, reason }));
 }
 
-/** Snapshot-derived bootstrap state: a tree with no nodes is in bootstrap. */
-export function specContextBootstrap(nodeCount: number): boolean {
-  return nodeCount === 0;
+/**
+ * Composes the shared selection's entries, in `show` order, into manifest
+ * entries: each entry's selections reduce to one reason per target, and its
+ * mode is the highest mode those selections require. Selections follow
+ * ordinal target order, so every permutation of the same operands yields
+ * byte-identical output.
+ */
+export function composeSpecContextManifestEntries(
+  entries: readonly SpecContextSelectedEntry[],
+): readonly SpecContextManifestEntry[] {
+  return entries.map(({ path, reasons, citedBy }) => {
+    const selections = specContextTargetSelections(reasons);
+    const mode = specContextReasonsMode(selections);
+    if (mode === undefined) throw new Error(`No requested target selects context entry ${path}`);
+    return {
+      path,
+      mode: SPEC_CONTEXT_MODE_NAME[mode],
+      selections,
+      ...(citedBy === undefined ? {} : { citedBy }),
+    };
+  });
+}
+
+/** Bootstrap state: a tree holding a product spec and no node is in bootstrap. */
+export function specContextBootstrap(hasProductSpec: boolean, nodeCount: number): boolean {
+  return hasProductSpec && nodeCount === 0;
 }
 
 /**

@@ -1,6 +1,6 @@
 import { resolveMethodologyIdentity } from "@/config/methodology";
 import {
-  composeSpecContextManifestSelection,
+  composeSpecContextManifestEntries,
   SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
   specContextBootstrap,
   type SpecContextManifest,
@@ -26,42 +26,43 @@ export type SpecContextManifestResolution =
   | { readonly ok: false; readonly failure: SpecContextTargetFailure };
 
 export const SPEC_CONTEXT_TEXT_LABEL = {
-  TARGETS: "Targets",
-  PRODUCT_ROOT: "Product root",
-  METHODOLOGY: "Methodology",
   SCHEMA_VERSION: "Schema version",
   BOOTSTRAP: "Bootstrap",
-  ENTRIES: "Entries",
+  METHODOLOGY: "Methodology",
   MIGRATING_FROM: "migrating from",
   CITED_BY: "cited by",
 } as const;
 
+/** The indentation of each selection line beneath its entry line in text `list` output. */
+export const SPEC_CONTEXT_TEXT_SELECTION_INDENT = "  ";
+
 /**
  * The manifest of a target set: every entry the shared closure selects for
- * `show`, in `show` order, with the target-role pairs through which the
- * selection reaches it.
+ * `show`, in `show` order, with its composed mode and one selection per
+ * requested target that selects it.
  */
 export async function resolveContextManifest(options: ContextOptions): Promise<SpecContextManifestResolution> {
   const input = await readContextInput(options);
   const resolved = await resolveContextTargets(input, options.targets);
   if (!resolved.ok) return resolved;
   const closure = await resolveSpecContextClosure(input, resolved.targets);
-  const selection = composeSpecContextManifestSelection(
-    resolved.targets.map(({ path }) => path),
-    closure.entries.map(({ entry, roles, citedBy }) => ({
-      path: entry.path,
-      roles,
-      ...(citedBy === undefined ? {} : { citedBy }),
-    })),
-  );
+  const productSpec = input.snapshot.product?.ref?.path;
   return {
     ok: true,
     manifest: {
       schemaVersion: SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
+      bootstrap: specContextBootstrap(
+        productSpec !== undefined && input.existingPaths.has(productSpec),
+        input.snapshot.allNodes.length,
+      ),
       methodology: resolveMethodologyIdentity(input.methodology),
-      productDir: input.productDir,
-      bootstrap: specContextBootstrap(input.snapshot.allNodes.length),
-      ...selection,
+      entries: composeSpecContextManifestEntries(
+        closure.entries.map(({ entry, reasons, citedBy }) => ({
+          path: entry.path,
+          reasons,
+          ...(citedBy === undefined ? {} : { citedBy }),
+        })),
+      ),
     },
   };
 }
@@ -73,21 +74,19 @@ export function renderSpecContextText(manifest: SpecContextManifest): TerminalTe
     ? ""
     : ` (${SPEC_CONTEXT_TEXT_LABEL.MIGRATING_FROM} ${identity.migratingFrom})`;
   const lines = [
-    terminal`${authoredText(SPEC_CONTEXT_TEXT_LABEL.TARGETS)}: ${externalValue(manifest.targets.join(", "))}`,
-    terminal`${authoredText(SPEC_CONTEXT_TEXT_LABEL.PRODUCT_ROOT)}: ${externalValue(manifest.productDir)}`,
-    terminal`${authoredText(SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY)}: ${externalValue(methodology + migration)}`,
     terminal`${authoredText(SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION)}: ${externalValue(String(manifest.schemaVersion))}`,
     terminal`${authoredText(SPEC_CONTEXT_TEXT_LABEL.BOOTSTRAP)}: ${externalValue(String(manifest.bootstrap))}`,
-    terminal`${authoredText(SPEC_CONTEXT_TEXT_LABEL.ENTRIES)}:`,
-    ...manifest.entries.map((entry) =>
-      terminal`  - ${externalValue(entry.roles.map(({ role, target }) => `${role}@${target}`).join(", "))}: ${
-        externalValue(entry.path)
-      }${
+    terminal`${authoredText(SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY)}: ${externalValue(methodology + migration)}`,
+    ...manifest.entries.flatMap((entry) => [
+      terminal`${authoredText(entry.mode)} ${externalValue(entry.path)}${
         entry.citedBy === undefined
           ? authoredText("")
           : terminal` (${authoredText(SPEC_CONTEXT_TEXT_LABEL.CITED_BY)} ${externalValue(entry.citedBy.join(", "))})`
-      }`
-    ),
+      }`,
+      ...entry.selections.map(({ reason, target }) =>
+        terminal`${authoredText(SPEC_CONTEXT_TEXT_SELECTION_INDENT)}${authoredText(reason)} ${externalValue(target)}`
+      ),
+    ]),
   ];
   return joinTerminalText(authoredText("\n"), lines);
 }

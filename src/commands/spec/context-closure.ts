@@ -4,14 +4,14 @@ import {
   selectSpecContextDocuments,
   SPEC_CONTEXT_ENTRY_TYPE,
   SPEC_CONTEXT_MODE,
-  SPEC_CONTEXT_ROLE,
+  SPEC_CONTEXT_SELECTION_REASON,
   specContextBoundCitations,
   specContextCitedSelection,
   type SpecContextEntry,
   type SpecContextProjectedEntry,
-  type SpecContextRoleBinding,
   type SpecContextSelection,
   type SpecContextTarget,
+  type SpecContextTargetSelection,
 } from "@/lib/spec-tree";
 import type { ContextInput } from "./context-input";
 
@@ -26,14 +26,14 @@ export interface SpecContextClosure {
 }
 
 /**
- * One selected entry with every target-role pair through which the selection
- * reaches it; a cited decision outside the structural walk also carries every
- * selected document whose complete source cites it, in the order the closure
- * lists those documents.
+ * One selected entry with every target-reason pair through which the
+ * selection reaches it; a cited decision outside the structural walk also
+ * carries every selected document whose complete source cites it, in the
+ * order the closure lists those documents.
  */
 export interface SpecContextClosureEntry {
   readonly entry: SpecContextEntry;
-  readonly roles: readonly SpecContextRoleBinding[];
+  readonly reasons: readonly SpecContextTargetSelection[];
   readonly citedBy?: readonly string[];
 }
 
@@ -53,32 +53,38 @@ function addCitingTargets(
 }
 
 /**
- * The cited-decision bindings of every cited decision: a decision is cited for
- * each target that binds any document citing it, followed transitively through
- * cited decisions until no binding is added.
+ * The cited-decision pairs of every cited decision, inside the structural walk
+ * or outside it: a decision is cited for each target that selects any document
+ * citing it, followed transitively through cited decisions until no pair is
+ * added.
  */
-function citedDecisionRoles(
+function citedDecisionReasons(
   structural: readonly SpecContextSelection[],
-  citedBy: ReadonlyMap<string, ReadonlySet<string>>,
-): ReadonlyMap<string, readonly SpecContextRoleBinding[]> {
+  citations: ReadonlyMap<string, ReadonlySet<string>>,
+): ReadonlyMap<string, readonly SpecContextTargetSelection[]> {
   const targetsByPath = new Map<string, Set<string>>();
-  for (const { path, roles } of structural) {
+  for (const { path, reasons } of structural) {
     const targets = targetsByPath.get(path) ?? new Set<string>();
-    for (const { target } of roles) targets.add(target);
+    for (const { target } of reasons) targets.add(target);
     targetsByPath.set(path, targets);
   }
-  for (const path of citedBy.keys()) targetsByPath.set(path, new Set<string>());
+  for (const path of citations.keys()) {
+    if (!targetsByPath.has(path)) targetsByPath.set(path, new Set<string>());
+  }
   let changed = true;
   while (changed) {
     changed = false;
-    for (const [path, citers] of citedBy) {
+    for (const [path, citers] of citations) {
       if (addCitingTargets(path, citers, targetsByPath)) changed = true;
     }
   }
   return new Map(
-    [...citedBy.keys()].map((path) => [
+    [...citations.keys()].map((path) => [
       path,
-      [...(targetsByPath.get(path) ?? [])].map((target) => ({ target, role: SPEC_CONTEXT_ROLE.CITED_DECISION })),
+      [...(targetsByPath.get(path) ?? [])].map((target) => ({
+        target,
+        reason: SPEC_CONTEXT_SELECTION_REASON.CITED_DECISION,
+      })),
     ]),
   );
 }
@@ -132,7 +138,7 @@ export async function resolveSpecContextClosure(
   const structuralPaths = new Set(structural.map(({ path }) => path));
   const decisions = new Set(input.snapshot.decisions.flatMap(({ ref }) => ref?.path ?? []));
   const projected = new Map<string, SpecContextProjectedEntry>();
-  const citedBy = new Map<string, Set<string>>();
+  const citations = new Map<string, Set<string>>();
   const digestFailures = new Map<string, unknown>();
   const pending = [...structural];
   for (let index = 0; index < pending.length; index += 1) {
@@ -151,23 +157,21 @@ export async function resolveSpecContextClosure(
     for (
       const path of specContextBoundCitations(source, selection.path, decisions, input.existingPaths)
     ) {
-      if (!structuralPaths.has(path)) {
-        const citing = citedBy.get(path) ?? new Set<string>();
-        citing.add(selection.path);
-        citedBy.set(path, citing);
-      }
+      const citing = citations.get(path) ?? new Set<string>();
+      citing.add(selection.path);
+      citations.set(path, citing);
       pending.push(specContextCitedSelection(path, []));
     }
   }
   const firstFailure = digestFailures.values().next();
   if (firstFailure.done !== true) throw firstFailure.value;
-  const citedRoles = citedDecisionRoles(structural, citedBy);
+  const citedReasons = citedDecisionReasons(structural, citations);
   const projectedEntry = (path: string): SpecContextEntry => {
     const document = projected.get(path);
     if (document === undefined) throw new Error(`Unresolved context document: ${path}`);
     return document.entry;
   };
-  const cited = [...citedBy.keys()].sort(compareSpecContextOrdinal);
+  const cited = [...citations.keys()].filter((path) => !structuralPaths.has(path)).sort(compareSpecContextOrdinal);
   const position = new Map([...structural.map(({ path }) => path), ...cited].map((path, index) => [path, index]));
   const closurePosition = (path: string): number => {
     const index = position.get(path);
@@ -176,11 +180,14 @@ export async function resolveSpecContextClosure(
   };
   return {
     entries: [
-      ...structural.map(({ path, roles }) => ({ entry: projectedEntry(path), roles })),
+      ...structural.map(({ path, reasons }) => ({
+        entry: projectedEntry(path),
+        reasons: [...reasons, ...(citedReasons.get(path) ?? [])],
+      })),
       ...cited.map((path) => ({
         entry: projectedEntry(path),
-        roles: citedRoles.get(path) ?? [],
-        citedBy: [...(citedBy.get(path) ?? [])].sort((left, right) => closurePosition(left) - closurePosition(right)),
+        reasons: citedReasons.get(path) ?? [],
+        citedBy: [...(citations.get(path) ?? [])].sort((left, right) => closurePosition(left) - closurePosition(right)),
       })),
     ],
   };

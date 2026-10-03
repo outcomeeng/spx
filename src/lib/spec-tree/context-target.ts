@@ -1,8 +1,11 @@
 import { posix } from "node:path";
 
-import { SPEC_TREE_CONFIG } from "./config";
+import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "./config";
 import { compareSpecContextOrdinal } from "./context-manifest";
 import type { SpecTreeNode, SpecTreeSnapshot } from "./index";
+
+/** The canonical identity of the product-root target: the tree root directory with its trailing separator. */
+export const SPEC_CONTEXT_PRODUCT_ROOT_TARGET = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}`;
 
 export const SPEC_CONTEXT_TARGET_FAILURE_KIND = {
   AMBIGUOUS: "ambiguous",
@@ -41,14 +44,14 @@ export type SpecContextTargetResolution =
   | { readonly ok: false; readonly failure: SpecContextTargetFailure };
 
 export function specContextAcceptedPaths(snapshot: SpecTreeSnapshot): readonly SpecContextAcceptedPath[] {
-  const root: SpecContextTarget = { path: SPEC_TREE_CONFIG.ROOT_DIRECTORY };
+  const root: SpecContextTarget = { path: SPEC_CONTEXT_PRODUCT_ROOT_TARGET };
   const accepted: SpecContextAcceptedPath[] = [];
   const targets = new Map(snapshot.allNodes.map((node) => [node.id, {
     node,
     path: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${node.id}`,
   }]));
   if (snapshot.product !== null) {
-    accepted.push({ path: ".", target: root }, { path: root.path, target: root });
+    accepted.push({ path: ".", target: root }, { path: SPEC_TREE_CONFIG.ROOT_DIRECTORY, target: root });
     if (snapshot.product.ref?.path !== undefined) accepted.push({ path: snapshot.product.ref.path, target: root });
   }
   for (const target of targets.values()) {

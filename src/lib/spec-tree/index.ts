@@ -62,22 +62,27 @@ export type {
 } from "./config";
 export {
   compareSpecContextOrdinal,
-  compareSpecContextRoleBindings,
-  composeSpecContextManifestSelection,
+  composeSpecContextManifestEntries,
   decodeContextDocumentUtf8,
   extractDecisionCitations,
   SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
-  SPEC_CONTEXT_ROLE,
-  SPEC_CONTEXT_ROLE_ORDER,
+  SPEC_CONTEXT_MODE,
+  SPEC_CONTEXT_MODE_NAME,
+  SPEC_CONTEXT_REASON_MODE,
+  SPEC_CONTEXT_SELECTION_REASON,
+  SPEC_CONTEXT_SELECTION_REASON_PRECEDENCE,
   specContextBootstrap,
+  specContextReasonsMode,
+  specContextTargetSelections,
 } from "./context-manifest";
 export type {
   SpecContextManifest,
   SpecContextManifestEntry,
-  SpecContextManifestSelection,
-  SpecContextRole,
-  SpecContextRoleBinding,
-  SpecContextTargetCoverage,
+  SpecContextMode,
+  SpecContextModeName,
+  SpecContextSelectedEntry,
+  SpecContextSelectionReason,
+  SpecContextTargetSelection,
 } from "./context-manifest";
 export {
   projectSpecContextDocument,
@@ -88,9 +93,7 @@ export {
   SPEC_CONTEXT_FRAME,
   SPEC_CONTEXT_FRAME_SYNTAX,
   SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR,
-  SPEC_CONTEXT_MODE,
   SPEC_CONTEXT_OPTIONAL_ARTIFACT,
-  SPEC_CONTEXT_ROLE_MODE,
   SPEC_CONTEXT_SELECTED_METADATA_KEY,
   specContextBoundCitations,
   specContextCitedSelection,
@@ -101,7 +104,6 @@ export {
 export type {
   SpecContextDocumentEntry,
   SpecContextEntry,
-  SpecContextMode,
   SpecContextProjectedEntry,
   SpecContextSelection,
 } from "./context-projection";
@@ -113,6 +115,7 @@ export {
 } from "./context-read-set";
 export {
   resolveSpecContextTarget,
+  SPEC_CONTEXT_PRODUCT_ROOT_TARGET,
   SPEC_CONTEXT_TARGET_FAILURE_KIND,
   specContextAcceptedPaths,
   specContextSuffixCandidates,

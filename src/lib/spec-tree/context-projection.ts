@@ -6,36 +6,16 @@ import { parseDocument, stringify } from "yaml";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "./config";
 import {
   compareSpecContextOrdinal,
-  SPEC_CONTEXT_ROLE,
-  type SpecContextRole,
-  type SpecContextRoleBinding,
+  SPEC_CONTEXT_MODE,
+  SPEC_CONTEXT_SELECTION_REASON,
+  type SpecContextMode,
+  specContextReasonsMode,
+  type SpecContextSelectionReason,
+  type SpecContextTargetSelection,
 } from "./context-manifest";
 import { specContextAncestors, specContextDecisions, specContextSiblings } from "./context-read-set";
 import type { SpecContextTarget } from "./context-target";
-import type { SpecTreeNode, SpecTreeSnapshot } from "./index";
-
-export const SPEC_CONTEXT_MODE = { REFERENCE: 0, DIGEST: 1, FULL: 2 } as const;
-export type SpecContextMode = (typeof SPEC_CONTEXT_MODE)[keyof typeof SPEC_CONTEXT_MODE];
-
-/**
- * The selection mode each role names: a targeted selection renders an entry
- * at the mode of the role through which it selects that entry, so a manifest
- * role states how `show` renders the entry.
- */
-export const SPEC_CONTEXT_ROLE_MODE: Readonly<Record<SpecContextRole, SpecContextMode>> = {
-  [SPEC_CONTEXT_ROLE.PRODUCT]: SPEC_CONTEXT_MODE.FULL,
-  [SPEC_CONTEXT_ROLE.ANCESTOR]: SPEC_CONTEXT_MODE.FULL,
-  [SPEC_CONTEXT_ROLE.TARGET]: SPEC_CONTEXT_MODE.FULL,
-  [SPEC_CONTEXT_ROLE.DECISION]: SPEC_CONTEXT_MODE.FULL,
-  [SPEC_CONTEXT_ROLE.LOWER_INDEX_SIBLING]: SPEC_CONTEXT_MODE.DIGEST,
-  [SPEC_CONTEXT_ROLE.SAME_INDEX_SIBLING]: SPEC_CONTEXT_MODE.DIGEST,
-  [SPEC_CONTEXT_ROLE.HIGHER_INDEX_SIBLING]: SPEC_CONTEXT_MODE.DIGEST,
-  [SPEC_CONTEXT_ROLE.IMMEDIATE_CHILD]: SPEC_CONTEXT_MODE.DIGEST,
-  [SPEC_CONTEXT_ROLE.OUTCOME_RECORD]: SPEC_CONTEXT_MODE.FULL,
-  [SPEC_CONTEXT_ROLE.KNOWLEDGE_INDEX]: SPEC_CONTEXT_MODE.REFERENCE,
-  [SPEC_CONTEXT_ROLE.COORDINATION]: SPEC_CONTEXT_MODE.REFERENCE,
-  [SPEC_CONTEXT_ROLE.CITED_DECISION]: SPEC_CONTEXT_MODE.FULL,
-};
+import type { SpecTreeDecision, SpecTreeNode, SpecTreeSnapshot } from "./index";
 
 /**
  * The paragraph a Digest selects: an output node's opening, keyed by its
@@ -96,8 +76,8 @@ const inlineCitationParser = new MarkdownIt().disable("reference");
 export interface SpecContextSelection {
   readonly path: string;
   readonly mode: SpecContextMode;
-  /** Every target-role pair through which a targeted selection selects this entry; empty for targetless discovery. */
-  readonly roles: readonly SpecContextRoleBinding[];
+  /** Every target-reason pair through which a targeted selection selects this entry; empty for targetless discovery. */
+  readonly reasons: readonly SpecContextTargetSelection[];
   /** The paragraph a Digest of this entry selects; a product document carries none, being projected Full. */
   readonly digest?: SpecContextDigest;
   readonly outputNode?: boolean;
@@ -153,7 +133,7 @@ function resolvedKindOpening(node: SpecTreeNode): string | undefined {
 function nodeSelection(
   node: SpecTreeNode,
   mode: SpecContextMode,
-  roles: readonly SpecContextRoleBinding[],
+  reasons: readonly SpecContextTargetSelection[],
   existingPaths: ReadonlySet<string>,
 ): readonly SpecContextSelection[] {
   const path = node.ref?.path;
@@ -161,7 +141,7 @@ function nodeSelection(
   return [{
     path,
     mode,
-    roles,
+    reasons,
     digest: { source: SPEC_CONTEXT_DIGEST_SOURCE.OPENING, kind: node.kind, keyword: resolvedKindOpening(node) },
     outputNode: true,
     scanCitations: true,
@@ -197,18 +177,18 @@ export function compareSpecContextTreeEntries(
     || compareSpecContextOrdinal(leftName, rightName);
 }
 
-/** Accumulates target-role bindings per key, each pair once, in first-binding order. */
-class SpecContextRoleBindings<Key> {
-  readonly #byKey = new Map<Key, SpecContextRoleBinding[]>();
+/** Accumulates target-reason pairs per key, each pair once, in first-binding order. */
+class SpecContextReasonBindings<Key> {
+  readonly #byKey = new Map<Key, SpecContextTargetSelection[]>();
 
-  bind(key: Key, target: string, role: SpecContextRole): void {
+  bind(key: Key, target: string, reason: SpecContextSelectionReason): void {
     const bindings = this.#byKey.get(key);
     if (bindings === undefined) {
-      this.#byKey.set(key, [{ target, role }]);
+      this.#byKey.set(key, [{ target, reason }]);
       return;
     }
-    if (!bindings.some((binding) => binding.target === target && binding.role === role)) {
-      bindings.push({ target, role });
+    if (!bindings.some((binding) => binding.target === target && binding.reason === reason)) {
+      bindings.push({ target, reason });
     }
   }
 
@@ -216,97 +196,103 @@ class SpecContextRoleBindings<Key> {
     return this.#byKey.has(key);
   }
 
-  get(key: Key): readonly SpecContextRoleBinding[] {
+  get(key: Key): readonly SpecContextTargetSelection[] {
     return this.#byKey.get(key) ?? [];
   }
 
-  /** The highest mode any bound role names, or none when nothing is bound. */
+  /** The highest mode any bound reason requires, or none when nothing is bound. */
   mode(key: Key): SpecContextMode | undefined {
-    let highest: SpecContextMode | undefined;
-    for (const { role } of this.get(key)) {
-      const mode = SPEC_CONTEXT_ROLE_MODE[role];
-      if (highest === undefined || mode > highest) highest = mode;
-    }
-    return highest;
+    return specContextReasonsMode(this.get(key));
   }
 }
 
-/** The sibling role a node holds relative to the context-path node at its level. */
-function specContextSiblingRole(sibling: SpecTreeNode, pathNode: SpecTreeNode): SpecContextRole {
-  if (sibling.order < pathNode.order) return SPEC_CONTEXT_ROLE.LOWER_INDEX_SIBLING;
-  if (sibling.order === pathNode.order) return SPEC_CONTEXT_ROLE.SAME_INDEX_SIBLING;
-  return SPEC_CONTEXT_ROLE.HIGHER_INDEX_SIBLING;
-}
-
 /**
- * Every role each target binds, keyed by node identity for node specs, by
+ * Every reason each target binds, keyed by node identity for node specs, by
  * decision identity for decisions, and by containing node identity — the
- * product root as `undefined` — for coordination notes and explicit-target
- * artifacts.
+ * product root as `undefined` — for the product spec, issue notes, and
+ * explicit-target artifacts.
  */
-interface SpecContextTargetedRoles {
-  readonly nodes: SpecContextRoleBindings<string>;
-  readonly decisions: SpecContextRoleBindings<string>;
-  readonly containers: SpecContextRoleBindings<string | undefined>;
-  readonly explicit: SpecContextRoleBindings<string | undefined>;
+interface SpecContextTargetedReasons {
+  readonly product: SpecContextReasonBindings<undefined>;
+  readonly nodes: SpecContextReasonBindings<string>;
+  readonly decisions: SpecContextReasonBindings<string>;
+  readonly containers: SpecContextReasonBindings<string | undefined>;
+  readonly explicit: SpecContextReasonBindings<string | undefined>;
 }
 
 /**
  * Binds one target's context path: the target and its ancestors, the issue
- * note container each of them is, and every sibling at each level relative to
- * the path node at that level.
+ * note container each of them is, and every sibling at each level.
  */
 function bindSpecContextPath(
-  roles: SpecContextTargetedRoles,
+  reasons: SpecContextTargetedReasons,
   snapshot: SpecTreeSnapshot,
   target: string,
   contextPath: readonly SpecTreeNode[],
 ): void {
   const targetNode = contextPath.at(-1);
   for (const pathNode of contextPath) {
-    roles.nodes.bind(
+    reasons.nodes.bind(
       pathNode.id,
       target,
-      pathNode === targetNode ? SPEC_CONTEXT_ROLE.TARGET : SPEC_CONTEXT_ROLE.ANCESTOR,
+      pathNode === targetNode ? SPEC_CONTEXT_SELECTION_REASON.TARGET : SPEC_CONTEXT_SELECTION_REASON.ANCESTOR,
     );
-    roles.containers.bind(pathNode.id, target, SPEC_CONTEXT_ROLE.COORDINATION);
+    reasons.containers.bind(pathNode.id, target, SPEC_CONTEXT_SELECTION_REASON.ISSUE);
     for (const sibling of specContextSiblings(snapshot, pathNode)) {
-      roles.nodes.bind(sibling.id, target, specContextSiblingRole(sibling, pathNode));
+      reasons.nodes.bind(sibling.id, target, SPEC_CONTEXT_SELECTION_REASON.SIBLING);
     }
   }
 }
 
-function specContextTargetedRoles(
+/**
+ * The reason a path-governing decision holds for one target: a decision
+ * directly inside the explicit target — the product root included — is the
+ * target's own, a decision directly under the product root is the product's,
+ * and every other one is selected at an ancestor.
+ */
+function specContextDecisionReason(
+  decision: SpecTreeDecision,
+  targetNode: SpecTreeNode | undefined,
+): SpecContextSelectionReason {
+  if (decision.parentId === targetNode?.id) return SPEC_CONTEXT_SELECTION_REASON.TARGET;
+  if (decision.parentId === undefined) return SPEC_CONTEXT_SELECTION_REASON.PRODUCT;
+  return SPEC_CONTEXT_SELECTION_REASON.ANCESTOR;
+}
+
+function specContextTargetedReasons(
   snapshot: SpecTreeSnapshot,
   targets: readonly SpecContextTarget[],
-): SpecContextTargetedRoles {
-  const roles: SpecContextTargetedRoles = {
-    nodes: new SpecContextRoleBindings(),
-    decisions: new SpecContextRoleBindings(),
-    containers: new SpecContextRoleBindings(),
-    explicit: new SpecContextRoleBindings(),
+): SpecContextTargetedReasons {
+  const reasons: SpecContextTargetedReasons = {
+    product: new SpecContextReasonBindings(),
+    nodes: new SpecContextReasonBindings(),
+    decisions: new SpecContextReasonBindings(),
+    containers: new SpecContextReasonBindings(),
+    explicit: new SpecContextReasonBindings(),
   };
   for (const { path: target, node } of targets) {
-    roles.containers.bind(undefined, target, SPEC_CONTEXT_ROLE.COORDINATION);
-    roles.explicit.bind(node?.id, target, SPEC_CONTEXT_ROLE.KNOWLEDGE_INDEX);
+    reasons.product.bind(undefined, target, SPEC_CONTEXT_SELECTION_REASON.PRODUCT);
+    if (node === undefined) reasons.product.bind(undefined, target, SPEC_CONTEXT_SELECTION_REASON.TARGET);
+    reasons.containers.bind(undefined, target, SPEC_CONTEXT_SELECTION_REASON.ISSUE);
+    reasons.explicit.bind(node?.id, target, SPEC_CONTEXT_SELECTION_REASON.KNOWLEDGE_INDEX);
     const contextPath = node === undefined ? [] : [...specContextAncestors(snapshot, node), node];
     for (const decision of specContextDecisions(snapshot, contextPath)) {
-      roles.decisions.bind(decision.id, target, SPEC_CONTEXT_ROLE.DECISION);
+      reasons.decisions.bind(decision.id, target, specContextDecisionReason(decision, node));
     }
-    bindSpecContextPath(roles, snapshot, target, contextPath);
+    bindSpecContextPath(reasons, snapshot, target, contextPath);
     for (const child of node?.children ?? snapshot.nodes) {
-      roles.nodes.bind(child.id, target, SPEC_CONTEXT_ROLE.IMMEDIATE_CHILD);
+      reasons.nodes.bind(child.id, target, SPEC_CONTEXT_SELECTION_REASON.IMMEDIATE_CHILD);
     }
   }
-  return roles;
+  return reasons;
 }
 
-/** The bindings of `bound` re-expressed under `role`, one per bound target. */
+/** The pairs of `bound` re-expressed under `reason`, one per bound target. */
 function specContextRebind(
-  bound: readonly SpecContextRoleBinding[],
-  role: SpecContextRole,
-): readonly SpecContextRoleBinding[] {
-  return [...new Set(bound.map(({ target }) => target))].map((target) => ({ target, role }));
+  bound: readonly SpecContextTargetSelection[],
+  reason: SpecContextSelectionReason,
+): readonly SpecContextTargetSelection[] {
+  return [...new Set(bound.map(({ target }) => target))].map((target) => ({ target, reason }));
 }
 
 /** The context-ingestion failure for a tree whose nodes or root decisions have no product spec to start the walk. */
@@ -340,37 +326,36 @@ export function selectSpecContextDocuments(
   const productPath = specContextWalkRoot(snapshot);
   if (productPath === undefined) return [];
   const discovery = targets.length === 0;
-  const roles = specContextTargetedRoles(snapshot, targets);
-  const productRoles = specContextRebind(roles.containers.get(undefined), SPEC_CONTEXT_ROLE.PRODUCT);
+  const reasons = specContextTargetedReasons(snapshot, targets);
   const result: SpecContextSelection[] = [];
-  const reference = (path: string, bindings: readonly SpecContextRoleBinding[]): void => {
+  const reference = (path: string, bindings: readonly SpecContextTargetSelection[]): void => {
     if (existingPaths.has(path)) {
-      result.push({ path, mode: SPEC_CONTEXT_MODE.REFERENCE, roles: bindings, optional: true });
+      result.push({ path, mode: SPEC_CONTEXT_MODE.REFERENCE, reasons: bindings, optional: true });
     }
   };
   const explicitArtifacts = (node: SpecTreeNode | undefined, directory: string): void => {
-    const knowledgeRoles = roles.explicit.get(node?.id);
-    if (knowledgeRoles.length === 0) return;
+    const knowledgeReasons = reasons.explicit.get(node?.id);
+    if (knowledgeReasons.length === 0) return;
     if (node !== undefined) {
       const outcome = `${directory}/${node.slug}${OUTCOME_SUFFIX}`;
       if (existingPaths.has(outcome)) {
         result.push({
           path: outcome,
           mode: SPEC_CONTEXT_MODE.FULL,
-          roles: specContextRebind(knowledgeRoles, SPEC_CONTEXT_ROLE.OUTCOME_RECORD),
+          reasons: specContextRebind(knowledgeReasons, SPEC_CONTEXT_SELECTION_REASON.OUTCOME_RECORD),
           optional: true,
           scanCitations: true,
         });
       }
     }
-    reference(`${directory}/${KNOWLEDGE_INDEX}`, knowledgeRoles);
+    reference(`${directory}/${KNOWLEDGE_INDEX}`, knowledgeReasons);
   };
   const structuralEntries = (node: SpecTreeNode | undefined, depth: number) => {
     const decisions = snapshot.decisions
-      .filter((decision) => decision.parentId === node?.id && (discovery || roles.decisions.has(decision.id)))
+      .filter((decision) => decision.parentId === node?.id && (discovery || reasons.decisions.has(decision.id)))
       .map((decision) => ({ decision, path: requiredDocumentPath(decision.ref?.path, decision.id) }));
     const children = (node?.children ?? snapshot.nodes)
-      .filter((child) => discovery ? depth < DISCOVERY_DEPTH : roles.nodes.has(child.id))
+      .filter((child) => discovery ? depth < DISCOVERY_DEPTH : reasons.nodes.has(child.id))
       .map((child) => ({ child, path: nodeDirectory(child) }));
     return [...decisions, ...children].sort(compareSpecContextTreeEntries);
   };
@@ -380,20 +365,20 @@ export function selectSpecContextDocuments(
       ? SPEC_CONTEXT_MODE.FULL
       : discovery
       ? SPEC_CONTEXT_MODE.DIGEST
-      : roles.nodes.mode(node.id);
+      : reasons.nodes.mode(node.id);
     if (mode === undefined) return;
     result.push(
       ...(node === undefined
         ? [{
           path: productPath,
           mode,
-          roles: productRoles,
+          reasons: reasons.product.get(undefined),
           scanCitations: true,
         }]
-        : nodeSelection(node, mode, roles.nodes.get(node.id), existingPaths)),
+        : nodeSelection(node, mode, reasons.nodes.get(node.id), existingPaths)),
     );
-    if (discovery || roles.containers.has(node?.id)) {
-      reference(`${directory}/${ISSUE_FILENAME}`, roles.containers.get(node?.id));
+    if (discovery || reasons.containers.has(node?.id)) {
+      reference(`${directory}/${ISSUE_FILENAME}`, reasons.containers.get(node?.id));
     }
     explicitArtifacts(node, directory);
     for (const entry of structuralEntries(node, depth)) {
@@ -401,7 +386,7 @@ export function selectSpecContextDocuments(
       else {result.push({
           path: entry.path,
           mode: discovery ? SPEC_CONTEXT_MODE.DIGEST : SPEC_CONTEXT_MODE.FULL,
-          roles: roles.decisions.get(entry.decision.id),
+          reasons: reasons.decisions.get(entry.decision.id),
           digest: DECISION_STATEMENT_DIGEST,
           scanCitations: true,
         });}
@@ -549,7 +534,8 @@ export function projectSpecContextDocument(selection: SpecContextSelection, sour
 /**
  * The decisions one document's inline links bind, each required to name a
  * snapshot decision that exists on disk. The one owner of that rule and of
- * its diagnostic, applied to the displayed content of each selected document.
+ * its diagnostic, applied to the complete source of each selected document,
+ * whatever its projection mode displays.
  */
 export function specContextBoundCitations(
   content: string,
@@ -582,12 +568,12 @@ export function specContextInlineDecisionCitations(content: string): readonly st
 
 export function specContextCitedSelection(
   path: string,
-  roles: readonly SpecContextRoleBinding[],
+  reasons: readonly SpecContextTargetSelection[],
 ): SpecContextSelection {
   return {
     path,
     mode: SPEC_CONTEXT_MODE.FULL,
-    roles,
+    reasons,
     digest: DECISION_STATEMENT_DIGEST,
     scanCitations: true,
   };
