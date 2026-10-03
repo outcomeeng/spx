@@ -13,6 +13,7 @@ import {
   SPEC_CONTEXT_PRODUCT_ROOT_TARGET,
   SPEC_CONTEXT_SELECTION_REASON,
   SPEC_TREE_CONFIG,
+  SPEC_TREE_GRAMMAR,
 } from "@/lib/spec-tree";
 import {
   markdownFixtureBody,
@@ -96,22 +97,11 @@ describe("spec context list and show", () => {
   it("supplies the complete product spec and a depth-bounded Product Tree map when show has no target", async () => {
     await withRichContextEnv(async (env, paths) => {
       const entries = await contextShowEntries({ targets: [], cwd: env.productDir });
-      // The product spec is the one structurally Full document; every node at
-      // depths one and two and every decision at depths zero through two is a
-      // Digest, except the decisions a selected document's complete source
-      // cites: the peer decision the target's opening cites, the decision the
-      // target body and the lower sibling cite, and the decision that one cites
-      // in turn, each delivered Full because a citation requires Full.
-      for (
-        const full of [
-          paths.productPath,
-          paths.peerDecisionPath,
-          paths.citedDecisionPath,
-          paths.transitiveCitedDecisionPath,
-        ]
-      ) {
-        expect(documentAt(entries, full)?.content, full).toBe(paths.sourceText[full]);
-      }
+      // The product spec is the one Full document; every node at depths one and
+      // two and every decision at depths zero through two is a Digest. Targetless
+      // discovery follows no citation, so the decisions selected documents cite
+      // stay Digest like every other decision on the map.
+      expect(documentAt(entries, paths.productPath)?.content).toBe(paths.sourceText[paths.productPath]);
       for (
         const digest of [
           paths.rootSpecPath,
@@ -122,10 +112,33 @@ describe("spec context list and show", () => {
           paths.higherProductDecisionPath,
           paths.ancestorDecisionPath,
           paths.higherAncestorDecisionPath,
+          paths.peerDecisionPath,
+          paths.citedDecisionPath,
+          paths.transitiveCitedDecisionPath,
         ]
       ) {
         expect(documentAt(entries, digest)?.content, digest).toBe(paths.openingText[digest]);
       }
+      // The cited decisions sit at their structural positions inside the peer
+      // node's walk — its spec, then its decisions in ascending index with the
+      // complete filename as ordinal tie-break — and nothing is appended: the
+      // peer node's entries form one contiguous run in that order.
+      const peerPrefix = `${paths.higherIndexSiblingPath}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}`;
+      const peerDecisions = [
+        { path: paths.citedDecisionPath, order: env.fixture.decision.order },
+        { path: paths.peerDecisionPath, order: env.fixture.decision.order },
+        { path: paths.transitiveCitedDecisionPath, order: env.fixture.peer.order },
+      ].sort((left, right) =>
+        left.order - right.order || (left.path < right.path ? -1 : left.path > right.path ? 1 : 0)
+      );
+      const peerStart = entryPaths(entries).indexOf(paths.higherIndexSiblingSpecPath);
+      expect(entryPaths(entries).slice(peerStart, peerStart + 1 + peerDecisions.length)).toEqual([
+        paths.higherIndexSiblingSpecPath,
+        ...peerDecisions.map(({ path }) => path),
+      ]);
+      expect(entryPaths(entries).filter((path) => path.startsWith(peerPrefix))).toHaveLength(
+        1 + peerDecisions.length,
+      );
       expect(referencePaths(entries)).toEqual([paths.rootIssuesPath, paths.ancestorIssuesPath, paths.targetIssuesPath]);
       expect(documentPaths(entries)).not.toContain(paths.targetOutcomePath);
       expect(entryPaths(entries)).not.toContain(paths.targetKnowledgeIndexPath);
