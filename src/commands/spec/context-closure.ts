@@ -28,7 +28,8 @@ export interface SpecContextClosure {
 /**
  * One selected entry with every target-role pair through which the selection
  * reaches it; a cited decision outside the structural walk also carries every
- * document whose displayed content cites it.
+ * selected document whose complete source cites it, in the order the closure
+ * lists those documents.
  */
 export interface SpecContextClosureEntry {
   readonly entry: SpecContextEntry;
@@ -82,15 +83,21 @@ function citedDecisionRoles(
   );
 }
 
+type ProjectedDocumentResult =
+  | { readonly ok: true; readonly entry: SpecContextEntry; readonly source: string }
+  | { readonly ok: false; readonly error: unknown };
+
+/** The projected entry together with the complete source it was projected from. */
 async function readProjectedDocument(
   input: ContextInput,
   selection: SpecContextSelection,
-): Promise<{ readonly ok: true; readonly entry: SpecContextEntry } | { readonly ok: false; readonly error: unknown }> {
+): Promise<ProjectedDocumentResult> {
   const source = selection.mode === SPEC_CONTEXT_MODE.REFERENCE ? "" : await input.readDocument(selection.path);
   try {
     return {
       ok: true,
       entry: projectSpecContextDocument(selection, source),
+      source,
     };
   } catch (error) {
     if (selection.mode !== SPEC_CONTEXT_MODE.DIGEST) throw error;
@@ -112,9 +119,9 @@ async function existingSelections(
 
 /**
  * Projects the structural selection of `targets` and follows the citations
- * its displayed content carries — Full bodies for Full documents, opening
- * paragraphs for Digest documents — transitively, until no unread cited
- * decision remains. Any document failure, and any citation that binds no
+ * the complete source of each selected document carries — whatever its
+ * projection mode displays — transitively, until no unread cited decision
+ * remains. Any document failure, and any citation that binds no
  * tracked decision, fails the whole closure.
  */
 export async function resolveSpecContextClosure(
@@ -137,12 +144,12 @@ export async function resolveSpecContextClosure(
       digestFailures.set(selection.path, result.error);
       continue;
     }
-    const { entry } = result;
+    const { entry, source } = result;
     digestFailures.delete(selection.path);
     projected.set(selection.path, { selection, entry });
     if (entry.type !== SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT || selection.scanCitations !== true) continue;
     for (
-      const path of specContextBoundCitations(entry.content, selection.path, decisions, input.existingPaths)
+      const path of specContextBoundCitations(source, selection.path, decisions, input.existingPaths)
     ) {
       if (!structuralPaths.has(path)) {
         const citing = citedBy.get(path) ?? new Set<string>();
@@ -160,13 +167,20 @@ export async function resolveSpecContextClosure(
     if (document === undefined) throw new Error(`Unresolved context document: ${path}`);
     return document.entry;
   };
+  const cited = [...citedBy.keys()].sort(compareSpecContextOrdinal);
+  const position = new Map([...structural.map(({ path }) => path), ...cited].map((path, index) => [path, index]));
+  const closurePosition = (path: string): number => {
+    const index = position.get(path);
+    if (index === undefined) throw new Error(`Citing document outside the context closure: ${path}`);
+    return index;
+  };
   return {
     entries: [
       ...structural.map(({ path, roles }) => ({ entry: projectedEntry(path), roles })),
-      ...[...citedBy].sort(([left], [right]) => compareSpecContextOrdinal(left, right)).map(([path, citing]) => ({
+      ...cited.map((path) => ({
         entry: projectedEntry(path),
         roles: citedRoles.get(path) ?? [],
-        citedBy: [...citing].sort(compareSpecContextOrdinal),
+        citedBy: [...(citedBy.get(path) ?? [])].sort((left, right) => closurePosition(left) - closurePosition(right)),
       })),
     ],
   };
