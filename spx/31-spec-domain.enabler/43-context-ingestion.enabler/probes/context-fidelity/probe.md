@@ -21,13 +21,14 @@ The probe also records what `/contextualize` from spec-tree plugin 0.100.2 loads
 ## Environment and preconditions
 
 - A worktree of the spx repository, checked out at the commit under verification, with its `spx.config.yaml` declaring `methodology.version: 4.0.0` and `methodology.migratingFrom: 3.2.0`.
+- `openssl` is on `PATH`, because step 1 draws the run directory's random suffix with `openssl rand -hex 4`.
 - `pnpm install` complete in that worktree. Every command runs from the worktree root through `tsx src/cli.ts`, so the live source is under test, not the global `spx` build.
 - The worktree is clean (`git status --short` prints nothing), so the tracked tree the command reads equals the committed tree.
 - The worktree's branch is current with its base: `/sync-base` reports `already_current`, so no synchronization a later step performs moves the head.
 - Git ignores the probe's `runs/` directory: `git check-ignore -q spx/31-spec-domain.enabler/43-context-ingestion.enabler/probes/context-fidelity/runs/probe-check/head.txt` exits zero, so working output never dirties the tree a later step reads.
 - Spec-tree plugin 0.100.2 is installed for the coding agent that records the `/contextualize` read-set, and that agent session has loaded `/understand`.
 - Harness guides and `spx/local/` overlays lie outside `show`, `list`, and the comparison: a row for such a file records the boundary and decides nothing.
-- `PROBE` names this directory, `spx/31-spec-domain.enabler/43-context-ingestion.enabler/probes/context-fidelity`. One session performs both runs and the comparison of step 9, and holds the two run directories it allocates at step 1 as `RUN_1` and `RUN_2`. `RUN` names the directory of the run in progress.
+- `PROBE` names this directory, `spx/31-spec-domain.enabler/43-context-ingestion.enabler/probes/context-fidelity`. One capture session performs both capture runs and the comparison of step 9, and holds the two run directories it allocates at step 1 as `RUN_1` and `RUN_2`. The `/contextualize` recording of step 2 runs in a separate fresh agent session, which records each target into the run directory of the run in progress. `RUN` names the directory of the run in progress.
 - Every `show` and `list` capture runs through this shell function, defined once in the shell that performs the runs:
 
   ```bash
@@ -51,12 +52,12 @@ The probed targets on spx's tree, each chosen for the assertions it exercises:
 
 `list` requires one or more targets, so T0 has no `list` capture and its `list` comparison is inapplicable; every other comparison applies to every target.
 
-Steps 1 to 8 make up one run. The session performs them once for the first run, recording its directory as `RUN_1`, then again from step 1 for the second run, recording its directory as `RUN_2`. A run is completed when every one of its steps finishes and no capture fails it.
+Steps 1 to 8 make up one run. The capture session performs them, step 2 apart, which the separate `/contextualize` session performs, once for the first run, recording its directory as `RUN_1`, then again from step 1 for the second run, recording its directory as `RUN_2`. A run is completed when every one of its steps finishes and no capture fails it.
 
 1. Allocate the run directory and record the start subject:
    - `RUN="$PROBE/runs/$(git rev-parse HEAD)-$(date -u +%Y%m%dT%H%M%SZ)-$(openssl rand -hex 4)"`, then `mkdir "$RUN"`. The directory name carries the full head SHA, a UTC timestamp, and a random suffix; `mkdir` without `-p` fails when the directory exists, and a failed `mkdir` fails the run.
    - `git rev-parse HEAD > "$RUN/start.head.txt"` and `git status --short > "$RUN/start.status.txt"`. The status file must be empty. `<commit>` below is the contents of `"$RUN/start.head.txt"`.
-2. In a fresh agent session on the same worktree, after `/understand`, invoke `/contextualize spx/`, then `/contextualize` on each of T2, T3, and T4. For each one, write the manifest the skill emits to `"$RUN/<id>.contextualize.txt"`, together with every document path it read, and mark each path as read in full or listed only. T0 and T1 record against the `spx/` invocation; T5 records against the union of the T2, T3, and T4 invocations. Each `/contextualize` synchronizes through `/sync-base` before it loads, and every such synchronization finishes in this step, before any capture; its reported status is recorded in the same file.
+2. In a fresh agent session on the same worktree, separate from the capture session, after `/understand`, invoke `/contextualize spx/`, then `/contextualize` on each of T2, T3, and T4. For each one, write the manifest the skill emits to `"$RUN/<id>.contextualize.txt"`, together with every document path it read, and mark each path as read in full or listed only. T0 and T1 record against the `spx/` invocation; T5 records against the union of the T2, T3, and T4 invocations. Each `/contextualize` synchronizes through `/sync-base` before it loads, and every such synchronization finishes in this step, before any capture; its reported status is recorded in the same file.
 3. Before running any `show` or `list` command of this run, write `"$RUN/<id>.expected.json"` for each target T0 to T5, derived from `git ls-files spx` and the tracked documents' source at `<commit>` alone. It is an array with one object per expected entry, in expected position, carrying:
    - `path`, the entry's canonical path;
    - `mode`, `full`, `digest`, or `reference`, as the read set of the Intent assigns it;
