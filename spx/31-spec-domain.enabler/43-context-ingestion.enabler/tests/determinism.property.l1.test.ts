@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { arbitraryContextDeterminismCase } from "@testing/generators/spec-tree/context-target";
+import { rootedSpecPath } from "@testing/generators/spec-tree/rich-context";
 import {
   assertProperty,
   PROPERTY_CLASSIFICATION,
@@ -19,14 +21,11 @@ import {
 
 describe("spec context determinism", () => {
   it(
-    "produces byte-identical list and show output across repeated runs on identical tree content, methodology resources, options, and targets",
+    "produces byte-identical list and show output for equal tree content, methodology resources, options, coding agent, and accepted canonical targets",
     async () => {
       await assertProperty(
         arbitraryContextDeterminismCase(specTreeKindsConfig()),
         async ({ fixture, extraDecision, extraNode, migrating, methodologySlug }) => {
-          // An open migration lets the materialized fixture's decisions, which
-          // carry no target-version opening, project through the declared
-          // source-version fallback in both the targetless and targeted runs.
           await withSpecTreeEnv(methodologyTreeConfig(migrating.section), async (env) => {
             await env.materialize();
             const tree = await writeMethodologyTree(env, { version: migrating.target, slug: methodologySlug });
@@ -34,15 +33,22 @@ describe("spec context determinism", () => {
             await env.writeRaw(extraDecision.fixturePath, extraDecision.contents);
             const snapshot = await env.readFilesystemSnapshot();
             const target = snapshot.allNodes[0];
-            const targets = [target.id];
             const cwd = env.productDir;
+            // Three spellings of one accepted canonical target: the tree-rooted
+            // node directory, the same with a trailing separator, and the
+            // node's spec file. Equal canonical targets admit no output change.
+            const spellings = [
+              [rootedSpecPath(target.id)],
+              [`${rootedSpecPath(target.id)}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}`],
+              [target.ref?.path ?? rootedSpecPath(target.id)],
+            ];
             const runs = [
-              () => contextListJson({ targets, cwd }),
-              () => contextListText({ targets, cwd }),
-              () => contextShowText({ targets, cwd }),
-              () => contextShowJson({ targets, cwd }),
+              (targets: readonly string[]) => contextListJson({ targets, cwd }),
+              (targets: readonly string[]) => contextListText({ targets, cwd }),
+              (targets: readonly string[]) => contextShowText({ targets, cwd }),
+              (targets: readonly string[]) => contextShowJson({ targets, cwd }),
               () => contextShowText({ targets: [], cwd }),
-              () =>
+              (targets: readonly string[]) =>
                 contextShowText({
                   targets,
                   cwd,
@@ -52,7 +58,11 @@ describe("spec context determinism", () => {
                 }),
             ];
             for (const run of runs) {
-              expect(await run()).toBe(await run());
+              const first = await run(spellings[0]);
+              expect(await run(spellings[0])).toBe(first);
+              for (const spelling of spellings.slice(1)) {
+                expect(await run(spelling), spelling.join(" ")).toBe(first);
+              }
             }
           }, { fixture });
         },

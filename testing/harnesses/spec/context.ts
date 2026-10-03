@@ -45,9 +45,9 @@ import {
   SPEC_TREE_CONFIG_FIELDS,
   type SpecContextDocumentEntry,
   type SpecContextEntry,
-  type SpecContextListedRole,
   type SpecContextManifest,
-  type SpecContextReadRole,
+  type SpecContextManifestEntry,
+  type SpecContextSelectionReason,
 } from "@/lib/spec-tree";
 import { arbitraryMethodologyVersion, type GeneratedMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
@@ -495,29 +495,26 @@ export function specTreeKindsConfig(): Config {
   };
 }
 
-export function readPaths(manifest: SpecContextManifest): readonly string[] {
-  return manifest.read.map((document) => document.path);
-}
-
-export function listedPaths(manifest: SpecContextManifest): readonly string[] {
-  return manifest.listed.map((entry) => entry.path);
-}
-
+/** Every manifest entry's path, in manifest order. */
 export function allManifestPaths(manifest: SpecContextManifest): readonly string[] {
-  return [...readPaths(manifest), ...listedPaths(manifest)];
+  return manifest.entries.map((entry) => entry.path);
 }
 
-/** Read-document paths carrying `role` for any target, in manifest order. */
-export function readPathsForRole(manifest: SpecContextManifest, role: SpecContextReadRole): readonly string[] {
-  return manifest.read
-    .filter((document) => document.roles.some((binding) => binding.role === role))
-    .map((document) => document.path);
+/** The manifest entry at `path`, or none when the manifest carries no entry there. */
+export function manifestEntryAt(
+  manifest: SpecContextManifest,
+  path: string,
+): SpecContextManifestEntry | undefined {
+  return manifest.entries.find((entry) => entry.path === path);
 }
 
-/** Listed-entry paths carrying `role` for any target, in manifest order. */
-export function listedPathsForRole(manifest: SpecContextManifest, role: SpecContextListedRole): readonly string[] {
-  return manifest.listed
-    .filter((entry) => entry.roles.some((binding) => binding.role === role))
+/** Paths of the entries any requested target selects for `reason`, in manifest order. */
+export function manifestPathsForReason(
+  manifest: SpecContextManifest,
+  reason: SpecContextSelectionReason,
+): readonly string[] {
+  return manifest.entries
+    .filter((entry) => entry.selections.some((selection) => selection.reason === reason))
     .map((entry) => entry.path);
 }
 

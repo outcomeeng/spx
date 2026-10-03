@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
-import { SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
+import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
 import { METHODOLOGY_CODING_AGENT } from "@/lib/methodology";
 import { KIND_REGISTRY, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
@@ -30,23 +30,23 @@ import {
 } from "@testing/harnesses/spec/context";
 
 describe("spec context no partial output", () => {
-  it("writes nothing to standard output when one target of a show fails to resolve", async () => {
+  it("writes nothing to standard output when one target of a list or show fails to resolve, and the complete output when every target resolves", async () => {
     await withRichContextEnv(async (env, paths) => {
       const unknown = specContextUnknownTarget(env.fixture);
-      const result = await runSpecCli(
-        env.productDir,
-        SPEC_DOMAIN_CLI.COMMAND,
-        SPEC_DOMAIN_CLI.CONTEXT_COMMAND,
-        SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND,
-        paths.targetId,
-        unknown,
-      );
-      expect(result.exitCode).toBe(1);
-      expect(result.stdout).toHaveLength(0);
-      expect(result.stderr).toContain(
-        SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED],
-      );
-      expect(result.stderr).toContain(unknown);
+      for (const command of [SPEC_CONTEXT_COMMAND_PATH.LIST, SPEC_CONTEXT_COMMAND_PATH.SHOW]) {
+        const result = await runSpecCli(env.productDir, ...command, paths.targetId, unknown);
+        expect(result.exitCode, command.join(" ")).toBe(1);
+        expect(result.stdout, command.join(" ")).toHaveLength(0);
+        expect(result.stderr).toContain(
+          SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED],
+        );
+        expect(result.stderr).toContain(unknown);
+        // The same executable over the resolvable target alone writes its
+        // output, so the empty stream above is the failure's doing.
+        const resolved = await runSpecCli(env.productDir, ...command, paths.targetId);
+        expect(resolved.exitCode, resolved.stderr).toBe(0);
+        expect(resolved.stdout).toContain(paths.targetSpecPath);
+      }
     });
   });
 

@@ -6,19 +6,16 @@ import {
   type DecisionKind,
   KIND_REGISTRY,
   type NodeKind,
-  SPEC_CONTEXT_DOCUMENT_OPENING,
   SPEC_CONTEXT_ENTRY_TYPE,
   SPEC_CONTEXT_FRAME,
-  SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
-  SPEC_CONTEXT_LISTED_ROLE,
   SPEC_CONTEXT_OPTIONAL_ARTIFACT,
-  SPEC_CONTEXT_READ_ROLE,
+  SPEC_CONTEXT_PRODUCT_ROOT_TARGET,
   SPEC_CONTEXT_SELECTED_METADATA_KEY,
+  SPEC_CONTEXT_SELECTION_REASON,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
   type SpecContextEntry,
-  type SpecContextListedRole,
-  type SpecContextReadRole,
+  type SpecContextSelectionReason,
 } from "@/lib/spec-tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
@@ -95,6 +92,15 @@ export function markdownFixtureBody(title: string): string {
 /** One opening paragraph as the Digest projection selects it: keyword, subject, and its closing line ending. */
 export function openingParagraph(keyword: string, subject: string): string {
   return `${keyword} ${subject}\nSO THAT readers\nCAN find it\n`;
+}
+
+/**
+ * One decision statement as the Digest projection selects it: a prose
+ * paragraph naming its subject, carrying no fixed opening keyword, and its
+ * closing line ending.
+ */
+export function decisionStatementParagraph(subject: string): string {
+  return `The ${subject} decision governs readers\nwherever they find it.\n`;
 }
 
 /** A Markdown inline link to `path`, the one citation shape context projection binds. */
@@ -194,7 +200,11 @@ export interface RichContextPaths {
   readonly bodyText: Readonly<Record<string, string>>;
   /** The front-matter selection the target spec projects: its one selected key and drawn value. */
   readonly targetSelectedMetadata: Readonly<Record<string, string>>;
-  /** The opening paragraph each Digest-selectable document carries, keyed by path. */
+  /**
+   * The paragraph each Digest-selectable document's Digest selects, keyed by
+   * path: an output node's opening or a decision's decision statement. The
+   * product spec carries none, being projected Full wherever it is selected.
+   */
   readonly openingText: Readonly<Record<string, string>>;
 }
 
@@ -301,8 +311,8 @@ function richContextScenario({ fixture, tokens, evidenceFileName }: RichContextD
     `${fixture.root.slug}${SPEC_CONTEXT_OPTIONAL_ARTIFACT.OUTCOME_SUFFIX}`,
   );
   const rootOpening = KIND_REGISTRY[fixture.root.kind].opening;
+  const productStatement = `${fixture.product.title} — Übersicht ✓ for readers.\n`;
   const openingText: Record<string, string> = {
-    [productPath]: openingParagraph(SPEC_CONTEXT_DOCUMENT_OPENING.PRODUCT, `${fixture.product.title} — Übersicht ✓`),
     [rootSpecPath]: openingParagraph(rootOpening, fixture.root.slug),
     [targetSpecPath]: openingParagraph(
       KIND_REGISTRY[fixture.child.kind].opening,
@@ -311,22 +321,19 @@ function richContextScenario({ fixture, tokens, evidenceFileName }: RichContextD
     [lowerSiblingSpecPath]: openingParagraph(rootOpening, `${prose} lower sibling`),
     [sameIndexSiblingSpecPath]: openingParagraph(rootOpening, `${prose} same sibling`),
     [higherIndexSiblingSpecPath]: openingParagraph(KIND_REGISTRY[fixture.peer.kind].opening, fixture.peer.slug),
-    [ancestorDecisionPath]: openingParagraph(SPEC_CONTEXT_DOCUMENT_OPENING.DECISION, `${prose} ancestor subtree`),
-    [targetDecisionPath]: openingParagraph(SPEC_CONTEXT_DOCUMENT_OPENING.DECISION, `${prose} target node`),
-    [higherAncestorDecisionPath]: openingParagraph(
-      SPEC_CONTEXT_DOCUMENT_OPENING.DECISION,
+    [ancestorDecisionPath]: decisionStatementParagraph(`${prose} ancestor subtree`),
+    [targetDecisionPath]: decisionStatementParagraph(`${prose} target node`),
+    [higherAncestorDecisionPath]: decisionStatementParagraph(
       `${prose} higher ancestor siblings`,
     ),
-    [higherProductDecisionPath]: openingParagraph(
-      SPEC_CONTEXT_DOCUMENT_OPENING.DECISION,
+    [higherProductDecisionPath]: decisionStatementParagraph(
       `${prose} higher product siblings`,
     ),
-    [citedDecisionPath]: openingParagraph(SPEC_CONTEXT_DOCUMENT_OPENING.DECISION, `${prose} cited concern`),
-    [transitiveCitedDecisionPath]: openingParagraph(
-      SPEC_CONTEXT_DOCUMENT_OPENING.DECISION,
+    [citedDecisionPath]: decisionStatementParagraph(`${prose} cited concern`),
+    [transitiveCitedDecisionPath]: decisionStatementParagraph(
       `${prose} transitive concern`,
     ),
-    [peerDecisionPath]: openingParagraph(SPEC_CONTEXT_DOCUMENT_OPENING.DECISION, `${prose} peer subtree`),
+    [peerDecisionPath]: decisionStatementParagraph(`${prose} peer subtree`),
     [deepDescendantSpecPath]: openingParagraph(KIND_REGISTRY[fixture.child.kind].opening, deepDescendantSlug),
   };
   // The nested target, the lower sibling, and the cited decision carry
@@ -344,7 +351,7 @@ function richContextScenario({ fixture, tokens, evidenceFileName }: RichContextD
   // echoing a fixed vocabulary.
   const targetSelectedMetadata = { [SPEC_CONTEXT_SELECTED_METADATA_KEY]: selectedValue };
   const sourceText: Record<string, string> = {
-    [productPath]: `# ${fixture.product.title}\n\n${openingText[productPath]}\n${prose} guidance.\n`,
+    [productPath]: `# ${fixture.product.title}\n\n${productStatement}\n${prose} guidance.\n`,
     [rootSpecPath]: `# ${fixture.root.slug}\n\n${openingText[rootSpecPath]}\n## Assertions\n\n- ${prose} rule.\n`,
     [targetSpecPath]:
       `---\n${SPEC_CONTEXT_SELECTED_METADATA_KEY}: ${selectedValue}\n${unselectedKey}: ${noteToken}\n---\n${
@@ -412,7 +419,10 @@ function richContextScenario({ fixture, tokens, evidenceFileName }: RichContextD
     targetIssuesHeading,
     rootGuidePaths: [...SPEC_TREE_GRAMMAR.GUIDE_FILES],
     ancestorGuidePath: rootedArtifactPath(rootDirectory, SPEC_TREE_GRAMMAR.GUIDE_FILES[0]),
-    lifecycleOverlayPath: SPEC_CONTEXT_LIFECYCLE_OVERLAY_PATH,
+    lifecycleOverlayPath: rootedArtifactPath(
+      SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.DIRECTORY_NAME,
+      SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.LIFECYCLE_FILENAME,
+    ),
     listedOverlayPath: rootedArtifactPath(
       SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.DIRECTORY_NAME,
       `${overlaySlug}${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.EXTENSION}`,
@@ -528,47 +538,44 @@ export function sampleRichContextScenario(): RichContextScenario {
 }
 
 /**
- * One role's witness in the rich fixture: the entry that carries it and the
- * target whose manifest binds it. The records below are total over their
- * source-owned role domain, so a role added to production fails to compile
- * here rather than leaving a role unwitnessed.
+ * One selection reason's witness in the rich fixture: the entry that carries
+ * it and the node id of the requested target that selects it for that reason.
+ * The record below is total over the source-owned reason domain, so a reason
+ * added to production fails to compile here rather than leaving a reason
+ * unwitnessed.
  */
-export interface RichContextRoleBinding {
+export interface RichContextReasonBinding {
   readonly path: string;
   readonly targetId: string;
 }
 
-/** Every declared read role, with the rich-fixture entry that carries it. */
-export function richContextReadRoleBindings(
+/**
+ * Every declared selection reason, with the rich-fixture entry the nested
+ * target selects for it. Each witness holds exactly one structural relation to
+ * the nested target, so its recorded reason is the reason itself: the cited
+ * decision sits under the higher-index peer, outside every structural walk of
+ * the nested target, and the immediate child is the target's deep descendant.
+ */
+export function richContextReasonBindings(
   paths: RichContextPaths,
-): Record<SpecContextReadRole, RichContextRoleBinding> {
-  const target = (path: string): RichContextRoleBinding => ({ path, targetId: paths.targetId });
+): Record<SpecContextSelectionReason, RichContextReasonBinding> {
+  const target = (path: string): RichContextReasonBinding => ({ path, targetId: paths.targetId });
   return {
-    [SPEC_CONTEXT_READ_ROLE.PRODUCT]: target(paths.productPath),
-    [SPEC_CONTEXT_READ_ROLE.ANCESTOR]: target(paths.rootSpecPath),
-    [SPEC_CONTEXT_READ_ROLE.TARGET]: target(paths.targetSpecPath),
-    [SPEC_CONTEXT_READ_ROLE.DECISION]: target(paths.ancestorDecisionPath),
-    [SPEC_CONTEXT_READ_ROLE.LOWER_INDEX_SIBLING]: target(paths.lowerSiblingSpecPath),
-    [SPEC_CONTEXT_READ_ROLE.COORDINATION]: target(paths.rootPlanPath),
-    [SPEC_CONTEXT_READ_ROLE.CITED_DECISION]: target(paths.citedDecisionPath),
-    [SPEC_CONTEXT_READ_ROLE.LIFECYCLE_OVERLAY]: target(paths.lifecycleOverlayPath),
+    [SPEC_CONTEXT_SELECTION_REASON.TARGET]: target(paths.targetSpecPath),
+    [SPEC_CONTEXT_SELECTION_REASON.PRODUCT]: target(paths.productPath),
+    [SPEC_CONTEXT_SELECTION_REASON.ANCESTOR]: target(paths.rootSpecPath),
+    [SPEC_CONTEXT_SELECTION_REASON.SIBLING]: target(paths.lowerSiblingSpecPath),
+    [SPEC_CONTEXT_SELECTION_REASON.IMMEDIATE_CHILD]: target(paths.deepDescendantSpecPath),
+    [SPEC_CONTEXT_SELECTION_REASON.OUTCOME_RECORD]: target(paths.targetOutcomePath),
+    [SPEC_CONTEXT_SELECTION_REASON.KNOWLEDGE_INDEX]: target(paths.targetKnowledgeIndexPath),
+    [SPEC_CONTEXT_SELECTION_REASON.CITED_DECISION]: target(paths.citedDecisionPath),
+    [SPEC_CONTEXT_SELECTION_REASON.ISSUE]: target(paths.targetIssuesPath),
   };
 }
 
-/** Every declared listed role, with the rich-fixture entry that carries it. */
-export function richContextListedRoleBindings(
-  paths: RichContextPaths,
-): Record<SpecContextListedRole, RichContextRoleBinding> {
-  const target = (path: string): RichContextRoleBinding => ({ path, targetId: paths.targetId });
-  // The sibling roles bind only where the root is the explicit target.
-  const root = (path: string): RichContextRoleBinding => ({ path, targetId: paths.rootDirectory });
-  return {
-    [SPEC_CONTEXT_LISTED_ROLE.EVIDENCE]: target(paths.evidencePath),
-    [SPEC_CONTEXT_LISTED_ROLE.GUIDE]: target(paths.rootGuidePaths[0]),
-    [SPEC_CONTEXT_LISTED_ROLE.OVERLAY]: target(paths.listedOverlayPath),
-    [SPEC_CONTEXT_LISTED_ROLE.SAME_INDEX_SIBLING]: root(paths.sameIndexSiblingPath),
-    [SPEC_CONTEXT_LISTED_ROLE.HIGHER_INDEX_SIBLING]: root(paths.higherIndexSiblingPath),
-  };
+/** The canonical target path a manifest selection names for a rich-fixture node id. */
+export function richContextCanonicalTarget(targetId: string): string {
+  return rootedSpecPath(targetId);
 }
 
 /**
@@ -579,7 +586,12 @@ export function richContextListedRoleBindings(
  */
 export function richContextTargetAliases(paths: RichContextPaths): readonly (readonly string[])[] {
   return [
-    [SPEC_TREE_CONFIG.ROOT_DIRECTORY, paths.productPath, paths.higherProductDecisionPath],
+    [
+      SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+      SPEC_CONTEXT_PRODUCT_ROOT_TARGET,
+      paths.productPath,
+      paths.higherProductDecisionPath,
+    ],
     [rootedSpecPath(paths.rootDirectory), paths.rootSpecPath, paths.ancestorDecisionPath],
     [rootedSpecPath(paths.targetId), paths.targetSpecPath, paths.targetDecisionPath],
     [paths.higherIndexSiblingPath, paths.higherIndexSiblingSpecPath],

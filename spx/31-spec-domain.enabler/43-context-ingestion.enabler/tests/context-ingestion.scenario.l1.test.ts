@@ -1,10 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import { SPEC_CONTEXT_TEXT_LABEL } from "@/commands/spec/context";
+import { SPEC_CONTEXT_TEXT_LABEL, SPEC_CONTEXT_TEXT_SELECTION_INDENT } from "@/commands/spec/context";
 import { SPEC_CONTEXT_ENTRIES_KEY } from "@/commands/spec/context-show";
 import { DEFAULT_METHODOLOGY_SOURCE } from "@/config/methodology";
 import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
-import { SPEC_CONTEXT_FRAME, SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import {
+  SPEC_CONTEXT_ENTRY_TYPE,
+  SPEC_CONTEXT_FRAME,
+  SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
+  SPEC_CONTEXT_MODE,
+  SPEC_CONTEXT_MODE_NAME,
+  SPEC_CONTEXT_PRODUCT_ROOT_TARGET,
+  SPEC_CONTEXT_SELECTION_REASON,
+  SPEC_TREE_CONFIG,
+} from "@/lib/spec-tree";
 import {
   markdownFixtureBody,
   rootedArtifactPath,
@@ -13,6 +22,7 @@ import {
 } from "@testing/generators/spec-tree/rich-context";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
+  allManifestPaths,
   contextListJson,
   contextListManifest,
   contextListText,
@@ -22,6 +32,7 @@ import {
   documentAt,
   documentPaths,
   entryPaths,
+  manifestEntryAt,
   METHODOLOGY_FIXTURE_VERSION,
   parseContextEntries,
   parseContextManifest,
@@ -37,19 +48,48 @@ describe("spec context list and show", () => {
   it("emits the versioned structural manifest from list and framed entries without manifest fields from show", async () => {
     await withRichContextEnv(async (env, paths) => {
       const manifest = parseContextManifest(await contextListJson({ targets: [paths.targetId], cwd: env.productDir }));
-      expect(manifest.schemaVersion).toBe(SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION);
-      expect(manifest.read.length).toBeGreaterThan(0);
-      expect(manifest.listed.length).toBeGreaterThan(0);
+      // The manifest document carries exactly the declared top-level fields,
+      // and each entry exactly its path, mode, per-target selections, and —
+      // on a decision reached only by citation — the documents citing it.
+      expect(manifest).toStrictEqual({
+        schemaVersion: SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
+        bootstrap: false,
+        methodology: manifest.methodology,
+        entries: manifest.entries,
+      });
+      expect(manifest.entries.length).toBeGreaterThan(0);
+      for (const entry of manifest.entries) {
+        expect(entry, entry.path).toStrictEqual({
+          path: entry.path,
+          mode: entry.mode,
+          selections: entry.selections.map(({ target, reason }) => ({ target, reason })),
+          ...(entry.citedBy === undefined ? {} : { citedBy: entry.citedBy }),
+        });
+      }
+      expect(manifestEntryAt(manifest, paths.targetSpecPath)).toStrictEqual({
+        path: paths.targetSpecPath,
+        mode: SPEC_CONTEXT_MODE_NAME[SPEC_CONTEXT_MODE.FULL],
+        selections: [{ target: rootedSpecPath(paths.targetId), reason: SPEC_CONTEXT_SELECTION_REASON.TARGET }],
+      });
 
       const shownJson = await contextShowJson({ targets: [paths.targetId], cwd: env.productDir });
       const shown = JSON.parse(shownJson) as Record<string, unknown>;
       expect(Object.keys(shown)).toEqual([SPEC_CONTEXT_ENTRIES_KEY]);
-      for (const field of Object.keys(manifest)) {
-        expect(shown).not.toHaveProperty(field);
+      // Every shown entry carries only its framing fields: no mode, selection,
+      // citing-document, version, or count field from the manifest.
+      const entries = parseContextEntries(shownJson);
+      expect(entryPaths(entries)).toEqual(allManifestPaths(manifest));
+      for (const entry of entries) {
+        expect(entry, entry.path).toStrictEqual(
+          entry.type === SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT
+            ? { type: entry.type, path: entry.path, metadata: entry.metadata, content: entry.content }
+            : { type: entry.type, path: entry.path },
+        );
       }
       const text = await contextShowText({ targets: [paths.targetId], cwd: env.productDir });
       expect(text.startsWith(`<${SPEC_CONTEXT_FRAME.DOCUMENT}`)).toBe(true);
-      expect(parseContextEntries(shownJson)[0]?.path).toBe(paths.productPath);
+      expect(text).not.toContain(`${SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION}:`);
+      expect(entries[0]?.path).toBe(paths.productPath);
     });
   });
 
@@ -58,9 +98,20 @@ describe("spec context list and show", () => {
       const entries = await contextShowEntries({ targets: [], cwd: env.productDir });
       // The product spec is the one structurally Full document; every node at
       // depths one and two and every decision at depths zero through two is a
-      // Digest, except the peer decision the target's Digest opening cites.
-      expect(documentAt(entries, paths.productPath)?.content).toBe(paths.sourceText[paths.productPath]);
-      expect(documentAt(entries, paths.peerDecisionPath)?.content).toBe(paths.sourceText[paths.peerDecisionPath]);
+      // Digest, except the decisions a selected document's complete source
+      // cites: the peer decision the target's opening cites, the decision the
+      // target body and the lower sibling cite, and the decision that one cites
+      // in turn, each delivered Full because a citation requires Full.
+      for (
+        const full of [
+          paths.productPath,
+          paths.peerDecisionPath,
+          paths.citedDecisionPath,
+          paths.transitiveCitedDecisionPath,
+        ]
+      ) {
+        expect(documentAt(entries, full)?.content, full).toBe(paths.sourceText[full]);
+      }
       for (
         const digest of [
           paths.rootSpecPath,
@@ -71,8 +122,6 @@ describe("spec context list and show", () => {
           paths.higherProductDecisionPath,
           paths.ancestorDecisionPath,
           paths.higherAncestorDecisionPath,
-          paths.citedDecisionPath,
-          paths.transitiveCitedDecisionPath,
         ]
       ) {
         expect(documentAt(entries, digest)?.content, digest).toBe(paths.openingText[digest]);
@@ -123,7 +172,12 @@ describe("spec context list and show", () => {
       expect(target?.metadata).toEqual(paths.targetSelectedMetadata);
       expect(target?.content).toBe(paths.bodyText[paths.targetSpecPath]);
       for (
-        const digest of [paths.lowerSiblingSpecPath, paths.sameIndexSiblingSpecPath, paths.higherIndexSiblingSpecPath]
+        const digest of [
+          paths.lowerSiblingSpecPath,
+          paths.sameIndexSiblingSpecPath,
+          paths.higherIndexSiblingSpecPath,
+          paths.deepDescendantSpecPath,
+        ]
       ) {
         expect(documentAt(entries, digest)?.content, digest).toBe(paths.openingText[digest]);
       }
@@ -171,47 +225,58 @@ describe("spec context list and show", () => {
       await env.materialize();
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
-      const manifest = await contextListManifest({ targets: [target.id], cwd: env.productDir });
-      expect(manifest.schemaVersion).toBe(SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION);
       expect(snapshot.allNodes.length).toBeGreaterThan(0);
+      const manifest = await contextListManifest({ targets: [rootedSpecPath(target.id)], cwd: env.productDir });
+      expect(manifest.schemaVersion).toBe(SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION);
       expect(manifest.bootstrap).toBe(false);
     });
 
     // The same manifest over a tree carrying the product spec and no node
     // reports the opposite flag, so a fixed value in place of the derivation
-    // fails one of the two.
+    // fails one of the two. The product-root target selects only the product
+    // spec, and the manifest names that target by its canonical spelling.
     await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
-      await env.writeRaw(
-        rootedArtifactPath(undefined, `${env.fixture.product.title}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`),
-        markdownFixtureBody(env.fixture.product.title),
+      const productPath = rootedArtifactPath(
+        undefined,
+        `${env.fixture.product.title}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`,
       );
+      await env.writeRaw(productPath, markdownFixtureBody(env.fixture.product.title));
       const manifest = await contextListManifest({
         targets: [SPEC_TREE_CONFIG.ROOT_DIRECTORY],
         cwd: env.productDir,
       });
+      expect(manifest.schemaVersion).toBe(SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION);
       expect(manifest.bootstrap).toBe(true);
+      expect(manifest.entries).toStrictEqual([{
+        path: productPath,
+        mode: SPEC_CONTEXT_MODE_NAME[SPEC_CONTEXT_MODE.FULL],
+        selections: [{ target: SPEC_CONTEXT_PRODUCT_ROOT_TARGET, reason: SPEC_CONTEXT_SELECTION_REASON.TARGET }],
+      }]);
     });
   });
 
-  it("renders the manifest as labelled text beside its JSON representation", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
-      await env.materialize();
-      const snapshot = await env.readFilesystemSnapshot();
-      const target = snapshot.allNodes[0];
-      const textOutput = await contextListText({ targets: [target.id], cwd: env.productDir });
-      const jsonOutput = await contextListJson({ targets: [target.id], cwd: env.productDir });
-      expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.TARGETS}: ${rootedSpecPath(target.id)}`);
-      expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.PRODUCT_ROOT}: ${env.productDir}`);
-      expect(textOutput).toContain(
-        `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${DEFAULT_METHODOLOGY_SOURCE}@${METHODOLOGY_FIXTURE_VERSION}\n`,
-      );
-      expect(textOutput).toContain(
-        `${SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION}: ${SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION}`,
-      );
-      expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.BOOTSTRAP}: false`);
-      expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.READ}:`);
-      expect(textOutput).toContain(`${SPEC_CONTEXT_TEXT_LABEL.LISTED}:`);
-      expect(parseContextManifest(jsonOutput).targets).toEqual([rootedSpecPath(target.id)]);
+  it("renders the manifest as labelled text equivalent to its JSON representation", async () => {
+    await withRichContextEnv(async (env, paths) => {
+      const targets = [rootedSpecPath(paths.targetId), paths.rootDirectory];
+      const textOutput = await contextListText({ targets, cwd: env.productDir });
+      const manifest = parseContextManifest(await contextListJson({ targets, cwd: env.productDir }));
+      // The labelled header, then one line per entry naming its mode and path,
+      // each followed by one indented line per selection naming its reason
+      // and target. An entry line may carry more after its mode and path, such
+      // as the documents citing a decision reached only by citation.
+      expect(textOutput.split("\n")).toEqual([
+        `${SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION}: ${manifest.schemaVersion}`,
+        `${SPEC_CONTEXT_TEXT_LABEL.BOOTSTRAP}: ${manifest.bootstrap}`,
+        `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${DEFAULT_METHODOLOGY_SOURCE}@${METHODOLOGY_FIXTURE_VERSION}`,
+        ...manifest.entries.flatMap((entry) => [
+          entry.citedBy === undefined
+            ? `${entry.mode} ${entry.path}`
+            : expect.stringContaining(`${entry.mode} ${entry.path} `),
+          ...entry.selections.map(({ reason, target }) => `${SPEC_CONTEXT_TEXT_SELECTION_INDENT}${reason} ${target}`),
+        ]),
+      ]);
+      expect(manifest.entries.some((entry) => entry.citedBy !== undefined)).toBe(true);
+      expect(manifest.entries.some((entry) => entry.selections.length > 1)).toBe(true);
     });
   });
 });

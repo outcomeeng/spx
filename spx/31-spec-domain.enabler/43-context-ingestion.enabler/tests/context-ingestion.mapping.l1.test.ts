@@ -21,9 +21,7 @@ describe("spec context manifest methodology identity", () => {
         await env.materialize();
         const snapshot = await env.readFilesystemSnapshot();
         const target = snapshot.allNodes[0];
-        const manifest = await contextListManifest({ targets: [target.id], cwd: env.productDir });
-        expect(manifest.targets).toEqual([rootedSpecPath(target.id)]);
-        expect(manifest.productDir).toBe(env.productDir);
+        const manifest = await contextListManifest({ targets: [rootedSpecPath(target.id)], cwd: env.productDir });
         expect(manifest.methodology).toMatchObject({
           source: methodology[METHODOLOGY_CONFIG_FIELDS.SOURCE],
           version: declared.forms.byForm[form],
@@ -44,9 +42,7 @@ describe("spec context manifest methodology identity", () => {
       const textOutput = await contextListText({ targets: [target.id], cwd: env.productDir });
       // The identity line ends at the source: no version separator and no
       // placeholder stands in for the undeclared version.
-      expect(textOutput).toContain(
-        `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${undeclaredSource}\n${SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION}:`,
-      );
+      expect(textOutput.split("\n")).toContain(`${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${undeclaredSource}`);
     });
 
     const migrating = generatedMigratingMethodologySection();
@@ -55,10 +51,10 @@ describe("spec context manifest methodology identity", () => {
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
       const textOutput = await contextListText({ targets: [target.id], cwd: env.productDir });
-      expect(textOutput).toContain(
+      expect(textOutput.split("\n")).toContain(
         `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${migrating[METHODOLOGY_CONFIG_FIELDS.SOURCE]}@${
           migrating[METHODOLOGY_CONFIG_FIELDS.VERSION]
-        } (${SPEC_CONTEXT_TEXT_LABEL.MIGRATING_FROM} ${migrating[METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]})\n`,
+        } (${SPEC_CONTEXT_TEXT_LABEL.MIGRATING_FROM} ${migrating[METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]})`,
       );
     });
   });
