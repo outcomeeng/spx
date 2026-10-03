@@ -1,6 +1,6 @@
 # PLAN
 
-Local quality-enforcement decision (`spx/21-infrastructure.enabler/43-code-quality-analysis.enabler/15-local-quality-enforcement.adr.md`), sequenced across the `SonarQube zero-issues` session queue (`spx session todo`).
+Local quality-enforcement decision ([spx/21-infrastructure.enabler/43-code-quality-analysis.enabler/15-local-quality-enforcement.adr.md](spx/21-infrastructure.enabler/43-code-quality-analysis.enabler/15-local-quality-enforcement.adr.md)), sequenced across the `SonarQube zero-issues` session queue (`spx session todo`).
 
 ## Landed (session 01)
 
@@ -17,7 +17,7 @@ Local quality-enforcement decision (`spx/21-infrastructure.enabler/43-code-quali
 
 ## Landed (session 02)
 
-- S2871 (array sort without a compare function) cleared across product source and the co-located test suites by sorting through `compareAsciiStrings`. The mirror is partitioned into a warn tier and an error tier (`MIRROR_WARN_RULES` / `MIRROR_ERROR_RULES`), and `sonarjs/no-alphabetical-sort` graduated to the error tier — the two-tier enforcement model is declared in `15-local-quality-enforcement.adr.md` and `code-quality-analysis.md`.
+- S2871 (array sort without a compare function) cleared across product source and the co-located test suites by sorting through `compareAsciiStrings`. The mirror is partitioned into a warn tier and an error tier (`MIRROR_WARN_RULES` / `MIRROR_ERROR_RULES`), and `sonarjs/no-alphabetical-sort` graduated to the error tier — the two-tier enforcement model is declared in [spx/21-infrastructure.enabler/43-code-quality-analysis.enabler/15-local-quality-enforcement.adr.md](spx/21-infrastructure.enabler/43-code-quality-analysis.enabler/15-local-quality-enforcement.adr.md) and `code-quality-analysis.md`.
 
 ## Pending
 

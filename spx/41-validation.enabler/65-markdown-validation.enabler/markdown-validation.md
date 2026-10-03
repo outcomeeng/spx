@@ -19,7 +19,6 @@ CAN catch broken cross-references and structural defects before they reach the r
 - Given a markdown file with a relative link to a non-existent file, when validation runs, then an error is reported identifying the file, line number, and broken target ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given a markdown file with a valid heading fragment reference (e.g., `./file.md#heading`), when validation runs, then no error is reported ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given a markdown file with a heading fragment referencing a non-existent heading, when validation runs, then an error is reported ([test](tests/markdown-validation.scenario.l1.test.ts))
-- Given a markdown file with a product-absolute link (e.g., `/spx/foo.md`), when validation runs, then the link resolves relative to the product root ([test](tests/markdown-validation-command.scenario.l2.test.ts))
 - Given `spx/` and `docs/` directories exist, when `spx validation markdown` runs with no arguments, then both directories are validated ([test](tests/markdown-validation-command.scenario.l2.test.ts))
 - Given `spx/` is supplied as a positional operand, when validation runs, then only the specified directory is validated ([test](tests/markdown-validation-command.scenario.l2.test.ts))
 - Given `spx validation all` runs, then markdown validation executes as a step and its failure fails the pipeline ([test](tests/markdown-validation-command.scenario.l2.test.ts))
@@ -38,16 +37,21 @@ CAN catch broken cross-references and structural defects before they reach the r
 - Given file scope contains both a valid markdown target and an unrelated file, when `spx validation markdown` runs with those paths as positional operands, then validation runs for the markdown target and the skipped unrelated file is reported in output ([test](tests/markdown-validation-command.scenario.l2.test.ts))
 - Given a markdown file path contains a colon, when markdownlint reports an error for that file, then markdown validation reports the file, line number, and rule detail instead of dropping the error ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given a validated markdown directory, when validation runs, then its file set remains unchanged with no config files or generated artifacts added ([test](tests/markdown-validation.scenario.l1.test.ts))
+- Given a markdown file inside `spx/` with a tree-absolute link (e.g., `spx/foo.md`), when `spx validation markdown` runs, then the link resolves from the product root ([test](tests/markdown-validation.scenario.l1.test.ts))
 
 ### Mappings
 
-- Link type resolution for local rule behavior: relative link (`./foo.md`) resolves from the file's directory; external URL (`https://...`) is not checked; HTML link (`<a href="...">`) is not checked ([test](tests/markdown-validation.mapping.l1.test.ts))
-- Link type resolution for command behavior: product-absolute link (`/spx/foo.md`) resolves from the product root via `root_path` config ([test](tests/markdown-validation.mapping.l1.test.ts))
 - Enabled built-in rules: MD001 (heading increment), MD003 (heading style), MD009 (no trailing spaces), MD010 (no hard tabs), MD024 (no duplicate headings — `siblings_only` for `spx/`, disabled for `docs/`), MD025 (single top-level heading), MD047 (file ends with newline). All other built-in rules are disabled ([test](tests/markdown-validation.mapping.l1.test.ts))
 - Markdown full-pipeline participation defaults to run ([test](tests/markdown-validation.mapping.l1.test.ts))
+- Link type resolution for command behavior: inside `spx/`, a tree-absolute link (`spx/foo.md`) resolves from the product root; in `docs/`, a product-absolute link (`/spx/foo.md`) resolves from the product root ([test](tests/markdown-validation.mapping.l1.test.ts))
+- Link type resolution for local rule behavior: inside `spx/`, a node-local relative link (`tests/foo.md`) resolves from the citing file's directory to a target inside the citing node; in `docs/`, a relative link (`./foo.md`) resolves from the file's directory; an external URL (`https://...`) is not checked; an HTML link (`<a href="...">`) is not checked ([test](tests/markdown-validation.mapping.l1.test.ts))
 
 ### Compliance
 
 - ALWAYS: broken links fail `spx validation all` ([test](tests/markdown-validation.compliance.l1.test.ts))
 - ALWAYS: markdown validation is available in every `spx` installation — no optional dependency, no runtime discovery, no skip path ([audit])
 - NEVER: validate directories outside `spx/` and `docs/` by default — these are the well-known spec tree directories coupled to Claude skills ([test](tests/markdown-validation.compliance.l1.test.ts))
+- ALWAYS: inside `spx/`, a link with a `../` climb, a link with a leading-slash anchor, a relative link whose path enters a descendant node's directory, and a link whose href separates path segments with a backslash, written raw or as `%5C`, each fail markdown validation, naming the file, the line, and the link ([test](tests/markdown-validation.compliance.l1.test.ts))
+- ALWAYS: inside `spx/`, an assertion evidence link — a link whose text is `test`, `eval`, or `probe` — whose href is tree-absolute fails markdown validation, naming the file, the line, and the link, whether or not its target resolves to a tracked file; a tree-absolute link with any other text is admitted ([test](tests/markdown-validation.compliance.l1.test.ts))
+- ALWAYS: when the product root is a git repository, a link inside `spx/` that resolves to no file git tracks fails markdown validation as a broken link ([test](tests/markdown-validation.compliance.l1.test.ts))
+- ALWAYS: inside `spx/`, a decision path — a path that begins `spx/`, ends in `.adr.md` or `.pdr.md`, and resolves to a decision tracked in the product — written as text outside a link, bare or in an inline code span, fails markdown validation, naming the file, the line, and the path; a decision filename without the `spx/` prefix, an `spx/` path that resolves to no tracked decision, and a decision path inside a fenced code block are not checked ([test](tests/markdown-validation.compliance.l1.test.ts))

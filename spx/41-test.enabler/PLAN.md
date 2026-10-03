@@ -8,7 +8,7 @@
 ## Harness vocabulary guard
 
 Before applying this plan to agent-facing test output, transcript handling, or
-verification-loop guidance, read `spx/12-agent-harness.pdr.md` and use its
+verification-loop guidance, read [`spx/12-agent-harness.pdr.md`](spx/12-agent-harness.pdr.md) and use its
 vocabulary as the authority: agent harness, agent, agent adapter, and agent
 session. Keep the `--agent` output mode distinct from agents, agent adapters,
 and agent sessions.

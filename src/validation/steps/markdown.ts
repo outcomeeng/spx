@@ -12,12 +12,20 @@ import { existsSync, statSync } from "node:fs";
 import { basename, dirname, join, relative as pathRelative } from "node:path";
 
 import { normalizePathPrefix } from "@/config/primitives/path-filter";
+import { defaultGitDependencies } from "@/lib/git/root";
+import { listTrackedPaths, TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
 import { createNodeStatusExcludeReader } from "@/lib/node-status";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 
 // @ts-expect-error markdownlint-cli2 has no TypeScript type declarations
 import { main as markdownlintMain } from "markdownlint-cli2";
 import relativeLinksRule from "markdownlint-rule-relative-links";
+
+import {
+  MARKDOWN_LINK_SHAPE_RULE_CONFIG,
+  markdownLinkShapeRule,
+  type MarkdownlintCustomRule,
+} from "./markdown-link-shape-rule";
 
 // =============================================================================
 // CONSTANTS
@@ -26,7 +34,13 @@ import relativeLinksRule from "markdownlint-rule-relative-links";
 /** Default directories to validate when no path operands are specified. */
 export const MARKDOWN_DEFAULT_DIRECTORY_NAMES = [SPEC_TREE_CONFIG.ROOT_DIRECTORY, "docs"] as const;
 export const MARKDOWN_PRIMARY_FILE_EXTENSION = ".md";
-const MARKDOWN_FILE_EXTENSIONS: ReadonlySet<string> = new Set([".md", ".markdown"]);
+/** The secondary markdown extension: a file operand admits it, while directory scope globs only the primary one. */
+export const MARKDOWN_SECONDARY_FILE_EXTENSION = ".markdown";
+/** Every extension that makes a file operand a markdown target. */
+export const MARKDOWN_FILE_EXTENSIONS: ReadonlySet<string> = new Set([
+  MARKDOWN_PRIMARY_FILE_EXTENSION,
+  MARKDOWN_SECONDARY_FILE_EXTENSION,
+]);
 export const MARKDOWN_DIRECTORY_GLOB = "**/*.md";
 
 /** Built-in markdownlint rules enabled for validation (MD024 excluded — configured per directory). */
@@ -47,7 +61,8 @@ export const MARKDOWN_CONFIG_CONTROL_KEYS = {
 /** Directories where MD024 is disabled entirely (generated/repetitive headings are normal). */
 const MD024_DISABLED_DIRECTORIES = ["docs"] as const;
 
-export const MARKDOWN_CUSTOM_RULE_NAMES = relativeLinksRule.names;
+/** Product-root-relative directories whose first segment selects a directory-specific configuration. */
+const DIRECTORY_SPECIFIC_CONFIG_NAMES: readonly string[] = MARKDOWN_DEFAULT_DIRECTORY_NAMES;
 export const MARKDOWN_VALIDATION_TARGET_KIND = {
   DIRECTORY: "directory",
   FILE: "file",
@@ -81,9 +96,9 @@ export interface MarkdownValidationResult {
 
 /** A markdownlint custom rule object. */
 interface MarkdownlintRule {
-  names: string[];
-  description: string;
-  tags: string[];
+  readonly names: MarkdownlintCustomRule["names"];
+  readonly description: string;
+  readonly tags: MarkdownlintCustomRule["tags"];
 }
 
 /** Options for the validateMarkdown function. */
@@ -109,6 +124,14 @@ export interface MarkdownlintRunOptions {
 
 export interface MarkdownValidationDeps {
   readonly runMarkdownlint: (options: MarkdownlintRunOptions) => Promise<void>;
+  /** The product-relative paths git tracks under the product root, or `undefined` outside a git repository. */
+  readonly listTrackedPaths: (productDir: string) => Promise<ReadonlySet<string> | undefined>;
+}
+
+interface MarkdownTargetScope {
+  readonly productDir: string | undefined;
+  readonly ignoreGlobs: readonly string[];
+  readonly trackedPaths: readonly string[] | undefined;
 }
 
 export interface MarkdownValidationTarget {
@@ -141,6 +164,7 @@ const defaultMarkdownValidationDeps: MarkdownValidationDeps = {
   runMarkdownlint: async (options) => {
     await markdownlintMain(options);
   },
+  listTrackedPaths: (productDir) => listTrackedPaths(productDir, defaultGitDependencies),
 };
 
 // =============================================================================
@@ -154,6 +178,9 @@ const defaultMarkdownValidationDeps: MarkdownValidationDeps = {
  * - `spx/` and other spec directories: `siblings_only` — allows same heading
  *   under different parents, flags true sibling duplicates
  * - `docs/`: disabled — generated/repetitive docs commonly reuse headings
+ *
+ * Link checking is the spec-tree link-shape rule for `spx/` and
+ * `markdownlint-rule-relative-links` for every other directory.
  *
  * @param directoryName - Basename of the directory being validated (e.g. "spx", "docs")
  * @returns Configuration object for markdownlint-cli2's optionsOverride
@@ -177,7 +204,9 @@ export function buildMarkdownlintConfig(directoryName: string): {
     [MARKDOWN_CONFIG_CONTROL_KEYS.DEFAULT]: false,
     ...MARKDOWN_ENABLED_BUILTIN_RULES,
     [MARKDOWN_CONFIG_CONTROL_KEYS.DUPLICATE_HEADINGS]: md024Disabled ? false : { siblings_only: true },
-    [MARKDOWN_CONFIG_CONTROL_KEYS.CUSTOM_RULES]: [relativeLinksRule],
+    [MARKDOWN_CONFIG_CONTROL_KEYS.CUSTOM_RULES]: [
+      directoryName === SPEC_TREE_CONFIG.ROOT_DIRECTORY ? markdownLinkShapeRule : relativeLinksRule,
+    ],
   };
 }
 
@@ -395,6 +424,7 @@ export async function validateMarkdown(
   } = options;
   const errors: MarkdownError[] = [];
   const specTreeExcludeEntries = applyNodeStatusExcludes ? getExcludeEntries(productDir) : [];
+  let specTreeTrackedPaths: Promise<readonly string[] | undefined> | undefined;
 
   for (const target of targets) {
     const directory = targetDirectory(target);
@@ -404,7 +434,14 @@ export async function validateMarkdown(
       ...getExcludeGlobsForTarget(target, productDir, specTreeExcludeEntries),
       ...validationPathExcludeGlobsForTarget(target, productDir, validationPathExcludes),
     ];
-    const dirErrors = await validateTarget(target, config, deps, productDir, excludeGlobs);
+    const trackedPaths = dirName === SPEC_TREE_CONFIG.ROOT_DIRECTORY && productDir !== undefined
+      ? await (specTreeTrackedPaths ??= readSpecTreeTrackedPaths(productDir, deps))
+      : undefined;
+    const dirErrors = await validateTarget(target, config, deps, {
+      productDir,
+      ignoreGlobs: excludeGlobs,
+      trackedPaths,
+    });
     errors.push(...dirErrors);
   }
 
@@ -412,6 +449,20 @@ export async function validateMarkdown(
     success: errors.length === 0,
     errors,
   };
+}
+
+/**
+ * The tracked product-relative paths under the spec-tree root, or `undefined`
+ * when the product root is not a git repository.
+ */
+async function readSpecTreeTrackedPaths(
+  productDir: string,
+  deps: MarkdownValidationDeps,
+): Promise<readonly string[] | undefined> {
+  const trackedPaths = await deps.listTrackedPaths(productDir);
+  if (trackedPaths === undefined) return undefined;
+  const specTreePrefix = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${TRACKED_PATH_DIRECTORY_SEPARATOR}`;
+  return [...trackedPaths].filter((path) => path.startsWith(specTreePrefix));
 }
 
 function getExcludeEntries(productDir: string | undefined): readonly string[] {
@@ -424,16 +475,17 @@ function getExcludeEntries(productDir: string | undefined): readonly string[] {
  *
  * @param target - Absolute path target to validate
  * @param config - Markdownlint configuration object
- * @param productDir - Optional product directory for resolving product-absolute links
+ * @param scope - Product directory for resolving product-absolute links, ignore globs, and the
+ *   tracked spec-tree paths the link-shape rule requires link targets to resolve to
  * @returns Array of structured errors found in the directory
  */
 async function validateTarget(
   target: MarkdownValidationTarget,
   config: ReturnType<typeof buildMarkdownlintConfig>,
   deps: MarkdownValidationDeps,
-  productDir?: string,
-  ignoreGlobs: string[] = [],
+  scope: MarkdownTargetScope,
 ): Promise<MarkdownError[]> {
+  const { productDir, ignoreGlobs, trackedPaths } = scope;
   const errors: MarkdownError[] = [];
   const directory = targetDirectory(target);
   const argv = target.kind === MARKDOWN_VALIDATION_TARGET_KIND.FILE
@@ -442,15 +494,22 @@ async function validateTarget(
 
   const { customRules, ...markdownlintConfig } = config;
 
+  const linkRuleConfig = (rule: MarkdownlintRule): true | Record<string, unknown> => {
+    if (!productDir) return true;
+    const rootConfig = { [MARKDOWN_LINK_SHAPE_RULE_CONFIG.ROOT_PATH]: productDir };
+    return rule === markdownLinkShapeRule && trackedPaths !== undefined
+      ? { ...rootConfig, [MARKDOWN_LINK_SHAPE_RULE_CONFIG.TRACKED_PATHS]: trackedPaths }
+      : rootConfig;
+  };
   const optionsOverride: Record<string, unknown> = {
     config: {
       ...markdownlintConfig,
-      "relative-links": productDir ? { root_path: productDir } : true,
+      ...Object.fromEntries(customRules.flatMap((rule) => rule.names.map((name) => [name, linkRuleConfig(rule)]))),
     },
     customRules,
     noProgress: true,
     noBanner: true,
-    ...(ignoreGlobs.length > 0 ? { ignores: ignoreGlobs } : {}),
+    ...(ignoreGlobs.length > 0 ? { ignores: [...ignoreGlobs] } : {}),
   };
 
   await deps.runMarkdownlint({
@@ -539,7 +598,7 @@ function isExistingFile(path: string, deps: MarkdownValidationTargetDeps): boole
 function markdownlintConfigDirectoryName(directory: string, productDir: string | undefined): string {
   if (productDir !== undefined) {
     const [rootSegment] = pathRelative(productDir, directory).split(/[\\/]/);
-    if (MD024_DISABLED_DIRECTORIES.includes(rootSegment as (typeof MD024_DISABLED_DIRECTORIES)[number])) {
+    if (DIRECTORY_SPECIFIC_CONFIG_NAMES.includes(rootSegment)) {
       return rootSegment;
     }
   }

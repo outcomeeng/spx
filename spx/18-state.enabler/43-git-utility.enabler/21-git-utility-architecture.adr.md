@@ -4,7 +4,7 @@ Git path utilities live under `src/lib/git/` as shared infrastructure over injec
 
 ## Rationale
 
-The state subtree owns the injected git-runner boundary that higher-index consumers depend on for root, topology, branch, and path facts. Keeping git parsing and changed-path orchestration under `src/lib/git/` gives testing, verification, infrastructure, session, diagnose, and worktree consumers one provider for net-diff git path discovery while preserving `spx/14-cli-composition.adr.md`: command handlers orchestrate injected capabilities and map results to command output rather than owning git output parsing. Release-data commit-history path discovery stays with the release git queries because it reports paths the release commits touch rather than net changed paths between two refs.
+The state subtree owns the injected git-runner boundary that higher-index consumers depend on for root, topology, branch, and path facts. Keeping git parsing and changed-path orchestration under `src/lib/git/` gives testing, verification, infrastructure, session, diagnose, and worktree consumers one provider for net-diff git path discovery while preserving [`spx/14-cli-composition.adr.md`](spx/14-cli-composition.adr.md): command handlers orchestrate injected capabilities and map results to command output rather than owning git output parsing. Release-data commit-history path discovery stays with the release git queries because it reports paths the release commits touch rather than net changed paths between two refs.
 
 ## Invariants
 

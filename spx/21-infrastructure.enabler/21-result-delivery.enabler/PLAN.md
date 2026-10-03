@@ -4,9 +4,9 @@
 
 ## Harness vocabulary guard
 
-Before applying this plan to verification-run delivery or agentic verification output, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
+Before applying this plan to verification-run delivery or agentic verification output, read [spx/12-agent-harness.pdr.md](spx/12-agent-harness.pdr.md) and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
 
-The work below is sequenced against the PDR `spx/21-infrastructure.enabler/21-result-delivery.enabler/15-result-delivery.pdr.md`, which declares the end state.
+The work below is sequenced against the PDR [spx/21-infrastructure.enabler/21-result-delivery.enabler/15-result-delivery.pdr.md](spx/21-infrastructure.enabler/21-result-delivery.enabler/15-result-delivery.pdr.md), which declares the end state.
 
 ## Implementation (this node)
 
@@ -27,5 +27,5 @@ Each backend is its own infrastructure node implementing this domain's port; the
 
 ## Constraints and sequencing
 
-- Type-agnostic throughout — no verification-type or result-kind vocabulary in the domain, per `spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/11-journal-channel.adr.md`.
+- Type-agnostic throughout — no verification-type or result-kind vocabulary in the domain, per [spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/11-journal-channel.adr.md](spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/11-journal-channel.adr.md).
 - A `0.7.0`-class spx release publishes result-delivery and the GitHub backend before the spec-tree plugin's CI-path PRs (`pr-reviewer` / `pr-review-orchestrator`) adopt it for the human-readable PR-comment verdict surface.

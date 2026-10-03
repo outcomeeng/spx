@@ -1,6 +1,6 @@
 # Agent Test Output Architecture
 
-Agent test output implements the `agent` runner environment from `spx/41-test.enabler/11-test-runner-environments.pdr.md` by swapping the normal streaming command dependency for a captured-output command dependency. The captured-output dependency invokes the same selected runner command and selected test files as operator mode, writes each child process's stdout and stderr to OS-temp artifact files, returns those paths and any adapter-reported failing test paths in the live dispatch result, and leaves persisted last-run state on the schema governed by `spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md`.
+Agent test output implements the `agent` runner environment from [`spx/41-test.enabler/11-test-runner-environments.pdr.md`](spx/41-test.enabler/11-test-runner-environments.pdr.md) by swapping the normal streaming command dependency for a captured-output command dependency. The captured-output dependency invokes the same selected runner command and selected test files as operator mode, writes each child process's stdout and stderr to OS-temp artifact files, returns those paths and any adapter-reported failing test paths in the live dispatch result, and leaves persisted last-run state on the schema governed by [`spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md`](spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md).
 
 ## Rationale
 
@@ -22,8 +22,8 @@ The normal `spx test` path stays useful for developers who want the runner's nat
 
 ### Audit
 
-- ALWAYS: command handlers return run data and do not write process stdout/stderr; the CLI descriptor owns terminal rendering per `spx/14-cli-composition.adr.md` ([audit])
+- ALWAYS: command handlers return run data and do not write process stdout/stderr; the CLI descriptor owns terminal rendering per [`spx/14-cli-composition.adr.md`](spx/14-cli-composition.adr.md) ([audit])
 - ALWAYS: captured runner dependencies accept injected process and environment boundaries, so tests exercise behavior without replacing modules ([audit])
 - ALWAYS: runner-specific command resolution and failure-output parsing remain outside agent output handling ([audit])
 - NEVER: use framework mocks for captured runner execution, artifact writing, or terminal summary formatting; inject controlled implementations through explicit dependency parameters instead ([audit])
-- NEVER: persist raw runner stdout or stderr inside `TestRunState`; last-run evidence remains the state schema governed by `spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md` ([audit])
+- NEVER: persist raw runner stdout or stderr inside `TestRunState`; last-run evidence remains the state schema governed by [`spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md`](spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md) ([audit])

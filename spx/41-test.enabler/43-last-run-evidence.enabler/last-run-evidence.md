@@ -13,7 +13,7 @@ CAN report observed results and staleness without invoking test runners
 ### Properties
 
 - Persisted state round-trips every recorded field — runner outcomes, timestamps, discovered test path set, discovered test content digest, descriptor-declared product input digests, and the resolved testing config digest — through write and read ([test](tests/run-state.property.l1.test.ts))
-- Cached evidence is stale when any recorded staleness input differs from the current input, and fresh only when the resolved testing config digest, discovered test path-set digest, discovered test content digest, and product input digests all match ([test](tests/staleness.property.l1.test.ts))
+- Cached evidence is stale when the resolved testing config digest, discovered test path-set digest, discovered test content digest, or any testing-language-declared product input digest differs from the value recorded with the cached observation, and fresh only when all four match ([test](tests/staleness.property.l1.test.ts))
 
 ### Compliance
 

@@ -2,7 +2,7 @@
 
 ## TypeScript conventions ADR uses the legacy decision-record shape
 
-`spx/41-validation.enabler/32-typescript-validation.enabler/21-typescript-conventions.adr.md`
+[`spx/41-validation.enabler/32-typescript-validation.enabler/21-typescript-conventions.adr.md`](spx/41-validation.enabler/32-typescript-validation.enabler/21-typescript-conventions.adr.md)
 uses the older ADR template with `## Purpose`, `## Context`, `## Decision`,
 `## Trade-offs accepted`, and blanket `[review]` verification tags.
 

@@ -27,7 +27,7 @@ CAN resolve and validate the configured vocabulary, and classify and render file
 
 ### Compliance
 
-- Under `spx/23-spec-tree.enabler/21-kind-registry.adr.md`, ALWAYS: `SPEC_TREE_CONFIG.KINDS` is declared as one flat `as const` object literal, `KIND_REGISTRY` projects from it, and every derived kind view comes from that registry ([audit])
-- Under `spx/23-spec-tree.enabler/26-filename-grammar.adr.md`, ALWAYS: config descriptors, source adapters, tree assembly, state derivation, and projections receive vocabulary through the versioned grammar or a test-scoped registry fixture ([audit])
-- Under `spx/23-spec-tree.enabler/26-filename-grammar.adr.md`, ALWAYS: the dedicated naming-schema version is owned by the grammar registry and exposed through the spec-tree library surface ([test](tests/naming-version.compliance.l1.test.ts))
-- NEVER: declare a Spec-Tree filename grammar token in a parallel module-local constant outside the grammar registry surface, per `spx/23-spec-tree.enabler/26-filename-grammar.adr.md` ([audit])
+- Under [spx/23-spec-tree.enabler/21-kind-registry.adr.md](spx/23-spec-tree.enabler/21-kind-registry.adr.md), ALWAYS: `SPEC_TREE_CONFIG.KINDS` is declared as one flat `as const` object literal, `KIND_REGISTRY` projects from it, and every derived kind view comes from that registry ([audit])
+- Under [spx/23-spec-tree.enabler/26-filename-grammar.adr.md](spx/23-spec-tree.enabler/26-filename-grammar.adr.md), ALWAYS: config descriptors, source adapters, tree assembly, state derivation, and projections receive vocabulary through the versioned grammar or a test-scoped registry fixture ([audit])
+- Under [spx/23-spec-tree.enabler/26-filename-grammar.adr.md](spx/23-spec-tree.enabler/26-filename-grammar.adr.md), ALWAYS: the dedicated naming-schema version is owned by the grammar registry and exposed through the spec-tree library surface ([test](tests/naming-version.compliance.l1.test.ts))
+- NEVER: declare a Spec-Tree filename grammar token in a parallel module-local constant outside the grammar registry surface, per [spx/23-spec-tree.enabler/26-filename-grammar.adr.md](spx/23-spec-tree.enabler/26-filename-grammar.adr.md) ([audit])

@@ -16,7 +16,7 @@
 
 The public verification-run command shape is declared by:
 
-- `spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md`
+- [`spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md`](spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md)
 - `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/verification.md`
 
 Remaining implementation-bearing work:

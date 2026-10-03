@@ -2,7 +2,7 @@
 
 ## Governing decision
 
-`spx/13-agent-capability-lifecycle.pdr.md` separates exact methodology inspection, routine capability reconciliation, and target-methodology-owned migration.
+[`spx/13-agent-capability-lifecycle.pdr.md`](spx/13-agent-capability-lifecycle.pdr.md) separates exact methodology inspection, routine capability reconciliation, and target-methodology-owned migration.
 
 ## Pending architecture
 

@@ -7,8 +7,8 @@ Create the shared structural primitives consumed by config descriptors, starting
 ## Governing Specs
 
 - `spx/16-config.enabler/config.md`
-- `spx/16-config.enabler/21-descriptor-registration.adr.md`
-- `spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`
+- [spx/16-config.enabler/21-descriptor-registration.adr.md](spx/16-config.enabler/21-descriptor-registration.adr.md)
+- [spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md](spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md)
 
 ## Implementation Notes
 

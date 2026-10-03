@@ -8,7 +8,7 @@ This decision governs how TypeScript code in this repository declares closed set
 
 **Business impact:** TypeScript is the implementation language for the SPX CLI and its tests. The choice between distributed and single-site declarations for closed sets determines whether a rename is one edit or many. Source-test divergence on shared values is invisible to test frameworks: a test asserting a copy-pasted literal remains green when the source-owned value diverges. Import-coupled tests fail or update atomically with the source.
 
-**Technical constraints:** TypeScript supports both bare discriminated unions (`type X = "a" | "b"`) and `as const` object literals with types derived via `keyof typeof`. ESLint custom rules detect AST-level patterns within a single file; cross-file literal duplication requires a separate global pre-pass that reads every file's AST and indexes literals across the codebase. Enforcement mechanisms are governed by [21-enforcement-tooling.adr.md](32-ast-enforcement.enabler/21-enforcement-tooling.adr.md). Test evidence for the rules in this ADR lives downstream: per-file rules in [ast-enforcement.md](32-ast-enforcement.enabler/ast-enforcement.md), cross-file rules in the literal-reuse leaf enabler under this subtree.
+**Technical constraints:** TypeScript supports both bare discriminated unions (`type X = "a" | "b"`) and `as const` object literals with types derived via `keyof typeof`. ESLint custom rules detect AST-level patterns within a single file; cross-file literal duplication requires a separate global pre-pass that reads every file's AST and indexes literals across the codebase. Enforcement mechanisms are governed by [21-enforcement-tooling.adr.md](spx/41-validation.enabler/32-typescript-validation.enabler/32-ast-enforcement.enabler/21-enforcement-tooling.adr.md). Test evidence for the rules in this ADR lives downstream: per-file rules in [ast-enforcement.md](spx/41-validation.enabler/32-typescript-validation.enabler/32-ast-enforcement.enabler/ast-enforcement.md), cross-file rules in the literal-reuse leaf enabler under this subtree.
 
 ## Decision
 
@@ -24,7 +24,7 @@ Alternatives considered:
 
 - **Bare discriminated unions for closed sets** — concise at declaration but distributes the source of truth. Every match expression and type annotation that names a member becomes part of the declaration surface. Rejected because rename cost scales with the codebase.
 - **Tolerating typed-union literal assertions in tests** — relies on the type annotation to communicate intent (`expect(x).toBe("declared")` where `x: NodeState`). Rejected because the literal value remains invisible to rename tooling and `Find All References`; once the same literal recurs across two or more test files, divergence is invisible to the test runner.
-- **String enums (`enum X { A = "a" }`)** — single-site the declaration but emit runtime objects with reverse mappings and ambient-mode incompatibilities. Rejected; TypeScript enums are already prohibited under [ast-enforcement.md](32-ast-enforcement.enabler/ast-enforcement.md).
+- **String enums (`enum X { A = "a" }`)** — single-site the declaration but emit runtime objects with reverse mappings and ambient-mode incompatibilities. Rejected; TypeScript enums are already prohibited under [ast-enforcement.md](spx/41-validation.enabler/32-typescript-validation.enabler/32-ast-enforcement.enabler/ast-enforcement.md).
 
 ## Trade-offs accepted
 

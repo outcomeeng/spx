@@ -4,7 +4,7 @@ The draft capability exposes create, list, and delete from `src/lib/change-draft
 
 ## Rationale
 
-Opaque text storage preserves incomplete drafts and keeps YAML and Change semantics with the authoring workflow. A capability surface lets file operations remain usable independently of Commander, while the shared state API preserves the worktree/common-dir distinction governed by `spx/15-worktree-management.pdr.md` and `spx/17-state.adr.md`; the command split follows `spx/14-cli-composition.adr.md`.
+Opaque text storage preserves incomplete drafts and keeps YAML and Change semantics with the authoring workflow. A capability surface lets file operations remain usable independently of Commander, while the shared state API preserves the worktree/common-dir distinction governed by [`spx/15-worktree-management.pdr.md`](spx/15-worktree-management.pdr.md) and [`spx/17-state.adr.md`](spx/17-state.adr.md); the command split follows [`spx/14-cli-composition.adr.md`](spx/14-cli-composition.adr.md).
 
 Draft IDs are lowercase UUIDs allocated through an injected generator. Descriptors contain `draftId`, `path`, and `relativePath`; listing sorts by ordinal ID comparison. Creation requires Git to ignore the destination, creates the dedicated draft directory with owner-only access, and opens a new file exclusively with owner read/write access. Existing storage components and candidate files are checked for symlinks and unexpected types before access. The storage directory is private to the invoking account; hostile mutation by another process with that same account's authority is outside the filesystem permission boundary.
 

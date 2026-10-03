@@ -4,16 +4,16 @@
 
 ## Harness vocabulary guard
 
-Before applying this plan to agent-run journal generators, hook/session helpers, or agent-facing infrastructure, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; keep test harness and Node runtime wording distinct from the agent harness vocabulary.
+Before applying this plan to agent-run journal generators, hook/session helpers, or agent-facing infrastructure, read [spx/12-agent-harness.pdr.md](spx/12-agent-harness.pdr.md) and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; keep test harness and Node runtime wording distinct from the agent harness vocabulary.
 
 This coordination note records the infrastructure part of the root migration plan.
 
 ## Git utility consolidation consumer note
 
 The shared provider is governed by
-[`spx/18-state.enabler/43-git-utility.enabler/git-utility.md`](../18-state.enabler/43-git-utility.enabler/git-utility.md)
+[`spx/18-state.enabler/43-git-utility.enabler/git-utility.md`](spx/18-state.enabler/43-git-utility.enabler/git-utility.md)
 and
-[`spx/18-state.enabler/43-git-utility.enabler/21-git-utility-architecture.adr.md`](../18-state.enabler/43-git-utility.enabler/21-git-utility-architecture.adr.md).
+[spx/18-state.enabler/43-git-utility.enabler/21-git-utility-architecture.adr.md](spx/18-state.enabler/43-git-utility.enabler/21-git-utility-architecture.adr.md).
 Infrastructure consumers such as precommit consume the canonical
 `src/lib/git/` provider instead of retaining legacy `src/git/` imports or
 command-local git plumbing.
@@ -24,7 +24,7 @@ Infrastructure should own runtime and operational mechanics. External Outcome En
 
 ## Candidate move
 
-Move or re-author the mechanics currently in `spx/12-node-runtime.adr.md` under infrastructure if `/decompose` confirms the product-wide vocabulary reach is preserved through the configured methodology source or another valid product decision.
+Move or re-author the mechanics currently in [spx/12-node-runtime.adr.md](spx/12-node-runtime.adr.md) under infrastructure if `/decompose` confirms the product-wide vocabulary reach is preserved through the configured methodology source or another valid product decision.
 
 Candidate homes:
 

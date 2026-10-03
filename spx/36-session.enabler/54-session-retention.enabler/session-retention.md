@@ -4,7 +4,7 @@ PROVIDES archive (move to `archive/` directory) and prune (retention-based delet
 SO THAT session-cli enabler
 CAN offer `spx session archive` and `spx session prune` commands without reimplementing retention logic
 
-Archive moves a session from `todo/` or `doing/` to `archive/` by rename, requiring only a resolvable session id and validating no frontmatter field, per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md).
+Archive moves a session from `todo/` or `doing/` to `archive/` by rename, requiring only a resolvable session id and validating no frontmatter field, per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](spx/36-session.enabler/11-session-frontmatter.pdr.md).
 
 ## Assertions
 
@@ -13,7 +13,7 @@ Archive moves a session from `todo/` or `doing/` to `archive/` by rename, requir
 - Given 10 archived sessions with distinct timestamps, when `spx session prune --keep 5` is invoked, then the 5 sessions with the oldest timestamps are absent from `archive/` after the call and the 5 sessions with the newest timestamps remain in `archive/` ([test](tests/session-retention.scenario.l1.test.ts))
 - Given no `--keep` argument, when prune is invoked, then the default retention of 5 archived sessions applies ([test](tests/session-retention.scenario.l1.test.ts))
 - Given a session in `todo` or `doing`, when `spx session archive` is invoked, then the session file moves to `archive/` ([test](tests/session-retention.scenario.l1.test.ts))
-- Given a session whose frontmatter omits structured fields, carries keys outside the shape (such as `tags` or `working_directory`), or is malformed YAML, when `spx session archive` is invoked, then the file moves to `archive/` unchanged — archive validates no frontmatter field per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) ([test](tests/session-retention.scenario.l1.test.ts))
+- Given a session whose frontmatter omits structured fields, carries keys outside the shape (such as `tags` or `working_directory`), or is malformed YAML, when `spx session archive` is invoked, then the file moves to `archive/` unchanged — archive validates no frontmatter field per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](spx/36-session.enabler/11-session-frontmatter.pdr.md) ([test](tests/session-retention.scenario.l1.test.ts))
 - Given a session already in `archive/`, when archive is invoked, then no file is moved and the command rejects with an error indicating the session is already archived ([test](tests/session-retention.scenario.l1.test.ts))
 - Given the `--dry-run` flag, when `spx session prune --dry-run` is invoked, then output names the sessions that would be deleted and no file is removed from `archive/` ([test](tests/session-retention.scenario.l1.test.ts))
 
@@ -26,7 +26,7 @@ Archive moves a session from `todo/` or `doing/` to `archive/` by rename, requir
 
 ### Compliance
 
-- ALWAYS: `spx session archive` uses `fs.rename()` for the status transition per [`spx/36-session.enabler/21-atomic-claiming.adr.md`](../21-atomic-claiming.adr.md) ([review])
-- ALWAYS: every path component in retention operations is derived from `DEFAULT_CONFIG` per [`spx/36-session.enabler/21-directory-structure.adr.md`](../21-directory-structure.adr.md) ([review])
-- ALWAYS: `spx session archive` moves a session from `todo/` or `doing/` to `archive/` for any resolvable session id, validating no frontmatter field per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) ([test](tests/session-retention.compliance.l1.test.ts))
-- NEVER: `spx session archive` rejects a session for a missing or empty frontmatter field — archive is an unconditional move, not a completed-work gate, per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](../11-session-frontmatter.pdr.md) ([test](tests/session-retention.compliance.l1.test.ts))
+- ALWAYS: `spx session archive` uses `fs.rename()` for the status transition per [`spx/36-session.enabler/21-atomic-claiming.adr.md`](spx/36-session.enabler/21-atomic-claiming.adr.md) ([review])
+- ALWAYS: every path component in retention operations is derived from `DEFAULT_CONFIG` per [`spx/36-session.enabler/21-directory-structure.adr.md`](spx/36-session.enabler/21-directory-structure.adr.md) ([review])
+- ALWAYS: `spx session archive` moves a session from `todo/` or `doing/` to `archive/` for any resolvable session id, validating no frontmatter field per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](spx/36-session.enabler/11-session-frontmatter.pdr.md) ([test](tests/session-retention.compliance.l1.test.ts))
+- NEVER: `spx session archive` rejects a session for a missing or empty frontmatter field — archive is an unconditional move, not a completed-work gate, per [`spx/36-session.enabler/11-session-frontmatter.pdr.md`](spx/36-session.enabler/11-session-frontmatter.pdr.md) ([test](tests/session-retention.compliance.l1.test.ts))

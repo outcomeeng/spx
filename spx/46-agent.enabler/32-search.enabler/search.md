@@ -8,7 +8,7 @@ CAN find agent-native sessions by handoff pickup markers, literal transcript con
 
 ### Scenarios
 
-- Given `spx agent search` runs in a worktree of a bare-repository pool, when the default search scope resolves, then the Git common-dir product root is returned rather than the local worktree root, per `spx/15-worktree-management.pdr.md` ([test](tests/search.scenario.l1.test.ts))
+- Given `spx agent search` runs in a worktree of a bare-repository pool, when the default search scope resolves, then the Git common-dir product root is returned rather than the local worktree root, per [spx/15-worktree-management.pdr.md](spx/15-worktree-management.pdr.md) ([test](tests/search.scenario.l1.test.ts))
 - Given Codex and Claude Code top-level transcripts and versioned Pi top-level transcripts under the current product scope, plus a transcript outside that scope, when `spx agent search --pickup-id <id>` runs, then only product-scoped top-level agent sessions whose transcript contains the exact pickup marker are returned ([test](tests/search.scenario.l1.test.ts))
 - Given a matching search result, when `spx agent search --json` runs, then the JSON output exposes the agent kind, agent session id, current working directory, source transcript path, modification time, updated timestamp, branch, and match reasons for that result ([test](tests/search.scenario.l1.test.ts))
 - Given a top-level Codex, Claude Code, or Pi session whose current working directory is inside a same-product worktree checked out on the requested branch while its transcript records no occurrence of that branch, when `spx agent search --branch <name> --json` runs, then the session is returned with `branch` in its match reasons ([test](tests/search.scenario.l1.test.ts))

@@ -1,7 +1,7 @@
 # Spx Reachability Check
 
 PROVIDES the spx-reachability diagnose behavior — classifies the `spx` CLI against the resolved version floor from its PATH resolution and reported version, pairing the verdict with a remediation hint for both the whole-product diagnose report and the domain-owned spx-reachability diagnostic provider
-SO THAT the `spx diagnose` engine in [`spx/54-diagnose.enabler/diagnose.md`](../diagnose.md)
+SO THAT the `spx diagnose` engine in [`spx/54-diagnose.enabler/diagnose.md`](spx/54-diagnose.enabler/diagnose.md)
 CAN fold spx tool health into the overall environment verdict
 
 ## Assertions

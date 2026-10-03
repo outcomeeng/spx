@@ -36,4 +36,4 @@ CAN run only the tests their changes affect — selected by diff rather than nam
 ### Compliance
 
 - ALWAYS: the resolved set routes through `spx/41-test.enabler/90-targeted-execution.enabler` — the same runner adapters, runner environment, passing-scope policy, agent output, and last-run recording as a full run ([audit])
-- ALWAYS: the planner reaches each language's related-test capability only through `src/test/registry.ts` per `spx/19-language-registration.adr.md`, naming no language in its own code paths ([audit])
+- ALWAYS: the planner reaches each language's related-test capability only through `src/test/registry.ts` per [`spx/19-language-registration.adr.md`](spx/19-language-registration.adr.md), naming no language in its own code paths ([audit])

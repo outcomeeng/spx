@@ -17,10 +17,8 @@ const __dirname = dirname(__filename);
 const FIXTURES_ROOT = resolve(__dirname, "../fixtures/markdown");
 
 export const MARKDOWN_FIXTURES = {
-  CLEAN_TREE: "clean-tree",
   BROKEN_LINKS: "broken-links",
   WITH_EXCLUDE: "with-exclude",
-  DUPLICATE_HEADINGS: "duplicate-headings",
 } as const;
 
 export type MarkdownFixtureName = (typeof MARKDOWN_FIXTURES)[keyof typeof MARKDOWN_FIXTURES];

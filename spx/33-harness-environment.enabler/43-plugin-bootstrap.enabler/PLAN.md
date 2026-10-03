@@ -2,7 +2,7 @@
 
 ## Harness vocabulary guard
 
-Before applying this plan, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
+Before applying this plan, read [spx/12-agent-harness.pdr.md](spx/12-agent-harness.pdr.md) and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `agent`, `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
 
 ## Purpose
 
@@ -15,7 +15,7 @@ Bootstrap configured plugin marketplaces, plugins, and skills for supported agen
 
 ## Governing decision
 
-`spx/13-agent-capability-lifecycle.pdr.md` separates read-only capability status, exact apply, methodology-compatible update, and methodology migration while prohibiting user-scope mutation and cross-agent artifact translation.
+[spx/13-agent-capability-lifecycle.pdr.md](spx/13-agent-capability-lifecycle.pdr.md) separates read-only capability status, exact apply, methodology-compatible update, and methodology migration while prohibiting user-scope mutation and cross-agent artifact translation.
 
 ## Implementation notes
 

@@ -11,7 +11,6 @@ CAN surface security, maintainability, and reliability issues before they reach 
 - Given `--scope production`, when `spx validation all` is dispatched, then the full-pipeline handler receives production scope ([test](tests/validation-cli.scenario.l2.test.ts))
 - Given a source directory or file positional operand, when `spx validation all` is dispatched, then the full-pipeline handler receives that file scope ([test](tests/validation-cli.scenario.l2.test.ts))
 - Given all validation steps complete, when pipeline output is read, then step results appear in execution order ([test](tests/validation.scenario.l2.test.ts))
-- Given validation path filters exclude an explicit formatting operand, when `spx validation format <path>` runs, then formatting validates the explicit operand without applying the wrapper filters ([test](76-formatting.enabler/tests/formatting.scenario.l2.test.ts))
 
 ### Properties
 
@@ -25,7 +24,7 @@ CAN surface security, maintainability, and reliability issues before they reach 
 - ALWAYS: each step uses "problem" as the canonical term for an item requiring developer attention ([test](tests/validation.compliance.l2.test.ts))
 - ALWAYS: each step reports its own duration ([test](tests/validation.compliance.l2.test.ts))
 - ALWAYS: TypeScript-derived scope discovery reads product tool configuration and directories from the requested product root ([test](tests/scope-resolution.compliance.l1.test.ts))
-- ALWAYS: the temporary `tsconfig.json` generated for scope-filtered or file-specific TypeScript validation is written under the product's `node_modules/` directory and declares no `typeRoots` or `types` — it inherits type resolution from the base config through `extends`, so the temporary file never appears in the product's tracked working tree, per `spx/41-validation.enabler/21-validation-configuration.adr.md` ([test](tests/scope-resolution.compliance.l1.test.ts))
+- ALWAYS: the temporary `tsconfig.json` generated for scope-filtered or file-specific TypeScript validation is written under the product's `node_modules/` directory and declares no `typeRoots` or `types` — it inherits type resolution from the base config through `extends`, so the temporary file never appears in the product's tracked working tree, per [`spx/41-validation.enabler/21-validation-configuration.adr.md`](spx/41-validation.enabler/21-validation-configuration.adr.md) ([test](tests/scope-resolution.compliance.l1.test.ts))
 - ALWAYS: validation stages compose through the language registry exported by `src/validation/registry.ts` ([test](tests/registry.compliance.l1.test.ts))
 - ALWAYS: every registered validation stage declares its default full-pipeline participation and exactly one invocation-local override in its stage descriptor, and supplying that override inverts the default for only that invocation ([test](tests/registry.compliance.l1.test.ts))
 - ALWAYS: `spx validation literal` and `spx validation knip` resolve configured enablement before tool discovery or execution ([test](tests/configuration.compliance.l1.test.ts))

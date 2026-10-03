@@ -2,7 +2,7 @@
 
 ## Harness vocabulary guard
 
-Before applying this plan, read `spx/12-agent-harness.pdr.md` and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
+Before applying this plan, read [spx/12-agent-harness.pdr.md](spx/12-agent-harness.pdr.md) and use its vocabulary as the authority: agent harness, agent, agent adapter, and agent session. Treat nearby `runtime`, `session`, `Claude`, or `Codex` wording as lower-layer/local vocabulary until reconciled; every touched spec, command text, source name, test, and pickup prompt names the precise harness role it describes.
 
 ## Purpose
 
@@ -34,7 +34,7 @@ Define and implement deterministic management for agent instructions, agent conf
 
 ## Agent capability lifecycle packet
 
-`spx/13-agent-capability-lifecycle.pdr.md` is the root product decision record for this packet. It consumes the vocabulary in `spx/12-agent-harness.pdr.md` and governs methodology identity, compatible tooling updates, repository-local agent capability reconciliation, user-scope diagnostics, and methodology migration across the higher-index consumers.
+[spx/13-agent-capability-lifecycle.pdr.md](spx/13-agent-capability-lifecycle.pdr.md) is the root product decision record for this packet. It consumes the vocabulary in [spx/12-agent-harness.pdr.md](spx/12-agent-harness.pdr.md) and governs methodology identity, compatible tooling updates, repository-local agent capability reconciliation, user-scope diagnostics, and methodology migration across the higher-index consumers.
 
 ### Settled product behavior
 
@@ -82,7 +82,7 @@ Instruction-file reconciliation and plugin bootstrap can proceed independently a
 
 ## Open coordination
 
-- Align this node with `spx/12-agent-harness.pdr.md`: distinguish harness configuration from agents, agent adapters, and agent sessions across specs, config contracts, source modules, generators, and tests. The existing agent vocabulary rename belongs here because the descriptor and child reconcilers own that shared vocabulary.
+- Align this node with [spx/12-agent-harness.pdr.md](spx/12-agent-harness.pdr.md): distinguish harness configuration from agents, agent adapters, and agent sessions across specs, config contracts, source modules, generators, and tests. The existing agent vocabulary rename belongs here because the descriptor and child reconcilers own that shared vocabulary.
 - Author the invoking-agent isolation decision before an agentic verification run's implementation chooses working-directory, environment-variable, or temporary-file sharing boundaries.
 - When E1, E2, or E3 add descriptor-consuming tests, expand `CONFIG_TEST_GENERATOR.harnessEnvironmentConfig()` beyond the E0 representative mapping shape or add narrower generator names for shape-specific evidence.
 

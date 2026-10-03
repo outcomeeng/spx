@@ -17,4 +17,4 @@ CAN surface each run's latest event-journal projection on a GitHub-native surfac
 
 ### Compliance
 
-- ALWAYS: the adapter declares its kind as Snapshot and binds the journal's `JournalBackend` port without widening or altering the `append`/`read`/cursor/`render` contract, per `spx/15-agent-run-journal.enabler/32-journal-module-structure.adr.md` ([audit])
+- ALWAYS: the adapter declares its kind as Snapshot and binds the journal's `JournalBackend` port without widening or altering the `append`/`read`/cursor/`render` contract, per [spx/15-agent-run-journal.enabler/32-journal-module-structure.adr.md](spx/15-agent-run-journal.enabler/32-journal-module-structure.adr.md) ([audit])

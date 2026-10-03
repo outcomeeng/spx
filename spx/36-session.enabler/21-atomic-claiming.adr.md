@@ -4,7 +4,7 @@ Session claiming moves a session file between status directories with `fs.rename
 
 ## Rationale
 
-Atomic rename is a proven, zero-race-condition pattern — the OS guarantees exactly one rename succeeds, a losing claimer receives `ENOENT` and moves on to the next session, and no coordination infrastructure (lock files, databases, distributed locks) is needed; the directory-based status layout of `spx/36-session.enabler/21-directory-structure.adr.md` makes this natural. Lock files are rejected because a crashed agent leaves a stale lock and adds files to manage; SQLite transactions add an external dependency for a single file operation; distributed locks (Redis, etcd) are massive over-engineering for a local CLI; and check-then-rename optimistic locking reopens the very race window `rename()` closes.
+Atomic rename is a proven, zero-race-condition pattern — the OS guarantees exactly one rename succeeds, a losing claimer receives `ENOENT` and moves on to the next session, and no coordination infrastructure (lock files, databases, distributed locks) is needed; the directory-based status layout of [`spx/36-session.enabler/21-directory-structure.adr.md`](spx/36-session.enabler/21-directory-structure.adr.md) makes this natural. Lock files are rejected because a crashed agent leaves a stale lock and adds files to manage; SQLite transactions add an external dependency for a single file operation; distributed locks (Redis, etcd) are massive over-engineering for a local CLI; and check-then-rename optimistic locking reopens the very race window `rename()` closes.
 
 ## Invariants
 

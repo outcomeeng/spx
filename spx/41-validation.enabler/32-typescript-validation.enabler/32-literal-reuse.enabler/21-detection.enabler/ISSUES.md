@@ -15,7 +15,7 @@ source locations) is stable, but the citation array order is not reproducible.
 The order-independence property test normalizes these inner arrays before
 comparing, so it verifies the finding set rather than the array order. This is
 the same non-ordinal-ordering class tracked product-wide in
-[`spx/ISSUES.md`](../../../../ISSUES.md).
+[`spx/ISSUES.md`](spx/ISSUES.md).
 
 **Resolution:** sort each literal's location array ordinally (code-unit
 comparison over file then line) in `buildIndex`, and sort `allTestLocs`

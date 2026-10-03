@@ -6,7 +6,7 @@ The `spx validation literal --allowlist-existing` helper persists allowlist entr
 
 A bulk-silence helper writes the product's main configuration file, so the write path must match the read path and remain crash-safe. Reusing config-module detection gives the helper one source of truth for the target file and makes ambiguity handling identical to normal config resolution. Round-tripping through `src/config/` preserves the selected config syntax without downstream JSON, YAML, or TOML parsing logic.
 
-Atomic replacement prevents a concurrent reader, power loss, or process termination from observing a partial config file. The production writer routes through `spx/21-infrastructure.enabler/11-atomic-file-write.enabler/21-atomic-file-write.adr.md`, so the temp file is a random-suffixed sibling of the destination and the final `rename` stays on the destination filesystem. Reader and writer dependency injection keeps the helper verifiable with real temp directories and controlled boundary implementations rather than module replacement.
+Atomic replacement prevents a concurrent reader, power loss, or process termination from observing a partial config file. The production writer routes through [`spx/21-infrastructure.enabler/11-atomic-file-write.enabler/21-atomic-file-write.adr.md`](spx/21-infrastructure.enabler/11-atomic-file-write.enabler/21-atomic-file-write.adr.md), so the temp file is a random-suffixed sibling of the destination and the final `rename` stays on the destination filesystem. Reader and writer dependency injection keeps the helper verifiable with real temp directories and controlled boundary implementations rather than module replacement.
 
 ## Invariants
 

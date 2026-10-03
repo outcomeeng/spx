@@ -2,7 +2,7 @@
 
 ## Future enhancement: per-tool path filter at `validation.paths.literal.*`
 
-The current `validation.paths.{exclude,include}` config (governed by [`11-ignore-defaults.pdr.md`](../../../17-file-inclusion.enabler/11-ignore-defaults.pdr.md)) applies uniformly to every spx validation tool. A path listed in `validation.paths.exclude` is suppressed from literal-reuse, lint, type-check, circular-deps, knip, and AST enforcement alike.
+The current `validation.paths.{exclude,include}` config (governed by [`11-ignore-defaults.pdr.md`](spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md)) applies uniformly to every spx validation tool. A path listed in `validation.paths.exclude` is suppressed from literal-reuse, lint, type-check, circular-deps, knip, and AST enforcement alike.
 
 **Gap:** A team may want to suppress a path from literal-reuse alone (e.g., a vendored library duplicates many domain strings the team has chosen to live with) without also suppressing that path from ESLint or TypeScript type-checking — those tools should still report problems against the same files.
 
@@ -12,7 +12,7 @@ The current `validation.paths.{exclude,include}` config (governed by [`11-ignore
 
 **Scope:** Independent design pass per validation enabler. The validation descriptor already accepts per-tool path subsections under `validation.paths.<tool>`; each tool still needs its effective-scope composition wired through the owning enabler.
 
-**Out of scope for the current cycle:** the global `validation.paths` filter governed by 11-ignore-defaults.pdr.md is sufficient for the immediate need. This enhancement is queued for when a team requires the finer-grained per-tool control.
+**Out of scope for the current cycle:** the global `validation.paths` filter governed by [`spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`](spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md) is sufficient for the immediate need. This enhancement is queued for when a team requires the finer-grained per-tool control.
 
 ---
 

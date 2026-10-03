@@ -1,7 +1,7 @@
 # Path Predicates
 
 PROVIDES the per-layer path predicates — one pure function per shared layer, each typed as `(path, layerState) => LayerDecision`, over the git-tracking layer (consulting the ignore-source reader's tracked-or-untracked-not-ignored set) and the domain-path-filter layer (matching the consumer-supplied include/exclude patterns)
-SO THAT the scope-resolver child (`../43-scope-resolver.enabler/`) composing the fixed-sequence pipeline
+SO THAT the scope-resolver child ([`spx/17-file-inclusion.enabler/43-scope-resolver.enabler`](spx/17-file-inclusion.enabler/43-scope-resolver.enabler/scope-resolver.md)) composing the fixed-sequence pipeline
 CAN evaluate each layer's membership through a uniform predicate shape without consulting the ignore-source reader directly, re-implementing include/exclude pattern matching, or shelling out to git
 
 ## Assertions
@@ -26,6 +26,6 @@ CAN evaluate each layer's membership through a uniform predicate shape without c
 - ALWAYS: every vocabulary constant the predicates consume flows from the file-inclusion config descriptor or from the layer state passed in by the resolver ([review])
 - NEVER: perform filesystem I/O or shell out to git inside a predicate — predicates are pure over their arguments; any I/O belongs at construction time in the consumed layer-state source (the ignore-source reader for git-tracking, the consumer-supplied config for domain-path-filter) ([review])
 - NEVER: hardcode a path pattern, an ignore-resolution rule, or the git-tracking-source filename in this enabler's modules ([review])
-- NEVER: define an artifact-directory predicate, a hidden-prefix predicate, or any other default-exclusion predicate beyond the git-tracking predicate — `11-ignore-defaults.pdr.md` declares git-tracking as the single default scope source ([review])
+- NEVER: define an artifact-directory predicate, a hidden-prefix predicate, or any other default-exclusion predicate beyond the git-tracking predicate — [spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md](spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md) declares git-tracking as the single default scope source ([review])
 - NEVER: expose a predicate that returns more than `LayerDecision` — cross-layer composition is the scope-resolver's concern, not a predicate's ([review])
-- NEVER: use `vi.mock()`, `jest.mock()`, `memfs`, or any filesystem-mocking mechanism — tests exercise predicates against in-memory `LayerState` values and, where the git-tracking reader is required, against real git worktrees constructed via `../../22-test-environment.enabler/` ([review])
+- NEVER: use `vi.mock()`, `jest.mock()`, `memfs`, or any filesystem-mocking mechanism — tests exercise predicates against in-memory `LayerState` values and, where the git-tracking reader is required, against real git worktrees constructed via [`spx/22-test-environment.enabler`](spx/22-test-environment.enabler/test-environment.md) ([review])

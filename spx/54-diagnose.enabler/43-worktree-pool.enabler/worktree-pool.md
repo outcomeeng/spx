@@ -1,7 +1,7 @@
 # Worktree Pool Check
 
 PROVIDES the worktree-pool diagnose behavior — classifies the git worktree layout and canonical-checkout branch standing from the shared worktree pool snapshot, reports how many worktrees are `running` versus `free` as information, and pairs the verdict with a remediation hint for both the whole-product diagnose report and the domain-owned worktree-pool diagnostic provider
-SO THAT the `spx diagnose` engine in [`spx/54-diagnose.enabler/diagnose.md`](../diagnose.md)
+SO THAT the `spx diagnose` engine in [`spx/54-diagnose.enabler/diagnose.md`](spx/54-diagnose.enabler/diagnose.md)
 CAN fold worktree-pool health into the overall environment verdict
 
 ## Assertions

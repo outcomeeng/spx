@@ -13,8 +13,8 @@ This split is correct, but it makes consumer wiring easy to miss. A consumer can
 Governing artifacts:
 
 - `spx/17-file-inclusion.enabler/file-inclusion.md`
-- `spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md`
-- `spx/17-file-inclusion.enabler/15-scope-composition.adr.md`
+- [spx/17-file-inclusion.enabler/11-ignore-defaults.pdr.md](11-ignore-defaults.pdr.md)
+- [spx/17-file-inclusion.enabler/15-scope-composition.adr.md](15-scope-composition.adr.md)
 - `spx/17-file-inclusion.enabler/65-domain-path-filters.enabler/domain-path-filters.md`
 - `spx/16-config.enabler/32-shared-config-primitives.enabler/shared-config-primitives.md`
 

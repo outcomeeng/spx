@@ -1,12 +1,16 @@
 import { posix } from "node:path";
 
+import MarkdownIt from "markdown-it";
+
 import {
   compareSpecContextOrdinal,
   recognizeSpecTreeFilesystemEntry,
+  resolveSpecTreeDecisionCitation,
   resolveSpecTreePathOwnership,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_FILESYSTEM_RECORD_TYPE,
   SPEC_TREE_PATH_OWNERSHIP_RESULT_KIND,
+  SPEC_TREE_ROOT_PREFIX,
   type SpecTreeNode,
   type SpecTreeSnapshot,
   type SpecTreeSourceEntry,
@@ -15,10 +19,11 @@ import {
 import { encodeReleasePromptData } from "./prompt-data";
 import type { ReleaseData } from "./release-data";
 
-const SPEC_TREE_DIRECTORY = "spx";
 const TEST_LINK_PATTERN = /\[test\]\(([^)]+)\)/gu;
 const INLINE_CODE_PATTERN = /`([^`]+)`/gu;
 const AUDIT_TAG = "[audit";
+const MARKDOWN_LINK_OPEN_TOKEN = "link_open";
+const MARKDOWN_LINK_HREF_ATTRIBUTE = "href";
 
 export const RELEASE_CONTEXT_KIND = {
   PRODUCT: "product",
@@ -102,8 +107,9 @@ export interface ReleaseEndpointDeclaration {
 
 /** Spec-tree source entries for the committed paths of one release endpoint, in ordinal order. */
 export function* committedSpecTreeEntries(paths: readonly string[]): Iterable<SpecTreeSourceEntry> {
-  const prefix = `${SPEC_TREE_DIRECTORY}/`;
-  const files = paths.filter((path) => path.startsWith(prefix)).map((path) => path.slice(prefix.length));
+  const files = paths
+    .filter((path) => path.startsWith(SPEC_TREE_ROOT_PREFIX))
+    .map((path) => path.slice(SPEC_TREE_ROOT_PREFIX.length));
   const directories = new Set<string>();
   for (const file of files) {
     let directory = posix.dirname(file);
@@ -211,6 +217,39 @@ export function auditDeclarationOwners(
     }
   }
   return new Map([...owners].map(([path, pathOwners]) => [path, [...pathOwners]]));
+}
+
+/**
+ * Parses Markdown with link destinations kept exactly as written, so a citation resolves against
+ * the literal path the author linked rather than its percent-encoded form.
+ */
+function createCitationMarkdownParser(): MarkdownIt {
+  const parser = new MarkdownIt();
+  parser.normalizeLink = (url) => url;
+  return parser;
+}
+
+const CITATION_MARKDOWN_PARSER = createCitationMarkdownParser();
+
+/**
+ * Decision paths a document cites through Markdown links, in first-appearance order. A link binds
+ * when its destination is tree-absolute from `spx/` or node-local to the citing document's
+ * directory and names a decision file; a destination that climbs with `../`, starts at `/`, or
+ * carries a URL scheme binds nothing, and a decision path written as text — bare or in an inline
+ * code span — is no link.
+ */
+export function extractDecisionLinkCitations(documentPath: string, content: string): readonly string[] {
+  const citations = new Set<string>();
+  for (const block of CITATION_MARKDOWN_PARSER.parse(content, {})) {
+    for (const token of block.children ?? []) {
+      if (token.type !== MARKDOWN_LINK_OPEN_TOKEN) continue;
+      const href = token.attrGet(MARKDOWN_LINK_HREF_ATTRIBUTE);
+      if (href === null) continue;
+      const citedPath = resolveSpecTreeDecisionCitation(documentPath, href);
+      if (citedPath !== null) citations.add(citedPath);
+    }
+  }
+  return [...citations];
 }
 
 /** Nodes whose own directory holds a changed path. */

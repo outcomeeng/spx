@@ -30,11 +30,10 @@ CAN run spec-tree tests with a single command, honor configured passing-scope ex
 - Given `spx test --changed --staged` runs while a staged changed path has additional worktree edits, an unstaged/untracked test file falls under an explicit selected target, or a product-input change selects the recursive root while a spec-tree test file is dirty, then it rejects before runner execution; unrelated dirty files outside the selected execution scope do not prevent runner execution ([test](tests/test.scenario.l1.test.ts))
 - Given `spx test --changed` runs through the command entrypoint, when related-test dependencies are absent, then the command rejects before changed-set planning runs ([test](tests/test.scenario.l1.test.ts))
 - Given selected registered-language test groups include a runner gated out by language detection, when `spx test` runs in operator mode, then the command reports the skipped runner group and selected files even when another selected runner makes the aggregate exit code zero ([test](tests/test.scenario.l1.test.ts))
-- Given `spx test` runs with agent output capture, then the selected runner adapter and selected test files remain the same and only output handling changes according to `spx/41-test.enabler/11-test-runner-environments.pdr.md` ([test](85-agent-test-output.enabler/tests/agent-test-output.compliance.l1.test.ts))
 
 ### Mappings
 
-- Each language provides its supported test runner adapter via a leaf enabler child registered per `../19-language-registration.adr.md` and `spx/41-test.enabler/11-test-runner-environments.pdr.md` ([test](tests/test.mapping.l1.test.ts))
+- Each language provides its supported test runner adapter via a leaf enabler child registered per [`spx/19-language-registration.adr.md`](spx/19-language-registration.adr.md) and [`spx/41-test.enabler/11-test-runner-environments.pdr.md`](spx/41-test.enabler/11-test-runner-environments.pdr.md) ([test](tests/test.mapping.l1.test.ts))
 - Extension-based dispatch: test files route to the testing enabler whose registered extension pattern matches ([test](tests/test.mapping.l1.test.ts))
 
 ### Properties
@@ -42,16 +41,15 @@ CAN run spec-tree tests with a single command, honor configured passing-scope ex
 - Test discovery is deterministic: the same spec tree structure always produces the same set of test files grouped by runner ([test](tests/test.property.l1.test.ts))
 - Exit code aggregation: `spx test` exits non-zero if any dispatched runner exits non-zero, any selected test file matches no registered runner, any target operand resolves to no discovered test file, or every selected registered-language runner is gated out by language detection, zero otherwise ([test](tests/test.property.l1.test.ts))
 - Last-run state is evidence, not product truth: deleting the state never changes which tests are in passing scope, only whether fast status has cached observations available ([audit])
-- Last-run state is stale when the resolved testing config digest, discovered test file path set, discovered test file content digest, or testing-language product input digest differs from the values recorded with the cached observation ([test](43-last-run-evidence.enabler/tests/staleness.property.l1.test.ts))
 
 ### Compliance
 
 - ALWAYS: `spx test passing` reads passing-scope exclusions through the config descriptor system for `spx.config.{toml,json,yaml}` — no duplicate parsing logic ([audit])
 - ALWAYS: persisted testing state records observed runner results, timestamps, input path sets, input content digests, and staleness metadata; config remains the source for passing-scope policy ([audit])
-- ALWAYS: the testing config digest is computed from config-owned canonical descriptor JSON for the resolved testing config descriptor section after defaults are applied per `spx/16-config.enabler/21-descriptor-registration.adr.md`; unrelated descriptor sections and raw file formatting do not affect testing state staleness ([audit])
-- ALWAYS: runner invocation is gated on language presence per `../19-language-registration.adr.md` ([audit])
-- ALWAYS: the registry-based per-node run reaches each language only through the testing registry per `../19-language-registration.adr.md`, and records fresh last-run evidence when it executes ([audit])
-- ALWAYS: supported runners are declared explicitly per language, and unsupported language or runner selections fail with a diagnostic naming the unsupported selection per `spx/41-test.enabler/11-test-runner-environments.pdr.md` ([audit])
+- ALWAYS: the testing config digest is computed from config-owned canonical descriptor JSON for the resolved testing config descriptor section after defaults are applied per [`spx/16-config.enabler/21-descriptor-registration.adr.md`](spx/16-config.enabler/21-descriptor-registration.adr.md); unrelated descriptor sections and raw file formatting do not affect testing state staleness ([audit])
+- ALWAYS: runner invocation is gated on language presence per [`spx/19-language-registration.adr.md`](spx/19-language-registration.adr.md) ([audit])
+- ALWAYS: the registry-based per-node run reaches each language only through the testing registry per [`spx/19-language-registration.adr.md`](spx/19-language-registration.adr.md), and records fresh last-run evidence when it executes ([audit])
+- ALWAYS: supported runners are declared explicitly per language, and unsupported language or runner selections fail with a diagnostic naming the unsupported selection per [`spx/41-test.enabler/11-test-runner-environments.pdr.md`](spx/41-test.enabler/11-test-runner-environments.pdr.md) ([audit])
 - NEVER: write to product configuration files (`pyproject.toml`, `package.json`, `tsconfig.json`, `vitest.config.ts`) — exclusion applies via runner flags at invocation time ([audit])
-- NEVER: infer runner identity from the selected output environment; environment selection changes output handling and reporting only per `spx/41-test.enabler/11-test-runner-environments.pdr.md` ([audit])
+- NEVER: infer runner identity from the selected output environment; environment selection changes output handling and reporting only per [`spx/41-test.enabler/11-test-runner-environments.pdr.md`](spx/41-test.enabler/11-test-runner-environments.pdr.md) ([audit])
 - NEVER: infer passing scope from persisted last-run state — state accelerates reporting but does not decide policy ([audit])

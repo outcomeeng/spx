@@ -22,5 +22,5 @@ CAN write Level 1 and Level 2 tests without hardcoding status strings or reimple
 
 ### Compliance
 
-- ALWAYS: derive directory names from `DEFAULT_CONFIG.sessions.statusDirs` per ADR `21-directory-structure` ([review](../21-directory-structure.adr.md))
-- NEVER: hardcode status strings outside of `SESSION_STATUSES` and `DEFAULT_CONFIG` per ADR `21-directory-structure` ([review](../21-directory-structure.adr.md))
+- ALWAYS: derive directory names from `DEFAULT_CONFIG.sessions.statusDirs` per ADR `21-directory-structure` ([review](spx/36-session.enabler/21-directory-structure.adr.md))
+- NEVER: hardcode status strings outside of `SESSION_STATUSES` and `DEFAULT_CONFIG` per ADR `21-directory-structure` ([review](spx/36-session.enabler/21-directory-structure.adr.md))

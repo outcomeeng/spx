@@ -6,7 +6,7 @@
 
 Package publication is immutable for one name and version, while a GitHub Release is repairable. Confirming the package before changing the hosted release prevents a public release page from claiming availability that the registry does not provide. Treating an already-published package as a verified state rather than blindly publishing again lets the same operation repair a missing or stale GitHub Release after a partial failure.
 
-One product operation keeps registry identity checks, changelog-section extraction, hosted-release reconciliation, and retry semantics under the release capability instead of duplicating them in workflow scripts. Pure orchestration and injected registry and repository-host boundaries preserve deterministic behavior verification while production adapters retain the environment-specific npm and GitHub authority. This refines `spx/26-release.enabler/18-release-architecture.adr.md` and `spx/14-cli-composition.adr.md`.
+One product operation keeps registry identity checks, changelog-section extraction, hosted-release reconciliation, and retry semantics under the release capability instead of duplicating them in workflow scripts. Pure orchestration and injected registry and repository-host boundaries preserve deterministic behavior verification while production adapters retain the environment-specific npm and GitHub authority. This refines [`spx/26-release.enabler/18-release-architecture.adr.md`](spx/26-release.enabler/18-release-architecture.adr.md) and [`spx/14-cli-composition.adr.md`](spx/14-cli-composition.adr.md).
 
 ## Invariants
 

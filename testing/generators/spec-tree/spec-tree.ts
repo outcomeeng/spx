@@ -128,6 +128,7 @@ export const SPEC_TREE_TEST_GENERATOR = {
   invalidOrderedDirectory: arbitraryInvalidOrderedDirectory,
   supersededNodeSuffix: arbitrarySupersededNodeSuffix,
   sourceRef: arbitrarySourceRef,
+  decisionKind: arbitraryDecisionKind,
   representativeFixture: arbitraryRepresentativeFixture,
 } as const;
 

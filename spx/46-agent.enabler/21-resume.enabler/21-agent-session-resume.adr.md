@@ -38,7 +38,7 @@ Keeping store parsing pure and injected lets tests cover every format without to
 - ALWAYS: each resume adapter declares its supported scopes, and discovery filters unsupported adapters before invoking their session-store collectors ([audit])
 - ALWAYS: Pi session-store resolution honors `PI_CODING_AGENT_SESSION_DIR` before `PI_CODING_AGENT_DIR` and the default `~/.pi/agent` directory, and the Pi launch mapping resumes the selected source path rather than reconstructing a different session identity ([audit])
 - ALWAYS: the CLI descriptor parses `--since <duration>` through the `parse-duration-ms` runtime dependency, rejects results that are absent, non-positive, non-finite, or outside the safe-integer range, and passes only milliseconds into command and domain layers ([audit])
-- ALWAYS: Commander option parsing, TTY checks, Ink rendering, and foreground process handoff live under `src/interfaces/cli/` per `spx/13-cli.enabler/21-terminal-ui.adr.md` ([audit])
+- ALWAYS: Commander option parsing, TTY checks, Ink rendering, and foreground process handoff live under `src/interfaces/cli/` per [spx/13-cli.enabler/21-terminal-ui.adr.md](spx/13-cli.enabler/21-terminal-ui.adr.md) ([audit])
 - NEVER: SPX implements duration-string grammar or passes raw duration text into the resume discovery domain ([audit])
 - NEVER: discovery shells out to an external file-scanning binary or takes a runtime dependency beyond the injected filesystem, clock, agent-directory, worktree-root, and numeric activity-window inputs ([audit])
 - NEVER: branch scope invents branch identity for an adapter whose transcript metadata omits it; those sessions remain available through worktree scope only ([audit])

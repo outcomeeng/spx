@@ -3,14 +3,14 @@
 ## The verify module-structure decision carries no no-mocking rule of its own
 
 The ADR audit of
-`spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`
+[`spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`](spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md)
 at `8942b1e2389757baedd91b6ecf68487993d061a7` returned `REJECTED` with the
 `missing-testability` finding: "The ADR's Audit verification rules mandate
 injected dependencies but include no no-mocking boundary, leaving the TypeScript
 testability constraint incomplete." Its structure, atemporal voice, and
 tag-validity checks passed.
 
-The governing root decision `spx/12-test-infrastructure.adr.md` prohibits
+The governing root decision [`spx/12-test-infrastructure.adr.md`](spx/12-test-infrastructure.adr.md) prohibits
 `vi.mock()`, `jest.mock()`, framework module replacement, and filesystem
 replacement as substitutes for the production boundary under test. That rule
 reaches the verify node by index. Change #116 holds the verify decision's other
@@ -25,7 +25,7 @@ and the resulting audit accepts that rule placement.
 
 ## Shared verification harness owns test predicates and unclassified Git doubles
 
-`testing/harnesses/verify/harness.ts` contains behavioral assertions and complete exported `assert*` test bodies. `assertFinishReportMatchesJournal` compares expected projection fields and throws on mismatch; functions such as `assertCallerDrivenRunAdvertisesEvidenceAppendActions` execute `expect` assertions. The executed test files must own those predicates under `spx/12-test-infrastructure.adr.md` and the TypeScript test standards.
+`testing/harnesses/verify/harness.ts` contains behavioral assertions and complete exported `assert*` test bodies. `assertFinishReportMatchesJournal` compares expected projection fields and throws on mismatch; functions such as `assertCallerDrivenRunAdvertisesEvidenceAppendActions` execute `expect` assertions. The executed test files must own those predicates under [`spx/12-test-infrastructure.adr.md`](spx/12-test-infrastructure.adr.md) and the TypeScript test standards.
 
 The same module's `verifyGitDeps` returns canned product-directory, branch, HEAD, and changed-file responses. `verifyDeps` installs it for ordinary lifecycle cases without naming a testing-methodology exception. The real temporary Git repository used by `testing/harnesses/verify/audit-fixtures.ts` provides an existing resource pattern to assess for those cases.
 
@@ -66,7 +66,7 @@ only part of the evidence-action surface. Decide whether `status` and `render` n
 type, and add the covering assertion then.
 
 The spx-driven command path (`spx verification <type> run`, per
-`spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md`) raises the same
+[`spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md`](spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md)) raises the same
 gap on the command surface rather than the validator registry: spx opens, streams, and seals such a
 run within one invocation, so no caller ever appends to it. A run left unsealed by an aborted
 invocation would still advertise `scope add` and `finding add` — actions no caller should invoke on
@@ -82,7 +82,7 @@ sealing, is the mechanism.
 ## A generic journal seal of a verify run desyncs the run's projected sealed state
 
 `projectVerifyRun` (`src/domains/verify/verify.ts`) folds `sealed` from the
-presence of a terminal-completion event, which `spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`
+presence of a terminal-completion event, which [`spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`](spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md)
 decides deliberately — sealed folds from the terminal event, "independent of the
 journal seal marker." The generic `spx journal seal --type <verification-type>
 --run <run-token>` verb (`src/interfaces/cli/journal.ts`) can seal a verify run's
@@ -106,11 +106,11 @@ on PR #346.
 
 ## The verify module names diverge from the command domain they compose
 
-`spx/14-cli-composition.adr.md` places a command domain's three layers at
+[`spx/14-cli-composition.adr.md`](spx/14-cli-composition.adr.md) places a command domain's three layers at
 `src/domains/{domain}/`, `src/commands/{domain}/`, and `src/interfaces/cli/{domain}.ts`. This
 domain registers under the name `verification` — its `Domain.name` is the root command name — while
 its modules are `src/domains/verify/`, `src/commands/verify/`, and `src/interfaces/cli/verify.ts`,
-so `{domain}` and the module segment disagree. `spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`
+so `{domain}` and the module segment disagree. [`spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`](spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md)
 records the `verify` paths, which keeps that ADR self-consistent but not consistent with the
 composition ADR it cites.
 
@@ -121,7 +121,7 @@ name that differs from the command name, before renaming.
 
 ## External values reach the terminal without control-byte escaping
 
-This node's terminal output path passes values that originated outside the product's own source straight to the process streams. [`spx/13-cli.enabler/15-cli-architecture.adr.md`](../../13-cli.enabler/15-cli-architecture.adr.md) makes escaping a property of the composed value: an externally-originated segment is escaped where it is embedded, through the `src/lib/terminal-text/` primitive, while product-authored segments keep their bytes so styling and line structure survive. This node predates that invariant and has not migrated to it.
+This node's terminal output path passes values that originated outside the product's own source straight to the process streams. [`spx/13-cli.enabler/15-cli-architecture.adr.md`](spx/13-cli.enabler/15-cli-architecture.adr.md) makes escaping a property of the composed value: an externally-originated segment is escaped where it is embedded, through the `src/lib/terminal-text/` primitive, while product-authored segments keep their bytes so styling and line structure survive. This node predates that invariant and has not migrated to it.
 
 **Migrated:** the evidence-payload and terminal-completion rejection path. `src/domains/verify/rejection-report.ts` composes that block through `src/lib/terminal-text/`, escaping the caller-supplied verification type while the labels, the validator reason, and the block's line structure stay product-authored.
 
@@ -132,7 +132,7 @@ This node's terminal output path passes values that originated outside the produ
 
 **Impact:** a value carrying an escape byte (`0x1b`) can reposition the cursor, recolor the terminal, or clear the screen; a value carrying a line feed can forge an additional diagnostic line that reads as if spx emitted it. Whoever controls the named origins controls those bytes.
 
-**Resolution:** compose the remaining terminal-destined text through `src/lib/terminal-text/`, declaring each interpolated value authored or external at the point of composition; then add the node's own compliance assertion and co-located evidence that a control-byte-bearing value renders escaped. [`spx/54-diagnose.enabler`](../../54-diagnose.enabler/diagnose.md) carries the migrated shape and its evidence, and `src/domains/verify/rejection-report.ts` now carries it for the rejection path.
+**Resolution:** compose the remaining terminal-destined text through `src/lib/terminal-text/`, declaring each interpolated value authored or external at the point of composition; then add the node's own compliance assertion and co-located evidence that a control-byte-bearing value renders escaped. [`spx/54-diagnose.enabler`](spx/54-diagnose.enabler/diagnose.md) carries the migrated shape and its evidence, and `src/domains/verify/rejection-report.ts` now carries it for the rejection path.
 
 **Skills:** `/apply`, `/test-typescript`, `/audit-typescript-code`.
 

@@ -1,6 +1,6 @@
 # Record Store
 
-PROVIDES JSONL run/record mechanics — single-artifact run paths, run-file-name parsing, append, atomic no-overwrite publication, latest-record reads, and recency ordering of a scope's run records — per [`spx/17-state.adr.md`](../../17-state.adr.md)
+PROVIDES JSONL run/record mechanics — single-artifact run paths, run-file-name parsing, append, atomic no-overwrite publication, latest-record reads, and recency ordering of a scope's run records — per [`spx/17-state.adr.md`](spx/17-state.adr.md)
 SO THAT consumers persisting local execution history within a resolved `.spx/` scope
 CAN append run records, recover the latest complete record, parse a run token from a run-file name, and order runs by recency without reimplementing run-record mechanics or re-deriving the run-token format
 
