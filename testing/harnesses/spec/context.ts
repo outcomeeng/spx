@@ -1,4 +1,4 @@
-import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { join, parse } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -43,7 +43,7 @@ import {
   SPEC_TREE_TEST_GENERATOR,
   specTreeFixtureNodeDirectoryName,
 } from "@testing/generators/spec-tree/spec-tree";
-import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
+import { CLI_PATH, NODE_EXECUTABLE, PRODUCT_ROOT } from "@testing/harnesses/constants";
 import { type CurrentSpecTreeEnv, withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { SPEC_CLI_ISOLATION } from "@testing/harnesses/spec/spec-cli-isolation-contract";
 import { SPEC_CLI_NETWORK_GUARD_SOURCE_PATH } from "@testing/harnesses/spec/spec-cli-network-guard";
@@ -249,6 +249,25 @@ export async function runIsolatedEscapeWriteProbe(productDir: string) {
     escapeFileExists = false;
   }
   return { escapeFileExists, escapeFilePath, result };
+}
+
+const SPEC_CLI_PRODUCT_CONFIG_FIXTURE_ROOT = join(PRODUCT_ROOT, "testing/fixtures/spec-cli/retired-apply-product");
+
+/**
+ * Copies the named product-root files of the inert product-configuration
+ * fixture into the temp product directory, so a process-level run meets real
+ * package, Python, and TypeScript manifests beside the spx configuration the
+ * spec-tree environment already wrote.
+ */
+export async function installSpecCliProductConfigFixture(
+  productDir: string,
+  fileNames: readonly string[],
+): Promise<void> {
+  await Promise.all(
+    fileNames.map((fileName) =>
+      copyFile(join(SPEC_CLI_PRODUCT_CONFIG_FIXTURE_ROOT, fileName), join(productDir, fileName))
+    ),
+  );
 }
 
 export const METHODOLOGY_FIXTURE_VERSION = "4.0.0";
