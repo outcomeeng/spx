@@ -90,7 +90,7 @@ async function readProjectedDocument(
   try {
     return {
       ok: true,
-      entry: projectSpecContextDocument(selection, source, input.methodology.migratingFrom !== undefined),
+      entry: projectSpecContextDocument(selection, source),
     };
   } catch (error) {
     if (selection.mode !== SPEC_CONTEXT_MODE.DIGEST) throw error;

@@ -37,8 +37,24 @@ export const SPEC_CONTEXT_ROLE_MODE: Readonly<Record<SpecContextRole, SpecContex
   [SPEC_CONTEXT_ROLE.CITED_DECISION]: SPEC_CONTEXT_MODE.FULL,
 };
 
-/** The methodology-fixed opening keywords of the two document classes outside the kind registry. */
-export const SPEC_CONTEXT_DOCUMENT_OPENING = { PRODUCT: "OFFERS", DECISION: "GOVERNS" } as const;
+/**
+ * The paragraph a Digest selects: an output node's opening, keyed by its
+ * kind's resolved opening keyword, or a decision's decision statement.
+ */
+export const SPEC_CONTEXT_DIGEST_SOURCE = {
+  OPENING: "opening",
+  DECISION_STATEMENT: "decision-statement",
+} as const;
+
+export type SpecContextDigest =
+  | {
+    readonly source: typeof SPEC_CONTEXT_DIGEST_SOURCE.OPENING;
+    readonly kind: string;
+    readonly keyword: string | undefined;
+  }
+  | { readonly source: typeof SPEC_CONTEXT_DIGEST_SOURCE.DECISION_STATEMENT };
+
+const DECISION_STATEMENT_DIGEST: SpecContextDigest = { source: SPEC_CONTEXT_DIGEST_SOURCE.DECISION_STATEMENT };
 
 /** The node-local artifacts a projection selects only when present: the issue note, the knowledge index, the outcome record. */
 export const SPEC_CONTEXT_OPTIONAL_ARTIFACT = {
@@ -48,8 +64,6 @@ export const SPEC_CONTEXT_OPTIONAL_ARTIFACT = {
 } as const;
 
 const DISCOVERY_DEPTH = 2;
-const PRODUCT_OPENING = SPEC_CONTEXT_DOCUMENT_OPENING.PRODUCT;
-const DECISION_OPENING = SPEC_CONTEXT_DOCUMENT_OPENING.DECISION;
 const ISSUE_FILENAME = SPEC_CONTEXT_OPTIONAL_ARTIFACT.ISSUES;
 const KNOWLEDGE_INDEX = SPEC_CONTEXT_OPTIONAL_ARTIFACT.KNOWLEDGE_INDEX;
 const OUTCOME_SUFFIX = SPEC_CONTEXT_OPTIONAL_ARTIFACT.OUTCOME_SUFFIX;
@@ -84,9 +98,9 @@ export interface SpecContextSelection {
   readonly mode: SpecContextMode;
   /** Every target-role pair through which a targeted selection selects this entry; empty for targetless discovery. */
   readonly roles: readonly SpecContextRoleBinding[];
-  readonly opening?: string;
+  /** The paragraph a Digest of this entry selects; a product document carries none, being projected Full. */
+  readonly digest?: SpecContextDigest;
   readonly outputNode?: boolean;
-  readonly migrationFallback?: boolean;
   readonly scanCitations?: boolean;
   readonly optional?: boolean;
 }
@@ -125,6 +139,12 @@ function requiredDocumentPath(path: string | undefined, owner: string): string {
   return path;
 }
 
+/** The opening keyword the kind registry resolves for a node's kind, or none when the registry resolves none. */
+function resolvedKindOpening(node: SpecTreeNode): string | undefined {
+  const definition: { readonly opening?: string } = KIND_REGISTRY[node.kind];
+  return definition.opening;
+}
+
 /**
  * A node's spec selection, or none when no selectable path holds the spec: a
  * node directory without its spec file still structures the walk, but
@@ -142,7 +162,7 @@ function nodeSelection(
     path,
     mode,
     roles,
-    opening: KIND_REGISTRY[node.kind].opening,
+    digest: { source: SPEC_CONTEXT_DIGEST_SOURCE.OPENING, kind: node.kind, keyword: resolvedKindOpening(node) },
     outputNode: true,
     scanCitations: true,
   }];
@@ -368,8 +388,6 @@ export function selectSpecContextDocuments(
           path: productPath,
           mode,
           roles: productRoles,
-          opening: PRODUCT_OPENING,
-          migrationFallback: true,
           scanCitations: true,
         }]
         : nodeSelection(node, mode, roles.nodes.get(node.id), existingPaths)),
@@ -384,8 +402,7 @@ export function selectSpecContextDocuments(
           path: entry.path,
           mode: discovery ? SPEC_CONTEXT_MODE.DIGEST : SPEC_CONTEXT_MODE.FULL,
           roles: roles.decisions.get(entry.decision.id),
-          opening: DECISION_OPENING,
-          migrationFallback: true,
+          digest: DECISION_STATEMENT_DIGEST,
           scanCitations: true,
         });}
     }
@@ -442,7 +459,8 @@ function linesWithTerminators(body: string): string[] {
   return lines;
 }
 
-function openingParagraph(body: string, keyword: string | undefined, fallback: boolean): string | undefined {
+/** The body's paragraphs, each ending before the next blank or whitespace-only line or end of file. */
+function sourceParagraphs(body: string): readonly string[] {
   const paragraphs: string[] = [];
   let paragraph = "";
   for (const line of linesWithTerminators(body)) {
@@ -452,19 +470,36 @@ function openingParagraph(body: string, keyword: string | undefined, fallback: b
     } else paragraph += line;
   }
   if (paragraph.length > 0) paragraphs.push(paragraph);
-  const opening = keyword === undefined
-    ? undefined
-    : paragraphs.find((paragraph) => paragraph.startsWith(`${keyword} `));
-  if (opening !== undefined || !fallback) return opening;
-  const title = paragraphs.findIndex((paragraph) => /^# [^\r\n]+/.test(paragraph));
-  return paragraphs.slice(title + 1).find((paragraph) => !/^[\t ]*(?:#|[-*+]>?|\d+\.|>|\||`|~|<)/.test(paragraph));
+  return paragraphs;
 }
 
-export function projectSpecContextDocument(
-  selection: SpecContextSelection,
-  source: string,
-  migrating: boolean,
-): SpecContextEntry {
+const TITLE_PARAGRAPH = /^# [^\r\n]+/;
+const NON_PROSE_PARAGRAPH = /^[\t ]*(?:#|[-*+]>?|\d+\.|>|\||`|~|<)/;
+
+/** A decision's decision statement: the first prose paragraph after its title. */
+function decisionStatement(paragraphs: readonly string[]): string | undefined {
+  const title = paragraphs.findIndex((paragraph) => TITLE_PARAGRAPH.test(paragraph));
+  if (title === -1) return undefined;
+  return paragraphs.slice(title + 1).find((paragraph) => !NON_PROSE_PARAGRAPH.test(paragraph));
+}
+
+/** The Digest paragraph `digest` selects from `body`; every missing paragraph fails the projection. */
+function digestParagraph(body: string, digest: SpecContextDigest | undefined, path: string): string {
+  if (digest === undefined) throw new Error(`No Digest is defined for ${path}`);
+  const paragraphs = sourceParagraphs(body);
+  if (digest.source === SPEC_CONTEXT_DIGEST_SOURCE.DECISION_STATEMENT) {
+    const statement = decisionStatement(paragraphs);
+    if (statement === undefined) throw new Error(`Missing decision statement in ${path}`);
+    return statement;
+  }
+  const { keyword } = digest;
+  if (keyword === undefined) throw new Error(`No resolved opening keyword for kind ${digest.kind} in ${path}`);
+  const opening = paragraphs.find((paragraph) => paragraph.startsWith(`${keyword} `));
+  if (opening === undefined) throw new Error(`Missing ${keyword} opening in ${path}`);
+  return opening;
+}
+
+export function projectSpecContextDocument(selection: SpecContextSelection, source: string): SpecContextEntry {
   if (selection.mode === SPEC_CONTEXT_MODE.REFERENCE) {
     return { type: SPEC_CONTEXT_ENTRY_TYPE.REFERENCE, path: selection.path };
   }
@@ -474,10 +509,7 @@ export function projectSpecContextDocument(
     : {};
   const content = selection.mode === SPEC_CONTEXT_MODE.FULL
     ? body
-    : openingParagraph(body, selection.opening, migrating && selection.migrationFallback === true);
-  if (content === undefined) {
-    throw new Error(`Missing ${selection.opening ?? "kind opening"} paragraph in ${selection.path}`);
-  }
+    : digestParagraph(body, selection.digest, selection.path);
   return { type: SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT, path: selection.path, metadata: selectedMetadata, content };
 }
 
@@ -523,8 +555,7 @@ export function specContextCitedSelection(
     path,
     mode: SPEC_CONTEXT_MODE.FULL,
     roles,
-    opening: DECISION_OPENING,
-    migrationFallback: true,
+    digest: DECISION_STATEMENT_DIGEST,
     scanCitations: true,
   };
 }

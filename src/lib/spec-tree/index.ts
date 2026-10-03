@@ -83,7 +83,7 @@ export {
   projectSpecContextDocument,
   renderSpecContextEntries,
   selectSpecContextDocuments,
-  SPEC_CONTEXT_DOCUMENT_OPENING,
+  SPEC_CONTEXT_DIGEST_SOURCE,
   SPEC_CONTEXT_ENTRY_TYPE,
   SPEC_CONTEXT_FRAME,
   SPEC_CONTEXT_FRAME_SYNTAX,
