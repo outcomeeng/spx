@@ -6,7 +6,7 @@ malleability: spec
 
 PROVIDES local process-level contract tests for `spx spec` command routing, flags, errors, and package-script invocation
 SO THAT developers and release automation verifying the `spx spec` executable
-CAN prove the user-facing CLI entry point routes the spec-domain commands hermetically while command-behavior evidence stays at the command-handler level
+CAN prove the user-facing CLI entry point routes the spec-domain commands hermetically
 
 ## Assertions
 
