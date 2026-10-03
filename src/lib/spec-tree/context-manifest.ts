@@ -78,7 +78,7 @@ export interface SpecContextManifestEntry {
   readonly path: string;
   readonly mode: SpecContextModeName;
   readonly selections: readonly SpecContextTargetSelection[];
-  /** Present only on a decision reached only by citation: every selected document that cites it, in `show` order. */
+  /** Present exactly when a selection carries the cited-decision reason: every selected document that cites it, in `show` order. */
   readonly citedBy?: readonly string[];
 }
 
@@ -89,7 +89,10 @@ export interface SpecContextManifest {
   readonly entries: readonly SpecContextManifestEntry[];
 }
 
-/** One selected entry with every target-reason pair that holds for it, before precedence applies. */
+/**
+ * One selected entry with every target-reason pair that holds for it, before
+ * precedence applies, and every selected document that cites it when any does.
+ */
 export interface SpecContextSelectedEntry {
   readonly path: string;
   readonly reasons: readonly SpecContextTargetSelection[];
@@ -134,9 +137,11 @@ export function specContextTargetSelections(
 /**
  * Composes the shared selection's entries, in `show` order, into manifest
  * entries: each entry's selections reduce to one reason per target, and its
- * mode is the highest mode those selections require. Selections follow
- * ordinal target order, so every permutation of the same operands yields
- * byte-identical output.
+ * mode is the highest mode those selections require. An entry carries its
+ * citing documents exactly when one of its reduced selections keeps the
+ * cited-decision reason, whichever reasons other targets record for it.
+ * Selections follow ordinal target order, so every permutation of the same
+ * operands yields byte-identical output.
  */
 export function composeSpecContextManifestEntries(
   entries: readonly SpecContextSelectedEntry[],
@@ -145,11 +150,12 @@ export function composeSpecContextManifestEntries(
     const selections = specContextTargetSelections(reasons);
     const mode = specContextReasonsMode(selections);
     if (mode === undefined) throw new Error(`No requested target selects context entry ${path}`);
+    const cited = selections.some(({ reason }) => reason === SPEC_CONTEXT_SELECTION_REASON.CITED_DECISION);
     return {
       path,
       mode: SPEC_CONTEXT_MODE_NAME[mode],
       selections,
-      ...(citedBy === undefined ? {} : { citedBy }),
+      ...(cited && citedBy !== undefined ? { citedBy } : {}),
     };
   });
 }

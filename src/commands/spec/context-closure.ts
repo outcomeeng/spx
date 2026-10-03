@@ -27,9 +27,9 @@ export interface SpecContextClosure {
 
 /**
  * One selected entry with every target-reason pair through which the
- * selection reaches it; a cited decision outside the structural walk also
- * carries every selected document whose complete source cites it, in the
- * order the closure lists those documents.
+ * selection reaches it; a cited decision, inside the structural walk or
+ * outside it, also carries every selected document whose complete source
+ * cites it, in the order the closure lists those documents.
  */
 export interface SpecContextClosureEntry {
   readonly entry: SpecContextEntry;
@@ -183,16 +183,22 @@ export async function resolveSpecContextClosure(
     if (index === undefined) throw new Error(`Citing document outside the context closure: ${path}`);
     return index;
   };
+  const citingDocuments = (path: string): { readonly citedBy?: readonly string[] } => {
+    const citing = citations.get(path);
+    if (citing === undefined) return {};
+    return { citedBy: [...citing].sort((left, right) => closurePosition(left) - closurePosition(right)) };
+  };
   return {
     entries: [
       ...structural.map(({ path, reasons }) => ({
         entry: projectedEntry(path),
         reasons: [...reasons, ...(citedReasons.get(path) ?? [])],
+        ...citingDocuments(path),
       })),
       ...cited.map((path) => ({
         entry: projectedEntry(path),
         reasons: citedReasons.get(path) ?? [],
-        citedBy: [...(citations.get(path) ?? [])].sort((left, right) => closurePosition(left) - closurePosition(right)),
+        ...citingDocuments(path),
       })),
     ],
   };
