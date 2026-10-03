@@ -20,7 +20,8 @@ One registry prevents path parsing, rendering, validation, and configuration fro
 
 ### Audit
 
-- ALWAYS: every node kind entry carries category, label, suffix, aliases, and its opening selector ([audit])
+- ALWAYS: every kind entry carries category, label, suffix, and aliases ([audit])
+- ALWAYS: every node kind entry carries its opening selector ([audit])
 - ALWAYS: derived registries and types are computed from `KIND_REGISTRY` without parallel kind, suffix, category, label, alias, or opening constants ([audit])
 - ALWAYS: the spec-tree configuration descriptor is co-located with the registry and validates selections against it ([audit])
 - NEVER: a renderer, parser, validator, or command module owns a separate kind-to-opening mapping ([audit])
