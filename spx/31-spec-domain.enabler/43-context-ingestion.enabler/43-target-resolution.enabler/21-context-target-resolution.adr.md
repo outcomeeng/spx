@@ -14,10 +14,9 @@ Snapshot membership defines accepted targets, while filesystem facts establish w
 
 ## Verification
 
-- ALWAYS: an operand every candidate of which escapes the resolved product root through lexical traversal or symbolic-link resolution fails as outside-product before identity resolution; otherwise a discarded escaping candidate never decides the result, an operand with zero identities after confinement and collapse fails as unresolved, including an operand naming an existing artifact of a class context targets do not accept, an operand with one identity resolves to it, and an operand with several identities fails as ambiguous
-
 ### Testing
 
+- ALWAYS: an operand every candidate of which escapes the resolved product root through lexical traversal or symbolic-link resolution fails as outside-product before identity resolution; otherwise a discarded escaping candidate never decides the result, an operand with zero identities after confinement and collapse fails as unresolved, including an operand naming an existing artifact of a class context targets do not accept, an operand with one identity resolves to it, and an operand with several identities fails as ambiguous ([mapping])
 - ALWAYS: each outside-product, unresolved, and ambiguous target-resolution failure maps to a CLI diagnostic naming its failure kind and the rejected operand, and an ambiguous failure's diagnostic additionally names every canonical match ([mapping])
 - NEVER: target resolution gives a candidate source precedence ([compliance])
 - NEVER: target resolution substitutes abbreviated path-component prefixes for complete-component suffix matching ([compliance])
