@@ -2,7 +2,7 @@
 
 `src/lib/spec-tree/config.ts` is the single runtime source of spec-tree kind vocabulary: it declares `SPEC_TREE_CONFIG` as one `as const` semantic object whose flat `KINDS` registry owns each kind's category, label, suffix, aliases, and opening selector; an output-node selector is either a fixed keyword or inheritance from the parent kind, while non-node kinds carry no opening selector. `KIND_REGISTRY`, category constants, inferred kind types, and node and decision sub-registries are projections of that object.
 
-The source-version node kinds remain renderable during migration: `enabler` selects `PROVIDES` and `outcome` selects `WE BELIEVE THAT`. A product carries no opening, and a decision carries no opening keyword: at every methodology version a decision's Digest is its decision statement, the first prose paragraph after its title. Neither document class enters the kind registry's opening selectors.
+The 3.x node kinds carry fixed opening selectors, so a tree that declares a 3.x migration source renders its source-version nodes: `enabler` selects `PROVIDES` and `outcome` selects `WE BELIEVE THAT`. A product carries no opening, and a decision carries no opening keyword: at every methodology version a decision's Digest is its decision statement, the first prose paragraph after its title. Neither document class enters the kind registry's opening selectors.
 
 ## Rationale
 
@@ -20,7 +20,7 @@ One registry prevents path parsing, rendering, validation, and configuration fro
 
 ### Audit
 
-- ALWAYS: every kind entry carries category, label, suffix, aliases, and its opening selector ([audit])
+- ALWAYS: every node kind entry carries category, label, suffix, aliases, and its opening selector ([audit])
 - ALWAYS: derived registries and types are computed from `KIND_REGISTRY` without parallel kind, suffix, category, label, alias, or opening constants ([audit])
 - ALWAYS: the spec-tree configuration descriptor is co-located with the registry and validates selections against it ([audit])
 - NEVER: a renderer, parser, validator, or command module owns a separate kind-to-opening mapping ([audit])
