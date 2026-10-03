@@ -18,8 +18,11 @@ CAN receive every selected governing decision once and diagnose an unsatisfied c
 
 ### Compliance
 
-- ALWAYS: a decision citation is a Markdown inline link whose href is the cited decision's full path from `spx/`, ending `.adr.md` or `.pdr.md`; a `../` link, a leading-slash link, every other link destination, a bare or code-span path, and coordination notes bind no citation ([test](tests/cited-decisions.compliance.l1.test.ts))
-- ALWAYS: a cited decision the structural walk also selects appears once, and repeated citations and cycles add no duplicate ([test](tests/cited-decisions.compliance.l1.test.ts))
+- ALWAYS: a decision citation is a Markdown inline link whose href is the cited decision's full path from `spx/`, ending `.adr.md` or `.pdr.md` ([test](tests/cited-decisions.compliance.l1.test.ts))
+- NEVER: a `../` link, a leading-slash link, any other link destination, or a bare or code-span path binds a citation ([test](tests/cited-decisions.compliance.l1.test.ts))
+- NEVER: a coordination note binds a citation ([test](tests/cited-decisions.compliance.l1.test.ts))
+- ALWAYS: a cited decision the structural walk also selects appears once ([test](tests/cited-decisions.compliance.l1.test.ts))
+- NEVER: a repeated citation or a citation cycle adds a duplicate entry ([test](tests/cited-decisions.compliance.l1.test.ts))
 - ALWAYS: a decision reached only by citation is projected Full ([test](tests/cited-decisions.compliance.l1.test.ts))
 - ALWAYS: the `list` entry of a decision reached only by citation records the path of every selected document that cites it ([test](tests/cited-decisions.compliance.l1.test.ts))
 - ALWAYS: a citation that resolves to no tracked decision fails the whole projection naming both the cited path and the citing document ([test](tests/cited-decisions.compliance.l1.test.ts))

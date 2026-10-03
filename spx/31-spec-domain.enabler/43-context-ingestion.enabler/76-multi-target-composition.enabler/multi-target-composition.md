@@ -16,7 +16,8 @@ CAN receive every required entry once at the highest mode any target selects, an
 
 ### Properties
 
-- Target order never changes the output; shared documents and references appear once. ([test](tests/multi-target-composition.property.l1.test.ts))
+- Target order never changes the output. ([test](tests/multi-target-composition.property.l1.test.ts))
+- Every document and reference several targets share appears once. ([test](tests/multi-target-composition.property.l1.test.ts))
 
 ### Compliance
 

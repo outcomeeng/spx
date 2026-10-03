@@ -20,10 +20,14 @@ The reviewed, agent-specific foundation ships inside spx. Reusing its manifest p
 
 ### Testing
 
-- ALWAYS: manifest schema, core containment, strict UTF-8 decoding, and configured `provides` and `supports` compatibility are validated before output ([compliance])
+- ALWAYS: the manifest schema is validated before output ([compliance])
+- ALWAYS: core containment is validated before output ([compliance])
+- ALWAYS: strict UTF-8 decoding is validated before output ([compliance])
+- ALWAYS: configured `provides` and `supports` compatibility is validated before output ([compliance])
 - ALWAYS: an absent line, agent tree, manifest, supported schema, or contained core fails the complete projection with the typed methodology failure ([mapping])
 
 ### Audit
 
 - NEVER: methodology selection scans directories, compares package versions, reaches the network, reads an installed plugin or cache, or reads a consumer-side copy ([audit])
-- ALWAYS: methodology parsing and validation are pure over supplied bytes and tree reads enter through the injected methodology reader rooted at spx's package root ([audit])
+- ALWAYS: methodology parsing and validation are pure over supplied bytes ([audit])
+- ALWAYS: methodology tree reads enter through the injected methodology reader rooted at spx's package root ([audit])
