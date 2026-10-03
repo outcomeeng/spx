@@ -474,13 +474,46 @@ function sourceParagraphs(body: string): readonly string[] {
 }
 
 const TITLE_PARAGRAPH = /^# [^\r\n]+/;
-const NON_PROSE_PARAGRAPH = /^[\t ]*(?:#|[-*+]>?|\d+\.|>|\||`|~|<)/;
+
+/**
+ * Opening-line patterns of the block constructs that are not prose. A paragraph that opens with
+ * inline markup — a code span, emphasis, strikethrough, a link, an autolink, or inline HTML — is
+ * prose, so each pattern requires the construct's complete block marker: a heading's `#` run
+ * followed by whitespace, a list marker followed by whitespace, a fence of three or more backticks
+ * or tildes, and an HTML tag that starts an HTML block rather than an inline element.
+ */
+const NON_PROSE_BLOCK_OPENINGS: readonly RegExp[] = [
+  // ATX heading
+  /^[\t ]*#{1,6}(?=[\t \r\n]|$)/,
+  // Thematic break
+  /^[\t ]*(?:(?:\*[\t ]*){3,}|(?:-[\t ]*){3,}|(?:_[\t ]*){3,})(?:\r?\n|$)/,
+  // Bullet list item
+  /^[\t ]*[-*+](?=[\t \r\n]|$)/,
+  // Ordered list item
+  /^[\t ]*\d{1,9}[.)](?=[\t \r\n]|$)/,
+  // Block quote
+  /^[\t ]*>/,
+  // Table row
+  /^[\t ]*\|/,
+  // Fenced code block
+  /^[\t ]*(?:`{3,}|~{3,})/,
+  // HTML block: raw-text elements, comments, processing instructions, declarations, and CDATA
+  /^[\t ]*(?:<(?:script|pre|style|textarea)(?=[\t >\r\n]|$)|<!--|<\?|<![A-Za-z]|<!\[CDATA\[)/i,
+  // HTML block: block-level element tags
+  /^[\t ]*<\/?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?=[\t \r\n>]|\/>|$)/i,
+  // HTML block: any other complete open or closing tag alone on its line
+  /^[\t ]*<\/?[A-Za-z][A-Za-z0-9-]*(?:[\t ]+[^\r\n<>]*)?\/?>[\t ]*(?:\r?\n|$)/,
+];
+
+function isProseParagraph(paragraph: string): boolean {
+  return !NON_PROSE_BLOCK_OPENINGS.some((opening) => opening.test(paragraph));
+}
 
 /** A decision's decision statement: the first prose paragraph after its title. */
 function decisionStatement(paragraphs: readonly string[]): string | undefined {
   const title = paragraphs.findIndex((paragraph) => TITLE_PARAGRAPH.test(paragraph));
   if (title === -1) return undefined;
-  return paragraphs.slice(title + 1).find((paragraph) => !NON_PROSE_PARAGRAPH.test(paragraph));
+  return paragraphs.slice(title + 1).find(isProseParagraph);
 }
 
 /** The Digest paragraph `digest` selects from `body`; every missing paragraph fails the projection. */
