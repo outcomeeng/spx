@@ -1,14 +1,19 @@
 import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { defaultContextFileSystem } from "@/commands/spec/context-input";
 import {
   KIND_REGISTRY,
+  NODE_KINDS,
   SPEC_CONTEXT_ENTRY_TYPE,
   SPEC_CONTEXT_FRAME,
   SPEC_CONTEXT_FRAME_SYNTAX,
+  SPEC_CONTEXT_PROJECTION_FAILURE_KIND,
   SPEC_CONTEXT_SELECTED_METADATA_KEY,
+  type SpecContextKindRegistry,
+  SpecContextProjectionError,
 } from "@/lib/spec-tree";
 import {
   arbitrarySpecContextInvalidUtf8Bytes,
@@ -17,6 +22,7 @@ import {
 import { decisionStatementParagraph, openingParagraph } from "@testing/generators/spec-tree/rich-context";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import {
+  contextShow,
   contextShowEntries,
   contextShowFailure,
   contextShowJson,
@@ -198,6 +204,49 @@ describe("spec context content boundaries", () => {
       expect(await contextShowFailure({ targets: [paths.targetId], cwd: env.productDir })).toContain(
         paths.higherIndexSiblingSpecPath,
       );
+    });
+  });
+
+  it("fails the whole projection, naming a Digest document of the kind, when the given kind registry resolves no opening for that output-node kind, with no fallback to the static registry or the title", async () => {
+    await withRichContextEnv(async (env, paths) => {
+      const kind = env.fixture.peer.kind;
+      // Every other node kind keeps its registry opening. Given a registry that
+      // also resolves the peer's kind, the targeted projection succeeds.
+      const others = Object.fromEntries(
+        NODE_KINDS.filter((other) => other !== kind).map((other) => [other, { opening: KIND_REGISTRY[other].opening }]),
+      );
+      const resolved = await contextShowEntries({
+        targets: [paths.targetId],
+        cwd: env.productDir,
+        fileSystem: {
+          ...defaultContextFileSystem,
+          resolveKindRegistry: async () => ({
+            ok: true as const,
+            value: { ...others, [kind]: { opening: KIND_REGISTRY[kind].opening } },
+          }),
+        },
+      });
+      // Omitting the peer's kind, or declaring it without an opening, fails the
+      // whole projection on a Digest document of that kind, although that
+      // document still carries its title and its static-registry opening.
+      for (
+        const registry of [others, { ...others, [kind]: {} }] as SpecContextKindRegistry[]
+      ) {
+        const failure = await contextShow({
+          targets: [paths.targetId],
+          cwd: env.productDir,
+          fileSystem: {
+            ...defaultContextFileSystem,
+            resolveKindRegistry: async () => ({ ok: true as const, value: registry }),
+          },
+        }).then(() => undefined, (error: unknown) => error);
+        expect(failure, JSON.stringify(registry)).toBeInstanceOf(SpecContextProjectionError);
+        if (!(failure instanceof SpecContextProjectionError)) continue;
+        expect(failure.kind).toBe(SPEC_CONTEXT_PROJECTION_FAILURE_KIND.UNRESOLVED_KIND_OPENING);
+        expect(failure.message).toContain(failure.path);
+        expect(dirname(failure.path).endsWith(KIND_REGISTRY[kind].suffix), failure.path).toBe(true);
+        expect(documentAt(resolved, failure.path)?.content).toBe(paths.openingText[failure.path]);
+      }
     });
   });
 

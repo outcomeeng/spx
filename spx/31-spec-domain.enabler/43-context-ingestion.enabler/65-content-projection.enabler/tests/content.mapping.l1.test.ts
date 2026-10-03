@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { defaultContextFileSystem } from "@/commands/spec/context-input";
 import { METHODOLOGY_SECTION } from "@/config/methodology";
-import { DECISION_KINDS, KIND_REGISTRY, NODE_KINDS } from "@/lib/spec-tree";
+import { DECISION_KINDS, KIND_REGISTRY, NODE_KINDS, type SpecContextKindRegistry } from "@/lib/spec-tree";
 import {
   generatedMethodologyVersionFormSections,
   generatedMigratingMethodology,
@@ -44,6 +45,50 @@ describe("spec context Digest paragraphs", () => {
       expect(documentAt(entries, specPath)?.content).toBe(opening);
     });
   });
+
+  it.each(NODE_KINDS)(
+    "maps a %s node to the paragraph the given kind registry's keyword opens, not the static registry's",
+    async (kind) => {
+      await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+        await env.materialize();
+        // The given registry rotates the openings across node kinds, so each
+        // kind resolves another kind's keyword and the static keyword for this
+        // kind selects a different paragraph than the given one.
+        const registry = Object.fromEntries(
+          NODE_KINDS.map((each, index) => [
+            each,
+            { opening: KIND_REGISTRY[NODE_KINDS[(index + 1) % NODE_KINDS.length]].opening },
+          ]),
+        ) as SpecContextKindRegistry;
+        const keyword = registry[kind]?.opening;
+        expect(keyword).not.toBe(KIND_REGISTRY[kind].opening);
+        const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+        // Every fixture node spec carries every kind's opening, so each one
+        // resolves a Digest under the rotated registry as well.
+        for (const node of (await env.readFilesystemSnapshot()).allNodes) {
+          if (node.ref?.path === undefined) continue;
+          await env.writeRaw(
+            node.ref.path,
+            `# ${node.slug}\n\n${
+              NODE_KINDS.map((each) => openingParagraph(KIND_REGISTRY[each].opening, node.slug)).join("\n")
+            }`,
+          );
+        }
+        const specPath = freeNodeSpecPath(env.fixture, kind, slug);
+        const opening = openingParagraph(String(keyword), slug);
+        const otherOpenings = NODE_KINDS.map((other) => KIND_REGISTRY[other].opening)
+          .filter((other) => other !== keyword)
+          .map((other) => openingParagraph(other, slug));
+        await env.writeRaw(specPath, `# ${slug}\n\n${[...otherOpenings, opening].join("\n")}`);
+        const entries = await contextShowEntries({
+          targets: [],
+          cwd: env.productDir,
+          fileSystem: { ...defaultContextFileSystem, resolveKindRegistry: async () => ({ ok: true, value: registry }) },
+        });
+        expect(documentAt(entries, specPath)?.content).toBe(opening);
+      });
+    },
+  );
 
   it.each(DECISION_KINDS)(
     "maps a %s decision to its decision statement under every methodology version declaration",
