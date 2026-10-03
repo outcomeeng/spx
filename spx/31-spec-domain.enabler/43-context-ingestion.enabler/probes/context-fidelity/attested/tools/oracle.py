@@ -1,19 +1,34 @@
 #!/usr/bin/env python3
-"""Computes the context-fidelity expectations for targets T0..T5 from the tracked tree at one commit.
+"""Computes the context-fidelity expectations for targets T0..T5 from the tracked tree at HEAD.
 
-Usage: oracle.py <commit> <output-directory>
+Takes no argument. Run it with a run directory under `runs/` as the working directory. It reads
+`start.head.txt` in that directory, requires it to equal HEAD, and writes `<id>.expected.json` for
+T0 to T5 beside it.
 
-The script reads only `git ls-tree` and `git show` output at <commit>. It never runs `spx`.
+The script runs `git` with fixed argument lists only: `git rev-parse HEAD`, `git ls-tree`, and
+`git cat-file --batch`, whose standard input carries the blob identities `git ls-tree` printed.
+It never runs `spx`.
 """
 
 import json
 import re
 import subprocess
-import sys
 from fractions import Fraction
+from pathlib import Path
 
-COMMIT = sys.argv[1]
-OUT = sys.argv[2]
+RUN = Path.cwd().resolve()
+PROBE = RUN.parent.parent
+if RUN.parent.name != "runs" or PROBE.name != "context-fidelity" or PROBE.parent.name != "probes":
+    raise SystemExit("run this script with a run directory under the probe's runs/ as the working directory")
+
+GIT_HEAD = ["git", "rev-parse", "HEAD"]
+GIT_TREE = ["git", "ls-tree", "-r", "-z", "--full-tree", "HEAD"]
+GIT_BLOBS = ["git", "cat-file", "--batch"]
+
+head = subprocess.run(GIT_HEAD, capture_output=True, check=True, cwd=PROBE).stdout.decode("ascii").strip()
+if (RUN / "start.head.txt").read_text(encoding="ascii").strip() != head:
+    raise SystemExit("start.head.txt differs from HEAD")
+
 ROOT = "spx"
 PRODUCT_SPEC = "spx/spx.product.md"
 
@@ -65,28 +80,50 @@ REASON_MODE = {
     "issue": "reference",
 }
 
-raw = subprocess.run(
-    ["git", "ls-tree", "-r", "-z", "--name-only", COMMIT, ROOT],
-    capture_output=True,
-    check=True,
-).stdout.decode("utf-8")
-FILES = set(p for p in raw.split("\0") if p)
+
+def read_tree():
+    """Maps every tracked path under spx/ to its blob identity at HEAD."""
+    raw = subprocess.run(GIT_TREE, capture_output=True, check=True, cwd=PROBE).stdout.decode("utf-8")
+    blobs = {}
+    for record in raw.split("\0"):
+        if not record:
+            continue
+        meta, _, path = record.partition("\t")
+        mode, kind, oid = meta.split(" ")
+        if kind == "blob" and path.startswith(ROOT + "/"):
+            blobs[path] = oid
+    return blobs
+
+
+def read_blobs(oids):
+    """Returns the bytes of each blob, fed to one `git cat-file --batch` through standard input."""
+    stdin = ("\n".join(oids) + "\n").encode("ascii")
+    out = subprocess.run(GIT_BLOBS, input=stdin, capture_output=True, check=True, cwd=PROBE).stdout
+    blobs = {}
+    pos = 0
+    for oid in oids:
+        eol = out.index(b"\n", pos)
+        _, kind, size = out[pos:eol].decode("ascii").split(" ")
+        start = eol + 1
+        blobs[oid] = out[start : start + int(size)]
+        pos = start + int(size) + 1
+    return blobs
+
+
+TREE = read_tree()
+FILES = set(TREE)
 NAMES = {}
 for p in FILES:
     parts = p.split("/")
     for i in range(1, len(parts)):
         NAMES.setdefault("/".join(parts[:i]), set()).add(parts[i])
 
-_src = {}
+MARKDOWN = sorted(set(TREE[p] for p in FILES if p.endswith(".md")))
+BLOB_BYTES = read_blobs(MARKDOWN)
 
 
 def source(path):
-    if path not in _src:
-        data = subprocess.run(
-            ["git", "show", f"{COMMIT}:{path}"], capture_output=True, check=True
-        ).stdout
-        _src[path] = data.decode("utf-8")
-    return _src[path]
+    return BLOB_BYTES[TREE[path]].decode("utf-8")
 
 
 def node_spec(d):
@@ -398,7 +435,7 @@ def main():
     summary = {}
     for tid in TARGETS:
         entries = build(tid)
-        with open(f"{OUT}/{tid}.expected.json", "w", encoding="utf-8") as f:
+        with open(RUN / f"{tid}.expected.json", "w", encoding="utf-8") as f:
             json.dump(entries, f, indent=2, ensure_ascii=False)
             f.write("\n")
         summary[tid] = len(entries)
