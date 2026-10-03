@@ -9,6 +9,10 @@ scripts or forcing cross-domain hook work through one domain's command surface
 
 ## Assertions
 
+- ALWAYS: hook event execution is invoked through `spx hook run <event>`, with
+  the hook event registry's lowercase hyphenated operand derived from the
+  upstream lifecycle event
+
 ### Scenarios
 
 - Given a plugin invokes `spx hook run session-start` and hook stdin cannot be read, when the hook runner handles the event, then SPX records a diagnostic and does not fail the hook invocation ([test](tests/hook-cli.scenario.l1.test.ts))
@@ -18,9 +22,6 @@ scripts or forcing cross-domain hook work through one domain's command surface
 - ALWAYS: agent lifecycle hook behavior that serves multiple product domains is
   governed under the hooks infrastructure node, not under the first domain that
   consumes the event ([audit])
-- ALWAYS: hook event execution is invoked through `spx hook run <event>`, with
-  the hook event registry's lowercase hyphenated operand derived from the
-  upstream lifecycle event ([test](spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/tests/session-start.compliance.l2.test.ts))
 - ALWAYS: hook events may coordinate multiple SPX domains in one invocation while
   preserving each domain's ownership of its underlying state and rules ([audit])
 - NEVER: expose an agent lifecycle hook as a domain-specific command such as
