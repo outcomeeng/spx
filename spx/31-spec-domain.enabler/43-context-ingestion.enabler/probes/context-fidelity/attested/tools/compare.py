@@ -1,26 +1,30 @@
 #!/usr/bin/env python3
-"""Compares run captures with the oracle's expectations (protocol steps 7).
+"""Compares a run's captures with the oracle's expectations (protocol step 7).
 
-Usage: compare.py <commit> <run directory>
-Writes <id>.comparison.md for t0..t5 and prints a failure count per check.
+Takes no argument. Run it with a run directory under `runs/` as the working directory, after
+`oracle.py` and the captures have written their files there. It writes `<id>.comparison.md` for
+t0 to t5 into that directory and prints a failure count per check. It runs no command.
 """
 import json
-import os
 import re
 import sys
+from pathlib import Path
 
-commit, run = sys.argv[1], sys.argv[2]
-sys.argv = ["oracle.py", commit, run]
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import oracle  # noqa: E402
+
+run = oracle.RUN
 
 IDS = ["t0", "t1", "t2", "t3", "t4", "t5"]
 CTX_SOURCES = {"t0": ["t1"], "t1": ["t1"], "t2": ["t2"], "t3": ["t3"], "t4": ["t4"], "t5": ["t2", "t3", "t4"]}
 
 
+def read(name):
+    return (run / name).read_text(encoding="utf-8")
+
+
 def load(name):
-    with open(os.path.join(run, name), encoding="utf-8") as f:
-        return json.load(f)
+    return json.loads(read(name))
 
 
 def show_mode(e):
@@ -30,48 +34,6 @@ def show_mode(e):
         if e.get("content") == oracle.content_for(e["path"], mode):
             return mode
     return "unmatched"
-
-
-def parse_text_show(text):
-    frames = []
-    pos = 0
-    pat = re.compile(r'<spx-document path="([^"]*)">\n|<spx-reference path="([^"]*)" />')
-    while pos < len(text):
-        m = pat.match(text, pos)
-        if not m:
-            raise ValueError(f"unframed text at offset {pos}: {text[pos:pos+60]!r}")
-        if m.group(2) is not None:
-            frames.append({"type": "reference", "path": m.group(2)})
-            pos = m.end()
-        else:
-            end = text.index("\n</spx-document>", m.end() - 1) if False else None
-            close = text.find("</spx-document>", m.end())
-            body = text[m.end():close]
-            frames.append({"type": "document", "path": m.group(1), "raw": body})
-            pos = close + len("</spx-document>")
-        if pos < len(text):
-            if text.startswith("\n\n", pos):
-                pos += 2
-            elif text.startswith("\n", pos) and pos + 1 == len(text):
-                pos += 1
-            else:
-                raise ValueError(f"missing blank line at offset {pos}")
-    return frames
-
-
-def split_text_body(raw):
-    meta = {}
-    if raw.startswith("---\n"):
-        end = raw.index("\n---\n", 3) + 5
-        for ln in raw[4:end - 5].splitlines():
-            k, _, v = ln.partition(": ")
-            meta[k] = v
-        raw = raw[end:]
-    return meta, raw
-
-
-def fmt(v):
-    return json.dumps(v, ensure_ascii=False)[:90]
 
 
 def parse_list_text(text):
@@ -91,12 +53,11 @@ def parse_list_text(text):
 def contextualize_record(ids):
     rec = {}
     for i in ids:
-        with open(os.path.join(run, f"{i}.contextualize.txt"), encoding="utf-8") as f:
-            for ln in f:
-                m = re.match(r"^(\S+) (read|listed)$", ln.rstrip("\n"))
-                if m:
-                    prev = rec.get(m.group(1))
-                    rec[m.group(1)] = "read" if "read" in (prev, m.group(2)) else "listed"
+        for ln in read(f"{i}.contextualize.txt").splitlines():
+            m = re.match(r"^(\S+) (read|listed)$", ln)
+            if m:
+                prev = rec.get(m.group(1))
+                rec[m.group(1)] = "read" if "read" in (prev, m.group(2)) else "listed"
     return rec
 
 
@@ -161,7 +122,7 @@ for tid in IDS:
 
     # text against JSON
     out += ["## Text against JSON", ""]
-    text = open(os.path.join(run, f"{tid}.show.txt"), encoding="utf-8").read()
+    text = read(f"{tid}.show.txt")
     frames = []
     for j in sj:
         if j["type"] == "reference":
@@ -184,7 +145,7 @@ for tid in IDS:
         rows.append(f"show text differs from the framed JSON entries near {bad} (offset {k})")
     tf = frames
     if tid != "t0":
-        lt = parse_list_text(open(os.path.join(run, f"{tid}.list.txt"), encoding="utf-8").read())
+        lt = parse_list_text(read(f"{tid}.list.txt"))
         lj = load(f"{tid}.list.json")["entries"]
         exp_by_path = {e["path"]: e for e in exp}
         if len(lt) != len(lj):
@@ -223,7 +184,6 @@ for tid in IDS:
     out += ["Harness guides, `spx/local/` overlays, and `PLAN.md` sit outside `show` and `list`; the rows record the boundary and decide nothing: " + (", ".join(f"{p} ({rec[p]})" for p in harness) or "none recorded") + ".", ""]
     body = "\n".join(out)
     body = re.sub(r"(?<!\]\()(?<![\w/.-])(spx/[^\s|)\]`]+\.(?:adr|pdr)\.md)", lambda m: f"[{m.group(1)}]({m.group(1)})", body)
-    with open(os.path.join(run, f"{tid}.comparison.md"), "w", encoding="utf-8") as f:
-        f.write(body)
+    (run / f"{tid}.comparison.md").write_text(body, encoding="utf-8")
     totals[tid] = fails
 print(json.dumps(totals, indent=1))
