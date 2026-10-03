@@ -16,6 +16,13 @@
  * percent-encoded — is the same rejected shape. Every consumer that classifies
  * or resolves a spec-tree link reads this one declaration.
  *
+ * The two admitted shapes split by purpose. An assertion evidence link — a link
+ * whose text is `test`, `eval`, or `probe` — names evidence that lives inside
+ * the asserting node, so it is admitted only node-local; a tree-absolute link
+ * carries a link that leaves the node, such as a decision citation. The link
+ * text alone marks an evidence link, because a target path does not say whether
+ * the link proves an assertion or cites a document.
+ *
  * A decision path is a product-relative path under the spec-tree root that
  * names a decision record. A document cites a decision through an admitted
  * link that resolves to a decision path; prose can also write a decision path
@@ -82,6 +89,35 @@ export interface SpecTreeLink {
   readonly kind: SpecTreeLinkKind;
   /** The target's percent-decoded path, without its query or fragment suffix. */
   readonly path: string;
+}
+
+/** The link texts that mark an assertion evidence link, one per evidence-bearing verification type. */
+export const SPEC_TREE_EVIDENCE_LINK_TEXT = {
+  TEST: "test",
+  EVAL: "eval",
+  PROBE: "probe",
+} as const;
+
+export type SpecTreeEvidenceLinkText = (typeof SPEC_TREE_EVIDENCE_LINK_TEXT)[keyof typeof SPEC_TREE_EVIDENCE_LINK_TEXT];
+
+/** Every link text that marks an assertion evidence link. */
+export const SPEC_TREE_EVIDENCE_LINK_TEXTS: readonly SpecTreeEvidenceLinkText[] = Object.values(
+  SPEC_TREE_EVIDENCE_LINK_TEXT,
+);
+
+/** Whether a link's text marks it as an assertion evidence link. */
+export function isSpecTreeEvidenceLinkText(linkText: string): linkText is SpecTreeEvidenceLinkText {
+  return (SPEC_TREE_EVIDENCE_LINK_TEXTS as readonly string[]).includes(linkText);
+}
+
+/**
+ * Whether the grammar admits a link with this text and classified target. An
+ * assertion evidence link is admitted only node-local; every other link is
+ * admitted in either admitted shape. A shape the grammar rejects or does not
+ * govern is not judged here.
+ */
+export function admitsSpecTreeLinkText(linkText: string, link: SpecTreeLink): boolean {
+  return !(isSpecTreeEvidenceLinkText(linkText) && link.kind === SPEC_TREE_LINK_KIND.TREE_ABSOLUTE);
 }
 
 /** The entry recognition the grammar classifies paths with. */

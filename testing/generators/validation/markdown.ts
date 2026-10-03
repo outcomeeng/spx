@@ -3,8 +3,10 @@ import { posix } from "node:path";
 
 import {
   DECISION_SUFFIXES,
+  isSpecTreeEvidenceLinkText,
   NODE_SUFFIXES,
   SPEC_TREE_CONFIG,
+  SPEC_TREE_EVIDENCE_LINK_TEXTS,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_LINK_PARENT_SEGMENT,
   SPEC_TREE_LINK_ROOT_ANCHOR,
@@ -60,11 +62,6 @@ const EXTERNAL_URL_SCHEME = "https://";
 const EXTERNAL_RESERVED_DOMAIN = ".invalid";
 const SENTENCE_END = ".";
 const WORD_SEPARATOR = " ";
-/**
- * The link texts that mark an assertion evidence link, as the markdown-validation spec enumerates them; any
- * other link text marks a link that is not assertion evidence.
- */
-const SPEC_TREE_EVIDENCE_LINK_TEXTS = ["test", "eval", "probe"] as const;
 
 /** One markdown file whose single link or path occupies a known line. */
 export interface MarkdownLinkCase {
@@ -222,7 +219,7 @@ export function arbitrarySpecTreeLinkScenario(): fc.Arbitrary<SpecTreeLinkScenar
       !names.some((name) =>
         (MARKDOWN_DEFAULT_DIRECTORY_NAMES as readonly string[]).includes(name)
         || MARKDOWN_FILE_EXTENSIONS.has(`${FILE_EXTENSION_SEPARATOR}${name}`)
-        || (SPEC_TREE_EVIDENCE_LINK_TEXTS as readonly string[]).includes(name)
+        || isSpecTreeEvidenceLinkText(name)
       )
     )
     .map(({ ancestors, nodeSegment, childNodeSegment, decisionFile, names, citingProse, targetProse }) => {

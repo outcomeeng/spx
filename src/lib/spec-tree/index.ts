@@ -110,12 +110,16 @@ export type {
   SpecContextTargetResolution,
 } from "./context-target";
 export {
+  admitsSpecTreeLinkText,
+  isSpecTreeEvidenceLinkText,
+  SPEC_TREE_EVIDENCE_LINK_TEXT,
+  SPEC_TREE_EVIDENCE_LINK_TEXTS,
   SPEC_TREE_LINK_KIND,
   SPEC_TREE_LINK_PARENT_SEGMENT,
   SPEC_TREE_LINK_ROOT_ANCHOR,
   SPEC_TREE_ROOT_PREFIX,
 } from "./link-grammar";
-export type { SpecTreeLink, SpecTreeLinkKind } from "./link-grammar";
+export type { SpecTreeEvidenceLinkText, SpecTreeLink, SpecTreeLinkKind } from "./link-grammar";
 export { resolveSpecTreePathOwnership, SPEC_TREE_PATH_OWNERSHIP_RESULT_KIND } from "./path-ownership";
 export type {
   SpecTreePathOwnershipResolved,
