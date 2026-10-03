@@ -1,10 +1,13 @@
 # CLI
 
-PROVIDES the SPX command-line interface boundary — sanitization of user-supplied bytes for diagnostic echo, a package-script invocation contract that distinguishes development sources from published distributions, and process-lifecycle handling that forwards termination signals to spawned children and exits cleanly under pipe-close
-SO THAT every domain handler that echoes user input back to a terminal, every consumer of `package.json` scripts, and every long-running subprocess spawned during a CLI invocation
-CAN render diagnostics with no unprintable bytes and bounded length, CAN invoke the CLI through `tsx src/cli.ts` in development and `node bin/spx.js` after `pnpm run build`, and CAN trust that closing stdout, sending SIGINT, sending SIGTERM, or hitting an uncaught exception terminates every spawned child before the parent exits
+PROVIDES the SPX command-line interface boundary — sanitization of user-supplied bytes for diagnostic echo, a package-script invocation contract that distinguishes development sources from published distributions, process-lifecycle handling that forwards termination signals to spawned children and exits cleanly under pipe-close, and a build identity stamped at build time that `--version` reports
+SO THAT every domain handler that echoes user input back to a terminal, every consumer of `package.json` scripts, every long-running subprocess spawned during a CLI invocation, and every reader of `spx --version`
+CAN render diagnostics with no unprintable bytes and bounded length, CAN invoke the CLI through `tsx src/cli.ts` in development and `node bin/spx.js` after `pnpm run build`, CAN trust that closing stdout, sending SIGINT, sending SIGTERM, or hitting an uncaught exception terminates every spawned child before the parent exits, and CAN tell a release build from a build of any other commit or of uncommitted work
 
 ## Assertions
+
+- Each build state maps to its stamped build identity: a clean commit tagged `v<package version>` to the bare package version; a clean commit without that tag to `<package version>+<9-hex-digit commit abbreviation>`; uncommitted changes to tracked files, tagged or not, to `<package version>+<9-hex-digit commit abbreviation>.dirty`; and a build outside a Git checkout to `<package version>+unknown`
+- ALWAYS: the built executable's `--version` prints the build identity stamped at build time, and running it from a directory outside any Git checkout prints the same identity
 
 ### Scenarios
 
