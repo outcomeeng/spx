@@ -22,7 +22,6 @@ CAN pass a stable, digest-addressed verification input to a verifier and reconst
 
 ### Compliance
 
-- ALWAYS: persisted verification context is pre-execution input — it excludes terminal verdict, activity trace, runtime cost, and run status ([test](tests/verification-context-shape.compliance.l1.test.ts))
 - ALWAYS: a verification context is pre-execution input — it records the verification subject, reconstruction fields, predicate, requested workflow, launch context, and persistence intent, and excludes run status, terminal verdict, cost, and activity trace ([test](tests/verification-context-shape.compliance.l1.test.ts))
 - NEVER: `verification-context` creation spawns, configures, or drives a verifier agent ([audit])
 - NEVER: `verification-context` exposes verification-type subcommands such as `audit` or `review`; predicate and workflow are caller-supplied strings ([audit])

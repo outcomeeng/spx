@@ -14,13 +14,12 @@ CAN detect failures from one run without streaming passing-test noise into the t
 - Given an agent-output test run with unmatched test files, when the agent summary is formatted, then the terminal output lists unmatched paths under the unmatched label ([test](tests/agent-test-output.scenario.l1.test.ts))
 - Given an agent-output test run with unresolved target operands, when the agent summary is formatted, then the terminal output lists the unresolved operands under the unresolved-targets label ([test](tests/agent-test-output.scenario.l1.test.ts))
 - Given an agent-output test run with changed source files that no related-test capability resolves, when the agent summary is formatted, then the terminal output lists those source files under the unresolved changed-source label ([test](tests/agent-test-output.scenario.l1.test.ts))
-- Given `spx test` runs with agent output capture, then the selected runner adapter and selected test files remain the same and only output handling changes according to [`spx/41-test.enabler/11-test-runner-environments.pdr.md`](spx/41-test.enabler/11-test-runner-environments.pdr.md) ([test](tests/agent-test-output.compliance.l1.test.ts))
 
 ### Compliance
 
 - ALWAYS: agent-output runner execution writes child stdout and stderr to files and returns those file paths with the runner result ([test](tests/agent-test-output.compliance.l1.test.ts))
 - ALWAYS: agent-output runner execution preserves the supplied child environment while preserving the product directory as the child working directory ([test](tests/agent-test-output.compliance.l1.test.ts))
-- ALWAYS: agent-output runner execution preserves the selected runner command and arguments while changing only output capture ([test](tests/agent-test-output.compliance.l1.test.ts))
+- ALWAYS: agent-output runner execution preserves the selected runner adapter, its command and arguments, and the selected test files while changing only output handling, per [`spx/41-test.enabler/11-test-runner-environments.pdr.md`](spx/41-test.enabler/11-test-runner-environments.pdr.md) ([test](tests/agent-test-output.compliance.l1.test.ts))
 - ALWAYS: agent-output runner execution creates artifact directories only when a runner command executes ([test](tests/agent-test-output.compliance.l1.test.ts))
 - ALWAYS: agent-output runner execution fails without artifact paths when artifact writing fails ([test](tests/agent-test-output.compliance.l1.test.ts))
 - NEVER: agent-output runner execution writes child stdout or stderr directly to the invoking terminal stream ([test](tests/agent-test-output.compliance.l1.test.ts))
