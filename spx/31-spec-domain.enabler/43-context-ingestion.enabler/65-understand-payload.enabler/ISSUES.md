@@ -23,11 +23,3 @@
 **Impact:** three marker subsets are unverified at both levels; a failing fixture draw has no replay seed; one scenario can pass vacuously.
 
 **Settlement condition:** a generator over the source-owned marker keys yields the complete subset domain with the precedence law as its expectation, shared by both levels; violating manifests come from the tree generator; the fixture draws move to the seeded sampler; the declared version is drawn filtered against the fixture line.
-
-## Two declarations carry no production seam
-
-**Evidence:** no `--loaded-methodology` option and no loaded-methodology state exist under `src/`, and no test exercises the mutual exclusion with `--methodology` or the no-persistence claim.
-
-**Impact:** the two assertions are Declared only.
-
-**Settlement condition:** the option exists with the declared exclusion and a test proves no state is persisted across invocations.
