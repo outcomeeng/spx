@@ -6,13 +6,8 @@ CAN reconstruct a verification subject and predicate, stream typed run progress 
 
 ## Assertions
 
-### Scenarios
-
-- Given a verification subject, predicate, requested workflow, launch context, and persistence intent, when a caller creates a verification context, then spx persists a canonical immutable context document and reports its path and digest ([test](spx/34-verification.enabler/21-verification-context.enabler/tests/verification-context-cli.scenario.l1.test.ts))
-
 ### Compliance
 
-- ALWAYS: a verification context is pre-execution input — it records the verification subject, reconstruction fields, predicate, requested workflow, launch context, and persistence intent, and excludes run status, terminal verdict, cost, and activity trace ([test](spx/34-verification.enabler/21-verification-context.enabler/tests/verification-context-shape.compliance.l1.test.ts))
 - ALWAYS: typed verification runs use verification-context materialization and the run-journal substrate, while CLI commands that expose those capabilities are governed by `spx/60-surfaces.enabler/21-cli-surface.enabler` ([audit])
 - ALWAYS: verification-run lifecycle operations validate the verification type, scope type, scope identity, evidence payload, idempotency key, terminal status, and finding payload before recording durable run evidence ([audit])
 - ALWAYS: spx exposes the verify lifecycle and journal substrate for whichever party drives a run — an agent, a launcher, or spx itself — to record through ([audit])

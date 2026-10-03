@@ -13,6 +13,7 @@ CAN pass a stable, digest-addressed verification input to a verifier and reconst
 - Given a file subject with an absolute path or parent-directory escape, when `spx verification-context create` runs, then it rejects the subject before persistence ([test](tests/verification-context-cli.scenario.l1.test.ts))
 - Given a changeset subject with base and head refs and a predicate, when `spx verification-context create` runs, then the context records the changeset reconstruction fields and reports the context path and digest ([test](tests/verification-context-cli.scenario.l1.test.ts))
 - Given the verification-context domain in the CLI registry, when it registers with the program, then the `verification-context` command exposes exactly the `create` verb ([test](tests/verification-context-cli-registry.scenario.l1.test.ts))
+- Given a verification subject, predicate, requested workflow, launch context, and persistence intent, when a caller creates a verification context, then spx persists a canonical immutable context document and reports its path and digest ([test](tests/verification-context-cli.scenario.l1.test.ts))
 
 ### Properties
 
@@ -22,5 +23,6 @@ CAN pass a stable, digest-addressed verification input to a verifier and reconst
 ### Compliance
 
 - ALWAYS: persisted verification context is pre-execution input — it excludes terminal verdict, activity trace, runtime cost, and run status ([test](tests/verification-context-shape.compliance.l1.test.ts))
+- ALWAYS: a verification context is pre-execution input — it records the verification subject, reconstruction fields, predicate, requested workflow, launch context, and persistence intent, and excludes run status, terminal verdict, cost, and activity trace ([test](tests/verification-context-shape.compliance.l1.test.ts))
 - NEVER: `verification-context` creation spawns, configures, or drives a verifier agent ([audit])
 - NEVER: `verification-context` exposes verification-type subcommands such as `audit` or `review`; predicate and workflow are caller-supplied strings ([audit])

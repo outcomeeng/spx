@@ -14,6 +14,7 @@ CAN detect failures from one run without streaming passing-test noise into the t
 - Given an agent-output test run with unmatched test files, when the agent summary is formatted, then the terminal output lists unmatched paths under the unmatched label ([test](tests/agent-test-output.scenario.l1.test.ts))
 - Given an agent-output test run with unresolved target operands, when the agent summary is formatted, then the terminal output lists the unresolved operands under the unresolved-targets label ([test](tests/agent-test-output.scenario.l1.test.ts))
 - Given an agent-output test run with changed source files that no related-test capability resolves, when the agent summary is formatted, then the terminal output lists those source files under the unresolved changed-source label ([test](tests/agent-test-output.scenario.l1.test.ts))
+- Given `spx test` runs with agent output capture, then the selected runner adapter and selected test files remain the same and only output handling changes according to [`spx/41-test.enabler/11-test-runner-environments.pdr.md`](spx/41-test.enabler/11-test-runner-environments.pdr.md) ([test](tests/agent-test-output.compliance.l1.test.ts))
 
 ### Compliance
 

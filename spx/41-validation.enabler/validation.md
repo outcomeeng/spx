@@ -11,7 +11,6 @@ CAN surface security, maintainability, and reliability issues before they reach 
 - Given `--scope production`, when `spx validation all` is dispatched, then the full-pipeline handler receives production scope ([test](tests/validation-cli.scenario.l2.test.ts))
 - Given a source directory or file positional operand, when `spx validation all` is dispatched, then the full-pipeline handler receives that file scope ([test](tests/validation-cli.scenario.l2.test.ts))
 - Given all validation steps complete, when pipeline output is read, then step results appear in execution order ([test](tests/validation.scenario.l2.test.ts))
-- Given validation path filters exclude an explicit formatting operand, when `spx validation format <path>` runs, then formatting validates the explicit operand without applying the wrapper filters ([test](spx/41-validation.enabler/76-formatting.enabler/tests/formatting.scenario.l2.test.ts))
 
 ### Properties
 

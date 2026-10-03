@@ -30,7 +30,6 @@ CAN run spec-tree tests with a single command, honor configured passing-scope ex
 - Given `spx test --changed --staged` runs while a staged changed path has additional worktree edits, an unstaged/untracked test file falls under an explicit selected target, or a product-input change selects the recursive root while a spec-tree test file is dirty, then it rejects before runner execution; unrelated dirty files outside the selected execution scope do not prevent runner execution ([test](tests/test.scenario.l1.test.ts))
 - Given `spx test --changed` runs through the command entrypoint, when related-test dependencies are absent, then the command rejects before changed-set planning runs ([test](tests/test.scenario.l1.test.ts))
 - Given selected registered-language test groups include a runner gated out by language detection, when `spx test` runs in operator mode, then the command reports the skipped runner group and selected files even when another selected runner makes the aggregate exit code zero ([test](tests/test.scenario.l1.test.ts))
-- Given `spx test` runs with agent output capture, then the selected runner adapter and selected test files remain the same and only output handling changes according to [`spx/41-test.enabler/11-test-runner-environments.pdr.md`](spx/41-test.enabler/11-test-runner-environments.pdr.md) ([test](spx/41-test.enabler/85-agent-test-output.enabler/tests/agent-test-output.compliance.l1.test.ts))
 
 ### Mappings
 
@@ -42,7 +41,6 @@ CAN run spec-tree tests with a single command, honor configured passing-scope ex
 - Test discovery is deterministic: the same spec tree structure always produces the same set of test files grouped by runner ([test](tests/test.property.l1.test.ts))
 - Exit code aggregation: `spx test` exits non-zero if any dispatched runner exits non-zero, any selected test file matches no registered runner, any target operand resolves to no discovered test file, or every selected registered-language runner is gated out by language detection, zero otherwise ([test](tests/test.property.l1.test.ts))
 - Last-run state is evidence, not product truth: deleting the state never changes which tests are in passing scope, only whether fast status has cached observations available ([audit])
-- Last-run state is stale when the resolved testing config digest, discovered test file path set, discovered test file content digest, or testing-language product input digest differs from the values recorded with the cached observation ([test](spx/41-test.enabler/43-last-run-evidence.enabler/tests/staleness.property.l1.test.ts))
 
 ### Compliance
 
