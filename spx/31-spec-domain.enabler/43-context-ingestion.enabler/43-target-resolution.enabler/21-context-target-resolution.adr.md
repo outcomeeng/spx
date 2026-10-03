@@ -18,10 +18,13 @@ Snapshot membership defines accepted targets, while filesystem facts establish w
 
 ### Testing
 
-- ALWAYS: each outside-product, unresolved, and ambiguous target-resolution failure maps to an actionable CLI diagnostic that identifies the rejected input and carries every canonical match the failure requires ([mapping])
-- NEVER: target resolution gives a candidate source precedence, substitutes abbreviated path-component prefixes for complete-component suffix matching, or selects the first identity from an ambiguous result ([compliance])
+- ALWAYS: each outside-product, unresolved, and ambiguous target-resolution failure maps to a CLI diagnostic naming its failure kind and the rejected operand, and an ambiguous failure's diagnostic additionally names every canonical match ([mapping])
+- NEVER: target resolution gives a candidate source precedence ([compliance])
+- NEVER: target resolution substitutes abbreviated path-component prefixes for complete-component suffix matching ([compliance])
+- NEVER: target resolution selects the first identity from an ambiguous result ([compliance])
 
 ### Audit
 
-- ALWAYS: filesystem canonicalization enters through an injected path boundary, while identity selection operates only on the parsed spec-tree snapshot and supplied path facts and returns a typed result without filesystem, process, environment, or terminal access ([audit])
+- ALWAYS: filesystem canonicalization enters through an injected path boundary ([audit])
+- ALWAYS: identity selection operates only on the parsed spec-tree snapshot and supplied path facts and returns a typed result without filesystem, process, environment, or terminal access ([audit])
 - NEVER: tests replace target-resolution dependencies through `vi.mock()` or `jest.mock()` ([audit])
