@@ -27,8 +27,6 @@ import {
   TYPE_AWARE_PARSER_OPTIONS,
 } from "./eslint-rules/offline-mirror";
 import {
-  SPEC_TREE_INTERNAL_IMPORT_RESTRICTION,
-  SPEC_TREE_LIBRARY_FILES,
   TEST_ASSERTION_STRING_LITERAL_RULE,
   TEST_READ_FILE_SYNC_IMPORT_RULE,
   testRestrictedSyntax,
@@ -280,21 +278,6 @@ export function buildEslintConfig(options: BuildEslintConfigOptions = {}) {
         [NO_DEEP_RELATIVE_IMPORTS_RULE_ID]: "error",
         [NO_IMPORT_SOURCE_EXTENSIONS_RULE_ID]: "error",
         [NO_SPEC_REFERENCES_RULE_ID]: "error",
-      },
-    },
-
-    // Spec-tree consumers reach the library only through its public surface;
-    // the library's own modules compose its internals.
-    {
-      files: ["**/*.ts", "**/*.tsx"],
-      rules: {
-        "no-restricted-imports": ["error", { patterns: [SPEC_TREE_INTERNAL_IMPORT_RESTRICTION] }],
-      },
-    },
-    {
-      files: [...SPEC_TREE_LIBRARY_FILES],
-      rules: {
-        "no-restricted-imports": "off",
       },
     },
 

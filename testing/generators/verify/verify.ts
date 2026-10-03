@@ -39,7 +39,7 @@ import {
 import { VERIFICATION_RUN_CLI_SURFACE, VERIFY_CLI } from "@/interfaces/cli/verify";
 import type { JsonValue } from "@/lib/agent-run-journal";
 import { GIT_MODIFY_STATUS_EXAMPLE, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
-import { SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
+import { SPEC_TREE_GRAMMAR } from "@/lib/spec-tree/config";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 

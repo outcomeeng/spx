@@ -15,11 +15,11 @@ export const SPEC_TREE_IMPORT_BOUNDARY_FIXTURES = {
 
 /** Inert whole-file spec-tree test payloads that inject the source explicitly or intercept a module. */
 export const SPEC_TREE_MODULE_INTERCEPTION_FIXTURES = {
-  INJECTED_SOURCE: resolve(SPEC_TREE_LINT_FIXTURES_ROOT, "module-interception/injected-source.ts"),
-  VI_MOCK: resolve(SPEC_TREE_LINT_FIXTURES_ROOT, "module-interception/vi-mock.ts"),
-  VI_DO_MOCK: resolve(SPEC_TREE_LINT_FIXTURES_ROOT, "module-interception/vi-do-mock.ts"),
-  JEST_MOCK: resolve(SPEC_TREE_LINT_FIXTURES_ROOT, "module-interception/jest-mock.ts"),
-  MEMFS: resolve(SPEC_TREE_LINT_FIXTURES_ROOT, "module-interception/memfs.ts"),
+  INJECTED_SOURCE: resolve(SPEC_TREE_LINT_FIXTURES_ROOT, "module-interception/injected-source.test.ts"),
+  VI_MOCK: resolve(SPEC_TREE_LINT_FIXTURES_ROOT, "module-interception/vi-mock.test.ts"),
+  VI_DO_MOCK: resolve(SPEC_TREE_LINT_FIXTURES_ROOT, "module-interception/vi-do-mock.test.ts"),
+  JEST_MOCK: resolve(SPEC_TREE_LINT_FIXTURES_ROOT, "module-interception/jest-mock.test.ts"),
+  MEMFS: resolve(SPEC_TREE_LINT_FIXTURES_ROOT, "module-interception/memfs.test.ts"),
 } as const;
 
 export interface SpecTreeLintErrorObservation {

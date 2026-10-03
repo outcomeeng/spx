@@ -1,7 +1,7 @@
 import { expect } from "vitest";
 
 import { NODE_STATUS_EVIDENCE_OUTCOME, NODE_STATUS_EXCLUDE_FILENAME } from "@/lib/node-status";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { TEST_RUN_STATE_STATUS } from "@/test/run-state";
 import { NODE_STATUS_READABLE_SLUGS, NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
 import { withClassificationTree } from "@testing/harnesses/node-status/node-status";

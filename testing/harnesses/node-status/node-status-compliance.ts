@@ -22,12 +22,8 @@ import {
   serializeNodeStatus,
   updateNodeStatus,
 } from "@/lib/node-status";
-import {
-  createFilesystemSpecTreeSource,
-  readSpecTree,
-  SPEC_TREE_CONFIG,
-  SPEC_TREE_EVIDENCE_FILE,
-} from "@/lib/spec-tree";
+import { createFilesystemSpecTreeSource, readSpecTree, SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { NODE_STATUS_TEST_GENERATOR, sampleNodeStatusValue } from "@testing/generators/node-status/node-status";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";

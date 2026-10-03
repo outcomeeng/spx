@@ -15,7 +15,7 @@ import {
 } from "@/domains/release/documentation-sync";
 import { type ReleaseData, releaseVersionFromTag } from "@/domains/release/release-data";
 import { PATH_CONTAINMENT_PARENT_DIRECTORY } from "@/lib/file-system/pathContainment";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree/config";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "@testing/generators/release/release";
 

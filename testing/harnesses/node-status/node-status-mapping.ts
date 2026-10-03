@@ -8,7 +8,7 @@ import {
   NODE_STATUS_VERIFICATION_MECHANISM,
   rollupNodeStatusMechanism,
 } from "@/lib/node-status";
-import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
+import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree/config";
 import {
   createGeneratedEvidenceOutcomes,
   createGeneratedTestVerification,

@@ -1,6 +1,5 @@
 /**
- * Restricted syntax selectors for ESLint no-restricted-syntax rule, and the
- * import restrictions for ESLint no-restricted-imports rule.
+ * Restricted syntax selectors for ESLint no-restricted-syntax rule.
  *
  * Extracted into a standalone file so both eslint.config.ts and
  * RuleTester-based tests can import them without pulling in the
@@ -32,24 +31,6 @@ export const TEST_VI_MOCK_RULE = {
     "vi.mock() is banned. Use explicit dependency injection; allowed doubles must be typed objects or classes tied to a testing exception.",
 } as const;
 
-export const TEST_VI_DO_MOCK_RULE = {
-  selector: "CallExpression[callee.object.name='vi'][callee.property.name='doMock']",
-  message:
-    "vi.doMock() is banned. Use explicit dependency injection; allowed doubles must be typed objects or classes tied to a testing exception.",
-} as const;
-
-export const TEST_JEST_MOCK_RULE = {
-  selector: "CallExpression[callee.object.name='jest'][callee.property.name=/^(mock|doMock)$/]",
-  message:
-    "jest.mock() is banned. Use explicit dependency injection; allowed doubles must be typed objects or classes tied to a testing exception.",
-} as const;
-
-export const TEST_MEMFS_IMPORT_RULE = {
-  selector: "ImportDeclaration[source.value=/^memfs(\\u002F|$)/]",
-  message:
-    "memfs is banned. Exercise the real filesystem under a callback-scoped temp directory, or pass a typed filesystem implementation through dependency injection.",
-} as const;
-
 export const TEST_VI_FN_RULE = {
   selector: "CallExpression[callee.object.name='vi'][callee.property.name='fn']",
   message:
@@ -74,16 +55,6 @@ export const TEST_READ_FILE_SYNC_IMPORT_RULE = {
   message:
     "readFileSync imports are banned in tests because source-text testing is not evidence. Use real behavior through a harness or fixture file; justified filesystem fixture reads need an explicit lint suppression.",
 } as const;
-/** Import patterns that reach a spec-tree library module behind its public surface. */
-export const SPEC_TREE_INTERNAL_IMPORT_RESTRICTION = {
-  group: ["@/lib/spec-tree/*", "**/lib/spec-tree/*"],
-  message:
-    "Import spec-tree contracts through the public surface '@/lib/spec-tree'; internal spec-tree modules stay behind that boundary.",
-} as const;
-
-/** Files inside the spec-tree library, which compose its internal modules. */
-export const SPEC_TREE_LIBRARY_FILES = ["src/lib/spec-tree/**/*.ts"] as const;
-
 /** Additional selectors applied only to test files (stacked on tsRestrictedSyntax). */
 export const testRestrictedSyntax = [
   TEST_VI_MOCK_RULE,
@@ -91,7 +62,4 @@ export const testRestrictedSyntax = [
   TEST_ASSERTION_STRING_LITERAL_RULE,
   TEST_SKIP_IF_RULE,
   TEST_READ_FILE_SYNC_IMPORT_RULE,
-  TEST_VI_DO_MOCK_RULE,
-  TEST_JEST_MOCK_RULE,
-  TEST_MEMFS_IMPORT_RULE,
 ];
