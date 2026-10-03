@@ -12,7 +12,7 @@ CAN first locate relevant subtrees and then load only the product truth required
 
 ### Properties
 
-- Equal tracked product content, shipped methodology content, options, targets, effective invocation directory, and selected coding agent produce byte-identical output. ([test](tests/determinism.property.l1.test.ts))
+- Equal tracked product content, shipped methodology content, options, selected coding agent, and accepted canonical targets produce byte-identical output. ([test](tests/determinism.property.l1.test.ts))
 
 ### Scenarios
 
