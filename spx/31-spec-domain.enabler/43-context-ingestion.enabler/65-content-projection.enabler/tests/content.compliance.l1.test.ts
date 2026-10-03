@@ -14,7 +14,7 @@ import {
   arbitrarySpecContextInvalidUtf8Bytes,
   specContextUnreadableFrontMatterBlocks,
 } from "@testing/generators/spec-tree/context-target";
-import { openingParagraph } from "@testing/generators/spec-tree/rich-context";
+import { decisionStatementParagraph, openingParagraph } from "@testing/generators/spec-tree/rich-context";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import {
   contextShowEntries,
@@ -128,6 +128,79 @@ describe("spec context content boundaries", () => {
     });
   });
 
+  it("selects a decision statement as the first prose paragraph after the title, skipping block constructs, treating inline-markup openers as prose, and ending at a whitespace-only line", async () => {
+    await withRichContextEnv(async (env, paths) => {
+      const slug = env.fixture.peer.slug;
+      const statement = decisionStatementParagraph(slug);
+      // Block constructs between the title and the statement are not prose: a
+      // heading, a table, a bullet and an ordered list, a block quote, a fence,
+      // a thematic break, and an HTML block.
+      const blocks = [
+        `## ${slug} context\n`,
+        `| ${slug} | value |\n| - | - |\n`,
+        `- ${slug} item\n`,
+        `1. ${slug} step\n`,
+        `> ${slug} quoted\n`,
+        `\`\`\`\n${slug} code\n\`\`\`\n`,
+        `***\n`,
+        `<div>\n${slug} block\n</div>\n`,
+      ];
+      // A paragraph that opens with inline markup is prose and is the statement.
+      const inlineOpeners = [
+        `\`${slug}\``,
+        `*${slug}*`,
+        `**${slug}**`,
+        `_${slug}_`,
+        `~~${slug}~~`,
+        `[${slug}](https://example.org)`,
+        `<https://example.org>`,
+        `<span>${slug}</span>`,
+      ];
+      for (const opener of inlineOpeners) {
+        const inlineStatement = `${opener} ${statement}`;
+        await env.writeRaw(
+          paths.ancestorDecisionPath,
+          `# ${slug}\n\n${blocks.join("\n")}\n${inlineStatement}  \nA line after the whitespace-only line.\n`,
+        );
+        const entries = await contextShowEntries({ targets: [], cwd: env.productDir });
+        expect(documentAt(entries, paths.ancestorDecisionPath)?.content, opener).toBe(inlineStatement);
+      }
+      // A prose paragraph before the title is not the statement.
+      await env.writeRaw(
+        paths.ancestorDecisionPath,
+        `Preamble ${slug} prose.\n\n# ${slug}\n\n${blocks.join("\n")}\n${statement}`,
+      );
+      const afterTitle = await contextShowEntries({ targets: [], cwd: env.productDir });
+      expect(documentAt(afterTitle, paths.ancestorDecisionPath)?.content).toBe(statement);
+    });
+  });
+
+  it("fails the whole projection, naming the document, when a decision statement or an output-node opening is missing, with no title fallback or generated summary", async () => {
+    await withRichContextEnv(async (env, paths) => {
+      const slug = env.fixture.peer.slug;
+      // A decision whose title is followed only by block constructs, and one
+      // carrying a title alone, has no statement.
+      for (
+        const source of [
+          `# ${slug}\n\n## ${slug} context\n\n| ${slug} | value |\n| - | - |\n\n- ${slug} item\n`,
+          `# ${slug}\n`,
+        ]
+      ) {
+        await env.writeRaw(paths.ancestorDecisionPath, source);
+        expect(await contextShowFailure({ targets: [], cwd: env.productDir }), source).toContain(
+          paths.ancestorDecisionPath,
+        );
+      }
+      await env.writeRaw(paths.ancestorDecisionPath, paths.sourceText[paths.ancestorDecisionPath]);
+
+      // An output node whose spec carries a title and prose but no opening.
+      await env.writeRaw(paths.higherIndexSiblingSpecPath, `# ${slug}\n\n${decisionStatementParagraph(slug)}`);
+      expect(await contextShowFailure({ targets: [paths.targetId], cwd: env.productDir })).toContain(
+        paths.higherIndexSiblingSpecPath,
+      );
+    });
+  });
+
   it("decodes every source as strict UTF-8, keeps selected whitespace, and adds a framing line break only when the content lacks one", async () => {
     await withRichContextEnv(async (env, paths) => {
       const slug = env.fixture.peer.slug;
@@ -150,6 +223,13 @@ describe("spec context content boundaries", () => {
         `${paths.sourceText[paths.transitiveCitedDecisionPath].trimEnd()}\n</${SPEC_CONTEXT_FRAME.DOCUMENT}>`,
       );
       expect(text).toContain(`${paths.sourceText[paths.citedDecisionPath]}</${SPEC_CONTEXT_FRAME.DOCUMENT}>`);
+      // Selected front matter closes directly onto the body's own bytes: the
+      // frame adds no blank line between the closing fence and the body.
+      expect(text).toContain(
+        `${SPEC_CONTEXT_FRAME_SYNTAX.FRONT_MATTER_FENCE}${SPEC_CONTEXT_FRAME_SYNTAX.LINE_BREAK}${
+          paths.bodyText[paths.targetSpecPath]
+        }</${SPEC_CONTEXT_FRAME.DOCUMENT}>`,
+      );
 
       await writeFile(
         join(env.productDir, paths.rootSpecPath),
