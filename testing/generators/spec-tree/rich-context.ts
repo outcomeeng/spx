@@ -10,6 +10,7 @@ import {
   type NodeKind,
   SPEC_CONTEXT_ENTRY_TYPE,
   SPEC_CONTEXT_FRAME,
+  SPEC_CONTEXT_FRAME_SYNTAX,
   SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
   SPEC_CONTEXT_OPTIONAL_ARTIFACT,
   SPEC_CONTEXT_PRODUCT_ROOT_TARGET,
@@ -629,12 +630,14 @@ export function arbitraryRichContextTargetRequest(paths: RichContextPaths): fc.A
 
 /** Source text that imitates the frame grammar, so a renderer that escaped or re-framed it diverges. */
 function frameShapedText(path: string): readonly string[] {
+  const syntax = SPEC_CONTEXT_FRAME_SYNTAX;
+  const pathAttribute = `${syntax.PATH_ATTRIBUTE_START}${path}`;
   return [
-    `</${SPEC_CONTEXT_FRAME.DOCUMENT}>\n`,
-    `<${SPEC_CONTEXT_FRAME.REFERENCE} path="${path}" />\n`,
-    `<${SPEC_CONTEXT_FRAME.DOCUMENT} path="${path}">\n`,
-    "---\n",
-    "\n\n",
+    `${syntax.CLOSE_TAG_START}${SPEC_CONTEXT_FRAME.DOCUMENT}${syntax.CLOSE_TAG_END}${syntax.LINE_BREAK}`,
+    `${syntax.OPEN_TAG_START}${SPEC_CONTEXT_FRAME.REFERENCE}${pathAttribute}${syntax.SELF_CLOSING_TAG_END}${syntax.LINE_BREAK}`,
+    `${syntax.OPEN_TAG_START}${SPEC_CONTEXT_FRAME.DOCUMENT}${pathAttribute}${syntax.OPEN_TAG_END}${syntax.LINE_BREAK}`,
+    `${syntax.FRONT_MATTER_FENCE}${syntax.LINE_BREAK}`,
+    syntax.ENTRY_SEPARATOR,
   ];
 }
 
@@ -658,7 +661,8 @@ function arbitraryMetadataValue(): fc.Arbitrary<string> {
     SPEC_TREE_TEST_GENERATOR.sourceSlug(),
     fc.constantFrom("true", "null", "42", ": colon", "# hash", "- dash", " padded ", "'quoted'", "\"double\""),
     fc.string({ unit: "grapheme", minLength: 1, maxLength: 12 }).filter((value) =>
-      !value.includes("\n") && !value.includes("---")
+      !value.includes(SPEC_CONTEXT_FRAME_SYNTAX.LINE_BREAK)
+      && !value.includes(SPEC_CONTEXT_FRAME_SYNTAX.FRONT_MATTER_FENCE)
     ),
   );
 }

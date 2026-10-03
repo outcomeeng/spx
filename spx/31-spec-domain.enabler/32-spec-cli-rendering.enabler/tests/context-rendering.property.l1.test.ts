@@ -86,27 +86,71 @@ describe("spec context list rendering", () => {
         // parser, every key and value is unchanged, with none added or dropped.
         expect(JSON.parse(String(renderSpecContextJson(manifest)))).toStrictEqual(manifest);
 
-        // The human layout labels the schema version, bootstrap flag, and
-        // methodology — its version when declared and its migration source
-        // when open — then gives each entry one `<mode> <path>` line, naming
-        // the citing documents of a decision reached only by citation, followed
-        // by one indented `<reason> <target>` line per selection, in manifest order.
+        // The human layout is read by the law the manifest decision states, and
+        // by nothing it leaves open. Its trailing lines are one line per entry
+        // naming its mode and then its path — continuing, on an entry with
+        // citing documents, with one space and `(cited by <path>, <path>)` —
+        // each followed by one indented line per selection naming its reason
+        // and then its target, in manifest order.
+        const lines = String(renderSpecContextText(manifest)).split("\n");
+        const entryBlockLength = manifest.entries.reduce((count, entry) => count + 1 + entry.selections.length, 0);
+        const header = lines.slice(0, lines.length - entryBlockLength);
+        let line = header.length;
+        for (const entry of manifest.entries) {
+          const entryLine = lines[line] ?? "";
+          const named = `${entry.path}${
+            entry.citedBy === undefined ? "" : ` (${SPEC_CONTEXT_TEXT_LABEL.CITED_BY} ${entry.citedBy.join(", ")})`
+          }`;
+          expect(entryLine.startsWith(entry.mode), entryLine).toBe(true);
+          expect(entryLine.endsWith(named), entryLine).toBe(true);
+          expect(entryLine.slice(entry.mode.length, entryLine.length - named.length), entryLine).toMatch(/^\s+$/);
+          line += 1;
+          for (const selection of entry.selections) {
+            const selectionLine = lines[line] ?? "";
+            const reasoned = selectionLine.slice(SPEC_CONTEXT_TEXT_SELECTION_INDENT.length);
+            expect(selectionLine.startsWith(SPEC_CONTEXT_TEXT_SELECTION_INDENT), selectionLine).toBe(true);
+            expect(reasoned.startsWith(selection.reason), selectionLine).toBe(true);
+            expect(reasoned.endsWith(selection.target), selectionLine).toBe(true);
+            expect(reasoned.slice(selection.reason.length, reasoned.length - selection.target.length), selectionLine)
+              .toMatch(/^\s+$/);
+            line += 1;
+          }
+        }
+
+        // The lines before the entries label the schema version, the bootstrap
+        // flag, and the methodology identity, in that order. The decision
+        // declares no separator or methodology layout, so each label is read
+        // only as preceding the values it labels on its own line: the
+        // methodology source, then its version when declared, then its
+        // migration source, labelled as such, exactly when a migration is open.
         const { source, version, migratingFrom } = manifest.methodology;
-        expect(String(renderSpecContextText(manifest)).split("\n")).toEqual([
-          `${SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION}: ${String(manifest.schemaVersion)}`,
-          `${SPEC_CONTEXT_TEXT_LABEL.BOOTSTRAP}: ${String(manifest.bootstrap)}`,
-          `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${source}${version === undefined ? "" : `@${version}`}${
-            migratingFrom === undefined ? "" : ` (${SPEC_CONTEXT_TEXT_LABEL.MIGRATING_FROM} ${migratingFrom})`
-          }`,
-          ...manifest.entries.flatMap((entry) => [
-            `${entry.mode} ${entry.path}${
-              entry.citedBy === undefined ? "" : ` (${SPEC_CONTEXT_TEXT_LABEL.CITED_BY} ${entry.citedBy.join(", ")})`
-            }`,
-            ...entry.selections.map((selection) =>
-              `${SPEC_CONTEXT_TEXT_SELECTION_INDENT}${selection.reason} ${selection.target}`
-            ),
-          ]),
-        ]);
+        const labelled = [
+          [SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION, String(manifest.schemaVersion)],
+          [SPEC_CONTEXT_TEXT_LABEL.BOOTSTRAP, String(manifest.bootstrap)],
+          [
+            SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY,
+            source,
+            ...(version === undefined ? [] : [version]),
+            ...(migratingFrom === undefined ? [] : [SPEC_CONTEXT_TEXT_LABEL.MIGRATING_FROM, migratingFrom]),
+          ],
+        ] as const;
+        const labelLines = labelled.map(([label, ...values]) => {
+          const holders = header.filter((headerLine) => headerLine.includes(label));
+          expect(holders, label).toHaveLength(1);
+          const holder = holders[0] ?? "";
+          let position = holder.indexOf(label) + label.length;
+          for (const value of values) {
+            const found = holder.indexOf(value, position);
+            expect(found, `${label} ${value}`).toBeGreaterThanOrEqual(position);
+            position = found + value.length;
+          }
+          return header.indexOf(holder);
+        });
+        expect(labelLines).toEqual([...labelLines].sort((left, right) => left - right));
+        expect(new Set(labelLines).size).toBe(labelLines.length);
+        if (migratingFrom === undefined) {
+          expect(header.join("\n")).not.toContain(SPEC_CONTEXT_TEXT_LABEL.MIGRATING_FROM);
+        }
       },
       PROPERTY_CLASSIFICATION.SMALL_L1,
     );

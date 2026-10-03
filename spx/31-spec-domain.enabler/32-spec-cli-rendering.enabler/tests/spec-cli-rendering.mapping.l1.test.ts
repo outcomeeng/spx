@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { OUTPUT_FORMAT, type OutputFormat, renderSpecStatus, SPEC_STATUS_MESSAGE } from "@/commands/spec/status";
+import {
+  OUTPUT_FORMAT,
+  type OutputFormat,
+  renderSpecStatus,
+  SPEC_STATUS_MESSAGE,
+  SPEC_STATUS_TABLE_SEPARATOR,
+} from "@/commands/spec/status";
 import {
   KIND_REGISTRY,
   projectSpecTree,
@@ -9,11 +15,10 @@ import {
   type SpecTreeProjectedNode,
   type SpecTreeProjection,
 } from "@/lib/spec-tree";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
-  buildNodeEntry,
   buildRepresentativeFixture,
   createSource,
-  sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
 } from "@testing/generators/spec-tree/spec-tree";
 
@@ -53,7 +58,9 @@ describe("spec status rendering", () => {
       // a whole token, and its state.
       const lines = output.split("\n");
       for (const node of nodes) {
-        const nodeLines = lines.filter((line) => line.split(/[\s|]+/).includes(node.id));
+        const nodeLines = lines.filter((line) =>
+          line.split(SPEC_STATUS_TABLE_SEPARATOR).flatMap((cell) => cell.trim().split(/\s+/)).includes(node.id)
+        );
         expect(nodeLines, `${format} ${node.id}`).toHaveLength(1);
         expect(nodeLines[0], `${format} ${node.id}`).toContain(KIND_REGISTRY[node.kind].label);
         expect(nodeLines[0], `${format} ${node.id}`).toContain(node.state);
@@ -62,13 +69,9 @@ describe("spec status rendering", () => {
   );
 
   it("maps nested spec-tree projections to table rows in tree order", async () => {
-    const fixture = buildRepresentativeFixture(KIND_REGISTRY);
-    const grandchild = buildNodeEntry(KIND_REGISTRY, {
-      id: sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId()),
-      order: sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.childSourceOrderAbove(fixture.child.order)),
-      slug: sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug()),
-      parentId: fixture.child.id,
-    });
+    const { fixture, grandchild } = sampleGeneratedValue(
+      SPEC_TREE_TEST_GENERATOR.representativeFixtureWithGrandchild(KIND_REGISTRY),
+    );
     const projection = projectSpecTree(
       await readSpecTree({ source: createSource([fixture.root, fixture.child, grandchild]) }),
     );
@@ -117,7 +120,7 @@ describe("spec status rendering", () => {
   it("rejects unsupported runtime output formats", async () => {
     const fixture = buildRepresentativeFixture(KIND_REGISTRY);
     const projection = projectSpecTree(await readSpecTree({ source: createSource([fixture.root]) }));
-    const unsupportedFormat = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug()) as OutputFormat;
+    const unsupportedFormat = sampleGeneratedValue(SPEC_TREE_TEST_GENERATOR.sourceSlug()) as OutputFormat;
 
     expect(() => renderSpecStatus(projection, unsupportedFormat)).toThrow(RangeError);
   });
