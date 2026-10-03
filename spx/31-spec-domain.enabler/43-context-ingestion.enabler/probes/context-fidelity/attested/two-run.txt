@@ -1,0 +1,16 @@
+cmp start.head.txt:
+exit=0
+diff -rq RUN_1 RUN_2:
+Files RUN_1/t0.comparison.md and RUN_2/t0.comparison.md differ
+Files RUN_1/t1.comparison.md and RUN_2/t1.comparison.md differ
+Files RUN_1/t1.contextualize.txt and RUN_2/t1.contextualize.txt differ
+Files RUN_1/t2.comparison.md and RUN_2/t2.comparison.md differ
+Files RUN_1/t2.contextualize.txt and RUN_2/t2.contextualize.txt differ
+Files RUN_1/t3.comparison.md and RUN_2/t3.comparison.md differ
+Files RUN_1/t3.contextualize.txt and RUN_2/t3.contextualize.txt differ
+Files RUN_1/t4.comparison.md and RUN_2/t4.comparison.md differ
+Files RUN_1/t4.contextualize.txt and RUN_2/t4.contextualize.txt differ
+Files RUN_1/t5.comparison.md and RUN_2/t5.comparison.md differ
+diff exit=1
+differences in show/list files:
+       0
