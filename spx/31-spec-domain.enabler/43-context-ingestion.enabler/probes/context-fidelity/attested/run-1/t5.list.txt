@@ -87,7 +87,7 @@ digest spx/18-state.enabler/71-appendable-journal-store.enabler/appendable-journ
   sibling spx/18-state.enabler/32-worktree-topology.enabler
 digest spx/18-state.enabler/71-snapshot-store.enabler/snapshot-store.md
   sibling spx/18-state.enabler/32-worktree-topology.enabler
-full spx/19-language-registration.adr.md
+full spx/19-language-registration.adr.md (cited by spx/14-cli-composition.adr.md, spx/41-test.enabler/test.md, spx/13-cli.enabler/15-cli-architecture.adr.md, spx/16-config.enabler/21-descriptor-registration.adr.md)
   cited-decision spx/18-state.enabler/32-worktree-topology.enabler
   product spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler
   product spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler

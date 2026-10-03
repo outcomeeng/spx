@@ -421,6 +421,12 @@
           "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
           "reason": "product"
         }
+      ],
+      "citedBy": [
+        "spx/14-cli-composition.adr.md",
+        "spx/41-test.enabler/test.md",
+        "spx/13-cli.enabler/15-cli-architecture.adr.md",
+        "spx/16-config.enabler/21-descriptor-registration.adr.md"
       ]
     },
     {
