@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { parse } from "yaml";
 
+import {
+  renderSpecContextJson,
+  renderSpecContextText,
+  SPEC_CONTEXT_TEXT_LABEL,
+  SPEC_CONTEXT_TEXT_SELECTION_INDENT,
+} from "@/commands/spec/context";
 import { renderSpecContextEntriesJson, SPEC_CONTEXT_ENTRIES_KEY } from "@/commands/spec/context-show";
 import {
   renderSpecContextEntries,
@@ -9,7 +15,10 @@ import {
   SPEC_CONTEXT_FRAME,
   SPEC_CONTEXT_FRAME_SYNTAX,
 } from "@/lib/spec-tree";
-import { arbitrarySpecContextEntryStream } from "@testing/generators/spec-tree/rich-context";
+import {
+  arbitrarySpecContextEntryStream,
+  arbitrarySpecContextManifest,
+} from "@testing/generators/spec-tree/rich-context";
 import { assertProperty, PROPERTY_CLASSIFICATION } from "@testing/harnesses/property/property";
 
 describe("spec context show rendering", () => {
@@ -62,6 +71,42 @@ describe("spec context show rendering", () => {
         const document = JSON.parse(String(renderSpecContextEntriesJson(entries))) as Record<string, unknown>;
         expect(Object.keys(document)).toEqual([SPEC_CONTEXT_ENTRIES_KEY]);
         expect(document[SPEC_CONTEXT_ENTRIES_KEY]).toEqual(entries);
+      },
+      PROPERTY_CLASSIFICATION.SMALL_L1,
+    );
+  });
+});
+
+describe("spec context list rendering", () => {
+  it("renders every manifest as its versioned JSON and human representations without changing the selected information", async () => {
+    await assertProperty(
+      arbitrarySpecContextManifest(),
+      (manifest) => {
+        // The JSON document is the manifest itself: read back by the platform
+        // parser, every key and value is unchanged, with none added or dropped.
+        expect(JSON.parse(String(renderSpecContextJson(manifest)))).toStrictEqual(manifest);
+
+        // The human layout labels the schema version, bootstrap flag, and
+        // methodology — its version when declared and its migration source
+        // when open — then gives each entry one `<mode> <path>` line, naming
+        // the citing documents of a decision reached only by citation, followed
+        // by one indented `<reason> <target>` line per selection, in manifest order.
+        const { source, version, migratingFrom } = manifest.methodology;
+        expect(String(renderSpecContextText(manifest)).split("\n")).toEqual([
+          `${SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION}: ${String(manifest.schemaVersion)}`,
+          `${SPEC_CONTEXT_TEXT_LABEL.BOOTSTRAP}: ${String(manifest.bootstrap)}`,
+          `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${source}${version === undefined ? "" : `@${version}`}${
+            migratingFrom === undefined ? "" : ` (${SPEC_CONTEXT_TEXT_LABEL.MIGRATING_FROM} ${migratingFrom})`
+          }`,
+          ...manifest.entries.flatMap((entry) => [
+            `${entry.mode} ${entry.path}${
+              entry.citedBy === undefined ? "" : ` (${SPEC_CONTEXT_TEXT_LABEL.CITED_BY} ${entry.citedBy.join(", ")})`
+            }`,
+            ...entry.selections.map((selection) =>
+              `${SPEC_CONTEXT_TEXT_SELECTION_INDENT}${selection.reason} ${selection.target}`
+            ),
+          ]),
+        ]);
       },
       PROPERTY_CLASSIFICATION.SMALL_L1,
     );

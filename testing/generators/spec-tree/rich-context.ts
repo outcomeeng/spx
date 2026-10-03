@@ -2,12 +2,15 @@ import { parse } from "node:path";
 
 import * as fc from "fast-check";
 
+import type { MethodologyIdentity } from "@/config/methodology";
 import {
+  composeSpecContextManifestEntries,
   type DecisionKind,
   KIND_REGISTRY,
   type NodeKind,
   SPEC_CONTEXT_ENTRY_TYPE,
   SPEC_CONTEXT_FRAME,
+  SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
   SPEC_CONTEXT_OPTIONAL_ARTIFACT,
   SPEC_CONTEXT_PRODUCT_ROOT_TARGET,
   SPEC_CONTEXT_SELECTED_METADATA_KEY,
@@ -15,8 +18,11 @@ import {
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
   type SpecContextEntry,
+  type SpecContextManifest,
   type SpecContextSelectionReason,
 } from "@/lib/spec-tree";
+import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";
+import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   SPEC_CONTEXT_FIXTURE_STATUS_BODY,
@@ -686,5 +692,77 @@ export function arbitrarySpecContextEntryStream(): fc.Arbitrary<readonly SpecCon
           );
         }),
       )
+    );
+}
+
+/** A declared methodology identity: a source with an optional exact version and an optional open migration. */
+function arbitraryMethodologyIdentity(): fc.Arbitrary<MethodologyIdentity> {
+  return fc
+    .record({
+      source: fc.tuple(CONFIG_TEST_GENERATOR.key(), CONFIG_TEST_GENERATOR.key()).map((segments) => segments.join("/")),
+      version: fc.option(arbitraryMethodologyVersion(), { nil: undefined }),
+      migratingFrom: fc.option(arbitraryMethodologyVersion(), { nil: undefined }),
+    })
+    .map(({ source, version, migratingFrom }) => ({
+      source,
+      ...(version === undefined ? {} : { version: version.text }),
+      ...(version === undefined || migratingFrom === undefined ? {} : { migratingFrom: migratingFrom.text }),
+    }));
+}
+
+/** A requested context target: the product root or a tree-rooted node path. */
+function arbitraryContextTarget(): fc.Arbitrary<string> {
+  return fc.oneof(
+    fc.constant(SPEC_CONTEXT_PRODUCT_ROOT_TARGET),
+    SPEC_TREE_TEST_GENERATOR.sourceSlug().map(rootedSpecPath),
+  );
+}
+
+/**
+ * The open domain of context-list manifests: any methodology identity, either
+ * bootstrap flag, and any sequence of entries at distinct tree paths, each
+ * selected by one or more target-reason pairs and optionally carrying the
+ * documents that cite it; entry modes and selections come from the
+ * production manifest composition.
+ */
+export function arbitrarySpecContextManifest(): fc.Arbitrary<SpecContextManifest> {
+  return fc
+    .record({
+      bootstrap: fc.boolean(),
+      methodology: arbitraryMethodologyIdentity(),
+      slugs: fc.uniqueArray(SPEC_TREE_TEST_GENERATOR.sourceSlug(), { maxLength: 6 }),
+    })
+    .chain(({ bootstrap, methodology, slugs }) =>
+      fc
+        .tuple(
+          ...slugs.map((slug) =>
+            fc.record({
+              reasons: fc.array(
+                fc.record({
+                  target: arbitraryContextTarget(),
+                  reason: fc.constantFrom(...Object.values(SPEC_CONTEXT_SELECTION_REASON)),
+                }),
+                { minLength: 1, maxLength: 4 },
+              ),
+              citedBy: fc.option(
+                fc.uniqueArray(SPEC_TREE_TEST_GENERATOR.sourceSlug().map(rootedSpecPath), {
+                  minLength: 1,
+                  maxLength: 3,
+                }),
+                { nil: undefined },
+              ),
+            }).map(({ reasons, citedBy }) => ({
+              path: rootedSpecPath(slug),
+              reasons,
+              ...(citedBy === undefined ? {} : { citedBy }),
+            }))
+          ),
+        )
+        .map((selected): SpecContextManifest => ({
+          schemaVersion: SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
+          bootstrap,
+          methodology,
+          entries: composeSpecContextManifestEntries(selected),
+        }))
     );
 }
