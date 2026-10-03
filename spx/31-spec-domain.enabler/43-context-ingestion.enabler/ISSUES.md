@@ -23,3 +23,11 @@
 **Impact:** the declaration leads the implementation; a consumer reading the spec as shipped behavior finds none.
 
 **Settlement condition:** the `show` projection exists in production with co-located evidence for each of the three assertions.
+
+## The fidelity comparator leaves the targetless call's read set undefined
+
+**Evidence:** the Intent of `probes/context-fidelity/probe.md` (line 7) states that the comparator "is exactly this enumeration", and every bullet of that enumeration is target-relative: ancestor specs, the explicit target's spec, decisions below the continuing child, siblings along the path, immediate children, the outcome record, and the knowledge index. Applied to the probed call T0, which names no target, the enumeration yields the product spec alone. Protocol step 3 instead gives T0 the targetless rule of `spx/31-spec-domain.enabler/43-context-ingestion.enabler/54-read-set-projection.enabler/read-set-projection.md`: node specs at depths 1 and 2 and decisions at depths 0 to 2 in Digest, and `ISSUES.md` at those depths by path. That rule is no member of the enumeration. The `show` `[probe]` assertion of `context-ingestion.md` (line 26) has the same gap: it compares the output "for each probed call" against the read set computed "for that call's requested targets", and it defines that read set only for each requested target, so the assertion the probe attests leaves T0's expected set undefined. The `list` assertion (line 27), restricted to calls naming explicit targets, and the two-run assertion (line 28) do not carry the gap. Changes review run `2026-10-03_13-45-17-439-6c93f4be0fab` surfaced it at `487925d09613a8bf2d4f119e50b974c59dedf551`.
+
+**Impact:** the T0 comparison rows have no comparator the Intent or the `show` assertion declares. A T0 run can neither pass nor fail against the attested declaration, and the protocol's step 3 supplies the expectation from a rule outside the enumeration it calls exact.
+
+**Settlement condition:** either the Intent's enumeration and the `show` `[probe]` assertion both state the targetless read set as a member — the product spec in Full, node specs at depths 1 and 2 and decisions at depths 0 to 2 in Digest, and `ISSUES.md` at those depths by path — or both restrict the comparison to calls naming explicit targets and T0 leaves the probed set.

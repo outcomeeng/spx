@@ -1,0 +1,9 @@
+# Open Issues
+
+## The missing-product-spec failure has no declared diagnostic or exit contract
+
+**Evidence:** `read-set-projection.md` (line 13) asserts that a tree holding nodes or root decisions without a product spec fails every targeted and targetless selection "with the missing-product-spec failure". No other spec, decision, or source declares or owns that failure kind. The context failure enumerations omit it: the no-partial-projection assertion of `spx/31-spec-domain.enabler/43-context-ingestion.enabler/context-ingestion.md` (line 21) names "target, selected-document, source, citation, or methodology failure", and `spx/31-spec-domain.enabler/76-spec-cli-contract-tests.enabler/spec-cli-contract-tests.md` (lines 13 to 18) fixes the stderr diagnostic and the non-zero exit with empty stdout only for a rejected target, a missing selected document, an unresolved citation, malformed source, and a methodology failure. Read as a missing selected document, the failure requires a diagnostic naming "the missing document's path", and no such path exists when the tree holds no product spec. Changes review run `2026-10-03_13-45-17-439-6c93f4be0fab` surfaced it at `487925d09613a8bf2d4f119e50b974c59dedf551`.
+
+**Impact:** a tree without a product spec has no declared exit status or diagnostic for `spx spec context list` and `show`. Classified as a missing selected document, the failure carries a diagnostic contract it cannot satisfy; left unclassified, it escapes the no-partial-projection guarantee and the CLI contract.
+
+**Settlement condition:** either the context failure enumerations in `context-ingestion.md` and `spec-cli-contract-tests.md` declare the missing-product-spec failure as a named kind with its diagnostic content and exit contract, or `read-set-projection.md` classifies the condition under an existing enumerated failure whose diagnostic is satisfiable without a product-spec path.

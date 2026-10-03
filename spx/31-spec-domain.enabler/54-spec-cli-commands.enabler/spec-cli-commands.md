@@ -6,23 +6,26 @@ malleability: spec
 
 PROVIDES deterministic `spx spec status`, `spx spec next`, and `spx spec context` command handlers over the spec-tree library surface
 SO THAT agents and developers working in a product checkout
-CAN inspect current node state, select the next non-passing node, discover relevant subtrees, and load deterministic context without hand-walking `spx/`
+CAN inspect node state, select the next non-passing node, discover relevant subtrees, and load deterministic context without hand-walking `spx/`
 
 ## Assertions
 
-- `spx spec context list <targets...>` emits the context library's versioned structural manifest for one or more accepted targets.
-- `spx spec context show [targets...]` emits the context library's targetless or targeted document projection and accepts `--methodology`, `--coding-agent <name>`, `--loaded-product`, repeatable `--loaded-target <path>`, and `--loaded-methodology` under their declared compatibility rules.
-- `--json` changes only the representation of `list` or `show`; `show` exposes no `--content` option.
+- Given one or more accepted targets, when `spx spec context list <targets...>` runs, then it emits the context library's versioned structural manifest for those targets
+- Given zero or more targets, when `spx spec context show [targets...]` runs, then it emits the context library's targetless or targeted document projection
+- Given `--methodology` and `--coding-agent <name>`, when `spx spec context show` runs, then it accepts both options
+- Given `list` or `show`, when `--json` is supplied, then only the representation changes
+- NEVER: `spx spec context show` or `spx spec context list` registers a `--content` or `--understand` option
+- Given the packaged executable and a tracked node with linked evidence, when `spx spec status --update` runs through the process boundary, then its output reports the same rollup that a subsequent `spx spec status` invocation renders
 
 ### Scenarios
 
-- Given a tracked `spx/` tree contains current spec-tree nodes, when `spx spec status` reads the tree, then it reports registry labels, node paths, and derived node states from the current spec-tree surface ([test](tests/spec-cli-commands.scenario.l1.test.ts))
-- Given a tracked `spx/` tree contains actionable current spec-tree nodes, when `spx spec next` reads the tree, then it reports the first non-passing node selected by the current spec-tree traversal surface ([test](tests/spec-cli-commands.scenario.l1.test.ts))
+- Given a tracked `spx/` tree contains spec-tree nodes, when `spx spec status` reads the tree, then it reports registry labels, node paths, and derived node states from the spec-tree library surface ([test](tests/spec-cli-commands.scenario.l1.test.ts))
+- Given a tracked `spx/` tree contains actionable spec-tree nodes, when `spx spec next` reads the tree, then it reports the first non-passing node selected by the spec-tree library's traversal surface ([test](tests/spec-cli-commands.scenario.l1.test.ts))
 - Given a tracked `spx/` tree is read from a nested directory inside a git repository, when `spx spec status` and `spx spec next` run, then both commands resolve the product root through the worktree-local git root and read the tracked `spx/` tree ([test](tests/spec-cli-commands.scenario.l1.test.ts))
-- Given a command runs outside a git worktree, when `spx spec status` or `spx spec next` falls back to the current working directory, then the command emits a warning and returns deterministic empty-tree output for no current spec-tree nodes ([test](tests/spec-cli-commands.scenario.l1.test.ts))
+- Given a command runs outside a git worktree, when `spx spec status` or `spx spec next` falls back to the current working directory, then the command emits a warning and returns deterministic empty-tree output carrying no spec-tree nodes ([test](tests/spec-cli-commands.scenario.l1.test.ts))
 - Given a node carries a committed `spx.status.json`, when `spx spec status` runs without `--update`, then it derives that node's lifecycle state from the recorded verification outcomes rather than live structural state, and executes no verification ([test](tests/spec-cli-commands.scenario.l1.test.ts))
 - Given an injected in-memory source is supplied with `update: true`, when `spx spec status` runs, then it rejects the request ([test](tests/spec-cli-commands.scenario.l1.test.ts))
-- Given a tracked node has linked evidence, when `spx spec status --update` writes its projection, then the command reports the same rollup that a subsequent `spx spec status` read renders ([test](tests/spec-cli-commands.scenario.l1.test.ts))
+- Given a tracked node has linked evidence, when the `spx spec status --update` handler writes its projection, then the handler reports the same rollup that a subsequent `spx spec status` read renders ([test](tests/spec-cli-commands.scenario.l1.test.ts))
 - Given a git repository whose `spx/` tree holds both a git-tracked node directory and an untracked, node-shaped directory, when `spx spec status` runs without `--update`, then both are reported as nodes ([test](tests/spec-cli-commands.scenario.l1.test.ts))
 
 ### Mappings
