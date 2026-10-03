@@ -4,12 +4,12 @@ The protocol lives at `probes/context-fidelity/probe.md`, the target of the cont
 
 ## Intent
 
-The operator expects `spx spec context show` and `list` to give an agent the product truth that context loading defines for a target, so a session loads context through one deterministic command and need not walk `spx/` by hand. A run on spx's own tree, with real decisions, notes, and a declared migration, shows whether the command delivers that product truth. The comparator is therefore a read set computed for each target independently of `show`: the read set `versions/4.0/methodology/product-tree/operationalization/context-loading.md` defines, under the operator's settlements over that chapter:
+The operator expects `spx spec context show` and `list` to give an agent the product truth that context loading defines for a target, so a session loads context through one deterministic command and need not walk `spx/` by hand. A run on spx's own tree, with real decisions, notes, and a declared migration, shows whether the command delivers that product truth. The comparator is therefore a read set computed for each target independently of `show`, and the read set is exactly this enumeration:
 
 - the product spec, every ancestor spec, and the explicit target's spec, in Full;
 - at each ancestor level, only the decisions at a lower index than the child the path continues through, in Full, and every decision the explicit target directly contains, in Full;
 - siblings along the path and the explicit target's immediate children, by their published contract, the Digest opening;
-- every decision a selected document's complete source cites in the settled binding form — a Markdown inline link whose href is the decision's full path from `spx/` — resolved transitively, once, in Full;
+- every decision a selected document's complete source cites in the binding form — a Markdown inline link whose href is the decision's full path from `spx/` — resolved transitively, once, in Full;
 - the explicit target's outcome record in Full;
 - every `ISSUES.md` on the path, and the target's knowledge index, by path only;
 - harness guides (`CLAUDE.md`, `AGENTS.md`), `spx/local/` overlays, `PLAN.md`, and evidence under `tests/`, `evals/`, and `probes/`, outside.
@@ -62,7 +62,7 @@ Steps 1 to 8 make up one run. The capture session performs them, step 2 apart, w
    - `path`, the entry's canonical path;
    - `mode`, `full`, `digest`, or `reference`, as the read set of the Intent assigns it;
    - `selections`, for T1 to T5, one `{ "target", "reason" }` object per requested target that selects the entry, in ordinal order of canonical target path, each reason the first that applies in the precedence [spx/31-spec-domain.enabler/43-context-ingestion.enabler/32-context-manifest-schema.pdr.md](spx/31-spec-domain.enabler/43-context-ingestion.enabler/32-context-manifest-schema.pdr.md) declares;
-   - `citedBy`, for T1 to T5, on the entry of a decision reached only by citation: the path of every selected document whose complete source cites it in the settled binding form, in the expected position order of those documents;
+   - `citedBy`, for T1 to T5, on the entry of a decision reached only by citation: the path of every selected document whose complete source cites it in the binding form the read set of the Intent declares, in the expected position order of those documents;
    - `metadata`, the front matter the content-projection assertions of `spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-content-projection.enabler/content-projection.md` select: for an output node, `malleability` only when its source front matter carries it, and nothing else;
    - `content`: for a Full entry, the bytes `git show <commit>:<path>` prints, after the front-matter selection those assertions declare; for a Digest entry, the decision statement or kind-registry opening those assertions select from the same bytes; for a reference, nothing, since a reference carries its path only.
 
@@ -96,8 +96,8 @@ A change to a declaration the probe attests, to this protocol, to an artifact th
 
 ## Limitations
 
-- The read set binds a citation only in the settled form, a Markdown inline link whose href is the cited decision's full path from `spx/`. A decision a selected document names only in a bare or code-span path stays outside the read set, while `/contextualize` reads it because its scan matches any full path; each such row is recorded as a `/contextualize` departure.
-- The probe exercises citation binding only through the citations the selected documents carry at the commit under verification. Transitive citation binding, the canonical order of cited decisions outside the structural walk, and a structurally selected cited decision appearing once are exercised only where those documents carry the settled binding form, and the attested run records which of them it observed.
+- The read set binds a citation only in the binding form, a Markdown inline link whose href is the cited decision's full path from `spx/`. A decision a selected document names only in a bare or code-span path stays outside the read set, while `/contextualize` reads it because its scan matches any full path; each such row is recorded as a `/contextualize` departure.
+- The probe exercises citation binding only through the citations the selected documents carry at the commit under verification. Transitive citation binding, the canonical order of cited decisions outside the structural walk, and a structurally selected cited decision appearing once are exercised only where those documents carry the binding form the read set of the Intent declares, and the attested run records which of them it observed.
 - The probe runs on spx's own tree only. A product that declares methodology `3.2` alone, `4.0` alone, or a 4.0-shaped tree is not probed, so the 4.0 node kinds, `{slug}.spec.md` node specs, and the node-local citation form are not exercised.
 - The expectations are derived by the Author from the tracked tree, and `/contextualize` reports its read-set as agent-written prose, so steps 2 and 3 depend on each record being complete. The comparison checks selection, position, mode, selected metadata, content bytes, and selection reasons. It does not check whether the agent used what it read.
 - `--methodology` and `--coding-agent` are not exercised, because the read set carries no methodology foundation to compare against.
