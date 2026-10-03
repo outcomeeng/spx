@@ -10,6 +10,12 @@ CAN accept convenient unambiguous paths while rejecting unresolved, ambiguous, a
 
 ## Assertions
 
+- NEVER: a candidate source takes precedence over another
+- ALWAYS: candidates are normalized, resolved through symbolic links, confined to the resolved product root, and collapsed by target identity before one identity produces success and several identities produce an ambiguous result
+- ALWAYS: ambiguity reports every canonical accepted-target match
+- NEVER: an ambiguous result selects its first match
+- NEVER: a descendant disambiguates an ambiguous ancestor
+
 ### Mappings
 
 - Context targets accept the product root or product spec, a node directory or its spec, and an ADR or PDR; every other artifact class is rejected. ([test](tests/context-target-resolution.mapping.l1.test.ts))
@@ -17,11 +23,3 @@ CAN accept convenient unambiguous paths while rejecting unresolved, ambiguous, a
 - A decision identifies its directly containing node or product root and selects that container's projection. ([test](tests/context-target-resolution.mapping.l1.test.ts))
 - Absolute operands resolve as written, while relative operands collect candidates from the effective invocation directory, the product root, and complete-path-component suffix matches over accepted target paths only. ([test](tests/context-target-resolution.mapping.l1.test.ts))
 - An operand every candidate of which escapes the resolved product root through lexical traversal or symbolic-link resolution maps to outside-product, decided before identity resolution; a discarded escaping candidate never decides the result, so every other operand with zero identities after confinement and collapse maps to unresolved, including an operand naming an existing artifact of a class context targets do not accept, and from `<root>/spx/a.enabler` the operand `../../PLAN.md` maps to unresolved while the operand `../../spx` succeeds. ([test](tests/context-target-resolution.mapping.l1.test.ts))
-
-### Compliance
-
-- NEVER: a candidate source takes precedence over another ([test](tests/context-target-resolution.compliance.l1.test.ts))
-- ALWAYS: candidates are normalized, resolved through symbolic links, confined to the resolved product root, and collapsed by target identity before one identity produces success and several identities produce an ambiguous result ([test](tests/context-target-resolution.compliance.l1.test.ts))
-- ALWAYS: ambiguity reports every canonical accepted-target match ([test](tests/context-target-resolution.compliance.l1.test.ts))
-- NEVER: an ambiguous result selects its first match ([test](tests/context-target-resolution.compliance.l1.test.ts))
-- NEVER: a descendant disambiguates an ambiguous ancestor ([test](tests/context-target-resolution.compliance.l1.test.ts))

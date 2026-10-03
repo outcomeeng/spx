@@ -10,16 +10,14 @@ CAN receive complete working documents and concise navigation statements without
 
 ## Assertions
 
+- A decision's Digest maps to its decision statement, the first prose paragraph after its title, at every methodology version.
+- An output node's Digest maps to its opening, selected by the configured kind registry's resolved opening keyword for the node's kind.
+- A product document maps to Full wherever it is projected, so no product Digest exists.
+
 ### Scenarios
 
 - Given a selected document, when it is projected in Full, then the entry contains explicitly selected front matter followed by the complete source body ([test](tests/content.scenario.l1.test.ts))
 - Given a selected document, when it is projected in Digest, then the entry contains the same selected metadata followed by the complete required Digest paragraph — a decision's decision statement or an output node's opening ([test](tests/content.scenario.l1.test.ts))
-
-### Mappings
-
-- A decision's Digest maps to its decision statement, the first prose paragraph after its title, at every methodology version. ([test](tests/content.mapping.l1.test.ts))
-- An output node's Digest maps to its opening, selected by the configured kind registry's resolved opening keyword for the node's kind. ([test](tests/content.mapping.l1.test.ts))
-- A product document maps to Full wherever it is projected, so no product Digest exists. ([test](tests/content.mapping.l1.test.ts))
 
 ### Compliance
 

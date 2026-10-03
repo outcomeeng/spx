@@ -10,6 +10,20 @@ CAN derive complete targetless and targeted entry sets without filesystem heuris
 
 ## Assertions
 
+- ALWAYS: a tree holding nodes or root decisions without a product spec fails every targeted and targetless selection with the missing-product-spec failure
+- NEVER: `list` carries an entry for a document `show` does not select, `PLAN.md` included
+- ALWAYS: an explicitly targeted node contributes its outcome record in Full when present
+- ALWAYS: an explicitly targeted node contributes its `knowledge/index.md` as a path-only reference when present
+- NEVER: an implicit ancestor, sibling, or child contributes its outcome record or its `knowledge/index.md`
+- ALWAYS: `show` delivers every existing `ISSUES.md` on a target path as a path-only reference
+- NEVER: `show` includes an issue body, heading, excerpt, or count
+- ALWAYS: `list` names every existing `ISSUES.md` on a target path
+- NEVER: `list` includes an issue body, heading, excerpt, or count
+- ALWAYS: evidence under `tests/`, `evals/`, and `probes/`, harness guides, overlays under `spx/local/`, and every unselected file class remain outside `show`
+- ALWAYS: evidence under `tests/`, `evals/`, and `probes/`, harness guides, overlays under `spx/local/`, and every unselected file class remain outside `list`
+- ALWAYS: `show` orders selected tree entries by one depth-first walk from the product root in which each walked directory, the product root or a node, contributes in this order its own spec, the product spec at the product root, then its `ISSUES.md` reference, then its outcome record, then its `knowledge/index.md` reference, each where selected, and then its selected decisions and selected child nodes merged into one sequence in ascending numeric index, each child node walked completely at its position before the next entry of that sequence, with ordinal comparison of the complete directory-entry name, a decision's filename and a child node's directory name alike, as the equal-index tie-break
+- ALWAYS: `list` orders selected tree entries by one depth-first walk from the product root in which each walked directory, the product root or a node, contributes in this order its own spec, the product spec at the product root, then its `ISSUES.md` reference, then its outcome record, then its `knowledge/index.md` reference, each where selected, and then its selected decisions and selected child nodes merged into one sequence in ascending numeric index, each child node walked completely at its position before the next entry of that sequence, with ordinal comparison of the complete directory-entry name, a decision's filename and a child node's directory name alike, as the equal-index tie-break
+
 ### Scenarios
 
 - Given a tree with no product spec, no nodes, and no root decisions, when its projection is computed, then it selects nothing ([test](tests/read-set.scenario.l1.test.ts))
@@ -25,17 +39,4 @@ CAN derive complete targetless and targeted entry sets without filesystem heuris
 
 ### Compliance
 
-- ALWAYS: a tree holding nodes or root decisions without a product spec fails every targeted and targetless selection with the missing-product-spec failure ([test](tests/read-set.compliance.l1.test.ts))
-- NEVER: `list` carries an entry for a document `show` does not select, `PLAN.md` included ([test](tests/context-manifest.compliance.l1.test.ts))
-- ALWAYS: an explicitly targeted node contributes its outcome record in Full when present ([test](tests/read-set.compliance.l1.test.ts))
-- ALWAYS: an explicitly targeted node contributes its `knowledge/index.md` as a path-only reference when present ([test](tests/read-set.compliance.l1.test.ts))
-- NEVER: an implicit ancestor, sibling, or child contributes its outcome record or its `knowledge/index.md` ([test](tests/read-set.compliance.l1.test.ts))
-- ALWAYS: `show` delivers every existing `ISSUES.md` on a target path as a path-only reference ([test](tests/read-set.compliance.l1.test.ts))
-- NEVER: `show` includes an issue body, heading, excerpt, or count ([test](tests/read-set.compliance.l1.test.ts))
-- ALWAYS: `list` names every existing `ISSUES.md` on a target path ([test](tests/context-manifest.compliance.l1.test.ts))
-- NEVER: `list` includes an issue body, heading, excerpt, or count ([test](tests/context-manifest.compliance.l1.test.ts))
 - ALWAYS: an agent reads each referenced `ISSUES.md` on an explicit target path before working on that target ([audit])
-- ALWAYS: evidence under `tests/`, `evals/`, and `probes/`, harness guides, overlays under `spx/local/`, and every unselected file class remain outside `show` ([test](tests/read-set.compliance.l1.test.ts))
-- ALWAYS: evidence under `tests/`, `evals/`, and `probes/`, harness guides, overlays under `spx/local/`, and every unselected file class remain outside `list` ([test](tests/context-manifest.compliance.l1.test.ts))
-- ALWAYS: `show` orders selected tree entries by one depth-first walk from the product root in which each walked directory, the product root or a node, contributes in this order its own spec, the product spec at the product root, then its `ISSUES.md` reference, then its outcome record, then its `knowledge/index.md` reference, each where selected, and then its selected decisions and selected child nodes merged into one sequence in ascending numeric index, each child node walked completely at its position before the next entry of that sequence, with ordinal comparison of the complete directory-entry name, a decision's filename and a child node's directory name alike, as the equal-index tie-break ([test](tests/read-set.compliance.l1.test.ts))
-- ALWAYS: `list` orders selected tree entries by one depth-first walk from the product root in which each walked directory, the product root or a node, contributes in this order its own spec, the product spec at the product root, then its `ISSUES.md` reference, then its outcome record, then its `knowledge/index.md` reference, each where selected, and then its selected decisions and selected child nodes merged into one sequence in ascending numeric index, each child node walked completely at its position before the next entry of that sequence, with ordinal comparison of the complete directory-entry name, a decision's filename and a child node's directory name alike, as the equal-index tie-break ([test](tests/context-manifest.compliance.l1.test.ts))
