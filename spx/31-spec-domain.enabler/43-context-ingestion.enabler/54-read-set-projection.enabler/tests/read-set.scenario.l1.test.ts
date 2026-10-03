@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { SPEC_CONTEXT_READ_ROLE, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { SPEC_CONTEXT_MODE, SPEC_CONTEXT_MODE_NAME, SPEC_CONTEXT_PRODUCT_ROOT_TARGET } from "@/lib/spec-tree";
 import {
+  allManifestPaths,
   contextListManifest,
   contextShowEntries,
   documentAt,
   documentPaths,
   entryPaths,
-  readPathsForRole,
+  manifestEntryAt,
   referencePaths,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
@@ -85,7 +86,7 @@ describe("spec context read-set selection", () => {
     });
   });
 
-  it("selects the same path-governing decisions in list's decision role and in show's decision documents for a targeted target", async () => {
+  it("selects the same path-governing decisions in Full in list's entries and in show's decision documents for a targeted target", async () => {
     await withRichContextEnv(async (env, paths) => {
       const manifest = await contextListManifest({ targets: [paths.targetId], cwd: env.productDir });
       const entries = await contextShowEntries({ targets: [paths.targetId], cwd: env.productDir });
@@ -100,15 +101,18 @@ describe("spec context read-set selection", () => {
         paths.higherProductDecisionPath,
         paths.higherAncestorDecisionPath,
       ]));
-      expect(new Set(documentPaths(entries).filter((path) => pathContainerDecisions.includes(path)))).toEqual(
-        new Set(readPathsForRole(manifest, SPEC_CONTEXT_READ_ROLE.DECISION)),
-      );
+      const listedDecisions = allManifestPaths(manifest).filter((path) => pathContainerDecisions.includes(path));
+      expect(documentPaths(entries).filter((path) => pathContainerDecisions.includes(path))).toEqual(listedDecisions);
+      expect(listedDecisions).toEqual([paths.ancestorDecisionPath, paths.targetDecisionPath]);
+      for (const path of listedDecisions) {
+        expect(manifestEntryAt(manifest, path)?.mode, path).toBe(SPEC_CONTEXT_MODE_NAME[SPEC_CONTEXT_MODE.FULL]);
+      }
     });
   });
 
   it("renders an explicit product-root target as the product and its decisions in Full, its immediate children in Digest, and its knowledge index reference, unlike targetless discovery", async () => {
     await withRichContextEnv(async (env, paths) => {
-      const entries = await contextShowEntries({ targets: [SPEC_TREE_CONFIG.ROOT_DIRECTORY], cwd: env.productDir });
+      const entries = await contextShowEntries({ targets: [SPEC_CONTEXT_PRODUCT_ROOT_TARGET], cwd: env.productDir });
       expect(documentAt(entries, paths.productPath)?.content).toBe(paths.sourceText[paths.productPath]);
       expect(documentAt(entries, paths.higherProductDecisionPath)?.content).toBe(
         paths.sourceText[paths.higherProductDecisionPath],

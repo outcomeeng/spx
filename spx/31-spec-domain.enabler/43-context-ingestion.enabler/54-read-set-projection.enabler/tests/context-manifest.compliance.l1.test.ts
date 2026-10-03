@@ -5,16 +5,19 @@ import { describe, expect, it } from "vitest";
 
 import {
   KIND_REGISTRY,
-  SPEC_CONTEXT_LISTED_ROLE,
-  SPEC_CONTEXT_READ_ROLE,
-  SPEC_CONTEXT_READ_ROLE_ORDER,
+  SPEC_CONTEXT_MODE,
+  SPEC_CONTEXT_MODE_NAME,
+  SPEC_CONTEXT_OPTIONAL_ARTIFACT,
+  SPEC_CONTEXT_PRODUCT_ROOT_TARGET,
+  SPEC_CONTEXT_SELECTION_REASON,
   SPEC_TREE_GRAMMAR,
-  type SpecContextManifest,
 } from "@/lib/spec-tree";
 import {
   divergentOrderSlugPair,
   freeSiblingOrder,
   markdownFixtureBody,
+  richContextCanonicalTarget,
+  type RichContextPaths,
   rootedSpecPath,
   siblingDirectoryName,
   SPEC_CONTEXT_ESCAPE_TARGET_FILENAME,
@@ -27,160 +30,147 @@ import {
   allManifestPaths,
   contextListJson,
   contextListManifest,
-  listedPaths,
-  listedPathsForRole,
+  contextListText,
+  contextShowEntries,
+  entryPaths,
+  manifestEntryAt,
+  manifestPathsForReason,
   parseContextManifest,
-  readPaths,
-  readPathsForRole,
   specTreeKindsConfig,
   trackSpecTreeInGit,
   withOutsideProductDir,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
 
-describe("spec context manifest read set", () => {
-  it("includes coordination notes from the product root, ancestors, and the target in walk order", async () => {
+/** The target sets the boundary cases request: a nested node, its ancestor, the product root, and two composed targets. */
+function boundaryTargetSets(paths: RichContextPaths): readonly (readonly string[])[] {
+  return [
+    [paths.targetId],
+    [paths.rootDirectory],
+    [SPEC_CONTEXT_PRODUCT_ROOT_TARGET],
+    [paths.targetId, paths.higherIndexSiblingPath],
+  ];
+}
+
+type WalkStep = readonly [group: number, index: number, name: string];
+
+/**
+ * The position the declared depth-first walk gives a selected tree path, as
+ * one step per directory level. A walked directory contributes its own
+ * artifacts first — its spec (the product spec at the product root), then
+ * its `ISSUES.md`, then its outcome record, then its `knowledge/index.md` —
+ * and then one sequence merging its decisions and child nodes by ascending
+ * numeric index, with the complete entry name compared by code units as the
+ * equal-index tie-break.
+ */
+function walkSteps(path: string): readonly WalkStep[] {
+  const ownArtifacts = [
+    SPEC_CONTEXT_OPTIONAL_ARTIFACT.ISSUES,
+    SPEC_CONTEXT_OPTIONAL_ARTIFACT.OUTCOME_SUFFIX,
+    SPEC_CONTEXT_OPTIONAL_ARTIFACT.KNOWLEDGE_INDEX,
+  ];
+  const sequenced = (name: string): WalkStep => [
+    1,
+    Number(name.split(SPEC_TREE_GRAMMAR.ORDER.SEPARATOR)[0]),
+    name,
+  ];
+  const relative = path.slice(rootedSpecPath("").length);
+  const knowledgeIndex = SPEC_CONTEXT_OPTIONAL_ARTIFACT.KNOWLEDGE_INDEX;
+  const isKnowledgeIndex = relative === knowledgeIndex
+    || relative.endsWith(`${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}${knowledgeIndex}`);
+  const segments = relative.split(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
+  const fileSegments = isKnowledgeIndex ? knowledgeIndex.split(SPEC_TREE_GRAMMAR.PATH_SEPARATOR).length : 1;
+  const directories = segments.slice(0, segments.length - fileSegments);
+  const file = segments.slice(segments.length - fileSegments).join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
+  const isDecision = [KIND_REGISTRY.adr.suffix, KIND_REGISTRY.pdr.suffix].some((suffix) => file.endsWith(suffix));
+  const ownRank = 1 + ownArtifacts.findIndex((artifact) => file === artifact || file.endsWith(artifact));
+  return [...directories.map(sequenced), isDecision ? sequenced(file) : [0, ownRank, ""]];
+}
+
+function compareWalkPositions(left: string, right: string): number {
+  const leftSteps = walkSteps(left);
+  const rightSteps = walkSteps(right);
+  for (let level = 0; level < Math.min(leftSteps.length, rightSteps.length); level += 1) {
+    const [leftGroup, leftIndex, leftName] = leftSteps[level];
+    const [rightGroup, rightIndex, rightName] = rightSteps[level];
+    if (leftGroup !== rightGroup) return leftGroup - rightGroup;
+    if (leftIndex !== rightIndex) return leftIndex - rightIndex;
+    if (leftName !== rightName) return leftName < rightName ? -1 : 1;
+  }
+  return leftSteps.length - rightSteps.length;
+}
+
+describe("spec context manifest boundaries", () => {
+  it("carries no entry for a document show does not select, the coordination plans on the path included", async () => {
+    await withRichContextEnv(async (env, paths) => {
+      for (const targets of boundaryTargetSets(paths)) {
+        const manifestPaths = allManifestPaths(await contextListManifest({ targets, cwd: env.productDir }));
+        const shown = entryPaths(await contextShowEntries({ targets, cwd: env.productDir }));
+        for (const path of manifestPaths) expect(shown, `${targets.join(" ")} ${path}`).toContain(path);
+        for (const plan of [paths.rootPlanPath, paths.ancestorPlanPath]) {
+          expect(manifestPaths, `${targets.join(" ")} ${plan}`).not.toContain(plan);
+        }
+      }
+    });
+  });
+
+  it("names every existing issue note on the target path as a path-only entry", async () => {
     await withRichContextEnv(async (env, paths) => {
       const manifest = await contextListManifest({ targets: [paths.targetId], cwd: env.productDir });
-      expect(readPathsForRole(manifest, SPEC_CONTEXT_READ_ROLE.COORDINATION)).toEqual([
-        paths.rootPlanPath,
+      expect(manifestPathsForReason(manifest, SPEC_CONTEXT_SELECTION_REASON.ISSUE)).toEqual([
         paths.rootIssuesPath,
-        paths.ancestorPlanPath,
         paths.ancestorIssuesPath,
         paths.targetIssuesPath,
       ]);
     });
   });
 
-  it("lists runtime guides along the target path with no read obligation", async () => {
+  it("never carries an issue note's body, heading, excerpt, or count", async () => {
     await withRichContextEnv(async (env, paths) => {
-      const manifest = await contextListManifest({ targets: [paths.targetId], cwd: env.productDir });
-      expect(listedPathsForRole(manifest, SPEC_CONTEXT_LISTED_ROLE.GUIDE)).toEqual([
-        ...paths.rootGuidePaths,
-        paths.ancestorGuidePath,
-      ]);
-      for (const guidePath of [...paths.rootGuidePaths, paths.ancestorGuidePath]) {
-        expect(readPaths(manifest)).not.toContain(guidePath);
+      const options = { targets: [paths.targetId], cwd: env.productDir };
+      for (const output of [await contextListText(options), await contextListJson(options)]) {
+        expect(output).toContain(paths.targetIssuesPath);
+        expect(output).not.toContain(paths.targetIssuesHeading);
+      }
+      // Each issue entry carries exactly its path, the reference mode, and the
+      // one selection naming it: no body, excerpt, or count field.
+      const manifest = await contextListManifest(options);
+      for (const path of [paths.rootIssuesPath, paths.ancestorIssuesPath, paths.targetIssuesPath]) {
+        expect(manifestEntryAt(manifest, path), path).toStrictEqual({
+          path,
+          mode: SPEC_CONTEXT_MODE_NAME[SPEC_CONTEXT_MODE.REFERENCE],
+          selections: [
+            { target: richContextCanonicalTarget(paths.targetId), reason: SPEC_CONTEXT_SELECTION_REASON.ISSUE },
+          ],
+        });
       }
     });
   });
 
-  it("reads the lifecycle overlay and lists every other overlay", async () => {
+  it("keeps evidence, harness guides, local overlays, and unselected file classes outside list", async () => {
     await withRichContextEnv(async (env, paths) => {
-      const manifest = await contextListManifest({ targets: [paths.targetId], cwd: env.productDir });
-      expect(readPathsForRole(manifest, SPEC_CONTEXT_READ_ROLE.LIFECYCLE_OVERLAY)).toEqual([
-        paths.lifecycleOverlayPath,
-      ]);
-      expect(listedPathsForRole(manifest, SPEC_CONTEXT_LISTED_ROLE.OVERLAY)).toContain(paths.listedOverlayPath);
-      expect(readPaths(manifest)).not.toContain(paths.listedOverlayPath);
-      expect(listedPaths(manifest)).not.toContain(paths.lifecycleOverlayPath);
-    });
-  });
-
-  it("orders listed overlays by code units where locale collation disagrees", async () => {
-    await withRichContextEnv(async (env, paths) => {
-      const overlayDirectory = rootedSpecPath(SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.DIRECTORY_NAME);
-      const pair = divergentOrderSlugPair();
-      const codeUnitFirstOverlayPath =
-        `${overlayDirectory}/${pair.codeUnitFirst}${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.EXTENSION}`;
-      const localeFirstOverlayPath =
-        `${overlayDirectory}/${pair.localeFirst}${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.EXTENSION}`;
-      await env.writeRaw(codeUnitFirstOverlayPath, markdownFixtureBody(pair.codeUnitFirst));
-      await env.writeRaw(localeFirstOverlayPath, markdownFixtureBody(pair.localeFirst));
-
-      const overlayPairIn = (manifest: SpecContextManifest): readonly string[] =>
-        listedPathsForRole(manifest, SPEC_CONTEXT_LISTED_ROLE.OVERLAY)
-          .filter((path) => path === codeUnitFirstOverlayPath || path === localeFirstOverlayPath);
-
-      const fallbackManifest = await contextListManifest({ targets: [paths.targetId], cwd: env.productDir });
-      expect(overlayPairIn(fallbackManifest)).toStrictEqual([codeUnitFirstOverlayPath, localeFirstOverlayPath]);
-
-      // The tracked-paths branch is the one a real git worktree takes; it sorts
-      // through the same comparator at a different call site.
-      await trackSpecTreeInGit(env);
-      const trackedManifest = await contextListManifest({ targets: [paths.targetId], cwd: env.productDir });
-      expect(overlayPairIn(trackedManifest)).toStrictEqual([codeUnitFirstOverlayPath, localeFirstOverlayPath]);
-    });
-  });
-
-  it("orders sibling groups by code units where locale collation disagrees", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
-      await env.materialize();
-      const fixture = env.fixture;
-      const opening = KIND_REGISTRY[fixture.root.kind].opening;
-      const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-      const { codeUnitFirst: codeUnitFirstSlug, localeFirst: localeFirstSlug } = divergentOrderSlugPair();
-
-      const lowerOrder = freeSiblingOrder(fixture);
-      const targetOrder = lowerOrder + 1;
-      const higherOrder = targetOrder + 1;
-      const targetDirectory = siblingDirectoryName(fixture, targetOrder, slug);
-      const pairDirectories = (order: number): readonly [string, string] => [
-        siblingDirectoryName(fixture, order, codeUnitFirstSlug),
-        siblingDirectoryName(fixture, order, localeFirstSlug),
-      ];
-      const [lowerCodeUnitFirst, lowerLocaleFirst] = pairDirectories(lowerOrder);
-      const [sameCodeUnitFirst, sameLocaleFirst] = pairDirectories(targetOrder);
-      const [higherCodeUnitFirst, higherLocaleFirst] = pairDirectories(higherOrder);
-
-      await env.writeRaw(specFilePath(targetDirectory, slug), specFixtureBody(slug, opening));
-      await env.writeRaw(
-        specFilePath(lowerCodeUnitFirst, codeUnitFirstSlug),
-        specFixtureBody(codeUnitFirstSlug, opening),
-      );
-      await env.writeRaw(specFilePath(lowerLocaleFirst, localeFirstSlug), specFixtureBody(localeFirstSlug, opening));
-      await env.writeRaw(
-        specFilePath(sameCodeUnitFirst, codeUnitFirstSlug),
-        specFixtureBody(codeUnitFirstSlug, opening),
-      );
-      await env.writeRaw(specFilePath(sameLocaleFirst, localeFirstSlug), specFixtureBody(localeFirstSlug, opening));
-      await env.writeRaw(
-        specFilePath(higherCodeUnitFirst, codeUnitFirstSlug),
-        specFixtureBody(codeUnitFirstSlug, opening),
-      );
-      await env.writeRaw(specFilePath(higherLocaleFirst, localeFirstSlug), specFixtureBody(localeFirstSlug, opening));
-
-      const manifest = await contextListManifest({ targets: [targetDirectory], cwd: env.productDir });
-
-      const lowerPair = readPathsForRole(manifest, SPEC_CONTEXT_READ_ROLE.LOWER_INDEX_SIBLING)
-        .filter((path) =>
-          path.startsWith(`${rootedSpecPath(lowerCodeUnitFirst)}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}`)
-          || path.startsWith(`${rootedSpecPath(lowerLocaleFirst)}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}`)
-        );
-      expect(lowerPair).toStrictEqual([
-        specFilePath(lowerCodeUnitFirst, codeUnitFirstSlug),
-        specFilePath(lowerLocaleFirst, localeFirstSlug),
-      ]);
-
-      expect(
-        listedPathsForRole(manifest, SPEC_CONTEXT_LISTED_ROLE.SAME_INDEX_SIBLING)
-          .filter((path) => path === rootedSpecPath(sameCodeUnitFirst) || path === rootedSpecPath(sameLocaleFirst)),
-      ).toStrictEqual([rootedSpecPath(sameCodeUnitFirst), rootedSpecPath(sameLocaleFirst)]);
-      expect(
-        listedPathsForRole(manifest, SPEC_CONTEXT_LISTED_ROLE.HIGHER_INDEX_SIBLING)
-          .filter((path) => path === rootedSpecPath(higherCodeUnitFirst) || path === rootedSpecPath(higherLocaleFirst)),
-      ).toStrictEqual([rootedSpecPath(higherCodeUnitFirst), rootedSpecPath(higherLocaleFirst)]);
-    });
-  });
-
-  it("orders read entries by the declared role group order", async () => {
-    await withRichContextEnv(async (env, paths) => {
-      const manifest = await contextListManifest({ targets: [paths.targetId], cwd: env.productDir });
-      const groupIndexes = manifest.read.map((document) =>
-        Math.min(...document.roles.map((binding) => SPEC_CONTEXT_READ_ROLE_ORDER.indexOf(binding.role)))
-      );
-      for (const groupIndex of groupIndexes) {
-        expect(groupIndex).toBeGreaterThanOrEqual(0);
+      for (const targets of boundaryTargetSets(paths)) {
+        const manifestPaths = allManifestPaths(await contextListManifest({ targets, cwd: env.productDir }));
+        for (
+          const excluded of [
+            paths.evidencePath,
+            paths.targetEvalPath,
+            paths.targetProbePath,
+            ...paths.rootGuidePaths,
+            paths.ancestorGuidePath,
+            paths.lifecycleOverlayPath,
+            paths.listedOverlayPath,
+            paths.lowerSiblingOutcomePath,
+            paths.lowerSiblingKnowledgeIndexPath,
+          ]
+        ) {
+          expect(manifestPaths, `${targets.join(" ")} ${excluded}`).not.toContain(excluded);
+        }
       }
-      for (let position = 1; position < groupIndexes.length; position += 1) {
-        expect(groupIndexes[position]).toBeGreaterThanOrEqual(groupIndexes[position - 1]);
-      }
-      const uniquePaths = readPaths(manifest);
-      expect(new Set(uniquePaths).size).toBe(uniquePaths.length);
     });
   });
 
-  it("binds no entry for a symbolic link whose canonical target escapes the product directory", async () => {
+  it("keeps a harness guide whose symbolic link escapes the product directory outside list", async () => {
     await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
       await env.materialize();
       const snapshot = await env.readFilesystemSnapshot();
@@ -201,6 +191,68 @@ describe("spec context manifest read set", () => {
         expect(allManifestPaths(manifest)).not.toContain(escapingGuidePath);
         expect(manifestJson).not.toContain(secretMarker);
       });
+    });
+  });
+
+  it("orders every entry by the declared depth-first walk from the product root", async () => {
+    await withRichContextEnv(async (env, paths) => {
+      for (const targets of boundaryTargetSets(paths)) {
+        const manifestPaths = allManifestPaths(await contextListManifest({ targets, cwd: env.productDir }));
+        expect(manifestPaths, targets.join(" ")).toEqual([...manifestPaths].sort(compareWalkPositions));
+      }
+      // The nested target's subtree interleaves its own artifacts, a decision,
+      // and a child node, and the peer's cited decisions share one index with
+      // names whose code-unit order reverses their locale order.
+      const nested = allManifestPaths(
+        await contextListManifest({ targets: [paths.targetId], cwd: env.productDir }),
+      );
+      for (
+        const path of [
+          paths.targetOutcomePath,
+          paths.targetKnowledgeIndexPath,
+          paths.targetDecisionPath,
+          paths.deepDescendantSpecPath,
+          paths.citedDecisionPath,
+          paths.peerDecisionPath,
+        ]
+      ) {
+        expect(nested, path).toContain(path);
+      }
+    });
+  });
+
+  it("orders equal-index siblings by code units where locale collation disagrees, tracked or not", async () => {
+    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+      await env.materialize();
+      const fixture = env.fixture;
+      const opening = KIND_REGISTRY[fixture.root.kind].opening;
+      const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+      const { codeUnitFirst: codeUnitFirstSlug, localeFirst: localeFirstSlug } = divergentOrderSlugPair();
+
+      const lowerOrder = freeSiblingOrder(fixture);
+      const targetOrder = lowerOrder + 1;
+      const higherOrder = targetOrder + 1;
+      const targetDirectory = siblingDirectoryName(fixture, targetOrder, slug);
+      await env.writeRaw(specFilePath(targetDirectory, slug), specFixtureBody(slug, opening));
+      const pairSpecPaths: string[] = [];
+      for (const order of [lowerOrder, targetOrder, higherOrder]) {
+        for (const pairSlug of [codeUnitFirstSlug, localeFirstSlug]) {
+          const directory = siblingDirectoryName(fixture, order, pairSlug);
+          await env.writeRaw(specFilePath(directory, pairSlug), specFixtureBody(pairSlug, opening));
+          pairSpecPaths.push(specFilePath(directory, pairSlug));
+        }
+      }
+
+      const pairOrderIn = async (): Promise<readonly string[]> =>
+        allManifestPaths(await contextListManifest({ targets: [targetDirectory], cwd: env.productDir }))
+          .filter((path) => pairSpecPaths.includes(path));
+
+      // Lower index first; at each index the code-unit order wins although
+      // locale collation reverses the pair.
+      expect(await pairOrderIn()).toStrictEqual(pairSpecPaths);
+      // The tracked-paths branch is the one a real git worktree takes.
+      await trackSpecTreeInGit(env);
+      expect(await pairOrderIn()).toStrictEqual(pairSpecPaths);
     });
   });
 });
