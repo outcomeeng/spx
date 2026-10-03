@@ -1,18 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  OUTPUT_FORMAT,
-  type OutputFormat,
-  renderSpecStatus,
-  SPEC_STATUS_MESSAGE,
-  SPEC_STATUS_TABLE_HEADER,
-} from "@/commands/spec/status";
+import { OUTPUT_FORMAT, type OutputFormat, renderSpecStatus, SPEC_STATUS_MESSAGE } from "@/commands/spec/status";
 import {
   KIND_REGISTRY,
   projectSpecTree,
   readSpecTree,
-  SPEC_TREE_NODE_STATE,
   SPEC_TREE_PROJECTION,
+  type SpecTreeProjectedNode,
+  type SpecTreeProjection,
 } from "@/lib/spec-tree";
 import {
   buildNodeEntry,
@@ -22,28 +17,49 @@ import {
   SPEC_TREE_TEST_GENERATOR,
 } from "@testing/generators/spec-tree/spec-tree";
 
+function flattenProjectedNodes(nodes: readonly SpecTreeProjectedNode[]): readonly SpecTreeProjectedNode[] {
+  return nodes.flatMap((node) => [node, ...flattenProjectedNodes(node.children)]);
+}
+
 describe("spec status rendering", () => {
-  it("maps spec-tree projections to text, table, and markdown output", async () => {
-    const fixture = buildRepresentativeFixture(KIND_REGISTRY);
-    const projection = projectSpecTree(
-      await readSpecTree({ source: createSource([fixture.root, fixture.child]) }),
-    );
-
-    const text = renderSpecStatus(projection);
-    const table = renderSpecStatus(projection, OUTPUT_FORMAT.TABLE);
-    const markdown = renderSpecStatus(projection, OUTPUT_FORMAT.MARKDOWN);
-
-    expect(text).toContain(KIND_REGISTRY[fixture.root.kind].label);
-    expect(text).toContain(fixture.root.id);
-    expect(text).toContain(fixture.child.id);
-    expect(text).toContain(SPEC_TREE_NODE_STATE.DECLARED);
-    expect(table).toContain(SPEC_STATUS_TABLE_HEADER);
-    expect(table).toContain(fixture.root.id);
-    expect(table).toContain(fixture.child.id);
-    expect(markdown).toContain(`- ${KIND_REGISTRY[fixture.root.kind].label}`);
-    expect(markdown).toContain(fixture.root.id);
-    expect(markdown).toContain(fixture.child.id);
-  });
+  it.each(Object.values(OUTPUT_FORMAT))(
+    "maps every projected node to its registry label, node path, and derived state in %s output",
+    async (format: OutputFormat) => {
+      const fixture = buildRepresentativeFixture(KIND_REGISTRY);
+      // Nodes at two depths with distinct evidence, so labels, paths, and
+      // states differ between rows.
+      const projection = projectSpecTree(
+        await readSpecTree({
+          source: createSource([
+            fixture.root,
+            fixture.child,
+            fixture.peer,
+            fixture.childEvidence,
+            fixture.peerEvidence,
+          ]),
+        }),
+      );
+      const nodes = flattenProjectedNodes(projection.nodes);
+      expect(nodes.length).toBeGreaterThan(2);
+      const output = renderSpecStatus(projection, format);
+      if (format === OUTPUT_FORMAT.JSON) {
+        const parsed = flattenProjectedNodes((JSON.parse(output) as SpecTreeProjection).nodes);
+        expect(parsed.map(({ id, kind, state }) => ({ id, kind, state }))).toEqual(
+          nodes.map(({ id, kind, state }) => ({ id, kind, state })),
+        );
+        return;
+      }
+      // A human format gives each node one line naming its label, its path as
+      // a whole token, and its state.
+      const lines = output.split("\n");
+      for (const node of nodes) {
+        const nodeLines = lines.filter((line) => line.split(/[\s|]+/).includes(node.id));
+        expect(nodeLines, `${format} ${node.id}`).toHaveLength(1);
+        expect(nodeLines[0], `${format} ${node.id}`).toContain(KIND_REGISTRY[node.kind].label);
+        expect(nodeLines[0], `${format} ${node.id}`).toContain(node.state);
+      }
+    },
+  );
 
   it("maps nested spec-tree projections to table rows in tree order", async () => {
     const fixture = buildRepresentativeFixture(KIND_REGISTRY);

@@ -180,14 +180,32 @@ async function materializeSpecTreeFixture(
   registry: SpecTreeRegistry,
   fixture: RepresentativeSpecTreeFixture,
 ): Promise<void> {
-  await env.writeRaw(productFilePath(fixture), specContent(fixture.product.title));
-  await env.writeNode(nodeSpecPath(registry, fixture.root), specContent(nodeTitle(fixture.root)));
-  await env.writeNode(nodeSpecPath(registry, fixture.child, fixture.root), specContent(nodeTitle(fixture.child)));
-  await env.writeNode(nodeSpecPath(registry, fixture.peer), specContent(nodeTitle(fixture.peer)));
+  await env.writeRaw(
+    productFilePath(fixture),
+    statementContent(fixture.product.title),
+  );
+  await env.writeNode(
+    nodeSpecPath(registry, fixture.root),
+    nodeContent(nodeTitle(fixture.root), nodeOpening(registry, fixture.root)),
+  );
+  await env.writeNode(
+    nodeSpecPath(registry, fixture.child, fixture.root),
+    nodeContent(nodeTitle(fixture.child), nodeOpening(registry, fixture.child)),
+  );
+  await env.writeNode(
+    nodeSpecPath(registry, fixture.peer),
+    nodeContent(nodeTitle(fixture.peer), nodeOpening(registry, fixture.peer)),
+  );
   await env.writeDecision(
     decisionPath(registry, fixture.decision, fixture.root),
-    specContent(decisionTitle(fixture.decision)),
+    statementContent(decisionTitle(fixture.decision)),
   );
+}
+
+/** The opening keyword the registry declares for the node's kind, so the fixture's Digest projects; none when the kind declares none. */
+function nodeOpening(registry: SpecTreeRegistry, node: RepresentativeSpecTreeFixture["root"]): string | undefined {
+  const definition: { readonly opening?: string } = getKindDefinition(node.kind, registry);
+  return definition.opening;
 }
 
 function productFilePath(fixture: RepresentativeSpecTreeFixture): string {
@@ -239,8 +257,16 @@ function decisionTitle(decision: RepresentativeSpecTreeFixture["decision"]): str
   return decision.title ?? decision.slug;
 }
 
-function specContent(title: string): string {
-  return `# ${title}\n\nPROVIDES generated fixture content\nSO THAT spec-tree tests\nCAN read current nodes\n`;
+/** Each fixture document opens with the paragraph its class's Digest projection selects. */
+/** A node spec body: its title and the opening its kind declares, or a statement paragraph when the kind declares none. */
+function nodeContent(title: string, opening: string | undefined): string {
+  if (opening === undefined) return statementContent(title);
+  return `# ${title}\n\n${opening} generated fixture content\nSO THAT spec-tree tests\nCAN read current nodes\n`;
+}
+
+/** A product or decision body: its title and a statement paragraph carrying no fixed opening keyword. */
+function statementContent(title: string): string {
+  return `# ${title}\n\nGenerated fixture content governs spec-tree tests\nthat read current nodes.\n`;
 }
 
 function joinSpecTreeFixturePath(...segments: readonly string[]): string {

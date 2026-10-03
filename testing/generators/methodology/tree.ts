@@ -19,6 +19,7 @@ import {
   FOUNDATION_MANIFEST_SCHEMA_VERSION,
   FOUNDATION_PLUGIN_NAME,
   METHODOLOGY_CODING_AGENTS,
+  METHODOLOGY_TREE_ROOT,
   type MethodologySourceRecord,
   RANGE_ALTERNATIVE_SEPARATOR,
   RANGE_COMPARATOR,
@@ -28,6 +29,24 @@ import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 
 const VERSION_COMPONENT_MAX = 999;
+
+/** The separator of a package-root-relative resource address, which is POSIX on every host. */
+const RESOURCE_ADDRESS_SEPARATOR = "/";
+
+/**
+ * The address a foundation core is framed under, by the declared law: the
+ * package-root-relative bundle address of the line and coding agent, followed
+ * by the manifest's `core` value.
+ */
+export function methodologyFoundationDocumentPath(tree: {
+  readonly line: string;
+  readonly codingAgent: string;
+  readonly corePath: string;
+}): string {
+  return [METHODOLOGY_TREE_ROOT, tree.line, tree.codingAgent, FOUNDATION_PLUGIN_NAME, tree.corePath].join(
+    RESOURCE_ADDRESS_SEPARATOR,
+  );
+}
 const VERSION_SEPARATOR = ".";
 const PRERELEASE_SEPARATOR = "-";
 const LINE_COMPONENT_COUNT = 2;

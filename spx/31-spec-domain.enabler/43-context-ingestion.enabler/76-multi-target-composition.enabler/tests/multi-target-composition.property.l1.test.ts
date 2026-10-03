@@ -1,28 +1,45 @@
 import { describe, expect, it } from "vitest";
 
-import * as fc from "fast-check";
-
-import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
-import { contextCommand, withRichContextEnv } from "@testing/harnesses/spec/context";
+import { arbitraryRichContextTargetRequest } from "@testing/generators/spec-tree/rich-context";
+import {
+  assertProperty,
+  PROPERTY_CLASSIFICATION,
+  propertyTestEnvelopeTimeoutMs,
+} from "@testing/harnesses/property/property";
+import {
+  contextListJson,
+  contextListText,
+  contextShowEntries,
+  contextShowJson,
+  contextShowText,
+  entryPaths,
+  withRichContextEnv,
+} from "@testing/harnesses/spec/context";
 
 describe("spec context target-order permutation stability", () => {
-  it("produces byte-identical structured output for every ordering of the same target set", async () => {
-    await withRichContextEnv(async (env, paths) => {
-      const targets = [paths.rootDirectory, paths.targetId, paths.higherIndexSiblingPath];
-      const canonical = await contextCommand({ targets, cwd: env.productDir });
-      const canonicalContent = await contextCommand({ targets, cwd: env.productDir, content: true });
-      await assertProperty(
-        // Shuffling the operand order over the same target set is the open
-        // domain; a composition keyed on operand order breaks byte identity.
-        fc.shuffledSubarray(targets, { minLength: targets.length }),
-        async (permutation) => {
-          expect(await contextCommand({ targets: permutation, cwd: env.productDir })).toBe(canonical);
-          expect(await contextCommand({ targets: permutation, cwd: env.productDir, content: true })).toBe(
-            canonicalContent,
-          );
-        },
-        { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
-      );
-    });
-  });
+  it(
+    "produces byte-identical list and show output for every reordering of every requested operand set, with each shared entry once",
+    async () => {
+      await withRichContextEnv(async (env, paths) => {
+        await assertProperty(
+          // Any multiset of accepted operands — aliases of one identity,
+          // repeated operands, and any mix of product-root, ancestor, target,
+          // and sibling targets — beside a reordering of the same operands.
+          arbitraryRichContextTargetRequest(paths),
+          async ({ operands, reordered }) => {
+            const requested = { targets: operands, cwd: env.productDir };
+            const permuted = { targets: reordered, cwd: env.productDir };
+            expect(await contextShowText(permuted)).toBe(await contextShowText(requested));
+            expect(await contextShowJson(permuted)).toBe(await contextShowJson(requested));
+            expect(await contextListJson(permuted)).toBe(await contextListJson(requested));
+            expect(await contextListText(permuted)).toBe(await contextListText(requested));
+            const shown = entryPaths(await contextShowEntries(requested));
+            expect(new Set(shown).size).toBe(shown.length);
+          },
+          PROPERTY_CLASSIFICATION.SMALL_L1,
+        );
+      });
+    },
+    propertyTestEnvelopeTimeoutMs(PROPERTY_CLASSIFICATION.SMALL_L1),
+  );
 });
