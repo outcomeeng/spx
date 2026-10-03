@@ -52,3 +52,6 @@ npm-debug.log*
 
 # Interview scratch state never belongs in the spec tree.
 .*.interview-state.json
+
+# Working output of the context-fidelity probe stays out of the tree.
+/spx/31-spec-domain.enabler/43-context-ingestion.enabler/probes/context-fidelity/runs/
