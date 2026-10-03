@@ -540,7 +540,7 @@ export function renderSpecContextEntries(entries: readonly SpecContextEntry[]): 
       ? ""
       : `${syntax.FRONT_MATTER_FENCE}${syntax.LINE_BREAK}${
         stringify(entry.metadata)
-      }${syntax.FRONT_MATTER_FENCE}${syntax.LINE_BREAK}${syntax.LINE_BREAK}`;
+      }${syntax.FRONT_MATTER_FENCE}${syntax.LINE_BREAK}`;
     const ending = entry.content.endsWith(syntax.LINE_BREAK) ? "" : syntax.LINE_BREAK;
     const opening = `${syntax.OPEN_TAG_START}${SPEC_CONTEXT_FRAME.DOCUMENT}${pathAttribute}${syntax.OPEN_TAG_END}`;
     const closing = `${syntax.CLOSE_TAG_START}${SPEC_CONTEXT_FRAME.DOCUMENT}${syntax.CLOSE_TAG_END}`;
