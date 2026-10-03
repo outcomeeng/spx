@@ -60,6 +60,11 @@ const EXTERNAL_URL_SCHEME = "https://";
 const EXTERNAL_RESERVED_DOMAIN = ".invalid";
 const SENTENCE_END = ".";
 const WORD_SEPARATOR = " ";
+/**
+ * The link texts that mark an assertion evidence link, as the markdown-validation spec enumerates them; any
+ * other link text marks a link that is not assertion evidence.
+ */
+const SPEC_TREE_EVIDENCE_LINK_TEXTS = ["test", "eval", "probe"] as const;
 
 /** One markdown file whose single link or path occupies a known line. */
 export interface MarkdownLinkCase {
@@ -217,6 +222,7 @@ export function arbitrarySpecTreeLinkScenario(): fc.Arbitrary<SpecTreeLinkScenar
       !names.some((name) =>
         (MARKDOWN_DEFAULT_DIRECTORY_NAMES as readonly string[]).includes(name)
         || MARKDOWN_FILE_EXTENSIONS.has(`${FILE_EXTENSION_SEPARATOR}${name}`)
+        || (SPEC_TREE_EVIDENCE_LINK_TEXTS as readonly string[]).includes(name)
       )
     )
     .map(({ ancestors, nodeSegment, childNodeSegment, decisionFile, names, citingProse, targetProse }) => {
@@ -281,11 +287,16 @@ function markdownDocument(
   };
 }
 
-function markdownLinkingTo(scenario: SpecTreeLinkScenario, citingFile: string, href: string): MarkdownLinkCase {
+function markdownLinkingTo(
+  scenario: SpecTreeLinkScenario,
+  citingFile: string,
+  href: string,
+  text: string = scenario.linkText,
+): MarkdownLinkCase {
   return {
     citingFile,
     href,
-    ...markdownDocument(scenario.citingProse, [`${scenario.linkText} [${scenario.linkText}](${href})`], 0),
+    ...markdownDocument(scenario.citingProse, [`${scenario.linkText} [${text}](${href})`], 0),
   };
 }
 
@@ -417,6 +428,68 @@ export function specTreeExistingTargetLinks(scenario: SpecTreeLinkScenario): rea
     targetFile,
     targetContent: targetContent(scenario),
   }));
+}
+
+/** Whether the repository tracks the file an evidence-link case's link names. */
+export const EVIDENCE_LINK_TARGET_TRACKING = {
+  /** The citing file and the linked file are tracked. */
+  TRACKED: "tracked",
+  /** The citing file alone is tracked, so the linked file exists on disk but not in the tracked set. */
+  UNTRACKED: "untracked",
+} as const;
+
+export type EvidenceLinkTargetTracking =
+  (typeof EVIDENCE_LINK_TARGET_TRACKING)[keyof typeof EVIDENCE_LINK_TARGET_TRACKING];
+
+/** A link inside `spx/` whose text and target tracking an evidence-link case varies. */
+export interface MarkdownEvidenceLinkCase extends MarkdownLinkShapeCase {
+  readonly text: string;
+  readonly targetTracking: EvidenceLinkTargetTracking;
+  readonly trackedPaths: readonly string[];
+}
+
+function evidenceLinkCase(
+  scenario: SpecTreeLinkScenario,
+  href: string,
+  text: string,
+  targetTracking: EvidenceLinkTargetTracking,
+): MarkdownEvidenceLinkCase {
+  const link = markdownLinkingTo(scenario, specTreeCitingFile(scenario), href, text);
+  return {
+    link,
+    text,
+    targetTracking,
+    supportingFiles: [{ path: linkedFile(scenario), content: targetContent(scenario) }],
+    trackedPaths: targetTracking === EVIDENCE_LINK_TARGET_TRACKING.TRACKED
+      ? [link.citingFile, linkedFile(scenario)]
+      : [link.citingFile],
+  };
+}
+
+/**
+ * Assertion evidence links whose href is tree-absolute: each evidence link text, linking to an existing file
+ * in the citing node that the repository tracks and that it does not track.
+ */
+export function specTreeTreeAbsoluteEvidenceLinks(scenario: SpecTreeLinkScenario): readonly MarkdownEvidenceLinkCase[] {
+  return SPEC_TREE_EVIDENCE_LINK_TEXTS.flatMap((text) =>
+    Object.values(EVIDENCE_LINK_TARGET_TRACKING).map((targetTracking) =>
+      evidenceLinkCase(scenario, linkedFile(scenario), text, targetTracking)
+    )
+  );
+}
+
+/**
+ * Links to a tracked file in the citing node that the evidence-link shape rule admits: a tree-absolute link
+ * whose text is not an evidence link text, and each evidence link text with a node-local href.
+ */
+export function specTreeAdmittedEvidenceShapeLinks(
+  scenario: SpecTreeLinkScenario,
+): readonly MarkdownEvidenceLinkCase[] {
+  const { TRACKED } = EVIDENCE_LINK_TARGET_TRACKING;
+  return [
+    evidenceLinkCase(scenario, linkedFile(scenario), scenario.linkText, TRACKED),
+    ...SPEC_TREE_EVIDENCE_LINK_TEXTS.map((text) => evidenceLinkCase(scenario, scenario.targetFileName, text, TRACKED)),
+  ];
 }
 
 function brokenRelativeLinkFrom(scenario: SpecTreeLinkScenario, citingFile: string): MarkdownLinkCase {

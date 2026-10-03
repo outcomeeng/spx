@@ -5,18 +5,21 @@ import { allCommand } from "@/commands/validation/all";
 import { markdownCommand } from "@/commands/validation/markdown";
 import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import { getDefaultDirectories, validateMarkdown } from "@/validation/steps/markdown";
+import { MARKDOWN_LINK_SHAPE_DIAGNOSTICS } from "@/validation/steps/markdown-link-shape-rule";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   arbitrarySpecTreeLinkScenario,
   markdownBrokenRelativeLink,
   markdownDirectoryTarget,
   markdownValidRelativeLink,
+  specTreeAdmittedEvidenceShapeLinks,
   specTreeDecisionPathAdmittedCases,
   specTreeDecisionPathTextCases,
   specTreeDecisionPathUntrackedTextCases,
   specTreeExistingTargetLinks,
   specTreeMissingTargetLinks,
   specTreeRejectedShapeLinks,
+  specTreeTreeAbsoluteEvidenceLinks,
   specTreeTreeAbsoluteLink,
 } from "@testing/generators/validation/markdown";
 import { withMarkdownTempProject } from "@testing/harnesses/validation/markdown";
@@ -175,6 +178,45 @@ describe("Inside spx/, a link that resolves to no tracked file fails as a broken
         await write(targetFile, targetContent);
         const citingFile = await write(link.citingFile, link.content);
         await track([link.citingFile, targetFile]);
+
+        const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
+
+        expect(result.errors.filter((error) => error.file === citingFile)).toEqual([]);
+      });
+    },
+    MARKDOWN_HARNESS_TIMEOUT,
+  );
+});
+
+describe("Inside spx/, an assertion evidence link whose href is tree-absolute fails", () => {
+  it.each(specTreeTreeAbsoluteEvidenceLinks(sampleGeneratedValue(arbitrarySpecTreeLinkScenario())))(
+    "reports [$text]($link.href) with a $targetTracking target, naming the file, the line, and the link",
+    async ({ link, supportingFiles, trackedPaths }) => {
+      await withMarkdownTempProject(async ({ productDir, spxDir, writeLinkCase }) => {
+        const citingFile = await writeLinkCase({ link, supportingFiles, trackedPaths });
+
+        const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
+
+        expect(result.success).toBe(false);
+        expect(
+          result.errors.filter((error) => !error.detail.includes(MARKDOWN_LINK_SHAPE_DIAGNOSTICS.UNTRACKED_TARGET)),
+        ).toContainEqual(
+          expect.objectContaining({
+            file: citingFile,
+            line: link.line,
+            detail: expect.stringContaining(link.href),
+          }),
+        );
+      });
+    },
+    MARKDOWN_HARNESS_TIMEOUT,
+  );
+
+  it.each(specTreeAdmittedEvidenceShapeLinks(sampleGeneratedValue(arbitrarySpecTreeLinkScenario())))(
+    "admits [$text]($link.href) to a tracked target",
+    async ({ link, supportingFiles, trackedPaths }) => {
+      await withMarkdownTempProject(async ({ productDir, spxDir, writeLinkCase }) => {
+        const citingFile = await writeLinkCase({ link, supportingFiles, trackedPaths });
 
         const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
 
