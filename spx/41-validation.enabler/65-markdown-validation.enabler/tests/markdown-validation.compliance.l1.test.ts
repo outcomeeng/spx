@@ -83,8 +83,8 @@ describe("NEVER: validate directories outside spx/ and docs/ by default", () => 
 
 describe("Inside spx/, a ../ climb, a leading-slash anchor, and a relative link into a descendant node each fail", () => {
   it.each(specTreeRejectedShapeLinks(sampleGeneratedValue(arbitrarySpecTreeLinkScenario())))(
-    "reports $link.href naming the file, the line, and the link",
-    async ({ link, supportingFiles }) => {
+    "reports $link.href by its shape, naming the file, the line, and the link",
+    async ({ link, supportingFiles, diagnostic }) => {
       await withMarkdownTempProject(async ({ productDir, spxDir, writeLinkCase }) => {
         const citingFile = await writeLinkCase({ link, supportingFiles });
 
@@ -96,6 +96,13 @@ describe("Inside spx/, a ../ climb, a leading-slash anchor, and a relative link 
             file: citingFile,
             line: link.line,
             detail: expect.stringContaining(link.href),
+          }),
+        );
+        expect(result.errors).toContainEqual(
+          expect.objectContaining({
+            file: citingFile,
+            line: link.line,
+            detail: expect.stringContaining(diagnostic),
           }),
         );
       });

@@ -17,6 +17,7 @@ import {
   MARKDOWN_VALIDATION_TARGET_KIND,
   type MarkdownValidationTarget,
 } from "@/validation/steps/markdown";
+import { MARKDOWN_LINK_SHAPE_DIAGNOSTICS } from "@/validation/steps/markdown-link-shape-rule";
 /** Bounds of the generated link-grammar domain. */
 const SPEC_TREE_LINK_DOMAIN = {
   /** Two-digit node index range the methodology's sibling index space admits. */
@@ -53,7 +54,8 @@ const FILE_EXTENSION_SEPARATOR = ".";
 const FRAGMENT_SEPARATOR = "#";
 /** GitHub heading anchors join the lowercased heading words with hyphens. */
 const HEADING_ANCHOR_WORD_SEPARATOR = "-";
-const CURRENT_DIRECTORY_PREFIX = "./";
+const CURRENT_DIRECTORY_SEGMENT = ".";
+const CURRENT_DIRECTORY_PREFIX = `${CURRENT_DIRECTORY_SEGMENT}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}`;
 const EXTERNAL_URL_SCHEME = "https://";
 const EXTERNAL_RESERVED_DOMAIN = ".invalid";
 const SENTENCE_END = ".";
@@ -332,23 +334,66 @@ function percentEncodedSegment(segment: string): string {
 }
 
 /**
- * The link shapes the spec rejects inside `spx/` — a `../` climb, written
- * plainly and percent-encoded, a leading-slash anchor, and a relative path
- * into a descendant node's directory — each naming a file that exists.
+ * The backslash, which the URL parser that resolves a file link reads as a path
+ * separator. markdown-it delivers a backslash written in a link destination to
+ * a rule percent-encoded, so its encoded spelling is the href a rule receives
+ * for either spelling.
  */
-export function specTreeRejectedShapeLinks(scenario: SpecTreeLinkScenario): readonly MarkdownLinkShapeCase[] {
+const URL_BACKSLASH_SEPARATOR = "\\";
+
+/** A rejected-shape link together with the diagnostic its shape reports. */
+export interface MarkdownRejectedShapeCase extends MarkdownLinkShapeCase {
+  readonly diagnostic: (typeof MARKDOWN_LINK_SHAPE_DIAGNOSTICS)[keyof typeof MARKDOWN_LINK_SHAPE_DIAGNOSTICS];
+}
+
+/** Joins path segments with the percent-encoded backslash separator. */
+function encodedBackslashJoin(...segments: readonly string[]): string {
+  return segments.join(percentEncodedSegment(URL_BACKSLASH_SEPARATOR));
+}
+
+/**
+ * The link shapes the spec rejects inside `spx/` — a `../` climb, written
+ * plainly, percent-encoded, and with backslash separators, a leading-slash
+ * anchor, and a relative path into a descendant node's directory, written
+ * plainly and with backslash separators — each naming a file that exists, with
+ * the diagnostic its shape reports.
+ */
+export function specTreeRejectedShapeLinks(scenario: SpecTreeLinkScenario): readonly MarkdownRejectedShapeCase[] {
   const citingFile = specTreeCitingFile(scenario);
   const descendantTarget = posix.join(scenario.childNodeSegment, scenario.targetFileName);
   const supportingFiles = [
     { path: linkedFile(scenario), content: targetContent(scenario) },
     { path: posix.join(scenario.nodeDirectory, descendantTarget), content: targetContent(scenario) },
   ];
+  const { DESCENDANT_NODE, LEADING_SLASH, PARENT_CLIMB } = MARKDOWN_LINK_SHAPE_DIAGNOSTICS;
   return [
-    posix.join(SPEC_TREE_LINK_PARENT_SEGMENT, scenario.nodeSegment, scenario.targetFileName),
-    posix.join(percentEncodedSegment(SPEC_TREE_LINK_PARENT_SEGMENT), scenario.nodeSegment, scenario.targetFileName),
-    `${SPEC_TREE_LINK_ROOT_ANCHOR}${linkedFile(scenario)}`,
-    descendantTarget,
-  ].map((href) => ({ link: markdownLinkingTo(scenario, citingFile, href), supportingFiles }));
+    {
+      href: posix.join(SPEC_TREE_LINK_PARENT_SEGMENT, scenario.nodeSegment, scenario.targetFileName),
+      diagnostic: PARENT_CLIMB,
+    },
+    {
+      href: posix.join(
+        percentEncodedSegment(SPEC_TREE_LINK_PARENT_SEGMENT),
+        scenario.nodeSegment,
+        scenario.targetFileName,
+      ),
+      diagnostic: PARENT_CLIMB,
+    },
+    {
+      href: encodedBackslashJoin(SPEC_TREE_LINK_PARENT_SEGMENT, scenario.nodeSegment, scenario.targetFileName),
+      diagnostic: PARENT_CLIMB,
+    },
+    { href: `${SPEC_TREE_LINK_ROOT_ANCHOR}${linkedFile(scenario)}`, diagnostic: LEADING_SLASH },
+    { href: descendantTarget, diagnostic: DESCENDANT_NODE },
+    {
+      href: encodedBackslashJoin(CURRENT_DIRECTORY_SEGMENT, scenario.childNodeSegment, scenario.targetFileName),
+      diagnostic: DESCENDANT_NODE,
+    },
+  ].map(({ href, diagnostic }) => ({
+    link: markdownLinkingTo(scenario, citingFile, href),
+    supportingFiles,
+    diagnostic,
+  }));
 }
 
 /** Admitted link shapes inside `spx/` — tree-absolute and node-local — that name no file. */
