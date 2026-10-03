@@ -13,7 +13,6 @@ CAN receive every required entry once at the highest mode any target selects, an
 - Given one or more requested targets, when SPX composes their context, then it resolves every requested target, computes each complete projection and transitive citation closure, merges entries by canonical identity, and applies Full-over-Digest precedence
 - Target order never changes the output.
 - Every document and reference several targets share appears once.
-- ALWAYS: any requested target failure or any selected document failure aborts the whole projection before output
 
 ### Compliance
 

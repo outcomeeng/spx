@@ -18,7 +18,7 @@ CAN first locate relevant subtrees and then load only the product truth required
 - The manifest carries the configured methodology identity: each accepted version form resolves, and an open migration renders the migration source beside it.
 - ALWAYS: the executable writes no partial context to stdout after any target, source, citation, or methodology failure
 - Equal tracked product content, shipped methodology content, options, selected coding agent, and accepted canonical targets produce byte-identical output.
-- ALWAYS: context ingestion resolves the complete projection before output, so any target, source, citation, or methodology failure returns a failure carrying no partial projection
+- ALWAYS: context ingestion resolves the complete projection before output, so any target, selected-document, source, citation, or methodology failure returns a failure carrying no partial projection
 
 ### Compliance
 
