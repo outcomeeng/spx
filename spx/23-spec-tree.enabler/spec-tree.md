@@ -25,6 +25,6 @@ CAN consume the product's spec tree through stable contracts without owning trav
 ### Compliance
 
 - ALWAYS: decisions with a parent id attach to that parent node and remain available in the snapshot's flat decision list ([test](tests/decision-attachment.compliance.l1.test.ts))
-- ALWAYS: source consumers import spec-tree contracts through `src/lib/spec-tree/index.ts`; internal modules stay behind this boundary ([audit])
+- ALWAYS: source consumers import spec-tree contracts through `src/lib/spec-tree/index.ts`; internal modules stay behind this boundary ([test](tests/spec-tree-import-boundary.compliance.l1.test.ts))
 - NEVER: parse spec-tree source records, directory suffixes, or decision suffixes inside CLI command modules; commands consume snapshots and projections from the public surface ([audit])
-- NEVER: use `vi.mock()`, `jest.mock()`, `memfs`, or module interception for spec-tree registry or source tests, per [spx/23-spec-tree.enabler/21-kind-registry.adr.md](21-kind-registry.adr.md) ([audit])
+- NEVER: use `vi.mock()`, `jest.mock()`, `memfs`, or module interception for spec-tree registry or source tests, per [spx/23-spec-tree.enabler/21-kind-registry.adr.md](21-kind-registry.adr.md) ([test](tests/spec-tree-module-interception.compliance.l1.test.ts))
