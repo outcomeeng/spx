@@ -72,6 +72,11 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          # The build stamps the version `spx --version` reports from the
+          # checkout's tags; a tagged release commit reports the bare package
+          # version only when its tag is present in the shallow checkout.
+          fetch-tags: true
       - run: corepack enable
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
