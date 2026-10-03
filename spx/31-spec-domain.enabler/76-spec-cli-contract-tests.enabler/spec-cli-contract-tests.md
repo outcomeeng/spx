@@ -10,6 +10,14 @@ CAN still prove the user-facing CLI entry point routes current spec-domain comma
 
 ## Assertions
 
+- ALWAYS: a rejected target makes `spx spec context list` and `show` write a stderr diagnostic naming the failure kind and the rejected operand, and every canonical match when the target is ambiguous
+- ALWAYS: a missing selected document makes `spx spec context list` and `show` write a stderr diagnostic naming the failure kind and the missing document's path
+- ALWAYS: an unresolved citation makes `spx spec context list` and `show` write a stderr diagnostic naming the failure kind, the cited path, and the citing document
+- ALWAYS: malformed source makes `spx spec context list` and `show` write a stderr diagnostic naming the failure kind and the source path
+- ALWAYS: a methodology failure makes `spx spec context list` and `show` write a stderr diagnostic naming the failure kind and the declared methodology version or the missing methodology resource
+- ALWAYS: a rejected target, a missing selected document, an unresolved citation, malformed source, or a methodology failure makes `spx spec context list` and `show` exit non-zero with empty stdout
+- ALWAYS: a valid `spx spec context list` or `show` projection, an empty one included, exits zero
+
 ### Scenarios
 
 - Given the packaged executable, when targetless and targeted `spx spec context show` run in text and JSON, then the selected document and reference entries are preserved across representations ([test](tests/context-target.scenario.l2.test.ts))
@@ -25,7 +33,3 @@ CAN still prove the user-facing CLI entry point routes current spec-domain comma
 
 - ALWAYS: contract tests invoke the packaged executable without network access or remote services ([test](tests/spec-cli-contract.compliance.l2.test.ts))
 - NEVER: contract tests share mutable state with the invoking agent outside the temp product directory ([test](tests/spec-cli-contract.compliance.l2.test.ts))
-- ALWAYS: a rejected target, a missing selected document, an unresolved citation, malformed source, or a methodology failure makes `spx spec context list` and `show` exit non-zero with empty stdout and a stderr diagnostic naming the failure kind and the rejected operand ([test](tests/context-failure.compliance.l2.test.ts))
-- ALWAYS: the diagnostic for an ambiguous target names every canonical match ([test](tests/context-failure.compliance.l2.test.ts))
-- ALWAYS: the diagnostic for an unresolved citation names the citing document ([test](tests/context-failure.compliance.l2.test.ts))
-- ALWAYS: a valid `spx spec context list` or `show` projection, an empty one included, exits zero ([test](tests/context-failure.compliance.l2.test.ts))
