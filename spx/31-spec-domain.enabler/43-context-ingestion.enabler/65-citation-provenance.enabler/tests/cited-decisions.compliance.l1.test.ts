@@ -145,6 +145,41 @@ describe("spec context citation boundaries", () => {
     });
   });
 
+  it("records on the list entry of a decision one target selects structurally and another target reaches by citation every selected document that cites it, in show's order", async () => {
+    await withRichContextEnv(async (env, paths) => {
+      // The peer node directly contains the cited decision, so targeting it
+      // selects the decision structurally; the nested target reaches the same
+      // decision only through the citations its walk carries.
+      const options = { targets: [paths.targetId, paths.higherIndexSiblingPath], cwd: env.productDir };
+      const manifest = await contextListManifest(options);
+      const entries = await contextShowEntries(options);
+      const citation = inlineCitation(paths.citedDecisionPath);
+      const citers = documentPaths(entries).filter((path) => paths.sourceText[path]?.includes(citation) === true);
+      const entry = manifestEntryAt(manifest, paths.citedDecisionPath);
+      expect(entry?.selections.map(({ reason }) => reason)).toEqual(
+        expect.arrayContaining([SPEC_CONTEXT_SELECTION_REASON.TARGET, SPEC_CONTEXT_SELECTION_REASON.CITED_DECISION]),
+      );
+      expect(citers).toEqual(expect.arrayContaining([paths.targetSpecPath, paths.lowerSiblingSpecPath]));
+      expect(entry?.citedBy).toEqual(citers);
+    });
+  });
+
+  it("records no citing documents on a list entry whose every selection holds a reason that precedes the cited-decision reason, even when a selected document cites it", async () => {
+    await withRichContextEnv(async (env, paths) => {
+      // The ancestor decision is selected structurally on the target's path
+      // and cited from the target spec as well, so its one selection keeps
+      // the structural reason.
+      await env.writeRaw(
+        paths.targetSpecPath,
+        `${paths.sourceText[paths.targetSpecPath]}\nAlso under ${inlineCitation(paths.ancestorDecisionPath)}.\n`,
+      );
+      const manifest = await contextListManifest({ targets: [paths.targetId], cwd: env.productDir });
+      const entry = manifestEntryAt(manifest, paths.ancestorDecisionPath);
+      expect(entry?.selections.map(({ reason }) => reason)).toEqual([SPEC_CONTEXT_SELECTION_REASON.ANCESTOR]);
+      expect(entry).not.toHaveProperty("citedBy");
+    });
+  });
+
   it("fails the whole projection naming the cited path and the citing document when a citation resolves to no tracked decision", async () => {
     await withRichContextEnv(async (env, paths) => {
       const missing = specContextAbsentDecisionPath(env.fixture, paths.targetId);
