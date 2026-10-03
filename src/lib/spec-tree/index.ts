@@ -1,6 +1,7 @@
 import type { Dirent } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { z } from "zod";
 
 import type {
   DecisionKind,
@@ -14,7 +15,9 @@ import type {
 import {
   canonicalNamingSchemaVersion,
   compareNamingSchemaVersions,
+  DECISION_KINDS,
   KIND_REGISTRY,
+  NODE_KINDS,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_GRAMMAR,
@@ -390,6 +393,40 @@ export type SpecTreeProjection = {
   readonly nodes: readonly SpecTreeProjectedNode[];
   readonly decisions: readonly SpecTreeProjectedDecision[];
 };
+
+const specTreeProjectedNodeSchema: z.ZodType<SpecTreeProjectedNode> = z.lazy(() =>
+  z.strictObject({
+    [SPEC_TREE_PROJECTION.NODE_KEYS.ID]: z.string(),
+    [SPEC_TREE_PROJECTION.NODE_KEYS.KIND]: z.enum(NODE_KINDS),
+    [SPEC_TREE_PROJECTION.NODE_KEYS.ORDER]: z.number(),
+    [SPEC_TREE_PROJECTION.NODE_KEYS.SLUG]: z.string(),
+    [SPEC_TREE_PROJECTION.NODE_KEYS.STATE]: z.enum(Object.values(SPEC_TREE_NODE_STATE)),
+    [SPEC_TREE_PROJECTION.NODE_KEYS.CHILDREN]: z.array(specTreeProjectedNodeSchema),
+  })
+);
+
+/**
+ * The published `SpecTreeProjection` contract automation callers consume: every
+ * document member, its value domain, and the absence of undeclared members.
+ */
+export const SPEC_TREE_PROJECTION_SCHEMA: z.ZodType<SpecTreeProjection> = z.strictObject({
+  [SPEC_TREE_PROJECTION.KEYS.VERSION]: z.literal(SPEC_TREE_PROJECTION.VERSION),
+  [SPEC_TREE_PROJECTION.KEYS.PRODUCT]: z
+    .strictObject({
+      [SPEC_TREE_PROJECTION.PRODUCT_KEYS.ID]: z.string(),
+      [SPEC_TREE_PROJECTION.PRODUCT_KEYS.TITLE]: z.string(),
+    })
+    .nullable(),
+  [SPEC_TREE_PROJECTION.KEYS.NODES]: z.array(specTreeProjectedNodeSchema),
+  [SPEC_TREE_PROJECTION.KEYS.DECISIONS]: z.array(
+    z.strictObject({
+      [SPEC_TREE_PROJECTION.DECISION_KEYS.ID]: z.string(),
+      [SPEC_TREE_PROJECTION.DECISION_KEYS.KIND]: z.enum(DECISION_KINDS),
+      [SPEC_TREE_PROJECTION.DECISION_KEYS.ORDER]: z.number(),
+      [SPEC_TREE_PROJECTION.DECISION_KEYS.SLUG]: z.string(),
+    }),
+  ),
+});
 
 type MutableSpecTreeNode = Omit<SpecTreeNode, SpecTreeNodeRelationKey> & {
   readonly children: MutableSpecTreeNode[];
