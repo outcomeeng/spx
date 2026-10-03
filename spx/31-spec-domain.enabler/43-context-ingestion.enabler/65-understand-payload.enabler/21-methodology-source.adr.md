@@ -1,6 +1,6 @@
 # Methodology Source
 
-GOVERNS how context ingestion obtains the Outcome Engineering foundation. The reader selects spx's shipped `methodology/{MAJOR.MINOR}/{coding-agent}/spec-tree/` bundle from the exact methodology version declared by the product and the coding agent selected by `--coding-agent` or the established invocation-marker fallback. It reads `skills/understand/manifest.json` at schema version 1 and resolves the singular `core` path through the bundle containment boundary.
+Context ingestion obtains the Outcome Engineering foundation from spx's shipped methodology bundle. The reader selects spx's shipped `methodology/{MAJOR.MINOR}/{coding-agent}/spec-tree/` bundle from the exact methodology version declared by the product and the coding agent selected by `--coding-agent` or the established invocation-marker fallback. It reads `skills/understand/manifest.json` at schema version 1 and resolves the singular `core` path through the bundle containment boundary.
 
 When `show --methodology` is requested, the core's complete body after skill-runtime front matter is framed as one Full document. Its displayed path is the bundle address followed by the manifest's `core` value, relative to spx's package root; it identifies a shipped resource, never a consumer-product target. `manifest.json`, `source.json`, references, templates, and examples remain internal selection, provenance, and on-demand catalog data and are absent from `show` output. A core-relative reference resolves against the bundle path carried by the core's document frame.
 
