@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.8.0] - 2026-10-04
+
+### Added
+
+- `spx spec context list` and `spx spec context show` load a target's complete Product Tree context deterministically: the product spec, ancestor specs, the decisions along the path, sibling and child contracts, cited decisions with the documents that cite them, and the coordination notes on the path, each with its selection reason and projection mode.
+- The `SpecTreeProjection` contract is published as a JSON Schema.
+- Markdown validation enforces the methodology 4.0 spec-tree link shapes: tree-absolute decision citations, node-local evidence links, and spx links that resolve to tracked files.
+- Release notes and documentation updates interpret a release through the product's specs and decisions, resolving the governing node context of each changed path across both release-range endpoints.
+
+### Fixed
+
+- Context operands whose every candidate escapes the product root fail as unresolved.
+- Spec status and next output is composed as terminal text, escaping externally sourced values.
+- Spec-tree link segments are classified on both slash and backslash separators, and backslash-separated spx link hrefs are rejected.
+- `--ignore-file` applies under `--no-ignore`.
+- Release product context binds cited decisions only through Markdown links, orders its documents ordinally, attributes a root decision's audit claim to the product, and skips a node directory whose specification the release endpoint does not commit.
+
 ## [0.7.2]
 
 ### Added
