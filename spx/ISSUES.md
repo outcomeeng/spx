@@ -211,8 +211,6 @@ Some executed `spx/.../tests/*.test.ts` files delegate their assertion flow to `
 
 The verification-subtree instance, its related canned Git responses, repair scope, and operator-approved separation from the local Change draft prototype are recorded in `spx/34-verification.enabler/32-verify.enabler/ISSUES.md`. The 2026-09-08 inspection found 25 verification test files importing that shared module; this is a subtree inventory, not a product-wide count.
 
-The same ownership defect also occurs when an executed test delegates its predicates to a helper outside the linked test callback. `spx/31-spec-domain.enabler/76-spec-cli-contract-tests.enabler/tests/spec-cli-contract.scenario.l2.test.ts` delegates status predicates to `assertDeclaredStatusRows`.
-
 [`spx/12-test-infrastructure.adr.md`](12-test-infrastructure.adr.md) requires executed spec-tree test files to own the assertion flow, and the `what-goes-where` methodology reference states test infrastructure does not contain test assertion code. The register-suite-in-harness shape inverts that boundary: the harness owns the suite and the `tests/` file owns nothing. Sibling nodes such as [`spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler`](spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler) keep `describe`/`it`/`expect` directly in their `tests/*.test.ts` files, so the pattern is inconsistent product-wide.
 
 **Impact:** Each node's `tests/` directory no longer carries the node's evidence; assertion titles and structure sit one indirection away from the node. Cross-file duplication analysis reads test-suite duplication as harness duplication.
