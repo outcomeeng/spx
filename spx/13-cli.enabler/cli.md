@@ -45,8 +45,8 @@ CAN render diagnostics with no unprintable bytes and bounded length, CAN invoke 
 
 ### Compliance
 
-- ALWAYS: development scripts invoke `tsx src/cli.ts`; publish scripts invoke `node bin/spx.js` only after `pnpm run build` produces `dist/cli.js` ([test](tests/package-scripts.compliance.l1.test.ts))
-- ALWAYS: package formatting scripts invoke `dprint fmt .` and `dprint check .`; package scripts do not invoke Prettier ([test](tests/package-scripts.compliance.l1.test.ts))
+- ALWAYS: development scripts invoke `tsx src/cli.ts`; publish scripts invoke `node bin/spx.js` only after `pnpm run build` produces `dist/cli.js` ([audit])
+- ALWAYS: package formatting scripts invoke `dprint fmt .` and `dprint check .`; package scripts do not invoke Prettier ([audit])
 - ALWAYS: managed long-running subprocesses expose parent-piped stdout and stderr to their parent output adapters ([test](tests/lifecycle.compliance.l1.test.ts))
 - ALWAYS: Commander error diagnostics — the top-level program's and every subcommand Commander constructs from it — escape terminal-control bytes in the user-supplied portion echoed to stderr, while preserving Commander's own multi-line usage and help structure ([test](tests/commander-diagnostics.compliance.l1.test.ts))
 - ALWAYS: on standard output and on standard error alike, the composed-text write accepts only text carrying the escaping decisions made where its values were embedded, while the pass-through write relays a document byte-for-byte, so a control byte inside a relayed document survives and the same byte embedded in composed output is escaped ([test](tests/pass-through-boundary.compliance.l1.test.ts))
