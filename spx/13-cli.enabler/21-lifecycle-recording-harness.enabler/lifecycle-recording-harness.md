@@ -1,8 +1,8 @@
 # Lifecycle Recording Harness
 
-PROVIDES recording `ChildHandle` and `ExitController` implementations, and a recording spawn primitive that hands the lifecycle runner a fresh recording child per call, for the process-lifecycle test suite
+PROVIDES recording `ChildHandle` and `ExitController` implementations for the process-lifecycle test suite
 SO THAT the `spx/13-cli.enabler` lifecycle mapping, scenario, and property tests
-CAN verify signal cleanup, kill-call recording, exit-code recording, spawn registration, and listener notification through dependency-injected collaborators without replacing the production lifecycle module
+CAN verify signal cleanup, kill-call recording, exit-code recording, and listener notification through dependency-injected collaborators without replacing the production lifecycle module
 
 ## Assertions
 
