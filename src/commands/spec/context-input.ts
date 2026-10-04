@@ -6,7 +6,7 @@ import type { MethodologyConfig } from "@/config/methodology";
 import { resolveMethodologyConfig } from "@/config/methodology-placement";
 import type { Result } from "@/config/types";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
-import { canonicalTargetPath, isPathContained, nearestExistingCanonicalPath } from "@/lib/file-system/pathContainment";
+import { isPathContained } from "@/lib/file-system/pathContainment";
 import { defaultGitDependencies, type GitDependencies } from "@/lib/git/root";
 import { createTrackedPathInclusion, listTrackedPaths } from "@/lib/git/tracked-paths";
 import {
@@ -97,27 +97,14 @@ export async function readContextInput(options: ContextInputOptions): Promise<Co
   const acceptedPaths = specContextAcceptedPaths(snapshot);
   const accepted: Array<SpecContextTargetPathFacts["accepted"][number]> = [];
   for (const entry of acceptedPaths) {
-    try {
-      const path = await fs.realPath(resolve(productDir, entry.path));
-      if (isPathContained(realRoot, path)) accepted.push({ ...entry, realPath: path });
-    } catch (error) {
-      if (!isMissingPath(error)) throw error;
-    }
+    const realPath = await containedCanonicalPath(fs, realRoot, resolve(productDir, entry.path));
+    if (realPath !== undefined) accepted.push({ ...entry, realPath });
   }
   const availability = new Map<string, Promise<boolean>>();
   const hasDocument = (path: string): Promise<boolean> => {
     let present = availability.get(path);
     if (present === undefined) {
-      present = (async () => {
-        try {
-          // A path escaping the product through a symbolic link is absent for
-          // presence, never an error: nothing selects it, so nothing reads it.
-          return isPathContained(realRoot, await fs.realPath(resolve(productDir, path)));
-        } catch (error) {
-          if (isMissingPath(error)) return false;
-          throw error;
-        }
-      })();
+      present = isPresentInsideProduct(fs, productDir, realRoot, path);
       availability.set(path, present);
     }
     return present;
@@ -171,25 +158,47 @@ async function untrackedPresence(
   snapshot: SpecTreeSnapshot,
   fs: ContextFileSystem,
 ): Promise<ReadonlySet<string>> {
-  // A path escaping the product through a symbolic link is absent for
-  // presence, never an error: nothing selects it, so nothing reads it.
-  const isPresentInside = async (path: string): Promise<boolean> => {
-    try {
-      return isPathContained(realRoot, await fs.realPath(resolve(productDir, path)));
-    } catch (error) {
-      if (isMissingPath(error)) return false;
-      throw error;
-    }
-  };
   const present = new Set<string>();
   const candidates = [
     ...snapshot.entries.flatMap((entry) => entry.ref?.path ?? []),
     ...specContextOptionalArtifactPaths(snapshot),
   ];
   for (const path of candidates) {
-    if (await isPresentInside(path)) present.add(path);
+    if (await isPresentInsideProduct(fs, productDir, realRoot, path)) present.add(path);
   }
   return present;
+}
+
+/**
+ * The canonical location of an existing path inside the product, or undefined
+ * when the path is missing or escapes the product through lexical traversal or
+ * a symbolic link.
+ */
+async function containedCanonicalPath(
+  fs: ContextFileSystem,
+  realRoot: string,
+  path: string,
+): Promise<string | undefined> {
+  try {
+    const canonical = await fs.realPath(path);
+    return isPathContained(realRoot, canonical) ? canonical : undefined;
+  } catch (error) {
+    if (isMissingPath(error)) return undefined;
+    throw error;
+  }
+}
+
+/**
+ * A product-relative path escaping the product through a symbolic link is
+ * absent for presence, never an error: nothing selects it, so nothing reads it.
+ */
+async function isPresentInsideProduct(
+  fs: ContextFileSystem,
+  productDir: string,
+  realRoot: string,
+  path: string,
+): Promise<boolean> {
+  return await containedCanonicalPath(fs, realRoot, resolve(productDir, path)) !== undefined;
 }
 
 function isMissingPath(error: unknown): boolean {
@@ -208,43 +217,14 @@ function operandCandidates(input: ContextInput, operand: string): readonly strin
 }
 
 async function operandFacts(input: ContextInput, operand: string): Promise<SpecContextTargetPathFacts> {
-  const operandPaths = new Set(operandCandidates(input, operand));
   const candidates: string[] = [];
-  let escaped = 0;
-  for (const path of operandPaths) {
-    try {
-      const canonical = await input.fs.realPath(path);
-      if (isPathContained(input.realRoot, canonical)) candidates.push(canonical);
-      else escaped += 1;
-    } catch (error) {
-      if (!isMissingPath(error)) throw error;
-      if (!isPathContained(input.realRoot, await missingPathLocation(input.fs, path))) escaped += 1;
-    }
+  for (const path of new Set(operandCandidates(input, operand))) {
+    // Confinement discards a candidate escaping the product before identities
+    // collapse; an operand left with none fails as unresolved.
+    const canonical = await containedCanonicalPath(input.fs, input.realRoot, path);
+    if (canonical !== undefined) candidates.push(canonical);
   }
-  // An escaping candidate is discarded; the operand is outside the product
-  // only when it yields candidates and every one of them escaped.
-  const outsideProduct = operandPaths.size > 0 && escaped === operandPaths.size;
-  return { accepted: input.accepted, candidates, outsideProduct };
-}
-
-/**
- * Where a path that does not exist would lie once its existing prefix is
- * resolved through symbolic links: the nearest existing ancestor's canonical
- * path joined with the missing remainder. Confinement then depends on where the
- * path resolves, never on how the invocation directory or product root is
- * spelled.
- */
-async function missingPathLocation(fs: ContextFileSystem, path: string): Promise<string> {
-  const nearest = await nearestExistingCanonicalPath(path, async (candidate) => {
-    try {
-      return await fs.realPath(candidate);
-    } catch (error) {
-      if (isMissingPath(error)) return undefined;
-      throw error;
-    }
-  });
-  if (nearest === undefined) throw new Error(`No existing ancestor resolves for context operand path: ${path}`);
-  return canonicalTargetPath(nearest, path);
+  return { accepted: input.accepted, candidates };
 }
 
 export async function resolveContextTargets(

@@ -295,18 +295,15 @@ const SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES = {
    * candidate escapes and is discarded, so the invocation candidate decides.
    */
   PARTIALLY_ESCAPING: "partially-escaping",
-} as const;
-
-/** The outside-product shapes the resolution spec confines away. */
-const SPEC_CONTEXT_OUTSIDE_SHAPE_VALUES = {
+  /** An absolute operand naming a directory outside the product: its one candidate escapes. */
   ABSOLUTE_OUTSIDE: "absolute-outside",
+  /** A parent segment from the product root: every candidate escapes through lexical traversal. */
   TRAVERSAL: "traversal",
 } as const;
 
 export const SPEC_CONTEXT_TARGET_CLASS = SPEC_CONTEXT_TARGET_CLASS_VALUES;
 export const SPEC_CONTEXT_TARGET_SPELLING = SPEC_CONTEXT_TARGET_SPELLING_VALUES;
 export const SPEC_CONTEXT_UNRESOLVED_SHAPE = SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES;
-export const SPEC_CONTEXT_OUTSIDE_SHAPE = SPEC_CONTEXT_OUTSIDE_SHAPE_VALUES;
 
 export type SpecContextTargetClass =
   (typeof SPEC_CONTEXT_TARGET_CLASS_VALUES)[keyof typeof SPEC_CONTEXT_TARGET_CLASS_VALUES];
@@ -314,8 +311,6 @@ export type SpecContextTargetSpelling =
   (typeof SPEC_CONTEXT_TARGET_SPELLING_VALUES)[keyof typeof SPEC_CONTEXT_TARGET_SPELLING_VALUES];
 export type SpecContextUnresolvedShape =
   (typeof SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES)[keyof typeof SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES];
-export type SpecContextOutsideShape =
-  (typeof SPEC_CONTEXT_OUTSIDE_SHAPE_VALUES)[keyof typeof SPEC_CONTEXT_OUTSIDE_SHAPE_VALUES];
 
 /**
  * One accepted target class in one operand spelling, and for a decision class
@@ -330,17 +325,12 @@ export type SpecContextAcceptedTargetCase = {
 };
 
 /**
- * One rejected-target case. The kinds follow the decided order: an operand
- * whose every candidate escapes is outside-product; otherwise zero identities
- * are unresolved — an existing artifact of an unaccepted class among them —
- * and several identities are ambiguous.
+ * One rejected-target case. Zero identities after confinement and collapse
+ * are unresolved — an operand whose every candidate escapes and an existing
+ * artifact of an unaccepted class among them — and several identities are
+ * ambiguous.
  */
 export type SpecContextRejectedTargetCase =
-  | {
-    readonly kind: typeof SPEC_CONTEXT_TARGET_FAILURE_KIND.OUTSIDE_PRODUCT;
-    readonly shape: SpecContextOutsideShape;
-    readonly title: string;
-  }
   | {
     readonly kind: typeof SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED;
     readonly shape: SpecContextUnresolvedShape;
@@ -658,17 +648,12 @@ function parentSegmentsToProductRoot(directory: string): readonly string[] {
 }
 
 /**
- * The complete rejected-target domain in the decided order: every
- * outside-product shape, every unresolved shape, every unaccepted artifact in
- * each spelling as unresolved, and the ambiguous case.
+ * The complete rejected-target domain: every unresolved shape, escaping
+ * shapes included, every unaccepted artifact in each spelling as unresolved,
+ * and the ambiguous case.
  */
 export function specContextRejectedTargetCases(): readonly SpecContextRejectedTargetCase[] {
   return [
-    ...Object.values(SPEC_CONTEXT_OUTSIDE_SHAPE_VALUES).map((shape) => ({
-      kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.OUTSIDE_PRODUCT,
-      shape,
-      title: `maps an ${shape} operand to the outside-product failure`,
-    })),
     ...Object.values(SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES).map((shape) => ({
       kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED,
       shape,
@@ -838,22 +823,10 @@ export function specContextRejectedTargetOperand(
     directories: [],
   };
   switch (mappingCase.kind) {
-    case SPEC_CONTEXT_TARGET_FAILURE_KIND.OUTSIDE_PRODUCT: {
-      switch (mappingCase.shape) {
-        case SPEC_CONTEXT_OUTSIDE_SHAPE_VALUES.ABSOLUTE_OUTSIDE:
-          return { ...none, operand: outsideDir };
-        case SPEC_CONTEXT_OUTSIDE_SHAPE_VALUES.TRAVERSAL:
-          return {
-            ...none,
-            operand: `${PARENT_DIRECTORY_SEGMENT}${TRACKED_PATH_DIRECTORY_SEPARATOR}${documents.rootDirectory}`,
-          };
-      }
-      throw new Error("Every outside-product shape returns above");
-    }
     case SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED:
       return "artifact" in mappingCase
         ? unacceptedArtifactOperand(fixture, none, mappingCase)
-        : unresolvedShapeOperand(fixture, none, mappingCase.shape);
+        : unresolvedShapeOperand(fixture, outsideDir, none, mappingCase.shape);
     case SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS: {
       const nested = specContextAmbiguousNestedDirectory(fixture);
       return {
@@ -900,6 +873,7 @@ function unacceptedArtifactOperand(
 /** The operand of one declared unresolved shape. */
 function unresolvedShapeOperand(
   fixture: RepresentativeSpecTreeFixture,
+  outsideDir: string,
   none: SpecContextRejectedTargetOperand,
   shape: SpecContextUnresolvedShape,
 ): SpecContextRejectedTargetOperand {
@@ -947,6 +921,13 @@ function unresolvedShapeOperand(
         artifacts: [{ path: note, content: "" }],
       };
     }
+    case SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES.ABSOLUTE_OUTSIDE:
+      return { ...none, operand: outsideDir };
+    case SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES.TRAVERSAL:
+      return {
+        ...none,
+        operand: `${PARENT_DIRECTORY_SEGMENT}${TRACKED_PATH_DIRECTORY_SEPARATOR}${documents.rootDirectory}`,
+      };
   }
   throw new Error("Every unresolved shape returns above");
 }

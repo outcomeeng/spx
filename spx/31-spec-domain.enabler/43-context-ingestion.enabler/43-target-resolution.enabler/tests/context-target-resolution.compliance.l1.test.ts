@@ -87,7 +87,7 @@ describe("spec context target resolution compliance", () => {
     });
   });
 
-  it("rejects a symbolic link whose canonical target escapes the product as outside the product", async () => {
+  it("rejects a symbolic link whose canonical target escapes the product as unresolved", async () => {
     await withOutsideProductDir(async (outsideParent) => {
       await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
         await env.materialize();
@@ -102,9 +102,7 @@ describe("spec context target resolution compliance", () => {
             await contextShowFailure({ targets: [alias], cwd: env.productDir }),
           ]
         ) {
-          expect(failure).toContain(
-            SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.OUTSIDE_PRODUCT],
-          );
+          expect(failure).toContain(SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED]);
           expect(failure).toContain(alias);
         }
       });

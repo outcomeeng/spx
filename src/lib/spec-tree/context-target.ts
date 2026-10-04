@@ -9,7 +9,6 @@ export const SPEC_CONTEXT_PRODUCT_ROOT_TARGET = `${SPEC_TREE_CONFIG.ROOT_DIRECTO
 
 export const SPEC_CONTEXT_TARGET_FAILURE_KIND = {
   AMBIGUOUS: "ambiguous",
-  OUTSIDE_PRODUCT: "outside-product",
   UNRESOLVED: "unresolved",
 } as const;
 
@@ -34,9 +33,8 @@ export interface SpecContextAcceptedPath {
 
 export interface SpecContextTargetPathFacts {
   readonly accepted: readonly (SpecContextAcceptedPath & { readonly realPath: string })[];
+  /** Contained canonical candidates; a candidate escaping the resolved product root is already discarded. */
   readonly candidates: readonly string[];
-  /** True exactly when the operand yielded candidates and every one escaped the resolved product root. */
-  readonly outsideProduct: boolean;
 }
 
 export type SpecContextTargetResolution =
@@ -82,9 +80,6 @@ export function resolveSpecContextTarget(
   input: string,
   facts: SpecContextTargetPathFacts,
 ): SpecContextTargetResolution {
-  if (facts.outsideProduct) {
-    return { ok: false, failure: { kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.OUTSIDE_PRODUCT, input, candidates: [] } };
-  }
   const candidates = new Set(facts.candidates);
   const matches = new Map<string, SpecContextTarget>();
   for (const entry of facts.accepted) {
