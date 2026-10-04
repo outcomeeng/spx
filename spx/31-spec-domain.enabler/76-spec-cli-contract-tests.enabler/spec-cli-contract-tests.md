@@ -14,7 +14,7 @@ CAN prove the user-facing CLI entry point routes the spec-domain commands hermet
 - ALWAYS: a missing selected document makes `spx spec context list` and `show` write a stderr diagnostic naming the failure kind and the missing document's path
 - ALWAYS: an unresolved citation makes `spx spec context list` and `show` write a stderr diagnostic naming the failure kind, the cited path, and the citing document
 - ALWAYS: malformed source makes `spx spec context list` and `show` write a stderr diagnostic naming the failure kind and the source path
-- ALWAYS: a methodology failure makes `spx spec context list` and `show` write a stderr diagnostic naming the failure kind and the declared methodology version or the missing methodology resource
+- ALWAYS: a methodology failure makes `spx spec context list` and `show` write a stderr diagnostic naming the failure kind and the methodology version as `MAJOR.MINOR` or the missing methodology resource
 - ALWAYS: a rejected target, a missing selected document, an unresolved citation, malformed source, or a methodology failure makes `spx spec context list` and `show` exit non-zero with empty stdout
 - ALWAYS: a valid `spx spec context list` or `show` projection, an empty one included, exits zero
 - Given the packaged executable, when targetless and targeted `spx spec context show` run in text and JSON, then the selected document and reference entries are preserved across representations
