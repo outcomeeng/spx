@@ -13,6 +13,7 @@ import { cp, mkdir, readFile, symlink, writeFile as writeFileFs } from "node:fs/
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { PREPARE_HOOK_ENTRYPOINT } from "@/interfaces/cli/invocation";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import {
   buildGitTestEnvironment,
@@ -29,8 +30,6 @@ const __dirname = dirname(__filename);
 /** Product root resolved from this helper's location. */
 const PRODUCT_ROOT = resolve(__dirname, "../..");
 const BASELINE_COMMIT_MESSAGE = "baseline fixture";
-/** The hook-installer entrypoint the product's `prepare` script runs. */
-const PREPARE_HOOK_ENTRYPOINT = "src/lib/precommit/install-hooks.ts";
 const RECURSIVE_COPY = { recursive: true } as const;
 
 /**
