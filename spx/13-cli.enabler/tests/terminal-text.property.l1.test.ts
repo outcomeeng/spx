@@ -1,4 +1,3 @@
-import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { ELLIPSIS_TOKEN, MAX_CLI_ARGUMENT_DISPLAY_LENGTH } from "@/lib/sanitize-cli-argument";
@@ -10,10 +9,12 @@ import {
   jsonDocument,
   renderTerminalText,
   terminal,
-  type TerminalText,
 } from "@/lib/terminal-text/terminal-text";
 import {
-  arbitraryTerminalEscapingCase,
+  arbitraryExternalTokenCase,
+  arbitraryTerminalJoinCase,
+  arbitraryTerminalJsonDocumentCase,
+  arbitraryTerminalLabelledValueCase,
   arbitraryTerminalUnsafeText,
   TERMINAL_ORACLE,
 } from "@testing/generators/terminal-text/terminal-text";
@@ -37,8 +38,8 @@ describe("terminal text composition invariants", () => {
 
   it("preserves the authored literal segments of a composition around its escaped values", () => {
     assertProperty(
-      fc.tuple(arbitraryTerminalUnsafeText(), arbitraryTerminalUnsafeText()),
-      ([label, value]) => {
+      arbitraryTerminalLabelledValueCase(),
+      ({ label, value }) => {
         expect(renderTerminalText(terminal`${authoredText(label)}: ${externalValue(value)}`)).toBe(
           `${label}: ${renderTerminalText(externalValue(value))}`,
         );
@@ -54,64 +55,40 @@ describe("terminal text composition invariants", () => {
   });
 
   it("joins already-composed parts around an authored separator without touching any of them", () => {
-    assertProperty(
-      fc.tuple(arbitraryTerminalUnsafeText(), fc.array(arbitraryTerminalUnsafeText(), { minLength: 1, maxLength: 5 })),
-      ([separator, inputs]) => {
-        // Parts alternate between authored and external so the join has both kinds to keep intact.
-        const parts: TerminalText[] = inputs.map((input, index) =>
-          index % 2 === 0 ? authoredText(input) : externalValue(input)
-        );
-        // The native join over the rendered parts is the oracle: it never sees the primitive.
-        expect(renderTerminalText(joinTerminalText(authoredText(separator), parts))).toBe(
-          parts.map((part) => renderTerminalText(part)).join(separator),
-        );
-      },
-      { level: PROPERTY_LEVEL.L1 },
-    );
+    assertProperty(arbitraryTerminalJoinCase(), ({ separator, parts }) => {
+      // The native join over the rendered parts is the oracle: it never sees the primitive.
+      expect(renderTerminalText(joinTerminalText(authoredText(separator), parts))).toBe(
+        parts.map((part) => renderTerminalText(part)).join(separator),
+      );
+    }, { level: PROPERTY_LEVEL.L1 });
   });
 
   it("bounds an external display token to the display length, escaped, and ends a truncated one in the ellipsis", () => {
-    assertProperty(
-      fc.tuple(arbitraryTerminalEscapingCase(), fc.integer({ min: 1, max: MAX_CLI_ARGUMENT_DISPLAY_LENGTH })),
-      ([{ input, escaped }, repeat]) => {
-        const value = input.repeat(repeat);
-        const rendered = renderTerminalText(externalToken(value));
-        for (const char of rendered) {
-          expect(char.codePointAt(0)).toBeGreaterThanOrEqual(TERMINAL_ORACLE.FIRST_PRINTABLE_CODE_POINT);
-          expect(char.codePointAt(0)).not.toBe(TERMINAL_ORACLE.DEL_CODE_POINT);
-        }
-        expect(rendered.length).toBeLessThanOrEqual(MAX_CLI_ARGUMENT_DISPLAY_LENGTH);
-        // Whether the bound had to cut is decided by the independently escaped form: each code
-        // point escapes on its own, so a repeated value's escape is the repeated escape, and the
-        // length that answers it is never computed by the escaper under test.
-        expect(rendered.endsWith(ELLIPSIS_TOKEN)).toBe(
-          escaped.repeat(repeat).length > MAX_CLI_ARGUMENT_DISPLAY_LENGTH,
-        );
-      },
-      { level: PROPERTY_LEVEL.L1 },
-    );
+    assertProperty(arbitraryExternalTokenCase(), ({ input, escaped }) => {
+      const rendered = renderTerminalText(externalToken(input));
+      for (const char of rendered) {
+        expect(char.codePointAt(0)).toBeGreaterThanOrEqual(TERMINAL_ORACLE.FIRST_PRINTABLE_CODE_POINT);
+        expect(char.codePointAt(0)).not.toBe(TERMINAL_ORACLE.DEL_CODE_POINT);
+      }
+      expect(rendered.length).toBeLessThanOrEqual(MAX_CLI_ARGUMENT_DISPLAY_LENGTH);
+      // Whether the bound had to cut is decided by the independently escaped form, whose length
+      // is never computed by the escaper under test.
+      expect(rendered.endsWith(ELLIPSIS_TOKEN)).toBe(escaped.length > MAX_CLI_ARGUMENT_DISPLAY_LENGTH);
+    }, { level: PROPERTY_LEVEL.L1 });
   });
 
   it("serializes a JSON document with no control byte or DEL outside its line structure that parses back unchanged", () => {
-    const LINE_FEED_CODE_POINT = 0x0a;
-    assertProperty(
-      fc.tuple(
-        fc.dictionary(arbitraryTerminalUnsafeText(), arbitraryTerminalUnsafeText(), { noNullPrototype: true }),
-        fc.integer({ min: 0, max: 4 }),
-      ),
-      ([value, indent]) => {
-        const document = renderTerminalText(jsonDocument(value, indent));
-        for (const char of document) {
-          const codePoint = char.codePointAt(0);
-          if (codePoint !== LINE_FEED_CODE_POINT) {
-            expect(codePoint).toBeGreaterThanOrEqual(TERMINAL_ORACLE.FIRST_PRINTABLE_CODE_POINT);
-          }
-          expect(codePoint).not.toBe(TERMINAL_ORACLE.DEL_CODE_POINT);
+    assertProperty(arbitraryTerminalJsonDocumentCase(), ({ value, indent }) => {
+      const document = renderTerminalText(jsonDocument(value, indent));
+      for (const char of document) {
+        const codePoint = char.codePointAt(0);
+        if (codePoint !== TERMINAL_ORACLE.LINE_FEED_CODE_POINT) {
+          expect(codePoint).toBeGreaterThanOrEqual(TERMINAL_ORACLE.FIRST_PRINTABLE_CODE_POINT);
         }
-        expect(JSON.parse(document)).toStrictEqual(value);
-      },
-      { level: PROPERTY_LEVEL.L1 },
-    );
+        expect(codePoint).not.toBe(TERMINAL_ORACLE.DEL_CODE_POINT);
+      }
+      expect(JSON.parse(document)).toStrictEqual(value);
+    }, { level: PROPERTY_LEVEL.L1 });
   });
 
   it("does not escape an external value twice when composed text is composed again", () => {

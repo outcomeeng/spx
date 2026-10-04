@@ -1,24 +1,13 @@
-import { resolve } from "node:path";
-
 import { describe, expect, it } from "vitest";
 
-import { EPIPE_EXIT_CODE } from "@/lib/process-lifecycle";
-import { runSpawnFixture } from "@testing/harnesses/process-lifecycle/spawn-fixture";
-
-const repoRoot = resolve(__dirname, "..", "..", "..");
-const fixturePath = resolve(repoRoot, "testing", "fixtures", "cli", "epipe-emitter.ts");
-const stdoutBufferFillMs = 200;
+import { LIFECYCLE_EXIT_ORACLE } from "@testing/generators/process-lifecycle/lifecycle";
+import { runEpipeEmitterFixture } from "@testing/harnesses/process-lifecycle/spawn-fixture";
 
 describe("Scenario L2: stdout closed mid-write under EPIPE", () => {
-  it("exits with EPIPE_EXIT_CODE and emits no uncaughtException on stderr when the consumer closes the pipe", async () => {
-    const result = await runSpawnFixture({
-      command: "npx",
-      args: ["tsx", fixturePath],
-      cwd: repoRoot,
-      destroyStdoutAfterMs: stdoutBufferFillMs,
-    });
+  it("exits successfully and emits no uncaughtException on stderr when the consumer closes the pipe", async () => {
+    const result = await runEpipeEmitterFixture();
 
-    expect(result.exitCode).toBe(EPIPE_EXIT_CODE);
+    expect(result.exitCode).toBe(LIFECYCLE_EXIT_ORACLE.EPIPE);
     expect(result.stderr).not.toMatch(/uncaughtException/);
     expect(result.stderr).not.toMatch(/Error: EPIPE/);
   });
