@@ -1,19 +1,8 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
 
-import { nextCommand, SPEC_NEXT_MESSAGE } from "@/commands/spec/next";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
-import { SPEC_PRODUCT_DIR_WARNING } from "@/commands/spec/root";
-import {
-  OUTPUT_FORMAT,
-  SPEC_STATUS_MESSAGE,
-  SpecStatusUpdateRequiresProductDirError,
-  statusCommand,
-} from "@/commands/spec/status";
-import { runTestsCommand } from "@/commands/test";
-import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
-import { GIT_ROOT_COMMAND, GIT_SHOW_TOPLEVEL_ARGS, type GitDependencies } from "@/lib/git/root";
+import type { GitDependencies } from "@/lib/git/root";
 import {
   classifyNodeStatus,
   createNodeStatusFile,
@@ -23,619 +12,190 @@ import {
   NODE_STATUS_FILENAME,
   NODE_STATUS_VERIFICATION_MECHANISM,
   type NodeOutcomeResolver,
+  type NodeStatusEvidenceOutcome,
   type NodeStatusFile,
   serializeNodeStatus,
 } from "@/lib/node-status";
-import {
-  getKindDefinition,
-  KIND_REGISTRY,
-  type NodeKind,
-  SPEC_TREE_CONFIG,
-  SPEC_TREE_ENTRY_TYPE,
-  SPEC_TREE_EVIDENCE_FILE,
-  SPEC_TREE_EVIDENCE_STATUS,
-  SPEC_TREE_NODE_STATE,
-  type SpecTreeNodeSourceEntry,
-} from "@/lib/spec-tree";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { testingRegistry } from "@/test/registry";
-import { testingRunsDir } from "@/test/run-state";
-import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
-import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import { defaultTestRunStateFileSystem, type TestRunStateFileSystem } from "@/test/run-state";
 import {
-  buildEvidenceEntry,
-  createSource,
-  orderedDirectoryName,
-  sampleNodeKind,
+  type RepresentativeSpecTreeFixture,
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
+  specTreeFixtureNodeDirectoryName,
 } from "@testing/generators/spec-tree/spec-tree";
-import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
-import { type CurrentSpecTreeEnv, withSpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import type { CurrentSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { writeTestFileFixture } from "@testing/harnesses/testing/harness";
-import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
+import { VITEST_FIXTURE, type VitestFixture, writeVitestFixture } from "@testing/harnesses/testing/typescript-runner";
 
-export function registerSpecCliCommandScenarioEvidence(): void {
-  describe("spx spec status", () => {
-    it("reports current spec-tree nodes from the tracked spx directory", async () => {
-      await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-        await env.materialize();
-        const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
-
-        const output = await statusCommand({ cwd: env.productDir });
-
-        expect(output).toContain(KIND_REGISTRY[env.fixture.root.kind].label);
-        expect(output).toContain(rootPath);
-        expect(output).toContain(SPEC_TREE_NODE_STATE.DECLARED);
-      });
-    });
-
-    it("surfaces an untracked node-shaped directory alongside a tracked node without --update", async () => {
-      await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-        await env.materialize();
-        const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
-        // Track the materialized tree, then add a node-shaped directory left untracked,
-        // so the read path's visibility is tested against a genuine git-tracked boundary.
-        await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
-        await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.ADD, SPEC_TREE_CONFIG.ROOT_DIRECTORY]);
-        let untrackedNodeDirectory = orderedDirectoryName(KIND_REGISTRY.enabler.suffix);
-        while (untrackedNodeDirectory === rootPath) {
-          untrackedNodeDirectory = orderedDirectoryName(KIND_REGISTRY.enabler.suffix);
-        }
-        await env.writeRaw(
-          [
-            SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-            untrackedNodeDirectory,
-            SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
-            sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.evidenceFileName()),
-          ].join("/"),
-          "",
-        );
-
-        // No --update: the read path applies no git-tracked filter, so the untracked,
-        // node-shaped directory is reported alongside the tracked node.
-        const output = await statusCommand({ cwd: env.productDir });
-
-        expect(output).toContain(rootPath);
-        expect(output).toContain(untrackedNodeDirectory);
-      });
-    });
-
-    it("reports a node's committed spx.status.json state instead of re-deriving it", async () => {
-      await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-        await env.materialize();
-        const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
-        // The root carries a co-located evidence file, so live derivation yields a
-        // non-trivial `specified`. A committed status file recording a different
-        // state proves `spx spec status` reports the recorded state rather than
-        // re-deriving it — overriding even a structurally-derived state.
-        const evidenceFile = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.evidenceFileName());
-        const statusEvidencePath = [
-          SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-          rootPath,
-          SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
-          evidenceFile,
-        ].join("/");
-        await env.writeRaw(statusEvidencePath, "");
-        await env.writeRaw(
-          [SPEC_TREE_CONFIG.ROOT_DIRECTORY, rootPath, NODE_STATUS_FILENAME].join("/"),
-          serializeNodeStatus(createNodeStatusFile({
-            [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord({
-              [statusEvidencePath]: NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
-            }),
-          })),
-        );
-
-        const output = await statusCommand({ cwd: env.productDir });
-
-        expect(output).toContain(`${rootPath} [${SPEC_TREE_NODE_STATE.PASSING}]`);
-        expect(output).not.toContain(`${rootPath} [${SPEC_TREE_NODE_STATE.SPECIFIED}]`);
-        // Read-back executes no node tests: a per-node run records evidence under the
-        // testing runs directory, so its absence proves status ran none.
-        expect(existsSync(testingRunsDir(env.productDir))).toBe(false);
-      });
-    });
-
-    it("reports a committed spx.status.json state when live evidence files are absent", async () => {
-      await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-        await env.materialize();
-        const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
-        const statusEvidencePath = [
-          SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-          rootPath,
-          SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
-          sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.evidenceFileName()),
-        ].join("/");
-        await env.writeRaw(
-          [SPEC_TREE_CONFIG.ROOT_DIRECTORY, rootPath, NODE_STATUS_FILENAME].join("/"),
-          serializeNodeStatus(createNodeStatusFile({
-            [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord({
-              [statusEvidencePath]: NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
-            }),
-          })),
-        );
-
-        const output = await statusCommand({ cwd: env.productDir });
-
-        expect(output).toContain(`${rootPath} [${SPEC_TREE_NODE_STATE.PASSING}]`);
-        expect(output).not.toContain(`${rootPath} [${SPEC_TREE_NODE_STATE.DECLARED}]`);
-      });
-    });
-
-    it("reports co-located test evidence from the tracked spx directory", async () => {
-      await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-        await env.materialize();
-        const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
-        const evidenceFile = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.evidenceFileName());
-        await env.writeRaw(
-          [
-            SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-            rootPath,
-            SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
-            evidenceFile,
-          ].join("/"),
-          "",
-        );
-
-        const output = await statusCommand({ cwd: env.productDir });
-
-        expect(output).toContain(rootPath);
-        expect(output).toContain(SPEC_TREE_NODE_STATE.SPECIFIED);
-      });
-    });
-
-    it("reports current spec-tree nodes from a nested git repository directory", async () => {
-      await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-        await env.materialize();
-        const scope = sampleConfigTestValue(CONFIG_TEST_GENERATOR.directoryScope());
-        const nestedMarker = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
-        await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
-        await runGit(env.productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL]);
-        await runGit(env.productDir, [
-          GIT_TEST_SUBCOMMANDS.CONFIG,
-          GIT_TEST_CONFIG.USER_NAME_KEY,
-          GIT_TEST_CONFIG.USER_NAME,
-        ]);
-        await runGit(env.productDir, [
-          GIT_TEST_SUBCOMMANDS.ADD,
-          SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-          DEFAULT_CONFIG_FILENAME,
-        ]);
-        await runGit(env.productDir, [
-          GIT_TEST_SUBCOMMANDS.COMMIT,
-          "-m",
-          sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-        ]);
-        await env.writeRaw(join(scope.nestedDirectory, scope.productDirectory, nestedMarker), "");
-        const nestedCwd = join(env.productDir, scope.nestedDirectory, scope.productDirectory);
-        const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
-        const statusWarnings: string[] = [];
-        const nextWarnings: string[] = [];
-
-        const statusOutput = await statusCommand({
-          cwd: nestedCwd,
-          onWarning: (warning) => statusWarnings.push(warning),
-        });
-        const nextOutput = await nextCommand({ cwd: nestedCwd, onWarning: (warning) => nextWarnings.push(warning) });
-
-        expect(statusOutput).toContain(rootPath);
-        expect(nextOutput).toContain(rootPath);
-        expect(statusWarnings).toEqual([]);
-        expect(nextWarnings).toEqual([]);
-      });
-    });
-
-    it("reports current spec-tree nodes through injected git root dependencies", async () => {
-      await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-        await env.materialize();
-        const scope = sampleConfigTestValue(CONFIG_TEST_GENERATOR.directoryScope());
-        const nestedMarker = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
-        await env.writeRaw(join(scope.nestedDirectory, scope.productDirectory, nestedMarker), "");
-        const nestedCwd = join(env.productDir, scope.nestedDirectory, scope.productDirectory);
-        const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
-        const gitRoot = createGitRootDependencies(env.productDir, nestedCwd);
-
-        const statusOutput = await statusCommand({ cwd: nestedCwd, gitDependencies: gitRoot.dependencies });
-        const nextOutput = await nextCommand({ cwd: nestedCwd, gitDependencies: gitRoot.dependencies });
-
-        expect(statusOutput).toContain(rootPath);
-        expect(nextOutput).toContain(rootPath);
-        expect(gitRoot.calls()).toBe(2);
-      });
-    });
-
-    it("reports an empty current spec-tree from a git repository without warnings", async () => {
-      await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async ({ productDir }) => {
-        const statusWarnings: string[] = [];
-        const nextWarnings: string[] = [];
-        await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
-        await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL]);
-        await runGit(productDir, [
-          GIT_TEST_SUBCOMMANDS.CONFIG,
-          GIT_TEST_CONFIG.USER_NAME_KEY,
-          GIT_TEST_CONFIG.USER_NAME,
-        ]);
-        await runGit(productDir, [
-          GIT_TEST_SUBCOMMANDS.ADD,
-          DEFAULT_CONFIG_FILENAME,
-        ]);
-        await runGit(productDir, [
-          GIT_TEST_SUBCOMMANDS.COMMIT,
-          "-m",
-          sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()),
-        ]);
-
-        await expect(
-          statusCommand({ cwd: productDir, onWarning: (warning) => statusWarnings.push(warning) }),
-        ).resolves.toBe(SPEC_STATUS_MESSAGE.EMPTY);
-        await expect(
-          nextCommand({ cwd: productDir, onWarning: (warning) => nextWarnings.push(warning) }),
-        ).resolves.toBe(SPEC_NEXT_MESSAGE.EMPTY);
-        expect(statusWarnings).toEqual([]);
-        expect(nextWarnings).toEqual([]);
-      });
-    });
-
-    it("serializes the current projection for JSON output", async () => {
-      const nodeKind = sampleNodeKind(KIND_REGISTRY);
-      const nodeOrder = sampleSpecOrder();
-      const nodeSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-      const nodeId = formatNodePath(nodeOrder, nodeSlug, nodeKind);
-
-      const output = await statusCommand({
-        format: OUTPUT_FORMAT.JSON,
-        source: createSource([
-          {
-            type: SPEC_TREE_ENTRY_TYPE.NODE,
-            id: nodeId,
-            kind: nodeKind,
-            order: nodeOrder,
-            slug: nodeSlug,
-          },
-        ]),
-      });
-
-      const parsed = JSON.parse(output) as { nodes: Array<{ id: string; state: string }> };
-      expect(parsed.nodes[0]).toMatchObject({
-        id: nodeId,
-        state: SPEC_TREE_NODE_STATE.DECLARED,
-      });
-    });
-
-    it("rejects status update requests for injected in-memory sources", async () => {
-      await expect(
-        statusCommand({
-          source: createSource([]),
-          update: true,
-        }),
-      ).rejects.toThrow(SpecStatusUpdateRequiresProductDirError);
-    });
-
-    it("warns and reports an empty current spec-tree outside a git repository", async () => {
-      await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async ({ productDir }) => {
-        const statusWarnings: string[] = [];
-        const nextWarnings: string[] = [];
-
-        await expect(
-          statusCommand({ cwd: productDir, onWarning: (warning) => statusWarnings.push(warning) }),
-        ).resolves.toBe(SPEC_STATUS_MESSAGE.EMPTY);
-        await expect(
-          nextCommand({ cwd: productDir, onWarning: (warning) => nextWarnings.push(warning) }),
-        ).resolves.toBe(SPEC_NEXT_MESSAGE.EMPTY);
-
-        expect(statusWarnings).toEqual([SPEC_PRODUCT_DIR_WARNING.NOT_GIT_REPOSITORY]);
-        expect(nextWarnings).toEqual([SPEC_PRODUCT_DIR_WARNING.NOT_GIT_REPOSITORY]);
-      });
-    });
-  });
-
-  describe("spx spec next", () => {
-    it("reports the first non-passing current spec-tree node", async () => {
-      await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-        await env.materialize();
-        const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
-        const childPath = `${rootPath}/${
-          formatNodePath(
-            env.fixture.child.order,
-            env.fixture.child.slug,
-            env.fixture.child.kind,
-          )
-        }`;
-
-        const output = await nextCommand({ cwd: env.productDir });
-
-        expect(output).toContain(SPEC_NEXT_MESSAGE.HEADING);
-        expect(output).toContain(rootPath);
-        expect(output).not.toContain(childPath);
-        expect(output).toContain(SPEC_TREE_NODE_STATE.DECLARED);
-      });
-    });
-
-    it("reports when every current spec-tree node is passing", async () => {
-      const nodeKind = sampleNodeKind(KIND_REGISTRY);
-      const nodeOrder = sampleSpecOrder();
-      const nodeSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-      const node: SpecTreeNodeSourceEntry = {
-        type: SPEC_TREE_ENTRY_TYPE.NODE,
-        id: formatNodePath(nodeOrder, nodeSlug, nodeKind),
-        kind: nodeKind,
-        order: nodeOrder,
-        slug: nodeSlug,
-      };
-
-      await expect(
-        nextCommand({
-          source: createSource([
-            node,
-            buildEvidenceEntry({
-              id: sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId()),
-              parentId: node.id,
-              status: SPEC_TREE_EVIDENCE_STATUS.PASSING,
-            }),
-          ]),
-        }),
-      ).resolves.toBe(SPEC_NEXT_MESSAGE.COMPLETE);
-    });
-  });
+/** The tree-relative directory of a fixture node at the top of the tree, in the grammar the source owns. */
+export function fixtureNodePath(node: RepresentativeSpecTreeFixture["root"]): string {
+  return specTreeFixtureNodeDirectoryName(KIND_REGISTRY, node);
 }
 
-export function registerSpecStatusUpdateScenarioEvidence(): void {
-  describe("spx spec status --update command", () => {
-    it("writes each node's classified state and reports the rollup spx spec status renders", async () => {
-      await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-        await env.materialize();
-        const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
-        await addNodeTestFile(env, rootPath);
-
-        // A stub resolver supplies the per-node outcome, so the write-and-rollup
-        // behavior is exercised independently of the production resolver's evidence
-        // logic (which scenario 7 covers).
-        const updateOutput = await statusCommand({
-          cwd: env.productDir,
-          update: true,
-          resolveOutcomeFor: () => (_nodeId, evidencePaths) =>
-            Promise.resolve(
-              Object.fromEntries(evidencePaths.map((path) => [path, NODE_STATUS_EVIDENCE_OUTCOME.PASSED])),
-            ),
-        });
-        const plainOutput = await statusCommand({ cwd: env.productDir });
-
-        expect(updateOutput).toBe(plainOutput);
-        await expect(readRecordedStatus(env, rootPath, { isExcluded: false })).resolves.toBe(
-          SPEC_TREE_NODE_STATE.PASSING,
-        );
-      });
-    });
-  });
+/** Makes `productDir` a git repository whose index tracks `paths`, without committing them. */
+export async function trackPathsInGit(productDir: string, paths: readonly string[]): Promise<void> {
+  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
+  if (paths.length > 0) await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, ...paths]);
 }
 
-export function registerSpecStatusFoldMappingEvidence(): void {
-  describe("spx spec status --update recorded-evidence mapping", () => {
-    it("records not-run for evidence no recorded run covers and executes no verification", async () => {
-      await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-        await env.materialize();
-        const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
-        const rootTestFile = await addNodeTestFile(env, rootPath);
-
-        await statusCommand({
-          cwd: env.productDir,
-          update: true,
-          resolveOutcomeFor: recordedEvidenceResolverFor,
-        });
-
-        expect(existsSync(testingRunsDir(env.productDir))).toBe(false);
-        await expect(readRecordedStatusFile(env, rootPath)).resolves.toMatchObject({
-          verification: {
-            test: {
-              [rootTestFile]: NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN,
-            },
-          },
-        });
-      });
-    });
-
-    it("folds fresh passing evidence without executing another run", async () => {
-      await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-        await env.materialize();
-        const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
-        await addNodeTestFile(env, rootPath);
-        const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-
-        await runTestsCommand(
-          { productDir: env.productDir, passing: false },
-          { registry: testingRegistry, runnerDepsFor: () => runner },
-        );
-        const callCount = runner.calls.length;
-
-        await statusCommand({
-          cwd: env.productDir,
-          update: true,
-          resolveOutcomeFor: recordedEvidenceResolverFor,
-        });
-
-        expect(runner.calls).toHaveLength(callCount);
-        await expect(readRecordedStatus(env, rootPath, { isExcluded: false })).resolves.toBe(
-          SPEC_TREE_NODE_STATE.PASSING,
-        );
-      });
-    });
-
-    it("folds fresh failing evidence without executing another run", async () => {
-      await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-        await env.materialize();
-        const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
-        const rootTestFile = await addNodeTestFile(env, rootPath);
-        const runner = createRecordingCommandRunner({
-          present: true,
-          exitCode: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nonZeroExitCode()),
-        });
-
-        await runTestsCommand(
-          { productDir: env.productDir, passing: false },
-          { registry: testingRegistry, runnerDepsFor: () => runner },
-        );
-        const callCount = runner.calls.length;
-
-        await statusCommand({
-          cwd: env.productDir,
-          update: true,
-          resolveOutcomeFor: recordedEvidenceResolverFor,
-        });
-
-        expect(runner.calls).toHaveLength(callCount);
-        await expect(readRecordedStatusFile(env, rootPath)).resolves.toMatchObject({
-          verification: {
-            test: {
-              [rootTestFile]: NODE_STATUS_EVIDENCE_OUTCOME.FAILED,
-            },
-          },
-        });
-      });
-    });
-
-    it("keeps the committed outcome when covered recorded evidence is stale", async () => {
-      await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-        await env.materialize();
-        const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
-        const rootTestFile = await addNodeTestFile(env, rootPath);
-
-        await statusCommand({
-          cwd: env.productDir,
-          update: true,
-          resolveOutcomeFor: () => (_nodeId, evidencePaths) =>
-            Promise.resolve(
-              Object.fromEntries(evidencePaths.map((path) => [path, NODE_STATUS_EVIDENCE_OUTCOME.PASSED])),
-            ),
-        });
-
-        const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-        await runTestsCommand(
-          { productDir: env.productDir, passing: false },
-          { registry: testingRegistry, runnerDepsFor: () => runner },
-        );
-        await env.writeRaw(rootTestFile, sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()));
-
-        await statusCommand({
-          cwd: env.productDir,
-          update: true,
-          resolveOutcomeFor: recordedEvidenceResolverFor,
-        });
-
-        await expect(readRecordedStatus(env, rootPath, { isExcluded: false })).resolves.toBe(
-          SPEC_TREE_NODE_STATE.PASSING,
-        );
-      });
-    });
-
-    it("folds covered references and marks only uncovered references not-run", async () => {
-      await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-        await env.materialize();
-        const rootPath = formatNodePath(env.fixture.root.order, env.fixture.root.slug, env.fixture.root.kind);
-        const coveredTestFile = await addNodeTestFile(env, rootPath);
-        const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-
-        await runTestsCommand(
-          { productDir: env.productDir, passing: false },
-          { registry: testingRegistry, runnerDepsFor: () => runner },
-        );
-        const uncoveredTestFile = await addNodeTestFile(env, rootPath);
-
-        await statusCommand({
-          cwd: env.productDir,
-          update: true,
-          resolveOutcomeFor: recordedEvidenceResolverFor,
-        });
-
-        await expect(readRecordedStatusFile(env, rootPath)).resolves.toMatchObject({
-          verification: {
-            test: {
-              [coveredTestFile]: NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
-              [uncoveredTestFile]: NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN,
-            },
-          },
-        });
-        await expect(readRecordedStatus(env, rootPath, { isExcluded: false })).resolves.toBe(
-          SPEC_TREE_NODE_STATE.FAILING,
-        );
-      });
-    });
-  });
+/** Makes `productDir` a git repository with one commit holding `paths`, under the test committer identity. */
+export async function commitPathsInGit(productDir: string, paths: readonly string[], message: string): Promise<void> {
+  await trackPathsInGit(productDir, paths);
+  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL]);
+  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.USER_NAME_KEY, GIT_TEST_CONFIG.USER_NAME]);
+  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.COMMIT, GIT_TEST_FLAGS.COMMIT_MESSAGE, message]);
 }
 
-function recordedEvidenceResolverFor(productDir: string): NodeOutcomeResolver {
+/** The production resolver over recorded testing evidence, as the `--update` descriptor composes it. */
+export function recordedEvidenceResolverFor(productDir: string): NodeOutcomeResolver {
   return createNodeOutcomeResolver({ productDir, registry: testingRegistry });
 }
 
-export async function addNodeTestFile(env: CurrentSpecTreeEnv, nodePath: string): Promise<string> {
-  // A spec-tree TypeScript evidence file (`<slug>.<mode>.<level>.test.ts`), so the
-  // node both reaches the test-outcome stage that readSpecTree recognizes and is
-  // dispatched by the TypeScript runner.
+/**
+ * A controlled resolver under the combinatorial-cost exception: it reports
+ * every evidence path at `outcome`, so a case exercises status writing and
+ * rollup apart from the production resolver's recorded-evidence logic.
+ */
+export function uniformOutcomeResolverFor(outcome: NodeStatusEvidenceOutcome): () => NodeOutcomeResolver {
+  return () => (_nodeId, evidencePaths) =>
+    Promise.resolve(Object.fromEntries(evidencePaths.map((path) => [path, outcome])));
+}
+
+/**
+ * A recording test-run-state filesystem under the observability exception: it
+ * reads through the real filesystem and counts each read of a watched path, so
+ * the test decides how often staleness inputs were computed.
+ */
+export function createReadCountingTestRunStateFileSystem(watched: ReadonlySet<string>): {
+  readonly fs: TestRunStateFileSystem;
+  readonly readCount: (path: string) => number;
+} {
+  const counts = new Map<string, number>();
+  return {
+    fs: {
+      ...defaultTestRunStateFileSystem,
+      readFile: async (path, encoding) => {
+        if (watched.has(path)) counts.set(path, (counts.get(path) ?? 0) + 1);
+        return defaultTestRunStateFileSystem.readFile(path, encoding);
+      },
+    },
+    readCount: (path) => counts.get(path) ?? 0,
+  };
+}
+
+/**
+ * Replaces an evidence file's bytes with the committed passing Vitest suite, so
+ * any run recorded against its earlier content is stale.
+ */
+export async function changeNodeEvidenceContent(env: CurrentSpecTreeEnv, evidenceFile: string): Promise<void> {
+  await writeVitestFixture(env.productDir, evidenceFile, VITEST_FIXTURE.PASSING);
+}
+
+/** A TypeScript spec-tree evidence path (`<slug>.<mode>.<level>.test.ts`) under `nodePath`'s tests directory. */
+export function nodeEvidencePath(nodePath: string): string {
   const [mode] = SPEC_TREE_EVIDENCE_FILE.MODES;
   const [level] = SPEC_TREE_EVIDENCE_FILE.LEVELS;
   const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-  const tail = SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT.join(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR);
-  const evidenceFile = [
-    SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-    nodePath,
-    SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
-    `${slug}.${mode}.${level}.${tail}`,
-  ].join("/");
+  const filename = [slug, mode, level, ...SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT].join(
+    SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR,
+  );
+  return [SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodePath, SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME, filename].join(
+    SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
+  );
+}
+
+/**
+ * Writes an empty TypeScript evidence file under the node, so the node reaches
+ * the test-outcome stage and the TypeScript runner dispatches it; returns its
+ * product-relative path.
+ */
+export async function addNodeTestFile(env: CurrentSpecTreeEnv, nodePath: string): Promise<string> {
+  const evidenceFile = nodeEvidencePath(nodePath);
   await writeTestFileFixture(env.productDir, evidenceFile);
   return evidenceFile;
 }
 
-type RecordedStatusClassificationOptions = {
-  readonly isExcluded: boolean;
-};
-
-async function readRecordedStatus(
+/** Writes a real Vitest evidence file of the given fixture shape under the node; returns its product-relative path. */
+export async function addNodeVitestFixture(
   env: CurrentSpecTreeEnv,
   nodePath: string,
-  options: RecordedStatusClassificationOptions,
+  fixture: VitestFixture,
 ): Promise<string> {
+  const evidenceFile = nodeEvidencePath(nodePath);
+  await writeVitestFixture(env.productDir, evidenceFile, fixture);
+  return evidenceFile;
+}
+
+/** The product-relative path of a node's committed status claim. */
+export function nodeStatusPath(nodePath: string): string {
+  return [SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodePath, NODE_STATUS_FILENAME].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
+}
+
+/** Writes a committed status claim recording one passing test reference at `evidencePath`. */
+export async function writePassingStatusClaim(
+  env: CurrentSpecTreeEnv,
+  nodePath: string,
+  evidencePath: string,
+): Promise<void> {
+  await env.writeRaw(
+    nodeStatusPath(nodePath),
+    serializeNodeStatus(createNodeStatusFile({
+      [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord({
+        [evidencePath]: NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
+      }),
+    })),
+  );
+}
+
+/** The node's recorded status claim, or `undefined` when no claim was written. */
+export async function readRecordedStatusFile(
+  env: CurrentSpecTreeEnv,
+  nodePath: string,
+): Promise<NodeStatusFile | undefined> {
+  const statusPath = nodeStatusPath(nodePath);
+  if (!existsSync(join(env.productDir, statusPath))) return undefined;
+  return JSON.parse(await env.readFile(statusPath)) as NodeStatusFile;
+}
+
+/** The lifecycle state the node's recorded claim classifies to, or `undefined` when no claim was written. */
+export async function readRecordedStatusState(env: CurrentSpecTreeEnv, nodePath: string): Promise<string | undefined> {
   const status = await readRecordedStatusFile(env, nodePath);
+  if (status === undefined) return undefined;
   return classifyNodeStatus({
     hasVerificationReferences: hasNodeStatusVerificationReferences(status.verification),
-    isExcluded: options.isExcluded,
+    isExcluded: false,
     verification: status.verification,
   });
 }
 
-export async function readRecordedStatusFile(env: CurrentSpecTreeEnv, nodePath: string): Promise<NodeStatusFile> {
-  const statusPath = [SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodePath, NODE_STATUS_FILENAME].join("/");
-  // Fail with a clear diagnostic if --update skipped the write, not a JSON parse error.
-  expect(existsSync(join(env.productDir, statusPath))).toBe(true);
-  const raw = await env.readFile(statusPath);
-  return JSON.parse(raw) as NodeStatusFile;
+/** One git invocation the recording git root double received. */
+export interface RecordedGitCall {
+  readonly command: string;
+  readonly args: readonly string[];
+  readonly cwd: string | undefined;
 }
 
-function sampleSpecOrder(): number {
-  return sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceOrder());
-}
-
-export function formatNodePath(order: number, slug: string, kind: NodeKind): string {
-  return `${order}-${slug}${getKindDefinition(kind).suffix}`;
-}
-
-function createGitRootDependencies(
-  productDir: string,
-  expectedCwd: string,
-): { dependencies: GitDependencies; calls: () => number } {
-  let callCount = 0;
+/**
+ * A recording git-root collaborator under the interaction-protocol exception:
+ * it answers every invocation with `productDir` as the worktree root and
+ * records the command, arguments, and working directory it received, so the
+ * test decides whether the root resolution asked git the right question.
+ */
+export function createRecordingGitRoot(productDir: string): {
+  readonly dependencies: GitDependencies;
+  readonly calls: () => readonly RecordedGitCall[];
+} {
+  const calls: RecordedGitCall[] = [];
   return {
     dependencies: {
       execa: async (command, args, options) => {
-        callCount += 1;
-        expect(command).toBe(GIT_ROOT_COMMAND.EXECUTABLE);
-        expect(args).toEqual(GIT_SHOW_TOPLEVEL_ARGS);
-        expect(options?.cwd).toBe(expectedCwd);
-        return {
-          exitCode: 0,
-          stderr: "",
-          stdout: productDir,
-        };
+        calls.push({ command, args: [...args], cwd: options?.cwd?.toString() });
+        return { exitCode: 0, stderr: "", stdout: productDir };
       },
     },
-    calls: () => callCount,
+    calls: () => calls,
   };
 }

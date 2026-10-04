@@ -1,5 +1,6 @@
 import * as fc from "fast-check";
 
+import { NODE_STATUS_EXCLUDE_FILENAME, NODE_STATUS_EXCLUDE_PATH_GRAMMAR } from "@/lib/node-status";
 import {
   canonicalNamingSchemaVersion,
   compareNamingSchemaVersions,
@@ -10,6 +11,7 @@ import {
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_EVIDENCE_STATUS,
+  SPEC_TREE_GRAMMAR,
   SPEC_TREE_KIND_CATEGORY,
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_SOURCE_ENTRY_KEYS,
@@ -23,6 +25,8 @@ import {
   type SpecTreeSourceEntry,
   type SpecTreeSourceRef,
 } from "@/lib/spec-tree";
+import { PYTHON_MARKER } from "@/validation/discovery/language-finder";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 
 type SpecTreeEntryDiscriminatorKey =
   | typeof SPEC_TREE_SOURCE_ENTRY_KEYS.TYPE
@@ -39,6 +43,12 @@ export type RepresentativeSpecTreeFixture = {
   readonly childEvidence: SpecTreeEvidenceSourceEntry;
   readonly peerEvidence: SpecTreeEvidenceSourceEntry;
   readonly entries: readonly SpecTreeSourceEntry[];
+};
+
+/** A representative fixture with one node nested under its child, at a distinct id and a higher order. */
+export type RepresentativeSpecTreeFixtureWithGrandchild = {
+  readonly fixture: RepresentativeSpecTreeFixture;
+  readonly grandchild: SpecTreeNodeSourceEntry;
 };
 
 export type AssemblyNodeOrders = {
@@ -103,12 +113,13 @@ const UNREGISTERED_SUFFIX_DISAMBIGUATOR = "-candidate";
 const ASSEMBLY_NODE_ORDER_COUNT: 3 = SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_ORDER_COUNT;
 
 export const RETIRED_SPEC_APPLY_FIXTURE = {
-  command: "apply",
-  excludeFile: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/EXCLUDE`,
-  pythonConfigFile: "pyproject.toml",
+  excludeFile: [SPEC_TREE_CONFIG.ROOT_DIRECTORY, NODE_STATUS_EXCLUDE_FILENAME].join(
+    NODE_STATUS_EXCLUDE_PATH_GRAMMAR.SEGMENT_SEPARATOR,
+  ),
+  pythonConfigFile: PYTHON_MARKER,
   pytestSection: "tool.pytest.ini_options",
-  // Commander emits this prefix for unknown subcommands before domain action handlers run.
-  unknownCommandPrefix: "error: unknown command",
+  /** The retired subcommand the contract scenario names: `spx spec apply`. */
+  command: "apply",
 } as const;
 
 export const SPEC_TREE_TEST_GENERATOR = {
@@ -130,6 +141,7 @@ export const SPEC_TREE_TEST_GENERATOR = {
   sourceRef: arbitrarySourceRef,
   decisionKind: arbitraryDecisionKind,
   representativeFixture: arbitraryRepresentativeFixture,
+  representativeFixtureWithGrandchild: arbitraryRepresentativeFixtureWithGrandchild,
 } as const;
 
 export function specTreeSourceMappingCases(): readonly SpecTreeSourceMappingCase[] {
@@ -205,6 +217,13 @@ export function orderedDirectoryName(suffix: string): string {
   return `${order}-${slug}${suffix}`;
 }
 
+/** An ordered node directory name with `suffix` that differs from every name in `taken`. */
+export function distinctOrderedDirectoryName(suffix: string, taken: ReadonlySet<string>): string {
+  let name = orderedDirectoryName(suffix);
+  while (taken.has(name)) name = orderedDirectoryName(suffix);
+  return name;
+}
+
 export function createSource(entries: readonly SpecTreeSourceEntry[]): SpecTreeSource {
   return {
     async *entries() {
@@ -223,7 +242,7 @@ export function createSerializedSource(entries: readonly SpecTreeSourceEntry[]):
 }
 
 export function buildRepresentativeFixture(registry: SpecTreeRegistry): RepresentativeSpecTreeFixture {
-  return sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.representativeFixture(registry));
+  return sampleGeneratedValue(SPEC_TREE_TEST_GENERATOR.representativeFixture(registry));
 }
 
 export function sampleNodeKind(registry: SpecTreeRegistry): NodeKind {
@@ -239,29 +258,28 @@ export function specTreeFixtureNodeDirectoryName(
   node: RepresentativeSpecTreeFixture["root"],
 ): string {
   const definition = registry[node.kind];
-  return `${node.order}-${node.slug}${definition.suffix}`;
+  return `${node.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${node.slug}${definition.suffix}`;
 }
 
 export function buildNodeEntry(
   registry: SpecTreeRegistry,
   entry: Omit<SpecTreeNodeSourceEntry, SpecTreeEntryDiscriminatorKey>,
 ): SpecTreeNodeSourceEntry {
-  return {
-    type: SPEC_TREE_ENTRY_TYPE.NODE,
-    kind: sampleSpecTreeTestValue(arbitraryNodeKind(registry)),
-    ...entry,
-  };
+  return nodeEntry(sampleGeneratedValue(arbitraryNodeKind(registry)), entry);
 }
 
-function buildDecisionEntry(
-  registry: SpecTreeRegistry,
+function nodeEntry(
+  kind: NodeKind,
+  entry: Omit<SpecTreeNodeSourceEntry, SpecTreeEntryDiscriminatorKey>,
+): SpecTreeNodeSourceEntry {
+  return { type: SPEC_TREE_ENTRY_TYPE.NODE, kind, ...entry };
+}
+
+function decisionEntry(
+  kind: DecisionKind,
   entry: Omit<SpecTreeDecisionSourceEntry, SpecTreeEntryDiscriminatorKey>,
 ): SpecTreeDecisionSourceEntry {
-  return {
-    type: SPEC_TREE_ENTRY_TYPE.DECISION,
-    kind: sampleSpecTreeTestValue(arbitraryDecisionKind(registry)),
-    ...entry,
-  };
+  return { type: SPEC_TREE_ENTRY_TYPE.DECISION, kind, ...entry };
 }
 
 export function buildEvidenceEntry(
@@ -300,13 +318,16 @@ function arbitraryRepresentativeFixture(registry: SpecTreeRegistry): fc.Arbitrar
       ),
       productRef: arbitrarySourceRef(),
       rootRef: arbitrarySourceRef(),
+      nodeKinds: fc.tuple(arbitraryNodeKind(registry), arbitraryNodeKind(registry), arbitraryNodeKind(registry)),
+      decisionKind: arbitraryDecisionKind(registry),
     })
-    .map(({ ids, slugs, titles, orders, productRef, rootRef }) => {
+    .map(({ ids, slugs, titles, orders, productRef, rootRef, nodeKinds, decisionKind }) => {
       const sortedOrders = [...orders].sort((left, right) => left - right);
       const [productId, rootId, childId, peerId, decisionId, childEvidenceId, peerEvidenceId] = ids;
       const [rootSlug, childSlug, peerSlug, decisionSlug] = slugs;
       const [productTitle, rootTitle, childTitle, peerTitle, decisionTitle] = titles;
       const [decisionOrder, rootOrder, childOrder, peerOrder] = sortedOrders;
+      const [rootKind, childKind, peerKind] = nodeKinds;
 
       const product = {
         type: SPEC_TREE_ENTRY_TYPE.PRODUCT,
@@ -314,27 +335,27 @@ function arbitraryRepresentativeFixture(registry: SpecTreeRegistry): fc.Arbitrar
         title: productTitle,
         ref: productRef,
       };
-      const root = buildNodeEntry(registry, {
+      const root = nodeEntry(rootKind, {
         id: rootId,
         order: rootOrder,
         slug: rootSlug,
         title: rootTitle,
         ref: rootRef,
       });
-      const child = buildNodeEntry(registry, {
+      const child = nodeEntry(childKind, {
         id: childId,
         order: childOrder,
         slug: childSlug,
         parentId: rootId,
         title: childTitle,
       });
-      const peer = buildNodeEntry(registry, {
+      const peer = nodeEntry(peerKind, {
         id: peerId,
         order: peerOrder,
         slug: peerSlug,
         title: peerTitle,
       });
-      const decision = buildDecisionEntry(registry, {
+      const decision = decisionEntry(decisionKind, {
         id: decisionId,
         order: decisionOrder,
         slug: decisionSlug,
@@ -363,6 +384,25 @@ function arbitraryRepresentativeFixture(registry: SpecTreeRegistry): fc.Arbitrar
         entries: [product, root, child, peer, decision, childEvidence, peerEvidence],
       };
     });
+}
+
+function arbitraryRepresentativeFixtureWithGrandchild(
+  registry: SpecTreeRegistry,
+): fc.Arbitrary<RepresentativeSpecTreeFixtureWithGrandchild> {
+  return arbitraryRepresentativeFixture(registry).chain((fixture) => {
+    const takenIds = new Set(fixture.entries.map((entry) => entry.id));
+    return fc
+      .record({
+        id: arbitrarySourceId().filter((id) => !takenIds.has(id)),
+        order: arbitraryChildSourceOrderAbove(fixture.child.order),
+        slug: arbitrarySourceSlug(),
+        kind: arbitraryNodeKind(registry),
+      })
+      .map(({ id, order, slug, kind }) => ({
+        fixture,
+        grandchild: nodeEntry(kind, { id, order, slug, parentId: fixture.child.id }),
+      }));
+  });
 }
 
 function arbitraryAssemblyNodeOrders(): fc.Arbitrary<AssemblyNodeOrders> {

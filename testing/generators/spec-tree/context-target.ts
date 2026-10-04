@@ -1,6 +1,10 @@
 import * as fc from "fast-check";
 
 import type { Config } from "@/config/types";
+import {
+  arbitraryMigratingMethodology,
+  type GeneratedMigratingMethodology,
+} from "@testing/generators/config/descriptors";
 
 import {
   arbitraryDecisionEntry,
@@ -8,199 +12,367 @@ import {
   type SpecTreeFixtureEntry,
 } from "@testing/generators/test-environment/test-environment";
 
+import { HOOK_SESSION_START_ENV } from "@/domains/hooks/session-start";
 import { TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
-import { NODE_STATUS_FILENAME } from "@/lib/node-status";
-import { CONTROL_CHAR_UPPER_BOUND, DEL_CHAR_CODE, formatHexEscape } from "@/lib/sanitize-cli-argument";
+import { METHODOLOGY_CODING_AGENT, METHODOLOGY_CODING_AGENTS, type MethodologyCodingAgent } from "@/lib/methodology";
 import {
   DECISION_KINDS,
   type DecisionKind,
   KIND_REGISTRY,
   NODE_SUFFIXES,
+  SPEC_CONTEXT_OPTIONAL_ARTIFACT,
+  SPEC_CONTEXT_PRODUCT_ROOT_TARGET,
   SPEC_CONTEXT_TARGET_FAILURE_KIND,
   SPEC_TREE_CONFIG,
-  SPEC_TREE_ENTRY_TYPE,
-  SPEC_TREE_EVIDENCE_STATUS,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_SUPERSEDED_NODE_SUFFIXES,
   type SpecContextTargetFailure,
-  type SpecTreeDecisionSourceEntry,
-  type SpecTreeEvidenceSourceEntry,
-  type SpecTreeNode,
-  type SpecTreeNodeSourceEntry,
-  type SpecTreeSnapshot,
-  type SpecTreeSourceEntry,
+  type SpecContextTargetFailureKind,
 } from "@/lib/spec-tree";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   type RepresentativeSpecTreeFixture,
+  sampleSpecTreeTestValue,
+  SPEC_TREE_TEST_GENERATOR,
   specTreeFixtureNodeDirectoryName,
 } from "@testing/generators/spec-tree/spec-tree";
+import {
+  TERMINAL_ORACLE_UNSAFE_CODE_POINTS,
+  terminalOracleHexEscape,
+} from "@testing/generators/terminal-text/terminal-text";
 
-const SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES = {
-  ABBREVIATED: "abbreviated",
-  AMBIGUOUS: "ambiguous",
-  ARTIFACT: "artifact",
-  CANONICAL: "canonical",
-  EMPTY_SEGMENT: "empty-segment",
-  INVALID_DIRECTORY: SPEC_TREE_ENTRY_TYPE.INVALID,
-  ROOTED: "rooted",
-  SUPERSEDED_DIRECTORY: SPEC_TREE_ENTRY_TYPE.SUPERSEDED,
+/** The accepted context target classes the resolution spec declares. */
+const SPEC_CONTEXT_TARGET_CLASS_VALUES = {
+  PRODUCT_ROOT: "root-directory-target",
+  PRODUCT_SPEC: "product-spec-target",
+  NODE_DIRECTORY: "node-directory-target",
+  NODE_SPEC: "node-spec-target",
+  NODE_DECISION: "node-decision-target",
+  ROOT_DECISION: "root-decision-target",
+} as const;
+
+/** The operand spellings the resolution spec admits for a relative or absolute target. */
+const SPEC_CONTEXT_TARGET_SPELLING_VALUES = {
+  ROOT_RELATIVE: "root-relative",
   TRAILING_SEPARATOR: "trailing-separator",
-  UNKNOWN: "unknown",
+  ABSOLUTE: "absolute",
+  INVOCATION_RELATIVE: "invocation-relative",
+  SUFFIX: "suffix",
+  /**
+   * Parent segments from a nested invocation directory back to the product
+   * root: the invocation candidate stays inside the root while the
+   * product-root candidate escapes and is discarded.
+   */
+  PARENT_TRAVERSAL: "parent-traversal",
 } as const;
 
-const SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES = {
-  AGENT_GUIDE: SPEC_TREE_GRAMMAR.GUIDE_FILES[1],
-  EVAL_EVIDENCE: "eval-evidence",
-  ISSUES: SPEC_TREE_GRAMMAR.COORDINATION_NOTES[1],
-  NODE_DECISION: "node-decision",
-  NODE_SPEC: "node-spec",
-  NODE_STATUS: NODE_STATUS_FILENAME,
-  PLAN: SPEC_TREE_GRAMMAR.COORDINATION_NOTES[0],
-  PRODUCT_SPEC: SPEC_TREE_ENTRY_TYPE.PRODUCT,
-  ROOT_COORDINATION_NOTE: "root-coordination-note",
-  ROOT_DECISION: "root-decision",
-  RUNTIME_GUIDE: SPEC_TREE_GRAMMAR.GUIDE_FILES[0],
-  TEST_EVIDENCE: "test-evidence",
-} as const;
-
-const SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE_VALUES = {
-  DIRECTORY: "directory",
+/** Whether an unaccepted artifact is written as a file or created as a directory. */
+const SPEC_CONTEXT_ARTIFACT_SHAPE = {
   FILE: "file",
+  DIRECTORY: "directory",
 } as const;
 
-const SPEC_CONTEXT_EMPTY_SEGMENT_POSITION_VALUES = {
-  EMPTY_TARGET: "empty-target",
-  LEADING_SEPARATOR: "leading-separator",
-  REPEATED_SEPARATOR: "repeated-separator",
-} as const;
+type SpecContextArtifactShape = (typeof SPEC_CONTEXT_ARTIFACT_SHAPE)[keyof typeof SPEC_CONTEXT_ARTIFACT_SHAPE];
 
-const SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY_VALUES = {
-  REPRESENTATIVE: "representative",
-  SINGLE_ROOT: "single-root",
-} as const;
-
-export type SpecContextTargetMappingCaseKind =
-  (typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES)[keyof typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES];
-
-type UnrecognizedNodeDirectoryCaseKind =
-  | typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.INVALID_DIRECTORY
-  | typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.SUPERSEDED_DIRECTORY;
-
-export type SpecContextEmptySegmentPosition =
-  (typeof SPEC_CONTEXT_EMPTY_SEGMENT_POSITION_VALUES)[keyof typeof SPEC_CONTEXT_EMPTY_SEGMENT_POSITION_VALUES];
-
-export type SpecContextEmptySegmentTopology =
-  (typeof SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY_VALUES)[keyof typeof SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY_VALUES];
-
-export type SpecContextEmptySegmentMappingCase = {
-  readonly kind: typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.EMPTY_SEGMENT;
-  readonly position: SpecContextEmptySegmentPosition;
-  readonly title: string;
-  readonly topology: SpecContextEmptySegmentTopology;
+/** Where an unaccepted artifact sits: inside the fixture's root node, or directly under the tree root. */
+type SpecContextUnacceptedArtifactLayout = {
+  /** The tree-rooted directory of the fixture's root node. */
+  readonly node: string;
+  /** The tree root directory. */
+  readonly tree: string;
+  /** A slug no fixture node uses, naming rule directories and free-named artifacts. */
+  readonly slug: string;
 };
 
-type SpecContextNonDecisionArtifactMappingCaseKind =
-  | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.AGENT_GUIDE
-  | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.EVAL_EVIDENCE
-  | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.ISSUES
-  | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.NODE_SPEC
-  | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.NODE_STATUS
-  | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.PLAN
-  | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.PRODUCT_SPEC
-  | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.RUNTIME_GUIDE
-  | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.TEST_EVIDENCE;
+type SpecContextUnacceptedArtifactMember = {
+  readonly label: string;
+  readonly shape: SpecContextArtifactShape;
+  readonly path: (layout: SpecContextUnacceptedArtifactLayout) => string;
+};
 
-type SpecContextEvalArtifactName =
-  | (typeof SPEC_TREE_GRAMMAR.EVAL.FILES)[number]
-  | typeof SPEC_TREE_GRAMMAR.EVAL.RUNS_DIRECTORY_NAME;
+function joinArtifactPath(...segments: readonly string[]): string {
+  return segments.join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
+}
 
-type SpecContextDecisionArtifactMappingCaseKind =
-  | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.NODE_DECISION
-  | typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.ROOT_DECISION;
+function unacceptedFile(
+  label: string,
+  path: SpecContextUnacceptedArtifactMember["path"],
+): SpecContextUnacceptedArtifactMember {
+  return { label, shape: SPEC_CONTEXT_ARTIFACT_SHAPE.FILE, path };
+}
 
-export type SpecContextArtifactMappingCase =
+function unacceptedDirectory(
+  label: string,
+  path: SpecContextUnacceptedArtifactMember["path"],
+): SpecContextUnacceptedArtifactMember {
+  return { label, shape: SPEC_CONTEXT_ARTIFACT_SHAPE.DIRECTORY, path };
+}
+
+/** A test-evidence filename in one language's tail; its mode and level are incidental, drawn under the pinned seed. */
+function evidenceFilename(slug: string, tail: readonly string[]): string {
+  const { mode, level } = sampleGeneratedValue(fc.record({
+    mode: fc.constantFrom(...SPEC_TREE_GRAMMAR.EVIDENCE.MODES),
+    level: fc.constantFrom(...SPEC_TREE_GRAMMAR.EVIDENCE.LEVELS),
+  }));
+  return [slug, mode, level, ...tail].join(SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR);
+}
+
+/**
+ * Every artifact the spec-tree grammar declares that no context target class
+ * accepts, keyed by the grammar's own fields. The record is total over `SPEC_TREE_GRAMMAR`, so a grammar field
+ * added in production fails to compile here until its artifacts join the
+ * rejected domain or the field is recorded as naming no artifact.
+ */
+const UNACCEPTED_ARTIFACTS_BY_GRAMMAR_FIELD: {
+  readonly [Field in keyof typeof SPEC_TREE_GRAMMAR]: readonly SpecContextUnacceptedArtifactMember[];
+} = {
+  // Accepted target classes: the product spec and node spec files.
+  PRODUCT_SUFFIX: [],
+  SPEC_FILE: [],
+  // Naming grammar: filename segments and separators, not artifacts an operand can name.
+  RUNNERS: [],
+  ORDER: [],
+  PATH_SEPARATOR: [],
+  // Node-directory suffixes, covered by the superseded-suffix unresolved shape.
+  PRIOR_NODE_SUFFIXES: [],
+  // The same notes `COORDINATION_NOTES` lists.
+  COORDINATION_NOTE: [],
+  EVIDENCE: [
+    unacceptedDirectory(
+      "test-evidence-directory",
+      ({ node }) => joinArtifactPath(node, SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME),
+    ),
+    ...Object.entries(SPEC_TREE_GRAMMAR.EVIDENCE.TAILS).map(([language, tail]) =>
+      unacceptedFile(
+        `${language.toLowerCase()}-test-evidence-file`,
+        ({ node, slug }) =>
+          joinArtifactPath(node, SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME, evidenceFilename(slug, tail)),
+      )
+    ),
+  ],
+  COORDINATION_NOTES: SPEC_TREE_GRAMMAR.COORDINATION_NOTES.flatMap((note) => [
+    unacceptedFile(`node-${note}`, ({ node }) => joinArtifactPath(node, note)),
+    unacceptedFile(`tree-root-${note}`, ({ tree }) => joinArtifactPath(tree, note)),
+  ]),
+  GUIDE_FILES: SPEC_TREE_GRAMMAR.GUIDE_FILES.flatMap((guide) => [
+    unacceptedFile(`node-${guide}`, ({ node }) => joinArtifactPath(node, guide)),
+    unacceptedFile(`tree-root-${guide}`, ({ tree }) => joinArtifactPath(tree, guide)),
+  ]),
+  STATUS_FILENAME: [
+    unacceptedFile("node-status-claim", ({ node }) => joinArtifactPath(node, SPEC_TREE_GRAMMAR.STATUS_FILENAME)),
+  ],
+  LOCAL_OVERLAYS: [
+    unacceptedDirectory(
+      "local-overlay-directory",
+      ({ tree }) => joinArtifactPath(tree, SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.DIRECTORY_NAME),
+    ),
+    unacceptedFile(
+      "lifecycle-overlay",
+      ({ tree }) =>
+        joinArtifactPath(
+          tree,
+          SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.DIRECTORY_NAME,
+          SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.LIFECYCLE_FILENAME,
+        ),
+    ),
+    unacceptedFile(
+      "local-overlay",
+      ({ tree, slug }) =>
+        joinArtifactPath(
+          tree,
+          SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.DIRECTORY_NAME,
+          `${slug}${SPEC_TREE_GRAMMAR.LOCAL_OVERLAYS.EXTENSION}`,
+        ),
+    ),
+  ],
+  EVAL: [
+    unacceptedDirectory("eval-directory", ({ node }) => joinArtifactPath(node, SPEC_TREE_GRAMMAR.EVAL.DIRECTORY_NAME)),
+    unacceptedDirectory(
+      "eval-rule-directory",
+      ({ node, slug }) => joinArtifactPath(node, SPEC_TREE_GRAMMAR.EVAL.DIRECTORY_NAME, slug),
+    ),
+    ...SPEC_TREE_GRAMMAR.EVAL.FILES.map((filename) =>
+      unacceptedFile(
+        `eval-${filename}`,
+        ({ node, slug }) => joinArtifactPath(node, SPEC_TREE_GRAMMAR.EVAL.DIRECTORY_NAME, slug, filename),
+      )
+    ),
+    unacceptedDirectory(
+      "eval-runs-directory",
+      ({ node, slug }) =>
+        joinArtifactPath(node, SPEC_TREE_GRAMMAR.EVAL.DIRECTORY_NAME, slug, SPEC_TREE_GRAMMAR.EVAL.RUNS_DIRECTORY_NAME),
+    ),
+  ],
+  PROBE: [
+    unacceptedDirectory(
+      "probe-directory",
+      ({ node }) => joinArtifactPath(node, SPEC_TREE_GRAMMAR.PROBE.DIRECTORY_NAME),
+    ),
+    unacceptedDirectory(
+      "probe-protocol-directory",
+      ({ node, slug }) => joinArtifactPath(node, SPEC_TREE_GRAMMAR.PROBE.DIRECTORY_NAME, slug),
+    ),
+    unacceptedFile(
+      "probe-protocol",
+      ({ node, slug }) =>
+        joinArtifactPath(node, SPEC_TREE_GRAMMAR.PROBE.DIRECTORY_NAME, slug, SPEC_TREE_GRAMMAR.PROBE.PROTOCOL_FILENAME),
+    ),
+    unacceptedDirectory(
+      "probe-runs-directory",
+      ({ node, slug }) =>
+        joinArtifactPath(
+          node,
+          SPEC_TREE_GRAMMAR.PROBE.DIRECTORY_NAME,
+          slug,
+          SPEC_TREE_GRAMMAR.PROBE.RUNS_DIRECTORY_NAME,
+        ),
+    ),
+  ],
+};
+
+/**
+ * Every optional artifact a context projection may select, keyed by the
+ * projection's own registry and total over it, for the same reason.
+ */
+const UNACCEPTED_ARTIFACTS_BY_OPTIONAL_ARTIFACT: {
+  readonly [Artifact in keyof typeof SPEC_CONTEXT_OPTIONAL_ARTIFACT]: readonly SpecContextUnacceptedArtifactMember[];
+} = {
+  // The same note `SPEC_TREE_GRAMMAR.COORDINATION_NOTES` lists.
+  ISSUES: [],
+  KNOWLEDGE_INDEX: [
+    unacceptedDirectory(
+      "knowledge-root",
+      ({ node }) =>
+        joinArtifactPath(
+          node,
+          ...SPEC_CONTEXT_OPTIONAL_ARTIFACT.KNOWLEDGE_INDEX.split(SPEC_TREE_GRAMMAR.PATH_SEPARATOR).slice(0, -1),
+        ),
+    ),
+    unacceptedFile(
+      "knowledge-index",
+      ({ node }) => joinArtifactPath(node, SPEC_CONTEXT_OPTIONAL_ARTIFACT.KNOWLEDGE_INDEX),
+    ),
+  ],
+  OUTCOME_SUFFIX: [
+    unacceptedFile(
+      "outcome-record",
+      ({ node, slug }) => joinArtifactPath(node, `${slug}${SPEC_CONTEXT_OPTIONAL_ARTIFACT.OUTCOME_SUFFIX}`),
+    ),
+  ],
+};
+
+const SPEC_CONTEXT_UNACCEPTED_ARTIFACT_MEMBERS: readonly SpecContextUnacceptedArtifactMember[] = [
+  ...Object.values(UNACCEPTED_ARTIFACTS_BY_GRAMMAR_FIELD).flat(),
+  ...Object.values(UNACCEPTED_ARTIFACTS_BY_OPTIONAL_ARTIFACT).flat(),
+];
+
+/**
+ * The spellings an unaccepted artifact is supplied in, each making one
+ * candidate source decisive: root-relative from a nested invocation directory
+ * resolves only through the product-root source, and invocation-relative from
+ * the artifact's own parent resolves only through the invocation directory.
+ */
+const SPEC_CONTEXT_UNACCEPTED_SPELLINGS = [
+  SPEC_CONTEXT_TARGET_SPELLING_VALUES.ROOT_RELATIVE,
+  SPEC_CONTEXT_TARGET_SPELLING_VALUES.INVOCATION_RELATIVE,
+] as const;
+
+type SpecContextUnacceptedSpelling = (typeof SPEC_CONTEXT_UNACCEPTED_SPELLINGS)[number];
+
+/** The unresolved shapes the resolution spec rejects without guessing. */
+const SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES = {
+  UNKNOWN_DIRECTORY: "unknown-directory",
+  EMPTY: "empty",
+  UNREGISTERED_SUFFIX: "unregistered-suffix",
+  SUPERSEDED_SUFFIX: "superseded-suffix",
+  /** A trailing fragment of a path component, matching no complete component. */
+  PARTIAL_COMPONENT: "partial-component-suffix",
+  /** A complete-component suffix of a tracked path that is no accepted target. */
+  UNACCEPTED_PATH_SUFFIX: "unaccepted-path-suffix",
+  /**
+   * Parent segments from a nested invocation directory naming an existing
+   * file of an unaccepted class at the product root: the product-root
+   * candidate escapes and is discarded, so the invocation candidate decides.
+   */
+  PARTIALLY_ESCAPING: "partially-escaping",
+  /** An absolute operand naming a directory outside the product: its one candidate escapes. */
+  ABSOLUTE_OUTSIDE: "absolute-outside",
+  /** A parent segment from the product root: every candidate escapes through lexical traversal. */
+  TRAVERSAL: "traversal",
+} as const;
+
+export const SPEC_CONTEXT_TARGET_CLASS = SPEC_CONTEXT_TARGET_CLASS_VALUES;
+export const SPEC_CONTEXT_TARGET_SPELLING = SPEC_CONTEXT_TARGET_SPELLING_VALUES;
+export const SPEC_CONTEXT_UNRESOLVED_SHAPE = SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES;
+
+export type SpecContextTargetClass =
+  (typeof SPEC_CONTEXT_TARGET_CLASS_VALUES)[keyof typeof SPEC_CONTEXT_TARGET_CLASS_VALUES];
+export type SpecContextTargetSpelling =
+  (typeof SPEC_CONTEXT_TARGET_SPELLING_VALUES)[keyof typeof SPEC_CONTEXT_TARGET_SPELLING_VALUES];
+export type SpecContextUnresolvedShape =
+  (typeof SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES)[keyof typeof SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES];
+
+/**
+ * One accepted target class in one operand spelling, and for a decision class
+ * one decision kind; the complete finite domain is their cross product.
+ */
+export type SpecContextAcceptedTargetCase = {
+  readonly targetClass: SpecContextTargetClass;
+  readonly spelling: SpecContextTargetSpelling;
+  /** The decision kind of a decision class; absent for every other class. */
+  readonly decisionKind: DecisionKind | undefined;
+  readonly title: string;
+};
+
+/**
+ * One rejected-target case. Zero identities after confinement and collapse
+ * are unresolved — an operand whose every candidate escapes and an existing
+ * artifact of an unaccepted class among them — and several identities are
+ * ambiguous.
+ */
+export type SpecContextRejectedTargetCase =
   | {
-    readonly artifactKind: typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.EVAL_EVIDENCE;
-    readonly evalArtifactName: SpecContextEvalArtifactName;
-    readonly kind: typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.ARTIFACT;
+    readonly kind: typeof SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED;
+    readonly shape: SpecContextUnresolvedShape;
     readonly title: string;
   }
   | {
-    readonly artifactKind: typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.ROOT_COORDINATION_NOTE;
-    readonly noteFilename: (typeof SPEC_TREE_GRAMMAR.COORDINATION_NOTES)[number];
-    readonly kind: typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.ARTIFACT;
+    readonly kind: typeof SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED;
+    /** The label of one member of the grammar-total unaccepted-artifact domain. */
+    readonly artifact: string;
+    readonly spelling: SpecContextUnacceptedSpelling;
     readonly title: string;
   }
-  | {
-    readonly artifactKind: Exclude<
-      SpecContextNonDecisionArtifactMappingCaseKind,
-      typeof SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES.EVAL_EVIDENCE
-    >;
-    readonly kind: typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.ARTIFACT;
-    readonly title: string;
-  }
-  | {
-    readonly artifactKind: SpecContextDecisionArtifactMappingCaseKind;
-    readonly decisionKind: DecisionKind;
-    readonly kind: typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.ARTIFACT;
-    readonly title: string;
-  };
-
-export type SpecContextTargetMappingCase =
-  | {
-    readonly kind: Exclude<
-      SpecContextTargetMappingCaseKind,
-      | UnrecognizedNodeDirectoryCaseKind
-      | typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.ARTIFACT
-      | typeof SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES.EMPTY_SEGMENT
-    >;
-    readonly title: string;
-  }
-  | SpecContextArtifactMappingCase
-  | SpecContextEmptySegmentMappingCase
-  | {
-    readonly kind: UnrecognizedNodeDirectoryCaseKind;
-    readonly title: string;
-  };
+  | { readonly kind: typeof SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS; readonly title: string };
 
 export type SpecContextTargetDiagnosticSafetyCase = {
   readonly failure: SpecContextTargetFailure;
   readonly title: string;
   readonly unsafeValue: string;
+  /** The rendering the escaping law requires, computed independently of the production sanitizer. */
+  readonly expectedEscapedValue: string;
 };
 
-export type SpecContextAmbiguousTargetFixture = {
-  readonly candidate: string;
-  readonly prefix: string;
-  readonly specPath: string;
+/** The paths one accepted-target case denotes: the operand to supply and the canonical identity it must resolve to. */
+export type SpecContextAcceptedTargetOperand = {
+  /** The operand as the caller spells it. */
+  readonly operand: string;
+  /** The invocation directory, relative to the product root, the operand is resolved from. */
+  readonly invocationDir: string;
+  /** The canonical accepted target path the operand must resolve to. */
+  readonly expectedTarget: string;
+  /** Product-relative artifacts the case needs on disk beyond the materialized fixture. */
+  readonly artifacts: readonly { readonly path: string; readonly content: string }[];
 };
 
-export type SpecContextExactPrefixTargetFixture = {
-  readonly candidateSpecPath: string;
-  readonly target: string;
-};
-
-export type SpecContextEmptySegmentTargetFixture = {
-  readonly segment: string;
-  readonly target: string;
-};
-
-export type SpecContextArtifactTargetFixture = {
-  readonly failure: Extract<
-    SpecContextTargetFailure,
-    {
-      readonly kind:
-        | typeof SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH
-        | typeof SPEC_CONTEXT_TARGET_FAILURE_KIND.ROOT_ARTIFACT_PATH;
-    }
-  >;
-  readonly sourceFixture: RepresentativeSpecTreeFixture;
-  readonly target: string;
-  readonly filesystemArtifact?: {
-    readonly content: string;
-    readonly type:
-      (typeof SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE_VALUES)[keyof typeof SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE_VALUES];
-  };
+export type SpecContextRejectedTargetOperand = {
+  readonly operand: string;
+  readonly invocationDir: string;
+  readonly expectedKind: SpecContextTargetFailureKind;
+  /** Every canonical accepted-target path an ambiguous operand must report. */
+  readonly expectedCandidates: readonly string[];
+  readonly artifacts: readonly { readonly path: string; readonly content: string }[];
+  readonly directories: readonly string[];
 };
 
 /**
@@ -215,170 +387,55 @@ export function arbitrarySpecContextInvalidUtf8Bytes(): fc.Arbitrary<Uint8Array>
   );
 }
 
-/** Citation-shaped paths that must bind nothing: relative segment, suffix-extended, and embedded-root shapes. */
-export type SpecContextTraversalCitationShapes = {
-  /** Prose shapes written into a spec body; none may bind a read entry or reach a filesystem probe. */
+/** Citation-shaped text that must bind nothing: bare paths, other link destinations, and off-grammar hrefs. */
+export type SpecContextNonCitationShapes = {
+  /** Prose shapes written into a spec body; none may bind a selected decision. */
   readonly proseShapes: readonly string[];
-  /** The decision path a suffix-extended or embedded shape would truncate or expose if the pattern overmatched. */
+  /** The decision path a bare-text or off-grammar shape names; it must never enter the projection through them. */
   readonly unboundDecisionPath: string;
 };
 
-export function specContextTraversalCitationShapes(): SpecContextTraversalCitationShapes {
-  const decisionSuffix = KIND_REGISTRY[DECISION_KINDS[0]].suffix;
-  const unboundDecisionPath = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/99-shape${decisionSuffix}`;
+/**
+ * One drawn non-citation scenario: a tree-root decision path no tracked file
+ * satisfies, written in every shape the citation grammar refuses — bare text,
+ * an inline code span, an external URL destination, a destination extending
+ * the decision suffix, a destination adding a trailing extension, and a
+ * destination embedding the tree path under another directory. The path, the
+ * URL host, the extension, and the embedding directory vary per draw.
+ */
+export function specContextNonCitationShapes(fixture: RepresentativeSpecTreeFixture): SpecContextNonCitationShapes {
+  const unboundDecisionPath = specContextAbsentDecisionPath(
+    fixture,
+    specContextFixtureDocuments(fixture).peerDirectory,
+  );
+  const [host, extension, embedding] = sampleGeneratedValue(
+    fc.tuple(
+      SPEC_TREE_TEST_GENERATOR.sourceSlug(),
+      SPEC_TREE_TEST_GENERATOR.sourceSlug(),
+      SPEC_TREE_TEST_GENERATOR.sourceSlug(),
+    ),
+  );
   return {
     proseShapes: [
-      `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/../../outside-product${decisionSuffix}`,
-      `${unboundDecisionPath}x`,
-      `${unboundDecisionPath}.bak`,
-      `dist/${unboundDecisionPath}`,
+      unboundDecisionPath,
+      `\`${unboundDecisionPath}\``,
+      `[external](https://${host}.invalid/${unboundDecisionPath})`,
+      `[extended](${unboundDecisionPath}${extension})`,
+      `[trailing](${unboundDecisionPath}.${extension})`,
+      `[embedded](${embedding}/${unboundDecisionPath})`,
     ],
     unboundDecisionPath,
   };
 }
 
-/** The vitest `it.each` title token that renders each mapping case's own title. */
+/** The vitest `it.each` title token that renders each case's own title. */
 export const SPEC_CONTEXT_CASE_TITLE = "$title";
-
-export const SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND = SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND_VALUES;
-export const SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND = SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND_VALUES;
-export const SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE = SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE_VALUES;
-export const SPEC_CONTEXT_EMPTY_SEGMENT_POSITION = SPEC_CONTEXT_EMPTY_SEGMENT_POSITION_VALUES;
-export const SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY = SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY_VALUES;
 
 function unregisteredNodeSuffix(seed: string): string {
   const registeredSuffixes = new Set([...NODE_SUFFIXES, ...SPEC_TREE_SUPERSEDED_NODE_SUFFIXES]);
   let candidate = `.${seed}`;
   while (registeredSuffixes.has(candidate)) candidate = `${candidate}-${seed}`;
   return candidate;
-}
-
-function supersededNodeSuffix(): string {
-  return SPEC_TREE_SUPERSEDED_NODE_SUFFIXES[0];
-}
-
-function replaceFixtureEntry(
-  entries: readonly SpecTreeSourceEntry[],
-  replacement: SpecTreeSourceEntry,
-): readonly SpecTreeSourceEntry[] {
-  return entries.map((entry) => entry.id === replacement.id ? replacement : entry);
-}
-
-function sourceRef(path: string): { readonly id: string; readonly path: string } {
-  return { id: path, path };
-}
-
-function nodeArtifactFixture(
-  fixture: RepresentativeSpecTreeFixture,
-  target: string,
-): RepresentativeSpecTreeFixture {
-  const root: SpecTreeNodeSourceEntry = { ...fixture.root, ref: sourceRef(target) };
-  return { ...fixture, entries: replaceFixtureEntry(fixture.entries, root), root };
-}
-
-function productArtifactFixture(
-  fixture: RepresentativeSpecTreeFixture,
-  target: string,
-): RepresentativeSpecTreeFixture {
-  const product = { ...fixture.product, ref: sourceRef(target) };
-  return { ...fixture, entries: replaceFixtureEntry(fixture.entries, product), product };
-}
-
-function decisionArtifactFixture(
-  fixture: RepresentativeSpecTreeFixture,
-  decisionKind: DecisionKind,
-  parentId: string | undefined,
-  target: string,
-): RepresentativeSpecTreeFixture {
-  const decision: SpecTreeDecisionSourceEntry = {
-    ...fixture.decision,
-    kind: decisionKind,
-    parentId,
-    ref: sourceRef(target),
-  };
-  return { ...fixture, decision, entries: replaceFixtureEntry(fixture.entries, decision) };
-}
-
-function evidenceArtifactFixture(
-  fixture: RepresentativeSpecTreeFixture,
-  target: string,
-): RepresentativeSpecTreeFixture {
-  const childEvidence: SpecTreeEvidenceSourceEntry = {
-    ...fixture.childEvidence,
-    parentId: fixture.root.id,
-    ref: sourceRef(target),
-    status: SPEC_TREE_EVIDENCE_STATUS.PASSING,
-  };
-  return { ...fixture, childEvidence, entries: replaceFixtureEntry(fixture.entries, childEvidence) };
-}
-
-function ownedArtifactTargetFixture(
-  fixture: RepresentativeSpecTreeFixture,
-  sourceFixture: RepresentativeSpecTreeFixture,
-  target: string,
-): SpecContextArtifactTargetFixture {
-  return {
-    failure: {
-      input: target,
-      kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH,
-      ownerId: fixture.root.id,
-    },
-    sourceFixture,
-    target,
-  };
-}
-
-function filesystemOwnedArtifactTargetFixture(
-  fixture: RepresentativeSpecTreeFixture,
-  target: string,
-  type:
-    (typeof SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE_VALUES)[keyof typeof SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE_VALUES],
-): SpecContextArtifactTargetFixture {
-  return {
-    failure: {
-      input: target,
-      kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH,
-      ownerId: specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root),
-    },
-    filesystemArtifact: {
-      content: fixture.root.title ?? fixture.root.slug,
-      type,
-    },
-    sourceFixture: fixture,
-    target,
-  };
-}
-
-function decisionArtifactMappingCases(
-  artifactKind: SpecContextDecisionArtifactMappingCaseKind,
-): readonly SpecContextArtifactMappingCase[] {
-  return DECISION_KINDS.map((decisionKind) => ({
-    artifactKind,
-    decisionKind,
-    kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
-    title: artifactKind === SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.NODE_DECISION
-      ? `maps a node-owned ${KIND_REGISTRY[decisionKind].label} path to its owning node`
-      : `maps a product-root ${KIND_REGISTRY[decisionKind].label} path to node-selection guidance`,
-  }));
-}
-
-function nodeSegment(nodeId: string): string {
-  return nodeId.split(TRACKED_PATH_DIRECTORY_SEPARATOR).at(-1) ?? nodeId;
-}
-
-function shortestUniquePrefix(segment: string, siblingSegments: readonly string[]): string {
-  for (let length = 1; length <= segment.length; length += 1) {
-    const prefix = segment.slice(0, length);
-    if (siblingSegments.filter((candidate) => candidate.startsWith(prefix)).length === 1) return prefix;
-  }
-  return segment;
-}
-
-function unsafeCliDiagnosticCodes(): readonly number[] {
-  return [
-    ...Array.from({ length: CONTROL_CHAR_UPPER_BOUND + 1 }, (_unused, code) => code),
-    DEL_CHAR_CODE,
-  ];
 }
 
 export function specContextLowerSiblingDirectoryName(fixture: RepresentativeSpecTreeFixture): string {
@@ -392,356 +449,630 @@ export function specContextSameIndexSiblingDirectoryName(fixture: Representative
   return `${fixture.root.order}-${fixture.root.slug}-same${definition.suffix}`;
 }
 
-export function specContextAbbreviatedTarget(snapshot: SpecTreeSnapshot, target: SpecTreeNode): string {
-  const byId = new Map(snapshot.allNodes.map((node) => [node.id, node]));
-  const lineage: SpecTreeNode[] = [];
-  let current: SpecTreeNode | undefined = target;
-  while (current !== undefined) {
-    lineage.unshift(current);
-    current = current.parentId === undefined ? undefined : byId.get(current.parentId);
-  }
-  return lineage.map((node) => {
-    const segment = nodeSegment(node.id);
-    const siblings = snapshot.allNodes
-      .filter((candidate) => candidate.parentId === node.parentId)
-      .map((candidate) => nodeSegment(candidate.id));
-    return shortestUniquePrefix(segment, siblings);
-  }).join(TRACKED_PATH_DIRECTORY_SEPARATOR);
-}
-
-/** A target no sibling segment matches or prefixes, derived from the fixture root's directory name. */
+/** A target no accepted path matches, derived from the fixture root's directory name. */
 export function specContextUnknownTarget(fixture: RepresentativeSpecTreeFixture): string {
   return `${specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root)}-unknown`;
 }
 
-export function specContextAmbiguousTargetFixture(
-  fixture: RepresentativeSpecTreeFixture,
-): SpecContextAmbiguousTargetFixture {
-  const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root);
-  const suffix = KIND_REGISTRY[fixture.root.kind].suffix;
-  const stem = target.slice(0, -suffix.length);
-  const candidateSlug = `${fixture.root.slug}-candidate`;
-  return {
-    candidate: `${fixture.root.order}-${candidateSlug}${suffix}`,
-    prefix: stem,
-    specPath: `spx/${fixture.root.order}-${candidateSlug}${suffix}/${candidateSlug}.md`,
-  };
+/** The POSIX path segment naming a directory's parent. */
+const PARENT_DIRECTORY_SEGMENT = "..";
+
+function rooted(...segments: readonly string[]): string {
+  return [SPEC_TREE_CONFIG.ROOT_DIRECTORY, ...segments].join(TRACKED_PATH_DIRECTORY_SEPARATOR);
 }
 
-export function specContextExactPrefixTargetFixture(
-  fixture: RepresentativeSpecTreeFixture,
-): SpecContextExactPrefixTargetFixture {
-  const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root);
-  const suffix = KIND_REGISTRY[fixture.root.kind].suffix;
-  const candidateSlug = `${fixture.root.slug}${suffix}-candidate`;
-  return {
-    candidateSpecPath: `spx/${fixture.root.order}-${candidateSlug}${suffix}/${candidateSlug}.md`,
-    target,
-  };
+function specContent(title: string, opening: string): string {
+  return `# ${title}\n\n${opening} generated fixture content\nSO THAT spec-tree tests\nCAN read current nodes\n`;
 }
 
-export function specContextNestedAmbiguousTarget(
-  snapshot: SpecTreeSnapshot,
-  ambiguity: SpecContextAmbiguousTargetFixture,
-): string {
-  const child = snapshot.allNodes.find((node) => node.parentId !== undefined) ?? snapshot.allNodes[0];
-  const childSegment = nodeSegment(child.id);
-  const siblingSegments = snapshot.allNodes
-    .filter((candidate) => candidate.parentId === child.parentId)
-    .map((candidate) => nodeSegment(candidate.id));
-  return `${ambiguity.prefix}/${shortestUniquePrefix(childSegment, siblingSegments)}`;
+/** A decision body: its title and a decision statement carrying no fixed opening keyword. */
+function decisionContent(title: string): string {
+  return `# ${title}\n\nGenerated fixture content governs spec-tree tests\nthat read current nodes.\n`;
 }
 
-export function specContextEmptySegmentTargetFixture(
-  snapshot: SpecTreeSnapshot,
-  position: SpecContextEmptySegmentPosition,
-): SpecContextEmptySegmentTargetFixture {
-  if (position === SPEC_CONTEXT_EMPTY_SEGMENT_POSITION.EMPTY_TARGET) {
-    return { segment: "", target: "" };
-  }
-  const target = snapshot.allNodes.find((node) => node.parentId !== undefined);
-  if (target === undefined) throw new Error("Expected a representative spec-tree fixture with a nested node");
-  const separator = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
-  switch (position) {
-    case SPEC_CONTEXT_EMPTY_SEGMENT_POSITION.LEADING_SEPARATOR:
-      return { segment: "", target: `${separator}${target.id}` };
-    case SPEC_CONTEXT_EMPTY_SEGMENT_POSITION.REPEATED_SEPARATOR: {
-      const segments = target.id.split(separator);
-      return {
-        segment: "",
-        target: [segments[0], "", ...segments.slice(1)].join(separator),
-      };
-    }
-  }
-}
-
-export function specContextEmptySegmentSourceFixture(
-  fixture: RepresentativeSpecTreeFixture,
-  topology: SpecContextEmptySegmentTopology,
-): RepresentativeSpecTreeFixture {
-  switch (topology) {
-    case SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY.REPRESENTATIVE:
-      return fixture;
-    case SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY.SINGLE_ROOT:
-      return { ...fixture, entries: [fixture.product, fixture.root] };
-  }
-}
-
-export function specContextUnrecognizedNodeDirectoryTarget(
-  fixture: RepresentativeSpecTreeFixture,
-  kind: UnrecognizedNodeDirectoryCaseKind,
-): string {
-  const suffix = kind === SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.INVALID_DIRECTORY
-    ? unregisteredNodeSuffix(fixture.decision.slug)
-    : supersededNodeSuffix();
-  return `${fixture.root.order}-${fixture.root.slug}${suffix}`;
-}
-
-export function specContextArtifactTargetFixture(
-  fixture: RepresentativeSpecTreeFixture,
-  mappingCase: SpecContextArtifactMappingCase,
-): SpecContextArtifactTargetFixture {
+/** The product-relative path of the fixture's representative documents. */
+export function specContextFixtureDocuments(fixture: RepresentativeSpecTreeFixture): {
+  readonly rootDirectory: string;
+  readonly childDirectory: string;
+  readonly peerDirectory: string;
+  readonly productSpecPath: string;
+  readonly rootSpecPath: string;
+  readonly childSpecPath: string;
+  readonly nodeDecisionPath: string;
+  readonly rootTargetPath: string;
+  readonly childTargetPath: string;
+} {
   const rootDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root);
-  switch (mappingCase.artifactKind) {
-    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.NODE_SPEC: {
-      const target = `spx/${rootDirectory}/${fixture.root.slug}.md`;
-      return ownedArtifactTargetFixture(fixture, nodeArtifactFixture(fixture, target), target);
-    }
-    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.PRODUCT_SPEC: {
-      const target = `spx/${fixture.product.id}${SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX}`;
+  const childDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.child);
+  const peerDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.peer);
+  const decisionSuffix = KIND_REGISTRY[fixture.decision.kind].suffix;
+  return {
+    rootDirectory,
+    childDirectory,
+    peerDirectory,
+    productSpecPath: rooted(`${fixture.product.title}${SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX}`),
+    rootSpecPath: rooted(rootDirectory, `${fixture.root.slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`),
+    childSpecPath: rooted(
+      rootDirectory,
+      childDirectory,
+      `${fixture.child.slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`,
+    ),
+    nodeDecisionPath: rooted(
+      rootDirectory,
+      `${fixture.decision.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${fixture.decision.slug}${decisionSuffix}`,
+    ),
+    rootTargetPath: rooted(rootDirectory),
+    childTargetPath: rooted(rootDirectory, childDirectory),
+  };
+}
+
+/** A product-root decision written beside the fixture, of the given kind. */
+export function specContextRootDecisionPath(fixture: RepresentativeSpecTreeFixture, kind: DecisionKind): string {
+  return rooted(
+    `${fixture.peer.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${fixture.decision.slug}${KIND_REGISTRY[kind].suffix}`,
+  );
+}
+
+/** A decision of the given kind inside the fixture's root node, beside the fixture's own decision. */
+export function specContextNodeDecisionPath(fixture: RepresentativeSpecTreeFixture, kind: DecisionKind): string {
+  return rooted(
+    specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root),
+    `${fixture.decision.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${fixture.decision.slug}${
+      KIND_REGISTRY[kind].suffix
+    }`,
+  );
+}
+
+const SPEC_CONTEXT_DECISION_TARGET_CLASSES: ReadonlySet<SpecContextTargetClass> = new Set([
+  SPEC_CONTEXT_TARGET_CLASS_VALUES.NODE_DECISION,
+  SPEC_CONTEXT_TARGET_CLASS_VALUES.ROOT_DECISION,
+]);
+
+/**
+ * The complete accepted-target domain: every declared class in every admitted
+ * spelling, with each decision class enumerated over every source-owned
+ * decision kind.
+ */
+export function specContextAcceptedTargetCases(): readonly SpecContextAcceptedTargetCase[] {
+  return Object.values(SPEC_CONTEXT_TARGET_CLASS_VALUES).flatMap((targetClass) =>
+    (SPEC_CONTEXT_DECISION_TARGET_CLASSES.has(targetClass) ? DECISION_KINDS : [undefined]).flatMap((decisionKind) =>
+      Object.values(SPEC_CONTEXT_TARGET_SPELLING_VALUES).map((spelling) => ({
+        targetClass,
+        spelling,
+        decisionKind,
+        title: `maps a ${spelling} ${
+          decisionKind === undefined ? "" : `${decisionKind} `
+        }${targetClass} operand ${"to its canonical target and that target's projection"}`,
+      }))
+    )
+  );
+}
+
+function requiredDecisionKind(mappingCase: SpecContextAcceptedTargetCase): DecisionKind {
+  if (mappingCase.decisionKind === undefined) {
+    throw new Error(`Accepted ${mappingCase.targetClass} case carries no decision kind`);
+  }
+  return mappingCase.decisionKind;
+}
+
+/**
+ * The canonical path of each class is the construction law: a product spec, a
+ * node spec, and a decision all identify their containing node or the product
+ * root. A decision case writes its decision so every kind is present on disk.
+ */
+function canonicalAcceptedTarget(
+  fixture: RepresentativeSpecTreeFixture,
+  mappingCase: SpecContextAcceptedTargetCase,
+): {
+  readonly path: string;
+  readonly target: string;
+  readonly artifacts: readonly { readonly path: string; readonly content: string }[];
+} {
+  const documents = specContextFixtureDocuments(fixture);
+  const decision = (path: string, target: string) => ({
+    path,
+    target,
+    artifacts: [{ path, content: decisionContent("Target decision") }],
+  });
+  switch (mappingCase.targetClass) {
+    case SPEC_CONTEXT_TARGET_CLASS_VALUES.PRODUCT_ROOT:
+      return { path: SPEC_TREE_CONFIG.ROOT_DIRECTORY, target: SPEC_CONTEXT_PRODUCT_ROOT_TARGET, artifacts: [] };
+    case SPEC_CONTEXT_TARGET_CLASS_VALUES.PRODUCT_SPEC:
+      return { path: documents.productSpecPath, target: SPEC_CONTEXT_PRODUCT_ROOT_TARGET, artifacts: [] };
+    case SPEC_CONTEXT_TARGET_CLASS_VALUES.NODE_DIRECTORY:
+      return { path: documents.childTargetPath, target: documents.childTargetPath, artifacts: [] };
+    case SPEC_CONTEXT_TARGET_CLASS_VALUES.NODE_SPEC:
+      return { path: documents.childSpecPath, target: documents.childTargetPath, artifacts: [] };
+    case SPEC_CONTEXT_TARGET_CLASS_VALUES.NODE_DECISION:
+      return decision(
+        specContextNodeDecisionPath(fixture, requiredDecisionKind(mappingCase)),
+        documents.rootTargetPath,
+      );
+    case SPEC_CONTEXT_TARGET_CLASS_VALUES.ROOT_DECISION:
+      return decision(
+        specContextRootDecisionPath(fixture, requiredDecisionKind(mappingCase)),
+        SPEC_CONTEXT_PRODUCT_ROOT_TARGET,
+      );
+  }
+}
+
+/**
+ * The operand one accepted case supplies and the identity it must resolve to;
+ * every spelling is a mechanical re-spelling of the class's canonical path.
+ */
+export function specContextAcceptedTargetOperand(
+  fixture: RepresentativeSpecTreeFixture,
+  productDir: string,
+  mappingCase: SpecContextAcceptedTargetCase,
+): SpecContextAcceptedTargetOperand {
+  const documents = specContextFixtureDocuments(fixture);
+  const canonical = canonicalAcceptedTarget(fixture, mappingCase);
+  const artifacts = canonical.artifacts;
+  const segments = canonical.path.split(TRACKED_PATH_DIRECTORY_SEPARATOR);
+  switch (mappingCase.spelling) {
+    case SPEC_CONTEXT_TARGET_SPELLING_VALUES.ROOT_RELATIVE:
+      return { operand: canonical.path, invocationDir: "", expectedTarget: canonical.target, artifacts };
+    case SPEC_CONTEXT_TARGET_SPELLING_VALUES.TRAILING_SEPARATOR:
       return {
-        failure: {
-          input: target,
-          kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.ROOT_ARTIFACT_PATH,
-        },
-        sourceFixture: productArtifactFixture(fixture, target),
-        target,
+        operand: `${canonical.path}${TRACKED_PATH_DIRECTORY_SEPARATOR}`,
+        invocationDir: "",
+        expectedTarget: canonical.target,
+        artifacts,
       };
-    }
-    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.NODE_DECISION: {
-      const suffix = KIND_REGISTRY[mappingCase.decisionKind].suffix;
-      const target = `spx/${fixture.root.id}/${fixture.decision.order}-${fixture.decision.slug}${suffix}`;
-      return ownedArtifactTargetFixture(
-        fixture,
-        decisionArtifactFixture(fixture, mappingCase.decisionKind, fixture.root.id, target),
-        target,
-      );
-    }
-    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.TEST_EVIDENCE: {
-      const filename = [
-        fixture.root.slug,
-        SPEC_TREE_GRAMMAR.EVIDENCE.MODES[0],
-        SPEC_TREE_GRAMMAR.EVIDENCE.LEVELS[0],
-        ...SPEC_TREE_GRAMMAR.EVIDENCE.TAILS.TYPESCRIPT,
-      ].join(SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR);
-      const target = `spx/${fixture.root.id}/${SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME}/${filename}`;
-      return ownedArtifactTargetFixture(fixture, evidenceArtifactFixture(fixture, target), target);
-    }
-    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.EVAL_EVIDENCE: {
-      const target = [
-        SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-        rootDirectory,
-        SPEC_TREE_GRAMMAR.EVAL.DIRECTORY_NAME,
-        fixture.decision.slug,
-        mappingCase.evalArtifactName,
-      ].join(TRACKED_PATH_DIRECTORY_SEPARATOR);
-      return filesystemOwnedArtifactTargetFixture(
-        fixture,
-        target,
-        mappingCase.evalArtifactName === SPEC_TREE_GRAMMAR.EVAL.RUNS_DIRECTORY_NAME
-          ? SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE_VALUES.DIRECTORY
-          : SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE_VALUES.FILE,
-      );
-    }
-    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.PLAN:
-    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.ISSUES:
-    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.RUNTIME_GUIDE:
-    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.AGENT_GUIDE:
-    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.NODE_STATUS: {
-      const target = `spx/${rootDirectory}/${mappingCase.artifactKind}`;
-      return filesystemOwnedArtifactTargetFixture(
-        fixture,
-        target,
-        SPEC_CONTEXT_FILESYSTEM_ARTIFACT_TYPE_VALUES.FILE,
-      );
-    }
-    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.ROOT_COORDINATION_NOTE: {
-      // A product-root coordination note classifies syntactically, so the
-      // fixture needs no filesystem artifact and no snapshot mutation.
-      const target = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${mappingCase.noteFilename}`;
+    case SPEC_CONTEXT_TARGET_SPELLING_VALUES.ABSOLUTE:
       return {
-        failure: {
-          input: target,
-          kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.ROOT_ARTIFACT_PATH,
-        },
-        sourceFixture: fixture,
-        target,
+        operand: [productDir, canonical.path].join(TRACKED_PATH_DIRECTORY_SEPARATOR),
+        invocationDir: "",
+        expectedTarget: canonical.target,
+        artifacts,
       };
-    }
-    case SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.ROOT_DECISION: {
-      const suffix = KIND_REGISTRY[mappingCase.decisionKind].suffix;
-      const target = `spx/${fixture.decision.order}-${fixture.decision.slug}${suffix}`;
+    case SPEC_CONTEXT_TARGET_SPELLING_VALUES.INVOCATION_RELATIVE:
+      // The last path component from its own parent directory.
       return {
-        failure: {
-          input: target,
-          kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.ROOT_ARTIFACT_PATH,
-        },
-        sourceFixture: decisionArtifactFixture(fixture, mappingCase.decisionKind, undefined, target),
-        target,
+        operand: segments.at(-1) ?? canonical.path,
+        invocationDir: segments.slice(0, -1).join(TRACKED_PATH_DIRECTORY_SEPARATOR),
+        expectedTarget: canonical.target,
+        artifacts,
+      };
+    case SPEC_CONTEXT_TARGET_SPELLING_VALUES.SUFFIX:
+      // The complete-component suffix without the tree root, from a
+      // directory that holds no such path, so only suffix matching binds it.
+      return {
+        operand: segments.length > 1
+          ? segments.slice(1).join(TRACKED_PATH_DIRECTORY_SEPARATOR)
+          : canonical.path,
+        invocationDir: documents.peerDirectory.length > 0 ? rooted(documents.peerDirectory) : "",
+        expectedTarget: canonical.target,
+        artifacts,
+      };
+    case SPEC_CONTEXT_TARGET_SPELLING_VALUES.PARENT_TRAVERSAL: {
+      // From the root node's directory, two levels below the product root,
+      // one parent segment per level climbs back to the product root.
+      const invocationDir = rooted(documents.rootDirectory);
+      return {
+        operand: [...parentSegmentsToProductRoot(invocationDir), canonical.path].join(TRACKED_PATH_DIRECTORY_SEPARATOR),
+        invocationDir,
+        expectedTarget: canonical.target,
+        artifacts,
       };
     }
   }
 }
 
-export function specContextTargetMappingCases(): readonly SpecContextTargetMappingCase[] {
+/** One parent segment per component of a product-relative directory, climbing from it back to the product root. */
+function parentSegmentsToProductRoot(directory: string): readonly string[] {
+  return directory.split(TRACKED_PATH_DIRECTORY_SEPARATOR).map(() => PARENT_DIRECTORY_SEGMENT);
+}
+
+/**
+ * The complete rejected-target domain: every unresolved shape, escaping
+ * shapes included, every unaccepted artifact in each spelling as unresolved,
+ * and the ambiguous case.
+ */
+export function specContextRejectedTargetCases(): readonly SpecContextRejectedTargetCase[] {
   return [
-    {
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.CANONICAL,
-      title: "maps a canonical node path to its canonical target",
-    },
-    {
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ROOTED,
-      title: "maps a node path with a leading spx root to its canonical target",
-    },
-    {
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.TRAILING_SEPARATOR,
-      title: "maps a node path with a trailing separator to its canonical target",
-    },
-    {
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ABBREVIATED,
-      title: "maps unique abbreviated node segments to their canonical target",
-    },
-    {
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.EMPTY_SEGMENT,
-      position: SPEC_CONTEXT_EMPTY_SEGMENT_POSITION.EMPTY_TARGET,
-      title: "maps an empty target to an empty-segment diagnostic",
-      topology: SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY.SINGLE_ROOT,
-    },
-    {
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.EMPTY_SEGMENT,
-      position: SPEC_CONTEXT_EMPTY_SEGMENT_POSITION.LEADING_SEPARATOR,
-      title: "maps a leading separator to an empty-segment diagnostic",
-      topology: SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY.REPRESENTATIVE,
-    },
-    {
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.EMPTY_SEGMENT,
-      position: SPEC_CONTEXT_EMPTY_SEGMENT_POSITION.REPEATED_SEPARATOR,
-      title: "maps repeated separators to an empty-segment diagnostic",
-      topology: SPEC_CONTEXT_EMPTY_SEGMENT_TOPOLOGY.REPRESENTATIVE,
-    },
-    {
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.UNKNOWN,
-      title: "maps an unknown segment to an unresolved-input diagnostic",
-    },
-    {
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.AMBIGUOUS,
-      title: "maps an ambiguous segment to a candidate diagnostic",
-    },
-    {
-      artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.NODE_SPEC,
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
-      title: "maps a node spec path to its owning node",
-    },
-    {
-      artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.PRODUCT_SPEC,
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
-      title: "maps the product spec path to node-selection guidance",
-    },
-    ...decisionArtifactMappingCases(SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.NODE_DECISION),
-    {
-      artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.TEST_EVIDENCE,
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
-      title: "maps a co-located test evidence path to its owning node",
-    },
-    ...[
-      ...SPEC_TREE_GRAMMAR.EVAL.FILES,
-      SPEC_TREE_GRAMMAR.EVAL.RUNS_DIRECTORY_NAME,
-    ].map((evalArtifactName): SpecContextArtifactMappingCase => ({
-      artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.EVAL_EVIDENCE,
-      evalArtifactName,
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
-      title: `maps the co-located eval ${evalArtifactName} path to its owning node`,
+    ...Object.values(SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES).map((shape) => ({
+      kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED,
+      shape,
+      title: `maps a ${shape} operand to the unresolved failure`,
     })),
+    ...SPEC_CONTEXT_UNACCEPTED_ARTIFACT_MEMBERS.flatMap(({ label }) =>
+      SPEC_CONTEXT_UNACCEPTED_SPELLINGS.map((spelling) => ({
+        kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED,
+        artifact: label,
+        spelling,
+        title: `maps a ${spelling} ${label} artifact operand to the unresolved failure`,
+      }))
+    ),
     {
-      artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.PLAN,
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
-      title: "maps a node-local plan path to its owning node",
-    },
-    {
-      artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.ISSUES,
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
-      title: "maps a node-local issues path to its owning node",
-    },
-    {
-      artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.RUNTIME_GUIDE,
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
-      title: "maps a node-local runtime guide path to its owning node",
-    },
-    {
-      artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.AGENT_GUIDE,
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
-      title: "maps a node-local agent guide path to its owning node",
-    },
-    {
-      artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.NODE_STATUS,
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
-      title: "maps a node status path to its owning node",
-    },
-    ...decisionArtifactMappingCases(SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.ROOT_DECISION),
-    ...SPEC_TREE_GRAMMAR.COORDINATION_NOTES.map((noteFilename): SpecContextArtifactMappingCase => ({
-      artifactKind: SPEC_CONTEXT_ARTIFACT_MAPPING_CASE_KIND.ROOT_COORDINATION_NOTE,
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.ARTIFACT,
-      noteFilename,
-      title: `maps the product-root ${noteFilename} coordination note to node-selection guidance`,
-    })),
-    {
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.INVALID_DIRECTORY,
-      title: "maps an invalid node-directory path to an unresolved-input diagnostic",
-    },
-    {
-      kind: SPEC_CONTEXT_TARGET_MAPPING_CASE_KIND.SUPERSEDED_DIRECTORY,
-      title: "maps a superseded node-directory path to an unresolved-input diagnostic",
+      kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS,
+      title: "maps an operand two accepted targets share as a suffix to the ambiguous failure naming both",
     },
   ];
 }
 
+/** A nested directory whose name repeats the fixture root's, so one suffix denotes two node identities. */
+export function specContextAmbiguousNestedDirectory(fixture: RepresentativeSpecTreeFixture): {
+  readonly nestedTargetPath: string;
+  readonly nestedSpecPath: string;
+  readonly nestedSpecContent: string;
+  readonly operand: string;
+} {
+  const documents = specContextFixtureDocuments(fixture);
+  const nestedTargetPath = rooted(documents.peerDirectory, documents.rootDirectory);
+  return {
+    nestedTargetPath,
+    nestedSpecPath: `${nestedTargetPath}/${fixture.root.slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`,
+    nestedSpecContent: specContent("Nested namesake", KIND_REGISTRY[fixture.root.kind].opening),
+    operand: documents.rootDirectory,
+  };
+}
+
+/**
+ * An operand that steps into `alias` and back out with a parent segment
+ * before naming `target`. Lexical normalization reduces it to `target`; a
+ * physical walk through a symbolic-link `alias` lands elsewhere.
+ */
+export function specContextLexicalDetourOperand(alias: string, target: string): string {
+  return [alias, PARENT_DIRECTORY_SEGMENT, target].join(TRACKED_PATH_DIRECTORY_SEPARATOR);
+}
+
+/** The escape-target document a containment case writes outside the product root. */
+export function specContextOutsideDocument(): string {
+  return decisionContent("Outside the product");
+}
+
+/**
+ * Two decisions under the peer directory whose citation order is the reverse
+ * of their canonical path order. Both share one index and differ only in the
+ * first character of their slug, "Z" against "a": by the canonical ordinal
+ * comparison the "Z" path precedes the "a" path, while locale collation and
+ * citation order both put the "a" path first. A projection that appended
+ * citations in discovery order, or compared paths by locale, emits them the
+ * other way round.
+ */
+export function specContextDivergentCitationDecisions(fixture: RepresentativeSpecTreeFixture): {
+  readonly citedFirst: { readonly path: string; readonly content: string };
+  readonly citedSecond: { readonly path: string; readonly content: string };
+} {
+  const documents = specContextFixtureDocuments(fixture);
+  const suffix = KIND_REGISTRY[fixture.decision.kind].suffix;
+  const slug = sampleGeneratedValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+  const decision = (name: string) => ({
+    path: rooted(
+      documents.peerDirectory,
+      `${fixture.peer.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${name}${suffix}`,
+    ),
+    content: decisionContent(name),
+  });
+  return {
+    citedFirst: decision(`a${slug}`),
+    citedSecond: decision(`Z${slug}`),
+  };
+}
+
+/**
+ * A decision path under `directory` that names no tracked file: the order and
+ * slug are drawn, and the kind suffix comes from the fixture's own decision.
+ */
+export function specContextAbsentDecisionPath(fixture: RepresentativeSpecTreeFixture, directory: string): string {
+  const order = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder());
+  const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+  return rooted(
+    directory,
+    `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${KIND_REGISTRY[fixture.decision.kind].suffix}`,
+  );
+}
+
+/**
+ * A decision path that begins at the tree root, ends with the fixture's
+ * decision suffix, and carries a parent segment after `directory`: it keeps
+ * the citation grammar's prefix and suffix while naming no tracked decision.
+ */
+export function specContextRelativeSegmentDecisionPath(
+  fixture: RepresentativeSpecTreeFixture,
+  directory: string,
+): string {
+  const absent = specContextAbsentDecisionPath(fixture, directory);
+  const name = absent.slice(absent.lastIndexOf(TRACKED_PATH_DIRECTORY_SEPARATOR) + 1);
+  return rooted(directory, PARENT_DIRECTORY_SEGMENT, name);
+}
+
+/**
+ * Front-matter block bodies, without their delimiter lines, that no YAML 1.2
+ * reader turns into a key mapping: a compact mapping nesting a second mapping
+ * on one line, which the YAML grammar rejects, and a block sequence, which
+ * parses to a list.
+ */
+export function specContextUnreadableFrontMatterBlocks(): {
+  readonly unparseable: string;
+  readonly nonMapping: string;
+} {
+  const [key, inner, value] = sampleGeneratedValue(
+    fc.tuple(
+      SPEC_TREE_TEST_GENERATOR.sourceSlug(),
+      SPEC_TREE_TEST_GENERATOR.sourceSlug(),
+      SPEC_TREE_TEST_GENERATOR.sourceSlug(),
+    ),
+  );
+  return {
+    unparseable: `${key}: ${inner}: ${value}\n`,
+    nonMapping: `- ${key}\n- ${value}\n`,
+  };
+}
+
+/**
+ * The fixture root's directory name with its slug truncated to its first
+ * character: a strict prefix of exactly one accepted component, and a
+ * complete component of no tracked path. The order prefix it keeps is unique
+ * among the fixture's nodes and decisions, so a resolver admitting unique
+ * abbreviated prefixes would resolve it to the root node.
+ */
+export function specContextAbbreviatedRootPrefix(fixture: RepresentativeSpecTreeFixture): string {
+  return `${fixture.root.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${fixture.root.slug.slice(0, 1)}`;
+}
+
+/**
+ * The body a node-shaped fixture document carries: the title plus the opening
+ * its kind declares, so a case that expects a node to be resolved or excluded
+ * is never satisfied by a document the Digest projection cannot read.
+ */
+export function specContextFixtureSpecContent(fixture: RepresentativeSpecTreeFixture, title: string): string {
+  return specContent(title, KIND_REGISTRY[fixture.root.kind].opening);
+}
+
+/** The inert status-claim payload a fixture writes to make a node-shaped directory tracked. */
+export const SPEC_CONTEXT_FIXTURE_STATUS_BODY = "{}";
+
+export function specContextRejectedTargetOperand(
+  fixture: RepresentativeSpecTreeFixture,
+  productDir: string,
+  outsideDir: string,
+  mappingCase: SpecContextRejectedTargetCase,
+): SpecContextRejectedTargetOperand {
+  const documents = specContextFixtureDocuments(fixture);
+  const none: SpecContextRejectedTargetOperand = {
+    operand: "",
+    invocationDir: "",
+    expectedKind: mappingCase.kind,
+    expectedCandidates: [],
+    artifacts: [],
+    directories: [],
+  };
+  switch (mappingCase.kind) {
+    case SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED:
+      return "artifact" in mappingCase
+        ? unacceptedArtifactOperand(fixture, none, mappingCase)
+        : unresolvedShapeOperand(fixture, outsideDir, none, mappingCase.shape);
+    case SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS: {
+      const nested = specContextAmbiguousNestedDirectory(fixture);
+      return {
+        ...none,
+        operand: nested.operand,
+        expectedCandidates: [documents.rootTargetPath, nested.nestedTargetPath],
+        artifacts: [{
+          path: nested.nestedSpecPath,
+          content: specContent("Nested namesake", KIND_REGISTRY[fixture.root.kind].opening),
+        }],
+      };
+    }
+  }
+}
+
+/** An existing artifact of a class no context target accepts, spelled as the case declares. */
+function unacceptedArtifactOperand(
+  fixture: RepresentativeSpecTreeFixture,
+  none: SpecContextRejectedTargetOperand,
+  mappingCase: { readonly artifact: string; readonly spelling: SpecContextUnacceptedSpelling },
+): SpecContextRejectedTargetOperand {
+  const documents = specContextFixtureDocuments(fixture);
+  const member = SPEC_CONTEXT_UNACCEPTED_ARTIFACT_MEMBERS.find(({ label }) => label === mappingCase.artifact);
+  if (member === undefined) throw new Error(`Unknown unaccepted artifact: ${mappingCase.artifact}`);
+  const path = member.path({
+    node: documents.rootTargetPath,
+    tree: SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+    slug: fixture.decision.slug,
+  });
+  const placement = member.shape === SPEC_CONTEXT_ARTIFACT_SHAPE.FILE
+    ? { artifacts: [{ path, content: "" }] }
+    : { directories: [path] };
+  const segments = path.split(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
+  return mappingCase.spelling === SPEC_CONTEXT_TARGET_SPELLING_VALUES.ROOT_RELATIVE
+    ? { ...none, ...placement, operand: path, invocationDir: rooted(documents.peerDirectory) }
+    : {
+      ...none,
+      ...placement,
+      operand: segments.at(-1) ?? path,
+      invocationDir: segments.slice(0, -1).join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+    };
+}
+
+/** The operand of one declared unresolved shape. */
+function unresolvedShapeOperand(
+  fixture: RepresentativeSpecTreeFixture,
+  outsideDir: string,
+  none: SpecContextRejectedTargetOperand,
+  shape: SpecContextUnresolvedShape,
+): SpecContextRejectedTargetOperand {
+  const documents = specContextFixtureDocuments(fixture);
+  switch (shape) {
+    case SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES.UNKNOWN_DIRECTORY:
+      return { ...none, operand: specContextUnknownTarget(fixture) };
+    case SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES.EMPTY:
+      return { ...none, operand: "" };
+    case SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES.UNREGISTERED_SUFFIX: {
+      const directory = `${fixture.root.order}-${fixture.root.slug}${unregisteredNodeSuffix(fixture.decision.slug)}`;
+      return { ...none, operand: directory, directories: [rooted(directory)] };
+    }
+    case SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES.SUPERSEDED_SUFFIX: {
+      const directory = `${fixture.root.order}-${fixture.root.slug}${SPEC_TREE_SUPERSEDED_NODE_SUFFIXES[0]}`;
+      return { ...none, operand: directory, directories: [rooted(directory)] };
+    }
+    case SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES.PARTIAL_COMPONENT: {
+      // The root node's directory without its order prefix: a trailing
+      // fragment of the component, never a complete one.
+      return {
+        ...none,
+        operand: documents.rootDirectory.slice(`${fixture.root.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}`.length),
+      };
+    }
+    case SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES.UNACCEPTED_PATH_SUFFIX: {
+      // A complete component of a tracked path that is no accepted
+      // target: the evidence directory under the root node.
+      const directory = rooted(documents.rootDirectory, SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME);
+      return {
+        ...none,
+        operand: SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME,
+        directories: [directory],
+      };
+    }
+    case SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES.PARTIALLY_ESCAPING: {
+      // A coordination note at the product root, outside the tree, named
+      // from the root node's directory by climbing back to the product root.
+      const invocationDir = rooted(documents.rootDirectory);
+      const note = SPEC_TREE_GRAMMAR.COORDINATION_NOTE.PLAN;
+      return {
+        ...none,
+        operand: [...parentSegmentsToProductRoot(invocationDir), note].join(TRACKED_PATH_DIRECTORY_SEPARATOR),
+        invocationDir,
+        artifacts: [{ path: note, content: "" }],
+      };
+    }
+    case SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES.ABSOLUTE_OUTSIDE:
+      return { ...none, operand: outsideDir };
+    case SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES.TRAVERSAL:
+      return {
+        ...none,
+        operand: `${PARENT_DIRECTORY_SEGMENT}${TRACKED_PATH_DIRECTORY_SEPARATOR}${documents.rootDirectory}`,
+      };
+  }
+  throw new Error("Every unresolved shape returns above");
+}
+
+/** Every failure kind with a control-byte or DEL input and candidate, for the diagnostic-safety mapping. */
 export function specContextTargetDiagnosticSafetyCases(): readonly SpecContextTargetDiagnosticSafetyCase[] {
-  return unsafeCliDiagnosticCodes().flatMap((code) => {
-    const escape = formatHexEscape(code);
+  return TERMINAL_ORACLE_UNSAFE_CODE_POINTS.flatMap((code) => {
+    const expectedEscapedValue = terminalOracleHexEscape(code);
     const unsafeValue = String.fromCodePoint(code);
-    return [
-      {
-        failure: {
-          input: unsafeValue,
-          kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.ARTIFACT_PATH,
-          ownerId: unsafeValue,
-        },
-        title: `escapes ${escape} in artifact diagnostics`,
-        unsafeValue,
+    return Object.values(SPEC_CONTEXT_TARGET_FAILURE_KIND).map((kind) => ({
+      failure: {
+        kind,
+        input: unsafeValue,
+        candidates: kind === SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS ? [unsafeValue] : [],
       },
-      {
-        failure: {
-          candidates: [unsafeValue],
-          input: unsafeValue,
-          kind: SPEC_CONTEXT_TARGET_FAILURE_KIND.AMBIGUOUS_SEGMENT,
-          segment: unsafeValue,
-        },
-        title: `escapes ${escape} in ambiguous diagnostics`,
-        unsafeValue,
-      },
-    ];
+      title: `escapes ${expectedEscapedValue} in ${kind} diagnostics`,
+      unsafeValue,
+      expectedEscapedValue,
+    }));
   });
 }
 
-/** One extra node directory and one extra decision file, for a context projection run twice over the same tree. */
+/**
+ * The complete input of one determinism case: the representative tree, one
+ * extra node directory and one extra decision file, an open migration whose
+ * declared version names the shipped fixture tree, and that tree's resource
+ * slug. Every value the case materializes comes from this record, so a
+ * failing case replays and shrinks from its reported seed alone.
+ */
 export type GeneratedContextDeterminismCase = {
+  readonly fixture: RepresentativeSpecTreeFixture;
   readonly extraDecision: SpecTreeFixtureEntry;
   readonly extraNode: SpecTreeFixtureEntry;
+  readonly migrating: GeneratedMigratingMethodology;
+  readonly methodologySlug: string;
 };
 
+function withOpening(entry: SpecTreeFixtureEntry, opening: string): SpecTreeFixtureEntry {
+  return { ...entry, contents: `${entry.contents}\n${opening} ${entry.path}\n` };
+}
+
+/** A decision entry with a decision statement after its title, the paragraph its Digest selects. */
+function withDecisionStatement(entry: SpecTreeFixtureEntry): SpecTreeFixtureEntry {
+  return { ...entry, contents: `${entry.contents}\nThe ${entry.path} decision governs this case.\n` };
+}
+
+/**
+ * Every generated document carries the paragraph its Digest projection
+ * selects — a decision its statement, a node its kind's opening — so both
+ * projections render it.
+ */
 export function arbitraryContextDeterminismCase(config: Config): fc.Arbitrary<GeneratedContextDeterminismCase> {
   return fc.record({
-    extraDecision: arbitraryDecisionEntry(config),
-    extraNode: arbitraryNodeEntry(config),
+    fixture: SPEC_TREE_TEST_GENERATOR.representativeFixture(KIND_REGISTRY),
+    extraDecision: arbitraryDecisionEntry(config).map(withDecisionStatement),
+    extraNode: arbitraryNodeEntry(config).map((entry) => {
+      const definition = KIND_REGISTRY[entry.kind as keyof typeof KIND_REGISTRY];
+      return "opening" in definition ? withOpening(entry, definition.opening) : withDecisionStatement(entry);
+    }),
+    migrating: arbitraryMigratingMethodology(),
+    methodologySlug: SPEC_TREE_TEST_GENERATOR.sourceSlug(),
+  });
+}
+
+/** One subset of the invocation markers and the coding agent the declared precedence selects for it. */
+export type SpecContextCodingAgentMarkerCase = {
+  readonly markers: Readonly<Record<string, string>>;
+  readonly expected: MethodologyCodingAgent | undefined;
+  readonly title: string;
+};
+
+/** A marker subset that names one shipped coding agent, so its expectation is never absent. */
+export type SpecContextCodingAgentWitnessCase = SpecContextCodingAgentMarkerCase & {
+  readonly expected: MethodologyCodingAgent;
+};
+
+/**
+ * The invocation marker keys that name each shipped coding agent, listed in the
+ * precedence the harness-environment descriptor declares. The record is total
+ * over the shipped agents, so an agent added to the line without its marker
+ * keys fails to compile.
+ */
+const CODING_AGENT_MARKER_KEYS: Record<MethodologyCodingAgent, readonly [string, ...(readonly string[])]> = {
+  [METHODOLOGY_CODING_AGENT.CLAUDE]: [
+    HOOK_SESSION_START_ENV.CLAUDE_SESSION_ID,
+    HOOK_SESSION_START_ENV.CLAUDE_ENV_FILE,
+  ],
+  [METHODOLOGY_CODING_AGENT.CODEX]: [HOOK_SESSION_START_ENV.CODEX_THREAD_ID],
+};
+
+/**
+ * The complete subset domain over the source-owned invocation marker keys,
+ * with the spec's precedence law as the expectation: a Codex marker selects
+ * Codex before any Claude Code marker, either Claude Code marker alone selects
+ * Claude Code, and no marker selects no agent.
+ */
+export function specContextCodingAgentMarkerCases(marker: string): readonly SpecContextCodingAgentMarkerCase[] {
+  const codexKeys = CODING_AGENT_MARKER_KEYS[METHODOLOGY_CODING_AGENT.CODEX];
+  const claudeKeys = CODING_AGENT_MARKER_KEYS[METHODOLOGY_CODING_AGENT.CLAUDE];
+  const keys = [...codexKeys, ...claudeKeys];
+  return Array.from({ length: 2 ** keys.length }, (_unused, mask) => {
+    const present = keys.filter((_key, index) => (mask & (1 << index)) !== 0);
+    const expected = present.some((key) => codexKeys.includes(key))
+      ? METHODOLOGY_CODING_AGENT.CODEX
+      : present.some((key) => claudeKeys.includes(key))
+      ? METHODOLOGY_CODING_AGENT.CLAUDE
+      : undefined;
+    return {
+      markers: Object.fromEntries(present.map((key) => [key, marker])),
+      expected,
+      title: `maps markers {${present.join(", ")}} to ${expected ?? "no agent"}`,
+    };
+  });
+}
+
+/**
+ * One marker subset per shipped coding agent, each naming that agent alone.
+ * The subprocess boundary needs a witness for every agent the shipped line can
+ * select; the complete subset domain above belongs to the pure derivation,
+ * which reaches it without spawning a process.
+ */
+export function specContextCodingAgentWitnessCases(marker: string): readonly SpecContextCodingAgentWitnessCase[] {
+  return METHODOLOGY_CODING_AGENTS.map((agent) => {
+    const key = CODING_AGENT_MARKER_KEYS[agent][0];
+    return {
+      markers: { [key]: marker },
+      expected: agent,
+      title: `maps markers {${key}} to ${agent}`,
+    };
   });
 }

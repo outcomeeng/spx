@@ -2,7 +2,7 @@
 
 ## A CLI descriptor escapes a caught-error message through the bounded operand sanitizer
 
-[`spx/13-cli.enabler/15-cli-architecture.adr.md`](spx/13-cli.enabler/15-cli-architecture.adr.md) requires a caught-error message to be escaped where it is embedded into terminal-destined text, through the `src/lib/terminal-text/` composition primitive, never at the process-stream write site. `sanitizeCliArgument` escapes and bounds an echoed operand to `MAX_CLI_ARGUMENT_DISPLAY_LENGTH`, so an error message written through it is cut to a prefix. The release descriptors now compose their failure diagnostic through terminal text. This entry covers caught-error messages written through the sanitizer only. A descriptor that sanitizes an argv operand it echoes — an invalid path operand, an unknown subcommand, an unknown hook event — uses the sanitizer for the purpose the ADR assigns it, and its bounded display is the declared behavior. A descriptor that hands a caught-error message to the write boundary with no composition at all — `handleError` in `src/interfaces/cli/agent.ts`, `src/interfaces/cli/session.ts`, `src/interfaces/cli/worktree.ts`, the error branch of `src/interfaces/cli/spec.ts`, and the caught-error writes in `src/interfaces/cli/test.ts` — belongs to the unescaped-write class [`spx/13-cli.enabler/ISSUES.md`](spx/13-cli.enabler/ISSUES.md) tracks under "The CLI write boundary still accepts unescaped strings", with each owning node's `ISSUES.md` naming its sites. A caught-error message still written through the sanitizer remains at:
+[`spx/13-cli.enabler/15-cli-architecture.adr.md`](spx/13-cli.enabler/15-cli-architecture.adr.md) requires a caught-error message to be escaped where it is embedded into terminal-destined text, through the `src/lib/terminal-text/` composition primitive, never at the process-stream write site. `sanitizeCliArgument` escapes and bounds an echoed operand to `MAX_CLI_ARGUMENT_DISPLAY_LENGTH`, so an error message written through it is cut to a prefix. The release descriptors now compose their failure diagnostic through terminal text. This entry covers caught-error messages written through the sanitizer only. A descriptor that sanitizes an argv operand it echoes — an invalid path operand, an unknown subcommand, an unknown hook event — uses the sanitizer for the purpose the ADR assigns it, and its bounded display is the declared behavior. A descriptor that hands a caught-error message to the write boundary with no composition at all — `handleError` in `src/interfaces/cli/agent.ts`, `src/interfaces/cli/session.ts`, `src/interfaces/cli/worktree.ts`, and the caught-error writes in `src/interfaces/cli/test.ts` — belongs to the unescaped-write class [`spx/13-cli.enabler/ISSUES.md`](spx/13-cli.enabler/ISSUES.md) tracks under "The CLI write boundary still accepts unescaped strings", with each owning node's `ISSUES.md` naming its sites. A caught-error message still written through the sanitizer remains at:
 
 - `src/interfaces/cli/diagnose.ts` — `handleError` writes `Error: ${sanitizeCliArgument(error)}`. Owned by [`spx/54-diagnose.enabler`](spx/54-diagnose.enabler/diagnose.md), whose spec declares the echoed manifest path and check names "sanitized before the diagnostic echo" and proves the escaping with `tests/error-sanitization.compliance.l2.test.ts`.
 
@@ -128,13 +128,11 @@ alongside the property.
 
 `String.prototype.localeCompare` without a pinned locale orders by the host locale and ICU build, so equal input can project in different orders across machines. The spec-context manifest (`src/lib/spec-tree/context-manifest.ts`, `src/lib/spec-tree/context-target.ts`) orders ordinally via `compareSpecContextOrdinal`; the same class remains at:
 
-- `src/lib/spec-tree/index.ts` — sibling and entry ordering inside snapshot assembly, which feeds every spec-tree projection including the context manifest, so the manifest's byte-identity is fully host-independent only once this site is ordinal too. Owned by [`spx/23-spec-tree.enabler`](spx/23-spec-tree.enabler/spec-tree.md).
-- `src/domains/agent/resume.ts` and `src/domains/agent/search/results.ts` — session listing tie-breakers.
-- `testing/harnesses/agent/resume.ts` — mirrors the production resume ordering and must change together with it.
+- `testing/harnesses/agent/resume.ts` — the expected resume candidate order sorts by `localeCompare`, while production resume ordering compares by code unit through `compareAgentSessionText`.
 
 **Impact:** ordering can differ across hosts for names where locale collation disagrees with code-unit order (hyphen and dot weighting); committed projections and CI comparisons assume one order.
 
-**Resolution:** replace each site with an ordinal code-unit comparator in the owning node's own changeset — a pinned `Intl.Collator` locale is not sufficient, because the ICU collation tables still vary by Node build independent of the locale argument. The spec-tree library change alters observable projection order and needs its node's tests run and its spec audit; remove this entry when the last site is ordinal.
+**Resolution:** replace each site with an ordinal code-unit comparator in the owning node's own changeset — a pinned `Intl.Collator` locale is not sufficient, because the ICU collation tables still vary by Node build independent of the locale argument. Remove this entry when the last site is ordinal.
 
 ## Validation warning baseline remains noisy
 
@@ -211,8 +209,6 @@ Some executed `spx/.../tests/*.test.ts` files delegate their assertion flow to `
 
 The verification-subtree instance, its related canned Git responses, repair scope, and operator-approved separation from the local Change draft prototype are recorded in `spx/34-verification.enabler/32-verify.enabler/ISSUES.md`. The 2026-09-08 inspection found 25 verification test files importing that shared module; this is a subtree inventory, not a product-wide count.
 
-The same ownership defect also occurs when an executed test delegates its predicates to a helper outside the linked test callback. `spx/31-spec-domain.enabler/76-spec-cli-contract-tests.enabler/tests/spec-cli-contract.scenario.l2.test.ts` delegates status predicates to `assertDeclaredStatusRows`, and `spx/31-spec-domain.enabler/32-spec-cli-rendering.enabler/tests/spec-cli-rendering.conformance.l1.test.ts` imports the assertion-owning `expectPresent` helper from `testing/harnesses/spec-tree/assertions.ts`.
-
 [`spx/12-test-infrastructure.adr.md`](12-test-infrastructure.adr.md) requires executed spec-tree test files to own the assertion flow, and the `what-goes-where` methodology reference states test infrastructure does not contain test assertion code. The register-suite-in-harness shape inverts that boundary: the harness owns the suite and the `tests/` file owns nothing. Sibling nodes such as [`spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler`](spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/21-detection.enabler) keep `describe`/`it`/`expect` directly in their `tests/*.test.ts` files, so the pattern is inconsistent product-wide.
 
 **Impact:** Each node's `tests/` directory no longer carries the node's evidence; assertion titles and structure sit one indirection away from the node. Cross-file duplication analysis reads test-suite duplication as harness duplication.
@@ -220,16 +216,6 @@ The same ownership defect also occurs when an executed test delegates its predic
 **Skills:** `/test-typescript`, `/audit-typescript-tests`, `/apply`.
 
 **Scope:** Product-wide, repaired one owning subtree at a time. Move each `register*()` or `assert*()` function's behavioral predicates into the node's executed `tests/*.test.ts` callbacks. Keep resource lifecycle, operation observations, and seed and run-count machinery in the harness; inspect expected-value construction for independent ownership. Retire redundant scenario/compliance duplicates as encountered, and run each node's tests plus its test-evidence audit after the move. Recount the affected callers when selecting a subtree rather than treating an earlier inventory as the current scope.
-
-## Spec CLI rendering Mapping evidence enumerates formats as separate tests
-
-`spx/31-spec-domain.enabler/32-spec-cli-rendering.enabler/tests/spec-cli-rendering.mapping.l1.test.ts` covers the source-owned status-output format domain with separate example tests. A test-evidence audit rejects that structure because it cannot prove that every member of the finite domain participates in the asserted mapping.
-
-**Impact:** Adding or removing a supported output format can leave the Mapping evidence incomplete while the existing examples still pass.
-
-**Skills:** `/test-typescript`, `/audit-typescript-tests`, `/apply`.
-
-**Scope:** Parameterize the linked Mapping evidence over the source-owned output-format domain, keep the format-specific expected projections in the executed test file, and rerun the node's tests and test-evidence audit.
 
 ## The shipped Specified-state definition is narrower than this product's EXCLUDE practice
 

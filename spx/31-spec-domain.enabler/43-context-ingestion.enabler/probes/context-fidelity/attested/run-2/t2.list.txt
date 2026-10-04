@@ -1,0 +1,115 @@
+Schema version: 3
+Bootstrap: false
+Methodology: outcomeeng/methodology@4.0.0 (migrating from 3.2.0)
+full spx/spx.product.md
+  product spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+reference spx/ISSUES.md
+  issue spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+full spx/12-agent-harness.pdr.md
+  product spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+full spx/12-node-runtime.adr.md
+  product spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+full spx/12-test-infrastructure.adr.md
+  product spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+full spx/13-agent-capability-lifecycle.pdr.md
+  product spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+full spx/13-agent-harness-placement.adr.md
+  product spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/13-cli.enabler/cli.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+full spx/14-cli-composition.adr.md
+  product spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/15-agent-run-journal.enabler/agent-run-journal.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+full spx/15-worktree-management.pdr.md
+  product spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/16-config.enabler/config.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/17-file-inclusion.enabler/file-inclusion.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/17-language-detection.enabler/language-detection.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+full spx/17-state.adr.md
+  product spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/18-state.enabler/state.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+full spx/19-language-registration.adr.md
+  product spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/21-infrastructure.enabler/infrastructure.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/22-test-environment.enabler/test-environment.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/23-spec-tree.enabler/spec-tree.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/25-outcomeeng.enabler/outcomeeng.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/26-release.enabler/release.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+full spx/29-verification-path-scope.pdr.md
+  product spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+full spx/31-spec-domain.enabler/spec-domain.md
+  ancestor spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+reference spx/31-spec-domain.enabler/ISSUES.md
+  issue spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/31-spec-domain.enabler/32-spec-cli-rendering.enabler/spec-cli-rendering.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+full spx/31-spec-domain.enabler/43-context-ingestion.enabler/context-ingestion.md
+  ancestor spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+reference spx/31-spec-domain.enabler/43-context-ingestion.enabler/ISSUES.md
+  issue spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+full spx/31-spec-domain.enabler/43-context-ingestion.enabler/32-context-manifest-schema.pdr.md
+  ancestor spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+full spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler/target-resolution.md
+  target spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+full spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler/21-context-target-resolution.adr.md
+  target spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/31-spec-domain.enabler/43-context-ingestion.enabler/54-read-set-projection.enabler/read-set-projection.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-citation-provenance.enabler/citation-provenance.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-content-projection.enabler/content-projection.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/understand-payload.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/31-spec-domain.enabler/43-context-ingestion.enabler/76-multi-target-composition.enabler/multi-target-composition.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/31-spec-domain.enabler/76-spec-cli-contract-tests.enabler/spec-cli-contract-tests.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/33-harness-environment.enabler/harness-environment.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/34-verification.enabler/verification.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/36-session.enabler/session.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/37-compact.enabler/compact.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/38-worktree.enabler/worktree.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/41-test.enabler/test.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/41-validation.enabler/validation.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/46-agent.enabler/agent.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/54-diagnose.enabler/diagnose.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/57-methodology-lifecycle.enabler/methodology-lifecycle.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+digest spx/60-surfaces.enabler/surfaces.md
+  sibling spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+full spx/13-cli.enabler/15-cli-architecture.adr.md (cited by spx/14-cli-composition.adr.md)
+  cited-decision spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+full spx/16-config.enabler/21-descriptor-registration.adr.md (cited by spx/41-test.enabler/test.md, spx/41-validation.enabler/21-validation-configuration.adr.md)
+  cited-decision spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+full spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md (cited by spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md)
+  cited-decision spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+full spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/21-methodology-source.adr.md (cited by spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/understand-payload.md)
+  cited-decision spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+full spx/41-test.enabler/11-test-runner-environments.pdr.md (cited by spx/41-test.enabler/test.md)
+  cited-decision spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+full spx/41-validation.enabler/21-validation-configuration.adr.md (cited by spx/41-validation.enabler/validation.md)
+  cited-decision spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
