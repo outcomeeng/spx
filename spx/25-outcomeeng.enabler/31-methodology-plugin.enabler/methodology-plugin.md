@@ -10,6 +10,8 @@ CAN serve the foundation for the methodology version a product declares from spx
 
 ## Assertions
 
+- NEVER: a diagnostic spx shows a person about the shipped methodology names a methodology version with the word "line" or with a patch component; it names the version as `methodology <MAJOR.MINOR>`, such as `methodology 4.0`, while a provider's `methodology.supports` range keeps its declared text
+
 ### Properties
 
 - A shipped tree is addressed by methodology line — the `MAJOR.MINOR` of a declared methodology version — then coding agent, then plugin name, resolved from spx's package root; a consumer product commits no tree, and no consumer path participates in resolution ([test](tests/tree-address.property.l1.test.ts))
