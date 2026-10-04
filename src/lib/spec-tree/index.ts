@@ -65,7 +65,6 @@ export {
   compareSpecContextOrdinal,
   composeSpecContextManifestEntries,
   decodeContextDocumentUtf8,
-  extractDecisionCitations,
   SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
   SPEC_CONTEXT_MODE,
   SPEC_CONTEXT_MODE_NAME,
