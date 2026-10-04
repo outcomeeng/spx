@@ -39,6 +39,11 @@ const MODIFIED_TRACKED_CONTENT = "modified after commit\n";
 const UNTRACKED_CONTENT = "never added\n";
 const COMMIT_MESSAGE = "build fixture";
 const PACKAGE_MANIFEST = "package.json";
+const GIT_POINTS_AT_FLAG = "--points-at";
+const GIT_STATUS_SUBCOMMAND = "status";
+const GIT_PORCELAIN_FLAG = "--porcelain";
+const GIT_NO_UNTRACKED_FLAG = "--untracked-files=no";
+const LINE_SEPARATOR = "\n";
 const UTF8 = "utf8";
 
 /** A directory arranged in one build state. */
@@ -119,4 +124,48 @@ export async function readProductPackageVersion(): Promise<string> {
     throw new Error(`${PACKAGE_MANIFEST} at ${PRODUCT_ROOT} declares no string version`);
   }
   return manifest.version;
+}
+
+/** The build state of the product checkout `dist/` is built from, with the commit it stands on. */
+export interface ProductCheckoutBuildState {
+  readonly state: BuildState;
+  readonly headCommit: string;
+}
+
+/**
+ * Reads the product checkout's git state directly through git — its HEAD commit, the release tags
+ * pointing at that commit, and whether any tracked file differs from it — so evidence can state the
+ * identity a build of this checkout must carry without asking the build-identity module. The
+ * packaged executable reports the state its `dist/` was built from, so the reading matches it only
+ * while the checkout is unchanged since `pnpm run build`.
+ */
+export async function readProductCheckoutBuildState(packageVersion: string): Promise<ProductCheckoutBuildState> {
+  const headCommit = await readGit(PRODUCT_ROOT, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
+  const tags = nonEmptyLines(
+    await readGit(PRODUCT_ROOT, [GIT_TEST_SUBCOMMANDS.TAG, GIT_POINTS_AT_FLAG, GIT_ROOT_COMMAND.HEAD]),
+  );
+  const trackedChanges = nonEmptyLines(
+    await readGit(PRODUCT_ROOT, [GIT_STATUS_SUBCOMMAND, GIT_PORCELAIN_FLAG, GIT_NO_UNTRACKED_FLAG]),
+  ).length > 0;
+  return {
+    state: {
+      insideCheckout: true,
+      tagRelation: tagRelationOf(tags, packageVersion),
+      workingTree: trackedChanges ? BUILD_WORKING_TREE_STATE.MODIFIED : BUILD_WORKING_TREE_STATE.CLEAN,
+    },
+    headCommit,
+  };
+}
+
+function tagRelationOf(tags: readonly string[], packageVersion: string): BuildCommitTagRelation {
+  if (tags.includes(`${RELEASE_TAG_PREFIX}${packageVersion}`)) {
+    return BUILD_COMMIT_TAG_RELATION.RELEASE_TAG;
+  }
+  return tags.some((tag) => tag.startsWith(RELEASE_TAG_PREFIX))
+    ? BUILD_COMMIT_TAG_RELATION.OTHER_RELEASE_TAG
+    : BUILD_COMMIT_TAG_RELATION.UNTAGGED;
+}
+
+function nonEmptyLines(output: string): string[] {
+  return output.split(LINE_SEPARATOR).map((line) => line.trim()).filter((line) => line.length > 0);
 }

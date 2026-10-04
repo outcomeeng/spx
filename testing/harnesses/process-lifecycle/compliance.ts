@@ -1,40 +1,47 @@
+/**
+ * Collaborators and observations for the managed-subprocess output evidence of `spx/13-cli.enabler`.
+ *
+ * The harness supplies a recording `ProcessRunner` whose children emit given stdout and stderr
+ * chunks, recording output adapters and stream pairs that capture what a parent forwards, the
+ * validation contexts the validation steps consume, the path of the caller-owned-stdio violating
+ * fixture, and the TypeScript diagnostics compiling that fixture produces. It returns observations
+ * only; the linked tests own every predicate.
+ *
+ * @module testing/harnesses/process-lifecycle/compliance
+ */
 import type { ChildProcess, SpawnOptions } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { PassThrough } from "node:stream";
 
 import ts from "typescript";
-import { describe, expect, it } from "vitest";
 
 import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
-import {
-  AGENT_ARTIFACT_DIR_PREFIX,
-  createAgentRunnerDepsFor,
-  createRelatedDepsFor,
-  createRunnerDepsFor,
-} from "@/interfaces/cli/test-runner-deps";
-import { type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
-import { typescriptTestingLanguage } from "@/test/languages/typescript";
-import { validateESLint } from "@/validation/steps/eslint";
+import type { ProcessRunner } from "@/lib/process-lifecycle";
 import { DEFAULT_ESLINT_CONFIG_FILE } from "@/validation/steps/eslint-contract";
-import { validateFormatting } from "@/validation/steps/formatting";
-import { validateKnip } from "@/validation/steps/knip";
-import {
-  forwardValidationSubprocessOutput,
-  type ValidationSubprocessOutputStreams,
-} from "@/validation/steps/subprocess-output";
-import { validateTypeScript } from "@/validation/steps/typescript";
+import type { ValidationSubprocessOutputStreams } from "@/validation/steps/subprocess-output";
 import { EXECUTION_MODES, type ScopeConfig, VALIDATION_SCOPES, type ValidationContext } from "@/validation/types";
-import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
-import { RecordingSpawnOptionsRunner, RecordingValidationChild } from "@testing/harnesses/validation/subprocess";
-import { withTempDir } from "@testing/harnesses/with-temp-dir";
+import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
+import { sampleGeneratedValue } from "@testing/generators/sample";
+import { PRODUCT_ROOT } from "@testing/harnesses/constants";
+import { RecordingValidationChild } from "@testing/harnesses/validation/subprocess";
 
-const CALLER_OWNED_STDIO_FIXTURE_PATH = join(
-  process.cwd(),
+const STREAM_DATA_EVENT = "data";
+const ARTIFACT_ENCODING = "utf8";
+
+/** The text of an output artifact a runner wrote, or `undefined` when no artifact path was reported. */
+export async function readOutputArtifact(path: string | undefined): Promise<string | undefined> {
+  return path === undefined ? undefined : readFile(path, ARTIFACT_ENCODING);
+}
+
+/** Path of the source fixture that hands `stdio` to the managed subprocess helper, which the type system must reject. */
+export const CALLER_OWNED_STDIO_FIXTURE_PATH = join(
+  PRODUCT_ROOT,
   "testing/fixtures/process-lifecycle/caller-owned-stdio.ts",
 );
 
-class EmittingSpawnOptionsRunner implements ProcessRunner {
+/** A `ProcessRunner` whose every child writes the given chunks to its stdout and stderr, then closes. */
+export class EmittingSpawnOptionsRunner implements ProcessRunner {
   readonly commands: string[] = [];
   readonly args: Array<readonly string[]> = [];
   readonly options: SpawnOptions[] = [];
@@ -68,26 +75,62 @@ class EmittingSpawnOptionsRunner implements ProcessRunner {
   }
 }
 
-function recordingOutputStreams(stdout: string[], stderr: string[]): ValidationSubprocessOutputStreams {
+/** Parent output adapters that record every chunk written to them as text. */
+export interface RecordingOutputStreams {
+  readonly streams: ValidationSubprocessOutputStreams;
+  readonly stdout: readonly string[];
+  readonly stderr: readonly string[];
+}
+
+export function createRecordingOutputStreams(): RecordingOutputStreams {
+  const stdout: string[] = [];
+  const stderr: string[] = [];
   return {
-    stdout: { write: (chunk) => stdout.push(Buffer.from(chunk).toString()) > 0 },
-    stderr: { write: (chunk) => stderr.push(Buffer.from(chunk).toString()) > 0 },
+    streams: {
+      stdout: { write: (chunk) => stdout.push(Buffer.from(chunk).toString()) > 0 },
+      stderr: { write: (chunk) => stderr.push(Buffer.from(chunk).toString()) > 0 },
+    },
+    stdout,
+    stderr,
   };
 }
 
-function createValidationScopeConfig(): ScopeConfig {
-  const sourcePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+/** A pair of writable streams that record every chunk written to them as text. */
+export interface RecordingStreamPair {
+  readonly stdout: PassThrough;
+  readonly stderr: PassThrough;
+  readonly stdoutChunks: readonly string[];
+  readonly stderrChunks: readonly string[];
+}
 
+export function createRecordingStreamPair(): RecordingStreamPair {
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+  const stdoutChunks: string[] = [];
+  const stderrChunks: string[] = [];
+  stdout.on(STREAM_DATA_EVENT, (chunk) => stdoutChunks.push(Buffer.from(chunk).toString()));
+  stderr.on(STREAM_DATA_EVENT, (chunk) => stderrChunks.push(Buffer.from(chunk).toString()));
+  return { stdout, stderr, stdoutChunks, stderrChunks };
+}
+
+/** A validation scope rooted at the directory of one generated source path. */
+export function createValidationScopeConfig(): ScopeConfig {
   return {
-    directories: [dirname(sourcePath)],
+    directories: [dirname(sampleGeneratedValue(arbitrarySourceFilePath()))],
     filePatterns: [],
     excludePatterns: [],
   };
 }
 
-function createValidationContext(scopeConfig: ScopeConfig = createValidationScopeConfig()): ValidationContext {
+/** A generated product directory a validation step runs against. */
+export function createValidationProductDir(): string {
+  return dirname(sampleGeneratedValue(arbitrarySourceFilePath()));
+}
+
+/** A full-scope, read-mode ESLint validation context over the product root. */
+export function createValidationContext(scopeConfig: ScopeConfig = createValidationScopeConfig()): ValidationContext {
   return {
-    productDir: process.cwd(),
+    productDir: PRODUCT_ROOT,
     scope: VALIDATION_SCOPES.FULL,
     scopeConfig,
     mode: EXECUTION_MODES.READ,
@@ -97,189 +140,12 @@ function createValidationContext(scopeConfig: ScopeConfig = createValidationScop
   };
 }
 
-function compileFixtureDiagnostics(path: string): readonly ts.Diagnostic[] {
-  const configPath = ts.findConfigFile(process.cwd(), ts.sys.fileExists);
+/** The diagnostics the product's TypeScript configuration reports for the source file at `path`. */
+export function compileFixtureDiagnostics(path: string): readonly ts.Diagnostic[] {
+  const configPath = ts.findConfigFile(PRODUCT_ROOT, ts.sys.fileExists);
   if (configPath === undefined) throw new Error("TypeScript config unavailable for process-lifecycle fixture");
   const config = ts.readConfigFile(configPath, ts.sys.readFile);
   if (config.error !== undefined) throw new Error(ts.flattenDiagnosticMessageText(config.error.messageText, "\n"));
-  const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, process.cwd());
+  const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, PRODUCT_ROOT);
   return ts.getPreEmitDiagnostics(ts.createProgram([path], parsed.options));
-}
-
-export function registerLifecycleComplianceEvidence(): void {
-  describe("Compliance: managed subprocess output", () => {
-    it("managed subprocess helper owns parent-owned pipe stdio", () => {
-      const runner = new RecordingSpawnOptionsRunner();
-      const command = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-      const args = [sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral())];
-
-      spawnManagedSubprocess(runner, command, args, { cwd: process.cwd() });
-
-      expect(runner.spawnOptions?.stdio).toBe("pipe");
-    });
-
-    it("rejects a caller-owned stdio fixture", () => {
-      const diagnostics = compileFixtureDiagnostics(CALLER_OWNED_STDIO_FIXTURE_PATH);
-
-      expect(diagnostics).toHaveLength(1);
-      expect(diagnostics[0]?.file?.fileName).toBe(CALLER_OWNED_STDIO_FIXTURE_PATH);
-    });
-
-    it("forwards child stdout and stderr through parent output adapters", () => {
-      const runner = new RecordingSpawnOptionsRunner();
-      const command = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-      const stdoutChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-      const stderrChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-      const stdout: Array<string | Uint8Array> = [];
-      const stderr: Array<string | Uint8Array> = [];
-      const child = spawnManagedSubprocess(runner, command, [], { cwd: process.cwd() });
-
-      forwardValidationSubprocessOutput(child, {
-        stdout: { write: (chunk) => stdout.push(chunk) > 0 },
-        stderr: { write: (chunk) => stderr.push(chunk) > 0 },
-      });
-      runner.children[0]?.stdout.write(stdoutChunk);
-      runner.children[0]?.stderr.write(stderrChunk);
-
-      expect(runner.spawnOptions?.stdio).toBe("pipe");
-      expect(stdout.map(String)).toEqual([stdoutChunk]);
-      expect(stderr.map(String)).toEqual([stderrChunk]);
-    });
-
-    it("ESLint subprocess output is owned by parent-owned pipes", async () => {
-      const stdoutChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-      const stderrChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-      const stdout: string[] = [];
-      const stderr: string[] = [];
-      const runner = new EmittingSpawnOptionsRunner(stdoutChunk, stderrChunk);
-
-      const result = await validateESLint(createValidationContext(), runner, recordingOutputStreams(stdout, stderr));
-
-      expect(result.success).toBe(true);
-      expect(runner.spawnOptions?.stdio).toBe("pipe");
-      expect(stdout).toEqual([stdoutChunk]);
-      expect(stderr).toEqual([stderrChunk]);
-    });
-
-    it("TypeScript subprocess output is owned by parent-owned pipes", async () => {
-      const stdoutChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-      const stderrChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-      const stdout: string[] = [];
-      const stderr: string[] = [];
-      const runner = new EmittingSpawnOptionsRunner(stdoutChunk, stderrChunk);
-
-      const result = await validateTypeScript(
-        {
-          scope: VALIDATION_SCOPES.FULL,
-          productDir: process.cwd(),
-        },
-        { runner, outputStreams: recordingOutputStreams(stdout, stderr) },
-      );
-
-      expect(result.success).toBe(true);
-      expect(runner.spawnOptions?.stdio).toBe("pipe");
-      expect(stdout).toEqual([stdoutChunk]);
-      expect(stderr).toEqual([stderrChunk]);
-    });
-
-    it("Knip subprocess output is owned by parent-owned pipes", async () => {
-      const stdoutChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-      const stderrChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-      const stdout: string[] = [];
-      const stderr: string[] = [];
-      const runner = new EmittingSpawnOptionsRunner(
-        stdoutChunk,
-        stderrChunk,
-        [VALIDATION_EXIT_CODES.FAILURE],
-      );
-      const productDir = dirname(sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
-
-      const result = await validateKnip(
-        { productDir, typescriptScope: createValidationScopeConfig() },
-        runner,
-        undefined,
-        recordingOutputStreams(stdout, stderr),
-      );
-
-      expect(result.error).toContain(stdoutChunk);
-      expect(runner.spawnOptions).toEqual(expect.objectContaining({ cwd: productDir, stdio: "pipe" }));
-      expect(stdout).toEqual([stdoutChunk]);
-      expect(stderr).toEqual([stderrChunk]);
-    });
-
-    it("formatting subprocess output is owned by parent-owned pipes", async () => {
-      const stdoutChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-      const stderrChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-      const stdout: string[] = [];
-      const stderr: string[] = [];
-      const runner = new EmittingSpawnOptionsRunner(stdoutChunk, stderrChunk);
-
-      const result = await validateFormatting(
-        { productDir: process.cwd() },
-        runner,
-        recordingOutputStreams(stdout, stderr),
-      );
-
-      expect(result.success).toBe(true);
-      expect(runner.spawnOptions?.stdio).toBe("pipe");
-      expect(stdout).toEqual([stdoutChunk]);
-      expect(stderr).toEqual([stderrChunk]);
-    });
-
-    it("test execution subprocess output is owned by parent-owned pipes", async () => {
-      const stdoutChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-      const stderrChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-      const runner = new EmittingSpawnOptionsRunner(stdoutChunk, stderrChunk);
-      const stdout = new PassThrough();
-      const stderr = new PassThrough();
-      const stdoutChunks: string[] = [];
-      const stderrChunks: string[] = [];
-      const command = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-      const args = [sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral())];
-      stdout.on("data", (chunk) => stdoutChunks.push(Buffer.from(chunk).toString()));
-      stderr.on("data", (chunk) => stderrChunks.push(Buffer.from(chunk).toString()));
-      const dependencies = createRunnerDepsFor(process.cwd(), stdout, runner, stderr)(typescriptTestingLanguage);
-
-      await dependencies.runCommand(command, args);
-
-      expect(runner.spawnOptions?.stdio).toBe("pipe");
-      expect(stdoutChunks).toEqual([stdoutChunk]);
-      expect(stderrChunks).toEqual([stderrChunk]);
-    });
-
-    it("related-test subprocess output is owned by parent-owned pipes", async () => {
-      const stdoutChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-      const stderrChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-      const runner = new EmittingSpawnOptionsRunner(stdoutChunk, stderrChunk);
-      const command = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-      const args = [sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral())];
-      const dependencies = createRelatedDepsFor(process.cwd(), runner)(typescriptTestingLanguage);
-
-      const result = await dependencies.runCommand(command, args);
-
-      expect(runner.spawnOptions?.stdio).toBe("pipe");
-      expect(result.stdout).toBe(stdoutChunk);
-      expect(result.stderr).toBe(stderrChunk);
-    });
-
-    it("agent test subprocess output is owned by parent-owned pipes", async () => {
-      await withTempDir(AGENT_ARTIFACT_DIR_PREFIX, async (tmpDir) => {
-        const stdoutChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-        const stderrChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-        const runner = new EmittingSpawnOptionsRunner(stdoutChunk, stderrChunk);
-        const command = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
-        const args = [sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral())];
-        const dependencies = createAgentRunnerDepsFor(process.cwd(), { processRunner: runner, tmpDir })(
-          typescriptTestingLanguage,
-        );
-
-        const result = await dependencies.runCommand(command, args);
-
-        expect(runner.spawnOptions?.stdio).toBe("pipe");
-        if (result.output === undefined) throw new Error("agent test runner did not report output artifacts");
-        await expect(readFile(result.output.stdoutPath, "utf8")).resolves.toBe(stdoutChunk);
-        await expect(readFile(result.output.stderrPath, "utf8")).resolves.toBe(stderrChunk);
-      });
-    });
-  });
 }
