@@ -135,9 +135,23 @@ export function arbitraryNonVersionText(): fc.Arbitrary<string> {
   return fc.oneof(fc.constant(""), arbitraryMalformedVersionText());
 }
 
+/** Two exact `MAJOR.MINOR.PATCH` versions on different lines. */
+export function arbitraryMethodologyVersionsOnDistinctLines(): fc.Arbitrary<
+  readonly [GeneratedMethodologyVersion, GeneratedMethodologyVersion]
+> {
+  return fc.tuple(arbitraryMethodologyVersion(), arbitraryMethodologyVersion())
+    .filter(([first, second]) => first.line !== second.line);
+}
+
 /** A coding-agent directory name: one plain lowercase path segment. */
 export function arbitraryCodingAgentName(): fc.Arbitrary<string> {
   return arbitraryPathSegment();
+}
+
+/** Two different coding-agent directory names. */
+export function arbitraryDistinctCodingAgentNames(): fc.Arbitrary<readonly [string, string]> {
+  return fc.tuple(arbitraryCodingAgentName(), arbitraryCodingAgentName())
+    .filter(([first, second]) => first !== second);
 }
 
 /** A path component that must be rejected as a tree segment: traversal, separators, or empty. */
@@ -223,17 +237,24 @@ export function arbitraryPluginsContent(provides?: string): fc.Arbitrary<Generat
   }));
 }
 
+/** Plugins content whose agents disagree on `provides`, with the distinct versions each side declares. */
+export interface GeneratedDisagreeingPluginsContent extends GeneratedPluginsContent {
+  /** The versions the agents declare, the first agent's before every other agent's, on different lines. */
+  readonly provided: readonly [GeneratedMethodologyVersion, GeneratedMethodologyVersion];
+}
+
 /** Plugins content whose agents declare `provides` values on different lines. */
-export function arbitraryDisagreeingPluginsContent(): fc.Arbitrary<GeneratedPluginsContent> {
+export function arbitraryDisagreeingPluginsContent(): fc.Arbitrary<GeneratedDisagreeingPluginsContent> {
   const agents = Object.keys(FETCH_CODING_AGENTS);
   return fc.tuple(arbitraryMethodologyVersion(), arbitraryMethodologyVersion())
     .filter(([first, second]) => first.line !== second.line)
     .chain(([first, second]) =>
       fc.tuple(...agents.map((_, index) => arbitraryPluginContent(index === 0 ? first.text : second.text)))
-    )
-    .map((contents) => ({
-      agents: new Map(agents.map((agent, index) => [agent, contents[index]])),
-    }));
+        .map((contents) => ({
+          agents: new Map(agents.map((agent, index) => [agent, contents[index]])),
+          provided: [first, second] as const,
+        }))
+    );
 }
 
 const COMPARATOR_JOINER = " ";

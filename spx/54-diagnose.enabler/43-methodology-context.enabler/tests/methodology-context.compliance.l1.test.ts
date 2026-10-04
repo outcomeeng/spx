@@ -45,8 +45,8 @@ import {
   unresolvedMethodology,
   unshippedObservation,
   withAgentHomesCarryingVersion,
-  withShippedTreeRoot,
 } from "@testing/harnesses/diagnose/methodology-context";
+import { withShippedTreeRoot } from "@testing/harnesses/methodology/tree-root";
 
 describe("methodology-context diagnose compliance", () => {
   it("renders every verdict's text from the same check record as the JSON report", async () => {

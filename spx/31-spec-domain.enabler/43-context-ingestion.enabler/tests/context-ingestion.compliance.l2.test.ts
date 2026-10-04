@@ -105,7 +105,7 @@ describe("spec context no partial output", () => {
         );
         expect(result.exitCode).toBe(1);
         expect(result.stdout).toHaveLength(0);
-        expect(result.stderr).toContain(declared.text);
+        expect(result.stderr).toContain(`methodology ${declared.line}`);
       },
     );
   });

@@ -207,7 +207,7 @@ describe("spec context ingestion writes nothing to standard output after a failu
         );
         expect(run.stdout).toHaveLength(0);
         expect(run.exitCode).toBe(1);
-        expect(run.stderr).toContain(declared.text);
+        expect(run.stderr).toContain(`methodology ${declared.line}`);
         const withoutFoundation = await runSpecDescriptor(context, ...SPEC_CONTEXT_COMMAND_PATH.SHOW, target);
         expect(withoutFoundation.exitCode, withoutFoundation.stderr).toBeUndefined();
         expect(withoutFoundation.stdout.length).toBeGreaterThan(0);

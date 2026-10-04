@@ -18,7 +18,7 @@
 import { METHODOLOGY_PATCHED_VERSION_PATTERN, METHODOLOGY_VERSION_FORM } from "@/config/methodology";
 import type { Result } from "@/config/types";
 
-import { methodologyLine, type MethodologySourceRecord } from "./tree";
+import { formatDeclaredMethodologyVersion, methodologyLine, type MethodologySourceRecord } from "./tree";
 
 export const PROVIDER_MATCH = {
   VERIFIED: "verified",
@@ -148,23 +148,29 @@ export function satisfiesMethodologyRange(version: string, range: string): Resul
 /** Diagnostic for a range operand outside the form the comparison reads: an accepted declaration the check cannot yet evaluate. */
 export function formatRangeOperandFormError(version: string): string {
   return `${
-    JSON.stringify(version)
+    formatDeclaredMethodologyVersion(version)
   } is not in the ${METHODOLOGY_VERSION_FORM.PATCHED} form the supports range check reads`;
 }
 
 /** Diagnostic for a declared version whose line differs from the line the provider provides. */
 export function formatProvidesMismatchError(version: string, provides: string, codingAgent: string): string {
-  return `Declared methodology version ${version} selects a different line from the version the ${codingAgent} plugin provides, ${provides}`;
+  return `Declared ${formatDeclaredMethodologyVersion(version)} differs from ${
+    formatDeclaredMethodologyVersion(provides)
+  }, which the ${codingAgent} plugin provides`;
 }
 
 /** Diagnostic for a declared migration source the provider records no supported range for. */
 export function formatSupportsUndeclaredError(migratingFrom: string, codingAgent: string): string {
-  return `Declared migration source ${migratingFrom} cannot be checked: the ${codingAgent} plugin declares no supported range`;
+  return `Declared migration source ${
+    formatDeclaredMethodologyVersion(migratingFrom)
+  } cannot be checked: the ${codingAgent} plugin declares no supported range`;
 }
 
-/** Diagnostic for a declared migration source outside the provider's supported range. */
+/** Diagnostic for a declared migration source outside the provider's supported range, which keeps its declared text. */
 export function formatSupportsMismatchError(migratingFrom: string, supports: string, codingAgent: string): string {
-  return `Declared migration source ${migratingFrom} falls outside the range the ${codingAgent} plugin supports, ${supports}`;
+  return `Declared migration source ${
+    formatDeclaredMethodologyVersion(migratingFrom)
+  } falls outside the range the ${codingAgent} plugin supports, ${supports}`;
 }
 
 /**

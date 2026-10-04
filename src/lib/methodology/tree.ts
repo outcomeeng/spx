@@ -33,6 +33,7 @@ const LINE_SEPARATOR = ".";
 const MAJOR_GROUP = 1;
 const MINOR_GROUP = 2;
 const AVAILABLE_LIST_SEPARATOR = ", ";
+const METHODOLOGY_VERSION_NAME_PREFIX = "methodology ";
 
 export const SOURCE_RECORD_FIELDS = {
   REPOSITORY: "repository",
@@ -68,14 +69,14 @@ export function isMethodologyLine(value: string): boolean {
 
 /** Diagnostic for a value no methodology line derives from: it is not an exact version in an accepted form. */
 export function formatMethodologyLineParseError(version: string): string {
-  return `No methodology line derives from ${
+  return `${
     JSON.stringify(version)
-  }; an exact ${METHODOLOGY_VERSION_FORMS_TEXT} version is required`;
+  } is not an exact methodology version; an exact ${METHODOLOGY_VERSION_FORMS_TEXT} version is required`;
 }
 
 /** Diagnostic for a value that is not a methodology line. */
 export function formatMethodologyLineInvalidError(line: string): string {
-  return `Methodology line must be MAJOR.MINOR with no patch component; rejected ${JSON.stringify(line)}`;
+  return `A methodology version must be named as MAJOR.MINOR with no patch component; rejected ${JSON.stringify(line)}`;
 }
 
 /** The line of an exact methodology version in either accepted form: its major and minor components. */
@@ -85,6 +86,21 @@ export function methodologyLine(version: string): Result<string> {
     return { ok: false, error: formatMethodologyLineParseError(version) };
   }
   return { ok: true, value: [match[MAJOR_GROUP], match[MINOR_GROUP]].join(LINE_SEPARATOR) };
+}
+
+/** How a diagnostic names a methodology line to a person: `methodology <MAJOR.MINOR>`. */
+export function formatMethodologyVersionName(line: string): string {
+  return `${METHODOLOGY_VERSION_NAME_PREFIX}${line}`;
+}
+
+/**
+ * How a diagnostic names a declared methodology version to a person: by the
+ * line it selects, so a patch component never reaches the reader. A value no
+ * line derives from is quoted as given.
+ */
+export function formatDeclaredMethodologyVersion(version: string): string {
+  const line = methodologyLine(version);
+  return line.ok ? formatMethodologyVersionName(line.value) : JSON.stringify(version);
 }
 
 /**
@@ -262,14 +278,10 @@ function formatAvailable(values: readonly string[]): string {
   return values.length === 0 ? "none" : values.join(AVAILABLE_LIST_SEPARATOR);
 }
 
-/** Diagnostic for a declared version whose line spx does not ship. */
-export function formatMethodologyLineMissingError(
-  version: string,
-  line: string,
-  availableLines: readonly string[],
-): string {
-  return `spx ships no methodology tree for line ${line} of declared version ${version}`
-    + ` (shipped lines: ${formatAvailable(availableLines)})`;
+/** Diagnostic for a declared version whose line spx does not ship, naming every shipped line as a methodology version. */
+export function formatMethodologyLineMissingError(line: string, availableLines: readonly string[]): string {
+  return `spx ships no methodology tree for ${formatMethodologyVersionName(line)}`
+    + ` (shipped: ${formatAvailable(availableLines.map(formatMethodologyVersionName))})`;
 }
 
 /** Diagnostic for a coding agent the shipped line carries no tree for. */
@@ -278,13 +290,15 @@ export function formatCodingAgentMissingError(
   codingAgent: string,
   availableAgents: readonly string[],
 ): string {
-  return `spx ships no methodology tree for coding agent ${JSON.stringify(codingAgent)} on line ${line}`
+  return `spx ships no ${formatMethodologyVersionName(line)} tree for coding agent ${JSON.stringify(codingAgent)}`
     + ` (shipped coding agents: ${formatAvailable(availableAgents)})`;
 }
 
 /** Diagnostic for a read that names no coding agent when the line ships more than one. */
 export function formatCodingAgentUnresolvedError(line: string, availableAgents: readonly string[]): string {
-  return `Name the coding agent in scope; line ${line} ships trees for: ${formatAvailable(availableAgents)}`;
+  return `Name the coding agent in scope; ${formatMethodologyVersionName(line)} ships trees for: ${
+    formatAvailable(availableAgents)
+  }`;
 }
 
 /** Diagnostic for a source record that fails to parse. */
