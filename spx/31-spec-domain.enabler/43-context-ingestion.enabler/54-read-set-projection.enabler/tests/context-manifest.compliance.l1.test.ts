@@ -7,18 +7,16 @@ import {
   KIND_REGISTRY,
   SPEC_CONTEXT_MODE,
   SPEC_CONTEXT_MODE_NAME,
-  SPEC_CONTEXT_OPTIONAL_ARTIFACT,
-  SPEC_CONTEXT_PRODUCT_ROOT_TARGET,
   SPEC_CONTEXT_SELECTION_REASON,
   SPEC_TREE_GRAMMAR,
 } from "@/lib/spec-tree";
 import {
+  compareSpecContextWalkPositions,
   divergentOrderSlugPair,
   freeSiblingOrder,
   markdownFixtureBody,
+  richContextBoundaryTargetSets,
   richContextCanonicalTarget,
-  type RichContextPaths,
-  rootedSpecPath,
   siblingDirectoryName,
   SPEC_CONTEXT_ESCAPE_TARGET_FILENAME,
   specFilePath,
@@ -42,68 +40,10 @@ import {
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
 
-/** The target sets the boundary cases request: a nested node, its ancestor, the product root, and two composed targets. */
-function boundaryTargetSets(paths: RichContextPaths): readonly (readonly string[])[] {
-  return [
-    [paths.targetId],
-    [paths.rootDirectory],
-    [SPEC_CONTEXT_PRODUCT_ROOT_TARGET],
-    [paths.targetId, paths.higherIndexSiblingPath],
-  ];
-}
-
-type WalkStep = readonly [group: number, index: number, name: string];
-
-/**
- * The position the declared depth-first walk gives a selected tree path, as
- * one step per directory level. A walked directory contributes its own
- * artifacts first — its spec (the product spec at the product root), then
- * its `ISSUES.md`, then its outcome record, then its `knowledge/index.md` —
- * and then one sequence merging its decisions and child nodes by ascending
- * numeric index, with the complete entry name compared by code units as the
- * equal-index tie-break.
- */
-function walkSteps(path: string): readonly WalkStep[] {
-  const ownArtifacts = [
-    SPEC_CONTEXT_OPTIONAL_ARTIFACT.ISSUES,
-    SPEC_CONTEXT_OPTIONAL_ARTIFACT.OUTCOME_SUFFIX,
-    SPEC_CONTEXT_OPTIONAL_ARTIFACT.KNOWLEDGE_INDEX,
-  ];
-  const sequenced = (name: string): WalkStep => [
-    1,
-    Number(name.split(SPEC_TREE_GRAMMAR.ORDER.SEPARATOR)[0]),
-    name,
-  ];
-  const relative = path.slice(rootedSpecPath("").length);
-  const knowledgeIndex = SPEC_CONTEXT_OPTIONAL_ARTIFACT.KNOWLEDGE_INDEX;
-  const isKnowledgeIndex = relative === knowledgeIndex
-    || relative.endsWith(`${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}${knowledgeIndex}`);
-  const segments = relative.split(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
-  const fileSegments = isKnowledgeIndex ? knowledgeIndex.split(SPEC_TREE_GRAMMAR.PATH_SEPARATOR).length : 1;
-  const directories = segments.slice(0, segments.length - fileSegments);
-  const file = segments.slice(segments.length - fileSegments).join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
-  const isDecision = [KIND_REGISTRY.adr.suffix, KIND_REGISTRY.pdr.suffix].some((suffix) => file.endsWith(suffix));
-  const ownRank = 1 + ownArtifacts.findIndex((artifact) => file === artifact || file.endsWith(artifact));
-  return [...directories.map(sequenced), isDecision ? sequenced(file) : [0, ownRank, ""]];
-}
-
-function compareWalkPositions(left: string, right: string): number {
-  const leftSteps = walkSteps(left);
-  const rightSteps = walkSteps(right);
-  for (let level = 0; level < Math.min(leftSteps.length, rightSteps.length); level += 1) {
-    const [leftGroup, leftIndex, leftName] = leftSteps[level];
-    const [rightGroup, rightIndex, rightName] = rightSteps[level];
-    if (leftGroup !== rightGroup) return leftGroup - rightGroup;
-    if (leftIndex !== rightIndex) return leftIndex - rightIndex;
-    if (leftName !== rightName) return leftName < rightName ? -1 : 1;
-  }
-  return leftSteps.length - rightSteps.length;
-}
-
 describe("spec context manifest boundaries", () => {
   it("carries no entry for a document show does not select, the coordination plans on the path included", async () => {
     await withRichContextEnv(async (env, paths) => {
-      for (const targets of boundaryTargetSets(paths)) {
+      for (const targets of richContextBoundaryTargetSets(paths)) {
         const manifestPaths = allManifestPaths(await contextListManifest({ targets, cwd: env.productDir }));
         const shown = entryPaths(await contextShowEntries({ targets, cwd: env.productDir }));
         for (const path of manifestPaths) expect(shown, `${targets.join(" ")} ${path}`).toContain(path);
@@ -149,7 +89,7 @@ describe("spec context manifest boundaries", () => {
 
   it("keeps evidence, harness guides, local overlays, and unselected file classes outside list", async () => {
     await withRichContextEnv(async (env, paths) => {
-      for (const targets of boundaryTargetSets(paths)) {
+      for (const targets of richContextBoundaryTargetSets(paths)) {
         const manifestPaths = allManifestPaths(await contextListManifest({ targets, cwd: env.productDir }));
         for (
           const excluded of [
@@ -196,9 +136,9 @@ describe("spec context manifest boundaries", () => {
 
   it("orders every entry by the declared depth-first walk from the product root", async () => {
     await withRichContextEnv(async (env, paths) => {
-      for (const targets of boundaryTargetSets(paths)) {
+      for (const targets of richContextBoundaryTargetSets(paths)) {
         const manifestPaths = allManifestPaths(await contextListManifest({ targets, cwd: env.productDir }));
-        expect(manifestPaths, targets.join(" ")).toEqual([...manifestPaths].sort(compareWalkPositions));
+        expect(manifestPaths, targets.join(" ")).toEqual([...manifestPaths].sort(compareSpecContextWalkPositions));
       }
       // The nested target's subtree interleaves its own artifacts, a decision,
       // and a child node, and the peer's cited decisions share one index with

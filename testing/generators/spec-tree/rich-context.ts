@@ -770,3 +770,70 @@ export function arbitrarySpecContextManifest(): fc.Arbitrary<SpecContextManifest
         }))
     );
 }
+
+/** The target sets the boundary cases request: a nested node, its ancestor, the product root, and two composed targets. */
+export function richContextBoundaryTargetSets(paths: RichContextPaths): readonly (readonly string[])[] {
+  return [
+    [paths.targetId],
+    [paths.rootDirectory],
+    [SPEC_CONTEXT_PRODUCT_ROOT_TARGET],
+    [paths.targetId, paths.higherIndexSiblingPath],
+  ];
+}
+
+/** Every walk-order case: the targetless request beside each boundary target set. */
+export function richContextWalkTargetSets(paths: RichContextPaths): readonly (readonly string[])[] {
+  return [[], ...richContextBoundaryTargetSets(paths)];
+}
+
+type SpecContextWalkStep = readonly [group: number, index: number, name: string];
+
+/**
+ * The position the declared depth-first walk gives a selected tree path, as
+ * one step per directory level. A walked directory contributes its own
+ * artifacts first — its spec (the product spec at the product root), then
+ * its `ISSUES.md`, then its outcome record, then its `knowledge/index.md` —
+ * and then one sequence merging its decisions and child nodes by ascending
+ * numeric index, with the complete entry name compared by code units as the
+ * equal-index tie-break.
+ */
+function specContextWalkSteps(path: string): readonly SpecContextWalkStep[] {
+  const ownArtifacts = [
+    SPEC_CONTEXT_OPTIONAL_ARTIFACT.ISSUES,
+    SPEC_CONTEXT_OPTIONAL_ARTIFACT.OUTCOME_SUFFIX,
+    SPEC_CONTEXT_OPTIONAL_ARTIFACT.KNOWLEDGE_INDEX,
+  ];
+  const sequenced = (name: string): SpecContextWalkStep => [
+    1,
+    Number(name.split(SPEC_TREE_GRAMMAR.ORDER.SEPARATOR)[0]),
+    name,
+  ];
+  const relative = path.slice(rootedSpecPath("").length);
+  const knowledgeIndex = SPEC_CONTEXT_OPTIONAL_ARTIFACT.KNOWLEDGE_INDEX;
+  const isKnowledgeIndex = relative === knowledgeIndex
+    || relative.endsWith(`${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}${knowledgeIndex}`);
+  const segments = relative.split(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
+  const fileSegments = isKnowledgeIndex ? knowledgeIndex.split(SPEC_TREE_GRAMMAR.PATH_SEPARATOR).length : 1;
+  const directories = segments.slice(0, segments.length - fileSegments);
+  const file = segments.slice(segments.length - fileSegments).join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
+  const isDecision = [KIND_REGISTRY.adr.suffix, KIND_REGISTRY.pdr.suffix].some((suffix) => file.endsWith(suffix));
+  const ownRank = 1 + ownArtifacts.findIndex((artifact) => file === artifact || file.endsWith(artifact));
+  return [...directories.map(sequenced), isDecision ? sequenced(file) : [0, ownRank, ""]];
+}
+
+/**
+ * Orders two selected tree paths by the declared depth-first walk, computed
+ * from the walk law independently of the projection under test.
+ */
+export function compareSpecContextWalkPositions(left: string, right: string): number {
+  const leftSteps = specContextWalkSteps(left);
+  const rightSteps = specContextWalkSteps(right);
+  for (let level = 0; level < Math.min(leftSteps.length, rightSteps.length); level += 1) {
+    const [leftGroup, leftIndex, leftName] = leftSteps[level];
+    const [rightGroup, rightIndex, rightName] = rightSteps[level];
+    if (leftGroup !== rightGroup) return leftGroup - rightGroup;
+    if (leftIndex !== rightIndex) return leftIndex - rightIndex;
+    if (leftName !== rightName) return leftName < rightName ? -1 : 1;
+  }
+  return leftSteps.length - rightSteps.length;
+}
