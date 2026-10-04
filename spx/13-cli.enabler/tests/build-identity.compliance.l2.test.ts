@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { readBuildIdentity, unknownBuildIdentity } from "@/lib/build-identity";
-import { defaultGitDependencies } from "@/lib/git/root";
 import {
   BUILD_COMMIT_TAG_RELATION,
   BUILD_WORKING_TREE_STATE,
+  expectedBuildIdentity,
   sampleBuildVersions,
 } from "@testing/generators/cli/build-identity";
 import {
+  readProductCheckoutBuildState,
   readProductPackageVersion,
   runPackagedVersion,
   withBuildCheckout,
@@ -16,16 +16,16 @@ import { CLI_TIMEOUTS_MS, PRODUCT_ROOT } from "@testing/harnesses/constants";
 
 describe("Compliance: the built executable reports the identity stamped at build time", () => {
   it(
-    "prints one identity from the product checkout, from another Git checkout, and from outside any checkout",
+    "prints the identity of the checkout state it was built from, from the product checkout, another Git checkout, and outside any checkout",
     async () => {
       const packageVersion = await readProductPackageVersion();
+      const built = await readProductCheckoutBuildState(packageVersion);
       const fromProduct = await runPackagedVersion(PRODUCT_ROOT);
 
-      await withBuildCheckout({ insideCheckout: false }, sampleBuildVersions(), async (outside) => {
-        const fromOutside = await runPackagedVersion(outside.dir);
+      expect(fromProduct).toBe(expectedBuildIdentity(packageVersion, built.state, built.headCommit));
 
-        expect(fromOutside).toBe(fromProduct);
-        expect(fromOutside).not.toBe(unknownBuildIdentity(packageVersion));
+      await withBuildCheckout({ insideCheckout: false }, sampleBuildVersions(), async (outside) => {
+        expect(await runPackagedVersion(outside.dir)).toBe(fromProduct);
       });
 
       await withBuildCheckout(
@@ -36,14 +36,9 @@ describe("Compliance: the built executable reports the identity stamped at build
         },
         sampleBuildVersions(),
         async (foreign) => {
-          const fromForeign = await runPackagedVersion(foreign.dir);
-
-          expect(fromForeign).toBe(fromProduct);
-          expect(fromForeign).not.toBe(await readBuildIdentity(packageVersion, foreign.dir, defaultGitDependencies));
+          expect(await runPackagedVersion(foreign.dir)).toBe(fromProduct);
         },
       );
-
-      expect(fromProduct.startsWith(packageVersion)).toBe(true);
     },
     CLI_TIMEOUTS_MS.E2E_BATCH,
   );
