@@ -395,17 +395,34 @@ export type SpecContextNonCitationShapes = {
   readonly unboundDecisionPath: string;
 };
 
-export function specContextNonCitationShapes(): SpecContextNonCitationShapes {
-  const decisionSuffix = KIND_REGISTRY[DECISION_KINDS[0]].suffix;
-  const unboundDecisionPath = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/99-shape${decisionSuffix}`;
+/**
+ * One drawn non-citation scenario: a tree-root decision path no tracked file
+ * satisfies, written in every shape the citation grammar refuses — bare text,
+ * an inline code span, an external URL destination, a destination extending
+ * the decision suffix, a destination adding a trailing extension, and a
+ * destination embedding the tree path under another directory. The path, the
+ * URL host, the extension, and the embedding directory vary per draw.
+ */
+export function specContextNonCitationShapes(fixture: RepresentativeSpecTreeFixture): SpecContextNonCitationShapes {
+  const unboundDecisionPath = specContextAbsentDecisionPath(
+    fixture,
+    specContextFixtureDocuments(fixture).peerDirectory,
+  );
+  const [host, extension, embedding] = sampleGeneratedValue(
+    fc.tuple(
+      SPEC_TREE_TEST_GENERATOR.sourceSlug(),
+      SPEC_TREE_TEST_GENERATOR.sourceSlug(),
+      SPEC_TREE_TEST_GENERATOR.sourceSlug(),
+    ),
+  );
   return {
     proseShapes: [
       unboundDecisionPath,
       `\`${unboundDecisionPath}\``,
-      `[outside](https://example.invalid/${unboundDecisionPath})`,
-      `[extended](${unboundDecisionPath}x)`,
-      `[backup](${unboundDecisionPath}.bak)`,
-      `[embedded](dist/${unboundDecisionPath})`,
+      `[external](https://${host}.invalid/${unboundDecisionPath})`,
+      `[extended](${unboundDecisionPath}${extension})`,
+      `[trailing](${unboundDecisionPath}.${extension})`,
+      `[embedded](${embedding}/${unboundDecisionPath})`,
     ],
     unboundDecisionPath,
   };

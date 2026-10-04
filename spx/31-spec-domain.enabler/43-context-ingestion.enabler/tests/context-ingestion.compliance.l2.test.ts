@@ -12,22 +12,13 @@ import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tre
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   arbitrarySpecContextInvalidUtf8Bytes,
+  specContextAbsentDecisionPath,
   specContextUnknownTarget,
 } from "@testing/generators/spec-tree/context-target";
-import { rootedSpecPath } from "@testing/generators/spec-tree/rich-context";
-import {
-  sampleSpecTreeTestValue,
-  SPEC_TREE_TEST_GENERATOR,
-  specTreeFixtureNodeDirectoryName,
-} from "@testing/generators/spec-tree/spec-tree";
+import { sampleSpecTreeTestValue, specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
 import { shippedMethodologyVersion } from "@testing/harnesses/methodology/shipped-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
-import {
-  methodologyTreeConfig,
-  runSpecCli,
-  specTreeKindsConfig,
-  withRichContextEnv,
-} from "@testing/harnesses/spec/context";
+import { methodologyTreeConfig, runSpecCli, withRichContextEnv } from "@testing/harnesses/spec/context";
 
 describe("spec context no partial output", () => {
   it("writes nothing to standard output when one target of a list or show fails to resolve, and the complete output when every target resolves", async () => {
@@ -70,34 +61,23 @@ describe("spec context no partial output", () => {
   });
 
   it("writes nothing to standard output when a selected document cites a decision no tracked path satisfies", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
-      await env.materialize();
-      const snapshot = await env.readFilesystemSnapshot();
-      const target = snapshot.allNodes[0];
-      const targetSpecPath = target.ref?.path;
-      if (targetSpecPath === undefined) throw new Error("Expected the fixture target to expose a spec path");
-      const missing = rootedSpecPath(
-        `${target.id}/${target.order + 1}-${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug())}${
-          KIND_REGISTRY[env.fixture.decision.kind].suffix
-        }`,
-      );
+    await withRichContextEnv(async (env, paths) => {
+      const missing = specContextAbsentDecisionPath(env.fixture, paths.targetId);
       await env.writeRaw(
-        targetSpecPath,
-        `# ${target.slug}\n\n${
-          KIND_REGISTRY[target.kind].opening
-        } a governed node\n\nGoverned by [absent](${missing}).\n`,
+        paths.targetSpecPath,
+        `${paths.sourceText[paths.targetSpecPath]}\nGoverned by [absent](${missing}).\n`,
       );
       const result = await runSpecCli(
         env.productDir,
         SPEC_DOMAIN_CLI.COMMAND,
         SPEC_DOMAIN_CLI.CONTEXT_COMMAND,
         SPEC_DOMAIN_CLI.CONTEXT_SHOW_COMMAND,
-        target.id,
+        paths.targetId,
       );
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toHaveLength(0);
       expect(result.stderr).toContain(missing);
-      expect(result.stderr).toContain(targetSpecPath);
+      expect(result.stderr).toContain(paths.targetSpecPath);
     });
   });
 

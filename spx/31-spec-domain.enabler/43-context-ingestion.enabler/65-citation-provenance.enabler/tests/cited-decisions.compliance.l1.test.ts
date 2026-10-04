@@ -51,7 +51,7 @@ describe("spec context citation boundaries", () => {
       expect(parentRelativeHref.startsWith("../")).toBe(true);
       // The generated shapes name a decision path no tracked file satisfies,
       // so binding any of them would fail the projection outright.
-      const shapes = specContextNonCitationShapes();
+      const shapes = specContextNonCitationShapes(env.fixture);
       const forms = [
         `[relative](${parentRelativeHref})`,
         `[rooted](/${decision.path})`,
