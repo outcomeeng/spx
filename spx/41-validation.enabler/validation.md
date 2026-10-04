@@ -8,8 +8,8 @@ CAN surface security, maintainability, and reliability issues before they reach 
 
 - Given a product with no violations, when `spx validation all` runs, then the pipeline completes successfully and exits 0 ([test](tests/validation.scenario.l2.test.ts))
 - Given a product with a failing step, when `spx validation all` runs, then the pipeline reports the failure with step name and details ([test](tests/validation.scenario.l2.test.ts))
-- Given `--scope production`, when `spx validation all` is dispatched, then the full-pipeline handler receives production scope ([test](tests/validation-cli.scenario.l2.test.ts))
-- Given a source directory or file positional operand, when `spx validation all` is dispatched, then the full-pipeline handler receives that file scope ([test](tests/validation-cli.scenario.l2.test.ts))
+- Given `--scope production`, when `spx validation all` is dispatched, then the full-pipeline handler receives production scope ([test](tests/validation-cli.scenario.l1.test.ts))
+- Given a source directory or file positional operand, when `spx validation all` is dispatched, then the full-pipeline handler receives that file scope ([test](tests/validation-cli.scenario.l1.test.ts))
 - Given all validation steps complete, when pipeline output is read, then step results appear in execution order ([test](tests/validation.scenario.l2.test.ts))
 
 ### Properties
