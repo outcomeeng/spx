@@ -19,13 +19,9 @@
 
 import fc from "fast-check";
 
-import { MAX_CLI_ARGUMENT_DISPLAY_LENGTH } from "@/lib/sanitize-cli-argument";
-import { authoredText, externalValue, type TerminalText } from "@/lib/terminal-text/terminal-text";
-
 const ORACLE_C0_CONTROL_UPPER_BOUND = 0x1f;
 const ORACLE_DEL_CODE_POINT = 0x7f;
 const ORACLE_FIRST_PRINTABLE_CODE_POINT = 0x20;
-const ORACLE_LINE_FEED_CODE_POINT = 0x0a;
 const ORACLE_HEX_RADIX = 16;
 const ORACLE_HEX_DIGITS = 2;
 const ORACLE_HEX_ESCAPE_PREFIX = String.raw`\x`;
@@ -40,8 +36,6 @@ const ORACLE_HEX_PAD_CHARACTER = "0";
 export const TERMINAL_ORACLE = {
   DEL_CODE_POINT: ORACLE_DEL_CODE_POINT,
   FIRST_PRINTABLE_CODE_POINT: ORACLE_FIRST_PRINTABLE_CODE_POINT,
-  /** The one control byte a serialized JSON document carries as its own line structure. */
-  LINE_FEED_CODE_POINT: ORACLE_LINE_FEED_CODE_POINT,
 } as const;
 
 export interface TerminalEscapingCase {
@@ -152,82 +146,3 @@ function independentlyEscapeTerminalText(input: string): string {
       : character;
   }).join("");
 }
-
-/** How far past the display bound an overlong value reaches, as a multiple of the bound. */
-const OVERLONG_DISPLAY_LENGTH_FACTOR = 4;
-const MAX_JOINED_PART_COUNT = 5;
-const MAX_JSON_INDENT = 4;
-
-/** Printable text within the display bound, which the sanitizer neither escapes nor truncates. */
-export const arbitraryDisplayBoundedPrintableText = (): fc.Arbitrary<string> =>
-  fc
-    .array(arbitraryPrintableCodePoint(), { minLength: 1, maxLength: MAX_CLI_ARGUMENT_DISPLAY_LENGTH })
-    .map((codePoints) => String.fromCodePoint(...codePoints));
-
-/** Printable text past the display bound, so only the bound itself decides how it renders. */
-export const arbitraryDisplayOverlongPrintableText = (): fc.Arbitrary<string> =>
-  fc
-    .array(arbitraryPrintableCodePoint(), {
-      minLength: MAX_CLI_ARGUMENT_DISPLAY_LENGTH + 1,
-      maxLength: MAX_CLI_ARGUMENT_DISPLAY_LENGTH * OVERLONG_DISPLAY_LENGTH_FACTOR,
-    })
-    .map((codePoints) => String.fromCodePoint(...codePoints));
-
-/** A value the sanitizer receives that is neither a string, `undefined`, nor `null`. */
-export const arbitraryNonStringValue = (): fc.Arbitrary<unknown> =>
-  fc.oneof(
-    fc.integer(),
-    fc.double(),
-    fc.boolean(),
-    fc.bigInt(),
-    fc.object(),
-    fc.array(fc.anything()),
-    fc.string().map((description) => Symbol(description)),
-    fc.func(fc.anything()),
-  );
-
-/**
- * An external token value of every length up to well past the display bound, with its escape
- * rendering computed independently: a repeated unsafe text escapes to its escape repeated, since
- * each code point escapes on its own.
- */
-export const arbitraryExternalTokenCase = (): fc.Arbitrary<TerminalEscapingCase> =>
-  fc
-    .tuple(arbitraryTerminalEscapingCase(), fc.integer({ min: 1, max: MAX_CLI_ARGUMENT_DISPLAY_LENGTH }))
-    .map(([{ input, escaped }, repeat]) => ({ input: input.repeat(repeat), escaped: escaped.repeat(repeat) }));
-
-/** An authored separator and a non-empty mix of authored and external composed parts to join. */
-export interface TerminalJoinCase {
-  readonly separator: string;
-  readonly parts: readonly TerminalText[];
-}
-
-export const arbitraryTerminalJoinCase = (): fc.Arbitrary<TerminalJoinCase> =>
-  fc.record({
-    separator: arbitraryTerminalUnsafeText(),
-    parts: fc.array(
-      fc.oneof(arbitraryTerminalUnsafeText().map(authoredText), arbitraryTerminalUnsafeText().map(externalValue)),
-      { minLength: 1, maxLength: MAX_JOINED_PART_COUNT },
-    ),
-  });
-
-/** A JSON-serializable value keyed and valued by unsafe text, and the indent it is serialized with. */
-export interface TerminalJsonDocumentCase {
-  readonly value: Readonly<Record<string, string>>;
-  readonly indent: number;
-}
-
-export const arbitraryTerminalJsonDocumentCase = (): fc.Arbitrary<TerminalJsonDocumentCase> =>
-  fc.record({
-    value: fc.dictionary(arbitraryTerminalUnsafeText(), arbitraryTerminalUnsafeText(), { noNullPrototype: true }),
-    indent: fc.integer({ min: 0, max: MAX_JSON_INDENT }),
-  });
-
-/** An authored label and the external value a composition reports beside it. */
-export interface TerminalLabelledValueCase {
-  readonly label: string;
-  readonly value: string;
-}
-
-export const arbitraryTerminalLabelledValueCase = (): fc.Arbitrary<TerminalLabelledValueCase> =>
-  fc.record({ label: arbitraryTerminalUnsafeText(), value: arbitraryTerminalUnsafeText() });

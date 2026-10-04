@@ -11,16 +11,8 @@
 
 import { type ChildProcess, spawn } from "node:child_process";
 import { constants as osConstants } from "node:os";
-import { join } from "node:path";
-
-import { PRODUCT_ROOT } from "@testing/harnesses/constants";
 
 const STDERR_ENCODING = "utf8";
-const EPIPE_EMITTER_FIXTURE_PATH = join(PRODUCT_ROOT, "testing", "fixtures", "cli", "epipe-emitter.ts");
-const EPIPE_EMITTER_LAUNCHER = "npx";
-const EPIPE_EMITTER_LAUNCHER_ARGS = ["tsx", EPIPE_EMITTER_FIXTURE_PATH] as const;
-/** Long enough for the emitter to fill the OS pipe buffer before the parent closes its read end. */
-const EPIPE_EMITTER_STDOUT_FILL_MS = 200;
 const SIGNAL_NUMBERS: Readonly<Partial<Record<string, number>>> = osConstants.signals;
 
 export const SPAWN_FIXTURE_SIGNAL_BASE_EXIT_CODE = 128;
@@ -150,19 +142,5 @@ function waitForClose(child: ChildProcess): Promise<number> {
 
     child.on(SPAWN_FIXTURE_STREAM_EVENTS.CLOSE, handleClose);
     child.on(SPAWN_FIXTURE_STREAM_EVENTS.ERROR, handleError);
-  });
-}
-
-/**
- * Runs the EPIPE emitter fixture — a process that installs the lifecycle handlers and writes to
- * stdout without end — from the product root, lets it fill the pipe, then destroys the parent's
- * read end so the emitter's next write raises EPIPE.
- */
-export async function runEpipeEmitterFixture(): Promise<SpawnFixtureResult> {
-  return runSpawnFixture({
-    command: EPIPE_EMITTER_LAUNCHER,
-    args: EPIPE_EMITTER_LAUNCHER_ARGS,
-    cwd: PRODUCT_ROOT,
-    destroyStdoutAfterMs: EPIPE_EMITTER_STDOUT_FILL_MS,
   });
 }

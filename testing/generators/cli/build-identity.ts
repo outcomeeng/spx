@@ -10,8 +10,6 @@
  */
 import * as fc from "fast-check";
 
-import { BUILD_IDENTITY_FORMAT } from "@/lib/build-identity";
-
 import { RELEASE_TEST_GENERATOR } from "@testing/generators/release/release";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 
@@ -75,27 +73,6 @@ export function arbitraryBuildVersions(): fc.Arbitrary<BuildVersions> {
 /** One deterministic draw of the package and other-release versions. */
 export function sampleBuildVersions(): BuildVersions {
   return sampleGeneratedValue(arbitraryBuildVersions());
-}
-
-/** The commit abbreviation width the spec fixes for build metadata. */
-const SPEC_COMMIT_ABBREVIATION_LENGTH = 9;
-
-/**
- * The build identity the spec assigns a build of `packageVersion` in `state` on `headCommit`,
- * composed from the spec's mapping rather than by the build-identity module: the unknown metadata
- * outside a checkout, the commit abbreviation suffixed `.dirty` for modified tracked files, the
- * bare version for a clean commit carrying its release tag, and the commit abbreviation otherwise.
- */
-export function expectedBuildIdentity(packageVersion: string, state: BuildState, headCommit: string | null): string {
-  const metadataPrefix = `${packageVersion}${BUILD_IDENTITY_FORMAT.METADATA_SEPARATOR}`;
-  if (!state.insideCheckout || headCommit === null) {
-    return `${metadataPrefix}${BUILD_IDENTITY_FORMAT.UNKNOWN_METADATA}`;
-  }
-  const commitMetadata = `${metadataPrefix}${headCommit.slice(0, SPEC_COMMIT_ABBREVIATION_LENGTH)}`;
-  if (state.workingTree === BUILD_WORKING_TREE_STATE.MODIFIED) {
-    return `${commitMetadata}${BUILD_IDENTITY_FORMAT.DIRTY_SUFFIX}`;
-  }
-  return state.tagRelation === BUILD_COMMIT_TAG_RELATION.RELEASE_TAG ? packageVersion : commitMetadata;
 }
 
 /** A readable label for a build state, used in test titles. */
