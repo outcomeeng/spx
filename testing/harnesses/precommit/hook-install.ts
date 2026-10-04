@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { expect } from "vitest";
 import { parse } from "yaml";
 
-import { BUILD_INVOCATION, VITEST_RUN_INVOCATION } from "@/interfaces/cli/invocation";
 import {
   configuredHookNames,
   EXECUTABLE_HOOK_MODE,
@@ -40,11 +39,11 @@ const postRewriteSectionName = "post-rewrite";
 const commandsKey = "commands";
 const runKey = "run";
 const prePushValidationCommandFragments = [
-  BUILD_INVOCATION,
+  "pnpm run build",
   "pnpm run validate",
   "pnpm test",
   "pnpm run test",
-  VITEST_RUN_INVOCATION,
+  "vitest run",
   "spx test",
 ].map((fragment) => fragment.toLowerCase());
 const sonarCloudCommitBoundaryFragments = ["sonar", "spx_sonar", "testing/fixtures", "fixture-exclusion"] as const;

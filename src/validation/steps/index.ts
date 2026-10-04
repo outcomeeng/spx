@@ -8,6 +8,7 @@
 
 export * from "./circular";
 export * from "./eslint";
+export * from "./formatting";
 export * from "./knip";
 export * from "./markdown";
 export * from "./typescript";

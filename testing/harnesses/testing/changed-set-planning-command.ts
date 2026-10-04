@@ -6,7 +6,6 @@ import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesse
 import { execa } from "execa";
 
 import { SUCCESS_EXIT_CODE } from "@/domains/test";
-import { SOURCE_CLI_INVOCATION } from "@/interfaces/cli/invocation";
 import { TESTING_CLI } from "@/interfaces/cli/test";
 import { AGENT_TEST_OUTPUT_TEXT } from "@/interfaces/cli/test-agent-output";
 import { GIT_ROOT_COMMAND } from "@/lib/git/root";
@@ -29,6 +28,9 @@ import {
 } from "@testing/harnesses/git-test-constants";
 import { withTestingTempProductDir } from "@testing/harnesses/testing/harness";
 
+/** The source CLI invocation the changed-set command runs: the TypeScript runner and the CLI entry. */
+const SOURCE_CLI_RUNNER = "tsx";
+const SOURCE_CLI_ENTRYPOINT = "src/cli.ts";
 const changedSetContent = CHANGED_SET_PLANNING_GENERATOR.content();
 
 function commandFixturePaths(paths: ChangedSetFixturePaths, testSuffix: string): ChangedSetFixturePaths {
@@ -132,12 +134,10 @@ async function initializeChangedSetCommandRepo(productDir: string): Promise<stri
 }
 
 async function runChangedSetCommand(productDir: string, baseRef: string) {
-  const [sourceCliCommand, sourceCliPath] = SOURCE_CLI_INVOCATION.split(" ") as [string, string];
-
   return await execa(
-    sourceCliCommand,
+    SOURCE_CLI_RUNNER,
     [
-      sourceCliPath,
+      SOURCE_CLI_ENTRYPOINT,
       "-C",
       productDir,
       TESTING_CLI.commandName,
