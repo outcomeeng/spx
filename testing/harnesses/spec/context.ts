@@ -18,9 +18,9 @@ import {
   type ContextShowOptions,
   type ContextShowResult,
   renderSpecContextEntriesJson,
+  resolveContextShow,
   SPEC_CONTEXT_ENTRIES_KEY,
   type SpecContextEntriesDocument,
-  resolveContextShow,
 } from "@/commands/spec/context-show";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import type { Config } from "@/config/types";
