@@ -419,7 +419,8 @@ const CITATION_UNTRACKED_DECISION_INDEX = 21;
 const CITATION_CITED_DECISION_INDEX = 31;
 const CITATION_DESCENDANT_NODE_INDEX = 32;
 const CITATION_DESCENDANT_DECISION_INDEX = 21;
-const CITATION_SLUG_COUNT = 13;
+const CITATION_SPECLESS_NODE_INDEX = 40;
+const CITATION_SLUG_COUNT = 14;
 
 /**
  * One release endpoint whose selected documents cite decisions in every citation shape: a changed
@@ -447,6 +448,8 @@ export interface ReleaseDecisionCitationScenario {
   readonly workingTreeFiles: readonly ReleaseEndpointFile[];
   /** Decisions present only in the working tree, never committed at the release endpoint. */
   readonly untrackedDecisionPaths: readonly string[];
+  /** A committed node directory holding only a coordination note and no specification. */
+  readonly specLessNodeDirectory: string;
 }
 
 export function arbitraryReleaseDecisionCitationScenario(): fc.Arbitrary<ReleaseDecisionCitationScenario> {
@@ -471,7 +474,9 @@ export function arbitraryReleaseDecisionCitationScenario(): fc.Arbitrary<Release
       untrackedSlug,
       descendantNodeSlug,
       descendantSlug,
+      specLessSlug,
     ] = slugs;
+    const specLessNodeDirectory = citationNodeDirectory(CITATION_SPECLESS_NODE_INDEX, specLessSlug);
     const productPath = posix.join(
       SPEC_TREE_CONFIG.ROOT_DIRECTORY,
       `${productSlug}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`,
@@ -533,6 +538,10 @@ export function arbitraryReleaseDecisionCitationScenario(): fc.Arbitrary<Release
       ...[treeAbsolutePath, labelledTreeAbsolutePath, bareTextPath, inlineCodePath, climbingPath].map((path) =>
         releaseEndpointFile(path, citationDecision(posix.basename(path)))
       ),
+      releaseEndpointFile(
+        posix.join(specLessNodeDirectory, SPEC_TREE_GRAMMAR.COORDINATION_NOTE.PLAN),
+        `# ${specLessSlug}\n`,
+      ),
     ];
     const workingTreeLinkedPaths = [
       treeAbsolutePath,
@@ -561,6 +570,7 @@ export function arbitraryReleaseDecisionCitationScenario(): fc.Arbitrary<Release
         releaseEndpointFile(untrackedDecisionPath, citationDecision(untrackedSlug)),
       ],
       untrackedDecisionPaths: [untrackedDecisionPath],
+      specLessNodeDirectory,
     };
   });
 }

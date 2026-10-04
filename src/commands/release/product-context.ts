@@ -302,11 +302,14 @@ async function resolveLanguageClaims(
   }
 }
 
-/** Every node specification at the endpoint, read once, owned by its node. */
+/**
+ * Every node specification the endpoint commits, read once, owned by its node. A node directory
+ * whose specification the endpoint does not commit contributes no declaration.
+ */
 async function readNodeDeclarations(endpoint: ReleaseContextEndpoint): Promise<readonly ReleaseEndpointDeclaration[]> {
   const declarations: ReleaseEndpointDeclaration[] = [];
   for (const node of endpoint.snapshot.allNodes) {
-    if (node.ref?.path === undefined) continue;
+    if (node.ref?.path === undefined || !endpoint.pathSet.has(node.ref.path)) continue;
     declarations.push({
       path: node.ref.path,
       ownerNodeId: node.id,
