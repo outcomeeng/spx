@@ -223,7 +223,6 @@ export function generatedMethodologyIdentity(): {
   };
 }
 
-/** A migrating declaration with the drawn target and source, each carrying the line its construction derives. */
 /** A methodology section with an open migration window, with the two exact versions it declares. */
 export type GeneratedMigratingMethodology = {
   readonly section: Record<string, unknown>;

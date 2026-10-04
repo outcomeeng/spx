@@ -257,7 +257,6 @@ function decisionTitle(decision: RepresentativeSpecTreeFixture["decision"]): str
   return decision.title ?? decision.slug;
 }
 
-/** Each fixture document opens with the paragraph its class's Digest projection selects. */
 /** A node spec body: its title and the opening its kind declares, or a statement paragraph when the kind declares none. */
 function nodeContent(title: string, opening: string | undefined): string {
   if (opening === undefined) return statementContent(title);
