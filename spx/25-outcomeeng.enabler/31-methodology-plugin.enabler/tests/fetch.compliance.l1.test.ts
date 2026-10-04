@@ -56,6 +56,21 @@ describe("methodology fetch compliance", () => {
     });
   });
 
+  it("takes the line from methodology.provides when the fetched plugin manifests declare it", async () => {
+    const version = sampleGeneratedValue(arbitraryMethodologyVersion());
+    await withPluginsRepository(sampleGeneratedValue(arbitraryPluginsContent(version.text)), async (repository) => {
+      const outcome = await runMethodologyFetch({
+        repository: PLUGINS_REPOSITORY,
+        repositoryUrl: repository.repositoryDir,
+        revision: repository.revision,
+        packageRoot: repository.packageRoot,
+        dependencies: repository.dependencies,
+      });
+      expect(outcome).toMatchObject({ ok: true, value: { line: version.line } });
+      await expect(readdir(join(repository.packageRoot, METHODOLOGY_TREE_ROOT))).resolves.toEqual([version.line]);
+    });
+  });
+
   it("requires the line argument when no fetched plugin manifest declares what it provides", async () => {
     await withPluginsRepository(sampleGeneratedValue(arbitraryPluginsContent()), async (repository) => {
       const outcome = await runMethodologyFetch({

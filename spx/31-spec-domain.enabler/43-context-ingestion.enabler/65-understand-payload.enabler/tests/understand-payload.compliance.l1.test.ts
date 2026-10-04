@@ -31,7 +31,7 @@ import {
 
 describe("spec context understand payload provider match", () => {
   it("fails naming both declarations when the recorded provides selects another line, fails naming the migration source when no range holds it or the record declares none, and serves the tree when both agree, the provides in either accepted form", async () => {
-    const { section: migrating, target: declared } = generatedMigratingMethodology();
+    const { section: migrating, target: declared, source: migrationSource } = generatedMigratingMethodology();
     const version = declared.text;
     const migratingFrom = migrating[METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM] as string;
     // The generator constructs each version's line beside its text, so the
@@ -55,8 +55,8 @@ describe("spec context understand payload provider match", () => {
         methodology: true,
         methodologyTreeRoot: providesOther.treeRoot,
       });
-      expect(mismatch).toContain(version);
-      expect(mismatch).toContain(other.text);
+      expect(mismatch).toContain(`methodology ${declared.line}`);
+      expect(mismatch).toContain(`methodology ${other.line}`);
 
       const excluding = supportsRangeExcluding(migratingFrom);
       const outsideSupports = await writeMethodologyTree(env, {
@@ -69,7 +69,7 @@ describe("spec context understand payload provider match", () => {
         methodology: true,
         methodologyTreeRoot: outsideSupports.treeRoot,
       });
-      expect(outside).toContain(migratingFrom);
+      expect(outside).toContain(`methodology ${migrationSource.line}`);
       expect(outside).toContain(excluding);
 
       const noSupports = await writeMethodologyTree(env, {
@@ -82,7 +82,7 @@ describe("spec context understand payload provider match", () => {
         methodology: true,
         methodologyTreeRoot: noSupports.treeRoot,
       });
-      expect(unverifiable).toContain(migratingFrom);
+      expect(unverifiable).toContain(`methodology ${migrationSource.line}`);
 
       const agreeing = await writeMethodologyTree(env, {
         version: declared,

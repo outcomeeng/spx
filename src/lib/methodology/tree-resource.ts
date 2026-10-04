@@ -115,9 +115,9 @@ async function readSourceRecord(
 
 /**
  * Selects the shipped tree for the declared version's line and the coding
- * agent in scope: a missing line fails naming the version and the shipped
- * lines, and a missing or unresolvable coding agent fails naming the agents
- * the line ships.
+ * agent in scope: a missing line fails naming the declared and the shipped
+ * methodology versions as `MAJOR.MINOR`, and a missing or unresolvable coding
+ * agent fails naming the agents the line ships.
  */
 export async function resolveMethodologyTree(
   options: ResolveMethodologyTreeOptions,
@@ -126,7 +126,7 @@ export async function resolveMethodologyTree(
   if (!line.ok) return line;
   const lines = await options.fs.readDirectoryNames(options.treeRoot);
   if (!lines.includes(line.value)) {
-    return { ok: false, error: formatMethodologyLineMissingError(options.version, line.value, lines) };
+    return { ok: false, error: formatMethodologyLineMissingError(line.value, lines) };
   }
   const lineDir = methodologyLineDir(options.treeRoot, line.value);
   if (!lineDir.ok) return lineDir;

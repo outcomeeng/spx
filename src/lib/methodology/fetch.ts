@@ -26,6 +26,7 @@ import { METHODOLOGY_CODING_AGENT, METHODOLOGY_CODING_AGENTS, type MethodologyCo
 import {
   formatMethodologyLineInvalidError,
   formatMethodologySourceRecord,
+  formatMethodologyVersionName,
   FOUNDATION_PLUGIN_NAME,
   isMethodologyLine,
   isPlainSegment,
@@ -210,18 +211,22 @@ export interface MethodologyFetchPlanInput {
 /** Diagnostic for a fetch that can take its line from no manifest and no argument. */
 export function formatFetchLineUndeclaredError(): string {
   return `No plugin manifest declares ${PLUGIN_MANIFEST_FIELDS.METHODOLOGY}.${PLUGIN_MANIFEST_FIELDS.PROVIDES};`
-    + ` name the line with ${FETCH_ARGUMENT_FLAGS.LINE}`;
+    + ` name the methodology version with ${FETCH_ARGUMENT_DEFINITIONS.LINE}`;
 }
 
-/** Diagnostic for coding agents whose manifests provide different lines. */
+/** Diagnostic for coding agents whose manifests provide different lines, each named as a methodology version. */
 export function formatFetchLineDisagreementError(lines: Readonly<Record<string, string>>): string {
-  const detail = Object.entries(lines).map(([agent, line]) => `${agent}=${line}`).join(", ");
-  return `Plugin manifests disagree on the methodology line they provide: ${detail}`;
+  const detail = Object.entries(lines)
+    .map(([agent, line]) => `${agent} provides ${formatMethodologyVersionName(line)}`)
+    .join(", ");
+  return `Plugin manifests disagree on the methodology they provide: ${detail}`;
 }
 
 /** Diagnostic for a named line that differs from the line the manifests provide. */
 export function formatFetchLineConflictError(argumentLine: string, providedLine: string): string {
-  return `${FETCH_ARGUMENT_FLAGS.LINE} ${argumentLine} conflicts with the line the plugin manifests provide, ${providedLine}`;
+  return `The named ${formatMethodologyVersionName(argumentLine)} conflicts with ${
+    formatMethodologyVersionName(providedLine)
+  }, which the plugin manifests provide`;
 }
 
 function fetchCodingAgents(): readonly MethodologyCodingAgent[] {
