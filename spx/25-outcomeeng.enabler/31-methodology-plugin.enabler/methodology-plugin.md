@@ -10,9 +10,6 @@ CAN serve the foundation for the methodology version a product declares from spx
 
 ## Assertions
 
-- NEVER: a diagnostic spx shows a person about the shipped methodology names a methodology version with the word "line" or with a patch component; it names the version as `methodology <MAJOR.MINOR>`, such as `methodology 4.0`, while a provider's `methodology.supports` range keeps its declared text
-- ALWAYS: the fetch takes the methodology line from `methodology.provides` in the fetched `plugin.json` when that block exists, requires an explicit `--line <MAJOR.MINOR>` argument when it does not, and fails when the coding agents' manifests disagree on the line
-
 ### Properties
 
 - A shipped tree is addressed by methodology line — the `MAJOR.MINOR` of a declared methodology version — then coding agent, then plugin name, resolved from spx's package root; a consumer product commits no tree, and no consumer path participates in resolution ([test](tests/tree-address.property.l1.test.ts))
@@ -26,6 +23,8 @@ CAN serve the foundation for the methodology version a product declares from spx
 ### Compliance
 
 - ALWAYS: the fetch, `pnpm run methodology:fetch`, reads `outcomeeng/plugins` at a named revision — a branch, tag, or commit — resolves it to one commit, replaces the whole `methodology/{MAJOR.MINOR}/` directory it targets, and writes nothing else ([test](tests/fetch.compliance.l1.test.ts))
+- ALWAYS: the fetch takes the methodology line from `methodology.provides` in the fetched `plugin.json` when that block exists, requires an explicit `--line <MAJOR.MINOR>` argument when it does not, and fails when the coding agents' manifests disagree on the line ([test](tests/fetch.compliance.l1.test.ts))
+- NEVER: a diagnostic spx shows a person about the shipped methodology names a methodology version with the word "line" or with a patch component; it names the version as `methodology <MAJOR.MINOR>`, such as `methodology 4.0`, while a provider's `methodology.supports` range keeps its declared text ([test](tests/diagnostics.compliance.l1.test.ts))
 - NEVER: a directory under `methodology/` carries a patch version in its name ([test](tests/fetch.compliance.l1.test.ts))
 - ALWAYS: a repository dispatch from the plugins repository's push to its default branch, and a manual dispatch, run the fetch in spx's continuous integration and open a pull request carrying the refreshed tree through the normal gate ([audit])
 - NEVER: the fetch, the reader, or any consumer reads a coding agent's plugin cache, installed plugin, marketplace clone, or user-scope directory to resolve, verify, or enumerate methodology resources ([audit])
