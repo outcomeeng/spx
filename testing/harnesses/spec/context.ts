@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 import { Command, CommanderError } from "commander";
 import { execa } from "execa";
 import { build } from "tsup";
+import { z } from "zod";
 
 import {
   type ContextOptions,
@@ -16,8 +17,9 @@ import {
 import {
   type ContextShowOptions,
   type ContextShowResult,
-  parseSpecContextEntriesJson,
   renderSpecContextEntriesJson,
+  SPEC_CONTEXT_ENTRIES_KEY,
+  type SpecContextEntriesDocument,
   resolveContextShow,
 } from "@/commands/spec/context-show";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
@@ -41,6 +43,8 @@ import {
   KIND_REGISTRY,
   renderSpecContextEntries,
   SPEC_CONTEXT_ENTRY_TYPE,
+  SPEC_CONTEXT_MODE_NAME,
+  SPEC_CONTEXT_SELECTION_REASON,
   SPEC_TREE_CONFIG,
   SPEC_TREE_CONFIG_FIELDS,
   type SpecContextDocumentEntry,
@@ -65,13 +69,54 @@ import { SPEC_CLI_ISOLATION } from "@testing/harnesses/spec/spec-cli-isolation-c
 import { SPEC_CLI_NETWORK_GUARD_SOURCE_PATH } from "@testing/harnesses/spec/spec-cli-network-guard";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
+/*
+ * Readers for the two `spx spec context` JSON documents. Each schema draws its
+ * closed vocabulary from the production registries and is checked against the
+ * production type, so a document that does not carry the declared shape fails
+ * at the read with the offending field instead of reaching an assertion
+ * mistyped.
+ */
+const contextTargetSelectionSchema = z.strictObject({
+  target: z.string(),
+  reason: z.enum(Object.values(SPEC_CONTEXT_SELECTION_REASON)),
+});
+
+const contextManifestSchema = z.strictObject({
+  schemaVersion: z.number().int(),
+  bootstrap: z.boolean(),
+  methodology: z.strictObject({
+    source: z.string(),
+    version: z.string().optional(),
+    migratingFrom: z.string().optional(),
+  }),
+  entries: z.array(z.strictObject({
+    path: z.string(),
+    mode: z.enum(Object.values(SPEC_CONTEXT_MODE_NAME)),
+    selections: z.array(contextTargetSelectionSchema),
+    citedBy: z.array(z.string()).optional(),
+  })),
+}) satisfies z.ZodType<SpecContextManifest>;
+
+const contextEntriesSchema = z.strictObject({
+  [SPEC_CONTEXT_ENTRIES_KEY]: z.array(z.discriminatedUnion("type", [
+    z.strictObject({ type: z.literal(SPEC_CONTEXT_ENTRY_TYPE.REFERENCE), path: z.string() }),
+    z.strictObject({
+      type: z.literal(SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT),
+      path: z.string(),
+      metadata: z.record(z.string(), z.unknown()),
+      content: z.string(),
+    }),
+  ])),
+}) satisfies z.ZodType<SpecContextEntriesDocument>;
+
+/** The manifest of a `list --json` document, validated against the declared manifest shape. */
 export function parseContextManifest(output: string): SpecContextManifest {
-  return JSON.parse(output) as SpecContextManifest;
+  return contextManifestSchema.parse(JSON.parse(output));
 }
 
-/** The entry list of a `show --json` document as the packaged executable wrote it. */
+/** The entry list of a `show --json` document, validated against the declared entry shapes. */
 export function parseContextEntries(output: string): readonly SpecContextEntry[] {
-  return parseSpecContextEntriesJson(output);
+  return contextEntriesSchema.parse(JSON.parse(output))[SPEC_CONTEXT_ENTRIES_KEY];
 }
 
 /** The `list` handler's resolution: the manifest or the typed target failure, for the test to judge. */

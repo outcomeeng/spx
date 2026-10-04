@@ -35,11 +35,6 @@ export function renderSpecContextEntriesJson(entries: readonly SpecContextEntry[
   return jsonDocument(document, JSON_INDENTATION);
 }
 
-/** The entries a `show --json` document carries, read back from its text. */
-export function parseSpecContextEntriesJson(text: string): readonly SpecContextEntry[] {
-  return (JSON.parse(text) as SpecContextEntriesDocument)[SPEC_CONTEXT_ENTRIES_KEY];
-}
-
 export interface ContextShowOptions extends ContextInputOptions {
   readonly targets: readonly string[];
   readonly methodology?: boolean;

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseSpecContextManifestJson, renderSpecContextText } from "@/commands/spec/context";
-import { parseSpecContextEntriesJson } from "@/commands/spec/context-show";
+import { renderSpecContextText } from "@/commands/spec/context";
 import { inferInvokingCodingAgent } from "@/interfaces/cli/coding-agent";
 import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import { METHODOLOGY_CODING_AGENTS } from "@/lib/methodology";
@@ -19,6 +18,8 @@ import {
   entryPaths,
   manifestEntryAt,
   methodologyTreeConfig,
+  parseContextEntries,
+  parseContextManifest,
   runSpecDescriptor,
   withRichContextEnv,
   writeMethodologyTree,
@@ -35,7 +36,7 @@ describe("spec context command handlers", () => {
         SPEC_DOMAIN_CLI.JSON_OPTION,
       );
       expect(run.exitCode, run.stderr).toBeUndefined();
-      const manifest = parseSpecContextManifestJson(run.stdout);
+      const manifest = parseContextManifest(run.stdout);
       expect(manifest.schemaVersion).toBe(SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION);
       expect(manifest).toEqual(
         await contextListManifest({ targets: [paths.rootDirectory, paths.targetId], cwd: env.productDir }),
@@ -63,7 +64,7 @@ describe("spec context command handlers", () => {
         SPEC_DOMAIN_CLI.JSON_OPTION,
       );
       expect(targetless.exitCode, targetless.stderr).toBeUndefined();
-      const targetlessEntries = parseSpecContextEntriesJson(targetless.stdout);
+      const targetlessEntries = parseContextEntries(targetless.stdout);
       expect(targetlessEntries).toEqual(await contextShowEntries({ targets: [], cwd: env.productDir }));
       expect(targetlessEntries[0]?.path).toBe(paths.productPath);
 
@@ -74,7 +75,7 @@ describe("spec context command handlers", () => {
         SPEC_DOMAIN_CLI.JSON_OPTION,
       );
       expect(targeted.exitCode, targeted.stderr).toBeUndefined();
-      const targetedEntries = parseSpecContextEntriesJson(targeted.stdout);
+      const targetedEntries = parseContextEntries(targeted.stdout);
       expect(targetedEntries).toEqual(await contextShowEntries({ targets: [paths.targetId], cwd: env.productDir }));
       expect(entryPaths(targetedEntries)).toContain(paths.targetSpecPath);
     });
@@ -99,7 +100,7 @@ describe("spec context command handlers", () => {
         target.id,
         SPEC_DOMAIN_CLI.JSON_OPTION,
       );
-      const targetedPaths = entryPaths(parseSpecContextEntriesJson(targeted.stdout));
+      const targetedPaths = entryPaths(parseContextEntries(targeted.stdout));
 
       const foundation = await runSpecDescriptor(
         context,
@@ -112,7 +113,7 @@ describe("spec context command handlers", () => {
       );
       expect(foundation.exitCode, foundation.stderr).toBeUndefined();
       expect(foundation.parseError).toBeUndefined();
-      const entries = parseSpecContextEntriesJson(foundation.stdout);
+      const entries = parseContextEntries(foundation.stdout);
       expect(entries[0]).toMatchObject({
         path: methodologyFoundationDocumentPath({ ...fixture, codingAgent: named }),
         content: fixture.coreTexts[named],
@@ -132,7 +133,7 @@ describe("spec context command handlers", () => {
         SPEC_DOMAIN_CLI.JSON_OPTION,
       );
       const showText = await runSpecDescriptor(context, ...SPEC_CONTEXT_COMMAND_PATH.SHOW, paths.targetId);
-      expect(parseSpecContextEntriesJson(showJson.stdout)).toEqual(entries);
+      expect(parseContextEntries(showJson.stdout)).toEqual(entries);
       expect(showText.stdout).toBe(renderSpecContextEntries(entries));
 
       const manifest = await contextListManifest({ targets: [paths.targetId], cwd: env.productDir });
@@ -143,7 +144,7 @@ describe("spec context command handlers", () => {
         SPEC_DOMAIN_CLI.JSON_OPTION,
       );
       const listText = await runSpecDescriptor(context, ...SPEC_CONTEXT_COMMAND_PATH.LIST, paths.targetId);
-      expect(parseSpecContextManifestJson(listJson.stdout)).toEqual(manifest);
+      expect(parseContextManifest(listJson.stdout)).toEqual(manifest);
       expect(listText.stdout).toBe(`${String(renderSpecContextText(manifest))}\n`);
     });
   });

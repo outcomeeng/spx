@@ -113,8 +113,3 @@ export const JSON_INDENTATION = 2;
 export function renderSpecContextJson(manifest: SpecContextManifest): TerminalText {
   return jsonDocument(manifest, JSON_INDENTATION);
 }
-
-/** The manifest a `list --json` document carries, read back from its text. */
-export function parseSpecContextManifestJson(text: string): SpecContextManifest {
-  return JSON.parse(text) as SpecContextManifest;
-}
