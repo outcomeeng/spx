@@ -5,13 +5,20 @@ import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver
 import type { GitDependencies } from "@/lib/git/root";
 import {
   classifyNodeStatus,
+  createNodeStatusFile,
+  createNodeStatusMechanismRecord,
   hasNodeStatusVerificationReferences,
+  NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_FILENAME,
+  NODE_STATUS_VERIFICATION_MECHANISM,
   type NodeOutcomeResolver,
+  type NodeStatusEvidenceOutcome,
   type NodeStatusFile,
+  serializeNodeStatus,
 } from "@/lib/node-status";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { testingRegistry } from "@/test/registry";
+import { defaultTestRunStateFileSystem, type TestRunStateFileSystem } from "@/test/run-state";
 import {
   type RepresentativeSpecTreeFixture,
   sampleSpecTreeTestValue,
@@ -21,7 +28,7 @@ import {
 import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import type { CurrentSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { writeTestFileFixture } from "@testing/harnesses/testing/harness";
-import { type VitestFixture, writeVitestFixture } from "@testing/harnesses/testing/typescript-runner";
+import { VITEST_FIXTURE, type VitestFixture, writeVitestFixture } from "@testing/harnesses/testing/typescript-runner";
 
 /** The tree-relative directory of a fixture node at the top of the tree, in the grammar the source owns. */
 export function fixtureNodePath(node: RepresentativeSpecTreeFixture["root"]): string {
@@ -47,8 +54,48 @@ export function recordedEvidenceResolverFor(productDir: string): NodeOutcomeReso
   return createNodeOutcomeResolver({ productDir, registry: testingRegistry });
 }
 
+/**
+ * A controlled resolver under the combinatorial-cost exception: it reports
+ * every evidence path at `outcome`, so a case exercises status writing and
+ * rollup apart from the production resolver's recorded-evidence logic.
+ */
+export function uniformOutcomeResolverFor(outcome: NodeStatusEvidenceOutcome): () => NodeOutcomeResolver {
+  return () => (_nodeId, evidencePaths) =>
+    Promise.resolve(Object.fromEntries(evidencePaths.map((path) => [path, outcome])));
+}
+
+/**
+ * A recording test-run-state filesystem under the observability exception: it
+ * reads through the real filesystem and counts each read of a watched path, so
+ * the test decides how often staleness inputs were computed.
+ */
+export function createReadCountingTestRunStateFileSystem(watched: ReadonlySet<string>): {
+  readonly fs: TestRunStateFileSystem;
+  readonly readCount: (path: string) => number;
+} {
+  const counts = new Map<string, number>();
+  return {
+    fs: {
+      ...defaultTestRunStateFileSystem,
+      readFile: async (path, encoding) => {
+        if (watched.has(path)) counts.set(path, (counts.get(path) ?? 0) + 1);
+        return defaultTestRunStateFileSystem.readFile(path, encoding);
+      },
+    },
+    readCount: (path) => counts.get(path) ?? 0,
+  };
+}
+
+/**
+ * Replaces an evidence file's bytes with the committed passing Vitest suite, so
+ * any run recorded against its earlier content is stale.
+ */
+export async function changeNodeEvidenceContent(env: CurrentSpecTreeEnv, evidenceFile: string): Promise<void> {
+  await writeVitestFixture(env.productDir, evidenceFile, VITEST_FIXTURE.PASSING);
+}
+
 /** A TypeScript spec-tree evidence path (`<slug>.<mode>.<level>.test.ts`) under `nodePath`'s tests directory. */
-function nodeEvidencePath(nodePath: string): string {
+export function nodeEvidencePath(nodePath: string): string {
   const [mode] = SPEC_TREE_EVIDENCE_FILE.MODES;
   const [level] = SPEC_TREE_EVIDENCE_FILE.LEVELS;
   const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
@@ -85,6 +132,22 @@ export async function addNodeVitestFixture(
 /** The product-relative path of a node's committed status claim. */
 export function nodeStatusPath(nodePath: string): string {
   return [SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodePath, NODE_STATUS_FILENAME].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
+}
+
+/** Writes a committed status claim recording one passing test reference at `evidencePath`. */
+export async function writePassingStatusClaim(
+  env: CurrentSpecTreeEnv,
+  nodePath: string,
+  evidencePath: string,
+): Promise<void> {
+  await env.writeRaw(
+    nodeStatusPath(nodePath),
+    serializeNodeStatus(createNodeStatusFile({
+      [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord({
+        [evidencePath]: NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
+      }),
+    })),
+  );
 }
 
 /** The node's recorded status claim, or `undefined` when no claim was written. */

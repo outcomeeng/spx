@@ -9,14 +9,15 @@ import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
 import { testingRegistry } from "@/test/registry";
 import { testingRunsDir } from "@/test/run-state";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
-import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import {
   addNodeTestFile,
+  changeNodeEvidenceContent,
   fixtureNodePath,
   readRecordedStatusFile,
   readRecordedStatusState,
   recordedEvidenceResolverFor,
+  uniformOutcomeResolverFor,
 } from "@testing/harnesses/spec-tree/spec-cli-commands";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
@@ -95,8 +96,7 @@ describe("spx spec status --update recorded-evidence mapping", () => {
       await statusCommand({
         cwd: env.productDir,
         update: true,
-        resolveOutcomeFor: () => (_nodeId, evidencePaths) =>
-          Promise.resolve(Object.fromEntries(evidencePaths.map((path) => [path, NODE_STATUS_EVIDENCE_OUTCOME.FAILED]))),
+        resolveOutcomeFor: uniformOutcomeResolverFor(NODE_STATUS_EVIDENCE_OUTCOME.FAILED),
       });
       // ... while the recorded run that covers the reference passed, and the
       // test file then changes, so that run's evidence is stale.
@@ -105,7 +105,7 @@ describe("spx spec status --update recorded-evidence mapping", () => {
         { productDir: env.productDir, passing: false },
         { registry: testingRegistry, runnerDepsFor: () => runner },
       );
-      await env.writeRaw(rootTestFile, sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()));
+      await changeNodeEvidenceContent(env, rootTestFile);
 
       await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordedEvidenceResolverFor });
 

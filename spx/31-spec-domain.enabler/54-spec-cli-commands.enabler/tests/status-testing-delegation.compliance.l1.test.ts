@@ -8,10 +8,11 @@ import { statusCommand } from "@/commands/spec/status";
 import { runTestsCommand } from "@/commands/test";
 import { NODE_STATUS_EVIDENCE_OUTCOME } from "@/lib/node-status";
 import { testingRegistry } from "@/test/registry";
-import { defaultTestRunStateFileSystem, testingRunsDir, type TestRunStateFileSystem } from "@/test/run-state";
+import { testingRunsDir } from "@/test/run-state";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import {
   addNodeTestFile,
+  createReadCountingTestRunStateFileSystem,
   fixtureNodePath,
   readRecordedStatusFile,
   recordedEvidenceResolverFor,
@@ -58,17 +59,9 @@ describe("status-to-testing delegation compliance", () => {
       const peerPath = fixtureNodePath(env.fixture.peer);
       const rootTestFile = await addNodeTestFile(env, rootPath);
       const peerTestFile = await addNodeTestFile(env, peerPath);
-      const coveredTestFiles = new Set([join(env.productDir, rootTestFile), join(env.productDir, peerTestFile)]);
-      const readCounts = new Map<string, number>();
-      const countingFs: TestRunStateFileSystem = {
-        ...defaultTestRunStateFileSystem,
-        readFile: async (path, encoding) => {
-          if (coveredTestFiles.has(path)) {
-            readCounts.set(path, (readCounts.get(path) ?? 0) + 1);
-          }
-          return defaultTestRunStateFileSystem.readFile(path, encoding);
-        },
-      };
+      const counting = createReadCountingTestRunStateFileSystem(
+        new Set([join(env.productDir, rootTestFile), join(env.productDir, peerTestFile)]),
+      );
       const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
 
       await runTestsCommand(
@@ -79,11 +72,11 @@ describe("status-to-testing delegation compliance", () => {
         cwd: env.productDir,
         update: true,
         resolveOutcomeFor: (productDir) =>
-          createNodeOutcomeResolver({ productDir, registry: testingRegistry, fs: countingFs }),
+          createNodeOutcomeResolver({ productDir, registry: testingRegistry, fs: counting.fs }),
       });
 
-      expect(readCounts.get(join(env.productDir, rootTestFile))).toBe(1);
-      expect(readCounts.get(join(env.productDir, peerTestFile))).toBe(1);
+      expect(counting.readCount(join(env.productDir, rootTestFile))).toBe(1);
+      expect(counting.readCount(join(env.productDir, peerTestFile))).toBe(1);
     });
   });
 });

@@ -13,18 +13,11 @@ import {
 } from "@/commands/spec/status";
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import { GIT_ROOT_COMMAND, GIT_SHOW_TOPLEVEL_ARGS } from "@/lib/git/root";
-import {
-  createNodeStatusFile,
-  createNodeStatusMechanismRecord,
-  NODE_STATUS_EVIDENCE_OUTCOME,
-  NODE_STATUS_VERIFICATION_MECHANISM,
-  serializeNodeStatus,
-} from "@/lib/node-status";
+import { NODE_STATUS_EVIDENCE_OUTCOME } from "@/lib/node-status";
 import {
   KIND_REGISTRY,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
-  SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_EVIDENCE_STATUS,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_NODE_STATE,
@@ -36,7 +29,7 @@ import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generator
 import {
   buildEvidenceEntry,
   createSource,
-  orderedDirectoryName,
+  distinctOrderedDirectoryName,
   sampleNodeKind,
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
@@ -46,29 +39,13 @@ import {
   commitPathsInGit,
   createRecordingGitRoot,
   fixtureNodePath,
-  nodeStatusPath,
+  nodeEvidencePath,
   readRecordedStatusState,
   trackPathsInGit,
+  uniformOutcomeResolverFor,
+  writePassingStatusClaim,
 } from "@testing/harnesses/spec-tree/spec-cli-commands";
 import { withSpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
-
-/** A committed claim recording one passing test reference at `evidencePath`. */
-function passingClaim(evidencePath: string): string {
-  return serializeNodeStatus(createNodeStatusFile({
-    [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord({
-      [evidencePath]: NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
-    }),
-  }));
-}
-
-function evidencePathUnder(nodePath: string): string {
-  return [
-    SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-    nodePath,
-    SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
-    sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.evidenceFileName()),
-  ].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
-}
 
 describe("spx spec status", () => {
   it("reports current spec-tree nodes from the tracked spx directory", async () => {
@@ -91,11 +68,8 @@ describe("spx spec status", () => {
       // Track the materialized tree, then add a node-shaped directory left
       // untracked, so the read path's visibility meets a genuine tracked boundary.
       await trackPathsInGit(env.productDir, [SPEC_TREE_CONFIG.ROOT_DIRECTORY]);
-      let untrackedNodeDirectory = orderedDirectoryName(KIND_REGISTRY.enabler.suffix);
-      while (untrackedNodeDirectory === rootPath) {
-        untrackedNodeDirectory = orderedDirectoryName(KIND_REGISTRY.enabler.suffix);
-      }
-      await env.writeRaw(evidencePathUnder(untrackedNodeDirectory), "");
+      const untrackedNodeDirectory = distinctOrderedDirectoryName(KIND_REGISTRY.enabler.suffix, new Set([rootPath]));
+      await addNodeTestFile(env, untrackedNodeDirectory);
 
       const output = await statusCommand({ cwd: env.productDir });
 
@@ -110,9 +84,8 @@ describe("spx spec status", () => {
       const rootPath = fixtureNodePath(env.fixture.root);
       // Co-located evidence makes live derivation `specified`; a committed
       // claim recording a pass must override it.
-      const evidencePath = evidencePathUnder(rootPath);
-      await env.writeRaw(evidencePath, "");
-      await env.writeRaw(nodeStatusPath(rootPath), passingClaim(evidencePath));
+      const evidencePath = await addNodeTestFile(env, rootPath);
+      await writePassingStatusClaim(env, rootPath, evidencePath);
 
       const output = await statusCommand({ cwd: env.productDir });
 
@@ -128,7 +101,7 @@ describe("spx spec status", () => {
     await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       await env.materialize();
       const rootPath = fixtureNodePath(env.fixture.root);
-      await env.writeRaw(nodeStatusPath(rootPath), passingClaim(evidencePathUnder(rootPath)));
+      await writePassingStatusClaim(env, rootPath, nodeEvidencePath(rootPath));
 
       const output = await statusCommand({ cwd: env.productDir });
 
@@ -141,7 +114,7 @@ describe("spx spec status", () => {
     await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       await env.materialize();
       const rootPath = fixtureNodePath(env.fixture.root);
-      await env.writeRaw(evidencePathUnder(rootPath), "");
+      await addNodeTestFile(env, rootPath);
 
       const output = await statusCommand({ cwd: env.productDir });
 
@@ -320,8 +293,7 @@ describe("spx spec status --update command", () => {
       const updateOutput = await statusCommand({
         cwd: env.productDir,
         update: true,
-        resolveOutcomeFor: () => (_nodeId, evidencePaths) =>
-          Promise.resolve(Object.fromEntries(evidencePaths.map((path) => [path, NODE_STATUS_EVIDENCE_OUTCOME.PASSED]))),
+        resolveOutcomeFor: uniformOutcomeResolverFor(NODE_STATUS_EVIDENCE_OUTCOME.PASSED),
       });
       const plainOutput = await statusCommand({ cwd: env.productDir });
 

@@ -217,6 +217,13 @@ export function orderedDirectoryName(suffix: string): string {
   return `${order}-${slug}${suffix}`;
 }
 
+/** An ordered node directory name with `suffix` that differs from every name in `taken`. */
+export function distinctOrderedDirectoryName(suffix: string, taken: ReadonlySet<string>): string {
+  let name = orderedDirectoryName(suffix);
+  while (taken.has(name)) name = orderedDirectoryName(suffix);
+  return name;
+}
+
 export function createSource(entries: readonly SpecTreeSourceEntry[]): SpecTreeSource {
   return {
     async *entries() {
