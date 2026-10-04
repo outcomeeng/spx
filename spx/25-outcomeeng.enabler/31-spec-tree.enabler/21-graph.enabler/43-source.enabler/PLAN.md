@@ -8,11 +8,9 @@ The kernel lives under `src/outcomeeng/spec-tree/graph/source/` as modules insid
 
 ```text
 32-typescript-source-graph.enabler/
-32-python-source-graph.enabler/
-32-rust-source-graph.enabler/
 ```
 
-The providers are independent peers sharing the kernel's ownership model, provider contract, and normalization substrate.
+Python and Rust providers join as independent peers of the TypeScript provider, sharing the kernel's ownership model, provider contract, and normalization substrate, once their specs are authored.
 
 ## Provider Direction
 
