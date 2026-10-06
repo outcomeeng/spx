@@ -10,14 +10,13 @@ CAN present spec-tree state and deterministic context without parsing source rec
 
 ## Assertions
 
-- Declared methodology versions in either accepted form, `MAJOR.MINOR` or `MAJOR.MINOR.PATCH`, map in a context-list projection's text rendering to the labelled methodology source with its version and, while a migration is open, the migration source version, each rendered as `MAJOR.MINOR`, and in its JSON rendering to each version exactly as product configuration declares it
-
 ### Scenarios
 
 - Given an empty context-show projection, when it renders, then the text output is empty and the JSON output is `{ "entries": [] }` ([test](tests/context-rendering.scenario.l1.test.ts))
 
 ### Mappings
 
+- Declared methodology versions in either accepted form, `MAJOR.MINOR` or `MAJOR.MINOR.PATCH`, map in a context-list projection's text rendering to the labelled methodology source with its version and, while a migration is open, the migration source version, each rendered as `MAJOR.MINOR`, and in its JSON rendering to each version exactly as product configuration declares it ([test](tests/context-rendering.mapping.l1.test.ts))
 - Spec-tree status projections map to text, table, markdown, and JSON command output with registry labels, node paths, and derived states ([test](tests/spec-cli-rendering.mapping.l1.test.ts))
 
 ### Conformance
