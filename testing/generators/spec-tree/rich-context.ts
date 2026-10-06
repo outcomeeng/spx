@@ -23,7 +23,7 @@ import {
   type SpecContextSelectionReason,
 } from "@/lib/spec-tree";
 import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";
-import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
+import { arbitraryMethodologyLineVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   SPEC_CONTEXT_FIXTURE_STATUS_BODY,
@@ -699,13 +699,18 @@ export function arbitrarySpecContextEntryStream(): fc.Arbitrary<readonly SpecCon
     );
 }
 
-/** A declared methodology identity: a source with an optional exact version and an optional open migration. */
+/**
+ * A declared methodology identity: a source with an optional exact version and
+ * an optional open migration. Versions are drawn in the `MAJOR.MINOR` form, the
+ * one text `list` renders as declared; the rendering of every accepted form is
+ * the mapping evidence of the rendering node.
+ */
 function arbitraryMethodologyIdentity(): fc.Arbitrary<MethodologyIdentity> {
   return fc
     .record({
       source: fc.tuple(CONFIG_TEST_GENERATOR.key(), CONFIG_TEST_GENERATOR.key()).map((segments) => segments.join("/")),
-      version: fc.option(arbitraryMethodologyVersion(), { nil: undefined }),
-      migratingFrom: fc.option(arbitraryMethodologyVersion(), { nil: undefined }),
+      version: fc.option(arbitraryMethodologyLineVersion(), { nil: undefined }),
+      migratingFrom: fc.option(arbitraryMethodologyLineVersion(), { nil: undefined }),
     })
     .map(({ source, version, migratingFrom }) => ({
       source,

@@ -34,7 +34,7 @@ import {
   documentPaths,
   entryPaths,
   manifestEntryAt,
-  METHODOLOGY_FIXTURE_VERSION,
+  METHODOLOGY_FIXTURE_IDENTITY,
   parseContextEntries,
   parseContextManifest,
   referencePaths,
@@ -280,7 +280,7 @@ describe("spec context list and show", () => {
       expect(textOutput.split("\n")).toEqual([
         `${SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION}: ${manifest.schemaVersion}`,
         `${SPEC_CONTEXT_TEXT_LABEL.BOOTSTRAP}: ${manifest.bootstrap}`,
-        `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${DEFAULT_METHODOLOGY_SOURCE}@${METHODOLOGY_FIXTURE_VERSION}`,
+        `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${DEFAULT_METHODOLOGY_SOURCE}@${METHODOLOGY_FIXTURE_IDENTITY.line}`,
         ...manifest.entries.flatMap((entry) => [
           entry.citedBy === undefined
             ? `${entry.mode} ${entry.path}`

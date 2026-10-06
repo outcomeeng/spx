@@ -5,7 +5,7 @@ import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION, METHODOLOGY_VERSION_FOR
 import {
   generatedMethodologySource,
   generatedMethodologyVersionFormSections,
-  generatedMigratingMethodologySection,
+  generatedMigratingMethodology,
 } from "@testing/generators/config/descriptors";
 import { rootedSpecPath } from "@testing/generators/spec-tree/rich-context";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -45,16 +45,16 @@ describe("spec context manifest methodology identity", () => {
       expect(textOutput.split("\n")).toContain(`${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${undeclaredSource}`);
     });
 
-    const migrating = generatedMigratingMethodologySection();
-    await withSpecTreeEnv({ ...specTreeKindsConfig(), [METHODOLOGY_SECTION]: migrating }, async (env) => {
+    const migrating = generatedMigratingMethodology();
+    await withSpecTreeEnv({ ...specTreeKindsConfig(), [METHODOLOGY_SECTION]: migrating.section }, async (env) => {
       await env.materialize();
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
       const textOutput = await contextListText({ targets: [target.id], cwd: env.productDir });
       expect(textOutput.split("\n")).toContain(
-        `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${migrating[METHODOLOGY_CONFIG_FIELDS.SOURCE]}@${
-          migrating[METHODOLOGY_CONFIG_FIELDS.VERSION]
-        } (${SPEC_CONTEXT_TEXT_LABEL.MIGRATING_FROM} ${migrating[METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]})`,
+        `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${
+          migrating.section[METHODOLOGY_CONFIG_FIELDS.SOURCE]
+        }@${migrating.target.line} (${SPEC_CONTEXT_TEXT_LABEL.MIGRATING_FROM} ${migrating.source.line})`,
       );
     });
   });
