@@ -84,6 +84,14 @@ export function arbitraryMethodologyVersion(): fc.Arbitrary<GeneratedMethodology
   });
 }
 
+/**
+ * A declared exact version with the line its leading components spell, split
+ * here rather than parsed by the production line reader the tests judge.
+ */
+export function declaredMethodologyVersion(text: string): GeneratedMethodologyVersion {
+  return { text, line: text.split(VERSION_SEPARATOR).slice(0, LINE_COMPONENT_COUNT).join(VERSION_SEPARATOR) };
+}
+
 /** A `MAJOR.MINOR` line on its own, the shape a fetch argument names. */
 export function arbitraryMethodologyLine(): fc.Arbitrary<string> {
   return fc.tuple(versionComponent(), versionComponent()).map((parts) => parts.join(VERSION_SEPARATOR));

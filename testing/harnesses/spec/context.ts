@@ -22,7 +22,13 @@ import {
   SPEC_CONTEXT_ENTRIES_KEY,
   type SpecContextEntriesDocument,
 } from "@/commands/spec/context-show";
-import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
+import { resolveConfig } from "@/config";
+import {
+  METHODOLOGY_CONFIG_FIELDS,
+  METHODOLOGY_SECTION,
+  methodologyConfigDescriptor,
+  type MethodologyConfig,
+} from "@/config/methodology";
 import type { Config } from "@/config/types";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { formatSpecContextTargetFailure, specDomain } from "@/interfaces/cli/spec";
@@ -53,8 +59,7 @@ import {
   type SpecContextManifestEntry,
   type SpecContextSelectionReason,
 } from "@/lib/spec-tree";
-import { arbitraryMethodologyVersion, type GeneratedMethodologyVersion } from "@testing/generators/methodology/tree";
-import { sampleGeneratedValue } from "@testing/generators/sample";
+import { declaredMethodologyVersion, type GeneratedMethodologyVersion } from "@testing/generators/methodology/tree";
 import { specContextFixtureDocuments, specContextRootDecisionPath } from "@testing/generators/spec-tree/context-target";
 import {
   type RichContextPaths,
@@ -538,12 +543,27 @@ export async function installSpecCliProductConfigFixture(
 }
 
 /**
- * The exact methodology version every context fixture declares, drawn once
- * from the accepted-form generator with the line its construction derives.
+ * The methodology version a context fixture declares is the 3.2 version spx's
+ * own tree is written against: the migration source spx's product
+ * configuration declares, read through the config module that owns the
+ * declaration rather than restated here.
  */
-export const METHODOLOGY_FIXTURE_IDENTITY: GeneratedMethodologyVersion = sampleGeneratedValue(
-  arbitraryMethodologyVersion(),
-);
+async function readProductMigrationSource(): Promise<GeneratedMethodologyVersion> {
+  const resolved = await resolveConfig(PRODUCT_ROOT, [methodologyConfigDescriptor]);
+  if (!resolved.ok) {
+    throw new Error(`spx's product configuration does not resolve: ${resolved.error}`);
+  }
+  const methodology = resolved.value[METHODOLOGY_SECTION] as MethodologyConfig;
+  if (methodology.migratingFrom === undefined) {
+    throw new Error(
+      `spx's product configuration declares no ${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM}`,
+    );
+  }
+  return declaredMethodologyVersion(methodology.migratingFrom);
+}
+
+/** The exact methodology version every context fixture declares, with the line its components spell. */
+export const METHODOLOGY_FIXTURE_IDENTITY: GeneratedMethodologyVersion = await readProductMigrationSource();
 export const METHODOLOGY_FIXTURE_VERSION = METHODOLOGY_FIXTURE_IDENTITY.text;
 
 export function specTreeKindsConfig(): Config {
