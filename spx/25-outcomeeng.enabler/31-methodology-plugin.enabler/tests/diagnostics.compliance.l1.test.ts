@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   checkProviderMatch,
   defaultMethodologyTreeFileSystem,
+  formatMethodologyVersionName,
   METHODOLOGY_CODING_AGENT,
   PLUGINS_REPOSITORY,
   resolveMethodologyTree,
@@ -37,8 +38,8 @@ describe("shipped-methodology diagnostics name versions as methodology <MAJOR.MI
 
       expect(read.ok).toBe(false);
       const diagnostic = read.ok ? "" : read.error;
-      expect(diagnostic).toContain(`methodology ${declared.line}`);
-      expect(diagnostic).toContain(`methodology ${shipped.line}`);
+      expect(diagnostic).toContain(formatMethodologyVersionName(declared.line));
+      expect(diagnostic).toContain(formatMethodologyVersionName(shipped.line));
       expect(diagnostic).not.toContain(declared.text);
       expect(diagnostic).not.toMatch(/\blines?\b/i);
     });
@@ -57,7 +58,7 @@ describe("shipped-methodology diagnostics name versions as methodology <MAJOR.MI
 
       expect(read.ok).toBe(false);
       const diagnostic = read.ok ? "" : read.error;
-      expect(diagnostic).toContain(`methodology ${declared.line}`);
+      expect(diagnostic).toContain(formatMethodologyVersionName(declared.line));
       expect(diagnostic).toContain(shippedAgent);
       expect(diagnostic).toContain(requestedAgent);
       expect(diagnostic).not.toContain(declared.text);
@@ -78,7 +79,7 @@ describe("shipped-methodology diagnostics name versions as methodology <MAJOR.MI
 
       expect(read.ok).toBe(false);
       const diagnostic = read.ok ? "" : read.error;
-      expect(diagnostic).toContain(`methodology ${declared.line}`);
+      expect(diagnostic).toContain(formatMethodologyVersionName(declared.line));
       for (const codingAgent of codingAgents) expect(diagnostic).toContain(codingAgent);
       expect(diagnostic).not.toContain(declared.text);
       expect(diagnostic).not.toMatch(/\blines?\b/i);
@@ -96,8 +97,8 @@ describe("shipped-methodology diagnostics name versions as methodology <MAJOR.MI
 
     expect(match.ok).toBe(false);
     const diagnostic = match.ok ? "" : match.error;
-    expect(diagnostic).toContain(`methodology ${declared.line}`);
-    expect(diagnostic).toContain(`methodology ${provided.line}`);
+    expect(diagnostic).toContain(formatMethodologyVersionName(declared.line));
+    expect(diagnostic).toContain(formatMethodologyVersionName(provided.line));
     expect(diagnostic).not.toContain(declared.text);
     expect(diagnostic).not.toContain(provided.text);
     expect(diagnostic).not.toMatch(/\blines?\b/i);
@@ -117,7 +118,7 @@ describe("shipped-methodology diagnostics name versions as methodology <MAJOR.MI
     expect(match.ok).toBe(false);
     const diagnostic = match.ok ? "" : match.error;
     expect(diagnostic).toContain(supports);
-    expect(diagnostic).toContain(`methodology ${migratingFrom.line}`);
+    expect(diagnostic).toContain(formatMethodologyVersionName(migratingFrom.line));
     expect(diagnostic.replace(supports, "")).not.toContain(migratingFrom.text);
     expect(diagnostic).not.toMatch(/\blines?\b/i);
   });
@@ -136,7 +137,7 @@ describe("shipped-methodology diagnostics name versions as methodology <MAJOR.MI
       expect(outcome.ok).toBe(false);
       const diagnostic = outcome.ok ? "" : outcome.error;
       for (const provided of content.provided) {
-        expect(diagnostic).toContain(`methodology ${provided.line}`);
+        expect(diagnostic).toContain(formatMethodologyVersionName(provided.line));
         expect(diagnostic).not.toContain(provided.text);
       }
       expect(diagnostic).not.toMatch(/\blines?\b/i);
@@ -157,8 +158,8 @@ describe("shipped-methodology diagnostics name versions as methodology <MAJOR.MI
 
       expect(outcome.ok).toBe(false);
       const diagnostic = outcome.ok ? "" : outcome.error;
-      expect(diagnostic).toContain(`methodology ${named.line}`);
-      expect(diagnostic).toContain(`methodology ${provided.line}`);
+      expect(diagnostic).toContain(formatMethodologyVersionName(named.line));
+      expect(diagnostic).toContain(formatMethodologyVersionName(provided.line));
       expect(diagnostic).not.toContain(provided.text);
       expect(diagnostic).not.toMatch(/\blines?\b/i);
     });

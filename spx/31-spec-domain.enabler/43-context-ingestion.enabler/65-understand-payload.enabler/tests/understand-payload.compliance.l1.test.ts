@@ -4,7 +4,11 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
-import { FOUNDATION_MANIFEST_RELATIVE_PATH, SOURCE_RECORD_RELATIVE_PATH } from "@/lib/methodology";
+import {
+  formatMethodologyVersionName,
+  FOUNDATION_MANIFEST_RELATIVE_PATH,
+  SOURCE_RECORD_RELATIVE_PATH,
+} from "@/lib/methodology";
 import { compareSpecContextOrdinal, SPEC_CONTEXT_ENTRY_TYPE } from "@/lib/spec-tree";
 import * as fc from "fast-check";
 
@@ -55,8 +59,8 @@ describe("spec context understand payload provider match", () => {
         methodology: true,
         methodologyTreeRoot: providesOther.treeRoot,
       });
-      expect(mismatch).toContain(`methodology ${declared.line}`);
-      expect(mismatch).toContain(`methodology ${other.line}`);
+      expect(mismatch).toContain(formatMethodologyVersionName(declared.line));
+      expect(mismatch).toContain(formatMethodologyVersionName(other.line));
 
       const excluding = supportsRangeExcluding(migratingFrom);
       const outsideSupports = await writeMethodologyTree(env, {
@@ -69,7 +73,7 @@ describe("spec context understand payload provider match", () => {
         methodology: true,
         methodologyTreeRoot: outsideSupports.treeRoot,
       });
-      expect(outside).toContain(`methodology ${migrationSource.line}`);
+      expect(outside).toContain(formatMethodologyVersionName(migrationSource.line));
       expect(outside).toContain(excluding);
 
       const noSupports = await writeMethodologyTree(env, {
@@ -82,7 +86,7 @@ describe("spec context understand payload provider match", () => {
         methodology: true,
         methodologyTreeRoot: noSupports.treeRoot,
       });
-      expect(unverifiable).toContain(`methodology ${migrationSource.line}`);
+      expect(unverifiable).toContain(formatMethodologyVersionName(migrationSource.line));
 
       const agreeing = await writeMethodologyTree(env, {
         version: declared,

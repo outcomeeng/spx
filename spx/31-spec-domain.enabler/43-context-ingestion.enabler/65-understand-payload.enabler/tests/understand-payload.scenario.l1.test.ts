@@ -7,6 +7,7 @@ import { SPEC_CONTEXT_ENTRIES_KEY } from "@/commands/spec/context-show";
 import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
 import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import {
+  formatMethodologyVersionName,
   FOUNDATION_MANIFEST_FIELDS,
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   FOUNDATION_MANIFEST_SCHEMA_VERSION,
@@ -137,8 +138,8 @@ describe("spec context understand payload", () => {
         // diagnostic's named versions are checked against an oracle the
         // production parser and formatter never touch; the declared patch
         // component never reaches the person reading the diagnostic.
-        expect(failure).toContain(`methodology ${declared.line}`);
-        expect(failure).toContain(`methodology ${fixture.line}`);
+        expect(failure).toContain(formatMethodologyVersionName(declared.line));
+        expect(failure).toContain(formatMethodologyVersionName(fixture.line));
         expect(failure).not.toContain(declared.text);
       },
     );

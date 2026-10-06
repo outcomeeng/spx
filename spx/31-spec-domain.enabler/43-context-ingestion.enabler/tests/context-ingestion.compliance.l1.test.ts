@@ -7,6 +7,7 @@ import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodo
 import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
 import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
+import { formatMethodologyVersionName } from "@/lib/methodology";
 import { SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
 import {
   CONFIG_TEST_GENERATOR,
@@ -207,7 +208,7 @@ describe("spec context ingestion writes nothing to standard output after a failu
         );
         expect(run.stdout).toHaveLength(0);
         expect(run.exitCode).toBe(1);
-        expect(run.stderr).toContain(`methodology ${declared.line}`);
+        expect(run.stderr).toContain(formatMethodologyVersionName(declared.line));
         const withoutFoundation = await runSpecDescriptor(context, ...SPEC_CONTEXT_COMMAND_PATH.SHOW, target);
         expect(withoutFoundation.exitCode, withoutFoundation.stderr).toBeUndefined();
         expect(withoutFoundation.stdout.length).toBeGreaterThan(0);
