@@ -135,9 +135,9 @@ describe("spec context understand payload", () => {
           methodologyTreeRoot: fixture.treeRoot,
         });
         // The generator derives the line from its own components, so the
-        // diagnostic's named versions are checked against an oracle the
-        // production parser and formatter never touch; the declared patch
-        // component never reaches the person reading the diagnostic.
+        // diagnostic names the generator's line through the source-owned name,
+        // and the declared patch component, checked against the generator's
+        // own text, never reaches the person reading the diagnostic.
         expect(failure).toContain(formatMethodologyVersionName(declared.line));
         expect(failure).toContain(formatMethodologyVersionName(fixture.line));
         expect(failure).not.toContain(declared.text);

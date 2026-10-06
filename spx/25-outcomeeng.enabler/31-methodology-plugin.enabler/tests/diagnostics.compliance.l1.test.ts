@@ -22,8 +22,9 @@ import { withPluginsRepository } from "@testing/harnesses/methodology/plugins-re
 import { withShippedTreeRoot } from "@testing/harnesses/methodology/tree-root";
 
 // Every case declares patched versions, so a diagnostic that echoes a declared
-// version verbatim or speaks of a "line" fails; the expected `methodology
-// <MAJOR.MINOR>` names come from the generator's own construction.
+// version verbatim or speaks of a "line" fails on checks no production formatter
+// feeds; the expected `methodology <MAJOR.MINOR>` names compose the generator's
+// own line through the source-owned name.
 describe("shipped-methodology diagnostics name versions as methodology <MAJOR.MINOR>", () => {
   it("a read for a version spx does not ship names it and every shipped version that way", async () => {
     const [declared, shipped] = sampleGeneratedValue(arbitraryMethodologyVersionsOnDistinctLines());
