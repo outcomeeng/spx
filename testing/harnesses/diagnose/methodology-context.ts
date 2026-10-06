@@ -26,11 +26,7 @@ import { type CheckRegistry, runDiagnose } from "@/domains/diagnose/engine";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT } from "@/domains/diagnose/report";
 import type { DiagnoseReport } from "@/domains/diagnose/types";
-import {
-  METHODOLOGY_CODING_AGENTS,
-  methodologyLine,
-  PROVIDER_MATCH,
-} from "@/lib/methodology";
+import { METHODOLOGY_CODING_AGENTS, methodologyLine, PROVIDER_MATCH } from "@/lib/methodology";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
