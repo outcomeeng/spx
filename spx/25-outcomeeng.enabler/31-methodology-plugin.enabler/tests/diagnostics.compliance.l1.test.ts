@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  METHODOLOGY_CONTEXT_REMEDIATION,
+  METHODOLOGY_CONTEXT_VERDICT,
+} from "@/domains/diagnose/checks/methodology-context";
+import {
   checkProviderMatch,
   defaultMethodologyTreeFileSystem,
+  FETCH_ARGUMENT_FLAGS,
   formatMethodologyVersionName,
   METHODOLOGY_CODING_AGENT,
   PLUGINS_REPOSITORY,
@@ -12,9 +17,11 @@ import {
 import {
   arbitraryDisagreeingPluginsContent,
   arbitraryDistinctCodingAgentNames,
+  arbitraryMethodologyLineVersion,
   arbitraryMethodologyVersionsOnDistinctLines,
   arbitraryPluginsContent,
   generatedSourceRecordProviding,
+  supportsRangeContaining,
   supportsRangeExcluding,
 } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
@@ -124,6 +131,40 @@ describe("shipped-methodology diagnostics name versions as methodology <MAJOR.MI
     expect(diagnostic).not.toMatch(/\blines?\b/i);
   });
 
+  it("a migration source the provider records no supported range for is named that way", () => {
+    const [declared, migratingFrom] = sampleGeneratedValue(arbitraryMethodologyVersionsOnDistinctLines());
+
+    const match = checkProviderMatch({
+      version: declared.text,
+      migratingFrom: migratingFrom.text,
+      codingAgent: METHODOLOGY_CODING_AGENT.CLAUDE,
+      sourceRecord: generatedSourceRecordProviding(declared.text),
+    });
+
+    expect(match.ok).toBe(false);
+    const diagnostic = match.ok ? "" : match.error;
+    expect(diagnostic).toContain(formatMethodologyVersionName(migratingFrom.line));
+    expect(diagnostic).not.toContain(migratingFrom.text);
+    expect(diagnostic).not.toMatch(/\blines?\b/i);
+  });
+
+  it("a migration source declared as MAJOR.MINOR against a supported range is named that way", () => {
+    const [declared] = sampleGeneratedValue(arbitraryMethodologyVersionsOnDistinctLines());
+    const migratingFrom = sampleGeneratedValue(arbitraryMethodologyLineVersion());
+
+    const match = checkProviderMatch({
+      version: declared.text,
+      migratingFrom: migratingFrom.text,
+      codingAgent: METHODOLOGY_CODING_AGENT.CLAUDE,
+      sourceRecord: generatedSourceRecordProviding(declared.text, supportsRangeContaining(declared.text)),
+    });
+
+    expect(match.ok).toBe(false);
+    const diagnostic = match.ok ? "" : match.error;
+    expect(diagnostic).toContain(formatMethodologyVersionName(migratingFrom.line));
+    expect(diagnostic).not.toMatch(/\blines?\b/i);
+  });
+
   it("a fetch whose plugin manifests disagree names each provided version that way", async () => {
     const content = sampleGeneratedValue(arbitraryDisagreeingPluginsContent());
     await withPluginsRepository(content, async (repository) => {
@@ -164,5 +205,27 @@ describe("shipped-methodology diagnostics name versions as methodology <MAJOR.MI
       expect(diagnostic).not.toContain(provided.text);
       expect(diagnostic).not.toMatch(/\blines?\b/i);
     });
+  });
+  it("a fetch with no provided version and no named version asks for the methodology version, keeping only the argument's own flag", async () => {
+    await withPluginsRepository(sampleGeneratedValue(arbitraryPluginsContent()), async (repository) => {
+      const outcome = await runMethodologyFetch({
+        repository: PLUGINS_REPOSITORY,
+        repositoryUrl: repository.repositoryDir,
+        revision: repository.revision,
+        packageRoot: repository.packageRoot,
+        dependencies: repository.dependencies,
+      });
+
+      expect(outcome.ok).toBe(false);
+      const diagnostic = outcome.ok ? "" : outcome.error;
+      expect(diagnostic).toContain(FETCH_ARGUMENT_FLAGS.LINE);
+      expect(diagnostic.replace(FETCH_ARGUMENT_FLAGS.LINE, "")).not.toMatch(/\blines?\b/i);
+    });
+  });
+
+  it("every diagnose methodology-context remediation avoids the word line", () => {
+    for (const verdict of Object.values(METHODOLOGY_CONTEXT_VERDICT)) {
+      expect(METHODOLOGY_CONTEXT_REMEDIATION[verdict], verdict).not.toMatch(/\blines?\b/i);
+    }
   });
 });

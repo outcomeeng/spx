@@ -13,6 +13,7 @@ import {
   type MarketplaceInstallVerdict,
 } from "@/domains/diagnose/checks/marketplace-install";
 import {
+  METHODOLOGY_CONTEXT_REMEDIATION,
   METHODOLOGY_CONTEXT_VERDICT,
   type MethodologyContextVerdict,
 } from "@/domains/diagnose/checks/methodology-context";
@@ -118,10 +119,6 @@ export const DIAGNOSE_TEXT_DETAIL = {
   METHODOLOGY_UNDECLARED_PROBLEM: "this product declares no methodology version, so it has no methodology identity.",
   METHODOLOGY_UNDECLARED_FIX: "declare a top-level methodology.version in spx.config.",
   METHODOLOGY_RESOLVED: "The declared methodology version resolves to the methodology trees spx ships.",
-  METHODOLOGY_UNAVAILABLE_FIX:
-    "Declare a methodology version whose line spx ships for every enabled coding agent, or update spx.",
-  METHODOLOGY_MISMATCHED_FIX:
-    "Align methodology.version and methodology.migratingFrom with the provider declaration the shipped tree records.",
   MARKETPLACE_SKIPPED: "Plugin marketplace checks are not configured.",
   RENDERING_UNAVAILABLE: "This check produced a record this version cannot translate into diagnosis text.",
   SESSION_STORE_INFORMATIONAL: "This count is informational and requires no session action.",
@@ -200,7 +197,10 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
         details: [
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE), configuredSource),
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION), configuredVersion),
-          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_UNAVAILABLE_FIX)),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.FIX),
+            authoredText(METHODOLOGY_CONTEXT_REMEDIATION[METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE]),
+          ),
         ],
       };
     case METHODOLOGY_CONTEXT_VERDICT.MISMATCHED:
@@ -210,7 +210,10 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
           detail(authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM), providerMatch),
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE), configuredSource),
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION), configuredVersion),
-          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_MISMATCHED_FIX)),
+          detail(
+            authoredText(DIAGNOSE_TEXT_LABEL.FIX),
+            authoredText(METHODOLOGY_CONTEXT_REMEDIATION[METHODOLOGY_CONTEXT_VERDICT.MISMATCHED]),
+          ),
         ],
       };
     case METHODOLOGY_CONTEXT_VERDICT.UNKNOWN:

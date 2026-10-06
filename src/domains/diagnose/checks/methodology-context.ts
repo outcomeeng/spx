@@ -48,12 +48,13 @@ export interface MethodologyContextProbe {
   probe(config: MethodologyConfig): Promise<MethodologyContextObservation>;
 }
 
-const REMEDIATION: Readonly<Record<MethodologyContextVerdict, string>> = {
+/** What a person reads under Fix for each verdict; the text report and the JSON record both take it from here. */
+export const METHODOLOGY_CONTEXT_REMEDIATION: Readonly<Record<MethodologyContextVerdict, string>> = {
   [METHODOLOGY_CONTEXT_VERDICT.RESOLVED]: "Declared methodology resolves to shipped trees; no action needed.",
   [METHODOLOGY_CONTEXT_VERDICT.UNDECLARED]:
     "Declare an exact methodology.version; the product's methodology identity has no default.",
   [METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE]:
-    "Declare a methodology version whose line spx ships for every enabled coding agent, or update spx.",
+    "Declare a methodology version that spx ships for every enabled coding agent, or update spx.",
   [METHODOLOGY_CONTEXT_VERDICT.MISMATCHED]:
     "Align methodology.version and methodology.migratingFrom with the provider declaration the shipped tree records.",
   [METHODOLOGY_CONTEXT_VERDICT.UNKNOWN]: "Re-run diagnose; if it persists, inspect spx's shipped methodology trees.",
@@ -87,7 +88,7 @@ function record(
       enabledCodingAgents: readingList(reading.enabledCodingAgents),
       providerMatch: readingValue(reading.providerMismatch ?? reading.providerMatch),
     },
-    remediation: REMEDIATION[verdict],
+    remediation: METHODOLOGY_CONTEXT_REMEDIATION[verdict],
   };
 }
 
