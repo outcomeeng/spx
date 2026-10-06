@@ -105,6 +105,14 @@ export function arbitraryMethodologyVersionForms(): fc.Arbitrary<GeneratedMethod
   }));
 }
 
+/** Two lines, each spelled in every accepted form, so a rendering that swaps or repeats them is distinguishable. */
+export function arbitraryMethodologyVersionFormsOnDistinctLines(): fc.Arbitrary<
+  readonly [GeneratedMethodologyVersionForms, GeneratedMethodologyVersionForms]
+> {
+  return fc.tuple(arbitraryMethodologyVersionForms(), arbitraryMethodologyVersionForms())
+    .filter(([first, second]) => first.line !== second.line);
+}
+
 /**
  * The shape classes of non-empty text that is not an exact methodology version:
  * one component, words, a word component, or too many components. Each class

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { renderSpecContextJson, renderSpecContextText, SPEC_CONTEXT_TEXT_LABEL } from "@/commands/spec/context";
 import { DEFAULT_METHODOLOGY_SOURCE, METHODOLOGY_VERSION_FORM } from "@/config/methodology";
-import { arbitraryMethodologyVersionForms } from "@testing/generators/methodology/tree";
+import { arbitraryMethodologyVersionFormsOnDistinctLines } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { arbitrarySpecContextManifest } from "@testing/generators/spec-tree/rich-context";
 
@@ -10,8 +10,7 @@ describe("spec context list methodology rendering", () => {
   it("renders every declared version form as MAJOR.MINOR in text and as the declared value in JSON, for the target and the migration source", () => {
     for (const versionForm of Object.values(METHODOLOGY_VERSION_FORM)) {
       for (const migrationForm of Object.values(METHODOLOGY_VERSION_FORM)) {
-        const version = sampleGeneratedValue(arbitraryMethodologyVersionForms());
-        const migration = sampleGeneratedValue(arbitraryMethodologyVersionForms());
+        const [version, migration] = sampleGeneratedValue(arbitraryMethodologyVersionFormsOnDistinctLines());
         const declared = {
           source: DEFAULT_METHODOLOGY_SOURCE,
           version: version.byForm[versionForm],
