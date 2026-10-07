@@ -1,6 +1,6 @@
 # Verification Command Surface
 
-SPX exposes every verification activity through the noun-grouped `spx verification` command family, in two command-path shapes distinguished by who drives the run. A caller driving its own run uses the verification-run resource `spx verification run`, whose command paths are `start`, `input`, `scope add`, `finding add`, `finish`, `status`, and `render`. A caller asking SPX to execute a verification uses `spx verification <type> run`, where the verification type is a noun carrying the `run` verb and product path operands narrow the work. Whichever path produces a run, that run is read back through the run-inspection command paths of `spx verification run`.
+SPX exposes every verification activity through the noun-grouped `spx verification` command family, in two command-path shapes distinguished by who drives the run. A caller driving its own run uses the verification-run resource `spx verification run`, whose command paths are `start`, `input`, `scope add`, `finding add`, `finish`, `status`, `render`, and `list`, and `start --change <owner/repo#N>` records the Change the run serves. A caller asking SPX to execute a verification uses `spx verification <type> run`, where the verification type is a noun carrying the `run` verb and product path operands narrow the work. Whichever path produces a run, that run is read back through the run-inspection command paths of `spx verification run`: `status` and `render` address one run by its run token, and `list --change <owner/repo#N>` lists the runs recorded for one Change.
 
 ## Rationale
 
@@ -8,7 +8,7 @@ Verification runs share one CLI vocabulary even when their judgment and driver d
 
 ## Product properties
 
-1. `spx verification run <command-path>` exposes caller-driven lifecycle options for verification type, scope type, scope identity, input, run token, evidence payload, idempotency key, terminal status, and terminal metadata. Scope option grammar is `--scope-type changeset --scope <base>..<head>` or `--scope-type file --scope <product-relative-path>`; `start` reports `runToken`, `contextDigest`, `resolvedScope`, `input`, and `locator`.
+1. `spx verification run <command-path>` exposes caller-driven lifecycle options for verification type, scope type, scope identity, input, Change identity, run token, evidence payload, idempotency key, terminal status, and terminal metadata. Scope option grammar is `--scope-type changeset --scope <base>..<head>` or `--scope-type file --scope <product-relative-path>`; Change identity option grammar is `--change <owner/repo#N>`, which `start` accepts and `list` requires; `start` reports `runToken`, `contextDigest`, `resolvedScope`, `input`, and `locator`.
 2. `spx verification <type> run [<path>...]` names the verification type as a noun and narrows SPX-driven work through positional product path operands.
 3. `spx verification run status` and `spx verification run render` inspect a run produced through either drive mode.
 
@@ -16,7 +16,7 @@ Verification runs share one CLI vocabulary even when their judgment and driver d
 
 ### Testing
 
-- ALWAYS: `spx verification run` exposes the command paths `start`, `input`, `scope add`, `finding add`, `finish`, `status`, and `render` ([mapping])
+- ALWAYS: `spx verification run` exposes the command paths `start`, `input`, `scope add`, `finding add`, `finish`, `status`, `render`, and `list` ([mapping])
 - ALWAYS: `spx verification <type> run` names the verification type as a noun carrying the `run` verb ([compliance])
 - ALWAYS: `spx verification <type> run` narrows execution through positional product path operands, per [`spx/29-verification-path-scope.pdr.md`](spx/29-verification-path-scope.pdr.md) ([compliance])
 - NEVER: a verification type is exposed as a verb command path such as `spx verification validate` or `spx verification eval` ([compliance])
