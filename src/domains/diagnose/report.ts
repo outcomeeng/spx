@@ -120,7 +120,6 @@ export const DIAGNOSE_TEXT_DETAIL = {
     "A marketplace check is configured, but no plugin CLI is available to inspect it.",
   MARKETPLACE_CONFIGURED: "Configured plugins are installed and enabled.",
   METHODOLOGY_UNDECLARED_PROBLEM: "this product declares no methodology version, so it has no methodology identity.",
-  METHODOLOGY_RESOLVED: "The declared methodology version resolves to the methodology trees spx ships.",
   MARKETPLACE_SKIPPED: "Plugin marketplace checks are not configured.",
   RENDERING_UNAVAILABLE: "This check produced a record this version cannot translate into diagnosis text.",
   SESSION_STORE_INFORMATIONAL: "This count is informational and requires no session action.",
@@ -203,7 +202,7 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.METHODOLOGY_RESOLVED),
         details: [
-          authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_RESOLVED),
+          authoredText(METHODOLOGY_CONTEXT_REMEDIATION[METHODOLOGY_CONTEXT_VERDICT.RESOLVED]),
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE), configuredSource),
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION), configuredVersion),
           ...migrationDetails(check),
