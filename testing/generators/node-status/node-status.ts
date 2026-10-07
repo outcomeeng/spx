@@ -5,18 +5,22 @@ import { TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
 import type {
   NodeClassificationFacts,
   NodeStatusEvidenceOutcome,
+  NodeStatusFile,
+  NodeStatusMechanismOverall,
   NodeStatusMechanismRecord,
   NodeStatusVerification,
   NodeStatusVerificationMechanism,
 } from "@/lib/node-status";
 import {
-  createNodeStatusMechanismRecord,
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_EXCLUDE_PATH_GRAMMAR,
+  NODE_STATUS_FIELD,
   NODE_STATUS_FILENAME,
+  NODE_STATUS_MECHANISM_OVERALL,
+  NODE_STATUS_SCHEMA_VERSION,
   NODE_STATUS_VERIFICATION_MECHANISM,
 } from "@/lib/node-status";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
 
 const NODE_STATUS_GENERATOR_OPTIONS = {
   ORDER_MIN: 10,
@@ -24,6 +28,8 @@ const NODE_STATUS_GENERATOR_OPTIONS = {
   MIN_NODES: 1,
   MAX_NODES: 5,
   FAILURE_EXIT_CODE: 1,
+  /** Highest count of any one outcome in an enumerated rollup multiset. */
+  MAX_OUTCOME_MULTIPLICITY: 3,
 } as const;
 
 const ENABLER_SUFFIX = KIND_REGISTRY.enabler.suffix;
@@ -32,6 +38,20 @@ export const NODE_STATUS_READABLE_SLUGS = ["alpha", "bravo", "charlie", "delta",
 const STATUS_REFERENCE_NAME_PATTERN = /^[a-z][a-z0-9-]{2,12}$/;
 const STATUS_VERIFICATION_MECHANISMS = Object.values(NODE_STATUS_VERIFICATION_MECHANISM);
 const STATUS_EVIDENCE_OUTCOMES: readonly NodeStatusEvidenceOutcome[] = Object.values(NODE_STATUS_EVIDENCE_OUTCOME);
+const STATUS_MECHANISM_OVERALLS: readonly NodeStatusMechanismOverall[] = Object.values(NODE_STATUS_MECHANISM_OVERALL);
+const ENUMERATED_REFERENCE_NAME = "reference";
+
+/**
+ * Evidence outcomes that realize each mechanism overall, per the rollup mapping the
+ * node-status spec declares: all passed is passed, any failed is failed, passed mixed
+ * with not-run is partial, and all not-run is not-run.
+ */
+const OUTCOMES_REALIZING_OVERALL: Readonly<Record<NodeStatusMechanismOverall, readonly NodeStatusEvidenceOutcome[]>> = {
+  [NODE_STATUS_MECHANISM_OVERALL.PASSED]: [NODE_STATUS_EVIDENCE_OUTCOME.PASSED],
+  [NODE_STATUS_MECHANISM_OVERALL.FAILED]: [NODE_STATUS_EVIDENCE_OUTCOME.FAILED],
+  [NODE_STATUS_MECHANISM_OVERALL.PARTIAL]: [NODE_STATUS_EVIDENCE_OUTCOME.PASSED, NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN],
+  [NODE_STATUS_MECHANISM_OVERALL.NOT_RUN]: [NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN],
+};
 
 export type ClassificationFixtureFacts = {
   readonly hasVerificationReferences: boolean;
@@ -51,12 +71,12 @@ export type ClassificationTreeFixture = {
 };
 
 export const NODE_STATUS_TEST_GENERATOR = {
-  facts: arbitraryNodeClassificationFacts,
   classificationTree: arbitraryClassificationTree,
   classificationTreeWithVerificationReferences: arbitraryClassificationTreeWithVerificationReferences,
   delegationTree: arbitraryDelegationTree,
   statusReference: arbitraryStatusReference,
   evidenceOutcome: arbitraryEvidenceOutcome,
+  contradictingEvidenceOutcome: arbitraryContradictingEvidenceOutcome,
   verification: arbitraryVerification,
   trackedFile: arbitraryTrackedFile,
   trackedFileSet: arbitraryTrackedFileSet,
@@ -65,46 +85,108 @@ export const NODE_STATUS_TEST_GENERATOR = {
   untrackedNodeStatusPath: arbitraryUntrackedNodeStatusPath,
 } as const;
 
-export function sampleNodeStatusValue<T>(arbitrary: fc.Arbitrary<T>): T {
-  const [value] = fc.sample(arbitrary, { numRuns: 1 });
-  if (value === undefined) {
-    throw new Error("Node-status test generator returned no sample");
-  }
-  return value;
-}
-
-export function createGeneratedEvidenceOutcomes(
-  values: readonly NodeStatusEvidenceOutcome[],
-): Readonly<Record<string, NodeStatusEvidenceOutcome>> {
-  const references = sampleNodeStatusValue(
-    fc.uniqueArray(arbitraryStatusReference(), {
-      minLength: values.length,
-      maxLength: values.length,
-    }),
+/**
+ * Every combination of the classification facts over their finite source-owned
+ * domains: linked verification references present or absent, `spx/EXCLUDE` listing
+ * present or absent, and committed verification absent, empty, or any set of
+ * mechanisms each carrying any overall the status file admits.
+ */
+export function enumerateClassificationFacts(): readonly NodeClassificationFacts[] {
+  const committedVerifications: readonly (NodeStatusVerification | undefined)[] = [
+    undefined,
+    ...enumerateCommittedVerifications(),
+  ];
+  return [false, true].flatMap((hasVerificationReferences) =>
+    [false, true].flatMap((isExcluded) =>
+      committedVerifications.map((verification): NodeClassificationFacts => ({
+        hasVerificationReferences,
+        isExcluded,
+        verification,
+      }))
+    )
   );
-  return Object.fromEntries(values.map((outcome, index) => [references[index], outcome]));
 }
 
-export function createGeneratedTestVerification(
-  values: readonly NodeStatusEvidenceOutcome[],
-): NodeStatusVerification {
+/**
+ * Every non-empty multiset of evidence outcomes in which each outcome occurs at most
+ * {@link NODE_STATUS_GENERATOR_OPTIONS.MAX_OUTCOME_MULTIPLICITY} times, keyed by
+ * distinct evidence references, so the rollup domain varies both which outcomes
+ * occur and how often each occurs.
+ */
+export function enumerateEvidenceOutcomeMultisets(): readonly Readonly<Record<string, NodeStatusEvidenceOutcome>>[] {
+  const counts = Array.from(
+    { length: NODE_STATUS_GENERATOR_OPTIONS.MAX_OUTCOME_MULTIPLICITY + 1 },
+    (_, count) => count,
+  );
+  const countVectors = STATUS_EVIDENCE_OUTCOMES.reduce<readonly (readonly number[])[]>(
+    (vectors) => vectors.flatMap((vector) => counts.map((count) => [...vector, count])),
+    [[]],
+  );
+  return countVectors
+    .filter((vector) => vector.some((count) => count > 0))
+    .map((vector) =>
+      outcomesWithEnumeratedReferences(
+        STATUS_EVIDENCE_OUTCOMES.flatMap((outcome, index) => Array.from({ length: vector[index] ?? 0 }, () => outcome)),
+      )
+    );
+}
+
+/** A committed status document whose single test reference claims `outcome` for each given evidence path. */
+export function createClaimedTestStatus(
+  evidencePaths: readonly string[],
+  outcome: NodeStatusEvidenceOutcome,
+): NodeStatusFile {
   return {
-    [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord(
-      createGeneratedEvidenceOutcomes(values),
-    ),
+    [NODE_STATUS_FIELD.SCHEMA_VERSION]: NODE_STATUS_SCHEMA_VERSION,
+    [NODE_STATUS_FIELD.VERIFICATION]: {
+      [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: {
+        [NODE_STATUS_FIELD.OVERALL]: outcome,
+        ...Object.fromEntries(evidencePaths.map((path) => [path, outcome])),
+      },
+    },
   };
 }
 
-export function arbitraryNodeClassificationFacts(): fc.Arbitrary<NodeClassificationFacts> {
-  return fc
-    .record({
-      hasVerificationReferences: fc.boolean(),
-      isExcluded: fc.boolean(),
-      verification: arbitraryVerification(),
-    })
-    .map(({ hasVerificationReferences, isExcluded, verification }): NodeClassificationFacts => {
-      return { hasVerificationReferences, isExcluded, verification };
-    });
+function enumerateCommittedVerifications(): readonly NodeStatusVerification[] {
+  return STATUS_VERIFICATION_MECHANISMS.reduce<readonly NodeStatusVerification[]>(
+    (verifications, mechanism) =>
+      verifications.flatMap((verification) => [
+        verification,
+        ...STATUS_MECHANISM_OVERALLS.map((overall): NodeStatusVerification => ({
+          ...verification,
+          [mechanism]: mechanismRecordRealizing(overall),
+        })),
+      ]),
+    [{}],
+  );
+}
+
+function mechanismRecordRealizing(overall: NodeStatusMechanismOverall): NodeStatusMechanismRecord {
+  return {
+    [NODE_STATUS_FIELD.OVERALL]: overall,
+    ...outcomesWithEnumeratedReferences(OUTCOMES_REALIZING_OVERALL[overall]),
+  };
+}
+
+function outcomesWithEnumeratedReferences(
+  outcomes: readonly NodeStatusEvidenceOutcome[],
+): Readonly<Record<string, NodeStatusEvidenceOutcome>> {
+  return Object.fromEntries(
+    outcomes.map((outcome, index) => [
+      evidenceReferencePath(
+        `${ENUMERATED_REFERENCE_NAME}${SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR}${index}`,
+        SPEC_TREE_EVIDENCE_FILE.MODES[index % SPEC_TREE_EVIDENCE_FILE.MODES.length],
+        SPEC_TREE_EVIDENCE_FILE.LEVELS[index % SPEC_TREE_EVIDENCE_FILE.LEVELS.length],
+      ),
+      outcome,
+    ]),
+  );
+}
+
+function evidenceReferencePath(name: string, mode: string, level: string): string {
+  return `${SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME}${NODE_STATUS_EXCLUDE_PATH_GRAMMAR.SEGMENT_SEPARATOR}${
+    [name, mode, level, ...SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT].join(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR)
+  }`;
 }
 
 export function arbitraryVerification(): fc.Arbitrary<NodeStatusVerification> {
@@ -126,14 +208,20 @@ function arbitraryStatusReference(): fc.Arbitrary<string> {
   return fc
     .record({
       name: fc.stringMatching(STATUS_REFERENCE_NAME_PATTERN),
-      mode: fc.constantFrom(...SPEC_TREE_GRAMMAR.EVIDENCE.MODES),
-      level: fc.constantFrom(...SPEC_TREE_GRAMMAR.EVIDENCE.LEVELS),
+      mode: fc.constantFrom(...SPEC_TREE_EVIDENCE_FILE.MODES),
+      level: fc.constantFrom(...SPEC_TREE_EVIDENCE_FILE.LEVELS),
     })
-    .map(({ name, mode, level }) => `tests/${name}.${mode}.${level}.test.ts`);
+    .map(({ name, mode, level }) => evidenceReferencePath(name, mode, level));
 }
 
 function arbitraryEvidenceOutcome(): fc.Arbitrary<NodeStatusEvidenceOutcome> {
   return fc.constantFrom(...STATUS_EVIDENCE_OUTCOMES);
+}
+
+function arbitraryContradictingEvidenceOutcome(
+  outcome: NodeStatusEvidenceOutcome,
+): fc.Arbitrary<NodeStatusEvidenceOutcome> {
+  return fc.constantFrom(...STATUS_EVIDENCE_OUTCOMES.filter((candidate) => candidate !== outcome));
 }
 
 function arbitraryTrackedFile(): fc.Arbitrary<string> {
@@ -197,10 +285,16 @@ function arbitraryMechanismRecord(): fc.Arbitrary<NodeStatusMechanismRecord> {
     .uniqueArray(arbitraryStatusReference(), { minLength: 1, maxLength: 4 })
     .chain((references) =>
       fc.tuple(
-        ...references.map((reference) => arbitraryEvidenceOutcome().map((outcome) => [reference, outcome] as const)),
+        fc.constantFrom(...STATUS_MECHANISM_OVERALLS),
+        fc.tuple(
+          ...references.map((reference) => arbitraryEvidenceOutcome().map((outcome) => [reference, outcome] as const)),
+        ),
       )
     )
-    .map((entries) => createNodeStatusMechanismRecord(outcomesFromEntries(entries)));
+    .map(([overall, entries]): NodeStatusMechanismRecord => ({
+      [NODE_STATUS_FIELD.OVERALL]: overall,
+      ...outcomesFromEntries(entries),
+    }));
 }
 
 export function arbitraryClassificationTree(): fc.Arbitrary<ClassificationTreeFixture> {

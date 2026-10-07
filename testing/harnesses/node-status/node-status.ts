@@ -1,5 +1,5 @@
-import { readFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { readdir, readFile } from "node:fs/promises";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
@@ -12,8 +12,15 @@ import {
   ClassificationFixtureFacts,
   ClassificationTreeFixture,
   NODE_STATUS_TEST_GENERATOR,
-  sampleNodeStatusValue,
 } from "@testing/generators/node-status/node-status";
+import { sampleGeneratedValue } from "@testing/generators/sample";
+import {
+  GIT_TEST_CONFIG,
+  GIT_TEST_FLAGS,
+  GIT_TEST_SUBCOMMANDS,
+  readGit,
+  runGit,
+} from "@testing/harnesses/git-test-constants";
 import { type SpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
 
@@ -27,6 +34,16 @@ const NODE_STATUS_FIXTURE_DIRECTORY = join(
 );
 const CLASSIFICATION_SPEC_FIXTURE = "classification-spec.md.fixture";
 const CLASSIFICATION_TEST_FIXTURE = "classification-test.ts.fixture";
+const NODE_STATUS_FIXTURE_COMMIT_MESSAGE = "node-status fixture";
+const GIT_STATUS_SUBCOMMAND = "status";
+const GIT_PORCELAIN_FLAG = "--porcelain";
+const GIT_PATHSPEC_SEPARATOR = "--";
+/**
+ * Porcelain v1 prefixes each path with a two-character status code and a space; the
+ * git reader trims output, so the first line's code may have lost a leading blank.
+ */
+const GIT_PORCELAIN_STATUS_PREFIX = /^\S{1,2} /u;
+const LINE_SEPARATOR = "\n";
 
 export type ClassificationTreeNodeExpectation = {
   readonly nodeId: string;
@@ -43,6 +60,8 @@ export type ClassificationTreeEnv = {
     readonly spec: string;
     readonly test: string;
   };
+  /** The production resolver over whatever testing evidence is recorded so far; it records none itself. */
+  recordedOutcomeResolver(): NodeOutcomeResolver;
   recordOutcomeEvidence(): Promise<{
     readonly resolveOutcome: NodeOutcomeResolver;
     readonly runs: readonly {
@@ -79,7 +98,7 @@ export async function withClassificationTree(
       let evidencePath: string | undefined;
 
       if (node.facts.hasVerificationReferences) {
-        const evidenceReference = sampleNodeStatusValue(NODE_STATUS_TEST_GENERATOR.statusReference());
+        const evidenceReference = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.statusReference());
         evidencePath = `${ROOT}/${node.dirName}/${evidenceReference}`;
         await env.writeNode(evidencePath, testContent);
       }
@@ -105,6 +124,8 @@ export async function withClassificationTree(
       env,
       expectations,
       fixturePayloads: { spec: specContent, test: testContent },
+      recordedOutcomeResolver: () =>
+        createNodeOutcomeResolver({ productDir: env.productDir, registry: testingRegistry }),
       recordOutcomeEvidence: async () => {
         const runs: Array<{
           readonly nodeId: string;
@@ -146,4 +167,71 @@ export async function withClassificationTree(
 
 function readFixture(filename: string): Promise<string> {
   return readFile(join(NODE_STATUS_FIXTURE_DIRECTORY, filename), "utf8");
+}
+
+/** One call the status update made to its injected node-outcome resolver. */
+export type NodeOutcomeConsultation = {
+  readonly nodeId: string;
+  readonly evidencePaths: readonly string[];
+};
+
+/**
+ * Wrap a node-outcome resolver in a recording collaborator: every consultation is
+ * forwarded unchanged to `resolver` and appended to `consultations`, so a test can
+ * observe which nodes and evidence paths the status update asked about.
+ */
+export function createConsultationRecordingResolver(resolver: NodeOutcomeResolver): {
+  readonly resolveOutcome: NodeOutcomeResolver;
+  readonly consultations: readonly NodeOutcomeConsultation[];
+} {
+  const consultations: NodeOutcomeConsultation[] = [];
+  return {
+    consultations,
+    resolveOutcome: (nodeId, evidencePaths) => {
+      consultations.push({ nodeId, evidencePaths: [...evidencePaths] });
+      return resolver(nodeId, evidencePaths);
+    },
+  };
+}
+
+/** Initialize a git repository in `productDir` and stage the spec tree, leaving it tracked but uncommitted. */
+export async function trackSpecTree(productDir: string): Promise<void> {
+  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, ROOT]);
+}
+
+/** Stage and commit the spec tree in an initialized repository under a fixed test identity. */
+export async function commitSpecTree(productDir: string): Promise<void> {
+  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, ROOT]);
+  await runGit(productDir, [
+    GIT_TEST_FLAGS.CONFIG_OVERRIDE,
+    `${GIT_TEST_CONFIG.USER_NAME_KEY}=${GIT_TEST_CONFIG.USER_NAME}`,
+    GIT_TEST_FLAGS.CONFIG_OVERRIDE,
+    `${GIT_TEST_CONFIG.EMAIL_KEY}=${GIT_TEST_CONFIG.EMAIL}`,
+    GIT_TEST_SUBCOMMANDS.COMMIT,
+    GIT_TEST_FLAGS.QUIET,
+    GIT_TEST_FLAGS.COMMIT_MESSAGE,
+    NODE_STATUS_FIXTURE_COMMIT_MESSAGE,
+  ]);
+}
+
+/** The spec-tree paths git reports as changed against the last commit, one per line, in porcelain form. */
+export async function readSpecTreeWorkingChanges(productDir: string): Promise<readonly string[]> {
+  const porcelain = await readGit(productDir, [
+    GIT_STATUS_SUBCOMMAND,
+    GIT_PORCELAIN_FLAG,
+    GIT_PATHSPEC_SEPARATOR,
+    ROOT,
+  ]);
+  return porcelain.split(LINE_SEPARATOR).filter((line) => line.length > 0).map((line) =>
+    line.replace(GIT_PORCELAIN_STATUS_PREFIX, "")
+  );
+}
+
+/** Every `spx.status.json` under the spec tree of `productDir`, as product-relative paths. */
+export async function listNodeStatusFiles(productDir: string): Promise<readonly string[]> {
+  const entries = await readdir(join(productDir, ROOT), { recursive: true, withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isFile() && entry.name === NODE_STATUS_FILENAME)
+    .map((entry) => relative(productDir, join(entry.parentPath, entry.name)));
 }
