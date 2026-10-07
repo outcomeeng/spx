@@ -15,6 +15,10 @@ CAN serve the foundation for the methodology version a product declares from spx
 - A shipped tree is addressed by methodology line — the `MAJOR.MINOR` of a declared methodology version — then coding agent, then plugin name, resolved from spx's package root; a consumer product commits no tree, and no consumer path participates in resolution ([test](tests/tree-address.property.l1.test.ts))
 - The fetch is deterministic: the same revision and line produce byte-identical trees and `source.json` ([test](tests/fetch.property.l1.test.ts))
 
+### Mappings
+
+- The fetch maps its arguments to the revision and methodology line it reads: no argument maps to the default revision and no line, `--revision <name>` to that revision, `--line <MAJOR.MINOR>` to that line, both flags to both, a leading package-script terminator is dropped, and a patch-versioned line or a positional argument maps to a failure ([test](tests/fetch.mapping.l1.test.ts))
+
 ### Conformance
 
 - Each `methodology/{MAJOR.MINOR}/{coding-agent}/spec-tree/` holds the `skills/understand/` directory of that coding agent's built plugin exactly as the plugins repository publishes it at the fetched revision, so every path the foundation-resource manifest names resolves unchanged ([test](tests/fetch.conformance.l1.test.ts))
