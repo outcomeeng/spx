@@ -1,10 +1,13 @@
 # Record Run
 
-PROVIDES the caller-driven `spx verification run` command paths that record a verification run the caller itself drives
-SO THAT agents, CI jobs, and launchers driving a verification run
-CAN start it, append its scope and finding evidence, and finish it through noun-grouped command paths without constructing journal events directly
+PROVIDES the caller-driven `spx verification run` command paths that record a verification run the caller itself drives, together with the Change it serves, and list the runs recorded for one Change
+SO THAT agents, CI jobs, and launchers driving a verification run, and the holders of a Change counting the runs its gates made
+CAN start it, append its scope and finding evidence, and finish it through noun-grouped command paths without constructing journal events directly, and read a Change's runs by verification type without holding their run tokens
 
 ## Assertions
+
+- Given `spx verification run start --change <owner/repo#N>`, when the run starts, then the run records that Change identity, and `spx verification run list --change <owner/repo#N>` reports that run in the Change's listing as JSON
+- NEVER: `spx verification run list` appends a journal event or seals a run
 
 ### Mappings
 
