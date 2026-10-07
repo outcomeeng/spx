@@ -217,33 +217,6 @@ The verification-subtree instance, its related canned Git responses, repair scop
 
 **Scope:** Product-wide, repaired one owning subtree at a time. Move each `register*()` or `assert*()` function's behavioral predicates into the node's executed `tests/*.test.ts` callbacks. Keep resource lifecycle, operation observations, and seed and run-count machinery in the harness; inspect expected-value construction for independent ownership. Retire redundant scenario/compliance duplicates as encountered, and run each node's tests plus its test-evidence audit after the move. Recount the affected callers when selecting a subtree rather than treating an earlier inventory as the current scope.
 
-## The shipped Specified-state definition is narrower than this product's EXCLUDE practice
-
-`methodology/4.0/{coding-agent}/spec-tree/skills/understand/references/excluded-nodes.md`
-defines `spx/EXCLUDE` as listing nodes in Specified state — spec and evidence
-exist while implementation is absent — and its EXCLUDE template comment reads
-"Specs and tests exist. Implementation does not." All fifteen entries in
-[spx/EXCLUDE](EXCLUDE) are Declared instead: none carries a `tests/` directory
-with any file, and several link tests their spec names but that do not exist on
-disk, among them
-[spx/33-harness-environment.enabler/43-plugin-bootstrap.enabler](spx/33-harness-environment.enabler/43-plugin-bootstrap.enabler)
-and [spx/57-methodology-lifecycle.enabler](spx/57-methodology-lifecycle.enabler).
-This product's own EXCLUDE header already states the broader rule: entries are
-omitted "while implementation or referenced evidence is absent".
-
-**Impact:** the shipped definition and this product's practice disagree about
-which node states `spx/EXCLUDE` admits, so the file reads as fifteen conformance
-violations against a contract it was never written to satisfy.
-
-**Resolution:** the definition lives in the methodology tree fetched verbatim
-from `outcomeeng/plugins`, held byte-identical by the conformance assertion of
-[spx/25-outcomeeng.enabler/31-methodology-plugin.enabler](spx/25-outcomeeng.enabler/31-methodology-plugin.enabler),
-so it is never corrected in this repository. Either the upstream definition
-widens to admit Declared nodes and arrives through a later fetch, or each entry
-gains the evidence its spec links and graduates. Graduating an entry regenerates
-the committed `spx.status.json` through the projector; never hand-write the
-outcome values.
-
 ## The agent-harness placement rules carry no implementing evidence
 
 [spx/12-agent-harness.pdr.md](12-agent-harness.pdr.md) states four placement

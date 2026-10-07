@@ -27,12 +27,12 @@ the version migrated from.
 ## The codex tree's foundation skill names Claude as the acting agent
 
 **Evidence:** `methodology/4.0/codex/spec-tree/skills/understand/SKILL.md`
-carries six sentences naming Claude as the agent that acts — lines 358, 424,
-455, 531, 537, and 541 — while the same file's harness substitutions are
+carries six sentences naming Claude as the agent that acts — lines 352, 356,
+376, 451, 455, and 459 — while the same file's harness substitutions are
 fully adapted (`SKILL_DIR` for `CLAUDE_SKILL_DIR`, `AGENTS.md` for
 `CLAUDE.md`). The bytes are the `skills/understand/` directory the plugins
 repository publishes for the codex plugin at revision
-`d53e3b0cb2625f0f1bf362527c69f64e04997940`, recorded in
+`af0fd3e8f5ce83ba6f4403f1ec8277a4c9cc0068`, recorded in
 `methodology/4.0/source.json`.
 
 **Impact:** a Codex session loading the foundation reads that it is Claude,
