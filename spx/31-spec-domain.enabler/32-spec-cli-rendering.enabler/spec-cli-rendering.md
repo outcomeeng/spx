@@ -26,7 +26,7 @@ CAN present spec-tree state and deterministic context without parsing source rec
 ### Properties
 
 - Context-show projections render as ordered `spx-document` and `spx-reference` entries in text, or the equivalent ordered JSON `entries`, without changing selection, metadata, or source content ([test](tests/context-rendering.property.l1.test.ts))
-- Context-list projections render as the versioned human and JSON manifest representations without changing the selected manifest information ([test](tests/context-rendering.property.l1.test.ts))
+- Context-list projections render as the versioned human and JSON manifest representations without changing the selected manifest information, apart from naming each methodology version in the human representation as `MAJOR.MINOR` ([test](tests/context-rendering.property.l1.test.ts))
 
 ### Compliance
 
