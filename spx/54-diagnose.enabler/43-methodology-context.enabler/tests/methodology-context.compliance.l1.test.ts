@@ -20,6 +20,7 @@ import {
 } from "@/lib/methodology";
 import {
   arbitraryMethodologyVersion,
+  arbitraryMigratingMethodologyOnDistinctLines,
   generatedSourceRecordProviding,
   generatedSourceRecordWithPluginVersion,
   supportsRangeAlternatives,
@@ -33,7 +34,6 @@ import {
   firstCheck,
   generatedMethodology,
   generatedMigratingMethodology,
-  generatedMigratingMethodologyOnDistinctLines,
   lineOf,
   mismatchedObservation,
   probeShippedTree,
@@ -55,7 +55,9 @@ import { withShippedTreeRoot } from "@testing/harnesses/methodology/tree-root";
 
 describe("methodology-context diagnose compliance", () => {
   it("renders every verdict's text and Fix action from the check record, naming each declared version as methodology MAJOR.MINOR while the JSON record keeps the declared values", async () => {
-    const { methodology: declared, line, migrationLine } = generatedMigratingMethodologyOnDistinctLines();
+    const { methodology: declared, line, migrationLine } = sampleGeneratedValue(
+      arbitraryMigratingMethodologyOnDistinctLines(),
+    );
     const mismatch = formatProvidesMismatchError(
       declared.version as string,
       declared.migratingFrom as string,

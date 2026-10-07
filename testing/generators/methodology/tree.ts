@@ -11,7 +11,12 @@
 
 import * as fc from "fast-check";
 
-import { METHODOLOGY_VERSION_FORM, type MethodologyVersionForm } from "@/config/methodology";
+import {
+  DEFAULT_METHODOLOGY_SOURCE,
+  METHODOLOGY_VERSION_FORM,
+  type MethodologyConfig,
+  type MethodologyVersionForm,
+} from "@/config/methodology";
 import {
   FETCH_CODING_AGENTS,
   FOUNDATION_MANIFEST_FIELDS,
@@ -149,6 +154,22 @@ export function arbitraryMethodologyVersionsOnDistinctLines(): fc.Arbitrary<
 > {
   return fc.tuple(arbitraryMethodologyVersion(), arbitraryMethodologyVersion())
     .filter(([first, second]) => first.line !== second.line);
+}
+
+/**
+ * A methodology declaration whose migration window opens from a version on another line, with both lines
+ * taken from the generated structure so a rendering that swaps or repeats them is distinguishable.
+ */
+export function arbitraryMigratingMethodologyOnDistinctLines(): fc.Arbitrary<{
+  readonly methodology: MethodologyConfig;
+  readonly line: string;
+  readonly migrationLine: string;
+}> {
+  return arbitraryMethodologyVersionsOnDistinctLines().map(([target, source]) => ({
+    methodology: { source: DEFAULT_METHODOLOGY_SOURCE, version: target.text, migratingFrom: source.text },
+    line: target.line,
+    migrationLine: source.line,
+  }));
 }
 
 /** A coding-agent directory name: one plain lowercase path segment. */
