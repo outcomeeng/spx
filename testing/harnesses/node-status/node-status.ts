@@ -4,8 +4,14 @@ import { fileURLToPath } from "node:url";
 
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { type RecordedTestRun, runNodeCommand } from "@/commands/test";
-import { NODE_STATUS_EXCLUDE_FILENAME, NODE_STATUS_FILENAME, type NodeOutcomeResolver } from "@/lib/node-status";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { GIT_STATUS_PORCELAIN_ARGS } from "@/lib/git/root";
+import {
+  NODE_STATUS_EXCLUDE_FILENAME,
+  NODE_STATUS_EXCLUDE_LINE_GRAMMAR,
+  NODE_STATUS_FILENAME,
+  type NodeOutcomeResolver,
+} from "@/lib/node-status";
+import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { testingRegistry } from "@/test/registry";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import {
@@ -25,6 +31,9 @@ import { type SpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec
 import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
 
 const ROOT = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
+const PATH_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
+const SPEC_FILE_SUFFIX = SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX;
+const EXCLUDE_ENTRY_SEPARATOR = NODE_STATUS_EXCLUDE_LINE_GRAMMAR.ENTRY_SEPARATOR;
 const NODE_STATUS_FIXTURE_DIRECTORY = join(
   dirname(fileURLToPath(import.meta.url)),
   "..",
@@ -35,9 +44,6 @@ const NODE_STATUS_FIXTURE_DIRECTORY = join(
 const CLASSIFICATION_SPEC_FIXTURE = "classification-spec.md.fixture";
 const CLASSIFICATION_TEST_FIXTURE = "classification-test.ts.fixture";
 const NODE_STATUS_FIXTURE_COMMIT_MESSAGE = "node-status fixture";
-const GIT_STATUS_SUBCOMMAND = "status";
-const GIT_PORCELAIN_FLAG = "--porcelain";
-const GIT_PATHSPEC_SEPARATOR = "--";
 /**
  * Porcelain v1 prefixes each path with a two-character status code and a space; the
  * git reader trims output, so the first line's code may have lost a leading blank.
@@ -94,12 +100,12 @@ export async function withClassificationTree(
     const expectations: ClassificationTreeNodeExpectation[] = [];
 
     for (const node of fixture.nodes) {
-      await env.writeNode(`${ROOT}/${node.dirName}/${node.slug}.md`, specContent);
+      await env.writeNode(nodeTreePath(node.dirName, `${node.slug}${SPEC_FILE_SUFFIX}`), specContent);
       let evidencePath: string | undefined;
 
       if (node.facts.hasVerificationReferences) {
         const evidenceReference = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.statusReference());
-        evidencePath = `${ROOT}/${node.dirName}/${evidenceReference}`;
+        evidencePath = nodeTreePath(node.dirName, evidenceReference);
         await env.writeNode(evidencePath, testContent);
       }
 
@@ -112,12 +118,15 @@ export async function withClassificationTree(
         slug: node.slug,
         facts: node.facts,
         evidencePaths: evidencePath === undefined ? [] : [evidencePath],
-        statusPath: `${ROOT}/${node.dirName}/${NODE_STATUS_FILENAME}`,
+        statusPath: nodeTreePath(node.dirName, NODE_STATUS_FILENAME),
       });
     }
 
     if (excludedDirs.length > 0) {
-      await env.writeRaw(`${ROOT}/${NODE_STATUS_EXCLUDE_FILENAME}`, `${excludedDirs.join("\n")}\n`);
+      await env.writeRaw(
+        nodeTreePath(NODE_STATUS_EXCLUDE_FILENAME),
+        `${excludedDirs.join(EXCLUDE_ENTRY_SEPARATOR)}${EXCLUDE_ENTRY_SEPARATOR}`,
+      );
     }
 
     await callback({
@@ -143,7 +152,7 @@ export async function withClassificationTree(
             exitCode: expectation.facts.runnerExitCode,
           });
           const result = await runNodeCommand(
-            { productDir: env.productDir, nodePath: `${ROOT}/${expectation.nodeId}` },
+            { productDir: env.productDir, nodePath: nodeTreePath(expectation.nodeId) },
             {
               registry: testingRegistry,
               runnerDepsFor: () => runner,
@@ -163,6 +172,11 @@ export async function withClassificationTree(
       },
     });
   });
+}
+
+/** A spec-tree path under the root directory, composed with the spec-tree path grammar. */
+function nodeTreePath(...segments: readonly string[]): string {
+  return [ROOT, ...segments].join(PATH_SEPARATOR);
 }
 
 function readFixture(filename: string): Promise<string> {
@@ -215,17 +229,16 @@ export async function commitSpecTree(productDir: string): Promise<void> {
   ]);
 }
 
-/** The spec-tree paths git reports as changed against the last commit, one per line, in porcelain form. */
+/**
+ * The spec-tree paths git reports as changed against the last commit — modified,
+ * staged, or untracked — read through the production working-tree status command.
+ */
 export async function readSpecTreeWorkingChanges(productDir: string): Promise<readonly string[]> {
-  const porcelain = await readGit(productDir, [
-    GIT_STATUS_SUBCOMMAND,
-    GIT_PORCELAIN_FLAG,
-    GIT_PATHSPEC_SEPARATOR,
-    ROOT,
-  ]);
+  const porcelain = await readGit(productDir, [...GIT_STATUS_PORCELAIN_ARGS]);
+  const specTreePrefix = `${ROOT}${PATH_SEPARATOR}`;
   return porcelain.split(LINE_SEPARATOR).filter((line) => line.length > 0).map((line) =>
     line.replace(GIT_PORCELAIN_STATUS_PREFIX, "")
-  );
+  ).filter((path) => path.startsWith(specTreePrefix));
 }
 
 /** Every `spx.status.json` under the spec tree of `productDir`, as product-relative paths. */

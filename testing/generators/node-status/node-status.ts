@@ -12,12 +12,13 @@ import type {
   NodeStatusVerificationMechanism,
 } from "@/lib/node-status";
 import {
+  createNodeStatusFile,
+  createNodeStatusMechanismRecord,
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_EXCLUDE_PATH_GRAMMAR,
   NODE_STATUS_FIELD,
   NODE_STATUS_FILENAME,
   NODE_STATUS_MECHANISM_OVERALL,
-  NODE_STATUS_SCHEMA_VERSION,
   NODE_STATUS_VERIFICATION_MECHANISM,
 } from "@/lib/node-status";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
@@ -136,15 +137,11 @@ export function createClaimedTestStatus(
   evidencePaths: readonly string[],
   outcome: NodeStatusEvidenceOutcome,
 ): NodeStatusFile {
-  return {
-    [NODE_STATUS_FIELD.SCHEMA_VERSION]: NODE_STATUS_SCHEMA_VERSION,
-    [NODE_STATUS_FIELD.VERIFICATION]: {
-      [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: {
-        [NODE_STATUS_FIELD.OVERALL]: outcome,
-        ...Object.fromEntries(evidencePaths.map((path) => [path, outcome])),
-      },
-    },
-  };
+  return createNodeStatusFile({
+    [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord(
+      Object.fromEntries(evidencePaths.map((path) => [path, outcome])),
+    ),
+  });
 }
 
 function enumerateCommittedVerifications(): readonly NodeStatusVerification[] {
