@@ -1,6 +1,6 @@
 # Plan: decompose run context
 
-Run `/decompose` before the next change that adds, removes, or materially rewrites a run-context assertion. The node carries sixteen assertions across run startup, scope resolution, locator reporting, recorded-input replay, drive-mode recording, and Change-identity recording; `/decompose` owns the resulting child boundaries, dependency edges, and indices.
+Run `/decompose` before the next change that adds, removes, or materially rewrites a run-context assertion. The node carries seventeen assertions across run startup, scope resolution, locator reporting, recorded-input replay, drive-mode recording, and Change-identity recording; `/decompose` owns the resulting child boundaries, dependency edges, and indices.
 
 ## Revisit condition
 

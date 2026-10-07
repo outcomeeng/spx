@@ -11,6 +11,7 @@ CAN operate on one scoped verification run with a stable subject, recorded input
 ## Assertions
 
 - Given a verification run is started with a Change identity in the canonical `owner/repo#N` form, then `start` records that identity verbatim on the verify-owned run-context event that carries the run's drive mode, and `status` reports that identity for the run
+- Given a verification run is started without a Change identity, then its run-context event records no Change identity and `status` reports none for the run, so the run belongs to no Change
 - ALWAYS: `start` rejects a Change identity outside the canonical `owner/repo#N` form — an owner, a repository name, and a positive issue number — before any run exists, so no verification context, run journal, or run-context event is created for it
 
 ### Scenarios
