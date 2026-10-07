@@ -63,8 +63,8 @@ describe("spx spec status --update write set", () => {
   });
 });
 
-describe("spx.status.json write authority", () => {
-  it("ALWAYS: no status read path writes spx.status.json; the files appear only once --update runs", async () => {
+describe("status read paths", () => {
+  it("NEVER: spx spec status, the evidence provider, the EXCLUDE reader, or the status reader writes spx.status.json, while --update writes into the same tree", async () => {
     await withClassificationTree(
       sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.classificationTree()),
       async ({ env, expectations, recordOutcomeEvidence }) => {
