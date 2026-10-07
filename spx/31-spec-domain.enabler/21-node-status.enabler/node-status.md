@@ -23,7 +23,7 @@ CAN read a node's last-recorded verification projection from a committed file wi
 ### Compliance
 
 - ALWAYS: `spx spec status --update` writes an `spx.status.json` file in each tracked node directory, recording schema version 1 verification outcomes for that node's linked verification references ([test](tests/node-status.compliance.l1.test.ts))
-- ALWAYS: `spx.status.json` is written only by the `spx spec status --update` path ([test](tests/node-status.compliance.l1.test.ts))
+- NEVER: a status read path — `spx spec status` without `--update`, the node-status evidence provider read through `readSpecTree`, the node-status EXCLUDE membership reader, or the status reader — writes `spx.status.json` ([test](tests/node-status.compliance.l1.test.ts))
 - ALWAYS: each `spx.status.json` is co-located in the directory of the node it describes; node identity comes from file location, not file content ([audit])
 - ALWAYS: `spx.status.json` stores only runtime verification outcomes; node identity, assertion text, evidence links, test source, eval definitions, audit rules, configuration, commit identity, authorship, and timestamps come from Git ([audit])
 - ALWAYS: `spx spec status --update` derives pass/fail/not-run outcomes only for linked verification references and obtains those outcomes from recorded evidence produced by the owning verification surface; `declared` and `specified` nodes classify structurally without executing verification ([test](tests/node-status.compliance.l1.test.ts))
