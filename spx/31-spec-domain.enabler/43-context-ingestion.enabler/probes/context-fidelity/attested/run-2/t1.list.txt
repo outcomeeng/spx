@@ -1,6 +1,6 @@
 Schema version: 3
 Bootstrap: false
-Methodology: outcomeeng/methodology@4.0.0 (migrating from 3.2.0)
+Methodology: outcomeeng/methodology@4.0 (migrating from 3.2)
 full spx/spx.product.md
   target spx/
 reference spx/ISSUES.md
