@@ -16,7 +16,7 @@ The operator expects `spx spec context show` and `list` to give an agent the pro
 
 For every entry of that read set the protocol computes, before any `show` or `list` command runs, four expectations: the entry itself, its position, its content, and its projection mode, together with the selection reason each requested target records for it and, on an entry holding at least one `cited-decision` selection, the citing documents its `citedBy` records. Any difference between those expectations and what `show` or `list` delivers fails the probe. Two completed runs over one immutable subject produce identical output.
 
-The probe also records what `/contextualize` from spec-tree plugin 0.100.2 loads for each target. Each place where `/contextualize` departs from the read set is recorded as a plugins defect for outcomeeng/changes#297, never as a `show` or `list` failure.
+The probe also records what `/contextualize` from spec-tree plugin 0.101.3 loads for each target. Each place where `/contextualize` departs from the read set is recorded as a plugins defect for outcomeeng/changes#297, never as a `show` or `list` failure.
 
 ## Environment and preconditions
 
@@ -26,7 +26,7 @@ The probe also records what `/contextualize` from spec-tree plugin 0.100.2 loads
 - The worktree is clean (`git status --short` prints nothing), so the tracked tree the command reads equals the committed tree.
 - The worktree's branch is current with its base: `/sync-base` reports `already_current`, so no synchronization a later step performs moves the head.
 - Git ignores the probe's `runs/` directory: `git check-ignore -q spx/31-spec-domain.enabler/43-context-ingestion.enabler/probes/context-fidelity/runs/probe-check/head.txt` exits zero, so working output never dirties the tree a later step reads.
-- Spec-tree plugin 0.100.2 is installed for the coding agent that records the `/contextualize` read-set, and that agent session has loaded `/understand`.
+- Spec-tree plugin 0.101.3 is installed for the coding agent that records the `/contextualize` read-set, and that agent session has loaded `/understand`.
 - Harness guides and `spx/local/` overlays lie outside `show`, `list`, and the comparison: a row for such a file records the boundary and decides nothing.
 - `PROBE` names this directory, `spx/31-spec-domain.enabler/43-context-ingestion.enabler/probes/context-fidelity`. One capture session performs both capture runs and the comparison of step 9, and holds the two run directories it allocates at step 1 as `RUN_1` and `RUN_2`. The `/contextualize` recording of step 2 runs in a separate fresh agent session, which records each target into the run directory of the run in progress. `RUN` names the directory of the run in progress.
 - Every `show` and `list` capture runs through this shell function, defined once in the shell that performs the runs:
