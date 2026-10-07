@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  METHODOLOGY_CONTEXT_REMEDIATION,
-  METHODOLOGY_CONTEXT_VERDICT,
-} from "@/domains/diagnose/checks/methodology-context";
-import {
   checkProviderMatch,
   defaultMethodologyTreeFileSystem,
   FETCH_ARGUMENT_FLAGS,
@@ -221,11 +217,5 @@ describe("shipped-methodology diagnostics name versions as methodology <MAJOR.MI
       expect(diagnostic).toContain(FETCH_ARGUMENT_FLAGS.LINE);
       expect(diagnostic.replace(FETCH_ARGUMENT_FLAGS.LINE, "")).not.toMatch(/\blines?\b/i);
     });
-  });
-
-  it("every diagnose methodology-context remediation avoids the word line", () => {
-    for (const verdict of Object.values(METHODOLOGY_CONTEXT_VERDICT)) {
-      expect(METHODOLOGY_CONTEXT_REMEDIATION[verdict], verdict).not.toMatch(/\blines?\b/i);
-    }
   });
 });

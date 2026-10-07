@@ -88,6 +88,7 @@ describe("methodology-context diagnose compliance", () => {
       // No verdict shows a declared value as declared: a patch component never reaches the reader.
       expect(text, verdict).not.toContain(declared.version as string);
       expect(text, verdict).not.toContain(declared.migratingFrom as string);
+      expect(text, verdict).not.toMatch(/\blines?\b/i);
       // The unknown verdict renders only its Fix action; every other verdict renders the configured source
       // the JSON record carries, and the verdicts over a declared version name it and the open migration
       // source. The mismatched verdict additionally renders the provider diagnostic that names the
