@@ -88,14 +88,6 @@ repository.
 
 **Settlement condition:** the property drives `methodologyTreeDir` and `methodologyLineDir` with a generated root and line and asserts the composed path against the generator's construction.
 
-## The fetch argument mapping evidence is linked by no assertion
-
-**Evidence:** the fetch line-source assertion in `methodology-plugin.md` is a compliance rule linked to `tests/fetch.compliance.l1.test.ts` alone. `tests/fetch.mapping.l1.test.ts` — the argument-form correspondence `parseFetchArguments` produces for `--revision`, `--line`, and the package-script terminator — is linked by no assertion in the node, because a compliance assertion cannot carry mapping evidence.
-
-**Impact:** the mapping file runs with the node but backs no declared claim, so its coverage of the `--line <MAJOR.MINOR>` argument contributes nothing to the node's status claim and an audit cannot attribute it.
-
-**Settlement condition:** the spec declares the fetch argument correspondence as a mapping assertion linked to `tests/fetch.mapping.l1.test.ts`, or the file is removed because the compliance evidence covers every argument form the spec declares.
-
 ## The fetch evidence rests on hand-picked argument rows and a harness-composed manifest
 
 **Evidence:** `tests/fetch.mapping.l1.test.ts` enumerates five argument-vector rows by hand over the `FETCH_ARGUMENT_FLAGS` × terminator domain, omitting the terminator with `--revision`, the terminator with both flags, and a bare terminator. `testing/harnesses/methodology/plugins-repository.ts` composes every published `plugin.json` from `PLUGIN_MANIFEST_FIELDS` in `src/lib/methodology/fetch.ts`, the table `parsePluginManifest` reads, so no captured real manifest anchors the field vocabulary the plugins repository owns. `tests/fetch.compliance.l1.test.ts` calls `runMethodologyFetch` directly; `scripts/fetch-methodology.ts` has no thin script test and a tag revision is never passed. `tests/fetch.property.l1.test.ts` composes its own runner timeout from `PROPERTY_RUN_COUNTS` and `PROPERTY_TIMEOUTS_MS` although `testing/harnesses/property/property.ts` owns that envelope.
