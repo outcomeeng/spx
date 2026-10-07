@@ -10,15 +10,13 @@ CAN operate on one scoped verification run with a stable subject, recorded input
 
 ## Assertions
 
-- Given a verification run is started with a Change identity in the canonical `owner/repo#N` form, then `start` records that identity verbatim on the verify-owned run-context event that carries the run's drive mode, and `status` reports that identity for the run
-- Given a verification run is started without a Change identity, then its run-context event records no Change identity and `status` reports none for the run, so the run belongs to no Change
-- ALWAYS: `start` rejects a Change identity outside the canonical `owner/repo#N` form — an owner, a repository name, and a positive issue number — before any run exists, so no verification context, run journal, or run-context event is created for it
-
 ### Scenarios
 
 - Given a review verification run is started for a changeset scope with standard input as the run input, then spx creates a canonical verification context, opens a run journal, and reports the run token, context digest, resolved scope, exact input descriptor, and run locator ([test](tests/verify-start.scenario.l1.test.ts))
 - Given an audit verification run is started for a file scope, then spx records a verification-context file subject and reports the normalized product-relative file as the resolved scope without requiring that path to exist or be tracked ([test](tests/verify-file-scope.scenario.l1.test.ts))
 - Given a started run, when recorded-input replay is requested with that run token, then it returns the exact verification input whose digest was recorded at start ([test](tests/verify-input.scenario.l1.test.ts))
+- Given a verification run is started with a Change identity in the canonical `owner/repo#N` form, then `start` records that identity verbatim on the verify-owned run-context event that carries the run's drive mode, and `status` reports that identity for the run ([test](tests/verify-change-identity.scenario.l1.test.ts))
+- Given a verification run is started without a Change identity, then its run-context event records no Change identity and `status` reports none for the run, so the run belongs to no Change ([test](tests/verify-change-identity.scenario.l1.test.ts))
 
 ### Properties
 
@@ -36,6 +34,7 @@ CAN operate on one scoped verification run with a stable subject, recorded input
 - ALWAYS: start records caller-driven drive mode for the caller command path and records spx-driven drive mode only when spx opens the run ([test](tests/verify-drive-mode.compliance.l1.test.ts))
 - ALWAYS: start requires an input source and records the verification input for recorded-input replay ([test](tests/verify-start.compliance.l1.test.ts))
 - ALWAYS: `start` rejects an unsupported verification type before any started run exists, so an unregistered type cannot reach finding evidence and append an unvalidated finding ([test](tests/verify-start.compliance.l1.test.ts))
+- ALWAYS: `start` rejects a Change identity outside the canonical `owner/repo#N` form — an owner, a repository name, and a positive issue number — before any run exists, so no verification context, run journal, or run-context event is created for it ([test](tests/verify-change-identity.compliance.l1.test.ts))
 - ALWAYS: recorded-input replay requires a run token and rejects ambiguous type/scope-only selection ([test](tests/verify-input.compliance.l1.test.ts))
 - ALWAYS: when `input` cannot locate a run, the diagnostic names the requested run token, verification type, scope type, scope identity, backend identity, storage namespace, searched target, and selector inputs needed to address it ([test](tests/verify-input.compliance.l1.test.ts))
 - NEVER: recorded-input replay reads a fresh input value instead of replaying the input recorded at start ([test](tests/verify-input.compliance.l1.test.ts))
