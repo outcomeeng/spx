@@ -18,7 +18,7 @@ CAN read each verification type's runs for a Change, and how each run ended, fro
 
 ### Mappings
 
-- ALWAYS: each listed run carries its run token, verification type, scope type, scope identity, the head commit of a changeset scope, drive mode, sealed state, terminal status when present, and finding count per disposition ([test](tests/change-runs.mapping.l1.test.ts))
+- ALWAYS: each listed run carries its run token, verification type, drive mode, sealed state, terminal status when present, and finding count per disposition, and a listed run that has a recorded-input sidecar also carries its scope type, scope identity, and the head commit of a changeset scope ([test](tests/change-runs.mapping.l1.test.ts))
 
 ### Conformance
 
