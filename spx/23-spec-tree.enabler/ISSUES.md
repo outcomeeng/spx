@@ -45,3 +45,11 @@ The canonical ADR template (`plugins/spec-tree/skills/understanding/templates/de
 **Impact:** a consumer that resolves ownership against a product-less snapshot with cross-branch claims gets an exception the declared contract does not name.
 
 **Settlement condition:** either the spec property and the ADR invariant are narrowed to snapshots that carry a product, or the operation is made total — a third discriminated outcome or `unresolved` when no common node exists and the snapshot has no product — with a generated product-less snapshot in the property.
+
+## The kind registry admits the 3.x node kinds and none of the methodology 4.0 grammar
+
+**Evidence:** `KIND_REGISTRY` in `src/lib/spec-tree/config.ts` (line 56, a projection of `SPEC_TREE_CONFIG.KINDS`) holds `enabler` and `outcome` as its node kinds, and `PRIOR_NODE_SUFFIXES` at line 130 lists `.capability`, `.feature`, and `.story` as superseded. The foundation shipped under `methodology/4.0/{claude,codex}/spec-tree/skills/understand/` teaches the node kinds `.substrate`, `.capability`, `.domain`, `.interface`, `.surface`, and `.variant` and ships a `{kind}-name.spec.md` template for each. The changeset that refreshed that tree touches no line of the registry, `src/validation/lint-policy.ts`, or any consumer of either.
+
+**Impact:** a node authored per the shipped 4.0 templates is flagged as a superseded suffix when it ends in `.capability` (`src/validation/lint-policy.ts` line 46) and is not recognized as a kind otherwise (`isKind` in `src/lib/spec-tree/config.ts` line 290), so validation, status, and context projection treat it as an invalid or legacy entry.
+
+**Settlement condition:** [outcomeeng/changes#185](https://github.com/outcomeeng/changes/issues/185) is Applied: the registry, the superseded-suffix set, and the naming schema versions admit the full methodology 4.0 grammar and resolve the `.capability` meaning between the 1.0 and 4.0 vocabularies.
