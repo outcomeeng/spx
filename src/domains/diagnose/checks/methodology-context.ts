@@ -48,8 +48,8 @@ export interface MethodologyContextProbe {
   probe(config: MethodologyConfig): Promise<MethodologyContextObservation>;
 }
 
-/** What a person reads under Fix for each verdict; the text report and the JSON record both take it from here. */
-export const METHODOLOGY_CONTEXT_REMEDIATION: Readonly<Record<MethodologyContextVerdict, string>> = {
+/** What a person reads under Fix for each verdict; the check record carries it as its remediation, which both report forms render. */
+const METHODOLOGY_CONTEXT_REMEDIATION: Readonly<Record<MethodologyContextVerdict, string>> = {
   [METHODOLOGY_CONTEXT_VERDICT.RESOLVED]: "Declared methodology resolves to shipped trees; no action needed.",
   [METHODOLOGY_CONTEXT_VERDICT.UNDECLARED]:
     "Declare an exact methodology.version; the product's methodology identity has no default.",

@@ -14,7 +14,6 @@ import {
 } from "@/domains/diagnose/checks/marketplace-install";
 import {
   METHODOLOGY_CONTEXT_READING_VALUE,
-  METHODOLOGY_CONTEXT_REMEDIATION,
   METHODOLOGY_CONTEXT_VERDICT,
   type MethodologyContextVerdict,
 } from "@/domains/diagnose/checks/methodology-context";
@@ -178,9 +177,9 @@ function declaredMethodology(check: CheckRecord, key: string): TerminalText | un
   return terminal`${externalValue(formatDeclaredMethodologyVersion(value))}`;
 }
 
-/** The Fix line of a verdict, taken from the one remediation record the JSON check record also reads. */
-function methodologyFix(verdict: MethodologyContextVerdict): TerminalText {
-  return detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(METHODOLOGY_CONTEXT_REMEDIATION[verdict]));
+/** The Fix line of a check record, its remediation field — the same value the JSON report serializes. */
+function methodologyFix(check: CheckRecord): TerminalText {
+  return detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(check.remediation));
 }
 
 /** The migration source detail, present only while a migration window is open. */
@@ -202,7 +201,7 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.METHODOLOGY_RESOLVED),
         details: [
-          authoredText(METHODOLOGY_CONTEXT_REMEDIATION[METHODOLOGY_CONTEXT_VERDICT.RESOLVED]),
+          authoredText(check.remediation),
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE), configuredSource),
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION), configuredVersion),
           ...migrationDetails(check),
@@ -218,7 +217,7 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
             authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_UNDECLARED_PROBLEM),
           ),
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE), configuredSource),
-          methodologyFix(METHODOLOGY_CONTEXT_VERDICT.UNDECLARED),
+          methodologyFix(check),
         ],
       };
     case METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE:
@@ -228,7 +227,7 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE), configuredSource),
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION), configuredVersion),
           ...migrationDetails(check),
-          methodologyFix(METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE),
+          methodologyFix(check),
         ],
       };
     case METHODOLOGY_CONTEXT_VERDICT.MISMATCHED:
@@ -239,13 +238,13 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE), configuredSource),
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION), configuredVersion),
           ...migrationDetails(check),
-          methodologyFix(METHODOLOGY_CONTEXT_VERDICT.MISMATCHED),
+          methodologyFix(check),
         ],
       };
     case METHODOLOGY_CONTEXT_VERDICT.UNKNOWN:
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.METHODOLOGY_UNKNOWN),
-        details: [methodologyFix(METHODOLOGY_CONTEXT_VERDICT.UNKNOWN)],
+        details: [methodologyFix(check)],
       };
     default:
       return fallbackText(check);
