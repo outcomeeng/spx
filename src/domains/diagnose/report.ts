@@ -13,6 +13,7 @@ import {
   type MarketplaceInstallVerdict,
 } from "@/domains/diagnose/checks/marketplace-install";
 import {
+  METHODOLOGY_CONTEXT_READING_VALUE,
   METHODOLOGY_CONTEXT_VERDICT,
   type MethodologyContextVerdict,
 } from "@/domains/diagnose/checks/methodology-context";
@@ -30,6 +31,7 @@ import { WORKTREE_POOL_VERDICT, type WorktreePoolVerdict } from "@/domains/diagn
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { BUCKET_SEVERITY, CANONICAL_CHECKOUT_PROBLEM, OVERALL_SEVERITY } from "@/domains/diagnose/report-contract";
 import { type CheckRecord, type DiagnoseReport } from "@/domains/diagnose/types";
+import { formatDeclaredMethodologyVersion } from "@/lib/methodology";
 import { SENTINEL_UNDEFINED } from "@/lib/sanitize-cli-argument";
 import {
   renderStyledReport,
@@ -68,6 +70,7 @@ export const DIAGNOSE_TEXT_LABEL = {
   INSTALLED: "Installed",
   CONFIGURED_SOURCE: "Configured source",
   CONFIGURED_VERSION: "Configured version",
+  MIGRATING_FROM: "Migrating from",
   SHIPPED_CODING_AGENTS: "Shipped coding agents",
   PATH: "Path",
   PROBLEM: "Problem",
@@ -116,12 +119,6 @@ export const DIAGNOSE_TEXT_DETAIL = {
     "A marketplace check is configured, but no plugin CLI is available to inspect it.",
   MARKETPLACE_CONFIGURED: "Configured plugins are installed and enabled.",
   METHODOLOGY_UNDECLARED_PROBLEM: "this product declares no methodology version, so it has no methodology identity.",
-  METHODOLOGY_UNDECLARED_FIX: "declare a top-level methodology.version in spx.config.",
-  METHODOLOGY_RESOLVED: "The declared methodology version resolves to the methodology trees spx ships.",
-  METHODOLOGY_UNAVAILABLE_FIX:
-    "Declare a methodology version whose line spx ships for every enabled coding agent, or update spx.",
-  METHODOLOGY_MISMATCHED_FIX:
-    "Align methodology.version and methodology.migratingFrom with the provider declaration the shipped tree records.",
   MARKETPLACE_SKIPPED: "Plugin marketplace checks are not configured.",
   RENDERING_UNAVAILABLE: "This check produced a record this version cannot translate into diagnosis text.",
   SESSION_STORE_INFORMATIONAL: "This count is informational and requires no session action.",
@@ -166,9 +163,37 @@ export function renderReportJson(report: DiagnoseReport): TerminalText {
   );
 }
 
+/**
+ * A declared methodology version as the text report names it, `methodology <MAJOR.MINOR>`, so a
+ * patch component the declaration carries never reaches the reader. The check record keeps the
+ * declared value; only this rendering derives the displayed form. An absent reading stays the
+ * sentinel the record carries, and the migration source has no line when none is open.
+ */
+function declaredMethodology(check: CheckRecord, key: string): TerminalText | undefined {
+  const value = check.readings[key];
+  if (value === undefined || value === METHODOLOGY_CONTEXT_READING_VALUE.ABSENT) {
+    return reading(check, key);
+  }
+  return terminal`${externalValue(formatDeclaredMethodologyVersion(value))}`;
+}
+
+/** The Fix line of a check record, its remediation field — the same value the JSON report serializes. */
+function methodologyFix(check: CheckRecord): TerminalText {
+  return detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(check.remediation));
+}
+
+/** The migration source detail, present only while a migration window is open. */
+function migrationDetails(check: CheckRecord): readonly TerminalText[] {
+  const migratingFrom = check.readings.migratingFrom;
+  if (migratingFrom === undefined || migratingFrom === METHODOLOGY_CONTEXT_READING_VALUE.ABSENT) {
+    return [];
+  }
+  return [detail(authoredText(DIAGNOSE_TEXT_LABEL.MIGRATING_FROM), declaredMethodology(check, "migratingFrom"))];
+}
+
 function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
   const configuredSource = reading(check, "configuredSource");
-  const configuredVersion = reading(check, "configuredVersion");
+  const configuredVersion = declaredMethodology(check, "configuredVersion");
   const shippedCodingAgents = reading(check, "shippedCodingAgents");
   const providerMatch = reading(check, "providerMatch");
   switch (check.verdict as MethodologyContextVerdict) {
@@ -176,9 +201,10 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.METHODOLOGY_RESOLVED),
         details: [
-          authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_RESOLVED),
+          authoredText(check.remediation),
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE), configuredSource),
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION), configuredVersion),
+          ...migrationDetails(check),
           detail(authoredText(DIAGNOSE_TEXT_LABEL.SHIPPED_CODING_AGENTS), shippedCodingAgents),
         ],
       };
@@ -191,7 +217,7 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
             authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_UNDECLARED_PROBLEM),
           ),
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE), configuredSource),
-          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_UNDECLARED_FIX)),
+          methodologyFix(check),
         ],
       };
     case METHODOLOGY_CONTEXT_VERDICT.UNAVAILABLE:
@@ -200,7 +226,8 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
         details: [
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE), configuredSource),
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION), configuredVersion),
-          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_UNAVAILABLE_FIX)),
+          ...migrationDetails(check),
+          methodologyFix(check),
         ],
       };
     case METHODOLOGY_CONTEXT_VERDICT.MISMATCHED:
@@ -210,13 +237,14 @@ function methodologyContextText(check: CheckRecord): DiagnoseHumanText {
           detail(authoredText(DIAGNOSE_TEXT_LABEL.PROBLEM), providerMatch),
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_SOURCE), configuredSource),
           detail(authoredText(DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION), configuredVersion),
-          detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.METHODOLOGY_MISMATCHED_FIX)),
+          ...migrationDetails(check),
+          methodologyFix(check),
         ],
       };
     case METHODOLOGY_CONTEXT_VERDICT.UNKNOWN:
       return {
         header: authoredText(DIAGNOSE_TEXT_HEADER.METHODOLOGY_UNKNOWN),
-        details: [detail(authoredText(DIAGNOSE_TEXT_LABEL.FIX), authoredText(DIAGNOSE_TEXT_DETAIL.UNKNOWN_RETRY))],
+        details: [methodologyFix(check)],
       };
     default:
       return fallbackText(check);

@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
 import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
-import { METHODOLOGY_CODING_AGENT } from "@/lib/methodology";
+import { formatMethodologyVersionName, METHODOLOGY_CODING_AGENT } from "@/lib/methodology";
 import { KIND_REGISTRY, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
 import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
@@ -105,7 +105,7 @@ describe("spec context no partial output", () => {
         );
         expect(result.exitCode).toBe(1);
         expect(result.stdout).toHaveLength(0);
-        expect(result.stderr).toContain(declared.text);
+        expect(result.stderr).toContain(formatMethodologyVersionName(declared.line));
       },
     );
   });

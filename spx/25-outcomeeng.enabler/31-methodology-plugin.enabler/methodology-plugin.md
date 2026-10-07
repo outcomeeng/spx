@@ -15,6 +15,10 @@ CAN serve the foundation for the methodology version a product declares from spx
 - A shipped tree is addressed by methodology line — the `MAJOR.MINOR` of a declared methodology version — then coding agent, then plugin name, resolved from spx's package root; a consumer product commits no tree, and no consumer path participates in resolution ([test](tests/tree-address.property.l1.test.ts))
 - The fetch is deterministic: the same revision and line produce byte-identical trees and `source.json` ([test](tests/fetch.property.l1.test.ts))
 
+### Mappings
+
+- The fetch maps its arguments to the revision and methodology line it reads: no argument maps to the default revision and no line, `--revision <name>` to that revision, `--line <MAJOR.MINOR>` to that line, both flags to both, a leading package-script terminator is dropped, and a patch-versioned line or a positional argument maps to a failure ([test](tests/fetch.mapping.l1.test.ts))
+
 ### Conformance
 
 - Each `methodology/{MAJOR.MINOR}/{coding-agent}/spec-tree/` holds the `skills/understand/` directory of that coding agent's built plugin exactly as the plugins repository publishes it at the fetched revision, so every path the foundation-resource manifest names resolves unchanged ([test](tests/fetch.conformance.l1.test.ts))
@@ -23,7 +27,8 @@ CAN serve the foundation for the methodology version a product declares from spx
 ### Compliance
 
 - ALWAYS: the fetch, `pnpm run methodology:fetch`, reads `outcomeeng/plugins` at a named revision — a branch, tag, or commit — resolves it to one commit, replaces the whole `methodology/{MAJOR.MINOR}/` directory it targets, and writes nothing else ([test](tests/fetch.compliance.l1.test.ts))
-- ALWAYS: the fetch takes the methodology line from `methodology.provides` in the fetched `plugin.json` when that block exists, requires an explicit `--line <MAJOR.MINOR>` argument when it does not, and fails when the coding agents' manifests disagree on the line ([test](tests/fetch.compliance.l1.test.ts), [test](tests/fetch.mapping.l1.test.ts))
+- ALWAYS: the fetch takes the methodology line from `methodology.provides` in the fetched `plugin.json` when that block exists, requires an explicit `--line <MAJOR.MINOR>` argument when it does not, and fails when the coding agents' manifests disagree on the line ([test](tests/fetch.compliance.l1.test.ts))
+- NEVER: a diagnostic an spx command shows a person about the shipped methodology names a methodology version with the word "line" or with a patch component; it names the version as `methodology <MAJOR.MINOR>`, such as `methodology 4.0`, while a provider's `methodology.supports` range keeps its declared text and the diagnostics of the repository's methodology-fetch tooling that echo a rejected `--line` argument as given lie outside it ([test](tests/diagnostics.compliance.l1.test.ts))
 - NEVER: a directory under `methodology/` carries a patch version in its name ([test](tests/fetch.compliance.l1.test.ts))
 - ALWAYS: a repository dispatch from the plugins repository's push to its default branch, and a manual dispatch, run the fetch in spx's continuous integration and open a pull request carrying the refreshed tree through the normal gate ([audit])
 - NEVER: the fetch, the reader, or any consumer reads a coding agent's plugin cache, installed plugin, marketplace clone, or user-scope directory to resolve, verify, or enumerate methodology resources ([audit])

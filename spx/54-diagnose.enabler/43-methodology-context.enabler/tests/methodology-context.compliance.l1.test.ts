@@ -3,12 +3,16 @@ import { describe, expect, it } from "vitest";
 import { METHODOLOGY_SECTION } from "@/config/methodology";
 import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
 import { AGENT, METHODOLOGY_CODING_AGENT_BY_AGENT } from "@/domains/agent-environment/config";
-import { METHODOLOGY_CONTEXT_VERDICT } from "@/domains/diagnose/checks/methodology-context";
+import {
+  METHODOLOGY_CONTEXT_READING_VALUE,
+  METHODOLOGY_CONTEXT_VERDICT,
+} from "@/domains/diagnose/checks/methodology-context";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
-import { DIAGNOSE_TEXT_HEADER } from "@/domains/diagnose/report";
+import { DIAGNOSE_TEXT_HEADER, DIAGNOSE_TEXT_LABEL } from "@/domains/diagnose/report";
 import { DIAGNOSE_RESOLVE_ERROR } from "@/domains/diagnose/resolve";
 import { VERDICT_BUCKET } from "@/domains/diagnose/types";
 import {
+  formatMethodologyVersionName,
   formatProvidesMismatchError,
   METHODOLOGY_CODING_AGENT,
   METHODOLOGY_CODING_AGENTS,
@@ -16,6 +20,7 @@ import {
 } from "@/lib/methodology";
 import {
   arbitraryMethodologyVersion,
+  arbitraryMigratingMethodologyOnDistinctLines,
   generatedSourceRecordProviding,
   generatedSourceRecordWithPluginVersion,
   supportsRangeAlternatives,
@@ -45,15 +50,17 @@ import {
   unresolvedMethodology,
   unshippedObservation,
   withAgentHomesCarryingVersion,
-  withShippedTreeRoot,
 } from "@testing/harnesses/diagnose/methodology-context";
+import { withShippedTreeRoot } from "@testing/harnesses/methodology/tree-root";
 
 describe("methodology-context diagnose compliance", () => {
-  it("renders every verdict's text from the same check record as the JSON report", async () => {
-    const declared = generatedMethodology();
+  it("renders every verdict's text and Fix action from the check record, naming each declared version as methodology MAJOR.MINOR while the JSON record keeps the declared values", async () => {
+    const { methodology: declared, line, migrationLine } = sampleGeneratedValue(
+      arbitraryMigratingMethodologyOnDistinctLines(),
+    );
     const mismatch = formatProvidesMismatchError(
       declared.version as string,
-      sampleGeneratedValue(arbitraryMethodologyVersion()).text,
+      declared.migratingFrom as string,
       METHODOLOGY_CODING_AGENT.CODEX,
     );
     for (
@@ -68,20 +75,38 @@ describe("methodology-context diagnose compliance", () => {
       const check = firstCheck(await runMethodologyDiagnoseJson(methodology, observation));
       const readings = check.readings as Record<string, string>;
       const text = await runMethodologyDiagnoseText(methodology, observation);
+      const verdict = String(check.verdict);
 
-      expect(text, String(check.verdict)).toContain(header);
-      // The unknown verdict renders only its retry guidance; every other verdict
-      // renders the configured source the JSON record carries, and the verdicts
-      // over a declared version render that version too. The mismatched verdict
-      // additionally renders the provider diagnostic that names the disagreement,
-      // so the text report withholds nothing the JSON record carries.
+      expect(text, verdict).toContain(header);
+      // The JSON record keeps the declared values, and its remediation is the Fix action the text carries.
+      expect(readings.configuredVersion, verdict).toBe(methodology.version ?? METHODOLOGY_CONTEXT_READING_VALUE.ABSENT);
+      expect(readings.migratingFrom, verdict).toBe(
+        methodology.migratingFrom ?? METHODOLOGY_CONTEXT_READING_VALUE.ABSENT,
+      );
+      expect(text, verdict).toContain(String(check.remediation));
+      if (check.verdict !== METHODOLOGY_CONTEXT_VERDICT.RESOLVED) {
+        expect(text, verdict).toContain(`${DIAGNOSE_TEXT_LABEL.FIX}: ${String(check.remediation)}`);
+      }
+      // No verdict shows a declared value as declared: a patch component never reaches the reader.
+      expect(text, verdict).not.toContain(declared.version as string);
+      expect(text, verdict).not.toContain(declared.migratingFrom as string);
+      expect(text, verdict).not.toMatch(/\blines?\b/i);
+      // The unknown verdict renders only its Fix action; every other verdict renders the configured source
+      // the JSON record carries, and the verdicts over a declared version name it and the open migration
+      // source. The mismatched verdict additionally renders the provider diagnostic that names the
+      // disagreement, so the text report withholds nothing the JSON record carries.
       if (check.verdict === METHODOLOGY_CONTEXT_VERDICT.UNKNOWN) continue;
-      expect(text, String(check.verdict)).toContain(readings.configuredSource);
+      expect(text, verdict).toContain(readings.configuredSource);
       if (methodology.version !== undefined) {
-        expect(text, String(check.verdict)).toContain(readings.configuredVersion);
+        expect(text, verdict).toContain(
+          `${DIAGNOSE_TEXT_LABEL.CONFIGURED_VERSION}: ${formatMethodologyVersionName(line)}`,
+        );
+        expect(text, verdict).toContain(
+          `${DIAGNOSE_TEXT_LABEL.MIGRATING_FROM}: ${formatMethodologyVersionName(migrationLine)}`,
+        );
       }
       if (check.verdict === METHODOLOGY_CONTEXT_VERDICT.MISMATCHED) {
-        expect(text, String(check.verdict)).toContain(readings.providerMatch);
+        expect(text, verdict).toContain(readings.providerMatch);
       }
     }
   });

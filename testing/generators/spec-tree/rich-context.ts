@@ -23,7 +23,7 @@ import {
   type SpecContextSelectionReason,
 } from "@/lib/spec-tree";
 import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";
-import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
+import { arbitraryAcceptedMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   SPEC_CONTEXT_FIXTURE_STATUS_BODY,
@@ -699,13 +699,13 @@ export function arbitrarySpecContextEntryStream(): fc.Arbitrary<readonly SpecCon
     );
 }
 
-/** A declared methodology identity: a source with an optional exact version and an optional open migration. */
+/** A declared methodology identity: a source with an optional exact version in either accepted form and an optional open migration. */
 function arbitraryMethodologyIdentity(): fc.Arbitrary<MethodologyIdentity> {
   return fc
     .record({
       source: fc.tuple(CONFIG_TEST_GENERATOR.key(), CONFIG_TEST_GENERATOR.key()).map((segments) => segments.join("/")),
-      version: fc.option(arbitraryMethodologyVersion(), { nil: undefined }),
-      migratingFrom: fc.option(arbitraryMethodologyVersion(), { nil: undefined }),
+      version: fc.option(arbitraryAcceptedMethodologyVersion(), { nil: undefined }),
+      migratingFrom: fc.option(arbitraryAcceptedMethodologyVersion(), { nil: undefined }),
     })
     .map(({ source, version, migratingFrom }) => ({
       source,

@@ -7,6 +7,7 @@ import { SPEC_CONTEXT_ENTRIES_KEY } from "@/commands/spec/context-show";
 import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
 import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import {
+  formatMethodologyVersionName,
   FOUNDATION_MANIFEST_FIELDS,
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   FOUNDATION_MANIFEST_SCHEMA_VERSION,
@@ -113,7 +114,7 @@ describe("spec context understand payload", () => {
     });
   });
 
-  it("fails naming the declared version and the shipped lines when spx ships no tree for the declared line", async () => {
+  it("fails naming the declared and the shipped methodology versions as MAJOR.MINOR when spx ships no tree for the declared version", async () => {
     // The declared line differs from the fixture's by construction, so the
     // tree the fixture ships never serves the declared line.
     const declared = sampleGeneratedValue(
@@ -134,11 +135,12 @@ describe("spec context understand payload", () => {
           methodologyTreeRoot: fixture.treeRoot,
         });
         // The generator derives the line from its own components, so the
-        // diagnostic's three named values are checked against an oracle
-        // the production parser and formatter never touch.
-        expect(failure).toContain(declared.text);
-        expect(failure).toContain(declared.line);
-        expect(failure).toContain(fixture.line);
+        // diagnostic names the generator's line through the source-owned name,
+        // and the declared patch component, checked against the generator's
+        // own text, never reaches the person reading the diagnostic.
+        expect(failure).toContain(formatMethodologyVersionName(declared.line));
+        expect(failure).toContain(formatMethodologyVersionName(fixture.line));
+        expect(failure).not.toContain(declared.text);
       },
     );
   });

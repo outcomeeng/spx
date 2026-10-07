@@ -1,6 +1,6 @@
 Schema version: 3
 Bootstrap: false
-Methodology: outcomeeng/methodology@4.0.0 (migrating from 3.2.0)
+Methodology: outcomeeng/methodology@4.0 (migrating from 3.2)
 full spx/spx.product.md
   product spx/18-state.enabler/32-worktree-topology.enabler
   product spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler

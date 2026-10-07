@@ -16,6 +16,7 @@ CAN present spec-tree state and deterministic context without parsing source rec
 
 ### Mappings
 
+- Declared methodology versions in either accepted form, `MAJOR.MINOR` or `MAJOR.MINOR.PATCH`, map in a context-list projection's text rendering to the labelled methodology source with its version and, while a migration is open, the migration source version, each rendered as `MAJOR.MINOR`, and in its JSON rendering to each version exactly as product configuration declares it ([test](tests/context-rendering.mapping.l1.test.ts))
 - Spec-tree status projections map to text, table, markdown, and JSON command output with registry labels, node paths, and derived states ([test](tests/spec-cli-rendering.mapping.l1.test.ts))
 
 ### Conformance
@@ -25,7 +26,7 @@ CAN present spec-tree state and deterministic context without parsing source rec
 ### Properties
 
 - Context-show projections render as ordered `spx-document` and `spx-reference` entries in text, or the equivalent ordered JSON `entries`, without changing selection, metadata, or source content ([test](tests/context-rendering.property.l1.test.ts))
-- Context-list projections render as the versioned human and JSON manifest representations without changing the selected manifest information ([test](tests/context-rendering.property.l1.test.ts))
+- Context-list projections render as the versioned human and JSON manifest representations without changing the selected manifest information, apart from naming each methodology version in the human representation as `MAJOR.MINOR` ([test](tests/context-rendering.property.l1.test.ts))
 
 ### Compliance
 

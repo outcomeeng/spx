@@ -1571,6 +1571,10 @@
       "content": "PROVIDES the `methodology-context` diagnose check over the product's declared methodology selection and the methodology trees spx ships to serve it\nSO THAT `spx diagnose`\nCAN report whether the methodology the product declares is configured, shipped, and matched by its provider, and whether a migration window is open\n"
     },
     {
+      "type": "reference",
+      "path": "spx/54-diagnose.enabler/43-methodology-context.enabler/ISSUES.md"
+    },
+    {
       "type": "document",
       "path": "spx/54-diagnose.enabler/43-session-environment.enabler/session-environment.md",
       "metadata": {},

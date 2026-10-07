@@ -11,7 +11,12 @@
 
 import * as fc from "fast-check";
 
-import { METHODOLOGY_VERSION_FORM, type MethodologyVersionForm } from "@/config/methodology";
+import {
+  DEFAULT_METHODOLOGY_SOURCE,
+  METHODOLOGY_VERSION_FORM,
+  type MethodologyConfig,
+  type MethodologyVersionForm,
+} from "@/config/methodology";
 import {
   FETCH_CODING_AGENTS,
   FOUNDATION_MANIFEST_FIELDS,
@@ -105,6 +110,14 @@ export function arbitraryMethodologyVersionForms(): fc.Arbitrary<GeneratedMethod
   }));
 }
 
+/** Two lines, each spelled in every accepted form, so a rendering that swaps or repeats them is distinguishable. */
+export function arbitraryMethodologyVersionFormsOnDistinctLines(): fc.Arbitrary<
+  readonly [GeneratedMethodologyVersionForms, GeneratedMethodologyVersionForms]
+> {
+  return fc.tuple(arbitraryMethodologyVersionForms(), arbitraryMethodologyVersionForms())
+    .filter(([first, second]) => first.line !== second.line);
+}
+
 /**
  * The shape classes of non-empty text that is not an exact methodology version:
  * one component, words, a word component, or too many components. Each class
@@ -135,9 +148,39 @@ export function arbitraryNonVersionText(): fc.Arbitrary<string> {
   return fc.oneof(fc.constant(""), arbitraryMalformedVersionText());
 }
 
+/** Two exact `MAJOR.MINOR.PATCH` versions on different lines. */
+export function arbitraryMethodologyVersionsOnDistinctLines(): fc.Arbitrary<
+  readonly [GeneratedMethodologyVersion, GeneratedMethodologyVersion]
+> {
+  return fc.tuple(arbitraryMethodologyVersion(), arbitraryMethodologyVersion())
+    .filter(([first, second]) => first.line !== second.line);
+}
+
+/**
+ * A methodology declaration whose migration window opens from a version on another line, with both lines
+ * taken from the generated structure so a rendering that swaps or repeats them is distinguishable.
+ */
+export function arbitraryMigratingMethodologyOnDistinctLines(): fc.Arbitrary<{
+  readonly methodology: MethodologyConfig;
+  readonly line: string;
+  readonly migrationLine: string;
+}> {
+  return arbitraryMethodologyVersionsOnDistinctLines().map(([target, source]) => ({
+    methodology: { source: DEFAULT_METHODOLOGY_SOURCE, version: target.text, migratingFrom: source.text },
+    line: target.line,
+    migrationLine: source.line,
+  }));
+}
+
 /** A coding-agent directory name: one plain lowercase path segment. */
 export function arbitraryCodingAgentName(): fc.Arbitrary<string> {
   return arbitraryPathSegment();
+}
+
+/** Two different coding-agent directory names. */
+export function arbitraryDistinctCodingAgentNames(): fc.Arbitrary<readonly [string, string]> {
+  return fc.tuple(arbitraryCodingAgentName(), arbitraryCodingAgentName())
+    .filter(([first, second]) => first !== second);
 }
 
 /** A path component that must be rejected as a tree segment: traversal, separators, or empty. */
@@ -223,17 +266,24 @@ export function arbitraryPluginsContent(provides?: string): fc.Arbitrary<Generat
   }));
 }
 
+/** Plugins content whose agents disagree on `provides`, with the distinct versions each side declares. */
+export interface GeneratedDisagreeingPluginsContent extends GeneratedPluginsContent {
+  /** The versions the agents declare, the first agent's before every other agent's, on different lines. */
+  readonly provided: readonly [GeneratedMethodologyVersion, GeneratedMethodologyVersion];
+}
+
 /** Plugins content whose agents declare `provides` values on different lines. */
-export function arbitraryDisagreeingPluginsContent(): fc.Arbitrary<GeneratedPluginsContent> {
+export function arbitraryDisagreeingPluginsContent(): fc.Arbitrary<GeneratedDisagreeingPluginsContent> {
   const agents = Object.keys(FETCH_CODING_AGENTS);
   return fc.tuple(arbitraryMethodologyVersion(), arbitraryMethodologyVersion())
     .filter(([first, second]) => first.line !== second.line)
     .chain(([first, second]) =>
       fc.tuple(...agents.map((_, index) => arbitraryPluginContent(index === 0 ? first.text : second.text)))
-    )
-    .map((contents) => ({
-      agents: new Map(agents.map((agent, index) => [agent, contents[index]])),
-    }));
+        .map((contents) => ({
+          agents: new Map(agents.map((agent, index) => [agent, contents[index]])),
+          provided: [first, second] as const,
+        }))
+    );
 }
 
 const COMPARATOR_JOINER = " ";

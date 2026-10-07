@@ -7,11 +7,13 @@ import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodo
 import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
 import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
+import { formatMethodologyVersionName } from "@/lib/methodology";
 import { SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
 import {
   CONFIG_TEST_GENERATOR,
   generatedHarnessMethodologyConfig,
   generatedInvalidMethodologyConfigs,
+  generatedMethodologyIdentity,
   generatedMethodologySection,
   sampleConfigTestValue,
 } from "@testing/generators/config/descriptors";
@@ -168,10 +170,10 @@ describe("spec context ingestion writes nothing to standard output after a failu
   });
 
   it("writes the complete list output when only unrelated harness config is defective", async () => {
-    const methodology = generatedMethodologySection();
+    const { section, version } = generatedMethodologyIdentity();
     await withSpecTreeEnv({
       ...specTreeKindsConfig(),
-      [METHODOLOGY_SECTION]: methodology,
+      [METHODOLOGY_SECTION]: section,
       [LEGACY_METHODOLOGY_CONFIG_SECTION]: {
         [sampleConfigTestValue(CONFIG_TEST_GENERATOR.key())]: generatedMethodologySection(),
       },
@@ -180,7 +182,7 @@ describe("spec context ingestion writes nothing to standard output after a failu
       const target = (await env.readFilesystemSnapshot()).allNodes[0].id;
       const run = await runSpecDescriptor({ productDir: env.productDir }, ...SPEC_CONTEXT_COMMAND_PATH.LIST, target);
       expect(run.exitCode, run.stderr).toBeUndefined();
-      expect(run.stdout).toContain(String(methodology[METHODOLOGY_CONFIG_FIELDS.VERSION]));
+      expect(run.stdout).toContain(version.line);
     });
   });
 
@@ -207,7 +209,7 @@ describe("spec context ingestion writes nothing to standard output after a failu
         );
         expect(run.stdout).toHaveLength(0);
         expect(run.exitCode).toBe(1);
-        expect(run.stderr).toContain(declared.text);
+        expect(run.stderr).toContain(formatMethodologyVersionName(declared.line));
         const withoutFoundation = await runSpecDescriptor(context, ...SPEC_CONTEXT_COMMAND_PATH.SHOW, target);
         expect(withoutFoundation.exitCode, withoutFoundation.stderr).toBeUndefined();
         expect(withoutFoundation.stdout.length).toBeGreaterThan(0);

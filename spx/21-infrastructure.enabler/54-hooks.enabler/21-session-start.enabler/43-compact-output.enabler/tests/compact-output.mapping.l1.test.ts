@@ -38,7 +38,7 @@ function unresolvedDirectiveRows(): readonly UnresolvedDirectiveRow[] {
     },
     {
       variant: COMPACT_RECOVERY_FIXTURE_VARIANT.LINE_UNSHIPPED,
-      expectedDiagnostic: (fixture) => formatMethodologyLineMissingError(fixture.version, fixture.line, []),
+      expectedDiagnostic: (fixture) => formatMethodologyLineMissingError(fixture.line, []),
     },
     {
       variant: COMPACT_RECOVERY_FIXTURE_VARIANT.MANIFEST_ABSENT,

@@ -1,4 +1,5 @@
 import { resolveMethodologyIdentity } from "@/config/methodology";
+import { methodologyLine } from "@/lib/methodology";
 import {
   composeSpecContextManifestEntries,
   SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
@@ -79,12 +80,20 @@ export async function resolveContextManifest(options: ContextOptions): Promise<S
   };
 }
 
+/** A declared methodology version as a person reads it, `MAJOR.MINOR`; a value no line derives from stays as declared. */
+function displayedMethodologyVersion(version: string): string {
+  const line = methodologyLine(version);
+  return line.ok ? line.value : version;
+}
+
 export function renderSpecContextText(manifest: SpecContextManifest): TerminalText {
   const identity = manifest.methodology;
-  const methodology = identity.version === undefined ? identity.source : `${identity.source}@${identity.version}`;
+  const methodology = identity.version === undefined
+    ? identity.source
+    : `${identity.source}@${displayedMethodologyVersion(identity.version)}`;
   const migration = identity.migratingFrom === undefined
     ? ""
-    : ` (${SPEC_CONTEXT_TEXT_LABEL.MIGRATING_FROM} ${identity.migratingFrom})`;
+    : ` (${SPEC_CONTEXT_TEXT_LABEL.MIGRATING_FROM} ${displayedMethodologyVersion(identity.migratingFrom)})`;
   const lines = [
     terminal`${authoredText(SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION)}: ${externalValue(String(manifest.schemaVersion))}`,
     terminal`${authoredText(SPEC_CONTEXT_TEXT_LABEL.BOOTSTRAP)}: ${externalValue(String(manifest.bootstrap))}`,
