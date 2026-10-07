@@ -10,9 +10,20 @@ CAN read each verification type's runs for a Change, and how each run ended, fro
 
 ## Assertions
 
-- Given runs started for one Change on two branches and on a detached head, beside a run started for another Change and a run started without a Change identity, when the listing is requested for the first Change, then it returns exactly the first Change's runs, grouped by verification type
-- ALWAYS: a listing for a Change returns only runs whose run-context event records that Change identity verbatim, so a run started without a Change identity appears in no Change's listing
-- ALWAYS: a listing reads every branch scope under `.spx/branch/` at the Git common-dir product root, including a scope a detached head names by its commit, from the local store without network access, so a Change's runs stay listed after its branch is renamed, rebased into a successor, or detached
-- ALWAYS: each listed run carries its run token, verification type, scope type, scope identity, the head commit of a changeset scope, drive mode, sealed state, terminal status when present, and finding count per disposition
-- ALWAYS: each listed run's sealed state, terminal status, and finding counts are folded from the run's event history through the terminal projection, so they equal what `status` reports for that run
-- NEVER: a listing carries a run's finding payloads; a run's findings stay in its rendered projection
+### Scenarios
+
+- Given runs started for one Change on two branches and on a detached head, beside a run started for another Change and a run started without a Change identity, when the listing is requested for the first Change, then it returns exactly the first Change's runs, grouped by verification type ([test](tests/change-runs.scenario.l1.test.ts))
+
+### Mappings
+
+- ALWAYS: each listed run carries its run token, verification type, scope type, scope identity, the head commit of a changeset scope, drive mode, sealed state, terminal status when present, and finding count per disposition ([test](tests/change-runs.mapping.l1.test.ts))
+
+### Conformance
+
+- ALWAYS: each listed run's sealed state, terminal status, and finding counts are folded from the run's event history through the terminal projection, so they equal what `status` reports for that run ([test](tests/change-runs.conformance.l1.test.ts))
+
+### Compliance
+
+- ALWAYS: a listing for a Change returns only runs whose run-context event records that Change identity verbatim, so a run started without a Change identity appears in no Change's listing ([test](tests/change-runs.compliance.l1.test.ts))
+- ALWAYS: a listing reads every branch scope under `.spx/branch/` at the Git common-dir product root, including a scope a detached head names by its commit, from the local store without network access, so a Change's runs stay listed after its branch is renamed, rebased into a successor, or detached ([test](tests/change-runs.compliance.l1.test.ts))
+- NEVER: a listing carries a run's finding payloads; a run's findings stay in its rendered projection ([test](tests/change-runs.compliance.l1.test.ts))
