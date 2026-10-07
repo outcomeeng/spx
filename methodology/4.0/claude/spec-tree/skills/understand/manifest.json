@@ -2,20 +2,31 @@
   "schema_version": 1,
   "core": "skills/understand/SKILL.md",
   "references": [
-    "skills/understand/references/excluded-nodes.md",
+    "skills/understand/references/kind-decision.md",
+    "skills/understand/references/grammar.md",
+    "skills/understand/references/artifact-placement.md",
+    "skills/understand/references/status-claims.md",
     "skills/understand/references/product-domain-shapes.md"
   ],
   "templates": [
-    "skills/understand/templates/product/product-name.product.md",
+    "skills/understand/templates/product/product-name.spec.md",
     "skills/understand/templates/decisions/decision-name.adr.md",
     "skills/understand/templates/decisions/decision-name.pdr.md",
-    "skills/understand/templates/nodes/enabler-name.md",
-    "skills/understand/templates/nodes/outcome-name.md"
+    "skills/understand/templates/nodes/substrate-name.spec.md",
+    "skills/understand/templates/nodes/capability-name.spec.md",
+    "skills/understand/templates/nodes/domain-name.spec.md",
+    "skills/understand/templates/nodes/interface-name.spec.md",
+    "skills/understand/templates/nodes/surface-name.spec.md",
+    "skills/understand/templates/nodes/variant-name.spec.md",
+    "skills/understand/templates/records/node-name.outcome.md",
+    "skills/understand/templates/probes/probe.md"
   ],
   "examples": [
     "skills/understand/examples/adr-example.md",
-    "skills/understand/examples/enabler-example.md",
-    "skills/understand/examples/outcome-example.md",
-    "skills/understand/examples/pdr-example.md"
+    "skills/understand/examples/pdr-example.md",
+    "skills/understand/examples/capability-example.md",
+    "skills/understand/examples/domain-example.md",
+    "skills/understand/examples/outcome-record-example.md",
+    "skills/understand/examples/probe-example.md"
   ]
 }
