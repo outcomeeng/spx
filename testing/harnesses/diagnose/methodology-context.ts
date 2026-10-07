@@ -28,7 +28,10 @@ import { DIAGNOSE_FORMAT } from "@/domains/diagnose/report";
 import type { DiagnoseReport } from "@/domains/diagnose/types";
 import { METHODOLOGY_CODING_AGENTS, methodologyLine, PROVIDER_MATCH } from "@/lib/methodology";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
+import {
+  arbitraryMethodologyVersion,
+  arbitraryMethodologyVersionsOnDistinctLines,
+} from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
@@ -50,6 +53,23 @@ export function generatedMigratingMethodology(): MethodologyConfig {
     ),
   );
   return { source: DEFAULT_METHODOLOGY_SOURCE, version: target.text, migratingFrom: source.text };
+}
+
+/**
+ * A methodology declaration whose migration window opens from a version on another line, with the two
+ * lines taken from the generated structure so a rendering that swaps or repeats them is distinguishable.
+ */
+export function generatedMigratingMethodologyOnDistinctLines(): {
+  readonly methodology: MethodologyConfig;
+  readonly line: string;
+  readonly migrationLine: string;
+} {
+  const [target, source] = sampleGeneratedValue(arbitraryMethodologyVersionsOnDistinctLines());
+  return {
+    methodology: { source: DEFAULT_METHODOLOGY_SOURCE, version: target.text, migratingFrom: source.text },
+    line: target.line,
+    migrationLine: source.line,
+  };
 }
 
 /** A methodology declaration carrying no version. */
