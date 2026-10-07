@@ -129,15 +129,17 @@ describe("spec context list rendering", () => {
         // only as preceding the values it labels on its own line: the
         // methodology source, then its version when declared, then its
         // migration source, labelled as such, exactly when a migration is open.
+        // Each version reads as its MAJOR.MINOR prefix, never as declared.
         const { source, version, migratingFrom } = manifest.methodology;
+        const shown = (declared: string): string => /^\d+\.\d+/.exec(declared)?.[0] ?? declared;
         const labelled = [
           [SPEC_CONTEXT_TEXT_LABEL.SCHEMA_VERSION, String(manifest.schemaVersion)],
           [SPEC_CONTEXT_TEXT_LABEL.BOOTSTRAP, String(manifest.bootstrap)],
           [
             SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY,
             source,
-            ...(version === undefined ? [] : [version]),
-            ...(migratingFrom === undefined ? [] : [SPEC_CONTEXT_TEXT_LABEL.MIGRATING_FROM, migratingFrom]),
+            ...(version === undefined ? [] : [shown(version)]),
+            ...(migratingFrom === undefined ? [] : [SPEC_CONTEXT_TEXT_LABEL.MIGRATING_FROM, shown(migratingFrom)]),
           ],
         ] as const;
         const labelLines = labelled.map(([label, ...values]) => {
@@ -156,6 +158,11 @@ describe("spec context list rendering", () => {
         expect(new Set(labelLines).size).toBe(labelLines.length);
         if (migratingFrom === undefined) {
           expect(header.join("\n")).not.toContain(SPEC_CONTEXT_TEXT_LABEL.MIGRATING_FROM);
+        }
+        for (const declared of [version, migratingFrom]) {
+          if (declared !== undefined && shown(declared) !== declared) {
+            expect(header.join("\n"), declared).not.toContain(declared);
+          }
         }
       },
       PROPERTY_CLASSIFICATION.SMALL_L1,
