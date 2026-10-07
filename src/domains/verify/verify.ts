@@ -1764,18 +1764,32 @@ export function buildAppendEvent(args: {
 /** The CloudEvents `type` the verify run-context event carries: the run-opening event recording drive mode. */
 export const VERIFY_RUN_CONTEXT_EVENT_TYPE = `${RUNTIME_EVENT_NAMESPACE_DEFAULT}.verify.run-context` as const;
 
-/** The `data` field the run-context event records: the run's drive mode. */
+/** The `data` fields the run-context event records: the run's drive mode and, when supplied, the Change it serves. */
 export const VERIFY_RUN_CONTEXT_EVENT_FIELD = {
   DRIVE_MODE: "driveMode",
+  CHANGE: "change",
 } as const;
+
+/**
+ * The canonical Change identity form `owner/repo#N`: an owner and a repository name, each one or
+ * more ASCII letters, digits, `-`, `_`, or `.`, and a positive issue number written without a
+ * leading zero.
+ */
+const VERIFY_CHANGE_IDENTITY_PATTERN = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+#[1-9][0-9]*$/;
+
+/** Whether a value is a Change identity in the canonical `owner/repo#N` form. */
+export function isVerifyChangeIdentity(value: string): boolean {
+  return VERIFY_CHANGE_IDENTITY_PATTERN.test(value);
+}
 
 /** The id prefix the run-context event carries; with the run token it forms a stable per-run event id. */
 export const VERIFY_RUN_CONTEXT_EVENT_ID_PREFIX = "verify-run-context-";
 
-/** Build the run-context event input recording the run's drive mode at start. */
+/** Build the run-context event input recording the run's drive mode, and the Change it serves when one is supplied, at start. */
 export function buildRunContextEvent(args: {
   readonly runToken: string;
   readonly driveMode: VerifyDriveMode;
+  readonly change?: string;
   readonly at: Date;
 }): JournalEventInput {
   return {
@@ -1786,6 +1800,7 @@ export function buildRunContextEvent(args: {
     attempt: VERIFY_APPEND_ATTEMPT,
     data: {
       [VERIFY_RUN_CONTEXT_EVENT_FIELD.DRIVE_MODE]: args.driveMode,
+      ...(args.change === undefined ? {} : { [VERIFY_RUN_CONTEXT_EVENT_FIELD.CHANGE]: args.change }),
     },
   };
 }
@@ -1855,6 +1870,7 @@ export interface VerifyFindingCounts extends Readonly<Record<VerifyFindingDispos
 export interface VerifyRunProjection {
   readonly sealed: boolean;
   readonly driveMode: VerifyDriveMode;
+  readonly change?: string;
   readonly terminalStatus?: string;
   readonly terminalMetadata?: JsonValue;
   readonly findingCount: number;
@@ -1875,6 +1891,17 @@ export function driveModeOf(events: readonly JournalEvent[]): VerifyDriveMode {
   if (runContext === undefined || !isJsonRecord(runContext.data)) return VERIFY_DRIVE_MODE.CALLER;
   const driveMode = runContext.data[VERIFY_RUN_CONTEXT_EVENT_FIELD.DRIVE_MODE];
   return typeof driveMode === "string" && isVerifyDriveMode(driveMode) ? driveMode : VERIFY_DRIVE_MODE.CALLER;
+}
+
+/**
+ * The Change identity folded from the run's run-context event, or `undefined` when the run was
+ * started without one and so belongs to no Change.
+ */
+export function changeIdentityOf(events: readonly JournalEvent[]): string | undefined {
+  const runContext = events.find((event) => event.type === VERIFY_RUN_CONTEXT_EVENT_TYPE);
+  if (runContext === undefined || !isJsonRecord(runContext.data)) return undefined;
+  const change = runContext.data[VERIFY_RUN_CONTEXT_EVENT_FIELD.CHANGE];
+  return typeof change === "string" ? change : undefined;
 }
 
 /** The last-sequence value a run with no events projects, one below the first assigned sequence. */
@@ -1994,9 +2021,11 @@ export function projectVerifyRun(
   const terminalMetadata = terminalMetadataOf(terminal);
   const sealed = terminal !== undefined;
   const driveMode = driveModeOf(events);
+  const change = changeIdentityOf(events);
   return {
     sealed,
     driveMode,
+    ...(change === undefined ? {} : { change }),
     ...(terminalStatus === undefined ? {} : { terminalStatus }),
     ...(terminalMetadata === undefined ? {} : { terminalMetadata }),
     findingCount: countVerifyFindings(events),

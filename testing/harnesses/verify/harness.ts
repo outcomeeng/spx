@@ -1714,6 +1714,72 @@ export function observeSpxStartDriveMode(): Promise<VerifyStartDriveModeObservat
   return observeStartDriveMode(VERIFY_DRIVE_MODE.SPX);
 }
 
+/** What a start with or without a Change identity recorded on its run-context event and reported through `status`. */
+export interface VerifyStartChangeIdentityObservation {
+  readonly started: CliCommandResult;
+  readonly runContextCount: number;
+  readonly runContextData: Readonly<Record<string, unknown>>;
+  readonly status: CliCommandResult;
+  readonly statusReport: Readonly<Record<string, unknown>>;
+}
+
+function eventDataRecord(event: JournalEvent | undefined): Readonly<Record<string, unknown>> {
+  const data = event?.data;
+  return typeof data === "object" && data !== null && !Array.isArray(data) ? data as Record<string, unknown> : {};
+}
+
+function parseJsonRecord(output: string): Readonly<Record<string, unknown>> {
+  try {
+    const parsed = JSON.parse(output) as unknown;
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Start a caller-driven review run, supplying the given Change identity when one is present, then
+ * read the run's run-context events and its `status` report.
+ */
+export async function observeStartChangeIdentity(change?: string): Promise<VerifyStartChangeIdentityObservation> {
+  const scenario = createReviewVerifyRunContextScenario();
+  const fs = createInMemoryStateStoreFileSystem();
+  const deps = verifyDeps(scenario, fs);
+  const started = await verifyStartCommand(
+    change === undefined ? verifyStartOptions(scenario) : { ...verifyStartOptions(scenario), change },
+    deps,
+  );
+  if (started.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+    return { started, runContextCount: 0, runContextData: {}, status: started, statusReport: {} };
+  }
+  const runToken = parseStartReport(started.output).runToken;
+  const runContexts = await runContextEvents(scenario, fs, runToken);
+  const status = await verifyStatusCommand(verifyStatusOptions(scenario, runToken), deps);
+  return {
+    started,
+    runContextCount: runContexts.length,
+    runContextData: eventDataRecord(runContexts[0]),
+    status,
+    statusReport: parseJsonRecord(status.output),
+  };
+}
+
+/** Start a run with the given Change identity and report whether any `.spx/` state exists afterwards. */
+export async function observeStartWithChangeIdentityState(change: string): Promise<{
+  readonly started: CliCommandResult;
+  readonly stateRootExists: boolean;
+}> {
+  const scenario = createReviewVerifyRunContextScenario();
+  const fs = createInMemoryStateStoreFileSystem();
+  const started = await verifyStartCommand({ ...verifyStartOptions(scenario), change }, verifyDeps(scenario, fs));
+  return {
+    started,
+    stateRootExists: await verifyPathExists(fs, join(scenario.productDir, STATE_STORE_SCOPE_PATH.SPX_DIR)),
+  };
+}
+
 export async function observeCallerDriveModeOverrideRejection(): Promise<VerifyCliRejectionObservation> {
   const scenario = createReviewVerifyRunContextScenario();
   const forbiddenOption = "--drive-mode";

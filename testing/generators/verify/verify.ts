@@ -1163,7 +1163,80 @@ export const VERIFY_TEST_GENERATOR = {
   scopePayload: (): fc.Arbitrary<ReviewScopeUnit> => arbitraryReviewScopeUnit(),
   unsupportedVerificationType: (): fc.Arbitrary<string> =>
     STATE_STORE_TEST_GENERATOR.scopeToken().filter((value) => !VERIFY_VERIFICATION_TYPES.includes(value)),
+  changeIdentity: (): fc.Arbitrary<string> =>
+    arbitraryChangeIdentityParts().map(({ owner, repository, number }) =>
+      composeChangeIdentity(owner, repository, String(number))
+    ),
+  nonCanonicalChangeIdentity: (): fc.Arbitrary<string> => arbitraryNonCanonicalChangeIdentity(),
 } as const;
+
+/** The separator between a Change identity's owner and repository name, per the `owner/repo#N` form. */
+const CHANGE_IDENTITY_OWNER_SEPARATOR = "/";
+/** The separator between a Change identity's repository name and issue number, per the `owner/repo#N` form. */
+const CHANGE_IDENTITY_NUMBER_SEPARATOR = "#";
+const CHANGE_IDENTITY_SEGMENT_MAX_LENGTH = 24;
+const CHANGE_IDENTITY_NUMBER_MAX = 999_999;
+const CHANGE_IDENTITY_SEGMENT_FIRST_CHARACTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+const CHANGE_IDENTITY_SEGMENT_CHARACTERS = `${CHANGE_IDENTITY_SEGMENT_FIRST_CHARACTERS}-_.`;
+const NON_POSITIVE_ISSUE_NUMBER_MIN = -CHANGE_IDENTITY_NUMBER_MAX;
+
+interface ChangeIdentityParts {
+  readonly owner: string;
+  readonly repository: string;
+  readonly number: number;
+}
+
+function composeChangeIdentity(owner: string, repository: string, number: string): string {
+  return `${owner}${CHANGE_IDENTITY_OWNER_SEPARATOR}${repository}${CHANGE_IDENTITY_NUMBER_SEPARATOR}${number}`;
+}
+
+/** A GitHub-style owner or repository name: a leading alphanumeric followed by alphanumerics, `-`, `_`, or `.`. */
+function arbitraryChangeIdentitySegment(): fc.Arbitrary<string> {
+  return fc
+    .tuple(
+      fc.constantFrom(...CHANGE_IDENTITY_SEGMENT_FIRST_CHARACTERS),
+      fc.array(fc.constantFrom(...CHANGE_IDENTITY_SEGMENT_CHARACTERS), {
+        maxLength: CHANGE_IDENTITY_SEGMENT_MAX_LENGTH,
+      }),
+    )
+    .map(([first, rest]) => `${first}${rest.join("")}`);
+}
+
+function arbitraryChangeIdentityParts(): fc.Arbitrary<ChangeIdentityParts> {
+  return fc.record({
+    owner: arbitraryChangeIdentitySegment(),
+    repository: arbitraryChangeIdentitySegment(),
+    number: fc.integer({ min: 1, max: CHANGE_IDENTITY_NUMBER_MAX }),
+  });
+}
+
+/**
+ * Change identities outside the canonical `owner/repo#N` form, each branch removing or corrupting
+ * exactly one of the three parts the form requires: the owner, the repository name, or the
+ * positive issue number, or the separators that delimit them.
+ */
+function arbitraryNonCanonicalChangeIdentity(): fc.Arbitrary<string> {
+  return arbitraryChangeIdentityParts().chain(({ owner, repository, number }) =>
+    fc.oneof(
+      fc.constant(composeChangeIdentity("", repository, String(number))),
+      fc.constant(composeChangeIdentity(owner, "", String(number))),
+      fc.constant(composeChangeIdentity(owner, repository, "")),
+      fc.constant(`${owner}${CHANGE_IDENTITY_OWNER_SEPARATOR}${repository}${String(number)}`),
+      fc.constant(`${owner}${repository}${CHANGE_IDENTITY_NUMBER_SEPARATOR}${String(number)}`),
+      fc
+        .integer({ min: NON_POSITIVE_ISSUE_NUMBER_MIN, max: 0 })
+        .map((nonPositive) => composeChangeIdentity(owner, repository, String(nonPositive))),
+      fc.constant(composeChangeIdentity(owner, repository, `0${String(number)}`)),
+      arbitraryChangeIdentitySegment().map((suffix) => composeChangeIdentity(owner, repository, `${number}${suffix}`))
+        .filter((value) => !/#[0-9]+$/.test(value)),
+      arbitraryChangeIdentitySegment().map((middle) =>
+        composeChangeIdentity(`${owner}${CHANGE_IDENTITY_OWNER_SEPARATOR}${middle}`, repository, String(number))
+      ),
+      fc.constant(` ${composeChangeIdentity(owner, repository, String(number))}`),
+      fc.constant(`${composeChangeIdentity(owner, repository, String(number))}\n`),
+    )
+  );
+}
 
 export function sampleVerifyTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
   const [value] = fc.sample(arbitrary, { seed: SAMPLE_SEED, numRuns: 1 });
