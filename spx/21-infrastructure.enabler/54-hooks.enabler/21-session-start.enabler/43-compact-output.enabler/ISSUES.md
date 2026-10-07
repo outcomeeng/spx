@@ -1,0 +1,14 @@
+# Open Issues
+
+## The compact-output evidence cannot tell several resolver and transport mutations from correct behavior
+
+**Evidence:** the test-evidence audit of this node returned `REJECTED` for six findings, each on text the changeset that refreshed the shipped methodology tree does not touch: that changeset changes no test, harness, or source line this node's evidence imports, so the diff range in the cited locations is none. This node's tests read the refreshed `methodology/4.0/` bytes and pass over them.
+
+- `tests/compact-output.scenario.l2.test.ts` lines 24 and 40: both cases write no product configuration, so the methodology version is undeclared. Under a true policy, directive resolution then fails and stdout is empty as well, so a transport that ignores a false policy (`src/interfaces/cli/hook.ts`) or reverses the Codex precedence passes.
+- `tests/compact-output.scenario.l2.test.ts` line 57: the case clears `CODEX_THREAD_ID` and not `CLAUDE_SESSION_ID`, and `runWorktreeCli` (`testing/harnesses/worktree/harness.ts`) merges the process environment into the child's. Under an agent host that exports `CLAUDE_SESSION_ID`, the precondition "no `CLAUDE_SESSION_ID`" does not hold, and a resolver that stops treating `CLAUDE_ENV_FILE` as the tertiary marker still passes.
+- `testing/harnesses/hooks/compact-recovery.ts` line 173: the `RESOLVED` fixture variant writes the manifest's `core` resource and its `compact_recovery` resource with the same directive text, so a resolver that reads `manifest.core` in place of `manifest.compactRecovery` emits the same bytes and the conformance case and the adapter scenario both pass.
+- `testing/harnesses/hooks/compact-recovery.ts` line 59: the harness hardcodes `skills/understand/SKILL.md` and `skills/understand/compact-recovery.md` as the fixture tree's resource paths, so every case uses one author-chosen pair although the manifest admits any package-relative path.
+
+**Impact:** the conformance assertion cannot tell the manifest-named compact-recovery resource from the core resource; the two policy and precedence scenarios at the CLI boundary cannot tell a false or Codex policy from an unresolved directive; the default-Claude marker scenario passes or fails with the invoking environment; the fixture paths are a second source of test data beside the generator.
+
+**Settlement condition:** the `RESOLVED` fixture writes distinct bytes for the core and the compact-recovery resource and the conformance case compares against the compact-recovery bytes; the two L2 policy cases declare a methodology version the shipped tree serves, so the policy alone decides the output; the marker case sets `CLAUDE_SESSION_ID` and `CODEX_THREAD_ID` to the empty string for the child; the resource paths come from a generator over the manifest's path domain.

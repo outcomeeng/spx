@@ -1,21 +1,26 @@
 # Status Derivation
 
-Node status is derived exclusively from the presence and pass/fail state of co-located tests — a pure, computed property, never a stored label. No status field exists in any file.
+An output node's state derives from its declarations, required verification artifacts, and attributed results against its declared malleability. The projector alone writes that derived state and its supporting result pins to the node's committed `spx.status.json` claim.
 
 ## Rationale
 
-Stored status requires someone to keep it synchronized with reality, and that synchronization always drifts. Deriving status from tests guarantees accuracy — the status is literally "do the tests pass?" Rejected alternatives: a `status.yaml` per node (manual synchronization) and CI-badge integration (external dependency).
+Machine-written claims retain inspectable verification results without making a manually assigned label authoritative. Pins bind each result to its declaration, verification artifact, and subject; a changed pinned path invalidates the result. Tests, evals, audits, and probes supply the results their assertion tags require. Rejected alternatives are manually maintained status labels, which drift from evidence, and test-only derivation, which omits other required verification types.
 
 ## Invariants
 
-- Status is a pure function of test results — same test results always produce the same status.
-- Adding tests can only improve status precision, never degrade it.
+- Identical declarations, artifacts, attributed results, and pins produce identical state.
+- Only current results satisfy a node's verification requirements.
+- The projector is the sole writer of `spx.status.json`.
 
 ## Verification
 
 ### Testing
 
-- ALWAYS: compute status fresh on every invocation — ensures accuracy ([property])
-- ALWAYS: use only test pass/fail as input — no other signals ([mapping])
-- NEVER: store status in any committed file — prevents drift ([compliance])
-- NEVER: allow manual status override — defeats the derivation principle ([scenario])
+- ALWAYS: derive the same state from identical declarations, artifacts, attributed results, and pins ([property])
+- ALWAYS: invalidate an attributed result when a path named by its pin changes ([property])
+- NEVER: let an invalidated result satisfy a required verification result ([compliance])
+
+### Audit
+
+- ALWAYS: the projector alone writes the committed `spx.status.json` claim ([audit])
+- NEVER: a manually assigned label overrides evidence-derived state ([audit])

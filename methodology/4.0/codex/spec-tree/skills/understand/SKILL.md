@@ -18,21 +18,19 @@ The complete Spec Tree foundation loaded eagerly in one skill payload and record
 
 <layer_precedence>
 
-**TRUTH FLOWS DOWN.** The Spec Tree is a durable, declarative map of what the product does. Its four layers depend on the layer above:
+**TRUTH FLOWS DOWN.** The Spec Tree is the durable map of intent, decisions, assertions, evidence, and implementation obligations, rooted in `spx/`. Each layer depends on the layer above:
 
 ```text
-PDR/ADR  →  Spec  →  Verification  →  Code
-governs     declares   verifies       complies
+Root product spec
+-> decision records (PDR, ADR)
+-> specs
+-> evidence (tests, evals, audits, probes)
+-> code and generated artifacts
 ```
 
-- PDRs and ADRs decide product and architecture truth.
-- Specs declare product output in alignment with those decisions.
-- Verification evidence is derived from specs.
-- Code complies with verification evidence.
+When layers disagree, the lower layer is in violation and changes. Learning returns upward through human judgment — observed use, discovery, implementation, evidence, and Review inform a deliberate truth evolution, after which lower layers reconcile again; evidence can challenge product truth and never silently becomes it.
 
-When layers disagree, the lower layer is in violation.
-
-- NEVER: weaken a decision to match a spec, a spec to match verification evidence, or verification evidence to match code.
+- NEVER: weaken a decision to match a spec, a spec to match evidence, or evidence to match code.
 
 </layer_precedence>
 
@@ -42,11 +40,9 @@ When layers disagree, the lower layer is in violation.
 - ALWAYS: contextualize a node before discussing it and before reading or modifying any product content it governs; a compaction empties the set of contextualized nodes.
 - NEVER: read or modify product content that has no governing node — record the coverage gap.
 
-Product content is every artifact of the product a spec node governs or must govern: source, tests, evals, generated output, specs, decisions, coordination notes, and configuration a spec declares. Implementation — the code layer that complies with evidence — is one kind of product content; the term keeps its narrower meaning in `<node_states>` and the placement table. Governance is derived, never assumed: a path under `spx/<node>/` is governed by that node; any other path is governed by the node whose `spx/**/tests/` file names it and whose spec links that test, or whose spec or decision names that path in an `[audit]` assertion; several matching nodes resolve to their lowest common ancestor. That lookup is a search under the live foundation marker and opens no file body. Product content with no governing node is a coverage gap: it is not read or modified, and the gap is recorded.
+Product content is every artifact of the product a spec node governs or must govern: source, tests, evals, probes, generated output, specs, decisions, outcome records, status claims, notes, and configuration a spec declares; implementation is its code layer. Governance is derived, never assumed: a path under `spx/<node>/` is governed by that node; any other path by the node whose linked test, eval, or probe reaches it, or whose spec or decision names that path in an `[audit]` assertion; several matching nodes resolve to their lowest common ancestor. That lookup is a search under the live foundation marker and opens no file body. Product content with no governing node is a coverage gap: it is not read or modified, and the gap is recorded.
 
-Not product content: operational configuration — the `spx/local/` overlays and the exclusion mechanism, which `<artifact_placement>` classifies as configuration and which the skill that declares them reads without the foundation marker and with no governing node — and the agent harness's own instruction and settings files it is told to read, tool and command output, the session store, and scratch space.
-
-Work that touches no product content — PR inspection, check wait, merge, deploy, release, `spx session` operations, occupancy proof — is an operational continuation and triggers neither `/understand` nor `/contextualize`.
+Not product content: operational configuration — the `spx/local/` overlays, and a passing-scope list a toolchain that has not adopted the status claim still reads, which the skill that declares them reads without the marker — and the agent harness's own instruction and settings files, tool and command output, the session store, and scratch space. Work that touches no product content — PR inspection, check wait, merge, deploy, release, `spx session` operations, occupancy proof — is an operational continuation and triggers neither `/understand` nor `/contextualize`.
 
 </product_content>
 
@@ -54,7 +50,7 @@ Work that touches no product content — PR inspection, check wait, merge, deplo
 
 - ALWAYS: higher-level truth remains authoritative while coherent, even when lower layers have not caught up.
 
-Higher-level truth may lead implementation. A coherent product spec, PDR, ADR, or ancestor spec stays authoritative when lower specs, tests, or code have not caught up. Evaluate declaration validity separately from implementation completeness. Current code shape is evidence about code, never authority over higher layers.
+A coherent product spec, PDR, ADR, or ancestor spec stays authoritative when lower layers have not caught up. Evaluate declaration validity separately from implementation completeness. Current code shape is evidence about code, never authority over higher layers; a toolchain's current limit is a fact about the toolchain, never a gate on what a declaration may state.
 
 </future_product_truth>
 
@@ -62,7 +58,7 @@ Higher-level truth may lead implementation. A coherent product spec, PDR, ADR, o
 
 - ALWAYS: align every first affected lower spec in the same changeset as a higher-level truth change.
 
-When a higher-level artifact changes, align every first affected lower spec in the same changeset. If tests or code remain, record the concrete next step and governing artifact in `PLAN.md` at the first affected lower node. Use `ISSUES.md` for known imperfections or contradictions. Use `spx/EXCLUDE` only when a node has specs and tests while implementation is absent; exclusion never resolves a conceptual disagreement or permits lower layers to contradict decisions.
+Remaining evidence or implementation work is downstream work recorded in a Change (see `<coordination_model>`), never in a node-local note. A node whose declaration leads its implementation merges as Declared or Specified; that state exposes the work and never licenses a lower layer to contradict the declaration.
 
 </decision_to_spec_alignment>
 
@@ -70,214 +66,159 @@ When a higher-level artifact changes, align every first affected lower spec in t
 
 - ALWAYS: specs state atemporal product truth and contain no history or journey language.
 
-Specs declare atemporal truth. Eliminate history and journey language:
+| Temporal                 | Atemporal                |
+| ------------------------ | ------------------------ |
+| “We discovered that X”   | “X ensures Y”            |
+| “We need to address X”   | “The product provides X” |
+| “Currently, the system…” | “The system…”            |
 
-| Temporal                           | Atemporal                |
-| ---------------------------------- | ------------------------ |
-| “We discovered that X”             | “X ensures Y”            |
-| “We need to address X”             | “The product provides X” |
-| “Currently, the system…”           | “The system…”            |
-| “After investigating, we decided…” | “The decision governs…”  |
-| “This was introduced because…”     | “The output enables…”    |
-
-Read every spec sentence aloud. If it would sound wrong after the work ships, rewrite it.
+Read each sentence aloud; if it would sound wrong after the work ships, rewrite it. Dated history belongs in a knowledge root.
 
 </atemporal_voice>
 
+<single_location>
+
+- ALWAYS: keep one home per fact — structure carries relationships, and a checkable link carries what structure cannot.
+
+Two in-tree link shapes exist: a **node-local** relative path whose target lives inside the node and prunes with it (assertion links), and a **tree-absolute** path written literally from `spx/` (cross-subtree decision citations). A leading slash or a `../` climb fails validation; tooling derives every graph.
+
+</single_location>
+
 <declarations>
 
-- ALWAYS: derive declaration state from specs, evidence, and implementation rather than hand-maintained status.
+- ALWAYS: derive declaration state from specs, evidence, and implementation; never hand-maintain status.
 
-Writing a spec makes a declaration. Writing linked evidence makes the declaration verifiable. Removing a spec prunes product truth. The following backlog operations do not exist:
-
-- close, archive, or move a spec to done;
-- assign or store a spec status;
-- mark a declaration complete by hand;
-- weaken a declaration to match its implementation.
+Writing a spec makes a declaration; linked evidence makes it verifiable. Pruning a node removes its verification artifacts and exposes implementation no surviving node reaches. These operations do not exist: closing or archiving a spec, moving it to done, assigning state by hand, marking complete, weakening a spec to match code, or closing an outcome record. Done is a structural event, never a state.
 
 </declarations>
 
-<node_states>
-
-- ALWAYS: derive each node state from the presence of its spec, evidence, implementation, and evidence result.
-
-A node's state is derived:
-
-- **Declared** — spec exists, no evidence.
-- **Specified** — spec and evidence exist while implementation is absent; the node is covered by `spx/EXCLUDE`.
-- **Failing** — implementation exists and evidence fails.
-- **Passing** — implementation exists and evidence passes.
-
-Specified and failing are valid states. They expose where lower layers must catch up.
-
-</node_states>
-
 </truth_hierarchy>
+
+<node_model>
+
+<identity_and_kinds>
+
+- ALWAYS: give every node one `id`, one kind from its suffix, and one `{slug}.spec.md`; the root declares `kind: product` in front matter because no directory carries its suffix.
+
+A node's `id` is a UUIDv7 in its spec's front matter, unique across the tree, surviving re-indexing and re-placement. Below the root the directory suffix names the kind and role.
+
+| Suffix        | Role                     | Opening                                  |
+| ------------- | ------------------------ | ---------------------------------------- |
+| `.product`    | Product scope            | none                                     |
+| `.substrate`  | Primitive mechanics      | `SUPPLIES ... SO THAT ... CAN ...`       |
+| `.capability` | Reusable behavior        | `PROVIDES ... SO THAT ... CAN ...`       |
+| `.domain`     | Bounded semantics        | `OWNS ... SO THAT ... CAN ...`           |
+| `.interface`  | Consumption contract     | `ADAPTS ... FOR ... SO THAT ... CAN ...` |
+| `.surface`    | Provided boundary        | `EXPOSES ... TO ... SO THAT ... CAN ...` |
+| `.variant`    | Exclusive implementation | its parent's form                        |
+
+A substrate owns primitives with no product-domain semantics; a capability one reusable behavior with meaning outside any one consumer; a domain a bounded semantic context — vocabulary, rules, invariants — that other nodes speak; an interface a medium-agnostic consumption contract with no rendering; a surface the outside-facing boundary with no product semantics; a variant one implementation of its parent's whole contract among those the selection source serves. Five kinds are outputs in a fixed order — `substrate ≺ capability ≺ domain ≺ interface ≺ surface` — and a variant takes its parent's place; a provider is never a more-outward kind than its consumer. The `FOR` and `TO` slots carry the consumption context or external audience, never a consumer node; a provider never names its consumers; openings never carry paths.
+
+Classify by the ordered procedure — product, variant, substrate, surface, interface, domain, capability — where the first test that holds fixes the kind; `${SKILL_DIR}/references/kind-decision.md` carries the tests, the settling boundaries, and the structural-quality scorecards.
+
+**Containment.** A node admits children of its own kind and any more-foundational output kind; every output kind additionally admits `.variant`; a `.variant` admits what its parent admits except another `.variant`; a `.product` admits any output kind, and only a `.product` admits a `.product`, so products form a spine from the root. Role-named wrapper directories do not exist: grouping is product name plus suffix, and a family surface owns its concrete surfaces as children. A tree authored under a 3.x version carries `.enabler` and `.outcome` directories with `{slug}.md` specs, a `*.product.md` root, and `PLAN.md` notes until its toolchain admits this grammar; a provider that supports that version parses both forms.
+
+</identity_and_kinds>
+
+<product_scope>
+
+- NEVER: give a `.product` an assertion, malleability, state, status claim, outcome record, or child enumeration.
+
+The operator judges a scope a product with three questions: does it need a surface or interface the tree lacks; does it run, ship, and transfer as a whole on its own; does it have its own backlog, checkout, and owner. A valid product spec is its front matter and title; a paragraph, product-local semantics, boundaries, and a Change-retention policy appear only where they change what a descendant does or how it is judged.
+
+</product_scope>
+
+<decomposition>
+
+- ALWAYS: separate a node into children on a countable trigger — two or more distinct concepts, present or foreseen, or too many assertions for one node.
+
+A parent states its class contract and names no child; the tree walk surfaces children. Behavior stays with the node that owns its meaning until two or more semantic owners share it or it has its own lifecycle and verification contract; then one provider is extracted. `/decompose` owns kind classification, placement, and index assignment.
+
+</decomposition>
+
+<files_in_a_node>
+
+- ALWAYS: use the canonical node shape and co-locate each evidence lane under its governing node.
+
+```text
+NN-{slug}.{kind}/
+├── {slug}.spec.md                      # front matter: id; malleability on output nodes
+├── spx.status.json                     # machine-written status claim; every output node
+├── NN-{decision}.{adr|pdr}.md          # decision records share the sibling index space
+├── {slug}.outcome.md                   # optional outcome record; never on a product or variant
+├── ISSUES.md                           # the only node-local note
+├── knowledge/                          # optional OKF bundle: index.md and log.md required
+├── tests/                              # [test] files in the project's naming convention
+├── evals/{rule-slug}/eval.toml         # [eval] rules; cases, prompt, history beside it
+├── probes/{probe-slug}/probe.md        # [probe] protocols with the attested run's artifacts
+└── NN-{child-slug}.{kind}/
+```
+
+- The spec is `{slug}.spec.md`, repeating the directory's slug; at the root it repeats the product's name.
+- `[test]` evidence is co-located under `tests/`; each filename encodes subject, assertion type, execution level, and an optional runner in the project's language convention.
+- `[eval]` evidence is co-located under `evals/{rule-slug}/`: `eval.toml` plus the case, prompt, and template artifacts it declares by eval-relative path — canonically `cases.jsonl`, `prompt.md`, and `prompt.template.md`. A declared case or prompt path may reach a sibling eval's shared artifact; a declared template stays inside the eval directory. A declared producer source is a repository path outside the eval directory, never a co-located artifact. The eval harness generates `history.jsonl` and the ignored `runs/` transcripts at fixed names it owns; `eval.toml` never declares them.
+- `[probe]` evidence is co-located under `probes/{probe-slug}/`: `probe.md` records intent, environment and preconditions, the protocol, the attested run's observations, the Author's verdict, and limitations, linking every retained artifact — at least one inspectable artifact beside the prose; working runs stay in an ignored `runs/`.
+- The outcome record carries an `id`, one or more directional conditions each linking its metric source, and a selection-source link when the node holds variants — no value, threshold, impact, assertion, or state. A variant carries none; its outcomes belong to the parent.
+- `knowledge/` is a node's one reserved memory root: dated entries, newest-first `log.md`, an `index.md` per directory, typed front matter on every non-reserved file. It declares no truth and prunes with its node.
+- ADRs and PDRs are files inside the node whose subtree they govern, never child nodes; the root holds only root-scope records.
+
+`${SKILL_DIR}/references/grammar.md` carries the structural grammar in EBNF, the front matter fields, the index and fractional-insert forms, and the link forms.
+
+</files_in_a_node>
+
+</node_model>
 
 <artifact_placement>
 
 - ALWAYS: classify content by the artifact purpose that owns it.
 
-The taxonomy is closed: `spx/` admits no artifact outside this table (whose rows include the root product spec), the canonical node shape, and the optional knowledge root a node or the product root carries.
+The taxonomy is closed: `spx/` admits no artifact outside this table, the canonical node shape, and the optional knowledge root. Operational files under `spx/local/`, and a passing-scope list a toolchain that has not adopted the status claim still reads, are configuration. The note raises no placement question. Placement decides only between the governing layer (ADR or PDR) and the declaring layer (spec). Verification and implementation artifacts are never placed by classification: assertion tags derive evidence locations, and verification reachability with the language's declared infrastructure home derives implementation locations.
 
-- Operational files — everything under `spx/local/` (skill overlays and declared configuration such as a generated-source-attribution manifest) and `spx/EXCLUDE` — are configuration, not artifacts.
-- Coordination notes raise no placement question: `PLAN.md` and `ISSUES.md` carry no truth and sit at their node or the product root.
-- Placement decides only between the two authoring layers: content that governs is an ADR or PDR, and content that declares is a spec.
-- Verification and implementation artifacts are never placed by classification: assertion tags derive evidence locations, and node ownership with the language's declared infrastructure home derives implementation locations (see `<test_artifact_boundaries>`).
+| Artifact            | Purpose                                            | Verified by                                  |
+| ------------------- | -------------------------------------------------- | -------------------------------------------- |
+| Product spec        | Declares scope and product-owned terms             | Review                                       |
+| ADR                 | Governs how the product is built                   | ADR audit                                    |
+| PDR                 | Governs what users can rely on                     | PDR audit                                    |
+| Output spec         | Declares one output's contract and assertions      | Linked evidence                              |
+| Variant spec        | Declares what its parent's contract does not say   | The parent's evidence under its selection    |
+| Outcome record      | Declares the conditions an output moves            | Delivery reads the metric source             |
+| Status claim        | Records derived state and attributed results       | The projector                                |
+| Test file           | Proves one typed assertion class                   | Test runner                                  |
+| Eval rule           | Scores a producer's structured output              | Eval harness                                 |
+| Probe protocol      | Attests the running node's fidelity                | Attested run; pins checked in CI             |
+| Test infrastructure | Provides harnesses, generators, and inert fixtures | Code, architecture, and test-evidence audits |
+| Enforcement         | Constrains source structure                        | Tests against violating fixtures             |
+| `ISSUES.md`         | Records known defects, contradictions, and gaps    | Reconciliation on context load               |
+| Knowledge root      | Keeps dated organizational memory                  | Never; it governs nothing                    |
 
-| Artifact                | Purpose                                            | Contains                                                              | Verified by                                  |
-| ----------------------- | -------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------- |
-| Product spec            | Declares the product's identity and scope          | Product hypothesis, consumers, surfaces, and product-level assertions | Linked evidence                              |
-| ADR                     | Governs how the product is built                   | Architecture decisions, rationale, invariants                         | ADR audit                                    |
-| PDR                     | Governs what users can rely on                     | Product decisions and observable properties                           | PDR audit                                    |
-| Enabler spec            | Declares infrastructure output                     | `PROVIDES ... SO THAT ... CAN ...` and assertions                     | Linked evidence                              |
-| Outcome spec            | Declares an output hypothesis                      | Output, outcome, impact, and assertions                               | Linked evidence                              |
-| Test file               | Proves one typed assertion class                   | Executable assertion evidence                                         | Test runner                                  |
-| Test infrastructure     | Provides harnesses, generators, and inert fixtures | Governed production code outside `spx/` and `tests/`                  | Code, architecture, and test-evidence audits |
-| Enforcement             | Constrains source structure                        | Lint rules, AST selectors, and pattern matchers                       | Tests against violating fixtures             |
-| `PLAN.md` / `ISSUES.md` | Coordinates pending work or known imperfections    | Stale-prone node-local or product-root context                        | Reconciliation on context load               |
+ADR versus PDR is decided by content: an ADR governs architecture the product's users cannot observe; a PDR governs behavior they can. A decision record is a file inside the node whose subtree it governs, at the position every later reader loads it from; a lower-index record constrains higher-index siblings and their descendants. When a decision's owner is unclear, decompose the structure first and author the record afterwards. Tree position determines reach, so broad reach never determines type, and a root record is one every subtree obeys.
 
-ADR versus PDR is decided by content. An ADR governs architecture invisible to the product's users; a PDR governs behavior those users observe. Tree position and numeric prefix determine a decision's reach, so broad or foundational reach never determines its type. Product users differ by product: test-infrastructure layout can be product behavior for a methodology and architecture for an application.
-
-<test_artifact_boundaries>
-
-- ALWAYS: keep executable assertion files separate from the production infrastructure they consume.
-
-Files under `spx/<node>/tests/` contain typed assertion evidence only. Harnesses mediate systems, generators produce variable domains, and fixtures are inert whole-payload inputs read by path. These artifacts are governed production code in the location declared by the active language's test standards, outside `spx/` and every `tests/` directory.
-
-Test infrastructure follows normal spec composition. Govern it through the naturally placed node whose assertions or category contract own its behavior. Never fabricate a top-level `infrastructure -> testing -> {harnesses, generators, fixtures}` subtree solely because test infrastructure exists. Avoid the anti-terms “test support,” “test helpers,” “test utilities,” and “test tools,” which hide governed production behavior behind an unowned utility category.
-
-Enforcement rules are production validation code. Their `[test]` evidence runs the rule against violating fixtures and proves detection; a green validation pipeline separately proves registration.
-
-</test_artifact_boundaries>
-
-<common_misplacements>
-
-- NEVER: preserve content in an artifact whose purpose does not own it.
-
-| Content                                 | Wrong location     | Correct location                                              |
-| --------------------------------------- | ------------------ | ------------------------------------------------------------- |
-| Architecture choice                     | Spec               | ADR                                                           |
-| Product decision or user guarantee      | Spec               | PDR                                                           |
-| Outcome hypothesis                      | ADR/PDR            | Outcome spec                                                  |
-| Test reference                          | ADR/PDR            | Spec assertion                                                |
-| Implementation detail                   | Spec               | Code                                                          |
-| How to build something                  | Spec               | ADR or code                                                   |
-| Enforceable static constraint           | `[audit]`          | `[test]` on the enforcement rule                              |
-| Cross-cutting invariant                 | Child spec         | Ancestor spec                                                 |
-| Remaining work                          | Session file       | Node-local `PLAN.md`                                          |
-| Known unresolved imperfection           | Session file       | Node-local `ISSUES.md`                                        |
-| Pending work induced by higher truth    | Higher declaration | First affected lower node's `PLAN.md` after lower specs align |
-| Child enumeration                       | Parent spec        | Child specs and `/contextualize` output                       |
-| Harness, generator, or fixture behavior | Executed test file | Language-standard test-infrastructure location                |
-
-Evidence specialization is valid when a child `[test]` rule concretizes an ancestor `[audit]` rule against a narrower source surface. Same-content repetition using the same evidence mechanism is duplication.
-
-</common_misplacements>
+Test-infrastructure boundaries and the placements this taxonomy rules out are in `${SKILL_DIR}/references/artifact-placement.md`: files under `spx/<node>/tests/` hold typed assertion evidence only; harnesses, generators, and inert fixtures are governed production code in the language's declared infrastructure home, owned by the output node whose behavior they mediate, never a top-level infrastructure-testing subtree and never “test support,” “helpers,” “utilities,” or “tools”; a child `[test]` rule may concretize an ancestor `[audit]` rule, while same-content repetition with the same mechanism is duplication.
 
 </artifact_placement>
 
-<node_model>
-
-The tree contains exactly two recursive node types.
-
-<enabler>
-
-- MUST: classify deterministic shared capability with stable additive assertions as an enabler.
-
-**Enabler**
-
-- Directory suffix: `.enabler`
-- Spec opening: `PROVIDES ... SO THAT ... CAN ...`
-- Purpose: infrastructure removed when all dependents retire.
-- Use for shared infrastructure, deterministic capabilities, and output whose assertions are stable and grow by addition.
-
-</enabler>
-
-<outcome>
-
-- MUST: classify a user-behavior hypothesis with material output uncertainty as an outcome.
-
-**Outcome**
-
-- Directory suffix: `.outcome`
-- Spec opening: `WE BELIEVE THAT ... WILL ... CONTRIBUTING TO ...`
-- Purpose: a bet that one output will produce a measurable user-behavior change contributing to business impact.
-- Assertions specify the output. The outcome and impact remain hypotheses requiring real users.
-- Use when material uncertainty remains about which output achieves the goal and most assertions could change while the hypothesis stays stable.
-
-Apply the forcing question before choosing an outcome: why can this not be written as `PROVIDES X SO THAT Y CAN Z`? A forced hypothesis signals an enabler.
-
-</outcome>
-
-<nesting_rules>
-
-- NEVER: place an outcome beneath an enabler.
-
-Valid node nesting:
-
-| Parent  | Child nodes           |
-| ------- | --------------------- |
-| Outcome | Enablers and outcomes |
-| Enabler | Enablers only         |
-
-An enabler can never contain an outcome. If a proposed child under an enabler carries material output uncertainty, either the parent is mistyped or the child is an enabler whose output is fully determined.
-
-</nesting_rules>
-
-<common_structure>
-
-- ALWAYS: use the canonical node shape and co-locate each evidence lane under its governing node.
-
-Canonical node shape:
-
-```text
-NN-{slug}.{enabler|outcome}/
-├── {slug}.md
-├── tests/                              # when the first [test] file exists
-├── evals/{rule-slug}/                  # when the first [eval] exists
-├── knowledge/                          # optional knowledge root
-├── PLAN.md                             # optional
-├── ISSUES.md                           # optional
-└── NN-{child-slug}.{enabler|outcome}/
-```
-
-- The spec file is `{slug}.md`, with no numeric or type suffix.
-- `knowledge/` is an optional node knowledge root — a knowledge bundle whose `index.md` lists its contents; the product root may carry `spx/knowledge/` the same way.
-- `[test]` evidence is co-located under `tests/`; the directory materializes with the first test file, and its filename encodes one assertion type and execution level according to the product's language convention.
-- `[eval]` evidence is co-located under `evals/{rule-slug}/`: `eval.toml` plus the case, prompt, and template artifacts it declares by eval-relative path — canonically `cases.jsonl`, `prompt.md`, and `prompt.template.md`. A declared case or prompt path may reach a sibling eval's shared artifact; a declared template stays inside the eval directory. A declared producer source is a repository path outside the eval directory, never a co-located artifact. The eval harness generates `history.jsonl` and the ignored `runs/` transcripts at fixed names it owns; `eval.toml` never declares them.
-- `PLAN.md` and `ISSUES.md` are optional coordination notes, never product truth.
-- ADRs and PDRs are files inside a node directory, never child nodes.
-
-</common_structure>
-
-</node_model>
-
 <assertion_model>
 
-Assertions specify locally verifiable product output. They derive from decisions and specs, never from tests or code.
+Assertions declare observable product output at the layer that owns the behavior, derived from decisions and specs, never from tests or code. A broad assertion stays on the parent; a behavior-specific one belongs to the child.
 
 <verification_types>
 
 - ALWAYS: choose exactly one verification type before choosing any test assertion type.
 
-Choose the verification type first:
+| Type     | Tag                   | Verdict mode  | Use                                                                       |
+| -------- | --------------------- | ------------- | ------------------------------------------------------------------------- |
+| test     | `[test](path)`        | Deterministic | Behavior is a deterministic function of inputs.                           |
+| evaluate | `[eval](path)`        | Deterministic | LLM-driven behavior emits a parseable verdict scored against cases.       |
+| probe    | `[probe](path)`       | Attested      | A claim about the running node that only an executed observation settles. |
+| audit    | `[audit:{rule-slug}]` | Agentic       | A semantic constraint with no structural verdict to score.                |
 
-| Type     | Tag            | Verdict                                                 | Use                                                                                 |
-| -------- | -------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| test     | `[test](path)` | deterministic                                           | Behavior is a deterministic function of inputs.                                     |
-| evaluate | `[eval](path)` | deterministic score over a producer's structured output | LLM-driven behavior emits a parseable verdict scored against cases and a threshold. |
-| audit    | `[audit]`      | agentic                                                 | A semantic constraint has no structural verdict to score.                           |
-
-Review is an open-ended changeset gate and backs no assertion tag.
+Validate and Review back no assertion. Authoring declarations await selection untagged directly under `## Assertions` or a decision's `## Verification`, alongside routed subsections if present. Audit judges their declaration quality; approval proves neither evidence completeness nor Passing. Once routed, a spec-malleable assertion may omit its tag; every harder assertion carries exactly one. A toolchain without slug support retains pathless `[audit]`. A dangling `[test]`, `[eval]`, or `[probe]` link derives Declared without a structural defect. Audit slugs are unique within their spec and key status-claim results.
 
 </verification_types>
 
 <assertion_types>
 
 - MUST: assign one assertion type only to `[test]` evidence and derive it from the claim's quantifier.
-
-Only `[test]` assertions carry one of five assertion types, selected from the quantifier:
 
 | Assertion type | Quantifier                       | Test strategy             | Use                                                     |
 | -------------- | -------------------------------- | ------------------------- | ------------------------------------------------------- |
@@ -287,25 +228,23 @@ Only `[test]` assertions carry one of five assertion types, selected from the qu
 | Property       | For all over an open value space | Property-based            | Invariant for every valid input.                        |
 | Compliance     | ALWAYS/NEVER rule                | Violating fixtures        | A deterministic behavioral boundary.                    |
 
-A universal is never a scenario. Under `[test]`, choose mapping for a finite source-owned domain, conformance for an oracle, compliance for a rule exercised against violations, and property for an open domain. Choose scenario only for one existential interaction. Evaluate and audit carry no assertion type.
+A universal is never a scenario. Choose mapping for a finite source-owned domain, conformance for an oracle, compliance for a rule exercised against violations, and property for an open domain; choose scenario only for one existential interaction. Evaluate, probe, and audit carry no assertion type.
 
 </assertion_types>
 
 <verification_selection>
 
-- MUST: select test, evaluate, or audit evidence from the verdict the real subject can produce.
+- MUST: select test, evaluate, probe, or audit evidence from the verdict the real subject can produce.
 
-Prefer `[test]` when behavior is deterministic. Use `[eval]` when the real LLM-driven producer emits a parseable contract that a runner can score. Use `[audit]` when no deterministic or structural verdict exists.
-
-Structural lint constraints use `[test]` evidence that runs the rule against violating fixtures and proves detection. Pipeline inclusion is a separate operational concern established by the validation gate.
+Prefer `[test]` when behavior is deterministic; `[eval]` when the real LLM-driven producer emits a parseable contract a runner can score; `[probe]` when only observing the running node settles the claim; `[audit]` when no deterministic, attested, or structural verdict exists. A structural lint constraint is `[test]` evidence run against violating fixtures.
 
 </verification_selection>
 
 <mixing_types>
 
-- ALWAYS: group mixed `[test]` assertions by assertion type and use full `spx/...` citations.
+- ALWAYS: group mixed `[test]` assertions by assertion type and cite every node and decision by its complete `spx/...` path.
 
-Group mixed `[test]` assertions by type. Each test file carries one assertion type. Every node, test, ADR, or PDR citation uses its full path from `spx/`.
+Each test file carries one assertion type; bare names such as `32-parser.capability` are ambiguous because other directories may reuse the prefix.
 
 </mixing_types>
 
@@ -313,72 +252,80 @@ Group mixed `[test]` assertions by type. Each test file carries one assertion ty
 
 <ordering_model>
 
-<context_loading_rule>
+<index_semantics>
 
-- ALWAYS: interpret sibling integer prefixes as deterministic context-loading relationships.
+- ALWAYS: place prerequisites before consumers; numeric separation alone establishes no dependency.
 
-All indexed artifacts inside one directory—nodes, ADRs, and PDRs—share one numeric namespace. Prefixes are sibling-local and drive deterministic context loading:
+Nodes and decision records in one directory share one two-digit index space, extended by fractional inserts (`20.54`). An earlier node's contract is available as a prerequisite and constrains work that consumes it or falls within its stated scope; an unrelated earlier contract supplies awareness and creates no dependency. Same-index peers cannot supply prerequisites to each other, and independent siblings may occupy different indices. A lower-index decision record governs higher-index siblings and their descendants. An index never encodes roadmap order, time, or priority.
 
-- Lower-index siblings constrain the target and their specs are read.
-- Same-index siblings are independent peers; list them without reading them as constraints.
-- Higher-index siblings may depend on the target; list them without reading them as constraints.
-- A lower-index ADR or PDR constrains higher-index siblings and descendants.
+</index_semantics>
 
-</context_loading_rule>
+<assignment>
 
-<assignment_is_the_inverse>
+- MUST: assign an index from the consumer's own prerequisites, with a falsifiable reason for each, after checking the kind order.
 
-- MUST: assign indices as the inverse of the context-loading rule and prove every ordered dependency.
+Ask only what the node depends on and place it above each provider it names; never place a provider by asking what depends on it. A substrate depending on a surface, or a capability on a domain, is an inversion or misclassification to resolve first. Reuse an existing peer index when it satisfies the prerequisites and decision scope; the next free number is no default slot. Valid evidence: provider/consumer, logical prerequisite, vertical slice, shared substrate, feature extension, decision constraint. `/decompose` owns assignment.
 
-Index assignment is the inverse of this read rule. Giving a new child a higher index declares that each lower-index sibling must be present in its future context. Giving peers the same index declares independence. `/decompose` owns assignment because it must prove the dependency consequence before choosing an index.
+</assignment>
 
-</assignment_is_the_inverse>
+<context_walk>
 
-<full_paths>
+- ALWAYS: derive context as a pure function of the tree: every ancestor spec from the root, every sibling's published contract and decision record at each level along the path, every note on the path, the immediate children's contracts when the target is the work, then the target's own spec.
 
-- ALWAYS: cite every node and decision with its complete `spx/...` path.
+Siblings and children enter as published contracts, never subtree internals. `tests/`, `evals/`, and `probes/` stay out. The target's knowledge root contributes its `index.md` only; the target's outcome record loads with its spec; other records stay out. Cited cross-subtree decisions resolve into the read-set once with provenance; an unresolvable citation is a defect. No keyword search, embedding similarity, or agent-judged relevance. When the payload routinely exceeds a reliable working set, restructure the overloaded dimension rather than filter.
 
-Always use complete `spx/...` paths. `32-parser.enabler` and `15-build.adr.md` are ambiguous because other directories may reuse both prefixes.
-
-</full_paths>
+</context_walk>
 
 </ordering_model>
 
 <verification_model>
 
-Verification has five fixed types over two independent axes.
-
 <axes>
 
-- ALWAYS: classify verification independently by verdict mode and purpose.
+- ALWAYS: classify verification by verdict mode and purpose.
 
-**Verdict mode**
-
-- **Deterministic** — a command scores fixed expectations and returns pass or fail; no model judges the result.
-- **Agentic** — Claude applies a skill and judges the subject, from checklist audit to open-ended review.
-
-**Purpose**
-
-- **Conformance** — fit to methodology, language standards, and validation configuration.
-- **Correctness** — integrity of the decision → spec → evidence → implementation chain.
+**Verdict mode** names how the verdict is produced, never who produced the subject: **Deterministic** — an executable oracle scores fixed expectations; **Agentic** — a Verifier applies a skill and judges; **Attested** — the Author's verdict with the inspectable evidence of an executed protocol. **Purpose**: **Conformance** — fit to methodology, standards, and configuration; **Correctness** — integrity of the decision → spec → evidence → code chain.
 
 </axes>
 
 <types>
 
-- ALWAYS: use exactly the five verification types audit, validate, review, evaluate, and test.
+- ALWAYS: use exactly the six verification types validate, test, evaluate, probe, audit, and review.
 
-The five types are:
-
-- **audit** — agentic conformance or mechanical correctness judgment; backs `[audit]`.
-- **validate** — deterministic conformance through format, lint, typing, and static-analysis gates; backs no assertion tag.
-- **review** — agentic open-ended correctness judgment over quality, architecture, risk, and layer consistency; backs no assertion tag.
-- **evaluate** — deterministic scoring of structured producer output; backs `[eval]`.
+- **validate** — deterministic conformance to configured tool standards, including the tree's structural and link contracts; runs on every change; backs no tag.
 - **test** — deterministic execution of behavior; backs `[test]`.
+- **evaluate** — deterministic scoring of structured producer output; backs `[eval]`.
+- **probe** — attested fidelity of the running node through an executed protocol; backs `[probe]`.
+- **audit** — agentic conformance or correctness judgment against an assertion's declared criteria; backs `[audit:{rule-slug}]`.
+- **review** — agentic open-ended judgment over the whole change, including each affected output node's spec against its malleability's expectations; backs no tag.
 
-Every verification activity declares its type and purpose. A type's verdict mode is fixed. A model never judges a deterministic verdict. The type set and the two verdict modes never expand without amending this foundation and its governing decision.
+A type's verdict mode is fixed, so whoever runs it reaches the same verdict, and a model never judges a deterministic verdict. The type set and the three modes never expand without amending this foundation and its governing decision. Evidence is what verification produces and commits; a test file, eval rule, or probe protocol is the assertion made executable, never evidence. Every attributed result carries a pin naming the declaration, the artifact, and the subject; a change to any pinned path invalidates it — test and evaluate run again, audit receives a new judgment, probe a fresh attested run.
 
 </types>
+
+<malleability_and_state>
+
+- ALWAYS: derive an output node's state from its evidence against the malleability it declares.
+
+**Malleability** is the highest layer that remains cheap to change, declared in front matter; the absent field means `implementation`, the floor. Hardening lowers it one layer at a time through a Change whose target malleability is lower than the declared one.
+
+| Malleability     | Phase        | Still cheap to change              | Verification required for Passing                                          |
+| ---------------- | ------------ | ---------------------------------- | -------------------------------------------------------------------------- |
+| `spec`           | prototype    | spec, verification, implementation | Validate, reachability tests, and every tagged assertion result            |
+| `verification`   | experimental | verification, implementation       | Validate and a tagged result for every assertion                           |
+| `implementation` | production   | implementation                     | Validate and a result for every assertion, with evidence that passes audit |
+
+A reachability test is a `[test]` file that executes the node's entry points and pins its API shape while asserting the minimum, so coverage attribution stays uniform while iteration stays free. **State** is the node's own claim against that declaration: **Declared** — the spec exists and required artifacts are missing; **Specified** — required artifacts exist without a current passing result; **Passing** — Validate passes and every required result is current and passes; **Failing** — a required result becomes invalid or stops passing after Passing under unchanged declarations. An initial failure leaves Specified. A changed decision or spec invalidates every affected pin and derives the state anew. **Effective** malleability and state derive over the node's dependency closure and are never committed.
+
+</malleability_and_state>
+
+<projection>
+
+- NEVER: author state or the status claim — the projector is its only writer.
+
+Every output node carries `spx.status.json`: its state, the malleability measured against, and attributed results keyed by tagged path (audit by rule slug), each `passed`, `failed`, or `not-run`, with a pin and, for Agentic and Attested results, actor provenance and a run; a conflicted claim is regenerated. Merge gates a changeset by the least malleable node it touches: Validate always; Review for a verification-malleable node; the evidence audits before Review for an implementation-malleable node; product and outcome-record changes run Validate and Review regardless. Every changed implementation file is reached by some node's linked verification. A Declared or Specified node merges as itself; a Failing node blocks; a passing consumer's dependency change may neither raise a malleability nor make any node in its closure cease Passing. `${SKILL_DIR}/references/status-claims.md` carries the claim's shape and derivation.
+
+</projection>
 
 <vocabulary_boundaries>
 
@@ -392,11 +339,25 @@ When vocabulary overlaps another grammar, resolve verification vocabulary here f
 
 - ALWAYS: when repository writes are authorized, commit the exact current version before another agent session or human reads it for collaboration or reusable verification; without repository-write authorization, defer a reading that requires a committed subject.
 
-Changes may remain uncommitted while the Author's agent session works on them. When repository writes are authorized, the commit records verification state as `passing`, `failing`, or `not-run`; that state controls gate eligibility, never commit permission. After any further change, commit the new version before another agent session or human reads it for collaboration or reusable verification. An explicit advisory audit or review may inspect modified or untracked work, but its verdict is not reusable gate evidence. An agentic verification gate additionally requires applicable deterministic verification to pass on the exact committed subject.
+The commit records verification state as `passing`, `failing`, or `not-run`; that state controls gate eligibility, never commit permission. An advisory audit or review may inspect uncommitted work, but its verdict is not reusable gate evidence. An agentic gate additionally requires applicable deterministic verification to pass on the exact committed subject.
 
 </commit_before_another_session_reads>
 
 </verification_model>
+
+<coordination_model>
+
+- ALWAYS: keep mutable work state outside the durable map — in Changes, Handoffs, and `ISSUES.md` — and never let it declare product, architecture, or methodology truth.
+
+A **Change** is the mutable coordination object for one intended Output: a decision or spec evolution, a lower-layer reconciliation, or both. It carries its Product, received input, what makes the work worth doing, and — as refinement adds them — Nodes, Assertion operations, Decision references, Activities, and blockers. **Maturity** advances Proposed → Framed → Sliced → Executable; Framed needs human judgment and the operator's attestation, a person stays accountable for Sliced, and Claude may advance Sliced to Executable inside the Frame. **Status** is Available, Claimed, Applied, Refined, or Abandoned; execution begins only on a Claimed, Executable lineage leaf with Refined predecessors and no unresolved blocker. Successors name their predecessors in an immutable `refined_from` set. A **Handoff** is the latest persisted continuation — branch or changeset, completed and next Activities, blockers, hazards, never a secret.
+
+**Roles**, capitalized: the **Refiner** holds the Change during refinement and is the operator's conversation, realized by loading the refinement skills into it; the **Executor** holds it during execution, sequences Activities, delegates, integrates, and produces no artifact; the **Author** produces one round's artifacts; the **Fixer** is a later round's Author; the **Verifier** produces an Agentic verdict — an Auditor for audit, a Reviewer for review. Author, Fixer, and Verifier hold no claim.
+
+When Claude calls both the Author and the Fixer, they must use separate agent sessions. When the operator calls the Author, the same session must also act as the Fixer whenever the operator requests, for as many rounds as necessary.
+
+`ISSUES.md` is the only node-local note: known defects, contradictions, and gaps with evidence, impact, and a settlement condition, and no work order, owner, priority, or next action. Notes inform judgment and never supply authority; reconcile every loaded note against current decisions, specs, evidence, and intent before acting. `spx/local/` holds product-specific overlays read by the skill that declares each; `spx/local/merging.md` is the lifecycle overlay `/merge` and `/contextualize` read; the coordination overlay names where the repository's Changes live.
+
+</coordination_model>
 
 <imperfection_protocol>
 
@@ -404,14 +365,7 @@ Changes may remain uncommitted while the Author's agent session works on them. W
 
 - ALWAYS: record every observed imperfection immediately with its evidence, governing workflow, handling, and classification.
 
-Record every observed imperfection in the current-turn ledger immediately: failing validation, broken link, stale reference, dead code, lint violation, missing evidence, inconsistent naming, misplaced file, wrong index, harmful warning, or anything else that is not right. Each entry carries:
-
-- the exact imperfection;
-- the path, line, command output, or external state that exposed it;
-- the skill or workflow governing the fix;
-- the proposed handling and current classification.
-
-Apply clear, local, low-risk corrections immediately. Surface a blocking decision through the structured-question tool. Hold a non-blocking decision only until the next natural checkpoint.
+The current-turn ledger takes every imperfection — failing validation, broken link, stale reference, dead code, missing evidence, misplaced file, wrong index, or anything else that is not right — with what exposed it, the workflow governing the fix, and the proposed handling. Apply clear, local, low-risk corrections immediately. Surface a blocking decision through the structured-question tool. Hold a non-blocking decision only until the next natural checkpoint.
 
 </recording>
 
@@ -419,9 +373,7 @@ Apply clear, local, low-risk corrections immediately. Surface a blocking decisio
 
 - NEVER: reduce responsibility for an imperfection because of its age, author, or originating change.
 
-The ledger has no origin distinction. Age and authorship never reduce responsibility. Never dismiss an imperfection as inherited, already broken, or outside the current change merely because another change created it.
-
-Never investigate origin to reach that judgment — no blame, file history, or authorship lookup. Claude's commits sign as the operator, so the lookup cannot separate Claude's earlier work from the operator's, and compaction has erased what Claude knew. Origin changes nothing about the fix.
+Never dismiss an imperfection as inherited, already broken, or outside the current change because another change created it, and never investigate origin to reach that judgment — Claude's commits sign as the operator, so no lookup separates Claude's earlier work from the operator's. Origin changes nothing about the fix.
 
 </no_origin_distinction>
 
@@ -429,9 +381,7 @@ Never investigate origin to reach that judgment — no blame, file history, or a
 
 - ALWAYS: fix debt that the current change causes, surfaces, or invalidates.
 
-Debt the current change causes, surfaces, or invalidates is fix-now wherever it lives. A change invalidates another file when it removes a symbol that file references, enforces a rule it violates, falsifies its guidance, or causes a gate, audit, or review to expose its imperfection. Location never licenses deferral.
-
-Record and proceed only for work independent of the current change in a surface the change neither touches nor invalidates. Persist that work at the correct tier: decision/spec for durable truth, methodology for reusable workflow, `PLAN.md` for pending node work, and `ISSUES.md` for known node imperfections. Recording never ends an otherwise actionable session.
+A change invalidates another file when it removes a symbol that file references, enforces a rule it violates, falsifies its guidance, or causes a gate, audit, or review to expose its imperfection. Location never licenses deferral. Record and proceed only for work independent of the current change in a surface the change neither touches nor invalidates, at the correct tier: decision or spec for durable truth, methodology for reusable workflow, a Change for pending work, `ISSUES.md` for a known defect with its settlement condition. Recording never ends an otherwise actionable session.
 
 </touched_file_debt>
 
@@ -439,21 +389,15 @@ Record and proceed only for work independent of the current change in a surface 
 
 - NEVER: raise a cost, quota, worker, retry, timeout, or external-capacity ceiling without operator approval in the same turn.
 
-Command defaults are authority for cost-bearing and quota-bearing runs. Never raise an explicit or implicit spend, token, worker, retry, timeout, hosted-runner, paid-provider, or external-capacity ceiling without operator approval in the same turn. When a default ceiling blocks a run, report the exact command, ceiling, proposed increase, expected rerun scope, and pause/inspect option.
+Command defaults are authority for cost-bearing and quota-bearing runs. When a default ceiling blocks a run, report the command, the ceiling, and the proposed increase.
 
 </expense_ceiling>
 
 <closing_protocol>
 
-- ALWAYS: continue actionable in-scope work and invoke `/handoff` only when no continuation remains or continuation is impossible.
+- ALWAYS: continue actionable in-scope work; close out only when no continuation remains or continuation is impossible.
 
-Apply the closing test at task completion: can the operator reasonably ask “What now?”
-
-- When the stated goal remains actionable, continue the governing workflow.
-- A passing check, merge, clean worktree, or persisted note is a milestone, never permission to stop while do-able work remains.
-- Run `/handoff` only when the goal is met with no continuation remaining or continuation is impossible because the operator halted work, context is exhausted, or an external blocker prevents the next action.
-- Never write `PLAN.md` or a session file to postpone work Claude can perform now.
-- When operator judgment is required, close with the structured-question tool rather than a prose offer.
+Apply the closing test: can the operator reasonably ask “What now?” A passing check, merge, clean worktree, or persisted note is a milestone, never permission to stop while do-able work remains. Dispose of the held Change only when the goal is met or continuation is impossible: `/close-change` when the Change reached its terminal Lifecycle, `/release-change` with a Handoff when continuation remains for another holder; a conversation holding no Change records remaining work as a Proposed Change through `/author-change`. When operator judgment is required, close with the structured-question tool rather than a prose offer.
 
 </closing_protocol>
 
@@ -461,64 +405,40 @@ Apply the closing test at task completion: can the operator reasonably ask “Wh
 
 - ALWAYS: keep the live ledger conversation-local and persist unresolved items only at their correct durable or coordination tier.
 
-The ledger is conversation-local. Fixed entries disappear. Unresolved entries persist only through the correct durable or coordination artifact. Session files under `.spx/` carry ephemeral initialization context and remain outside Git.
+Fixed entries disappear. Unresolved entries persist only through a decision, spec, Change, or `ISSUES.md`.
 
 </spec_tree_integration>
 
 </imperfection_protocol>
 
-<coordination_and_context>
-
-- ALWAYS: `/contextualize` derives deterministic context from tree structure, never keyword search. It loads product truth, ancestry, lower-index constraints, decisions, cited governance, guides, coordination notes, and lifecycle routing for one canonical target.
-
-Coordination notes are stale-prone inputs. Reconcile every loaded `PLAN.md` or `ISSUES.md` against current decisions, specs, evidence, implementation, and user intent before acting. They never declare product truth or cited governance.
-
-- `PLAN.md` carries concrete pending steps for its node, including lower-layer work induced by a higher declaration.
-- `ISSUES.md` carries known imperfections, contradictions, gaps, and untestable assertions.
-- Session files remain operational state outside Git; they never replace node-local coordination.
-
-`spx/local/` holds product-specific overlays for coding, architecture, testing, and lifecycle skills. Enumerate overlays during context loading and read each only when its governing skill requires it. `spx/local/merging.md` is the optional lifecycle overlay read by `/merge` and `/contextualize`.
-
-</coordination_and_context>
-
 <delivery_boundary>
 
 - ALWAYS: no value is delivered until the changeset reaches the default branch on origin through `/merge`. Local edits, tests, audits, reviews, commits, pushes, and clean branches are checkpoints.
 
-After verification and any successful commit or push, continue through `/merge` unless the operator explicitly limited the request to proposal, analysis, review, branch-only, or local-only work. A terse “continue,” “ship it,” or “finish” continues the active lifecycle.
-
-A blocker exists only when the immediate next action needs operator input or an external state change, every independent local action is complete, and the applicable gates have run or produced concrete failing evidence.
+Continue through `/merge` unless the operator explicitly limited the request to proposal, analysis, review, branch-only, or local-only work; a terse “continue,” “ship it,” or “finish” continues the active lifecycle. A blocker exists only when the next action needs operator input or an external state change, every independent local action is complete, and the applicable gates have run or produced concrete failing evidence.
 
 </delivery_boundary>
 
 <workflow>
 
-1. Load this complete inline foundation on every invocation. A marker in a compaction summary, session file, handoff note, or prior-run statement does not count. After compaction, treat the marker as absent until this workflow emits it again.
-2. Check internal consistency across `<truth_hierarchy>`, `<artifact_placement>`, `<node_model>`, `<assertion_model>`, `<ordering_model>`, `<verification_model>`, and `<imperfection_protocol>`. Surface any contradiction immediately. No mandatory foundation reference read follows this step.
-3. Locate these operational references and list their paths without reading them until another skill needs them:
-   - `${SKILL_DIR}/references/excluded-nodes.md`
-   - `${SKILL_DIR}/references/product-domain-shapes.md`
-   - `spx/local/*.md`
-     Node-local `PLAN.md` and `ISSUES.md` discovery belongs to `/contextualize` after a node is in scope; never enumerate coordination notes during `/understand`.
+1. Load this complete inline foundation on every invocation. A marker in a compaction summary, Handoff, or prior-run statement does not count. After compaction, treat the marker as absent until this workflow emits it again.
+2. Check internal consistency across every foundation section and surface any contradiction immediately. No mandatory foundation reference read follows this step.
+3. Locate these operational references and list their paths without reading them until another skill needs them: `${SKILL_DIR}/references/kind-decision.md`, `${SKILL_DIR}/references/grammar.md`, `${SKILL_DIR}/references/artifact-placement.md`, `${SKILL_DIR}/references/status-claims.md`, `${SKILL_DIR}/references/product-domain-shapes.md`, and `spx/local/*.md`. Note discovery belongs to `/contextualize`, never to `/understand`.
 4. Read `spx/local/merging.md` when present. Changes destined for the default branch route through `/merge`; absence of the overlay applies the default lifecycle.
-5. Locate the five authoring templates and `${SKILL_DIR}/examples/*.md`; read them only when authoring:
-   - `${SKILL_DIR}/templates/product/product-name.product.md`
-   - `${SKILL_DIR}/templates/decisions/decision-name.adr.md`
-   - `${SKILL_DIR}/templates/decisions/decision-name.pdr.md`
-   - `${SKILL_DIR}/templates/nodes/enabler-name.md`
-   - `${SKILL_DIR}/templates/nodes/outcome-name.md`
-6. Read the complete root `AGENTS.md` from disk only when the live conversation does not already carry it complete; a harness that injects the whole file satisfies this step, and a truncated or absent injection requires the read. It routes skill invocation and carries product commands outside the managed router.
+5. Locate templates under `${SKILL_DIR}/templates/` — `product/product-name.spec.md`, `decisions/decision-name.{adr,pdr}.md`, `nodes/{substrate,capability,domain,interface,surface,variant}-name.spec.md`, `records/node-name.outcome.md`, `probes/probe.md` — and `${SKILL_DIR}/examples/*.md`. Record the resolved absolute template directory as `Template root` in the marker; consuming authoring and audit workflows read their required templates there.
+6. Read the complete root `AGENTS.md` from disk only when the live conversation does not already carry it complete; a harness that injects the whole file satisfies this step, and a truncated or absent injection requires the read. It routes skill invocation, names the repository's methodology declaration, and carries product commands.
 7. Emit the marker:
 
 ```text
 <SPEC_TREE_FOUNDATION>
-Loaded inline: truth-hierarchy, artifact-placement, node-model, assertion-model, ordering-model, verification-model, imperfection-protocol
-Operational references available: excluded-nodes, product-domain-shapes
-Local lifecycle route: changes route through /merge; spx/local/merging.md refines the route when present
-Default-branch completion boundary: delivered value reaches the default branch on origin through /merge; verified local work remains unfinished unless explicitly limited or stopped at an explicit gate with no independent action remaining
+Loaded inline: truth-hierarchy, node-model, artifact-placement, assertion-model, ordering-model, verification-model, coordination-model, imperfection-protocol
+Operational references available: kind-decision, grammar, artifact-placement, status-claims, product-domain-shapes
+Local lifecycle route: /merge, refined by spx/local/merging.md when present
+Default-branch completion: /merge delivers to origin's default branch; local work continues unless explicitly limited or a gate blocks every remaining action
 Routing guide: AGENTS.md carried complete by the harness | read from disk | absent
-Templates available: product, adr, pdr, enabler, outcome
-Examples available: adr, enabler, outcome, pdr
+Templates available: product, adr, pdr, substrate, capability, domain, interface, surface, variant, outcome-record, probe
+Template root: <resolved absolute template directory>
+Examples available: adr, pdr, capability, domain, outcome-record, probe
 </SPEC_TREE_FOUNDATION>
 ```
 
@@ -528,24 +448,22 @@ Examples available: adr, enabler, outcome, pdr
 
 **Mandatory references made progressive disclosure fictional.**
 
-Claude loaded `SKILL.md`, then opened six references required on every fresh invocation. One aggregate read truncated, forcing repeat reads and making the nominal overview/reference split slower than one complete payload.
-
-Keep unconditional foundation truth inline and govern the total eager payload. Reserve references for conditional operational detail, templates, and examples.
+Claude loaded `SKILL.md`, then opened six references required on every fresh invocation; one aggregate read truncated, forcing repeat reads. Keep unconditional foundation truth inline and govern the total eager payload; reserve references for conditional detail, templates, and examples.
 
 **Higher-level truth was shaped to current code.**
 
-Claude treated implementation incompleteness as evidence against a coherent decision. Preserve the higher declaration, align the first affected lower specs, and record concrete lower-layer work.
+Claude rejected coherent decisions because implementation lagged or tooling could not realize them. Preserve the declaration, align first affected lower specs, and record downstream work in a Change.
 
 **A pushed branch was reported as complete.**
 
-Claude treated a transport checkpoint as delivered value. Continue through `/merge` until the changeset reaches the default branch on origin or an explicit gate blocks every remaining independent action.
+Claude treated a transport checkpoint as delivered value. Continue through `/merge` until the changeset reaches the default branch on origin or an explicit gate blocks every remaining action.
 
 </failure_modes>
 
 <success_criteria>
 
-- The foundation domains and artifact-placement taxonomy are present inline and require no secondary file reads.
-- Internal foundation sections contain no contradiction in truth flow, artifact ownership, node grammar, assertion selection, ordering, verification vocabulary, or imperfection handling.
+- The foundation domains — truth hierarchy, node model, artifact placement, assertion model, ordering model, verification model, coordination model, imperfection protocol — are present inline and require no secondary file reads.
+- Internal foundation sections contain no contradiction in truth flow, artifact ownership, kind grammar, assertion selection, ordering, verification vocabulary, coordination, or imperfection handling.
 - Operational references, templates, examples, overlays, and the root guide are located or read according to the workflow.
 - A live `<SPEC_TREE_FOUNDATION>` marker records the inline payload.
 

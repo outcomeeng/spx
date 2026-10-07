@@ -27,12 +27,12 @@ the version migrated from.
 ## The codex tree's foundation skill names Claude as the acting agent
 
 **Evidence:** `methodology/4.0/codex/spec-tree/skills/understand/SKILL.md`
-carries six sentences naming Claude as the agent that acts — lines 358, 424,
-455, 531, 537, and 541 — while the same file's harness substitutions are
+carries six sentences naming Claude as the agent that acts — lines 352, 356,
+376, 451, 455, and 459 — while the same file's harness substitutions are
 fully adapted (`SKILL_DIR` for `CLAUDE_SKILL_DIR`, `AGENTS.md` for
 `CLAUDE.md`). The bytes are the `skills/understand/` directory the plugins
 repository publishes for the codex plugin at revision
-`d53e3b0cb2625f0f1bf362527c69f64e04997940`, recorded in
+`af0fd3e8f5ce83ba6f4403f1ec8277a4c9cc0068`, recorded in
 `methodology/4.0/source.json`.
 
 **Impact:** a Codex session loading the foundation reads that it is Claude,
@@ -44,6 +44,41 @@ agent-appropriate wording at its source in `outcomeeng/plugins`, and a later
 conformance assertion holds each `methodology/{MAJOR.MINOR}/{coding-agent}/spec-tree/`
 byte-identical to the published plugin, so the wording is never corrected in
 this repository.
+
+## The shipped foundation's state definitions place one node in two states
+
+**Evidence:** `methodology/4.0/{coding-agent}/spec-tree/skills/understand/SKILL.md`
+line 318 defines Declared as "the spec exists and required artifacts are
+missing" and Failing as "a required result becomes invalid or stops passing
+after Passing under unchanged declarations". A Passing node whose test file is
+deleted fits both. Only `references/status-claims.md` line 49 settles it:
+"Deleting the artifact behind a passing result makes the node Failing, never
+Declared". Both coding agents carry the same bytes, published at revision
+`af0fd3e8f5ce83ba6f4403f1ec8277a4c9cc0068` and recorded in
+`methodology/4.0/source.json`.
+
+**Impact:** a reader of the eagerly loaded `SKILL.md` alone classifies that node
+by either definition; the tie-break sits in a reference loaded on demand.
+
+**Settlement condition:** a later `pnpm run methodology:fetch` at a revision
+whose inline state definitions state the tie-break or no longer overlap. The
+conformance assertion holds each tree byte-identical to the published plugin, so
+the wording is never corrected in this repository.
+
+## The shipped status-claims reference uses two terms it never defines
+
+**Evidence:** `methodology/4.0/{coding-agent}/spec-tree/skills/understand/references/status-claims.md`
+line 55 states "a reference without an open-lifetime pass is already
+unscheduled, so the claim needs no exclusion list". Neither "open-lifetime pass"
+nor "unscheduled" occurs anywhere else in either shipped tree. The bytes are the
+files published at revision `af0fd3e8f5ce83ba6f4403f1ec8277a4c9cc0068`.
+
+**Impact:** the sentence that explains why the claim supersedes the passing-scope
+list rests on terms a reader cannot resolve from the foundation.
+
+**Settlement condition:** a later fetch at a revision that defines the terms or
+states the supersession without them; the wording is never corrected in this
+repository.
 
 ## The tree-address evidence never binds an address to a supplied root
 

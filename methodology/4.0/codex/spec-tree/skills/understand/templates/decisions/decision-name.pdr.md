@@ -16,7 +16,9 @@
 
 ## Verification
 
-{Each rule is an ALWAYS guarantee or a NEVER boundary, under the one subsection naming how it is verified. Include only the subsections that apply. They are ordered by decreasing enforcement strength.}
+Authoring form: state new ALWAYS/NEVER rules directly here without tags or subsections until verification selection. Draft and routed rules may coexist. Judge draft clarity and falsifiability; declaration approval supplies no evidence result. The subsections below show the routed form, whose rules require their matching tags.
+
+{Each routed rule is an ALWAYS guarantee or a NEVER boundary, under the one subsection naming how it is verified. Include only the subsections that apply. They are ordered by decreasing enforcement strength.}
 
 ### Testing
 
