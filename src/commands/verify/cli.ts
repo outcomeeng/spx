@@ -28,11 +28,11 @@ import {
   type ChangesetScope,
   digestRunInput,
   driveModeOf,
-  isVerifyChangeIdentity,
   evidenceValidatorFor,
   findAppendedSequence,
   findTerminalEvent,
   type InputDescriptor,
+  isVerifyChangeIdentity,
   isVerifyTerminalStatus,
   isVerifyVerificationType,
   parseAppendPayload,
@@ -576,8 +576,14 @@ function parseRecordedInput(content: string): Result<RecordedInput> {
   }
 }
 
-async function readInputRecordAt(path: string, deps: VerifyCliDeps): Promise<Result<RecordedInput | undefined>> {
-  const fs = deps.fs ?? defaultStateStoreFileSystem;
+/**
+ * Read the input a run recorded at start from its sidecar path, or `undefined` when the run recorded
+ * none — the sidecar that marks a journal run as a started verification run.
+ */
+export async function readVerifyRecordedInput(
+  path: string,
+  fs: StateStoreFileSystem,
+): Promise<Result<RecordedInput | undefined>> {
   let content: string;
   try {
     content = await fs.readFile(path, STATE_STORE_TEXT_ENCODING);
@@ -940,7 +946,7 @@ async function prepareAppend(options: VerifyAppendCliOptions, deps: VerifyCliDep
   // raw journal run rather than a started verification run, so reject the append the way `input` does.
   const inputPath = verifyInputRecordPath(runScope);
   if (!inputPath.ok) return inputPath;
-  const inputRecord = await readInputRecordAt(inputPath.value, deps);
+  const inputRecord = await readVerifyRecordedInput(inputPath.value, deps.fs ?? defaultStateStoreFileSystem);
   if (!inputRecord.ok) return inputRecord;
   if (inputRecord.value === undefined) {
     return {
@@ -1176,7 +1182,7 @@ async function readExistingRecordedInput(
   run: VerifyExistingRunAddress,
   deps: VerifyCliDeps,
 ): Promise<Result<RecordedInput | undefined>> {
-  return readInputRecordAt(run.inputRecordPath, deps);
+  return readVerifyRecordedInput(run.inputRecordPath, deps.fs ?? defaultStateStoreFileSystem);
 }
 
 /** Resolve an existing run's journal scope and storage namespace from explicit selectors. */
