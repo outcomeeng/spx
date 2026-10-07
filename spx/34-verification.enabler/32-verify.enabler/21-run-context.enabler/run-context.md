@@ -1,10 +1,17 @@
+---
+id: 01a115e6-be87-7cd9-b001-39f73f7bdd6d
+---
+
 # Run Context
 
-PROVIDES start-time verification context creation, run-token selection, run-locator and resolved-scope reporting, changeset and file scope resolution, and recorded-input replay for typed verification runs
+PROVIDES start-time verification context creation, run-token selection, run-locator and resolved-scope reporting, changeset and file scope resolution, recorded-input replay, and recording of the Change a run serves for typed verification runs
 SO THAT evidence append and terminal projection lifecycle operations
-CAN operate on one scoped verification run with a stable subject, recorded input, and unambiguous run identity
+CAN operate on one scoped verification run with a stable subject, recorded input, unambiguous run identity, and the Change identity the run was started for
 
 ## Assertions
+
+- Given a verification run is started with a Change identity in the canonical `owner/repo#N` form, then `start` records that identity verbatim on the verify-owned run-context event that carries the run's drive mode, and `status` reports that identity for the run
+- ALWAYS: `start` rejects a Change identity outside the canonical `owner/repo#N` form — an owner, a repository name, and a positive issue number — before any run exists, so no verification context, run journal, or run-context event is created for it
 
 ### Scenarios
 
