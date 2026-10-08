@@ -1,11 +1,11 @@
 import * as fc from "fast-check";
 
+import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import {
   REVIEW_TERMINAL_STATUSES,
   VERIFY_VERIFICATION_TYPE,
   type VerifyVerificationType,
 } from "@/domains/verify/verify";
-import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { JOURNAL_RUN_TERMINAL_STATUS } from "@/test/languages/types";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
@@ -81,11 +81,13 @@ export function arbitraryChangeRunsScenario(): fc.Arbitrary<ChangeRunsScenario> 
 export function arbitraryEvidenceFreeTerminalStatuses(): fc.Arbitrary<
   Readonly<Record<VerifyVerificationType, string>>
 > {
-  return fc.record({
-    [VERIFY_VERIFICATION_TYPE.REVIEW]: fc.constantFrom(...REVIEW_TERMINAL_STATUSES),
-    [VERIFY_VERIFICATION_TYPE.AUDIT]: fc.constant(JOURNAL_RUN_STATE_STATUS.REJECTED),
-    [VERIFY_VERIFICATION_TYPE.TEST]: fc.constantFrom(...Object.values(JOURNAL_RUN_TERMINAL_STATUS)),
-  } satisfies Record<VerifyVerificationType, fc.Arbitrary<string>>);
+  return fc.record(
+    {
+      [VERIFY_VERIFICATION_TYPE.REVIEW]: fc.constantFrom(...REVIEW_TERMINAL_STATUSES),
+      [VERIFY_VERIFICATION_TYPE.AUDIT]: fc.constant(JOURNAL_RUN_STATE_STATUS.REJECTED),
+      [VERIFY_VERIFICATION_TYPE.TEST]: fc.constantFrom(...Object.values(JOURNAL_RUN_TERMINAL_STATUS)),
+    } satisfies Record<VerifyVerificationType, fc.Arbitrary<string>>,
+  );
 }
 
 export const CHANGE_RUNS_TEST_GENERATOR = {
