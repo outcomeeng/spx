@@ -42,7 +42,7 @@ import {
 describe("spx spec status --update write set", () => {
   it("ALWAYS: writes a schema-version-1 spx.status.json into each tracked node directory, recording only that node's linked references", async () => {
     await withClassificationTree(
-      sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.classificationTree()),
+      sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.delegationTree()),
       async ({ env, expectations, recordOutcomeEvidence }) => {
         await trackSpecTree(env.productDir);
         await updateNodeStatus({

@@ -87,6 +87,15 @@ export type ClassificationTreeFixture = {
   readonly nodes: readonly ClassificationTreeNode[];
 };
 
+/**
+ * Evidence-reference outcomes keyed by verification mechanism, carrying no `overall`:
+ * the writer derives each mechanism's overall from these outcomes, so a generated
+ * overall drawn apart from them would describe a record the writer never produces.
+ */
+export type NodeStatusVerificationOutcomes = Readonly<
+  Partial<Record<NodeStatusVerificationMechanism, Readonly<Record<string, NodeStatusEvidenceOutcome>>>>
+>;
+
 export const NODE_STATUS_TEST_GENERATOR = {
   classificationTree: arbitraryClassificationTree,
   classificationTreeWithVerificationReferences: arbitraryClassificationTreeWithVerificationReferences,
@@ -94,7 +103,7 @@ export const NODE_STATUS_TEST_GENERATOR = {
   statusReference: arbitraryStatusReference,
   evidenceOutcome: arbitraryEvidenceOutcome,
   contradictingEvidenceOutcome: arbitraryContradictingEvidenceOutcome,
-  verification: arbitraryVerification,
+  verificationOutcomes: arbitraryVerificationOutcomes,
   trackedFile: arbitraryTrackedFile,
   trackedFileSet: arbitraryTrackedFileSet,
   invalidExcludeEntry: arbitraryInvalidExcludeEntry,
@@ -216,15 +225,20 @@ function nodeDirectoryName(order: number, slug: string): string {
   return `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${ENABLER_SUFFIX}`;
 }
 
-export function arbitraryVerification(): fc.Arbitrary<NodeStatusVerification> {
+export function arbitraryVerificationOutcomes(): fc.Arbitrary<NodeStatusVerificationOutcomes> {
   return fc
-    .uniqueArray(fc.constantFrom(...STATUS_VERIFICATION_MECHANISMS), { minLength: 1, maxLength: 3 })
+    .uniqueArray(fc.constantFrom(...STATUS_VERIFICATION_MECHANISMS), {
+      minLength: 1,
+      maxLength: STATUS_VERIFICATION_MECHANISMS.length,
+    })
     .chain((mechanisms) =>
       fc.tuple(
-        ...mechanisms.map((mechanism) => arbitraryMechanismRecord().map((record) => [mechanism, record] as const)),
+        ...mechanisms.map((mechanism) =>
+          arbitraryReferenceOutcomes().map((outcomes) => [mechanism, outcomes] as const)
+        ),
       )
     )
-    .map(verificationFromEntries);
+    .map(verificationOutcomesFromEntries);
 }
 
 function arbitraryNodeSlug(): fc.Arbitrary<string> {
@@ -301,21 +315,15 @@ function arbitraryUntrackedNodeStatusPath(takenNodeIds: readonly string[] = []):
     .map((nodeId) => [SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodeId, NODE_STATUS_FILENAME].join(SPEC_TREE_PATH_SEPARATOR));
 }
 
-function arbitraryMechanismRecord(): fc.Arbitrary<NodeStatusMechanismRecord> {
+function arbitraryReferenceOutcomes(): fc.Arbitrary<Readonly<Record<string, NodeStatusEvidenceOutcome>>> {
   return fc
     .uniqueArray(arbitraryStatusReference(), { minLength: 1, maxLength: 4 })
     .chain((references) =>
       fc.tuple(
-        fc.constantFrom(...STATUS_MECHANISM_OVERALLS),
-        fc.tuple(
-          ...references.map((reference) => arbitraryEvidenceOutcome().map((outcome) => [reference, outcome] as const)),
-        ),
+        ...references.map((reference) => arbitraryEvidenceOutcome().map((outcome) => [reference, outcome] as const)),
       )
     )
-    .map(([overall, entries]): NodeStatusMechanismRecord => ({
-      [NODE_STATUS_FIELD.OVERALL]: overall,
-      ...outcomesFromEntries(entries),
-    }));
+    .map(outcomesFromEntries);
 }
 
 export function arbitraryClassificationTree(): fc.Arbitrary<ClassificationTreeFixture> {
@@ -438,12 +446,14 @@ function outcomesFromEntries(
   return outcomes;
 }
 
-function verificationFromEntries(
-  entries: readonly (readonly [NodeStatusVerificationMechanism, NodeStatusMechanismRecord])[],
-): NodeStatusVerification {
-  const verification: Partial<Record<NodeStatusVerificationMechanism, NodeStatusMechanismRecord>> = {};
-  for (const [mechanism, record] of entries) {
-    verification[mechanism] = record;
+function verificationOutcomesFromEntries(
+  entries: readonly (readonly [NodeStatusVerificationMechanism, Readonly<Record<string, NodeStatusEvidenceOutcome>>])[],
+): NodeStatusVerificationOutcomes {
+  const verificationOutcomes: Partial<
+    Record<NodeStatusVerificationMechanism, Readonly<Record<string, NodeStatusEvidenceOutcome>>>
+  > = {};
+  for (const [mechanism, outcomes] of entries) {
+    verificationOutcomes[mechanism] = outcomes;
   }
-  return verification;
+  return verificationOutcomes;
 }

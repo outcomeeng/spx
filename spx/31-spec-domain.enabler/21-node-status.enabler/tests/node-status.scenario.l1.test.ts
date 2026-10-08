@@ -20,7 +20,11 @@ import {
 } from "@/lib/spec-tree";
 import { NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
 import { sampleGeneratedValue } from "@testing/generators/sample";
-import { listNodeStatusFiles, withClassificationTree } from "@testing/harnesses/node-status/node-status";
+import {
+  createConsultationRecordingResolver,
+  listNodeStatusFiles,
+  withClassificationTree,
+} from "@testing/harnesses/node-status/node-status";
 
 describe("a node with no spx.status.json", () => {
   it("derives its lifecycle state live instead of reading a file", async () => {
@@ -58,12 +62,16 @@ describe("a node with no spx.status.json", () => {
 describe("spx spec status --update over a node with linked verification references", () => {
   it("records outcomes for exactly those references from recorded evidence, then derives the lifecycle projection", async () => {
     await withClassificationTree(
-      sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.classificationTreeWithVerificationReferences()),
+      sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.delegationTree()),
       async ({ env, expectations, recordOutcomeEvidence }) => {
-        await updateNodeStatus({
-          productDir: env.productDir,
-          resolveOutcome: (await recordOutcomeEvidence()).resolveOutcome,
-        });
+        const recording = createConsultationRecordingResolver((await recordOutcomeEvidence()).resolveOutcome);
+        await updateNodeStatus({ productDir: env.productDir, resolveOutcome: recording.resolveOutcome });
+
+        expect(recording.consultations).toEqual(
+          expectations
+            .filter((expectation) => expectation.facts.hasVerificationReferences && !expectation.facts.isExcluded)
+            .map((expectation) => ({ nodeId: expectation.nodeId, evidencePaths: expectation.evidencePaths })),
+        );
 
         for (const expectation of expectations) {
           const recorded = readNodeStatus(join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, expectation.nodeId));
