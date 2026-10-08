@@ -1,4 +1,4 @@
-import { mkdir, realpath, writeFile } from "node:fs/promises";
+import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { execa } from "execa";
@@ -21,11 +21,12 @@ import {
   VERIFY_SCOPE_SEPARATOR,
   VERIFY_SCOPE_TYPE,
   VERIFY_VERB,
+  verifyInputRecordPath,
   type VerifyScopeType,
   type VerifyVerificationType,
 } from "@/domains/verify/verify";
-import type { GitDependencies } from "@/lib/git/root";
-import { defaultStateStoreFileSystem } from "@/lib/state-store";
+import { detectGitCommonDirProductRoot, getCurrentBranch, getHeadSha, type GitDependencies } from "@/lib/git/root";
+import { defaultStateStoreFileSystem, resolveBranchIdentity, slugBranchIdentity } from "@/lib/state-store";
 import type { ChangeRunsScenario } from "@testing/generators/verify/change-runs";
 import { type FindingWithKey, sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import {
@@ -46,13 +47,17 @@ const GIT_FAILURE_EXIT_CODE = 1;
 const BASE_COMMIT_MESSAGE = "Initialize change-runs fixture";
 const HEAD_COMMIT_MESSAGE = "Add the verified file";
 
-/** A run a test started: the selectors `start` received, the run token it reported, and the checkout it ran in. */
+/**
+ * A run a test started: the selectors `start` received, the run token it reported, the checkout it
+ * ran in, and the branch scope its journal and recorded input live under.
+ */
 export interface StartedChangeRun {
   readonly runToken: string;
   readonly verificationType: VerifyVerificationType;
   readonly scopeType: VerifyScopeType;
   readonly scope: string;
   readonly cwd: string;
+  readonly branchSlug: string;
 }
 
 /** Which run to start: its verification type and scope type, the Change it serves, and the checkout to start it from. */
@@ -81,7 +86,20 @@ export interface ChangeRunsRepository {
   appendFindings(run: StartedChangeRun, findings: readonly FindingWithKey[]): Promise<void>;
   finish(run: StartedChangeRun, terminalStatus: string): Promise<void>;
   status(run: StartedChangeRun): Promise<VerifyStatusReport>;
+  /** Delete the run's recorded-input sidecar from the store, leaving its journal untouched. */
+  removeRecordedInput(run: StartedChangeRun): Promise<void>;
   listChangeRuns(change: string, cwd?: string): Promise<CliCommandResult>;
+}
+
+/**
+ * The branch slug `start` files a run under when started from `cwd` with no branch override: the
+ * slug of the checked-out branch, or of the detached head's commit.
+ */
+async function branchSlugAt(cwd: string, git: GitDependencies): Promise<string> {
+  const branchName = (await getCurrentBranch(cwd, git)) ?? undefined;
+  const headSha = await getHeadSha(cwd, git);
+  if (headSha === null) throw new Error(`change-runs harness: no HEAD commit at ${cwd}`);
+  return slugBranchIdentity(resolveBranchIdentity({ ...(branchName === undefined ? {} : { branchName }), headSha }));
 }
 
 function realGitDependencies(): GitDependencies {
@@ -195,6 +213,7 @@ export async function withChangeRunsRepository<T>(
       startRun: async (request) => {
         const cwd = request.cwd ?? productDir;
         const scope = scopeFor(request.scopeType);
+        const branchSlug = await branchSlugAt(cwd, realGitDependencies());
         const started = requireOk(
           await verifyStartCommand(
             {
@@ -214,6 +233,7 @@ export async function withChangeRunsRepository<T>(
           scopeType: request.scopeType,
           scope,
           cwd,
+          branchSlug,
         };
       },
       appendFindings: async (run, findings) => {
@@ -246,6 +266,17 @@ export async function withChangeRunsRepository<T>(
           VERIFY_VERB.STATUS,
         );
         return JSON.parse(status.output) as VerifyStatusReport;
+      },
+      removeRecordedInput: async (run) => {
+        const product = await detectGitCommonDirProductRoot(run.cwd, realGitDependencies());
+        const inputPath = verifyInputRecordPath({
+          productDir: product.productDir,
+          branchSlug: run.branchSlug,
+          type: run.verificationType,
+          runToken: run.runToken,
+        });
+        if (!inputPath.ok) throw new Error(`change-runs harness: input record path failed: ${inputPath.error}`);
+        await rm(inputPath.value);
       },
       listChangeRuns: (change, cwd) => verifyChangeRunsCommand({ change }, listingDeps(cwd ?? productDir)),
     };

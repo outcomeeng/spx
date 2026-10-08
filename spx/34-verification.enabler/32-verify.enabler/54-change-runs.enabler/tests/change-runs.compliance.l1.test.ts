@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
+import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { CHANGE_RUNS_TEST_GENERATOR } from "@testing/generators/verify/change-runs";
@@ -90,6 +91,49 @@ describe("Change runs listing compliance", () => {
       expect(parseChangeRunsReport(fromLinkedWorktree.output)).toEqual(
         parseChangeRunsReport(fromMainCheckout.output),
       );
+    });
+  });
+
+  it("lists a run that serves the Change but has no recorded-input sidecar with its journal-derived fields and no scope fields, without failing the listing", async () => {
+    const scenario = sampleGeneratedValue(CHANGE_RUNS_TEST_GENERATOR.scenario());
+    const findings = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewFindingBatch());
+    await withChangeRunsRepository(scenario, async (repository) => {
+      await repository.checkoutNewBranch(scenario.firstBranch);
+      const withoutSidecar = await repository.startRun({
+        verificationType: VERIFY_VERIFICATION_TYPE.REVIEW,
+        scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+        change: scenario.change,
+      });
+      await repository.appendFindings(withoutSidecar, findings);
+      await repository.finish(withoutSidecar, JOURNAL_RUN_STATE_STATUS.REJECTED);
+      const statusBeforeRemoval = await repository.status(withoutSidecar);
+      await repository.removeRecordedInput(withoutSidecar);
+      const withSidecar = await repository.startRun({
+        verificationType: VERIFY_VERIFICATION_TYPE.AUDIT,
+        scopeType: VERIFY_SCOPE_TYPE.FILE,
+        change: scenario.change,
+      });
+
+      const listed = await repository.listChangeRuns(scenario.change);
+
+      expect(listed.exitCode, listed.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
+      const report = parseChangeRunsReport(listed.output);
+      expect(report.runs[VERIFY_VERIFICATION_TYPE.REVIEW]).toEqual([{
+        runToken: withoutSidecar.runToken,
+        verificationType: withoutSidecar.verificationType,
+        driveMode: statusBeforeRemoval.driveMode,
+        sealed: statusBeforeRemoval.sealed,
+        terminalStatus: statusBeforeRemoval.terminalStatus,
+        findingCount: statusBeforeRemoval.findingCount,
+        findingCounts: statusBeforeRemoval.findingCounts,
+      }]);
+      expect(report.runs[VERIFY_VERIFICATION_TYPE.AUDIT]).toEqual([
+        expect.objectContaining({
+          runToken: withSidecar.runToken,
+          scopeType: withSidecar.scopeType,
+          scope: withSidecar.scope,
+        }),
+      ]);
     });
   });
 
