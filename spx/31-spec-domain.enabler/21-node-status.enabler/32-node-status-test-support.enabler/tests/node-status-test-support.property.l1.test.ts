@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { posix } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -7,7 +8,13 @@ import {
   NODE_STATUS_EXCLUDE_FILENAME,
   NODE_STATUS_EXCLUDE_LINE_GRAMMAR,
 } from "@/lib/node-status";
-import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
+import {
+  recognizeSpecTreeFilesystemEntry,
+  SPEC_TREE_CONFIG,
+  SPEC_TREE_ENTRY_TYPE,
+  SPEC_TREE_FILESYSTEM_RECORD_TYPE,
+  SPEC_TREE_GRAMMAR,
+} from "@/lib/spec-tree";
 import { TEST_RUN_STATE_STATUS } from "@/test/run-state";
 import { NODE_STATUS_READABLE_SLUGS, NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
 import { CLASSIFICATION_FIXTURE_PATHS, withClassificationTree } from "@testing/harnesses/node-status/node-status";
@@ -128,5 +135,22 @@ describe("node-status test support", () => {
         { level: PROPERTY_LEVEL.L1 },
       );
     }
+  });
+
+  it("generates untracked node-status paths whose node directories carry readable slugs", () => {
+    assertProperty(
+      NODE_STATUS_TEST_GENERATOR.untrackedNodeStatusPath(),
+      (statusPath) => {
+        const entry = recognizeSpecTreeFilesystemEntry({
+          type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY,
+          relativePath: posix.dirname(statusPath),
+        });
+        expect(entry?.type).toBe(SPEC_TREE_ENTRY_TYPE.NODE);
+        const slug = entry?.type === SPEC_TREE_ENTRY_TYPE.NODE ? entry.slug : undefined;
+        expect(NODE_STATUS_READABLE_SLUGS).toContain(slug);
+        expect(slug).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
   });
 });
