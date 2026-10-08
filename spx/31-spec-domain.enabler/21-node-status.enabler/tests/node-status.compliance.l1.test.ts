@@ -33,6 +33,7 @@ import {
   commitSpecTree,
   createConsultationRecordingResolver,
   listNodeStatusFiles,
+  readNodeStatusFileBytes,
   readSpecTreeWorkingChanges,
   trackSpecTree,
   withClassificationTree,
@@ -64,19 +65,23 @@ describe("spx spec status --update write set", () => {
 });
 
 describe("status read paths", () => {
-  it("NEVER: spx spec status, the evidence provider, the EXCLUDE reader, or the status reader writes spx.status.json, while --update writes into the same tree", async () => {
+  it("NEVER: spx spec status, the evidence provider, the EXCLUDE reader, or the status reader writes spx.status.json — neither creating one where none exists nor changing one --update wrote", async () => {
     await withClassificationTree(
       sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.classificationTree()),
       async ({ env, expectations, recordOutcomeEvidence }) => {
-        await statusCommand({ cwd: env.productDir, onWarning: () => undefined });
-        await readSpecTree({
-          source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
-          evidence: createNodeStatusProvider(env.productDir),
-        });
-        createNodeStatusExcludeReader(env.productDir);
-        for (const expectation of expectations) {
-          readNodeStatus(join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, expectation.nodeId));
-        }
+        const runReadPaths = async (): Promise<void> => {
+          await statusCommand({ cwd: env.productDir, onWarning: () => undefined });
+          await readSpecTree({
+            source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
+            evidence: createNodeStatusProvider(env.productDir),
+          });
+          createNodeStatusExcludeReader(env.productDir);
+          for (const expectation of expectations) {
+            readNodeStatus(join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, expectation.nodeId));
+          }
+        };
+
+        await runReadPaths();
 
         expect(await listNodeStatusFiles(env.productDir)).toEqual([]);
 
@@ -84,10 +89,14 @@ describe("status read paths", () => {
           productDir: env.productDir,
           resolveOutcome: (await recordOutcomeEvidence()).resolveOutcome,
         });
-
-        expect([...await listNodeStatusFiles(env.productDir)].sort(compareAsciiStrings)).toEqual(
+        const writtenByUpdate = await readNodeStatusFileBytes(env.productDir);
+        expect(Object.keys(writtenByUpdate).sort(compareAsciiStrings)).toEqual(
           expectations.map((expectation) => expectation.statusPath).sort(compareAsciiStrings),
         );
+
+        await runReadPaths();
+
+        expect(await readNodeStatusFileBytes(env.productDir)).toEqual(writtenByUpdate);
       },
     );
   });

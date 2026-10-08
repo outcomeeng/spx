@@ -245,3 +245,11 @@ export async function listNodeStatusFiles(productDir: string): Promise<readonly 
     .filter((entry) => entry.isFile() && entry.name === NODE_STATUS_FILENAME)
     .map((entry) => relative(productDir, join(entry.parentPath, entry.name)));
 }
+
+/** The raw bytes of every `spx.status.json` under the spec tree of `productDir`, keyed by product-relative path. */
+export async function readNodeStatusFileBytes(productDir: string): Promise<Readonly<Record<string, Buffer>>> {
+  const paths = await listNodeStatusFiles(productDir);
+  return Object.fromEntries(
+    await Promise.all(paths.map(async (path) => [path, await readFile(join(productDir, path))] as const)),
+  );
+}
