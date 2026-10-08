@@ -13,16 +13,26 @@ import {
 } from "@/domains/verify/verify";
 
 /**
- * One verification run in a Change's listing: the selectors the run was started with, the head
- * commit of a changeset scope, and the drive mode, sealed state, terminal status, and finding
- * counts folded from the run's event history. A listed run never carries its finding payloads.
+ * The scope fields only a run's recorded-input sidecar carries: the scope type and scope identity
+ * the run was started with, and the head commit of a changeset scope. A run without a sidecar
+ * carries none of them.
  */
-export interface VerifyChangeRun {
+export interface VerifyChangeRunRecordedScope {
+  readonly scopeType?: string;
+  readonly scope?: string;
+  readonly headCommit?: string;
+}
+
+/**
+ * One verification run in a Change's listing: the drive mode, sealed state, terminal status, and
+ * finding counts folded from the run's event history, and — when the run has a recorded-input
+ * sidecar, the only record that carries them — the scope type and scope identity the run was
+ * started with and the head commit of a changeset scope. A listed run never carries its finding
+ * payloads.
+ */
+export interface VerifyChangeRun extends VerifyChangeRunRecordedScope {
   readonly runToken: string;
   readonly verificationType: VerifyVerificationType;
-  readonly scopeType: string;
-  readonly scope: string;
-  readonly headCommit?: string;
   readonly driveMode: VerifyDriveMode;
   readonly sealed: boolean;
   readonly terminalStatus?: string;
@@ -57,25 +67,33 @@ function changesetHeadOf(recordedInput: RecordedInput): string | undefined {
   return changeset.ok ? changeset.value.head : undefined;
 }
 
+/** The scope fields a listed run carries from its recorded input; a run without one carries none. */
+function recordedScopeOf(recordedInput: RecordedInput | undefined): VerifyChangeRunRecordedScope {
+  if (recordedInput === undefined) return {};
+  const headCommit = changesetHeadOf(recordedInput);
+  return {
+    scopeType: recordedInput.scopeType,
+    scope: recordedInput.scopeIdentity,
+    ...(headCommit === undefined ? {} : { headCommit }),
+  };
+}
+
 /**
- * Project one run into its listing entry: the selectors from the input recorded at start, and the
- * drive mode, sealed state, terminal status, and finding counts from the terminal projection of
- * its event history — the same fold `status` reports.
+ * Project one run into its listing entry: the drive mode, sealed state, terminal status, and
+ * finding counts from the terminal projection of its event history — the same fold `status`
+ * reports — and the scope selectors from the input recorded at start when the run has one.
  */
 export function projectChangeRun(args: {
   readonly runToken: string;
   readonly verificationType: VerifyVerificationType;
-  readonly recordedInput: RecordedInput;
+  readonly recordedInput: RecordedInput | undefined;
   readonly events: readonly JournalEvent[];
 }): VerifyChangeRun {
   const projection = projectVerifyRun(args.events);
-  const headCommit = changesetHeadOf(args.recordedInput);
   return {
     runToken: args.runToken,
     verificationType: args.verificationType,
-    scopeType: args.recordedInput.scopeType,
-    scope: args.recordedInput.scopeIdentity,
-    ...(headCommit === undefined ? {} : { headCommit }),
+    ...recordedScopeOf(args.recordedInput),
     driveMode: projection.driveMode,
     sealed: projection.sealed,
     ...(projection.terminalStatus === undefined ? {} : { terminalStatus: projection.terminalStatus }),

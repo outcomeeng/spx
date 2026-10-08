@@ -14,11 +14,17 @@ import { JOURNAL_SEQ_BASE } from "@/lib/agent-run-journal";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { defaultGitDependencies, detectGitCommonDirProductRoot, type GitDependencies } from "@/lib/git/root";
 import { defaultStateStoreFileSystem, type StateStoreFileSystem } from "@/lib/state-store";
+import {
+  authoredText,
+  externalValue,
+  jsonDocument,
+  renderTerminalText,
+  terminal,
+} from "@/lib/terminal-text/terminal-text";
 
 export const VERIFY_CHANGE_RUNS_ERROR = {
   CHANGE_IDENTITY_INVALID: "spx verification run list requires a Change identity in the canonical owner/repo#N form",
   LIST_FAILED: "spx verification run list could not read the recorded runs",
-  RECORDED_INPUT_MISSING: "spx verification run list found a run serving the Change without its recorded input",
 } as const;
 
 export interface VerifyChangeRunsCliOptions {
@@ -35,8 +41,10 @@ export interface VerifyChangeRunsDeps {
 /** Every journal run a listing scans: unbounded, since a Change's runs are counted, never sampled. */
 const VERIFY_CHANGE_RUNS_SCAN_LIMIT = Number.POSITIVE_INFINITY;
 
+/** A listing failure whose externally-originated cause is escaped where it is embedded. */
 function listFailure(error: string): Result<never> {
-  return { ok: false, error: `${VERIFY_CHANGE_RUNS_ERROR.LIST_FAILED}: ${error}` };
+  const diagnostic = terminal`${authoredText(VERIFY_CHANGE_RUNS_ERROR.LIST_FAILED)}: ${externalValue(error)}`;
+  return { ok: false, error: renderTerminalText(diagnostic) };
 }
 
 /**
@@ -64,9 +72,6 @@ async function changeRunsOfType(
     if (!inputPath.ok) return listFailure(inputPath.error);
     const recordedInput = await readVerifyRecordedInput(inputPath.value, fs);
     if (!recordedInput.ok) return listFailure(recordedInput.error);
-    if (recordedInput.value === undefined) {
-      return { ok: false, error: `${VERIFY_CHANGE_RUNS_ERROR.RECORDED_INPUT_MISSING}: ${inputPath.value}` };
-    }
     listed.push(projectChangeRun({
       runToken: run.runToken,
       verificationType,
@@ -99,5 +104,5 @@ export async function verifyChangeRunsCommand(
     listed.push(...runs.value);
   }
   const report: VerifyChangeRunsReport = { change: options.change, runs: groupChangeRunsByType(listed) };
-  return { exitCode: VERIFY_CLI_EXIT_CODE.OK, output: JSON.stringify(report) };
+  return { exitCode: VERIFY_CLI_EXIT_CODE.OK, output: renderTerminalText(jsonDocument(report)) };
 }
