@@ -85,6 +85,8 @@ export const VERIFY_CLI = {
   scopeTypeOptionDescription: `Scope type; ${VERIFY_SCOPE_TYPE.CHANGESET} or ${VERIFY_SCOPE_TYPE.FILE}`,
   scopeOptionDescription: "Scope identity; <base>..<head> or a product-relative file path",
   inputOption: "--input <input-source>",
+  changeOption: "--change <owner/repo#N>",
+  changeOptionDescription: "Change the run serves, in the canonical owner/repo#N form; omit when it serves none",
   runOption: "--run <token>",
   payloadOption: "--payload <payload-source>",
   payloadOptionDescription: "Evidence payload source; stdin or a file path",
@@ -104,6 +106,7 @@ interface VerifySharedCliOptions {
 
 interface VerifyStartActionOptions extends VerifySharedCliOptions {
   readonly input: string;
+  readonly change?: string;
 }
 
 interface VerifyInputActionOptions extends VerifySharedCliOptions {
@@ -200,6 +203,7 @@ export function registerVerifyCommands(
     .requiredOption(VERIFY_CLI.scopeTypeOption, VERIFY_CLI.scopeTypeOptionDescription)
     .requiredOption(VERIFY_CLI.scopeOption, VERIFY_CLI.scopeOptionDescription)
     .requiredOption(VERIFY_CLI.inputOption, "Verification input source; stdin or a file path")
+    .option(VERIFY_CLI.changeOption, VERIFY_CLI.changeOptionDescription)
     .action(async (options: VerifyStartActionOptions) => {
       reportCliResult(await handlers.start(options, deps()), invocation.io);
     });

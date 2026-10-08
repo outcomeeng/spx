@@ -1766,6 +1766,68 @@ export async function observeStartChangeIdentity(change?: string): Promise<Verif
   };
 }
 
+/** What `spx verification run start --change <change>` handed the start handler and recorded on the run-context event. */
+export interface VerificationRunStartChangeObservation {
+  readonly rejectedByCommander: boolean;
+  readonly startOptions: readonly VerifyStartCliOptions[];
+  readonly startResults: readonly CliCommandResult[];
+  readonly runContextData: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * Parse `spx verification run start` with a `--change` operand through the registered command family,
+ * dispatching to the real start handler over a controlled store and git boundary, then read the
+ * started run's run-context event.
+ */
+export async function observeVerificationRunStartChange(
+  change: string,
+): Promise<VerificationRunStartChangeObservation> {
+  const scenario = createReviewVerifyRunContextScenario();
+  const fs = createInMemoryStateStoreFileSystem();
+  const deps = verifyDeps(scenario, fs);
+  const recording = createRecordingVerifyHandlers();
+  const startOptions: VerifyStartCliOptions[] = [];
+  const startResults: CliCommandResult[] = [];
+  const handlers: VerifyCliHandlers = {
+    ...recording.handlers,
+    start: async (options) => {
+      startOptions.push(options);
+      const result = await verifyStartCommand(options, deps);
+      startResults.push(result);
+      return result;
+    },
+  };
+  const program = createRecordingVerifyProgram({ ...recording, handlers }, scenario.productDir);
+  installCommanderExitOverride(program);
+  program.configureOutput({ writeErr: () => undefined, writeOut: () => undefined });
+  let rejectedByCommander = false;
+  try {
+    await program.parseAsync(
+      verificationRunArgs([VERIFY_CLI.startCommandName], [
+        requiredFlag(VERIFY_CLI.verificationTypeOption),
+        scenario.verificationType,
+        requiredFlag(VERIFY_CLI.scopeTypeOption),
+        scenario.scopeType,
+        requiredFlag(VERIFY_CLI.scopeOption),
+        scenario.scope,
+        requiredFlag(VERIFY_CLI.inputOption),
+        VERIFY_INPUT_SOURCE.STDIN,
+        requiredFlag(VERIFY_CLI.changeOption),
+        change,
+      ]),
+      { from: SPX_COMMANDER_PARSE_SOURCE },
+    );
+  } catch (error) {
+    if (!(error instanceof CommanderError)) throw error;
+    rejectedByCommander = true;
+  }
+  const started = startResults.at(0);
+  const runContexts = started?.exitCode === VERIFY_CLI_EXIT_CODE.OK
+    ? await runContextEvents(scenario, fs, parseStartReport(started.output).runToken)
+    : [];
+  return { rejectedByCommander, startOptions, startResults, runContextData: eventDataRecord(runContexts[0]) };
+}
+
 /** Start a run with the given Change identity and report whether any `.spx/` state exists afterwards. */
 export async function observeStartWithChangeIdentityState(change: string): Promise<{
   readonly started: CliCommandResult;
