@@ -22,11 +22,11 @@ Verification runs share one CLI vocabulary even when their judgment and driver d
 - NEVER: a verification type is exposed as a verb command path such as `spx verification validate` or `spx verification eval` ([compliance])
 - ALWAYS: caller-driven scope options map `changeset` to `<base>..<head>` and `file` to one product-relative path supplied through `--scope` ([mapping])
 - ALWAYS: `start` requires `--input <input-source>` and reports `runToken`, `contextDigest`, `resolvedScope`, `input`, and `locator` ([conformance])
-- ALWAYS: every existing-run command path requires `--run <run-token>` ([compliance])
-- NEVER: an existing-run command path accepts a fresh `--input <input-source>` value ([compliance])
+- ALWAYS: every existing-run command path — `input`, `scope add`, `finding add`, `finish`, `status`, and `render` of `spx verification run` — requires `--run <run-token>` ([compliance])
+- NEVER: an existing-run command path — `input`, `scope add`, `finding add`, `finish`, `status`, or `render` — accepts a fresh `--input <input-source>` value ([compliance])
 - ALWAYS: `scope add` and `finding add` require `--payload <payload-source>` and `--idempotency-key <key>` ([compliance])
 - ALWAYS: `finish` requires `--terminal-status <status>` and accepts optional `--terminal-metadata <payload-source>` ([compliance])
-- ALWAYS: an existing-run lookup failure names the requested run selectors and searched target ([conformance])
+- ALWAYS: a run-lookup failure on an existing-run command path — `input`, `scope add`, `finding add`, `finish`, `status`, or `render` — names the requested run selectors and searched target ([conformance])
 - NEVER: expose public verification-run command paths named `append-scope` or `append-finding` ([compliance])
 
 ### Audit
