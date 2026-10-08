@@ -1736,15 +1736,16 @@ function eventDataRecord(event: JournalEvent | undefined): Readonly<Record<strin
   return typeof data === "object" && data !== null && !Array.isArray(data) ? data as Record<string, unknown> : {};
 }
 
+/**
+ * Parse a command's JSON object report. Output that is not a JSON object raises an execution error
+ * rather than reading as an empty report, so an absent-field observation cannot pass vacuously.
+ */
 function parseJsonRecord(output: string): Readonly<Record<string, unknown>> {
-  try {
-    const parsed = JSON.parse(output) as unknown;
-    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
-      ? parsed as Record<string, unknown>
-      : {};
-  } catch {
-    return {};
+  const parsed = JSON.parse(output) as unknown;
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error(`verify harness expected a JSON object report, got: ${output}`);
   }
+  return parsed as Record<string, unknown>;
 }
 
 /**
