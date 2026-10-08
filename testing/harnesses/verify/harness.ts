@@ -7,6 +7,7 @@ import * as fc from "fast-check";
 import { type JournalCliDeps, journalOpenCommand, journalReadCommand } from "@/commands/journal/cli";
 import type { JournalStreamSink } from "@/commands/journal/runtime";
 import type { ExecuteRunCliOptions } from "@/commands/verification-exec";
+import type { VerifyChangeRunsCliOptions } from "@/commands/verify/change-runs";
 import {
   VERIFY_CLI_ERROR,
   VERIFY_CLI_EXIT_CODE,
@@ -169,6 +170,7 @@ export interface VerifyCliRecording {
   readonly executeRunOptions: readonly ExecuteRunCliOptions[];
   readonly finishOptions: readonly VerifyFinishCliOptions[];
   readonly inputOptions: readonly VerifyInputCliOptions[];
+  readonly listOptions: readonly VerifyChangeRunsCliOptions[];
   readonly renderOptions: readonly VerifyRenderCliOptions[];
   readonly startOptions: readonly VerifyStartCliOptions[];
   readonly statusOptions: readonly VerifyStatusCliOptions[];
@@ -237,6 +239,7 @@ function createRecordingVerifyHandlers(): VerifyCliRecording {
   const executeRunOptions: ExecuteRunCliOptions[] = [];
   const finishOptions: VerifyFinishCliOptions[] = [];
   const inputOptions: VerifyInputCliOptions[] = [];
+  const listOptions: VerifyChangeRunsCliOptions[] = [];
   const renderOptions: VerifyRenderCliOptions[] = [];
   const startOptions: VerifyStartCliOptions[] = [];
   const statusOptions: VerifyStatusCliOptions[] = [];
@@ -247,6 +250,7 @@ function createRecordingVerifyHandlers(): VerifyCliRecording {
     executeRunOptions,
     finishOptions,
     inputOptions,
+    listOptions,
     renderOptions,
     startOptions,
     statusOptions,
@@ -269,6 +273,10 @@ function createRecordingVerifyHandlers(): VerifyCliRecording {
       },
       input: (options) => {
         inputOptions.push(options);
+        return Promise.resolve(okCliResult());
+      },
+      list: (options) => {
+        listOptions.push(options);
         return Promise.resolve(okCliResult());
       },
       render: (options) => {
@@ -1712,6 +1720,135 @@ export function observeCallerStartDriveMode(): Promise<VerifyStartDriveModeObser
 
 export function observeSpxStartDriveMode(): Promise<VerifyStartDriveModeObservation> {
   return observeStartDriveMode(VERIFY_DRIVE_MODE.SPX);
+}
+
+/** What a start with or without a Change identity recorded on its run-context event and reported through `status`. */
+export interface VerifyStartChangeIdentityObservation {
+  readonly started: CliCommandResult;
+  readonly runContextCount: number;
+  readonly runContextData: Readonly<Record<string, unknown>>;
+  readonly status: CliCommandResult;
+  readonly statusReport: Readonly<Record<string, unknown>>;
+}
+
+function eventDataRecord(event: JournalEvent | undefined): Readonly<Record<string, unknown>> {
+  const data = event?.data;
+  return typeof data === "object" && data !== null && !Array.isArray(data) ? data as Record<string, unknown> : {};
+}
+
+/**
+ * Parse a command's JSON object report. Output that is not a JSON object raises an execution error
+ * rather than reading as an empty report, so an absent-field observation cannot pass vacuously.
+ */
+function parseJsonRecord(output: string): Readonly<Record<string, unknown>> {
+  const parsed = JSON.parse(output) as unknown;
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error(`verify harness expected a JSON object report, got: ${output}`);
+  }
+  return parsed as Record<string, unknown>;
+}
+
+/**
+ * Start a caller-driven review run, supplying the given Change identity when one is present, then
+ * read the run's run-context events and its `status` report.
+ */
+export async function observeStartChangeIdentity(change?: string): Promise<VerifyStartChangeIdentityObservation> {
+  const scenario = createReviewVerifyRunContextScenario();
+  const fs = createInMemoryStateStoreFileSystem();
+  const deps = verifyDeps(scenario, fs);
+  const started = await verifyStartCommand(
+    change === undefined ? verifyStartOptions(scenario) : { ...verifyStartOptions(scenario), change },
+    deps,
+  );
+  if (started.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+    return { started, runContextCount: 0, runContextData: {}, status: started, statusReport: {} };
+  }
+  const runToken = parseStartReport(started.output).runToken;
+  const runContexts = await runContextEvents(scenario, fs, runToken);
+  const status = await verifyStatusCommand(verifyStatusOptions(scenario, runToken), deps);
+  return {
+    started,
+    runContextCount: runContexts.length,
+    runContextData: eventDataRecord(runContexts[0]),
+    status,
+    statusReport: parseJsonRecord(status.output),
+  };
+}
+
+/** What `spx verification run start --change <change>` handed the start handler and recorded on the run-context event. */
+export interface VerificationRunStartChangeObservation {
+  readonly rejectedByCommander: boolean;
+  readonly startOptions: readonly VerifyStartCliOptions[];
+  readonly startResults: readonly CliCommandResult[];
+  readonly runContextData: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * Parse `spx verification run start` with a `--change` operand through the registered command family,
+ * dispatching to the real start handler over a controlled store and git boundary, then read the
+ * started run's run-context event.
+ */
+export async function observeVerificationRunStartChange(
+  change: string,
+): Promise<VerificationRunStartChangeObservation> {
+  const scenario = createReviewVerifyRunContextScenario();
+  const fs = createInMemoryStateStoreFileSystem();
+  const deps = verifyDeps(scenario, fs);
+  const recording = createRecordingVerifyHandlers();
+  const startOptions: VerifyStartCliOptions[] = [];
+  const startResults: CliCommandResult[] = [];
+  const handlers: VerifyCliHandlers = {
+    ...recording.handlers,
+    start: async (options) => {
+      startOptions.push(options);
+      const result = await verifyStartCommand(options, deps);
+      startResults.push(result);
+      return result;
+    },
+  };
+  const program = createRecordingVerifyProgram({ ...recording, handlers }, scenario.productDir);
+  installCommanderExitOverride(program);
+  program.configureOutput({ writeErr: () => undefined, writeOut: () => undefined });
+  let rejectedByCommander = false;
+  try {
+    await program.parseAsync(
+      verificationRunArgs([VERIFY_CLI.startCommandName], [
+        requiredFlag(VERIFY_CLI.verificationTypeOption),
+        scenario.verificationType,
+        requiredFlag(VERIFY_CLI.scopeTypeOption),
+        scenario.scopeType,
+        requiredFlag(VERIFY_CLI.scopeOption),
+        scenario.scope,
+        requiredFlag(VERIFY_CLI.inputOption),
+        VERIFY_INPUT_SOURCE.STDIN,
+        requiredFlag(VERIFY_CLI.changeOption),
+        change,
+      ]),
+      { from: SPX_COMMANDER_PARSE_SOURCE },
+    );
+  } catch (error) {
+    if (!(error instanceof CommanderError)) throw error;
+    rejectedByCommander = true;
+  }
+  const started = startResults.at(0);
+  const runContexts = started?.exitCode === VERIFY_CLI_EXIT_CODE.OK
+    ? await runContextEvents(scenario, fs, parseStartReport(started.output).runToken)
+    : [];
+  return { rejectedByCommander, startOptions, startResults, runContextData: eventDataRecord(runContexts[0]) };
+}
+
+/** Start a run with the given Change identity and report whether any `.spx/` state exists afterwards. */
+export async function observeStartWithChangeIdentityState(change: string): Promise<{
+  readonly started: CliCommandResult;
+  readonly stateRootExists: boolean;
+}> {
+  const scenario = createReviewVerifyRunContextScenario();
+  const fs = createInMemoryStateStoreFileSystem();
+  const started = await verifyStartCommand({ ...verifyStartOptions(scenario), change }, verifyDeps(scenario, fs));
+  return {
+    started,
+    stateRootExists: await verifyPathExists(fs, join(scenario.productDir, STATE_STORE_SCOPE_PATH.SPX_DIR)),
+  };
 }
 
 export async function observeCallerDriveModeOverrideRejection(): Promise<VerifyCliRejectionObservation> {

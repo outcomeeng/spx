@@ -32,6 +32,7 @@ import {
   findAppendedSequence,
   findTerminalEvent,
   type InputDescriptor,
+  isVerifyChangeIdentity,
   isVerifyTerminalStatus,
   isVerifyVerificationType,
   parseAppendPayload,
@@ -106,6 +107,7 @@ export const VERIFY_CLI_ERROR = {
   SCOPE_INVALID: "spx verification run scope add: evidence payload rejected",
   FINDING_INVALID: "spx verification run finding add: evidence payload rejected",
   UNSUPPORTED_VERIFICATION_TYPE: "spx verification run verification type is not registered",
+  CHANGE_IDENTITY_INVALID: "spx verification run start requires a Change identity in the canonical owner/repo#N form",
   SPX_DRIVEN_APPEND_REJECTED: "spx verification run cannot add caller evidence to a run spx drives",
   APPEND_FAILED: "spx verification run could not append the evidence event",
   TERMINAL_STATUS_REQUIRED: "spx verification run finish requires --terminal-status <status>",
@@ -157,6 +159,8 @@ export interface VerifyStartCliOptions {
   readonly scopeType: string;
   readonly scope: string;
   readonly input: string;
+  /** The Change the run serves, in the canonical `owner/repo#N` form; absent when the run belongs to no Change. */
+  readonly change?: string;
 }
 
 export interface VerifyInputCliOptions {
@@ -235,12 +239,18 @@ export interface VerifyFinishReport {
   readonly lastSequence: number;
 }
 
+/** The `status` report fields other consumers address by name. */
+export const VERIFY_STATUS_REPORT_FIELD = {
+  CHANGE: "change",
+} as const;
+
 export interface VerifyStatusReport {
   readonly runToken: string;
   readonly verificationType: string;
   readonly scopeType: string;
   readonly sealed: boolean;
   readonly driveMode: string;
+  readonly change?: string;
   readonly lastSequence: number;
   readonly terminalStatus?: string;
   readonly terminalMetadata?: JsonValue;
@@ -566,8 +576,14 @@ function parseRecordedInput(content: string): Result<RecordedInput> {
   }
 }
 
-async function readInputRecordAt(path: string, deps: VerifyCliDeps): Promise<Result<RecordedInput | undefined>> {
-  const fs = deps.fs ?? defaultStateStoreFileSystem;
+/**
+ * Read the input a run recorded at start from its sidecar path, or `undefined` when the run recorded
+ * none — the sidecar that marks a journal run as a started verification run.
+ */
+export async function readVerifyRecordedInput(
+  path: string,
+  fs: StateStoreFileSystem,
+): Promise<Result<RecordedInput | undefined>> {
   let content: string;
   try {
     content = await fs.readFile(path, STATE_STORE_TEXT_ENCODING);
@@ -626,6 +642,7 @@ async function recordRunContext(
   const event = buildRunContextEvent({
     runToken,
     driveMode: deps.driveMode ?? VERIFY_DRIVE_MODE.CALLER,
+    ...(args.options.change === undefined ? {} : { change: args.options.change }),
     at: deps.now?.() ?? new Date(),
   });
   const journalScope: JournalRunCliScope = {
@@ -749,6 +766,9 @@ export async function verifyStartCommand(
 ): Promise<CliCommandResult> {
   if (!isVerifyVerificationType(options.verificationType)) {
     return errorResult(VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE);
+  }
+  if (options.change !== undefined && !isVerifyChangeIdentity(options.change)) {
+    return errorResult(VERIFY_CLI_ERROR.CHANGE_IDENTITY_INVALID);
   }
   if (options.input.trim().length === 0) return errorResult(VERIFY_CLI_ERROR.INPUT_REQUIRED);
   const resolved = await resolveVerifyScope(deps);
@@ -926,7 +946,7 @@ async function prepareAppend(options: VerifyAppendCliOptions, deps: VerifyCliDep
   // raw journal run rather than a started verification run, so reject the append the way `input` does.
   const inputPath = verifyInputRecordPath(runScope);
   if (!inputPath.ok) return inputPath;
-  const inputRecord = await readInputRecordAt(inputPath.value, deps);
+  const inputRecord = await readVerifyRecordedInput(inputPath.value, deps.fs ?? defaultStateStoreFileSystem);
   if (!inputRecord.ok) return inputRecord;
   if (inputRecord.value === undefined) {
     return {
@@ -1162,7 +1182,7 @@ async function readExistingRecordedInput(
   run: VerifyExistingRunAddress,
   deps: VerifyCliDeps,
 ): Promise<Result<RecordedInput | undefined>> {
-  return readInputRecordAt(run.inputRecordPath, deps);
+  return readVerifyRecordedInput(run.inputRecordPath, deps.fs ?? defaultStateStoreFileSystem);
 }
 
 /** Resolve an existing run's journal scope and storage namespace from explicit selectors. */
@@ -1442,6 +1462,7 @@ export async function verifyStatusCommand(
     scopeType: options.scopeType,
     sealed: projection.sealed,
     driveMode: projection.driveMode,
+    ...(projection.change === undefined ? {} : { change: projection.change }),
     lastSequence: projection.lastSequence,
     ...(projection.terminalStatus === undefined ? {} : { terminalStatus: projection.terminalStatus }),
     ...(projection.terminalMetadata === undefined ? {} : { terminalMetadata: projection.terminalMetadata }),

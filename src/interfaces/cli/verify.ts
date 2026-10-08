@@ -12,6 +12,11 @@ import {
   executeRunFailureDiagnostic,
 } from "@/commands/verification-exec";
 import {
+  type VerifyChangeRunsCliOptions,
+  verifyChangeRunsCommand,
+  type VerifyChangeRunsDeps,
+} from "@/commands/verify/change-runs";
+import {
   VERIFY_CLI_EXIT_CODE,
   type VerifyAppendCliOptions,
   verifyAppendFindingCommand,
@@ -79,12 +84,17 @@ export const VERIFY_CLI = {
   finishCommandName: VERIFY_VERB.FINISH,
   statusCommandName: VERIFY_VERB.STATUS,
   renderCommandName: VERIFY_VERB.RENDER,
+  listCommandName: VERIFY_VERB.LIST,
+  listCommandDescription: "List the verification runs recorded for one Change, grouped by verification type",
   verificationTypeOption: "--verification-type <type>",
   scopeTypeOption: "--scope-type <scope-type>",
   scopeOption: "--scope <scope>",
   scopeTypeOptionDescription: `Scope type; ${VERIFY_SCOPE_TYPE.CHANGESET} or ${VERIFY_SCOPE_TYPE.FILE}`,
   scopeOptionDescription: "Scope identity; <base>..<head> or a product-relative file path",
   inputOption: "--input <input-source>",
+  changeOption: "--change <owner/repo#N>",
+  changeOptionDescription: "Change the run serves, in the canonical owner/repo#N form; omit when it serves none",
+  listChangeOptionDescription: "Change whose runs are listed, in the canonical owner/repo#N form",
   runOption: "--run <token>",
   payloadOption: "--payload <payload-source>",
   payloadOptionDescription: "Evidence payload source; stdin or a file path",
@@ -104,6 +114,7 @@ interface VerifySharedCliOptions {
 
 interface VerifyStartActionOptions extends VerifySharedCliOptions {
   readonly input: string;
+  readonly change?: string;
 }
 
 interface VerifyInputActionOptions extends VerifySharedCliOptions {
@@ -126,6 +137,10 @@ interface VerifyRunActionOptions extends VerifySharedCliOptions {
   readonly run: string;
 }
 
+interface VerifyListActionOptions {
+  readonly change: string;
+}
+
 interface ExecuteRunActionOptions {
   readonly recursive?: boolean;
 }
@@ -136,6 +151,7 @@ export interface VerifyCliHandlers {
   readonly executeRun: (options: ExecuteRunCliOptions, deps: ExecuteRunCliDeps) => Promise<ExecuteRunCommandResult>;
   readonly finish: (options: VerifyFinishCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
   readonly input: (options: VerifyInputCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
+  readonly list: (options: VerifyChangeRunsCliOptions, deps: VerifyChangeRunsDeps) => Promise<CliCommandResult>;
   readonly render: (options: VerifyRenderCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
   readonly start: (options: VerifyStartCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
   readonly status: (options: VerifyStatusCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
@@ -147,6 +163,7 @@ const DEFAULT_VERIFY_CLI_HANDLERS: VerifyCliHandlers = {
   executeRun: executeRunCommand,
   finish: verifyFinishCommand,
   input: verifyInputCommand,
+  list: verifyChangeRunsCommand,
   render: verifyRenderCommand,
   start: verifyStartCommand,
   status: verifyStatusCommand,
@@ -200,6 +217,7 @@ export function registerVerifyCommands(
     .requiredOption(VERIFY_CLI.scopeTypeOption, VERIFY_CLI.scopeTypeOptionDescription)
     .requiredOption(VERIFY_CLI.scopeOption, VERIFY_CLI.scopeOptionDescription)
     .requiredOption(VERIFY_CLI.inputOption, "Verification input source; stdin or a file path")
+    .option(VERIFY_CLI.changeOption, VERIFY_CLI.changeOptionDescription)
     .action(async (options: VerifyStartActionOptions) => {
       reportCliResult(await handlers.start(options, deps()), invocation.io);
     });
@@ -282,6 +300,19 @@ export function registerVerifyCommands(
     .requiredOption(VERIFY_CLI.runOption, "Run token reported by start")
     .action(async (options: VerifyRunActionOptions) => {
       reportCliResult(await handlers.render(options, deps()), invocation.io);
+    });
+
+  // The listing reads every branch scope of the store and appends to no journal, so it takes only
+  // the invocation directory and binds no journal event stream.
+  runCommand
+    .command(VERIFY_CLI.listCommandName)
+    .description(VERIFY_CLI.listCommandDescription)
+    .requiredOption(VERIFY_CLI.changeOption, VERIFY_CLI.listChangeOptionDescription)
+    .action(async (options: VerifyListActionOptions) => {
+      reportCliResult(
+        await handlers.list(options, { cwd: invocation.resolveEffectiveInvocationDir() }),
+        invocation.io,
+      );
     });
 }
 
