@@ -24,3 +24,30 @@ that bug class survives the property the clause exists to catch.
 segment is a proper string prefix of a tracked file's segment at the same
 depth, and the linked property fails under a predicate that admits string
 prefixes without the directory-separator boundary.
+
+## The status-file contract names no outcome for a stale covered reference without a committed outcome
+
+**Evidence:** product property 2 of
+[`spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md`](spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md)
+states that "`--update` folds the outcomes a recorded verification run
+produced: a reference a run covers keeps its committed outcome when that
+evidence is stale, and a reference no run covers is `not-run`." The PDR's
+`### Audit` rule "ALWAYS: keep the committed outcome of an evidence reference a
+recorded run covers whose evidence is stale" carries the same rule. Neither
+names the outcome for a reference that a recorded run covers, whose evidence is
+stale, and for which no committed outcome exists. This happens for a newly
+linked reference, or for a node with no `spx.status.json`. In that case the
+property has nothing to keep. A PDR audit at head
+`1b37e9b10ab640be68d3bad51a54dd95bac0e8ec` reported the case as an
+`unstable-property` finding against property 2.
+
+**Impact:** the decision does not fix the value `--update` writes for that
+reference, or the value CI regeneration reproduces for it. As a result, no
+audit can judge the projection the implementation produces in that case
+against the contract.
+
+**Settlement condition:** product property 2 and the stale-evidence `### Audit`
+rule of
+[`spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md`](spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md)
+name the outcome for a covered reference with stale evidence and no committed
+outcome.
