@@ -1,10 +1,18 @@
+---
+id: 01a118d3-682b-7b50-8e97-556ab500631f
+---
+
 # Verification
 
-PROVIDES the public `spx verification` command family — the run-inspection command paths every verification run is read through, and the vocabulary boundary its child command paths observe
-SO THAT agents, CI jobs, and launchers recording a verification run, and callers asking spx to execute one
-CAN address, inspect, and render any verification run through one command family without constructing journal events directly
+PROVIDES the public `spx verification` command family — the run-inspection command paths every verification run is read through, including the listing of the runs recorded for one Change, and the vocabulary boundary its child command paths observe
+SO THAT agents, CI jobs, and launchers recording a verification run, callers asking spx to execute one, and the holders of a Change counting the runs its gates made
+CAN address, inspect, and render any verification run through one command family without constructing journal events directly, and read a Change's runs by verification type without holding their run tokens
 
 ## Assertions
+
+- Given a run started through `spx verification run start --change <owner/repo#N>`, when `spx verification run list --change <owner/repo#N>` runs, then it reports that Change's listing as JSON, and the listing includes that run
+- ALWAYS: `spx verification run list` rejects an invocation without `--change`, so the listing never defaults to every run in the store
+- NEVER: `spx verification run list` appends a journal event or seals a run
 
 ### Compliance
 
