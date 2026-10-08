@@ -20,9 +20,11 @@ Separating the claim from its reproduction is what lets the status path stay a r
 
 - ALWAYS: a generated `spx.status.json` contains `schemaVersion: 1` and a `verification` object keyed by verification mechanism and evidence reference ([conformance])
 - ALWAYS: `spx spec status` derives lifecycle state from committed verification outcomes when `spx.status.json` exists and falls back to live structural derivation when it is absent ([mapping])
-- ALWAYS: CI detects a stale, forged, or missing status projection by regenerating the projection from the checkout after running the configured verification suite and comparing it with committed `spx.status.json` files ([compliance])
+- ALWAYS: regenerating the status projection over a checkout whose committed `spx.status.json` differs from the projection of the recorded evidence rewrites that file to the projection, so the regeneration leaves `spx/` changed ([compliance])
 
 ### Audit
+
+- ALWAYS: CI runs the configured verification suite and then regenerates the status projection on every pull-request head targeting the default branch and every push to the default branch whose changed paths do not all lie in the instruction-document paths `CLAUDE.md`, `AGENTS.md`, `README.md`, `LICENSE`, and `docs/**`, and rejects the commit when the regeneration leaves `spx/` changed ([audit])
 
 - ALWAYS: write `spx.status.json` only through the `spx spec status --update` path — every other path reads ([audit])
 - ALWAYS: place each `spx.status.json` in the directory of the node it describes; node identity comes from file location, not file content ([audit])
