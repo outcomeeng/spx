@@ -35,6 +35,7 @@ export const VERIFY_VERB = {
   FINISH: "finish",
   STATUS: "status",
   RENDER: "render",
+  LIST: "list",
 } as const;
 
 export type VerifyVerb = (typeof VERIFY_VERB)[keyof typeof VERIFY_VERB];

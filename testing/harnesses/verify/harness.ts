@@ -7,6 +7,7 @@ import * as fc from "fast-check";
 import { type JournalCliDeps, journalOpenCommand, journalReadCommand } from "@/commands/journal/cli";
 import type { JournalStreamSink } from "@/commands/journal/runtime";
 import type { ExecuteRunCliOptions } from "@/commands/verification-exec";
+import type { VerifyChangeRunsCliOptions } from "@/commands/verify/change-runs";
 import {
   VERIFY_CLI_ERROR,
   VERIFY_CLI_EXIT_CODE,
@@ -169,6 +170,7 @@ export interface VerifyCliRecording {
   readonly executeRunOptions: readonly ExecuteRunCliOptions[];
   readonly finishOptions: readonly VerifyFinishCliOptions[];
   readonly inputOptions: readonly VerifyInputCliOptions[];
+  readonly listOptions: readonly VerifyChangeRunsCliOptions[];
   readonly renderOptions: readonly VerifyRenderCliOptions[];
   readonly startOptions: readonly VerifyStartCliOptions[];
   readonly statusOptions: readonly VerifyStatusCliOptions[];
@@ -237,6 +239,7 @@ function createRecordingVerifyHandlers(): VerifyCliRecording {
   const executeRunOptions: ExecuteRunCliOptions[] = [];
   const finishOptions: VerifyFinishCliOptions[] = [];
   const inputOptions: VerifyInputCliOptions[] = [];
+  const listOptions: VerifyChangeRunsCliOptions[] = [];
   const renderOptions: VerifyRenderCliOptions[] = [];
   const startOptions: VerifyStartCliOptions[] = [];
   const statusOptions: VerifyStatusCliOptions[] = [];
@@ -247,6 +250,7 @@ function createRecordingVerifyHandlers(): VerifyCliRecording {
     executeRunOptions,
     finishOptions,
     inputOptions,
+    listOptions,
     renderOptions,
     startOptions,
     statusOptions,
@@ -269,6 +273,10 @@ function createRecordingVerifyHandlers(): VerifyCliRecording {
       },
       input: (options) => {
         inputOptions.push(options);
+        return Promise.resolve(okCliResult());
+      },
+      list: (options) => {
+        listOptions.push(options);
         return Promise.resolve(okCliResult());
       },
       render: (options) => {
