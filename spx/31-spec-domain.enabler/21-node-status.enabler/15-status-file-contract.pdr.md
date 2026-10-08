@@ -4,7 +4,7 @@ Each spec-tree node's verification outcomes persist in a co-located, machine-wri
 
 ## Rationale
 
-Per-node co-location ties recorded outcomes to the node's own commits while Git owns identity, provenance, assertions, evidence links, source, config, and history; central status maps, copied Git facts, and top-level lifecycle-only fields lose that boundary. `spx.status.json` is the committed projection of runtime outcomes, distinct from gitignored execution evidence under `.spx/`, and CI recomputes that projection from the checkout so forged or stale status cannot pass on the default branch.
+Per-node co-location ties recorded outcomes to the node's own commits while Git owns identity, provenance, assertions, evidence links, source, config, and history; central status maps, copied Git facts, and top-level lifecycle-only fields lose that boundary. `spx.status.json` is the committed projection of runtime outcomes, distinct from gitignored execution evidence under `.spx/`, and CI recomputes that projection from the checkout of every commit it checks, so forged or stale status in a checked commit cannot pass.
 
 Separating the claim from its reproduction is what lets the status path stay a read: the author folds the evidence a run recorded, and CI — running the configured suite over a full checkout — is the authority that reproduces a passing claim and refutes one the product no longer supports. A status command that executed verification to fill a gap would re-derive per node what a run schedules in one batch, and would write an outcome no recorded run produced.
 
@@ -12,7 +12,7 @@ Separating the claim from its reproduction is what lets the status path stay a r
 
 1. `spx.status.json` has `schemaVersion: 1` and a `verification` object whose mechanism keys are `test`, `eval`, and `audit` when that mechanism has linked evidence for the node; each mechanism object has an `overall` value of `passed`, `failed`, `partial`, or `not-run`, and evidence-reference keys whose values are `passed`, `failed`, or `not-run`.
 2. `spx spec status` derives a node's lifecycle state from committed verification outcomes when `spx.status.json` exists and derives live structural state when it is absent; `--update` folds the outcomes a recorded verification run produced: a reference a run covers keeps its committed outcome when that evidence is stale, and a reference no run covers is `not-run`. Neither form executes verification.
-3. CI runs the configured full verification suite, regenerates the status projection for the checkout, and rejects the commit when any committed `spx.status.json` differs from the regenerated projection.
+3. On every pull-request head targeting the default branch, and on every push to the default branch whose changed paths do not all lie in the instruction-document paths `CLAUDE.md`, `AGENTS.md`, `README.md`, `LICENSE`, and `docs/**`, CI runs the configured verification suite, regenerates the status projection for the checkout, and rejects that commit when any committed `spx.status.json` differs from the regenerated projection.
 
 ## Verification
 
