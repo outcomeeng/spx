@@ -17,10 +17,12 @@ import {
 import type { CliCommandResult } from "@/config/types";
 import type { VerifyChangeRunsReport } from "@/domains/verify/change-runs";
 import {
+  VERIFY_DRIVE_MODE,
   VERIFY_INPUT_SOURCE,
   VERIFY_SCOPE_SEPARATOR,
   VERIFY_SCOPE_TYPE,
   VERIFY_VERB,
+  type VerifyDriveMode,
   verifyInputRecordPath,
   type VerifyScopeType,
   type VerifyVerificationType,
@@ -48,22 +50,28 @@ const BASE_COMMIT_MESSAGE = "Initialize change-runs fixture";
 const HEAD_COMMIT_MESSAGE = "Add the verified file";
 
 /**
- * A run a test started: the selectors `start` received, the run token it reported, the checkout it
- * ran in, and the branch scope its journal and recorded input live under.
+ * A run a test started: the selectors `start` received, the drive mode it was opened with, the run
+ * token it reported, the checkout it ran in, and the branch scope its journal and recorded input
+ * live under.
  */
 export interface StartedChangeRun {
   readonly runToken: string;
   readonly verificationType: VerifyVerificationType;
+  readonly driveMode: VerifyDriveMode;
   readonly scopeType: VerifyScopeType;
   readonly scope: string;
   readonly cwd: string;
   readonly branchSlug: string;
 }
 
-/** Which run to start: its verification type and scope type, the Change it serves, and the checkout to start it from. */
+/**
+ * Which run to start: its verification type and scope type, the Change it serves, the checkout to
+ * start it from, and the drive mode `start` records — caller-driven unless spx opens the run itself.
+ */
 export interface ChangeRunRequest {
   readonly verificationType: VerifyVerificationType;
   readonly scopeType: VerifyScopeType;
+  readonly driveMode?: VerifyDriveMode;
   readonly change?: string;
   readonly cwd?: string;
 }
@@ -116,9 +124,10 @@ function realGitDependencies(): GitDependencies {
   };
 }
 
-function lifecycleDeps(cwd: string, inputContent: string): VerifyCliDeps {
+function lifecycleDeps(cwd: string, inputContent: string, driveMode: VerifyDriveMode): VerifyCliDeps {
   return {
     cwd,
+    driveMode,
     git: realGitDependencies(),
     processEnv: {},
     fs: defaultStateStoreFileSystem,
@@ -212,6 +221,7 @@ export async function withChangeRunsRepository<T>(
       },
       startRun: async (request) => {
         const cwd = request.cwd ?? productDir;
+        const driveMode = request.driveMode ?? VERIFY_DRIVE_MODE.CALLER;
         const scope = scopeFor(request.scopeType);
         const branchSlug = await branchSlugAt(cwd, realGitDependencies());
         const started = requireOk(
@@ -223,13 +233,14 @@ export async function withChangeRunsRepository<T>(
               input: VERIFY_INPUT_SOURCE.STDIN,
               ...(request.change === undefined ? {} : { change: request.change }),
             },
-            lifecycleDeps(cwd, inputContent),
+            lifecycleDeps(cwd, inputContent, driveMode),
           ),
           VERIFY_VERB.START,
         );
         return {
           runToken: (JSON.parse(started.output) as VerifyStartReport).runToken,
           verificationType: request.verificationType,
+          driveMode,
           scopeType: request.scopeType,
           scope,
           cwd,
@@ -245,7 +256,7 @@ export async function withChangeRunsRepository<T>(
                 payload: JSON.stringify(entry.finding),
                 idempotencyKey: entry.idempotencyKey,
               },
-              lifecycleDeps(run.cwd, inputContent),
+              lifecycleDeps(run.cwd, inputContent, run.driveMode),
             ),
             VERIFY_VERB.APPEND_FINDING,
           );
@@ -255,14 +266,14 @@ export async function withChangeRunsRepository<T>(
         requireOk(
           await verifyFinishCommand(
             { ...lifecycleSelectors(run), terminalStatus },
-            lifecycleDeps(run.cwd, inputContent),
+            lifecycleDeps(run.cwd, inputContent, run.driveMode),
           ),
           VERIFY_VERB.FINISH,
         );
       },
       status: async (run) => {
         const status = requireOk(
-          await verifyStatusCommand(lifecycleSelectors(run), lifecycleDeps(run.cwd, inputContent)),
+          await verifyStatusCommand(lifecycleSelectors(run), lifecycleDeps(run.cwd, inputContent, run.driveMode)),
           VERIFY_VERB.STATUS,
         );
         return JSON.parse(status.output) as VerifyStatusReport;
