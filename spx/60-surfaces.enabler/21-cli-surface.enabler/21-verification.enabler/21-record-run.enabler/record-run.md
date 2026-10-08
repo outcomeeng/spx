@@ -10,7 +10,9 @@ CAN start it for the Change it serves, append its scope and finding evidence, an
 
 ## Assertions
 
-- Given `spx verification run start --change <owner/repo#N>`, when the run starts, then the run records that Change identity
+### Scenarios
+
+- Given `spx verification run start --change <owner/repo#N>`, when the run starts, then the run records that Change identity ([test](tests/change-identity.scenario.l1.test.ts))
 
 ### Mappings
 
