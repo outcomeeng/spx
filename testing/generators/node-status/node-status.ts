@@ -12,16 +12,15 @@ import type {
   NodeStatusVerificationMechanism,
 } from "@/lib/node-status";
 import {
-  createNodeStatusFile,
-  createNodeStatusMechanismRecord,
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_EXCLUDE_PATH_GRAMMAR,
   NODE_STATUS_FIELD,
   NODE_STATUS_FILENAME,
   NODE_STATUS_MECHANISM_OVERALL,
+  NODE_STATUS_SCHEMA_VERSION,
   NODE_STATUS_VERIFICATION_MECHANISM,
 } from "@/lib/node-status";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 
 const NODE_STATUS_GENERATOR_OPTIONS = {
   ORDER_MIN: 10,
@@ -41,6 +40,7 @@ const STATUS_VERIFICATION_MECHANISMS = Object.values(NODE_STATUS_VERIFICATION_ME
 const STATUS_EVIDENCE_OUTCOMES: readonly NodeStatusEvidenceOutcome[] = Object.values(NODE_STATUS_EVIDENCE_OUTCOME);
 const STATUS_MECHANISM_OVERALLS: readonly NodeStatusMechanismOverall[] = Object.values(NODE_STATUS_MECHANISM_OVERALL);
 const ENUMERATED_REFERENCE_NAME = "reference";
+const SPEC_TREE_PATH_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
 
 /**
  * Evidence outcomes that realize each mechanism overall, per the rollup mapping the
@@ -52,6 +52,17 @@ const OUTCOMES_REALIZING_OVERALL: Readonly<Record<NodeStatusMechanismOverall, re
   [NODE_STATUS_MECHANISM_OVERALL.FAILED]: [NODE_STATUS_EVIDENCE_OUTCOME.FAILED],
   [NODE_STATUS_MECHANISM_OVERALL.PARTIAL]: [NODE_STATUS_EVIDENCE_OUTCOME.PASSED, NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN],
   [NODE_STATUS_MECHANISM_OVERALL.NOT_RUN]: [NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN],
+};
+
+/**
+ * The overall a mechanism takes when every one of its references carries the same
+ * outcome, per the same rollup mapping: all passed is passed, all failed is failed,
+ * and all not-run is not-run.
+ */
+const OVERALL_OF_UNIFORM_OUTCOME: Readonly<Record<NodeStatusEvidenceOutcome, NodeStatusMechanismOverall>> = {
+  [NODE_STATUS_EVIDENCE_OUTCOME.PASSED]: NODE_STATUS_MECHANISM_OVERALL.PASSED,
+  [NODE_STATUS_EVIDENCE_OUTCOME.FAILED]: NODE_STATUS_MECHANISM_OVERALL.FAILED,
+  [NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN]: NODE_STATUS_MECHANISM_OVERALL.NOT_RUN,
 };
 
 export type ClassificationFixtureFacts = {
@@ -137,16 +148,25 @@ export function enumerateEvidenceOutcomeMultisets(): readonly Readonly<Record<st
     );
 }
 
-/** A committed status document whose single test reference claims `outcome` for each given evidence path. */
+/**
+ * A committed status document whose test mechanism claims `outcome` for each given
+ * evidence path. The schema version is the source-owned one, and the overall follows
+ * the uniform-outcome rollup rather than the production rollup the claim is checked
+ * against.
+ */
 export function createClaimedTestStatus(
   evidencePaths: readonly string[],
   outcome: NodeStatusEvidenceOutcome,
 ): NodeStatusFile {
-  return createNodeStatusFile({
-    [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord(
-      Object.fromEntries(evidencePaths.map((path) => [path, outcome])),
-    ),
-  });
+  return {
+    [NODE_STATUS_FIELD.SCHEMA_VERSION]: NODE_STATUS_SCHEMA_VERSION,
+    [NODE_STATUS_FIELD.VERIFICATION]: {
+      [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: {
+        [NODE_STATUS_FIELD.OVERALL]: OVERALL_OF_UNIFORM_OUTCOME[outcome],
+        ...Object.fromEntries(evidencePaths.map((path) => [path, outcome])),
+      },
+    },
+  };
 }
 
 function enumerateCommittedVerifications(): readonly NodeStatusVerification[] {
@@ -186,9 +206,14 @@ function outcomesWithEnumeratedReferences(
 }
 
 function evidenceReferencePath(name: string, mode: string, level: string): string {
-  return `${SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME}${NODE_STATUS_EXCLUDE_PATH_GRAMMAR.SEGMENT_SEPARATOR}${
-    [name, mode, level, ...SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT].join(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR)
-  }`;
+  return [
+    SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
+    [name, mode, level, ...SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT].join(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR),
+  ].join(SPEC_TREE_PATH_SEPARATOR);
+}
+
+function nodeDirectoryName(order: number, slug: string): string {
+  return `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${ENABLER_SUFFIX}`;
 }
 
 export function arbitraryVerification(): fc.Arbitrary<NodeStatusVerification> {
@@ -261,9 +286,7 @@ function arbitraryInvalidExcludeEntry(): fc.Arbitrary<string> {
 
 function arbitraryOrphanStatusPath(): fc.Arbitrary<string> {
   return arbitraryNodeSlug().map((slug) =>
-    [SPEC_TREE_CONFIG.ROOT_DIRECTORY, slug, NODE_STATUS_FILENAME].join(
-      NODE_STATUS_EXCLUDE_PATH_GRAMMAR.SEGMENT_SEPARATOR,
-    )
+    [SPEC_TREE_CONFIG.ROOT_DIRECTORY, slug, NODE_STATUS_FILENAME].join(SPEC_TREE_PATH_SEPARATOR)
   );
 }
 
@@ -273,13 +296,9 @@ function arbitraryUntrackedNodeStatusPath(takenNodeIds: readonly string[] = []):
       order: fc.integer({ min: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MIN, max: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MAX }),
       slug: arbitraryNodeSlug(),
     })
-    .map(({ order, slug }) => `${order}-${slug}${ENABLER_SUFFIX}`)
+    .map(({ order, slug }) => nodeDirectoryName(order, slug))
     .filter((nodeId) => !takenNodeIds.includes(nodeId))
-    .map((nodeId) =>
-      [SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodeId, NODE_STATUS_FILENAME].join(
-        NODE_STATUS_EXCLUDE_PATH_GRAMMAR.SEGMENT_SEPARATOR,
-      )
-    );
+    .map((nodeId) => [SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodeId, NODE_STATUS_FILENAME].join(SPEC_TREE_PATH_SEPARATOR));
 }
 
 function arbitraryMechanismRecord(): fc.Arbitrary<NodeStatusMechanismRecord> {
@@ -323,7 +342,7 @@ export function arbitraryClassificationTree(): fc.Arbitrary<ClassificationTreeFi
     )
     .map((entries) => ({
       nodes: entries.map(({ order, slug, facts, evidenceReference }) => ({
-        dirName: `${order}-${slug}${ENABLER_SUFFIX}`,
+        dirName: nodeDirectoryName(order, slug),
         slug,
         facts,
         evidenceReference,
@@ -388,7 +407,7 @@ function delegationNode(
       evidenceReference: arbitraryEvidenceReferenceFor(hasVerificationReferences),
     })
     .map(({ slug, runnerPassed, evidenceReference }) => ({
-      dirName: `${order}-${slug}${ENABLER_SUFFIX}`,
+      dirName: nodeDirectoryName(order, slug),
       slug,
       evidenceReference,
       facts: {
