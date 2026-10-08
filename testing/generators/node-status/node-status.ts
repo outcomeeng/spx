@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 
 import { SUCCESS_EXIT_CODE } from "@/domains/test";
-import { TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
+import { GIT_SUCCESS_EXIT_CODE, TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
 import type {
   NodeClassificationFacts,
   NodeStatusEvidenceOutcome,
@@ -9,7 +9,6 @@ import type {
   NodeStatusMechanismOverall,
   NodeStatusMechanismRecord,
   NodeStatusVerification,
-  NodeStatusVerificationMechanism,
 } from "@/lib/node-status";
 import {
   NODE_STATUS_EVIDENCE_OUTCOME,
@@ -28,6 +27,8 @@ const NODE_STATUS_GENERATOR_OPTIONS = {
   MIN_NODES: 1,
   MAX_NODES: 5,
   FAILURE_EXIT_CODE: 1,
+  /** Most linked evidence references a status-writer-tree node carries. */
+  MAX_LINKED_REFERENCES: 4,
   /** Highest count of any one outcome in an enumerated rollup multiset. */
   MAX_OUTCOME_MULTIPLICITY: 3,
 } as const;
@@ -70,6 +71,8 @@ export type ClassificationFixtureFacts = {
   readonly isExcluded: boolean;
   readonly runnerExitCode: number;
   readonly expectedEvidenceOutcome: NodeStatusEvidenceOutcome;
+  /** The mechanism overall a record of references that all carry the expected evidence outcome takes. */
+  readonly expectedMechanismOverall: NodeStatusMechanismOverall;
 };
 
 export type ClassificationTreeNode = {
@@ -88,13 +91,58 @@ export type ClassificationTreeFixture = {
 };
 
 /**
- * Evidence-reference outcomes keyed by verification mechanism, carrying no `overall`:
- * the writer derives each mechanism's overall from these outcomes, so a generated
- * overall drawn apart from them would describe a record the writer never produces.
+ * One linked evidence reference of a status-writer-tree node: the node-relative
+ * reference path, the outcome the injected resolver reports for it — absent when a
+ * recorded run covers the reference but its evidence is stale, so the resolver omits
+ * it — and the outcome the node's committed status file claims for it, absent when
+ * the committed file carries no claim for the reference.
  */
-export type NodeStatusVerificationOutcomes = Readonly<
-  Partial<Record<NodeStatusVerificationMechanism, Readonly<Record<string, NodeStatusEvidenceOutcome>>>>
->;
+export type StatusWriterReference = {
+  readonly reference: string;
+  readonly resolverOutcome: NodeStatusEvidenceOutcome | undefined;
+  readonly committedOutcome: NodeStatusEvidenceOutcome | undefined;
+};
+
+/** A committed claim for a reference the node no longer links. */
+export type StatusWriterUnlinkedClaim = {
+  readonly reference: string;
+  readonly outcome: NodeStatusEvidenceOutcome;
+};
+
+export type StatusWriterTreeNode = {
+  readonly dirName: string;
+  readonly slug: string;
+  readonly isExcluded: boolean;
+  /** The node's linked evidence; empty for a declared node. */
+  readonly references: readonly StatusWriterReference[];
+  readonly unlinkedClaim: StatusWriterUnlinkedClaim | undefined;
+};
+
+export type StatusWriterTreeFixture = {
+  readonly nodes: readonly StatusWriterTreeNode[];
+};
+
+/** One `git ls-files` run that lists `trackedFiles`, NUL-terminated, from `productDir`. */
+export type TrackedPathListingCase = {
+  readonly productDir: string;
+  readonly trackedFiles: ReadonlySet<string>;
+};
+
+/**
+ * One `git ls-files` run from `productDir` that exits with a code other than success
+ * while still printing a NUL-terminated listing of `trackedFiles`.
+ */
+export type NonSuccessGitExitCase = {
+  readonly productDir: string;
+  readonly exitCode: number;
+  readonly trackedFiles: ReadonlySet<string>;
+};
+
+/** One `git ls-files` invocation from `productDir` whose runner rejects with `cause`. */
+export type GitRunnerFailureCase = {
+  readonly productDir: string;
+  readonly cause: Error;
+};
 
 export const NODE_STATUS_TEST_GENERATOR = {
   classificationTree: arbitraryClassificationTree,
@@ -103,7 +151,10 @@ export const NODE_STATUS_TEST_GENERATOR = {
   statusReference: arbitraryStatusReference,
   evidenceOutcome: arbitraryEvidenceOutcome,
   contradictingEvidenceOutcome: arbitraryContradictingEvidenceOutcome,
-  verificationOutcomes: arbitraryVerificationOutcomes,
+  statusWriterTree: arbitraryStatusWriterTree,
+  trackedPathListing: arbitraryTrackedPathListing,
+  nonSuccessGitExit: arbitraryNonSuccessGitExit,
+  gitRunnerFailure: arbitraryGitRunnerFailure,
   trackedFile: arbitraryTrackedFile,
   trackedFileSet: arbitraryTrackedFileSet,
   invalidExcludeEntry: arbitraryInvalidExcludeEntry,
@@ -225,22 +276,6 @@ function nodeDirectoryName(order: number, slug: string): string {
   return `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${ENABLER_SUFFIX}`;
 }
 
-export function arbitraryVerificationOutcomes(): fc.Arbitrary<NodeStatusVerificationOutcomes> {
-  return fc
-    .uniqueArray(fc.constantFrom(...STATUS_VERIFICATION_MECHANISMS), {
-      minLength: 1,
-      maxLength: STATUS_VERIFICATION_MECHANISMS.length,
-    })
-    .chain((mechanisms) =>
-      fc.tuple(
-        ...mechanisms.map((mechanism) =>
-          arbitraryReferenceOutcomes().map((outcomes) => [mechanism, outcomes] as const)
-        ),
-      )
-    )
-    .map(verificationOutcomesFromEntries);
-}
-
 function arbitraryNodeSlug(): fc.Arbitrary<string> {
   return fc.constantFrom(...NODE_STATUS_READABLE_SLUGS);
 }
@@ -315,17 +350,6 @@ function arbitraryUntrackedNodeStatusPath(takenNodeIds: readonly string[] = []):
     .map((nodeId) => [SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodeId, NODE_STATUS_FILENAME].join(SPEC_TREE_PATH_SEPARATOR));
 }
 
-function arbitraryReferenceOutcomes(): fc.Arbitrary<Readonly<Record<string, NodeStatusEvidenceOutcome>>> {
-  return fc
-    .uniqueArray(arbitraryStatusReference(), { minLength: 1, maxLength: 4 })
-    .chain((references) =>
-      fc.tuple(
-        ...references.map((reference) => arbitraryEvidenceOutcome().map((outcome) => [reference, outcome] as const)),
-      )
-    )
-    .map(outcomesFromEntries);
-}
-
 export function arbitraryClassificationTree(): fc.Arbitrary<ClassificationTreeFixture> {
   return fc
     .uniqueArray(
@@ -371,16 +395,36 @@ function arbitraryClassificationFixtureFacts(): fc.Arbitrary<ClassificationFixtu
       isExcluded: fc.boolean(),
       runnerPassed: fc.boolean(),
     })
-    .map(({ hasVerificationReferences, isExcluded, runnerPassed }) => ({
-      hasVerificationReferences,
-      isExcluded,
-      runnerExitCode: runnerPassed ? SUCCESS_EXIT_CODE : NODE_STATUS_GENERATOR_OPTIONS.FAILURE_EXIT_CODE,
-      expectedEvidenceOutcome: isExcluded
-        ? NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN
-        : runnerPassed
-        ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED
-        : NODE_STATUS_EVIDENCE_OUTCOME.FAILED,
-    }));
+    .map(({ hasVerificationReferences, isExcluded, runnerPassed }) =>
+      classificationFixtureFacts(hasVerificationReferences, isExcluded, runnerPassed)
+    );
+}
+
+/**
+ * The one construction law for a classification fixture's runner and expected
+ * outcomes: a passing runner exits with the testing domain's success code and any
+ * other runner with the failure code; an excluded node's evidence reads not-run
+ * because no run is consulted for it, while any other node's evidence reads the
+ * runner's verdict; and the expected mechanism overall is the uniform-outcome
+ * rollup of that single evidence outcome.
+ */
+function classificationFixtureFacts(
+  hasVerificationReferences: boolean,
+  isExcluded: boolean,
+  runnerPassed: boolean,
+): ClassificationFixtureFacts {
+  const expectedEvidenceOutcome = isExcluded
+    ? NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN
+    : runnerPassed
+    ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED
+    : NODE_STATUS_EVIDENCE_OUTCOME.FAILED;
+  return {
+    hasVerificationReferences,
+    isExcluded,
+    runnerExitCode: runnerPassed ? SUCCESS_EXIT_CODE : NODE_STATUS_GENERATOR_OPTIONS.FAILURE_EXIT_CODE,
+    expectedEvidenceOutcome,
+    expectedMechanismOverall: OVERALL_OF_UNIFORM_OUTCOME[expectedEvidenceOutcome],
+  };
 }
 
 // A classification tree guaranteed to span all three consultation classes — one
@@ -418,16 +462,7 @@ function delegationNode(
       dirName: nodeDirectoryName(order, slug),
       slug,
       evidenceReference,
-      facts: {
-        hasVerificationReferences,
-        isExcluded,
-        runnerExitCode: runnerPassed ? SUCCESS_EXIT_CODE : NODE_STATUS_GENERATOR_OPTIONS.FAILURE_EXIT_CODE,
-        expectedEvidenceOutcome: isExcluded
-          ? NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN
-          : runnerPassed
-          ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED
-          : NODE_STATUS_EVIDENCE_OUTCOME.FAILED,
-      },
+      facts: classificationFixtureFacts(hasVerificationReferences, isExcluded, runnerPassed),
     }));
 }
 
@@ -436,24 +471,80 @@ function arbitraryEvidenceReferenceFor(hasVerificationReferences: boolean): fc.A
   return hasVerificationReferences ? arbitraryStatusReference() : fc.constant(undefined);
 }
 
-function outcomesFromEntries(
-  entries: readonly (readonly [string, NodeStatusEvidenceOutcome])[],
-): Record<string, NodeStatusEvidenceOutcome> {
-  const outcomes: Record<string, NodeStatusEvidenceOutcome> = {};
-  for (const [reference, outcome] of entries) {
-    outcomes[reference] = outcome;
-  }
-  return outcomes;
+/**
+ * Spec trees of nodes spanning every structural and fold branch of the status writer:
+ * declared nodes with no linked evidence, nodes listed in `spx/EXCLUDE`, and
+ * test-outcome-stage nodes whose linked references the resolver reports as passed,
+ * failed, or not-run (no recorded run covers them) or omits (covered but stale), each
+ * with or without a committed claim, plus an optional committed claim for a reference
+ * the node no longer links.
+ */
+function arbitraryStatusWriterTree(): fc.Arbitrary<StatusWriterTreeFixture> {
+  return fc
+    .uniqueArray(
+      fc.integer({ min: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MIN, max: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MAX }),
+      { minLength: NODE_STATUS_GENERATOR_OPTIONS.MIN_NODES, maxLength: NODE_STATUS_GENERATOR_OPTIONS.MAX_NODES },
+    )
+    .chain((orders) => fc.tuple(...orders.map(arbitraryStatusWriterTreeNode)))
+    .map((nodes) => ({ nodes }));
 }
 
-function verificationOutcomesFromEntries(
-  entries: readonly (readonly [NodeStatusVerificationMechanism, Readonly<Record<string, NodeStatusEvidenceOutcome>>])[],
-): NodeStatusVerificationOutcomes {
-  const verificationOutcomes: Partial<
-    Record<NodeStatusVerificationMechanism, Readonly<Record<string, NodeStatusEvidenceOutcome>>>
-  > = {};
-  for (const [mechanism, outcomes] of entries) {
-    verificationOutcomes[mechanism] = outcomes;
-  }
-  return verificationOutcomes;
+function arbitraryStatusWriterTreeNode(order: number): fc.Arbitrary<StatusWriterTreeNode> {
+  return fc
+    .record({
+      slug: arbitraryNodeSlug(),
+      isExcluded: fc.boolean(),
+      references: fc.uniqueArray(arbitraryStatusReference(), {
+        minLength: 0,
+        maxLength: NODE_STATUS_GENERATOR_OPTIONS.MAX_LINKED_REFERENCES + 1,
+      }),
+      claimsUnlinkedReference: fc.boolean(),
+    })
+    .chain(({ slug, isExcluded, references, claimsUnlinkedReference }) => {
+      const unlinkedReference = claimsUnlinkedReference ? references.at(-1) : undefined;
+      const linkedReferences = unlinkedReference === undefined ? references : references.slice(0, -1);
+      return fc.record({
+        dirName: fc.constant(nodeDirectoryName(order, slug)),
+        slug: fc.constant(slug),
+        isExcluded: fc.constant(isExcluded),
+        references: fc.tuple(...linkedReferences.map(arbitraryStatusWriterReference)),
+        unlinkedClaim: unlinkedReference === undefined
+          ? fc.constant(undefined)
+          : arbitraryEvidenceOutcome().map((outcome) => ({ reference: unlinkedReference, outcome })),
+      });
+    });
+}
+
+function arbitraryStatusWriterReference(reference: string): fc.Arbitrary<StatusWriterReference> {
+  return fc.record({
+    reference: fc.constant(reference),
+    resolverOutcome: fc.option(arbitraryEvidenceOutcome(), { nil: undefined }),
+    committedOutcome: fc.option(arbitraryEvidenceOutcome(), { nil: undefined }),
+  });
+}
+
+function arbitraryTrackedPathListing(): fc.Arbitrary<TrackedPathListingCase> {
+  return fc.record({ productDir: arbitraryTrackedFile(), trackedFiles: arbitraryTrackedFileSet() });
+}
+
+/**
+ * Every exit code other than git's success code, drawn from both sides of it rather
+ * than filtered through the comparison the tracked-path query applies.
+ */
+function arbitraryNonSuccessGitExit(): fc.Arbitrary<NonSuccessGitExitCase> {
+  return fc.record({
+    productDir: arbitraryTrackedFile(),
+    exitCode: fc.oneof(
+      fc.integer({ min: GIT_SUCCESS_EXIT_CODE + 1 }),
+      fc.integer({ max: GIT_SUCCESS_EXIT_CODE - 1 }),
+    ),
+    trackedFiles: arbitraryTrackedFileSet(),
+  });
+}
+
+function arbitraryGitRunnerFailure(): fc.Arbitrary<GitRunnerFailureCase> {
+  return fc.record({
+    productDir: arbitraryTrackedFile(),
+    cause: fc.string().map((message) => new Error(message)),
+  });
 }

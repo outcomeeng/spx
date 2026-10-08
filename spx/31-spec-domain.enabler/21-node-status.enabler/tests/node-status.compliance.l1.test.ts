@@ -199,7 +199,7 @@ describe("spx spec status --update over a drifted committed projection", () => {
           ],
         ).toEqual({
           [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: {
-            [NODE_STATUS_FIELD.OVERALL]: stageNode.facts.expectedEvidenceOutcome,
+            [NODE_STATUS_FIELD.OVERALL]: stageNode.facts.expectedMechanismOverall,
             ...Object.fromEntries(
               stageNode.evidencePaths.map((path) => [path, stageNode.facts.expectedEvidenceOutcome]),
             ),

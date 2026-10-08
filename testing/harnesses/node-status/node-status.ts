@@ -6,15 +6,25 @@ import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver
 import { type RecordedTestRun, runNodeCommand } from "@/commands/test";
 import { GIT_STATUS_PORCELAIN_ARGS } from "@/lib/git/root";
 import {
+  createNodeStatusFile,
+  createNodeStatusMechanismRecord,
   NODE_STATUS_EXCLUDE_FILENAME,
   NODE_STATUS_EXCLUDE_LINE_GRAMMAR,
   NODE_STATUS_FILENAME,
+  NODE_STATUS_VERIFICATION_MECHANISM,
   type NodeOutcomeResolver,
+  type NodeStatusEvidenceOutcome,
+  serializeNodeStatus,
 } from "@/lib/node-status";
 import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { testingRegistry } from "@/test/registry";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
-import { ClassificationFixtureFacts, ClassificationTreeFixture } from "@testing/generators/node-status/node-status";
+import type {
+  ClassificationFixtureFacts,
+  ClassificationTreeFixture,
+  StatusWriterTreeFixture,
+  StatusWriterTreeNode,
+} from "@testing/generators/node-status/node-status";
 import {
   GIT_TEST_CONFIG,
   GIT_TEST_FLAGS,
@@ -94,37 +104,23 @@ export async function withClassificationTree(
       readFixture(CLASSIFICATION_FIXTURE_PATHS.spec),
       readFixture(CLASSIFICATION_FIXTURE_PATHS.test),
     ]);
-    const excludedDirs: string[] = [];
-    const expectations: ClassificationTreeNodeExpectation[] = [];
-
-    for (const node of fixture.nodes) {
-      await env.writeNode(nodeTreePath(node.dirName, `${node.slug}${SPEC_FILE_SUFFIX}`), specContent);
-      let evidencePath: string | undefined;
-
-      if (node.evidenceReference !== undefined) {
-        evidencePath = nodeTreePath(node.dirName, node.evidenceReference);
-        await env.writeNode(evidencePath, testContent);
-      }
-
-      if (node.facts.isExcluded) {
-        excludedDirs.push(node.dirName);
-      }
-
-      expectations.push({
-        nodeId: node.dirName,
+    const materialized = await materializeNodes(
+      env,
+      fixture.nodes.map((node) => ({
+        dirName: node.dirName,
         slug: node.slug,
-        facts: node.facts,
-        evidencePaths: evidencePath === undefined ? [] : [evidencePath],
-        statusPath: nodeTreePath(node.dirName, NODE_STATUS_FILENAME),
-      });
-    }
-
-    if (excludedDirs.length > 0) {
-      await env.writeRaw(
-        nodeTreePath(NODE_STATUS_EXCLUDE_FILENAME),
-        `${excludedDirs.join(EXCLUDE_ENTRY_SEPARATOR)}${EXCLUDE_ENTRY_SEPARATOR}`,
-      );
-    }
+        isExcluded: node.facts.isExcluded,
+        evidenceReferences: node.evidenceReference === undefined ? [] : [node.evidenceReference],
+      })),
+      { spec: specContent, test: testContent },
+    );
+    const expectations: ClassificationTreeNodeExpectation[] = fixture.nodes.map((node, index) => ({
+      nodeId: node.dirName,
+      slug: node.slug,
+      facts: node.facts,
+      evidencePaths: materialized[index]?.evidencePaths ?? [],
+      statusPath: nodeTreePath(node.dirName, NODE_STATUS_FILENAME),
+    }));
 
     await callback({
       env,
@@ -169,6 +165,149 @@ export async function withClassificationTree(
       },
     });
   });
+}
+
+type MaterializedNodeSpec = {
+  readonly dirName: string;
+  readonly slug: string;
+  readonly isExcluded: boolean;
+  readonly evidenceReferences: readonly string[];
+};
+
+/**
+ * Write each node's spec file and linked evidence files from the inert payloads, and
+ * list every excluded node in `spx/EXCLUDE`; returns each node's product-relative
+ * evidence paths in input order.
+ */
+async function materializeNodes(
+  env: SpecTreeEnv,
+  nodes: readonly MaterializedNodeSpec[],
+  payloads: { readonly spec: string; readonly test: string },
+): Promise<readonly { readonly evidencePaths: readonly string[] }[]> {
+  const materialized: { readonly evidencePaths: readonly string[] }[] = [];
+  for (const node of nodes) {
+    await env.writeNode(nodeTreePath(node.dirName, `${node.slug}${SPEC_FILE_SUFFIX}`), payloads.spec);
+    const evidencePaths = node.evidenceReferences.map((reference) => nodeTreePath(node.dirName, reference));
+    for (const evidencePath of evidencePaths) {
+      await env.writeNode(evidencePath, payloads.test);
+    }
+    materialized.push({ evidencePaths });
+  }
+  const excludedDirs = nodes.filter((node) => node.isExcluded).map((node) => node.dirName);
+  if (excludedDirs.length > 0) {
+    await env.writeRaw(
+      nodeTreePath(NODE_STATUS_EXCLUDE_FILENAME),
+      `${excludedDirs.join(EXCLUDE_ENTRY_SEPARATOR)}${EXCLUDE_ENTRY_SEPARATOR}`,
+    );
+  }
+  return materialized;
+}
+
+export type StatusWriterTreeNodeExpectation = {
+  readonly nodeId: string;
+  /** Product-relative paths of the node's linked evidence, as the fixture materializes them. */
+  readonly evidencePaths: readonly string[];
+  readonly statusPath: string;
+};
+
+export type StatusWriterTreeEnv = {
+  readonly env: SpecTreeEnv;
+  readonly expectations: readonly StatusWriterTreeNodeExpectation[];
+  /**
+   * A controlled node-outcome resolver answering each consulted evidence path with
+   * the outcome the fixture generated for it and omitting the paths the fixture marks
+   * covered-but-stale (combinatorial-cost exception: the production resolver needs a
+   * recorded run per node and a staleness edit per stale reference to reach the same
+   * answers).
+   */
+  readonly resolveOutcome: NodeOutcomeResolver;
+};
+
+/**
+ * Materialize a generated status-writer tree into a temporary product directory —
+ * spec files, linked evidence, `spx/EXCLUDE` membership, and each node's committed
+ * status claims — then initialize a git repository and stage the spec tree, so every
+ * node directory is git-tracked when the callback runs.
+ */
+export async function withStatusWriterTree(
+  fixture: StatusWriterTreeFixture,
+  callback: (tree: StatusWriterTreeEnv) => Promise<void>,
+): Promise<void> {
+  await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+    const [specContent, testContent] = await Promise.all([
+      readFixture(CLASSIFICATION_FIXTURE_PATHS.spec),
+      readFixture(CLASSIFICATION_FIXTURE_PATHS.test),
+    ]);
+    const materialized = await materializeNodes(
+      env,
+      fixture.nodes.map((node) => ({
+        dirName: node.dirName,
+        slug: node.slug,
+        isExcluded: node.isExcluded,
+        evidenceReferences: node.references.map((reference) => reference.reference),
+      })),
+      { spec: specContent, test: testContent },
+    );
+    const resolverAnswers = new Map<string, NodeStatusEvidenceOutcome>();
+    const expectations: StatusWriterTreeNodeExpectation[] = [];
+
+    for (const [index, node] of fixture.nodes.entries()) {
+      for (const reference of node.references) {
+        if (reference.resolverOutcome !== undefined) {
+          resolverAnswers.set(nodeTreePath(node.dirName, reference.reference), reference.resolverOutcome);
+        }
+      }
+      const statusPath = nodeTreePath(node.dirName, NODE_STATUS_FILENAME);
+      await writeCommittedClaims(env, statusPath, committedClaims(node));
+      expectations.push({ nodeId: node.dirName, evidencePaths: materialized[index]?.evidencePaths ?? [], statusPath });
+    }
+
+    await trackSpecTree(env.productDir);
+    await callback({
+      env,
+      expectations,
+      resolveOutcome: (_nodeId, evidencePaths) =>
+        Promise.resolve(
+          Object.fromEntries(
+            evidencePaths.flatMap((evidencePath) => {
+              const outcome = resolverAnswers.get(evidencePath);
+              return outcome === undefined ? [] : [[evidencePath, outcome] as const];
+            }),
+          ),
+        ),
+    });
+  });
+}
+
+/** The committed test claims of a status-writer-tree node, keyed by product-relative evidence path. */
+function committedClaims(node: StatusWriterTreeNode): Readonly<Record<string, NodeStatusEvidenceOutcome>> {
+  const claims: Record<string, NodeStatusEvidenceOutcome> = {};
+  for (const reference of node.references) {
+    if (reference.committedOutcome !== undefined) {
+      claims[nodeTreePath(node.dirName, reference.reference)] = reference.committedOutcome;
+    }
+  }
+  if (node.unlinkedClaim !== undefined) {
+    claims[nodeTreePath(node.dirName, node.unlinkedClaim.reference)] = node.unlinkedClaim.outcome;
+  }
+  return claims;
+}
+
+/** Write `claims` as the node's committed status file, or nothing when the node carries no claim. */
+async function writeCommittedClaims(
+  env: SpecTreeEnv,
+  statusPath: string,
+  claims: Readonly<Record<string, NodeStatusEvidenceOutcome>>,
+): Promise<void> {
+  if (Object.keys(claims).length === 0) return;
+  await env.writeRaw(
+    statusPath,
+    serializeNodeStatus(
+      createNodeStatusFile({
+        [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: createNodeStatusMechanismRecord(claims),
+      }),
+    ),
+  );
 }
 
 /** A spec-tree path under the root directory, composed with the spec-tree path grammar. */

@@ -76,11 +76,10 @@ describe("spx spec status --update over a node with linked verification referenc
         for (const expectation of expectations) {
           const recorded = readNodeStatus(join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, expectation.nodeId));
           expect(recorded?.[NODE_STATUS_FIELD.SCHEMA_VERSION]).toBe(NODE_STATUS_SCHEMA_VERSION);
-          // One linked reference per node, so its mechanism overall is that reference's outcome.
           expect(recorded?.[NODE_STATUS_FIELD.VERIFICATION]).toEqual(
             expectation.evidencePaths.length === 0 ? {} : {
               [NODE_STATUS_VERIFICATION_MECHANISM.TEST]: {
-                [NODE_STATUS_FIELD.OVERALL]: expectation.facts.expectedEvidenceOutcome,
+                [NODE_STATUS_FIELD.OVERALL]: expectation.facts.expectedMechanismOverall,
                 ...Object.fromEntries(
                   expectation.evidencePaths.map((path) => [path, expectation.facts.expectedEvidenceOutcome]),
                 ),

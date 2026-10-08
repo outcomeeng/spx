@@ -1,12 +1,17 @@
 import { readFile } from "node:fs/promises";
-import { posix } from "node:path";
+import { join, posix } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { defaultGitDependencies } from "@/lib/git/root";
+import { listTrackedPaths } from "@/lib/git/tracked-paths";
 import {
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_EXCLUDE_FILENAME,
   NODE_STATUS_EXCLUDE_LINE_GRAMMAR,
+  NODE_STATUS_FIELD,
+  NODE_STATUS_VERIFICATION_MECHANISM,
+  readNodeStatus,
 } from "@/lib/node-status";
 import {
   recognizeSpecTreeFilesystemEntry,
@@ -15,10 +20,21 @@ import {
   SPEC_TREE_FILESYSTEM_RECORD_TYPE,
   SPEC_TREE_GRAMMAR,
 } from "@/lib/spec-tree";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { TEST_RUN_STATE_STATUS } from "@/test/run-state";
 import { NODE_STATUS_READABLE_SLUGS, NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
-import { CLASSIFICATION_FIXTURE_PATHS, withClassificationTree } from "@testing/harnesses/node-status/node-status";
-import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
+import {
+  CLASSIFICATION_FIXTURE_PATHS,
+  withClassificationTree,
+  withStatusWriterTree,
+} from "@testing/harnesses/node-status/node-status";
+import {
+  assertProperty,
+  PROPERTY_CLASSIFICATION,
+  PROPERTY_LEVEL,
+  PROPERTY_SIZE,
+  propertyTestEnvelopeTimeoutMs,
+} from "@testing/harnesses/property/property";
 
 describe("node-status test support", () => {
   it("materializes generated classification facts and resolves recorded evidence", async () => {
@@ -102,6 +118,111 @@ describe("node-status test support", () => {
     );
   });
 
+  it(
+    "materializes generated status-writer trees git-tracked with their committed claims and answers the resolver from the generated outcomes",
+    async () => {
+      await assertProperty(
+        NODE_STATUS_TEST_GENERATOR.statusWriterTree(),
+        async (fixture) => {
+          await withStatusWriterTree(fixture, async ({ env, expectations, resolveOutcome }) => {
+            const [specFixtureBytes, testFixtureBytes, tracked] = await Promise.all([
+              readFile(CLASSIFICATION_FIXTURE_PATHS.spec),
+              readFile(CLASSIFICATION_FIXTURE_PATHS.test),
+              listTrackedPaths(env.productDir, defaultGitDependencies),
+            ]);
+            expect(expectations.map((expectation) => expectation.nodeId)).toEqual(
+              fixture.nodes.map((node) => node.dirName),
+            );
+
+            for (const node of fixture.nodes) {
+              const expectation = expectations.find((candidate) => candidate.nodeId === node.dirName);
+              const specPath = [
+                SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+                node.dirName,
+                `${node.slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`,
+              ].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
+              expect(Buffer.from(await env.readFile(specPath))).toEqual(specFixtureBytes);
+              expect(tracked?.has(specPath)).toBe(true);
+              expect(expectation?.evidencePaths).toEqual(
+                node.references.map(({ reference }) =>
+                  [SPEC_TREE_CONFIG.ROOT_DIRECTORY, node.dirName, reference].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR)
+                ),
+              );
+              for (const evidencePath of expectation?.evidencePaths ?? []) {
+                expect(Buffer.from(await env.readFile(evidencePath))).toEqual(testFixtureBytes);
+                expect(tracked?.has(evidencePath)).toBe(true);
+              }
+
+              const committedClaims = [
+                ...node.references.flatMap(({ reference, committedOutcome }) =>
+                  committedOutcome === undefined
+                    ? []
+                    : [
+                      [
+                        [SPEC_TREE_CONFIG.ROOT_DIRECTORY, node.dirName, reference].join(
+                          SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
+                        ),
+                        committedOutcome,
+                      ] as const,
+                    ]
+                ),
+                ...(node.unlinkedClaim === undefined ? [] : [
+                  [
+                    [SPEC_TREE_CONFIG.ROOT_DIRECTORY, node.dirName, node.unlinkedClaim.reference].join(
+                      SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
+                    ),
+                    node.unlinkedClaim.outcome,
+                  ] as const,
+                ]),
+              ];
+              const committedRecord = readNodeStatus(
+                join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, node.dirName),
+              )?.[NODE_STATUS_FIELD.VERIFICATION][NODE_STATUS_VERIFICATION_MECHANISM.TEST];
+              expect(
+                committedRecord === undefined ? undefined : Object.fromEntries(
+                  Object.entries(committedRecord).filter(([key]) => key !== NODE_STATUS_FIELD.OVERALL),
+                ),
+              ).toEqual(committedClaims.length === 0 ? undefined : Object.fromEntries(committedClaims));
+              if (committedClaims.length > 0) {
+                expect([...tracked ?? []]).toContain(expectation?.statusPath);
+              }
+
+              await expect(resolveOutcome(node.dirName, expectation?.evidencePaths ?? [])).resolves.toEqual(
+                Object.fromEntries(
+                  node.references.flatMap(({ reference, resolverOutcome }) =>
+                    resolverOutcome === undefined
+                      ? []
+                      : [
+                        [
+                          [SPEC_TREE_CONFIG.ROOT_DIRECTORY, node.dirName, reference].join(
+                            SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
+                          ),
+                          resolverOutcome,
+                        ] as const,
+                      ]
+                  ),
+                ),
+              );
+            }
+
+            const excludedNodeIds = fixture.nodes.filter((node) => node.isExcluded).map((node) => node.dirName);
+            if (excludedNodeIds.length > 0) {
+              const excludeFile = await env.readFile(
+                [SPEC_TREE_CONFIG.ROOT_DIRECTORY, NODE_STATUS_EXCLUDE_FILENAME].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+              );
+              expect(
+                excludeFile.split(NODE_STATUS_EXCLUDE_LINE_GRAMMAR.ENTRY_SEPARATOR).filter((line) => line.length > 0)
+                  .sort(compareAsciiStrings),
+              ).toEqual(excludedNodeIds.sort(compareAsciiStrings));
+            }
+          });
+        },
+        PROPERTY_CLASSIFICATION.SMALL_L1,
+      );
+    },
+    propertyTestEnvelopeTimeoutMs(PROPERTY_CLASSIFICATION.SMALL_L1),
+  );
+
   it("generates delegation trees that span every consultation class", () => {
     assertProperty(
       NODE_STATUS_TEST_GENERATOR.delegationTree(),
@@ -123,13 +244,19 @@ describe("node-status test support", () => {
   });
 
   it("generates node slugs from the readable slug domain", () => {
-    for (const tree of [NODE_STATUS_TEST_GENERATOR.classificationTree(), NODE_STATUS_TEST_GENERATOR.delegationTree()]) {
+    for (
+      const treeSlugs of [
+        NODE_STATUS_TEST_GENERATOR.classificationTree().map((fixture) => fixture.nodes.map((node) => node.slug)),
+        NODE_STATUS_TEST_GENERATOR.delegationTree().map((fixture) => fixture.nodes.map((node) => node.slug)),
+        NODE_STATUS_TEST_GENERATOR.statusWriterTree().map((fixture) => fixture.nodes.map((node) => node.slug)),
+      ]
+    ) {
       assertProperty(
-        tree,
-        (fixture) => {
-          for (const node of fixture.nodes) {
-            expect(NODE_STATUS_READABLE_SLUGS).toContain(node.slug);
-            expect(node.slug).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u);
+        treeSlugs,
+        (slugs) => {
+          for (const slug of slugs) {
+            expect(NODE_STATUS_READABLE_SLUGS).toContain(slug);
+            expect(slug).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u);
           }
         },
         { level: PROPERTY_LEVEL.L1 },
