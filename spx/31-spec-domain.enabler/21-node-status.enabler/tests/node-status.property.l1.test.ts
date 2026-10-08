@@ -34,8 +34,9 @@ describe("every spx.status.json the writer produces", () => {
 
             for (const expectation of expectations) {
               const document: unknown = JSON.parse(String(written[expectation.statusPath]));
-              expect(document).toBeTypeOf("object");
+              expect(document).not.toBeNull();
               expect(Array.isArray(document)).toBe(false);
+              expect(Object.getPrototypeOf(document)).toBe(Object.prototype);
               const fields = document as Readonly<Record<string, unknown>>;
               expect(Object.keys(fields).sort(compareAsciiStrings)).toEqual(
                 [NODE_STATUS_FIELD.SCHEMA_VERSION, NODE_STATUS_FIELD.VERIFICATION].sort(compareAsciiStrings),
