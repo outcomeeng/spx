@@ -41,3 +41,31 @@ This node's terminal output path passes values that originated outside the produ
 **Skills:** `/apply`, `/test-typescript`, `/audit-typescript-code`.
 
 **Revisit condition:** before the next changeset touching this node's terminal output path.
+
+## The production descriptor declares names that exist only for evidence to assert absent
+
+**Class:** source-ownership (test-evidence audit findings `f-001` and `f-002`).
+
+**Evidence:** the test-evidence audit of this node, run 1 at `65e35d2b15b8ca92dd8afdc0ee5f4b95bf67d272`, rejected `src/interfaces/cli/verify.ts` lines 49 to 51: `VERIFICATION_RUN_CLI_SURFACE.forbiddenRunCommandNames` (`journal`, `event`, `append-scope`, `append-finding`) and `VERIFICATION_RUN_CLI_SURFACE.forbiddenRootCommandName` (`verify`) are vocabulary no production code registers or reads, kept in a production module so tests can assert the names are absent. Line 50 of the same range, `forbiddenRunHelpTerms`, has the same shape. The readers are `tests/verification.compliance.l1.test.ts`, `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/record-run.compliance.l1.test.ts`, and `testing/generators/verify/verify.ts`. These lines are outside the `origin/main..HEAD` diff of that audit. The naming entry above covers a different defect: its subject is the `verify` spelling of the descriptor, not what the descriptor carries.
+
+**Impact:** the production command surface carries a list of commands it does not have. A reader of the descriptor cannot tell registered vocabulary from test vocabulary. The negative evidence also checks only the names on that list, so a journal-mechanics command path the list omits passes unnoticed.
+
+**Settlement condition:** `VERIFICATION_RUN_CLI_SURFACE` carries only vocabulary that the CLI registers or consumes. The forbidden names live with the evidence that asserts their absence, and a test-evidence audit of this node and of `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler` reports no source-ownership finding on the descriptor.
+
+## The NEVER-`spx verify` evidence checks one name, not which root commands reach the run lifecycle
+
+**Class:** coupling and falsifiability (test-evidence audit finding `f-003`).
+
+**Evidence:** the same audit run rejected `tests/verification.compliance.l1.test.ts` line 8. The assertion "NEVER: a top-level verb command such as `spx verify` manages verification runs" is evidenced by checking that the registered root command names do not contain `verify`. The test does not observe which root commands reach the verification-run lifecycle handlers. This line is outside the `origin/main..HEAD` diff of that audit.
+
+**Impact:** a top-level verb under any other name that manages verification runs, such as `spx check`, or a `verify` alias attached to a registered command, leaves the test green while it breaks the assertion. The evidence is coupled to one spelling rather than to the behavior the assertion forbids.
+
+**Settlement condition:** the evidence for this assertion observes the root commands whose actions reach the verification-run lifecycle handlers, and fails when any root command other than `verification` reaches them. A test-evidence audit of this node reports no finding on that assertion.
+
+## The shared verification harness carries test predicates into this node's evidence
+
+**Class:** assertion ownership (test-evidence audit finding `f-004`, WARNING). The shared-harness defect is recorded in `spx/34-verification.enabler/32-verify.enabler/ISSUES.md` under "Shared verification harness owns test predicates and unclassified Git doubles".
+
+**Node-local fact:** the same audit run warned that `testing/harnesses/verify/harness.ts` imports `expect` at line 146. That line is outside the `origin/main..HEAD` diff of the audit. This node's `tests/verification.compliance.l1.test.ts` imports `inspectVerificationRunCommandNames` from that module, so the shared defect reaches evidence outside `spx/34-verification.enabler/32-verify.enabler`. The inventory in that entry counts importers only under `spx/34-verification.enabler/32-verify.enabler`.
+
+**Settlement condition:** the shared entry settles, and this node's tests import from the shared harness only observation and resource APIs that hold no `expect` and no assertion predicate.
