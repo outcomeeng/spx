@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -8,7 +10,7 @@ import {
 import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { TEST_RUN_STATE_STATUS } from "@/test/run-state";
 import { NODE_STATUS_READABLE_SLUGS, NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
-import { withClassificationTree } from "@testing/harnesses/node-status/node-status";
+import { CLASSIFICATION_FIXTURE_PATHS, withClassificationTree } from "@testing/harnesses/node-status/node-status";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 
 describe("node-status test support", () => {
@@ -16,27 +18,39 @@ describe("node-status test support", () => {
     await assertProperty(
       NODE_STATUS_TEST_GENERATOR.classificationTree(),
       async (fixture) => {
-        await withClassificationTree(fixture, async ({ env, expectations, fixturePayloads, recordOutcomeEvidence }) => {
+        await withClassificationTree(fixture, async ({ env, expectations, recordOutcomeEvidence }) => {
           expect(expectations.map((expectation) => expectation.nodeId)).toEqual(
             fixture.nodes.map((node) => node.dirName),
           );
+          const [specFixtureBytes, testFixtureBytes] = await Promise.all([
+            readFile(CLASSIFICATION_FIXTURE_PATHS.spec),
+            readFile(CLASSIFICATION_FIXTURE_PATHS.test),
+          ]);
 
           for (const node of fixture.nodes) {
             const expectation = expectations.find((candidate) => candidate.nodeId === node.dirName);
             expect(expectation?.facts).toEqual(node.facts);
-            await expect(
-              env.readFile(
-                [
-                  SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-                  node.dirName,
-                  `${node.slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`,
-                ]
-                  .join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
-              ),
-            ).resolves.toBe(fixturePayloads.spec);
-            expect(expectation?.evidencePaths).toHaveLength(node.facts.hasVerificationReferences ? 1 : 0);
+            const specText = await env.readFile(
+              [
+                SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+                node.dirName,
+                `${node.slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`,
+              ]
+                .join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+            );
+            expect(Buffer.from(specText)).toEqual(specFixtureBytes);
+            expect(node.evidenceReference !== undefined).toBe(node.facts.hasVerificationReferences);
+            expect(expectation?.evidencePaths).toEqual(
+              node.evidenceReference === undefined
+                ? []
+                : [
+                  [SPEC_TREE_CONFIG.ROOT_DIRECTORY, node.dirName, node.evidenceReference].join(
+                    SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
+                  ),
+                ],
+            );
             for (const evidencePath of expectation?.evidencePaths ?? []) {
-              await expect(env.readFile(evidencePath)).resolves.toBe(fixturePayloads.test);
+              expect(Buffer.from(await env.readFile(evidencePath))).toEqual(testFixtureBytes);
             }
           }
 

@@ -65,6 +65,11 @@ export type ClassificationTreeNode = {
   readonly dirName: string;
   readonly slug: string;
   readonly facts: ClassificationFixtureFacts;
+  /**
+   * The node-relative linked-evidence reference the fixture materializes, present
+   * exactly when the node's facts declare verification references.
+   */
+  readonly evidenceReference: string | undefined;
 };
 
 export type ClassificationTreeFixture = {
@@ -307,15 +312,21 @@ export function arbitraryClassificationTree(): fc.Arbitrary<ClassificationTreeFi
             order: fc.constant(order),
             slug: arbitraryNodeSlug(),
             facts: arbitraryClassificationFixtureFacts(),
-          })
+          }).chain((entry) =>
+            arbitraryEvidenceReferenceFor(entry.facts.hasVerificationReferences).map((evidenceReference) => ({
+              ...entry,
+              evidenceReference,
+            }))
+          )
         ),
       )
     )
     .map((entries) => ({
-      nodes: entries.map(({ order, slug, facts }) => ({
+      nodes: entries.map(({ order, slug, facts, evidenceReference }) => ({
         dirName: `${order}-${slug}${ENABLER_SUFFIX}`,
         slug,
         facts,
+        evidenceReference,
       })),
     }));
 }
@@ -371,10 +382,15 @@ function delegationNode(
   isExcluded: boolean,
 ): fc.Arbitrary<ClassificationTreeNode> {
   return fc
-    .record({ slug: arbitraryNodeSlug(), runnerPassed: fc.boolean() })
-    .map(({ slug, runnerPassed }) => ({
+    .record({
+      slug: arbitraryNodeSlug(),
+      runnerPassed: fc.boolean(),
+      evidenceReference: arbitraryEvidenceReferenceFor(hasVerificationReferences),
+    })
+    .map(({ slug, runnerPassed, evidenceReference }) => ({
       dirName: `${order}-${slug}${ENABLER_SUFFIX}`,
       slug,
+      evidenceReference,
       facts: {
         hasVerificationReferences,
         isExcluded,
@@ -386,6 +402,11 @@ function delegationNode(
           : NODE_STATUS_EVIDENCE_OUTCOME.FAILED,
       },
     }));
+}
+
+/** A linked-evidence reference when the node has verification references, and none otherwise. */
+function arbitraryEvidenceReferenceFor(hasVerificationReferences: boolean): fc.Arbitrary<string | undefined> {
+  return hasVerificationReferences ? arbitraryStatusReference() : fc.constant(undefined);
 }
 
 function outcomesFromEntries(

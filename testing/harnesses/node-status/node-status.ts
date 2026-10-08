@@ -14,12 +14,7 @@ import {
 import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { testingRegistry } from "@/test/registry";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
-import {
-  ClassificationFixtureFacts,
-  ClassificationTreeFixture,
-  NODE_STATUS_TEST_GENERATOR,
-} from "@testing/generators/node-status/node-status";
-import { sampleGeneratedValue } from "@testing/generators/sample";
+import { ClassificationFixtureFacts, ClassificationTreeFixture } from "@testing/generators/node-status/node-status";
 import {
   GIT_TEST_CONFIG,
   GIT_TEST_FLAGS,
@@ -41,8 +36,11 @@ const NODE_STATUS_FIXTURE_DIRECTORY = join(
   "fixtures",
   "node-status",
 );
-const CLASSIFICATION_SPEC_FIXTURE = "classification-spec.md.fixture";
-const CLASSIFICATION_TEST_FIXTURE = "classification-test.ts.fixture";
+/** The inert whole-payload fixtures a classification tree materializes, by absolute path. */
+export const CLASSIFICATION_FIXTURE_PATHS = {
+  spec: join(NODE_STATUS_FIXTURE_DIRECTORY, "classification-spec.md.fixture"),
+  test: join(NODE_STATUS_FIXTURE_DIRECTORY, "classification-test.ts.fixture"),
+} as const;
 const NODE_STATUS_FIXTURE_COMMIT_MESSAGE = "node-status fixture";
 /**
  * Porcelain v1 prefixes each path with a two-character status code and a space; the
@@ -93,8 +91,8 @@ export async function withClassificationTree(
 ): Promise<void> {
   await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
     const [specContent, testContent] = await Promise.all([
-      readFixture(CLASSIFICATION_SPEC_FIXTURE),
-      readFixture(CLASSIFICATION_TEST_FIXTURE),
+      readFixture(CLASSIFICATION_FIXTURE_PATHS.spec),
+      readFixture(CLASSIFICATION_FIXTURE_PATHS.test),
     ]);
     const excludedDirs: string[] = [];
     const expectations: ClassificationTreeNodeExpectation[] = [];
@@ -103,9 +101,8 @@ export async function withClassificationTree(
       await env.writeNode(nodeTreePath(node.dirName, `${node.slug}${SPEC_FILE_SUFFIX}`), specContent);
       let evidencePath: string | undefined;
 
-      if (node.facts.hasVerificationReferences) {
-        const evidenceReference = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.statusReference());
-        evidencePath = nodeTreePath(node.dirName, evidenceReference);
+      if (node.evidenceReference !== undefined) {
+        evidencePath = nodeTreePath(node.dirName, node.evidenceReference);
         await env.writeNode(evidencePath, testContent);
       }
 
@@ -179,8 +176,8 @@ function nodeTreePath(...segments: readonly string[]): string {
   return [ROOT, ...segments].join(PATH_SEPARATOR);
 }
 
-function readFixture(filename: string): Promise<string> {
-  return readFile(join(NODE_STATUS_FIXTURE_DIRECTORY, filename), "utf8");
+function readFixture(fixturePath: string): Promise<string> {
+  return readFile(fixturePath, "utf8");
 }
 
 /** One call the status update made to its injected node-outcome resolver. */
