@@ -24,6 +24,7 @@ CAN execute Python tests with exclusion flags derived from `spx.config.{toml,jso
 ### Compliance
 
 - NEVER: a path verdict derives from the exit code of the pytest process that covered the path — the JUnit XML report states it ([test](tests/python-test.compliance.l1.test.ts))
+- ALWAYS: a run over a product whose root holds no pytest ini-file, while an ini-file sits nearer to its test files, reports each supplied test path's verdict from the JUnit XML report rather than `not-run`
 - ALWAYS: pytest invocation is gated on the Python testing descriptor's detection result ([test](tests/python-test.compliance.l1.test.ts))
 - ALWAYS: pytest runs via `uv run --active pytest` so the provisioned active Python environment provides the tool ([audit])
 - NEVER: write pytest configuration into `pyproject.toml` — exclusion flags pass at invocation time ([audit])
