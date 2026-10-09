@@ -4,14 +4,14 @@ import { DEFAULT_RELEASE_DOCUMENTATION_PATHS } from "@/domains/release/config";
 import {
   DOCUMENTATION_SYNC_AUDIT_APPROVED,
   DOCUMENTATION_SYNC_AUDIT_INVALID_VERDICT_MESSAGE,
+  DOCUMENTATION_SYNC_AUDIT_REJECTED,
   DOCUMENTATION_SYNC_AUDIT_REJECTION_MESSAGE,
 } from "@/domains/release/documentation-sync";
+import { arbitraryAuditVerdictCases, AUDIT_VERDICT_OUTCOME } from "@testing/generators/release/audit-verdict";
 import {
-  arbitraryDocumentationAuditVerdictCases,
   arbitraryDocumentationPathAliasCases,
   arbitraryNestedDocumentationSyncScenario,
   DOCUMENTATION_AUDIT_CASE,
-  DOCUMENTATION_AUDIT_VERDICT_OUTCOME,
   DOCUMENTATION_PATH_MAPPING_CASE,
   DOCUMENTATION_PATH_SEMANTICS,
   documentationPathMappingCases,
@@ -79,8 +79,13 @@ describe("documentation sync path mapping", () => {
     },
   );
 
-  it.each(sampleReleaseTestValue(arbitraryDocumentationAuditVerdictCases()))(
-    "maps audit verdict $verdict by its first whitespace-delimited token",
+  it.each(sampleReleaseTestValue(
+    arbitraryAuditVerdictCases({
+      approved: DOCUMENTATION_SYNC_AUDIT_APPROVED,
+      rejected: DOCUMENTATION_SYNC_AUDIT_REJECTED,
+    }),
+  ))(
+    "maps documentation sync audit verdict $verdict by its first whitespace-delimited token",
     async (verdictCase) => {
       await expect(
         observeDocumentationAudit(
@@ -90,14 +95,14 @@ describe("documentation sync path mapping", () => {
           async () => verdictCase.verdict,
         ),
       ).resolves.toSatisfy((observation) => {
-        if (verdictCase.outcome === DOCUMENTATION_AUDIT_VERDICT_OUTCOME.APPROVED) {
+        if (verdictCase.outcome === AUDIT_VERDICT_OUTCOME.APPROVED) {
           expect(observation.error).toBeUndefined();
           expect(observation.promotionCallCount).toBeGreaterThan(0);
         } else {
           expect(observation.promotionCallCount).toBe(0);
           expect(observation.error).toBeInstanceOf(Error);
           expect(String(observation.error)).toContain(
-            verdictCase.outcome === DOCUMENTATION_AUDIT_VERDICT_OUTCOME.REJECTED
+            verdictCase.outcome === AUDIT_VERDICT_OUTCOME.REJECTED
               ? DOCUMENTATION_SYNC_AUDIT_REJECTION_MESSAGE
               : DOCUMENTATION_SYNC_AUDIT_INVALID_VERDICT_MESSAGE,
           );

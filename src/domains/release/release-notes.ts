@@ -242,8 +242,12 @@ const MARKDOWN_CDATA_OPEN = "<![CDATA[";
 const MARKDOWN_CDATA_CLOSE = "]]>";
 const MARKDOWN_HTML_TAG_LOCALE = "en-US";
 const MARKDOWN_REFERENCE_DEFINITION_PATTERN = /^\[[^\]\n]+\]:/u;
+const WHITESPACE_PATTERN = /\s+/u;
 export const RELEASE_NOTES_FAITHFULNESS_APPROVED = "APPROVED";
 export const RELEASE_NOTES_FAITHFULNESS_REJECTED = "REJECTED";
+export const RELEASE_NOTES_FAITHFULNESS_REJECTION_MESSAGE = "Generated release notes failed faithfulness audit";
+export const RELEASE_NOTES_FAITHFULNESS_INVALID_VERDICT_MESSAGE =
+  "Release-notes faithfulness audit returned an invalid verdict";
 
 interface MarkdownFence {
   readonly marker: string;
@@ -631,15 +635,14 @@ function formatReleaseNotesSectionDataBlock(notes: string): string {
 
 function assertFaithfulnessAuditApproved(result: string): void {
   const verdict = result.trim();
-  if (verdict === RELEASE_NOTES_FAITHFULNESS_APPROVED) {
+  const [verdictToken] = verdict.split(WHITESPACE_PATTERN);
+  if (verdictToken === RELEASE_NOTES_FAITHFULNESS_APPROVED) {
     return;
   }
-  if (
-    verdict === RELEASE_NOTES_FAITHFULNESS_REJECTED || verdict.startsWith(`${RELEASE_NOTES_FAITHFULNESS_REJECTED} `)
-  ) {
-    throw new ReleaseNotesError(`Generated release notes failed faithfulness audit: ${verdict}`);
+  if (verdictToken === RELEASE_NOTES_FAITHFULNESS_REJECTED) {
+    throw new ReleaseNotesError(`${RELEASE_NOTES_FAITHFULNESS_REJECTION_MESSAGE}: ${verdict}`);
   }
-  throw new ReleaseNotesError(`Release-notes faithfulness audit returned an invalid verdict: ${verdict}`);
+  throw new ReleaseNotesError(`${RELEASE_NOTES_FAITHFULNESS_INVALID_VERDICT_MESSAGE}: ${verdict}`);
 }
 
 function formatReleaseVersionDataBlock(version: string): string {
