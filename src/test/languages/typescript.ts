@@ -197,7 +197,7 @@ async function runTests(request: TestRunRequest, deps: TestRunnerDependencies): 
 
   const result = await deps.runCommand(PACKAGE_MANAGER_COMMAND, args);
   const pathVerdicts = pathVerdictsFromReport(await readReportText(reportPath, deps), request.testPaths);
-  await rm(reportPath, { force: true });
+  await (deps.removeReport ?? ((path) => rm(path, { force: true })))(reportPath);
   return {
     invoked: true,
     exitCode: pathVerdicts === null && result.exitCode === 0 ? UNREADABLE_REPORT_EXIT_CODE : result.exitCode,

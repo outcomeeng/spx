@@ -31,6 +31,8 @@ export interface TestRunnerDependencies {
   readonly runCommand: (command: string, args: readonly string[]) => Promise<TestRunCommandResult>;
   /** Reads a runner's machine-readable report file; defaults to reading the file from disk. */
   readonly readReport?: (path: string) => Promise<string>;
+  /** Removes a runner's machine-readable report file; defaults to deleting the file from disk. */
+  readonly removeReport?: (path: string) => Promise<void>;
 }
 
 /** Result from a related-test resolver command that emits parseable stdout. */
