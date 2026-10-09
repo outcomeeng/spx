@@ -13,13 +13,14 @@ import {
   readTestingRuns,
   selectLatestTerminalTestRunForNode,
   type StalenessInputs,
+  TEST_PATH_VERDICT,
+  type TestPathVerdictValue,
   type TestRunnerOutcome,
   type TestRunStateFileSystem,
   type TestTerminalRun,
 } from "@/test/run-state";
 
 const PATH_SEPARATOR = "/";
-const SUCCESS_EXIT_CODE = 0;
 
 /** Dependencies the production resolver composes over the testing domain. */
 export interface NodeOutcomeResolverDependencies {
@@ -135,14 +136,24 @@ async function recordedOutcomes(
   return resolved;
 }
 
+// A reference takes the verdict recorded for its own test path, never the exit
+// code of the runner invocation that covered it. A failed verdict from any
+// covering runner fails the reference; otherwise it passes only when every
+// covering runner recorded a passed verdict for the path.
 function outcomeForPath(
   outcomes: readonly TestRunnerOutcome[],
   path: string,
 ): NodeStatusEvidenceOutcome {
-  const covering = outcomes.filter((outcome) => outcome.testPaths.includes(path));
-  if (covering.length === 0) return NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN;
-  if (covering.every((outcome) => outcome.exitCode === SUCCESS_EXIT_CODE)) {
+  const verdicts = outcomes
+    .filter((outcome) => outcome.testPaths.includes(path))
+    .map((outcome) => pathVerdictFor(outcome, path));
+  if (verdicts.includes(TEST_PATH_VERDICT.FAILED)) return NODE_STATUS_EVIDENCE_OUTCOME.FAILED;
+  if (verdicts.length > 0 && verdicts.every((verdict) => verdict === TEST_PATH_VERDICT.PASSED)) {
     return NODE_STATUS_EVIDENCE_OUTCOME.PASSED;
   }
-  return NODE_STATUS_EVIDENCE_OUTCOME.FAILED;
+  return NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN;
+}
+
+function pathVerdictFor(outcome: TestRunnerOutcome, path: string): TestPathVerdictValue {
+  return outcome.pathVerdicts.find((entry) => entry.testPath === path)?.verdict ?? TEST_PATH_VERDICT.NOT_RUN;
 }
