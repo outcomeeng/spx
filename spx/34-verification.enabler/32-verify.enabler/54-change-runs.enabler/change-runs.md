@@ -10,8 +10,6 @@ CAN read each verification type's runs for a Change, and how each run ended, fro
 
 ## Assertions
 
-- ALWAYS: comparing two runs of one Change names, for each product-relative path both runs judged, whether the path's blob at the first run's head commit differs from its blob at the second run's head commit — `changed` when the two blobs differ and `unchanged` when they are the same blob
-
 ### Scenarios
 
 - Given runs started for one Change on two branches and on a detached head, beside a run started for another Change and a run started without a Change identity, when the listing is requested for the first Change, then it returns exactly the first Change's runs, grouped by verification type ([test](tests/change-runs.scenario.l1.test.ts))
@@ -19,6 +17,7 @@ CAN read each verification type's runs for a Change, and how each run ended, fro
 ### Mappings
 
 - ALWAYS: each listed run carries its run token, verification type, drive mode, sealed state, terminal status when present, and finding count per disposition, and a listed run that has a recorded-input sidecar also carries its scope type, scope identity, and the head commit of a changeset scope ([test](tests/change-runs.mapping.l1.test.ts))
+- ALWAYS: comparing two runs of one Change names, for each product-relative path both runs judged, whether the path's blob at the first run's head commit differs from its blob at the second run's head commit — `changed` when the two blobs differ and `unchanged` when they are the same blob ([test](tests/run-comparison.mapping.l1.test.ts))
 
 ### Conformance
 

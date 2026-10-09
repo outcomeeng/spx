@@ -793,6 +793,25 @@ export interface JudgedPathsCase {
   readonly absentIndex: number;
 }
 
+/** A scope unit as a JSON payload carrying `judgedPaths` as its type-neutral judged-paths field. */
+function scopeUnitWithJudgedPaths(unit: object, judgedPaths: readonly string[]): JsonValue {
+  return JSON.parse(JSON.stringify({ ...unit, [VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_PATHS]: judgedPaths })) as JsonValue;
+}
+
+/**
+ * A valid first scope unit of a run of `verificationType` whose scope identity is `scopeIdentity`,
+ * carrying `judgedPaths` — files the run's head commit holds — as its judged-paths field.
+ */
+function arbitraryJudgedScopeUnit(
+  verificationType: VerifyVerificationType,
+  scopeIdentity: string,
+  judgedPaths: readonly string[],
+): fc.Arbitrary<JsonValue> {
+  return RUN_FIRST_SCOPE_UNIT[verificationType](scopeIdentity).map((unit) =>
+    scopeUnitWithJudgedPaths(unit, judgedPaths)
+  );
+}
+
 /**
  * One judged-paths case for a run of `verificationType` whose scope identity is `scopeIdentity` and
  * whose head commit holds exactly the product-relative file `heldPath` among the paths drawn here.
@@ -813,11 +832,9 @@ function arbitraryJudgedPathsCase(
     .map(({ unit, heldSpelling, absentPath, absentFirst }) => {
       const heldOnly = [heldSpelling];
       const judgedPaths = absentFirst ? [absentPath, heldSpelling] : [heldSpelling, absentPath];
-      const withJudgedPaths = (paths: readonly string[]): JsonValue =>
-        JSON.parse(JSON.stringify({ ...unit, [VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_PATHS]: paths })) as JsonValue;
       return {
-        heldPayload: withJudgedPaths(heldOnly),
-        absentPayload: withJudgedPaths(judgedPaths),
+        heldPayload: scopeUnitWithJudgedPaths(unit, heldOnly),
+        absentPayload: scopeUnitWithJudgedPaths(unit, judgedPaths),
         heldSpelling,
         absentPath,
         heldOnlyIndex: heldOnly.indexOf(heldSpelling),
@@ -834,6 +851,11 @@ export const VERIFY_TEST_GENERATOR = {
     scopeIdentity: string,
     heldPath: string,
   ): fc.Arbitrary<JudgedPathsCase> => arbitraryJudgedPathsCase(verificationType, scopeIdentity, heldPath),
+  judgedScopeUnit: (
+    verificationType: VerifyVerificationType,
+    scopeIdentity: string,
+    judgedPaths: readonly string[],
+  ): fc.Arbitrary<JsonValue> => arbitraryJudgedScopeUnit(verificationType, scopeIdentity, judgedPaths),
   // Draws the open complement of the supported scope types. The inherited-property branch keeps
   // prototype-chain names in the domain: a registry lookup written with `in` rather than
   // `Object.hasOwn` resolves them to inherited members, which arbitrary strings would not expose.
