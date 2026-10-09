@@ -14,8 +14,6 @@ Verification runs share one CLI vocabulary even when their judgment and driver d
 
 ## Verification
 
-- ALWAYS: `compare` rejects an invocation whose two `--run <run-token>` values are not both runs of the Change `--change <owner/repo#N>` names
-
 ### Testing
 
 - ALWAYS: `spx verification run` exposes the command paths `start`, `input`, `scope add`, `finding add`, `finish`, `status`, `render`, `list`, and `compare` ([mapping])
@@ -25,6 +23,7 @@ Verification runs share one CLI vocabulary even when their judgment and driver d
 - ALWAYS: caller-driven scope options map `changeset` to `<base>..<head>` and `file` to one product-relative path supplied through `--scope` ([mapping])
 - ALWAYS: `start` requires `--input <input-source>` and reports `runToken`, `contextDigest`, `resolvedScope`, `input`, and `locator` ([conformance])
 - ALWAYS: every existing-run command path — `input`, `scope add`, `finding add`, `finish`, `status`, `render`, and `compare` of `spx verification run` — requires `--run <run-token>`, once on every path but `compare` and twice on `compare` ([compliance])
+- ALWAYS: `compare` rejects an invocation whose two `--run <run-token>` values are not both runs of the Change `--change <owner/repo#N>` names ([compliance])
 - NEVER: an existing-run command path — `input`, `scope add`, `finding add`, `finish`, `status`, `render`, or `compare` — accepts a fresh `--input <input-source>` value ([compliance])
 - ALWAYS: `scope add` and `finding add` require `--payload <payload-source>` and `--idempotency-key <key>` ([compliance])
 - ALWAYS: `finish` requires `--terminal-status <status>` and accepts optional `--terminal-metadata <payload-source>` ([compliance])
