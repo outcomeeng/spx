@@ -2,9 +2,11 @@ import type { JournalEvent } from "@/lib/agent-run-journal";
 
 import {
   changeIdentityOf,
+  headCommitOf,
   parseChangesetScope,
   projectVerifyRun,
   type RecordedInput,
+  runJudgedPathsOf,
   VERIFY_SCOPE_TYPE,
   VERIFY_VERIFICATION_TYPE,
   type VerifyDriveMode,
@@ -109,4 +111,141 @@ export function groupChangeRunsByType(runs: readonly VerifyChangeRun[]): VerifyC
     groups[verificationType] = runs.filter((run) => run.verificationType === verificationType);
   }
   return groups as VerifyChangeRunsByType;
+}
+
+/** How a path both compared runs judged relates across their head commits. */
+export const VERIFY_RUN_COMPARISON_STATUS = {
+  /** The path's blob at the first run's head commit differs from its blob at the second's. */
+  CHANGED: "changed",
+  /** The path is the same blob at both runs' head commits. */
+  UNCHANGED: "unchanged",
+} as const;
+
+export type VerifyRunComparisonStatus =
+  (typeof VERIFY_RUN_COMPARISON_STATUS)[keyof typeof VERIFY_RUN_COMPARISON_STATUS];
+
+/** Why two runs of a Change cannot be compared. */
+export const VERIFY_RUN_COMPARISON_REFUSAL = {
+  /** The run records no head commit, so no path it judged has a content identity. */
+  HEAD_COMMIT_ABSENT: "head-commit-absent",
+  /** A path both runs judged is not a file at one run's head commit, so it has no blob there. */
+  BLOB_ABSENT: "blob-absent",
+} as const;
+
+export type VerifyRunComparisonRefusal =
+  (typeof VERIFY_RUN_COMPARISON_REFUSAL)[keyof typeof VERIFY_RUN_COMPARISON_REFUSAL];
+
+/** One run's side of a comparison: its identity, the head commit it judged, and the paths it judged. */
+export interface VerifyComparedRun {
+  readonly runToken: string;
+  readonly verificationType: VerifyVerificationType;
+  readonly headCommit: string;
+  readonly judgedPaths: readonly string[];
+}
+
+/** A path both runs judged, with whether its content changed between their head commits. */
+export interface VerifyRunComparisonPath {
+  readonly path: string;
+  readonly status: VerifyRunComparisonStatus;
+}
+
+/** The comparison reported for two runs of one Change. */
+export interface VerifyRunComparisonReport {
+  readonly change: string;
+  readonly first: Omit<VerifyComparedRun, "judgedPaths">;
+  readonly second: Omit<VerifyComparedRun, "judgedPaths">;
+  readonly paths: readonly VerifyRunComparisonPath[];
+}
+
+/** A refused comparison: the refusal class, and the run token or path it names. */
+export interface VerifyRunComparisonRejection {
+  readonly refusal: VerifyRunComparisonRefusal;
+  readonly subject: string;
+}
+
+export type VerifyComparedRunResult =
+  | { readonly ok: true; readonly value: VerifyComparedRun }
+  | { readonly ok: false; readonly rejection: VerifyRunComparisonRejection };
+
+export type VerifyRunComparisonResult =
+  | { readonly ok: true; readonly value: VerifyRunComparisonReport }
+  | { readonly ok: false; readonly rejection: VerifyRunComparisonRejection };
+
+/**
+ * One run's side of a comparison folded from its event history: the head commit its run-context
+ * event records and every path its scope evidence judged. A run that records no head commit cannot
+ * give a judged path a content identity and is refused naming its run token.
+ */
+export function comparedRunOf(args: {
+  readonly runToken: string;
+  readonly verificationType: VerifyVerificationType;
+  readonly events: readonly JournalEvent[];
+}): VerifyComparedRunResult {
+  const headCommit = headCommitOf(args.events);
+  if (headCommit === undefined) {
+    return {
+      ok: false,
+      rejection: { refusal: VERIFY_RUN_COMPARISON_REFUSAL.HEAD_COMMIT_ABSENT, subject: args.runToken },
+    };
+  }
+  return {
+    ok: true,
+    value: {
+      runToken: args.runToken,
+      verificationType: args.verificationType,
+      headCommit,
+      judgedPaths: runJudgedPathsOf(args.events),
+    },
+  };
+}
+
+/**
+ * The paths both runs judged, in the order the first run judged them. A path only one run judged
+ * has no counterpart to compare and is left out.
+ */
+export function commonJudgedPaths(first: VerifyComparedRun, second: VerifyComparedRun): readonly string[] {
+  const secondPaths = new Set(second.judgedPaths);
+  return first.judgedPaths.filter((path) => secondPaths.has(path));
+}
+
+/** A compared run's identity and head commit, without the judged paths the report lists jointly. */
+function comparedRunIdentity(run: VerifyComparedRun): Omit<VerifyComparedRun, "judgedPaths"> {
+  return { runToken: run.runToken, verificationType: run.verificationType, headCommit: run.headCommit };
+}
+
+/**
+ * Compare two runs of one Change by the content of the files both judged: each path both runs
+ * judged is `changed` when its blob at the first run's head commit differs from its blob at the
+ * second run's head commit and `unchanged` when they are the same blob. `firstBlobs` and
+ * `secondBlobs` hold each common path's blob object name at the respective head commit; a common
+ * path missing from either is not a file there and refuses the comparison naming the path.
+ */
+export function compareChangeRuns(args: {
+  readonly change: string;
+  readonly first: VerifyComparedRun;
+  readonly second: VerifyComparedRun;
+  readonly firstBlobs: ReadonlyMap<string, string>;
+  readonly secondBlobs: ReadonlyMap<string, string>;
+}): VerifyRunComparisonResult {
+  const paths: VerifyRunComparisonPath[] = [];
+  for (const path of commonJudgedPaths(args.first, args.second)) {
+    const firstBlob = args.firstBlobs.get(path);
+    const secondBlob = args.secondBlobs.get(path);
+    if (firstBlob === undefined || secondBlob === undefined) {
+      return { ok: false, rejection: { refusal: VERIFY_RUN_COMPARISON_REFUSAL.BLOB_ABSENT, subject: path } };
+    }
+    paths.push({
+      path,
+      status: firstBlob === secondBlob ? VERIFY_RUN_COMPARISON_STATUS.UNCHANGED : VERIFY_RUN_COMPARISON_STATUS.CHANGED,
+    });
+  }
+  return {
+    ok: true,
+    value: {
+      change: args.change,
+      first: comparedRunIdentity(args.first),
+      second: comparedRunIdentity(args.second),
+      paths,
+    },
+  };
 }

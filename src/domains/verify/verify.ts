@@ -1643,6 +1643,20 @@ export function scopeJudgedPathsOf(payload: JsonValue): readonly string[] {
 }
 
 /**
+ * Every path a run judged, folded from the judged paths its recorded scope events carry: each path
+ * once, in the order the run first recorded it. A run whose scope evidence names no judged file
+ * judged no path.
+ */
+export function runJudgedPathsOf(events: readonly JournalEvent[]): readonly string[] {
+  const judged = new Set<string>();
+  for (const event of events) {
+    if (event.type !== VERIFY_APPEND_EVENT_TYPE.SCOPE || !isJsonRecord(event.data)) continue;
+    for (const path of scopeJudgedPathsOf(event.data[VERIFY_APPEND_EVENT_FIELD.PAYLOAD])) judged.add(path);
+  }
+  return [...judged];
+}
+
+/**
  * Compose a verification type's scope validator with the type-neutral judged-paths field: the
  * type's own schema decides first, then the judged paths are read and carried into the accepted
  * value, so the recorded scope keeps them whichever type validated it.
