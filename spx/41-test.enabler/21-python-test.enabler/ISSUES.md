@@ -37,3 +37,13 @@ The scenario "Given a Python test imports a module that does not exist, when pyt
 **Scope:** The three property checks of the mapping test file; the finite product-inputs check in the same file is unaffected.
 
 **Resolution:** route each check through the property harness, keeping the predicate in the executed test callback, then re-run this node's tests and its test-evidence audit.
+
+## The excluded-node-path scenario takes its expected flag from the production `excludeFlag`
+
+The scenario "Given an excluded node path in `spx.config.{toml,json,yaml}`, when `spx test passing` runs, then pytest is invoked with `--ignore=spx/{node}/` for that node" links `tests/python-test.scenario.l1.test.ts`, whose suite in `registerPythonRunnerScenarioL1Evidence` (`testing/harnesses/testing/python-runner.ts`) asserts that the invoked arguments contain `pythonTestingLanguage.excludeFlag(nodePath)`. The expected value is computed by the function under test.
+
+**Impact:** A defect in `excludeFlag` changes the expected value and the invoked flag together, so the assertion passes while the flag differs from `--ignore=spx/{node}/`; the case does not observe the flag the scenario names. The mapping test of this node owns the correspondence from an excluded node path to its flag.
+
+**Scope:** One scenario of this node, untouched by the per-path verdict changes.
+
+**Resolution:** derive the expected `--ignore=spx/{node}/` argument from the scenario's declared form independently of `excludeFlag`, then re-run this node's tests and its test-evidence audit.
