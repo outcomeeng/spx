@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { GIT_SUCCESS_EXIT_CODE, listTrackedPaths, TRACKED_PATH_NUL_SEPARATOR } from "@/lib/git/tracked-paths";
+import { GIT_ROOT_COMMAND } from "@/lib/git/root";
+import {
+  GIT_LS_FILES_SUBCOMMAND,
+  GIT_NUL_TERMINATED_FLAG,
+  GIT_SUCCESS_EXIT_CODE,
+  listTrackedPaths,
+  TRACKED_PATH_NUL_SEPARATOR,
+} from "@/lib/git/tracked-paths";
 import { NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
-import { GIT_TEST_COMMAND, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import {
   createFailingGitDependencies,
   createObservingGitDependencies,
@@ -23,8 +29,8 @@ describe("the tracked-path query maps each git ls-files runner outcome to a trac
         await expect(listTrackedPaths(productDir, git.deps)).resolves.toEqual(trackedFiles);
         expect(git.invocations).toEqual([
           {
-            executable: GIT_TEST_COMMAND,
-            args: [GIT_TEST_SUBCOMMANDS.LS_FILES, GIT_TEST_FLAGS.NUL_TERMINATED],
+            executable: GIT_ROOT_COMMAND.EXECUTABLE,
+            args: [GIT_LS_FILES_SUBCOMMAND, GIT_NUL_TERMINATED_FLAG],
             cwd: productDir,
           },
         ]);
