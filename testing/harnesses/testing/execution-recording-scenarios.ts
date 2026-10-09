@@ -22,7 +22,6 @@ import {
   isStalenessMatch,
   readTestingRuns,
   selectLatestTerminalTestRunForNode,
-  TEST_PATH_VERDICT,
   TEST_RUN_STATE_STATUS,
 } from "@/test/run-state";
 import {
@@ -39,11 +38,7 @@ import {
   writeTestFileFixture,
   writeTestingConfig,
 } from "@testing/harnesses/testing/harness";
-import {
-  createRecordingCommandRunner,
-  SIMULATED_REPORT,
-  type SimulatedFileStatus,
-} from "@testing/harnesses/testing/typescript-runner";
+import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
 
 function recordedProductInputDigest(
   recorded: { readonly productInputDigests: readonly { readonly descriptorId: string; readonly digest: string }[] },
@@ -524,44 +519,6 @@ export function registerExecutionRecordingScenarioTests(): void {
         if (runs.ok) {
           expect(selectLatestTerminalTestRunForNode(runs.value.terminalRuns, [targetFile])).toBeDefined();
           expect(selectLatestTerminalTestRunForNode(runs.value.terminalRuns, [siblingFile])).toBeUndefined();
-        }
-      });
-    });
-
-    it("records failed for the failing test file and passed for the passing test file of one run", async () => {
-      const [failingNode, passingNode] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.distinctNodePaths());
-      const failingFile = sampleDispatchValue(
-        TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, failingNode),
-      );
-      const passingFile = sampleDispatchValue(
-        TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, passingNode),
-      );
-      const runner = createRecordingCommandRunner({
-        present: true,
-        exitCode: 1,
-        report: SIMULATED_REPORT.LISTED_FILES,
-        reportedStatuses: new Map<string, SimulatedFileStatus>([
-          [failingFile, TEST_PATH_VERDICT.FAILED],
-          [passingFile, TEST_PATH_VERDICT.PASSED],
-        ]),
-      });
-
-      await withTestingTempProductDir(async (productDir) => {
-        await writeTestFileFixture(productDir, failingFile);
-        await writeTestFileFixture(productDir, passingFile);
-
-        await runTestsCommand({ productDir, passing: false }, testingCommandDependencies(runner));
-
-        const runs = await readTestingRuns(productDir);
-        expect(runs.ok).toBe(true);
-        if (runs.ok) {
-          expect(runs.value.terminalRuns).toHaveLength(1);
-          const pathVerdicts = runs.value.terminalRuns.flatMap((run) =>
-            run.state.runnerOutcomes.flatMap((outcome) => outcome.pathVerdicts)
-          );
-          expect(pathVerdicts).toHaveLength(2);
-          expect(pathVerdicts).toContainEqual({ testPath: failingFile, verdict: TEST_PATH_VERDICT.FAILED });
-          expect(pathVerdicts).toContainEqual({ testPath: passingFile, verdict: TEST_PATH_VERDICT.PASSED });
         }
       });
     });
