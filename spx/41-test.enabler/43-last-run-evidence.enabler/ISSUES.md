@@ -43,3 +43,33 @@ or when `src/lib/state-store/index.ts` is next edited for its own reason.
 **Evidence:** spec-tree-review on PR #239 (`run-state.ts` ↔
 `src/lib/state-store/index.ts:570`); local SonarQube finding probe surfacing four
 state-store findings from a one-line edit.
+
+## Property tests call fast-check directly, bypassing the property harness's seed and replay
+
+`tests/run-state.property.l1.test.ts` and `tests/staleness.property.l1.test.ts` run each property through `fc.assert` with a local `numRuns`, not through the property harness in `testing/harnesses/property/property.ts`. That harness owns the run count, the per-run timeout, and the seed: it reads `SPX_PROPERTY_SEED` or draws one, and a failure reports the seed and the shrunk counterexample so the caller replays the exact run. A failing property in either file reports fast-check's own seed text and ignores `SPX_PROPERTY_SEED`.
+
+**Impact:** a failure in either file does not replay through the pinned seed every other property in the product uses, and the run count and timeout are chosen per call site, so the properties' budgets drift from the harness's.
+
+**Scope:** every property in the two files, among them the round-trip property whose recorded fields now include each runner outcome's per-path verdicts; this changeset leaves their `fc.assert` calls unchanged.
+
+**Resolution:** route each property through the property harness, then re-run this node's tests and its test-evidence audit.
+
+## The terminal-run pool generator lives in a test file
+
+`arbitraryTerminalRunPool` in `tests/run-state.property.l1.test.ts` composes the latest-covering-run pool: it draws the run file names, states, runner outcomes, and base date, and sorts the names to fix the tie-breaking winners and losers. It is a generator defined in the test file that uses it, beside the shared `TEST_RUN_STATE_TEST_GENERATOR` in `testing/generators/testing/run-state.ts`.
+
+**Impact:** the pool's construction, which carries the expected run file name the property asserts against, sits in the evidence it constrains, so the generator is neither reusable by a sibling test nor audited as governed test infrastructure.
+
+**Scope:** the one generator and the property "selects the latest covering run by completed time, started time, and run file name" that consumes it.
+
+**Resolution:** move the pool generator into `testing/generators/testing/run-state.ts` beside the generators it composes, then re-run this node's tests and its test-evidence audit.
+
+## The passing-scope compliance test writes the literal `exclude` key
+
+`tests/passing-scope.compliance.l1.test.ts` builds its section value as `{ [TESTING_CONFIG_FIELDS.PASSING_SCOPE]: { exclude: [excludedScope] } }` and passes `{ exclude: [excludedScope] }` to `writeTestingConfig`. The `exclude` key is a string literal in the test, where the passing-scope key beside it comes from `TESTING_CONFIG_FIELDS`.
+
+**Impact:** a rename of the exclusion key in the path-filter configuration the passing scope validates against leaves the test writing a key that configuration no longer reads, so the test continues to exclude nothing it names and its comparison of the passing scope before and after deleting state compares two scopes that omit the exclusion.
+
+**Scope:** the two literal `exclude` occurrences in that file; the rest of the compliance test is unaffected.
+
+**Resolution:** take the key from the path-filter configuration's own field name, then re-run this node's tests and its test-evidence audit.
