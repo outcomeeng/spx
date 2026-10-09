@@ -6,7 +6,7 @@
  * @module testing/harnesses/verify/built-cli
  */
 
-import { access, readdir, readFile } from "node:fs/promises";
+import { access, mkdir, readdir, readFile, realpath } from "node:fs/promises";
 import { join, relative } from "node:path";
 
 import { execa } from "execa";
@@ -30,16 +30,16 @@ import {
 } from "@testing/generators/verify/change-runs";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import { CLI_PATH, NODE_EXECUTABLE, PRODUCT_ROOT } from "@testing/harnesses/constants";
-import { buildGitTestEnvironment } from "@testing/harnesses/git-test-constants";
-import {
-  type ChangeRunsRepository,
-  type StartedChangeRun,
-  withChangeRunsRepository,
-} from "@testing/harnesses/verify/change-runs";
+import { buildGitTestEnvironment, GIT_TEST_ENVIRONMENT_KEYS } from "@testing/harnesses/git-test-constants";
+import { type StartedChangeRun, withChangeRunsRepository } from "@testing/harnesses/verify/change-runs";
+import { initializeVerifyRepository } from "@testing/harnesses/verify/repository";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 /** The bundle `bin/spx.js` loads; absent until `pnpm run build` produces it. */
 const BUILT_CLI_BUNDLE = join(PRODUCT_ROOT, "dist", "cli.js");
 const BUILT_CLI_MISSING_EXIT_CODE = 1;
+const HEADLESS_RUN_TEMP_PREFIX = "verify-built-headless-run-";
+const HEADLESS_RUN_PRODUCT_DIRECTORY = "product";
 
 /** Captured streams and exit code of one built-executable run. */
 export interface BuiltVerificationCliRun {
@@ -67,12 +67,20 @@ async function requireBuiltCli(): Promise<void> {
 /**
  * The child environment: the caller's environment cleaned of Git overrides, with the journal bound
  * to the local backend and no branch override, so a CI pull-request environment cannot route the
- * run to a hosted backend or file it under another branch.
+ * run to a hosted backend or file it under another branch. With `gitDiscoveryCeiling`, git's
+ * repository discovery stops before entering that directory, so no repository at or above it is
+ * visible to the executable.
  */
-function builtCliEnvironment(): NodeJS.ProcessEnv {
+function builtCliEnvironment(gitDiscoveryCeiling?: string): NodeJS.ProcessEnv {
   const env = buildGitTestEnvironment();
   delete env[JOURNAL_CLI_ENV.BRANCH];
-  return { ...env, [JOURNAL_CLI_ENV.BACKEND]: JOURNAL_BACKEND.LOCAL };
+  return {
+    ...env,
+    ...(gitDiscoveryCeiling === undefined
+      ? {}
+      : { [GIT_TEST_ENVIRONMENT_KEYS.CEILING_DIRECTORIES]: gitDiscoveryCeiling }),
+    [JOURNAL_CLI_ENV.BACKEND]: JOURNAL_BACKEND.LOCAL,
+  };
 }
 
 function flagOf(optionExpression: string): string {
@@ -80,12 +88,16 @@ function flagOf(optionExpression: string): string {
   return flag;
 }
 
-/** Run `node bin/spx.js verification run <commandPath> <options>` from `cwd`, piping `input` to stdin. */
+/**
+ * Run `node bin/spx.js verification run <commandPath> <options>` from `cwd`, piping `input` to stdin.
+ * With `gitDiscoveryCeiling`, git's repository discovery for the run stops before that directory.
+ */
 export async function runBuiltVerificationRun(
   cwd: string,
   commandPath: readonly string[],
   options: readonly string[],
   input?: string,
+  gitDiscoveryCeiling?: string,
 ): Promise<BuiltVerificationCliRun> {
   await requireBuiltCli();
   const result = await execa(
@@ -97,7 +109,7 @@ export async function runBuiltVerificationRun(
       ...commandPath,
       ...options,
     ],
-    { cwd, env: builtCliEnvironment(), extendEnv: false, input: input ?? "", reject: false },
+    { cwd, env: builtCliEnvironment(gitDiscoveryCeiling), extendEnv: false, input: input ?? "", reject: false },
   );
   return {
     stdout: result.stdout,
@@ -137,8 +149,15 @@ async function readBranchScopesSnapshot(productDir: string): Promise<BuiltRunSto
   return snapshot;
 }
 
+/** The product directory and the base and head commits a changeset-scoped run names. */
+interface ChangesetRunRepository {
+  readonly productDir: string;
+  readonly baseCommit: string;
+  readonly headCommit: string;
+}
+
 /** The selectors of a changeset-scoped review run over the repository's base and head commits. */
-function changesetReviewSelectors(repository: ChangeRunsRepository): readonly string[] {
+function changesetReviewSelectors(repository: ChangesetRunRepository): readonly string[] {
   return [
     flagOf(VERIFY_CLI.verificationTypeOption),
     VERIFY_VERIFICATION_TYPE.REVIEW,
@@ -149,24 +168,58 @@ function changesetReviewSelectors(repository: ChangeRunsRepository): readonly st
   ];
 }
 
-/** Run the built `start` for a changeset-scoped review run with `--change <change>` and generated input on stdin. */
-async function startBuiltChangeRun(
-  repository: ChangeRunsRepository,
+/** The selectors of a file-scoped review run over the product-relative `filePath`. */
+function fileReviewSelectors(filePath: string): readonly string[] {
+  return [
+    flagOf(VERIFY_CLI.verificationTypeOption),
+    VERIFY_VERIFICATION_TYPE.REVIEW,
+    flagOf(VERIFY_CLI.scopeTypeOption),
+    VERIFY_SCOPE_TYPE.FILE,
+    flagOf(VERIFY_CLI.scopeOption),
+    filePath,
+  ];
+}
+
+/**
+ * Run the built `start` from `cwd` with `selectors`, `--change <change>`, and generated input on
+ * stdin, with git's repository discovery bounded at `gitDiscoveryCeiling` when given.
+ */
+async function startBuiltRunWithChange(
+  cwd: string,
+  selectors: readonly string[],
   change: string,
+  gitDiscoveryCeiling?: string,
 ): Promise<BuiltVerificationCliRun> {
   const input = JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.inputPayload()));
   return runBuiltVerificationRun(
-    repository.productDir,
+    cwd,
     [VERIFY_CLI.startCommandName],
-    [
-      ...changesetReviewSelectors(repository),
-      flagOf(VERIFY_CLI.inputOption),
-      VERIFY_INPUT_SOURCE.STDIN,
-      flagOf(VERIFY_CLI.changeOption),
-      change,
-    ],
+    [...selectors, flagOf(VERIFY_CLI.inputOption), VERIFY_INPUT_SOURCE.STDIN, flagOf(VERIFY_CLI.changeOption), change],
     input,
+    gitDiscoveryCeiling,
   );
+}
+
+/** Run the built `start` for a changeset-scoped review run with `--change <change>` and generated input on stdin. */
+async function startBuiltChangeRun(
+  repository: ChangesetRunRepository,
+  change: string,
+  gitDiscoveryCeiling?: string,
+): Promise<BuiltVerificationCliRun> {
+  return startBuiltRunWithChange(
+    repository.productDir,
+    changesetReviewSelectors(repository),
+    change,
+    gitDiscoveryCeiling,
+  );
+}
+
+/** The report a successful built `start` printed; a failed `start` is a setup failure. */
+function startedRunReport(start: BuiltVerificationCliRun, operation: string): VerifyStartReport {
+  if (start.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+    throw new Error(`built-cli harness: ${operation} failed: ${start.stderr}`);
+  }
+  return JSON.parse(start.stdout) as VerifyStartReport;
 }
 
 /**
@@ -309,6 +362,67 @@ export async function observeBuiltRunComparisonWithChangelessRun(
   comparison: RunComparisonScenario,
 ): Promise<BuiltRunComparisonObservation> {
   return observeBuiltRunComparison(scenario, comparison, undefined);
+}
+
+/**
+ * The arrangement and built-executable run a comparison naming a run without a head commit makes:
+ * the start reports of the run that recorded a head commit and of the run that recorded none — both
+ * serving the scenario's Change — and the built `compare --change <change>` naming the first, then
+ * the second, with the store's branch scopes captured immediately before and after `compare`.
+ */
+export interface BuiltHeadlessRunComparisonObservation {
+  readonly firstRun: VerifyStartReport;
+  readonly secondRun: VerifyStartReport;
+  readonly compare: BuiltVerificationCliRun;
+  readonly storeBeforeCompare: BuiltRunStoreSnapshot;
+  readonly storeAfterCompare: BuiltRunStoreSnapshot;
+}
+
+/**
+ * In a temporary directory that no Git repository encloses — git's repository discovery bounded at
+ * its parent — run the built `start --change <change>` for a file-scoped review run on the scenario's
+ * file, so the run opens outside any repository and records no head commit. Then make the directory
+ * a real Git repository with a base and a head commit adding that file, and run the built
+ * `start --change <change>` for a changeset-scoped review run over those commits, so the run records
+ * the head commit. Both runs live in the one store at the directory, which is the Git common-dir
+ * product root once the repository exists. Capture the store's branch scopes, run the built
+ * `spx verification run compare --change <change>` naming the run with a head commit first and the
+ * run without one second, and capture the branch scopes again.
+ */
+export async function observeBuiltRunComparisonWithHeadlessRun(
+  scenario: ChangeRunsScenario,
+): Promise<BuiltHeadlessRunComparisonObservation> {
+  return withTempDir(HEADLESS_RUN_TEMP_PREFIX, async (tempDir) => {
+    const root = await realpath(tempDir);
+    const productDir = join(root, HEADLESS_RUN_PRODUCT_DIRECTORY);
+    await mkdir(productDir);
+    const secondRun = startedRunReport(
+      await startBuiltRunWithChange(productDir, fileReviewSelectors(scenario.filePath), scenario.change, root),
+      "file-scoped start outside a repository",
+    );
+    const commits = await initializeVerifyRepository(productDir, scenario.filePath);
+    const firstRun = startedRunReport(
+      await startBuiltChangeRun({ productDir, ...commits }, scenario.change, root),
+      "changeset-scoped start in the repository",
+    );
+    const storeBeforeCompare = await readBranchScopesSnapshot(productDir);
+    const compare = await runBuiltVerificationRun(
+      productDir,
+      [VERIFY_CLI.compareCommandName],
+      [
+        flagOf(VERIFY_CLI.changeOption),
+        scenario.change,
+        flagOf(VERIFY_CLI.runOption),
+        firstRun.runToken,
+        flagOf(VERIFY_CLI.runOption),
+        secondRun.runToken,
+      ],
+      undefined,
+      root,
+    );
+    const storeAfterCompare = await readBranchScopesSnapshot(productDir);
+    return { firstRun, secondRun, compare, storeBeforeCompare, storeAfterCompare };
+  });
 }
 
 /**

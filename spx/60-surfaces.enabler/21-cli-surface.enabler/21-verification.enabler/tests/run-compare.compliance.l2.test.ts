@@ -12,6 +12,7 @@ import {
   observeBuiltRunComparisonAcrossChanges,
   observeBuiltRunComparisonOfChange,
   observeBuiltRunComparisonWithChangelessRun,
+  observeBuiltRunComparisonWithHeadlessRun,
 } from "@testing/harnesses/verify/built-cli";
 
 describe("verification run compare compliance through the built executable", () => {
@@ -42,6 +43,28 @@ describe("verification run compare compliance through the built executable", () 
         expect(observation.compare.stdout).toHaveLength(0);
         expect(observation.compare.stderr).toContain(VERIFY_RUN_COMPARISON_ERROR.RUN_NOT_IN_CHANGE);
         expect(observation.compare.stderr).toContain(observation.secondRun.runToken);
+      });
+    },
+    CLI_TIMEOUTS_MS.E2E_BATCH,
+  );
+
+  it(
+    "rejects a comparison whose second --run names a run of the Change that recorded no head commit, naming that run token, reporting nothing, and leaving the store unchanged",
+    async () => {
+      await observeBuiltRunComparisonWithHeadlessRun(
+        sampleGeneratedValue(CHANGE_RUNS_TEST_GENERATOR.scenario()),
+      ).then((observation) => {
+        expect(observation.compare.exitCode).not.toBe(VERIFY_CLI_EXIT_CODE.OK);
+        expect(observation.compare.stdout).toHaveLength(0);
+        expect(observation.compare.stderr).toContain(VERIFY_RUN_COMPARISON_ERROR.HEAD_COMMIT_ABSENT);
+        expect(observation.compare.stderr).toContain(observation.secondRun.runToken);
+        expect(Object.keys(observation.storeBeforeCompare).map((path) => basename(path))).toEqual(
+          expect.arrayContaining([
+            runFileName(observation.firstRun.runToken),
+            runFileName(observation.secondRun.runToken),
+          ]),
+        );
+        expect(observation.storeAfterCompare).toEqual(observation.storeBeforeCompare);
       });
     },
     CLI_TIMEOUTS_MS.E2E_BATCH,
