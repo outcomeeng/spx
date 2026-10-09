@@ -6,6 +6,8 @@ CAN execute this product's TypeScript tests with exclusion flags derived from `s
 
 ## Assertions
 
+- Given a CLI-flag run over one failing and one passing TypeScript test file, when the typescript-testing runner completes, then the returned runner outcome reports `failed` for the failing path and `passed` for the passing path
+
 ### Scenarios
 
 - Given TypeScript test files in `spx/**/tests/*.test.ts`, when the typescript-testing runner is invoked with a list of paths, then vitest executes against those paths and exits zero for passing tests ([test](tests/typescript-test.scenario.l2.test.ts))
