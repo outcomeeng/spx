@@ -169,7 +169,11 @@ export function createRecordingCommandRunner(options: {
       calls.push({ command, args });
       const outputFlag = args.find((arg) => arg.startsWith(OUTPUT_FILE_FLAG_PREFIX));
       if (outputFlag !== undefined) {
-        const text = simulatedReportText(simulation, args, args.filter((arg) => arg.endsWith(".test.ts")));
+        const text = simulatedReportText(
+          simulation,
+          args,
+          args.filter((arg) => typescriptTestingLanguage.matchesTestFile(arg)),
+        );
         if (text !== null) reports.set(outputFlag.slice(OUTPUT_FILE_FLAG_PREFIX.length), text);
       }
       return Promise.resolve({ exitCode: options.exitCode });

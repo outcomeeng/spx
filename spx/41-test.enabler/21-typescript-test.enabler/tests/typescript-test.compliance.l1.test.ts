@@ -15,10 +15,8 @@ import { registerHarnessTestCases } from "@testing/harnesses/vitest-registration
 describe("typescript test runner derives path verdicts from the report, never the exit code", () => {
   it("maps a TypeScript path to passed from the Vitest report despite a non-zero process exit", async () => {
     await assertProperty(
-      TYPESCRIPT_RUNNER_TEST_GENERATOR.nonZeroExitCode(),
-      async (exitCode) => {
-        const [passingPath] = twoDistinctTestPaths();
-
+      TYPESCRIPT_RUNNER_TEST_GENERATOR.nonZeroExitWithTestPath(),
+      async ({ exitCode, testPath: passingPath }) => {
         const invocation = await runWithSimulatedReport(
           {
             exitCode,

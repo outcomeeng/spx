@@ -47,6 +47,7 @@ export const TYPESCRIPT_RUNNER_TEST_GENERATOR = {
   testPathPair: arbitraryTestPathPair,
   exitCode: arbitraryExitCode,
   nonZeroExitCode: arbitraryNonZeroExitCode,
+  nonZeroExitWithTestPath: arbitraryNonZeroExitWithTestPath,
   present: arbitraryPresence,
 } as const;
 
@@ -134,6 +135,13 @@ function arbitraryExitCode(): fc.Arbitrary<number> {
 
 function arbitraryNonZeroExitCode(): fc.Arbitrary<number> {
   return fc.integer({ min: MIN_NON_ZERO_EXIT_CODE, max: MAX_EXIT_CODE });
+}
+
+function arbitraryNonZeroExitWithTestPath(): fc.Arbitrary<{ readonly exitCode: number; readonly testPath: string }> {
+  return fc.record({
+    exitCode: arbitraryNonZeroExitCode(),
+    testPath: arbitraryTypeScriptTestFilePath(),
+  });
 }
 
 function arbitraryPresence(): fc.Arbitrary<boolean> {
