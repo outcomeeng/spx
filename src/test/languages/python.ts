@@ -28,6 +28,7 @@ import {
   PYTEST_INVOKE_ARGS,
   PYTHON_PYTEST_IGNORE_FLAG_PREFIX,
   PYTHON_PYTEST_IGNORE_FLAG_SUFFIX,
+  ROOTDIR_FLAG_PREFIX,
   UV_COMMAND,
 } from "./python-pytest-contract";
 
@@ -186,6 +187,7 @@ async function runTests(request: TestRunRequest, deps: TestRunnerDependencies): 
   const reportPath = junitReportPath(request.productDir);
   const args = [
     ...PYTEST_INVOKE_ARGS,
+    `${ROOTDIR_FLAG_PREFIX}${request.productDir}`,
     `${JUNIT_REPORT_FLAG_PREFIX}${reportPath}`,
     ...request.testPaths,
     ...request.excludedNodePaths.map(excludeFlag),
