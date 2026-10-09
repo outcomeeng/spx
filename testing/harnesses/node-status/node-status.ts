@@ -29,7 +29,7 @@ import {
   GIT_TEST_CONFIG,
   GIT_TEST_FLAGS,
   GIT_TEST_SUBCOMMANDS,
-  readGit,
+  readGitUntrimmed,
   runGit,
 } from "@testing/harnesses/git-test-constants";
 import { type SpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -53,11 +53,13 @@ export const CLASSIFICATION_FIXTURE_PATHS = {
 } as const;
 const NODE_STATUS_FIXTURE_COMMIT_MESSAGE = "node-status fixture";
 /**
- * Porcelain v1 prefixes each path with a two-character status code and a space; the
- * git reader trims output, so the first line's code may have lost a leading blank.
+ * Porcelain v1 `-z` output: each record is a two-character status code, one space,
+ * and the path, terminated by NUL; a rename or copy record is followed by one more
+ * NUL-terminated record carrying the source path with no status code.
  */
-const GIT_PORCELAIN_STATUS_PREFIX = /^\S{1,2} /u;
-const LINE_SEPARATOR = "\n";
+const GIT_PORCELAIN_RECORD_SEPARATOR = "\0";
+const GIT_PORCELAIN_STATUS_PREFIX_LENGTH = 3;
+const GIT_PORCELAIN_SOURCE_PATH_CODES: ReadonlySet<string> = new Set(["R", "C"]);
 
 export type ClassificationTreeNodeExpectation = {
   readonly nodeId: string;
@@ -366,15 +368,26 @@ export async function commitSpecTree(productDir: string): Promise<void> {
 }
 
 /**
- * The spec-tree paths git reports as changed against the last commit — modified,
- * staged, or untracked — read through the production working-tree status command.
+ * Every spec-tree path git reports as changed against the last commit — staged,
+ * unstaged, or untracked, under any status code, and both paths of a rename or copy —
+ * read untrimmed through the production working-tree status command in its
+ * NUL-terminated form.
  */
 export async function readSpecTreeWorkingChanges(productDir: string): Promise<readonly string[]> {
-  const porcelain = await readGit(productDir, [...GIT_STATUS_PORCELAIN_ARGS]);
+  const records = (
+    await readGitUntrimmed(productDir, [...GIT_STATUS_PORCELAIN_ARGS, GIT_TEST_FLAGS.NUL_TERMINATED])
+  ).split(GIT_PORCELAIN_RECORD_SEPARATOR).values();
+  const changedPaths: string[] = [];
+  for (const record of records) {
+    if (record.length === 0) continue;
+    changedPaths.push(record.slice(GIT_PORCELAIN_STATUS_PREFIX_LENGTH));
+    const statusCode = record.slice(0, GIT_PORCELAIN_STATUS_PREFIX_LENGTH - 1);
+    if (![...statusCode].some((code) => GIT_PORCELAIN_SOURCE_PATH_CODES.has(code))) continue;
+    const sourcePath = records.next();
+    if (sourcePath.done !== true) changedPaths.push(sourcePath.value);
+  }
   const specTreePrefix = `${ROOT}${PATH_SEPARATOR}`;
-  return porcelain.split(LINE_SEPARATOR).filter((line) => line.length > 0).map((line) =>
-    line.replace(GIT_PORCELAIN_STATUS_PREFIX, "")
-  ).filter((path) => path.startsWith(specTreePrefix));
+  return changedPaths.filter((path) => path.startsWith(specTreePrefix));
 }
 
 /** Every `spx.status.json` under the spec tree of `productDir`, as product-relative paths. */
