@@ -16,6 +16,7 @@ describe("withTempVitestProduct", () => {
 
     expect(resolve(observation.productDir).startsWith(resolve(tmpdir()) + sep)).toBe(true);
     expect(observation.entriesDuringCallback).toEqual([COPIED_SUITE_NAME]);
+    expect(observation.entryContentsDuringCallback).toEqual([observation.committedFixtureContent]);
     expect(observation.existsAfterCallback).toBe(false);
   });
 

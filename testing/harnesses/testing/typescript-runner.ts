@@ -293,6 +293,10 @@ export interface TempVitestProductObservation {
   readonly productDir: string;
   /** The product's directory entries while the callback ran. */
   readonly entriesDuringCallback: readonly string[];
+  /** The content of each entry in `entriesDuringCallback`, in the same order, read while the callback ran. */
+  readonly entryContentsDuringCallback: readonly string[];
+  /** The content of the committed fixture suite the product was materialized from. */
+  readonly committedFixtureContent: string;
   /** Whether the product directory still exists once the callback has settled. */
   readonly existsAfterCallback: boolean;
 }
@@ -304,13 +308,23 @@ export async function observeTempVitestProductLifecycle(
 ): Promise<TempVitestProductObservation> {
   let productDir = "";
   let entriesDuringCallback: readonly string[] = [];
+  let entryContentsDuringCallback: readonly string[] = [];
 
   await withTempVitestProduct(fixture, async (receivedProductDir) => {
     productDir = receivedProductDir;
     entriesDuringCallback = await readdir(receivedProductDir);
+    entryContentsDuringCallback = await Promise.all(
+      entriesDuringCallback.map((entry) => readFile(join(receivedProductDir, entry), "utf8")),
+    );
   });
 
-  return { productDir, entriesDuringCallback, existsAfterCallback: await pathExists(productDir) };
+  return {
+    productDir,
+    entriesDuringCallback,
+    entryContentsDuringCallback,
+    committedFixtureContent: await readFile(join(VITEST_FIXTURE_DIR, fixture), "utf8"),
+    existsAfterCallback: await pathExists(productDir),
+  };
 }
 
 export interface TempVitestProductFailureObservation {
