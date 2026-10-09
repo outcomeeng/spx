@@ -13,7 +13,7 @@
 ### Changed
 
 - Text output of `spx spec context list` names the methodology version and any migration source as `MAJOR.MINOR`, whichever accepted form configuration declares. `list --json` keeps the declared values.
-- Methodology diagnostics, including `spx diagnose` text reports and their fix actions, name the version as `methodology MAJOR.MINOR`, without a patch component.
+- Methodology diagnostics, including `spx diagnose` text reports and their fix actions, name the version as `methodology MAJOR.MINOR`, without a patch component. The `spx diagnose` text report lists a declared migration source as "Migrating from".
 
 ## [0.8.0] - 2026-10-04
 

@@ -58,10 +58,10 @@ spx validation literal           # Source/test literal reuse detection
 # Scope and targeting
 spx validation all --scope production        # Exclude tests/scripts
 spx validation all --fix                     # Auto-fix across all checks
-spx validation all src/session/              # Validate specific files or directories
+spx validation all src/domains/session/      # Validate specific files or directories
 ```
 
-All validation commands support `--quiet` for CI and `--json` for machine-readable output.
+All validation commands support `--quiet` for CI. `validation all` and `validation literal` also support `--json` for machine-readable output.
 
 ### Verification Runs
 
@@ -78,8 +78,8 @@ spx verification <type> run <path...>
 Record and inspect the runs that serve one Change:
 
 ```bash
-# Record the Change a run serves
-spx verification run start --change <owner/repo#N>
+# Record the Change a run serves, alongside the options every run start takes
+spx verification run start --verification-type <type> --scope-type <scope-type> --scope <scope> --input <input-source> --change <owner/repo#N>
 
 # List the runs recorded for a Change as JSON
 spx verification run list --change <owner/repo#N>
@@ -103,7 +103,7 @@ printf '%s\n' \
   'Body text — `#`, `---`, and code fences are literal because the body is not parsed.' \
   | spx session handoff
 
-# List all sessions
+# List the todo and doing sessions
 spx session list
 
 # List todo sessions only
@@ -115,7 +115,7 @@ spx session pickup --auto
 # Release one or more sessions back to the todo queue
 spx session release [id...]
 
-# Archive a session after adding a non-empty result field to its frontmatter
+# Archive a session
 spx session archive <session-id>
 
 # Show session content
@@ -189,8 +189,6 @@ pnpm run build          # Build with tsup
 pnpm run dev            # Build in watch mode
 pnpm test               # Build, then run all tests
 pnpm run test:watch     # Run tests in watch mode
-pnpm run test:unit      # Unit tests only
-pnpm run test:e2e       # Build, then run end-to-end tests
 pnpm run test:coverage  # Tests with coverage
 ```
 
