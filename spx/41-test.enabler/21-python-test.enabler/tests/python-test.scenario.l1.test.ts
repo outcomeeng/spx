@@ -57,7 +57,7 @@ describe("python test runner reports a verdict per test path from pytest's JUnit
   });
 
   it.each([SIMULATED_REPORT.MISSING, SIMULATED_REPORT.MALFORMED])(
-    "carries no path verdicts and a non-zero exit code when the report is %s",
+    "reports no pytest path verdicts and a non-zero exit code when the JUnit XML report is %s",
     async (report) => {
       const testPaths = samplePythonRunnerValue(PYTHON_RUNNER_TEST_GENERATOR.distinctTestPathPair());
 
