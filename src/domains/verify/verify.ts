@@ -1889,8 +1889,9 @@ export const VERIFY_RUN_CONTEXT_EVENT_ID_PREFIX = "verify-run-context-";
 /**
  * Build the run-context event input recording, at start, the run's drive mode, the head commit the
  * run judges, and the Change it serves when one is supplied. `start` supplies the head commit for
- * every scope type; a run-context event without one is the shape a run opened before head commits
- * were recorded carries.
+ * every scope type whenever the product's HEAD names a commit; a run-context event without one is
+ * the shape of a run opened outside a Git repository, in a repository whose HEAD is unborn, or
+ * before head commits were recorded.
  */
 export function buildRunContextEvent(args: {
   readonly runToken: string;
@@ -2017,8 +2018,8 @@ const VERIFY_HEAD_COMMIT_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 
 /**
  * The head commit folded from the run's run-context event, or `undefined` when the run recorded
- * none — a run opened before head commits were recorded — or the recorded value is not a full
- * commit object name.
+ * none — a run opened outside a Git repository, in a repository whose HEAD is unborn, or before
+ * head commits were recorded — or the recorded value is not a full commit object name.
  */
 export function headCommitOf(events: readonly JournalEvent[]): string | undefined {
   const runContext = events.find((event) => event.type === VERIFY_RUN_CONTEXT_EVENT_TYPE);
