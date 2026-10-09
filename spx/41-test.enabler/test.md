@@ -6,8 +6,6 @@ CAN run spec-tree tests with a single command, honor configured passing-scope ex
 
 ## Assertions
 
-- Given a run in which one test file fails and another passes, when `spx test` records the run, then the recorded run holds `failed` for the first file and `passed` for the second
-
 ### Scenarios
 
 - Given a spec tree with tests in multiple languages, when `spx test` runs, then each language's testing enabler is invoked on the files matching its registered extension pattern ([test](tests/test.scenario.l1.test.ts))
@@ -15,6 +13,7 @@ CAN run spec-tree tests with a single command, honor configured passing-scope ex
 - Given `spx.config.{toml,json,yaml}` excludes a node path from the passing test scope, when `spx test` runs without `passing`, then test files under that node are still invoked ([test](tests/execution-recording.scenario.l1.test.ts))
 - Given a passing-scope exclusion that is not a full product-root path (a bare node path), when `spx test passing` runs, then it matches no discovered file and excludes nothing ([test](tests/execution-recording.scenario.l1.test.ts))
 - Given a passing scope that excludes a node path, when the test dispatch applies that scope, then files under that node are filtered out before runner invocation while files outside it are dispatched, and with no scope supplied every discovered file is dispatched ([test](tests/test.scenario.l1.test.ts))
+- Given a run in which one test file fails and another passes, when `spx test` records the run, then the recorded run holds `failed` for the first file and `passed` for the second ([test](tests/execution-recording.scenario.l1.test.ts))
 - Given `spx test` runs, then it records last-run evidence covering the dispatched files for fast status reporting ([test](tests/execution-recording.scenario.l1.test.ts))
 - Given a testing language descriptor declares a root product input path or a covered-path-derived product input path, when `spx test` records a run before and after that path appears or changes, then the recorded product input digest changes ([test](tests/execution-recording.scenario.l1.test.ts))
 - Given `spx test --changed --staged` records a run while the worktree product input differs from the staged product input, then the recorded product input digest reflects the staged snapshot ([test](tests/execution-recording.scenario.l1.test.ts))
