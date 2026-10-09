@@ -730,6 +730,7 @@ async function parseExecuteRunCommandLine(
         registerVerifyCommands(program, invocation, {
           appendFinding: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
           appendScope: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+          compare: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
           executeRun: (options) => {
             handlerOptions.push(options);
             return executeRun(options, tempDir);

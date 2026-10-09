@@ -2,9 +2,17 @@ import { describe, expect, it } from "vitest";
 
 import { VERIFY_CLI_ERROR, VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
 import { EVIDENCE_REQUIREMENT, evidenceFieldPath } from "@/domains/verify/evidence-rejection";
-import { VERIFY_SCOPE_PAYLOAD_FIELD, VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
+import {
+  VERIFY_RUN_CONTEXT_EVENT_FIELD,
+  VERIFY_SCOPE_PAYLOAD_FIELD,
+  VERIFY_SCOPE_TYPE,
+  VERIFY_VERIFICATION_TYPE,
+} from "@/domains/verify/verify";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
-import { withVerifyHeadCommitRepository } from "@testing/harnesses/verify/repository";
+import {
+  withVerifyHeadCommitRepository,
+  withVerifyOutsideRepositoryDirectory,
+} from "@testing/harnesses/verify/repository";
 
 // The repository's checkout is detached at an empty base commit while a branch names the head commit
 // that adds `filePath`. A changeset run ending at that branch judges the head commit, which holds
@@ -76,6 +84,41 @@ describe("verify scope judged paths", () => {
           evidenceFieldPath(VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_PATHS, String(judged.heldOnlyIndex)),
         );
         expect(scope.scopePayloads).toEqual([]);
+      });
+    },
+  );
+
+  // Outside any Git repository a file-scope run starts and records no head commit, so no commit can
+  // anchor a judged path: scope evidence naming one is refused, while scope evidence naming none
+  // records in the same run.
+  it.each(Object.values(VERIFY_VERIFICATION_TYPE))(
+    "rejects every judged path in a %s run that recorded no head commit, appends nothing, and records scope evidence naming no judged file",
+    async (verificationType) => {
+      await withVerifyOutsideRepositoryDirectory(async (directory) => {
+        expect(directory.gitEntries).toEqual([]);
+        const run = await directory.startFileRun(verificationType);
+        expect(run.started.exitCode, run.started.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
+        expect(run.runContextData).toHaveLength(1);
+        expect(run.runContextData[0]).not.toHaveProperty(VERIFY_RUN_CONTEXT_EVENT_FIELD.HEAD_COMMIT);
+        const judgedPayload = sampleVerifyTestValue(
+          VERIFY_TEST_GENERATOR.judgedScopeUnit(verificationType, run.scope, [directory.filePath]),
+        );
+        const unjudgedPayload = sampleVerifyTestValue(
+          VERIFY_TEST_GENERATOR.unjudgedScopeUnit(verificationType, run.scope),
+        );
+
+        const judged = await directory.appendScope(run, judgedPayload);
+
+        expect(judged.appended.exitCode, judged.appended.output).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+        expect(judged.appended.output).toContain(VERIFY_CLI_ERROR.SCOPE_INVALID);
+        expect(judged.appended.output).toContain(EVIDENCE_REQUIREMENT.JUDGED_PATHS_NEED_HEAD_COMMIT);
+        expect(judged.scopePayloads).toEqual([]);
+
+        const unjudged = await directory.appendScope(run, unjudgedPayload);
+
+        expect(unjudged.appended.exitCode, unjudged.appended.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
+        expect(unjudged.scopePayloads).toHaveLength(1);
+        expect(unjudged.scopePayloads[0]).not.toHaveProperty(VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_PATHS);
       });
     },
   );

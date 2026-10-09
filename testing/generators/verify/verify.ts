@@ -856,6 +856,9 @@ export const VERIFY_TEST_GENERATOR = {
     scopeIdentity: string,
     judgedPaths: readonly string[],
   ): fc.Arbitrary<JsonValue> => arbitraryJudgedScopeUnit(verificationType, scopeIdentity, judgedPaths),
+  /** A valid first scope unit of a run of `verificationType` whose payload names no judged file. */
+  unjudgedScopeUnit: (verificationType: VerifyVerificationType, scopeIdentity: string): fc.Arbitrary<JsonValue> =>
+    RUN_FIRST_SCOPE_UNIT[verificationType](scopeIdentity).map((unit) => JSON.parse(JSON.stringify(unit)) as JsonValue),
   // Draws the open complement of the supported scope types. The inherited-property branch keeps
   // prototype-chain names in the domain: a registry lookup written with `in` rather than
   // `Object.hasOwn` resolves them to inherited members, which arbitrary strings would not expose.

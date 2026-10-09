@@ -26,6 +26,7 @@ import { defaultStateStoreFileSystem } from "@/lib/state-store";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import {
   buildGitTestEnvironment,
+  GIT_TEST_COMMAND,
   GIT_TEST_CONFIG,
   GIT_TEST_ENVIRONMENT_KEYS,
   GIT_TEST_FLAGS,
@@ -41,6 +42,7 @@ const VERIFY_REPOSITORY_TEMP_PREFIX = "verify-repository-";
 const GIT_FAILURE_EXIT_CODE = 1;
 const BASE_COMMIT_MESSAGE = "Initialize verify repository fixture";
 const HEAD_COMMIT_MESSAGE = "Add the verified file";
+const GIT_REV_PARSE_VERIFY_FLAG = "--verify";
 
 /** The two commits a verify repository fixture holds: an empty base commit and a head commit adding one file. */
 export interface VerifyRepositoryCommits {
@@ -138,15 +140,14 @@ export interface VerifyHeadCommitRepository extends VerifyRepositoryCommits {
 }
 
 /**
- * The production lifecycle bound to one product directory: the verify dependencies every run in it
- * shares, a reader of a run's journal events, and `startRun`, which opens a run of the given scope
- * type and scope through the production `start` operation and observes its run-context events.
+ * The production lifecycle bound to one product directory: `startRun`, which opens a run of the
+ * given scope type and scope through the production `start` operation and observes its run-context
+ * events, and `appendScope`, which records scope evidence on a started run through the production
+ * `scope add` operation and observes the scope events the run's journal then holds.
  */
 interface VerifyRunStarter {
-  readonly deps: VerifyCliDeps;
-  readonly idempotencyKey: string;
-  readRunEvents(verificationType: string, runToken: string): Promise<readonly JournalEvent[]>;
   startRun(scopeType: string, scope: string, verificationType?: string): Promise<StartedRepositoryRun>;
+  appendScope(run: StartedRepositoryRun, payload: JsonValue): Promise<AppendedRepositoryScope>;
 }
 
 function createVerifyRunStarter(productDir: string, git: GitDependencies): VerifyRunStarter {
@@ -170,9 +171,28 @@ function createVerifyRunStarter(productDir: string, git: GitDependencies): Verif
     return JSON.parse(read.output) as readonly JournalEvent[];
   };
   return {
-    deps,
-    idempotencyKey,
-    readRunEvents,
+    appendScope: async (run, payload) => {
+      if (run.runToken === undefined) {
+        throw new Error(`verify repository harness: scope add needs a started run: ${run.started.output}`);
+      }
+      const appended = await verifyAppendScopeCommand(
+        {
+          verificationType: run.verificationType,
+          scopeType: run.scopeType,
+          scope: run.scope,
+          run: run.runToken,
+          payload: JSON.stringify(payload),
+          idempotencyKey,
+        },
+        deps,
+      );
+      return {
+        appended,
+        scopePayloads: (await readRunEvents(run.verificationType, run.runToken))
+          .filter((event) => event.type === VERIFY_APPEND_EVENT_TYPE.SCOPE)
+          .map((event) => eventDataRecord(event)[VERIFY_APPEND_EVENT_FIELD.PAYLOAD] as JsonValue),
+      };
+    },
     startRun: async (scopeType, scope, verificationType = drawnVerificationType) => {
       const started = await verifyStartCommand(
         { verificationType, scopeType, scope, input: VERIFY_INPUT_SOURCE.STDIN },
@@ -213,10 +233,7 @@ export async function withVerifyHeadCommitRepository<T>(
       layout.headBranch,
       commits.headCommit,
     ]);
-    const { deps, idempotencyKey, readRunEvents, startRun } = createVerifyRunStarter(
-      productDir,
-      realVerifyGitDependencies(),
-    );
+    const { appendScope, startRun } = createVerifyRunStarter(productDir, realVerifyGitDependencies());
     const scopeFor = (scopeType: string): string =>
       scopeType === VERIFY_SCOPE_TYPE.CHANGESET
         ? `${commits.baseCommit}${VERIFY_SCOPE_SEPARATOR}${layout.headBranch}`
@@ -228,28 +245,7 @@ export async function withVerifyHeadCommitRepository<T>(
       headBranch: layout.headBranch,
       ...commits,
       startRun: async (scopeType, verificationType) => startRun(scopeType, scopeFor(scopeType), verificationType),
-      appendScope: async (run, payload) => {
-        if (run.runToken === undefined) {
-          throw new Error(`verify repository harness: scope add needs a started run: ${run.started.output}`);
-        }
-        const appended = await verifyAppendScopeCommand(
-          {
-            verificationType: run.verificationType,
-            scopeType: run.scopeType,
-            scope: run.scope,
-            run: run.runToken,
-            payload: JSON.stringify(payload),
-            idempotencyKey,
-          },
-          deps,
-        );
-        return {
-          appended,
-          scopePayloads: (await readRunEvents(run.verificationType, run.runToken))
-            .filter((event) => event.type === VERIFY_APPEND_EVENT_TYPE.SCOPE)
-            .map((event) => eventDataRecord(event)[VERIFY_APPEND_EVENT_FIELD.PAYLOAD] as JsonValue),
-        };
-      },
+      appendScope,
       writeCheckoutFile: async (path) => {
         const absoluteFile = join(productDir, path);
         await mkdir(dirname(absoluteFile), { recursive: true });
@@ -264,7 +260,8 @@ export async function withVerifyHeadCommitRepository<T>(
  * repository discovery at the directory itself — git never searches its parent or anything above —
  * so the directory's own entries are the only place a repository could be found. `gitEntries` lists
  * the directory's entries named like a Git directory, read before any run starts; `startFileRun` opens
- * a file-scope run on `filePath` through the production `start` operation with those dependencies.
+ * a file-scope run on `filePath` through the production `start` operation with those dependencies, and
+ * `appendScope` records scope evidence on such a run through the production `scope add` operation.
  */
 export interface VerifyOutsideRepositoryDirectory {
   readonly productDir: string;
@@ -272,6 +269,8 @@ export interface VerifyOutsideRepositoryDirectory {
   readonly gitEntries: readonly string[];
   /** Start a file-scope run, of `verificationType` when given and of a drawn verification type otherwise. */
   startFileRun(verificationType?: string): Promise<StartedRepositoryRun>;
+  /** Append `payload` as scope evidence to a started run through the production `scope add` operation. */
+  appendScope(run: StartedRepositoryRun, payload: JsonValue): Promise<AppendedRepositoryScope>;
 }
 
 /**
@@ -285,11 +284,57 @@ export async function withVerifyOutsideRepositoryDirectory<T>(
     const productDir = await realpath(tempDir);
     const layout = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.headCommitRepository());
     const gitEntries = (await readdir(productDir)).filter((entry) => entry === GIT_DIR_BASENAME);
-    const { startRun } = createVerifyRunStarter(productDir, realVerifyGitDependencies(dirname(productDir)));
+    const { appendScope, startRun } = createVerifyRunStarter(
+      productDir,
+      realVerifyGitDependencies(dirname(productDir)),
+    );
     return callback({
       productDir,
       filePath: layout.filePath,
       gitEntries,
+      startFileRun: async (verificationType) => startRun(VERIFY_SCOPE_TYPE.FILE, layout.filePath, verificationType),
+      appendScope,
+    });
+  });
+}
+
+/**
+ * A real Git repository initialized with `git init` that holds no commit, so its HEAD names a branch
+ * no commit exists for. Its git dependencies bound repository discovery at the repository itself.
+ * `headVerifyExitCode` is the exit code `git rev-parse --verify HEAD` reported in the repository,
+ * read before any run starts; `startFileRun` opens a file-scope run on `filePath` through the
+ * production `start` operation.
+ */
+export interface VerifyUnbornHeadRepository {
+  readonly productDir: string;
+  readonly filePath: string;
+  readonly headVerifyExitCode: number;
+  /** Start a file-scope run, of `verificationType` when given and of a drawn verification type otherwise. */
+  startFileRun(verificationType?: string): Promise<StartedRepositoryRun>;
+}
+
+/**
+ * Create the unborn-HEAD repository in a temporary directory and hand it to the callback. The
+ * directory and every run recorded under its `.spx/` store are removed when the callback settles.
+ */
+export async function withVerifyUnbornHeadRepository<T>(
+  callback: (repository: VerifyUnbornHeadRepository) => Promise<T>,
+): Promise<T> {
+  return withTempDir(VERIFY_REPOSITORY_TEMP_PREFIX, async (tempDir) => {
+    const productDir = await realpath(tempDir);
+    const layout = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.headCommitRepository());
+    await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+    const git = realVerifyGitDependencies(dirname(productDir));
+    const headVerify = await git.execa(
+      GIT_TEST_COMMAND,
+      [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_REV_PARSE_VERIFY_FLAG, GIT_TEST_REF.HEAD_NAME],
+      { cwd: productDir },
+    );
+    const { startRun } = createVerifyRunStarter(productDir, git);
+    return callback({
+      productDir,
+      filePath: layout.filePath,
+      headVerifyExitCode: headVerify.exitCode,
       startFileRun: async (verificationType) => startRun(VERIFY_SCOPE_TYPE.FILE, layout.filePath, verificationType),
     });
   });
