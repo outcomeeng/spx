@@ -20,7 +20,9 @@ const PYTEST_FIXTURE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "
 const TEMP_PRODUCT_PREFIX = "spx-pytest-";
 const COPIED_SUITE_DIR = ".spx-pytest-cases";
 // Copied under a pytest-ignored directory so the l2 test proves explicit test-path forwarding.
-const COPIED_SUITE_NAME = "test_suite.py";
+const COPIED_SUITE_BASENAME_PREFIX = "test_suite_";
+const COPIED_SUITE_EXTENSION = ".py";
+const PYTEST_ROOTDIR_MARKER = "pytest.ini";
 const UV_CACHE_DIR_NAME = ".uv-cache";
 
 export const PYTEST_EXIT_CODE = {
@@ -32,6 +34,7 @@ export const PYTEST_EXIT_CODE = {
 export const PYTEST_FIXTURE = {
   PASSING: "passing.test_suite.py.fixture",
   FAILING: "failing.test_suite.py.fixture",
+  FAILING_ASSERTION: "asserting.test_suite.py.fixture",
 } as const;
 
 export type PytestFixture = (typeof PYTEST_FIXTURE)[keyof typeof PYTEST_FIXTURE];
@@ -268,17 +271,43 @@ export interface TempPytestProduct {
   readonly suitePath: string;
 }
 
+// A temporary pytest product holding several suites: the temp root and the absolute path of each
+// copied suite, in the order of the fixtures supplied.
+export interface TempPytestSuites {
+  readonly productDir: string;
+  readonly suitePaths: readonly string[];
+}
+
+// Copies committed fixture suites into one temporary product outside the repository so pytest resolves
+// no inherited configuration, each under a distinct file name so one pytest invocation covers them all.
+export function withTempPytestSuites(
+  fixtures: readonly PytestFixture[],
+  callback: (product: TempPytestSuites) => Promise<void>,
+): Promise<void> {
+  return withTempDir(TEMP_PRODUCT_PREFIX, async (productDir) => {
+    const suiteDir = join(productDir, COPIED_SUITE_DIR);
+    await mkdir(suiteDir);
+    // An empty pytest.ini anchors pytest's rootdir at the product, as a real Python product's configuration does.
+    await writeFile(join(productDir, PYTEST_ROOTDIR_MARKER), "");
+    const suitePaths: string[] = [];
+    for (const [index, fixture] of fixtures.entries()) {
+      const suitePath = join(suiteDir, `${COPIED_SUITE_BASENAME_PREFIX}${index}${COPIED_SUITE_EXTENSION}`);
+      await copyFile(join(PYTEST_FIXTURE_DIR, fixture), suitePath);
+      suitePaths.push(suitePath);
+    }
+    await callback({ productDir, suitePaths });
+  });
+}
+
 // Copies a committed fixture suite into a temporary product outside the repository so pytest resolves
 // no inherited configuration, and hands back the suite path for the runner to execute.
 export function withTempPytestProduct(
   fixture: PytestFixture,
   callback: (product: TempPytestProduct) => Promise<void>,
 ): Promise<void> {
-  return withTempDir(TEMP_PRODUCT_PREFIX, async (productDir) => {
-    const suiteDir = join(productDir, COPIED_SUITE_DIR);
-    const suitePath = join(suiteDir, COPIED_SUITE_NAME);
-    await mkdir(suiteDir);
-    await copyFile(join(PYTEST_FIXTURE_DIR, fixture), suitePath);
+  return withTempPytestSuites([fixture], async ({ productDir, suitePaths }) => {
+    const [suitePath] = suitePaths;
+    assert(suitePath !== undefined);
     await callback({ productDir, suitePath });
   });
 }
