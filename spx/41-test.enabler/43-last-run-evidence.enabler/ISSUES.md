@@ -44,13 +44,13 @@ or when `src/lib/state-store/index.ts` is next edited for its own reason.
 `src/lib/state-store/index.ts:570`); local SonarQube finding probe surfacing four
 state-store findings from a one-line edit.
 
-## Property tests call fast-check directly, bypassing the property harness's seed and replay
+## The staleness property test calls fast-check directly, bypassing the property harness's seed and replay
 
-`tests/run-state.property.l1.test.ts` and `tests/staleness.property.l1.test.ts` run each property through `fc.assert` with a local `numRuns`, not through the property harness in `testing/harnesses/property/property.ts`. That harness owns the run count, the per-run timeout, and the seed: it reads `SPX_PROPERTY_SEED` or draws one, and a failure reports the seed and the shrunk counterexample so the caller replays the exact run. A failing property in either file reports fast-check's own seed text and ignores `SPX_PROPERTY_SEED`.
+`tests/staleness.property.l1.test.ts` runs each property through `fc.assert` with fast-check's default run count, not through the property harness in `testing/harnesses/property/property.ts`. That harness owns the run count, the per-run timeout, and the seed: it reads `SPX_PROPERTY_SEED` or draws one, and a failure reports the seed and the shrunk counterexample so the caller replays the exact run. A failing property in the file reports fast-check's own seed text and ignores `SPX_PROPERTY_SEED`.
 
-**Impact:** a failure in either file does not replay through the pinned seed every other property in the product uses, and the run count and timeout are chosen per call site, so the properties' budgets drift from the harness's.
+**Impact:** a failure in the file does not replay through the pinned seed every other property in the product uses, and its run count and timeout drift from the harness's.
 
-**Scope:** every property in the two files, among them the round-trip property whose recorded fields now include each runner outcome's per-path verdicts; this changeset leaves their `fc.assert` calls unchanged.
+**Scope:** every property in `tests/staleness.property.l1.test.ts`; the file is outside the set of test files this changeset changes and the files those import.
 
 **Resolution:** route each property through the property harness, then re-run this node's tests and its test-evidence audit.
 
