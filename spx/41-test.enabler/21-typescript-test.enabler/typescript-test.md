@@ -8,7 +8,7 @@ CAN execute this product's TypeScript tests with exclusion flags derived from `s
 
 ### Scenarios
 
-- Given a CLI-flag run over one failing and one passing TypeScript test file, when the typescript-testing runner completes, then the returned runner outcome reports `failed` for the failing path and `passed` for the passing path ([test](tests/typescript-test.scenario.l1.test.ts))
+- Given a CLI-flag run over one failing and one passing TypeScript test file, when the typescript-testing runner completes, then the returned runner outcome reports `failed` for the failing path and `passed` for the passing path ([test](tests/typescript-test.scenario.l1.test.ts), [test](tests/typescript-test-verdicts.scenario.l2.test.ts))
 - Given a CLI-flag run over two TypeScript test files whose Vitest JSON report omits one, when the typescript-testing runner completes, then the returned runner outcome reports `not-run` for the omitted path ([test](tests/typescript-test.scenario.l1.test.ts))
 - Given a CLI-flag run whose Vitest JSON report is missing or unreadable, when the typescript-testing runner completes, then the returned runner outcome carries no path verdicts and a non-zero exit code ([test](tests/typescript-test.scenario.l1.test.ts))
 - Given TypeScript test files in `spx/**/tests/*.test.ts`, when the typescript-testing runner is invoked with a list of paths, then vitest executes against those paths and exits zero for passing tests ([test](tests/typescript-test.scenario.l2.test.ts))
