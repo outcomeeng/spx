@@ -30,7 +30,17 @@ const NODE_STATUS_GENERATOR_OPTIONS = {
   MAX_LINKED_REFERENCES: 4,
   /** Highest count of any one outcome in an enumerated rollup multiset. */
   MAX_OUTCOME_MULTIPLICITY: 3,
+  /** Most directories above a staged file. */
+  MAX_STAGED_DEPTH: 3,
+  /** Most files one staged repository holds. */
+  MAX_STAGED_FILES: 6,
 } as const;
+
+/**
+ * Characters git C-quotes in path output unless the listing is NUL-terminated:
+ * tab, newline, double quote, and backslash (git-config `core.quotePath`).
+ */
+const GIT_QUOTED_PATH_CHARACTERS = ["\t", "\n", "\"", "\\"] as const;
 
 const ENABLER_SUFFIX = KIND_REGISTRY.enabler.suffix;
 const CONSULTATION_CLASS_COUNT = 3;
@@ -121,20 +131,14 @@ export type StatusWriterTreeFixture = {
   readonly nodes: readonly StatusWriterTreeNode[];
 };
 
-/** One `git ls-files` run that lists `trackedFiles`, NUL-terminated, from `productDir`. */
-export type TrackedPathListingCase = {
-  readonly productDir: string;
-  readonly trackedFiles: ReadonlySet<string>;
-};
-
 /**
  * One `git ls-files` run from `productDir` that exits with a code other than success
- * while still printing a NUL-terminated listing of `trackedFiles`.
+ * while printing `stdout`.
  */
 export type NonSuccessGitExitCase = {
   readonly productDir: string;
   readonly exitCode: number;
-  readonly trackedFiles: ReadonlySet<string>;
+  readonly stdout: string;
 };
 
 /** One `git ls-files` invocation from `productDir` whose runner rejects with `cause`. */
@@ -151,7 +155,7 @@ export const NODE_STATUS_TEST_GENERATOR = {
   evidenceOutcome: arbitraryEvidenceOutcome,
   contradictingEvidenceOutcome: arbitraryContradictingEvidenceOutcome,
   statusWriterTree: arbitraryStatusWriterTree,
-  trackedPathListing: arbitraryTrackedPathListing,
+  stagedTrackedFiles: arbitraryStagedTrackedFiles,
   nonSuccessGitExit: arbitraryNonSuccessGitExit,
   gitRunnerFailure: arbitraryGitRunnerFailure,
   trackedFile: arbitraryTrackedFile,
@@ -493,8 +497,34 @@ function arbitraryStatusWriterReference(reference: string): fc.Arbitrary<StatusW
   });
 }
 
-function arbitraryTrackedPathListing(): fc.Arbitrary<TrackedPathListingCase> {
-  return fc.record({ productDir: arbitraryTrackedFile(), trackedFiles: arbitraryTrackedFileSet() });
+/**
+ * A set of files to stage in a real repository: each file sits under zero or more
+ * slug directories and ends in a leaf that carries the spec-file suffix, so no file
+ * path is also a directory path of another. A leaf may join two slugs with a
+ * character git C-quotes in its default, non-NUL-terminated path output, so the
+ * listing format the query selects decides whether the path reads back verbatim.
+ */
+function arbitraryStagedTrackedFiles(): fc.Arbitrary<ReadonlySet<string>> {
+  return fc
+    .array(
+      fc.record({
+        directories: fc.array(arbitraryNodeSlug(), { maxLength: NODE_STATUS_GENERATOR_OPTIONS.MAX_STAGED_DEPTH }),
+        leaf: fc.oneof(
+          arbitraryNodeSlug(),
+          fc
+            .tuple(arbitraryNodeSlug(), fc.constantFrom(...GIT_QUOTED_PATH_CHARACTERS), arbitraryNodeSlug())
+            .map((parts) => parts.join("")),
+        ),
+      }),
+      { maxLength: NODE_STATUS_GENERATOR_OPTIONS.MAX_STAGED_FILES },
+    )
+    .map((files) =>
+      new Set(
+        files.map(({ directories, leaf }) =>
+          [...directories, `${leaf}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`].join(TRACKED_PATH_DIRECTORY_SEPARATOR)
+        ),
+      )
+    );
 }
 
 /**
@@ -508,7 +538,7 @@ function arbitraryNonSuccessGitExit(): fc.Arbitrary<NonSuccessGitExitCase> {
       fc.integer({ min: GIT_SUCCESS_EXIT_CODE + 1 }),
       fc.integer({ max: GIT_SUCCESS_EXIT_CODE - 1 }),
     ),
-    trackedFiles: arbitraryTrackedFileSet(),
+    stdout: fc.string(),
   });
 }
 

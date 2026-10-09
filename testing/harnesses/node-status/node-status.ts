@@ -353,7 +353,7 @@ export function createConsultationRecordingResolver(resolver: NodeOutcomeResolve
  * removed, with no ambient environment extended. A run that exits non-zero, or that
  * reports no exit code, rejects.
  */
-const isolatedFixtureGitDependencies: GitDependencies = {
+export const isolatedFixtureGitDependencies: GitDependencies = {
   execa: async (command, args, options) => {
     const result = await execa(command, args, {
       ...options,
@@ -375,7 +375,7 @@ const isolatedFixtureGitDependencies: GitDependencies = {
  * Run git in `productDir` through the isolated fixture git runner, taking the
  * executable from its production owner; a non-zero exit rejects.
  */
-async function runFixtureGit(
+export async function runFixtureGit(
   productDir: string,
   args: readonly string[],
   options: { readonly stripFinalNewline?: boolean } = {},
