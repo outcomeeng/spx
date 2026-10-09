@@ -1,3 +1,4 @@
+import { execa } from "execa";
 import { readdir, readFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -5,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { type RecordedTestRun, runNodeCommand } from "@/commands/test";
 import { GIT_NULL_DELIMITED_FLAG, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
-import { defaultGitDependencies, GIT_ROOT_COMMAND, GIT_STATUS_PORCELAIN_ARGS } from "@/lib/git/root";
+import { GIT_ROOT_COMMAND, GIT_STATUS_PORCELAIN_ARGS, type GitDependencies } from "@/lib/git/root";
 import {
   createNodeStatusFile,
   createNodeStatusMechanismRecord,
@@ -26,7 +27,12 @@ import type {
   StatusWriterTreeFixture,
   StatusWriterTreeNode,
 } from "@testing/generators/node-status/node-status";
-import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
+import {
+  buildGitTestEnvironment,
+  GIT_TEST_CONFIG,
+  GIT_TEST_FLAGS,
+  GIT_TEST_SUBCOMMANDS,
+} from "@testing/harnesses/git-test-constants";
 import { type SpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
 
@@ -341,16 +347,40 @@ export function createConsultationRecordingResolver(resolver: NodeOutcomeResolve
 }
 
 /**
- * Run git in `productDir` through the production git runner, which strips every
- * inherited `GIT_*` variable so the run resolves from `productDir` alone; a non-zero
- * exit rejects.
+ * A git runner conforming to the production `GitDependencies` interface whose every
+ * run uses the isolated git test environment: inherited Git context stripped, the
+ * developer's global git config neutralized, and the GitHub Actions reporter trigger
+ * removed, with no ambient environment extended. A run that exits non-zero, or that
+ * reports no exit code, rejects.
  */
-async function runProductionGit(
+const isolatedFixtureGitDependencies: GitDependencies = {
+  execa: async (command, args, options) => {
+    const result = await execa(command, args, {
+      ...options,
+      env: buildGitTestEnvironment(),
+      extendEnv: false,
+    });
+    if (result.exitCode === undefined) {
+      throw new Error(`${command} ${args.join(" ")} reported no exit code`);
+    }
+    return {
+      exitCode: result.exitCode,
+      stdout: typeof result.stdout === "string" ? result.stdout : String(result.stdout),
+      stderr: typeof result.stderr === "string" ? result.stderr : String(result.stderr),
+    };
+  },
+};
+
+/**
+ * Run git in `productDir` through the isolated fixture git runner, taking the
+ * executable from its production owner; a non-zero exit rejects.
+ */
+async function runFixtureGit(
   productDir: string,
   args: readonly string[],
   options: { readonly stripFinalNewline?: boolean } = {},
 ): Promise<string> {
-  const result = await defaultGitDependencies.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...args], {
+  const result = await isolatedFixtureGitDependencies.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...args], {
     cwd: productDir,
     ...options,
   });
@@ -359,14 +389,14 @@ async function runProductionGit(
 
 /** Initialize a git repository in `productDir` and stage the spec tree, leaving it tracked but uncommitted. */
 export async function trackSpecTree(productDir: string): Promise<void> {
-  await runProductionGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
-  await runProductionGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, ROOT]);
+  await runFixtureGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+  await runFixtureGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, ROOT]);
 }
 
 /** Stage and commit the spec tree in an initialized repository under a fixed test identity. */
 export async function commitSpecTree(productDir: string): Promise<void> {
-  await runProductionGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, ROOT]);
-  await runProductionGit(productDir, [
+  await runFixtureGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, ROOT]);
+  await runFixtureGit(productDir, [
     GIT_TEST_FLAGS.CONFIG_OVERRIDE,
     `${GIT_TEST_CONFIG.USER_NAME_KEY}=${GIT_TEST_CONFIG.USER_NAME}`,
     GIT_TEST_FLAGS.CONFIG_OVERRIDE,
@@ -381,12 +411,12 @@ export async function commitSpecTree(productDir: string): Promise<void> {
 /**
  * Every spec-tree path git reports as changed against the last commit — staged,
  * unstaged, or untracked, under any status code, and both paths of a rename or copy —
- * read untrimmed through the production git runner and working-tree status command in
+ * read untrimmed through the isolated fixture git runner and the production working-tree status command in
  * git's NUL-terminated form.
  */
 export async function readSpecTreeWorkingChanges(productDir: string): Promise<readonly string[]> {
   const records = (
-    await runProductionGit(productDir, [...GIT_STATUS_PORCELAIN_ARGS, GIT_NULL_DELIMITED_FLAG], {
+    await runFixtureGit(productDir, [...GIT_STATUS_PORCELAIN_ARGS, GIT_NULL_DELIMITED_FLAG], {
       stripFinalNewline: false,
     })
   ).split(GIT_NULL_RECORD_SEPARATOR).values();
