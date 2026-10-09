@@ -3,6 +3,8 @@
   "verification": {
     "test": {
       "overall": "passed",
+      "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-compare-arguments.compliance.l1.test.ts": "passed",
+      "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-compare-lookup.conformance.l2.test.ts": "passed",
       "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-compare.compliance.l2.test.ts": "passed",
       "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-compare.scenario.l2.test.ts": "passed",
       "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-list.compliance.l2.test.ts": "passed",
