@@ -9,7 +9,7 @@ import type {
   TestRunnerDependencies,
 } from "@/test/languages/types";
 import type { TestingRegistry } from "@/test/registry";
-import type { TestRunnerOutcome } from "@/test/run-state";
+import { TEST_PATH_VERDICT, type TestPathVerdict, type TestRunnerOutcome } from "@/test/run-state";
 
 import { discoverTestFiles } from "./discovery";
 
@@ -117,6 +117,7 @@ export async function runTests(
         runnerId: group.language.name,
         testPaths: group.testPaths,
         exitCode: invocation.exitCode,
+        pathVerdicts: recordedPathVerdicts(group.testPaths, invocation.pathVerdicts),
       });
     }
   }
@@ -133,4 +134,18 @@ export async function runTests(
     reports,
     outcomes,
   };
+}
+
+/**
+ * One verdict per dispatched path, taken from the runner's report; a path the report
+ * omits, and every path of an invocation that read no report, is `not-run`.
+ */
+function recordedPathVerdicts(
+  testPaths: readonly string[],
+  reported: readonly TestPathVerdict[] | undefined,
+): readonly TestPathVerdict[] {
+  return testPaths.map((testPath) => ({
+    testPath,
+    verdict: reported?.find((pathVerdict) => pathVerdict.testPath === testPath)?.verdict ?? TEST_PATH_VERDICT.NOT_RUN,
+  }));
 }

@@ -155,7 +155,7 @@ function terminalRunCovering(
     runFilePath: runFileName,
     state: {
       ...state,
-      runnerOutcomes: [{ ...outcome, testPaths }],
+      runnerOutcomes: [TEST_RUN_STATE_TEST_GENERATOR.outcomeCovering(outcome, testPaths)],
       completedAt,
       startedAt,
     },

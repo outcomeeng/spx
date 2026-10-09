@@ -67,10 +67,24 @@ export const TEST_RUN_STATE_FIELDS = {
   STATUS: "status",
 } as const;
 
+export const TEST_PATH_VERDICT = {
+  PASSED: "passed",
+  FAILED: "failed",
+  NOT_RUN: "not-run",
+} as const;
+
+export type TestPathVerdictValue = (typeof TEST_PATH_VERDICT)[keyof typeof TEST_PATH_VERDICT];
+
 const TEST_RUNNER_OUTCOME_FIELDS = {
   RUNNER_ID: "runnerId",
   TEST_PATHS: "testPaths",
   EXIT_CODE: "exitCode",
+  PATH_VERDICTS: "pathVerdicts",
+} as const;
+
+const TEST_PATH_VERDICT_FIELDS = {
+  TEST_PATH: "testPath",
+  VERDICT: "verdict",
 } as const;
 
 const PRODUCT_INPUT_DIGEST_FIELDS = {
@@ -78,10 +92,16 @@ const PRODUCT_INPUT_DIGEST_FIELDS = {
   DIGEST: "digest",
 } as const;
 
+export interface TestPathVerdict {
+  readonly testPath: string;
+  readonly verdict: TestPathVerdictValue;
+}
+
 export interface TestRunnerOutcome {
   readonly runnerId: string;
   readonly testPaths: readonly string[];
   readonly exitCode: number;
+  readonly pathVerdicts: readonly TestPathVerdict[];
 }
 
 export interface ProductInputDigest {
@@ -306,6 +326,10 @@ function testRunStateRecord(state: TestRunState): JsonRecord {
       runnerId: outcome.runnerId,
       testPaths: outcome.testPaths,
       exitCode: outcome.exitCode,
+      pathVerdicts: outcome.pathVerdicts.map((pathVerdict) => ({
+        testPath: pathVerdict.testPath,
+        verdict: pathVerdict.verdict,
+      })),
     })),
     discoveredTestPathsDigest: state.discoveredTestPathsDigest,
     discoveredTestContentDigest: state.discoveredTestContentDigest,
@@ -417,9 +441,43 @@ function readRunnerOutcomes(raw: unknown): Result<readonly TestRunnerOutcome[]> 
     if (typeof exitCodeRaw !== "number" || !Number.isInteger(exitCodeRaw)) {
       return { ok: false, error: `${TEST_RUNNER_OUTCOME_FIELDS.EXIT_CODE} must be an integer` };
     }
-    outcomes.push({ runnerId: runnerId.value, testPaths: testPaths.value, exitCode: exitCodeRaw });
+    const pathVerdicts = readPathVerdicts(entry[TEST_RUNNER_OUTCOME_FIELDS.PATH_VERDICTS], testPaths.value);
+    if (!pathVerdicts.ok) return pathVerdicts;
+    outcomes.push({
+      runnerId: runnerId.value,
+      testPaths: testPaths.value,
+      exitCode: exitCodeRaw,
+      pathVerdicts: pathVerdicts.value,
+    });
   }
   return { ok: true, value: outcomes };
+}
+
+function readPathVerdicts(raw: unknown, testPaths: readonly string[]): Result<readonly TestPathVerdict[]> {
+  const field = TEST_RUNNER_OUTCOME_FIELDS.PATH_VERDICTS;
+  if (!Array.isArray(raw)) return { ok: false, error: `${field} must be an array` };
+  const verdicts: TestPathVerdict[] = [];
+  for (const entry of raw) {
+    if (!isRecord(entry)) return { ok: false, error: `${field} entries must be objects` };
+    const testPath = readString(entry, TEST_PATH_VERDICT_FIELDS.TEST_PATH);
+    if (!testPath.ok) return testPath;
+    const verdict = entry[TEST_PATH_VERDICT_FIELDS.VERDICT];
+    if (!isTestPathVerdictValue(verdict)) {
+      return { ok: false, error: `${TEST_PATH_VERDICT_FIELDS.VERDICT} must be a recorded path verdict` };
+    }
+    verdicts.push({ testPath: testPath.value, verdict });
+  }
+  const verdictPaths = verdicts.map((pathVerdict) => pathVerdict.testPath);
+  const holdsOneVerdictPerPath = verdictPaths.length === testPaths.length
+    && new Set(verdictPaths).size === verdictPaths.length
+    && testPaths.every((testPath) => verdictPaths.includes(testPath));
+  return holdsOneVerdictPerPath
+    ? { ok: true, value: verdicts }
+    : { ok: false, error: `${field} must hold exactly one verdict for every test path` };
+}
+
+function isTestPathVerdictValue(raw: unknown): raw is TestPathVerdictValue {
+  return Object.values<unknown>(TEST_PATH_VERDICT).includes(raw);
 }
 
 function readProductInputDigests(raw: unknown): Result<readonly ProductInputDigest[]> {

@@ -4,9 +4,11 @@ import {
   formatTestRunTimestamp,
   type ProductInputDigest,
   type StalenessInputs,
+  TEST_PATH_VERDICT,
   TEST_RUN_STATE_FIELDS,
   TEST_RUN_STATE_STATUS,
   type TestContentEntry,
+  type TestPathVerdict,
   testRunFileName,
   type TestRunnerOutcome,
   type TestRunState,
@@ -47,6 +49,7 @@ export const TEST_RUN_STATE_TEST_GENERATOR = {
   status: arbitraryStatus,
   timestampDate: arbitraryTimestampDate,
   runnerOutcome: arbitraryRunnerOutcome,
+  outcomeCovering,
   productInputDigest: arbitraryProductInputDigest,
   testPaths: arbitraryTestPaths,
   disjointTestPathsPair: arbitraryDisjointTestPathsPair,
@@ -125,12 +128,35 @@ function arbitraryDisjointTestPathsPair(): fc.Arbitrary<readonly [readonly strin
     );
 }
 
+function arbitraryPathVerdicts(testPaths: readonly string[]): fc.Arbitrary<readonly TestPathVerdict[]> {
+  return fc
+    .array(fc.constantFrom(...Object.values(TEST_PATH_VERDICT)), {
+      minLength: testPaths.length,
+      maxLength: testPaths.length,
+    })
+    .map((verdicts) => testPaths.map((testPath, index) => ({ testPath, verdict: verdicts[index] })));
+}
+
 function arbitraryRunnerOutcome(): fc.Arbitrary<TestRunnerOutcome> {
-  return fc.record({
-    runnerId: CONFIG_TEST_GENERATOR.key(),
-    testPaths: arbitraryTestPaths(),
-    exitCode: fc.nat({ max: MAX_EXIT_CODE }),
-  });
+  return arbitraryTestPaths().chain((testPaths) =>
+    fc.record({
+      runnerId: CONFIG_TEST_GENERATOR.key(),
+      testPaths: fc.constant(testPaths),
+      exitCode: fc.nat({ max: MAX_EXIT_CODE }),
+      pathVerdicts: arbitraryPathVerdicts(testPaths),
+    })
+  );
+}
+
+// The outcome re-pointed at other test paths, each given a verdict so the outcome still
+// holds exactly one verdict per path; the verdict values cycle through the closed set.
+function outcomeCovering(outcome: TestRunnerOutcome, testPaths: readonly string[]): TestRunnerOutcome {
+  const verdicts = Object.values(TEST_PATH_VERDICT);
+  return {
+    ...outcome,
+    testPaths,
+    pathVerdicts: testPaths.map((testPath, index) => ({ testPath, verdict: verdicts[index % verdicts.length] })),
+  };
 }
 
 function arbitraryProductInputDigest(): fc.Arbitrary<ProductInputDigest> {

@@ -8,6 +8,8 @@
  * and dispatching the `spx test` command are separate, higher-level concerns.
  */
 
+import type { TestPathVerdict } from "@/test/run-state";
+
 /** Result of a single command-runner invocation. */
 export interface TestRunCommandResult {
   readonly exitCode: number;
@@ -153,6 +155,8 @@ export type TestRunInvocation =
     /** The runner ran and returned this terminal exit code. */
     readonly invoked: true;
     readonly exitCode: number;
+    /** Verdicts the runner's machine-readable report states per test path; absent when no report was read. */
+    readonly pathVerdicts?: readonly TestPathVerdict[];
     readonly output?: TestRunCommandOutput;
   };
 

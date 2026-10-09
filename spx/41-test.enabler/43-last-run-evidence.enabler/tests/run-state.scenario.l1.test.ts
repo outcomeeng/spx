@@ -51,7 +51,7 @@ function createReadFailingFileSystem(
 // A runner outcome that executed exactly the given node test paths.
 function outcomeCovering(testPaths: readonly string[]): TestRunnerOutcome {
   const outcome = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runnerOutcome());
-  return { ...outcome, testPaths };
+  return TEST_RUN_STATE_TEST_GENERATOR.outcomeCovering(outcome, testPaths);
 }
 
 // A terminal state whose runner outcomes cover exactly the given node test paths
@@ -410,7 +410,7 @@ describe("testing last-run state storage", () => {
     const emptyTestPath = "";
     const stateWithEmptyTestPath = {
       ...base,
-      runnerOutcomes: [{ ...runnerOutcome, testPaths: [emptyTestPath] }],
+      runnerOutcomes: [TEST_RUN_STATE_TEST_GENERATOR.outcomeCovering(runnerOutcome, [emptyTestPath])],
     };
 
     await withTestingTempProductDir(async (productDir) => {
