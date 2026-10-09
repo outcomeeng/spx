@@ -12,7 +12,6 @@ import type {
 } from "@/lib/node-status";
 import {
   NODE_STATUS_EVIDENCE_OUTCOME,
-  NODE_STATUS_EXCLUDE_PATH_GRAMMAR,
   NODE_STATUS_FIELD,
   NODE_STATUS_FILENAME,
   NODE_STATUS_MECHANISM_OVERALL,
@@ -157,8 +156,6 @@ export const NODE_STATUS_TEST_GENERATOR = {
   gitRunnerFailure: arbitraryGitRunnerFailure,
   trackedFile: arbitraryTrackedFile,
   trackedFileSet: arbitraryTrackedFileSet,
-  invalidExcludeEntry: arbitraryInvalidExcludeEntry,
-  orphanStatusPath: arbitraryOrphanStatusPath,
   untrackedNodeStatusPath: arbitraryUntrackedNodeStatusPath,
 } as const;
 
@@ -310,33 +307,6 @@ function arbitraryTrackedFileSet(): fc.Arbitrary<ReadonlySet<string>> {
   return fc
     .array(arbitraryTrackedFile(), { minLength: 0, maxLength: 6 })
     .map((files) => new Set(files));
-}
-
-function arbitraryInvalidExcludeEntry(): fc.Arbitrary<string> {
-  return fc.oneof(
-    arbitraryNodeSlug().map((slug) => `${NODE_STATUS_EXCLUDE_PATH_GRAMMAR.SEGMENT_SEPARATOR}${slug}`),
-    fc.tuple(arbitraryNodeSlug(), arbitraryNodeSlug()).map(([parent, child]) =>
-      [parent, NODE_STATUS_EXCLUDE_PATH_GRAMMAR.CURRENT_DIRECTORY_SEGMENT, child].join(
-        NODE_STATUS_EXCLUDE_PATH_GRAMMAR.SEGMENT_SEPARATOR,
-      )
-    ),
-    arbitraryNodeSlug().map((slug) =>
-      [NODE_STATUS_EXCLUDE_PATH_GRAMMAR.PARENT_DIRECTORY_SEGMENT, slug].join(
-        NODE_STATUS_EXCLUDE_PATH_GRAMMAR.SEGMENT_SEPARATOR,
-      )
-    ),
-    fc.tuple(arbitraryNodeSlug(), arbitraryNodeSlug()).map(([parent, child]) =>
-      [parent, child].join(
-        NODE_STATUS_EXCLUDE_PATH_GRAMMAR.SEGMENT_SEPARATOR.repeat(2),
-      )
-    ),
-  );
-}
-
-function arbitraryOrphanStatusPath(): fc.Arbitrary<string> {
-  return arbitraryNodeSlug().map((slug) =>
-    [SPEC_TREE_CONFIG.ROOT_DIRECTORY, slug, NODE_STATUS_FILENAME].join(SPEC_TREE_PATH_SEPARATOR)
-  );
 }
 
 function arbitraryUntrackedNodeStatusPath(takenNodeIds: readonly string[] = []): fc.Arbitrary<string> {
