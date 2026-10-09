@@ -232,7 +232,7 @@ The project uses GitHub Actions for continuous integration and publishing:
 
 A release moves through four phases in order: version bump, preparation and
 testing on a branch in an assigned worktree, merge through a pull request
-followed by a pull in the canonical main checkout, and operator-authorized
+followed by a pull in the canonical main checkout, and operator-approved
 publication. The canonical main checkout keeps `main` checked out and accepts
 no operation other than `git pull`; its hook installs locked dependencies and
 builds the shared `spx`. Choosing a version or preparing the candidate does not
@@ -291,15 +291,19 @@ while the major version is zero; otherwise `patch`.
    repair on an assigned-worktree branch and repeat the pull request, pull, and
    checks; never repair the canonical checkout directly.
 
-**Authorize and publish.** Present the evidence from the phases above and ask
-the operator to authorize publication of the exact version and merged commit.
-An earlier version choice or release instruction is not that authorization.
+**Authorize and publish.** The tag needs no separate operator authorization,
+because a pushed tag can be deleted. The `npm-publish` deployment approval is the
+one irreversible step, and the operator alone approves it. An earlier version
+choice or release instruction is not that approval.
 
-1. After authorization, tag the verified merged commit and push the tag from
-   the assigned worktree: `git tag vX.Y.Z` then `git push origin vX.Y.Z`. Do not
-   push a local `main` or add a release commit after verification.
-2. Approve the deployment in the GitHub Actions `npm-publish` environment. The
-   tagged workflow runs `spx release publish --tag "${GITHUB_REF_NAME}"` from a
+1. When the evidence from the phases above is complete, tag the verified merged
+   commit and push the tag from the assigned worktree: `git tag vX.Y.Z` then
+   `git push origin vX.Y.Z`. Do not push a local `main` or add a release commit
+   after verification.
+2. When the tag run's deployment waits, review the evidence — version, verified
+   commit and tree, pull request and merged commit, pull and hook build,
+   shared-CLI checks, and tag — and approve the deployment in the GitHub
+   Actions `npm-publish` environment. The tagged workflow runs `spx release publish --tag "${GITHUB_REF_NAME}"` from a
    checkout at the tagged commit, confirms the package identity and provenance,
    then creates or repairs the GitHub Release from the validated changelog
    section.
