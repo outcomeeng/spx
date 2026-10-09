@@ -15,7 +15,7 @@ CAN read a node's last-recorded verification projection from a committed file wi
 
 - Classification resolves each node to one lifecycle state in precedence order: a node with no linked verification references resolves to `declared`; otherwise a node listed in `spx/EXCLUDE` resolves to `specified`; otherwise a node whose committed verification outcomes all pass resolves to `passing`; otherwise the node resolves to `failing` ([test](tests/node-status.mapping.l1.test.ts))
 - Verification mechanism rollups map to lifecycle input as follows: every referenced evidence outcome `passed` maps `overall` to `passed`, any `failed` maps `overall` to `failed`, mixed `passed` and `not-run` outcomes map `overall` to `partial`, and all `not-run` outcomes map `overall` to `not-run` ([test](tests/node-status.mapping.l1.test.ts))
-- The tracked-path query maps a successful `git ls-files` listing under the product directory to the set of tracked paths, and maps a non-zero exit or an unavailable git runner to no tracked set ([test](tests/tracked-paths.mapping.l1.test.ts))
+- The tracked-path query maps a successful `git ls-files -z` listing run in the product directory to the set of tracked paths, and maps a non-zero exit or an unavailable git runner to no tracked set ([test](tests/tracked-paths.mapping.l1.test.ts))
 
 ### Properties
 
