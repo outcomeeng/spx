@@ -1,57 +1,51 @@
+import { describe, expect, it } from "vitest";
+
 import {
-  assertAllPassingMechanismsClassifyPassing,
-  assertExcludedVerifiedNodesAreSpecified,
-  assertFailedOutcomeRollsUpFailed,
-  assertMixedPassedAndNotRunRollsUpPartial,
-  assertNonPassingMechanismClassifiesFailing,
-  assertNonPassingOutcomesClassifyFailing,
-  assertNotRunOutcomesRollUpNotRun,
-  assertPassedOutcomesRollUpPassed,
-  assertPassingTestOutcomeClassifiesPassing,
-  assertUnverifiedNodesAreDeclared,
-} from "@testing/harnesses/node-status/node-status-mapping";
-import { describe, it } from "vitest";
+  classifyNodeStatus,
+  NODE_STATUS_EVIDENCE_OUTCOME,
+  NODE_STATUS_FIELD,
+  NODE_STATUS_MECHANISM_OVERALL,
+  rollupNodeStatusMechanism,
+} from "@/lib/node-status";
+import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
+import {
+  enumerateClassificationFacts,
+  enumerateEvidenceOutcomeMultisets,
+} from "@testing/generators/node-status/node-status";
 
-describe("classifyNodeStatus over the full fact cube", () => {
-  it("resolves to declared whenever the node has no linked verification, regardless of other facts", () => {
-    assertUnverifiedNodesAreDeclared();
-  });
-
-  it("resolves a verified, EXCLUDE-listed node to specified, regardless of verification outcome", () => {
-    assertExcludedVerifiedNodesAreSpecified();
-  });
-
-  it("resolves a verified, non-excluded node whose outcomes pass to passing", () => {
-    assertPassingTestOutcomeClassifiesPassing();
-  });
-
-  it("resolves a verified, non-excluded node whose mechanisms all pass to passing", () => {
-    assertAllPassingMechanismsClassifyPassing();
-  });
-
-  it("resolves a verified, non-excluded node with any non-passing mechanism to failing", () => {
-    assertNonPassingMechanismClassifiesFailing();
-  });
-
-  it("resolves a verified, non-excluded node whose outcomes do not all pass to failing", () => {
-    assertNonPassingOutcomesClassifyFailing();
+describe("classifyNodeStatus over every combination of linked references, EXCLUDE listing, and committed outcomes", () => {
+  it("resolves declared, then specified, then passing when every committed mechanism passes, else failing", () => {
+    for (const facts of enumerateClassificationFacts()) {
+      const committedOverallValues = Object.values(facts.verification ?? {}).map((record) =>
+        record[NODE_STATUS_FIELD.OVERALL]
+      );
+      expect(classifyNodeStatus(facts), JSON.stringify(facts)).toBe(
+        !facts.hasVerificationReferences
+          ? SPEC_TREE_NODE_STATE.DECLARED
+          : facts.isExcluded
+          ? SPEC_TREE_NODE_STATE.SPECIFIED
+          : committedOverallValues.length > 0
+              && committedOverallValues.every((overall) => overall === NODE_STATUS_MECHANISM_OVERALL.PASSED)
+          ? SPEC_TREE_NODE_STATE.PASSING
+          : SPEC_TREE_NODE_STATE.FAILING,
+      );
+    }
   });
 });
 
-describe("rollupNodeStatusMechanism", () => {
-  it("maps all passed outcomes to passed", () => {
-    assertPassedOutcomesRollUpPassed();
-  });
-
-  it("maps any failed outcome to failed", () => {
-    assertFailedOutcomeRollsUpFailed();
-  });
-
-  it("maps passed plus not-run outcomes to partial", () => {
-    assertMixedPassedAndNotRunRollsUpPartial();
-  });
-
-  it("maps all not-run outcomes to not-run", () => {
-    assertNotRunOutcomesRollUpNotRun();
+describe("rollupNodeStatusMechanism over outcome multisets of every composition and multiplicity", () => {
+  it("maps all passed to passed, any failed to failed, passed mixed with not-run to partial, and all not-run to not-run", () => {
+    for (const outcomes of enumerateEvidenceOutcomeMultisets()) {
+      const values = Object.values(outcomes);
+      expect(rollupNodeStatusMechanism(outcomes), JSON.stringify(values)).toBe(
+        values.includes(NODE_STATUS_EVIDENCE_OUTCOME.FAILED)
+          ? NODE_STATUS_MECHANISM_OVERALL.FAILED
+          : values.every((outcome) => outcome === NODE_STATUS_EVIDENCE_OUTCOME.PASSED)
+          ? NODE_STATUS_MECHANISM_OVERALL.PASSED
+          : values.every((outcome) => outcome === NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN)
+          ? NODE_STATUS_MECHANISM_OVERALL.NOT_RUN
+          : NODE_STATUS_MECHANISM_OVERALL.PARTIAL,
+      );
+    }
   });
 });
