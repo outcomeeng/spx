@@ -6,6 +6,8 @@ CAN run spec-tree tests with a single command, honor configured passing-scope ex
 
 ## Assertions
 
+- Given a run in which one test file fails and another passes, when `spx test` records the run, then the recorded run holds `failed` for the first file and `passed` for the second
+
 ### Scenarios
 
 - Given a spec tree with tests in multiple languages, when `spx test` runs, then each language's testing enabler is invoked on the files matching its registered extension pattern ([test](tests/test.scenario.l1.test.ts))
