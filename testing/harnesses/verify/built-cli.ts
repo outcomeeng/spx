@@ -22,11 +22,20 @@ import {
 } from "@/domains/verify/verify";
 import { VERIFICATION_RUN_CLI_SURFACE, VERIFY_CLI } from "@/interfaces/cli/verify";
 import { branchScopesDir, compareAsciiStrings, STATE_STORE_TEXT_ENCODING } from "@/lib/state-store";
-import { CHANGE_RUNS_TEST_GENERATOR } from "@testing/generators/verify/change-runs";
+import { sampleGeneratedValue } from "@testing/generators/sample";
+import {
+  CHANGE_RUNS_TEST_GENERATOR,
+  type ChangeRunsScenario,
+  type RunComparisonScenario,
+} from "@testing/generators/verify/change-runs";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import { CLI_PATH, NODE_EXECUTABLE, PRODUCT_ROOT } from "@testing/harnesses/constants";
 import { buildGitTestEnvironment } from "@testing/harnesses/git-test-constants";
-import { type ChangeRunsRepository, withChangeRunsRepository } from "@testing/harnesses/verify/change-runs";
+import {
+  type ChangeRunsRepository,
+  type StartedChangeRun,
+  withChangeRunsRepository,
+} from "@testing/harnesses/verify/change-runs";
 
 /** The bundle `bin/spx.js` loads; absent until `pnpm run build` produces it. */
 const BUILT_CLI_BUNDLE = join(PRODUCT_ROOT, "dist", "cli.js");
@@ -195,6 +204,111 @@ export async function observeBuiltRunListForChange(change: string): Promise<Buil
  */
 export async function observeBuiltRunListWithoutChange(change: string): Promise<BuiltRunListObservation> {
   return observeBuiltRunList(change, []);
+}
+
+/**
+ * The arrangement and built-executable run a `run compare` observation makes: the commit adding the
+ * comparison's files and the commit revising one of them, the two runs started for those commits —
+ * the first serving the scenario's Change — and the built `compare --change <change>` naming both
+ * runs, with the store's branch scopes captured immediately before and after `compare`.
+ */
+export interface BuiltRunComparisonObservation {
+  readonly firstHead: string;
+  readonly secondHead: string;
+  readonly firstRun: StartedChangeRun;
+  readonly secondRun: StartedChangeRun;
+  readonly compare: BuiltVerificationCliRun;
+  readonly storeBeforeCompare: BuiltRunStoreSnapshot;
+  readonly storeAfterCompare: BuiltRunStoreSnapshot;
+}
+
+/**
+ * In a real Git repository, commit the comparison's files, then commit its revision of one of them;
+ * start a changeset-scoped review run ending at each commit — the first serving the scenario's Change,
+ * the second serving `secondRunChange`, or no Change when it is undefined — and record each run's
+ * judged paths through the production `scope add`, leaving both runs unsealed. Then capture the
+ * store's branch scopes, run the built `spx verification run compare --change <change>` with the two
+ * run tokens in start order, and capture the branch scopes again.
+ */
+async function observeBuiltRunComparison(
+  scenario: ChangeRunsScenario,
+  comparison: RunComparisonScenario,
+  secondRunChange: string | undefined,
+): Promise<BuiltRunComparisonObservation> {
+  const verificationType = VERIFY_VERIFICATION_TYPE.REVIEW;
+  return withChangeRunsRepository(scenario, async (repository) => {
+    const firstHead = await repository.commitFiles(comparison.files);
+    const secondHead = await repository.commitFiles([comparison.revision]);
+    const firstRun = await repository.startRun({
+      verificationType,
+      scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+      change: scenario.change,
+      changesetHead: firstHead,
+    });
+    await repository.appendScope(
+      firstRun,
+      sampleGeneratedValue(
+        VERIFY_TEST_GENERATOR.judgedScopeUnit(verificationType, firstRun.scope, comparison.firstJudgedPaths),
+      ),
+    );
+    const secondRun = await repository.startRun({
+      verificationType,
+      scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
+      ...(secondRunChange === undefined ? {} : { change: secondRunChange }),
+      changesetHead: secondHead,
+    });
+    await repository.appendScope(
+      secondRun,
+      sampleGeneratedValue(
+        VERIFY_TEST_GENERATOR.judgedScopeUnit(verificationType, secondRun.scope, comparison.secondJudgedPaths),
+      ),
+    );
+    const storeBeforeCompare = await readBranchScopesSnapshot(repository.productDir);
+    const compare = await runBuiltVerificationRun(
+      repository.productDir,
+      [VERIFY_CLI.compareCommandName],
+      [
+        flagOf(VERIFY_CLI.changeOption),
+        scenario.change,
+        flagOf(VERIFY_CLI.runOption),
+        firstRun.runToken,
+        flagOf(VERIFY_CLI.runOption),
+        secondRun.runToken,
+      ],
+    );
+    const storeAfterCompare = await readBranchScopesSnapshot(repository.productDir);
+    return { firstHead, secondHead, firstRun, secondRun, compare, storeBeforeCompare, storeAfterCompare };
+  });
+}
+
+/** Compare, through the built executable, two runs that both serve the scenario's Change. */
+export async function observeBuiltRunComparisonOfChange(
+  scenario: ChangeRunsScenario,
+  comparison: RunComparisonScenario,
+): Promise<BuiltRunComparisonObservation> {
+  return observeBuiltRunComparison(scenario, comparison, scenario.change);
+}
+
+/**
+ * Compare, through the built executable and under the scenario's Change, a run of that Change and a
+ * second run that serves the scenario's other Change.
+ */
+export async function observeBuiltRunComparisonAcrossChanges(
+  scenario: ChangeRunsScenario,
+  comparison: RunComparisonScenario,
+): Promise<BuiltRunComparisonObservation> {
+  return observeBuiltRunComparison(scenario, comparison, scenario.otherChange);
+}
+
+/**
+ * Compare, through the built executable and under the scenario's Change, a run of that Change and a
+ * second run that serves no Change.
+ */
+export async function observeBuiltRunComparisonWithChangelessRun(
+  scenario: ChangeRunsScenario,
+  comparison: RunComparisonScenario,
+): Promise<BuiltRunComparisonObservation> {
+  return observeBuiltRunComparison(scenario, comparison, undefined);
 }
 
 /**

@@ -7,7 +7,7 @@ import * as fc from "fast-check";
 import { type JournalCliDeps, journalOpenCommand, journalReadCommand } from "@/commands/journal/cli";
 import type { JournalStreamSink } from "@/commands/journal/runtime";
 import type { ExecuteRunCliOptions } from "@/commands/verification-exec";
-import type { VerifyChangeRunsCliOptions } from "@/commands/verify/change-runs";
+import type { VerifyChangeRunsCliOptions, VerifyRunComparisonCliOptions } from "@/commands/verify/change-runs";
 import {
   VERIFY_CLI_ERROR,
   VERIFY_CLI_EXIT_CODE,
@@ -169,6 +169,7 @@ interface ExpectedTerminalProjection {
 export interface VerifyCliRecording {
   readonly appendFindingOptions: readonly VerifyAppendCliOptions[];
   readonly appendScopeOptions: readonly VerifyAppendCliOptions[];
+  readonly compareOptions: readonly VerifyRunComparisonCliOptions[];
   readonly executeRunOptions: readonly ExecuteRunCliOptions[];
   readonly finishOptions: readonly VerifyFinishCliOptions[];
   readonly inputOptions: readonly VerifyInputCliOptions[];
@@ -238,6 +239,7 @@ function okCliResult(): CliCommandResult {
 function createRecordingVerifyHandlers(): VerifyCliRecording {
   const appendFindingOptions: VerifyAppendCliOptions[] = [];
   const appendScopeOptions: VerifyAppendCliOptions[] = [];
+  const compareOptions: VerifyRunComparisonCliOptions[] = [];
   const executeRunOptions: ExecuteRunCliOptions[] = [];
   const finishOptions: VerifyFinishCliOptions[] = [];
   const inputOptions: VerifyInputCliOptions[] = [];
@@ -249,6 +251,7 @@ function createRecordingVerifyHandlers(): VerifyCliRecording {
   return {
     appendFindingOptions,
     appendScopeOptions,
+    compareOptions,
     executeRunOptions,
     finishOptions,
     inputOptions,
@@ -263,6 +266,10 @@ function createRecordingVerifyHandlers(): VerifyCliRecording {
       },
       appendScope: (options) => {
         appendScopeOptions.push(options);
+        return Promise.resolve(okCliResult());
+      },
+      compare: (options) => {
+        compareOptions.push(options);
         return Promise.resolve(okCliResult());
       },
       executeRun: (options) => {
