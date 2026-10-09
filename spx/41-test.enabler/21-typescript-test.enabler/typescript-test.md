@@ -6,10 +6,11 @@ CAN execute this product's TypeScript tests with exclusion flags derived from `s
 
 ## Assertions
 
-- Given a CLI-flag run over one failing and one passing TypeScript test file, when the typescript-testing runner completes, then the returned runner outcome reports `failed` for the failing path and `passed` for the passing path
-
 ### Scenarios
 
+- Given a CLI-flag run over one failing and one passing TypeScript test file, when the typescript-testing runner completes, then the returned runner outcome reports `failed` for the failing path and `passed` for the passing path ([test](tests/typescript-test.scenario.l1.test.ts))
+- Given a CLI-flag run over two TypeScript test files whose Vitest JSON report omits one, when the typescript-testing runner completes, then the returned runner outcome reports `not-run` for the omitted path ([test](tests/typescript-test.scenario.l1.test.ts))
+- Given a CLI-flag run whose Vitest JSON report is missing or unreadable, when the typescript-testing runner completes, then the returned runner outcome carries no path verdicts and a non-zero exit code ([test](tests/typescript-test.scenario.l1.test.ts))
 - Given TypeScript test files in `spx/**/tests/*.test.ts`, when the typescript-testing runner is invoked with a list of paths, then vitest executes against those paths and exits zero for passing tests ([test](tests/typescript-test.scenario.l2.test.ts))
 - Given an excluded node path in `spx.config.{toml,json,yaml}`, when `spx test passing` runs, then vitest is invoked with `--exclude=spx/{node}/**` for that node ([test](tests/typescript-test.scenario.l1.test.ts))
 - Given a TypeScript test imports a module that does not exist, when vitest runs against that file without exclusion, then vitest exits non-zero ([test](tests/typescript-test.scenario.l2.test.ts))
@@ -22,6 +23,7 @@ CAN execute this product's TypeScript tests with exclusion flags derived from `s
 
 ### Compliance
 
+- NEVER: a path verdict derives from the exit code of the Vitest process that covered the path — the Vitest JSON report states it ([test](tests/typescript-test.compliance.l1.test.ts))
 - ALWAYS: Vitest invocation is gated on the TypeScript testing descriptor's detection result ([test](tests/typescript-test.compliance.l1.test.ts))
 - ALWAYS: the TypeScript testing descriptor exposes a journal-streaming run alongside its CLI-flag run — a programmatic Vitest run hosting the reporter of `spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler` — enumerated through the testing registry per [`spx/19-language-registration.adr.md`](spx/19-language-registration.adr.md) and gated on the descriptor's detection result so an absent language yields a gated-out run with no Vitest invoked, so a language-neutral consumer drives per-module scope and per-failing-case evidence into an injected sink without naming Vitest or TypeScript ([test](tests/typescript-test.compliance.l1.test.ts), [test](tests/typescript-test.compliance.l2.test.ts))
 - ALWAYS: the journal-streaming run resolves the Vitest Node API against the product directory under test and imports the resolved module, so the run starts the Vitest that product selected ([test](tests/vitest-resolution.compliance.l1.test.ts))
