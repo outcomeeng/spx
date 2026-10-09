@@ -6,8 +6,6 @@ CAN record inspected scope and typed findings exactly once per caller intent bef
 
 ## Assertions
 
-- ALWAYS: scope evidence that names judged files records each judged file by its product-relative path and rejects a path the run's head commit does not hold
-
 ### Compliance
 
 - ALWAYS: scope evidence and finding evidence validate the evidence payload against the selected verification type and evidence kind before appending a journal event ([test](tests/verify-finding.compliance.l1.test.ts))
@@ -18,3 +16,4 @@ CAN record inspected scope and typed findings exactly once per caller intent bef
 - ALWAYS: scope evidence and finding evidence require a caller-supplied idempotency key for every evidence payload ([test](tests/verify-idempotency.compliance.l1.test.ts))
 - ALWAYS: scope evidence and finding evidence reject a run carrying a terminal-completion event ([test](tests/verify-terminal-rejection.compliance.l1.test.ts))
 - ALWAYS: an evidence append rejects when the run's recorded drive mode is spx-driven, so a caller holding the run token cannot add scope or finding evidence to a run spx opens, streams, and seals ([test](tests/verify-drive-mode.compliance.l1.test.ts))
+- ALWAYS: scope evidence that names judged files records each judged file by its product-relative path and rejects a path the run's head commit does not hold ([test](tests/verify-judged-paths.compliance.l1.test.ts))

@@ -6,18 +6,21 @@ import { execa } from "execa";
 import { journalReadCommand } from "@/commands/journal/cli";
 import {
   VERIFY_CLI_EXIT_CODE,
+  verifyAppendScopeCommand,
   type VerifyCliDeps,
   verifyStartCommand,
   type VerifyStartReport,
 } from "@/commands/verify/cli";
 import type { CliCommandResult } from "@/config/types";
 import {
+  VERIFY_APPEND_EVENT_FIELD,
+  VERIFY_APPEND_EVENT_TYPE,
   VERIFY_INPUT_SOURCE,
   VERIFY_RUN_CONTEXT_EVENT_TYPE,
   VERIFY_SCOPE_SEPARATOR,
   VERIFY_SCOPE_TYPE,
 } from "@/domains/verify/verify";
-import { JOURNAL_SEQ_BASE, type JournalEvent } from "@/lib/agent-run-journal";
+import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
 import type { GitDependencies } from "@/lib/git/root";
 import { defaultStateStoreFileSystem } from "@/lib/state-store";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
@@ -86,10 +89,23 @@ export async function initializeVerifyRepository(
   return { baseCommit, headCommit };
 }
 
-/** What one `start` produced: the command result and, when it succeeded, the data of its run-context events. */
+/**
+ * What one `start` produced: the selector it was invoked with, the command result, and, when it
+ * succeeded, the run token it reported and the data of the run's run-context events.
+ */
 export interface StartedRepositoryRun {
+  readonly verificationType: string;
+  readonly scopeType: string;
+  readonly scope: string;
   readonly started: CliCommandResult;
+  readonly runToken: string | undefined;
   readonly runContextData: readonly Readonly<Record<string, unknown>>[];
+}
+
+/** What one `scope add` produced: the command result and the payload of every scope event the run's journal then holds. */
+export interface AppendedRepositoryScope {
+  readonly appended: CliCommandResult;
+  readonly scopePayloads: readonly JsonValue[];
 }
 
 /**
@@ -97,13 +113,20 @@ export interface StartedRepositoryRun {
  * reachable through the branch `headBranch`, so the commit a changeset range names differs from the
  * checkout's HEAD. `startRun` opens a run of the given scope type through the production `start`
  * operation — a changeset scope as `<baseCommit>..<headBranch>`, a file scope as `filePath` — and
- * returns the run-context events the run's journal holds.
+ * returns the run-context events the run's journal holds; `appendScope` records scope evidence on
+ * such a run through the production `scope add` operation and returns the scope events the journal
+ * then holds.
  */
 export interface VerifyHeadCommitRepository extends VerifyRepositoryCommits {
   readonly productDir: string;
   readonly filePath: string;
   readonly headBranch: string;
-  startRun(scopeType: string): Promise<StartedRepositoryRun>;
+  /** Start a run of `scopeType`, of `verificationType` when given and of a drawn verification type otherwise. */
+  startRun(scopeType: string, verificationType?: string): Promise<StartedRepositoryRun>;
+  /** Append `payload` as scope evidence to a started run through the production `scope add` operation. */
+  appendScope(run: StartedRepositoryRun, payload: JsonValue): Promise<AppendedRepositoryScope>;
+  /** Write a file at the product-relative `path` into the checkout without adding it to any commit. */
+  writeCheckoutFile(path: string): Promise<void>;
 }
 
 /**
@@ -126,14 +149,23 @@ export async function withVerifyHeadCommitRepository<T>(
       commits.headCommit,
     ]);
     const inputContent = JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.inputPayload()));
-    const verificationType = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.verificationType());
+    const drawnVerificationType = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.verificationType());
+    const idempotencyKey = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
     const deps: VerifyCliDeps = {
       cwd: productDir,
       git: realVerifyGitDependencies(),
       processEnv: {},
       fs: defaultStateStoreFileSystem,
       readInputSource: async () => inputContent,
+      readPayloadSource: async (source) => source,
       journalBinding: { localSink: createRecordingStreamSink().sink },
+    };
+    const readRunEvents = async (verificationType: string, runToken: string): Promise<readonly JournalEvent[]> => {
+      const read = await journalReadCommand({ type: verificationType, runToken }, String(JOURNAL_SEQ_BASE), deps);
+      if (read.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+        throw new Error(`verify repository harness: journal read failed: ${read.output}`);
+      }
+      return JSON.parse(read.output) as readonly JournalEvent[];
     };
     const scopeFor = (scopeType: string): string =>
       scopeType === VERIFY_SCOPE_TYPE.CHANGESET
@@ -145,23 +177,51 @@ export async function withVerifyHeadCommitRepository<T>(
       filePath: layout.filePath,
       headBranch: layout.headBranch,
       ...commits,
-      startRun: async (scopeType) => {
+      startRun: async (scopeType, verificationType = drawnVerificationType) => {
+        const scope = scopeFor(scopeType);
         const started = await verifyStartCommand(
-          { verificationType, scopeType, scope: scopeFor(scopeType), input: VERIFY_INPUT_SOURCE.STDIN },
+          { verificationType, scopeType, scope, input: VERIFY_INPUT_SOURCE.STDIN },
           deps,
         );
-        if (started.exitCode !== VERIFY_CLI_EXIT_CODE.OK) return { started, runContextData: [] };
-        const { runToken } = JSON.parse(started.output) as VerifyStartReport;
-        const read = await journalReadCommand({ type: verificationType, runToken }, String(JOURNAL_SEQ_BASE), deps);
-        if (read.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
-          throw new Error(`verify repository harness: journal read failed: ${read.output}`);
+        const selector = { verificationType, scopeType, scope, started };
+        if (started.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+          return { ...selector, runToken: undefined, runContextData: [] };
         }
+        const { runToken } = JSON.parse(started.output) as VerifyStartReport;
         return {
-          started,
-          runContextData: (JSON.parse(read.output) as readonly JournalEvent[])
+          ...selector,
+          runToken,
+          runContextData: (await readRunEvents(verificationType, runToken))
             .filter((event) => event.type === VERIFY_RUN_CONTEXT_EVENT_TYPE)
             .map(eventDataRecord),
         };
+      },
+      appendScope: async (run, payload) => {
+        if (run.runToken === undefined) {
+          throw new Error(`verify repository harness: scope add needs a started run: ${run.started.output}`);
+        }
+        const appended = await verifyAppendScopeCommand(
+          {
+            verificationType: run.verificationType,
+            scopeType: run.scopeType,
+            scope: run.scope,
+            run: run.runToken,
+            payload: JSON.stringify(payload),
+            idempotencyKey,
+          },
+          deps,
+        );
+        return {
+          appended,
+          scopePayloads: (await readRunEvents(run.verificationType, run.runToken))
+            .filter((event) => event.type === VERIFY_APPEND_EVENT_TYPE.SCOPE)
+            .map((event) => eventDataRecord(event)[VERIFY_APPEND_EVENT_FIELD.PAYLOAD] as JsonValue),
+        };
+      },
+      writeCheckoutFile: async (path) => {
+        const absoluteFile = join(productDir, path);
+        await mkdir(dirname(absoluteFile), { recursive: true });
+        await writeFile(absoluteFile, path);
       },
     });
   });
