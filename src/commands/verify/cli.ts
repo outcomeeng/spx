@@ -74,6 +74,7 @@ import {
   getCurrentBranch,
   getHeadSha,
   type GitDependencies,
+  isHeadUnborn,
   resolveCommitSha,
 } from "@/lib/git/root";
 import {
@@ -473,8 +474,9 @@ function verifyScopeResolverFor(scopeType: string): VerifyScopeResolver | undefi
  * Resolve the head commit a starting run judges: the commit the scope's head revision names, or the
  * checkout's HEAD when the scope names none. The commit is recorded once at start, so later readers
  * derive each judged file's content identity from it rather than from a stored digest. Outside a Git
- * repository the run starts at the invocation directory with no head commit to judge, so it records
- * none; such a run still rejects judged paths, which need a recorded head commit.
+ * repository, and in one whose HEAD is unborn because nothing is committed yet, the run has no head
+ * commit to judge, so it records none; such a run still rejects judged paths, which need a recorded
+ * head commit. A head revision the scope names must resolve, unborn HEAD or not.
  */
 async function resolveStartHeadCommit(
   resolution: VerifyStartScopeResolution,
@@ -483,12 +485,14 @@ async function resolveStartHeadCommit(
 ): Promise<Result<string | undefined>> {
   if (!resolved.isGitRepo) return { ok: true, value: undefined };
   const git = deps.git ?? defaultGitDependencies;
-  const headCommit = resolution.headRevision === undefined
-    ? await getHeadSha(resolved.worktreeRoot, git)
-    : await resolveCommitSha(resolution.headRevision, resolved.worktreeRoot, git);
-  return headCommit === null
-    ? { ok: false, error: VERIFY_CLI_ERROR.HEAD_COMMIT_UNRESOLVED }
-    : { ok: true, value: headCommit };
+  const unresolved: Result<string | undefined> = { ok: false, error: VERIFY_CLI_ERROR.HEAD_COMMIT_UNRESOLVED };
+  if (resolution.headRevision !== undefined) {
+    const revisionCommit = await resolveCommitSha(resolution.headRevision, resolved.worktreeRoot, git);
+    return revisionCommit === null ? unresolved : { ok: true, value: revisionCommit };
+  }
+  const headCommit = await getHeadSha(resolved.worktreeRoot, git);
+  if (headCommit !== null) return { ok: true, value: headCommit };
+  return await isHeadUnborn(resolved.worktreeRoot, git) ? { ok: true, value: undefined } : unresolved;
 }
 
 function canonicalizeVerifyRunSelector(scopeType: string, scopeIdentity: string): Result<VerifyRunSelector> {

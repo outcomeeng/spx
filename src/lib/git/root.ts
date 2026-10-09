@@ -445,6 +445,35 @@ export async function resolveCommitSha(
 /** `show-ref --verify --quiet` reports a missing ref with this exit code; any other non-zero exit is a git failure. */
 export const GIT_SHOW_REF_MISSING_REF_EXIT_CODE = 1;
 
+/**
+ * Whether HEAD is unborn — `git symbolic-ref --quiet HEAD` names a branch whose ref
+ * `git show-ref --verify --quiet` reports missing, as in a repository with no commit yet. A detached
+ * HEAD, an existing branch, and a git failure are each not an unborn HEAD.
+ */
+export async function isHeadUnborn(
+  cwd: string = CONFIG_PROCESS_CWD.read(),
+  deps: GitDependencies = defaultGitDependencies,
+): Promise<boolean> {
+  try {
+    const symbolic = await deps.execa(
+      GIT_ROOT_COMMAND.EXECUTABLE,
+      [GIT_ROOT_COMMAND.SYMBOLIC_REF, GIT_ROOT_COMMAND.QUIET, GIT_ROOT_COMMAND.HEAD],
+      { cwd, reject: false },
+    );
+    if (symbolic.exitCode !== 0) return false;
+    const branchRef = extractStdout(symbolic.stdout);
+    if (branchRef.length === 0) return false;
+    const shown = await deps.execa(
+      GIT_ROOT_COMMAND.EXECUTABLE,
+      [GIT_ROOT_COMMAND.SHOW_REF, GIT_ROOT_COMMAND.VERIFY, GIT_ROOT_COMMAND.QUIET, branchRef],
+      { cwd, reject: false },
+    );
+    return shown.exitCode === GIT_SHOW_REF_MISSING_REF_EXIT_CODE;
+  } catch {
+    return false;
+  }
+}
+
 /** Outcomes of probing whether a name is an exact `origin` remote-tracking branch. */
 export const ORIGIN_BRANCH_PROBE_OUTCOME = {
   PRESENT: "present",
