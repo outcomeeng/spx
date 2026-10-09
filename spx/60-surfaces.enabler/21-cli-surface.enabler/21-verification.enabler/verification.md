@@ -20,7 +20,7 @@ CAN address, inspect, and render any verification run through one command family
 - ALWAYS: every verification run is inspected and rendered through the run-inspection command paths of `spx verification run`, whichever child command path produced it ([audit])
 - ALWAYS: `spx verification run list` rejects an invocation without `--change`, so the listing never defaults to every run in the store ([test](tests/run-list.compliance.l2.test.ts))
 - NEVER: `spx verification run list` appends a journal event or seals a run ([test](tests/run-list.compliance.l2.test.ts))
-- ALWAYS: `spx verification run compare` rejects an invocation whose two `--run <run-token>` values do not both name runs of the Change `--change` names ([test](tests/run-compare.compliance.l2.test.ts))
+- ALWAYS: `spx verification run compare` rejects two runs that are not both runs of the named Change, or a run that recorded no head commit ([test](tests/run-compare.compliance.l2.test.ts))
 - NEVER: `spx verification run compare` appends a journal event or seals a run ([test](tests/run-compare.compliance.l2.test.ts))
 - NEVER: public verification command paths expose journal mechanics such as `append-scope`, `append-finding`, `event`, or `journal` ([test](tests/verification.compliance.l1.test.ts))
 - NEVER: a top-level verb command such as `spx verify` manages verification runs ([test](tests/verification.compliance.l1.test.ts))
