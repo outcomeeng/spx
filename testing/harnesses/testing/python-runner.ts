@@ -1,4 +1,5 @@
 import { execa } from "execa";
+import * as fc from "fast-check";
 import assert from "node:assert";
 import { copyFile, mkdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -239,9 +240,8 @@ export function registerPythonRunnerScenarioL1Evidence(): void {
 
     it("propagates the command runner exit code when pytest is invoked", async () => {
       await assertProperty(
-        PYTHON_RUNNER_TEST_GENERATOR.exitCode(),
-        async (exitCode) => {
-          const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
+        fc.tuple(PYTHON_RUNNER_TEST_GENERATOR.exitCode(), CONFIG_TEST_GENERATOR.productDir()),
+        async ([exitCode, productDir]) => {
           const runner = createRecordingCommandRunner({ present: true, exitCode });
           const result = await pythonTestingLanguage.runTests(
             { productDir, testPaths: [], excludedNodePaths: [] },
@@ -293,9 +293,8 @@ export function registerPythonRunnerComplianceEvidence(): void {
   describe("python test runner gating on Python presence", () => {
     it("ALWAYS: invokes pytest exactly when Python is present", async () => {
       await assertProperty(
-        PYTHON_RUNNER_TEST_GENERATOR.invocationGateScenario(),
-        async ({ present, exitCode }) => {
-          const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
+        fc.tuple(PYTHON_RUNNER_TEST_GENERATOR.invocationGateScenario(), CONFIG_TEST_GENERATOR.productDir()),
+        async ([{ present, exitCode }, productDir]) => {
           const runner = createRecordingCommandRunner({ present, exitCode });
           const result = await pythonTestingLanguage.runTests(
             { productDir, testPaths: [], excludedNodePaths: [] },
@@ -311,9 +310,8 @@ export function registerPythonRunnerComplianceEvidence(): void {
 
     it("ALWAYS: detect reflects the injected Python presence predicate", () => {
       assertProperty(
-        PYTHON_RUNNER_TEST_GENERATOR.present(),
-        (present) => {
-          const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
+        fc.tuple(PYTHON_RUNNER_TEST_GENERATOR.present(), CONFIG_TEST_GENERATOR.productDir()),
+        ([present, productDir]) => {
           expect(pythonTestingLanguage.detect(productDir, { isLanguagePresent: () => present })).toBe(present);
         },
         { level: PROPERTY_LEVEL.L1 },

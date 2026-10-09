@@ -14,6 +14,7 @@ import { CONFIG_FILENAMES } from "@/config/index";
 import type { GitDependencies } from "@/lib/git/root";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { PYTHON_PRODUCT_INPUT_PATH, pythonTestingLanguage } from "@/test/languages/python";
+import type { TestingLanguageDescriptor } from "@/test/languages/types";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { testingRegistry } from "@/test/registry";
 import {
@@ -60,20 +61,24 @@ async function writeProductInputFile(productDir: string, path: string, content: 
 }
 
 async function expectProductInputDigestChanges({
-  nodeFile,
-  productInputPath,
+  language,
+  productInputPathFor,
   descriptorId,
 }: {
-  readonly nodeFile: string;
-  readonly productInputPath: string;
+  readonly language: TestingLanguageDescriptor;
+  readonly productInputPathFor: (nodeFile: string) => string;
   readonly descriptorId: string;
 }): Promise<void> {
   await assertProperty(
-    fc.uniqueArray(arbitraryDomainLiteral(), {
-      minLength: LITERAL_TEST_GENERATOR_COUNTS.two,
-      maxLength: LITERAL_TEST_GENERATOR_COUNTS.two,
-    }),
-    async ([firstInputContent, secondInputContent]) => {
+    fc.tuple(
+      TEST_DISPATCH_GENERATOR.nodeWithOwnFile(language),
+      fc.uniqueArray(arbitraryDomainLiteral(), {
+        minLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+        maxLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+      }),
+    ),
+    async ([{ file: nodeFile }, [firstInputContent, secondInputContent]]) => {
+      const productInputPath = productInputPathFor(nodeFile);
       await withTestingTempProductDir(async (productDir) => {
         await writeTestFileFixture(productDir, nodeFile);
         await writeProductInputFile(productDir, productInputPath, firstInputContent);
@@ -97,20 +102,24 @@ async function expectProductInputDigestChanges({
 }
 
 async function expectStagedProductInputDigestMatchesCurrent({
-  nodeFile,
-  productInputPath,
+  language,
+  productInputPathFor,
   descriptorId,
 }: {
-  readonly nodeFile: string;
-  readonly productInputPath: string;
+  readonly language: TestingLanguageDescriptor;
+  readonly productInputPathFor: (nodeFile: string) => string;
   readonly descriptorId: string;
 }): Promise<void> {
   await assertProperty(
-    fc.uniqueArray(arbitraryDomainLiteral(), {
-      minLength: LITERAL_TEST_GENERATOR_COUNTS.two,
-      maxLength: LITERAL_TEST_GENERATOR_COUNTS.two,
-    }),
-    async ([worktreeInputContent, stagedInputContent]) => {
+    fc.tuple(
+      TEST_DISPATCH_GENERATOR.nodeWithOwnFile(language),
+      fc.uniqueArray(arbitraryDomainLiteral(), {
+        minLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+        maxLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+      }),
+    ),
+    async ([{ file: nodeFile }, [worktreeInputContent, stagedInputContent]]) => {
+      const productInputPath = productInputPathFor(nodeFile);
       await withTestingTempProductDir(async (productDir) => {
         await writeTestFileFixture(productDir, nodeFile);
         await writeProductInputFile(productDir, productInputPath, worktreeInputContent);
@@ -233,25 +242,21 @@ export function registerExecutionRecordingScenarioTests(): void {
     });
 
     it("records descriptor-declared product input digests and changes them when those inputs change", async () => {
-      const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-      const nodeFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
       const [productInputPath] = typescriptTestingLanguage.productInputPaths;
 
       await expectProductInputDigestChanges({
-        nodeFile,
-        productInputPath,
+        language: typescriptTestingLanguage,
+        productInputPathFor: () => productInputPath,
         descriptorId: typescriptTestingLanguage.name,
       });
     });
 
     it("records descriptor-declared product input digests and changes them when missing inputs appear", async () => {
-      const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-      const nodeFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
       const [productInputPath] = typescriptTestingLanguage.productInputPaths;
 
       await assertProperty(
-        arbitraryDomainLiteral(),
-        async (productInputContent) => {
+        fc.tuple(TEST_DISPATCH_GENERATOR.nodeWithOwnFile(typescriptTestingLanguage), arbitraryDomainLiteral()),
+        async ([{ file: nodeFile }, productInputContent]) => {
           await withTestingTempProductDir(async (productDir) => {
             await writeTestFileFixture(productDir, nodeFile);
 
@@ -286,13 +291,11 @@ export function registerExecutionRecordingScenarioTests(): void {
     });
 
     it("records staged product input digests when staged changed-set planning runs", async () => {
-      const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-      const nodeFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
       const [productInputPath] = typescriptTestingLanguage.productInputPaths;
 
       await expectStagedProductInputDigestMatchesCurrent({
-        nodeFile,
-        productInputPath,
+        language: typescriptTestingLanguage,
+        productInputPathFor: () => productInputPath,
         descriptorId: typescriptTestingLanguage.name,
       });
     });
@@ -325,25 +328,21 @@ export function registerExecutionRecordingScenarioTests(): void {
     });
 
     it("records changed-set product input digests and changes them when those inputs change", async () => {
-      const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-      const nodeFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
       const [productInputPath] = CHANGED_TEST_PRODUCT_INPUT_PATHS;
 
       await expectProductInputDigestChanges({
-        nodeFile,
-        productInputPath,
+        language: typescriptTestingLanguage,
+        productInputPathFor: () => productInputPath,
         descriptorId: CHANGED_TEST_PRODUCT_INPUT_DESCRIPTOR_ID,
       });
     });
 
     it("records staged changed-set product input digests when staged changed-set planning runs", async () => {
-      const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-      const nodeFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
       const [productInputPath] = CHANGED_TEST_PRODUCT_INPUT_PATHS;
 
       await expectStagedProductInputDigestMatchesCurrent({
-        nodeFile,
-        productInputPath,
+        language: typescriptTestingLanguage,
+        productInputPathFor: () => productInputPath,
         descriptorId: CHANGED_TEST_PRODUCT_INPUT_DESCRIPTOR_ID,
       });
     });
@@ -377,38 +376,31 @@ export function registerExecutionRecordingScenarioTests(): void {
     });
 
     it("records Python product input digests and changes them when product-root conftest changes", async () => {
-      const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-      const nodeFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(pythonTestingLanguage, nodePath));
-
       await expectProductInputDigestChanges({
-        nodeFile,
-        productInputPath: PYTHON_PRODUCT_INPUT_PATH.CONFTEST,
+        language: pythonTestingLanguage,
+        productInputPathFor: () => PYTHON_PRODUCT_INPUT_PATH.CONFTEST,
         descriptorId: pythonTestingLanguage.name,
       });
     });
 
     it("records Python product input digests and changes them when a covered tests conftest changes", async () => {
-      const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-      const nodeFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(pythonTestingLanguage, nodePath));
-      const nestedConftestPath = join(dirname(nodeFile), PYTHON_PRODUCT_INPUT_PATH.CONFTEST);
-
       await expectProductInputDigestChanges({
-        nodeFile,
-        productInputPath: nestedConftestPath,
+        language: pythonTestingLanguage,
+        productInputPathFor: (nodeFile) => join(dirname(nodeFile), PYTHON_PRODUCT_INPUT_PATH.CONFTEST),
         descriptorId: pythonTestingLanguage.name,
       });
     });
 
     it("records discovered test content digests and changes them when covered files change", async () => {
-      const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-      const nodeFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath));
-
       await assertProperty(
-        fc.uniqueArray(arbitraryDomainLiteral(), {
-          minLength: LITERAL_TEST_GENERATOR_COUNTS.two,
-          maxLength: LITERAL_TEST_GENERATOR_COUNTS.two,
-        }),
-        async ([firstContent, secondContent]) => {
+        fc.tuple(
+          TEST_DISPATCH_GENERATOR.nodeWithOwnFile(typescriptTestingLanguage),
+          fc.uniqueArray(arbitraryDomainLiteral(), {
+            minLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+            maxLength: LITERAL_TEST_GENERATOR_COUNTS.two,
+          }),
+        ),
+        async ([{ file: nodeFile }, [firstContent, secondContent]]) => {
           await withTestingTempProductDir(async (productDir) => {
             await writeTestFileFixture(productDir, nodeFile);
             await writeFile(join(productDir, nodeFile), firstContent);

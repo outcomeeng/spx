@@ -5,14 +5,15 @@ import { CONFIG_FILENAMES } from "@/config/index";
 import type { PathFilterConfig } from "@/config/primitives/path-filter";
 import { TESTING_CONFIG_FIELDS, TESTING_SECTION } from "@/test/config";
 import { testingRunsDir } from "@/test/run-state";
-import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
+
+const TESTING_TEMP_PRODUCT_PREFIX = "spx-testing-";
 
 // Provides a temp product directory and removes it after the callback settles.
 export function withTestingTempProductDir(
   callback: (productDir: string) => Promise<void>,
 ): Promise<void> {
-  return withTempDir(sampleConfigTestValue(CONFIG_TEST_GENERATOR.tempPrefix()), callback);
+  return withTempDir(TESTING_TEMP_PRODUCT_PREFIX, callback);
 }
 
 // Materializes an empty test-file fixture at a spec-tree-relative path so the

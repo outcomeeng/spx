@@ -1,4 +1,5 @@
 import { execa } from "execa";
+import * as fc from "fast-check";
 import { copyFile, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -439,12 +440,11 @@ export function registerTypescriptRunnerScenarioL1Tests(): void {
 
     it("propagates the command runner exit code when vitest is invoked", async () => {
       await assertProperty(
-        TYPESCRIPT_RUNNER_TEST_GENERATOR.exitCode(),
-        async (exitCode) => {
-          const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-          const testPath = sampleDispatchValue(
-            TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath),
-          );
+        fc.tuple(
+          TYPESCRIPT_RUNNER_TEST_GENERATOR.exitCode(),
+          TEST_DISPATCH_GENERATOR.nodeWithOwnFile(typescriptTestingLanguage),
+        ),
+        async ([exitCode, { file: testPath }]) => {
           await withTestingTempProductDir(async (productDir) => {
             const runner = createRecordingCommandRunner({ present: true, exitCode });
             await writeTestFileFixture(productDir, testPath);
@@ -595,12 +595,11 @@ export function registerTypescriptRunnerComplianceTests(): void {
   describe("typescript test runner gating on TypeScript presence", () => {
     it("invokes vitest exactly when TypeScript is present", async () => {
       await assertProperty(
-        TYPESCRIPT_RUNNER_TEST_GENERATOR.present(),
-        async (present) => {
-          const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-          const testPath = sampleDispatchValue(
-            TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath),
-          );
+        fc.tuple(
+          TYPESCRIPT_RUNNER_TEST_GENERATOR.present(),
+          TEST_DISPATCH_GENERATOR.nodeWithOwnFile(typescriptTestingLanguage),
+        ),
+        async ([present, { file: testPath }]) => {
           await withTestingTempProductDir(async (productDir) => {
             const runner = createRecordingCommandRunner({ present, exitCode: 0 });
             await writeTestFileFixture(productDir, testPath);
@@ -620,13 +619,10 @@ export function registerTypescriptRunnerComplianceTests(): void {
 
     it("detect reflects the injected presence predicate", () => {
       assertProperty(
-        TYPESCRIPT_RUNNER_TEST_GENERATOR.present(),
-        (present) => {
+        fc.tuple(TYPESCRIPT_RUNNER_TEST_GENERATOR.present(), CONFIG_TEST_GENERATOR.productDir()),
+        ([present, productDir]) => {
           expect(
-            typescriptTestingLanguage.detect(
-              sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir()),
-              { isLanguagePresent: () => present },
-            ),
+            typescriptTestingLanguage.detect(productDir, { isLanguagePresent: () => present }),
           ).toBe(present);
         },
         { level: PROPERTY_LEVEL.L1 },
