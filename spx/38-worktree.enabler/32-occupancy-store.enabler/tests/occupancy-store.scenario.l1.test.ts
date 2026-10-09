@@ -12,13 +12,10 @@ import {
   OCCUPANCY_FS_TEXT_ENCODING,
   OCCUPANCY_STATUS,
   type OccupancyFileSystem,
-  type OccupancyFsOptions,
-  type OccupancyWriteOptions,
   type ProcessProbe,
   readClaim,
   readOccupancy,
   removeClaim as removeClaimBase,
-  removeClaimBySessionId as removeClaimBySessionIdBase,
   unreadableStartedAt,
   type WorktreeClaimRecord,
   writeClaim,
@@ -28,11 +25,14 @@ import { defaultOccupancyFileSystem } from "@/lib/worktree-occupancy-file-system
 import { sampleWorktreeTestValue, WORKTREE_TEST_GENERATOR } from "@testing/generators/worktree/worktree";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 import {
+  acquireClaimAsOperation as acquireClaim,
   createDeadHolderProbe,
   createForeignHostProbe,
   createLiveHolderProbe,
   createProcessProbe,
   createUnreadableStartTimeProbe,
+  removeClaimAsOperation as removeClaim,
+  removeClaimBySessionIdAsOperation as removeClaimBySessionId,
 } from "@testing/harnesses/worktree/harness";
 
 function createThrowingProbe(): ProcessProbe {
@@ -60,37 +60,6 @@ async function expectLinkRecord(path: string, record: WorktreeClaimRecord): Prom
   const target = await defaultOccupancyFileSystem.readlink(path);
   const parsed: unknown = JSON.parse(target);
   expect(parsed).toEqual(record);
-}
-
-function acquireClaim(
-  worktreesDir: string,
-  name: string,
-  record: WorktreeClaimRecord,
-  probe: ProcessProbe,
-  options: OccupancyWriteOptions,
-): ReturnType<typeof acquireClaimBase> {
-  return acquireClaimBase(worktreesDir, name, record, probe, { ...options, operation: record });
-}
-
-function removeClaim(
-  worktreesDir: string,
-  name: string,
-  owner: WorktreeClaimRecord,
-  probe: ProcessProbe,
-  options: OccupancyFsOptions,
-): ReturnType<typeof removeClaimBase> {
-  return removeClaimBase(worktreesDir, name, owner, probe, { ...options, operation: owner });
-}
-
-function removeClaimBySessionId(
-  worktreesDir: string,
-  name: string,
-  sessionId: string,
-  operation: WorktreeClaimRecord,
-  probe: ProcessProbe,
-  options: OccupancyFsOptions,
-): ReturnType<typeof removeClaimBySessionIdBase> {
-  return removeClaimBySessionIdBase(worktreesDir, name, sessionId, probe, { ...options, operation });
 }
 
 class ReplacingStaleLockFileSystem implements OccupancyFileSystem {
