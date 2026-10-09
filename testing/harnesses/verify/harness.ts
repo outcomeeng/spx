@@ -101,10 +101,12 @@ import {
 import { GIT_NAME_STATUS_FLAG, pathsFromNameStatus } from "@/lib/git/name-status";
 import {
   type ExecResult,
+  GIT_COMMIT_PEEL_SUFFIX,
   GIT_COMMON_DIR_ARGS,
   GIT_CURRENT_BRANCH_ARGS,
   GIT_DIR_BASENAME,
   GIT_HEAD_SHA_ARGS,
+  GIT_ROOT_COMMAND,
   GIT_SHOW_TOPLEVEL_ARGS,
   type GitDependencies,
 } from "@/lib/git/root";
@@ -723,6 +725,8 @@ export interface VerifyRunContextScenario {
   readonly inputContent: string;
   readonly branchIdentity: string;
   readonly headSha: string;
+  /** The commit the changeset range's head revision names, as the Git double reports it. */
+  readonly rangeHeadCommit: string;
   readonly productDir: string;
   readonly launchedAt: Date;
 }
@@ -730,6 +734,7 @@ export interface VerifyRunContextScenario {
 export function createVerifyRunContextScenario(): VerifyRunContextScenario {
   const range = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.changesetRange());
   const changedPaths = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.changedPaths());
+  const headSha = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.headSha());
   return {
     verificationType: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.verificationType()),
     scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
@@ -740,7 +745,10 @@ export function createVerifyRunContextScenario(): VerifyRunContextScenario {
     nameStatusStdout: formatNameStatusZ(changedPaths),
     inputContent: JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.inputPayload())),
     branchIdentity: sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.branchIdentity()),
-    headSha: sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.headSha()),
+    headSha,
+    rangeHeadCommit: sampleStateStoreTestValue(
+      STATE_STORE_TEST_GENERATOR.headSha().filter((commit) => commit !== headSha),
+    ),
     productDir: sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.productRoot()),
     launchedAt: sampleVerifyTestValue(VERIFY_TEST_GENERATOR.launchedAt()),
   };
@@ -1098,6 +1106,16 @@ function gitSuccess(stdout: string): ExecResult {
   return { exitCode: VERIFY_CLI_EXIT_CODE.OK, stdout, stderr: "" };
 }
 
+/** Whether `args` ask Git for the commit `revision` names: `rev-parse --verify --end-of-options <revision>^{commit}`. */
+function isCommitPeelQueryFor(args: readonly string[], revision: string): boolean {
+  return args.join(" ") === [
+    GIT_ROOT_COMMAND.REV_PARSE,
+    GIT_ROOT_COMMAND.VERIFY,
+    GIT_ROOT_COMMAND.END_OF_OPTIONS,
+    `${revision}${GIT_COMMIT_PEEL_SUFFIX}`,
+  ].join(" ");
+}
+
 export function verifyGitDeps(scenario: VerifyRunContextScenario): GitDependencies {
   return {
     execa: async (_command, args) => {
@@ -1106,6 +1124,7 @@ export function verifyGitDeps(scenario: VerifyRunContextScenario): GitDependenci
       if (argLine === GIT_COMMON_DIR_ARGS.join(" ")) return gitSuccess(join(scenario.productDir, GIT_DIR_BASENAME));
       if (argLine === GIT_CURRENT_BRANCH_ARGS.join(" ")) return gitSuccess(scenario.branchIdentity);
       if (argLine === GIT_HEAD_SHA_ARGS.join(" ")) return gitSuccess(scenario.headSha);
+      if (isCommitPeelQueryFor(args, scenario.head)) return gitSuccess(scenario.rangeHeadCommit);
       if (args.includes(GIT_NAME_STATUS_FLAG)) return gitSuccess(scenario.nameStatusStdout);
       return GIT_UNEXPECTED_COMMAND;
     },
@@ -1731,7 +1750,8 @@ export interface VerifyStartChangeIdentityObservation {
   readonly statusReport: Readonly<Record<string, unknown>>;
 }
 
-function eventDataRecord(event: JournalEvent | undefined): Readonly<Record<string, unknown>> {
+/** The `data` member of a journal event as a record, or an empty record when the event carries no object data. */
+export function eventDataRecord(event: JournalEvent | undefined): Readonly<Record<string, unknown>> {
   const data = event?.data;
   return typeof data === "object" && data !== null && !Array.isArray(data) ? data as Record<string, unknown> : {};
 }

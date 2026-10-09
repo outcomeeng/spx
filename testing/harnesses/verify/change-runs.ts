@@ -1,7 +1,5 @@
-import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
-
-import { execa } from "execa";
+import { mkdir, realpath, rm } from "node:fs/promises";
+import { join } from "node:path";
 
 import { verifyChangeRunsCommand, type VerifyChangeRunsDeps } from "@/commands/verify/change-runs";
 import {
@@ -31,23 +29,13 @@ import { detectGitCommonDirProductRoot, getCurrentBranch, getHeadSha, type GitDe
 import { defaultStateStoreFileSystem, resolveBranchIdentity, slugBranchIdentity } from "@/lib/state-store";
 import type { ChangeRunsScenario } from "@testing/generators/verify/change-runs";
 import { type FindingWithKey, sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
-import {
-  buildGitTestEnvironment,
-  GIT_TEST_CONFIG,
-  GIT_TEST_FLAGS,
-  GIT_TEST_REF,
-  GIT_TEST_SUBCOMMANDS,
-  readGit,
-  runGit,
-} from "@testing/harnesses/git-test-constants";
+import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { createRecordingStreamSink } from "@testing/harnesses/verify/harness";
+import { initializeVerifyRepository, realVerifyGitDependencies } from "@testing/harnesses/verify/repository";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const CHANGE_RUNS_TEMP_PREFIX = "verify-change-runs-";
 const MAIN_CHECKOUT_DIRECTORY = "product";
-const GIT_FAILURE_EXIT_CODE = 1;
-const BASE_COMMIT_MESSAGE = "Initialize change-runs fixture";
-const HEAD_COMMIT_MESSAGE = "Add the verified file";
 
 /**
  * A run a test started: the selectors `start` received, the drive mode it was opened with, the run
@@ -110,25 +98,11 @@ async function branchSlugAt(cwd: string, git: GitDependencies): Promise<string> 
   return slugBranchIdentity(resolveBranchIdentity({ ...(branchName === undefined ? {} : { branchName }), headSha }));
 }
 
-function realGitDependencies(): GitDependencies {
-  return {
-    execa: async (command, args, options) => {
-      const result = await execa(command, [...args], {
-        ...(options?.cwd === undefined ? {} : { cwd: options.cwd }),
-        env: buildGitTestEnvironment(),
-        extendEnv: false,
-        reject: false,
-      });
-      return { exitCode: result.exitCode ?? GIT_FAILURE_EXIT_CODE, stdout: result.stdout, stderr: result.stderr };
-    },
-  };
-}
-
 function lifecycleDeps(cwd: string, inputContent: string, driveMode: VerifyDriveMode): VerifyCliDeps {
   return {
     cwd,
     driveMode,
-    git: realGitDependencies(),
+    git: realVerifyGitDependencies(),
     processEnv: {},
     fs: defaultStateStoreFileSystem,
     readInputSource: async () => inputContent,
@@ -138,7 +112,7 @@ function lifecycleDeps(cwd: string, inputContent: string, driveMode: VerifyDrive
 }
 
 function listingDeps(cwd: string): VerifyChangeRunsDeps {
-  return { cwd, git: realGitDependencies(), fs: defaultStateStoreFileSystem };
+  return { cwd, git: realVerifyGitDependencies(), fs: defaultStateStoreFileSystem };
 }
 
 function requireOk(result: CliCommandResult, operation: string): CliCommandResult {
@@ -146,29 +120,6 @@ function requireOk(result: CliCommandResult, operation: string): CliCommandResul
     throw new Error(`change-runs harness: ${operation} failed: ${result.output}`);
   }
   return result;
-}
-
-async function initializeRepository(productDir: string, filePath: string): Promise<{
-  readonly baseCommit: string;
-  readonly headCommit: string;
-}> {
-  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
-  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL]);
-  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.USER_NAME_KEY, GIT_TEST_CONFIG.USER_NAME]);
-  await runGit(productDir, [
-    GIT_TEST_SUBCOMMANDS.COMMIT,
-    GIT_TEST_FLAGS.ALLOW_EMPTY,
-    GIT_TEST_FLAGS.COMMIT_MESSAGE,
-    BASE_COMMIT_MESSAGE,
-  ]);
-  const baseCommit = await readGit(productDir, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_TEST_REF.HEAD_NAME]);
-  const absoluteFile = join(productDir, filePath);
-  await mkdir(dirname(absoluteFile), { recursive: true });
-  await writeFile(absoluteFile, HEAD_COMMIT_MESSAGE);
-  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, filePath]);
-  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.COMMIT, GIT_TEST_FLAGS.COMMIT_MESSAGE, HEAD_COMMIT_MESSAGE]);
-  const headCommit = await readGit(productDir, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_TEST_REF.HEAD_NAME]);
-  return { baseCommit, headCommit };
 }
 
 /**
@@ -185,7 +136,7 @@ export async function withChangeRunsRepository<T>(
     const root = await realpath(tempDir);
     const productDir = join(root, MAIN_CHECKOUT_DIRECTORY);
     await mkdir(productDir);
-    const { baseCommit, headCommit } = await initializeRepository(productDir, scenario.filePath);
+    const { baseCommit, headCommit } = await initializeVerifyRepository(productDir, scenario.filePath);
     const inputContent = JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.inputPayload()));
     const lifecycleSelectors = (run: StartedChangeRun) => ({
       verificationType: run.verificationType,
@@ -223,7 +174,7 @@ export async function withChangeRunsRepository<T>(
         const cwd = request.cwd ?? productDir;
         const driveMode = request.driveMode ?? VERIFY_DRIVE_MODE.CALLER;
         const scope = scopeFor(request.scopeType);
-        const branchSlug = await branchSlugAt(cwd, realGitDependencies());
+        const branchSlug = await branchSlugAt(cwd, realVerifyGitDependencies());
         const started = requireOk(
           await verifyStartCommand(
             {
@@ -279,7 +230,7 @@ export async function withChangeRunsRepository<T>(
         return JSON.parse(status.output) as VerifyStatusReport;
       },
       removeRecordedInput: async (run) => {
-        const product = await detectGitCommonDirProductRoot(run.cwd, realGitDependencies());
+        const product = await detectGitCommonDirProductRoot(run.cwd, realVerifyGitDependencies());
         const inputPath = verifyInputRecordPath({
           productDir: product.productDir,
           branchSlug: run.branchSlug,

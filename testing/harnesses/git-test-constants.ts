@@ -34,6 +34,7 @@ export const GIT_TEST_FLAGS = {
   CONFIG_OVERRIDE: "-c",
   DETACH: "--detach",
   EXCLUDE_STANDARD: "--exclude-standard",
+  FORCE: "--force",
   FULL_NAME: "--full-name",
   IS_INSIDE_WORK_TREE: "--is-inside-work-tree",
   MOVE: "--move",

@@ -39,6 +39,7 @@ import {
 import { VERIFICATION_RUN_CLI_SURFACE, VERIFY_CLI } from "@/interfaces/cli/verify";
 import type { JsonValue } from "@/lib/agent-run-journal";
 import { GIT_MODIFY_STATUS_EXAMPLE, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
+import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import { SPEC_TREE_GRAMMAR } from "@/lib/spec-tree/config";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
@@ -751,6 +752,16 @@ export const VERIFY_TEST_GENERATOR = {
       .tuple(VERIFY_TEST_GENERATOR.changesetRef(), VERIFY_TEST_GENERATOR.changesetRef())
       .filter(([base, head]) => base !== head)
       .map(([base, head]) => ({ base, head })),
+  /**
+   * The layout of a real repository whose changeset head is named by a branch rather than a commit:
+   * the branch name, drawn from the changeset revision domain minus the `HEAD` name Git reserves,
+   * and the product-relative file the head commit adds.
+   */
+  headCommitRepository: (): fc.Arbitrary<{ readonly headBranch: string; readonly filePath: string }> =>
+    fc.record({
+      headBranch: VERIFY_TEST_GENERATOR.changesetRef().filter((ref) => ref !== GIT_ROOT_COMMAND.HEAD),
+      filePath: arbitrarySourceFilePath(),
+    }),
   changesetScopeScenario: (): fc.Arbitrary<{
     readonly range: { readonly base: string; readonly head: string };
     readonly changedPaths: readonly string[];

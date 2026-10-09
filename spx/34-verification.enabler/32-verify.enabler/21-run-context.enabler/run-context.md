@@ -10,8 +10,6 @@ CAN operate on one scoped verification run with a stable subject, recorded input
 
 ## Assertions
 
-- ALWAYS: `start` records the run's head commit for every scope type, the `file` scope included
-
 ### Scenarios
 
 - Given a review verification run is started for a changeset scope with standard input as the run input, then spx creates a canonical verification context, opens a run journal, and reports the run token, context digest, resolved scope, exact input descriptor, and run locator ([test](tests/verify-start.scenario.l1.test.ts))
@@ -30,6 +28,7 @@ CAN operate on one scoped verification run with a stable subject, recorded input
 ### Mappings
 
 - Supported scope types map to reconstructable verification-context subjects and `resolvedScope` reports: `changeset` maps a `<base>..<head>` selector to base/head reconstruction fields plus changed product paths, while `file` maps one normalized product-relative path to a file subject plus that path ([test](tests/verify-scope.mapping.l1.test.ts))
+- ALWAYS: `start` records the run's head commit for every scope type, the `file` scope included ([test](tests/verify-head-commit.mapping.l1.test.ts))
 
 ### Compliance
 
