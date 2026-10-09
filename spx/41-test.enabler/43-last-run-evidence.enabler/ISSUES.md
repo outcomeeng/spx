@@ -73,3 +73,13 @@ state-store findings from a one-line edit.
 **Scope:** the two literal `exclude` occurrences in that file; the rest of the compliance test is unaffected.
 
 **Resolution:** take the key from the path-filter configuration's own field name, then re-run this node's tests and its test-evidence audit.
+
+## The passing-scope compliance test owns its dependency setup
+
+`tests/passing-scope.compliance.l1.test.ts` defines `invokedArgs`, `gitIdentityStub`, `testCommandDeps`, and `resolvePassingScope` in the executed test file. `testCommandDeps` assembles the dependency bag that `runTestsCommand` receives from the testing registry, the recording runner, and a git double whose `execa` returns a sampled literal. `resolvePassingScope` validates the section value through the testing config descriptor and returns its passing scope.
+
+**Impact:** the dependency bag, the git double, and the recorded-invocation reading sit in the evidence they constrain, so a sibling test that drives `runTestsCommand` rebuilds them, and the harness boundary [`spx/12-test-infrastructure.adr.md`](spx/12-test-infrastructure.adr.md) assigns to governed test infrastructure goes unaudited for this setup.
+
+**Scope:** the four functions in that file and their call sites in the one compliance test; the test's assertion flow is unaffected.
+
+**Resolution:** move the dependency setup into a harness under `testing/harnesses/testing/` that the test imports, then re-run this node's tests and its test-evidence audit.
