@@ -192,6 +192,27 @@ export function withTempPytestSuites(
   });
 }
 
+// Copies committed fixture suites into a temporary product whose root holds no pytest ini-file while
+// an ini-file sits in the directory beside the suites, the nearer position that moves pytest's rootdir
+// below the product directory unless the invocation pins it.
+export function withTempPytestSuitesUnderNearerIni(
+  fixtures: readonly PytestFixture[],
+  callback: (product: TempPytestSuites) => Promise<void>,
+): Promise<void> {
+  return withTempDir(TEMP_PRODUCT_PREFIX, async (productDir) => {
+    const suiteDir = join(productDir, COPIED_SUITE_DIR);
+    await mkdir(suiteDir);
+    await writeFile(join(suiteDir, PYTHON_PRODUCT_INPUT_PATH.PYTEST_INI), "");
+    const suitePaths: string[] = [];
+    for (const [index, fixture] of fixtures.entries()) {
+      const suitePath = join(suiteDir, `${COPIED_SUITE_BASENAME_PREFIX}${index}${PYTHON_TEST_FILE_EXTENSION}`);
+      await copyFile(join(PYTEST_FIXTURE_DIR, fixture), suitePath);
+      suitePaths.push(suitePath);
+    }
+    await callback({ productDir, suitePaths });
+  });
+}
+
 // Copies a committed fixture suite into a temporary product outside the repository so pytest resolves
 // no inherited configuration, and hands back the suite path for the runner to execute.
 export function withTempPytestProduct(
