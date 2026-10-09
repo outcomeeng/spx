@@ -194,3 +194,13 @@ full-suite package script remains a deliberate broad gate.
 `typescript:code-typescript`, `typescript:test-typescript`,
 `typescript:audit-typescript-tests`, and
 `typescript:audit-typescript`.
+
+## Four test files register their cases from harness modules instead of owning the assertion flow
+
+`tests/test.scenario.l1.test.ts`, `tests/test.mapping.l1.test.ts`, and `tests/test.property.l1.test.ts` each contain one `registerHarnessTestCases(...)` call and no `describe`, `it`, or `expect`. `tests/execution-recording.scenario.l1.test.ts` makes the same call for the cases of its spec scenarios beside one executed `describe` block. The cases, with their predicates, expected values, and fixtures, live in `testing/harnesses/testing/test-scenarios.ts`, `testing/harnesses/testing/test-mapping.ts`, `testing/harnesses/testing/test-properties.ts`, and `testing/harnesses/testing/execution-recording-scenarios.ts`. This is the class [`spx/ISSUES.md`](spx/ISSUES.md) records under "Test assertion flow lives in harnesses instead of executed test files", which [`spx/12-test-infrastructure.adr.md`](spx/12-test-infrastructure.adr.md) rules out.
+
+**Impact:** The node's `tests/` directory holds registration calls where the spec links expect the evidence, so a reader of a linked test file sees none of the predicates it proves, and the test-evidence audit judges predicate ownership in harness code.
+
+**Scope:** The registered cases of the four files; the per-file verdict scenario in `tests/execution-recording.scenario.l1.test.ts` keeps its `describe`, `it`, and `expect` in the executed file and is unaffected. This changeset leaves the register calls and the harness modules unchanged.
+
+**Resolution:** move each registered case's behavioral predicates into the executed test callbacks, keep fixtures and resource lifecycle in the harness, and retire the register calls as each file converts, then re-run this node's tests and its test-evidence audit.
