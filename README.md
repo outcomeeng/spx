@@ -353,7 +353,7 @@ src/
 ├── domains/       # Domain logic (release, session, spec, validation, verify, and others)
 ├── interfaces/    # Commander registration and CLI boundary primitives
 ├── lib/           # Shared utilities (git, methodology, node status, precommit hooks, state store)
-├── outcomeeng/    # Outcome Engineering integration
+├── outcomeeng/    # Spec Tree graph construction
 ├── test/          # Test runner integration
 └── validation/    # Lint, typecheck, circular dependency logic
 ```
