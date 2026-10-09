@@ -6,6 +6,8 @@ CAN execute Python tests with exclusion flags derived from `spx.config.{toml,jso
 
 ## Assertions
 
+- Given a run over one failing and one passing Python test file, when the python-testing runner completes, then the returned runner outcome reports `failed` for the failing path and `passed` for the passing path
+
 ### Scenarios
 
 - Given Python test files in `spx/**/tests/test_*.py`, when the python-testing runner is invoked with a list of paths, then pytest executes against those paths and exits zero for passing tests ([test](tests/python-test.scenario.l2.test.ts))
