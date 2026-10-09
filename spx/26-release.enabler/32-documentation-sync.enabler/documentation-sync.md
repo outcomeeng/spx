@@ -18,6 +18,7 @@ CAN reflect the released version's behavior and product release-version referenc
 ### Mappings
 
 - The documentation set a release update covers maps from configuration: the configured paths when set, the product README by default ([test](tests/documentation-sync.mapping.l1.test.ts))
+- The faithfulness audit verdict maps by its first whitespace-delimited token: `APPROVED` approves the update whatever explanatory text follows, `REJECTED` rejects it, and any other verdict is invalid and rejects the update ([test](tests/documentation-sync.mapping.l1.test.ts))
 
 ### Properties
 

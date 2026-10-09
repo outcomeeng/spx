@@ -11,6 +11,8 @@ import {
 import type { DocumentationSyncConfig } from "@/domains/release/config";
 import {
   DOCUMENTATION_FILE_EXTENSION,
+  DOCUMENTATION_SYNC_AUDIT_APPROVED,
+  DOCUMENTATION_SYNC_AUDIT_REJECTED,
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
 } from "@/domains/release/documentation-sync";
 import { type ReleaseData, releaseVersionFromTag } from "@/domains/release/release-data";
@@ -234,6 +236,20 @@ export interface DocumentationAuditInput {
   readonly scenario: DocumentationSyncScenario;
 }
 
+export const DOCUMENTATION_AUDIT_VERDICT_OUTCOME = {
+  APPROVED: "approved",
+  REJECTED: "rejected",
+  INVALID: "invalid",
+} as const;
+
+export type DocumentationAuditVerdictOutcome =
+  (typeof DOCUMENTATION_AUDIT_VERDICT_OUTCOME)[keyof typeof DOCUMENTATION_AUDIT_VERDICT_OUTCOME];
+
+export interface DocumentationAuditVerdictCase {
+  readonly verdict: string;
+  readonly outcome: DocumentationAuditVerdictOutcome;
+}
+
 export const DOCUMENTATION_PROMPT_CASE = {
   PRODUCER_INPUT: "producer-input",
   DATA_BOUNDARY: "data-boundary",
@@ -366,6 +382,61 @@ export function sampleDocumentationAuditInput(
       arbitraryConfiguredDocumentationSyncScenario(),
     ),
   };
+}
+
+function arbitraryAuditVerdictSeparator(): fc.Arbitrary<string> {
+  return fc.constantFrom(" ", "\n", "\n\n", "\t");
+}
+
+function arbitraryAuditVerdictExplanation(): fc.Arbitrary<string> {
+  return fc
+    .array(arbitraryPathSegment(), { minLength: 1, maxLength: 4 })
+    .map((words) => words.join(" "));
+}
+
+export function arbitraryDocumentationAuditVerdictCases(): fc.Arbitrary<
+  readonly DocumentationAuditVerdictCase[]
+> {
+  return fc
+    .tuple(
+      arbitraryAuditVerdictSeparator(),
+      arbitraryAuditVerdictExplanation(),
+      arbitraryPathSegment(),
+    )
+    .map(([separator, explanation, suffix]) => [
+      {
+        verdict: DOCUMENTATION_SYNC_AUDIT_APPROVED,
+        outcome: DOCUMENTATION_AUDIT_VERDICT_OUTCOME.APPROVED,
+      },
+      {
+        verdict: `${DOCUMENTATION_SYNC_AUDIT_APPROVED}${separator}${explanation}`,
+        outcome: DOCUMENTATION_AUDIT_VERDICT_OUTCOME.APPROVED,
+      },
+      {
+        verdict: DOCUMENTATION_SYNC_AUDIT_REJECTED,
+        outcome: DOCUMENTATION_AUDIT_VERDICT_OUTCOME.REJECTED,
+      },
+      {
+        verdict: `${DOCUMENTATION_SYNC_AUDIT_REJECTED}${separator}${explanation}`,
+        outcome: DOCUMENTATION_AUDIT_VERDICT_OUTCOME.REJECTED,
+      },
+      {
+        verdict: explanation,
+        outcome: DOCUMENTATION_AUDIT_VERDICT_OUTCOME.INVALID,
+      },
+      {
+        verdict: `${DOCUMENTATION_SYNC_AUDIT_APPROVED}${suffix}`,
+        outcome: DOCUMENTATION_AUDIT_VERDICT_OUTCOME.INVALID,
+      },
+      {
+        verdict: `${DOCUMENTATION_SYNC_AUDIT_REJECTED}${suffix}`,
+        outcome: DOCUMENTATION_AUDIT_VERDICT_OUTCOME.INVALID,
+      },
+      {
+        verdict: `${explanation}${separator}${DOCUMENTATION_SYNC_AUDIT_APPROVED}`,
+        outcome: DOCUMENTATION_AUDIT_VERDICT_OUTCOME.INVALID,
+      },
+    ]);
 }
 
 export function sampleDocumentationPromptInput(
