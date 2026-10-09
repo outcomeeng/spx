@@ -5,8 +5,8 @@ import { copyFile, mkdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { pythonTestingLanguage } from "@/test/languages/python";
-import { PYTEST_INVOKE_ARGS, UV_COMMAND } from "@/test/languages/python-pytest-contract";
+import { PYTHON_PRODUCT_INPUT_PATH, PYTHON_TEST_FILE_EXTENSION, pythonTestingLanguage } from "@/test/languages/python";
+import { JUNIT_REPORT_FLAG_PREFIX, PYTEST_INVOKE_ARGS, UV_COMMAND } from "@/test/languages/python-pytest-contract";
 import type { TestRunCommandResult, TestRunnerDependencies } from "@/test/languages/types";
 import { TEST_PATH_VERDICT } from "@/test/run-state";
 import { PYTHON_MARKER } from "@/validation/discovery/language-finder";
@@ -22,8 +22,6 @@ const TEMP_PRODUCT_PREFIX = "spx-pytest-";
 const COPIED_SUITE_DIR = ".spx-pytest-cases";
 // Copied under a pytest-ignored directory so the l2 test proves explicit test-path forwarding.
 const COPIED_SUITE_BASENAME_PREFIX = "test_suite_";
-const COPIED_SUITE_EXTENSION = ".py";
-const PYTEST_ROOTDIR_MARKER = "pytest.ini";
 const UV_CACHE_DIR_NAME = ".uv-cache";
 
 export const PYTEST_EXIT_CODE = {
@@ -62,7 +60,6 @@ export type SimulatedReport = (typeof SIMULATED_REPORT)[keyof typeof SIMULATED_R
 
 export type SimulatedFileStatus = typeof TEST_PATH_VERDICT.PASSED | typeof TEST_PATH_VERDICT.FAILED;
 
-const JUNIT_FLAG_PREFIX = "--junitxml=";
 const MALFORMED_REPORT_TEXT = "not a junit report";
 const SIMULATED_REPORT_ABSENT_MESSAGE = "no simulated report at";
 const SIMULATED_TEST_NAME = "test_case";
@@ -83,7 +80,10 @@ function simulatedJunitText(
   const testcases = reported.map((path) => {
     const status = options.reportedStatuses.get(path)
       ?? (options.exitCode === 0 ? TEST_PATH_VERDICT.PASSED : TEST_PATH_VERDICT.FAILED);
-    const classname = path.replace(/\.py$/, "").split("/").join(".");
+    const modulePath = path.endsWith(PYTHON_TEST_FILE_EXTENSION)
+      ? path.slice(0, -PYTHON_TEST_FILE_EXTENSION.length)
+      : path;
+    const classname = modulePath.split("/").join(".");
     const body = status === TEST_PATH_VERDICT.FAILED ? `<failure message="failed"/>` : "";
     return `<testcase classname="${classname}" name="${SIMULATED_TEST_NAME}" time="0.001">${body}</testcase>`;
   });
@@ -110,10 +110,10 @@ export function createRecordingCommandRunner(options: {
     isLanguagePresent: () => options.present,
     runCommand: (command, args) => {
       calls.push({ command, args });
-      const reportFlag = args.find((arg) => arg.startsWith(JUNIT_FLAG_PREFIX));
+      const reportFlag = args.find((arg) => arg.startsWith(JUNIT_REPORT_FLAG_PREFIX));
       if (reportFlag !== undefined) {
-        const text = simulatedJunitText(simulation, args.filter((arg) => arg.endsWith(".py")));
-        if (text !== null) reports.set(reportFlag.slice(JUNIT_FLAG_PREFIX.length), text);
+        const text = simulatedJunitText(simulation, args.filter((arg) => arg.endsWith(PYTHON_TEST_FILE_EXTENSION)));
+        if (text !== null) reports.set(reportFlag.slice(JUNIT_REPORT_FLAG_PREFIX.length), text);
       }
       return Promise.resolve({ exitCode: options.exitCode });
     },
@@ -181,10 +181,10 @@ export function withTempPytestSuites(
     const suiteDir = join(productDir, COPIED_SUITE_DIR);
     await mkdir(suiteDir);
     // An empty pytest.ini anchors pytest's rootdir at the product, as a real Python product's configuration does.
-    await writeFile(join(productDir, PYTEST_ROOTDIR_MARKER), "");
+    await writeFile(join(productDir, PYTHON_PRODUCT_INPUT_PATH.PYTEST_INI), "");
     const suitePaths: string[] = [];
     for (const [index, fixture] of fixtures.entries()) {
-      const suitePath = join(suiteDir, `${COPIED_SUITE_BASENAME_PREFIX}${index}${COPIED_SUITE_EXTENSION}`);
+      const suitePath = join(suiteDir, `${COPIED_SUITE_BASENAME_PREFIX}${index}${PYTHON_TEST_FILE_EXTENSION}`);
       await copyFile(join(PYTEST_FIXTURE_DIR, fixture), suitePath);
       suitePaths.push(suitePath);
     }

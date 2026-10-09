@@ -48,7 +48,7 @@ const PYTHON_PRODUCT_INPUT_PATHS = Object.values(PYTHON_PRODUCT_INPUT_PATH);
 
 /** pytest test-file basename shape: a `test_` prefix and a `.py` extension. */
 export const PYTHON_TEST_FILE_PREFIX = "test_";
-const PYTHON_TEST_FILE_EXTENSION = ".py";
+export const PYTHON_TEST_FILE_EXTENSION = ".py";
 const PYTHON_TEST_FILE_PATTERNS = [`${PYTHON_TEST_FILE_PREFIX}*${PYTHON_TEST_FILE_EXTENSION}`] as const;
 
 function matchesTestFile(filePath: string): boolean {

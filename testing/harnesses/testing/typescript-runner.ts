@@ -14,6 +14,12 @@ import {
   runTestsStreaming,
   TYPESCRIPT_TEST_FILE_PATTERNS,
   typescriptTestingLanguage,
+  VITEST_FILE_NAME_KEY,
+  VITEST_FILE_RESULTS_KEY,
+  VITEST_FILE_STATUS,
+  VITEST_FILE_STATUS_KEY,
+  VITEST_JSON_OUTPUT_FILE_FLAG_PREFIX,
+  VITEST_ROOT_FLAG,
 } from "@/test/languages/typescript";
 import { testingRegistry } from "@/test/registry";
 import { TEST_PATH_VERDICT } from "@/test/run-state";
@@ -119,7 +125,6 @@ export type SimulatedReport = (typeof SIMULATED_REPORT)[keyof typeof SIMULATED_R
 
 export type SimulatedFileStatus = typeof TEST_PATH_VERDICT.PASSED | typeof TEST_PATH_VERDICT.FAILED;
 
-const OUTPUT_FILE_FLAG_PREFIX = "--outputFile.json=";
 const MALFORMED_REPORT_TEXT = "not a vitest report";
 const SIMULATED_REPORT_ABSENT_MESSAGE = "no simulated report at";
 
@@ -134,16 +139,21 @@ function simulatedReportText(
 ): string | null {
   if (options.report === SIMULATED_REPORT.MISSING) return null;
   if (options.report === SIMULATED_REPORT.MALFORMED) return MALFORMED_REPORT_TEXT;
-  const productRoot = args[args.indexOf("--root") + 1] ?? "";
+  const productRoot = args[args.indexOf(VITEST_ROOT_FLAG) + 1] ?? "";
   const reported = options.report === SIMULATED_REPORT.LISTED_FILES
     ? testFilePaths.filter((path) => options.reportedStatuses.has(path))
     : testFilePaths;
   return JSON.stringify({
-    testResults: reported.map((path) => ({
-      name: join(productRoot, path),
-      status: options.reportedStatuses.get(path)
-        ?? (options.exitCode === 0 ? TEST_PATH_VERDICT.PASSED : TEST_PATH_VERDICT.FAILED),
-    })),
+    [VITEST_FILE_RESULTS_KEY]: reported.map((path) => {
+      const verdict = options.reportedStatuses.get(path)
+        ?? (options.exitCode === 0 ? TEST_PATH_VERDICT.PASSED : TEST_PATH_VERDICT.FAILED);
+      return {
+        [VITEST_FILE_NAME_KEY]: join(productRoot, path),
+        [VITEST_FILE_STATUS_KEY]: verdict === TEST_PATH_VERDICT.PASSED
+          ? VITEST_FILE_STATUS.PASSED
+          : VITEST_FILE_STATUS.FAILED,
+      };
+    }),
   });
 }
 
@@ -168,14 +178,14 @@ export function createRecordingCommandRunner(options: {
     isLanguagePresent: () => options.present,
     runCommand: (command, args) => {
       calls.push({ command, args });
-      const outputFlag = args.find((arg) => arg.startsWith(OUTPUT_FILE_FLAG_PREFIX));
+      const outputFlag = args.find((arg) => arg.startsWith(VITEST_JSON_OUTPUT_FILE_FLAG_PREFIX));
       if (outputFlag !== undefined) {
         const text = simulatedReportText(
           simulation,
           args,
           args.filter((arg) => typescriptTestingLanguage.matchesTestFile(arg)),
         );
-        if (text !== null) reports.set(outputFlag.slice(OUTPUT_FILE_FLAG_PREFIX.length), text);
+        if (text !== null) reports.set(outputFlag.slice(VITEST_JSON_OUTPUT_FILE_FLAG_PREFIX.length), text);
       }
       return Promise.resolve({ exitCode: options.exitCode });
     },

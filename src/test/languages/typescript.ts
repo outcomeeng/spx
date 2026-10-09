@@ -58,18 +58,18 @@ export const TYPESCRIPT_VITEST_EXCLUDE_FLAG_SUFFIX = "/**";
 // provides the binary; `--root` makes the product under test explicit.
 const PACKAGE_MANAGER_COMMAND = "pnpm";
 const VITEST_INVOKE_ARGS = ["exec", "vitest", "run"] as const;
-const VITEST_ROOT_FLAG = "--root";
+export const VITEST_ROOT_FLAG = "--root";
 const VITEST_DEFAULT_REPORTER_FLAG = "--reporter=default";
 const VITEST_JSON_REPORTER_FLAG = "--reporter=json";
-const VITEST_JSON_OUTPUT_FILE_FLAG_PREFIX = "--outputFile.json=";
+export const VITEST_JSON_OUTPUT_FILE_FLAG_PREFIX = "--outputFile.json=";
 const VITEST_REPORT_DIRECTORY = "reports";
 const VITEST_REPORT_FILE_PREFIX = "vitest-";
 const VITEST_REPORT_FILE_SUFFIX = ".json";
 const VITEST_REPORT_TEXT_ENCODING = "utf8";
-const VITEST_FILE_RESULTS_KEY = "testResults";
-const VITEST_FILE_NAME_KEY = "name";
-const VITEST_FILE_STATUS_KEY = "status";
-const VITEST_FILE_STATUS = { PASSED: "passed", FAILED: "failed" } as const;
+export const VITEST_FILE_RESULTS_KEY = "testResults";
+export const VITEST_FILE_NAME_KEY = "name";
+export const VITEST_FILE_STATUS_KEY = "status";
+export const VITEST_FILE_STATUS = { PASSED: "passed", FAILED: "failed" } as const;
 /** Exit code a Vitest invocation reports when it exits zero yet leaves no readable report. */
 const UNREADABLE_REPORT_EXIT_CODE = 1;
 const PATH_SEPARATOR = "/";
