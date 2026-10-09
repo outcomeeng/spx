@@ -247,6 +247,32 @@ export function withTempVitestProductAt(
   });
 }
 
+// A temporary Vitest product holding several suites: the temp root and the product-relative path of each
+// copied suite, in the order of the fixtures supplied.
+export interface TempVitestSuites {
+  readonly productDir: string;
+  readonly suitePaths: readonly string[];
+}
+
+const COPIED_SUITES_BASENAME_PREFIX = "suite-";
+
+// Copies committed fixture suites into one temporary product outside the repository, each under a
+// distinct file name, so one Vitest invocation covers them all and reports one verdict per file.
+export function withTempVitestSuites(
+  fixtures: readonly VitestFixture[],
+  callback: (product: TempVitestSuites) => Promise<void>,
+): Promise<void> {
+  return withTempDir(TEMP_PRODUCT_PREFIX, async (productDir) => {
+    const suitePaths: string[] = [];
+    for (const [index, fixture] of fixtures.entries()) {
+      const suitePath = `${COPIED_SUITES_BASENAME_PREFIX}${index}${COPIED_SUITE_NAME}`;
+      await writeVitestFixture(productDir, suitePath, fixture);
+      suitePaths.push(suitePath);
+    }
+    await callback({ productDir, suitePaths });
+  });
+}
+
 export interface TempVitestProductObservation {
   /** The product directory the callback received. */
   readonly productDir: string;
