@@ -31,6 +31,7 @@ import {
   evidenceValidatorFor,
   findAppendedSequence,
   findTerminalEvent,
+  headCommitOf,
   type InputDescriptor,
   isVerifyChangeIdentity,
   isVerifyTerminalStatus,
@@ -40,8 +41,10 @@ import {
   projectVerifyRun,
   type RecordedInput,
   type RunLocator,
+  scopeJudgedPathsOf,
   TERMINAL_METADATA_VALIDATION_ERROR,
   terminalMetadataValidatorFor,
+  validateJudgedPathsAtHead,
   VERIFY_APPEND_EVENT_TYPE,
   VERIFY_DRIVE_MODE,
   VERIFY_EVIDENCE_KIND,
@@ -64,6 +67,7 @@ import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent
 import { writeFileAtomic } from "@/lib/atomic-file-write";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { changedPathsForCommittedRange } from "@/lib/git/changed-paths";
+import { listCommitFiles } from "@/lib/git/commit-files";
 import {
   defaultGitDependencies,
   detectGitCommonDirProductRoot,
@@ -111,6 +115,7 @@ export const VERIFY_CLI_ERROR = {
   CHANGE_IDENTITY_INVALID: "spx verification run start requires a Change identity in the canonical owner/repo#N form",
   SPX_DRIVEN_APPEND_REJECTED: "spx verification run cannot add caller evidence to a run spx drives",
   APPEND_FAILED: "spx verification run could not append the evidence event",
+  JUDGED_PATHS_UNREADABLE: "spx verification run scope add could not read the files the run's head commit holds",
   TERMINAL_STATUS_REQUIRED: "spx verification run finish requires --terminal-status <status>",
   TERMINAL_STATUS_INVALID:
     "spx verification run finish requires a terminal status in the journal terminal-status vocabulary",
@@ -888,6 +893,7 @@ interface PreparedAppend {
   readonly journalScope: JournalRunCliScope;
   readonly namespace: string;
   readonly backendIdentity: string;
+  readonly worktreeRoot: string;
   readonly existingEvents: readonly JournalEvent[];
   readonly selector: VerifyRunSelector;
 }
@@ -1014,6 +1020,7 @@ async function prepareAppend(options: VerifyAppendCliOptions, deps: VerifyCliDep
       journalScope,
       namespace: namespace.value,
       backendIdentity: resolved.value.backendIdentity,
+      worktreeRoot: resolved.value.worktreeRoot,
       existingEvents: existingEvents.value,
       selector: selector.value,
     },
@@ -1087,6 +1094,39 @@ function validateAppendEvidence(
   return { ok: true, value: JSON.parse(JSON.stringify(validated.value)) as JsonValue };
 }
 
+/**
+ * Check the judged paths an accepted scope payload names against the files the run's head commit
+ * holds, read from the commit's tree through the injected git runner. A payload naming no judged
+ * path reads no git state. The run's head commit is the one `start` recorded on the run-context
+ * event, so every judged path is anchored to the commit the run judges rather than to the checkout.
+ */
+async function validateScopeJudgedPaths(
+  payload: JsonValue,
+  verificationType: string,
+  prepared: PreparedAppend,
+  deps: VerifyCliDeps,
+): Promise<Result<void>> {
+  const judgedPaths = scopeJudgedPathsOf(payload);
+  if (judgedPaths.length === 0) return { ok: true, value: undefined };
+  const headCommit = headCommitOf(prepared.existingEvents);
+  const filesHeldAtHead = headCommit === undefined
+    ? new Set<string>()
+    : await listCommitFiles(headCommit, judgedPaths, prepared.worktreeRoot, deps.git ?? defaultGitDependencies);
+  if (filesHeldAtHead === undefined) return { ok: false, error: VERIFY_CLI_ERROR.JUDGED_PATHS_UNREADABLE };
+  const held = validateJudgedPathsAtHead(judgedPaths, headCommit, filesHeldAtHead);
+  if (held.ok) return { ok: true, value: undefined };
+  return {
+    ok: false,
+    error: renderVerifyRejection({
+      headline: VERIFY_CLI_ERROR.SCOPE_INVALID,
+      verificationType,
+      evidenceKind: VERIFY_EVIDENCE_KIND.SCOPE,
+      reason: held.reason,
+      note: VERIFY_REJECTION_TEXT.APPEND_RETRY_NOTE,
+    }),
+  };
+}
+
 /** The CloudEvents type an evidence-add command records: a finding or inspected scope. */
 function appendEventType(verb: VerifyAppendVerb): VerifyAppendEventType {
   return verb === VERIFY_VERB.APPEND_FINDING ? VERIFY_APPEND_EVENT_TYPE.FINDING : VERIFY_APPEND_EVENT_TYPE.SCOPE;
@@ -1095,7 +1135,8 @@ function appendEventType(verb: VerifyAppendVerb): VerifyAppendEventType {
 /**
  * Append inspected scope or a validated finding to a started run exactly once per idempotency key.
  * The append requires an explicit `--payload` and `--idempotency-key`, validates a finding payload
- * against the run's verification type, and returns the existing journal sequence for a repeated key
+ * against the run's verification type, checks every judged path a scope payload names against the
+ * files the run's head commit holds, and returns the existing journal sequence for a repeated key
  * rather than duplicating evidence. It never reads the recorded run input as the append payload.
  */
 async function verifyAppend(
@@ -1124,6 +1165,10 @@ async function verifyAppend(
   if (parsed === undefined) return errorResult(VERIFY_CLI_ERROR.PAYLOAD_INVALID);
   const evidence = validateAppendEvidence(verb, options.verificationType, parsed, existingEvents, selector);
   if (!evidence.ok) return errorResult(evidence.error);
+  if (verb === VERIFY_VERB.APPEND_SCOPE) {
+    const judged = await validateScopeJudgedPaths(evidence.value, options.verificationType, prepared.value, deps);
+    if (!judged.ok) return errorResult(judged.error);
+  }
 
   const event = buildAppendEvent({
     eventType,
