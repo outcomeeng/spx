@@ -15,6 +15,7 @@ import {
   typescriptTestingLanguage,
 } from "@/test/languages/typescript";
 import { testingRegistry } from "@/test/registry";
+import { TEST_PATH_VERDICT } from "@/test/run-state";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
@@ -101,20 +102,83 @@ export interface RecordingCommandRunner extends TestRunnerDependencies {
   }>;
 }
 
+/** How a recording runner's simulated Vitest invocation leaves its JSON report. */
+export const SIMULATED_REPORT = {
+  /** Every supplied test file is reported with the status the exit code implies. */
+  FOLLOWS_EXIT_CODE: "follows-exit-code",
+  /** Only the files in `reportedStatuses` are reported; the rest are omitted. */
+  LISTED_FILES: "listed-files",
+  /** No report file exists once the invocation exits. */
+  MISSING: "missing",
+  /** The report file holds text that is not a Vitest JSON report. */
+  MALFORMED: "malformed",
+} as const;
+
+export type SimulatedReport = (typeof SIMULATED_REPORT)[keyof typeof SIMULATED_REPORT];
+
+export type SimulatedFileStatus = typeof TEST_PATH_VERDICT.PASSED | typeof TEST_PATH_VERDICT.FAILED;
+
+const OUTPUT_FILE_FLAG_PREFIX = "--outputFile.json=";
+const MALFORMED_REPORT_TEXT = "not a vitest report";
+const SIMULATED_REPORT_ABSENT_MESSAGE = "no simulated report at";
+
+function simulatedReportText(
+  options: {
+    readonly exitCode: number;
+    readonly report: SimulatedReport;
+    readonly reportedStatuses: ReadonlyMap<string, SimulatedFileStatus>;
+  },
+  args: readonly string[],
+  testFilePaths: readonly string[],
+): string | null {
+  if (options.report === SIMULATED_REPORT.MISSING) return null;
+  if (options.report === SIMULATED_REPORT.MALFORMED) return MALFORMED_REPORT_TEXT;
+  const productRoot = args[args.indexOf("--root") + 1] ?? "";
+  const reported = options.report === SIMULATED_REPORT.LISTED_FILES
+    ? testFilePaths.filter((path) => options.reportedStatuses.has(path))
+    : testFilePaths;
+  return JSON.stringify({
+    testResults: reported.map((path) => ({
+      name: join(productRoot, path),
+      status: options.reportedStatuses.get(path)
+        ?? (options.exitCode === 0 ? TEST_PATH_VERDICT.PASSED : TEST_PATH_VERDICT.FAILED),
+    })),
+  });
+}
+
 export function createRecordingCommandRunner(options: {
   readonly present: boolean;
   readonly exitCode: number;
+  readonly report?: SimulatedReport;
+  readonly reportedStatuses?: ReadonlyMap<string, SimulatedFileStatus>;
 }): RecordingCommandRunner {
   const calls: Array<{
     readonly command: string;
     readonly args: readonly string[];
   }> = [];
+  const reports = new Map<string, string>();
+  const simulation = {
+    exitCode: options.exitCode,
+    report: options.report ?? SIMULATED_REPORT.FOLLOWS_EXIT_CODE,
+    reportedStatuses: options.reportedStatuses ?? new Map<string, SimulatedFileStatus>(),
+  };
   return {
     calls,
     isLanguagePresent: () => options.present,
     runCommand: (command, args) => {
       calls.push({ command, args });
+      const outputFlag = args.find((arg) => arg.startsWith(OUTPUT_FILE_FLAG_PREFIX));
+      if (outputFlag !== undefined) {
+        const text = simulatedReportText(simulation, args, args.filter((arg) => arg.endsWith(".test.ts")));
+        if (text !== null) reports.set(outputFlag.slice(OUTPUT_FILE_FLAG_PREFIX.length), text);
+      }
       return Promise.resolve({ exitCode: options.exitCode });
+    },
+    readReport: (path) => {
+      const text = reports.get(path);
+      return text === undefined
+        ? Promise.reject(new Error(`${SIMULATED_REPORT_ABSENT_MESSAGE} ${path}`))
+        : Promise.resolve(text);
     },
   };
 }
@@ -259,7 +323,141 @@ export async function writeVitestFixture(
   await copyFile(join(VITEST_FIXTURE_DIR, fixture), target);
 }
 
+async function runWithSimulatedReport(
+  options: {
+    readonly exitCode: number;
+    readonly report: SimulatedReport;
+    readonly reportedStatuses?: ReadonlyMap<string, SimulatedFileStatus>;
+  },
+  testPaths: readonly string[],
+) {
+  return withTempDir(TEMP_PRODUCT_PREFIX, async (productDir) => {
+    const runner = createRecordingCommandRunner({ present: true, ...options });
+    return typescriptTestingLanguage.runTests(
+      { productDir, testPaths, excludedNodePaths: [] },
+      runner,
+    );
+  });
+}
+
+function twoDistinctTestPaths(): readonly [string, string] {
+  const [firstNode, secondNode] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.distinctNodePaths());
+  return [
+    sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, firstNode)),
+    sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, secondNode)),
+  ];
+}
+
+export function registerTypescriptRunnerVerdictScenarioTests(): void {
+  describe("typescript test runner reports a verdict per test path from Vitest's JSON report", () => {
+    it("reports failed for the failing path and passed for the passing path of one invocation", async () => {
+      const [failingPath, passingPath] = twoDistinctTestPaths();
+
+      const invocation = await runWithSimulatedReport(
+        {
+          exitCode: 1,
+          report: SIMULATED_REPORT.LISTED_FILES,
+          reportedStatuses: new Map<string, SimulatedFileStatus>([[failingPath, TEST_PATH_VERDICT.FAILED], [
+            passingPath,
+            TEST_PATH_VERDICT.PASSED,
+          ]]),
+        },
+        [failingPath, passingPath],
+      );
+
+      expect(invocation).toMatchObject({
+        invoked: true,
+        exitCode: 1,
+        pathVerdicts: [
+          { testPath: failingPath, verdict: TEST_PATH_VERDICT.FAILED },
+          { testPath: passingPath, verdict: TEST_PATH_VERDICT.PASSED },
+        ],
+      });
+    });
+
+    it("reports not-run for a supplied path the report omits", async () => {
+      const [reportedPath, omittedPath] = twoDistinctTestPaths();
+
+      const invocation = await runWithSimulatedReport(
+        {
+          exitCode: 0,
+          report: SIMULATED_REPORT.LISTED_FILES,
+          reportedStatuses: new Map<string, SimulatedFileStatus>([[reportedPath, TEST_PATH_VERDICT.PASSED]]),
+        },
+        [reportedPath, omittedPath],
+      );
+
+      expect(invocation).toMatchObject({
+        invoked: true,
+        pathVerdicts: [
+          { testPath: reportedPath, verdict: TEST_PATH_VERDICT.PASSED },
+          { testPath: omittedPath, verdict: TEST_PATH_VERDICT.NOT_RUN },
+        ],
+      });
+    });
+
+    it.each([SIMULATED_REPORT.MISSING, SIMULATED_REPORT.MALFORMED])(
+      "reports every path not-run and a failed outcome when the report is %s",
+      async (report) => {
+        const testPaths = twoDistinctTestPaths();
+
+        const invocation = await runWithSimulatedReport({ exitCode: 0, report }, testPaths);
+
+        expect(invocation.invoked).toBe(true);
+        if (!invocation.invoked) return;
+        expect(invocation.exitCode).not.toBe(0);
+        expect(invocation.pathVerdicts).toBeUndefined();
+      },
+    );
+  });
+}
+
+export function registerTypescriptRunnerVerdictComplianceTests(): void {
+  describe("typescript test runner derives path verdicts from the report, never the exit code", () => {
+    it("reports a path passed when the report passes it though the process exits non-zero", async () => {
+      await assertProperty(
+        TYPESCRIPT_RUNNER_TEST_GENERATOR.exitCode(),
+        async (exitCode) => {
+          const [passingPath] = twoDistinctTestPaths();
+
+          const invocation = await runWithSimulatedReport(
+            {
+              exitCode: exitCode === 0 ? 1 : exitCode,
+              report: SIMULATED_REPORT.LISTED_FILES,
+              reportedStatuses: new Map<string, SimulatedFileStatus>([[passingPath, TEST_PATH_VERDICT.PASSED]]),
+            },
+            [passingPath],
+          );
+
+          expect(invocation).toMatchObject({
+            pathVerdicts: [{ testPath: passingPath, verdict: TEST_PATH_VERDICT.PASSED }],
+          });
+        },
+        { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+      );
+    });
+
+    it("reports a path failed when the report fails it though the process exits zero", async () => {
+      const [failingPath] = twoDistinctTestPaths();
+
+      const invocation = await runWithSimulatedReport(
+        {
+          exitCode: 0,
+          report: SIMULATED_REPORT.LISTED_FILES,
+          reportedStatuses: new Map<string, SimulatedFileStatus>([[failingPath, TEST_PATH_VERDICT.FAILED]]),
+        },
+        [failingPath],
+      );
+
+      expect(invocation).toMatchObject({
+        pathVerdicts: [{ testPath: failingPath, verdict: TEST_PATH_VERDICT.FAILED }],
+      });
+    });
+  });
+}
+
 export function registerTypescriptRunnerScenarioL1Tests(): void {
+  registerTypescriptRunnerVerdictScenarioTests();
   describe("typescript test runner invocation", () => {
     it("passes config-derived node exclusions to vitest for spx test passing", async () => {
       const [excludedNodePath, includedNodePath] = sampleDispatchValue(
@@ -473,6 +671,7 @@ export function registerTypescriptRunnerMappingTests(): void {
 }
 
 export function registerTypescriptRunnerComplianceTests(): void {
+  registerTypescriptRunnerVerdictComplianceTests();
   describe("typescript test runner gating on TypeScript presence", () => {
     it("invokes vitest exactly when TypeScript is present", async () => {
       await assertProperty(

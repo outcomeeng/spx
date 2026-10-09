@@ -6,12 +6,14 @@
  * injected command runner. Composing descriptors into a registry and dispatching
  * the `spx test` command are separate, higher-level concerns.
  */
-import { posix } from "node:path";
+import { readFile, rm } from "node:fs/promises";
+import { join, posix } from "node:path";
 
 import ts from "typescript";
 
 import { TEST_RELEVANT_SOURCE_ROOT_PREFIXES } from "@/config/source-roots";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { domainDir, generateRunId, STATE_STORE_DOMAIN, worktreeScopeDir } from "@/lib/state-store";
 import {
   createVitestRunStarter,
   productVitestNodeApiLoader,
@@ -30,6 +32,7 @@ import type {
   TestRunnerDependencies,
   TestRunRequest,
 } from "@/test/languages/types";
+import { TEST_PATH_VERDICT, type TestPathVerdict } from "@/test/run-state";
 import { detectTypeScript, TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 
 const TYPESCRIPT_TESTING_LANGUAGE_NAME = "typescript";
@@ -56,6 +59,21 @@ export const TYPESCRIPT_VITEST_EXCLUDE_FLAG_SUFFIX = "/**";
 const PACKAGE_MANAGER_COMMAND = "pnpm";
 const VITEST_INVOKE_ARGS = ["exec", "vitest", "run"] as const;
 const VITEST_ROOT_FLAG = "--root";
+const VITEST_DEFAULT_REPORTER_FLAG = "--reporter=default";
+const VITEST_JSON_REPORTER_FLAG = "--reporter=json";
+const VITEST_JSON_OUTPUT_FILE_FLAG_PREFIX = "--outputFile.json=";
+const VITEST_REPORT_DIRECTORY = "reports";
+const VITEST_REPORT_FILE_PREFIX = "vitest-";
+const VITEST_REPORT_FILE_SUFFIX = ".json";
+const VITEST_REPORT_TEXT_ENCODING = "utf8";
+const VITEST_FILE_RESULTS_KEY = "testResults";
+const VITEST_FILE_NAME_KEY = "name";
+const VITEST_FILE_STATUS_KEY = "status";
+const VITEST_FILE_STATUS = { PASSED: "passed", FAILED: "failed" } as const;
+/** Exit code a Vitest invocation reports when it exits zero yet leaves no readable report. */
+const UNREADABLE_REPORT_EXIT_CODE = 1;
+const PATH_SEPARATOR = "/";
+const WINDOWS_PATH_SEPARATOR_PATTERN = /\\/g;
 const TYPESCRIPT_SOURCE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx"] as const;
 const SPEC_TREE_SOURCE_ROOT_PREFIX = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/`;
 const TYPESCRIPT_RUNTIME_EXTENSION_MAP = {
@@ -87,23 +105,103 @@ function detect(productDir: string, deps?: Pick<TestRunnerDependencies, "isLangu
   return deps?.isLanguagePresent?.(productDir) ?? detectTypeScript(productDir).present;
 }
 
+function vitestReportPath(productDir: string): string {
+  const domain = domainDir(worktreeScopeDir(productDir), STATE_STORE_DOMAIN.TEST);
+  if (!domain.ok) throw new Error(domain.error);
+  return join(
+    domain.value,
+    VITEST_REPORT_DIRECTORY,
+    `${VITEST_REPORT_FILE_PREFIX}${generateRunId()}${VITEST_REPORT_FILE_SUFFIX}`,
+  );
+}
+
+function isRecordValue(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizedSeparators(path: string): string {
+  return path.replace(WINDOWS_PATH_SEPARATOR_PATTERN, PATH_SEPARATOR);
+}
+
+function reportedFileVerdicts(reportText: string): ReadonlyMap<string, TestPathVerdict["verdict"]> | null {
+  let report: unknown;
+  try {
+    report = JSON.parse(reportText);
+  } catch {
+    return null;
+  }
+  if (!isRecordValue(report)) return null;
+  const fileResults = report[VITEST_FILE_RESULTS_KEY];
+  if (!Array.isArray(fileResults)) return null;
+  const verdicts = new Map<string, TestPathVerdict["verdict"]>();
+  for (const fileResult of fileResults) {
+    if (!isRecordValue(fileResult)) return null;
+    const name = fileResult[VITEST_FILE_NAME_KEY];
+    if (typeof name !== "string") return null;
+    const status = fileResult[VITEST_FILE_STATUS_KEY];
+    if (status === VITEST_FILE_STATUS.PASSED) verdicts.set(normalizedSeparators(name), TEST_PATH_VERDICT.PASSED);
+    else if (status === VITEST_FILE_STATUS.FAILED) verdicts.set(normalizedSeparators(name), TEST_PATH_VERDICT.FAILED);
+  }
+  return verdicts;
+}
+
+function verdictForPath(
+  testPath: string,
+  fileVerdicts: ReadonlyMap<string, TestPathVerdict["verdict"]>,
+): TestPathVerdict["verdict"] {
+  const suffix = `${PATH_SEPARATOR}${normalizedSeparators(testPath)}`;
+  for (const [reportedName, verdict] of fileVerdicts) {
+    if (reportedName === normalizedSeparators(testPath) || reportedName.endsWith(suffix)) return verdict;
+  }
+  return TEST_PATH_VERDICT.NOT_RUN;
+}
+
+/** One verdict per supplied path from Vitest's JSON report, or `null` when the report is unreadable. */
+function pathVerdictsFromReport(
+  reportText: string | null,
+  testPaths: readonly string[],
+): readonly TestPathVerdict[] | null {
+  if (reportText === null) return null;
+  const fileVerdicts = reportedFileVerdicts(reportText);
+  if (fileVerdicts === null) return null;
+  return testPaths.map((testPath) => ({ testPath, verdict: verdictForPath(testPath, fileVerdicts) }));
+}
+
+async function readReportText(
+  reportPath: string,
+  deps: Pick<TestRunnerDependencies, "readReport">,
+): Promise<string | null> {
+  try {
+    return await (deps.readReport ?? ((path) => readFile(path, VITEST_REPORT_TEXT_ENCODING)))(reportPath);
+  } catch {
+    return null;
+  }
+}
+
 async function runTests(request: TestRunRequest, deps: TestRunnerDependencies): Promise<TestRunInvocation> {
   if (!detect(request.productDir, deps)) {
     return { invoked: false };
   }
 
+  const reportPath = vitestReportPath(request.productDir);
   const args = [
     ...VITEST_INVOKE_ARGS,
     VITEST_ROOT_FLAG,
     request.productDir,
+    VITEST_DEFAULT_REPORTER_FLAG,
+    VITEST_JSON_REPORTER_FLAG,
+    `${VITEST_JSON_OUTPUT_FILE_FLAG_PREFIX}${reportPath}`,
     ...request.testPaths,
     ...request.excludedNodePaths.map(excludeFlag),
   ];
 
   const result = await deps.runCommand(PACKAGE_MANAGER_COMMAND, args);
+  const pathVerdicts = pathVerdictsFromReport(await readReportText(reportPath, deps), request.testPaths);
+  await rm(reportPath, { force: true });
   return {
     invoked: true,
-    exitCode: result.exitCode,
+    exitCode: pathVerdicts === null && result.exitCode === 0 ? UNREADABLE_REPORT_EXIT_CODE : result.exitCode,
+    ...(pathVerdicts === null ? {} : { pathVerdicts }),
     ...(result.output === undefined ? {} : { output: result.output }),
   };
 }

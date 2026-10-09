@@ -29,6 +29,8 @@ export interface TestRunnerDependencies {
   readonly isLanguagePresent?: (productDir: string) => boolean;
   /** Executes a command, returning its terminal exit code. */
   readonly runCommand: (command: string, args: readonly string[]) => Promise<TestRunCommandResult>;
+  /** Reads a runner's machine-readable report file; defaults to reading the file from disk. */
+  readonly readReport?: (path: string) => Promise<string>;
 }
 
 /** Result from a related-test resolver command that emits parseable stdout. */
