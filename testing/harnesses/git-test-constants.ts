@@ -41,7 +41,6 @@ export const GIT_TEST_FLAGS = {
   NEW_BRANCH: "-b",
   NO_COMMIT: "--no-commit",
   NO_FAST_FORWARD: "--no-ff",
-  NUL_TERMINATED: "-z",
   OTHERS: "--others",
   QUIET: "--quiet",
   REMOVE_SECTION: "--remove-section",
@@ -119,12 +118,7 @@ export async function runGit(
   });
 }
 
-/**
- * The standard output of a git run exactly as git wrote it, with no trimming, for
- * formats whose leading or trailing bytes are significant (porcelain status codes,
- * NUL-terminated records).
- */
-export async function readGitUntrimmed(
+export async function readGit(
   cwd: string,
   args: readonly string[],
   envOverrides: GitTestEnvironmentOverrides = {},
@@ -133,17 +127,8 @@ export async function readGitUntrimmed(
     cwd,
     env: buildGitTestEnvironment(envOverrides),
     extendEnv: false,
-    stripFinalNewline: false,
   });
-  return result.stdout;
-}
-
-export async function readGit(
-  cwd: string,
-  args: readonly string[],
-  envOverrides: GitTestEnvironmentOverrides = {},
-): Promise<string> {
-  return (await readGitUntrimmed(cwd, args, envOverrides)).trim();
+  return result.stdout.trim();
 }
 
 export async function runTsxEval(

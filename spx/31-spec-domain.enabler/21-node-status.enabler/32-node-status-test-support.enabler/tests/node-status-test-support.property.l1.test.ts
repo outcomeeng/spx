@@ -3,8 +3,7 @@ import { join, posix } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { defaultGitDependencies } from "@/lib/git/root";
-import { listTrackedPaths } from "@/lib/git/tracked-paths";
+import { defaultGitDependencies, detectWorktreeProductRoot } from "@/lib/git/root";
 import {
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_EXCLUDE_FILENAME,
@@ -119,17 +118,18 @@ describe("node-status test support", () => {
   });
 
   it(
-    "materializes generated status-writer trees git-tracked with their committed claims and answers the resolver from the generated outcomes",
+    "materializes generated status-writer trees outside any git repository with their committed claims and answers the resolver from the generated outcomes",
     async () => {
       await assertProperty(
         NODE_STATUS_TEST_GENERATOR.statusWriterTree(),
         async (fixture) => {
           await withStatusWriterTree(fixture, async ({ env, expectations, resolveOutcome }) => {
-            const [specFixtureBytes, testFixtureBytes, tracked] = await Promise.all([
+            const [specFixtureBytes, testFixtureBytes, worktreeRoot] = await Promise.all([
               readFile(CLASSIFICATION_FIXTURE_PATHS.spec),
               readFile(CLASSIFICATION_FIXTURE_PATHS.test),
-              listTrackedPaths(env.productDir, defaultGitDependencies),
+              detectWorktreeProductRoot(env.productDir, defaultGitDependencies),
             ]);
+            expect(worktreeRoot.isGitRepo).toBe(false);
             expect(expectations.map((expectation) => expectation.nodeId)).toEqual(
               fixture.nodes.map((node) => node.dirName),
             );
@@ -142,7 +142,6 @@ describe("node-status test support", () => {
                 `${node.slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`,
               ].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
               expect(Buffer.from(await env.readFile(specPath))).toEqual(specFixtureBytes);
-              expect(tracked?.has(specPath)).toBe(true);
               expect(expectation?.evidencePaths).toEqual(
                 node.references.map(({ reference }) =>
                   [SPEC_TREE_CONFIG.ROOT_DIRECTORY, node.dirName, reference].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR)
@@ -150,7 +149,6 @@ describe("node-status test support", () => {
               );
               for (const evidencePath of expectation?.evidencePaths ?? []) {
                 expect(Buffer.from(await env.readFile(evidencePath))).toEqual(testFixtureBytes);
-                expect(tracked?.has(evidencePath)).toBe(true);
               }
 
               const committedClaims = [
@@ -183,9 +181,6 @@ describe("node-status test support", () => {
                   Object.entries(committedRecord).filter(([key]) => key !== NODE_STATUS_FIELD.OVERALL),
                 ),
               ).toEqual(committedClaims.length === 0 ? undefined : Object.fromEntries(committedClaims));
-              if (committedClaims.length > 0) {
-                expect([...tracked ?? []]).toContain(expectation?.statusPath);
-              }
 
               await expect(resolveOutcome(node.dirName, expectation?.evidencePaths ?? [])).resolves.toEqual(
                 Object.fromEntries(

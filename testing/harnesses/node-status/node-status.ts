@@ -4,7 +4,8 @@ import { fileURLToPath } from "node:url";
 
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { type RecordedTestRun, runNodeCommand } from "@/commands/test";
-import { GIT_STATUS_PORCELAIN_ARGS } from "@/lib/git/root";
+import { GIT_NULL_DELIMITED_FLAG, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
+import { defaultGitDependencies, GIT_ROOT_COMMAND, GIT_STATUS_PORCELAIN_ARGS } from "@/lib/git/root";
 import {
   createNodeStatusFile,
   createNodeStatusMechanismRecord,
@@ -25,13 +26,7 @@ import type {
   StatusWriterTreeFixture,
   StatusWriterTreeNode,
 } from "@testing/generators/node-status/node-status";
-import {
-  GIT_TEST_CONFIG,
-  GIT_TEST_FLAGS,
-  GIT_TEST_SUBCOMMANDS,
-  readGitUntrimmed,
-  runGit,
-} from "@testing/harnesses/git-test-constants";
+import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { type SpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
 
@@ -57,7 +52,6 @@ const NODE_STATUS_FIXTURE_COMMIT_MESSAGE = "node-status fixture";
  * and the path, terminated by NUL; a rename or copy record is followed by one more
  * NUL-terminated record carrying the source path with no status code.
  */
-const GIT_PORCELAIN_RECORD_SEPARATOR = "\0";
 const GIT_PORCELAIN_STATUS_PREFIX_LENGTH = 3;
 const GIT_PORCELAIN_SOURCE_PATH_CODES: ReadonlySet<string> = new Set(["R", "C"]);
 
@@ -228,8 +222,9 @@ export type StatusWriterTreeEnv = {
 /**
  * Materialize a generated status-writer tree into a temporary product directory —
  * spec files, linked evidence, `spx/EXCLUDE` membership, and each node's committed
- * status claims — then initialize a git repository and stage the spec tree, so every
- * node directory is git-tracked when the callback runs.
+ * status claims. The directory is left outside any git repository, so a status update
+ * over it applies no tracked-path scoping and every generated case varies only the
+ * writer's own inputs.
  */
 export async function withStatusWriterTree(
   fixture: StatusWriterTreeFixture,
@@ -264,7 +259,6 @@ export async function withStatusWriterTree(
       expectations.push({ nodeId: node.dirName, evidencePaths: materialized[index]?.evidencePaths ?? [], statusPath });
     }
 
-    await trackSpecTree(env.productDir);
     await callback({
       env,
       expectations,
@@ -346,22 +340,39 @@ export function createConsultationRecordingResolver(resolver: NodeOutcomeResolve
   };
 }
 
+/**
+ * Run git in `productDir` through the production git runner, which strips every
+ * inherited `GIT_*` variable so the run resolves from `productDir` alone; a non-zero
+ * exit rejects.
+ */
+async function runProductionGit(
+  productDir: string,
+  args: readonly string[],
+  options: { readonly stripFinalNewline?: boolean } = {},
+): Promise<string> {
+  const result = await defaultGitDependencies.execa(GIT_ROOT_COMMAND.EXECUTABLE, [...args], {
+    cwd: productDir,
+    ...options,
+  });
+  return result.stdout;
+}
+
 /** Initialize a git repository in `productDir` and stage the spec tree, leaving it tracked but uncommitted. */
 export async function trackSpecTree(productDir: string): Promise<void> {
-  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
-  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, ROOT]);
+  await runProductionGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+  await runProductionGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, ROOT]);
 }
 
 /** Stage and commit the spec tree in an initialized repository under a fixed test identity. */
 export async function commitSpecTree(productDir: string): Promise<void> {
-  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, ROOT]);
-  await runGit(productDir, [
+  await runProductionGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, ROOT]);
+  await runProductionGit(productDir, [
     GIT_TEST_FLAGS.CONFIG_OVERRIDE,
     `${GIT_TEST_CONFIG.USER_NAME_KEY}=${GIT_TEST_CONFIG.USER_NAME}`,
     GIT_TEST_FLAGS.CONFIG_OVERRIDE,
     `${GIT_TEST_CONFIG.EMAIL_KEY}=${GIT_TEST_CONFIG.EMAIL}`,
     GIT_TEST_SUBCOMMANDS.COMMIT,
-    GIT_TEST_FLAGS.QUIET,
+    GIT_ROOT_COMMAND.QUIET,
     GIT_TEST_FLAGS.COMMIT_MESSAGE,
     NODE_STATUS_FIXTURE_COMMIT_MESSAGE,
   ]);
@@ -370,13 +381,15 @@ export async function commitSpecTree(productDir: string): Promise<void> {
 /**
  * Every spec-tree path git reports as changed against the last commit — staged,
  * unstaged, or untracked, under any status code, and both paths of a rename or copy —
- * read untrimmed through the production working-tree status command in its
- * NUL-terminated form.
+ * read untrimmed through the production git runner and working-tree status command in
+ * git's NUL-terminated form.
  */
 export async function readSpecTreeWorkingChanges(productDir: string): Promise<readonly string[]> {
   const records = (
-    await readGitUntrimmed(productDir, [...GIT_STATUS_PORCELAIN_ARGS, GIT_TEST_FLAGS.NUL_TERMINATED])
-  ).split(GIT_PORCELAIN_RECORD_SEPARATOR).values();
+    await runProductionGit(productDir, [...GIT_STATUS_PORCELAIN_ARGS, GIT_NULL_DELIMITED_FLAG], {
+      stripFinalNewline: false,
+    })
+  ).split(GIT_NULL_RECORD_SEPARATOR).values();
   const changedPaths: string[] = [];
   for (const record of records) {
     if (record.length === 0) continue;
