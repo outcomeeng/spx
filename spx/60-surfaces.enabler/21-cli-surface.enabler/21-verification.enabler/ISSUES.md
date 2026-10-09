@@ -69,3 +69,19 @@ This node's terminal output path passes values that originated outside the produ
 **Node-local fact:** the same audit run warned that `testing/harnesses/verify/harness.ts` imports `expect` at line 146. That line is outside the `origin/main..HEAD` diff of the audit. This node's `tests/verification.compliance.l1.test.ts` imports `inspectVerificationRunCommandNames` from that module, so the shared defect reaches evidence outside `spx/34-verification.enabler/32-verify.enabler`. The inventory in that entry counts importers only under `spx/34-verification.enabler/32-verify.enabler`.
 
 **Settlement condition:** the shared entry settles, and this node's tests import from the shared harness only observation and resource APIs that hold no `expect` and no assertion predicate.
+
+## Assertion count above the decomposition trigger
+
+**Evidence:** `verification.md` holds 12 assertions against the decomposition trigger of about 7. Its run-inspection command paths — `status`, `render`, `list`, and `compare` of `spx verification run` — form a concern separable from the family's vocabulary boundary; `PLAN.md` of this node records those command paths as family-level, held in the parent rather than in either child.
+
+**Impact:** one spec carries the vocabulary boundary and every inspection command path's contract, so each added inspection rule grows a node whose concerns already exceed one coherent declaration, and its evidence and status attribute to the family rather than to the inspection concern.
+
+**Settlement condition:** `/decompose` of `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler` places the inspection command paths in an inspection child node.
+
+## Ambiguous run token lacks evidence
+
+**Evidence:** the run-lookup rule of [`spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md`](spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md) that covers `compare` includes a `--run` value naming more than one run of the Change (`RUN_AMBIGUOUS`). The test generators build no ambiguous run token, so no lookup case exercises that diagnostic.
+
+**Impact:** the ambiguous branch of the `compare` lookup diagnostic can drop the `--change` value, the `--run` token, or the searched target without any test failing.
+
+**Settlement condition:** a generator builds an ambiguous run token, and a lookup case asserts the diagnostic it produces.
