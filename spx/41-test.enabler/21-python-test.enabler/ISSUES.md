@@ -47,3 +47,13 @@ The scenario "Given an excluded node path in `spx.config.{toml,json,yaml}`, when
 **Scope:** One scenario of this node, untouched by the per-path verdict changes.
 
 **Resolution:** derive the expected `--ignore=spx/{node}/` argument from the scenario's declared form independently of `excludeFlag`, then re-run this node's tests and its test-evidence audit.
+
+## The exclusion-flag mapping builds its expected flag from the production flag prefix and suffix
+
+The mapping "Config-driven exclusion flag generation: an excluded node path `{segment}` maps to pytest flag `--ignore=spx/{segment}/`" links `tests/python-test.mapping.l1.test.ts`, whose "maps an excluded node path to the pytest ignore flag" case asserts that `pythonTestingLanguage.excludeFlag(nodePath)` equals `${PYTHON_PYTEST_IGNORE_FLAG_PREFIX}${nodePath}${PYTHON_PYTEST_IGNORE_FLAG_SUFFIX}`. Both constants come from `src/test/languages/python-pytest-contract.ts`, the module the descriptor builds the flag from, so the expected value derives from the same production constants as the value under test.
+
+**Impact:** A wrong prefix or suffix changes the expected value and the produced flag together, so the case passes while the flag differs from `--ignore=spx/{segment}/`; the mapping does not observe the correspondence it declares.
+
+**Scope:** One case of this node's mapping test, untouched by the per-path verdict changes.
+
+**Resolution:** state the expected `--ignore=spx/{segment}/` form independently of the production prefix and suffix constants, then re-run this node's tests and its test-evidence audit.
