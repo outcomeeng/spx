@@ -1,12 +1,7 @@
+import { GIT_LS_FILES_COMMAND } from "@/lib/git/changed-paths";
+import { GIT_NULL_DELIMITED_FLAG, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
 import { type ExecResult, GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 
-/** Git subcommand that lists the paths git tracks. */
-export const GIT_LS_FILES_SUBCOMMAND = "ls-files";
-/** `ls-files` flag that NUL-terminates each listed path instead of quoting it. */
-export const GIT_NUL_TERMINATED_FLAG = "-z";
-
-/** NUL byte separating entries in `git ls-files -z` output. */
-export const TRACKED_PATH_NUL_SEPARATOR = "\0";
 /** Path-segment separator git uses in `ls-files` output, regardless of platform. */
 export const TRACKED_PATH_DIRECTORY_SEPARATOR = "/";
 /** Exit code a successful `git ls-files` run returns; any other value means no git repository. */
@@ -31,14 +26,14 @@ export async function listTrackedPaths(
   try {
     result = await deps.execa(
       GIT_ROOT_COMMAND.EXECUTABLE,
-      [GIT_LS_FILES_SUBCOMMAND, GIT_NUL_TERMINATED_FLAG],
+      [GIT_LS_FILES_COMMAND, GIT_NULL_DELIMITED_FLAG],
       { cwd: productDir, reject: false },
     );
   } catch {
     return undefined;
   }
   if (result.exitCode !== GIT_SUCCESS_EXIT_CODE) return undefined;
-  return new Set(result.stdout.split(TRACKED_PATH_NUL_SEPARATOR).filter((entry) => entry.length > 0));
+  return new Set(result.stdout.split(GIT_NULL_RECORD_SEPARATOR).filter((entry) => entry.length > 0));
 }
 
 /**
