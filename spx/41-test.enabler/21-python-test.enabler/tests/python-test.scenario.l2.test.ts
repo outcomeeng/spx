@@ -13,7 +13,7 @@ import {
 registerPythonRunnerScenarioL2Evidence();
 
 describe("python test runner path verdicts from real pytest", () => {
-  it("reports failed for the failing path and passed for the passing path of one invocation", async () => {
+  it("reports failed for the failing path and passed for the passing path of one real pytest run", async () => {
     await withTempPytestSuites(
       [PYTEST_FIXTURE.FAILING_ASSERTION, PYTEST_FIXTURE.PASSING],
       async ({ productDir, suitePaths }) => {

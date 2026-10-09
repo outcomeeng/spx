@@ -307,7 +307,6 @@ export function withTempPytestProduct(
 ): Promise<void> {
   return withTempPytestSuites([fixture], async ({ productDir, suitePaths }) => {
     const [suitePath] = suitePaths;
-    assert(suitePath !== undefined);
     await callback({ productDir, suitePath });
   });
 }
