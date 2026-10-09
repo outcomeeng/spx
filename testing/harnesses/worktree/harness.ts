@@ -20,8 +20,13 @@ import {
   resolveControllingProcess,
 } from "@/domains/worktree/controlling-process";
 import {
+  acquireClaim,
   type OccupancyFileSystem,
+  type OccupancyFsOptions,
+  type OccupancyWriteOptions,
   type ProcessProbe,
+  removeClaim,
+  removeClaimBySessionId,
   type WorktreeClaimRecord,
   writeClaim,
 } from "@/domains/worktree/occupancy-store";
@@ -114,6 +119,40 @@ export function createRecycledPidProbe(record: WorktreeClaimRecord, liveStartTim
 /** A probe where `record`'s pid is alive on the same host but its start time is unreadable. */
 export function createUnreadableStartTimeProbe(record: WorktreeClaimRecord): ProcessProbe {
   return createProcessProbe({ host: record.host, alivePids: new Set([record.pid]), startTimes: new Map() });
+}
+
+/** Acquires the claim with `record` as both the claimant and the identity of the acquisition operation. */
+export function acquireClaimAsOperation(
+  worktreesDir: string,
+  name: string,
+  record: WorktreeClaimRecord,
+  probe: ProcessProbe,
+  options: OccupancyWriteOptions,
+): ReturnType<typeof acquireClaim> {
+  return acquireClaim(worktreesDir, name, record, probe, { ...options, operation: record });
+}
+
+/** Releases the claim with `owner` as both the releasing owner and the identity of the release operation. */
+export function removeClaimAsOperation(
+  worktreesDir: string,
+  name: string,
+  owner: WorktreeClaimRecord,
+  probe: ProcessProbe,
+  options: OccupancyFsOptions,
+): ReturnType<typeof removeClaim> {
+  return removeClaim(worktreesDir, name, owner, probe, { ...options, operation: owner });
+}
+
+/** Releases the claim held under `sessionId`, with `operation` as the identity of the release operation. */
+export function removeClaimBySessionIdAsOperation(
+  worktreesDir: string,
+  name: string,
+  sessionId: string,
+  operation: WorktreeClaimRecord,
+  probe: ProcessProbe,
+  options: OccupancyFsOptions,
+): ReturnType<typeof removeClaimBySessionId> {
+  return removeClaimBySessionId(worktreesDir, name, sessionId, probe, { ...options, operation });
 }
 
 /** One process's facts in a controlled {@link createProcessTable}. */

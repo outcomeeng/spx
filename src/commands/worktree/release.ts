@@ -7,7 +7,12 @@
 import type { Result } from "@/config/types";
 import { nonEmptyEnvValue, normalizeAgentSessionToken, resolveAgentSessionId } from "@/domains/session/agent-session";
 import { type ControllingProcessEnv, resolveControllingProcess } from "@/domains/worktree/controlling-process";
-import { createClaimOperationRecord, type OccupancyFileSystem, removeClaim } from "@/domains/worktree/occupancy-store";
+import {
+  createClaimOperationRecord,
+  type OccupancyFileSystem,
+  removeClaim,
+  removeClaimBySessionId,
+} from "@/domains/worktree/occupancy-store";
 import type { ProcessTable } from "@/domains/worktree/process-table";
 import { resolveCurrentWorktreeName, resolveWorktreesDir, type WorktreeScopeOptions } from "@/domains/worktree/resolve";
 import { authoredText, type TerminalText } from "@/lib/terminal-text/terminal-text";
@@ -29,15 +34,30 @@ export interface ReleaseCommandOptions extends WorktreeScopeOptions {
   readonly fs: OccupancyFileSystem;
 }
 
-/** Removes the running worktree's claim. Idempotent — a missing claim is success. */
+/**
+ * Removes the running worktree's claim. Idempotent — a missing claim is success.
+ * An explicit session id is release authority of its own: the claim recording that
+ * session id is removed without resolving a controlling process. A session id
+ * resolved from the environment keeps the full holder match.
+ */
 export async function releaseCommand(options: ReleaseCommandOptions): Promise<Result<void, TerminalText>> {
-  const sessionId = resolveReleaseSessionId(options.sessionId, options.env);
+  const explicitSessionId = nonEmptyEnvValue(options.sessionId);
+  const sessionId = resolveReleaseSessionId(explicitSessionId, options.env);
   if (sessionId === undefined) return { ok: false, error: authoredText(WORKTREE_RELEASE_ERROR.SESSION_UNRESOLVED) };
-  const controlling = resolveControllingProcess(options.selfPid, options.processTable, options.env);
-  if (!controlling.ok) return controlling;
 
   const worktreesDir = await resolveWorktreesDir(options);
   const name = await resolveCurrentWorktreeName(options);
+  const mutation = {
+    fs: options.fs,
+    operation: createClaimOperationRecord(sessionId, options.selfPid, options.processTable),
+  };
+
+  if (explicitSessionId !== undefined) {
+    return removeClaimBySessionId(worktreesDir, name, sessionId, options.processTable, mutation);
+  }
+
+  const controlling = resolveControllingProcess(options.selfPid, options.processTable, options.env);
+  if (!controlling.ok) return controlling;
   return removeClaim(
     worktreesDir,
     name,
@@ -48,10 +68,7 @@ export async function releaseCommand(options: ReleaseCommandOptions): Promise<Re
       startedAt: controlling.value.startedAt,
     },
     options.processTable,
-    {
-      fs: options.fs,
-      operation: createClaimOperationRecord(sessionId, options.selfPid, options.processTable),
-    },
+    mutation,
   );
 }
 
@@ -59,6 +76,7 @@ function resolveReleaseSessionId(
   explicitSessionId: string | undefined,
   env: ControllingProcessEnv,
 ): string | undefined {
-  const explicit = nonEmptyEnvValue(explicitSessionId);
-  return explicit === undefined ? resolveAgentSessionId(env) : normalizeAgentSessionToken(explicit);
+  return explicitSessionId === undefined
+    ? resolveAgentSessionId(env)
+    : normalizeAgentSessionToken(explicitSessionId);
 }

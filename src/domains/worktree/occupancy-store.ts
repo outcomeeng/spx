@@ -236,11 +236,41 @@ export async function readClaim(
   return readClaimAtPath(pathResult.value, options.fs);
 }
 
+/** The identity a release presents: the full holder record, or a session id alone. */
+export type ClaimReleaseAuthority =
+  | { readonly kind: "holder"; readonly owner: WorktreeClaimRecord }
+  | { readonly kind: "session"; readonly sessionId: string };
+
 /** Removes the claim for `name`. Idempotent — a missing claim is not an error. */
 export async function removeClaim(
   worktreesDir: string,
   name: string,
   owner: WorktreeClaimRecord,
+  probe: ProcessProbe,
+  options: OccupancyMutationOptions,
+): Promise<Result<void, TerminalText>> {
+  return removeClaimWithAuthority(worktreesDir, name, { kind: "holder", owner }, probe, options);
+}
+
+/**
+ * Removes the claim for `name` when its recorded session id equals `sessionId`.
+ * The claim's host, process id, and start time do not participate. Idempotent —
+ * a missing claim is not an error.
+ */
+export async function removeClaimBySessionId(
+  worktreesDir: string,
+  name: string,
+  sessionId: string,
+  probe: ProcessProbe,
+  options: OccupancyMutationOptions,
+): Promise<Result<void, TerminalText>> {
+  return removeClaimWithAuthority(worktreesDir, name, { kind: "session", sessionId }, probe, options);
+}
+
+async function removeClaimWithAuthority(
+  worktreesDir: string,
+  name: string,
+  authority: ClaimReleaseAuthority,
   probe: ProcessProbe,
   options: OccupancyMutationOptions,
 ): Promise<Result<void, TerminalText>> {
@@ -259,7 +289,7 @@ export async function removeClaim(
 
   let removed: Result<void, TerminalText>;
   try {
-    removed = await removeClaimWhileLocked(claimPath, owner, options.fs);
+    removed = await removeClaimWhileLocked(claimPath, authority, options.fs);
   } catch (error) {
     removed = { ok: false, error: formatOccupancyError(OCCUPANCY_ERROR.CLAIM_REMOVE_FAILED, toErrorMessage(error)) };
   }
@@ -268,15 +298,21 @@ export async function removeClaim(
   return removed;
 }
 
+function releaseAuthorized(current: WorktreeClaimRecord, authority: ClaimReleaseAuthority): boolean {
+  return authority.kind === "session"
+    ? current.sessionId === authority.sessionId
+    : sameClaimOwner(current, authority.owner);
+}
+
 async function removeClaimWhileLocked(
   claimPath: string,
-  owner: WorktreeClaimRecord,
+  authority: ClaimReleaseAuthority,
   fs: OccupancyFileSystem,
 ): Promise<Result<void, TerminalText>> {
   const current = await readClaimAtPath(claimPath, fs);
   if (!current.ok) return current;
   if (current.value === undefined) return { ok: true, value: undefined };
-  if (!sameClaimOwner(current.value, owner)) {
+  if (!releaseAuthorized(current.value, authority)) {
     return { ok: false, error: authoredText(OCCUPANCY_ERROR.CLAIM_RELEASE_NOT_OWNER) };
   }
 
