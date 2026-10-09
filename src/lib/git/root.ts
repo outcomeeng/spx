@@ -414,6 +414,34 @@ export async function resolveRefSha(
   return sha.length === 0 ? null : sha;
 }
 
+/** The revision suffix that peels an object name to the commit it names, failing for an object that names none. */
+export const GIT_COMMIT_PEEL_SUFFIX = "^{commit}";
+
+/**
+ * Returns the full SHA of the commit a revision names — a branch, a tag peeled to its commit, or a
+ * commit SHA — or null when the revision names no commit. `--verify` admits exactly one object and
+ * `--end-of-options` keeps an option-shaped revision from being read as a flag.
+ */
+export async function resolveCommitSha(
+  revision: string,
+  cwd: string = CONFIG_PROCESS_CWD.read(),
+  deps: GitDependencies = defaultGitDependencies,
+): Promise<string | null> {
+  const result = await deps.execa(
+    GIT_ROOT_COMMAND.EXECUTABLE,
+    [
+      GIT_ROOT_COMMAND.REV_PARSE,
+      GIT_ROOT_COMMAND.VERIFY,
+      GIT_ROOT_COMMAND.END_OF_OPTIONS,
+      `${revision}${GIT_COMMIT_PEEL_SUFFIX}`,
+    ],
+    { cwd, reject: false },
+  );
+  if (result.exitCode !== 0) return null;
+  const sha = extractStdout(result.stdout);
+  return sha.length === 0 ? null : sha;
+}
+
 /** `show-ref --verify --quiet` reports a missing ref with this exit code; any other non-zero exit is a git failure. */
 export const GIT_SHOW_REF_MISSING_REF_EXIT_CODE = 1;
 

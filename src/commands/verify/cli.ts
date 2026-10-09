@@ -70,6 +70,7 @@ import {
   getCurrentBranch,
   getHeadSha,
   type GitDependencies,
+  resolveCommitSha,
 } from "@/lib/git/root";
 import {
   defaultStateStoreFileSystem,
@@ -116,7 +117,8 @@ export const VERIFY_CLI_ERROR = {
   TERMINAL_METADATA_INVALID: "spx verification run terminal metadata failed verification-type validation",
   TERMINAL_STATUS_CONFLICT: "spx verification run terminal status conflicts with the run's recorded evidence",
   FINISH_FAILED: "spx verification run could not record terminal completion",
-  RUN_CONTEXT_FAILED: "spx verification run could not record the run drive mode",
+  HEAD_COMMIT_UNRESOLVED: "spx verification run start could not resolve the head commit the run judges",
+  RUN_CONTEXT_FAILED: "spx verification run could not record the run context",
   SEAL_FAILED: "spx verification run could not seal the run journal",
   STATUS_FAILED: "spx verification run could not read the run status",
   RENDER_FAILED: "spx verification run could not render the run projection",
@@ -383,6 +385,11 @@ interface VerifyStartScopeResolution {
   readonly selector: VerifyRunSelector;
   readonly context: VerifyStartContextSubjectOptions;
   readonly resolvedScope: readonly string[];
+  /**
+   * The revision whose commit the run judges: a changeset run judges its range's head. Absent for a
+   * scope that judges the checkout's HEAD when `start` runs, so its resolver reads no git state.
+   */
+  readonly headRevision?: string;
 }
 
 type VerifyStartScopeResolver = (
@@ -424,6 +431,7 @@ const VERIFY_SCOPE_RESOLVERS: Readonly<Record<VerifyScopeType, VerifyScopeResolv
             head: changeset.value.head,
           },
           resolvedScope: resolvedScope.value,
+          headRevision: changeset.value.head,
         },
       };
     },
@@ -452,6 +460,25 @@ const VERIFY_SCOPE_RESOLVERS: Readonly<Record<VerifyScopeType, VerifyScopeResolv
 function verifyScopeResolverFor(scopeType: string): VerifyScopeResolver | undefined {
   if (!Object.hasOwn(VERIFY_SCOPE_RESOLVERS, scopeType)) return undefined;
   return (VERIFY_SCOPE_RESOLVERS as Readonly<Record<string, VerifyScopeResolver>>)[scopeType];
+}
+
+/**
+ * Resolve the head commit a starting run judges: the commit the scope's head revision names, or the
+ * checkout's HEAD when the scope names none. The commit is recorded once at start, so later readers
+ * derive each judged file's content identity from it rather than from a stored digest.
+ */
+async function resolveStartHeadCommit(
+  resolution: VerifyStartScopeResolution,
+  worktreeRoot: string,
+  deps: VerifyCliDeps,
+): Promise<Result<string>> {
+  const git = deps.git ?? defaultGitDependencies;
+  const headCommit = resolution.headRevision === undefined
+    ? await getHeadSha(worktreeRoot, git)
+    : await resolveCommitSha(resolution.headRevision, worktreeRoot, git);
+  return headCommit === null
+    ? { ok: false, error: VERIFY_CLI_ERROR.HEAD_COMMIT_UNRESOLVED }
+    : { ok: true, value: headCommit };
 }
 
 function canonicalizeVerifyRunSelector(scopeType: string, scopeIdentity: string): Result<VerifyRunSelector> {
@@ -620,6 +647,7 @@ interface CompleteVerifyStartArgs {
   readonly branchSlug: string;
   readonly backendIdentity: string;
   readonly resolvedScope: readonly string[];
+  readonly headCommit: string;
   readonly inputDigest: string;
   readonly inputContent: string;
   readonly contextDigest: string;
@@ -628,9 +656,10 @@ interface CompleteVerifyStartArgs {
 }
 
 /**
- * Record the run's drive mode on a verify-owned run-context event so status and render fold it to
- * filter next actions. The caller path defaults to caller-driven; spx execution supplies spx-driven.
- * The append streams through the same journal binding the evidence-append verbs use.
+ * Record the run's drive mode and the head commit it judges on a verify-owned run-context event, so
+ * status and render fold the drive mode to filter next actions. The caller path defaults to
+ * caller-driven; spx execution supplies spx-driven. The append streams through the same journal
+ * binding the evidence-append verbs use.
  */
 async function recordRunContext(
   runToken: string,
@@ -642,6 +671,7 @@ async function recordRunContext(
   const event = buildRunContextEvent({
     runToken,
     driveMode: deps.driveMode ?? VERIFY_DRIVE_MODE.CALLER,
+    headCommit: args.headCommit,
     ...(args.options.change === undefined ? {} : { change: args.options.change }),
     at: deps.now?.() ?? new Date(),
   });
@@ -720,7 +750,7 @@ async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promis
     return rollbackStartAndError(startedRunArtifacts(args, runFile), persisted.error, deps);
   }
 
-  // Record the run's drive mode last: the append streams to the backend, and a rollback cannot
+  // Record the run context — drive mode and head commit — last: the append streams to the backend, and a rollback cannot
   // un-stream an emitted event, so it runs only after every rollbackable local write (run file,
   // context, input sidecar) has succeeded. On failure the sidecar joins the rollback set.
   const runContext = await recordRunContext(runToken, args, deps);
@@ -755,7 +785,7 @@ async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promis
 }
 
 /**
- * Start a verification run: resolve its scope, create a canonical
+ * Start a verification run: resolve its scope and the head commit it judges, create a canonical
  * verification context, open a run journal, record the verification input read from `--input`, and
  * report the run token, context digest, changed scope, input descriptor, and run locator a caller
  * persists to address the run.
@@ -775,6 +805,8 @@ export async function verifyStartCommand(
   if (!resolved.ok) return errorResult(resolved.error);
   const scope = await resolveVerifyStartScope(options.scopeType, options.scope, resolved.value.worktreeRoot, deps);
   if (!scope.ok) return errorResult(scope.error);
+  const headCommit = await resolveStartHeadCommit(scope.value, resolved.value.worktreeRoot, deps);
+  if (!headCommit.ok) return errorResult(headCommit.error);
   const normalizedOptions: VerifyStartCliOptions = {
     ...options,
     scopeType: scope.value.selector.scopeType,
@@ -808,6 +840,7 @@ export async function verifyStartCommand(
     branchSlug: resolved.value.branchSlug,
     backendIdentity: resolved.value.backendIdentity,
     resolvedScope: scope.value.resolvedScope,
+    headCommit: headCommit.value,
     inputDigest: inputDigest.value,
     inputContent: inputContent.value,
     contextDigest,

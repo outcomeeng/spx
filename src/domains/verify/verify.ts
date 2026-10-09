@@ -1762,12 +1762,16 @@ export function buildAppendEvent(args: {
   };
 }
 
-/** The CloudEvents `type` the verify run-context event carries: the run-opening event recording drive mode. */
+/** The CloudEvents `type` the verify run-context event carries: the run-opening event recording drive mode and head commit. */
 export const VERIFY_RUN_CONTEXT_EVENT_TYPE = `${RUNTIME_EVENT_NAMESPACE_DEFAULT}.verify.run-context` as const;
 
-/** The `data` fields the run-context event records: the run's drive mode and, when supplied, the Change it serves. */
+/**
+ * The `data` fields the run-context event records: the run's drive mode, the head commit the run
+ * judges, and, when supplied, the Change it serves.
+ */
 export const VERIFY_RUN_CONTEXT_EVENT_FIELD = {
   DRIVE_MODE: "driveMode",
+  HEAD_COMMIT: "headCommit",
   CHANGE: "change",
 } as const;
 
@@ -1786,10 +1790,16 @@ export function isVerifyChangeIdentity(value: string): boolean {
 /** The id prefix the run-context event carries; with the run token it forms a stable per-run event id. */
 export const VERIFY_RUN_CONTEXT_EVENT_ID_PREFIX = "verify-run-context-";
 
-/** Build the run-context event input recording the run's drive mode, and the Change it serves when one is supplied, at start. */
+/**
+ * Build the run-context event input recording, at start, the run's drive mode, the head commit the
+ * run judges, and the Change it serves when one is supplied. `start` supplies the head commit for
+ * every scope type; a run-context event without one is the shape a run opened before head commits
+ * were recorded carries.
+ */
 export function buildRunContextEvent(args: {
   readonly runToken: string;
   readonly driveMode: VerifyDriveMode;
+  readonly headCommit?: string;
   readonly change?: string;
   readonly at: Date;
 }): JournalEventInput {
@@ -1801,6 +1811,7 @@ export function buildRunContextEvent(args: {
     attempt: VERIFY_APPEND_ATTEMPT,
     data: {
       [VERIFY_RUN_CONTEXT_EVENT_FIELD.DRIVE_MODE]: args.driveMode,
+      ...(args.headCommit === undefined ? {} : { [VERIFY_RUN_CONTEXT_EVENT_FIELD.HEAD_COMMIT]: args.headCommit }),
       ...(args.change === undefined ? {} : { [VERIFY_RUN_CONTEXT_EVENT_FIELD.CHANGE]: args.change }),
     },
   };
