@@ -6,6 +6,8 @@ CAN execute Python tests with exclusion flags derived from `spx.config.{toml,jso
 
 ## Assertions
 
+- NEVER: a supplied test path takes the verdict of JUnit testcases whose module path ends with that test path's module but is neither that module relative to the product directory nor nested under it
+
 ### Scenarios
 
 - Given a run over one failing and one passing Python test file, when the python-testing runner completes, then the returned runner outcome reports `failed` for the failing path and `passed` for the passing path ([test](tests/python-test.scenario.l2.test.ts))
