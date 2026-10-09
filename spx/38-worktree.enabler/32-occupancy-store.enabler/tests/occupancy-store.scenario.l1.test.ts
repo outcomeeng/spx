@@ -18,6 +18,7 @@ import {
   readClaim,
   readOccupancy,
   removeClaim as removeClaimBase,
+  removeClaimBySessionId as removeClaimBySessionIdBase,
   unreadableStartedAt,
   type WorktreeClaimRecord,
   writeClaim,
@@ -79,6 +80,17 @@ function removeClaim(
   options: OccupancyFsOptions,
 ): ReturnType<typeof removeClaimBase> {
   return removeClaimBase(worktreesDir, name, owner, probe, { ...options, operation: owner });
+}
+
+function removeClaimBySessionId(
+  worktreesDir: string,
+  name: string,
+  sessionId: string,
+  operation: WorktreeClaimRecord,
+  probe: ProcessProbe,
+  options: OccupancyFsOptions,
+): ReturnType<typeof removeClaimBySessionIdBase> {
+  return removeClaimBySessionIdBase(worktreesDir, name, sessionId, probe, { ...options, operation });
 }
 
 class ReplacingStaleLockFileSystem implements OccupancyFileSystem {
@@ -252,6 +264,71 @@ describe("worktree occupancy claim store", () => {
       const removed = await removeClaim(worktreesDir, name, releaseRecord, probe, {
         fs: defaultOccupancyFileSystem,
       });
+
+      expect(removed).toEqual({ ok: false, error: OCCUPANCY_ERROR.CLAIM_RELEASE_NOT_OWNER });
+      const readBack = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
+      expect(readBack.ok).toBe(true);
+      if (!readBack.ok) throw new Error(readBack.error);
+      expect(readBack.value).toEqual(storedRecord);
+    });
+  });
+
+  it("removes a claim by its session id although its live process is not the caller's", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
+    const storedRecord = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const [callerSessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
+    const callerOperation = { ...storedRecord, sessionId: callerSessionId, pid: storedRecord.pid + 1 };
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+    const probe = createProcessProbe({
+      host: storedRecord.host,
+      alivePids: new Set([storedRecord.pid, callerOperation.pid]),
+      startTimes: new Map(),
+    });
+
+    await withTempDir(prefix, async (worktreesDir) => {
+      await writeClaim(worktreesDir, name, storedRecord, { fs: defaultOccupancyFileSystem, randomBytes });
+
+      const removed = await removeClaimBySessionId(
+        worktreesDir,
+        name,
+        storedRecord.sessionId,
+        callerOperation,
+        probe,
+        { fs: defaultOccupancyFileSystem },
+      );
+
+      expect(removed.ok).toBe(true);
+      const readBack = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
+      expect(readBack.ok).toBe(true);
+      if (!readBack.ok) throw new Error(readBack.error);
+      expect(readBack.value).toBeUndefined();
+    });
+  });
+
+  it("refuses release by a session id other than the claim's and leaves the claim unchanged", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
+    const storedRecord = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const [otherSessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+    const probe = createProcessProbe({
+      host: storedRecord.host,
+      alivePids: new Set([storedRecord.pid]),
+      startTimes: new Map(),
+    });
+
+    await withTempDir(prefix, async (worktreesDir) => {
+      await writeClaim(worktreesDir, name, storedRecord, { fs: defaultOccupancyFileSystem, randomBytes });
+
+      const removed = await removeClaimBySessionId(
+        worktreesDir,
+        name,
+        otherSessionId === storedRecord.sessionId ? `${otherSessionId}-other` : otherSessionId,
+        storedRecord,
+        probe,
+        { fs: defaultOccupancyFileSystem },
+      );
 
       expect(removed).toEqual({ ok: false, error: OCCUPANCY_ERROR.CLAIM_RELEASE_NOT_OWNER });
       const readBack = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
