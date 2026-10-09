@@ -6,6 +6,8 @@ CAN execute this product's TypeScript tests with exclusion flags derived from `s
 
 ## Assertions
 
+- NEVER: a supplied test path takes the verdict of a reported file whose path ends with that test path but is not the product directory joined with it
+
 ### Scenarios
 
 - Given a CLI-flag run over one failing and one passing TypeScript test file, when the typescript-testing runner completes, then the returned runner outcome reports `failed` for the failing path and `passed` for the passing path ([test](tests/typescript-test.scenario.l1.test.ts), [test](tests/typescript-test-verdicts.scenario.l2.test.ts))
