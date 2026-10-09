@@ -75,6 +75,19 @@ spx verification <type> run
 spx verification <type> run <path...>
 ```
 
+Record and inspect the runs that serve one Change:
+
+```bash
+# Record the Change a run serves
+spx verification run start --change <owner/repo#N>
+
+# List the runs recorded for a Change as JSON
+spx verification run list --change <owner/repo#N>
+
+# Compare two runs of a Change file by file
+spx verification run compare --change <owner/repo#N> --run <token> --run <token>
+```
+
 Operands resolve from the product root using the same vocabulary as `spx test`; a product-root operand selects the whole tree. The run is rooted at the worktree, warns when that root lies outside a repository, and reports a verification type without a runner instead of opening a run.
 
 ### Session Management
@@ -223,10 +236,13 @@ The local static-analysis gate is `pnpm run validate`, which includes the ESLint
 
 The project uses GitHub Actions for continuous integration and publishing:
 
-- `deterministic-verification.yml` — Runs the deterministic verification suite (validation, circular dependencies, tests with the status projection, and packaged-CLI checks) as parallel jobs on Node 24 for every push to `main` and every pull request, skipping root instruction docs. Includes dependency review on pull requests to block PRs introducing vulnerable dependencies.
+- `deterministic-verification.yml` — Runs the deterministic verification suite (validation, circular dependencies, tests with the status projection, and packaged-CLI checks) as parallel jobs on Node 24 for every push to `main` and every pull request, skipping root instruction docs.
+- `dependency-review.yml` — Reviews dependency changes on pull requests to `main` and blocks pull requests that introduce vulnerable dependencies.
 - `agentic-verification.yml` — Runs agentic verification (audit and review) over each pull request.
 - `publish.yml` — Triggered by `v*` tags. Gates on `deterministic-verification.yml` and publishes its verified build via OIDC Trusted Publishing (no stored npm tokens) with Sigstore provenance attestation. Requires manual approval via the `npm-publish` GitHub Environment.
 - `scorecard.yml` — Weekly OpenSSF Scorecard assessment, results published to the GitHub Security tab.
+- `methodology-fetch.yml` — Refreshes the shipped methodology trees from the plugins repository and proposes the refresh as a pull request.
+- `spec-tree.yml` — Runs the Spec Tree agent on issue, pull request, and review comments, assignments, and review submissions.
 
 ### Publishing a Release
 
@@ -331,21 +347,15 @@ choice or release instruction is not that approval.
 
 ```
 src/
-├── commands/      # CLI command implementations
-│   ├── session/     # spx session subcommands
-│   ├── validation/  # spx validation subcommands
-│   └── spec/        # spx spec subcommands
-├── domains/       # Domain routers
-├── validation/    # Lint, typecheck, circular dep logic
-├── session/       # Session lifecycle and storage
+├── agent/         # Agent SDK boundary
+├── commands/      # CLI command implementations, one directory per command group
 ├── config/        # Configuration loading
-├── git/           # Git integration utilities
-├── scanner/       # Directory walking, pattern matching
-├── status/        # Status state machine
-├── reporter/      # Output formatting
-├── tree/          # Hierarchical tree building
-├── precommit/     # Pre-commit hook orchestration
-└── lib/           # Shared utilities
+├── domains/       # Domain logic (release, session, spec, validation, verify, and others)
+├── interfaces/    # Commander registration and CLI boundary primitives
+├── lib/           # Shared utilities (git, methodology, node status, precommit hooks, state store)
+├── outcomeeng/    # Outcome Engineering integration
+├── test/          # Test runner integration
+└── validation/    # Lint, typecheck, circular dependency logic
 ```
 
 ## License

@@ -6,19 +6,14 @@
 
 - `spx verification run start --change <owner/repo#N>` records the Change a verification run serves. A Change identity outside the `owner/repo#N` form is rejected before any run is created, and `status` reports the recorded identity.
 - `spx verification run list --change <owner/repo#N>` lists the runs recorded for one Change as JSON, grouped by verification type, across every branch of the shared local store. Each run reports its token, drive mode, sealed state, terminal status and finding counts per disposition. The command requires `--change`, and it appends no journal event and seals no run.
-- `spx verification run compare --change <owner/repo#N> --run <token> --run <token>` compares two runs of a Change file by file, reporting whether each file both runs judged changed or stayed the same between their head commits. It refuses runs that do not both belong to the Change, runs without a recorded head commit, and any count of `--run` other than two.
-- Verification runs record their head commit at start for every scope type, and scope evidence can name the files a run judged. A judged path is rejected when the run's head commit does not hold it.
+- `spx verification run compare --change <owner/repo#N> --run <token> --run <token>` compares two runs of a Change file by file, reporting whether each file both runs judged changed or stayed the same between their head commits. It refuses runs that do not both belong to the Change, runs without a recorded head commit, and any count of `--run` other than two. A lookup failure names the Change, the run token and the searched target.
+- Verification runs record their head commit at start for every scope type, and scope evidence can name the files a run judged. A judged path is rejected when the run's head commit does not hold it. A run opened outside a Git repository or in a repository without a commit records no head commit.
 - The shipped methodology 4.0 foundation is refreshed to the current spec-tree plugin (0.101.3), so `spx spec context show --methodology` teaches the node kinds, layers and malleabilities the installed `/understand` teaches.
 
 ### Changed
 
 - Text output of `spx spec context list` names the methodology version and any migration source as `MAJOR.MINOR`, whichever accepted form configuration declares. `list --json` keeps the declared values.
-- Methodology diagnostics, including `spx diagnose` text reports and their fix actions, name the version as `methodology MAJOR.MINOR` and no longer use the word "line" or a patch component.
-
-### Fixed
-
-- Starting a verification run no longer fails outside a Git repository or in a repository without a commit; the run opens and records no head commit.
-- A `compare` lookup failure names the Change, the run token and the searched target.
+- Methodology diagnostics, including `spx diagnose` text reports and their fix actions, name the version as `methodology MAJOR.MINOR`, without a patch component.
 
 ## [0.8.0] - 2026-10-04
 
