@@ -31,3 +31,13 @@ Wiring `createNodeStatusProvider` into `spx spec status` adds one synchronous `r
 **Impact:** a change that drops an `externalValue` mark from a composed report, or routes the relayed `show` document through the composed-text write, passes every test in this node; the first lets an escape byte (`0x1b`) or a forged line feed reach the terminal, and the second corrupts the document the caller asked to see.
 
 **Settlement condition:** this node declares a compliance assertion, with co-located evidence, that a control-byte-bearing value renders escaped in a composed `spx spec` report and survives byte-for-byte in relayed `show` output.
+
+## The stale-row mapping case exercises one committed and recorded pair
+
+The recorded-evidence Mapping in `spec-cli-commands.md` states that a covered stale outcome keeps the committed outcome, whatever the stale run recorded. Its case `keeps the committed outcome of a covered reference whose recorded evidence is stale, though the stale run reported another` in `tests/spec-status-fold.mapping.l1.test.ts` writes one committed outcome, `failed`, through `uniformOutcomeResolverFor`, records one run that passes, changes the test file, and asserts `failed`. The other pairs of committed outcome and stale recorded verdict, among them a committed `passed` beside a stale recorded `failed`, and a committed `not-run`, are not exercised.
+
+**Impact:** A resolver that returns `failed` for every stale covered reference, or that keeps the committed outcome only when it is `failed`, passes the case, so the row's claim that the committed outcome persists holds in the evidence for one pair only.
+
+**Scope:** The one stale-row case of this node's mapping test file; the fresh-covered, uncovered, and per-file verdict cases in the same file are unaffected, and this changeset leaves the stale-row case unchanged.
+
+**Resolution:** parameterize the stale row over the committed outcomes and the stale recorded verdicts, taking each expected value from the committed outcome the case wrote, then re-run this node's tests and its test-evidence audit.
