@@ -27,6 +27,9 @@ export const DOCUMENTATION_SYNC_AGENT_MAX_TURNS = 10;
 export const DOCUMENTATION_SYNC_AUDIT_MAX_TURNS = 3;
 export const DOCUMENTATION_SYNC_AUDIT_APPROVED = "APPROVED";
 export const DOCUMENTATION_SYNC_AUDIT_REJECTED = "REJECTED";
+export const DOCUMENTATION_SYNC_AUDIT_REJECTION_MESSAGE = "Documentation faithfulness audit rejected the update";
+export const DOCUMENTATION_SYNC_AUDIT_INVALID_VERDICT_MESSAGE =
+  "Documentation faithfulness audit returned an invalid verdict";
 export const DOCUMENTATION_SYNC_AUDIT_VERSIONLESS_INSTRUCTION =
   "When an original document has no previous-release reference, adding a concise current-release reference using the exact released version is a supported release update.";
 const REGEXP_SPECIAL_CHARACTER_PATTERN = /[.*+?^${}()|[\]\\]/gu;
@@ -188,14 +191,12 @@ export function createDocumentationFaithfulnessAuditor(
       workingDirectory,
       maxTurns: DOCUMENTATION_SYNC_AUDIT_MAX_TURNS,
     })).trim();
-    if (verdict === DOCUMENTATION_SYNC_AUDIT_APPROVED) return;
-    if (
-      verdict === DOCUMENTATION_SYNC_AUDIT_REJECTED
-      || verdict.startsWith(`${DOCUMENTATION_SYNC_AUDIT_REJECTED} `)
-    ) {
-      throw new Error(`Documentation faithfulness audit rejected the update: ${verdict}`);
+    const [verdictToken] = verdict.split(WHITESPACE_PATTERN);
+    if (verdictToken === DOCUMENTATION_SYNC_AUDIT_APPROVED) return;
+    if (verdictToken === DOCUMENTATION_SYNC_AUDIT_REJECTED) {
+      throw new Error(`${DOCUMENTATION_SYNC_AUDIT_REJECTION_MESSAGE}: ${verdict}`);
     }
-    throw new Error(`Documentation faithfulness audit returned an invalid verdict: ${verdict}`);
+    throw new Error(`${DOCUMENTATION_SYNC_AUDIT_INVALID_VERDICT_MESSAGE}: ${verdict}`);
   };
 }
 

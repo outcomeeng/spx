@@ -2,7 +2,7 @@
 
 Developer CLI for code validation and session management.
 
-Current release: 0.8.0
+Current release: 0.9.0
 
 ## What is spx?
 
@@ -58,10 +58,10 @@ spx validation literal           # Source/test literal reuse detection
 # Scope and targeting
 spx validation all --scope production        # Exclude tests/scripts
 spx validation all --fix                     # Auto-fix across all checks
-spx validation all src/session/              # Validate specific files or directories
+spx validation all src/domains/session/      # Validate specific files or directories
 ```
 
-All validation commands support `--quiet` for CI and `--json` for machine-readable output.
+All validation commands support `--quiet` for CI. `validation all` and `validation literal` also support `--json` for machine-readable output.
 
 ### Verification Runs
 
@@ -73,6 +73,19 @@ spx verification <type> run
 
 # Narrow the run to one or more spec-tree operands
 spx verification <type> run <path...>
+```
+
+Record and inspect the runs that serve one Change:
+
+```bash
+# Record the Change a run serves, alongside the options every run start takes
+spx verification run start --verification-type <type> --scope-type <scope-type> --scope <scope> --input <input-source> --change <owner/repo#N>
+
+# List the runs recorded for a Change as JSON
+spx verification run list --change <owner/repo#N>
+
+# Compare two runs of a Change file by file
+spx verification run compare --change <owner/repo#N> --run <token> --run <token>
 ```
 
 Operands resolve from the product root using the same vocabulary as `spx test`; a product-root operand selects the whole tree. The run is rooted at the worktree, warns when that root lies outside a repository, and reports a verification type without a runner instead of opening a run.
@@ -90,7 +103,7 @@ printf '%s\n' \
   'Body text — `#`, `---`, and code fences are literal because the body is not parsed.' \
   | spx session handoff
 
-# List all sessions
+# List the todo and doing sessions
 spx session list
 
 # List todo sessions only
@@ -102,7 +115,7 @@ spx session pickup --auto
 # Release one or more sessions back to the todo queue
 spx session release [id...]
 
-# Archive a session after adding a non-empty result field to its frontmatter
+# Archive a session
 spx session archive <session-id>
 
 # Show session content
@@ -176,8 +189,6 @@ pnpm run build          # Build with tsup
 pnpm run dev            # Build in watch mode
 pnpm test               # Build, then run all tests
 pnpm run test:watch     # Run tests in watch mode
-pnpm run test:unit      # Unit tests only
-pnpm run test:e2e       # Build, then run end-to-end tests
 pnpm run test:coverage  # Tests with coverage
 ```
 
@@ -223,16 +234,19 @@ The local static-analysis gate is `pnpm run validate`, which includes the ESLint
 
 The project uses GitHub Actions for continuous integration and publishing:
 
-- `deterministic-verification.yml` — Runs the deterministic verification suite (validation, circular dependencies, tests with the status projection, and packaged-CLI checks) as parallel jobs on Node 24 for every push to `main` and every pull request, skipping root instruction docs. Includes dependency review on pull requests to block PRs introducing vulnerable dependencies.
+- `deterministic-verification.yml` — Runs the deterministic verification suite (validation, circular dependencies, tests with the status projection, and packaged-CLI checks) as parallel jobs on Node 24 for every push to `main` and every pull request, skipping root instruction docs.
+- `dependency-review.yml` — Reviews dependency changes on pull requests to `main` and blocks pull requests that introduce vulnerable dependencies.
 - `agentic-verification.yml` — Runs agentic verification (audit and review) over each pull request.
 - `publish.yml` — Triggered by `v*` tags. Gates on `deterministic-verification.yml` and publishes its verified build via OIDC Trusted Publishing (no stored npm tokens) with Sigstore provenance attestation. Requires manual approval via the `npm-publish` GitHub Environment.
 - `scorecard.yml` — Weekly OpenSSF Scorecard assessment, results published to the GitHub Security tab.
+- `methodology-fetch.yml` — Refreshes the shipped methodology trees from the plugins repository and proposes the refresh as a pull request.
+- `spec-tree.yml` — Runs the Spec Tree agent on issue, pull request, and review comments, assignments, and review submissions.
 
 ### Publishing a Release
 
 A release moves through four phases in order: version bump, preparation and
 testing on a branch in an assigned worktree, merge through a pull request
-followed by a pull in the canonical main checkout, and operator-authorized
+followed by a pull in the canonical main checkout, and operator-approved
 publication. The canonical main checkout keeps `main` checked out and accepts
 no operation other than `git pull`; its hook installs locked dependencies and
 builds the shared `spx`. Choosing a version or preparing the candidate does not
@@ -291,18 +305,23 @@ while the major version is zero; otherwise `patch`.
    repair on an assigned-worktree branch and repeat the pull request, pull, and
    checks; never repair the canonical checkout directly.
 
-**Authorize and publish.** Present the evidence from the phases above and ask
-the operator to authorize publication of the exact version and merged commit.
-An earlier version choice or release instruction is not that authorization.
+**Authorize and publish.** The tag needs no separate operator authorization,
+because a pushed tag can be deleted. The `npm-publish` deployment approval is the
+one irreversible step, and the operator alone approves it. An earlier version
+choice or release instruction is not that approval.
 
-1. After authorization, tag the verified merged commit and push the tag from
-   the assigned worktree: `git tag vX.Y.Z` then `git push origin vX.Y.Z`. Do not
-   push a local `main` or add a release commit after verification.
-2. Approve the deployment in the GitHub Actions `npm-publish` environment. The
-   tagged workflow runs `spx release publish --tag "${GITHUB_REF_NAME}"` from a
-   checkout at the tagged commit, confirms the package identity and provenance,
-   then creates or repairs the GitHub Release from the validated changelog
-   section.
+1. When the evidence from the phases above is complete, tag the verified merged
+   commit and push the tag from the assigned worktree: `git tag vX.Y.Z` then
+   `git push origin vX.Y.Z`. Do not push a local `main` or add a release commit
+   after verification.
+2. When the tag run's deployment waits, present the evidence to the operator —
+   version, verified commit and tree, pull request and merged commit, pull and
+   hook build, shared-CLI checks, and tag — and wait for the operator to approve
+   the deployment in the GitHub Actions `npm-publish` environment. Never
+   approve it on the operator's behalf. After approval, the tagged workflow runs
+   `spx release publish --tag "${GITHUB_REF_NAME}"` from a checkout at the
+   tagged commit, confirms the package identity and provenance, then creates or
+   repairs the GitHub Release from the validated changelog section.
 3. Confirm the registry version, tagged commit, provenance, and hosted release:
 
    ```bash
@@ -327,21 +346,15 @@ An earlier version choice or release instruction is not that authorization.
 
 ```
 src/
-├── commands/      # CLI command implementations
-│   ├── session/     # spx session subcommands
-│   ├── validation/  # spx validation subcommands
-│   └── spec/        # spx spec subcommands
-├── domains/       # Domain routers
-├── validation/    # Lint, typecheck, circular dep logic
-├── session/       # Session lifecycle and storage
+├── agent/         # Agent SDK boundary
+├── commands/      # CLI command implementations, one directory per command group
 ├── config/        # Configuration loading
-├── git/           # Git integration utilities
-├── scanner/       # Directory walking, pattern matching
-├── status/        # Status state machine
-├── reporter/      # Output formatting
-├── tree/          # Hierarchical tree building
-├── precommit/     # Pre-commit hook orchestration
-└── lib/           # Shared utilities
+├── domains/       # Domain logic (release, session, spec, validation, verify, and others)
+├── interfaces/    # Commander registration and CLI boundary primitives
+├── lib/           # Shared utilities (git, methodology, node status, precommit hooks, state store)
+├── outcomeeng/    # Spec Tree graph construction
+├── test/          # Test runner integration
+└── validation/    # Lint, typecheck, circular dependency logic
 ```
 
 ## License

@@ -1415,9 +1415,21 @@ function requiredProductionAuditSection(
   return section;
 }
 
+export async function observeReleaseNotesAuditVerdict(
+  input: ReleaseNotesFaithfulnessInput,
+  verdict: string,
+): Promise<ReleaseNotesFaithfulnessObservation> {
+  return await observeProductionFaithfulnessAudit(
+    input.fixture.releaseData,
+    requiredProductionAuditSection(input.productionAuditSection),
+    verdict,
+  );
+}
+
 async function observeProductionFaithfulnessAudit(
   releaseData: ReleaseData,
   currentSection: string,
+  verdict: string = RELEASE_NOTES_FAITHFULNESS_APPROVED,
 ): Promise<ReleaseNotesFaithfulnessObservation> {
   let observation: ReleaseNotesFaithfulnessObservation | undefined;
   await withReleaseNotesEnv(async (env) => {
@@ -1425,7 +1437,7 @@ async function observeProductionFaithfulnessAudit(
     const agentAuditor: AgentAuditor = {
       async audit(request) {
         auditRequest = request;
-        return RELEASE_NOTES_FAITHFULNESS_APPROVED;
+        return verdict;
       },
     };
     let error: unknown;

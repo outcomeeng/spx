@@ -19,6 +19,10 @@ CAN carry human-readable notes that describe and group the release's changes
 
 - Only staged artifacts conforming to the Keep a Changelog structure are promoted to the resolved changelog path ([test](tests/release-notes.conformance.l1.test.ts))
 
+### Mappings
+
+- The faithfulness audit verdict maps by its first whitespace-delimited token: `APPROVED` approves the notes whatever explanatory text follows, `REJECTED` rejects them, and any other verdict is invalid and rejects them ([test](tests/release-notes.mapping.l1.test.ts))
+
 ### Properties
 
 - For every release input and selected product context, the release-notes producer and faithfulness auditor receive identical shared standards, commit subjects and bodies, changed paths, and product context; the producer additionally receives the checked canonical staged artifact path seeded from existing changelog content, and the auditor receives the generated release section ([test](tests/release-notes.property.l1.test.ts))
