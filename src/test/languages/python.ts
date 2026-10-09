@@ -197,7 +197,7 @@ async function runTests(request: TestRunRequest, deps: TestRunnerDependencies): 
     request.productDir,
     request.testPaths,
   );
-  await rm(reportPath, { force: true });
+  await (deps.removeReport ?? ((path) => rm(path, { force: true })))(reportPath);
   return {
     invoked: true,
     exitCode: pathVerdicts === null && result.exitCode === 0 ? JUNIT_UNREADABLE_REPORT_EXIT_CODE : result.exitCode,
