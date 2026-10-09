@@ -314,13 +314,14 @@ choice or release instruction is not that approval.
    commit and push the tag from the assigned worktree: `git tag vX.Y.Z` then
    `git push origin vX.Y.Z`. Do not push a local `main` or add a release commit
    after verification.
-2. When the tag run's deployment waits, review the evidence — version, verified
-   commit and tree, pull request and merged commit, pull and hook build,
-   shared-CLI checks, and tag — and approve the deployment in the GitHub
-   Actions `npm-publish` environment. The tagged workflow runs `spx release publish --tag "${GITHUB_REF_NAME}"` from a
-   checkout at the tagged commit, confirms the package identity and provenance,
-   then creates or repairs the GitHub Release from the validated changelog
-   section.
+2. When the tag run's deployment waits, present the evidence to the operator —
+   version, verified commit and tree, pull request and merged commit, pull and
+   hook build, shared-CLI checks, and tag — and wait for the operator to approve
+   the deployment in the GitHub Actions `npm-publish` environment. Never
+   approve it on the operator's behalf. After approval, the tagged workflow runs
+   `spx release publish --tag "${GITHUB_REF_NAME}"` from a checkout at the
+   tagged commit, confirms the package identity and provenance, then creates or
+   repairs the GitHub Release from the validated changelog section.
 3. Confirm the registry version, tagged commit, provenance, and hosted release:
 
    ```bash
