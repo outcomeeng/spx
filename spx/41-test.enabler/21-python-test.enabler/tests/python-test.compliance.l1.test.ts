@@ -13,10 +13,8 @@ import {
 describe("python test runner derives path verdicts from the report, never the exit code", () => {
   it("reports a path passed when the report passes it though the process exits non-zero", async () => {
     await assertProperty(
-      PYTHON_RUNNER_TEST_GENERATOR.nonZeroExitCode(),
-      async (exitCode) => {
-        const [passingPath] = samplePythonRunnerValue(PYTHON_RUNNER_TEST_GENERATOR.distinctTestPathPair());
-
+      PYTHON_RUNNER_TEST_GENERATOR.nonZeroExitWithTestPath(),
+      async ({ exitCode, testPath: passingPath }) => {
         const invocation = await runWithSimulatedReport(
           {
             exitCode,
