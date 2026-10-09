@@ -1,5 +1,9 @@
 import { type JournalRunRef, listJournalRuns, readJournalEvents } from "@/commands/journal/runtime";
-import { readVerifyRecordedInput, VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
+import {
+  readVerifyRecordedInput,
+  VERIFY_CLI_EXIT_CODE,
+  VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD,
+} from "@/commands/verify/cli";
 import type { CliCommandResult, Result } from "@/config/types";
 import {
   commonJudgedPaths,
@@ -20,13 +24,21 @@ import { JOURNAL_SEQ_BASE, type JournalEvent } from "@/lib/agent-run-journal";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { readCommitBlobs } from "@/lib/git/commit-files";
 import { defaultGitDependencies, detectGitCommonDirProductRoot, type GitDependencies } from "@/lib/git/root";
-import { defaultStateStoreFileSystem, type StateStoreFileSystem } from "@/lib/state-store";
+import {
+  branchScopeDir,
+  branchScopesDir,
+  compareAsciiStrings,
+  defaultStateStoreFileSystem,
+  type StateStoreFileSystem,
+} from "@/lib/state-store";
 import {
   authoredText,
   externalValue,
+  joinTerminalText,
   jsonDocument,
   renderTerminalText,
   terminal,
+  type TerminalText,
 } from "@/lib/terminal-text/terminal-text";
 
 export const VERIFY_CHANGE_RUNS_ERROR = {
@@ -61,17 +73,25 @@ interface ChangeRunRecord {
   readonly events: readonly JournalEvent[];
 }
 
+/** The Change's runs and the branch scopes whose verification runs the scan read to find them. */
+interface ChangeRunScan {
+  readonly records: readonly ChangeRunRecord[];
+  /** Every branch scope holding a verification run of a listed type, in ASCII order, deduplicated. */
+  readonly branchSlugs: readonly string[];
+}
+
 /**
  * Every run that serves the Change, across every verification type and every branch scope of the
- * store at the Git common-dir product root, in registry type order and the journal's run order.
- * Reads event histories only; appends nothing to any journal.
+ * store at the Git common-dir product root, in registry type order and the journal's run order,
+ * beside the branch scopes the scan read. Reads event histories only; appends nothing to any journal.
  */
 async function changeRunRecords(
   productDir: string,
   change: string,
   fs: StateStoreFileSystem,
-): Promise<Result<readonly ChangeRunRecord[]>> {
+): Promise<Result<ChangeRunScan>> {
   const records: ChangeRunRecord[] = [];
+  const branchSlugs = new Set<string>();
   for (const verificationType of VERIFY_CHANGE_RUN_TYPES) {
     const runs = await listJournalRuns(
       { productDir, type: verificationType, limit: VERIFY_CHANGE_RUNS_SCAN_LIMIT },
@@ -79,13 +99,14 @@ async function changeRunRecords(
     );
     if (!runs.ok) return listFailure(runs.error);
     for (const run of runs.value) {
+      branchSlugs.add(run.branchSlug);
       const ref = { productDir, branchSlug: run.branchSlug, type: verificationType, runToken: run.runToken };
       const events = await readJournalEvents(ref, JOURNAL_SEQ_BASE, { fs });
       if (!events.ok) return listFailure(events.error);
       if (runServesChange(events.value, change)) records.push({ ref, verificationType, events: events.value });
     }
   }
-  return { ok: true, value: records };
+  return { ok: true, value: { records, branchSlugs: [...branchSlugs].sort(compareAsciiStrings) } };
 }
 
 /** Project one of the Change's runs into its listing entry, reading its recorded-input sidecar. */
@@ -123,7 +144,7 @@ export async function verifyChangeRunsCommand(
   const records = await changeRunRecords(product.productDir, options.change, fs);
   if (!records.ok) return { exitCode: VERIFY_CLI_EXIT_CODE.ERROR, output: records.error };
   const listed: VerifyChangeRun[] = [];
-  for (const record of records.value) {
+  for (const record of records.value.records) {
     const run = await listedChangeRun(record, fs);
     if (!run.ok) return { exitCode: VERIFY_CLI_EXIT_CODE.ERROR, output: run.error };
     listed.push(run.value);
@@ -165,6 +186,55 @@ function comparisonFailure(reason: string, subject: string): CliCommandResult {
   return { exitCode: VERIFY_CLI_EXIT_CODE.ERROR, output: renderTerminalText(diagnostic) };
 }
 
+/** A comparison failure whose externally-originated store error is escaped where it is embedded. */
+function comparisonStoreFailure(error: string): CliCommandResult {
+  const diagnostic = terminal`${authoredText(VERIFY_RUN_COMPARISON_ERROR.COMPARE_FAILED)}: ${externalValue(error)}`;
+  return { exitCode: VERIFY_CLI_EXIT_CODE.ERROR, output: renderTerminalText(diagnostic) };
+}
+
+/** The separator between the branch scope paths a lookup diagnostic names as its searched target. */
+const VERIFY_RUN_COMPARISON_TARGET_SEPARATOR = ",";
+
+/** The separator between a lookup diagnostic's summary and each of its selector fields. */
+const VERIFY_RUN_COMPARISON_FIELD_SEPARATOR = authoredText(" ");
+
+/**
+ * The searched target of a comparison lookup: each branch scope the scan read, or the branch-scope
+ * store itself when no scope holds a verification run.
+ */
+function comparisonSearchedTarget(productDir: string, branchSlugs: readonly string[]): Result<string> {
+  if (branchSlugs.length === 0) return { ok: true, value: branchScopesDir(productDir) };
+  const scopes: string[] = [];
+  for (const branchSlug of branchSlugs) {
+    const scope = branchScopeDir(productDir, branchSlug);
+    if (!scope.ok) return scope;
+    scopes.push(scope.value);
+  }
+  return { ok: true, value: scopes.join(VERIFY_RUN_COMPARISON_TARGET_SEPARATOR) };
+}
+
+/** One selector field of a lookup diagnostic: its source-owned label and the external value it names. */
+function lookupField(label: string, value: string): TerminalText {
+  return terminal`${authoredText(label)}${externalValue(value)}`;
+}
+
+/**
+ * A comparison lookup failure naming the requested run token, the Change `--change` names, and the
+ * searched target, in the selector-field vocabulary every other existing-run lookup diagnostic uses.
+ */
+function comparisonLookupFailure(
+  reason: string,
+  selectors: { readonly runToken: string; readonly change: string; readonly searchedTarget: string },
+): CliCommandResult {
+  const diagnostic = joinTerminalText(VERIFY_RUN_COMPARISON_FIELD_SEPARATOR, [
+    terminal`${authoredText(VERIFY_RUN_COMPARISON_ERROR.COMPARE_FAILED)}: ${authoredText(reason)}`,
+    lookupField(VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.RUN, selectors.runToken),
+    lookupField(VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.CHANGE, selectors.change),
+    lookupField(VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD.TARGET, selectors.searchedTarget),
+  ]);
+  return { exitCode: VERIFY_CLI_EXIT_CODE.ERROR, output: renderTerminalText(diagnostic) };
+}
+
 /** Select the one run of the Change that carries the run token, across every type and branch scope. */
 function selectChangeRun(
   records: readonly ChangeRunRecord[],
@@ -201,8 +271,16 @@ export async function verifyRunComparisonCommand(
 
   const compared: VerifyComparedRun[] = [];
   for (const runToken of [options.firstRun, options.secondRun]) {
-    const selected = selectChangeRun(records.value, runToken);
-    if (!selected.ok) return comparisonFailure(selected.reason, runToken);
+    const selected = selectChangeRun(records.value.records, runToken);
+    if (!selected.ok) {
+      const searchedTarget = comparisonSearchedTarget(product.productDir, records.value.branchSlugs);
+      if (!searchedTarget.ok) return comparisonStoreFailure(searchedTarget.error);
+      return comparisonLookupFailure(selected.reason, {
+        runToken,
+        change: options.change,
+        searchedTarget: searchedTarget.value,
+      });
+    }
     const run = comparedRunOf({
       runToken,
       verificationType: selected.value.verificationType,

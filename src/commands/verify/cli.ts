@@ -132,6 +132,7 @@ export const VERIFY_CLI_ERROR = {
 
 export const VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD = {
   RUN: "run=",
+  CHANGE: "change=",
   VERIFICATION_TYPE: "verification-type=",
   SCOPE_TYPE: "scope-type=",
   SCOPE: "scope=",
