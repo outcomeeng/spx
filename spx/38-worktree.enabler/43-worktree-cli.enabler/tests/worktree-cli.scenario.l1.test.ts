@@ -864,6 +864,41 @@ describe("worktree command handlers", () => {
     });
   });
 
+  it("removes a claim held by a live controlling process other than the caller's when released by its session id", async () => {
+    const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
+    const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
+    const selfPid = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.pid());
+    const gitDeps = createSessionGitDeps({ worktreeKind: WORKTREE_KIND.MAIN_CHECKOUT });
+    const name = worktreeClaimName(SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL);
+    const processTable = createProcessTable({
+      host: record.host,
+      processes: new Map<number, ProcessTableEntry>([[record.pid, { alive: true, startTime: record.startedAt }]]),
+    });
+
+    await withTempDir(prefix, async (worktreesDir) => {
+      await writeClaim(worktreesDir, name, record, { fs: defaultOccupancyFileSystem, randomBytes });
+
+      const result = await releaseCommand({
+        cwd: SESSION_GIT_DEPS_PATHS.MAIN_CHECKOUT_TOPLEVEL,
+        env: {},
+        fs: defaultOccupancyFileSystem,
+        processTable,
+        selfPid,
+        sessionId: record.sessionId,
+        worktreesDir,
+        gitDeps,
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error);
+
+      const after = await readClaim(worktreesDir, name, { fs: defaultOccupancyFileSystem });
+      expect(after.ok).toBe(true);
+      if (!after.ok) throw new Error(after.error);
+      expect(after.value).toBeUndefined();
+    });
+  });
+
   it("refuses to remove a running worktree claim owned by a different session", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const record = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
