@@ -261,9 +261,10 @@ export async function observeBuiltRunListWithoutChange(change: string): Promise<
 
 /**
  * The arrangement and built-executable run a `run compare` observation makes: the commit adding the
- * comparison's files and the commit revising one of them, the two runs started for those commits —
- * the first serving the scenario's Change — and the built `compare --change <change>` naming both
- * runs, with the store's branch scopes captured immediately before and after `compare`.
+ * comparison's files and the commit revising one of them, the two runs started for those commits,
+ * and the built `compare --change <change>` naming both runs, with the store's branch scopes —
+ * every file under `storeRoot`, the store's branch-scope directory — captured immediately before
+ * and after `compare`.
  */
 export interface BuiltRunComparisonObservation {
   readonly firstHead: string;
@@ -271,22 +272,29 @@ export interface BuiltRunComparisonObservation {
   readonly firstRun: StartedChangeRun;
   readonly secondRun: StartedChangeRun;
   readonly compare: BuiltVerificationCliRun;
+  readonly storeRoot: string;
   readonly storeBeforeCompare: BuiltRunStoreSnapshot;
   readonly storeAfterCompare: BuiltRunStoreSnapshot;
 }
 
+/** The Change each compared run serves when started; an undefined Change starts a run serving none. */
+interface ComparedRunChanges {
+  readonly firstRunChange: string | undefined;
+  readonly secondRunChange: string | undefined;
+}
+
 /**
  * In a real Git repository, commit the comparison's files, then commit its revision of one of them;
- * start a changeset-scoped review run ending at each commit — the first serving the scenario's Change,
- * the second serving `secondRunChange`, or no Change when it is undefined — and record each run's
- * judged paths through the production `scope add`, leaving both runs unsealed. Then capture the
- * store's branch scopes, run the built `spx verification run compare --change <change>` with the two
- * run tokens in start order, and capture the branch scopes again.
+ * start a changeset-scoped review run ending at each commit — each serving the Change `changes`
+ * names for it, or no Change when that is undefined — and record each run's judged paths through
+ * the production `scope add`, leaving both runs unsealed. Then capture the store's branch scopes,
+ * run the built `spx verification run compare --change <change>` naming the scenario's Change with
+ * the two run tokens in start order, and capture the branch scopes again.
  */
 async function observeBuiltRunComparison(
   scenario: ChangeRunsScenario,
   comparison: RunComparisonScenario,
-  secondRunChange: string | undefined,
+  changes: ComparedRunChanges,
 ): Promise<BuiltRunComparisonObservation> {
   const verificationType = VERIFY_VERIFICATION_TYPE.REVIEW;
   return withChangeRunsRepository(scenario, async (repository) => {
@@ -295,7 +303,7 @@ async function observeBuiltRunComparison(
     const firstRun = await repository.startRun({
       verificationType,
       scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
-      change: scenario.change,
+      ...(changes.firstRunChange === undefined ? {} : { change: changes.firstRunChange }),
       changesetHead: firstHead,
     });
     await repository.appendScope(
@@ -307,7 +315,7 @@ async function observeBuiltRunComparison(
     const secondRun = await repository.startRun({
       verificationType,
       scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
-      ...(secondRunChange === undefined ? {} : { change: secondRunChange }),
+      ...(changes.secondRunChange === undefined ? {} : { change: changes.secondRunChange }),
       changesetHead: secondHead,
     });
     await repository.appendScope(
@@ -330,7 +338,16 @@ async function observeBuiltRunComparison(
       ],
     );
     const storeAfterCompare = await readBranchScopesSnapshot(repository.productDir);
-    return { firstHead, secondHead, firstRun, secondRun, compare, storeBeforeCompare, storeAfterCompare };
+    return {
+      firstHead,
+      secondHead,
+      firstRun,
+      secondRun,
+      compare,
+      storeRoot: branchScopesDir(repository.productDir),
+      storeBeforeCompare,
+      storeAfterCompare,
+    };
   });
 }
 
@@ -339,7 +356,10 @@ export async function observeBuiltRunComparisonOfChange(
   scenario: ChangeRunsScenario,
   comparison: RunComparisonScenario,
 ): Promise<BuiltRunComparisonObservation> {
-  return observeBuiltRunComparison(scenario, comparison, scenario.change);
+  return observeBuiltRunComparison(scenario, comparison, {
+    firstRunChange: scenario.change,
+    secondRunChange: scenario.change,
+  });
 }
 
 /**
@@ -350,7 +370,10 @@ export async function observeBuiltRunComparisonAcrossChanges(
   scenario: ChangeRunsScenario,
   comparison: RunComparisonScenario,
 ): Promise<BuiltRunComparisonObservation> {
-  return observeBuiltRunComparison(scenario, comparison, scenario.otherChange);
+  return observeBuiltRunComparison(scenario, comparison, {
+    firstRunChange: scenario.change,
+    secondRunChange: scenario.otherChange,
+  });
 }
 
 /**
@@ -361,7 +384,38 @@ export async function observeBuiltRunComparisonWithChangelessRun(
   scenario: ChangeRunsScenario,
   comparison: RunComparisonScenario,
 ): Promise<BuiltRunComparisonObservation> {
-  return observeBuiltRunComparison(scenario, comparison, undefined);
+  return observeBuiltRunComparison(scenario, comparison, {
+    firstRunChange: scenario.change,
+    secondRunChange: undefined,
+  });
+}
+
+/**
+ * Compare, through the built executable and under the scenario's Change, a first run that serves
+ * the scenario's other Change and a second run of the scenario's Change.
+ */
+export async function observeBuiltRunComparisonFirstAcrossChanges(
+  scenario: ChangeRunsScenario,
+  comparison: RunComparisonScenario,
+): Promise<BuiltRunComparisonObservation> {
+  return observeBuiltRunComparison(scenario, comparison, {
+    firstRunChange: scenario.otherChange,
+    secondRunChange: scenario.change,
+  });
+}
+
+/**
+ * Compare, through the built executable and under the scenario's Change, a first run that serves
+ * no Change and a second run of the scenario's Change.
+ */
+export async function observeBuiltRunComparisonFirstChangeless(
+  scenario: ChangeRunsScenario,
+  comparison: RunComparisonScenario,
+): Promise<BuiltRunComparisonObservation> {
+  return observeBuiltRunComparison(scenario, comparison, {
+    firstRunChange: undefined,
+    secondRunChange: scenario.change,
+  });
 }
 
 /**

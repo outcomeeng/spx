@@ -10,6 +10,8 @@ import { CHANGE_RUNS_TEST_GENERATOR } from "@testing/generators/verify/change-ru
 import { CLI_TIMEOUTS_MS } from "@testing/harnesses/constants";
 import {
   observeBuiltRunComparisonAcrossChanges,
+  observeBuiltRunComparisonFirstAcrossChanges,
+  observeBuiltRunComparisonFirstChangeless,
   observeBuiltRunComparisonOfChange,
   observeBuiltRunComparisonWithChangelessRun,
   observeBuiltRunComparisonWithHeadlessRun,
@@ -43,6 +45,38 @@ describe("verification run compare compliance through the built executable", () 
         expect(observation.compare.stdout).toHaveLength(0);
         expect(observation.compare.stderr).toContain(VERIFY_RUN_COMPARISON_ERROR.RUN_NOT_IN_CHANGE);
         expect(observation.compare.stderr).toContain(observation.secondRun.runToken);
+      });
+    },
+    CLI_TIMEOUTS_MS.E2E_BATCH,
+  );
+
+  it(
+    "rejects a comparison whose first --run names a run of another Change, naming that run token and reporting nothing",
+    async () => {
+      await observeBuiltRunComparisonFirstAcrossChanges(
+        sampleGeneratedValue(CHANGE_RUNS_TEST_GENERATOR.scenario()),
+        sampleGeneratedValue(CHANGE_RUNS_TEST_GENERATOR.runComparison()),
+      ).then((observation) => {
+        expect(observation.compare.exitCode).not.toBe(VERIFY_CLI_EXIT_CODE.OK);
+        expect(observation.compare.stdout).toHaveLength(0);
+        expect(observation.compare.stderr).toContain(VERIFY_RUN_COMPARISON_ERROR.RUN_NOT_IN_CHANGE);
+        expect(observation.compare.stderr).toContain(observation.firstRun.runToken);
+      });
+    },
+    CLI_TIMEOUTS_MS.E2E_BATCH,
+  );
+
+  it(
+    "rejects a comparison whose first --run names a run serving no Change, naming that run token and reporting nothing",
+    async () => {
+      await observeBuiltRunComparisonFirstChangeless(
+        sampleGeneratedValue(CHANGE_RUNS_TEST_GENERATOR.scenario()),
+        sampleGeneratedValue(CHANGE_RUNS_TEST_GENERATOR.runComparison()),
+      ).then((observation) => {
+        expect(observation.compare.exitCode).not.toBe(VERIFY_CLI_EXIT_CODE.OK);
+        expect(observation.compare.stdout).toHaveLength(0);
+        expect(observation.compare.stderr).toContain(VERIFY_RUN_COMPARISON_ERROR.RUN_NOT_IN_CHANGE);
+        expect(observation.compare.stderr).toContain(observation.firstRun.runToken);
       });
     },
     CLI_TIMEOUTS_MS.E2E_BATCH,

@@ -127,6 +127,7 @@ import {
   arbitraryDefectAuditFinding,
   arbitraryInvalidAuditFinding,
 } from "@testing/generators/verify/audit";
+import type { RunComparisonInvocation } from "@testing/generators/verify/change-runs";
 import {
   type FileScopeCanonicalizationScenario,
   type FindingWithKey,
@@ -342,9 +343,11 @@ function requiredOptionDescription(command: Command | undefined, optionExpressio
 function verifyHandlerInvocationCount(recording: VerifyCliRecording): number {
   return recording.appendFindingOptions.length
     + recording.appendScopeOptions.length
+    + recording.compareOptions.length
     + recording.executeRunOptions.length
     + recording.finishOptions.length
     + recording.inputOptions.length
+    + recording.listOptions.length
     + recording.renderOptions.length
     + recording.startOptions.length
     + recording.statusOptions.length;
@@ -683,6 +686,60 @@ export async function observeMissingEvidenceRequiredOptionRejection(
 
 export function observeMissingEvidenceRequiredOptionRejections(): Promise<readonly VerifyCliRejectionObservation[]> {
   return Promise.all(verifyEvidenceRequiredOptionCases().map(observeMissingEvidenceRequiredOptionRejection));
+}
+
+/**
+ * What parsing one `spx verification run compare` invocation through the Commander program with
+ * recording handlers produced: whether Commander rejected it, the exit code and standard error of
+ * that rejection, the options the recording `compare` handler received, and how many times any
+ * verification handler ran.
+ */
+export interface VerificationRunComparisonParseObservation {
+  readonly rejected: boolean;
+  readonly exitCode: number;
+  readonly stderr: string;
+  readonly compareOptions: readonly VerifyRunComparisonCliOptions[];
+  readonly handlerInvocationCount: number;
+}
+
+/**
+ * Parse `spx verification run compare --change <change>` with one `--run <token>` per run token of
+ * the invocation, in order, plus `--input <input-source>` when `withFreshInput` holds, through the
+ * Commander program whose verification handlers only record what they receive.
+ */
+export async function observeVerificationRunComparisonParse(
+  invocation: RunComparisonInvocation,
+  withFreshInput: boolean,
+): Promise<VerificationRunComparisonParseObservation> {
+  const scenario = createVerifyRunContextScenario();
+  const recording = createRecordingVerifyHandlers();
+  const stderr: string[] = [];
+  const program = createRecordingVerifyProgram(recording, scenario.productDir);
+  installCommanderExitOverride(program);
+  program.configureOutput({
+    writeErr: (output) => stderr.push(output),
+    writeOut: () => undefined,
+  });
+  const args = verificationRunArgs([VERIFY_CLI.compareCommandName], [
+    requiredFlag(VERIFY_CLI.changeOption),
+    invocation.change,
+    ...invocation.runTokens.flatMap((runToken) => [requiredFlag(VERIFY_CLI.runOption), runToken]),
+    ...(withFreshInput ? [requiredFlag(VERIFY_CLI.inputOption), invocation.inputSource] : []),
+  ]);
+  const observe = (rejected: boolean, exitCode: number): VerificationRunComparisonParseObservation => ({
+    rejected,
+    exitCode,
+    stderr: stderr.join(""),
+    compareOptions: recording.compareOptions,
+    handlerInvocationCount: verifyHandlerInvocationCount(recording),
+  });
+  try {
+    await program.parseAsync([...args], { from: SPX_COMMANDER_PARSE_SOURCE });
+    return observe(false, VERIFY_CLI_EXIT_CODE.OK);
+  } catch (error) {
+    if (!(error instanceof CommanderError)) throw error;
+    return observe(true, error.exitCode);
+  }
 }
 
 export function createSealRetryFileSystem(): SealRetryFileSystem {

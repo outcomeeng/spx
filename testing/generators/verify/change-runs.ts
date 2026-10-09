@@ -6,6 +6,7 @@ import {
   VERIFY_VERIFICATION_TYPE,
   type VerifyVerificationType,
 } from "@/domains/verify/verify";
+import { VERIFY_CLI } from "@/interfaces/cli/verify";
 import { JOURNAL_RUN_TERMINAL_STATUS } from "@/test/languages/types";
 import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
 import { VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
@@ -156,9 +157,54 @@ export function arbitraryRunComparisonScenario(): fc.Arbitrary<RunComparisonScen
     });
 }
 
+/**
+ * The caller-supplied values of one `compare` invocation: the Change `--change` names, the distinct
+ * run tokens its `--run` values name in order, and the input source a fresh `--input` would name.
+ */
+export interface RunComparisonInvocation {
+  readonly change: string;
+  readonly runTokens: readonly string[];
+  readonly inputSource: string;
+}
+
+export function arbitraryRunComparisonInvocation(runCount: number): fc.Arbitrary<RunComparisonInvocation> {
+  return fc.record({
+    change: VERIFY_TEST_GENERATOR.changeIdentity(),
+    runTokens: fc.uniqueArray(VERIFY_TEST_GENERATOR.runToken(), { minLength: runCount, maxLength: runCount }),
+    inputSource: arbitrarySourceFilePath(),
+  });
+}
+
+/**
+ * The `--run` counts that violate the comparison's run count at its boundary: `absent`, the count of
+ * an invocation naming no run at all, and `present`, every other count below the count `compare`
+ * requires together with the first count beyond it.
+ */
+export interface ComparedRunCountViolations {
+  readonly absent: number;
+  readonly present: readonly number[];
+}
+
+const ABSENT_RUN_COUNT = 0;
+
+export function comparedRunCountViolations(): ComparedRunCountViolations {
+  return {
+    absent: ABSENT_RUN_COUNT,
+    present: [
+      ...Array.from({ length: VERIFY_CLI.compareRunCount }, (_, index) => index).filter((count) =>
+        count !== ABSENT_RUN_COUNT
+      ),
+      VERIFY_CLI.compareRunCount + 1,
+    ],
+  };
+}
+
 export const CHANGE_RUNS_TEST_GENERATOR = {
   scenario: (): fc.Arbitrary<ChangeRunsScenario> => arbitraryChangeRunsScenario(),
   runComparison: (): fc.Arbitrary<RunComparisonScenario> => arbitraryRunComparisonScenario(),
+  runComparisonInvocation: (runCount: number): fc.Arbitrary<RunComparisonInvocation> =>
+    arbitraryRunComparisonInvocation(runCount),
+  comparedRunCountViolations: (): ComparedRunCountViolations => comparedRunCountViolations(),
   evidenceFreeTerminalStatuses: (): fc.Arbitrary<Readonly<Record<VerifyVerificationType, string>>> =>
     arbitraryEvidenceFreeTerminalStatuses(),
 } as const;
