@@ -21,16 +21,14 @@ import {
   VERIFY_SCOPE_TYPE,
 } from "@/domains/verify/verify";
 import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
-import { GIT_DIR_BASENAME, type GitDependencies } from "@/lib/git/root";
+import { GIT_DIR_BASENAME, GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 import { defaultStateStoreFileSystem } from "@/lib/state-store";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import {
   buildGitTestEnvironment,
-  GIT_TEST_COMMAND,
   GIT_TEST_CONFIG,
   GIT_TEST_ENVIRONMENT_KEYS,
   GIT_TEST_FLAGS,
-  GIT_TEST_REF,
   GIT_TEST_SUBCOMMANDS,
   readGit,
   runGit,
@@ -42,7 +40,6 @@ const VERIFY_REPOSITORY_TEMP_PREFIX = "verify-repository-";
 const GIT_FAILURE_EXIT_CODE = 1;
 const BASE_COMMIT_MESSAGE = "Initialize verify repository fixture";
 const HEAD_COMMIT_MESSAGE = "Add the verified file";
-const GIT_REV_PARSE_VERIFY_FLAG = "--verify";
 
 /** The two commits a verify repository fixture holds: an empty base commit and a head commit adding one file. */
 export interface VerifyRepositoryCommits {
@@ -81,21 +78,21 @@ export async function initializeVerifyRepository(
   filePath: string,
 ): Promise<VerifyRepositoryCommits> {
   await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
-  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL]);
-  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.USER_NAME_KEY, GIT_TEST_CONFIG.USER_NAME]);
+  await runGit(productDir, [GIT_ROOT_COMMAND.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL]);
+  await runGit(productDir, [GIT_ROOT_COMMAND.CONFIG, GIT_TEST_CONFIG.USER_NAME_KEY, GIT_TEST_CONFIG.USER_NAME]);
   await runGit(productDir, [
     GIT_TEST_SUBCOMMANDS.COMMIT,
     GIT_TEST_FLAGS.ALLOW_EMPTY,
     GIT_TEST_FLAGS.COMMIT_MESSAGE,
     BASE_COMMIT_MESSAGE,
   ]);
-  const baseCommit = await readGit(productDir, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_TEST_REF.HEAD_NAME]);
+  const baseCommit = await readGit(productDir, [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
   const absoluteFile = join(productDir, filePath);
   await mkdir(dirname(absoluteFile), { recursive: true });
   await writeFile(absoluteFile, HEAD_COMMIT_MESSAGE);
   await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, filePath]);
   await runGit(productDir, [GIT_TEST_SUBCOMMANDS.COMMIT, GIT_TEST_FLAGS.COMMIT_MESSAGE, HEAD_COMMIT_MESSAGE]);
-  const headCommit = await readGit(productDir, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_TEST_REF.HEAD_NAME]);
+  const headCommit = await readGit(productDir, [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
   return { baseCommit, headCommit };
 }
 
@@ -326,8 +323,8 @@ export async function withVerifyUnbornHeadRepository<T>(
     await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
     const git = realVerifyGitDependencies(dirname(productDir));
     const headVerify = await git.execa(
-      GIT_TEST_COMMAND,
-      [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_REV_PARSE_VERIFY_FLAG, GIT_TEST_REF.HEAD_NAME],
+      GIT_ROOT_COMMAND.EXECUTABLE,
+      [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.VERIFY, GIT_ROOT_COMMAND.HEAD],
       { cwd: productDir },
     );
     const { startRun } = createVerifyRunStarter(productDir, git);
