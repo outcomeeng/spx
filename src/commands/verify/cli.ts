@@ -283,6 +283,7 @@ export interface VerifyRenderReport {
 interface VerifyResolvedScope {
   readonly productDir: string;
   readonly worktreeRoot: string;
+  readonly isGitRepo: boolean;
   readonly branchSlug: string;
   readonly backendIdentity: JournalEdgeBackend;
 }
@@ -351,6 +352,7 @@ async function resolveVerifyScope(deps: VerifyCliDeps): Promise<Result<VerifyRes
     value: {
       productDir: product.productDir,
       worktreeRoot: product.worktreeRoot,
+      isGitRepo: product.isGitRepo,
       branchSlug: slugBranchIdentity(branchIdentity),
       backendIdentity: backend.value,
     },
@@ -470,17 +472,20 @@ function verifyScopeResolverFor(scopeType: string): VerifyScopeResolver | undefi
 /**
  * Resolve the head commit a starting run judges: the commit the scope's head revision names, or the
  * checkout's HEAD when the scope names none. The commit is recorded once at start, so later readers
- * derive each judged file's content identity from it rather than from a stored digest.
+ * derive each judged file's content identity from it rather than from a stored digest. Outside a Git
+ * repository the run starts at the invocation directory with no head commit to judge, so it records
+ * none; such a run still rejects judged paths, which need a recorded head commit.
  */
 async function resolveStartHeadCommit(
   resolution: VerifyStartScopeResolution,
-  worktreeRoot: string,
+  resolved: VerifyResolvedScope,
   deps: VerifyCliDeps,
-): Promise<Result<string>> {
+): Promise<Result<string | undefined>> {
+  if (!resolved.isGitRepo) return { ok: true, value: undefined };
   const git = deps.git ?? defaultGitDependencies;
   const headCommit = resolution.headRevision === undefined
-    ? await getHeadSha(worktreeRoot, git)
-    : await resolveCommitSha(resolution.headRevision, worktreeRoot, git);
+    ? await getHeadSha(resolved.worktreeRoot, git)
+    : await resolveCommitSha(resolution.headRevision, resolved.worktreeRoot, git);
   return headCommit === null
     ? { ok: false, error: VERIFY_CLI_ERROR.HEAD_COMMIT_UNRESOLVED }
     : { ok: true, value: headCommit };
@@ -652,7 +657,7 @@ interface CompleteVerifyStartArgs {
   readonly branchSlug: string;
   readonly backendIdentity: string;
   readonly resolvedScope: readonly string[];
-  readonly headCommit: string;
+  readonly headCommit: string | undefined;
   readonly inputDigest: string;
   readonly inputContent: string;
   readonly contextDigest: string;
@@ -676,7 +681,7 @@ async function recordRunContext(
   const event = buildRunContextEvent({
     runToken,
     driveMode: deps.driveMode ?? VERIFY_DRIVE_MODE.CALLER,
-    headCommit: args.headCommit,
+    ...(args.headCommit === undefined ? {} : { headCommit: args.headCommit }),
     ...(args.options.change === undefined ? {} : { change: args.options.change }),
     at: deps.now?.() ?? new Date(),
   });
@@ -810,7 +815,7 @@ export async function verifyStartCommand(
   if (!resolved.ok) return errorResult(resolved.error);
   const scope = await resolveVerifyStartScope(options.scopeType, options.scope, resolved.value.worktreeRoot, deps);
   if (!scope.ok) return errorResult(scope.error);
-  const headCommit = await resolveStartHeadCommit(scope.value, resolved.value.worktreeRoot, deps);
+  const headCommit = await resolveStartHeadCommit(scope.value, resolved.value, deps);
   if (!headCommit.ok) return errorResult(headCommit.error);
   const normalizedOptions: VerifyStartCliOptions = {
     ...options,
