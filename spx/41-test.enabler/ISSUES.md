@@ -204,3 +204,15 @@ full-suite package script remains a deliberate broad gate.
 **Scope:** The registered cases of the four files; the per-file verdict scenario in `tests/execution-recording.scenario.l1.test.ts` keeps its `describe`, `it`, and `expect` in the executed file and is unaffected. This changeset leaves the register calls and the harness modules unchanged.
 
 **Resolution:** move each registered case's behavioral predicates into the executed test callbacks, keep fixtures and resource lifecycle in the harness, and retire the register calls as each file converts, then re-run this node's tests and its test-evidence audit.
+
+## A test file whose tests were all skipped or pending receives a different verdict from each language adapter
+
+The per-file verdict rule of [`spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md`](spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md) defines `passed` as every test in the file passing, `failed` as any test failing or the file failing to run, and `not-run` as the report omitting the path. A file in which every test was skipped or pending falls under none of the three. The adapters resolve it differently. The TypeScript adapter in `src/test/languages/typescript.ts` records `passed` and `failed` from Vitest's reported file status and `not-run` for any other status, so such a file is `not-run`. The Python adapter in `src/test/languages/python.ts` records `failed` when any JUnit test case failed and `passed` otherwise, so such a file is `passed`.
+
+**Impact:** The same condition yields `passed` for a Python test reference and `not-run` for a TypeScript one, so a node's status reads differently by language for equivalent evidence. A Python reference whose tests all skipped reads as proven.
+
+**Scope:** The verdict a skipped-only or pending-only file receives in `src/test/languages/typescript.ts` and `src/test/languages/python.ts`, and the per-file verdict rule of the record named above. The changeset that introduced per-path verdicts leaves both adapters unchanged for this case.
+
+**Resolution:** outcomeeng/changes#422 decides the rule for such a file. Amend the record named above with that rule, align both adapters to it, and add a case per adapter for a file whose tests are all skipped or pending.
+
+**Evidence:** `src/test/languages/typescript.ts` `reportedFileVerdicts` and `verdictForPath`; `src/test/languages/python.ts` `pathVerdictsFromReport`.
