@@ -276,8 +276,9 @@ describe("worktree occupancy claim store", () => {
   it("removes a claim by its session id although its live process is not the caller's", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
-    const storedRecord = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    const [callerSessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
+    const claimBase = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const [ownerSessionId, callerSessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
+    const storedRecord = { ...claimBase, sessionId: ownerSessionId };
     const callerOperation = { ...storedRecord, sessionId: callerSessionId, pid: storedRecord.pid + 1 };
     const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
     const probe = createProcessProbe({
@@ -309,8 +310,9 @@ describe("worktree occupancy claim store", () => {
   it("refuses release by a session id other than the claim's and leaves the claim unchanged", async () => {
     const prefix = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.tempPrefix());
     const name = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.worktreeName());
-    const storedRecord = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
-    const [otherSessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
+    const claimBase = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.claimRecord());
+    const [ownerSessionId, otherSessionId] = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.distinctSessionIds());
+    const storedRecord = { ...claimBase, sessionId: ownerSessionId };
     const randomBytes = sampleWorktreeTestValue(WORKTREE_TEST_GENERATOR.randomBytes());
     const probe = createProcessProbe({
       host: storedRecord.host,
@@ -324,7 +326,7 @@ describe("worktree occupancy claim store", () => {
       const removed = await removeClaimBySessionId(
         worktreesDir,
         name,
-        otherSessionId === storedRecord.sessionId ? `${otherSessionId}-other` : otherSessionId,
+        otherSessionId,
         storedRecord,
         probe,
         { fs: defaultOccupancyFileSystem },
