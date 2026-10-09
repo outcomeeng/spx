@@ -85,3 +85,19 @@ This node's terminal output path passes values that originated outside the produ
 **Impact:** the ambiguous branch of the `compare` lookup diagnostic can drop the `--change` value, the `--run` token, or the searched target without any test failing.
 
 **Settlement condition:** a generator builds an ambiguous run token, and a lookup case asserts the diagnostic it produces.
+
+## Descriptor evidence runs through recording handlers in place of the real handlers
+
+**Evidence:** `createRecordingVerifyHandlers` in `testing/harnesses/verify/harness.ts` builds handlers that record their options and return an empty result, and five harness functions pass them to `registerVerifyCommands` in place of the real command handlers, the compare and list handlers among them: `observeRejectedVerificationArgs`, `recordVerificationRunHandlerOptions`, `recordVerifyStartOptions`, `observeVerificationRunComparisonParse`, and `observeVerificationRunStartChange`. Five test files reach them:
+
+- `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/tests/run-compare-arguments.compliance.l1.test.ts`
+- `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/record-run.compliance.l1.test.ts`
+- `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/file-scope.mapping.l1.test.ts`
+- `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/tests/change-identity.scenario.l1.test.ts`
+- `spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/tests/verify-drive-mode.compliance.l1.test.ts`
+
+[`spx/14-cli-composition.adr.md`](spx/14-cli-composition.adr.md) rules: "NEVER: a descriptor is verified by mocking its command handlers, or a handler by mocking its domain functions — each layer is exercised with the real layer beneath it (domain logic in isolation, handlers against temporary fixtures, descriptors through the built executable), so the split removes the need to mock".
+
+**Impact:** the descriptor's argument parsing, rejection, and option mapping are evidenced against handlers that never run, so a descriptor that passes options the real handlers mishandle, or that reaches the wrong handler, leaves these tests green.
+
+**Settlement condition:** the descriptor-argument cases run through the built executable at L2, and `createRecordingVerifyHandlers` and the harness functions built on it are removed.

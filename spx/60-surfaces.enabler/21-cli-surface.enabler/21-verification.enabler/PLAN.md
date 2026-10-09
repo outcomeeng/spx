@@ -11,7 +11,7 @@ The `spx verification` family splits by **who drives the run** — an axis indep
 | `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler`  | caller-driven `spx verification run <verb>` — `start`, `input`, `scope add`, `finding add`, `finish` |
 | `spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-execute-run.enabler` | spx-driven `spx verification <type> run <paths…>`                                                    |
 
-The two are **independent peers at index 21**: the shared run selectors and the run-inspection command paths (`status`, `render`, `list`) are family-level and live in the parent, so neither child constrains the other.
+The two are **independent peers at index 21**: the shared run selectors and the run-inspection command paths (`status`, `render`, `list`, `compare`) are family-level and live in the parent, so neither child constrains the other.
 
 ## Tracing this node's history across its move
 
