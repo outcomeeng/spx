@@ -6,7 +6,8 @@
       "spx/34-verification.enabler/32-verify.enabler/54-change-runs.enabler/tests/change-runs.compliance.l1.test.ts": "passed",
       "spx/34-verification.enabler/32-verify.enabler/54-change-runs.enabler/tests/change-runs.conformance.l1.test.ts": "passed",
       "spx/34-verification.enabler/32-verify.enabler/54-change-runs.enabler/tests/change-runs.mapping.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/54-change-runs.enabler/tests/change-runs.scenario.l1.test.ts": "passed"
+      "spx/34-verification.enabler/32-verify.enabler/54-change-runs.enabler/tests/change-runs.scenario.l1.test.ts": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/54-change-runs.enabler/tests/run-comparison.mapping.l1.test.ts": "passed"
     }
   }
 }
