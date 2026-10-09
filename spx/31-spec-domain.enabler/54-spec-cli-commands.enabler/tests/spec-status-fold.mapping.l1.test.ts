@@ -20,7 +20,7 @@ import {
   uniformOutcomeResolverFor,
 } from "@testing/harnesses/spec-tree/spec-cli-commands";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
-import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
+import { createRecordingCommandRunner, SIMULATED_REPORT } from "@testing/harnesses/testing/typescript-runner";
 
 describe("spx spec status --update recorded-evidence mapping", () => {
   it("maps an uncovered reference to not-run and executes no verification", async () => {
@@ -161,6 +161,32 @@ describe("spx spec status --update recorded-evidence mapping", () => {
 
       const recorded = await readRecordedStatusFile(env, rootPath);
       expect(recorded?.verification.test?.[failingTestFile]).toBe(NODE_STATUS_EVIDENCE_OUTCOME.FAILED);
+      expect(recorded?.verification.test?.[passingTestFile]).toBe(NODE_STATUS_EVIDENCE_OUTCOME.PASSED);
+    });
+  });
+
+  it("maps a covered reference whose own recorded verdict is not-run to not-run beside a passing covered file", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const rootPath = fixtureNodePath(env.fixture.root);
+      const unreportedTestFile = await addNodeTestFile(env, rootPath);
+      const passingTestFile = await addNodeTestFile(env, rootPath);
+      const runner = createRecordingCommandRunner({
+        present: true,
+        exitCode: 0,
+        report: SIMULATED_REPORT.LISTED_FILES,
+        reportedStatuses: new Map([[passingTestFile, TEST_PATH_VERDICT.PASSED]]),
+      });
+
+      await runTestsCommand(
+        { productDir: env.productDir, passing: false },
+        { registry: testingRegistry, runnerDepsFor: () => runner },
+      );
+
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordedEvidenceResolverFor });
+
+      const recorded = await readRecordedStatusFile(env, rootPath);
+      expect(recorded?.verification.test?.[unreportedTestFile]).toBe(NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN);
       expect(recorded?.verification.test?.[passingTestFile]).toBe(NODE_STATUS_EVIDENCE_OUTCOME.PASSED);
     });
   });
