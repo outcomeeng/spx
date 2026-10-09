@@ -10,6 +10,10 @@ CAN address, inspect, and render any verification run through one command family
 
 ## Assertions
 
+- ALWAYS: `spx verification run compare` rejects an invocation naming `--run <run-token>` zero, one, or three or more times, before any comparison runs
+- NEVER: `spx verification run compare` accepts a fresh `--input <input-source>` value
+- ALWAYS: when a `--run` value of `spx verification run compare` names no run of the Change, or more than one, the diagnostic names the `--change` value, that `--run` token, and the searched target
+
 ### Scenarios
 
 - Given a run started through `spx verification run start --change <owner/repo#N>`, when `spx verification run list --change <owner/repo#N>` runs, then it reports that Change's listing as JSON, and the listing includes that run ([test](tests/run-list.scenario.l2.test.ts))
