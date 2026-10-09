@@ -1,7 +1,9 @@
 import { type ExecResult, GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 
-const GIT_LS_FILES_SUBCOMMAND = "ls-files";
-const GIT_NUL_TERMINATED_FLAG = "-z";
+/** Git subcommand that lists the paths git tracks. */
+export const GIT_LS_FILES_SUBCOMMAND = "ls-files";
+/** `ls-files` flag that NUL-terminates each listed path instead of quoting it. */
+export const GIT_NUL_TERMINATED_FLAG = "-z";
 
 /** NUL byte separating entries in `git ls-files -z` output. */
 export const TRACKED_PATH_NUL_SEPARATOR = "\0";
