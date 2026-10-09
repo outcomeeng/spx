@@ -6,10 +6,9 @@ CAN execute Python tests with exclusion flags derived from `spx.config.{toml,jso
 
 ## Assertions
 
-- Given a run over one failing and one passing Python test file, when the python-testing runner completes, then the returned runner outcome reports `failed` for the failing path and `passed` for the passing path
-
 ### Scenarios
 
+- Given a run over one failing and one passing Python test file, when the python-testing runner completes, then the returned runner outcome reports `failed` for the failing path and `passed` for the passing path ([test](tests/python-test.scenario.l2.test.ts))
 - Given Python test files in `spx/**/tests/test_*.py`, when the python-testing runner is invoked with a list of paths, then pytest executes against those paths and exits zero for passing tests ([test](tests/python-test.scenario.l2.test.ts))
 - Given an excluded node path in `spx.config.{toml,json,yaml}`, when `spx test passing` runs, then pytest is invoked with `--ignore=spx/{node}/` for that node ([test](tests/python-test.scenario.l1.test.ts))
 - Given a Python test imports a module that does not exist, when pytest runs against that file without exclusion, then pytest exits non-zero with an ImportError ([test](tests/python-test.scenario.l2.test.ts))
