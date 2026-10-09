@@ -4,11 +4,15 @@ id: 01a118d3-682b-7b50-8e97-556ab500631f
 
 # Verification
 
-PROVIDES the public `spx verification` command family — the run-inspection command paths every verification run is read through, including the listing of the runs recorded for one Change, and the vocabulary boundary its child command paths observe
-SO THAT agents, CI jobs, and launchers recording a verification run, callers asking spx to execute one, and the holders of a Change counting the runs its gates made
-CAN address, inspect, and render any verification run through one command family without constructing journal events directly, and read a Change's runs by verification type without holding their run tokens
+PROVIDES the public `spx verification` command family — the run-inspection command paths every verification run is read through, including the listing of the runs recorded for one Change and the comparison of two of that Change's runs, and the vocabulary boundary its child command paths observe
+SO THAT agents, CI jobs, and launchers recording a verification run, callers asking spx to execute one, and the holders of a Change counting the runs its gates made and weighing a later run's findings against an earlier run's
+CAN address, inspect, and render any verification run through one command family without constructing journal events directly, read a Change's runs by verification type without holding their run tokens, and tell a file two of a Change's runs both judged whose content changed between their head commits from one whose content stayed the same
 
 ## Assertions
+
+- Given two runs of one Change whose head commits differ in one file both runs judged, when `spx verification run compare --change <owner/repo#N>` runs with the two runs' `--run <run-token>` values, then it reports as JSON that file changed and every other file both runs judged unchanged
+- ALWAYS: `spx verification run compare` rejects an invocation whose two `--run <run-token>` values do not both name runs of the Change `--change` names
+- NEVER: `spx verification run compare` appends a journal event or seals a run
 
 ### Scenarios
 
