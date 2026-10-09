@@ -4,11 +4,13 @@ id: 01a115e6-be87-7cd9-b001-39f73f7bdd6d
 
 # Run Context
 
-PROVIDES start-time verification context creation, run-token selection, run-locator and resolved-scope reporting, changeset and file scope resolution, recorded-input replay, and recording of the Change a run serves for typed verification runs
+PROVIDES start-time verification context creation, run-token selection, run-locator and resolved-scope reporting, changeset and file scope resolution, recorded-input replay, and recording of the run's head commit and of the Change a run serves for typed verification runs
 SO THAT evidence append and terminal projection lifecycle operations
-CAN operate on one scoped verification run with a stable subject, recorded input, unambiguous run identity, and the Change identity the run was started for
+CAN operate on one scoped verification run with a stable subject, recorded input, unambiguous run identity, the head commit the run judges, and the Change identity the run was started for
 
 ## Assertions
+
+- ALWAYS: `start` records the run's head commit for every scope type, the `file` scope included
 
 ### Scenarios
 

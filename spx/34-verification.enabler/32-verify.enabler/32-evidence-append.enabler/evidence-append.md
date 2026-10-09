@@ -6,6 +6,8 @@ CAN record inspected scope and typed findings exactly once per caller intent bef
 
 ## Assertions
 
+- ALWAYS: scope evidence that names judged files records each judged file by its product-relative path and rejects a path the run's head commit does not hold
+
 ### Compliance
 
 - ALWAYS: scope evidence and finding evidence validate the evidence payload against the selected verification type and evidence kind before appending a journal event ([test](tests/verify-finding.compliance.l1.test.ts))
