@@ -1,3 +1,74 @@
-import { registerPythonRunnerScenarioL1Evidence } from "@testing/harnesses/testing/python-runner";
+import { describe, expect, it } from "vitest";
+
+import { TEST_PATH_VERDICT } from "@/test/run-state";
+import { PYTHON_RUNNER_TEST_GENERATOR, samplePythonRunnerValue } from "@testing/generators/testing/python-runner";
+import {
+  registerPythonRunnerScenarioL1Evidence,
+  runWithSimulatedReport,
+  SIMULATED_REPORT,
+  type SimulatedFileStatus,
+} from "@testing/harnesses/testing/python-runner";
+
+describe("python test runner reports a verdict per test path from pytest's JUnit XML report", () => {
+  it("reports failed for the failing path and passed for the passing path of one invocation", async () => {
+    const [failingPath, passingPath] = samplePythonRunnerValue(PYTHON_RUNNER_TEST_GENERATOR.distinctTestPathPair());
+
+    const invocation = await runWithSimulatedReport(
+      {
+        exitCode: 1,
+        report: SIMULATED_REPORT.LISTED_FILES,
+        reportedStatuses: new Map<string, SimulatedFileStatus>([
+          [failingPath, TEST_PATH_VERDICT.FAILED],
+          [passingPath, TEST_PATH_VERDICT.PASSED],
+        ]),
+      },
+      [failingPath, passingPath],
+    );
+
+    expect(invocation).toMatchObject({
+      invoked: true,
+      exitCode: 1,
+      pathVerdicts: [
+        { testPath: failingPath, verdict: TEST_PATH_VERDICT.FAILED },
+        { testPath: passingPath, verdict: TEST_PATH_VERDICT.PASSED },
+      ],
+    });
+  });
+
+  it("reports not-run for a supplied path the report omits", async () => {
+    const [reportedPath, omittedPath] = samplePythonRunnerValue(PYTHON_RUNNER_TEST_GENERATOR.distinctTestPathPair());
+
+    const invocation = await runWithSimulatedReport(
+      {
+        exitCode: 0,
+        report: SIMULATED_REPORT.LISTED_FILES,
+        reportedStatuses: new Map<string, SimulatedFileStatus>([[reportedPath, TEST_PATH_VERDICT.PASSED]]),
+      },
+      [reportedPath, omittedPath],
+    );
+
+    expect(invocation).toMatchObject({
+      invoked: true,
+      pathVerdicts: [
+        { testPath: reportedPath, verdict: TEST_PATH_VERDICT.PASSED },
+        { testPath: omittedPath, verdict: TEST_PATH_VERDICT.NOT_RUN },
+      ],
+    });
+  });
+
+  it.each([SIMULATED_REPORT.MISSING, SIMULATED_REPORT.MALFORMED])(
+    "carries no path verdicts and a non-zero exit code when the report is %s",
+    async (report) => {
+      const testPaths = samplePythonRunnerValue(PYTHON_RUNNER_TEST_GENERATOR.distinctTestPathPair());
+
+      const invocation = await runWithSimulatedReport({ exitCode: 0, report }, testPaths);
+
+      expect(invocation.invoked).toBe(true);
+      if (!invocation.invoked) return;
+      expect(invocation.exitCode).not.toBe(0);
+      expect(invocation.pathVerdicts).toBeUndefined();
+    },
+  );
+});
 
 registerPythonRunnerScenarioL1Evidence();

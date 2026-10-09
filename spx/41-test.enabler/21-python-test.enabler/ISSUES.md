@@ -2,7 +2,7 @@
 
 ## Linked tests delegate their assertion flow to harness suites
 
-`tests/python-test.scenario.l1.test.ts`, `tests/python-test.scenario.l2.test.ts`, and `tests/python-test.compliance.l1.test.ts` each call one `register*` function from `testing/harnesses/testing/python-runner.ts`, so the `describe`/`it`/`expect` flow for five `[test]` assertions lives in the harness. A test-evidence audit of this node rejects every one of those assertions on predicate ownership. The mapping test and the child node `32-test-harness.enabler` already own their predicates over harness observations.
+`tests/python-test.scenario.l1.test.ts`, `tests/python-test.scenario.l2.test.ts`, and `tests/python-test.compliance.l1.test.ts` each call one `register*` function from `testing/harnesses/testing/python-runner.ts`, so the `describe`/`it`/`expect` flow for the registered cases (excluded node path, Python absent, detection gating, and the exits-zero and missing-import cases) lives in the harness; the per-path verdict cases carry their predicates in the executed test files. A test-evidence audit of this node rejects every one of those assertions on predicate ownership. The mapping test and the child node `32-test-harness.enabler` already own their predicates over harness observations.
 
 **Scope:** one instance of the product-wide shape recorded in [`spx/ISSUES.md`](spx/ISSUES.md) under "Test assertion flow lives in harnesses instead of executed test files"; unwinding it is that entry's work, one owning subtree at a time, and does not belong to a changeset that leaves this node's tests untouched.
 
