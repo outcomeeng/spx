@@ -13,6 +13,7 @@ import {
 } from "@/test/run-state";
 import { LITERAL_TEST_GENERATOR_COUNTS } from "@testing/generators/literal/literal";
 import { TEST_RUN_STATE_TEST_GENERATOR } from "@testing/generators/testing/run-state";
+import { assertProperty, PROPERTY_CLASSIFICATION } from "@testing/harnesses/property/property";
 import { withTestingTempProductDir } from "@testing/harnesses/testing/harness";
 
 interface TerminalRunPool {
@@ -155,7 +156,7 @@ function terminalRunCovering(
     runFilePath: runFileName,
     state: {
       ...state,
-      runnerOutcomes: [{ ...outcome, testPaths }],
+      runnerOutcomes: [TEST_RUN_STATE_TEST_GENERATOR.outcomeCovering(outcome, testPaths)],
       completedAt,
       startedAt,
     },
@@ -171,8 +172,9 @@ function compareStrings(left: string, right: string): number {
 describe("testing last-run state record fidelity", () => {
   it("round-trips every recorded field through write and read", async () => {
     await withTestingTempProductDir(async (productDir) => {
-      await fc.assert(
-        fc.asyncProperty(TEST_RUN_STATE_TEST_GENERATOR.testRunState(), async (state) => {
+      await assertProperty(
+        TEST_RUN_STATE_TEST_GENERATOR.testRunState(),
+        async (state) => {
           const created = await createTestRunFile(productDir);
           if (!created.ok) throw new Error(created.error);
 
@@ -186,18 +188,19 @@ describe("testing last-run state record fidelity", () => {
             (run) => run.runFileName === created.value.runFileName,
           );
           expect(persisted?.state).toEqual(state);
-        }),
-        { numRuns: 25 },
+        },
+        PROPERTY_CLASSIFICATION.SMALL_L1,
       );
     });
   });
 
   it("selects the latest covering run by completed time, started time, and run file name", () => {
-    fc.assert(
-      fc.property(arbitraryTerminalRunPool(), ({ nodeTestPaths, expectedRunFileName, runs }) => {
+    assertProperty(
+      arbitraryTerminalRunPool(),
+      ({ nodeTestPaths, expectedRunFileName, runs }) => {
         expect(selectLatestTerminalTestRunForNode(runs, nodeTestPaths)?.runFileName).toBe(expectedRunFileName);
-      }),
-      { numRuns: LITERAL_TEST_GENERATOR_COUNTS.smallPropertyRuns },
+      },
+      PROPERTY_CLASSIFICATION.SMALL_L1,
     );
   });
 });

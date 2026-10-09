@@ -8,6 +8,8 @@
  * and dispatching the `spx test` command are separate, higher-level concerns.
  */
 
+import type { TestPathVerdict } from "@/test/run-state";
+
 /** Result of a single command-runner invocation. */
 export interface TestRunCommandResult {
   readonly exitCode: number;
@@ -27,6 +29,10 @@ export interface TestRunnerDependencies {
   readonly isLanguagePresent?: (productDir: string) => boolean;
   /** Executes a command, returning its terminal exit code. */
   readonly runCommand: (command: string, args: readonly string[]) => Promise<TestRunCommandResult>;
+  /** Reads a runner's machine-readable report file; defaults to reading the file from disk. */
+  readonly readReport?: (path: string) => Promise<string>;
+  /** Removes a runner's machine-readable report file; defaults to deleting the file from disk. */
+  readonly removeReport?: (path: string) => Promise<void>;
 }
 
 /** Result from a related-test resolver command that emits parseable stdout. */
@@ -153,6 +159,8 @@ export type TestRunInvocation =
     /** The runner ran and returned this terminal exit code. */
     readonly invoked: true;
     readonly exitCode: number;
+    /** Verdicts the runner's machine-readable report states per test path; absent when no report was read. */
+    readonly pathVerdicts?: readonly TestPathVerdict[];
     readonly output?: TestRunCommandOutput;
   };
 

@@ -30,7 +30,7 @@ CAN inspect node state, select the next non-passing node, discover relevant subt
 
 ### Mappings
 
-- Recorded test evidence maps to each linked reference as follows: a fresh covered passing outcome maps to `passed`; a fresh covered failing outcome maps to `failed`; a covered stale outcome keeps the committed outcome; and an uncovered reference maps to `not-run` ([test](tests/spec-status-fold.mapping.l1.test.ts))
+- Recorded test evidence maps to each linked reference as follows: a fresh covering outcome maps the reference to its own test file's recorded verdict (`passed`, `failed`, or `not-run`), independent of the verdict of every other file the same run covered; a covered stale outcome keeps the committed outcome; and an uncovered reference maps to `not-run` ([test](tests/spec-status-fold.mapping.l1.test.ts))
 
 ### Compliance
 

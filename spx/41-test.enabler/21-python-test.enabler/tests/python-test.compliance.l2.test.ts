@@ -6,15 +6,12 @@ import { TEST_PATH_VERDICT } from "@/test/run-state";
 import {
   productRootedPytestCommandRunner,
   PYTEST_FIXTURE,
-  registerPythonRunnerScenarioL2Evidence,
-  withTempPytestSuites,
+  withTempPytestSuitesUnderNearerIni,
 } from "@testing/harnesses/testing/python-runner";
 
-registerPythonRunnerScenarioL2Evidence();
-
-describe("python test runner path verdicts from real pytest", () => {
-  it("reports failed for the failing path and passed for the passing path of one real pytest run", async () => {
-    await withTempPytestSuites(
+describe("python test runner reports verdicts when an ini-file sits nearer to the test files than the product root", () => {
+  it("ALWAYS: reports each supplied path's verdict from the report rather than not-run", async () => {
+    await withTempPytestSuitesUnderNearerIni(
       [PYTEST_FIXTURE.FAILING_ASSERTION, PYTEST_FIXTURE.PASSING],
       async ({ productDir, suitePaths }) => {
         const [failingPath, passingPath] = suitePaths;

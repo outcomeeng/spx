@@ -7,7 +7,7 @@ import { runTestsCommand } from "@/commands/test";
 import { NODE_STATUS_EVIDENCE_OUTCOME } from "@/lib/node-status";
 import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
 import { testingRegistry } from "@/test/registry";
-import { testingRunsDir } from "@/test/run-state";
+import { TEST_PATH_VERDICT, testingRunsDir } from "@/test/run-state";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import {
@@ -20,7 +20,7 @@ import {
   uniformOutcomeResolverFor,
 } from "@testing/harnesses/spec-tree/spec-cli-commands";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
-import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
+import { createRecordingCommandRunner, SIMULATED_REPORT } from "@testing/harnesses/testing/typescript-runner";
 
 describe("spx spec status --update recorded-evidence mapping", () => {
   it("maps an uncovered reference to not-run and executes no verification", async () => {
@@ -134,6 +134,60 @@ describe("spx spec status --update recorded-evidence mapping", () => {
       expect(recorded?.verification.test?.[coveredTestFile]).toBe(NODE_STATUS_EVIDENCE_OUTCOME.PASSED);
       expect(recorded?.verification.test?.[uncoveredTestFile]).toBe(NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN);
       expect(await readRecordedStatusState(env, rootPath)).toBe(SPEC_TREE_NODE_STATE.FAILING);
+    });
+  });
+
+  it("maps each covered reference to its own file's verdict when one run covers a failing and a passing file", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const rootPath = fixtureNodePath(env.fixture.root);
+      const failingTestFile = await addNodeTestFile(env, rootPath);
+      const passingTestFile = await addNodeTestFile(env, rootPath);
+      const runner = createRecordingCommandRunner({
+        present: true,
+        exitCode: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nonZeroExitCode()),
+        reportedStatuses: new Map([
+          [failingTestFile, TEST_PATH_VERDICT.FAILED],
+          [passingTestFile, TEST_PATH_VERDICT.PASSED],
+        ]),
+      });
+
+      await runTestsCommand(
+        { productDir: env.productDir, passing: false },
+        { registry: testingRegistry, runnerDepsFor: () => runner },
+      );
+
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordedEvidenceResolverFor });
+
+      const recorded = await readRecordedStatusFile(env, rootPath);
+      expect(recorded?.verification.test?.[failingTestFile]).toBe(NODE_STATUS_EVIDENCE_OUTCOME.FAILED);
+      expect(recorded?.verification.test?.[passingTestFile]).toBe(NODE_STATUS_EVIDENCE_OUTCOME.PASSED);
+    });
+  });
+
+  it("maps a covered reference whose own recorded verdict is not-run to not-run beside a passing covered file", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const rootPath = fixtureNodePath(env.fixture.root);
+      const unreportedTestFile = await addNodeTestFile(env, rootPath);
+      const passingTestFile = await addNodeTestFile(env, rootPath);
+      const runner = createRecordingCommandRunner({
+        present: true,
+        exitCode: 0,
+        report: SIMULATED_REPORT.LISTED_FILES,
+        reportedStatuses: new Map([[passingTestFile, TEST_PATH_VERDICT.PASSED]]),
+      });
+
+      await runTestsCommand(
+        { productDir: env.productDir, passing: false },
+        { registry: testingRegistry, runnerDepsFor: () => runner },
+      );
+
+      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordedEvidenceResolverFor });
+
+      const recorded = await readRecordedStatusFile(env, rootPath);
+      expect(recorded?.verification.test?.[unreportedTestFile]).toBe(NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN);
+      expect(recorded?.verification.test?.[passingTestFile]).toBe(NODE_STATUS_EVIDENCE_OUTCOME.PASSED);
     });
   });
 });

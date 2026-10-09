@@ -1,12 +1,14 @@
 import { execa } from "execa";
+import * as fc from "fast-check";
 import assert from "node:assert";
 import { copyFile, mkdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { pythonTestingLanguage } from "@/test/languages/python";
-import { PYTEST_INVOKE_ARGS, UV_COMMAND } from "@/test/languages/python-pytest-contract";
+import { PYTHON_PRODUCT_INPUT_PATH, PYTHON_TEST_FILE_EXTENSION, pythonTestingLanguage } from "@/test/languages/python";
+import { JUNIT_REPORT_FLAG_PREFIX, PYTEST_INVOKE_ARGS, UV_COMMAND } from "@/test/languages/python-pytest-contract";
 import type { TestRunCommandResult, TestRunnerDependencies } from "@/test/languages/types";
+import { TEST_PATH_VERDICT } from "@/test/run-state";
 import { PYTHON_MARKER } from "@/validation/discovery/language-finder";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { PYTHON_RUNNER_TEST_GENERATOR, samplePythonRunnerValue } from "@testing/generators/testing/python-runner";
@@ -19,7 +21,7 @@ const PYTEST_FIXTURE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "
 const TEMP_PRODUCT_PREFIX = "spx-pytest-";
 const COPIED_SUITE_DIR = ".spx-pytest-cases";
 // Copied under a pytest-ignored directory so the l2 test proves explicit test-path forwarding.
-const COPIED_SUITE_NAME = "test_suite.py";
+const COPIED_SUITE_BASENAME_PREFIX = "test_suite_";
 const UV_CACHE_DIR_NAME = ".uv-cache";
 
 export const PYTEST_EXIT_CODE = {
@@ -31,6 +33,7 @@ export const PYTEST_EXIT_CODE = {
 export const PYTEST_FIXTURE = {
   PASSING: "passing.test_suite.py.fixture",
   FAILING: "failing.test_suite.py.fixture",
+  FAILING_ASSERTION: "asserting.test_suite.py.fixture",
 } as const;
 
 export type PytestFixture = (typeof PYTEST_FIXTURE)[keyof typeof PYTEST_FIXTURE];
@@ -41,19 +44,100 @@ export interface RecordingCommandRunner extends TestRunnerDependencies {
   readonly calls: ReadonlyArray<{ readonly command: string; readonly args: readonly string[] }>;
 }
 
+/** How a recording runner's simulated pytest invocation leaves its JUnit XML report. */
+export const SIMULATED_REPORT = {
+  /** Every supplied test file is reported with the status the exit code implies. */
+  FOLLOWS_EXIT_CODE: "follows-exit-code",
+  /** Only the files in `reportedStatuses` are reported; the rest are omitted. */
+  LISTED_FILES: "listed-files",
+  /** No report file exists once the invocation exits. */
+  MISSING: "missing",
+  /** The report file holds text that is not a JUnit XML report. */
+  MALFORMED: "malformed",
+} as const;
+
+export type SimulatedReport = (typeof SIMULATED_REPORT)[keyof typeof SIMULATED_REPORT];
+
+export type SimulatedFileStatus = typeof TEST_PATH_VERDICT.PASSED | typeof TEST_PATH_VERDICT.FAILED;
+
+const MALFORMED_REPORT_TEXT = "not a junit report";
+const SIMULATED_REPORT_ABSENT_MESSAGE = "no simulated report at";
+const SIMULATED_TEST_NAME = "test_case";
+
+function simulatedJunitText(
+  options: {
+    readonly exitCode: number;
+    readonly report: SimulatedReport;
+    readonly reportedStatuses: ReadonlyMap<string, SimulatedFileStatus>;
+  },
+  testFilePaths: readonly string[],
+): string | null {
+  if (options.report === SIMULATED_REPORT.MISSING) return null;
+  if (options.report === SIMULATED_REPORT.MALFORMED) return MALFORMED_REPORT_TEXT;
+  const reported = options.report === SIMULATED_REPORT.LISTED_FILES
+    ? testFilePaths.filter((path) => options.reportedStatuses.has(path))
+    : testFilePaths;
+  const testcases = reported.map((path) => {
+    const status = options.reportedStatuses.get(path)
+      ?? (options.exitCode === 0 ? TEST_PATH_VERDICT.PASSED : TEST_PATH_VERDICT.FAILED);
+    const modulePath = path.endsWith(PYTHON_TEST_FILE_EXTENSION)
+      ? path.slice(0, -PYTHON_TEST_FILE_EXTENSION.length)
+      : path;
+    const classname = modulePath.split("/").join(".");
+    const body = status === TEST_PATH_VERDICT.FAILED ? `<failure message="failed"/>` : "";
+    return `<testcase classname="${classname}" name="${SIMULATED_TEST_NAME}" time="0.001">${body}</testcase>`;
+  });
+  return `<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest">${
+    testcases.join("")
+  }</testsuite></testsuites>`;
+}
+
 export function createRecordingCommandRunner(options: {
   readonly present: boolean;
   readonly exitCode: number;
+  readonly report?: SimulatedReport;
+  readonly reportedStatuses?: ReadonlyMap<string, SimulatedFileStatus>;
 }): RecordingCommandRunner {
   const calls: Array<{ readonly command: string; readonly args: readonly string[] }> = [];
+  const reports = new Map<string, string>();
+  const simulation = {
+    exitCode: options.exitCode,
+    report: options.report ?? SIMULATED_REPORT.FOLLOWS_EXIT_CODE,
+    reportedStatuses: options.reportedStatuses ?? new Map<string, SimulatedFileStatus>(),
+  };
   return {
     calls,
     isLanguagePresent: () => options.present,
     runCommand: (command, args) => {
       calls.push({ command, args });
+      const reportFlag = args.find((arg) => arg.startsWith(JUNIT_REPORT_FLAG_PREFIX));
+      if (reportFlag !== undefined) {
+        const text = simulatedJunitText(simulation, args.filter((arg) => arg.endsWith(PYTHON_TEST_FILE_EXTENSION)));
+        if (text !== null) reports.set(reportFlag.slice(JUNIT_REPORT_FLAG_PREFIX.length), text);
+      }
       return Promise.resolve({ exitCode: options.exitCode });
     },
+    readReport: (path) => {
+      const text = reports.get(path);
+      return text === undefined
+        ? Promise.reject(new Error(`${SIMULATED_REPORT_ABSENT_MESSAGE} ${path}`))
+        : Promise.resolve(text);
+    },
   };
+}
+
+export async function runWithSimulatedReport(
+  options: {
+    readonly exitCode: number;
+    readonly report: SimulatedReport;
+    readonly reportedStatuses?: ReadonlyMap<string, SimulatedFileStatus>;
+  },
+  testPaths: readonly string[],
+) {
+  return withTempDir(TEMP_PRODUCT_PREFIX, async (productDir) => {
+    const runner = createRecordingCommandRunner({ present: true, ...options });
+    return pythonTestingLanguage.runTests({ productDir, testPaths, excludedNodePaths: [] }, runner);
+  });
 }
 
 // A real command runner that runs `uv` from the temporary product so pytest collects
@@ -80,17 +164,63 @@ export interface TempPytestProduct {
   readonly suitePath: string;
 }
 
+// A temporary pytest product holding several suites: the temp root and the absolute path of each
+// copied suite, in the order of the fixtures supplied.
+export interface TempPytestSuites {
+  readonly productDir: string;
+  readonly suitePaths: readonly string[];
+}
+
+// Copies committed fixture suites into one temporary product outside the repository so pytest resolves
+// no inherited configuration, each under a distinct file name so one pytest invocation covers them all.
+export function withTempPytestSuites(
+  fixtures: readonly PytestFixture[],
+  callback: (product: TempPytestSuites) => Promise<void>,
+): Promise<void> {
+  return withTempDir(TEMP_PRODUCT_PREFIX, async (productDir) => {
+    const suiteDir = join(productDir, COPIED_SUITE_DIR);
+    await mkdir(suiteDir);
+    // An empty pytest.ini anchors pytest's rootdir at the product, as a real Python product's configuration does.
+    await writeFile(join(productDir, PYTHON_PRODUCT_INPUT_PATH.PYTEST_INI), "");
+    const suitePaths: string[] = [];
+    for (const [index, fixture] of fixtures.entries()) {
+      const suitePath = join(suiteDir, `${COPIED_SUITE_BASENAME_PREFIX}${index}${PYTHON_TEST_FILE_EXTENSION}`);
+      await copyFile(join(PYTEST_FIXTURE_DIR, fixture), suitePath);
+      suitePaths.push(suitePath);
+    }
+    await callback({ productDir, suitePaths });
+  });
+}
+
+// Copies committed fixture suites into a temporary product whose root holds no pytest ini-file while
+// an ini-file sits in the directory beside the suites, the nearer position that moves pytest's rootdir
+// below the product directory unless the invocation pins it.
+export function withTempPytestSuitesUnderNearerIni(
+  fixtures: readonly PytestFixture[],
+  callback: (product: TempPytestSuites) => Promise<void>,
+): Promise<void> {
+  return withTempDir(TEMP_PRODUCT_PREFIX, async (productDir) => {
+    const suiteDir = join(productDir, COPIED_SUITE_DIR);
+    await mkdir(suiteDir);
+    await writeFile(join(suiteDir, PYTHON_PRODUCT_INPUT_PATH.PYTEST_INI), "");
+    const suitePaths: string[] = [];
+    for (const [index, fixture] of fixtures.entries()) {
+      const suitePath = join(suiteDir, `${COPIED_SUITE_BASENAME_PREFIX}${index}${PYTHON_TEST_FILE_EXTENSION}`);
+      await copyFile(join(PYTEST_FIXTURE_DIR, fixture), suitePath);
+      suitePaths.push(suitePath);
+    }
+    await callback({ productDir, suitePaths });
+  });
+}
+
 // Copies a committed fixture suite into a temporary product outside the repository so pytest resolves
 // no inherited configuration, and hands back the suite path for the runner to execute.
 export function withTempPytestProduct(
   fixture: PytestFixture,
   callback: (product: TempPytestProduct) => Promise<void>,
 ): Promise<void> {
-  return withTempDir(TEMP_PRODUCT_PREFIX, async (productDir) => {
-    const suiteDir = join(productDir, COPIED_SUITE_DIR);
-    const suitePath = join(suiteDir, COPIED_SUITE_NAME);
-    await mkdir(suiteDir);
-    await copyFile(join(PYTEST_FIXTURE_DIR, fixture), suitePath);
+  return withTempPytestSuites([fixture], async ({ productDir, suitePaths }) => {
+    const [suitePath] = suitePaths;
     await callback({ productDir, suitePath });
   });
 }
@@ -131,9 +261,8 @@ export function registerPythonRunnerScenarioL1Evidence(): void {
 
     it("propagates the command runner exit code when pytest is invoked", async () => {
       await assertProperty(
-        PYTHON_RUNNER_TEST_GENERATOR.exitCode(),
-        async (exitCode) => {
-          const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
+        fc.tuple(PYTHON_RUNNER_TEST_GENERATOR.exitCode(), CONFIG_TEST_GENERATOR.productDir()),
+        async ([exitCode, productDir]) => {
           const runner = createRecordingCommandRunner({ present: true, exitCode });
           const result = await pythonTestingLanguage.runTests(
             { productDir, testPaths: [], excludedNodePaths: [] },
@@ -185,9 +314,8 @@ export function registerPythonRunnerComplianceEvidence(): void {
   describe("python test runner gating on Python presence", () => {
     it("ALWAYS: invokes pytest exactly when Python is present", async () => {
       await assertProperty(
-        PYTHON_RUNNER_TEST_GENERATOR.invocationGateScenario(),
-        async ({ present, exitCode }) => {
-          const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
+        fc.tuple(PYTHON_RUNNER_TEST_GENERATOR.invocationGateScenario(), CONFIG_TEST_GENERATOR.productDir()),
+        async ([{ present, exitCode }, productDir]) => {
           const runner = createRecordingCommandRunner({ present, exitCode });
           const result = await pythonTestingLanguage.runTests(
             { productDir, testPaths: [], excludedNodePaths: [] },
@@ -203,9 +331,8 @@ export function registerPythonRunnerComplianceEvidence(): void {
 
     it("ALWAYS: detect reflects the injected Python presence predicate", () => {
       assertProperty(
-        PYTHON_RUNNER_TEST_GENERATOR.present(),
-        (present) => {
-          const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
+        fc.tuple(PYTHON_RUNNER_TEST_GENERATOR.present(), CONFIG_TEST_GENERATOR.productDir()),
+        ([present, productDir]) => {
           expect(pythonTestingLanguage.detect(productDir, { isLanguagePresent: () => present })).toBe(present);
         },
         { level: PROPERTY_LEVEL.L1 },

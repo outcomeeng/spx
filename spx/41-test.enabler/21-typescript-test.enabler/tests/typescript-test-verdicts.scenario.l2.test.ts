@@ -1,28 +1,25 @@
 import assert from "node:assert";
 import { describe, expect, it } from "vitest";
 
-import { pythonTestingLanguage } from "@/test/languages/python";
+import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { TEST_PATH_VERDICT } from "@/test/run-state";
 import {
-  productRootedPytestCommandRunner,
-  PYTEST_FIXTURE,
-  registerPythonRunnerScenarioL2Evidence,
-  withTempPytestSuites,
-} from "@testing/harnesses/testing/python-runner";
+  productRootedCommandRunner,
+  VITEST_FIXTURE,
+  withTempVitestSuites,
+} from "@testing/harnesses/testing/typescript-runner";
 
-registerPythonRunnerScenarioL2Evidence();
-
-describe("python test runner path verdicts from real pytest", () => {
-  it("reports failed for the failing path and passed for the passing path of one real pytest run", async () => {
-    await withTempPytestSuites(
-      [PYTEST_FIXTURE.FAILING_ASSERTION, PYTEST_FIXTURE.PASSING],
+describe("typescript test runner path verdicts from real vitest", () => {
+  it("maps the failing file to failed and the passing file to passed from one real vitest JSON report", async () => {
+    await withTempVitestSuites(
+      [VITEST_FIXTURE.FAILING, VITEST_FIXTURE.PASSING],
       async ({ productDir, suitePaths }) => {
         const [failingPath, passingPath] = suitePaths;
         assert(failingPath !== undefined && passingPath !== undefined);
 
-        const result = await pythonTestingLanguage.runTests(
+        const result = await typescriptTestingLanguage.runTests(
           { productDir, testPaths: [failingPath, passingPath], excludedNodePaths: [] },
-          productRootedPytestCommandRunner(productDir),
+          productRootedCommandRunner(),
         );
 
         expect(result.invoked).toBe(true);

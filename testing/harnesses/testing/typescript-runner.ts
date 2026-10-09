@@ -1,4 +1,5 @@
 import { execa } from "execa";
+import * as fc from "fast-check";
 import { copyFile, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,8 +14,15 @@ import {
   runTestsStreaming,
   TYPESCRIPT_TEST_FILE_PATTERNS,
   typescriptTestingLanguage,
+  VITEST_FILE_NAME_KEY,
+  VITEST_FILE_RESULTS_KEY,
+  VITEST_FILE_STATUS,
+  VITEST_FILE_STATUS_KEY,
+  VITEST_JSON_OUTPUT_FILE_FLAG_PREFIX,
+  VITEST_ROOT_FLAG,
 } from "@/test/languages/typescript";
 import { testingRegistry } from "@/test/registry";
+import { TEST_PATH_VERDICT } from "@/test/run-state";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
@@ -101,20 +109,91 @@ export interface RecordingCommandRunner extends TestRunnerDependencies {
   }>;
 }
 
+/** How a recording runner's simulated Vitest invocation leaves its JSON report. */
+export const SIMULATED_REPORT = {
+  /** Every supplied test file is reported with the status the exit code implies. */
+  FOLLOWS_EXIT_CODE: "follows-exit-code",
+  /** Only the files in `reportedStatuses` are reported; the rest are omitted. */
+  LISTED_FILES: "listed-files",
+  /** No report file exists once the invocation exits. */
+  MISSING: "missing",
+  /** The report file holds text that is not a Vitest JSON report. */
+  MALFORMED: "malformed",
+} as const;
+
+export type SimulatedReport = (typeof SIMULATED_REPORT)[keyof typeof SIMULATED_REPORT];
+
+export type SimulatedFileStatus = typeof TEST_PATH_VERDICT.PASSED | typeof TEST_PATH_VERDICT.FAILED;
+
+const MALFORMED_REPORT_TEXT = "not a vitest report";
+const SIMULATED_REPORT_ABSENT_MESSAGE = "no simulated report at";
+
+function simulatedReportText(
+  options: {
+    readonly exitCode: number;
+    readonly report: SimulatedReport;
+    readonly reportedStatuses: ReadonlyMap<string, SimulatedFileStatus>;
+  },
+  args: readonly string[],
+  testFilePaths: readonly string[],
+): string | null {
+  if (options.report === SIMULATED_REPORT.MISSING) return null;
+  if (options.report === SIMULATED_REPORT.MALFORMED) return MALFORMED_REPORT_TEXT;
+  const productRoot = args[args.indexOf(VITEST_ROOT_FLAG) + 1] ?? "";
+  const reported = options.report === SIMULATED_REPORT.LISTED_FILES
+    ? testFilePaths.filter((path) => options.reportedStatuses.has(path))
+    : testFilePaths;
+  return JSON.stringify({
+    [VITEST_FILE_RESULTS_KEY]: reported.map((path) => {
+      const verdict = options.reportedStatuses.get(path)
+        ?? (options.exitCode === 0 ? TEST_PATH_VERDICT.PASSED : TEST_PATH_VERDICT.FAILED);
+      return {
+        [VITEST_FILE_NAME_KEY]: join(productRoot, path),
+        [VITEST_FILE_STATUS_KEY]: verdict === TEST_PATH_VERDICT.PASSED
+          ? VITEST_FILE_STATUS.PASSED
+          : VITEST_FILE_STATUS.FAILED,
+      };
+    }),
+  });
+}
+
 export function createRecordingCommandRunner(options: {
   readonly present: boolean;
   readonly exitCode: number;
+  readonly report?: SimulatedReport;
+  readonly reportedStatuses?: ReadonlyMap<string, SimulatedFileStatus>;
 }): RecordingCommandRunner {
   const calls: Array<{
     readonly command: string;
     readonly args: readonly string[];
   }> = [];
+  const reports = new Map<string, string>();
+  const simulation = {
+    exitCode: options.exitCode,
+    report: options.report ?? SIMULATED_REPORT.FOLLOWS_EXIT_CODE,
+    reportedStatuses: options.reportedStatuses ?? new Map<string, SimulatedFileStatus>(),
+  };
   return {
     calls,
     isLanguagePresent: () => options.present,
     runCommand: (command, args) => {
       calls.push({ command, args });
+      const outputFlag = args.find((arg) => arg.startsWith(VITEST_JSON_OUTPUT_FILE_FLAG_PREFIX));
+      if (outputFlag !== undefined) {
+        const text = simulatedReportText(
+          simulation,
+          args,
+          args.filter((arg) => typescriptTestingLanguage.matchesTestFile(arg)),
+        );
+        if (text !== null) reports.set(outputFlag.slice(VITEST_JSON_OUTPUT_FILE_FLAG_PREFIX.length), text);
+      }
       return Promise.resolve({ exitCode: options.exitCode });
+    },
+    readReport: (path) => {
+      const text = reports.get(path);
+      return text === undefined
+        ? Promise.reject(new Error(`${SIMULATED_REPORT_ABSENT_MESSAGE} ${path}`))
+        : Promise.resolve(text);
     },
   };
 }
@@ -180,6 +259,32 @@ export function withTempVitestProductAt(
     await mkdir(dirname(targetPath), { recursive: true });
     await copyFile(join(VITEST_FIXTURE_DIR, fixture), targetPath);
     await callback(productDir);
+  });
+}
+
+// A temporary Vitest product holding several suites: the temp root and the product-relative path of each
+// copied suite, in the order of the fixtures supplied.
+export interface TempVitestSuites {
+  readonly productDir: string;
+  readonly suitePaths: readonly string[];
+}
+
+const COPIED_SUITES_BASENAME_PREFIX = "suite-";
+
+// Copies committed fixture suites into one temporary product outside the repository, each under a
+// distinct file name, so one Vitest invocation covers them all and reports one verdict per file.
+export function withTempVitestSuites(
+  fixtures: readonly VitestFixture[],
+  callback: (product: TempVitestSuites) => Promise<void>,
+): Promise<void> {
+  return withTempDir(TEMP_PRODUCT_PREFIX, async (productDir) => {
+    const suitePaths: string[] = [];
+    for (const [index, fixture] of fixtures.entries()) {
+      const suitePath = `${COPIED_SUITES_BASENAME_PREFIX}${index}${COPIED_SUITE_NAME}`;
+      await writeVitestFixture(productDir, suitePath, fixture);
+      suitePaths.push(suitePath);
+    }
+    await callback({ productDir, suitePaths });
   });
 }
 
@@ -259,6 +364,31 @@ export async function writeVitestFixture(
   await copyFile(join(VITEST_FIXTURE_DIR, fixture), target);
 }
 
+export async function runWithSimulatedReport(
+  options: {
+    readonly exitCode: number;
+    readonly report: SimulatedReport;
+    readonly reportedStatuses?: ReadonlyMap<string, SimulatedFileStatus>;
+  },
+  testPaths: readonly string[],
+) {
+  return withTempDir(TEMP_PRODUCT_PREFIX, async (productDir) => {
+    const runner = createRecordingCommandRunner({ present: true, ...options });
+    return typescriptTestingLanguage.runTests(
+      { productDir, testPaths, excludedNodePaths: [] },
+      runner,
+    );
+  });
+}
+
+export function twoDistinctTestPaths(): readonly [string, string] {
+  const [firstNode, secondNode] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.distinctNodePaths());
+  return [
+    sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, firstNode)),
+    sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, secondNode)),
+  ];
+}
+
 export function registerTypescriptRunnerScenarioL1Tests(): void {
   describe("typescript test runner invocation", () => {
     it("passes config-derived node exclusions to vitest for spx test passing", async () => {
@@ -320,12 +450,11 @@ export function registerTypescriptRunnerScenarioL1Tests(): void {
 
     it("propagates the command runner exit code when vitest is invoked", async () => {
       await assertProperty(
-        TYPESCRIPT_RUNNER_TEST_GENERATOR.exitCode(),
-        async (exitCode) => {
-          const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-          const testPath = sampleDispatchValue(
-            TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath),
-          );
+        fc.tuple(
+          TYPESCRIPT_RUNNER_TEST_GENERATOR.exitCode(),
+          TEST_DISPATCH_GENERATOR.nodeWithOwnFile(typescriptTestingLanguage),
+        ),
+        async ([exitCode, { file: testPath }]) => {
           await withTestingTempProductDir(async (productDir) => {
             const runner = createRecordingCommandRunner({ present: true, exitCode });
             await writeTestFileFixture(productDir, testPath);
@@ -476,12 +605,11 @@ export function registerTypescriptRunnerComplianceTests(): void {
   describe("typescript test runner gating on TypeScript presence", () => {
     it("invokes vitest exactly when TypeScript is present", async () => {
       await assertProperty(
-        TYPESCRIPT_RUNNER_TEST_GENERATOR.present(),
-        async (present) => {
-          const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-          const testPath = sampleDispatchValue(
-            TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath),
-          );
+        fc.tuple(
+          TYPESCRIPT_RUNNER_TEST_GENERATOR.present(),
+          TEST_DISPATCH_GENERATOR.nodeWithOwnFile(typescriptTestingLanguage),
+        ),
+        async ([present, { file: testPath }]) => {
           await withTestingTempProductDir(async (productDir) => {
             const runner = createRecordingCommandRunner({ present, exitCode: 0 });
             await writeTestFileFixture(productDir, testPath);
@@ -501,13 +629,10 @@ export function registerTypescriptRunnerComplianceTests(): void {
 
     it("detect reflects the injected presence predicate", () => {
       assertProperty(
-        TYPESCRIPT_RUNNER_TEST_GENERATOR.present(),
-        (present) => {
+        fc.tuple(TYPESCRIPT_RUNNER_TEST_GENERATOR.present(), CONFIG_TEST_GENERATOR.productDir()),
+        ([present, productDir]) => {
           expect(
-            typescriptTestingLanguage.detect(
-              sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir()),
-              { isLanguagePresent: () => present },
-            ),
+            typescriptTestingLanguage.detect(productDir, { isLanguagePresent: () => present }),
           ).toBe(present);
         },
         { level: PROPERTY_LEVEL.L1 },

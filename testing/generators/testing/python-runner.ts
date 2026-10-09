@@ -14,6 +14,7 @@ const MAX_NODE_PATHS = 4;
 const MIN_TEST_PATHS = 0;
 const MIN_NON_EMPTY_TEST_PATHS = 1;
 const MAX_TEST_PATHS = 5;
+const DISTINCT_PAIR_LENGTH = 2;
 const MIN_EXIT_CODE = 0;
 const MIN_NON_ZERO_EXIT_CODE = 1;
 const MAX_EXIT_CODE = 255;
@@ -32,8 +33,10 @@ export const PYTHON_RUNNER_TEST_GENERATOR = {
   nodePaths: arbitraryNodePaths,
   testPaths: arbitraryTestPaths,
   nonEmptyTestPaths: arbitraryNonEmptyTestPaths,
+  distinctTestPathPair: arbitraryDistinctTestPathPair,
   exitCode: arbitraryExitCode,
   nonZeroExitCode: arbitraryNonZeroExitCode,
+  nonZeroExitWithTestPath: arbitraryNonZeroExitWithTestPath,
   present: arbitraryPresence,
   invocationGateScenario: arbitraryInvocationGateScenario,
 } as const;
@@ -97,12 +100,25 @@ function arbitraryNonEmptyTestPaths(): fc.Arbitrary<readonly string[]> {
   });
 }
 
+function arbitraryDistinctTestPathPair(): fc.Arbitrary<readonly [string, string]> {
+  return fc
+    .uniqueArray(arbitraryPythonTestFilePath(), { minLength: DISTINCT_PAIR_LENGTH, maxLength: DISTINCT_PAIR_LENGTH })
+    .map(([first = "", second = ""]) => [first, second] as const);
+}
+
 function arbitraryExitCode(): fc.Arbitrary<number> {
   return fc.integer({ min: MIN_EXIT_CODE, max: MAX_EXIT_CODE });
 }
 
 function arbitraryNonZeroExitCode(): fc.Arbitrary<number> {
   return fc.integer({ min: MIN_NON_ZERO_EXIT_CODE, max: MAX_EXIT_CODE });
+}
+
+function arbitraryNonZeroExitWithTestPath(): fc.Arbitrary<{ readonly exitCode: number; readonly testPath: string }> {
+  return fc.record({
+    exitCode: arbitraryNonZeroExitCode(),
+    testPath: arbitraryPythonTestFilePath(),
+  });
 }
 
 function arbitraryPresence(): fc.Arbitrary<boolean> {
