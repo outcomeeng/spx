@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { digestDescriptorSection } from "@/config/descriptor-digest";
 import type { Result } from "@/config/types";
 import { isJournalRunStateStatus, JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
+import { normalizeVerificationContextFileSubjectPath } from "@/domains/verification-context/context";
 import type { EvidenceRequirement, EvidenceValidationResult } from "@/domains/verify/evidence-rejection";
 import {
   acceptEvidence,
@@ -10,6 +11,7 @@ import {
   forwardEvidenceRejection,
   rejectEvidenceField,
   rejectEvidenceRequirement,
+  rejectEvidenceRequirementAt,
 } from "@/domains/verify/evidence-rejection";
 import type { JournalEvent, JournalEventInput, JsonValue } from "@/lib/agent-run-journal";
 import { RUNTIME_EVENT_NAMESPACE_DEFAULT } from "@/lib/agent-run-journal/config";
@@ -36,6 +38,7 @@ export const VERIFY_VERB = {
   STATUS: "status",
   RENDER: "render",
   LIST: "list",
+  COMPARE: "compare",
 } as const;
 
 export type VerifyVerb = (typeof VERIFY_VERB)[keyof typeof VERIFY_VERB];
@@ -854,9 +857,9 @@ export interface EvidenceValidationInput {
 export type EvidenceValidator = (input: EvidenceValidationInput) => EvidenceValidationResult<unknown>;
 export type TerminalMetadataValidator = (input: TerminalValidationInput) => TerminalMetadataValidationResult;
 
-function evidencePayloadValidator(
-  validator: (payload: JsonValue) => EvidenceValidationResult<unknown>,
-): EvidenceValidator {
+function evidencePayloadValidator<T>(
+  validator: (payload: JsonValue) => EvidenceValidationResult<T>,
+): (input: EvidenceValidationInput) => EvidenceValidationResult<T> {
   return (input) => validator(input.payload);
 }
 
@@ -1600,6 +1603,99 @@ function validateAuditScopeForRun(input: EvidenceValidationInput): EvidenceValid
 }
 
 /**
+ * The type-neutral fields a scope payload of every verification type may carry beside its type's
+ * own schema. `judgedPaths` lists each file the verifier read, by product-relative path; the run's
+ * head commit, recorded once at start, gives each one its content identity when runs are compared.
+ */
+export const VERIFY_SCOPE_PAYLOAD_FIELD = {
+  JUDGED_PATHS: "judgedPaths",
+} as const;
+
+/** A scope unit carrying the judged paths its payload named, normalized to product-relative form. */
+export type WithJudgedPaths<T> = T & { readonly judgedPaths?: readonly string[] };
+
+/**
+ * Read a scope payload's judged paths: absent when the payload names none, otherwise a non-empty
+ * array whose every entry is a safe product-relative path, returned normalized in payload order so
+ * entry indexes stay those the producer sent. An empty array, a non-string entry, an absolute
+ * path, or a parent-directory escape refuses the payload naming the failing field path.
+ */
+export function readScopeJudgedPaths(payload: JsonValue): EvidenceValidationResult<readonly string[] | undefined> {
+  const field = VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_PATHS;
+  if (!isJsonRecord(payload) || !Object.hasOwn(payload, field)) return acceptEvidence(undefined);
+  const entries = payload[field];
+  if (!Array.isArray(entries) || entries.length === 0) return rejectEvidenceField(field);
+  const normalized: string[] = [];
+  for (const [index, entry] of entries.entries()) {
+    const path = typeof entry === "string" ? normalizeVerificationContextFileSubjectPath(entry) : undefined;
+    if (path === undefined) return rejectEvidenceField(field, String(index));
+    normalized.push(path);
+  }
+  return acceptEvidence(normalized);
+}
+
+/**
+ * The judged paths an accepted scope payload records, in payload order, or none when it names no
+ * judged file. Reads the value the scope validator returned, whose paths are already normalized.
+ */
+export function scopeJudgedPathsOf(payload: JsonValue): readonly string[] {
+  const judged = readScopeJudgedPaths(payload);
+  return judged.ok && judged.value !== undefined ? judged.value : [];
+}
+
+/**
+ * Every path a run judged, folded from the judged paths its recorded scope events carry: each path
+ * once, in the order the run first recorded it. A run whose scope evidence names no judged file
+ * judged no path.
+ */
+export function runJudgedPathsOf(events: readonly JournalEvent[]): readonly string[] {
+  const judged = new Set<string>();
+  for (const event of events) {
+    if (event.type !== VERIFY_APPEND_EVENT_TYPE.SCOPE || !isJsonRecord(event.data)) continue;
+    for (const path of scopeJudgedPathsOf(event.data[VERIFY_APPEND_EVENT_FIELD.PAYLOAD])) judged.add(path);
+  }
+  return [...judged];
+}
+
+/**
+ * Compose a verification type's scope validator with the type-neutral judged-paths field: the
+ * type's own schema decides first, then the judged paths are read and carried into the accepted
+ * value, so the recorded scope keeps them whichever type validated it.
+ */
+function scopeEvidenceValidator<T extends object>(
+  validator: (input: EvidenceValidationInput) => EvidenceValidationResult<T>,
+): (input: EvidenceValidationInput) => EvidenceValidationResult<WithJudgedPaths<T>> {
+  return (input) => {
+    const validated = validator(input);
+    if (!validated.ok) return validated;
+    const judged = readScopeJudgedPaths(input.payload);
+    if (!judged.ok) return forwardEvidenceRejection(judged);
+    return judged.value === undefined
+      ? validated
+      : acceptEvidence({ ...validated.value, [VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_PATHS]: judged.value });
+  };
+}
+
+/**
+ * Check judged paths against the files the run's head commit holds. A run with no recorded head
+ * commit cannot anchor a judged path, so its judged paths are refused; otherwise every path the
+ * commit does not hold as a file is refused by its entry's field path.
+ */
+export function validateJudgedPathsAtHead(
+  judgedPaths: readonly string[],
+  headCommit: string | undefined,
+  filesHeldAtHead: ReadonlySet<string>,
+): EvidenceValidationResult<readonly string[]> {
+  if (headCommit === undefined) return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.JUDGED_PATHS_NEED_HEAD_COMMIT);
+  const unheld = judgedPaths.flatMap((path, index) =>
+    filesHeldAtHead.has(path) ? [] : [[VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_PATHS, String(index)]]
+  );
+  return unheld.length === 0
+    ? acceptEvidence(judgedPaths)
+    : rejectEvidenceRequirementAt(EVIDENCE_REQUIREMENT.JUDGED_PATH_HELD_AT_HEAD, unheld);
+}
+
+/**
  * The evidence-validator registry keyed by verification type and evidence kind. Dispatch is a
  * registry lookup, not verification-type-name branching; a new verification type registers
  * validators here.
@@ -1615,17 +1711,17 @@ const EVIDENCE_VALIDATORS: Readonly<
   >
 > = {
   [VERIFY_VERIFICATION_TYPE.AUDIT]: {
-    [VERIFY_EVIDENCE_KIND.SCOPE]: validateAuditScopeForRun,
+    [VERIFY_EVIDENCE_KIND.SCOPE]: scopeEvidenceValidator(validateAuditScopeForRun),
     [VERIFY_EVIDENCE_KIND.FINDING]: validateAuditFindingForRun,
     [VERIFY_EVIDENCE_KIND.TERMINAL_METADATA]: validateAuditTerminal,
   },
   [VERIFY_VERIFICATION_TYPE.REVIEW]: {
-    [VERIFY_EVIDENCE_KIND.SCOPE]: evidencePayloadValidator(validateReviewScope),
+    [VERIFY_EVIDENCE_KIND.SCOPE]: scopeEvidenceValidator(evidencePayloadValidator(validateReviewScope)),
     [VERIFY_EVIDENCE_KIND.FINDING]: evidencePayloadValidator(validateReviewFinding),
     [VERIFY_EVIDENCE_KIND.TERMINAL_METADATA]: validateReviewTerminal,
   },
   [VERIFY_VERIFICATION_TYPE.TEST]: {
-    [VERIFY_EVIDENCE_KIND.SCOPE]: evidencePayloadValidator(validateTestScope),
+    [VERIFY_EVIDENCE_KIND.SCOPE]: scopeEvidenceValidator(evidencePayloadValidator(validateTestScope)),
     [VERIFY_EVIDENCE_KIND.FINDING]: evidencePayloadValidator(validateTestFinding),
     [VERIFY_EVIDENCE_KIND.TERMINAL_METADATA]: validateTestTerminal,
   },
@@ -1762,12 +1858,16 @@ export function buildAppendEvent(args: {
   };
 }
 
-/** The CloudEvents `type` the verify run-context event carries: the run-opening event recording drive mode. */
+/** The CloudEvents `type` the verify run-context event carries: the run-opening event recording drive mode and head commit. */
 export const VERIFY_RUN_CONTEXT_EVENT_TYPE = `${RUNTIME_EVENT_NAMESPACE_DEFAULT}.verify.run-context` as const;
 
-/** The `data` fields the run-context event records: the run's drive mode and, when supplied, the Change it serves. */
+/**
+ * The `data` fields the run-context event records: the run's drive mode, the head commit the run
+ * judges, and, when supplied, the Change it serves.
+ */
 export const VERIFY_RUN_CONTEXT_EVENT_FIELD = {
   DRIVE_MODE: "driveMode",
+  HEAD_COMMIT: "headCommit",
   CHANGE: "change",
 } as const;
 
@@ -1786,10 +1886,17 @@ export function isVerifyChangeIdentity(value: string): boolean {
 /** The id prefix the run-context event carries; with the run token it forms a stable per-run event id. */
 export const VERIFY_RUN_CONTEXT_EVENT_ID_PREFIX = "verify-run-context-";
 
-/** Build the run-context event input recording the run's drive mode, and the Change it serves when one is supplied, at start. */
+/**
+ * Build the run-context event input recording, at start, the run's drive mode, the head commit the
+ * run judges, and the Change it serves when one is supplied. `start` supplies the head commit for
+ * every scope type whenever the product's HEAD names a commit; a run-context event without one is
+ * the shape of a run opened outside a Git repository, in a repository whose HEAD is unborn, or
+ * before head commits were recorded.
+ */
 export function buildRunContextEvent(args: {
   readonly runToken: string;
   readonly driveMode: VerifyDriveMode;
+  readonly headCommit?: string;
   readonly change?: string;
   readonly at: Date;
 }): JournalEventInput {
@@ -1801,6 +1908,7 @@ export function buildRunContextEvent(args: {
     attempt: VERIFY_APPEND_ATTEMPT,
     data: {
       [VERIFY_RUN_CONTEXT_EVENT_FIELD.DRIVE_MODE]: args.driveMode,
+      ...(args.headCommit === undefined ? {} : { [VERIFY_RUN_CONTEXT_EVENT_FIELD.HEAD_COMMIT]: args.headCommit }),
       ...(args.change === undefined ? {} : { [VERIFY_RUN_CONTEXT_EVENT_FIELD.CHANGE]: args.change }),
     },
   };
@@ -1903,6 +2011,21 @@ export function changeIdentityOf(events: readonly JournalEvent[]): string | unde
   if (runContext === undefined || !isJsonRecord(runContext.data)) return undefined;
   const change = runContext.data[VERIFY_RUN_CONTEXT_EVENT_FIELD.CHANGE];
   return typeof change === "string" ? change : undefined;
+}
+
+/** A full commit object name: a SHA-1 or SHA-256 hex digest, as `start` records the run's head commit. */
+const VERIFY_HEAD_COMMIT_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
+
+/**
+ * The head commit folded from the run's run-context event, or `undefined` when the run recorded
+ * none — a run opened outside a Git repository, in a repository whose HEAD is unborn, or before
+ * head commits were recorded — or the recorded value is not a full commit object name.
+ */
+export function headCommitOf(events: readonly JournalEvent[]): string | undefined {
+  const runContext = events.find((event) => event.type === VERIFY_RUN_CONTEXT_EVENT_TYPE);
+  if (runContext === undefined || !isJsonRecord(runContext.data)) return undefined;
+  const headCommit = runContext.data[VERIFY_RUN_CONTEXT_EVENT_FIELD.HEAD_COMMIT];
+  return typeof headCommit === "string" && VERIFY_HEAD_COMMIT_PATTERN.test(headCommit) ? headCommit : undefined;
 }
 
 /** The last-sequence value a run with no events projects, one below the first assigned sequence. */

@@ -30,17 +30,21 @@ import {
   type ReviewScopeUnit,
   type ReviewTerminalMetadata,
   type ReviewTerminalState,
+  TEST_PAYLOAD_FIELD,
   VERIFY_FINDING_DISPOSITION,
+  VERIFY_SCOPE_PAYLOAD_FIELD,
   VERIFY_SCOPE_SEPARATOR,
   VERIFY_SCOPE_TYPE,
   VERIFY_VERIFICATION_TYPE,
   type VerifyFindingDisposition,
+  type VerifyVerificationType,
 } from "@/domains/verify/verify";
 import { VERIFICATION_RUN_CLI_SURFACE, VERIFY_CLI } from "@/interfaces/cli/verify";
 import type { JsonValue } from "@/lib/agent-run-journal";
 import { GIT_MODIFY_STATUS_EXAMPLE, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
+import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import { SPEC_TREE_GRAMMAR } from "@/lib/spec-tree/config";
-import { arbitrarySourceFilePath } from "@testing/generators/literal/literal";
+import { arbitrarySourceFilePath, arbitraryTestFilePath } from "@testing/generators/literal/literal";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 
 const VERIFY_VERIFICATION_TYPES: readonly string[] = Object.values(VERIFY_VERIFICATION_TYPE);
@@ -735,8 +739,126 @@ export function formatNameStatusZ(paths: readonly string[]): string {
   return paths.flatMap((path) => [GIT_MODIFY_STATUS_EXAMPLE, path]).join(GIT_NULL_RECORD_SEPARATOR);
 }
 
+/**
+ * A valid scope unit of each verification type that a run may record as its first unit, given the
+ * run's scope identity: a parentless, required audit unit whose subject is the run's scope identity
+ * (the anchoring a file-scoped audit run demands of its root), a review unit, and a test module.
+ */
+const RUN_FIRST_SCOPE_UNIT: {
+  readonly [Type in VerifyVerificationType]: (scopeIdentity: string) => fc.Arbitrary<object>;
+} = {
+  [VERIFY_VERIFICATION_TYPE.AUDIT]: (scopeIdentity) =>
+    arbitraryAuditScopeUnit().map(({ parentUnitId: _parentUnitId, ...unit }) => ({
+      ...unit,
+      subject: scopeIdentity,
+      coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
+    })),
+  [VERIFY_VERIFICATION_TYPE.REVIEW]: () => arbitraryReviewScopeUnit(),
+  [VERIFY_VERIFICATION_TYPE.TEST]: () => fc.record({ [TEST_PAYLOAD_FIELD.MODULE_ID]: arbitraryTestFilePath() }),
+};
+
+/**
+ * A spelling of a product-relative path that names the same file: the path itself with one
+ * current-directory segment inserted before one of its segments, so `src/a.ts` may be spelled
+ * `./src/a.ts` or `src/./a.ts`. A current-directory segment names the directory that holds it, so
+ * every spelling denotes the drawn path.
+ */
+function arbitraryEquivalentPathSpelling(path: string): fc.Arbitrary<string> {
+  const separator = VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.SEPARATOR.CANONICAL;
+  const segments = path.split(separator);
+  return fc.integer({ min: 0, max: segments.length - 1 }).map((index) =>
+    [
+      ...segments.slice(0, index),
+      VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.CURRENT_DIRECTORY,
+      ...segments.slice(index),
+    ].join(separator)
+  );
+}
+
+/** The scope payloads and construction facts of one judged-paths case over a run's head commit. */
+export interface JudgedPathsCase {
+  /** A first scope unit whose judged paths name only the held file, spelled `heldSpelling`. */
+  readonly heldPayload: JsonValue;
+  /** A first scope unit whose judged paths name the held file and the absent file, in drawn order. */
+  readonly absentPayload: JsonValue;
+  /** The spelling the payloads use for the file the head commit holds. */
+  readonly heldSpelling: string;
+  /** A product-relative file distinct from the held file, which the head commit does not hold. */
+  readonly absentPath: string;
+  /** The entry index of the held file in `heldPayload`'s judged paths. */
+  readonly heldOnlyIndex: number;
+  /** The entry index of the held file in `absentPayload`'s judged paths. */
+  readonly heldIndex: number;
+  /** The entry index of the absent file in `absentPayload`'s judged paths. */
+  readonly absentIndex: number;
+}
+
+/** A scope unit as a JSON payload carrying `judgedPaths` as its type-neutral judged-paths field. */
+function scopeUnitWithJudgedPaths(unit: object, judgedPaths: readonly string[]): JsonValue {
+  return JSON.parse(JSON.stringify({ ...unit, [VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_PATHS]: judgedPaths })) as JsonValue;
+}
+
+/**
+ * A valid first scope unit of a run of `verificationType` whose scope identity is `scopeIdentity`,
+ * carrying `judgedPaths` — files the run's head commit holds — as its judged-paths field.
+ */
+function arbitraryJudgedScopeUnit(
+  verificationType: VerifyVerificationType,
+  scopeIdentity: string,
+  judgedPaths: readonly string[],
+): fc.Arbitrary<JsonValue> {
+  return RUN_FIRST_SCOPE_UNIT[verificationType](scopeIdentity).map((unit) =>
+    scopeUnitWithJudgedPaths(unit, judgedPaths)
+  );
+}
+
+/**
+ * One judged-paths case for a run of `verificationType` whose scope identity is `scopeIdentity` and
+ * whose head commit holds exactly the product-relative file `heldPath` among the paths drawn here.
+ * Each payload is a valid first scope unit of the type carrying the type-neutral judged-paths field.
+ */
+function arbitraryJudgedPathsCase(
+  verificationType: VerifyVerificationType,
+  scopeIdentity: string,
+  heldPath: string,
+): fc.Arbitrary<JudgedPathsCase> {
+  return fc
+    .record({
+      unit: RUN_FIRST_SCOPE_UNIT[verificationType](scopeIdentity),
+      heldSpelling: arbitraryEquivalentPathSpelling(heldPath),
+      absentPath: arbitrarySourceFilePath().filter((path) => path !== heldPath),
+      absentFirst: fc.boolean(),
+    })
+    .map(({ unit, heldSpelling, absentPath, absentFirst }) => {
+      const heldOnly = [heldSpelling];
+      const judgedPaths = absentFirst ? [absentPath, heldSpelling] : [heldSpelling, absentPath];
+      return {
+        heldPayload: scopeUnitWithJudgedPaths(unit, heldOnly),
+        absentPayload: scopeUnitWithJudgedPaths(unit, judgedPaths),
+        heldSpelling,
+        absentPath,
+        heldOnlyIndex: heldOnly.indexOf(heldSpelling),
+        heldIndex: judgedPaths.indexOf(heldSpelling),
+        absentIndex: judgedPaths.indexOf(absentPath),
+      };
+    });
+}
+
 export const VERIFY_TEST_GENERATOR = {
   verificationType: (): fc.Arbitrary<string> => fc.constantFrom(...VERIFY_VERIFICATION_TYPES),
+  judgedPathsCase: (
+    verificationType: VerifyVerificationType,
+    scopeIdentity: string,
+    heldPath: string,
+  ): fc.Arbitrary<JudgedPathsCase> => arbitraryJudgedPathsCase(verificationType, scopeIdentity, heldPath),
+  judgedScopeUnit: (
+    verificationType: VerifyVerificationType,
+    scopeIdentity: string,
+    judgedPaths: readonly string[],
+  ): fc.Arbitrary<JsonValue> => arbitraryJudgedScopeUnit(verificationType, scopeIdentity, judgedPaths),
+  /** A valid first scope unit of a run of `verificationType` whose payload names no judged file. */
+  unjudgedScopeUnit: (verificationType: VerifyVerificationType, scopeIdentity: string): fc.Arbitrary<JsonValue> =>
+    RUN_FIRST_SCOPE_UNIT[verificationType](scopeIdentity).map((unit) => JSON.parse(JSON.stringify(unit)) as JsonValue),
   // Draws the open complement of the supported scope types. The inherited-property branch keeps
   // prototype-chain names in the domain: a registry lookup written with `in` rather than
   // `Object.hasOwn` resolves them to inherited members, which arbitrary strings would not expose.
@@ -751,6 +873,16 @@ export const VERIFY_TEST_GENERATOR = {
       .tuple(VERIFY_TEST_GENERATOR.changesetRef(), VERIFY_TEST_GENERATOR.changesetRef())
       .filter(([base, head]) => base !== head)
       .map(([base, head]) => ({ base, head })),
+  /**
+   * The layout of a real repository whose changeset head is named by a branch rather than a commit:
+   * the branch name, drawn from the changeset revision domain minus the `HEAD` name Git reserves,
+   * and the product-relative file the head commit adds.
+   */
+  headCommitRepository: (): fc.Arbitrary<{ readonly headBranch: string; readonly filePath: string }> =>
+    fc.record({
+      headBranch: VERIFY_TEST_GENERATOR.changesetRef().filter((ref) => ref !== GIT_ROOT_COMMAND.HEAD),
+      filePath: arbitrarySourceFilePath(),
+    }),
   changesetScopeScenario: (): fc.Arbitrary<{
     readonly range: { readonly base: string; readonly head: string };
     readonly changedPaths: readonly string[];

@@ -1,12 +1,15 @@
 import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { execa } from "execa";
-
-import { verifyChangeRunsCommand, type VerifyChangeRunsDeps } from "@/commands/verify/change-runs";
+import {
+  verifyChangeRunsCommand,
+  type VerifyChangeRunsDeps,
+  verifyRunComparisonCommand,
+} from "@/commands/verify/change-runs";
 import {
   VERIFY_CLI_EXIT_CODE,
   verifyAppendFindingCommand,
+  verifyAppendScopeCommand,
   type VerifyCliDeps,
   verifyFinishCommand,
   verifyStartCommand,
@@ -15,7 +18,7 @@ import {
   type VerifyStatusReport,
 } from "@/commands/verify/cli";
 import type { CliCommandResult } from "@/config/types";
-import type { VerifyChangeRunsReport } from "@/domains/verify/change-runs";
+import type { VerifyChangeRunsReport, VerifyRunComparisonReport } from "@/domains/verify/change-runs";
 import {
   VERIFY_DRIVE_MODE,
   VERIFY_INPUT_SOURCE,
@@ -27,13 +30,12 @@ import {
   type VerifyScopeType,
   type VerifyVerificationType,
 } from "@/domains/verify/verify";
+import type { JsonValue } from "@/lib/agent-run-journal";
 import { detectGitCommonDirProductRoot, getCurrentBranch, getHeadSha, type GitDependencies } from "@/lib/git/root";
 import { defaultStateStoreFileSystem, resolveBranchIdentity, slugBranchIdentity } from "@/lib/state-store";
-import type { ChangeRunsScenario } from "@testing/generators/verify/change-runs";
+import type { ChangeRunsScenario, RunComparisonFile } from "@testing/generators/verify/change-runs";
 import { type FindingWithKey, sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import {
-  buildGitTestEnvironment,
-  GIT_TEST_CONFIG,
   GIT_TEST_FLAGS,
   GIT_TEST_REF,
   GIT_TEST_SUBCOMMANDS,
@@ -41,13 +43,12 @@ import {
   runGit,
 } from "@testing/harnesses/git-test-constants";
 import { createRecordingStreamSink } from "@testing/harnesses/verify/harness";
+import { initializeVerifyRepository, realVerifyGitDependencies } from "@testing/harnesses/verify/repository";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const CHANGE_RUNS_TEMP_PREFIX = "verify-change-runs-";
 const MAIN_CHECKOUT_DIRECTORY = "product";
-const GIT_FAILURE_EXIT_CODE = 1;
-const BASE_COMMIT_MESSAGE = "Initialize change-runs fixture";
-const HEAD_COMMIT_MESSAGE = "Add the verified file";
+const COMMIT_FILES_MESSAGE = "Commit files a run comparison judges";
 
 /**
  * A run a test started: the selectors `start` received, the drive mode it was opened with, the run
@@ -66,7 +67,8 @@ export interface StartedChangeRun {
 
 /**
  * Which run to start: its verification type and scope type, the Change it serves, the checkout to
- * start it from, and the drive mode `start` records — caller-driven unless spx opens the run itself.
+ * start it from, the drive mode `start` records — caller-driven unless spx opens the run itself —
+ * and, for a changeset scope, the commit the range ends at, the repository's head commit unless named.
  */
 export interface ChangeRunRequest {
   readonly verificationType: VerifyVerificationType;
@@ -74,11 +76,12 @@ export interface ChangeRunRequest {
   readonly driveMode?: VerifyDriveMode;
   readonly change?: string;
   readonly cwd?: string;
+  readonly changesetHead?: string;
 }
 
 /**
  * A real Git repository with a base commit and a head commit that adds the scenario's file, plus
- * the lifecycle operations a listing test drives. Every operation runs the production verify
+ * the lifecycle operations a listing or run-comparison test drives. Every operation runs the production verify
  * commands against real Git and the real filesystem and returns their results or handles.
  */
 export interface ChangeRunsRepository {
@@ -90,13 +93,19 @@ export interface ChangeRunsRepository {
   detachHead(): Promise<void>;
   renameBranch(from: string, to: string): Promise<void>;
   addWorktree(directory: string, branch: string): Promise<string>;
+  /** Write each file into the main checkout, commit them on its checked-out branch, and return the new commit. */
+  commitFiles(files: readonly RunComparisonFile[]): Promise<string>;
   startRun(request: ChangeRunRequest): Promise<StartedChangeRun>;
+  /** Record `payload` as the run's scope evidence through the production `scope add` operation. */
+  appendScope(run: StartedChangeRun, payload: JsonValue): Promise<void>;
   appendFindings(run: StartedChangeRun, findings: readonly FindingWithKey[]): Promise<void>;
   finish(run: StartedChangeRun, terminalStatus: string): Promise<void>;
   status(run: StartedChangeRun): Promise<VerifyStatusReport>;
   /** Delete the run's recorded-input sidecar from the store, leaving its journal untouched. */
   removeRecordedInput(run: StartedChangeRun): Promise<void>;
   listChangeRuns(change: string, cwd?: string): Promise<CliCommandResult>;
+  /** Compare two started runs of `change` through the production run-comparison command, from the main checkout. */
+  compareRuns(change: string, first: StartedChangeRun, second: StartedChangeRun): Promise<CliCommandResult>;
 }
 
 /**
@@ -110,25 +119,11 @@ async function branchSlugAt(cwd: string, git: GitDependencies): Promise<string> 
   return slugBranchIdentity(resolveBranchIdentity({ ...(branchName === undefined ? {} : { branchName }), headSha }));
 }
 
-function realGitDependencies(): GitDependencies {
-  return {
-    execa: async (command, args, options) => {
-      const result = await execa(command, [...args], {
-        ...(options?.cwd === undefined ? {} : { cwd: options.cwd }),
-        env: buildGitTestEnvironment(),
-        extendEnv: false,
-        reject: false,
-      });
-      return { exitCode: result.exitCode ?? GIT_FAILURE_EXIT_CODE, stdout: result.stdout, stderr: result.stderr };
-    },
-  };
-}
-
 function lifecycleDeps(cwd: string, inputContent: string, driveMode: VerifyDriveMode): VerifyCliDeps {
   return {
     cwd,
     driveMode,
-    git: realGitDependencies(),
+    git: realVerifyGitDependencies(),
     processEnv: {},
     fs: defaultStateStoreFileSystem,
     readInputSource: async () => inputContent,
@@ -138,7 +133,7 @@ function lifecycleDeps(cwd: string, inputContent: string, driveMode: VerifyDrive
 }
 
 function listingDeps(cwd: string): VerifyChangeRunsDeps {
-  return { cwd, git: realGitDependencies(), fs: defaultStateStoreFileSystem };
+  return { cwd, git: realVerifyGitDependencies(), fs: defaultStateStoreFileSystem };
 }
 
 function requireOk(result: CliCommandResult, operation: string): CliCommandResult {
@@ -146,29 +141,6 @@ function requireOk(result: CliCommandResult, operation: string): CliCommandResul
     throw new Error(`change-runs harness: ${operation} failed: ${result.output}`);
   }
   return result;
-}
-
-async function initializeRepository(productDir: string, filePath: string): Promise<{
-  readonly baseCommit: string;
-  readonly headCommit: string;
-}> {
-  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
-  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL]);
-  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.USER_NAME_KEY, GIT_TEST_CONFIG.USER_NAME]);
-  await runGit(productDir, [
-    GIT_TEST_SUBCOMMANDS.COMMIT,
-    GIT_TEST_FLAGS.ALLOW_EMPTY,
-    GIT_TEST_FLAGS.COMMIT_MESSAGE,
-    BASE_COMMIT_MESSAGE,
-  ]);
-  const baseCommit = await readGit(productDir, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_TEST_REF.HEAD_NAME]);
-  const absoluteFile = join(productDir, filePath);
-  await mkdir(dirname(absoluteFile), { recursive: true });
-  await writeFile(absoluteFile, HEAD_COMMIT_MESSAGE);
-  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, filePath]);
-  await runGit(productDir, [GIT_TEST_SUBCOMMANDS.COMMIT, GIT_TEST_FLAGS.COMMIT_MESSAGE, HEAD_COMMIT_MESSAGE]);
-  const headCommit = await readGit(productDir, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_TEST_REF.HEAD_NAME]);
-  return { baseCommit, headCommit };
 }
 
 /**
@@ -185,17 +157,18 @@ export async function withChangeRunsRepository<T>(
     const root = await realpath(tempDir);
     const productDir = join(root, MAIN_CHECKOUT_DIRECTORY);
     await mkdir(productDir);
-    const { baseCommit, headCommit } = await initializeRepository(productDir, scenario.filePath);
+    const { baseCommit, headCommit } = await initializeVerifyRepository(productDir, scenario.filePath);
     const inputContent = JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.inputPayload()));
+    const idempotencyKey = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
     const lifecycleSelectors = (run: StartedChangeRun) => ({
       verificationType: run.verificationType,
       scopeType: run.scopeType,
       scope: run.scope,
       run: run.runToken,
     });
-    const scopeFor = (scopeType: VerifyScopeType): string =>
+    const scopeFor = (scopeType: VerifyScopeType, changesetHead: string): string =>
       scopeType === VERIFY_SCOPE_TYPE.CHANGESET
-        ? `${baseCommit}${VERIFY_SCOPE_SEPARATOR}${headCommit}`
+        ? `${baseCommit}${VERIFY_SCOPE_SEPARATOR}${changesetHead}`
         : scenario.filePath;
 
     const repository: ChangeRunsRepository = {
@@ -219,11 +192,21 @@ export async function withChangeRunsRepository<T>(
         ]);
         return realpath(worktreeDir);
       },
+      commitFiles: async (files) => {
+        for (const file of files) {
+          const absoluteFile = join(productDir, file.path);
+          await mkdir(dirname(absoluteFile), { recursive: true });
+          await writeFile(absoluteFile, file.content);
+          await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, file.path]);
+        }
+        await runGit(productDir, [GIT_TEST_SUBCOMMANDS.COMMIT, GIT_TEST_FLAGS.COMMIT_MESSAGE, COMMIT_FILES_MESSAGE]);
+        return readGit(productDir, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_TEST_REF.HEAD_NAME]);
+      },
       startRun: async (request) => {
         const cwd = request.cwd ?? productDir;
         const driveMode = request.driveMode ?? VERIFY_DRIVE_MODE.CALLER;
-        const scope = scopeFor(request.scopeType);
-        const branchSlug = await branchSlugAt(cwd, realGitDependencies());
+        const scope = scopeFor(request.scopeType, request.changesetHead ?? headCommit);
+        const branchSlug = await branchSlugAt(cwd, realVerifyGitDependencies());
         const started = requireOk(
           await verifyStartCommand(
             {
@@ -246,6 +229,15 @@ export async function withChangeRunsRepository<T>(
           cwd,
           branchSlug,
         };
+      },
+      appendScope: async (run, payload) => {
+        requireOk(
+          await verifyAppendScopeCommand(
+            { ...lifecycleSelectors(run), payload: JSON.stringify(payload), idempotencyKey },
+            lifecycleDeps(run.cwd, inputContent, run.driveMode),
+          ),
+          VERIFY_VERB.APPEND_SCOPE,
+        );
       },
       appendFindings: async (run, findings) => {
         for (const entry of findings) {
@@ -279,7 +271,7 @@ export async function withChangeRunsRepository<T>(
         return JSON.parse(status.output) as VerifyStatusReport;
       },
       removeRecordedInput: async (run) => {
-        const product = await detectGitCommonDirProductRoot(run.cwd, realGitDependencies());
+        const product = await detectGitCommonDirProductRoot(run.cwd, realVerifyGitDependencies());
         const inputPath = verifyInputRecordPath({
           productDir: product.productDir,
           branchSlug: run.branchSlug,
@@ -290,6 +282,11 @@ export async function withChangeRunsRepository<T>(
         await rm(inputPath.value);
       },
       listChangeRuns: (change, cwd) => verifyChangeRunsCommand({ change }, listingDeps(cwd ?? productDir)),
+      compareRuns: (change, first, second) =>
+        verifyRunComparisonCommand(
+          { change, firstRun: first.runToken, secondRun: second.runToken },
+          listingDeps(productDir),
+        ),
     };
     return callback(repository);
   });
@@ -298,6 +295,11 @@ export async function withChangeRunsRepository<T>(
 /** Parse a successful listing's JSON report. */
 export function parseChangeRunsReport(output: string): VerifyChangeRunsReport {
   return JSON.parse(output) as VerifyChangeRunsReport;
+}
+
+/** Parse a successful run comparison's JSON report. */
+export function parseRunComparisonReport(output: string): VerifyRunComparisonReport {
+  return JSON.parse(output) as VerifyRunComparisonReport;
 }
 
 /**

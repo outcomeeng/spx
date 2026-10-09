@@ -25,6 +25,8 @@ const FIELD_REASON_SUFFIX = " is missing or malformed";
 const REQUIREMENT_REASON_PREFIX = "payload does not satisfy: ";
 const FIELD_PATH_SEPARATOR = ".";
 const FIELD_PATH_QUOTE = "\"";
+const FIELD_PATH_LIST_PREFIX = " at ";
+const FIELD_PATH_LIST_SEPARATOR = ", ";
 
 /**
  * The structural requirements a payload can fail beyond a single field being missing or
@@ -50,6 +52,8 @@ export const EVIDENCE_REQUIREMENT = {
   AUDIT_FILE_RUN_HAS_ONE_ROOT: "a file-scoped run records no second root unit",
   AUDIT_PARENT_IS_RECORDED: "a child unit names a parent unit already recorded in the run",
   AUDIT_FINDING_UNIT_IS_RECORDED: "a finding names a unit already recorded as scope evidence in the run",
+  JUDGED_PATHS_NEED_HEAD_COMMIT: "a run recording judged paths carries the head commit recorded at its start",
+  JUDGED_PATH_HELD_AT_HEAD: "every judged path names a file the run's head commit holds",
 } as const;
 
 export type EvidenceRequirement = (typeof EVIDENCE_REQUIREMENT)[keyof typeof EVIDENCE_REQUIREMENT];
@@ -81,6 +85,21 @@ export function rejectEvidenceField(...path: readonly string[]): EvidenceValidat
 /** Refuse a payload because it does not meet a structural requirement. */
 export function rejectEvidenceRequirement(requirement: EvidenceRequirement): EvidenceValidationResult<never> {
   return { ok: false, reason: `${REQUIREMENT_REASON_PREFIX}${requirement}` };
+}
+
+/**
+ * Refuse a payload because some of its entries do not meet a structural requirement, naming the
+ * field path of each failing entry so a producer finds them in the payload it sent. The paths are
+ * composed from product-authored segments and entry indexes, never from the entries' own values.
+ */
+export function rejectEvidenceRequirementAt(
+  requirement: EvidenceRequirement,
+  fieldPaths: readonly (readonly string[])[],
+): EvidenceValidationResult<never> {
+  const located = fieldPaths
+    .map((path) => `${FIELD_PATH_QUOTE}${evidenceFieldPath(...path)}${FIELD_PATH_QUOTE}`)
+    .join(FIELD_PATH_LIST_SEPARATOR);
+  return { ok: false, reason: `${REQUIREMENT_REASON_PREFIX}${requirement}${FIELD_PATH_LIST_PREFIX}${located}` };
 }
 
 /**

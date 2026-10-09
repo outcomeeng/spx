@@ -34,6 +34,7 @@ export const GIT_TEST_FLAGS = {
   CONFIG_OVERRIDE: "-c",
   DETACH: "--detach",
   EXCLUDE_STANDARD: "--exclude-standard",
+  FORCE: "--force",
   FULL_NAME: "--full-name",
   IS_INSIDE_WORK_TREE: "--is-inside-work-tree",
   MOVE: "--move",
@@ -73,6 +74,7 @@ export const GIT_TEST_CONFIG = {
 
 export const GIT_TEST_ENVIRONMENT_KEYS = {
   AUTHOR_NAME: "GIT_AUTHOR_NAME",
+  CEILING_DIRECTORIES: "GIT_CEILING_DIRECTORIES",
   COMMITTER_EMAIL: "GIT_COMMITTER_EMAIL",
   DIR: "GIT_DIR",
   WORK_TREE: "GIT_WORK_TREE",

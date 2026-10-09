@@ -31,6 +31,7 @@ import {
   evidenceValidatorFor,
   findAppendedSequence,
   findTerminalEvent,
+  headCommitOf,
   type InputDescriptor,
   isVerifyChangeIdentity,
   isVerifyTerminalStatus,
@@ -40,8 +41,10 @@ import {
   projectVerifyRun,
   type RecordedInput,
   type RunLocator,
+  scopeJudgedPathsOf,
   TERMINAL_METADATA_VALIDATION_ERROR,
   terminalMetadataValidatorFor,
+  validateJudgedPathsAtHead,
   VERIFY_APPEND_EVENT_TYPE,
   VERIFY_DRIVE_MODE,
   VERIFY_EVIDENCE_KIND,
@@ -64,12 +67,15 @@ import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent
 import { writeFileAtomic } from "@/lib/atomic-file-write";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { changedPathsForCommittedRange } from "@/lib/git/changed-paths";
+import { listCommitFiles } from "@/lib/git/commit-files";
 import {
   defaultGitDependencies,
   detectGitCommonDirProductRoot,
   getCurrentBranch,
   getHeadSha,
   type GitDependencies,
+  isHeadUnborn,
+  resolveCommitSha,
 } from "@/lib/git/root";
 import {
   defaultStateStoreFileSystem,
@@ -110,13 +116,15 @@ export const VERIFY_CLI_ERROR = {
   CHANGE_IDENTITY_INVALID: "spx verification run start requires a Change identity in the canonical owner/repo#N form",
   SPX_DRIVEN_APPEND_REJECTED: "spx verification run cannot add caller evidence to a run spx drives",
   APPEND_FAILED: "spx verification run could not append the evidence event",
+  JUDGED_PATHS_UNREADABLE: "spx verification run scope add could not read the files the run's head commit holds",
   TERMINAL_STATUS_REQUIRED: "spx verification run finish requires --terminal-status <status>",
   TERMINAL_STATUS_INVALID:
     "spx verification run finish requires a terminal status in the journal terminal-status vocabulary",
   TERMINAL_METADATA_INVALID: "spx verification run terminal metadata failed verification-type validation",
   TERMINAL_STATUS_CONFLICT: "spx verification run terminal status conflicts with the run's recorded evidence",
   FINISH_FAILED: "spx verification run could not record terminal completion",
-  RUN_CONTEXT_FAILED: "spx verification run could not record the run drive mode",
+  HEAD_COMMIT_UNRESOLVED: "spx verification run start could not resolve the head commit the run judges",
+  RUN_CONTEXT_FAILED: "spx verification run could not record the run context",
   SEAL_FAILED: "spx verification run could not seal the run journal",
   STATUS_FAILED: "spx verification run could not read the run status",
   RENDER_FAILED: "spx verification run could not render the run projection",
@@ -124,6 +132,7 @@ export const VERIFY_CLI_ERROR = {
 
 export const VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD = {
   RUN: "run=",
+  CHANGE: "change=",
   VERIFICATION_TYPE: "verification-type=",
   SCOPE_TYPE: "scope-type=",
   SCOPE: "scope=",
@@ -276,6 +285,7 @@ export interface VerifyRenderReport {
 interface VerifyResolvedScope {
   readonly productDir: string;
   readonly worktreeRoot: string;
+  readonly isGitRepo: boolean;
   readonly branchSlug: string;
   readonly backendIdentity: JournalEdgeBackend;
 }
@@ -344,6 +354,7 @@ async function resolveVerifyScope(deps: VerifyCliDeps): Promise<Result<VerifyRes
     value: {
       productDir: product.productDir,
       worktreeRoot: product.worktreeRoot,
+      isGitRepo: product.isGitRepo,
       branchSlug: slugBranchIdentity(branchIdentity),
       backendIdentity: backend.value,
     },
@@ -383,6 +394,11 @@ interface VerifyStartScopeResolution {
   readonly selector: VerifyRunSelector;
   readonly context: VerifyStartContextSubjectOptions;
   readonly resolvedScope: readonly string[];
+  /**
+   * The revision whose commit the run judges: a changeset run judges its range's head. Absent for a
+   * scope that judges the checkout's HEAD when `start` runs, so its resolver reads no git state.
+   */
+  readonly headRevision?: string;
 }
 
 type VerifyStartScopeResolver = (
@@ -424,6 +440,7 @@ const VERIFY_SCOPE_RESOLVERS: Readonly<Record<VerifyScopeType, VerifyScopeResolv
             head: changeset.value.head,
           },
           resolvedScope: resolvedScope.value,
+          headRevision: changeset.value.head,
         },
       };
     },
@@ -452,6 +469,31 @@ const VERIFY_SCOPE_RESOLVERS: Readonly<Record<VerifyScopeType, VerifyScopeResolv
 function verifyScopeResolverFor(scopeType: string): VerifyScopeResolver | undefined {
   if (!Object.hasOwn(VERIFY_SCOPE_RESOLVERS, scopeType)) return undefined;
   return (VERIFY_SCOPE_RESOLVERS as Readonly<Record<string, VerifyScopeResolver>>)[scopeType];
+}
+
+/**
+ * Resolve the head commit a starting run judges: the commit the scope's head revision names, or the
+ * checkout's HEAD when the scope names none. The commit is recorded once at start, so later readers
+ * derive each judged file's content identity from it rather than from a stored digest. Outside a Git
+ * repository, and in one whose HEAD is unborn because nothing is committed yet, the run has no head
+ * commit to judge, so it records none; such a run still rejects judged paths, which need a recorded
+ * head commit. A head revision the scope names must resolve, unborn HEAD or not.
+ */
+async function resolveStartHeadCommit(
+  resolution: VerifyStartScopeResolution,
+  resolved: VerifyResolvedScope,
+  deps: VerifyCliDeps,
+): Promise<Result<string | undefined>> {
+  if (!resolved.isGitRepo) return { ok: true, value: undefined };
+  const git = deps.git ?? defaultGitDependencies;
+  const unresolved: Result<string | undefined> = { ok: false, error: VERIFY_CLI_ERROR.HEAD_COMMIT_UNRESOLVED };
+  if (resolution.headRevision !== undefined) {
+    const revisionCommit = await resolveCommitSha(resolution.headRevision, resolved.worktreeRoot, git);
+    return revisionCommit === null ? unresolved : { ok: true, value: revisionCommit };
+  }
+  const headCommit = await getHeadSha(resolved.worktreeRoot, git);
+  if (headCommit !== null) return { ok: true, value: headCommit };
+  return await isHeadUnborn(resolved.worktreeRoot, git) ? { ok: true, value: undefined } : unresolved;
 }
 
 function canonicalizeVerifyRunSelector(scopeType: string, scopeIdentity: string): Result<VerifyRunSelector> {
@@ -620,6 +662,7 @@ interface CompleteVerifyStartArgs {
   readonly branchSlug: string;
   readonly backendIdentity: string;
   readonly resolvedScope: readonly string[];
+  readonly headCommit: string | undefined;
   readonly inputDigest: string;
   readonly inputContent: string;
   readonly contextDigest: string;
@@ -628,9 +671,10 @@ interface CompleteVerifyStartArgs {
 }
 
 /**
- * Record the run's drive mode on a verify-owned run-context event so status and render fold it to
- * filter next actions. The caller path defaults to caller-driven; spx execution supplies spx-driven.
- * The append streams through the same journal binding the evidence-append verbs use.
+ * Record the run's drive mode and the head commit it judges on a verify-owned run-context event, so
+ * status and render fold the drive mode to filter next actions. The caller path defaults to
+ * caller-driven; spx execution supplies spx-driven. The append streams through the same journal
+ * binding the evidence-append verbs use.
  */
 async function recordRunContext(
   runToken: string,
@@ -642,6 +686,7 @@ async function recordRunContext(
   const event = buildRunContextEvent({
     runToken,
     driveMode: deps.driveMode ?? VERIFY_DRIVE_MODE.CALLER,
+    ...(args.headCommit === undefined ? {} : { headCommit: args.headCommit }),
     ...(args.options.change === undefined ? {} : { change: args.options.change }),
     at: deps.now?.() ?? new Date(),
   });
@@ -720,7 +765,7 @@ async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promis
     return rollbackStartAndError(startedRunArtifacts(args, runFile), persisted.error, deps);
   }
 
-  // Record the run's drive mode last: the append streams to the backend, and a rollback cannot
+  // Record the run context — drive mode and head commit — last: the append streams to the backend, and a rollback cannot
   // un-stream an emitted event, so it runs only after every rollbackable local write (run file,
   // context, input sidecar) has succeeded. On failure the sidecar joins the rollback set.
   const runContext = await recordRunContext(runToken, args, deps);
@@ -755,7 +800,7 @@ async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promis
 }
 
 /**
- * Start a verification run: resolve its scope, create a canonical
+ * Start a verification run: resolve its scope and the head commit it judges, create a canonical
  * verification context, open a run journal, record the verification input read from `--input`, and
  * report the run token, context digest, changed scope, input descriptor, and run locator a caller
  * persists to address the run.
@@ -775,6 +820,8 @@ export async function verifyStartCommand(
   if (!resolved.ok) return errorResult(resolved.error);
   const scope = await resolveVerifyStartScope(options.scopeType, options.scope, resolved.value.worktreeRoot, deps);
   if (!scope.ok) return errorResult(scope.error);
+  const headCommit = await resolveStartHeadCommit(scope.value, resolved.value, deps);
+  if (!headCommit.ok) return errorResult(headCommit.error);
   const normalizedOptions: VerifyStartCliOptions = {
     ...options,
     scopeType: scope.value.selector.scopeType,
@@ -808,6 +855,7 @@ export async function verifyStartCommand(
     branchSlug: resolved.value.branchSlug,
     backendIdentity: resolved.value.backendIdentity,
     resolvedScope: scope.value.resolvedScope,
+    headCommit: headCommit.value,
     inputDigest: inputDigest.value,
     inputContent: inputContent.value,
     contextDigest,
@@ -855,6 +903,7 @@ interface PreparedAppend {
   readonly journalScope: JournalRunCliScope;
   readonly namespace: string;
   readonly backendIdentity: string;
+  readonly worktreeRoot: string;
   readonly existingEvents: readonly JournalEvent[];
   readonly selector: VerifyRunSelector;
 }
@@ -981,6 +1030,7 @@ async function prepareAppend(options: VerifyAppendCliOptions, deps: VerifyCliDep
       journalScope,
       namespace: namespace.value,
       backendIdentity: resolved.value.backendIdentity,
+      worktreeRoot: resolved.value.worktreeRoot,
       existingEvents: existingEvents.value,
       selector: selector.value,
     },
@@ -1054,6 +1104,39 @@ function validateAppendEvidence(
   return { ok: true, value: JSON.parse(JSON.stringify(validated.value)) as JsonValue };
 }
 
+/**
+ * Check the judged paths an accepted scope payload names against the files the run's head commit
+ * holds, read from the commit's tree through the injected git runner. A payload naming no judged
+ * path reads no git state. The run's head commit is the one `start` recorded on the run-context
+ * event, so every judged path is anchored to the commit the run judges rather than to the checkout.
+ */
+async function validateScopeJudgedPaths(
+  payload: JsonValue,
+  verificationType: string,
+  prepared: PreparedAppend,
+  deps: VerifyCliDeps,
+): Promise<Result<void>> {
+  const judgedPaths = scopeJudgedPathsOf(payload);
+  if (judgedPaths.length === 0) return { ok: true, value: undefined };
+  const headCommit = headCommitOf(prepared.existingEvents);
+  const filesHeldAtHead = headCommit === undefined
+    ? new Set<string>()
+    : await listCommitFiles(headCommit, judgedPaths, prepared.worktreeRoot, deps.git ?? defaultGitDependencies);
+  if (filesHeldAtHead === undefined) return { ok: false, error: VERIFY_CLI_ERROR.JUDGED_PATHS_UNREADABLE };
+  const held = validateJudgedPathsAtHead(judgedPaths, headCommit, filesHeldAtHead);
+  if (held.ok) return { ok: true, value: undefined };
+  return {
+    ok: false,
+    error: renderVerifyRejection({
+      headline: VERIFY_CLI_ERROR.SCOPE_INVALID,
+      verificationType,
+      evidenceKind: VERIFY_EVIDENCE_KIND.SCOPE,
+      reason: held.reason,
+      note: VERIFY_REJECTION_TEXT.APPEND_RETRY_NOTE,
+    }),
+  };
+}
+
 /** The CloudEvents type an evidence-add command records: a finding or inspected scope. */
 function appendEventType(verb: VerifyAppendVerb): VerifyAppendEventType {
   return verb === VERIFY_VERB.APPEND_FINDING ? VERIFY_APPEND_EVENT_TYPE.FINDING : VERIFY_APPEND_EVENT_TYPE.SCOPE;
@@ -1062,7 +1145,8 @@ function appendEventType(verb: VerifyAppendVerb): VerifyAppendEventType {
 /**
  * Append inspected scope or a validated finding to a started run exactly once per idempotency key.
  * The append requires an explicit `--payload` and `--idempotency-key`, validates a finding payload
- * against the run's verification type, and returns the existing journal sequence for a repeated key
+ * against the run's verification type, checks every judged path a scope payload names against the
+ * files the run's head commit holds, and returns the existing journal sequence for a repeated key
  * rather than duplicating evidence. It never reads the recorded run input as the append payload.
  */
 async function verifyAppend(
@@ -1091,6 +1175,10 @@ async function verifyAppend(
   if (parsed === undefined) return errorResult(VERIFY_CLI_ERROR.PAYLOAD_INVALID);
   const evidence = validateAppendEvidence(verb, options.verificationType, parsed, existingEvents, selector);
   if (!evidence.ok) return errorResult(evidence.error);
+  if (verb === VERIFY_VERB.APPEND_SCOPE) {
+    const judged = await validateScopeJudgedPaths(evidence.value, options.verificationType, prepared.value, deps);
+    if (!judged.ok) return errorResult(judged.error);
+  }
 
   const event = buildAppendEvent({
     eventType,

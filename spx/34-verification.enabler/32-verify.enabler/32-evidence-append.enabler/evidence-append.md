@@ -1,8 +1,8 @@
 # Evidence Append
 
-PROVIDES evidence-payload validation, verification-type scope and finding validation, and caller-supplied idempotency for verification-run evidence operations
+PROVIDES evidence-payload validation, verification-type scope and finding validation, judged-path validation against the run's head commit, and caller-supplied idempotency for verification-run evidence operations
 SO THAT a started verification run
-CAN record inspected scope and typed findings exactly once per caller intent before terminal projection renders the run
+CAN record inspected scope, the files it judged, and typed findings exactly once per caller intent before terminal projection renders the run
 
 ## Assertions
 
@@ -16,3 +16,4 @@ CAN record inspected scope and typed findings exactly once per caller intent bef
 - ALWAYS: scope evidence and finding evidence require a caller-supplied idempotency key for every evidence payload ([test](tests/verify-idempotency.compliance.l1.test.ts))
 - ALWAYS: scope evidence and finding evidence reject a run carrying a terminal-completion event ([test](tests/verify-terminal-rejection.compliance.l1.test.ts))
 - ALWAYS: an evidence append rejects when the run's recorded drive mode is spx-driven, so a caller holding the run token cannot add scope or finding evidence to a run spx opens, streams, and seals ([test](tests/verify-drive-mode.compliance.l1.test.ts))
+- ALWAYS: scope evidence that names judged files records each product-relative path, rejects a path the run's head commit does not hold, and rejects every judged path in a run that recorded no head commit ([test](tests/verify-judged-paths.compliance.l1.test.ts))

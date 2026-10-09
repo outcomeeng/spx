@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 
-import type { Command } from "commander";
+import { type Command, InvalidArgumentError } from "commander";
 
 import type { JournalStreamBinding } from "@/commands/journal/cli";
 import {
@@ -15,6 +15,8 @@ import {
   type VerifyChangeRunsCliOptions,
   verifyChangeRunsCommand,
   type VerifyChangeRunsDeps,
+  type VerifyRunComparisonCliOptions,
+  verifyRunComparisonCommand,
 } from "@/commands/verify/change-runs";
 import {
   VERIFY_CLI_EXIT_CODE,
@@ -95,6 +97,13 @@ export const VERIFY_CLI = {
   changeOption: "--change <owner/repo#N>",
   changeOptionDescription: "Change the run serves, in the canonical owner/repo#N form; omit when it serves none",
   listChangeOptionDescription: "Change whose runs are listed, in the canonical owner/repo#N form",
+  compareCommandName: VERIFY_VERB.COMPARE,
+  compareCommandDescription:
+    "Compare two runs of one Change by whether each file both runs judged changed between their head commits",
+  compareChangeOptionDescription: "Change both compared runs serve, in the canonical owner/repo#N form",
+  compareRunOptionDescription: "Run token of a compared run; given twice, the earlier run first and the later second",
+  compareRunCount: 2,
+  compareRunCountError: "spx verification run compare requires --run exactly twice, naming two runs of the Change",
   runOption: "--run <token>",
   payloadOption: "--payload <payload-source>",
   payloadOptionDescription: "Evidence payload source; stdin or a file path",
@@ -141,6 +150,11 @@ interface VerifyListActionOptions {
   readonly change: string;
 }
 
+interface VerifyCompareActionOptions {
+  readonly change: string;
+  readonly run: readonly string[];
+}
+
 interface ExecuteRunActionOptions {
   readonly recursive?: boolean;
 }
@@ -148,6 +162,7 @@ interface ExecuteRunActionOptions {
 export interface VerifyCliHandlers {
   readonly appendFinding: (options: VerifyAppendCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
   readonly appendScope: (options: VerifyAppendCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
+  readonly compare: (options: VerifyRunComparisonCliOptions, deps: VerifyChangeRunsDeps) => Promise<CliCommandResult>;
   readonly executeRun: (options: ExecuteRunCliOptions, deps: ExecuteRunCliDeps) => Promise<ExecuteRunCommandResult>;
   readonly finish: (options: VerifyFinishCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
   readonly input: (options: VerifyInputCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
@@ -160,6 +175,7 @@ export interface VerifyCliHandlers {
 const DEFAULT_VERIFY_CLI_HANDLERS: VerifyCliHandlers = {
   appendFinding: verifyAppendFindingCommand,
   appendScope: verifyAppendScopeCommand,
+  compare: verifyRunComparisonCommand,
   executeRun: executeRunCommand,
   finish: verifyFinishCommand,
   input: verifyInputCommand,
@@ -314,6 +330,39 @@ export function registerVerifyCommands(
         invocation.io,
       );
     });
+
+  // The comparison reads two runs' event histories and the judged paths' blobs at their head
+  // commits; like the listing it appends to no journal, so it binds no journal event stream.
+  runCommand
+    .command(VERIFY_CLI.compareCommandName)
+    .description(VERIFY_CLI.compareCommandDescription)
+    .requiredOption(VERIFY_CLI.changeOption, VERIFY_CLI.compareChangeOptionDescription)
+    .requiredOption(VERIFY_CLI.runOption, VERIFY_CLI.compareRunOptionDescription, collectComparedRunToken)
+    .action(async (options: VerifyCompareActionOptions, compareCommand: Command) => {
+      if (options.run.length !== VERIFY_CLI.compareRunCount) {
+        compareCommand.error(VERIFY_CLI.compareRunCountError);
+      }
+      const [firstRun, secondRun] = options.run;
+      reportCliResult(
+        await handlers.compare(
+          { change: options.change, firstRun, secondRun },
+          { cwd: invocation.resolveEffectiveInvocationDir() },
+        ),
+        invocation.io,
+      );
+    });
+}
+
+/**
+ * Accumulate each `--run` value of a comparison in the order given. A value beyond the second is a
+ * usage error, so a comparison never silently drops a run token the caller named.
+ */
+function collectComparedRunToken(value: string, previous: readonly string[] | undefined): readonly string[] {
+  const tokens = previous ?? [];
+  if (tokens.length >= VERIFY_CLI.compareRunCount) {
+    throw new InvalidArgumentError(VERIFY_CLI.compareRunCountError);
+  }
+  return [...tokens, value];
 }
 
 /**
