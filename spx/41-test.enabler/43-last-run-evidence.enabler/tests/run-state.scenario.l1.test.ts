@@ -426,6 +426,55 @@ describe("testing last-run state storage", () => {
     });
   });
 
+  it("classifies a runner outcome that omits a verdict for one of its test paths as shape-invalid evidence", async () => {
+    const runFileName = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
+    const base = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.testRunState());
+    const runnerOutcome = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runnerOutcome());
+    const stateMissingAVerdict = {
+      ...base,
+      runnerOutcomes: [{ ...runnerOutcome, pathVerdicts: runnerOutcome.pathVerdicts.slice(1) }],
+    };
+
+    await withTestingTempProductDir(async (productDir) => {
+      await writeTestingStateFile(productDir, runFileName, JSON.stringify(stateMissingAVerdict));
+
+      const runs = await readTestingRuns(productDir);
+      expect(runs.ok).toBe(true);
+      if (!runs.ok) throw new Error(runs.error);
+      expect(runs.value.terminalRuns).toEqual([]);
+      expect(runs.value.incompleteRuns.map((run) => run.reason)).toEqual([
+        TESTING_RUN_STATE_INCOMPLETE_REASON.SHAPE_INVALID_STATE,
+      ]);
+    });
+  });
+
+  it("classifies a runner outcome holding a verdict outside the recorded set as shape-invalid evidence", async () => {
+    const runFileName = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
+    const base = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.testRunState());
+    const runnerOutcome = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runnerOutcome());
+    const unrecordedVerdict = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.headSha());
+    const [firstVerdict, ...otherVerdicts] = runnerOutcome.pathVerdicts;
+    const stateWithUnrecordedVerdict = {
+      ...base,
+      runnerOutcomes: [{
+        ...runnerOutcome,
+        pathVerdicts: [{ ...firstVerdict, verdict: unrecordedVerdict }, ...otherVerdicts],
+      }],
+    };
+
+    await withTestingTempProductDir(async (productDir) => {
+      await writeTestingStateFile(productDir, runFileName, JSON.stringify(stateWithUnrecordedVerdict));
+
+      const runs = await readTestingRuns(productDir);
+      expect(runs.ok).toBe(true);
+      if (!runs.ok) throw new Error(runs.error);
+      expect(runs.value.terminalRuns).toEqual([]);
+      expect(runs.value.incompleteRuns.map((run) => run.reason)).toEqual([
+        TESTING_RUN_STATE_INCOMPLETE_REASON.SHAPE_INVALID_STATE,
+      ]);
+    });
+  });
+
   it("classifies a run-file read failure as IO incomplete evidence", async () => {
     const runFileName = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
     const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
