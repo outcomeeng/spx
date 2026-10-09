@@ -4,9 +4,9 @@ id: 01a115e6-be87-7cd9-b001-39f73f7bdd6d
 
 # Run Context
 
-PROVIDES start-time verification context creation, run-token selection, run-locator and resolved-scope reporting, changeset and file scope resolution, recorded-input replay, and recording of the run's head commit and of the Change a run serves for typed verification runs
+PROVIDES start-time verification context creation, run-token selection, run-locator and resolved-scope reporting, changeset and file scope resolution, recorded-input replay, and recording of the run's head commit when the product is a Git repository and of the Change a run serves for typed verification runs
 SO THAT evidence append and terminal projection lifecycle operations
-CAN operate on one scoped verification run with a stable subject, recorded input, unambiguous run identity, the head commit the run judges, and the Change identity the run was started for
+CAN operate on one scoped verification run with a stable subject, recorded input, unambiguous run identity, the head commit the run judges whenever the product is a Git repository, and the Change identity the run was started for
 
 ## Assertions
 
@@ -28,7 +28,7 @@ CAN operate on one scoped verification run with a stable subject, recorded input
 ### Mappings
 
 - Supported scope types map to reconstructable verification-context subjects and `resolvedScope` reports: `changeset` maps a `<base>..<head>` selector to base/head reconstruction fields plus changed product paths, while `file` maps one normalized product-relative path to a file subject plus that path ([test](tests/verify-scope.mapping.l1.test.ts))
-- ALWAYS: `start` records the run's head commit for every scope type, the `file` scope included ([test](tests/verify-head-commit.mapping.l1.test.ts))
+- ALWAYS: when the product is a Git repository, `start` records the run's head commit for every scope type, the `file` scope included; outside a Git repository, a `file`-scope `start` records no head commit and still opens the run ([test](tests/verify-head-commit.mapping.l1.test.ts))
 
 ### Compliance
 

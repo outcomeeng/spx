@@ -1,4 +1,4 @@
-import { mkdir, realpath, writeFile } from "node:fs/promises";
+import { mkdir, readdir, realpath, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { execa } from "execa";
@@ -21,12 +21,13 @@ import {
   VERIFY_SCOPE_TYPE,
 } from "@/domains/verify/verify";
 import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
-import type { GitDependencies } from "@/lib/git/root";
+import { GIT_DIR_BASENAME, type GitDependencies } from "@/lib/git/root";
 import { defaultStateStoreFileSystem } from "@/lib/state-store";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import {
   buildGitTestEnvironment,
   GIT_TEST_CONFIG,
+  GIT_TEST_ENVIRONMENT_KEYS,
   GIT_TEST_FLAGS,
   GIT_TEST_REF,
   GIT_TEST_SUBCOMMANDS,
@@ -47,13 +48,20 @@ export interface VerifyRepositoryCommits {
   readonly headCommit: string;
 }
 
-/** Git dependencies that run real `git` in a clean environment, reporting a missing exit code as a failure. */
-export function realVerifyGitDependencies(): GitDependencies {
+/**
+ * Git dependencies that run real `git` in a clean environment, reporting a missing exit code as a
+ * failure. With `discoveryCeiling`, git's repository discovery stops before entering that directory,
+ * so no repository at or above it is visible to the commands these dependencies run.
+ */
+export function realVerifyGitDependencies(discoveryCeiling?: string): GitDependencies {
+  const env = discoveryCeiling === undefined
+    ? buildGitTestEnvironment()
+    : { ...buildGitTestEnvironment(), [GIT_TEST_ENVIRONMENT_KEYS.CEILING_DIRECTORIES]: discoveryCeiling };
   return {
     execa: async (command, args, options) => {
       const result = await execa(command, [...args], {
         ...(options?.cwd === undefined ? {} : { cwd: options.cwd }),
-        env: buildGitTestEnvironment(),
+        env,
         extendEnv: false,
         reject: false,
       });
@@ -130,6 +138,63 @@ export interface VerifyHeadCommitRepository extends VerifyRepositoryCommits {
 }
 
 /**
+ * The production lifecycle bound to one product directory: the verify dependencies every run in it
+ * shares, a reader of a run's journal events, and `startRun`, which opens a run of the given scope
+ * type and scope through the production `start` operation and observes its run-context events.
+ */
+interface VerifyRunStarter {
+  readonly deps: VerifyCliDeps;
+  readonly idempotencyKey: string;
+  readRunEvents(verificationType: string, runToken: string): Promise<readonly JournalEvent[]>;
+  startRun(scopeType: string, scope: string, verificationType?: string): Promise<StartedRepositoryRun>;
+}
+
+function createVerifyRunStarter(productDir: string, git: GitDependencies): VerifyRunStarter {
+  const inputContent = JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.inputPayload()));
+  const drawnVerificationType = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.verificationType());
+  const idempotencyKey = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
+  const deps: VerifyCliDeps = {
+    cwd: productDir,
+    git,
+    processEnv: {},
+    fs: defaultStateStoreFileSystem,
+    readInputSource: async () => inputContent,
+    readPayloadSource: async (source) => source,
+    journalBinding: { localSink: createRecordingStreamSink().sink },
+  };
+  const readRunEvents = async (verificationType: string, runToken: string): Promise<readonly JournalEvent[]> => {
+    const read = await journalReadCommand({ type: verificationType, runToken }, String(JOURNAL_SEQ_BASE), deps);
+    if (read.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+      throw new Error(`verify repository harness: journal read failed: ${read.output}`);
+    }
+    return JSON.parse(read.output) as readonly JournalEvent[];
+  };
+  return {
+    deps,
+    idempotencyKey,
+    readRunEvents,
+    startRun: async (scopeType, scope, verificationType = drawnVerificationType) => {
+      const started = await verifyStartCommand(
+        { verificationType, scopeType, scope, input: VERIFY_INPUT_SOURCE.STDIN },
+        deps,
+      );
+      const selector = { verificationType, scopeType, scope, started };
+      if (started.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+        return { ...selector, runToken: undefined, runContextData: [] };
+      }
+      const { runToken } = JSON.parse(started.output) as VerifyStartReport;
+      return {
+        ...selector,
+        runToken,
+        runContextData: (await readRunEvents(verificationType, runToken))
+          .filter((event) => event.type === VERIFY_RUN_CONTEXT_EVENT_TYPE)
+          .map(eventDataRecord),
+      };
+    },
+  };
+}
+
+/**
  * Create the head-commit repository in a temporary directory and hand it to the callback. The
  * directory and every run recorded under its `.spx/` store are removed when the callback settles.
  */
@@ -148,25 +213,10 @@ export async function withVerifyHeadCommitRepository<T>(
       layout.headBranch,
       commits.headCommit,
     ]);
-    const inputContent = JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.inputPayload()));
-    const drawnVerificationType = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.verificationType());
-    const idempotencyKey = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
-    const deps: VerifyCliDeps = {
-      cwd: productDir,
-      git: realVerifyGitDependencies(),
-      processEnv: {},
-      fs: defaultStateStoreFileSystem,
-      readInputSource: async () => inputContent,
-      readPayloadSource: async (source) => source,
-      journalBinding: { localSink: createRecordingStreamSink().sink },
-    };
-    const readRunEvents = async (verificationType: string, runToken: string): Promise<readonly JournalEvent[]> => {
-      const read = await journalReadCommand({ type: verificationType, runToken }, String(JOURNAL_SEQ_BASE), deps);
-      if (read.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
-        throw new Error(`verify repository harness: journal read failed: ${read.output}`);
-      }
-      return JSON.parse(read.output) as readonly JournalEvent[];
-    };
+    const { deps, idempotencyKey, readRunEvents, startRun } = createVerifyRunStarter(
+      productDir,
+      realVerifyGitDependencies(),
+    );
     const scopeFor = (scopeType: string): string =>
       scopeType === VERIFY_SCOPE_TYPE.CHANGESET
         ? `${commits.baseCommit}${VERIFY_SCOPE_SEPARATOR}${layout.headBranch}`
@@ -177,25 +227,7 @@ export async function withVerifyHeadCommitRepository<T>(
       filePath: layout.filePath,
       headBranch: layout.headBranch,
       ...commits,
-      startRun: async (scopeType, verificationType = drawnVerificationType) => {
-        const scope = scopeFor(scopeType);
-        const started = await verifyStartCommand(
-          { verificationType, scopeType, scope, input: VERIFY_INPUT_SOURCE.STDIN },
-          deps,
-        );
-        const selector = { verificationType, scopeType, scope, started };
-        if (started.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
-          return { ...selector, runToken: undefined, runContextData: [] };
-        }
-        const { runToken } = JSON.parse(started.output) as VerifyStartReport;
-        return {
-          ...selector,
-          runToken,
-          runContextData: (await readRunEvents(verificationType, runToken))
-            .filter((event) => event.type === VERIFY_RUN_CONTEXT_EVENT_TYPE)
-            .map(eventDataRecord),
-        };
-      },
+      startRun: async (scopeType, verificationType) => startRun(scopeType, scopeFor(scopeType), verificationType),
       appendScope: async (run, payload) => {
         if (run.runToken === undefined) {
           throw new Error(`verify repository harness: scope add needs a started run: ${run.started.output}`);
@@ -223,6 +255,42 @@ export async function withVerifyHeadCommitRepository<T>(
         await mkdir(dirname(absoluteFile), { recursive: true });
         await writeFile(absoluteFile, path);
       },
+    });
+  });
+}
+
+/**
+ * A temporary directory that no Git repository encloses. The git dependencies its runs use bound
+ * repository discovery at the directory itself — git never searches its parent or anything above —
+ * so the directory's own entries are the only place a repository could be found. `gitEntries` lists
+ * the directory's entries named like a Git directory, read before any run starts; `startFileRun` opens
+ * a file-scope run on `filePath` through the production `start` operation with those dependencies.
+ */
+export interface VerifyOutsideRepositoryDirectory {
+  readonly productDir: string;
+  readonly filePath: string;
+  readonly gitEntries: readonly string[];
+  /** Start a file-scope run, of `verificationType` when given and of a drawn verification type otherwise. */
+  startFileRun(verificationType?: string): Promise<StartedRepositoryRun>;
+}
+
+/**
+ * Create a directory outside any Git repository in a temporary directory and hand it to the callback.
+ * The directory and every run recorded under its `.spx/` store are removed when the callback settles.
+ */
+export async function withVerifyOutsideRepositoryDirectory<T>(
+  callback: (directory: VerifyOutsideRepositoryDirectory) => Promise<T>,
+): Promise<T> {
+  return withTempDir(VERIFY_REPOSITORY_TEMP_PREFIX, async (tempDir) => {
+    const productDir = await realpath(tempDir);
+    const layout = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.headCommitRepository());
+    const gitEntries = (await readdir(productDir)).filter((entry) => entry === GIT_DIR_BASENAME);
+    const { startRun } = createVerifyRunStarter(productDir, realVerifyGitDependencies(dirname(productDir)));
+    return callback({
+      productDir,
+      filePath: layout.filePath,
+      gitEntries,
+      startFileRun: async (verificationType) => startRun(VERIFY_SCOPE_TYPE.FILE, layout.filePath, verificationType),
     });
   });
 }
