@@ -1,6 +1,6 @@
 import { execa } from "execa";
 import * as fc from "fast-check";
-import { copyFile, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, readFile, realpath, stat, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -48,6 +48,7 @@ import {
   withMixedVitestProduct,
 } from "@testing/harnesses/testing/journal-reporter";
 import {
+  type ReportedStatusesOptions,
   reportedStatusRunners,
   SIMULATED_REPORT,
   SIMULATED_REPORT_ABSENT_MESSAGE,
@@ -124,13 +125,15 @@ function simulatedReportText(
     readonly exitCode: number;
     readonly report: SimulatedReport;
     readonly reportedStatuses: ReadonlyMap<string, SimulatedFileStatus>;
+    /** The root the report's file names are joined under; absent, the `--root` argument the runner was given. */
+    readonly reportRoot?: string;
   },
   args: readonly string[],
   testFilePaths: readonly string[],
 ): string | null {
   if (options.report === SIMULATED_REPORT.MISSING) return null;
   if (options.report === SIMULATED_REPORT.MALFORMED) return MALFORMED_REPORT_TEXT;
-  const productRoot = args[args.indexOf(VITEST_ROOT_FLAG) + 1] ?? "";
+  const productRoot = options.reportRoot ?? args[args.indexOf(VITEST_ROOT_FLAG) + 1] ?? "";
   const reported = simulatedReportedPaths(options, testFilePaths);
   return JSON.stringify({
     [VITEST_FILE_RESULTS_KEY]: reported.map((path) => {
@@ -151,6 +154,7 @@ export function createRecordingCommandRunner(options: {
   readonly exitCode: number;
   readonly report?: SimulatedReport;
   readonly reportedStatuses?: ReadonlyMap<string, SimulatedFileStatus>;
+  readonly reportRoot?: string;
 }): RecordingCommandRunner {
   const calls: Array<{
     readonly command: string;
@@ -161,6 +165,7 @@ export function createRecordingCommandRunner(options: {
     exitCode: options.exitCode,
     report: options.report ?? SIMULATED_REPORT.FOLLOWS_EXIT_CODE,
     reportedStatuses: options.reportedStatuses ?? new Map<string, SimulatedFileStatus>(),
+    ...(options.reportRoot === undefined ? {} : { reportRoot: options.reportRoot }),
   };
   return {
     calls,
@@ -381,6 +386,37 @@ export async function runWithSimulatedReport(
       { productDir, testPaths, excludedNodePaths: [] },
       runner,
     );
+  });
+}
+
+const SYMLINKED_PRODUCT_LINK_NAME = "product-link";
+
+/**
+ * Runs the supplied test paths with the product directory reached through a symbolic link: the
+ * runner receives the link's path as its product directory, while the simulated report names
+ * exactly the mapped paths under the directory's resolved (real) path. The temporary directory
+ * and the link are removed once the run settles.
+ */
+export function runWithReportedNamesThroughSymlink(
+  options: ReportedStatusesOptions,
+  testPaths: readonly string[],
+) {
+  return withTempDir(TEMP_PRODUCT_PREFIX, async (realDir) => {
+    const resolvedProductDir = await realpath(realDir);
+    return withTempDir(TEMP_PRODUCT_PREFIX, async (linkParent) => {
+      const productDir = join(linkParent, SYMLINKED_PRODUCT_LINK_NAME);
+      await symlink(resolvedProductDir, productDir, "dir");
+      const runner = createRecordingCommandRunner({
+        present: true,
+        ...options,
+        report: SIMULATED_REPORT.REPORTED_NAMES,
+        reportRoot: resolvedProductDir,
+      });
+      return typescriptTestingLanguage.runTests(
+        { productDir, testPaths, excludedNodePaths: [] },
+        runner,
+      );
+    });
   });
 }
 
