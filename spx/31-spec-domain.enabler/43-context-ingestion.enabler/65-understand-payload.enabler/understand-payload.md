@@ -14,6 +14,7 @@ CAN load the methodology foundation and requested product context through one de
 - Given `--methodology`, when the `show` projection is computed, then it reads the selected bundle's schema-version-1 `skills/understand/manifest.json`, resolves its singular contained `core`, and places the core body first as one Full document
 - Given `--methodology`, when `show` frames the methodology document, then its path is the package-root-relative bundle address followed by the manifest's core value, a resource identity and never a product target
 - ALWAYS: the manifest, source record, reference catalog, templates, and examples remain absent from `show`
+- ALWAYS: every reference path the delivered core body names addresses a resource the selected bundle ships, through a path an agent resolves against the framed bundle path, so no `${CLAUDE_SKILL_DIR}` placeholder reaches the agent and the agent can open each reference the core names and fill the Template root its marker records
 - ALWAYS: SPX persists no context state between `show` invocations
 - ALWAYS: each `show` invocation projects from tracked product content, shipped methodology content, options, accepted canonical targets, and the selected coding agent alone
 
