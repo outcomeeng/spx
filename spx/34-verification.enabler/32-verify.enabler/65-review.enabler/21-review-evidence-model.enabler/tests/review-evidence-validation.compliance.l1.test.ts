@@ -12,6 +12,7 @@ import {
   arbitraryReviewFindingMissingDispositionEvidence,
   arbitraryReviewFindingMissingRequiredField,
   arbitraryReviewFindingWithoutAnchor,
+  arbitraryReviewFindingWithPartialAnchor,
   arbitraryReviewScopeMissingRequiredField,
   sampleVerifyTestValue,
 } from "@testing/generators/verify/verify";
@@ -94,6 +95,23 @@ describe("review evidence validation", () => {
         });
         expect(result?.ok).toBe(false);
         expect(result?.ok === false ? result.reason : "").toContain(EVIDENCE_REQUIREMENT.REVIEW_FINDING_ANCHOR);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+
+  it("names a missing anchor field when a review finding carries some but not all of line-or-position, side, and diff hunk", () => {
+    assertProperty(
+      arbitraryReviewFindingWithPartialAnchor(),
+      (scenario) => {
+        const result = evidenceValidatorFor(VERIFY_VERIFICATION_TYPE.REVIEW, VERIFY_EVIDENCE_KIND.FINDING)?.({
+          payload: scenario.payload,
+          events: [],
+          selector: { scopeType: VERIFY_SCOPE_TYPE.CHANGESET, scopeIdentity: sampleReviewScopeIdentity() },
+        });
+        expect(result?.ok).toBe(false);
+        const reason = result?.ok === false ? result.reason : "";
+        expect(scenario.missingFields.some((field) => reason.includes(field))).toBe(true);
       },
       { level: PROPERTY_LEVEL.L1 },
     );

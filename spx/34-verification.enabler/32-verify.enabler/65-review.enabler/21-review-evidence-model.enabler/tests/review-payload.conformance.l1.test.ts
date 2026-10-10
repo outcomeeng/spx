@@ -62,6 +62,23 @@ describe("review payload conformance", () => {
     );
   });
 
+  it("conforms anchored findings and unanchored findings, with a path or without one, read back unchanged", () => {
+    assertProperty(
+      VERIFY_TEST_GENERATOR.anchoredReviewFinding(),
+      (finding) => {
+        expect(validateReviewFinding(finding as unknown as JsonValue)).toEqual({ ok: true, value: finding });
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+    assertProperty(
+      VERIFY_TEST_GENERATOR.unanchoredReviewFinding(),
+      (finding) => {
+        expect(validateReviewFinding(finding as unknown as JsonValue)).toEqual({ ok: true, value: finding });
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+
   it("conforms FILED and STALE review findings carrying their entry reference and base-ref evidence, read back unchanged", () => {
     assertProperty(
       VERIFY_TEST_GENERATOR.filedOrStaleReviewFinding(),
