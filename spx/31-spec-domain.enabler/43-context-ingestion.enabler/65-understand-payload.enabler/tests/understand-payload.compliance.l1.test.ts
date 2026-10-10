@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
 import {
   formatMethodologyVersionName,
+  FOUNDATION_MANIFEST_FIELDS,
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   FOUNDATION_SKILL_DIR_PLACEHOLDERS,
   METHODOLOGY_CODING_AGENTS,
@@ -197,15 +198,14 @@ describe("spec context understand payload sourcing", () => {
       // Every reference resolves against the package root the framed core path
       // is relative to: the bundle address names the shipped tree, and the
       // reference path follows the skill directory the placeholders stood for.
+      const addressPrefix = shippedTreeRelativeDir(line, codingAgent).replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+      const { REFERENCES, TEMPLATES } = FOUNDATION_MANIFEST_FIELDS;
       const referenceAddress = new RegExp(
-        String.raw`${
-          shippedTreeRelativeDir(line, codingAgent).replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)
-        }/[A-Za-z0-9._/-]+/references/[A-Za-z0-9._-]+\.md`,
+        String.raw`${addressPrefix}/[A-Za-z0-9._/-]+/${REFERENCES}/[A-Za-z0-9._-]+\.md`,
         "g",
       );
-      const templateRoots = [
-        ...new Set(body.match(new RegExp(referenceAddress.source.replace(/references.*$/, "templates"), "g")) ?? []),
-      ];
+      const templateAddress = new RegExp(String.raw`${addressPrefix}/[A-Za-z0-9._/-]+/${TEMPLATES}`, "g");
+      const templateRoots = [...new Set(body.match(templateAddress) ?? [])];
       expect(templateRoots.length, codingAgent).toBeGreaterThan(0);
       for (const templateRoot of templateRoots) {
         expect((await readdir(join(PRODUCT_ROOT, ...templateRoot.split(posix.sep)))).length, templateRoot)
