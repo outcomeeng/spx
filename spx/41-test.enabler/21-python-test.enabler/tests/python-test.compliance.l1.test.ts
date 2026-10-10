@@ -5,8 +5,8 @@ import { PYTHON_RUNNER_TEST_GENERATOR, samplePythonRunnerValue } from "@testing/
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import {
   registerPythonRunnerComplianceEvidence,
-  runWithSimulatedReport,
-  SIMULATED_REPORT,
+  runWithReportedStatuses,
+  SIMULATED_EXIT_CODE,
   type SimulatedFileStatus,
 } from "@testing/harnesses/testing/python-runner";
 
@@ -15,10 +15,9 @@ describe("python test runner derives path verdicts from the report, never the ex
     await assertProperty(
       PYTHON_RUNNER_TEST_GENERATOR.nonZeroExitWithTestPath(),
       async ({ exitCode, testPath: passingPath }) => {
-        const invocation = await runWithSimulatedReport(
+        const invocation = await runWithReportedStatuses(
           {
             exitCode,
-            report: SIMULATED_REPORT.LISTED_FILES,
             reportedStatuses: new Map<string, SimulatedFileStatus>([[passingPath, TEST_PATH_VERDICT.PASSED]]),
           },
           [passingPath],
@@ -35,10 +34,9 @@ describe("python test runner derives path verdicts from the report, never the ex
   it("reports a path failed when the report fails it though the process exits zero", async () => {
     const [failingPath] = samplePythonRunnerValue(PYTHON_RUNNER_TEST_GENERATOR.distinctTestPathPair());
 
-    const invocation = await runWithSimulatedReport(
+    const invocation = await runWithReportedStatuses(
       {
-        exitCode: 0,
-        report: SIMULATED_REPORT.LISTED_FILES,
+        exitCode: SIMULATED_EXIT_CODE.SUCCESS,
         reportedStatuses: new Map<string, SimulatedFileStatus>([[failingPath, TEST_PATH_VERDICT.FAILED]]),
       },
       [failingPath],

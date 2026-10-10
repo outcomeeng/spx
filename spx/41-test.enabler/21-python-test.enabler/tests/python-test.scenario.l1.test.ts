@@ -4,7 +4,9 @@ import { TEST_PATH_VERDICT } from "@/test/run-state";
 import { PYTHON_RUNNER_TEST_GENERATOR, samplePythonRunnerValue } from "@testing/generators/testing/python-runner";
 import {
   registerPythonRunnerScenarioL1Evidence,
+  runWithReportedStatuses,
   runWithSimulatedReport,
+  SIMULATED_EXIT_CODE,
   SIMULATED_REPORT,
   type SimulatedFileStatus,
 } from "@testing/harnesses/testing/python-runner";
@@ -13,10 +15,9 @@ describe("python test runner reports a verdict per test path from pytest's JUnit
   it("reports failed for the failing path and passed for the passing path of one invocation", async () => {
     const [failingPath, passingPath] = samplePythonRunnerValue(PYTHON_RUNNER_TEST_GENERATOR.distinctTestPathPair());
 
-    const invocation = await runWithSimulatedReport(
+    const invocation = await runWithReportedStatuses(
       {
-        exitCode: 1,
-        report: SIMULATED_REPORT.LISTED_FILES,
+        exitCode: SIMULATED_EXIT_CODE.FAILURE,
         reportedStatuses: new Map<string, SimulatedFileStatus>([
           [failingPath, TEST_PATH_VERDICT.FAILED],
           [passingPath, TEST_PATH_VERDICT.PASSED],
@@ -27,7 +28,7 @@ describe("python test runner reports a verdict per test path from pytest's JUnit
 
     expect(invocation).toMatchObject({
       invoked: true,
-      exitCode: 1,
+      exitCode: SIMULATED_EXIT_CODE.FAILURE,
       pathVerdicts: [
         { testPath: failingPath, verdict: TEST_PATH_VERDICT.FAILED },
         { testPath: passingPath, verdict: TEST_PATH_VERDICT.PASSED },
@@ -38,10 +39,9 @@ describe("python test runner reports a verdict per test path from pytest's JUnit
   it("reports not-run for a supplied path the report omits", async () => {
     const [reportedPath, omittedPath] = samplePythonRunnerValue(PYTHON_RUNNER_TEST_GENERATOR.distinctTestPathPair());
 
-    const invocation = await runWithSimulatedReport(
+    const invocation = await runWithReportedStatuses(
       {
-        exitCode: 0,
-        report: SIMULATED_REPORT.LISTED_FILES,
+        exitCode: SIMULATED_EXIT_CODE.SUCCESS,
         reportedStatuses: new Map<string, SimulatedFileStatus>([[reportedPath, TEST_PATH_VERDICT.PASSED]]),
       },
       [reportedPath, omittedPath],
@@ -61,11 +61,11 @@ describe("python test runner reports a verdict per test path from pytest's JUnit
     async (report) => {
       const testPaths = samplePythonRunnerValue(PYTHON_RUNNER_TEST_GENERATOR.distinctTestPathPair());
 
-      const invocation = await runWithSimulatedReport({ exitCode: 0, report }, testPaths);
+      const invocation = await runWithSimulatedReport({ exitCode: SIMULATED_EXIT_CODE.SUCCESS, report }, testPaths);
 
       expect(invocation.invoked).toBe(true);
       if (!invocation.invoked) return;
-      expect(invocation.exitCode).not.toBe(0);
+      expect(invocation.exitCode).not.toBe(SIMULATED_EXIT_CODE.SUCCESS);
       expect(invocation.pathVerdicts).toBeUndefined();
     },
   );

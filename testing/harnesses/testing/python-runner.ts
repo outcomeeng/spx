@@ -5,6 +5,7 @@ import { copyFile, mkdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { SUCCESS_EXIT_CODE } from "@/domains/test/aggregation";
 import { PYTHON_PRODUCT_INPUT_PATH, PYTHON_TEST_FILE_EXTENSION, pythonTestingLanguage } from "@/test/languages/python";
 import { JUNIT_REPORT_FLAG_PREFIX, PYTEST_INVOKE_ARGS, UV_COMMAND } from "@/test/languages/python-pytest-contract";
 import type { TestRunCommandResult, TestRunnerDependencies } from "@/test/languages/types";
@@ -54,6 +55,12 @@ export const SIMULATED_REPORT = {
   MISSING: "missing",
   /** The report file holds text that is not a JUnit XML report. */
   MALFORMED: "malformed",
+} as const;
+
+/** The process exit codes a recording runner's simulated pytest invocation returns. */
+export const SIMULATED_EXIT_CODE = {
+  SUCCESS: SUCCESS_EXIT_CODE,
+  FAILURE: SUCCESS_EXIT_CODE + 1,
 } as const;
 
 export type SimulatedReport = (typeof SIMULATED_REPORT)[keyof typeof SIMULATED_REPORT];
@@ -140,6 +147,20 @@ export async function runWithSimulatedReport(
   });
 }
 
+/**
+ * A simulated pytest invocation over `testPaths` whose JUnit XML report lists exactly the paths in
+ * `reportedStatuses`, each with its mapped status, and whose process exits with `exitCode`.
+ */
+export function runWithReportedStatuses(
+  options: {
+    readonly exitCode: number;
+    readonly reportedStatuses: ReadonlyMap<string, SimulatedFileStatus>;
+  },
+  testPaths: readonly string[],
+) {
+  return runWithSimulatedReport({ ...options, report: SIMULATED_REPORT.LISTED_FILES }, testPaths);
+}
+
 // A real command runner that runs `uv` from the temporary product so pytest collects
 // from that working directory. The environment must provide pytest before this
 // runner executes; the harness does not provision runner dependencies.
@@ -223,6 +244,48 @@ export function withTempPytestProduct(
     const [suitePath] = suitePaths;
     await callback({ productDir, suitePath });
   });
+}
+
+/** Where the pytest ini-file sits relative to the copied suites of a real pytest run. */
+export const PYTEST_INI_PLACEMENT = {
+  /** At the product root, anchoring pytest's rootdir there. */
+  PRODUCT_ROOT: "pytest-ini-at-product-root",
+  /** Beside the suites, nearer to them than the product root. */
+  BESIDE_SUITES: "pytest-ini-beside-suites",
+} as const;
+
+export type PytestIniPlacement = (typeof PYTEST_INI_PLACEMENT)[keyof typeof PYTEST_INI_PLACEMENT];
+
+export interface RealPytestRun {
+  /** The absolute path of each copied suite, in the order of the fixtures supplied. */
+  readonly suitePaths: readonly string[];
+  /** What the Python testing language returned for the run over every suite in one pytest invocation. */
+  readonly result: Awaited<ReturnType<typeof pythonTestingLanguage.runTests>>;
+}
+
+/**
+ * A real pytest run over the supplied committed fixture suites with the product-rooted runner,
+ * in one invocation over every suite; the linked test owns every predicate over the outcome.
+ */
+export async function runRealPytestOverSuites(
+  fixtures: readonly PytestFixture[],
+  iniPlacement: PytestIniPlacement = PYTEST_INI_PLACEMENT.PRODUCT_ROOT,
+): Promise<RealPytestRun> {
+  const withSuites = iniPlacement === PYTEST_INI_PLACEMENT.PRODUCT_ROOT
+    ? withTempPytestSuites
+    : withTempPytestSuitesUnderNearerIni;
+  let run: RealPytestRun | undefined;
+
+  await withSuites(fixtures, async ({ productDir, suitePaths }) => {
+    const result = await pythonTestingLanguage.runTests(
+      { productDir, testPaths: suitePaths, excludedNodePaths: [] },
+      productRootedPytestCommandRunner(productDir),
+    );
+    run = { suitePaths, result };
+  });
+
+  assert(run !== undefined);
+  return run;
 }
 
 export function registerPythonRunnerScenarioL1Evidence(): void {
