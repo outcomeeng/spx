@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { KIND_REGISTRY, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
+import { SPEC_CONTEXT_COMMAND_PATH } from "@/interfaces/cli/spec";
+import {
+  KIND_REGISTRY,
+  SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR,
+  SPEC_CONTEXT_PRODUCT_ROOT_TARGET,
+  SPEC_TREE_GRAMMAR,
+} from "@/lib/spec-tree";
 import {
   compareSpecContextWalkPositions,
   divergentOrderSlugPair,
@@ -21,11 +27,45 @@ import {
   documentPaths,
   entryPaths,
   referencePaths,
+  runSpecDescriptor,
   specTreeKindsConfig,
+  withEmptyContextTreeEnv,
+  withProductlessContextTreeEnv,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
 
 describe("spec context read-set boundaries", () => {
+  it("fails every targeted and targetless list and show over a product root with no recognized product spec, whatever else the root holds", async () => {
+    await withProductlessContextTreeEnv(specTreeKindsConfig(), async (env, paths) => {
+      for (
+        const argv of [
+          SPEC_CONTEXT_COMMAND_PATH.SHOW,
+          [...SPEC_CONTEXT_COMMAND_PATH.SHOW, paths.nodeTargetPath],
+          [...SPEC_CONTEXT_COMMAND_PATH.LIST, paths.nodeTargetPath],
+          [...SPEC_CONTEXT_COMMAND_PATH.LIST, SPEC_CONTEXT_PRODUCT_ROOT_TARGET],
+        ]
+      ) {
+        const run = await runSpecDescriptor({ productDir: env.productDir }, ...argv);
+        expect(run.stdout, argv.join(" ")).toHaveLength(0);
+        expect(run.exitCode, argv.join(" ")).toBe(1);
+        expect(run.stderr, argv.join(" ")).toContain(SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR);
+      }
+    });
+    await withEmptyContextTreeEnv(specTreeKindsConfig(), async (env) => {
+      for (
+        const argv of [
+          SPEC_CONTEXT_COMMAND_PATH.SHOW,
+          [...SPEC_CONTEXT_COMMAND_PATH.LIST, SPEC_CONTEXT_PRODUCT_ROOT_TARGET],
+        ]
+      ) {
+        const run = await runSpecDescriptor({ productDir: env.productDir }, ...argv);
+        expect(run.stdout, argv.join(" ")).toHaveLength(0);
+        expect(run.exitCode, argv.join(" ")).toBe(1);
+        expect(run.stderr, argv.join(" ")).toContain(SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR);
+      }
+    });
+  });
+
   it("contributes an outcome record in Full and a knowledge index reference only for an explicitly targeted node", async () => {
     await withRichContextEnv(async (env, paths) => {
       const explicit = await contextShowEntries({ targets: [paths.targetId], cwd: env.productDir });
