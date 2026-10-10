@@ -8,6 +8,7 @@ import {
   formatFoundationResourceUnreadableError,
   type MethodologyTreeFileSystem,
   resolveFoundationManifest,
+  resolveFoundationSkillDirPlaceholders,
   resolveMethodologyTree,
 } from "@/lib/methodology";
 import {
@@ -84,7 +85,10 @@ async function methodologyDocument(input: ContextInput, options: ContextShowOpti
     type: SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT,
     path,
     metadata: {},
-    content: splitSpecContextFrontMatter(source, path).body,
+    content: resolveFoundationSkillDirPlaceholders(
+      splitSpecContextFrontMatter(source, path).body,
+      posix.dirname(path),
+    ),
   };
 }
 

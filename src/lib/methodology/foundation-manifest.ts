@@ -165,3 +165,19 @@ export function formatFoundationResourceUnreadableError(resourcePath: string, ma
 export function formatCompactRecoveryEntryAbsentError(manifestPath: string): string {
   return `Compact-recovery entry absent: ${manifestPath} names no ${FOUNDATION_MANIFEST_FIELDS.COMPACT_RECOVERY} resource`;
 }
+
+/** The skill-directory placeholders the shipped foundation cores name their reference paths through, one per coding agent. */
+export const FOUNDATION_SKILL_DIR_PLACEHOLDERS = ["${CLAUDE_SKILL_DIR}", "${SKILL_DIR}"] as const;
+
+/**
+ * The core body with every skill-directory placeholder replaced by the
+ * package-root-relative address of the directory the core ships in, so each
+ * reference path the body names resolves against the same package root as the
+ * framed core path.
+ */
+export function resolveFoundationSkillDirPlaceholders(body: string, skillDirAddress: string): string {
+  return FOUNDATION_SKILL_DIR_PLACEHOLDERS.reduce(
+    (resolved, placeholder) => resolved.split(placeholder).join(skillDirAddress),
+    body,
+  );
+}
