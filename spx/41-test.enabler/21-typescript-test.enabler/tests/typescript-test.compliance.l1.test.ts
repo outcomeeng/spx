@@ -4,6 +4,7 @@ import { TEST_PATH_VERDICT } from "@/test/run-state";
 import { TYPESCRIPT_RUNNER_TEST_GENERATOR } from "@testing/generators/testing/typescript-runner";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import {
+  runWithReportedNames,
   runWithReportedStatuses,
   SIMULATED_EXIT_CODE,
   type SimulatedFileStatus,
@@ -47,6 +48,51 @@ describe("typescript test runner derives path verdicts from the report, never th
     expect(invocation).toMatchObject({
       pathVerdicts: [{ testPath: failingPath, verdict: TEST_PATH_VERDICT.FAILED }],
     });
+  });
+});
+
+describe("typescript test runner takes a path verdict only from the report entry for that path", () => {
+  it("reports not-run for a supplied path whose only matching report entry is a file whose path ends with it", async () => {
+    await assertProperty(
+      TYPESCRIPT_RUNNER_TEST_GENERATOR.neighbourReport(),
+      async ({ testPath, neighbourPath, neighbourVerdict }) => {
+        const invocation = await runWithReportedNames(
+          {
+            exitCode: SIMULATED_EXIT_CODE.SUCCESS,
+            reportedStatuses: new Map<string, SimulatedFileStatus>([[neighbourPath, neighbourVerdict]]),
+          },
+          [testPath],
+        );
+
+        expect(invocation).toMatchObject({
+          pathVerdicts: [{ testPath, verdict: TEST_PATH_VERDICT.NOT_RUN }],
+        });
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+  });
+
+  it("reports the verdict of the entry for the supplied path when a file whose path ends with it is reported first", async () => {
+    await assertProperty(
+      TYPESCRIPT_RUNNER_TEST_GENERATOR.neighbourReport(),
+      async ({ testPath, neighbourPath, exactVerdict, neighbourVerdict }) => {
+        const invocation = await runWithReportedNames(
+          {
+            exitCode: SIMULATED_EXIT_CODE.SUCCESS,
+            reportedStatuses: new Map<string, SimulatedFileStatus>([
+              [neighbourPath, neighbourVerdict],
+              [testPath, exactVerdict],
+            ]),
+          },
+          [testPath],
+        );
+
+        expect(invocation).toMatchObject({
+          pathVerdicts: [{ testPath, verdict: exactVerdict }],
+        });
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
   });
 });
 

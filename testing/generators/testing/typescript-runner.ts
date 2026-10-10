@@ -1,6 +1,7 @@
 import * as fc from "fast-check";
 
 import { TYPESCRIPT_TEST_FILE_SUFFIXES } from "@/test/languages/typescript";
+import { TEST_PATH_VERDICT } from "@/test/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 
 const NON_MATCHING_EXTENSIONS = [
@@ -48,6 +49,7 @@ export const TYPESCRIPT_RUNNER_TEST_GENERATOR = {
   exitCode: arbitraryExitCode,
   nonZeroExitCode: arbitraryNonZeroExitCode,
   nonZeroExitWithTestPath: arbitraryNonZeroExitWithTestPath,
+  neighbourReport: arbitraryNeighbourReport,
   present: arbitraryPresence,
 } as const;
 
@@ -142,6 +144,34 @@ function arbitraryNonZeroExitWithTestPath(): fc.Arbitrary<{ readonly exitCode: n
     exitCode: arbitraryNonZeroExitCode(),
     testPath: arbitraryTypeScriptTestFilePath(),
   });
+}
+
+/**
+ * A supplied test path, a second path that ends with it without being it (the supplied path
+ * under one more leading segment), and two distinct file verdicts — one for the supplied
+ * path's own report entry and one for the neighbouring entry.
+ */
+function arbitraryNeighbourReport(): fc.Arbitrary<{
+  readonly testPath: string;
+  readonly neighbourPath: string;
+  readonly exactVerdict: typeof TEST_PATH_VERDICT.PASSED | typeof TEST_PATH_VERDICT.FAILED;
+  readonly neighbourVerdict: typeof TEST_PATH_VERDICT.PASSED | typeof TEST_PATH_VERDICT.FAILED;
+}> {
+  return fc
+    .tuple(
+      arbitraryTypeScriptTestFilePath(),
+      CONFIG_TEST_GENERATOR.key(),
+      fc.constantFrom(
+        [TEST_PATH_VERDICT.PASSED, TEST_PATH_VERDICT.FAILED] as const,
+        [TEST_PATH_VERDICT.FAILED, TEST_PATH_VERDICT.PASSED] as const,
+      ),
+    )
+    .map(([testPath, enclosingSegment, [exactVerdict, neighbourVerdict]]) => ({
+      testPath,
+      neighbourPath: `${enclosingSegment}/${testPath}`,
+      exactVerdict,
+      neighbourVerdict,
+    }));
 }
 
 function arbitraryPresence(): fc.Arbitrary<boolean> {

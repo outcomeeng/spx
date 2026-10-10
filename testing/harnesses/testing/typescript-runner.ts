@@ -116,6 +116,8 @@ export const SIMULATED_REPORT = {
   FOLLOWS_EXIT_CODE: "follows-exit-code",
   /** Only the files in `reportedStatuses` are reported; the rest are omitted. */
   LISTED_FILES: "listed-files",
+  /** Exactly the files in `reportedStatuses` are reported, whether or not the invocation supplied them. */
+  REPORTED_NAMES: "reported-names",
   /** No report file exists once the invocation exits. */
   MISSING: "missing",
   /** The report file holds text that is not a Vitest JSON report. */
@@ -135,6 +137,20 @@ export type SimulatedFileStatus = typeof TEST_PATH_VERDICT.PASSED | typeof TEST_
 const MALFORMED_REPORT_TEXT = "not a vitest report";
 const SIMULATED_REPORT_ABSENT_MESSAGE = "no simulated report at";
 
+function simulatedReportedPaths(
+  options: {
+    readonly report: SimulatedReport;
+    readonly reportedStatuses: ReadonlyMap<string, SimulatedFileStatus>;
+  },
+  testFilePaths: readonly string[],
+): readonly string[] {
+  if (options.report === SIMULATED_REPORT.REPORTED_NAMES) return [...options.reportedStatuses.keys()];
+  if (options.report === SIMULATED_REPORT.LISTED_FILES) {
+    return testFilePaths.filter((path) => options.reportedStatuses.has(path));
+  }
+  return testFilePaths;
+}
+
 function simulatedReportText(
   options: {
     readonly exitCode: number;
@@ -147,9 +163,7 @@ function simulatedReportText(
   if (options.report === SIMULATED_REPORT.MISSING) return null;
   if (options.report === SIMULATED_REPORT.MALFORMED) return MALFORMED_REPORT_TEXT;
   const productRoot = args[args.indexOf(VITEST_ROOT_FLAG) + 1] ?? "";
-  const reported = options.report === SIMULATED_REPORT.LISTED_FILES
-    ? testFilePaths.filter((path) => options.reportedStatuses.has(path))
-    : testFilePaths;
+  const reported = simulatedReportedPaths(options, testFilePaths);
   return JSON.stringify({
     [VITEST_FILE_RESULTS_KEY]: reported.map((path) => {
       const verdict = options.reportedStatuses.get(path)
@@ -414,6 +428,21 @@ export function runWithReportedStatuses(
   testPaths: readonly string[],
 ) {
   return runWithSimulatedReport({ ...options, report: SIMULATED_REPORT.LISTED_FILES }, testPaths);
+}
+
+/**
+ * A simulated Vitest invocation over `testPaths` whose JSON report names exactly the files in
+ * `reportedStatuses` — each a path relative to the product root, supplied or not — with its
+ * mapped status, and whose process exits with `exitCode`.
+ */
+export function runWithReportedNames(
+  options: {
+    readonly exitCode: number;
+    readonly reportedStatuses: ReadonlyMap<string, SimulatedFileStatus>;
+  },
+  testPaths: readonly string[],
+) {
+  return runWithSimulatedReport({ ...options, report: SIMULATED_REPORT.REPORTED_NAMES }, testPaths);
 }
 
 export function twoDistinctTestPaths(): readonly [string, string] {
