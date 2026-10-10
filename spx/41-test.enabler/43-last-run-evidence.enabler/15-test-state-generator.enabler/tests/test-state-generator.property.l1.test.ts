@@ -1,9 +1,15 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { TEST_RUN_STATE_STATUS } from "@/test/run-state";
+import { isRunFileName } from "@/lib/state-store";
+import { readTestingRuns, TEST_RUN_STATE_STATUS } from "@/test/run-state";
 import { TEST_RUN_STATE_TEST_GENERATOR } from "@testing/generators/testing/run-state";
-import { assertProperty, PROPERTY_CLASSIFICATION } from "@testing/harnesses/property/property";
+import {
+  assertProperty,
+  PROPERTY_CLASSIFICATION,
+  propertyTestEnvelopeTimeoutMs,
+} from "@testing/harnesses/property/property";
+import { withTestingTempProductDir, writeTestingStateFile } from "@testing/harnesses/testing/harness";
 
 describe("test-run-state generator", () => {
   it("draws every generated status from the source-owned status set", () => {
@@ -64,16 +70,32 @@ describe("test-run-state generator", () => {
     );
   });
 
-  it("persists a terminal state under the given run file name so the file content decodes to that state", () => {
-    assertProperty(
-      fc.tuple(TEST_RUN_STATE_TEST_GENERATOR.runFileName(), TEST_RUN_STATE_TEST_GENERATOR.testRunState()),
-      ([runFileName, state]) => {
-        const file = TEST_RUN_STATE_TEST_GENERATOR.persistedRunFile(runFileName, state);
+  it(
+    "persists a terminal state under a run file name the product accepts so the product reader decodes it to that state",
+    async () => {
+      await assertProperty(
+        fc.tuple(TEST_RUN_STATE_TEST_GENERATOR.runFileName(), TEST_RUN_STATE_TEST_GENERATOR.testRunState()),
+        async ([runFileName, state]) => {
+          const file = TEST_RUN_STATE_TEST_GENERATOR.persistedRunFile(runFileName, state);
 
-        expect(file.name).toBe(runFileName);
-        expect(JSON.parse(file.content)).toEqual(state);
-      },
-      PROPERTY_CLASSIFICATION.SMALL_L1,
-    );
-  });
+          expect(file.name).toBe(runFileName);
+          expect(isRunFileName(file.name)).toBe(true);
+
+          await withTestingTempProductDir(async (productDir) => {
+            await writeTestingStateFile(productDir, file.name, file.content);
+
+            const runs = await readTestingRuns(productDir);
+            if (!runs.ok) throw new Error(runs.error);
+
+            expect(runs.value.incompleteRuns).toEqual([]);
+            expect(runs.value.terminalRuns.map((run) => ({ name: run.runFileName, state: run.state }))).toEqual([
+              { name: file.name, state },
+            ]);
+          });
+        },
+        PROPERTY_CLASSIFICATION.SMALL_L1,
+      );
+    },
+    propertyTestEnvelopeTimeoutMs(PROPERTY_CLASSIFICATION.SMALL_L1),
+  );
 });
