@@ -27,4 +27,3 @@ The mapping "TypeScript test file patterns: `*.test.ts` and `*.test.tsx`" links 
 **Scope:** The two mapping cases that read `TYPESCRIPT_TEST_FILE_PATTERNS`; the exclusion-flag mapping in the same file is unaffected.
 
 **Resolution:** state the two spec-declared patterns as the test's independent expected values and assert the descriptor and the routing against them, then re-run this node's tests and its test-evidence audit.
-
