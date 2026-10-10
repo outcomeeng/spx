@@ -13,13 +13,15 @@ import {
   TESTING_RUN_STATE_INCOMPLETE_REASON,
   testingRunsDir,
   type TestRunFileEntry,
-  type TestRunnerOutcome,
-  type TestRunState,
   type TestRunStateFileSystem,
   writeTerminalTestRunState,
 } from "@/test/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-import { sampleTestRunStateValue, TEST_RUN_STATE_TEST_GENERATOR } from "@testing/generators/testing/run-state";
+import {
+  type PersistedRunFile,
+  sampleTestRunStateValue,
+  TEST_RUN_STATE_TEST_GENERATOR,
+} from "@testing/generators/testing/run-state";
 import { withTestingTempProductDir, writeTestingStateFile } from "@testing/harnesses/testing/harness";
 
 // A read-failing filesystem double (Stage 5 exception 1: failure simulation) — the
@@ -48,42 +50,10 @@ function createReadFailingFileSystem(
   };
 }
 
-// A runner outcome that executed exactly the given node test paths.
-function outcomeCovering(testPaths: readonly string[]): TestRunnerOutcome {
-  const outcome = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runnerOutcome());
-  return TEST_RUN_STATE_TEST_GENERATOR.outcomeCovering(outcome, testPaths);
-}
+const { stateCovering, stateCoveringAcross, persistedRunFile } = TEST_RUN_STATE_TEST_GENERATOR;
 
-// A terminal state whose runner outcomes cover exactly the given node test paths
-// (empty paths => no outcome => the run covers no node).
-function stateCovering(
-  base: TestRunState,
-  testPaths: readonly string[],
-  completedAt: string,
-  startedAt: string,
-): TestRunState {
-  return {
-    ...base,
-    runnerOutcomes: testPaths.length === 0 ? [] : [outcomeCovering(testPaths)],
-    completedAt,
-    startedAt,
-  };
-}
-
-// A terminal state with one runner outcome per path group, so a node's paths can
-// be split across several outcomes that only together cover the node.
-function stateCoveringAcross(
-  base: TestRunState,
-  outcomePaths: readonly (readonly string[])[],
-  completedAt: string,
-  startedAt: string,
-): TestRunState {
-  return {
-    ...base,
-    runnerOutcomes: outcomePaths.map((paths) => outcomeCovering(paths)),
-    completedAt,
-    startedAt,
-  };
+function writePersistedRun(productDir: string, file: PersistedRunFile): Promise<string> {
+  return writeTestingStateFile(productDir, file.name, file.content);
 }
 
 describe("testing last-run state storage", () => {
@@ -153,21 +123,18 @@ describe("testing last-run state storage", () => {
       const laterAt = new Date(baseDate.getTime() + 1).toISOString();
       const newestAt = new Date(baseDate.getTime() + 2).toISOString();
 
-      await writeTestingStateFile(
+      await writePersistedRun(
         productDir,
-        olderCoveringRun,
-        JSON.stringify(stateCovering(base, nodeTestPaths, olderAt, olderAt)),
+        persistedRunFile(olderCoveringRun, stateCovering(base, nodeTestPaths, olderAt, olderAt)),
       );
-      await writeTestingStateFile(
+      await writePersistedRun(
         productDir,
-        laterCoveringRun,
-        JSON.stringify(stateCovering(base, nodeTestPaths, laterAt, laterAt)),
+        persistedRunFile(laterCoveringRun, stateCovering(base, nodeTestPaths, laterAt, laterAt)),
       );
       // Newest run executed no outcomes, so it does not cover the node.
-      await writeTestingStateFile(
+      await writePersistedRun(
         productDir,
-        newestNonCoveringRun,
-        JSON.stringify(stateCovering(base, [], newestAt, newestAt)),
+        persistedRunFile(newestNonCoveringRun, stateCovering(base, [], newestAt, newestAt)),
       );
 
       const runs = await readTestingRuns(productDir);
@@ -192,17 +159,15 @@ describe("testing last-run state storage", () => {
       const coveringAt = baseDate.toISOString();
       const newerAt = new Date(baseDate.getTime() + 1).toISOString();
 
-      await writeTestingStateFile(
+      await writePersistedRun(
         productDir,
-        coveringRun,
-        JSON.stringify(stateCovering(base, nodeTestPaths, coveringAt, coveringAt)),
+        persistedRunFile(coveringRun, stateCovering(base, nodeTestPaths, coveringAt, coveringAt)),
       );
       // Newest run covers a different node's tests, so its executed set is non-empty
       // yet contains none of this node's paths.
-      await writeTestingStateFile(
+      await writePersistedRun(
         productDir,
-        newerOtherNodeRun,
-        JSON.stringify(stateCovering(base, otherNodeTestPaths, newerAt, newerAt)),
+        persistedRunFile(newerOtherNodeRun, stateCovering(base, otherNodeTestPaths, newerAt, newerAt)),
       );
 
       const runs = await readTestingRuns(productDir);
@@ -227,10 +192,9 @@ describe("testing last-run state storage", () => {
       const at = baseDate.toISOString();
       // Two outcomes each cover a disjoint half of the node's paths; neither alone
       // covers the node, but their union across outcomes does.
-      await writeTestingStateFile(
+      await writePersistedRun(
         productDir,
-        splitRun,
-        JSON.stringify(stateCoveringAcross(base, [firstOutcomePaths, secondOutcomePaths], at, at)),
+        persistedRunFile(splitRun, stateCoveringAcross(base, [firstOutcomePaths, secondOutcomePaths], at, at)),
       );
 
       const runs = await readTestingRuns(productDir);
@@ -254,10 +218,9 @@ describe("testing last-run state storage", () => {
       const at = baseDate.toISOString();
       // The run executes the node's paths and additional other-node paths; covering
       // a superset of the node still covers the node.
-      await writeTestingStateFile(
+      await writePersistedRun(
         productDir,
-        supersetRun,
-        JSON.stringify(stateCovering(base, [...nodeTestPaths, ...otherNodeTestPaths], at, at)),
+        persistedRunFile(supersetRun, stateCovering(base, [...nodeTestPaths, ...otherNodeTestPaths], at, at)),
       );
 
       const runs = await readTestingRuns(productDir);
@@ -283,15 +246,13 @@ describe("testing last-run state storage", () => {
       const earlierCompletedAt = new Date(baseDate.getTime() + 1).toISOString();
       const laterCompletedAt = new Date(baseDate.getTime() + 2).toISOString();
 
-      await writeTestingStateFile(
+      await writePersistedRun(
         productDir,
-        earlierCompletedRun,
-        JSON.stringify(stateCovering(base, nodeTestPaths, earlierCompletedAt, sharedStartedAt)),
+        persistedRunFile(earlierCompletedRun, stateCovering(base, nodeTestPaths, earlierCompletedAt, sharedStartedAt)),
       );
-      await writeTestingStateFile(
+      await writePersistedRun(
         productDir,
-        laterCompletedRun,
-        JSON.stringify(stateCovering(base, nodeTestPaths, laterCompletedAt, sharedStartedAt)),
+        persistedRunFile(laterCompletedRun, stateCovering(base, nodeTestPaths, laterCompletedAt, sharedStartedAt)),
       );
 
       const runs = await readTestingRuns(productDir);
@@ -315,15 +276,13 @@ describe("testing last-run state storage", () => {
       const earlierStartedAt = baseDate.toISOString();
       const laterStartedAt = new Date(baseDate.getTime() + 1).toISOString();
 
-      await writeTestingStateFile(
+      await writePersistedRun(
         productDir,
-        earlierStartedRun,
-        JSON.stringify(stateCovering(base, nodeTestPaths, sharedCompletedAt, earlierStartedAt)),
+        persistedRunFile(earlierStartedRun, stateCovering(base, nodeTestPaths, sharedCompletedAt, earlierStartedAt)),
       );
-      await writeTestingStateFile(
+      await writePersistedRun(
         productDir,
-        laterStartedRun,
-        JSON.stringify(stateCovering(base, nodeTestPaths, sharedCompletedAt, laterStartedAt)),
+        persistedRunFile(laterStartedRun, stateCovering(base, nodeTestPaths, sharedCompletedAt, laterStartedAt)),
       );
 
       const runs = await readTestingRuns(productDir);
@@ -342,11 +301,11 @@ describe("testing last-run state storage", () => {
     const runOne = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
     const runTwo = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.runFileName());
     const [, lexicographicallyLaterRun] = [runOne, runTwo].sort(compareAsciiStrings);
-    const tiedState = JSON.stringify(stateCovering(base, nodeTestPaths, sharedStamp, sharedStamp));
+    const tiedState = stateCovering(base, nodeTestPaths, sharedStamp, sharedStamp);
 
     await withTestingTempProductDir(async (productDir) => {
-      await writeTestingStateFile(productDir, runOne, tiedState);
-      await writeTestingStateFile(productDir, runTwo, tiedState);
+      await writePersistedRun(productDir, persistedRunFile(runOne, tiedState));
+      await writePersistedRun(productDir, persistedRunFile(runTwo, tiedState));
 
       const runs = await readTestingRuns(productDir);
       expect(runs.ok).toBe(true);

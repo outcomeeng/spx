@@ -50,6 +50,9 @@ export const TEST_RUN_STATE_TEST_GENERATOR = {
   timestampDate: arbitraryTimestampDate,
   runnerOutcome: arbitraryRunnerOutcome,
   outcomeCovering,
+  stateCovering,
+  stateCoveringAcross,
+  persistedRunFile,
   productInputDigest: arbitraryProductInputDigest,
   testPaths: arbitraryTestPaths,
   disjointTestPathsPair: arbitraryDisjointTestPathsPair,
@@ -157,6 +160,45 @@ function outcomeCovering(outcome: TestRunnerOutcome, testPaths: readonly string[
     testPaths,
     pathVerdicts: testPaths.map((testPath, index) => ({ testPath, verdict: verdicts[index % verdicts.length] })),
   };
+}
+
+export interface PersistedRunFile {
+  readonly name: string;
+  readonly content: string;
+}
+
+// A terminal state whose runner outcomes cover exactly the given test paths, in one outcome
+// (empty paths => no outcome => the run covers no node).
+function stateCovering(
+  base: TestRunState,
+  testPaths: readonly string[],
+  completedAt: string,
+  startedAt: string,
+): TestRunState {
+  return stateCoveringAcross(base, testPaths.length === 0 ? [] : [testPaths], completedAt, startedAt);
+}
+
+// A terminal state with one runner outcome per path group, so a node's paths can be split
+// across several outcomes that only together cover the node.
+function stateCoveringAcross(
+  base: TestRunState,
+  outcomePaths: readonly (readonly string[])[],
+  completedAt: string,
+  startedAt: string,
+): TestRunState {
+  return {
+    ...base,
+    runnerOutcomes: outcomePaths.map((paths) =>
+      outcomeCovering(sampleTestRunStateValue(arbitraryRunnerOutcome()), paths)
+    ),
+    completedAt,
+    startedAt,
+  };
+}
+
+// The run file that persists a terminal state under the given run file name.
+function persistedRunFile(runFileName: string, state: TestRunState): PersistedRunFile {
+  return { name: runFileName, content: JSON.stringify(state) };
 }
 
 function arbitraryProductInputDigest(): fc.Arbitrary<ProductInputDigest> {
