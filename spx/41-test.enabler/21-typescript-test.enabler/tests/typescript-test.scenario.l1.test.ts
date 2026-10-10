@@ -7,6 +7,7 @@ import {
   SIMULATED_REPORT,
 } from "@testing/harnesses/testing/simulated-report";
 import {
+  runWithReportedNamesThroughSymlink,
   runWithReportedStatuses,
   runWithSimulatedReport,
   twoDistinctTestPaths,
@@ -49,6 +50,21 @@ describe("typescript test runner reports a verdict per test path from Vitest's J
         { testPath: reportedPath, verdict: TEST_PATH_VERDICT.PASSED },
         { testPath: omittedPath, verdict: TEST_PATH_VERDICT.NOT_RUN },
       ],
+    });
+  });
+
+  it("reports the failed verdict of the entry named under the resolved product directory when the product directory is a symbolic link", async () => {
+    const [testPath] = twoDistinctTestPaths();
+
+    const invocation = await runReportedEntriesScenario(runWithReportedNamesThroughSymlink, {
+      exitCode: SIMULATED_EXIT_CODE.SUCCESS,
+      testPaths: [testPath],
+      reportedEntries: [[testPath, TEST_PATH_VERDICT.FAILED]],
+    });
+
+    expect(invocation).toMatchObject({
+      invoked: true,
+      pathVerdicts: [{ testPath, verdict: TEST_PATH_VERDICT.FAILED }],
     });
   });
 
