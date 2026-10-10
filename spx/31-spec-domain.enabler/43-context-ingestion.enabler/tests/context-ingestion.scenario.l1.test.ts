@@ -8,6 +8,7 @@ import {
   SPEC_CONTEXT_ENTRY_TYPE,
   SPEC_CONTEXT_FRAME,
   SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
+  SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR,
   SPEC_CONTEXT_MODE,
   SPEC_CONTEXT_MODE_NAME,
   SPEC_CONTEXT_PRODUCT_ROOT_TARGET,
@@ -150,15 +151,15 @@ describe("spec context list and show", () => {
     });
   });
 
-  it("succeeds with empty stdout, and with an empty entry list under --json, when show has no target over a tree with no product spec, node, or decision", async () => {
+  it("fails with empty stdout and a non-zero exit when show has no target over a product root holding no product spec", async () => {
     await withEmptyContextTreeEnv(specTreeKindsConfig(), async (env) => {
       const context = { productDir: env.productDir };
-      const text = await runSpecDescriptor(context, ...SPEC_CONTEXT_COMMAND_PATH.SHOW);
-      expect(text.exitCode, text.stderr).toBeUndefined();
-      expect(text.stdout).toHaveLength(0);
-      const json = await runSpecDescriptor(context, ...SPEC_CONTEXT_COMMAND_PATH.SHOW, SPEC_DOMAIN_CLI.JSON_OPTION);
-      expect(json.exitCode, json.stderr).toBeUndefined();
-      expect(JSON.parse(json.stdout)).toEqual({ [SPEC_CONTEXT_ENTRIES_KEY]: [] });
+      for (const extra of [[], [SPEC_DOMAIN_CLI.JSON_OPTION]]) {
+        const run = await runSpecDescriptor(context, ...SPEC_CONTEXT_COMMAND_PATH.SHOW, ...extra);
+        expect(run.stdout).toHaveLength(0);
+        expect(run.exitCode).toBe(1);
+        expect(run.stderr).toContain(SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR);
+      }
     });
   });
 

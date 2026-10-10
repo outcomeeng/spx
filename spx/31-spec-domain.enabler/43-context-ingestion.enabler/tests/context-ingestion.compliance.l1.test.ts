@@ -57,7 +57,7 @@ describe("spec context ingestion writes nothing to standard output after a failu
     });
   });
 
-  it("writes no list or show output, targeted or targetless, when the tree holds a node and a root decision but no product spec", async () => {
+  it("writes no list or show output, targeted or targetless, when the product root holds no product spec", async () => {
     await withProductlessContextTreeEnv(specTreeKindsConfig(), async (env, paths) => {
       for (
         const argv of [
@@ -72,12 +72,14 @@ describe("spec context ingestion writes nothing to standard output after a failu
         expect(run.stderr, argv.join(" ")).toContain(SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR);
       }
     });
-    // The same targetless show over a tree holding no product spec, node, or
-    // decision succeeds, so the failure above is the nodes' and decision's doing.
+    // A tree holding no product spec, node, or decision fails the same way.
     await withEmptyContextTreeEnv(specTreeKindsConfig(), async (env) => {
-      const run = await runSpecDescriptor({ productDir: env.productDir }, ...SPEC_CONTEXT_COMMAND_PATH.SHOW);
-      expect(run.exitCode, run.stderr).toBeUndefined();
-      expect(run.stderr).not.toContain(SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR);
+      for (const command of [SPEC_CONTEXT_COMMAND_PATH.SHOW, SPEC_CONTEXT_COMMAND_PATH.LIST]) {
+        const run = await runSpecDescriptor({ productDir: env.productDir }, ...command);
+        expect(run.stdout, command.join(" ")).toHaveLength(0);
+        expect(run.exitCode, command.join(" ")).toBe(1);
+        expect(run.stderr, command.join(" ")).toContain(SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR);
+      }
     });
   });
 
