@@ -83,3 +83,13 @@ state-store findings from a one-line edit.
 **Scope:** the four functions in that file and their call sites in the one compliance test; the test's assertion flow is unaffected.
 
 **Resolution:** move the dependency setup into a harness under `testing/harnesses/testing/` that the test imports, then re-run this node's tests and its test-evidence audit.
+
+## The run-state scenario test builds its filesystem doubles in the test file
+
+`tests/run-state.scenario.l1.test.ts` constructs `TestRunStateFileSystem` doubles in the executed test file. `createReadFailingFileSystem(runFileName, error)` (lines 29-51) is a full interface double whose `readFile` rejects with the supplied error and whose `readdir` and `lstat` answer for the one run file; the case "classifies a run-file read failure as IO incomplete evidence" (lines 437-458) passes it to `readTestingRuns`. The case "classifies missing, parse-invalid, and shape-invalid run files as incomplete evidence" (lines 319-363) passes an inline `fs` object literal (lines 335-348) whose `readdir` returns four entries and whose `readFile` branches on the file name to throw the missing-file error or return a parse-invalid, malformed-latest, or shape-invalid body. The comment above the function names it a failure-simulation double. A test-evidence audit of this node rejected both as test-owned filesystem doubles.
+
+**Impact:** the doubles that decide what `readTestingRuns` reads sit in the evidence they constrain, so a sibling test that simulates a failing or partially readable run directory rebuilds them, and [`spx/12-test-infrastructure.adr.md`](spx/12-test-infrastructure.adr.md), which assigns controlled-dependency construction to governed harnesses under `testing/harnesses/`, leaves their construction unaudited as test infrastructure.
+
+**Scope:** `createReadFailingFileSystem` and the inline `fs` literal in the incomplete-evidence case, with their two call sites in `tests/run-state.scenario.l1.test.ts`; the other cases in the file, which use the real filesystem through `withTestingTempProductDir`, are unaffected.
+
+**Settlement condition:** the doubles are provided by governed test infrastructure that the test imports, and this node's tests and its test-evidence audit pass.

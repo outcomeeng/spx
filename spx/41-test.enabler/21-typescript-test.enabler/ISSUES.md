@@ -27,3 +27,23 @@ The mapping "TypeScript test file patterns: `*.test.ts` and `*.test.tsx`" links 
 **Scope:** The two mapping cases that read `TYPESCRIPT_TEST_FILE_PATTERNS`; the exclusion-flag mapping in the same file is unaffected.
 
 **Resolution:** state the two spec-declared patterns as the test's independent expected values and assert the descriptor and the routing against them, then re-run this node's tests and its test-evidence audit.
+
+## The test file selects the property run-count class
+
+`tests/typescript-test.compliance.l1.test.ts` passes `{ level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL }` to `assertProperty` in three properties: `maps a TypeScript path to passed from the Vitest report despite a non-zero process exit` (line 34), `reports not-run for a supplied path whose only matching report entry is a file whose path ends with it` (line 68), and `reports the verdict of the entry for the supplied path when a file whose path ends with it is reported first` (line 87). `PROPERTY_CLASSIFICATION.SMALL_L1` in `testing/harnesses/property/property.ts` names that exact pair, so the test file selects the run-count class where the property harness owns the classification. A test-evidence audit reported this as a warning (test-owned configuration), not a rejection. The call sites are text the Change that added the exact-path compliance case and the per-path verdict assertions wrote.
+
+**Impact:** A change to the run-count class of linked property evidence requires editing each call site in the test file, and the file can drift from the classification the harness defines.
+
+**Scope:** The three `assertProperty` calls in `tests/typescript-test.compliance.l1.test.ts`.
+
+**Settlement condition:** the property calls in `tests/typescript-test.compliance.l1.test.ts` take their classification from `PROPERTY_CLASSIFICATION`, and this node's tests and its test-evidence audit pass.
+
+## The exclusion-flag mapping draws one sampled node-path pair
+
+The mapping "Config-driven exclusion flag generation: an excluded node path `{segment}` maps to vitest flag `--exclude=spx/{segment}/**`" links `tests/typescript-test.mapping.l1.test.ts`. Its case `maps excluded node %s to the independent CLI flag oracle` in `registerTypescriptRunnerMappingTests` (`testing/harnesses/testing/typescript-runner.ts`) exercises the node paths of one pair sampled from `TYPESCRIPT_RUNNER_TEST_GENERATOR.nodePathPair()`, an open generated domain. A mapping declares a correspondence over a complete finite source-owned domain; a correspondence over an open node-segment domain is a property-type quantifier. A test-evidence audit reported this as a warning (mapping domain not finite). The expected flag is built independently by `oracleTypescriptExcludeFlag`, so oracle independence holds for this case. This is older text.
+
+**Impact:** The evidence samples a few members of an open domain under an assertion type whose quantifier is a finite set, so the assertion type does not match the quantifier the mapping states.
+
+**Scope:** The exclusion-flag mapping and its case in `registerTypescriptRunnerMappingTests`; the file-pattern mappings in the same file are unaffected.
+
+**Settlement condition:** the correspondence is held by evidence of the assertion type its quantifier names, and this node's tests and its test-evidence audit pass.

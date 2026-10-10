@@ -47,3 +47,13 @@ The mapping "Config-driven exclusion flag generation: an excluded node path `{se
 **Scope:** One case of this node's mapping test, untouched by the per-path verdict changes.
 
 **Resolution:** state the expected `--ignore=spx/{segment}/` form independently of the production prefix and suffix constants, then re-run this node's tests and its test-evidence audit.
+
+## The module-suffix compliance properties select their run-count class in the test file
+
+`tests/python-test.compliance.l1.test.ts` passes the literal `{ level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL }` to `assertProperty` in two properties: "reports not-run for a supplied path whose only matching testcases belong to a module that ends with its module" (the call at line 53, the classification at line 66) and "reports the verdict of the supplied path's own module when a module that ends with it is reported first" (the call at line 71, the classification at line 85). The test file thereby chooses the run-count class, which the property harness in `testing/harnesses/property/property.ts` owns; `PROPERTY_CLASSIFICATION.SMALL_L1` there names that exact pair. The third `assertProperty` call in the file (line 19, "reports a path passed when the report passes it though the process exits non-zero") passes only `{ level: PROPERTY_LEVEL.L1 }`, leaves the size to the harness default, and is unaffected. A test-evidence audit of this node reported the two literals as a warning for test-owned configuration, not as a rejection. The call sites are text the Change that added the module-suffix compliance case wrote.
+
+**Impact:** A change to the run-count class for small L1 properties in the harness leaves these two properties on the pair the test file spells out, so the harness classification and the evidence diverge silently.
+
+**Scope:** The two property calls named above; the property at line 19 and every other test file of this node are unaffected.
+
+**Settlement condition:** the property calls in `tests/python-test.compliance.l1.test.ts` take their classification from `PROPERTY_CLASSIFICATION`, and this node's tests and its test-evidence audit pass.
