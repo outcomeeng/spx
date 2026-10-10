@@ -10,7 +10,7 @@ CAN derive complete targetless and targeted entry sets without filesystem heuris
 
 ## Assertions
 
-- ALWAYS: a tree holding nodes or root decisions without a product spec fails every targeted and targetless selection with the missing-product-spec failure
+- ALWAYS: a product root holding nodes or root decisions but no product spec the toolchain recognizes fails every targeted and targetless `list` and `show` with a diagnostic on standard error naming the failure kind and the product root, empty standard output, and a non-zero exit, never an empty success
 - NEVER: `list` carries an entry for a document `show` does not select for the same requested targets, `PLAN.md` included
 - ALWAYS: an explicitly targeted node contributes its outcome record in Full when present
 - ALWAYS: an explicitly targeted node contributes its `knowledge/index.md` as a path-only reference when present

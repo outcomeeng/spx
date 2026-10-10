@@ -16,9 +16,9 @@ CAN first locate relevant subtrees and then load only the product truth required
 - Given one or more targets, when `spx spec context show` runs, then it supplies Full target and ancestor context, Digest sibling and immediate-child awareness, applicable decisions, and path-only references to each `ISSUES.md` on a target path and to each explicit target's `knowledge/index.md`
 - Given one or more targets, when `spx spec context list` runs, then the manifest it emits carries the schema version and the bootstrap flag [spx/31-spec-domain.enabler/43-context-ingestion.enabler/32-context-manifest-schema.pdr.md](spx/31-spec-domain.enabler/43-context-ingestion.enabler/32-context-manifest-schema.pdr.md) declares, and `list` emits that manifest as labelled text and, with `--json`, as the equivalent JSON
 - The manifest carries the configured methodology identity: each accepted version form resolves, text `list` labels the methodology source with its version and, while a migration is open, the migration source version, each rendered as `MAJOR.MINOR` whichever accepted form configuration declares, and `list --json` carries each version exactly as product configuration declares it.
-- ALWAYS: the executable writes no partial context to stdout after any target, source, citation, or methodology failure
+- ALWAYS: the executable writes no partial context to stdout after any target, product-spec, source, citation, or methodology failure
 - Equal tracked product content, shipped methodology content, options, selected coding agent, and accepted canonical targets produce byte-identical output.
-- ALWAYS: context ingestion resolves the complete projection before output, so any target, selected-document, source, citation, or methodology failure returns a failure carrying no partial projection
+- ALWAYS: context ingestion resolves the complete projection before output, so any target, product-spec, selected-document, source, citation, or methodology failure returns a failure carrying no partial projection
 
 ### Compliance
 
