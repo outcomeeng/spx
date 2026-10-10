@@ -19,11 +19,24 @@ function reviewAnchorSubject(side: string, path: string): string {
   return JSON.stringify([side, path]);
 }
 
+/** The subject of a finding that concerns the changeset as a whole and carries no path. */
+export const REVIEW_CHANGESET_FINDING_SUBJECT = JSON.stringify(["changeset"]);
+
+/** The subject of an unanchored finding that concerns one path and carries no side. */
+function reviewPathSubject(path: string): string {
+  return JSON.stringify([path]);
+}
+
+function reviewFindingSubject(finding: ReviewFinding): string {
+  if (finding.side !== undefined) return reviewAnchorSubject(finding.side, finding.path);
+  return finding.path === undefined ? REVIEW_CHANGESET_FINDING_SUBJECT : reviewPathSubject(finding.path);
+}
+
 /** Map a validated review finding to its run-set identity fields. */
 export function reviewFindingIdentityFields(finding: ReviewFinding): FindingIdentityFields {
   return {
     verificationType: VERIFY_VERIFICATION_TYPE.REVIEW,
-    normalizedSubject: reviewAnchorSubject(finding.side, finding.path),
+    normalizedSubject: reviewFindingSubject(finding),
     rule: REVIEW_FINDING_IDENTITY_RULE,
     fingerprint: finding.finding.summary,
   };

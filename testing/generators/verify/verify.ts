@@ -26,7 +26,9 @@ import {
   REVIEW_SCOPE_COVERAGE_STATE,
   REVIEW_TERMINAL_STATE,
   REVIEW_TERMINAL_STATUSES,
+  type AnchoredReviewFinding,
   type ReviewFinding,
+  type UnanchoredReviewFinding,
   type ReviewScopeUnit,
   type ReviewTerminalMetadata,
   type ReviewTerminalState,
@@ -143,8 +145,10 @@ function arbitraryReviewFindingMetadata(): fc.Arbitrary<ReviewFinding["finding"]
   return arbitraryReviewFindingMetadataWith(REVIEW_FINDING_DISPOSITIONS);
 }
 
-/** A valid review finding: an anchored review comment with SPX finding metadata. */
-function arbitraryReviewFindingWith(finding: fc.Arbitrary<ReviewFinding["finding"]>): fc.Arbitrary<ReviewFinding> {
+/** A valid anchored review finding: a path, side, diff hunk, and a line or position, with SPX finding metadata. */
+function arbitraryAnchoredReviewFindingWith(
+  finding: fc.Arbitrary<ReviewFinding["finding"]>,
+): fc.Arbitrary<AnchoredReviewFinding> {
   const base = {
     path: arbitrarySourceFilePath(),
     side: fc.constantFrom(...REVIEW_ANCHOR_SIDES),
@@ -172,6 +176,67 @@ function arbitraryReviewFindingWith(finding: fc.Arbitrary<ReviewFinding["finding
       url: STATE_STORE_TEST_GENERATOR.scopeToken(),
     }),
   );
+}
+
+/** A valid unanchored review finding: no line, position, side, or diff hunk; a path only when it concerns one path. */
+function arbitraryUnanchoredReviewFindingWith(
+  finding: fc.Arbitrary<ReviewFinding["finding"]>,
+): fc.Arbitrary<UnanchoredReviewFinding> {
+  const base = {
+    originalCommit: STATE_STORE_TEST_GENERATOR.headSha(),
+    body: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    finding,
+  };
+  return fc.oneof(
+    fc.record({ ...base, path: arbitrarySourceFilePath() }),
+    fc.record(base),
+    fc.record({
+      ...base,
+      path: arbitrarySourceFilePath(),
+      providerIdentity: STATE_STORE_TEST_GENERATOR.scopeToken(),
+      url: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    }),
+  );
+}
+
+/** A valid review finding, anchored or unanchored, with SPX finding metadata. */
+function arbitraryReviewFindingWith(finding: fc.Arbitrary<ReviewFinding["finding"]>): fc.Arbitrary<ReviewFinding> {
+  return fc.oneof(arbitraryAnchoredReviewFindingWith(finding), arbitraryUnanchoredReviewFindingWith(finding));
+}
+
+function arbitraryAnchoredReviewFinding(): fc.Arbitrary<AnchoredReviewFinding> {
+  return arbitraryAnchoredReviewFindingWith(arbitraryReviewFindingMetadata());
+}
+
+function arbitraryUnanchoredReviewFinding(): fc.Arbitrary<UnanchoredReviewFinding> {
+  return arbitraryUnanchoredReviewFindingWith(arbitraryReviewFindingMetadata());
+}
+
+/**
+ * A review finding that shares the identity subject of `identity` — its anchor side and path, or
+ * its path, or the changeset — and its summary, while every other field comes from `shell`.
+ */
+export function reviewFindingSharingIdentity(identity: ReviewFinding, shell: ReviewFinding): ReviewFinding {
+  const common = {
+    originalCommit: shell.originalCommit,
+    body: shell.body,
+    finding: { ...shell.finding, summary: identity.finding.summary },
+    ...(shell.providerIdentity === undefined ? {} : { providerIdentity: shell.providerIdentity }),
+    ...(shell.url === undefined ? {} : { url: shell.url }),
+  };
+  if (identity.side === undefined) {
+    return { ...common, ...(identity.path === undefined ? {} : { path: identity.path }) };
+  }
+  const line = shell.line ?? identity.line;
+  const position = shell.position ?? identity.position;
+  return {
+    ...common,
+    path: identity.path,
+    side: identity.side,
+    diffHunk: shell.diffHunk ?? identity.diffHunk,
+    ...(line === undefined ? {} : { line }),
+    ...(position === undefined ? {} : { position }),
+  };
 }
 
 function arbitraryReviewFinding(): fc.Arbitrary<ReviewFinding> {
@@ -257,12 +322,7 @@ function arbitraryReviewFindingDisplayVariantPair(): fc.Arbitrary<{
 }> {
   return fc.tuple(arbitraryReviewFinding(), arbitraryReviewFinding()).map(([base, shell]) => ({
     base,
-    variant: {
-      ...shell,
-      side: base.side,
-      path: base.path,
-      finding: { ...shell.finding, summary: base.finding.summary },
-    },
+    variant: reviewFindingSharingIdentity(base, shell),
   }));
 }
 
@@ -368,12 +428,7 @@ function arbitraryReviewRunSetScenario(): fc.Arbitrary<ReviewRunSetScenario> {
         ...finding,
         finding: { ...finding.finding, summary: `${finding.finding.summary}-f${index}` },
       });
-      const variantOf = (identity: ReviewFinding, shell: ReviewFinding): ReviewFinding => ({
-        ...shell,
-        side: identity.side,
-        path: identity.path,
-        finding: { ...shell.finding, summary: identity.finding.summary },
-      });
+      const variantOf = reviewFindingSharingIdentity;
       const [active0, carried0, resolved0, reopened0] = identities;
       const findingActive = distinct(active0, 0);
       const findingCarriedPrior = distinct(carried0, 1);
@@ -1015,6 +1070,8 @@ export const VERIFY_TEST_GENERATOR = {
       }),
       { selector: (entry) => entry.idempotencyKey, minLength: FINDING_BATCH_MIN, maxLength: FINDING_BATCH_MAX },
     ),
+  anchoredReviewFinding: (): fc.Arbitrary<ReviewFinding> => arbitraryAnchoredReviewFinding(),
+  unanchoredReviewFinding: (): fc.Arbitrary<ReviewFinding> => arbitraryUnanchoredReviewFinding(),
   defectReviewFinding: (): fc.Arbitrary<ReviewFinding> => arbitraryDefectReviewFinding(),
   filedOrStaleReviewFinding: (): fc.Arbitrary<ReviewFinding> => arbitraryFiledOrStaleReviewFinding(),
   reviewFindingAnchorVariants: (): fc.Arbitrary<readonly ReviewFinding[]> =>
@@ -1415,7 +1472,7 @@ export function arbitraryReviewScopeMissingRequiredField(): fc.Arbitrary<ReviewM
 /** Review finding payloads each missing exactly one required field the schema declares. */
 export function arbitraryReviewFindingMissingRequiredField(): fc.Arbitrary<ReviewMissingFieldScenario> {
   return fc
-    .tuple(arbitraryReviewFinding(), fc.constantFrom(...REQUIRED_REVIEW_FINDING_FIELDS))
+    .tuple(arbitraryAnchoredReviewFinding(), fc.constantFrom(...REQUIRED_REVIEW_FINDING_FIELDS))
     .map(([finding, missingField]) => ({ payload: reviewPayloadWithoutField(finding, missingField), missingField }));
 }
 
@@ -1479,7 +1536,7 @@ export function arbitraryReviewFindingMissingDispositionEvidence(): fc.Arbitrary
  * is present, so the payload reaches the anchor requirement rather than failing a field check.
  */
 export function arbitraryReviewFindingWithoutAnchor(): fc.Arbitrary<JsonValue> {
-  return arbitraryReviewFinding().map((finding) => {
+  return arbitraryAnchoredReviewFinding().map((finding) => {
     const {
       [REVIEW_PAYLOAD_FIELD.LINE]: _line,
       [REVIEW_PAYLOAD_FIELD.POSITION]: _position,
@@ -1487,4 +1544,34 @@ export function arbitraryReviewFindingWithoutAnchor(): fc.Arbitrary<JsonValue> {
     } = JSON.parse(JSON.stringify(finding)) as { readonly [key: string]: JsonValue };
     return anchorless;
   });
+}
+
+/** One review finding payload carrying part, but not all, of its anchor, and the anchor fields it lacks. */
+export interface ReviewPartialAnchorScenario {
+  readonly payload: JsonValue;
+  readonly missingFields: readonly string[];
+}
+
+const REVIEW_ANCHOR_FIELD_GROUPS = [
+  [REVIEW_PAYLOAD_FIELD.SIDE],
+  [REVIEW_PAYLOAD_FIELD.DIFF_HUNK],
+  [REVIEW_PAYLOAD_FIELD.LINE, REVIEW_PAYLOAD_FIELD.POSITION],
+] as const;
+
+/**
+ * Review finding payloads carrying some but not all of line-or-position, side, and diff hunk: an
+ * anchored finding with a non-empty proper subset of its anchor groups removed.
+ */
+export function arbitraryReviewFindingWithPartialAnchor(): fc.Arbitrary<ReviewPartialAnchorScenario> {
+  return fc
+    .tuple(
+      arbitraryAnchoredReviewFinding(),
+      fc.subarray([0, 1, 2], { minLength: 1, maxLength: 2 }),
+    )
+    .map(([finding, removedGroups]) => {
+      const removed = removedGroups.flatMap((group) => REVIEW_ANCHOR_FIELD_GROUPS[group]);
+      const kept = JSON.parse(JSON.stringify(finding)) as { [key: string]: JsonValue };
+      for (const field of removed) delete kept[field];
+      return { payload: kept, missingFields: removed };
+    });
 }
