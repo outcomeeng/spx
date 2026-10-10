@@ -8,20 +8,22 @@ import {
   runWithReportedNames,
   runWithReportedStatuses,
 } from "@testing/harnesses/testing/python-runner";
-import { SIMULATED_EXIT_CODE, type SimulatedFileStatus } from "@testing/harnesses/testing/simulated-report";
+import {
+  runNeighbourReportScenario,
+  runReportedEntriesScenario,
+  SIMULATED_EXIT_CODE,
+} from "@testing/harnesses/testing/simulated-report";
 
 describe("python test runner derives path verdicts from the report, never the exit code", () => {
   it("reports a path passed when the report passes it though the process exits non-zero", async () => {
     await assertProperty(
       PYTHON_RUNNER_TEST_GENERATOR.nonZeroExitWithTestPath(),
       async ({ exitCode, testPath: passingPath }) => {
-        const invocation = await runWithReportedStatuses(
-          {
-            exitCode,
-            reportedStatuses: new Map<string, SimulatedFileStatus>([[passingPath, TEST_PATH_VERDICT.PASSED]]),
-          },
-          [passingPath],
-        );
+        const invocation = await runReportedEntriesScenario(runWithReportedStatuses, {
+          exitCode,
+          testPaths: [passingPath],
+          reportedEntries: [[passingPath, TEST_PATH_VERDICT.PASSED]],
+        });
 
         expect(invocation).toMatchObject({
           pathVerdicts: [{ testPath: passingPath, verdict: TEST_PATH_VERDICT.PASSED }],
@@ -34,13 +36,11 @@ describe("python test runner derives path verdicts from the report, never the ex
   it("reports a path failed when the report fails it though the process exits zero", async () => {
     const [failingPath] = samplePythonRunnerValue(PYTHON_RUNNER_TEST_GENERATOR.distinctTestPathPair());
 
-    const invocation = await runWithReportedStatuses(
-      {
-        exitCode: SIMULATED_EXIT_CODE.SUCCESS,
-        reportedStatuses: new Map<string, SimulatedFileStatus>([[failingPath, TEST_PATH_VERDICT.FAILED]]),
-      },
-      [failingPath],
-    );
+    const invocation = await runReportedEntriesScenario(runWithReportedStatuses, {
+      exitCode: SIMULATED_EXIT_CODE.SUCCESS,
+      testPaths: [failingPath],
+      reportedEntries: [[failingPath, TEST_PATH_VERDICT.FAILED]],
+    });
 
     expect(invocation).toMatchObject({
       pathVerdicts: [{ testPath: failingPath, verdict: TEST_PATH_VERDICT.FAILED }],
@@ -53,13 +53,11 @@ describe("python test runner takes a path verdict only from the report testcases
     await assertProperty(
       PYTHON_RUNNER_TEST_GENERATOR.neighbourReport(),
       async ({ testPath, neighbourPath, neighbourVerdict }) => {
-        const invocation = await runWithReportedNames(
-          {
-            exitCode: SIMULATED_EXIT_CODE.SUCCESS,
-            reportedStatuses: new Map<string, SimulatedFileStatus>([[neighbourPath, neighbourVerdict]]),
-          },
-          [testPath],
-        );
+        const invocation = await runNeighbourReportScenario(runWithReportedNames, {
+          testPath,
+          neighbourPath,
+          neighbourVerdict,
+        });
 
         expect(invocation).toMatchObject({
           pathVerdicts: [{ testPath, verdict: TEST_PATH_VERDICT.NOT_RUN }],
@@ -73,16 +71,12 @@ describe("python test runner takes a path verdict only from the report testcases
     await assertProperty(
       PYTHON_RUNNER_TEST_GENERATOR.neighbourReport(),
       async ({ testPath, neighbourPath, exactVerdict, neighbourVerdict }) => {
-        const invocation = await runWithReportedNames(
-          {
-            exitCode: SIMULATED_EXIT_CODE.SUCCESS,
-            reportedStatuses: new Map<string, SimulatedFileStatus>([
-              [neighbourPath, neighbourVerdict],
-              [testPath, exactVerdict],
-            ]),
-          },
-          [testPath],
-        );
+        const invocation = await runNeighbourReportScenario(runWithReportedNames, {
+          testPath,
+          neighbourPath,
+          neighbourVerdict,
+          exactVerdict,
+        });
 
         expect(invocation).toMatchObject({
           pathVerdicts: [{ testPath, verdict: exactVerdict }],
