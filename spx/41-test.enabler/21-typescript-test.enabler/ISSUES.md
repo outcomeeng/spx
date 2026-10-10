@@ -28,22 +28,3 @@ The mapping "TypeScript test file patterns: `*.test.ts` and `*.test.tsx`" links 
 
 **Resolution:** state the two spec-declared patterns as the test's independent expected values and assert the descriptor and the routing against them, then re-run this node's tests and its test-evidence audit.
 
-## A supplied test path takes its verdict from a report entry matched by suffix
-
-`verdictForPath` in `src/test/languages/typescript.ts` resolves each supplied test path against the file names in the Vitest JSON report by equality or by `reportedName.endsWith(`/${testPath}`)`, and returns the first match in report order. [`spx/41-test.enabler/21-typescript-test.enabler/21-typescript-test-runner.adr.md`](21-typescript-test-runner.adr.md) states that a path verdict derives from the Vitest JSON report for that test file.
-
-**Impact:** When another reported file's path ends with a supplied test path, the supplied path can take that other file's verdict, so a neighbouring file decides the verdict of a reference it does not cover.
-
-**Scope:** The report matching in `verdictForPath`. The Python adapter's report matching in `src/test/languages/python.ts` belongs to the same class and is checked with it.
-
-**Resolution:** outcomeeng/changes#427 resolves each supplied path to the reported file whose path is the product root joined to that path, adds a case in which one reported path ends with another supplied path, and checks the Python adapter for the same class; then re-run this node's tests and its test-evidence audit.
-
-## The level-1 verdict scenarios choose simulated exit codes inline
-
-`tests/typescript-test.scenario.l1.test.ts` sets the simulated Vitest process exit codes as literals in the executed test file: `exitCode: 1` at lines 19 and 31 and `exitCode: 0` at lines 44 and 65. [`spx/12-test-infrastructure.adr.md`](spx/12-test-infrastructure.adr.md) assigns variable input domains to generators and harnesses, and leaves executed test files only the assertion flow.
-
-**Impact:** The exit codes the cases hand the adapter are test-owned data, so the scenarios restate runner vocabulary that source-owned test infrastructure owns, and the file mirrors `spx/41-test.enabler/21-python-test.enabler/tests/python-test.scenario.l1.test.ts` line for line.
-
-**Scope:** The four simulated-report cases of `tests/typescript-test.scenario.l1.test.ts`.
-
-**Resolution:** outcomeeng/changes#427 draws the simulated exit codes from the runner generators or harnesses that own them; then re-run this node's tests and its test-evidence audit.
