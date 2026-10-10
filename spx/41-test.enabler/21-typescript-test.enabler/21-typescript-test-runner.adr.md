@@ -31,7 +31,6 @@ A file's exit code is no verdict for the files it ran beside: one Vitest invocat
 - ALWAYS: `runTests` adds Vitest's JSON reporter, written to a run-scoped file under the run's `.spx/worktree/test/` location, and reads it once the Vitest process exits
 - ALWAYS: the runner outcome from `runTests` reports a verdict per supplied test path taken from the Vitest JSON report for that file when the report is readable
 - ALWAYS: the verdict for a supplied test path is taken from the Vitest JSON report entry whose file name equals the product directory as supplied joined with that test path, both with separators normalized
-- ALWAYS: the verdict for a supplied test path is taken from the Vitest JSON report entry whose file name equals the resolved product directory joined with that test path when the product directory is reached through a symbolic link
 - ALWAYS: a supplied test path the Vitest JSON report omits is reported `not-run`
 - ALWAYS: a missing or unreadable Vitest JSON report yields a runner outcome with no path verdicts and a non-zero exit code, so the dispatch layer records every supplied test path `not-run`
 - NEVER: derive a path verdict from the exit code of the Vitest process that covered the path
@@ -39,6 +38,7 @@ A file's exit code is no verdict for the files it ran beside: one Vitest invocat
 
 ### Testing
 
+- ALWAYS: the verdict for a supplied test path is taken from the Vitest JSON report entry whose file name equals the resolved product directory joined with that test path when the product directory is reached through a symbolic link ([scenario])
 - ALWAYS: the journal-streaming run resolves the Vitest Node API against the product directory under test and imports the resolved module, so the run starts the Vitest that product selected ([compliance])
 - ALWAYS: the streaming run reports an unresolvable Vitest Node API as a runner outcome naming the product directory searched, so a product without the runner is distinguishable from a run that started and failed ([compliance])
 - NEVER: the harness declares Vitest a runtime dependency of its own package to satisfy the streaming run — the runner belongs to the product under test, and a harness-supplied Vitest binds a lifecycle contract the product's selected version need not implement ([compliance])
