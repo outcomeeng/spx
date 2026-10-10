@@ -8,7 +8,11 @@ import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placemen
 import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
 import { formatMethodologyVersionName } from "@/lib/methodology";
-import { SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
+import {
+  SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR,
+  SPEC_CONTEXT_PRODUCT_ROOT_TARGET,
+  SPEC_CONTEXT_TARGET_FAILURE_KIND,
+} from "@/lib/spec-tree";
 import {
   CONFIG_TEST_GENERATOR,
   generatedHarnessMethodologyConfig,
@@ -74,11 +78,17 @@ describe("spec context ingestion writes nothing to standard output after a failu
     });
     // A tree holding no product spec, node, or decision fails the same way.
     await withEmptyContextTreeEnv(specTreeKindsConfig(), async (env) => {
-      for (const command of [SPEC_CONTEXT_COMMAND_PATH.SHOW, SPEC_CONTEXT_COMMAND_PATH.LIST]) {
-        const run = await runSpecDescriptor({ productDir: env.productDir }, ...command);
-        expect(run.stdout, command.join(" ")).toHaveLength(0);
-        expect(run.exitCode, command.join(" ")).toBe(1);
-        expect(run.stderr, command.join(" ")).toContain(SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR);
+      // `list` takes its targets as required operands, so the product-root target stands in for the targetless call.
+      for (
+        const argv of [
+          SPEC_CONTEXT_COMMAND_PATH.SHOW,
+          [...SPEC_CONTEXT_COMMAND_PATH.LIST, SPEC_CONTEXT_PRODUCT_ROOT_TARGET],
+        ]
+      ) {
+        const run = await runSpecDescriptor({ productDir: env.productDir }, ...argv);
+        expect(run.stdout, argv.join(" ")).toHaveLength(0);
+        expect(run.exitCode, argv.join(" ")).toBe(1);
+        expect(run.stderr, argv.join(" ")).toContain(SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR);
       }
     });
   });

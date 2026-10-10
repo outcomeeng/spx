@@ -48,10 +48,10 @@ export function specContextAcceptedPaths(snapshot: SpecTreeSnapshot): readonly S
     node,
     path: `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${node.id}`,
   }]));
-  if (snapshot.product !== null) {
-    accepted.push({ path: ".", target: root }, { path: SPEC_TREE_CONFIG.ROOT_DIRECTORY, target: root });
-    if (snapshot.product.ref?.path !== undefined) accepted.push({ path: snapshot.product.ref.path, target: root });
-  }
+  // The product root is always an accepted target, so a root holding no product
+  // spec fails the walk with the missing-product-spec diagnostic, never as an unresolved operand.
+  accepted.push({ path: ".", target: root }, { path: SPEC_TREE_CONFIG.ROOT_DIRECTORY, target: root });
+  if (snapshot.product?.ref?.path !== undefined) accepted.push({ path: snapshot.product.ref.path, target: root });
   for (const target of targets.values()) {
     accepted.push({ path: target.path, target });
     if (target.node.ref?.path !== undefined) accepted.push({ path: target.node.ref.path, target });
