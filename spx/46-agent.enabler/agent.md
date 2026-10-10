@@ -1,8 +1,8 @@
 # Agent
 
-PROVIDES coding-agent session identity, resume, search, and closure coordination
-SO THAT users and managed workflows operating Codex, Claude Code, or Pi in a product worktree
-CAN find, continue, bind evidence to, and close the exact native coding-agent session from the SPX CLI
+PROVIDES coding-agent session identity, resume, search, closure coordination, and Claude Code token usage evidence
+SO THAT users and managed workflows operating Codex, Claude Code, or Pi in a product worktree, including token-spend control,
+CAN find, continue, bind evidence to, account the token usage of, and close the exact native coding-agent session from the SPX CLI
 
 ## Assertions
 
