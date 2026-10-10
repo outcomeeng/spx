@@ -23,6 +23,7 @@ CAN execute Python tests with exclusion flags derived from `spx.config.{toml,jso
 
 ### Compliance
 
+- NEVER: a supplied test path takes the verdict of JUnit testcases whose module path ends with that test path's module but is neither that module relative to the product directory nor nested under it ([test](tests/python-test.compliance.l1.test.ts))
 - NEVER: a path verdict derives from the exit code of the pytest process that covered the path — the JUnit XML report states it ([test](tests/python-test.compliance.l1.test.ts))
 - ALWAYS: a run over a product whose root holds no pytest ini-file, while an ini-file sits nearer to its test files, reports each supplied test path's verdict from the JUnit XML report rather than `not-run` ([test](tests/python-test.compliance.l2.test.ts))
 - ALWAYS: pytest invocation is gated on the Python testing descriptor's detection result ([test](tests/python-test.compliance.l1.test.ts))

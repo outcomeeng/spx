@@ -6,7 +6,7 @@
  * injected command runner. Composing descriptors into a registry and dispatching
  * the `spx test` command are separate, higher-level concerns.
  */
-import { readFile, rm } from "node:fs/promises";
+import { readFile, realpath, rm } from "node:fs/promises";
 import { join, posix } from "node:path";
 
 import ts from "typescript";
@@ -146,12 +146,13 @@ function reportedFileVerdicts(reportText: string): ReadonlyMap<string, TestPathV
 }
 
 function verdictForPath(
+  productRoots: readonly string[],
   testPath: string,
   fileVerdicts: ReadonlyMap<string, TestPathVerdict["verdict"]>,
 ): TestPathVerdict["verdict"] {
-  const suffix = `${PATH_SEPARATOR}${normalizedSeparators(testPath)}`;
-  for (const [reportedName, verdict] of fileVerdicts) {
-    if (reportedName === normalizedSeparators(testPath) || reportedName.endsWith(suffix)) return verdict;
+  for (const productRoot of productRoots) {
+    const verdict = fileVerdicts.get(posix.join(normalizedSeparators(productRoot), normalizedSeparators(testPath)));
+    if (verdict !== undefined) return verdict;
   }
   return TEST_PATH_VERDICT.NOT_RUN;
 }
@@ -159,12 +160,23 @@ function verdictForPath(
 /** One verdict per supplied path from Vitest's JSON report, or `null` when the report is unreadable. */
 function pathVerdictsFromReport(
   reportText: string | null,
+  productRoots: readonly string[],
   testPaths: readonly string[],
 ): readonly TestPathVerdict[] | null {
   if (reportText === null) return null;
   const fileVerdicts = reportedFileVerdicts(reportText);
   if (fileVerdicts === null) return null;
-  return testPaths.map((testPath) => ({ testPath, verdict: verdictForPath(testPath, fileVerdicts) }));
+  return testPaths.map((testPath) => ({ testPath, verdict: verdictForPath(productRoots, testPath, fileVerdicts) }));
+}
+
+/** The product directory as supplied and as the filesystem resolves it, the spellings Vitest may report. */
+async function reportedProductRoots(productDir: string): Promise<readonly string[]> {
+  try {
+    const resolved = await realpath(productDir);
+    return resolved === productDir ? [productDir] : [productDir, resolved];
+  } catch {
+    return [productDir];
+  }
 }
 
 async function readReportText(
@@ -196,7 +208,11 @@ async function runTests(request: TestRunRequest, deps: TestRunnerDependencies): 
   ];
 
   const result = await deps.runCommand(PACKAGE_MANAGER_COMMAND, args);
-  const pathVerdicts = pathVerdictsFromReport(await readReportText(reportPath, deps), request.testPaths);
+  const pathVerdicts = pathVerdictsFromReport(
+    await readReportText(reportPath, deps),
+    await reportedProductRoots(request.productDir),
+    request.testPaths,
+  );
   await (deps.removeReport ?? ((path) => rm(path, { force: true })))(reportPath);
   return {
     invoked: true,

@@ -20,7 +20,8 @@ import {
   uniformOutcomeResolverFor,
 } from "@testing/harnesses/spec-tree/spec-cli-commands";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
-import { createRecordingCommandRunner, SIMULATED_REPORT } from "@testing/harnesses/testing/typescript-runner";
+import { SIMULATED_REPORT } from "@testing/harnesses/testing/simulated-report";
+import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
 
 describe("spx spec status --update recorded-evidence mapping", () => {
   it("maps an uncovered reference to not-run and executes no verification", async () => {

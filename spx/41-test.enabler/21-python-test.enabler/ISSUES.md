@@ -47,13 +47,3 @@ The mapping "Config-driven exclusion flag generation: an excluded node path `{se
 **Scope:** One case of this node's mapping test, untouched by the per-path verdict changes.
 
 **Resolution:** state the expected `--ignore=spx/{segment}/` form independently of the production prefix and suffix constants, then re-run this node's tests and its test-evidence audit.
-
-## The level-1 verdict scenarios choose simulated exit codes inline
-
-`tests/python-test.scenario.l1.test.ts` sets the simulated pytest process exit codes as literals in the executed test file: `exitCode: 1` at lines 18 and 30 and `exitCode: 0` at lines 43 and 64. [`spx/12-test-infrastructure.adr.md`](spx/12-test-infrastructure.adr.md) assigns variable input domains to generators and harnesses, and leaves executed test files only the assertion flow.
-
-**Impact:** The exit codes the cases hand the adapter are test-owned data, so the scenarios restate runner vocabulary that source-owned test infrastructure owns, and the file mirrors `spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.scenario.l1.test.ts` line for line.
-
-**Scope:** The four simulated-report cases of `tests/python-test.scenario.l1.test.ts`.
-
-**Resolution:** outcomeeng/changes#427 draws the simulated exit codes from the runner generators or harnesses that own them; then re-run this node's tests and its test-evidence audit.

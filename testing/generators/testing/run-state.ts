@@ -28,6 +28,8 @@ const DIGEST_PATTERN = /^[a-f0-9]{64}$/;
 const BRANCH_SEPARATOR = "/";
 const MAX_RUN_DURATION_MS = 86_400_000;
 const MAX_EXIT_CODE = 255;
+const HEX_DIGITS_PER_BYTE = 2;
+const HEX_RADIX = 16;
 const MAX_RUNNER_OUTCOMES = 4;
 const MAX_PRODUCT_INPUT_DIGESTS = 4;
 const MIN_TEST_PATHS = 1;
@@ -50,6 +52,9 @@ export const TEST_RUN_STATE_TEST_GENERATOR = {
   timestampDate: arbitraryTimestampDate,
   runnerOutcome: arbitraryRunnerOutcome,
   outcomeCovering,
+  stateCovering,
+  stateCoveringAcross,
+  persistedRunFile,
   productInputDigest: arbitraryProductInputDigest,
   testPaths: arbitraryTestPaths,
   disjointTestPathsPair: arbitraryDisjointTestPathsPair,
@@ -157,6 +162,56 @@ function outcomeCovering(outcome: TestRunnerOutcome, testPaths: readonly string[
     testPaths,
     pathVerdicts: testPaths.map((testPath, index) => ({ testPath, verdict: verdicts[index % verdicts.length] })),
   };
+}
+
+export interface PersistedRunFile {
+  readonly name: string;
+  readonly content: string;
+}
+
+// A terminal state whose runner outcomes cover exactly the given test paths, in one outcome
+// (empty paths => no outcome => the run covers no node).
+function stateCovering(
+  base: TestRunState,
+  testPaths: readonly string[],
+  completedAt: string,
+  startedAt: string,
+): TestRunState {
+  return stateCoveringAcross(base, testPaths.length === 0 ? [] : [testPaths], completedAt, startedAt);
+}
+
+// A terminal state with one runner outcome per path group, so a node's paths can be split
+// across several outcomes that only together cover the node. Each outcome's runner id and
+// exit code come from the base state, which the property's own seeded arbitrary drew: the
+// runner id is the base branch name and the exit code is a byte of the base head SHA.
+function stateCoveringAcross(
+  base: TestRunState,
+  outcomePaths: readonly (readonly string[])[],
+  completedAt: string,
+  startedAt: string,
+): TestRunState {
+  return {
+    ...base,
+    runnerOutcomes: outcomePaths.map((paths, index) =>
+      outcomeCovering(
+        { runnerId: base.branchName, testPaths: paths, exitCode: exitCodeFrom(base.headSha, index), pathVerdicts: [] },
+        paths,
+      )
+    ),
+    completedAt,
+    startedAt,
+  };
+}
+
+function exitCodeFrom(headSha: string, index: number): number {
+  const byteCount = headSha.length / HEX_DIGITS_PER_BYTE;
+  const start = (index % byteCount) * HEX_DIGITS_PER_BYTE;
+  return Number.parseInt(headSha.slice(start, start + HEX_DIGITS_PER_BYTE), HEX_RADIX);
+}
+
+// The run file that persists a terminal state under the given run file name.
+function persistedRunFile(runFileName: string, state: TestRunState): PersistedRunFile {
+  return { name: runFileName, content: JSON.stringify(state) };
 }
 
 function arbitraryProductInputDigest(): fc.Arbitrary<ProductInputDigest> {

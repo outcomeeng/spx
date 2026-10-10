@@ -1,23 +1,19 @@
 import * as fc from "fast-check";
 
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
-
-const SPEC_ROOT = "spx";
-const TESTS_DIR = "tests";
-const NODE_SUFFIX = ".enabler";
-const NODE_INDEX_MIN = 10;
-const NODE_INDEX_MAX = 99;
-const MIN_NODE_DEPTH = 1;
-const MAX_NODE_DEPTH = 3;
-const MIN_NODE_PATHS = 1;
-const MAX_NODE_PATHS = 4;
-const MIN_TEST_PATHS = 0;
-const MIN_NON_EMPTY_TEST_PATHS = 1;
-const MAX_TEST_PATHS = 5;
-const DISTINCT_PAIR_LENGTH = 2;
-const MIN_EXIT_CODE = 0;
-const MIN_NON_ZERO_EXIT_CODE = 1;
-const MAX_EXIT_CODE = 255;
+import {
+  arbitraryExitCode,
+  arbitraryNeighbourReport,
+  arbitraryNodePath,
+  arbitraryNodePaths,
+  arbitraryNonEmptyTestPaths,
+  arbitraryNonZeroExitCode,
+  arbitraryNonZeroExitWithTestPath,
+  arbitraryPresence,
+  arbitraryTestPaths,
+  arbitraryTestsDirectory,
+  arbitraryUniquePair,
+} from "@testing/generators/testing/runner-paths";
 
 // The pytest target shape declared by the spec (`test_*.py`), held here independently of the
 // descriptor's own constants so a divergence between the descriptor and the spec fails the match test.
@@ -31,12 +27,13 @@ export const PYTHON_RUNNER_TEST_GENERATOR = {
   nonTestFilePath: arbitraryNonPythonTestFilePath,
   nodePath: arbitraryNodePath,
   nodePaths: arbitraryNodePaths,
-  testPaths: arbitraryTestPaths,
-  nonEmptyTestPaths: arbitraryNonEmptyTestPaths,
-  distinctTestPathPair: arbitraryDistinctTestPathPair,
+  testPaths: () => arbitraryTestPaths(arbitraryPythonTestFilePath()),
+  nonEmptyTestPaths: () => arbitraryNonEmptyTestPaths(arbitraryPythonTestFilePath()),
+  distinctTestPathPair: () => arbitraryUniquePair(arbitraryPythonTestFilePath()),
   exitCode: arbitraryExitCode,
   nonZeroExitCode: arbitraryNonZeroExitCode,
-  nonZeroExitWithTestPath: arbitraryNonZeroExitWithTestPath,
+  nonZeroExitWithTestPath: () => arbitraryNonZeroExitWithTestPath(arbitraryPythonTestFilePath()),
+  neighbourReport: () => arbitraryNeighbourReport(arbitraryPythonTestFilePath()),
   present: arbitraryPresence,
   invocationGateScenario: arbitraryInvocationGateScenario,
 } as const;
@@ -48,22 +45,6 @@ export interface PythonRunnerInvocationGateScenario {
 
 export function samplePythonRunnerValue<T>(arbitrary: fc.Arbitrary<T>): T {
   return sampleConfigTestValue(arbitrary);
-}
-
-function arbitraryNodeSegment(): fc.Arbitrary<string> {
-  return fc
-    .tuple(fc.integer({ min: NODE_INDEX_MIN, max: NODE_INDEX_MAX }), CONFIG_TEST_GENERATOR.key())
-    .map(([index, slug]) => `${index}-${slug}${NODE_SUFFIX}`);
-}
-
-function arbitraryNodePath(): fc.Arbitrary<string> {
-  return fc
-    .array(arbitraryNodeSegment(), { minLength: MIN_NODE_DEPTH, maxLength: MAX_NODE_DEPTH })
-    .map((segments) => segments.join("/"));
-}
-
-function arbitraryTestsDirectory(): fc.Arbitrary<string> {
-  return arbitraryNodePath().map((nodePath) => `${SPEC_ROOT}/${nodePath}/${TESTS_DIR}`);
 }
 
 function arbitraryPythonTestFilePath(): fc.Arbitrary<string> {
@@ -83,46 +64,6 @@ function arbitraryNonPythonTestFilePath(): fc.Arbitrary<string> {
       .tuple(arbitraryTestsDirectory(), CONFIG_TEST_GENERATOR.key())
       .map(([directory, name]) => `${directory}/${name}${MATCHING_TEST_EXTENSION}`),
   );
-}
-
-function arbitraryNodePaths(): fc.Arbitrary<readonly string[]> {
-  return fc.uniqueArray(arbitraryNodePath(), { minLength: MIN_NODE_PATHS, maxLength: MAX_NODE_PATHS });
-}
-
-function arbitraryTestPaths(): fc.Arbitrary<readonly string[]> {
-  return fc.uniqueArray(arbitraryPythonTestFilePath(), { minLength: MIN_TEST_PATHS, maxLength: MAX_TEST_PATHS });
-}
-
-function arbitraryNonEmptyTestPaths(): fc.Arbitrary<readonly string[]> {
-  return fc.uniqueArray(arbitraryPythonTestFilePath(), {
-    minLength: MIN_NON_EMPTY_TEST_PATHS,
-    maxLength: MAX_TEST_PATHS,
-  });
-}
-
-function arbitraryDistinctTestPathPair(): fc.Arbitrary<readonly [string, string]> {
-  return fc
-    .uniqueArray(arbitraryPythonTestFilePath(), { minLength: DISTINCT_PAIR_LENGTH, maxLength: DISTINCT_PAIR_LENGTH })
-    .map(([first = "", second = ""]) => [first, second] as const);
-}
-
-function arbitraryExitCode(): fc.Arbitrary<number> {
-  return fc.integer({ min: MIN_EXIT_CODE, max: MAX_EXIT_CODE });
-}
-
-function arbitraryNonZeroExitCode(): fc.Arbitrary<number> {
-  return fc.integer({ min: MIN_NON_ZERO_EXIT_CODE, max: MAX_EXIT_CODE });
-}
-
-function arbitraryNonZeroExitWithTestPath(): fc.Arbitrary<{ readonly exitCode: number; readonly testPath: string }> {
-  return fc.record({
-    exitCode: arbitraryNonZeroExitCode(),
-    testPath: arbitraryPythonTestFilePath(),
-  });
-}
-
-function arbitraryPresence(): fc.Arbitrary<boolean> {
-  return fc.boolean();
 }
 
 function arbitraryInvocationGateScenario(): fc.Arbitrary<PythonRunnerInvocationGateScenario> {

@@ -6,6 +6,8 @@ CAN verify command construction, the detection gate, and exclusion-flag generati
 
 ## Assertions
 
+- ALWAYS: the harness names the simulated runner exit codes beside `SIMULATED_REPORT`, with the production `SUCCESS_EXIT_CODE` as the success value and one distinct failure value, and supplies the scenario construction the level-1 TypeScript verdict scenarios repeat — a simulated runner invocation over supplied test paths and their reported statuses — so those scenarios declare no exit-code literal
+
 ### Scenarios
 
 - Given a committed Vitest fixture suite, when `withTempVitestProduct` runs a callback, then the suite is copied into a fresh temporary product under the OS temp root rather than the repository, the product holds exactly the copied suite, and the product directory is removed after the callback settles ([test](tests/test-harness.scenario.l1.test.ts))

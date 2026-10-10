@@ -8,6 +8,7 @@ CAN execute this product's TypeScript tests with exclusion flags derived from `s
 
 ### Scenarios
 
+- Given a product directory reached through a symbolic link and a Vitest JSON report whose entries name the resolved product directory joined with the supplied test path, when the typescript-testing runner completes, then the returned runner outcome reports the verdict of that entry for the supplied path ([test](tests/typescript-test.scenario.l1.test.ts))
 - Given a CLI-flag run over one failing and one passing TypeScript test file, when the typescript-testing runner completes, then the returned runner outcome reports `failed` for the failing path and `passed` for the passing path ([test](tests/typescript-test.scenario.l1.test.ts), [test](tests/typescript-test-verdicts.scenario.l2.test.ts))
 - Given a CLI-flag run over two TypeScript test files whose Vitest JSON report omits one, when the typescript-testing runner completes, then the returned runner outcome reports `not-run` for the omitted path ([test](tests/typescript-test.scenario.l1.test.ts))
 - Given a CLI-flag run whose Vitest JSON report is missing or unreadable, when the typescript-testing runner completes, then the returned runner outcome carries no path verdicts and a non-zero exit code ([test](tests/typescript-test.scenario.l1.test.ts))
@@ -23,6 +24,7 @@ CAN execute this product's TypeScript tests with exclusion flags derived from `s
 
 ### Compliance
 
+- NEVER: a supplied test path takes the verdict of a reported file whose path ends with that test path but is not the product directory, as supplied or resolved through the filesystem's real path, joined with it ([test](tests/typescript-test.compliance.l1.test.ts))
 - NEVER: a path verdict derives from the exit code of the Vitest process that covered the path — the Vitest JSON report states it ([test](tests/typescript-test.compliance.l1.test.ts))
 - ALWAYS: Vitest invocation is gated on the TypeScript testing descriptor's detection result ([test](tests/typescript-test.compliance.l1.test.ts))
 - ALWAYS: the TypeScript testing descriptor exposes a journal-streaming run alongside its CLI-flag run — a programmatic Vitest run hosting the reporter of `spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler` — enumerated through the testing registry per [`spx/19-language-registration.adr.md`](spx/19-language-registration.adr.md) and gated on the descriptor's detection result so an absent language yields a gated-out run with no Vitest invoked, so a language-neutral consumer drives per-module scope and per-failing-case evidence into an injected sink without naming Vitest or TypeScript ([test](tests/typescript-test.compliance.l1.test.ts), [test](tests/typescript-test.compliance.l2.test.ts))
