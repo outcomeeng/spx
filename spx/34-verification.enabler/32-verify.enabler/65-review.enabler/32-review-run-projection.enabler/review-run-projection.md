@@ -14,13 +14,13 @@ CAN render formal-review-shaped evidence from individual verification runs and r
 
 - Review terminal metadata maps provider identity when present, actor, state, body, submitted time, commit identity, and URL when present into the review run projection ([test](tests/review-envelope.mapping.l1.test.ts))
 - Review terminal metadata state maps `approved` to terminal status `approved`, maps `changes_requested` to terminal status `rejected`, and lets `commented` preserve the caller-supplied terminal status unless review evidence already determines rejection; review evidence determines rejection only through a finding whose disposition is `BLOCKING` or `DEBT` or a reviewed unit in a finding coverage state, so a run whose findings are all `FILED` or `STALE` takes the envelope's status ([test](tests/review-envelope.mapping.l1.test.ts))
-- Review comment input maps provider identity when present, path, line or position, side, original commit identity, diff hunk, body, URL when present, and SPX finding metadata into the review run projection ([test](tests/review-comment.mapping.l1.test.ts))
+- Review comment input maps provider identity when present, original commit identity, body, URL when present, and SPX finding metadata into the review run projection, together with the path, line or position, side, and diff hunk an anchored comment carries; an unanchored comment maps without line, position, side, or diff hunk, and a comment that concerns the changeset as a whole maps without a path, so the projection invents none of those fields ([test](tests/review-comment.mapping.l1.test.ts))
 
 ### Properties
 
 - For every review run set, run evidence projects through the review finding-identity extractor and reviewed-unit scope key into active, resolved, reopened, and coverage-gap groups ([test](tests/review-run-set.property.l1.test.ts))
 
-- Review finding identity composes the review verification type, the anchor side and path, and the SPX finding summary, and is invariant under changes to line, position, URL, provider identity, diff hunk, comment body, original commit, and finding disposition ([test](tests/review-run-set-identity.property.l1.test.ts))
+- Review finding identity composes the review verification type, a subject, and the SPX finding summary, where the subject is the anchor side and path of an anchored finding, the path of an unanchored finding, and a source-owned changeset constant for an unanchored finding without a path, and is invariant under changes to line, position, URL, provider identity, diff hunk, comment body, original commit, and finding disposition ([test](tests/review-run-set-identity.property.l1.test.ts))
 - The reviewed-unit scope key composes the anchor side and path and is invariant under changes to commit, coverage state, line, position, URL, and provider identity ([test](tests/review-run-set-identity.property.l1.test.ts))
 - Payload-shaped review identity adapters are total: a validated review payload maps through its schema fields and a non-conforming payload maps to a whole-payload canonical identity without throwing ([test](tests/review-run-set-identity.property.l1.test.ts))
 
