@@ -2,7 +2,12 @@ import * as fc from "fast-check";
 import { join } from "node:path";
 
 import { canonicalDescriptorJson } from "@/config/index";
-import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION, METHODOLOGY_VERSION_FORM } from "@/config/methodology";
+import {
+  METHODOLOGY_CONFIG_FIELDS,
+  METHODOLOGY_SECTION,
+  METHODOLOGY_VERSION_FORM,
+  type MethodologyVersionForm,
+} from "@/config/methodology";
 import {
   PATH_FILTER_CONFIG_FIELDS,
   type PathFilterConfig,
@@ -34,6 +39,7 @@ import {
   arbitraryMethodologyLineVersion,
   arbitraryMethodologyVersion,
   arbitraryMethodologyVersionForms,
+  arbitraryMethodologyVersionFormsOnDistinctLines,
   type GeneratedMethodologyVersion,
   type GeneratedMethodologyVersionForms,
   malformedVersionTextShapes,
@@ -297,6 +303,38 @@ export function generatedLineFormMigratingMethodologySection(): {
       [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: forms.byForm[METHODOLOGY_VERSION_FORM.LINE],
     },
   };
+}
+
+/**
+ * A migrating methodology section for every pairing of accepted version forms:
+ * the target and the migration source each spelled in one form, on distinct
+ * lines, so a rendering that swaps, repeats, or mis-forms either is distinguishable.
+ */
+export interface GeneratedMigratingMethodologyFormCase {
+  readonly section: Record<string, unknown>;
+  readonly targetForm: MethodologyVersionForm;
+  readonly sourceForm: MethodologyVersionForm;
+  readonly target: GeneratedMethodologyVersionForms;
+  readonly source: GeneratedMethodologyVersionForms;
+}
+
+export function generatedMigratingMethodologyFormCases(): readonly GeneratedMigratingMethodologyFormCase[] {
+  const [target, source] = sampleGeneratedValue(arbitraryMethodologyVersionFormsOnDistinctLines());
+  const methodologySource = generatedMethodologySource();
+  const forms = Object.values(METHODOLOGY_VERSION_FORM);
+  return forms.flatMap((targetForm) =>
+    forms.map((sourceForm) => ({
+      targetForm,
+      sourceForm,
+      target,
+      source,
+      section: {
+        [METHODOLOGY_CONFIG_FIELDS.SOURCE]: methodologySource,
+        [METHODOLOGY_CONFIG_FIELDS.VERSION]: target.byForm[targetForm],
+        [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: source.byForm[sourceForm],
+      },
+    }))
+  );
 }
 
 /** One line in every accepted form, each spelled as a methodology section declaring that form. */
