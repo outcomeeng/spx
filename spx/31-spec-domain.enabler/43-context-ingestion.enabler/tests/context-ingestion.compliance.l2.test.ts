@@ -7,7 +7,11 @@ import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
 import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
 import { formatMethodologyVersionName, METHODOLOGY_CODING_AGENT } from "@/lib/methodology";
-import { KIND_REGISTRY, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
+import {
+  KIND_REGISTRY,
+  SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR,
+  SPEC_CONTEXT_TARGET_FAILURE_KIND,
+} from "@/lib/spec-tree";
 import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
@@ -18,7 +22,13 @@ import {
 import { sampleSpecTreeTestValue, specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
 import { shippedMethodologyVersion } from "@testing/harnesses/methodology/shipped-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
-import { methodologyTreeConfig, runSpecCli, withRichContextEnv } from "@testing/harnesses/spec/context";
+import {
+  methodologyTreeConfig,
+  runSpecCli,
+  specTreeKindsConfig,
+  withProductlessContextTreeEnv,
+  withRichContextEnv,
+} from "@testing/harnesses/spec/context";
 
 describe("spec context no partial output", () => {
   it("writes nothing to standard output when one target of a list or show fails to resolve, and the complete output when every target resolves", async () => {
@@ -37,6 +47,23 @@ describe("spec context no partial output", () => {
         const resolved = await runSpecCli(env.productDir, ...command, paths.targetId);
         expect(resolved.exitCode, resolved.stderr).toBe(0);
         expect(resolved.stdout).toContain(paths.targetSpecPath);
+      }
+    });
+  });
+
+  it("writes nothing to standard output when the product root holds no recognized product spec", async () => {
+    await withProductlessContextTreeEnv(specTreeKindsConfig(), async (env, paths) => {
+      for (
+        const argv of [
+          SPEC_CONTEXT_COMMAND_PATH.SHOW,
+          [...SPEC_CONTEXT_COMMAND_PATH.SHOW, paths.nodeTargetPath],
+          [...SPEC_CONTEXT_COMMAND_PATH.LIST, paths.nodeTargetPath],
+        ]
+      ) {
+        const result = await runSpecCli(env.productDir, ...argv);
+        expect(result.exitCode, argv.join(" ")).toBe(1);
+        expect(result.stdout, argv.join(" ")).toHaveLength(0);
+        expect(result.stderr, argv.join(" ")).toContain(SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR);
       }
     });
   });
