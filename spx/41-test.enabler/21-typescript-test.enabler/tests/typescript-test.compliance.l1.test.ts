@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 import { TEST_PATH_VERDICT } from "@/test/run-state";
 import { TYPESCRIPT_RUNNER_TEST_GENERATOR } from "@testing/generators/testing/typescript-runner";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
-import { SIMULATED_EXIT_CODE, type SimulatedFileStatus } from "@testing/harnesses/testing/simulated-report";
+import {
+  runNeighbourReportScenario,
+  runReportedEntriesScenario,
+  SIMULATED_EXIT_CODE,
+} from "@testing/harnesses/testing/simulated-report";
 import {
   runWithReportedNames,
   runWithReportedStatuses,
@@ -17,13 +21,11 @@ describe("typescript test runner derives path verdicts from the report, never th
     await assertProperty(
       TYPESCRIPT_RUNNER_TEST_GENERATOR.nonZeroExitWithTestPath(),
       async ({ exitCode, testPath: passingPath }) => {
-        const invocation = await runWithReportedStatuses(
-          {
-            exitCode,
-            reportedStatuses: new Map<string, SimulatedFileStatus>([[passingPath, TEST_PATH_VERDICT.PASSED]]),
-          },
-          [passingPath],
-        );
+        const invocation = await runReportedEntriesScenario(runWithReportedStatuses, {
+          exitCode,
+          testPaths: [passingPath],
+          reportedEntries: [[passingPath, TEST_PATH_VERDICT.PASSED]],
+        });
 
         expect(invocation).toMatchObject({
           pathVerdicts: [{ testPath: passingPath, verdict: TEST_PATH_VERDICT.PASSED }],
@@ -36,13 +38,11 @@ describe("typescript test runner derives path verdicts from the report, never th
   it("maps a TypeScript path to failed from the Vitest report despite a zero process exit", async () => {
     const [failingPath] = twoDistinctTestPaths();
 
-    const invocation = await runWithReportedStatuses(
-      {
-        exitCode: SIMULATED_EXIT_CODE.SUCCESS,
-        reportedStatuses: new Map<string, SimulatedFileStatus>([[failingPath, TEST_PATH_VERDICT.FAILED]]),
-      },
-      [failingPath],
-    );
+    const invocation = await runReportedEntriesScenario(runWithReportedStatuses, {
+      exitCode: SIMULATED_EXIT_CODE.SUCCESS,
+      testPaths: [failingPath],
+      reportedEntries: [[failingPath, TEST_PATH_VERDICT.FAILED]],
+    });
 
     expect(invocation).toMatchObject({
       pathVerdicts: [{ testPath: failingPath, verdict: TEST_PATH_VERDICT.FAILED }],
@@ -55,13 +55,11 @@ describe("typescript test runner takes a path verdict only from the report entry
     await assertProperty(
       TYPESCRIPT_RUNNER_TEST_GENERATOR.neighbourReport(),
       async ({ testPath, neighbourPath, neighbourVerdict }) => {
-        const invocation = await runWithReportedNames(
-          {
-            exitCode: SIMULATED_EXIT_CODE.SUCCESS,
-            reportedStatuses: new Map<string, SimulatedFileStatus>([[neighbourPath, neighbourVerdict]]),
-          },
-          [testPath],
-        );
+        const invocation = await runNeighbourReportScenario(runWithReportedNames, {
+          testPath,
+          neighbourPath,
+          neighbourVerdict,
+        });
 
         expect(invocation).toMatchObject({
           pathVerdicts: [{ testPath, verdict: TEST_PATH_VERDICT.NOT_RUN }],
@@ -75,16 +73,12 @@ describe("typescript test runner takes a path verdict only from the report entry
     await assertProperty(
       TYPESCRIPT_RUNNER_TEST_GENERATOR.neighbourReport(),
       async ({ testPath, neighbourPath, exactVerdict, neighbourVerdict }) => {
-        const invocation = await runWithReportedNames(
-          {
-            exitCode: SIMULATED_EXIT_CODE.SUCCESS,
-            reportedStatuses: new Map<string, SimulatedFileStatus>([
-              [neighbourPath, neighbourVerdict],
-              [testPath, exactVerdict],
-            ]),
-          },
-          [testPath],
-        );
+        const invocation = await runNeighbourReportScenario(runWithReportedNames, {
+          testPath,
+          neighbourPath,
+          neighbourVerdict,
+          exactVerdict,
+        });
 
         expect(invocation).toMatchObject({
           pathVerdicts: [{ testPath, verdict: exactVerdict }],

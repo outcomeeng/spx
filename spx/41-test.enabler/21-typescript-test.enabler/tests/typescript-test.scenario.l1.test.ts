@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { TEST_PATH_VERDICT } from "@/test/run-state";
 import {
+  runReportedEntriesScenario,
   SIMULATED_EXIT_CODE,
   SIMULATED_REPORT,
-  type SimulatedFileStatus,
 } from "@testing/harnesses/testing/simulated-report";
 import {
   runWithReportedStatuses,
@@ -18,16 +18,11 @@ describe("typescript test runner reports a verdict per test path from Vitest's J
   it("maps the failing TypeScript path to failed and the passing TypeScript path to passed within one invocation", async () => {
     const [failingPath, passingPath] = twoDistinctTestPaths();
 
-    const invocation = await runWithReportedStatuses(
-      {
-        exitCode: SIMULATED_EXIT_CODE.FAILURE,
-        reportedStatuses: new Map<string, SimulatedFileStatus>([
-          [failingPath, TEST_PATH_VERDICT.FAILED],
-          [passingPath, TEST_PATH_VERDICT.PASSED],
-        ]),
-      },
-      [failingPath, passingPath],
-    );
+    const invocation = await runReportedEntriesScenario(runWithReportedStatuses, {
+      exitCode: SIMULATED_EXIT_CODE.FAILURE,
+      testPaths: [failingPath, passingPath],
+      reportedEntries: [[failingPath, TEST_PATH_VERDICT.FAILED], [passingPath, TEST_PATH_VERDICT.PASSED]],
+    });
 
     expect(invocation).toMatchObject({
       invoked: true,
@@ -42,13 +37,11 @@ describe("typescript test runner reports a verdict per test path from Vitest's J
   it("maps a supplied TypeScript path absent from the Vitest report to not-run", async () => {
     const [reportedPath, omittedPath] = twoDistinctTestPaths();
 
-    const invocation = await runWithReportedStatuses(
-      {
-        exitCode: SIMULATED_EXIT_CODE.SUCCESS,
-        reportedStatuses: new Map<string, SimulatedFileStatus>([[reportedPath, TEST_PATH_VERDICT.PASSED]]),
-      },
-      [reportedPath, omittedPath],
-    );
+    const invocation = await runReportedEntriesScenario(runWithReportedStatuses, {
+      exitCode: SIMULATED_EXIT_CODE.SUCCESS,
+      testPaths: [reportedPath, omittedPath],
+      reportedEntries: [[reportedPath, TEST_PATH_VERDICT.PASSED]],
+    });
 
     expect(invocation).toMatchObject({
       invoked: true,
