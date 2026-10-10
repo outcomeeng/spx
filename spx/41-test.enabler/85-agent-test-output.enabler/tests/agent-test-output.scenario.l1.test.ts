@@ -1,6 +1,5 @@
 import {
   expectAgentModeNoRunnerReportsExitCode,
-  expectAgentSummaryReportsFailedRunnerDetails,
   expectAgentSummaryReportsNoRunnerReportsAsFailure,
   expectAgentSummaryReportsPassingCountsAndArtifacts,
   expectAgentSummaryReportsUnmatchedPaths,
@@ -10,13 +9,16 @@ import {
   expectAgentSummaryReportsUnresolvedTargets,
   expectParentAgentModeUsesCapturedOutput,
   expectPassingAgentModeUsesCapturedOutput,
+  type FailedRunnerDetailsObservation,
   type NoReportedFailedPathsObservation,
   observeFailingRunnerWithEmptyFailureMetadata,
   observeFailingRunnerWithoutFailureMetadata,
+  observeFailingRunnerWithReportedFailingPath,
 } from "@testing/harnesses/testing/agent-test-output";
 import { describe, expect, it } from "vitest";
 
 import { AGENT_TEST_OUTPUT_TEXT } from "@/interfaces/cli/test-agent-output";
+import { TEST_RUN_STATE_STATUS } from "@/test/run-state";
 
 function expectNoReportedFailedPaths(observed: NoReportedFailedPathsObservation): void {
   const { output } = observed;
@@ -30,9 +32,29 @@ function expectNoReportedFailedPaths(observed: NoReportedFailedPathsObservation)
   expect(output).not.toContain(observed.requestedPath);
 }
 
+function expectPathListedUnderLabel(output: string, label: string, path: string): void {
+  const lines = output.split("\n").map((line) => line.trim());
+  const labelIndex = lines.indexOf(`${label}:`);
+  expect(labelIndex).toBeGreaterThanOrEqual(0);
+  expect(lines[labelIndex + 1]).toBe(path);
+}
+
+function expectFailedRunnerDetails(observed: FailedRunnerDetailsObservation): void {
+  const { output } = observed;
+  expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.HEADER);
+  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.STATUS}: ${TEST_RUN_STATE_STATUS.FAILED}`);
+  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.EXIT_CODE}: ${observed.exitCode}`);
+  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${observed.runnerName}`);
+  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.STATE_FILE}: ${observed.runFilePath}`);
+  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.STDOUT}: ${observed.stdoutPath}`);
+  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.STDERR}: ${observed.stderrPath}`);
+  expectPathListedUnderLabel(output, AGENT_TEST_OUTPUT_TEXT.FAILING_TESTS, observed.failingPath);
+  expect(output).not.toContain(observed.unreportedPath);
+}
+
 describe("agent test-output summary", () => {
   it("reports failed runner identity, failed paths, state, exit code, and artifacts", () => {
-    expectAgentSummaryReportsFailedRunnerDetails();
+    expectFailedRunnerDetails(observeFailingRunnerWithReportedFailingPath());
   });
 
   it("names the failing runner and lists no paths without failure metadata", () => {

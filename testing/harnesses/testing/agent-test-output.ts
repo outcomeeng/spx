@@ -175,10 +175,21 @@ function observeFailingRunnerWithoutReportedPaths(
   };
 }
 
-export function expectAgentSummaryReportsFailedRunnerDetails(): void {
+export interface FailedRunnerDetailsObservation {
+  readonly output: string;
+  readonly runnerName: string;
+  readonly exitCode: number;
+  readonly failingPath: string;
+  readonly unreportedPath: string;
+  readonly runFilePath: string;
+  readonly stdoutPath: string;
+  readonly stderrPath: string;
+}
+
+export function observeFailingRunnerWithReportedFailingPath(): FailedRunnerDetailsObservation {
   const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-  const [failingPath, passingPath] = sampleDispatchValue(
+  const [failingPath, unreportedPath] = sampleDispatchValue(
     TEST_DISPATCH_GENERATOR.distinctTestFilesUnder(typescriptTestingLanguage, nodePath),
   );
   const stdoutPath = join(productDir, AGENT_TEST_OUTPUT_TEXT.STDOUT);
@@ -193,7 +204,7 @@ export function expectAgentSummaryReportsFailedRunnerDetails(): void {
       unresolvedTargets: [],
       reports: [{
         runnerId: typescriptTestingLanguage.name,
-        testPaths: [failingPath, passingPath],
+        testPaths: [failingPath, unreportedPath],
         exitCode: failingExitCode,
         output: { stdoutPath, stderrPath, failingTestPaths: [failingPath] },
       }],
@@ -202,18 +213,16 @@ export function expectAgentSummaryReportsFailedRunnerDetails(): void {
     runFile: testRunFile(runFilePath),
     recorded: testRunState(TEST_RUN_STATE_STATUS.FAILED),
   };
-
-  const output = formatAgentTestOutput(run);
-
-  expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.HEADER);
-  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.STATUS}: ${TEST_RUN_STATE_STATUS.FAILED}`);
-  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.EXIT_CODE}: ${failingExitCode}`);
-  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${typescriptTestingLanguage.name}`);
-  expect(output).toContain(runFilePath);
-  expect(output).toContain(stdoutPath);
-  expect(output).toContain(stderrPath);
-  expect(output).toContain(failingPath);
-  expect(output).not.toContain(passingPath);
+  return {
+    output: formatAgentTestOutput(run),
+    runnerName: typescriptTestingLanguage.name,
+    exitCode: failingExitCode,
+    failingPath,
+    unreportedPath,
+    runFilePath,
+    stdoutPath,
+    stderrPath,
+  };
 }
 
 export function observeFailingRunnerWithoutFailureMetadata(): NoReportedFailedPathsObservation {
