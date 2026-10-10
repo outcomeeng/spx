@@ -3,8 +3,8 @@ import {
   expectAgentSummaryReportsFailedRunnerDetails,
   expectAgentSummaryReportsNoRunnerReportsAsFailure,
   expectAgentSummaryReportsPassingCountsAndArtifacts,
-  expectAgentSummaryReportsRequestedPathsWithEmptyFailureMetadata,
-  expectAgentSummaryReportsRequestedPathsWithoutFailureMetadata,
+  expectAgentSummaryNamesFailingRunnerWithEmptyFailureMetadata,
+  expectAgentSummaryNamesFailingRunnerWithoutFailureMetadata,
   expectAgentSummaryReportsUnmatchedPaths,
   expectAgentSummaryReportsUnreportedGroupWhenAnotherRunnerFails,
   expectAgentSummaryReportsUnreportedGroupWhenReportedRunnersPass,
@@ -20,12 +20,12 @@ describe("agent test-output summary", () => {
     expectAgentSummaryReportsFailedRunnerDetails();
   });
 
-  it("reports requested paths for failing runners without narrowed failure metadata", () => {
-    expectAgentSummaryReportsRequestedPathsWithoutFailureMetadata();
+  it("names the failing runner and lists no paths without failure metadata", () => {
+    expectAgentSummaryNamesFailingRunnerWithoutFailureMetadata();
   });
 
-  it("reports requested paths when narrowed failure metadata is empty", () => {
-    expectAgentSummaryReportsRequestedPathsWithEmptyFailureMetadata();
+  it("names the failing runner and lists no paths when failure metadata is empty", () => {
+    expectAgentSummaryNamesFailingRunnerWithEmptyFailureMetadata();
   });
 
   it("routes passing agent mode through captured output without forcing process exit", async () => {

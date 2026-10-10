@@ -145,6 +145,23 @@ function failingPythonRun(
   };
 }
 
+function expectNoReportedFailedPathsSummary(
+  output: string,
+  productDir: string,
+  requestedPath: string,
+  exitCode: number,
+): void {
+  const requestedPathCount = 1;
+  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${pythonTestingLanguage.name}`);
+  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.EXIT_CODE}: ${exitCode}`);
+  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.TESTS}: ${requestedPathCount}`);
+  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.STDOUT}: ${join(productDir, AGENT_TEST_OUTPUT_TEXT.STDOUT)}`);
+  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.STDERR}: ${join(productDir, AGENT_TEST_OUTPUT_TEXT.STDERR)}`);
+  expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.NO_FAILED_TEST_PATHS);
+  expect(output).not.toContain(AGENT_TEST_OUTPUT_TEXT.FAILING_TESTS);
+  expect(output).not.toContain(requestedPath);
+}
+
 export function expectAgentSummaryReportsFailedRunnerDetails(): void {
   const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
@@ -186,7 +203,7 @@ export function expectAgentSummaryReportsFailedRunnerDetails(): void {
   expect(output).not.toContain(passingPath);
 }
 
-export function expectAgentSummaryReportsRequestedPathsWithoutFailureMetadata(): void {
+export function expectAgentSummaryNamesFailingRunnerWithoutFailureMetadata(): void {
   const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
   const failingPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(pythonTestingLanguage, nodePath));
@@ -194,12 +211,10 @@ export function expectAgentSummaryReportsRequestedPathsWithoutFailureMetadata():
 
   const output = formatAgentTestOutput(failingPythonRun(productDir, failingPath, failingExitCode));
 
-  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${pythonTestingLanguage.name}`);
-  expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.FAILING_TESTS);
-  expect(output).toContain(failingPath);
+  expectNoReportedFailedPathsSummary(output, productDir, failingPath, failingExitCode);
 }
 
-export function expectAgentSummaryReportsRequestedPathsWithEmptyFailureMetadata(): void {
+export function expectAgentSummaryNamesFailingRunnerWithEmptyFailureMetadata(): void {
   const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
   const failingPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(pythonTestingLanguage, nodePath));
@@ -207,8 +222,7 @@ export function expectAgentSummaryReportsRequestedPathsWithEmptyFailureMetadata(
 
   const output = formatAgentTestOutput(failingPythonRun(productDir, failingPath, failingExitCode, []));
 
-  expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.FAILING_TESTS);
-  expect(output).toContain(failingPath);
+  expectNoReportedFailedPathsSummary(output, productDir, failingPath, failingExitCode);
 }
 
 export async function expectPassingAgentModeUsesCapturedOutput(): Promise<void> {
@@ -346,7 +360,7 @@ export function expectAgentSummaryReportsUnreportedGroupWhenAnotherRunnerFails()
   const output = formatAgentTestOutput(run);
 
   expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${typescriptTestingLanguage.name}`);
-  expect(output).toContain(failingPath);
+  expect(output).not.toContain(failingPath);
   expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${pythonTestingLanguage.name}`);
   expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.SKIPPED_TESTS);
   expect(output).toContain(unreportedPath);

@@ -12,6 +12,7 @@ export const AGENT_TEST_OUTPUT_TEXT = {
   STDOUT: "stdout",
   STDERR: "stderr",
   FAILING_TESTS: "failingTests",
+  NO_FAILED_TEST_PATHS: "noFailedTestPathsReported",
   SKIPPED_TESTS: "skippedTests",
   UNMATCHED: "unmatched",
   UNRESOLVED_TARGETS: "unresolvedTargets",
@@ -38,11 +39,8 @@ function appendPathList(lines: string[], label: string, paths: readonly string[]
   }
 }
 
-function failingReportPaths(report: RecordedTestRun["dispatch"]["reports"][number]): readonly string[] {
-  if (report.output?.failingTestPaths !== undefined && report.output.failingTestPaths.length > 0) {
-    return report.output.failingTestPaths;
-  }
-  return report.testPaths;
+function reportedFailingPaths(report: RecordedTestRun["dispatch"]["reports"][number]): readonly string[] {
+  return report.output?.failingTestPaths ?? [];
 }
 
 function unreportedGroups(run: RecordedTestRun): typeof run.dispatch.groups {
@@ -78,11 +76,12 @@ export function formatAgentTestOutput(run: RecordedTestRun): string {
       );
     }
     if (report.exitCode !== SUCCESS_EXIT_CODE) {
-      appendPathList(
-        lines,
-        AGENT_TEST_OUTPUT_TEXT.FAILING_TESTS,
-        failingReportPaths(report),
-      );
+      const failingPaths = reportedFailingPaths(report);
+      if (failingPaths.length > 0) {
+        appendPathList(lines, AGENT_TEST_OUTPUT_TEXT.FAILING_TESTS, failingPaths);
+      } else {
+        lines.push(`${INDENT}${AGENT_TEST_OUTPUT_TEXT.NO_FAILED_TEST_PATHS}`);
+      }
     }
   }
 
