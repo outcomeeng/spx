@@ -1,5 +1,6 @@
 import * as fc from "fast-check";
 
+import { TEST_PATH_VERDICT } from "@/test/run-state";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 
 const SPEC_ROOT = "spx";
@@ -37,6 +38,7 @@ export const PYTHON_RUNNER_TEST_GENERATOR = {
   exitCode: arbitraryExitCode,
   nonZeroExitCode: arbitraryNonZeroExitCode,
   nonZeroExitWithTestPath: arbitraryNonZeroExitWithTestPath,
+  neighbourReport: arbitraryNeighbourReport,
   present: arbitraryPresence,
   invocationGateScenario: arbitraryInvocationGateScenario,
 } as const;
@@ -130,4 +132,32 @@ function arbitraryInvocationGateScenario(): fc.Arbitrary<PythonRunnerInvocationG
     present: arbitraryPresence(),
     exitCode: arbitraryExitCode(),
   });
+}
+
+/**
+ * A supplied test path, a second path whose module ends with the supplied path's module without
+ * being it (the supplied path under one more leading segment), and two distinct file verdicts —
+ * one for the supplied path's own report entry and one for the neighbouring entry.
+ */
+function arbitraryNeighbourReport(): fc.Arbitrary<{
+  readonly testPath: string;
+  readonly neighbourPath: string;
+  readonly exactVerdict: typeof TEST_PATH_VERDICT.PASSED | typeof TEST_PATH_VERDICT.FAILED;
+  readonly neighbourVerdict: typeof TEST_PATH_VERDICT.PASSED | typeof TEST_PATH_VERDICT.FAILED;
+}> {
+  return fc
+    .tuple(
+      arbitraryPythonTestFilePath(),
+      CONFIG_TEST_GENERATOR.key(),
+      fc.constantFrom(
+        [TEST_PATH_VERDICT.PASSED, TEST_PATH_VERDICT.FAILED] as const,
+        [TEST_PATH_VERDICT.FAILED, TEST_PATH_VERDICT.PASSED] as const,
+      ),
+    )
+    .map(([testPath, enclosingSegment, [exactVerdict, neighbourVerdict]]) => ({
+      testPath,
+      neighbourPath: `${enclosingSegment}/${testPath}`,
+      exactVerdict,
+      neighbourVerdict,
+    }));
 }
