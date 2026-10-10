@@ -1,10 +1,10 @@
 import {
   expectAgentModeNoRunnerReportsExitCode,
+  expectAgentSummaryNamesFailingRunnerWithEmptyFailureMetadata,
+  expectAgentSummaryNamesFailingRunnerWithoutFailureMetadata,
   expectAgentSummaryReportsFailedRunnerDetails,
   expectAgentSummaryReportsNoRunnerReportsAsFailure,
   expectAgentSummaryReportsPassingCountsAndArtifacts,
-  expectAgentSummaryNamesFailingRunnerWithEmptyFailureMetadata,
-  expectAgentSummaryNamesFailingRunnerWithoutFailureMetadata,
   expectAgentSummaryReportsUnmatchedPaths,
   expectAgentSummaryReportsUnreportedGroupWhenAnotherRunnerFails,
   expectAgentSummaryReportsUnreportedGroupWhenReportedRunnersPass,
