@@ -4,8 +4,8 @@ import { TEST_PATH_VERDICT } from "@/test/run-state";
 import { TYPESCRIPT_RUNNER_TEST_GENERATOR } from "@testing/generators/testing/typescript-runner";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import {
-  runWithSimulatedReport,
-  SIMULATED_REPORT,
+  runWithReportedStatuses,
+  SIMULATED_EXIT_CODE,
   type SimulatedFileStatus,
   twoDistinctTestPaths,
   typescriptRunnerComplianceCases,
@@ -17,10 +17,9 @@ describe("typescript test runner derives path verdicts from the report, never th
     await assertProperty(
       TYPESCRIPT_RUNNER_TEST_GENERATOR.nonZeroExitWithTestPath(),
       async ({ exitCode, testPath: passingPath }) => {
-        const invocation = await runWithSimulatedReport(
+        const invocation = await runWithReportedStatuses(
           {
             exitCode,
-            report: SIMULATED_REPORT.LISTED_FILES,
             reportedStatuses: new Map<string, SimulatedFileStatus>([[passingPath, TEST_PATH_VERDICT.PASSED]]),
           },
           [passingPath],
@@ -37,10 +36,9 @@ describe("typescript test runner derives path verdicts from the report, never th
   it("maps a TypeScript path to failed from the Vitest report despite a zero process exit", async () => {
     const [failingPath] = twoDistinctTestPaths();
 
-    const invocation = await runWithSimulatedReport(
+    const invocation = await runWithReportedStatuses(
       {
-        exitCode: 0,
-        report: SIMULATED_REPORT.LISTED_FILES,
+        exitCode: SIMULATED_EXIT_CODE.SUCCESS,
         reportedStatuses: new Map<string, SimulatedFileStatus>([[failingPath, TEST_PATH_VERDICT.FAILED]]),
       },
       [failingPath],

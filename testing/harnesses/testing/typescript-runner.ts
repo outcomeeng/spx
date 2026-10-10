@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { runTestsCommand } from "@/commands/test";
+import { SUCCESS_EXIT_CODE } from "@/domains/test/aggregation";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
 import { pythonTestingLanguage } from "@/test/languages/python";
@@ -119,6 +120,12 @@ export const SIMULATED_REPORT = {
   MISSING: "missing",
   /** The report file holds text that is not a Vitest JSON report. */
   MALFORMED: "malformed",
+} as const;
+
+/** The process exit codes a recording runner's simulated Vitest invocation returns. */
+export const SIMULATED_EXIT_CODE = {
+  SUCCESS: SUCCESS_EXIT_CODE,
+  FAILURE: SUCCESS_EXIT_CODE + 1,
 } as const;
 
 export type SimulatedReport = (typeof SIMULATED_REPORT)[keyof typeof SIMULATED_REPORT];
@@ -393,6 +400,20 @@ export async function runWithSimulatedReport(
       runner,
     );
   });
+}
+
+/**
+ * A simulated Vitest invocation over `testPaths` whose JSON report lists exactly the paths in
+ * `reportedStatuses`, each with its mapped status, and whose process exits with `exitCode`.
+ */
+export function runWithReportedStatuses(
+  options: {
+    readonly exitCode: number;
+    readonly reportedStatuses: ReadonlyMap<string, SimulatedFileStatus>;
+  },
+  testPaths: readonly string[],
+) {
+  return runWithSimulatedReport({ ...options, report: SIMULATED_REPORT.LISTED_FILES }, testPaths);
 }
 
 export function twoDistinctTestPaths(): readonly [string, string] {
