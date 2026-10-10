@@ -145,21 +145,34 @@ function failingPythonRun(
   };
 }
 
-function expectNoReportedFailedPathsSummary(
-  output: string,
-  productDir: string,
-  requestedPath: string,
-  exitCode: number,
-): void {
-  const requestedPathCount = 1;
-  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${pythonTestingLanguage.name}`);
-  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.EXIT_CODE}: ${exitCode}`);
-  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.TESTS}: ${requestedPathCount}`);
-  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.STDOUT}: ${join(productDir, AGENT_TEST_OUTPUT_TEXT.STDOUT)}`);
-  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.STDERR}: ${join(productDir, AGENT_TEST_OUTPUT_TEXT.STDERR)}`);
-  expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.NO_FAILED_TEST_PATHS);
-  expect(output).not.toContain(AGENT_TEST_OUTPUT_TEXT.FAILING_TESTS);
-  expect(output).not.toContain(requestedPath);
+export interface NoReportedFailedPathsObservation {
+  readonly output: string;
+  readonly runnerName: string;
+  readonly exitCode: number;
+  readonly requestedPathCount: number;
+  readonly requestedPath: string;
+  readonly stdoutPath: string;
+  readonly stderrPath: string;
+}
+
+function observeFailingRunnerWithoutReportedPaths(
+  failingTestPaths?: readonly string[],
+): NoReportedFailedPathsObservation {
+  const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
+  const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+  const requestedPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(pythonTestingLanguage, nodePath));
+  const exitCode = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nonZeroExitCode());
+  const run = failingPythonRun(productDir, requestedPath, exitCode, failingTestPaths);
+  const [report] = run.dispatch.reports;
+  return {
+    output: formatAgentTestOutput(run),
+    runnerName: report.runnerId,
+    exitCode: report.exitCode,
+    requestedPathCount: report.testPaths.length,
+    requestedPath,
+    stdoutPath: join(productDir, AGENT_TEST_OUTPUT_TEXT.STDOUT),
+    stderrPath: join(productDir, AGENT_TEST_OUTPUT_TEXT.STDERR),
+  };
 }
 
 export function expectAgentSummaryReportsFailedRunnerDetails(): void {
@@ -203,26 +216,12 @@ export function expectAgentSummaryReportsFailedRunnerDetails(): void {
   expect(output).not.toContain(passingPath);
 }
 
-export function expectAgentSummaryNamesFailingRunnerWithoutFailureMetadata(): void {
-  const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
-  const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-  const failingPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(pythonTestingLanguage, nodePath));
-  const failingExitCode = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nonZeroExitCode());
-
-  const output = formatAgentTestOutput(failingPythonRun(productDir, failingPath, failingExitCode));
-
-  expectNoReportedFailedPathsSummary(output, productDir, failingPath, failingExitCode);
+export function observeFailingRunnerWithoutFailureMetadata(): NoReportedFailedPathsObservation {
+  return observeFailingRunnerWithoutReportedPaths();
 }
 
-export function expectAgentSummaryNamesFailingRunnerWithEmptyFailureMetadata(): void {
-  const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
-  const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
-  const failingPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(pythonTestingLanguage, nodePath));
-  const failingExitCode = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nonZeroExitCode());
-
-  const output = formatAgentTestOutput(failingPythonRun(productDir, failingPath, failingExitCode, []));
-
-  expectNoReportedFailedPathsSummary(output, productDir, failingPath, failingExitCode);
+export function observeFailingRunnerWithEmptyFailureMetadata(): NoReportedFailedPathsObservation {
+  return observeFailingRunnerWithoutReportedPaths([]);
 }
 
 export async function expectPassingAgentModeUsesCapturedOutput(): Promise<void> {

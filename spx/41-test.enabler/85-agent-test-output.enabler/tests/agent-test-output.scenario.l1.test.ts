@@ -1,7 +1,5 @@
 import {
   expectAgentModeNoRunnerReportsExitCode,
-  expectAgentSummaryNamesFailingRunnerWithEmptyFailureMetadata,
-  expectAgentSummaryNamesFailingRunnerWithoutFailureMetadata,
   expectAgentSummaryReportsFailedRunnerDetails,
   expectAgentSummaryReportsNoRunnerReportsAsFailure,
   expectAgentSummaryReportsPassingCountsAndArtifacts,
@@ -12,8 +10,25 @@ import {
   expectAgentSummaryReportsUnresolvedTargets,
   expectParentAgentModeUsesCapturedOutput,
   expectPassingAgentModeUsesCapturedOutput,
+  type NoReportedFailedPathsObservation,
+  observeFailingRunnerWithEmptyFailureMetadata,
+  observeFailingRunnerWithoutFailureMetadata,
 } from "@testing/harnesses/testing/agent-test-output";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
+
+import { AGENT_TEST_OUTPUT_TEXT } from "@/interfaces/cli/test-agent-output";
+
+function expectNoReportedFailedPaths(observed: NoReportedFailedPathsObservation): void {
+  const { output } = observed;
+  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${observed.runnerName}`);
+  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.EXIT_CODE}: ${observed.exitCode}`);
+  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.TESTS}: ${observed.requestedPathCount}`);
+  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.STDOUT}: ${observed.stdoutPath}`);
+  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.STDERR}: ${observed.stderrPath}`);
+  expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.NO_FAILED_TEST_PATHS);
+  expect(output).not.toContain(AGENT_TEST_OUTPUT_TEXT.FAILING_TESTS);
+  expect(output).not.toContain(observed.requestedPath);
+}
 
 describe("agent test-output summary", () => {
   it("reports failed runner identity, failed paths, state, exit code, and artifacts", () => {
@@ -21,11 +36,11 @@ describe("agent test-output summary", () => {
   });
 
   it("names the failing runner and lists no paths without failure metadata", () => {
-    expectAgentSummaryNamesFailingRunnerWithoutFailureMetadata();
+    expectNoReportedFailedPaths(observeFailingRunnerWithoutFailureMetadata());
   });
 
   it("names the failing runner and lists no paths when failure metadata is empty", () => {
-    expectAgentSummaryNamesFailingRunnerWithEmptyFailureMetadata();
+    expectNoReportedFailedPaths(observeFailingRunnerWithEmptyFailureMetadata());
   });
 
   it("routes passing agent mode through captured output without forcing process exit", async () => {
