@@ -5,7 +5,6 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { runTestsCommand } from "@/commands/test";
-import { SUCCESS_EXIT_CODE } from "@/domains/test/aggregation";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE } from "@/lib/spec-tree";
 import { pythonTestingLanguage } from "@/test/languages/python";
@@ -48,6 +47,14 @@ import {
   createScenarioDrivingVitestRunStarter,
   withMixedVitestProduct,
 } from "@testing/harnesses/testing/journal-reporter";
+import {
+  SIMULATED_REPORT,
+  SIMULATED_REPORT_ABSENT_MESSAGE,
+  type SimulatedFileStatus,
+  type SimulatedReport,
+  reportedStatusRunners,
+  simulatedReportedPaths,
+} from "@testing/harnesses/testing/simulated-report";
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
@@ -110,46 +117,10 @@ export interface RecordingCommandRunner extends TestRunnerDependencies {
   }>;
 }
 
-/** How a recording runner's simulated Vitest invocation leaves its JSON report. */
-export const SIMULATED_REPORT = {
-  /** Every supplied test file is reported with the status the exit code implies. */
-  FOLLOWS_EXIT_CODE: "follows-exit-code",
-  /** Only the files in `reportedStatuses` are reported; the rest are omitted. */
-  LISTED_FILES: "listed-files",
-  /** Exactly the files in `reportedStatuses` are reported, whether or not the invocation supplied them. */
-  REPORTED_NAMES: "reported-names",
-  /** No report file exists once the invocation exits. */
-  MISSING: "missing",
-  /** The report file holds text that is not a Vitest JSON report. */
-  MALFORMED: "malformed",
-} as const;
-
-/** The process exit codes a recording runner's simulated Vitest invocation returns. */
-export const SIMULATED_EXIT_CODE = {
-  SUCCESS: SUCCESS_EXIT_CODE,
-  FAILURE: SUCCESS_EXIT_CODE + 1,
-} as const;
-
-export type SimulatedReport = (typeof SIMULATED_REPORT)[keyof typeof SIMULATED_REPORT];
-
-export type SimulatedFileStatus = typeof TEST_PATH_VERDICT.PASSED | typeof TEST_PATH_VERDICT.FAILED;
+export { SIMULATED_EXIT_CODE, SIMULATED_REPORT } from "@testing/harnesses/testing/simulated-report";
+export type { SimulatedFileStatus, SimulatedReport } from "@testing/harnesses/testing/simulated-report";
 
 const MALFORMED_REPORT_TEXT = "not a vitest report";
-const SIMULATED_REPORT_ABSENT_MESSAGE = "no simulated report at";
-
-function simulatedReportedPaths(
-  options: {
-    readonly report: SimulatedReport;
-    readonly reportedStatuses: ReadonlyMap<string, SimulatedFileStatus>;
-  },
-  testFilePaths: readonly string[],
-): readonly string[] {
-  if (options.report === SIMULATED_REPORT.REPORTED_NAMES) return [...options.reportedStatuses.keys()];
-  if (options.report === SIMULATED_REPORT.LISTED_FILES) {
-    return testFilePaths.filter((path) => options.reportedStatuses.has(path));
-  }
-  return testFilePaths;
-}
 
 function simulatedReportText(
   options: {
@@ -416,34 +387,7 @@ export async function runWithSimulatedReport(
   });
 }
 
-/**
- * A simulated Vitest invocation over `testPaths` whose JSON report lists exactly the paths in
- * `reportedStatuses`, each with its mapped status, and whose process exits with `exitCode`.
- */
-export function runWithReportedStatuses(
-  options: {
-    readonly exitCode: number;
-    readonly reportedStatuses: ReadonlyMap<string, SimulatedFileStatus>;
-  },
-  testPaths: readonly string[],
-) {
-  return runWithSimulatedReport({ ...options, report: SIMULATED_REPORT.LISTED_FILES }, testPaths);
-}
-
-/**
- * A simulated Vitest invocation over `testPaths` whose JSON report names exactly the files in
- * `reportedStatuses` — each a path relative to the product root, supplied or not — with its
- * mapped status, and whose process exits with `exitCode`.
- */
-export function runWithReportedNames(
-  options: {
-    readonly exitCode: number;
-    readonly reportedStatuses: ReadonlyMap<string, SimulatedFileStatus>;
-  },
-  testPaths: readonly string[],
-) {
-  return runWithSimulatedReport({ ...options, report: SIMULATED_REPORT.REPORTED_NAMES }, testPaths);
-}
+export const { runWithReportedStatuses, runWithReportedNames } = reportedStatusRunners(runWithSimulatedReport);
 
 export function twoDistinctTestPaths(): readonly [string, string] {
   const [firstNode, secondNode] = sampleDispatchValue(TEST_DISPATCH_GENERATOR.distinctNodePaths());
