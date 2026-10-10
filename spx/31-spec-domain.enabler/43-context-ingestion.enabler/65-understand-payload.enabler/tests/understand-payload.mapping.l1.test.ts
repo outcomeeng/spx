@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { inferInvokingCodingAgent } from "@/interfaces/cli/coding-agent";
-import { METHODOLOGY_CODING_AGENT, METHODOLOGY_CODING_AGENTS } from "@/lib/methodology";
+import {
+  FOUNDATION_SKILL_DIR_PLACEHOLDERS,
+  METHODOLOGY_CODING_AGENT,
+  METHODOLOGY_CODING_AGENTS,
+  resolveFoundationSkillDirPlaceholders,
+} from "@/lib/methodology";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { methodologyFoundationDocumentPath } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
@@ -18,6 +23,17 @@ import {
 } from "@testing/harnesses/spec/context";
 
 describe("spec context coding-agent scope", () => {
+  it.each(FOUNDATION_SKILL_DIR_PLACEHOLDERS)(
+    "replaces every %s in the core body with the skill directory address",
+    (placeholder) => {
+      const address = sampleGeneratedValue(arbitraryPathSegment());
+      const body = `see ${placeholder}/references/a.md and ${placeholder}/references/b.md`;
+      expect(resolveFoundationSkillDirPlaceholders(body, address)).toBe(
+        `see ${address}/references/a.md and ${address}/references/b.md`,
+      );
+    },
+  );
+
   it.each(specContextCodingAgentMarkerCases(sampleGeneratedValue(arbitraryPathSegment())))(
     SPEC_CONTEXT_CASE_TITLE,
     ({ markers, expected }) => {

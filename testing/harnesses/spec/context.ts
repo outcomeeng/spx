@@ -53,8 +53,7 @@ import {
   type SpecContextManifestEntry,
   type SpecContextSelectionReason,
 } from "@/lib/spec-tree";
-import { arbitraryMethodologyVersion, type GeneratedMethodologyVersion } from "@testing/generators/methodology/tree";
-import { sampleGeneratedValue } from "@testing/generators/sample";
+import type { GeneratedMethodologyVersion } from "@testing/generators/methodology/tree";
 import { specContextFixtureDocuments, specContextRootDecisionPath } from "@testing/generators/spec-tree/context-target";
 import {
   type RichContextPaths,
@@ -538,12 +537,14 @@ export async function installSpecCliProductConfigFixture(
 }
 
 /**
- * The exact methodology version every context fixture declares, drawn once
- * from the accepted-form generator with the line its construction derives.
+ * The exact methodology version every context fixture declares: the 3.x line
+ * that the context-ingestion evidence settles on, with its line spelled out
+ * rather than derived by the parser the tests judge.
  */
-export const METHODOLOGY_FIXTURE_IDENTITY: GeneratedMethodologyVersion = sampleGeneratedValue(
-  arbitraryMethodologyVersion(),
-);
+export const METHODOLOGY_FIXTURE_IDENTITY: GeneratedMethodologyVersion = {
+  text: "3.2.0",
+  line: "3.2",
+};
 export const METHODOLOGY_FIXTURE_VERSION = METHODOLOGY_FIXTURE_IDENTITY.text;
 
 export function specTreeKindsConfig(): Config {

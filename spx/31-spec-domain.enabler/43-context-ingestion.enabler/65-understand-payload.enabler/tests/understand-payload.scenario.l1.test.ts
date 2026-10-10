@@ -3,7 +3,6 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { SPEC_CONTEXT_ENTRIES_KEY } from "@/commands/spec/context-show";
 import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
 import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import {
@@ -14,7 +13,7 @@ import {
   FOUNDATION_PLUGIN_NAME,
   METHODOLOGY_TREE_ROOT,
 } from "@/lib/methodology";
-import { SPEC_CONTEXT_ENTRY_TYPE, SPEC_CONTEXT_FRAME } from "@/lib/spec-tree";
+import { SPEC_CONTEXT_ENTRY_TYPE, SPEC_CONTEXT_FRAME, SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR } from "@/lib/spec-tree";
 import { generatedMigratingMethodology } from "@testing/generators/config/descriptors";
 import {
   arbitraryMethodologyLineVersion,
@@ -69,31 +68,17 @@ describe("spec context understand payload", () => {
     });
   });
 
-  it("emits the core body as the only Full document when show --methodology runs over a tree with no product spec, node, or decision", async () => {
+  it("fails with empty stdout when show --methodology runs over a product root holding no product spec", async () => {
     await withEmptyContextTreeEnv(methodologyTreeConfig(), async (env) => {
       const fixture = await writeMethodologyTree(env);
       const context = { productDir: env.productDir, methodologyTreeRoot: fixture.treeRoot };
       const options = [SPEC_DOMAIN_CLI.METHODOLOGY_OPTION, SPEC_DOMAIN_CLI.CODING_AGENT_OPTION, fixture.codingAgent];
-      const json = await runSpecDescriptor(
-        context,
-        ...SPEC_CONTEXT_COMMAND_PATH.SHOW,
-        ...options,
-        SPEC_DOMAIN_CLI.JSON_OPTION,
-      );
-      expect(json.exitCode, json.stderr).toBeUndefined();
-      const bundleAddress = [METHODOLOGY_TREE_ROOT, fixture.line, fixture.codingAgent, FOUNDATION_PLUGIN_NAME];
-      expect(JSON.parse(json.stdout)).toEqual({
-        [SPEC_CONTEXT_ENTRIES_KEY]: [{
-          type: SPEC_CONTEXT_ENTRY_TYPE.DOCUMENT,
-          path: [...bundleAddress, fixture.corePath].join("/"),
-          metadata: {},
-          content: fixture.coreText,
-        }],
-      });
-      const text = await runSpecDescriptor(context, ...SPEC_CONTEXT_COMMAND_PATH.SHOW, ...options);
-      expect(text.exitCode, text.stderr).toBeUndefined();
-      expect(text.stdout.startsWith(`<${SPEC_CONTEXT_FRAME.DOCUMENT}`)).toBe(true);
-      expect(text.stdout).toContain(fixture.coreText);
+      for (const extra of [[], [SPEC_DOMAIN_CLI.JSON_OPTION]]) {
+        const run = await runSpecDescriptor(context, ...SPEC_CONTEXT_COMMAND_PATH.SHOW, ...options, ...extra);
+        expect(run.stdout).toHaveLength(0);
+        expect(run.exitCode).toBe(1);
+        expect(run.stderr).toContain(SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR);
+      }
     });
   });
 

@@ -15,3 +15,11 @@
 **Impact:** the executable could stop reading `CLAUDE_ENV_FILE` from its environment while every l2 case passes; a manifest-shape change leaves the inline traversal manifest stale; a failing draw through either unseeded sampler has no replay seed.
 
 **Settlement condition:** the l2 evidence establishes every source-owned marker key through the packaged executable; the traversal-core manifest comes from the tree harness with its traversal segment from the tree generator; `writeMethodologyTree` and `generatedMethodologySource` draw through the seeded sampler.
+
+## `show --methodology` without `--coding-agent` fails outside an agent session
+
+**Evidence:** with `CODEX_THREAD_ID`, `CLAUDE_SESSION_ID`, and `CLAUDE_ENV_FILE` absent from the invoking environment and no `--coding-agent`, `tsx src/cli.ts spec context show --methodology` fails with `Name the coding agent in scope; methodology 4.0 ships trees for: claude, codex`, because the line ships two coding-agent trees and [spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/21-methodology-source.adr.md](spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/21-methodology-source.adr.md) declares that several shipped agents with no marker established fail as ambiguous.
+
+**Impact:** a person, script, or CI job running `show --methodology` from a plain shell must name the agent; the call selects no default and delivers no foundation without `--coding-agent`.
+
+**Settlement condition:** the methodology source decision and the Mappings assertion of this node state, for an invocation outside any coding-agent session, either the agent that `show --methodology` selects or the unchanged ambiguous failure, and the linked evidence exercises that outcome through the packaged executable.

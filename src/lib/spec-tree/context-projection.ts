@@ -71,8 +71,11 @@ const DECISION_STATEMENT_DIGEST: SpecContextDigest = { source: SPEC_CONTEXT_DIGE
 /** The node-local artifacts a projection selects only when present: the issue note, the knowledge index, the outcome record. */
 export const SPEC_CONTEXT_OPTIONAL_ARTIFACT = {
   ISSUES: SPEC_TREE_GRAMMAR.COORDINATION_NOTE.ISSUES,
-  KNOWLEDGE_INDEX: "knowledge/index.md",
-  OUTCOME_SUFFIX: ".outcome.md",
+  KNOWLEDGE_INDEX: [
+    SPEC_TREE_GRAMMAR.KNOWLEDGE.DIRECTORY_NAME,
+    SPEC_TREE_GRAMMAR.KNOWLEDGE.INDEX_FILENAME,
+  ].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+  OUTCOME_SUFFIX: SPEC_TREE_GRAMMAR.OUTCOME_RECORD.SUFFIX,
 } as const;
 
 const DISCOVERY_DEPTH = 2;
@@ -331,27 +334,23 @@ function specContextRebind(
   return [...new Set(bound.map(({ target }) => target))].map((target) => ({ target, reason }));
 }
 
-/** The context-ingestion failure for a tree whose nodes or root decisions have no product spec to start the walk. */
+/** The context-ingestion failure for a product root holding no product spec the toolchain recognizes. */
 export const SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR =
   `No product spec in ${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/: the context walk starts at the product spec`;
 
 /**
- * The product spec path the walk starts at, or none for a tree holding no
- * product spec, node, or decision; a tree whose nodes or decisions lack a
- * product spec has no walk and fails.
+ * The product spec path the walk starts at; a product root holding no
+ * recognized product spec, whatever else it holds, has no walk and fails.
  */
-function specContextWalkRoot(snapshot: SpecTreeSnapshot): string | undefined {
+function specContextWalkRoot(snapshot: SpecTreeSnapshot): string {
   const productPath = snapshot.product?.ref?.path;
-  if (productPath !== undefined || (snapshot.allNodes.length === 0 && snapshot.decisions.length === 0)) {
-    return productPath;
-  }
-  throw new Error(SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR);
+  if (productPath === undefined) throw new Error(SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR);
+  return productPath;
 }
 
 /**
  * The structural selection for `targets`, in walk order. The walk is rooted
- * at the product spec: a tree holding no product spec, node, or decision
- * selects nothing, while a tree whose nodes or decisions lack a product spec
+ * at the product spec: a product root holding no recognized product spec
  * fails before any entry is selected. Each output node's Digest opening is
  * the one `registry` resolves for its kind.
  */
@@ -362,7 +361,6 @@ export function selectSpecContextDocuments(
   registry: SpecContextKindRegistry,
 ): readonly SpecContextSelection[] {
   const productPath = specContextWalkRoot(snapshot);
-  if (productPath === undefined) return [];
   const discovery = targets.length === 0;
   const reasons = specContextTargetedReasons(snapshot, targets);
   const result: SpecContextSelection[] = [];

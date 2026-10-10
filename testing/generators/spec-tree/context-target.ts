@@ -137,6 +137,9 @@ const UNACCEPTED_ARTIFACTS_BY_GRAMMAR_FIELD: {
   PRIOR_NODE_SUFFIXES: [],
   // The same notes `COORDINATION_NOTES` lists.
   COORDINATION_NOTE: [],
+  // The same artifacts `SPEC_CONTEXT_OPTIONAL_ARTIFACT` lists as the knowledge index and the outcome record.
+  KNOWLEDGE: [],
+  OUTCOME_RECORD: [],
   EVIDENCE: [
     unacceptedDirectory(
       "test-evidence-directory",

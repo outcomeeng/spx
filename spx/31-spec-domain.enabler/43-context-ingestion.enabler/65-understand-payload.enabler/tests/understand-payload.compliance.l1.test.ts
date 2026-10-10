@@ -1,12 +1,15 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
 import {
   formatMethodologyVersionName,
+  FOUNDATION_MANIFEST_FIELDS,
   FOUNDATION_MANIFEST_RELATIVE_PATH,
+  FOUNDATION_SKILL_DIR_PLACEHOLDERS,
+  METHODOLOGY_CODING_AGENTS,
   SOURCE_RECORD_RELATIVE_PATH,
 } from "@/lib/methodology";
 import { compareSpecContextOrdinal, SPEC_CONTEXT_ENTRY_TYPE } from "@/lib/spec-tree";
@@ -23,6 +26,12 @@ import {
 } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
+import { PRODUCT_ROOT } from "@testing/harnesses/constants";
+import {
+  shippedFoundationCoreBody,
+  shippedMethodologyVersion,
+  shippedTreeRelativeDir,
+} from "@testing/harnesses/methodology/shipped-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextShowEntries,
@@ -177,6 +186,39 @@ describe("spec context understand payload sourcing", () => {
         );
       }
     });
+  });
+
+  it("delivers a shipped core whose every named reference addresses a shipped resource and which carries no skill-directory placeholder", async () => {
+    const { line } = await shippedMethodologyVersion();
+    for (const codingAgent of METHODOLOGY_CODING_AGENTS) {
+      const body = await shippedFoundationCoreBody(line, codingAgent);
+      for (const placeholder of FOUNDATION_SKILL_DIR_PLACEHOLDERS) {
+        expect(body.includes(placeholder), `${codingAgent} ${placeholder}`).toBe(false);
+      }
+      // Every reference resolves against the package root the framed core path
+      // is relative to: the bundle address names the shipped tree, and the
+      // reference path follows the skill directory the placeholders stood for.
+      const addressPrefix = shippedTreeRelativeDir(line, codingAgent).replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+      const { REFERENCES, TEMPLATES } = FOUNDATION_MANIFEST_FIELDS;
+      const referenceAddress = new RegExp(
+        String.raw`${addressPrefix}/[A-Za-z0-9._/-]+/${REFERENCES}/[A-Za-z0-9._-]+\.md`,
+        "g",
+      );
+      const templateAddress = new RegExp(String.raw`${addressPrefix}/[A-Za-z0-9._/-]+/${TEMPLATES}`, "g");
+      const templateRoots = [...new Set(body.match(templateAddress) ?? [])];
+      expect(templateRoots.length, codingAgent).toBeGreaterThan(0);
+      for (const templateRoot of templateRoots) {
+        expect((await readdir(join(PRODUCT_ROOT, ...templateRoot.split(posix.sep)))).length, templateRoot)
+          .toBeGreaterThan(0);
+      }
+      const named = [...new Set(body.match(referenceAddress) ?? [])];
+      expect(named.length, codingAgent).toBeGreaterThan(0);
+      for (const reference of named) {
+        expect((await readFile(join(PRODUCT_ROOT, ...reference.split(posix.sep)))).length, reference).toBeGreaterThan(
+          0,
+        );
+      }
+    }
   });
 
   it("persists no context state between show invocations and projects each invocation from the tracked and shipped content present when it runs", async () => {

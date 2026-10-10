@@ -8,13 +8,14 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 
 import {
   defaultMethodologyTreeFileSystem,
   FOUNDATION_MANIFEST_FIELDS,
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   FOUNDATION_PLUGIN_NAME,
+  FOUNDATION_SKILL_DIR_PLACEHOLDERS,
   METHODOLOGY_RESOURCE_ENCODING,
   methodologyTreeRelativeDir,
   methodologyTreeRootDir,
@@ -42,12 +43,11 @@ export async function shippedMethodologyVersion(): Promise<ShippedMethodologyVer
 }
 
 /**
- * The exact text of the shipped core foundation body for one coding agent on
- * a shipped line. The core is located by plain JSON access to the manifest's
- * core field, so the oracle shares no code with the production manifest
- * parser whose output the linked test compares against it.
+ * The package-relative path of the shipped core resource, located by plain
+ * JSON access to the manifest's core field, so the oracle shares no code with
+ * the production manifest parser whose output the linked test compares.
  */
-export async function shippedFoundationCoreText(line: string, codingAgent: string): Promise<string> {
+async function shippedFoundationCorePath(line: string, codingAgent: string): Promise<string> {
   const treeDir = join(shippedMethodologyTreeRoot(), line, codingAgent, FOUNDATION_PLUGIN_NAME);
   const manifestPath = join(treeDir, FOUNDATION_MANIFEST_RELATIVE_PATH);
   const manifest: unknown = JSON.parse(await readFile(manifestPath, METHODOLOGY_RESOURCE_ENCODING));
@@ -57,20 +57,34 @@ export async function shippedFoundationCoreText(line: string, codingAgent: strin
   if (typeof core !== "string") {
     throw new Error(`${manifestPath} names no ${FOUNDATION_MANIFEST_FIELDS.CORE} resource`);
   }
-  return readFile(join(treeDir, core), METHODOLOGY_RESOURCE_ENCODING);
+  return core;
+}
+
+/** The exact text of the shipped core foundation resource for one coding agent on a shipped line. */
+export async function shippedFoundationCoreText(line: string, codingAgent: string): Promise<string> {
+  const treeDir = join(shippedMethodologyTreeRoot(), line, codingAgent, FOUNDATION_PLUGIN_NAME);
+  return readFile(join(treeDir, await shippedFoundationCorePath(line, codingAgent)), METHODOLOGY_RESOURCE_ENCODING);
 }
 
 /**
- * The shipped core body after its skill-runtime front matter: the text that
- * follows the second delimiter line when the file opens with one. The split
- * is a plain line scan, independent of the production front-matter parser.
+ * The core body `show --methodology` delivers: the shipped core after its
+ * skill-runtime front matter, with every skill-directory placeholder replaced
+ * by the package-relative directory the core ships in. The front-matter split
+ * and the replacement are plain scans, independent of the production parsers.
  */
 export async function shippedFoundationCoreBody(line: string, codingAgent: string): Promise<string> {
   const text = await shippedFoundationCoreText(line, codingAgent);
   const lines = text.split("\n");
-  if (lines[0] !== "---") return text;
-  const closing = lines.findIndex((candidate, index) => index > 0 && candidate === "---");
-  return closing === -1 ? text : lines.slice(closing + 1).join("\n");
+  const closing = lines[0] === "---" ? lines.findIndex((candidate, index) => index > 0 && candidate === "---") : -1;
+  const body = closing === -1 ? text : lines.slice(closing + 1).join("\n");
+  const skillDirAddress = posix.join(
+    shippedTreeRelativeDir(line, codingAgent),
+    posix.dirname(await shippedFoundationCorePath(line, codingAgent)),
+  );
+  return FOUNDATION_SKILL_DIR_PLACEHOLDERS.reduce(
+    (resolved, placeholder) => resolved.split(placeholder).join(skillDirAddress),
+    body,
+  );
 }
 
 /**
