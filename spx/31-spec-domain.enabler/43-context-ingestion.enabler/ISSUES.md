@@ -7,11 +7,3 @@
 **Impact:** the T0 comparison rows have no comparator the Intent or the `show` assertion declares. A T0 run can neither pass nor fail against the attested declaration, and the protocol's step 3 supplies the expectation from a rule outside the enumeration it calls exact.
 
 **Settlement condition:** either the Intent's enumeration and the `show` `[probe]` assertion both state the targetless read set as a member — the product spec in Full, node specs at depths 1 and 2 and decisions at depths 0 to 2 in Digest, and `ISSUES.md` at those depths by path — or both restrict the comparison to calls naming explicit targets and T0 leaves the probed set.
-
-## The knowledge index and outcome record names are declared outside the kind registry
-
-**Evidence:** `SPEC_CONTEXT_OPTIONAL_ARTIFACT` in `src/lib/spec-tree/context-projection.ts` declares `KNOWLEDGE_INDEX` as `knowledge/index.md` and `OUTCOME_SUFFIX` as `.outcome.md` as string literals beside the `ISSUES` name, which it takes from `SPEC_TREE_GRAMMAR.COORDINATION_NOTE.ISSUES`. The projection reads both through the module-local constants `KNOWLEDGE_INDEX` and `OUTCOME_SUFFIX` to select each node's knowledge index and outcome record, and the context test generators read them back through `SPEC_CONTEXT_OPTIONAL_ARTIFACT`. [spx/23-spec-tree.enabler/21-kind-registry.adr.md](spx/23-spec-tree.enabler/21-kind-registry.adr.md) makes `src/lib/spec-tree/config.ts` the single runtime source of spec-tree kind vocabulary and forbids a parallel constant for it, and `config.ts` declares neither name.
-
-**Impact:** the two artifact names have a home in the context projection and none in the registry or the grammar the registry projects, so a change to either name in the methodology reaches the spec-tree library at one site and the context projection at another, and a second consumer of either name declares a third copy.
-
-**Settlement condition:** the spec-tree registry or grammar declares the knowledge index path and the outcome record suffix, and `src/lib/spec-tree/context-projection.ts` and the context test generators read them from that declaration without a literal of their own.

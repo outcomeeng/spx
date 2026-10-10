@@ -71,8 +71,11 @@ const DECISION_STATEMENT_DIGEST: SpecContextDigest = { source: SPEC_CONTEXT_DIGE
 /** The node-local artifacts a projection selects only when present: the issue note, the knowledge index, the outcome record. */
 export const SPEC_CONTEXT_OPTIONAL_ARTIFACT = {
   ISSUES: SPEC_TREE_GRAMMAR.COORDINATION_NOTE.ISSUES,
-  KNOWLEDGE_INDEX: "knowledge/index.md",
-  OUTCOME_SUFFIX: ".outcome.md",
+  KNOWLEDGE_INDEX: [
+    SPEC_TREE_GRAMMAR.KNOWLEDGE.DIRECTORY_NAME,
+    SPEC_TREE_GRAMMAR.KNOWLEDGE.INDEX_FILENAME,
+  ].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+  OUTCOME_SUFFIX: SPEC_TREE_GRAMMAR.OUTCOME_RECORD.SUFFIX,
 } as const;
 
 const DISCOVERY_DEPTH = 2;

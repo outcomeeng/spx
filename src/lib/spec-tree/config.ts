@@ -108,6 +108,13 @@ export const SPEC_TREE_GRAMMAR = {
   COORDINATION_NOTES: [SPEC_TREE_COORDINATION_NOTE.PLAN, SPEC_TREE_COORDINATION_NOTE.ISSUES],
   GUIDE_FILES: ["CLAUDE.md", "AGENTS.md"],
   STATUS_FILENAME: "spx.status.json",
+  KNOWLEDGE: {
+    DIRECTORY_NAME: "knowledge",
+    INDEX_FILENAME: "index.md",
+  },
+  OUTCOME_RECORD: {
+    SUFFIX: ".outcome.md",
+  },
   LOCAL_OVERLAYS: {
     DIRECTORY_NAME: "local",
     LIFECYCLE_FILENAME: "merging.md",
