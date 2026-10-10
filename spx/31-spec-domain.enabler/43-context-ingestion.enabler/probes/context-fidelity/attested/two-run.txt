@@ -1,30 +1,19 @@
 cmp start.head.txt:
 exit=0
 diff -rq RUN_1 RUN_2:
-Only in RUN_2: capture.out
+Files RUN_1/capture.out and RUN_2/capture.out differ
+Files RUN_1/compare.out and RUN_2/compare.out differ
 Files RUN_1/t0.comparison.md and RUN_2/t0.comparison.md differ
 Files RUN_1/t1.comparison.md and RUN_2/t1.comparison.md differ
 Files RUN_1/t1.contextualize.txt and RUN_2/t1.contextualize.txt differ
-Only in RUN_2: t1.session.code
-Only in RUN_1: t1.session.exit
 Files RUN_1/t1.session.jsonl and RUN_2/t1.session.jsonl differ
-Files RUN_1/t1.session.stderr and RUN_2/t1.session.stderr differ
-Files RUN_1/t2.comparison.md and RUN_2/t2.comparison.md differ
 Files RUN_1/t2.contextualize.txt and RUN_2/t2.contextualize.txt differ
-Only in RUN_2: t2.session.code
-Only in RUN_1: t2.session.exit
 Files RUN_1/t2.session.jsonl and RUN_2/t2.session.jsonl differ
 Files RUN_1/t3.comparison.md and RUN_2/t3.comparison.md differ
 Files RUN_1/t3.contextualize.txt and RUN_2/t3.contextualize.txt differ
-Only in RUN_2: t3.session.code
-Only in RUN_1: t3.session.exit
 Files RUN_1/t3.session.jsonl and RUN_2/t3.session.jsonl differ
-Files RUN_1/t4.comparison.md and RUN_2/t4.comparison.md differ
 Files RUN_1/t4.contextualize.txt and RUN_2/t4.contextualize.txt differ
-Only in RUN_2: t4.session.code
-Only in RUN_1: t4.session.exit
 Files RUN_1/t4.session.jsonl and RUN_2/t4.session.jsonl differ
-Files RUN_1/t5.comparison.md and RUN_2/t5.comparison.md differ
 diff exit=1
 differences in show or list files:
-       0
+0

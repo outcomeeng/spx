@@ -581,18 +581,26 @@ CAN first locate relevant subtrees and then load only the product truth required
 
 ## Assertions
 
-- Given a Product Tree, when `spx spec context list <targets...>` runs, then it emits the versioned structural manifest
-- Given a Product Tree, when `spx spec context show [targets...]` runs, then it emits selected document content and path references without manifest fields
-- Given no target, when `spx spec context show` runs, then it supplies the complete product spec and a depth-bounded Product Tree map from which an agent can choose a target
-- Given one or more targets, when `spx spec context show` runs, then it supplies Full target and ancestor context, Digest sibling and immediate-child awareness, applicable decisions, and path-only references to each `ISSUES.md` on a target path and to each explicit target's `knowledge/index.md`
-- Given one or more targets, when `spx spec context list` runs, then the manifest it emits carries the schema version and the bootstrap flag [spx/31-spec-domain.enabler/43-context-ingestion.enabler/32-context-manifest-schema.pdr.md](spx/31-spec-domain.enabler/43-context-ingestion.enabler/32-context-manifest-schema.pdr.md) declares, and `list` emits that manifest as labelled text and, with `--json`, as the equivalent JSON
-- The manifest carries the configured methodology identity: each accepted version form resolves, text `list` labels the methodology source with its version and, while a migration is open, the migration source version, each rendered as `MAJOR.MINOR` whichever accepted form configuration declares, and `list --json` carries each version exactly as product configuration declares it.
-- ALWAYS: the executable writes no partial context to stdout after any target, source, citation, or methodology failure
-- Equal tracked product content, shipped methodology content, options, selected coding agent, and accepted canonical targets produce byte-identical output.
-- ALWAYS: context ingestion resolves the complete projection before output, so any target, selected-document, source, citation, or methodology failure returns a failure carrying no partial projection
+### Scenarios
+
+- Given a Product Tree, when `spx spec context list <targets...>` runs, then it emits the versioned structural manifest ([test](tests/context-ingestion.scenario.l1.test.ts))
+- Given a Product Tree, when `spx spec context show [targets...]` runs, then it emits selected document content and path references without manifest fields ([test](tests/context-ingestion.scenario.l1.test.ts))
+- Given no target, when `spx spec context show` runs, then it supplies the complete product spec and a depth-bounded Product Tree map from which an agent can choose a target ([test](tests/context-ingestion.scenario.l1.test.ts))
+- Given one or more targets, when `spx spec context show` runs, then it supplies Full target and ancestor context, Digest sibling and immediate-child awareness, applicable decisions, and path-only references to each `ISSUES.md` on a target path and to each explicit target's `knowledge/index.md` ([test](tests/context-ingestion.scenario.l1.test.ts))
+- Given one or more targets, when `spx spec context list` runs, then the manifest it emits carries the schema version and the bootstrap flag [spx/31-spec-domain.enabler/43-context-ingestion.enabler/32-context-manifest-schema.pdr.md](spx/31-spec-domain.enabler/43-context-ingestion.enabler/32-context-manifest-schema.pdr.md) declares, and `list` emits that manifest as labelled text and, with `--json`, as the equivalent JSON ([test](tests/context-ingestion.scenario.l1.test.ts))
+
+### Mappings
+
+- The manifest carries the configured methodology identity: each accepted version form resolves, text `list` labels the methodology source with its version and, while a migration is open, the migration source version, each rendered as `MAJOR.MINOR` whichever accepted form configuration declares, and `list --json` carries each version exactly as product configuration declares it. ([test](tests/context-ingestion.mapping.l1.test.ts))
+
+### Properties
+
+- Equal tracked product content, shipped methodology content, options, selected coding agent, and accepted canonical targets produce byte-identical output. ([test](tests/determinism.property.l1.test.ts))
 
 ### Compliance
 
+- ALWAYS: the executable writes no partial context to stdout after any target, product-spec, source, citation, or methodology failure ([test](tests/context-ingestion.compliance.l2.test.ts))
+- ALWAYS: context ingestion resolves the complete projection before output, so any target, product-spec, selected-document, source, citation, or methodology failure returns a failure carrying no partial projection ([test](tests/context-ingestion.compliance.l1.test.ts))
 - ALWAYS: context selection is structural and never uses keyword search, semantic similarity, or LLM judgment ([audit])
 - ALWAYS: for each probed call in spx's own tree, the entries `show` delivers equal, entry by entry, the context-loading read set the context-fidelity protocol computes for that call's requested targets independently of `show` in path, projection mode, content bytes, selected metadata, and position, where each requested target's read set is its own — each ancestor level on its path contributing only the decisions at a lower index than the child the path continues through, its siblings and immediate children contributing their Digest opening, `ISSUES.md` and knowledge contributing by path, and harness guides and `spx/local/` overlays staying outside — and a call naming several targets takes each entry once at the highest mode any of its targets' read sets requires; any other difference fails ([probe](probes/context-fidelity/probe.md))
 - ALWAYS: for each probed call naming one or more explicit targets in spx's own tree, the entries `list` delivers equal, entry by entry, that independently computed read set in path, projection mode, selection reasons, and position, where each requested target records its own selection reason for each entry its read set holds; any other difference fails ([probe](probes/context-fidelity/probe.md))
@@ -606,7 +614,7 @@ CAN first locate relevant subtrees and then load only the product truth required
 
 Deterministic spec context has two representations. `spx spec context list <targets...>` emits the versioned structural manifest for automation and inspection. `spx spec context show [targets...]` emits the selected source content itself: targetless product mapping when no target is supplied, or the combined targeted context for one or more accepted targets. `show` has no `--content` mode, manifest schema version, role labels, counts, byte counts, content digests, coverage section, or receipt.
 
-The manifest carries schema version 3 and a bootstrap flag that is true exactly when the tree holds a product spec and no node. `list` and `show` select one entry set: the product-tree entries the requested targets select. The methodology foundation `show --methodology` requests lies outside target selection, and `list` takes no such option. Each manifest entry names one of those entries, in `show`'s order, with one projection mode — `full`, `digest`, or `reference` — and one selection for each requested target that selects it. A selection pairs that canonical target with one selection reason: the first reason that applies for that target in the order `target`, `product`, `ancestor`, `sibling`, `immediate-child`, `outcome-record`, `knowledge-index`, `cited-decision`, `issue`. Each reason requires one projection mode, each requested target's requirements are its own, and the entry's mode is the highest mode its selections require, ordered `full` over `digest` over `reference`, which is how `show` delivers the entry after composition. A requested target's `cited-decision` selection comes from that target's own citation closure. An entry holding at least one `cited-decision` selection is delivered in Full, and its manifest entry records the path of every selected document that cites the decision. A projection that selects no entry emits a manifest with zero entries.
+The manifest carries schema version 3 and a bootstrap flag that is true exactly when the tree holds a product spec and no node. `list` and `show` select one entry set: the product-tree entries the requested targets select. The methodology foundation `show --methodology` requests lies outside target selection, and `list` takes no such option. Each manifest entry names one of those entries, in `show`'s order, with one projection mode — `full`, `digest`, or `reference` — and one selection for each requested target that selects it. A selection pairs that canonical target with one selection reason: the first reason that applies for that target in the order `target`, `product`, `ancestor`, `sibling`, `immediate-child`, `outcome-record`, `knowledge-index`, `cited-decision`, `issue`. Each reason requires one projection mode, each requested target's requirements are its own, and the entry's mode is the highest mode its selections require, ordered `full` over `digest` over `reference`, which is how `show` delivers the entry after composition. A requested target's `cited-decision` selection comes from that target's own citation closure. An entry holding at least one `cited-decision` selection is delivered in Full, and its manifest entry records the path of every selected document that cites the decision. A product root holding no recognized product spec selects no entry and fails every `list` and `show`: the diagnostic on standard error names the failure kind and the product root, standard output stays empty, and the exit status is non-zero. Every projection over a root holding a product spec selects at least that product spec.
 
 `list --json` emits one object carrying `schemaVersion`, `bootstrap`, the configured methodology identity as `methodology` with each version exactly as product configuration declares it, and `entries`. Each entry carries `path`; `mode`; `selections`, an array of `{ "target": <canonical target path>, "reason": <selection reason> }` objects, one per requested target that selects the entry, in canonical target order — ordinal comparison of canonical target paths; and, exactly when at least one of the entry's selections has reason `cited-decision`, `citedBy`, the path of every selected document that cites the decision, in `show`'s order. Text `list` output labels the schema version, the bootstrap flag, and the methodology identity — the methodology source with its version and, while a migration is open, the migration source version, each version rendered as `MAJOR.MINOR` whichever accepted form configuration declares — then renders one line per entry naming its mode and path, each followed by one indented line per selection naming its reason and target. On an entry carrying `citedBy`, the entry line continues after its path with one space and `(cited by <path>, <path>)`: in parentheses, the label `cited by`, one space, and every `citedBy` path in `show`'s order, each separated from the next by a comma and one space.
 
@@ -634,7 +642,7 @@ Every `show` invocation emits complete context: the whole selected projection fo
 - NEVER: delivering bounded harness output by redirecting complete stdout to scratch space changes selection or rendering ([compliance])
 - ALWAYS: `list` alone emits the versioned manifest and `show` alone emits framed document and reference entries ([mapping])
 - ALWAYS: `--json` changes representation only, selecting identical entries, metadata, and source content in text and JSON ([property])
-- ALWAYS: a projection that selects no entry succeeds as empty text `show` stdout, `{ "entries": [] }` from `show --json`, and a manifest with zero entries from `list` ([mapping])
+- ALWAYS: a product root holding no recognized product spec fails every targeted and targetless `list` and `show` with a diagnostic on standard error naming the failure kind and the product root, empty standard output, and a non-zero exit, never an empty success ([compliance])
 - NEVER: `show` emits manifest fields, content hashes, byte counts, or a receipt ([compliance])
 - NEVER: `show` accepts a declaration that removes selected entries from its output ([compliance])
 - NEVER: `show` reads state an earlier invocation persisted ([compliance])
@@ -664,6 +672,8 @@ CAN accept convenient unambiguous paths while rejecting unresolved and ambiguous
 - Absolute operands resolve as written, while relative operands collect candidates from the effective invocation directory, the product root, and complete-path-component suffix matches over accepted target paths only.
 - An operand with zero identities after confinement and collapse maps to unresolved, including an operand whose every candidate escapes the resolved product root through lexical traversal or symbolic-link resolution and an operand naming an existing artifact of a class context targets do not accept; an operand with one identity resolves to it even when another of its candidates escaped; and an operand with several identities maps to ambiguous. From the product root the operand `../outside` maps to unresolved, and from `<root>/spx/a.enabler` the operand `../../PLAN.md` maps to unresolved while the operand `../../spx` succeeds.
 </spx-document>
+
+<spx-reference path="spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler/ISSUES.md" />
 
 <spx-document path="spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler/21-context-target-resolution.adr.md">
 # Context Target Resolution
@@ -940,7 +950,7 @@ Each spec-tree node's verification outcomes persist in a co-located, machine-wri
 
 ## Rationale
 
-Per-node co-location ties recorded outcomes to the node's own commits while Git owns identity, provenance, assertions, evidence links, source, config, and history; central status maps, copied Git facts, and top-level lifecycle-only fields lose that boundary. `spx.status.json` is the committed projection of runtime outcomes, distinct from gitignored execution evidence under `.spx/`, and CI recomputes that projection from the checkout so forged or stale status cannot pass on the default branch.
+Per-node co-location ties recorded outcomes to the node's own commits while Git owns identity, provenance, assertions, evidence links, source, config, and history; central status maps, copied Git facts, and top-level lifecycle-only fields lose that boundary. `spx.status.json` is the committed projection of runtime outcomes, distinct from gitignored execution evidence under `.spx/`, and CI recomputes that projection from the checkout of every commit it checks, so forged or stale status in a checked commit cannot pass.
 
 Separating the claim from its reproduction is what lets the status path stay a read: the author folds the evidence a run recorded, and CI — running the configured suite over a full checkout — is the authority that reproduces a passing claim and refutes one the product no longer supports. A status command that executed verification to fill a gap would re-derive per node what a run schedules in one batch, and would write an outcome no recorded run produced.
 
@@ -948,7 +958,7 @@ Separating the claim from its reproduction is what lets the status path stay a r
 
 1. `spx.status.json` has `schemaVersion: 1` and a `verification` object whose mechanism keys are `test`, `eval`, and `audit` when that mechanism has linked evidence for the node; each mechanism object has an `overall` value of `passed`, `failed`, `partial`, or `not-run`, and evidence-reference keys whose values are `passed`, `failed`, or `not-run`.
 2. `spx spec status` derives a node's lifecycle state from committed verification outcomes when `spx.status.json` exists and derives live structural state when it is absent; `--update` folds the outcomes a recorded verification run produced: a reference a run covers keeps its committed outcome when that evidence is stale, and a reference no run covers is `not-run`. Neither form executes verification.
-3. CI runs the configured full verification suite, regenerates the status projection for the checkout, and rejects the commit when any committed `spx.status.json` differs from the regenerated projection.
+3. On every pull-request head targeting the default branch, and on every push to the default branch whose changed paths do not all lie in the instruction-document paths `CLAUDE.md`, `AGENTS.md`, `README.md`, `LICENSE`, and `docs/**`, CI runs the configured verification suite, regenerates the status projection for the checkout, and rejects that commit when any committed `spx.status.json` differs from the regenerated projection.
 
 ## Verification
 
@@ -956,9 +966,11 @@ Separating the claim from its reproduction is what lets the status path stay a r
 
 - ALWAYS: a generated `spx.status.json` contains `schemaVersion: 1` and a `verification` object keyed by verification mechanism and evidence reference ([conformance])
 - ALWAYS: `spx spec status` derives lifecycle state from committed verification outcomes when `spx.status.json` exists and falls back to live structural derivation when it is absent ([mapping])
-- ALWAYS: CI detects a stale, forged, or missing status projection by regenerating the projection from the checkout after running the configured verification suite and comparing it with committed `spx.status.json` files ([compliance])
+- ALWAYS: regenerating the status projection over a checkout whose committed `spx.status.json` differs from the projection of the recorded evidence rewrites that file to the projection, so the regeneration leaves `spx/` changed ([compliance])
 
 ### Audit
+
+- ALWAYS: CI runs the configured verification suite and then regenerates the status projection on every pull-request head targeting the default branch and every push to the default branch whose changed paths do not all lie in the instruction-document paths `CLAUDE.md`, `AGENTS.md`, `README.md`, `LICENSE`, and `docs/**`, and rejects the commit when the regeneration leaves `spx/` changed ([audit])
 
 - ALWAYS: write `spx.status.json` only through the `spx spec status --update` path — every other path reads ([audit])
 - ALWAYS: place each `spx.status.json` in the directory of the node it describes; node identity comes from file location, not file content ([audit])
@@ -1028,7 +1040,7 @@ Agents need bounded, inspectable test evidence and developers need native local 
 
 - ALWAYS: environment mode preserves runner selection, selected test files, passing-scope filtering, and exit-code aggregation while changing only output handling and reporting shape ([compliance])
 - ALWAYS: `agent` environment writes child stdout and stderr to artifact files and reports artifact paths without streaming child output to the invoking terminal ([compliance])
-- Given failed test paths are unavailable for a failing runner group, `spx test` reports the requested paths for that failing runner group ([scenario])
+- Given failed test paths are unavailable for a failing runner group, `spx test --agent` names that group, its exit code, the count of its requested paths, and its stdout and stderr artifacts, states that the runner reported no failed paths, and lists no path under the failing-tests label ([scenario])
 
 ### Audit
 

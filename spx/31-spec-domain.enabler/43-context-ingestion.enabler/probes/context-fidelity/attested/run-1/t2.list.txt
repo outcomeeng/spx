@@ -63,6 +63,8 @@ full spx/31-spec-domain.enabler/43-context-ingestion.enabler/32-context-manifest
   ancestor spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
 full spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler/target-resolution.md
   target spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
+reference spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler/ISSUES.md
+  issue spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
 full spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler/21-context-target-resolution.adr.md
   target spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler
 digest spx/31-spec-domain.enabler/43-context-ingestion.enabler/54-read-set-projection.enabler/read-set-projection.md

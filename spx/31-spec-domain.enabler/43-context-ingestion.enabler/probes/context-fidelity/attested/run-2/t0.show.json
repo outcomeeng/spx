@@ -919,6 +919,10 @@
       "content": "PROVIDES per-node persistence of each spec-tree node's runtime verification outcomes — an `spx.status.json` file format with `schemaVersion` and mechanism-keyed `verification` results, a reader, a writer, and the classification that resolves a node to `declared`, `specified`, `failing`, or `passing` from the committed outcomes and tracked spec structure — written only by `spx spec status --update`\nSO THAT `spx spec status` and other spec-tree status consumers\nCAN read a node's last-recorded verification projection from a committed file without re-running verification\n"
     },
     {
+      "type": "reference",
+      "path": "spx/31-spec-domain.enabler/21-node-status.enabler/ISSUES.md"
+    },
+    {
       "type": "document",
       "path": "spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md",
       "metadata": {},
@@ -972,7 +976,7 @@
       "type": "document",
       "path": "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/21-status-testing-delegation.adr.md",
       "metadata": {},
-      "content": "`spx spec status --update` folds each node's recorded verification evidence into the committed status claim and executes no verification. For a node whose classification reaches the test-outcome stage — one with co-located tests that is not listed in `spx/EXCLUDE` — the command layer composes a dependency-injected node-outcome resolver over the testing domain that reads the node's latest recorded last-run evidence and never invokes a runner. A reference a recorded run covers takes that run's outcome when the evidence is fresh, and keeps the outcome already committed for it when the evidence is stale. A reference no recorded run covers is `not-run`: preserving a committed outcome for evidence no run produces would let a regenerated projection reproduce that outcome forever, so continuous integration could never refute it. A node with no co-located tests (`declared`) or one listed in `spx/EXCLUDE` (`specified`) classifies structurally per `spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md`. Evidence is fresh when every staleness digest matches per [spx/41-test.enabler/43-last-run-evidence.enabler/43-staleness-comparison.adr.md](spx/41-test.enabler/43-last-run-evidence.enabler/43-staleness-comparison.adr.md), and it carries the outcome its terminal record reports ([spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md](spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md)).\n"
+      "content": "`spx spec status --update` folds each node's recorded verification evidence into the committed status claim and executes no verification. For a node whose classification reaches the test-outcome stage — one with co-located tests that is not listed in `spx/EXCLUDE` — the command layer composes a dependency-injected node-outcome resolver over the testing domain that reads the node's latest recorded last-run evidence and never invokes a runner. A reference a recorded run covers takes its own test file's verdict from that run when the evidence is fresh, and keeps the outcome already committed for it when the evidence is stale. A reference no recorded run covers is `not-run`: preserving a committed outcome for evidence no run produces would let a regenerated projection reproduce that outcome forever, so continuous integration could never refute it. A node with no co-located tests (`declared`) or one listed in `spx/EXCLUDE` (`specified`) classifies structurally per `spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md`. Evidence is fresh when every staleness digest matches per [spx/41-test.enabler/43-last-run-evidence.enabler/43-staleness-comparison.adr.md](spx/41-test.enabler/43-last-run-evidence.enabler/43-staleness-comparison.adr.md), and it carries, for each test path, the verdict its terminal record's runner outcomes report ([spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md](spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md)).\n"
     },
     {
       "type": "document",
@@ -1225,10 +1229,14 @@
       "content": "PROVIDES the `spx worktree` command family and shared occupancy services — a write-once holder-session worktree claim and an on-demand process-liveness check over `.spx/worktrees/<name>.claim`\nSO THAT the `session-start` hook, `/handoff`, `/pickup`, and any flow that enters a bare-repository pool worktree\nCAN distinguish a worktree held by an active agent session from a free one instead of inferring occupancy from git cleanliness\n"
     },
     {
+      "type": "reference",
+      "path": "spx/38-worktree.enabler/ISSUES.md"
+    },
+    {
       "type": "document",
       "path": "spx/38-worktree.enabler/21-occupancy-claim.adr.md",
       "metadata": {},
-      "content": "Worktree occupancy is a stateless two-state truth — `running` or `free` — decided on demand from the process table over a write-once holder-session claim file at `.spx/worktrees/<name>.claim` that carries the holder agent session id, host, controlling-process id, and start time. Claim acquisition and release serialize claim mutation through a recoverable per-worktree admission marker that records the acting process, refuses live-holder replacement, lets absent or `free` holders be replaced, and removes only the acting holder's own claim. A worktree is `running` when a same-host claim names a live process whose recorded start time matches or cannot be read; it is `free` in every other case, with no heartbeat, TTL, refresh, or git-state signal participating.\n"
+      "content": "Worktree occupancy is a stateless two-state truth — `running` or `free` — decided on demand from the process table over a write-once holder-session claim file at `.spx/worktrees/<name>.claim` that carries the holder agent session id, host, controlling-process id, and start time. Claim acquisition and release serialize claim mutation through a recoverable per-worktree admission marker that records the acting process, refuses live-holder replacement, lets absent or `free` holders be replaced, and removes only a claim that matches the acting holder's identity or records the session id the caller supplies explicitly. A worktree is `running` when a same-host claim names a live process whose recorded start time matches or cannot be read; it is `free` in every other case, with no heartbeat, TTL, refresh, or git-state signal participating.\n"
     },
     {
       "type": "document",
@@ -1237,16 +1245,24 @@
       "content": "PROVIDES serialized claim acquisition, atomic claim-record I/O at `.spx/worktrees/<name>.claim`, and an on-demand process-liveness check that classifies a worktree as the two-state `free` or `running`\nSO THAT the worktree-cli enabler\nCAN answer `spx worktree status`, acquire a claim for `spx worktree claim`, and remove it for `spx worktree release` without re-deriving `.spx/worktrees/` layout or the liveness rule\n"
     },
     {
+      "type": "reference",
+      "path": "spx/38-worktree.enabler/32-occupancy-store.enabler/ISSUES.md"
+    },
+    {
       "type": "document",
       "path": "spx/38-worktree.enabler/43-worktree-cli.enabler/worktree-cli.md",
       "metadata": {},
       "content": "PROVIDES Commander.js bindings for `spx worktree status [worktree...]`, `spx worktree status --all`, `spx worktree claim --session-id <id>`, and `spx worktree release [--session-id <id>]`, with shared worktree-root resolution, controlling-process resolution, the silent-stdout claim contract, grouped human-readable status output, machine-parseable status output, and exit codes the marketplace consumers depend on\nSO THAT `/handoff`, `/pickup`, manual repair flows, and compatibility flows\nCAN claim, query, and release worktree occupancy with predictable output, exit codes, and shared worktree identity rules\n"
     },
     {
+      "type": "reference",
+      "path": "spx/38-worktree.enabler/43-worktree-cli.enabler/ISSUES.md"
+    },
+    {
       "type": "document",
       "path": "spx/38-worktree.enabler/43-worktree-cli.enabler/21-worktree-command.adr.md",
       "metadata": {},
-      "content": "`spx worktree` exposes `claim`, `status`, and `release` as a Commander domain registered through the static descriptor registry, with the process table, claim filesystem, git resolver, path-info probe, random-bytes source, host, and environment injected. `claim` records the holding agent's controlling process and writes nothing to stdout; `release` deletes the running worktree's own claim file quietly. `status` resolves every target through shared git worktree-root resolution, renders two-state occupancy through grouped tree text or request-shape JSON, de-duplicates first-seen roots, discovers `--all` targets from git, rejects `--all` plus explicit operands, and refuses unresolved or ambiguous basename targets.\n"
+      "content": "`spx worktree` exposes `claim`, `status`, and `release` as a Commander domain registered through the static descriptor registry, with the process table, claim filesystem, git resolver, path-info probe, random-bytes source, host, and environment injected. `claim` records the holding agent's controlling process and writes nothing to stdout; `release` deletes the running worktree's own claim file quietly, and a `release` carrying an explicit `--session-id` deletes the claim recording that session id without resolving a controlling process. `status` resolves every target through shared git worktree-root resolution, renders two-state occupancy through grouped tree text or request-shape JSON, de-duplicates first-seen roots, discovers `--all` targets from git, rejects `--all` plus explicit operands, and refuses unresolved or ambiguous basename targets.\n"
     },
     {
       "type": "document",
@@ -1290,7 +1306,7 @@
       "type": "document",
       "path": "spx/41-test.enabler/21-python-test.enabler/21-python-test-runner.adr.md",
       "metadata": {},
-      "content": "The Python test runner is a `pythonTestingLanguage` descriptor exported from `src/test/languages/python.ts`, conforming to the `TestingLanguageDescriptor` contract of [`spx/19-language-registration.adr.md`](spx/19-language-registration.adr.md). It detects Python presence, invokes pytest, and derives passing-scope exclusion flags in the descriptor module, so command construction, the detection gate, and flag generation are verifiable at `l1` without the real tool. The descriptor exposes `name` (`python`), `testFilePatterns` (`test_*.py`) and a matching predicate over file paths, `detect(productDir, deps?)` resolving Python presence through descriptor-owned detection with an optional test override, `excludeFlag(nodePath)` mapping an excluded node path to `--ignore=spx/{nodePath}/`, and `runTests(request, deps)` invoking `uv run --active pytest` through the injected command runner over the supplied test paths and exclusion flags and returning a runner outcome carrying the process exit code. The runner constructs no rootdir flag; pytest derives its rootdir and configuration discovery from the command runner's working directory and resolves the tool from the active managed environment the suite provisions.\n"
+      "content": "The Python test runner is a `pythonTestingLanguage` descriptor exported from `src/test/languages/python.ts`, conforming to the `TestingLanguageDescriptor` contract of [`spx/19-language-registration.adr.md`](spx/19-language-registration.adr.md). It detects Python presence, invokes pytest, and derives passing-scope exclusion flags in the descriptor module, so command construction, the detection gate, and flag generation are verifiable at `l1` without the real tool. The descriptor exposes `name` (`python`), `testFilePatterns` (`test_*.py`) and a matching predicate over file paths, `detect(productDir, deps?)` resolving Python presence through descriptor-owned detection with an optional test override, `excludeFlag(nodePath)` mapping an excluded node path to `--ignore=spx/{nodePath}/`, and `runTests(request, deps)` invoking `uv run --active pytest` through the injected command runner over the supplied test paths and exclusion flags and returning a runner outcome carrying the process exit code and optional path verdicts. The verdict per path comes from pytest's JUnit XML output, which `runTests` requests through `--junitxml` into a run-scoped file under the run's `.spx/worktree/test/` location; the adapter reads that file once the pytest process exits and, when the report is readable, maps the testcases of each supplied test file to `passed`, `failed`, or `not-run`; the dispatch layer records `not-run` for every supplied path whose outcome carries no path verdicts, per [`spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md`](spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md). `runTests` pins pytest's rootdir to the product directory through `--rootdir=<productDir>` beside the JUnit XML flag, so pytest names each testcase's module relative to the product directory and the adapter matches each supplied test path to its testcases by that module path; pytest resolves the tool from the active managed environment the suite provisions.\n"
     },
     {
       "type": "document",
@@ -1299,10 +1315,14 @@
       "content": "PROVIDES the TypeScript Vitest runner adapter for TypeScript test files in `spx/**/tests/` — a CLI-flag run and a journal-streaming run that hosts the reporter of `spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler`\nSO THAT `spx test` and `spx test passing`, and the spx-driven verification executor of `spx/34-verification.enabler/43-execute.enabler` that drives this product's TypeScript test runner through the testing registry,\nCAN execute this product's TypeScript tests with exclusion flags derived from `spx.config.{toml,json,yaml}` without modifying `vitest.config.ts`, `tsconfig.json`, or `package.json`, and drive per-module scope and per-failing-case evidence into an injected sink without naming Vitest or TypeScript\n"
     },
     {
+      "type": "reference",
+      "path": "spx/41-test.enabler/21-typescript-test.enabler/ISSUES.md"
+    },
+    {
       "type": "document",
       "path": "spx/41-test.enabler/21-typescript-test.enabler/21-typescript-test-runner.adr.md",
       "metadata": {},
-      "content": "The TypeScript Vitest runner adapter is a `typescriptTestingLanguage` descriptor exported from `src/test/languages/typescript.ts`, conforming to the `TestingLanguageDescriptor` contract of [`spx/19-language-registration.adr.md`](spx/19-language-registration.adr.md) and the runner-adapter boundary in [`spx/41-test.enabler/11-test-runner-environments.pdr.md`](spx/41-test.enabler/11-test-runner-environments.pdr.md). It detects TypeScript presence, emits this product's Vitest command shape, and derives passing-scope exclusion flags in the descriptor module, so command construction, the detection gate, and flag generation are verifiable at `l1` without the real tool. The descriptor exposes `name` (`typescript`), `testFilePatterns` (`*.test.ts`, `*.test.tsx`) and a matching predicate over file paths, `detect(productDir, deps?)` resolving TypeScript presence through descriptor-owned detection with an optional test override, `excludeFlag(nodePath)` mapping an excluded node path to `--exclude=spx/{nodePath}/**`, and `runTests(request, deps)` invoking the configured command through the injected command runner over the supplied paths and exclusion flags and returning a runner outcome carrying the process exit code and optional output artifacts. The descriptor also exposes a journal-streaming run — a programmatic Vitest run started through the Node API with the journal-streaming reporter of `spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler` injected — so a language-neutral consumer reaches per-module scope and per-failing-case evidence through the testing registry without naming Vitest, keeping the CLI-flag `runTests` and the streaming run as separate descriptor capabilities that coexist until the equivalence gate of `spx/34-verification.enabler/PLAN.md`. Both capabilities reach the product's own Vitest: `runTests` invokes it through the product's package manager, and the streaming run resolves the Vitest Node API against the product directory under test before importing it.\n"
+      "content": "The TypeScript Vitest runner adapter is a `typescriptTestingLanguage` descriptor exported from `src/test/languages/typescript.ts`, conforming to the `TestingLanguageDescriptor` contract of [`spx/19-language-registration.adr.md`](spx/19-language-registration.adr.md) and the runner-adapter boundary in [`spx/41-test.enabler/11-test-runner-environments.pdr.md`](spx/41-test.enabler/11-test-runner-environments.pdr.md). It detects TypeScript presence, emits this product's Vitest command shape, and derives passing-scope exclusion flags in the descriptor module, so command construction, the detection gate, and flag generation are verifiable at `l1` without the real tool. The descriptor exposes `name` (`typescript`), `testFilePatterns` (`*.test.ts`, `*.test.tsx`) and a matching predicate over file paths, `detect(productDir, deps?)` resolving TypeScript presence through descriptor-owned detection with an optional test override, `excludeFlag(nodePath)` mapping an excluded node path to `--exclude=spx/{nodePath}/**`, and `runTests(request, deps)` invoking the configured command through the injected command runner over the supplied paths and exclusion flags and returning a runner outcome carrying the process exit code, optional path verdicts, and optional output artifacts. The verdict per path comes from Vitest's JSON reporter, which `runTests` adds beside the reporter the run already uses and directs to a run-scoped file under the run's `.spx/worktree/test/` location; the adapter reads that file once the Vitest process exits and, when the report is readable, maps each supplied test file's result to `passed`, `failed`, or `not-run`, taking each supplied test path's verdict from the report entry whose file name equals a root joined with that test path, both with separators normalized, where the root is the product directory as supplied or, when it differs, the product directory resolved through the filesystem's real path, so a reported file whose path only ends with the supplied test path supplies no verdict for it; the dispatch layer records `not-run` for every supplied path whose outcome carries no path verdicts, per [`spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md`](spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md). The descriptor also exposes a journal-streaming run — a programmatic Vitest run started through the Node API with the journal-streaming reporter of `spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler` injected — so a language-neutral consumer reaches per-module scope and per-failing-case evidence through the testing registry without naming Vitest, keeping the CLI-flag `runTests` and the streaming run as separate descriptor capabilities. Both capabilities reach the product's own Vitest: `runTests` invokes it through the product's package manager, and the streaming run resolves the Vitest Node API against the product directory under test before importing it.\n"
     },
     {
       "type": "document",
@@ -1334,7 +1354,7 @@
       "type": "document",
       "path": "spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md",
       "metadata": {},
-      "content": "Spec-tree test run observations are stored under `.spx/worktree/test/runs/run-{run-token}.jsonl` at the local worktree root ([`spx/15-worktree-management.pdr.md`](spx/15-worktree-management.pdr.md)), where `run-token` is `{YYYY-MM-DD_HH-mm-ss-SSS}-{run-id}`. Each terminal run writes one JSONL record recording the checkout's branch name and head SHA, the resolved testing config digest, runner outcomes, the discovered-test path and content digests, testing-language-declared product input digests, timestamps, and terminal status; a run file without a parse-valid JSONL terminal record is incomplete evidence.\n"
+      "content": "Spec-tree test run observations are stored under `.spx/worktree/test/runs/run-{run-token}.jsonl` at the local worktree root ([`spx/15-worktree-management.pdr.md`](spx/15-worktree-management.pdr.md)), where `run-token` is `{YYYY-MM-DD_HH-mm-ss-SSS}-{run-id}`. Each terminal run writes one JSONL record recording the checkout's branch name and head SHA, the resolved testing config digest, runner outcomes with a verdict per test path, the discovered-test path and content digests, testing-language-declared product input digests, timestamps, and terminal status; a run file without a parse-valid JSONL terminal record is incomplete evidence.\n"
     },
     {
       "type": "document",
@@ -1365,6 +1385,10 @@
       "path": "spx/41-test.enabler/85-agent-test-output.enabler/agent-test-output.md",
       "metadata": {},
       "content": "PROVIDES the `agent` runner environment for `spx test` runs, with compact agent-facing output and raw runner stdout and stderr captured as artifacts\nSO THAT agents and developers running spec-tree tests through non-interactive terminals\nCAN detect failures from one run without streaming passing-test noise into the transcript or losing raw diagnostics\n"
+    },
+    {
+      "type": "reference",
+      "path": "spx/41-test.enabler/85-agent-test-output.enabler/ISSUES.md"
     },
     {
       "type": "document",
@@ -1617,6 +1641,10 @@
       "content": "PROVIDES the SPX command-line product surface, including command groups, verbs, options, help, output modes, terminal rendering, and agent-readable defaults\nSO THAT operators, automation, and configured agents\nCAN invoke SPX capabilities through a consistent CLI contract\n"
     },
     {
+      "type": "reference",
+      "path": "spx/60-surfaces.enabler/21-cli-surface.enabler/ISSUES.md"
+    },
+    {
       "type": "document",
       "path": "spx/60-surfaces.enabler/21-cli-surface.enabler/11-cli-surface.pdr.md",
       "metadata": {},
@@ -1626,7 +1654,7 @@
       "type": "document",
       "path": "spx/60-surfaces.enabler/21-cli-surface.enabler/13-verify-command-surface.pdr.md",
       "metadata": {},
-      "content": "SPX exposes every verification activity through the noun-grouped `spx verification` command family, in two command-path shapes distinguished by who drives the run. A caller driving its own run uses the verification-run resource `spx verification run`, whose command paths are `start`, `input`, `scope add`, `finding add`, `finish`, `status`, and `render`. A caller asking SPX to execute a verification uses `spx verification <type> run`, where the verification type is a noun carrying the `run` verb and product path operands narrow the work. Whichever path produces a run, that run is read back through the run-inspection command paths of `spx verification run`.\n"
+      "content": "SPX exposes every verification activity through the noun-grouped `spx verification` command family, in two command-path shapes distinguished by who drives the run. A caller driving its own run uses the verification-run resource `spx verification run`, whose command paths are `start`, `input`, `scope add`, `finding add`, `finish`, `status`, `render`, `list`, and `compare`, and `start --change <owner/repo#N>` records the Change the run serves. A caller asking SPX to execute a verification uses `spx verification <type> run`, where the verification type is a noun carrying the `run` verb and product path operands narrow the work. Whichever path produces a run, that run is read back through the run-inspection command paths of `spx verification run`: `status` and `render` address one run by its run token, `list --change <owner/repo#N>` lists the runs recorded for one Change, and `compare --change <owner/repo#N>` addresses two runs of that Change by two run tokens and compares them.\n"
     }
   ]
 }
