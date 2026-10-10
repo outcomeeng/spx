@@ -8,7 +8,7 @@ import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placemen
 import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
 import { formatMethodologyVersionName } from "@/lib/methodology";
-import { SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
+import { SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
 import {
   CONFIG_TEST_GENERATOR,
   generatedHarnessMethodologyConfig,
@@ -26,10 +26,12 @@ import {
 } from "@testing/generators/spec-tree/context-target";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
+  contextShowEntries,
   METHODOLOGY_FIXTURE_IDENTITY,
   methodologyTreeConfig,
   runSpecDescriptor,
   specTreeKindsConfig,
+  withProductlessContextTreeEnv,
   withRichContextEnv,
   writeMethodologyTree,
 } from "@testing/harnesses/spec/context";
@@ -52,6 +54,14 @@ describe("spec context ingestion writes nothing to standard output after a failu
         expect(resolved.exitCode, resolved.stderr).toBeUndefined();
         expect(resolved.stdout).toContain(paths.targetSpecPath);
       }
+    });
+  });
+
+  it("returns a failure and no projection when the product root holds no recognized product spec", async () => {
+    await withProductlessContextTreeEnv(specTreeKindsConfig(), async (env, paths) => {
+      await expect(contextShowEntries({ targets: [paths.nodeTargetPath], cwd: env.productDir })).rejects.toThrow(
+        SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR,
+      );
     });
   });
 

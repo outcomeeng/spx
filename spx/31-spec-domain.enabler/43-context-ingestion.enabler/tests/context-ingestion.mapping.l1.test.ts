@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { SPEC_CONTEXT_TEXT_LABEL } from "@/commands/spec/context";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION, METHODOLOGY_VERSION_FORM } from "@/config/methodology";
 import {
+  generatedMethodologySource,
   generatedMethodologyVersionFormSections,
   generatedMigratingMethodologyFormCases,
 } from "@testing/generators/config/descriptors";
@@ -60,5 +61,25 @@ describe("spec context manifest methodology identity", () => {
         });
       });
     }
+  });
+
+  it("renders the identity as the source alone while no version is declared", async () => {
+    const undeclaredSource = generatedMethodologySource();
+    await withSpecTreeEnv({
+      ...specTreeKindsConfig(),
+      [METHODOLOGY_SECTION]: { [METHODOLOGY_CONFIG_FIELDS.SOURCE]: undeclaredSource },
+    }, async (env) => {
+      await env.materialize();
+      const snapshot = await env.readFilesystemSnapshot();
+      const targets = [rootedSpecPath(snapshot.allNodes[0].id)];
+      const textOutput = await contextListText({ targets, cwd: env.productDir });
+      // The identity line ends at the source: no version separator and no
+      // placeholder stands in for the undeclared version.
+      expect(textOutput.split("\n")).toContain(`${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${undeclaredSource}`);
+      const manifest = JSON.parse(await contextListJson({ targets, cwd: env.productDir })) as {
+        readonly methodology: unknown;
+      };
+      expect(manifest.methodology).toStrictEqual({ source: undeclaredSource });
+    });
   });
 });
