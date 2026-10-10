@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import { TEST_PATH_VERDICT } from "@/test/run-state";
 import {
-  runWithReportedStatuses,
-  runWithSimulatedReport,
   SIMULATED_EXIT_CODE,
   SIMULATED_REPORT,
   type SimulatedFileStatus,
+} from "@testing/harnesses/testing/simulated-report";
+import {
+  runWithReportedStatuses,
+  runWithSimulatedReport,
   twoDistinctTestPaths,
   typescriptRunnerScenarioL1Cases,
 } from "@testing/harnesses/testing/typescript-runner";

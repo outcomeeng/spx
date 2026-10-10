@@ -7,9 +7,8 @@ import {
   registerPythonRunnerComplianceEvidence,
   runWithReportedNames,
   runWithReportedStatuses,
-  SIMULATED_EXIT_CODE,
-  type SimulatedFileStatus,
 } from "@testing/harnesses/testing/python-runner";
+import { SIMULATED_EXIT_CODE, type SimulatedFileStatus } from "@testing/harnesses/testing/simulated-report";
 
 describe("python test runner derives path verdicts from the report, never the exit code", () => {
   it("reports a path passed when the report passes it though the process exits non-zero", async () => {

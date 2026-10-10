@@ -7,11 +7,8 @@ import { readTestingRuns, TEST_PATH_VERDICT } from "@/test/run-state";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { testingCommandDependencies } from "@testing/harnesses/testing/command-support";
 import { withTestingTempProductDir, writeTestFileFixture } from "@testing/harnesses/testing/harness";
-import {
-  createRecordingCommandRunner,
-  SIMULATED_REPORT,
-  type SimulatedFileStatus,
-} from "@testing/harnesses/testing/typescript-runner";
+import { SIMULATED_REPORT, type SimulatedFileStatus } from "@testing/harnesses/testing/simulated-report";
+import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
 
 registerHarnessTestCases(executionRecordingScenarioCases);
 

@@ -6,10 +6,12 @@ import {
   registerPythonRunnerScenarioL1Evidence,
   runWithReportedStatuses,
   runWithSimulatedReport,
+} from "@testing/harnesses/testing/python-runner";
+import {
   SIMULATED_EXIT_CODE,
   SIMULATED_REPORT,
   type SimulatedFileStatus,
-} from "@testing/harnesses/testing/python-runner";
+} from "@testing/harnesses/testing/simulated-report";
 
 describe("python test runner reports a verdict per test path from pytest's JUnit XML report", () => {
   it("reports failed for the failing path and passed for the passing path of one invocation", async () => {

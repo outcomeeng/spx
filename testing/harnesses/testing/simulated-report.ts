@@ -70,3 +70,53 @@ export function reportedStatusRunners<Result>(
       runWithSimulatedReport({ ...options, report: SIMULATED_REPORT.REPORTED_NAMES }, testPaths),
   };
 }
+
+/** A language harness's reported-status scenario runner: the mapped report entries and the supplied test paths. */
+export type ReportedStatusRunner<Result> = (
+  options: ReportedStatusesOptions,
+  testPaths: readonly string[],
+) => Result;
+
+export interface ReportedEntriesScenario {
+  readonly exitCode: number;
+  readonly testPaths: readonly string[];
+  /** The report entries in report order. */
+  readonly reportedEntries: readonly (readonly [string, SimulatedFileStatus])[];
+}
+
+/** Runs the scenario's supplied test paths against a report holding exactly the scenario's entries. */
+export function runReportedEntriesScenario<Result>(
+  runner: ReportedStatusRunner<Result>,
+  scenario: ReportedEntriesScenario,
+): Result {
+  return runner(
+    { exitCode: scenario.exitCode, reportedStatuses: new Map<string, SimulatedFileStatus>(scenario.reportedEntries) },
+    scenario.testPaths,
+  );
+}
+
+export interface NeighbourReportScenario {
+  readonly testPath: string;
+  readonly neighbourPath: string;
+  readonly neighbourVerdict: SimulatedFileStatus;
+  /** The verdict of the supplied path's own report entry; absent when the report holds only the neighbour. */
+  readonly exactVerdict?: SimulatedFileStatus;
+}
+
+/**
+ * Runs one supplied test path against a report whose neighbour entry comes first and whose own
+ * entry, when `exactVerdict` is given, follows; the simulated process exits zero.
+ */
+export function runNeighbourReportScenario<Result>(
+  runner: ReportedStatusRunner<Result>,
+  scenario: NeighbourReportScenario,
+): Result {
+  const ownEntries: readonly (readonly [string, SimulatedFileStatus])[] = scenario.exactVerdict === undefined
+    ? []
+    : [[scenario.testPath, scenario.exactVerdict]];
+  return runReportedEntriesScenario(runner, {
+    exitCode: SIMULATED_EXIT_CODE.SUCCESS,
+    testPaths: [scenario.testPath],
+    reportedEntries: [[scenario.neighbourPath, scenario.neighbourVerdict], ...ownEntries],
+  });
+}

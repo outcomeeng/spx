@@ -15,11 +15,11 @@ import { PYTHON_RUNNER_TEST_GENERATOR, samplePythonRunnerValue } from "@testing/
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import { withTestingTempProductDir } from "@testing/harnesses/testing/harness";
 import {
+  reportedStatusRunners,
   SIMULATED_REPORT,
   SIMULATED_REPORT_ABSENT_MESSAGE,
   type SimulatedFileStatus,
   type SimulatedReport,
-  reportedStatusRunners,
   simulatedReportedPaths,
 } from "@testing/harnesses/testing/simulated-report";
 import { describe, expect, it } from "@testing/harnesses/vitest-registration";
@@ -51,9 +51,6 @@ export type PytestFixture = (typeof PYTEST_FIXTURE)[keyof typeof PYTEST_FIXTURE]
 export interface RecordingCommandRunner extends TestRunnerDependencies {
   readonly calls: ReadonlyArray<{ readonly command: string; readonly args: readonly string[] }>;
 }
-
-export { SIMULATED_EXIT_CODE, SIMULATED_REPORT } from "@testing/harnesses/testing/simulated-report";
-export type { SimulatedFileStatus, SimulatedReport } from "@testing/harnesses/testing/simulated-report";
 
 const MALFORMED_REPORT_TEXT = "not a junit report";
 const SIMULATED_TEST_NAME = "test_case";

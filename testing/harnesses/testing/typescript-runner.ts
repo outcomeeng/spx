@@ -48,11 +48,11 @@ import {
   withMixedVitestProduct,
 } from "@testing/harnesses/testing/journal-reporter";
 import {
+  reportedStatusRunners,
   SIMULATED_REPORT,
   SIMULATED_REPORT_ABSENT_MESSAGE,
   type SimulatedFileStatus,
   type SimulatedReport,
-  reportedStatusRunners,
   simulatedReportedPaths,
 } from "@testing/harnesses/testing/simulated-report";
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
@@ -116,9 +116,6 @@ export interface RecordingCommandRunner extends TestRunnerDependencies {
     readonly args: readonly string[];
   }>;
 }
-
-export { SIMULATED_EXIT_CODE, SIMULATED_REPORT } from "@testing/harnesses/testing/simulated-report";
-export type { SimulatedFileStatus, SimulatedReport } from "@testing/harnesses/testing/simulated-report";
 
 const MALFORMED_REPORT_TEXT = "not a vitest report";
 

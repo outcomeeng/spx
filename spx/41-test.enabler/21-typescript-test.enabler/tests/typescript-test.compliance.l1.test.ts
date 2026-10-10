@@ -3,11 +3,10 @@ import { describe, expect, it } from "vitest";
 import { TEST_PATH_VERDICT } from "@/test/run-state";
 import { TYPESCRIPT_RUNNER_TEST_GENERATOR } from "@testing/generators/testing/typescript-runner";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
+import { SIMULATED_EXIT_CODE, type SimulatedFileStatus } from "@testing/harnesses/testing/simulated-report";
 import {
   runWithReportedNames,
   runWithReportedStatuses,
-  SIMULATED_EXIT_CODE,
-  type SimulatedFileStatus,
   twoDistinctTestPaths,
   typescriptRunnerComplianceCases,
 } from "@testing/harnesses/testing/typescript-runner";
