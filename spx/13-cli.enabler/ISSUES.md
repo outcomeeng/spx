@@ -33,7 +33,7 @@
 
 ## The session descriptor renders a doubled `Error:` prefix for base-class errors
 
-The caught-error branch at `src/interfaces/cli/session.ts:381` composes a literal `Error:` prefix around a message that already interpolates `error.name`, so a plain `Error` renders `Error: Error: <message>`, shaped `` `Error: ${error.name}: ${error.message}` ``. The `error.name` clause carries information only for a subclass such as `TypeError`; for the base class it repeats the literal.
+The caught-error branch at `src/interfaces/cli/session.ts:381` composes a literal `Error:` prefix around a message that already interpolates `error.name`, so a plain `Error` renders `Error: Error: <message>`, shaped `` `Error: ${error.name}: ${error.message}` ``. The `error.name` clause carries information only for a subclass such as `TypeError`; for the base class it repeats the literal. The second site is `formatError` composed by `handleError` in `src/interfaces/cli/session.ts` (lines 102-110), where `` `Error: ${formatError(error)}` `` renders `Error: Error: <message>` for a plain `Error` reaching the descriptor's catch-all handler.
 
 **Impact:** every base-class error diagnostic on the session domain reads with a duplicated prefix. Exit code, stream routing, and message content are correct, so no gate objects.
 
