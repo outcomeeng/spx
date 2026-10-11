@@ -4,11 +4,14 @@ id: 01a115e6-be87-7cd9-b001-39f73f7bdd6d
 
 # Run Context
 
-PROVIDES start-time verification context creation, run-token selection, run-locator and resolved-scope reporting, changeset and file scope resolution, recorded-input replay, and recording of the run's head commit when the product is a Git repository whose HEAD names a commit and of the Change a run serves for typed verification runs
+PROVIDES start-time verification context creation, run-token selection, run-locator and resolved-scope reporting, changeset and file scope resolution, recorded-input replay, and recording of the run's head commit when the product is a Git repository whose HEAD names a commit, of the Change a run serves, and of the Verifier that judges the run for typed verification runs
 SO THAT evidence append and terminal projection lifecycle operations
-CAN operate on one scoped verification run with a stable subject, recorded input, unambiguous run identity, the head commit the run judges whenever the product is a Git repository whose HEAD names a commit, and the Change identity the run was started for
+CAN operate on one scoped verification run with a stable subject, recorded input, unambiguous run identity, the head commit the run judges whenever the product is a Git repository whose HEAD names a commit, the Change identity the run was started for, and the Verifier the run was started with
 
 ## Assertions
+
+- Given a verification run started with a Verifier, when the run starts, then the run-context event records the Verifier's kind and id and `status` reports them
+- ALWAYS: `start` rejects a Verifier whose kind is neither `person` nor `agent`, or whose id is empty, before any run exists
 
 ### Scenarios
 
