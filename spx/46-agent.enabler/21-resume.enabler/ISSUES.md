@@ -6,7 +6,7 @@ This node's terminal output path passes values that originated outside the produ
 
 **Unescaped sites:**
 
-- `src/interfaces/cli/agent.ts` — the resume listing output and the error branches — agent transcript JSONL fields, working-directory paths, and branch names
+- `src/interfaces/cli/agent.ts` — the resume listing output — agent transcript JSONL fields, working-directory paths, and branch names
 - `src/interfaces/cli/agent/resume/AgentResumePicker.tsx` — the candidate row — the transcript session identifier and working directory
 
 **Impact:** a value carrying an escape byte (`0x1b`) can reposition the cursor, recolor the terminal, or clear the screen; a value carrying a line feed can forge an additional diagnostic line that reads as if spx emitted it. Whoever controls the named origins controls those bytes.
