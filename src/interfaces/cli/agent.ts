@@ -166,10 +166,12 @@ function parseSearchLimit(value: string): number {
 }
 
 function sinceDurationDiagnostic(parsed: number | undefined, value: string): AgentSinceDiagnostic | null {
-  if (UNITLESS_NUMBER_PATTERN.test(value)) {
-    return AGENT_SINCE_DIAGNOSTIC.MISSING_UNIT;
+  if (parsed === undefined) {
+    return UNITLESS_NUMBER_PATTERN.test(value)
+      ? AGENT_SINCE_DIAGNOSTIC.MISSING_UNIT
+      : AGENT_SINCE_DIAGNOSTIC.INVALID;
   }
-  if (parsed === undefined || Number.isNaN(parsed)) {
+  if (Number.isNaN(parsed)) {
     return AGENT_SINCE_DIAGNOSTIC.INVALID;
   }
   if (!Number.isFinite(parsed)) {
