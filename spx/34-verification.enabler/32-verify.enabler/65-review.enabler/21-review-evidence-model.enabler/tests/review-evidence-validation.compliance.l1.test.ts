@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { EVIDENCE_REQUIREMENT } from "@/domains/verify/evidence-rejection";
+import { EVIDENCE_REQUIREMENT, evidenceFieldPath } from "@/domains/verify/evidence-rejection";
 import {
   evidenceValidatorFor,
   VERIFY_EVIDENCE_KIND,
@@ -111,7 +111,9 @@ describe("review evidence validation", () => {
         });
         expect(result?.ok).toBe(false);
         const reason = result?.ok === false ? result.reason : "";
-        expect(scenario.missingFields.some((field) => reason.includes(field))).toBe(true);
+        expect(
+          scenario.missingFields.some((field) => reason.includes(JSON.stringify(evidenceFieldPath(field)))),
+        ).toBe(true);
       },
       { level: PROPERTY_LEVEL.L1 },
     );
