@@ -18,8 +18,13 @@ const SUITE_NAME = "suite.test.ts";
 const DATA_FILE_NAME = "data.txt";
 /** The environment variable through which the fixture suite learns the content it must read back. */
 const EXPECTED_CONTENT_ENV = "READ_RECORDER_EXPECTED_CONTENT";
+/** The environment variable through which the fixture suite learns the path of the data file it must open. */
+const DATA_FILE_ENV = "READ_RECORDER_DATA_FILE";
 const TEMP_PRODUCT_PREFIX = "spx-read-recorder-";
 const NODE_MODULES = "node_modules";
+
+/** The module state Vitest reports for a module whose every test passed. */
+export const MODULE_STATE_PASSED = "passed";
 
 /** What a real programmatic Vitest run over a data-reading module left. */
 export interface RecordedReadRunObservation {
@@ -39,7 +44,7 @@ export interface RecordedReadRunObservation {
 
 async function productEntries(productDir: string): Promise<readonly string[]> {
   const entries = await readdir(productDir);
-  return entries.filter((name) => name !== NODE_MODULES).sort();
+  return entries.filter((name) => name !== NODE_MODULES).sort((left, right) => left.localeCompare(right));
 }
 
 /**
@@ -64,7 +69,7 @@ export function observeRecordedReadRun(): Promise<RecordedReadRunObservation> {
         consoleOutput.push(log.content);
       },
       onTestModuleEnd(testModule: TestModule) {
-        recordedPaths = testModule.meta()[READ_RECORDER_META_KEY];
+        recordedPaths = (testModule.meta() as Record<string, unknown>)[READ_RECORDER_META_KEY];
         moduleState = testModule.state();
       },
     };
@@ -74,7 +79,9 @@ export function observeRecordedReadRun(): Promise<RecordedReadRunObservation> {
     const { startVitest } = await loader.load(resolution.specifier);
     const priorExitCode = process.exitCode;
     const priorExpected = process.env[EXPECTED_CONTENT_ENV];
+    const priorDataFile = process.env[DATA_FILE_ENV];
     process.env[EXPECTED_CONTENT_ENV] = content;
+    process.env[DATA_FILE_ENV] = dataFilePath;
     try {
       const vitest = await startVitest(VITEST_RUN_MODE, [SUITE_NAME], {
         root: productDir,
@@ -87,9 +94,10 @@ export function observeRecordedReadRun(): Promise<RecordedReadRunObservation> {
       process.exitCode = priorExitCode;
       if (priorExpected === undefined) delete process.env[EXPECTED_CONTENT_ENV];
       else process.env[EXPECTED_CONTENT_ENV] = priorExpected;
+      if (priorDataFile === undefined) delete process.env[DATA_FILE_ENV];
+      else process.env[DATA_FILE_ENV] = priorDataFile;
     }
     const entriesAfter = await productEntries(productDir);
     return { dataFilePath, recordedPaths, moduleState, entriesBefore, entriesAfter, consoleOutput };
   });
 }
-

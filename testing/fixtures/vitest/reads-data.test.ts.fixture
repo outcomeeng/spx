@@ -1,9 +1,8 @@
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
 
 import { expect, test } from "vitest";
 
 test("reads one data file at run time", () => {
-  const content = readFileSync(join(process.cwd(), "data.txt"), "utf8");
+  const content = readFileSync(process.env.READ_RECORDER_DATA_FILE ?? "", "utf8");
   expect(content).toBe(process.env.READ_RECORDER_EXPECTED_CONTENT);
 });
