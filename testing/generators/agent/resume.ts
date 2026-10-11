@@ -8,7 +8,9 @@ import { CONTROL_CHAR_UPPER_BOUND } from "@/lib/sanitize-cli-argument";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import {
   arbitraryTerminalEscapingCase,
+  TERMINAL_ORACLE_UNSAFE_CODE_POINTS,
   type TerminalEscapingCase,
+  terminalOracleHexEscape,
 } from "@testing/generators/terminal-text/terminal-text";
 
 const SAMPLE_SEED = 46_210;
@@ -131,10 +133,16 @@ export function arbitraryRejectedAgentResumeSinceCases(): fc.Arbitrary<
 }
 
 export function arbitraryCaughtAgentErrorMessages(): fc.Arbitrary<readonly TerminalEscapingCase[]> {
-  return fc.array(arbitraryTerminalEscapingCase(), {
-    minLength: MIN_CAUGHT_ERROR_MESSAGE_CASES,
-    maxLength: MAX_CAUGHT_ERROR_MESSAGE_CASES,
-  });
+  const everyUnsafeCodePoint: readonly TerminalEscapingCase[] = TERMINAL_ORACLE_UNSAFE_CODE_POINTS.map((codePoint) => ({
+    input: String.fromCodePoint(codePoint),
+    escaped: terminalOracleHexEscape(codePoint),
+  }));
+  return fc
+    .array(arbitraryTerminalEscapingCase(), {
+      minLength: MIN_CAUGHT_ERROR_MESSAGE_CASES,
+      maxLength: MAX_CAUGHT_ERROR_MESSAGE_CASES,
+    })
+    .map((sampled) => [...everyUnsafeCodePoint, ...sampled]);
 }
 
 export function arbitraryRejectedPiSessionVersions(): fc.Arbitrary<GeneratedRejectedPiSessionVersions> {
