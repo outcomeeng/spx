@@ -13,7 +13,7 @@ CAN start it for the Change it serves and the Verifier that judges it, append it
 ### Scenarios
 
 - Given `spx verification run start --change <owner/repo#N>`, when the run starts, then the run records that Change identity ([test](tests/change-identity.scenario.l1.test.ts), [test](tests/change-identity.scenario.l2.test.ts))
-- Given `spx verification run start --verifier <kind>:<id>`, when the run starts, then the run records that Verifier
+- Given `spx verification run start --verifier <kind>:<id>`, when the run starts, then the run records that Verifier ([test](tests/verifier.scenario.l1.test.ts))
 
 ### Mappings
 
