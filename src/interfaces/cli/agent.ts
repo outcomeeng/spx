@@ -183,13 +183,13 @@ function sinceDurationDiagnostic(parsed: number | undefined, value: string): Age
 function parseAgentSinceDuration(commandName: string, value: string): number {
   const parsed = parseDuration(value);
   const diagnostic = sinceDurationDiagnostic(parsed, value);
-  if (diagnostic !== null) {
+  if (parsed === undefined || diagnostic !== null) {
     const hint = diagnostic === AGENT_SINCE_DIAGNOSTIC.MISSING_UNIT
       ? `; add a unit, for example ${AGENT_SINCE_ACCEPTED_FORM}`
       : "";
     throw new Error(`agent ${commandName} since ${diagnostic}: ${sanitizeCliArgument(value)}${hint}`);
   }
-  return parsed as number;
+  return parsed;
 }
 
 function parseSearchAgentKind(value: string): AgentSearchSessionKind {
