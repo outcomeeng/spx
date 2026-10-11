@@ -3,8 +3,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { AGENT_RESUME_LIMITS, AGENT_RESUME_RECENT_WINDOW_MS } from "@/domains/agent/protocol";
+import { AGENT_SINCE_DIAGNOSTIC, type AgentSinceDiagnostic } from "@/interfaces/cli/agent";
 import { CONTROL_CHAR_UPPER_BOUND } from "@/lib/sanitize-cli-argument";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
+import {
+  arbitraryTerminalEscapingCase,
+  TERMINAL_ORACLE_UNSAFE_CODE_POINTS,
+  type TerminalEscapingCase,
+  terminalOracleHexEscape,
+} from "@testing/generators/terminal-text/terminal-text";
 
 const SAMPLE_SEED = 46_210;
 const SAMPLE_RUN_COUNT = 1;
@@ -21,6 +28,8 @@ const BRANCH_SEGMENT_JOINER = "/";
 const AGENT_SEARCH_UNSAFE_LIMIT_PREFIX = "limit";
 const AGENT_SEARCH_PARTIAL_NUMERIC_LIMIT_PREFIX = "1";
 const DECIMAL_DIGIT_PATTERN = /^[0-9]+$/;
+const MIN_CAUGHT_ERROR_MESSAGE_CASES = 3;
+const MAX_CAUGHT_ERROR_MESSAGE_CASES = 6;
 const DURATION_HOUR_SUFFIX = "h";
 const INVALID_DURATION_PREFIX = "invalid";
 const MIN_SINCE_HOURS = 1;
@@ -38,6 +47,11 @@ const NON_NUMERIC_PI_SESSION_VERSION_PREFIX = "invalid-version";
 export interface GeneratedAgentResumeSinceDuration {
   readonly text: string;
   readonly durationMs: number;
+}
+
+export interface GeneratedRejectedAgentResumeSinceCase {
+  readonly text: string;
+  readonly diagnostic: AgentSinceDiagnostic;
 }
 
 export interface GeneratedRejectedPiSessionVersions {
@@ -98,7 +112,9 @@ export function arbitraryAgentResumeSinceDuration(): fc.Arbitrary<GeneratedAgent
   }));
 }
 
-export function arbitraryRejectedAgentResumeSinceDurations(): fc.Arbitrary<readonly string[]> {
+export function arbitraryRejectedAgentResumeSinceCases(): fc.Arbitrary<
+  readonly GeneratedRejectedAgentResumeSinceCase[]
+> {
   return fc
     .tuple(
       fc.integer({ min: MIN_SINCE_HOURS, max: MAX_SINCE_HOURS }),
@@ -106,13 +122,27 @@ export function arbitraryRejectedAgentResumeSinceDurations(): fc.Arbitrary<reado
       fc.bigInt({ min: BigInt(Number.MAX_SAFE_INTEGER) + 1n }),
     )
     .map(([hours, literal, unsafeMilliseconds]) => [
-      `${ZERO_DURATION_HOURS}${DURATION_HOUR_SUFFIX}`,
-      `-${hours}${DURATION_HOUR_SUFFIX}`,
-      `${INVALID_DURATION_PREFIX}-${literal}`,
-      `1${"0".repeat(NON_FINITE_DURATION_ZERO_DIGITS)}w`,
-      FRACTIONAL_MILLISECOND_DURATION,
-      `${unsafeMilliseconds}ms`,
+      { text: `${hours}`, diagnostic: AGENT_SINCE_DIAGNOSTIC.MISSING_UNIT },
+      { text: `${ZERO_DURATION_HOURS}${DURATION_HOUR_SUFFIX}`, diagnostic: AGENT_SINCE_DIAGNOSTIC.NOT_POSITIVE },
+      { text: `-${hours}${DURATION_HOUR_SUFFIX}`, diagnostic: AGENT_SINCE_DIAGNOSTIC.NOT_POSITIVE },
+      { text: `${INVALID_DURATION_PREFIX}-${literal}`, diagnostic: AGENT_SINCE_DIAGNOSTIC.INVALID },
+      { text: `1${"0".repeat(NON_FINITE_DURATION_ZERO_DIGITS)}w`, diagnostic: AGENT_SINCE_DIAGNOSTIC.NOT_FINITE },
+      { text: FRACTIONAL_MILLISECOND_DURATION, diagnostic: AGENT_SINCE_DIAGNOSTIC.UNSAFE },
+      { text: `${unsafeMilliseconds}ms`, diagnostic: AGENT_SINCE_DIAGNOSTIC.UNSAFE },
     ]);
+}
+
+export function arbitraryCaughtAgentErrorMessages(): fc.Arbitrary<readonly TerminalEscapingCase[]> {
+  const everyUnsafeCodePoint: readonly TerminalEscapingCase[] = TERMINAL_ORACLE_UNSAFE_CODE_POINTS.map((codePoint) => ({
+    input: String.fromCodePoint(codePoint),
+    escaped: terminalOracleHexEscape(codePoint),
+  }));
+  return fc
+    .array(arbitraryTerminalEscapingCase(), {
+      minLength: MIN_CAUGHT_ERROR_MESSAGE_CASES,
+      maxLength: MAX_CAUGHT_ERROR_MESSAGE_CASES,
+    })
+    .map((sampled) => [...everyUnsafeCodePoint, ...sampled]);
 }
 
 export function arbitraryRejectedPiSessionVersions(): fc.Arbitrary<GeneratedRejectedPiSessionVersions> {

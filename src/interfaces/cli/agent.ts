@@ -34,6 +34,7 @@ import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { foregroundProcessRunner, lifecycleSignalSuspender } from "@/lib/process-lifecycle";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
+import { authoredText, externalValue, terminal } from "@/lib/terminal-text/terminal-text";
 
 import { launchAgentResume } from "./agent/resume/launch-agent-resume";
 import {
@@ -74,6 +75,20 @@ export const AGENT_CLI_EXIT = {
   SUCCESS: 0,
   FAILURE: 1,
 } as const;
+
+export const AGENT_SINCE_DIAGNOSTIC = {
+  MISSING_UNIT: "is missing a unit",
+  INVALID: "is not a valid duration",
+  NOT_POSITIVE: "must be greater than zero",
+  NOT_FINITE: "must be finite",
+  UNSAFE: "is not a safe integer number of milliseconds",
+} as const;
+
+export type AgentSinceDiagnostic = (typeof AGENT_SINCE_DIAGNOSTIC)[keyof typeof AGENT_SINCE_DIAGNOSTIC];
+
+export const AGENT_CLI_ERROR_PREFIX = "Error: ";
+
+export const AGENT_SINCE_ACCEPTED_FORM = "120m";
 
 export interface AgentCliDependencies {
   readonly resumeDeps?: AgentResumeCommandDeps;
@@ -116,6 +131,8 @@ const DEFAULT_AGENT_CLI_DEPENDENCIES: AgentCliDependencies = {
 };
 
 const POSITIVE_DECIMAL_INTEGER_PATTERN = /^[1-9][0-9]*$/;
+const BASE_ERROR_NAME = Error.name;
+const UNITLESS_NUMBER_PATTERN = /^\s*[+-]?[0-9]+(?:\.[0-9]+)?\s*$/;
 
 function writeOutput(invocation: CliInvocation, output: string): void {
   invocation.io.writeStdout(`${output}\n`);
@@ -126,8 +143,10 @@ function writeError(invocation: CliInvocation, output: string): void {
 }
 
 function handleError(invocation: CliInvocation, error: unknown): never {
-  const message = error instanceof Error ? `${error.name}: ${error.message}` : inspect(error);
-  writeError(invocation, `Error: ${message}`);
+  const message = error instanceof Error
+    ? (error.name === BASE_ERROR_NAME ? error.message : `${error.name}: ${error.message}`)
+    : inspect(error);
+  writeError(invocation, terminal`${authoredText(AGENT_CLI_ERROR_PREFIX)}${externalValue(message)}`);
   return invocation.io.exit(AGENT_CLI_EXIT.FAILURE);
 }
 
@@ -146,12 +165,32 @@ function parseSearchLimit(value: string): number {
   return parsed;
 }
 
+function sinceDurationDiagnostic(parsed: number | undefined, value: string): AgentSinceDiagnostic | null {
+  if (parsed === undefined) {
+    return UNITLESS_NUMBER_PATTERN.test(value)
+      ? AGENT_SINCE_DIAGNOSTIC.MISSING_UNIT
+      : AGENT_SINCE_DIAGNOSTIC.INVALID;
+  }
+  if (Number.isNaN(parsed)) {
+    return AGENT_SINCE_DIAGNOSTIC.INVALID;
+  }
+  if (!Number.isFinite(parsed)) {
+    return AGENT_SINCE_DIAGNOSTIC.NOT_FINITE;
+  }
+  if (parsed <= 0) {
+    return AGENT_SINCE_DIAGNOSTIC.NOT_POSITIVE;
+  }
+  return Number.isSafeInteger(parsed) ? null : AGENT_SINCE_DIAGNOSTIC.UNSAFE;
+}
+
 function parseAgentSinceDuration(commandName: string, value: string): number {
   const parsed = parseDuration(value);
-  if (parsed === undefined || !Number.isFinite(parsed) || parsed <= 0 || !Number.isSafeInteger(parsed)) {
-    throw new Error(
-      `agent ${commandName} since must be a positive safe-integer duration: ${sanitizeCliArgument(value)}`,
-    );
+  const diagnostic = sinceDurationDiagnostic(parsed, value);
+  if (parsed === undefined || diagnostic !== null) {
+    const hint = diagnostic === AGENT_SINCE_DIAGNOSTIC.MISSING_UNIT
+      ? `; add a unit, for example ${AGENT_SINCE_ACCEPTED_FORM}`
+      : "";
+    throw new Error(`agent ${commandName} since ${diagnostic}: ${sanitizeCliArgument(value)}${hint}`);
   }
   return parsed;
 }
