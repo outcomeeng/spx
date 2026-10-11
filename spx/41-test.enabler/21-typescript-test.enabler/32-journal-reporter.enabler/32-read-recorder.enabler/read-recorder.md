@@ -8,8 +8,8 @@ CAN append a test module's scope carrying every file the module opened, without 
 
 ### Scenarios
 
-- Given a real Vitest module that reads one data file at run time with the recorder registered in its worker, when the module finishes, then the absolute path of that data file appears in the module's metadata
+- Given a real Vitest module that reads one data file at run time with the recorder registered in its worker, when the module finishes, then the absolute path of that data file appears in the module's metadata ([test](tests/read-recorder.scenario.l2.test.ts))
 
 ### Compliance
 
-- ALWAYS: the recorder's only effect is the module's metadata — it writes no file, journal event, or output and alters no value a test reads
+- ALWAYS: the recorder's only effect is the module's metadata — it writes no file, journal event, or output and alters no value a test reads ([test](tests/read-recorder.compliance.l2.test.ts))

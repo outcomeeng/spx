@@ -532,7 +532,7 @@ const TEMP_PRODUCT_PREFIX = "spx-journal-reporter-";
  * directory resolves the Vitest Node API the way an installed product would — from its own
  * `node_modules` — without copying the install and without inheriting any product configuration.
  */
-async function linkProductRunnerToolchain(productDir: string): Promise<void> {
+export async function linkProductRunnerToolchain(productDir: string): Promise<void> {
   await symlink(
     resolve(CONFIG_PROCESS_CWD.read(), PACKAGE_DEPENDENCIES_DIRECTORY),
     join(productDir, PACKAGE_DEPENDENCIES_DIRECTORY),
