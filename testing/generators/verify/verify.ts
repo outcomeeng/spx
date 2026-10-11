@@ -8,6 +8,7 @@ import {
   type VerificationContextSubject,
 } from "@/domains/verification-context/context";
 import { evidenceFieldPath } from "@/domains/verify/evidence-rejection";
+import { REVIEW_CHANGESET_FINDING_SUBJECT } from "@/domains/verify/review-run-set";
 import { MERGE_PERIOD_BACKEND, type RunSetRunEvidence, type RunSetSelector } from "@/domains/verify/run-set";
 import {
   type AnchoredReviewFinding,
@@ -385,6 +386,17 @@ function arbitraryReviewFindingShapeDivergentPair(): fc.Arbitrary<ReviewFindingA
         { base: asPathed, divergent: asPathless },
       );
     });
+}
+
+/**
+ * A changeset-wide unanchored review finding beside a path-only unanchored copy whose path is the
+ * text the changeset-wide subject encodes, sharing the SPX summary.
+ */
+function arbitraryChangesetNamedPathDivergentPair(): fc.Arbitrary<ReviewFindingAxisPair> {
+  const [changesetSubjectText] = JSON.parse(REVIEW_CHANGESET_FINDING_SUBJECT) as readonly string[];
+  return arbitraryUnanchoredReviewFinding()
+    .filter((finding) => finding.path === undefined)
+    .map((base) => ({ base, divergent: { ...base, path: changesetSubjectText } }));
 }
 
 /** An unanchored changeset-wide review finding beside a display variant of itself. */
@@ -1171,6 +1183,8 @@ export const VERIFY_TEST_GENERATOR = {
     arbitraryReviewFindingSummaryDivergentPair(),
   reviewFindingShapeDivergentPair: (): fc.Arbitrary<ReviewFindingAxisPair> =>
     arbitraryReviewFindingShapeDivergentPair(),
+  reviewFindingChangesetNamedPathDivergentPair: (): fc.Arbitrary<ReviewFindingAxisPair> =>
+    arbitraryChangesetNamedPathDivergentPair(),
   changesetFindingDisplayVariantPair: (): fc.Arbitrary<{
     readonly base: ReviewFinding;
     readonly variant: ReviewFinding;

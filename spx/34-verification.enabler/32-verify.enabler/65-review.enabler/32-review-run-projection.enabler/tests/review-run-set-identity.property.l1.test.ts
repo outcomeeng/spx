@@ -44,6 +44,7 @@ describe("review run-set identity properties", () => {
         VERIFY_TEST_GENERATOR.reviewFindingPathDivergentPair(),
         VERIFY_TEST_GENERATOR.reviewFindingSummaryDivergentPair(),
         VERIFY_TEST_GENERATOR.reviewFindingShapeDivergentPair(),
+        VERIFY_TEST_GENERATOR.reviewFindingChangesetNamedPathDivergentPair(),
       ]
     ) {
       assertProperty(
