@@ -127,6 +127,24 @@ export function sampleAgentRunJournalValue<T>(arbitrary: fc.Arbitrary<T>): T {
   return value;
 }
 
+/** Values the `runtime.eventNamespace` contract rejects: blank strings and every non-string type. */
+export function arbitraryInvalidEventNamespace(): fc.Arbitrary<unknown> {
+  return fc.oneof(
+    fc.constant(""),
+    fc.stringMatching(/^\s+$/),
+    fc.integer(),
+    fc.boolean(),
+    fc.constant(null),
+    fc.array(fc.string()),
+    fc.record({ value: fc.string() }),
+  );
+}
+
+/** Values that are not an object and so cannot be a `runtime` config section. */
+export function arbitraryNonObjectRuntimeSection(): fc.Arbitrary<unknown> {
+  return fc.oneof(fc.string(), fc.integer(), fc.boolean(), fc.constant(null), fc.array(fc.anything()));
+}
+
 /** A deterministic per-stream run file path for journal-store tests. */
 export function journalRunFilePath(streamid: string): string {
   return `journal-runs/${streamid}`;

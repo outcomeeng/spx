@@ -1,0 +1,23 @@
+{
+  "specversion": "1.0",
+  "required": [
+    "id",
+    "source",
+    "specversion",
+    "type"
+  ],
+  "optional": [
+    "datacontenttype",
+    "dataschema",
+    "subject",
+    "time",
+    "data"
+  ],
+  "extensionNamePattern": "^[a-z0-9]+$",
+  "streamExtensions": [
+    "streamid",
+    "seq",
+    "runid",
+    "attempt"
+  ]
+}
