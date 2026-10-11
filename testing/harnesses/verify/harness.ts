@@ -138,6 +138,7 @@ import {
   verifyEvidenceRequiredOptionCases,
   type VerifyNonNounLocalEvidenceCase,
   verifyNonNounLocalEvidenceCases,
+  type VerifierIdentity,
   type VerifyScopeMappingCase,
   verifyScopeMappingCases,
 } from "@testing/generators/verify/verify";
@@ -1929,6 +1930,56 @@ export async function observeStartWithChangeIdentityState(change: string): Promi
   const scenario = createReviewVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
   const started = await verifyStartCommand({ ...verifyStartOptions(scenario), change }, verifyDeps(scenario, fs));
+  return {
+    started,
+    stateRootExists: await verifyPathExists(fs, join(scenario.productDir, STATE_STORE_SCOPE_PATH.SPX_DIR)),
+  };
+}
+
+/** What a start with a Verifier recorded on its run-context event and reported through `status`. */
+export interface VerifyStartVerifierObservation {
+  readonly started: CliCommandResult;
+  readonly runContextCount: number;
+  readonly runContextData: Readonly<Record<string, unknown>>;
+  readonly status: CliCommandResult;
+  readonly statusReport: Readonly<Record<string, unknown>>;
+}
+
+/** Start a caller-driven review run with the given Verifier, then read its run-context event and `status` report. */
+export async function observeStartVerifier(verifier: VerifierIdentity): Promise<VerifyStartVerifierObservation> {
+  const scenario = createReviewVerifyRunContextScenario();
+  const fs = createInMemoryStateStoreFileSystem();
+  const deps = verifyDeps(scenario, fs);
+  const started = await verifyStartCommand(
+    { ...verifyStartOptions(scenario), verifierKind: verifier.kind, verifierId: verifier.id },
+    deps,
+  );
+  if (started.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+    return { started, runContextCount: 0, runContextData: {}, status: started, statusReport: {} };
+  }
+  const runToken = parseStartReport(started.output).runToken;
+  const runContexts = await runContextEvents(scenario, fs, runToken);
+  const status = await verifyStatusCommand(verifyStatusOptions(scenario, runToken), deps);
+  return {
+    started,
+    runContextCount: runContexts.length,
+    runContextData: eventDataRecord(runContexts[0]),
+    status,
+    statusReport: parseJsonRecord(status.output),
+  };
+}
+
+/** Start a run with the given Verifier and report whether any `.spx/` state exists afterwards. */
+export async function observeStartWithVerifierState(verifier: VerifierIdentity): Promise<{
+  readonly started: CliCommandResult;
+  readonly stateRootExists: boolean;
+}> {
+  const scenario = createReviewVerifyRunContextScenario();
+  const fs = createInMemoryStateStoreFileSystem();
+  const started = await verifyStartCommand(
+    { ...verifyStartOptions(scenario), verifierKind: verifier.kind, verifierId: verifier.id },
+    verifyDeps(scenario, fs),
+  );
   return {
     started,
     stateRootExists: await verifyPathExists(fs, join(scenario.productDir, STATE_STORE_SCOPE_PATH.SPX_DIR)),

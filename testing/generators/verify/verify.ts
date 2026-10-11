@@ -40,6 +40,7 @@ import {
   VERIFY_SCOPE_SEPARATOR,
   VERIFY_SCOPE_TYPE,
   VERIFY_VERIFICATION_TYPE,
+  VERIFY_VERIFIER_KIND,
   type VerifyFindingDisposition,
   type VerifyVerificationType,
 } from "@/domains/verify/verify";
@@ -1462,7 +1463,39 @@ export const VERIFY_TEST_GENERATOR = {
       composeChangeIdentity(owner, repository, String(number))
     ),
   nonCanonicalChangeIdentity: (): fc.Arbitrary<string> => arbitraryNonCanonicalChangeIdentity(),
+  verifier: (): fc.Arbitrary<VerifierIdentity> => arbitraryVerifier(),
+  invalidVerifier: (): fc.Arbitrary<VerifierIdentity> => arbitraryInvalidVerifier(),
 } as const;
+
+/** The Verifier a run is started with: its kind and its id. */
+export interface VerifierIdentity {
+  readonly kind: string;
+  readonly id: string;
+}
+
+const EMPTY_VERIFIER_ID = "";
+
+function arbitraryVerifier(): fc.Arbitrary<VerifierIdentity> {
+  return fc.record({
+    kind: fc.constantFrom(...Object.values(VERIFY_VERIFIER_KIND)),
+    id: STATE_STORE_TEST_GENERATOR.scopeToken(),
+  });
+}
+
+/** A Verifier whose kind lies outside the supported kinds, or whose id is empty. */
+function arbitraryInvalidVerifier(): fc.Arbitrary<VerifierIdentity> {
+  const supportedKinds: readonly string[] = Object.values(VERIFY_VERIFIER_KIND);
+  return fc.oneof(
+    fc.record({
+      kind: STATE_STORE_TEST_GENERATOR.scopeToken().filter((kind) => !supportedKinds.includes(kind)),
+      id: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    }),
+    fc.record({
+      kind: fc.constantFrom(...Object.values(VERIFY_VERIFIER_KIND)),
+      id: fc.constant(EMPTY_VERIFIER_ID),
+    }),
+  );
+}
 
 /** The separator between a Change identity's owner and repository name, per the `owner/repo#N` form. */
 const CHANGE_IDENTITY_OWNER_SEPARATOR = "/";

@@ -10,11 +10,9 @@ CAN operate on one scoped verification run with a stable subject, recorded input
 
 ## Assertions
 
-- Given a verification run started with a Verifier, when the run starts, then the run-context event records the Verifier's kind and id and `status` reports them
-- ALWAYS: `start` rejects a Verifier whose kind is neither `person` nor `agent`, or whose id is empty, before any run exists
-
 ### Scenarios
 
+- Given a verification run started with a Verifier, when the run starts, then the run-context event records the Verifier's kind and id and `status` reports them ([test](tests/verify-verifier.scenario.l1.test.ts))
 - Given a review verification run is started for a changeset scope with standard input as the run input, then spx creates a canonical verification context, opens a run journal, and reports the run token, context digest, resolved scope, exact input descriptor, and run locator ([test](tests/verify-start.scenario.l1.test.ts))
 - Given an audit verification run is started for a file scope, then spx records a verification-context file subject and reports the normalized product-relative file as the resolved scope without requiring that path to exist or be tracked ([test](tests/verify-file-scope.scenario.l1.test.ts))
 - Given a started run, when recorded-input replay is requested with that run token, then it returns the exact verification input whose digest was recorded at start ([test](tests/verify-input.scenario.l1.test.ts))
@@ -35,6 +33,7 @@ CAN operate on one scoped verification run with a stable subject, recorded input
 
 ### Compliance
 
+- ALWAYS: `start` rejects a Verifier whose kind is neither `person` nor `agent`, or whose id is empty, before any run exists ([test](tests/verify-verifier.compliance.l1.test.ts))
 - ALWAYS: start records caller-driven drive mode for the caller command path and records spx-driven drive mode only when spx opens the run ([test](tests/verify-drive-mode.compliance.l1.test.ts))
 - ALWAYS: start requires an input source and records the verification input for recorded-input replay ([test](tests/verify-start.compliance.l1.test.ts))
 - ALWAYS: `start` rejects an unsupported verification type before any started run exists, so an unregistered type cannot reach finding evidence and append an unvalidated finding ([test](tests/verify-start.compliance.l1.test.ts))
