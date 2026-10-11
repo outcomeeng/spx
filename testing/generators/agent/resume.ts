@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { AGENT_RESUME_LIMITS, AGENT_RESUME_RECENT_WINDOW_MS } from "@/domains/agent/protocol";
+import { AGENT_SINCE_DIAGNOSTIC, type AgentSinceDiagnostic } from "@/interfaces/cli/agent";
 import { CONTROL_CHAR_UPPER_BOUND } from "@/lib/sanitize-cli-argument";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 
@@ -38,6 +39,11 @@ const NON_NUMERIC_PI_SESSION_VERSION_PREFIX = "invalid-version";
 export interface GeneratedAgentResumeSinceDuration {
   readonly text: string;
   readonly durationMs: number;
+}
+
+export interface GeneratedRejectedAgentResumeSinceCase {
+  readonly text: string;
+  readonly diagnostic: AgentSinceDiagnostic;
 }
 
 export interface GeneratedRejectedPiSessionVersions {
@@ -98,7 +104,9 @@ export function arbitraryAgentResumeSinceDuration(): fc.Arbitrary<GeneratedAgent
   }));
 }
 
-export function arbitraryRejectedAgentResumeSinceDurations(): fc.Arbitrary<readonly string[]> {
+export function arbitraryRejectedAgentResumeSinceCases(): fc.Arbitrary<
+  readonly GeneratedRejectedAgentResumeSinceCase[]
+> {
   return fc
     .tuple(
       fc.integer({ min: MIN_SINCE_HOURS, max: MAX_SINCE_HOURS }),
@@ -106,13 +114,18 @@ export function arbitraryRejectedAgentResumeSinceDurations(): fc.Arbitrary<reado
       fc.bigInt({ min: BigInt(Number.MAX_SAFE_INTEGER) + 1n }),
     )
     .map(([hours, literal, unsafeMilliseconds]) => [
-      `${ZERO_DURATION_HOURS}${DURATION_HOUR_SUFFIX}`,
-      `-${hours}${DURATION_HOUR_SUFFIX}`,
-      `${INVALID_DURATION_PREFIX}-${literal}`,
-      `1${"0".repeat(NON_FINITE_DURATION_ZERO_DIGITS)}w`,
-      FRACTIONAL_MILLISECOND_DURATION,
-      `${unsafeMilliseconds}ms`,
+      { text: `${hours}`, diagnostic: AGENT_SINCE_DIAGNOSTIC.MISSING_UNIT },
+      { text: `${ZERO_DURATION_HOURS}${DURATION_HOUR_SUFFIX}`, diagnostic: AGENT_SINCE_DIAGNOSTIC.NOT_POSITIVE },
+      { text: `-${hours}${DURATION_HOUR_SUFFIX}`, diagnostic: AGENT_SINCE_DIAGNOSTIC.NOT_POSITIVE },
+      { text: `${INVALID_DURATION_PREFIX}-${literal}`, diagnostic: AGENT_SINCE_DIAGNOSTIC.INVALID },
+      { text: `1${"0".repeat(NON_FINITE_DURATION_ZERO_DIGITS)}w`, diagnostic: AGENT_SINCE_DIAGNOSTIC.NOT_FINITE },
+      { text: FRACTIONAL_MILLISECOND_DURATION, diagnostic: AGENT_SINCE_DIAGNOSTIC.UNSAFE },
+      { text: `${unsafeMilliseconds}ms`, diagnostic: AGENT_SINCE_DIAGNOSTIC.UNSAFE },
     ]);
+}
+
+export function arbitraryRejectedAgentResumeSinceDurations(): fc.Arbitrary<readonly string[]> {
+  return arbitraryRejectedAgentResumeSinceCases().map((cases) => cases.map((rejected) => rejected.text));
 }
 
 export function arbitraryRejectedPiSessionVersions(): fc.Arbitrary<GeneratedRejectedPiSessionVersions> {

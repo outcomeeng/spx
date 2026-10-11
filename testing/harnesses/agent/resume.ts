@@ -29,7 +29,14 @@ import {
   isPathInsideOrEqual,
   worktreeResumeScope,
 } from "@/domains/agent/resume";
-import { AGENT_CLI, AGENT_CLI_EXIT, createAgentDomain } from "@/interfaces/cli/agent";
+import {
+  AGENT_CLI,
+  AGENT_CLI_ERROR_PREFIX,
+  AGENT_CLI_EXIT,
+  AGENT_SINCE_ACCEPTED_FORM,
+  AGENT_SINCE_DIAGNOSTIC,
+  createAgentDomain,
+} from "@/interfaces/cli/agent";
 import {
   type AgentResumePickerResult,
   quitAgentResumePicker,
@@ -48,7 +55,7 @@ import {
   arbitraryAgentSessionCwd,
   arbitraryAgentSessionId,
   arbitraryAgentWorktreeRoot,
-  arbitraryRejectedAgentResumeSinceDurations,
+  arbitraryRejectedAgentResumeSinceCases,
   sampleAgentResumeValue,
 } from "@testing/generators/agent/resume";
 
@@ -110,6 +117,7 @@ interface MemoryFile {
   readonly mtimeMs: number;
 }
 
+const SINGLE_PREFIX_SEGMENTS = 2;
 const CODEX_TRANSCRIPT_YEAR_DIR = "2026";
 const CODEX_TRANSCRIPT_MONTH_DIR = "06";
 const CODEX_TRANSCRIPT_DAY_DIR = "27";
@@ -1248,8 +1256,8 @@ export async function assertResumeSinceComposesWithEveryScopeAndMode(): Promise<
 
 export async function assertResumeSinceRejectsInvalidDurations(): Promise<void> {
   const fixture = createAgentResumeDiscoveryFixture(330);
-  const rejectedDurations = sampleAgentResumeValue(arbitraryRejectedAgentResumeSinceDurations(), 334);
-  for (const rejectedDuration of rejectedDurations) {
+  const rejectedCases = sampleAgentResumeValue(arbitraryRejectedAgentResumeSinceCases(), 334);
+  for (const { text: rejectedDuration, diagnostic } of rejectedCases) {
     const stderr: string[] = [];
     const program = createInteractiveResumeProgram({
       fs: discoveryRefusalFileSystem(),
@@ -1279,7 +1287,14 @@ export async function assertResumeSinceRejectsInvalidDurations(): Promise<void> 
         { from: SPX_COMMANDER_PARSE_SOURCE },
       ),
     ).rejects.toMatchObject({ exitCode: AGENT_CLI_EXIT.FAILURE });
-    expect(stderr.join("")).toContain(sanitizeCliArgument(rejectedDuration));
+    const diagnosticText = stderr.filter((chunk) => chunk.includes(AGENT_CLI_ERROR_PREFIX)).join("");
+    expect(diagnosticText).toContain(sanitizeCliArgument(rejectedDuration));
+    expect(diagnosticText).toContain(diagnostic);
+    expect(diagnosticText.startsWith(AGENT_CLI_ERROR_PREFIX)).toBe(true);
+    expect(diagnosticText.split(AGENT_CLI_ERROR_PREFIX)).toHaveLength(SINGLE_PREFIX_SEGMENTS);
+    if (diagnostic === AGENT_SINCE_DIAGNOSTIC.MISSING_UNIT) {
+      expect(diagnosticText).toContain(AGENT_SINCE_ACCEPTED_FORM);
+    }
   }
 }
 
