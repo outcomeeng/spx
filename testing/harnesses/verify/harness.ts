@@ -2011,7 +2011,7 @@ export async function observeStartVerifier(verifier: VerifierIdentity): Promise<
   const fs = createInMemoryStateStoreFileSystem();
   const deps = verifyDeps(scenario, fs);
   const started = await verifyStartCommand(
-    { ...verifyStartOptions(scenario), verifierKind: verifier.kind, verifierId: verifier.id },
+    { ...verifyStartOptions(scenario), verifier: composeVerifierOperand(verifier) },
     deps,
   );
   if (started.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
@@ -2037,7 +2037,7 @@ export async function observeStartWithVerifierState(verifier: VerifierIdentity):
   const scenario = createReviewVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
   const started = await verifyStartCommand(
-    { ...verifyStartOptions(scenario), verifierKind: verifier.kind, verifierId: verifier.id },
+    { ...verifyStartOptions(scenario), verifier: composeVerifierOperand(verifier) },
     verifyDeps(scenario, fs),
   );
   return {

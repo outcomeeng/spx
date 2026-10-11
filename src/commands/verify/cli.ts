@@ -118,7 +118,7 @@ export const VERIFY_CLI_ERROR = {
   UNSUPPORTED_VERIFICATION_TYPE: "spx verification run verification type is not registered",
   CHANGE_IDENTITY_INVALID: "spx verification run start requires a Change identity in the canonical owner/repo#N form",
   VERIFIER_INVALID:
-    "spx verification run start requires a Verifier with kind person or agent and a non-empty id, supplied together",
+    "spx verification run start requires a Verifier in the <kind>:<id> form with kind person or agent and a non-empty id",
   SPX_DRIVEN_APPEND_REJECTED: "spx verification run cannot add caller evidence to a run spx drives",
   APPEND_FAILED: "spx verification run could not append the evidence event",
   JUDGED_PATHS_UNREADABLE: "spx verification run scope add could not read the files the run's head commit holds",
@@ -175,10 +175,8 @@ export interface VerifyStartCliOptions {
   readonly input: string;
   /** The Change the run serves, in the canonical `owner/repo#N` form; absent when the run belongs to no Change. */
   readonly change?: string;
-  /** The kind of the Verifier that judges the run, `person` or `agent`; supplied with `verifierId`. */
-  readonly verifierKind?: string;
-  /** The id of the Verifier that judges the run; supplied with `verifierKind`. */
-  readonly verifierId?: string;
+  /** The Verifier that judges the run, in the `<kind>:<id>` form; absent when the run names none. */
+  readonly verifier?: string;
 }
 
 export interface VerifyInputCliOptions {
@@ -683,16 +681,22 @@ interface CompleteVerifyStartArgs {
   readonly contextCreated: boolean;
 }
 
+/** The separator between the kind and the id of a `--verifier <kind>:<id>` operand. */
+const VERIFIER_OPERAND_SEPARATOR = ":";
+
 /** The Verifier a start supplies, or `undefined` when it supplies none or an invalid one. */
 function startVerifier(options: VerifyStartCliOptions): VerifyVerifier | undefined {
-  const { verifierKind: kind, verifierId: id } = options;
-  if (kind === undefined || id === undefined) return undefined;
+  if (options.verifier === undefined) return undefined;
+  const separatorIndex = options.verifier.indexOf(VERIFIER_OPERAND_SEPARATOR);
+  if (separatorIndex < 0) return undefined;
+  const kind = options.verifier.slice(0, separatorIndex);
+  const id = options.verifier.slice(separatorIndex + VERIFIER_OPERAND_SEPARATOR.length);
   return isVerifyVerifierKind(kind) && isVerifyVerifierId(id) ? { kind, id } : undefined;
 }
 
 /** A start supplies either no Verifier or a complete, valid one: a supported kind and a non-empty id together. */
 function isValidStartVerifierSelection(options: VerifyStartCliOptions): boolean {
-  if (options.verifierKind === undefined && options.verifierId === undefined) return true;
+  if (options.verifier === undefined) return true;
   return startVerifier(options) !== undefined;
 }
 
