@@ -98,3 +98,22 @@ CloudEvents input field (`id`/`source`/`type`/`time` non-empty strings, integer
 `attempt`) before it reaches the journal. The deferred decision is now narrowed to
 deep *value* rules for URI-reference `source`, RFC 3339 `time`, and serialisable-`JsonValue`
 `data` at the library `append`, still unspecified.
+
+## Violation-naming conformance cases serve no assertion and share the producer's vocabulary
+
+The test-evidence audit of this node filed a finding on
+`tests/agent-run-journal.conformance.l1.test.ts`. Three tests call
+`checkJournalEventConformance` directly: the underscored extension name, the missing
+required attribute, and `names every remaining conformance violation independently`.
+None serves a spec assertion. The last holds a hand-written table of six defect
+candidates, each paired with the expected violation name taken from the production
+violation vocabulary. That vocabulary is the validator's own classification, so the
+table is not an independent oracle.
+
+**Impact:** these cases pin the producer's violation naming only against itself. A change
+to the violation vocabulary moves the expectation and the result together, so the tests
+cannot fail on a wrong or renamed classification.
+
+**Settlement condition:** a spec assertion claims the violation naming and its cases come
+from a governed generator judged against an oracle outside the producer, or the three
+tests are removed.
