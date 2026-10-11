@@ -25,9 +25,6 @@ const DATA_FILE_ENV = "READ_RECORDER_DATA_FILE";
 const TEMP_PRODUCT_PREFIX = "spx-read-recorder-";
 const NODE_MODULES = "node_modules";
 
-/** The module state Vitest reports for a module whose every test passed. */
-export const MODULE_STATE_PASSED = "passed";
-
 /** What a real programmatic Vitest run over a data-reading module left. */
 export interface RecordedReadRunObservation {
   /** The absolute path of the data file the module opened, as the filesystem resolves it. */
@@ -59,8 +56,7 @@ async function snapshotFiles(root: string, dir: string = root): Promise<Array<re
     if (entry.name === NODE_MODULES) continue;
     const absolute = join(dir, entry.name);
     if (entry.isDirectory()) {
-      collected.push([`${relative(root, absolute)}/`, ""]);
-      collected.push(...await snapshotFiles(root, absolute));
+      collected.push([`${relative(root, absolute)}/`, ""], ...await snapshotFiles(root, absolute));
     } else {
       collected.push([relative(root, absolute), await readFile(absolute, "utf8")]);
     }
