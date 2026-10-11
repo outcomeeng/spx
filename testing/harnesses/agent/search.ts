@@ -39,7 +39,7 @@ import {
   transcriptHasAcceptedBranchCommand,
 } from "@/domains/agent/search";
 import { resolveProductDir } from "@/domains/config/root";
-import { AGENT_CLI, createAgentDomain } from "@/interfaces/cli/agent";
+import { AGENT_CLI, type AgentSinceDiagnostic, createAgentDomain } from "@/interfaces/cli/agent";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import {
@@ -62,7 +62,7 @@ import {
   arbitraryAgentSessionId,
   arbitraryAgentWorktreeRoot,
   arbitraryPartialNumericAgentSearchLimit,
-  arbitraryRejectedAgentResumeSinceDurations,
+  arbitraryRejectedAgentResumeSinceCases,
   arbitraryUnsafeAgentSearchLimit,
   sampleAgentResumeValue,
 } from "@testing/generators/agent/resume";
@@ -886,6 +886,7 @@ export async function withAgentSearchRejectedSinceEvidence(
     readonly attempts: readonly {
       readonly rejectedDuration: string;
       readonly sanitizedDuration: string;
+      readonly expectedDiagnostic: AgentSinceDiagnostic;
       readonly error: unknown;
       readonly exitCode: number | null;
       readonly stderr: string;
@@ -894,20 +895,21 @@ export async function withAgentSearchRejectedSinceEvidence(
   }) => void,
 ): Promise<void> {
   const cwd = sampleAgentResumeValue(arbitraryAgentWorktreeRoot(), SEARCH_SAMPLE.REJECTED_SINCE_CWD);
-  const rejectedDurations = sampleAgentResumeValue(
-    arbitraryRejectedAgentResumeSinceDurations(),
+  const rejectedCases = sampleAgentResumeValue(
+    arbitraryRejectedAgentResumeSinceCases(),
     SEARCH_SAMPLE.REJECTED_SINCE_DURATIONS,
   );
   const attempts: {
     readonly rejectedDuration: string;
     readonly sanitizedDuration: string;
+    readonly expectedDiagnostic: AgentSinceDiagnostic;
     readonly error: unknown;
     readonly exitCode: number | null;
     readonly stderr: string;
     readonly stdout: string;
   }[] = [];
 
-  for (const rejectedDuration of rejectedDurations) {
+  for (const { text: rejectedDuration, diagnostic } of rejectedCases) {
     const stdout: string[] = [];
     const stderr: string[] = [];
     const program = createCliProgram({
@@ -935,6 +937,7 @@ export async function withAgentSearchRejectedSinceEvidence(
     attempts.push({
       rejectedDuration,
       sanitizedDuration: sanitizeCliArgument(rejectedDuration),
+      expectedDiagnostic: diagnostic,
       error,
       exitCode: error instanceof ImmediateExit ? error.exitCode : null,
       stderr: stderr.join(""),

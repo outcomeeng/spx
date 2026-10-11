@@ -124,10 +124,6 @@ export function arbitraryRejectedAgentResumeSinceCases(): fc.Arbitrary<
     ]);
 }
 
-export function arbitraryRejectedAgentResumeSinceDurations(): fc.Arbitrary<readonly string[]> {
-  return arbitraryRejectedAgentResumeSinceCases().map((cases) => cases.map((rejected) => rejected.text));
-}
-
 export function arbitraryRejectedPiSessionVersions(): fc.Arbitrary<GeneratedRejectedPiSessionVersions> {
   return fc
     .tuple(
