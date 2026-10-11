@@ -27,6 +27,7 @@ import {
   REVIEW_SCOPE_COVERAGE_STATE,
   REVIEW_TERMINAL_STATE,
   REVIEW_TERMINAL_STATUSES,
+  type ReviewAnchorSide,
   type ReviewFinding,
   type ReviewScopeUnit,
   type ReviewTerminalMetadata,
@@ -326,19 +327,77 @@ function arbitraryReviewFindingDisplayVariantPair(): fc.Arbitrary<{
   }));
 }
 
-/** Two review findings differing in anchor side, path, or SPX summary. */
-function arbitraryReviewFindingIdentityDivergentPair(): fc.Arbitrary<{
+/** A review finding beside a copy of itself differing in exactly one identity axis. */
+export interface ReviewFindingAxisPair {
   readonly base: ReviewFinding;
   readonly divergent: ReviewFinding;
+}
+
+function otherAnchorSide(side: ReviewAnchorSide): ReviewAnchorSide {
+  return side === REVIEW_ANCHOR_SIDE.LEFT ? REVIEW_ANCHOR_SIDE.RIGHT : REVIEW_ANCHOR_SIDE.LEFT;
+}
+
+/** An anchored review finding beside a copy differing only in anchor side. */
+function arbitraryReviewFindingSideDivergentPair(): fc.Arbitrary<ReviewFindingAxisPair> {
+  return arbitraryAnchoredReviewFinding().map((base) => ({
+    base,
+    divergent: { ...base, side: otherAnchorSide(base.side) },
+  }));
+}
+
+/** A review finding that concerns a path beside a copy differing only in that path. */
+function arbitraryReviewFindingPathDivergentPair(): fc.Arbitrary<ReviewFindingAxisPair> {
+  return fc
+    .tuple(arbitraryReviewFinding(), arbitrarySourceFilePath())
+    .filter(([base, path]) => base.path !== undefined && base.path !== path)
+    .map(([base, path]) => ({ base, divergent: { ...base, path } }));
+}
+
+/** A review finding beside a copy differing only in its SPX summary. */
+function arbitraryReviewFindingSummaryDivergentPair(): fc.Arbitrary<ReviewFindingAxisPair> {
+  return fc
+    .tuple(arbitraryReviewFinding(), STATE_STORE_TEST_GENERATOR.scopeToken())
+    .filter(([base, summary]) => base.finding.summary !== summary)
+    .map(([base, summary]) => ({
+      base,
+      divergent: { ...base, finding: { ...base.finding, summary } },
+    }));
+}
+
+/**
+ * Two review findings of different subject shapes — anchored, unanchored with a path, and
+ * unanchored without a path — sharing the SPX summary and, where both carry one, the path.
+ */
+function arbitraryReviewFindingShapeDivergentPair(): fc.Arbitrary<ReviewFindingAxisPair> {
+  return fc
+    .tuple(
+      arbitraryAnchoredReviewFinding(),
+      arbitraryUnanchoredReviewFinding().filter((finding) => finding.path !== undefined),
+      arbitraryUnanchoredReviewFinding().filter((finding) => finding.path === undefined),
+    )
+    .chain(([anchored, pathed, pathless]) => {
+      const sharedSummary = { ...anchored.finding };
+      const asPathed = { ...pathed, path: anchored.path, finding: sharedSummary };
+      const asPathless = { ...pathless, finding: sharedSummary };
+      return fc.constantFrom<ReviewFindingAxisPair>(
+        { base: anchored, divergent: asPathed },
+        { base: anchored, divergent: asPathless },
+        { base: asPathed, divergent: asPathless },
+      );
+    });
+}
+
+/** An unanchored changeset-wide review finding beside a display variant of itself. */
+function arbitraryChangesetFindingDisplayVariantPair(): fc.Arbitrary<{
+  readonly base: ReviewFinding;
+  readonly variant: ReviewFinding;
 }> {
   return fc
-    .tuple(arbitraryReviewFinding(), arbitraryReviewFinding())
-    .filter(([base, divergent]) =>
-      base.side !== divergent.side
-      || base.path !== divergent.path
-      || base.finding.summary !== divergent.finding.summary
+    .tuple(
+      arbitraryUnanchoredReviewFinding().filter((finding) => finding.path === undefined),
+      arbitraryReviewFinding(),
     )
-    .map(([base, divergent]) => ({ base, divergent }));
+    .map(([base, shell]) => ({ base, variant: reviewFindingSharingIdentity(base, shell) }));
 }
 
 /** One reviewed unit beside a display variant sharing its anchor side and path. */
@@ -352,15 +411,26 @@ function arbitraryReviewScopeUnitDisplayVariantPair(): fc.Arbitrary<{
   }));
 }
 
-/** Two reviewed units differing in anchor side or path. */
-function arbitraryReviewScopeUnitKeyDivergentPair(): fc.Arbitrary<{
+/** A reviewed unit beside a copy differing only in anchor side. */
+function arbitraryReviewScopeUnitSideDivergentPair(): fc.Arbitrary<{
+  readonly base: ReviewScopeUnit;
+  readonly divergent: ReviewScopeUnit;
+}> {
+  return arbitraryReviewScopeUnit().map((base) => ({
+    base,
+    divergent: { ...base, side: otherAnchorSide(base.side) },
+  }));
+}
+
+/** A reviewed unit beside a copy differing only in path. */
+function arbitraryReviewScopeUnitPathDivergentPair(): fc.Arbitrary<{
   readonly base: ReviewScopeUnit;
   readonly divergent: ReviewScopeUnit;
 }> {
   return fc
-    .tuple(arbitraryReviewScopeUnit(), arbitraryReviewScopeUnit())
-    .filter(([base, divergent]) => base.side !== divergent.side || base.path !== divergent.path)
-    .map(([base, divergent]) => ({ base, divergent }));
+    .tuple(arbitraryReviewScopeUnit(), arbitrarySourceFilePath())
+    .filter(([base, path]) => base.path !== path)
+    .map(([base, path]) => ({ base, divergent: { ...base, path } }));
 }
 
 /** A review run set with prior and current runs plus the construction-derived expected groups. */
@@ -1070,6 +1140,17 @@ export const VERIFY_TEST_GENERATOR = {
       }),
       { selector: (entry) => entry.idempotencyKey, minLength: FINDING_BATCH_MIN, maxLength: FINDING_BATCH_MAX },
     ),
+  unanchoredReviewFindingBatch: (): fc.Arbitrary<readonly FindingWithKey[]> =>
+    fc
+      .tuple(
+        arbitraryUnanchoredReviewFinding().filter((finding) => finding.path !== undefined),
+        arbitraryUnanchoredReviewFinding().filter((finding) => finding.path === undefined),
+        fc.uniqueArray(STATE_STORE_TEST_GENERATOR.scopeToken(), { minLength: 2, maxLength: 2 }),
+      )
+      .map(([pathed, pathless, keys]) => [
+        { finding: pathed, idempotencyKey: keys[0] },
+        { finding: pathless, idempotencyKey: keys[1] },
+      ]),
   anchoredReviewFinding: (): fc.Arbitrary<ReviewFinding> => arbitraryAnchoredReviewFinding(),
   unanchoredReviewFinding: (): fc.Arbitrary<ReviewFinding> => arbitraryUnanchoredReviewFinding(),
   defectReviewFinding: (): fc.Arbitrary<ReviewFinding> => arbitraryDefectReviewFinding(),
@@ -1084,18 +1165,28 @@ export const VERIFY_TEST_GENERATOR = {
     readonly base: ReviewFinding;
     readonly variant: ReviewFinding;
   }> => arbitraryReviewFindingDisplayVariantPair(),
-  reviewFindingIdentityDivergentPair: (): fc.Arbitrary<{
+  reviewFindingSideDivergentPair: (): fc.Arbitrary<ReviewFindingAxisPair> => arbitraryReviewFindingSideDivergentPair(),
+  reviewFindingPathDivergentPair: (): fc.Arbitrary<ReviewFindingAxisPair> => arbitraryReviewFindingPathDivergentPair(),
+  reviewFindingSummaryDivergentPair: (): fc.Arbitrary<ReviewFindingAxisPair> =>
+    arbitraryReviewFindingSummaryDivergentPair(),
+  reviewFindingShapeDivergentPair: (): fc.Arbitrary<ReviewFindingAxisPair> =>
+    arbitraryReviewFindingShapeDivergentPair(),
+  changesetFindingDisplayVariantPair: (): fc.Arbitrary<{
     readonly base: ReviewFinding;
-    readonly divergent: ReviewFinding;
-  }> => arbitraryReviewFindingIdentityDivergentPair(),
+    readonly variant: ReviewFinding;
+  }> => arbitraryChangesetFindingDisplayVariantPair(),
   reviewScopeUnitDisplayVariantPair: (): fc.Arbitrary<{
     readonly base: ReviewScopeUnit;
     readonly variant: ReviewScopeUnit;
   }> => arbitraryReviewScopeUnitDisplayVariantPair(),
-  reviewScopeUnitKeyDivergentPair: (): fc.Arbitrary<{
+  reviewScopeUnitSideDivergentPair: (): fc.Arbitrary<{
     readonly base: ReviewScopeUnit;
     readonly divergent: ReviewScopeUnit;
-  }> => arbitraryReviewScopeUnitKeyDivergentPair(),
+  }> => arbitraryReviewScopeUnitSideDivergentPair(),
+  reviewScopeUnitPathDivergentPair: (): fc.Arbitrary<{
+    readonly base: ReviewScopeUnit;
+    readonly divergent: ReviewScopeUnit;
+  }> => arbitraryReviewScopeUnitPathDivergentPair(),
   reviewRunSetScenario: (): fc.Arbitrary<ReviewRunSetScenario> => arbitraryReviewRunSetScenario(),
   invalidReviewFinding: (): fc.Arbitrary<unknown> =>
     fc.oneof(
