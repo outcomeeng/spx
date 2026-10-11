@@ -20,5 +20,5 @@ CAN validate review payloads without requiring provider-specific command vocabul
 
 - ALWAYS: review scope and finding payloads validate through the shared verification-type evidence-validator registry before journal events append ([audit])
 - ALWAYS: a review scope or finding payload rejection reason names the failing payload field path or the unmet structural requirement ([test](tests/review-evidence-validation.compliance.l1.test.ts))
-- ALWAYS: a review finding carrying some but not all of line-or-position, side, and diff hunk is rejected before any journal event appends, naming the missing or extra field path ([test](tests/review-evidence-validation.compliance.l1.test.ts))
+- ALWAYS: a review finding carrying some but not all of line-or-position, side, and diff hunk is rejected before any journal event appends, naming the missing field path ([test](tests/review-evidence-validation.compliance.l1.test.ts))
 - ALWAYS: a `FILED` or `STALE` review finding without its entry reference, or a `FILED` finding without base-ref evidence, is rejected before any journal event appends, naming the missing field path ([test](tests/review-evidence-validation.compliance.l1.test.ts))
