@@ -1026,7 +1026,7 @@ Agents need bounded, inspectable test evidence and developers need native local 
 
 - ALWAYS: environment mode preserves runner selection, selected test files, passing-scope filtering, and exit-code aggregation while changing only output handling and reporting shape ([compliance])
 - ALWAYS: `agent` environment writes child stdout and stderr to artifact files and reports artifact paths without streaming child output to the invoking terminal ([compliance])
-- Given failed test paths are unavailable for a failing runner group, `spx test` reports the requested paths for that failing runner group ([scenario])
+- Given failed test paths are unavailable for a failing runner group, `spx test --agent` names that group, its exit code, the count of its requested paths, and its stdout and stderr artifacts, states that the runner reported no failed paths, and lists no path under the failing-tests label ([scenario])
 
 ### Audit
 

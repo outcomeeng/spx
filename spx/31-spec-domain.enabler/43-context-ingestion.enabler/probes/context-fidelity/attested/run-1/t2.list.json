@@ -318,6 +318,16 @@
       ]
     },
     {
+      "path": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler/ISSUES.md",
+      "mode": "reference",
+      "selections": [
+        {
+          "target": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler",
+          "reason": "issue"
+        }
+      ]
+    },
+    {
       "path": "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler/21-context-target-resolution.adr.md",
       "mode": "full",
       "selections": [
