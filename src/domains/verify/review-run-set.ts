@@ -22,9 +22,13 @@ function reviewAnchorSubject(side: string, path: string): string {
 /** The subject of a finding that concerns the changeset as a whole and carries no path. */
 export const REVIEW_CHANGESET_FINDING_SUBJECT = JSON.stringify(["changeset"]);
 
-/** The subject of an unanchored finding that concerns one path and carries no side. */
+/**
+ * The subject of an unanchored finding that concerns one path and carries no side. The object
+ * shape differs from the array shapes of the anchored and changeset-wide subjects, so no path
+ * value can make this subject equal either.
+ */
 function reviewPathSubject(path: string): string {
-  return JSON.stringify([path]);
+  return JSON.stringify({ path });
 }
 
 function reviewFindingSubject(finding: ReviewFinding): string {
