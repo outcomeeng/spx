@@ -1,45 +1,81 @@
-import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import {
   checkJournalEventConformance,
   createJournal,
   JOURNAL_CONFORMANCE_VIOLATION,
+  JOURNAL_SEQ_BASE,
   type JournalConformanceViolation,
 } from "@/lib/agent-run-journal";
-import { arbitraryJournalEventInput, arbitraryJournalIdentity } from "@testing/generators/agent-run-journal";
+import {
+  arbitraryJournalEventInput,
+  arbitraryJournalIdentity,
+  arbitraryJournalSchemaDefectInput,
+  arbitraryJournalSequenceInput,
+  sampleAgentRunJournalValue,
+} from "@testing/generators/agent-run-journal";
+import { createJournalAdapterStorages } from "@testing/harnesses/agent-run-journal/adapters";
+import { loadCloudEventsOracle } from "@testing/harnesses/agent-run-journal/cloudevents-oracle";
 import { createInMemoryAppendableBackend } from "@testing/harnesses/agent-run-journal/in-memory-backend";
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 describe("agent-run-journal CloudEvents conformance", () => {
-  it("constructs each appended event conforming to the CloudEvents event schema", async () => {
-    await fc.assert(
-      fc.asyncProperty(
-        arbitraryJournalEventInput(),
-        arbitraryJournalIdentity(),
-        async (input, identity) => {
-          const journal = createJournal(createInMemoryAppendableBackend(), identity);
+  it("appends events that the captured CloudEvents v1.0 schema accepts and that carry the journal stream extensions", async () => {
+    const oracle = await loadCloudEventsOracle();
+    await assertProperty(
+      arbitraryJournalSequenceInput(),
+      async ({ inputs, identity }) => {
+        for (const storage of createJournalAdapterStorages(identity)) {
+          const journal = createJournal(storage.open(), identity);
+          for (const [index, input] of inputs.entries()) {
+            const event = await journal.append(input);
+            // the official schema accepts the event, and its specversion is the value the release requires
+            expect(oracle.eventSchema.safeParse(event).success, storage.adapter).toBe(true);
+            expect(event.specversion).toBe(oracle.specversion);
+            // every extension attribute follows the CloudEvents attribute-naming rule
+            for (const name of Object.keys(event).filter((key) => !oracle.contextAttributeNames.has(key))) {
+              expect(name).toMatch(oracle.attributeNamePattern);
+            }
+            // the context attributes carry the caller's input, and the stream extensions the journal identity
+            expect(event.id).toBe(input.id);
+            expect(event.source).toBe(input.source);
+            expect(event.type).toBe(input.type);
+            expect(event.time).toBe(input.time);
+            expect(event.attempt).toBe(input.attempt);
+            expect(event.streamid).toBe(identity.streamid);
+            expect(event.runid).toBe(identity.runid);
+            expect(event.seq).toBe(JOURNAL_SEQ_BASE + index);
+          }
+          // the persisted history, replayed from a reopened storage, is accepted by the same schema
+          for (const persisted of await storage.open().readAll()) {
+            expect(oracle.eventSchema.safeParse(persisted).success, storage.adapter).toBe(true);
+          }
+        }
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+
+  it("rejects an appended event carrying a defect only the captured schema constrains, while accepting the unmodified event", async () => {
+    const oracle = await loadCloudEventsOracle();
+    await assertProperty(
+      arbitraryJournalSchemaDefectInput(),
+      async ({ inputs, identity, defect }) => {
+        const journal = createJournal(createInMemoryAppendableBackend(), identity);
+        for (const input of inputs) {
           const event = await journal.append(input);
-
-          // the event passes the closed-set CloudEvents schema validator (every
-          // required attribute present and typed, every attribute name conformant)
-          expect(checkJournalEventConformance(event)).toEqual({ ok: true });
-
-          // and its attributes derive from the caller input and the journal identity
-          expect(event.id).toBe(input.id);
-          expect(event.source).toBe(input.source);
-          expect(event.type).toBe(input.type);
-          expect(event.time).toBe(input.time);
-          expect(event.attempt).toBe(input.attempt);
-          expect(event.streamid).toBe(identity.streamid);
-          expect(event.runid).toBe(identity.runid);
-        },
-      ),
+          // the schema constrains value shapes the structural attribute checks never reach
+          expect(oracle.eventSchema.safeParse(event).success).toBe(true);
+          expect(oracle.eventSchema.safeParse(defect.derive(event)).success, defect.description).toBe(false);
+        }
+      },
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 
   it("rejects an underscored extension name with the naming-convention violation, isolating the naming rule", async () => {
-    const [input] = fc.sample(arbitraryJournalEventInput(), 1);
-    const [identity] = fc.sample(arbitraryJournalIdentity(), 1);
+    const input = sampleAgentRunJournalValue(arbitraryJournalEventInput());
+    const identity = sampleAgentRunJournalValue(arbitraryJournalIdentity());
     const journal = createJournal(createInMemoryAppendableBackend(), identity);
     const event = await journal.append(input);
 
@@ -57,8 +93,8 @@ describe("agent-run-journal CloudEvents conformance", () => {
   });
 
   it("rejects an event missing a required attribute with the missing-attribute violation", async () => {
-    const [input] = fc.sample(arbitraryJournalEventInput(), 1);
-    const [identity] = fc.sample(arbitraryJournalIdentity(), 1);
+    const input = sampleAgentRunJournalValue(arbitraryJournalEventInput());
+    const identity = sampleAgentRunJournalValue(arbitraryJournalIdentity());
     const journal = createJournal(createInMemoryAppendableBackend(), identity);
     const event = await journal.append(input);
 
@@ -76,8 +112,8 @@ describe("agent-run-journal CloudEvents conformance", () => {
   });
 
   it("names every remaining conformance violation independently", async () => {
-    const [input] = fc.sample(arbitraryJournalEventInput(), 1);
-    const [identity] = fc.sample(arbitraryJournalIdentity(), 1);
+    const input = sampleAgentRunJournalValue(arbitraryJournalEventInput());
+    const identity = sampleAgentRunJournalValue(arbitraryJournalIdentity());
     const journal = createJournal(createInMemoryAppendableBackend(), identity);
     const event = await journal.append(input);
 

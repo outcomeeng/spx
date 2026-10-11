@@ -2,6 +2,7 @@ import fc from "fast-check";
 
 import {
   CLOUDEVENTS_SPECVERSION,
+  JOURNAL_SEQ_BASE,
   type JournalEvent,
   type JournalEventInput,
   type JournalIdentity,
@@ -86,6 +87,35 @@ export interface JournalSequenceInput {
   readonly identity: JournalIdentity;
 }
 
+/** A defect only the captured CloudEvents schema constrains, derived from the event the journal appended. */
+export interface JournalSchemaDefect {
+  /** Names the defect family for failure diagnostics. */
+  readonly description: string;
+  /** The appended event with exactly this defect applied. */
+  readonly derive: (event: JournalEvent) => Record<string, unknown>;
+}
+
+const SCHEMA_ONLY_DEFECTS: readonly JournalSchemaDefect[] = [
+  { description: "empty id", derive: (event) => ({ ...event, id: "" }) },
+  { description: "numeric id", derive: (event) => ({ ...event, id: event.seq }) },
+  { description: "numeric source", derive: (event) => ({ ...event, source: event.seq }) },
+  { description: "non-timestamp time", derive: (event) => ({ ...event, time: event.id }) },
+];
+
+export interface JournalSchemaDefectInput extends JournalSequenceInput {
+  /** One defect to derive from each appended event. */
+  readonly defect: JournalSchemaDefect;
+}
+
+/** Appends plus one defect, drawn from the domain of defects only the captured schema constrains. */
+export function arbitraryJournalSchemaDefectInput(): fc.Arbitrary<JournalSchemaDefectInput> {
+  return fc.record({
+    inputs: arbitraryJournalEventInputs(),
+    identity: arbitraryJournalIdentity(),
+    defect: fc.constantFrom(...SCHEMA_ONLY_DEFECTS),
+  });
+}
+
 export interface JournalPairInput {
   readonly firstInput: JournalEventInput;
   readonly secondInput: JournalEventInput;
@@ -102,6 +132,38 @@ export function arbitraryJournalPairInput(): fc.Arbitrary<JournalPairInput> {
     secondInput: arbitraryJournalEventInput(),
     identity: arbitraryJournalIdentity(),
   });
+}
+
+export interface JournalCursorInput extends JournalSequenceInput {
+  /** A read cursor ranging from below the journal's base to past its last appended sequence. */
+  readonly cursor: number;
+}
+
+/** Appends plus a read cursor spanning before the first, every appended, and past the last sequence. */
+export function arbitraryJournalCursorInput(): fc.Arbitrary<JournalCursorInput> {
+  return arbitraryJournalSequenceInput().chain(({ inputs, identity }) =>
+    fc.integer({ min: JOURNAL_SEQ_BASE - 1, max: JOURNAL_SEQ_BASE + inputs.length }).map((cursor) => ({
+      inputs,
+      identity,
+      cursor,
+    }))
+  );
+}
+
+export interface JournalPrefixInput extends JournalSequenceInput {
+  /** The last sequence of the rendered prefix, from an empty prefix to past the last appended sequence. */
+  readonly throughSeq: number;
+}
+
+/** Appends plus a prefix bound spanning the empty prefix, every appended sequence, and past the last. */
+export function arbitraryJournalPrefixInput(): fc.Arbitrary<JournalPrefixInput> {
+  return arbitraryJournalSequenceInput().chain(({ inputs, identity }) =>
+    fc.integer({ min: JOURNAL_SEQ_BASE - 1, max: JOURNAL_SEQ_BASE + inputs.length }).map((throughSeq) => ({
+      inputs,
+      identity,
+      throughSeq,
+    }))
+  );
 }
 
 export function arbitraryMalformedJournalLines(): fc.Arbitrary<readonly [string, string]> {
@@ -125,6 +187,24 @@ export function sampleAgentRunJournalValue<T>(arbitrary: fc.Arbitrary<T>): T {
   const [value] = fc.sample(arbitrary, { seed: SAMPLE_SEED, numRuns: 1 });
   if (value === undefined) throw new Error("agent-run-journal test generator returned no sample");
   return value;
+}
+
+/** Values the `runtime.eventNamespace` contract rejects: blank strings and every non-string type. */
+export function arbitraryInvalidEventNamespace(): fc.Arbitrary<unknown> {
+  return fc.oneof(
+    fc.constant(""),
+    fc.stringMatching(/^\s+$/),
+    fc.integer(),
+    fc.boolean(),
+    fc.constant(null),
+    fc.array(fc.string()),
+    fc.record({ value: fc.string() }),
+  );
+}
+
+/** Values that are not an object and so cannot be a `runtime` config section. */
+export function arbitraryNonObjectRuntimeSection(): fc.Arbitrary<unknown> {
+  return fc.oneof(fc.string(), fc.integer(), fc.boolean(), fc.constant(null), fc.array(fc.anything()));
 }
 
 /** A deterministic per-stream run file path for journal-store tests. */
