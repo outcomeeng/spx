@@ -87,6 +87,35 @@ export interface JournalSequenceInput {
   readonly identity: JournalIdentity;
 }
 
+/** A defect only the captured CloudEvents schema constrains, derived from the event the journal appended. */
+export interface JournalSchemaDefect {
+  /** Names the defect family for failure diagnostics. */
+  readonly description: string;
+  /** The appended event with exactly this defect applied. */
+  readonly derive: (event: JournalEvent) => Record<string, unknown>;
+}
+
+const SCHEMA_ONLY_DEFECTS: readonly JournalSchemaDefect[] = [
+  { description: "empty id", derive: (event) => ({ ...event, id: "" }) },
+  { description: "numeric id", derive: (event) => ({ ...event, id: event.seq }) },
+  { description: "numeric source", derive: (event) => ({ ...event, source: event.seq }) },
+  { description: "non-timestamp time", derive: (event) => ({ ...event, time: event.id }) },
+];
+
+export interface JournalSchemaDefectInput extends JournalSequenceInput {
+  /** One defect to derive from each appended event. */
+  readonly defect: JournalSchemaDefect;
+}
+
+/** Appends plus one defect, drawn from the domain of defects only the captured schema constrains. */
+export function arbitraryJournalSchemaDefectInput(): fc.Arbitrary<JournalSchemaDefectInput> {
+  return fc.record({
+    inputs: arbitraryJournalEventInputs(),
+    identity: arbitraryJournalIdentity(),
+    defect: fc.constantFrom(...SCHEMA_ONLY_DEFECTS),
+  });
+}
+
 export interface JournalPairInput {
   readonly firstInput: JournalEventInput;
   readonly secondInput: JournalEventInput;

@@ -10,6 +10,7 @@ import {
 import {
   arbitraryJournalEventInput,
   arbitraryJournalIdentity,
+  arbitraryJournalSchemaDefectInput,
   arbitraryJournalSequenceInput,
   sampleAgentRunJournalValue,
 } from "@testing/generators/agent-run-journal";
@@ -45,6 +46,10 @@ describe("agent-run-journal CloudEvents conformance", () => {
             expect(event.runid).toBe(identity.runid);
             expect(event.seq).toBe(JOURNAL_SEQ_BASE + index);
           }
+          // the persisted history, replayed from a reopened storage, is accepted by the same schema
+          for (const persisted of await storage.open().readAll()) {
+            expect(oracle.eventSchema.safeParse(persisted).success, storage.adapter).toBe(true);
+          }
         }
       },
       { level: PROPERTY_LEVEL.L1 },
@@ -54,22 +59,14 @@ describe("agent-run-journal CloudEvents conformance", () => {
   it("rejects an appended event carrying a defect only the captured schema constrains, while accepting the unmodified event", async () => {
     const oracle = await loadCloudEventsOracle();
     await assertProperty(
-      arbitraryJournalSequenceInput(),
-      async ({ inputs, identity }) => {
+      arbitraryJournalSchemaDefectInput(),
+      async ({ inputs, identity, defect }) => {
         const journal = createJournal(createInMemoryAppendableBackend(), identity);
         for (const input of inputs) {
           const event = await journal.append(input);
           // the schema constrains value shapes the structural attribute checks never reach
-          const defective: ReadonlyArray<Record<string, unknown>> = [
-            { ...event, id: "" },
-            { ...event, id: event.seq },
-            { ...event, source: event.seq },
-            { ...event, time: event.id },
-          ];
           expect(oracle.eventSchema.safeParse(event).success).toBe(true);
-          for (const candidate of defective) {
-            expect(oracle.eventSchema.safeParse(candidate).success).toBe(false);
-          }
+          expect(oracle.eventSchema.safeParse(defect.derive(event)).success, defect.description).toBe(false);
         }
       },
       { level: PROPERTY_LEVEL.L1 },
