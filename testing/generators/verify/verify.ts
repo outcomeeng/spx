@@ -10,6 +10,7 @@ import {
 import { evidenceFieldPath } from "@/domains/verify/evidence-rejection";
 import { MERGE_PERIOD_BACKEND, type RunSetRunEvidence, type RunSetSelector } from "@/domains/verify/run-set";
 import {
+  type AnchoredReviewFinding,
   AUDIT_CLASS,
   AUDIT_COVERAGE_REQUIREMENT,
   AUDIT_COVERAGE_STATUS,
@@ -26,13 +27,12 @@ import {
   REVIEW_SCOPE_COVERAGE_STATE,
   REVIEW_TERMINAL_STATE,
   REVIEW_TERMINAL_STATUSES,
-  type AnchoredReviewFinding,
   type ReviewFinding,
-  type UnanchoredReviewFinding,
   type ReviewScopeUnit,
   type ReviewTerminalMetadata,
   type ReviewTerminalState,
   TEST_PAYLOAD_FIELD,
+  type UnanchoredReviewFinding,
   VERIFY_FINDING_DISPOSITION,
   VERIFY_SCOPE_PAYLOAD_FIELD,
   VERIFY_SCOPE_SEPARATOR,

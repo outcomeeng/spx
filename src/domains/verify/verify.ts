@@ -1052,6 +1052,38 @@ function carriesField(record: { readonly [key: string]: JsonValue }, field: stri
   return field in record;
 }
 
+function readAnchoredReviewFinding(
+  payload: { readonly [key: string]: JsonValue },
+  common: Omit<UnanchoredReviewFinding, "path">,
+  lineValue: number | undefined,
+  positionValue: number | undefined,
+  pathValue: string | undefined,
+): EvidenceValidationResult<ReviewFinding> {
+  if (!carriesField(payload, REVIEW_PAYLOAD_FIELD.SIDE)) return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.SIDE);
+  const { side } = payload;
+  if (!isReviewAnchorSide(side)) return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.SIDE);
+  if (!carriesField(payload, REVIEW_PAYLOAD_FIELD.DIFF_HUNK)) {
+    return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.DIFF_HUNK);
+  }
+  const diffHunk = readRequiredString(payload, REVIEW_PAYLOAD_FIELD.DIFF_HUNK);
+  if (diffHunk === undefined) return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.DIFF_HUNK);
+  if (lineValue === undefined && positionValue === undefined) {
+    return rejectEvidenceRequirementAt(EVIDENCE_REQUIREMENT.REVIEW_FINDING_ANCHOR, [
+      [REVIEW_PAYLOAD_FIELD.LINE],
+      [REVIEW_PAYLOAD_FIELD.POSITION],
+    ]);
+  }
+  if (pathValue === undefined) return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.PATH);
+  return acceptEvidence({
+    ...common,
+    path: pathValue,
+    side,
+    diffHunk,
+    ...(lineValue === undefined ? {} : { line: lineValue }),
+    ...(positionValue === undefined ? {} : { position: positionValue }),
+  });
+}
+
 /**
  * Validate a `review` finding payload as a platform-neutral review comment in one of two shapes.
  * An anchored finding carries a path, a line or position, a side, and a diff hunk; an unanchored
@@ -1099,29 +1131,7 @@ export function validateReviewFinding(payload: JsonValue): EvidenceValidationRes
   if (!carriesAnchor) {
     return acceptEvidence({ ...common, ...(pathValue === undefined ? {} : { path: pathValue }) });
   }
-  if (!carriesField(payload, REVIEW_PAYLOAD_FIELD.SIDE)) return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.SIDE);
-  const { side } = payload;
-  if (!isReviewAnchorSide(side)) return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.SIDE);
-  if (!carriesField(payload, REVIEW_PAYLOAD_FIELD.DIFF_HUNK)) {
-    return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.DIFF_HUNK);
-  }
-  const diffHunk = readRequiredString(payload, REVIEW_PAYLOAD_FIELD.DIFF_HUNK);
-  if (diffHunk === undefined) return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.DIFF_HUNK);
-  if (lineValue === undefined && positionValue === undefined) {
-    return rejectEvidenceRequirementAt(EVIDENCE_REQUIREMENT.REVIEW_FINDING_ANCHOR, [
-      [REVIEW_PAYLOAD_FIELD.LINE],
-      [REVIEW_PAYLOAD_FIELD.POSITION],
-    ]);
-  }
-  if (pathValue === undefined) return rejectEvidenceField(REVIEW_PAYLOAD_FIELD.PATH);
-  return acceptEvidence({
-    ...common,
-    path: pathValue,
-    side,
-    diffHunk,
-    ...(lineValue === undefined ? {} : { line: lineValue }),
-    ...(positionValue === undefined ? {} : { position: positionValue }),
-  });
+  return readAnchoredReviewFinding(payload, common, lineValue, positionValue, pathValue);
 }
 
 export function validateReviewScope(payload: JsonValue): EvidenceValidationResult<ReviewScopeUnit> {
