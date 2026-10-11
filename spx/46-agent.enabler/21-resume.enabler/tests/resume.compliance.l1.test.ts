@@ -1,4 +1,11 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
+
+import {
+  AGENT_CLI_ERROR_PREFIX,
+  AGENT_CLI_EXIT,
+  AGENT_SINCE_ACCEPTED_FORM,
+  AGENT_SINCE_DIAGNOSTIC,
+} from "@/interfaces/cli/agent";
 
 import {
   assertAgentResumeUsesConfiguredAgentHomes,
@@ -20,11 +27,11 @@ import {
   assertNewestSessionsPerAgentWithinScope,
   assertPartialTailSessionSortsAfterTimestamped,
   assertResumeListOrdersByTranscriptActivityAcrossAgents,
-  assertResumeSinceRejectsInvalidDurations,
   assertSkipsClaudeSiblingProjectPrefix,
   assertSourcePathTieBreakSelectsPerAgentCap,
   assertTimestamplessSessionSortsAfterTimestamped,
   assertUnknownActivityFillsRemainingCapSlots,
+  withResumeRejectedSinceEvidence,
 } from "@testing/harnesses/agent/resume";
 
 describe("agent resume per-agent display cap compliance", () => {
@@ -98,8 +105,24 @@ describe("agent resume recency-window compliance", () => {
     await assertExplicitSinceWidensTranscriptReadsBeyondDefaultWindow();
   });
 
-  it("rejects invalid, zero, negative, non-finite, and unsafe explicit durations before discovery", async () => {
-    await assertResumeSinceRejectsInvalidDurations();
+  it("rejects a unitless, invalid, zero, negative, non-finite, or unsafe explicit duration with one diagnostic naming its condition and no launch", async () => {
+    await withResumeRejectedSinceEvidence((evidence) => {
+      expect(evidence.attempts.length).toBeGreaterThan(0);
+      for (const attempt of evidence.attempts) {
+        expect(attempt.exitCode).toBe(AGENT_CLI_EXIT.FAILURE);
+        expect(attempt.launchedCount).toBe(0);
+        const diagnosticLines = attempt.stderr.split("\n").filter((line) => line.includes(AGENT_CLI_ERROR_PREFIX));
+        expect(diagnosticLines).toHaveLength(1);
+        const [diagnosticLine] = diagnosticLines;
+        expect(diagnosticLine.startsWith(AGENT_CLI_ERROR_PREFIX)).toBe(true);
+        expect(diagnosticLine.slice(AGENT_CLI_ERROR_PREFIX.length)).not.toContain(AGENT_CLI_ERROR_PREFIX);
+        expect(diagnosticLine).toContain(attempt.sanitizedDuration);
+        expect(diagnosticLine).toContain(attempt.expectedDiagnostic);
+        if (attempt.expectedDiagnostic === AGENT_SINCE_DIAGNOSTIC.MISSING_UNIT) {
+          expect(diagnosticLine).toContain(AGENT_SINCE_ACCEPTED_FORM);
+        }
+      }
+    });
   });
 
   it("excludes sessions modified before the recent-activity window", async () => {

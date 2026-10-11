@@ -29,14 +29,7 @@ import {
   isPathInsideOrEqual,
   worktreeResumeScope,
 } from "@/domains/agent/resume";
-import {
-  AGENT_CLI,
-  AGENT_CLI_ERROR_PREFIX,
-  AGENT_CLI_EXIT,
-  AGENT_SINCE_ACCEPTED_FORM,
-  AGENT_SINCE_DIAGNOSTIC,
-  createAgentDomain,
-} from "@/interfaces/cli/agent";
+import { AGENT_CLI, AGENT_CLI_EXIT, type AgentSinceDiagnostic, createAgentDomain } from "@/interfaces/cli/agent";
 import {
   type AgentResumePickerResult,
   quitAgentResumePicker,
@@ -117,7 +110,6 @@ interface MemoryFile {
   readonly mtimeMs: number;
 }
 
-const SINGLE_PREFIX_SEGMENTS = 2;
 const CODEX_TRANSCRIPT_YEAR_DIR = "2026";
 const CODEX_TRANSCRIPT_MONTH_DIR = "06";
 const CODEX_TRANSCRIPT_DAY_DIR = "27";
@@ -1254,11 +1246,24 @@ export async function assertResumeSinceComposesWithEveryScopeAndMode(): Promise<
   }
 }
 
-export async function assertResumeSinceRejectsInvalidDurations(): Promise<void> {
+export interface ResumeRejectedSinceAttempt {
+  readonly rejectedDuration: string;
+  readonly sanitizedDuration: string;
+  readonly expectedDiagnostic: AgentSinceDiagnostic;
+  readonly exitCode: number | null;
+  readonly stderr: string;
+  readonly launchedCount: number;
+}
+
+export async function withResumeRejectedSinceEvidence(
+  callback: (evidence: { readonly attempts: readonly ResumeRejectedSinceAttempt[] }) => void,
+): Promise<void> {
   const fixture = createAgentResumeDiscoveryFixture(330);
   const rejectedCases = sampleAgentResumeValue(arbitraryRejectedAgentResumeSinceCases(), 334);
+  const attempts: ResumeRejectedSinceAttempt[] = [];
   for (const { text: rejectedDuration, diagnostic } of rejectedCases) {
     const stderr: string[] = [];
+    let launchedCount = 0;
     const program = createInteractiveResumeProgram({
       fs: discoveryRefusalFileSystem(),
       homeDir: fixture.homeDir,
@@ -1266,7 +1271,8 @@ export async function assertResumeSinceRejectsInvalidDurations(): Promise<void> 
       nowMs: fixture.nowMs,
       resolveWorktreeRoot: agentResumeWorktreeRootResolver(fixture.worktreeRoot),
       launchCandidate: async () => {
-        throw new Error("invalid since duration must not launch an agent");
+        launchedCount += 1;
+        return AGENT_CLI_EXIT.SUCCESS;
       },
       writeStderr: (output) => stderr.push(output),
       exit: (exitCode) => {
@@ -1275,8 +1281,9 @@ export async function assertResumeSinceRejectsInvalidDurations(): Promise<void> 
     });
     program.exitOverride();
 
-    await expect(
-      program.parseAsync(
+    let error: unknown = null;
+    try {
+      await program.parseAsync(
         [
           AGENT_CLI.commandName,
           AGENT_CLI.resumeCommandName,
@@ -1285,17 +1292,20 @@ export async function assertResumeSinceRejectsInvalidDurations(): Promise<void> 
           rejectedDuration,
         ],
         { from: SPX_COMMANDER_PARSE_SOURCE },
-      ),
-    ).rejects.toMatchObject({ exitCode: AGENT_CLI_EXIT.FAILURE });
-    const diagnosticText = stderr.filter((chunk) => chunk.includes(AGENT_CLI_ERROR_PREFIX)).join("");
-    expect(diagnosticText).toContain(sanitizeCliArgument(rejectedDuration));
-    expect(diagnosticText).toContain(diagnostic);
-    expect(diagnosticText.startsWith(AGENT_CLI_ERROR_PREFIX)).toBe(true);
-    expect(diagnosticText.split(AGENT_CLI_ERROR_PREFIX)).toHaveLength(SINGLE_PREFIX_SEGMENTS);
-    if (diagnostic === AGENT_SINCE_DIAGNOSTIC.MISSING_UNIT) {
-      expect(diagnosticText).toContain(AGENT_SINCE_ACCEPTED_FORM);
+      );
+    } catch (caught) {
+      error = caught;
     }
+    attempts.push({
+      rejectedDuration,
+      sanitizedDuration: sanitizeCliArgument(rejectedDuration),
+      expectedDiagnostic: diagnostic,
+      exitCode: error instanceof ImmediateExit ? error.exitCode : null,
+      stderr: stderr.join(""),
+      launchedCount,
+    });
   }
+  callback({ attempts });
 }
 
 export async function assertSkipsClaudeSiblingProjectPrefix(): Promise<void> {
