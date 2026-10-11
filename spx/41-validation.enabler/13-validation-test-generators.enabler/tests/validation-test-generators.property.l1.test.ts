@@ -2,11 +2,10 @@ import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 import { VALIDATION_CLI_GENERATOR } from "@testing/generators/validation/validation";
 import {
   assertProperty,
-  PROPERTY_LEVEL,
-  PROPERTY_SIZE,
-  PROPERTY_TIMEOUTS_MS,
+  PROPERTY_CLASSIFICATION,
+  propertyTestEnvelopeTimeoutMs,
 } from "@testing/harnesses/property/property";
-import { dispatchValidationOperands, VALIDATION_REPEATED_PIPELINE_TIMEOUT } from "@testing/harnesses/validation/cli";
+import { dispatchValidationOperands } from "@testing/harnesses/validation/cli";
 import { describe, expect, it } from "vitest";
 
 describe("generated unknown validation subcommands", () => {
@@ -22,9 +21,9 @@ describe("generated unknown validation subcommands", () => {
           expect(result.exitCode).toBe(validationCliDefinition.diagnostics.unknownSubcommand.exitCode);
           expect(result.stderr).toContain(validationCliDefinition.diagnostics.unknownSubcommand.messageLabel);
         },
-        { level: PROPERTY_LEVEL.L2, size: PROPERTY_SIZE.SMALL },
+        PROPERTY_CLASSIFICATION.SMALL_L1,
       );
     },
-    VALIDATION_REPEATED_PIPELINE_TIMEOUT + PROPERTY_TIMEOUTS_MS[PROPERTY_LEVEL.L2],
+    propertyTestEnvelopeTimeoutMs(PROPERTY_CLASSIFICATION.SMALL_L1),
   );
 });
