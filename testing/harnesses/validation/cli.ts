@@ -309,6 +309,18 @@ export function dispatchValidationAll(
   });
 }
 
+/**
+ * Dispatches the given operands through the validation domain against a recording domain and
+ * returns the CLI result and the handler calls for the executed test file to assert on.
+ */
+export async function dispatchValidationOperands(
+  operands: readonly string[],
+): Promise<ValidationAllDispatch> {
+  const recorder = createRecordingValidationDomain(validationCliDefinition.diagnostics.unknownSubcommand.exitCode);
+  const result = await runValidationInProcess(operands, { domain: recorder.domain });
+  return { result, calls: recorder.calls };
+}
+
 /** The `--scope` operand pair selecting the production scope. */
 export function validationProductionScopeOperands(): readonly string[] {
   return [validationCommonCliOptions.scope.flag, VALIDATION_SCOPES.PRODUCTION];
