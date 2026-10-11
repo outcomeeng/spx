@@ -8,7 +8,7 @@ CAN explore configuration, discovery, scope resolution, pipeline, and tool behav
 
 ### Properties
 
-- Every generated unknown validation subcommand remains outside the source-owned command vocabulary and reaches the production unknown-subcommand diagnostic path ([test](tests/validation-test-generators.property.l2.test.ts))
+- Every generated unknown validation subcommand remains outside the source-owned command vocabulary and reaches the production unknown-subcommand diagnostic path ([test](tests/validation-test-generators.property.l1.test.ts))
 
 ### Compliance
 
