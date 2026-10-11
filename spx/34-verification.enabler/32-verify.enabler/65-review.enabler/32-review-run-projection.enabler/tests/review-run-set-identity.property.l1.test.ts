@@ -27,14 +27,36 @@ describe("review run-set identity properties", () => {
       { level: PROPERTY_LEVEL.L1 },
     );
     assertProperty(
-      VERIFY_TEST_GENERATOR.reviewFindingIdentityDivergentPair(),
-      ({ base, divergent }) => {
-        expect(findingIdentityKey(reviewFindingIdentityFields(divergent))).not.toBe(
+      VERIFY_TEST_GENERATOR.changesetFindingDisplayVariantPair(),
+      ({ base, variant }) => {
+        expect(findingIdentityKey(reviewFindingIdentityFields(variant))).toBe(
           findingIdentityKey(reviewFindingIdentityFields(base)),
         );
       },
       { level: PROPERTY_LEVEL.L1 },
     );
+  });
+
+  it("separates review finding identity on each of anchor side, path, SPX summary, and subject shape taken alone", () => {
+    for (
+      const pairs of [
+        VERIFY_TEST_GENERATOR.reviewFindingSideDivergentPair(),
+        VERIFY_TEST_GENERATOR.reviewFindingPathDivergentPair(),
+        VERIFY_TEST_GENERATOR.reviewFindingSummaryDivergentPair(),
+        VERIFY_TEST_GENERATOR.reviewFindingShapeDivergentPair(),
+        VERIFY_TEST_GENERATOR.reviewFindingChangesetNamedPathDivergentPair(),
+      ]
+    ) {
+      assertProperty(
+        pairs,
+        ({ base, divergent }) => {
+          expect(findingIdentityKey(reviewFindingIdentityFields(divergent))).not.toBe(
+            findingIdentityKey(reviewFindingIdentityFields(base)),
+          );
+        },
+        { level: PROPERTY_LEVEL.L1 },
+      );
+    }
   });
 
   it("keeps the reviewed-unit scope key on the anchor side and path, invariant under coverage and display-field changes", () => {
@@ -45,21 +67,44 @@ describe("review run-set identity properties", () => {
       },
       { level: PROPERTY_LEVEL.L1 },
     );
-    assertProperty(
-      VERIFY_TEST_GENERATOR.reviewScopeUnitKeyDivergentPair(),
-      ({ base, divergent }) => {
-        expect(reviewScopeUnitKey(divergent)).not.toBe(reviewScopeUnitKey(base));
-      },
-      { level: PROPERTY_LEVEL.L1 },
-    );
+  });
+
+  it("separates the reviewed-unit scope key on anchor side and path taken alone", () => {
+    for (
+      const pairs of [
+        VERIFY_TEST_GENERATOR.reviewScopeUnitSideDivergentPair(),
+        VERIFY_TEST_GENERATOR.reviewScopeUnitPathDivergentPair(),
+      ]
+    ) {
+      assertProperty(
+        pairs,
+        ({ base, divergent }) => {
+          expect(reviewScopeUnitKey(divergent)).not.toBe(reviewScopeUnitKey(base));
+        },
+        { level: PROPERTY_LEVEL.L1 },
+      );
+    }
   });
 
   it("keeps the payload-shaped adapters total over validated and non-conforming payloads", () => {
     assertProperty(
-      VERIFY_TEST_GENERATOR.reviewFinding(),
-      (finding) => {
-        expect(reviewRunSetFindingIdentity(finding as unknown as JsonValue)).toEqual(
-          reviewFindingIdentityFields(finding),
+      VERIFY_TEST_GENERATOR.reviewFindingDisplayVariantPair(),
+      ({ base, variant }) => {
+        const fields = reviewRunSetFindingIdentity(base as unknown as JsonValue);
+        expect(fields.verificationType).toBe(VERIFY_VERIFICATION_TYPE.REVIEW);
+        expect(fields.rule).toBe(REVIEW_FINDING_IDENTITY_RULE);
+        expect(fields.fingerprint).toBe(base.finding.summary);
+        expect(findingIdentityKey(reviewRunSetFindingIdentity(variant as unknown as JsonValue))).toBe(
+          findingIdentityKey(fields),
+        );
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+    assertProperty(
+      VERIFY_TEST_GENERATOR.reviewFindingSideDivergentPair(),
+      ({ base, divergent }) => {
+        expect(findingIdentityKey(reviewRunSetFindingIdentity(divergent as unknown as JsonValue))).not.toBe(
+          findingIdentityKey(reviewRunSetFindingIdentity(base as unknown as JsonValue)),
         );
       },
       { level: PROPERTY_LEVEL.L1 },

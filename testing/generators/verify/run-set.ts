@@ -595,12 +595,12 @@ function reviewScopePayload(unit: ReviewScopeUnit): JsonValue {
 
 function reviewFindingPayload(finding: ReviewFinding): JsonValue {
   return {
-    path: finding.path,
-    side: finding.side,
     originalCommit: finding.originalCommit,
-    diffHunk: finding.diffHunk,
     body: finding.body,
     finding: { disposition: finding.finding.disposition, summary: finding.finding.summary },
+    ...(finding.path === undefined ? {} : { path: finding.path }),
+    ...(finding.side === undefined ? {} : { side: finding.side }),
+    ...(finding.diffHunk === undefined ? {} : { diffHunk: finding.diffHunk }),
     ...(finding.providerIdentity === undefined ? {} : { providerIdentity: finding.providerIdentity }),
     ...(finding.line === undefined ? {} : { line: finding.line }),
     ...(finding.position === undefined ? {} : { position: finding.position }),

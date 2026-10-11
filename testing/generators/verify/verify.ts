@@ -8,8 +8,10 @@ import {
   type VerificationContextSubject,
 } from "@/domains/verification-context/context";
 import { evidenceFieldPath } from "@/domains/verify/evidence-rejection";
+import { REVIEW_CHANGESET_FINDING_SUBJECT } from "@/domains/verify/review-run-set";
 import { MERGE_PERIOD_BACKEND, type RunSetRunEvidence, type RunSetSelector } from "@/domains/verify/run-set";
 import {
+  type AnchoredReviewFinding,
   AUDIT_CLASS,
   AUDIT_COVERAGE_REQUIREMENT,
   AUDIT_COVERAGE_STATUS,
@@ -26,11 +28,13 @@ import {
   REVIEW_SCOPE_COVERAGE_STATE,
   REVIEW_TERMINAL_STATE,
   REVIEW_TERMINAL_STATUSES,
+  type ReviewAnchorSide,
   type ReviewFinding,
   type ReviewScopeUnit,
   type ReviewTerminalMetadata,
   type ReviewTerminalState,
   TEST_PAYLOAD_FIELD,
+  type UnanchoredReviewFinding,
   VERIFY_FINDING_DISPOSITION,
   VERIFY_SCOPE_PAYLOAD_FIELD,
   VERIFY_SCOPE_SEPARATOR,
@@ -143,8 +147,10 @@ function arbitraryReviewFindingMetadata(): fc.Arbitrary<ReviewFinding["finding"]
   return arbitraryReviewFindingMetadataWith(REVIEW_FINDING_DISPOSITIONS);
 }
 
-/** A valid review finding: an anchored review comment with SPX finding metadata. */
-function arbitraryReviewFindingWith(finding: fc.Arbitrary<ReviewFinding["finding"]>): fc.Arbitrary<ReviewFinding> {
+/** A valid anchored review finding: a path, side, diff hunk, and a line or position, with SPX finding metadata. */
+function arbitraryAnchoredReviewFindingWith(
+  finding: fc.Arbitrary<ReviewFinding["finding"]>,
+): fc.Arbitrary<AnchoredReviewFinding> {
   const base = {
     path: arbitrarySourceFilePath(),
     side: fc.constantFrom(...REVIEW_ANCHOR_SIDES),
@@ -172,6 +178,67 @@ function arbitraryReviewFindingWith(finding: fc.Arbitrary<ReviewFinding["finding
       url: STATE_STORE_TEST_GENERATOR.scopeToken(),
     }),
   );
+}
+
+/** A valid unanchored review finding: no line, position, side, or diff hunk; a path only when it concerns one path. */
+function arbitraryUnanchoredReviewFindingWith(
+  finding: fc.Arbitrary<ReviewFinding["finding"]>,
+): fc.Arbitrary<UnanchoredReviewFinding> {
+  const base = {
+    originalCommit: STATE_STORE_TEST_GENERATOR.headSha(),
+    body: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    finding,
+  };
+  return fc.oneof(
+    fc.record({ ...base, path: arbitrarySourceFilePath() }),
+    fc.record(base),
+    fc.record({
+      ...base,
+      path: arbitrarySourceFilePath(),
+      providerIdentity: STATE_STORE_TEST_GENERATOR.scopeToken(),
+      url: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    }),
+  );
+}
+
+/** A valid review finding, anchored or unanchored, with SPX finding metadata. */
+function arbitraryReviewFindingWith(finding: fc.Arbitrary<ReviewFinding["finding"]>): fc.Arbitrary<ReviewFinding> {
+  return fc.oneof(arbitraryAnchoredReviewFindingWith(finding), arbitraryUnanchoredReviewFindingWith(finding));
+}
+
+function arbitraryAnchoredReviewFinding(): fc.Arbitrary<AnchoredReviewFinding> {
+  return arbitraryAnchoredReviewFindingWith(arbitraryReviewFindingMetadata());
+}
+
+function arbitraryUnanchoredReviewFinding(): fc.Arbitrary<UnanchoredReviewFinding> {
+  return arbitraryUnanchoredReviewFindingWith(arbitraryReviewFindingMetadata());
+}
+
+/**
+ * A review finding that shares the identity subject of `identity` — its anchor side and path, or
+ * its path, or the changeset — and its summary, while every other field comes from `shell`.
+ */
+export function reviewFindingSharingIdentity(identity: ReviewFinding, shell: ReviewFinding): ReviewFinding {
+  const common = {
+    originalCommit: shell.originalCommit,
+    body: shell.body,
+    finding: { ...shell.finding, summary: identity.finding.summary },
+    ...(shell.providerIdentity === undefined ? {} : { providerIdentity: shell.providerIdentity }),
+    ...(shell.url === undefined ? {} : { url: shell.url }),
+  };
+  if (identity.side === undefined) {
+    return { ...common, ...(identity.path === undefined ? {} : { path: identity.path }) };
+  }
+  const line = shell.line ?? identity.line;
+  const position = shell.position ?? identity.position;
+  return {
+    ...common,
+    path: identity.path,
+    side: identity.side,
+    diffHunk: shell.diffHunk ?? identity.diffHunk,
+    ...(line === undefined ? {} : { line }),
+    ...(position === undefined ? {} : { position }),
+  };
 }
 
 function arbitraryReviewFinding(): fc.Arbitrary<ReviewFinding> {
@@ -257,28 +324,92 @@ function arbitraryReviewFindingDisplayVariantPair(): fc.Arbitrary<{
 }> {
   return fc.tuple(arbitraryReviewFinding(), arbitraryReviewFinding()).map(([base, shell]) => ({
     base,
-    variant: {
-      ...shell,
-      side: base.side,
-      path: base.path,
-      finding: { ...shell.finding, summary: base.finding.summary },
-    },
+    variant: reviewFindingSharingIdentity(base, shell),
   }));
 }
 
-/** Two review findings differing in anchor side, path, or SPX summary. */
-function arbitraryReviewFindingIdentityDivergentPair(): fc.Arbitrary<{
+/** A review finding beside a copy of itself differing in exactly one identity axis. */
+export interface ReviewFindingAxisPair {
   readonly base: ReviewFinding;
   readonly divergent: ReviewFinding;
+}
+
+function otherAnchorSide(side: ReviewAnchorSide): ReviewAnchorSide {
+  return side === REVIEW_ANCHOR_SIDE.LEFT ? REVIEW_ANCHOR_SIDE.RIGHT : REVIEW_ANCHOR_SIDE.LEFT;
+}
+
+/** An anchored review finding beside a copy differing only in anchor side. */
+function arbitraryReviewFindingSideDivergentPair(): fc.Arbitrary<ReviewFindingAxisPair> {
+  return arbitraryAnchoredReviewFinding().map((base) => ({
+    base,
+    divergent: { ...base, side: otherAnchorSide(base.side) },
+  }));
+}
+
+/** A review finding that concerns a path beside a copy differing only in that path. */
+function arbitraryReviewFindingPathDivergentPair(): fc.Arbitrary<ReviewFindingAxisPair> {
+  return fc
+    .tuple(arbitraryReviewFinding(), arbitrarySourceFilePath())
+    .filter(([base, path]) => base.path !== undefined && base.path !== path)
+    .map(([base, path]) => ({ base, divergent: { ...base, path } }));
+}
+
+/** A review finding beside a copy differing only in its SPX summary. */
+function arbitraryReviewFindingSummaryDivergentPair(): fc.Arbitrary<ReviewFindingAxisPair> {
+  return fc
+    .tuple(arbitraryReviewFinding(), STATE_STORE_TEST_GENERATOR.scopeToken())
+    .filter(([base, summary]) => base.finding.summary !== summary)
+    .map(([base, summary]) => ({
+      base,
+      divergent: { ...base, finding: { ...base.finding, summary } },
+    }));
+}
+
+/**
+ * Two review findings of different subject shapes — anchored, unanchored with a path, and
+ * unanchored without a path — sharing the SPX summary and, where both carry one, the path.
+ */
+function arbitraryReviewFindingShapeDivergentPair(): fc.Arbitrary<ReviewFindingAxisPair> {
+  return fc
+    .tuple(
+      arbitraryAnchoredReviewFinding(),
+      arbitraryUnanchoredReviewFinding().filter((finding) => finding.path !== undefined),
+      arbitraryUnanchoredReviewFinding().filter((finding) => finding.path === undefined),
+    )
+    .chain(([anchored, pathed, pathless]) => {
+      const sharedSummary = { ...anchored.finding };
+      const asPathed = { ...pathed, path: anchored.path, finding: sharedSummary };
+      const asPathless = { ...pathless, finding: sharedSummary };
+      return fc.constantFrom<ReviewFindingAxisPair>(
+        { base: anchored, divergent: asPathed },
+        { base: anchored, divergent: asPathless },
+        { base: asPathed, divergent: asPathless },
+      );
+    });
+}
+
+/**
+ * A changeset-wide unanchored review finding beside a path-only unanchored copy whose path is the
+ * text the changeset-wide subject encodes, sharing the SPX summary.
+ */
+function arbitraryChangesetNamedPathDivergentPair(): fc.Arbitrary<ReviewFindingAxisPair> {
+  const [changesetSubjectText] = JSON.parse(REVIEW_CHANGESET_FINDING_SUBJECT) as readonly string[];
+  return arbitraryUnanchoredReviewFinding()
+    .filter((finding) => finding.path === undefined)
+    .map((base) => ({ base, divergent: { ...base, path: changesetSubjectText } }));
+}
+
+/** An unanchored changeset-wide review finding beside a display variant of itself. */
+function arbitraryChangesetFindingDisplayVariantPair(): fc.Arbitrary<{
+  readonly base: ReviewFinding;
+  readonly variant: ReviewFinding;
 }> {
   return fc
-    .tuple(arbitraryReviewFinding(), arbitraryReviewFinding())
-    .filter(([base, divergent]) =>
-      base.side !== divergent.side
-      || base.path !== divergent.path
-      || base.finding.summary !== divergent.finding.summary
+    .tuple(
+      arbitraryUnanchoredReviewFinding().filter((finding) => finding.path === undefined),
+      arbitraryReviewFinding(),
     )
-    .map(([base, divergent]) => ({ base, divergent }));
+    .map(([base, shell]) => ({ base, variant: reviewFindingSharingIdentity(base, shell) }));
 }
 
 /** One reviewed unit beside a display variant sharing its anchor side and path. */
@@ -292,15 +423,26 @@ function arbitraryReviewScopeUnitDisplayVariantPair(): fc.Arbitrary<{
   }));
 }
 
-/** Two reviewed units differing in anchor side or path. */
-function arbitraryReviewScopeUnitKeyDivergentPair(): fc.Arbitrary<{
+/** A reviewed unit beside a copy differing only in anchor side. */
+function arbitraryReviewScopeUnitSideDivergentPair(): fc.Arbitrary<{
+  readonly base: ReviewScopeUnit;
+  readonly divergent: ReviewScopeUnit;
+}> {
+  return arbitraryReviewScopeUnit().map((base) => ({
+    base,
+    divergent: { ...base, side: otherAnchorSide(base.side) },
+  }));
+}
+
+/** A reviewed unit beside a copy differing only in path. */
+function arbitraryReviewScopeUnitPathDivergentPair(): fc.Arbitrary<{
   readonly base: ReviewScopeUnit;
   readonly divergent: ReviewScopeUnit;
 }> {
   return fc
-    .tuple(arbitraryReviewScopeUnit(), arbitraryReviewScopeUnit())
-    .filter(([base, divergent]) => base.side !== divergent.side || base.path !== divergent.path)
-    .map(([base, divergent]) => ({ base, divergent }));
+    .tuple(arbitraryReviewScopeUnit(), arbitrarySourceFilePath())
+    .filter(([base, path]) => base.path !== path)
+    .map(([base, path]) => ({ base, divergent: { ...base, path } }));
 }
 
 /** A review run set with prior and current runs plus the construction-derived expected groups. */
@@ -368,12 +510,7 @@ function arbitraryReviewRunSetScenario(): fc.Arbitrary<ReviewRunSetScenario> {
         ...finding,
         finding: { ...finding.finding, summary: `${finding.finding.summary}-f${index}` },
       });
-      const variantOf = (identity: ReviewFinding, shell: ReviewFinding): ReviewFinding => ({
-        ...shell,
-        side: identity.side,
-        path: identity.path,
-        finding: { ...shell.finding, summary: identity.finding.summary },
-      });
+      const variantOf = reviewFindingSharingIdentity;
       const [active0, carried0, resolved0, reopened0] = identities;
       const findingActive = distinct(active0, 0);
       const findingCarriedPrior = distinct(carried0, 1);
@@ -1015,6 +1152,19 @@ export const VERIFY_TEST_GENERATOR = {
       }),
       { selector: (entry) => entry.idempotencyKey, minLength: FINDING_BATCH_MIN, maxLength: FINDING_BATCH_MAX },
     ),
+  unanchoredReviewFindingBatch: (): fc.Arbitrary<readonly FindingWithKey[]> =>
+    fc
+      .tuple(
+        arbitraryUnanchoredReviewFinding().filter((finding) => finding.path !== undefined),
+        arbitraryUnanchoredReviewFinding().filter((finding) => finding.path === undefined),
+        fc.uniqueArray(STATE_STORE_TEST_GENERATOR.scopeToken(), { minLength: 2, maxLength: 2 }),
+      )
+      .map(([pathed, pathless, keys]) => [
+        { finding: pathed, idempotencyKey: keys[0] },
+        { finding: pathless, idempotencyKey: keys[1] },
+      ]),
+  anchoredReviewFinding: (): fc.Arbitrary<ReviewFinding> => arbitraryAnchoredReviewFinding(),
+  unanchoredReviewFinding: (): fc.Arbitrary<ReviewFinding> => arbitraryUnanchoredReviewFinding(),
   defectReviewFinding: (): fc.Arbitrary<ReviewFinding> => arbitraryDefectReviewFinding(),
   filedOrStaleReviewFinding: (): fc.Arbitrary<ReviewFinding> => arbitraryFiledOrStaleReviewFinding(),
   reviewFindingAnchorVariants: (): fc.Arbitrary<readonly ReviewFinding[]> =>
@@ -1027,18 +1177,30 @@ export const VERIFY_TEST_GENERATOR = {
     readonly base: ReviewFinding;
     readonly variant: ReviewFinding;
   }> => arbitraryReviewFindingDisplayVariantPair(),
-  reviewFindingIdentityDivergentPair: (): fc.Arbitrary<{
+  reviewFindingSideDivergentPair: (): fc.Arbitrary<ReviewFindingAxisPair> => arbitraryReviewFindingSideDivergentPair(),
+  reviewFindingPathDivergentPair: (): fc.Arbitrary<ReviewFindingAxisPair> => arbitraryReviewFindingPathDivergentPair(),
+  reviewFindingSummaryDivergentPair: (): fc.Arbitrary<ReviewFindingAxisPair> =>
+    arbitraryReviewFindingSummaryDivergentPair(),
+  reviewFindingShapeDivergentPair: (): fc.Arbitrary<ReviewFindingAxisPair> =>
+    arbitraryReviewFindingShapeDivergentPair(),
+  reviewFindingChangesetNamedPathDivergentPair: (): fc.Arbitrary<ReviewFindingAxisPair> =>
+    arbitraryChangesetNamedPathDivergentPair(),
+  changesetFindingDisplayVariantPair: (): fc.Arbitrary<{
     readonly base: ReviewFinding;
-    readonly divergent: ReviewFinding;
-  }> => arbitraryReviewFindingIdentityDivergentPair(),
+    readonly variant: ReviewFinding;
+  }> => arbitraryChangesetFindingDisplayVariantPair(),
   reviewScopeUnitDisplayVariantPair: (): fc.Arbitrary<{
     readonly base: ReviewScopeUnit;
     readonly variant: ReviewScopeUnit;
   }> => arbitraryReviewScopeUnitDisplayVariantPair(),
-  reviewScopeUnitKeyDivergentPair: (): fc.Arbitrary<{
+  reviewScopeUnitSideDivergentPair: (): fc.Arbitrary<{
     readonly base: ReviewScopeUnit;
     readonly divergent: ReviewScopeUnit;
-  }> => arbitraryReviewScopeUnitKeyDivergentPair(),
+  }> => arbitraryReviewScopeUnitSideDivergentPair(),
+  reviewScopeUnitPathDivergentPair: (): fc.Arbitrary<{
+    readonly base: ReviewScopeUnit;
+    readonly divergent: ReviewScopeUnit;
+  }> => arbitraryReviewScopeUnitPathDivergentPair(),
   reviewRunSetScenario: (): fc.Arbitrary<ReviewRunSetScenario> => arbitraryReviewRunSetScenario(),
   invalidReviewFinding: (): fc.Arbitrary<unknown> =>
     fc.oneof(
@@ -1415,7 +1577,7 @@ export function arbitraryReviewScopeMissingRequiredField(): fc.Arbitrary<ReviewM
 /** Review finding payloads each missing exactly one required field the schema declares. */
 export function arbitraryReviewFindingMissingRequiredField(): fc.Arbitrary<ReviewMissingFieldScenario> {
   return fc
-    .tuple(arbitraryReviewFinding(), fc.constantFrom(...REQUIRED_REVIEW_FINDING_FIELDS))
+    .tuple(arbitraryAnchoredReviewFinding(), fc.constantFrom(...REQUIRED_REVIEW_FINDING_FIELDS))
     .map(([finding, missingField]) => ({ payload: reviewPayloadWithoutField(finding, missingField), missingField }));
 }
 
@@ -1479,7 +1641,7 @@ export function arbitraryReviewFindingMissingDispositionEvidence(): fc.Arbitrary
  * is present, so the payload reaches the anchor requirement rather than failing a field check.
  */
 export function arbitraryReviewFindingWithoutAnchor(): fc.Arbitrary<JsonValue> {
-  return arbitraryReviewFinding().map((finding) => {
+  return arbitraryAnchoredReviewFinding().map((finding) => {
     const {
       [REVIEW_PAYLOAD_FIELD.LINE]: _line,
       [REVIEW_PAYLOAD_FIELD.POSITION]: _position,
@@ -1487,4 +1649,34 @@ export function arbitraryReviewFindingWithoutAnchor(): fc.Arbitrary<JsonValue> {
     } = JSON.parse(JSON.stringify(finding)) as { readonly [key: string]: JsonValue };
     return anchorless;
   });
+}
+
+/** One review finding payload carrying part, but not all, of its anchor, and the anchor fields it lacks. */
+export interface ReviewPartialAnchorScenario {
+  readonly payload: JsonValue;
+  readonly missingFields: readonly string[];
+}
+
+const REVIEW_ANCHOR_FIELD_GROUPS = [
+  [REVIEW_PAYLOAD_FIELD.SIDE],
+  [REVIEW_PAYLOAD_FIELD.DIFF_HUNK],
+  [REVIEW_PAYLOAD_FIELD.LINE, REVIEW_PAYLOAD_FIELD.POSITION],
+] as const;
+
+/**
+ * Review finding payloads carrying some but not all of line-or-position, side, and diff hunk: an
+ * anchored finding with a non-empty proper subset of its anchor groups removed.
+ */
+export function arbitraryReviewFindingWithPartialAnchor(): fc.Arbitrary<ReviewPartialAnchorScenario> {
+  return fc
+    .tuple(
+      arbitraryAnchoredReviewFinding(),
+      fc.subarray([0, 1, 2], { minLength: 1, maxLength: 2 }),
+    )
+    .map(([finding, removedGroups]) => {
+      const removed = removedGroups.flatMap((group) => REVIEW_ANCHOR_FIELD_GROUPS[group]);
+      const kept = structuredClone(finding) as unknown as { [key: string]: JsonValue };
+      for (const field of removed) delete kept[field];
+      return { payload: kept, missingFields: removed };
+    });
 }
