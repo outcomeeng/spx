@@ -1675,7 +1675,7 @@ export function arbitraryReviewFindingWithPartialAnchor(): fc.Arbitrary<ReviewPa
     )
     .map(([finding, removedGroups]) => {
       const removed = removedGroups.flatMap((group) => REVIEW_ANCHOR_FIELD_GROUPS[group]);
-      const kept = JSON.parse(JSON.stringify(finding)) as { [key: string]: JsonValue };
+      const kept = structuredClone(finding) as { [key: string]: JsonValue };
       for (const field of removed) delete kept[field];
       return { payload: kept, missingFields: removed };
     });
