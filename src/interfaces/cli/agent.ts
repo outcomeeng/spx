@@ -34,6 +34,7 @@ import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation } from "@/interfaces/cli/product-context";
 import { foregroundProcessRunner, lifecycleSignalSuspender } from "@/lib/process-lifecycle";
 import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
+import { authoredText, externalValue, terminal } from "@/lib/terminal-text/terminal-text";
 
 import { launchAgentResume } from "./agent/resume/launch-agent-resume";
 import {
@@ -145,7 +146,7 @@ function handleError(invocation: CliInvocation, error: unknown): never {
   const message = error instanceof Error
     ? (error.name === BASE_ERROR_NAME ? error.message : `${error.name}: ${error.message}`)
     : inspect(error);
-  writeError(invocation, `${AGENT_CLI_ERROR_PREFIX}${message}`);
+  writeError(invocation, terminal`${authoredText(AGENT_CLI_ERROR_PREFIX)}${externalValue(message)}`);
   return invocation.io.exit(AGENT_CLI_EXIT.FAILURE);
 }
 
