@@ -133,12 +133,12 @@ import {
   type FindingWithKey,
   formatNameStatusZ,
   sampleVerifyTestValue,
+  type VerifierIdentity,
   VERIFY_TEST_GENERATOR,
   type VerifyEvidenceRequiredOptionCase,
   verifyEvidenceRequiredOptionCases,
   type VerifyNonNounLocalEvidenceCase,
   verifyNonNounLocalEvidenceCases,
-  type VerifierIdentity,
   type VerifyScopeMappingCase,
   verifyScopeMappingCases,
 } from "@testing/generators/verify/verify";
