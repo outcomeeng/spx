@@ -10,14 +10,22 @@ A declared migration source makes a mixed-version tree a governed state rather t
 
 Which methodology version a provider serves is the provider's fact, declared in its plugin manifest — `plugin.json` — as `methodology.provides`, the one version it provides, and `methodology.supports`, the range it supports. SPX reads that declaration where one exists and never infers compatibility from version-string similarity across unrelated numbering schemes. The methodology defines what an exact selection is: its own version directory is a `MAJOR.MINOR` line, and it accepts the line form and the patched form alike, so a toolchain that admitted only one of them would gate what a declaration may state on a fact about the toolchain. A sentinel such as `installed` is rejected because it names no version: a declaration that cannot be compared with a provider's `provides` verifies nothing and lets a product run against whatever happens to be present.
 
+SPX selects the grammar a read accepts from the product's methodology declaration, because the declared version is the consumer's fact and a migrating tree reads whole while artifacts at either version are valid. Configuration selects no kind: the declaration alone decides which kinds a read admits.
+
 ## Product properties
 
 1. A coding agent participates in harness environment management only when product configuration explicitly enables it and availability detection finds it; detection never opts an agent in.
 2. Capability status is read-only, apply reproduces committed versions, and update advances and persists only package versions whose declared `methodology.supports` range contains the product's declared methodology version.
-3. A product declares one exact target methodology version and, while a migration is open, the exact version it migrates from; artifacts at either version are valid, and a coding agent upgrades every artifact it touches to the target version.
+3. A product declares one exact target methodology version and, while a migration is open, the exact version it migrates from; artifacts at either version are valid, a coding agent upgrades every artifact it touches to the target version, and SPX reads the product's spec tree in the grammar those declarations select: the 4.0 grammar for a version on the 4.0 line, the 3.x grammar for a version on the 3.0, 3.1, or 3.2 line, and both while a migration source on one of those three lines is declared.
 4. Methodology migration is isolated and resumable, with target-methodology verification governing semantic correctness and SPX governing launch, journaling, state preservation, and completion-envelope correctness.
 
 ## Verification
+
+- ALWAYS: a `methodology.version` on the 4.0 line selects the 4.0 grammar, a `methodology.version` on the 3.0, 3.1, or 3.2 line selects the 3.x grammar, and a `methodology.migratingFrom` on the 3.0, 3.1, or 3.2 line adds the 3.x grammar while it is declared
+- ALWAYS: a `methodology.version` or `methodology.migratingFrom` on a line other than 3.0, 3.1, 3.2, and 4.0 fails the read naming the declared version and the lines SPX reads
+- ALWAYS: a tree holding more than one root spec fails the read naming each, and a 4.0 root spec whose front matter does not declare `kind: product` fails the read naming that file
+- ALWAYS: product configuration whose `specTree` section carries a `kinds` field, whether a list of kind names or a map of kind definitions, fails configuration resolution naming `specTree.kinds`
+- NEVER: a read accepts a grammar the methodology declaration does not select
 
 ### Testing
 
