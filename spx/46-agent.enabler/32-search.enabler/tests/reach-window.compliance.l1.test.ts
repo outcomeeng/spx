@@ -17,16 +17,17 @@ describe("agent search — reach window rejection", () => {
         expect(attempt.error).toBeInstanceOf(Error);
         expect(attempt.exitCode).toBe(AGENT_CLI_EXIT.FAILURE);
         expect(attempt.stdout).toHaveLength(0);
-        const literal = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-        const prefix = literal(AGENT_CLI_ERROR_PREFIX);
         const hint = attempt.expectedDiagnostic === AGENT_SINCE_DIAGNOSTIC.MISSING_UNIT
-          ? literal(AGENT_SINCE_ACCEPTED_FORM)
+          ? AGENT_SINCE_ACCEPTED_FORM
           : "";
-        const singleDiagnostic = new RegExp(
-          String.raw`^(?:(?!.*${prefix}).*\n)*${prefix}(?!.*${prefix})(?=.*${literal(attempt.sanitizedDuration)})`
-            + String.raw`(?=.*${literal(attempt.expectedDiagnostic)})(?=.*${hint}).*(?:\n(?!.*${prefix}).*)*$`,
-        );
-        expect(attempt.stderr).toMatch(singleDiagnostic);
+        const segments = attempt.stderr.split(AGENT_CLI_ERROR_PREFIX);
+        expect(segments).toHaveLength(2);
+        const [beforePrefix, afterPrefix] = segments;
+        expect(beforePrefix === "" || beforePrefix.endsWith("\n")).toBe(true);
+        const [message] = afterPrefix.split("\n");
+        expect(message).toContain(attempt.sanitizedDuration);
+        expect(message).toContain(attempt.expectedDiagnostic);
+        expect(message).toContain(hint);
       }
     });
   });
