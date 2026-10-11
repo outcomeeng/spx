@@ -31,6 +31,7 @@ import {
   assertSourcePathTieBreakSelectsPerAgentCap,
   assertTimestamplessSessionSortsAfterTimestamped,
   assertUnknownActivityFillsRemainingCapSlots,
+  withResumeCaughtErrorEvidence,
   withResumeRejectedSinceEvidence,
 } from "@testing/harnesses/agent/resume";
 
@@ -122,6 +123,18 @@ describe("agent resume recency-window compliance", () => {
           attempt.expectedDiagnostic !== AGENT_SINCE_DIAGNOSTIC.MISSING_UNIT
             || diagnosticLine.includes(AGENT_SINCE_ACCEPTED_FORM),
         ).toBe(true);
+      }
+    });
+  });
+
+  it("renders a caught error message carrying control bytes escaped under one Error prefix", async () => {
+    await withResumeCaughtErrorEvidence((evidence) => {
+      expect(evidence.attempts.length).toBeGreaterThan(0);
+      for (const attempt of evidence.attempts) {
+        expect(attempt.exitCode).toBe(AGENT_CLI_EXIT.FAILURE);
+        expect(attempt.stderrWrites.filter((write) => write.includes(AGENT_CLI_ERROR_PREFIX))).toEqual([
+          `${AGENT_CLI_ERROR_PREFIX}${attempt.escapedMessage}\n`,
+        ]);
       }
     });
   });

@@ -48,6 +48,7 @@ import {
   arbitraryAgentSessionCwd,
   arbitraryAgentSessionId,
   arbitraryAgentWorktreeRoot,
+  arbitraryCaughtAgentErrorMessages,
   arbitraryRejectedAgentResumeSinceCases,
   sampleAgentResumeValue,
 } from "@testing/generators/agent/resume";
@@ -1303,6 +1304,53 @@ export async function withResumeRejectedSinceEvidence(
       exitCode: error instanceof ImmediateExit ? error.exitCode : null,
       stderr: stderr.join(""),
       launchedCount,
+    });
+  }
+  callback({ attempts });
+}
+
+export interface ResumeCaughtErrorAttempt {
+  readonly escapedMessage: string;
+  readonly exitCode: number | null;
+  readonly stderrWrites: readonly string[];
+}
+
+export async function withResumeCaughtErrorEvidence(
+  callback: (evidence: { readonly attempts: readonly ResumeCaughtErrorAttempt[] }) => void,
+): Promise<void> {
+  const fixture = createAgentResumeDiscoveryFixture(340);
+  const caughtMessages = sampleAgentResumeValue(arbitraryCaughtAgentErrorMessages(), 344);
+  const attempts: ResumeCaughtErrorAttempt[] = [];
+  for (const { input: message, escaped: escapedMessage } of caughtMessages) {
+    const stderr: string[] = [];
+    const program = createInteractiveResumeProgram({
+      fs: discoveryRefusalFileSystem(),
+      homeDir: fixture.homeDir,
+      cwd: fixture.cwd,
+      nowMs: fixture.nowMs,
+      resolveWorktreeRoot: async () => {
+        throw new Error(message);
+      },
+      writeStderr: (output) => stderr.push(output),
+      exit: (exitCode) => {
+        throw new ImmediateExit(exitCode);
+      },
+    });
+    program.exitOverride();
+
+    let error: unknown = null;
+    try {
+      await program.parseAsync(
+        [AGENT_CLI.commandName, AGENT_CLI.resumeCommandName, AGENT_CLI.flags.list],
+        { from: SPX_COMMANDER_PARSE_SOURCE },
+      );
+    } catch (caught) {
+      error = caught;
+    }
+    attempts.push({
+      escapedMessage,
+      exitCode: error instanceof ImmediateExit ? error.exitCode : null,
+      stderrWrites: stderr,
     });
   }
   callback({ attempts });

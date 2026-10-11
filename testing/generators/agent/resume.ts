@@ -6,6 +6,10 @@ import { AGENT_RESUME_LIMITS, AGENT_RESUME_RECENT_WINDOW_MS } from "@/domains/ag
 import { AGENT_SINCE_DIAGNOSTIC, type AgentSinceDiagnostic } from "@/interfaces/cli/agent";
 import { CONTROL_CHAR_UPPER_BOUND } from "@/lib/sanitize-cli-argument";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
+import {
+  arbitraryTerminalEscapingCase,
+  type TerminalEscapingCase,
+} from "@testing/generators/terminal-text/terminal-text";
 
 const SAMPLE_SEED = 46_210;
 const SAMPLE_RUN_COUNT = 1;
@@ -22,6 +26,8 @@ const BRANCH_SEGMENT_JOINER = "/";
 const AGENT_SEARCH_UNSAFE_LIMIT_PREFIX = "limit";
 const AGENT_SEARCH_PARTIAL_NUMERIC_LIMIT_PREFIX = "1";
 const DECIMAL_DIGIT_PATTERN = /^[0-9]+$/;
+const MIN_CAUGHT_ERROR_MESSAGE_CASES = 3;
+const MAX_CAUGHT_ERROR_MESSAGE_CASES = 6;
 const DURATION_HOUR_SUFFIX = "h";
 const INVALID_DURATION_PREFIX = "invalid";
 const MIN_SINCE_HOURS = 1;
@@ -122,6 +128,13 @@ export function arbitraryRejectedAgentResumeSinceCases(): fc.Arbitrary<
       { text: FRACTIONAL_MILLISECOND_DURATION, diagnostic: AGENT_SINCE_DIAGNOSTIC.UNSAFE },
       { text: `${unsafeMilliseconds}ms`, diagnostic: AGENT_SINCE_DIAGNOSTIC.UNSAFE },
     ]);
+}
+
+export function arbitraryCaughtAgentErrorMessages(): fc.Arbitrary<readonly TerminalEscapingCase[]> {
+  return fc.array(arbitraryTerminalEscapingCase(), {
+    minLength: MIN_CAUGHT_ERROR_MESSAGE_CASES,
+    maxLength: MAX_CAUGHT_ERROR_MESSAGE_CASES,
+  });
 }
 
 export function arbitraryRejectedPiSessionVersions(): fc.Arbitrary<GeneratedRejectedPiSessionVersions> {
