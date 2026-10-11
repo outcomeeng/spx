@@ -1931,7 +1931,35 @@ export const VERIFY_RUN_CONTEXT_EVENT_FIELD = {
   DRIVE_MODE: "driveMode",
   HEAD_COMMIT: "headCommit",
   CHANGE: "change",
+  VERIFIER_KIND: "verifierKind",
+  VERIFIER_ID: "verifierId",
 } as const;
+
+/** The kinds of Verifier that can judge a run: a person or an agent. */
+export const VERIFY_VERIFIER_KIND = {
+  PERSON: "person",
+  AGENT: "agent",
+} as const;
+
+export type VerifyVerifierKind = (typeof VERIFY_VERIFIER_KIND)[keyof typeof VERIFY_VERIFIER_KIND];
+
+const VERIFY_VERIFIER_KINDS: ReadonlySet<string> = new Set(Object.values(VERIFY_VERIFIER_KIND));
+
+/** The Verifier a run is started with: its kind and its id. */
+export interface VerifyVerifier {
+  readonly kind: VerifyVerifierKind;
+  readonly id: string;
+}
+
+/** Whether a value is a Verifier kind the run lifecycle records. */
+export function isVerifyVerifierKind(value: string): value is VerifyVerifierKind {
+  return VERIFY_VERIFIER_KINDS.has(value);
+}
+
+/** Whether a Verifier id names a Verifier: a non-empty value that is not only whitespace. */
+export function isVerifyVerifierId(value: string): boolean {
+  return value.trim().length > 0;
+}
 
 /**
  * The canonical Change identity form `owner/repo#N`: an owner and a repository name, each one or
@@ -1960,6 +1988,7 @@ export function buildRunContextEvent(args: {
   readonly driveMode: VerifyDriveMode;
   readonly headCommit?: string;
   readonly change?: string;
+  readonly verifier?: VerifyVerifier;
   readonly at: Date;
 }): JournalEventInput {
   return {
@@ -1972,6 +2001,12 @@ export function buildRunContextEvent(args: {
       [VERIFY_RUN_CONTEXT_EVENT_FIELD.DRIVE_MODE]: args.driveMode,
       ...(args.headCommit === undefined ? {} : { [VERIFY_RUN_CONTEXT_EVENT_FIELD.HEAD_COMMIT]: args.headCommit }),
       ...(args.change === undefined ? {} : { [VERIFY_RUN_CONTEXT_EVENT_FIELD.CHANGE]: args.change }),
+      ...(args.verifier === undefined
+        ? {}
+        : {
+          [VERIFY_RUN_CONTEXT_EVENT_FIELD.VERIFIER_KIND]: args.verifier.kind,
+          [VERIFY_RUN_CONTEXT_EVENT_FIELD.VERIFIER_ID]: args.verifier.id,
+        }),
     },
   };
 }
@@ -2042,6 +2077,7 @@ export interface VerifyRunProjection {
   readonly sealed: boolean;
   readonly driveMode: VerifyDriveMode;
   readonly change?: string;
+  readonly verifier?: VerifyVerifier;
   readonly terminalStatus?: string;
   readonly terminalMetadata?: JsonValue;
   readonly findingCount: number;
@@ -2073,6 +2109,19 @@ export function changeIdentityOf(events: readonly JournalEvent[]): string | unde
   if (runContext === undefined || !isJsonRecord(runContext.data)) return undefined;
   const change = runContext.data[VERIFY_RUN_CONTEXT_EVENT_FIELD.CHANGE];
   return typeof change === "string" ? change : undefined;
+}
+
+/**
+ * The Verifier folded from the run's run-context event, or `undefined` when the run was started
+ * without one or the recorded kind and id do not name a valid Verifier.
+ */
+export function verifierOf(events: readonly JournalEvent[]): VerifyVerifier | undefined {
+  const runContext = events.find((event) => event.type === VERIFY_RUN_CONTEXT_EVENT_TYPE);
+  if (runContext === undefined || !isJsonRecord(runContext.data)) return undefined;
+  const kind = runContext.data[VERIFY_RUN_CONTEXT_EVENT_FIELD.VERIFIER_KIND];
+  const id = runContext.data[VERIFY_RUN_CONTEXT_EVENT_FIELD.VERIFIER_ID];
+  if (typeof kind !== "string" || typeof id !== "string") return undefined;
+  return isVerifyVerifierKind(kind) && isVerifyVerifierId(id) ? { kind, id } : undefined;
 }
 
 /** A full commit object name: a SHA-1 or SHA-256 hex digest, as `start` records the run's head commit. */
@@ -2208,10 +2257,12 @@ export function projectVerifyRun(
   const sealed = terminal !== undefined;
   const driveMode = driveModeOf(events);
   const change = changeIdentityOf(events);
+  const verifier = verifierOf(events);
   return {
     sealed,
     driveMode,
     ...(change === undefined ? {} : { change }),
+    ...(verifier === undefined ? {} : { verifier }),
     ...(terminalStatus === undefined ? {} : { terminalStatus }),
     ...(terminalMetadata === undefined ? {} : { terminalMetadata }),
     findingCount: countVerifyFindings(events),

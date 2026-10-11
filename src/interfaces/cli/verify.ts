@@ -36,7 +36,7 @@ import {
   verifyStatusCommand,
 } from "@/commands/verify/cli";
 import type { CliCommandResult } from "@/config/types";
-import { VERIFY_INPUT_SOURCE, VERIFY_SCOPE_TYPE, VERIFY_VERB } from "@/domains/verify/verify";
+import { VERIFY_INPUT_SOURCE, VERIFY_SCOPE_TYPE, VERIFY_VERB, VERIFY_VERIFIER_KIND } from "@/domains/verify/verify";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { jsonDocument, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
@@ -96,6 +96,11 @@ export const VERIFY_CLI = {
   inputOption: "--input <input-source>",
   changeOption: "--change <owner/repo#N>",
   changeOptionDescription: "Change the run serves, in the canonical owner/repo#N form; omit when it serves none",
+  verifierKindOption: "--verifier-kind <kind>",
+  verifierKindOptionDescription:
+    `Kind of the Verifier that judges the run; ${VERIFY_VERIFIER_KIND.PERSON} or ${VERIFY_VERIFIER_KIND.AGENT}`,
+  verifierIdOption: "--verifier-id <id>",
+  verifierIdOptionDescription: "Id of the Verifier that judges the run; supplied with --verifier-kind",
   listChangeOptionDescription: "Change whose runs are listed, in the canonical owner/repo#N form",
   compareCommandName: VERIFY_VERB.COMPARE,
   compareCommandDescription:
@@ -124,6 +129,8 @@ interface VerifySharedCliOptions {
 interface VerifyStartActionOptions extends VerifySharedCliOptions {
   readonly input: string;
   readonly change?: string;
+  readonly verifierKind?: string;
+  readonly verifierId?: string;
 }
 
 interface VerifyInputActionOptions extends VerifySharedCliOptions {
@@ -234,6 +241,8 @@ export function registerVerifyCommands(
     .requiredOption(VERIFY_CLI.scopeOption, VERIFY_CLI.scopeOptionDescription)
     .requiredOption(VERIFY_CLI.inputOption, "Verification input source; stdin or a file path")
     .option(VERIFY_CLI.changeOption, VERIFY_CLI.changeOptionDescription)
+    .option(VERIFY_CLI.verifierKindOption, VERIFY_CLI.verifierKindOptionDescription)
+    .option(VERIFY_CLI.verifierIdOption, VERIFY_CLI.verifierIdOptionDescription)
     .action(async (options: VerifyStartActionOptions) => {
       reportCliResult(await handlers.start(options, deps()), invocation.io);
     });
