@@ -7,7 +7,7 @@ import {
   arbitraryJournalSequenceInput,
 } from "@testing/generators/agent-run-journal";
 import { createJournalAdapterStorages } from "@testing/harnesses/agent-run-journal/adapters";
-import { assertProperty, PROPERTY_CLASSIFICATION } from "@testing/harnesses/property/property";
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 describe("agent-run-journal sequence, cursor, and render properties", () => {
   it("assigns strictly increasing, contiguous sequence numbers from the base on every adapter", async () => {
@@ -23,7 +23,7 @@ describe("agent-run-journal sequence, cursor, and render properties", () => {
           );
         }
       },
-      PROPERTY_CLASSIFICATION.SMALL_L1,
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 
@@ -41,7 +41,7 @@ describe("agent-run-journal sequence, cursor, and render properties", () => {
           );
         }
       },
-      PROPERTY_CLASSIFICATION.SMALL_L1,
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 
@@ -64,7 +64,7 @@ describe("agent-run-journal sequence, cursor, and render properties", () => {
         }
         expect(new Set(rendered).size).toBe(1);
       },
-      PROPERTY_CLASSIFICATION.SMALL_L1,
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 
@@ -86,7 +86,7 @@ describe("agent-run-journal sequence, cursor, and render properties", () => {
         }
         expect(new Set(rendered).size).toBe(1);
       },
-      PROPERTY_CLASSIFICATION.SMALL_L1,
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 
@@ -117,7 +117,7 @@ describe("agent-run-journal sequence, cursor, and render properties", () => {
           expect(rerunEvents.map((event) => [event.seq, event.id]), storage.adapter).toEqual(expectedIdentities);
         }
       },
-      PROPERTY_CLASSIFICATION.SMALL_L1,
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 });

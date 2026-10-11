@@ -10,7 +10,7 @@ import {
   arbitraryNonObjectRuntimeSection,
 } from "@testing/generators/agent-run-journal";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
-import { assertProperty, PROPERTY_CLASSIFICATION } from "@testing/harnesses/property/property";
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 describe("runtime config descriptor validates its eventNamespace field", () => {
   it("resolves an absent eventNamespace to the declared default", () => {
@@ -29,7 +29,7 @@ describe("runtime config descriptor validates its eventNamespace field", () => {
         });
         return result.ok && result.value.eventNamespace === namespace;
       },
-      PROPERTY_CLASSIFICATION.SMALL_L1,
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 
@@ -37,7 +37,7 @@ describe("runtime config descriptor validates its eventNamespace field", () => {
     assertProperty(
       arbitraryInvalidEventNamespace(),
       (invalid) => runtimeConfigDescriptor.validate({ [RUNTIME_CONFIG_FIELDS.EVENT_NAMESPACE]: invalid }).ok === false,
-      PROPERTY_CLASSIFICATION.SMALL_L1,
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 
@@ -45,7 +45,7 @@ describe("runtime config descriptor validates its eventNamespace field", () => {
     assertProperty(
       arbitraryNonObjectRuntimeSection(),
       (invalid) => runtimeConfigDescriptor.validate(invalid).ok === false,
-      PROPERTY_CLASSIFICATION.SMALL_L1,
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 });

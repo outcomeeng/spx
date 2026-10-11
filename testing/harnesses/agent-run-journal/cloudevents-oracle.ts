@@ -10,6 +10,7 @@
  * @module testing/harnesses/agent-run-journal/cloudevents-oracle
  */
 
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
@@ -20,7 +21,7 @@ const CAPTURE_MANIFEST_FILE = "capture.json";
 const FIXTURE_ENCODING = "utf8";
 
 const captureManifestSchema = z.object({
-  schema: z.object({ file: z.string().min(1) }),
+  schema: z.object({ file: z.string().min(1), sha256: z.string().regex(/^[0-9a-f]{64}$/) }),
   specversion: z.object({ value: z.string().min(1) }),
   attributeNaming: z.object({ pattern: z.string().min(1) }),
 });
@@ -44,10 +45,22 @@ async function readFixtureJson(file: string): Promise<unknown> {
   return JSON.parse(await readFile(join(CLOUDEVENTS_FIXTURE_ROOT, file), FIXTURE_ENCODING));
 }
 
+/** Fixture-integrity check: the captured schema bytes must hash to the digest the manifest records. */
+async function readVerifiedSchema(file: string, expectedSha256: string): Promise<unknown> {
+  const bytes = await readFile(join(CLOUDEVENTS_FIXTURE_ROOT, file));
+  const actualSha256 = createHash("sha256").update(bytes).digest("hex");
+  if (actualSha256 !== expectedSha256) {
+    throw new Error(
+      `CloudEvents fixture ${file} diverges from its capture: sha256 ${actualSha256}, manifest records ${expectedSha256}`,
+    );
+  }
+  return JSON.parse(bytes.toString(FIXTURE_ENCODING));
+}
+
 /** Load the captured CloudEvents release as an oracle independent of the journal module. */
 export async function loadCloudEventsOracle(): Promise<CloudEventsOracle> {
   const manifest = captureManifestSchema.parse(await readFixtureJson(CAPTURE_MANIFEST_FILE));
-  const schemaDocument = await readFixtureJson(manifest.schema.file);
+  const schemaDocument = await readVerifiedSchema(manifest.schema.file, manifest.schema.sha256);
   const { properties } = jsonSchemaDocumentSchema.parse(schemaDocument);
   return {
     eventSchema: z.fromJSONSchema(schemaDocument as Parameters<typeof z.fromJSONSchema>[0]),

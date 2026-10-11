@@ -16,7 +16,7 @@ import {
 import { createJournalAdapterStorages } from "@testing/harnesses/agent-run-journal/adapters";
 import { loadCloudEventsOracle } from "@testing/harnesses/agent-run-journal/cloudevents-oracle";
 import { createInMemoryAppendableBackend } from "@testing/harnesses/agent-run-journal/in-memory-backend";
-import { assertProperty, PROPERTY_CLASSIFICATION } from "@testing/harnesses/property/property";
+import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 describe("agent-run-journal CloudEvents conformance", () => {
   it("appends events that the captured CloudEvents v1.0 schema accepts and that carry the journal stream extensions", async () => {
@@ -47,7 +47,32 @@ describe("agent-run-journal CloudEvents conformance", () => {
           }
         }
       },
-      PROPERTY_CLASSIFICATION.SMALL_L1,
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+
+  it("rejects an appended event carrying a defect only the captured schema constrains, while accepting the unmodified event", async () => {
+    const oracle = await loadCloudEventsOracle();
+    await assertProperty(
+      arbitraryJournalSequenceInput(),
+      async ({ inputs, identity }) => {
+        const journal = createJournal(createInMemoryAppendableBackend(), identity);
+        for (const input of inputs) {
+          const event = await journal.append(input);
+          // the schema constrains value shapes the structural attribute checks never reach
+          const defective: ReadonlyArray<Record<string, unknown>> = [
+            { ...event, id: "" },
+            { ...event, id: event.seq },
+            { ...event, source: event.seq },
+            { ...event, time: event.id },
+          ];
+          expect(oracle.eventSchema.safeParse(event).success).toBe(true);
+          for (const candidate of defective) {
+            expect(oracle.eventSchema.safeParse(candidate).success).toBe(false);
+          }
+        }
+      },
+      { level: PROPERTY_LEVEL.L1 },
     );
   });
 
