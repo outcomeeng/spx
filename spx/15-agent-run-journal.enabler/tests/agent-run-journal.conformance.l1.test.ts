@@ -1,53 +1,51 @@
-import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import {
   checkJournalEventConformance,
   createJournal,
   JOURNAL_CONFORMANCE_VIOLATION,
+  JOURNAL_SEQ_BASE,
   type JournalConformanceViolation,
 } from "@/lib/agent-run-journal";
 import {
   arbitraryJournalEventInput,
   arbitraryJournalIdentity,
+  arbitraryJournalSequenceInput,
   sampleAgentRunJournalValue,
 } from "@testing/generators/agent-run-journal";
-import { loadCloudEventsAttributeContract } from "@testing/harnesses/agent-run-journal/cloudevents-contract";
+import { createJournalAdapterStorages } from "@testing/harnesses/agent-run-journal/adapters";
+import { loadCloudEventsOracle } from "@testing/harnesses/agent-run-journal/cloudevents-oracle";
 import { createInMemoryAppendableBackend } from "@testing/harnesses/agent-run-journal/in-memory-backend";
 import { assertProperty, PROPERTY_CLASSIFICATION } from "@testing/harnesses/property/property";
 
 describe("agent-run-journal CloudEvents conformance", () => {
-  it("constructs each appended event conforming to the CloudEvents event schema", async () => {
-    const contract = loadCloudEventsAttributeContract();
+  it("appends events that the captured CloudEvents v1.0 schema accepts and that carry the journal stream extensions", async () => {
+    const oracle = await loadCloudEventsOracle();
     await assertProperty(
-      fc.tuple(arbitraryJournalEventInput(), arbitraryJournalIdentity()),
-      async ([input, identity]) => {
-        const journal = createJournal(createInMemoryAppendableBackend(), identity);
-        const event = await journal.append(input);
-
-        // the event passes the closed-set CloudEvents schema validator
-        expect(checkJournalEventConformance(event)).toEqual({ ok: true });
-
-        // and conforms to the independently owned CloudEvents v1.0 attribute contract
-        const attributes = Object.keys(event);
-        expect(event.specversion).toBe(contract.specversion);
-        for (const name of contract.required) expect(attributes).toContain(name);
-        const extensions = attributes.filter(
-          (name) => !contract.required.includes(name) && !contract.optional.includes(name),
-        );
-        expect([...extensions].sort((a, b) => a.localeCompare(b))).toEqual(
-          [...contract.streamExtensions].sort((a, b) => a.localeCompare(b)),
-        );
-        for (const name of extensions) expect(name).toMatch(new RegExp(contract.extensionNamePattern));
-
-        // and its attributes derive from the caller input and the journal identity
-        expect(event.id).toBe(input.id);
-        expect(event.source).toBe(input.source);
-        expect(event.type).toBe(input.type);
-        expect(event.time).toBe(input.time);
-        expect(event.attempt).toBe(input.attempt);
-        expect(event.streamid).toBe(identity.streamid);
-        expect(event.runid).toBe(identity.runid);
+      arbitraryJournalSequenceInput(),
+      async ({ inputs, identity }) => {
+        for (const storage of createJournalAdapterStorages(identity)) {
+          const journal = createJournal(storage.open(), identity);
+          for (const [index, input] of inputs.entries()) {
+            const event = await journal.append(input);
+            // the official schema accepts the event, and its specversion is the value the release requires
+            expect(oracle.eventSchema.safeParse(event).success, storage.adapter).toBe(true);
+            expect(event.specversion).toBe(oracle.specversion);
+            // every extension attribute follows the CloudEvents attribute-naming rule
+            for (const name of Object.keys(event).filter((key) => !oracle.contextAttributeNames.has(key))) {
+              expect(name).toMatch(oracle.attributeNamePattern);
+            }
+            // the context attributes carry the caller's input, and the stream extensions the journal identity
+            expect(event.id).toBe(input.id);
+            expect(event.source).toBe(input.source);
+            expect(event.type).toBe(input.type);
+            expect(event.time).toBe(input.time);
+            expect(event.attempt).toBe(input.attempt);
+            expect(event.streamid).toBe(identity.streamid);
+            expect(event.runid).toBe(identity.runid);
+            expect(event.seq).toBe(JOURNAL_SEQ_BASE + index);
+          }
+        }
       },
       PROPERTY_CLASSIFICATION.SMALL_L1,
     );
