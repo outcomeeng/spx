@@ -1,8 +1,6 @@
 import { mkdir, readFile as readNodeFile, writeFile } from "node:fs/promises";
 import { dirname, resolve, sep } from "node:path";
 
-import type { Arbitrary } from "fast-check";
-
 import { configFileForFormat, DEFAULT_CONFIG_FILE_FORMAT, serializeConfigFileSections } from "@/config/index";
 import type { Config } from "@/config/types";
 import type { SpecTreeEnvFixtureWriterMethod } from "@/domains/spec/fixture-writer-methods";
@@ -25,12 +23,6 @@ import {
   createSource,
   type RepresentativeSpecTreeFixture,
 } from "@testing/generators/spec-tree/spec-tree";
-import {
-  arbitraryDecisionPath,
-  arbitraryNodePath,
-  arbitrarySpecTree,
-  type SpecTreeFixture,
-} from "@testing/generators/test-environment/test-environment";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 export { SPEC_TREE_ENV_FIXTURE_WRITER_METHODS } from "@/domains/spec/fixture-writer-methods";
@@ -51,9 +43,6 @@ export type SpecTreeEnv =
   & {
     readonly productDir: string;
     readFile(relativePath: string): Promise<string>;
-    readonly arbitraryNodePath: Arbitrary<string>;
-    readonly arbitraryDecisionPath: Arbitrary<string>;
-    readonly arbitrarySpecTree: Arbitrary<SpecTreeFixture>;
   }
   & {
     readonly [method in SpecTreeEnvFixtureWriterMethod]: SpecTreeEnvFixtureWriter;
@@ -98,15 +87,6 @@ export function withTestEnv<T>(
       writeDecision: (relativePath, contents) => writeAt(productDir, relativePath, contents),
       writeRaw: (relativePath, contents) => writeAt(productDir, relativePath, contents),
       readFile: (relativePath) => readAt(productDir, relativePath),
-      get arbitraryNodePath() {
-        return arbitraryNodePath(config);
-      },
-      get arbitraryDecisionPath() {
-        return arbitraryDecisionPath(config);
-      },
-      get arbitrarySpecTree() {
-        return arbitrarySpecTree(config);
-      },
     };
 
     return await callback(env);

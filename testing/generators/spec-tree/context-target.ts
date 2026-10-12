@@ -1,6 +1,5 @@
 import * as fc from "fast-check";
 
-import type { Config } from "@/config/types";
 import {
   arbitraryMigratingMethodology,
   type GeneratedMigratingMethodology,
@@ -1001,11 +1000,11 @@ function withDecisionStatement(entry: SpecTreeFixtureEntry): SpecTreeFixtureEntr
  * selects — a decision its statement, a node its kind's opening — so both
  * projections render it.
  */
-export function arbitraryContextDeterminismCase(config: Config): fc.Arbitrary<GeneratedContextDeterminismCase> {
+export function arbitraryContextDeterminismCase(): fc.Arbitrary<GeneratedContextDeterminismCase> {
   return fc.record({
     fixture: SPEC_TREE_TEST_GENERATOR.representativeFixture(KIND_REGISTRY),
-    extraDecision: arbitraryDecisionEntry(config).map(withDecisionStatement),
-    extraNode: arbitraryNodeEntry(config).map((entry) => {
+    extraDecision: arbitraryDecisionEntry(KIND_REGISTRY).map(withDecisionStatement),
+    extraNode: arbitraryNodeEntry(KIND_REGISTRY).map((entry) => {
       const definition = KIND_REGISTRY[entry.kind as keyof typeof KIND_REGISTRY];
       return "opening" in definition ? withOpening(entry, definition.opening) : withDecisionStatement(entry);
     }),

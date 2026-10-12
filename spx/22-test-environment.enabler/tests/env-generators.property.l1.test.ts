@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createFilesystemSpecTreeSource, readSpecTree } from "@/lib/spec-tree";
+import { createFilesystemSpecTreeSource, KIND_REGISTRY, readSpecTree } from "@/lib/spec-tree";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { arbitraryNodeEntry, arbitrarySpecTree } from "@testing/generators/test-environment/test-environment";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
@@ -9,7 +9,7 @@ import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 describe("generated fixtures materialize into a readable temp product state", () => {
   it("materializes every generated node where the spec-tree read operation resolves its spec file", async () => {
     await assertProperty(
-      arbitraryNodeEntry(MINIMAL_SPEC_TREE_CONFIG),
+      arbitraryNodeEntry(KIND_REGISTRY),
       async ({ contents, fixturePath, path }) => {
         await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
           await env.writeNode(fixturePath, contents);
@@ -32,7 +32,7 @@ describe("generated fixtures materialize into a readable temp product state", ()
 
   it("materializes every generated tree so the reader recognizes each entry it declares", async () => {
     await assertProperty(
-      arbitrarySpecTree(MINIMAL_SPEC_TREE_CONFIG),
+      arbitrarySpecTree(KIND_REGISTRY),
       async (fixture) => {
         await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
           for (const entry of fixture.entries) {
