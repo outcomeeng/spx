@@ -1,13 +1,6 @@
 import * as fc from "fast-check";
 
-import type { Config } from "@/config/types";
-import {
-  KIND_REGISTRY,
-  SPEC_TREE_CONFIG,
-  SPEC_TREE_CONFIG_FIELDS,
-  SPEC_TREE_GRAMMAR,
-  type SpecTreeKindCategory,
-} from "@/lib/spec-tree";
+import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR, type SpecTreeKindCategory } from "@/lib/spec-tree";
 
 const MIN_SPEC_ORDER_INDEX = 10;
 const MAX_SPEC_ORDER_INDEX = 99;
@@ -67,6 +60,10 @@ export type GeneratedWriteCase = {
   readonly fixturePath: string;
 };
 
+export type TestEnvironmentKindRegistry = Readonly<
+  Record<string, { readonly category: SpecTreeKindCategory; readonly suffix: string }>
+>;
+
 type KindEntry = {
   readonly category: SpecTreeKindCategory;
   readonly kind: string;
@@ -82,16 +79,8 @@ function generatedSegment(): fc.Arbitrary<string> {
     .map((characters) => characters.join(""));
 }
 
-function readKinds(config: Config, category: SpecTreeKindCategory): readonly KindEntry[] {
-  const section = config[SPEC_TREE_CONFIG.SECTION];
-  const configured = typeof section === "object" && section !== null && !Array.isArray(section)
-    ? (section as { [SPEC_TREE_CONFIG_FIELDS.KINDS]?: unknown })[SPEC_TREE_CONFIG_FIELDS.KINDS]
-    : undefined;
-  const kinds: Readonly<Record<string, { readonly category: SpecTreeKindCategory; readonly suffix: string }>> =
-    typeof configured === "object" && configured !== null && !Array.isArray(configured)
-      ? configured as Record<string, { readonly category: SpecTreeKindCategory; readonly suffix: string }>
-      : KIND_REGISTRY;
-  return Object.entries(kinds)
+function readKinds(registry: TestEnvironmentKindRegistry, category: SpecTreeKindCategory): readonly KindEntry[] {
+  return Object.entries(registry)
     .filter(([, definition]) => definition.category === category)
     .map(([kind, definition]) => ({ category, kind, suffix: definition.suffix }));
 }
@@ -119,30 +108,30 @@ function arbitraryEntryFromKinds(entries: readonly KindEntry[]): fc.Arbitrary<Sp
     });
 }
 
-export function arbitraryNodePath(config: Config): fc.Arbitrary<string> {
-  return arbitraryNodeEntry(config).map((entry) => entry.path);
+export function arbitraryNodePath(registry: TestEnvironmentKindRegistry): fc.Arbitrary<string> {
+  return arbitraryNodeEntry(registry).map((entry) => entry.path);
 }
 
 /** A whole decision entry — its path and the contents to write at it — from one construction. */
-export function arbitraryDecisionEntry(config: Config): fc.Arbitrary<SpecTreeFixtureEntry> {
-  const entries = readKinds(config, SPEC_TREE_CONFIG.CATEGORY.DECISION);
+export function arbitraryDecisionEntry(registry: TestEnvironmentKindRegistry): fc.Arbitrary<SpecTreeFixtureEntry> {
+  const entries = readKinds(registry, SPEC_TREE_CONFIG.CATEGORY.DECISION);
   if (entries.length === 0) {
-    throw new Error("Config supplied to arbitraryDecisionEntry has no decision kinds registered");
+    throw new Error("Registry supplied to arbitraryDecisionEntry has no decision kinds registered");
   }
   return arbitraryEntryFromKinds(entries);
 }
 
-export function arbitraryDecisionPath(config: Config): fc.Arbitrary<string> {
-  return arbitraryDecisionEntry(config).map((entry) => entry.path);
+export function arbitraryDecisionPath(registry: TestEnvironmentKindRegistry): fc.Arbitrary<string> {
+  return arbitraryDecisionEntry(registry).map((entry) => entry.path);
 }
 
-export function arbitrarySpecTree(config: Config): fc.Arbitrary<SpecTreeFixture> {
+export function arbitrarySpecTree(registry: TestEnvironmentKindRegistry): fc.Arbitrary<SpecTreeFixture> {
   const entries = [
-    ...readKinds(config, SPEC_TREE_CONFIG.CATEGORY.NODE),
-    ...readKinds(config, SPEC_TREE_CONFIG.CATEGORY.DECISION),
+    ...readKinds(registry, SPEC_TREE_CONFIG.CATEGORY.NODE),
+    ...readKinds(registry, SPEC_TREE_CONFIG.CATEGORY.DECISION),
   ];
   if (entries.length === 0) {
-    throw new Error("Config supplied to arbitrarySpecTree has no kinds registered");
+    throw new Error("Registry supplied to arbitrarySpecTree has no kinds registered");
   }
   return fc
     .array(arbitraryEntryFromKinds(entries), { minLength: 0, maxLength: MAX_FIXTURE_ENTRIES })
@@ -154,19 +143,19 @@ export function arbitrarySpecTree(config: Config): fc.Arbitrary<SpecTreeFixture>
  * two never drift. Callers that need to write the node take the entry rather than re-deriving the
  * spec-file name from the formatted directory string.
  */
-export function arbitraryNodeEntry(config: Config): fc.Arbitrary<SpecTreeFixtureEntry> {
-  const entries = readKinds(config, SPEC_TREE_CONFIG.CATEGORY.NODE);
+export function arbitraryNodeEntry(registry: TestEnvironmentKindRegistry): fc.Arbitrary<SpecTreeFixtureEntry> {
+  const entries = readKinds(registry, SPEC_TREE_CONFIG.CATEGORY.NODE);
   if (entries.length === 0) {
-    throw new Error("Config supplied to arbitraryNodeEntry has no node kinds registered");
+    throw new Error("Registry supplied to arbitraryNodeEntry has no node kinds registered");
   }
   return arbitraryEntryFromKinds(entries);
 }
 
-function helperCases(config: Config): fc.Arbitrary<GeneratedTestEnvironmentHelperCases> {
+function helperCases(registry: TestEnvironmentKindRegistry): fc.Arbitrary<GeneratedTestEnvironmentHelperCases> {
   return fc
     .tuple(
-      arbitraryNodeEntry(config),
-      arbitraryDecisionEntry(config),
+      arbitraryNodeEntry(registry),
+      arbitraryDecisionEntry(registry),
       generatedSegment(),
       generatedSegment(),
     )
