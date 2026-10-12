@@ -34,7 +34,7 @@ import { VALIDATION_SUBPROCESS_EVENTS, type ValidationWritableStream } from "@/v
 import { EXECUTION_MODES, VALIDATION_SCOPES, type ValidationContext } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
-import { withValidationProduct } from "@testing/harnesses/validation/product";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { RejectingUnexpectedValidationSpawnRunner } from "@testing/harnesses/validation/subprocess";
 
 class RecordingWritable implements ValidationWritableStream {
@@ -207,7 +207,7 @@ describe("ESLint command arguments", () => {
   });
 
   it("runs lint command from the requested product root", async () => {
-    await withValidationProduct({}, async (env) => {
+    await withTestEnv({}, async (env) => {
       await env.writeRaw(
         "tsconfig.json",
         JSON.stringify({ include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern] }),
@@ -225,7 +225,7 @@ describe("ESLint command arguments", () => {
   });
 
   it("passes production ESLint ignore patterns to the spawned binary", async () => {
-    await withValidationProduct({}, async (env) => {
+    await withTestEnv({}, async (env) => {
       await env.writeRaw("tsconfig.json", JSON.stringify({ include: [VALIDATION_PIPELINE_DATA.sourceDirectoryName] }));
       await env.writeRaw(
         TSCONFIG_FILES.production,
@@ -256,7 +256,7 @@ describe("ESLint command arguments", () => {
   });
 
   it("uses the production ESLint config when production scope supplies one", async () => {
-    await withValidationProduct({}, async (env) => {
+    await withTestEnv({}, async (env) => {
       const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
       await env.writeRaw(
         TSCONFIG_FILES.full,
@@ -287,7 +287,7 @@ describe("ESLint command arguments", () => {
   });
 
   it("uses a production-only ESLint config for production scope", async () => {
-    await withValidationProduct({}, async (env) => {
+    await withTestEnv({}, async (env) => {
       const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
       await env.writeRaw(
         TSCONFIG_FILES.full,
@@ -317,7 +317,7 @@ describe("ESLint command arguments", () => {
   });
 
   it("passes ESLint-specific validation paths to the spawned binary", async () => {
-    await withValidationProduct(
+    await withTestEnv(
       {
         [validationConfigDescriptor.section]: {
           [VALIDATION_PATHS_SUBSECTION]: {
@@ -363,7 +363,7 @@ describe("ESLint command arguments", () => {
   it("skips ESLint when validation path includes have no intersection", async () => {
     const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
     const testFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.testFilePath());
-    await withValidationProduct(
+    await withTestEnv(
       {
         [validationConfigDescriptor.section]: {
           [VALIDATION_PATHS_SUBSECTION]: {
@@ -402,7 +402,7 @@ describe("ESLint command arguments", () => {
   it("preserves explicit ESLint file scope through validation paths", async () => {
     const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
     const testFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.testFilePath());
-    await withValidationProduct(
+    await withTestEnv(
       {
         [validationConfigDescriptor.section]: {
           [VALIDATION_PATHS_SUBSECTION]: {
@@ -440,7 +440,7 @@ describe("ESLint command arguments", () => {
   });
 
   it("preserves explicit ESLint root directory operands through validation paths", async () => {
-    await withValidationProduct(
+    await withTestEnv(
       {
         [validationConfigDescriptor.section]: {
           [VALIDATION_PATHS_SUBSECTION]: {
@@ -480,7 +480,7 @@ describe("ESLint command arguments", () => {
   });
 
   it("does not widen explicit ESLint directory operands to every validation include", async () => {
-    await withValidationProduct(
+    await withTestEnv(
       {
         [validationConfigDescriptor.section]: {
           [VALIDATION_PATHS_SUBSECTION]: {
@@ -540,7 +540,7 @@ describe("ESLint command arguments", () => {
 
   it("normalizes absolute ESLint file scope before validation path filtering", async () => {
     const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
-    await withValidationProduct(
+    await withTestEnv(
       {
         [validationConfigDescriptor.section]: {
           [VALIDATION_PATHS_SUBSECTION]: {
@@ -591,7 +591,7 @@ describe("ESLint command arguments", () => {
   });
 
   it("uses the production ESLint config reported by language detection", async () => {
-    await withValidationProduct({}, async (env) => {
+    await withTestEnv({}, async (env) => {
       const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
       const toolPath = join(env.productDir, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
       let receivedContext: ValidationContext | undefined;
@@ -622,7 +622,7 @@ describe("ESLint command arguments", () => {
   });
 
   it("rejects a wrong executable, injected arguments, or persistent result reuse", async () => {
-    await withValidationProduct({}, async (env) => {
+    await withTestEnv({}, async (env) => {
       const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
       const toolPath = join(env.productDir, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
       const runner = new RejectingUnexpectedValidationSpawnRunner({

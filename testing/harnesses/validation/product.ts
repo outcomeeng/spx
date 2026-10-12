@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -6,35 +7,24 @@ import { stringify } from "yaml";
 import { CONFIG_FILENAMES } from "@/config/filenames";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import type { Config } from "@/config/types";
-import { SPEC_TREE_METHODOLOGY_LINE } from "@/lib/spec-tree";
-import { type LiteralFixtureEnv, withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
-import { type SpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { SPEC_TREE_CONFIG, SPEC_TREE_METHODOLOGY_LINE } from "@/lib/spec-tree";
 
-/** The methodology declaration of every validation fixture product: the 3.2 line, which a tracked spec tree must declare. */
+/** The methodology declaration of a validation fixture product that holds a spec tree: the 3.2 line. */
 export const VALIDATION_PRODUCT_METHODOLOGY: Config = {
   [METHODOLOGY_SECTION]: { [METHODOLOGY_CONFIG_FIELDS.VERSION]: SPEC_TREE_METHODOLOGY_LINE.THREE_TWO },
 };
 
+function holdsSpecTree(productDir: string): boolean {
+  return existsSync(join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY));
+}
+
 /**
- * Runs the callback against a temporary validation product whose configuration declares its methodology
- * version beside the supplied sections. A supplied `methodology` section takes precedence.
+ * Writes the methodology declaration into a product directory, as the product's default-format config file,
+ * only where the product holds a spec tree: an `spx/` directory, the condition under which the lint policy and
+ * the spec-tree read require a declaration. A product without an `spx/` directory stays undeclared.
  */
-export function withValidationProduct<T>(
-  config: Config,
-  callback: (env: SpecTreeEnv) => Promise<T>,
-): Promise<T> {
-  return withTestEnv({ ...VALIDATION_PRODUCT_METHODOLOGY, ...config }, callback);
-}
-
-/** Writes the methodology declaration into an existing product directory, as the product's default-format config file. */
 export async function writeValidationProductDeclaration(productDir: string): Promise<void> {
-  await writeFile(join(productDir, CONFIG_FILENAMES.yaml), stringify(VALIDATION_PRODUCT_METHODOLOGY));
-}
-
-/** Runs the callback against a temporary git-tracked validation product that declares its methodology version beside the supplied sections. */
-export function withValidationLiteralProduct<T>(
-  config: Config,
-  callback: (env: LiteralFixtureEnv) => Promise<T>,
-): Promise<T> {
-  return withLiteralFixtureEnv({ ...VALIDATION_PRODUCT_METHODOLOGY, ...config }, callback);
+  if (holdsSpecTree(productDir)) {
+    await writeFile(join(productDir, CONFIG_FILENAMES.yaml), stringify(VALIDATION_PRODUCT_METHODOLOGY));
+  }
 }
