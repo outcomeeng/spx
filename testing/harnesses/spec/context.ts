@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { dirname, join, parse } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -648,6 +648,20 @@ export async function withEmptyContextTreeEnv(
 export interface ProductlessContextTreePaths {
   readonly nodeTargetPath: string;
   readonly rootDecisionPath: string;
+}
+
+/**
+ * The canonical target of a materialized node, read from the directories the fixture wrote rather
+ * than from a spec-tree read, so a case whose methodology declaration the read rejects still
+ * addresses a node.
+ */
+export async function materializedNodeTarget(env: CurrentSpecTreeEnv): Promise<string> {
+  const rootDirectory = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
+  const entries = await readdir(join(env.productDir, rootDirectory), { withFileTypes: true });
+  const directories = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort((a, b) =>
+    a.localeCompare(b)
+  );
+  return [rootDirectory, directories[0]].join("/");
 }
 
 /**
