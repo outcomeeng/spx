@@ -1,5 +1,8 @@
+import { SPEC_TREE_METHODOLOGY_LINE, type SpecTreeMethodologyDeclaration } from "@/lib/spec-tree";
 import { LINT_POLICY_BASE_REFS, LINT_POLICY_MANIFESTS } from "@/validation/lint-policy-constants";
 
+/** The methodology declaration of a lint-policy case product: the 3.2 line, whose grammar leaves the prior-era suffixes superseded. */
+const LINT_POLICY_DECLARATION: SpecTreeMethodologyDeclaration = { version: SPEC_TREE_METHODOLOGY_LINE.THREE_TWO };
 const DEPRECATED_SPEC_NODE_PATH = "spx/10-old.feature";
 const BASE_TEST_DEBT_PATH = "spx/20-current.enabler";
 const ADDED_TEST_DEBT_PATH = "spx/30-added.enabler";
@@ -43,6 +46,7 @@ export interface ValidationLintPolicyManifestEntries {
 export const VALIDATION_LINT_POLICY_DATA = {
   manifests: LINT_POLICY_MANIFESTS,
   baseRefs: LINT_POLICY_BASE_REFS,
+  declaration: LINT_POLICY_DECLARATION,
   deprecatedSpecNodePath: DEPRECATED_SPEC_NODE_PATH,
   baseTestDebtPath: BASE_TEST_DEBT_PATH,
   addedTestDebtPath: ADDED_TEST_DEBT_PATH,

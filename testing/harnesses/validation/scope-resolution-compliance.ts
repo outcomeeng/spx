@@ -54,6 +54,7 @@ import { VALIDATION_SCOPES } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { VALIDATION_PRODUCT_METHODOLOGY } from "@testing/harnesses/validation/product";
 import { RecordingSpawnOptionsRunner, RecordingValidationChild } from "@testing/harnesses/validation/subprocess";
 import {
   PROJECT_FIXTURES,
@@ -873,6 +874,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested product directo
         await writeFile(
           join(path, VALIDATION_PIPELINE_DATA.validationConfigFilename),
           stringify({
+            ...VALIDATION_PRODUCT_METHODOLOGY,
             validation: {
               paths: {
                 include: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
@@ -975,6 +977,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested product directo
         await writeFile(
           join(path, VALIDATION_PIPELINE_DATA.validationConfigFilename),
           stringify({
+            ...VALIDATION_PRODUCT_METHODOLOGY,
             validation: {
               paths: {
                 include: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
@@ -1018,6 +1021,7 @@ describe("ALWAYS: TypeScript scope resolution uses the requested product directo
         await writeFile(
           join(path, VALIDATION_PIPELINE_DATA.validationConfigFilename),
           stringify({
+            ...VALIDATION_PRODUCT_METHODOLOGY,
             validation: {
               paths: {
                 include: [

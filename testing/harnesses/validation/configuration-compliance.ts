@@ -40,6 +40,7 @@ import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validat
 import { type LiteralFixtureEnv, withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 import { validationConfigSection } from "@testing/harnesses/validation/configuration";
 import { createRecordingKnipCommandDeps, type KnipDiscoveryCall } from "@testing/harnesses/validation/knip-support";
+import { withValidationLiteralProduct } from "@testing/harnesses/validation/product";
 
 type LiteralFixtureConfig = Parameters<typeof withLiteralFixtureEnv>[0];
 
@@ -80,7 +81,7 @@ async function runExplicitMarkdownOperandBypassingExclude(
 ): Promise<Awaited<ReturnType<typeof markdownCommand>>> {
   const { excludedDirectory, operand, brokenLink } = explicitMarkdownOperandCase(sampleSpecTreeLinkScenario(), kind);
 
-  return await withLiteralFixtureEnv(
+  return await withValidationLiteralProduct(
     markdownValidationPathsConfig({ exclude: [excludedDirectory] }),
     async (env) => {
       await env.writeRaw(brokenLink.citingFile, brokenLink.content);
@@ -98,7 +99,7 @@ async function runMarkdownRootScopeWithExcludedDocs(
 ): Promise<Awaited<ReturnType<typeof markdownCommand>>> {
   const scenario = sampleSpecTreeLinkScenario();
   const files = explicitProductRoot ? [markdownProductRootOperand(scenario)] : undefined;
-  return await withLiteralFixtureEnv(
+  return await withValidationLiteralProduct(
     {
       [validationConfigDescriptor.section]: {
         [VALIDATION_PATHS_SUBSECTION]: {
@@ -119,7 +120,7 @@ async function runMarkdownRootScopeWithExcludedDocs(
 
 describe("resolved validation configuration", () => {
   it("resolves literal enabled and knip disabled from descriptor defaults", async () => {
-    await withLiteralFixtureEnv({}, async (env) => {
+    await withValidationLiteralProduct({}, async (env) => {
       const resolved = await resolveConfig(env.productDir, [
         validationConfigDescriptor,
       ]);
@@ -136,7 +137,7 @@ describe("resolved validation configuration", () => {
   });
 
   it("skips literal validation when validation.literal.enabled is false", async () => {
-    await withLiteralFixtureEnv(
+    await withValidationLiteralProduct(
       validationConfigSection(VALIDATION_LITERAL_SUBSECTION, false),
       async (env) => {
         const validationCalls: Array<
@@ -162,7 +163,7 @@ describe("resolved validation configuration", () => {
   });
 
   it("skips KNIP participation when resolved validation config disables it", async () => {
-    await withLiteralFixtureEnv(
+    await withValidationLiteralProduct(
       validationConfigSection(VALIDATION_KNIP_SUBSECTION, false),
       async (env) => {
         const validationCalls: Parameters<
@@ -190,7 +191,7 @@ describe("resolved validation configuration", () => {
   });
 
   it("threads aggregate validation file scope to the knip stage", async () => {
-    await withLiteralFixtureEnv({}, async (env) => {
+    await withValidationLiteralProduct({}, async (env) => {
       const sourceFilePath = sampleGeneratedValue(LITERAL_TEST_GENERATOR.sourceFilePath());
       const commandCalls: KnipCommandOptions[] = [];
       const deps: KnipStageDeps = {
@@ -231,7 +232,7 @@ describe("resolved validation configuration", () => {
   });
 
   it("resolves per-tool validation path configuration through the descriptor", async () => {
-    await withLiteralFixtureEnv(
+    await withValidationLiteralProduct(
       {
         [validationConfigDescriptor.section]: {
           [VALIDATION_PATHS_SUBSECTION]: {
@@ -261,7 +262,7 @@ describe("resolved validation configuration", () => {
   });
 
   it("applies literal-specific validation paths during literal execution", async () => {
-    await withLiteralFixtureEnv(
+    await withValidationLiteralProduct(
       {
         [validationConfigDescriptor.section]: {
           [VALIDATION_PATHS_SUBSECTION]: {
@@ -294,7 +295,7 @@ describe("resolved validation configuration", () => {
   });
 
   it("applies markdown-specific validation paths during markdown execution", async () => {
-    await withLiteralFixtureEnv(
+    await withValidationLiteralProduct(
       markdownValidationPathsConfig({
         include: [SPEC_TREE_CONFIG.ROOT_DIRECTORY],
       }),
@@ -312,7 +313,7 @@ describe("resolved validation configuration", () => {
   });
 
   it("preserves explicit markdown root directory operands through markdown validation includes", async () => {
-    await withLiteralFixtureEnv(
+    await withValidationLiteralProduct(
       markdownValidationPathsConfig({
         include: [SPEC_TREE_CONFIG.ROOT_DIRECTORY],
       }),
@@ -348,7 +349,7 @@ describe("resolved validation configuration", () => {
   });
 
   it("preserves exact explicit markdown directory operands through markdown validation excludes", async () => {
-    await withLiteralFixtureEnv(
+    await withValidationLiteralProduct(
       {
         [validationConfigDescriptor.section]: {
           [VALIDATION_PATHS_SUBSECTION]: {
@@ -377,7 +378,7 @@ describe("resolved validation configuration", () => {
 
   it("does not widen explicit markdown directory operands to every markdown include", async () => {
     const includeCase = explicitMarkdownIncludeCase(sampleSpecTreeLinkScenario());
-    await withLiteralFixtureEnv(
+    await withValidationLiteralProduct(
       markdownValidationPathsConfig({
         include: [includeCase.operandDirectory, includeCase.otherIncludedDirectory],
       }),
@@ -416,7 +417,7 @@ describe("resolved validation configuration", () => {
 
   it("does not widen explicit markdown directory operands to default markdown roots", async () => {
     const outsideCase = explicitMarkdownOutsideDefaultsCase(sampleSpecTreeLinkScenario());
-    await withLiteralFixtureEnv({}, async (env) => {
+    await withValidationLiteralProduct({}, async (env) => {
       await env.writeRaw(outsideCase.problemFreeFile.path, outsideCase.problemFreeFile.content);
       await env.writeRaw(outsideCase.brokenLink.citingFile, outsideCase.brokenLink.content);
 
@@ -431,7 +432,7 @@ describe("resolved validation configuration", () => {
   });
 
   it("preserves explicit markdown operands through node-status excludes", async () => {
-    await withLiteralFixtureEnv({}, async (env) => {
+    await withValidationLiteralProduct({}, async (env) => {
       const excludedNode = specTreeExcludedNodeCase(sampleSpecTreeLinkScenario());
       const excludedNodePath = excludedNode.nodeDirectory;
       const [directMarkdownFile] = excludedNode.directFiles;

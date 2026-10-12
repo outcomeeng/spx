@@ -3,6 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
+import { writeValidationProductDeclaration } from "@testing/harnesses/validation/product";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -58,7 +59,7 @@ export interface TestEnvOptions {
  *
  * This harness:
  * 1. Creates a temporary directory
- * 2. Copies the specified fixture product into it and initializes it as a git
+ * 2. Copies the specified fixture product into it, declares its methodology, and initializes it as a git
  *    repository that tracks the fixture's files
  * 3. Symlinks node_modules from the product root (fast, no install needed)
  * 4. Runs the test callback with the temp directory path
@@ -85,6 +86,7 @@ export function withValidationEnv(
     const fixtureDest = join(tempDir, opts.fixture);
 
     await cp(fixtureSource, fixtureDest, { recursive: true });
+    await writeValidationProductDeclaration(fixtureDest);
     await runGit(fixtureDest, [GIT_TEST_SUBCOMMANDS.INIT]);
     // Track the fixture's files, as a product repository tracks its own;
     // staging precedes the node_modules symlink so it stays untracked.
