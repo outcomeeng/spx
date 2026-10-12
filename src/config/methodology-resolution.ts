@@ -1,7 +1,7 @@
 import {
   formatUnrecognizedConfigFieldError,
   LEGACY_METHODOLOGY_PLACEMENT_SECTION,
-} from "@/lib/methodology/declaration-fields";
+} from "../lib/methodology/declaration-fields";
 
 import { METHODOLOGY_SECTION, type MethodologyConfig, methodologyConfigDescriptor } from "./methodology";
 import {
