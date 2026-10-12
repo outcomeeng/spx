@@ -547,7 +547,7 @@ export const METHODOLOGY_FIXTURE_IDENTITY: GeneratedMethodologyVersion = {
 };
 export const METHODOLOGY_FIXTURE_VERSION = METHODOLOGY_FIXTURE_IDENTITY.text;
 
-export function specTreeKindsConfig(): Config {
+export function methodologyDeclaredConfig(): Config {
   return {
     // A context projection stamps the product's methodology identity, which a
     // product declares rather than inherits, so every context fixture declares one.
@@ -610,7 +610,7 @@ export async function withRichContextEnv(
   callback: (env: CurrentSpecTreeEnv, paths: RichContextPaths) => Promise<void>,
   scenario: RichContextScenario = sampleRichContextScenario(),
 ): Promise<void> {
-  await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+  await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
     await env.materialize();
     const snapshot = await env.readFilesystemSnapshot();
     if (snapshot.product?.ref?.path !== scenario.paths.productPath) {
@@ -719,7 +719,7 @@ const PACKAGE_FIXTURE_DIRECTORY = "spx-package";
 
 /** The config sections a shipped-tree test passes to `withSpecTreeEnv`. */
 export function methodologyTreeConfig(identity?: Record<string, unknown>): Config {
-  const base = specTreeKindsConfig();
+  const base = methodologyDeclaredConfig();
   return {
     ...base,
     [METHODOLOGY_SECTION]: {

@@ -34,7 +34,7 @@ import {
   manifestEntryAt,
   manifestPathsForReason,
   parseContextManifest,
-  specTreeKindsConfig,
+  methodologyDeclaredConfig,
   trackSpecTreeInGit,
   withOutsideProductDir,
   withRichContextEnv,
@@ -111,7 +111,7 @@ describe("spec context manifest boundaries", () => {
   });
 
   it("keeps a harness guide whose symbolic link escapes the product directory outside list", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
@@ -162,7 +162,7 @@ describe("spec context manifest boundaries", () => {
   });
 
   it("orders equal-index siblings by code units where locale collation disagrees, tracked or not", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       const fixture = env.fixture;
       const opening = KIND_REGISTRY[fixture.root.kind].opening;

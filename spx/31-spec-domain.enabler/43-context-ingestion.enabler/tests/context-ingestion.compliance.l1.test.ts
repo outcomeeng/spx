@@ -34,7 +34,7 @@ import {
   METHODOLOGY_FIXTURE_IDENTITY,
   methodologyTreeConfig,
   runSpecDescriptor,
-  specTreeKindsConfig,
+  methodologyDeclaredConfig,
   withProductlessContextTreeEnv,
   withRichContextEnv,
   writeMethodologyTree,
@@ -62,7 +62,7 @@ describe("spec context ingestion writes nothing to standard output after a failu
   });
 
   it("returns a failure and no projection when the product root holds no recognized product spec", async () => {
-    await withProductlessContextTreeEnv(specTreeKindsConfig(), async (env, paths) => {
+    await withProductlessContextTreeEnv(methodologyDeclaredConfig(), async (env, paths) => {
       await expect(contextShowEntries({ targets: [paths.nodeTargetPath], cwd: env.productDir })).rejects.toThrow(
         SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR,
       );
@@ -127,7 +127,7 @@ describe("spec context ingestion writes nothing to standard output after a failu
 
   it("writes no list or show output when the methodology declaration is malformed, naming the field", async () => {
     for (const invalid of generatedInvalidMethodologyConfigs()) {
-      await withSpecTreeEnv({ ...specTreeKindsConfig(), ...invalid.config }, async (env) => {
+      await withSpecTreeEnv({ ...methodologyDeclaredConfig(), ...invalid.config }, async (env) => {
         await env.materialize();
         const target = (await env.readFilesystemSnapshot()).allNodes[0].id;
         for (const command of [SPEC_CONTEXT_COMMAND_PATH.LIST, SPEC_CONTEXT_COMMAND_PATH.SHOW]) {
@@ -167,7 +167,7 @@ describe("spec context ingestion writes nothing to standard output after a failu
   // a refactor of this command's config path can neither drop the
   // legacy-placement rejection nor start failing on unrelated config content.
   it("writes no list or show output when the methodology declaration sits in the retired harness placement", async () => {
-    await withSpecTreeEnv({ ...specTreeKindsConfig(), ...generatedHarnessMethodologyConfig() }, async (env) => {
+    await withSpecTreeEnv({ ...methodologyDeclaredConfig(), ...generatedHarnessMethodologyConfig() }, async (env) => {
       await env.materialize();
       const target = (await env.readFilesystemSnapshot()).allNodes[0].id;
       for (const command of [SPEC_CONTEXT_COMMAND_PATH.LIST, SPEC_CONTEXT_COMMAND_PATH.SHOW]) {
@@ -182,7 +182,7 @@ describe("spec context ingestion writes nothing to standard output after a failu
   it("writes the complete list output when only unrelated harness config is defective", async () => {
     const { section, version } = generatedMethodologyIdentity(arbitraryFixtureAuthoredLine());
     await withSpecTreeEnv({
-      ...specTreeKindsConfig(),
+      ...methodologyDeclaredConfig(),
       [METHODOLOGY_SECTION]: section,
       [LEGACY_METHODOLOGY_CONFIG_SECTION]: {
         [sampleConfigTestValue(CONFIG_TEST_GENERATOR.key())]: generatedMethodologySection(),
