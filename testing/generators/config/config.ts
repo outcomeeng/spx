@@ -1,5 +1,6 @@
 import * as fc from "fast-check";
 
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import type { Config } from "@/config/types";
 import { REGISTERED_TOOL_NAMES } from "@/lib/file-inclusion";
 import {
@@ -9,7 +10,6 @@ import {
   FILE_INCLUSION_SECTION,
   type FileInclusionConfig,
 } from "@/lib/file-inclusion/config";
-import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import { SPEC_TREE_METHODOLOGY_LINE, SPEC_TREE_SECTION } from "@/lib/spec-tree";
 
 const GENERATED_SEGMENT_MIN_LENGTH = 3;

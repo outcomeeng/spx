@@ -40,26 +40,29 @@ describe("spec context manifest methodology identity", () => {
 
   it("renders the target and the open migration source as MAJOR.MINOR and carries each exactly as declared in JSON, for every pairing of accepted forms", async () => {
     for (const declared of generatedMigratingMethodologyFormCases(arbitraryFixtureAuthoredLine())) {
-      await withSpecTreeEnv({ ...methodologyDeclaredConfig(), [METHODOLOGY_SECTION]: declared.section }, async (env) => {
-        await env.materialize();
-        const snapshot = await env.readFilesystemSnapshot();
-        const targets = [rootedSpecPath(snapshot.allNodes[0].id)];
-        const label = `${declared.targetForm} migrating from ${declared.sourceForm}`;
-        const textOutput = await contextListText({ targets, cwd: env.productDir });
-        expect(textOutput.split("\n"), label).toContain(
-          `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${
-            declared.section[METHODOLOGY_CONFIG_FIELDS.SOURCE]
-          }@${declared.target.line} (${SPEC_CONTEXT_TEXT_LABEL.MIGRATING_FROM} ${declared.source.line})`,
-        );
-        const manifest = JSON.parse(await contextListJson({ targets, cwd: env.productDir })) as {
-          readonly methodology: unknown;
-        };
-        expect(manifest.methodology, label).toStrictEqual({
-          source: declared.section[METHODOLOGY_CONFIG_FIELDS.SOURCE],
-          version: declared.target.byForm[declared.targetForm],
-          migratingFrom: declared.source.byForm[declared.sourceForm],
-        });
-      });
+      await withSpecTreeEnv(
+        { ...methodologyDeclaredConfig(), [METHODOLOGY_SECTION]: declared.section },
+        async (env) => {
+          await env.materialize();
+          const snapshot = await env.readFilesystemSnapshot();
+          const targets = [rootedSpecPath(snapshot.allNodes[0].id)];
+          const label = `${declared.targetForm} migrating from ${declared.sourceForm}`;
+          const textOutput = await contextListText({ targets, cwd: env.productDir });
+          expect(textOutput.split("\n"), label).toContain(
+            `${SPEC_CONTEXT_TEXT_LABEL.METHODOLOGY}: ${
+              declared.section[METHODOLOGY_CONFIG_FIELDS.SOURCE]
+            }@${declared.target.line} (${SPEC_CONTEXT_TEXT_LABEL.MIGRATING_FROM} ${declared.source.line})`,
+          );
+          const manifest = JSON.parse(await contextListJson({ targets, cwd: env.productDir })) as {
+            readonly methodology: unknown;
+          };
+          expect(manifest.methodology, label).toStrictEqual({
+            source: declared.section[METHODOLOGY_CONFIG_FIELDS.SOURCE],
+            version: declared.target.byForm[declared.targetForm],
+            migratingFrom: declared.source.byForm[declared.sourceForm],
+          });
+        },
+      );
     }
   });
 });

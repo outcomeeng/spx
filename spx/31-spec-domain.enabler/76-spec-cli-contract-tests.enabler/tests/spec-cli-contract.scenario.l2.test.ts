@@ -14,10 +14,10 @@ import { RETIRED_SPEC_APPLY_FIXTURE, specTreeFixtureNodeDirectoryName } from "@t
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextListManifest,
+  methodologyDeclaredConfig,
   parseContextManifest,
   runSpecCli,
   runSpecCliWithIsolation,
-  methodologyDeclaredConfig,
 } from "@testing/harnesses/spec/context";
 
 describe("spx spec process contract", () => {
