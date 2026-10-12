@@ -32,6 +32,7 @@ import {
   distinctOrderedDirectoryName,
   sampleNodeKind,
   sampleSpecTreeTestValue,
+  singleSegmentOrder,
   SPEC_TREE_TEST_GENERATOR,
 } from "@testing/generators/spec-tree/spec-tree";
 import {
@@ -203,7 +204,7 @@ describe("spx spec status", () => {
       type: SPEC_TREE_ENTRY_TYPE.NODE,
       id: `${nodeOrder}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${nodeSlug}${KIND_REGISTRY[nodeKind].suffix}`,
       kind: nodeKind,
-      order: nodeOrder,
+      orderSegments: singleSegmentOrder(nodeOrder),
       slug: nodeSlug,
     };
 
@@ -261,7 +262,7 @@ describe("spx spec next", () => {
       type: SPEC_TREE_ENTRY_TYPE.NODE,
       id: `${nodeOrder}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${nodeSlug}${KIND_REGISTRY[nodeKind].suffix}`,
       kind: nodeKind,
-      order: nodeOrder,
+      orderSegments: singleSegmentOrder(nodeOrder),
       slug: nodeSlug,
     };
 
