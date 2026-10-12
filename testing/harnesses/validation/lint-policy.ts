@@ -6,6 +6,7 @@ import { expect } from "vitest";
 import { lintCommand } from "@/commands/validation/lint";
 import { VALIDATION_EXIT_CODES, VALIDATION_STAGE_DISPLAY_NAMES } from "@/commands/validation/messages";
 import { resolveConfig } from "@/config";
+import { selectSpecTreeGrammar } from "@/lib/spec-tree";
 import { detectTypeScript } from "@/validation/discovery";
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
 import { validateLintPolicy } from "@/validation/lint-policy";
@@ -27,6 +28,7 @@ import {
   runGit,
   runTsxEval,
 } from "@testing/harnesses/git-test-constants";
+import { writeValidationProductDeclaration } from "@testing/harnesses/validation/product";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const LINT_POLICY_TEMP_PREFIX = "spx-lint-policy-";
@@ -59,8 +61,15 @@ export async function runValidationLintPolicyScenario(
   }
 }
 
+function lintPolicySelection(): ReturnType<typeof selectSpecTreeGrammar> {
+  return selectSpecTreeGrammar(VALIDATION_LINT_POLICY_DATA.declaration);
+}
+
 function withPolicyProject(callback: (productDir: string) => Promise<void>): Promise<void> {
-  return withTempDir(LINT_POLICY_TEMP_PREFIX, callback);
+  return withTempDir(LINT_POLICY_TEMP_PREFIX, async (productDir) => {
+    await writeValidationProductDeclaration(productDir);
+    await callback(productDir);
+  });
 }
 
 async function writePolicyManifest(
@@ -105,14 +114,17 @@ async function validateLintPolicyInChildProcess(
   envOverrides: GitTestEnvironmentOverrides,
 ): Promise<SerializedLintPolicyResult> {
   const moduleUrl = pathToFileURL(join(process.cwd(), "src/validation/lint-policy.ts")).href;
+  const grammarUrl = pathToFileURL(join(process.cwd(), "src/lib/spec-tree/grammar-selection.ts")).href;
   const environmentKey = VALIDATION_LINT_POLICY_DATA.productDirEnvironmentKey;
   const script = `
     import { validateLintPolicy } from ${JSON.stringify(moduleUrl)};
+    import { selectSpecTreeGrammar } from ${JSON.stringify(grammarUrl)};
     const productDir = process.env.${environmentKey};
     if (productDir === undefined) {
       throw new Error("Missing ${environmentKey}");
     }
-    console.log(JSON.stringify(validateLintPolicy(productDir)));
+    const selection = selectSpecTreeGrammar(${JSON.stringify(VALIDATION_LINT_POLICY_DATA.declaration)});
+    console.log(JSON.stringify(validateLintPolicy(productDir, selection)));
   `;
   const stdout = await runTsxEval(process.cwd(), script, {
     ...envOverrides,
@@ -144,7 +156,7 @@ async function writeBaseDebtFixture(productDir: string): Promise<void> {
 
 async function runUnrelatedProjectScenario(): Promise<void> {
   await withPolicyProject(async (productDir) => {
-    const result = validateLintPolicy(productDir);
+    const result = validateLintPolicy(productDir, lintPolicySelection());
 
     expect(result.ok).toBe(true);
   });
@@ -154,7 +166,7 @@ async function runExistingDebtScenario(): Promise<void> {
   await withPolicyProject(async (productDir) => {
     await writeBaseDebtFixture(productDir);
 
-    const result = validateLintPolicy(productDir);
+    const result = validateLintPolicy(productDir, lintPolicySelection());
 
     expect(result.ok).toBe(true);
   });
@@ -164,7 +176,7 @@ async function runBranchAdditionScenario(): Promise<void> {
   await withPolicyProject(async (productDir) => {
     await prepareBranchAdditionPolicyProject(productDir);
 
-    const result = validateLintPolicy(productDir);
+    const result = validateLintPolicy(productDir, lintPolicySelection());
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -253,7 +265,7 @@ export async function runTestOwnedConstantDebtAdditionScenario(): Promise<void> 
       ],
     });
 
-    const result = validateLintPolicy(productDir);
+    const result = validateLintPolicy(productDir, lintPolicySelection());
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toContain(
@@ -273,7 +285,7 @@ async function runBaselineAbsentScenario(): Promise<void> {
     });
     await commitAll(productDir, VALIDATION_LINT_POLICY_DATA.commitMessages.baselineAbsent);
 
-    const result = validateLintPolicy(productDir);
+    const result = validateLintPolicy(productDir, lintPolicySelection());
 
     expect(result.ok).toBe(true);
   });
@@ -356,7 +368,7 @@ async function runCorruptBaselineScenario(): Promise<void> {
       testLintDebtNodes: [VALIDATION_LINT_POLICY_DATA.baseTestDebtPath],
     });
 
-    const result = validateLintPolicy(productDir);
+    const result = validateLintPolicy(productDir, lintPolicySelection());
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -373,7 +385,7 @@ async function runDeprecatedSpecNodeSuffixScenario(): Promise<void> {
       testLintDebtNodes: [],
     });
 
-    const result = validateLintPolicy(productDir);
+    const result = validateLintPolicy(productDir, lintPolicySelection());
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
