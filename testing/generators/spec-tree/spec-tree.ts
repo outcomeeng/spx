@@ -60,7 +60,6 @@ export type AssemblyNodeOrders = {
 export const SPEC_TREE_SOURCE_MAPPING_CASE_KIND = {
   PRODUCT_RELATIVE_REFS: "product-relative-refs",
   RECOGNIZED_ENTRY_ROLE: "recognized-entry-role",
-  DECISION_SHAPED_DESCENT: "decision-shaped-descent",
 } as const;
 
 export type SpecTreeSourceMappingCaseKind =
@@ -75,9 +74,7 @@ export type RecognizedSpecTreeSourceEntryRole =
 export type SpecTreeSourceMappingCase =
   | {
     readonly title: string;
-    readonly kind:
-      | typeof SPEC_TREE_SOURCE_MAPPING_CASE_KIND.PRODUCT_RELATIVE_REFS
-      | typeof SPEC_TREE_SOURCE_MAPPING_CASE_KIND.DECISION_SHAPED_DESCENT;
+    readonly kind: typeof SPEC_TREE_SOURCE_MAPPING_CASE_KIND.PRODUCT_RELATIVE_REFS;
   }
   | {
     readonly title: string;
@@ -170,10 +167,6 @@ export function specTreeSourceMappingCases(): readonly SpecTreeSourceMappingCase
       kind: SPEC_TREE_SOURCE_MAPPING_CASE_KIND.RECOGNIZED_ENTRY_ROLE,
       entryType: SPEC_TREE_ENTRY_TYPE.EVIDENCE,
     },
-    {
-      title: "descends through directories whose names match decision grammar",
-      kind: SPEC_TREE_SOURCE_MAPPING_CASE_KIND.DECISION_SHAPED_DESCENT,
-    },
   ];
 }
 
@@ -247,10 +240,6 @@ export function buildRepresentativeFixture(registry: SpecTreeRegistry): Represen
 
 export function sampleNodeKind(registry: SpecTreeRegistry): NodeKind {
   return sampleSpecTreeTestValue(arbitraryNodeKind(registry));
-}
-
-export function sampleDecisionKind(registry: SpecTreeRegistry): DecisionKind {
-  return sampleSpecTreeTestValue(arbitraryDecisionKind(registry));
 }
 
 export function specTreeFixtureNodeDirectoryName(
