@@ -8,7 +8,7 @@ import { toMessage } from "../lib/error-message";
 
 import { CONFIG_FILE_DEFINITIONS, CONFIG_FILE_FORMAT, CONFIG_FILE_FORMAT_ORDER } from "./filenames";
 import type { ConfigFileFormat, ConfigFilename } from "./filenames";
-import type { Result } from "./types";
+import type { Config, ConfigDescriptor, Result } from "./types";
 
 export type ConfigFile = {
   readonly filename: ConfigFilename;
@@ -47,6 +47,44 @@ export function readConfigSectionFromReadResult(
   const sectionsResult = parseConfigFileSections(detected.file);
   if (!sectionsResult.ok) return sectionsResult;
   return { ok: true, value: sectionsResult.value[section] };
+}
+
+/**
+ * Merges each descriptor's section with its declared defaults and runs the
+ * descriptor's own validator over what the file declares. Takes the descriptors
+ * as a parameter, so it reaches no registry.
+ */
+export function resolveDescriptorSectionsFromReadResult(
+  detected: ConfigFileReadResult,
+  descriptors: readonly ConfigDescriptor<unknown>[],
+): Result<Config> {
+  if (detected.kind === CONFIG_FILE_READ_KIND.AMBIGUOUS) {
+    return { ok: false, error: formatConfigFileAmbiguityError(detected.detected) };
+  }
+
+  const sectionsResult = detected.kind === CONFIG_FILE_READ_KIND.ABSENT
+    ? ({ ok: true as const, value: {} as Record<string, unknown> })
+    : parseConfigFileSections(detected.file);
+  if (!sectionsResult.ok) {
+    return sectionsResult;
+  }
+  const sections = sectionsResult.value;
+
+  const resolved: Record<string, unknown> = {};
+  for (const descriptor of descriptors) {
+    const sectionValue = sections[descriptor.section];
+    if (sectionValue === undefined) {
+      resolved[descriptor.section] = descriptor.defaults;
+      continue;
+    }
+    const validated = descriptor.validate(sectionValue);
+    if (!validated.ok) {
+      return { ok: false, error: `${descriptor.section}: ${validated.error}` };
+    }
+    resolved[descriptor.section] = validated.value;
+  }
+
+  return { ok: true, value: resolved };
 }
 
 export async function readProductConfigFile(productDir: string): Promise<Result<ConfigFileReadResult>> {

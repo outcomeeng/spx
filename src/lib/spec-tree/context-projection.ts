@@ -156,7 +156,7 @@ function requiredDocumentPath(path: string | undefined, owner: string): string {
 
 /** The opening keyword the given kind registry resolves for a node's kind, or none when it resolves none. */
 function resolvedKindOpening(node: SpecTreeNode, registry: SpecContextKindRegistry): string | undefined {
-  return registry[node.kind]?.opening;
+  return node.kind === SPEC_TREE_CONFIG.PRODUCT.KIND ? undefined : registry[node.kind]?.opening;
 }
 
 /**
