@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { configFileForFormat, DEFAULT_CONFIG_FILE_FORMAT, serializeConfigFileSections } from "@/config/index";
@@ -11,9 +11,10 @@ import type {
   GeneratedProductContextCase,
 } from "@testing/generators/config/product-context";
 import { markdownBrokenRelativeLink } from "@testing/generators/validation/markdown";
-import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
+import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit, runTsxEval } from "@testing/harnesses/git-test-constants";
 import { type ProductContextCliRun, runProductContextCli } from "@testing/harnesses/product-context/cli";
 import { materializeSpecTreeFixtureAt, withSpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { POLLUTED_GIT_ENVIRONMENT } from "@testing/harnesses/state/product-root-probe";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const DIRTY_CALLER_TEMP_PREFIX = "spx-dirty-product-caller-";
@@ -104,4 +105,31 @@ export async function observeNestedProductContext(
   }, { fixture: scenario.enclosing.tree });
   if (observation === undefined) throw new Error("Nested product context observation was not captured");
   return observation;
+}
+
+const INHERITED_GIT_ENV_TEMP_PREFIX = "spx-inherited-git-env-product-";
+const INHERITED_GIT_ENV_CWD_VARIABLE = "SPX_PRODUCT_CONTEXT_TEST_CWD";
+
+/**
+ * Resolves the product directory of a fresh git repository in a child process whose environment
+ * carries `GIT_DIR` and `GIT_WORK_TREE` pointing at a nonexistent repository, returning the
+ * resolved directory beside the repository's own directory.
+ */
+export async function observeProductDirUnderInheritedGitEnvironment(): Promise<{
+  readonly repositoryDir: string;
+  readonly resolvedProductDir: string;
+}> {
+  return withTempDir(INHERITED_GIT_ENV_TEMP_PREFIX, async (tempDir) => {
+    await runGit(tempDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
+    const script = `
+      import { resolveProductDir } from "@/domains/config/root";
+      console.log(JSON.stringify(resolveProductDir(process.env.${INHERITED_GIT_ENV_CWD_VARIABLE}!)));
+    `;
+    const stdout = await runTsxEval(process.cwd(), script, {
+      ...POLLUTED_GIT_ENVIRONMENT,
+      [INHERITED_GIT_ENV_CWD_VARIABLE]: tempDir,
+    });
+    const parsed = JSON.parse(stdout) as { productDir: string };
+    return { repositoryDir: await realpath(tempDir), resolvedProductDir: await realpath(parsed.productDir) };
+  });
 }

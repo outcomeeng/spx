@@ -12,6 +12,7 @@ import {
 import {
   observeDirtyCallerProductContext,
   observeNestedProductContext,
+  observeProductDirUnderInheritedGitEnvironment,
 } from "@testing/harnesses/product-context/compliance";
 import {
   PRODUCT_CONTEXT_MAPPING_TEST_OPTIONS,
@@ -53,4 +54,10 @@ describe("product context compliance", () => {
       });
     },
   );
+
+  it("resolves the product directory from the invocation directory's repository under inherited GIT_DIR and GIT_WORK_TREE", async () => {
+    const { repositoryDir, resolvedProductDir } = await observeProductDirUnderInheritedGitEnvironment();
+
+    expect(resolvedProductDir).toBe(repositoryDir);
+  });
 });

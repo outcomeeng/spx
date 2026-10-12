@@ -1,4 +1,5 @@
 import { execa } from "execa";
+import { execFileSync } from "node:child_process";
 import { accessSync, realpathSync } from "node:fs";
 import { access, realpath } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
@@ -252,6 +253,26 @@ export async function detectWorktreeProductRoot(
       isGitRepo: false,
       warning: NOT_GIT_REPO_WARNING_TEXT,
     };
+  }
+}
+
+/**
+ * Synchronous counterpart of {@link detectWorktreeProductRoot}'s toplevel read: the
+ * `git rev-parse --show-toplevel` value for `cwd`, resolved under the same git-environment
+ * isolation, or undefined when `cwd` is outside a git repository or git cannot run.
+ */
+export function readWorktreeToplevelSync(cwd: string): string | undefined {
+  try {
+    const stdout = execFileSync(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_SHOW_TOPLEVEL_ARGS], { // NOSONAR - spx intentionally uses the caller's git executable.
+      cwd,
+      env: withoutGitEnvironment(process.env),
+      stdio: ["ignore", "pipe", "pipe"],
+      encoding: "utf8",
+    });
+    const toplevel = extractStdout(stdout);
+    return toplevel.length === 0 ? undefined : toplevel;
+  } catch {
+    return undefined;
   }
 }
 

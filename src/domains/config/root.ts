@@ -1,11 +1,8 @@
-import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 
-import { selectLocalProductRoot, type SyncConfigPresenceProbe } from "@/lib/git/root";
+import { readWorktreeToplevelSync, selectLocalProductRoot, type SyncConfigPresenceProbe } from "@/lib/git/root";
 import { authoredText, externalValue, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
-const GIT_EXECUTABLE = "git";
-const GIT_TOPLEVEL_ARGS = ["rev-parse", "--show-toplevel"] as const;
 const GIT_NOT_REPO_MARKER = "not a git repository";
 
 export type ResolvedProductDir = {
@@ -39,15 +36,5 @@ export function resolveProductDir(
 }
 
 const DEFAULT_PRODUCT_DIR_RESOLVER_DEPS: ProductDirResolverDeps = {
-  readGitToplevel: (cwd) => {
-    try {
-      return execFileSync(GIT_EXECUTABLE, [...GIT_TOPLEVEL_ARGS], { // NOSONAR - spx intentionally uses the caller's git executable.
-        cwd,
-        stdio: ["ignore", "pipe", "pipe"],
-        encoding: "utf8",
-      }).trim();
-    } catch {
-      return undefined;
-    }
-  },
+  readGitToplevel: readWorktreeToplevelSync,
 };
