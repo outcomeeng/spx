@@ -110,10 +110,7 @@ function errorMessage(error: unknown): string {
 const { defaultsCommand } = await import("@/commands/config/defaults");
 const { showCommand } = await import("@/commands/config/show");
 const { validateCommand } = await import("@/commands/config/validate");
-const { CONFIG_TEST_GENERATOR, sampleConfigTestValue } = await import(
-  "@testing/generators/config/descriptors"
-);
-const { configCliDefaults, configCliDeps } = await import("@testing/harnesses/config/cli");
+const { configCliDefaults, configCliDeps, generatedResolutionError } = await import("@testing/harnesses/config/cli");
 
 type ConfigEffectSentinelObservation = {
   readonly changedEnvironmentKeys: readonly string[];
@@ -134,7 +131,7 @@ async function observeConfigHandlerEffects(): Promise<ConfigEffectSentinelObserv
     const successfulDeps = configCliDeps({ ok: true, value: configCliDefaults() });
     const rejectedDeps = configCliDeps({
       ok: false,
-      error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
+      error: generatedResolutionError(),
     });
 
     const handlerErrors: string[] = [];
