@@ -11,6 +11,7 @@
 import * as fc from "fast-check";
 
 import { METHODOLOGY_VERSION_FORM } from "@/config/methodology";
+import { SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS } from "@/lib/spec-tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 
 export const GRAMMAR_SELECTION_LINE = {
@@ -104,4 +105,31 @@ export function declarationSelectionCases(): readonly DeclarationSelectionCase[]
 
 function arbitraryExactVersionOnLine(line: GrammarSelectionLine): fc.Arbitrary<string> {
   return versionComponent().map((patch) => [line, patch].join(VERSION_SEPARATOR));
+}
+
+const THREE_X_LINES: readonly GrammarSelectionLine[] = [
+  GRAMMAR_SELECTION_LINE.THREE_ZERO,
+  GRAMMAR_SELECTION_LINE.THREE_ONE,
+  GRAMMAR_SELECTION_LINE.THREE_TWO,
+];
+
+/** A methodology declaration on a line SPX reads, with or without a migration source on a 3.x line. */
+export function arbitraryMethodologyDeclaration(): fc.Arbitrary<{
+  readonly version: string;
+  readonly migratingFrom?: string;
+}> {
+  const readLines = GRAMMAR_SELECTION_LINES as readonly GrammarSelectionLine[];
+  return fc
+    .tuple(
+      fc.constantFrom(...readLines).chain((line) => arbitraryVersionOnLine(line)),
+      fc.option(fc.constantFrom(...THREE_X_LINES).chain((line) => arbitraryVersionOnLine(line)), { nil: undefined }),
+    )
+    .map(([version, migratingFrom]) => migratingFrom === undefined ? { version } : { version, migratingFrom });
+}
+
+/** A node directory suffix some naming-schema version SPX knows accepts. */
+export function arbitraryKnownNodeSuffix(): fc.Arbitrary<string> {
+  return fc.constantFrom(
+    ...new Set(SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS.flatMap(({ nodeSuffixes }) => nodeSuffixes)),
+  );
 }
