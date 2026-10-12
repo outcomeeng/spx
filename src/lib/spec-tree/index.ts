@@ -2,13 +2,17 @@ import type { Dirent } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { parse as parseYaml } from "yaml";
+
+import type { Result } from "@/config/types";
+
 import type {
   DecisionKind,
   Kind,
   KindDefinition,
   NamingSchemaVersion,
-  NodeKind,
   SpecTreeKindCategory,
+  SpecTreeNodeKind,
   SpecTreeNodeState,
 } from "./config";
 import {
@@ -19,10 +23,13 @@ import {
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_KIND_CATEGORY,
+  SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_NODE_STATE,
+  SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION,
 } from "./config";
 import { compareSpecContextOrdinal } from "./context-manifest";
+import { selectSpecTreeGrammar, type SpecTreeGrammarSelection } from "./grammar-selection";
 import { createSpecTreeLinkGrammar } from "./link-grammar";
 export {
   canonicalNamingSchemaVersion,
@@ -33,16 +40,23 @@ export {
   KIND_REGISTRY,
   NODE_KINDS,
   NODE_SUFFIXES,
+  OUTPUT_KINDS,
+  OUTPUT_SUFFIXES,
+  resolveAdmittedChildren,
+  resolveKindOpening,
   SPEC_TREE_ADR_KIND,
   SPEC_TREE_CONFIG,
   SPEC_TREE_CONFIG_FIELDS,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_GRAMMAR,
+  SPEC_TREE_INHERIT_FROM_PARENT,
   SPEC_TREE_KIND_CATEGORY,
+  SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_NAMING_VERSION,
   SPEC_TREE_NODE_STATE,
+  SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION,
   SPEC_TREE_SECTION,
   SPEC_TREE_SUPERSEDED_NODE_SUFFIXES,
   specTreeConfigDescriptor,
@@ -55,10 +69,12 @@ export type {
   KindDefinition,
   NamingSchemaVersion,
   NodeKind,
+  OutputKind,
   SpecTreeConfig,
   SpecTreeEntryType,
   SpecTreeEvidenceGrammar,
   SpecTreeKindCategory,
+  SpecTreeNodeKind,
   SpecTreeNodeState,
 } from "./config";
 export {
@@ -132,6 +148,12 @@ export type {
   SpecContextTargetPathFacts,
   SpecContextTargetResolution,
 } from "./context-target";
+export { selectSpecTreeGrammar, SPEC_TREE_DECLARATION_FIELD, SPEC_TREE_METHODOLOGY_LINE } from "./grammar-selection";
+export type {
+  SpecTreeGrammarSelection,
+  SpecTreeMethodologyDeclaration,
+  SpecTreeMethodologyLine,
+} from "./grammar-selection";
 export {
   admitsSpecTreeLinkText,
   isSpecTreeEvidenceLinkText,
@@ -244,7 +266,7 @@ export type SpecTreeProductSourceEntry = SpecTreeSourceEntryBase & {
 
 export type SpecTreeNodeSourceEntry = SpecTreeSourceEntryBase & {
   readonly type: typeof SPEC_TREE_ENTRY_TYPE.NODE;
-  readonly kind: NodeKind;
+  readonly kind: SpecTreeNodeKind;
   readonly order: number;
   readonly slug: string;
   readonly parentId?: string;
@@ -294,20 +316,36 @@ export type SpecTreeFilesystemRecord = {
   readonly type: SpecTreeFilesystemRecordType;
   readonly relativePath: string;
   readonly parentId?: string;
+  /** The `kind` a root spec file declares in its front matter, read by the source that holds the file's text. */
+  readonly declaredKind?: string;
 };
 
 export type SpecTreePathInclusionPredicate = (path: string) => boolean | Promise<boolean>;
 
+export type SpecTreeMethodologyResolver = (productDir: string) => Promise<Result<SpecTreeMethodologyDeclarationInput>>;
+
+type SpecTreeMethodologyDeclarationInput = {
+  readonly version?: string;
+  readonly migratingFrom?: string;
+};
+
 export type FilesystemSpecTreeSourceOptions = {
   readonly productDir: string;
   readonly registry?: SpecTreeRegistry;
+  /** The versions the source knows; with no `selection`, the highest of them is the one version a read accepts. */
   readonly schemaVersions?: readonly NamingSchemaVersion[];
+  /** The grammar the source reads. Without it and without `schemaVersions`, the product's methodology declaration selects it. */
+  readonly selection?: SpecTreeGrammarSelection;
+  /** Reads the product's methodology declaration; the production resolver reads the product configuration. */
+  readonly resolveMethodology?: SpecTreeMethodologyResolver;
   readonly includePath?: SpecTreePathInclusionPredicate;
 };
 
 export type SpecTreeRecognitionOptions = {
   readonly registry?: SpecTreeRegistry;
   readonly schemaVersions?: readonly NamingSchemaVersion[];
+  /** The members of `schemaVersions` a read accepts; the highest known version when absent. */
+  readonly selectedVersions?: readonly NamingSchemaVersion[];
 };
 
 export type SpecTreeEvidenceProvider = {
@@ -341,7 +379,7 @@ export type SpecTreeDecision = {
 
 export type SpecTreeNode = {
   readonly id: string;
-  readonly kind: NodeKind;
+  readonly kind: SpecTreeNodeKind;
   readonly order: number;
   readonly slug: string;
   readonly parentId?: string;
@@ -364,7 +402,7 @@ export type SpecTreeSnapshot = {
 
 export type SpecTreeProjectedNode = {
   readonly id: string;
-  readonly kind: NodeKind;
+  readonly kind: SpecTreeNodeKind;
   readonly order: number;
   readonly slug: string;
   readonly state: SpecTreeNodeState;
@@ -421,11 +459,15 @@ export function getKindDefinition<K extends keyof SpecTreeRegistry>(
 
 export function createFilesystemSpecTreeSource(options: FilesystemSpecTreeSourceOptions): SpecTreeSource {
   const registry = options.registry ?? KIND_REGISTRY;
-  const schemaVersions = options.schemaVersions ?? SPEC_TREE_NAMING_SCHEMA_VERSIONS;
   const includePath = options.includePath ?? includeEverySpecTreePath;
+  let selection: Promise<SpecTreeGrammarSelection> | undefined;
+  const resolveSelection = (): Promise<SpecTreeGrammarSelection> => {
+    selection ??= selectGrammarForSource(options);
+    return selection;
+  };
 
   return {
-    entries: () => readFilesystemSourceEntries(options.productDir, registry, schemaVersions, includePath),
+    entries: () => readFilesystemSourceEntries(options.productDir, registry, resolveSelection, includePath),
     async readText(ref: SpecTreeSourceRef): Promise<string> {
       if (ref.path === undefined) {
         throw new Error("Filesystem source refs require a path");
@@ -435,31 +477,42 @@ export function createFilesystemSpecTreeSource(options: FilesystemSpecTreeSource
   };
 }
 
+async function selectGrammarForSource(options: FilesystemSpecTreeSourceOptions): Promise<SpecTreeGrammarSelection> {
+  if (options.selection !== undefined) return options.selection;
+  if (options.schemaVersions !== undefined) {
+    return { known: options.schemaVersions, selected: [canonicalNamingSchemaVersion(options.schemaVersions)] };
+  }
+  const resolveMethodology = options.resolveMethodology ?? (await defaultMethodologyResolver());
+  const declaration = await resolveMethodology(options.productDir);
+  if (!declaration.ok) throw new Error(declaration.error);
+  return selectSpecTreeGrammar(declaration.value);
+}
+
+async function defaultMethodologyResolver(): Promise<SpecTreeMethodologyResolver> {
+  const { resolveMethodologyConfig } = await import("@/config/methodology-placement");
+  return resolveMethodologyConfig;
+}
+
 export function recognizeSpecTreeFilesystemEntry(
   record: SpecTreeFilesystemRecord,
   options: SpecTreeRecognitionOptions = {},
 ): SpecTreeSourceEntry | null {
   const registry = options.registry ?? KIND_REGISTRY;
-  const schemaVersions = options.schemaVersions ?? SPEC_TREE_NAMING_SCHEMA_VERSIONS;
+  const known = options.schemaVersions ?? SPEC_TREE_NAMING_SCHEMA_VERSIONS;
+  const selected = options.selectedVersions ?? [canonicalNamingSchemaVersion(known)];
+  const target = canonicalNamingSchemaVersion(selected);
   const name = readLastPathSegment(record.relativePath);
 
-  if (record.type === SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE && isProductFile(record.relativePath)) {
-    return {
-      type: SPEC_TREE_ENTRY_TYPE.PRODUCT,
-      id: record.relativePath,
-      title: stripSuffix(name, SPEC_TREE_CONFIG.PRODUCT.SUFFIX),
-      ref: sourceRefForRelativePath(record.relativePath),
-    };
+  if (record.type === SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE && isRootLevelPath(record.relativePath)) {
+    const rootEntry = recognizeRootFile(record, name, known, selected, target);
+    if (rootEntry !== null) return rootEntry;
   }
 
   if (record.type === SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY) {
-    return recognizeDirectoryRecord(record, name, registry, schemaVersions);
+    return recognizeDirectoryRecord(record, name, registry, known, selected, target);
   }
 
-  if (
-    record.parentId !== undefined
-    && isEvidenceFile(record.relativePath, canonicalNamingSchemaVersion(schemaVersions))
-  ) {
+  if (record.parentId !== undefined && isEvidenceFile(record.relativePath, target)) {
     return {
       type: SPEC_TREE_ENTRY_TYPE.EVIDENCE,
       id: record.relativePath,
@@ -484,30 +537,73 @@ export function recognizeSpecTreeFilesystemEntry(
   };
 }
 
+/** Whether a selected version reads its root spec from the file's front matter rather than from its name alone. */
+function rootSpecFileNeedsKind(version: NamingSchemaVersion, name: string): boolean {
+  return version.rootSpecKind !== undefined && name.endsWith(version.productSuffix);
+}
+
+function recognizeRootFile(
+  record: SpecTreeFilesystemRecord,
+  name: string,
+  known: readonly NamingSchemaVersion[],
+  selected: readonly NamingSchemaVersion[],
+  target: NamingSchemaVersion,
+): SpecTreeSourceEntry | null {
+  for (const version of selected) {
+    if (!name.endsWith(version.productSuffix)) continue;
+    if (version.rootSpecKind !== undefined && record.declaredKind !== version.rootSpecKind) {
+      throw new Error(
+        `${
+          sourceRefForRelativePath(record.relativePath).id
+        } must declare kind: ${version.rootSpecKind} in its front matter`,
+      );
+    }
+    return {
+      type: SPEC_TREE_ENTRY_TYPE.PRODUCT,
+      id: record.relativePath,
+      title: stripSuffix(name, version.productSuffix),
+      ref: sourceRefForRelativePath(record.relativePath),
+    };
+  }
+
+  const prior = priorVersions(known, selected, target).find(
+    (version) => version.rootSpecKind === undefined && name.endsWith(version.productSuffix),
+  );
+  if (prior === undefined) return null;
+  return {
+    type: SPEC_TREE_ENTRY_TYPE.SUPERSEDED,
+    id: record.relativePath,
+    version: prior.version,
+    parentId: record.parentId,
+    ref: sourceRefForRelativePath(record.relativePath),
+  };
+}
+
 function recognizeDirectoryRecord(
   record: SpecTreeFilesystemRecord,
   name: string,
   registry: SpecTreeRegistry,
-  schemaVersions: readonly NamingSchemaVersion[],
+  known: readonly NamingSchemaVersion[],
+  selected: readonly NamingSchemaVersion[],
+  target: NamingSchemaVersion,
 ): SpecTreeSourceEntry | null {
-  const canonical = canonicalNamingSchemaVersion(schemaVersions);
-  const canonicalMatch = matchNodeSuffixFromVersion(name, canonical);
-  if (canonicalMatch !== null) {
-    const kind = nodeKindForSuffix(canonicalMatch.suffix, registry);
+  const selectedMatch = matchNodeSuffixFromVersions(name, selected);
+  if (selectedMatch !== null) {
+    const kind = nodeKindForSuffix(selectedMatch.suffix, registry);
     if (kind !== null) {
       return {
         type: SPEC_TREE_ENTRY_TYPE.NODE,
         kind,
         id: record.relativePath,
-        order: canonicalMatch.parsed.order,
-        slug: canonicalMatch.parsed.slug,
+        order: selectedMatch.parsed.order,
+        slug: selectedMatch.parsed.slug,
         parentId: record.parentId,
-        ref: sourceRefForNode(record.relativePath, canonicalMatch.parsed.slug),
+        ref: sourceRefForNode(record.relativePath, selectedMatch.parsed.slug, selectedMatch.version),
       };
     }
   }
 
-  const supersededVersion = matchSupersededNodeVersion(name, schemaVersions, canonical);
+  const supersededVersion = matchSupersededNodeVersion(name, known, selected, target);
   if (supersededVersion !== null) {
     return {
       type: SPEC_TREE_ENTRY_TYPE.SUPERSEDED,
@@ -539,41 +635,60 @@ function recognizeDirectoryRecord(
 type NodeSuffixMatch = {
   readonly suffix: string;
   readonly parsed: OrderedSlug;
+  readonly version: NamingSchemaVersion;
 };
 
-function matchNodeSuffixFromVersion(name: string, version: NamingSchemaVersion): NodeSuffixMatch | null {
-  for (const suffix of version.nodeSuffixes) {
-    if (!name.endsWith(suffix)) continue;
-    const parsed = parseOrderedSlug(stripSuffix(name, suffix));
-    if (parsed !== null) {
-      return { suffix, parsed };
+function matchNodeSuffixFromVersions(
+  name: string,
+  versions: readonly NamingSchemaVersion[],
+): NodeSuffixMatch | null {
+  for (const version of versions) {
+    for (const suffix of version.nodeSuffixes) {
+      if (!name.endsWith(suffix)) continue;
+      const parsed = parseOrderedSlug(stripSuffix(name, suffix));
+      if (parsed !== null) {
+        return { suffix, parsed, version };
+      }
     }
   }
   return null;
 }
 
-function nodeKindForSuffix(suffix: string, registry: SpecTreeRegistry): NodeKind | null {
+function nodeKindForSuffix(suffix: string, registry: SpecTreeRegistry): SpecTreeNodeKind | null {
   for (const [kind, definition] of Object.entries(registry) as Array<[Kind, KindDefinition<Kind>]>) {
-    if (definition.category === SPEC_TREE_KIND_CATEGORY.NODE && definition.suffix === suffix) {
-      return kind as NodeKind;
+    if (isNodeCategory(definition.category) && definition.suffix === suffix) {
+      return kind as SpecTreeNodeKind;
     }
   }
   return null;
+}
+
+function isNodeCategory(category: SpecTreeKindCategory): boolean {
+  return category === SPEC_TREE_KIND_CATEGORY.NODE || category === SPEC_TREE_KIND_CATEGORY.OUTPUT;
+}
+
+/** The known versions ordered at or before the target that no selected version includes, highest first. */
+function priorVersions(
+  known: readonly NamingSchemaVersion[],
+  selected: readonly NamingSchemaVersion[],
+  target: NamingSchemaVersion,
+): readonly NamingSchemaVersion[] {
+  return known
+    .filter((version) => !selected.includes(version) && compareNamingSchemaVersions(version, target) <= 0)
+    .sort((left, right) => compareNamingSchemaVersions(right, left));
 }
 
 function matchSupersededNodeVersion(
   name: string,
-  schemaVersions: readonly NamingSchemaVersion[],
-  canonical: NamingSchemaVersion,
+  known: readonly NamingSchemaVersion[],
+  selected: readonly NamingSchemaVersion[],
+  target: NamingSchemaVersion,
 ): string | null {
-  const canonicalSuffixes = new Set(canonical.nodeSuffixes);
-  const priorVersions = schemaVersions
-    .filter((version) => version !== canonical)
-    .sort((left, right) => compareNamingSchemaVersions(right, left));
+  const selectedSuffixes = new Set(selected.flatMap((version) => version.nodeSuffixes));
 
-  for (const version of priorVersions) {
+  for (const version of priorVersions(known, selected, target)) {
     for (const suffix of version.nodeSuffixes) {
-      if (canonicalSuffixes.has(suffix)) continue;
+      if (selectedSuffixes.has(suffix)) continue;
       if (name.endsWith(suffix) && parseOrderedSlug(stripSuffix(name, suffix)) !== null) {
         return version.version;
       }
@@ -582,19 +697,27 @@ function matchSupersededNodeVersion(
   return null;
 }
 
+/** The grammar a link target is judged by: every version SPX knows, with the 3.x and 4.0 grammars both accepted. */
+const SPEC_TREE_LINK_RECOGNITION: SpecTreeRecognitionOptions = {
+  schemaVersions: SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
+  selectedVersions: [
+    canonicalNamingSchemaVersion(SPEC_TREE_NAMING_SCHEMA_VERSIONS),
+    SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION,
+  ],
+};
 const SPEC_TREE_LINK_GRAMMAR = createSpecTreeLinkGrammar({
   isNodeDirectoryName: (directoryName) => {
     const entry = recognizeSpecTreeFilesystemEntry({
       type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY,
       relativePath: directoryName,
-    });
+    }, SPEC_TREE_LINK_RECOGNITION);
     return entry?.type === SPEC_TREE_ENTRY_TYPE.NODE || entry?.type === SPEC_TREE_ENTRY_TYPE.SUPERSEDED;
   },
   isDecisionFile: (specTreeRelativePath) =>
     recognizeSpecTreeFilesystemEntry({
       type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
       relativePath: specTreeRelativePath,
-    })?.type === SPEC_TREE_ENTRY_TYPE.DECISION,
+    }, SPEC_TREE_LINK_RECOGNITION)?.type === SPEC_TREE_ENTRY_TYPE.DECISION,
 });
 
 /** Classifies a link target against the spec-tree link grammar. */
@@ -617,7 +740,15 @@ export const resolveSpecTreeDecisionCitation = SPEC_TREE_LINK_GRAMMAR.resolveSpe
 
 export async function readSpecTree(options: SpecTreeOptions): Promise<SpecTreeSnapshot> {
   const entries = await collectSourceEntries(options.source);
-  const product = entries.find(isProductEntry) ?? null;
+  const products = entries.filter(isProductEntry);
+  if (products.length > 1) {
+    throw new Error(
+      `A spec tree holds one root spec; found ${products.length}: ${
+        products.map((entry) => entry.ref?.path ?? entry.id).join(", ")
+      }`,
+    );
+  }
+  const product = products.at(0) ?? null;
   const superseded = entries.filter(isSupersededEntry);
   const residual = entries.filter(isInvalidEntry);
   const evidenceByParent = groupEvidence(entries.filter(isEvidenceEntry));
@@ -819,14 +950,15 @@ function compareOrderedEntries(left: OrderedEntry, right: OrderedEntry): number 
 async function* readFilesystemSourceEntries(
   productDir: string,
   registry: SpecTreeRegistry,
-  schemaVersions: readonly NamingSchemaVersion[],
+  resolveSelection: () => Promise<SpecTreeGrammarSelection>,
   includePath: SpecTreePathInclusionPredicate,
 ): AsyncIterable<SpecTreeSourceEntry> {
+  const selection = await resolveSelection();
   yield* walkFilesystemDirectory({
     absolutePath: join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY),
     relativePath: SPEC_TREE_EMPTY_RELATIVE_PATH,
     registry,
-    schemaVersions,
+    selection,
     includePath,
   });
 }
@@ -835,7 +967,7 @@ type FilesystemWalkContext = {
   readonly absolutePath: string;
   readonly relativePath: string;
   readonly registry: SpecTreeRegistry;
-  readonly schemaVersions: readonly NamingSchemaVersion[];
+  readonly selection: SpecTreeGrammarSelection;
   readonly includePath: SpecTreePathInclusionPredicate;
   readonly parentId?: string;
 };
@@ -858,9 +990,14 @@ async function* walkFilesystemDirectory(context: FilesystemWalkContext): AsyncIt
     const recordType = filesystemRecordType(entry);
     if (recordType === undefined) continue;
 
+    const declaredKind = await readDeclaredRootKind(context, entry, relativePath);
     const sourceEntry = recognizeSpecTreeFilesystemEntry(
-      { type: recordType, relativePath, parentId: context.parentId },
-      { registry: context.registry, schemaVersions: context.schemaVersions },
+      { type: recordType, relativePath, parentId: context.parentId, declaredKind },
+      {
+        registry: context.registry,
+        schemaVersions: context.selection.known,
+        selectedVersions: context.selection.selected,
+      },
     );
     if (sourceEntry !== null) yield sourceEntry;
 
@@ -869,12 +1006,33 @@ async function* walkFilesystemDirectory(context: FilesystemWalkContext): AsyncIt
         absolutePath: join(context.absolutePath, entry.name),
         relativePath,
         registry: context.registry,
-        schemaVersions: context.schemaVersions,
+        selection: context.selection,
         includePath: context.includePath,
         parentId: childParentId(context, sourceEntry),
       });
     }
   }
+}
+
+const FRONT_MATTER_PATTERN = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
+const FRONT_MATTER_KIND_KEY = "kind";
+
+/** The `kind` a root spec file declares in its front matter, read only for a file a selected version reads as the root spec. */
+async function readDeclaredRootKind(
+  context: FilesystemWalkContext,
+  entry: Dirent,
+  relativePath: string,
+): Promise<string | undefined> {
+  if (!entry.isFile() || !isRootLevelPath(relativePath)) return undefined;
+  if (!context.selection.selected.some((version) => rootSpecFileNeedsKind(version, entry.name))) return undefined;
+
+  const text = await readFile(join(context.absolutePath, entry.name), SPEC_TREE_TEXT_ENCODING);
+  const frontMatter = FRONT_MATTER_PATTERN.exec(text);
+  if (frontMatter === null) return undefined;
+  const parsed: unknown = parseYaml(frontMatter[1]);
+  if (typeof parsed !== "object" || parsed === null) return undefined;
+  const kind = (parsed as Record<string, unknown>)[FRONT_MATTER_KIND_KEY];
+  return typeof kind === "string" ? kind : undefined;
 }
 
 function filesystemRecordType(entry: Dirent): SpecTreeFilesystemRecord["type"] | undefined {
@@ -926,8 +1084,8 @@ function parseOrderedSlug(value: string): OrderedSlug | null {
   };
 }
 
-function isProductFile(relativePath: string): boolean {
-  return !relativePath.includes(SPEC_TREE_PATH_SEPARATOR) && relativePath.endsWith(SPEC_TREE_CONFIG.PRODUCT.SUFFIX);
+function isRootLevelPath(relativePath: string): boolean {
+  return !relativePath.includes(SPEC_TREE_PATH_SEPARATOR);
 }
 
 function isEvidenceFile(relativePath: string, version: NamingSchemaVersion): boolean {
@@ -982,8 +1140,11 @@ function sourceRefForRelativePath(relativePath: string): SpecTreeSourceRef {
   return { id: path, path };
 }
 
-function sourceRefForNode(relativePath: string, slug: string): SpecTreeSourceRef {
-  return sourceRefForRelativePath(joinSpecTreePath(relativePath, `${slug}.md`));
+function sourceRefForNode(relativePath: string, slug: string, version: NamingSchemaVersion): SpecTreeSourceRef {
+  const specFileSuffix = version.rootSpecKind === undefined
+    ? SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX
+    : version.specFileSuffix;
+  return sourceRefForRelativePath(joinSpecTreePath(relativePath, `${slug}${specFileSuffix}`));
 }
 
 function stripSuffix(value: string, suffix: string): string {

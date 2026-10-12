@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { withoutGitEnvironment } from "@/lib/git/environment";
-import { NODE_SUFFIXES, SPEC_TREE_CONFIG, SPEC_TREE_SUPERSEDED_NODE_SUFFIXES } from "@/lib/spec-tree";
+import { NODE_SUFFIXES, OUTPUT_SUFFIXES, SPEC_TREE_CONFIG, SPEC_TREE_SUPERSEDED_NODE_SUFFIXES } from "@/lib/spec-tree";
 import { LINT_POLICY_BASE_REFS, LINT_POLICY_MANIFESTS, parseLintPolicyManifest } from "./lint-policy-constants";
 
 const TEST_LINT_DEBT_NODE_MANIFEST_FILE = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.file;
@@ -14,7 +14,7 @@ const SPEC_TREE_ROOT = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
 const BASE_BRANCH_REFS = [LINT_POLICY_BASE_REFS.REMOTE_MAIN, LINT_POLICY_BASE_REFS.LOCAL_MAIN] as const;
 
 function isSpecTreeNodePath(entry: string): boolean {
-  return NODE_SUFFIXES.some((suffix) => entry.endsWith(suffix));
+  return [...NODE_SUFFIXES, ...OUTPUT_SUFFIXES].some((suffix) => entry.endsWith(suffix));
 }
 
 export type LintPolicyResult =

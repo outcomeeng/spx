@@ -1,6 +1,6 @@
 import { LINT_POLICY_BASE_REFS, LINT_POLICY_MANIFESTS } from "@/validation/lint-policy-constants";
 
-const DEPRECATED_SPEC_NODE_PATH = "spx/10-old.capability";
+const DEPRECATED_SPEC_NODE_PATH = "spx/10-old.feature";
 const BASE_TEST_DEBT_PATH = "spx/20-current.enabler";
 const ADDED_TEST_DEBT_PATH = "spx/30-added.enabler";
 const LINT_POLICY_TEST_BRANCH = "spec-tree-node-branch";

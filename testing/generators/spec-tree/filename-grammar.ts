@@ -105,17 +105,19 @@ export function kindRegistryMappingCases(): readonly KindRegistryMappingCase[] {
 }
 
 export function kindRegistrySubsetCases(): readonly KindRegistrySubsetCase[] {
-  return [SPEC_TREE_KIND_CATEGORY.NODE, SPEC_TREE_KIND_CATEGORY.DECISION].map((category) => {
-    const projectedKinds = (Object.keys(KIND_REGISTRY) as Kind[]).filter(
-      (kind) => KIND_REGISTRY[kind].category === category,
-    );
-    return {
-      title: `projects the ${category} registry subset`,
-      category,
-      projectedKinds,
-      projectedSuffixes: projectedKinds.map((kind) => KIND_REGISTRY[kind].suffix),
-    };
-  });
+  return [SPEC_TREE_KIND_CATEGORY.NODE, SPEC_TREE_KIND_CATEGORY.OUTPUT, SPEC_TREE_KIND_CATEGORY.DECISION].map(
+    (category) => {
+      const projectedKinds = (Object.keys(KIND_REGISTRY) as Kind[]).filter(
+        (kind) => KIND_REGISTRY[kind].category === category,
+      );
+      return {
+        title: `projects the ${category} registry subset`,
+        category,
+        projectedKinds,
+        projectedSuffixes: projectedKinds.map((kind) => KIND_REGISTRY[kind].suffix),
+      };
+    },
+  );
 }
 
 export function kindRegistryTypeCases(): readonly KindRegistryTypeCase[] {
@@ -160,7 +162,7 @@ export function specTreeEntryRecognitionCases(): readonly SpecTreeEntryRecogniti
     const order = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder());
     const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
     const definition = KIND_REGISTRY[kind];
-    if (definition.category === SPEC_TREE_KIND_CATEGORY.NODE) {
+    if (definition.category !== SPEC_TREE_KIND_CATEGORY.DECISION) {
       return {
         title: `maps the registered ${kind} directory suffix`,
         kind,
