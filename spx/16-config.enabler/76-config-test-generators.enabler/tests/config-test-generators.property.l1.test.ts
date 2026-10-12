@@ -15,7 +15,7 @@ describe("config test generators properties", () => {
     expect(specTreeConfigDescriptor.validate(validSection).ok).toBe(true);
 
     assertProperty(
-      CONFIG_TEST_GENERATOR.specTreeSubsetConfig(),
+      CONFIG_TEST_GENERATOR.specTreeRejectedKindMapConfig(),
       (rejected) => {
         const section = rejected[SPEC_TREE_SECTION] as { readonly [SPEC_TREE_CONFIG_FIELDS.KINDS]: object };
         const definitions = Object.entries(section[SPEC_TREE_CONFIG_FIELDS.KINDS]);

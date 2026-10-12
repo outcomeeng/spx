@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { specTreeConfigDescriptor } from "@/lib/spec-tree";
 import {
   withShowDefaultConfigObservation,
   withShowFormatEquivalenceObservation,
@@ -51,10 +50,11 @@ describe("showCommand", () => {
   });
 
   it("surfaces a resolveConfig error with a descriptor-qualified diagnostic", async () => {
-    await withShowResolutionFailureObservation(({ result }) => {
+    await withShowResolutionFailureObservation(({ result, section, validatorMessage }) => {
       expect(result.exitCode).not.toBe(0);
       expect(result.stdout).toHaveLength(0);
-      expect(result.stderr).toContain(specTreeConfigDescriptor.section);
+      expect(result.stderr).toContain(section);
+      expect(result.stderr).toContain(validatorMessage);
     });
   });
 });
