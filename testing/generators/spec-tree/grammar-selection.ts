@@ -11,6 +11,7 @@
 import * as fc from "fast-check";
 
 import { METHODOLOGY_VERSION_FORM } from "@/config/methodology";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 
 export const GRAMMAR_SELECTION_LINE = {
   THREE_ZERO: "3.0",
@@ -59,4 +60,48 @@ export function arbitraryUnsupportedVersion(): fc.Arbitrary<string> {
 /** The lines SPX reads, as the diagnostic of an unsupported declaration names them. */
 export function grammarSelectionLines(): readonly string[] {
   return GRAMMAR_SELECTION_LINES;
+}
+
+const MAJOR_COMPONENT_INDEX = 0;
+const FOUR_ZERO_LINES: readonly string[] = [GRAMMAR_SELECTION_LINE.FOUR_ZERO];
+
+/** The major component of a dotted version or methodology line. */
+export function majorComponent(version: string): string {
+  return version.split(VERSION_SEPARATOR)[MAJOR_COMPONENT_INDEX];
+}
+
+/**
+ * A methodology declaration with the major components of the naming-schema versions it selects:
+ * a line maps to the naming-schema version of its major, and a 4.0 target with a 3.x migration
+ * source selects both.
+ */
+export type DeclarationSelectionCase = {
+  readonly label: string;
+  readonly declaration: { readonly version: string; readonly migratingFrom?: string };
+  readonly selectedMajors: readonly string[];
+};
+
+/** One case per line SPX reads in each accepted version form, and one per 3.x migration source of a 4.0 target. */
+export function declarationSelectionCases(): readonly DeclarationSelectionCase[] {
+  const single = GRAMMAR_SELECTION_LINES.flatMap((line) => {
+    const lineValue = line as GrammarSelectionLine;
+    return [
+      { label: `line ${line}`, version: line },
+      { label: `line ${line} with a patch`, version: sampleGeneratedValue(arbitraryExactVersionOnLine(lineValue)) },
+    ].map(({ label, version }) => ({
+      label,
+      declaration: { version },
+      selectedMajors: [majorComponent(line)],
+    }));
+  });
+  const migrating = GRAMMAR_SELECTION_LINES.filter((line) => !FOUR_ZERO_LINES.includes(line)).map((line) => ({
+    label: `line ${GRAMMAR_SELECTION_LINE.FOUR_ZERO} with migration source ${line}`,
+    declaration: { version: GRAMMAR_SELECTION_LINE.FOUR_ZERO, migratingFrom: line },
+    selectedMajors: [majorComponent(GRAMMAR_SELECTION_LINE.FOUR_ZERO), majorComponent(line)],
+  }));
+  return [...single, ...migrating];
+}
+
+function arbitraryExactVersionOnLine(line: GrammarSelectionLine): fc.Arbitrary<string> {
+  return versionComponent().map((patch) => [line, patch].join(VERSION_SEPARATOR));
 }
