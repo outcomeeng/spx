@@ -1,8 +1,6 @@
 import * as fc from "fast-check";
 
 import {
-  canonicalNamingSchemaVersion,
-  compareNumericVersionIdentifiers,
   DECISION_SUFFIXES,
   type NamingSchemaVersion,
   NODE_SUFFIXES,
@@ -21,6 +19,8 @@ const NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS = {
   VERSION_TUPLE_MAX: 5,
   RECOGNITION_FOREIGN_SUFFIX_COUNT: 2,
   EVIDENCE_TOKEN_MAX_LENGTH: 10,
+  COMPANION_VERSION_MIN: 1,
+  COMPANION_VERSION_MAX: 3,
 } as const;
 
 // Fixture-scoped version identifiers, deliberately distinct from the production
@@ -62,6 +62,12 @@ export type InjectedEvidenceGrammarScenario = {
   readonly relativePath: string;
 };
 
+export type SelectedVersionScenario = {
+  readonly selected: NamingSchemaVersion;
+  readonly companions: readonly NamingSchemaVersion[];
+  readonly suffix: string;
+};
+
 export type NonNumericVersionPair = {
   readonly invalid: NamingSchemaVersion;
   readonly valid: NamingSchemaVersion;
@@ -80,11 +86,22 @@ export function semverOrderOracle(left: string, right: string): number {
   return 0;
 }
 
+/** Independent maximum oracle: the member the semantic-version oracle orders last, taking the earliest on a tie. */
+export function semverMaximumOracle(versions: readonly NamingSchemaVersion[]): NamingSchemaVersion {
+  const first = versions.at(0);
+  if (first === undefined) throw new Error("Expected a non-empty naming-schema version tuple");
+  return versions.slice(1).reduce(
+    (maximum, version) => semverOrderOracle(version.version, maximum.version) > 0 ? version : maximum,
+    first,
+  );
+}
+
 export const NAMING_SCHEMA_VERSION_TEST_GENERATOR = {
   version: arbitraryNamingSchemaVersion,
   versionComparisonPair: arbitraryNamingSchemaVersionComparisonPair,
   nonNumericVersionPair: arbitraryNonNumericVersionPair,
   versionTuple: arbitraryNamingSchemaVersionTuple,
+  selectedVersionScenario: arbitrarySelectedVersionScenario,
   recognitionScenario: arbitraryRecognitionVersionScenario,
   demotedRegistrySuffixScenario: arbitraryDemotedRegistrySuffixScenario,
   canonicalForeignSuffixScenario: arbitraryCanonicalForeignSuffixScenario,
@@ -243,9 +260,9 @@ function arbitraryNamingSchemaVersionTuple(): fc.Arbitrary<readonly NamingSchema
           ),
         )
         .map((members) => {
-          // Determine the canonical member with the production comparator rather than a
-          // local copy, so the generator cannot drift from the ordering it generates for.
-          const canonicalVersion = canonicalNamingSchemaVersion(
+          // Determine the canonical member with the semantic-version oracle, so the role each
+          // member holds comes from the ordering law and never from the code under test.
+          const canonicalVersion = semverMaximumOracle(
             members.map((member) =>
               buildNamingSchemaVersion(
                 member.version,
@@ -265,6 +282,44 @@ function arbitraryNamingSchemaVersionTuple(): fc.Arbitrary<readonly NamingSchema
           );
         })
     );
+}
+
+/**
+ * A selected version whose node suffixes are a non-empty subset of the registered node suffixes,
+ * the other versions known beside it, and a registered suffix the selected version may or may not own.
+ */
+function arbitrarySelectedVersionScenario(): fc.Arbitrary<SelectedVersionScenario> {
+  const registeredSuffixSubset = (): fc.Arbitrary<string[]> => fc.subarray([...NODE_SUFFIXES], { minLength: 1 });
+  return fc
+    .record({
+      selectedVersion: arbitrarySemver(),
+      selectedSuffixes: registeredSuffixSubset(),
+      companions: fc.array(
+        fc.record({ version: arbitrarySemver(), suffixes: registeredSuffixSubset() }),
+        {
+          minLength: NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.COMPANION_VERSION_MIN,
+          maxLength: NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.COMPANION_VERSION_MAX,
+        },
+      ),
+      suffix: fc.constantFrom(...NODE_SUFFIXES),
+    })
+    .map(({ selectedVersion, selectedSuffixes, companions, suffix }) => ({
+      selected: buildNamingSchemaVersion(
+        selectedVersion,
+        selectedSuffixes,
+        DECISION_SUFFIXES,
+        specFileSuffixForRole(true),
+      ),
+      companions: companions.map((companion) =>
+        buildNamingSchemaVersion(
+          companion.version,
+          companion.suffixes,
+          DECISION_SUFFIXES,
+          specFileSuffixForRole(false),
+        )
+      ),
+      suffix,
+    }));
 }
 
 function arbitraryForeignNodeSuffix(): fc.Arbitrary<string> {
@@ -343,12 +398,12 @@ function arbitraryDemotedRegistrySuffixScenario(): fc.Arbitrary<DemotedRegistryS
       arbitrarySemver(),
       arbitrarySemver(),
     )
-    .filter(([, leftVersion, rightVersion]) => compareNumericVersionIdentifiers(leftVersion, rightVersion) !== 0)
+    .filter(([, leftVersion, rightVersion]) => semverOrderOracle(leftVersion, rightVersion) !== 0)
     .map(([demotedIndex, leftVersion, rightVersion]) => {
       const demotedRegistrySuffix = NODE_SUFFIXES[demotedIndex];
       const canonicalRegistrySuffixes = NODE_SUFFIXES.filter((_, index) => index !== demotedIndex);
       const canonicalRegistrySuffix = canonicalRegistrySuffixes[0];
-      const priorVersion = compareNumericVersionIdentifiers(leftVersion, rightVersion) < 0 ? leftVersion : rightVersion;
+      const priorVersion = semverOrderOracle(leftVersion, rightVersion) < 0 ? leftVersion : rightVersion;
       const canonicalVersion = priorVersion === leftVersion ? rightVersion : leftVersion;
       return {
         schemaVersions: [

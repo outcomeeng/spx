@@ -27,7 +27,7 @@ CAN resolve and validate the configured vocabulary, and classify and render file
 
 ### Properties
 
-- The 4.0 naming-schema version accepts every index that is a two-digit integer from `10` to `99` followed by zero or more two-digit fractional segments, and rejects every other index
+- The 4.0 naming-schema version accepts every index that is a two-digit integer from `10` to `99` followed by zero or more two-digit fractional segments, and rejects every other index ([test](tests/index-form.property.l1.test.ts))
 - Naming-schema versions are totally ordered and each carries a self-contained set of accepted filename forms; a methodology declaration selects its valid versions, and a name no valid version accepts is superseded when an earlier version accepts it ([test](tests/naming-schema-versions.property.l1.test.ts))
 
 ### Compliance
