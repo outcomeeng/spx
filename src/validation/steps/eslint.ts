@@ -9,10 +9,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-import type { Result } from "@/config/types";
-import { toMessage } from "@/lib/error-message";
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
-import { resolveSpecTreeGrammarSelection, type SpecTreeGrammarSelection } from "@/lib/spec-tree";
 import { validateLintPolicy } from "@/validation/lint-policy";
 import type { ExecutionMode, ScopeConfig, ValidationContext, ValidationScope } from "../types";
 import { EXECUTION_MODES, VALIDATION_SCOPES } from "../types";
@@ -32,15 +29,6 @@ import {
  * Default production process runner for ESLint.
  */
 export const defaultEslintProcessRunner: ProcessRunner = lifecycleProcessRunner;
-
-/** The grammar selection of the product's methodology declaration, which the lint policy judges node suffixes by. */
-async function resolveLintPolicySelection(productDir: string): Promise<Result<SpecTreeGrammarSelection>> {
-  try {
-    return { ok: true, value: await resolveSpecTreeGrammarSelection(productDir) };
-  } catch (error) {
-    return { ok: false, error: toMessage(error) };
-  }
-}
 
 // =============================================================================
 // PURE ARGUMENT BUILDER
@@ -163,11 +151,7 @@ export async function validateESLint(
   skipped?: boolean;
 }> {
   const { productDir, scope, validatedFiles, mode, eslintConfigFile, toolPath } = context;
-  const selection = await resolveLintPolicySelection(productDir);
-  if (!selection.ok) {
-    return { success: false, error: selection.error };
-  }
-  const lintPolicy = validateLintPolicy(productDir, selection.value);
+  const lintPolicy = await validateLintPolicy(productDir);
 
   if (!lintPolicy.ok) {
     return { success: false, error: lintPolicy.error };
