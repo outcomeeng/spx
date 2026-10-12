@@ -4,7 +4,6 @@ import {
   createFilesystemSpecTreeSource,
   getKindDefinition,
   KIND_REGISTRY,
-  type NodeKind,
   projectSpecTree,
   readSpecTree,
   SPEC_TREE_CONFIG,
@@ -12,6 +11,7 @@ import {
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_EVIDENCE_STATUS,
   type SpecTreeEvidenceSourceEntry,
+  type SpecTreeNodeKind,
   type SpecTreeProjectedNode,
   type SpecTreeProjection,
   type SpecTreeSourceEntry,
@@ -47,7 +47,7 @@ type DecisionSignature = {
 };
 
 type NodeDirectoryEntry = {
-  readonly kind: NodeKind;
+  readonly kind: SpecTreeNodeKind;
   readonly order: number;
   readonly slug: string;
 };

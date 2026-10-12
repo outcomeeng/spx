@@ -2,10 +2,14 @@ import type { ConfigDescriptor, Result } from "@/config/types";
 
 const SPEC_TREE_KIND_CATEGORY_VALUES = {
   NODE: "node",
+  OUTPUT: "output",
   DECISION: "decision",
 } as const;
 
 const SPEC_TREE_EMPTY_ALIASES = [] as const;
+
+/** The value a variant declares for its opening and admitted children: both resolve through its parent's kind. */
+export const SPEC_TREE_INHERIT_FROM_PARENT = "inherit" as const;
 
 export const SPEC_TREE_CONFIG = {
   SECTION: "specTree",
@@ -13,6 +17,7 @@ export const SPEC_TREE_CONFIG = {
   PRODUCT: {
     LABEL: "Product",
     SUFFIX: ".product.md",
+    KIND: "product",
   },
   CATEGORY: SPEC_TREE_KIND_CATEGORY_VALUES,
   KINDS: {
@@ -22,6 +27,7 @@ export const SPEC_TREE_CONFIG = {
       suffix: ".enabler",
       aliases: SPEC_TREE_EMPTY_ALIASES,
       opening: "PROVIDES",
+      children: ["enabler"],
     },
     outcome: {
       category: SPEC_TREE_KIND_CATEGORY_VALUES.NODE,
@@ -29,6 +35,55 @@ export const SPEC_TREE_CONFIG = {
       suffix: ".outcome",
       aliases: SPEC_TREE_EMPTY_ALIASES,
       opening: "WE BELIEVE THAT",
+      children: ["enabler", "outcome"],
+    },
+    substrate: {
+      category: SPEC_TREE_KIND_CATEGORY_VALUES.OUTPUT,
+      label: "Substrate",
+      suffix: ".substrate",
+      aliases: SPEC_TREE_EMPTY_ALIASES,
+      opening: "SUPPLIES",
+      children: ["substrate", "variant"],
+    },
+    capability: {
+      category: SPEC_TREE_KIND_CATEGORY_VALUES.OUTPUT,
+      label: "Capability",
+      suffix: ".capability",
+      aliases: SPEC_TREE_EMPTY_ALIASES,
+      opening: "PROVIDES",
+      children: ["substrate", "capability", "variant"],
+    },
+    domain: {
+      category: SPEC_TREE_KIND_CATEGORY_VALUES.OUTPUT,
+      label: "Domain",
+      suffix: ".domain",
+      aliases: SPEC_TREE_EMPTY_ALIASES,
+      opening: "OWNS",
+      children: ["substrate", "capability", "domain", "variant"],
+    },
+    interface: {
+      category: SPEC_TREE_KIND_CATEGORY_VALUES.OUTPUT,
+      label: "Interface",
+      suffix: ".interface",
+      aliases: SPEC_TREE_EMPTY_ALIASES,
+      opening: "ADAPTS",
+      children: ["substrate", "capability", "domain", "interface", "variant"],
+    },
+    surface: {
+      category: SPEC_TREE_KIND_CATEGORY_VALUES.OUTPUT,
+      label: "Surface",
+      suffix: ".surface",
+      aliases: SPEC_TREE_EMPTY_ALIASES,
+      opening: "EXPOSES",
+      children: ["substrate", "capability", "domain", "interface", "surface", "variant"],
+    },
+    variant: {
+      category: SPEC_TREE_KIND_CATEGORY_VALUES.OUTPUT,
+      label: "Variant",
+      suffix: ".variant",
+      aliases: SPEC_TREE_EMPTY_ALIASES,
+      opening: SPEC_TREE_INHERIT_FROM_PARENT,
+      children: SPEC_TREE_INHERIT_FROM_PARENT,
     },
     adr: {
       category: SPEC_TREE_KIND_CATEGORY_VALUES.DECISION,
@@ -58,15 +113,48 @@ export const KIND_REGISTRY = SPEC_TREE_CONFIG.KINDS;
 export type Kind = keyof typeof KIND_REGISTRY;
 export type KindDefinition<K extends Kind> = (typeof KIND_REGISTRY)[K];
 
+/** A kind of the 3.x grammar's node vocabulary. */
 export type NodeKind = {
   [K in Kind]: (typeof KIND_REGISTRY)[K]["category"] extends typeof SPEC_TREE_KIND_CATEGORY.NODE ? K : never;
 }[Kind];
+
+/** A kind of the 4.0 grammar's output-node vocabulary. */
+export type OutputKind = {
+  [K in Kind]: (typeof KIND_REGISTRY)[K]["category"] extends typeof SPEC_TREE_KIND_CATEGORY.OUTPUT ? K : never;
+}[Kind];
+
+/** Every kind a node directory carries, across the grammars SPX reads. */
+export type SpecTreeNodeKind = NodeKind | OutputKind;
 
 export type DecisionKind = {
   [K in Kind]: (typeof KIND_REGISTRY)[K]["category"] extends typeof SPEC_TREE_KIND_CATEGORY.DECISION ? K : never;
 }[Kind];
 
 export const SPEC_TREE_ADR_KIND: DecisionKind = "adr";
+
+/**
+ * The opening keyword a node kind resolves: its own, or its parent's when the kind inherits it.
+ * A kind that inherits with no parent kind, or whose parent resolves none, resolves none.
+ */
+export function resolveKindOpening(kind: SpecTreeNodeKind, parentKind?: SpecTreeNodeKind): string | undefined {
+  const opening: string = KIND_REGISTRY[kind].opening;
+  if (opening !== SPEC_TREE_INHERIT_FROM_PARENT) return opening;
+  return parentKind === undefined ? undefined : resolveKindOpening(parentKind);
+}
+
+/**
+ * The node kinds a node kind admits as children: its own, or its parent's when the kind inherits them,
+ * excluding a further variant.
+ */
+export function resolveAdmittedChildren(
+  kind: SpecTreeNodeKind,
+  parentKind?: SpecTreeNodeKind,
+): readonly SpecTreeNodeKind[] | undefined {
+  const children: readonly string[] | typeof SPEC_TREE_INHERIT_FROM_PARENT = KIND_REGISTRY[kind].children;
+  if (children !== SPEC_TREE_INHERIT_FROM_PARENT) return children as readonly SpecTreeNodeKind[];
+  if (parentKind === undefined) return undefined;
+  return resolveAdmittedChildren(parentKind)?.filter((child) => child !== kind);
+}
 
 export const NODE_KINDS: readonly NodeKind[] = (Object.keys(KIND_REGISTRY) as Kind[]).filter(
   (k): k is NodeKind => KIND_REGISTRY[k].category === SPEC_TREE_KIND_CATEGORY.NODE,
@@ -76,7 +164,12 @@ export const DECISION_KINDS: readonly DecisionKind[] = (Object.keys(KIND_REGISTR
   (k): k is DecisionKind => KIND_REGISTRY[k].category === SPEC_TREE_KIND_CATEGORY.DECISION,
 );
 
+export const OUTPUT_KINDS: readonly OutputKind[] = (Object.keys(KIND_REGISTRY) as Kind[]).filter(
+  (k): k is OutputKind => KIND_REGISTRY[k].category === SPEC_TREE_KIND_CATEGORY.OUTPUT,
+);
+
 export const NODE_SUFFIXES: readonly string[] = NODE_KINDS.map((k) => KIND_REGISTRY[k].suffix);
+export const OUTPUT_SUFFIXES: readonly string[] = OUTPUT_KINDS.map((k) => KIND_REGISTRY[k].suffix);
 export const DECISION_SUFFIXES: readonly string[] = DECISION_KINDS.map((k) => KIND_REGISTRY[k].suffix);
 
 /** The coordination notes a node may carry, each named once; the grammar lists them as `COORDINATION_NOTES`. */
@@ -134,7 +227,7 @@ export const SPEC_TREE_GRAMMAR = {
     CANONICAL_SUFFIX: ".spec.md",
     PRIOR_SUFFIX: ".md",
   },
-  PRIOR_NODE_SUFFIXES: [".capability", ".feature", ".story"],
+  PRIOR_NODE_SUFFIXES: [".feature", ".story"],
 } as const;
 
 export const SPEC_TREE_EVIDENCE_FILE = SPEC_TREE_GRAMMAR.EVIDENCE;
@@ -161,12 +254,15 @@ export type NamingSchemaVersion = {
   readonly eval: typeof SPEC_TREE_GRAMMAR.EVAL;
   readonly probe: typeof SPEC_TREE_GRAMMAR.PROBE;
   readonly specFileSuffix: string;
+  /** The kind a root spec file declares in its front matter; absent when the root is a `productSuffix` file with no declared kind. */
+  readonly rootSpecKind?: string;
 };
 
 const NAMING_SCHEMA_VERSION_ID = {
   PRIOR_NODES: "1.0.0",
   PRIOR_SPEC: "2.0.0",
   CANONICAL: "3.0.0",
+  OUTPUT_NODES: "4.0.0",
 } as const;
 
 function namingSchemaVersion(
@@ -198,6 +294,26 @@ export const SPEC_TREE_NAMING_SCHEMA_VERSIONS: readonly NamingSchemaVersion[] = 
   ),
   namingSchemaVersion(NAMING_SCHEMA_VERSION_ID.PRIOR_SPEC, NODE_SUFFIXES, SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX),
   namingSchemaVersion(NAMING_SCHEMA_VERSION_ID.CANONICAL, NODE_SUFFIXES, SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX),
+];
+
+/**
+ * The 4.0 grammar: output-node directories, `{slug}.spec.md` specs, and a root spec
+ * that declares the product kind in its front matter.
+ */
+export const SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION: NamingSchemaVersion = {
+  ...namingSchemaVersion(
+    NAMING_SCHEMA_VERSION_ID.OUTPUT_NODES,
+    OUTPUT_SUFFIXES,
+    SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX,
+  ),
+  productSuffix: SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX,
+  rootSpecKind: SPEC_TREE_CONFIG.PRODUCT.KIND,
+};
+
+/** Every naming-schema version SPX knows, prior to the selection a methodology declaration makes. */
+export const SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS: readonly NamingSchemaVersion[] = [
+  ...SPEC_TREE_NAMING_SCHEMA_VERSIONS,
+  SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION,
 ];
 
 const VERSION_COMPONENT_SEPARATOR = ".";
