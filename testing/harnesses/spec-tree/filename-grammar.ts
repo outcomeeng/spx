@@ -77,7 +77,7 @@ export function assertSpecTreeEntryRecognitionCase(testCase: SpecTreeEntryRecogn
     throw new Error("Expected a recognized node or decision entry");
   }
   expect(entry.kind).toBe(testCase.kind);
-  expect(entry.order).toBe(testCase.order);
+  expect(entry.orderSegments).toEqual(testCase.orderSegments);
   expect(entry.slug).toBe(testCase.slug);
   expect(entry.parentId).toBe(testCase.parentId);
 }

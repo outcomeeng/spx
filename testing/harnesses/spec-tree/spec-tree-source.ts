@@ -17,7 +17,11 @@ import {
   type SpecTreeProjection,
   type SpecTreeSourceEntry,
 } from "@/lib/spec-tree";
-import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
+import {
+  orderIndexText,
+  sampleSpecTreeTestValue,
+  SPEC_TREE_TEST_GENERATOR,
+} from "@testing/generators/spec-tree/spec-tree";
 
 export type NodeSignature = {
   readonly kind: string;
@@ -34,7 +38,7 @@ export type DecisionSignature = {
 
 export type NodeDirectoryEntry = {
   readonly kind: SpecTreeNodeKind;
-  readonly order: number;
+  readonly orderSegments: readonly number[];
   readonly slug: string;
 };
 
@@ -101,5 +105,5 @@ export function isEvidenceEntry(entry: SpecTreeSourceEntry): entry is SpecTreeEv
 }
 
 export function nodeDirectoryName(node: NodeDirectoryEntry): string {
-  return `${node.order}-${node.slug}${getKindDefinition(node.kind).suffix}`;
+  return `${orderIndexText(node.orderSegments)}-${node.slug}${getKindDefinition(node.kind).suffix}`;
 }
