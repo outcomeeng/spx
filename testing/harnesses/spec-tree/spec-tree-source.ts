@@ -16,6 +16,7 @@ import {
   type SpecTreeProjection,
   type SpecTreeSourceEntry,
 } from "@/lib/spec-tree";
+import { declaredGrammarComplianceCases } from "@testing/generators/spec-tree/grammar-selection";
 import { NAMING_SCHEMA_VERSION_TEST_GENERATOR } from "@testing/generators/spec-tree/naming-schema-version";
 import {
   orderedDirectoryName,
@@ -31,6 +32,7 @@ import {
 } from "@testing/generators/spec-tree/spec-tree";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { expectPresent } from "@testing/harnesses/spec-tree/assertions";
+import { withGrammarSelectionEnv } from "@testing/harnesses/spec-tree/grammar-selection";
 import { withSpecTreeEnv, writeOrderedDirectory } from "@testing/harnesses/spec-tree/spec-tree";
 
 type NodeSignature = {
@@ -79,6 +81,22 @@ export function registerResidualRetentionPropertyEvidence(): void {
     "classifies every generated demoted registry suffix through the injected version set",
     assertInjectedVersionSetProperty,
   );
+}
+
+export function registerDeclaredGrammarComplianceEvidence(): void {
+  it.each(declaredGrammarComplianceCases())(PARAMETERIZED_CASE_TITLE, async ({ fixture, declaration }) => {
+    await withGrammarSelectionEnv(fixture, declaration, async (env) => {
+      const expectation = await env.expectation();
+      const snapshot = await env.read();
+      const validIds = snapshot.allNodes.map((node) => node.id);
+      expect(validIds).toEqual(expectation.valid);
+      for (const id of [...expectation.superseded, ...expectation.invalid]) {
+        expect(validIds).not.toContain(id);
+      }
+      expect(snapshot.superseded.map((entry) => entry.id)).toEqual(expectation.superseded);
+      expect(snapshot.residual.map((entry) => entry.id)).toEqual(expectation.invalid);
+    });
+  });
 }
 
 export async function assertSpecTreeSourceMappingCase(testCase: SpecTreeSourceMappingCase): Promise<void> {

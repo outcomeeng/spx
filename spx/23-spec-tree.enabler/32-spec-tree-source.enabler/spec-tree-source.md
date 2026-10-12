@@ -20,5 +20,5 @@ CAN consume product, node, decision, and evidence records, plus a complete accou
 
 ### Compliance
 
-- ALWAYS: the filesystem source created for a product directory classifies every name against the naming-schema versions that directory's resolved methodology declaration selects, so no reader of a product tree constructs that selection itself
+- ALWAYS: the filesystem source created for a product directory classifies every name against the naming-schema versions that directory's resolved methodology declaration selects, so no reader of a product tree constructs that selection itself ([test](tests/declared-grammar.compliance.l1.test.ts))
 - ALWAYS: source adapters receive vocabulary through the versioned grammar, including node suffixes, decision suffixes, and evidence-naming forms ([test](tests/spec-tree-source.mapping.l1.test.ts))
