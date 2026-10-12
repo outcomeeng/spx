@@ -47,6 +47,7 @@ import {
   SPEC_CONTEXT_SELECTION_REASON,
   SPEC_TREE_CONFIG,
   SPEC_TREE_CONFIG_FIELDS,
+  SPEC_TREE_METHODOLOGY_LINE,
   type SpecContextDocumentEntry,
   type SpecContextEntry,
   type SpecContextManifest,
@@ -727,9 +728,25 @@ export function methodologyTreeConfig(identity?: Record<string, unknown>): Confi
     ...base,
     [METHODOLOGY_SECTION]: {
       ...(base[METHODOLOGY_SECTION] as Record<string, unknown>),
-      ...identity,
+      ...fixtureGrammarMigration(identity),
     },
   };
+}
+
+const FIXTURE_TARGET_LINE = SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO;
+const FIXTURE_AUTHORED_LINE_VERSION = `${SPEC_TREE_METHODOLOGY_LINE.THREE_TWO}.0`;
+
+/**
+ * The fixture tree is authored in the 3.x grammar, so an identity that targets the 4.0 line
+ * declares that line's migration from 3.x: the declaration then selects a grammar that reads the
+ * fixture tree whole.
+ */
+function fixtureGrammarMigration(identity: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+  const version = identity?.[METHODOLOGY_CONFIG_FIELDS.VERSION];
+  const targetsFixtureLine = typeof version === "string" && version.startsWith(`${FIXTURE_TARGET_LINE}.`)
+    || version === FIXTURE_TARGET_LINE;
+  if (!targetsFixtureLine || identity?.[METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM] !== undefined) return identity;
+  return { ...identity, [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: FIXTURE_AUTHORED_LINE_VERSION };
 }
 
 /** The tree root a shipped-tree test injects: a package stand-in beside the product, holding `methodology/`. */
