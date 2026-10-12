@@ -7,9 +7,9 @@ import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextShowEntries,
   documentPaths,
+  methodologyDeclaredConfig,
   parseContextEntries,
   runSpecCli,
-  methodologyDeclaredConfig,
 } from "@testing/harnesses/spec/context";
 
 describe("spx spec context show process contract", () => {
