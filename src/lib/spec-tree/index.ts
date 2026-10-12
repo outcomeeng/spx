@@ -444,10 +444,8 @@ type OrderedEntry = {
 const ORDER_COMPARISON_EQUAL = 0;
 const SPEC_TREE_PATH_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
 const SPEC_TREE_ORDER_SEPARATOR = SPEC_TREE_GRAMMAR.ORDER.SEPARATOR;
-const SPEC_TREE_ORDER_RADIX = 10;
 const SPEC_TREE_TEXT_ENCODING = "utf8";
 const SPEC_TREE_EMPTY_RELATIVE_PATH = "";
-const SPEC_TREE_ORDER_PATTERN = SPEC_TREE_GRAMMAR.ORDER.PATTERN;
 const SPEC_TREE_MIN_EVIDENCE_PATH_SEGMENTS = 2;
 const SPEC_TREE_PARENT_SEGMENT_OFFSET = 2;
 const SPEC_TREE_FIRST_EVIDENCE_MARKER_INDEX = 1;
@@ -527,7 +525,7 @@ export function recognizeSpecTreeFilesystemEntry(
 
   const decisionMatch = matchKindSuffix(name, registry, SPEC_TREE_KIND_CATEGORY.DECISION);
   if (decisionMatch === null) return null;
-  const parsed = parseOrderedSlug(stripSuffix(name, decisionMatch.definition.suffix));
+  const parsed = parseOrderedSlugByVersions(stripSuffix(name, decisionMatch.definition.suffix), selected);
   if (parsed === null) return null;
   return {
     type: SPEC_TREE_ENTRY_TYPE.DECISION,
@@ -623,7 +621,7 @@ function recognizeDirectoryRecord(
   // slug component (it splits on the first separator and accepts any non-empty slug),
   // so a `{NN}-{slug}{unknown-suffix}` directory parses here and is retained as invalid
   // rather than dropped.
-  if (parseOrderedSlug(name) !== null) {
+  if (parseOrderedSlugByVersions(name, known) !== null) {
     return {
       type: SPEC_TREE_ENTRY_TYPE.INVALID,
       id: record.relativePath,
@@ -648,7 +646,7 @@ function matchNodeSuffixFromVersions(
   for (const version of versions) {
     for (const suffix of version.nodeSuffixes) {
       if (!name.endsWith(suffix)) continue;
-      const parsed = parseOrderedSlug(stripSuffix(name, suffix));
+      const parsed = parseOrderedSlug(stripSuffix(name, suffix), version.order.PATTERN);
       if (parsed !== null) {
         return { suffix, parsed, version };
       }
@@ -692,7 +690,7 @@ function matchSupersededNodeVersion(
   for (const version of priorVersions(known, selected, target)) {
     for (const suffix of version.nodeSuffixes) {
       if (selectedSuffixes.has(suffix)) continue;
-      if (name.endsWith(suffix) && parseOrderedSlug(stripSuffix(name, suffix)) !== null) {
+      if (name.endsWith(suffix) && parseOrderedSlug(stripSuffix(name, suffix), version.order.PATTERN) !== null) {
         return version.version;
       }
     }
@@ -1074,15 +1072,26 @@ type OrderedSlug = {
   readonly slug: string;
 };
 
-function parseOrderedSlug(value: string): OrderedSlug | null {
+function parseOrderedSlugByVersions(
+  value: string,
+  versions: readonly NamingSchemaVersion[],
+): OrderedSlug | null {
+  for (const version of versions) {
+    const parsed = parseOrderedSlug(value, version.order.PATTERN);
+    if (parsed !== null) return parsed;
+  }
+  return null;
+}
+
+function parseOrderedSlug(value: string, orderPattern: RegExp): OrderedSlug | null {
   const separatorIndex = value.indexOf(SPEC_TREE_ORDER_SEPARATOR);
   if (separatorIndex <= ORDER_COMPARISON_EQUAL) return null;
   const orderText = value.slice(0, separatorIndex);
-  if (!SPEC_TREE_ORDER_PATTERN.test(orderText)) return null;
+  if (!orderPattern.test(orderText)) return null;
   const slug = value.slice(separatorIndex + SPEC_TREE_ORDER_SEPARATOR.length);
   if (slug.length === 0) return null;
   return {
-    order: Number.parseInt(orderText, SPEC_TREE_ORDER_RADIX),
+    order: Number.parseFloat(orderText),
     slug,
   };
 }
