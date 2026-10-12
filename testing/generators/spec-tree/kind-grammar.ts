@@ -3,16 +3,15 @@
  * node kind resolves and the child kinds each node kind admits.
  *
  * The domain of every case is the registered node and output kinds, taken from the library
- * surface. The opening keyword and the 3.x admitted children are source-owned vocabulary read
- * from the kind registry. The laws the spec declares are constructed here: a foundation order
- * over the output kinds that fixes their admitted children, and a variant that takes its
- * parent's place.
+ * surface. Every expected value comes from the filename-grammar spec's statements and from no
+ * field of the kind registry: the opening keyword of each self-described kind, the children each
+ * 3.x kind admits, a foundation order over the output kinds that fixes their admitted children,
+ * and a variant that takes its parent's place.
  *
  * @module generators/spec-tree/kind-grammar
  */
 
 import {
-  KIND_REGISTRY,
   NODE_KINDS,
   OUTPUT_KINDS,
   SPEC_TREE_CONFIG,
@@ -31,14 +30,29 @@ type SelfDescribedKind = Exclude<SpecTreeNodeKind, VariantKind>;
 type OutputFoundationKind = (typeof OUTPUT_FOUNDATION_ORDER)[number];
 type NodeFamilyKind = Exclude<SelfDescribedKind, OutputFoundationKind>;
 
-/** The opening keyword of a self-described kind: the registry owns the vocabulary; only the variant's inheritance has a law here. */
+/** The opening keyword the spec states for each self-described kind; the registry supplies only the key set. */
+const SPEC_STATED_OPENINGS = {
+  substrate: "SUPPLIES",
+  capability: "PROVIDES",
+  domain: "OWNS",
+  interface: "ADAPTS",
+  surface: "EXPOSES",
+  enabler: "PROVIDES",
+  outcome: "WE BELIEVE THAT",
+} as const satisfies Record<SelfDescribedKind, string>;
+
+/** The child kinds the spec states each 3.x kind admits; the registry supplies only the key set. */
+const SPEC_STATED_NODE_FAMILY_CHILDREN = {
+  enabler: ["enabler"],
+  outcome: ["enabler", "outcome"],
+} as const satisfies Record<NodeFamilyKind, readonly SpecTreeNodeKind[]>;
+
 function openingKeywordOf(kind: SelfDescribedKind): string {
-  return KIND_REGISTRY[kind].opening;
+  return SPEC_STATED_OPENINGS[kind];
 }
 
-/** The children a 3.x kind admits: the registry owns the vocabulary, as the 3.x kinds have no construction law. */
 function nodeFamilyChildrenOf(kind: NodeFamilyKind): readonly SpecTreeNodeKind[] {
-  return KIND_REGISTRY[kind].children;
+  return SPEC_STATED_NODE_FAMILY_CHILDREN[kind];
 }
 
 export type KindOpeningCase = {
