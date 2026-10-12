@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { resolveConfig } from "@/config/index";
 import type { ConfigDescriptor, Result } from "@/config/types";
-import { specTreeConfigDescriptor } from "@/lib/spec-tree";
 import {
   CONFIG_TEST_FIELDS,
   CONFIG_TEST_GENERATOR,
@@ -65,20 +64,20 @@ describe("resolveConfig — per-descriptor validation isolation (C2)", () => {
   });
 
   it("validators do not observe sections belonging to other descriptors", async () => {
-    const probe = spyDescriptor(sampleConfigTestValue(CONFIG_TEST_GENERATOR.key()));
+    const [other, probeSection] = sampleConfigTestValue(CONFIG_TEST_GENERATOR.tokenDescriptorPair());
+    const probe = spyDescriptor(probeSection.section);
     const token = sampleConfigTestValue(CONFIG_TEST_GENERATOR.scalar());
     const projectConfig: Config = {
-      ...sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeSubsetConfig()),
+      [other.section]: other.defaults,
       [probe.descriptor.section]: { [CONFIG_TEST_FIELDS.TOKEN]: token },
     };
 
     await withTestEnv(projectConfig, async ({ productDir }) => {
-      await resolveConfig(productDir, [specTreeConfigDescriptor, probe.descriptor]);
+      await resolveConfig(productDir, [other.descriptor, probe.descriptor]);
 
       expect(probe.seen).toEqual([{ [CONFIG_TEST_FIELDS.TOKEN]: token }]);
       for (const observation of probe.seen) {
-        expect(observation).not.toHaveProperty(sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeKindField()));
-        expect(observation).not.toHaveProperty(specTreeConfigDescriptor.section);
+        expect(observation).not.toHaveProperty(other.section);
       }
     });
   });
