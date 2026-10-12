@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { specTreeConfigDescriptor } from "@/lib/spec-tree";
-import { compareAsciiStrings } from "@/lib/state-store";
 import {
   withShowDefaultConfigObservation,
   withShowFormatEquivalenceObservation,
@@ -20,18 +19,15 @@ describe("showCommand", () => {
   });
 
   it("reflects config-driven overrides in the emitted default format", async () => {
-    await withShowOverrideObservation(({ config, defaultParsed, result }) => {
-      expect(result.exitCode).toBe(0);
+    await withShowOverrideObservation(({ defaultParsed, descriptorSet, result }) => {
+      expect(result).toMatchObject({ exitCode: 0, stderr: "" });
       expect(defaultParsed.ok).toBe(true);
       if (!defaultParsed.ok) return;
-      const actual = specTreeConfigDescriptor.validate(defaultParsed.value[specTreeConfigDescriptor.section]);
-      const expected = specTreeConfigDescriptor.validate(config[specTreeConfigDescriptor.section]);
-      expect(actual.ok).toBe(true);
-      expect(expected.ok).toBe(true);
-      if (actual.ok && expected.ok) {
-        expect(Object.keys(actual.value.kinds).sort(compareAsciiStrings)).toEqual(
-          Object.keys(expected.value.kinds).sort(compareAsciiStrings),
-        );
+      for (const declared of descriptorSet.declared) {
+        expect(defaultParsed.value[declared.section]).toEqual(declared.override);
+      }
+      for (const omitted of descriptorSet.omitted) {
+        expect(defaultParsed.value[omitted.section]).toEqual(omitted.defaults);
       }
     });
   });
