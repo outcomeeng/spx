@@ -18,6 +18,8 @@ export const SPEC_TREE_CONFIG = {
     LABEL: "Product",
     SUFFIX: ".product.md",
     KIND: "product",
+    /** The kinds a product admits as children: the 4.0 output kinds a variant does not take the place of, and a nested product. */
+    CHILDREN: ["substrate", "capability", "domain", "interface", "surface", "product"],
   },
   CATEGORY: SPEC_TREE_KIND_CATEGORY_VALUES,
   KINDS: {
@@ -126,6 +128,15 @@ export type OutputKind = {
 /** Every kind a node directory carries, across the grammars SPX reads. */
 export type SpecTreeNodeKind = NodeKind | OutputKind;
 
+/** The kind of a product scope, which holds children without being a registered node kind. */
+export type ProductKind = typeof SPEC_TREE_CONFIG.PRODUCT.KIND;
+
+/** Every kind that holds children: a node kind or a product. */
+export type SpecTreeContainerKind = SpecTreeNodeKind | ProductKind;
+
+/** Every kind a container admits as a child. */
+export type SpecTreeChildKind = SpecTreeNodeKind | ProductKind;
+
 export type DecisionKind = {
   [K in Kind]: (typeof KIND_REGISTRY)[K]["category"] extends typeof SPEC_TREE_KIND_CATEGORY.DECISION ? K : never;
 }[Kind];
@@ -143,15 +154,16 @@ export function resolveKindOpening(kind: SpecTreeNodeKind, parentKind?: SpecTree
 }
 
 /**
- * The node kinds a node kind admits as children: its own, or its parent's when the kind inherits them,
- * excluding a further variant.
+ * The kinds a container kind admits as children: a product's, a node kind's own, or its parent's
+ * when the kind inherits them, excluding a further variant.
  */
 export function resolveAdmittedChildren(
-  kind: SpecTreeNodeKind,
+  kind: SpecTreeContainerKind,
   parentKind?: SpecTreeNodeKind,
-): readonly SpecTreeNodeKind[] | undefined {
+): readonly SpecTreeChildKind[] | undefined {
+  if (kind === SPEC_TREE_CONFIG.PRODUCT.KIND) return SPEC_TREE_CONFIG.PRODUCT.CHILDREN;
   const children: readonly string[] | typeof SPEC_TREE_INHERIT_FROM_PARENT = KIND_REGISTRY[kind].children;
-  if (children !== SPEC_TREE_INHERIT_FROM_PARENT) return children as readonly SpecTreeNodeKind[];
+  if (children !== SPEC_TREE_INHERIT_FROM_PARENT) return children as readonly SpecTreeChildKind[];
   if (parentKind === undefined) return undefined;
   return resolveAdmittedChildren(parentKind)?.filter((child) => child !== kind);
 }
@@ -260,7 +272,6 @@ export type NamingSchemaVersion = {
 
 const NAMING_SCHEMA_VERSION_ID = {
   PRIOR_NODES: "1.0.0",
-  PRIOR_SPEC: "2.0.0",
   CANONICAL: "3.0.0",
   OUTPUT_NODES: "4.0.0",
 } as const;
@@ -292,8 +303,7 @@ export const SPEC_TREE_NAMING_SCHEMA_VERSIONS: readonly NamingSchemaVersion[] = 
     SPEC_TREE_GRAMMAR.PRIOR_NODE_SUFFIXES,
     SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX,
   ),
-  namingSchemaVersion(NAMING_SCHEMA_VERSION_ID.PRIOR_SPEC, NODE_SUFFIXES, SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX),
-  namingSchemaVersion(NAMING_SCHEMA_VERSION_ID.CANONICAL, NODE_SUFFIXES, SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX),
+  namingSchemaVersion(NAMING_SCHEMA_VERSION_ID.CANONICAL, NODE_SUFFIXES, SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX),
 ];
 
 /**
@@ -307,6 +317,7 @@ export const SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION: NamingSchemaVersion = {
     SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX,
   ),
   productSuffix: SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX,
+  coordinationNotes: [SPEC_TREE_COORDINATION_NOTE.ISSUES],
   rootSpecKind: SPEC_TREE_CONFIG.PRODUCT.KIND,
 };
 
