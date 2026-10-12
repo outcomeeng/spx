@@ -1,8 +1,7 @@
 /**
  * Generators for the methodology declarations a spec-tree read selects its grammar from.
  *
- * The lines are the ones the agent-capability-lifecycle decision declares SPX reads:
- * 3.0, 3.1, 3.2, and 4.0. A declared version is any exact form on a line — the line itself
+ * The lines are the ones the spec-tree library declares SPX reads. A declared version is any exact form on a line — the line itself
  * or the line with a drawn patch component.
  *
  * @module generators/spec-tree/grammar-selection
@@ -11,19 +10,15 @@
 import * as fc from "fast-check";
 
 import { METHODOLOGY_VERSION_FORM } from "@/config/methodology";
-import { SPEC_TREE_CONFIG, SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS } from "@/lib/spec-tree";
+import {
+  SPEC_TREE_CONFIG,
+  SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
+  SPEC_TREE_METHODOLOGY_LINE,
+  type SpecTreeMethodologyLine,
+} from "@/lib/spec-tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 
-export const GRAMMAR_SELECTION_LINE = {
-  THREE_ZERO: "3.0",
-  THREE_ONE: "3.1",
-  THREE_TWO: "3.2",
-  FOUR_ZERO: "4.0",
-} as const;
-
-export type GrammarSelectionLine = (typeof GRAMMAR_SELECTION_LINE)[keyof typeof GRAMMAR_SELECTION_LINE];
-
-const GRAMMAR_SELECTION_LINES: readonly string[] = Object.values(GRAMMAR_SELECTION_LINE);
+const GRAMMAR_SELECTION_LINES: readonly string[] = Object.values(SPEC_TREE_METHODOLOGY_LINE);
 
 const VERSION_COMPONENT_MAX = 99;
 const VERSION_SEPARATOR = ".";
@@ -33,7 +28,7 @@ function versionComponent(): fc.Arbitrary<number> {
 }
 
 /** An exact methodology version on the given line, in either accepted form. */
-export function arbitraryVersionOnLine(line: GrammarSelectionLine): fc.Arbitrary<string> {
+export function arbitraryVersionOnLine(line: SpecTreeMethodologyLine): fc.Arbitrary<string> {
   return fc.tuple(fc.constantFrom(...Object.values(METHODOLOGY_VERSION_FORM)), versionComponent()).map((
     [form, patch],
   ) => form === METHODOLOGY_VERSION_FORM.LINE ? line : [line, patch].join(VERSION_SEPARATOR));
@@ -64,7 +59,7 @@ export function grammarSelectionLines(): readonly string[] {
 }
 
 const MAJOR_COMPONENT_INDEX = 0;
-const FOUR_ZERO_LINES: readonly string[] = [GRAMMAR_SELECTION_LINE.FOUR_ZERO];
+const FOUR_ZERO_LINES: readonly string[] = [SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO];
 
 /** The major component of a dotted version or methodology line. */
 export function majorComponent(version: string): string {
@@ -85,7 +80,7 @@ export type DeclarationSelectionCase = {
 /** One case per line SPX reads in each accepted version form, and one per 3.x migration source of a 4.0 target. */
 export function declarationSelectionCases(): readonly DeclarationSelectionCase[] {
   const single = GRAMMAR_SELECTION_LINES.flatMap((line) => {
-    const lineValue = line as GrammarSelectionLine;
+    const lineValue = line as SpecTreeMethodologyLine;
     return [
       { label: `line ${line}`, version: line },
       { label: `line ${line} with a patch`, version: sampleGeneratedValue(arbitraryExactVersionOnLine(lineValue)) },
@@ -96,21 +91,21 @@ export function declarationSelectionCases(): readonly DeclarationSelectionCase[]
     }));
   });
   const migrating = GRAMMAR_SELECTION_LINES.filter((line) => !FOUR_ZERO_LINES.includes(line)).map((line) => ({
-    label: `line ${GRAMMAR_SELECTION_LINE.FOUR_ZERO} with migration source ${line}`,
-    declaration: { version: GRAMMAR_SELECTION_LINE.FOUR_ZERO, migratingFrom: line },
-    selectedMajors: [majorComponent(GRAMMAR_SELECTION_LINE.FOUR_ZERO), majorComponent(line)],
+    label: `line ${SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO} with migration source ${line}`,
+    declaration: { version: SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO, migratingFrom: line },
+    selectedMajors: [majorComponent(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO), majorComponent(line)],
   }));
   return [...single, ...migrating];
 }
 
-function arbitraryExactVersionOnLine(line: GrammarSelectionLine): fc.Arbitrary<string> {
+function arbitraryExactVersionOnLine(line: SpecTreeMethodologyLine): fc.Arbitrary<string> {
   return versionComponent().map((patch) => [line, patch].join(VERSION_SEPARATOR));
 }
 
-const THREE_X_LINES: readonly GrammarSelectionLine[] = [
-  GRAMMAR_SELECTION_LINE.THREE_ZERO,
-  GRAMMAR_SELECTION_LINE.THREE_ONE,
-  GRAMMAR_SELECTION_LINE.THREE_TWO,
+const THREE_X_LINES: readonly SpecTreeMethodologyLine[] = [
+  SPEC_TREE_METHODOLOGY_LINE.THREE_ZERO,
+  SPEC_TREE_METHODOLOGY_LINE.THREE_ONE,
+  SPEC_TREE_METHODOLOGY_LINE.THREE_TWO,
 ];
 
 /** A methodology declaration on a line SPX reads, with or without a migration source on a 3.x line. */
@@ -118,7 +113,7 @@ export function arbitraryMethodologyDeclaration(): fc.Arbitrary<{
   readonly version: string;
   readonly migratingFrom?: string;
 }> {
-  const readLines = GRAMMAR_SELECTION_LINES as readonly GrammarSelectionLine[];
+  const readLines = GRAMMAR_SELECTION_LINES as readonly SpecTreeMethodologyLine[];
   return fc
     .tuple(
       fc.constantFrom(...readLines).chain((line) => arbitraryVersionOnLine(line)),

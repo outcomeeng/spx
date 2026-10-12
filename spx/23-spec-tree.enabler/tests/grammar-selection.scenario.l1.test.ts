@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import { SPEC_TREE_METHODOLOGY_LINE } from "@/lib/spec-tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   arbitraryUnsupportedVersion,
   arbitraryVersionOnLine,
-  GRAMMAR_SELECTION_LINE,
   grammarSelectionLines,
 } from "@testing/generators/spec-tree/grammar-selection";
 import {
@@ -19,7 +19,7 @@ describe("declaration-selected grammar", () => {
       GRAMMAR_SELECTION_FIXTURE.FOUR_LINE,
       {
         [GRAMMAR_SELECTION_DECLARATION_FIELD.VERSION]: sampleGeneratedValue(
-          arbitraryVersionOnLine(GRAMMAR_SELECTION_LINE.FOUR_ZERO),
+          arbitraryVersionOnLine(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO),
         ),
       },
       async (env) => {
@@ -39,7 +39,7 @@ describe("declaration-selected grammar", () => {
       GRAMMAR_SELECTION_FIXTURE.THREE_LINE,
       {
         [GRAMMAR_SELECTION_DECLARATION_FIELD.VERSION]: sampleGeneratedValue(
-          arbitraryVersionOnLine(GRAMMAR_SELECTION_LINE.THREE_TWO),
+          arbitraryVersionOnLine(SPEC_TREE_METHODOLOGY_LINE.THREE_TWO),
         ),
       },
       async (env) => {
@@ -59,10 +59,10 @@ describe("declaration-selected grammar", () => {
       GRAMMAR_SELECTION_FIXTURE.MIGRATING,
       {
         [GRAMMAR_SELECTION_DECLARATION_FIELD.VERSION]: sampleGeneratedValue(
-          arbitraryVersionOnLine(GRAMMAR_SELECTION_LINE.FOUR_ZERO),
+          arbitraryVersionOnLine(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO),
         ),
         [GRAMMAR_SELECTION_DECLARATION_FIELD.MIGRATING_FROM]: sampleGeneratedValue(
-          arbitraryVersionOnLine(GRAMMAR_SELECTION_LINE.THREE_TWO),
+          arbitraryVersionOnLine(SPEC_TREE_METHODOLOGY_LINE.THREE_TWO),
         ),
       },
       async (env) => {
@@ -102,7 +102,7 @@ describe("declaration-selected grammar", () => {
       GRAMMAR_SELECTION_FIXTURE.MIGRATING,
       {
         [GRAMMAR_SELECTION_DECLARATION_FIELD.VERSION]: sampleGeneratedValue(
-          arbitraryVersionOnLine(GRAMMAR_SELECTION_LINE.FOUR_ZERO),
+          arbitraryVersionOnLine(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO),
         ),
         [GRAMMAR_SELECTION_DECLARATION_FIELD.MIGRATING_FROM]: migratingFrom,
       },
@@ -123,10 +123,10 @@ describe("declaration-selected grammar", () => {
       GRAMMAR_SELECTION_FIXTURE.TWO_ROOTS,
       {
         [GRAMMAR_SELECTION_DECLARATION_FIELD.VERSION]: sampleGeneratedValue(
-          arbitraryVersionOnLine(GRAMMAR_SELECTION_LINE.FOUR_ZERO),
+          arbitraryVersionOnLine(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO),
         ),
         [GRAMMAR_SELECTION_DECLARATION_FIELD.MIGRATING_FROM]: sampleGeneratedValue(
-          arbitraryVersionOnLine(GRAMMAR_SELECTION_LINE.THREE_TWO),
+          arbitraryVersionOnLine(SPEC_TREE_METHODOLOGY_LINE.THREE_TWO),
         ),
       },
       async (env) => {
@@ -145,7 +145,7 @@ describe("declaration-selected grammar", () => {
       GRAMMAR_SELECTION_FIXTURE.ROOT_WITHOUT_KIND,
       {
         [GRAMMAR_SELECTION_DECLARATION_FIELD.VERSION]: sampleGeneratedValue(
-          arbitraryVersionOnLine(GRAMMAR_SELECTION_LINE.FOUR_ZERO),
+          arbitraryVersionOnLine(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO),
         ),
       },
       async (env) => {
