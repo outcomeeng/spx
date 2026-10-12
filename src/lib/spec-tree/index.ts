@@ -1001,7 +1001,13 @@ async function* walkFilesystemDirectory(context: FilesystemWalkContext): AsyncIt
     const recordType = filesystemRecordType(entry);
     if (recordType === undefined) continue;
 
-    const declaredKind = await readDeclaredRootKind(context, entry, relativePath);
+    const declaredKind = entry.isFile()
+      ? await readSpecTreeDeclaredRootKind({
+        relativePath,
+        selection: context.selection,
+        readText: () => readFile(join(context.absolutePath, entry.name), SPEC_TREE_TEXT_ENCODING),
+      })
+      : undefined;
     const sourceEntry = recognizeSpecTreeFilesystemEntry(
       { type: recordType, relativePath, parentId: context.parentId, declaredKind },
       {
@@ -1028,17 +1034,21 @@ async function* walkFilesystemDirectory(context: FilesystemWalkContext): AsyncIt
 const FRONT_MATTER_PATTERN = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 const FRONT_MATTER_KIND_KEY = "kind";
 
-/** The `kind` a root spec file declares in its front matter, read only for a file a selected version reads as the root spec. */
-async function readDeclaredRootKind(
-  context: FilesystemWalkContext,
-  entry: Dirent,
-  relativePath: string,
-): Promise<string | undefined> {
-  if (!entry.isFile() || !isRootLevelPath(relativePath)) return undefined;
-  if (!context.selection.selected.some((version) => rootSpecFileNeedsKind(version, entry.name))) return undefined;
+/**
+ * The `kind` a root spec file declares in its front matter, read only for a file a selected version
+ * reads as the root spec. The caller supplies the text of the file it holds, so every source of
+ * records reads the declaration the same way.
+ */
+export async function readSpecTreeDeclaredRootKind(input: {
+  readonly relativePath: string;
+  readonly selection: SpecTreeGrammarSelection;
+  readonly readText: () => Promise<string>;
+}): Promise<string | undefined> {
+  if (!isRootLevelPath(input.relativePath)) return undefined;
+  const name = readLastPathSegment(input.relativePath);
+  if (!input.selection.selected.some((version) => rootSpecFileNeedsKind(version, name))) return undefined;
 
-  const text = await readFile(join(context.absolutePath, entry.name), SPEC_TREE_TEXT_ENCODING);
-  const frontMatter = FRONT_MATTER_PATTERN.exec(text);
+  const frontMatter = FRONT_MATTER_PATTERN.exec(await input.readText());
   if (frontMatter === null) return undefined;
   const parsed: unknown = parseYaml(frontMatter[1]);
   if (typeof parsed !== "object" || parsed === null) return undefined;

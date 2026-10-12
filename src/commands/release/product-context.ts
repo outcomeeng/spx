@@ -235,15 +235,18 @@ function createReleaseEndpointSpecTreeSource(
   endpointReader: ReleaseEndpointReader,
   selection: SpecTreeGrammarSelection | undefined,
 ): SpecTreeSource {
+  const readCommittedText = async (path: string): Promise<string> => {
+    const content = await endpointReader.readText(productDir, ref, path);
+    if (content === null) throw missingCommittedFile(path, ref);
+    return content;
+  };
   return {
     async *entries() {
-      if (selection !== undefined) yield* committedSpecTreeEntries(paths, selection);
+      if (selection !== undefined) yield* committedSpecTreeEntries(paths, selection, readCommittedText);
     },
-    async readText(sourceRef): Promise<string> {
+    readText: async (sourceRef): Promise<string> => {
       if (sourceRef.path === undefined) throw new Error("Committed source refs require a path");
-      const content = await endpointReader.readText(productDir, ref, sourceRef.path);
-      if (content === null) throw missingCommittedFile(sourceRef.path, ref);
-      return content;
+      return await readCommittedText(sourceRef.path);
     },
   };
 }
