@@ -20,6 +20,7 @@ import {
 import {
   buildRepresentativeFixture,
   createSource,
+  orderIndexText,
   type RepresentativeSpecTreeFixture,
 } from "@testing/generators/spec-tree/spec-tree";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
@@ -228,7 +229,7 @@ function decisionPath(
   return joinSpecTreeFixturePath(
     SPEC_TREE_CONFIG.ROOT_DIRECTORY,
     nodeDirectoryName(registry, parent),
-    `${decision.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${decision.slug}${definition.suffix}`,
+    `${orderIndexText(decision.orderSegments)}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${decision.slug}${definition.suffix}`,
   );
 }
 
@@ -237,7 +238,7 @@ function nodeDirectoryName(
   node: RepresentativeSpecTreeFixture["root"],
 ): string {
   const definition = getKindDefinition(node.kind, registry);
-  return `${node.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${node.slug}${definition.suffix}`;
+  return `${orderIndexText(node.orderSegments)}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${node.slug}${definition.suffix}`;
 }
 
 function nodeTitle(node: RepresentativeSpecTreeFixture["root"]): string {
