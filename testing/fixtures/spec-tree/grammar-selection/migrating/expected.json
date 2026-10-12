@@ -1,0 +1,6 @@
+{
+  "product": "gradient.spec.md",
+  "valid": ["10-ledger.substrate", "20-routing.domain", "30-console.enabler", "40-archive.outcome"],
+  "superseded": [],
+  "invalid": []
+}
