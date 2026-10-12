@@ -65,11 +65,17 @@ export function grammarSelectionLines(): readonly string[] {
 }
 
 const MAJOR_COMPONENT_INDEX = 0;
+const LINE_COMPONENT_COUNT = 2;
 const FOUR_ZERO_LINES: readonly string[] = [SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO];
 
 /** The major component of a dotted version or methodology line. */
 export function majorComponent(version: string): string {
   return version.split(VERSION_SEPARATOR)[MAJOR_COMPONENT_INDEX];
+}
+
+/** The `MAJOR.MINOR` methodology line of a dotted version or of a line itself. */
+export function lineComponent(version: string): string {
+  return version.split(VERSION_SEPARATOR).slice(0, LINE_COMPONENT_COUNT).join(VERSION_SEPARATOR);
 }
 
 /**

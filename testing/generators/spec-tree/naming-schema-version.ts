@@ -5,7 +5,9 @@ import {
   type NamingSchemaVersion,
   NODE_SUFFIXES,
   SPEC_TREE_GRAMMAR,
+  SPEC_TREE_METHODOLOGY_LINE,
   type SpecTreeEvidenceGrammar,
+  type SpecTreeMethodologyLine,
 } from "@/lib/spec-tree";
 
 const NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS = {
@@ -153,9 +155,11 @@ function buildNamingSchemaVersion(
   decisionSuffixes: readonly string[],
   specFileSuffix: string,
   evidence: SpecTreeEvidenceGrammar = SPEC_TREE_GRAMMAR.EVIDENCE,
+  lines: readonly SpecTreeMethodologyLine[] = [],
 ): NamingSchemaVersion {
   return {
     version,
+    lines,
     nodeSuffixes,
     decisionSuffixes,
     productSuffix: SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX,
@@ -229,9 +233,17 @@ function arbitraryNamingSchemaVersion(): fc.Arbitrary<NamingSchemaVersion> {
         SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX,
         SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX,
       ),
+      lines: fc.subarray(Object.values(SPEC_TREE_METHODOLOGY_LINE)),
     })
-    .map(({ version, nodeSuffixes, decisionSuffixes, specFileSuffix }) =>
-      buildNamingSchemaVersion(version, nodeSuffixes, decisionSuffixes, specFileSuffix)
+    .map(({ version, nodeSuffixes, decisionSuffixes, specFileSuffix, lines }) =>
+      buildNamingSchemaVersion(
+        version,
+        nodeSuffixes,
+        decisionSuffixes,
+        specFileSuffix,
+        SPEC_TREE_GRAMMAR.EVIDENCE,
+        lines,
+      )
     );
 }
 
