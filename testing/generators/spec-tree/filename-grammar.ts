@@ -16,6 +16,7 @@ import {
   SPEC_TREE_FILESYSTEM_RECORD_TYPE,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_KIND_CATEGORY,
+  SPEC_TREE_METHODOLOGY_LINE,
   type SpecTreeFilesystemRecordType,
   type SpecTreeKindCategory,
 } from "@/lib/spec-tree";
@@ -59,6 +60,23 @@ export type SpecTreeEntryRecognitionCase = {
   readonly parentId?: string;
   readonly recordType: SpecTreeFilesystemRecordType;
   readonly relativePath: string;
+};
+
+/** One recognizable record: a node directory or a decision file, addressed as the recognizer receives it. */
+export type OrderedRecordInput = {
+  readonly type: SpecTreeFilesystemRecordType;
+  readonly relativePath: string;
+  readonly parentId?: string;
+};
+
+/** Two records of one kind whose indexes differ in how a later segment orders, under one methodology line. */
+export type SegmentOrderRecognitionCase = {
+  readonly title: string;
+  readonly line: string;
+  readonly lowerIndex: string;
+  readonly higherIndex: string;
+  readonly lower: OrderedRecordInput;
+  readonly higher: OrderedRecordInput;
 };
 
 export type EvidenceRecognitionCase = {
@@ -208,6 +226,83 @@ export function specTreeEntryRecognitionCases(): readonly SpecTreeEntryRecogniti
       recordType: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
       relativePath: `${parentId}/${order}-${slug}${definition.suffix}`,
     };
+  });
+}
+
+const INDEX_SEGMENT_SEPARATOR = SPEC_TREE_GRAMMAR.ORDER.SEGMENT_SEPARATOR;
+
+/** Under the 3.x version an index segment is a run of digits of any length: 9 precedes 10 numerically. */
+const THREE_X_LOWER_SEGMENTS = ["2", "9"] as const;
+const THREE_X_HIGHER_SEGMENTS = ["2", "10"] as const;
+
+/** Under the 4.0 version fractional segments are two digits: a longer index extends a shorter one. */
+const FOUR_ZERO_LOWER_SEGMENTS = ["20", "10"] as const;
+const FOUR_ZERO_HIGHER_SEGMENTS = ["20", "10", "05"] as const;
+
+interface SegmentOrderScope {
+  readonly line: string;
+  readonly nodeSuffix: string;
+  readonly decisionSuffix: string;
+  readonly lowerSegments: readonly string[];
+  readonly higherSegments: readonly string[];
+}
+
+const SEGMENT_ORDER_SCOPES: readonly SegmentOrderScope[] = [
+  {
+    line: SPEC_TREE_METHODOLOGY_LINE.THREE_TWO,
+    nodeSuffix: KIND_REGISTRY.enabler.suffix,
+    decisionSuffix: KIND_REGISTRY.adr.suffix,
+    lowerSegments: THREE_X_LOWER_SEGMENTS,
+    higherSegments: THREE_X_HIGHER_SEGMENTS,
+  },
+  {
+    line: SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO,
+    nodeSuffix: KIND_REGISTRY.capability.suffix,
+    decisionSuffix: KIND_REGISTRY.pdr.suffix,
+    lowerSegments: FOUR_ZERO_LOWER_SEGMENTS,
+    higherSegments: FOUR_ZERO_HIGHER_SEGMENTS,
+  },
+];
+
+/**
+ * Per methodology line, a node directory pair and a decision file pair whose indexes order only by
+ * comparing segments numerically; the node and decision suffixes come from `KIND_REGISTRY`.
+ */
+export function segmentOrderRecognitionCases(): readonly SegmentOrderRecognitionCase[] {
+  return SEGMENT_ORDER_SCOPES.flatMap((scope) => {
+    const lowerIndex = scope.lowerSegments.join(INDEX_SEGMENT_SEPARATOR);
+    const higherIndex = scope.higherSegments.join(INDEX_SEGMENT_SEPARATOR);
+    const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+    const parentOrder = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder());
+    const parentSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+    const parentId = `${parentOrder}-${parentSlug}${scope.nodeSuffix}`;
+    const nodeRecord = (index: string): OrderedRecordInput => ({
+      type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY,
+      relativePath: `${index}-${slug}${scope.nodeSuffix}`,
+    });
+    const decisionRecord = (index: string): OrderedRecordInput => ({
+      type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
+      relativePath: `${parentId}/${index}-${slug}${scope.decisionSuffix}`,
+      parentId,
+    });
+    return [
+      {
+        title: `${scope.line} ${scope.nodeSuffix} directories ${lowerIndex} and ${higherIndex}`,
+        line: scope.line,
+        lowerIndex,
+        higherIndex,
+        lower: nodeRecord(lowerIndex),
+        higher: nodeRecord(higherIndex),
+      },
+      {
+        title: `${scope.line} ${scope.decisionSuffix} files ${lowerIndex} and ${higherIndex}`,
+        line: scope.line,
+        lowerIndex,
+        higherIndex,
+        lower: decisionRecord(lowerIndex),
+        higher: decisionRecord(higherIndex),
+      },
+    ];
   });
 }
 
