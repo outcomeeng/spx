@@ -57,15 +57,15 @@ function arbitraryAddedDecision(
     .record({
       parentId: arbitraryAddedDecisionParent(fixture, index),
       kind: SPEC_TREE_TEST_GENERATOR.decisionKind(KIND_REGISTRY),
-      order: SPEC_TREE_TEST_GENERATOR.sourceOrder(),
+      orderSegments: SPEC_TREE_TEST_GENERATOR.sourceOrderSegments(),
       slug: SPEC_TREE_TEST_GENERATOR.sourceSlug(),
       title: SPEC_TREE_TEST_GENERATOR.sourceTitle(),
     })
-    .map(({ parentId, kind, order, slug, title }) => ({
+    .map(({ parentId, kind, orderSegments, slug, title }) => ({
       type: SPEC_TREE_ENTRY_TYPE.DECISION,
       id,
       kind,
-      order,
+      orderSegments,
       slug,
       title,
       ...(parentId === undefined ? {} : { parentId }),

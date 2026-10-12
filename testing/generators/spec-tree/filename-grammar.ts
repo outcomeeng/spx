@@ -20,7 +20,11 @@ import {
   type SpecTreeFilesystemRecordType,
   type SpecTreeKindCategory,
 } from "@/lib/spec-tree";
-import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
+import {
+  sampleSpecTreeTestValue,
+  singleSegmentOrder,
+  SPEC_TREE_TEST_GENERATOR,
+} from "@testing/generators/spec-tree/spec-tree";
 
 export type FilenameGrammarTokenCase = {
   readonly name: string;
@@ -55,7 +59,7 @@ export type SpecTreeKindsFieldCase = {
 export type SpecTreeEntryRecognitionCase = {
   readonly title: string;
   readonly kind: Kind;
-  readonly order: number;
+  readonly orderSegments: readonly number[];
   readonly slug: string;
   readonly parentId?: string;
   readonly recordType: SpecTreeFilesystemRecordType;
@@ -208,7 +212,7 @@ export function specTreeEntryRecognitionCases(): readonly SpecTreeEntryRecogniti
       return {
         title: `maps the registered ${kind} directory suffix`,
         kind,
-        order,
+        orderSegments: singleSegmentOrder(order),
         slug,
         recordType: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY,
         relativePath: `${order}-${slug}${definition.suffix}`,
@@ -220,7 +224,7 @@ export function specTreeEntryRecognitionCases(): readonly SpecTreeEntryRecogniti
     return {
       title: `maps the registered ${kind} filename suffix`,
       kind,
-      order,
+      orderSegments: singleSegmentOrder(order),
       slug,
       parentId,
       recordType: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,

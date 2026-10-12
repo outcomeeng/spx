@@ -69,9 +69,9 @@ export type RepresentativeSpecTreeFixtureWithGrandchild = {
 };
 
 export type AssemblyNodeOrders = {
-  readonly rootOrder: number;
-  readonly childOrder: number;
-  readonly peerOrder: number;
+  readonly rootOrderSegments: readonly number[];
+  readonly childOrderSegments: readonly number[];
+  readonly peerOrderSegments: readonly number[];
 };
 
 export const SPEC_TREE_SOURCE_MAPPING_CASE_KIND = {
@@ -117,6 +117,8 @@ const SPEC_TREE_TEST_GENERATOR_OPTIONS = {
   FILESYSTEM_ORDER_MAX: 99,
   CHILD_ORDER_OFFSET: 1,
   ASSEMBLY_ORDER_COUNT: 3,
+  SOURCE_ORDER_SEGMENT_COUNT_MIN: 1,
+  SOURCE_ORDER_SEGMENT_COUNT_MAX: 3,
   ASSEMBLY_PROPERTY_RUN_COUNT: 25,
   UNREGISTERED_SUFFIX_MAX_LENGTH: 8,
 } as const;
@@ -145,11 +147,11 @@ export const SPEC_TREE_TEST_GENERATOR = {
   sourceId: arbitrarySourceId,
   sourceSlug: arbitrarySourceSlug,
   sourceTitle: arbitrarySourceTitle,
-  sourceOrder: arbitrarySourceOrder,
-  assemblyNodeOrders: arbitraryAssemblyNodeOrders,
+  sourceOrderSegments: arbitrarySourceOrderSegments,
+  assemblyNodeOrderSegments: arbitraryAssemblyNodeOrderSegments,
   filesystemOrder: arbitraryFilesystemOrder,
-  parentSourceOrder: arbitraryParentSourceOrder,
-  childSourceOrderAbove: arbitraryChildSourceOrderAbove,
+  parentSourceOrderSegments: arbitraryParentSourceOrderSegments,
+  childSourceOrderSegmentsAbove: arbitraryChildSourceOrderSegmentsAbove,
   evidenceFileName: arbitraryEvidenceFileName,
   unregisteredNodeSuffix: arbitraryUnregisteredNodeSuffix,
   invalidOrderedDirectory: arbitraryInvalidOrderedDirectory,
@@ -223,6 +225,16 @@ export function sampleSpecTreeTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
   return value;
 }
 
+/** The index text a run of order segments names, joined by the grammar's segment separator. */
+export function orderIndexText(orderSegments: readonly number[]): string {
+  return orderSegments.join(SPEC_TREE_GRAMMAR.ORDER.SEGMENT_SEPARATOR);
+}
+
+/** The order segments of a single-segment index, as the fixture entries carry them. */
+export function singleSegmentOrder(index: number): readonly number[] {
+  return [index];
+}
+
 export function orderedDirectoryName(suffix: string): string {
   const order: number = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder());
   const slug: string = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
@@ -266,7 +278,7 @@ export function specTreeFixtureNodeDirectoryName(
   node: RepresentativeSpecTreeFixture["root"],
 ): string {
   const definition = registry[node.kind];
-  return `${node.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${node.slug}${definition.suffix}`;
+  return `${orderIndexText(node.orderSegments)}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${node.slug}${definition.suffix}`;
 }
 
 export function buildNodeEntry(
@@ -334,7 +346,7 @@ function arbitraryRepresentativeFixture(registry: SpecTreeRegistry): fc.Arbitrar
       const [productId, rootId, childId, peerId, decisionId, childEvidenceId, peerEvidenceId] = ids;
       const [rootSlug, childSlug, peerSlug, decisionSlug] = slugs;
       const [productTitle, rootTitle, childTitle, peerTitle, decisionTitle] = titles;
-      const [decisionOrder, rootOrder, childOrder, peerOrder] = sortedOrders;
+      const [decisionOrder, rootOrder, childOrder, peerOrder] = sortedOrders.map(singleSegmentOrder);
       const [rootKind, childKind, peerKind] = nodeKinds;
 
       const product = {
@@ -345,27 +357,27 @@ function arbitraryRepresentativeFixture(registry: SpecTreeRegistry): fc.Arbitrar
       };
       const root = nodeEntry(rootKind, {
         id: rootId,
-        order: rootOrder,
+        orderSegments: rootOrder,
         slug: rootSlug,
         title: rootTitle,
         ref: rootRef,
       });
       const child = nodeEntry(childKind, {
         id: childId,
-        order: childOrder,
+        orderSegments: childOrder,
         slug: childSlug,
         parentId: rootId,
         title: childTitle,
       });
       const peer = nodeEntry(peerKind, {
         id: peerId,
-        order: peerOrder,
+        orderSegments: peerOrder,
         slug: peerSlug,
         title: peerTitle,
       });
       const decision = decisionEntry(decisionKind, {
         id: decisionId,
-        order: decisionOrder,
+        orderSegments: decisionOrder,
         slug: decisionSlug,
         parentId: rootId,
         title: decisionTitle,
@@ -402,29 +414,34 @@ function arbitraryRepresentativeFixtureWithGrandchild(
     return fc
       .record({
         id: arbitrarySourceId().filter((id) => !takenIds.has(id)),
-        order: arbitraryChildSourceOrderAbove(fixture.child.order),
+        orderSegments: arbitraryChildSourceOrderSegmentsAbove(fixture.child.orderSegments),
         slug: arbitrarySourceSlug(),
         kind: arbitraryNodeKind(registry),
       })
-      .map(({ id, order, slug, kind }) => ({
+      .map(({ id, orderSegments, slug, kind }) => ({
         fixture,
-        grandchild: nodeEntry(kind, { id, order, slug, parentId: fixture.child.id }),
+        grandchild: nodeEntry(kind, { id, orderSegments, slug, parentId: fixture.child.id }),
       }));
   });
 }
 
-function arbitraryAssemblyNodeOrders(): fc.Arbitrary<AssemblyNodeOrders> {
+function arbitraryAssemblyNodeOrderSegments(): fc.Arbitrary<AssemblyNodeOrders> {
   return fc
-    .uniqueArray(arbitrarySourceOrder(), {
+    .uniqueArray(arbitrarySourceOrderSegments(), {
       minLength: ASSEMBLY_NODE_ORDER_COUNT,
       maxLength: ASSEMBLY_NODE_ORDER_COUNT,
+      selector: orderIndexText,
     })
     .map(toAssemblyNodeOrders);
 }
 
-function toAssemblyNodeOrders(orders: readonly number[]): AssemblyNodeOrders {
-  const [rootOrder, childOrder, peerOrder] = orders as readonly [number, number, number];
-  return { rootOrder, childOrder, peerOrder };
+function toAssemblyNodeOrders(orders: readonly (readonly number[])[]): AssemblyNodeOrders {
+  const [rootOrderSegments, childOrderSegments, peerOrderSegments] = orders as readonly [
+    readonly number[],
+    readonly number[],
+    readonly number[],
+  ];
+  return { rootOrderSegments, childOrderSegments, peerOrderSegments };
 }
 
 function arbitrarySourceId(): fc.Arbitrary<string> {
@@ -455,8 +472,11 @@ function arbitraryEvidenceFileName(): fc.Arbitrary<string> {
   );
 }
 
-function arbitrarySourceOrder(): fc.Arbitrary<number> {
-  return fc.integer();
+function arbitrarySourceOrderSegments(): fc.Arbitrary<readonly number[]> {
+  return fc.array(fc.nat(), {
+    minLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.SOURCE_ORDER_SEGMENT_COUNT_MIN,
+    maxLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.SOURCE_ORDER_SEGMENT_COUNT_MAX,
+  });
 }
 
 function arbitraryFilesystemOrder(): fc.Arbitrary<number> {
@@ -467,22 +487,28 @@ function arbitraryFilesystemOrder(): fc.Arbitrary<number> {
   });
 }
 
-function arbitraryParentSourceOrder(): fc.Arbitrary<number> {
-  return fc.integer({
-    min: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_MIN,
-    max: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_PARENT_ORDER_MAX,
-  });
+function arbitraryParentSourceOrderSegments(): fc.Arbitrary<readonly number[]> {
+  return fc
+    .integer({
+      min: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_MIN,
+      max: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_PARENT_ORDER_MAX,
+    })
+    .map(singleSegmentOrder);
 }
 
-function arbitraryChildSourceOrderAbove(order: number): fc.Arbitrary<number> {
-  if (order > SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_PARENT_ORDER_MAX) {
+/** A single-segment index above the leading segment of `orderSegments`, within the representative range. */
+function arbitraryChildSourceOrderSegmentsAbove(orderSegments: readonly number[]): fc.Arbitrary<readonly number[]> {
+  const [leading] = orderSegments;
+  if (leading > SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_PARENT_ORDER_MAX) {
     throw new RangeError("Child source order requires a parent order below the maximum");
   }
 
-  return fc.integer({
-    min: order + SPEC_TREE_TEST_GENERATOR_OPTIONS.CHILD_ORDER_OFFSET,
-    max: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_MAX,
-  });
+  return fc
+    .integer({
+      min: leading + SPEC_TREE_TEST_GENERATOR_OPTIONS.CHILD_ORDER_OFFSET,
+      max: SPEC_TREE_TEST_GENERATOR_OPTIONS.REPRESENTATIVE_ORDER_MAX,
+    })
+    .map(singleSegmentOrder);
 }
 
 function arbitrarySourceRef(): fc.Arbitrary<SpecTreeSourceRef> {
