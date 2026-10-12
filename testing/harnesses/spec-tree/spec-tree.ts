@@ -12,7 +12,6 @@ import {
   readSpecTree,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
-  SPEC_TREE_NAMING_SCHEMA_VERSIONS,
   type SpecTreeProjection,
   type SpecTreeRegistry,
   type SpecTreeSnapshot,
@@ -110,7 +109,6 @@ export async function withSpecTreeEnv(
         createFilesystemSpecTreeSource({
           productDir: env.productDir,
           registry,
-          schemaVersions: SPEC_TREE_NAMING_SCHEMA_VERSIONS,
         })
       ),
       materialize: valueDescriptor((sourceFixture = fixture) =>
@@ -124,7 +122,6 @@ export async function withSpecTreeEnv(
           source: createFilesystemSpecTreeSource({
             productDir: env.productDir,
             registry,
-            schemaVersions: SPEC_TREE_NAMING_SCHEMA_VERSIONS,
           }),
           registry,
         })
@@ -138,7 +135,6 @@ export async function withSpecTreeEnv(
             source: createFilesystemSpecTreeSource({
               productDir: env.productDir,
               registry,
-              schemaVersions: SPEC_TREE_NAMING_SCHEMA_VERSIONS,
             }),
             registry,
           }),

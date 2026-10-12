@@ -11,30 +11,28 @@ import type {
   Kind,
   KindDefinition,
   NamingSchemaVersion,
+  SpecTreeContainerKind,
   SpecTreeKindCategory,
   SpecTreeNodeKind,
   SpecTreeNodeState,
 } from "./config";
 import {
   canonicalNamingSchemaVersion,
-  compareNamingSchemaVersions,
   KIND_REGISTRY,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_KIND_CATEGORY,
-  SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
-  SPEC_TREE_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_NODE_STATE,
-  SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION,
 } from "./config";
 import { compareSpecContextOrdinal } from "./context-manifest";
 import {
+  priorNamingSchemaVersions,
   selectSpecTreeGrammar,
   type SpecTreeGrammarSelection,
   type SpecTreeMethodologyDeclaration,
 } from "./grammar-selection";
-import { createSpecTreeLinkGrammar } from "./link-grammar";
+import { createSpecTreeLinkGrammar, type SpecTreeLinkGrammar } from "./link-grammar";
 import { readSpecTreeMethodologyDeclaration } from "./methodology-declaration";
 export {
   canonicalNamingSchemaVersion,
@@ -48,6 +46,7 @@ export {
   OUTPUT_KINDS,
   OUTPUT_SUFFIXES,
   resolveAdmittedChildren,
+  resolveKindLabel,
   resolveKindOpening,
   SPEC_TREE_ADR_KIND,
   SPEC_TREE_CONFIG,
@@ -64,7 +63,6 @@ export {
   SPEC_TREE_NODE_STATE,
   SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION,
   SPEC_TREE_SECTION,
-  SPEC_TREE_SUPERSEDED_NODE_SUFFIXES,
   specTreeConfigDescriptor,
   supersededNodeSuffixes,
 } from "./config";
@@ -156,10 +154,15 @@ export type {
   SpecContextTargetPathFacts,
   SpecContextTargetResolution,
 } from "./context-target";
-export { selectSpecTreeGrammar, SPEC_TREE_DECLARATION_FIELD } from "./grammar-selection";
+export {
+  selectedSupersededNodeSuffixes,
+  selectSpecTreeGrammar,
+  SPEC_TREE_DECLARATION_FIELD,
+} from "./grammar-selection";
 export type { SpecTreeGrammarSelection, SpecTreeMethodologyDeclaration } from "./grammar-selection";
 export {
   admitsSpecTreeLinkText,
+  createSpecTreeLinkGrammar,
   isSpecTreeEvidenceLinkText,
   SPEC_TREE_EVIDENCE_LINK_TEXT,
   SPEC_TREE_EVIDENCE_LINK_TEXTS,
@@ -168,7 +171,13 @@ export {
   SPEC_TREE_LINK_ROOT_ANCHOR,
   SPEC_TREE_ROOT_PREFIX,
 } from "./link-grammar";
-export type { SpecTreeEvidenceLinkText, SpecTreeLink, SpecTreeLinkKind } from "./link-grammar";
+export type {
+  SpecTreeEvidenceLinkText,
+  SpecTreeLink,
+  SpecTreeLinkGrammar,
+  SpecTreeLinkKind,
+  SpecTreeLinkRecognition,
+} from "./link-grammar";
 export { resolveSpecTreePathOwnership, SPEC_TREE_PATH_OWNERSHIP_RESULT_KIND } from "./path-ownership";
 export type {
   SpecTreePathOwnershipResolved,
@@ -270,7 +279,7 @@ export type SpecTreeProductSourceEntry = SpecTreeSourceEntryBase & {
 
 export type SpecTreeNodeSourceEntry = SpecTreeSourceEntryBase & {
   readonly type: typeof SPEC_TREE_ENTRY_TYPE.NODE;
-  readonly kind: SpecTreeNodeKind;
+  readonly kind: SpecTreeContainerKind;
   readonly order: number;
   /** The index's numeric segments, which order siblings segment by segment when present. */
   readonly orderSegments?: readonly number[];
@@ -335,9 +344,7 @@ export type SpecTreeMethodologyResolver = (productDir: string) => Promise<Result
 export type FilesystemSpecTreeSourceOptions = {
   readonly productDir: string;
   readonly registry?: SpecTreeRegistry;
-  /** The versions the source knows; with no `selection`, the highest of them is the one version a read accepts. */
-  readonly schemaVersions?: readonly NamingSchemaVersion[];
-  /** The grammar the source reads. Without it and without `schemaVersions`, the product's methodology declaration selects it. */
+  /** The grammar the source reads, carrying the versions it knows with the ones it selects. Without it, the product's methodology declaration selects it. */
   readonly selection?: SpecTreeGrammarSelection;
   /** Reads the product's methodology declaration; the production resolver reads the product configuration. */
   readonly resolveMethodology?: SpecTreeMethodologyResolver;
@@ -346,9 +353,10 @@ export type FilesystemSpecTreeSourceOptions = {
 
 export type SpecTreeRecognitionOptions = {
   readonly registry?: SpecTreeRegistry;
-  readonly schemaVersions?: readonly NamingSchemaVersion[];
-  /** The members of `schemaVersions` a read accepts; the highest known version when absent. */
-  readonly selectedVersions?: readonly NamingSchemaVersion[];
+  /** The versions the recognizer knows. */
+  readonly schemaVersions: readonly NamingSchemaVersion[];
+  /** The members of `schemaVersions` a read accepts, as a methodology declaration selects them. */
+  readonly selectedVersions: readonly NamingSchemaVersion[];
 };
 
 export type SpecTreeEvidenceProvider = {
@@ -384,7 +392,7 @@ export type SpecTreeDecision = {
 
 export type SpecTreeNode = {
   readonly id: string;
-  readonly kind: SpecTreeNodeKind;
+  readonly kind: SpecTreeContainerKind;
   readonly order: number;
   /** The index's numeric segments, which order siblings segment by segment when present. */
   readonly orderSegments?: readonly number[];
@@ -409,7 +417,7 @@ export type SpecTreeSnapshot = {
 
 export type SpecTreeProjectedNode = {
   readonly id: string;
-  readonly kind: SpecTreeNodeKind;
+  readonly kind: SpecTreeContainerKind;
   readonly order: number;
   readonly slug: string;
   readonly state: SpecTreeNodeState;
@@ -487,32 +495,39 @@ export function createFilesystemSpecTreeSource(options: FilesystemSpecTreeSource
 
 async function selectGrammarForSource(options: FilesystemSpecTreeSourceOptions): Promise<SpecTreeGrammarSelection> {
   if (options.selection !== undefined) return options.selection;
-  if (options.schemaVersions !== undefined) {
-    return { known: options.schemaVersions, selected: [canonicalNamingSchemaVersion(options.schemaVersions)] };
-  }
-  const resolveMethodology = options.resolveMethodology ?? readSpecTreeMethodologyDeclaration;
-  const declaration = await resolveMethodology(options.productDir);
+  return resolveSpecTreeGrammarSelection(options.productDir, options.resolveMethodology);
+}
+
+/**
+ * The grammar selection of the product at `productDir`: the versions its methodology declaration
+ * selects. Throws when the declaration cannot be read or names no version a read accepts.
+ */
+export async function resolveSpecTreeGrammarSelection(
+  productDir: string,
+  resolveMethodology: SpecTreeMethodologyResolver = readSpecTreeMethodologyDeclaration,
+): Promise<SpecTreeGrammarSelection> {
+  const declaration = await resolveMethodology(productDir);
   if (!declaration.ok) throw new Error(declaration.error);
   return selectSpecTreeGrammar(declaration.value);
 }
 
 export function recognizeSpecTreeFilesystemEntry(
   record: SpecTreeFilesystemRecord,
-  options: SpecTreeRecognitionOptions = {},
+  options: SpecTreeRecognitionOptions,
 ): SpecTreeSourceEntry | null {
   const registry = options.registry ?? KIND_REGISTRY;
-  const known = options.schemaVersions ?? SPEC_TREE_NAMING_SCHEMA_VERSIONS;
-  const selected = options.selectedVersions ?? [canonicalNamingSchemaVersion(known)];
+  const known = options.schemaVersions;
+  const selected = options.selectedVersions;
   const target = canonicalNamingSchemaVersion(selected);
   const name = readLastPathSegment(record.relativePath);
 
   if (record.type === SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE && isRootLevelPath(record.relativePath)) {
-    const rootEntry = recognizeRootFile(record, name, known, selected, target);
+    const rootEntry = recognizeRootFile(record, name, known, selected);
     if (rootEntry !== null) return rootEntry;
   }
 
   if (record.type === SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY) {
-    return recognizeDirectoryRecord(record, name, registry, known, selected, target);
+    return recognizeDirectoryRecord(record, name, registry, known, selected);
   }
 
   if (record.parentId !== undefined && isEvidenceFile(record.relativePath, target)) {
@@ -551,7 +566,6 @@ function recognizeRootFile(
   name: string,
   known: readonly NamingSchemaVersion[],
   selected: readonly NamingSchemaVersion[],
-  target: NamingSchemaVersion,
 ): SpecTreeSourceEntry | null {
   for (const version of selected) {
     if (!name.endsWith(version.productSuffix)) continue;
@@ -570,7 +584,7 @@ function recognizeRootFile(
     };
   }
 
-  const prior = priorVersions(known, selected, target).find(
+  const prior = priorNamingSchemaVersions({ known, selected }).find(
     (version) => version.rootSpecKind === undefined && name.endsWith(version.productSuffix),
   );
   if (prior === undefined) return null;
@@ -589,7 +603,6 @@ function recognizeDirectoryRecord(
   registry: SpecTreeRegistry,
   known: readonly NamingSchemaVersion[],
   selected: readonly NamingSchemaVersion[],
-  target: NamingSchemaVersion,
 ): SpecTreeSourceEntry | null {
   const selectedMatch = matchNodeSuffixFromVersions(name, selected);
   if (selectedMatch !== null) {
@@ -608,7 +621,7 @@ function recognizeDirectoryRecord(
     }
   }
 
-  const supersededVersion = matchSupersededNodeVersion(name, known, selected, target);
+  const supersededVersion = matchSupersededNodeVersion(name, known, selected);
   if (supersededVersion !== null) {
     return {
       type: SPEC_TREE_ENTRY_TYPE.SUPERSEDED,
@@ -659,7 +672,8 @@ function matchNodeSuffixFromVersions(
   return null;
 }
 
-function nodeKindForSuffix(suffix: string, registry: SpecTreeRegistry): SpecTreeNodeKind | null {
+function nodeKindForSuffix(suffix: string, registry: SpecTreeRegistry): SpecTreeContainerKind | null {
+  if (suffix === SPEC_TREE_CONFIG.PRODUCT.NODE_SUFFIX) return SPEC_TREE_CONFIG.PRODUCT.KIND;
   for (const [kind, definition] of Object.entries(registry) as Array<[Kind, KindDefinition<Kind>]>) {
     if (isNodeCategory(definition.category) && definition.suffix === suffix) {
       return kind as SpecTreeNodeKind;
@@ -672,26 +686,14 @@ function isNodeCategory(category: SpecTreeKindCategory): boolean {
   return category === SPEC_TREE_KIND_CATEGORY.NODE || category === SPEC_TREE_KIND_CATEGORY.OUTPUT;
 }
 
-/** The known versions ordered at or before the target that no selected version includes, highest first. */
-function priorVersions(
-  known: readonly NamingSchemaVersion[],
-  selected: readonly NamingSchemaVersion[],
-  target: NamingSchemaVersion,
-): readonly NamingSchemaVersion[] {
-  return known
-    .filter((version) => !selected.includes(version) && compareNamingSchemaVersions(version, target) <= 0)
-    .sort((left, right) => compareNamingSchemaVersions(right, left));
-}
-
 function matchSupersededNodeVersion(
   name: string,
   known: readonly NamingSchemaVersion[],
   selected: readonly NamingSchemaVersion[],
-  target: NamingSchemaVersion,
 ): string | null {
   const selectedSuffixes = new Set(selected.flatMap((version) => version.nodeSuffixes));
 
-  for (const version of priorVersions(known, selected, target)) {
+  for (const version of priorNamingSchemaVersions({ known, selected })) {
     for (const suffix of version.nodeSuffixes) {
       if (selectedSuffixes.has(suffix)) continue;
       if (name.endsWith(suffix) && parseOrderedSlug(stripSuffix(name, suffix), version.order.PATTERN) !== null) {
@@ -702,46 +704,37 @@ function matchSupersededNodeVersion(
   return null;
 }
 
-/** The grammar a link target is judged by: every version SPX knows, with the 3.x and 4.0 grammars both accepted. */
-const SPEC_TREE_LINK_RECOGNITION: SpecTreeRecognitionOptions = {
-  schemaVersions: SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
-  selectedVersions: [
-    canonicalNamingSchemaVersion(SPEC_TREE_NAMING_SCHEMA_VERSIONS),
-    SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION,
-  ],
-};
-const SPEC_TREE_LINK_GRAMMAR = createSpecTreeLinkGrammar({
-  isNodeDirectoryName: (directoryName) => {
-    const entry = recognizeSpecTreeFilesystemEntry({
-      type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY,
-      relativePath: directoryName,
-    }, SPEC_TREE_LINK_RECOGNITION);
-    return entry?.type === SPEC_TREE_ENTRY_TYPE.NODE || entry?.type === SPEC_TREE_ENTRY_TYPE.SUPERSEDED;
-  },
-  isDecisionFile: (specTreeRelativePath) =>
-    recognizeSpecTreeFilesystemEntry({
-      type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
-      relativePath: specTreeRelativePath,
-    }, SPEC_TREE_LINK_RECOGNITION)?.type === SPEC_TREE_ENTRY_TYPE.DECISION,
-});
-
-/** Classifies a link target against the spec-tree link grammar. */
-export const parseSpecTreeLink = SPEC_TREE_LINK_GRAMMAR.parseSpecTreeLink;
+const linkGrammarBySelection = new WeakMap<SpecTreeGrammarSelection, SpecTreeLinkGrammar>();
 
 /**
- * The product-relative path an admitted spec-tree link names, or `null` for a
- * link the grammar does not admit.
+ * The spec-tree link grammar of a product's grammar selection: a link target is judged by the
+ * node-directory and decision forms the selected versions accept, and by the forms of the
+ * versions ordered before the declared target, which a migrating tree still carries.
  */
-export const resolveSpecTreeLink = SPEC_TREE_LINK_GRAMMAR.resolveSpecTreeLink;
-
-/** The decision paths a run of prose writes as text, in order of appearance. */
-export const decisionPathsWrittenAsText = SPEC_TREE_LINK_GRAMMAR.decisionPathsWrittenAsText;
-
-/**
- * The decision path a link target cites from the citing document, or `null`
- * when the target is not an admitted link to a decision record.
- */
-export const resolveSpecTreeDecisionCitation = SPEC_TREE_LINK_GRAMMAR.resolveSpecTreeDecisionCitation;
+export function specTreeLinkGrammar(selection: SpecTreeGrammarSelection): SpecTreeLinkGrammar {
+  const cached = linkGrammarBySelection.get(selection);
+  if (cached !== undefined) return cached;
+  const recognition: SpecTreeRecognitionOptions = {
+    schemaVersions: selection.known,
+    selectedVersions: selection.selected,
+  };
+  const grammar = createSpecTreeLinkGrammar({
+    isNodeDirectoryName: (directoryName) => {
+      const entry = recognizeSpecTreeFilesystemEntry({
+        type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY,
+        relativePath: directoryName,
+      }, recognition);
+      return entry?.type === SPEC_TREE_ENTRY_TYPE.NODE || entry?.type === SPEC_TREE_ENTRY_TYPE.SUPERSEDED;
+    },
+    isDecisionFile: (specTreeRelativePath) =>
+      recognizeSpecTreeFilesystemEntry({
+        type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
+        relativePath: specTreeRelativePath,
+      }, recognition)?.type === SPEC_TREE_ENTRY_TYPE.DECISION,
+  });
+  linkGrammarBySelection.set(selection, grammar);
+  return grammar;
+}
 
 export async function readSpecTree(options: SpecTreeOptions): Promise<SpecTreeSnapshot> {
   const entries = await collectSourceEntries(options.source);

@@ -9,7 +9,7 @@ import {
   type SpecTreeProjection,
   type SpecTreeSource,
 } from "@/lib/spec-tree";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { resolveKindLabel, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import {
   authoredText,
   externalValue,
@@ -183,7 +183,7 @@ function formatMarkdownNode(node: SpecTreeProjectedNode, depth = 0): TerminalTex
 function formatTable(projection: SpecTreeProjection): TerminalText {
   const rows = flattenProjectionNodes(projection.nodes).map((node) =>
     formatTableRow([
-      authoredText(KIND_REGISTRY[node.kind].label),
+      authoredText(resolveKindLabel(node.kind)),
       externalValue(node.id),
       authoredText(node.state),
     ])
@@ -208,7 +208,5 @@ function formatTableRow(values: readonly TerminalText[]): TerminalText {
 
 /** A node's label: the registry-owned kind label, the node path read from the tree, and the derived state. */
 function formatNodeLabel(node: SpecTreeProjectedNode): TerminalText {
-  return terminal`${authoredText(KIND_REGISTRY[node.kind].label)} ${externalValue(node.id)} [${
-    authoredText(node.state)
-  }]`;
+  return terminal`${authoredText(resolveKindLabel(node.kind))} ${externalValue(node.id)} [${authoredText(node.state)}]`;
 }
