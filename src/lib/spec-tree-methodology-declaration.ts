@@ -1,7 +1,7 @@
-import { resolveMethodologyConfig } from "@/config/methodology-resolution";
 import type { Result } from "@/config/types";
 
-import type { SpecTreeMethodologyDeclaration } from "./grammar-selection";
+import { resolveMethodologyConfig } from "../config/methodology-resolution";
+import type { SpecTreeMethodologyDeclaration } from "./spec-tree/grammar-selection";
 
 /**
  * Reads the methodology declaration of the product configuration at `productDir`

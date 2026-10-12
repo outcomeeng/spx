@@ -2,7 +2,7 @@ import type { ConfigDescriptor, Result } from "@/config/types";
 import {
   formatMethodologyDeclarationVersionUndeclaredError,
   METHODOLOGY_DECLARATION_FIELDS,
-} from "@/lib/methodology/declaration-fields";
+} from "../lib/methodology/declaration-fields";
 
 export const METHODOLOGY_SECTION = METHODOLOGY_DECLARATION_FIELDS.SECTION;
 

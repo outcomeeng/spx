@@ -33,7 +33,7 @@ import {
   type SpecTreeMethodologyDeclaration,
 } from "./grammar-selection";
 import { createSpecTreeLinkGrammar, type SpecTreeLinkGrammar } from "./link-grammar";
-import { readSpecTreeMethodologyDeclaration } from "./methodology-declaration";
+import { readSpecTreeMethodologyDeclaration } from "../spec-tree-methodology-declaration";
 export {
   canonicalNamingSchemaVersion,
   compareNamingSchemaVersions,
