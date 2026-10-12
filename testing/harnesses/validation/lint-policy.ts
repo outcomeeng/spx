@@ -6,10 +6,11 @@ import { expect } from "vitest";
 import { lintCommand } from "@/commands/validation/lint";
 import { VALIDATION_EXIT_CODES, VALIDATION_STAGE_DISPLAY_NAMES } from "@/commands/validation/messages";
 import { resolveConfig } from "@/config";
-import { selectSpecTreeGrammar } from "@/lib/spec-tree";
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import { detectTypeScript } from "@/validation/discovery";
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
-import { validateLintPolicy } from "@/validation/lint-policy";
+import type { SpecTreeMethodologyLine } from "@/lib/spec-tree";
+import { type LintPolicyResult, validateLintPolicy } from "@/validation/lint-policy";
 import { validateESLint } from "@/validation/steps/eslint";
 import { DEFAULT_ESLINT_CONFIG_FILE } from "@/validation/steps/eslint-contract";
 import {
@@ -29,6 +30,7 @@ import {
   runTsxEval,
 } from "@testing/harnesses/git-test-constants";
 import { writeValidationProductDeclaration } from "@testing/harnesses/validation/product";
+import { withTestEnv, writeOrderedDirectory } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const LINT_POLICY_TEMP_PREFIX = "spx-lint-policy-";
@@ -61,15 +63,14 @@ export async function runValidationLintPolicyScenario(
   }
 }
 
-function lintPolicySelection(): ReturnType<typeof selectSpecTreeGrammar> {
-  return selectSpecTreeGrammar(VALIDATION_LINT_POLICY_DATA.declaration);
+function withPolicyProject(callback: (productDir: string) => Promise<void>): Promise<void> {
+  return withTempDir(LINT_POLICY_TEMP_PREFIX, callback);
 }
 
-function withPolicyProject(callback: (productDir: string) => Promise<void>): Promise<void> {
-  return withTempDir(LINT_POLICY_TEMP_PREFIX, async (productDir) => {
-    await writeValidationProductDeclaration(productDir);
-    await callback(productDir);
-  });
+/** Validates the lint policy of a fixture product whose configuration declares its methodology once the fixture holds a spec tree. */
+async function validatePolicy(productDir: string): ReturnType<typeof validateLintPolicy> {
+  await writeValidationProductDeclaration(productDir);
+  return validateLintPolicy(productDir);
 }
 
 async function writePolicyManifest(
@@ -114,18 +115,16 @@ async function validateLintPolicyInChildProcess(
   envOverrides: GitTestEnvironmentOverrides,
 ): Promise<SerializedLintPolicyResult> {
   const moduleUrl = pathToFileURL(join(process.cwd(), "src/validation/lint-policy.ts")).href;
-  const grammarUrl = pathToFileURL(join(process.cwd(), "src/lib/spec-tree/grammar-selection.ts")).href;
   const environmentKey = VALIDATION_LINT_POLICY_DATA.productDirEnvironmentKey;
   const script = `
     import { validateLintPolicy } from ${JSON.stringify(moduleUrl)};
-    import { selectSpecTreeGrammar } from ${JSON.stringify(grammarUrl)};
     const productDir = process.env.${environmentKey};
     if (productDir === undefined) {
       throw new Error("Missing ${environmentKey}");
     }
-    const selection = selectSpecTreeGrammar(${JSON.stringify(VALIDATION_LINT_POLICY_DATA.declaration)});
-    console.log(JSON.stringify(validateLintPolicy(productDir, selection)));
+    console.log(JSON.stringify(await validateLintPolicy(productDir)));
   `;
+  await writeValidationProductDeclaration(productDir);
   const stdout = await runTsxEval(process.cwd(), script, {
     ...envOverrides,
     [environmentKey]: productDir,
@@ -156,7 +155,7 @@ async function writeBaseDebtFixture(productDir: string): Promise<void> {
 
 async function runUnrelatedProjectScenario(): Promise<void> {
   await withPolicyProject(async (productDir) => {
-    const result = validateLintPolicy(productDir, lintPolicySelection());
+    const result = await validatePolicy(productDir);
 
     expect(result.ok).toBe(true);
   });
@@ -166,7 +165,7 @@ async function runExistingDebtScenario(): Promise<void> {
   await withPolicyProject(async (productDir) => {
     await writeBaseDebtFixture(productDir);
 
-    const result = validateLintPolicy(productDir, lintPolicySelection());
+    const result = await validatePolicy(productDir);
 
     expect(result.ok).toBe(true);
   });
@@ -176,7 +175,7 @@ async function runBranchAdditionScenario(): Promise<void> {
   await withPolicyProject(async (productDir) => {
     await prepareBranchAdditionPolicyProject(productDir);
 
-    const result = validateLintPolicy(productDir, lintPolicySelection());
+    const result = await validatePolicy(productDir);
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -223,6 +222,7 @@ async function prepareBranchAdditionPolicyProject(productDir: string): Promise<v
     ],
   });
   await commitAll(productDir, VALIDATION_LINT_POLICY_DATA.commitMessages.addedDebt);
+  await writeValidationProductDeclaration(productDir);
 }
 
 async function runConfigLoadBoundaryScenario(): Promise<void> {
@@ -265,7 +265,7 @@ export async function runTestOwnedConstantDebtAdditionScenario(): Promise<void> 
       ],
     });
 
-    const result = validateLintPolicy(productDir, lintPolicySelection());
+    const result = await validatePolicy(productDir);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toContain(
@@ -285,7 +285,7 @@ async function runBaselineAbsentScenario(): Promise<void> {
     });
     await commitAll(productDir, VALIDATION_LINT_POLICY_DATA.commitMessages.baselineAbsent);
 
-    const result = validateLintPolicy(productDir, lintPolicySelection());
+    const result = await validatePolicy(productDir);
 
     expect(result.ok).toBe(true);
   });
@@ -368,7 +368,7 @@ async function runCorruptBaselineScenario(): Promise<void> {
       testLintDebtNodes: [VALIDATION_LINT_POLICY_DATA.baseTestDebtPath],
     });
 
-    const result = validateLintPolicy(productDir, lintPolicySelection());
+    const result = await validatePolicy(productDir);
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -385,11 +385,34 @@ async function runDeprecatedSpecNodeSuffixScenario(): Promise<void> {
       testLintDebtNodes: [],
     });
 
-    const result = validateLintPolicy(productDir, lintPolicySelection());
+    const result = await validatePolicy(productDir);
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toContain(VALIDATION_LINT_POLICY_DATA.deprecatedSpecNodePath);
     }
+  });
+}
+
+export interface LintPolicyProductOptions {
+  /** The methodology line the product's configuration declares; the product is undeclared when absent. */
+  readonly declaredLine?: SpecTreeMethodologyLine;
+  /** The node directory names, relative to the spec-tree root, the product holds; the product has no spec tree when empty. */
+  readonly nodeDirectories: readonly string[];
+}
+
+/**
+ * Builds a temporary product from the options, runs the lint policy against it, and returns the policy's
+ * result as an observation; the caller decides what the result means.
+ */
+export function observeLintPolicyOfProduct(options: LintPolicyProductOptions): Promise<LintPolicyResult> {
+  const config = options.declaredLine === undefined
+    ? {}
+    : { [METHODOLOGY_SECTION]: { [METHODOLOGY_CONFIG_FIELDS.VERSION]: options.declaredLine } };
+  return withTestEnv(config, async (env) => {
+    for (const directory of options.nodeDirectories) {
+      await writeOrderedDirectory(env, directory);
+    }
+    return validateLintPolicy(env.productDir);
   });
 }

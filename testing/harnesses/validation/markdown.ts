@@ -48,11 +48,11 @@ export interface RepositoryMarkdownProject {
  */
 export function withMarkdownTempProject<T>(callback: (project: MarkdownTempProject) => Promise<T>): Promise<T> {
   return withTempDir(MARKDOWN_TEMP_PROJECT_PREFIX, async (productDir) => {
-    await writeValidationProductDeclaration(productDir);
     const write = async (relativePath: string, content: string): Promise<string> => {
       const absolutePath = join(productDir, relativePath);
       await mkdir(dirname(absolutePath), { recursive: true });
       await writeFile(absolutePath, content);
+      await writeValidationProductDeclaration(productDir);
       return absolutePath;
     };
     const track = async (relativePaths: readonly string[]): Promise<void> => {
