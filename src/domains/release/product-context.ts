@@ -4,6 +4,7 @@ import MarkdownIt from "markdown-it";
 
 import {
   compareSpecContextOrdinal,
+  readSpecTreeDeclaredRootKind,
   recognizeSpecTreeFilesystemEntry,
   resolveSpecTreePathOwnership,
   SPEC_TREE_ENTRY_TYPE,
@@ -110,10 +111,11 @@ export interface ReleaseEndpointDeclaration {
  * Spec-tree source entries for the committed paths of one release endpoint, in ordinal order,
  * classified by the grammar selection the endpoint's own committed methodology declaration derives.
  */
-export function* committedSpecTreeEntries(
+export async function* committedSpecTreeEntries(
   paths: readonly string[],
   selection: SpecTreeGrammarSelection,
-): Iterable<SpecTreeSourceEntry> {
+  readCommittedText: (path: string) => Promise<string>,
+): AsyncIterable<SpecTreeSourceEntry> {
   const files = paths
     .filter((path) => path.startsWith(SPEC_TREE_ROOT_PREFIX))
     .map((path) => path.slice(SPEC_TREE_ROOT_PREFIX.length));
@@ -125,16 +127,17 @@ export function* committedSpecTreeEntries(
       directory = posix.dirname(directory);
     }
   }
-  yield* walkCommittedDirectory("", undefined, directories, new Set(files), selection);
+  yield* walkCommittedDirectory("", undefined, directories, new Set(files), selection, readCommittedText);
 }
 
-function* walkCommittedDirectory(
+async function* walkCommittedDirectory(
   directory: string,
   parentId: string | undefined,
   directories: ReadonlySet<string>,
   files: ReadonlySet<string>,
   selection: SpecTreeGrammarSelection,
-): Iterable<SpecTreeSourceEntry> {
+  readCommittedText: (path: string) => Promise<string>,
+): AsyncIterable<SpecTreeSourceEntry> {
   const children = [
     ...[...directories].filter((path) => parentDirectory(path) === directory).map((path) => ({
       path,
@@ -144,13 +147,7 @@ function* walkCommittedDirectory(
   ].sort((left, right) => compareSpecContextOrdinal(posix.basename(left.path), posix.basename(right.path)));
 
   for (const child of children) {
-    const sourceEntry = recognizeSpecTreeFilesystemEntry({
-      type: child.directory
-        ? SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY
-        : SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
-      relativePath: child.path,
-      ...(parentId === undefined ? {} : { parentId }),
-    }, { schemaVersions: selection.known, selectedVersions: selection.selected });
+    const sourceEntry = await recognizeCommittedChild(child, parentId, selection, readCommittedText);
     if (sourceEntry !== null) yield sourceEntry;
     if (child.directory && (sourceEntry === null || sourceEntry.type === SPEC_TREE_ENTRY_TYPE.NODE)) {
       yield* walkCommittedDirectory(
@@ -159,9 +156,29 @@ function* walkCommittedDirectory(
         directories,
         files,
         selection,
+        readCommittedText,
       );
     }
   }
+}
+
+async function recognizeCommittedChild(
+  child: { readonly path: string; readonly directory: boolean },
+  parentId: string | undefined,
+  selection: SpecTreeGrammarSelection,
+  readCommittedText: (path: string) => Promise<string>,
+): Promise<SpecTreeSourceEntry | null> {
+  const declaredKind = child.directory ? undefined : await readSpecTreeDeclaredRootKind({
+    relativePath: child.path,
+    selection,
+    readText: () => readCommittedText(`${SPEC_TREE_ROOT_PREFIX}${child.path}`),
+  });
+  return recognizeSpecTreeFilesystemEntry({
+    type: child.directory ? SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY : SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
+    relativePath: child.path,
+    ...(parentId === undefined ? {} : { parentId }),
+    ...(declaredKind === undefined ? {} : { declaredKind }),
+  }, { schemaVersions: selection.known, selectedVersions: selection.selected });
 }
 
 function parentDirectory(path: string): string {
