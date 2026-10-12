@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 
+import { selectLocalProductRoot, type SyncConfigPresenceProbe } from "@/lib/git/root";
 import { authoredText, externalValue, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
 const GIT_EXECUTABLE = "git";
@@ -14,6 +15,7 @@ export type ResolvedProductDir = {
 
 export type ProductDirResolverDeps = {
   readonly readGitToplevel: (cwd: string) => string | undefined;
+  readonly hasConfig?: SyncConfigPresenceProbe;
 };
 
 export function resolveProductDir(
@@ -23,7 +25,7 @@ export function resolveProductDir(
   const resolvedCwd = resolve(cwd);
   const toplevel = deps.readGitToplevel(resolvedCwd);
   if (toplevel !== undefined && toplevel.length > 0) {
-    return { productDir: resolve(toplevel) };
+    return { productDir: resolve(selectLocalProductRoot(resolvedCwd, resolve(toplevel), deps.hasConfig)) };
   }
 
   return {
