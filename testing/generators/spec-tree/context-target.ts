@@ -19,18 +19,20 @@ import {
   type DecisionKind,
   KIND_REGISTRY,
   NODE_SUFFIXES,
+  selectedSupersededNodeSuffixes,
   SPEC_CONTEXT_OPTIONAL_ARTIFACT,
   SPEC_CONTEXT_PRODUCT_ROOT_TARGET,
   SPEC_CONTEXT_TARGET_FAILURE_KIND,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
-  SPEC_TREE_SUPERSEDED_NODE_SUFFIXES,
   type SpecContextTargetFailure,
   type SpecContextTargetFailureKind,
+  type SpecTreeGrammarSelection,
 } from "@/lib/spec-tree";
 import { arbitraryFixtureAuthoredLine } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
+  FIXTURE_SPEC_TREE_GRAMMAR_SELECTION,
   type RepresentativeSpecTreeFixture,
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
@@ -435,8 +437,11 @@ export function specContextNonCitationShapes(fixture: RepresentativeSpecTreeFixt
 /** The vitest `it.each` title token that renders each case's own title. */
 export const SPEC_CONTEXT_CASE_TITLE = "$title";
 
-function unregisteredNodeSuffix(seed: string): string {
-  const registeredSuffixes = new Set([...NODE_SUFFIXES, ...SPEC_TREE_SUPERSEDED_NODE_SUFFIXES]);
+function unregisteredNodeSuffix(
+  seed: string,
+  selection: SpecTreeGrammarSelection = FIXTURE_SPEC_TREE_GRAMMAR_SELECTION,
+): string {
+  const registeredSuffixes = new Set([...NODE_SUFFIXES, ...selectedSupersededNodeSuffixes(selection)]);
   let candidate = `.${seed}`;
   while (registeredSuffixes.has(candidate)) candidate = `${candidate}-${seed}`;
   return candidate;
@@ -909,7 +914,9 @@ function unresolvedShapeOperand(
       return { ...none, operand: directory, directories: [rooted(directory)] };
     }
     case SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES.SUPERSEDED_SUFFIX: {
-      const directory = `${fixture.root.order}-${fixture.root.slug}${SPEC_TREE_SUPERSEDED_NODE_SUFFIXES[0]}`;
+      const directory = `${fixture.root.order}-${fixture.root.slug}${
+        selectedSupersededNodeSuffixes(FIXTURE_SPEC_TREE_GRAMMAR_SELECTION)[0]
+      }`;
       return { ...none, operand: directory, directories: [rooted(directory)] };
     }
     case SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES.PARTIAL_COMPONENT: {

@@ -1,5 +1,6 @@
 import * as fc from "fast-check";
 
+import { METHODOLOGY_SECTION, validateMethodologyConfig } from "@/config/methodology";
 import { NODE_STATUS_EXCLUDE_FILENAME, NODE_STATUS_EXCLUDE_PATH_GRAMMAR } from "@/lib/node-status";
 import {
   canonicalNamingSchemaVersion,
@@ -7,6 +8,8 @@ import {
   type DecisionKind,
   type NamingSchemaVersion,
   type NodeKind,
+  selectedSupersededNodeSuffixes,
+  selectSpecTreeGrammar,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_EVIDENCE_FILE,
@@ -15,10 +18,11 @@ import {
   SPEC_TREE_KIND_CATEGORY,
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_SOURCE_ENTRY_KEYS,
-  SPEC_TREE_SUPERSEDED_NODE_SUFFIXES,
   type SpecTreeDecisionSourceEntry,
   type SpecTreeEvidenceSourceEntry,
+  type SpecTreeGrammarSelection,
   type SpecTreeKindCategory,
+  type SpecTreeNodeKind,
   type SpecTreeNodeSourceEntry,
   type SpecTreeRegistry,
   type SpecTreeSource,
@@ -26,6 +30,7 @@ import {
   type SpecTreeSourceRef,
 } from "@/lib/spec-tree";
 import { PYTHON_MARKER } from "@/validation/discovery/language-finder";
+import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 
 type SpecTreeEntryDiscriminatorKey =
@@ -34,11 +39,23 @@ type SpecTreeEntryDiscriminatorKey =
 
 type SpecTreeEntryTypeKey = typeof SPEC_TREE_SOURCE_ENTRY_KEYS.TYPE;
 
+/** A fixture node entry whose kind is a registered node kind. */
+type RegisteredSpecTreeNodeEntry = SpecTreeNodeSourceEntry & { readonly kind: SpecTreeNodeKind };
+
+function fixtureGrammarSelection(): SpecTreeGrammarSelection {
+  const methodology = validateMethodologyConfig(MINIMAL_SPEC_TREE_CONFIG[METHODOLOGY_SECTION]);
+  if (!methodology.ok) throw new Error(methodology.error);
+  return selectSpecTreeGrammar(methodology.value);
+}
+
+/** The grammar selection of the methodology declaration the shared fixture config carries, which fixture trees are read under. */
+export const FIXTURE_SPEC_TREE_GRAMMAR_SELECTION: SpecTreeGrammarSelection = fixtureGrammarSelection();
+
 export type RepresentativeSpecTreeFixture = {
   readonly product: Extract<SpecTreeSourceEntry, { readonly type: typeof SPEC_TREE_ENTRY_TYPE.PRODUCT }>;
-  readonly root: SpecTreeNodeSourceEntry;
-  readonly child: SpecTreeNodeSourceEntry;
-  readonly peer: SpecTreeNodeSourceEntry;
+  readonly root: RegisteredSpecTreeNodeEntry;
+  readonly child: RegisteredSpecTreeNodeEntry;
+  readonly peer: RegisteredSpecTreeNodeEntry;
   readonly decision: SpecTreeDecisionSourceEntry;
   readonly childEvidence: SpecTreeEvidenceSourceEntry;
   readonly peerEvidence: SpecTreeEvidenceSourceEntry;
@@ -48,7 +65,7 @@ export type RepresentativeSpecTreeFixture = {
 /** A representative fixture with one node nested under its child, at a distinct id and a higher order. */
 export type RepresentativeSpecTreeFixtureWithGrandchild = {
   readonly fixture: RepresentativeSpecTreeFixture;
-  readonly grandchild: SpecTreeNodeSourceEntry;
+  readonly grandchild: RegisteredSpecTreeNodeEntry;
 };
 
 export type AssemblyNodeOrders = {
@@ -255,14 +272,14 @@ export function specTreeFixtureNodeDirectoryName(
 export function buildNodeEntry(
   registry: SpecTreeRegistry,
   entry: Omit<SpecTreeNodeSourceEntry, SpecTreeEntryDiscriminatorKey>,
-): SpecTreeNodeSourceEntry {
+): RegisteredSpecTreeNodeEntry {
   return nodeEntry(sampleGeneratedValue(arbitraryNodeKind(registry)), entry);
 }
 
 function nodeEntry(
   kind: NodeKind,
   entry: Omit<SpecTreeNodeSourceEntry, SpecTreeEntryDiscriminatorKey>,
-): SpecTreeNodeSourceEntry {
+): RegisteredSpecTreeNodeEntry {
   return { type: SPEC_TREE_ENTRY_TYPE.NODE, kind, ...entry };
 }
 
@@ -487,16 +504,21 @@ function arbitraryDecisionKind(registry: SpecTreeRegistry): fc.Arbitrary<Decisio
   );
 }
 
-function arbitrarySupersededNodeSuffix(): fc.Arbitrary<string> {
-  return fc.constantFrom(...SPEC_TREE_SUPERSEDED_NODE_SUFFIXES);
+function arbitrarySupersededNodeSuffix(
+  selection: SpecTreeGrammarSelection = FIXTURE_SPEC_TREE_GRAMMAR_SELECTION,
+): fc.Arbitrary<string> {
+  return fc.constantFrom(...selectedSupersededNodeSuffixes(selection));
 }
 
-function arbitraryUnregisteredNodeSuffix(registry: SpecTreeRegistry): fc.Arbitrary<string> {
+function arbitraryUnregisteredNodeSuffix(
+  registry: SpecTreeRegistry,
+  selection: SpecTreeGrammarSelection = FIXTURE_SPEC_TREE_GRAMMAR_SELECTION,
+): fc.Arbitrary<string> {
   const nodeSuffixes = new Set<string>([
     ...Object.values(registry)
       .filter((definition) => definition.category === SPEC_TREE_KIND_CATEGORY.NODE)
       .map((definition) => definition.suffix),
-    ...SPEC_TREE_SUPERSEDED_NODE_SUFFIXES,
+    ...selectedSupersededNodeSuffixes(selection),
   ]);
   return fc.tuple(
     fc.constantFrom(...SPEC_TREE_TEST_SUFFIX_INITIAL_CHARACTERS),

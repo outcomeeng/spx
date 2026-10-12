@@ -8,12 +8,11 @@ import { toMessage } from "@/lib/error-message";
 import { CONFIG_FILE_DEFINITIONS, CONFIG_FILE_FORMAT, DEFAULT_CONFIG_FILE_FORMAT } from "./filenames";
 import type { ConfigFileFormat } from "./filenames";
 import {
-  CONFIG_FILE_READ_KIND,
   type ConfigFile,
   type ConfigFileReadResult,
-  formatConfigFileAmbiguityError,
   parseConfigFileSections,
   readProductConfigFile,
+  resolveDescriptorSectionsFromReadResult,
 } from "./product-file";
 import { productionRegistry } from "./registry";
 import type { Config, ConfigDescriptor, Result } from "./types";
@@ -55,33 +54,7 @@ export function resolveConfigFromReadResult(
   detected: ConfigFileReadResult,
   descriptors: readonly ConfigDescriptor<unknown>[] = productionRegistry,
 ): Result<Config> {
-  if (detected.kind === CONFIG_FILE_READ_KIND.AMBIGUOUS) {
-    return { ok: false, error: formatConfigFileAmbiguityError(detected.detected) };
-  }
-
-  const sectionsResult = detected.kind === CONFIG_FILE_READ_KIND.ABSENT
-    ? ({ ok: true as const, value: {} as Record<string, unknown> })
-    : parseConfigFileSections(detected.file);
-  if (!sectionsResult.ok) {
-    return sectionsResult;
-  }
-  const sections = sectionsResult.value;
-
-  const resolved: Record<string, unknown> = {};
-  for (const descriptor of descriptors) {
-    const sectionValue = sections[descriptor.section];
-    if (sectionValue === undefined) {
-      resolved[descriptor.section] = descriptor.defaults;
-      continue;
-    }
-    const validated = descriptor.validate(sectionValue);
-    if (!validated.ok) {
-      return { ok: false, error: `${descriptor.section}: ${validated.error}` };
-    }
-    resolved[descriptor.section] = validated.value;
-  }
-
-  return { ok: true, value: resolved };
+  return resolveDescriptorSectionsFromReadResult(detected, descriptors);
 }
 
 export function configFileForFormat(

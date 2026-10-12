@@ -8,7 +8,7 @@ import {
   type SpecTreeSnapshot,
   type SpecTreeSource,
 } from "@/lib/spec-tree";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { resolveKindLabel, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import {
   authoredText,
   externalValue,
@@ -74,7 +74,7 @@ function formatNextNode(node: SpecTreeNode): TerminalText {
     authoredText(SPEC_NEXT_MESSAGE.HEADING),
     authoredText(""),
     terminal`${indent}${authoredText(SPEC_NEXT_MESSAGE.PATH_LABEL)}: ${externalValue(node.id)}`,
-    terminal`${indent}${authoredText(SPEC_NEXT_MESSAGE.KIND_LABEL)}: ${authoredText(KIND_REGISTRY[node.kind].label)}`,
+    terminal`${indent}${authoredText(SPEC_NEXT_MESSAGE.KIND_LABEL)}: ${authoredText(resolveKindLabel(node.kind))}`,
     terminal`${indent}${authoredText(SPEC_NEXT_MESSAGE.STATE_LABEL)}: ${authoredText(node.state)}`,
   ]);
 }

@@ -152,6 +152,11 @@ export function resolveKindOpening(kind: SpecTreeNodeKind, parentKind?: SpecTree
   return parentKind === undefined ? undefined : resolveKindOpening(parentKind);
 }
 
+/** The label a container kind carries: a node kind's registered label, or the product label. */
+export function resolveKindLabel(kind: SpecTreeContainerKind): string {
+  return kind === SPEC_TREE_CONFIG.PRODUCT.KIND ? SPEC_TREE_CONFIG.PRODUCT.LABEL : KIND_REGISTRY[kind].label;
+}
+
 /**
  * The kinds a container kind admits as children: a product's, a node kind's own, or its parent's
  * when the kind inherits them, excluding a further variant.
@@ -427,9 +432,6 @@ export function supersededNodeSuffixes(versions: readonly NamingSchemaVersion[])
 
 export const SPEC_TREE_NAMING_VERSION: string =
   canonicalNamingSchemaVersion(SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS).version;
-export const SPEC_TREE_SUPERSEDED_NODE_SUFFIXES: readonly string[] = supersededNodeSuffixes(
-  SPEC_TREE_NAMING_SCHEMA_VERSIONS,
-);
 
 export const SPEC_TREE_ENTRY_TYPE = {
   PRODUCT: "product",

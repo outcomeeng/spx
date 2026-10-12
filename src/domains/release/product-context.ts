@@ -5,12 +5,13 @@ import MarkdownIt from "markdown-it";
 import {
   compareSpecContextOrdinal,
   recognizeSpecTreeFilesystemEntry,
-  resolveSpecTreeDecisionCitation,
   resolveSpecTreePathOwnership,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_FILESYSTEM_RECORD_TYPE,
   SPEC_TREE_PATH_OWNERSHIP_RESULT_KIND,
   SPEC_TREE_ROOT_PREFIX,
+  type SpecTreeGrammarSelection,
+  specTreeLinkGrammar,
   type SpecTreeNode,
   type SpecTreeSnapshot,
   type SpecTreeSourceEntry,
@@ -105,8 +106,14 @@ export interface ReleaseEndpointDeclaration {
   readonly content: string;
 }
 
-/** Spec-tree source entries for the committed paths of one release endpoint, in ordinal order. */
-export function* committedSpecTreeEntries(paths: readonly string[]): Iterable<SpecTreeSourceEntry> {
+/**
+ * Spec-tree source entries for the committed paths of one release endpoint, in ordinal order,
+ * classified by the grammar selection the endpoint's own committed methodology declaration derives.
+ */
+export function* committedSpecTreeEntries(
+  paths: readonly string[],
+  selection: SpecTreeGrammarSelection,
+): Iterable<SpecTreeSourceEntry> {
   const files = paths
     .filter((path) => path.startsWith(SPEC_TREE_ROOT_PREFIX))
     .map((path) => path.slice(SPEC_TREE_ROOT_PREFIX.length));
@@ -118,7 +125,7 @@ export function* committedSpecTreeEntries(paths: readonly string[]): Iterable<Sp
       directory = posix.dirname(directory);
     }
   }
-  yield* walkCommittedDirectory("", undefined, directories, new Set(files));
+  yield* walkCommittedDirectory("", undefined, directories, new Set(files), selection);
 }
 
 function* walkCommittedDirectory(
@@ -126,6 +133,7 @@ function* walkCommittedDirectory(
   parentId: string | undefined,
   directories: ReadonlySet<string>,
   files: ReadonlySet<string>,
+  selection: SpecTreeGrammarSelection,
 ): Iterable<SpecTreeSourceEntry> {
   const children = [
     ...[...directories].filter((path) => parentDirectory(path) === directory).map((path) => ({
@@ -142,7 +150,7 @@ function* walkCommittedDirectory(
         : SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
       relativePath: child.path,
       ...(parentId === undefined ? {} : { parentId }),
-    });
+    }, { schemaVersions: selection.known, selectedVersions: selection.selected });
     if (sourceEntry !== null) yield sourceEntry;
     if (child.directory && (sourceEntry === null || sourceEntry.type === SPEC_TREE_ENTRY_TYPE.NODE)) {
       yield* walkCommittedDirectory(
@@ -150,6 +158,7 @@ function* walkCommittedDirectory(
         sourceEntry?.type === SPEC_TREE_ENTRY_TYPE.NODE ? sourceEntry.id : parentId,
         directories,
         files,
+        selection,
       );
     }
   }
@@ -238,14 +247,19 @@ const CITATION_MARKDOWN_PARSER = createCitationMarkdownParser();
  * carries a URL scheme binds nothing, and a decision path written as text — bare or in an inline
  * code span — is no link.
  */
-export function extractDecisionLinkCitations(documentPath: string, content: string): readonly string[] {
+export function extractDecisionLinkCitations(
+  documentPath: string,
+  content: string,
+  selection: SpecTreeGrammarSelection,
+): readonly string[] {
+  const grammar = specTreeLinkGrammar(selection);
   const citations = new Set<string>();
   for (const block of CITATION_MARKDOWN_PARSER.parse(content, {})) {
     for (const token of block.children ?? []) {
       if (token.type !== MARKDOWN_LINK_OPEN_TOKEN) continue;
       const href = token.attrGet(MARKDOWN_LINK_HREF_ATTRIBUTE);
       if (href === null) continue;
-      const citedPath = resolveSpecTreeDecisionCitation(documentPath, href);
+      const citedPath = grammar.resolveSpecTreeDecisionCitation(documentPath, href);
       if (citedPath !== null) citations.add(citedPath);
     }
   }

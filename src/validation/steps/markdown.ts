@@ -12,10 +12,11 @@ import { existsSync, statSync } from "node:fs";
 import { basename, dirname, join, relative as pathRelative } from "node:path";
 
 import { normalizePathPrefix } from "@/config/primitives/path-filter";
+import { toMessage } from "@/lib/error-message";
 import { defaultGitDependencies } from "@/lib/git/root";
 import { listTrackedPaths, TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
 import { createNodeStatusExcludeReader } from "@/lib/node-status";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { resolveSpecTreeGrammarSelection, SPEC_TREE_CONFIG, type SpecTreeGrammarSelection } from "@/lib/spec-tree";
 
 // @ts-expect-error markdownlint-cli2 has no TypeScript type declarations
 import { main as markdownlintMain } from "markdownlint-cli2";
@@ -132,6 +133,8 @@ interface MarkdownTargetScope {
   readonly productDir: string | undefined;
   readonly ignoreGlobs: readonly string[];
   readonly trackedPaths: readonly string[] | undefined;
+  /** The grammar selection of the product's methodology declaration, which the link-shape rule judges links by. */
+  readonly grammarSelection: SpecTreeGrammarSelection | undefined;
 }
 
 export interface MarkdownValidationTarget {
@@ -425,6 +428,7 @@ export async function validateMarkdown(
   const errors: MarkdownError[] = [];
   const specTreeExcludeEntries = applyNodeStatusExcludes ? getExcludeEntries(productDir) : [];
   let specTreeTrackedPaths: Promise<readonly string[] | undefined> | undefined;
+  let specTreeSelection: Promise<SpecTreeGrammarSelection | Error> | undefined;
 
   for (const target of targets) {
     const directory = targetDirectory(target);
@@ -437,10 +441,18 @@ export async function validateMarkdown(
     const trackedPaths = dirName === SPEC_TREE_CONFIG.ROOT_DIRECTORY && productDir !== undefined
       ? await (specTreeTrackedPaths ??= readSpecTreeTrackedPaths(productDir, deps))
       : undefined;
+    const grammarSelection = dirName === SPEC_TREE_CONFIG.ROOT_DIRECTORY && productDir !== undefined
+      ? await (specTreeSelection ??= readSpecTreeGrammarSelection(productDir))
+      : undefined;
+    if (grammarSelection instanceof Error) {
+      errors.push({ file: directory, line: 1, detail: grammarSelection.message });
+      continue;
+    }
     const dirErrors = await validateTarget(target, config, deps, {
       productDir,
       ignoreGlobs: excludeGlobs,
       trackedPaths,
+      grammarSelection,
     });
     errors.push(...dirErrors);
   }
@@ -449,6 +461,15 @@ export async function validateMarkdown(
     success: errors.length === 0,
     errors,
   };
+}
+
+/** The grammar selection of the product's methodology declaration, or the error that keeps the declaration from selecting one. */
+async function readSpecTreeGrammarSelection(productDir: string): Promise<SpecTreeGrammarSelection | Error> {
+  try {
+    return await resolveSpecTreeGrammarSelection(productDir);
+  } catch (error) {
+    return new Error(toMessage(error));
+  }
 }
 
 /**
@@ -485,7 +506,7 @@ async function validateTarget(
   deps: MarkdownValidationDeps,
   scope: MarkdownTargetScope,
 ): Promise<MarkdownError[]> {
-  const { productDir, ignoreGlobs, trackedPaths } = scope;
+  const { productDir, ignoreGlobs, trackedPaths, grammarSelection } = scope;
   const errors: MarkdownError[] = [];
   const directory = targetDirectory(target);
   const argv = target.kind === MARKDOWN_VALIDATION_TARGET_KIND.FILE
@@ -497,9 +518,14 @@ async function validateTarget(
   const linkRuleConfig = (rule: MarkdownlintRule): true | Record<string, unknown> => {
     if (!productDir) return true;
     const rootConfig = { [MARKDOWN_LINK_SHAPE_RULE_CONFIG.ROOT_PATH]: productDir };
-    return rule === markdownLinkShapeRule && trackedPaths !== undefined
-      ? { ...rootConfig, [MARKDOWN_LINK_SHAPE_RULE_CONFIG.TRACKED_PATHS]: trackedPaths }
-      : rootConfig;
+    if (rule !== markdownLinkShapeRule) return rootConfig;
+    return {
+      ...rootConfig,
+      ...(trackedPaths === undefined ? {} : { [MARKDOWN_LINK_SHAPE_RULE_CONFIG.TRACKED_PATHS]: trackedPaths }),
+      ...(grammarSelection === undefined
+        ? {}
+        : { [MARKDOWN_LINK_SHAPE_RULE_CONFIG.GRAMMAR_SELECTION]: grammarSelection }),
+    };
   };
   const optionsOverride: Record<string, unknown> = {
     config: {
