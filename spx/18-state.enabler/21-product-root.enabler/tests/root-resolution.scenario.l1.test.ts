@@ -3,13 +3,14 @@ import { dirname } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { detectGitCommonDirProductRoot, detectWorktreeProductRoot } from "@/lib/git/root";
+import { detectGitCommonDirProductRoot, detectLocalProductRoot } from "@/lib/git/root";
 import {
   arbitraryBarePoolLayoutCase,
   sampleMainCheckoutTestValue,
 } from "@testing/generators/main-checkout/main-checkout";
+import { LOCAL_PRODUCT_ROOT_LAYOUT, localProductRootCase } from "@testing/generators/product-root/local-product-root";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
-import { createTempDir, removeTempDir } from "@testing/harnesses/with-temp-dir";
+import { withLocalProductRootEnv } from "@testing/harnesses/product-root/local-product-root";
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 
 describe("detectGitCommonDirProductRoot — shared root resolves to the common-dir parent", () => {
@@ -35,24 +36,27 @@ describe("detectGitCommonDirProductRoot — shared root resolves to the common-d
   });
 });
 
-describe("detectWorktreeProductRoot — local root resolves to the worktree toplevel", () => {
-  it("resolves a checkout to its worktree root and falls back to the working directory with a warning outside a git repository", async () => {
-    await withGitWorktreeEnv(async (env) => {
-      const root = await realpath(env.productDir);
-      const result = await detectWorktreeProductRoot(env.productDir);
+describe("detectLocalProductRoot — local root resolves per config layout", () => {
+  it.each([
+    LOCAL_PRODUCT_ROOT_LAYOUT.INVOCATION_DIR,
+    LOCAL_PRODUCT_ROOT_LAYOUT.INTERMEDIATE_ANCESTOR,
+    LOCAL_PRODUCT_ROOT_LAYOUT.TOPLEVEL_ONLY,
+    LOCAL_PRODUCT_ROOT_LAYOUT.NO_CONFIG,
+  ])("resolves the layout with %s to the root the worktree-management decision defines", async (layout) => {
+    await withLocalProductRootEnv(localProductRootCase(layout), async (env) => {
+      const result = await detectLocalProductRoot(env.invocationDir);
       expect(result.isGitRepo).toBe(true);
-      expect(result.productDir).toBe(root);
+      expect(await realpath(result.productDir)).toBe(env.expectedProductDir);
       expect(result.warning).toBeUndefined();
     });
+  });
 
-    const nonRepoDir = await createTempDir("spx-non-repo-");
-    try {
-      const result = await detectWorktreeProductRoot(nonRepoDir);
+  it("falls back to the working directory with a warning outside a git repository", async () => {
+    await withLocalProductRootEnv(localProductRootCase(LOCAL_PRODUCT_ROOT_LAYOUT.OUTSIDE_GIT), async (env) => {
+      const result = await detectLocalProductRoot(env.invocationDir);
       expect(result.isGitRepo).toBe(false);
-      expect(result.productDir).toBe(nonRepoDir);
+      expect(result.productDir).toBe(env.invocationDir);
       expect(result.warning).toBeDefined();
-    } finally {
-      await removeTempDir(nonRepoDir);
-    }
+    });
   });
 });
