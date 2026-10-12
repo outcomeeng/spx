@@ -67,6 +67,19 @@ export type NonNumericVersionPair = {
   readonly valid: NamingSchemaVersion;
 };
 
+// Independent ordering oracle: compares dotted numeric components position by position,
+// padding the shorter identifier with zeros, without reusing the production comparator.
+export function semverOrderOracle(left: string, right: string): number {
+  const leftComponents = left.split(SEMVER_COMPONENT_SEPARATOR).map((part) => Number(part));
+  const rightComponents = right.split(SEMVER_COMPONENT_SEPARATOR).map((part) => Number(part));
+  const length = Math.max(leftComponents.length, rightComponents.length);
+  for (let index = 0; index < length; index += 1) {
+    const difference = (leftComponents[index] ?? 0) - (rightComponents[index] ?? 0);
+    if (difference !== 0) return difference;
+  }
+  return 0;
+}
+
 export const NAMING_SCHEMA_VERSION_TEST_GENERATOR = {
   version: arbitraryNamingSchemaVersion,
   versionComparisonPair: arbitraryNamingSchemaVersionComparisonPair,
