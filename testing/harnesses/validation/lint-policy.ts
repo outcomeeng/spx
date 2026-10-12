@@ -7,9 +7,9 @@ import { lintCommand } from "@/commands/validation/lint";
 import { VALIDATION_EXIT_CODES, VALIDATION_STAGE_DISPLAY_NAMES } from "@/commands/validation/messages";
 import { resolveConfig } from "@/config";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
+import type { SpecTreeMethodologyLine } from "@/lib/spec-tree";
 import { detectTypeScript } from "@/validation/discovery";
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
-import type { SpecTreeMethodologyLine } from "@/lib/spec-tree";
 import { type LintPolicyResult, validateLintPolicy } from "@/validation/lint-policy";
 import { validateESLint } from "@/validation/steps/eslint";
 import { DEFAULT_ESLINT_CONFIG_FILE } from "@/validation/steps/eslint-contract";
@@ -29,8 +29,8 @@ import {
   runGit,
   runTsxEval,
 } from "@testing/harnesses/git-test-constants";
-import { writeValidationProductDeclaration } from "@testing/harnesses/validation/product";
 import { withTestEnv, writeOrderedDirectory } from "@testing/harnesses/spec-tree/spec-tree";
+import { writeValidationProductDeclaration } from "@testing/harnesses/validation/product";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const LINT_POLICY_TEMP_PREFIX = "spx-lint-policy-";
