@@ -1,4 +1,4 @@
-import { mkdir, realpath } from "node:fs/promises";
+import { mkdir, realpath, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { resolveProductDir } from "@/domains/config/root";
@@ -37,6 +37,20 @@ export type InvocationRootObservation = {
   readonly expectedInvocationDir: string;
   readonly observedInvocationDir: string;
   readonly writtenWarning: TerminalText | undefined;
+};
+
+export type LocalProductRootObservation = {
+  readonly actualProductDir: string;
+  readonly intermediateAncestorDir: string;
+  readonly invocationDir: string;
+  readonly toplevelDir: string;
+  readonly warning: TerminalText | undefined;
+};
+
+type ConfigPlacement = {
+  readonly atInvocationDir: boolean;
+  readonly atIntermediateAncestor: boolean;
+  readonly atToplevel: boolean;
 };
 
 type SyncObservationConsumer<T> = (observation: T) => void;
@@ -140,4 +154,75 @@ export async function withNonWorktreeRootObservation(
       writtenWarning,
     });
   });
+}
+
+async function withLocalProductRootLayout(
+  placement: ConfigPlacement,
+  consume: AsyncObservationConsumer<LocalProductRootObservation>,
+): Promise<void> {
+  const layout = sampleConfigTestValue(CONFIG_TEST_GENERATOR.localProductRootLayout());
+  await withGitProduct(async (toplevel) => {
+    const intermediateAncestor = resolve(toplevel, ...layout.productSegments);
+    const invocationDir = resolve(intermediateAncestor, layout.invocationSegment);
+    await mkdir(invocationDir, { recursive: true });
+    const placements: readonly [boolean, string][] = [
+      [placement.atInvocationDir, invocationDir],
+      [placement.atIntermediateAncestor, intermediateAncestor],
+      [placement.atToplevel, toplevel],
+    ];
+    for (const [placed, directory] of placements) {
+      if (placed) await writeFile(resolve(directory, layout.configFilename), "");
+    }
+
+    const invocation = createCliInvocation({
+      readDirectoryOption: () => undefined,
+      processCwd: () => invocationDir,
+      writeWarning: () => undefined,
+      io: TEST_IO,
+    });
+    const context = invocation.resolveProductContext();
+    await consume({
+      actualProductDir: await realpath(context.productDir),
+      intermediateAncestorDir: await realpath(intermediateAncestor),
+      invocationDir: await realpath(invocationDir),
+      toplevelDir: await realpath(toplevel),
+      warning: context.warning,
+    });
+  });
+}
+
+export async function withInvocationDirectoryConfigObservation(
+  consume: AsyncObservationConsumer<LocalProductRootObservation>,
+): Promise<void> {
+  await withLocalProductRootLayout(
+    { atInvocationDir: true, atIntermediateAncestor: true, atToplevel: true },
+    consume,
+  );
+}
+
+export async function withIntermediateAncestorConfigObservation(
+  consume: AsyncObservationConsumer<LocalProductRootObservation>,
+): Promise<void> {
+  await withLocalProductRootLayout(
+    { atInvocationDir: false, atIntermediateAncestor: true, atToplevel: true },
+    consume,
+  );
+}
+
+export async function withToplevelOnlyConfigObservation(
+  consume: AsyncObservationConsumer<LocalProductRootObservation>,
+): Promise<void> {
+  await withLocalProductRootLayout(
+    { atInvocationDir: false, atIntermediateAncestor: false, atToplevel: true },
+    consume,
+  );
+}
+
+export async function withoutConfigObservation(
+  consume: AsyncObservationConsumer<LocalProductRootObservation>,
+): Promise<void> {
+  await withLocalProductRootLayout(
+    { atInvocationDir: false, atIntermediateAncestor: false, atToplevel: false },
+    consume,
+  );
 }

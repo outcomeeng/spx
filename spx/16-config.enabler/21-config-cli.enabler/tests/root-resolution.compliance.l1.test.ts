@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   withDirectoryOptionObservation,
+  withIntermediateAncestorConfigObservation,
+  withInvocationDirectoryConfigObservation,
   withInvocationDirectoryObservation,
   withNonWorktreeRootObservation,
+  withoutConfigObservation,
   withProductDirectoryRootObservation,
   withSubdirectoryRootObservation,
+  withToplevelOnlyConfigObservation,
 } from "@testing/harnesses/config/root-resolution";
 
 describe("config CLI product root resolution", () => {
@@ -54,6 +58,34 @@ describe("config CLI product root resolution", () => {
       expect(observedInvocationDir).toBe(expectedInvocationDir);
       expect(context.warning).toBeDefined();
       expect(writtenWarning).toBe(context.warning);
+    });
+  });
+
+  it("resolves to the invocation directory when it holds the recognized config file", async () => {
+    await withInvocationDirectoryConfigObservation(({ actualProductDir, invocationDir, warning }) => {
+      expect(actualProductDir).toBe(invocationDir);
+      expect(warning).toBeUndefined();
+    });
+  });
+
+  it("resolves to the nearest intermediate ancestor holding the recognized config file", async () => {
+    await withIntermediateAncestorConfigObservation(({ actualProductDir, intermediateAncestorDir, warning }) => {
+      expect(actualProductDir).toBe(intermediateAncestorDir);
+      expect(warning).toBeUndefined();
+    });
+  });
+
+  it("resolves to the git toplevel when only the toplevel holds the recognized config file", async () => {
+    await withToplevelOnlyConfigObservation(({ actualProductDir, toplevelDir, warning }) => {
+      expect(actualProductDir).toBe(toplevelDir);
+      expect(warning).toBeUndefined();
+    });
+  });
+
+  it("resolves to the git toplevel when no directory holds a recognized config file", async () => {
+    await withoutConfigObservation(({ actualProductDir, toplevelDir, warning }) => {
+      expect(actualProductDir).toBe(toplevelDir);
+      expect(warning).toBeUndefined();
     });
   });
 });
