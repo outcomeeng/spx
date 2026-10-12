@@ -133,11 +133,8 @@ export type SpecTreeNodeKind = NodeKind | OutputKind;
 /** The kind of a product scope, which holds children without being a registered node kind. */
 export type ProductKind = typeof SPEC_TREE_CONFIG.PRODUCT.KIND;
 
-/** Every kind that holds children: a node kind or a product. */
+/** Every kind that holds children, and every kind a container admits as a child: a node kind or a product. */
 export type SpecTreeContainerKind = SpecTreeNodeKind | ProductKind;
-
-/** Every kind a container admits as a child. */
-export type SpecTreeChildKind = SpecTreeNodeKind | ProductKind;
 
 export type DecisionKind = {
   [K in Kind]: (typeof KIND_REGISTRY)[K]["category"] extends typeof SPEC_TREE_KIND_CATEGORY.DECISION ? K : never;
@@ -162,10 +159,10 @@ export function resolveKindOpening(kind: SpecTreeNodeKind, parentKind?: SpecTree
 export function resolveAdmittedChildren(
   kind: SpecTreeContainerKind,
   parentKind?: SpecTreeNodeKind,
-): readonly SpecTreeChildKind[] | undefined {
+): readonly SpecTreeContainerKind[] | undefined {
   if (kind === SPEC_TREE_CONFIG.PRODUCT.KIND) return SPEC_TREE_CONFIG.PRODUCT.CHILDREN;
   const children: readonly string[] | typeof SPEC_TREE_INHERIT_FROM_PARENT = KIND_REGISTRY[kind].children;
-  if (children !== SPEC_TREE_INHERIT_FROM_PARENT) return children as readonly SpecTreeChildKind[];
+  if (children !== SPEC_TREE_INHERIT_FROM_PARENT) return children as readonly SpecTreeContainerKind[];
   if (parentKind === undefined) return undefined;
   return resolveAdmittedChildren(parentKind)?.filter((child) => child !== kind);
 }
@@ -192,6 +189,8 @@ export const SPEC_TREE_COORDINATION_NOTE = {
   ISSUES: "ISSUES.md",
 } as const;
 
+const SPEC_TREE_ORDER_SEPARATOR_TOKEN = "-";
+
 export const SPEC_TREE_GRAMMAR = {
   PRODUCT_SUFFIX: SPEC_TREE_CONFIG.PRODUCT.SUFFIX,
   EVIDENCE: {
@@ -207,12 +206,14 @@ export const SPEC_TREE_GRAMMAR = {
   },
   RUNNERS: ["vitest", "playwright", "subprocess"],
   ORDER: {
-    SEPARATOR: "-",
+    SEPARATOR: SPEC_TREE_ORDER_SEPARATOR_TOKEN,
+    /** Separates the numeric segments of one index, as in `20.10`. */
+    SEGMENT_SEPARATOR: ".",
   },
   /** The index form each naming-schema era accepts: dot-separated digit runs, or two-digit integers with two-digit fractions. */
   ORDER_FORMS: {
-    DIGIT_RUNS: { SEPARATOR: "-", PATTERN: /^\d+(\.\d+)*$/ },
-    TWO_DIGIT: { SEPARATOR: "-", PATTERN: /^[1-9]\d(\.\d{2})*$/ },
+    DIGIT_RUNS: { SEPARATOR: SPEC_TREE_ORDER_SEPARATOR_TOKEN, PATTERN: /^\d+(\.\d+)*$/ },
+    TWO_DIGIT: { SEPARATOR: SPEC_TREE_ORDER_SEPARATOR_TOKEN, PATTERN: /^[1-9]\d(\.\d{2})*$/ },
   },
   PATH_SEPARATOR: "/",
   COORDINATION_NOTE: SPEC_TREE_COORDINATION_NOTE,
@@ -262,8 +263,20 @@ export type SpecTreeOrderGrammar = {
   readonly PATTERN: RegExp;
 };
 
+/** The methodology lines SPX reads, each as `MAJOR.MINOR`. */
+export const SPEC_TREE_METHODOLOGY_LINE = {
+  THREE_ZERO: "3.0",
+  THREE_ONE: "3.1",
+  THREE_TWO: "3.2",
+  FOUR_ZERO: "4.0",
+} as const;
+
+export type SpecTreeMethodologyLine = (typeof SPEC_TREE_METHODOLOGY_LINE)[keyof typeof SPEC_TREE_METHODOLOGY_LINE];
+
 export type NamingSchemaVersion = {
   readonly version: string;
+  /** The methodology lines this version serves; none for the version of the era before 3.0. */
+  readonly lines: readonly SpecTreeMethodologyLine[];
   readonly nodeSuffixes: readonly string[];
   readonly decisionSuffixes: readonly string[];
   readonly productSuffix: string;
@@ -287,12 +300,14 @@ const NAMING_SCHEMA_VERSION_ID = {
 
 function namingSchemaVersion(
   version: string,
+  lines: readonly SpecTreeMethodologyLine[],
   nodeSuffixes: readonly string[],
   specFileSuffix: string,
   order: SpecTreeOrderGrammar,
 ): NamingSchemaVersion {
   return {
     version,
+    lines,
     nodeSuffixes,
     decisionSuffixes: DECISION_SUFFIXES,
     productSuffix: SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX,
@@ -310,12 +325,14 @@ function namingSchemaVersion(
 export const SPEC_TREE_NAMING_SCHEMA_VERSIONS: readonly NamingSchemaVersion[] = [
   namingSchemaVersion(
     NAMING_SCHEMA_VERSION_ID.PRIOR_NODES,
-    SPEC_TREE_GRAMMAR.PRIOR_NODE_SUFFIXES,
+    [],
+    [...SPEC_TREE_GRAMMAR.PRIOR_NODE_SUFFIXES, KIND_REGISTRY.capability.suffix],
     SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX,
     SPEC_TREE_GRAMMAR.ORDER_FORMS.DIGIT_RUNS,
   ),
   namingSchemaVersion(
     NAMING_SCHEMA_VERSION_ID.CANONICAL,
+    [SPEC_TREE_METHODOLOGY_LINE.THREE_ZERO, SPEC_TREE_METHODOLOGY_LINE.THREE_ONE, SPEC_TREE_METHODOLOGY_LINE.THREE_TWO],
     NODE_SUFFIXES,
     SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX,
     SPEC_TREE_GRAMMAR.ORDER_FORMS.DIGIT_RUNS,
@@ -329,6 +346,7 @@ export const SPEC_TREE_NAMING_SCHEMA_VERSIONS: readonly NamingSchemaVersion[] = 
 export const SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION: NamingSchemaVersion = {
   ...namingSchemaVersion(
     NAMING_SCHEMA_VERSION_ID.OUTPUT_NODES,
+    [SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO],
     [...OUTPUT_SUFFIXES, SPEC_TREE_CONFIG.PRODUCT.NODE_SUFFIX],
     SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX,
     SPEC_TREE_GRAMMAR.ORDER_FORMS.TWO_DIGIT,
@@ -407,7 +425,8 @@ export function supersededNodeSuffixes(versions: readonly NamingSchemaVersion[])
   return [...superseded];
 }
 
-export const SPEC_TREE_NAMING_VERSION: string = canonicalNamingSchemaVersion(SPEC_TREE_NAMING_SCHEMA_VERSIONS).version;
+export const SPEC_TREE_NAMING_VERSION: string =
+  canonicalNamingSchemaVersion(SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS).version;
 export const SPEC_TREE_SUPERSEDED_NODE_SUFFIXES: readonly string[] = supersededNodeSuffixes(
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
 );
@@ -440,10 +459,6 @@ export const SPEC_TREE_SECTION = SPEC_TREE_CONFIG.SECTION;
 
 function buildDefaults(): SpecTreeConfig {
   return { kinds: { ...KIND_REGISTRY } };
-}
-
-export function unknownSpecTreeKindError(kind: string): string {
-  return `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} contains unknown kind "${kind}"`;
 }
 
 function validate(value: unknown): Result<SpecTreeConfig> {
