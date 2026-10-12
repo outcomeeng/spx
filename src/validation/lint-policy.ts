@@ -6,6 +6,7 @@ import { withoutGitEnvironment } from "@/lib/git/environment";
 import {
   NODE_SUFFIXES,
   OUTPUT_SUFFIXES,
+  resolveSpecTreeGrammarSelection,
   selectedSupersededNodeSuffixes,
   SPEC_TREE_CONFIG,
   type SpecTreeGrammarSelection,
@@ -60,11 +61,6 @@ function findDeprecatedSpecNodePath(productDir: string, selection: SpecTreeGramm
       }
     }
 
-    return undefined;
-  }
-
-  const specTreeRootPath = join(productDir, SPEC_TREE_ROOT);
-  if (!existsSync(specTreeRootPath)) {
     return undefined;
   }
 
@@ -199,7 +195,11 @@ function assertManifestDoesNotGrow(
   }
 }
 
-function rejectDeprecatedSpecNodeSuffixes(productDir: string, selection: SpecTreeGrammarSelection): void {
+async function rejectDeprecatedSpecNodeSuffixes(productDir: string): Promise<void> {
+  if (!existsSync(join(productDir, SPEC_TREE_ROOT))) {
+    return;
+  }
+  const selection = await resolveSpecTreeGrammarSelection(productDir);
   const deprecatedSpecNodePath = findDeprecatedSpecNodePath(productDir, selection);
   if (deprecatedSpecNodePath !== undefined) {
     throw new Error(
@@ -241,12 +241,13 @@ function validateTestOwnedConstantDebtNodeManifest(productDir: string, entries: 
 }
 
 /**
- * Validates the lint policy of the product at `productDir`. A node directory suffix is deprecated
- * when the product's grammar selection leaves it to a version ordered before the declared target.
+ * Validates the lint policy of the product at `productDir`. A product with a spec tree resolves its
+ * grammar selection, and a node directory suffix is deprecated when that selection leaves it to a
+ * version ordered before the declared target. A product without a spec tree needs no selection.
  */
-export function validateLintPolicy(productDir: string, selection: SpecTreeGrammarSelection): LintPolicyResult {
+export async function validateLintPolicy(productDir: string): Promise<LintPolicyResult> {
   try {
-    rejectDeprecatedSpecNodeSuffixes(productDir, selection);
+    await rejectDeprecatedSpecNodeSuffixes(productDir);
 
     const manifestExistence = [
       manifestExists(productDir, TEST_LINT_DEBT_NODE_MANIFEST_FILE),
