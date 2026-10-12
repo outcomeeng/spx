@@ -20,6 +20,7 @@ import {
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { arbitraryConformantChangelog } from "@testing/generators/release/changelog";
+import { SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import fc from "fast-check";
 
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "./release";
@@ -653,7 +654,8 @@ export function arbitraryReleaseEndpointGrammarScenario(): fc.Arbitrary<ReleaseE
     slugs: fc.uniqueArray(arbitraryPathSegment(), { minLength: 5, maxLength: 5 }),
     tag: arbitraryPathSegment().map((segment) => `release-${segment}`),
     releaseData: RELEASE_TEST_GENERATOR.releaseData(),
-  }).filter(({ tag, releaseData }) => tag !== releaseData.releaseRef).map(({ slugs, tag, releaseData }) => {
+    rootId: SPEC_TREE_TEST_GENERATOR.sourceId(),
+  }).filter(({ tag, releaseData }) => tag !== releaseData.releaseRef).map(({ slugs, tag, releaseData, rootId }) => {
     const [productSlug, fourZeroSlug, threeXAtFourZeroSlug, threeXSlug, fourZeroAtThreeXSlug] = slugs;
     const fourZeroSpec = (slug: string, index: number) =>
       citationSpecificationPath(
@@ -684,7 +686,10 @@ export function arbitraryReleaseEndpointGrammarScenario(): fc.Arbitrary<ReleaseE
           ref: releaseData.releaseRef,
           files: [
             releaseEndpointMethodologyDeclaration(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO),
-            node(fourZeroRoot, `# ${productSlug}\n`),
+            node(
+              fourZeroRoot,
+              `---\nid: ${rootId}\nkind: ${SPEC_TREE_CONFIG.PRODUCT.KIND}\n---\n\n# ${productSlug}\n`,
+            ),
             node(fourZeroPath, specification(fourZeroSlug)),
             node(threeXAtFourZeroPath, specification(threeXAtFourZeroSlug)),
             typescriptConfig,
