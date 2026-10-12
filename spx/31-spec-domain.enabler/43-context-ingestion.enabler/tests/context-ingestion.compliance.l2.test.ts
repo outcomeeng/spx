@@ -23,9 +23,9 @@ import { sampleSpecTreeTestValue, specTreeFixtureNodeDirectoryName } from "@test
 import { shippedMethodologyVersion } from "@testing/harnesses/methodology/shipped-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
+  methodologyDeclaredConfig,
   methodologyTreeConfig,
   runSpecCli,
-  methodologyDeclaredConfig,
   withProductlessContextTreeEnv,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";

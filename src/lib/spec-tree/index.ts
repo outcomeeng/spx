@@ -6,6 +6,7 @@ import { parse as parseYaml } from "yaml";
 
 import type { Result } from "@/config/types";
 
+import { readSpecTreeMethodologyDeclaration } from "../spec-tree-methodology-declaration";
 import type {
   DecisionKind,
   Kind,
@@ -33,7 +34,6 @@ import {
   type SpecTreeMethodologyDeclaration,
 } from "./grammar-selection";
 import { createSpecTreeLinkGrammar, type SpecTreeLinkGrammar } from "./link-grammar";
-import { readSpecTreeMethodologyDeclaration } from "../spec-tree-methodology-declaration";
 export {
   canonicalNamingSchemaVersion,
   compareNamingSchemaVersions,
