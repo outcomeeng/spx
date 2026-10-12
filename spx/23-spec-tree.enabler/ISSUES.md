@@ -61,3 +61,11 @@ The canonical ADR template (`plugins/spec-tree/skills/understanding/templates/de
 **Impact:** a reader of the linked test cannot see the pass or fail predicate, and the harness cannot support two tests that make opposite claims about one observation; the test-evidence audit reports an assertion-seam finding for each.
 
 **Settlement condition:** each of these predicates is inlined into its linked test function, with the harness reduced to observations, handles, and execution policy.
+
+## Naming-version compliance assertion lacks a violating case
+
+**Evidence:** [`spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md`](spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md) states as a compliance assertion that the dedicated naming-schema version is owned by the grammar registry and exposed through the spec-tree library surface, linked to `29-filename-grammar.enabler/tests/naming-version.compliance.l1.test.ts`. That test checks only the shipped value: `SPEC_TREE_NAMING_VERSION` is non-empty, is a member of `SPEC_TREE_NAMING_SCHEMA_VERSIONS`, and equals the canonical version's identifier. No case presents a version set or identifier that violates the rule and shows the rule rejecting it. The test-evidence audit of node 29 at `9fce8f1c25ce8ba1af0f11d2c069925fd53f4d62` filed this as finding f-002 on text that changeset did not touch.
+
+**Impact:** compliance evidence is exercised against violating fixtures; with none, a regression that declared the identifier apart from the version set, or computed it from the wrong member, could still pass whenever the two values happen to agree.
+
+**Settlement condition:** the linked test exercises the rule against at least one violating case — an identifier declared apart from the version set, or a set whose canonical member differs from the declared identifier — and observes the rejection, or the assertion is re-typed to the evidence its test actually provides.
