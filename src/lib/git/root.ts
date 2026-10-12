@@ -1,6 +1,8 @@
 import { execa } from "execa";
+import { access, realpath } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 
+import { CONFIG_FILE_DEFINITIONS, CONFIG_FILE_FORMAT_ORDER } from "@/config/filenames";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { authoredText, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
@@ -250,6 +252,51 @@ export async function detectWorktreeProductRoot(
       warning: NOT_GIT_REPO_WARNING_TEXT,
     };
   }
+}
+
+/** Reports whether a recognized `spx.config.*` file exists directly in a directory. */
+export type ConfigPresenceProbe = (directory: string) => Promise<boolean>;
+
+export const defaultConfigPresenceProbe: ConfigPresenceProbe = async (directory) => {
+  for (const format of CONFIG_FILE_FORMAT_ORDER) {
+    try {
+      await access(join(directory, CONFIG_FILE_DEFINITIONS[format].filename));
+      return true;
+    } catch {
+      continue;
+    }
+  }
+  return false;
+};
+
+async function realpathOrSelf(path: string): Promise<string> {
+  try {
+    return await realpath(path);
+  } catch {
+    return path;
+  }
+}
+
+// Detects the local product root: the nearest directory holding a recognized
+// `spx.config.*` from the invocation directory up to the git toplevel (both
+// included), the toplevel when none does, and the invocation directory outside git.
+export async function detectLocalProductRoot(
+  cwd: string = CONFIG_PROCESS_CWD.read(),
+  deps: GitDependencies = defaultGitDependencies,
+  hasConfig: ConfigPresenceProbe = defaultConfigPresenceProbe,
+): Promise<GitProductDirResult> {
+  const worktree = await detectWorktreeProductRoot(cwd, deps);
+  if (!worktree.isGitRepo) return worktree;
+
+  const toplevel = await realpathOrSelf(worktree.productDir);
+  let directory = await realpathOrSelf(cwd);
+  for (;;) {
+    if (await hasConfig(directory)) return { productDir: directory, isGitRepo: true };
+    const parent = dirname(directory);
+    if (directory === toplevel || parent === directory) break;
+    directory = parent;
+  }
+  return { productDir: worktree.productDir, isGitRepo: true };
 }
 
 function stripTrailingPathSeparators(value: string): string {
