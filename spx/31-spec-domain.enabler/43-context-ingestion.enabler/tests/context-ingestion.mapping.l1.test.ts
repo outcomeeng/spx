@@ -1,3 +1,4 @@
+import { arbitraryFixtureAuthoredLine } from "@testing/generators/methodology/tree";
 import { describe, expect, it } from "vitest";
 
 import { SPEC_CONTEXT_TEXT_LABEL } from "@/commands/spec/context";
@@ -15,7 +16,7 @@ describe("spec context manifest methodology identity", () => {
   it.each(Object.values(METHODOLOGY_VERSION_FORM))(
     "carries a %s methodology version as declared in JSON and as MAJOR.MINOR in text",
     async (form) => {
-      const declared = generatedMethodologyVersionFormSections();
+      const declared = generatedMethodologyVersionFormSections(arbitraryFixtureAuthoredLine());
       const methodology = declared.sections[form];
       await withSpecTreeEnv({ ...specTreeKindsConfig(), [METHODOLOGY_SECTION]: methodology }, async (env) => {
         await env.materialize();
@@ -39,7 +40,7 @@ describe("spec context manifest methodology identity", () => {
   );
 
   it("renders the target and the open migration source as MAJOR.MINOR and carries each exactly as declared in JSON, for every pairing of accepted forms", async () => {
-    for (const declared of generatedMigratingMethodologyFormCases()) {
+    for (const declared of generatedMigratingMethodologyFormCases(arbitraryFixtureAuthoredLine())) {
       await withSpecTreeEnv({ ...specTreeKindsConfig(), [METHODOLOGY_SECTION]: declared.section }, async (env) => {
         await env.materialize();
         const snapshot = await env.readFilesystemSnapshot();
