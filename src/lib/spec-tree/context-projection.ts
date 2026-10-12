@@ -3,7 +3,7 @@ import { posix } from "node:path";
 import MarkdownIt from "markdown-it";
 import { parseDocument, stringify } from "yaml";
 
-import { type NodeKind, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "./config";
+import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR, type SpecTreeNodeKind } from "./config";
 import {
   compareSpecContextOrdinal,
   SPEC_CONTEXT_MODE,
@@ -40,7 +40,7 @@ export type SpecContextDigest =
  * without an opening, resolves no opening and cannot supply a Digest.
  */
 export type SpecContextKindRegistry = {
-  readonly [K in NodeKind]?: { readonly opening?: string };
+  readonly [K in SpecTreeNodeKind]?: { readonly opening?: string };
 };
 
 /** The ways a document's required Digest paragraph fails to resolve, each failing the whole projection. */

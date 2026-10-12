@@ -12,6 +12,9 @@ import {
   NODE_KINDS,
   NODE_SUFFIXES,
   type NodeKind,
+  OUTPUT_KINDS,
+  OUTPUT_SUFFIXES,
+  type OutputKind,
   recognizeSpecTreeFilesystemEntry,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
@@ -19,7 +22,9 @@ import {
   SPEC_TREE_FILESYSTEM_RECORD_TYPE,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_KIND_CATEGORY,
+  SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
+  SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION,
   specTreeConfigDescriptor,
 } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
@@ -117,7 +122,7 @@ export function assertKindRegistryMappingCase(testCase: KindRegistryMappingCase)
   expect(definition.label.length).toBeGreaterThan(0);
   expect(Array.isArray(definition.aliases)).toBe(true);
   expect(definition.suffix).toMatch(
-    definition.category === SPEC_TREE_KIND_CATEGORY.NODE ? NODE_SUFFIX_PATTERN : DECISION_SUFFIX_PATTERN,
+    definition.category === SPEC_TREE_KIND_CATEGORY.DECISION ? DECISION_SUFFIX_PATTERN : NODE_SUFFIX_PATTERN,
   );
 }
 
@@ -126,24 +131,44 @@ export function assertKindRegistryComesFromSemanticConfig(): void {
 }
 
 export function assertKindRegistrySubsetCase(testCase: KindRegistrySubsetCase): void {
-  const actualKinds = testCase.category === SPEC_TREE_KIND_CATEGORY.NODE ? NODE_KINDS : DECISION_KINDS;
-  const actualSuffixes = testCase.category === SPEC_TREE_KIND_CATEGORY.NODE ? NODE_SUFFIXES : DECISION_SUFFIXES;
+  const actualKinds = kindsOfCategory(testCase.category);
+  const actualSuffixes = suffixesOfCategory(testCase.category);
   expect([...actualKinds].sort(compareAsciiStrings)).toEqual([...testCase.projectedKinds].sort(compareAsciiStrings));
   expect([...actualSuffixes].sort(compareAsciiStrings)).toEqual(
     [...testCase.projectedSuffixes].sort(compareAsciiStrings),
   );
 }
 
+const KINDS_BY_CATEGORY: Readonly<Record<string, readonly string[]>> = {
+  [SPEC_TREE_KIND_CATEGORY.NODE]: NODE_KINDS,
+  [SPEC_TREE_KIND_CATEGORY.OUTPUT]: OUTPUT_KINDS,
+  [SPEC_TREE_KIND_CATEGORY.DECISION]: DECISION_KINDS,
+};
+
+const SUFFIXES_BY_CATEGORY: Readonly<Record<string, readonly string[]>> = {
+  [SPEC_TREE_KIND_CATEGORY.NODE]: NODE_SUFFIXES,
+  [SPEC_TREE_KIND_CATEGORY.OUTPUT]: OUTPUT_SUFFIXES,
+  [SPEC_TREE_KIND_CATEGORY.DECISION]: DECISION_SUFFIXES,
+};
+
+function kindsOfCategory(category: string): readonly string[] {
+  return KINDS_BY_CATEGORY[category] ?? [];
+}
+
+function suffixesOfCategory(category: string): readonly string[] {
+  return SUFFIXES_BY_CATEGORY[category] ?? [];
+}
+
 export function assertKindRegistryTypeCase(testCase: KindRegistryTypeCase): void {
   expect(KIND_REGISTRY[testCase.kind].category).toBe(testCase.category);
-  expect(testCase.category === SPEC_TREE_KIND_CATEGORY.NODE ? NODE_KINDS : DECISION_KINDS).toContain(testCase.kind);
+  expect(kindsOfCategory(testCase.category)).toContain(testCase.kind);
 }
 
 export function assertKindRegistryTypesProjectFromRuntime(): void {
   expectTypeOf<Kind>().toEqualTypeOf<keyof typeof KIND_REGISTRY>();
   expectTypeOf<NodeKind>().toExtend<Kind>();
   expectTypeOf<DecisionKind>().toExtend<Kind>();
-  expectTypeOf<NodeKind | DecisionKind>().toEqualTypeOf<Kind>();
+  expectTypeOf<NodeKind | OutputKind | DecisionKind>().toEqualTypeOf<Kind>();
   expectTypeOf<KindDefinition<NodeKind>>().toEqualTypeOf<(typeof KIND_REGISTRY)[NodeKind]>();
   expectTypeOf<KindDefinition<DecisionKind>>().toEqualTypeOf<(typeof KIND_REGISTRY)[DecisionKind]>();
 }
@@ -180,16 +205,24 @@ export function assertSpecTreeConfigValidationCase(testCase: SpecTreeConfigValid
 
 export function assertSpecTreeEntryRecognitionCase(testCase: SpecTreeEntryRecognitionCase): void {
   const entry = expectPresent(
-    recognizeSpecTreeFilesystemEntry({
-      type: testCase.recordType,
-      relativePath: testCase.relativePath,
-      parentId: testCase.parentId,
-    }),
+    recognizeSpecTreeFilesystemEntry(
+      {
+        type: testCase.recordType,
+        relativePath: testCase.relativePath,
+        parentId: testCase.parentId,
+      },
+      KIND_REGISTRY[testCase.kind].category === SPEC_TREE_KIND_CATEGORY.OUTPUT
+        ? {
+          schemaVersions: SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
+          selectedVersions: [SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION],
+        }
+        : undefined,
+    ),
   );
   const definition = KIND_REGISTRY[testCase.kind];
-  const expectedType = definition.category === SPEC_TREE_KIND_CATEGORY.NODE
-    ? SPEC_TREE_ENTRY_TYPE.NODE
-    : SPEC_TREE_ENTRY_TYPE.DECISION;
+  const expectedType = definition.category === SPEC_TREE_KIND_CATEGORY.DECISION
+    ? SPEC_TREE_ENTRY_TYPE.DECISION
+    : SPEC_TREE_ENTRY_TYPE.NODE;
   expect(entry.type).toBe(expectedType);
   if (entry.type !== SPEC_TREE_ENTRY_TYPE.NODE && entry.type !== SPEC_TREE_ENTRY_TYPE.DECISION) {
     throw new Error("Expected a recognized node or decision entry");
