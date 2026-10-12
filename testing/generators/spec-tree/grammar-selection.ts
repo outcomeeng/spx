@@ -11,7 +11,7 @@
 import * as fc from "fast-check";
 
 import { METHODOLOGY_VERSION_FORM } from "@/config/methodology";
-import { SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS } from "@/lib/spec-tree";
+import { SPEC_TREE_CONFIG, SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS } from "@/lib/spec-tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 
 export const GRAMMAR_SELECTION_LINE = {
@@ -128,8 +128,13 @@ export function arbitraryMethodologyDeclaration(): fc.Arbitrary<{
 }
 
 /** A node directory suffix some naming-schema version SPX knows accepts. */
+/** A node-directory suffix that names a registered kind; the nested-product suffix names none. */
 export function arbitraryKnownNodeSuffix(): fc.Arbitrary<string> {
   return fc.constantFrom(
-    ...new Set(SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS.flatMap(({ nodeSuffixes }) => nodeSuffixes)),
+    ...new Set(
+      SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS
+        .flatMap(({ nodeSuffixes }) => nodeSuffixes)
+        .filter((suffix) => suffix !== SPEC_TREE_CONFIG.PRODUCT.NODE_SUFFIX),
+    ),
   );
 }

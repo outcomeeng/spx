@@ -82,7 +82,7 @@ export const FILENAME_GRAMMAR_TOKEN_CASES = [
   { name: "evidence segment separator", size: SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR.length },
   { name: "runner tokens", size: SPEC_TREE_GRAMMAR.RUNNERS.length },
   { name: "order separator", size: SPEC_TREE_GRAMMAR.ORDER.SEPARATOR.length },
-  { name: "order pattern", size: SPEC_TREE_GRAMMAR.ORDER.PATTERN.source.length },
+  { name: "order pattern", size: SPEC_TREE_GRAMMAR.ORDER_FORMS.DIGIT_RUNS.PATTERN.source.length },
   { name: "path separator", size: SPEC_TREE_GRAMMAR.PATH_SEPARATOR.length },
   { name: "coordination notes", size: SPEC_TREE_GRAMMAR.COORDINATION_NOTES.length },
   { name: "eval directory", size: SPEC_TREE_GRAMMAR.EVAL.DIRECTORY_NAME.length },

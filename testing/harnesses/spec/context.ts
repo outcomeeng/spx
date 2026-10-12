@@ -46,7 +46,6 @@ import {
   SPEC_CONTEXT_MODE_NAME,
   SPEC_CONTEXT_SELECTION_REASON,
   SPEC_TREE_CONFIG,
-  SPEC_TREE_CONFIG_FIELDS,
   SPEC_TREE_GRAMMAR,
   type SpecContextDocumentEntry,
   type SpecContextEntry,
@@ -550,9 +549,6 @@ export const METHODOLOGY_FIXTURE_VERSION = METHODOLOGY_FIXTURE_IDENTITY.text;
 
 export function specTreeKindsConfig(): Config {
   return {
-    [SPEC_TREE_CONFIG.SECTION]: {
-      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
-    },
     // A context projection stamps the product's methodology identity, which a
     // product declares rather than inherits, so every context fixture declares one.
     [METHODOLOGY_SECTION]: {
