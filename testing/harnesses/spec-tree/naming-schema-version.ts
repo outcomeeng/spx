@@ -31,6 +31,7 @@ export function assertCanonicalVersionNameMapsToValidEntry(): void {
       const entry = expectPresent(
         recognizeSpecTreeFilesystemEntry(directoryRecord(order, slug, scenario.validNodeSuffix), {
           schemaVersions: scenario.schemaVersions,
+          selectedVersions: scenario.selectedVersions,
         }),
       );
       expect(entry.type).toBe(SPEC_TREE_ENTRY_TYPE.NODE);
@@ -50,6 +51,7 @@ export function assertPriorVersionNameMapsToSupersededEntry(): void {
       const entry = expectPresent(
         recognizeSpecTreeFilesystemEntry(directoryRecord(order, slug, scenario.supersededNodeSuffix), {
           schemaVersions: scenario.schemaVersions,
+          selectedVersions: scenario.selectedVersions,
         }),
       );
       expect(entry.type).toBe(SPEC_TREE_ENTRY_TYPE.SUPERSEDED);
@@ -72,6 +74,7 @@ export function assertUnknownVersionNameMapsToInvalidEntry(): void {
       const entry = expectPresent(
         recognizeSpecTreeFilesystemEntry(directoryRecord(order, slug, scenario.invalidNodeSuffix), {
           schemaVersions: scenario.schemaVersions,
+          selectedVersions: scenario.selectedVersions,
         }),
       );
       expect(entry.type).toBe(SPEC_TREE_ENTRY_TYPE.INVALID);
@@ -91,6 +94,7 @@ export function assertInjectedCanonicalVersionGovernsValidity(): void {
       const entry = expectPresent(
         recognizeSpecTreeFilesystemEntry(directoryRecord(order, slug, scenario.demotedRegistrySuffix), {
           schemaVersions: scenario.schemaVersions,
+          selectedVersions: scenario.selectedVersions,
         }),
       );
       expect(entry.type).toBe(SPEC_TREE_ENTRY_TYPE.SUPERSEDED);
@@ -113,6 +117,7 @@ export function assertCanonicalForeignSuffixMapsToInvalidEntry(): void {
       const entry = expectPresent(
         recognizeSpecTreeFilesystemEntry(directoryRecord(order, slug, scenario.foreignCanonicalSuffix), {
           schemaVersions: scenario.schemaVersions,
+          selectedVersions: scenario.selectedVersions,
         }),
       );
       expect(entry.type).toBe(SPEC_TREE_ENTRY_TYPE.INVALID);
@@ -135,7 +140,7 @@ export function assertInjectedEvidenceGrammarGovernsRecognition(): void {
             relativePath: scenario.relativePath,
             parentId,
           },
-          { schemaVersions: scenario.schemaVersions },
+          { schemaVersions: scenario.schemaVersions, selectedVersions: scenario.selectedVersions },
         ),
       );
       expect(entry.type).toBe(SPEC_TREE_ENTRY_TYPE.EVIDENCE);

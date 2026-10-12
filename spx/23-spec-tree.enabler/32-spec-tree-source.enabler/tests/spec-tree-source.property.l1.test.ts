@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { KIND_REGISTRY, projectSpecTree, readSpecTree, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -11,7 +12,7 @@ describe("SpecTreeSource properties", () => {
     await assertProperty(
       SPEC_TREE_TEST_GENERATOR.representativeFixture(KIND_REGISTRY),
       async (fixture) => {
-        await withSpecTreeEnv({}, async (env) => {
+        await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
           await env.materialize();
           const filesystemProjection = projectSpecTree(await readSpecTree({ source: env.filesystemSource() }));
           const inMemoryProjection = await env.projectMemory();
@@ -29,7 +30,7 @@ describe("SpecTreeSource properties", () => {
     await assertProperty(
       SPEC_TREE_TEST_GENERATOR.invalidOrderedDirectory(KIND_REGISTRY),
       async (invalidDirectory) => {
-        await withSpecTreeEnv({}, async (env) => {
+        await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
           await env.writeRaw(
             [
               SPEC_TREE_CONFIG.ROOT_DIRECTORY,

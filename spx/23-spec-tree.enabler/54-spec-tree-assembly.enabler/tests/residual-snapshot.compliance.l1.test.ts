@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { KIND_REGISTRY, readSpecTree } from "@/lib/spec-tree";
+import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import {
   orderedDirectoryName,
   sampleSpecTreeTestValue,
@@ -18,7 +19,7 @@ describe("residual snapshot", () => {
       sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.unregisteredNodeSuffix(KIND_REGISTRY)),
     );
 
-    await withSpecTreeEnv({}, async (env) => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       await env.materialize();
       await writeOrderedDirectory(env, supersededDirectory);
       await writeOrderedDirectory(env, invalidDirectory);
