@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { CONFIG_FILE_FORMAT, CONFIG_FILENAMES, resolveConfig, serializeConfigFileSections } from "@/config/index";
-import { specTreeConfigDescriptor } from "@/lib/spec-tree";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
@@ -16,12 +15,16 @@ function serializeEmptyConfig(format: typeof CONFIG_FILE_FORMAT.JSON | typeof CO
   return serialized.value;
 }
 
+function descriptorUnderTest() {
+  return sampleConfigTestValue(CONFIG_TEST_GENERATOR.tokenDescriptor()).descriptor;
+}
+
 describe("resolveConfig — ambiguity error", () => {
   it("returns an error naming both files when json and yaml are both present at productDir", async () => {
     await withTestEnv({}, async ({ productDir, writeRaw }) => {
       await writeRaw(CONFIG_FILENAMES.json, serializeEmptyConfig(CONFIG_FILE_FORMAT.JSON));
 
-      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
+      const result = await resolveConfig(productDir, [descriptorUnderTest()]);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -35,7 +38,7 @@ describe("resolveConfig — ambiguity error", () => {
     await withTestEnv({}, async ({ productDir, writeRaw }) => {
       await writeRaw(CONFIG_FILENAMES.toml, serializeEmptyConfig(CONFIG_FILE_FORMAT.TOML));
 
-      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
+      const result = await resolveConfig(productDir, [descriptorUnderTest()]);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -51,7 +54,7 @@ describe("resolveConfig — ambiguity error", () => {
       await writeRaw(CONFIG_FILENAMES.json, serializeEmptyConfig(CONFIG_FILE_FORMAT.JSON));
       await writeRaw(CONFIG_FILENAMES.toml, serializeEmptyConfig(CONFIG_FILE_FORMAT.TOML));
 
-      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
+      const result = await resolveConfig(productDir, [descriptorUnderTest()]);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -66,7 +69,7 @@ describe("resolveConfig — ambiguity error", () => {
       await writeRaw(CONFIG_FILENAMES.json, serializeEmptyConfig(CONFIG_FILE_FORMAT.JSON));
       await writeRaw(CONFIG_FILENAMES.toml, serializeEmptyConfig(CONFIG_FILE_FORMAT.TOML));
 
-      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
+      const result = await resolveConfig(productDir, [descriptorUnderTest()]);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
