@@ -8,7 +8,11 @@ import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spe
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
 import { HARNESS_ENVIRONMENT_SECTION } from "@/lib/harness-environment-section";
 import { formatMethodologyVersionName } from "@/lib/methodology";
-import { SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
+import {
+  SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR,
+  SPEC_CONTEXT_TARGET_FAILURE_KIND,
+  SPEC_TREE_CONFIG,
+} from "@/lib/spec-tree";
 import {
   CONFIG_TEST_GENERATOR,
   generatedHarnessMethodologyConfig,
@@ -28,10 +32,10 @@ import {
   specContextAbsentDecisionPath,
   specContextUnknownTarget,
 } from "@testing/generators/spec-tree/context-target";
+import { fixtureNodePath } from "@testing/harnesses/spec-tree/spec-cli-commands";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextShowEntries,
-  materializedNodeTarget,
   METHODOLOGY_FIXTURE_IDENTITY,
   methodologyDeclaredConfig,
   methodologyTreeConfig,
@@ -130,7 +134,7 @@ describe("spec context ingestion writes nothing to standard output after a failu
     for (const invalid of generatedInvalidMethodologyConfigs()) {
       await withSpecTreeEnv({ ...methodologyDeclaredConfig(), ...invalid.config }, async (env) => {
         await env.materialize();
-        const target = await materializedNodeTarget(env);
+        const target = join(SPEC_TREE_CONFIG.ROOT_DIRECTORY, fixtureNodePath(env.fixture.root));
         for (const command of [SPEC_CONTEXT_COMMAND_PATH.LIST, SPEC_CONTEXT_COMMAND_PATH.SHOW]) {
           const run = await runSpecDescriptor({ productDir: env.productDir }, ...command, target);
           expect(run.stdout, `${invalid.field} ${command.join(" ")}`).toHaveLength(0);
@@ -151,7 +155,7 @@ describe("spec context ingestion writes nothing to standard output after a failu
         }),
         async (env) => {
           await env.materialize();
-          const target = await materializedNodeTarget(env);
+          const target = join(SPEC_TREE_CONFIG.ROOT_DIRECTORY, fixtureNodePath(env.fixture.root));
           for (const command of [SPEC_CONTEXT_COMMAND_PATH.LIST, SPEC_CONTEXT_COMMAND_PATH.SHOW]) {
             const run = await runSpecDescriptor({ productDir: env.productDir }, ...command, target);
             expect(run.stdout, `${field} ${command.join(" ")}`).toHaveLength(0);
@@ -170,7 +174,7 @@ describe("spec context ingestion writes nothing to standard output after a failu
   it("writes no list or show output when the methodology declaration sits in the retired harness placement", async () => {
     await withSpecTreeEnv({ ...methodologyDeclaredConfig(), ...generatedHarnessMethodologyConfig() }, async (env) => {
       await env.materialize();
-      const target = await materializedNodeTarget(env);
+      const target = join(SPEC_TREE_CONFIG.ROOT_DIRECTORY, fixtureNodePath(env.fixture.root));
       for (const command of [SPEC_CONTEXT_COMMAND_PATH.LIST, SPEC_CONTEXT_COMMAND_PATH.SHOW]) {
         const run = await runSpecDescriptor({ productDir: env.productDir }, ...command, target);
         expect(run.stdout, command.join(" ")).toHaveLength(0);
