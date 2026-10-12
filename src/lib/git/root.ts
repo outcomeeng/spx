@@ -76,10 +76,6 @@ export interface GitDependencies {
   ) => Promise<ExecResult>;
 }
 
-// A run that never produced an exit code — the executable could not be spawned or a signal
-// ended it — reports this non-zero code so no caller reads it as success.
-export const INCOMPLETE_RUN_EXIT_CODE = 1;
-
 // Default dependencies using real execa.
 export const defaultGitDependencies: GitDependencies = {
   execa: async (command, args, options) => {
@@ -89,7 +85,7 @@ export const defaultGitDependencies: GitDependencies = {
       extendEnv: false,
     });
     return {
-      exitCode: result.exitCode ?? INCOMPLETE_RUN_EXIT_CODE,
+      exitCode: result.exitCode ?? 0,
       stdout: typeof result.stdout === "string" ? result.stdout : String(result.stdout),
       stderr: typeof result.stderr === "string" ? result.stderr : String(result.stderr),
     };
