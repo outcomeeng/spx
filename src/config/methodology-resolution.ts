@@ -1,8 +1,6 @@
-import {
-  formatUnrecognizedConfigFieldError,
-  LEGACY_METHODOLOGY_PLACEMENT_SECTION,
-} from "../lib/methodology/declaration-fields";
+import { HARNESS_ENVIRONMENT_SECTION } from "../lib/harness-environment-section";
 
+import { formatUnrecognizedConfigFieldError } from "./field-errors";
 import { METHODOLOGY_SECTION, type MethodologyConfig, methodologyConfigDescriptor } from "./methodology";
 import {
   type ConfigFileReadResult,
@@ -11,6 +9,9 @@ import {
   resolveDescriptorSectionsFromReadResult,
 } from "./product-file";
 import type { Result } from "./types";
+
+/** The section a methodology declaration was once placed under, now rejected wherever the declaration is read. */
+const LEGACY_METHODOLOGY_PLACEMENT_SECTION = HARNESS_ENVIRONMENT_SECTION;
 
 function hasLegacyPlacement(value: unknown): boolean {
   return typeof value === "object"

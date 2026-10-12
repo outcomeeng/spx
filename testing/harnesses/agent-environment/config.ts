@@ -1,5 +1,5 @@
 import { type ConfigFileFormat, serializeConfigFileSections } from "@/config/index";
-import { HARNESS_ENVIRONMENT_SECTION } from "@/domains/agent-environment/config";
+import { HARNESS_ENVIRONMENT_SECTION } from "@/lib/harness-environment-section";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import type { Config } from "@testing/harnesses/spec-tree/spec-tree";
 

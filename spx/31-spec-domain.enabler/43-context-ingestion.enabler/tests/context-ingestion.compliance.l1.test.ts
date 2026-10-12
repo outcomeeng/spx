@@ -4,9 +4,9 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
-import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
 import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
+import { HARNESS_ENVIRONMENT_SECTION } from "@/lib/harness-environment-section";
 import { formatMethodologyVersionName } from "@/lib/methodology";
 import { SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
 import {
@@ -32,9 +32,9 @@ import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextShowEntries,
   METHODOLOGY_FIXTURE_IDENTITY,
+  methodologyDeclaredConfig,
   methodologyTreeConfig,
   runSpecDescriptor,
-  methodologyDeclaredConfig,
   withProductlessContextTreeEnv,
   withRichContextEnv,
   writeMethodologyTree,
@@ -174,7 +174,7 @@ describe("spec context ingestion writes nothing to standard output after a failu
         const run = await runSpecDescriptor({ productDir: env.productDir }, ...command, target);
         expect(run.stdout, command.join(" ")).toHaveLength(0);
         expect(run.exitCode).toBe(1);
-        expect(run.stderr).toContain(`${LEGACY_METHODOLOGY_CONFIG_SECTION}.${METHODOLOGY_SECTION}`);
+        expect(run.stderr).toContain(`${HARNESS_ENVIRONMENT_SECTION}.${METHODOLOGY_SECTION}`);
       }
     });
   });
@@ -184,7 +184,7 @@ describe("spec context ingestion writes nothing to standard output after a failu
     await withSpecTreeEnv({
       ...methodologyDeclaredConfig(),
       [METHODOLOGY_SECTION]: section,
-      [LEGACY_METHODOLOGY_CONFIG_SECTION]: {
+      [HARNESS_ENVIRONMENT_SECTION]: {
         [sampleConfigTestValue(CONFIG_TEST_GENERATOR.key())]: generatedMethodologySection(),
       },
     }, async (env) => {

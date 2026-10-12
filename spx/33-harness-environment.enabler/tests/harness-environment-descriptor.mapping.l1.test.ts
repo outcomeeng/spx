@@ -11,7 +11,8 @@ import {
   DEFAULT_CONFIG_FILENAME,
   resolveConfig,
 } from "@/config/index";
-import { HARNESS_ENVIRONMENT_SECTION, harnessEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
+import { harnessEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
+import { HARNESS_ENVIRONMENT_SECTION } from "@/lib/harness-environment-section";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { serializeConfig } from "@testing/harnesses/agent-environment/config";

@@ -22,6 +22,8 @@ export {
   CONFIG_FILE_READ_KIND,
   type ConfigFile,
   type ConfigFileReadResult,
+  type ConfigFileTextReader,
+  detectProductConfigFile,
   formatConfigFileAmbiguityError,
   parseConfigFileSections,
   readConfigSectionFromReadResult,
