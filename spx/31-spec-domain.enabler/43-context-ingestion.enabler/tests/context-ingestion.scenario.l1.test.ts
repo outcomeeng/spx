@@ -5,6 +5,7 @@ import { SPEC_CONTEXT_ENTRIES_KEY } from "@/commands/spec/context-show";
 import { DEFAULT_METHODOLOGY_SOURCE } from "@/config/methodology";
 import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import {
+  compareSpecTreeOrder,
   SPEC_CONTEXT_ENTRY_TYPE,
   SPEC_CONTEXT_FRAME,
   SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
@@ -126,11 +127,12 @@ describe("spec context list and show", () => {
       // peer node's entries form one contiguous run in that order.
       const peerPrefix = `${paths.higherIndexSiblingPath}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}`;
       const peerDecisions = [
-        { path: paths.citedDecisionPath, order: env.fixture.decision.order },
-        { path: paths.peerDecisionPath, order: env.fixture.decision.order },
-        { path: paths.transitiveCitedDecisionPath, order: env.fixture.peer.order },
+        { path: paths.citedDecisionPath, orderSegments: env.fixture.decision.orderSegments },
+        { path: paths.peerDecisionPath, orderSegments: env.fixture.decision.orderSegments },
+        { path: paths.transitiveCitedDecisionPath, orderSegments: env.fixture.peer.orderSegments },
       ].sort((left, right) =>
-        left.order - right.order || (left.path < right.path ? -1 : left.path > right.path ? 1 : 0)
+        compareSpecTreeOrder(left.orderSegments, right.orderSegments)
+        || (left.path < right.path ? -1 : left.path > right.path ? 1 : 0)
       );
       const peerStart = entryPaths(entries).indexOf(paths.higherIndexSiblingSpecPath);
       expect(entryPaths(entries).slice(peerStart, peerStart + 1 + peerDecisions.length)).toEqual([
