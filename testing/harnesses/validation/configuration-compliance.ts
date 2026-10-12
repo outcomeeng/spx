@@ -36,11 +36,11 @@ import {
   specTreeExcludedNodeCase,
   type SpecTreeLinkScenario,
 } from "@testing/generators/validation/markdown";
-import { VALIDATION_PRODUCT_METHODOLOGY } from "@testing/harnesses/validation/product";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { type LiteralFixtureEnv, withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 import { validationConfigSection } from "@testing/harnesses/validation/configuration";
 import { createRecordingKnipCommandDeps, type KnipDiscoveryCall } from "@testing/harnesses/validation/knip-support";
+import { VALIDATION_PRODUCT_METHODOLOGY } from "@testing/harnesses/validation/product";
 
 type LiteralFixtureConfig = Parameters<typeof withLiteralFixtureEnv>[0];
 
