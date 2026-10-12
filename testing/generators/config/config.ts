@@ -9,7 +9,7 @@ import {
   FILE_INCLUSION_SECTION,
   type FileInclusionConfig,
 } from "@/lib/file-inclusion/config";
-import { DECISION_KINDS, KIND_REGISTRY, NODE_KINDS, SPEC_TREE_SECTION } from "@/lib/spec-tree";
+import { SPEC_TREE_SECTION } from "@/lib/spec-tree";
 
 const GENERATED_SEGMENT_MIN_LENGTH = 3;
 const GENERATED_SEGMENT_MAX_LENGTH = 12;
@@ -17,19 +17,17 @@ const GENERATED_SEGMENT_SUFFIX_MIN_LENGTH = GENERATED_SEGMENT_MIN_LENGTH - 1;
 const GENERATED_SEGMENT_SUFFIX_MAX_LENGTH = GENERATED_SEGMENT_MAX_LENGTH - 1;
 
 /**
- * Canonical minimal config with all registered kinds.
+ * Canonical minimal config: a spec-tree section that carries no `kinds` field, because the kind registry is fixed.
  * Use this as the default fixture wherever withTestEnv or spec-tree generators need a Config.
- * Built entirely from KIND_REGISTRY — no inline string literals.
  */
 export const MINIMAL_SPEC_TREE_CONFIG: Config = {
-  [SPEC_TREE_SECTION]: { kinds: { ...KIND_REGISTRY } },
+  [SPEC_TREE_SECTION]: {},
 };
 
 export const CONFIG_GENERATOR = {
   fileInclusionOverride: arbitraryFileInclusionOverride,
   fileInclusionPartialToolOverride: arbitraryFileInclusionPartialToolOverride,
   fileInclusionUnknownToolOverride: arbitraryFileInclusionUnknownToolOverride,
-  validSpecTreeConfig: arbitraryValidSpecTreeConfig,
 } as const;
 
 export type GeneratedFileInclusionOverride = {
@@ -47,24 +45,6 @@ export function sampleConfigValue<T>(arbitrary: fc.Arbitrary<T>): T {
   const [value] = fc.sample(arbitrary, { numRuns: 1 });
   if (value === undefined) throw new Error("Config generator returned no sample");
   return value;
-}
-
-/**
- * Generates valid Config objects with arbitrary non-empty subsets of the registered kinds.
- * Every generated config contains at least one node kind and one decision kind,
- * satisfying the minimum contract for spec-tree generators (arbitraryNodePath, arbitraryDecisionPath).
- */
-function arbitraryValidSpecTreeConfig(): fc.Arbitrary<Config> {
-  return fc
-    .record({
-      nodeSubset: fc.subarray([...NODE_KINDS], { minLength: 1 }),
-      decisionSubset: fc.subarray([...DECISION_KINDS], { minLength: 1 }),
-    })
-    .map(({ nodeSubset, decisionSubset }) => ({
-      [SPEC_TREE_SECTION]: {
-        kinds: Object.fromEntries([...nodeSubset, ...decisionSubset].map((k) => [k, KIND_REGISTRY[k]])),
-      },
-    }));
 }
 
 function arbitraryConfigSegment(): fc.Arbitrary<string> {
