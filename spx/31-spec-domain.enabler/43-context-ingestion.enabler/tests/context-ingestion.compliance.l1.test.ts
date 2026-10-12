@@ -31,6 +31,7 @@ import {
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextShowEntries,
+  materializedNodeTarget,
   METHODOLOGY_FIXTURE_IDENTITY,
   methodologyDeclaredConfig,
   methodologyTreeConfig,
@@ -129,7 +130,7 @@ describe("spec context ingestion writes nothing to standard output after a failu
     for (const invalid of generatedInvalidMethodologyConfigs()) {
       await withSpecTreeEnv({ ...methodologyDeclaredConfig(), ...invalid.config }, async (env) => {
         await env.materialize();
-        const target = (await env.readFilesystemSnapshot()).allNodes[0].id;
+        const target = await materializedNodeTarget(env);
         for (const command of [SPEC_CONTEXT_COMMAND_PATH.LIST, SPEC_CONTEXT_COMMAND_PATH.SHOW]) {
           const run = await runSpecDescriptor({ productDir: env.productDir }, ...command, target);
           expect(run.stdout, `${invalid.field} ${command.join(" ")}`).toHaveLength(0);
@@ -150,7 +151,7 @@ describe("spec context ingestion writes nothing to standard output after a failu
         }),
         async (env) => {
           await env.materialize();
-          const target = (await env.readFilesystemSnapshot()).allNodes[0].id;
+          const target = await materializedNodeTarget(env);
           for (const command of [SPEC_CONTEXT_COMMAND_PATH.LIST, SPEC_CONTEXT_COMMAND_PATH.SHOW]) {
             const run = await runSpecDescriptor({ productDir: env.productDir }, ...command, target);
             expect(run.stdout, `${field} ${command.join(" ")}`).toHaveLength(0);
@@ -169,7 +170,7 @@ describe("spec context ingestion writes nothing to standard output after a failu
   it("writes no list or show output when the methodology declaration sits in the retired harness placement", async () => {
     await withSpecTreeEnv({ ...methodologyDeclaredConfig(), ...generatedHarnessMethodologyConfig() }, async (env) => {
       await env.materialize();
-      const target = (await env.readFilesystemSnapshot()).allNodes[0].id;
+      const target = await materializedNodeTarget(env);
       for (const command of [SPEC_CONTEXT_COMMAND_PATH.LIST, SPEC_CONTEXT_COMMAND_PATH.SHOW]) {
         const run = await runSpecDescriptor({ productDir: env.productDir }, ...command, target);
         expect(run.stdout, command.join(" ")).toHaveLength(0);
