@@ -15,7 +15,6 @@ import {
   NODE_KINDS,
   OUTPUT_KINDS,
   SPEC_TREE_CONFIG,
-  type SpecTreeChildKind,
   type SpecTreeContainerKind,
   type SpecTreeNodeKind,
 } from "@/lib/spec-tree";
@@ -66,7 +65,7 @@ export type KindAdmittedChildrenCase = {
   readonly label: string;
   readonly kind: SpecTreeContainerKind;
   readonly parentKind?: SpecTreeNodeKind;
-  readonly expectedChildren: readonly SpecTreeChildKind[];
+  readonly expectedChildren: readonly SpecTreeContainerKind[];
 };
 
 const LABEL_PARENT_JOINER = " under a ";
@@ -79,7 +78,7 @@ function foundationIndex(kind: SelfDescribedKind): number {
   return OUTPUT_FOUNDATION_ORDER.findIndex((candidate) => candidate === kind);
 }
 
-function expectedChildrenOfSelfDescribed(kind: SelfDescribedKind): readonly SpecTreeChildKind[] {
+function expectedChildrenOfSelfDescribed(kind: SelfDescribedKind): readonly SpecTreeContainerKind[] {
   const index = foundationIndex(kind);
   if (index < 0) return nodeFamilyChildrenOf(kind as NodeFamilyKind);
   return [...OUTPUT_FOUNDATION_ORDER.slice(0, index + 1), VARIANT_KIND];

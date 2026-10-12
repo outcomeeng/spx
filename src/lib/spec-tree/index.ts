@@ -29,8 +29,13 @@ import {
   SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION,
 } from "./config";
 import { compareSpecContextOrdinal } from "./context-manifest";
-import { selectSpecTreeGrammar, type SpecTreeGrammarSelection } from "./grammar-selection";
+import {
+  selectSpecTreeGrammar,
+  type SpecTreeGrammarSelection,
+  type SpecTreeMethodologyDeclaration,
+} from "./grammar-selection";
 import { createSpecTreeLinkGrammar } from "./link-grammar";
+import { readSpecTreeMethodologyDeclaration } from "./methodology-declaration";
 export {
   canonicalNamingSchemaVersion,
   compareNamingSchemaVersions,
@@ -53,6 +58,7 @@ export {
   SPEC_TREE_INHERIT_FROM_PARENT,
   SPEC_TREE_KIND_CATEGORY,
   SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
+  SPEC_TREE_METHODOLOGY_LINE,
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_NAMING_VERSION,
   SPEC_TREE_NODE_STATE,
@@ -61,7 +67,6 @@ export {
   SPEC_TREE_SUPERSEDED_NODE_SUFFIXES,
   specTreeConfigDescriptor,
   supersededNodeSuffixes,
-  unknownSpecTreeKindError,
 } from "./config";
 export type {
   DecisionKind,
@@ -71,12 +76,12 @@ export type {
   NodeKind,
   OutputKind,
   ProductKind,
-  SpecTreeChildKind,
   SpecTreeConfig,
   SpecTreeContainerKind,
   SpecTreeEntryType,
   SpecTreeEvidenceGrammar,
   SpecTreeKindCategory,
+  SpecTreeMethodologyLine,
   SpecTreeNodeKind,
   SpecTreeNodeState,
 } from "./config";
@@ -151,12 +156,8 @@ export type {
   SpecContextTargetPathFacts,
   SpecContextTargetResolution,
 } from "./context-target";
-export { selectSpecTreeGrammar, SPEC_TREE_DECLARATION_FIELD, SPEC_TREE_METHODOLOGY_LINE } from "./grammar-selection";
-export type {
-  SpecTreeGrammarSelection,
-  SpecTreeMethodologyDeclaration,
-  SpecTreeMethodologyLine,
-} from "./grammar-selection";
+export { selectSpecTreeGrammar, SPEC_TREE_DECLARATION_FIELD } from "./grammar-selection";
+export type { SpecTreeGrammarSelection, SpecTreeMethodologyDeclaration } from "./grammar-selection";
 export {
   admitsSpecTreeLinkText,
   isSpecTreeEvidenceLinkText,
@@ -271,6 +272,8 @@ export type SpecTreeNodeSourceEntry = SpecTreeSourceEntryBase & {
   readonly type: typeof SPEC_TREE_ENTRY_TYPE.NODE;
   readonly kind: SpecTreeNodeKind;
   readonly order: number;
+  /** The index's numeric segments, which order siblings segment by segment when present. */
+  readonly orderSegments?: readonly number[];
   readonly slug: string;
   readonly parentId?: string;
   readonly title?: string;
@@ -280,6 +283,8 @@ export type SpecTreeDecisionSourceEntry = SpecTreeSourceEntryBase & {
   readonly type: typeof SPEC_TREE_ENTRY_TYPE.DECISION;
   readonly kind: DecisionKind;
   readonly order: number;
+  /** The index's numeric segments, which order siblings segment by segment when present. */
+  readonly orderSegments?: readonly number[];
   readonly slug: string;
   readonly parentId?: string;
   readonly title?: string;
@@ -325,12 +330,7 @@ export type SpecTreeFilesystemRecord = {
 
 export type SpecTreePathInclusionPredicate = (path: string) => boolean | Promise<boolean>;
 
-export type SpecTreeMethodologyResolver = (productDir: string) => Promise<Result<SpecTreeMethodologyDeclarationInput>>;
-
-type SpecTreeMethodologyDeclarationInput = {
-  readonly version?: string;
-  readonly migratingFrom?: string;
-};
+export type SpecTreeMethodologyResolver = (productDir: string) => Promise<Result<SpecTreeMethodologyDeclaration>>;
 
 export type FilesystemSpecTreeSourceOptions = {
   readonly productDir: string;
@@ -374,6 +374,8 @@ export type SpecTreeDecision = {
   readonly id: string;
   readonly kind: DecisionKind;
   readonly order: number;
+  /** The index's numeric segments, which order siblings segment by segment when present. */
+  readonly orderSegments?: readonly number[];
   readonly slug: string;
   readonly parentId?: string;
   readonly title?: string;
@@ -384,6 +386,8 @@ export type SpecTreeNode = {
   readonly id: string;
   readonly kind: SpecTreeNodeKind;
   readonly order: number;
+  /** The index's numeric segments, which order siblings segment by segment when present. */
+  readonly orderSegments?: readonly number[];
   readonly slug: string;
   readonly parentId?: string;
   readonly title?: string;
@@ -439,11 +443,14 @@ type MutableSpecTreeNode = Omit<SpecTreeNode, SpecTreeNodeRelationKey> & {
 type OrderedEntry = {
   readonly id: string;
   readonly order: number;
+  readonly orderSegments?: readonly number[];
 };
 
 const ORDER_COMPARISON_EQUAL = 0;
 const SPEC_TREE_PATH_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
 const SPEC_TREE_ORDER_SEPARATOR = SPEC_TREE_GRAMMAR.ORDER.SEPARATOR;
+const SPEC_TREE_ORDER_SEGMENT_SEPARATOR = SPEC_TREE_GRAMMAR.ORDER.SEGMENT_SEPARATOR;
+const SPEC_TREE_ORDER_SEGMENT_RADIX = 10;
 const SPEC_TREE_TEXT_ENCODING = "utf8";
 const SPEC_TREE_EMPTY_RELATIVE_PATH = "";
 const SPEC_TREE_MIN_EVIDENCE_PATH_SEGMENTS = 2;
@@ -483,15 +490,10 @@ async function selectGrammarForSource(options: FilesystemSpecTreeSourceOptions):
   if (options.schemaVersions !== undefined) {
     return { known: options.schemaVersions, selected: [canonicalNamingSchemaVersion(options.schemaVersions)] };
   }
-  const resolveMethodology = options.resolveMethodology ?? (await defaultMethodologyResolver());
+  const resolveMethodology = options.resolveMethodology ?? readSpecTreeMethodologyDeclaration;
   const declaration = await resolveMethodology(options.productDir);
   if (!declaration.ok) throw new Error(declaration.error);
   return selectSpecTreeGrammar(declaration.value);
-}
-
-async function defaultMethodologyResolver(): Promise<SpecTreeMethodologyResolver> {
-  const { resolveMethodologyConfig } = await import("@/config/methodology-placement");
-  return resolveMethodologyConfig;
 }
 
 export function recognizeSpecTreeFilesystemEntry(
@@ -532,6 +534,7 @@ export function recognizeSpecTreeFilesystemEntry(
     kind: decisionMatch.kind as DecisionKind,
     id: record.relativePath,
     order: parsed.order,
+    orderSegments: parsed.orderSegments,
     slug: parsed.slug,
     parentId: record.parentId,
     ref: sourceRefForRelativePath(record.relativePath),
@@ -597,6 +600,7 @@ function recognizeDirectoryRecord(
         kind,
         id: record.relativePath,
         order: selectedMatch.parsed.order,
+        orderSegments: selectedMatch.parsed.orderSegments,
         slug: selectedMatch.parsed.slug,
         parentId: record.parentId,
         ref: sourceRefForNode(record.relativePath, selectedMatch.parsed.slug, selectedMatch.version),
@@ -763,6 +767,7 @@ export async function readSpecTree(options: SpecTreeOptions): Promise<SpecTreeSn
       id: entry.id,
       kind: entry.kind,
       order: entry.order,
+      orderSegments: entry.orderSegments,
       slug: entry.slug,
       parentId: entry.parentId,
       title: entry.title,
@@ -863,6 +868,7 @@ function toDecision(entry: SpecTreeDecisionSourceEntry): SpecTreeDecision {
     id: entry.id,
     kind: entry.kind,
     order: entry.order,
+    orderSegments: entry.orderSegments,
     slug: entry.slug,
     parentId: entry.parentId,
     title: entry.title,
@@ -942,8 +948,19 @@ function findFirstNonPassing(nodes: readonly SpecTreeNode[]): SpecTreeNode | nul
   return null;
 }
 
+function compareOrderSegments(left: readonly number[], right: readonly number[]): number {
+  const shared = Math.min(left.length, right.length);
+  for (let index = 0; index < shared; index += 1) {
+    const difference = left[index] - right[index];
+    if (difference !== ORDER_COMPARISON_EQUAL) return difference;
+  }
+  return left.length - right.length;
+}
+
 function compareOrderedEntries(left: OrderedEntry, right: OrderedEntry): number {
-  const orderComparison = left.order - right.order;
+  const orderComparison = left.orderSegments !== undefined && right.orderSegments !== undefined
+    ? compareOrderSegments(left.orderSegments, right.orderSegments)
+    : left.order - right.order;
   if (orderComparison !== ORDER_COMPARISON_EQUAL) return orderComparison;
   return compareSpecContextOrdinal(left.id, right.id);
 }
@@ -1069,6 +1086,7 @@ function matchKindSuffix(
 
 type OrderedSlug = {
   readonly order: number;
+  readonly orderSegments: readonly number[];
   readonly slug: string;
 };
 
@@ -1092,6 +1110,9 @@ function parseOrderedSlug(value: string, orderPattern: RegExp): OrderedSlug | nu
   if (slug.length === 0) return null;
   return {
     order: Number.parseFloat(orderText),
+    orderSegments: orderText.split(SPEC_TREE_ORDER_SEGMENT_SEPARATOR).map((segment) =>
+      Number.parseInt(segment, SPEC_TREE_ORDER_SEGMENT_RADIX)
+    ),
     slug,
   };
 }
@@ -1153,10 +1174,7 @@ function sourceRefForRelativePath(relativePath: string): SpecTreeSourceRef {
 }
 
 function sourceRefForNode(relativePath: string, slug: string, version: NamingSchemaVersion): SpecTreeSourceRef {
-  const specFileSuffix = version.rootSpecKind === undefined
-    ? SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX
-    : version.specFileSuffix;
-  return sourceRefForRelativePath(joinSpecTreePath(relativePath, `${slug}${specFileSuffix}`));
+  return sourceRefForRelativePath(joinSpecTreePath(relativePath, `${slug}${version.specFileSuffix}`));
 }
 
 function stripSuffix(value: string, suffix: string): string {

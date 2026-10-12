@@ -14,7 +14,6 @@ import {
   decodeContextDocumentUtf8,
   readSpecTree,
   resolveSpecContextTarget,
-  selectSpecTreeGrammar,
   type SpecContextAcceptedPath,
   specContextAcceptedPaths,
   type SpecContextKindRegistry,
@@ -93,11 +92,7 @@ export async function readContextInput(options: ContextInputOptions): Promise<Co
   const methodology = await fs.resolveMethodologyConfig(productDir);
   if (!methodology.ok) throw new Error(methodology.error);
   const snapshot = await readSpecTree({
-    source: fs.createSpecTreeSource({
-      productDir,
-      includePath,
-      selection: selectSpecTreeGrammar(methodology.value),
-    }),
+    source: fs.createSpecTreeSource({ productDir, includePath }),
   });
   const registry = await fs.resolveKindRegistry(productDir);
   if (!registry.ok) throw new Error(registry.error);
