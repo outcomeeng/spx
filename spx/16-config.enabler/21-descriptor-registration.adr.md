@@ -36,7 +36,7 @@ Rejected: static top-level keys baked into the config module (every new concern 
 - NEVER: parse raw `spx.config.*` content or reference config-file keys anywhere outside `src/config/` and descriptor modules ([audit])
 - NEVER: import one descriptor from another descriptor — descriptors are isolated by design ([audit])
 - NEVER: put domain policy defaults in shared config primitives — primitives validate reusable structure; descriptors own meaning and defaults ([audit])
-- NEVER: accept a `--config` flag, walk parent directories searching for config files, or overlay multiple config sources — resolution reads the product-directory config file and defaults only ([audit])
+- NEVER: accept a `--config` flag, read a config file outside the product directory, or overlay multiple config sources — resolution reads the product-directory config file and defaults only, the product directory being the local product root of [spx/15-worktree-management.pdr.md](spx/15-worktree-management.pdr.md) ([audit])
 - NEVER: return a partial or untyped config when any descriptor's validator rejects its section ([audit])
 - NEVER: `vi.mock()`, `jest.mock()`, `memfs`, or any filesystem-mocking mechanism for `node:fs` / `node:fs/promises` — tests construct real fixtures through the shared harness under temp directories ([audit])
 - NEVER: hardcode configurable vocabulary (suffixes, kind names, rule identifiers, path literals) anywhere except inside descriptor declarations — the spec-tree descriptor is the sole owner of entry-kind vocabulary ([audit])
