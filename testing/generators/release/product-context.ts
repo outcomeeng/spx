@@ -1,5 +1,7 @@
 import { posix } from "node:path";
 
+import { CONFIG_FILE_DEFINITIONS, CONFIG_FILE_FORMAT, serializeConfigFileSections } from "@/config/index";
+import { DEFAULT_METHODOLOGY_SOURCE, METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import {
   RELEASE_CONTEXT_KIND,
   type ReleaseEndpointPathOwnership,
@@ -7,7 +9,13 @@ import {
 } from "@/domains/release/product-context";
 import type { ReleaseData } from "@/domains/release/release-data";
 import { CHANGELOG_TITLE } from "@/domains/release/release-notes";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR, SPEC_TREE_LINK_PARENT_SEGMENT } from "@/lib/spec-tree";
+import {
+  KIND_REGISTRY,
+  SPEC_TREE_CONFIG,
+  SPEC_TREE_GRAMMAR,
+  SPEC_TREE_LINK_PARENT_SEGMENT,
+  SPEC_TREE_METHODOLOGY_LINE,
+} from "@/lib/spec-tree";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { arbitraryConformantChangelog } from "@testing/generators/release/changelog";
@@ -82,6 +90,8 @@ export interface ReleaseContextScenario {
   readonly product: ReleaseProductContext[number];
   readonly specification: ReleaseProductContext[number];
   readonly missingSpecificationPath: string;
+  /** The methodology declaration the committed endpoint carries beside its spec tree. */
+  readonly methodologyDeclaration: ReleaseEndpointFile;
   readonly subject: string;
   readonly body: string;
   readonly releaseData: ReleaseData;
@@ -283,8 +293,23 @@ export function arbitraryReleaseEndpointSourceScenario(
   });
 }
 
+/**
+ * The methodology declaration an endpoint commits in its product configuration. The generated
+ * trees use the 3.x naming grammar, so the declaration selects the 3.2 line.
+ */
+function releaseEndpointMethodologyDeclaration(): ReleaseEndpointFile {
+  const serialized = serializeConfigFileSections(CONFIG_FILE_FORMAT.JSON, {
+    [METHODOLOGY_SECTION]: {
+      [METHODOLOGY_CONFIG_FIELDS.SOURCE]: DEFAULT_METHODOLOGY_SOURCE,
+      [METHODOLOGY_CONFIG_FIELDS.VERSION]: SPEC_TREE_METHODOLOGY_LINE.THREE_TWO,
+    },
+  });
+  return releaseEndpointFile(CONFIG_FILE_DEFINITIONS[CONFIG_FILE_FORMAT.JSON].filename, serialized.value);
+}
+
 function releaseEndpointFiles(productPath: string, productName: string): ReleaseEndpointFile[] {
   return [
+    releaseEndpointMethodologyDeclaration(),
     releaseEndpointFile(productPath, `# ${productName}\n`),
     releaseEndpointFile(TYPESCRIPT_MARKER, RELEASE_OWNERSHIP_FIXTURE_CONTENT.TYPESCRIPT_CONFIG),
   ];
@@ -398,6 +423,7 @@ export function arbitraryReleaseContextScenario(): fc.Arbitrary<ReleaseContextSc
       product,
       specification,
       missingSpecificationPath: `${specification.path}.${productName}`,
+      methodologyDeclaration: releaseEndpointMethodologyDeclaration(),
       subject,
       body,
       releaseData,
@@ -512,6 +538,7 @@ export function arbitraryReleaseDecisionCitationScenario(): fc.Arbitrary<Release
       citationDecisionFile(CITATION_UNTRACKED_DECISION_INDEX, untrackedSlug),
     );
     const files: ReleaseEndpointFile[] = [
+      releaseEndpointMethodologyDeclaration(),
       releaseEndpointFile(productPath, `# ${productSlug}\n`),
       releaseEndpointFile(
         citationSpecificationPath(siblingDirectory, siblingSlug),
