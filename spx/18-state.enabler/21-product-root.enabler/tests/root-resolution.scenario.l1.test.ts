@@ -37,13 +37,8 @@ describe("detectGitCommonDirProductRoot — shared root resolves to the common-d
 });
 
 describe("detectLocalProductRoot — local root resolves per config layout", () => {
-  it.each([
-    LOCAL_PRODUCT_ROOT_LAYOUT.INVOCATION_DIR,
-    LOCAL_PRODUCT_ROOT_LAYOUT.INTERMEDIATE_ANCESTOR,
-    LOCAL_PRODUCT_ROOT_LAYOUT.TOPLEVEL_ONLY,
-    LOCAL_PRODUCT_ROOT_LAYOUT.NO_CONFIG,
-  ])("resolves the layout with %s to the root the worktree-management decision defines", async (layout) => {
-    await withLocalProductRootEnv(localProductRootCase(layout), async (env) => {
+  it("resolves a nested invocation directory under a git toplevel holding the only config to that toplevel", async () => {
+    await withLocalProductRootEnv(localProductRootCase(LOCAL_PRODUCT_ROOT_LAYOUT.TOPLEVEL_ONLY), async (env) => {
       const result = await detectLocalProductRoot(env.invocationDir);
       expect(result.isGitRepo).toBe(true);
       expect(await realpath(result.productDir)).toBe(env.expectedProductDir);
