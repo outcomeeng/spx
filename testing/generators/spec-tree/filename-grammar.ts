@@ -41,11 +41,6 @@ export type KindRegistrySubsetCase = {
   readonly exportedSuffixes: readonly string[];
 };
 
-export type DeclaredKindCategoryCase = {
-  readonly kind: Kind;
-  readonly category: SpecTreeKindCategory;
-};
-
 export type KindRegistrySuffixCase = {
   readonly title: string;
   readonly kinds: readonly Kind[];
@@ -135,31 +130,27 @@ export function kindRegistrySubsetCases(): readonly KindRegistrySubsetCase[] {
 }
 
 /**
- * The category each kind belongs to, as the filename-grammar spec declares the kinds: the 3.x
- * `enabler` and `outcome` node kinds, the 4.0 `substrate`, `capability`, `domain`, `interface`,
- * `surface`, and `variant` output kinds, and the `adr` and `pdr` decision kinds. The record is
- * exhaustive over `Kind`, so a kind added to the registry without a declaration here fails the
- * type check, and the declarations name no registry field.
+ * The kinds the grammar declares: the 3.x `enabler` and `outcome` node kinds, the 4.0 `substrate`,
+ * `capability`, `domain`, `interface`, `surface`, and `variant` output kinds, and the `adr` and
+ * `pdr` decision kinds. The record is exhaustive over `Kind`, so a kind added to the registry
+ * without a declaration here fails the type check, and the declarations name no registry field.
  */
-const DECLARED_KIND_CATEGORY: Readonly<Record<Kind, SpecTreeKindCategory>> = {
-  enabler: SPEC_TREE_KIND_CATEGORY.NODE,
-  outcome: SPEC_TREE_KIND_CATEGORY.NODE,
-  substrate: SPEC_TREE_KIND_CATEGORY.OUTPUT,
-  capability: SPEC_TREE_KIND_CATEGORY.OUTPUT,
-  domain: SPEC_TREE_KIND_CATEGORY.OUTPUT,
-  interface: SPEC_TREE_KIND_CATEGORY.OUTPUT,
-  surface: SPEC_TREE_KIND_CATEGORY.OUTPUT,
-  variant: SPEC_TREE_KIND_CATEGORY.OUTPUT,
-  adr: SPEC_TREE_KIND_CATEGORY.DECISION,
-  pdr: SPEC_TREE_KIND_CATEGORY.DECISION,
+const DECLARED_KINDS: Readonly<Record<Kind, true>> = {
+  enabler: true,
+  outcome: true,
+  substrate: true,
+  capability: true,
+  domain: true,
+  interface: true,
+  surface: true,
+  variant: true,
+  adr: true,
+  pdr: true,
 };
 
-/** One case per declared kind, carrying the category the spec declares for it. */
-export function declaredKindCategoryCases(): readonly DeclaredKindCategoryCase[] {
-  return (Object.keys(DECLARED_KIND_CATEGORY) as Kind[]).map((kind) => ({
-    kind,
-    category: DECLARED_KIND_CATEGORY[kind],
-  }));
+/** Every kind the grammar declares. */
+export function declaredKinds(): readonly Kind[] {
+  return Object.keys(DECLARED_KINDS) as Kind[];
 }
 
 export function kindRegistrySuffixCases(): readonly KindRegistrySuffixCase[] {

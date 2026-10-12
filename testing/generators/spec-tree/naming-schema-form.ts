@@ -1,6 +1,6 @@
 /**
  * The filename forms each naming-schema version accepts, as the filename-grammar spec declares them,
- * with the index names the forms accept and reject drawn from generators over the index domain.
+ * with the indices the forms accept and reject drawn from generators over the index domain.
  *
  * The expectations come from the spec's per-version statements — the node kinds, the spec-file and
  * root-spec forms, the node-local notes, and the index form — and from no field the library
@@ -21,11 +21,11 @@ import {
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
 } from "@/lib/spec-tree";
-import { SAMPLE_GENERATOR_PARAMETERS } from "@testing/generators/sample";
 
 const INDEX_SEGMENT_SEPARATOR = ".";
 const NODE_SUFFIX_LEAD = ".";
 const FRACTION_SEGMENT_MAX_COUNT = 3;
+const DIGIT_RUN_SEGMENT_MAX_COUNT = 6;
 const FOUR_ZERO_INTEGER_RANGE = { min: 10, max: 99 } as const;
 const FOUR_ZERO_FRACTION_RANGE = { min: 10, max: 99 } as const;
 const FOUR_ZERO_FRACTION_DIGITS = 2;
@@ -37,7 +37,6 @@ const FREE_FORM_INDEX_MAX_LENGTH = 12;
 const DECIMAL_DIGITS = "0123456789";
 const DIGIT_RUN_MAX = 99_999;
 const NON_NUMERIC_SEGMENT = fc.stringMatching(/^[a-z]{1,6}$/);
-const SAMPLED_INDEX_COUNT = 25;
 
 export type NamingSchemaFormExpectation = {
   readonly nodeSuffixes: readonly string[];
@@ -48,20 +47,14 @@ export type NamingSchemaFormExpectation = {
   readonly decisionSuffixes: readonly string[];
 };
 
-export type DigitRunFormExpectation = NamingSchemaFormExpectation & {
-  readonly acceptedIndexes: readonly string[];
-  readonly rejectedIndexes: readonly string[];
-};
-
-/** A candidate 4.0 index with the verdict the spec's statement gives it. */
-export type FourZeroIndexCandidate = {
+/** A candidate index with the verdict the spec's statement gives it. */
+export type IndexCandidate = {
   readonly index: string;
   readonly accepted: boolean;
 };
 
-function sampleMany<T>(arbitrary: fc.Arbitrary<T>): readonly T[] {
-  return fc.sample(arbitrary, { ...SAMPLE_GENERATOR_PARAMETERS, numRuns: SAMPLED_INDEX_COUNT });
-}
+/** A candidate 4.0 index with the verdict the spec's statement gives it. */
+export type FourZeroIndexCandidate = IndexCandidate;
 
 function joinIndex(segments: readonly (number | string)[]): string {
   return segments.join(INDEX_SEGMENT_SEPARATOR);
@@ -148,7 +141,7 @@ function arbitraryDigitRun(): fc.Arbitrary<string> {
 
 function arbitraryThreeXAcceptedIndex(): fc.Arbitrary<string> {
   return fc
-    .tuple(arbitraryDigitRun(), fc.array(arbitraryDigitRun(), { maxLength: FRACTION_SEGMENT_MAX_COUNT }))
+    .tuple(arbitraryDigitRun(), fc.array(arbitraryDigitRun(), { maxLength: DIGIT_RUN_SEGMENT_MAX_COUNT }))
     .map(([first, rest]) => joinIndex([first, ...rest]));
 }
 
@@ -162,6 +155,27 @@ function arbitraryThreeXRejectedIndex(): fc.Arbitrary<string> {
   return fc.oneof(trailingSeparator, leadingSeparator, emptySegment, nonNumeric);
 }
 
+function isDigitRun(segment: string): boolean {
+  return segment.length > 0 && [...segment].every((character) => DECIMAL_DIGITS.includes(character));
+}
+
+/** The spec's statement of the 3.x index form read directly: digit runs of any length joined by the segment separator. */
+function threeXIndexVerdict(index: string): boolean {
+  return index.split(INDEX_SEGMENT_SEPARATOR).every(isDigitRun);
+}
+
+function arbitraryThreeXIndexCandidate(): fc.Arbitrary<IndexCandidate> {
+  return fc
+    .oneof(arbitraryThreeXAcceptedIndex(), arbitraryThreeXRejectedIndex(), arbitraryFreeFormIndex())
+    .map((index) => ({ index, accepted: threeXIndexVerdict(index) }));
+}
+
+/** Generators over the open 3.x index domain: indices the spec accepts by construction, and candidates with the spec's verdict. */
+export const THREE_X_INDEX_GENERATOR = {
+  accepted: arbitraryThreeXAcceptedIndex,
+  candidate: arbitraryThreeXIndexCandidate,
+} as const;
+
 /** What the 4.0 naming-schema version accepts: output-node directories, `{slug}.spec.md`, and `ISSUES.md`. */
 export function fourZeroFormExpectation(): NamingSchemaFormExpectation {
   return {
@@ -174,8 +188,8 @@ export function fourZeroFormExpectation(): NamingSchemaFormExpectation {
   };
 }
 
-/** What the 3.x naming-schema version accepts: `.enabler` and `.outcome` directories, `{slug}.md`, `PLAN.md` and `ISSUES.md`, and dot-separated digit-run indices. */
-export function threeXFormExpectation(): DigitRunFormExpectation {
+/** What the 3.x naming-schema version accepts: `.enabler` and `.outcome` directories, `{slug}.md`, `PLAN.md` and `ISSUES.md`. */
+export function threeXFormExpectation(): NamingSchemaFormExpectation {
   return {
     nodeSuffixes: NODE_SUFFIXES,
     specFileSuffix: SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX,
@@ -183,7 +197,5 @@ export function threeXFormExpectation(): DigitRunFormExpectation {
     rootSpecKind: undefined,
     coordinationNotes: [SPEC_TREE_GRAMMAR.COORDINATION_NOTE.PLAN, SPEC_TREE_GRAMMAR.COORDINATION_NOTE.ISSUES],
     decisionSuffixes: DECISION_SUFFIXES,
-    acceptedIndexes: sampleMany(arbitraryThreeXAcceptedIndex()),
-    rejectedIndexes: sampleMany(arbitraryThreeXRejectedIndex()),
   };
 }
