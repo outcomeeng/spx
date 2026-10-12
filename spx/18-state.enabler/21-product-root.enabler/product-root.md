@@ -9,7 +9,8 @@ CAN resolve which directory a command's tracked, per-worktree, and shared state 
 ### Scenarios
 
 - Given a worktree of a bare-repository pool, when the shared product root is resolved, then it is the parent of `git rev-parse --git-common-dir`, and given a non-worktree repository it equals the local worktree root ([test](tests/root-resolution.scenario.l1.test.ts))
-- Given a layout holding `spx.config.*` at the invocation directory, at an intermediate ancestor, only at the git toplevel, or nowhere, when the local product root is resolved, then it is the one [`spx/15-worktree-management.pdr.md`](spx/15-worktree-management.pdr.md) defines for that layout; outside a git repository resolution falls back to the working directory with a warning ([test](tests/root-resolution.scenario.l1.test.ts))
+- Given an invocation directory nested below the git toplevel and `spx.config.*` only at the toplevel, when the local product root is resolved, then it is the git toplevel ([test](tests/root-resolution.scenario.l1.test.ts))
+- Given an invocation directory outside any git repository, when the local product root is resolved, then it is the working directory and a warning reports the fallback ([test](tests/root-resolution.scenario.l1.test.ts))
 - Given inherited `GIT_DIR` and `GIT_WORK_TREE` environment variables, when product roots are detected, then resolution uses the working directory's repository rather than the inherited git environment ([test](tests/env-isolation.scenario.l1.test.ts))
 
 ### Mappings
