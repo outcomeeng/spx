@@ -45,7 +45,6 @@ import {
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
-import { VALIDATION_PRODUCT_METHODOLOGY } from "@testing/harnesses/validation/product";
 import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
 const productDir = process.cwd();
@@ -1017,7 +1016,6 @@ export function registerCircularDependencyScenarios(): void {
         await writeFile(
           join(path, CONFIG_FILENAMES.yaml),
           stringify({
-            ...VALIDATION_PRODUCT_METHODOLOGY,
             validation: {
               paths: { circular: { include: [VALIDATION_PIPELINE_DATA.sourceDirectoryName] } },
             },
