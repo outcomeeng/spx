@@ -27,6 +27,7 @@ import { specTreeConfigDescriptor } from "@/lib/spec-tree";
 import {
   CONFIG_TEST_GENERATOR,
   type GeneratedConfigCliDeterminismCase,
+  type GeneratedDescriptorSet,
   sampleConfigTestValue,
 } from "@testing/generators/config/descriptors";
 import { NODE_EXECUTABLE } from "@testing/harnesses/constants";
@@ -307,7 +308,7 @@ function parseConfigOutput(format: ConfigFileFormat, raw: string): ReturnType<ty
 }
 
 function configSubset(): Config {
-  return sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeSubsetConfig());
+  return sampleConfigTestValue(CONFIG_TEST_GENERATOR.descriptorSet()).config;
 }
 
 function defaultsOnlyDeps(descriptors: readonly ConfigDescriptor<unknown>[]): CliDeps {
@@ -408,20 +409,27 @@ export async function withShowDefaultConfigObservation(
 
 export async function withShowOverrideObservation(
   consume: ObservationConsumer<
-    ResultObservation & { readonly config: Config; readonly defaultParsed: ConfigParseResult }
+    ResultObservation & {
+      readonly defaultParsed: ConfigParseResult;
+      readonly descriptorSet: GeneratedDescriptorSet;
+    }
   >,
 ): Promise<void> {
-  const config = configSubset();
-  await withTestEnv(config, async ({ productDir }) => {
+  const descriptorSet = sampleConfigTestValue(CONFIG_TEST_GENERATOR.descriptorSet());
+  await withTestEnv(descriptorSet.config, async ({ productDir }) => {
     const deps: CliDeps = {
-      resolveConfig: (resolvedProductDir) => resolveConfig(resolvedProductDir, productionRegistry),
+      resolveConfig: (resolvedProductDir) => resolveConfig(resolvedProductDir, descriptorSet.descriptors),
       readProductConfigFile,
       resolveConfigFromReadResult,
       resolveProductDir: () => productDir,
-      descriptors: productionRegistry,
+      descriptors: descriptorSet.descriptors,
     };
     const result = await showCommand({}, deps);
-    await consume({ config, defaultParsed: parseConfigOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout), result });
+    await consume({
+      descriptorSet,
+      defaultParsed: parseConfigOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout),
+      result,
+    });
   });
 }
 
