@@ -22,9 +22,8 @@
 
 ## Subprocess wrappers report a missing exit code as success
 
-Execa leaves `exitCode` undefined when a subprocess could not be spawned or was terminated by a signal. Wrappers that normalize that value with `result.exitCode ?? 0` report such a run as a successful exit-code-zero completion to every caller that only checks `exitCode !== 0`. The release publication runner (`src/lib/release-publication/runner.ts`) and the release git-runner harness now fail such a run; the same normalization remains at:
+Execa leaves `exitCode` undefined when a subprocess could not be spawned or was terminated by a signal. Wrappers that normalize that value with `result.exitCode ?? 0` report such a run as a successful exit-code-zero completion to every caller that only checks `exitCode !== 0`. The release publication runner (`src/lib/release-publication/runner.ts`), the release git-runner harness, and the production git runner default (`src/lib/git/root.ts`) now fail such a run; the same normalization remains at:
 
-- `src/lib/git/root.ts` — the production git runner default. Owned by [`spx/18-state.enabler`](spx/18-state.enabler/state.md).
 - `testing/harnesses/with-git-env.ts`, `testing/harnesses/testing/typescript-runner.ts`, and `testing/harnesses/git/changed-paths.ts` — harness runners whose owning nodes govern their evidence.
 
 **Impact:** a spawn failure or signal kill of `git` or a test runner can read as a clean run wherever only the exit code is inspected.
