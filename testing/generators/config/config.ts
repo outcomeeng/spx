@@ -9,7 +9,8 @@ import {
   FILE_INCLUSION_SECTION,
   type FileInclusionConfig,
 } from "@/lib/file-inclusion/config";
-import { SPEC_TREE_SECTION } from "@/lib/spec-tree";
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
+import { SPEC_TREE_METHODOLOGY_LINE, SPEC_TREE_SECTION } from "@/lib/spec-tree";
 
 const GENERATED_SEGMENT_MIN_LENGTH = 3;
 const GENERATED_SEGMENT_MAX_LENGTH = 12;
@@ -21,6 +22,7 @@ const GENERATED_SEGMENT_SUFFIX_MAX_LENGTH = GENERATED_SEGMENT_MAX_LENGTH - 1;
  * Use this as the default fixture wherever withTestEnv or spec-tree generators need a Config.
  */
 export const MINIMAL_SPEC_TREE_CONFIG: Config = {
+  [METHODOLOGY_SECTION]: { [METHODOLOGY_CONFIG_FIELDS.VERSION]: SPEC_TREE_METHODOLOGY_LINE.THREE_TWO },
   [SPEC_TREE_SECTION]: {},
 };
 
