@@ -30,6 +30,7 @@ import {
   RANGE_COMPARATOR,
   UNDERSTAND_SKILL_RELATIVE_DIR,
 } from "@/lib/methodology";
+import { SPEC_TREE_METHODOLOGY_LINE } from "@/lib/spec-tree";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 
@@ -72,14 +73,15 @@ function versionComponent(): fc.Arbitrary<number> {
   return fc.integer({ min: 0, max: VERSION_COMPONENT_MAX });
 }
 
-/**
- * The methodology lines a spec-tree read accepts that a context fixture tree, authored in the
- * 3.x grammar, is read whole under, spelled out rather than derived by the parser the tests judge.
- */
-export const FIXTURE_AUTHORED_METHODOLOGY_LINES = ["3.0", "3.1", "3.2"] as const;
+/** The 3.x lines a context fixture tree, authored in the 3.x grammar, is read whole under; the spec-tree library owns them. */
+export const FIXTURE_AUTHORED_METHODOLOGY_LINES: readonly string[] = [
+  SPEC_TREE_METHODOLOGY_LINE.THREE_ZERO,
+  SPEC_TREE_METHODOLOGY_LINE.THREE_ONE,
+  SPEC_TREE_METHODOLOGY_LINE.THREE_TWO,
+];
 
-/** Every methodology line a spec-tree read accepts, spelled out rather than derived by the parser the tests judge. */
-export const READABLE_METHODOLOGY_LINES: readonly string[] = [...FIXTURE_AUTHORED_METHODOLOGY_LINES, "4.0"];
+/** Every methodology line a spec-tree read accepts; the spec-tree library owns them. */
+export const READABLE_METHODOLOGY_LINES: readonly string[] = Object.values(SPEC_TREE_METHODOLOGY_LINE);
 
 /** An exact methodology version on a line no spec-tree read accepts. */
 export function arbitraryUnreadableMethodologyVersion(): fc.Arbitrary<GeneratedMethodologyVersion> {

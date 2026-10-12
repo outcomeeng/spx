@@ -1,4 +1,3 @@
-import { arbitraryFixtureAuthoredLine } from "@testing/generators/methodology/tree";
 import { describe, expect, it } from "vitest";
 
 import { defaultContextFileSystem } from "@/commands/spec/context-input";
@@ -8,6 +7,7 @@ import {
   generatedMethodologyVersionFormSections,
   generatedMigratingMethodology,
 } from "@testing/generators/config/descriptors";
+import { arbitraryFixtureAuthoredLine } from "@testing/generators/methodology/tree";
 import {
   decisionStatementParagraph,
   freeDecisionPath,
