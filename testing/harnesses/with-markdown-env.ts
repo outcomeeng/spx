@@ -9,6 +9,7 @@ import { cp } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { writeValidationProductDeclaration } from "@testing/harnesses/validation/product";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -42,7 +43,7 @@ export interface MarkdownEnvOptions {
  * Creates an isolated test environment with a markdown fixture.
  *
  * 1. Creates a temporary directory
- * 2. Copies the specified fixture into it
+ * 2. Copies the specified fixture into it and declares the product's methodology
  * 3. Runs the test callback with paths
  * 4. Cleans up after (even on failure)
  */
@@ -53,6 +54,7 @@ export function withMarkdownEnv(
   return withTempDir("mdlint-harness-", async (tempDir) => {
     const fixtureSource = join(FIXTURES_ROOT, opts.fixture);
     await cp(fixtureSource, tempDir, { recursive: true });
+    await writeValidationProductDeclaration(tempDir);
 
     await testFn({
       path: tempDir,
