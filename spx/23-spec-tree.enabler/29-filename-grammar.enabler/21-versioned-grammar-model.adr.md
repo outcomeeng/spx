@@ -21,6 +21,7 @@ A consumer that recognizes or rejects filenames by grammar token — deprecated-
 - Under a methodology declaration, the superseded suffix set equals the union of the accepted suffix sets of the versions ordered before the declared target's, less the union of the valid versions' accepted suffix sets.
 - A declaration's valid versions are those serving `methodology.version`, plus those serving `methodology.migratingFrom` while it is declared.
 - The newest naming-schema version is the maximum of the version set under semantic-version ordering.
+- No invariant or testing rule of this record names a spec-file form; the forms each version accepts stand once, in the assertions of [`spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md`](spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md).
 - A name's classification against a version is a function of that version's accepted token sets alone — independent of the other versions, process environment, and file contents.
 
 ## Verification
