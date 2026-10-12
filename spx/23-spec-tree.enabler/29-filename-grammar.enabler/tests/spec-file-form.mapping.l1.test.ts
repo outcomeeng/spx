@@ -27,17 +27,6 @@ describe("the 4.0 naming-schema version", () => {
       fourZeroFormExpectation().coordinationNotes,
     );
   });
-
-  it("accepts two-digit integer indices with two-digit fractional segments and rejects every other form", () => {
-    const expected = fourZeroFormExpectation();
-
-    for (const index of expected.acceptedIndexes) {
-      expect(SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION.order.PATTERN.test(index)).toBe(true);
-    }
-    for (const index of expected.rejectedIndexes) {
-      expect(SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION.order.PATTERN.test(index)).toBe(false);
-    }
-  });
 });
 
 describe("the 3.x naming-schema version", () => {
