@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createFilesystemSpecTreeSource,
   DECISION_SUFFIXES,
+  KIND_REGISTRY,
   NODE_KINDS,
   NODE_SUFFIXES,
   readSpecTree,
@@ -23,7 +24,7 @@ import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 describe("arbitraryNodePath — free-function form", () => {
   it("generates paths whose trailing segment carries one of the Config's node suffixes", () => {
     assertProperty(
-      arbitraryNodePath(MINIMAL_SPEC_TREE_CONFIG),
+      arbitraryNodePath(KIND_REGISTRY),
       (path) => {
         expect(path.endsWith(SPEC_TREE_GRAMMAR.PATH_SEPARATOR)).toBe(false);
         expect(NODE_SUFFIXES.some((suffix) => path.endsWith(suffix))).toBe(true);
@@ -36,7 +37,7 @@ describe("arbitraryNodePath — free-function form", () => {
 describe("arbitraryDecisionPath — free-function form", () => {
   it("generates paths whose trailing segment carries one of the Config's decision suffixes", () => {
     assertProperty(
-      arbitraryDecisionPath(MINIMAL_SPEC_TREE_CONFIG),
+      arbitraryDecisionPath(KIND_REGISTRY),
       (path) => {
         expect(DECISION_SUFFIXES.some((suffix) => path.endsWith(suffix))).toBe(true);
       },
@@ -48,7 +49,7 @@ describe("arbitraryDecisionPath — free-function form", () => {
 describe("arbitrarySpecTree — free-function form", () => {
   it("generates tree descriptors whose entries have kind-appropriate paths", () => {
     assertProperty(
-      arbitrarySpecTree(MINIMAL_SPEC_TREE_CONFIG),
+      arbitrarySpecTree(KIND_REGISTRY),
       (tree) => {
         for (const entry of tree.entries) {
           if (NODE_KINDS.some((kind) => kind === entry.kind)) {
@@ -66,7 +67,7 @@ describe("arbitrarySpecTree — free-function form", () => {
 describe("generated paths parse through the filesystem read operation", () => {
   it("recognizes every arbitraryNodePath sample as a node source entry", () => {
     assertProperty(
-      arbitraryNodePath(MINIMAL_SPEC_TREE_CONFIG),
+      arbitraryNodePath(KIND_REGISTRY),
       (path) => {
         const entry = recognizeSpecTreeFilesystemEntry({
           type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY,
@@ -81,7 +82,7 @@ describe("generated paths parse through the filesystem read operation", () => {
 
   it("recognizes every arbitraryDecisionPath sample as a decision source entry", () => {
     assertProperty(
-      arbitraryDecisionPath(MINIMAL_SPEC_TREE_CONFIG),
+      arbitraryDecisionPath(KIND_REGISTRY),
       (path) => {
         const entry = recognizeSpecTreeFilesystemEntry({
           type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
@@ -98,7 +99,7 @@ describe("generated paths parse through the filesystem read operation", () => {
 describe("generated spec trees parse through readSpecTree", () => {
   it("materializes every arbitrarySpecTree fixture into a tree readSpecTree recognizes entry-for-entry", async () => {
     await assertProperty(
-      arbitrarySpecTree(MINIMAL_SPEC_TREE_CONFIG),
+      arbitrarySpecTree(KIND_REGISTRY),
       async (fixture) => {
         await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
           for (const entry of fixture.entries) {

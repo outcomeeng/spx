@@ -15,7 +15,6 @@ import {
   contextShowJson,
   contextShowText,
   methodologyTreeConfig,
-  specTreeKindsConfig,
   writeMethodologyTree,
 } from "@testing/harnesses/spec/context";
 
@@ -24,7 +23,7 @@ describe("spec context determinism", () => {
     "produces byte-identical list and show output for equal tree content, methodology resources, options, coding agent, and accepted canonical targets",
     async () => {
       await assertProperty(
-        arbitraryContextDeterminismCase(specTreeKindsConfig()),
+        arbitraryContextDeterminismCase(),
         async ({ fixture, extraDecision, extraNode, migrating, methodologySlug }) => {
           await withSpecTreeEnv(methodologyTreeConfig(migrating.section), async (env) => {
             await env.materialize();
