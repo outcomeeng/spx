@@ -13,16 +13,13 @@ import { METHODOLOGY_SECTION } from "@/config/methodology";
 import {
   createFilesystemSpecTreeSource,
   readSpecTree,
+  renderSpecTreeRootFrontMatter,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
   type SpecTreeSnapshot,
 } from "@/lib/spec-tree";
 import type { GrammarSelectionDeclaration } from "@testing/harnesses/spec-tree/grammar-selection";
 import { withTestEnv, writeOrderedDirectory } from "@testing/harnesses/spec-tree/spec-tree";
-
-const FRONT_MATTER_FENCE = "---";
-const FRONT_MATTER_KIND_KEY = "kind";
-const LINE_BREAK = "\n";
 
 export type MigrationTreeEnv = {
   /** Reads the tree through the filesystem source created for the product directory. */
@@ -39,9 +36,7 @@ export async function withMigrationTreeEnv<T>(
       [SPEC_TREE_CONFIG.ROOT_DIRECTORY, `${tree.productName}${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX}`].join(
         SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
       ),
-      [FRONT_MATTER_FENCE, `${FRONT_MATTER_KIND_KEY}: ${SPEC_TREE_CONFIG.PRODUCT.KIND}`, FRONT_MATTER_FENCE, ""].join(
-        LINE_BREAK,
-      ),
+      renderSpecTreeRootFrontMatter(),
     );
     for (const directory of tree.directories) await writeOrderedDirectory(env, directory);
     return callback({

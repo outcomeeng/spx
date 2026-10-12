@@ -11,6 +11,7 @@ import type { ReleaseData } from "@/domains/release/release-data";
 import { CHANGELOG_TITLE } from "@/domains/release/release-notes";
 import {
   KIND_REGISTRY,
+  renderSpecTreeRootFrontMatter,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_LINK_PARENT_SEGMENT,
@@ -688,7 +689,7 @@ export function arbitraryReleaseEndpointGrammarScenario(): fc.Arbitrary<ReleaseE
             releaseEndpointMethodologyDeclaration(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO),
             node(
               fourZeroRoot,
-              `---\nid: ${rootId}\nkind: ${SPEC_TREE_CONFIG.PRODUCT.KIND}\n---\n\n# ${productSlug}\n`,
+              `${renderSpecTreeRootFrontMatter({ id: rootId })}\n# ${productSlug}\n`,
             ),
             node(fourZeroPath, specification(fourZeroSlug)),
             node(threeXAtFourZeroPath, specification(threeXAtFourZeroSlug)),
