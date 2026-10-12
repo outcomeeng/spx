@@ -175,8 +175,29 @@ async function readAt(productDir: string, relativePath: string): Promise<string>
   return readNodeFile(absolute, "utf8");
 }
 
-async function materializeSpecTreeFixture(
+/**
+ * Writes a representative fixture's product, nodes, and decision under `relativeRoot` inside the
+ * environment's product directory, so a nested product holds a spec tree of its own.
+ */
+export async function materializeSpecTreeFixtureAt(
   env: SpecTreeEnv,
+  relativeRoot: string,
+  fixture: RepresentativeSpecTreeFixture,
+): Promise<void> {
+  const under = (relativePath: string): string => joinSpecTreeFixturePath(relativeRoot, relativePath);
+  await materializeSpecTreeFixture(
+    {
+      writeNode: (relativePath, contents) => env.writeNode(under(relativePath), contents),
+      writeDecision: (relativePath, contents) => env.writeDecision(under(relativePath), contents),
+      writeRaw: (relativePath, contents) => env.writeRaw(under(relativePath), contents),
+    },
+    KIND_REGISTRY,
+    fixture,
+  );
+}
+
+async function materializeSpecTreeFixture(
+  env: Pick<SpecTreeEnv, SpecTreeEnvFixtureWriterMethod>,
   registry: SpecTreeRegistry,
   fixture: RepresentativeSpecTreeFixture,
 ): Promise<void> {

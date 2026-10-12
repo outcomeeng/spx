@@ -4,6 +4,7 @@ import { CONFIG_CLI } from "@/interfaces/cli/config";
 import { SPX_GLOBAL_OPTIONS } from "@/interfaces/cli/product-context";
 import { SESSION_CLI } from "@/interfaces/cli/session";
 import { validationCliDefinition, validationCommonCliOptions } from "@/interfaces/cli/validation-contract";
+import { KIND_REGISTRY } from "@/lib/spec-tree";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import {
   CONFIG_TEST_GENERATOR,
@@ -11,6 +12,8 @@ import {
   type GeneratedTestingConfig,
 } from "@testing/generators/config/descriptors";
 import { arbitrarySessionId } from "@testing/generators/session/session";
+import { type RepresentativeSpecTreeFixture, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
+import { arbitrarySpecTreeLinkScenario, type SpecTreeLinkScenario } from "@testing/generators/validation/markdown";
 
 export const PRODUCT_CONTEXT_MAPPING_COMMANDS = [
   {
@@ -76,4 +79,54 @@ export function arbitraryProductContextCase(): fc.Arbitrary<GeneratedProductCont
       contents: `export default ${JSON.stringify(value)};\n`,
     })),
   });
+}
+
+/**
+ * One product's own state: the configuration it declares, the spec tree it holds, and the broken
+ * markdown link it carries, each drawn so the other product's state differs.
+ */
+export interface GeneratedProductLayer {
+  readonly testing: GeneratedTestingConfig;
+  readonly tree: RepresentativeSpecTreeFixture;
+  readonly markdown: SpecTreeLinkScenario;
+}
+
+/**
+ * A product nested inside an enclosing repository's product, both holding their own configuration,
+ * spec tree, and markdown violation. `nested.productDirectory` places the inner product under the
+ * enclosing root and `nested.nestedDirectory` names a directory inside the inner product.
+ */
+export interface GeneratedNestedProductContextCase {
+  readonly nested: GeneratedDirectoryScope;
+  readonly caller: GeneratedDirectoryScope;
+  readonly enclosing: GeneratedProductLayer;
+  readonly inner: GeneratedProductLayer;
+}
+
+function arbitraryProductLayer(): fc.Arbitrary<GeneratedProductLayer> {
+  return fc.record({
+    testing: CONFIG_TEST_GENERATOR.discriminatingTestingConfig(),
+    tree: SPEC_TREE_TEST_GENERATOR.representativeFixture(KIND_REGISTRY),
+    markdown: arbitrarySpecTreeLinkScenario(),
+  });
+}
+
+function layersDiffer(first: GeneratedProductLayer, second: GeneratedProductLayer): boolean {
+  return JSON.stringify(first.testing.config) !== JSON.stringify(second.testing.config)
+    && first.tree.root.slug !== second.tree.root.slug
+    && first.tree.child.slug !== second.tree.child.slug
+    && first.tree.peer.slug !== second.tree.peer.slug
+    && !first.markdown.citingFileName.endsWith(second.markdown.citingFileName)
+    && !second.markdown.citingFileName.endsWith(first.markdown.citingFileName);
+}
+
+export function arbitraryNestedProductContextCase(): fc.Arbitrary<GeneratedNestedProductContextCase> {
+  return fc
+    .record({
+      nested: CONFIG_TEST_GENERATOR.directoryScope(),
+      caller: CONFIG_TEST_GENERATOR.directoryScope(),
+      enclosing: arbitraryProductLayer(),
+      inner: arbitraryProductLayer(),
+    })
+    .filter(({ enclosing, inner }) => layersDiffer(enclosing, inner));
 }
