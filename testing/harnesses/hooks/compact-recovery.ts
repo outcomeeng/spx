@@ -9,11 +9,7 @@ import {
   type MethodologyConfig,
 } from "@/config/methodology";
 import type { Result } from "@/config/types";
-import {
-  AGENT,
-  HARNESS_ENVIRONMENT_CONFIG_FIELDS,
-  HARNESS_ENVIRONMENT_SECTION,
-} from "@/domains/agent-environment/config";
+import { AGENT, HARNESS_ENVIRONMENT_CONFIG_FIELDS } from "@/domains/agent-environment/config";
 import {
   HOOK_SESSION_START_ENV,
   HOOK_SESSION_START_PAYLOAD,
@@ -29,6 +25,7 @@ import {
   type SessionStartHookResult,
 } from "@/interfaces/hooks/session-start";
 import { defaultGitDependencies } from "@/lib/git/root";
+import { HARNESS_ENVIRONMENT_SECTION } from "@/lib/harness-environment-section";
 import {
   defaultMethodologyTreeFileSystem,
   FOUNDATION_MANIFEST_FIELDS,

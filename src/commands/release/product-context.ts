@@ -1,11 +1,5 @@
-import {
-  CONFIG_FILE_DEFINITIONS,
-  CONFIG_FILE_FORMAT_ORDER,
-  CONFIG_FILE_READ_KIND,
-  configFileForFormat,
-  type ConfigFileReadResult,
-} from "@/config/index";
-import { resolveMethodologyConfigFromReadResult } from "@/config/methodology-placement";
+import { detectProductConfigFile } from "@/config/index";
+import { resolveMethodologyConfigFromReadResult } from "@/config/methodology-resolution";
 import {
   auditDeclarationOwners,
   changedContextTargets,
@@ -215,25 +209,17 @@ async function readEndpointGrammarSelection(
   paths: readonly string[],
   endpointReader: ReleaseEndpointReader,
 ): Promise<SpecTreeGrammarSelection> {
-  const committed = CONFIG_FILE_FORMAT_ORDER.filter((format) =>
-    paths.includes(CONFIG_FILE_DEFINITIONS[format].filename)
+  const detected = await detectProductConfigFile(
+    productDir,
+    async (filename) => {
+      const raw = await endpointReader.readText(productDir, ref, filename);
+      if (raw === null) throw missingCommittedFile(filename, ref);
+      return raw;
+    },
+    paths,
   );
-  let detected: ConfigFileReadResult;
-  if (committed.length === 0) {
-    detected = { kind: CONFIG_FILE_READ_KIND.ABSENT };
-  } else if (committed.length > 1) {
-    detected = {
-      kind: CONFIG_FILE_READ_KIND.AMBIGUOUS,
-      detected: committed.map((format) => CONFIG_FILE_DEFINITIONS[format].filename),
-    };
-  } else {
-    const [format] = committed;
-    const { filename } = CONFIG_FILE_DEFINITIONS[format];
-    const raw = await endpointReader.readText(productDir, ref, filename);
-    if (raw === null) throw missingCommittedFile(filename, ref);
-    detected = { kind: CONFIG_FILE_READ_KIND.OK, file: configFileForFormat(productDir, format, raw) };
-  }
-  const methodology = resolveMethodologyConfigFromReadResult(detected);
+  if (!detected.ok) throw new Error(`Methodology declaration at ${ref}: ${detected.error}`);
+  const methodology = resolveMethodologyConfigFromReadResult(detected.value);
   if (!methodology.ok) throw new Error(`Methodology declaration at ${ref}: ${methodology.error}`);
   try {
     return selectSpecTreeGrammar(methodology.value);

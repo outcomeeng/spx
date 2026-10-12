@@ -87,19 +87,31 @@ export function resolveDescriptorSectionsFromReadResult(
   return { ok: true, value: resolved };
 }
 
-export async function readProductConfigFile(productDir: string): Promise<Result<ConfigFileReadResult>> {
+/** Reads one config file's text by filename; resolves to null when the product does not hold that file. */
+export type ConfigFileTextReader = (filename: ConfigFilename) => Promise<string | null>;
+
+/**
+ * Probes for every config filename and reports the single file found, every file found
+ * when more than one is, or absence. `committedPaths` narrows the probe to the filenames
+ * a path list contains; omitted, every filename is probed through the reader.
+ */
+export async function detectProductConfigFile(
+  productDir: string,
+  readText: ConfigFileTextReader,
+  committedPaths?: readonly string[],
+): Promise<Result<ConfigFileReadResult>> {
   const detected: ConfigFile[] = [];
   for (const format of CONFIG_FILE_FORMAT_ORDER) {
     const filename = CONFIG_FILE_DEFINITIONS[format].filename;
-    const path = join(productDir, filename);
-    let raw: string;
+    if (committedPaths !== undefined && !committedPaths.includes(filename)) continue;
+    let raw: string | null;
     try {
-      raw = await readFile(path, "utf8");
+      raw = await readText(filename);
     } catch (error) {
-      if (isFileNotFound(error)) continue;
       return { ok: false, error: `failed to read ${filename}: ${toMessage(error)}` };
     }
-    detected.push({ filename, format, path, raw });
+    if (raw === null) continue;
+    detected.push({ filename, format, path: join(productDir, filename), raw });
   }
   if (detected.length === 0) return absentConfigFileReadResult();
   if (detected.length > 1) {
@@ -112,6 +124,17 @@ export async function readProductConfigFile(productDir: string): Promise<Result<
     };
   }
   return { ok: true, value: { kind: CONFIG_FILE_READ_KIND.OK, file: detected[0] } };
+}
+
+export async function readProductConfigFile(productDir: string): Promise<Result<ConfigFileReadResult>> {
+  return detectProductConfigFile(productDir, async (filename) => {
+    try {
+      return await readFile(join(productDir, filename), "utf8");
+    } catch (error) {
+      if (isFileNotFound(error)) return null;
+      throw error;
+    }
+  });
 }
 
 export function formatConfigFileAmbiguityError(detected: readonly ConfigFilename[]): string {

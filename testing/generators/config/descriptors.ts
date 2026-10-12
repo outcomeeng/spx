@@ -25,9 +25,9 @@ import {
   AGENT,
   DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
   HARNESS_ENVIRONMENT_CONFIG_FIELDS,
-  HARNESS_ENVIRONMENT_SECTION,
   type HarnessEnvironmentConfig,
 } from "@/domains/agent-environment/config";
+import { HARNESS_ENVIRONMENT_SECTION } from "@/lib/harness-environment-section";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG_FIELDS, SPEC_TREE_SECTION } from "@/lib/spec-tree";
 import { TESTING_CONFIG_FIELDS, TESTING_SECTION, type TestingConfig, testingConfigDescriptor } from "@/test/config";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
