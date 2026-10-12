@@ -1,6 +1,6 @@
 # Product Context Resolution
 
-CLI invocation resolves one immutable product context from the process directory and the optional global `-C <path>` option, and config owns the typed API that carries that context into command handlers and domain modules. Config loading, descriptor validation, root selection, and state addressing read product directories from that context rather than from ambient process state.
+CLI invocation resolves one immutable product context from the process directory and the optional global `-C <path>` option, and config owns the typed API that carries that context into command handlers and domain modules. Config loading, descriptor validation, root selection, and state addressing read product directories from that context rather than from ambient process state. The context's tracked product directory is the local product root of [`spx/15-worktree-management.pdr.md`](spx/15-worktree-management.pdr.md), obtained from the state module.
 
 ## Rationale
 
