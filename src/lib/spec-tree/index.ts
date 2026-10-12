@@ -4,9 +4,9 @@ import { join } from "node:path";
 
 import { parse as parseYaml } from "yaml";
 
+import { resolveMethodologyConfig } from "@/config/methodology-resolution";
 import type { Result } from "@/config/types";
 
-import { readSpecTreeMethodologyDeclaration } from "../spec-tree-methodology-declaration";
 import type {
   DecisionKind,
   Kind,
@@ -504,7 +504,7 @@ async function selectGrammarForSource(options: FilesystemSpecTreeSourceOptions):
  */
 export async function resolveSpecTreeGrammarSelection(
   productDir: string,
-  resolveMethodology: SpecTreeMethodologyResolver = readSpecTreeMethodologyDeclaration,
+  resolveMethodology: SpecTreeMethodologyResolver = resolveMethodologyConfig,
 ): Promise<SpecTreeGrammarSelection> {
   const declaration = await resolveMethodology(productDir);
   if (!declaration.ok) throw new Error(declaration.error);
