@@ -15,6 +15,7 @@ import {
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_LINK_PARENT_SEGMENT,
   SPEC_TREE_METHODOLOGY_LINE,
+  type SpecTreeMethodologyLine,
 } from "@/lib/spec-tree";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
@@ -297,11 +298,13 @@ export function arbitraryReleaseEndpointSourceScenario(
  * The methodology declaration an endpoint commits in its product configuration. The generated
  * trees use the 3.x naming grammar, so the declaration selects the 3.2 line.
  */
-function releaseEndpointMethodologyDeclaration(): ReleaseEndpointFile {
+function releaseEndpointMethodologyDeclaration(
+  line: SpecTreeMethodologyLine = SPEC_TREE_METHODOLOGY_LINE.THREE_TWO,
+): ReleaseEndpointFile {
   const serialized = serializeConfigFileSections(CONFIG_FILE_FORMAT.JSON, {
     [METHODOLOGY_SECTION]: {
       [METHODOLOGY_CONFIG_FIELDS.SOURCE]: DEFAULT_METHODOLOGY_SOURCE,
-      [METHODOLOGY_CONFIG_FIELDS.VERSION]: SPEC_TREE_METHODOLOGY_LINE.THREE_TWO,
+      [METHODOLOGY_CONFIG_FIELDS.VERSION]: line,
     },
   });
   return releaseEndpointFile(CONFIG_FILE_DEFINITIONS[CONFIG_FILE_FORMAT.JSON].filename, serialized.value);
@@ -625,4 +628,87 @@ function citationNodeSpec(slug: string, assertions: readonly string[]): string {
 
 function citationDecision(title: string): string {
   return `# ${title}\n\nGOVERNS ${title}\n`;
+}
+
+/**
+ * A release range whose current endpoint commits a 4.0 methodology declaration with a tree in the
+ * 4.0 grammar and whose previous endpoint commits a 3.2 declaration with a tree in the 3.x grammar.
+ * Each endpoint also commits one node directory only the other endpoint's grammar accepts. Every
+ * node's specification is a changed path, so a specification enters the context exactly when its
+ * endpoint's grammar recognizes the node directory that holds it.
+ */
+export interface ReleaseEndpointGrammarScenario {
+  readonly endpoints: readonly ReleaseEndpointSource[];
+  readonly releaseData: ReleaseData;
+  /** Specifications each endpoint's own grammar accepts. */
+  readonly ownGrammarSpecificationPaths: readonly string[];
+  /** The specification of the 3.x-only node directory committed at the 4.0 endpoint. */
+  readonly threeXNameAtFourZeroPath: string;
+  /** The specification of the 4.0-only node directory committed at the 3.2 endpoint. */
+  readonly fourZeroNameAtThreeXPath: string;
+}
+
+export function arbitraryReleaseEndpointGrammarScenario(): fc.Arbitrary<ReleaseEndpointGrammarScenario> {
+  return fc.record({
+    slugs: fc.uniqueArray(arbitraryPathSegment(), { minLength: 5, maxLength: 5 }),
+    tag: arbitraryPathSegment().map((segment) => `release-${segment}`),
+    releaseData: RELEASE_TEST_GENERATOR.releaseData(),
+  }).filter(({ tag, releaseData }) => tag !== releaseData.releaseRef).map(({ slugs, tag, releaseData }) => {
+    const [productSlug, fourZeroSlug, threeXAtFourZeroSlug, threeXSlug, fourZeroAtThreeXSlug] = slugs;
+    const fourZeroSpec = (slug: string, index: number) =>
+      citationSpecificationPath(
+        posix.join(SPEC_TREE_CONFIG.ROOT_DIRECTORY, `${index}-${slug}${KIND_REGISTRY.capability.suffix}`),
+        slug,
+      )
+        .replace(SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX, SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX);
+    const threeXSpec = (slug: string, index: number) =>
+      citationSpecificationPath(citationNodeDirectory(index, slug), slug);
+    const fourZeroPath = fourZeroSpec(fourZeroSlug, 20);
+    const threeXAtFourZeroPath = threeXSpec(threeXAtFourZeroSlug, 30);
+    const threeXPath = threeXSpec(threeXSlug, 20);
+    const fourZeroAtThreeXPath = fourZeroSpec(fourZeroAtThreeXSlug, 30);
+    const fourZeroRoot = posix.join(
+      SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+      `${productSlug}${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX}`,
+    );
+    const threeXRoot = posix.join(SPEC_TREE_CONFIG.ROOT_DIRECTORY, `${productSlug}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`);
+    const node = (path: string, content: string) => releaseEndpointFile(path, content);
+    const specification = (slug: string) => citationNodeSpec(slug, []);
+    const typescriptConfig = releaseEndpointFile(
+      TYPESCRIPT_MARKER,
+      RELEASE_OWNERSHIP_FIXTURE_CONTENT.TYPESCRIPT_CONFIG,
+    );
+    return {
+      endpoints: [
+        {
+          ref: releaseData.releaseRef,
+          files: [
+            releaseEndpointMethodologyDeclaration(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO),
+            node(fourZeroRoot, `# ${productSlug}\n`),
+            node(fourZeroPath, specification(fourZeroSlug)),
+            node(threeXAtFourZeroPath, specification(threeXAtFourZeroSlug)),
+            typescriptConfig,
+          ],
+        },
+        {
+          ref: tag,
+          files: [
+            releaseEndpointMethodologyDeclaration(SPEC_TREE_METHODOLOGY_LINE.THREE_TWO),
+            node(threeXRoot, `# ${productSlug}\n`),
+            node(threeXPath, specification(threeXSlug)),
+            node(fourZeroAtThreeXPath, specification(fourZeroAtThreeXSlug)),
+            typescriptConfig,
+          ],
+        },
+      ],
+      releaseData: {
+        ...releaseData,
+        previousTag: tag,
+        changedPaths: [fourZeroPath, threeXAtFourZeroPath, threeXPath, fourZeroAtThreeXPath],
+      },
+      ownGrammarSpecificationPaths: [fourZeroPath, threeXPath],
+      threeXNameAtFourZeroPath: threeXAtFourZeroPath,
+      fourZeroNameAtThreeXPath: fourZeroAtThreeXPath,
+    };
+  });
 }
