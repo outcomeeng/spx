@@ -37,7 +37,7 @@ describe("node state derivation", () => {
       const entries = [
         buildNodeEntry(KIND_REGISTRY, {
           id: fixture.root.id,
-          order: fixture.root.order,
+          orderSegments: fixture.root.orderSegments,
           slug: fixture.root.slug,
         }),
         ...(evidence === undefined
@@ -63,7 +63,7 @@ describe("node state derivation", () => {
       source: createSource([
         buildNodeEntry(KIND_REGISTRY, {
           id: fixture.root.id,
-          order: fixture.root.order,
+          orderSegments: fixture.root.orderSegments,
           slug: fixture.root.slug,
         }),
       ]),
