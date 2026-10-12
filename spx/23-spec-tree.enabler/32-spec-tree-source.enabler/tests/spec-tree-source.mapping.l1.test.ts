@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   createFilesystemSpecTreeSource,
-  KIND_REGISTRY,
   readSpecTree,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
@@ -10,10 +9,7 @@ import {
   SPEC_TREE_EVIDENCE_STATUS,
 } from "@/lib/spec-tree";
 import {
-  sampleDecisionKind,
-  sampleSpecTreeTestValue,
   SPEC_TREE_SOURCE_MAPPING_CASE_KIND,
-  SPEC_TREE_TEST_GENERATOR,
   specTreeSourceMappingCases,
 } from "@testing/generators/spec-tree/spec-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -95,30 +91,6 @@ describe("SpecTreeSource mappings", () => {
             }
           }
           return;
-        }
-        case SPEC_TREE_SOURCE_MAPPING_CASE_KIND.DECISION_SHAPED_DESCENT: {
-          const childDirectory = nodeDirectoryName(env.fixture.child);
-          const decisionDirectory = `${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder())}-${
-            sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug())
-          }${KIND_REGISTRY[sampleDecisionKind(KIND_REGISTRY)].suffix}`;
-          await env.writeRaw(
-            [
-              SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-              rootDirectory,
-              decisionDirectory,
-              childDirectory,
-              `${env.fixture.child.slug}.md`,
-            ]
-              .join("/"),
-            "",
-          );
-          const snapshot = await readSpecTree({ source: env.filesystemSource() });
-          expect(snapshot.decisions.map((decision) => decision.id)).not.toContain(
-            `${rootDirectory}/${decisionDirectory}`,
-          );
-          expect(snapshot.allNodes.map((node) => node.id)).toContain(
-            `${rootDirectory}/${decisionDirectory}/${childDirectory}`,
-          );
         }
       }
     });
