@@ -1,4 +1,3 @@
-import { arbitraryFixtureAuthoredLine } from "@testing/generators/methodology/tree";
 import { describe, expect, it } from "vitest";
 
 import { SPEC_CONTEXT_TEXT_LABEL } from "@/commands/spec/context";
@@ -8,6 +7,7 @@ import {
   generatedMethodologyVersionFormSections,
   generatedMigratingMethodologyFormCases,
 } from "@testing/generators/config/descriptors";
+import { arbitraryFixtureAuthoredLine } from "@testing/generators/methodology/tree";
 import { rootedSpecPath } from "@testing/generators/spec-tree/rich-context";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { contextListJson, contextListText, specTreeKindsConfig } from "@testing/harnesses/spec/context";
