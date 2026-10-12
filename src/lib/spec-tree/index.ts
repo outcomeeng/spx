@@ -1031,8 +1031,35 @@ async function* walkFilesystemDirectory(context: FilesystemWalkContext): AsyncIt
   }
 }
 
-const FRONT_MATTER_PATTERN = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
-const FRONT_MATTER_KIND_KEY = "kind";
+/** The fence that opens and closes a root spec's front matter. */
+export const SPEC_TREE_FRONT_MATTER_FENCE = "---";
+/** The front-matter key carrying a root spec's identity. */
+export const SPEC_TREE_FRONT_MATTER_ID_KEY = "id";
+/** The front-matter key carrying a root spec's declared kind. */
+export const SPEC_TREE_FRONT_MATTER_KIND_KEY = "kind";
+
+const FRONT_MATTER_PATTERN = new RegExp(
+  `^${SPEC_TREE_FRONT_MATTER_FENCE}\\r?\\n([\\s\\S]*?)\\r?\\n${SPEC_TREE_FRONT_MATTER_FENCE}(?:\\r?\\n|$)`,
+);
+
+/** The fields a root spec's front matter carries. */
+export type SpecTreeRootFrontMatterFields = {
+  readonly id?: string;
+};
+
+/**
+ * Renders a root spec's front matter, fence to fence and ending in a line break, in the format
+ * `readSpecTreeDeclaredRootKind` reads.
+ */
+export function renderSpecTreeRootFrontMatter(fields: SpecTreeRootFrontMatterFields = {}): string {
+  const lines = [
+    SPEC_TREE_FRONT_MATTER_FENCE,
+    ...(fields.id === undefined ? [] : [`${SPEC_TREE_FRONT_MATTER_ID_KEY}: ${fields.id}`]),
+    `${SPEC_TREE_FRONT_MATTER_KIND_KEY}: ${SPEC_TREE_CONFIG.PRODUCT.KIND}`,
+    SPEC_TREE_FRONT_MATTER_FENCE,
+  ];
+  return `${lines.join("\n")}\n`;
+}
 
 /**
  * The `kind` a root spec file declares in its front matter, read only for a file a selected version
@@ -1052,7 +1079,7 @@ export async function readSpecTreeDeclaredRootKind(input: {
   if (frontMatter === null) return undefined;
   const parsed: unknown = parseYaml(frontMatter[1]);
   if (typeof parsed !== "object" || parsed === null) return undefined;
-  const kind = (parsed as Record<string, unknown>)[FRONT_MATTER_KIND_KEY];
+  const kind = (parsed as Record<string, unknown>)[SPEC_TREE_FRONT_MATTER_KIND_KEY];
   return typeof kind === "string" ? kind : undefined;
 }
 
