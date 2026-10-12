@@ -10,7 +10,14 @@
  * @module generators/spec-tree/kind-grammar
  */
 
-import { NODE_KINDS, OUTPUT_KINDS, type SpecTreeNodeKind } from "@/lib/spec-tree";
+import {
+  NODE_KINDS,
+  OUTPUT_KINDS,
+  SPEC_TREE_CONFIG,
+  type SpecTreeChildKind,
+  type SpecTreeContainerKind,
+  type SpecTreeNodeKind,
+} from "@/lib/spec-tree";
 
 const VARIANT_KIND = "variant" as const;
 
@@ -46,9 +53,9 @@ export type KindOpeningCase = {
 
 export type KindAdmittedChildrenCase = {
   readonly label: string;
-  readonly kind: SpecTreeNodeKind;
+  readonly kind: SpecTreeContainerKind;
   readonly parentKind?: SpecTreeNodeKind;
-  readonly expectedChildren: readonly SpecTreeNodeKind[];
+  readonly expectedChildren: readonly SpecTreeChildKind[];
 };
 
 const LABEL_PARENT_JOINER = " under a ";
@@ -61,7 +68,7 @@ function foundationIndex(kind: SelfDescribedKind): number {
   return OUTPUT_FOUNDATION_ORDER.findIndex((candidate) => candidate === kind);
 }
 
-function expectedChildrenOfSelfDescribed(kind: SelfDescribedKind): readonly SpecTreeNodeKind[] {
+function expectedChildrenOfSelfDescribed(kind: SelfDescribedKind): readonly SpecTreeChildKind[] {
   const index = foundationIndex(kind);
   if (index < 0) return NODE_FAMILY_CHILDREN[kind as NodeFamilyKind];
   return [...OUTPUT_FOUNDATION_ORDER.slice(0, index + 1), VARIANT_KIND];
@@ -88,9 +95,14 @@ export function kindOpeningCases(): readonly KindOpeningCase[] {
   });
 }
 
-/** One case per registered kind, and for the variant one per output kind it can sit under. */
+/** One case per registered kind, one for the product, and for the variant one per output kind it can sit under. */
 export function kindAdmittedChildrenCases(): readonly KindAdmittedChildrenCase[] {
-  return everyRegisteredKind().flatMap((kind): readonly KindAdmittedChildrenCase[] => {
+  const productCase: KindAdmittedChildrenCase = {
+    label: SPEC_TREE_CONFIG.PRODUCT.KIND,
+    kind: SPEC_TREE_CONFIG.PRODUCT.KIND,
+    expectedChildren: [...OUTPUT_FOUNDATION_ORDER, SPEC_TREE_CONFIG.PRODUCT.KIND],
+  };
+  const registeredCases = everyRegisteredKind().flatMap((kind): readonly KindAdmittedChildrenCase[] => {
     if (isSelfDescribed(kind)) return [{ label: kind, kind, expectedChildren: expectedChildrenOfSelfDescribed(kind) }];
     return variantParentKinds().map((parentKind) => ({
       label: [kind, parentKind].join(LABEL_PARENT_JOINER),
@@ -99,4 +111,5 @@ export function kindAdmittedChildrenCases(): readonly KindAdmittedChildrenCase[]
       expectedChildren: expectedChildrenOfSelfDescribed(parentKind).filter((child) => child !== VARIANT_KIND),
     }));
   });
+  return [...registeredCases, productCase];
 }

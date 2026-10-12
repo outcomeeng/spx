@@ -1,11 +1,17 @@
 import * as fc from "fast-check";
 
+import type { Config } from "@/config/types";
 import {
   DECISION_KINDS,
+  DECISION_SUFFIXES,
   type Kind,
   KIND_REGISTRY,
   NODE_KINDS,
+  NODE_SUFFIXES,
+  OUTPUT_KINDS,
+  OUTPUT_SUFFIXES,
   SPEC_TREE_CONFIG,
+  SPEC_TREE_CONFIG_FIELDS,
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_FILESYSTEM_RECORD_TYPE,
   SPEC_TREE_GRAMMAR,
@@ -23,6 +29,7 @@ export type FilenameGrammarTokenCase = {
 export type KindRegistryMappingCase = {
   readonly title: string;
   readonly kind: Kind;
+  readonly suffixPattern: RegExp;
 };
 
 export type KindRegistrySubsetCase = {
@@ -30,12 +37,15 @@ export type KindRegistrySubsetCase = {
   readonly category: SpecTreeKindCategory;
   readonly projectedKinds: readonly Kind[];
   readonly projectedSuffixes: readonly string[];
+  readonly exportedKinds: readonly Kind[];
+  readonly exportedSuffixes: readonly string[];
 };
 
 export type KindRegistryTypeCase = {
   readonly title: string;
   readonly kind: Kind;
   readonly category: SpecTreeKindCategory;
+  readonly exportedKinds: readonly Kind[];
 };
 
 export type KindRegistrySuffixCase = {
@@ -43,24 +53,10 @@ export type KindRegistrySuffixCase = {
   readonly kinds: readonly Kind[];
 };
 
-export const SPEC_TREE_CONFIG_VALIDATION_EXPECTATION = {
-  ACCEPTED_SUBSET: "accepted-subset",
-  UNKNOWN_KIND: "unknown-kind",
-} as const;
-
-export type SpecTreeConfigValidationCase =
-  | {
-    readonly title: string;
-    readonly expectation: typeof SPEC_TREE_CONFIG_VALIDATION_EXPECTATION.ACCEPTED_SUBSET;
-    readonly selectedKinds: readonly Kind[];
-    readonly input: unknown;
-  }
-  | {
-    readonly title: string;
-    readonly expectation: typeof SPEC_TREE_CONFIG_VALIDATION_EXPECTATION.UNKNOWN_KIND;
-    readonly offendingKind: string;
-    readonly input: unknown;
-  };
+export type SpecTreeKindsFieldCase = {
+  readonly title: string;
+  readonly config: Config;
+};
 
 export type SpecTreeEntryRecognitionCase = {
   readonly title: string;
@@ -97,10 +93,28 @@ export const FILENAME_GRAMMAR_TOKEN_CASES = [
   { name: "prior node suffixes", size: SPEC_TREE_GRAMMAR.PRIOR_NODE_SUFFIXES.length },
 ] as const satisfies readonly FilenameGrammarTokenCase[];
 
+const NODE_SUFFIX_SHAPE = /^\.[a-z-]+$/;
+const DECISION_SUFFIX_SHAPE = /^\.[a-z-]+\.md$/;
+
+const EXPORTED_KINDS_BY_CATEGORY: Readonly<Record<SpecTreeKindCategory, readonly Kind[]>> = {
+  [SPEC_TREE_KIND_CATEGORY.NODE]: NODE_KINDS,
+  [SPEC_TREE_KIND_CATEGORY.OUTPUT]: OUTPUT_KINDS,
+  [SPEC_TREE_KIND_CATEGORY.DECISION]: DECISION_KINDS,
+};
+
+const EXPORTED_SUFFIXES_BY_CATEGORY: Readonly<Record<SpecTreeKindCategory, readonly string[]>> = {
+  [SPEC_TREE_KIND_CATEGORY.NODE]: NODE_SUFFIXES,
+  [SPEC_TREE_KIND_CATEGORY.OUTPUT]: OUTPUT_SUFFIXES,
+  [SPEC_TREE_KIND_CATEGORY.DECISION]: DECISION_SUFFIXES,
+};
+
 export function kindRegistryMappingCases(): readonly KindRegistryMappingCase[] {
   return (Object.keys(KIND_REGISTRY) as Kind[]).map((kind) => ({
     title: `maps ${kind} to one category and suffix`,
     kind,
+    suffixPattern: KIND_REGISTRY[kind].category === SPEC_TREE_KIND_CATEGORY.DECISION
+      ? DECISION_SUFFIX_SHAPE
+      : NODE_SUFFIX_SHAPE,
   }));
 }
 
@@ -115,6 +129,8 @@ export function kindRegistrySubsetCases(): readonly KindRegistrySubsetCase[] {
         category,
         projectedKinds,
         projectedSuffixes: projectedKinds.map((kind) => KIND_REGISTRY[kind].suffix),
+        exportedKinds: EXPORTED_KINDS_BY_CATEGORY[category],
+        exportedSuffixes: EXPORTED_SUFFIXES_BY_CATEGORY[category],
       };
     },
   );
@@ -125,6 +141,7 @@ export function kindRegistryTypeCases(): readonly KindRegistryTypeCase[] {
     title: `projects the ${kind} runtime and type category`,
     kind,
     category: KIND_REGISTRY[kind].category,
+    exportedKinds: EXPORTED_KINDS_BY_CATEGORY[KIND_REGISTRY[kind].category],
   }));
 }
 
@@ -136,23 +153,22 @@ export function kindRegistrySuffixCases(): readonly KindRegistrySuffixCase[] {
   ];
 }
 
-export function specTreeConfigValidationCases(): readonly SpecTreeConfigValidationCase[] {
-  const selectedKinds = [requireFirst(NODE_KINDS), requireFirst(DECISION_KINDS)];
-  const offendingKind = sampleSpecTreeTestValue(
-    SPEC_TREE_TEST_GENERATOR.sourceSlug().filter((kind) => !Object.hasOwn(KIND_REGISTRY, kind)),
-  );
+/** A configuration that carries no `specTree` section, so the descriptor defaults apply. */
+export function specTreeAbsentSectionConfig(): Config {
+  return {};
+}
+
+/** One configuration per accepted shape of a `kinds` field: a list of kind names and a map of kind definitions. */
+export function specTreeKindsFieldCases(): readonly SpecTreeKindsFieldCase[] {
+  const kindNames = [requireFirst(NODE_KINDS), requireFirst(DECISION_KINDS)];
   return [
     {
-      title: "accepts a source-owned subset of registered kinds",
-      expectation: SPEC_TREE_CONFIG_VALIDATION_EXPECTATION.ACCEPTED_SUBSET,
-      selectedKinds,
-      input: { kinds: selectedKinds },
+      title: "rejects a kinds field listing registered kind names",
+      config: { [SPEC_TREE_CONFIG.SECTION]: { [SPEC_TREE_CONFIG_FIELDS.KINDS]: kindNames } },
     },
     {
-      title: "rejects a generated kind absent from the registry",
-      expectation: SPEC_TREE_CONFIG_VALIDATION_EXPECTATION.UNKNOWN_KIND,
-      offendingKind,
-      input: { kinds: [offendingKind] },
+      title: "rejects a kinds field mapping registered kind names to their definitions",
+      config: { [SPEC_TREE_CONFIG.SECTION]: { [SPEC_TREE_CONFIG_FIELDS.KINDS]: { ...KIND_REGISTRY } } },
     },
   ];
 }
