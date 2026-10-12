@@ -14,6 +14,7 @@ import {
   decodeContextDocumentUtf8,
   readSpecTree,
   resolveSpecContextTarget,
+  selectSpecTreeGrammar,
   type SpecContextAcceptedPath,
   specContextAcceptedPaths,
   type SpecContextKindRegistry,
@@ -24,6 +25,7 @@ import {
   type SpecContextTargetPathFacts,
   type SpecTreeConfig,
   specTreeConfigDescriptor,
+  type SpecTreeGrammarSelection,
   type SpecTreeSnapshot,
 } from "@/lib/spec-tree";
 import { resolveSpecProductDir, type SpecProductDirWarningHandler } from "./root";
@@ -81,6 +83,20 @@ export interface ContextInput {
   readonly hasDocument: (path: string) => Promise<boolean>;
 }
 
+/**
+ * The grammar the declared methodology selects, or the default grammar while the declared line
+ * is one SPX reads no grammar for: context delivery serves the declared methodology's shipped
+ * tree and reports an unshipped line through its own typed failure, so the tree read never
+ * pre-empts it.
+ */
+function readableGrammarSelection(declaration: MethodologyConfig): SpecTreeGrammarSelection {
+  try {
+    return selectSpecTreeGrammar(declaration);
+  } catch {
+    return selectSpecTreeGrammar({});
+  }
+}
+
 export async function readContextInput(options: ContextInputOptions): Promise<ContextInput> {
   const cwd = options.cwd ?? CONFIG_PROCESS_CWD.read();
   const git = options.gitDependencies ?? defaultGitDependencies;
@@ -89,9 +105,15 @@ export async function readContextInput(options: ContextInputOptions): Promise<Co
   const realRoot = await fs.realPath(productDir);
   const trackedPaths = await listTrackedPaths(productDir, git);
   const includePath = createTrackedPathInclusion(trackedPaths);
-  const snapshot = await readSpecTree({ source: fs.createSpecTreeSource({ productDir, includePath }) });
   const methodology = await fs.resolveMethodologyConfig(productDir);
   if (!methodology.ok) throw new Error(methodology.error);
+  const snapshot = await readSpecTree({
+    source: fs.createSpecTreeSource({
+      productDir,
+      includePath,
+      selection: readableGrammarSelection(methodology.value),
+    }),
+  });
   const registry = await fs.resolveKindRegistry(productDir);
   if (!registry.ok) throw new Error(registry.error);
   const acceptedPaths = specContextAcceptedPaths(snapshot);
