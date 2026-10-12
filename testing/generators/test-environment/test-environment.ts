@@ -2,9 +2,10 @@ import * as fc from "fast-check";
 
 import type { Config } from "@/config/types";
 import {
+  KIND_REGISTRY,
   SPEC_TREE_CONFIG,
+  SPEC_TREE_CONFIG_FIELDS,
   SPEC_TREE_GRAMMAR,
-  specTreeConfigDescriptor,
   type SpecTreeKindCategory,
 } from "@/lib/spec-tree";
 
@@ -82,13 +83,15 @@ function generatedSegment(): fc.Arbitrary<string> {
 }
 
 function readKinds(config: Config, category: SpecTreeKindCategory): readonly KindEntry[] {
-  const validated = specTreeConfigDescriptor.validate(config[SPEC_TREE_CONFIG.SECTION]);
-  if (!validated.ok) {
-    throw new Error(
-      `Config supplied to spec-tree generators has an unusable ${SPEC_TREE_CONFIG.SECTION} section: ${validated.error}`,
-    );
-  }
-  return Object.entries(validated.value.kinds)
+  const section = config[SPEC_TREE_CONFIG.SECTION];
+  const configured = typeof section === "object" && section !== null && !Array.isArray(section)
+    ? (section as { [SPEC_TREE_CONFIG_FIELDS.KINDS]?: unknown })[SPEC_TREE_CONFIG_FIELDS.KINDS]
+    : undefined;
+  const kinds: Readonly<Record<string, { readonly category: SpecTreeKindCategory; readonly suffix: string }>> =
+    typeof configured === "object" && configured !== null && !Array.isArray(configured)
+      ? configured as Record<string, { readonly category: SpecTreeKindCategory; readonly suffix: string }>
+      : KIND_REGISTRY;
+  return Object.entries(kinds)
     .filter(([, definition]) => definition.category === category)
     .map(([kind, definition]) => ({ category, kind, suffix: definition.suffix }));
 }

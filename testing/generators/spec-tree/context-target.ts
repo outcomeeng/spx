@@ -133,6 +133,7 @@ const UNACCEPTED_ARTIFACTS_BY_GRAMMAR_FIELD: {
   // Naming grammar: filename segments and separators, not artifacts an operand can name.
   RUNNERS: [],
   ORDER: [],
+  ORDER_FORMS: [],
   PATH_SEPARATOR: [],
   // Node-directory suffixes, covered by the superseded-suffix unresolved shape.
   PRIOR_NODE_SUFFIXES: [],

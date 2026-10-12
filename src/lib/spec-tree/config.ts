@@ -18,6 +18,8 @@ export const SPEC_TREE_CONFIG = {
     LABEL: "Product",
     SUFFIX: ".product.md",
     KIND: "product",
+    /** The directory suffix of a nested product scope, which holds children without being a registered node kind. */
+    NODE_SUFFIX: ".product",
     /** The kinds a product admits as children: the 4.0 output kinds a variant does not take the place of, and a nested product. */
     CHILDREN: ["substrate", "capability", "domain", "interface", "surface", "product"],
   },
@@ -206,7 +208,11 @@ export const SPEC_TREE_GRAMMAR = {
   RUNNERS: ["vitest", "playwright", "subprocess"],
   ORDER: {
     SEPARATOR: "-",
-    PATTERN: /^\d+$/,
+  },
+  /** The index form each naming-schema era accepts: dot-separated digit runs, or two-digit integers with two-digit fractions. */
+  ORDER_FORMS: {
+    DIGIT_RUNS: { SEPARATOR: "-", PATTERN: /^\d+(\.\d+)*$/ },
+    TWO_DIGIT: { SEPARATOR: "-", PATTERN: /^[1-9]\d(\.\d{2})*$/ },
   },
   PATH_SEPARATOR: "/",
   COORDINATION_NOTE: SPEC_TREE_COORDINATION_NOTE,
@@ -251,7 +257,10 @@ export type SpecTreeEvidenceGrammar = {
   readonly TAILS: Readonly<Record<string, readonly string[]>>;
   readonly SEGMENT_SEPARATOR: string;
 };
-export type SpecTreeOrderGrammar = typeof SPEC_TREE_GRAMMAR.ORDER;
+export type SpecTreeOrderGrammar = {
+  readonly SEPARATOR: string;
+  readonly PATTERN: RegExp;
+};
 
 export type NamingSchemaVersion = {
   readonly version: string;
@@ -280,6 +289,7 @@ function namingSchemaVersion(
   version: string,
   nodeSuffixes: readonly string[],
   specFileSuffix: string,
+  order: SpecTreeOrderGrammar,
 ): NamingSchemaVersion {
   return {
     version,
@@ -288,7 +298,7 @@ function namingSchemaVersion(
     productSuffix: SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX,
     evidence: SPEC_TREE_GRAMMAR.EVIDENCE,
     runners: SPEC_TREE_GRAMMAR.RUNNERS,
-    order: SPEC_TREE_GRAMMAR.ORDER,
+    order,
     pathSeparator: SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
     coordinationNotes: SPEC_TREE_GRAMMAR.COORDINATION_NOTES,
     eval: SPEC_TREE_GRAMMAR.EVAL,
@@ -302,8 +312,14 @@ export const SPEC_TREE_NAMING_SCHEMA_VERSIONS: readonly NamingSchemaVersion[] = 
     NAMING_SCHEMA_VERSION_ID.PRIOR_NODES,
     SPEC_TREE_GRAMMAR.PRIOR_NODE_SUFFIXES,
     SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX,
+    SPEC_TREE_GRAMMAR.ORDER_FORMS.DIGIT_RUNS,
   ),
-  namingSchemaVersion(NAMING_SCHEMA_VERSION_ID.CANONICAL, NODE_SUFFIXES, SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX),
+  namingSchemaVersion(
+    NAMING_SCHEMA_VERSION_ID.CANONICAL,
+    NODE_SUFFIXES,
+    SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX,
+    SPEC_TREE_GRAMMAR.ORDER_FORMS.DIGIT_RUNS,
+  ),
 ];
 
 /**
@@ -313,8 +329,9 @@ export const SPEC_TREE_NAMING_SCHEMA_VERSIONS: readonly NamingSchemaVersion[] = 
 export const SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION: NamingSchemaVersion = {
   ...namingSchemaVersion(
     NAMING_SCHEMA_VERSION_ID.OUTPUT_NODES,
-    OUTPUT_SUFFIXES,
+    [...OUTPUT_SUFFIXES, SPEC_TREE_CONFIG.PRODUCT.NODE_SUFFIX],
     SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX,
+    SPEC_TREE_GRAMMAR.ORDER_FORMS.TWO_DIGIT,
   ),
   productSuffix: SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX,
   coordinationNotes: [SPEC_TREE_COORDINATION_NOTE.ISSUES],
@@ -421,125 +438,25 @@ export type SpecTreeConfig = {
 
 export const SPEC_TREE_SECTION = SPEC_TREE_CONFIG.SECTION;
 
-function isKind(value: string): value is Kind {
-  return Object.hasOwn(KIND_REGISTRY, value);
-}
-
 function buildDefaults(): SpecTreeConfig {
   return { kinds: { ...KIND_REGISTRY } };
-}
-
-function buildConfigFromKindNames(kindNames: readonly Kind[]): SpecTreeConfig {
-  const entries = kindNames.map((kind) => [kind, KIND_REGISTRY[kind]] as const);
-  return { kinds: Object.fromEntries(entries) };
-}
-
-function validate(value: unknown): Result<SpecTreeConfig> {
-  if (typeof value !== "object" || value === null) {
-    return { ok: false, error: `${SPEC_TREE_SECTION} section must be an object` };
-  }
-  const candidate = value as { [SPEC_TREE_CONFIG_FIELDS.KINDS]?: unknown };
-  const kindValue = candidate[SPEC_TREE_CONFIG_FIELDS.KINDS];
-  if (Array.isArray(kindValue)) {
-    return validateKindList(kindValue);
-  }
-  if (
-    typeof kindValue !== "object"
-    || kindValue === null
-  ) {
-    return {
-      ok: false,
-      error:
-        `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} must be an array of registry kind names or an object with registry metadata`,
-    };
-  }
-
-  return validateKindDefinitionMap(kindValue as Record<string, unknown>);
 }
 
 export function unknownSpecTreeKindError(kind: string): string {
   return `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} contains unknown kind "${kind}"`;
 }
 
-function validateKindList(kinds: readonly unknown[]): Result<SpecTreeConfig> {
-  const kindNames: Kind[] = [];
-  for (const entry of kinds) {
-    if (typeof entry !== "string") {
-      return {
-        ok: false,
-        error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} entries must be registry kind names`,
-      };
-    }
-    if (!isKind(entry)) {
-      return { ok: false, error: unknownSpecTreeKindError(entry) };
-    }
-    kindNames.push(entry);
+function validate(value: unknown): Result<SpecTreeConfig> {
+  if (typeof value !== "object" || value === null) {
+    return { ok: false, error: `${SPEC_TREE_SECTION} section must be an object` };
   }
-
-  const duplicateKinds = kindNames.filter((kind, index) => kindNames.indexOf(kind) !== index);
-  if (duplicateKinds.length > 0) {
+  if (Object.hasOwn(value, SPEC_TREE_CONFIG_FIELDS.KINDS)) {
     return {
       ok: false,
-      error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} contains duplicate kind "${duplicateKinds[0]}"`,
+      error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS} is not configurable; the kind registry is fixed`,
     };
   }
-
-  return { ok: true, value: buildConfigFromKindNames(kindNames) };
-}
-
-function validateKindDefinitionMap(kindEntries: Record<string, unknown>): Result<SpecTreeConfig> {
-  const entries: Array<[Kind, KindDefinition<Kind>]> = [];
-  for (const [key, entry] of Object.entries(kindEntries)) {
-    if (!isKind(key)) {
-      return { ok: false, error: unknownSpecTreeKindError(key) };
-    }
-    if (typeof entry !== "object" || entry === null) {
-      return {
-        ok: false,
-        error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS}.${key} must be an object with registry metadata`,
-      };
-    }
-    const def = entry as { category?: unknown; suffix?: unknown };
-    const expected = KIND_REGISTRY[key];
-    if (def.category !== expected.category) {
-      return {
-        ok: false,
-        error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS}.${key}.category must be "${expected.category}"`,
-      };
-    }
-    if ((entry as { label?: unknown }).label !== expected.label) {
-      return {
-        ok: false,
-        error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS}.${key}.label must be "${expected.label}"`,
-      };
-    }
-    if (def.suffix !== expected.suffix) {
-      return {
-        ok: false,
-        error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS}.${key}.suffix must be "${expected.suffix}"`,
-      };
-    }
-    const aliases = (entry as { aliases?: unknown }).aliases;
-    if (!Array.isArray(aliases) || aliases.some((alias) => typeof alias !== "string")) {
-      return {
-        ok: false,
-        error: `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS}.${key}.aliases must be an array of strings`,
-      };
-    }
-    if (
-      aliases.length !== expected.aliases.length || aliases.some((alias, index) => alias !== expected.aliases[index])
-    ) {
-      return {
-        ok: false,
-        error:
-          `${SPEC_TREE_SECTION}.${SPEC_TREE_CONFIG_FIELDS.KINDS}.${key}.aliases must match the registry definition`,
-      };
-    }
-    entries.push([key, expected]);
-  }
-
-  const kinds = Object.fromEntries(entries) as SpecTreeConfig["kinds"];
-  return { ok: true, value: { kinds } };
+  return { ok: true, value: buildDefaults() };
 }
 
 export const specTreeConfigDescriptor: ConfigDescriptor<SpecTreeConfig> = {

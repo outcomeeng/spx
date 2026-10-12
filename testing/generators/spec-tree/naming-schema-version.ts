@@ -144,7 +144,7 @@ function buildNamingSchemaVersion(
     productSuffix: SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX,
     evidence,
     runners: SPEC_TREE_GRAMMAR.RUNNERS,
-    order: SPEC_TREE_GRAMMAR.ORDER,
+    order: SPEC_TREE_GRAMMAR.ORDER_FORMS.DIGIT_RUNS,
     pathSeparator: SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
     coordinationNotes: SPEC_TREE_GRAMMAR.COORDINATION_NOTES,
     eval: SPEC_TREE_GRAMMAR.EVAL,
