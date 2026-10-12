@@ -18,24 +18,24 @@ describe("spec-tree assembly invariants", () => {
 
     await fc.assert(
       fc.asyncProperty(
-        SPEC_TREE_TEST_GENERATOR.assemblyNodeOrders(),
-        async ({ rootOrder, childOrder, peerOrder }) => {
+        SPEC_TREE_TEST_GENERATOR.assemblyNodeOrderSegments(),
+        async ({ rootOrderSegments, childOrderSegments, peerOrderSegments }) => {
           const snapshot = await readSpecTree({
             source: createSource([
               buildNodeEntry(KIND_REGISTRY, {
                 id: fixture.root.id,
-                order: rootOrder,
+                orderSegments: rootOrderSegments,
                 slug: fixture.root.slug,
               }),
               buildNodeEntry(KIND_REGISTRY, {
                 id: fixture.child.id,
-                order: childOrder,
+                orderSegments: childOrderSegments,
                 slug: fixture.child.slug,
                 parentId: fixture.root.id,
               }),
               buildNodeEntry(KIND_REGISTRY, {
                 id: fixture.peer.id,
-                order: peerOrder,
+                orderSegments: peerOrderSegments,
                 slug: fixture.peer.slug,
               }),
             ]),
@@ -44,11 +44,18 @@ describe("spec-tree assembly invariants", () => {
           const root = expectPresent(snapshot.allNodes.find((node) => node.id === fixture.root.id));
           expect(root.children.map((child) => child.id)).toEqual([fixture.child.id]);
           expect(snapshot.allNodes.filter((node) => node.id === fixture.child.id)).toHaveLength(1);
-          expect(snapshot.nodes.map((node) => node.order)).toEqual(
-            [...snapshot.nodes].map((node) => node.order).sort((left, right) => left - right),
+          // Sorted siblings: segment arrays compared numerically segment by segment, a prefix before its extensions.
+          const precedes = (left: readonly number[], right: readonly number[]): number => {
+            for (let index = 0; index < Math.min(left.length, right.length); index += 1) {
+              if (left[index] !== right[index]) return left[index] - right[index];
+            }
+            return left.length - right.length;
+          };
+          expect(snapshot.nodes.map((node) => node.orderSegments)).toEqual(
+            [...snapshot.nodes].map((node) => node.orderSegments).sort(precedes),
           );
-          expect(root.children.map((child) => child.order)).toEqual(
-            [...root.children].map((child) => child.order).sort((left, right) => left - right),
+          expect(root.children.map((child) => child.orderSegments)).toEqual(
+            [...root.children].map((child) => child.orderSegments).sort(precedes),
           );
         },
       ),
@@ -58,17 +65,17 @@ describe("spec-tree assembly invariants", () => {
 
   it("keeps same-index siblings independent", async () => {
     const fixture = buildRepresentativeFixture(KIND_REGISTRY);
-    const order = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceOrder());
+    const orderSegments = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceOrderSegments());
     const snapshot = await readSpecTree({
       source: createSource([
         buildNodeEntry(KIND_REGISTRY, {
           id: fixture.root.id,
-          order,
+          orderSegments,
           slug: fixture.root.slug,
         }),
         buildNodeEntry(KIND_REGISTRY, {
           id: fixture.peer.id,
-          order,
+          orderSegments,
           slug: fixture.peer.slug,
         }),
       ]),
