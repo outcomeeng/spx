@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import { readSpecTree } from "@/lib/spec-tree";
-import { orderedDirectoryName, supersededNodeSuffixCases } from "@testing/generators/spec-tree/spec-tree";
+import {
+  orderedDirectoryName,
+  SPEC_TREE_CASE_TITLE,
+  supersededNodeSuffixCases,
+} from "@testing/generators/spec-tree/spec-tree";
 import { withSpecTreeEnv, writeOrderedDirectory } from "@testing/harnesses/spec-tree/spec-tree";
 
 describe("residual retention", () => {
-  it.each(supersededNodeSuffixCases())("$title", async (testCase) => {
+  it.each(supersededNodeSuffixCases())(SPEC_TREE_CASE_TITLE, async (testCase) => {
     const supersededDirectory = orderedDirectoryName(testCase.suffix);
     await withSpecTreeEnv({}, async (env) => {
       await env.materialize();

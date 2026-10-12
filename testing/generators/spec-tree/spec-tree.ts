@@ -119,6 +119,8 @@ export const RETIRED_SPEC_APPLY_FIXTURE = {
   command: "apply",
 } as const;
 
+export const SPEC_TREE_CASE_TITLE = "$title";
+
 export const SPEC_TREE_TEST_GENERATOR = {
   counts: {
     assemblyPropertyRunCount: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_PROPERTY_RUN_COUNT,

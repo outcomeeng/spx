@@ -8,7 +8,9 @@ import {
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_EVIDENCE_STATUS,
 } from "@/lib/spec-tree";
+import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import {
+  SPEC_TREE_CASE_TITLE,
   SPEC_TREE_SOURCE_MAPPING_CASE_KIND,
   specTreeSourceMappingCases,
 } from "@testing/generators/spec-tree/spec-tree";
@@ -22,8 +24,8 @@ import {
 } from "@testing/harnesses/spec-tree/spec-tree-source";
 
 describe("SpecTreeSource mappings", () => {
-  it.each(specTreeSourceMappingCases())("$title", async (testCase) => {
-    await withSpecTreeEnv({}, async (env) => {
+  it.each(specTreeSourceMappingCases())(SPEC_TREE_CASE_TITLE, async (testCase) => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       await env.materialize();
       const rootDirectory = nodeDirectoryName(env.fixture.root);
       switch (testCase.kind) {
