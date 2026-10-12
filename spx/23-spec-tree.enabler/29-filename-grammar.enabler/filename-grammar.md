@@ -22,7 +22,7 @@ CAN resolve and validate the configured vocabulary, and classify and render file
 - The 3.x naming-schema version accepts `.enabler` and `.outcome` node directories, each holding `{slug}.md`; a root `{name}.product.md` directly under `spx/`; and `PLAN.md` and `ISSUES.md` as node-local notes ([test](tests/spec-file-form.mapping.l1.test.ts))
 - Both the 4.0 and the 3.x naming-schema version accept the decision forms `{index}-{slug}.adr.md` and `{index}-{slug}.pdr.md` and the same test-file orderings ([test](tests/spec-file-form.mapping.l1.test.ts))
 - Every node kind maps to its admitted child kinds: `substrate` to `substrate` and `variant`; `capability` to those and `capability`; `domain` to those and `domain`; `interface` to those and `interface`; `surface` to those and `surface`; `enabler` to `enabler`; `outcome` to `enabler` and `outcome`; `variant` to its parent kind's set less `variant`; and `product` to the five 4.0 output kinds and `product` ([test](tests/kind-containment.mapping.l1.test.ts))
-- Derived kind types match derived values: `keyof typeof KIND_REGISTRY` enumerates the finite runtime key set, node and decision kind types partition that set, and entry definitions project from the registry ([test](tests/kind-registry-types.mapping.l1.test.ts))
+- Derived kind types match derived values: `keyof typeof KIND_REGISTRY` enumerates the finite runtime key set, and the node, output, and decision kinds partition that set ([test](tests/kind-registry-types.mapping.l1.test.ts))
 - Suffix uniqueness holds across the finite registry: no two node kinds share a directory suffix, no two decision kinds share a filename suffix, and no two registered kinds share the same suffix ([test](tests/kind-registry-suffixes.mapping.l1.test.ts))
 
 ### Properties
