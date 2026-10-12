@@ -24,4 +24,5 @@ CAN refer to tracked product files through `productDir` and gitignored state thr
 - ALWAYS: root-directory APIs expose `productDir` rather than `projectRoot` or `projectDir` ([test](tests/product-directory-api.compliance.l1.test.ts))
 - ALWAYS: a config command invoked from a dirty unrelated worktree with `-C <target>` resolves config from `<target>` rather than the caller's worktree ([test](tests/product-context.compliance.l1.test.ts))
 - ALWAYS: under `-C <path>` naming a directory inside a nested product, `config show`, `validation markdown` and `spec status` resolve that product's configuration and `spx/` tree, never the enclosing repository's ([test](tests/product-context.compliance.l1.test.ts))
+- ALWAYS: inherited `GIT_DIR` and `GIT_WORK_TREE` environment variables never change which repository the product directory resolves against; it resolves from the effective invocation directory's repository ([test](tests/product-context.compliance.l1.test.ts))
 - NEVER: add compatibility aliases for non-product root-directory names ([test](tests/product-directory-api.compliance.l1.test.ts))
