@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import {
   KIND_REGISTRY,
-  NODE_KINDS,
   OUTPUT_KINDS,
   readSpecTree,
   SPEC_TREE_METHODOLOGY_LINE,
@@ -187,8 +186,7 @@ describe("declaration-selected grammar", () => {
   });
 
   it("classifies one materialized tree with a 3.x node kind as valid under a 3.2 declaration and superseded under a 4.0 declaration", async () => {
-    const generated = sampleGeneratedValue(SPEC_TREE_TEST_GENERATOR.representativeFixture(KIND_REGISTRY));
-    const fixture = { ...generated, root: { ...generated.root, kind: NODE_KINDS[0] } };
+    const fixture = sampleGeneratedValue(SPEC_TREE_TEST_GENERATOR.representativeFixture(KIND_REGISTRY));
 
     const underThreeTwo = await readUnderDeclaration(SPEC_TREE_METHODOLOGY_LINE.THREE_TWO, fixture);
     const underFourZero = await readUnderDeclaration(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO, fixture);
