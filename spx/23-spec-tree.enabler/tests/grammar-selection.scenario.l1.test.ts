@@ -14,7 +14,11 @@ import {
   arbitraryVersionOnLine,
   grammarSelectionLines,
 } from "@testing/generators/spec-tree/grammar-selection";
-import { type RepresentativeSpecTreeFixture, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
+import {
+  orderIndexText,
+  type RepresentativeSpecTreeFixture,
+  SPEC_TREE_TEST_GENERATOR,
+} from "@testing/generators/spec-tree/spec-tree";
 import {
   GRAMMAR_SELECTION_DECLARATION_FIELD,
   GRAMMAR_SELECTION_FIXTURE,
@@ -190,7 +194,9 @@ describe("declaration-selected grammar", () => {
 
     const underThreeTwo = await readUnderDeclaration(SPEC_TREE_METHODOLOGY_LINE.THREE_TWO, fixture);
     const underFourZero = await readUnderDeclaration(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO, fixture);
-    const rootDirectory = `${fixture.root.order}-${fixture.root.slug}${KIND_REGISTRY[fixture.root.kind].suffix}`;
+    const rootDirectory = `${orderIndexText(fixture.root.orderSegments)}-${fixture.root.slug}${
+      KIND_REGISTRY[fixture.root.kind].suffix
+    }`;
 
     expect(underThreeTwo.allNodes.map(({ id }) => id)).toContain(rootDirectory);
     expect(underFourZero.allNodes.map(({ id }) => id)).not.toContain(rootDirectory);
@@ -203,7 +209,9 @@ describe("declaration-selected grammar", () => {
 
     const underThreeTwo = await readUnderDeclaration(SPEC_TREE_METHODOLOGY_LINE.THREE_TWO, fixture);
     const underFourZero = await readUnderDeclaration(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO, fixture);
-    const rootDirectory = `${fixture.root.order}-${fixture.root.slug}${KIND_REGISTRY[fixture.root.kind].suffix}`;
+    const rootDirectory = `${orderIndexText(fixture.root.orderSegments)}-${fixture.root.slug}${
+      KIND_REGISTRY[fixture.root.kind].suffix
+    }`;
 
     expect(underFourZero.allNodes.map(({ id }) => id)).toContain(rootDirectory);
     expect(underThreeTwo.allNodes.map(({ id }) => id)).not.toContain(rootDirectory);
