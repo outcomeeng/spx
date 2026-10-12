@@ -19,13 +19,13 @@ import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextShowEntries,
   documentAt,
-  specTreeKindsConfig,
+  methodologyDeclaredConfig,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
 
 describe("spec context Digest paragraphs", () => {
   it.each(NODE_KINDS)("maps a %s node to the paragraph its kind registry's opening keyword opens", async (kind) => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
       const specPath = freeNodeSpecPath(env.fixture, kind, slug);
@@ -50,7 +50,7 @@ describe("spec context Digest paragraphs", () => {
   it.each(NODE_KINDS)(
     "maps a %s node to the paragraph the given kind registry's keyword opens, not the static registry's",
     async (kind) => {
-      await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+      await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
         await env.materialize();
         // The given registry rotates the openings across node kinds, so each
         // kind resolves another kind's keyword and the static keyword for this
@@ -101,7 +101,7 @@ describe("spec context Digest paragraphs", () => {
         generatedMigratingMethodology(arbitraryFixtureAuthoredLine()).section,
       ];
       for (const section of sections) {
-        await withSpecTreeEnv({ ...specTreeKindsConfig(), [METHODOLOGY_SECTION]: section }, async (env) => {
+        await withSpecTreeEnv({ ...methodologyDeclaredConfig(), [METHODOLOGY_SECTION]: section }, async (env) => {
           await env.materialize();
           const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
           const decisionPath = freeDecisionPath(env.fixture, kind, slug);

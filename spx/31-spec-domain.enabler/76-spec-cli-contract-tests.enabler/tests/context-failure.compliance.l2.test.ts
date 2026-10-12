@@ -27,7 +27,7 @@ import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   methodologyTreeConfig,
   runSpecCli,
-  specTreeKindsConfig,
+  methodologyDeclaredConfig,
   trackSpecTreeInGit,
   withEmptyContextTreeEnv,
   withProductlessContextTreeEnv,
@@ -51,7 +51,7 @@ describe("spx spec context failures through the packaged executable", () => {
   });
 
   it("reports an ambiguous target with its failure kind and every canonical match, exiting non-zero with empty stdout", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       const nested = specContextAmbiguousNestedDirectory(env.fixture);
       await env.writeRaw(nested.nestedSpecPath, nested.nestedSpecContent);
@@ -69,7 +69,7 @@ describe("spx spec context failures through the packaged executable", () => {
   });
 
   it("reports a product root without a recognized product spec with its failure kind and the product root, exiting non-zero with empty stdout", async () => {
-    await withProductlessContextTreeEnv(specTreeKindsConfig(), async (env, paths) => {
+    await withProductlessContextTreeEnv(methodologyDeclaredConfig(), async (env, paths) => {
       for (
         const argv of [
           SPEC_CONTEXT_COMMAND_PATH.SHOW,
@@ -83,7 +83,7 @@ describe("spx spec context failures through the packaged executable", () => {
         expect(run.stderr, argv.join(" ")).toContain(SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR);
       }
     });
-    await withEmptyContextTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withEmptyContextTreeEnv(methodologyDeclaredConfig(), async (env) => {
       for (
         const argv of [
           SPEC_CONTEXT_COMMAND_PATH.SHOW,
