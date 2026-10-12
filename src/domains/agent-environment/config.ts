@@ -1,11 +1,7 @@
+import { formatUnrecognizedConfigFieldError } from "@/config/field-errors";
 import type { ConfigDescriptor, Result } from "@/config/types";
+import { HARNESS_ENVIRONMENT_SECTION } from "@/lib/harness-environment-section";
 import { METHODOLOGY_CODING_AGENT, type MethodologyCodingAgent } from "@/lib/methodology";
-import {
-  formatUnrecognizedConfigFieldError,
-  LEGACY_METHODOLOGY_PLACEMENT_SECTION,
-} from "@/lib/methodology/declaration-fields";
-
-export const HARNESS_ENVIRONMENT_SECTION = LEGACY_METHODOLOGY_PLACEMENT_SECTION;
 
 export const AGENT = {
   CODEX: "codex",

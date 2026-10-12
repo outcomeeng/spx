@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { METHODOLOGY_SECTION } from "@/config/methodology";
-import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
 import { AGENT, METHODOLOGY_CODING_AGENT_BY_AGENT } from "@/domains/agent-environment/config";
 import {
   METHODOLOGY_CONTEXT_READING_VALUE,
@@ -11,6 +10,7 @@ import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_TEXT_HEADER, DIAGNOSE_TEXT_LABEL } from "@/domains/diagnose/report";
 import { DIAGNOSE_RESOLVE_ERROR } from "@/domains/diagnose/resolve";
 import { VERDICT_BUCKET } from "@/domains/diagnose/types";
+import { HARNESS_ENVIRONMENT_SECTION } from "@/lib/harness-environment-section";
 import {
   formatMethodologyVersionName,
   formatProvidesMismatchError,
@@ -306,7 +306,7 @@ describe("methodology-context diagnose compliance", () => {
   it("rejects stale harness methodology config before probing", async () => {
     const error = await runDiagnoseWithLegacyMethodologySection();
 
-    expect(error).toContain(`${LEGACY_METHODOLOGY_CONFIG_SECTION}.${METHODOLOGY_SECTION}`);
+    expect(error).toContain(`${HARNESS_ENVIRONMENT_SECTION}.${METHODOLOGY_SECTION}`);
   });
 
   it("ignores unrelated harness config defects before probing", async () => {
@@ -325,6 +325,6 @@ describe("methodology-context diagnose compliance", () => {
 
     expect(error).toContain(DIAGNOSE_RESOLVE_ERROR.UNAVAILABLE_CONFIGURED_CHECKS);
     expect(error).toContain(unavailableCheck);
-    expect(error).not.toContain(`${LEGACY_METHODOLOGY_CONFIG_SECTION}.${METHODOLOGY_SECTION}`);
+    expect(error).not.toContain(`${HARNESS_ENVIRONMENT_SECTION}.${METHODOLOGY_SECTION}`);
   });
 });

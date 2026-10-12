@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { validatePathFilterConfig } from "@/config/primitives/path-filter";
-import { HARNESS_ENVIRONMENT_SECTION, harnessEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
+import { harnessEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
+import { HARNESS_ENVIRONMENT_SECTION } from "@/lib/harness-environment-section";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG_FIELDS, SPEC_TREE_SECTION, specTreeConfigDescriptor } from "@/lib/spec-tree";
 import { TESTING_CONFIG_FIELDS, TESTING_SECTION, testingConfigDescriptor } from "@/test/config";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";

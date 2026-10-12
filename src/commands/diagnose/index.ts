@@ -14,7 +14,8 @@
 import { resolveConfig } from "@/config/index";
 
 import type { MethodologyConfig } from "@/config/methodology";
-import { isLegacyHarnessMethodologyConfigError, resolveMethodologyConfig } from "@/config/methodology-placement";
+import { isLegacyHarnessMethodologyConfigError } from "@/config/methodology-placement";
+import { resolveMethodologyConfig } from "@/config/methodology-resolution";
 import type { Result } from "@/config/types";
 import { type DiagnoseConfig, diagnoseConfigDescriptor } from "@/domains/diagnose/config";
 import { type CheckRegistry, runDiagnose } from "@/domains/diagnose/engine";

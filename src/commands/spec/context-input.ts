@@ -3,7 +3,7 @@ import { isAbsolute, resolve } from "node:path";
 
 import { resolveConfig } from "@/config/index";
 import type { MethodologyConfig } from "@/config/methodology";
-import { resolveMethodologyConfig } from "@/config/methodology-placement";
+import { resolveMethodologyConfig } from "@/config/methodology-resolution";
 import type { Result } from "@/config/types";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { isPathContained } from "@/lib/file-system/pathContainment";
