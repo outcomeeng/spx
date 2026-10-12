@@ -78,6 +78,7 @@ it("does not invoke an agent after selected context reading fails", async () => 
 it("reads product truth even when every changed declaration has a spec commit label", async () => {
   await withGitWorktreeEnv(async (env) => {
     const scenario = sampleReleaseContextScenario();
+    await env.writeTracked(scenario.methodologyDeclaration.path, scenario.methodologyDeclaration.content);
     for (const document of scenario.documents) {
       await env.writeTracked(document.path, document.content);
     }
@@ -112,6 +113,7 @@ it("permits a product without a spec tree", async () => {
 it("rejects selected nodes whose specification cannot be read", async () => {
   await withGitWorktreeEnv(async (env) => {
     const scenario = sampleReleaseContextScenario();
+    await env.writeTracked(scenario.methodologyDeclaration.path, scenario.methodologyDeclaration.content);
     await env.writeTracked(scenario.product.path, scenario.product.content);
     await env.writeTracked(
       scenario.missingSpecificationPath,
