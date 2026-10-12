@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { readSpecTree } from "@/lib/spec-tree";
+import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import {
   orderedDirectoryName,
   SPEC_TREE_CASE_TITLE,
@@ -11,7 +12,7 @@ import { withSpecTreeEnv, writeOrderedDirectory } from "@testing/harnesses/spec-
 describe("residual retention", () => {
   it.each(supersededNodeSuffixCases())(SPEC_TREE_CASE_TITLE, async (testCase) => {
     const supersededDirectory = orderedDirectoryName(testCase.suffix);
-    await withSpecTreeEnv({}, async (env) => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       await env.materialize();
       await writeOrderedDirectory(env, supersededDirectory);
       const snapshot = await readSpecTree({ source: env.filesystemSource() });

@@ -34,6 +34,7 @@ import {
   PROPERTY_SIZE,
   propertyTestEnvelopeTimeoutMs,
 } from "@testing/harnesses/property/property";
+import { migratingRecognitionOptions } from "@testing/harnesses/spec-tree/filename-grammar";
 
 describe("node-status test support", () => {
   it("materializes generated classification facts and resolves recorded evidence", async () => {
@@ -266,7 +267,7 @@ describe("node-status test support", () => {
         const entry = recognizeSpecTreeFilesystemEntry({
           type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY,
           relativePath: posix.dirname(statusPath),
-        });
+        }, migratingRecognitionOptions());
         expect(entry?.type).toBe(SPEC_TREE_ENTRY_TYPE.NODE);
         const slug = entry?.type === SPEC_TREE_ENTRY_TYPE.NODE ? entry.slug : undefined;
         expect(NODE_STATUS_READABLE_SLUGS).toContain(slug);

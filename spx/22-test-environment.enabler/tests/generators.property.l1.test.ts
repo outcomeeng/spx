@@ -19,6 +19,7 @@ import {
   arbitrarySpecTree,
 } from "@testing/generators/test-environment/test-environment";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
+import { migratingRecognitionOptions } from "@testing/harnesses/spec-tree/filename-grammar";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 describe("arbitraryNodePath — free-function form", () => {
@@ -72,7 +73,7 @@ describe("generated paths parse through the filesystem read operation", () => {
         const entry = recognizeSpecTreeFilesystemEntry({
           type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY,
           relativePath: path,
-        });
+        }, migratingRecognitionOptions());
         expect(entry?.type).toBe(SPEC_TREE_ENTRY_TYPE.NODE);
         expect(entry?.id).toBe(path);
       },
@@ -87,7 +88,7 @@ describe("generated paths parse through the filesystem read operation", () => {
         const entry = recognizeSpecTreeFilesystemEntry({
           type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
           relativePath: path,
-        });
+        }, migratingRecognitionOptions());
         expect(entry?.type).toBe(SPEC_TREE_ENTRY_TYPE.DECISION);
         expect(entry?.id).toBe(path);
       },

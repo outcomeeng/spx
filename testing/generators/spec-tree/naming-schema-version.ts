@@ -41,6 +41,8 @@ const SEMVER_COMPONENT_COUNT = 3;
 
 export type RecognitionVersionScenario = {
   readonly schemaVersions: readonly NamingSchemaVersion[];
+  /** The members of `schemaVersions` the scenario's methodology declaration selects. */
+  readonly selectedVersions: readonly NamingSchemaVersion[];
   readonly validNodeSuffix: string;
   readonly supersededNodeSuffix: string;
   readonly supersededVersion: string;
@@ -49,6 +51,8 @@ export type RecognitionVersionScenario = {
 
 export type DemotedRegistrySuffixScenario = {
   readonly schemaVersions: readonly NamingSchemaVersion[];
+  /** The members of `schemaVersions` the scenario's methodology declaration selects. */
+  readonly selectedVersions: readonly NamingSchemaVersion[];
   readonly demotedRegistrySuffix: string;
   readonly demotedVersion: string;
   readonly canonicalRegistrySuffix: string;
@@ -56,11 +60,15 @@ export type DemotedRegistrySuffixScenario = {
 
 export type CanonicalForeignSuffixScenario = {
   readonly schemaVersions: readonly NamingSchemaVersion[];
+  /** The members of `schemaVersions` the scenario's methodology declaration selects. */
+  readonly selectedVersions: readonly NamingSchemaVersion[];
   readonly foreignCanonicalSuffix: string;
 };
 
 export type InjectedEvidenceGrammarScenario = {
   readonly schemaVersions: readonly NamingSchemaVersion[];
+  /** The members of `schemaVersions` the scenario's methodology declaration selects. */
+  readonly selectedVersions: readonly NamingSchemaVersion[];
   readonly relativePath: string;
 };
 
@@ -200,8 +208,10 @@ function arbitraryInjectedEvidenceGrammarScenario(): fc.Arbitrary<InjectedEviden
         TAILS: { INJECTED: [tail] },
         SEGMENT_SEPARATOR: SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR,
       };
+      const schemaVersions = scenario.schemaVersions.map((version) => ({ ...version, evidence }));
       return {
-        schemaVersions: scenario.schemaVersions.map((version) => ({ ...version, evidence })),
+        schemaVersions,
+        selectedVersions: schemaVersions.slice(-1),
         relativePath: [
           directoryName,
           [subject, mode, level, tail].join(evidence.SEGMENT_SEPARATOR),
@@ -351,21 +361,21 @@ function arbitraryRecognitionVersionScenario(): fc.Arbitrary<RecognitionVersionS
     .map(({ validNodeSuffix, foreignSuffixes }) => {
       const supersededNodeSuffix = foreignSuffixes[0];
       const invalidNodeSuffix = foreignSuffixes[1];
+      const prior = buildNamingSchemaVersion(
+        RECOGNITION_SCENARIO_VERSION.PRIOR,
+        [supersededNodeSuffix],
+        DECISION_SUFFIXES,
+        specFileSuffixForRole(false),
+      );
+      const selected = buildNamingSchemaVersion(
+        RECOGNITION_SCENARIO_VERSION.CANONICAL,
+        NODE_SUFFIXES,
+        DECISION_SUFFIXES,
+        specFileSuffixForRole(true),
+      );
       return {
-        schemaVersions: [
-          buildNamingSchemaVersion(
-            RECOGNITION_SCENARIO_VERSION.PRIOR,
-            [supersededNodeSuffix],
-            DECISION_SUFFIXES,
-            specFileSuffixForRole(false),
-          ),
-          buildNamingSchemaVersion(
-            RECOGNITION_SCENARIO_VERSION.CANONICAL,
-            NODE_SUFFIXES,
-            DECISION_SUFFIXES,
-            specFileSuffixForRole(true),
-          ),
-        ],
+        schemaVersions: [prior, selected],
+        selectedVersions: [selected],
         validNodeSuffix,
         supersededNodeSuffix,
         supersededVersion: RECOGNITION_SCENARIO_VERSION.PRIOR,
@@ -383,21 +393,21 @@ function arbitraryCanonicalForeignSuffixScenario(): fc.Arbitrary<CanonicalForeig
     .map((foreignSuffixes) => {
       const foreignCanonicalSuffix = foreignSuffixes[0];
       const foreignPriorSuffix = foreignSuffixes[1];
+      const prior = buildNamingSchemaVersion(
+        RECOGNITION_SCENARIO_VERSION.PRIOR,
+        [foreignPriorSuffix],
+        DECISION_SUFFIXES,
+        specFileSuffixForRole(false),
+      );
+      const selected = buildNamingSchemaVersion(
+        RECOGNITION_SCENARIO_VERSION.CANONICAL,
+        [foreignCanonicalSuffix],
+        DECISION_SUFFIXES,
+        specFileSuffixForRole(true),
+      );
       return {
-        schemaVersions: [
-          buildNamingSchemaVersion(
-            RECOGNITION_SCENARIO_VERSION.PRIOR,
-            [foreignPriorSuffix],
-            DECISION_SUFFIXES,
-            specFileSuffixForRole(false),
-          ),
-          buildNamingSchemaVersion(
-            RECOGNITION_SCENARIO_VERSION.CANONICAL,
-            [foreignCanonicalSuffix],
-            DECISION_SUFFIXES,
-            specFileSuffixForRole(true),
-          ),
-        ],
+        schemaVersions: [prior, selected],
+        selectedVersions: [selected],
         foreignCanonicalSuffix,
       };
     });
@@ -417,21 +427,21 @@ function arbitraryDemotedRegistrySuffixScenario(): fc.Arbitrary<DemotedRegistryS
       const canonicalRegistrySuffix = canonicalRegistrySuffixes[0];
       const priorVersion = semverOrderOracle(leftVersion, rightVersion) < 0 ? leftVersion : rightVersion;
       const canonicalVersion = priorVersion === leftVersion ? rightVersion : leftVersion;
+      const prior = buildNamingSchemaVersion(
+        priorVersion,
+        [demotedRegistrySuffix],
+        DECISION_SUFFIXES,
+        specFileSuffixForRole(false),
+      );
+      const selected = buildNamingSchemaVersion(
+        canonicalVersion,
+        canonicalRegistrySuffixes,
+        DECISION_SUFFIXES,
+        specFileSuffixForRole(true),
+      );
       return {
-        schemaVersions: [
-          buildNamingSchemaVersion(
-            priorVersion,
-            [demotedRegistrySuffix],
-            DECISION_SUFFIXES,
-            specFileSuffixForRole(false),
-          ),
-          buildNamingSchemaVersion(
-            canonicalVersion,
-            canonicalRegistrySuffixes,
-            DECISION_SUFFIXES,
-            specFileSuffixForRole(true),
-          ),
-        ],
+        schemaVersions: [prior, selected],
+        selectedVersions: [selected],
         demotedRegistrySuffix,
         demotedVersion: priorVersion,
         canonicalRegistrySuffix,
