@@ -1,6 +1,12 @@
 import * as fc from "fast-check";
 
-import { canonicalDescriptorJson } from "@/config/index";
+import {
+  canonicalDescriptorJson,
+  CONFIG_FILE_FORMAT,
+  CONFIG_FILE_READ_KIND,
+  configFileForFormat,
+  resolveConfigFromReadResult,
+} from "@/config/index";
 import {
   METHODOLOGY_CONFIG_FIELDS,
   METHODOLOGY_SECTION,
@@ -22,7 +28,7 @@ import {
   HARNESS_ENVIRONMENT_SECTION,
   type HarnessEnvironmentConfig,
 } from "@/domains/agent-environment/config";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG_FIELDS, SPEC_TREE_SECTION, unknownSpecTreeKindError } from "@/lib/spec-tree";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG_FIELDS, SPEC_TREE_SECTION } from "@/lib/spec-tree";
 import { TESTING_CONFIG_FIELDS, TESTING_SECTION, type TestingConfig, testingConfigDescriptor } from "@/test/config";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import {
@@ -72,10 +78,15 @@ export type GeneratedConfigEnvironmentCase = {
   readonly sentinel: GeneratedEnvironmentSentinel;
 };
 
-export type GeneratedInvalidSpecTreeConfig = {
-  readonly config: Record<string, unknown>;
+/**
+ * The rejection a generated test-scoped descriptor produces when config resolution validates its
+ * invalid section: `error` is the resolution error, `section` the descriptor's section, and
+ * `validatorMessage` the message the descriptor's own validator returned for the invalid section.
+ */
+export type GeneratedRejectedDescriptorResolution = {
   readonly error: string;
-  readonly offendingKind: string;
+  readonly section: string;
+  readonly validatorMessage: string;
 };
 
 export type GeneratedTokenDescriptor = {
@@ -169,12 +180,11 @@ export const CONFIG_TEST_GENERATOR = {
   harnessEnvironmentConfig: arbitraryHarnessEnvironmentConfig,
   emptyConfig: arbitraryEmptyConfig,
   environmentSentinel: arbitraryEnvironmentSentinel,
-  invalidSpecTreeConfig: arbitraryInvalidSpecTreeConfig,
   key: arbitraryConfigKey,
   scalar: arbitraryConfigScalar,
   specTreeKindField: arbitrarySpecTreeKindField,
-  specTreeUnknownKindError: arbitrarySpecTreeUnknownKindError,
-  specTreeSubsetConfig: arbitrarySpecTreeSubsetConfig,
+  rejectedDescriptorResolution: arbitraryRejectedDescriptorResolution,
+  specTreeRejectedKindMapConfig: arbitrarySpecTreeRejectedKindMapConfig,
   specTreeArrayKindsConfig: arbitrarySpecTreeArrayKindsConfig,
   tempPrefix: arbitraryTempPrefix,
   tokenDescriptorPair: arbitraryTokenDescriptorPair,
@@ -811,13 +821,13 @@ function arbitraryConfigCliDeterminismCase(): fc.Arbitrary<GeneratedConfigCliDet
   return fc.record({
     asJson: fc.boolean(),
     productDir: arbitraryProductDir(),
-    resolutionError: fc.option(arbitrarySpecTreeUnknownKindError(), { nil: undefined }),
+    resolutionError: fc.option(arbitraryRejectedDescriptorResolution().map(({ error }) => error), { nil: undefined }),
     readError: fc.option(arbitraryConfigScalar(), { nil: undefined }),
     includeDescriptor: fc.boolean(),
   });
 }
 
-function arbitrarySpecTreeSubsetConfig(): fc.Arbitrary<Record<string, unknown>> {
+function arbitrarySpecTreeRejectedKindMapConfig(): fc.Arbitrary<Record<string, unknown>> {
   return fc
     .uniqueArray(fc.constantFrom(...Object.keys(KIND_REGISTRY)), {
       minLength: 1,
@@ -848,33 +858,31 @@ function arbitrarySpecTreeArrayKindsConfig(): fc.Arbitrary<GeneratedSpecTreeArra
     }));
 }
 
-function arbitraryInvalidSpecTreeConfig(): fc.Arbitrary<GeneratedInvalidSpecTreeConfig> {
-  return arbitraryConfigKey()
-    .filter((kind) => !Object.hasOwn(KIND_REGISTRY, kind))
-    .map((offendingKind) => ({
-      offendingKind,
-      error: unknownSpecTreeKindError(offendingKind),
-      config: {
-        [SPEC_TREE_SECTION]: {
-          [SPEC_TREE_CONFIG_FIELDS.KINDS]: {
-            [offendingKind]: {
-              category: KIND_REGISTRY.enabler.category,
-              suffix: `.${offendingKind}`,
-            },
-          },
-        },
-      },
-    }));
-}
-
 function arbitrarySpecTreeKindField(): fc.Arbitrary<string> {
   return fc.constant(SPEC_TREE_CONFIG_FIELDS.KINDS);
 }
 
-function arbitrarySpecTreeUnknownKindError(): fc.Arbitrary<string> {
-  return arbitraryConfigKey()
-    .filter((kind) => !Object.hasOwn(KIND_REGISTRY, kind))
-    .map((kind) => unknownSpecTreeKindError(kind));
+function arbitraryRejectedDescriptorResolution(): fc.Arbitrary<GeneratedRejectedDescriptorResolution> {
+  return fc
+    .record({ generated: arbitraryModeDescriptor(), productDir: arbitraryProductDir() })
+    .map(({ generated, productDir }) => {
+      const rejected = generated.descriptor.validate(generated.invalid);
+      const resolved = resolveConfigFromReadResult(
+        {
+          kind: CONFIG_FILE_READ_KIND.OK,
+          file: configFileForFormat(
+            productDir,
+            CONFIG_FILE_FORMAT.JSON,
+            JSON.stringify({ [generated.section]: generated.invalid }),
+          ),
+        },
+        [generated.descriptor],
+      );
+      if (rejected.ok || resolved.ok) {
+        throw new Error(`generated descriptor ${generated.section} accepted its invalid section`);
+      }
+      return { error: resolved.error, section: generated.section, validatorMessage: rejected.error };
+    });
 }
 
 function arbitraryTokenDescriptor(): fc.Arbitrary<GeneratedTokenDescriptor> {
