@@ -20,7 +20,7 @@ Rejected: handlers that read config files and call `resolveConfig` themselves (c
 
 ### Testing
 
-- ALWAYS: `resolveProductDir` uses `git rev-parse --show-toplevel` when its `cwd` argument is inside a git worktree and falls back to that `cwd` with a diagnostic warning outside one; CLI callers supply the effective invocation directory, which is the `-C <path>` target when present and `process.cwd()` when absent, per [spx/15-worktree-management.pdr.md](spx/15-worktree-management.pdr.md) ([compliance])
+- ALWAYS: the config command's product directory is the local product root of [spx/15-worktree-management.pdr.md](spx/15-worktree-management.pdr.md) when its invocation directory is inside a git worktree, and that directory with a diagnostic warning outside one; CLI callers supply the effective invocation directory, which is the `-C <path>` target when present and `process.cwd()` when absent, per [spx/15-worktree-management.pdr.md](spx/15-worktree-management.pdr.md) ([compliance])
 
 ### Audit
 
