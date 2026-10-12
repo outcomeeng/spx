@@ -42,10 +42,13 @@ import {
 import {
   KIND_REGISTRY,
   renderSpecContextEntries,
+  renderSpecTreeRootFrontMatter,
   SPEC_CONTEXT_ENTRY_TYPE,
   SPEC_CONTEXT_MODE_NAME,
   SPEC_CONTEXT_SELECTION_REASON,
   SPEC_TREE_CONFIG,
+  SPEC_TREE_FRONT_MATTER_FENCE,
+  SPEC_TREE_FRONT_MATTER_ID_KEY,
   SPEC_TREE_GRAMMAR,
   type SpecContextDocumentEntry,
   type SpecContextEntry,
@@ -747,15 +750,24 @@ export async function materializeCurrentGrammarTree(env: CurrentSpecTreeEnv): Pr
   const root = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
   await env.writeRaw(
     `${root}/${productSlug}${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX}`,
-    `---\nid: ${
-      sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId())
-    }\nkind: ${SPEC_TREE_CONFIG.PRODUCT.KIND}\n---\n\n# ${productSlug}\n`,
+    `${
+      renderSpecTreeRootFrontMatter({ id: sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId()) })
+    }\n# ${productSlug}\n`,
   );
   await env.writeRaw(
     `${root}/${target}/${nodeSlug}${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX}`,
-    `---\nid: ${
-      sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId())
-    }\n---\n\n# ${nodeSlug}\n\n${KIND_REGISTRY.substrate.opening} generated fixture content\nSO THAT spec-tree tests\nCAN read current nodes\n`,
+    [
+      SPEC_TREE_FRONT_MATTER_FENCE,
+      `${SPEC_TREE_FRONT_MATTER_ID_KEY}: ${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId())}`,
+      SPEC_TREE_FRONT_MATTER_FENCE,
+      "",
+      `# ${nodeSlug}`,
+      "",
+      `${KIND_REGISTRY.substrate.opening} generated fixture content`,
+      "SO THAT spec-tree tests",
+      "CAN read current nodes",
+      "",
+    ].join("\n"),
   );
   return { target };
 }
