@@ -53,3 +53,11 @@ The canonical ADR template (`plugins/spec-tree/skills/understanding/templates/de
 **Impact:** a node authored per the shipped 4.0 templates is flagged as a superseded suffix when it ends in `.capability` (`src/validation/lint-policy.ts` line 46) and is not recognized as a kind otherwise (`isKind` in `src/lib/spec-tree/config.ts` line 290), so validation, status, and context projection treat it as an invalid or legacy entry.
 
 **Settlement condition:** [outcomeeng/changes#185](https://github.com/outcomeeng/changes/issues/185) is Applied: the registry, the superseded-suffix set, and the naming schema versions admit the full methodology 4.0 grammar and resolve the `.capability` meaning between the 1.0 and 4.0 vocabularies.
+
+## Harness-owned assertions in filename-grammar evidence
+
+**Evidence:** `testing/harnesses/spec-tree/naming-schema-version.ts` declares `assert*` functions (`assertNamingSchemaVersionsFollowSemanticOrder`, `assertCanonicalNamingSchemaVersionIsSemanticMaximum`, `assertSupersededSuffixesComeFromPriorVersions`, and the rest) whose bodies own the `expect` calls and property predicates over the code under test, and `testing/harnesses/spec-tree/filename-grammar.ts` declares the same shape in `assertFilenameGrammarTokenGroupIsNonEmpty`, `assertCanonicalSuffixesComeFromKindRegistry`, `assertSpecTreeEntryRecognitionCase`, `assertProductEntryRecognition`, and `assertEvidenceRecognitionProperty`. The linked tests `tests/naming-schema-versions.property.l1.test.ts`, `tests/filename-grammar.mapping.l1.test.ts`, and the spec-tree entry-recognition tests only call these functions, so the predicate is not lexically in the linked test function.
+
+**Impact:** a reader of the linked test cannot see the pass or fail predicate, and the harness cannot support two tests that make opposite claims about one observation; the test-evidence audit reports an assertion-seam finding for each.
+
+**Settlement condition:** each of these predicates is inlined into its linked test function, with the harness reduced to observations, handles, and execution policy.
