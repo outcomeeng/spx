@@ -1039,7 +1039,7 @@ export const SPEC_TREE_FRONT_MATTER_ID_KEY = "id";
 export const SPEC_TREE_FRONT_MATTER_KIND_KEY = "kind";
 
 const FRONT_MATTER_PATTERN = new RegExp(
-  `^${SPEC_TREE_FRONT_MATTER_FENCE}\\r?\\n([\\s\\S]*?)\\r?\\n${SPEC_TREE_FRONT_MATTER_FENCE}(?:\\r?\\n|$)`,
+  String.raw`^${SPEC_TREE_FRONT_MATTER_FENCE}\r?\n([\s\S]*?)\r?\n${SPEC_TREE_FRONT_MATTER_FENCE}(?:\r?\n|$)`,
 );
 
 /** The fields a root spec's front matter carries. */
