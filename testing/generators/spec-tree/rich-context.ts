@@ -23,7 +23,10 @@ import {
   type SpecContextSelectionReason,
 } from "@/lib/spec-tree";
 import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";
-import { arbitraryAcceptedMethodologyVersion } from "@testing/generators/methodology/tree";
+import {
+  arbitraryAcceptedMethodologyVersion,
+  arbitraryFixtureAuthoredLine,
+} from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   SPEC_CONTEXT_FIXTURE_STATUS_BODY,
@@ -704,8 +707,8 @@ function arbitraryMethodologyIdentity(): fc.Arbitrary<MethodologyIdentity> {
   return fc
     .record({
       source: fc.tuple(CONFIG_TEST_GENERATOR.key(), CONFIG_TEST_GENERATOR.key()).map((segments) => segments.join("/")),
-      version: fc.option(arbitraryAcceptedMethodologyVersion(), { nil: undefined }),
-      migratingFrom: fc.option(arbitraryAcceptedMethodologyVersion(), { nil: undefined }),
+      version: fc.option(arbitraryAcceptedMethodologyVersion(arbitraryFixtureAuthoredLine()), { nil: undefined }),
+      migratingFrom: fc.option(arbitraryAcceptedMethodologyVersion(arbitraryFixtureAuthoredLine()), { nil: undefined }),
     })
     .map(({ source, version, migratingFrom }) => ({
       source,

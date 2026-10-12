@@ -1,3 +1,4 @@
+import { arbitraryFixtureAuthoredLine } from "@testing/generators/methodology/tree";
 import { describe, expect, it } from "vitest";
 
 import { defaultContextFileSystem } from "@/commands/spec/context-input";
@@ -96,8 +97,8 @@ describe("spec context Digest paragraphs", () => {
       // Each accepted version form, and an open migration whose source differs
       // from its target: the statement is selected the same way under each.
       const sections = [
-        ...Object.values(generatedMethodologyVersionFormSections().sections),
-        generatedMigratingMethodology().section,
+        ...Object.values(generatedMethodologyVersionFormSections(arbitraryFixtureAuthoredLine()).sections),
+        generatedMigratingMethodology(arbitraryFixtureAuthoredLine()).section,
       ];
       for (const section of sections) {
         await withSpecTreeEnv({ ...specTreeKindsConfig(), [METHODOLOGY_SECTION]: section }, async (env) => {

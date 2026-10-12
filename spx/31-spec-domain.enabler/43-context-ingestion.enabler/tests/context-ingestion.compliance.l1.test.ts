@@ -17,7 +17,11 @@ import {
   generatedMethodologySection,
   sampleConfigTestValue,
 } from "@testing/generators/config/descriptors";
-import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
+import {
+  arbitraryFixtureAuthoredLine,
+  arbitraryMethodologyVersion,
+  arbitraryUnreadableMethodologyVersion,
+} from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   arbitrarySpecContextInvalidUtf8Bytes,
@@ -136,6 +140,28 @@ describe("spec context ingestion writes nothing to standard output after a failu
     }
   });
 
+  it("writes no list or show output when the declared methodology line is one no spec-tree read accepts, naming the declared version", async () => {
+    const declared = sampleGeneratedValue(arbitraryUnreadableMethodologyVersion());
+    for (const field of [METHODOLOGY_CONFIG_FIELDS.VERSION, METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]) {
+      await withSpecTreeEnv(
+        methodologyTreeConfig({
+          [METHODOLOGY_CONFIG_FIELDS.VERSION]: METHODOLOGY_FIXTURE_IDENTITY.text,
+          [field]: declared.text,
+        }),
+        async (env) => {
+          await env.materialize();
+          const target = (await env.readFilesystemSnapshot()).allNodes[0].id;
+          for (const command of [SPEC_CONTEXT_COMMAND_PATH.LIST, SPEC_CONTEXT_COMMAND_PATH.SHOW]) {
+            const run = await runSpecDescriptor({ productDir: env.productDir }, ...command, target);
+            expect(run.stdout, `${field} ${command.join(" ")}`).toHaveLength(0);
+            expect(run.exitCode, field).toBe(1);
+            expect(run.stderr, field).toContain(declared.text);
+          }
+        },
+      );
+    }
+  });
+
   // The two cases below witness the context commands' wiring to the shared
   // methodology resolver, whose own rules the methodology-config node owns:
   // a refactor of this command's config path can neither drop the
@@ -154,7 +180,7 @@ describe("spec context ingestion writes nothing to standard output after a failu
   });
 
   it("writes the complete list output when only unrelated harness config is defective", async () => {
-    const { section, version } = generatedMethodologyIdentity();
+    const { section, version } = generatedMethodologyIdentity(arbitraryFixtureAuthoredLine());
     await withSpecTreeEnv({
       ...specTreeKindsConfig(),
       [METHODOLOGY_SECTION]: section,
@@ -174,7 +200,9 @@ describe("spec context ingestion writes nothing to standard output after a failu
     // The shipped fixture tree serves another line than the declared one, so
     // only the methodology document fails while every product entry resolves.
     const declared = sampleGeneratedValue(
-      arbitraryMethodologyVersion().filter((candidate) => candidate.line !== METHODOLOGY_FIXTURE_IDENTITY.line),
+      arbitraryMethodologyVersion(arbitraryFixtureAuthoredLine()).filter((candidate) =>
+        candidate.line !== METHODOLOGY_FIXTURE_IDENTITY.line
+      ),
     );
     await withSpecTreeEnv(
       methodologyTreeConfig({ [METHODOLOGY_CONFIG_FIELDS.VERSION]: declared.text }),
