@@ -1,6 +1,6 @@
 ---
 id: 01a0ebc4-fb67-7421-90c8-76305651b0eb
-malleability: spec
+malleability: verification
 ---
 
 # Product Directory API
@@ -23,4 +23,5 @@ CAN refer to tracked product files through `productDir` and gitignored state thr
 - ALWAYS: config APIs, test harnesses, and descriptor tests name the tracked product root `productDir` ([test](tests/product-directory-api.compliance.l1.test.ts))
 - ALWAYS: root-directory APIs expose `productDir` rather than `projectRoot` or `projectDir` ([test](tests/product-directory-api.compliance.l1.test.ts))
 - ALWAYS: a config command invoked from a dirty unrelated worktree with `-C <target>` resolves config from `<target>` rather than the caller's worktree ([test](tests/product-context.compliance.l1.test.ts))
+- ALWAYS: under `-C <path>` naming a directory inside a nested product, `config show`, `validation markdown` and `spec status` resolve that product's configuration and `spx/` tree, never the enclosing repository's ([test](tests/product-context.compliance.l1.test.ts))
 - NEVER: add compatibility aliases for non-product root-directory names ([test](tests/product-directory-api.compliance.l1.test.ts))
