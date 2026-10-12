@@ -18,14 +18,14 @@ import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextListFailure,
   contextListManifest,
-  specTreeKindsConfig,
+  methodologyDeclaredConfig,
   trackSpecTreeInGit,
   withOutsideProductDir,
 } from "@testing/harnesses/spec/context";
 
 describe("spec context target resolution mapping", () => {
   it.each(specContextAcceptedTargetCases())(SPEC_CONTEXT_CASE_TITLE, async (mappingCase) => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       const resolved = specContextAcceptedTargetOperand(env.fixture, env.productDir, mappingCase);
       for (const artifact of resolved.artifacts) await env.writeRaw(artifact.path, artifact.content);
@@ -46,7 +46,7 @@ describe("spec context target resolution mapping", () => {
 
   it.each(specContextRejectedTargetCases())(SPEC_CONTEXT_CASE_TITLE, async (mappingCase) => {
     await withOutsideProductDir(async (outsideDir) => {
-      await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+      await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
         await env.materialize();
         const rejected = specContextRejectedTargetOperand(env.fixture, env.productDir, outsideDir, mappingCase);
         for (const artifact of rejected.artifacts) await env.writeRaw(artifact.path, artifact.content);

@@ -28,7 +28,7 @@ import {
   entryPaths,
   referencePaths,
   runSpecDescriptor,
-  specTreeKindsConfig,
+  methodologyDeclaredConfig,
   withEmptyContextTreeEnv,
   withProductlessContextTreeEnv,
   withRichContextEnv,
@@ -36,7 +36,7 @@ import {
 
 describe("spec context read-set boundaries", () => {
   it("fails every targeted and targetless list and show over a product root with no recognized product spec, whatever else the root holds", async () => {
-    await withProductlessContextTreeEnv(specTreeKindsConfig(), async (env, paths) => {
+    await withProductlessContextTreeEnv(methodologyDeclaredConfig(), async (env, paths) => {
       for (
         const argv of [
           SPEC_CONTEXT_COMMAND_PATH.SHOW,
@@ -51,7 +51,7 @@ describe("spec context read-set boundaries", () => {
         expect(run.stderr, argv.join(" ")).toContain(SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR);
       }
     });
-    await withEmptyContextTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withEmptyContextTreeEnv(methodologyDeclaredConfig(), async (env) => {
       for (
         const argv of [
           SPEC_CONTEXT_COMMAND_PATH.SHOW,
@@ -173,7 +173,7 @@ describe("spec context read-set boundaries", () => {
   });
 
   it("orders selected tree entries depth-first by numeric index with the complete entry name as an ordinal tie-break", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       const fixture = env.fixture;
       const opening = KIND_REGISTRY[fixture.root.kind].opening;

@@ -40,7 +40,7 @@ import {
   parseContextManifest,
   referencePaths,
   runSpecDescriptor,
-  specTreeKindsConfig,
+  methodologyDeclaredConfig,
   trackSpecTreeInGit,
   withEmptyContextTreeEnv,
   withRichContextEnv,
@@ -152,7 +152,7 @@ describe("spec context list and show", () => {
   });
 
   it("fails with empty stdout and a non-zero exit when show has no target over a product root holding no product spec", async () => {
-    await withEmptyContextTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withEmptyContextTreeEnv(methodologyDeclaredConfig(), async (env) => {
       const context = { productDir: env.productDir };
       for (const extra of [[], [SPEC_DOMAIN_CLI.JSON_OPTION]]) {
         const run = await runSpecDescriptor(context, ...SPEC_CONTEXT_COMMAND_PATH.SHOW, ...extra);
@@ -235,7 +235,7 @@ describe("spec context list and show", () => {
   });
 
   it("carries the manifest schema version and the snapshot-derived bootstrap flag", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
@@ -249,7 +249,7 @@ describe("spec context list and show", () => {
     // reports the opposite flag, so a fixed value in place of the derivation
     // fails one of the two. The product-root target selects only the product
     // spec, and the manifest names that target by its canonical spelling.
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       const productPath = rootedArtifactPath(
         undefined,
         `${env.fixture.product.title}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`,
