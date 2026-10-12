@@ -128,7 +128,6 @@ export function arbitraryMethodologyDeclaration(): fc.Arbitrary<{
     .map(([version, migratingFrom]) => migratingFrom === undefined ? { version } : { version, migratingFrom });
 }
 
-/** A node directory suffix some naming-schema version SPX knows accepts. */
 /** A node-directory suffix that names a registered kind; the nested-product suffix names none. */
 export function arbitraryKnownNodeSuffix(): fc.Arbitrary<string> {
   return fc.constantFrom(

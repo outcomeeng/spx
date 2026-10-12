@@ -749,7 +749,7 @@ export async function materializeCurrentGrammarTree(env: CurrentSpecTreeEnv): Pr
     `${root}/${productSlug}${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX}`,
     `---\nid: ${
       sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId())
-    }\nkind: product\n---\n\n# ${productSlug}\n`,
+    }\nkind: ${SPEC_TREE_CONFIG.PRODUCT.KIND}\n---\n\n# ${productSlug}\n`,
   );
   await env.writeRaw(
     `${root}/${target}/${nodeSlug}${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX}`,
