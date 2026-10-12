@@ -29,6 +29,7 @@ import {
   type SpecContextTargetFailure,
   type SpecContextTargetFailureKind,
 } from "@/lib/spec-tree";
+import { arbitraryFixtureAuthoredLine } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   type RepresentativeSpecTreeFixture,
@@ -1007,7 +1008,7 @@ export function arbitraryContextDeterminismCase(config: Config): fc.Arbitrary<Ge
       const definition = KIND_REGISTRY[entry.kind as keyof typeof KIND_REGISTRY];
       return "opening" in definition ? withOpening(entry, definition.opening) : withDecisionStatement(entry);
     }),
-    migrating: arbitraryMigratingMethodology(),
+    migrating: arbitraryMigratingMethodology(arbitraryFixtureAuthoredLine()),
     methodologySlug: SPEC_TREE_TEST_GENERATOR.sourceSlug(),
   });
 }

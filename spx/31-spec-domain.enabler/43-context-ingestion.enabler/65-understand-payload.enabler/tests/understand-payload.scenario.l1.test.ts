@@ -16,6 +16,7 @@ import {
 import { SPEC_CONTEXT_ENTRY_TYPE, SPEC_CONTEXT_FRAME, SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR } from "@/lib/spec-tree";
 import { generatedMigratingMethodology } from "@testing/generators/config/descriptors";
 import {
+  arbitraryFixtureAuthoredLine,
   arbitraryMethodologyLineVersion,
   arbitraryMethodologyVersion,
   methodologyFoundationDocumentPath,
@@ -103,7 +104,9 @@ describe("spec context understand payload", () => {
     // The declared line differs from the fixture's by construction, so the
     // tree the fixture ships never serves the declared line.
     const declared = sampleGeneratedValue(
-      arbitraryMethodologyVersion().filter((candidate) => candidate.line !== METHODOLOGY_FIXTURE_IDENTITY.line),
+      arbitraryMethodologyVersion(arbitraryFixtureAuthoredLine()).filter((candidate) =>
+        candidate.line !== METHODOLOGY_FIXTURE_IDENTITY.line
+      ),
     );
     await withSpecTreeEnv(
       methodologyTreeConfig({ [METHODOLOGY_CONFIG_FIELDS.VERSION]: declared.text }),
@@ -131,7 +134,7 @@ describe("spec context understand payload", () => {
   });
 
   it("serves the declared version's tree while methodology.migratingFrom is declared", async () => {
-    const migrating = generatedMigratingMethodology();
+    const migrating = generatedMigratingMethodology(arbitraryFixtureAuthoredLine());
     await withSpecTreeEnv(methodologyTreeConfig(migrating.section), async (env) => {
       await env.materialize();
       const fixture = await writeMethodologyTree(env, { version: migrating.target });
@@ -148,7 +151,7 @@ describe("spec context understand payload", () => {
   });
 
   it("serves the declared line's tree when methodology.version is declared in the MAJOR.MINOR form", async () => {
-    const declared = sampleGeneratedValue(arbitraryMethodologyLineVersion());
+    const declared = sampleGeneratedValue(arbitraryMethodologyLineVersion(arbitraryFixtureAuthoredLine()));
     await withSpecTreeEnv(
       methodologyTreeConfig({ [METHODOLOGY_CONFIG_FIELDS.VERSION]: declared.text }),
       async (env) => {

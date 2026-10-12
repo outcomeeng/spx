@@ -25,7 +25,6 @@ import {
   type SpecContextTargetPathFacts,
   type SpecTreeConfig,
   specTreeConfigDescriptor,
-  type SpecTreeGrammarSelection,
   type SpecTreeSnapshot,
 } from "@/lib/spec-tree";
 import { resolveSpecProductDir, type SpecProductDirWarningHandler } from "./root";
@@ -83,20 +82,6 @@ export interface ContextInput {
   readonly hasDocument: (path: string) => Promise<boolean>;
 }
 
-/**
- * The grammar the declared methodology selects, or the default grammar while the declared line
- * is one SPX reads no grammar for: context delivery serves the declared methodology's shipped
- * tree and reports an unshipped line through its own typed failure, so the tree read never
- * pre-empts it.
- */
-function readableGrammarSelection(declaration: MethodologyConfig): SpecTreeGrammarSelection {
-  try {
-    return selectSpecTreeGrammar(declaration);
-  } catch {
-    return selectSpecTreeGrammar({});
-  }
-}
-
 export async function readContextInput(options: ContextInputOptions): Promise<ContextInput> {
   const cwd = options.cwd ?? CONFIG_PROCESS_CWD.read();
   const git = options.gitDependencies ?? defaultGitDependencies;
@@ -111,7 +96,7 @@ export async function readContextInput(options: ContextInputOptions): Promise<Co
     source: fs.createSpecTreeSource({
       productDir,
       includePath,
-      selection: readableGrammarSelection(methodology.value),
+      selection: selectSpecTreeGrammar(methodology.value),
     }),
   });
   const registry = await fs.resolveKindRegistry(productDir);

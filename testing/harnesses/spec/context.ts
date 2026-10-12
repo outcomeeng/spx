@@ -47,7 +47,7 @@ import {
   SPEC_CONTEXT_SELECTION_REASON,
   SPEC_TREE_CONFIG,
   SPEC_TREE_CONFIG_FIELDS,
-  SPEC_TREE_METHODOLOGY_LINE,
+  SPEC_TREE_GRAMMAR,
   type SpecContextDocumentEntry,
   type SpecContextEntry,
   type SpecContextManifest,
@@ -728,25 +728,40 @@ export function methodologyTreeConfig(identity?: Record<string, unknown>): Confi
     ...base,
     [METHODOLOGY_SECTION]: {
       ...(base[METHODOLOGY_SECTION] as Record<string, unknown>),
-      ...fixtureGrammarMigration(identity),
+      ...identity,
     },
   };
 }
 
-const FIXTURE_TARGET_LINE = SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO;
-const FIXTURE_AUTHORED_LINE_VERSION = `${SPEC_TREE_METHODOLOGY_LINE.THREE_TWO}.0`;
+/** The directory name of the node a current-grammar fixture tree holds. */
+export interface CurrentGrammarTree {
+  readonly target: string;
+}
 
 /**
- * The fixture tree is authored in the 3.x grammar, so an identity that targets the 4.0 line
- * declares that line's migration from 3.x: the declaration then selects a grammar that reads the
- * fixture tree whole.
+ * Writes a product tree authored in the 4.0 grammar: a root spec declaring `kind: product` and one
+ * substrate node. A test declaring a version on the 4.0 line reads this tree whole, where the
+ * representative fixture is authored in the 3.x grammar and is read under a 3.x line.
  */
-function fixtureGrammarMigration(identity: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
-  const version = identity?.[METHODOLOGY_CONFIG_FIELDS.VERSION];
-  const targetsFixtureLine = typeof version === "string" && version.startsWith(`${FIXTURE_TARGET_LINE}.`)
-    || version === FIXTURE_TARGET_LINE;
-  if (!targetsFixtureLine || identity?.[METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM] !== undefined) return identity;
-  return { ...identity, [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: FIXTURE_AUTHORED_LINE_VERSION };
+export async function materializeCurrentGrammarTree(env: CurrentSpecTreeEnv): Promise<CurrentGrammarTree> {
+  const productSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+  const nodeSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+  const order = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder());
+  const target = `${order}-${nodeSlug}${KIND_REGISTRY.substrate.suffix}`;
+  const root = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
+  await env.writeRaw(
+    `${root}/${productSlug}${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX}`,
+    `---\nid: ${
+      sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId())
+    }\nkind: product\n---\n\n# ${productSlug}\n`,
+  );
+  await env.writeRaw(
+    `${root}/${target}/${nodeSlug}${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX}`,
+    `---\nid: ${
+      sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId())
+    }\n---\n\n# ${nodeSlug}\n\n${KIND_REGISTRY.substrate.opening} generated fixture content\nSO THAT spec-tree tests\nCAN read current nodes\n`,
+  );
+  return { target };
 }
 
 /** The tree root a shipped-tree test injects: a package stand-in beside the product, holding `methodology/`. */

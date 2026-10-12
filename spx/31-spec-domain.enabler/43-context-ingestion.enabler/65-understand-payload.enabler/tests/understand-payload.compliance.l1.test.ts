@@ -17,6 +17,7 @@ import * as fc from "fast-check";
 
 import { generatedMethodologyIdentity, generatedMigratingMethodology } from "@testing/generators/config/descriptors";
 import {
+  arbitraryFixtureAuthoredLine,
   arbitraryMarkdownBody,
   arbitraryMethodologyVersion,
   generatedSourceRecordProviding,
@@ -44,14 +45,18 @@ import {
 
 describe("spec context understand payload provider match", () => {
   it("fails naming both declarations when the recorded provides selects another line, fails naming the migration source when no range holds it or the record declares none, and serves the tree when both agree, the provides in either accepted form", async () => {
-    const { section: migrating, target: declared, source: migrationSource } = generatedMigratingMethodology();
+    const { section: migrating, target: declared, source: migrationSource } = generatedMigratingMethodology(
+      arbitraryFixtureAuthoredLine(),
+    );
     const version = declared.text;
     const migratingFrom = migrating[METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM] as string;
     // The generator constructs each version's line beside its text, so the
     // other-line draw and the same-line other-form provides below are chosen
     // by an oracle the production line parse never touches.
     const other = sampleGeneratedValue(
-      arbitraryMethodologyVersion().filter((candidate) => candidate.line !== declared.line),
+      arbitraryMethodologyVersion(arbitraryFixtureAuthoredLine()).filter((candidate) =>
+        candidate.line !== declared.line
+      ),
     );
     await withSpecTreeEnv(methodologyTreeConfig(migrating), async (env) => {
       await env.materialize();
@@ -132,7 +137,7 @@ describe("spec context understand payload provider match", () => {
 
 describe("spec context understand payload sourcing", () => {
   it("serves the manifest-named core and keeps the manifest, source record, and catalog resources out of show", async () => {
-    const identity = generatedMethodologyIdentity();
+    const identity = generatedMethodologyIdentity(arbitraryFixtureAuthoredLine());
     await withSpecTreeEnv(methodologyTreeConfig(identity.section), async (env) => {
       await env.materialize();
       // The tree carries the source record, so the absence below is the
@@ -164,7 +169,7 @@ describe("spec context understand payload sourcing", () => {
   });
 
   it("resolves every core-relative catalog resource against the framed bundle path to the shipped resource", async () => {
-    const identity = generatedMethodologyIdentity();
+    const identity = generatedMethodologyIdentity(arbitraryFixtureAuthoredLine());
     await withSpecTreeEnv(methodologyTreeConfig(identity.section), async (env) => {
       await env.materialize();
       const fixture = await writeMethodologyTree(env, { version: identity.version });

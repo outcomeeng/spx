@@ -13,7 +13,7 @@ import {
   SPEC_CONTEXT_PRODUCT_ROOT_TARGET,
   SPEC_CONTEXT_TARGET_FAILURE_KIND,
 } from "@/lib/spec-tree";
-import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
+import { arbitraryFixtureAuthoredLine, arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   arbitrarySpecContextInvalidUtf8Bytes,
@@ -146,7 +146,9 @@ describe("spx spec context failures through the packaged executable", () => {
   it("reports a methodology failure with its failure kind and the methodology version as MAJOR.MINOR, exiting non-zero with empty stdout", async () => {
     const shipped = await shippedMethodologyVersion();
     const declared = sampleGeneratedValue(
-      arbitraryMethodologyVersion().filter((candidate) => candidate.line !== shipped.line),
+      arbitraryMethodologyVersion(arbitraryFixtureAuthoredLine()).filter((candidate) =>
+        candidate.line !== shipped.line
+      ),
     );
     await withSpecTreeEnv(
       methodologyTreeConfig({ [METHODOLOGY_CONFIG_FIELDS.VERSION]: declared.text }),

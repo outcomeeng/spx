@@ -215,11 +215,11 @@ export function generatedMethodologySection(): Record<string, unknown> {
 }
 
 /** A methodology declaration with the drawn version carrying the line its construction derives. */
-export function generatedMethodologyIdentity(): {
+export function generatedMethodologyIdentity(lines?: fc.Arbitrary<string>): {
   readonly section: Record<string, unknown>;
   readonly version: GeneratedMethodologyVersion;
 } {
-  const version = sampleGeneratedValue(arbitraryMethodologyVersion());
+  const version = sampleGeneratedValue(arbitraryMethodologyVersion(lines));
   return {
     version,
     section: {
@@ -236,12 +236,14 @@ export type GeneratedMigratingMethodology = {
   readonly source: GeneratedMethodologyVersion;
 };
 
-export function arbitraryMigratingMethodology(): fc.Arbitrary<GeneratedMigratingMethodology> {
+export function arbitraryMigratingMethodology(
+  lines?: fc.Arbitrary<string>,
+): fc.Arbitrary<GeneratedMigratingMethodology> {
   return fc
     .record({
-      versions: fc.tuple(arbitraryMethodologyVersion(), arbitraryMethodologyVersion()).filter(([left, right]) =>
-        left.text !== right.text
-      ),
+      versions: fc.tuple(arbitraryMethodologyVersion(lines), arbitraryMethodologyVersion(lines)).filter((
+        [left, right],
+      ) => left.text !== right.text),
       sourceSegments: fc.tuple(CONFIG_TEST_GENERATOR.key(), CONFIG_TEST_GENERATOR.key()),
     })
     .map(({ versions: [target, source], sourceSegments }) => ({
@@ -255,8 +257,8 @@ export function arbitraryMigratingMethodology(): fc.Arbitrary<GeneratedMigrating
     }));
 }
 
-export function generatedMigratingMethodology(): GeneratedMigratingMethodology {
-  return sampleGeneratedValue(arbitraryMigratingMethodology());
+export function generatedMigratingMethodology(lines?: fc.Arbitrary<string>): GeneratedMigratingMethodology {
+  return sampleGeneratedValue(arbitraryMigratingMethodology(lines));
 }
 
 /** A methodology section with an open migration window: two distinct exact versions. */
@@ -318,8 +320,10 @@ export interface GeneratedMigratingMethodologyFormCase {
   readonly source: GeneratedMethodologyVersionForms;
 }
 
-export function generatedMigratingMethodologyFormCases(): readonly GeneratedMigratingMethodologyFormCase[] {
-  const [target, source] = sampleGeneratedValue(arbitraryMethodologyVersionFormsOnDistinctLines());
+export function generatedMigratingMethodologyFormCases(
+  lines?: fc.Arbitrary<string>,
+): readonly GeneratedMigratingMethodologyFormCase[] {
+  const [target, source] = sampleGeneratedValue(arbitraryMethodologyVersionFormsOnDistinctLines(lines));
   const methodologySource = generatedMethodologySource();
   const forms = Object.values(METHODOLOGY_VERSION_FORM);
   return forms.flatMap((targetForm) =>
@@ -338,11 +342,11 @@ export function generatedMigratingMethodologyFormCases(): readonly GeneratedMigr
 }
 
 /** One line in every accepted form, each spelled as a methodology section declaring that form. */
-export function generatedMethodologyVersionFormSections(): {
+export function generatedMethodologyVersionFormSections(lines?: fc.Arbitrary<string>): {
   readonly forms: GeneratedMethodologyVersionForms;
   readonly sections: Readonly<Record<string, Record<string, unknown>>>;
 } {
-  const forms = sampleGeneratedValue(arbitraryMethodologyVersionForms());
+  const forms = sampleGeneratedValue(arbitraryMethodologyVersionForms(lines));
   const source = generatedMethodologySource();
   return {
     forms,
