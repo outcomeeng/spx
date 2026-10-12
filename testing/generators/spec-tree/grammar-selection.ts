@@ -17,6 +17,12 @@ import {
   type SpecTreeMethodologyLine,
 } from "@/lib/spec-tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
+import {
+  GRAMMAR_SELECTION_DECLARATION_FIELD,
+  GRAMMAR_SELECTION_FIXTURE,
+  type GrammarSelectionDeclaration,
+  type GrammarSelectionFixture,
+} from "@testing/harnesses/spec-tree/grammar-selection";
 
 const GRAMMAR_SELECTION_LINES: readonly string[] = Object.values(SPEC_TREE_METHODOLOGY_LINE);
 
@@ -132,4 +138,34 @@ export function arbitraryKnownNodeSuffix(): fc.Arbitrary<string> {
         .filter((suffix) => suffix !== SPEC_TREE_CONFIG.PRODUCT.NODE_SUFFIX),
     ),
   );
+}
+
+/** A tree whose names a declaration partitions: the declaration to write and the fixture whose names it classifies. */
+export type DeclaredGrammarComplianceCase = {
+  readonly title: string;
+  readonly fixture: GrammarSelectionFixture;
+  readonly declaration: GrammarSelectionDeclaration;
+};
+
+/**
+ * One case per grammar line whose fixture holds names the declared grammar does not accept,
+ * each declared by a drawn exact version on its line.
+ */
+export function declaredGrammarComplianceCases(): readonly DeclaredGrammarComplianceCase[] {
+  return [
+    {
+      line: SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO,
+      fixture: GRAMMAR_SELECTION_FIXTURE.FOUR_LINE,
+    },
+    {
+      line: SPEC_TREE_METHODOLOGY_LINE.THREE_TWO,
+      fixture: GRAMMAR_SELECTION_FIXTURE.THREE_LINE,
+    },
+  ].map(({ line, fixture }) => ({
+    title: `${fixture} tree declared on line ${line}`,
+    fixture,
+    declaration: {
+      [GRAMMAR_SELECTION_DECLARATION_FIELD.VERSION]: sampleGeneratedValue(arbitraryVersionOnLine(line)),
+    },
+  }));
 }
