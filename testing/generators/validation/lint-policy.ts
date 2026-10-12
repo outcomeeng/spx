@@ -1,5 +1,4 @@
 import { LINT_POLICY_BASE_REFS, LINT_POLICY_MANIFESTS } from "@/validation/lint-policy-constants";
-import { orderedDirectoryName } from "@testing/generators/spec-tree/spec-tree";
 
 const DEPRECATED_SPEC_NODE_PATH = "spx/10-old.feature";
 const BASE_TEST_DEBT_PATH = "spx/20-current.enabler";
@@ -98,9 +97,4 @@ export function validationLintPolicyScenarios(): ValidationLintPolicyScenario[] 
       kind: VALIDATION_LINT_POLICY_SCENARIO_KIND.CONFIG_LOAD_BOUNDARY,
     },
   ];
-}
-
-/** An ordered node directory name carrying `suffix`, drawn from the filesystem order and source slug generators. */
-export function lintPolicyNodeDirectoryName(suffix: string): string {
-  return orderedDirectoryName(suffix);
 }
