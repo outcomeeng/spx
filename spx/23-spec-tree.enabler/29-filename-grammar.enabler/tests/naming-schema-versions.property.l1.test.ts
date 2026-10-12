@@ -2,67 +2,151 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import {
+  canonicalNamingSchemaVersion,
+  compareNamingSchemaVersions,
   recognizeSpecTreeFilesystemEntry,
   selectSpecTreeGrammar,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_FILESYSTEM_RECORD_TYPE,
+  SPEC_TREE_GRAMMAR,
   SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
+  SPEC_TREE_NAMING_SCHEMA_VERSIONS,
+  supersededNodeSuffixes,
 } from "@/lib/spec-tree";
 import {
   arbitraryKnownNodeSuffix,
   arbitraryMethodologyDeclaration,
   majorComponent,
 } from "@testing/generators/spec-tree/grammar-selection";
+import {
+  NAMING_SCHEMA_VERSION_TEST_GENERATOR,
+  semverOrderOracle,
+} from "@testing/generators/spec-tree/naming-schema-version";
 import { SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
-import {
-  assertCanonicalNamingSchemaVersionBelongsToTuple,
-  assertCanonicalNamingSchemaVersionIsSemanticMaximum,
-  assertCanonicalSuffixesAreNeverSuperseded,
-  assertNamingSchemaSpecFileSuffixMatchesVersionRole,
-  assertNamingSchemaVersionsCarryAllFilenameForms,
-  assertNamingSchemaVersionsFollowSemanticOrder,
-  assertNonNumericNamingSchemaVersionIsRejected,
-  assertSupersededSuffixesComeFromPriorVersions,
-} from "@testing/harnesses/spec-tree/naming-schema-version";
 
 describe("naming-schema version ordering", () => {
   it("orders versions exactly as the semantic-version oracle does", () => {
-    assertNamingSchemaVersionsFollowSemanticOrder();
+    assertProperty(
+      NAMING_SCHEMA_VERSION_TEST_GENERATOR.versionComparisonPair(),
+      ([left, right]) => {
+        expect(Math.sign(compareNamingSchemaVersions(left, right))).toBe(
+          Math.sign(semverOrderOracle(left.version, right.version)),
+        );
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
   });
 
   it("selects the canonical version as the semantic-version maximum of the tuple", () => {
-    assertCanonicalNamingSchemaVersionIsSemanticMaximum();
+    assertProperty(
+      NAMING_SCHEMA_VERSION_TEST_GENERATOR.versionTuple(),
+      (versions) => {
+        const oracleMaximum = versions.reduce((maximum, version) =>
+          semverOrderOracle(version.version, maximum.version) > 0 ? version : maximum
+        );
+
+        expect(canonicalNamingSchemaVersion(versions).version).toBe(oracleMaximum.version);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
   });
 
   it("selects the canonical version as a member of the tuple", () => {
-    assertCanonicalNamingSchemaVersionBelongsToTuple();
+    assertProperty(
+      NAMING_SCHEMA_VERSION_TEST_GENERATOR.versionTuple(),
+      (versions) => {
+        expect(versions).toContain(canonicalNamingSchemaVersion(versions));
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
   });
 
   it("rejects a non-numeric version identifier rather than mis-ordering it", () => {
-    assertNonNumericNamingSchemaVersionIsRejected();
+    assertProperty(
+      NAMING_SCHEMA_VERSION_TEST_GENERATOR.nonNumericVersionPair(),
+      ({ invalid, valid }) => {
+        expect(() => compareNamingSchemaVersions(invalid, valid)).toThrow();
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
   });
 });
 
 describe("naming-schema superseded derivation", () => {
   it("derives the superseded node suffixes as the prior versions' suffixes less the canonical set", () => {
-    assertSupersededSuffixesComeFromPriorVersions();
+    assertProperty(
+      NAMING_SCHEMA_VERSION_TEST_GENERATOR.versionTuple(),
+      (versions) => {
+        const canonical = canonicalNamingSchemaVersion(versions);
+        const canonicalSuffixes = new Set(canonical.nodeSuffixes);
+        const expected = new Set<string>();
+        for (const version of versions) {
+          if (version === canonical) continue;
+          for (const suffix of version.nodeSuffixes) {
+            if (!canonicalSuffixes.has(suffix)) expected.add(suffix);
+          }
+        }
+
+        expect(new Set(supersededNodeSuffixes(versions))).toEqual(expected);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
   });
 
   it("never reports a canonical suffix as superseded", () => {
-    assertCanonicalSuffixesAreNeverSuperseded();
+    assertProperty(
+      NAMING_SCHEMA_VERSION_TEST_GENERATOR.versionTuple(),
+      (versions) => {
+        const canonicalSuffixes = new Set(canonicalNamingSchemaVersion(versions).nodeSuffixes);
+        for (const suffix of supersededNodeSuffixes(versions)) {
+          expect(canonicalSuffixes.has(suffix)).toBe(false);
+        }
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
   });
 });
 
 describe("naming-schema version self-containment", () => {
   it("carries its own accepted filename forms on each version", () => {
-    assertNamingSchemaVersionsCarryAllFilenameForms();
+    const carriesAllFilenameForms = (version: (typeof SPEC_TREE_NAMING_SCHEMA_VERSIONS)[number]) => {
+      expect(Array.isArray(version.nodeSuffixes)).toBe(true);
+      expect(Array.isArray(version.decisionSuffixes)).toBe(true);
+      expect(version.productSuffix.length).toBeGreaterThan(0);
+      expect(Array.isArray(version.runners)).toBe(true);
+      expect(version.evidence).toBeDefined();
+      expect(version.order).toBeDefined();
+      expect(Array.isArray(version.coordinationNotes)).toBe(true);
+      expect(version.eval.DIRECTORY_NAME.length).toBeGreaterThan(0);
+      expect(Array.isArray(version.eval.FILES)).toBe(true);
+      expect(version.eval.RUNS_DIRECTORY_NAME.length).toBeGreaterThan(0);
+      expect(version.specFileSuffix.length).toBeGreaterThan(0);
+    };
+
+    for (const version of SPEC_TREE_NAMING_SCHEMA_VERSIONS) carriesAllFilenameForms(version);
+    assertProperty(NAMING_SCHEMA_VERSION_TEST_GENERATOR.version(), carriesAllFilenameForms, {
+      level: PROPERTY_LEVEL.L1,
+    });
   });
 });
 
 describe("naming-schema spec-file form by role", () => {
   it("assigns the canonical suffix to exactly the canonical member and the bare suffix to every prior member", () => {
-    assertNamingSchemaSpecFileSuffixMatchesVersionRole();
+    assertProperty(
+      NAMING_SCHEMA_VERSION_TEST_GENERATOR.versionTuple(),
+      (versions) => {
+        const canonical = canonicalNamingSchemaVersion(versions);
+        for (const version of versions) {
+          const expected = version === canonical
+            ? SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX
+            : SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX;
+
+          expect(version.specFileSuffix).toBe(expected);
+        }
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
   });
 });
 
