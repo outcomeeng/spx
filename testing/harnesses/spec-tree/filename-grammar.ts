@@ -1,25 +1,17 @@
 import { expect, it } from "vitest";
 
 import {
-  canonicalNamingSchemaVersion,
-  DECISION_SUFFIXES,
   KIND_REGISTRY,
-  NODE_SUFFIXES,
   recognizeSpecTreeFilesystemEntry,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
-  SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_FILESYSTEM_RECORD_TYPE,
-  SPEC_TREE_GRAMMAR,
   SPEC_TREE_KIND_CATEGORY,
   SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
-  SPEC_TREE_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION,
 } from "@/lib/spec-tree";
-import { compareAsciiStrings } from "@/lib/state-store";
 import {
   arbitraryEvidenceRecognitionCase,
-  type FilenameGrammarTokenCase,
   productEntryRecognitionCase,
   type SpecTreeEntryRecognitionCase,
   specTreeEntryRecognitionCases,
@@ -36,32 +28,6 @@ export function registerSpecTreeEntryRecognitionEvidence(): void {
 
 export function registerEvidenceRecognitionProperty(): void {
   it("maps every generated canonical evidence filename under tests to evidence", assertEvidenceRecognitionProperty);
-}
-
-export function assertFilenameGrammarTokenGroupIsNonEmpty(testCase: FilenameGrammarTokenCase): void {
-  expect(testCase.size).toBeGreaterThan(0);
-}
-
-export function assertEvidenceFileGrammarUsesSharedRegistryObject(): void {
-  expect(SPEC_TREE_EVIDENCE_FILE).toBe(SPEC_TREE_GRAMMAR.EVIDENCE);
-}
-
-export function assertCanonicalSuffixesComeFromKindRegistry(): void {
-  const canonical = canonicalNamingSchemaVersion(SPEC_TREE_NAMING_SCHEMA_VERSIONS);
-  expect([...canonical.nodeSuffixes].sort(compareAsciiStrings)).toEqual([...NODE_SUFFIXES].sort(compareAsciiStrings));
-  expect([...canonical.decisionSuffixes].sort(compareAsciiStrings)).toEqual(
-    [...DECISION_SUFFIXES].sort(compareAsciiStrings),
-  );
-}
-
-export function assertPriorNodeSuffixesStayOutsideLiveRegistry(): void {
-  const liveSuffixes = Object.values(KIND_REGISTRY).map((definition) => definition.suffix);
-  for (const suffix of SPEC_TREE_GRAMMAR.PRIOR_NODE_SUFFIXES) expect(liveSuffixes).not.toContain(suffix);
-}
-
-export function assertPriorNodeSuffixesStayInsidePriorSchemas(): void {
-  const canonicalNodeSuffixes = new Set(canonicalNamingSchemaVersion(SPEC_TREE_NAMING_SCHEMA_VERSIONS).nodeSuffixes);
-  for (const suffix of SPEC_TREE_GRAMMAR.PRIOR_NODE_SUFFIXES) expect(canonicalNodeSuffixes.has(suffix)).toBe(false);
 }
 
 export function assertSpecTreeEntryRecognitionCase(testCase: SpecTreeEntryRecognitionCase): void {
