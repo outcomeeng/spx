@@ -34,6 +34,7 @@ import {
   type SpecTreeMethodologyDeclaration,
 } from "./grammar-selection";
 import { createSpecTreeLinkGrammar, type SpecTreeLinkGrammar } from "./link-grammar";
+import { compareSpecTreeOrder } from "./order";
 export {
   canonicalNamingSchemaVersion,
   compareNamingSchemaVersions,
@@ -178,6 +179,7 @@ export type {
   SpecTreeLinkKind,
   SpecTreeLinkRecognition,
 } from "./link-grammar";
+export { compareSpecTreeOrder } from "./order";
 export { resolveSpecTreePathOwnership, SPEC_TREE_PATH_OWNERSHIP_RESULT_KIND } from "./path-ownership";
 export type {
   SpecTreePathOwnershipResolved,
@@ -280,9 +282,8 @@ export type SpecTreeProductSourceEntry = SpecTreeSourceEntryBase & {
 export type SpecTreeNodeSourceEntry = SpecTreeSourceEntryBase & {
   readonly type: typeof SPEC_TREE_ENTRY_TYPE.NODE;
   readonly kind: SpecTreeContainerKind;
-  readonly order: number;
-  /** The index's numeric segments, which order siblings segment by segment when present. */
-  readonly orderSegments?: readonly number[];
+  /** The index's numeric segments, compared segment by segment by `compareSpecTreeOrder`. */
+  readonly orderSegments: readonly number[];
   readonly slug: string;
   readonly parentId?: string;
   readonly title?: string;
@@ -291,9 +292,8 @@ export type SpecTreeNodeSourceEntry = SpecTreeSourceEntryBase & {
 export type SpecTreeDecisionSourceEntry = SpecTreeSourceEntryBase & {
   readonly type: typeof SPEC_TREE_ENTRY_TYPE.DECISION;
   readonly kind: DecisionKind;
-  readonly order: number;
-  /** The index's numeric segments, which order siblings segment by segment when present. */
-  readonly orderSegments?: readonly number[];
+  /** The index's numeric segments, compared segment by segment by `compareSpecTreeOrder`. */
+  readonly orderSegments: readonly number[];
   readonly slug: string;
   readonly parentId?: string;
   readonly title?: string;
@@ -308,11 +308,15 @@ export type SpecTreeEvidenceSourceEntry = SpecTreeSourceEntryBase & {
 export type SpecTreeSupersededSourceEntry = SpecTreeSourceEntryBase & {
   readonly type: typeof SPEC_TREE_ENTRY_TYPE.SUPERSEDED;
   readonly version: string;
+  /** The index's numeric segments; the unindexed root spec file carries the empty segment list. */
+  readonly orderSegments: readonly number[];
   readonly parentId?: string;
 };
 
 export type SpecTreeInvalidSourceEntry = SpecTreeSourceEntryBase & {
   readonly type: typeof SPEC_TREE_ENTRY_TYPE.INVALID;
+  /** The index's numeric segments, compared segment by segment by `compareSpecTreeOrder`. */
+  readonly orderSegments: readonly number[];
   readonly parentId?: string;
 };
 
@@ -381,9 +385,8 @@ export type SpecTreeProduct = {
 export type SpecTreeDecision = {
   readonly id: string;
   readonly kind: DecisionKind;
-  readonly order: number;
-  /** The index's numeric segments, which order siblings segment by segment when present. */
-  readonly orderSegments?: readonly number[];
+  /** The index's numeric segments, compared segment by segment by `compareSpecTreeOrder`. */
+  readonly orderSegments: readonly number[];
   readonly slug: string;
   readonly parentId?: string;
   readonly title?: string;
@@ -393,9 +396,8 @@ export type SpecTreeDecision = {
 export type SpecTreeNode = {
   readonly id: string;
   readonly kind: SpecTreeContainerKind;
-  readonly order: number;
-  /** The index's numeric segments, which order siblings segment by segment when present. */
-  readonly orderSegments?: readonly number[];
+  /** The index's numeric segments, compared segment by segment by `compareSpecTreeOrder`. */
+  readonly orderSegments: readonly number[];
   readonly slug: string;
   readonly parentId?: string;
   readonly title?: string;
@@ -450,11 +452,11 @@ type MutableSpecTreeNode = Omit<SpecTreeNode, SpecTreeNodeRelationKey> & {
 
 type OrderedEntry = {
   readonly id: string;
-  readonly order: number;
-  readonly orderSegments?: readonly number[];
+  readonly orderSegments: readonly number[];
 };
 
 const ORDER_COMPARISON_EQUAL = 0;
+const SPEC_TREE_UNINDEXED_ORDER_SEGMENTS: readonly number[] = [];
 const SPEC_TREE_PATH_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
 const SPEC_TREE_ORDER_SEPARATOR = SPEC_TREE_GRAMMAR.ORDER.SEPARATOR;
 const SPEC_TREE_ORDER_SEGMENT_SEPARATOR = SPEC_TREE_GRAMMAR.ORDER.SEGMENT_SEPARATOR;
@@ -548,7 +550,6 @@ export function recognizeSpecTreeFilesystemEntry(
     type: SPEC_TREE_ENTRY_TYPE.DECISION,
     kind: decisionMatch.kind as DecisionKind,
     id: record.relativePath,
-    order: parsed.order,
     orderSegments: parsed.orderSegments,
     slug: parsed.slug,
     parentId: record.parentId,
@@ -592,6 +593,7 @@ function recognizeRootFile(
     type: SPEC_TREE_ENTRY_TYPE.SUPERSEDED,
     id: record.relativePath,
     version: prior.version,
+    orderSegments: SPEC_TREE_UNINDEXED_ORDER_SEGMENTS,
     parentId: record.parentId,
     ref: sourceRefForRelativePath(record.relativePath),
   };
@@ -612,7 +614,6 @@ function recognizeDirectoryRecord(
         type: SPEC_TREE_ENTRY_TYPE.NODE,
         kind,
         id: record.relativePath,
-        order: selectedMatch.parsed.order,
         orderSegments: selectedMatch.parsed.orderSegments,
         slug: selectedMatch.parsed.slug,
         parentId: record.parentId,
@@ -621,12 +622,13 @@ function recognizeDirectoryRecord(
     }
   }
 
-  const supersededVersion = matchSupersededNodeVersion(name, known, selected);
-  if (supersededVersion !== null) {
+  const supersededMatch = matchSupersededNodeVersion(name, known, selected);
+  if (supersededMatch !== null) {
     return {
       type: SPEC_TREE_ENTRY_TYPE.SUPERSEDED,
       id: record.relativePath,
-      version: supersededVersion,
+      version: supersededMatch.version,
+      orderSegments: supersededMatch.orderSegments,
       parentId: record.parentId,
       ref: sourceRefForRelativePath(record.relativePath),
     };
@@ -638,10 +640,12 @@ function recognizeDirectoryRecord(
   // slug component (it splits on the first separator and accepts any non-empty slug),
   // so a `{NN}-{slug}{unknown-suffix}` directory parses here and is retained as invalid
   // rather than dropped.
-  if (parseOrderedSlugByVersions(name, known) !== null) {
+  const invalidParsed = parseOrderedSlugByVersions(name, known);
+  if (invalidParsed !== null) {
     return {
       type: SPEC_TREE_ENTRY_TYPE.INVALID,
       id: record.relativePath,
+      orderSegments: invalidParsed.orderSegments,
       parentId: record.parentId,
       ref: sourceRefForRelativePath(record.relativePath),
     };
@@ -690,15 +694,15 @@ function matchSupersededNodeVersion(
   name: string,
   known: readonly NamingSchemaVersion[],
   selected: readonly NamingSchemaVersion[],
-): string | null {
+): { readonly version: string; readonly orderSegments: readonly number[] } | null {
   const selectedSuffixes = new Set(selected.flatMap((version) => version.nodeSuffixes));
 
   for (const version of priorNamingSchemaVersions({ known, selected })) {
     for (const suffix of version.nodeSuffixes) {
       if (selectedSuffixes.has(suffix)) continue;
-      if (name.endsWith(suffix) && parseOrderedSlug(stripSuffix(name, suffix), version.order.PATTERN) !== null) {
-        return version.version;
-      }
+      if (!name.endsWith(suffix)) continue;
+      const parsed = parseOrderedSlug(stripSuffix(name, suffix), version.order.PATTERN);
+      if (parsed !== null) return { version: version.version, orderSegments: parsed.orderSegments };
     }
   }
   return null;
@@ -759,7 +763,6 @@ export async function readSpecTree(options: SpecTreeOptions): Promise<SpecTreeSn
     nodesById.set(entry.id, {
       id: entry.id,
       kind: entry.kind,
-      order: entry.order,
       orderSegments: entry.orderSegments,
       slug: entry.slug,
       parentId: entry.parentId,
@@ -814,7 +817,7 @@ export function projectSpecTree(snapshot: SpecTreeSnapshot): SpecTreeProjection 
     decisions: snapshot.decisions.map((decision) => ({
       id: decision.id,
       kind: decision.kind,
-      order: decision.order,
+      order: projectedOrder(decision.orderSegments),
       slug: decision.slug,
     })),
   };
@@ -860,7 +863,6 @@ function toDecision(entry: SpecTreeDecisionSourceEntry): SpecTreeDecision {
   return {
     id: entry.id,
     kind: entry.kind,
-    order: entry.order,
     orderSegments: entry.orderSegments,
     slug: entry.slug,
     parentId: entry.parentId,
@@ -921,11 +923,16 @@ function flattenNodes(nodes: readonly MutableSpecTreeNode[]): readonly SpecTreeN
   return nodes.flatMap((node) => [node, ...flattenNodes(node.children)]);
 }
 
+/** The projection contract's scalar `order` field, written from the index's segments. */
+function projectedOrder(orderSegments: readonly number[]): number {
+  return Number.parseFloat(orderSegments.join(SPEC_TREE_ORDER_SEGMENT_SEPARATOR));
+}
+
 function projectNode(node: SpecTreeNode): SpecTreeProjectedNode {
   return {
     id: node.id,
     kind: node.kind,
-    order: node.order,
+    order: projectedOrder(node.orderSegments),
     slug: node.slug,
     state: node.state,
     children: node.children.map(projectNode),
@@ -941,19 +948,8 @@ function findFirstNonPassing(nodes: readonly SpecTreeNode[]): SpecTreeNode | nul
   return null;
 }
 
-function compareOrderSegments(left: readonly number[], right: readonly number[]): number {
-  const shared = Math.min(left.length, right.length);
-  for (let index = 0; index < shared; index += 1) {
-    const difference = left[index] - right[index];
-    if (difference !== ORDER_COMPARISON_EQUAL) return difference;
-  }
-  return left.length - right.length;
-}
-
 function compareOrderedEntries(left: OrderedEntry, right: OrderedEntry): number {
-  const orderComparison = left.orderSegments !== undefined && right.orderSegments !== undefined
-    ? compareOrderSegments(left.orderSegments, right.orderSegments)
-    : left.order - right.order;
+  const orderComparison = compareSpecTreeOrder(left.orderSegments, right.orderSegments);
   if (orderComparison !== ORDER_COMPARISON_EQUAL) return orderComparison;
   return compareSpecContextOrdinal(left.id, right.id);
 }
@@ -1115,7 +1111,6 @@ function matchKindSuffix(
 }
 
 type OrderedSlug = {
-  readonly order: number;
   readonly orderSegments: readonly number[];
   readonly slug: string;
 };
@@ -1139,7 +1134,6 @@ function parseOrderedSlug(value: string, orderPattern: RegExp): OrderedSlug | nu
   const slug = value.slice(separatorIndex + SPEC_TREE_ORDER_SEPARATOR.length);
   if (slug.length === 0) return null;
   return {
-    order: Number.parseFloat(orderText),
     orderSegments: orderText.split(SPEC_TREE_ORDER_SEGMENT_SEPARATOR).map((segment) =>
       Number.parseInt(segment, SPEC_TREE_ORDER_SEGMENT_RADIX)
     ),
