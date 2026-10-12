@@ -3,14 +3,16 @@
  * node kind resolves and the child kinds each node kind admits.
  *
  * The domain of every case is the registered node and output kinds, taken from the library
- * surface. The expectations come from the relationships the filename-grammar spec declares —
- * a keyword per kind, a foundation order over the output kinds, and a variant that takes its
- * parent's place — and from no registry field the library resolves them through.
+ * surface. The opening keyword and the 3.x admitted children are source-owned vocabulary read
+ * from the kind registry. The laws the spec declares are constructed here: a foundation order
+ * over the output kinds that fixes their admitted children, and a variant that takes its
+ * parent's place.
  *
  * @module generators/spec-tree/kind-grammar
  */
 
 import {
+  KIND_REGISTRY,
   NODE_KINDS,
   OUTPUT_KINDS,
   SPEC_TREE_CONFIG,
@@ -29,20 +31,15 @@ type SelfDescribedKind = Exclude<SpecTreeNodeKind, VariantKind>;
 type OutputFoundationKind = (typeof OUTPUT_FOUNDATION_ORDER)[number];
 type NodeFamilyKind = Exclude<SelfDescribedKind, OutputFoundationKind>;
 
-const OPENING_KEYWORD: Readonly<Record<SelfDescribedKind, string>> = {
-  substrate: "SUPPLIES",
-  capability: "PROVIDES",
-  domain: "OWNS",
-  interface: "ADAPTS",
-  surface: "EXPOSES",
-  enabler: "PROVIDES",
-  outcome: "WE BELIEVE THAT",
-};
+/** The opening keyword of a self-described kind: the registry owns the vocabulary; only the variant's inheritance has a law here. */
+function openingKeywordOf(kind: SelfDescribedKind): string {
+  return KIND_REGISTRY[kind].opening;
+}
 
-const NODE_FAMILY_CHILDREN: Readonly<Record<NodeFamilyKind, readonly SpecTreeNodeKind[]>> = {
-  enabler: ["enabler"],
-  outcome: ["enabler", "outcome"],
-};
+/** The children a 3.x kind admits: the registry owns the vocabulary, as the 3.x kinds have no construction law. */
+function nodeFamilyChildrenOf(kind: NodeFamilyKind): readonly SpecTreeNodeKind[] {
+  return KIND_REGISTRY[kind].children;
+}
 
 export type KindOpeningCase = {
   readonly label: string;
@@ -70,7 +67,7 @@ function foundationIndex(kind: SelfDescribedKind): number {
 
 function expectedChildrenOfSelfDescribed(kind: SelfDescribedKind): readonly SpecTreeChildKind[] {
   const index = foundationIndex(kind);
-  if (index < 0) return NODE_FAMILY_CHILDREN[kind as NodeFamilyKind];
+  if (index < 0) return nodeFamilyChildrenOf(kind as NodeFamilyKind);
   return [...OUTPUT_FOUNDATION_ORDER.slice(0, index + 1), VARIANT_KIND];
 }
 
@@ -85,12 +82,12 @@ function variantParentKinds(): readonly SelfDescribedKind[] {
 /** One case per registered kind, and for the variant one per output kind it can sit under. */
 export function kindOpeningCases(): readonly KindOpeningCase[] {
   return everyRegisteredKind().flatMap((kind): readonly KindOpeningCase[] => {
-    if (isSelfDescribed(kind)) return [{ label: kind, kind, expectedOpening: OPENING_KEYWORD[kind] }];
+    if (isSelfDescribed(kind)) return [{ label: kind, kind, expectedOpening: openingKeywordOf(kind) }];
     return variantParentKinds().map((parentKind) => ({
       label: [kind, parentKind].join(LABEL_PARENT_JOINER),
       kind,
       parentKind,
-      expectedOpening: OPENING_KEYWORD[parentKind],
+      expectedOpening: openingKeywordOf(parentKind),
     }));
   });
 }

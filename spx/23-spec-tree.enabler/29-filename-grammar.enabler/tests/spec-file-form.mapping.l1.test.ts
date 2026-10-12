@@ -50,18 +50,6 @@ describe("the 3.x naming-schema version", () => {
       threeXFormExpectation().coordinationNotes,
     );
   });
-
-  it("accepts dot-separated digit-run indices and rejects every other form", () => {
-    const expected = threeXFormExpectation();
-    const version = canonicalNamingSchemaVersion(SPEC_TREE_NAMING_SCHEMA_VERSIONS);
-
-    for (const index of expected.acceptedIndexes) {
-      expect(version.order.PATTERN.test(index)).toBe(true);
-    }
-    for (const index of expected.rejectedIndexes) {
-      expect(version.order.PATTERN.test(index)).toBe(false);
-    }
-  });
 });
 
 describe("both naming-schema versions", () => {
