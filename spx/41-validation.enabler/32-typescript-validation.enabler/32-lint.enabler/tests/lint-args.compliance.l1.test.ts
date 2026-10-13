@@ -7,6 +7,7 @@ import {
   VALIDATION_EXIT_CODES,
   VALIDATION_STAGE_DISPLAY_NAMES,
 } from "@/commands/validation/messages";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import {
   VALIDATION_PATH_TOOL_SUBSECTIONS,
   VALIDATION_PATHS_SUBSECTION,
@@ -19,6 +20,8 @@ import { buildEslintArgs } from "@/validation/steps/eslint";
 import { DEFAULT_ESLINT_CONFIG_FILE, ESLINT_COMMAND_TOKENS } from "@/validation/steps/eslint-contract";
 import { EXECUTION_MODES, VALIDATION_SCOPES } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
+import { SPEC_TREE_CASE_TITLE, specTreeConfigForLine } from "@testing/generators/spec-tree/spec-tree";
+import { lintPolicyDebtCases } from "@testing/generators/validation/lint-policy";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import {
   LINT_ESLINT_STUB,
@@ -422,36 +425,41 @@ describe("ESLint binary spawned by the lint command", () => {
     ]);
   });
 
-  it("injects no repository lint-policy arguments into a product that carries this repository's lint-policy sources", async () => {
-    const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+  it.each(lintPolicyDebtCases())(
+    `injects no repository lint-policy arguments into a product that lists a spec-tree node in both debt manifests, ${SPEC_TREE_CASE_TITLE}`,
+    async (debtCase) => {
+      const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
 
-    const observation = await observeLintCommandOnProduct({
-      files: [
-        { path: TSCONFIG_FILES.full, json: { include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern] } },
-        { path: DEFAULT_ESLINT_CONFIG_FILE },
-        {
-          path: LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.file,
-          json: { [LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.key]: [] },
-        },
-        {
-          path: LINT_POLICY_MANIFESTS.TEST_OWNED_CONSTANT_DEBT_NODES.file,
-          json: { [LINT_POLICY_MANIFESTS.TEST_OWNED_CONSTANT_DEBT_NODES.key]: [] },
-        },
-        { path: sourceFilePath },
-      ],
-      stub: LINT_ESLINT_STUB.ARGUMENTS,
-      command: () => ({ files: [sourceFilePath], fix: true, quiet: true }),
-    });
+      const observation = await observeLintCommandOnProduct({
+        config: specTreeConfigForLine(debtCase.line),
+        nodeDirectories: [debtCase.baseDebtPath.slice(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/`.length)],
+        files: [
+          { path: TSCONFIG_FILES.full, json: { include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern] } },
+          { path: DEFAULT_ESLINT_CONFIG_FILE },
+          {
+            path: LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.file,
+            json: { [LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.key]: [debtCase.baseDebtPath] },
+          },
+          {
+            path: LINT_POLICY_MANIFESTS.TEST_OWNED_CONSTANT_DEBT_NODES.file,
+            json: { [LINT_POLICY_MANIFESTS.TEST_OWNED_CONSTANT_DEBT_NODES.key]: [debtCase.baseDebtPath] },
+          },
+          { path: sourceFilePath },
+        ],
+        stub: LINT_ESLINT_STUB.ARGUMENTS,
+        command: () => ({ files: [sourceFilePath], fix: true, quiet: true }),
+      });
 
-    expect(observation.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-    expect(observation.recordedArguments).toStrictEqual([
-      ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
-      DEFAULT_ESLINT_CONFIG_FILE,
-      ESLINT_COMMAND_TOKENS.FIX_FLAG,
-      ESLINT_COMMAND_TOKENS.FILE_SEPARATOR,
-      sourceFilePath,
-    ]);
-  });
+      expect(observation.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+      expect(observation.recordedArguments).toStrictEqual([
+        ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
+        DEFAULT_ESLINT_CONFIG_FILE,
+        ESLINT_COMMAND_TOKENS.FIX_FLAG,
+        ESLINT_COMMAND_TOKENS.FILE_SEPARATOR,
+        sourceFilePath,
+      ]);
+    },
+  );
 
   it("forwards ESLint subprocess output through injected parent streams", async () => {
     const stdoutChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());

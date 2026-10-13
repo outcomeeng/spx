@@ -22,7 +22,7 @@ import {
 import { VALIDATION_SUBPROCESS_EVENTS, type ValidationWritableStream } from "@/validation/steps/subprocess-output";
 import { EXECUTION_MODES, VALIDATION_SCOPES, type ValidationContext } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
-import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { withTestEnv, writeOrderedDirectory } from "@testing/harnesses/spec-tree/spec-tree";
 import { RejectingUnexpectedValidationSpawnRunner } from "@testing/harnesses/validation/subprocess";
 
 const RECORDED_ARGUMENTS_FILE = "eslint-args.txt";
@@ -52,6 +52,8 @@ export interface LintCommandProductFile {
 export interface LintCommandProductOptions {
   readonly config?: Config;
   readonly files: readonly LintCommandProductFile[];
+  /** Spec-tree node directory names, relative to the spec-tree root, written into the product. */
+  readonly nodeDirectories?: readonly string[];
   readonly stub: LintEslintStub;
   /** The command options, given the absolute product directory; `cwd` is always the product directory. */
   readonly command: (productDir: string) => Omit<LintCommandOptions, "cwd">;
@@ -74,6 +76,9 @@ export function observeLintCommandOnProduct(
   options: LintCommandProductOptions,
 ): Promise<LintCommandProductObservation> {
   return withTestEnv(options.config ?? {}, async (env) => {
+    for (const directory of options.nodeDirectories ?? []) {
+      await writeOrderedDirectory(env, directory);
+    }
     for (const file of options.files) {
       await env.writeRaw(file.path, file.json === undefined ? FIXTURE_FILE_TEXT : JSON.stringify(file.json));
     }
