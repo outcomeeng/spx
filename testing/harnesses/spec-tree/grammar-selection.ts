@@ -14,7 +14,13 @@ import { cp, readdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
-import { createFilesystemSpecTreeSource, readSpecTree, SPEC_TREE_CONFIG, type SpecTreeSnapshot } from "@/lib/spec-tree";
+import {
+  createFilesystemSpecTreeSource,
+  readSpecTree,
+  SPEC_TREE_CONFIG,
+  SPEC_TREE_GRAMMAR,
+  type SpecTreeSnapshot,
+} from "@/lib/spec-tree";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 export const GRAMMAR_SELECTION_FIXTURE = {
@@ -58,7 +64,6 @@ const FIXTURE_ROOT = resolve(__dirname, "../../fixtures/spec-tree/grammar-select
 const FIXTURE_TREE_DIRECTORY = "tree";
 const FIXTURE_EXPECTATION_FILE = "expected.json";
 const FIXTURE_ENCODING = "utf8";
-const PATH_SEPARATOR = "/";
 
 export async function withGrammarSelectionEnv<T>(
   fixture: GrammarSelectionFixture,
@@ -74,7 +79,7 @@ export async function withGrammarSelectionEnv<T>(
       rootFilePaths: async () =>
         (await readdir(join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY), { withFileTypes: true }))
           .filter((entry) => entry.isFile())
-          .map((entry) => [SPEC_TREE_CONFIG.ROOT_DIRECTORY, entry.name].join(PATH_SEPARATOR)),
+          .map((entry) => [SPEC_TREE_CONFIG.ROOT_DIRECTORY, entry.name].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR)),
     });
   });
 }
