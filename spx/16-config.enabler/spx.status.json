@@ -7,6 +7,7 @@
       "spx/16-config.enabler/tests/config-format.mapping.l1.test.ts": "passed",
       "spx/16-config.enabler/tests/defaults-only.scenario.l1.test.ts": "passed",
       "spx/16-config.enabler/tests/defaults.mapping.l1.test.ts": "passed",
+      "spx/16-config.enabler/tests/descriptor-scope.compliance.l1.test.ts": "passed",
       "spx/16-config.enabler/tests/determinism.property.l1.test.ts": "passed",
       "spx/16-config.enabler/tests/format-api.mapping.l1.test.ts": "passed",
       "spx/16-config.enabler/tests/invariants.property.l1.test.ts": "passed",
