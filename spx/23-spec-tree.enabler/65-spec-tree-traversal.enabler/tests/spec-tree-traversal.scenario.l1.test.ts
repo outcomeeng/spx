@@ -20,17 +20,17 @@ describe("spec-tree traversal", () => {
         fixture.child,
         fixture.peer,
         buildEvidenceEntry({
-          id: sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId()),
+          id: sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId(), 0),
           parentId: fixture.root.id,
           status: SPEC_TREE_EVIDENCE_STATUS.PASSING,
         }),
         buildEvidenceEntry({
-          id: sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId()),
+          id: sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId(), 1),
           parentId: fixture.child.id,
           status: SPEC_TREE_EVIDENCE_STATUS.FAILING,
         }),
         buildEvidenceEntry({
-          id: sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId()),
+          id: sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId(), 2),
           parentId: fixture.peer.id,
           status: SPEC_TREE_EVIDENCE_STATUS.PASSING,
         }),
@@ -47,12 +47,12 @@ describe("spec-tree traversal", () => {
         fixture.root,
         fixture.child,
         buildEvidenceEntry({
-          id: sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId()),
+          id: sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId(), 3),
           parentId: fixture.root.id,
           status: SPEC_TREE_EVIDENCE_STATUS.PASSING,
         }),
         buildEvidenceEntry({
-          id: sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId()),
+          id: sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId(), 4),
           parentId: fixture.child.id,
           status: SPEC_TREE_EVIDENCE_STATUS.PASSING,
         }),

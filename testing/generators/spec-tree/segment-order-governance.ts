@@ -109,7 +109,7 @@ export function segmentOrderGovernanceCases(): readonly SegmentOrderGovernanceCa
     `${index}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${suffix}`;
   return LINE_SCOPES.map((scope) => {
     const [productSlug, lowerSlug, higherSlug, lowerDecisionSlug, higherDecisionSlug] = [0, 1, 2, 3, 4].map(
-      (position) => `${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug())}${position}`,
+      (position) => `${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), position)}${position}`,
     );
     const lowerTarget = named(scope.lowerIndex, lowerSlug, scope.nodeSuffix);
     const higherTarget = named(scope.higherIndex, higherSlug, scope.nodeSuffix);
