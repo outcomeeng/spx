@@ -19,3 +19,13 @@
 **Impact:** a release over N changed paths runs N full candidate-test reachability scans per language per endpoint, current and previous-tag endpoints alike, where one batched scan per language per endpoint covers the same inputs; a release over this changeset's 69 files runs 69 scans per language per endpoint.
 
 **Settlement condition:** `RelatedTestResolution` carries a per-source-path result, or one batched call fans its result out per changed path with the ownership properties under [`18-release-architecture.adr.md`](18-release-architecture.adr.md) and the linked tests unchanged; then `resolveEndpointOwnership` calls `language.relatedTestPaths` once per language per endpoint.
+
+## The endpoint-grammar generator writes grammar vocabulary as literals and presents one 4.0 suffix
+
+`arbitraryReleaseEndpointGrammarScenario` in `testing/generators/release/product-context.ts` builds the 4.0 node directory as `${index}-${slug}` with `KIND_REGISTRY.capability.suffix` and rewrites the 3.x spec file name through `.replace(SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX, SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX)`. `SPEC_TREE_GRAMMAR.ORDER.SEPARATOR` owns the `-`, and every 4.0 name in the scenario carries `.capability`.
+
+**Evidence:** `tests/endpoint-grammar.compliance.l1.test.ts` samples one scenario for each of its two tests; the generator's `fourZeroSpec` closure at its definition in `testing/generators/release/product-context.ts`.
+
+**Impact:** a release reader that mishandles another 4.0 output suffix, or a 3.x suffix an endpoint on 4.0 leaves behind, passes.
+
+**Settlement condition:** the scenario takes the order separator from `SPEC_TREE_GRAMMAR.ORDER.SEPARATOR` and draws the 4.0 node suffix from the target naming-schema version's `nodeSuffixes`, and the 3.x-name-at-4.0 path draws from the suffixes the 4.0 version leaves superseded.
