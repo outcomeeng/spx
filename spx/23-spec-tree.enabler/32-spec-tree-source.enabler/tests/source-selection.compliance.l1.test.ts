@@ -9,6 +9,7 @@ describe("declared grammar selection", () => {
     await withGrammarSelectionEnv(fixture, declaration, async (env) => {
       const expectation = await env.expectation();
       const snapshot = await env.read();
+      expect(snapshot.product?.id).toBe(expectation.product);
       const validIds = snapshot.allNodes.map((node) => node.id);
       expect(validIds).toEqual(expectation.valid);
       for (const id of [...expectation.superseded, ...expectation.invalid]) {

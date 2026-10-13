@@ -9,6 +9,7 @@ import {
   type SpecTreeEvidenceGrammar,
   type SpecTreeMethodologyLine,
 } from "@/lib/spec-tree";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 
 const NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS = {
   VERSION_COMPONENT_MAX: 25,
@@ -447,4 +448,93 @@ function arbitraryDemotedRegistrySuffixScenario(): fc.Arbitrary<DemotedRegistryS
         canonicalRegistrySuffix,
       };
     });
+}
+
+/**
+ * One injected naming-schema tuple in which several versions ordered before the declared target
+ * accept the same suffix no selected version accepts, beside a version ordered after the target
+ * that accepts it too. The expected version is the newest version ordered before the target.
+ */
+export type NewestSupersededVersionCase = {
+  readonly title: string;
+  readonly schemaVersions: readonly NamingSchemaVersion[];
+  /** The members of `schemaVersions` the case's methodology declaration selects. */
+  readonly selectedVersions: readonly NamingSchemaVersion[];
+  readonly suffix: string;
+  readonly expectedVersion: string;
+};
+
+const NEWEST_SUPERSEDED_VERSION_COUNT = 4;
+const NEWEST_SUPERSEDED_SELECTED_SUFFIX_COUNT = 2;
+const NEWEST_SUPERSEDED_ORDER_ROLES = {
+  OLDEST: 0,
+  NEWEST_PRIOR: 1,
+  TARGET: 2,
+  LATER: 3,
+} as const;
+
+function permutations<T>(items: readonly T[]): readonly (readonly T[])[] {
+  if (items.length <= 1) return [items];
+  return items.flatMap((item, index) =>
+    permutations([...items.slice(0, index), ...items.slice(index + 1)]).map((rest) => [item, ...rest])
+  );
+}
+
+/**
+ * Every ordering of one injected tuple whose versions are oldest, newest-prior, target, and later,
+ * so no position in the tuple decides which version the suffix belongs to. The expected version
+ * comes from the construction: the newest-prior version is the one ordered by the semantic-version
+ * oracle directly below the target.
+ */
+export function newestSupersededVersionCases(): readonly NewestSupersededVersionCase[] {
+  const drawn = sampleGeneratedValue(
+    fc.record({
+      versions: fc.uniqueArray(arbitrarySemver(), {
+        minLength: NEWEST_SUPERSEDED_VERSION_COUNT,
+        maxLength: NEWEST_SUPERSEDED_VERSION_COUNT,
+        selector: (version) => version,
+      }),
+      suffixes: fc.uniqueArray(arbitrarySuffix(), {
+        minLength: 1 + NEWEST_SUPERSEDED_SELECTED_SUFFIX_COUNT,
+        maxLength: 1 + NEWEST_SUPERSEDED_SELECTED_SUFFIX_COUNT,
+      }),
+    }).filter(({ versions }) =>
+      versions.every((left, leftIndex) =>
+        versions.every((right, rightIndex) => leftIndex === rightIndex || semverOrderOracle(left, right) !== 0)
+      )
+    ),
+  );
+  const ascending = [...drawn.versions].sort(semverOrderOracle);
+  const [sharedSuffix, ...targetSuffixes] = drawn.suffixes;
+  const oldest = buildNamingSchemaVersion(
+    ascending[NEWEST_SUPERSEDED_ORDER_ROLES.OLDEST],
+    [sharedSuffix],
+    DECISION_SUFFIXES,
+    specFileSuffixForRole(false),
+  );
+  const newestPrior = buildNamingSchemaVersion(
+    ascending[NEWEST_SUPERSEDED_ORDER_ROLES.NEWEST_PRIOR],
+    [sharedSuffix],
+    DECISION_SUFFIXES,
+    specFileSuffixForRole(false),
+  );
+  const target = buildNamingSchemaVersion(
+    ascending[NEWEST_SUPERSEDED_ORDER_ROLES.TARGET],
+    targetSuffixes,
+    DECISION_SUFFIXES,
+    specFileSuffixForRole(true),
+  );
+  const later = buildNamingSchemaVersion(
+    ascending[NEWEST_SUPERSEDED_ORDER_ROLES.LATER],
+    [sharedSuffix],
+    DECISION_SUFFIXES,
+    specFileSuffixForRole(true),
+  );
+  return permutations([oldest, newestPrior, target, later]).map((schemaVersions, index) => ({
+    title: `orders the tuple as permutation ${index} and keeps the newest prior version`,
+    schemaVersions,
+    selectedVersions: [target],
+    suffix: sharedSuffix,
+    expectedVersion: newestPrior.version,
+  }));
 }
