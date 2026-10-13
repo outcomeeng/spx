@@ -4,9 +4,11 @@ import {
   DECISION_SUFFIXES,
   type NamingSchemaVersion,
   NODE_SUFFIXES,
+  SPEC_TREE_FILESYSTEM_RECORD_TYPE,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_METHODOLOGY_LINE,
   type SpecTreeEvidenceGrammar,
+  type SpecTreeFilesystemRecordType,
   type SpecTreeMethodologyLine,
 } from "@/lib/spec-tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
@@ -22,16 +24,12 @@ const NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS = {
   VERSION_TUPLE_MAX: 5,
   RECOGNITION_FOREIGN_SUFFIX_COUNT: 2,
   EVIDENCE_TOKEN_MAX_LENGTH: 10,
+  SUPERSEDED_PRIOR_MIN: 2,
+  SUPERSEDED_PRIOR_MAX: 3,
+  SUPERSEDED_NON_PRIOR_COUNT: 2,
+  SUPERSEDED_TARGET_SUFFIX_COUNT: 2,
   COMPANION_VERSION_MIN: 1,
   COMPANION_VERSION_MAX: 3,
-} as const;
-
-// Fixture-scoped version identifiers, deliberately distinct from the production
-// NAMING_SCHEMA_VERSION_ID — the recognizer is generic over any version tuple, so
-// scenarios prove classification against arbitrary identifiers, not the owned ones.
-const RECOGNITION_SCENARIO_VERSION = {
-  PRIOR: "0.1.0",
-  CANONICAL: "0.2.0",
 } as const;
 
 const SEMVER_COMPONENT_SEPARATOR = ".";
@@ -39,16 +37,6 @@ const SUFFIX_LEAD = ".";
 const SUFFIX_INITIAL_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyz"];
 const SUFFIX_REST_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyz-"];
 const SEMVER_COMPONENT_COUNT = 3;
-
-export type RecognitionVersionScenario = {
-  readonly schemaVersions: readonly NamingSchemaVersion[];
-  /** The members of `schemaVersions` the scenario's methodology declaration selects. */
-  readonly selectedVersions: readonly NamingSchemaVersion[];
-  readonly validNodeSuffix: string;
-  readonly supersededNodeSuffix: string;
-  readonly supersededVersion: string;
-  readonly invalidNodeSuffix: string;
-};
 
 export type DemotedRegistrySuffixScenario = {
   readonly schemaVersions: readonly NamingSchemaVersion[];
@@ -113,7 +101,7 @@ export const NAMING_SCHEMA_VERSION_TEST_GENERATOR = {
   nonNumericVersionPair: arbitraryNonNumericVersionPair,
   versionTuple: arbitraryNamingSchemaVersionTuple,
   selectedVersionScenario: arbitrarySelectedVersionScenario,
-  recognitionScenario: arbitraryRecognitionVersionScenario,
+  supersededTupleScenario: arbitrarySupersededTupleScenario,
   demotedRegistrySuffixScenario: arbitraryDemotedRegistrySuffixScenario,
   canonicalForeignSuffixScenario: arbitraryCanonicalForeignSuffixScenario,
   injectedEvidenceGrammarScenario: arbitraryInjectedEvidenceGrammarScenario,
@@ -194,14 +182,14 @@ function arbitraryEvidenceToken(): fc.Arbitrary<string> {
 function arbitraryInjectedEvidenceGrammarScenario(): fc.Arbitrary<InjectedEvidenceGrammarScenario> {
   return fc
     .tuple(
-      arbitraryRecognitionVersionScenario(),
+      arbitraryDistinctVersionPair(),
       arbitraryEvidenceToken(),
       arbitraryEvidenceToken(),
       arbitraryEvidenceToken(),
       arbitraryEvidenceToken(),
       arbitraryEvidenceToken(),
     )
-    .map(([scenario, directoryName, subject, mode, level, tail]) => {
+    .map(([[priorVersion, canonicalVersion], directoryName, subject, mode, level, tail]) => {
       const evidence: SpecTreeEvidenceGrammar = {
         DIRECTORY_NAME: directoryName,
         MODES: [mode],
@@ -209,16 +197,36 @@ function arbitraryInjectedEvidenceGrammarScenario(): fc.Arbitrary<InjectedEviden
         TAILS: { INJECTED: [tail] },
         SEGMENT_SEPARATOR: SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR,
       };
-      const schemaVersions = scenario.schemaVersions.map((version) => ({ ...version, evidence }));
+      const prior = buildNamingSchemaVersion(
+        priorVersion,
+        NODE_SUFFIXES,
+        DECISION_SUFFIXES,
+        specFileSuffixForRole(false),
+        evidence,
+      );
+      const selected = buildNamingSchemaVersion(
+        canonicalVersion,
+        NODE_SUFFIXES,
+        DECISION_SUFFIXES,
+        specFileSuffixForRole(true),
+        evidence,
+      );
       return {
-        schemaVersions,
-        selectedVersions: schemaVersions.slice(-1),
+        schemaVersions: [prior, selected],
+        selectedVersions: [selected],
         relativePath: [
           directoryName,
           [subject, mode, level, tail].join(evidence.SEGMENT_SEPARATOR),
         ].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
       };
     });
+}
+
+/** Two distinct semantic versions ordered by the independent oracle: the older first. */
+function arbitraryDistinctVersionPair(): fc.Arbitrary<readonly [string, string]> {
+  return fc
+    .uniqueArray(arbitrarySemver(), { minLength: 2, maxLength: 2 })
+    .map(([left, right]) => semverOrderOracle(left, right) < 0 ? [left, right] : [right, left]);
 }
 
 // The canonical (highest-version) member carries the spec document-kind suffix;
@@ -350,58 +358,26 @@ function arbitraryForeignNodeSuffix(): fc.Arbitrary<string> {
   return arbitrarySuffix().filter((suffix) => !canonicalSuffixes.has(suffix));
 }
 
-function arbitraryRecognitionVersionScenario(): fc.Arbitrary<RecognitionVersionScenario> {
+function arbitraryCanonicalForeignSuffixScenario(): fc.Arbitrary<CanonicalForeignSuffixScenario> {
   return fc
-    .record({
-      validNodeSuffix: fc.constantFrom(...NODE_SUFFIXES),
-      foreignSuffixes: fc.uniqueArray(arbitraryForeignNodeSuffix(), {
+    .tuple(
+      fc.uniqueArray(arbitraryForeignNodeSuffix(), {
         minLength: NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.RECOGNITION_FOREIGN_SUFFIX_COUNT,
         maxLength: NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.RECOGNITION_FOREIGN_SUFFIX_COUNT,
       }),
-    })
-    .map(({ validNodeSuffix, foreignSuffixes }) => {
-      const supersededNodeSuffix = foreignSuffixes[0];
-      const invalidNodeSuffix = foreignSuffixes[1];
-      const prior = buildNamingSchemaVersion(
-        RECOGNITION_SCENARIO_VERSION.PRIOR,
-        [supersededNodeSuffix],
-        DECISION_SUFFIXES,
-        specFileSuffixForRole(false),
-      );
-      const selected = buildNamingSchemaVersion(
-        RECOGNITION_SCENARIO_VERSION.CANONICAL,
-        NODE_SUFFIXES,
-        DECISION_SUFFIXES,
-        specFileSuffixForRole(true),
-      );
-      return {
-        schemaVersions: [prior, selected],
-        selectedVersions: [selected],
-        validNodeSuffix,
-        supersededNodeSuffix,
-        supersededVersion: RECOGNITION_SCENARIO_VERSION.PRIOR,
-        invalidNodeSuffix,
-      };
-    });
-}
-
-function arbitraryCanonicalForeignSuffixScenario(): fc.Arbitrary<CanonicalForeignSuffixScenario> {
-  return fc
-    .uniqueArray(arbitraryForeignNodeSuffix(), {
-      minLength: NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.RECOGNITION_FOREIGN_SUFFIX_COUNT,
-      maxLength: NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.RECOGNITION_FOREIGN_SUFFIX_COUNT,
-    })
-    .map((foreignSuffixes) => {
+      arbitraryDistinctVersionPair(),
+    )
+    .map(([foreignSuffixes, [priorVersion, canonicalVersion]]) => {
       const foreignCanonicalSuffix = foreignSuffixes[0];
       const foreignPriorSuffix = foreignSuffixes[1];
       const prior = buildNamingSchemaVersion(
-        RECOGNITION_SCENARIO_VERSION.PRIOR,
+        priorVersion,
         [foreignPriorSuffix],
         DECISION_SUFFIXES,
         specFileSuffixForRole(false),
       );
       const selected = buildNamingSchemaVersion(
-        RECOGNITION_SCENARIO_VERSION.CANONICAL,
+        canonicalVersion,
         [foreignCanonicalSuffix],
         DECISION_SUFFIXES,
         specFileSuffixForRole(true),
@@ -448,6 +424,86 @@ function arbitraryDemotedRegistrySuffixScenario(): fc.Arbitrary<DemotedRegistryS
         canonicalRegistrySuffix,
       };
     });
+}
+
+/** The filesystem record of an ordered node directory `{order}{separator}{slug}{suffix}`. */
+export function orderedDirectoryRecord(
+  order: number,
+  slug: string,
+  suffix: string,
+): { readonly type: SpecTreeFilesystemRecordType; readonly relativePath: string } {
+  return {
+    type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY,
+    relativePath: `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${suffix}`,
+  };
+}
+
+/**
+ * One injected naming-schema tuple, in an arbitrary order, whose several versions ordered before the
+ * declared target accept one suffix that no selected version accepts, beside a version ordered after
+ * the target that accepts it too. The expected version is the newest of the prior versions, chosen by
+ * the semantic-version maximum oracle.
+ */
+export type SupersededTupleScenario = {
+  readonly schemaVersions: readonly NamingSchemaVersion[];
+  /** The members of `schemaVersions` the scenario's methodology declaration selects. */
+  readonly selectedVersions: readonly NamingSchemaVersion[];
+  readonly suffix: string;
+  readonly expectedVersion: string;
+};
+
+function arbitrarySupersededTupleScenario(): fc.Arbitrary<SupersededTupleScenario> {
+  return fc
+    .record({
+      priorCount: fc.integer({
+        min: NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.SUPERSEDED_PRIOR_MIN,
+        max: NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.SUPERSEDED_PRIOR_MAX,
+      }),
+      suffixes: fc.uniqueArray(arbitrarySuffix(), {
+        minLength: 1 + NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.SUPERSEDED_TARGET_SUFFIX_COUNT,
+        maxLength: 1 + NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.SUPERSEDED_TARGET_SUFFIX_COUNT,
+      }),
+    })
+    .chain(({ priorCount, suffixes }) =>
+      fc
+        .uniqueArray(arbitrarySemver(), {
+          minLength: priorCount + NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.SUPERSEDED_NON_PRIOR_COUNT,
+          maxLength: priorCount + NAMING_SCHEMA_VERSION_GENERATOR_OPTIONS.SUPERSEDED_NON_PRIOR_COUNT,
+        })
+        .map((versions) => {
+          const ascending = [...versions].sort(semverOrderOracle);
+          const [sharedSuffix, ...targetSuffixes] = suffixes;
+          const priors = ascending.slice(0, priorCount).map((version) =>
+            buildNamingSchemaVersion(version, [sharedSuffix], DECISION_SUFFIXES, specFileSuffixForRole(false))
+          );
+          const target = buildNamingSchemaVersion(
+            ascending[priorCount],
+            targetSuffixes,
+            DECISION_SUFFIXES,
+            specFileSuffixForRole(true),
+          );
+          const later = buildNamingSchemaVersion(
+            ascending[priorCount + 1],
+            [sharedSuffix],
+            DECISION_SUFFIXES,
+            specFileSuffixForRole(true),
+          );
+          return { priors, target, later, sharedSuffix };
+        })
+    )
+    .chain(({ priors, target, later, sharedSuffix }) =>
+      fc
+        .shuffledSubarray([...priors, target, later], {
+          minLength: priors.length + 2,
+          maxLength: priors.length + 2,
+        })
+        .map((schemaVersions) => ({
+          schemaVersions,
+          selectedVersions: [target],
+          suffix: sharedSuffix,
+          expectedVersion: semverMaximumOracle(priors).version,
+        }))
+    );
 }
 
 /**

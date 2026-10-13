@@ -19,6 +19,7 @@ import {
   SPEC_TREE_METHODOLOGY_LINE,
   type SpecTreeRecognitionOptions,
 } from "@/lib/spec-tree";
+import { orderedDirectoryRecord } from "@testing/generators/spec-tree/naming-schema-version";
 import { SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import {
   GRAMMAR_SELECTION_DECLARATION_FIELD,
@@ -32,8 +33,6 @@ export const MIGRATING_DECLARATION: GrammarSelectionDeclaration = {
 };
 
 const MIGRATION_SOURCE_KINDS = [KIND_REGISTRY.enabler, KIND_REGISTRY.outcome];
-const NAME_SEPARATOR = "-";
-const PATH_SEPARATOR = "/";
 
 export type MigrationClassificationCase = {
   /** The recognition options of the grammar the migrating declaration selects. */
@@ -73,7 +72,7 @@ function arbitraryNeitherSuffix(options: SpecTreeRecognitionOptions): fc.Arbitra
 function arbitraryDirectoryName(suffix: fc.Arbitrary<string>): fc.Arbitrary<string> {
   return fc
     .tuple(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), SPEC_TREE_TEST_GENERATOR.sourceSlug(), suffix)
-    .map(([order, slug, nodeSuffix]) => [order, NAME_SEPARATOR, slug, nodeSuffix].join(""));
+    .map(([order, slug, nodeSuffix]) => orderedDirectoryRecord(order, slug, nodeSuffix).relativePath);
 }
 
 function arbitrarySourceSuffix(): fc.Arbitrary<string> {
@@ -113,9 +112,9 @@ export function arbitraryMigrationTreeLayout(): fc.Arbitrary<MigrationTreeLayout
     )
     .map(([productName, first, second]) => {
       const sourceParent = first.sourceDirectory;
-      const targetChild = [sourceParent, second.targetDirectory].join(PATH_SEPARATOR);
+      const targetChild = [sourceParent, second.targetDirectory].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
       const targetParent = first.targetDirectory;
-      const sourceChild = [targetParent, second.sourceDirectory].join(PATH_SEPARATOR);
+      const sourceChild = [targetParent, second.sourceDirectory].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
       return {
         productName,
         directories: [sourceParent, targetChild, targetParent, sourceChild, first.neitherDirectory],
