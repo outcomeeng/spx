@@ -1,4 +1,11 @@
+import type { SpecTreeMethodologyLine } from "@/lib/spec-tree";
 import { LINT_POLICY_BASE_REFS, LINT_POLICY_MANIFESTS } from "@/validation/lint-policy-constants";
+import {
+  orderedDirectoryName,
+  SPEC_TREE_SOURCE_LINES,
+  specTreeGrammarSelectionForLine,
+  supersededSuffixOracle,
+} from "@testing/generators/spec-tree/spec-tree";
 
 const DEPRECATED_SPEC_NODE_PATH = "spx/10-old.feature";
 const BASE_TEST_DEBT_PATH = "spx/20-current.enabler";
@@ -97,4 +104,36 @@ export function validationLintPolicyScenarios(): ValidationLintPolicyScenario[] 
       kind: VALIDATION_LINT_POLICY_SCENARIO_KIND.CONFIG_LOAD_BOUNDARY,
     },
   ];
+}
+
+/** A node directory the lint policy judges under the declaration on `line`. */
+export type LintPolicySuffixCase = {
+  readonly title: string;
+  readonly line: SpecTreeMethodologyLine;
+  readonly directory: string;
+};
+
+/** One directory per node suffix a naming-schema version a line selects accepts. */
+export function lintPolicyAcceptedSuffixCases(): readonly LintPolicySuffixCase[] {
+  return SPEC_TREE_SOURCE_LINES.flatMap((line) =>
+    specTreeGrammarSelectionForLine(line).selected.flatMap((version) => version.nodeSuffixes).map((suffix) => ({
+      line,
+      suffix,
+    }))
+  ).map(({ line, suffix }, drawIndex) => ({
+    title: `accepts a ${suffix} directory under a ${line} declaration`,
+    line,
+    directory: orderedDirectoryName(suffix, drawIndex),
+  }));
+}
+
+/** One directory per node suffix the independent oracle leaves to a version ordered before the line's target. */
+export function lintPolicyRejectedSuffixCases(): readonly LintPolicySuffixCase[] {
+  return SPEC_TREE_SOURCE_LINES.flatMap((line) =>
+    supersededSuffixOracle(specTreeGrammarSelectionForLine(line)).map(({ suffix }) => ({ line, suffix }))
+  ).map(({ line, suffix }, drawIndex) => ({
+    title: `rejects a ${suffix} directory under a ${line} declaration, naming the directory`,
+    line,
+    directory: orderedDirectoryName(suffix, drawIndex),
+  }));
 }
