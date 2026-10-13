@@ -12,7 +12,6 @@ import {
   MIGRATING_DECLARATION,
 } from "@testing/generators/spec-tree/migration-classification";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
-import { expectPresent } from "@testing/harnesses/spec-tree/assertions";
 import { withMigrationTreeEnv } from "@testing/harnesses/spec-tree/migration-classification";
 
 describe("migration classification compliance", () => {
@@ -21,16 +20,14 @@ describe("migration classification compliance", () => {
       arbitraryMigrationClassificationCase(),
       ({ options, sourceDirectory, targetDirectory, neitherDirectory }) => {
         const classify = (relativePath: string) =>
-          expectPresent(
-            recognizeSpecTreeFilesystemEntry(
-              { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY, relativePath },
-              options,
-            ),
+          recognizeSpecTreeFilesystemEntry(
+            { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY, relativePath },
+            options,
           );
 
-        expect(classify(sourceDirectory).type).toBe(SPEC_TREE_ENTRY_TYPE.NODE);
-        expect(classify(targetDirectory).type).toBe(SPEC_TREE_ENTRY_TYPE.NODE);
-        expect(classify(neitherDirectory).type).toBe(SPEC_TREE_ENTRY_TYPE.INVALID);
+        expect(classify(sourceDirectory)?.type).toBe(SPEC_TREE_ENTRY_TYPE.NODE);
+        expect(classify(targetDirectory)?.type).toBe(SPEC_TREE_ENTRY_TYPE.NODE);
+        expect(classify(neitherDirectory)?.type).toBe(SPEC_TREE_ENTRY_TYPE.INVALID);
       },
       { level: PROPERTY_LEVEL.L1 },
     );

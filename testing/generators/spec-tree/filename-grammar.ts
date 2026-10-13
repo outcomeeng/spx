@@ -12,18 +12,25 @@ import {
   OUTPUT_SUFFIXES,
   SPEC_TREE_CONFIG,
   SPEC_TREE_CONFIG_FIELDS,
+  SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_FILESYSTEM_RECORD_TYPE,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_KIND_CATEGORY,
   SPEC_TREE_METHODOLOGY_LINE,
+  type SpecTreeEntryType,
   type SpecTreeFilesystemRecordType,
   type SpecTreeKindCategory,
+  type SpecTreeMethodologyLine,
 } from "@/lib/spec-tree";
+import { orderedDirectoryRecord } from "@testing/generators/spec-tree/naming-schema-version";
 import {
   sampleSpecTreeTestValue,
   singleSegmentOrder,
+  SPEC_TREE_SOURCE_LINES,
   SPEC_TREE_TEST_GENERATOR,
+  specTreeGrammarSelectionForLine,
+  supersededSuffixOracle,
 } from "@testing/generators/spec-tree/spec-tree";
 
 export type FilenameGrammarTokenCase = {
@@ -56,21 +63,43 @@ export type SpecTreeKindsFieldCase = {
   readonly config: Config;
 };
 
-export type SpecTreeEntryRecognitionCase = {
+/** A node directory a declaration on `line` selects a naming-schema version to accept, with the entry it maps to. */
+export type NodeDirectoryRecognitionCase = {
   readonly title: string;
-  readonly kind: Kind;
+  readonly line: SpecTreeMethodologyLine;
+  readonly kind: string;
   readonly orderSegments: readonly number[];
   readonly slug: string;
-  readonly parentId?: string;
-  readonly recordType: SpecTreeFilesystemRecordType;
   readonly relativePath: string;
 };
 
-/** One recognizable record: a node directory or a decision file, addressed as the recognizer receives it. */
+/** A decision file a declaration on `line` selects a naming-schema version to accept, with the entry it maps to. */
+export type DecisionFileRecognitionCase = {
+  readonly title: string;
+  readonly line: SpecTreeMethodologyLine;
+  readonly kind: Kind;
+  readonly orderSegments: readonly number[];
+  readonly slug: string;
+  readonly parentId: string;
+  readonly relativePath: string;
+};
+
+/** A product-root file a declaration on `line` selects a naming-schema version to accept. */
+export type ProductRootRecognitionCase = {
+  readonly title: string;
+  readonly line: SpecTreeMethodologyLine;
+  readonly slug: string;
+  readonly relativePath: string;
+  /** The kind the root spec declares in its front matter; absent for a root named by its file suffix alone. */
+  readonly declaredKind?: string;
+};
+
+/** One recognizable record, addressed as the recognizer receives it. */
 export type OrderedRecordInput = {
   readonly type: SpecTreeFilesystemRecordType;
   readonly relativePath: string;
   readonly parentId?: string;
+  readonly declaredKind?: string;
 };
 
 /** Two records of one kind whose indexes differ in how a later segment orders, under one methodology line. */
@@ -84,8 +113,25 @@ export type SegmentOrderRecognitionCase = {
 };
 
 export type EvidenceRecognitionCase = {
+  readonly line: SpecTreeMethodologyLine;
   readonly parentId: string;
   readonly relativePath: string;
+};
+
+/** A record valid under the declaration on `line`, with the entry type and kind its form maps to. */
+export type ValidRecognitionScenario = {
+  readonly line: SpecTreeMethodologyLine;
+  readonly record: OrderedRecordInput;
+  /** The fields of the entry the form maps to: its type, and its kind for a node or decision form. */
+  readonly expected: { readonly type: SpecTreeEntryType; readonly kind?: string };
+};
+
+/** An ordered node directory only a naming-schema version ordered before the declared target's accepts. */
+export type SupersededLineScenario = {
+  readonly line: SpecTreeMethodologyLine;
+  readonly record: OrderedRecordInput;
+  /** The newest version the independent oracle names for the directory's suffix. */
+  readonly expectedVersion: string;
 };
 
 export const FILENAME_GRAMMAR_TOKEN_CASES = [
@@ -203,33 +249,98 @@ export function specTreeKindsFieldCases(): readonly SpecTreeKindsFieldCase[] {
   ];
 }
 
-export function specTreeEntryRecognitionCases(): readonly SpecTreeEntryRecognitionCase[] {
-  return (Object.keys(KIND_REGISTRY) as Kind[]).map((kind) => {
-    const order = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), 0);
-    const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 1);
-    const definition = KIND_REGISTRY[kind];
-    if (definition.category !== SPEC_TREE_KIND_CATEGORY.DECISION) {
+/**
+ * The node kinds whose directory suffix the grammar declares for each methodology line, per the
+ * entry-recognition spec: the 3.x `enabler` and `outcome` kinds, and the 4.0 `substrate`, `capability`,
+ * `domain`, `interface`, `surface`, and `variant` output kinds. The 4.0 line also declares the nested
+ * `product` scope, which no registry carries.
+ */
+const DECLARED_NODE_KINDS_BY_LINE: Readonly<Partial<Record<SpecTreeMethodologyLine, readonly Kind[]>>> = {
+  [SPEC_TREE_METHODOLOGY_LINE.THREE_TWO]: ["enabler", "outcome"],
+  [SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO]: ["substrate", "capability", "domain", "interface", "surface", "variant"],
+};
+
+/** The decision kinds both lines declare. */
+const DECLARED_DECISION_KINDS: readonly Kind[] = ["adr", "pdr"];
+
+type DeclaredNodeDirectoryKind = { readonly kind: string; readonly suffix: string };
+
+function declaredNodeDirectoryKinds(line: SpecTreeMethodologyLine): readonly DeclaredNodeDirectoryKind[] {
+  const registered = (DECLARED_NODE_KINDS_BY_LINE[line] ?? []).map((kind) => ({
+    kind,
+    suffix: KIND_REGISTRY[kind].suffix,
+  }));
+  return line === SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO
+    ? [...registered, { kind: SPEC_TREE_CONFIG.PRODUCT.KIND, suffix: SPEC_TREE_CONFIG.PRODUCT.NODE_SUFFIX }]
+    : registered;
+}
+
+/** One node directory for every kind each methodology line declares, the 4.0 `.product` scope included. */
+export function nodeDirectoryRecognitionCases(): readonly NodeDirectoryRecognitionCase[] {
+  return SPEC_TREE_SOURCE_LINES.flatMap((line) =>
+    declaredNodeDirectoryKinds(line).map(({ kind, suffix }) => ({ line, kind, suffix }))
+  )
+    .map(({ line, kind, suffix }, drawIndex) => {
+      const order = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), drawIndex);
+      const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), drawIndex);
       return {
-        title: `maps the registered ${kind} directory suffix`,
+        title: `maps the ${line} ${suffix} directory to the ${kind} kind`,
+        line,
         kind,
         orderSegments: singleSegmentOrder(order),
         slug,
-        recordType: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY,
-        relativePath: `${order}-${slug}${definition.suffix}`,
+        relativePath: orderedDirectoryRecord(order, slug, suffix).relativePath,
       };
-    }
-    const parentOrder = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), 2);
-    const parentSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 3);
-    const parentId = `${parentOrder}-${parentSlug}${KIND_REGISTRY[requireFirst(NODE_KINDS)].suffix}`;
-    return {
-      title: `maps the registered ${kind} filename suffix`,
-      kind,
-      orderSegments: singleSegmentOrder(order),
-      slug,
-      parentId,
-      recordType: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
-      relativePath: `${parentId}/${order}-${slug}${definition.suffix}`,
-    };
+    });
+}
+
+/** One decision file for every decision kind under each methodology line, held by a node directory of that line. */
+export function decisionFileRecognitionCases(): readonly DecisionFileRecognitionCase[] {
+  return SPEC_TREE_SOURCE_LINES.flatMap((line) => DECLARED_DECISION_KINDS.map((kind) => ({ line, kind })))
+    .map(({ line, kind }, drawIndex) => {
+      const order = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), drawIndex);
+      const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), drawIndex);
+      const parentOrder = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), drawIndex + 1);
+      const parentSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), drawIndex + 1);
+      const [parentKind] = declaredNodeDirectoryKinds(line);
+      const parentId = orderedDirectoryRecord(parentOrder, parentSlug, parentKind.suffix).relativePath;
+      return {
+        title: `maps the ${line} ${KIND_REGISTRY[kind].suffix} file to the ${kind} kind`,
+        line,
+        kind,
+        orderSegments: singleSegmentOrder(order),
+        slug,
+        parentId,
+        relativePath: [
+          parentId,
+          `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${KIND_REGISTRY[kind].suffix}`,
+        ].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+      };
+    });
+}
+
+/**
+ * The product-root name each methodology line declares: a `{name}.product.md` file under 3.2, and a
+ * `{name}.spec.md` file whose front matter declares the product kind under 4.0.
+ */
+export function productRootRecognitionCases(): readonly ProductRootRecognitionCase[] {
+  return [
+    {
+      title: `maps a ${SPEC_TREE_METHODOLOGY_LINE.THREE_TWO} ${SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX} root to the product`,
+      line: SPEC_TREE_METHODOLOGY_LINE.THREE_TWO,
+      suffix: SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX,
+      declaredKind: undefined,
+    },
+    {
+      title:
+        `maps a ${SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO} ${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX} root declaring the product kind to the product`,
+      line: SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO,
+      suffix: SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX,
+      declaredKind: SPEC_TREE_CONFIG.PRODUCT.KIND,
+    },
+  ].map(({ title, line, suffix, declaredKind }, drawIndex) => {
+    const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), drawIndex);
+    return { title, line, slug, relativePath: `${slug}${suffix}`, declaredKind };
   });
 }
 
@@ -279,14 +390,17 @@ export function segmentOrderRecognitionCases(): readonly SegmentOrderRecognition
     const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 4);
     const parentOrder = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), 5);
     const parentSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 6);
-    const parentId = `${parentOrder}-${parentSlug}${scope.nodeSuffix}`;
+    const parentId = orderedDirectoryRecord(parentOrder, parentSlug, scope.nodeSuffix).relativePath;
     const nodeRecord = (index: string): OrderedRecordInput => ({
       type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY,
-      relativePath: `${index}-${slug}${scope.nodeSuffix}`,
+      relativePath: `${index}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${scope.nodeSuffix}`,
     });
     const decisionRecord = (index: string): OrderedRecordInput => ({
       type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
-      relativePath: `${parentId}/${index}-${slug}${scope.decisionSuffix}`,
+      relativePath: [
+        parentId,
+        `${index}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${scope.decisionSuffix}`,
+      ].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
       parentId,
     });
     return [
@@ -312,15 +426,20 @@ export function segmentOrderRecognitionCases(): readonly SegmentOrderRecognition
 
 export function arbitraryEvidenceRecognitionCase(): fc.Arbitrary<EvidenceRecognitionCase> {
   return fc
-    .record({
-      kind: fc.constantFrom(...NODE_KINDS),
-      order: SPEC_TREE_TEST_GENERATOR.filesystemOrder(),
-      slug: SPEC_TREE_TEST_GENERATOR.sourceSlug(),
-      evidenceFileName: SPEC_TREE_TEST_GENERATOR.evidenceFileName(),
-    })
-    .map(({ kind, order, slug, evidenceFileName }) => {
-      const parentId = `${order}-${slug}${KIND_REGISTRY[kind].suffix}`;
+    .constantFrom(...SPEC_TREE_SOURCE_LINES)
+    .chain((line) =>
+      fc.record({
+        line: fc.constant(line),
+        parent: fc.constantFrom(...declaredNodeDirectoryKinds(line)),
+        order: SPEC_TREE_TEST_GENERATOR.filesystemOrder(),
+        slug: SPEC_TREE_TEST_GENERATOR.sourceSlug(),
+        evidenceFileName: SPEC_TREE_TEST_GENERATOR.evidenceFileName(),
+      })
+    )
+    .map(({ line, parent, order, slug, evidenceFileName }) => {
+      const parentId = orderedDirectoryRecord(order, slug, parent.suffix).relativePath;
       return {
+        line,
         parentId,
         relativePath: [parentId, SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME, evidenceFileName].join(
           SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
@@ -329,12 +448,99 @@ export function arbitraryEvidenceRecognitionCase(): fc.Arbitrary<EvidenceRecogni
     });
 }
 
-export function productEntryRecognitionCase(): {
-  readonly slug: string;
-  readonly relativePath: string;
-} {
-  const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 7);
-  return { slug, relativePath: `${slug}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}` };
+/**
+ * A record valid under a methodology line, drawn across the node-directory, decision-file,
+ * product-root, and evidence-file forms the line declares. The entry type and kind each form maps to
+ * follow from how the form is constructed.
+ */
+export function arbitraryValidRecognitionScenario(): fc.Arbitrary<ValidRecognitionScenario> {
+  const nodeScenario = (line: SpecTreeMethodologyLine): fc.Arbitrary<ValidRecognitionScenario> =>
+    fc
+      .tuple(
+        fc.constantFrom(...declaredNodeDirectoryKinds(line)),
+        SPEC_TREE_TEST_GENERATOR.filesystemOrder(),
+        SPEC_TREE_TEST_GENERATOR.sourceSlug(),
+      )
+      .map(([{ kind, suffix }, order, slug]) => ({
+        line,
+        record: orderedDirectoryRecord(order, slug, suffix),
+        expected: { type: SPEC_TREE_ENTRY_TYPE.NODE, kind },
+      }));
+  const decisionScenario = (line: SpecTreeMethodologyLine): fc.Arbitrary<ValidRecognitionScenario> =>
+    fc
+      .tuple(
+        fc.constantFrom(...DECLARED_DECISION_KINDS),
+        fc.constantFrom(...declaredNodeDirectoryKinds(line)),
+        SPEC_TREE_TEST_GENERATOR.filesystemOrder(),
+        SPEC_TREE_TEST_GENERATOR.filesystemOrder(),
+        SPEC_TREE_TEST_GENERATOR.sourceSlug(),
+        SPEC_TREE_TEST_GENERATOR.sourceSlug(),
+      )
+      .map(([kind, parent, parentOrder, order, parentSlug, slug]) => {
+        const parentId = orderedDirectoryRecord(parentOrder, parentSlug, parent.suffix).relativePath;
+        return {
+          line,
+          record: {
+            type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
+            relativePath: [
+              parentId,
+              `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${KIND_REGISTRY[kind].suffix}`,
+            ].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+            parentId,
+          },
+          expected: { type: SPEC_TREE_ENTRY_TYPE.DECISION, kind },
+        };
+      });
+  const productScenario = (line: SpecTreeMethodologyLine): fc.Arbitrary<ValidRecognitionScenario> =>
+    fc.constantFrom(...productRootRecognitionCases().filter((root) => root.line === line)).chain((root) =>
+      SPEC_TREE_TEST_GENERATOR.sourceSlug().map((slug) => ({
+        line,
+        record: {
+          type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
+          relativePath: `${slug}${root.relativePath.slice(root.slug.length)}`,
+          declaredKind: root.declaredKind,
+        },
+        expected: { type: SPEC_TREE_ENTRY_TYPE.PRODUCT },
+      }))
+    );
+  const evidenceScenario = (line: SpecTreeMethodologyLine): fc.Arbitrary<ValidRecognitionScenario> =>
+    arbitraryEvidenceRecognitionCase()
+      .filter((testCase) => testCase.line === line)
+      .map((testCase) => ({
+        line,
+        record: {
+          type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
+          relativePath: testCase.relativePath,
+          parentId: testCase.parentId,
+        },
+        expected: { type: SPEC_TREE_ENTRY_TYPE.EVIDENCE },
+      }));
+  return fc
+    .constantFrom(...SPEC_TREE_SOURCE_LINES)
+    .chain((line) =>
+      fc.oneof(nodeScenario(line), decisionScenario(line), productScenario(line), evidenceScenario(line))
+    );
+}
+
+/**
+ * An ordered node directory whose suffix only a naming-schema version ordered before the line's
+ * declared target accepts. The independent superseded oracle names the suffix and the newest version
+ * that accepts it.
+ */
+export function arbitrarySupersededLineScenario(): fc.Arbitrary<SupersededLineScenario> {
+  return fc
+    .constantFrom(...SPEC_TREE_SOURCE_LINES)
+    .chain((line) =>
+      fc.tuple(
+        fc.constantFrom(...supersededSuffixOracle(specTreeGrammarSelectionForLine(line))),
+        SPEC_TREE_TEST_GENERATOR.filesystemOrder(),
+        SPEC_TREE_TEST_GENERATOR.sourceSlug(),
+      ).map(([{ suffix, version }, order, slug]) => ({
+        line,
+        record: orderedDirectoryRecord(order, slug, suffix),
+        expectedVersion: version,
+      }))
+    );
 }
 
 function requireFirst<T>(values: readonly T[]): T {

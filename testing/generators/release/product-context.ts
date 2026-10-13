@@ -10,7 +10,9 @@ import {
 import type { ReleaseData } from "@/domains/release/release-data";
 import { CHANGELOG_TITLE } from "@/domains/release/release-notes";
 import {
+  type Kind,
   KIND_REGISTRY,
+  NODE_SUFFIXES,
   renderSpecTreeRootFrontMatter,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
@@ -21,7 +23,11 @@ import {
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { arbitraryConformantChangelog } from "@testing/generators/release/changelog";
-import { SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
+import {
+  SPEC_TREE_TEST_GENERATOR,
+  specTreeGrammarSelectionForLine,
+  supersededSuffixOracle,
+} from "@testing/generators/spec-tree/spec-tree";
 import fc from "fast-check";
 
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "./release";
@@ -650,26 +656,50 @@ export interface ReleaseEndpointGrammarScenario {
   readonly fourZeroNameAtThreeXPath: string;
 }
 
+/** The suffixes of the output kinds a 4.0 product admits as top-level children, drawn from the product spec's child list. */
+const FOUR_ZERO_PRODUCT_CHILD_SUFFIXES: readonly string[] = SPEC_TREE_CONFIG.PRODUCT.CHILDREN
+  .filter((kind) => kind !== SPEC_TREE_CONFIG.PRODUCT.KIND)
+  .map((kind) => KIND_REGISTRY[kind as Kind].suffix);
+
 export function arbitraryReleaseEndpointGrammarScenario(): fc.Arbitrary<ReleaseEndpointGrammarScenario> {
   return fc.record({
     slugs: fc.uniqueArray(arbitraryPathSegment(), { minLength: 5, maxLength: 5 }),
     tag: arbitraryPathSegment().map((segment) => `release-${segment}`),
     releaseData: RELEASE_TEST_GENERATOR.releaseData(),
     rootId: SPEC_TREE_TEST_GENERATOR.sourceId(),
-  }).filter(({ tag, releaseData }) => tag !== releaseData.releaseRef).map(({ slugs, tag, releaseData, rootId }) => {
+    fourZeroSuffix: fc.constantFrom(...FOUR_ZERO_PRODUCT_CHILD_SUFFIXES),
+    threeXAtFourZeroSuffix: fc.constantFrom(
+      ...supersededSuffixOracle(specTreeGrammarSelectionForLine(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO)).map((entry) =>
+        entry.suffix
+      ),
+    ),
+    fourZeroAtThreeXSuffix: fc.constantFrom(...FOUR_ZERO_PRODUCT_CHILD_SUFFIXES),
+    threeXSuffix: fc.constantFrom(...NODE_SUFFIXES),
+  }).filter(({ tag, releaseData }) => tag !== releaseData.releaseRef).map((drawn) => {
+    const {
+      slugs,
+      tag,
+      releaseData,
+      rootId,
+      fourZeroSuffix,
+      threeXAtFourZeroSuffix,
+      fourZeroAtThreeXSuffix,
+      threeXSuffix,
+    } = drawn;
     const [productSlug, fourZeroSlug, threeXAtFourZeroSlug, threeXSlug, fourZeroAtThreeXSlug] = slugs;
-    const fourZeroSpec = (slug: string, index: number) =>
-      citationSpecificationPath(
-        posix.join(SPEC_TREE_CONFIG.ROOT_DIRECTORY, `${index}-${slug}${KIND_REGISTRY.capability.suffix}`),
-        slug,
-      )
-        .replace(SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX, SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX);
-    const threeXSpec = (slug: string, index: number) =>
-      citationSpecificationPath(citationNodeDirectory(index, slug), slug);
-    const fourZeroPath = fourZeroSpec(fourZeroSlug, 20);
-    const threeXAtFourZeroPath = threeXSpec(threeXAtFourZeroSlug, 30);
-    const threeXPath = threeXSpec(threeXSlug, 20);
-    const fourZeroAtThreeXPath = fourZeroSpec(fourZeroAtThreeXSlug, 30);
+    const nodeDirectory = (index: number, slug: string, suffix: string) =>
+      posix.join(
+        SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+        `${index}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${suffix}`,
+      );
+    const fourZeroSpec = (slug: string, index: number, suffix: string) =>
+      posix.join(nodeDirectory(index, slug, suffix), `${slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX}`);
+    const threeXSpec = (slug: string, index: number, suffix: string) =>
+      posix.join(nodeDirectory(index, slug, suffix), `${slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`);
+    const fourZeroPath = fourZeroSpec(fourZeroSlug, 20, fourZeroSuffix);
+    const threeXAtFourZeroPath = threeXSpec(threeXAtFourZeroSlug, 30, threeXAtFourZeroSuffix);
+    const threeXPath = threeXSpec(threeXSlug, 20, threeXSuffix);
+    const fourZeroAtThreeXPath = fourZeroSpec(fourZeroAtThreeXSlug, 30, fourZeroAtThreeXSuffix);
     const fourZeroRoot = posix.join(
       SPEC_TREE_CONFIG.ROOT_DIRECTORY,
       `${productSlug}${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX}`,
