@@ -16,6 +16,7 @@ import {
 import { specContextAncestors, specContextDecisions, specContextSiblings } from "./context-read-set";
 import type { SpecContextTarget } from "./context-target";
 import type { SpecTreeDecision, SpecTreeNode, SpecTreeSnapshot } from "./index";
+import { compareSpecTreeOrder } from "./order";
 
 /**
  * The paragraph a Digest selects: an output node's opening, keyed by its
@@ -205,14 +206,21 @@ export function specContextOptionalArtifactPaths(snapshot: SpecTreeSnapshot): re
   ]);
 }
 
-/** Numeric indices establish order; names break equal-index ties independently of locale. */
-export function compareSpecContextTreeEntries(
-  left: { readonly path: string },
-  right: { readonly path: string },
-): number {
+/** A context entry: its path and the index segments the ordered-name parse produced for it. */
+interface SpecContextTreeEntry {
+  readonly path: string;
+  readonly orderSegments: readonly number[];
+}
+
+/**
+ * Index segments establish order, compared segment by segment; names break equal-index ties
+ * independently of locale. An entry with no index falls through to the ordinal name comparison.
+ */
+export function compareSpecContextTreeEntries(left: SpecContextTreeEntry, right: SpecContextTreeEntry): number {
   const leftName = posix.basename(left.path);
   const rightName = posix.basename(right.path);
-  return Number.parseFloat(leftName) - Number.parseFloat(rightName)
+  const bothIndexed = left.orderSegments.length > 0 && right.orderSegments.length > 0;
+  return (bothIndexed ? compareSpecTreeOrder(left.orderSegments, right.orderSegments) : 0)
     || compareSpecContextOrdinal(leftName, rightName);
 }
 
@@ -389,10 +397,14 @@ export function selectSpecContextDocuments(
   const structuralEntries = (node: SpecTreeNode | undefined, depth: number) => {
     const decisions = snapshot.decisions
       .filter((decision) => decision.parentId === node?.id && (discovery || reasons.decisions.has(decision.id)))
-      .map((decision) => ({ decision, path: requiredDocumentPath(decision.ref?.path, decision.id) }));
+      .map((decision) => ({
+        decision,
+        path: requiredDocumentPath(decision.ref?.path, decision.id),
+        orderSegments: decision.orderSegments,
+      }));
     const children = (node?.children ?? snapshot.nodes)
       .filter((child) => discovery ? depth < DISCOVERY_DEPTH : reasons.nodes.has(child.id))
-      .map((child) => ({ child, path: nodeDirectory(child) }));
+      .map((child) => ({ child, path: nodeDirectory(child), orderSegments: child.orderSegments }));
     return [...decisions, ...children].sort(compareSpecContextTreeEntries);
   };
   const walk = (node: SpecTreeNode | undefined, depth: number): void => {
