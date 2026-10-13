@@ -12,7 +12,7 @@ import * as fc from "fast-check";
 
 import {
   KIND_REGISTRY,
-  OUTPUT_KINDS,
+  type NamingSchemaVersion,
   selectSpecTreeGrammar,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
@@ -32,7 +32,14 @@ export const MIGRATING_DECLARATION: GrammarSelectionDeclaration = {
   [GRAMMAR_SELECTION_DECLARATION_FIELD.MIGRATING_FROM]: SPEC_TREE_METHODOLOGY_LINE.THREE_TWO,
 };
 
-const MIGRATION_SOURCE_KINDS = [KIND_REGISTRY.enabler, KIND_REGISTRY.outcome];
+const MIGRATION_SELECTION = selectSpecTreeGrammar({
+  version: MIGRATING_DECLARATION[GRAMMAR_SELECTION_DECLARATION_FIELD.VERSION],
+  migratingFrom: MIGRATING_DECLARATION[GRAMMAR_SELECTION_DECLARATION_FIELD.MIGRATING_FROM],
+});
+
+function selectedVersionsServing(line: string | undefined): readonly NamingSchemaVersion[] {
+  return MIGRATION_SELECTION.selected.filter((version) => line !== undefined && version.lines.some((l) => l === line));
+}
 
 export type MigrationClassificationCase = {
   /** The recognition options of the grammar the migrating declaration selects. */
@@ -75,20 +82,29 @@ function arbitraryDirectoryName(suffix: fc.Arbitrary<string>): fc.Arbitrary<stri
     .map(([order, slug, nodeSuffix]) => orderedDirectoryRecord(order, slug, nodeSuffix).relativePath);
 }
 
+/** The node suffixes of the selected versions serving the migration source line. */
 function arbitrarySourceSuffix(): fc.Arbitrary<string> {
-  return fc.constantFrom(...MIGRATION_SOURCE_KINDS.map((definition) => definition.suffix));
+  return fc.constantFrom(
+    ...selectedVersionsServing(MIGRATING_DECLARATION[GRAMMAR_SELECTION_DECLARATION_FIELD.MIGRATING_FROM]).flatMap((
+      version,
+    ) => version.nodeSuffixes),
+  );
 }
 
+/** The node suffixes of the selected versions serving the target line, the `.product` scope included. */
 function arbitraryTargetSuffix(): fc.Arbitrary<string> {
-  return fc.constantFrom(...OUTPUT_KINDS.map((kind) => KIND_REGISTRY[kind].suffix));
+  return fc.constantFrom(
+    ...selectedVersionsServing(MIGRATING_DECLARATION[GRAMMAR_SELECTION_DECLARATION_FIELD.VERSION]).flatMap((
+      version,
+    ) => version.nodeSuffixes),
+  );
 }
 
 export function arbitraryMigrationClassificationCase(): fc.Arbitrary<MigrationClassificationCase> {
-  const selection = selectSpecTreeGrammar({
-    version: MIGRATING_DECLARATION[GRAMMAR_SELECTION_DECLARATION_FIELD.VERSION],
-    migratingFrom: MIGRATING_DECLARATION[GRAMMAR_SELECTION_DECLARATION_FIELD.MIGRATING_FROM],
-  });
-  const options: SpecTreeRecognitionOptions = { schemaVersions: selection.known, selectedVersions: selection.selected };
+  const options: SpecTreeRecognitionOptions = {
+    schemaVersions: MIGRATION_SELECTION.known,
+    selectedVersions: MIGRATION_SELECTION.selected,
+  };
   return fc
     .tuple(
       arbitraryDirectoryName(arbitrarySourceSuffix()),

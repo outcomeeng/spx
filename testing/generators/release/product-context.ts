@@ -10,7 +10,9 @@ import {
 import type { ReleaseData } from "@/domains/release/release-data";
 import { CHANGELOG_TITLE } from "@/domains/release/release-notes";
 import {
+  type Kind,
   KIND_REGISTRY,
+  NODE_SUFFIXES,
   renderSpecTreeRootFrontMatter,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
@@ -21,7 +23,6 @@ import {
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { arbitraryConformantChangelog } from "@testing/generators/release/changelog";
-import { declaredTopLevelNodeKinds } from "@testing/generators/spec-tree/filename-grammar";
 import {
   SPEC_TREE_TEST_GENERATOR,
   specTreeGrammarSelectionForLine,
@@ -655,13 +656,10 @@ export interface ReleaseEndpointGrammarScenario {
   readonly fourZeroNameAtThreeXPath: string;
 }
 
-/** The suffixes of the kinds a 4.0 declaration admits as top-level directories, from the declared per-line kinds. */
-const FOUR_ZERO_TOP_LEVEL_SUFFIXES: readonly string[] = declaredTopLevelNodeKinds(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO)
-  .map((kind) => KIND_REGISTRY[kind].suffix);
-
-/** The suffixes of the kinds a 3.2 declaration admits as top-level directories, from the declared per-line kinds. */
-const THREE_TWO_TOP_LEVEL_SUFFIXES: readonly string[] = declaredTopLevelNodeKinds(SPEC_TREE_METHODOLOGY_LINE.THREE_TWO)
-  .map((kind) => KIND_REGISTRY[kind].suffix);
+/** The suffixes of the output kinds a 4.0 product admits as top-level children, drawn from the product spec's child list. */
+const FOUR_ZERO_PRODUCT_CHILD_SUFFIXES: readonly string[] = SPEC_TREE_CONFIG.PRODUCT.CHILDREN
+  .filter((kind) => kind !== SPEC_TREE_CONFIG.PRODUCT.KIND)
+  .map((kind) => KIND_REGISTRY[kind as Kind].suffix);
 
 export function arbitraryReleaseEndpointGrammarScenario(): fc.Arbitrary<ReleaseEndpointGrammarScenario> {
   return fc.record({
@@ -669,14 +667,14 @@ export function arbitraryReleaseEndpointGrammarScenario(): fc.Arbitrary<ReleaseE
     tag: arbitraryPathSegment().map((segment) => `release-${segment}`),
     releaseData: RELEASE_TEST_GENERATOR.releaseData(),
     rootId: SPEC_TREE_TEST_GENERATOR.sourceId(),
-    fourZeroSuffix: fc.constantFrom(...FOUR_ZERO_TOP_LEVEL_SUFFIXES),
+    fourZeroSuffix: fc.constantFrom(...FOUR_ZERO_PRODUCT_CHILD_SUFFIXES),
     threeXAtFourZeroSuffix: fc.constantFrom(
       ...supersededSuffixOracle(specTreeGrammarSelectionForLine(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO)).map((entry) =>
         entry.suffix
       ),
     ),
-    fourZeroAtThreeXSuffix: fc.constantFrom(...FOUR_ZERO_TOP_LEVEL_SUFFIXES),
-    threeXSuffix: fc.constantFrom(...THREE_TWO_TOP_LEVEL_SUFFIXES),
+    fourZeroAtThreeXSuffix: fc.constantFrom(...FOUR_ZERO_PRODUCT_CHILD_SUFFIXES),
+    threeXSuffix: fc.constantFrom(...NODE_SUFFIXES),
   }).filter(({ tag, releaseData }) => tag !== releaseData.releaseRef).map((drawn) => {
     const {
       slugs,
