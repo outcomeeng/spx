@@ -478,14 +478,28 @@ describe("ESLint binary spawned by the lint command", () => {
     expect(observation.receivedEslintConfigFile).toBe(ESLINT_PRODUCTION_CONFIG_FILES[0]);
   });
 
-  it("spawns the discovered executable on each invocation and returns each invocation's fresh result", async () => {
+  it("spawns the discovered executable with the reported config and caller file, and returns each invocation's own result", async () => {
     const observation = await observeConsecutiveLintInvocations();
 
-    expect(observation.firstExitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
-    expect(observation.secondExitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
     expect(observation.spawnedCommands).toStrictEqual([
       observation.discoveredToolPath,
       observation.discoveredToolPath,
     ]);
+    expect(observation.spawnedArguments).toStrictEqual([
+      [
+        ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
+        observation.reportedConfigFile,
+        ESLINT_COMMAND_TOKENS.FILE_SEPARATOR,
+        observation.callerFile,
+      ],
+      [
+        ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
+        observation.reportedConfigFile,
+        ESLINT_COMMAND_TOKENS.FILE_SEPARATOR,
+        observation.callerFile,
+      ],
+    ]);
+    expect(observation.exitCodes).toStrictEqual(observation.childCloseCodes);
+    expect(observation.childCloseCodes[0]).not.toBe(observation.childCloseCodes[1]);
   });
 });
