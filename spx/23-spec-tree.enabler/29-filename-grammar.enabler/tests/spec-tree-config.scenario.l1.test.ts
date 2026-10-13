@@ -1,18 +1,25 @@
 import { describe, expect, it } from "vitest";
 
+import { resolveValidatedKindRegistry } from "@/commands/spec/context-input";
 import { resolveConfig } from "@/config";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_CONFIG_FIELDS, specTreeConfigDescriptor } from "@/lib/spec-tree";
 import { specTreeAbsentSectionConfig, specTreeKindsFieldCases } from "@testing/generators/spec-tree/filename-grammar";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 describe("spec-tree config descriptor", () => {
-  it("resolves the full default kind list with their definitions when no specTree section is configured", async () => {
+  it("resolves a spec-tree section with no kinds field, and kind vocabulary resolves only through KIND_REGISTRY, when no specTree section is configured", async () => {
     await withTestEnv(specTreeAbsentSectionConfig(), async ({ productDir }) => {
-      const result = await resolveConfig(productDir, [specTreeConfigDescriptor]);
+      const result = await resolveConfig(productDir);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value[SPEC_TREE_CONFIG.SECTION]).toEqual({ [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY });
+        expect(result.value[SPEC_TREE_CONFIG.SECTION]).not.toHaveProperty(SPEC_TREE_CONFIG_FIELDS.KINDS);
+      }
+
+      const registry = await resolveValidatedKindRegistry(productDir);
+      expect(registry.ok).toBe(true);
+      if (registry.ok) {
+        expect(registry.value).toBe(KIND_REGISTRY);
       }
     });
   });
