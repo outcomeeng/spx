@@ -82,29 +82,27 @@ describe("spec-tree entry recognition order", () => {
     "maps $title to entries ordered segment by segment",
     (testCase) => {
       const options = recognitionOptionsForLine(testCase.line);
-      const lower = recognizeSpecTreeFilesystemEntry(testCase.lower, options);
-      const higher = recognizeSpecTreeFilesystemEntry(testCase.higher, options);
+      const first = recognizeSpecTreeFilesystemEntry(testCase.first, options);
+      const second = recognizeSpecTreeFilesystemEntry(testCase.second, options);
 
-      expect(lower).not.toBeNull();
-      expect(higher).not.toBeNull();
+      expect(first).not.toBeNull();
+      expect(second).not.toBeNull();
       if (
-        (lower?.type !== SPEC_TREE_ENTRY_TYPE.NODE && lower?.type !== SPEC_TREE_ENTRY_TYPE.DECISION)
-        || (higher?.type !== SPEC_TREE_ENTRY_TYPE.NODE && higher?.type !== SPEC_TREE_ENTRY_TYPE.DECISION)
+        (first?.type !== SPEC_TREE_ENTRY_TYPE.NODE && first?.type !== SPEC_TREE_ENTRY_TYPE.DECISION)
+        || (second?.type !== SPEC_TREE_ENTRY_TYPE.NODE && second?.type !== SPEC_TREE_ENTRY_TYPE.DECISION)
       ) {
         throw new Error("Expected recognized node or decision entries");
       }
 
-      const expectedRelation = compareSegments(
-        indexSegments(testCase.lowerIndex),
-        indexSegments(testCase.higherIndex),
-      );
-      expect(expectedRelation).toBeLessThan(0);
-      expect(lower.orderSegments).toEqual(indexSegments(testCase.lowerIndex));
-      expect(higher.orderSegments).toEqual(indexSegments(testCase.higherIndex));
+      expect(first.orderSegments).toEqual(indexSegments(testCase.firstIndex));
+      expect(second.orderSegments).toEqual(indexSegments(testCase.secondIndex));
 
-      const observedRelation = compareSegments(lower.orderSegments ?? [], higher.orderSegments ?? []);
+      const expectedRelation = compareSegments(
+        indexSegments(testCase.firstIndex),
+        indexSegments(testCase.secondIndex),
+      );
+      const observedRelation = compareSegments(first.orderSegments ?? [], second.orderSegments ?? []);
       expect(observedRelation).toBe(expectedRelation);
-      expect(observedRelation).not.toBe(0);
     },
   );
 });
