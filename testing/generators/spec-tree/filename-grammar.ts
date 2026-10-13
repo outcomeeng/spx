@@ -23,6 +23,7 @@ import {
   type SpecTreeKindCategory,
   type SpecTreeMethodologyLine,
 } from "@/lib/spec-tree";
+import { FOUR_ZERO_INDEX_GENERATOR, THREE_X_INDEX_GENERATOR } from "@testing/generators/spec-tree/naming-schema-form";
 import {
   orderedDirectoryRecord,
   semverMaximumOracle,
@@ -30,7 +31,6 @@ import {
 } from "@testing/generators/spec-tree/naming-schema-version";
 import {
   sampleSpecTreeTestValue,
-  singleSegmentOrder,
   SPEC_TREE_SOURCE_LINES,
   SPEC_TREE_TEST_GENERATOR,
   specTreeGrammarSelectionForLine,
@@ -106,14 +106,14 @@ export type OrderedRecordInput = {
   readonly declaredKind?: string;
 };
 
-/** Two records of one kind whose indexes differ in how a later segment orders, under one methodology line. */
+/** Two records of one kind whose indexes are drawn from a methodology line's index form. */
 export type SegmentOrderRecognitionCase = {
   readonly title: string;
   readonly line: string;
-  readonly lowerIndex: string;
-  readonly higherIndex: string;
-  readonly lower: OrderedRecordInput;
-  readonly higher: OrderedRecordInput;
+  readonly firstIndex: string;
+  readonly secondIndex: string;
+  readonly first: OrderedRecordInput;
+  readonly second: OrderedRecordInput;
 };
 
 export type EvidenceRecognitionCase = {
@@ -253,178 +253,188 @@ export function specTreeKindsFieldCases(): readonly SpecTreeKindsFieldCase[] {
   ];
 }
 
-/**
- * The node kinds whose directory suffix the grammar declares for each methodology line, per the
- * entry-recognition spec: the 3.x `enabler` and `outcome` kinds, and the 4.0 `substrate`, `capability`,
- * `domain`, `interface`, `surface`, and `variant` output kinds. The 4.0 line also declares the nested
- * `product` scope, which no registry carries.
- */
-export const DECLARED_NODE_KINDS_BY_LINE: Readonly<Partial<Record<SpecTreeMethodologyLine, readonly Kind[]>>> = {
-  [SPEC_TREE_METHODOLOGY_LINE.THREE_TWO]: ["enabler", "outcome"],
-  [SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO]: ["substrate", "capability", "domain", "interface", "surface", "variant"],
-};
-
-/** The decision kinds both lines declare. */
-const DECLARED_DECISION_KINDS: readonly Kind[] = ["adr", "pdr"];
-
 type DeclaredNodeDirectoryKind = { readonly kind: string; readonly suffix: string };
 
-function declaredNodeDirectoryKinds(line: SpecTreeMethodologyLine): readonly DeclaredNodeDirectoryKind[] {
-  const registered = (DECLARED_NODE_KINDS_BY_LINE[line] ?? []).map((kind) => ({
-    kind,
-    suffix: KIND_REGISTRY[kind].suffix,
-  }));
-  return line === SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO
-    ? [...registered, { kind: SPEC_TREE_CONFIG.PRODUCT.KIND, suffix: SPEC_TREE_CONFIG.PRODUCT.NODE_SUFFIX }]
-    : registered;
+/** The kind a node-directory suffix names: the nested product scope, or the registered node or output kind. */
+function nodeKindForSuffix(suffix: string): string {
+  if (suffix === SPEC_TREE_CONFIG.PRODUCT.NODE_SUFFIX) return SPEC_TREE_CONFIG.PRODUCT.KIND;
+  const registered = (Object.keys(KIND_REGISTRY) as Kind[]).find((kind) =>
+    KIND_REGISTRY[kind].suffix === suffix && KIND_REGISTRY[kind].category !== SPEC_TREE_KIND_CATEGORY.DECISION
+  );
+  if (registered === undefined) throw new Error(`No registered node kind carries the suffix ${suffix}`);
+  return registered;
 }
 
-/** One node directory for every kind each methodology line declares, the 4.0 `.product` scope included. */
+/** The node kinds the selected naming-schema versions of a methodology line accept, drawn from their node suffixes. */
+function declaredNodeDirectoryKinds(line: SpecTreeMethodologyLine): readonly DeclaredNodeDirectoryKind[] {
+  const suffixes = new Set(specTreeGrammarSelectionForLine(line).selected.flatMap((version) => version.nodeSuffixes));
+  return [...suffixes].map((suffix) => ({ kind: nodeKindForSuffix(suffix), suffix }));
+}
+
+/** The index form of the naming-schema version a methodology line selects, as a generator over accepted indices. */
+function arbitraryIndexTextForLine(line: SpecTreeMethodologyLine): fc.Arbitrary<string> {
+  switch (line) {
+    case SPEC_TREE_METHODOLOGY_LINE.THREE_TWO:
+      return THREE_X_INDEX_GENERATOR.accepted();
+    case SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO:
+      return FOUR_ZERO_INDEX_GENERATOR.accepted();
+    default:
+      throw new Error(`No index form is stated for methodology line ${line}`);
+  }
+}
+
+/** The numeric segments an index text names, read directly by splitting on the segment separator. */
+function indexTextSegments(indexText: string): readonly number[] {
+  return indexText.split(SPEC_TREE_GRAMMAR.ORDER.SEGMENT_SEPARATOR).map((segment) => Number.parseInt(segment, 10));
+}
+
+function indexedName(indexText: string, slug: string, suffix: string): string {
+  return `${indexText}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${suffix}`;
+}
+
+/** One node directory for every kind each methodology line's selected versions accept, the 4.0 `.product` scope included. */
 export function nodeDirectoryRecognitionCases(): readonly NodeDirectoryRecognitionCase[] {
   return SPEC_TREE_SOURCE_LINES.flatMap((line) =>
     declaredNodeDirectoryKinds(line).map(({ kind, suffix }) => ({ line, kind, suffix }))
   )
     .map(({ line, kind, suffix }, drawIndex) => {
-      const order = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), drawIndex);
+      const indexText = sampleSpecTreeTestValue(arbitraryIndexTextForLine(line), drawIndex);
       const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), drawIndex);
       return {
         title: `maps the ${line} ${suffix} directory to the ${kind} kind`,
         line,
         kind,
-        orderSegments: singleSegmentOrder(order),
+        orderSegments: indexTextSegments(indexText),
         slug,
-        relativePath: orderedDirectoryRecord(order, slug, suffix).relativePath,
+        relativePath: indexedName(indexText, slug, suffix),
       };
     });
 }
 
-/** One decision file for every decision kind under each methodology line, held by a node directory of that line. */
+/** One decision file for every registered decision kind under each methodology line, held by a node directory of that line. */
 export function decisionFileRecognitionCases(): readonly DecisionFileRecognitionCase[] {
-  return SPEC_TREE_SOURCE_LINES.flatMap((line) => DECLARED_DECISION_KINDS.map((kind) => ({ line, kind })))
+  return SPEC_TREE_SOURCE_LINES.flatMap((line) => DECISION_KINDS.map((kind) => ({ line, kind })))
     .map(({ line, kind }, drawIndex) => {
-      const order = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), drawIndex);
+      const indexText = sampleSpecTreeTestValue(arbitraryIndexTextForLine(line), drawIndex);
       const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), drawIndex);
       const parentOrder = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), drawIndex + 1);
       const parentSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), drawIndex + 1);
-      const [parentKind] = declaredNodeDirectoryKinds(line);
-      const parentId = orderedDirectoryRecord(parentOrder, parentSlug, parentKind.suffix).relativePath;
+      const parentId = orderedDirectoryRecord(
+        parentOrder,
+        parentSlug,
+        requireFirst(declaredNodeDirectoryKinds(line)).suffix,
+      ).relativePath;
       return {
         title: `maps the ${line} ${KIND_REGISTRY[kind].suffix} file to the ${kind} kind`,
         line,
         kind,
-        orderSegments: singleSegmentOrder(order),
+        orderSegments: indexTextSegments(indexText),
         slug,
         parentId,
-        relativePath: [
-          parentId,
-          `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${KIND_REGISTRY[kind].suffix}`,
-        ].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+        relativePath: [parentId, indexedName(indexText, slug, KIND_REGISTRY[kind].suffix)].join(
+          SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
+        ),
       };
     });
 }
 
 /**
- * The product-root name each methodology line declares: a `{name}.product.md` file under 3.2, and a
- * `{name}.spec.md` file whose front matter declares the product kind under 4.0.
+ * The product-root name each methodology line's selected naming-schema versions declare: a `{name}.product.md`
+ * file under 3.2, and a `{name}.spec.md` file whose front matter declares the product kind under 4.0.
  */
 export function productRootRecognitionCases(): readonly ProductRootRecognitionCase[] {
-  return [
-    {
-      title: `maps a ${SPEC_TREE_METHODOLOGY_LINE.THREE_TWO} ${SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX} root to the product`,
-      line: SPEC_TREE_METHODOLOGY_LINE.THREE_TWO,
-      suffix: SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX,
-      declaredKind: undefined,
-    },
-    {
-      title:
-        `maps a ${SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO} ${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX} root declaring the product kind to the product`,
-      line: SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO,
-      suffix: SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX,
-      declaredKind: SPEC_TREE_CONFIG.PRODUCT.KIND,
-    },
-  ].map(({ title, line, suffix, declaredKind }, drawIndex) => {
+  return SPEC_TREE_SOURCE_LINES.flatMap((line) =>
+    specTreeGrammarSelectionForLine(line).selected.map((version) => ({ line, version }))
+  ).map(({ line, version }, drawIndex) => {
     const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), drawIndex);
-    return { title, line, slug, relativePath: `${slug}${suffix}`, declaredKind };
+    return {
+      title: `maps a ${line} ${version.productSuffix} root${
+        version.rootSpecKind === undefined ? "" : ` declaring the ${version.rootSpecKind} kind`
+      } to the product`,
+      line,
+      slug,
+      relativePath: `${slug}${version.productSuffix}`,
+      declaredKind: version.rootSpecKind,
+    };
   });
 }
 
-const INDEX_SEGMENT_SEPARATOR = SPEC_TREE_GRAMMAR.ORDER.SEGMENT_SEPARATOR;
+const FIRST_SEGMENT_POSITION = 0;
 
-/** Under the 3.x version an index segment is a run of digits of any length: 9 precedes 10 numerically. */
-const THREE_X_LOWER_SEGMENTS = ["2", "9"] as const;
-const THREE_X_HIGHER_SEGMENTS = ["2", "10"] as const;
+/** The shapes in which two indices relate: unrelated draws, a fractional insert below an index, and two inserts below one index. */
+const SEGMENT_ORDER_SHAPES = [
+  {
+    name: "independent draws",
+    indices: (first: string, second: string) => [first, second],
+  },
+  {
+    name: "a fractional insert below its base",
+    indices: (first: string, second: string) => [first, joinIndex(first, leadingSegment(second))],
+  },
+  {
+    name: "fractional inserts below one base",
+    indices: (first: string, second: string, third: string) => [
+      joinIndex(first, leadingSegment(second)),
+      joinIndex(first, leadingSegment(third)),
+    ],
+  },
+] as const;
 
-/** Under the 4.0 version fractional segments are two digits: a longer index extends a shorter one. */
-const FOUR_ZERO_LOWER_SEGMENTS = ["20", "10"] as const;
-const FOUR_ZERO_HIGHER_SEGMENTS = ["20", "10", "05"] as const;
-
-interface SegmentOrderScope {
-  readonly line: string;
-  readonly nodeSuffix: string;
-  readonly decisionSuffix: string;
-  readonly lowerSegments: readonly string[];
-  readonly higherSegments: readonly string[];
+function leadingSegment(indexText: string): string {
+  return indexText.split(SPEC_TREE_GRAMMAR.ORDER.SEGMENT_SEPARATOR)[FIRST_SEGMENT_POSITION];
 }
 
-const SEGMENT_ORDER_SCOPES: readonly SegmentOrderScope[] = [
-  {
-    line: SPEC_TREE_METHODOLOGY_LINE.THREE_TWO,
-    nodeSuffix: KIND_REGISTRY.enabler.suffix,
-    decisionSuffix: KIND_REGISTRY.adr.suffix,
-    lowerSegments: THREE_X_LOWER_SEGMENTS,
-    higherSegments: THREE_X_HIGHER_SEGMENTS,
-  },
-  {
-    line: SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO,
-    nodeSuffix: KIND_REGISTRY.capability.suffix,
-    decisionSuffix: KIND_REGISTRY.pdr.suffix,
-    lowerSegments: FOUR_ZERO_LOWER_SEGMENTS,
-    higherSegments: FOUR_ZERO_HIGHER_SEGMENTS,
-  },
-];
+function joinIndex(base: string, segment: string): string {
+  return [base, segment].join(SPEC_TREE_GRAMMAR.ORDER.SEGMENT_SEPARATOR);
+}
 
 /**
- * Per methodology line, a node directory pair and a decision file pair whose indexes order only by
- * comparing segments numerically; the node and decision suffixes come from `KIND_REGISTRY`.
+ * Per methodology line, node directory pairs and decision file pairs whose indices are drawn from the
+ * line's index form, including fractional inserts. The suffixes come from the line's selected
+ * naming-schema versions and the decision kinds.
  */
 export function segmentOrderRecognitionCases(): readonly SegmentOrderRecognitionCase[] {
-  return SEGMENT_ORDER_SCOPES.flatMap((scope) => {
-    const lowerIndex = scope.lowerSegments.join(INDEX_SEGMENT_SEPARATOR);
-    const higherIndex = scope.higherSegments.join(INDEX_SEGMENT_SEPARATOR);
-    const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 4);
-    const parentOrder = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), 5);
-    const parentSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 6);
-    const parentId = orderedDirectoryRecord(parentOrder, parentSlug, scope.nodeSuffix).relativePath;
+  return SPEC_TREE_SOURCE_LINES.flatMap((line, lineIndex) => {
+    const nodeSuffix = requireFirst(declaredNodeDirectoryKinds(line)).suffix;
+    const decisionSuffix = KIND_REGISTRY[requireFirst(DECISION_KINDS)].suffix;
+    const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 4 + lineIndex);
+    const parentOrder = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), 5 + lineIndex);
+    const parentSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 6 + lineIndex);
+    const parentId = orderedDirectoryRecord(parentOrder, parentSlug, nodeSuffix).relativePath;
     const nodeRecord = (index: string): OrderedRecordInput => ({
       type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY,
-      relativePath: `${index}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${scope.nodeSuffix}`,
+      relativePath: indexedName(index, slug, nodeSuffix),
     });
     const decisionRecord = (index: string): OrderedRecordInput => ({
       type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
-      relativePath: [
-        parentId,
-        `${index}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${scope.decisionSuffix}`,
-      ].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+      relativePath: [parentId, indexedName(index, slug, decisionSuffix)].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
       parentId,
     });
-    return [
-      {
-        title: `${scope.line} ${scope.nodeSuffix} directories ${lowerIndex} and ${higherIndex}`,
-        line: scope.line,
-        lowerIndex,
-        higherIndex,
-        lower: nodeRecord(lowerIndex),
-        higher: nodeRecord(higherIndex),
-      },
-      {
-        title: `${scope.line} ${scope.decisionSuffix} files ${lowerIndex} and ${higherIndex}`,
-        line: scope.line,
-        lowerIndex,
-        higherIndex,
-        lower: decisionRecord(lowerIndex),
-        higher: decisionRecord(higherIndex),
-      },
-    ];
+    return SEGMENT_ORDER_SHAPES.flatMap((shape, shapeIndex) => {
+      const drawBase = (lineIndex * SEGMENT_ORDER_SHAPES.length + shapeIndex) * 3;
+      const [first, second, third] = [0, 1, 2].map((offset) =>
+        sampleSpecTreeTestValue(arbitraryIndexTextForLine(line), drawBase + offset)
+      );
+      const [firstIndex, secondIndex] = shape.indices(first, second, third);
+      return [
+        {
+          title: `${line} ${nodeSuffix} directories ${firstIndex} and ${secondIndex} (${shape.name})`,
+          line,
+          firstIndex,
+          secondIndex,
+          first: nodeRecord(firstIndex),
+          second: nodeRecord(secondIndex),
+        },
+        {
+          title: `${line} ${decisionSuffix} files ${firstIndex} and ${secondIndex} (${shape.name})`,
+          line,
+          firstIndex,
+          secondIndex,
+          first: decisionRecord(firstIndex),
+          second: decisionRecord(secondIndex),
+        },
+      ];
+    });
   });
 }
 
@@ -473,7 +483,7 @@ export function arbitraryValidRecognitionScenario(): fc.Arbitrary<ValidRecogniti
   const decisionScenario = (line: SpecTreeMethodologyLine): fc.Arbitrary<ValidRecognitionScenario> =>
     fc
       .tuple(
-        fc.constantFrom(...DECLARED_DECISION_KINDS),
+        fc.constantFrom(...DECISION_KINDS),
         fc.constantFrom(...declaredNodeDirectoryKinds(line)),
         SPEC_TREE_TEST_GENERATOR.filesystemOrder(),
         SPEC_TREE_TEST_GENERATOR.filesystemOrder(),
@@ -524,14 +534,6 @@ export function arbitraryValidRecognitionScenario(): fc.Arbitrary<ValidRecogniti
     .chain((line) =>
       fc.oneof(nodeScenario(line), decisionScenario(line), productScenario(line), evidenceScenario(line))
     );
-}
-
-/**
- * The node kinds a methodology line's top-level directories may carry beneath the product root: the
- * kinds the line declares, less `variant`, which only a parent node admits.
- */
-export function declaredTopLevelNodeKinds(line: SpecTreeMethodologyLine): readonly Kind[] {
-  return (DECLARED_NODE_KINDS_BY_LINE[line] ?? []).filter((kind) => kind !== "variant");
 }
 
 /**
