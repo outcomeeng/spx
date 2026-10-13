@@ -243,7 +243,7 @@ describe("spec context read-set boundaries", () => {
   });
 
   for (const governance of segmentOrderGovernanceCases()) {
-    it(`orders the sibling nodes and the decisions by numeric index segments, a shorter prefix first, ${governance.title}`, async () => {
+    it(`show entries order sibling nodes and decisions by numeric index segments, shorter prefix first, ${governance.title}`, async () => {
       await withSegmentOrderGovernanceEnv(governance, async (env) => {
         const delivered = documentPaths(
           await contextShowEntries({ targets: [SPEC_CONTEXT_PRODUCT_ROOT_TARGET], cwd: env.productDir }),
