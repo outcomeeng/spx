@@ -23,5 +23,5 @@ CAN convert raw backend records into typed source entries tagged valid, supersed
 
 - ALWAYS: while `methodology.migratingFrom` is declared, a node directory named in either the target or the migration-source naming-schema version classifies valid and is traversed ([test](tests/migration-classification.compliance.l1.test.ts))
 
-- ALWAYS: recognition derives categories, suffixes, labels, and accepted naming forms from the versioned grammar exposed by `spx/23-spec-tree.enabler/29-filename-grammar.enabler` ([test](tests/entry-recognition.mapping.l1.test.ts))
+- ALWAYS: recognition derives categories, suffixes, labels, and accepted naming forms from the versioned grammar exposed by `spx/23-spec-tree.enabler/29-filename-grammar.enabler` ([test](tests/version-classification.compliance.l1.test.ts))
 - NEVER: recognition hardcodes a suffix or evidence-naming form, or branches on a prior naming form outside the ordered naming-schema versions — prior-version recognition derives from the grammar's schema set ([test](tests/version-classification.compliance.l1.test.ts))
