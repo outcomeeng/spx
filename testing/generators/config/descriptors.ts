@@ -191,7 +191,6 @@ export const CONFIG_TEST_GENERATOR = {
   tokenDescriptor: arbitraryTokenDescriptor,
   tokenDescriptors: arbitraryTokenDescriptors,
   modeDescriptor: arbitraryModeDescriptor,
-  shadowModeDescriptor: arbitraryShadowModeDescriptor,
   productDir: arbitraryProductDir,
   pathFilter: arbitraryPathFilter,
   prefixCohort: arbitraryPrefixCohort,
@@ -932,15 +931,6 @@ function arbitraryModeDescriptor(): fc.Arbitrary<GeneratedModeDescriptor> {
       const [defaultMode, overrideMode, invalidMode] = modes;
       return buildModeDescriptor(section, defaultMode, overrideMode, invalidMode);
     });
-}
-
-/** A generated mode descriptor registered under a caller-supplied section, shadowing a descriptor that owns that section elsewhere. */
-function arbitraryShadowModeDescriptor(section: string): fc.Arbitrary<GeneratedModeDescriptor> {
-  return fc
-    .uniqueArray(arbitraryConfigScalar(), { minLength: 3, maxLength: 3 })
-    .map(([defaultMode, overrideMode, invalidMode]) =>
-      buildModeDescriptor(section, defaultMode, overrideMode, invalidMode)
-    );
 }
 
 function arbitraryDirectoryScope(): fc.Arbitrary<GeneratedDirectoryScope> {
