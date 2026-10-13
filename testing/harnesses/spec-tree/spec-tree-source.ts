@@ -8,6 +8,7 @@
  */
 
 import {
+  compareSpecContextOrdinal,
   getKindDefinition,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
@@ -86,7 +87,7 @@ export function evidenceFilePath(nodePath: string, evidenceFile: string): string
 
 export function evidenceFileName(tail: readonly string[]): string {
   return [
-    sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug()),
+    sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 0),
     sampleEvidenceMode(),
     sampleEvidenceLevel(),
     ...tail,
@@ -97,10 +98,10 @@ export function ambiguousEvidenceFileName(): string {
   const mode = sampleEvidenceMode();
   const level = sampleEvidenceLevel();
   return [
-    sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug()),
+    sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 1),
     mode,
     level,
-    sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug()),
+    sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 2),
     mode,
     level,
     ...SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT,
@@ -147,7 +148,7 @@ export function nodeLinkSignatures(snapshot: SpecTreeSnapshot): readonly NodeLin
       decisionSlugs: node.decisions.map((decision) => decision.slug),
       evidenceCount: evidence.filter((entry) => entry.parentId === node.id).length,
     }))
-    .sort((left, right) => left.slug.localeCompare(right.slug));
+    .sort((left, right) => compareSpecContextOrdinal(left.slug, right.slug));
 }
 
 /** Each recognized decision's parent node, named by slug and sorted by slug. */
@@ -158,7 +159,7 @@ export function decisionLinkSignatures(snapshot: SpecTreeSnapshot): readonly Dec
       slug: decision.slug,
       parentSlug: decision.parentId === undefined ? undefined : slugById.get(decision.parentId),
     }))
-    .sort((left, right) => left.slug.localeCompare(right.slug));
+    .sort((left, right) => compareSpecContextOrdinal(left.slug, right.slug));
 }
 
 export function isEvidenceEntry(entry: SpecTreeSourceEntry): entry is SpecTreeEvidenceSourceEntry {
@@ -218,4 +219,21 @@ export async function writeSourceFormTree(
   await env.writeRaw(productRelativePath(tree.peerDirectory, `${peer.slug}${form.specFileSuffix}`), body);
   await env.writeRaw(productRelativePath(tree.rootDirectory, tree.decisionFile), body);
   return tree;
+}
+
+/**
+ * Writes the environment's fixture in the form a methodology line names, each node directory
+ * taking the suffix its fixture kind carries.
+ */
+export async function writeFixtureTree(
+  env: CurrentSpecTreeEnv,
+  form: SpecTreeSourceForm,
+): Promise<SourceFormTree> {
+  const { root, child, peer } = env.fixture;
+  return writeSourceFormTree(env, {
+    ...form,
+    rootSuffix: getKindDefinition(root.kind).suffix,
+    childSuffix: getKindDefinition(child.kind).suffix,
+    peerSuffix: getKindDefinition(peer.kind).suffix,
+  });
 }

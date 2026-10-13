@@ -205,8 +205,8 @@ export function specTreeKindsFieldCases(): readonly SpecTreeKindsFieldCase[] {
 
 export function specTreeEntryRecognitionCases(): readonly SpecTreeEntryRecognitionCase[] {
   return (Object.keys(KIND_REGISTRY) as Kind[]).map((kind) => {
-    const order = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder());
-    const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+    const order = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), 0);
+    const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 1);
     const definition = KIND_REGISTRY[kind];
     if (definition.category !== SPEC_TREE_KIND_CATEGORY.DECISION) {
       return {
@@ -218,8 +218,8 @@ export function specTreeEntryRecognitionCases(): readonly SpecTreeEntryRecogniti
         relativePath: `${order}-${slug}${definition.suffix}`,
       };
     }
-    const parentOrder = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder());
-    const parentSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+    const parentOrder = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), 2);
+    const parentSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 3);
     const parentId = `${parentOrder}-${parentSlug}${KIND_REGISTRY[requireFirst(NODE_KINDS)].suffix}`;
     return {
       title: `maps the registered ${kind} filename suffix`,
@@ -276,9 +276,9 @@ export function segmentOrderRecognitionCases(): readonly SegmentOrderRecognition
   return SEGMENT_ORDER_SCOPES.flatMap((scope) => {
     const lowerIndex = scope.lowerSegments.join(INDEX_SEGMENT_SEPARATOR);
     const higherIndex = scope.higherSegments.join(INDEX_SEGMENT_SEPARATOR);
-    const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-    const parentOrder = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder());
-    const parentSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+    const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 4);
+    const parentOrder = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), 5);
+    const parentSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 6);
     const parentId = `${parentOrder}-${parentSlug}${scope.nodeSuffix}`;
     const nodeRecord = (index: string): OrderedRecordInput => ({
       type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY,
@@ -333,7 +333,7 @@ export function productEntryRecognitionCase(): {
   readonly slug: string;
   readonly relativePath: string;
 } {
-  const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+  const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 7);
   return { slug, relativePath: `${slug}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}` };
 }
 

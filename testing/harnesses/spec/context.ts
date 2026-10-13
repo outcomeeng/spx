@@ -743,22 +743,22 @@ export interface CurrentGrammarTree {
  * representative fixture is authored in the 3.x grammar and is read under a 3.x line.
  */
 export async function materializeCurrentGrammarTree(env: CurrentSpecTreeEnv): Promise<CurrentGrammarTree> {
-  const productSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-  const nodeSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-  const order = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder());
+  const productSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 0);
+  const nodeSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 1);
+  const order = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), 2);
   const target = `${order}-${nodeSlug}${KIND_REGISTRY.substrate.suffix}`;
   const root = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
   await env.writeRaw(
     `${root}/${productSlug}${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX}`,
     `${
-      renderSpecTreeRootFrontMatter({ id: sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId()) })
+      renderSpecTreeRootFrontMatter({ id: sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId(), 3) })
     }\n# ${productSlug}\n`,
   );
   await env.writeRaw(
     `${root}/${target}/${nodeSlug}${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX}`,
     [
       SPEC_TREE_FRONT_MATTER_FENCE,
-      `${SPEC_TREE_FRONT_MATTER_ID_KEY}: ${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId())}`,
+      `${SPEC_TREE_FRONT_MATTER_ID_KEY}: ${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId(), 4)}`,
       SPEC_TREE_FRONT_MATTER_FENCE,
       "",
       `# ${nodeSlug}`,
@@ -803,7 +803,7 @@ export async function writeMethodologyTree(
   // production parser the tests judge, so a wrong parse cannot land the
   // fixture where production then finds it.
   const line = { value: (overrides?.version ?? METHODOLOGY_FIXTURE_IDENTITY).line };
-  const slug = overrides?.slug ?? sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+  const slug = overrides?.slug ?? sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 5);
   const corePath = `skills/${slug}/SKILL.md`;
   const referencePath = `skills/${slug}/references/${slug}-reference.md`;
   const templatePath = `skills/${slug}/templates/${slug}-template.md`;
