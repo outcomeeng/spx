@@ -1,14 +1,11 @@
 import * as fc from "fast-check";
 
-import { METHODOLOGY_SECTION, validateMethodologyConfig } from "@/config/methodology";
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION, validateMethodologyConfig } from "@/config/methodology";
+import type { Config } from "@/config/types";
 import { NODE_STATUS_EXCLUDE_FILENAME, NODE_STATUS_EXCLUDE_PATH_GRAMMAR } from "@/lib/node-status";
 import {
-  canonicalNamingSchemaVersion,
-  compareNamingSchemaVersions,
   type DecisionKind,
-  type NamingSchemaVersion,
   type NodeKind,
-  selectedSupersededNodeSuffixes,
   selectSpecTreeGrammar,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
@@ -16,12 +13,15 @@ import {
   SPEC_TREE_EVIDENCE_STATUS,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_KIND_CATEGORY,
-  SPEC_TREE_NAMING_SCHEMA_VERSIONS,
+  SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
+  SPEC_TREE_METHODOLOGY_LINE,
+  SPEC_TREE_SECTION,
   SPEC_TREE_SOURCE_ENTRY_KEYS,
   type SpecTreeDecisionSourceEntry,
   type SpecTreeEvidenceSourceEntry,
   type SpecTreeGrammarSelection,
   type SpecTreeKindCategory,
+  type SpecTreeMethodologyLine,
   type SpecTreeNodeKind,
   type SpecTreeNodeSourceEntry,
   type SpecTreeRegistry,
@@ -31,7 +31,8 @@ import {
 } from "@/lib/spec-tree";
 import { PYTHON_MARKER } from "@/validation/discovery/language-finder";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
-import { sampleGeneratedValue } from "@testing/generators/sample";
+import { SAMPLE_GENERATOR_PARAMETERS, sampleGeneratedValue } from "@testing/generators/sample";
+import { semverMaximumOracle, semverOrderOracle } from "@testing/generators/spec-tree/naming-schema-version";
 
 type SpecTreeEntryDiscriminatorKey =
   | typeof SPEC_TREE_SOURCE_ENTRY_KEYS.TYPE
@@ -88,22 +89,86 @@ export type RecognizedSpecTreeSourceEntryRole =
   | typeof SPEC_TREE_ENTRY_TYPE.DECISION
   | typeof SPEC_TREE_ENTRY_TYPE.EVIDENCE;
 
+/**
+ * The names a methodology line's target naming-schema version gives a product tree: the product
+ * file suffix, the spec file suffix of a node, whether the root spec declares its kind in front
+ * matter, and the node directory suffixes the version accepts. The values are the version's own
+ * data, selected by the methodology line the case declares.
+ */
+export type SpecTreeSourceForm = {
+  readonly line: SpecTreeMethodologyLine;
+  readonly productSuffix: string;
+  readonly specFileSuffix: string;
+  readonly productDeclaresKind: boolean;
+  readonly rootSuffix: string;
+  readonly childSuffix: string;
+  readonly peerSuffix: string;
+};
+
 export type SpecTreeSourceMappingCase =
   | {
     readonly title: string;
+    readonly form: SpecTreeSourceForm;
     readonly kind: typeof SPEC_TREE_SOURCE_MAPPING_CASE_KIND.PRODUCT_RELATIVE_REFS;
   }
   | {
     readonly title: string;
+    readonly form: SpecTreeSourceForm;
     readonly kind: typeof SPEC_TREE_SOURCE_MAPPING_CASE_KIND.RECOGNIZED_ENTRY_ROLE;
     readonly entryType: RecognizedSpecTreeSourceEntryRole;
   };
 
 export type SupersededNodeSuffixCase = {
   readonly title: string;
+  readonly line: SpecTreeMethodologyLine;
   readonly suffix: string;
   readonly version: string;
 };
+
+/** The methodology lines whose forms a source reads and the spec statements present: 3.2 and 4.0. */
+export const SPEC_TREE_SOURCE_LINES: readonly SpecTreeMethodologyLine[] = [
+  SPEC_TREE_METHODOLOGY_LINE.THREE_TWO,
+  SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO,
+];
+
+/** A product configuration whose methodology declaration names the line. */
+export function specTreeConfigForLine(line: SpecTreeMethodologyLine): Config {
+  return {
+    [METHODOLOGY_SECTION]: { [METHODOLOGY_CONFIG_FIELDS.VERSION]: line },
+    [SPEC_TREE_SECTION]: {},
+  };
+}
+
+/** The grammar selection a methodology line makes, read from the known versions' own `lines` data. */
+export function specTreeGrammarSelectionForLine(line: SpecTreeMethodologyLine): SpecTreeGrammarSelection {
+  return {
+    known: SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
+    selected: SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS.filter((version) => version.lines.includes(line)),
+  };
+}
+
+type SupersededOracleEntry = { readonly suffix: string; readonly version: string };
+
+/**
+ * Independent oracle for the suffixes a selection supersedes: every node suffix accepted by a known
+ * version ordered at or before the target and not selected, and no selected version accepts, paired
+ * with the newest such version. Ordering comes from the semantic-version oracle.
+ */
+export function supersededSuffixOracle(selection: SpecTreeGrammarSelection): readonly SupersededOracleEntry[] {
+  const target = semverMaximumOracle(selection.selected);
+  const selectedVersions = new Set(selection.selected.map((version) => version.version));
+  const selectedSuffixes = new Set(selection.selected.flatMap((version) => version.nodeSuffixes));
+  const priors = selection.known.filter((version) =>
+    !selectedVersions.has(version.version) && semverOrderOracle(version.version, target.version) <= 0
+  );
+  const suffixes = [...new Set(priors.flatMap((version) => version.nodeSuffixes))].filter((suffix) =>
+    !selectedSuffixes.has(suffix)
+  );
+  return suffixes.map((suffix) => ({
+    suffix,
+    version: semverMaximumOracle(priors.filter((version) => version.nodeSuffixes.includes(suffix))).version,
+  }));
+}
 
 const SPEC_TREE_TEST_GENERATOR_OPTIONS = {
   REPRESENTATIVE_ID_COUNT: 7,
@@ -156,69 +221,86 @@ export const SPEC_TREE_TEST_GENERATOR = {
   unregisteredNodeSuffix: arbitraryUnregisteredNodeSuffix,
   invalidOrderedDirectory: arbitraryInvalidOrderedDirectory,
   supersededNodeSuffix: arbitrarySupersededNodeSuffix,
+  invalidOrderedDirectoryScenario: arbitraryInvalidOrderedDirectoryScenario,
+  supersededOrderedDirectoryScenario: arbitrarySupersededOrderedDirectoryScenario,
+  invalidDirectoryWithDescendant: (registry: SpecTreeRegistry) =>
+    arbitraryWithDescendant(arbitraryInvalidOrderedDirectoryScenario(registry)),
+  supersededDirectoryWithDescendant: () => arbitraryWithDescendant(arbitrarySupersededOrderedDirectoryScenario()),
   sourceRef: arbitrarySourceRef,
   decisionKind: arbitraryDecisionKind,
   representativeFixture: arbitraryRepresentativeFixture,
   representativeFixtureWithGrandchild: arbitraryRepresentativeFixtureWithGrandchild,
 } as const;
 
+function sourceFormForLine(line: SpecTreeMethodologyLine): SpecTreeSourceForm {
+  const target = semverMaximumOracle(specTreeGrammarSelectionForLine(line).selected);
+  const suffixes = fc.constantFrom(...target.nodeSuffixes);
+  return {
+    line,
+    productSuffix: target.productSuffix,
+    specFileSuffix: target.specFileSuffix,
+    productDeclaresKind: target.rootSpecKind !== undefined,
+    rootSuffix: sampleSpecTreeTestValue(suffixes),
+    childSuffix: sampleSpecTreeTestValue(suffixes),
+    peerSuffix: sampleSpecTreeTestValue(suffixes),
+  };
+}
+
+const SPEC_TREE_SOURCE_ROLES = [
+  { title: "maps product records", entryType: SPEC_TREE_ENTRY_TYPE.PRODUCT },
+  { title: "maps node records", entryType: SPEC_TREE_ENTRY_TYPE.NODE },
+  { title: "maps decision records", entryType: SPEC_TREE_ENTRY_TYPE.DECISION },
+  { title: "maps co-located evidence records", entryType: SPEC_TREE_ENTRY_TYPE.EVIDENCE },
+] as const;
+
+/** One case per methodology line the spec statements present and per mapped record role. */
 export function specTreeSourceMappingCases(): readonly SpecTreeSourceMappingCase[] {
-  return [
-    {
-      title: "uses product-root-relative refs and an inclusion predicate",
-      kind: SPEC_TREE_SOURCE_MAPPING_CASE_KIND.PRODUCT_RELATIVE_REFS,
-    },
-    {
-      title: "maps product records",
-      kind: SPEC_TREE_SOURCE_MAPPING_CASE_KIND.RECOGNIZED_ENTRY_ROLE,
-      entryType: SPEC_TREE_ENTRY_TYPE.PRODUCT,
-    },
-    {
-      title: "maps node records",
-      kind: SPEC_TREE_SOURCE_MAPPING_CASE_KIND.RECOGNIZED_ENTRY_ROLE,
-      entryType: SPEC_TREE_ENTRY_TYPE.NODE,
-    },
-    {
-      title: "maps decision records",
-      kind: SPEC_TREE_SOURCE_MAPPING_CASE_KIND.RECOGNIZED_ENTRY_ROLE,
-      entryType: SPEC_TREE_ENTRY_TYPE.DECISION,
-    },
-    {
-      title: "maps co-located evidence records",
-      kind: SPEC_TREE_SOURCE_MAPPING_CASE_KIND.RECOGNIZED_ENTRY_ROLE,
-      entryType: SPEC_TREE_ENTRY_TYPE.EVIDENCE,
-    },
-  ];
+  return SPEC_TREE_SOURCE_LINES.flatMap((line): readonly SpecTreeSourceMappingCase[] => {
+    const form = sourceFormForLine(line);
+    return [
+      {
+        title: `uses product-root-relative refs and an inclusion predicate under methodology ${line}`,
+        form,
+        kind: SPEC_TREE_SOURCE_MAPPING_CASE_KIND.PRODUCT_RELATIVE_REFS,
+      },
+      ...SPEC_TREE_SOURCE_ROLES.map((role) => ({
+        title: `${role.title} under methodology ${line}`,
+        form,
+        kind: SPEC_TREE_SOURCE_MAPPING_CASE_KIND.RECOGNIZED_ENTRY_ROLE,
+        entryType: role.entryType,
+      })),
+    ];
+  });
 }
 
-export function supersededNodeSuffixCases(
-  versions: readonly NamingSchemaVersion[] = SPEC_TREE_NAMING_SCHEMA_VERSIONS,
-): readonly SupersededNodeSuffixCase[] {
-  const canonical = canonicalNamingSchemaVersion(versions);
-  const canonicalSuffixes = new Set(canonical.nodeSuffixes);
-  const seen = new Set<string>();
-  const cases: SupersededNodeSuffixCase[] = [];
-  const priorVersions = versions
-    .filter((version) => version !== canonical)
-    .sort((left, right) => compareNamingSchemaVersions(right, left));
-
-  for (const version of priorVersions) {
-    for (const suffix of version.nodeSuffixes) {
-      if (canonicalSuffixes.has(suffix) || seen.has(suffix)) continue;
-      seen.add(suffix);
-      cases.push({
-        title: `retains ${suffix} as superseded under naming schema ${version.version}`,
-        suffix,
-        version: version.version,
-      });
-    }
-  }
-
-  return cases;
+/**
+ * One case per methodology line and per suffix the line leaves superseded, with the newest version
+ * ordered before the line's target that accepts it. The expectation comes from the semantic-version
+ * oracle over the known versions' own data.
+ */
+export function supersededNodeSuffixCases(): readonly SupersededNodeSuffixCase[] {
+  return SPEC_TREE_SOURCE_LINES.flatMap((line) =>
+    supersededSuffixOracle(specTreeGrammarSelectionForLine(line)).map(({ suffix, version }) => ({
+      title: `retains ${suffix} as superseded under naming schema ${version} for methodology ${line}`,
+      line,
+      suffix,
+      version,
+    }))
+  );
 }
 
+let specTreeDrawOrdinal = 0;
+
+/**
+ * One value from the arbitrary, drawn from the pinned sample seed offset by the draw's ordinal, so
+ * every draw in a process differs from the last while the sequence replays from the pinned seed.
+ */
 export function sampleSpecTreeTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
-  const [value] = fc.sample(arbitrary, { numRuns: 1 });
+  specTreeDrawOrdinal += 1;
+  const [value] = fc.sample(arbitrary, {
+    ...SAMPLE_GENERATOR_PARAMETERS,
+    seed: SAMPLE_GENERATOR_PARAMETERS.seed + specTreeDrawOrdinal,
+  });
   if (value === undefined) {
     throw new Error("Spec-tree test generator returned no sample");
   }
@@ -238,7 +320,7 @@ export function singleSegmentOrder(index: number): readonly number[] {
 export function orderedDirectoryName(suffix: string): string {
   const order: number = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder());
   const slug: string = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-  return `${order}-${slug}${suffix}`;
+  return `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${suffix}`;
 }
 
 /** An ordered node directory name with `suffix` that differs from every name in `taken`. */
@@ -533,20 +615,32 @@ function arbitraryDecisionKind(registry: SpecTreeRegistry): fc.Arbitrary<Decisio
 function arbitrarySupersededNodeSuffix(
   selection: SpecTreeGrammarSelection = FIXTURE_SPEC_TREE_GRAMMAR_SELECTION,
 ): fc.Arbitrary<string> {
-  return fc.constantFrom(...selectedSupersededNodeSuffixes(selection));
+  return fc.constantFrom(...supersededSuffixOracle(selection).map((entry) => entry.suffix));
 }
 
+/**
+ * A node directory suffix neither a selected version nor the independent superseded oracle accepts:
+ * a random suffix outside both sets, or a suffix only a version ordered after the declared target
+ * accepts. The domain is bounded by the oracle and the selected versions' own data, never by the
+ * production recognizer.
+ */
 function arbitraryUnregisteredNodeSuffix(
   registry: SpecTreeRegistry,
   selection: SpecTreeGrammarSelection = FIXTURE_SPEC_TREE_GRAMMAR_SELECTION,
 ): fc.Arbitrary<string> {
-  const nodeSuffixes = new Set<string>([
+  const selectedSuffixes = selection.selected.flatMap((version) => version.nodeSuffixes);
+  const supersededSuffixes = supersededSuffixOracle(selection).map((entry) => entry.suffix);
+  const accepted = new Set<string>([
     ...Object.values(registry)
       .filter((definition) => definition.category === SPEC_TREE_KIND_CATEGORY.NODE)
       .map((definition) => definition.suffix),
-    ...selectedSupersededNodeSuffixes(selection),
+    ...selectedSuffixes,
+    ...supersededSuffixes,
   ]);
-  return fc.tuple(
+  const laterOnlySuffixes = [
+    ...new Set(selection.known.flatMap((version) => version.nodeSuffixes)),
+  ].filter((suffix) => !accepted.has(suffix));
+  const random = fc.tuple(
     fc.constantFrom(...SPEC_TREE_TEST_SUFFIX_INITIAL_CHARACTERS),
     fc.string({
       unit: fc.constantFrom(...SPEC_TREE_TEST_SUFFIX_REST_CHARACTERS),
@@ -555,13 +649,69 @@ function arbitraryUnregisteredNodeSuffix(
     }),
   )
     .map(([firstCharacter, rest]) => `.${firstCharacter}${rest}`)
-    .map((suffix) => disambiguateRegisteredSuffix(suffix, nodeSuffixes));
+    .map((suffix) => disambiguateRegisteredSuffix(suffix, new Set([...accepted, ...laterOnlySuffixes])));
+  if (laterOnlySuffixes.length === 0) return random;
+  return fc.oneof(random, fc.constantFrom(...laterOnlySuffixes));
 }
 
-function arbitraryInvalidOrderedDirectory(registry: SpecTreeRegistry): fc.Arbitrary<string> {
+function arbitraryInvalidOrderedDirectory(
+  registry: SpecTreeRegistry,
+  selection: SpecTreeGrammarSelection = FIXTURE_SPEC_TREE_GRAMMAR_SELECTION,
+): fc.Arbitrary<string> {
   return fc
-    .tuple(arbitraryFilesystemOrder(), arbitrarySourceSlug(), arbitraryUnregisteredNodeSuffix(registry))
-    .map(([order, slug, suffix]) => `${order}-${slug}${suffix}`);
+    .tuple(arbitraryFilesystemOrder(), arbitrarySourceSlug(), arbitraryUnregisteredNodeSuffix(registry, selection))
+    .map(([order, slug, suffix]) => `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${suffix}`);
+}
+
+/** An ordered directory name a methodology line classifies as the scenario's role, beside the line. */
+export type OrderedDirectoryScenario = {
+  readonly line: SpecTreeMethodologyLine;
+  readonly directory: string;
+};
+
+/** An ordered directory beside a registered node directory and spec file the line accepts below it. */
+export type DirectoryWithDescendantScenario = OrderedDirectoryScenario & {
+  readonly descendantDirectory: string;
+  readonly descendantSpecFile: string;
+};
+
+function arbitraryInvalidOrderedDirectoryScenario(registry: SpecTreeRegistry): fc.Arbitrary<OrderedDirectoryScenario> {
+  return fc.constantFrom(...SPEC_TREE_SOURCE_LINES).chain((line) =>
+    arbitraryInvalidOrderedDirectory(registry, specTreeGrammarSelectionForLine(line)).map((directory) => ({
+      line,
+      directory,
+    }))
+  );
+}
+
+function arbitrarySupersededOrderedDirectoryScenario(): fc.Arbitrary<OrderedDirectoryScenario> {
+  return fc.constantFrom(...SPEC_TREE_SOURCE_LINES).chain((line) =>
+    fc
+      .tuple(
+        arbitraryFilesystemOrder(),
+        arbitrarySourceSlug(),
+        arbitrarySupersededNodeSuffix(specTreeGrammarSelectionForLine(line)),
+      )
+      .map(([order, slug, suffix]) => ({
+        line,
+        directory: `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${suffix}`,
+      }))
+  );
+}
+
+function arbitraryWithDescendant(
+  scenarios: fc.Arbitrary<OrderedDirectoryScenario>,
+): fc.Arbitrary<DirectoryWithDescendantScenario> {
+  return scenarios.chain((scenario) => {
+    const target = semverMaximumOracle(specTreeGrammarSelectionForLine(scenario.line).selected);
+    return fc
+      .tuple(arbitraryFilesystemOrder(), arbitrarySourceSlug(), fc.constantFrom(...target.nodeSuffixes))
+      .map(([order, slug, suffix]) => ({
+        ...scenario,
+        descendantDirectory: `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${suffix}`,
+        descendantSpecFile: `${slug}${target.specFileSuffix}`,
+      }));
+  });
 }
 
 function disambiguateRegisteredSuffix(suffix: string, registeredSuffixes: ReadonlySet<string>): string {

@@ -1,11 +1,21 @@
 import { describe, expect, it } from "vitest";
 
-import { KIND_REGISTRY, projectSpecTree, readSpecTree, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { KIND_REGISTRY, projectSpecTree, readSpecTree, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
-import { SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
+import { SPEC_TREE_TEST_GENERATOR, specTreeConfigForLine } from "@testing/generators/spec-tree/spec-tree";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
-import { decisionSignatures, nodeDirectoryName, nodeSignatures } from "@testing/harnesses/spec-tree/spec-tree-source";
+import {
+  decisionFileName,
+  decisionLinkSignatures,
+  decisionSignatures,
+  nodeDirectoryName,
+  nodeLinkSignatures,
+  nodeSignatures,
+  productRelativePath,
+  specTreePath,
+  writeFixtureEvidence,
+} from "@testing/harnesses/spec-tree/spec-tree-source";
 
 describe("SpecTreeSource properties", () => {
   it("projects every generated valid tree equivalently from filesystem and memory sources", async () => {
@@ -14,12 +24,61 @@ describe("SpecTreeSource properties", () => {
       async (fixture) => {
         await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
           await env.materialize();
-          const filesystemProjection = projectSpecTree(await readSpecTree({ source: env.filesystemSource() }));
-          const inMemoryProjection = await env.projectMemory();
+          await writeFixtureEvidence(env);
+          const filesystemSnapshot = await readSpecTree({ source: env.filesystemSource() });
+          const inMemorySnapshot = await env.readMemorySnapshot();
+          const filesystemProjection = projectSpecTree(filesystemSnapshot);
+          const inMemoryProjection = projectSpecTree(inMemorySnapshot);
           expect(filesystemProjection.product?.title).toBeDefined();
           expect(filesystemProjection.product?.title).toBe(inMemoryProjection.product?.title);
           expect(nodeSignatures(filesystemProjection)).toEqual(nodeSignatures(inMemoryProjection));
           expect(decisionSignatures(filesystemProjection)).toEqual(decisionSignatures(inMemoryProjection));
+          expect(nodeLinkSignatures(filesystemSnapshot)).toEqual(nodeLinkSignatures(inMemorySnapshot));
+          expect(decisionLinkSignatures(filesystemSnapshot)).toEqual(decisionLinkSignatures(inMemorySnapshot));
+
+          const rootId = nodeDirectoryName(fixture.root);
+          const childId = specTreePath(rootId, nodeDirectoryName(fixture.child));
+          const peerId = nodeDirectoryName(fixture.peer);
+          expect(filesystemSnapshot.allNodes).toHaveLength(3);
+          expect(
+            filesystemSnapshot.allNodes.map((node) => ({
+              id: node.id,
+              parentId: node.parentId,
+              refPath: node.ref?.path,
+            })),
+          ).toEqual(
+            expect.arrayContaining([
+              {
+                id: rootId,
+                parentId: undefined,
+                refPath: productRelativePath(rootId, `${fixture.root.slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`),
+              },
+              {
+                id: childId,
+                parentId: rootId,
+                refPath: productRelativePath(
+                  childId,
+                  `${fixture.child.slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`,
+                ),
+              },
+              {
+                id: peerId,
+                parentId: undefined,
+                refPath: productRelativePath(peerId, `${fixture.peer.slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`),
+              },
+            ]),
+          );
+          expect(filesystemSnapshot.decisions.map((decision) => ({
+            id: decision.id,
+            parentId: decision.parentId,
+            refPath: decision.ref?.path,
+          }))).toEqual([
+            {
+              id: specTreePath(rootId, decisionFileName(fixture.decision)),
+              parentId: rootId,
+              refPath: productRelativePath(rootId, decisionFileName(fixture.decision)),
+            },
+          ]);
         }, { fixture });
       },
       { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
@@ -28,20 +87,35 @@ describe("SpecTreeSource properties", () => {
 
   it("rejects registered descendants below every generated invalid ordered directory", async () => {
     await assertProperty(
-      SPEC_TREE_TEST_GENERATOR.invalidOrderedDirectory(KIND_REGISTRY),
-      async (invalidDirectory) => {
-        await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      SPEC_TREE_TEST_GENERATOR.invalidDirectoryWithDescendant(KIND_REGISTRY),
+      async (scenario) => {
+        await withSpecTreeEnv(specTreeConfigForLine(scenario.line), async (env) => {
           await env.writeRaw(
-            [
-              SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-              invalidDirectory,
-              nodeDirectoryName(env.fixture.child),
-              `${env.fixture.child.slug}.md`,
-            ].join("/"),
+            productRelativePath(scenario.directory, scenario.descendantDirectory, scenario.descendantSpecFile),
             "",
           );
           const snapshot = await readSpecTree({ source: env.filesystemSource() });
           expect(snapshot.allNodes.map((node) => node.id)).toEqual([]);
+          expect(snapshot.entries.map((entry) => entry.id)).toEqual([scenario.directory]);
+        });
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+
+  it("rejects registered descendants below every generated superseded ordered directory", async () => {
+    await assertProperty(
+      SPEC_TREE_TEST_GENERATOR.supersededDirectoryWithDescendant(),
+      async (scenario) => {
+        await withSpecTreeEnv(specTreeConfigForLine(scenario.line), async (env) => {
+          await env.writeRaw(
+            productRelativePath(scenario.directory, scenario.descendantDirectory, scenario.descendantSpecFile),
+            "",
+          );
+          const snapshot = await readSpecTree({ source: env.filesystemSource() });
+          expect(snapshot.allNodes.map((node) => node.id)).toEqual([]);
+          expect(snapshot.superseded.map((entry) => entry.id)).toEqual([scenario.directory]);
+          expect(snapshot.entries.map((entry) => entry.id)).toEqual([scenario.directory]);
         });
       },
       { level: PROPERTY_LEVEL.L1 },
