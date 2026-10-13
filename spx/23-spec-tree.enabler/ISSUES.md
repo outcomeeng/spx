@@ -46,13 +46,15 @@ The canonical ADR template (`plugins/spec-tree/skills/understanding/templates/de
 
 **Settlement condition:** either the spec property and the ADR invariant are narrowed to snapshots that carry a product, or the operation is made total — a third discriminated outcome or `unresolved` when no common node exists and the snapshot has no product — with a generated product-less snapshot in the property.
 
-## Harness-owned assertions in filename-grammar evidence
+## Spec-tree tests assert presence through a shared harness helper
 
-**Evidence:** `testing/harnesses/spec-tree/naming-schema-version.ts` declares `assertCanonicalVersionNameMapsToValidEntry`, `assertPriorVersionNameMapsToSupersededEntry`, `assertUnknownVersionNameMapsToInvalidEntry`, `assertInjectedCanonicalVersionGovernsValidity`, `assertCanonicalForeignSuffixMapsToInvalidEntry`, and `assertInjectedEvidenceGrammarGovernsRecognition`, each owning its `expect` calls over `SPEC_TREE_ENTRY_TYPE` outcomes inside an `assertProperty` body. `testing/harnesses/spec-tree/filename-grammar.ts` declares `assertSpecTreeEntryRecognitionCase`, `assertProductEntryRecognition`, and `assertEvidenceRecognitionProperty` in the same shape, wrapped by `registerSpecTreeEntryRecognitionEvidence` and `registerEvidenceRecognitionProperty`, which register the `it` blocks themselves. The node 29 tests under `29-filename-grammar.enabler/tests/` call none of these. The callers are the tests of `spx/23-spec-tree.enabler/43-entry-recognition.enabler/tests/`: `version-classification.property.l1.test.ts`, `version-classification.compliance.l1.test.ts`, `entry-recognition.mapping.l1.test.ts`, and `evidence-recognition.property.l1.test.ts`. Those only invoke the harness functions, so the pass or fail predicate is not lexically in the linked test function.
+`expectPresent` in `testing/harnesses/spec-tree/assertions.ts` holds two `expect` calls (defined, not null) that decide whether a recognized or projected value exists, and returns the value. The tests that call it are `29-filename-grammar.enabler/tests/spec-file-form.mapping.l1.test.ts`, `54-spec-tree-assembly.enabler/tests/spec-tree-assembly.property.l1.test.ts`, `65-spec-tree-traversal.enabler/tests/spec-tree-traversal.scenario.l1.test.ts`, `76-node-state-derivation.enabler/tests/node-state-derivation.mapping.l1.test.ts`, and `87-spec-tree-projection.enabler/tests/spec-tree-projection.conformance.l1.test.ts`.
 
-**Impact:** a reader of a node 43 linked test cannot see the pass or fail predicate, and the harness cannot support two tests that make opposite claims about one observation; the test-evidence audit reports an assertion-seam finding for each.
+**Evidence:** `grep -rn "expectPresent" spx testing --include=*.ts`.
 
-**Settlement condition:** each of these predicates is inlined into its linked node 43 test function, with the harness reduced to observations, handles, and execution policy.
+**Impact:** a presence predicate sits in a harness shared by five nodes, so the linked tests show no presence predicate and the helper cannot serve a test claiming absence.
+
+**Settlement condition:** each of those tests states its presence expectation inline (optional chaining on the observed value, or an inline `expect` before a narrowing guard), and `assertions.ts` is removed.
 
 ## Naming-version compliance assertion lacks a violating case
 
