@@ -5,7 +5,6 @@ import { SPEC_CONTEXT_ENTRIES_KEY } from "@/commands/spec/context-show";
 import { DEFAULT_METHODOLOGY_SOURCE } from "@/config/methodology";
 import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import {
-  compareSpecTreeOrder,
   SPEC_CONTEXT_ENTRY_TYPE,
   SPEC_CONTEXT_FRAME,
   SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
@@ -46,6 +45,16 @@ import {
   withEmptyContextTreeEnv,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
+
+/** Orders two segment lists numerically segment by segment; a list that extends another follows it. */
+function compareSegments(left: readonly number[], right: readonly number[]): number {
+  const shared = Math.min(left.length, right.length);
+  for (let position = 0; position < shared; position += 1) {
+    const difference = Math.sign((left[position] ?? 0) - (right[position] ?? 0));
+    if (difference !== 0) return difference;
+  }
+  return Math.sign(left.length - right.length);
+}
 
 describe("spec context list and show", () => {
   it("emits the versioned structural manifest from list and framed entries without manifest fields from show", async () => {
@@ -131,7 +140,7 @@ describe("spec context list and show", () => {
         { path: paths.peerDecisionPath, orderSegments: env.fixture.decision.orderSegments },
         { path: paths.transitiveCitedDecisionPath, orderSegments: env.fixture.peer.orderSegments },
       ].sort((left, right) =>
-        compareSpecTreeOrder(left.orderSegments, right.orderSegments)
+        compareSegments(left.orderSegments, right.orderSegments)
         || (left.path < right.path ? -1 : left.path > right.path ? 1 : 0)
       );
       const peerStart = entryPaths(entries).indexOf(paths.higherIndexSiblingSpecPath);
