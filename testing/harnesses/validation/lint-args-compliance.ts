@@ -14,16 +14,12 @@ import { TSCONFIG_FILES } from "@/validation/config/scope";
 import { ESLINT_PRODUCTION_CONFIG_FILES } from "@/validation/discovery";
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
 import { validateESLint } from "@/validation/steps/eslint";
-import {
-  DEFAULT_ESLINT_CONFIG_FILE,
-  ESLINT_COMMAND_TOKENS,
-  ESLINT_LOCAL_BIN_SEGMENTS,
-} from "@/validation/steps/eslint-contract";
+import { DEFAULT_ESLINT_CONFIG_FILE, ESLINT_LOCAL_BIN_SEGMENTS } from "@/validation/steps/eslint-contract";
 import { VALIDATION_SUBPROCESS_EVENTS, type ValidationWritableStream } from "@/validation/steps/subprocess-output";
 import { EXECUTION_MODES, VALIDATION_SCOPES, type ValidationContext } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { withTestEnv, writeOrderedDirectory } from "@testing/harnesses/spec-tree/spec-tree";
-import { RejectingUnexpectedValidationSpawnRunner } from "@testing/harnesses/validation/subprocess";
+import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
 
 const RECORDED_ARGUMENTS_FILE = "eslint-args.txt";
 const RECORDED_WORKING_DIRECTORY_FILE = "eslint-cwd.txt";
@@ -208,30 +204,30 @@ export function observeLintWithReportedProductionConfig(): Promise<ReportedConfi
 export interface ConsecutiveLintObservation {
   /** The executable discovery returned. */
   readonly discoveredToolPath: string;
-  readonly firstExitCode: number;
-  readonly secondExitCode: number;
+  /** The flat config file language detection reported to the lint command. */
+  readonly reportedConfigFile: string;
+  /** The file the caller asked the lint command to validate. */
+  readonly callerFile: string;
+  /** The close code each spawned child emitted, in spawn order. */
+  readonly childCloseCodes: readonly number[];
+  /** The exit code each lint invocation returned, in invocation order. */
+  readonly exitCodes: readonly number[];
   /** The executable each lint invocation spawned, in order. */
   readonly spawnedCommands: readonly string[];
+  /** The argument vector each lint invocation spawned its executable with, in order. */
+  readonly spawnedArguments: ReadonlyArray<readonly string[]>;
 }
 
 /**
- * Runs the lint command twice against a spawn runner that accepts only the discovered executable with the
- * product's flat config and the caller's file scope; it throws on any other executable or argument and closes
- * its first child successfully and its second with a failure.
+ * Runs the lint command twice against a recording spawn runner whose first child closes successfully and
+ * whose second child closes with a failure, and returns what was spawned and what each invocation returned.
  */
 export function observeConsecutiveLintInvocations(): Promise<ConsecutiveLintObservation> {
   return withTestEnv({}, async (env) => {
     const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
     const toolPath = join(env.productDir, sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath()));
-    const runner = new RejectingUnexpectedValidationSpawnRunner({
-      command: toolPath,
-      args: [
-        ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
-        DEFAULT_ESLINT_CONFIG_FILE,
-        ESLINT_COMMAND_TOKENS.FILE_SEPARATOR,
-        sourceFilePath,
-      ],
-    }, [VALIDATION_EXIT_CODES.SUCCESS, VALIDATION_EXIT_CODES.FAILURE]);
+    const childCloseCodes = [VALIDATION_EXIT_CODES.SUCCESS, VALIDATION_EXIT_CODES.FAILURE];
+    const runner = new RecordingSpawnOptionsRunner(childCloseCodes);
     const deps: LintCommandDeps = {
       ...defaultLintCommandDeps,
       discoverTool: async (tool) => ({
@@ -249,9 +245,12 @@ export function observeConsecutiveLintInvocations(): Promise<ConsecutiveLintObse
 
     return {
       discoveredToolPath: toolPath,
-      firstExitCode: first.exitCode,
-      secondExitCode: second.exitCode,
+      reportedConfigFile: DEFAULT_ESLINT_CONFIG_FILE,
+      callerFile: sourceFilePath,
+      childCloseCodes,
+      exitCodes: [first.exitCode, second.exitCode],
       spawnedCommands: runner.commands,
+      spawnedArguments: runner.args,
     };
   });
 }
@@ -271,7 +270,7 @@ export interface LintPreflightObservation {
   readonly downstreamCalls: number;
 }
 
-/** Runs the lint command against a detection result and collaborators that count their calls and throw when called. */
+/** Runs the lint command against a detection result and collaborators that count their calls and return continuable values. */
 export async function observeLintPreflight(preflight: LintPreflightDetection): Promise<LintPreflightObservation> {
   let detectionCalls = 0;
   let downstreamCalls = 0;
@@ -282,17 +281,20 @@ export async function observeLintPreflight(preflight: LintPreflightDetection): P
         detectionCalls += 1;
         return preflight.detection;
       },
-      discoverTool: () => {
+      discoverTool: async (tool) => {
         downstreamCalls += 1;
-        throw new Error(VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE);
+        return {
+          found: true,
+          location: { tool, path: process.cwd(), source: TOOL_DISCOVERY.SOURCES.GLOBAL },
+        };
       },
-      resolveConfig: () => {
+      resolveConfig: async () => {
         downstreamCalls += 1;
-        throw new Error(VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE);
+        return { ok: false, error: VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE };
       },
-      validateESLint: () => {
+      validateESLint: async () => {
         downstreamCalls += 1;
-        throw new Error(VALIDATION_COMMAND_OUTPUT.ESLINT_FAILURE);
+        return { success: true, duration: 0 };
       },
     },
   );

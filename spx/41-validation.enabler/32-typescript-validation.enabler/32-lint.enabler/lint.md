@@ -13,7 +13,7 @@ CAN run ESLint against TypeScript products — executing style, correctness, and
 ### Compliance
 
 - ALWAYS: the executable returned by ESLint discovery is the binary the lint subprocess spawns ([test](tests/lint-args.compliance.l1.test.ts))
-- ALWAYS: tool discovery and ESLint subprocess invocation occur only after TypeScript and an ESLint flat config are present ([test](tests/lint.compliance.l2.test.ts))
+- ALWAYS: tool discovery and ESLint subprocess invocation occur only after TypeScript and an ESLint flat config are present ([test](tests/lint-preflight.compliance.l1.test.ts))
 - NEVER: invoke ESLint via `npx` against a product lacking an ESLint flat config — prevents installation prompts and ENOENT failures ([test](tests/lint.compliance.l2.test.ts))
 - ALWAYS: ESLint uses the flat config file reported by language detection ([test](tests/lint-args.compliance.l1.test.ts))
 - ALWAYS: ESLint receives only the target product's flat config, fix mode, and caller-supplied file scope — `spx` does not inject repository-specific ignore patterns or warning-budget policy into consuming products ([test](tests/lint-args.compliance.l1.test.ts))
