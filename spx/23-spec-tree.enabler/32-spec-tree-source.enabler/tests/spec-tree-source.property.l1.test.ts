@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { KIND_REGISTRY, projectSpecTree, readSpecTree, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
-import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
+import { KIND_REGISTRY, projectSpecTree, readSpecTree } from "@/lib/spec-tree";
 import { SPEC_TREE_TEST_GENERATOR, specTreeConfigForLine } from "@testing/generators/spec-tree/spec-tree";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -15,15 +14,17 @@ import {
   productRelativePath,
   specTreePath,
   writeFixtureEvidence,
+  writeFixtureTree,
 } from "@testing/harnesses/spec-tree/spec-tree-source";
 
 describe("SpecTreeSource properties", () => {
   it("projects every generated valid tree equivalently from filesystem and memory sources", async () => {
     await assertProperty(
-      SPEC_TREE_TEST_GENERATOR.representativeFixture(KIND_REGISTRY),
-      async (fixture) => {
-        await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-          await env.materialize();
+      SPEC_TREE_TEST_GENERATOR.representativeFixtureScenario(KIND_REGISTRY),
+      async (scenario) => {
+        const { fixture } = scenario;
+        await withSpecTreeEnv(specTreeConfigForLine(scenario.form.line), async (env) => {
+          await writeFixtureTree(env, scenario.form);
           await writeFixtureEvidence(env);
           const filesystemSnapshot = await readSpecTree({ source: env.filesystemSource() });
           const inMemorySnapshot = await env.readMemorySnapshot();
@@ -51,20 +52,20 @@ describe("SpecTreeSource properties", () => {
               {
                 id: rootId,
                 parentId: undefined,
-                refPath: productRelativePath(rootId, `${fixture.root.slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`),
+                refPath: productRelativePath(rootId, `${fixture.root.slug}${scenario.form.specFileSuffix}`),
               },
               {
                 id: childId,
                 parentId: rootId,
                 refPath: productRelativePath(
                   childId,
-                  `${fixture.child.slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`,
+                  `${fixture.child.slug}${scenario.form.specFileSuffix}`,
                 ),
               },
               {
                 id: peerId,
                 parentId: undefined,
-                refPath: productRelativePath(peerId, `${fixture.peer.slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`),
+                refPath: productRelativePath(peerId, `${fixture.peer.slug}${scenario.form.specFileSuffix}`),
               },
             ]),
           );

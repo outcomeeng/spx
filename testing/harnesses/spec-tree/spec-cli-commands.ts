@@ -95,10 +95,10 @@ export async function changeNodeEvidenceContent(env: CurrentSpecTreeEnv, evidenc
 }
 
 /** A TypeScript spec-tree evidence path (`<slug>.<mode>.<level>.test.ts`) under `nodePath`'s tests directory. */
-export function nodeEvidencePath(nodePath: string): string {
+export function nodeEvidencePath(nodePath: string, evidenceIndex = 0): string {
   const [mode] = SPEC_TREE_EVIDENCE_FILE.MODES;
   const [level] = SPEC_TREE_EVIDENCE_FILE.LEVELS;
-  const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+  const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), evidenceIndex);
   const filename = [slug, mode, level, ...SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT].join(
     SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR,
   );
@@ -112,8 +112,12 @@ export function nodeEvidencePath(nodePath: string): string {
  * the test-outcome stage and the TypeScript runner dispatches it; returns its
  * product-relative path.
  */
-export async function addNodeTestFile(env: CurrentSpecTreeEnv, nodePath: string): Promise<string> {
-  const evidenceFile = nodeEvidencePath(nodePath);
+export async function addNodeTestFile(
+  env: CurrentSpecTreeEnv,
+  nodePath: string,
+  evidenceIndex = 0,
+): Promise<string> {
+  const evidenceFile = nodeEvidencePath(nodePath, evidenceIndex);
   await writeTestFileFixture(env.productDir, evidenceFile);
   return evidenceFile;
 }
@@ -123,8 +127,9 @@ export async function addNodeVitestFixture(
   env: CurrentSpecTreeEnv,
   nodePath: string,
   fixture: VitestFixture,
+  evidenceIndex = 0,
 ): Promise<string> {
-  const evidenceFile = nodeEvidencePath(nodePath);
+  const evidenceFile = nodeEvidencePath(nodePath, evidenceIndex);
   await writeVitestFixture(env.productDir, evidenceFile, fixture);
   return evidenceFile;
 }

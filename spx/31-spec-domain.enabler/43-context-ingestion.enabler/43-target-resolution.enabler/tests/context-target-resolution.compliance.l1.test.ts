@@ -78,7 +78,7 @@ describe("spec context target resolution compliance", () => {
     await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       const rootDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
-      const alias = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+      const alias = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 0);
       await symlink(join(env.productDir, rootedSpecPath(rootDirectory)), join(env.productDir, alias));
       const manifest = await contextListManifest({ targets: [alias], cwd: env.productDir });
       expect(new Set(manifest.entries.flatMap((entry) => entry.selections.map(({ target }) => target)))).toEqual(
@@ -93,7 +93,7 @@ describe("spec context target resolution compliance", () => {
         await env.materialize();
         const outsidePath = join(outsideParent, SPEC_CONTEXT_ESCAPE_TARGET_FILENAME);
         await writeFile(outsidePath, specContextOutsideDocument());
-        const alias = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+        const alias = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 1);
         await mkdir(join(env.productDir, rootedSpecPath("")), { recursive: true });
         await symlink(outsidePath, join(env.productDir, alias));
         for (
@@ -161,7 +161,7 @@ describe("spec context target resolution compliance", () => {
       await env.materialize();
       const rootDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
       const childDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.child);
-      const alias = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+      const alias = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 2);
       // The alias names the child directory, so a physical walk of the parent
       // segment lands in the root node rather than the product root.
       await symlink(
@@ -201,7 +201,7 @@ describe("spec context target resolution compliance", () => {
         await trackSpecTreeInGit(env);
         // The invocation directory reaches the product only through a symbolic
         // link outside it, while git reports the product root canonically.
-        const invocationAlias = join(outsideParent, sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug()));
+        const invocationAlias = join(outsideParent, sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 3));
         await symlink(env.productDir, invocationAlias);
         const operand = specContextUnknownTarget(env.fixture);
         for (

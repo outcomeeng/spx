@@ -127,7 +127,7 @@ describe("spx spec status --update recorded-evidence mapping", () => {
         { productDir: env.productDir, passing: false },
         { registry: testingRegistry, runnerDepsFor: () => runner },
       );
-      const uncoveredTestFile = await addNodeTestFile(env, rootPath);
+      const uncoveredTestFile = await addNodeTestFile(env, rootPath, 1);
 
       await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordedEvidenceResolverFor });
 
@@ -143,7 +143,7 @@ describe("spx spec status --update recorded-evidence mapping", () => {
       await env.materialize();
       const rootPath = fixtureNodePath(env.fixture.root);
       const failingTestFile = await addNodeTestFile(env, rootPath);
-      const passingTestFile = await addNodeTestFile(env, rootPath);
+      const passingTestFile = await addNodeTestFile(env, rootPath, 1);
       const runner = createRecordingCommandRunner({
         present: true,
         exitCode: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nonZeroExitCode()),
@@ -171,7 +171,7 @@ describe("spx spec status --update recorded-evidence mapping", () => {
       await env.materialize();
       const rootPath = fixtureNodePath(env.fixture.root);
       const unreportedTestFile = await addNodeTestFile(env, rootPath);
-      const passingTestFile = await addNodeTestFile(env, rootPath);
+      const passingTestFile = await addNodeTestFile(env, rootPath, 1);
       const runner = createRecordingCommandRunner({
         present: true,
         exitCode: 0,

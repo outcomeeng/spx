@@ -229,6 +229,7 @@ export const SPEC_TREE_TEST_GENERATOR = {
   sourceRef: arbitrarySourceRef,
   decisionKind: arbitraryDecisionKind,
   representativeFixture: arbitraryRepresentativeFixture,
+  representativeFixtureScenario: arbitraryRepresentativeFixtureScenario,
   representativeFixtureWithGrandchild: arbitraryRepresentativeFixtureWithGrandchild,
 } as const;
 
@@ -240,10 +241,34 @@ function sourceFormForLine(line: SpecTreeMethodologyLine): SpecTreeSourceForm {
     productSuffix: target.productSuffix,
     specFileSuffix: target.specFileSuffix,
     productDeclaresKind: target.rootSpecKind !== undefined,
-    rootSuffix: sampleSpecTreeTestValue(suffixes),
-    childSuffix: sampleSpecTreeTestValue(suffixes),
-    peerSuffix: sampleSpecTreeTestValue(suffixes),
+    rootSuffix: sampleSpecTreeTestValue(suffixes, 0),
+    childSuffix: sampleSpecTreeTestValue(suffixes, 1),
+    peerSuffix: sampleSpecTreeTestValue(suffixes, 2),
   };
+}
+
+/** A representative fixture whose node kinds the line's target naming-schema version accepts, beside that line's form. */
+export type RepresentativeFixtureScenario = {
+  readonly form: SpecTreeSourceForm;
+  readonly fixture: RepresentativeSpecTreeFixture;
+};
+
+function arbitraryRepresentativeFixtureScenario(
+  registry: SpecTreeRegistry,
+): fc.Arbitrary<RepresentativeFixtureScenario> {
+  return fc.constantFrom(...SPEC_TREE_SOURCE_LINES).chain((line) => {
+    const target = semverMaximumOracle(specTreeGrammarSelectionForLine(line).selected);
+    const kinds = Object.entries(registry)
+      .filter(([, definition]) =>
+        (definition.category === SPEC_TREE_KIND_CATEGORY.NODE || definition.category === SPEC_TREE_KIND_CATEGORY.OUTPUT)
+        && target.nodeSuffixes.includes(definition.suffix)
+      )
+      .map(([kind]) => kind as SpecTreeNodeKind);
+    return arbitraryRepresentativeFixture(
+      registry,
+      fc.constantFrom(...requireNonEmpty(kinds, `node kind of methodology ${line}`)),
+    ).map((fixture) => ({ form: sourceFormForLine(line), fixture }));
+  });
 }
 
 const SPEC_TREE_SOURCE_ROLES = [
@@ -289,17 +314,15 @@ export function supersededNodeSuffixCases(): readonly SupersededNodeSuffixCase[]
   );
 }
 
-let specTreeDrawOrdinal = 0;
-
 /**
- * One value from the arbitrary, drawn from the pinned sample seed offset by the draw's ordinal, so
- * every draw in a process differs from the last while the sequence replays from the pinned seed.
+ * One value from the arbitrary, drawn from the pinned sample seed offset by `drawIndex`. The same
+ * arbitrary and index always give the same value, so a draw replays from the pinned seed; a caller
+ * that needs several different values of one domain passes a different index for each.
  */
-export function sampleSpecTreeTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
-  specTreeDrawOrdinal += 1;
+export function sampleSpecTreeTestValue<T>(arbitrary: fc.Arbitrary<T>, drawIndex = 0): T {
   const [value] = fc.sample(arbitrary, {
     ...SAMPLE_GENERATOR_PARAMETERS,
-    seed: SAMPLE_GENERATOR_PARAMETERS.seed + specTreeDrawOrdinal,
+    seed: SAMPLE_GENERATOR_PARAMETERS.seed + drawIndex,
   });
   if (value === undefined) {
     throw new Error("Spec-tree test generator returned no sample");
@@ -317,16 +340,20 @@ export function singleSegmentOrder(index: number): readonly number[] {
   return [index];
 }
 
-export function orderedDirectoryName(suffix: string): string {
-  const order: number = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder());
-  const slug: string = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+export function orderedDirectoryName(suffix: string, drawIndex = 0): string {
+  const order: number = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), drawIndex);
+  const slug: string = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), drawIndex);
   return `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${suffix}`;
 }
 
 /** An ordered node directory name with `suffix` that differs from every name in `taken`. */
 export function distinctOrderedDirectoryName(suffix: string, taken: ReadonlySet<string>): string {
-  let name = orderedDirectoryName(suffix);
-  while (taken.has(name)) name = orderedDirectoryName(suffix);
+  let drawIndex = 0;
+  let name = orderedDirectoryName(suffix, drawIndex);
+  while (taken.has(name)) {
+    drawIndex += 1;
+    name = orderedDirectoryName(suffix, drawIndex);
+  }
   return name;
 }
 
@@ -371,7 +398,7 @@ export function buildNodeEntry(
 }
 
 function nodeEntry(
-  kind: NodeKind,
+  kind: SpecTreeNodeKind,
   entry: Omit<SpecTreeNodeSourceEntry, SpecTreeEntryDiscriminatorKey>,
 ): RegisteredSpecTreeNodeEntry {
   return { type: SPEC_TREE_ENTRY_TYPE.NODE, kind, ...entry };
@@ -393,7 +420,10 @@ export function buildEvidenceEntry(
   };
 }
 
-function arbitraryRepresentativeFixture(registry: SpecTreeRegistry): fc.Arbitrary<RepresentativeSpecTreeFixture> {
+function arbitraryRepresentativeFixture(
+  registry: SpecTreeRegistry,
+  nodeKind: fc.Arbitrary<SpecTreeNodeKind> = arbitraryNodeKind(registry),
+): fc.Arbitrary<RepresentativeSpecTreeFixture> {
   return fc
     .record({
       ids: fc.uniqueArray(arbitrarySourceId(), {
@@ -420,7 +450,7 @@ function arbitraryRepresentativeFixture(registry: SpecTreeRegistry): fc.Arbitrar
       ),
       productRef: arbitrarySourceRef(),
       rootRef: arbitrarySourceRef(),
-      nodeKinds: fc.tuple(arbitraryNodeKind(registry), arbitraryNodeKind(registry), arbitraryNodeKind(registry)),
+      nodeKinds: fc.tuple(nodeKind, nodeKind, nodeKind),
       decisionKind: arbitraryDecisionKind(registry),
     })
     .map(({ ids, slugs, titles, orders, productRef, rootRef, nodeKinds, decisionKind }) => {
