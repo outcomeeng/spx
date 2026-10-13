@@ -14,6 +14,7 @@ import {
 } from "@/validation/config/descriptor";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import { ESLINT_PRODUCTION_CONFIG_FILES } from "@/validation/discovery";
+import { LINT_POLICY_MANIFESTS } from "@/validation/lint-policy-constants";
 import { buildEslintArgs } from "@/validation/steps/eslint";
 import { DEFAULT_ESLINT_CONFIG_FILE, ESLINT_COMMAND_TOKENS } from "@/validation/steps/eslint-contract";
 import { EXECUTION_MODES, VALIDATION_SCOPES } from "@/validation/types";
@@ -416,6 +417,37 @@ describe("ESLint binary spawned by the lint command", () => {
     expect(observation.recordedArguments).toStrictEqual([
       ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
       DEFAULT_ESLINT_CONFIG_FILE,
+      ESLINT_COMMAND_TOKENS.FILE_SEPARATOR,
+      sourceFilePath,
+    ]);
+  });
+
+  it("injects no repository lint-policy arguments into a product that carries this repository's lint-policy sources", async () => {
+    const sourceFilePath = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.sourceFilePath());
+
+    const observation = await observeLintCommandOnProduct({
+      files: [
+        { path: TSCONFIG_FILES.full, json: { include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern] } },
+        { path: DEFAULT_ESLINT_CONFIG_FILE },
+        {
+          path: LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.file,
+          json: { [LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.key]: [] },
+        },
+        {
+          path: LINT_POLICY_MANIFESTS.TEST_OWNED_CONSTANT_DEBT_NODES.file,
+          json: { [LINT_POLICY_MANIFESTS.TEST_OWNED_CONSTANT_DEBT_NODES.key]: [] },
+        },
+        { path: sourceFilePath },
+      ],
+      stub: LINT_ESLINT_STUB.ARGUMENTS,
+      command: () => ({ files: [sourceFilePath], fix: true, quiet: true }),
+    });
+
+    expect(observation.exitCode).toBe(VALIDATION_EXIT_CODES.SUCCESS);
+    expect(observation.recordedArguments).toStrictEqual([
+      ESLINT_COMMAND_TOKENS.CONFIG_FLAG,
+      DEFAULT_ESLINT_CONFIG_FILE,
+      ESLINT_COMMAND_TOKENS.FIX_FLAG,
       ESLINT_COMMAND_TOKENS.FILE_SEPARATOR,
       sourceFilePath,
     ]);
