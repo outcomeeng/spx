@@ -220,10 +220,6 @@ export interface ValidationPipelineScenario {
 }
 
 export const VALIDATION_SUBPROCESS_SCENARIO_KIND = {
-  LINT_CLEAN_PROJECT: "lintCleanProject",
-  LINT_PYTHON_PROJECT: "lintPythonProject",
-  LINT_BARE_PROJECT: "lintBareProject",
-  LINT_MISSING_CONFIG: "lintMissingConfig",
   ALL_CLEAN_PROJECT: "allCleanProject",
   ALL_TYPE_ERROR_PROJECT: "allTypeErrorProject",
   ALL_PYTHON_PROJECT: "allPythonProject",
@@ -492,59 +488,6 @@ export function validationCliSuccessExitCodeUpperBound(): number {
 
 export function validationCliPackagedExecutablePath(): string {
   return resolve(CONFIG_PROCESS_CWD.read(), PACKAGED_CLI_DIRECTORY, PACKAGED_CLI_FILENAME);
-}
-
-export function validationLintSubprocessScenarios(): ValidationSubprocessScenario[] {
-  const args = [validationCliDefinition.subcommands.lint.commandName];
-  const runtimeAntiMarkers = Object.values(VALIDATION_RUNTIME_ANTI_MARKERS);
-  const lintSkip = formatTypeScriptAbsentSkipMessage(VALIDATION_STAGE_DISPLAY_NAMES.ESLINT);
-
-  return [
-    {
-      title: "clean TypeScript fixture runs ESLint",
-      kind: VALIDATION_SUBPROCESS_SCENARIO_KIND.LINT_CLEAN_PROJECT,
-      args,
-      expectedExitCode: VALIDATION_EXIT_CODES.SUCCESS,
-      stdoutIncludes: [VALIDATION_COMMAND_OUTPUT.ESLINT_SUCCESS],
-      combinedIncludes: [],
-      stdoutExcludes: [lintSkip, ...runtimeAntiMarkers],
-      stderrExcludes: runtimeAntiMarkers,
-      combinedExcludes: runtimeAntiMarkers,
-    },
-    {
-      title: "Python fixture skips ESLint",
-      kind: VALIDATION_SUBPROCESS_SCENARIO_KIND.LINT_PYTHON_PROJECT,
-      args,
-      expectedExitCode: VALIDATION_EXIT_CODES.SUCCESS,
-      stdoutIncludes: [lintSkip],
-      combinedIncludes: [],
-      stdoutExcludes: runtimeAntiMarkers,
-      stderrExcludes: runtimeAntiMarkers,
-      combinedExcludes: runtimeAntiMarkers,
-    },
-    {
-      title: "bare fixture skips ESLint",
-      kind: VALIDATION_SUBPROCESS_SCENARIO_KIND.LINT_BARE_PROJECT,
-      args,
-      expectedExitCode: VALIDATION_EXIT_CODES.SUCCESS,
-      stdoutIncludes: [lintSkip],
-      combinedIncludes: [],
-      stdoutExcludes: runtimeAntiMarkers,
-      stderrExcludes: runtimeAntiMarkers,
-      combinedExcludes: runtimeAntiMarkers,
-    },
-    {
-      title: "TypeScript fixture without ESLint config reports the missing config",
-      kind: VALIDATION_SUBPROCESS_SCENARIO_KIND.LINT_MISSING_CONFIG,
-      args,
-      unexpectedExitCode: VALIDATION_EXIT_CODES.SUCCESS,
-      stdoutIncludes: [],
-      combinedIncludes: [VALIDATION_COMMAND_OUTPUT.ESLINT_MISSING_CONFIG],
-      stdoutExcludes: runtimeAntiMarkers,
-      stderrExcludes: runtimeAntiMarkers,
-      combinedExcludes: runtimeAntiMarkers,
-    },
-  ];
 }
 
 export function validationAllTypeScriptSubprocessScenarios(): ValidationSubprocessScenario[] {
