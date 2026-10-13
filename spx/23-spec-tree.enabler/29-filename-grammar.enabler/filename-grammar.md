@@ -1,6 +1,6 @@
 # Filename Grammar
 
-PROVIDES the single-sourced, versioned Spec-Tree filename grammar — the complete token vocabulary declared once and resolved through the spec-tree config descriptor, the dedicated naming-schema version, and the ordered naming-schema versions from which a methodology declaration selects its valid versions
+PROVIDES the single-sourced, versioned Spec-Tree filename grammar — the complete token vocabulary declared once, with kind vocabulary resolved only through `KIND_REGISTRY`, the dedicated naming-schema version, and the ordered naming-schema versions from which a methodology declaration selects its valid versions
 SO THAT entry recognition, source adapters, config resolution, and the spec-domain grammar-emit surface
 CAN resolve and validate the configured vocabulary, and classify and render filenames against one authoritative grammar, without re-declaring tokens or knowing prior naming-schema versions themselves
 
@@ -8,7 +8,7 @@ CAN resolve and validate the configured vocabulary, and classify and render file
 
 ### Scenarios
 
-- Given the spec-tree descriptor is registered with the config module, when `resolveConfig(productDir)` runs with no yaml, then the resolved spec-tree section contains the full default kind list with their definitions ([test](tests/spec-tree-config.scenario.l1.test.ts))
+- Given the spec-tree descriptor is registered with the config module, when `resolveConfig(productDir)` runs with no yaml, then the resolved spec-tree section carries no `kinds` field, and kind vocabulary resolves only through `KIND_REGISTRY` ([test](tests/spec-tree-config.scenario.l1.test.ts))
 - Given product configuration whose `specTree` section carries a `kinds` field, whether a list of kind names or a map of kind definitions, when the config resolves, then resolution fails naming `specTree.kinds` ([test](tests/spec-tree-config.scenario.l1.test.ts))
 
 ### Mappings
