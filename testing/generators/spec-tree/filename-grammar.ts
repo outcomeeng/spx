@@ -23,7 +23,11 @@ import {
   type SpecTreeKindCategory,
   type SpecTreeMethodologyLine,
 } from "@/lib/spec-tree";
-import { orderedDirectoryRecord } from "@testing/generators/spec-tree/naming-schema-version";
+import {
+  orderedDirectoryRecord,
+  semverMaximumOracle,
+  semverOrderOracle,
+} from "@testing/generators/spec-tree/naming-schema-version";
 import {
   sampleSpecTreeTestValue,
   singleSegmentOrder,
@@ -255,7 +259,7 @@ export function specTreeKindsFieldCases(): readonly SpecTreeKindsFieldCase[] {
  * `domain`, `interface`, `surface`, and `variant` output kinds. The 4.0 line also declares the nested
  * `product` scope, which no registry carries.
  */
-const DECLARED_NODE_KINDS_BY_LINE: Readonly<Partial<Record<SpecTreeMethodologyLine, readonly Kind[]>>> = {
+export const DECLARED_NODE_KINDS_BY_LINE: Readonly<Partial<Record<SpecTreeMethodologyLine, readonly Kind[]>>> = {
   [SPEC_TREE_METHODOLOGY_LINE.THREE_TWO]: ["enabler", "outcome"],
   [SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO]: ["substrate", "capability", "domain", "interface", "surface", "variant"],
 };
@@ -523,24 +527,67 @@ export function arbitraryValidRecognitionScenario(): fc.Arbitrary<ValidRecogniti
 }
 
 /**
- * An ordered node directory whose suffix only a naming-schema version ordered before the line's
- * declared target accepts. The independent superseded oracle names the suffix and the newest version
- * that accepts it.
+ * The node kinds a methodology line's top-level directories may carry beneath the product root: the
+ * kinds the line declares, less `variant`, which only a parent node admits.
+ */
+export function declaredTopLevelNodeKinds(line: SpecTreeMethodologyLine): readonly Kind[] {
+  return (DECLARED_NODE_KINDS_BY_LINE[line] ?? []).filter((kind) => kind !== "variant");
+}
+
+/**
+ * Independent oracle for the product-root suffixes a selection supersedes: every root suffix a known
+ * version ordered before the declared target accepts with no declared root spec kind, that no selected
+ * version accepts, paired with the newest such version. Ordering comes from the semantic-version oracle.
+ */
+function supersededProductRootOracle(
+  line: SpecTreeMethodologyLine,
+): readonly { readonly suffix: string; readonly version: string }[] {
+  const selection = specTreeGrammarSelectionForLine(line);
+  const target = semverMaximumOracle(selection.selected);
+  const selectedSuffixes = new Set(selection.selected.map((version) => version.productSuffix));
+  const priors = selection.known.filter((version) =>
+    !selection.selected.includes(version)
+    && semverOrderOracle(version.version, target.version) <= 0
+    && version.rootSpecKind === undefined
+  );
+  return [...new Set(priors.map((version) => version.productSuffix))]
+    .filter((suffix) => !selectedSuffixes.has(suffix))
+    .map((suffix) => ({
+      suffix,
+      version: semverMaximumOracle(priors.filter((version) => version.productSuffix === suffix)).version,
+    }));
+}
+
+/**
+ * A node directory or a product-root file only a naming-schema version ordered before the line's
+ * declared target accepts. The independent superseded oracles name the suffix and the newest version
+ * that accepts it; a line whose selection leaves no root suffix behind presents node directories only.
  */
 export function arbitrarySupersededLineScenario(): fc.Arbitrary<SupersededLineScenario> {
   return fc
     .constantFrom(...SPEC_TREE_SOURCE_LINES)
-    .chain((line) =>
-      fc.tuple(
+    .chain((line) => {
+      const nodeScenario = fc.tuple(
         fc.constantFrom(...supersededSuffixOracle(specTreeGrammarSelectionForLine(line))),
         SPEC_TREE_TEST_GENERATOR.filesystemOrder(),
         SPEC_TREE_TEST_GENERATOR.sourceSlug(),
-      ).map(([{ suffix, version }, order, slug]) => ({
+      ).map(([{ suffix, version }, order, slug]): SupersededLineScenario => ({
         line,
         record: orderedDirectoryRecord(order, slug, suffix),
         expectedVersion: version,
-      }))
-    );
+      }));
+      const rootOracle = supersededProductRootOracle(line);
+      if (rootOracle.length === 0) return nodeScenario;
+      const productScenario = fc.tuple(
+        fc.constantFrom(...rootOracle),
+        SPEC_TREE_TEST_GENERATOR.sourceSlug(),
+      ).map(([{ suffix, version }, slug]): SupersededLineScenario => ({
+        line,
+        record: { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE, relativePath: `${slug}${suffix}` },
+        expectedVersion: version,
+      }));
+      return fc.oneof(nodeScenario, productScenario);
+    });
 }
 
 function requireFirst<T>(values: readonly T[]): T {
