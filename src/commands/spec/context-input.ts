@@ -12,6 +12,7 @@ import { createTrackedPathInclusion, listTrackedPaths } from "@/lib/git/tracked-
 import {
   createFilesystemSpecTreeSource,
   decodeContextDocumentUtf8,
+  KIND_REGISTRY,
   readSpecTree,
   resolveSpecContextTarget,
   type SpecContextAcceptedPath,
@@ -22,7 +23,6 @@ import {
   type SpecContextTarget,
   type SpecContextTargetFailure,
   type SpecContextTargetPathFacts,
-  type SpecTreeConfig,
   specTreeConfigDescriptor,
   type SpecTreeSnapshot,
 } from "@/lib/spec-tree";
@@ -37,12 +37,11 @@ export interface ContextFileSystem {
   readonly resolveKindRegistry: (productDir: string) => Promise<Result<SpecContextKindRegistry>>;
 }
 
-/** The kinds the product directory's spec-tree configuration section selects. */
-export async function resolveConfiguredKindRegistry(productDir: string): Promise<Result<SpecContextKindRegistry>> {
+/** The kind registry, after the product directory's spec-tree configuration section resolves and validates. */
+export async function resolveValidatedKindRegistry(productDir: string): Promise<Result<SpecContextKindRegistry>> {
   const resolved = await resolveConfig(productDir, [specTreeConfigDescriptor]);
   if (!resolved.ok) return resolved;
-  const section = resolved.value[specTreeConfigDescriptor.section] as SpecTreeConfig;
-  return { ok: true, value: section.kinds };
+  return { ok: true, value: KIND_REGISTRY };
 }
 
 export const defaultContextFileSystem: ContextFileSystem = {
@@ -50,7 +49,7 @@ export const defaultContextFileSystem: ContextFileSystem = {
   realPath: realpath,
   readFile,
   resolveMethodologyConfig,
-  resolveKindRegistry: resolveConfiguredKindRegistry,
+  resolveKindRegistry: resolveValidatedKindRegistry,
 };
 
 export interface ContextInputOptions {

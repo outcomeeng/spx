@@ -453,14 +453,13 @@ export const SPEC_TREE_NODE_STATE = {
 
 export type SpecTreeNodeState = (typeof SPEC_TREE_NODE_STATE)[keyof typeof SPEC_TREE_NODE_STATE];
 
-export type SpecTreeConfig = {
-  readonly [SPEC_TREE_CONFIG_FIELDS.KINDS]: { readonly [K in Kind]?: KindDefinition<K> };
-};
+/** The resolved spec-tree section: it carries no fields, because the kind registry is fixed. */
+export type SpecTreeConfig = Readonly<Record<string, never>>;
 
 export const SPEC_TREE_SECTION = SPEC_TREE_CONFIG.SECTION;
 
 function buildDefaults(): SpecTreeConfig {
-  return { kinds: { ...KIND_REGISTRY } };
+  return {};
 }
 
 function validate(value: unknown): Result<SpecTreeConfig> {
