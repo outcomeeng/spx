@@ -8,7 +8,7 @@ CAN resolve and validate the configured vocabulary, and classify and render file
 
 ### Scenarios
 
-- Given the spec-tree descriptor is registered with the config module, when `resolveConfig(productDir)` runs with no yaml, then the resolved spec-tree section carries no `kinds` field, and kind vocabulary resolves only through `KIND_REGISTRY` ([test](tests/spec-tree-config.scenario.l1.test.ts))
+- Given the spec-tree descriptor is registered with the config module, when `resolveConfig(productDir)` runs with no yaml, then the resolved spec-tree section carries no `kinds` field ([test](tests/spec-tree-config.scenario.l1.test.ts))
 - Given product configuration whose `specTree` section carries a `kinds` field, whether a list of kind names or a map of kind definitions, when the config resolves, then resolution fails naming `specTree.kinds` ([test](tests/spec-tree-config.scenario.l1.test.ts))
 
 ### Mappings
