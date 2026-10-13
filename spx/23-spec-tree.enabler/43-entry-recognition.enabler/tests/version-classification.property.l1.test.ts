@@ -32,7 +32,7 @@ describe("version classification", () => {
     );
   });
 
-  it("maps a name only a version ordered before each line's target accepts to a superseded entry naming the newest such version", () => {
+  it("maps a node directory or product root only a version ordered before each line's target accepts to a superseded entry naming the newest such version", () => {
     assertProperty(
       arbitrarySupersededLineScenario(),
       ({ line, record, expectedVersion }) => {
