@@ -221,7 +221,7 @@ describe("spec context manifest boundaries", () => {
   });
 
   for (const governance of segmentOrderGovernanceCases()) {
-    it(`orders the sibling nodes and the decisions by numeric index segments, a shorter prefix first, ${governance.title}`, async () => {
+    it(`list manifest orders sibling nodes and decisions by numeric index segments, shorter prefix first, ${governance.title}`, async () => {
       await withSegmentOrderGovernanceEnv(governance, async (env) => {
         const delivered = allManifestPaths(
           await contextListManifest({ targets: [SPEC_CONTEXT_PRODUCT_ROOT_TARGET], cwd: env.productDir }),
