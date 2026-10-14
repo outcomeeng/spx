@@ -1,89 +1,62 @@
-import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { KIND_REGISTRY, readSpecTree } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
-import {
-  buildNodeEntry,
-  buildRepresentativeFixture,
-  createSource,
-  sampleSpecTreeTestValue,
-  SPEC_TREE_TEST_GENERATOR,
-} from "@testing/generators/spec-tree/spec-tree";
-import { expectPresent } from "@testing/harnesses/spec-tree/assertions";
+import { createSource, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
+import { assertProperty, PROPERTY_CLASSIFICATION } from "@testing/harnesses/property/property";
+
+// Index segments compare numerically segment by segment, a prefix before its extensions.
+function precedes(left: readonly number[], right: readonly number[]): number {
+  for (let index = 0; index < Math.min(left.length, right.length); index += 1) {
+    if (left[index] !== right[index]) return left[index] - right[index];
+  }
+  return left.length - right.length;
+}
 
 describe("spec-tree assembly invariants", () => {
-  it("preserves ordering and assigns every child exactly one parent", async () => {
-    const fixture = buildRepresentativeFixture(KIND_REGISTRY);
+  it("orders siblings by index, keeps same-index siblings independent, and gives every child exactly one parent", async () => {
+    await assertProperty(
+      SPEC_TREE_TEST_GENERATOR.assemblyScenario(KIND_REGISTRY),
+      async (scenario) => {
+        const snapshot = await readSpecTree({ source: createSource(scenario.entries) });
 
-    await fc.assert(
-      fc.asyncProperty(
-        SPEC_TREE_TEST_GENERATOR.assemblyNodeOrderSegments(),
-        async ({ rootOrderSegments, childOrderSegments, peerOrderSegments }) => {
-          const snapshot = await readSpecTree({
-            source: createSource([
-              buildNodeEntry(KIND_REGISTRY, {
-                id: fixture.root.id,
-                orderSegments: rootOrderSegments,
-                slug: fixture.root.slug,
-              }),
-              buildNodeEntry(KIND_REGISTRY, {
-                id: fixture.child.id,
-                orderSegments: childOrderSegments,
-                slug: fixture.child.slug,
-                parentId: fixture.root.id,
-              }),
-              buildNodeEntry(KIND_REGISTRY, {
-                id: fixture.peer.id,
-                orderSegments: peerOrderSegments,
-                slug: fixture.peer.slug,
-              }),
-            ]),
-          });
+        for (const id of [...scenario.topLevelIds, ...scenario.childIds]) {
+          expect(snapshot.allNodes.filter((node) => node.id === id)).toHaveLength(1);
+        }
 
-          const root = expectPresent(snapshot.allNodes.find((node) => node.id === fixture.root.id));
-          expect(root.children.map((child) => child.id)).toEqual([fixture.child.id]);
-          expect(snapshot.allNodes.filter((node) => node.id === fixture.child.id)).toHaveLength(1);
-          // Sorted siblings: segment arrays compared numerically segment by segment, a prefix before its extensions.
-          const precedes = (left: readonly number[], right: readonly number[]): number => {
-            for (let index = 0; index < Math.min(left.length, right.length); index += 1) {
-              if (left[index] !== right[index]) return left[index] - right[index];
+        // Every child keeps exactly one parent: the parent that lists it, and no other node does.
+        for (const childId of scenario.childIds) {
+          const parents = snapshot.allNodes.filter((node) => node.children.some((child) => child.id === childId));
+          expect(parents.map((node) => node.id)).toEqual([scenario.parentId]);
+          expect(snapshot.nodes.map((node) => node.id)).not.toContain(childId);
+        }
+        const parent = snapshot.allNodes.find((node) => node.id === scenario.parentId);
+        expect(parent?.children.map((child) => child.id).sort(compareAsciiStrings)).toEqual(
+          [...scenario.childIds].sort(compareAsciiStrings),
+        );
+
+        // Lower-index siblings precede higher-index siblings, among top-level nodes and among children.
+        for (const siblings of [snapshot.nodes, parent?.children ?? []]) {
+          for (const [position, earlier] of siblings.entries()) {
+            for (const later of siblings.slice(position + 1)) {
+              expect(precedes(earlier.orderSegments, later.orderSegments)).toBeLessThanOrEqual(0);
             }
-            return left.length - right.length;
-          };
-          expect(snapshot.nodes.map((node) => node.orderSegments)).toEqual(
-            [...snapshot.nodes].map((node) => node.orderSegments).sort(precedes),
-          );
-          expect(root.children.map((child) => child.orderSegments)).toEqual(
-            [...root.children].map((child) => child.orderSegments).sort(precedes),
-          );
-        },
-      ),
-      { numRuns: SPEC_TREE_TEST_GENERATOR.counts.assemblyPropertyRunCount },
-    );
-  });
+          }
+        }
 
-  it("keeps same-index siblings independent", async () => {
-    const fixture = buildRepresentativeFixture(KIND_REGISTRY);
-    const orderSegments = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceOrderSegments());
-    const snapshot = await readSpecTree({
-      source: createSource([
-        buildNodeEntry(KIND_REGISTRY, {
-          id: fixture.root.id,
-          orderSegments,
-          slug: fixture.root.slug,
-        }),
-        buildNodeEntry(KIND_REGISTRY, {
-          id: fixture.peer.id,
-          orderSegments,
-          slug: fixture.peer.slug,
-        }),
-      ]),
-    });
-
-    expect(snapshot.nodes.map((node) => node.id).sort(compareAsciiStrings)).toEqual(
-      [fixture.peer.id, fixture.root.id].sort(compareAsciiStrings),
+        // Same-index siblings remain independent: neither lists the other, and all stay in the snapshot.
+        expect(snapshot.nodes.map((node) => node.id).sort(compareAsciiStrings)).toEqual(
+          [...scenario.topLevelIds].sort(compareAsciiStrings),
+        );
+        for (const node of snapshot.nodes) {
+          for (const sibling of snapshot.nodes) {
+            if (sibling.id === node.id) continue;
+            expect(node.children.map((child) => child.id)).not.toContain(sibling.id);
+            expect(node.parentId).toBeUndefined();
+          }
+        }
+      },
+      PROPERTY_CLASSIFICATION.SMALL_L1,
     );
-    expect(snapshot.nodes.flatMap((node) => node.children)).toHaveLength(0);
   });
 });
