@@ -174,6 +174,8 @@ export interface DiscoverToolOptions {
   deps?: ToolDiscoveryDeps;
 }
 
+export const PRODUCT_EXECUTABLE_DIRECTORY_SEGMENTS = ["node_modules", ".bin"] as const;
+
 /**
  * Discover a validation tool using the requested priority.
  *
@@ -209,7 +211,7 @@ export async function discoverTool(
     deps = defaultToolDiscoveryDeps,
   } = options;
 
-  const productBinPath = path.join(productDir, "node_modules", ".bin", executableName);
+  const productBinPath = path.join(productDir, ...PRODUCT_EXECUTABLE_DIRECTORY_SEGMENTS, executableName);
   const productLocation = (): ToolDiscoveryResult | null =>
     deps.existsSync(productBinPath)
       ? {
