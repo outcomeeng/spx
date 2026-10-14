@@ -322,3 +322,11 @@ which command fulfills that phase from the root instructions.
 shared authored instructions, or the plugin's router contract is revised and
 both managed blocks are regenerated so their command promise matches the
 product's declarations.
+
+## Changed testing modules reach no owning-node evidence audit
+
+**Evidence:** the approval of `spx/31-spec-domain.enabler/21-node-status.enabler/32-node-status-test-support.enabler` judged an earlier content of `testing/generators/spec-tree/naming-schema-version.ts`, a module that node's evidence does not own. No evidence audit judges the config generators under `testing/generators/config/`, because their owning node `spx/16-config.enabler` declares `malleability: spec` and carries no evidence audit of them. The owning-node reading is that a changed `testing/` module is judged by the evidence audit of the node that owns the behavior it mediates, and by the changes review where no such audit exists.
+
+**Impact:** a change to a testing module can read as judged when the approval that judged it belonged to a different node's earlier content, and a module under a spec-malleable node is judged by no evidence audit.
+
+**Settlement condition:** each changed `testing/` module names the node whose audit judges it, the spec-malleable config node either carries evidence audited under its own node or its generators are recorded as judged by the changes review, and an approval records which module contents it judged.
