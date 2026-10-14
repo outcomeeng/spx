@@ -4,7 +4,7 @@ import { cp, mkdir, symlink } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { expect } from "vitest";
 
-import { VALIDATION_COMMAND_OUTPUT } from "@/commands/validation/messages";
+import { VALIDATION_COMMAND_OUTPUT, VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import type { Domain } from "@/interfaces/cli/domain";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
@@ -300,7 +300,7 @@ export function dispatchValidationAll(
   operands: readonly string[],
 ): Promise<ValidationAllDispatch> {
   return withEmptyValidationProject(async (productDir) => {
-    const recorder = createRecordingValidationDomain(0);
+    const recorder = createRecordingValidationDomain(VALIDATION_EXIT_CODES.SUCCESS);
     const result = await runValidationInProcess(
       [validationCliDefinition.subcommands.all.commandName, ...operands],
       { domain: recorder.domain, processCwd: () => productDir },

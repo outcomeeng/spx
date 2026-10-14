@@ -663,7 +663,29 @@ export function validationPipelineScenarios(): ValidationPipelineScenario[] {
   ];
 }
 
+export interface ConflictingValidationRegistryScenario {
+  readonly languageName: string;
+  readonly stageNames: readonly string[];
+}
+
+/**
+ * A language name and a non-empty set of unique stage names, none of which collide with a
+ * registered pipeline stage, describing a controlled registry that conflicts with the real one.
+ */
+export function arbitraryConflictingValidationRegistry(): fc.Arbitrary<ConflictingValidationRegistryScenario> {
+  return fc.record({
+    languageName: arbitraryDomainLiteral(),
+    stageNames: fc.uniqueArray(
+      arbitraryDomainLiteral().filter(
+        (candidate) => !validationPipelineStages.some((stage) => stage.name === candidate),
+      ),
+      { minLength: 1, maxLength: validationPipelineStages.length },
+    ),
+  });
+}
+
 export const VALIDATION_CLI_GENERATOR = {
+  conflictingRegistry: arbitraryConflictingValidationRegistry,
   unknownSubcommand: arbitraryValidationCliUnknownSubcommand,
   overlengthPrintableSubcommand: arbitraryValidationCliOverlengthPrintableSubcommand,
   unknownOption: arbitraryValidationCliUnknownOption,

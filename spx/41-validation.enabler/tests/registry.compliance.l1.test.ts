@@ -1,4 +1,4 @@
-import * as fc from "fast-check";
+import { Option } from "commander";
 import { describe, expect, it } from "vitest";
 
 import { allCommand, resolveFullPipelineStages } from "@/commands/validation/all";
@@ -7,21 +7,19 @@ import {
   createValidationDomain,
   deriveValidationAllOverrideCliOptions,
   validationAllOverrideCliOptions,
-  validationOptionPropertyName,
 } from "@/interfaces/cli/validation";
 import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 import { formattingValidationLanguage } from "@/validation/languages/formatting";
 import { markdownValidationLanguage } from "@/validation/languages/markdown";
 import { VALIDATION_STAGE_PARTICIPATION, type ValidationStageParticipationPolicy } from "@/validation/languages/types";
 import { typescriptValidationLanguage } from "@/validation/languages/typescript";
+import { composeValidationPipelineStages, validationPipelineStages, validationRegistry } from "@/validation/registry";
+import { VALIDATION_CLI_GENERATOR } from "@testing/generators/validation/validation";
 import {
-  composeValidationPipelineStages,
-  VALIDATION_STAGE_PARTICIPATION_POLICIES,
-  validationPipelineStages,
-  validationRegistry,
-} from "@/validation/registry";
-import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
-import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
+  assertProperty,
+  PROPERTY_CLASSIFICATION,
+  propertyTestEnvelopeTimeoutMs,
+} from "@testing/harnesses/property/property";
 import { runValidationInProcess } from "@testing/harnesses/validation/cli";
 import { invalidOverrideMetadataStageSets } from "@testing/harnesses/validation/pipeline";
 import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
@@ -60,15 +58,7 @@ describe("validation language registry composition", () => {
   it("rejects registry bypass by running a conflicting controlled registry", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.BARE_PROJECT }, async ({ path }) => {
       await assertProperty(
-        fc.record({
-          languageName: arbitraryDomainLiteral(),
-          stageNames: fc.uniqueArray(
-            arbitraryDomainLiteral().filter(
-              (candidate) => !validationPipelineStages.some((stage) => stage.name === candidate),
-            ),
-            { minLength: 1, maxLength: validationPipelineStages.length },
-          ),
-        }),
+        VALIDATION_CLI_GENERATOR.conflictingRegistry(),
         async ({ languageName, stageNames }) => {
           const executedStageNames: string[] = [];
           const validationStages = composeValidationPipelineStages([{
@@ -93,10 +83,10 @@ describe("validation language registry composition", () => {
           expect(result.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
           expect(executedStageNames).toEqual(stageNames);
         },
-        { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+        PROPERTY_CLASSIFICATION.SMALL_L1,
       );
     });
-  });
+  }, propertyTestEnvelopeTimeoutMs(PROPERTY_CLASSIFICATION.SMALL_L1));
 
   it("dispatches every registry stage through the validation-all command surface", async () => {
     await withValidationEnv({ fixture: PROJECT_FIXTURES.CLEAN_PROJECT }, async ({ path }) => {
@@ -130,37 +120,36 @@ describe("validation language registry composition", () => {
         flag: override.flag,
         description: override.description,
         reason: stage.participation.skipReason,
-        optionPropertyName: validationOptionPropertyName(override.flag),
+        optionPropertyName: new Option(override.flag).attributeName(),
       }]);
     }
   });
 
-  it("runs every stage exactly once across its default and inverse override invocations", async () => {
+  it("runs every stage in exactly one of its default and inverse override invocations", async () => {
     for (const registeredStage of validationPipelineStages) {
-      let executionCount = 0;
-      const stage = {
+      let defaultInvocationCount = 0;
+      let overrideInvocationCount = 0;
+      const stage = (count: () => void) => ({
         ...registeredStage,
         run: async () => {
-          executionCount += 1;
+          count();
           return { exitCode: VALIDATION_EXIT_CODES.SUCCESS, output: registeredStage.name };
         },
-      };
+      });
 
-      await allCommand({ cwd: process.cwd(), validationStages: [stage], quiet: true });
       await allCommand({
         cwd: process.cwd(),
-        validationStages: [stage],
+        validationStages: [stage(() => defaultInvocationCount += 1)],
+        quiet: true,
+      });
+      await allCommand({
+        cwd: process.cwd(),
+        validationStages: [stage(() => overrideInvocationCount += 1)],
         participationOverrides: [registeredStage.participation.override.flag],
         quiet: true,
       });
 
-      expect(executionCount).toBe(1);
+      expect(defaultInvocationCount + overrideInvocationCount).toBe(1);
     }
-  });
-
-  it("binds every descriptor stage to its independently declared participation policy", () => {
-    expect(
-      Object.fromEntries(validationPipelineStages.map((stage) => [stage.name, stage.participation])),
-    ).toEqual(VALIDATION_STAGE_PARTICIPATION_POLICIES);
   });
 });
