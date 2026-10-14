@@ -34,10 +34,26 @@ The other three `[audit]` Compliance rules keep that mechanism correctly. Two as
 - `testing/generators/config/descriptors.ts` `sampleConfigTestValue`
 - `testing/generators/spec-tree/spec-tree.ts` `sampleSpecTreeTestValue`
 
-`testing/generators/sample.ts` now holds the one seeded `sampleGeneratedValue` the overlay names, and this node's tests call it. The per-module samplers remain.
+`testing/generators/sample.ts` holds the one seeded `sampleGeneratedValue` the overlay names. This node's tests still draw case values from the unseeded samplers: `tests/temp-dir.scenario.l1.test.ts` through `sampleConfigTestValue` and `sampleLiteralTestValue`, and `tests/safety.compliance.l1.test.ts` lines 56 and 68 through `sampleLiteralTestValue` for the violating path segment.
 
 **Impact:** a scenario that fails on an unlucky draw cannot be reproduced, and one documented contract maps to many implementations that disagree about determinism.
 
 **Scope:** [`spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler`](spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/literal-reuse.md) owns the literal generator, [`spx/16-config.enabler`](spx/16-config.enabler/config.md) owns the config descriptors, and [`spx/23-spec-tree.enabler`](spx/23-spec-tree.enabler/spec-tree.md) owns the spec-tree generator, so none of those files belongs to this node.
 
 **Resolution:** repoint each per-module sampler's call sites at `sampleGeneratedValue` and delete the sampler, in its owning node's changeset, taking the unseeded ones first.
+
+## The sibling-survival safety test owns directory setup inline
+
+**Evidence:** `tests/safety.compliance.l1.test.ts` line 27 creates and removes a directory directly (`mkdirSync`, `rmSync`, and a `Date.now` and `randomBytes` name under `os.tmpdir()`) inside the test body. The rule is cross-assertion setup and lifecycle policy that `spx/22-test-environment.enabler/test-environment.md` assigns to the shared temp-directory primitive and its harnesses.
+
+**Impact:** the test carries the directory policy the primitive exists to own, and a later test copies the inline form.
+
+**Settlement condition:** a harness composing on `createTempDir` and `removeTempDir` supplies the sibling directory handle, and the test receives the handle and states only its survival predicate.
+
+## The nesting scenario hand-picks its thrown error message
+
+**Evidence:** `tests/nesting.scenario.l1.test.ts` line 50 throws the literal `"outer-fail"` and line 52 repeats it, while the lifecycle cases draw their values from a generator.
+
+**Impact:** the case value is author-chosen test data, repeated at two sites, with no generator behind it.
+
+**Settlement condition:** the thrown message comes from a seeded generator draw and both sites use that one value.
