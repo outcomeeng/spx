@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { resolveKindOpening } from "@/lib/spec-tree";
-import { kindOpeningCases } from "@testing/generators/spec-tree/kind-grammar";
+import { VARIANT_KIND, variantParentCases } from "@testing/generators/spec-tree/kind-grammar";
 
-describe("node kind to opening keyword", () => {
-  it.each(kindOpeningCases())("resolves the opening keyword of $label", (testCase) => {
-    expect(resolveKindOpening(testCase.kind, testCase.parentKind)).toBe(testCase.expectedOpening);
+describe("variant to opening keyword", () => {
+  it.each(variantParentCases())("resolves a variant to the opening keyword of its parent kind: $label", (testCase) => {
+    const variantOpening = resolveKindOpening(VARIANT_KIND, testCase.parentKind);
+
+    expect(variantOpening).toBeDefined();
+    expect(variantOpening).toBe(resolveKindOpening(testCase.parentKind));
   });
 });

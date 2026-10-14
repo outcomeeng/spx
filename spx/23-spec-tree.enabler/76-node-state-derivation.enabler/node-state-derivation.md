@@ -12,4 +12,4 @@ CAN drive traversal, projections, validation scopes, and command output without 
 
 ### Compliance
 
-- ALWAYS: an injected evidence provider may override derived state for a node when backend-specific evidence owns the state decision ([test](tests/node-state-derivation.mapping.l1.test.ts))
+- ALWAYS: an injected evidence provider may override derived state for a node when backend-specific evidence owns the state decision ([test](tests/node-state-derivation.compliance.l1.test.ts))

@@ -69,10 +69,33 @@ export type RepresentativeSpecTreeFixtureWithGrandchild = {
   readonly grandchild: RegisteredSpecTreeNodeEntry;
 };
 
-export type AssemblyNodeOrders = {
-  readonly rootOrderSegments: readonly number[];
-  readonly childOrderSegments: readonly number[];
-  readonly peerOrderSegments: readonly number[];
+/**
+ * Node entries for one assembly case: top-level nodes and children of the first top-level node.
+ * Sibling order indices are drawn from a small shared pool, so same-index siblings occur as often
+ * as distinct-index ones.
+ */
+export type AssemblyScenario = {
+  readonly entries: readonly SpecTreeSourceEntry[];
+  readonly parentId: string;
+  readonly topLevelIds: readonly string[];
+  readonly childIds: readonly string[];
+};
+
+/**
+ * A four-node tree whose preorder is root, child, grandchild, peer (the grandchild nests under the
+ * child), with one generator-owned evidence id per node so a case assigns each node its status.
+ */
+export type TraversalFixture = {
+  readonly root: RegisteredSpecTreeNodeEntry;
+  readonly child: RegisteredSpecTreeNodeEntry;
+  readonly grandchild: RegisteredSpecTreeNodeEntry;
+  readonly peer: RegisteredSpecTreeNodeEntry;
+  readonly evidenceIds: {
+    readonly root: string;
+    readonly child: string;
+    readonly grandchild: string;
+    readonly peer: string;
+  };
 };
 
 export const SPEC_TREE_SOURCE_MAPPING_CASE_KIND = {
@@ -181,17 +204,19 @@ const SPEC_TREE_TEST_GENERATOR_OPTIONS = {
   FILESYSTEM_ORDER_MIN: 10,
   FILESYSTEM_ORDER_MAX: 99,
   CHILD_ORDER_OFFSET: 1,
-  ASSEMBLY_ORDER_COUNT: 3,
+  ASSEMBLY_ORDER_POOL_MIN: 1,
+  ASSEMBLY_ORDER_POOL_MAX: 3,
+  ASSEMBLY_TOP_LEVEL_MIN: 2,
+  ASSEMBLY_TOP_LEVEL_MAX: 4,
+  ASSEMBLY_CHILD_MIN: 1,
+  ASSEMBLY_CHILD_MAX: 4,
   SOURCE_ORDER_SEGMENT_COUNT_MIN: 1,
   SOURCE_ORDER_SEGMENT_COUNT_MAX: 3,
-  ASSEMBLY_PROPERTY_RUN_COUNT: 25,
   UNREGISTERED_SUFFIX_MAX_LENGTH: 8,
 } as const;
 const SPEC_TREE_TEST_SUFFIX_INITIAL_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyz"];
 const SPEC_TREE_TEST_SUFFIX_REST_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyz-"];
 const UNREGISTERED_SUFFIX_DISAMBIGUATOR = "-candidate";
-
-const ASSEMBLY_NODE_ORDER_COUNT: 3 = SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_ORDER_COUNT;
 
 export const RETIRED_SPEC_APPLY_FIXTURE = {
   excludeFile: [SPEC_TREE_CONFIG.ROOT_DIRECTORY, NODE_STATUS_EXCLUDE_FILENAME].join(
@@ -206,14 +231,11 @@ export const RETIRED_SPEC_APPLY_FIXTURE = {
 export const SPEC_TREE_CASE_TITLE = "$title";
 
 export const SPEC_TREE_TEST_GENERATOR = {
-  counts: {
-    assemblyPropertyRunCount: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_PROPERTY_RUN_COUNT,
-  },
   sourceId: arbitrarySourceId,
   sourceSlug: arbitrarySourceSlug,
   sourceTitle: arbitrarySourceTitle,
   sourceOrderSegments: arbitrarySourceOrderSegments,
-  assemblyNodeOrderSegments: arbitraryAssemblyNodeOrderSegments,
+  assemblyScenario: arbitraryAssemblyScenario,
   filesystemOrder: arbitraryFilesystemOrder,
   parentSourceOrderSegments: arbitraryParentSourceOrderSegments,
   childSourceOrderSegmentsAbove: arbitraryChildSourceOrderSegmentsAbove,
@@ -231,6 +253,7 @@ export const SPEC_TREE_TEST_GENERATOR = {
   representativeFixture: arbitraryRepresentativeFixture,
   representativeFixtureScenario: arbitraryRepresentativeFixtureScenario,
   representativeFixtureWithGrandchild: arbitraryRepresentativeFixtureWithGrandchild,
+  traversalFixture: arbitraryTraversalFixture,
 } as const;
 
 function sourceFormForLine(line: SpecTreeMethodologyLine): SpecTreeSourceForm {
@@ -378,6 +401,10 @@ export function buildRepresentativeFixture(registry: SpecTreeRegistry): Represen
   return sampleGeneratedValue(SPEC_TREE_TEST_GENERATOR.representativeFixture(registry));
 }
 
+export function buildTraversalFixture(registry: SpecTreeRegistry): TraversalFixture {
+  return sampleGeneratedValue(SPEC_TREE_TEST_GENERATOR.traversalFixture(registry));
+}
+
 export function sampleNodeKind(registry: SpecTreeRegistry): NodeKind {
   return sampleSpecTreeTestValue(arbitraryNodeKind(registry));
 }
@@ -518,6 +545,26 @@ function arbitraryRepresentativeFixture(
     });
 }
 
+function arbitraryTraversalFixture(registry: SpecTreeRegistry): fc.Arbitrary<TraversalFixture> {
+  return arbitraryRepresentativeFixtureWithGrandchild(registry).chain(({ fixture, grandchild }) => {
+    const takenIds = new Set([...fixture.entries.map((entry) => entry.id), grandchild.id]);
+    return fc
+      .uniqueArray(arbitrarySourceId().filter((id) => !takenIds.has(id)), {
+        minLength: TRAVERSAL_EVIDENCE_ID_COUNT,
+        maxLength: TRAVERSAL_EVIDENCE_ID_COUNT,
+      })
+      .map(([root, child, grandchildEvidence, peer]) => ({
+        root: fixture.root,
+        child: fixture.child,
+        grandchild,
+        peer: fixture.peer,
+        evidenceIds: { root, child, grandchild: grandchildEvidence, peer },
+      }));
+  });
+}
+
+const TRAVERSAL_EVIDENCE_ID_COUNT = 4;
+
 function arbitraryRepresentativeFixtureWithGrandchild(
   registry: SpecTreeRegistry,
 ): fc.Arbitrary<RepresentativeSpecTreeFixtureWithGrandchild> {
@@ -537,23 +584,46 @@ function arbitraryRepresentativeFixtureWithGrandchild(
   });
 }
 
-function arbitraryAssemblyNodeOrderSegments(): fc.Arbitrary<AssemblyNodeOrders> {
+function arbitraryAssemblyScenario(registry: SpecTreeRegistry): fc.Arbitrary<AssemblyScenario> {
   return fc
     .uniqueArray(arbitrarySourceOrderSegments(), {
-      minLength: ASSEMBLY_NODE_ORDER_COUNT,
-      maxLength: ASSEMBLY_NODE_ORDER_COUNT,
+      minLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_ORDER_POOL_MIN,
+      maxLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_ORDER_POOL_MAX,
       selector: orderIndexText,
     })
-    .map(toAssemblyNodeOrders);
-}
-
-function toAssemblyNodeOrders(orders: readonly (readonly number[])[]): AssemblyNodeOrders {
-  const [rootOrderSegments, childOrderSegments, peerOrderSegments] = orders as readonly [
-    readonly number[],
-    readonly number[],
-    readonly number[],
-  ];
-  return { rootOrderSegments, childOrderSegments, peerOrderSegments };
+    .chain((pool) => {
+      const sibling = fc.record({
+        id: arbitrarySourceId(),
+        slug: arbitrarySourceSlug(),
+        kind: arbitraryNodeKind(registry),
+        orderSegments: fc.constantFrom(...pool),
+      });
+      return fc.record({
+        topLevel: fc.array(sibling, {
+          minLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_TOP_LEVEL_MIN,
+          maxLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_TOP_LEVEL_MAX,
+        }),
+        children: fc.array(sibling, {
+          minLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_CHILD_MIN,
+          maxLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_CHILD_MAX,
+        }),
+      });
+    })
+    .filter(({ topLevel, children }) => {
+      const ids = [...topLevel, ...children].map((node) => node.id);
+      return new Set(ids).size === ids.length;
+    })
+    .map(({ topLevel, children }): AssemblyScenario => {
+      const parentId = topLevel[0].id;
+      const topLevelEntries = topLevel.map(({ kind, ...entry }) => nodeEntry(kind, entry));
+      const childEntries = children.map(({ kind, ...entry }) => nodeEntry(kind, { ...entry, parentId }));
+      return {
+        entries: [...topLevelEntries, ...childEntries],
+        parentId,
+        topLevelIds: topLevel.map((node) => node.id),
+        childIds: children.map((node) => node.id),
+      };
+    });
 }
 
 function arbitrarySourceId(): fc.Arbitrary<string> {
