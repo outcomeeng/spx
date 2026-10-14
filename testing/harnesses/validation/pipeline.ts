@@ -12,7 +12,6 @@ import {
 } from "@/commands/validation/types";
 import {
   createValidationDomain,
-  deriveValidationAllOverrideCliOptions,
   validationAllOverrideCliOptions,
   validationOptionPropertyName,
 } from "@/interfaces/cli/validation";
@@ -204,36 +203,21 @@ export function expectValidationAllOverrideOptionsDerived(): void {
   expect(validationAllOverrideCliOptions).toEqual(descriptorOwnedOptions);
 }
 
-export function expectValidationAllOverrideMetadataRejectsUnsupportedFlags(): void {
-  for (const flag of UNSUPPORTED_OVERRIDE_METADATA_FLAGS) {
-    expect(() => deriveValidationAllOverrideCliOptions([validationOverrideMetadataTestStage(flag)])).toThrow();
-  }
-  expect(() =>
-    deriveValidationAllOverrideCliOptions([
-      validationOverrideMetadataTestStage(OVERRIDE_METADATA_TEST_FLAG),
-      validationOverrideMetadataTestStage(COLLIDING_OVERRIDE_METADATA_TEST_FLAG),
-    ])
-  ).toThrow();
-  for (
-    const flag of [
-      validationAllBuiltInCliOptions.fix.flag,
-      validationCommonCliOptions.scope.flag,
-      validationCommonCliOptions.quiet.flag,
-      validationCommonCliOptions.json.flag,
-      validationCliDefinition.commanderHelpOperands.longFlag,
-    ]
-  ) {
-    expect(() => deriveValidationAllOverrideCliOptions([validationOverrideMetadataTestStage(flag)])).toThrow();
-  }
-  expect(() =>
-    deriveValidationAllOverrideCliOptions([{
-      ...validationOverrideMetadataTestStage(OVERRIDE_METADATA_TEST_FLAG),
-      participation: {
-        ...validationOverrideMetadataTestStage(OVERRIDE_METADATA_TEST_FLAG).participation,
-        skipReason: "",
-      },
-    }])
-  ).toThrow();
+export function invalidOverrideMetadataStageSets(): readonly (readonly ValidationStage[])[] {
+  const reservedFlags = [
+    validationAllBuiltInCliOptions.fix.flag,
+    validationCommonCliOptions.scope.flag,
+    validationCommonCliOptions.quiet.flag,
+    validationCommonCliOptions.json.flag,
+    validationCliDefinition.commanderHelpOperands.longFlag,
+  ];
+  const validStage = validationOverrideMetadataTestStage(OVERRIDE_METADATA_TEST_FLAG);
+  return [
+    ...UNSUPPORTED_OVERRIDE_METADATA_FLAGS.map((flag) => [validationOverrideMetadataTestStage(flag)]),
+    [validStage, validationOverrideMetadataTestStage(COLLIDING_OVERRIDE_METADATA_TEST_FLAG)],
+    ...reservedFlags.map((flag) => [validationOverrideMetadataTestStage(flag)]),
+    [{ ...validStage, participation: { ...validStage.participation, skipReason: "" } }],
+  ];
 }
 
 function validationOverrideMetadataTestStage(flag: string): ValidationStage {
