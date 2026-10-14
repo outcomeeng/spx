@@ -12,7 +12,7 @@ import {
 import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
 import { formattingValidationLanguage } from "@/validation/languages/formatting";
 import { markdownValidationLanguage } from "@/validation/languages/markdown";
-import { VALIDATION_STAGE_PARTICIPATION, type ValidationStage } from "@/validation/languages/types";
+import { VALIDATION_STAGE_PARTICIPATION, type ValidationStageParticipationPolicy } from "@/validation/languages/types";
 import { typescriptValidationLanguage } from "@/validation/languages/typescript";
 import {
   composeValidationPipelineStages,
@@ -26,7 +26,7 @@ import { runValidationInProcess } from "@testing/harnesses/validation/cli";
 import { invalidOverrideMetadataStageSets } from "@testing/harnesses/validation/pipeline";
 import { PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
-function registeredParticipationPolicy(): ValidationStage["participation"] {
+function registeredParticipationPolicy(): ValidationStageParticipationPolicy {
   return validationPipelineStages[0].participation;
 }
 
