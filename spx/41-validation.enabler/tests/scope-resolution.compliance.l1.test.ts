@@ -165,6 +165,10 @@ function expectTemporaryConfigPathInsideNodeModules(
 }
 
 type TypeScriptValidationRequest = Parameters<typeof validateTypeScript>[0];
+type ProductDirlessValidationRequest = Omit<
+  TypeScriptValidationRequest,
+  keyof { readonly productDir: string }
+>;
 
 interface ProductDirValidationRun {
   readonly productDir: string;
@@ -174,7 +178,7 @@ interface ProductDirValidationRun {
 }
 
 async function runTypeScriptValidationFromProductDir(
-  request: Omit<TypeScriptValidationRequest, "productDir">,
+  request: ProductDirlessValidationRequest,
 ): Promise<ProductDirValidationRun> {
   return await withTestEnv({}, async (env) => {
     const runner = new RecordingSpawnOptionsRunner();
@@ -198,7 +202,7 @@ interface TemporaryTypeScriptConfigRun {
 }
 
 async function runTypeScriptValidationWithRecordedConfig(
-  request: Omit<TypeScriptValidationRequest, "productDir">,
+  request: ProductDirlessValidationRequest,
 ): Promise<TemporaryTypeScriptConfigRun> {
   return await withTestEnv({}, async (env) => {
     const runner = new RecordingSpawnOptionsRunner();
