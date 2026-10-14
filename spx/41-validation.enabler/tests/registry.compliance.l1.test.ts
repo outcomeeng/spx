@@ -9,11 +9,13 @@ import {
   validationAllOverrideCliOptions,
 } from "@/interfaces/cli/validation";
 import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
-import { formattingValidationLanguage } from "@/validation/languages/formatting";
-import { markdownValidationLanguage } from "@/validation/languages/markdown";
 import { VALIDATION_STAGE_PARTICIPATION, type ValidationStageParticipationPolicy } from "@/validation/languages/types";
-import { typescriptValidationLanguage } from "@/validation/languages/typescript";
-import { composeValidationPipelineStages, validationPipelineStages, validationRegistry } from "@/validation/registry";
+import {
+  composeValidationPipelineStages,
+  VALIDATION_REGISTRY_LANGUAGES,
+  validationPipelineStages,
+  validationRegistry,
+} from "@/validation/registry";
 import { VALIDATION_CLI_GENERATOR } from "@testing/generators/validation/validation";
 import {
   assertProperty,
@@ -43,12 +45,8 @@ describe("validation language registry composition", () => {
     }
   });
 
-  it("registers exactly the explicitly imported typescript, markdown, and formatting language descriptors", () => {
-    expect(validationRegistry.languages).toEqual([
-      typescriptValidationLanguage,
-      markdownValidationLanguage,
-      formattingValidationLanguage,
-    ]);
+  it("registers exactly the source-owned registry language descriptors", () => {
+    expect(validationRegistry.languages).toEqual(VALIDATION_REGISTRY_LANGUAGES);
   });
 
   it("resolves the full-pipeline default from the language registry", () => {

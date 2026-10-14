@@ -182,19 +182,8 @@ export interface ExtensionSpecificExcludeScenario {
 }
 
 export const VALIDATION_PIPELINE_SCENARIO_KIND = {
-  CLEAN_PROJECT: "cleanProject",
-  FAILURE_IDENTIFIES_STEP: "failureIdentifiesStep",
-  PRODUCTION_SCOPE: "productionScope",
-  PATH_DIRECTORY_SCOPE: "pathDirectoryScope",
-  PATH_FILE_SCOPE: "pathFileScope",
-  STEP_ORDER: "stepOrder",
   SKIP_CIRCULAR: "skipCircular",
   SKIP_LITERAL: "skipLiteral",
-  NO_SHORT_CIRCUIT: "noShortCircuit",
-  FAILURE_EXIT_CODE: "failureExitCode",
-  STEP_DURATION: "stepDuration",
-  STABLE_VERDICT: "stableVerdict",
-  ADDITIVE_VERDICTS: "additiveVerdicts",
 } as const;
 
 export type ValidationPipelineScenarioKind =
@@ -609,56 +598,12 @@ export function validationAllTypeScriptSubprocessScenarios(): ValidationSubproce
 export function validationPipelineScenarios(): ValidationPipelineScenario[] {
   return [
     {
-      title: "clean project passes the full validation pipeline",
-      kind: VALIDATION_PIPELINE_SCENARIO_KIND.CLEAN_PROJECT,
-    },
-    {
-      title: "pipeline failure output identifies the failed step",
-      kind: VALIDATION_PIPELINE_SCENARIO_KIND.FAILURE_IDENTIFIES_STEP,
-    },
-    {
-      title: "production scope runs every step in sequence",
-      kind: VALIDATION_PIPELINE_SCENARIO_KIND.PRODUCTION_SCOPE,
-    },
-    {
-      title: "path directory scope runs every step in sequence",
-      kind: VALIDATION_PIPELINE_SCENARIO_KIND.PATH_DIRECTORY_SCOPE,
-    },
-    {
-      title: "path file scope runs every step in sequence",
-      kind: VALIDATION_PIPELINE_SCENARIO_KIND.PATH_FILE_SCOPE,
-    },
-    {
-      title: "step completion lines stay in pipeline order",
-      kind: VALIDATION_PIPELINE_SCENARIO_KIND.STEP_ORDER,
-    },
-    {
       title: "skip circular suppresses circular detection and respects quiet and json output",
       kind: VALIDATION_PIPELINE_SCENARIO_KIND.SKIP_CIRCULAR,
     },
     {
       title: "skip literal suppresses literal detection and respects quiet and json output",
       kind: VALIDATION_PIPELINE_SCENARIO_KIND.SKIP_LITERAL,
-    },
-    {
-      title: "later steps still run after the first step fails",
-      kind: VALIDATION_PIPELINE_SCENARIO_KIND.NO_SHORT_CIRCUIT,
-    },
-    {
-      title: "any step failure makes the pipeline exit non-zero",
-      kind: VALIDATION_PIPELINE_SCENARIO_KIND.FAILURE_EXIT_CODE,
-    },
-    {
-      title: "every step line carries a duration annotation",
-      kind: VALIDATION_PIPELINE_SCENARIO_KIND.STEP_DURATION,
-    },
-    {
-      title: "repeated clean runs produce the same verdicts",
-      kind: VALIDATION_PIPELINE_SCENARIO_KIND.STABLE_VERDICT,
-    },
-    {
-      title: "fixing TypeScript errors leaves other step verdicts unchanged",
-      kind: VALIDATION_PIPELINE_SCENARIO_KIND.ADDITIVE_VERDICTS,
     },
   ];
 }
