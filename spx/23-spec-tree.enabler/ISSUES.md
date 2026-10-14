@@ -48,10 +48,10 @@ The canonical ADR template (`plugins/spec-tree/skills/understanding/templates/de
 
 ## Spec-tree tests assert presence through a shared harness helper
 
-`expectPresent` in `testing/harnesses/spec-tree/assertions.ts` holds two `expect` calls (defined, not null) that decide whether a recognized or projected value exists, and returns the value. The tests that call it are `29-filename-grammar.enabler/tests/spec-file-form.mapping.l1.test.ts`, `54-spec-tree-assembly.enabler/tests/spec-tree-assembly.property.l1.test.ts`, `65-spec-tree-traversal.enabler/tests/spec-tree-traversal.scenario.l1.test.ts`, `76-node-state-derivation.enabler/tests/node-state-derivation.mapping.l1.test.ts`, and `87-spec-tree-projection.enabler/tests/spec-tree-projection.conformance.l1.test.ts`.
+`expectPresent` in `testing/harnesses/spec-tree/assertions.ts` holds two `expect` calls (defined, not null) that decide whether a recognized or projected value exists, and returns the value. The tests that call it are `29-filename-grammar.enabler/tests/spec-file-form.mapping.l1.test.ts` and `87-spec-tree-projection.enabler/tests/spec-tree-projection.conformance.l1.test.ts`.
 
 **Evidence:** `grep -rn "expectPresent" spx testing --include=*.ts`.
 
-**Impact:** a presence predicate sits in a harness shared by five nodes, so the linked tests show no presence predicate and the helper cannot serve a test claiming absence.
+**Impact:** a presence predicate sits in a harness shared by two nodes, so the linked tests show no presence predicate and the helper cannot serve a test claiming absence.
 
 **Settlement condition:** each of those tests states its presence expectation inline (optional chaining on the observed value, or an inline `expect` before a narrowing guard), and `assertions.ts` is removed.

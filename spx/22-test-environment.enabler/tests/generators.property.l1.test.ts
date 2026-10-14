@@ -1,12 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  createFilesystemSpecTreeSource,
   DECISION_SUFFIXES,
   KIND_REGISTRY,
   NODE_KINDS,
   NODE_SUFFIXES,
-  readSpecTree,
   recognizeSpecTreeFilesystemEntry,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_FILESYSTEM_RECORD_TYPE,
@@ -20,7 +18,7 @@ import {
 } from "@testing/generators/test-environment/test-environment";
 import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 import { migratingRecognitionOptions } from "@testing/harnesses/spec-tree/filename-grammar";
-import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { readMaterializedSpecTree, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 describe("arbitraryNodePath — free-function form", () => {
   it("generates paths whose trailing segment carries one of the Config's node suffixes", () => {
@@ -103,17 +101,7 @@ describe("generated spec trees parse through readSpecTree", () => {
       arbitrarySpecTree(KIND_REGISTRY),
       async (fixture) => {
         await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-          for (const entry of fixture.entries) {
-            if (NODE_KINDS.some((kind) => kind === entry.kind)) {
-              await env.writeNode(entry.fixturePath, entry.contents);
-            } else {
-              await env.writeDecision(entry.fixturePath, entry.contents);
-            }
-          }
-
-          const snapshot = await readSpecTree({
-            source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
-          });
+          const snapshot = await readMaterializedSpecTree(env, fixture.entries);
           const recognizedIds = new Set(snapshot.entries.map((sourceEntry) => sourceEntry.id));
 
           for (const entry of fixture.entries) {

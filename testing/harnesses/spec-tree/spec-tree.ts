@@ -66,6 +66,27 @@ export async function writeOrderedDirectory(env: SpecTreeEnv, directory: string)
   );
 }
 
+/** A generated entry the environment writes at `fixturePath`. */
+export type MaterializableEntry = {
+  readonly fixturePath: string;
+  readonly contents: string;
+};
+
+/**
+ * Writes each generated entry into the environment's product directory and returns the snapshot the
+ * spec-tree read operation produces from that directory. It returns the observation only; the
+ * linked test decides which entries the snapshot must recognize.
+ */
+export async function readMaterializedSpecTree(
+  env: SpecTreeEnv,
+  entries: readonly MaterializableEntry[],
+): Promise<SpecTreeSnapshot> {
+  for (const entry of entries) {
+    await env.writeRaw(entry.fixturePath, entry.contents);
+  }
+  return readSpecTree({ source: createFilesystemSpecTreeSource({ productDir: env.productDir }) });
+}
+
 export function withTestEnv<T>(
   config: Config,
   callback: (env: SpecTreeEnv) => Promise<T>,
