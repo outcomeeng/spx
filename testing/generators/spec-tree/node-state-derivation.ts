@@ -1,12 +1,10 @@
 /**
- * Cases for node state derivation: the evidence a node carries, and the state each combination
- * maps to.
+ * Cases for node state derivation: the evidence a node carries, and the state the spec maps it to.
  *
- * The domain is every ordered sequence of up to two evidence entries over the evidence statuses
- * the library surface exposes. The expected state follows the spec's mapping and its precedence:
- * a node with no evidence is declared; failing evidence anywhere makes it failing; evidence that
- * is all passing makes it passing; any other combination, linked evidence beside the rest, makes it
- * specified. The expectation reads no field of the derivation under test.
+ * The spec states four single-status rows: missing evidence maps to declared, linked evidence maps
+ * to specified, failing evidence maps to failing, and passing evidence maps to passing. Each
+ * expectation is that sentence, read from the spec and no field of the derivation under test. The
+ * spec states no rule for several evidence entries, so no case carries more than one.
  *
  * @module generators/spec-tree/node-state-derivation
  */
@@ -27,7 +25,6 @@ import {
   SPEC_TREE_TEST_GENERATOR,
 } from "@testing/generators/spec-tree/spec-tree";
 
-const EVIDENCE_LABEL_JOINER = " beside ";
 const NO_EVIDENCE_LABEL = "no evidence";
 const PROVIDER_LABEL_JOINER = " with provider ";
 
@@ -47,22 +44,13 @@ function evidenceStatuses(): readonly SpecTreeEvidenceStatus[] {
   return Object.values(SPEC_TREE_EVIDENCE_STATUS);
 }
 
-/** Every ordered sequence of up to two statuses, the empty sequence included. */
+/** The empty sequence and every single-status sequence. */
 function evidenceSequences(): readonly (readonly SpecTreeEvidenceStatus[])[] {
-  const singles = evidenceStatuses().map((status) => [status]);
-  const pairs = singles.flatMap((first) => singles.map((second) => [...first, ...second]));
-  return [[], ...singles, ...pairs];
-}
-
-function expectedStateOf(statuses: readonly SpecTreeEvidenceStatus[]): SpecTreeNodeState {
-  if (statuses.length === 0) return SPEC_TREE_NODE_STATE.DECLARED;
-  if (statuses.includes(SPEC_TREE_EVIDENCE_STATUS.FAILING)) return SPEC_TREE_NODE_STATE.FAILING;
-  if (statuses.every((status) => status === SPEC_TREE_EVIDENCE_STATUS.PASSING)) return SPEC_TREE_NODE_STATE.PASSING;
-  return SPEC_TREE_NODE_STATE.SPECIFIED;
+  return [[], ...evidenceStatuses().map((status) => [status])];
 }
 
 function labelOf(statuses: readonly SpecTreeEvidenceStatus[]): string {
-  return statuses.length === 0 ? NO_EVIDENCE_LABEL : statuses.join(EVIDENCE_LABEL_JOINER);
+  return statuses[0] ?? NO_EVIDENCE_LABEL;
 }
 
 function entriesFor(statuses: readonly SpecTreeEvidenceStatus[]): readonly SpecTreeSourceEntry[] {
@@ -83,12 +71,17 @@ function entriesFor(statuses: readonly SpecTreeEvidenceStatus[]): readonly SpecT
   ];
 }
 
-/** One case per ordered evidence sequence of up to two entries, with the state its precedence maps to. */
+/** The four rows the spec states: no evidence, then linked, failing, and passing evidence. */
 export function nodeStateCases(): readonly NodeStateCase[] {
-  return evidenceSequences().map((statuses) => ({
+  return [
+    { statuses: [], expected: SPEC_TREE_NODE_STATE.DECLARED },
+    { statuses: [SPEC_TREE_EVIDENCE_STATUS.LINKED], expected: SPEC_TREE_NODE_STATE.SPECIFIED },
+    { statuses: [SPEC_TREE_EVIDENCE_STATUS.FAILING], expected: SPEC_TREE_NODE_STATE.FAILING },
+    { statuses: [SPEC_TREE_EVIDENCE_STATUS.PASSING], expected: SPEC_TREE_NODE_STATE.PASSING },
+  ].map(({ statuses, expected }) => ({
     label: labelOf(statuses),
     entries: entriesFor(statuses),
-    expected: expectedStateOf(statuses),
+    expected,
   }));
 }
 
