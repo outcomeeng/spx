@@ -3,7 +3,11 @@ import * as fc from "fast-check";
 import { SUCCESS_EXIT_CODE } from "@/domains/test";
 import { GIT_SUCCESS_EXIT_CODE, TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
 import type {
+  NodeClaimClassificationFacts,
   NodeClassificationFacts,
+  NodeStatusClaim,
+  NodeStatusClaimShape,
+  NodeStatusCurrency,
   NodeStatusEvidenceOutcome,
   NodeStatusFile,
   NodeStatusMechanismOverall,
@@ -11,14 +15,25 @@ import type {
   NodeStatusVerification,
 } from "@/lib/node-status";
 import {
+  NODE_STATUS_CLAIM_FIELD,
+  NODE_STATUS_CLAIM_SECTION,
+  NODE_STATUS_CLAIM_SHAPE,
+  NODE_STATUS_CURRENCY,
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_FIELD,
   NODE_STATUS_FILENAME,
+  NODE_STATUS_MALLEABILITY,
   NODE_STATUS_MECHANISM_OVERALL,
   NODE_STATUS_SCHEMA_VERSION,
   NODE_STATUS_VERIFICATION_MECHANISM,
 } from "@/lib/node-status";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
+import {
+  KIND_REGISTRY,
+  SPEC_TREE_CONFIG,
+  SPEC_TREE_EVIDENCE_FILE,
+  SPEC_TREE_GRAMMAR,
+  SPEC_TREE_NODE_STATE,
+} from "@/lib/spec-tree";
 
 const NODE_STATUS_GENERATOR_OPTIONS = {
   ORDER_MIN: 10,
@@ -161,7 +176,169 @@ export const NODE_STATUS_TEST_GENERATOR = {
   trackedFile: arbitraryTrackedFile,
   trackedFileSet: arbitraryTrackedFileSet,
   untrackedNodeStatusPath: arbitraryUntrackedNodeStatusPath,
+  pinnedNode: arbitraryPinnedNode,
+  variantParent: arbitraryVariantParent,
+  methodologyVersion: arbitraryMethodologyVersion,
+  commitId: arbitraryCommitId,
 } as const;
+
+const COMMIT_ID_PATTERN = /^[0-9a-f]{40}$/;
+
+function arbitraryCommitId(): fc.Arbitrary<string> {
+  return fc.stringMatching(COMMIT_ID_PATTERN);
+}
+
+/**
+ * A 4.0 claim whose test section holds one entry per given reference carrying the given verdict: a passed or
+ * failed entry pinned to `commit` over `read`, a not-run entry unpinned.
+ */
+export function createClaimWithVerdicts(
+  verdicts: Readonly<Record<string, NodeStatusEvidenceOutcome>>,
+  commit: string,
+  read: readonly string[],
+): NodeStatusClaim {
+  return {
+    [NODE_STATUS_CLAIM_FIELD.STATE]: SPEC_TREE_NODE_STATE.SPECIFIED,
+    [NODE_STATUS_CLAIM_FIELD.MALLEABILITY]: NODE_STATUS_MALLEABILITY.IMPLEMENTATION,
+    [NODE_STATUS_CLAIM_FIELD.VERIFICATION]: {
+      [NODE_STATUS_CLAIM_SECTION.TEST]: Object.fromEntries(
+        Object.entries(verdicts).map(([reference, verdict]) => [
+          reference,
+          verdict === NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN
+            ? { [NODE_STATUS_CLAIM_FIELD.VERDICT]: verdict }
+            : {
+              [NODE_STATUS_CLAIM_FIELD.VERDICT]: verdict,
+              [NODE_STATUS_CLAIM_FIELD.COMMIT]: commit,
+              [NODE_STATUS_CLAIM_FIELD.READ]: read,
+            },
+        ]),
+      ),
+    },
+  };
+}
+
+const VARIANT_SUFFIX = ".variant";
+const GENERATED_SUBJECT_DIRECTORY = "src";
+const GENERATED_SUBJECT_EXTENSION = ".ts";
+
+/**
+ * A node whose results are pinned to a committed read set: the tests it links, the source
+ * subjects those tests exercise, and the index of the one subject an edit changes.
+ */
+export type PinnedNodeFixture = {
+  readonly dirName: string;
+  readonly slug: string;
+  /** Product-relative paths of the source subjects, at least two and distinct. */
+  readonly subjectPaths: readonly string[];
+  readonly editedSubject: number;
+};
+
+/** A parent node with variants, each variant either passing or carrying a failed result. */
+export type VariantParentFixture = {
+  readonly parentDirName: string;
+  readonly parentSlug: string;
+  readonly variants: readonly {
+    readonly dirName: string;
+    readonly slug: string;
+    readonly passes: boolean;
+  }[];
+};
+
+function arbitraryPinnedNode(): fc.Arbitrary<PinnedNodeFixture> {
+  return fc
+    .record({
+      order: fc.integer({ min: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MIN, max: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MAX }),
+      slug: arbitraryNodeSlug(),
+      subjects: fc.uniqueArray(arbitraryNodeSlug(), { minLength: 2, maxLength: NODE_STATUS_READABLE_SLUGS.length }),
+    })
+    .chain(({ order, slug, subjects }) =>
+      fc.integer({ min: 0, max: subjects.length - 1 }).map((editedSubject): PinnedNodeFixture => ({
+        dirName: nodeDirectoryName(order, slug),
+        slug,
+        subjectPaths: subjects.map((subject) =>
+          `${GENERATED_SUBJECT_DIRECTORY}${SPEC_TREE_PATH_SEPARATOR}${subject}${GENERATED_SUBJECT_EXTENSION}`
+        ),
+        editedSubject,
+      }))
+    );
+}
+
+function arbitraryVariantParent(): fc.Arbitrary<VariantParentFixture> {
+  return fc
+    .record({
+      order: fc.integer({ min: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MIN, max: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MAX }),
+      slug: arbitraryNodeSlug(),
+      variants: fc.uniqueArray(
+        fc.record({
+          order: fc.integer({
+            min: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MIN,
+            max: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MAX,
+          }),
+          slug: arbitraryNodeSlug(),
+          passes: fc.boolean(),
+        }),
+        {
+          minLength: 2,
+          maxLength: NODE_STATUS_GENERATOR_OPTIONS.MAX_NODES,
+          selector: (variant) => `${variant.order}${variant.slug}`,
+        },
+      ),
+    })
+    .map(({ order, slug, variants }): VariantParentFixture => ({
+      parentDirName: nodeDirectoryName(order, slug),
+      parentSlug: slug,
+      variants: variants.map((variant) => ({
+        dirName: `${variant.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${variant.slug}${VARIANT_SUFFIX}`,
+        slug: variant.slug,
+        passes: variant.passes,
+      })),
+    }));
+}
+
+const METHODOLOGY_CURRENT_MAJOR_MIN = 4;
+const METHODOLOGY_CURRENT_MAJOR_MAX = 9;
+const METHODOLOGY_PRIOR_MAJOR_MAX = 3;
+const METHODOLOGY_VERSION_COMPONENT_MAX = 9;
+
+/** An exact methodology version of the claim shape given, in the `MAJOR.MINOR` or `MAJOR.MINOR.PATCH` form. */
+function arbitraryMethodologyVersion(shape: NodeStatusClaimShape): fc.Arbitrary<string> {
+  const major = shape === NODE_STATUS_CLAIM_SHAPE.CURRENT
+    ? fc.integer({ min: METHODOLOGY_CURRENT_MAJOR_MIN, max: METHODOLOGY_CURRENT_MAJOR_MAX })
+    : fc.integer({ min: 0, max: METHODOLOGY_PRIOR_MAJOR_MAX });
+  const component = fc.integer({ min: 0, max: METHODOLOGY_VERSION_COMPONENT_MAX });
+  return fc
+    .record({ major, minor: component, patch: fc.option(component, { nil: undefined }) })
+    .map(({ major, minor, patch }) => [major, minor, ...(patch === undefined ? [] : [patch])].join("."));
+}
+
+/**
+ * Every combination of the 4.0 classification facts over their finite domains: Validate passed or not,
+ * required artifacts present or missing, the declaration changed after a recorded `passing` or not, and
+ * result sets of zero, one, or two results, each result any verdict at any currency.
+ */
+export function enumerateClaimClassificationFacts(): readonly NodeClaimClassificationFacts[] {
+  const currencies: readonly NodeStatusCurrency[] = Object.values(NODE_STATUS_CURRENCY);
+  const singleResults = STATUS_EVIDENCE_OUTCOMES.flatMap((verdict) =>
+    currencies.map((currency) => ({ verdict, currency }))
+  );
+  const resultSets = [
+    [],
+    ...singleResults.map((result) => [result]),
+    ...singleResults.flatMap((first) => singleResults.map((second) => [first, second])),
+  ];
+  return [false, true].flatMap((validatePassed) =>
+    [false, true].flatMap((requiredArtifactsMissing) =>
+      [false, true].flatMap((recordedPassingAtOrAfterDeclaration) =>
+        resultSets.map((results): NodeClaimClassificationFacts => ({
+          validatePassed,
+          requiredArtifactsMissing,
+          recordedPassingAtOrAfterDeclaration,
+          results,
+        }))
+      )
+    )
+  );
+}
 
 /**
  * Every combination of the classification facts over their finite source-owned

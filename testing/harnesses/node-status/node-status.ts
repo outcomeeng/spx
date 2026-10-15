@@ -5,27 +5,49 @@ import { fileURLToPath } from "node:url";
 
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { type RecordedTestRun, runNodeCommand } from "@/commands/test";
+import { DEFAULT_METHODOLOGY_SOURCE, METHODOLOGY_SECTION } from "@/config/methodology";
+import type { Config } from "@/config/types";
 import { GIT_NULL_DELIMITED_FLAG, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
 import { GIT_ROOT_COMMAND, GIT_STATUS_PORCELAIN_ARGS, type GitDependencies } from "@/lib/git/root";
 import {
   createNodeStatusFile,
   createNodeStatusMechanismRecord,
+  createPinChangeReader,
+  NODE_STATUS_CLAIM_FIELD,
+  NODE_STATUS_CLAIM_SECTION,
+  NODE_STATUS_CLAIM_SHAPE,
+  NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_EXCLUDE_FILENAME,
   NODE_STATUS_EXCLUDE_LINE_GRAMMAR,
   NODE_STATUS_FILENAME,
+  NODE_STATUS_MALLEABILITY,
   NODE_STATUS_VERIFICATION_MECHANISM,
   type NodeOutcomeResolver,
+  type NodeStatusClaimEntry,
+  type NodeStatusClaimVerification,
   type NodeStatusEvidenceOutcome,
+  type NodeStatusFile,
+  type PinChangeReader,
+  readNodeStatus,
   serializeNodeStatus,
+  serializeNodeStatusClaim,
 } from "@/lib/node-status";
-import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
+import {
+  SPEC_TREE_CONFIG,
+  SPEC_TREE_EVIDENCE_FILE,
+  SPEC_TREE_GRAMMAR,
+  SPEC_TREE_NODE_STATE,
+  type SpecTreeNodeState,
+} from "@/lib/spec-tree";
 import { testingRegistry } from "@/test/registry";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import type {
   ClassificationFixtureFacts,
   ClassificationTreeFixture,
+  PinnedNodeFixture,
   StatusWriterTreeFixture,
   StatusWriterTreeNode,
+  VariantParentFixture,
 } from "@testing/generators/node-status/node-status";
 import {
   buildGitTestEnvironment,
@@ -235,8 +257,9 @@ export type StatusWriterTreeEnv = {
 export async function withStatusWriterTree(
   fixture: StatusWriterTreeFixture,
   callback: (tree: StatusWriterTreeEnv) => Promise<void>,
+  config: Config = MINIMAL_SPEC_TREE_CONFIG,
 ): Promise<void> {
-  await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+  await withTestEnv(config, async (env) => {
     const [specContent, testContent] = await Promise.all([
       readFixture(CLASSIFICATION_FIXTURE_PATHS.spec),
       readFixture(CLASSIFICATION_FIXTURE_PATHS.test),
@@ -395,7 +418,12 @@ export async function trackSpecTree(productDir: string): Promise<void> {
 
 /** Stage and commit the spec tree in an initialized repository under a fixed test identity. */
 export async function commitSpecTree(productDir: string): Promise<void> {
-  await runFixtureGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, ROOT]);
+  await commitPaths(productDir, [ROOT]);
+}
+
+/** Stage and commit `paths` in an initialized repository under a fixed test identity. */
+export async function commitPaths(productDir: string, paths: readonly string[]): Promise<void> {
+  await runFixtureGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, ...paths]);
   await runFixtureGit(productDir, [
     GIT_TEST_FLAGS.CONFIG_OVERRIDE,
     `${GIT_TEST_CONFIG.USER_NAME_KEY}=${GIT_TEST_CONFIG.USER_NAME}`,
@@ -447,4 +475,222 @@ export async function readNodeStatusFileBytes(productDir: string): Promise<Reado
   return Object.fromEntries(
     await Promise.all(paths.map(async (path) => [path, await readFile(join(productDir, path))] as const)),
   );
+}
+
+/** The version-1 claim co-located in `nodeDir`, or nothing when the node has no status file; a claim of another shape rejects. */
+export function readVersion1NodeStatus(nodeDir: string): NodeStatusFile | undefined {
+  const read = readNodeStatus(nodeDir);
+  if (read === undefined) return undefined;
+  if (read.shape !== NODE_STATUS_CLAIM_SHAPE.VERSION_1) {
+    throw new Error(`Expected a ${NODE_STATUS_CLAIM_SHAPE.VERSION_1} claim in ${nodeDir}, read ${read.shape}`);
+  }
+  return read.claim;
+}
+
+/** A configuration declaring `version` as the product's methodology version, beside the minimal spec-tree kinds. */
+export function methodologyDeclaringConfig(version: string): Config {
+  return {
+    ...MINIMAL_SPEC_TREE_CONFIG,
+    [METHODOLOGY_SECTION]: { source: DEFAULT_METHODOLOGY_SOURCE, version },
+  };
+}
+
+const LINKED_SPEC_FIXTURE_PATH = join(NODE_STATUS_FIXTURE_DIRECTORY, "linked-spec.md.fixture");
+const SPEC_LINK_TARGET_PATTERN = /\]\((tests\/[^)\s]+)\)/g;
+const SPEC_LINK_TARGET_GROUP = 1;
+const SUBJECT_APPENDIX = "\n// edited\n";
+const SPEC_APPENDIX = "\nAn added sentence.\n";
+const REPOSITORY_ROOT_PATHS = ["."] as const;
+const UNRELATED_FILE_PATH = "unrelated.txt";
+const AUDIT_RULE_TAG_PATTERN = /\[audit:([a-z0-9-]+)\]/g;
+const AUDIT_RULE_TAG_GROUP = 1;
+const VARIANT_SUBJECT_DIRECTORY = "src";
+
+/** A committed single-node repository whose results can be pinned to its spec, tests, and source subjects. */
+export type PinnedNodeRepository = {
+  readonly env: SpecTreeEnv;
+  readonly nodeId: string;
+  readonly nodePath: string;
+  readonly specPath: string;
+  /** Product-relative paths of the tests the spec links. */
+  readonly testPaths: readonly string[];
+  readonly subjectPaths: readonly string[];
+  /** The commit every pin of this repository names. */
+  readonly commit: string;
+  readonly git: GitDependencies;
+  /** The audit rule slugs the spec tags, read from the spec fixture. */
+  readonly auditRuleSlugs: readonly string[];
+  /** A pin-change reader that has compared no commit with the checkout yet. */
+  readonly pinChanges: PinChangeReader;
+  /** A passed entry pinned to the repository's commit over `read`. */
+  passedEntry(read: readonly string[]): NodeStatusClaimEntry;
+  /** Write `verification` as the node's 4.0 claim, recording `state`. */
+  writeClaim(verification: NodeStatusClaimVerification, state?: SpecTreeNodeState): Promise<void>;
+  /** Commit every change in the repository and return the new head. */
+  commitAll(): Promise<string>;
+  /** Commit a file no node reads and return the new head. */
+  commitUnrelatedFile(): Promise<string>;
+  editSubject(index: number): Promise<void>;
+  /** Rewrite each spec link to its tree-absolute spelling, keeping every label and target. */
+  rewriteSpecLinksTreeAbsolute(): Promise<void>;
+  /** Add a sentence to the spec. */
+  editSpecText(): Promise<void>;
+};
+
+/**
+ * Materialize and commit a node with a spec linking two tests and tagging two audit rules, the tests, and the
+ * source subjects of `fixture`, in a temporary product directory under the methodology `config` declares.
+ */
+export async function withPinnedNodeRepository(
+  fixture: PinnedNodeFixture,
+  config: Config,
+  callback: (repository: PinnedNodeRepository) => Promise<void>,
+): Promise<void> {
+  await withTestEnv(config, async (env) => {
+    const [specContent, testContent] = await Promise.all([
+      readFixture(LINKED_SPEC_FIXTURE_PATH),
+      readFixture(CLASSIFICATION_FIXTURE_PATHS.test),
+    ]);
+    const nodePath = nodeTreePath(fixture.dirName);
+    const specPath = `${nodePath}${PATH_SEPARATOR}${fixture.slug}${SPEC_FILE_SUFFIX}`;
+    const linkedTests = [...specContent.matchAll(SPEC_LINK_TARGET_PATTERN)].flatMap((match) => {
+      const target = match.at(SPEC_LINK_TARGET_GROUP);
+      return target === undefined ? [] : [target];
+    });
+    const testPaths = linkedTests.map((target) => `${nodePath}${PATH_SEPARATOR}${target}`);
+    await env.writeNode(specPath, specContent);
+    for (const testPath of testPaths) await env.writeNode(testPath, testContent);
+    for (const subjectPath of fixture.subjectPaths) await env.writeRaw(subjectPath, testContent);
+    await runFixtureGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+    await commitPaths(env.productDir, REPOSITORY_ROOT_PATHS);
+    const commit = await runFixtureGit(env.productDir, [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
+
+    await callback({
+      env,
+      nodeId: fixture.dirName,
+      nodePath,
+      specPath,
+      testPaths,
+      subjectPaths: fixture.subjectPaths,
+      commit,
+      git: isolatedFixtureGitDependencies,
+      auditRuleSlugs: [...specContent.matchAll(AUDIT_RULE_TAG_PATTERN)].flatMap((match) => {
+        const slug = match.at(AUDIT_RULE_TAG_GROUP);
+        return slug === undefined ? [] : [slug];
+      }),
+      get pinChanges() {
+        return createPinChangeReader({ productDir: env.productDir, git: isolatedFixtureGitDependencies });
+      },
+      passedEntry: (read) => ({
+        [NODE_STATUS_CLAIM_FIELD.VERDICT]: NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
+        [NODE_STATUS_CLAIM_FIELD.COMMIT]: commit,
+        [NODE_STATUS_CLAIM_FIELD.READ]: read,
+      }),
+      writeClaim: (verification, state) => writeClaim(env, nodePath, verification, state),
+      commitAll: async () => {
+        await commitPaths(env.productDir, REPOSITORY_ROOT_PATHS);
+        return runFixtureGit(env.productDir, [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
+      },
+      commitUnrelatedFile: async () => {
+        await env.writeRaw(UNRELATED_FILE_PATH, testContent);
+        await commitPaths(env.productDir, REPOSITORY_ROOT_PATHS);
+        return runFixtureGit(env.productDir, [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
+      },
+      editSubject: async (index) => {
+        const path = fixture.subjectPaths.at(index);
+        if (path === undefined) throw new Error(`No subject at index ${index}`);
+        await env.writeRaw(path, `${testContent}${SUBJECT_APPENDIX}`);
+      },
+      rewriteSpecLinksTreeAbsolute: () =>
+        env.writeNode(specPath, specContent.replaceAll("](tests/", `](${nodePath}${PATH_SEPARATOR}tests/`)),
+      editSpecText: () => env.writeNode(specPath, `${specContent}${SPEC_APPENDIX}`),
+    });
+  });
+}
+
+async function writeClaim(
+  env: SpecTreeEnv,
+  nodePath: string,
+  verification: NodeStatusClaimVerification,
+  state: SpecTreeNodeState = SPEC_TREE_NODE_STATE.SPECIFIED,
+): Promise<void> {
+  await env.writeRaw(
+    `${nodePath}${PATH_SEPARATOR}${NODE_STATUS_FILENAME}`,
+    serializeNodeStatusClaim({
+      [NODE_STATUS_CLAIM_FIELD.STATE]: state,
+      [NODE_STATUS_CLAIM_FIELD.MALLEABILITY]: NODE_STATUS_MALLEABILITY.IMPLEMENTATION,
+      [NODE_STATUS_CLAIM_FIELD.VERIFICATION]: verification,
+    }),
+  );
+}
+
+/** A committed parent with variants, each carrying a 4.0 claim whose one test result passes or fails. */
+export type VariantTreeEnv = {
+  readonly env: SpecTreeEnv;
+  readonly parentId: string;
+  readonly variants: readonly { readonly nodeId: string; readonly passes: boolean }[];
+  readonly git: GitDependencies;
+};
+
+export async function withVariantTree(
+  fixture: VariantParentFixture,
+  config: Config,
+  callback: (tree: VariantTreeEnv) => Promise<void>,
+): Promise<void> {
+  await withTestEnv(config, async (env) => {
+    const [specContent, testContent] = await Promise.all([
+      readFixture(CLASSIFICATION_FIXTURE_PATHS.spec),
+      readFixture(CLASSIFICATION_FIXTURE_PATHS.test),
+    ]);
+    const parentPath = nodeTreePath(fixture.parentDirName);
+    await env.writeNode(`${parentPath}${PATH_SEPARATOR}${fixture.parentSlug}${SPEC_FILE_SUFFIX}`, specContent);
+    const variants = fixture.variants.map((variant) => {
+      const nodePath = `${parentPath}${PATH_SEPARATOR}${variant.dirName}`;
+      const testKey = [
+        SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
+        [variant.slug, "scenario", "l1", ...SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT].join(
+          SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR,
+        ),
+      ].join(PATH_SEPARATOR);
+      return {
+        ...variant,
+        nodePath,
+        testKey,
+        specPath: `${nodePath}${PATH_SEPARATOR}${variant.slug}${SPEC_FILE_SUFFIX}`,
+        testPath: `${nodePath}${PATH_SEPARATOR}${testKey}`,
+        subjectPath: `${VARIANT_SUBJECT_DIRECTORY}${PATH_SEPARATOR}${variant.slug}.ts`,
+      };
+    });
+    for (const variant of variants) {
+      await env.writeNode(variant.specPath, specContent);
+      await env.writeNode(variant.testPath, testContent);
+      await env.writeRaw(variant.subjectPath, testContent);
+    }
+    await runFixtureGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+    await commitPaths(env.productDir, REPOSITORY_ROOT_PATHS);
+    const commit = await runFixtureGit(env.productDir, [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
+    for (const variant of variants) {
+      await writeClaim(env, variant.nodePath, {
+        [NODE_STATUS_CLAIM_SECTION.TEST]: {
+          [variant.testKey]: {
+            [NODE_STATUS_CLAIM_FIELD.VERDICT]: variant.passes
+              ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED
+              : NODE_STATUS_EVIDENCE_OUTCOME.FAILED,
+            [NODE_STATUS_CLAIM_FIELD.COMMIT]: commit,
+            [NODE_STATUS_CLAIM_FIELD.READ]: [variant.specPath, variant.testPath, variant.subjectPath],
+          },
+        },
+      });
+    }
+    await writeClaim(env, parentPath, {});
+    await callback({
+      env,
+      parentId: fixture.parentDirName,
+      variants: variants.map((variant) => ({
+        nodeId: `${fixture.parentDirName}${PATH_SEPARATOR}${variant.dirName}`,
+        passes: variant.passes,
+      })),
+      git: isolatedFixtureGitDependencies,
+    });
+  });
 }

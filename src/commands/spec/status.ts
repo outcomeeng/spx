@@ -125,7 +125,7 @@ export async function statusCommand(
   // derivation.
   const snapshot = await readSpecTree({
     source: createFilesystemSpecTreeSource({ productDir }),
-    evidence: createNodeStatusProvider(productDir),
+    evidence: await createNodeStatusProvider(productDir, { gitDependencies }),
   });
   return renderSpecStatus(projectSpecTree(snapshot), options.format);
 }
