@@ -636,6 +636,8 @@ async function writeClaim(
 export type VariantTreeEnv = {
   readonly env: SpecTreeEnv;
   readonly parentId: string;
+  /** The tree-absolute path of the parent's one linked test. */
+  readonly parentTestPath: string;
   readonly variants: readonly { readonly nodeId: string; readonly passes: boolean }[];
   readonly git: GitDependencies;
 };
@@ -652,26 +654,25 @@ export async function withVariantTree(
     ]);
     const parentPath = nodeTreePath(fixture.parentDirName);
     await env.writeNode(`${parentPath}${PATH_SEPARATOR}${fixture.parentSlug}${SPEC_FILE_SUFFIX}`, specContent);
+    const parentTestPath = [
+      parentPath,
+      SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
+      [fixture.parentSlug, "scenario", "l1", ...SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT].join(
+        SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR,
+      ),
+    ].join(PATH_SEPARATOR);
+    await env.writeNode(parentTestPath, testContent);
     const variants = fixture.variants.map((variant) => {
       const nodePath = `${parentPath}${PATH_SEPARATOR}${variant.dirName}`;
-      const testKey = [
-        SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
-        [variant.slug, "scenario", "l1", ...SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT].join(
-          SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR,
-        ),
-      ].join(PATH_SEPARATOR);
       return {
         ...variant,
         nodePath,
-        testKey,
         specPath: `${nodePath}${PATH_SEPARATOR}${variant.slug}${SPEC_FILE_SUFFIX}`,
-        testPath: `${nodePath}${PATH_SEPARATOR}${testKey}`,
         subjectPath: `${VARIANT_SUBJECT_DIRECTORY}${PATH_SEPARATOR}${variant.slug}.ts`,
       };
     });
     for (const variant of variants) {
       await env.writeNode(variant.specPath, specContent);
-      await env.writeNode(variant.testPath, testContent);
       await env.writeRaw(variant.subjectPath, testContent);
     }
     await runFixtureGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
@@ -680,12 +681,12 @@ export async function withVariantTree(
     for (const variant of variants) {
       await writeClaim(env, variant.nodePath, {
         [NODE_STATUS_CLAIM_SECTION.TEST]: {
-          [variant.testKey]: {
+          [parentTestPath]: {
             [NODE_STATUS_CLAIM_FIELD.VERDICT]: variant.passes
               ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED
               : NODE_STATUS_EVIDENCE_OUTCOME.FAILED,
             [NODE_STATUS_CLAIM_FIELD.COMMIT]: commit,
-            [NODE_STATUS_CLAIM_FIELD.READ]: [variant.specPath, variant.testPath, variant.subjectPath],
+            [NODE_STATUS_CLAIM_FIELD.READ]: [variant.specPath, parentTestPath, variant.subjectPath],
           },
         },
       });
@@ -694,6 +695,7 @@ export async function withVariantTree(
     await callback({
       env,
       parentId: fixture.parentDirName,
+      parentTestPath,
       variants: variants.map((variant) => ({
         nodeId: `${fixture.parentDirName}${PATH_SEPARATOR}${variant.dirName}`,
         passes: variant.passes,
