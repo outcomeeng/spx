@@ -27,10 +27,11 @@ CAN inspect node state, select the next non-passing node, discover relevant subt
 - Given an injected in-memory source is supplied with `update: true`, when `spx spec status` runs, then it rejects the request ([test](tests/spec-cli-commands.scenario.l1.test.ts))
 - Given a tracked node has linked evidence, when the `spx spec status --update` handler writes its projection, then the handler reports the same rollup that a subsequent `spx spec status` read renders ([test](tests/spec-cli-commands.scenario.l1.test.ts))
 - Given a git repository whose `spx/` tree holds both a git-tracked node directory and an untracked, node-shaped directory, when `spx spec status` runs without `--update`, then both are reported as nodes ([test](tests/spec-cli-commands.scenario.l1.test.ts))
+- Given a tracked node carries a committed claim, when `spx spec status --json` runs, then it reports per node the claim's shape and state, and per result its verdict, pin, actor and run and whether the pin is current against the checkout ([test](tests/spec-cli-commands.scenario.l1.test.ts))
 
 ### Mappings
 
-- Recorded test evidence maps to each linked reference as follows: a fresh covering outcome maps the reference to its own test file's recorded verdict (`passed`, `failed`, or `not-run`), independent of the verdict of every other file the same run covered; a covered stale outcome keeps the committed outcome; and an uncovered reference maps to `not-run` ([test](tests/spec-status-fold.mapping.l1.test.ts))
+- Recorded test evidence maps to each linked reference as follows: a fresh covering outcome maps the reference to its own test file's recorded verdict (`passed`, `failed`, or `not-run`), independent of the verdict of every other file the same run covered; a covered stale outcome keeps the committed entry with its pin; and an uncovered reference maps to `not-run` ([test](tests/spec-status-fold.mapping.l1.test.ts))
 
 ### Compliance
 
@@ -39,3 +40,4 @@ CAN inspect node state, select the next non-passing node, discover relevant subt
 - NEVER: command handlers parse spec-tree suffixes or assemble hierarchy themselves — they consume `src/lib/spec-tree/index.ts` ([audit])
 - ALWAYS: `spx spec status --update` obtains each node's verification outcomes from recorded evidence produced by the owning verification surface, never from a status-owned runner, per [spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md](spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md) ([audit])
 - NEVER: `spx spec status` executes verification in any form — with or without `--update`, it reports state derived from recorded verification outcomes or live structure, per [spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md](spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md) ([test](tests/status-testing-delegation.compliance.l1.test.ts))
+- ALWAYS: reporting pin currency executes no verification and writes nothing
