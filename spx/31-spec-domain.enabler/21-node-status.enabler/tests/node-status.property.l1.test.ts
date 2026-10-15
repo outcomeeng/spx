@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   claimShapeOfMethodologyVersion,
+  NODE_STATUS_ACTOR_KIND,
   NODE_STATUS_CLAIM_FIELD,
   NODE_STATUS_CLAIM_SECTION,
   NODE_STATUS_CLAIM_SHAPE,
@@ -20,10 +21,12 @@ import {
 } from "@/lib/node-status";
 import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
-import { NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
+import { NODE_STATUS_TEST_GENERATOR, type RecordedRun } from "@testing/generators/node-status/node-status";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   methodologyDeclaringConfig,
   readNodeStatusFileBytes,
+  withPinnedNodeRepository,
   withStatusWriterTree,
 } from "@testing/harnesses/node-status/node-status";
 import {
@@ -96,6 +99,101 @@ describe("every spx.status.json the writer produces under a 4.0 methodology", ()
         },
         PROPERTY_CLASSIFICATION.SMALL_L1,
       );
+    },
+    propertyTestEnvelopeTimeoutMs(PROPERTY_CLASSIFICATION.SMALL_L1),
+  );
+});
+
+describe("every pinned entry the writer produces under a 4.0 methodology", () => {
+  it(
+    "carries the checked-out commit and read paths holding the node's spec, the entry's own subjects, and its verification artifact, and every other entry reads not-run with no pin",
+    async () => {
+      const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
+      const version = sampleGeneratedValue(
+        NODE_STATUS_TEST_GENERATOR.methodologyVersion(NODE_STATUS_CLAIM_SHAPE.CURRENT),
+      );
+      await withPinnedNodeRepository(fixture, methodologyDeclaringConfig(version), async (repository) => {
+        const attribution = {
+          actor: { [NODE_STATUS_CLAIM_FIELD.ACTOR_KIND]: NODE_STATUS_ACTOR_KIND.AGENT, id: fixture.slug },
+          run: fixture.dirName,
+        };
+        const testKeyOf = (path: string) => posix.relative(repository.nodePath, path);
+        await assertProperty(
+          fc.record({
+            tests: NODE_STATUS_TEST_GENERATOR.recordedRuns(repository.subjectPaths, repository.testPaths),
+            audit: NODE_STATUS_TEST_GENERATOR.recordedRuns(repository.subjectPaths, repository.auditRuleSlugs, true),
+            evidence: NODE_STATUS_TEST_GENERATOR.recordedRuns(
+              repository.subjectPaths,
+              [NODE_STATUS_CLAIM_SECTION.TEST],
+              true,
+            ),
+          }),
+          async ({ tests, audit, evidence }) => {
+            const attributed = (runs: Readonly<Record<string, RecordedRun | undefined>>) =>
+              Object.fromEntries(
+                Object.entries(runs).flatMap(([key, run]) =>
+                  run === undefined ? [] : [[key, { ...run, ...attribution }] as const]
+                ),
+              );
+            await updateNodeStatus({
+              productDir: repository.env.productDir,
+              resolveOutcome: (_nodeId, evidencePaths) =>
+                Promise.resolve(
+                  Object.fromEntries(
+                    evidencePaths.map((path) => [path, tests[path]?.verdict ?? NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN]),
+                  ),
+                ),
+              resolveReadPaths: (_nodeId, evidencePath) => Promise.resolve(tests[evidencePath]?.read),
+              resolveAttributedResults: () =>
+                Promise.resolve({ audit: attributed(audit), evidence: attributed(evidence) }),
+              gitDependencies: repository.git,
+            });
+
+            const written = readNodeStatus(join(repository.env.productDir, repository.nodePath));
+            expect(written?.shape).toBe(NODE_STATUS_CLAIM_SHAPE.CURRENT);
+            if (written?.shape !== NODE_STATUS_CLAIM_SHAPE.CURRENT) return;
+            const expected = [
+              ...repository.testPaths.map((path) => ({
+                section: NODE_STATUS_CLAIM_SECTION.TEST,
+                key: testKeyOf(path),
+                run: tests[path],
+                declared: [repository.specPath, path],
+              })),
+              ...repository.auditRuleSlugs.map((slug) => ({
+                section: NODE_STATUS_CLAIM_SECTION.AUDIT,
+                key: slug,
+                run: audit[slug],
+                declared: [repository.specPath],
+              })),
+              {
+                section: NODE_STATUS_CLAIM_SECTION.EVIDENCE,
+                key: NODE_STATUS_CLAIM_SECTION.TEST,
+                run: evidence[NODE_STATUS_CLAIM_SECTION.TEST],
+                declared: [repository.specPath],
+              },
+            ];
+            const results = nodeStatusClaimResults(written.claim);
+            expect(results.length).toBe(expected.length);
+            for (const { section, key, run, declared } of expected) {
+              const entry = results.find((result) => result.section === section && result.key === key)?.entry;
+              const pinned = run !== undefined
+                && run.verdict !== NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN
+                && run.read.length > 0;
+              if (!pinned) {
+                expect(entry).toEqual({ [NODE_STATUS_CLAIM_FIELD.VERDICT]: NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN });
+                continue;
+              }
+              expect(entry?.[NODE_STATUS_CLAIM_FIELD.VERDICT]).toBe(run.verdict);
+              expect(entry?.[NODE_STATUS_CLAIM_FIELD.COMMIT]).toBe(repository.commit);
+              expect([...(entry?.[NODE_STATUS_CLAIM_FIELD.READ] ?? [])].sort(compareAsciiStrings)).toEqual(
+                [...new Set([...declared, ...run.read])].sort(compareAsciiStrings),
+              );
+              expect(entry?.[NODE_STATUS_CLAIM_FIELD.READ]).toContain(repository.specPath);
+            }
+          },
+          PROPERTY_CLASSIFICATION.SMALL_L1,
+        );
+      });
     },
     propertyTestEnvelopeTimeoutMs(PROPERTY_CLASSIFICATION.SMALL_L1),
   );

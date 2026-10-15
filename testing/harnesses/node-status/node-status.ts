@@ -335,6 +335,14 @@ async function writeCommittedClaims(
   );
 }
 
+/** Write a `.product` spec at the spec-tree root under `name`, from the inert spec payload. */
+export async function writeProductSpec(env: SpecTreeEnv, name: string): Promise<void> {
+  await env.writeNode(
+    nodeTreePath(`${name}${SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX}`),
+    await readFixture(CLASSIFICATION_FIXTURE_PATHS.spec),
+  );
+}
+
 /** A spec-tree path under the root directory, composed with the spec-tree path grammar. */
 function nodeTreePath(...segments: readonly string[]): string {
   return [ROOT, ...segments].join(PATH_SEPARATOR);

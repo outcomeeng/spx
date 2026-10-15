@@ -7,6 +7,8 @@ import {
   createNodeStatusExcludeReader,
   createNodeStatusFile,
   createNodeStatusProvider,
+  NODE_STATUS_ACTOR_KIND,
+  NODE_STATUS_CLAIM_FIELD,
   NODE_STATUS_CLAIM_SECTION,
   NODE_STATUS_CLAIM_SHAPE,
   NODE_STATUS_EVIDENCE_OUTCOME,
@@ -14,6 +16,7 @@ import {
   NODE_STATUS_FILENAME,
   NODE_STATUS_SCHEMA_VERSION,
   NODE_STATUS_VERIFICATION_MECHANISM,
+  nodeStatusClaimResults,
   readNodeStatus,
   serializeNodeStatus,
   updateNodeStatus,
@@ -44,7 +47,14 @@ import {
   withClassificationTree,
   withPinnedNodeRepository,
   withStatusWriterTree,
+  writeProductSpec,
 } from "@testing/harnesses/node-status/node-status";
+
+function currentMethodology() {
+  return methodologyDeclaringConfig(
+    sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.methodologyVersion(NODE_STATUS_CLAIM_SHAPE.CURRENT)),
+  );
+}
 
 describe("spx spec status --update claim shape", () => {
   it("ALWAYS: writes each node's claim in the shape of the methodology version the product declares", async () => {
@@ -132,6 +142,31 @@ describe("spx spec status --update write set", () => {
   });
 });
 
+describe("spx spec status --update product exclusion", () => {
+  it("ALWAYS: writes a status file for each tracked output node and none for a .product, under the claim shape of each declared methodology version", async () => {
+    for (const shape of Object.values(NODE_STATUS_CLAIM_SHAPE)) {
+      const version = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.methodologyVersion(shape));
+      await withStatusWriterTree(
+        sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.statusWriterTree()),
+        async ({ env, expectations, resolveOutcome }) => {
+          await writeProductSpec(env, sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.productName()));
+
+          await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+
+          expect(expectations.length, version).toBeGreaterThan(0);
+          expect([...await listNodeStatusFiles(env.productDir)].sort(compareAsciiStrings), version).toEqual(
+            expectations.map((expectation) => expectation.statusPath).sort(compareAsciiStrings),
+          );
+          expect(await listNodeStatusFiles(env.productDir), version).not.toContain(
+            [SPEC_TREE_CONFIG.ROOT_DIRECTORY, NODE_STATUS_FILENAME].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+          );
+        },
+        methodologyDeclaringConfig(version),
+      );
+    }
+  });
+});
+
 describe("status read paths", () => {
   it("NEVER: spx spec status, the evidence provider, the EXCLUDE reader, or the status reader writes spx.status.json — neither creating one where none exists nor changing one --update wrote", async () => {
     await withClassificationTree(
@@ -209,6 +244,54 @@ describe("spx spec status --update outcome source", () => {
         }
       },
     );
+  });
+
+  it("ALWAYS: under a 4.0 methodology, derives each audit rule slug and evidence kind outcome only from the result a recorded run produced — an unanswered slug or kind reads not-run with no pin and fabricates no pass", async () => {
+    const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
+    await withPinnedNodeRepository(fixture, currentMethodology(), async (repository) => {
+      const subject = repository.subjectPaths[0] ?? "";
+      const [answeredSlug, ...unansweredSlugs] = repository.auditRuleSlugs;
+      const answeredVerdict = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.recordedVerdict());
+      const attribution = {
+        actor: { [NODE_STATUS_CLAIM_FIELD.ACTOR_KIND]: NODE_STATUS_ACTOR_KIND.AGENT, id: fixture.slug },
+        run: fixture.dirName,
+      };
+      expect(unansweredSlugs.length).toBeGreaterThan(0);
+
+      await updateNodeStatus({
+        productDir: repository.env.productDir,
+        resolveOutcome: (_nodeId, evidencePaths) =>
+          Promise.resolve(
+            Object.fromEntries(evidencePaths.map((path) => [path, NODE_STATUS_EVIDENCE_OUTCOME.PASSED] as const)),
+          ),
+        resolveReadPaths: () => Promise.resolve([subject]),
+        resolveAttributedResults: () =>
+          Promise.resolve({
+            audit: { [answeredSlug ?? ""]: { verdict: answeredVerdict, read: [subject], ...attribution } },
+          }),
+        gitDependencies: repository.git,
+      });
+
+      const written = readNodeStatus(join(repository.env.productDir, repository.nodePath));
+      expect(written?.shape).toBe(NODE_STATUS_CLAIM_SHAPE.CURRENT);
+      if (written?.shape !== NODE_STATUS_CLAIM_SHAPE.CURRENT) return;
+      const entryOf = (section: string, key: string) =>
+        nodeStatusClaimResults(written.claim).find((result) => result.section === section && result.key === key)
+          ?.entry;
+      const notRun = { [NODE_STATUS_CLAIM_FIELD.VERDICT]: NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN };
+
+      expect(entryOf(NODE_STATUS_CLAIM_SECTION.AUDIT, answeredSlug ?? "")).toEqual({
+        [NODE_STATUS_CLAIM_FIELD.VERDICT]: answeredVerdict,
+        [NODE_STATUS_CLAIM_FIELD.COMMIT]: repository.commit,
+        [NODE_STATUS_CLAIM_FIELD.READ]: [repository.specPath, subject].sort(compareAsciiStrings),
+        [NODE_STATUS_CLAIM_FIELD.ACTOR]: attribution.actor,
+        [NODE_STATUS_CLAIM_FIELD.RUN]: attribution.run,
+      });
+      for (const slug of unansweredSlugs) {
+        expect(entryOf(NODE_STATUS_CLAIM_SECTION.AUDIT, slug)).toEqual(notRun);
+      }
+      expect(entryOf(NODE_STATUS_CLAIM_SECTION.EVIDENCE, NODE_STATUS_CLAIM_SECTION.TEST)).toEqual(notRun);
+    });
   });
 
   it("ALWAYS: executes no verification — a linked reference no recorded run covers reads not-run after --update", async () => {

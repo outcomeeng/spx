@@ -180,7 +180,39 @@ export const NODE_STATUS_TEST_GENERATOR = {
   variantParent: arbitraryVariantParent,
   methodologyVersion: arbitraryMethodologyVersion,
   commitId: arbitraryCommitId,
+  productName: arbitraryNodeSlug,
+  recordedVerdict: arbitraryRecordedVerdict,
+  recordedRuns: arbitraryRecordedRuns,
 } as const;
+
+/** What a recorded run reported for one result: its verdict and the subject paths it read. */
+export type RecordedRun = {
+  readonly verdict: NodeStatusEvidenceOutcome;
+  readonly read: readonly string[];
+};
+
+function arbitraryRecordedVerdict(): fc.Arbitrary<NodeStatusEvidenceOutcome> {
+  return fc.constantFrom(NODE_STATUS_EVIDENCE_OUTCOME.PASSED, NODE_STATUS_EVIDENCE_OUTCOME.FAILED);
+}
+
+/**
+ * For each of `keys`, the run a recorded verification surface reported: any verdict, and the subject paths
+ * it read as any subset of `subjectPaths`, so a run covers no subject, some, or all of them. With `optional`,
+ * a key may also have no recorded run at all.
+ */
+function arbitraryRecordedRuns(
+  subjectPaths: readonly string[],
+  keys: readonly string[],
+  optional = false,
+): fc.Arbitrary<Readonly<Record<string, RecordedRun | undefined>>> {
+  const run: fc.Arbitrary<RecordedRun> = fc.record({
+    verdict: arbitraryEvidenceOutcome(),
+    read: fc.subarray([...subjectPaths]),
+  });
+  return fc
+    .tuple(...keys.map(() => (optional ? fc.option(run, { nil: undefined }) : run)))
+    .map((runs) => Object.fromEntries(keys.map((key, index) => [key, runs[index]])));
+}
 
 const COMMIT_ID_PATTERN = /^[0-9a-f]{40}$/;
 
