@@ -532,8 +532,9 @@ function arbitraryTrackedPathProbe(trackedFiles: ReadonlySet<string>): fc.Arbitr
   const segmentPrefixProbes = [...trackedFiles].flatMap((file) => {
     const segments = file.split(TRACKED_PATH_DIRECTORY_SEPARATOR);
     return segments.flatMap((segment, depth) =>
-      Array.from({ length: segment.length - 1 }, (_, index) =>
-        [...segments.slice(0, depth), segment.slice(0, index + 1)].join(TRACKED_PATH_DIRECTORY_SEPARATOR)
+      Array.from(
+        { length: segment.length - 1 },
+        (_, index) => [...segments.slice(0, depth), segment.slice(0, index + 1)].join(TRACKED_PATH_DIRECTORY_SEPARATOR),
       )
     );
   });
