@@ -175,6 +175,7 @@ export const NODE_STATUS_TEST_GENERATOR = {
   gitRunnerFailure: arbitraryGitRunnerFailure,
   trackedFile: arbitraryTrackedFile,
   trackedFileSet: arbitraryTrackedFileSet,
+  trackedPathProbe: arbitraryTrackedPathProbe,
   untrackedNodeStatusPath: arbitraryUntrackedNodeStatusPath,
   pinnedNode: arbitraryPinnedNode,
   variantParent: arbitraryVariantParent,
@@ -520,6 +521,25 @@ function arbitraryTrackedFileSet(): fc.Arbitrary<ReadonlySet<string>> {
   return fc
     .array(arbitraryTrackedFile(), { minLength: 0, maxLength: 6 })
     .map((files) => new Set(files));
+}
+
+/**
+ * A probe path for the tracked-path predicate against `trackedFiles`: an arbitrary tracked-shaped path, or a
+ * path cut inside a segment of one tracked file, so its last segment is a proper string prefix of a tracked
+ * segment at the same depth and only the directory-separator boundary separates it from an ancestor directory.
+ */
+function arbitraryTrackedPathProbe(trackedFiles: ReadonlySet<string>): fc.Arbitrary<string> {
+  const segmentPrefixProbes = [...trackedFiles].flatMap((file) => {
+    const segments = file.split(TRACKED_PATH_DIRECTORY_SEPARATOR);
+    return segments.flatMap((segment, depth) =>
+      Array.from({ length: segment.length - 1 }, (_, index) =>
+        [...segments.slice(0, depth), segment.slice(0, index + 1)].join(TRACKED_PATH_DIRECTORY_SEPARATOR)
+      )
+    );
+  });
+  return segmentPrefixProbes.length === 0
+    ? arbitraryTrackedFile()
+    : fc.oneof(arbitraryTrackedFile(), fc.constantFrom(...segmentPrefixProbes));
 }
 
 function arbitraryUntrackedNodeStatusPath(takenNodeIds: readonly string[] = []): fc.Arbitrary<string> {
