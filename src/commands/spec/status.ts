@@ -1,6 +1,12 @@
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { defaultGitDependencies, type GitDependencies } from "@/lib/git/root";
-import { createNodeStatusProvider, type NodeOutcomeResolver, updateNodeStatus } from "@/lib/node-status";
+import {
+  createNodeStatusProvider,
+  type NodeAttributedResultResolver,
+  type NodeOutcomeResolver,
+  type NodeReadPathResolver,
+  updateNodeStatus,
+} from "@/lib/node-status";
 import {
   createFilesystemSpecTreeSource,
   projectSpecTree,
@@ -81,6 +87,10 @@ interface StatusUpdateOptions extends Omit<StatusBaseOptions, "source"> {
   update: true;
   /** Builds the per-node outcome resolver --update injects. */
   resolveOutcomeFor: (productDir: string) => NodeOutcomeResolver;
+  /** Builds the resolver of the paths each linked reference's recorded result read. */
+  resolveReadPathsFor?: (productDir: string) => NodeReadPathResolver;
+  /** Builds the resolver of the audit and evidence results sealed audit runs recorded. */
+  resolveAttributedResultsFor?: (productDir: string) => NodeAttributedResultResolver;
 }
 
 interface StatusInMemoryUpdateOptions extends StatusBaseOptions {
@@ -118,7 +128,17 @@ export async function statusCommand(
     // are injected at the command edge; updateNodeStatus restricts writes to git-tracked
     // node directories so a stale, untracked, node-shaped directory is neither written
     // nor retained by the stale-file sweep.
-    await updateNodeStatus({ productDir, resolveOutcome: options.resolveOutcomeFor(productDir), gitDependencies });
+    await updateNodeStatus({
+      productDir,
+      resolveOutcome: options.resolveOutcomeFor(productDir),
+      gitDependencies,
+      ...(options.resolveReadPathsFor === undefined
+        ? {}
+        : { resolveReadPaths: options.resolveReadPathsFor(productDir) }),
+      ...(options.resolveAttributedResultsFor === undefined
+        ? {}
+        : { resolveAttributedResults: options.resolveAttributedResultsFor(productDir) }),
+    });
   }
   // Read-back: a node's committed spx.status.json overrides live derivation; a node
   // with no status file yields undefined, routing the spec-tree library back to live

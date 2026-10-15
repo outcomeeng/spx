@@ -1,14 +1,6 @@
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { AUDIT_KIND, type AuditKind, type AuditScopeUnit, type VerifyVerifier } from "@/domains/verify/verify";
-
-/** The malleability layers a node declares; only the implementation layer requires evidence audits. */
-export const CLAIM_MALLEABILITY = {
-  SPEC: "spec",
-  VERIFICATION: "verification",
-  IMPLEMENTATION: "implementation",
-} as const;
-
-export type ClaimMalleability = (typeof CLAIM_MALLEABILITY)[keyof typeof CLAIM_MALLEABILITY];
+import { NODE_STATUS_MALLEABILITY, type NodeStatusMalleability } from "@/lib/node-status";
 
 /** The kinds of linked evidence a node's claim records an `evidence` entry for. */
 export const CLAIM_EVIDENCE_KIND = {
@@ -54,9 +46,9 @@ export interface AuditClaimRun {
   readonly ruleSlug?: string;
 }
 
-/** The node facts the claim entry derives from: its malleability and the kinds of evidence its spec links. */
+/** The node facts the claim entry derives from: its malleability (only the implementation layer requires evidence audits) and the kinds of evidence its spec links. */
 export interface AuditClaimNode {
-  readonly malleability: ClaimMalleability;
+  readonly malleability: NodeStatusMalleability;
   readonly linkedEvidenceKinds: readonly ClaimEvidenceKind[];
 }
 
@@ -82,7 +74,7 @@ export function auditClaimEntry(run: AuditClaimRun, node: AuditClaimNode): Audit
   if (run.ruleSlug !== undefined) {
     return { section: AUDIT_CLAIM_ENTRY_SECTION.AUDIT, key: run.ruleSlug, ...identity };
   }
-  if (node.malleability !== CLAIM_MALLEABILITY.IMPLEMENTATION) return undefined;
+  if (node.malleability !== NODE_STATUS_MALLEABILITY.IMPLEMENTATION) return undefined;
   for (const unit of run.auditScopeUnits) {
     const evidenceKind = EVIDENCE_KIND_BY_AUDIT_KIND.get(unit.auditKind);
     if (evidenceKind !== undefined && node.linkedEvidenceKinds.includes(evidenceKind)) {

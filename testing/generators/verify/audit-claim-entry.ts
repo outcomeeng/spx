@@ -7,10 +7,10 @@ import {
   type AuditClaimNode,
   type AuditClaimRun,
   CLAIM_EVIDENCE_KIND,
-  CLAIM_MALLEABILITY,
   type ClaimEvidenceKind,
 } from "@/domains/verify/audit-claim-entry";
 import { AUDIT_KIND, type AuditKind, VERIFY_VERIFIER_KIND, type VerifyVerifier } from "@/domains/verify/verify";
+import { NODE_STATUS_MALLEABILITY } from "@/lib/node-status";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { arbitraryAuditScopeUnit } from "@testing/generators/verify/audit";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
@@ -53,7 +53,7 @@ function expectedEvidenceEntry(
 ): ExpectedAuditClaimEntry | undefined {
   const evidenceKind = EVIDENCE_AUDIT_KINDS.get(auditKind);
   if (evidenceKind === undefined) return undefined;
-  if (node.malleability !== CLAIM_MALLEABILITY.IMPLEMENTATION) return undefined;
+  if (node.malleability !== NODE_STATUS_MALLEABILITY.IMPLEMENTATION) return undefined;
   if (!node.linkedEvidenceKinds.includes(evidenceKind)) return undefined;
   return { section: AUDIT_CLAIM_ENTRY_SECTION.EVIDENCE, key: evidenceKind, ...identity };
 }
@@ -112,7 +112,7 @@ export function auditClaimEntryMappingCases(): readonly AuditClaimEntryMappingCa
 }
 
 function nodesOverAllMalleabilities(): readonly AuditClaimNode[] {
-  return Object.values(CLAIM_MALLEABILITY).flatMap((malleability) =>
+  return Object.values(NODE_STATUS_MALLEABILITY).flatMap((malleability) =>
     LINKED_EVIDENCE_KIND_SETS.map((linkedEvidenceKinds) => ({ malleability, linkedEvidenceKinds }))
   );
 }
