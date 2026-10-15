@@ -15,6 +15,15 @@ export function registerTestMappingTests(): void {
     });
   });
 
+  describe("read-path declaration", () => {
+    it.each(testingRegistry.languages)(
+      "$name declares read-path supply exactly when it journals its runs",
+      (descriptor) => {
+        expect(descriptor.suppliesReadPaths).toBe(descriptor.runTestsStreaming !== undefined);
+      },
+    );
+  });
+
   describe("extension-based dispatch routing", () => {
     it.each<TestingLanguageDescriptor>([typescriptTestingLanguage, pythonTestingLanguage])(
       "routes a $name test file into that language's group",
