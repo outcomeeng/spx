@@ -49,8 +49,6 @@ export type NodeOutcomeResolver = (
 export interface UpdateNodeStatusOptions {
   readonly productDir: string;
   readonly resolveOutcome: NodeOutcomeResolver;
-  /** Whether Validate passed for the checkout; a 4.0 node is `passing` only with a passed Validate. */
-  readonly validatePassed?: boolean;
   /** The paths each linked reference's recorded result read; a 4.0 result without them reads `not-run`. */
   readonly resolveReadPaths?: NodeReadPathResolver;
   /** The audit and evidence results sealed audit runs recorded; absent results read `not-run`. */
@@ -87,7 +85,6 @@ export async function updateNodeStatus(options: UpdateNodeStatusOptions): Promis
   const liveStatusPaths = new Set<string>();
   const claimFoldContext = {
     productDir,
-    validatePassed: options.validatePassed ?? true,
     git: gitDependencies,
     trackedPaths: trackedPaths ?? new Set<string>(),
     pinChanges,

@@ -67,7 +67,6 @@ export interface NodeClaimFoldInput {
   /** The per-reference outcomes recorded runs produced; an omitted reference is covered but stale. */
   readonly outcomes: Readonly<Partial<Record<string, NodeStatusEvidenceOutcome>>>;
   readonly committed: NodeStatusClaimVerification;
-  readonly validatePassed: boolean;
   readonly git: GitDependencies;
   readonly trackedPaths: ReadonlySet<string>;
   readonly pinChanges: PinChangeReader;
@@ -146,7 +145,6 @@ export async function foldNodeClaim(input: NodeClaimFoldInput): Promise<NodeStat
     ),
   );
   const facts = {
-    validatePassed: input.validatePassed,
     requiredArtifactsMissing: input.evidencePaths.length === 0,
     results,
   };

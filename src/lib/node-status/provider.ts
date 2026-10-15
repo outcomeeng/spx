@@ -111,7 +111,6 @@ export async function createNodeStatusProvider(
     );
     const nodePath = `${ROOT_PREFIX}${nodeId}`;
     const facts = {
-      validatePassed: true,
       requiredArtifactsMissing: claim[NODE_STATUS_CLAIM_FIELD.STATE] === SPEC_TREE_NODE_STATE.DECLARED,
       results,
     };

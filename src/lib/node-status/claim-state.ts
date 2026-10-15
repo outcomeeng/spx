@@ -18,8 +18,6 @@ export interface NodeStatusResultFact {
 
 /** The observable facts that determine the lifecycle state of a node measured against a 4.0 claim. */
 export interface NodeClaimClassificationFacts {
-  /** Whether Validate passed for the checkout. */
-  readonly validatePassed: boolean;
   /** Whether a verification artifact the node's malleability requires is missing. */
   readonly requiredArtifactsMissing: boolean;
   readonly results: readonly NodeStatusResultFact[];
@@ -28,7 +26,7 @@ export interface NodeClaimClassificationFacts {
 }
 
 /**
- * Resolve a node's lifecycle state from a 4.0 claim's facts: `passing` when Validate passed and every required
+ * Resolve a node's lifecycle state from a 4.0 claim's facts: `passing` when every required
  * result is current and passed; otherwise `failing` when the claim recorded `passing` at or after the latest
  * declaration change; otherwise `declared` when a required artifact is missing; otherwise `specified`.
  */
@@ -37,7 +35,7 @@ export function classifyNodeClaim(facts: NodeClaimClassificationFacts): SpecTree
     (result) =>
       result.verdict === NODE_STATUS_EVIDENCE_OUTCOME.PASSED && result.currency === NODE_STATUS_CURRENCY.CURRENT,
   );
-  if (facts.validatePassed && !facts.requiredArtifactsMissing && facts.results.length > 0 && everyResultHolds) {
+  if (!facts.requiredArtifactsMissing && facts.results.length > 0 && everyResultHolds) {
     return SPEC_TREE_NODE_STATE.PASSING;
   }
   if (facts.recordedPassingAtOrAfterDeclaration) return SPEC_TREE_NODE_STATE.FAILING;
