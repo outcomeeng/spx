@@ -682,7 +682,7 @@ interface CompleteVerifyStartArgs {
 }
 
 /** The separator between the kind and the id of a `--verifier <kind>:<id>` operand. */
-const VERIFIER_OPERAND_SEPARATOR = ":";
+export const VERIFIER_OPERAND_SEPARATOR = ":";
 
 /** The Verifier a start supplies, or `undefined` when it supplies none or an invalid one. */
 function startVerifier(options: VerifyStartCliOptions): VerifyVerifier | undefined {

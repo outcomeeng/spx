@@ -1,6 +1,7 @@
 import * as fc from "fast-check";
 import { posix, win32 } from "node:path";
 
+import { VERIFIER_OPERAND_SEPARATOR } from "@/commands/verify/cli";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import {
   VERIFICATION_CONTEXT_FILE_SUBJECT_PATH,
@@ -1547,9 +1548,6 @@ export interface VerifierIdentity {
 }
 
 const EMPTY_VERIFIER_ID = "";
-
-/** The separator between a Verifier operand's kind and id, per the `<kind>:<id>` form. */
-const VERIFIER_OPERAND_SEPARATOR = ":";
 
 /** The `<kind>:<id>` operand that supplies the given Verifier to `spx verification run start --verifier`. */
 export function composeVerifierOperand(verifier: VerifierIdentity): string {
