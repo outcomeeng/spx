@@ -148,7 +148,16 @@ function runReadModule(
       else process.env.TMPDIR = priorTmpdir;
     }
     const files = await snapshotFiles(productDir);
-    return { dataFilePath, dataFileContent: content, recordedPaths, moduleMetaKeys, moduleState, readContent, files, consoleOutput };
+    return {
+      dataFilePath,
+      dataFileContent: content,
+      recordedPaths,
+      moduleMetaKeys,
+      moduleState,
+      readContent,
+      files,
+      consoleOutput,
+    };
   });
 }
 
