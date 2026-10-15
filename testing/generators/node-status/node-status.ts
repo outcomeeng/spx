@@ -178,6 +178,7 @@ export const NODE_STATUS_TEST_GENERATOR = {
   trackedPathProbe: arbitraryTrackedPathProbe,
   untrackedNodeStatusPath: arbitraryUntrackedNodeStatusPath,
   pinnedNode: arbitraryPinnedNode,
+  nestedPinnedNode: arbitraryNestedPinnedNode,
   variantParent: arbitraryVariantParent,
   methodologyVersion: arbitraryMethodologyVersion,
   commitId: arbitraryCommitId,
@@ -264,6 +265,8 @@ export type PinnedNodeFixture = {
   /** Product-relative paths of the source subjects, at least two and distinct. */
   readonly subjectPaths: readonly string[];
   readonly editedSubject: number;
+  /** The directory the node nests in, when it is not a top-level node. */
+  readonly ancestor?: { readonly dirName: string; readonly slug: string };
 };
 
 /**
@@ -278,11 +281,29 @@ export const DECISION_PLACEMENT = {
   UNRELATED_NODE: "unrelated-node",
 } as const;
 
-export type DecisionPlacement = (typeof DECISION_PLACEMENT)[keyof typeof DECISION_PLACEMENT];
+/**
+ * Where a decision record sits relative to a node nested in an ancestor, beside the placements of
+ * `DECISION_PLACEMENT` (whose product-root indices then compare with the ancestor's index): inside the ancestor's
+ * directory with an index lower than, equal to, or higher than the node's.
+ */
+export const ANCESTOR_DECISION_PLACEMENT = {
+  ANCESTOR_LOWER_INDEX: "ancestor-lower-index",
+  ANCESTOR_SAME_INDEX: "ancestor-same-index",
+  ANCESTOR_HIGHER_INDEX: "ancestor-higher-index",
+} as const;
 
-/** Every decision placement, each exactly once. */
+export type DecisionPlacement =
+  | (typeof DECISION_PLACEMENT)[keyof typeof DECISION_PLACEMENT]
+  | (typeof ANCESTOR_DECISION_PLACEMENT)[keyof typeof ANCESTOR_DECISION_PLACEMENT];
+
+/** Every placement around a top-level node, each exactly once. */
 export function enumerateDecisionPlacements(): readonly DecisionPlacement[] {
   return Object.values(DECISION_PLACEMENT);
+}
+
+/** Every placement around a node nested in an ancestor, each exactly once. */
+export function enumerateNestedDecisionPlacements(): readonly DecisionPlacement[] {
+  return [...Object.values(DECISION_PLACEMENT), ...Object.values(ANCESTOR_DECISION_PLACEMENT)];
 }
 
 /** A parent node with variants, each variant either passing or carrying a failed result. */
@@ -313,6 +334,24 @@ function arbitraryPinnedNode(): fc.Arbitrary<PinnedNodeFixture> {
         editedSubject,
       }))
     );
+}
+
+function arbitraryNestedPinnedNode(): fc.Arbitrary<PinnedNodeFixture> {
+  return fc
+    .tuple(
+      arbitraryPinnedNode(),
+      fc.record({
+        order: fc.integer({
+          min: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MIN,
+          max: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MAX,
+        }),
+        slug: arbitraryNodeSlug(),
+      }),
+    )
+    .map(([node, ancestor]): PinnedNodeFixture => ({
+      ...node,
+      ancestor: { dirName: nodeDirectoryName(ancestor.order, ancestor.slug), slug: ancestor.slug },
+    }));
 }
 
 function arbitraryVariantParent(): fc.Arbitrary<VariantParentFixture> {

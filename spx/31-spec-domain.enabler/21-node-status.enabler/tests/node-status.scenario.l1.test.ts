@@ -149,6 +149,7 @@ describe("a parent whose variants' claims carry its entries", () => {
       sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.variantParent()),
       currentMethodology(),
       async (tree) => {
+        await tree.recordClaims();
         const snapshot = await readSpecTree({
           source: createFilesystemSpecTreeSource({ productDir: tree.env.productDir }),
           evidence: await createNodeStatusProvider(tree.env.productDir, { gitDependencies: tree.git }),

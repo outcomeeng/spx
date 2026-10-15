@@ -13,8 +13,8 @@ import {
   createNodeStatusFile,
   createNodeStatusMechanismRecord,
   createPinChangeReader,
+  NODE_STATUS_ACTOR_KIND,
   NODE_STATUS_CLAIM_FIELD,
-  NODE_STATUS_CLAIM_SECTION,
   NODE_STATUS_CLAIM_SHAPE,
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_EXCLUDE_FILENAME,
@@ -31,6 +31,7 @@ import {
   readNodeStatus,
   serializeNodeStatus,
   serializeNodeStatusClaim,
+  updateNodeStatus,
 } from "@/lib/node-status";
 import {
   KIND_REGISTRY,
@@ -43,6 +44,7 @@ import {
 import { testingRegistry } from "@/test/registry";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import {
+  ANCESTOR_DECISION_PLACEMENT,
   type ClassificationFixtureFacts,
   type ClassificationTreeFixture,
   DECISION_PLACEMENT,
@@ -566,18 +568,25 @@ export async function withPinnedNodeRepository(
       readFixture(LINKED_SPEC_FIXTURE_PATH),
       readFixture(CLASSIFICATION_FIXTURE_PATHS.test),
     ]);
-    const nodePath = nodeTreePath(fixture.dirName);
+    const ancestorSegments = fixture.ancestor === undefined ? [] : [fixture.ancestor.dirName];
+    const nodePath = nodeTreePath(...ancestorSegments, fixture.dirName);
     const specPath = `${nodePath}${PATH_SEPARATOR}${fixture.slug}${SPEC_FILE_SUFFIX}`;
     const linkedTests = [...specContent.matchAll(SPEC_LINK_TARGET_PATTERN)].flatMap((match) => {
       const target = match.at(SPEC_LINK_TARGET_GROUP);
       return target === undefined ? [] : [target];
     });
     const testPaths = linkedTests.map((target) => `${nodePath}${PATH_SEPARATOR}${target}`);
+    if (fixture.ancestor !== undefined) {
+      await env.writeNode(
+        nodeTreePath(fixture.ancestor.dirName, `${fixture.ancestor.slug}${SPEC_FILE_SUFFIX}`),
+        specContent,
+      );
+    }
     await env.writeNode(specPath, specContent);
     for (const testPath of testPaths) await env.writeNode(testPath, testContent);
     for (const subjectPath of fixture.subjectPaths) await env.writeRaw(subjectPath, testContent);
     const nodeOrder = Number(fixture.dirName.split(SPEC_TREE_GRAMMAR.ORDER.SEPARATOR).at(0));
-    const decisionPaths = decisionPathsAround(fixture.dirName, nodeOrder);
+    const decisionPaths = decisionPathsAround(fixture, nodeOrder);
     for (const decisionPath of Object.values(decisionPaths)) await env.writeNode(decisionPath, specContent);
     await runFixtureGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
     await commitPaths(env.productDir, REPOSITORY_ROOT_PATHS);
@@ -585,7 +594,7 @@ export async function withPinnedNodeRepository(
 
     await callback({
       env,
-      nodeId: fixture.dirName,
+      nodeId: [...ancestorSegments, fixture.dirName].join(PATH_SEPARATOR),
       nodePath,
       specPath,
       testPaths,
@@ -622,8 +631,9 @@ export async function withPinnedNodeRepository(
       rewriteSpecLinksTreeAbsolute: () =>
         env.writeNode(specPath, specContent.replaceAll("](tests/", `](${nodePath}${PATH_SEPARATOR}tests/`)),
       editSpecText: () => env.writeNode(specPath, `${specContent}${SPEC_APPENDIX}`),
-      decisionPath: (placement) => decisionPaths[placement],
-      editDecision: (placement) => env.writeNode(decisionPaths[placement], `${specContent}${SPEC_APPENDIX}`),
+      decisionPath: (placement) => decisionPathAt(decisionPaths, placement),
+      editDecision: (placement) =>
+        env.writeNode(decisionPathAt(decisionPaths, placement), `${specContent}${SPEC_APPENDIX}`),
     });
   });
 }
@@ -633,19 +643,52 @@ const DECISION_ORDER_ABOVE_NODE = 100;
 const DECISION_FILE_SLUG = "decision";
 const UNRELATED_NODE_DIRECTORY_PREFIX = "unrelated-";
 
-function decisionPathsAround(nodeDirName: string, nodeOrder: number): Readonly<Record<DecisionPlacement, string>> {
+function decisionPathsAround(
+  fixture: PinnedNodeFixture,
+  nodeOrder: number,
+): Readonly<Partial<Record<DecisionPlacement, string>>> {
   const decisionFile = (order: number) =>
     `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${DECISION_FILE_SLUG}${KIND_REGISTRY.adr.suffix}`;
-  return {
-    [DECISION_PLACEMENT.OWN_DIRECTORY]: nodeTreePath(nodeDirName, decisionFile(nodeOrder)),
+  const { ancestor } = fixture;
+  const rootOrder = ancestor === undefined
+    ? nodeOrder
+    : Number(ancestor.dirName.split(SPEC_TREE_GRAMMAR.ORDER.SEPARATOR).at(0));
+  const own = {
+    [DECISION_PLACEMENT.OWN_DIRECTORY]: nodeTreePath(
+      ...(ancestor === undefined ? [] : [ancestor.dirName]),
+      fixture.dirName,
+      decisionFile(nodeOrder),
+    ),
     [DECISION_PLACEMENT.ROOT_LOWER_INDEX]: nodeTreePath(decisionFile(DECISION_ORDER_BELOW_NODE)),
-    [DECISION_PLACEMENT.ROOT_SAME_INDEX]: nodeTreePath(decisionFile(nodeOrder)),
+    [DECISION_PLACEMENT.ROOT_SAME_INDEX]: nodeTreePath(decisionFile(rootOrder)),
     [DECISION_PLACEMENT.ROOT_HIGHER_INDEX]: nodeTreePath(decisionFile(DECISION_ORDER_ABOVE_NODE)),
     [DECISION_PLACEMENT.UNRELATED_NODE]: nodeTreePath(
-      `${UNRELATED_NODE_DIRECTORY_PREFIX}${nodeDirName}`,
+      `${UNRELATED_NODE_DIRECTORY_PREFIX}${ancestor?.dirName ?? fixture.dirName}`,
       decisionFile(nodeOrder),
     ),
   };
+  if (ancestor === undefined) return own;
+  return {
+    ...own,
+    [ANCESTOR_DECISION_PLACEMENT.ANCESTOR_LOWER_INDEX]: nodeTreePath(
+      ancestor.dirName,
+      decisionFile(DECISION_ORDER_BELOW_NODE),
+    ),
+    [ANCESTOR_DECISION_PLACEMENT.ANCESTOR_SAME_INDEX]: nodeTreePath(ancestor.dirName, decisionFile(nodeOrder)),
+    [ANCESTOR_DECISION_PLACEMENT.ANCESTOR_HIGHER_INDEX]: nodeTreePath(
+      ancestor.dirName,
+      decisionFile(DECISION_ORDER_ABOVE_NODE),
+    ),
+  };
+}
+
+function decisionPathAt(
+  paths: Readonly<Partial<Record<DecisionPlacement, string>>>,
+  placement: DecisionPlacement,
+): string {
+  const path = paths[placement];
+  if (path === undefined) throw new Error(`The node has no decision placed at ${placement}`);
+  return path;
 }
 
 async function writeClaim(
@@ -664,13 +707,24 @@ async function writeClaim(
   );
 }
 
-/** A committed parent with variants, each carrying a 4.0 claim whose one test result passes or fails. */
+/** A committed parent with variants whose claims the status update records from each variant's passes or fails. */
 export type VariantTreeEnv = {
   readonly env: SpecTreeEnv;
   readonly parentId: string;
   readonly variants: readonly { readonly nodeId: string; readonly passes: boolean }[];
   readonly git: GitDependencies;
+  /**
+   * Run `updateNodeStatus` over the tree with recorded runs that report each variant's test, and its evidence kind,
+   * as passed when the variant passes and failed otherwise, each reading the variant's spec, test, and source subject.
+   */
+  recordClaims(): Promise<void>;
 };
+
+function leadingGrammarToken(tokens: readonly string[]): string {
+  const token = tokens.at(0);
+  if (token === undefined) throw new Error("The spec-tree evidence grammar declares no tokens");
+  return token;
+}
 
 export async function withVariantTree(
   fixture: VariantParentFixture,
@@ -688,14 +742,16 @@ export async function withVariantTree(
       const nodePath = `${parentPath}${PATH_SEPARATOR}${variant.dirName}`;
       const testKey = [
         SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
-        [variant.slug, "scenario", "l1", ...SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT].join(
-          SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR,
-        ),
+        [
+          variant.slug,
+          leadingGrammarToken(SPEC_TREE_EVIDENCE_FILE.MODES),
+          leadingGrammarToken(SPEC_TREE_EVIDENCE_FILE.LEVELS),
+          ...SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT,
+        ].join(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR),
       ].join(PATH_SEPARATOR);
       return {
         ...variant,
-        nodePath,
-        testKey,
+        nodeId: `${fixture.parentDirName}${PATH_SEPARATOR}${variant.dirName}`,
         specPath: `${nodePath}${PATH_SEPARATOR}${variant.slug}${SPEC_FILE_SUFFIX}`,
         testPath: `${nodePath}${PATH_SEPARATOR}${testKey}`,
         subjectPath: `${VARIANT_SUBJECT_DIRECTORY}${PATH_SEPARATOR}${variant.slug}.ts`,
@@ -708,29 +764,39 @@ export async function withVariantTree(
     }
     await runFixtureGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
     await commitPaths(env.productDir, REPOSITORY_ROOT_PATHS);
-    const commit = await runFixtureGit(env.productDir, [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
-    for (const variant of variants) {
-      await writeClaim(env, variant.nodePath, {
-        [NODE_STATUS_CLAIM_SECTION.TEST]: {
-          [variant.testKey]: {
-            [NODE_STATUS_CLAIM_FIELD.VERDICT]: variant.passes
-              ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED
-              : NODE_STATUS_EVIDENCE_OUTCOME.FAILED,
-            [NODE_STATUS_CLAIM_FIELD.COMMIT]: commit,
-            [NODE_STATUS_CLAIM_FIELD.READ]: [variant.specPath, variant.testPath, variant.subjectPath],
-          },
-        },
-      });
-    }
-    await writeClaim(env, parentPath, {});
+    const verdictOf = (nodeId: string): NodeStatusEvidenceOutcome =>
+      variants.find((variant) => variant.nodeId === nodeId)?.passes === true
+        ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED
+        : NODE_STATUS_EVIDENCE_OUTCOME.FAILED;
     await callback({
       env,
       parentId: fixture.parentDirName,
-      variants: variants.map((variant) => ({
-        nodeId: `${fixture.parentDirName}${PATH_SEPARATOR}${variant.dirName}`,
-        passes: variant.passes,
-      })),
+      variants: variants.map((variant) => ({ nodeId: variant.nodeId, passes: variant.passes })),
       git: isolatedFixtureGitDependencies,
+      recordClaims: () =>
+        updateNodeStatus({
+          productDir: env.productDir,
+          gitDependencies: isolatedFixtureGitDependencies,
+          resolveOutcome: (nodeId, evidencePaths) =>
+            Promise.resolve(Object.fromEntries(evidencePaths.map((path) => [path, verdictOf(nodeId)] as const))),
+          resolveReadPaths: (nodeId) =>
+            Promise.resolve(
+              variants.filter((variant) => variant.nodeId === nodeId).map((variant) => variant.subjectPath),
+            ),
+          resolveAttributedResults: (nodeId, request) =>
+            Promise.resolve({
+              evidence: Object.fromEntries(
+                request.evidenceKinds.map((kind) =>
+                  [kind, {
+                    verdict: verdictOf(nodeId),
+                    read: variants.filter((variant) => variant.nodeId === nodeId).map((variant) => variant.subjectPath),
+                    actor: { kind: NODE_STATUS_ACTOR_KIND.AGENT, id: fixture.parentSlug },
+                    run: fixture.parentDirName,
+                  }] as const
+                ),
+              ),
+            }),
+        }),
     });
   });
 }
