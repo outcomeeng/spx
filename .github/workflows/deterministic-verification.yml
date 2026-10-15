@@ -15,7 +15,7 @@ name: Deterministic Verification
 on:
   push:
     branches: [main]
-    paths-ignore: &instruction-docs
+    paths-ignore:
       - CLAUDE.md
       - AGENTS.md
       - README.md
@@ -23,7 +23,6 @@ on:
       - docs/**
   pull_request:
     branches: [main]
-    paths-ignore: *instruction-docs
   # Callable as a release gate by publish.yml so the publish runs the full
   # deterministic suite exactly once on the tagged commit and consumes its
   # verified build artifact.
