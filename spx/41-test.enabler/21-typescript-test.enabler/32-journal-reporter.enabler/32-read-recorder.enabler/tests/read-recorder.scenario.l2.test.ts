@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type {} from "@/test/languages/read-recorder-setup";
 import { observeRecordedReadRun, READ_IMPORT_FORM } from "@testing/harnesses/testing/read-recorder";
 
 describe("read recorder over a real Vitest module", () => {

@@ -17,7 +17,7 @@ describe("read recorder wrapped entry points", () => {
       for (const targetState of Object.values(READ_TARGET)) {
         const { original, wrapped } = await observeEntryPointDelegation(entryPoint, readCase, targetState);
 
-        expect(wrapped, `${entryPoint.surface}.${entryPoint.name} over a ${targetState} file`).toEqual(original);
+        expect(wrapped, [entryPoint.surface, entryPoint.name, targetState].join(".")).toEqual(original);
       }
     }
   });
