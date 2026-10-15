@@ -6,6 +6,9 @@ CAN run spec-tree tests with a single command, honor configured passing-scope ex
 
 ## Assertions
 
+- The testing registry exposes one language-neutral evidence contract that maps each recorded result to its evidence reference, its verdict and, when the adapter supplies them, the paths it read
+- ALWAYS: each registered adapter declares whether it supplies read paths, and the status fold names no language
+
 ### Scenarios
 
 - Given a spec tree with tests in multiple languages, when `spx test` runs, then each language's testing enabler is invoked on the files matching its registered extension pattern ([test](tests/test.scenario.l1.test.ts))
