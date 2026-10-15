@@ -649,6 +649,51 @@ export function observeRealMixedRun(): Promise<RealMixedRunObservation> {
   });
 }
 
+// A committed inert suite that opens one data file at run time, naming the file through
+// an environment variable, so only the read recorder in the worker can report the read.
+const READING_FIXTURE = "reads-data.test.ts.fixture";
+/** The data file the reading fixture opens, relative to the product directory. */
+const READING_DATA_FILE_NAME = "data.txt";
+/** The environment variable through which the reading fixture learns the absolute path of its data file. */
+const READING_DATA_FILE_ENV = "READ_RECORDER_DATA_FILE";
+
+/** What a real programmatic Vitest run over a module that opens a data file at run time exposes for inspection. */
+export interface RealReadingRunObservation {
+  readonly sink: RecordingEvidenceSink;
+  readonly outcome: JournalRunOutcome;
+  /** The product-relative path of the data file the module opened, which only the read recorder can report. */
+  readonly dataFileName: string;
+  /** The product-relative path of the suite the run covered. */
+  readonly testFileName: string;
+}
+
+/**
+ * Drives a real programmatic Vitest run through the production starter over a module that
+ * opens a data file at run time, and returns what the sink recorded together with the
+ * product-relative path of the file the module opened.
+ */
+export function observeRealReadingRun(): Promise<RealReadingRunObservation> {
+  return withTempDir(TEMP_PRODUCT_PREFIX, async (productDir) => {
+    await linkProductRunnerToolchain(productDir);
+    await copyFile(join(VITEST_FIXTURE_DIR, READING_FIXTURE), join(productDir, MIXED_SUITE_NAME));
+    await writeFile(join(productDir, READING_DATA_FILE_NAME), sampleGeneratedValue(arbitraryDomainLiteral()));
+    const dataFilePath = await realpath(join(productDir, READING_DATA_FILE_NAME));
+    const sink = createRecordingEvidenceSink();
+    const priorDataFile = process.env[READING_DATA_FILE_ENV];
+    process.env[READING_DATA_FILE_ENV] = dataFilePath;
+    try {
+      const outcome = await runTestsStreaming(
+        { productDir, testPaths: [MIXED_SUITE_NAME] },
+        { sink, starter: createVitestRunStarter(productVitestNodeApiLoader) },
+      );
+      return { sink, outcome, dataFileName: READING_DATA_FILE_NAME, testFileName: MIXED_SUITE_NAME };
+    } finally {
+      if (priorDataFile === undefined) delete process.env[READING_DATA_FILE_ENV];
+      else process.env[READING_DATA_FILE_ENV] = priorDataFile;
+    }
+  });
+}
+
 const PRODUCT_SUPPLIED_PREFIX = "spx-product-supplied-vitest-";
 const RUNNERLESS_PREFIX = "spx-runnerless-product-";
 /** The file the product-supplied Node API records its `startVitest` arguments into. */

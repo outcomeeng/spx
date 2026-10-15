@@ -4,7 +4,11 @@ import { describe, expect, it } from "vitest";
 
 import { DEPENDENCIES_SEGMENT, PARENT_SEGMENT, PRODUCT_PATH_SEPARATOR } from "@/test/languages/journal-reporter";
 import { JOURNAL_RUN_TERMINAL_STATUS } from "@/test/languages/types";
-import { observeRealMixedRun, observeRealRunWithRejectingSink } from "@testing/harnesses/testing/journal-reporter";
+import {
+  observeRealMixedRun,
+  observeRealReadingRun,
+  observeRealRunWithRejectingSink,
+} from "@testing/harnesses/testing/journal-reporter";
 
 describe("journal reporter real programmatic vitest run", () => {
   it("records one module scope and a finding for the failing case over a mixed one-pass, one-fail module, and none for the passing case", async () => {
@@ -31,6 +35,15 @@ describe("journal reporter real programmatic vitest run", () => {
       expect(observation.issuedFailures.length).toBeGreaterThan(1);
       expect(observation.rejection).toBe(observation.issuedFailures[0]);
       expect(observation.resolved).toBeUndefined();
+    });
+  });
+
+  it("records the product-relative path of a data file the module opened at run time, which the read recorder registered in the worker reports", async () => {
+    await observeRealReadingRun().then((observation) => {
+      expect(observation.sink.scopes).toHaveLength(1);
+      const readPaths = observation.sink.scopes[0]?.readPaths ?? [];
+      expect(readPaths).toContain(observation.dataFileName);
+      expect(readPaths).toContain(observation.testFileName);
     });
   });
 });
