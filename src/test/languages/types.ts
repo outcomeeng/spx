@@ -67,6 +67,8 @@ export interface RelatedTestRequest {
 export interface TestScopeUnit {
   /** The module identity (its resolved file path). */
   readonly moduleId: string;
+  /** The product-relative paths the module read; absent when the module read no product file. */
+  readonly readPaths?: readonly string[];
 }
 
 /** A validated problem a journal-streaming run reports: one failing test case. */

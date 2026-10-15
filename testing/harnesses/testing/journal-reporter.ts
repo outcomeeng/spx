@@ -9,7 +9,9 @@ import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import {
   createJournalReporter,
   createVitestRunStarter,
+  type JournalReporter,
   type JournalRunOutcome,
+  LOCKFILE_NAMES,
   productVitestNodeApiLoader,
   runTestsStreaming,
   VITEST_NODE_API_ENTRY,
@@ -21,6 +23,7 @@ import {
   type VitestRunStarter,
   type VitestRunStartOptions,
 } from "@/test/languages/journal-reporter";
+import { READ_RECORDER_META_KEY } from "@/test/languages/read-recorder";
 import type {
   JournalRunInvocation,
   JournalRunRequest,
@@ -34,7 +37,12 @@ import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import type { GeneratedRunCase, GeneratedRunScenario } from "@testing/generators/testing/journal-reporter";
-import { JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
+import {
+  absoluteReadPath,
+  JOURNAL_REPORTER_TEST_GENERATOR,
+  loadedReadPaths,
+  openedReadPaths,
+} from "@testing/generators/testing/journal-reporter";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 /** The directory a product's installed runner toolchain resolves from. */
@@ -308,8 +316,24 @@ export async function observeAsyncSinkAppendTiming(
 
 // Minimal Vitest doubles carrying only the fields the reporter reads; the real
 // TestModule / TestCase cannot be constructed outside a live run (Stage 5: contract probe).
-function buildTestModuleDouble(moduleId: string): TestModule {
-  return { moduleId } as unknown as TestModule;
+function buildTestModuleDouble(scenario: GeneratedRunScenario): TestModule {
+  return {
+    moduleId: scenario.moduleId,
+    project: { config: { root: scenario.reads.productRoot } },
+    diagnostic: () => ({
+      importDurations: Object.fromEntries(loadedReadPaths(scenario.reads).map((path) => [path, {}])),
+    }),
+    meta: () => ({ [READ_RECORDER_META_KEY]: openedReadPaths(scenario.reads) }),
+  } as unknown as TestModule;
+}
+
+/** Builds a journal reporter over the sink, handed the scenario's product lockfile when its product root holds one. */
+function buildReporterForScenario(sink: TestRunEvidenceSink, scenario: GeneratedRunScenario): JournalReporter {
+  const { lockfile } = scenario.reads;
+  return createJournalReporter(
+    sink,
+    lockfile === undefined ? {} : { lockfilePath: absoluteReadPath(scenario.reads, lockfile) },
+  );
 }
 
 function buildTestCaseDouble(moduleId: string, runCase: GeneratedRunCase): TestCase {
@@ -326,7 +350,7 @@ export async function driveReporterOverScenario(
   scenario: GeneratedRunScenario,
   reason: JournalRunTerminalStatus,
 ): Promise<void> {
-  const testModule = buildTestModuleDouble(scenario.moduleId);
+  const testModule = buildTestModuleDouble(scenario);
   await reporter.onTestModuleStart?.(testModule);
   for (const runCase of scenario.cases) {
     await reporter.onTestCaseResult?.(buildTestCaseDouble(scenario.moduleId, runCase));
@@ -348,7 +372,7 @@ export async function observeJournalReporterMapping(
   reason: JournalRunTerminalStatus,
 ): Promise<ReporterMappingObservation> {
   const sink = createRecordingEvidenceSink();
-  const reporter = createJournalReporter(sink);
+  const reporter = buildReporterForScenario(sink, scenario);
   await driveReporterOverScenario(reporter, scenario, reason);
   return { scopes: sink.scopes, findings: sink.findings, terminalStatus: reporter.terminalStatus };
 }
@@ -361,8 +385,10 @@ export interface CaseResultSnapshot {
 
 /** Per-hook snapshots of what the reporter had recorded when each lifecycle hook returned, before run end. */
 export interface ReporterPerHookObservation {
-  /** The sink's scopes right after the module-start hook returned. */
-  readonly scopesAfterModuleStart: readonly TestScopeUnit[];
+  /** The sink's scopes right after the last case's result hook returned, before the module-end hook fired. */
+  readonly scopesBeforeModuleEnd: readonly TestScopeUnit[];
+  /** The sink's scopes right after the module-end hook returned, before run end. */
+  readonly scopesAfterModuleEnd: readonly TestScopeUnit[];
   /** The sink's findings right after each case's result hook returned, in case order. */
   readonly caseSnapshots: readonly CaseResultSnapshot[];
 }
@@ -374,22 +400,23 @@ export interface ReporterPerHookObservation {
  */
 export async function observeReporterPerHook(scenario: GeneratedRunScenario): Promise<ReporterPerHookObservation> {
   const sink = createRecordingEvidenceSink();
-  const reporter = createJournalReporter(sink);
-  const testModule = buildTestModuleDouble(scenario.moduleId);
+  const reporter = buildReporterForScenario(sink, scenario);
+  const testModule = buildTestModuleDouble(scenario);
   await reporter.onTestModuleStart?.(testModule);
-  const scopesAfterModuleStart = [...sink.scopes];
   const caseSnapshots: CaseResultSnapshot[] = [];
   for (const runCase of scenario.cases) {
     await reporter.onTestCaseResult?.(buildTestCaseDouble(scenario.moduleId, runCase));
     caseSnapshots.push({ runCase, findings: [...sink.findings] });
   }
-  return { scopesAfterModuleStart, caseSnapshots };
+  const scopesBeforeModuleEnd = [...sink.scopes];
+  await reporter.onTestModuleEnd?.(testModule);
+  return { scopesBeforeModuleEnd, scopesAfterModuleEnd: [...sink.scopes], caseSnapshots };
 }
 
 /** What an async recording sink held after each reporter hook returned. */
 export interface ReporterAsyncSinkObservation {
-  /** The sink's scopes right after the module-start hook returned. */
-  readonly scopesAfterModuleStart: readonly TestScopeUnit[];
+  /** The sink's scopes right after the module-end hook returned. */
+  readonly scopesAfterModuleEnd: readonly TestScopeUnit[];
   /** The sink's findings right after the last case's result hook returned. */
   readonly findingsAfterCases: readonly TestFinding[];
 }
@@ -403,14 +430,15 @@ export async function observeReporterWithAsyncSink(
   scenario: GeneratedRunScenario,
 ): Promise<ReporterAsyncSinkObservation> {
   const sink = createAsyncRecordingEvidenceSink();
-  const reporter = createJournalReporter(sink);
-  const testModule = buildTestModuleDouble(scenario.moduleId);
+  const reporter = buildReporterForScenario(sink, scenario);
+  const testModule = buildTestModuleDouble(scenario);
   await reporter.onTestModuleStart?.(testModule);
-  const scopesAfterModuleStart = [...sink.scopes];
   for (const runCase of scenario.cases) {
     await reporter.onTestCaseResult?.(buildTestCaseDouble(scenario.moduleId, runCase));
   }
-  return { scopesAfterModuleStart, findingsAfterCases: [...sink.findings] };
+  const findingsAfterCases = [...sink.findings];
+  await reporter.onTestModuleEnd?.(testModule);
+  return { scopesAfterModuleEnd: [...sink.scopes], findingsAfterCases };
 }
 
 /** A sink whose every append rejects with its own fresh failure, plus those failures in the order they were issued. */
@@ -457,7 +485,7 @@ async function driveReporterCatchingHookRejections(
       caught += 1;
     }
   };
-  const testModule = buildTestModuleDouble(scenario.moduleId);
+  const testModule = buildTestModuleDouble(scenario);
   await fire(() => reporter.onTestModuleStart?.(testModule));
   for (const runCase of scenario.cases) {
     await fire(() => reporter.onTestCaseResult?.(buildTestCaseDouble(scenario.moduleId, runCase)));
@@ -560,6 +588,10 @@ export function withMixedVitestProduct<T>(
 export interface RealMixedRunObservation {
   readonly sink: RecordingEvidenceSink;
   readonly outcome: JournalRunOutcome;
+  /** The product-relative path of the suite the run covered. */
+  readonly testFileName: string;
+  /** The product-relative path of the lockfile the product root holds. */
+  readonly lockfileName: string;
   /** `process.exitCode` as it stood before the run started. */
   readonly exitCodeBeforeRun: typeof process.exitCode;
   /** `process.exitCode` as it stood after the run resolved. */
@@ -607,11 +639,13 @@ export function observeRealMixedRun(): Promise<RealMixedRunObservation> {
   return withMixedVitestProduct(async (productDir, testFileName) => {
     const exitCodeBeforeRun = process.exitCode;
     const sink = createRecordingEvidenceSink();
+    const [lockfileName] = LOCKFILE_NAMES;
+    await writeFile(join(productDir, lockfileName), sampleGeneratedValue(arbitraryDomainLiteral()));
     const outcome = await runTestsStreaming(
       { productDir, testPaths: [testFileName] },
       { sink, starter: createVitestRunStarter(productVitestNodeApiLoader) },
     );
-    return { sink, outcome, exitCodeBeforeRun, exitCodeAfterRun: process.exitCode };
+    return { sink, outcome, testFileName, lockfileName, exitCodeBeforeRun, exitCodeAfterRun: process.exitCode };
   });
 }
 

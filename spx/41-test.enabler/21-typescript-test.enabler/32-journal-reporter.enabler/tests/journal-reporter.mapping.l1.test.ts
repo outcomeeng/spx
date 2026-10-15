@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { JOURNAL_RUN_TERMINAL_STATUS } from "@/test/languages/types";
 import {
   expectedFindingsForScenario,
+  expectedScopeForScenario,
   JOURNAL_REPORTER_TEST_GENERATOR,
 } from "@testing/generators/testing/journal-reporter";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
@@ -19,7 +20,7 @@ describe("journal reporter hook-to-evidence mapping", () => {
         JOURNAL_REPORTER_TEST_GENERATOR.mixedRunScenario(),
         async (scenario) => {
           const observation = await observeJournalReporterMapping(scenario, reason);
-          expect(observation.scopes).toEqual([{ moduleId: scenario.moduleId }]);
+          expect(observation.scopes).toEqual([expectedScopeForScenario(scenario)]);
           expect(observation.findings).toEqual(expectedFindingsForScenario(scenario));
           expect(observation.terminalStatus).toBe(reason);
         },
