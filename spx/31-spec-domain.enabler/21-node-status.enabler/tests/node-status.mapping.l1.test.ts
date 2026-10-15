@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   classifyNodeClaim,
   classifyNodeStatus,
+  createNodeStatusProvider,
+  NODE_STATUS_CLAIM_SECTION,
+  NODE_STATUS_CLAIM_SHAPE,
   NODE_STATUS_CURRENCY,
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_FIELD,
@@ -11,15 +14,18 @@ import {
   rollupNodeStatusMechanism,
   serializeNodeStatusClaim,
 } from "@/lib/node-status";
-import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
+import { createFilesystemSpecTreeSource, readSpecTree, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
 import {
   createClaimWithVerdicts,
+  DECISION_PLACEMENT,
   enumerateClaimClassificationFacts,
   enumerateClassificationFacts,
+  enumerateDecisionPlacements,
   enumerateEvidenceOutcomeMultisets,
   NODE_STATUS_TEST_GENERATOR,
 } from "@testing/generators/node-status/node-status";
 import { sampleGeneratedValue } from "@testing/generators/sample";
+import { methodologyDeclaringConfig, withPinnedNodeRepository } from "@testing/harnesses/node-status/node-status";
 
 describe("classifyNodeStatus over every combination of linked references, EXCLUDE listing, and committed outcomes", () => {
   it("resolves declared, then specified, then passing when every committed mechanism passes, else failing", () => {
@@ -57,6 +63,43 @@ describe("classifyNodeClaim over every combination of required artifacts, record
           ? SPEC_TREE_NODE_STATE.DECLARED
           : SPEC_TREE_NODE_STATE.SPECIFIED,
       );
+    }
+  });
+});
+
+describe("the Git-history clause of classifyNodeClaim over every placement of a decision record relative to a node", () => {
+  it("resolves specified when a decision governing the node changes after the claim recorded passing, and failing when any other decision changes", async () => {
+    const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
+    const config = methodologyDeclaringConfig(
+      sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.methodologyVersion(NODE_STATUS_CLAIM_SHAPE.CURRENT)),
+    );
+    for (const placement of enumerateDecisionPlacements()) {
+      await withPinnedNodeRepository(fixture, config, async (repository) => {
+        const testKey = repository.testPaths[0]?.slice(repository.nodePath.length + 1) ?? "";
+        const subject = repository.subjectPaths[fixture.editedSubject] ?? "";
+        await repository.writeClaim(
+          {
+            [NODE_STATUS_CLAIM_SECTION.TEST]: {
+              [testKey]: repository.passedEntry([repository.specPath, repository.testPaths[0] ?? "", subject]),
+            },
+          },
+          SPEC_TREE_NODE_STATE.PASSING,
+        );
+        await repository.commitAll();
+        await repository.editSubject(fixture.editedSubject);
+        await repository.editDecision(placement);
+        await repository.commitAll();
+
+        const snapshot = await readSpecTree({
+          source: createFilesystemSpecTreeSource({ productDir: repository.env.productDir }),
+          evidence: await createNodeStatusProvider(repository.env.productDir, { gitDependencies: repository.git }),
+        });
+        expect(snapshot.allNodes.find((node) => node.id === repository.nodeId)?.state, placement).toBe(
+          placement === DECISION_PLACEMENT.OWN_DIRECTORY || placement === DECISION_PLACEMENT.ROOT_LOWER_INDEX
+            ? SPEC_TREE_NODE_STATE.SPECIFIED
+            : SPEC_TREE_NODE_STATE.FAILING,
+        );
+      });
     }
   });
 });

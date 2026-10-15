@@ -266,6 +266,25 @@ export type PinnedNodeFixture = {
   readonly editedSubject: number;
 };
 
+/**
+ * Where a decision record sits relative to a pinned node: inside the node's own directory, beside the node at the
+ * product root with a lower, equal, or higher index, or inside an unrelated sibling node's directory.
+ */
+export const DECISION_PLACEMENT = {
+  OWN_DIRECTORY: "own-directory",
+  ROOT_LOWER_INDEX: "root-lower-index",
+  ROOT_SAME_INDEX: "root-same-index",
+  ROOT_HIGHER_INDEX: "root-higher-index",
+  UNRELATED_NODE: "unrelated-node",
+} as const;
+
+export type DecisionPlacement = (typeof DECISION_PLACEMENT)[keyof typeof DECISION_PLACEMENT];
+
+/** Every decision placement, each exactly once. */
+export function enumerateDecisionPlacements(): readonly DecisionPlacement[] {
+  return Object.values(DECISION_PLACEMENT);
+}
+
 /** A parent node with variants, each variant either passing or carrying a failed result. */
 export type VariantParentFixture = {
   readonly parentDirName: string;

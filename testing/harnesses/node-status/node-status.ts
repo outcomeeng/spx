@@ -33,6 +33,7 @@ import {
   serializeNodeStatusClaim,
 } from "@/lib/node-status";
 import {
+  KIND_REGISTRY,
   SPEC_TREE_CONFIG,
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_GRAMMAR,
@@ -41,13 +42,15 @@ import {
 } from "@/lib/spec-tree";
 import { testingRegistry } from "@/test/registry";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
-import type {
-  ClassificationFixtureFacts,
-  ClassificationTreeFixture,
-  PinnedNodeFixture,
-  StatusWriterTreeFixture,
-  StatusWriterTreeNode,
-  VariantParentFixture,
+import {
+  type ClassificationFixtureFacts,
+  type ClassificationTreeFixture,
+  DECISION_PLACEMENT,
+  type DecisionPlacement,
+  type PinnedNodeFixture,
+  type StatusWriterTreeFixture,
+  type StatusWriterTreeNode,
+  type VariantParentFixture,
 } from "@testing/generators/node-status/node-status";
 import {
   buildGitTestEnvironment,
@@ -543,6 +546,10 @@ export type PinnedNodeRepository = {
   rewriteSpecLinksTreeAbsolute(): Promise<void>;
   /** Add a sentence to the spec. */
   editSpecText(): Promise<void>;
+  /** The product-relative path of the decision record committed at `placement` with the repository. */
+  decisionPath(placement: DecisionPlacement): string;
+  /** Add a sentence to the decision record at `placement`. */
+  editDecision(placement: DecisionPlacement): Promise<void>;
 };
 
 /**
@@ -569,6 +576,9 @@ export async function withPinnedNodeRepository(
     await env.writeNode(specPath, specContent);
     for (const testPath of testPaths) await env.writeNode(testPath, testContent);
     for (const subjectPath of fixture.subjectPaths) await env.writeRaw(subjectPath, testContent);
+    const nodeOrder = Number(fixture.dirName.split(SPEC_TREE_GRAMMAR.ORDER.SEPARATOR).at(0));
+    const decisionPaths = decisionPathsAround(fixture.dirName, nodeOrder);
+    for (const decisionPath of Object.values(decisionPaths)) await env.writeNode(decisionPath, specContent);
     await runFixtureGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
     await commitPaths(env.productDir, REPOSITORY_ROOT_PATHS);
     const commit = await runFixtureGit(env.productDir, [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
@@ -612,8 +622,30 @@ export async function withPinnedNodeRepository(
       rewriteSpecLinksTreeAbsolute: () =>
         env.writeNode(specPath, specContent.replaceAll("](tests/", `](${nodePath}${PATH_SEPARATOR}tests/`)),
       editSpecText: () => env.writeNode(specPath, `${specContent}${SPEC_APPENDIX}`),
+      decisionPath: (placement) => decisionPaths[placement],
+      editDecision: (placement) => env.writeNode(decisionPaths[placement], `${specContent}${SPEC_APPENDIX}`),
     });
   });
+}
+
+const DECISION_ORDER_BELOW_NODE = 1;
+const DECISION_ORDER_ABOVE_NODE = 100;
+const DECISION_FILE_SLUG = "decision";
+const UNRELATED_NODE_DIRECTORY_PREFIX = "unrelated-";
+
+function decisionPathsAround(nodeDirName: string, nodeOrder: number): Readonly<Record<DecisionPlacement, string>> {
+  const decisionFile = (order: number) =>
+    `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${DECISION_FILE_SLUG}${KIND_REGISTRY.adr.suffix}`;
+  return {
+    [DECISION_PLACEMENT.OWN_DIRECTORY]: nodeTreePath(nodeDirName, decisionFile(nodeOrder)),
+    [DECISION_PLACEMENT.ROOT_LOWER_INDEX]: nodeTreePath(decisionFile(DECISION_ORDER_BELOW_NODE)),
+    [DECISION_PLACEMENT.ROOT_SAME_INDEX]: nodeTreePath(decisionFile(nodeOrder)),
+    [DECISION_PLACEMENT.ROOT_HIGHER_INDEX]: nodeTreePath(decisionFile(DECISION_ORDER_ABOVE_NODE)),
+    [DECISION_PLACEMENT.UNRELATED_NODE]: nodeTreePath(
+      `${UNRELATED_NODE_DIRECTORY_PREFIX}${nodeDirName}`,
+      decisionFile(nodeOrder),
+    ),
+  };
 }
 
 async function writeClaim(
