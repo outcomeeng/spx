@@ -41,7 +41,7 @@ describe("classifyNodeStatus over every combination of linked references, EXCLUD
   });
 });
 
-describe("classifyNodeClaim over every combination of Validate, required artifacts, recorded passing, and result sets", () => {
+describe("classifyNodeClaim over every combination of required artifacts, recorded passing, and result sets", () => {
   it("resolves passing, then failing, then declared, then specified", () => {
     for (const facts of enumerateClaimClassificationFacts()) {
       const everyResultHolds = facts.results.length > 0
@@ -49,7 +49,7 @@ describe("classifyNodeClaim over every combination of Validate, required artifac
           result.verdict === NODE_STATUS_EVIDENCE_OUTCOME.PASSED && result.currency === NODE_STATUS_CURRENCY.CURRENT
         );
       expect(classifyNodeClaim(facts), JSON.stringify(facts)).toBe(
-        facts.validatePassed && !facts.requiredArtifactsMissing && everyResultHolds
+        !facts.requiredArtifactsMissing && everyResultHolds
           ? SPEC_TREE_NODE_STATE.PASSING
           : facts.recordedPassingAtOrAfterDeclaration
           ? SPEC_TREE_NODE_STATE.FAILING

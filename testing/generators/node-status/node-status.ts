@@ -345,9 +345,9 @@ function arbitraryMethodologyVersion(shape: NodeStatusClaimShape): fc.Arbitrary<
 }
 
 /**
- * Every combination of the 4.0 classification facts over their finite domains: Validate passed or not,
- * required artifacts present or missing, the declaration changed after a recorded `passing` or not, and
- * result sets of zero, one, or two results, each result any verdict at any currency.
+ * Every combination of the 4.0 classification facts over their finite domains: required artifacts present
+ * or missing, the declaration changed after a recorded `passing` or not, and result sets of zero, one, or
+ * two results, each result any verdict at any currency.
  */
 export function enumerateClaimClassificationFacts(): readonly NodeClaimClassificationFacts[] {
   const currencies: readonly NodeStatusCurrency[] = Object.values(NODE_STATUS_CURRENCY);
@@ -359,16 +359,13 @@ export function enumerateClaimClassificationFacts(): readonly NodeClaimClassific
     ...singleResults.map((result) => [result]),
     ...singleResults.flatMap((first) => singleResults.map((second) => [first, second])),
   ];
-  return [false, true].flatMap((validatePassed) =>
-    [false, true].flatMap((requiredArtifactsMissing) =>
-      [false, true].flatMap((recordedPassingAtOrAfterDeclaration) =>
-        resultSets.map((results): NodeClaimClassificationFacts => ({
-          validatePassed,
-          requiredArtifactsMissing,
-          recordedPassingAtOrAfterDeclaration,
-          results,
-        }))
-      )
+  return [false, true].flatMap((requiredArtifactsMissing) =>
+    [false, true].flatMap((recordedPassingAtOrAfterDeclaration) =>
+      resultSets.map((results): NodeClaimClassificationFacts => ({
+        requiredArtifactsMissing,
+        recordedPassingAtOrAfterDeclaration,
+        results,
+      }))
     )
   );
 }
