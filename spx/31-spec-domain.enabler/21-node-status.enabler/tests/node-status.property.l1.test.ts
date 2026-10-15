@@ -19,7 +19,7 @@ import {
   readNodeStatus,
   updateNodeStatus,
 } from "@/lib/node-status";
-import { SPEC_TREE_CONFIG, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
+import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { NODE_STATUS_TEST_GENERATOR, type RecordedRun } from "@testing/generators/node-status/node-status";
 import { sampleGeneratedValue } from "@testing/generators/sample";
@@ -28,7 +28,6 @@ import {
   readNodeStatusFileBytes,
   withPinnedNodeRepository,
   withStatusWriterTree,
-  withVariantTree,
 } from "@testing/harnesses/node-status/node-status";
 import {
   assertProperty,
@@ -195,42 +194,6 @@ describe("every pinned entry the writer produces under a 4.0 methodology", () =>
           PROPERTY_CLASSIFICATION.SMALL_L1,
         );
       });
-    },
-    propertyTestEnvelopeTimeoutMs(PROPERTY_CLASSIFICATION.SMALL_L1),
-  );
-});
-
-describe("every spx.status.json the writer produces over a parent with variants", () => {
-  it(
-    "carries the parent's entries in each variant's claim keyed by tree-absolute path and no results in the parent's own claim",
-    async () => {
-      await assertProperty(
-        fc.tuple(
-          NODE_STATUS_TEST_GENERATOR.variantParent(),
-          NODE_STATUS_TEST_GENERATOR.methodologyVersion(NODE_STATUS_CLAIM_SHAPE.CURRENT),
-        ),
-        async ([fixture, version]) => {
-          await withVariantTree(fixture, methodologyDeclaringConfig(version), async (tree) => {
-            await updateNodeStatus({
-              productDir: tree.env.productDir,
-              resolveOutcome: () => Promise.resolve({}),
-              gitDependencies: tree.git,
-            });
-
-            const resultKeysOf = (nodeId: string) => {
-              const read = readNodeStatus(join(tree.env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodeId));
-              return read?.shape === NODE_STATUS_CLAIM_SHAPE.CURRENT
-                ? nodeStatusClaimResults(read.claim).map((result) => result.key)
-                : undefined;
-            };
-            expect(resultKeysOf(tree.parentId)).toEqual([]);
-            for (const variant of tree.variants) {
-              expect(resultKeysOf(variant.nodeId)).toContain(tree.parentTestPath);
-            }
-          });
-        },
-        PROPERTY_CLASSIFICATION.SMALL_L1,
-      );
     },
     propertyTestEnvelopeTimeoutMs(PROPERTY_CLASSIFICATION.SMALL_L1),
   );

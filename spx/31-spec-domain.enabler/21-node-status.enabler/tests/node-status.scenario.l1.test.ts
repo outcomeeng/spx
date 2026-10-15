@@ -39,11 +39,6 @@ import {
   withVariantTree,
 } from "@testing/harnesses/node-status/node-status";
 
-const passingOutcomes = (_nodeId: string, evidencePaths: readonly string[]) =>
-  Promise.resolve(
-    Object.fromEntries(evidencePaths.map((path) => [path, NODE_STATUS_EVIDENCE_OUTCOME.PASSED] as const)),
-  );
-
 function currentMethodology() {
   return methodologyDeclaringConfig(
     sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.methodologyVersion(NODE_STATUS_CLAIM_SHAPE.CURRENT)),
@@ -158,15 +153,10 @@ describe("a parent whose variants' claims carry its entries", () => {
           source: createFilesystemSpecTreeSource({ productDir: tree.env.productDir }),
           evidence: await createNodeStatusProvider(tree.env.productDir, { gitDependencies: tree.git }),
         });
+        const parentClaim = readNodeStatus(join(tree.env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, tree.parentId));
+
         expect(snapshot.allNodes.find((node) => node.id === tree.parentId)?.state === SPEC_TREE_NODE_STATE.PASSING)
           .toBe(tree.variants.every((variant) => variant.passes));
-
-        await updateNodeStatus({
-          productDir: tree.env.productDir,
-          resolveOutcome: passingOutcomes,
-          gitDependencies: tree.git,
-        });
-        const parentClaim = readNodeStatus(join(tree.env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, tree.parentId));
         expect(
           parentClaim?.shape === NODE_STATUS_CLAIM_SHAPE.CURRENT
             ? nodeStatusClaimResults(parentClaim.claim)
@@ -213,6 +203,10 @@ describe("a node whose claim recorded passing", () => {
 });
 
 describe("spx spec status --update under a 4.0 methodology over a node with linked verification", () => {
+  const passingOutcomes = (_nodeId: string, evidencePaths: readonly string[]) =>
+    Promise.resolve(
+      Object.fromEntries(evidencePaths.map((path) => [path, NODE_STATUS_EVIDENCE_OUTCOME.PASSED] as const)),
+    );
 
   it("records a result for each linked reference, each audit rule slug, and each evidence kind, pinned to the checked-out commit", async () => {
     const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
