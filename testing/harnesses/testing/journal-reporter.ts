@@ -9,6 +9,7 @@ import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import {
   createJournalReporter,
   createVitestRunStarter,
+  findProductLockfile,
   type JournalReporter,
   type JournalRunOutcome,
   LOCKFILE_NAMES,
@@ -1003,5 +1004,28 @@ export function observeRunnerlessStreamingRun(): Promise<RunnerlessStreamingRunO
     const sink = createRecordingEvidenceSink();
     const invocation = await descriptorRunTestsStreaming(request, { sink, isLanguagePresent: () => true });
     return { request, resolution, sink, invocation };
+  });
+}
+
+/** What the production lockfile lookup returns over a temp product root holding a chosen set of lockfile names. */
+export interface ProductLockfileLookupObservation {
+  /** The real path of the temp product root, the form the lookup reports its result in. */
+  readonly realProductDir: string;
+  /** The lockfile path the production lookup returned, or nothing. */
+  readonly found: string | undefined;
+}
+
+/**
+ * Materializes exactly the given lockfile names, each holding generated content, in a temp
+ * product root and runs the production lockfile lookup over it. Returns the observation only.
+ */
+export function observeProductLockfileLookup(
+  presentNames: readonly string[],
+): Promise<ProductLockfileLookupObservation> {
+  return withTempDir(TEMP_PRODUCT_PREFIX, async (productDir) => {
+    for (const name of presentNames) {
+      await writeFile(join(productDir, name), sampleGeneratedValue(arbitraryDomainLiteral()));
+    }
+    return { realProductDir: await realpath(productDir), found: findProductLockfile(productDir) };
   });
 }
