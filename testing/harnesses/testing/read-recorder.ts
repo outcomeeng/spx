@@ -31,11 +31,13 @@ const FIXTURE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "f
 export const READ_IMPORT_FORM = {
   NAMED: "named",
   DEFAULT: "default",
+  NONE: "none",
 } as const;
 export type ReadImportForm = (typeof READ_IMPORT_FORM)[keyof typeof READ_IMPORT_FORM];
 const READS_FIXTURE: Record<ReadImportForm, string> = {
   [READ_IMPORT_FORM.NAMED]: "reads-data.test.ts.fixture",
   [READ_IMPORT_FORM.DEFAULT]: "reads-data-default-import.test.ts.fixture",
+  [READ_IMPORT_FORM.NONE]: "reads-nothing.test.ts.fixture",
 };
 const SUITE_NAME = "suite.test.ts";
 /** The data file the fixture suite opens; the fixture suite names it the same way. */
@@ -57,6 +59,8 @@ export interface RecordedReadRunObservation {
   readonly dataFileContent: string;
   /** The module's metadata at module end, keyed by the recorder's metadata key. */
   readonly recordedPaths: unknown;
+  /** Every key present in the module's metadata at module end. */
+  readonly moduleMetaKeys: readonly string[];
   /** The module's state when the run finished. */
   readonly moduleState: string;
   /** The content the module's test read from the data file, as the test reported it. */
@@ -103,6 +107,7 @@ function runReadModule(
 
     const consoleOutput: string[] = [];
     let recordedPaths: unknown;
+    let moduleMetaKeys: readonly string[] = [];
     let moduleState = "";
     let readContent: unknown;
     const reporter: Reporter = {
@@ -111,6 +116,7 @@ function runReadModule(
       },
       onTestModuleEnd(testModule: TestModule) {
         recordedPaths = (testModule.meta() as Record<string, unknown>)[READ_RECORDER_META_KEY];
+        moduleMetaKeys = Object.keys(testModule.meta());
         moduleState = testModule.state();
         for (const testCase of testModule.children.allTests()) {
           readContent = (testCase.meta() as Record<string, unknown>)[READ_CONTENT_META_KEY];
@@ -142,7 +148,7 @@ function runReadModule(
       else process.env.TMPDIR = priorTmpdir;
     }
     const files = await snapshotFiles(productDir);
-    return { dataFilePath, dataFileContent: content, recordedPaths, moduleState, readContent, files, consoleOutput };
+    return { dataFilePath, dataFileContent: content, recordedPaths, moduleMetaKeys, moduleState, readContent, files, consoleOutput };
   });
 }
 
