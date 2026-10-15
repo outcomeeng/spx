@@ -36,7 +36,7 @@ describe("read-path declaration", () => {
         new Map([[firstReference, reportedPaths]]),
       );
 
-      expect(typeof descriptor.suppliesReadPaths).toBe("boolean");
+      expect([true, false]).toContain(descriptor.suppliesReadPaths);
       if (descriptor.suppliesReadPaths) {
         expect(result.readPaths).toEqual(reportedPaths);
       } else {
