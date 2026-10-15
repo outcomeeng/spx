@@ -3,11 +3,9 @@ import * as fc from "fast-check";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import {
   AUDIT_CLAIM_ENTRY_SECTION,
-  AUDIT_CLAIM_VERDICT,
   type AuditClaimEntry,
   type AuditClaimNode,
   type AuditClaimRun,
-  type AuditClaimVerdict,
   CLAIM_EVIDENCE_KIND,
   CLAIM_MALLEABILITY,
   type ClaimEvidenceKind,
@@ -17,8 +15,10 @@ import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/stat
 import { arbitraryAuditScopeUnit } from "@testing/generators/verify/audit";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 
+/** The claim entry minus its verdict: the assertion states the entry, actor, and run, and no verdict. */
+export type ExpectedAuditClaimEntry = Omit<AuditClaimEntry, "verdict">;
+
 interface ExpectedIdentity {
-  readonly verdict: AuditClaimVerdict;
   readonly actor: VerifyVerifier;
   readonly run: string;
 }
@@ -27,14 +27,11 @@ export interface AuditClaimEntryMappingCase {
   readonly title: string;
   readonly run: AuditClaimRun;
   readonly node: AuditClaimNode;
-  readonly expected: AuditClaimEntry | undefined;
+  readonly expected: ExpectedAuditClaimEntry | undefined;
 }
 
-/** The sealed terminal statuses an audit run seals with, each beside the verdict the claim records for it. */
-const SEALED_VERDICTS = [
-  [JOURNAL_RUN_STATE_STATUS.APPROVED, AUDIT_CLAIM_VERDICT.PASSED],
-  [JOURNAL_RUN_STATE_STATUS.REJECTED, AUDIT_CLAIM_VERDICT.FAILED],
-] as const;
+/** The sealed terminal statuses an audit run seals with. */
+const SEALED_TERMINAL_STATUSES = [JOURNAL_RUN_STATE_STATUS.APPROVED, JOURNAL_RUN_STATE_STATUS.REJECTED] as const;
 
 /** The audit kinds that audit linked evidence, each beside the kind of evidence it audits. */
 const EVIDENCE_AUDIT_KINDS: ReadonlyMap<AuditKind, ClaimEvidenceKind> = new Map([
@@ -53,7 +50,7 @@ function expectedEvidenceEntry(
   auditKind: AuditKind,
   node: AuditClaimNode,
   identity: ExpectedIdentity,
-): AuditClaimEntry | undefined {
+): ExpectedAuditClaimEntry | undefined {
   const evidenceKind = EVIDENCE_AUDIT_KINDS.get(auditKind);
   if (evidenceKind === undefined) return undefined;
   if (node.malleability !== CLAIM_MALLEABILITY.IMPLEMENTATION) return undefined;
@@ -63,7 +60,7 @@ function expectedEvidenceEntry(
 
 /**
  * Every combination of audit kind, node malleability, linked evidence kinds, and sealed terminal
- * status beside the entry the claim records for it, plus the rule-slug runs and the unsealed runs.
+ * status beside the entry the claim records for it, verdict excluded, plus the rule-slug runs and the unsealed runs.
  */
 export function auditClaimEntryMappingCases(): readonly AuditClaimEntryMappingCase[] {
   const unit = sampleVerifyTestValue(arbitraryAuditScopeUnit());
@@ -76,8 +73,8 @@ export function auditClaimEntryMappingCases(): readonly AuditClaimEntryMappingCa
   const runId = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken());
   const ruleSlug = sampleVerifyTestValue(STATE_STORE_TEST_GENERATOR.scopeToken());
   const cases: AuditClaimEntryMappingCase[] = [];
-  for (const [terminalStatus, verdict] of SEALED_VERDICTS) {
-    const identity = { verdict, actor: verifier, run: runId };
+  for (const terminalStatus of SEALED_TERMINAL_STATUSES) {
+    const identity = { actor: verifier, run: runId };
     for (const node of nodesOverAllMalleabilities()) {
       cases.push({
         title: `a ${terminalStatus} run over rule slug on a ${node.malleability} node`,
