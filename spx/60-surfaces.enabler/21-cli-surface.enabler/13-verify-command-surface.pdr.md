@@ -8,11 +8,13 @@ Verification runs share one CLI vocabulary even when their judgment and driver d
 
 ## Product properties
 
-1. `spx verification run <command-path>` exposes caller-driven lifecycle options for verification type, scope type, scope identity, input, Change identity, run token, evidence payload, idempotency key, terminal status, and terminal metadata. Scope option grammar is `--scope-type changeset --scope <base>..<head>` or `--scope-type file --scope <product-relative-path>`; Change identity option grammar is `--change <owner/repo#N>`, which `start` accepts and `list` and `compare` require; run token option grammar is `--run <run-token>`, which each existing-run command path requires once and `compare` requires twice, each value naming a run of the Change `--change` names; `start` reports `runToken`, `contextDigest`, `resolvedScope`, `input`, and `locator`.
+1. `spx verification run <command-path>` exposes caller-driven lifecycle options for verification type, scope type, scope identity, input, Change identity, Verifier, run token, evidence payload, idempotency key, terminal status, and terminal metadata. Scope option grammar is `--scope-type changeset --scope <base>..<head>` or `--scope-type file --scope <product-relative-path>`; Change identity option grammar is `--change <owner/repo#N>`, which `start` accepts and `list` and `compare` require; Verifier option grammar is `--verifier <kind>:<id>`, with kind `person` or `agent` and a non-empty id, which `start` alone accepts; run token option grammar is `--run <run-token>`, which each existing-run command path requires once and `compare` requires twice, each value naming a run of the Change `--change` names; `start` reports `runToken`, `contextDigest`, `resolvedScope`, `input`, and `locator`.
 2. `spx verification <type> run [<path>...]` names the verification type as a noun and narrows SPX-driven work through positional product path operands.
 3. `spx verification run status` and `spx verification run render` inspect a run produced through either drive mode.
 
 ## Verification
+
+- ALWAYS: `start` accepts `--verifier <kind>:<id>` only with kind `person` or `agent` and a non-empty id, and rejects any other value before a run exists
 
 ### Testing
 
