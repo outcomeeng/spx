@@ -10,13 +10,10 @@ CAN start it for the Change it serves, append its scope and finding evidence, re
 
 ## Assertions
 
-- Given a run started through `spx verification run start --expectations <file>` whose scope evidence judges every changed path but one, when `spx verification run reconcile --run <run-token>` runs, then it reports that path as unaccounted in one JSON result on standard output and exits non-zero
-- Given the same run, when `spx verification run finish` runs, then it reports that path as unaccounted in one JSON result on standard output, exits non-zero, and a later `spx verification run status` reports the run unsealed
-- ALWAYS: `spx verification run start` accepts `--expectations <expectations-source>`, and `reconcile` and `finish` reject it
-- ALWAYS: `spx verification run reconcile` requires `--run <run-token>`, rejects `--input`, and exits zero exactly when the run reconciles
-
 ### Scenarios
 
+- Given a run started through `spx verification run start --expectations <file>` whose scope evidence judges every changed path but one, when `spx verification run reconcile --run <run-token>` runs, then it reports that path as unaccounted in one JSON result on standard output and exits non-zero ([test](tests/run-reconcile.scenario.l2.test.ts))
+- Given the same run, when `spx verification run finish` runs, then it reports that path as unaccounted in one JSON result on standard output, exits non-zero, and a later `spx verification run status` reports the run unsealed ([test](tests/run-finish-unaccounted.scenario.l2.test.ts))
 - Given `spx verification run start --change <owner/repo#N>`, when the run starts, then the run records that Change identity ([test](tests/change-identity.scenario.l1.test.ts), [test](tests/change-identity.scenario.l2.test.ts))
 
 ### Mappings
@@ -28,3 +25,5 @@ CAN start it for the Change it serves, append its scope and finding evidence, re
 - ALWAYS: the caller-driven verification-run lifecycle is exposed under `spx verification run` ([test](tests/record-run.compliance.l1.test.ts))
 - ALWAYS: verification-run evidence resources use noun-local command paths, including `spx verification run scope add` and `spx verification run finding add` ([test](tests/record-run.compliance.l1.test.ts))
 - ALWAYS: `spx verification run scope add` and `spx verification run finding add` require a payload source and caller-supplied idempotency key ([test](tests/record-run.compliance.l1.test.ts))
+- ALWAYS: `spx verification run start` accepts `--expectations <expectations-source>`, and `reconcile` and `finish` reject it ([test](tests/run-expectations-option.compliance.l2.test.ts))
+- ALWAYS: `spx verification run reconcile` requires `--run <run-token>`, rejects `--input`, and exits zero exactly when the run reconciles ([test](tests/run-reconcile.compliance.l2.test.ts))
