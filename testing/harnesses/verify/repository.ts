@@ -577,6 +577,11 @@ export interface VerifyChangeInventoryRepository extends VerifyRepositoryCommits
   reconcile(run: StartedRepositoryRun): Promise<CliCommandResult>;
   /** Remove the branch that names the changeset head, so the run's changeset selector no longer resolves. */
   removeHeadBranch(): Promise<void>;
+  /**
+   * Dirty the checkout without committing: modify the source path, stage the target path as a new
+   * file, and add one untracked file. The commits and every recorded run stay as they were.
+   */
+  dirtyWorkingTree(): Promise<void>;
   /** Observe the run's journal events and the repository's HEAD, refs, index, and working-tree status. */
   observe(run: StartedRepositoryRun): Promise<VerifyRepositoryObservation>;
 }
@@ -591,6 +596,7 @@ export interface VerifyRepositoryObservation {
 }
 
 const MODIFIED_CONTENT_SUFFIX = "\nmodified";
+const UNTRACKED_PATH_SUFFIX = ".untracked";
 
 async function applyChangeOperation(
   productDir: string,
@@ -670,6 +676,14 @@ export async function withVerifyChangeInventoryRepository<T>(
           GIT_TEST_FLAGS.DELETE,
           `${GIT_TEST_REF.LOCAL_BRANCH_PREFIX}${layout.headBranch}`,
         ]);
+      },
+      dirtyWorkingTree: async () => {
+        const untrackedPath = `${layout.sourcePath}${UNTRACKED_PATH_SUFFIX}`;
+        await mkdir(dirname(join(productDir, layout.targetPath)), { recursive: true });
+        await writeFile(join(productDir, layout.sourcePath), `${HEAD_COMMIT_MESSAGE}${MODIFIED_CONTENT_SUFFIX}`);
+        await writeFile(join(productDir, layout.targetPath), layout.targetPath);
+        await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, layout.targetPath]);
+        await writeFile(join(productDir, untrackedPath), untrackedPath);
       },
       observe: async (run) => ({
         events: await readEvents(run),
