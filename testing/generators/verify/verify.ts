@@ -982,6 +982,77 @@ function arbitraryJudgedPathsCase(
 }
 
 /**
+ * One judged-deletions case for a run of `verificationType` whose scope identity is `scopeIdentity`
+ * and whose change inventory lists exactly the product-relative file `deletedPath` as deleted
+ * among the paths drawn here. Each payload is a valid first scope unit of the type carrying the
+ * type-neutral judged-deletions field.
+ */
+export interface JudgedDeletionsCase {
+  /** A payload whose judged deletions name only the deleted file. */
+  readonly listedPayload: JsonValue;
+  /** A payload whose judged deletions name the deleted file and a path the inventory does not list. */
+  readonly unlistedPayload: JsonValue;
+  /** The deleted file's spelling in `listedPayload`. */
+  readonly deletedSpelling: string;
+  /** The path in `unlistedPayload` that the inventory does not list. */
+  readonly unlistedPath: string;
+  /** The entry index of the deleted file in `listedPayload`'s judged deletions. */
+  readonly listedIndex: number;
+  /** The entry index of the deleted file in `unlistedPayload`'s judged deletions. */
+  readonly deletedIndex: number;
+  /** The entry index of the unlisted path in `unlistedPayload`'s judged deletions. */
+  readonly unlistedIndex: number;
+}
+
+/** A scope unit as a JSON payload carrying `judgedDeletions` as its type-neutral judged-deletions field. */
+function scopeUnitWithJudgedDeletions(unit: object, judgedDeletions: readonly string[]): JsonValue {
+  return JSON.parse(
+    JSON.stringify({ ...unit, [VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_DELETIONS]: judgedDeletions }),
+  ) as JsonValue;
+}
+
+/**
+ * A valid first scope unit of a run of `verificationType` whose scope identity is `scopeIdentity`,
+ * carrying `judgedDeletions` as its judged-deletions field.
+ */
+function arbitraryJudgedDeletionsScopeUnit(
+  verificationType: VerifyVerificationType,
+  scopeIdentity: string,
+  judgedDeletions: readonly string[],
+): fc.Arbitrary<JsonValue> {
+  return RUN_FIRST_SCOPE_UNIT[verificationType](scopeIdentity).map((unit) =>
+    scopeUnitWithJudgedDeletions(unit, judgedDeletions)
+  );
+}
+
+function arbitraryJudgedDeletionsCase(
+  verificationType: VerifyVerificationType,
+  scopeIdentity: string,
+  deletedPath: string,
+): fc.Arbitrary<JudgedDeletionsCase> {
+  return fc
+    .record({
+      unit: RUN_FIRST_SCOPE_UNIT[verificationType](scopeIdentity),
+      deletedSpelling: arbitraryEquivalentPathSpelling(deletedPath),
+      unlistedPath: arbitrarySourceFilePath().filter((path) => path !== deletedPath),
+      unlistedFirst: fc.boolean(),
+    })
+    .map(({ unit, deletedSpelling, unlistedPath, unlistedFirst }) => {
+      const listed = [deletedSpelling];
+      const judgedDeletions = unlistedFirst ? [unlistedPath, deletedSpelling] : [deletedSpelling, unlistedPath];
+      return {
+        listedPayload: scopeUnitWithJudgedDeletions(unit, listed),
+        unlistedPayload: scopeUnitWithJudgedDeletions(unit, judgedDeletions),
+        deletedSpelling,
+        unlistedPath,
+        listedIndex: listed.indexOf(deletedSpelling),
+        deletedIndex: judgedDeletions.indexOf(deletedSpelling),
+        unlistedIndex: judgedDeletions.indexOf(unlistedPath),
+      };
+    });
+}
+
+/**
  * The git change operations a changeset can contain, one per way a path's state differs between a
  * changeset's base and head: a path appears, a path's content changes, a path's file type changes, a
  * path disappears, a path moves, a path is duplicated while its source stays.
@@ -1014,6 +1085,16 @@ export const VERIFY_TEST_GENERATOR = {
     scopeIdentity: string,
     heldPath: string,
   ): fc.Arbitrary<JudgedPathsCase> => arbitraryJudgedPathsCase(verificationType, scopeIdentity, heldPath),
+  judgedDeletionsCase: (
+    verificationType: VerifyVerificationType,
+    scopeIdentity: string,
+    deletedPath: string,
+  ): fc.Arbitrary<JudgedDeletionsCase> => arbitraryJudgedDeletionsCase(verificationType, scopeIdentity, deletedPath),
+  judgedDeletionsScopeUnit: (
+    verificationType: VerifyVerificationType,
+    scopeIdentity: string,
+    judgedDeletions: readonly string[],
+  ): fc.Arbitrary<JsonValue> => arbitraryJudgedDeletionsScopeUnit(verificationType, scopeIdentity, judgedDeletions),
   judgedScopeUnit: (
     verificationType: VerifyVerificationType,
     scopeIdentity: string,

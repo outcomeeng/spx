@@ -543,7 +543,9 @@ export interface VerifyChangeInventoryRepository extends VerifyRepositoryCommits
   readonly productDir: string;
   readonly sourcePath: string;
   readonly targetPath: string;
-  startChangesetRun(): Promise<StartedRepositoryRun>;
+  startChangesetRun(verificationType?: string): Promise<StartedRepositoryRun>;
+  /** Append `payload` as scope evidence to a started run through the production `scope add` operation. */
+  appendScope(run: StartedRepositoryRun, payload: JsonValue): Promise<AppendedRepositoryScope>;
 }
 
 const MODIFIED_CONTENT_SUFFIX = "\nmodified";
@@ -606,7 +608,7 @@ export async function withVerifyChangeInventoryRepository<T>(
     const headCommit = await readGit(productDir, [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
     await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CHECKOUT, GIT_TEST_FLAGS.DETACH, baseCommit]);
     await runGit(productDir, [GIT_TEST_SUBCOMMANDS.BRANCH, GIT_TEST_FLAGS.FORCE, layout.headBranch, headCommit]);
-    const { startRun } = createVerifyRunStarter(productDir, realVerifyGitDependencies());
+    const { startRun, appendScope } = createVerifyRunStarter(productDir, realVerifyGitDependencies());
     const scope = `${baseCommit}${VERIFY_SCOPE_SEPARATOR}${layout.headBranch}`;
     return callback({
       productDir,
@@ -614,7 +616,8 @@ export async function withVerifyChangeInventoryRepository<T>(
       targetPath: layout.targetPath,
       baseCommit,
       headCommit,
-      startChangesetRun: async () => startRun(VERIFY_SCOPE_TYPE.CHANGESET, scope),
+      startChangesetRun: async (verificationType) => startRun(VERIFY_SCOPE_TYPE.CHANGESET, scope, verificationType),
+      appendScope,
     });
   });
 }
