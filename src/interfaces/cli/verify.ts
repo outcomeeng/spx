@@ -83,6 +83,7 @@ export const VERIFY_CLI = {
   findingCommandName: VERIFICATION_RUN_CLI_SURFACE.findingResourceCommandName,
   runCommandName: VERIFICATION_RUN_CLI_SURFACE.runCommandName,
   scopeCommandName: VERIFICATION_RUN_CLI_SURFACE.scopeResourceCommandName,
+  reconcileCommandName: VERIFY_VERB.RECONCILE,
   finishCommandName: VERIFY_VERB.FINISH,
   statusCommandName: VERIFY_VERB.STATUS,
   renderCommandName: VERIFY_VERB.RENDER,

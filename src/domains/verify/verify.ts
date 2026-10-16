@@ -34,6 +34,7 @@ export const VERIFY_VERB = {
   INPUT: "input",
   APPEND_SCOPE: "append-scope",
   APPEND_FINDING: "append-finding",
+  RECONCILE: "reconcile",
   FINISH: "finish",
   STATUS: "status",
   RENDER: "render",
