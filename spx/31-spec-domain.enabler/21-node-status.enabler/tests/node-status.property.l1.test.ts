@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   claimShapeOfMethodologyVersion,
-  NODE_STATUS_ACTOR_KIND,
   NODE_STATUS_CLAIM_FIELD,
   NODE_STATUS_CLAIM_SECTION,
   NODE_STATUS_CLAIM_SHAPE,
@@ -24,6 +23,7 @@ import { compareAsciiStrings } from "@/lib/state-store";
 import { NODE_STATUS_TEST_GENERATOR, type RecordedRun } from "@testing/generators/node-status/node-status";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
+  currentMethodologyConfig,
   methodologyDeclaringConfig,
   readNodeStatusFileBytes,
   withPinnedNodeRepository,
@@ -109,15 +109,8 @@ describe("every pinned entry the writer produces under a 4.0 methodology", () =>
     "carries the checked-out commit and read paths holding the node's spec, the entry's own subjects, and its verification artifact, and every other entry reads not-run with no pin",
     async () => {
       const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
-      const version = sampleGeneratedValue(
-        NODE_STATUS_TEST_GENERATOR.methodologyVersion(NODE_STATUS_CLAIM_SHAPE.CURRENT),
-      );
-      await withPinnedNodeRepository(fixture, methodologyDeclaringConfig(version), async (repository) => {
-        const attribution = {
-          actor: { [NODE_STATUS_CLAIM_FIELD.ACTOR_KIND]: NODE_STATUS_ACTOR_KIND.AGENT, id: fixture.slug },
-          run: fixture.dirName,
-        };
-        const testKeyOf = (path: string) => posix.relative(repository.nodePath, path);
+      await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
+        const attribution = repository.attribution;
         await assertProperty(
           fc.record({
             tests: NODE_STATUS_TEST_GENERATOR.recordedRuns(repository.subjectPaths, repository.testPaths),
@@ -155,7 +148,7 @@ describe("every pinned entry the writer produces under a 4.0 methodology", () =>
             const expected = [
               ...repository.testPaths.map((path) => ({
                 section: NODE_STATUS_CLAIM_SECTION.TEST,
-                key: testKeyOf(path),
+                key: repository.testKey(path),
                 run: tests[path],
                 declared: [repository.specPath, path],
               })),

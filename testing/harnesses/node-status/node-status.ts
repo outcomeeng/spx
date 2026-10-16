@@ -1,6 +1,6 @@
 import { execa } from "execa";
 import { readdir, readFile } from "node:fs/promises";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, posix, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
@@ -49,11 +49,13 @@ import {
   type ClassificationTreeFixture,
   DECISION_PLACEMENT,
   type DecisionPlacement,
+  NODE_STATUS_TEST_GENERATOR,
   type PinnedNodeFixture,
   type StatusWriterTreeFixture,
   type StatusWriterTreeNode,
   type VariantParentFixture,
 } from "@testing/generators/node-status/node-status";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   buildGitTestEnvironment,
   GIT_TEST_CONFIG,
@@ -508,6 +510,24 @@ export function methodologyDeclaringConfig(version: string): Config {
   };
 }
 
+/** A configuration declaring a methodology version of the current claim shape, drawn from the node-status generator. */
+export function currentMethodologyConfig(): Config {
+  return methodologyDeclaringConfig(
+    sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.methodologyVersion(NODE_STATUS_CLAIM_SHAPE.CURRENT)),
+  );
+}
+
+/** The actor and run a recorded agent result carries, naming `actorId` as the agent and `run` as its run. */
+export function nodeStatusAttribution(actorId: string, run: string) {
+  return {
+    [NODE_STATUS_CLAIM_FIELD.ACTOR]: {
+      [NODE_STATUS_CLAIM_FIELD.ACTOR_KIND]: NODE_STATUS_ACTOR_KIND.AGENT,
+      id: actorId,
+    },
+    [NODE_STATUS_CLAIM_FIELD.RUN]: run,
+  };
+}
+
 const LINKED_SPEC_FIXTURE_PATH = join(NODE_STATUS_FIXTURE_DIRECTORY, "linked-spec.md.fixture");
 const SPEC_LINK_TARGET_PATTERN = /\]\((tests\/[^)\s]+)\)/g;
 const SPEC_LINK_TARGET_GROUP = 1;
@@ -527,6 +547,12 @@ export type PinnedNodeRepository = {
   readonly specPath: string;
   /** Product-relative paths of the tests the spec links. */
   readonly testPaths: readonly string[];
+  /** The claim key of each test in `testPaths`, in the same order: its path relative to the node directory. */
+  readonly testKeys: readonly string[];
+  /** The claim key of a product-relative test path under this node. */
+  testKey(path: string): string;
+  /** The agent attribution a recorded result of this node carries. */
+  readonly attribution: ReturnType<typeof nodeStatusAttribution>;
   readonly subjectPaths: readonly string[];
   /** The commit every pin of this repository names. */
   readonly commit: string;
@@ -598,6 +624,9 @@ export async function withPinnedNodeRepository(
       nodePath,
       specPath,
       testPaths,
+      testKeys: testPaths.map((path) => posix.relative(nodePath, path)),
+      testKey: (path) => posix.relative(nodePath, path),
+      attribution: nodeStatusAttribution(fixture.slug, fixture.dirName),
       subjectPaths: fixture.subjectPaths,
       commit,
       git: isolatedFixtureGitDependencies,
@@ -790,8 +819,7 @@ export async function withVariantTree(
                   [kind, {
                     verdict: verdictOf(nodeId),
                     read: variants.filter((variant) => variant.nodeId === nodeId).map((variant) => variant.subjectPath),
-                    actor: { kind: NODE_STATUS_ACTOR_KIND.AGENT, id: fixture.parentSlug },
-                    run: fixture.parentDirName,
+                    ...nodeStatusAttribution(fixture.parentSlug, fixture.parentDirName),
                   }] as const
                 ),
               ),

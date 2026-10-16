@@ -7,7 +7,6 @@ import {
   createNodeStatusExcludeReader,
   createNodeStatusFile,
   createNodeStatusProvider,
-  NODE_STATUS_ACTOR_KIND,
   NODE_STATUS_CLAIM_FIELD,
   NODE_STATUS_CLAIM_SECTION,
   NODE_STATUS_CLAIM_SHAPE,
@@ -38,6 +37,7 @@ import { SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tre
 import {
   commitSpecTree,
   createConsultationRecordingResolver,
+  currentMethodologyConfig,
   listNodeStatusFiles,
   methodologyDeclaringConfig,
   readNodeStatusFileBytes,
@@ -49,12 +49,6 @@ import {
   withStatusWriterTree,
   writeProductSpec,
 } from "@testing/harnesses/node-status/node-status";
-
-function currentMethodology() {
-  return methodologyDeclaringConfig(
-    sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.methodologyVersion(NODE_STATUS_CLAIM_SHAPE.CURRENT)),
-  );
-}
 
 describe("spx spec status --update claim shape", () => {
   it("ALWAYS: writes each node's claim in the shape of the methodology version the product declares", async () => {
@@ -79,13 +73,11 @@ describe("spx spec status --update claim shape", () => {
     const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
     await withPinnedNodeRepository(
       fixture,
-      methodologyDeclaringConfig(
-        sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.methodologyVersion(NODE_STATUS_CLAIM_SHAPE.CURRENT)),
-      ),
+      currentMethodologyConfig(),
       async (repository) => {
         await repository.writeClaim({
           [NODE_STATUS_CLAIM_SECTION.TEST]: {
-            [repository.testPaths[0]?.slice(repository.nodePath.length + 1) ?? ""]: repository.passedEntry([
+            [repository.testKeys[0] ?? ""]: repository.passedEntry([
               repository.specPath,
               repository.testPaths[0] ?? "",
               repository.subjectPaths[0] ?? "",
@@ -248,14 +240,11 @@ describe("spx spec status --update outcome source", () => {
 
   it("ALWAYS: under a 4.0 methodology, derives each audit rule slug and evidence kind outcome only from the result a recorded run produced — an unanswered slug or kind reads not-run with no pin and fabricates no pass", async () => {
     const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
-    await withPinnedNodeRepository(fixture, currentMethodology(), async (repository) => {
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
       const subject = repository.subjectPaths[0] ?? "";
       const [answeredSlug, ...unansweredSlugs] = repository.auditRuleSlugs;
       const answeredVerdict = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.recordedVerdict());
-      const attribution = {
-        actor: { [NODE_STATUS_CLAIM_FIELD.ACTOR_KIND]: NODE_STATUS_ACTOR_KIND.AGENT, id: fixture.slug },
-        run: fixture.dirName,
-      };
+      const attribution = repository.attribution;
       expect(unansweredSlugs.length).toBeGreaterThan(0);
 
       await updateNodeStatus({

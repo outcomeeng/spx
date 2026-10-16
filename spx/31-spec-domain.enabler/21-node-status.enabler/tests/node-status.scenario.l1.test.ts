@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   createNodeStatusProvider,
-  NODE_STATUS_ACTOR_KIND,
   NODE_STATUS_CLAIM_FIELD,
   NODE_STATUS_CLAIM_SECTION,
   NODE_STATUS_CLAIM_SHAPE,
@@ -31,24 +30,18 @@ import { createClaimedTestStatus, NODE_STATUS_TEST_GENERATOR } from "@testing/ge
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   createConsultationRecordingResolver,
+  currentMethodologyConfig,
   listNodeStatusFiles,
-  methodologyDeclaringConfig,
   readVersion1NodeStatus,
   withClassificationTree,
   withPinnedNodeRepository,
   withVariantTree,
 } from "@testing/harnesses/node-status/node-status";
 
-function currentMethodology() {
-  return methodologyDeclaringConfig(
-    sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.methodologyVersion(NODE_STATUS_CLAIM_SHAPE.CURRENT)),
-  );
-}
-
 describe("a tree holding a version-1 claim and a 4.0 claim", () => {
   it("reads both and reports each with its shape", async () => {
     const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
-    await withPinnedNodeRepository(fixture, currentMethodology(), async (repository) => {
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
       const [firstTest] = repository.testPaths;
       const [firstSubject] = repository.subjectPaths;
       const currentKey = `${NODE_STATUS_CLAIM_SECTION.TEST}`;
@@ -90,7 +83,7 @@ describe("a tree holding a version-1 claim and a 4.0 claim", () => {
 describe("a pinned result and a change to one path in its read set", () => {
   it("reports a Test result reading the path as not current and every result whose pin does not read it as current", async () => {
     const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
-    await withPinnedNodeRepository(fixture, currentMethodology(), async (repository) => {
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
       const [edited, untouched] = [
         repository.subjectPaths[fixture.editedSubject] ?? "",
         repository.subjectPaths.find((_, index) => index !== fixture.editedSubject) ?? "",
@@ -120,7 +113,7 @@ describe("a pinned result and a change to one path in its read set", () => {
 describe("a pinned Audit result and a link-format edit to the node's spec", () => {
   it("keeps the Audit result current and reports every Test result whose pin reads the spec as not current", async () => {
     const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
-    await withPinnedNodeRepository(fixture, currentMethodology(), async (repository) => {
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
       const subject = repository.subjectPaths[0] ?? "";
       const audit = repository.passedEntry([repository.specPath, subject]);
       const test = repository.passedEntry([repository.specPath, repository.testPaths[0] ?? "", subject]);
@@ -147,7 +140,7 @@ describe("a parent whose variants' claims carry its entries", () => {
   it("is passing only when every variant's copies pass, and its own claim carries no results", async () => {
     await withVariantTree(
       sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.variantParent()),
-      currentMethodology(),
+      currentMethodologyConfig(),
       async (tree) => {
         await tree.recordClaims();
         const snapshot = await readSpecTree({
@@ -171,8 +164,8 @@ describe("a parent whose variants' claims carry its entries", () => {
 describe("a node whose claim recorded passing", () => {
   it("derives failing once a pinned read path changes without a declaration change, and not failing after the spec changes", async () => {
     const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
-    await withPinnedNodeRepository(fixture, currentMethodology(), async (repository) => {
-      const testKey = repository.testPaths[0]?.slice(repository.nodePath.length + 1) ?? "";
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
+      const testKey = repository.testKeys[0] ?? "";
       const subject = repository.subjectPaths[fixture.editedSubject] ?? "";
       await repository.writeClaim(
         {
@@ -211,10 +204,10 @@ describe("spx spec status --update under a 4.0 methodology over a node with link
 
   it("records a result for each linked reference, each audit rule slug, and each evidence kind, pinned to the checked-out commit", async () => {
     const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
-    await withPinnedNodeRepository(fixture, currentMethodology(), async (repository) => {
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
       const subject = repository.subjectPaths[0] ?? "";
       const asked: { auditRuleSlugs: readonly string[]; evidenceKinds: readonly string[] }[] = [];
-      const attributed = { actor: { kind: NODE_STATUS_ACTOR_KIND.AGENT, id: fixture.slug }, run: fixture.dirName };
+      const attributed = repository.attribution;
 
       await updateNodeStatus({
         productDir: repository.env.productDir,
@@ -248,7 +241,7 @@ describe("spx spec status --update under a 4.0 methodology over a node with link
         results.filter((result) => result.section === section).map((result) => result.key).sort(compareAsciiStrings);
 
       expect(keysOf(NODE_STATUS_CLAIM_SECTION.TEST)).toEqual(
-        repository.testPaths.map((path) => path.slice(repository.nodePath.length + 1)).sort(compareAsciiStrings),
+        [...repository.testKeys].sort(compareAsciiStrings),
       );
       expect(keysOf(NODE_STATUS_CLAIM_SECTION.AUDIT)).toEqual([...repository.auditRuleSlugs].sort(compareAsciiStrings));
       expect(keysOf(NODE_STATUS_CLAIM_SECTION.EVIDENCE)).toEqual([NODE_STATUS_CLAIM_SECTION.TEST]);
@@ -271,7 +264,7 @@ describe("spx spec status --update under a 4.0 methodology over a node with link
 
   it("records not-run with no pin for a result whose adapter reports no read paths, and for a reference no run covers", async () => {
     const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
-    await withPinnedNodeRepository(fixture, currentMethodology(), async (repository) => {
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
       await updateNodeStatus({
         productDir: repository.env.productDir,
         resolveOutcome: passingOutcomes,
@@ -296,7 +289,7 @@ describe("spx spec status --update under a 4.0 methodology over a node with link
 
   it("keeps a committed entry whose pin is current and whose verdict and read set equal the run's across an unrelated commit", async () => {
     const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
-    await withPinnedNodeRepository(fixture, currentMethodology(), async (repository) => {
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
       const subject = repository.subjectPaths[0] ?? "";
       const options = {
         productDir: repository.env.productDir,
@@ -319,11 +312,10 @@ describe("spx spec status --update under a 4.0 methodology over a node with link
 
   it("keeps the committed entry of a covered reference whose evidence is stale and records not-run with no pin when none is committed", async () => {
     const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
-    await withPinnedNodeRepository(fixture, currentMethodology(), async (repository) => {
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
       const subject = repository.subjectPaths[0] ?? "";
-      const [committedPath, uncommittedPath] = repository.testPaths;
-      const committedKey = committedPath?.slice(repository.nodePath.length + 1) ?? "";
-      const uncommittedKey = uncommittedPath?.slice(repository.nodePath.length + 1) ?? "";
+      const [committedPath] = repository.testPaths;
+      const [committedKey = "", uncommittedKey = ""] = repository.testKeys;
       const committedEntry = repository.passedEntry([repository.specPath, committedPath ?? "", subject]);
       await repository.writeClaim({ [NODE_STATUS_CLAIM_SECTION.TEST]: { [committedKey]: committedEntry } });
 

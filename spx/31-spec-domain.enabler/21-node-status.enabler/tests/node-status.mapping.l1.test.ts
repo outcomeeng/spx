@@ -5,7 +5,6 @@ import {
   classifyNodeStatus,
   createNodeStatusProvider,
   NODE_STATUS_CLAIM_SECTION,
-  NODE_STATUS_CLAIM_SHAPE,
   NODE_STATUS_CURRENCY,
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_FIELD,
@@ -29,7 +28,7 @@ import {
   type PinnedNodeFixture,
 } from "@testing/generators/node-status/node-status";
 import { sampleGeneratedValue } from "@testing/generators/sample";
-import { methodologyDeclaringConfig, withPinnedNodeRepository } from "@testing/harnesses/node-status/node-status";
+import { currentMethodologyConfig, withPinnedNodeRepository } from "@testing/harnesses/node-status/node-status";
 
 describe("classifyNodeStatus over every combination of linked references, EXCLUDE listing, and committed outcomes", () => {
   it("resolves declared, then specified, then passing when every committed mechanism passes, else failing", () => {
@@ -72,9 +71,7 @@ describe("classifyNodeClaim over every combination of required artifacts, record
 });
 
 describe("the Git-history clause of classifyNodeClaim over every placement of a decision record relative to a node", () => {
-  const config = methodologyDeclaringConfig(
-    sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.methodologyVersion(NODE_STATUS_CLAIM_SHAPE.CURRENT)),
-  );
+  const config = currentMethodologyConfig();
 
   async function stateAfterDecisionEdit(
     fixture: PinnedNodeFixture,
@@ -82,7 +79,7 @@ describe("the Git-history clause of classifyNodeClaim over every placement of a 
   ): Promise<string | undefined> {
     let state: string | undefined;
     await withPinnedNodeRepository(fixture, config, async (repository) => {
-      const testKey = repository.testPaths[0]?.slice(repository.nodePath.length + 1) ?? "";
+      const testKey = repository.testKeys[0] ?? "";
       const subject = repository.subjectPaths[fixture.editedSubject] ?? "";
       await repository.writeClaim(
         {
