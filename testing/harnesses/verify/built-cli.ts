@@ -6,8 +6,8 @@
  * @module testing/harnesses/verify/built-cli
  */
 
-import { access, mkdir, readdir, readFile, realpath } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { access, mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { dirname, join, relative } from "node:path";
 
 import { execa } from "execa";
 
@@ -15,6 +15,8 @@ import { JOURNAL_CLI_ENV } from "@/commands/journal/cli";
 import { VERIFY_CLI_EXIT_CODE, type VerifyStartReport, type VerifyStatusReport } from "@/commands/verify/cli";
 import { JOURNAL_BACKEND } from "@/domains/journal/backend-selection";
 import {
+  VERIFY_EXPECTATIONS_FIELD,
+  VERIFY_EXPECTATIONS_SCHEMA_VERSION,
   VERIFY_INPUT_SOURCE,
   VERIFY_SCOPE_SEPARATOR,
   VERIFY_SCOPE_TYPE,
@@ -44,6 +46,7 @@ const BUILT_CLI_BUNDLE = join(PRODUCT_ROOT, "dist", "cli.js");
 const BUILT_CLI_MISSING_EXIT_CODE = 1;
 const HEADLESS_RUN_TEMP_PREFIX = "verify-built-headless-run-";
 const HEADLESS_RUN_PRODUCT_DIRECTORY = "product";
+const EXPECTATIONS_FILE_NAME = "expectations.json";
 
 /** Captured streams and exit code of one built-executable run. */
 export interface BuiltVerificationCliRun {
@@ -607,5 +610,241 @@ export async function observeBuiltRunPathsAgainstStart(): Promise<BuiltRunPathsA
       stateAfterPaths,
       stateAfterStart,
     };
+  });
+}
+
+/** How much of the changeset a bound run's scope evidence judges. */
+export const BUILT_RUN_COVERAGE = {
+  EVERY_CHANGED_PATH: "every-changed-path",
+  ALL_BUT_ONE_CHANGED_PATH: "all-but-one-changed-path",
+} as const;
+
+export type BuiltRunCoverage = (typeof BUILT_RUN_COVERAGE)[keyof typeof BUILT_RUN_COVERAGE];
+
+/**
+ * An expectations-bound changeset run started and given scope evidence through the built
+ * executable: the command-line selectors that address it, the path the evidence leaves unjudged
+ * when coverage is all-but-one, the terminal status its evidence accepts, and the captured `start`
+ * and `scope add` runs.
+ */
+export interface BuiltBoundRun {
+  readonly productDir: string;
+  readonly unaccountedPath: string;
+  readonly terminalStatus: string;
+  readonly expectationsFile: string;
+  readonly selectors: readonly string[];
+  readonly runSelectors: readonly string[];
+  readonly start: BuiltVerificationCliRun;
+  readonly scopeAdd?: BuiltVerificationCliRun;
+}
+
+/**
+ * In a real Git repository whose changeset changes several paths, start a changeset-scoped review
+ * run through the built `start --expectations <file>` and record scope evidence through the built
+ * `scope add` that judges the paths `coverage` names, then hand the callback the run. The
+ * repository is removed when the callback settles.
+ */
+async function withBuiltBoundRun<T>(
+  coverage: BuiltRunCoverage,
+  callback: (run: BuiltBoundRun) => Promise<T>,
+): Promise<T> {
+  const scenario = sampleVerifyTestValue(CHANGE_RUNS_TEST_GENERATOR.scenario());
+  const comparison = sampleVerifyTestValue(CHANGE_RUNS_TEST_GENERATOR.runComparison());
+  const idempotencyKey = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
+  const unaccountedPath = comparison.secondOnlyPath;
+  return withChangeRunsRepository(scenario, async (repository) => {
+    const headCommit = await repository.commitFiles(comparison.files);
+    const changedPaths = [repository.filePath, ...comparison.files.map((file) => file.path)];
+    const judgedPaths = coverage === BUILT_RUN_COVERAGE.EVERY_CHANGED_PATH
+      ? changedPaths
+      : changedPaths.filter((path) => path !== unaccountedPath);
+    const selectors = changesetReviewSelectors({
+      productDir: repository.productDir,
+      baseCommit: repository.baseCommit,
+      headCommit,
+    });
+    const scopeIdentity = `${repository.baseCommit}${VERIFY_SCOPE_SEPARATOR}${headCommit}`;
+    const evidence = sampleVerifyTestValue(
+      VERIFY_TEST_GENERATOR.judgedEvidenceTerminalCase(VERIFY_VERIFICATION_TYPE.REVIEW, scopeIdentity, judgedPaths),
+    );
+    const expectationsFile = join(dirname(repository.productDir), EXPECTATIONS_FILE_NAME);
+    await writeFile(
+      expectationsFile,
+      JSON.stringify({ [VERIFY_EXPECTATIONS_FIELD.SCHEMA_VERSION]: VERIFY_EXPECTATIONS_SCHEMA_VERSION }),
+    );
+    const start = await runBuiltVerificationRun(
+      repository.productDir,
+      [VERIFY_CLI.startCommandName],
+      [
+        ...selectors,
+        flagOf(VERIFY_CLI.inputOption),
+        VERIFY_INPUT_SOURCE.STDIN,
+        flagOf(VERIFY_CLI.expectationsOption),
+        expectationsFile,
+      ],
+      JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.inputPayload())),
+    );
+    const common = {
+      productDir: repository.productDir,
+      unaccountedPath,
+      terminalStatus: evidence.terminalStatus,
+      expectationsFile,
+      selectors,
+    };
+    if (start.exitCode !== VERIFY_CLI_EXIT_CODE.OK) return callback({ ...common, runSelectors: selectors, start });
+    const runSelectors = [
+      ...selectors,
+      flagOf(VERIFY_CLI.runOption),
+      (JSON.parse(start.stdout) as VerifyStartReport).runToken,
+    ];
+    const scopeAdd = await runBuiltVerificationRun(
+      repository.productDir,
+      [VERIFY_CLI.scopeCommandName, VERIFY_CLI.addCommandName],
+      [
+        ...runSelectors,
+        flagOf(VERIFY_CLI.payloadOption),
+        VERIFY_INPUT_SOURCE.STDIN,
+        flagOf(VERIFY_CLI.idempotencyKeyOption),
+        idempotencyKey,
+      ],
+      JSON.stringify(evidence.payload),
+    );
+    return callback({ ...common, runSelectors, start, scopeAdd });
+  });
+}
+
+/** Throw a setup failure unless the bound run's `start` and `scope add` both succeeded. */
+function requireBoundRunEvidence(run: BuiltBoundRun): void {
+  if (run.start.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+    throw new Error(`built-cli harness: bound-run start failed: ${run.start.stderr}`);
+  }
+  if (run.scopeAdd?.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+    throw new Error(`built-cli harness: bound-run scope add failed: ${run.scopeAdd?.stderr}`);
+  }
+}
+
+/** The built `reconcile`, and then `finish`, `status` runs over a bound run whose evidence leaves one path unjudged. */
+export interface BuiltUnaccountedRunObservation {
+  readonly unaccountedPath: string;
+  readonly reconcile: BuiltVerificationCliRun;
+  readonly finish: BuiltVerificationCliRun;
+  readonly status: BuiltVerificationCliRun;
+  readonly statusReport: VerifyStatusReport;
+}
+
+/**
+ * Over an expectations-bound changeset run whose scope evidence judges every changed path but one,
+ * run the built `reconcile`, the built `finish` with a terminal status the evidence accepts, and
+ * the built `status`.
+ */
+export async function observeBuiltUnaccountedRun(): Promise<BuiltUnaccountedRunObservation> {
+  return withBuiltBoundRun(BUILT_RUN_COVERAGE.ALL_BUT_ONE_CHANGED_PATH, async (run) => {
+    requireBoundRunEvidence(run);
+    const reconcile = await runBuiltVerificationRun(
+      run.productDir,
+      [VERIFY_CLI.reconcileCommandName],
+      run.runSelectors,
+    );
+    const finish = await runBuiltVerificationRun(
+      run.productDir,
+      [VERIFY_CLI.finishCommandName],
+      [...run.runSelectors, flagOf(VERIFY_CLI.terminalStatusOption), run.terminalStatus],
+    );
+    const status = await runBuiltVerificationRun(run.productDir, [VERIFY_CLI.statusCommandName], run.runSelectors);
+    return {
+      unaccountedPath: run.unaccountedPath,
+      reconcile,
+      finish,
+      status,
+      statusReport: JSON.parse(status.stdout) as VerifyStatusReport,
+    };
+  });
+}
+
+/**
+ * The built invocations of the option-grammar observation over an expectations-bound run: the
+ * accepted `start --expectations`, the `reconcile` and `finish` invocations that name
+ * `--expectations`, and the `status` read after them, with the flag the invocations name.
+ */
+export interface BuiltExpectationsOptionObservation {
+  readonly expectationsFlag: string;
+  readonly start: BuiltVerificationCliRun;
+  readonly reconcileWithExpectations: BuiltVerificationCliRun;
+  readonly finishWithExpectations: BuiltVerificationCliRun;
+  readonly status: BuiltVerificationCliRun;
+  readonly statusReport: VerifyStatusReport;
+}
+
+/**
+ * Over an expectations-bound changeset run, run the built `reconcile` and `finish` each with
+ * `--expectations <file>` added to otherwise valid arguments, then the built `status`.
+ */
+export async function observeBuiltExpectationsOption(): Promise<BuiltExpectationsOptionObservation> {
+  return withBuiltBoundRun(BUILT_RUN_COVERAGE.EVERY_CHANGED_PATH, async (run) => {
+    requireBoundRunEvidence(run);
+    const expectationsFlag = flagOf(VERIFY_CLI.expectationsOption);
+    const reconcileWithExpectations = await runBuiltVerificationRun(
+      run.productDir,
+      [VERIFY_CLI.reconcileCommandName],
+      [...run.runSelectors, expectationsFlag, run.expectationsFile],
+    );
+    const finishWithExpectations = await runBuiltVerificationRun(
+      run.productDir,
+      [VERIFY_CLI.finishCommandName],
+      [
+        ...run.runSelectors,
+        flagOf(VERIFY_CLI.terminalStatusOption),
+        run.terminalStatus,
+        expectationsFlag,
+        run.expectationsFile,
+      ],
+    );
+    const status = await runBuiltVerificationRun(run.productDir, [VERIFY_CLI.statusCommandName], run.runSelectors);
+    return {
+      expectationsFlag,
+      start: run.start,
+      reconcileWithExpectations,
+      finishWithExpectations,
+      status,
+      statusReport: JSON.parse(status.stdout) as VerifyStatusReport,
+    };
+  });
+}
+
+/**
+ * The built `reconcile` invocations over one expectations-bound run: with every changed path
+ * judged and the run named, without `--run`, and with a fresh `--input`, plus the flags the
+ * rejected invocations omit or add.
+ */
+export interface BuiltReconcileInvocationObservation {
+  readonly runFlag: string;
+  readonly inputFlag: string;
+  readonly reconciled: BuiltVerificationCliRun;
+  readonly withoutRun: BuiltVerificationCliRun;
+  readonly withInput: BuiltVerificationCliRun;
+}
+
+/**
+ * Over an expectations-bound changeset run whose evidence judges every changed path, run the built
+ * `reconcile` as the run's selectors with `--run`, again without `--run`, and again with a fresh
+ * `--input`.
+ */
+export async function observeBuiltReconcileInvocations(): Promise<BuiltReconcileInvocationObservation> {
+  return withBuiltBoundRun(BUILT_RUN_COVERAGE.EVERY_CHANGED_PATH, async (run) => {
+    requireBoundRunEvidence(run);
+    const inputFlag = flagOf(VERIFY_CLI.inputOption);
+    const reconciled = await runBuiltVerificationRun(
+      run.productDir,
+      [VERIFY_CLI.reconcileCommandName],
+      run.runSelectors,
+    );
+    const withoutRun = await runBuiltVerificationRun(run.productDir, [VERIFY_CLI.reconcileCommandName], run.selectors);
+    const withInput = await runBuiltVerificationRun(
+      run.productDir,
+      [VERIFY_CLI.reconcileCommandName],
+      [...run.runSelectors, inputFlag, VERIFY_INPUT_SOURCE.STDIN],
+      JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.inputPayload())),
+    );
+    return { runFlag: flagOf(VERIFY_CLI.runOption), inputFlag, reconciled, withoutRun, withInput };
   });
 }
