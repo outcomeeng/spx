@@ -1,6 +1,5 @@
 import { dirname, join, posix } from "node:path";
 
-import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -20,7 +19,7 @@ import {
 } from "@/lib/node-status";
 import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
-import { NODE_STATUS_TEST_GENERATOR, type RecordedRun } from "@testing/generators/node-status/node-status";
+import { NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   currentMethodologyConfig,
@@ -40,13 +39,10 @@ describe("every spx.status.json the writer produces under a 4.0 methodology", ()
     "parses as a 4.0 claim of state, malleability, and verification results in the status vocabulary, keyed by the node-relative paths of the node's linked evidence, with no overall rollup",
     async () => {
       await assertProperty(
-        fc.tuple(
-          NODE_STATUS_TEST_GENERATOR.statusWriterTree(),
-          NODE_STATUS_TEST_GENERATOR.methodologyVersion(NODE_STATUS_CLAIM_SHAPE.CURRENT),
-        ),
-        async ([fixture, version]) => {
+        NODE_STATUS_TEST_GENERATOR.statusWriterTreeUnderMethodology(NODE_STATUS_CLAIM_SHAPE.CURRENT),
+        async ({ tree, version }) => {
           await withStatusWriterTree(
-            fixture,
+            tree,
             async ({ env, expectations, resolveOutcome }) => {
               await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
 
@@ -110,35 +106,17 @@ describe("every pinned entry the writer produces under a 4.0 methodology", () =>
     async () => {
       const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
       await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
-        const attribution = repository.attribution;
         await assertProperty(
-          fc.record({
-            tests: NODE_STATUS_TEST_GENERATOR.recordedRuns(repository.subjectPaths, repository.testPaths),
-            audit: NODE_STATUS_TEST_GENERATOR.recordedRuns(repository.subjectPaths, repository.auditRuleSlugs, true),
-            evidence: NODE_STATUS_TEST_GENERATOR.recordedRuns(
-              repository.subjectPaths,
-              [NODE_STATUS_CLAIM_SECTION.TEST],
-              true,
-            ),
-          }),
-          async ({ tests, audit, evidence }) => {
-            const attributed = (runs: Readonly<Record<string, RecordedRun | undefined>>) =>
-              Object.fromEntries(
-                Object.entries(runs).flatMap(([key, run]) =>
-                  run === undefined ? [] : [[key, { ...run, ...attribution }] as const]
-                ),
-              );
+          NODE_STATUS_TEST_GENERATOR.recordedRunSets(
+            repository.subjectPaths,
+            repository.testPaths,
+            repository.auditRuleSlugs,
+            repository.evidenceKinds,
+          ),
+          async (runs) => {
             await updateNodeStatus({
               productDir: repository.env.productDir,
-              resolveOutcome: (_nodeId, evidencePaths) =>
-                Promise.resolve(
-                  Object.fromEntries(
-                    evidencePaths.map((path) => [path, tests[path]?.verdict ?? NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN]),
-                  ),
-                ),
-              resolveReadPaths: (_nodeId, evidencePath) => Promise.resolve(tests[evidencePath]?.read),
-              resolveAttributedResults: () =>
-                Promise.resolve({ audit: attributed(audit), evidence: attributed(evidence) }),
+              ...repository.resolversOfRecordedRuns(runs),
               gitDependencies: repository.git,
             });
 
@@ -149,21 +127,21 @@ describe("every pinned entry the writer produces under a 4.0 methodology", () =>
               ...repository.testPaths.map((path) => ({
                 section: NODE_STATUS_CLAIM_SECTION.TEST,
                 key: repository.testKey(path),
-                run: tests[path],
+                run: runs.tests[path],
                 declared: [repository.specPath, path],
               })),
               ...repository.auditRuleSlugs.map((slug) => ({
                 section: NODE_STATUS_CLAIM_SECTION.AUDIT,
                 key: slug,
-                run: audit[slug],
+                run: runs.audit[slug],
                 declared: [repository.specPath],
               })),
-              {
+              ...repository.evidenceKinds.map((kind) => ({
                 section: NODE_STATUS_CLAIM_SECTION.EVIDENCE,
-                key: NODE_STATUS_CLAIM_SECTION.TEST,
-                run: evidence[NODE_STATUS_CLAIM_SECTION.TEST],
+                key: kind,
+                run: runs.evidence[kind],
                 declared: [repository.specPath],
-              },
+              })),
             ];
             const results = nodeStatusClaimResults(written.claim);
             expect(results.length).toBe(expected.length);
@@ -195,9 +173,7 @@ describe("every pinned entry the writer produces under a 4.0 methodology", () =>
 describe("the claim shape of a declared methodology version", () => {
   it("is the 4.0 shape exactly for a version of the 4.0 line or later", async () => {
     await assertProperty(
-      fc.constantFrom(...Object.values(NODE_STATUS_CLAIM_SHAPE)).chain((shape) =>
-        NODE_STATUS_TEST_GENERATOR.methodologyVersion(shape).map((version) => ({ shape, version }))
-      ),
+      NODE_STATUS_TEST_GENERATOR.methodologyVersionWithShape(),
       ({ shape, version }) => {
         expect(claimShapeOfMethodologyVersion(version)).toBe(shape);
       },

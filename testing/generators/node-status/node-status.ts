@@ -181,10 +181,13 @@ export const NODE_STATUS_TEST_GENERATOR = {
   nestedPinnedNode: arbitraryNestedPinnedNode,
   variantParent: arbitraryVariantParent,
   methodologyVersion: arbitraryMethodologyVersion,
+  methodologyVersionWithShape: arbitraryMethodologyVersionWithShape,
+  statusWriterTreeUnderMethodology: arbitraryStatusWriterTreeUnderMethodology,
+  recordedRunSets: arbitraryRecordedRunSets,
+  trackedPathInclusionCase: arbitraryTrackedPathInclusionCase,
   commitId: arbitraryCommitId,
   productName: arbitraryNodeSlug,
   recordedVerdict: arbitraryRecordedVerdict,
-  recordedRuns: arbitraryRecordedRuns,
 } as const;
 
 /** What a recorded run reported for one result: its verdict and the subject paths it read. */
@@ -214,6 +217,68 @@ function arbitraryRecordedRuns(
   return fc
     .tuple(...keys.map(() => (optional ? fc.option(run, { nil: undefined }) : run)))
     .map((runs) => Object.fromEntries(keys.map((key, index) => [key, runs[index]])));
+}
+
+/** The recorded runs of a pinned node: a run for each linked test, and for audit slugs and evidence kinds optionally. */
+export type RecordedRunSets = {
+  readonly tests: Readonly<Record<string, RecordedRun | undefined>>;
+  readonly audit: Readonly<Record<string, RecordedRun | undefined>>;
+  readonly evidence: Readonly<Record<string, RecordedRun | undefined>>;
+};
+
+/**
+ * The recorded runs a verification surface may report for a pinned node: every linked test carries a run, while
+ * each audit rule slug and each evidence kind may have no recorded run at all.
+ */
+function arbitraryRecordedRunSets(
+  subjectPaths: readonly string[],
+  testPaths: readonly string[],
+  auditRuleSlugs: readonly string[],
+  evidenceKinds: readonly string[],
+): fc.Arbitrary<RecordedRunSets> {
+  return fc.record({
+    tests: arbitraryRecordedRuns(subjectPaths, testPaths),
+    audit: arbitraryRecordedRuns(subjectPaths, auditRuleSlugs, true),
+    evidence: arbitraryRecordedRuns(subjectPaths, evidenceKinds, true),
+  });
+}
+
+/** A status-writer tree with an exact methodology version of the claim shape given. */
+export type StatusWriterTreeUnderMethodology = {
+  readonly tree: StatusWriterTreeFixture;
+  readonly version: string;
+};
+
+function arbitraryStatusWriterTreeUnderMethodology(
+  shape: NodeStatusClaimShape,
+): fc.Arbitrary<StatusWriterTreeUnderMethodology> {
+  return fc
+    .tuple(arbitraryStatusWriterTree(), arbitraryMethodologyVersion(shape))
+    .map(([tree, version]) => ({ tree, version }));
+}
+
+/** An exact methodology version together with the claim shape it belongs to, over every claim shape. */
+export type MethodologyVersionWithShape = {
+  readonly shape: NodeStatusClaimShape;
+  readonly version: string;
+};
+
+function arbitraryMethodologyVersionWithShape(): fc.Arbitrary<MethodologyVersionWithShape> {
+  return fc
+    .constantFrom(...Object.values(NODE_STATUS_CLAIM_SHAPE))
+    .chain((shape) => arbitraryMethodologyVersion(shape).map((version) => ({ shape, version })));
+}
+
+/** A tracked-file set with a probe path against it. */
+export type TrackedPathInclusionCase = {
+  readonly trackedFiles: ReadonlySet<string>;
+  readonly probe: string;
+};
+
+function arbitraryTrackedPathInclusionCase(): fc.Arbitrary<TrackedPathInclusionCase> {
+  return arbitraryTrackedFileSet().chain((trackedFiles) =>
+    arbitraryTrackedPathProbe(trackedFiles).map((probe) => ({ trackedFiles, probe }))
+  );
 }
 
 const COMMIT_ID_PATTERN = /^[0-9a-f]{40}$/;
@@ -354,7 +419,25 @@ function arbitraryNestedPinnedNode(): fc.Arbitrary<PinnedNodeFixture> {
     }));
 }
 
-function arbitraryVariantParent(): fc.Arbitrary<VariantParentFixture> {
+/**
+ * How the variants of a parent divide between passing and failing: every variant passes, some pass while others
+ * fail, or every variant fails. The mixed partition is the one that separates "every variant passes" from "some
+ * variant passes".
+ */
+export const VARIANT_PARTITION = {
+  ALL_PASS: "all-pass",
+  SOME_FAIL: "some-fail",
+  ALL_FAIL: "all-fail",
+} as const;
+
+export type VariantPartition = (typeof VARIANT_PARTITION)[keyof typeof VARIANT_PARTITION];
+
+/**
+ * A parent with at least two variants whose passing and failing variants divide as `partition` states, with the
+ * passing variants at any positions among them; the mixed partition always holds at least one passing and at
+ * least one failing variant.
+ */
+function arbitraryVariantParent(partition: VariantPartition): fc.Arbitrary<VariantParentFixture> {
   return fc
     .record({
       order: fc.integer({ min: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MIN, max: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MAX }),
@@ -366,7 +449,6 @@ function arbitraryVariantParent(): fc.Arbitrary<VariantParentFixture> {
             max: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MAX,
           }),
           slug: arbitraryNodeSlug(),
-          passes: fc.boolean(),
         }),
         {
           minLength: 2,
@@ -375,15 +457,29 @@ function arbitraryVariantParent(): fc.Arbitrary<VariantParentFixture> {
         },
       ),
     })
-    .map(({ order, slug, variants }): VariantParentFixture => ({
-      parentDirName: nodeDirectoryName(order, slug),
-      parentSlug: slug,
-      variants: variants.map((variant) => ({
-        dirName: `${variant.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${variant.slug}${VARIANT_SUFFIX}`,
-        slug: variant.slug,
-        passes: variant.passes,
-      })),
-    }));
+    .chain(({ order, slug, variants }) =>
+      arbitraryPassingIndices(variants.length, partition).map((passing): VariantParentFixture => ({
+        parentDirName: nodeDirectoryName(order, slug),
+        parentSlug: slug,
+        variants: variants.map((variant, index) => ({
+          dirName: `${variant.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${variant.slug}${VARIANT_SUFFIX}`,
+          slug: variant.slug,
+          passes: passing.includes(index),
+        })),
+      }))
+    );
+}
+
+function arbitraryPassingIndices(variantCount: number, partition: VariantPartition): fc.Arbitrary<readonly number[]> {
+  const indices = Array.from({ length: variantCount }, (_, index) => index);
+  switch (partition) {
+    case VARIANT_PARTITION.ALL_PASS:
+      return fc.constant(indices);
+    case VARIANT_PARTITION.ALL_FAIL:
+      return fc.constant([]);
+    case VARIANT_PARTITION.SOME_FAIL:
+      return fc.shuffledSubarray(indices, { minLength: 1, maxLength: variantCount - 1 });
+  }
 }
 
 const METHODOLOGY_CURRENT_MAJOR_MIN = 4;

@@ -31,11 +31,10 @@ import {
   SPEC_TREE_NODE_STATE,
 } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
-import { createClaimedTestStatus, NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
+import { NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import {
-  commitSpecTree,
   createConsultationRecordingResolver,
   currentMethodologyConfig,
   listNodeStatusFiles,
@@ -75,15 +74,7 @@ describe("spx spec status --update claim shape", () => {
       fixture,
       currentMethodologyConfig(),
       async (repository) => {
-        await repository.writeClaim({
-          [NODE_STATUS_CLAIM_SECTION.TEST]: {
-            [repository.testKeys[0] ?? ""]: repository.passedEntry([
-              repository.specPath,
-              repository.testPaths[0] ?? "",
-              repository.subjectPaths[0] ?? "",
-            ]),
-          },
-        });
+        await repository.writeClaim(repository.passedTestClaim(0));
         await repository.editSubject(fixture.editedSubject);
         const before = await readNodeStatusFileBytes(repository.env.productDir);
 
@@ -242,22 +233,16 @@ describe("spx spec status --update outcome source", () => {
     const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
     await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
       const subject = repository.subjectPaths[0] ?? "";
-      const [answeredSlug, ...unansweredSlugs] = repository.auditRuleSlugs;
+      const [answeredSlug = "", ...unansweredSlugs] = repository.auditRuleSlugs;
       const answeredVerdict = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.recordedVerdict());
       const attribution = repository.attribution;
       expect(unansweredSlugs.length).toBeGreaterThan(0);
 
       await updateNodeStatus({
         productDir: repository.env.productDir,
-        resolveOutcome: (_nodeId, evidencePaths) =>
-          Promise.resolve(
-            Object.fromEntries(evidencePaths.map((path) => [path, NODE_STATUS_EVIDENCE_OUTCOME.PASSED] as const)),
-          ),
+        resolveOutcome: repository.passingOutcomes,
         resolveReadPaths: () => Promise.resolve([subject]),
-        resolveAttributedResults: () =>
-          Promise.resolve({
-            audit: { [answeredSlug ?? ""]: { verdict: answeredVerdict, read: [subject], ...attribution } },
-          }),
+        resolveAttributedResults: repository.attributedResultsFor({ [answeredSlug]: answeredVerdict }, [subject]),
         gitDependencies: repository.git,
       });
 
@@ -269,7 +254,7 @@ describe("spx spec status --update outcome source", () => {
           ?.entry;
       const notRun = { [NODE_STATUS_CLAIM_FIELD.VERDICT]: NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN };
 
-      expect(entryOf(NODE_STATUS_CLAIM_SECTION.AUDIT, answeredSlug ?? "")).toEqual({
+      expect(entryOf(NODE_STATUS_CLAIM_SECTION.AUDIT, answeredSlug)).toEqual({
         [NODE_STATUS_CLAIM_FIELD.VERDICT]: answeredVerdict,
         [NODE_STATUS_CLAIM_FIELD.COMMIT]: repository.commit,
         [NODE_STATUS_CLAIM_FIELD.READ]: [repository.specPath, subject].sort(compareAsciiStrings),
@@ -307,29 +292,20 @@ describe("spx spec status --update over a drifted committed projection", () => {
   it("ALWAYS: rewrites the committed spx.status.json to the projection of the recorded evidence, leaving spx/ changed", async () => {
     await withClassificationTree(
       sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.delegationTree()),
-      async ({ env, expectations, recordOutcomeEvidence }) => {
+      async ({ env, expectations, commitProjection, commitContradiction }) => {
         const stageNode = expectations.find((expectation) =>
           expectation.facts.hasVerificationReferences && !expectation.facts.isExcluded
         );
         expect(stageNode).toBeDefined();
         if (stageNode === undefined) return;
 
-        await trackSpecTree(env.productDir);
-        const { resolveOutcome } = await recordOutcomeEvidence();
-        await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
-        await commitSpecTree(env.productDir);
-        await env.writeRaw(
-          stageNode.statusPath,
-          serializeNodeStatus(
-            createClaimedTestStatus(
-              stageNode.evidencePaths,
-              sampleGeneratedValue(
-                NODE_STATUS_TEST_GENERATOR.contradictingEvidenceOutcome(stageNode.facts.expectedEvidenceOutcome),
-              ),
-            ),
+        const resolveOutcome = await commitProjection();
+        await commitContradiction(
+          stageNode,
+          sampleGeneratedValue(
+            NODE_STATUS_TEST_GENERATOR.contradictingEvidenceOutcome(stageNode.facts.expectedEvidenceOutcome),
           ),
         );
-        await commitSpecTree(env.productDir);
         expect(await readSpecTreeWorkingChanges(env.productDir)).toEqual([]);
 
         await updateNodeStatus({ productDir: env.productDir, resolveOutcome });

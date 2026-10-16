@@ -1,4 +1,4 @@
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -10,12 +10,12 @@ import {
   NODE_STATUS_CURRENCY,
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_FIELD,
+  NODE_STATUS_MALLEABILITY,
   NODE_STATUS_SCHEMA_VERSION,
   NODE_STATUS_VERIFICATION_MECHANISM,
   nodeStatusClaimResults,
   readNodeStatus,
   resultCurrency,
-  serializeNodeStatus,
   updateNodeStatus,
 } from "@/lib/node-status";
 import {
@@ -26,12 +26,14 @@ import {
   SPEC_TREE_NODE_STATE,
 } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
-import { createClaimedTestStatus, NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
+import { NODE_STATUS_TEST_GENERATOR, VARIANT_PARTITION } from "@testing/generators/node-status/node-status";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
+  createAttributedRequestRecorder,
   createConsultationRecordingResolver,
   currentMethodologyConfig,
   listNodeStatusFiles,
+  PINNED_SPEC_FIXTURE,
   readVersion1NodeStatus,
   withClassificationTree,
   withPinnedNodeRepository,
@@ -42,27 +44,12 @@ describe("a tree holding a version-1 claim and a 4.0 claim", () => {
   it("reads both and reports each with its shape", async () => {
     const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
     await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
-      const [firstTest] = repository.testPaths;
-      const [firstSubject] = repository.subjectPaths;
-      const currentKey = `${NODE_STATUS_CLAIM_SECTION.TEST}`;
-      await repository.writeClaim({
-        [currentKey]: {
-          [firstTest ?? ""]: repository.passedEntry([repository.specPath, firstTest ?? "", firstSubject ?? ""]),
-        },
-      });
-      const versionOnePath = sampleGeneratedValue(
-        NODE_STATUS_TEST_GENERATOR.untrackedNodeStatusPath([repository.nodeId]),
-      );
-      await repository.env.writeRaw(
-        versionOnePath,
-        serializeNodeStatus(
-          createClaimedTestStatus([firstTest ?? ""], NODE_STATUS_EVIDENCE_OUTCOME.PASSED),
-        ),
-      );
+      await repository.writeClaim(repository.passedTestClaim(0));
+      const versionOneDirectory = await repository.writeVersionOneSiblingClaim();
       const productDir = repository.env.productDir;
 
       const current = readNodeStatus(join(productDir, repository.nodePath));
-      const versionOne = readNodeStatus(join(productDir, dirname(versionOnePath)));
+      const versionOne = readNodeStatus(join(productDir, versionOneDirectory));
 
       expect(current?.shape).toBe(NODE_STATUS_CLAIM_SHAPE.CURRENT);
       expect(versionOne?.shape).toBe(NODE_STATUS_CLAIM_SHAPE.VERSION_1);
@@ -70,7 +57,7 @@ describe("a tree holding a version-1 claim and a 4.0 claim", () => {
         current?.shape === NODE_STATUS_CLAIM_SHAPE.CURRENT
           ? nodeStatusClaimResults(current.claim).map((result) => result.key)
           : undefined,
-      ).toEqual([firstTest]);
+      ).toEqual([repository.testKeys[0]]);
       expect(
         versionOne?.shape === NODE_STATUS_CLAIM_SHAPE.VERSION_1
           ? versionOne.claim[NODE_STATUS_FIELD.SCHEMA_VERSION]
@@ -138,26 +125,33 @@ describe("a pinned Audit result and a link-format edit to the node's spec", () =
 
 describe("a parent whose variants' claims carry its entries", () => {
   it("is passing only when every variant's copies pass, and its own claim carries no results", async () => {
-    await withVariantTree(
-      sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.variantParent()),
-      currentMethodologyConfig(),
-      async (tree) => {
-        await tree.recordClaims();
-        const snapshot = await readSpecTree({
-          source: createFilesystemSpecTreeSource({ productDir: tree.env.productDir }),
-          evidence: await createNodeStatusProvider(tree.env.productDir, { gitDependencies: tree.git }),
-        });
-        const parentClaim = readNodeStatus(join(tree.env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, tree.parentId));
+    for (const partition of Object.values(VARIANT_PARTITION)) {
+      await withVariantTree(
+        sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.variantParent(partition)),
+        currentMethodologyConfig(),
+        async (tree) => {
+          await tree.recordClaims();
+          const snapshot = await readSpecTree({
+            source: createFilesystemSpecTreeSource({ productDir: tree.env.productDir }),
+            evidence: await createNodeStatusProvider(tree.env.productDir, { gitDependencies: tree.git }),
+          });
+          const parentClaim = readNodeStatus(
+            join(tree.env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, tree.parentId),
+          );
 
-        expect(snapshot.allNodes.find((node) => node.id === tree.parentId)?.state === SPEC_TREE_NODE_STATE.PASSING)
-          .toBe(tree.variants.every((variant) => variant.passes));
-        expect(
-          parentClaim?.shape === NODE_STATUS_CLAIM_SHAPE.CURRENT
-            ? nodeStatusClaimResults(parentClaim.claim)
-            : undefined,
-        ).toEqual([]);
-      },
-    );
+          expect(
+            snapshot.allNodes.find((node) => node.id === tree.parentId)?.state === SPEC_TREE_NODE_STATE.PASSING,
+            partition,
+          ).toBe(tree.variants.every((variant) => variant.passes));
+          expect(
+            parentClaim?.shape === NODE_STATUS_CLAIM_SHAPE.CURRENT
+              ? nodeStatusClaimResults(parentClaim.claim)
+              : undefined,
+            partition,
+          ).toEqual([]);
+        },
+      );
+    }
   });
 });
 
@@ -165,101 +159,80 @@ describe("a node whose claim recorded passing", () => {
   it("derives failing once a pinned read path changes without a declaration change, and not failing after the spec changes", async () => {
     const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
     await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
-      const testKey = repository.testKeys[0] ?? "";
-      const subject = repository.subjectPaths[fixture.editedSubject] ?? "";
-      await repository.writeClaim(
-        {
-          [NODE_STATUS_CLAIM_SECTION.TEST]: {
-            [testKey]: repository.passedEntry([repository.specPath, repository.testPaths[0] ?? "", subject]),
-          },
-        },
-        SPEC_TREE_NODE_STATE.PASSING,
-      );
-      await repository.commitAll();
-      const stateOfNode = async (): Promise<string | undefined> => {
-        const snapshot = await readSpecTree({
-          source: createFilesystemSpecTreeSource({ productDir: repository.env.productDir }),
-          evidence: await createNodeStatusProvider(repository.env.productDir, { gitDependencies: repository.git }),
-        });
-        return snapshot.allNodes.find((node) => node.id === repository.nodeId)?.state;
-      };
-      expect(await stateOfNode()).toBe(SPEC_TREE_NODE_STATE.PASSING);
+      await repository.recordPassingClaim();
+      expect(await repository.readState()).toBe(SPEC_TREE_NODE_STATE.PASSING);
 
       await repository.editSubject(fixture.editedSubject);
       await repository.commitAll();
-      expect(await stateOfNode()).toBe(SPEC_TREE_NODE_STATE.FAILING);
+      expect(await repository.readState()).toBe(SPEC_TREE_NODE_STATE.FAILING);
 
       await repository.editSpecText();
       await repository.commitAll();
-      expect(await stateOfNode()).toBe(SPEC_TREE_NODE_STATE.SPECIFIED);
+      expect(await repository.readState()).toBe(SPEC_TREE_NODE_STATE.SPECIFIED);
     });
   });
 });
 
 describe("spx spec status --update under a 4.0 methodology over a node with linked verification", () => {
-  const passingOutcomes = (_nodeId: string, evidencePaths: readonly string[]) =>
-    Promise.resolve(
-      Object.fromEntries(evidencePaths.map((path) => [path, NODE_STATUS_EVIDENCE_OUTCOME.PASSED] as const)),
-    );
-
-  it("records a result for each linked reference, each audit rule slug, and each evidence kind, pinned to the checked-out commit", async () => {
+  it("records a result for each linked reference, each audit rule slug, and each evidence kind the node's malleability requires, pinned to the checked-out commit", async () => {
     const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
-    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
-      const subject = repository.subjectPaths[0] ?? "";
-      const asked: { auditRuleSlugs: readonly string[]; evidenceKinds: readonly string[] }[] = [];
-      const attributed = repository.attribution;
+    for (const specFixture of Object.values(PINNED_SPEC_FIXTURE)) {
+      await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
+        const subject = repository.subjectPaths[0] ?? "";
+        const requiredKinds = repository.declaredMalleability === NODE_STATUS_MALLEABILITY.IMPLEMENTATION
+          ? repository.evidenceKinds
+          : [];
+        const asking = createAttributedRequestRecorder(repository.passedAttributedResults([subject]));
 
-      await updateNodeStatus({
-        productDir: repository.env.productDir,
-        resolveOutcome: passingOutcomes,
-        resolveReadPaths: () => Promise.resolve([subject]),
-        resolveAttributedResults: (_nodeId, request) => {
-          asked.push(request);
-          return Promise.resolve({
-            audit: Object.fromEntries(
-              request.auditRuleSlugs.map((slug) => [
-                slug,
-                { verdict: NODE_STATUS_EVIDENCE_OUTCOME.PASSED, read: [subject], ...attributed },
-              ]),
-            ),
-            evidence: Object.fromEntries(
-              request.evidenceKinds.map((kind) => [
-                kind,
-                { verdict: NODE_STATUS_EVIDENCE_OUTCOME.PASSED, read: [subject], ...attributed },
-              ]),
-            ),
-          });
-        },
-        gitDependencies: repository.git,
-      });
+        await updateNodeStatus({
+          productDir: repository.env.productDir,
+          resolveOutcome: repository.passingOutcomes,
+          resolveReadPaths: () => Promise.resolve([subject]),
+          resolveAttributedResults: asking.resolveAttributedResults,
+          gitDependencies: repository.git,
+        });
 
-      const written = readNodeStatus(join(repository.env.productDir, repository.nodePath));
-      expect(written?.shape).toBe(NODE_STATUS_CLAIM_SHAPE.CURRENT);
-      if (written?.shape !== NODE_STATUS_CLAIM_SHAPE.CURRENT) return;
-      const results = nodeStatusClaimResults(written.claim);
-      const keysOf = (section: string) =>
-        results.filter((result) => result.section === section).map((result) => result.key).sort(compareAsciiStrings);
+        const written = readNodeStatus(join(repository.env.productDir, repository.nodePath));
+        expect(written?.shape, specFixture).toBe(NODE_STATUS_CLAIM_SHAPE.CURRENT);
+        if (written?.shape !== NODE_STATUS_CLAIM_SHAPE.CURRENT) return;
+        const results = nodeStatusClaimResults(written.claim);
+        const keysOf = (section: string) =>
+          results.filter((result) => result.section === section).map((result) => result.key).sort(compareAsciiStrings);
 
-      expect(keysOf(NODE_STATUS_CLAIM_SECTION.TEST)).toEqual(
-        [...repository.testKeys].sort(compareAsciiStrings),
-      );
-      expect(keysOf(NODE_STATUS_CLAIM_SECTION.AUDIT)).toEqual([...repository.auditRuleSlugs].sort(compareAsciiStrings));
-      expect(keysOf(NODE_STATUS_CLAIM_SECTION.EVIDENCE)).toEqual([NODE_STATUS_CLAIM_SECTION.TEST]);
-      expect(asked).toEqual([
-        { auditRuleSlugs: repository.auditRuleSlugs, evidenceKinds: [NODE_STATUS_CLAIM_SECTION.TEST] },
-      ]);
-      for (const result of results) {
-        expect(result.entry[NODE_STATUS_CLAIM_FIELD.VERDICT]).toBe(NODE_STATUS_EVIDENCE_OUTCOME.PASSED);
-        expect(result.entry[NODE_STATUS_CLAIM_FIELD.COMMIT]).toBe(repository.commit);
-        expect(result.entry[NODE_STATUS_CLAIM_FIELD.READ]).toContain(repository.specPath);
-        expect(result.entry[NODE_STATUS_CLAIM_FIELD.READ]).toContain(subject);
-      }
-      for (const result of results.filter((candidate) => candidate.section !== NODE_STATUS_CLAIM_SECTION.TEST)) {
-        expect(result.entry[NODE_STATUS_CLAIM_FIELD.ACTOR]).toEqual(attributed.actor);
-        expect(result.entry[NODE_STATUS_CLAIM_FIELD.RUN]).toBe(attributed.run);
-      }
-      expect(written.claim[NODE_STATUS_CLAIM_FIELD.STATE]).toBe(SPEC_TREE_NODE_STATE.PASSING);
-    });
+        expect(keysOf(NODE_STATUS_CLAIM_SECTION.TEST), specFixture).toEqual(
+          [...repository.testKeys].sort(compareAsciiStrings),
+        );
+        expect(keysOf(NODE_STATUS_CLAIM_SECTION.EVAL), specFixture).toEqual(
+          repository.evalPaths.map((path) => repository.testKey(path)).sort(compareAsciiStrings),
+        );
+        expect(keysOf(NODE_STATUS_CLAIM_SECTION.AUDIT), specFixture).toEqual(
+          [...repository.auditRuleSlugs].sort(compareAsciiStrings),
+        );
+        expect(keysOf(NODE_STATUS_CLAIM_SECTION.EVIDENCE), specFixture).toEqual([...requiredKinds]);
+        expect(asking.requests, specFixture).toEqual([
+          { auditRuleSlugs: repository.auditRuleSlugs, evidenceKinds: requiredKinds },
+        ]);
+        expect(written.claim[NODE_STATUS_CLAIM_FIELD.MALLEABILITY], specFixture).toBe(
+          repository.declaredMalleability,
+        );
+        for (const result of results) {
+          expect(result.entry[NODE_STATUS_CLAIM_FIELD.VERDICT], specFixture).toBe(NODE_STATUS_EVIDENCE_OUTCOME.PASSED);
+          expect(result.entry[NODE_STATUS_CLAIM_FIELD.COMMIT], specFixture).toBe(repository.commit);
+          expect(result.entry[NODE_STATUS_CLAIM_FIELD.READ], specFixture).toContain(repository.specPath);
+          expect(result.entry[NODE_STATUS_CLAIM_FIELD.READ], specFixture).toContain(subject);
+        }
+        for (
+          const result of results.filter((candidate) =>
+            candidate.section === NODE_STATUS_CLAIM_SECTION.AUDIT
+            || candidate.section === NODE_STATUS_CLAIM_SECTION.EVIDENCE
+          )
+        ) {
+          expect(result.entry[NODE_STATUS_CLAIM_FIELD.ACTOR], specFixture).toEqual(repository.attribution.actor);
+          expect(result.entry[NODE_STATUS_CLAIM_FIELD.RUN], specFixture).toBe(repository.attribution.run);
+        }
+        expect(written.claim[NODE_STATUS_CLAIM_FIELD.STATE], specFixture).toBe(SPEC_TREE_NODE_STATE.PASSING);
+      }, specFixture);
+    }
   });
 
   it("records not-run with no pin for a result whose adapter reports no read paths, and for a reference no run covers", async () => {
@@ -267,7 +240,7 @@ describe("spx spec status --update under a 4.0 methodology over a node with link
     await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
       await updateNodeStatus({
         productDir: repository.env.productDir,
-        resolveOutcome: passingOutcomes,
+        resolveOutcome: repository.passingOutcomes,
         gitDependencies: repository.git,
       });
 
@@ -293,7 +266,7 @@ describe("spx spec status --update under a 4.0 methodology over a node with link
       const subject = repository.subjectPaths[0] ?? "";
       const options = {
         productDir: repository.env.productDir,
-        resolveOutcome: passingOutcomes,
+        resolveOutcome: repository.passingOutcomes,
         resolveReadPaths: () => Promise.resolve([subject]),
         gitDependencies: repository.git,
       };
@@ -313,11 +286,9 @@ describe("spx spec status --update under a 4.0 methodology over a node with link
   it("keeps the committed entry of a covered reference whose evidence is stale and records not-run with no pin when none is committed", async () => {
     const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
     await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
-      const subject = repository.subjectPaths[0] ?? "";
-      const [committedPath] = repository.testPaths;
       const [committedKey = "", uncommittedKey = ""] = repository.testKeys;
-      const committedEntry = repository.passedEntry([repository.specPath, committedPath ?? "", subject]);
-      await repository.writeClaim({ [NODE_STATUS_CLAIM_SECTION.TEST]: { [committedKey]: committedEntry } });
+      const committed = repository.passedTestClaim(0);
+      await repository.writeClaim(committed);
 
       await updateNodeStatus({
         productDir: repository.env.productDir,
@@ -329,7 +300,7 @@ describe("spx spec status --update under a 4.0 methodology over a node with link
       const entries = written?.shape === NODE_STATUS_CLAIM_SHAPE.CURRENT
         ? written.claim[NODE_STATUS_CLAIM_FIELD.VERIFICATION][NODE_STATUS_CLAIM_SECTION.TEST]
         : undefined;
-      expect(entries?.[committedKey]).toEqual(committedEntry);
+      expect(entries?.[committedKey]).toEqual(committed[NODE_STATUS_CLAIM_SECTION.TEST]?.[committedKey]);
       expect(entries?.[uncommittedKey]).toEqual({
         [NODE_STATUS_CLAIM_FIELD.VERDICT]: NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN,
       });

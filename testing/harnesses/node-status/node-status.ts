@@ -12,21 +12,28 @@ import { GIT_ROOT_COMMAND, GIT_STATUS_PORCELAIN_ARGS, type GitDependencies } fro
 import {
   createNodeStatusFile,
   createNodeStatusMechanismRecord,
+  createNodeStatusProvider,
   createPinChangeReader,
   NODE_STATUS_ACTOR_KIND,
   NODE_STATUS_CLAIM_FIELD,
+  NODE_STATUS_CLAIM_SECTION,
   NODE_STATUS_CLAIM_SHAPE,
+  NODE_STATUS_DEFAULT_MALLEABILITY,
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_EXCLUDE_FILENAME,
   NODE_STATUS_EXCLUDE_LINE_GRAMMAR,
   NODE_STATUS_FILENAME,
   NODE_STATUS_MALLEABILITY,
   NODE_STATUS_VERIFICATION_MECHANISM,
+  type NodeAttributedRequest,
+  type NodeAttributedResultResolver,
   type NodeOutcomeResolver,
+  type NodeReadPathResolver,
   type NodeStatusClaimEntry,
   type NodeStatusClaimVerification,
   type NodeStatusEvidenceOutcome,
   type NodeStatusFile,
+  type NodeStatusMalleability,
   type PinChangeReader,
   readNodeStatus,
   serializeNodeStatus,
@@ -34,23 +41,30 @@ import {
   updateNodeStatus,
 } from "@/lib/node-status";
 import {
+  createFilesystemSpecTreeSource,
   KIND_REGISTRY,
+  readSpecTree,
   SPEC_TREE_CONFIG,
   SPEC_TREE_EVIDENCE_FILE,
+  SPEC_TREE_EVIDENCE_LINK_TEXT,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_NODE_STATE,
   type SpecTreeNodeState,
 } from "@/lib/spec-tree";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { testingRegistry } from "@/test/registry";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import {
   ANCESTOR_DECISION_PLACEMENT,
   type ClassificationFixtureFacts,
   type ClassificationTreeFixture,
+  createClaimedTestStatus,
   DECISION_PLACEMENT,
   type DecisionPlacement,
   NODE_STATUS_TEST_GENERATOR,
   type PinnedNodeFixture,
+  type RecordedRun,
+  type RecordedRunSets,
   type StatusWriterTreeFixture,
   type StatusWriterTreeNode,
   type VariantParentFixture,
@@ -107,6 +121,13 @@ export type ClassificationTreeEnv = {
   };
   /** The production resolver over whatever testing evidence is recorded so far; it records none itself. */
   recordedOutcomeResolver(): NodeOutcomeResolver;
+  /**
+   * Track the spec tree in a fresh repository, record the outcome evidence, write the projection `--update`
+   * produces from it, commit that projection, and return the resolver over the recorded evidence.
+   */
+  commitProjection(): Promise<NodeOutcomeResolver>;
+  /** Replace the committed status file of `node` with a version-1 claim of every linked reference as `outcome`, and commit it. */
+  commitContradiction(node: ClassificationTreeNodeExpectation, outcome: NodeStatusEvidenceOutcome): Promise<void>;
   recordOutcomeEvidence(): Promise<{
     readonly resolveOutcome: NodeOutcomeResolver;
     readonly runs: readonly {
@@ -153,46 +174,59 @@ export async function withClassificationTree(
       statusPath: nodeTreePath(node.dirName, NODE_STATUS_FILENAME),
     }));
 
+    const recordOutcomeEvidence: ClassificationTreeEnv["recordOutcomeEvidence"] = async () => {
+      const runs: Array<{
+        readonly nodeId: string;
+        readonly evidencePaths: readonly string[];
+        readonly result: RecordedTestRun;
+        readonly runnerCalls: readonly {
+          readonly command: string;
+          readonly args: readonly string[];
+        }[];
+      }> = [];
+      for (const expectation of expectations) {
+        if (!expectation.facts.hasVerificationReferences || expectation.facts.isExcluded) continue;
+        const runner = createRecordingCommandRunner({
+          present: true,
+          exitCode: expectation.facts.runnerExitCode,
+        });
+        const result = await runNodeCommand(
+          { productDir: env.productDir, nodePath: nodeTreePath(expectation.nodeId) },
+          {
+            registry: testingRegistry,
+            runnerDepsFor: () => runner,
+          },
+        );
+        runs.push({
+          nodeId: expectation.nodeId,
+          evidencePaths: expectation.evidencePaths,
+          result,
+          runnerCalls: runner.calls,
+        });
+      }
+      return {
+        resolveOutcome: createNodeOutcomeResolver({ productDir: env.productDir, registry: testingRegistry }),
+        runs,
+      };
+    };
+
     await callback({
       env,
       expectations,
       fixturePayloads: { spec: specContent, test: testContent },
       recordedOutcomeResolver: () =>
         createNodeOutcomeResolver({ productDir: env.productDir, registry: testingRegistry }),
-      recordOutcomeEvidence: async () => {
-        const runs: Array<{
-          readonly nodeId: string;
-          readonly evidencePaths: readonly string[];
-          readonly result: RecordedTestRun;
-          readonly runnerCalls: readonly {
-            readonly command: string;
-            readonly args: readonly string[];
-          }[];
-        }> = [];
-        for (const expectation of expectations) {
-          if (!expectation.facts.hasVerificationReferences || expectation.facts.isExcluded) continue;
-          const runner = createRecordingCommandRunner({
-            present: true,
-            exitCode: expectation.facts.runnerExitCode,
-          });
-          const result = await runNodeCommand(
-            { productDir: env.productDir, nodePath: nodeTreePath(expectation.nodeId) },
-            {
-              registry: testingRegistry,
-              runnerDepsFor: () => runner,
-            },
-          );
-          runs.push({
-            nodeId: expectation.nodeId,
-            evidencePaths: expectation.evidencePaths,
-            result,
-            runnerCalls: runner.calls,
-          });
-        }
-        return {
-          resolveOutcome: createNodeOutcomeResolver({ productDir: env.productDir, registry: testingRegistry }),
-          runs,
-        };
+      recordOutcomeEvidence,
+      commitProjection: async () => {
+        await trackSpecTree(env.productDir);
+        const { resolveOutcome } = await recordOutcomeEvidence();
+        await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+        await commitSpecTree(env.productDir);
+        return resolveOutcome;
+      },
+      commitContradiction: async (node, outcome) => {
+        await env.writeRaw(node.statusPath, serializeNodeStatus(createClaimedTestStatus(node.evidencePaths, outcome)));
+        await commitSpecTree(env.productDir);
       },
     });
   });
@@ -385,6 +419,25 @@ export function createConsultationRecordingResolver(resolver: NodeOutcomeResolve
 }
 
 /**
+ * Wrap an attributed-result resolver in a recording collaborator: every request is forwarded unchanged to
+ * `resolver` and appended to `requests`, so a test can observe which audit rule slugs and evidence kinds the
+ * status update asked for.
+ */
+export function createAttributedRequestRecorder(resolver: NodeAttributedResultResolver): {
+  readonly resolveAttributedResults: NodeAttributedResultResolver;
+  readonly requests: readonly NodeAttributedRequest[];
+} {
+  const requests: NodeAttributedRequest[] = [];
+  return {
+    requests,
+    resolveAttributedResults: (nodeId, request) => {
+      requests.push({ auditRuleSlugs: [...request.auditRuleSlugs], evidenceKinds: [...request.evidenceKinds] });
+      return resolver(nodeId, request);
+    },
+  };
+}
+
+/**
  * A git runner conforming to the production `GitDependencies` interface whose every
  * run uses the isolated git test environment: inherited Git context stripped, the
  * developer's global git config neutralized, and the GitHub Actions reporter trigger
@@ -528,9 +581,26 @@ export function nodeStatusAttribution(actorId: string, run: string) {
   };
 }
 
-const LINKED_SPEC_FIXTURE_PATH = join(NODE_STATUS_FIXTURE_DIRECTORY, "linked-spec.md.fixture");
-const SPEC_LINK_TARGET_PATTERN = /\]\((tests\/[^)\s]+)\)/g;
-const SPEC_LINK_TARGET_GROUP = 1;
+/** The inert linked-spec payloads a pinned node repository materializes; each names what its spec declares and links. */
+export const PINNED_SPEC_FIXTURE = {
+  /** No malleability front matter, two linked tests, and two audit rules. */
+  DEFAULT: join(NODE_STATUS_FIXTURE_DIRECTORY, "linked-spec.md.fixture"),
+  /** The default spec's links, declaring the `spec` malleability. */
+  SPEC_MALLEABLE: join(NODE_STATUS_FIXTURE_DIRECTORY, "linked-spec-spec-malleability.md.fixture"),
+  /** The default spec's links, declaring the `verification` malleability. */
+  VERIFICATION_MALLEABLE: join(NODE_STATUS_FIXTURE_DIRECTORY, "linked-spec-verification-malleability.md.fixture"),
+  /** The default spec's links plus a linked eval. */
+  EVAL_LINKED: join(NODE_STATUS_FIXTURE_DIRECTORY, "linked-spec-eval.md.fixture"),
+} as const;
+
+const SPEC_LINK_PATTERN = new RegExp(
+  String.raw`\[(${SPEC_TREE_EVIDENCE_LINK_TEXT.TEST}|${SPEC_TREE_EVIDENCE_LINK_TEXT.EVAL})\]\(([^)\s]+)\)`,
+  "g",
+);
+const SPEC_LINK_TEXT_GROUP = 1;
+const SPEC_LINK_TARGET_GROUP = 2;
+const SPEC_MALLEABILITY_PATTERN = /^malleability:\s*(\S+)\s*$/m;
+const SPEC_MALLEABILITY_GROUP = 1;
 const SUBJECT_APPENDIX = "\n// edited\n";
 const SPEC_APPENDIX = "\nAn added sentence.\n";
 const REPOSITORY_ROOT_PATHS = ["."] as const;
@@ -547,6 +617,12 @@ export type PinnedNodeRepository = {
   readonly specPath: string;
   /** Product-relative paths of the tests the spec links. */
   readonly testPaths: readonly string[];
+  /** Product-relative paths of the evals the spec links. */
+  readonly evalPaths: readonly string[];
+  /** The kinds of evidence the spec links, by link text, in ascending order. */
+  readonly evidenceKinds: readonly string[];
+  /** The malleability the spec's front matter declares; the implementation layer when it declares none. */
+  readonly declaredMalleability: NodeStatusMalleability;
   /** The claim key of each test in `testPaths`, in the same order: its path relative to the node directory. */
   readonly testKeys: readonly string[];
   /** The claim key of a product-relative test path under this node. */
@@ -563,6 +639,34 @@ export type PinnedNodeRepository = {
   readonly pinChanges: PinChangeReader;
   /** A passed entry pinned to the repository's commit over `read`. */
   passedEntry(read: readonly string[]): NodeStatusClaimEntry;
+  /** The test results of a claim recording the node's first test passed, pinned over the spec, that test, and subject `subjectIndex`. */
+  passedTestClaim(subjectIndex: number): NodeStatusClaimVerification;
+  /** A resolver answering every consulted evidence path as passed. */
+  readonly passingOutcomes: NodeOutcomeResolver;
+  /** A resolver answering every requested audit rule slug and evidence kind as passed, each reading `read`. */
+  passedAttributedResults(read: readonly string[]): NodeAttributedResultResolver;
+  /** A resolver answering each audit rule slug of `audit` with its verdict, reading `read`, and no other result. */
+  attributedResultsFor(
+    audit: Readonly<Record<string, NodeStatusEvidenceOutcome>>,
+    read: readonly string[],
+  ): NodeAttributedResultResolver;
+  /** The resolvers of the recorded runs `runs` report, each result carrying this repository's attribution. */
+  resolversOfRecordedRuns(runs: RecordedRunSets): {
+    readonly resolveOutcome: NodeOutcomeResolver;
+    readonly resolveReadPaths: NodeReadPathResolver;
+    readonly resolveAttributedResults: NodeAttributedResultResolver;
+  };
+  /** Record the node's first test as passed in a committed claim, the state of which is `passing`. */
+  recordPassingClaim(): Promise<void>;
+  /** Write a version-1 claim of the node's first test into a sibling node directory, and return that directory. */
+  writeVersionOneSiblingClaim(): Promise<string>;
+  /** The node's lifecycle state as `spx spec status` reads it from the committed claim and Git history. */
+  readState(): Promise<string | undefined>;
+  /**
+   * The node's lifecycle state after its claim recorded `passing`, and then one subject and the decision record at
+   * `placement` changed together in a later commit.
+   */
+  stateAfterDecisionEdit(placement: DecisionPlacement): Promise<string | undefined>;
   /** Write `verification` as the node's 4.0 claim, recording `state`. */
   writeClaim(verification: NodeStatusClaimVerification, state?: SpecTreeNodeState): Promise<void>;
   /** Commit every change in the repository and return the new head. */
@@ -588,20 +692,28 @@ export async function withPinnedNodeRepository(
   fixture: PinnedNodeFixture,
   config: Config,
   callback: (repository: PinnedNodeRepository) => Promise<void>,
+  specFixturePath: string = PINNED_SPEC_FIXTURE.DEFAULT,
 ): Promise<void> {
   await withTestEnv(config, async (env) => {
     const [specContent, testContent] = await Promise.all([
-      readFixture(LINKED_SPEC_FIXTURE_PATH),
+      readFixture(specFixturePath),
       readFixture(CLASSIFICATION_FIXTURE_PATHS.test),
     ]);
     const ancestorSegments = fixture.ancestor === undefined ? [] : [fixture.ancestor.dirName];
     const nodePath = nodeTreePath(...ancestorSegments, fixture.dirName);
     const specPath = `${nodePath}${PATH_SEPARATOR}${fixture.slug}${SPEC_FILE_SUFFIX}`;
-    const linkedTests = [...specContent.matchAll(SPEC_LINK_TARGET_PATTERN)].flatMap((match) => {
+    const links = [...specContent.matchAll(SPEC_LINK_PATTERN)].flatMap((match) => {
+      const text = match.at(SPEC_LINK_TEXT_GROUP);
       const target = match.at(SPEC_LINK_TARGET_GROUP);
-      return target === undefined ? [] : [target];
+      return text === undefined || target === undefined
+        ? []
+        : [{ text, path: `${nodePath}${PATH_SEPARATOR}${target}` }];
     });
-    const testPaths = linkedTests.map((target) => `${nodePath}${PATH_SEPARATOR}${target}`);
+    const pathsLinkedAs = (text: string) => links.filter((link) => link.text === text).map((link) => link.path);
+    const testPaths = pathsLinkedAs(SPEC_TREE_EVIDENCE_LINK_TEXT.TEST);
+    const evalPaths = pathsLinkedAs(SPEC_TREE_EVIDENCE_LINK_TEXT.EVAL);
+    const declaredMalleability = (SPEC_MALLEABILITY_PATTERN.exec(specContent)?.at(SPEC_MALLEABILITY_GROUP)
+      ?? NODE_STATUS_DEFAULT_MALLEABILITY) as NodeStatusMalleability;
     if (fixture.ancestor !== undefined) {
       await env.writeNode(
         nodeTreePath(fixture.ancestor.dirName, `${fixture.ancestor.slug}${SPEC_FILE_SUFFIX}`),
@@ -609,7 +721,7 @@ export async function withPinnedNodeRepository(
       );
     }
     await env.writeNode(specPath, specContent);
-    for (const testPath of testPaths) await env.writeNode(testPath, testContent);
+    for (const linkedPath of [...testPaths, ...evalPaths]) await env.writeNode(linkedPath, testContent);
     for (const subjectPath of fixture.subjectPaths) await env.writeRaw(subjectPath, testContent);
     const nodeOrder = Number(fixture.dirName.split(SPEC_TREE_GRAMMAR.ORDER.SEPARATOR).at(0));
     const decisionPaths = decisionPathsAround(fixture, nodeOrder);
@@ -618,15 +730,69 @@ export async function withPinnedNodeRepository(
     await commitPaths(env.productDir, REPOSITORY_ROOT_PATHS);
     const commit = await runFixtureGit(env.productDir, [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
 
+    const nodeId = [...ancestorSegments, fixture.dirName].join(PATH_SEPARATOR);
+    const attribution = nodeStatusAttribution(fixture.slug, fixture.dirName);
+    const testKeys = testPaths.map((path) => posix.relative(nodePath, path));
+    const passedEntry = (read: readonly string[]): NodeStatusClaimEntry => ({
+      [NODE_STATUS_CLAIM_FIELD.VERDICT]: NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
+      [NODE_STATUS_CLAIM_FIELD.COMMIT]: commit,
+      [NODE_STATUS_CLAIM_FIELD.READ]: read,
+    });
+    const answeredBy = (
+      verdicts: Readonly<Record<string, NodeStatusEvidenceOutcome>>,
+      read: readonly string[],
+    ) =>
+      Object.fromEntries(
+        Object.entries(verdicts).map(([key, verdict]) => [key, { verdict, read, ...attribution }] as const),
+      );
+    const attributedFrom = (recorded: Readonly<Record<string, RecordedRun | undefined>>) =>
+      Object.fromEntries(
+        Object.entries(recorded).flatMap(([key, run]) =>
+          run === undefined ? [] : [[key, { ...run, ...attribution }] as const]
+        ),
+      );
+    const passedFor = (keys: readonly string[]) =>
+      Object.fromEntries(keys.map((key) => [key, NODE_STATUS_EVIDENCE_OUTCOME.PASSED] as const));
+    const commitAll = async (): Promise<string> => {
+      await commitPaths(env.productDir, REPOSITORY_ROOT_PATHS);
+      return runFixtureGit(env.productDir, [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
+    };
+    const editSubject = async (index: number): Promise<void> => {
+      const path = fixture.subjectPaths.at(index);
+      if (path === undefined) throw new Error(`No subject at index ${index}`);
+      await env.writeRaw(path, `${testContent}${SUBJECT_APPENDIX}`);
+    };
+    const passedTestClaim = (subjectIndex: number): NodeStatusClaimVerification => ({
+      [NODE_STATUS_CLAIM_SECTION.TEST]: {
+        [testKeys[0] ?? ""]: passedEntry([specPath, testPaths[0] ?? "", fixture.subjectPaths[subjectIndex] ?? ""]),
+      },
+    });
+    const readState = async (): Promise<string | undefined> => {
+      const snapshot = await readSpecTree({
+        source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
+        evidence: await createNodeStatusProvider(env.productDir, { gitDependencies: isolatedFixtureGitDependencies }),
+      });
+      return snapshot.allNodes.find((node) => node.id === nodeId)?.state;
+    };
+    const recordPassingClaim = async (): Promise<void> => {
+      await writeClaim(env, nodePath, passedTestClaim(fixture.editedSubject), SPEC_TREE_NODE_STATE.PASSING);
+      await commitAll();
+    };
+    const editDecision = (placement: DecisionPlacement): Promise<void> =>
+      env.writeNode(decisionPathAt(decisionPaths, placement), `${specContent}${SPEC_APPENDIX}`);
+
     await callback({
       env,
-      nodeId: [...ancestorSegments, fixture.dirName].join(PATH_SEPARATOR),
+      nodeId,
       nodePath,
       specPath,
       testPaths,
-      testKeys: testPaths.map((path) => posix.relative(nodePath, path)),
+      evalPaths,
+      evidenceKinds: [...new Set(links.map((link) => link.text))].sort(compareAsciiStrings),
+      declaredMalleability,
+      testKeys,
       testKey: (path) => posix.relative(nodePath, path),
-      attribution: nodeStatusAttribution(fixture.slug, fixture.dirName),
+      attribution,
       subjectPaths: fixture.subjectPaths,
       commit,
       git: isolatedFixtureGitDependencies,
@@ -637,34 +803,73 @@ export async function withPinnedNodeRepository(
       get pinChanges() {
         return createPinChangeReader({ productDir: env.productDir, git: isolatedFixtureGitDependencies });
       },
-      passedEntry: (read) => ({
-        [NODE_STATUS_CLAIM_FIELD.VERDICT]: NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
-        [NODE_STATUS_CLAIM_FIELD.COMMIT]: commit,
-        [NODE_STATUS_CLAIM_FIELD.READ]: read,
+      passedEntry,
+      passedTestClaim,
+      passingOutcomes: (_nodeId, evidencePaths) => Promise.resolve(passedFor(evidencePaths)),
+      passedAttributedResults: (read) => (_nodeId, request) =>
+        Promise.resolve({
+          audit: answeredBy(passedFor(request.auditRuleSlugs), read),
+          evidence: answeredBy(passedFor(request.evidenceKinds), read),
+        }),
+      attributedResultsFor: (audit, read) => () => Promise.resolve({ audit: answeredBy(audit, read) }),
+      resolversOfRecordedRuns: (runs) => ({
+        resolveOutcome: (_nodeId, evidencePaths) =>
+          Promise.resolve(
+            Object.fromEntries(
+              evidencePaths.map((path) => [path, runs.tests[path]?.verdict ?? NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN]),
+            ),
+          ),
+        resolveReadPaths: (_nodeId, evidencePath) => Promise.resolve(runs.tests[evidencePath]?.read),
+        resolveAttributedResults: () =>
+          Promise.resolve({ audit: attributedFrom(runs.audit), evidence: attributedFrom(runs.evidence) }),
       }),
       writeClaim: (verification, state) => writeClaim(env, nodePath, verification, state),
-      commitAll: async () => {
-        await commitPaths(env.productDir, REPOSITORY_ROOT_PATHS);
-        return runFixtureGit(env.productDir, [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
+      recordPassingClaim,
+      writeVersionOneSiblingClaim: async () => {
+        const statusPath = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.untrackedNodeStatusPath([nodeId]));
+        await env.writeRaw(
+          statusPath,
+          serializeNodeStatus(createClaimedTestStatus([testPaths[0] ?? ""], NODE_STATUS_EVIDENCE_OUTCOME.PASSED)),
+        );
+        return dirname(statusPath);
       },
+      readState,
+      stateAfterDecisionEdit: async (placement) => {
+        await recordPassingClaim();
+        await editSubject(fixture.editedSubject);
+        await editDecision(placement);
+        await commitAll();
+        return readState();
+      },
+      commitAll,
       commitUnrelatedFile: async () => {
         await env.writeRaw(UNRELATED_FILE_PATH, testContent);
-        await commitPaths(env.productDir, REPOSITORY_ROOT_PATHS);
-        return runFixtureGit(env.productDir, [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
+        return commitAll();
       },
-      editSubject: async (index) => {
-        const path = fixture.subjectPaths.at(index);
-        if (path === undefined) throw new Error(`No subject at index ${index}`);
-        await env.writeRaw(path, `${testContent}${SUBJECT_APPENDIX}`);
-      },
+      editSubject,
       rewriteSpecLinksTreeAbsolute: () =>
         env.writeNode(specPath, specContent.replaceAll("](tests/", `](${nodePath}${PATH_SEPARATOR}tests/`)),
       editSpecText: () => env.writeNode(specPath, `${specContent}${SPEC_APPENDIX}`),
       decisionPath: (placement) => decisionPathAt(decisionPaths, placement),
-      editDecision: (placement) =>
-        env.writeNode(decisionPathAt(decisionPaths, placement), `${specContent}${SPEC_APPENDIX}`),
+      editDecision,
     });
   });
+}
+
+/**
+ * The lifecycle state a freshly committed pinned node reads as after its claim recorded `passing` and a later
+ * commit changed one of its subjects together with the decision record at `placement`, under a current-shape
+ * methodology; the observation only, with no verdict.
+ */
+export async function observeStateAfterDecisionEdit(
+  fixture: PinnedNodeFixture,
+  placement: DecisionPlacement,
+): Promise<string | undefined> {
+  let state: string | undefined;
+  await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
+    state = await repository.stateAfterDecisionEdit(placement);
+  });
+  return state;
 }
 
 const DECISION_ORDER_BELOW_NODE = 1;
@@ -736,15 +941,17 @@ async function writeClaim(
   );
 }
 
-/** A committed parent with variants whose claims the status update records from each variant's passes or fails. */
+/** A committed parent with variants whose committed claims record each variant's passed or failed result. */
 export type VariantTreeEnv = {
   readonly env: SpecTreeEnv;
   readonly parentId: string;
   readonly variants: readonly { readonly nodeId: string; readonly passes: boolean }[];
   readonly git: GitDependencies;
   /**
-   * Run `updateNodeStatus` over the tree with recorded runs that report each variant's test, and its evidence kind,
-   * as passed when the variant passes and failed otherwise, each reading the variant's spec, test, and source subject.
+   * Write the parent's claim through `updateNodeStatus`, then commit-pin to each variant's directory a claim whose
+   * test and evidence results are passed when the variant passes and failed otherwise, each reading the variant's
+   * spec, test, and source subject. The variants' claims are written after the update because the update rewrites
+   * only the status files of directories the spec-tree source reads as nodes.
    */
   recordClaims(): Promise<void>;
 };
@@ -781,6 +988,7 @@ export async function withVariantTree(
       return {
         ...variant,
         nodeId: `${fixture.parentDirName}${PATH_SEPARATOR}${variant.dirName}`,
+        nodePath,
         specPath: `${nodePath}${PATH_SEPARATOR}${variant.slug}${SPEC_FILE_SUFFIX}`,
         testPath: `${nodePath}${PATH_SEPARATOR}${testKey}`,
         subjectPath: `${VARIANT_SUBJECT_DIRECTORY}${PATH_SEPARATOR}${variant.slug}.ts`,
@@ -793,38 +1001,44 @@ export async function withVariantTree(
     }
     await runFixtureGit(env.productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
     await commitPaths(env.productDir, REPOSITORY_ROOT_PATHS);
-    const verdictOf = (nodeId: string): NodeStatusEvidenceOutcome =>
-      variants.find((variant) => variant.nodeId === nodeId)?.passes === true
-        ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED
-        : NODE_STATUS_EVIDENCE_OUTCOME.FAILED;
+    const commit = await runFixtureGit(env.productDir, [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
     await callback({
       env,
       parentId: fixture.parentDirName,
       variants: variants.map((variant) => ({ nodeId: variant.nodeId, passes: variant.passes })),
       git: isolatedFixtureGitDependencies,
-      recordClaims: () =>
-        updateNodeStatus({
+      recordClaims: async () => {
+        await updateNodeStatus({
           productDir: env.productDir,
           gitDependencies: isolatedFixtureGitDependencies,
-          resolveOutcome: (nodeId, evidencePaths) =>
-            Promise.resolve(Object.fromEntries(evidencePaths.map((path) => [path, verdictOf(nodeId)] as const))),
-          resolveReadPaths: (nodeId) =>
-            Promise.resolve(
-              variants.filter((variant) => variant.nodeId === nodeId).map((variant) => variant.subjectPath),
+          resolveOutcome: () => Promise.resolve({}),
+        });
+        for (const variant of variants) {
+          const entry: NodeStatusClaimEntry = {
+            [NODE_STATUS_CLAIM_FIELD.VERDICT]: variant.passes
+              ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED
+              : NODE_STATUS_EVIDENCE_OUTCOME.FAILED,
+            [NODE_STATUS_CLAIM_FIELD.COMMIT]: commit,
+            [NODE_STATUS_CLAIM_FIELD.READ]: [variant.specPath, variant.testPath, variant.subjectPath].sort(
+              compareAsciiStrings,
             ),
-          resolveAttributedResults: (nodeId, request) =>
-            Promise.resolve({
-              evidence: Object.fromEntries(
-                request.evidenceKinds.map((kind) =>
-                  [kind, {
-                    verdict: verdictOf(nodeId),
-                    read: variants.filter((variant) => variant.nodeId === nodeId).map((variant) => variant.subjectPath),
-                    ...nodeStatusAttribution(fixture.parentSlug, fixture.parentDirName),
-                  }] as const
-                ),
-              ),
-            }),
-        }),
+          };
+          await writeClaim(
+            env,
+            variant.nodePath,
+            {
+              [NODE_STATUS_CLAIM_SECTION.TEST]: { [posix.relative(variant.nodePath, variant.testPath)]: entry },
+              [NODE_STATUS_CLAIM_SECTION.EVIDENCE]: {
+                [NODE_STATUS_CLAIM_SECTION.TEST]: {
+                  ...entry,
+                  ...nodeStatusAttribution(fixture.parentSlug, fixture.parentDirName),
+                },
+              },
+            },
+            variant.passes ? SPEC_TREE_NODE_STATE.PASSING : SPEC_TREE_NODE_STATE.SPECIFIED,
+          );
+        }
+      },
     });
   });
 }

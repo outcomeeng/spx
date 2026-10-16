@@ -3,8 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   classifyNodeClaim,
   classifyNodeStatus,
-  createNodeStatusProvider,
-  NODE_STATUS_CLAIM_SECTION,
   NODE_STATUS_CURRENCY,
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_FIELD,
@@ -13,22 +11,20 @@ import {
   rollupNodeStatusMechanism,
   serializeNodeStatusClaim,
 } from "@/lib/node-status";
-import { createFilesystemSpecTreeSource, readSpecTree, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
+import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
 import {
   ANCESTOR_DECISION_PLACEMENT,
   createClaimWithVerdicts,
   DECISION_PLACEMENT,
-  type DecisionPlacement,
   enumerateClaimClassificationFacts,
   enumerateClassificationFacts,
   enumerateDecisionPlacements,
   enumerateEvidenceOutcomeMultisets,
   enumerateNestedDecisionPlacements,
   NODE_STATUS_TEST_GENERATOR,
-  type PinnedNodeFixture,
 } from "@testing/generators/node-status/node-status";
 import { sampleGeneratedValue } from "@testing/generators/sample";
-import { currentMethodologyConfig, withPinnedNodeRepository } from "@testing/harnesses/node-status/node-status";
+import { observeStateAfterDecisionEdit } from "@testing/harnesses/node-status/node-status";
 
 describe("classifyNodeStatus over every combination of linked references, EXCLUDE listing, and committed outcomes", () => {
   it("resolves declared, then specified, then passing when every committed mechanism passes, else failing", () => {
@@ -71,42 +67,10 @@ describe("classifyNodeClaim over every combination of required artifacts, record
 });
 
 describe("the Git-history clause of classifyNodeClaim over every placement of a decision record relative to a node", () => {
-  const config = currentMethodologyConfig();
-
-  async function stateAfterDecisionEdit(
-    fixture: PinnedNodeFixture,
-    placement: DecisionPlacement,
-  ): Promise<string | undefined> {
-    let state: string | undefined;
-    await withPinnedNodeRepository(fixture, config, async (repository) => {
-      const testKey = repository.testKeys[0] ?? "";
-      const subject = repository.subjectPaths[fixture.editedSubject] ?? "";
-      await repository.writeClaim(
-        {
-          [NODE_STATUS_CLAIM_SECTION.TEST]: {
-            [testKey]: repository.passedEntry([repository.specPath, repository.testPaths[0] ?? "", subject]),
-          },
-        },
-        SPEC_TREE_NODE_STATE.PASSING,
-      );
-      await repository.commitAll();
-      await repository.editSubject(fixture.editedSubject);
-      await repository.editDecision(placement);
-      await repository.commitAll();
-
-      const snapshot = await readSpecTree({
-        source: createFilesystemSpecTreeSource({ productDir: repository.env.productDir }),
-        evidence: await createNodeStatusProvider(repository.env.productDir, { gitDependencies: repository.git }),
-      });
-      state = snapshot.allNodes.find((node) => node.id === repository.nodeId)?.state;
-    });
-    return state;
-  }
-
   it("resolves specified when a decision governing a top-level node changes after the claim recorded passing, and failing when any other decision changes", async () => {
     const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
     for (const placement of enumerateDecisionPlacements()) {
-      expect(await stateAfterDecisionEdit(fixture, placement), placement).toBe(
+      expect(await observeStateAfterDecisionEdit(fixture, placement), placement).toBe(
         placement === DECISION_PLACEMENT.OWN_DIRECTORY || placement === DECISION_PLACEMENT.ROOT_LOWER_INDEX
           ? SPEC_TREE_NODE_STATE.SPECIFIED
           : SPEC_TREE_NODE_STATE.FAILING,
@@ -117,7 +81,7 @@ describe("the Git-history clause of classifyNodeClaim over every placement of a 
   it("resolves specified when a decision governing a nested node, beside the node, its ancestor, or the product root below the ancestor, changes after the claim recorded passing, and failing when any other decision changes", async () => {
     const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.nestedPinnedNode());
     for (const placement of enumerateNestedDecisionPlacements()) {
-      expect(await stateAfterDecisionEdit(fixture, placement), placement).toBe(
+      expect(await observeStateAfterDecisionEdit(fixture, placement), placement).toBe(
         placement === DECISION_PLACEMENT.OWN_DIRECTORY
           || placement === DECISION_PLACEMENT.ROOT_LOWER_INDEX
           || placement === ANCESTOR_DECISION_PLACEMENT.ANCESTOR_LOWER_INDEX
