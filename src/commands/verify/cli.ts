@@ -154,6 +154,7 @@ export const VERIFY_CLI_ERROR = {
   PATHS_FAILED: "spx verification run paths could not resolve the run write directories",
   RECONCILE_FAILED: "spx verification run could not read the run for scope reconciliation",
   RECONCILE_REJECTED: "spx verification run scope reconciliation rejected the run",
+  FINISH_UNRECONCILED: "spx verification run finish refused a bound run whose scope does not reconcile",
 } as const;
 
 export const VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD = {
@@ -1713,6 +1714,23 @@ async function finishProjectionResult(run: VerifyExistingRunAddress, deps: Verif
   return okResult(JSON.stringify(verifyFinishReport(run.runToken, projectVerifyRun(events.value))));
 }
 
+/**
+ * Refuse the first finish of a run bound to expectations whose final recorded evidence does not
+ * reconcile, reporting the reconciliation result. An unbound run, and a bound run that reconciles,
+ * yield no refusal.
+ */
+async function refuseUnreconciledBoundRun(
+  run: VerifyExistingRunAddress,
+  events: readonly JournalEvent[],
+  deps: VerifyCliDeps,
+): Promise<CliCommandResult | undefined> {
+  if (expectationsOfRun(events) === undefined) return undefined;
+  const reconciliation = await reconcileRunEvidence(run, events, deps);
+  if (!reconciliation.ok) return reconciliation.error;
+  if (reconciliation.value.reconciled) return undefined;
+  return errorResult(`${VERIFY_CLI_ERROR.FINISH_UNRECONCILED}: ${JSON.stringify(reconciliation.value)}`);
+}
+
 async function retrySealForTerminalRun(
   run: VerifyExistingRunAddress,
   deps: VerifyCliDeps,
@@ -1764,6 +1782,9 @@ export async function verifyFinishCommand(
     run.value.selector,
   );
   if (!terminalMetadata.ok) return errorResult(terminalMetadata.error);
+
+  const unreconciled = await refuseUnreconciledBoundRun(run.value, before.value, deps);
+  if (unreconciled !== undefined) return unreconciled;
 
   // Only the append-and-seal path consumes the journal binding.
   const binding = deps.journalBinding;
@@ -1859,6 +1880,45 @@ export async function verifyRenderCommand(
 }
 
 /**
+ * Reconcile a changeset run's recorded evidence against the inventory its changeset selector resolves
+ * to now. A rejection or read failure is carried as the command result the caller returns. The
+ * reconciliation reads the repository and appends no event.
+ */
+async function reconcileRunEvidence(
+  run: VerifyExistingRunAddress,
+  events: readonly JournalEvent[],
+  deps: VerifyCliDeps,
+): Promise<
+  { readonly ok: true; readonly value: VerifyScopeReconciliation } | {
+    readonly ok: false;
+    readonly error: CliCommandResult;
+  }
+> {
+  const failed = (message: string) => ({ ok: false as const, error: errorResult(message) });
+  const recordedInventory = checkReconcilableRun(run.selector.scopeType, changeInventoryOfRun(events));
+  if (!recordedInventory.ok) return failed(`${VERIFY_CLI_ERROR.RECONCILE_REJECTED}: ${recordedInventory.error}`);
+  const unresolved = failed(
+    `${VERIFY_CLI_ERROR.RECONCILE_REJECTED}: ${selectorUnresolvedReason(run.selector.scopeIdentity)}`,
+  );
+  const changeset = parseChangesetScope(run.selector.scopeIdentity);
+  if (!changeset.ok) return unresolved;
+  const resolvedScope = await resolveVerifyScope(deps);
+  if (!resolvedScope.ok) return failed(`${VERIFY_CLI_ERROR.RECONCILE_FAILED}: ${resolvedScope.error}`);
+  const resolvedInventory = await resolveChangeInventory(changeset.value, resolvedScope.value.worktreeRoot, deps);
+  if (!resolvedInventory.ok) return unresolved;
+  return {
+    ok: true,
+    value: reconcileScope({
+      recordedInventory: recordedInventory.value,
+      expectations: expectationsOfRun(events),
+      judgedPaths: runJudgedPathsOf(events),
+      judgedDeletions: runJudgedDeletionsOf(events),
+      resolvedInventory: resolvedInventory.value,
+    }),
+  };
+}
+
+/**
  * Reconcile a started changeset run's judged scope against the inventory its changeset selector
  * resolves to, reporting the unaccounted, unexpected, and drifted paths as one structured result.
  * The operation reads the run's event history and the repository and appends no event, seals no
@@ -1882,23 +1942,7 @@ export async function verifyReconcileCommand(
   if (inputRecord.value === undefined && findTerminalEvent(events.value) === undefined) {
     return errorResult(existingRunNotFound(run.value, options));
   }
-  const recordedInventory = checkReconcilableRun(run.value.selector.scopeType, changeInventoryOfRun(events.value));
-  if (!recordedInventory.ok) return errorResult(`${VERIFY_CLI_ERROR.RECONCILE_REJECTED}: ${recordedInventory.error}`);
-  const unresolved = errorResult(
-    `${VERIFY_CLI_ERROR.RECONCILE_REJECTED}: ${selectorUnresolvedReason(run.value.selector.scopeIdentity)}`,
-  );
-  const changeset = parseChangesetScope(run.value.selector.scopeIdentity);
-  if (!changeset.ok) return unresolved;
-  const resolvedScope = await resolveVerifyScope(deps);
-  if (!resolvedScope.ok) return errorResult(`${VERIFY_CLI_ERROR.RECONCILE_FAILED}: ${resolvedScope.error}`);
-  const resolvedInventory = await resolveChangeInventory(changeset.value, resolvedScope.value.worktreeRoot, deps);
-  if (!resolvedInventory.ok) return unresolved;
-  const report: VerifyScopeReconciliation = reconcileScope({
-    recordedInventory: recordedInventory.value,
-    expectations: expectationsOfRun(events.value),
-    judgedPaths: runJudgedPathsOf(events.value),
-    judgedDeletions: runJudgedDeletionsOf(events.value),
-    resolvedInventory: resolvedInventory.value,
-  });
-  return okResult(JSON.stringify(report));
+  const report = await reconcileRunEvidence(run.value, events.value, deps);
+  if (!report.ok) return report.error;
+  return okResult(JSON.stringify(report.value));
 }
