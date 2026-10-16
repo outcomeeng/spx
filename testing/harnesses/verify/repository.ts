@@ -8,14 +8,18 @@ import {
   VERIFY_CLI_EXIT_CODE,
   verifyAppendScopeCommand,
   type VerifyCliDeps,
+  verifyFinishCommand,
   verifyReconcileCommand,
   verifyStartCommand,
   type VerifyStartReport,
+  verifyStatusCommand,
 } from "@/commands/verify/cli";
 import type { CliCommandResult } from "@/config/types";
 import {
   VERIFY_APPEND_EVENT_FIELD,
   VERIFY_APPEND_EVENT_TYPE,
+  VERIFY_EXPECTATIONS_FIELD,
+  VERIFY_EXPECTATIONS_SCHEMA_VERSION,
   VERIFY_INPUT_SOURCE,
   VERIFY_RUN_CONTEXT_EVENT_TYPE,
   VERIFY_SCOPE_SEPARATOR,
@@ -163,6 +167,8 @@ interface VerifyRunStarter {
   ): Promise<StartedRepositoryRun>;
   appendScope(run: StartedRepositoryRun, payload: JsonValue): Promise<AppendedRepositoryScope>;
   reconcile(run: StartedRepositoryRun): Promise<CliCommandResult>;
+  finish(run: StartedRepositoryRun, terminalStatus: string): Promise<CliCommandResult>;
+  status(run: StartedRepositoryRun): Promise<CliCommandResult>;
   readEvents(run: StartedRepositoryRun): Promise<readonly JournalEvent[]>;
 }
 
@@ -193,6 +199,27 @@ function createVerifyRunStarter(productDir: string, git: GitDependencies): Verif
     return run.runToken;
   };
   return {
+    finish: async (run, terminalStatus) =>
+      verifyFinishCommand(
+        {
+          verificationType: run.verificationType,
+          scopeType: run.scopeType,
+          scope: run.scope,
+          run: requireRunToken(run, "finish"),
+          terminalStatus,
+        },
+        deps,
+      ),
+    status: async (run) =>
+      verifyStatusCommand(
+        {
+          verificationType: run.verificationType,
+          scopeType: run.scopeType,
+          scope: run.scope,
+          run: requireRunToken(run, "status"),
+        },
+        deps,
+      ),
     reconcile: async (run) =>
       verifyReconcileCommand(
         {
@@ -514,6 +541,95 @@ export async function withVerifyChangeInventoryRepository<T>(
         index: await readGit(productDir, [GIT_TEST_SUBCOMMANDS.LS_FILES, GIT_TEST_FLAGS.STAGE]),
         status: await readGit(productDir, [GIT_TEST_SUBCOMMANDS.STATUS, GIT_TEST_FLAGS.PORCELAIN]),
       }),
+    });
+  });
+}
+
+/**
+ * A real Git repository whose changeset `<changedBase>..<headBranch>` changes exactly one path,
+ * `sourcePath`, while `unchangedPath` is held by both commits. The checkout is detached at the base
+ * commit and `headBranch` names the head commit. `startChangesetRun` opens a run over the changed
+ * changeset and `startEmptyChangesetRun` opens a run over a changeset whose base and head name the
+ * same commit, so its change inventory is empty; either run is bound to the empty expectations
+ * document when `bound` is true. `advanceHead` commits `advancedPath` on top of the head commit and
+ * moves `headBranch` there, so an inventory the changeset selector resolves to afterwards differs
+ * from the inventory a run recorded at start.
+ */
+export interface VerifyFinishRepository {
+  readonly productDir: string;
+  readonly sourcePath: string;
+  readonly unchangedPath: string;
+  readonly advancedPath: string;
+  startChangesetRun(verificationType: string, bound: boolean): Promise<StartedRepositoryRun>;
+  startEmptyChangesetRun(verificationType: string, bound: boolean): Promise<StartedRepositoryRun>;
+  appendScope(run: StartedRepositoryRun, payload: JsonValue): Promise<AppendedRepositoryScope>;
+  /** Reconcile a started run's judged scope through the production reconciliation operation. */
+  reconcile(run: StartedRepositoryRun): Promise<CliCommandResult>;
+  /** Finish a started run with `terminalStatus` through the production `finish` operation. */
+  finish(run: StartedRepositoryRun, terminalStatus: string): Promise<CliCommandResult>;
+  /** Report a started run's status through the production `status` operation. */
+  status(run: StartedRepositoryRun): Promise<CliCommandResult>;
+  /** Commit `advancedPath` on top of the head commit and move the head branch to that commit. */
+  advanceHead(): Promise<void>;
+  /** Read the journal events of a started run. */
+  readEvents(run: StartedRepositoryRun): Promise<readonly JournalEvent[]>;
+}
+
+/**
+ * Create the finish repository in a temporary directory and hand it to the callback. The directory
+ * and every run recorded under its `.spx/` store are removed when the callback settles.
+ */
+export async function withVerifyFinishRepository<T>(
+  callback: (repository: VerifyFinishRepository) => Promise<T>,
+): Promise<T> {
+  return withTempDir(VERIFY_REPOSITORY_TEMP_PREFIX, async (tempDir) => {
+    const productDir = await realpath(tempDir);
+    const layout = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.finishRepository());
+    const initial = await initializeVerifyRepository(productDir, layout.unchangedPath);
+    const sourceFile = join(productDir, layout.sourcePath);
+    await mkdir(dirname(sourceFile), { recursive: true });
+    await writeFile(sourceFile, layout.sourcePath);
+    await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, layout.sourcePath]);
+    await runGit(productDir, [GIT_TEST_SUBCOMMANDS.COMMIT, GIT_TEST_FLAGS.COMMIT_MESSAGE, layout.sourcePath]);
+    const headCommit = await readGit(productDir, [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
+    await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CHECKOUT, GIT_TEST_FLAGS.DETACH, initial.headCommit]);
+    await runGit(productDir, [GIT_TEST_SUBCOMMANDS.BRANCH, GIT_TEST_FLAGS.FORCE, layout.headBranch, headCommit]);
+    const { appendScope, finish, readEvents, reconcile, startRun, status } = createVerifyRunStarter(
+      productDir,
+      realVerifyGitDependencies(),
+    );
+    const changedScope = `${initial.headCommit}${VERIFY_SCOPE_SEPARATOR}${layout.headBranch}`;
+    const emptyScope = `${headCommit}${VERIFY_SCOPE_SEPARATOR}${layout.headBranch}`;
+    const expectationsFor = (bound: boolean): string | undefined =>
+      bound
+        ? JSON.stringify({ [VERIFY_EXPECTATIONS_FIELD.SCHEMA_VERSION]: VERIFY_EXPECTATIONS_SCHEMA_VERSION })
+        : undefined;
+
+    return callback({
+      productDir,
+      sourcePath: layout.sourcePath,
+      unchangedPath: layout.unchangedPath,
+      advancedPath: layout.advancedPath,
+      startChangesetRun: async (verificationType, bound) =>
+        startRun(VERIFY_SCOPE_TYPE.CHANGESET, changedScope, verificationType, expectationsFor(bound)),
+      startEmptyChangesetRun: async (verificationType, bound) =>
+        startRun(VERIFY_SCOPE_TYPE.CHANGESET, emptyScope, verificationType, expectationsFor(bound)),
+      appendScope,
+      reconcile,
+      finish,
+      status,
+      readEvents,
+      advanceHead: async () => {
+        const advancedFile = join(productDir, layout.advancedPath);
+        await mkdir(dirname(advancedFile), { recursive: true });
+        await writeFile(advancedFile, layout.advancedPath);
+        await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CHECKOUT, GIT_TEST_FLAGS.DETACH, layout.headBranch]);
+        await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, layout.advancedPath]);
+        await runGit(productDir, [GIT_TEST_SUBCOMMANDS.COMMIT, GIT_TEST_FLAGS.COMMIT_MESSAGE, layout.advancedPath]);
+        const advanced = await readGit(productDir, [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
+        await runGit(productDir, [GIT_TEST_SUBCOMMANDS.BRANCH, GIT_TEST_FLAGS.FORCE, layout.headBranch, advanced]);
+        await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CHECKOUT, GIT_TEST_FLAGS.DETACH, initial.headCommit]);
+      },
     });
   });
 }

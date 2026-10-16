@@ -1075,6 +1075,53 @@ export interface VerifyChangeOperationPaths {
   readonly targetPath: string;
 }
 
+/** A judged scope unit payload beside a terminal status the unit's verification type accepts for a run recording it. */
+export interface JudgedEvidenceTerminalCase {
+  readonly payload: JsonValue;
+  readonly terminalStatus: string;
+}
+
+/**
+ * A judged scope unit of a run of `verificationType` naming `judgedPaths`, with a terminal status
+ * that type accepts for the run it opens: `rejected` for an audit run whose only unit is an
+ * uncovered required coverage gap and for a review run, whose `rejected` status no recorded unit
+ * conflicts with, and `failed` for a test run, whose runner vocabulary has no agentic disposition.
+ */
+function arbitraryJudgedEvidenceTerminalCase(
+  verificationType: VerifyVerificationType,
+  scopeIdentity: string,
+  judgedPaths: readonly string[],
+): fc.Arbitrary<JudgedEvidenceTerminalCase> {
+  const unit: Readonly<Record<VerifyVerificationType, fc.Arbitrary<object>>> = {
+    [VERIFY_VERIFICATION_TYPE.AUDIT]: arbitraryCoverageGapAuditScopeUnit().map(
+      ({ parentUnitId: _parentUnitId, ...rest }) => ({
+        ...rest,
+        subject: scopeIdentity,
+        coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
+      }),
+    ),
+    [VERIFY_VERIFICATION_TYPE.REVIEW]: RUN_FIRST_SCOPE_UNIT[VERIFY_VERIFICATION_TYPE.REVIEW](scopeIdentity),
+    [VERIFY_VERIFICATION_TYPE.TEST]: RUN_FIRST_SCOPE_UNIT[VERIFY_VERIFICATION_TYPE.TEST](scopeIdentity),
+  };
+  const terminalStatus: Readonly<Record<VerifyVerificationType, string>> = {
+    [VERIFY_VERIFICATION_TYPE.AUDIT]: JOURNAL_RUN_STATE_STATUS.REJECTED,
+    [VERIFY_VERIFICATION_TYPE.REVIEW]: JOURNAL_RUN_STATE_STATUS.REJECTED,
+    [VERIFY_VERIFICATION_TYPE.TEST]: JOURNAL_RUN_STATE_STATUS.FAILED,
+  };
+  return unit[verificationType].map((drawn) => ({
+    payload: scopeUnitWithJudgedPaths(drawn, judgedPaths),
+    terminalStatus: terminalStatus[verificationType],
+  }));
+}
+
+/** The head branch and the three distinct product-relative paths a finish-reconciliation repository holds. */
+export interface VerifyFinishRepositoryPaths {
+  readonly headBranch: string;
+  readonly sourcePath: string;
+  readonly unchangedPath: string;
+  readonly advancedPath: string;
+}
+
 /** The ways a declared additional path fails to be a product-relative path: it is absolute, or it climbs out of the product. */
 const NON_PRODUCT_RELATIVE_PATH_PREFIXES = ["/", "../"] as const;
 
@@ -1095,6 +1142,12 @@ export const VERIFY_TEST_GENERATOR = {
     scopeIdentity: string,
     judgedDeletions: readonly string[],
   ): fc.Arbitrary<JsonValue> => arbitraryJudgedDeletionsScopeUnit(verificationType, scopeIdentity, judgedDeletions),
+  judgedEvidenceTerminalCase: (
+    verificationType: VerifyVerificationType,
+    scopeIdentity: string,
+    judgedPaths: readonly string[],
+  ): fc.Arbitrary<JudgedEvidenceTerminalCase> =>
+    arbitraryJudgedEvidenceTerminalCase(verificationType, scopeIdentity, judgedPaths),
   judgedScopeUnit: (
     verificationType: VerifyVerificationType,
     scopeIdentity: string,
@@ -1134,6 +1187,21 @@ export const VERIFY_TEST_GENERATOR = {
       sourcePath: arbitrarySourceFilePath(),
       targetPath: arbitrarySourceFilePath(),
     }).filter(({ sourcePath, targetPath }) => sourcePath !== targetPath),
+  /**
+   * The layout of a real repository for finish reconciliation: the head branch and three distinct
+   * product-relative paths — the one the changeset changes, one both commits hold unchanged, and one
+   * a later commit on the head adds.
+   */
+  finishRepository: (): fc.Arbitrary<VerifyFinishRepositoryPaths> =>
+    fc.record({
+      headBranch: VERIFY_TEST_GENERATOR.changesetRef().filter((ref) => ref !== GIT_ROOT_COMMAND.HEAD),
+      paths: fc.uniqueArray(arbitrarySourceFilePath(), { minLength: 3, maxLength: 3 }),
+    }).map(({ headBranch, paths }) => ({
+      headBranch,
+      sourcePath: paths[0] ?? "",
+      unchangedPath: paths[1] ?? "",
+      advancedPath: paths[2] ?? "",
+    })),
   /** A product-relative path distinct from `heldPath`, the path the head commit holds. */
   absentProductPath: (heldPath: string): fc.Arbitrary<string> =>
     arbitrarySourceFilePath().filter((path) => path !== heldPath),
