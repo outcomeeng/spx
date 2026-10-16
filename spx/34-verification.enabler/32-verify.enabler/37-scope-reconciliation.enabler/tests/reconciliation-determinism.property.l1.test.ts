@@ -1,14 +1,22 @@
 import { describe, expect, it } from "vitest";
 
+import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
 import { reconcileScope } from "@/domains/verify/reconciliation";
 import {
   changeInventoryOfRun,
   expectationsOfRun,
   runJudgedDeletionsOf,
   runJudgedPathsOf,
+  VERIFY_VERIFICATION_TYPE,
 } from "@/domains/verify/verify";
 import { RECONCILIATION_TEST_GENERATOR } from "@testing/generators/verify/reconciliation";
+import {
+  sampleVerifyTestValue,
+  VERIFY_CHANGE_OPERATION,
+  VERIFY_TEST_GENERATOR,
+} from "@testing/generators/verify/verify";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
+import { withVerifyChangeInventoryRepository } from "@testing/harnesses/verify/repository";
 
 describe("verify scope reconciliation determinism", () => {
   it("derives the same result from the four inputs whatever their order and however often a path repeats", () => {
@@ -21,6 +29,28 @@ describe("verify scope reconciliation determinism", () => {
       { level: PROPERTY_LEVEL.L1 },
     );
   });
+
+  it.each(Object.values(VERIFY_VERIFICATION_TYPE))(
+    "derives the same result from a %s run whether the working tree is clean or holds modified, staged, and untracked files",
+    async (verificationType) => {
+      await withVerifyChangeInventoryRepository(VERIFY_CHANGE_OPERATION.DELETE, async (repository) => {
+        const run = await repository.startChangesetRun(verificationType);
+        expect(run.started.exitCode, run.started.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
+        const payload = sampleVerifyTestValue(
+          VERIFY_TEST_GENERATOR.judgedDeletionsScopeUnit(verificationType, run.scope, [repository.sourcePath]),
+        );
+        const appended = await repository.appendScope(run, payload);
+        expect(appended.appended.exitCode, appended.appended.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
+        const clean = await repository.reconcile(run);
+        expect(clean.exitCode, clean.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
+
+        await repository.dirtyWorkingTree();
+        const dirty = await repository.reconcile(run);
+
+        expect(dirty).toEqual(clean);
+      });
+    },
+  );
 
   it("derives the same result from a run history however its scope events, coverage states, and findings are arranged", () => {
     assertProperty(
