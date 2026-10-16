@@ -18,6 +18,12 @@ import {
   normalizeVerificationContextFileSubjectPath,
   VERIFICATION_CONTEXT_SUBJECT_KIND,
 } from "@/domains/verification-context/context";
+import {
+  checkReconcilableRun,
+  reconcileScope,
+  selectorUnresolvedReason,
+  type VerifyScopeReconciliation,
+} from "@/domains/verify/reconciliation";
 import { renderVerifyRejection, VERIFY_REJECTION_TEXT } from "@/domains/verify/rejection-report";
 import {
   type AuditScopeUnit,
@@ -31,6 +37,7 @@ import {
   digestRunInput,
   driveModeOf,
   evidenceValidatorFor,
+  expectationsOfRun,
   expectationsPathError,
   findAppendedSequence,
   findTerminalEvent,
@@ -44,6 +51,8 @@ import {
   parseVerifyExpectations,
   projectVerifyRun,
   type RecordedInput,
+  runJudgedDeletionsOf,
+  runJudgedPathsOf,
   type RunLocator,
   scopeJudgedDeletionsOf,
   scopeJudgedPathsOf,
@@ -139,6 +148,8 @@ export const VERIFY_CLI_ERROR = {
   SEAL_FAILED: "spx verification run could not seal the run journal",
   STATUS_FAILED: "spx verification run could not read the run status",
   RENDER_FAILED: "spx verification run could not render the run projection",
+  RECONCILE_FAILED: "spx verification run could not read the run for scope reconciliation",
+  RECONCILE_REJECTED: "spx verification run scope reconciliation rejected the run",
 } as const;
 
 export const VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD = {
@@ -245,6 +256,13 @@ export interface VerifyStatusCliOptions {
 }
 
 export interface VerifyRenderCliOptions {
+  readonly verificationType: string;
+  readonly scopeType: string;
+  readonly scope: string;
+  readonly run: string;
+}
+
+export interface VerifyReconcileCliOptions {
   readonly verificationType: string;
   readonly scopeType: string;
   readonly scope: string;
@@ -1711,5 +1729,50 @@ export async function verifyRenderCommand(
     events: events.value,
     auditScopeUnits: projection.auditScopeUnits,
   };
+  return okResult(JSON.stringify(report));
+}
+
+/**
+ * Reconcile a started changeset run's judged scope against the inventory its changeset selector
+ * resolves to, reporting the unaccounted, unexpected, and drifted paths as one structured result.
+ * The operation reads the run's event history and the repository and appends no event, seals no
+ * run, and changes no working tree, index, or ref.
+ */
+export async function verifyReconcileCommand(
+  options: VerifyReconcileCliOptions,
+  deps: VerifyCliDeps,
+): Promise<CliCommandResult> {
+  const run = await resolveExistingRunAddress(options, deps);
+  if (!run.ok) return errorResult(run.error);
+  const events = await readRunJournalEvents(run.value.journalScope, deps);
+  if (!events.ok) {
+    if (events.error === JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND) {
+      return errorResult(existingRunNotFound(run.value, options));
+    }
+    return errorResult(`${VERIFY_CLI_ERROR.RECONCILE_FAILED}: ${events.error}`);
+  }
+  const inputRecord = await readRecordedInputForProjection(run.value, options, events.value, deps);
+  if (!inputRecord.ok) return errorResult(inputRecord.error);
+  if (inputRecord.value === undefined && findTerminalEvent(events.value) === undefined) {
+    return errorResult(existingRunNotFound(run.value, options));
+  }
+  const recordedInventory = checkReconcilableRun(run.value.selector.scopeType, changeInventoryOfRun(events.value));
+  if (!recordedInventory.ok) return errorResult(`${VERIFY_CLI_ERROR.RECONCILE_REJECTED}: ${recordedInventory.error}`);
+  const unresolved = errorResult(
+    `${VERIFY_CLI_ERROR.RECONCILE_REJECTED}: ${selectorUnresolvedReason(run.value.selector.scopeIdentity)}`,
+  );
+  const changeset = parseChangesetScope(run.value.selector.scopeIdentity);
+  if (!changeset.ok) return unresolved;
+  const resolvedScope = await resolveVerifyScope(deps);
+  if (!resolvedScope.ok) return errorResult(`${VERIFY_CLI_ERROR.RECONCILE_FAILED}: ${resolvedScope.error}`);
+  const resolvedInventory = await resolveChangeInventory(changeset.value, resolvedScope.value.worktreeRoot, deps);
+  if (!resolvedInventory.ok) return unresolved;
+  const report: VerifyScopeReconciliation = reconcileScope({
+    recordedInventory: recordedInventory.value,
+    expectations: expectationsOfRun(events.value),
+    judgedPaths: runJudgedPathsOf(events.value),
+    judgedDeletions: runJudgedDeletionsOf(events.value),
+    resolvedInventory: resolvedInventory.value,
+  });
   return okResult(JSON.stringify(report));
 }
