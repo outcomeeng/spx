@@ -1682,10 +1682,19 @@ function validateAuditScopeForRun(input: EvidenceValidationInput): EvidenceValid
  */
 export const VERIFY_SCOPE_PAYLOAD_FIELD = {
   JUDGED_PATHS: "judgedPaths",
+  JUDGED_DELETIONS: "judgedDeletions",
 } as const;
 
-/** A scope unit carrying the judged paths its payload named, normalized to product-relative form. */
-export type WithJudgedPaths<T> = T & { readonly judgedPaths?: readonly string[] };
+type VerifyScopePathListField = (typeof VERIFY_SCOPE_PAYLOAD_FIELD)[keyof typeof VERIFY_SCOPE_PAYLOAD_FIELD];
+
+/**
+ * A scope unit carrying the judged paths and judged deletions its payload named, normalized to
+ * product-relative form.
+ */
+export type WithJudgedPaths<T> = T & {
+  readonly judgedPaths?: readonly string[];
+  readonly judgedDeletions?: readonly string[];
+};
 
 /**
  * Read a scope payload's judged paths: absent when the payload names none, otherwise a non-empty
@@ -1694,7 +1703,24 @@ export type WithJudgedPaths<T> = T & { readonly judgedPaths?: readonly string[] 
  * path, or a parent-directory escape refuses the payload naming the failing field path.
  */
 export function readScopeJudgedPaths(payload: JsonValue): EvidenceValidationResult<readonly string[] | undefined> {
-  const field = VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_PATHS;
+  return readScopePathList(payload, VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_PATHS);
+}
+
+/**
+ * Read a scope payload's judged deletions with the same shape rules as its judged paths: absent
+ * when the payload names none, otherwise a non-empty array of safe product-relative paths returned
+ * normalized in payload order.
+ */
+export function readScopeJudgedDeletions(
+  payload: JsonValue,
+): EvidenceValidationResult<readonly string[] | undefined> {
+  return readScopePathList(payload, VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_DELETIONS);
+}
+
+function readScopePathList(
+  payload: JsonValue,
+  field: VerifyScopePathListField,
+): EvidenceValidationResult<readonly string[] | undefined> {
   if (!isJsonRecord(payload) || !Object.hasOwn(payload, field)) return acceptEvidence(undefined);
   const entries = payload[field];
   if (!Array.isArray(entries) || entries.length === 0) return rejectEvidenceField(field);
@@ -1713,6 +1739,15 @@ export function readScopeJudgedPaths(payload: JsonValue): EvidenceValidationResu
  */
 export function scopeJudgedPathsOf(payload: JsonValue): readonly string[] {
   const judged = readScopeJudgedPaths(payload);
+  return judged.ok && judged.value !== undefined ? judged.value : [];
+}
+
+/**
+ * The judged deletions an accepted scope payload records, in payload order, or none when it names
+ * no judged deletion.
+ */
+export function scopeJudgedDeletionsOf(payload: JsonValue): readonly string[] {
+  const judged = readScopeJudgedDeletions(payload);
   return judged.ok && judged.value !== undefined ? judged.value : [];
 }
 
@@ -1743,9 +1778,13 @@ function scopeEvidenceValidator<T extends object>(
     if (!validated.ok) return validated;
     const judged = readScopeJudgedPaths(input.payload);
     if (!judged.ok) return forwardEvidenceRejection(judged);
-    return judged.value === undefined
-      ? validated
-      : acceptEvidence({ ...validated.value, [VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_PATHS]: judged.value });
+    const deletions = readScopeJudgedDeletions(input.payload);
+    if (!deletions.ok) return forwardEvidenceRejection(deletions);
+    return acceptEvidence({
+      ...validated.value,
+      ...(judged.value === undefined ? {} : { [VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_PATHS]: judged.value }),
+      ...(deletions.value === undefined ? {} : { [VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_DELETIONS]: deletions.value }),
+    });
   };
 }
 
@@ -1766,6 +1805,31 @@ export function validateJudgedPathsAtHead(
   return unheld.length === 0
     ? acceptEvidence(judgedPaths)
     : rejectEvidenceRequirementAt(EVIDENCE_REQUIREMENT.JUDGED_PATH_HELD_AT_HEAD, unheld);
+}
+
+/**
+ * Check judged deletions against the change inventory the run recorded at start. A run with no
+ * recorded change inventory has no deletion to judge, so its judged deletions are refused;
+ * otherwise every path the inventory does not list as deleted is refused by its entry's field path.
+ */
+export function validateJudgedDeletionsAgainstInventory(
+  judgedDeletions: readonly string[],
+  changeInventory: readonly VerifyChangeInventoryEntry[] | undefined,
+): EvidenceValidationResult<readonly string[]> {
+  if (changeInventory === undefined) {
+    return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.JUDGED_DELETIONS_NEED_CHANGE_INVENTORY);
+  }
+  const deleted = new Set(
+    changeInventory
+      .filter((entry) => entry.changeKind === VERIFY_CHANGE_KIND.DELETED)
+      .map((entry) => entry.path),
+  );
+  const unlisted = judgedDeletions.flatMap((path, index) =>
+    deleted.has(path) ? [] : [[VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_DELETIONS, String(index)]]
+  );
+  return unlisted.length === 0
+    ? acceptEvidence(judgedDeletions)
+    : rejectEvidenceRequirementAt(EVIDENCE_REQUIREMENT.JUDGED_DELETION_LISTED_AS_DELETED, unlisted);
 }
 
 /**
@@ -2267,6 +2331,29 @@ export function headCommitOf(events: readonly JournalEvent[]): string | undefine
   if (runContext === undefined || !isJsonRecord(runContext.data)) return undefined;
   const headCommit = runContext.data[VERIFY_RUN_CONTEXT_EVENT_FIELD.HEAD_COMMIT];
   return typeof headCommit === "string" && VERIFY_HEAD_COMMIT_PATTERN.test(headCommit) ? headCommit : undefined;
+}
+
+/**
+ * The change inventory folded from the run's run-context event, or `undefined` when the run
+ * recorded none — a run that is not changeset-scoped, or one opened before inventories were
+ * recorded. An entry that is not a path with a known change kind is skipped.
+ */
+export function changeInventoryOfRun(
+  events: readonly JournalEvent[],
+): readonly VerifyChangeInventoryEntry[] | undefined {
+  const runContext = events.find((event) => event.type === VERIFY_RUN_CONTEXT_EVENT_TYPE);
+  if (runContext === undefined || !isJsonRecord(runContext.data)) return undefined;
+  const inventory = runContext.data[VERIFY_RUN_CONTEXT_EVENT_FIELD.CHANGE_INVENTORY];
+  if (!Array.isArray(inventory)) return undefined;
+  const kinds: ReadonlySet<string> = new Set(Object.values(VERIFY_CHANGE_KIND));
+  return inventory.flatMap((entry): VerifyChangeInventoryEntry[] => {
+    if (!isJsonRecord(entry)) return [];
+    const path = entry[VERIFY_CHANGE_INVENTORY_ENTRY_FIELD.PATH];
+    const changeKind = entry[VERIFY_CHANGE_INVENTORY_ENTRY_FIELD.CHANGE_KIND];
+    return typeof path === "string" && typeof changeKind === "string" && kinds.has(changeKind)
+      ? [{ path, changeKind: changeKind as VerifyChangeKind }]
+      : [];
+  });
 }
 
 /** The last-sequence value a run with no events projects, one below the first assigned sequence. */
