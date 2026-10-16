@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
 import {
+  VERIFY_EXPECTATIONS_ERROR,
   VERIFY_EXPECTATIONS_FIELD,
   VERIFY_EXPECTATIONS_SCHEMA_VERSION,
   VERIFY_RUN_CONTEXT_EVENT_FIELD,
@@ -72,6 +73,38 @@ describe("verify start expectations compliance", () => {
         expect(run.started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
         expect(run.started.output).toContain(VERIFY_EXPECTATIONS_FIELD.SCHEMA_VERSION);
         expect(run.runToken).toBeUndefined();
+      });
+    });
+  });
+
+  it("rejects an additionalPaths value that is not an array before any run exists, naming the field", async () => {
+    await withVerifyHeadCommitRepository(async (repository) => {
+      const declared = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.nonArrayAdditionalPaths());
+      await repository.startRun(
+        VERIFY_SCOPE_TYPE.CHANGESET,
+        undefined,
+        expectationsDocument({ [VERIFY_EXPECTATIONS_FIELD.ADDITIONAL_PATHS]: declared }),
+      ).then((run) => {
+        expect(run.started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+        expect(run.started.output).toContain(VERIFY_EXPECTATIONS_ERROR.ADDITIONAL_PATHS_NOT_ARRAY);
+        expect(run.runToken).toBeUndefined();
+        expect(run.runContextData).toEqual([]);
+      });
+    });
+  });
+
+  it("rejects an additionalPaths entry that is not a string before any run exists, naming the field", async () => {
+    await withVerifyHeadCommitRepository(async (repository) => {
+      const declared = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.additionalPathsWithNonStringEntry());
+      await repository.startRun(
+        VERIFY_SCOPE_TYPE.CHANGESET,
+        undefined,
+        expectationsDocument({ [VERIFY_EXPECTATIONS_FIELD.ADDITIONAL_PATHS]: declared }),
+      ).then((run) => {
+        expect(run.started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+        expect(run.started.output).toContain(VERIFY_EXPECTATIONS_ERROR.ADDITIONAL_PATHS_NOT_ARRAY);
+        expect(run.runToken).toBeUndefined();
+        expect(run.runContextData).toEqual([]);
       });
     });
   });
