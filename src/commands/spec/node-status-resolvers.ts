@@ -1,5 +1,6 @@
 import { listJournalRuns, readJournalEvents } from "@/commands/journal/runtime";
 import { JOURNAL_RUN_SEALED_FILTER } from "@/domains/journal/run-scope";
+import { buildEvidenceResults } from "@/domains/test";
 import {
   AUDIT_CLAIM_ENTRY_SECTION,
   auditClaimEntry,
@@ -94,23 +95,25 @@ export function createNodeStatusResolvers(deps: NodeStatusResolverDependencies):
 
   return {
     resolveOutcome: createNodeOutcomeResolver(deps),
-    resolveReadPaths: async (_nodeId, evidencePath) => {
-      if (!suppliesReadPaths(deps, evidencePath)) return undefined;
+    resolveReadPaths: async (_nodeId, evidencePath, outcome) => {
       const module = (await modules()).find((candidate) => moduleCovers(candidate.moduleId, evidencePath));
       if (module === undefined) return undefined;
-      return await unchangedSince(pinChanges, module.headCommit, module.readPaths) ? module.readPaths : undefined;
+      if (!await unchangedSince(pinChanges, module.headCommit, module.readPaths)) return undefined;
+      const owners = deps.registry.languages.filter((language) => language.matchesTestFile(evidencePath));
+      const results = buildEvidenceResults(
+        owners.map((language) => ({
+          runnerId: language.name,
+          pathVerdicts: [{ testPath: evidencePath, verdict: outcome }],
+        })),
+        deps.registry.languages,
+        new Map([[evidencePath, module.readPaths]]),
+      );
+      return results.find((result) => result.readPaths !== undefined)?.readPaths;
     },
     resolveAttributedResults: async (nodeId, request) => ({
       evidence: await evidenceResults(await sealedRuns(VERIFY_VERIFICATION_TYPE.AUDIT), pinChanges, nodeId, request),
     }),
   };
-}
-
-/** Whether a language whose adapter supplies read paths owns the evidence path. */
-function suppliesReadPaths(deps: NodeStatusResolverDependencies, evidencePath: string): boolean {
-  return deps.registry.languages.some((language) =>
-    language.suppliesReadPaths && language.matchesTestFile(evidencePath)
-  );
 }
 
 /** Whether a journaled module identity names the product-relative evidence path. */

@@ -1,6 +1,12 @@
 import type { TestEvidenceResult, TestingLanguageDescriptor } from "@/test/languages/types";
 import { TEST_PATH_VERDICT, type TestPathVerdictValue, type TestRunnerOutcome } from "@/test/run-state";
 
+/** The part of a runner outcome the evidence contract reads: the runner that produced it and its path verdicts. */
+export interface EvidenceOutcome {
+  readonly runnerId: TestRunnerOutcome["runnerId"];
+  readonly pathVerdicts: TestRunnerOutcome["pathVerdicts"];
+}
+
 /** Product-relative paths each evidence reference read, as an adapter that supplies them reports. */
 export type ReadPathsByReference = ReadonlyMap<string, readonly string[]>;
 
@@ -9,8 +15,8 @@ export type ReadPathsByReference = ReadonlyMap<string, readonly string[]>;
  * carrying its evidence reference and verdict. A result carries read paths only when the owning
  * language's adapter declares that it supplies them and reports some for that reference.
  */
-export function buildEvidenceResults(
-  outcomes: readonly TestRunnerOutcome[],
+export function buildEvidenceResults<Outcome extends EvidenceOutcome>(
+  outcomes: readonly Outcome[],
   languages: readonly TestingLanguageDescriptor[],
   readPathsByReference: ReadPathsByReference = new Map(),
 ): readonly TestEvidenceResult[] {

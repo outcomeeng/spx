@@ -1,4 +1,5 @@
 import { currentStalenessInputs, discoverTestFiles } from "@/commands/test";
+import { buildEvidenceResults, foldEvidenceVerdict } from "@/domains/test";
 import {
   NODE_STATUS_EVIDENCE_OUTCOME,
   type NodeOutcomeResolver,
@@ -13,8 +14,6 @@ import {
   readTestingRuns,
   selectLatestTerminalTestRunForNode,
   type StalenessInputs,
-  TEST_PATH_VERDICT,
-  type TestPathVerdictValue,
   type TestRunnerOutcome,
   type TestRunStateFileSystem,
   type TestTerminalRun,
@@ -76,6 +75,7 @@ export function createNodeOutcomeResolver(deps: NodeOutcomeResolverDependencies)
       evidencePaths,
       nodeTestPaths,
       currentInputsFor,
+      deps.registry,
     );
   };
 }
@@ -110,6 +110,7 @@ async function recordedOutcomes(
   evidencePaths: readonly string[],
   nodeTestPaths: readonly string[],
   currentInputsFor: CurrentStalenessInputsFor,
+  registry: TestingRegistry,
 ): Promise<Readonly<Record<string, NodeStatusEvidenceOutcome>>> {
   const resolved: Record<string, NodeStatusEvidenceOutcome> = Object.fromEntries(
     evidencePaths.map((path) => [path, NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN]),
@@ -131,29 +132,20 @@ async function recordedOutcomes(
       delete resolved[path];
       continue;
     }
-    resolved[path] = outcomeForPath(latest.state.runnerOutcomes, path);
+    resolved[path] = outcomeForPath(latest.state.runnerOutcomes, path, registry);
   }
   return resolved;
 }
 
 // A reference takes the verdict recorded for its own test path, never the exit
-// code of the runner invocation that covered it. A failed verdict from any
-// covering runner fails the reference; otherwise it passes only when every
-// covering runner recorded a passed verdict for the path.
+// code of the runner invocation that covered it; the testing domain's evidence
+// contract folds the verdicts of every runner that covered the path.
 function outcomeForPath(
   outcomes: readonly TestRunnerOutcome[],
   path: string,
+  registry: TestingRegistry,
 ): NodeStatusEvidenceOutcome {
-  const verdicts = outcomes
-    .filter((outcome) => outcome.testPaths.includes(path))
-    .map((outcome) => pathVerdictFor(outcome, path));
-  if (verdicts.includes(TEST_PATH_VERDICT.FAILED)) return NODE_STATUS_EVIDENCE_OUTCOME.FAILED;
-  if (verdicts.length > 0 && verdicts.every((verdict) => verdict === TEST_PATH_VERDICT.PASSED)) {
-    return NODE_STATUS_EVIDENCE_OUTCOME.PASSED;
-  }
-  return NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN;
-}
-
-function pathVerdictFor(outcome: TestRunnerOutcome, path: string): TestPathVerdictValue {
-  return outcome.pathVerdicts.find((entry) => entry.testPath === path)?.verdict ?? TEST_PATH_VERDICT.NOT_RUN;
+  const results = buildEvidenceResults(outcomes, registry.languages)
+    .filter((result) => result.evidenceReference === path);
+  return foldEvidenceVerdict(results);
 }

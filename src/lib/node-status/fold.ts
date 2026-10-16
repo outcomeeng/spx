@@ -50,7 +50,11 @@ export type NodeAttributedResults = Readonly<{
 }>;
 
 /** Resolves the paths a linked reference's recorded result read; `undefined` when its adapter reports none. */
-export type NodeReadPathResolver = (nodeId: string, evidencePath: string) => Promise<readonly string[] | undefined>;
+export type NodeReadPathResolver = (
+  nodeId: string,
+  evidencePath: string,
+  outcome: NodeStatusEvidenceOutcome,
+) => Promise<readonly string[] | undefined>;
 
 /** Resolves the audit and evidence results sealed audit runs recorded for a node. */
 export type NodeAttributedResultResolver = (
@@ -97,7 +101,7 @@ export async function foldNodeClaim(input: NodeClaimFoldInput): Promise<NodeStat
     const outcome = input.outcomes[evidencePath];
     const read = outcome === undefined || outcome === NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN
       ? undefined
-      : await input.resolveReadPaths?.(input.nodeId, evidencePath);
+      : await input.resolveReadPaths?.(input.nodeId, evidencePath, outcome);
     place(
       section,
       key,
