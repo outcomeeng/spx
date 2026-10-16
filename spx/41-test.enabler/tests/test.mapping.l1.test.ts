@@ -17,8 +17,8 @@ describe("testing registry membership", () => {
 
       expect(descriptor.name.length).toBeGreaterThan(0);
       expect(descriptor.testFilePatterns.length).toBeGreaterThan(0);
-      expect(typeof descriptor.detect).toBe("function");
-      expect(typeof descriptor.runTests).toBe("function");
+      expect(descriptor.detect).toBeInstanceOf(Function);
+      expect(descriptor.runTests).toBeInstanceOf(Function);
       expect(descriptor.matchesTestFile(testFile)).toBe(true);
       expect(testingRegistry.languages.filter((candidate) => candidate.name === descriptor.name)).toHaveLength(1);
     },
