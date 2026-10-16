@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { buildEvidenceResults, foldEvidenceVerdict, groupTestFiles } from "@/domains/test";
-import { pythonTestingLanguage } from "@/test/languages/python";
 import type { TestingLanguageDescriptor } from "@/test/languages/types";
-import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { testingRegistry } from "@/test/registry";
 import { TEST_PATH_VERDICT } from "@/test/run-state";
 import { arbitrarySourceFilePath, arbitrarySpecTreeTestFilePath } from "@testing/generators/literal/literal";
@@ -11,10 +9,20 @@ import { sampleGeneratedValue } from "@testing/generators/sample";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 
 describe("testing registry membership", () => {
-  it("enumerates each language's leaf runner descriptor", () => {
-    expect(testingRegistry.languages).toContain(typescriptTestingLanguage);
-    expect(testingRegistry.languages).toContain(pythonTestingLanguage);
-  });
+  it.each(testingRegistry.languages)(
+    "$name provides a usable runner adapter whose patterns route its own test files",
+    (descriptor) => {
+      const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+      const testFile = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(descriptor, nodePath));
+
+      expect(descriptor.name.length).toBeGreaterThan(0);
+      expect(descriptor.testFilePatterns.length).toBeGreaterThan(0);
+      expect(typeof descriptor.detect).toBe("function");
+      expect(typeof descriptor.runTests).toBe("function");
+      expect(descriptor.matchesTestFile(testFile)).toBe(true);
+      expect(testingRegistry.languages.filter((candidate) => candidate.name === descriptor.name)).toHaveLength(1);
+    },
+  );
 });
 
 describe("read-path declaration", () => {
@@ -79,7 +87,7 @@ describe("status fold", () => {
 });
 
 describe("extension-based dispatch routing", () => {
-  it.each<TestingLanguageDescriptor>([typescriptTestingLanguage, pythonTestingLanguage])(
+  it.each(testingRegistry.languages)(
     "routes a $name test file into that language's group",
     (descriptor) => {
       const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
