@@ -144,13 +144,13 @@ export const VERIFY_CLI_ERROR = {
   HEAD_COMMIT_UNRESOLVED: "spx verification run start could not resolve the head commit the run judges",
   RUN_CONTEXT_FAILED: "spx verification run could not record the run context",
   EXPECTATIONS_INVALID: "spx verification run start: expectations rejected",
+  EXPECTATIONS_SOURCE_UNREADABLE: "the expectations source cannot be read",
   EXPECTATIONS_PATHS_UNREADABLE: "spx verification run start could not read the files the head commit holds",
   SEAL_FAILED: "spx verification run could not seal the run journal",
   STATUS_FAILED: "spx verification run could not read the run status",
   RENDER_FAILED: "spx verification run could not render the run projection",
   RECONCILE_FAILED: "spx verification run could not read the run for scope reconciliation",
   RECONCILE_REJECTED: "spx verification run scope reconciliation rejected the run",
-  FINISH_UNRECONCILED: "spx verification run finish refused a bound run whose scope does not reconcile",
 } as const;
 
 export const VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD = {
@@ -193,7 +193,7 @@ export interface VerifyStartCliOptions {
   readonly input: string;
   /** The Change the run serves, in the canonical `owner/repo#N` form; absent when the run belongs to no Change. */
   readonly change?: string;
-  /** The expectations a changeset-scoped run is bound to, as a JSON document; absent when the run is bound to none. */
+  /** The expectations source a changeset-scoped run is bound to: stdin or a file path holding a JSON document; absent when the run is bound to none. */
   readonly expectations?: string;
 }
 
@@ -347,6 +347,15 @@ function okResult(output: string): CliCommandResult {
 
 function errorResult(error: string): CliCommandResult {
   return { exitCode: VERIFY_CLI_EXIT_CODE.ERROR, output: error };
+}
+
+/** A reconciliation that does not reconcile: the structured result on standard output with a non-zero exit. */
+function unreconciledResult(reconciliation: VerifyScopeReconciliation): CliCommandResult {
+  return {
+    exitCode: VERIFY_CLI_EXIT_CODE.ERROR,
+    output: JSON.stringify(reconciliation),
+    reportOnStdout: true,
+  };
 }
 
 function toMessage(error: unknown): string {
@@ -881,7 +890,13 @@ async function resolveStartExpectations(
     error: `${VERIFY_CLI_ERROR.EXPECTATIONS_INVALID}: ${reason}`,
   });
   if (scopeType !== VERIFY_SCOPE_TYPE.CHANGESET) return reject(VERIFY_EXPECTATIONS_ERROR.NOT_CHANGESET_SCOPED);
-  const parsed = parseVerifyExpectations(source);
+  let document: string;
+  try {
+    document = await deps.readInputSource(source);
+  } catch {
+    return reject(VERIFY_CLI_ERROR.EXPECTATIONS_SOURCE_UNREADABLE);
+  }
+  const parsed = parseVerifyExpectations(document);
   if (!parsed.ok) return reject(parsed.error);
   const { additionalPaths } = parsed.value;
   if (additionalPaths.length === 0) return parsed;
@@ -1602,7 +1617,7 @@ async function refuseUnreconciledBoundRun(
   const reconciliation = await reconcileRunEvidence(run, events, deps);
   if (!reconciliation.ok) return reconciliation.error;
   if (reconciliation.value.reconciled) return undefined;
-  return errorResult(`${VERIFY_CLI_ERROR.FINISH_UNRECONCILED}: ${JSON.stringify(reconciliation.value)}`);
+  return unreconciledResult(reconciliation.value);
 }
 
 async function retrySealForTerminalRun(
@@ -1818,5 +1833,5 @@ export async function verifyReconcileCommand(
   }
   const report = await reconcileRunEvidence(run.value, events.value, deps);
   if (!report.ok) return report.error;
-  return okResult(JSON.stringify(report.value));
+  return report.value.reconciled ? okResult(JSON.stringify(report.value)) : unreconciledResult(report.value);
 }

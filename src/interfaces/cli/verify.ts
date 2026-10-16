@@ -28,6 +28,8 @@ import {
   verifyFinishCommand,
   type VerifyInputCliOptions,
   verifyInputCommand,
+  type VerifyReconcileCliOptions,
+  verifyReconcileCommand,
   type VerifyRenderCliOptions,
   verifyRenderCommand,
   type VerifyStartCliOptions,
@@ -84,6 +86,8 @@ export const VERIFY_CLI = {
   runCommandName: VERIFICATION_RUN_CLI_SURFACE.runCommandName,
   scopeCommandName: VERIFICATION_RUN_CLI_SURFACE.scopeResourceCommandName,
   reconcileCommandName: VERIFY_VERB.RECONCILE,
+  reconcileCommandDescription:
+    "Report the changed paths a run's evidence leaves unaccounted, unexpected, or drifted; exits zero exactly when the run reconciles",
   finishCommandName: VERIFY_VERB.FINISH,
   statusCommandName: VERIFY_VERB.STATUS,
   renderCommandName: VERIFY_VERB.RENDER,
@@ -97,9 +101,9 @@ export const VERIFY_CLI = {
   inputOption: "--input <input-source>",
   changeOption: "--change <owner/repo#N>",
   changeOptionDescription: "Change the run serves, in the canonical owner/repo#N form; omit when it serves none",
-  expectationsOption: "--expectations <document>",
+  expectationsOption: "--expectations <expectations-source>",
   expectationsOptionDescription:
-    "Expectations a changeset-scoped run is bound to, as a JSON document carrying schemaVersion and optional additionalPaths",
+    "Expectations source a changeset-scoped run is bound to; stdin or a file path holding a JSON document carrying schemaVersion and optional additionalPaths",
   listChangeOptionDescription: "Change whose runs are listed, in the canonical owner/repo#N form",
   compareCommandName: VERIFY_VERB.COMPARE,
   compareCommandDescription:
@@ -172,6 +176,7 @@ export interface VerifyCliHandlers {
   readonly finish: (options: VerifyFinishCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
   readonly input: (options: VerifyInputCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
   readonly list: (options: VerifyChangeRunsCliOptions, deps: VerifyChangeRunsDeps) => Promise<CliCommandResult>;
+  readonly reconcile: (options: VerifyReconcileCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
   readonly render: (options: VerifyRenderCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
   readonly start: (options: VerifyStartCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
   readonly status: (options: VerifyStatusCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
@@ -185,6 +190,7 @@ const DEFAULT_VERIFY_CLI_HANDLERS: VerifyCliHandlers = {
   finish: verifyFinishCommand,
   input: verifyInputCommand,
   list: verifyChangeRunsCommand,
+  reconcile: verifyReconcileCommand,
   render: verifyRenderCommand,
   start: verifyStartCommand,
   status: verifyStatusCommand,
@@ -287,6 +293,17 @@ export function registerVerifyCommands(
     .requiredOption(VERIFY_CLI.idempotencyKeyOption, VERIFY_CLI.idempotencyKeyOptionDescription)
     .action(async (options: VerifyAppendActionOptions) => {
       reportCliResult(await handlers.appendFinding(options, deps()), invocation.io);
+    });
+
+  runCommand
+    .command(VERIFY_CLI.reconcileCommandName)
+    .description(VERIFY_CLI.reconcileCommandDescription)
+    .requiredOption(VERIFY_CLI.verificationTypeOption, "Verification type recorded for the run")
+    .requiredOption(VERIFY_CLI.scopeTypeOption, VERIFY_CLI.scopeTypeOptionDescription)
+    .requiredOption(VERIFY_CLI.scopeOption, VERIFY_CLI.scopeOptionDescription)
+    .requiredOption(VERIFY_CLI.runOption, "Run token reported by start")
+    .action(async (options: VerifyRunActionOptions) => {
+      reportCliResult(await handlers.reconcile(options, deps()), invocation.io);
     });
 
   runCommand

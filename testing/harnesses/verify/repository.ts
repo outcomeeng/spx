@@ -181,7 +181,7 @@ function createVerifyRunStarter(productDir: string, git: GitDependencies): Verif
     git,
     processEnv: {},
     fs: defaultStateStoreFileSystem,
-    readInputSource: async () => inputContent,
+    readInputSource: async (source) => (source === VERIFY_INPUT_SOURCE.STDIN ? inputContent : source),
     readPayloadSource: async (source) => source,
     journalBinding: { localSink: createRecordingStreamSink().sink },
   };
