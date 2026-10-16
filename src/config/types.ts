@@ -11,6 +11,8 @@ export type Result<T, E = string> = { ok: true; value: T } | { ok: false; error:
 export interface CliCommandResult {
   readonly exitCode: number;
   readonly output: string;
+  /** Report a non-zero result's output on standard output, where a caller reads a structured result a failing command still owes it. */
+  readonly reportOnStdout?: boolean;
 }
 
 export interface ConfigDescriptor<T> {

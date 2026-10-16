@@ -24,6 +24,7 @@ import {
   verifyInputCommand,
   type VerifyInputReport,
   type VerifyPathsCliOptions,
+  type VerifyReconcileCliOptions,
   type VerifyRenderCliOptions,
   verifyRenderCommand,
   type VerifyRenderReport,
@@ -177,6 +178,7 @@ export interface VerifyCliRecording {
   readonly inputOptions: readonly VerifyInputCliOptions[];
   readonly listOptions: readonly VerifyChangeRunsCliOptions[];
   readonly pathsOptions: readonly VerifyPathsCliOptions[];
+  readonly reconcileOptions: readonly VerifyReconcileCliOptions[];
   readonly renderOptions: readonly VerifyRenderCliOptions[];
   readonly startOptions: readonly VerifyStartCliOptions[];
   readonly statusOptions: readonly VerifyStatusCliOptions[];
@@ -248,6 +250,7 @@ function createRecordingVerifyHandlers(): VerifyCliRecording {
   const inputOptions: VerifyInputCliOptions[] = [];
   const listOptions: VerifyChangeRunsCliOptions[] = [];
   const pathsOptions: VerifyPathsCliOptions[] = [];
+  const reconcileOptions: VerifyReconcileCliOptions[] = [];
   const renderOptions: VerifyRenderCliOptions[] = [];
   const startOptions: VerifyStartCliOptions[] = [];
   const statusOptions: VerifyStatusCliOptions[] = [];
@@ -261,6 +264,7 @@ function createRecordingVerifyHandlers(): VerifyCliRecording {
     inputOptions,
     listOptions,
     pathsOptions,
+    reconcileOptions,
     renderOptions,
     startOptions,
     statusOptions,
@@ -295,6 +299,10 @@ function createRecordingVerifyHandlers(): VerifyCliRecording {
       },
       paths: (options) => {
         pathsOptions.push(options);
+        return Promise.resolve(okCliResult());
+      },
+      reconcile: (options) => {
+        reconcileOptions.push(options);
         return Promise.resolve(okCliResult());
       },
       render: (options) => {
@@ -357,6 +365,7 @@ function verifyHandlerInvocationCount(recording: VerifyCliRecording): number {
     + recording.inputOptions.length
     + recording.listOptions.length
     + recording.pathsOptions.length
+    + recording.reconcileOptions.length
     + recording.renderOptions.length
     + recording.startOptions.length
     + recording.statusOptions.length;
