@@ -981,6 +981,32 @@ function arbitraryJudgedPathsCase(
     });
 }
 
+/**
+ * The git change operations a changeset can contain, one per way a path's state differs between a
+ * changeset's base and head: a path appears, a path's content changes, a path's file type changes, a
+ * path disappears, a path moves, a path is duplicated while its source stays.
+ */
+export const VERIFY_CHANGE_OPERATION = {
+  ADD: "add",
+  MODIFY: "modify",
+  TYPE_CHANGE: "type-change",
+  DELETE: "delete",
+  RENAME: "rename",
+  COPY: "copy",
+} as const;
+
+export type VerifyChangeOperation = (typeof VERIFY_CHANGE_OPERATION)[keyof typeof VERIFY_CHANGE_OPERATION];
+
+/** The two distinct product-relative paths a change operation acts on: the path it starts from and the path a move or copy produces. */
+export interface VerifyChangeOperationPaths {
+  readonly headBranch: string;
+  readonly sourcePath: string;
+  readonly targetPath: string;
+}
+
+/** The ways a declared additional path fails to be a product-relative path: it is absolute, or it climbs out of the product. */
+const NON_PRODUCT_RELATIVE_PATH_PREFIXES = ["/", "../"] as const;
+
 export const VERIFY_TEST_GENERATOR = {
   verificationType: (): fc.Arbitrary<string> => fc.constantFrom(...VERIFY_VERIFICATION_TYPES),
   judgedPathsCase: (
@@ -1020,6 +1046,34 @@ export const VERIFY_TEST_GENERATOR = {
       headBranch: VERIFY_TEST_GENERATOR.changesetRef().filter((ref) => ref !== GIT_ROOT_COMMAND.HEAD),
       filePath: arbitrarySourceFilePath(),
     }),
+  /** The layout of a real repository for one change operation: the head branch and two distinct product-relative paths. */
+  changeOperationPaths: (): fc.Arbitrary<VerifyChangeOperationPaths> =>
+    fc.record({
+      headBranch: VERIFY_TEST_GENERATOR.changesetRef().filter((ref) => ref !== GIT_ROOT_COMMAND.HEAD),
+      sourcePath: arbitrarySourceFilePath(),
+      targetPath: arbitrarySourceFilePath(),
+    }).filter(({ sourcePath, targetPath }) => sourcePath !== targetPath),
+  /** A product-relative path distinct from `heldPath`, the path the head commit holds. */
+  absentProductPath: (heldPath: string): fc.Arbitrary<string> =>
+    arbitrarySourceFilePath().filter((path) => path !== heldPath),
+  /** A path that is not product-relative: absolute, or climbing out of the product. */
+  nonProductRelativePath: (): fc.Arbitrary<string> =>
+    fc.tuple(fc.constantFrom(...NON_PRODUCT_RELATIVE_PATH_PREFIXES), arbitrarySourceFilePath()).map((
+      [prefix, path],
+    ) => `${prefix}${path}`),
+  /** A JSON document that is not an object: an array, a string, a number, a boolean, or null. */
+  nonObjectJsonDocument: (): fc.Arbitrary<string> =>
+    fc.oneof(fc.array(fc.string()), fc.string(), fc.integer(), fc.boolean(), fc.constant(null)).map((value) =>
+      JSON.stringify(value)
+    ),
+  /** A schema version other than the supported one: any integer except it, or a non-integer value. */
+  unsupportedExpectationsSchemaVersion: (supportedVersion: number): fc.Arbitrary<JsonValue> =>
+    fc.oneof(
+      fc.integer().filter((version) => version !== supportedVersion),
+      fc.string(),
+      fc.boolean(),
+      fc.constant(null),
+    ),
   changesetScopeScenario: (): fc.Arbitrary<{
     readonly range: { readonly base: string; readonly head: string };
     readonly changedPaths: readonly string[];

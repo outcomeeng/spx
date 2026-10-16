@@ -1,4 +1,4 @@
-import { mkdir, readdir, realpath, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { execa } from "execa";
@@ -23,7 +23,12 @@ import {
 import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
 import { GIT_DIR_BASENAME, GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 import { defaultStateStoreFileSystem } from "@/lib/state-store";
-import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
+import {
+  sampleVerifyTestValue,
+  VERIFY_CHANGE_OPERATION,
+  VERIFY_TEST_GENERATOR,
+  type VerifyChangeOperation,
+} from "@testing/generators/verify/verify";
 import {
   buildGitTestEnvironment,
   GIT_TEST_CONFIG,
@@ -128,8 +133,11 @@ export interface VerifyHeadCommitRepository extends VerifyRepositoryCommits {
   readonly productDir: string;
   readonly filePath: string;
   readonly headBranch: string;
-  /** Start a run of `scopeType`, of `verificationType` when given and of a drawn verification type otherwise. */
-  startRun(scopeType: string, verificationType?: string): Promise<StartedRepositoryRun>;
+  /**
+   * Start a run of `scopeType`, of `verificationType` when given and of a drawn verification type
+   * otherwise, bound to the `expectations` source when given.
+   */
+  startRun(scopeType: string, verificationType?: string, expectations?: string): Promise<StartedRepositoryRun>;
   /** Append `payload` as scope evidence to a started run through the production `scope add` operation. */
   appendScope(run: StartedRepositoryRun, payload: JsonValue): Promise<AppendedRepositoryScope>;
   /** Write a file at the product-relative `path` into the checkout without adding it to any commit. */
@@ -143,7 +151,12 @@ export interface VerifyHeadCommitRepository extends VerifyRepositoryCommits {
  * `scope add` operation and observes the scope events the run's journal then holds.
  */
 interface VerifyRunStarter {
-  startRun(scopeType: string, scope: string, verificationType?: string): Promise<StartedRepositoryRun>;
+  startRun(
+    scopeType: string,
+    scope: string,
+    verificationType?: string,
+    expectations?: string,
+  ): Promise<StartedRepositoryRun>;
   appendScope(run: StartedRepositoryRun, payload: JsonValue): Promise<AppendedRepositoryScope>;
 }
 
@@ -190,9 +203,15 @@ function createVerifyRunStarter(productDir: string, git: GitDependencies): Verif
           .map((event) => eventDataRecord(event)[VERIFY_APPEND_EVENT_FIELD.PAYLOAD] as JsonValue),
       };
     },
-    startRun: async (scopeType, scope, verificationType = drawnVerificationType) => {
+    startRun: async (scopeType, scope, verificationType = drawnVerificationType, expectations) => {
       const started = await verifyStartCommand(
-        { verificationType, scopeType, scope, input: VERIFY_INPUT_SOURCE.STDIN },
+        {
+          verificationType,
+          scopeType,
+          scope,
+          input: VERIFY_INPUT_SOURCE.STDIN,
+          ...(expectations === undefined ? {} : { expectations }),
+        },
         deps,
       );
       const selector = { verificationType, scopeType, scope, started };
@@ -241,7 +260,8 @@ export async function withVerifyHeadCommitRepository<T>(
       filePath: layout.filePath,
       headBranch: layout.headBranch,
       ...commits,
-      startRun: async (scopeType, verificationType) => startRun(scopeType, scopeFor(scopeType), verificationType),
+      startRun: async (scopeType, verificationType, expectations) =>
+        startRun(scopeType, scopeFor(scopeType), verificationType, expectations),
       appendScope,
       writeCheckoutFile: async (path) => {
         const absoluteFile = join(productDir, path);
@@ -333,6 +353,93 @@ export async function withVerifyUnbornHeadRepository<T>(
       filePath: layout.filePath,
       headVerifyExitCode: headVerify.exitCode,
       startFileRun: async (verificationType) => startRun(VERIFY_SCOPE_TYPE.FILE, layout.filePath, verificationType),
+    });
+  });
+}
+
+/**
+ * A real Git repository whose base commit and head commit differ by exactly one change operation on
+ * `sourcePath`, with `targetPath` the path a move or copy produces. The checkout is detached at the
+ * base commit and the head commit stays reachable through `headBranch`. `startChangesetRun` opens a
+ * changeset-scoped run over `<base>..<headBranch>` through the production `start` operation and
+ * returns the run-context events the run's journal holds.
+ */
+export interface VerifyChangeInventoryRepository extends VerifyRepositoryCommits {
+  readonly productDir: string;
+  readonly sourcePath: string;
+  readonly targetPath: string;
+  startChangesetRun(): Promise<StartedRepositoryRun>;
+}
+
+const MODIFIED_CONTENT_SUFFIX = "\nmodified";
+
+async function applyChangeOperation(
+  productDir: string,
+  operation: VerifyChangeOperation,
+  sourcePath: string,
+  targetPath: string,
+): Promise<void> {
+  const absoluteSource = join(productDir, sourcePath);
+  const absoluteTarget = join(productDir, targetPath);
+  switch (operation) {
+    case VERIFY_CHANGE_OPERATION.ADD:
+      return;
+    case VERIFY_CHANGE_OPERATION.MODIFY:
+      await writeFile(absoluteSource, `${HEAD_COMMIT_MESSAGE}${MODIFIED_CONTENT_SUFFIX}`);
+      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, sourcePath]);
+      return;
+    case VERIFY_CHANGE_OPERATION.TYPE_CHANGE:
+      await rm(absoluteSource);
+      await symlink(targetPath, absoluteSource);
+      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, sourcePath]);
+      return;
+    case VERIFY_CHANGE_OPERATION.DELETE:
+      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.RM, sourcePath]);
+      return;
+    case VERIFY_CHANGE_OPERATION.RENAME:
+      await mkdir(dirname(absoluteTarget), { recursive: true });
+      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.MV, sourcePath, targetPath]);
+      return;
+    case VERIFY_CHANGE_OPERATION.COPY:
+      await mkdir(dirname(absoluteTarget), { recursive: true });
+      await copyFile(absoluteSource, absoluteTarget);
+      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, targetPath]);
+      return;
+  }
+}
+
+/**
+ * Create the change-inventory repository for `operation` in a temporary directory and hand it to the
+ * callback. The directory and every run recorded under its `.spx/` store are removed when the
+ * callback settles.
+ */
+export async function withVerifyChangeInventoryRepository<T>(
+  operation: VerifyChangeOperation,
+  callback: (repository: VerifyChangeInventoryRepository) => Promise<T>,
+): Promise<T> {
+  return withTempDir(VERIFY_REPOSITORY_TEMP_PREFIX, async (tempDir) => {
+    const productDir = await realpath(tempDir);
+    const layout = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.changeOperationPaths());
+    const initial = await initializeVerifyRepository(productDir, layout.sourcePath);
+    // The operation adds the source path itself, so its base is the empty commit; every other
+    // operation starts from the commit that holds the source path.
+    const baseCommit = operation === VERIFY_CHANGE_OPERATION.ADD ? initial.baseCommit : initial.headCommit;
+    if (operation !== VERIFY_CHANGE_OPERATION.ADD) {
+      await applyChangeOperation(productDir, operation, layout.sourcePath, layout.targetPath);
+      await runGit(productDir, [GIT_TEST_SUBCOMMANDS.COMMIT, GIT_TEST_FLAGS.COMMIT_MESSAGE, operation]);
+    }
+    const headCommit = await readGit(productDir, [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
+    await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CHECKOUT, GIT_TEST_FLAGS.DETACH, baseCommit]);
+    await runGit(productDir, [GIT_TEST_SUBCOMMANDS.BRANCH, GIT_TEST_FLAGS.FORCE, layout.headBranch, headCommit]);
+    const { startRun } = createVerifyRunStarter(productDir, realVerifyGitDependencies());
+    const scope = `${baseCommit}${VERIFY_SCOPE_SEPARATOR}${layout.headBranch}`;
+    return callback({
+      productDir,
+      sourcePath: layout.sourcePath,
+      targetPath: layout.targetPath,
+      baseCommit,
+      headCommit,
+      startChangesetRun: async () => startRun(VERIFY_SCOPE_TYPE.CHANGESET, scope),
     });
   });
 }
