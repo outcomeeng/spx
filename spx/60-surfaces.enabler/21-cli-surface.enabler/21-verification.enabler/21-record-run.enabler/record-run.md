@@ -6,9 +6,14 @@ id: 01a118d3-6835-7429-9743-dcc3d089a848
 
 PROVIDES the caller-driven `spx verification run` command paths that report the directories a run writes and record a verification run the caller itself drives, together with the Change it serves
 SO THAT agents, CI jobs, and launchers driving a verification run
-CAN obtain its write directories before launch, start it for the Change it serves, append its scope and finding evidence, and finish it through noun-grouped command paths without constructing journal events directly
+CAN obtain its write directories before launch, start it for the Change it serves, append its scope and finding evidence, reconcile that evidence against the changes the run must judge, and finish it through noun-grouped command paths without constructing journal events directly
 
 ## Assertions
+
+- Given a run started through `spx verification run start --expectations <file>` whose scope evidence judges every changed path but one, when `spx verification run reconcile --run <run-token>` runs, then it reports that path as unaccounted in one JSON result on standard output and exits non-zero
+- Given the same run, when `spx verification run finish` runs, then it reports that path as unaccounted in one JSON result on standard output, exits non-zero, and a later `spx verification run status` reports the run unsealed
+- ALWAYS: `spx verification run start` accepts `--expectations <expectations-source>`, and `reconcile` and `finish` reject it
+- ALWAYS: `spx verification run reconcile` requires `--run <run-token>`, rejects `--input`, and exits zero exactly when the run reconciles
 
 ### Scenarios
 
