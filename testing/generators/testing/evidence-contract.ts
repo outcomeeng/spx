@@ -2,7 +2,7 @@ import * as fc from "fast-check";
 
 import type { TestingLanguageDescriptor } from "@/test/languages/types";
 import { testingRegistry } from "@/test/registry";
-import { TEST_PATH_VERDICT, type TestRunnerOutcome } from "@/test/run-state";
+import { TEST_PATH_VERDICT, type TestPathVerdictValue, type TestRunnerOutcome } from "@/test/run-state";
 import { arbitrarySourceFilePath, arbitrarySpecTreeTestFilePath } from "@testing/generators/literal/literal";
 
 const MIN_RUNS = 1;
@@ -28,8 +28,43 @@ export interface EvidenceContractScenario {
 export const EVIDENCE_CONTRACT_GENERATOR = {
   scenario: arbitraryEvidenceContractScenario,
   exitCode: arbitraryExitCode,
+  verdict: arbitraryVerdict,
   outcomeOver: arbitraryOutcomeOver,
+  recordedVerdictsOver: arbitraryRecordedVerdictsOver,
 } as const;
+
+/** One runner's recorded verdict for an evidence reference, with the exit code of the run that produced it. */
+export interface RecordedVerdict {
+  readonly language: TestingLanguageDescriptor;
+  readonly verdict: TestPathVerdictValue;
+  readonly exitCode: number;
+}
+
+/**
+ * For each reference, the verdicts one to `MAX_RUNS` registered runners recorded for it, drawn over the
+ * full verdict domain, so a reference meets every combination of verdicts across runners.
+ */
+function arbitraryRecordedVerdictsOver(
+  references: readonly string[],
+): fc.Arbitrary<readonly (readonly RecordedVerdict[])[]> {
+  return fc.tuple(
+    ...references.map(() =>
+      fc.array(
+        fc.record({
+          language: fc.constantFrom(...testingRegistry.languages),
+          verdict: fc.constantFrom(...Object.values(TEST_PATH_VERDICT)),
+          exitCode: arbitraryExitCode(),
+        }),
+        { minLength: MIN_RUNS, maxLength: MAX_RUNS },
+      )
+    ),
+  );
+}
+
+/** A path verdict drawn over the full verdict domain. */
+function arbitraryVerdict(): fc.Arbitrary<TestPathVerdictValue> {
+  return fc.constantFrom(...Object.values(TEST_PATH_VERDICT));
+}
 
 /** A runner exit code drawn over its full variable domain. */
 function arbitraryExitCode(): fc.Arbitrary<number> {

@@ -1,9 +1,18 @@
 import { describe, expect, it } from "vitest";
 
 import { buildEvidenceResults } from "@/domains/test";
+import { NODE_STATUS_EVIDENCE_OUTCOME } from "@/lib/node-status";
 import { testingRegistry } from "@/test/registry";
+import { TEST_PATH_VERDICT } from "@/test/run-state";
+import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { EVIDENCE_CONTRACT_GENERATOR } from "@testing/generators/testing/evidence-contract";
-import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
+import {
+  assertProperty,
+  PROPERTY_CLASSIFICATION,
+  PROPERTY_LEVEL,
+  propertyTestEnvelopeTimeoutMs,
+} from "@testing/harnesses/property/property";
+import { withRecordedTestRuns } from "@testing/harnesses/testing/status-consumers";
 
 describe("language-neutral evidence contract", () => {
   it("maps each recorded path verdict to one result carrying its evidence reference and verdict", () => {
@@ -41,4 +50,46 @@ describe("language-neutral evidence contract", () => {
       });
     }, { level: PROPERTY_LEVEL.L1 });
   });
+
+  it(
+    "reaches the status path: the production outcome resolver reports each reference the verdict the contract folds from the verdicts every covering runner recorded",
+    async () => {
+      const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
+      const evidencePaths = testingRegistry.languages.flatMap((descriptor) =>
+        sampleDispatchValue(TEST_DISPATCH_GENERATOR.everyPatternTestFilesUnder(descriptor, nodePath))
+      );
+
+      await withRecordedTestRuns(evidencePaths, async (runs) => {
+        await assertProperty(
+          EVIDENCE_CONTRACT_GENERATOR.recordedVerdictsOver(evidencePaths),
+          async (recordedByReference) => {
+            await runs.record(
+              recordedByReference.flatMap((recorded, index) =>
+                recorded.map(({ language, verdict, exitCode }) => ({
+                  runnerId: language.name,
+                  testPaths: [evidencePaths[index]],
+                  exitCode,
+                  pathVerdicts: [{ testPath: evidencePaths[index], verdict }],
+                }))
+              ),
+            );
+
+            const outcomes = await runs.resolverOverRecordedRuns()(nodePath, evidencePaths);
+
+            recordedByReference.forEach((recorded, index) => {
+              const verdicts = recorded.map((entry) => entry.verdict);
+              const expected = verdicts.includes(TEST_PATH_VERDICT.FAILED)
+                ? NODE_STATUS_EVIDENCE_OUTCOME.FAILED
+                : verdicts.every((verdict) => verdict === TEST_PATH_VERDICT.PASSED)
+                ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED
+                : NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN;
+              expect(outcomes[evidencePaths[index]]).toBe(expected);
+            });
+          },
+          PROPERTY_CLASSIFICATION.SMALL_L1,
+        );
+      });
+    },
+    propertyTestEnvelopeTimeoutMs(PROPERTY_CLASSIFICATION.SMALL_L1),
+  );
 });
