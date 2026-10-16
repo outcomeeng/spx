@@ -1,10 +1,12 @@
 # Evidence Append
 
-PROVIDES evidence-payload validation, verification-type scope and finding validation, judged-path validation against the run's head commit, and caller-supplied idempotency for verification-run evidence operations
+PROVIDES evidence-payload validation, verification-type scope and finding validation, judged-path validation against the run's head commit, judged-deletion validation against the run's recorded change inventory, and caller-supplied idempotency for verification-run evidence operations
 SO THAT a started verification run
-CAN record inspected scope, the files it judged, and typed findings exactly once per caller intent before terminal projection renders the run
+CAN record inspected scope, the files and deletions it judged, and typed findings exactly once per caller intent before terminal projection renders the run
 
 ## Assertions
+
+- ALWAYS: scope evidence that names judged deletions in its type-neutral `judgedDeletions` payload field, beside the type-neutral `judgedPaths` field that names its judged files, records each product-relative path, rejects a path the run's recorded change inventory does not list as deleted, and rejects every judged deletion in a run that recorded no change inventory
 
 ### Compliance
 
