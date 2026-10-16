@@ -2356,6 +2356,40 @@ export function changeInventoryOfRun(
   });
 }
 
+/**
+ * The expectations folded from the run's run-context event, or `undefined` when the run is bound to
+ * none. A document that is not a version-1 object whose additional paths are all strings is ignored.
+ */
+export function expectationsOfRun(events: readonly JournalEvent[]): VerifyExpectations | undefined {
+  const runContext = events.find((event) => event.type === VERIFY_RUN_CONTEXT_EVENT_TYPE);
+  if (runContext === undefined || !isJsonRecord(runContext.data)) return undefined;
+  const expectations = runContext.data[VERIFY_RUN_CONTEXT_EVENT_FIELD.EXPECTATIONS];
+  if (!isJsonRecord(expectations)) return undefined;
+  if (expectations[VERIFY_EXPECTATIONS_FIELD.SCHEMA_VERSION] !== VERIFY_EXPECTATIONS_SCHEMA_VERSION) return undefined;
+  const additionalPaths = expectations[VERIFY_EXPECTATIONS_FIELD.ADDITIONAL_PATHS];
+  if (!Array.isArray(additionalPaths)) return undefined;
+  const paths = additionalPaths.filter((path): path is string => typeof path === "string");
+  return paths.length === additionalPaths.length
+    ? {
+      [VERIFY_EXPECTATIONS_FIELD.SCHEMA_VERSION]: VERIFY_EXPECTATIONS_SCHEMA_VERSION,
+      [VERIFY_EXPECTATIONS_FIELD.ADDITIONAL_PATHS]: paths,
+    }
+    : undefined;
+}
+
+/**
+ * Every deletion a run judged, folded from the judged deletions its recorded scope events carry:
+ * each path once, in the order the run first recorded it.
+ */
+export function runJudgedDeletionsOf(events: readonly JournalEvent[]): readonly string[] {
+  const judged = new Set<string>();
+  for (const event of events) {
+    if (event.type !== VERIFY_APPEND_EVENT_TYPE.SCOPE || !isJsonRecord(event.data)) continue;
+    for (const path of scopeJudgedDeletionsOf(event.data[VERIFY_APPEND_EVENT_FIELD.PAYLOAD])) judged.add(path);
+  }
+  return [...judged];
+}
+
 /** The last-sequence value a run with no events projects, one below the first assigned sequence. */
 export const VERIFY_NO_EVENTS_SEQUENCE = 0;
 
