@@ -7,6 +7,7 @@ import { TEST_PATH_VERDICT } from "@/test/run-state";
 import { arbitrarySourceFilePath, arbitrarySpecTreeTestFilePath } from "@testing/generators/literal/literal";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
+import { EVIDENCE_CONTRACT_GENERATOR } from "@testing/generators/testing/evidence-contract";
 
 describe("testing registry membership", () => {
   it.each(testingRegistry.languages)(
@@ -31,12 +32,7 @@ describe("read-path declaration", () => {
     (descriptor) => {
       const firstReference = sampleGeneratedValue(arbitrarySpecTreeTestFilePath());
       const reportedPaths = [sampleGeneratedValue(arbitrarySourceFilePath())];
-      const outcome = {
-        runnerId: descriptor.name,
-        testPaths: [firstReference],
-        exitCode: 0,
-        pathVerdicts: [{ testPath: firstReference, verdict: TEST_PATH_VERDICT.PASSED }],
-      };
+      const outcome = sampleGeneratedValue(EVIDENCE_CONTRACT_GENERATOR.outcomeOver(descriptor, [firstReference]));
 
       const [result] = buildEvidenceResults(
         [outcome],
@@ -70,7 +66,7 @@ describe("status fold", () => {
         foldEvidenceVerdict(buildEvidenceResults([{
           runnerId: descriptor.name,
           testPaths: [firstReference, secondReference],
-          exitCode: 0,
+          exitCode: sampleGeneratedValue(EVIDENCE_CONTRACT_GENERATOR.exitCode()),
           pathVerdicts: [
             { testPath: firstReference, verdict: firstVerdict },
             { testPath: secondReference, verdict: secondVerdict },

@@ -27,7 +27,14 @@ export interface EvidenceContractScenario {
 
 export const EVIDENCE_CONTRACT_GENERATOR = {
   scenario: arbitraryEvidenceContractScenario,
+  exitCode: arbitraryExitCode,
+  outcomeOver: arbitraryOutcomeOver,
 } as const;
+
+/** A runner exit code drawn over its full variable domain. */
+function arbitraryExitCode(): fc.Arbitrary<number> {
+  return fc.nat({ max: MAX_EXIT_CODE });
+}
 
 /**
  * Coherent evidence-contract scenarios: every outcome's runner id is the name of a registered
@@ -85,7 +92,7 @@ function arbitraryOutcomeOver(
 ): fc.Arbitrary<TestRunnerOutcome> {
   return fc
     .tuple(
-      fc.nat({ max: MAX_EXIT_CODE }),
+      arbitraryExitCode(),
       fc.array(fc.constantFrom(...Object.values(TEST_PATH_VERDICT)), {
         minLength: paths.length,
         maxLength: paths.length,
