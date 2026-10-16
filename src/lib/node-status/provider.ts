@@ -29,7 +29,7 @@ import { createNodeStatusExcludeReader } from "./exclude";
 import { NODE_STATUS_FILENAME, parseNodeStatusFile } from "./read";
 import { collectNodeStatusFiles } from "./status-files";
 
-const VARIANT_DIRECTORY_SUFFIX = ".variant";
+export const VARIANT_DIRECTORY_SUFFIX = ".variant";
 const PATH_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
 const ROOT_PREFIX = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${PATH_SEPARATOR}`;
 const SLUG_OF_DIRECTORY = /^\d+(?:\.\d+)?-(.+)\.[a-z]+$/;
