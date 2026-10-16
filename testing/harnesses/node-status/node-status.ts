@@ -44,6 +44,7 @@ import {
   createFilesystemSpecTreeSource,
   KIND_REGISTRY,
   readSpecTree,
+  SPEC_CONTEXT_SELECTED_METADATA_KEY,
   SPEC_TREE_CONFIG,
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_EVIDENCE_LINK_TEXT,
@@ -81,6 +82,7 @@ import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescr
 
 const ROOT = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
 const PATH_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
+const EVIDENCE_DIRECTORY = SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME;
 const SPEC_FILE_SUFFIX = SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX;
 const EXCLUDE_ENTRY_SEPARATOR = NODE_STATUS_EXCLUDE_LINE_GRAMMAR.ENTRY_SEPARATOR;
 const NODE_STATUS_FIXTURE_DIRECTORY = join(
@@ -599,7 +601,7 @@ const SPEC_LINK_PATTERN = new RegExp(
 );
 const SPEC_LINK_TEXT_GROUP = 1;
 const SPEC_LINK_TARGET_GROUP = 2;
-const SPEC_MALLEABILITY_PATTERN = /^malleability:\s*(\S+)\s*$/m;
+const SPEC_MALLEABILITY_PATTERN = new RegExp(String.raw`^${SPEC_CONTEXT_SELECTED_METADATA_KEY}:\s*(\S+)\s*$`, "m");
 const SPEC_MALLEABILITY_GROUP = 1;
 const SUBJECT_APPENDIX = "\n// edited\n";
 const SPEC_APPENDIX = "\nAn added sentence.\n";
@@ -848,7 +850,13 @@ export async function withPinnedNodeRepository(
       },
       editSubject,
       rewriteSpecLinksTreeAbsolute: () =>
-        env.writeNode(specPath, specContent.replaceAll("](tests/", `](${nodePath}${PATH_SEPARATOR}tests/`)),
+        env.writeNode(
+          specPath,
+          specContent.replaceAll(
+            `](${EVIDENCE_DIRECTORY}${PATH_SEPARATOR}`,
+            `](${nodePath}${PATH_SEPARATOR}${EVIDENCE_DIRECTORY}${PATH_SEPARATOR}`,
+          ),
+        ),
       editSpecText: () => env.writeNode(specPath, `${specContent}${SPEC_APPENDIX}`),
       decisionPath: (placement) => decisionPathAt(decisionPaths, placement),
       editDecision,
