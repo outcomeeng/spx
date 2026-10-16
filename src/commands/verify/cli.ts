@@ -44,9 +44,11 @@ import {
   projectVerifyRun,
   type RecordedInput,
   type RunLocator,
+  scopeJudgedDeletionsOf,
   scopeJudgedPathsOf,
   TERMINAL_METADATA_VALIDATION_ERROR,
   terminalMetadataValidatorFor,
+  validateJudgedDeletionsAgainstInventory,
   validateJudgedPathsAtHead,
   VERIFY_APPEND_EVENT_TYPE,
   VERIFY_DRIVE_MODE,
@@ -1221,6 +1223,34 @@ async function validateScopeJudgedPaths(
   };
 }
 
+/**
+ * Check the judged deletions an accepted scope payload names against the change inventory the run
+ * recorded on its run-context event at start. A payload naming no judged deletion reads nothing.
+ */
+function validateScopeJudgedDeletions(
+  payload: JsonValue,
+  verificationType: string,
+  prepared: PreparedAppend,
+): Result<void> {
+  const judgedDeletions = scopeJudgedDeletionsOf(payload);
+  if (judgedDeletions.length === 0) return { ok: true, value: undefined };
+  const listed = validateJudgedDeletionsAgainstInventory(
+    judgedDeletions,
+    changeInventoryOfRun(prepared.existingEvents),
+  );
+  if (listed.ok) return { ok: true, value: undefined };
+  return {
+    ok: false,
+    error: renderVerifyRejection({
+      headline: VERIFY_CLI_ERROR.SCOPE_INVALID,
+      verificationType,
+      evidenceKind: VERIFY_EVIDENCE_KIND.SCOPE,
+      reason: listed.reason,
+      note: VERIFY_REJECTION_TEXT.APPEND_RETRY_NOTE,
+    }),
+  };
+}
+
 /** The CloudEvents type an evidence-add command records: a finding or inspected scope. */
 function appendEventType(verb: VerifyAppendVerb): VerifyAppendEventType {
   return verb === VERIFY_VERB.APPEND_FINDING ? VERIFY_APPEND_EVENT_TYPE.FINDING : VERIFY_APPEND_EVENT_TYPE.SCOPE;
@@ -1262,6 +1292,8 @@ async function verifyAppend(
   if (verb === VERIFY_VERB.APPEND_SCOPE) {
     const judged = await validateScopeJudgedPaths(evidence.value, options.verificationType, prepared.value, deps);
     if (!judged.ok) return errorResult(judged.error);
+    const deletions = validateScopeJudgedDeletions(evidence.value, options.verificationType, prepared.value);
+    if (!deletions.ok) return errorResult(deletions.error);
   }
 
   const event = buildAppendEvent({
