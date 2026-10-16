@@ -2,6 +2,7 @@ import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 import { compareAsciiStrings } from "@/lib/state-store";
 
 import {
+  changesetInventoryNameStatusArgs,
   changesetNameStatusArgs,
   GIT_DIFF_COMMAND,
   GIT_NAME_STATUS_FLAG,
@@ -70,6 +71,16 @@ export async function changedPathsForCommittedRange(
     "failed to diff committed changed paths",
   );
   return pathsFromNameStatus(stdout);
+}
+
+/** The null-delimited `--name-status` diff of a committed range with rename and copy detection. */
+export async function nameStatusForCommittedRange(options: CommittedRangeChangedPathsOptions): Promise<string> {
+  return gitStdout(
+    options.git,
+    options.productDir,
+    changesetInventoryNameStatusArgs(options.base, options.head),
+    "failed to diff committed change inventory",
+  );
 }
 
 export async function changedPathsForStagedComparison(
