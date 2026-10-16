@@ -10,6 +10,7 @@ import {
   verifyAppendScopeCommand,
   type VerifyCliDeps,
   verifyPathsCommand,
+  verifyReconcileCommand,
   verifyStartCommand,
   type VerifyStartReport,
 } from "@/commands/verify/cli";
@@ -36,6 +37,7 @@ import {
   GIT_TEST_CONFIG,
   GIT_TEST_ENVIRONMENT_KEYS,
   GIT_TEST_FLAGS,
+  GIT_TEST_REF,
   GIT_TEST_SUBCOMMANDS,
   readGit,
   runGit,
@@ -204,6 +206,8 @@ export interface VerifyHeadCommitRepository extends VerifyRepositoryCommits {
   appendScope(run: StartedRepositoryRun, payload: JsonValue): Promise<AppendedRepositoryScope>;
   /** Write a file at the product-relative `path` into the checkout without adding it to any commit. */
   writeCheckoutFile(path: string): Promise<void>;
+  /** Reconcile a started run's judged scope through the production reconciliation operation. */
+  reconcile(run: StartedRepositoryRun): Promise<CliCommandResult>;
   /**
    * Ask the production write-path report for the directories a run of `scopeType` and
    * `verificationType` writes, of a drawn verification type when none is given.
@@ -292,6 +296,8 @@ interface VerifyRunStarter {
   ): Promise<StartedRepositoryRun>;
   appendScope(run: StartedRepositoryRun, payload: JsonValue): Promise<AppendedRepositoryScope>;
   reportWritePaths(scopeType: string, scope: string, verificationType?: string): Promise<CliCommandResult>;
+  reconcile(run: StartedRepositoryRun): Promise<CliCommandResult>;
+  readEvents(run: StartedRepositoryRun): Promise<readonly JournalEvent[]>;
 }
 
 function createVerifyRunStarter(cwd: string, git: GitDependencies): VerifyRunStarter {
@@ -314,9 +320,26 @@ function createVerifyRunStarter(cwd: string, git: GitDependencies): VerifyRunSta
     }
     return JSON.parse(read.output) as readonly JournalEvent[];
   };
+  const requireRunToken = (run: StartedRepositoryRun, operation: string): string => {
+    if (run.runToken === undefined) {
+      throw new Error(`verify repository harness: ${operation} needs a started run: ${run.started.output}`);
+    }
+    return run.runToken;
+  };
   return {
     reportWritePaths: async (scopeType, scope, verificationType = drawnVerificationType) =>
       verifyPathsCommand({ verificationType, scopeType, scope }, deps),
+    reconcile: async (run) =>
+      verifyReconcileCommand(
+        {
+          verificationType: run.verificationType,
+          scopeType: run.scopeType,
+          scope: run.scope,
+          run: requireRunToken(run, "reconcile"),
+        },
+        deps,
+      ),
+    readEvents: async (run) => readRunEvents(run.verificationType, requireRunToken(run, "journal read")),
     appendScope: async (run, payload) => {
       if (run.runToken === undefined) {
         throw new Error(`verify repository harness: scope add needs a started run: ${run.started.output}`);
@@ -385,7 +408,10 @@ export async function withVerifyHeadCommitRepository<T>(
       layout.headBranch,
       commits.headCommit,
     ]);
-    const { appendScope, reportWritePaths, startRun } = createVerifyRunStarter(productDir, realVerifyGitDependencies());
+    const { appendScope, reconcile, reportWritePaths, startRun } = createVerifyRunStarter(
+      productDir,
+      realVerifyGitDependencies(),
+    );
     const scopeFor = (scopeType: string): string =>
       scopeType === VERIFY_SCOPE_TYPE.CHANGESET
         ? `${commits.baseCommit}${VERIFY_SCOPE_SEPARATOR}${layout.headBranch}`
@@ -402,6 +428,7 @@ export async function withVerifyHeadCommitRepository<T>(
         startRun: async (scopeType, verificationType, expectations) =>
           startRun(scopeType, scopeFor(scopeType), verificationType, expectations),
         appendScope,
+        reconcile,
         writeCheckoutFile: async (path) => {
           const absoluteFile = join(productDir, path);
           await mkdir(dirname(absoluteFile), { recursive: true });
@@ -546,6 +573,21 @@ export interface VerifyChangeInventoryRepository extends VerifyRepositoryCommits
   startChangesetRun(verificationType?: string): Promise<StartedRepositoryRun>;
   /** Append `payload` as scope evidence to a started run through the production `scope add` operation. */
   appendScope(run: StartedRepositoryRun, payload: JsonValue): Promise<AppendedRepositoryScope>;
+  /** Reconcile a started run's judged scope through the production reconciliation operation. */
+  reconcile(run: StartedRepositoryRun): Promise<CliCommandResult>;
+  /** Remove the branch that names the changeset head, so the run's changeset selector no longer resolves. */
+  removeHeadBranch(): Promise<void>;
+  /** Observe the run's journal events and the repository's HEAD, refs, index, and working-tree status. */
+  observe(run: StartedRepositoryRun): Promise<VerifyRepositoryObservation>;
+}
+
+/** What an observation of a run and its repository reads, compared before and after an operation to show it changed nothing. */
+export interface VerifyRepositoryObservation {
+  readonly events: readonly JournalEvent[];
+  readonly head: string;
+  readonly refs: string;
+  readonly index: string;
+  readonly status: string;
 }
 
 const MODIFIED_CONTENT_SUFFIX = "\nmodified";
@@ -608,7 +650,10 @@ export async function withVerifyChangeInventoryRepository<T>(
     const headCommit = await readGit(productDir, [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
     await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CHECKOUT, GIT_TEST_FLAGS.DETACH, baseCommit]);
     await runGit(productDir, [GIT_TEST_SUBCOMMANDS.BRANCH, GIT_TEST_FLAGS.FORCE, layout.headBranch, headCommit]);
-    const { startRun, appendScope } = createVerifyRunStarter(productDir, realVerifyGitDependencies());
+    const { startRun, appendScope, reconcile, readEvents } = createVerifyRunStarter(
+      productDir,
+      realVerifyGitDependencies(),
+    );
     const scope = `${baseCommit}${VERIFY_SCOPE_SEPARATOR}${layout.headBranch}`;
     return callback({
       productDir,
@@ -618,6 +663,21 @@ export async function withVerifyChangeInventoryRepository<T>(
       headCommit,
       startChangesetRun: async (verificationType) => startRun(VERIFY_SCOPE_TYPE.CHANGESET, scope, verificationType),
       appendScope,
+      reconcile,
+      removeHeadBranch: async () => {
+        await runGit(productDir, [
+          GIT_TEST_SUBCOMMANDS.UPDATE_REF,
+          GIT_TEST_FLAGS.DELETE,
+          `${GIT_TEST_REF.LOCAL_BRANCH_PREFIX}${layout.headBranch}`,
+        ]);
+      },
+      observe: async (run) => ({
+        events: await readEvents(run),
+        head: await readGit(productDir, [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD]),
+        refs: await readGit(productDir, [GIT_TEST_SUBCOMMANDS.FOR_EACH_REF]),
+        index: await readGit(productDir, [GIT_TEST_SUBCOMMANDS.LS_FILES, GIT_TEST_FLAGS.STAGE]),
+        status: await readGit(productDir, [GIT_TEST_SUBCOMMANDS.STATUS, GIT_TEST_FLAGS.PORCELAIN]),
+      }),
     });
   });
 }
