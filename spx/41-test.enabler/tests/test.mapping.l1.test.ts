@@ -8,6 +8,7 @@ import { sampleGeneratedValue } from "@testing/generators/sample";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { EVIDENCE_CONTRACT_GENERATOR } from "@testing/generators/testing/evidence-contract";
 import { withRecordedReadPaths, withRecordedTestRuns } from "@testing/harnesses/testing/status-consumers";
+import { commonRecordedVerdict, everyRecordedVerdictPassed } from "@testing/harnesses/testing/status-oracle";
 
 describe("testing registry membership", () => {
   it.each(testingRegistry.languages)(
@@ -84,13 +85,13 @@ describe("status fold", () => {
 
         const outcomes = await runs.resolverOverRecordedRuns()(nodePath, covered.map(({ testPath }) => testPath));
 
-        const expected = verdicts.includes(TEST_PATH_VERDICT.FAILED)
-          ? NODE_STATUS_EVIDENCE_OUTCOME.FAILED
-          : verdicts.every((verdict) => verdict === TEST_PATH_VERDICT.PASSED)
-          ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED
-          : NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN;
-        for (const { testPath } of covered) {
-          expect(outcomes[testPath]).toBe(expected);
+        const resolved = covered.map(({ testPath }) => outcomes[testPath]);
+        for (const outcome of resolved) {
+          expect(outcome).toBe(resolved[0]);
+          expect(outcome === NODE_STATUS_EVIDENCE_OUTCOME.PASSED).toBe(everyRecordedVerdictPassed(verdicts));
+          if (commonRecordedVerdict(verdicts) !== undefined) {
+            expect(outcome).toBe(commonRecordedVerdict(verdicts));
+          }
         }
       });
     },

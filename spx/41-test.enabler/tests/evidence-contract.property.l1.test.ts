@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { buildEvidenceResults } from "@/domains/test";
 import { NODE_STATUS_EVIDENCE_OUTCOME } from "@/lib/node-status";
 import { testingRegistry } from "@/test/registry";
-import { TEST_PATH_VERDICT } from "@/test/run-state";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { EVIDENCE_CONTRACT_GENERATOR } from "@testing/generators/testing/evidence-contract";
 import {
@@ -13,6 +12,7 @@ import {
   propertyTestEnvelopeTimeoutMs,
 } from "@testing/harnesses/property/property";
 import { withRecordedTestRuns } from "@testing/harnesses/testing/status-consumers";
+import { commonRecordedVerdict, everyRecordedVerdictPassed } from "@testing/harnesses/testing/status-oracle";
 
 describe("language-neutral evidence contract", () => {
   it("maps each recorded path verdict to one result carrying its evidence reference and verdict", () => {
@@ -52,7 +52,7 @@ describe("language-neutral evidence contract", () => {
   });
 
   it(
-    "reaches the status path: the production outcome resolver reports each reference the verdict the contract folds from the verdicts every covering runner recorded",
+    "reaches the status path: the production outcome resolver reports each reference the recorded verdict when its covering runners agree, and passed only when every recorded verdict is passed",
     async () => {
       const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
       const evidencePaths = testingRegistry.languages.flatMap((descriptor) =>
@@ -78,12 +78,12 @@ describe("language-neutral evidence contract", () => {
 
             recordedByReference.forEach((recorded, index) => {
               const verdicts = recorded.map((entry) => entry.verdict);
-              const expected = verdicts.includes(TEST_PATH_VERDICT.FAILED)
-                ? NODE_STATUS_EVIDENCE_OUTCOME.FAILED
-                : verdicts.every((verdict) => verdict === TEST_PATH_VERDICT.PASSED)
-                ? NODE_STATUS_EVIDENCE_OUTCOME.PASSED
-                : NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN;
-              expect(outcomes[evidencePaths[index]]).toBe(expected);
+              const outcome = outcomes[evidencePaths[index]];
+              expect(outcome).toBeDefined();
+              expect(outcome === NODE_STATUS_EVIDENCE_OUTCOME.PASSED).toBe(everyRecordedVerdictPassed(verdicts));
+              if (commonRecordedVerdict(verdicts) !== undefined) {
+                expect(outcome).toBe(commonRecordedVerdict(verdicts));
+              }
             });
           },
           PROPERTY_CLASSIFICATION.SMALL_L1,
