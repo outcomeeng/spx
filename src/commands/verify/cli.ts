@@ -25,10 +25,12 @@ import {
   buildRunContextEvent,
   buildRunLocator,
   buildTerminalEvent,
+  changeInventoryOfNameStatus,
   type ChangesetScope,
   digestRunInput,
   driveModeOf,
   evidenceValidatorFor,
+  expectationsPathError,
   findAppendedSequence,
   findTerminalEvent,
   headCommitOf,
@@ -38,6 +40,7 @@ import {
   isVerifyVerificationType,
   parseAppendPayload,
   parseChangesetScope,
+  parseVerifyExpectations,
   projectVerifyRun,
   type RecordedInput,
   type RunLocator,
@@ -48,12 +51,15 @@ import {
   VERIFY_APPEND_EVENT_TYPE,
   VERIFY_DRIVE_MODE,
   VERIFY_EVIDENCE_KIND,
+  VERIFY_EXPECTATIONS_ERROR,
   VERIFY_SCOPE_ERROR,
   VERIFY_SCOPE_SEPARATOR,
   VERIFY_SCOPE_TYPE,
   VERIFY_VERB,
   type VerifyAppendEventType,
+  type VerifyChangeInventoryEntry,
   type VerifyDriveMode,
+  type VerifyExpectations,
   type VerifyFindingCounts,
   type VerifyFindingsByDisposition,
   verifyInputRecordPath,
@@ -66,7 +72,7 @@ import {
 import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
 import { writeFileAtomic } from "@/lib/atomic-file-write";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
-import { changedPathsForCommittedRange } from "@/lib/git/changed-paths";
+import { changedPathsForCommittedRange, nameStatusForCommittedRange } from "@/lib/git/changed-paths";
 import { listCommitFiles } from "@/lib/git/commit-files";
 import {
   defaultGitDependencies,
@@ -125,6 +131,8 @@ export const VERIFY_CLI_ERROR = {
   FINISH_FAILED: "spx verification run could not record terminal completion",
   HEAD_COMMIT_UNRESOLVED: "spx verification run start could not resolve the head commit the run judges",
   RUN_CONTEXT_FAILED: "spx verification run could not record the run context",
+  EXPECTATIONS_INVALID: "spx verification run start: expectations rejected",
+  EXPECTATIONS_PATHS_UNREADABLE: "spx verification run start could not read the files the head commit holds",
   SEAL_FAILED: "spx verification run could not seal the run journal",
   STATUS_FAILED: "spx verification run could not read the run status",
   RENDER_FAILED: "spx verification run could not render the run projection",
@@ -170,6 +178,8 @@ export interface VerifyStartCliOptions {
   readonly input: string;
   /** The Change the run serves, in the canonical `owner/repo#N` form; absent when the run belongs to no Change. */
   readonly change?: string;
+  /** The expectations a changeset-scoped run is bound to, as a JSON document; absent when the run is bound to none. */
+  readonly expectations?: string;
 }
 
 export interface VerifyInputCliOptions {
@@ -383,6 +393,29 @@ async function resolveChangedScope(
   }
 }
 
+/** Derive the changeset's change inventory from its null-delimited name-status diff with rename and copy detection. */
+async function resolveChangeInventory(
+  scope: ChangesetScope,
+  productDir: string,
+  deps: VerifyCliDeps,
+): Promise<Result<readonly VerifyChangeInventoryEntry[]>> {
+  try {
+    return {
+      ok: true,
+      value: changeInventoryOfNameStatus(
+        await nameStatusForCommittedRange({
+          productDir,
+          base: scope.base,
+          head: scope.head,
+          git: deps.git ?? defaultGitDependencies,
+        }),
+      ),
+    };
+  } catch (error) {
+    return { ok: false, error: `${VERIFY_CLI_ERROR.CHANGED_SCOPE_FAILED}: ${(error as Error).message}` };
+  }
+}
+
 interface VerifyStartContextSubjectOptions {
   readonly subject: string;
   readonly path?: string;
@@ -394,6 +427,8 @@ interface VerifyStartScopeResolution {
   readonly selector: VerifyRunSelector;
   readonly context: VerifyStartContextSubjectOptions;
   readonly resolvedScope: readonly string[];
+  /** The change inventory a changeset-scoped run starts over; absent for a scope that has no base and head. */
+  readonly changeInventory?: readonly VerifyChangeInventoryEntry[];
   /**
    * The revision whose commit the run judges: a changeset run judges its range's head. Absent for a
    * scope that judges the checkout's HEAD when `start` runs, so its resolver reads no git state.
@@ -430,10 +465,13 @@ const VERIFY_SCOPE_RESOLVERS: Readonly<Record<VerifyScopeType, VerifyScopeResolv
       if (!changeset.ok) return changeset;
       const resolvedScope = await resolveChangedScope(changeset.value, worktreeRoot, deps);
       if (!resolvedScope.ok) return resolvedScope;
+      const changeInventory = await resolveChangeInventory(changeset.value, worktreeRoot, deps);
+      if (!changeInventory.ok) return changeInventory;
       return {
         ok: true,
         value: {
           selector,
+          changeInventory: changeInventory.value,
           context: {
             subject: VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET,
             base: changeset.value.base,
@@ -663,6 +701,8 @@ interface CompleteVerifyStartArgs {
   readonly backendIdentity: string;
   readonly resolvedScope: readonly string[];
   readonly headCommit: string | undefined;
+  readonly changeInventory: readonly VerifyChangeInventoryEntry[] | undefined;
+  readonly expectations: VerifyExpectations | undefined;
   readonly inputDigest: string;
   readonly inputContent: string;
   readonly contextDigest: string;
@@ -688,6 +728,8 @@ async function recordRunContext(
     driveMode: deps.driveMode ?? VERIFY_DRIVE_MODE.CALLER,
     ...(args.headCommit === undefined ? {} : { headCommit: args.headCommit }),
     ...(args.options.change === undefined ? {} : { change: args.options.change }),
+    ...(args.changeInventory === undefined ? {} : { changeInventory: args.changeInventory }),
+    ...(args.expectations === undefined ? {} : { expectations: args.expectations }),
     at: deps.now?.() ?? new Date(),
   });
   const journalScope: JournalRunCliScope = {
@@ -800,6 +842,38 @@ async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promis
 }
 
 /**
+ * Validate the expectations a run is started with before any run exists: the document must parse,
+ * the run must be changeset-scoped, and every declared additional path must be a file the head
+ * commit holds, so a path only the checkout holds is refused. Absent expectations bind the run to none.
+ */
+async function resolveStartExpectations(
+  source: string | undefined,
+  scopeType: string,
+  headCommit: string | undefined,
+  worktreeRoot: string,
+  deps: VerifyCliDeps,
+): Promise<Result<VerifyExpectations | undefined>> {
+  if (source === undefined) return { ok: true, value: undefined };
+  const reject = (reason: string): Result<VerifyExpectations | undefined> => ({
+    ok: false,
+    error: `${VERIFY_CLI_ERROR.EXPECTATIONS_INVALID}: ${reason}`,
+  });
+  if (scopeType !== VERIFY_SCOPE_TYPE.CHANGESET) return reject(VERIFY_EXPECTATIONS_ERROR.NOT_CHANGESET_SCOPED);
+  const parsed = parseVerifyExpectations(source);
+  if (!parsed.ok) return reject(parsed.error);
+  const { additionalPaths } = parsed.value;
+  if (additionalPaths.length === 0) return parsed;
+  const held = headCommit === undefined
+    ? new Set<string>()
+    : await listCommitFiles(headCommit, additionalPaths, worktreeRoot, deps.git ?? defaultGitDependencies);
+  if (held === undefined) return { ok: false, error: VERIFY_CLI_ERROR.EXPECTATIONS_PATHS_UNREADABLE };
+  const unheld = additionalPaths.find((path) => !held.has(path));
+  return unheld === undefined
+    ? parsed
+    : reject(expectationsPathError(unheld, VERIFY_EXPECTATIONS_ERROR.PATH_NOT_HELD));
+}
+
+/**
  * Start a verification run: resolve its scope and the head commit it judges, create a canonical
  * verification context, open a run journal, record the verification input read from `--input`, and
  * report the run token, context digest, changed scope, input descriptor, and run locator a caller
@@ -822,6 +896,14 @@ export async function verifyStartCommand(
   if (!scope.ok) return errorResult(scope.error);
   const headCommit = await resolveStartHeadCommit(scope.value, resolved.value, deps);
   if (!headCommit.ok) return errorResult(headCommit.error);
+  const expectations = await resolveStartExpectations(
+    options.expectations,
+    scope.value.selector.scopeType,
+    headCommit.value,
+    resolved.value.worktreeRoot,
+    deps,
+  );
+  if (!expectations.ok) return errorResult(expectations.error);
   const normalizedOptions: VerifyStartCliOptions = {
     ...options,
     scopeType: scope.value.selector.scopeType,
@@ -856,6 +938,8 @@ export async function verifyStartCommand(
     backendIdentity: resolved.value.backendIdentity,
     resolvedScope: scope.value.resolvedScope,
     headCommit: headCommit.value,
+    changeInventory: scope.value.changeInventory,
+    expectations: expectations.value,
     inputDigest: inputDigest.value,
     inputContent: inputContent.value,
     contextDigest,

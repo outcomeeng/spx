@@ -96,6 +96,9 @@ export const VERIFY_CLI = {
   inputOption: "--input <input-source>",
   changeOption: "--change <owner/repo#N>",
   changeOptionDescription: "Change the run serves, in the canonical owner/repo#N form; omit when it serves none",
+  expectationsOption: "--expectations <document>",
+  expectationsOptionDescription:
+    "Expectations a changeset-scoped run is bound to, as a JSON document carrying schemaVersion and optional additionalPaths",
   listChangeOptionDescription: "Change whose runs are listed, in the canonical owner/repo#N form",
   compareCommandName: VERIFY_VERB.COMPARE,
   compareCommandDescription:
@@ -124,6 +127,7 @@ interface VerifySharedCliOptions {
 interface VerifyStartActionOptions extends VerifySharedCliOptions {
   readonly input: string;
   readonly change?: string;
+  readonly expectations?: string;
 }
 
 interface VerifyInputActionOptions extends VerifySharedCliOptions {
@@ -234,6 +238,7 @@ export function registerVerifyCommands(
     .requiredOption(VERIFY_CLI.scopeOption, VERIFY_CLI.scopeOptionDescription)
     .requiredOption(VERIFY_CLI.inputOption, "Verification input source; stdin or a file path")
     .option(VERIFY_CLI.changeOption, VERIFY_CLI.changeOptionDescription)
+    .option(VERIFY_CLI.expectationsOption, VERIFY_CLI.expectationsOptionDescription)
     .action(async (options: VerifyStartActionOptions) => {
       reportCliResult(await handlers.start(options, deps()), invocation.io);
     });

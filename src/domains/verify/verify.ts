@@ -15,7 +15,7 @@ import {
 } from "@/domains/verify/evidence-rejection";
 import type { JournalEvent, JournalEventInput, JsonValue } from "@/lib/agent-run-journal";
 import { RUNTIME_EVENT_NAMESPACE_DEFAULT } from "@/lib/agent-run-journal/config";
-import { branchScopeDir, runsDir, validateScopeToken } from "@/lib/state-store";
+import { branchScopeDir, compareAsciiStrings, runsDir, validateScopeToken } from "@/lib/state-store";
 
 export const VERIFY_SCOPE_TYPE = {
   CHANGESET: "changeset",
@@ -1931,7 +1931,162 @@ export const VERIFY_RUN_CONTEXT_EVENT_FIELD = {
   DRIVE_MODE: "driveMode",
   HEAD_COMMIT: "headCommit",
   CHANGE: "change",
+  CHANGE_INVENTORY: "changeInventory",
+  EXPECTATIONS: "expectations",
 } as const;
+
+/** How a path differs between a changeset's base and head, as one change-inventory entry records it. */
+export const VERIFY_CHANGE_KIND = {
+  ADDED: "added",
+  MODIFIED: "modified",
+  DELETED: "deleted",
+  COPY_SOURCE: "copy-source",
+} as const;
+
+export type VerifyChangeKind = (typeof VERIFY_CHANGE_KIND)[keyof typeof VERIFY_CHANGE_KIND];
+
+/** The fields of one change-inventory entry. */
+export const VERIFY_CHANGE_INVENTORY_ENTRY_FIELD = {
+  PATH: "path",
+  CHANGE_KIND: "changeKind",
+} as const;
+
+/** One path a changeset changes between base and head and how it changes. */
+export interface VerifyChangeInventoryEntry {
+  readonly path: string;
+  readonly changeKind: VerifyChangeKind;
+}
+
+const NAME_STATUS_RECORD_SEPARATOR = "\0";
+const NAME_STATUS_ADDED = "A";
+const NAME_STATUS_DELETED = "D";
+const NAME_STATUS_RENAMED = "R";
+const NAME_STATUS_COPIED = "C";
+
+function nameStatusIsTwoPath(status: string): boolean {
+  return status.startsWith(NAME_STATUS_RENAMED) || status.startsWith(NAME_STATUS_COPIED);
+}
+
+function inventoryEntriesOfNameStatus(
+  status: string,
+  paths: readonly string[],
+): readonly VerifyChangeInventoryEntry[] {
+  const [first, second] = paths;
+  if (status.startsWith(NAME_STATUS_RENAMED)) {
+    return [
+      { path: first, changeKind: VERIFY_CHANGE_KIND.DELETED },
+      { path: second, changeKind: VERIFY_CHANGE_KIND.ADDED },
+    ];
+  }
+  if (status.startsWith(NAME_STATUS_COPIED)) {
+    return [
+      { path: second, changeKind: VERIFY_CHANGE_KIND.ADDED },
+      { path: first, changeKind: VERIFY_CHANGE_KIND.COPY_SOURCE },
+    ];
+  }
+  if (status === NAME_STATUS_ADDED) return [{ path: first, changeKind: VERIFY_CHANGE_KIND.ADDED }];
+  if (status === NAME_STATUS_DELETED) return [{ path: first, changeKind: VERIFY_CHANGE_KIND.DELETED }];
+  return [{ path: first, changeKind: VERIFY_CHANGE_KIND.MODIFIED }];
+}
+
+/**
+ * The change inventory of a changeset, derived from its null-delimited `--name-status` diff with
+ * rename and copy detection: an added path is `added`; a modified path and a type change are
+ * `modified`; a deleted path is `deleted`; a rename contributes its base-side path as `deleted` and
+ * its head-side path as `added`; a copy contributes its head-side path as `added` and its base-side
+ * path, which the head still holds, as `copy-source`. Entries are ordered by path, then change kind.
+ */
+export function changeInventoryOfNameStatus(stdout: string): readonly VerifyChangeInventoryEntry[] {
+  const fields = stdout.split(NAME_STATUS_RECORD_SEPARATOR).filter((field) => field.length > 0);
+  const entries: VerifyChangeInventoryEntry[] = [];
+  for (let index = 0; index < fields.length;) {
+    const status = fields[index];
+    const pathCount = nameStatusIsTwoPath(status) ? 2 : 1;
+    entries.push(...inventoryEntriesOfNameStatus(status, fields.slice(index + 1, index + 1 + pathCount)));
+    index += 1 + pathCount;
+  }
+  return entries.sort((left, right) =>
+    compareAsciiStrings(left.path, right.path) || compareAsciiStrings(left.changeKind, right.changeKind)
+  );
+}
+
+/** The supported schema version of the expectations document a changeset-scoped run is bound to. */
+export const VERIFY_EXPECTATIONS_SCHEMA_VERSION = 1;
+
+/** The fields of the expectations document. */
+export const VERIFY_EXPECTATIONS_FIELD = {
+  SCHEMA_VERSION: "schemaVersion",
+  ADDITIONAL_PATHS: "additionalPaths",
+} as const;
+
+/** The expectations a changeset-scoped run is bound to: product-relative paths beyond the changeset the run is expected to judge. */
+export interface VerifyExpectations {
+  readonly [VERIFY_EXPECTATIONS_FIELD.SCHEMA_VERSION]: typeof VERIFY_EXPECTATIONS_SCHEMA_VERSION;
+  readonly [VERIFY_EXPECTATIONS_FIELD.ADDITIONAL_PATHS]: readonly string[];
+}
+
+/** The reasons an expectations document is refused; each names the field or the path at fault. */
+export const VERIFY_EXPECTATIONS_ERROR = {
+  NOT_JSON: "the expectations document is not valid JSON",
+  NOT_OBJECT: "the expectations document is not a JSON object",
+  SCHEMA_VERSION_UNSUPPORTED:
+    `${VERIFY_EXPECTATIONS_FIELD.SCHEMA_VERSION} is missing or unsupported; the supported version is ${VERIFY_EXPECTATIONS_SCHEMA_VERSION}`,
+  ADDITIONAL_PATHS_NOT_ARRAY: `${VERIFY_EXPECTATIONS_FIELD.ADDITIONAL_PATHS} is not an array of paths`,
+  NOT_CHANGESET_SCOPED: "expectations bind only a changeset-scoped run",
+  PATH_NOT_PRODUCT_RELATIVE: "is not a product-relative path in",
+  PATH_NOT_HELD: "is not held by the head commit in",
+} as const;
+
+/** A declared additional path refused because it is not a product-relative path: `<path> is not ... in additionalPaths`. */
+export function expectationsPathError(
+  path: string,
+  reason: typeof VERIFY_EXPECTATIONS_ERROR.PATH_NOT_PRODUCT_RELATIVE | typeof VERIFY_EXPECTATIONS_ERROR.PATH_NOT_HELD,
+): string {
+  return `${path} ${reason} ${VERIFY_EXPECTATIONS_FIELD.ADDITIONAL_PATHS}`;
+}
+
+/**
+ * Parse an expectations document: a JSON object carrying `schemaVersion` `1` and an optional
+ * `additionalPaths` array of product-relative paths, absent meaning none. The accepted value holds
+ * every path in its normalized product-relative form.
+ */
+export function parseVerifyExpectations(source: string): Result<VerifyExpectations> {
+  let document: unknown;
+  try {
+    document = JSON.parse(source);
+  } catch {
+    return { ok: false, error: VERIFY_EXPECTATIONS_ERROR.NOT_JSON };
+  }
+  if (typeof document !== "object" || document === null || Array.isArray(document)) {
+    return { ok: false, error: VERIFY_EXPECTATIONS_ERROR.NOT_OBJECT };
+  }
+  const fields = document as Readonly<Record<string, unknown>>;
+  if (fields[VERIFY_EXPECTATIONS_FIELD.SCHEMA_VERSION] !== VERIFY_EXPECTATIONS_SCHEMA_VERSION) {
+    return { ok: false, error: VERIFY_EXPECTATIONS_ERROR.SCHEMA_VERSION_UNSUPPORTED };
+  }
+  const declared = fields[VERIFY_EXPECTATIONS_FIELD.ADDITIONAL_PATHS] ?? [];
+  if (!Array.isArray(declared)) return { ok: false, error: VERIFY_EXPECTATIONS_ERROR.ADDITIONAL_PATHS_NOT_ARRAY };
+  const additionalPaths: string[] = [];
+  for (const entry of declared) {
+    const path = typeof entry === "string" ? normalizeVerificationContextFileSubjectPath(entry) : undefined;
+    if (path === undefined) {
+      return {
+        ok: false,
+        error: typeof entry === "string"
+          ? expectationsPathError(entry, VERIFY_EXPECTATIONS_ERROR.PATH_NOT_PRODUCT_RELATIVE)
+          : VERIFY_EXPECTATIONS_ERROR.ADDITIONAL_PATHS_NOT_ARRAY,
+      };
+    }
+    additionalPaths.push(path);
+  }
+  return {
+    ok: true,
+    value: {
+      [VERIFY_EXPECTATIONS_FIELD.SCHEMA_VERSION]: VERIFY_EXPECTATIONS_SCHEMA_VERSION,
+      [VERIFY_EXPECTATIONS_FIELD.ADDITIONAL_PATHS]: additionalPaths,
+    },
+  };
+}
 
 /**
  * The canonical Change identity form `owner/repo#N`: an owner and a repository name, each one or
@@ -1960,6 +2115,8 @@ export function buildRunContextEvent(args: {
   readonly driveMode: VerifyDriveMode;
   readonly headCommit?: string;
   readonly change?: string;
+  readonly changeInventory?: readonly VerifyChangeInventoryEntry[];
+  readonly expectations?: VerifyExpectations;
   readonly at: Date;
 }): JournalEventInput {
   return {
@@ -1972,6 +2129,17 @@ export function buildRunContextEvent(args: {
       [VERIFY_RUN_CONTEXT_EVENT_FIELD.DRIVE_MODE]: args.driveMode,
       ...(args.headCommit === undefined ? {} : { [VERIFY_RUN_CONTEXT_EVENT_FIELD.HEAD_COMMIT]: args.headCommit }),
       ...(args.change === undefined ? {} : { [VERIFY_RUN_CONTEXT_EVENT_FIELD.CHANGE]: args.change }),
+      ...(args.changeInventory === undefined
+        ? {}
+        : { [VERIFY_RUN_CONTEXT_EVENT_FIELD.CHANGE_INVENTORY]: args.changeInventory.map((entry) => ({ ...entry })) }),
+      ...(args.expectations === undefined
+        ? {}
+        : {
+          [VERIFY_RUN_CONTEXT_EVENT_FIELD.EXPECTATIONS]: {
+            ...args.expectations,
+            [VERIFY_EXPECTATIONS_FIELD.ADDITIONAL_PATHS]: [...args.expectations.additionalPaths],
+          },
+        }),
     },
   };
 }
