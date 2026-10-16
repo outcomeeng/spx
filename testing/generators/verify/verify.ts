@@ -1074,6 +1074,21 @@ export const VERIFY_TEST_GENERATOR = {
       fc.boolean(),
       fc.constant(null),
     ),
+  /** An `additionalPaths` value that is not an array: a string, a number, a boolean, or an object. */
+  nonArrayAdditionalPaths: (): fc.Arbitrary<JsonValue> =>
+    fc.oneof(
+      fc.string(),
+      fc.integer(),
+      fc.boolean(),
+      fc.dictionary(fc.string(), fc.string()),
+    ),
+  /** An `additionalPaths` array that carries at least one entry that is not a string. */
+  additionalPathsWithNonStringEntry: (): fc.Arbitrary<JsonValue> =>
+    fc.tuple(
+      fc.array(arbitrarySourceFilePath(), { maxLength: 2 }),
+      fc.oneof(fc.integer(), fc.boolean(), fc.constant(null), fc.array(fc.string(), { maxLength: 2 })),
+      fc.array(arbitrarySourceFilePath(), { maxLength: 2 }),
+    ).map(([before, entry, after]) => [...before, entry, ...after]),
   changesetScopeScenario: (): fc.Arbitrary<{
     readonly range: { readonly base: string; readonly head: string };
     readonly changedPaths: readonly string[];
