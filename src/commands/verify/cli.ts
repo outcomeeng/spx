@@ -26,6 +26,7 @@ import {
   buildRunLocator,
   buildTerminalEvent,
   changeInventoryOfNameStatus,
+  changeInventoryOfRun,
   type ChangesetScope,
   digestRunInput,
   driveModeOf,
