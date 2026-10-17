@@ -288,13 +288,32 @@ export interface JournalReporterOptions {
   readonly lockfilePath?: string;
 }
 
+/** The product root resolved through symbolic links, the form the run reports product files in; the root itself when it does not resolve. */
+function realRootOf(productRoot: string): string {
+  try {
+    return realpathSync(productRoot);
+  } catch {
+    return productRoot;
+  }
+}
+
+/** The files a module loaded from its import diagnostic, or nothing when the diagnostic is unavailable. */
+function importedPathsOf(module: TestModule): readonly string[] | undefined {
+  try {
+    const durations: unknown = module.diagnostic().importDurations;
+    return isRecord(durations) ? Object.keys(durations) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * The product-relative form of an absolute path, or nothing when the path is not a product file:
  * a path outside the product root, the root itself, or a path through the installed dependencies.
  */
 function productRelativePath(productRoot: string, absolutePath: string): string | undefined {
   if (!isAbsolute(absolutePath)) return undefined;
-  const relativePath = relative(productRoot, absolutePath);
+  const relativePath = relative(realRootOf(productRoot), absolutePath);
   if (relativePath === "" || isAbsolute(relativePath)) return undefined;
   const segments = relativePath.split(sep);
   if (segments[0] === PARENT_SEGMENT || segments.includes(DEPENDENCIES_SEGMENT)) return undefined;
@@ -313,8 +332,10 @@ function openedPathsOf(meta: object): readonly string[] {
  */
 function moduleReadPaths(module: TestModule, lockfilePath: string | undefined): readonly string[] {
   const productRoot = module.project.config.root;
+  const importedPaths = importedPathsOf(module);
+  if (importedPaths === undefined) return [];
   const candidates = [
-    ...Object.keys(module.diagnostic().importDurations),
+    ...importedPaths,
     ...openedPathsOf(module.meta()),
     ...(lockfilePath === undefined ? [] : [lockfilePath]),
   ];

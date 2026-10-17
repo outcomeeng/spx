@@ -49,11 +49,10 @@ export interface ReadRecorder {
 }
 
 function absolutePathOf(target: PathLike): string | undefined {
-  if (typeof target === "number") return undefined;
-  const asPath = target instanceof URL ? fileURLToPath(target) : target.toString();
-  const absolute = resolve(asPath);
   try {
-    return realpathSync(absolute);
+    if (typeof target === "number") return undefined;
+    const asPath = target instanceof URL ? fileURLToPath(target) : target.toString();
+    return realpathSync(resolve(asPath));
   } catch {
     return undefined;
   }
