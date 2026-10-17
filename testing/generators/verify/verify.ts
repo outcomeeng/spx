@@ -1154,7 +1154,80 @@ export type VerifyInventoryEntryMalformation =
 const UNKNOWN_CHANGE_KIND_CHARACTERS = "abcdefghijklmnopqrstuvwxyz-";
 const UNKNOWN_CHANGE_KIND_MAX_LENGTH = 12;
 
+/** A `test` first scope unit whose read paths hold only product-relative files, and the paths it records. */
+export interface TestReadPathsAcceptedCase {
+  /** A valid `test` scope unit whose read paths spell each recorded file with a current-directory segment. */
+  readonly payload: JsonValue;
+  /** The product-relative files the payload names, in payload order, each in canonical spelling. */
+  readonly recordedPaths: readonly string[];
+}
+
+/** A `test` first scope unit whose read paths violate the product-relative rule, and the field path a rejection names. */
+export interface TestReadPathsRejectedCase {
+  /** A `test` scope unit whose read paths are not all product-relative paths. */
+  readonly payload: JsonValue;
+  /** The field path segments of the failing read-path field or entry, as the producer reads them in `payload`. */
+  readonly failingFieldPath: readonly string[];
+  /** The field path of an entry that is product-relative and so is not named by the rejection, when one exists. */
+  readonly conformingFieldPath: readonly string[] | undefined;
+}
+
+const MAX_READ_PATHS = 3;
+
+function testScopeUnitWithReadPaths(moduleId: string, readPaths: JsonValue): JsonValue {
+  return { [TEST_PAYLOAD_FIELD.MODULE_ID]: moduleId, [TEST_PAYLOAD_FIELD.READ_PATHS]: readPaths };
+}
+
+function arbitraryTestReadPathsAcceptedCase(): fc.Arbitrary<TestReadPathsAcceptedCase> {
+  return fc
+    .record({
+      moduleId: arbitraryTestFilePath(),
+      paths: fc.array(arbitrarySourceFilePath(), { maxLength: MAX_READ_PATHS }),
+    })
+    .chain(({ moduleId, paths }) =>
+      fc.tuple(...paths.map((path) => arbitraryEquivalentPathSpelling(path))).map((spellings) => ({
+        payload: testScopeUnitWithReadPaths(moduleId, spellings),
+        recordedPaths: paths,
+      }))
+    );
+}
+
+/**
+ * Read paths a `test` scope payload must refuse: a value that is not an array, or an array holding at
+ * least one entry that is not a product-relative path — a non-string, an absolute path, or a path
+ * escaping the product directory — beside a product-relative entry at a drawn position.
+ */
+function arbitraryTestReadPathsRejectedCase(): fc.Arbitrary<TestReadPathsRejectedCase> {
+  const readPathsField = TEST_PAYLOAD_FIELD.READ_PATHS;
+  const notAnArray = fc
+    .tuple(arbitraryTestFilePath(), fc.oneof(arbitraryTestFilePath(), fc.integer(), fc.constant(null)))
+    .map(([moduleId, value]) => ({
+      payload: testScopeUnitWithReadPaths(moduleId, value),
+      failingFieldPath: [readPathsField],
+      conformingFieldPath: undefined,
+    }));
+  const badEntry = fc.oneof(arbitraryUnsafeFileScopeIdentity(), fc.integer());
+  const badEntryAmongConforming = fc
+    .record({
+      moduleId: arbitraryTestFilePath(),
+      conforming: arbitrarySourceFilePath(),
+      bad: badEntry,
+      badFirst: fc.boolean(),
+    })
+    .map(({ moduleId, conforming, bad, badFirst }) => {
+      const entries = badFirst ? [bad, conforming] : [conforming, bad];
+      return {
+        payload: testScopeUnitWithReadPaths(moduleId, entries),
+        failingFieldPath: [readPathsField, String(entries.indexOf(bad))],
+        conformingFieldPath: [readPathsField, String(entries.indexOf(conforming))],
+      };
+    });
+  return fc.oneof(notAnArray, badEntryAmongConforming);
+}
+
 export const VERIFY_TEST_GENERATOR = {
+  testReadPathsAcceptedCase: arbitraryTestReadPathsAcceptedCase,
+  testReadPathsRejectedCase: arbitraryTestReadPathsRejectedCase,
   verificationType: (): fc.Arbitrary<string> => fc.constantFrom(...VERIFY_VERIFICATION_TYPES),
   judgedPathsCase: (
     verificationType: VerifyVerificationType,

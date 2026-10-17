@@ -976,6 +976,7 @@ const REQUIRED_AUDIT_FINDING_STRING_FIELDS = [
 /** The field names the `test` scope and finding payload schemas declare. */
 export const TEST_PAYLOAD_FIELD = {
   MODULE_ID: "moduleId",
+  READ_PATHS: "readPaths",
   TEST_NAME: "testName",
   ERRORS: "errors",
 } as const;
@@ -1517,6 +1518,7 @@ function validateAuditFindingForRun(input: EvidenceValidationInput): EvidenceVal
 /** One inspected test module recorded as `test` scope evidence, owned by the verify domain. */
 export interface TestScopeUnit {
   readonly moduleId: string;
+  readonly readPaths?: readonly string[];
 }
 
 /** One failing test case recorded as a `test` finding, owned by the verify domain. */
@@ -1531,7 +1533,43 @@ export function validateTestScope(payload: JsonValue): EvidenceValidationResult<
   if (!isJsonRecord(payload)) return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.PAYLOAD_IS_OBJECT);
   const moduleId = readRequiredString(payload, TEST_PAYLOAD_FIELD.MODULE_ID);
   if (moduleId === undefined) return rejectEvidenceField(TEST_PAYLOAD_FIELD.MODULE_ID);
-  return acceptEvidence({ moduleId });
+  const readPaths = readTestScopeReadPaths(payload);
+  if (!readPaths.ok) return forwardEvidenceRejection(readPaths);
+  return acceptEvidence(readPaths.value === undefined ? { moduleId } : { moduleId, readPaths: readPaths.value });
+}
+
+/**
+ * Read a `test` scope payload's read paths: absent when the payload names none, otherwise an array
+ * whose every entry is a safe product-relative path, returned normalized in payload order. A
+ * non-array value, a non-string entry, an absolute path, or a parent-directory escape refuses the
+ * payload naming the failing field path.
+ */
+function readTestScopeReadPaths(
+  payload: { readonly [key: string]: JsonValue },
+): EvidenceValidationResult<readonly string[] | undefined> {
+  const field = TEST_PAYLOAD_FIELD.READ_PATHS;
+  if (!Object.hasOwn(payload, field)) return acceptEvidence(undefined);
+  const entries = payload[field];
+  if (!Array.isArray(entries)) return rejectEvidenceField(field);
+  return normalizeProductRelativePathEntries(entries, field);
+}
+
+/**
+ * Normalize every entry of a payload path array to product-relative form, in payload order so entry
+ * indexes stay those the producer sent. A non-string entry, an absolute path, or a parent-directory
+ * escape refuses the payload naming the failing entry's field path.
+ */
+function normalizeProductRelativePathEntries(
+  entries: readonly JsonValue[],
+  field: string,
+): EvidenceValidationResult<readonly string[]> {
+  const normalized: string[] = [];
+  for (const [index, entry] of entries.entries()) {
+    const path = typeof entry === "string" ? normalizeVerificationContextFileSubjectPath(entry) : undefined;
+    if (path === undefined) return rejectEvidenceField(field, String(index));
+    normalized.push(path);
+  }
+  return acceptEvidence(normalized);
 }
 
 /** Validate a `test` finding payload as one failing test case with its error messages. */
@@ -1725,13 +1763,7 @@ function readScopePathList(
   if (!isJsonRecord(payload) || !Object.hasOwn(payload, field)) return acceptEvidence(undefined);
   const entries = payload[field];
   if (!Array.isArray(entries) || entries.length === 0) return rejectEvidenceField(field);
-  const normalized: string[] = [];
-  for (const [index, entry] of entries.entries()) {
-    const path = typeof entry === "string" ? normalizeVerificationContextFileSubjectPath(entry) : undefined;
-    if (path === undefined) return rejectEvidenceField(field, String(index));
-    normalized.push(path);
-  }
-  return acceptEvidence(normalized);
+  return normalizeProductRelativePathEntries(entries, field);
 }
 
 /**
