@@ -141,6 +141,14 @@ export function createSpyVitestRunStarter(): SpyVitestRunStarter {
 }
 
 /**
+ * The scenario relocated under the product directory a run reports, since the reporter reads the real
+ * product root the run supplies rather than the root each module's configuration names.
+ */
+function scenarioRootedAt(scenario: GeneratedRunScenario, productRoot: string): GeneratedRunScenario {
+  return { ...scenario, reads: { ...scenario.reads, productRoot } };
+}
+
+/**
  * Builds a run-starter that records each `start` invocation and drives every registered
  * reporter's lifecycle hooks over a generated scenario, sealing with the given reason —
  * so a journal-streaming run streams the scenario's scope and finding evidence into its
@@ -156,7 +164,7 @@ export function createScenarioDrivingVitestRunStarter(
     async start(options: VitestRunStartOptions): Promise<VitestRunStart> {
       startedRuns.push(options);
       for (const reporter of options.reporters) {
-        await driveReporterOverScenario(reporter, scenario, reason);
+        await driveReporterOverScenario(reporter, scenarioRootedAt(scenario, options.productDir), reason);
       }
       return STARTED_RUN;
     },
@@ -201,7 +209,12 @@ function createContractVitestNodeApi(scenario: GeneratedRunScenario, reason: Jou
   return {
     startVitest: async (_mode, _cliFilters, options) => {
       for (const reporter of reportersOf(options)) {
-        await driveReporterOverScenario(reporter, scenario, reason);
+        const runRoot = options?.root;
+        await driveReporterOverScenario(
+          reporter,
+          runRoot === undefined ? scenario : scenarioRootedAt(scenario, runRoot),
+          reason,
+        );
       }
       // The starter only closes the instance after the run; a closeable stand-in is the whole
       // contract this probe honors (Stage 5: contract probe).
