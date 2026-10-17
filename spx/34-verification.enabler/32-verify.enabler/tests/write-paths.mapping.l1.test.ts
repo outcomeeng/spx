@@ -168,3 +168,39 @@ describe("verify write-path report path resolution", () => {
     );
   });
 });
+
+// The write-path report resolves the Git common-dir product root, not the root of the worktree it is
+// invoked from. In a linked worktree the two differ: the repository's checkout directory is the
+// common-dir root, and the files a started run creates, also from the linked worktree, are the oracle.
+describe("verify write-path report in a linked worktree", () => {
+  describe.each(Object.values(VERIFY_VERIFICATION_TYPE))(VERIFICATION_TYPE_CASE_TITLE, (verificationType) => {
+    it.each(Object.values(VERIFY_SCOPE_TYPE))(
+      "reports the directories below the common-dir product root a %s-scope run from a linked worktree then writes",
+      async (scopeType) => {
+        await withVerifyHeadCommitRepository(async (repository) => {
+          const linked = await repository.linkWorktree();
+          const reported = await linked.reportWritePaths(scopeType, verificationType);
+          expect(reported.exitCode, reported.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
+          const report = JSON.parse(reported.output) as VerifyPathsReport;
+          const before = new Set((await repository.snapshotState()).map((entry) => entry.path));
+          const run = await linked.startRun(scopeType, verificationType);
+          expect(run.started.exitCode, run.started.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
+          const writtenDirectories = (await repository.snapshotState())
+            .filter((entry) => entry.kind === REPOSITORY_STATE_ENTRY_KIND.FILE && !before.has(entry.path))
+            .map((entry) => dirname(entry.path));
+          const branchScope = join(branchScopesDir(repository.productDir), report.branchSlug);
+
+          expect(linked.worktreeDir).not.toBe(repository.productDir);
+          expect(report.writeDirectories.map((directory) => directory.path.startsWith(branchScope + sep))).toEqual(
+            report.writeDirectories.map(() => true),
+          );
+          expect(report.writeDirectories.map((directory) => directory.path.startsWith(linked.worktreeDir + sep)))
+            .toEqual(report.writeDirectories.map(() => false));
+          expect(report.writeDirectories.map((directory) => directory.path).sort(compareText)).toEqual(
+            [...new Set(writtenDirectories)].sort(compareText),
+          );
+        });
+      },
+    );
+  });
+});

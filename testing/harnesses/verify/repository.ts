@@ -42,6 +42,7 @@ const VERIFY_REPOSITORY_TEMP_PREFIX = "verify-repository-";
 const GIT_FAILURE_EXIT_CODE = 1;
 const BASE_COMMIT_MESSAGE = "Initialize verify repository fixture";
 const HEAD_COMMIT_MESSAGE = "Add the verified file";
+const GIT_TEST_WORKTREE_ADD = "add";
 
 /** The two commits a verify repository fixture holds: an empty base commit and a head commit adding one file. */
 export interface VerifyRepositoryCommits {
@@ -207,6 +208,22 @@ export interface VerifyHeadCommitRepository extends VerifyRepositoryCommits {
    * the checkout, and return that directory's canonical path.
    */
   linkStateStore(): Promise<string>;
+  /**
+   * Add a linked Git worktree of this repository, outside the checkout and detached at the base
+   * commit, and bind the production `start` and write-path report operations to run from it.
+   */
+  linkWorktree(): Promise<VerifyLinkedWorktree>;
+}
+
+/**
+ * A linked Git worktree of a verify repository: `worktreeDir` is its canonical root, which differs
+ * from the repository's checkout directory. `startRun` and `reportWritePaths` invoke the production
+ * operations with the worktree as the working directory.
+ */
+export interface VerifyLinkedWorktree {
+  readonly worktreeDir: string;
+  startRun(scopeType: string, verificationType?: string): Promise<StartedRepositoryRun>;
+  reportWritePaths(scopeType: string, verificationType?: string): Promise<CliCommandResult>;
 }
 
 /**
@@ -221,12 +238,12 @@ interface VerifyRunStarter {
   reportWritePaths(scopeType: string, scope: string, verificationType?: string): Promise<CliCommandResult>;
 }
 
-function createVerifyRunStarter(productDir: string, git: GitDependencies): VerifyRunStarter {
+function createVerifyRunStarter(cwd: string, git: GitDependencies): VerifyRunStarter {
   const inputContent = JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.inputPayload()));
   const drawnVerificationType = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.verificationType());
   const idempotencyKey = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
   const deps: VerifyCliDeps = {
-    cwd: productDir,
+    cwd,
     git,
     processEnv: {},
     fs: defaultStateStoreFileSystem,
@@ -312,6 +329,7 @@ export async function withVerifyHeadCommitRepository<T>(
         ? `${commits.baseCommit}${VERIFY_SCOPE_SEPARATOR}${layout.headBranch}`
         : layout.filePath;
     const linkedStoreDirectories: string[] = [];
+    const linkedWorktreeDirectories: string[] = [];
 
     try {
       return await callback({
@@ -336,8 +354,31 @@ export async function withVerifyHeadCommitRepository<T>(
           await symlink(storeDirectory, join(productDir, STATE_STORE_SCOPE_PATH.SPX_DIR));
           return storeDirectory;
         },
+        linkWorktree: async () => {
+          const createdDirectory = await createTempDir(VERIFY_REPOSITORY_TEMP_PREFIX);
+          linkedWorktreeDirectories.push(createdDirectory);
+          const worktreeDir = await realpath(createdDirectory);
+          await runGit(productDir, [
+            GIT_TEST_SUBCOMMANDS.WORKTREE,
+            GIT_TEST_WORKTREE_ADD,
+            GIT_TEST_FLAGS.DETACH,
+            worktreeDir,
+            commits.baseCommit,
+          ]);
+          const linked = createVerifyRunStarter(worktreeDir, realVerifyGitDependencies());
+          return {
+            worktreeDir,
+            startRun: async (scopeType, verificationType) =>
+              linked.startRun(scopeType, scopeFor(scopeType), verificationType),
+            reportWritePaths: async (scopeType, verificationType) =>
+              linked.reportWritePaths(scopeType, scopeFor(scopeType), verificationType),
+          };
+        },
       });
     } finally {
+      await Promise.all(
+        linkedWorktreeDirectories.map(async (directory) => removeTempDir(directory).catch(() => {})),
+      );
       await Promise.all(linkedStoreDirectories.map(async (directory) => removeTempDir(directory).catch(() => {})));
     }
   });
