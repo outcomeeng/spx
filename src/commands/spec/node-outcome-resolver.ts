@@ -14,6 +14,7 @@ import {
   readTestingRuns,
   selectLatestTerminalTestRunForNode,
   type StalenessInputs,
+  TEST_PATH_VERDICT,
   type TestRunnerOutcome,
   type TestRunStateFileSystem,
   type TestTerminalRun,
@@ -139,13 +140,25 @@ async function recordedOutcomes(
 
 // A reference takes the verdict recorded for its own test path, never the exit
 // code of the runner invocation that covered it; the testing domain's evidence
-// contract folds the verdicts of every runner that covered the path.
+// contract folds the verdicts of every runner that covered the path. A covering
+// runner that recorded no verdict for the path contributes a not-run verdict, so
+// it never drops out of the fold.
 function outcomeForPath(
   outcomes: readonly TestRunnerOutcome[],
   path: string,
   registry: TestingRegistry,
 ): NodeStatusEvidenceOutcome {
-  const results = buildEvidenceResults(outcomes, registry.languages)
+  const covering = outcomes
+    .filter((outcome) => outcome.testPaths.includes(path))
+    .map((outcome) => withVerdictForPath(outcome, path));
+  const results = buildEvidenceResults(covering, registry.languages)
     .filter((result) => result.evidenceReference === path);
   return foldEvidenceVerdict(results);
+}
+
+function withVerdictForPath(outcome: TestRunnerOutcome, path: string): TestRunnerOutcome {
+  const recorded = outcome.pathVerdicts.filter((entry) => entry.testPath === path);
+  return recorded.length > 0
+    ? { ...outcome, pathVerdicts: recorded }
+    : { ...outcome, pathVerdicts: [{ testPath: path, verdict: TEST_PATH_VERDICT.NOT_RUN }] };
 }
