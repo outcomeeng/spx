@@ -215,19 +215,32 @@ export interface VerifyPathsCliOptions {
   readonly scope: string;
 }
 
+export const VERIFY_PATHS_REPORT_FIELD = {
+  RESOLVED_SCOPE: "resolvedScope",
+  BRANCH_SLUG: "branchSlug",
+  WRITE_DIRECTORIES: "writeDirectories",
+} as const;
+
+export const VERIFY_WRITE_DIRECTORY_FIELD = {
+  ROLE: "role",
+  PATH: "path",
+  EXISTS: "exists",
+  MISSING_DIRECTORIES: "missingDirectories",
+} as const;
+
 /** One directory a run writes, at its canonical path, with the directories its creation requires. */
 export interface VerifyWriteDirectory {
-  readonly role: VerifyWriteDirectoryRole;
-  readonly path: string;
-  readonly exists: boolean;
-  readonly missingDirectories: readonly string[];
+  readonly [VERIFY_WRITE_DIRECTORY_FIELD.ROLE]: VerifyWriteDirectoryRole;
+  readonly [VERIFY_WRITE_DIRECTORY_FIELD.PATH]: string;
+  readonly [VERIFY_WRITE_DIRECTORY_FIELD.EXISTS]: boolean;
+  readonly [VERIFY_WRITE_DIRECTORY_FIELD.MISSING_DIRECTORIES]: readonly string[];
 }
 
 export interface VerifyPathsReport {
   readonly verificationType: string;
-  readonly resolvedScope: VerifyRunSelector;
-  readonly branchSlug: string;
-  readonly writeDirectories: readonly VerifyWriteDirectory[];
+  readonly [VERIFY_PATHS_REPORT_FIELD.RESOLVED_SCOPE]: VerifyRunSelector;
+  readonly [VERIFY_PATHS_REPORT_FIELD.BRANCH_SLUG]: string;
+  readonly [VERIFY_PATHS_REPORT_FIELD.WRITE_DIRECTORIES]: readonly VerifyWriteDirectory[];
 }
 
 export interface VerifyInputReport {

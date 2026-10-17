@@ -23,6 +23,7 @@ import {
   type VerifyInputCliOptions,
   verifyInputCommand,
   type VerifyInputReport,
+  type VerifyPathsCliOptions,
   type VerifyRenderCliOptions,
   verifyRenderCommand,
   type VerifyRenderReport,
@@ -175,6 +176,7 @@ export interface VerifyCliRecording {
   readonly finishOptions: readonly VerifyFinishCliOptions[];
   readonly inputOptions: readonly VerifyInputCliOptions[];
   readonly listOptions: readonly VerifyChangeRunsCliOptions[];
+  readonly pathsOptions: readonly VerifyPathsCliOptions[];
   readonly renderOptions: readonly VerifyRenderCliOptions[];
   readonly startOptions: readonly VerifyStartCliOptions[];
   readonly statusOptions: readonly VerifyStatusCliOptions[];
@@ -245,6 +247,7 @@ function createRecordingVerifyHandlers(): VerifyCliRecording {
   const finishOptions: VerifyFinishCliOptions[] = [];
   const inputOptions: VerifyInputCliOptions[] = [];
   const listOptions: VerifyChangeRunsCliOptions[] = [];
+  const pathsOptions: VerifyPathsCliOptions[] = [];
   const renderOptions: VerifyRenderCliOptions[] = [];
   const startOptions: VerifyStartCliOptions[] = [];
   const statusOptions: VerifyStatusCliOptions[] = [];
@@ -257,6 +260,7 @@ function createRecordingVerifyHandlers(): VerifyCliRecording {
     finishOptions,
     inputOptions,
     listOptions,
+    pathsOptions,
     renderOptions,
     startOptions,
     statusOptions,
@@ -287,6 +291,10 @@ function createRecordingVerifyHandlers(): VerifyCliRecording {
       },
       list: (options) => {
         listOptions.push(options);
+        return Promise.resolve(okCliResult());
+      },
+      paths: (options) => {
+        pathsOptions.push(options);
         return Promise.resolve(okCliResult());
       },
       render: (options) => {
@@ -348,6 +356,7 @@ function verifyHandlerInvocationCount(recording: VerifyCliRecording): number {
     + recording.finishOptions.length
     + recording.inputOptions.length
     + recording.listOptions.length
+    + recording.pathsOptions.length
     + recording.renderOptions.length
     + recording.startOptions.length
     + recording.statusOptions.length;
