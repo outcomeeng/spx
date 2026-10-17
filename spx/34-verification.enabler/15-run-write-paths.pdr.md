@@ -20,4 +20,3 @@ Directory access granted through writable roots is prompt-bounded operation with
 - ALWAYS: the reported journal runs directory and verification-context directory equal the directories into which a run started for the same verification type, scope, and branch key writes its journal and its context
 - ALWAYS: a reported directory's path resolves the symbolic links of its nearest existing ancestor, and a directory that does not exist reports the missing directories from that ancestor down
 - NEVER: the report creates, changes, or removes a file or directory
-- ALWAYS: the report composes its directories through the state module and the scope-resolver registry that `start` uses, so it never re-derives branch slugging, root resolution, or the `.spx/` layout
