@@ -15,6 +15,11 @@
 import * as fc from "fast-check";
 
 import {
+  DECLARED_COORDINATION_NOTES,
+  DECLARED_PRODUCT_ROOT_SUFFIX,
+  DECLARED_SPEC_FILE_SUFFIX,
+} from "@testing/generators/spec-tree/declared-grammar";
+import {
   DECLARED_KIND_CATEGORY,
   DECLARED_PRODUCT_KIND,
   DECLARED_PRODUCT_NODE_SUFFIX,
@@ -174,11 +179,10 @@ export const THREE_X_INDEX_GENERATOR = {
   candidate: arbitraryThreeXIndexCandidate,
 } as const;
 
-const FOUR_ZERO_SPEC_FILE_SUFFIX = ".spec.md";
-const FOUR_ZERO_ISSUES_NOTE = "ISSUES.md";
-const THREE_X_SPEC_FILE_SUFFIX = ".md";
-const THREE_X_ROOT_SPEC_SUFFIX = ".product.md";
-const THREE_X_PLAN_NOTE = "PLAN.md";
+const FOUR_ZERO_SPEC_FILE_SUFFIX = DECLARED_SPEC_FILE_SUFFIX.CANONICAL;
+const [THREE_X_PLAN_NOTE, FOUR_ZERO_ISSUES_NOTE] = DECLARED_COORDINATION_NOTES;
+const THREE_X_SPEC_FILE_SUFFIX = DECLARED_SPEC_FILE_SUFFIX.PRIOR;
+const THREE_X_ROOT_SPEC_SUFFIX = DECLARED_PRODUCT_ROOT_SUFFIX;
 
 /** What the 4.0 naming-schema version accepts: output-node directories, `{slug}.spec.md`, and `ISSUES.md`. */
 export function fourZeroFormExpectation(): NamingSchemaFormExpectation {

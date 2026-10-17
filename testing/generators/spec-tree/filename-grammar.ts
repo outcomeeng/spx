@@ -28,6 +28,16 @@ import {
 } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import {
+  DECLARED_COORDINATION_NOTES,
+  DECLARED_EVAL_LANE,
+  DECLARED_EVIDENCE_FILE_GRAMMAR,
+  DECLARED_FIRST_VERSION_NODE_SUFFIXES,
+  DECLARED_ORDER_SEPARATOR,
+  DECLARED_PRODUCT_ROOT_SUFFIX,
+  DECLARED_SPEC_FILE_SUFFIX,
+  declaredPriorNodeSuffixes,
+} from "@testing/generators/spec-tree/declared-grammar";
+import {
   DECLARED_KIND_CATEGORY,
   DECLARED_KIND_FORMS,
   DECLARED_PRODUCT_KIND,
@@ -167,75 +177,66 @@ export type SupersededLineScenario = {
   readonly expectedVersion: string;
 };
 
-/** The files the methodology states under a node's `evals/{rule-slug}/` directory. */
-const DECLARED_EVAL_FILES = ["eval.toml", "cases.jsonl", "prompt.md", "prompt.template.md", "history.jsonl"] as const;
-
-/** The evidence-file segments the methodology states under a node's `tests/` directory, with the runner tokens. */
-const DECLARED_EVIDENCE_FILE_GRAMMAR = {
-  evidence: {
-    DIRECTORY_NAME: "tests",
-    MODES: ["scenario", "mapping", "conformance", "property", "compliance"],
-    LEVELS: ["l1", "l2", "l3"],
-    TAILS: { TYPESCRIPT: ["test", "ts"], PYTHON: ["py"], RUST: ["rs"] },
-    SEGMENT_SEPARATOR: ".",
-  },
-  runners: ["vitest", "playwright", "subprocess"],
-} as const;
-
 /** The naming-schema version that precedes every other under semantic-version ordering. */
 function firstNamingSchemaVersion(): NamingSchemaVersion {
   return [...SPEC_TREE_NAMING_SCHEMA_VERSIONS].sort((left, right) => semverOrderOracle(left.version, right.version))[0];
 }
 
 /**
- * One case per grammar token group, each paired with the value the methodology states for it: the
- * product and spec-file suffixes, the kind suffixes the spec declares, the evidence modes, levels,
- * and language tails, the runner tokens, the separators, the coordination-note names, and the
- * eval-lane names. The expected values are the methodology's own literals, never a field the
- * library resolves them through.
+ * One case per grammar token group a spec assertion states by value, each paired with the literal
+ * that assertion states. The expected values are the declarations in the declared-grammar and
+ * declared-kinds modules, never a field the library resolves them through. A token no assertion
+ * states by value, such as the path separator or the order pattern's regular expression source,
+ * has no row: the order forms are exercised through the index-form property evidence.
  */
 export const FILENAME_GRAMMAR_TOKEN_CASES: readonly FilenameGrammarTokenCase[] = [
-  { name: "product suffix", actual: SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX, expected: ".product.md" },
+  { name: "product suffix", actual: SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX, expected: DECLARED_PRODUCT_ROOT_SUFFIX },
   {
     name: "kind suffixes",
     actual: [...NODE_SUFFIXES, ...OUTPUT_SUFFIXES, ...DECISION_SUFFIXES].sort(compareAsciiStrings),
     expected: declaredKinds().map((kind) => DECLARED_KIND_FORMS[kind].suffix).sort(compareAsciiStrings),
   },
-  { name: "evidence directory", actual: SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME, expected: "tests" },
+  {
+    name: "evidence directory",
+    actual: SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME,
+    expected: DECLARED_EVIDENCE_FILE_GRAMMAR.evidence.DIRECTORY_NAME,
+  },
   {
     name: "evidence modes",
     actual: SPEC_TREE_GRAMMAR.EVIDENCE.MODES,
-    expected: ["scenario", "mapping", "conformance", "property", "compliance"],
+    expected: DECLARED_EVIDENCE_FILE_GRAMMAR.evidence.MODES,
   },
-  { name: "execution levels", actual: SPEC_TREE_GRAMMAR.EVIDENCE.LEVELS, expected: ["l1", "l2", "l3"] },
+  {
+    name: "execution levels",
+    actual: SPEC_TREE_GRAMMAR.EVIDENCE.LEVELS,
+    expected: DECLARED_EVIDENCE_FILE_GRAMMAR.evidence.LEVELS,
+  },
   {
     name: "language tails",
     actual: SPEC_TREE_GRAMMAR.EVIDENCE.TAILS,
-    expected: { TYPESCRIPT: ["test", "ts"], PYTHON: ["py"], RUST: ["rs"] },
+    expected: DECLARED_EVIDENCE_FILE_GRAMMAR.evidence.TAILS,
   },
-  { name: "evidence segment separator", actual: SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR, expected: "." },
-  { name: "runner tokens", actual: SPEC_TREE_GRAMMAR.RUNNERS, expected: ["vitest", "playwright", "subprocess"] },
-  { name: "order separator", actual: SPEC_TREE_GRAMMAR.ORDER.SEPARATOR, expected: "-" },
   {
-    name: "order pattern",
-    actual: SPEC_TREE_GRAMMAR.ORDER_FORMS.DIGIT_RUNS.PATTERN.source,
-    expected: String.raw`^\d+(\.\d+)*$`,
+    name: "evidence segment separator",
+    actual: SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR,
+    expected: DECLARED_EVIDENCE_FILE_GRAMMAR.evidence.SEGMENT_SEPARATOR,
   },
-  { name: "path separator", actual: SPEC_TREE_GRAMMAR.PATH_SEPARATOR, expected: "/" },
-  { name: "coordination notes", actual: SPEC_TREE_GRAMMAR.COORDINATION_NOTES, expected: ["PLAN.md", "ISSUES.md"] },
-  { name: "eval directory", actual: SPEC_TREE_GRAMMAR.EVAL.DIRECTORY_NAME, expected: "evals" },
+  { name: "runner tokens", actual: SPEC_TREE_GRAMMAR.RUNNERS, expected: DECLARED_EVIDENCE_FILE_GRAMMAR.runners },
+  { name: "order separator", actual: SPEC_TREE_GRAMMAR.ORDER.SEPARATOR, expected: DECLARED_ORDER_SEPARATOR },
+  { name: "coordination notes", actual: SPEC_TREE_GRAMMAR.COORDINATION_NOTES, expected: DECLARED_COORDINATION_NOTES },
   {
-    name: "eval files",
-    actual: SPEC_TREE_GRAMMAR.EVAL.FILES,
-    expected: DECLARED_EVAL_FILES,
+    name: "eval directory",
+    actual: SPEC_TREE_GRAMMAR.EVAL.DIRECTORY_NAME,
+    expected: DECLARED_EVAL_LANE.DIRECTORY_NAME,
   },
+  { name: "eval files", actual: SPEC_TREE_GRAMMAR.EVAL.FILES, expected: DECLARED_EVAL_LANE.FILES },
   {
     name: "eval files of the 4.0 and 3.x naming-schema versions",
     actual: [
       SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION.eval.FILES,
       canonicalNamingSchemaVersion(SPEC_TREE_NAMING_SCHEMA_VERSIONS).eval.FILES,
     ],
-    expected: [DECLARED_EVAL_FILES, DECLARED_EVAL_FILES],
+    expected: [DECLARED_EVAL_LANE.FILES, DECLARED_EVAL_LANE.FILES],
   },
   {
     name: "evidence file grammar of the 4.0 and 3.x naming-schema versions",
@@ -248,12 +249,28 @@ export const FILENAME_GRAMMAR_TOKEN_CASES: readonly FilenameGrammarTokenCase[] =
   {
     name: "node suffixes of the first naming-schema version",
     actual: [...firstNamingSchemaVersion().nodeSuffixes].sort(compareAsciiStrings),
-    expected: [".capability", ".feature", ".story"],
+    expected: [...DECLARED_FIRST_VERSION_NODE_SUFFIXES].sort(compareAsciiStrings),
   },
-  { name: "eval runs directory", actual: SPEC_TREE_GRAMMAR.EVAL.RUNS_DIRECTORY_NAME, expected: "runs" },
-  { name: "canonical spec suffix", actual: SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX, expected: ".spec.md" },
-  { name: "prior spec suffix", actual: SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX, expected: ".md" },
-  { name: "prior node suffixes", actual: SPEC_TREE_GRAMMAR.PRIOR_NODE_SUFFIXES, expected: [".feature", ".story"] },
+  {
+    name: "eval runs directory",
+    actual: SPEC_TREE_GRAMMAR.EVAL.RUNS_DIRECTORY_NAME,
+    expected: DECLARED_EVAL_LANE.RUNS_DIRECTORY_NAME,
+  },
+  {
+    name: "canonical spec suffix",
+    actual: SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX,
+    expected: DECLARED_SPEC_FILE_SUFFIX.CANONICAL,
+  },
+  {
+    name: "prior spec suffix",
+    actual: SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX,
+    expected: DECLARED_SPEC_FILE_SUFFIX.PRIOR,
+  },
+  {
+    name: "prior node suffixes",
+    actual: [...SPEC_TREE_GRAMMAR.PRIOR_NODE_SUFFIXES].sort(compareAsciiStrings),
+    expected: [...declaredPriorNodeSuffixes()].sort(compareAsciiStrings),
+  },
 ];
 
 const EXPORTED_KINDS_BY_CATEGORY: Readonly<Record<DeclaredKindCategory, readonly Kind[]>> = {
