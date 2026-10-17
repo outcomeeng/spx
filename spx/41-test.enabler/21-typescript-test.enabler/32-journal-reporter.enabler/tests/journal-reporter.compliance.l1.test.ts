@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import { READ_RECORDER_SETUP_FILE } from "@/test/languages/read-recorder";
 import {
   expectedFindingsForScenario,
+  expectedScopeForScenario,
   GENERATED_CASE_STATE,
   JOURNAL_REPORTER_TEST_GENERATOR,
 } from "@testing/generators/testing/journal-reporter";
@@ -19,7 +21,8 @@ describe("journal reporter streaming", () => {
       JOURNAL_REPORTER_TEST_GENERATOR.mixedRunScenario(),
       async (scenario) => {
         const observation = await observeReporterPerHook(scenario);
-        expect(observation.scopesAfterModuleStart).toEqual([{ moduleId: scenario.moduleId }]);
+        expect(observation.scopesBeforeModuleEnd).toEqual([]);
+        expect(observation.scopesAfterModuleEnd).toEqual([expectedScopeForScenario(scenario)]);
         for (const snapshot of observation.caseSnapshots) {
           if (snapshot.runCase.state === GENERATED_CASE_STATE.FAILED) {
             expect(snapshot.findings.at(-1)).toEqual({
@@ -39,7 +42,7 @@ describe("journal reporter streaming", () => {
       JOURNAL_REPORTER_TEST_GENERATOR.mixedRunScenario(),
       async (scenario) => {
         const observation = await observeReporterWithAsyncSink(scenario);
-        expect(observation.scopesAfterModuleStart).toEqual([{ moduleId: scenario.moduleId }]);
+        expect(observation.scopesAfterModuleEnd).toEqual([expectedScopeForScenario(scenario)]);
         expect(observation.findingsAfterCases).toEqual(expectedFindingsForScenario(scenario));
       },
       { level: PROPERTY_LEVEL.L1 },
@@ -66,7 +69,7 @@ describe("journal reporter lost-append surfacing", () => {
 });
 
 describe("journal reporter programmatic registration", () => {
-  it("registers the reporter on a programmatically started run, not via a command-line reporter flag", async () => {
+  it("registers the reporter and the read recorder setup file on a programmatically started run, not via a command-line reporter flag", async () => {
     await assertProperty(
       JOURNAL_REPORTER_TEST_GENERATOR.runRequest(),
       async (request) => {
@@ -74,6 +77,7 @@ describe("journal reporter programmatic registration", () => {
         expect(startedRuns).toHaveLength(1);
         expect(startedRuns[0]?.reporters).toHaveLength(1);
         expect(startedRuns[0]?.testPaths).toEqual(request.testPaths);
+        expect(startedRuns[0]?.setupFiles).toEqual([READ_RECORDER_SETUP_FILE]);
       },
       { level: PROPERTY_LEVEL.L1 },
     );

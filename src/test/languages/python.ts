@@ -211,6 +211,7 @@ async function runTests(request: TestRunRequest, deps: TestRunnerDependencies): 
 export const pythonTestingLanguage: TestingLanguageDescriptor = {
   name: PYTHON_TESTING_LANGUAGE_NAME,
   testFilePatterns: PYTHON_TEST_FILE_PATTERNS,
+  suppliesReadPaths: false,
   productInputPaths: PYTHON_PRODUCT_INPUT_PATHS,
   coveredProductInputPaths,
   matchesTestFile,
