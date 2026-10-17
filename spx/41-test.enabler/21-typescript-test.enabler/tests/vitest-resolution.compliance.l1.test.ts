@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { VITEST_PACKAGE_NAME, VITEST_RUN_MODE } from "@/test/languages/journal-reporter";
-import { expectedFindingsForScenario } from "@testing/generators/testing/journal-reporter";
+import { expectedFindingsForScenario, expectedScopeForScenario } from "@testing/generators/testing/journal-reporter";
 import { TYPESCRIPT_RUNNER_TEST_GENERATOR } from "@testing/generators/testing/typescript-runner";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 import {
@@ -25,7 +25,7 @@ describe("journal-streaming run resolves the Vitest Node API from the product un
       expect(observation.loader.loadedSpecifiers).toEqual([
         observation.loader.specifierFor(observation.request.productDir),
       ]);
-      expect(observation.sink.scopes).toEqual([{ moduleId: observation.scenario.moduleId }]);
+      expect(observation.sink.scopes).toEqual([expectedScopeForScenario(observation.scenario, false)]);
       expect(observation.sink.findings).toEqual(expectedFindingsForScenario(observation.scenario));
       expect(observation.invocation).toEqual({ invoked: true, terminalStatus: observation.reason });
     });

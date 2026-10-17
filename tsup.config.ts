@@ -1,7 +1,13 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/index.ts", "src/cli.ts"],
+  entry: {
+    index: "src/index.ts",
+    cli: "src/cli.ts",
+    // The Vitest worker setup file the journal-streaming run registers through `setupFiles`;
+    // it must exist in dist/ beside the module that names its path.
+    "read-recorder-setup": "src/test/languages/read-recorder-setup.ts",
+  },
   format: ["esm"],
   dts: true,
   clean: true,

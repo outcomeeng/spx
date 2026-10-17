@@ -58,6 +58,7 @@ export const TEST_DISPATCH_GENERATOR = {
   nestedFiles: arbitraryNestedFiles,
   specFileUnder,
   testFileUnder: arbitraryTestFileUnder,
+  everyPatternTestFilesUnder: arbitraryEveryPatternTestFilesUnder,
   distinctTestFilesUnder: arbitraryDistinctTestFilesUnder,
   supportFileUnder: arbitrarySupportFileUnder,
   unmatchedTestFileUnder: arbitraryUnmatchedTestFileUnder,
@@ -249,6 +250,22 @@ function arbitraryTestFileUnder(
   return fc
     .tuple(fc.constantFrom(...descriptor.testFilePatterns), CONFIG_TEST_GENERATOR.key())
     .map(([pattern, name]) => `${testsDirectoryFor(nodePath)}${PATH_SEPARATOR}${pattern.replace(GLOB_WILDCARD, name)}`);
+}
+
+// One test file of the language per member of its `testFilePatterns`, under one node's `tests/`
+// directory — the whole finite pattern domain a descriptor declares, so routing evidence covers
+// every member rather than whichever one a single draw picks.
+function arbitraryEveryPatternTestFilesUnder(
+  descriptor: TestingLanguageDescriptor,
+  nodePath: string,
+): fc.Arbitrary<readonly string[]> {
+  return fc.tuple(
+    ...descriptor.testFilePatterns.map((pattern) =>
+      CONFIG_TEST_GENERATOR.key().map((name) =>
+        `${testsDirectoryFor(nodePath)}${PATH_SEPARATOR}${pattern.replace(GLOB_WILDCARD, name)}`
+      )
+    ),
+  );
 }
 
 // Two distinct test files of a registered language under one node's `tests/` directory — the
