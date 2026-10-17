@@ -1,10 +1,55 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/18-state.enabler/71-snapshot-store.enabler/tests/snapshot-store.compliance.l1.test.ts": "passed",
-      "spx/18-state.enabler/71-snapshot-store.enabler/tests/snapshot-store.scenario.l1.test.ts": "passed"
+      "tests/snapshot-store.compliance.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "11ae60ba2c22c105445a68e008d6ac17ae7663a9",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/18-state.enabler/71-snapshot-store.enabler/snapshot-store.md",
+          "spx/18-state.enabler/71-snapshot-store.enabler/tests/snapshot-store.compliance.l1.test.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/snapshot-store/index.ts",
+          "src/lib/state-store/index.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/state-store/state-store.ts",
+          "testing/harnesses/state/in-memory-file-system.ts"
+        ]
+      },
+      "tests/snapshot-store.scenario.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "11ae60ba2c22c105445a68e008d6ac17ae7663a9",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/18-state.enabler/71-snapshot-store.enabler/snapshot-store.md",
+          "spx/18-state.enabler/71-snapshot-store.enabler/tests/snapshot-store.scenario.l1.test.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/snapshot-store/index.ts",
+          "src/lib/state-store/index.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/state-store/state-store.ts",
+          "testing/harnesses/state/in-memory-file-system.ts"
+        ]
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }
