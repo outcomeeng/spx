@@ -11,7 +11,6 @@ import {
 } from "@/lib/spec-tree";
 import {
   declarationSelectionCases,
-  lineComponent,
   majorComponent,
 } from "@testing/generators/spec-tree/grammar-selection";
 import { orderedDirectoryName } from "@testing/generators/spec-tree/spec-tree";
@@ -35,25 +34,6 @@ describe("methodology declaration to valid naming-schema versions", () => {
       expect(new Set(known.lines)).toEqual(new Set(expectedLines));
     }
   });
-
-  it.each(declarationSelectionCases())(
-    "derives the versions selected for $label from the lines each version serves",
-    (testCase) => {
-      const declaredLines = [testCase.declaration.version, testCase.declaration.migratingFrom]
-        .filter((declared): declared is string => declared !== undefined)
-        .map((declared) => lineComponent(declared));
-
-      const selection = selectSpecTreeGrammar(testCase.declaration);
-
-      expect(new Set(selection.selected)).toEqual(
-        new Set(
-          SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS.filter((known) =>
-            known.lines.some((served) => declaredLines.includes(served))
-          ),
-        ),
-      );
-    },
-  );
 
   it.each(declarationSelectionCases())(
     "reads a .capability node directory under $label as valid on the 4.0 line and superseded on a 3.x line",

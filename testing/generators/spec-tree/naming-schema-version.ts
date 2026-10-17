@@ -61,6 +61,20 @@ export type InjectedEvidenceGrammarScenario = {
   readonly relativePath: string;
 };
 
+/**
+ * One selected version carrying injected evidence tokens beside a known companion, with a file named by
+ * those injected tokens and a file named by the production grammar's tokens.
+ */
+export type EvidenceSelfContainmentScenario = {
+  readonly schemaVersions: readonly NamingSchemaVersion[];
+  readonly selectedVersions: readonly NamingSchemaVersion[];
+  readonly parentId: string;
+  /** A file named by the selected version's own evidence tokens. */
+  readonly ownRelativePath: string;
+  /** A file named by the production grammar's evidence tokens, which the selected version does not carry. */
+  readonly foreignRelativePath: string;
+};
+
 export type SelectedVersionScenario = {
   readonly selected: NamingSchemaVersion;
   readonly companions: readonly NamingSchemaVersion[];
@@ -105,6 +119,7 @@ export const NAMING_SCHEMA_VERSION_TEST_GENERATOR = {
   demotedRegistrySuffixScenario: arbitraryDemotedRegistrySuffixScenario,
   canonicalForeignSuffixScenario: arbitraryCanonicalForeignSuffixScenario,
   injectedEvidenceGrammarScenario: arbitraryInjectedEvidenceGrammarScenario,
+  evidenceSelfContainmentScenario: arbitraryEvidenceSelfContainmentScenario,
 } as const;
 
 function arbitraryNamingSchemaVersionComparisonPair(): fc.Arbitrary<
@@ -220,6 +235,27 @@ function arbitraryInjectedEvidenceGrammarScenario(): fc.Arbitrary<InjectedEviden
         ].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
       };
     });
+}
+
+function arbitraryEvidenceSelfContainmentScenario(): fc.Arbitrary<EvidenceSelfContainmentScenario> {
+  const [productionTail] = Object.values(SPEC_TREE_GRAMMAR.EVIDENCE.TAILS);
+  const [productionMode] = SPEC_TREE_GRAMMAR.EVIDENCE.MODES;
+  const [productionLevel] = SPEC_TREE_GRAMMAR.EVIDENCE.LEVELS;
+  return fc
+    .tuple(arbitraryInjectedEvidenceGrammarScenario(), arbitraryEvidenceToken(), arbitraryEvidenceToken())
+    .filter(([scenario]) =>
+      scenario.selectedVersions.every(({ evidence }) => evidence.DIRECTORY_NAME !== SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME)
+    )
+    .map(([scenario, parentId, subject]) => ({
+      schemaVersions: scenario.schemaVersions,
+      selectedVersions: scenario.selectedVersions,
+      parentId,
+      ownRelativePath: scenario.relativePath,
+      foreignRelativePath: [
+        SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME,
+        [subject, productionMode, productionLevel, ...productionTail].join(SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR),
+      ].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+    }));
 }
 
 /** Two distinct semantic versions ordered by the independent oracle: the older first. */

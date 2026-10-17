@@ -18,6 +18,12 @@ import {
 } from "@/lib/spec-tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
+  NAMING_SCHEMA_VERSION_TEST_GENERATOR,
+  orderedDirectoryRecord,
+  type SelectedVersionScenario,
+} from "@testing/generators/spec-tree/naming-schema-version";
+import { SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
+import {
   GRAMMAR_SELECTION_DECLARATION_FIELD,
   GRAMMAR_SELECTION_FIXTURE,
   type GrammarSelectionDeclaration,
@@ -143,6 +149,44 @@ export function arbitraryKnownNodeSuffix(): fc.Arbitrary<string> {
         .filter((suffix) => suffix !== SPEC_TREE_CONFIG.PRODUCT.NODE_SUFFIX),
     ),
   );
+}
+
+/** A selected version beside known companions, with the node directory its own suffix names. */
+export type SelectedVersionDirectoryScenario = SelectedVersionScenario & {
+  readonly record: ReturnType<typeof orderedDirectoryRecord>;
+};
+
+/** A selected version with its companions and a node directory of the suffix the scenario draws. */
+export function arbitrarySelectedVersionDirectoryScenario(): fc.Arbitrary<SelectedVersionDirectoryScenario> {
+  return fc
+    .tuple(
+      NAMING_SCHEMA_VERSION_TEST_GENERATOR.selectedVersionScenario(),
+      SPEC_TREE_TEST_GENERATOR.filesystemOrder(),
+      SPEC_TREE_TEST_GENERATOR.sourceSlug(),
+    )
+    .map(([scenario, order, slug]) => ({ ...scenario, record: orderedDirectoryRecord(order, slug, scenario.suffix) }));
+}
+
+/** A methodology declaration with a node directory named by a suffix some known version accepts. */
+export type DeclaredNodeDirectoryScenario = {
+  readonly declaration: { readonly version: string; readonly migratingFrom?: string };
+  readonly suffix: string;
+  readonly record: ReturnType<typeof orderedDirectoryRecord>;
+};
+
+export function arbitraryDeclaredNodeDirectoryScenario(): fc.Arbitrary<DeclaredNodeDirectoryScenario> {
+  return fc
+    .tuple(
+      arbitraryMethodologyDeclaration(),
+      SPEC_TREE_TEST_GENERATOR.filesystemOrder(),
+      SPEC_TREE_TEST_GENERATOR.sourceSlug(),
+      arbitraryKnownNodeSuffix(),
+    )
+    .map(([declaration, order, slug, suffix]) => ({
+      declaration,
+      suffix,
+      record: orderedDirectoryRecord(order, slug, suffix),
+    }));
 }
 
 /** A tree whose names a declaration partitions: the declaration to write and the fixture whose names it classifies. */

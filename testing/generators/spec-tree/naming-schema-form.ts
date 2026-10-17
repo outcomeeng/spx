@@ -1,30 +1,15 @@
 /**
- * The filename forms each naming-schema version accepts, as the filename-grammar spec declares them,
- * with the indices the forms accept and reject drawn from generators over the index domain.
+ * Indices each naming-schema version's index form accepts and rejects, drawn from generators over
+ * the open index domain.
  *
- * The expectations come from the spec's per-version statements — the node kinds, the spec-file and
- * root-spec forms, the node-local notes, and the index form — and from no field the library
- * resolves them through: the kind suffixes come from the spec's declared kind list, and the file
- * forms and notes are the spec's own literals. The 4.0 index form ranges over an open value space, so its
- * candidates and its acceptance verdict are generator-owned: the verdict is a reference reading of
- * the spec's statement, never the library's order pattern.
+ * The indices each form ranges over are open value spaces, so the candidates and their acceptance
+ * verdicts are generator-owned: each verdict is a reference reading of the spec's statement of the
+ * form, never the library's order pattern.
  *
  * @module generators/spec-tree/naming-schema-form
  */
 
 import * as fc from "fast-check";
-
-import {
-  DECLARED_COORDINATION_NOTES,
-  DECLARED_PRODUCT_ROOT_SUFFIX,
-  DECLARED_SPEC_FILE_SUFFIX,
-} from "@testing/generators/spec-tree/declared-grammar";
-import {
-  DECLARED_KIND_CATEGORY,
-  DECLARED_PRODUCT_KIND,
-  DECLARED_PRODUCT_NODE_SUFFIX,
-  declaredSuffixesOfCategory,
-} from "@testing/generators/spec-tree/declared-kinds";
 
 const INDEX_SEGMENT_SEPARATOR = ".";
 const FRACTION_SEGMENT_MAX_COUNT = 3;
@@ -40,15 +25,6 @@ const FREE_FORM_INDEX_MAX_LENGTH = 12;
 const DECIMAL_DIGITS = "0123456789";
 const DIGIT_RUN_MAX = 99_999;
 const NON_NUMERIC_SEGMENT = fc.stringMatching(/^[a-z]{1,6}$/);
-
-export type NamingSchemaFormExpectation = {
-  readonly nodeSuffixes: readonly string[];
-  readonly specFileSuffix: string;
-  readonly rootSpecSuffix: string;
-  readonly rootSpecKind: string | undefined;
-  readonly coordinationNotes: readonly string[];
-  readonly decisionSuffixes: readonly string[];
-};
 
 /** A candidate index with the verdict the spec's statement gives it. */
 export type IndexCandidate = {
@@ -178,32 +154,3 @@ export const THREE_X_INDEX_GENERATOR = {
   accepted: arbitraryThreeXAcceptedIndex,
   candidate: arbitraryThreeXIndexCandidate,
 } as const;
-
-const FOUR_ZERO_SPEC_FILE_SUFFIX = DECLARED_SPEC_FILE_SUFFIX.CANONICAL;
-const [THREE_X_PLAN_NOTE, FOUR_ZERO_ISSUES_NOTE] = DECLARED_COORDINATION_NOTES;
-const THREE_X_SPEC_FILE_SUFFIX = DECLARED_SPEC_FILE_SUFFIX.PRIOR;
-const THREE_X_ROOT_SPEC_SUFFIX = DECLARED_PRODUCT_ROOT_SUFFIX;
-
-/** What the 4.0 naming-schema version accepts: output-node directories, `{slug}.spec.md`, and `ISSUES.md`. */
-export function fourZeroFormExpectation(): NamingSchemaFormExpectation {
-  return {
-    nodeSuffixes: [...declaredSuffixesOfCategory(DECLARED_KIND_CATEGORY.OUTPUT), DECLARED_PRODUCT_NODE_SUFFIX],
-    specFileSuffix: FOUR_ZERO_SPEC_FILE_SUFFIX,
-    rootSpecSuffix: FOUR_ZERO_SPEC_FILE_SUFFIX,
-    rootSpecKind: DECLARED_PRODUCT_KIND,
-    coordinationNotes: [FOUR_ZERO_ISSUES_NOTE],
-    decisionSuffixes: declaredSuffixesOfCategory(DECLARED_KIND_CATEGORY.DECISION),
-  };
-}
-
-/** What the 3.x naming-schema version accepts: `.enabler` and `.outcome` directories, `{slug}.md`, `PLAN.md` and `ISSUES.md`. */
-export function threeXFormExpectation(): NamingSchemaFormExpectation {
-  return {
-    nodeSuffixes: declaredSuffixesOfCategory(DECLARED_KIND_CATEGORY.NODE),
-    specFileSuffix: THREE_X_SPEC_FILE_SUFFIX,
-    rootSpecSuffix: THREE_X_ROOT_SPEC_SUFFIX,
-    rootSpecKind: undefined,
-    coordinationNotes: [THREE_X_PLAN_NOTE, FOUR_ZERO_ISSUES_NOTE],
-    decisionSuffixes: declaredSuffixesOfCategory(DECLARED_KIND_CATEGORY.DECISION),
-  };
-}
