@@ -26,6 +26,13 @@ under "Shared verification harness owns test predicates and unclassified Git
 doubles". The facts above are the record-run instance: the token-supplying
 observations and the test cases that consume them.
 
+The line that takes the oracle from the harness is line 27 of
+`tests/record-run.compliance.l1.test.ts`: `expect(observation.stderr).toContain(observation.expectedDiagnosticToken)`
+in the case "rejects a caller-driven lifecycle verb outside the verification run
+noun group". `observeVerificationLifecycleOutsideRunRejection` returns
+`expectedDiagnosticToken` with the observation, so the expected value comes from
+the shared harness and not from the test.
+
 **Impact:** a rejection case passes whenever `stderr` contains whatever token
 the harness chose, so the test file does not show which diagnostic the command
 path owes its caller, and a harness change to the token changes the evidence
@@ -42,7 +49,7 @@ test-evidence audit of this node raises neither finding.
 
 **Evidence:** test-evidence audit run 1 of this node at
 `65e35d2b15b8ca92dd8afdc0ee5f4b95bf67d272`, class source-ownership, on
-`src/interfaces/cli/verify.ts` lines 49–51, outside the `origin/main..HEAD` diff
+`src/interfaces/cli/verify.ts` lines 51–53, outside the `origin/main..HEAD` diff
 of that head. The descriptor defect — `VERIFICATION_RUN_CLI_SURFACE` declaring
 `forbiddenRootCommandName`, `forbiddenRunHelpTerms`, and
 `forbiddenRunCommandNames`, read by no module under `src/` — is recorded in
@@ -67,10 +74,10 @@ of this node raises no source-ownership finding on the descriptor.
 **Evidence:** test-evidence audit run 1 of this node at
 `65e35d2b15b8ca92dd8afdc0ee5f4b95bf67d272`, `WARNING`, host-locale sort, on lines
 outside the `origin/main..HEAD` diff of that head.
-`testing/generators/verify/verify.ts` line 768 builds `changesetScopeScenario`'s
-`resolvedPaths` with `localeCompare`; `verifyScopeMappingCases` (line 649) turns
+`testing/generators/verify/verify.ts` line 1112 builds the changeset scenario's
+`resolvedPaths` with `localeCompare`; `verifyScopeMappingCases` (line 791) turns
 it into `expectedResolvedScope`, which `tests/file-scope.mapping.l1.test.ts`
-compares with `toStrictEqual`. The same module's `changedPathsPair` (line 819)
+compares with `toStrictEqual`. The same module's generator that pairs two changed-path lists (line 1163)
 also orders through `localeCompare`. The product-wide class is recorded in
 [`spx/ISSUES.md`](spx/ISSUES.md) under "Locale-dependent ordering remains in
 projection and listing paths", whose site list names neither line.

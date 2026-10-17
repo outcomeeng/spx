@@ -4,7 +4,7 @@ Except where an entry names another source, the entries below come from test-evi
 
 ## The start scenario takes its expected context and input digest from production code
 
-`tests/verify-start.scenario.l1.test.ts`, lines 19–23, compares the reported `contextDigest`, the persisted context, and `input.digest` with `expectedContext` and `expectedInputDigest`. `observeStartedRunContext` in `testing/harnesses/verify/harness.ts` (lines 3065–3083) builds those values with `scenarioContextDocument(scenario)` and `expectedRunInputDigest(scenario)`. Both helpers call the production canonicalizer and digest that `start` itself uses.
+`tests/verify-start.scenario.l1.test.ts`, lines 19–23, compares the reported `contextDigest`, the persisted context, and `input.digest` with `expectedContext` and `expectedInputDigest`. `observeStartedRunContext` in `testing/harnesses/verify/harness.ts` (function at line 3267) builds those values with `scenarioContextDocument(scenario)` and `expectedRunInputDigest(scenario)`. Both helpers call the production canonicalizer and digest that `start` itself uses.
 
 **Class:** oracle independence. The auditor gave a class, not a rule id.
 
@@ -14,7 +14,7 @@ Except where an entry names another source, the entries below come from test-evi
 
 ## The spx-driven drive-mode case never reaches the path where spx opens a run
 
-`tests/verify-drive-mode.compliance.l1.test.ts`, lines 20–26, supports the assertion that `start` records spx-driven drive mode only when spx opens the run. It calls `observeSpxStartDriveMode`. That harness function, `observeStartDriveMode` in `testing/harnesses/verify/harness.ts` (lines 1702–1722), injects `VERIFY_DRIVE_MODE.SPX` directly into the verify dependencies through `verifyDepsWithDriveMode`. Production sets spx-driven mode at a different place: line 82 of `src/commands/verification-exec/recorder-operations.ts`, when the executor opens its run.
+`tests/verify-drive-mode.compliance.l1.test.ts`, lines 20–26, supports the assertion that `start` records spx-driven drive mode only when spx opens the run. It calls `observeSpxStartDriveMode`. That harness function, `observeStartDriveMode` in `testing/harnesses/verify/harness.ts` (function at line 1787), injects `VERIFY_DRIVE_MODE.SPX` directly into the verify dependencies through `verifyDepsWithDriveMode`. Production sets spx-driven mode at a different place: line 82 of `src/commands/verification-exec/recorder-operations.ts`, when the executor opens its run.
 
 **Class:** the evidence does not exercise the production path the assertion names. The auditor gave a class, not a rule id.
 
@@ -24,7 +24,7 @@ Except where an entry names another source, the entries below come from test-evi
 
 ## The scope mapping hand-lists the supported scope types
 
-`tests/verify-scope.mapping.l1.test.ts`, line 7, iterates `verifyScopeMappingCases()`. That function, `testing/generators/verify/verify.ts` lines 648–676, returns two hand-written cases, one for `changeset` and one for `file`. It does not enumerate the scope types from the closed resolver registry that [`spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`](spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md) makes source-owned.
+`tests/verify-scope.mapping.l1.test.ts`, line 7, iterates `verifyScopeMappingCases()`. That function, `testing/generators/verify/verify.ts` lines 791 onward, returns two hand-written cases, one for `changeset` and one for `file`. It does not enumerate the scope types from the closed resolver registry that [`spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md`](spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md) makes source-owned.
 
 **Class:** mapping case provenance. The cases are not derived from the source-owned finite domain. The auditor gave a class, not a rule id.
 
