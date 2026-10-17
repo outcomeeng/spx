@@ -2122,6 +2122,15 @@ export function parseVerifyExpectations(source: string): Result<VerifyExpectatio
   } catch {
     return { ok: false, error: VERIFY_EXPECTATIONS_ERROR.NOT_JSON };
   }
+  return validateVerifyExpectationsDocument(document);
+}
+
+/**
+ * Validate an expectations document already parsed from JSON: an object carrying `schemaVersion`
+ * `1` and an optional `additionalPaths` array of product-relative paths, absent meaning none. The
+ * rejection names the field or the path at fault.
+ */
+function validateVerifyExpectationsDocument(document: unknown): Result<VerifyExpectations> {
   if (typeof document !== "object" || document === null || Array.isArray(document)) {
     return { ok: false, error: VERIFY_EXPECTATIONS_ERROR.NOT_OBJECT };
   }
@@ -2323,48 +2332,55 @@ export function headCommitOf(events: readonly JournalEvent[]): string | undefine
   return typeof headCommit === "string" && VERIFY_HEAD_COMMIT_PATTERN.test(headCommit) ? headCommit : undefined;
 }
 
+/** The reasons a recorded change inventory is refused; each names the field or the entry at fault. */
+export const VERIFY_CHANGE_INVENTORY_ERROR = {
+  NOT_ARRAY: `${VERIFY_RUN_CONTEXT_EVENT_FIELD.CHANGE_INVENTORY} is not an array of entries`,
+  ENTRY_MALFORMED: "is not an entry carrying a path and a known change kind in",
+} as const;
+
 /**
- * The change inventory folded from the run's run-context event, or `undefined` when the run
- * recorded none — a run that is not changeset-scoped, or one opened before inventories were
- * recorded. An entry that is not a path with a known change kind is skipped.
+ * The change inventory folded from the run's run-context event. A run that recorded none — one that
+ * is not changeset-scoped, or one opened before inventories were recorded — yields `undefined`. A
+ * recorded value that is not an array, or an entry that is not a path with a known change kind, is
+ * refused naming the field or the offending entry, so a malformed entry never shrinks the inventory.
  */
 export function changeInventoryOfRun(
   events: readonly JournalEvent[],
-): readonly VerifyChangeInventoryEntry[] | undefined {
+): Result<readonly VerifyChangeInventoryEntry[] | undefined> {
   const runContext = events.find((event) => event.type === VERIFY_RUN_CONTEXT_EVENT_TYPE);
-  if (runContext === undefined || !isJsonRecord(runContext.data)) return undefined;
+  if (runContext === undefined || !isJsonRecord(runContext.data)) return { ok: true, value: undefined };
   const inventory = runContext.data[VERIFY_RUN_CONTEXT_EVENT_FIELD.CHANGE_INVENTORY];
-  if (!Array.isArray(inventory)) return undefined;
+  if (!(VERIFY_RUN_CONTEXT_EVENT_FIELD.CHANGE_INVENTORY in runContext.data)) return { ok: true, value: undefined };
+  if (!Array.isArray(inventory)) return { ok: false, error: VERIFY_CHANGE_INVENTORY_ERROR.NOT_ARRAY };
   const kinds: ReadonlySet<string> = new Set(Object.values(VERIFY_CHANGE_KIND));
-  return inventory.flatMap((entry): VerifyChangeInventoryEntry[] => {
-    if (!isJsonRecord(entry)) return [];
-    const path = entry[VERIFY_CHANGE_INVENTORY_ENTRY_FIELD.PATH];
-    const changeKind = entry[VERIFY_CHANGE_INVENTORY_ENTRY_FIELD.CHANGE_KIND];
-    return typeof path === "string" && typeof changeKind === "string" && kinds.has(changeKind)
-      ? [{ path, changeKind: changeKind as VerifyChangeKind }]
-      : [];
-  });
+  const entries: VerifyChangeInventoryEntry[] = [];
+  for (const [index, entry] of inventory.entries()) {
+    const path = isJsonRecord(entry) ? entry[VERIFY_CHANGE_INVENTORY_ENTRY_FIELD.PATH] : undefined;
+    const changeKind = isJsonRecord(entry) ? entry[VERIFY_CHANGE_INVENTORY_ENTRY_FIELD.CHANGE_KIND] : undefined;
+    if (typeof path !== "string" || typeof changeKind !== "string" || !kinds.has(changeKind)) {
+      return {
+        ok: false,
+        error: `${
+          JSON.stringify(entry)
+        } ${VERIFY_CHANGE_INVENTORY_ERROR.ENTRY_MALFORMED} ${VERIFY_RUN_CONTEXT_EVENT_FIELD.CHANGE_INVENTORY}[${index}]`,
+      };
+    }
+    entries.push({ path, changeKind: changeKind as VerifyChangeKind });
+  }
+  return { ok: true, value: entries };
 }
 
 /**
- * The expectations folded from the run's run-context event, or `undefined` when the run is bound to
- * none. A document that is not a version-1 object whose additional paths are all strings is ignored.
+ * The expectations folded from the run's run-context event. A run-context event that carries no
+ * expectations value leaves the run unbound and yields `undefined`. A recorded value that is not a
+ * valid expectations document is refused naming the malformed field, never read as unbound.
  */
-export function expectationsOfRun(events: readonly JournalEvent[]): VerifyExpectations | undefined {
+export function expectationsOfRun(events: readonly JournalEvent[]): Result<VerifyExpectations | undefined> {
   const runContext = events.find((event) => event.type === VERIFY_RUN_CONTEXT_EVENT_TYPE);
-  if (runContext === undefined || !isJsonRecord(runContext.data)) return undefined;
+  if (runContext === undefined || !isJsonRecord(runContext.data)) return { ok: true, value: undefined };
   const expectations = runContext.data[VERIFY_RUN_CONTEXT_EVENT_FIELD.EXPECTATIONS];
-  if (!isJsonRecord(expectations)) return undefined;
-  if (expectations[VERIFY_EXPECTATIONS_FIELD.SCHEMA_VERSION] !== VERIFY_EXPECTATIONS_SCHEMA_VERSION) return undefined;
-  const additionalPaths = expectations[VERIFY_EXPECTATIONS_FIELD.ADDITIONAL_PATHS];
-  if (!Array.isArray(additionalPaths)) return undefined;
-  const paths = additionalPaths.filter((path): path is string => typeof path === "string");
-  return paths.length === additionalPaths.length
-    ? {
-      [VERIFY_EXPECTATIONS_FIELD.SCHEMA_VERSION]: VERIFY_EXPECTATIONS_SCHEMA_VERSION,
-      [VERIFY_EXPECTATIONS_FIELD.ADDITIONAL_PATHS]: paths,
-    }
-    : undefined;
+  if (!(VERIFY_RUN_CONTEXT_EVENT_FIELD.EXPECTATIONS in runContext.data)) return { ok: true, value: undefined };
+  return validateVerifyExpectationsDocument(expectations);
 }
 
 /**
