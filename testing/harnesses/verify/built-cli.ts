@@ -515,13 +515,12 @@ export interface BuiltRunPathsInvocationShape {
 }
 
 /**
- * The built `paths` run over a real Git repository's file scope, the same report the production
- * operation returns in process, and the checkout's files and directories immediately before and
- * after the built run, so a test reads what the command printed and whether it wrote anything.
+ * The built `paths` run over a real Git repository's file scope, and the checkout's files and
+ * directories immediately before and after the built run, so a test reads what the command printed
+ * and whether it wrote anything.
  */
 export interface BuiltRunPathsObservation {
   readonly run: BuiltVerificationCliRun;
-  readonly inProcessReport: string;
   readonly stateBefore: readonly RepositoryStateEntry[];
   readonly stateAfter: readonly RepositoryStateEntry[];
 }
@@ -537,7 +536,6 @@ export async function observeBuiltRunPaths(
 ): Promise<BuiltRunPathsObservation> {
   const verificationType = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.verificationType());
   return withVerifyHeadCommitRepository(async (repository) => {
-    const inProcess = await repository.reportWritePaths(VERIFY_SCOPE_TYPE.FILE, verificationType);
     const selectorOptions: ReadonlyArray<readonly [string, string]> = [
       [VERIFY_CLI.verificationTypeOption, verificationType],
       [VERIFY_CLI.scopeTypeOption, VERIFY_SCOPE_TYPE.FILE],
@@ -552,6 +550,62 @@ export async function observeBuiltRunPaths(
     const stateBefore = await repository.snapshotState();
     const run = await runBuiltVerificationRun(repository.productDir, [VERIFY_CLI.pathsCommandName], options);
     const stateAfter = await repository.snapshotState();
-    return { run, inProcessReport: inProcess.output, stateBefore, stateAfter };
+    return { run, stateBefore, stateAfter };
+  });
+}
+
+/**
+ * The built `paths` run for a file scope, then the built `start` for the same verification type,
+ * scope, and branch in the same repository: the file scope and verification type both ran with, the
+ * built runs' outputs, and the checkout's files and directories before `paths`, after `paths`, and
+ * after `start`, so a test compares the reported directories with the ones `start` actually creates.
+ */
+export interface BuiltRunPathsAgainstStartObservation {
+  readonly filePath: string;
+  readonly verificationType: string;
+  readonly paths: BuiltVerificationCliRun;
+  readonly start: BuiltVerificationCliRun;
+  readonly stateBeforePaths: readonly RepositoryStateEntry[];
+  readonly stateAfterPaths: readonly RepositoryStateEntry[];
+  readonly stateAfterStart: readonly RepositoryStateEntry[];
+}
+
+/**
+ * In a real Git repository with a base and a head commit, run the built `spx verification run paths`
+ * for a file scope of a drawn verification type, then the built `spx verification run start` for the
+ * same type and scope with generated input on stdin, capturing the checkout's state before `paths`,
+ * after `paths`, and after `start`.
+ */
+export async function observeBuiltRunPathsAgainstStart(): Promise<BuiltRunPathsAgainstStartObservation> {
+  const verificationType = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.verificationType());
+  return withVerifyHeadCommitRepository(async (repository) => {
+    const selectors = [
+      flagOf(VERIFY_CLI.verificationTypeOption),
+      verificationType,
+      flagOf(VERIFY_CLI.scopeTypeOption),
+      VERIFY_SCOPE_TYPE.FILE,
+      flagOf(VERIFY_CLI.scopeOption),
+      repository.filePath,
+    ];
+    const input = JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.inputPayload()));
+    const stateBeforePaths = await repository.snapshotState();
+    const paths = await runBuiltVerificationRun(repository.productDir, [VERIFY_CLI.pathsCommandName], selectors);
+    const stateAfterPaths = await repository.snapshotState();
+    const start = await runBuiltVerificationRun(
+      repository.productDir,
+      [VERIFY_CLI.startCommandName],
+      [...selectors, flagOf(VERIFY_CLI.inputOption), VERIFY_INPUT_SOURCE.STDIN],
+      input,
+    );
+    const stateAfterStart = await repository.snapshotState();
+    return {
+      filePath: repository.filePath,
+      verificationType,
+      paths,
+      start,
+      stateBeforePaths,
+      stateAfterPaths,
+      stateAfterStart,
+    };
   });
 }
