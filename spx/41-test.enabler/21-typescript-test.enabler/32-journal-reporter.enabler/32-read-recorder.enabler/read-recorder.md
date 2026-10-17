@@ -13,7 +13,7 @@ CAN append a test module's scope carrying every file the module opened, without 
 
 ### Properties
 
-- For every sequence of file reads a module performs, including repeated reads and reads after a working-directory change, the module's metadata holds the sorted list of the unique absolute paths read, each resolved against the worker's working directory at the time of its read, and holds no entry when the module read no file ([test](tests/read-recorder.property.l1.test.ts), [test](tests/read-recorder.scenario.l2.test.ts))
+- For every sequence of file reads a module performs, including repeated reads and reads after a working-directory change, the module's metadata holds the sorted list of the unique absolute paths read, each resolved against the worker's working directory at the time of its read with symbolic links resolved, with an observed path that does not resolve to an existing file dropped while the read that targeted it fails unchanged, and holds no entry when the module read no file ([test](tests/read-recorder.property.l1.test.ts), [test](tests/read-recorder.scenario.l2.test.ts))
 
 ### Compliance
 
