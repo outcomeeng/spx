@@ -155,6 +155,7 @@ export const VERIFY_CLI_ERROR = {
   PATHS_FAILED: "spx verification run paths could not resolve the run write directories",
   RECONCILE_FAILED: "spx verification run could not read the run for scope reconciliation",
   RECONCILE_REJECTED: "spx verification run scope reconciliation rejected the run",
+  FINISH_EXPECTATIONS_MALFORMED: "spx verification run finish refused the run: its recorded expectations are malformed",
 } as const;
 
 export const VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD = {
@@ -1395,10 +1396,20 @@ function validateScopeJudgedDeletions(
 ): Result<void> {
   const judgedDeletions = scopeJudgedDeletionsOf(payload);
   if (judgedDeletions.length === 0) return { ok: true, value: undefined };
-  const listed = validateJudgedDeletionsAgainstInventory(
-    judgedDeletions,
-    changeInventoryOfRun(prepared.existingEvents),
-  );
+  const recordedInventory = changeInventoryOfRun(prepared.existingEvents);
+  if (!recordedInventory.ok) {
+    return {
+      ok: false,
+      error: renderVerifyRejection({
+        headline: VERIFY_CLI_ERROR.SCOPE_INVALID,
+        verificationType,
+        evidenceKind: VERIFY_EVIDENCE_KIND.SCOPE,
+        reason: recordedInventory.error,
+        note: VERIFY_REJECTION_TEXT.APPEND_RETRY_NOTE,
+      }),
+    };
+  }
+  const listed = validateJudgedDeletionsAgainstInventory(judgedDeletions, recordedInventory.value);
   if (listed.ok) return { ok: true, value: undefined };
   return {
     ok: false,
@@ -1739,7 +1750,9 @@ async function refuseUnreconciledBoundRun(
   events: readonly JournalEvent[],
   deps: VerifyCliDeps,
 ): Promise<CliCommandResult | undefined> {
-  if (expectationsOfRun(events) === undefined) return undefined;
+  const expectations = expectationsOfRun(events);
+  if (!expectations.ok) return errorResult(`${VERIFY_CLI_ERROR.FINISH_EXPECTATIONS_MALFORMED}: ${expectations.error}`);
+  if (expectations.value === undefined) return undefined;
   const reconciliation = await reconcileRunEvidence(run, events, deps);
   if (!reconciliation.ok) return reconciliation.error;
   if (reconciliation.value.reconciled) return undefined;
@@ -1910,8 +1923,12 @@ async function reconcileRunEvidence(
   }
 > {
   const failed = (message: string) => ({ ok: false as const, error: errorResult(message) });
-  const recordedInventory = checkReconcilableRun(run.selector.scopeType, changeInventoryOfRun(events));
+  const recordedContext = changeInventoryOfRun(events);
+  if (!recordedContext.ok) return failed(`${VERIFY_CLI_ERROR.RECONCILE_REJECTED}: ${recordedContext.error}`);
+  const recordedInventory = checkReconcilableRun(run.selector.scopeType, recordedContext.value);
   if (!recordedInventory.ok) return failed(`${VERIFY_CLI_ERROR.RECONCILE_REJECTED}: ${recordedInventory.error}`);
+  const expectations = expectationsOfRun(events);
+  if (!expectations.ok) return failed(`${VERIFY_CLI_ERROR.RECONCILE_REJECTED}: ${expectations.error}`);
   const unresolved = failed(
     `${VERIFY_CLI_ERROR.RECONCILE_REJECTED}: ${selectorUnresolvedReason(run.selector.scopeIdentity)}`,
   );
@@ -1925,7 +1942,7 @@ async function reconcileRunEvidence(
     ok: true,
     value: reconcileScope({
       recordedInventory: recordedInventory.value,
-      expectations: expectationsOfRun(events),
+      expectations: expectations.value,
       judgedPaths: runJudgedPathsOf(events),
       judgedDeletions: runJudgedDeletionsOf(events),
       resolvedInventory: resolvedInventory.value,

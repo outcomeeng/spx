@@ -56,14 +56,18 @@ describe("verify scope reconciliation determinism", () => {
     assertProperty(
       RECONCILIATION_TEST_GENERATOR.historiesScenario(),
       (scenario) => {
-        const reconciled = (events: typeof scenario.single) =>
-          reconcileScope({
-            recordedInventory: changeInventoryOfRun(events) ?? [],
-            expectations: expectationsOfRun(events),
+        const reconciled = (events: typeof scenario.single) => {
+          const recordedInventory = changeInventoryOfRun(events);
+          const expectations = expectationsOfRun(events);
+          if (!recordedInventory.ok || !expectations.ok) throw new Error("generated run history is malformed");
+          return reconcileScope({
+            recordedInventory: recordedInventory.value ?? [],
+            expectations: expectations.value,
             judgedPaths: runJudgedPathsOf(events),
             judgedDeletions: runJudgedDeletionsOf(events),
             resolvedInventory: scenario.input.resolvedInventory,
           });
+        };
 
         expect(reconciled(scenario.split)).toEqual(reconciled(scenario.single));
         expect(reconciled(scenario.split)).toEqual(scenario.expected);
