@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 
+import { NODE_STATUS_CLAIM_FIELD, NODE_STATUS_CLAIM_SHAPE, type NodeStatusClaim, parseNodeStatusClaim } from "./claim";
 import {
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_FIELD,
@@ -45,7 +46,12 @@ function isNodeStatusMechanismOverall(value: unknown): value is NodeStatusMechan
   return typeof value === "string" && NODE_STATUS_OVERALL_VALUES.has(value);
 }
 
-export function readNodeStatus(nodeDir: string): NodeStatusFile | undefined {
+/** A status document read in the shape it was written, reported with that shape. */
+export type NodeStatusRead =
+  | { readonly shape: typeof NODE_STATUS_CLAIM_SHAPE.VERSION_1; readonly claim: NodeStatusFile }
+  | { readonly shape: typeof NODE_STATUS_CLAIM_SHAPE.CURRENT; readonly claim: NodeStatusClaim };
+
+export function readNodeStatus(nodeDir: string): NodeStatusRead | undefined {
   const filePath = join(nodeDir, NODE_STATUS_FILENAME);
 
   let content: string;
@@ -61,10 +67,20 @@ export function readNodeStatus(nodeDir: string): NodeStatusFile | undefined {
   return parseNodeStatusFile(JSON.parse(content), filePath);
 }
 
-export function parseNodeStatusFile(candidate: unknown, source: string): NodeStatusFile {
+export function parseNodeStatusFile(candidate: unknown, source: string): NodeStatusRead {
   if (!isObject(candidate)) {
     throw new Error(`Invalid ${NODE_STATUS_FILENAME} at ${source}: expected a JSON object`);
   }
+  if (NODE_STATUS_FIELD.SCHEMA_VERSION in candidate) {
+    return { shape: NODE_STATUS_CLAIM_SHAPE.VERSION_1, claim: parseVersion1File(candidate, source) };
+  }
+  if (NODE_STATUS_CLAIM_FIELD.STATE in candidate) {
+    return { shape: NODE_STATUS_CLAIM_SHAPE.CURRENT, claim: parseNodeStatusClaim(candidate, source) };
+  }
+  throw new Error(`Invalid ${NODE_STATUS_FILENAME} at ${source}: neither a version-1 nor a 4.0 claim`);
+}
+
+function parseVersion1File(candidate: Record<string, unknown>, source: string): NodeStatusFile {
   if (candidate[NODE_STATUS_FIELD.SCHEMA_VERSION] !== NODE_STATUS_SCHEMA_VERSION) {
     throw new Error(
       `Invalid ${NODE_STATUS_FILENAME} at ${source}: schemaVersion must be ${NODE_STATUS_SCHEMA_VERSION}`,

@@ -1,0 +1,20 @@
+---
+malleability: spec
+---
+# Fixture
+
+PROVIDES fixture infrastructure
+SO THAT node-status tests
+CAN pin results to read paths
+
+## Assertions
+
+### Scenarios
+
+- Given a first input, when it is processed, then the first output is produced ([test](tests/first.scenario.l1.test.ts))
+- Given a second input, when it is processed, then the second output is produced ([test](tests/second.scenario.l1.test.ts))
+
+### Compliance
+
+- ALWAYS: the first rule holds ([audit:rule-one])
+- NEVER: the second rule is broken ([audit:rule-two])
