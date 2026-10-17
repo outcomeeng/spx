@@ -243,7 +243,7 @@ function createVerifyRunStarter(productDir: string, git: GitDependencies): Verif
       const templateContext = (await readRunEvents(template.verificationType, templateToken)).find((event) =>
         event.type === VERIFY_RUN_CONTEXT_EVENT_TYPE
       );
-      if (templateContext === undefined) {
+      if (templateContext === undefined || deps.journalBinding === undefined) {
         throw new Error("verify repository harness: the template run holds no run-context event to re-record");
       }
       const opened = await journalOpenCommand({ type: template.verificationType }, deps);
