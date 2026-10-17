@@ -18,6 +18,7 @@ import {
   evidenceFileIncompleteCases,
   firstVersionNodeDirectoryCases,
 } from "@testing/generators/spec-tree/filename-grammar";
+import { SPEC_TREE_CASE_TITLE } from "@testing/generators/spec-tree/spec-tree";
 import { recognitionOptionsForLine } from "@testing/harnesses/spec-tree/filename-grammar";
 
 describe("evidence files under a node's tests directory", () => {
@@ -49,7 +50,7 @@ describe("evidence files under a node's tests directory", () => {
 });
 
 describe("node directories of the first naming-schema version", () => {
-  it.each(firstVersionNodeDirectoryCases())("$title", (testCase) => {
+  it.each(firstVersionNodeDirectoryCases())(SPEC_TREE_CASE_TITLE, (testCase) => {
     const entry = recognizeSpecTreeFilesystemEntry(testCase.record, testCase.options);
 
     expect(entry?.type).toBe(SPEC_TREE_ENTRY_TYPE.NODE);

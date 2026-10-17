@@ -3,10 +3,14 @@ import * as fc from "fast-check";
 import type { Config } from "@/config/types";
 import {
   DECISION_KINDS,
+  DECISION_SUFFIXES,
   type Kind,
   KIND_REGISTRY,
   type NamingSchemaVersion,
   NODE_KINDS,
+  NODE_SUFFIXES,
+  OUTPUT_KINDS,
+  OUTPUT_SUFFIXES,
   SPEC_TREE_CONFIG,
   SPEC_TREE_CONFIG_FIELDS,
   SPEC_TREE_ENTRY_TYPE,
@@ -760,4 +764,37 @@ function requireFirst<T>(values: readonly T[]): T {
   const first = values[0];
   if (first === undefined) throw new Error("Expected a non-empty source-owned registry projection");
   return first;
+}
+
+/** One exported kind sub-registry with the category that selects its members from `KIND_REGISTRY`. */
+export type KindSubregistryCase = {
+  readonly category: SpecTreeKindCategory;
+  readonly kinds: readonly Kind[];
+  readonly suffixes: readonly string[];
+};
+
+/** One exported sub-registry per registry category, pairing each with the category its members are filtered by. */
+export function kindSubregistryCases(): readonly KindSubregistryCase[] {
+  return [
+    { category: SPEC_TREE_KIND_CATEGORY.NODE, kinds: NODE_KINDS, suffixes: NODE_SUFFIXES },
+    { category: SPEC_TREE_KIND_CATEGORY.OUTPUT, kinds: OUTPUT_KINDS, suffixes: OUTPUT_SUFFIXES },
+    { category: SPEC_TREE_KIND_CATEGORY.DECISION, kinds: DECISION_KINDS, suffixes: DECISION_SUFFIXES },
+  ];
+}
+
+/** One group of registered kinds whose suffixes the spec requires to be pairwise distinct. */
+export type SuffixUniquenessCase = {
+  readonly title: string;
+  readonly kinds: readonly Kind[];
+};
+
+/** The three suffix-uniqueness groups the spec declares: node directory suffixes, decision filename suffixes, and all registered suffixes. */
+export function suffixUniquenessCases(): readonly SuffixUniquenessCase[] {
+  const registered = Object.keys(KIND_REGISTRY) as Kind[];
+  const isDecision = (kind: Kind): boolean => KIND_REGISTRY[kind].category === SPEC_TREE_KIND_CATEGORY.DECISION;
+  return [
+    { title: "node directory suffixes", kinds: registered.filter((kind) => !isDecision(kind)) },
+    { title: "decision filename suffixes", kinds: registered.filter(isDecision) },
+    { title: "all registered suffixes", kinds: registered },
+  ];
 }
