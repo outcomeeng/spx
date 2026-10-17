@@ -7,7 +7,7 @@ import {
   resolveContextShow,
 } from "@/commands/spec/context-show";
 import { nextCommand } from "@/commands/spec/next";
-import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
+import { createNodeStatusResolvers, type NodeStatusResolvers } from "@/commands/spec/node-status-resolvers";
 import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec/status";
 import { inferInvokingCodingAgent } from "@/interfaces/cli/coding-agent";
 import type { Domain } from "@/interfaces/cli/domain";
@@ -197,17 +197,22 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
     .action(async (options: { json?: boolean; format?: string; update?: boolean }) => {
       try {
         const format = resolveStatusFormat(options);
+        let statusResolvers: NodeStatusResolvers | undefined;
+        const statusResolversFor = (
+          productDir: string,
+        ): NodeStatusResolvers => (statusResolvers ??= createNodeStatusResolvers({
+          productDir,
+          registry: testingRegistry,
+        }));
         const output = options.update === true
           ? await statusCommand({
             cwd: productDir(),
             format,
             onWarning,
             update: true,
-            resolveOutcomeFor: (productDir) =>
-              createNodeOutcomeResolver({
-                productDir,
-                registry: testingRegistry,
-              }),
+            resolveOutcomeFor: (productDir) => statusResolversFor(productDir).resolveOutcome,
+            resolveReadPathsFor: (productDir) => statusResolversFor(productDir).resolveReadPaths,
+            resolveAttributedResultsFor: (productDir) => statusResolversFor(productDir).resolveAttributedResults,
           })
           : await statusCommand({ cwd: productDir(), format, onWarning });
         writeOutput(invocation.io, output);
