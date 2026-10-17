@@ -437,7 +437,11 @@ function evidenceParentId(line: SpecTreeMethodologyLine): string {
 }
 
 function evidencePath(parentId: string, segments: readonly string[]): string {
-  return [parentId, SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME, segments.join(SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR)]
+  return [
+    parentId,
+    SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME,
+    segments.join(SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR),
+  ]
     .join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
 }
 
@@ -453,7 +457,9 @@ export function evidenceFileAcceptanceCases(): readonly EvidenceFileAcceptanceCa
     const parentId = evidenceParentId(line);
     return Object.entries(SPEC_TREE_GRAMMAR.EVIDENCE.TAILS).flatMap(([language, tail]) =>
       runnerChoices.map((runner): EvidenceFileAcceptanceCase => ({
-        title: `${line} ${language} files with ${runner === undefined ? "no runner token" : `the ${runner} runner token`}`,
+        title: `${line} ${language} files with ${
+          runner === undefined ? "no runner token" : `the ${runner} runner token`
+        }`,
         line,
         parentId,
         relativePaths: SPEC_TREE_GRAMMAR.EVIDENCE.MODES.flatMap((mode) =>
