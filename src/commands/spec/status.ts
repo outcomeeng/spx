@@ -5,6 +5,8 @@ import {
   type NodeAttributedResultResolver,
   type NodeOutcomeResolver,
   type NodeReadPathResolver,
+  type NodeStatusClaimReport,
+  readNodeStatusReports,
   updateNodeStatus,
 } from "@/lib/node-status";
 import {
@@ -147,12 +149,20 @@ export async function statusCommand(
     source: createFilesystemSpecTreeSource({ productDir }),
     evidence: await createNodeStatusProvider(productDir, { gitDependencies }),
   });
-  return renderSpecStatus(projectSpecTree(snapshot), options.format);
+  return renderSpecStatus(
+    projectSpecTree(snapshot),
+    options.format,
+    await readNodeStatusReports(productDir, { gitDependencies }),
+  );
 }
+
+/** The claim a node's JSON entry carries; `claims` is keyed by node id and absent for a node with no committed claim. */
+export type SpecStatusClaims = ReadonlyMap<string, NodeStatusClaimReport>;
 
 export function renderSpecStatus(
   projection: SpecTreeProjection,
   format: OutputFormat = DEFAULT_FORMAT,
+  claims: SpecStatusClaims = new Map(),
 ): TerminalText {
   if (projection.nodes.length === 0 && format !== OUTPUT_FORMAT.JSON) {
     return authoredText(SPEC_STATUS_MESSAGE.EMPTY);
@@ -160,7 +170,7 @@ export function renderSpecStatus(
 
   switch (format) {
     case OUTPUT_FORMAT.JSON:
-      return formatJSON(projection);
+      return formatJSON(projection, claims);
     case OUTPUT_FORMAT.MARKDOWN:
       return formatMarkdown(projection);
     case OUTPUT_FORMAT.TABLE:
@@ -174,8 +184,25 @@ export function renderSpecStatus(
   }
 }
 
-function formatJSON(projection: SpecTreeProjection): TerminalText {
-  return jsonDocument(projection, JSON_INDENTATION);
+function formatJSON(projection: SpecTreeProjection, claims: SpecStatusClaims): TerminalText {
+  return jsonDocument(
+    { ...projection, nodes: projection.nodes.map((node) => withClaim(node, claims)) },
+    JSON_INDENTATION,
+  );
+}
+
+type SpecStatusJsonNode = Omit<SpecTreeProjectedNode, "children"> & {
+  readonly claim?: NodeStatusClaimReport;
+  readonly children: readonly SpecStatusJsonNode[];
+};
+
+function withClaim(node: SpecTreeProjectedNode, claims: SpecStatusClaims): SpecStatusJsonNode {
+  const claim = claims.get(node.id);
+  return {
+    ...node,
+    ...(claim === undefined ? {} : { claim: { ...claim, state: claim.state ?? node.state } }),
+    children: node.children.map((child) => withClaim(child, claims)),
+  };
 }
 
 function formatText(projection: SpecTreeProjection): TerminalText {

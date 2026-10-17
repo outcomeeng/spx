@@ -69,4 +69,10 @@ export {
 } from "./fold";
 export { createNodeStatusProvider } from "./provider";
 export { NODE_STATUS_FILENAME, type NodeStatusRead, parseNodeStatusFile, readNodeStatus } from "./read";
+export {
+  type NodeStatusClaimReport,
+  type NodeStatusResultReport,
+  readNodeStatusReports,
+  type ReadNodeStatusReportsOptions,
+} from "./report";
 export { type NodeOutcomeResolver, updateNodeStatus, type UpdateNodeStatusOptions } from "./update";
