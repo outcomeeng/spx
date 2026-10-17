@@ -4,8 +4,8 @@
  *
  * The expectations come from the spec's per-version statements — the node kinds, the spec-file and
  * root-spec forms, the node-local notes, and the index form — and from no field the library
- * resolves them through. Source-owned tokens (output kinds, decision suffixes, grammar suffixes)
- * are imported from their owners. The 4.0 index form ranges over an open value space, so its
+ * resolves them through: the kind suffixes come from the spec's declared kind list, and the file
+ * forms and notes are the spec's own literals. The 4.0 index form ranges over an open value space, so its
  * candidates and its acceptance verdict are generator-owned: the verdict is a reference reading of
  * the spec's statement, never the library's order pattern.
  *
@@ -15,15 +15,13 @@
 import * as fc from "fast-check";
 
 import {
-  DECISION_SUFFIXES,
-  NODE_SUFFIXES,
-  OUTPUT_SUFFIXES,
-  SPEC_TREE_CONFIG,
-  SPEC_TREE_GRAMMAR,
-} from "@/lib/spec-tree";
+  DECLARED_KIND_CATEGORY,
+  DECLARED_PRODUCT_KIND,
+  DECLARED_PRODUCT_NODE_SUFFIX,
+  declaredSuffixesOfCategory,
+} from "@testing/generators/spec-tree/declared-kinds";
 
 const INDEX_SEGMENT_SEPARATOR = ".";
-const NODE_SUFFIX_LEAD = ".";
 const FRACTION_SEGMENT_MAX_COUNT = 3;
 const DIGIT_RUN_SEGMENT_MAX_COUNT = 6;
 const FOUR_ZERO_INTEGER_RANGE = { min: 10, max: 99 } as const;
@@ -176,26 +174,32 @@ export const THREE_X_INDEX_GENERATOR = {
   candidate: arbitraryThreeXIndexCandidate,
 } as const;
 
+const FOUR_ZERO_SPEC_FILE_SUFFIX = ".spec.md";
+const FOUR_ZERO_ISSUES_NOTE = "ISSUES.md";
+const THREE_X_SPEC_FILE_SUFFIX = ".md";
+const THREE_X_ROOT_SPEC_SUFFIX = ".product.md";
+const THREE_X_PLAN_NOTE = "PLAN.md";
+
 /** What the 4.0 naming-schema version accepts: output-node directories, `{slug}.spec.md`, and `ISSUES.md`. */
 export function fourZeroFormExpectation(): NamingSchemaFormExpectation {
   return {
-    nodeSuffixes: [...OUTPUT_SUFFIXES, `${NODE_SUFFIX_LEAD}${SPEC_TREE_CONFIG.PRODUCT.KIND}`],
-    specFileSuffix: SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX,
-    rootSpecSuffix: SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX,
-    rootSpecKind: SPEC_TREE_CONFIG.PRODUCT.KIND,
-    coordinationNotes: [SPEC_TREE_GRAMMAR.COORDINATION_NOTE.ISSUES],
-    decisionSuffixes: DECISION_SUFFIXES,
+    nodeSuffixes: [...declaredSuffixesOfCategory(DECLARED_KIND_CATEGORY.OUTPUT), DECLARED_PRODUCT_NODE_SUFFIX],
+    specFileSuffix: FOUR_ZERO_SPEC_FILE_SUFFIX,
+    rootSpecSuffix: FOUR_ZERO_SPEC_FILE_SUFFIX,
+    rootSpecKind: DECLARED_PRODUCT_KIND,
+    coordinationNotes: [FOUR_ZERO_ISSUES_NOTE],
+    decisionSuffixes: declaredSuffixesOfCategory(DECLARED_KIND_CATEGORY.DECISION),
   };
 }
 
 /** What the 3.x naming-schema version accepts: `.enabler` and `.outcome` directories, `{slug}.md`, `PLAN.md` and `ISSUES.md`. */
 export function threeXFormExpectation(): NamingSchemaFormExpectation {
   return {
-    nodeSuffixes: NODE_SUFFIXES,
-    specFileSuffix: SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX,
-    rootSpecSuffix: SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX,
+    nodeSuffixes: declaredSuffixesOfCategory(DECLARED_KIND_CATEGORY.NODE),
+    specFileSuffix: THREE_X_SPEC_FILE_SUFFIX,
+    rootSpecSuffix: THREE_X_ROOT_SPEC_SUFFIX,
     rootSpecKind: undefined,
-    coordinationNotes: [SPEC_TREE_GRAMMAR.COORDINATION_NOTE.PLAN, SPEC_TREE_GRAMMAR.COORDINATION_NOTE.ISSUES],
-    decisionSuffixes: DECISION_SUFFIXES,
+    coordinationNotes: [THREE_X_PLAN_NOTE, FOUR_ZERO_ISSUES_NOTE],
+    decisionSuffixes: declaredSuffixesOfCategory(DECLARED_KIND_CATEGORY.DECISION),
   };
 }

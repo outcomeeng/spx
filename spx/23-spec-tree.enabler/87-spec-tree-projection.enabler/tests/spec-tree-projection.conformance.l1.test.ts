@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { KIND_REGISTRY, projectSpecTree, readSpecTree, SPEC_TREE_PROJECTION } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { buildRepresentativeFixture, createSource } from "@testing/generators/spec-tree/spec-tree";
-import { expectPresent } from "@testing/harnesses/spec-tree/assertions";
 
 describe("spec-tree projection contract", () => {
   it("conforms to the stable projection shape consumed by commands and automation", async () => {
@@ -13,9 +12,14 @@ describe("spec-tree projection contract", () => {
     });
 
     const projection = projectSpecTree(snapshot);
-    const root = expectPresent(projection.nodes.find((node) => node.id === fixture.root.id));
-    const decision = expectPresent(projection.decisions.find((entry) => entry.id === fixture.decision.id));
-    const product = expectPresent(projection.product);
+    const root = projection.nodes.find((node) => node.id === fixture.root.id);
+    const decision = projection.decisions.find((entry) => entry.id === fixture.decision.id);
+    const product = projection.product;
+
+    expect(root).toBeDefined();
+    expect(decision).toBeDefined();
+    expect(product).not.toBeNull();
+    if (root === undefined || decision === undefined || product === null) return;
 
     expect(Object.keys(projection).sort(compareAsciiStrings)).toEqual(
       Object.values(SPEC_TREE_PROJECTION.KEYS).sort(compareAsciiStrings),
