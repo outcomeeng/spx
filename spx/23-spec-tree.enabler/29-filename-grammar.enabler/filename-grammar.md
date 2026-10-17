@@ -6,10 +6,6 @@ CAN resolve and validate the configured vocabulary, and classify and render file
 
 ## Assertions
 
-- Both the 4.0 and the 3.x naming-schema version accept, under a node's `tests/` directory, an evidence file named `{subject}.{evidence}.{level}`, then an optional runner token, then a language tail, each segment separated by `.`: `{evidence}` is `scenario`, `mapping`, `conformance`, `property`, or `compliance`, `{level}` is `l1`, `l2`, or `l3`, the runner token is `vitest`, `playwright`, or `subprocess`, and the language tail is `test.ts` for TypeScript, `py` for Python, and `rs` for Rust
-- Both the 4.0 and the 3.x naming-schema version accept, under a node's `evals/{rule-slug}/` directory, the files `eval.toml`, `cases.jsonl`, `prompt.md`, `prompt.template.md`, and `history.jsonl`, and a `runs/` directory
-- The first naming-schema version accepts `.capability`, `.feature`, and `.story` node directories
-
 ### Scenarios
 
 - Given the spec-tree descriptor is registered with the config module, when `resolveConfig(productDir)` runs with no yaml, then the resolved spec-tree section carries no `kinds` field ([test](tests/spec-tree-config.scenario.l1.test.ts))
@@ -17,6 +13,9 @@ CAN resolve and validate the configured vocabulary, and classify and render file
 
 ### Mappings
 
+- Both the 4.0 and the 3.x naming-schema version accept, under a node's `tests/` directory, an evidence file named `{subject}.{evidence}.{level}`, then an optional runner token, then a language tail, each segment separated by `.`: `{evidence}` is `scenario`, `mapping`, `conformance`, `property`, or `compliance`, `{level}` is `l1`, `l2`, or `l3`, the runner token is `vitest`, `playwright`, or `subprocess`, and the language tail is `test.ts` for TypeScript, `py` for Python, and `rs` for Rust ([test](tests/filename-grammar.mapping.l1.test.ts))
+- Both the 4.0 and the 3.x naming-schema version accept, under a node's `evals/{rule-slug}/` directory, the files `eval.toml`, `cases.jsonl`, `prompt.md`, `prompt.template.md`, and `history.jsonl`, and a `runs/` directory ([test](tests/filename-grammar.mapping.l1.test.ts))
+- The first naming-schema version accepts `.capability`, `.feature`, and `.story` node directories ([test](tests/filename-grammar.mapping.l1.test.ts))
 - Every kind key maps to exactly one category value and one suffix through `KIND_REGISTRY` ([test](tests/kind-registry.mapping.l1.test.ts))
 - Filtering `KIND_REGISTRY` by category maps to the exported node and decision sub-registries, and their suffix projections match their members ([test](tests/kind-registry-subsets.mapping.l1.test.ts))
 - Every Spec-Tree filename grammar token — kind and product suffixes, evidence modes, execution levels, language tails, the runner token, segment and order separators, the order pattern, coordination-note names, eval-lane names, and spec-file suffixes — resolves through the grammar registry surface ([test](tests/filename-grammar.mapping.l1.test.ts))
