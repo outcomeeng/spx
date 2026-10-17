@@ -36,7 +36,7 @@ import {
   verifyStatusCommand,
 } from "@/commands/verify/cli";
 import type { CliCommandResult } from "@/config/types";
-import { VERIFY_INPUT_SOURCE, VERIFY_SCOPE_TYPE, VERIFY_VERB } from "@/domains/verify/verify";
+import { VERIFY_INPUT_SOURCE, VERIFY_SCOPE_TYPE, VERIFY_VERB, VERIFY_VERIFIER_KIND } from "@/domains/verify/verify";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { jsonDocument, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
@@ -96,6 +96,9 @@ export const VERIFY_CLI = {
   inputOption: "--input <input-source>",
   changeOption: "--change <owner/repo#N>",
   changeOptionDescription: "Change the run serves, in the canonical owner/repo#N form; omit when it serves none",
+  verifierOption: "--verifier <kind:id>",
+  verifierOptionDescription:
+    `Verifier that judges the run, as <kind>:<id> with kind ${VERIFY_VERIFIER_KIND.PERSON} or ${VERIFY_VERIFIER_KIND.AGENT}; omit when none is named`,
   listChangeOptionDescription: "Change whose runs are listed, in the canonical owner/repo#N form",
   compareCommandName: VERIFY_VERB.COMPARE,
   compareCommandDescription:
@@ -124,6 +127,7 @@ interface VerifySharedCliOptions {
 interface VerifyStartActionOptions extends VerifySharedCliOptions {
   readonly input: string;
   readonly change?: string;
+  readonly verifier?: string;
 }
 
 interface VerifyInputActionOptions extends VerifySharedCliOptions {
@@ -234,6 +238,7 @@ export function registerVerifyCommands(
     .requiredOption(VERIFY_CLI.scopeOption, VERIFY_CLI.scopeOptionDescription)
     .requiredOption(VERIFY_CLI.inputOption, "Verification input source; stdin or a file path")
     .option(VERIFY_CLI.changeOption, VERIFY_CLI.changeOptionDescription)
+    .option(VERIFY_CLI.verifierOption, VERIFY_CLI.verifierOptionDescription)
     .action(async (options: VerifyStartActionOptions) => {
       reportCliResult(await handlers.start(options, deps()), invocation.io);
     });
