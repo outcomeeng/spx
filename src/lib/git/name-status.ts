@@ -10,6 +10,25 @@ export const GIT_RANGE_SEPARATOR = "..";
 export function changesetNameStatusArgs(base: string, head: string): readonly string[] {
   return [GIT_DIFF_COMMAND, GIT_NAME_STATUS_FLAG, GIT_NULL_DELIMITED_FLAG, `${base}${GIT_RANGE_SEPARATOR}${head}`];
 }
+export const GIT_FIND_RENAMES_FLAG = "-M";
+export const GIT_FIND_COPIES_FLAG = "-C";
+export const GIT_FIND_COPIES_HARDER_FLAG = "--find-copies-harder";
+
+/**
+ * The `git diff --name-status -z` argv over `<base>..<head>` with rename and copy detection, where
+ * every path of the base is a copy candidate, so a copy of an unmodified file is reported as a copy.
+ */
+export function changesetInventoryNameStatusArgs(base: string, head: string): readonly string[] {
+  return [
+    GIT_DIFF_COMMAND,
+    GIT_NAME_STATUS_FLAG,
+    GIT_NULL_DELIMITED_FLAG,
+    GIT_FIND_RENAMES_FLAG,
+    GIT_FIND_COPIES_FLAG,
+    GIT_FIND_COPIES_HARDER_FLAG,
+    `${base}${GIT_RANGE_SEPARATOR}${head}`,
+  ];
+}
 export const GIT_RENAME_STATUS_EXAMPLE = "R100";
 export const GIT_COPY_STATUS_EXAMPLE = "C100";
 export const GIT_MODIFY_STATUS_EXAMPLE = "M";

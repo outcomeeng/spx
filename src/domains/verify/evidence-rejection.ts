@@ -54,6 +54,9 @@ export const EVIDENCE_REQUIREMENT = {
   AUDIT_FINDING_UNIT_IS_RECORDED: "a finding names a unit already recorded as scope evidence in the run",
   JUDGED_PATHS_NEED_HEAD_COMMIT: "a run recording judged paths carries the head commit recorded at its start",
   JUDGED_PATH_HELD_AT_HEAD: "every judged path names a file the run's head commit holds",
+  JUDGED_DELETIONS_NEED_CHANGE_INVENTORY:
+    "a run recording judged deletions carries the change inventory recorded at its start",
+  JUDGED_DELETION_LISTED_AS_DELETED: "every judged deletion names a path the run's change inventory lists as deleted",
 } as const;
 
 export type EvidenceRequirement = (typeof EVIDENCE_REQUIREMENT)[keyof typeof EVIDENCE_REQUIREMENT];

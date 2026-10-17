@@ -35,6 +35,9 @@ import {
   type ReviewTerminalState,
   TEST_PAYLOAD_FIELD,
   type UnanchoredReviewFinding,
+  VERIFY_CHANGE_KIND,
+  VERIFY_EXPECTATIONS_FIELD,
+  VERIFY_EXPECTATIONS_SCHEMA_VERSION,
   VERIFY_FINDING_DISPOSITION,
   VERIFY_SCOPE_PAYLOAD_FIELD,
   VERIFY_SCOPE_SEPARATOR,
@@ -981,6 +984,156 @@ function arbitraryJudgedPathsCase(
     });
 }
 
+/**
+ * One judged-deletions case for a run of `verificationType` whose scope identity is `scopeIdentity`
+ * and whose change inventory lists exactly the product-relative file `deletedPath` as deleted
+ * among the paths drawn here. Each payload is a valid first scope unit of the type carrying the
+ * type-neutral judged-deletions field.
+ */
+export interface JudgedDeletionsCase {
+  /** A payload whose judged deletions name only the deleted file. */
+  readonly listedPayload: JsonValue;
+  /** A payload whose judged deletions name the deleted file and a path the inventory does not list. */
+  readonly unlistedPayload: JsonValue;
+  /** The deleted file's spelling in `listedPayload`. */
+  readonly deletedSpelling: string;
+  /** The path in `unlistedPayload` that the inventory does not list. */
+  readonly unlistedPath: string;
+  /** The entry index of the deleted file in `listedPayload`'s judged deletions. */
+  readonly listedIndex: number;
+  /** The entry index of the deleted file in `unlistedPayload`'s judged deletions. */
+  readonly deletedIndex: number;
+  /** The entry index of the unlisted path in `unlistedPayload`'s judged deletions. */
+  readonly unlistedIndex: number;
+}
+
+/** A scope unit as a JSON payload carrying `judgedDeletions` as its type-neutral judged-deletions field. */
+function scopeUnitWithJudgedDeletions(unit: object, judgedDeletions: readonly string[]): JsonValue {
+  return JSON.parse(
+    JSON.stringify({ ...unit, [VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_DELETIONS]: judgedDeletions }),
+  ) as JsonValue;
+}
+
+/**
+ * A valid first scope unit of a run of `verificationType` whose scope identity is `scopeIdentity`,
+ * carrying `judgedDeletions` as its judged-deletions field.
+ */
+function arbitraryJudgedDeletionsScopeUnit(
+  verificationType: VerifyVerificationType,
+  scopeIdentity: string,
+  judgedDeletions: readonly string[],
+): fc.Arbitrary<JsonValue> {
+  return RUN_FIRST_SCOPE_UNIT[verificationType](scopeIdentity).map((unit) =>
+    scopeUnitWithJudgedDeletions(unit, judgedDeletions)
+  );
+}
+
+function arbitraryJudgedDeletionsCase(
+  verificationType: VerifyVerificationType,
+  scopeIdentity: string,
+  deletedPath: string,
+): fc.Arbitrary<JudgedDeletionsCase> {
+  return fc
+    .record({
+      unit: RUN_FIRST_SCOPE_UNIT[verificationType](scopeIdentity),
+      deletedSpelling: arbitraryEquivalentPathSpelling(deletedPath),
+      unlistedPath: arbitrarySourceFilePath().filter((path) => path !== deletedPath),
+      unlistedFirst: fc.boolean(),
+    })
+    .map(({ unit, deletedSpelling, unlistedPath, unlistedFirst }) => {
+      const listed = [deletedSpelling];
+      const judgedDeletions = unlistedFirst ? [unlistedPath, deletedSpelling] : [deletedSpelling, unlistedPath];
+      return {
+        listedPayload: scopeUnitWithJudgedDeletions(unit, listed),
+        unlistedPayload: scopeUnitWithJudgedDeletions(unit, judgedDeletions),
+        deletedSpelling,
+        unlistedPath,
+        listedIndex: listed.indexOf(deletedSpelling),
+        deletedIndex: judgedDeletions.indexOf(deletedSpelling),
+        unlistedIndex: judgedDeletions.indexOf(unlistedPath),
+      };
+    });
+}
+
+/**
+ * The git change operations a changeset can contain, one per way a path's state differs between a
+ * changeset's base and head: a path appears, a path's content changes, a path's file type changes, a
+ * path disappears, a path moves, a path is duplicated while its source stays.
+ */
+export const VERIFY_CHANGE_OPERATION = {
+  ADD: "add",
+  MODIFY: "modify",
+  TYPE_CHANGE: "type-change",
+  DELETE: "delete",
+  RENAME: "rename",
+  COPY: "copy",
+} as const;
+
+export type VerifyChangeOperation = (typeof VERIFY_CHANGE_OPERATION)[keyof typeof VERIFY_CHANGE_OPERATION];
+
+/** The two distinct product-relative paths a change operation acts on: the path it starts from and the path a move or copy produces. */
+export interface VerifyChangeOperationPaths {
+  readonly headBranch: string;
+  readonly sourcePath: string;
+  readonly targetPath: string;
+}
+
+/** A judged scope unit payload beside a terminal status the unit's verification type accepts for a run recording it. */
+export interface JudgedEvidenceTerminalCase {
+  readonly payload: JsonValue;
+  readonly terminalStatus: string;
+}
+
+/**
+ * A judged scope unit of a run of `verificationType` naming `judgedPaths`, with a terminal status
+ * that type accepts for the run it opens: `rejected` for an audit run whose only unit is an
+ * uncovered required coverage gap and for a review run, whose `rejected` status no recorded unit
+ * conflicts with, and `failed` for a test run, whose runner vocabulary has no agentic disposition.
+ */
+function arbitraryJudgedEvidenceTerminalCase(
+  verificationType: VerifyVerificationType,
+  scopeIdentity: string,
+  judgedPaths: readonly string[],
+): fc.Arbitrary<JudgedEvidenceTerminalCase> {
+  const unit: Readonly<Record<VerifyVerificationType, fc.Arbitrary<object>>> = {
+    [VERIFY_VERIFICATION_TYPE.AUDIT]: arbitraryCoverageGapAuditScopeUnit().map(
+      ({ parentUnitId: _parentUnitId, ...rest }) => ({
+        ...rest,
+        subject: scopeIdentity,
+        coverageRequirement: AUDIT_COVERAGE_REQUIREMENT.REQUIRED,
+      }),
+    ),
+    [VERIFY_VERIFICATION_TYPE.REVIEW]: RUN_FIRST_SCOPE_UNIT[VERIFY_VERIFICATION_TYPE.REVIEW](scopeIdentity),
+    [VERIFY_VERIFICATION_TYPE.TEST]: RUN_FIRST_SCOPE_UNIT[VERIFY_VERIFICATION_TYPE.TEST](scopeIdentity),
+  };
+  const terminalStatus: Readonly<Record<VerifyVerificationType, string>> = {
+    [VERIFY_VERIFICATION_TYPE.AUDIT]: JOURNAL_RUN_STATE_STATUS.REJECTED,
+    [VERIFY_VERIFICATION_TYPE.REVIEW]: JOURNAL_RUN_STATE_STATUS.REJECTED,
+    [VERIFY_VERIFICATION_TYPE.TEST]: JOURNAL_RUN_STATE_STATUS.FAILED,
+  };
+  return unit[verificationType].map((drawn) => ({
+    payload: scopeUnitWithJudgedPaths(drawn, judgedPaths),
+    terminalStatus: terminalStatus[verificationType],
+  }));
+}
+
+/** A field of the expectations document. */
+export type VerifyExpectationsField = (typeof VERIFY_EXPECTATIONS_FIELD)[keyof typeof VERIFY_EXPECTATIONS_FIELD];
+
+/** The head branch and the three distinct product-relative paths a finish-reconciliation repository holds. */
+export interface VerifyFinishRepositoryPaths {
+  readonly headBranch: string;
+  readonly sourcePath: string;
+  readonly unchangedPath: string;
+  readonly advancedPath: string;
+}
+
+/** The ways a declared additional path fails to be a product-relative path: it is absolute, or it climbs out of the product. */
+const NON_PRODUCT_RELATIVE_PATH_PREFIXES = ["/", "../"] as const;
+
+const UNKNOWN_CHANGE_KIND_CHARACTERS = "abcdefghijklmnopqrstuvwxyz-";
+const UNKNOWN_CHANGE_KIND_MAX_LENGTH = 12;
+
 export const VERIFY_TEST_GENERATOR = {
   verificationType: (): fc.Arbitrary<string> => fc.constantFrom(...VERIFY_VERIFICATION_TYPES),
   judgedPathsCase: (
@@ -988,6 +1141,22 @@ export const VERIFY_TEST_GENERATOR = {
     scopeIdentity: string,
     heldPath: string,
   ): fc.Arbitrary<JudgedPathsCase> => arbitraryJudgedPathsCase(verificationType, scopeIdentity, heldPath),
+  judgedDeletionsCase: (
+    verificationType: VerifyVerificationType,
+    scopeIdentity: string,
+    deletedPath: string,
+  ): fc.Arbitrary<JudgedDeletionsCase> => arbitraryJudgedDeletionsCase(verificationType, scopeIdentity, deletedPath),
+  judgedDeletionsScopeUnit: (
+    verificationType: VerifyVerificationType,
+    scopeIdentity: string,
+    judgedDeletions: readonly string[],
+  ): fc.Arbitrary<JsonValue> => arbitraryJudgedDeletionsScopeUnit(verificationType, scopeIdentity, judgedDeletions),
+  judgedEvidenceTerminalCase: (
+    verificationType: VerifyVerificationType,
+    scopeIdentity: string,
+    judgedPaths: readonly string[],
+  ): fc.Arbitrary<JudgedEvidenceTerminalCase> =>
+    arbitraryJudgedEvidenceTerminalCase(verificationType, scopeIdentity, judgedPaths),
   judgedScopeUnit: (
     verificationType: VerifyVerificationType,
     scopeIdentity: string,
@@ -1020,6 +1189,102 @@ export const VERIFY_TEST_GENERATOR = {
       headBranch: VERIFY_TEST_GENERATOR.changesetRef().filter((ref) => ref !== GIT_ROOT_COMMAND.HEAD),
       filePath: arbitrarySourceFilePath(),
     }),
+  /** The layout of a real repository for one change operation: the head branch and two distinct product-relative paths. */
+  changeOperationPaths: (): fc.Arbitrary<VerifyChangeOperationPaths> =>
+    fc.record({
+      headBranch: VERIFY_TEST_GENERATOR.changesetRef().filter((ref) => ref !== GIT_ROOT_COMMAND.HEAD),
+      sourcePath: arbitrarySourceFilePath(),
+      targetPath: arbitrarySourceFilePath(),
+    }).filter(({ sourcePath, targetPath }) => sourcePath !== targetPath),
+  /**
+   * The layout of a real repository for finish reconciliation: the head branch and three distinct
+   * product-relative paths — the one the changeset changes, one both commits hold unchanged, and one
+   * a later commit on the head adds.
+   */
+  finishRepository: (): fc.Arbitrary<VerifyFinishRepositoryPaths> =>
+    fc.record({
+      headBranch: VERIFY_TEST_GENERATOR.changesetRef().filter((ref) => ref !== GIT_ROOT_COMMAND.HEAD),
+      paths: fc.uniqueArray(arbitrarySourceFilePath(), { minLength: 3, maxLength: 3 }),
+    }).map(({ headBranch, paths }) => ({
+      headBranch,
+      sourcePath: paths[0] ?? "",
+      unchangedPath: paths[1] ?? "",
+      advancedPath: paths[2] ?? "",
+    })),
+  /**
+   * A recorded expectations value that violates the expectations-document rule on `field` alone: an
+   * unsupported schema version for the schema-version field, a non-array value for the additional
+   * paths field, with every other field well formed.
+   */
+  malformedExpectationsOn: (field: VerifyExpectationsField): fc.Arbitrary<JsonValue> => {
+    const unsupportedSchemaVersion = fc.oneof(
+      fc.integer().filter((version) => version !== VERIFY_EXPECTATIONS_SCHEMA_VERSION),
+      fc.string(),
+    );
+    const nonArrayPaths = fc.oneof(fc.string(), fc.integer(), fc.boolean(), fc.dictionary(fc.string(), fc.string()));
+    return field === VERIFY_EXPECTATIONS_FIELD.SCHEMA_VERSION
+      ? unsupportedSchemaVersion.map((version) => ({
+        [VERIFY_EXPECTATIONS_FIELD.SCHEMA_VERSION]: version,
+        [VERIFY_EXPECTATIONS_FIELD.ADDITIONAL_PATHS]: [],
+      }))
+      : nonArrayPaths.map((paths) => ({
+        [VERIFY_EXPECTATIONS_FIELD.SCHEMA_VERSION]: VERIFY_EXPECTATIONS_SCHEMA_VERSION,
+        [VERIFY_EXPECTATIONS_FIELD.ADDITIONAL_PATHS]: paths,
+      }));
+  },
+  /** A recorded expectations value that is not an object: an array, a string, a number, a boolean, or null. */
+  nonObjectExpectations: (): fc.Arbitrary<JsonValue> =>
+    VERIFY_TEST_GENERATOR.nonObjectJsonDocument().map((document) => JSON.parse(document) as JsonValue),
+  /** A recorded change-inventory entry carrying a path and a change kind the declared change kinds do not name. */
+  unknownChangeKindEntry: (): fc.Arbitrary<{ readonly path: string; readonly changeKind: string }> => {
+    const declaredKinds: readonly string[] = Object.values(VERIFY_CHANGE_KIND);
+    return fc.record({
+      path: arbitrarySourceFilePath(),
+      changeKind: fc
+        .array(fc.constantFrom(...UNKNOWN_CHANGE_KIND_CHARACTERS), {
+          minLength: 1,
+          maxLength: UNKNOWN_CHANGE_KIND_MAX_LENGTH,
+        })
+        .map((characters) => characters.join(""))
+        .filter((kind) => !declaredKinds.includes(kind)),
+    });
+  },
+  /** A product-relative path distinct from `heldPath`, the path the head commit holds. */
+  absentProductPath: (heldPath: string): fc.Arbitrary<string> =>
+    arbitrarySourceFilePath().filter((path) => path !== heldPath),
+  /** A path that is not product-relative: absolute, or climbing out of the product. */
+  nonProductRelativePath: (): fc.Arbitrary<string> =>
+    fc.tuple(fc.constantFrom(...NON_PRODUCT_RELATIVE_PATH_PREFIXES), arbitrarySourceFilePath()).map((
+      [prefix, path],
+    ) => `${prefix}${path}`),
+  /** A JSON document that is not an object: an array, a string, a number, a boolean, or null. */
+  nonObjectJsonDocument: (): fc.Arbitrary<string> =>
+    fc.oneof(fc.array(fc.string()), fc.string(), fc.integer(), fc.boolean(), fc.constant(null)).map((value) =>
+      JSON.stringify(value)
+    ),
+  /** A schema version other than the supported one: any integer except it, or a non-integer value. */
+  unsupportedExpectationsSchemaVersion: (supportedVersion: number): fc.Arbitrary<JsonValue> =>
+    fc.oneof(
+      fc.integer().filter((version) => version !== supportedVersion),
+      fc.string(),
+      fc.boolean(),
+      fc.constant(null),
+    ),
+  /** An `additionalPaths` value that is not an array: a string, a number, a boolean, or an object. */
+  nonArrayAdditionalPaths: (): fc.Arbitrary<JsonValue> =>
+    fc.oneof(
+      fc.string(),
+      fc.integer(),
+      fc.boolean(),
+      fc.dictionary(fc.string(), fc.string()),
+    ),
+  /** An `additionalPaths` array that carries at least one entry that is not a string. */
+  additionalPathsWithNonStringEntry: (): fc.Arbitrary<JsonValue> =>
+    fc.tuple(
+      fc.array(arbitrarySourceFilePath(), { maxLength: 2 }),
+      fc.oneof(fc.integer(), fc.boolean(), fc.constant(null), fc.array(fc.string(), { maxLength: 2 })),
+      fc.array(arbitrarySourceFilePath(), { maxLength: 2 }),
+    ).map(([before, entry, after]) => [...before, entry, ...after]),
   changesetScopeScenario: (): fc.Arbitrary<{
     readonly range: { readonly base: string; readonly head: string };
     readonly changedPaths: readonly string[];
