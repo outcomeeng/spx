@@ -17,6 +17,8 @@ Directory access granted through writable roots is prompt-bounded operation with
 
 ## Verification
 
-- ALWAYS: the reported journal runs directory and verification-context directory equal the directories into which a run started for the same verification type, scope, and branch key writes its journal and its context
-- ALWAYS: a reported directory's path resolves the symbolic links of its nearest existing ancestor, and a directory that does not exist reports the missing directories from that ancestor down
-- NEVER: the report creates, changes, or removes a file or directory
+### Testing
+
+- ALWAYS: the reported journal runs directory and verification-context directory equal the directories into which a run started for the same verification type, scope, and branch key writes its journal and its context ([conformance])
+- ALWAYS: a reported directory's path resolves the symbolic links of its nearest existing ancestor, and a directory that does not exist reports the missing directories from that ancestor down ([property])
+- NEVER: the report creates, changes, or removes a file or directory ([compliance])
