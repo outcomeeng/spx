@@ -2,10 +2,12 @@ import * as fc from "fast-check";
 
 import type { Config } from "@/config/types";
 import {
+  canonicalNamingSchemaVersion,
   DECISION_KINDS,
   DECISION_SUFFIXES,
   type Kind,
   KIND_REGISTRY,
+  type NamingSchemaVersion,
   NODE_KINDS,
   NODE_SUFFIXES,
   OUTPUT_KINDS,
@@ -18,6 +20,8 @@ import {
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_KIND_CATEGORY,
   SPEC_TREE_METHODOLOGY_LINE,
+  SPEC_TREE_NAMING_SCHEMA_VERSIONS,
+  SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION,
   type SpecTreeEntryType,
   type SpecTreeFilesystemRecordType,
   type SpecTreeMethodologyLine,
@@ -163,6 +167,26 @@ export type SupersededLineScenario = {
   readonly expectedVersion: string;
 };
 
+/** The files the methodology states under a node's `evals/{rule-slug}/` directory. */
+const DECLARED_EVAL_FILES = ["eval.toml", "cases.jsonl", "prompt.md", "prompt.template.md", "history.jsonl"] as const;
+
+/** The evidence-file segments the methodology states under a node's `tests/` directory, with the runner tokens. */
+const DECLARED_EVIDENCE_FILE_GRAMMAR = {
+  evidence: {
+    DIRECTORY_NAME: "tests",
+    MODES: ["scenario", "mapping", "conformance", "property", "compliance"],
+    LEVELS: ["l1", "l2", "l3"],
+    TAILS: { TYPESCRIPT: ["test", "ts"], PYTHON: ["py"], RUST: ["rs"] },
+    SEGMENT_SEPARATOR: ".",
+  },
+  runners: ["vitest", "playwright", "subprocess"],
+} as const;
+
+/** The naming-schema version that precedes every other under semantic-version ordering. */
+function firstNamingSchemaVersion(): NamingSchemaVersion {
+  return [...SPEC_TREE_NAMING_SCHEMA_VERSIONS].sort((left, right) => semverOrderOracle(left.version, right.version))[0];
+}
+
 /**
  * One case per grammar token group, each paired with the value the methodology states for it: the
  * product and spec-file suffixes, the kind suffixes the spec declares, the evidence modes, levels,
@@ -203,7 +227,28 @@ export const FILENAME_GRAMMAR_TOKEN_CASES: readonly FilenameGrammarTokenCase[] =
   {
     name: "eval files",
     actual: SPEC_TREE_GRAMMAR.EVAL.FILES,
-    expected: ["eval.toml", "cases.jsonl", "prompt.md", "history.jsonl"],
+    expected: DECLARED_EVAL_FILES,
+  },
+  {
+    name: "eval files of the 4.0 and 3.x naming-schema versions",
+    actual: [
+      SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION.eval.FILES,
+      canonicalNamingSchemaVersion(SPEC_TREE_NAMING_SCHEMA_VERSIONS).eval.FILES,
+    ],
+    expected: [DECLARED_EVAL_FILES, DECLARED_EVAL_FILES],
+  },
+  {
+    name: "evidence file grammar of the 4.0 and 3.x naming-schema versions",
+    actual: [
+      SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION,
+      canonicalNamingSchemaVersion(SPEC_TREE_NAMING_SCHEMA_VERSIONS),
+    ].map((version) => ({ evidence: version.evidence, runners: version.runners })),
+    expected: [DECLARED_EVIDENCE_FILE_GRAMMAR, DECLARED_EVIDENCE_FILE_GRAMMAR],
+  },
+  {
+    name: "node suffixes of the first naming-schema version",
+    actual: [...firstNamingSchemaVersion().nodeSuffixes].sort(compareAsciiStrings),
+    expected: [".capability", ".feature", ".story"],
   },
   { name: "eval runs directory", actual: SPEC_TREE_GRAMMAR.EVAL.RUNS_DIRECTORY_NAME, expected: "runs" },
   { name: "canonical spec suffix", actual: SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX, expected: ".spec.md" },
