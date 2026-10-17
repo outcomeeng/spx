@@ -33,7 +33,7 @@ CAN operate on one scoped verification run with a stable subject, recorded input
 
 ### Compliance
 
-- ALWAYS: `start` rejects a Verifier whose kind is neither `person` nor `agent`, or whose id is empty, before any run exists ([test](tests/verify-verifier.compliance.l1.test.ts))
+- ALWAYS: `start` rejects a Verifier whose kind is neither `person` nor `agent`, or whose id is empty or only whitespace, before any run exists ([test](tests/verify-verifier.compliance.l1.test.ts))
 - ALWAYS: start records caller-driven drive mode for the caller command path and records spx-driven drive mode only when spx opens the run ([test](tests/verify-drive-mode.compliance.l1.test.ts))
 - ALWAYS: start requires an input source and records the verification input for recorded-input replay ([test](tests/verify-start.compliance.l1.test.ts))
 - ALWAYS: `start` rejects an unsupported verification type before any started run exists, so an unregistered type cannot reach finding evidence and append an unvalidated finding ([test](tests/verify-start.compliance.l1.test.ts))
