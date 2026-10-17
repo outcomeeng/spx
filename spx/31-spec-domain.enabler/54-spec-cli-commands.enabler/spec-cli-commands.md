@@ -10,15 +10,12 @@ CAN inspect node state, select the next non-passing node, discover relevant subt
 
 ## Assertions
 
-- Given one or more accepted targets, when `spx spec context list <targets...>` runs, then it emits the context library's versioned structural manifest for those targets
-- Given zero or more targets, when `spx spec context show [targets...]` runs, then it emits the context library's targetless or targeted document projection
-- Given `--methodology` and `--coding-agent <name>`, when `spx spec context show` runs, then it accepts both options
-- Given `list` or `show`, when `--json` is supplied, then only the representation changes
-- NEVER: `spx spec context show` or `spx spec context list` registers a `--content` or `--understand` option
-- Given the packaged executable and a tracked node with linked evidence, when `spx spec status --update` runs through the process boundary, then its output reports the same rollup that a subsequent `spx spec status` invocation renders
-
 ### Scenarios
 
+- Given one or more accepted targets, when `spx spec context list <targets...>` runs, then it emits the context library's versioned structural manifest for those targets ([test](tests/spec-context-commands.scenario.l1.test.ts))
+- Given zero or more targets, when `spx spec context show [targets...]` runs, then it emits the context library's targetless or targeted document projection ([test](tests/spec-context-commands.scenario.l1.test.ts))
+- Given `--methodology` and `--coding-agent <name>`, when `spx spec context show` runs, then it accepts both options ([test](tests/spec-context-commands.scenario.l1.test.ts))
+- Given the packaged executable and a tracked node with linked evidence, when `spx spec status --update` runs through the process boundary, then its output reports the same rollup that a subsequent `spx spec status` invocation renders ([test](tests/spec-cli-commands.scenario.l2.test.ts))
 - Given a tracked `spx/` tree contains spec-tree nodes, when `spx spec status` reads the tree, then it reports registry labels, node paths, and derived node states from the spec-tree library surface ([test](tests/spec-cli-commands.scenario.l1.test.ts))
 - Given a tracked `spx/` tree contains actionable spec-tree nodes, when `spx spec next` reads the tree, then it reports the first non-passing node selected by the spec-tree library's traversal surface ([test](tests/spec-cli-commands.scenario.l1.test.ts))
 - Given a tracked `spx/` tree is read from a nested directory inside a git repository, when `spx spec status` and `spx spec next` run, then both commands resolve the product root through the worktree-local git root and read the tracked `spx/` tree ([test](tests/spec-cli-commands.scenario.l1.test.ts))
@@ -39,13 +36,15 @@ CAN inspect node state, select the next non-passing node, discover relevant subt
 
 ### Mappings
 
+- Given `list` or `show`, when `--json` is supplied, then only the representation changes ([test](tests/spec-context-json.mapping.l1.test.ts))
 - Recorded test evidence maps to each linked reference as follows: a fresh covering outcome maps the reference to its own test file's recorded verdict (`passed`, `failed`, or `not-run`), independent of the verdict of every other file the same run covered; a covered stale outcome keeps the committed entry with its pin; and an uncovered reference maps to `not-run` ([test](tests/spec-status-fold.mapping.l1.test.ts))
 
 ### Compliance
 
+- NEVER: `spx spec context show` or `spx spec context list` registers a `--content` or `--understand` option ([test](tests/spec-cli-commands.compliance.l1.test.ts))
 - ALWAYS: command handlers operate on tracked `spx/` files using worktree-local root resolution per [spx/15-worktree-management.pdr.md](spx/15-worktree-management.pdr.md) ([audit])
 - ALWAYS: `spx spec status --update` writes node verification outcomes only as `spx.status.json` files within the tracked `spx/` tree, per [spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md](spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md) ([audit])
 - NEVER: command handlers parse spec-tree suffixes or assemble hierarchy themselves — they consume `src/lib/spec-tree/index.ts` ([audit])
 - ALWAYS: `spx spec status --update` obtains each node's verification outcomes from recorded evidence produced by the owning verification surface, never from a status-owned runner, per [spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md](spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md) ([audit])
 - NEVER: `spx spec status` executes verification in any form — with or without `--update`, it reports state derived from recorded verification outcomes or live structure, per [spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md](spx/31-spec-domain.enabler/21-node-status.enabler/15-status-file-contract.pdr.md) ([test](tests/status-testing-delegation.compliance.l1.test.ts))
-- ALWAYS: reporting pin currency executes no verification and writes nothing
+- ALWAYS: reporting pin currency executes no verification and writes nothing ([test](tests/spec-cli-commands.compliance.l1.test.ts))
