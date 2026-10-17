@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
+import { VERIFY_CLI } from "@/interfaces/cli/verify";
 import { CLI_TIMEOUTS_MS } from "@testing/harnesses/constants";
 import { observeBuiltExpectationsOption } from "@testing/harnesses/verify/built-cli";
 
@@ -11,9 +12,9 @@ describe("record-run --expectations option placement through the built executabl
       await observeBuiltExpectationsOption().then((observation) => {
         expect(observation.start.exitCode, observation.start.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
         expect(observation.reconcileWithExpectations.exitCode).not.toBe(VERIFY_CLI_EXIT_CODE.OK);
-        expect(observation.reconcileWithExpectations.stderr).toContain(observation.expectationsFlag);
+        expect(observation.reconcileWithExpectations.stderr).toContain(VERIFY_CLI.expectationsOption.split(" ")[0]);
         expect(observation.finishWithExpectations.exitCode).not.toBe(VERIFY_CLI_EXIT_CODE.OK);
-        expect(observation.finishWithExpectations.stderr).toContain(observation.expectationsFlag);
+        expect(observation.finishWithExpectations.stderr).toContain(VERIFY_CLI.expectationsOption.split(" ")[0]);
         expect(observation.statusReport.sealed).toBe(false);
       });
     },
