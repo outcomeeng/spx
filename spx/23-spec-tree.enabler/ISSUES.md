@@ -45,13 +45,3 @@ The canonical ADR template (`plugins/spec-tree/skills/understanding/templates/de
 **Impact:** a consumer that resolves ownership against a product-less snapshot with cross-branch claims gets an exception the declared contract does not name.
 
 **Settlement condition:** either the spec property and the ADR invariant are narrowed to snapshots that carry a product, or the operation is made total — a third discriminated outcome or `unresolved` when no common node exists and the snapshot has no product — with a generated product-less snapshot in the property.
-
-## Spec-tree tests assert presence through a shared harness helper
-
-`expectPresent` in `testing/harnesses/spec-tree/assertions.ts` holds two `expect` calls (defined, not null) that decide whether a recognized or projected value exists, and returns the value. The tests that call it are `29-filename-grammar.enabler/tests/spec-file-form.mapping.l1.test.ts` and `87-spec-tree-projection.enabler/tests/spec-tree-projection.conformance.l1.test.ts`.
-
-**Evidence:** `grep -rn "expectPresent" spx testing --include=*.ts`.
-
-**Impact:** a presence predicate sits in a harness shared by two nodes, so the linked tests show no presence predicate and the helper cannot serve a test claiming absence.
-
-**Settlement condition:** each of those tests states its presence expectation inline (optional chaining on the observed value, or an inline `expect` before a narrowing guard), and `assertions.ts` is removed.
