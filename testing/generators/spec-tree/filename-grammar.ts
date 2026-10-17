@@ -20,10 +20,25 @@ import {
   SPEC_TREE_METHODOLOGY_LINE,
   type SpecTreeEntryType,
   type SpecTreeFilesystemRecordType,
-  type SpecTreeKindCategory,
   type SpecTreeMethodologyLine,
 } from "@/lib/spec-tree";
-import { FOUR_ZERO_INDEX_GENERATOR, THREE_X_INDEX_GENERATOR } from "@testing/generators/spec-tree/naming-schema-form";
+import { compareAsciiStrings } from "@/lib/state-store";
+import {
+  DECLARED_KIND_CATEGORY,
+  DECLARED_KIND_FORMS,
+  DECLARED_PRODUCT_KIND,
+  DECLARED_PRODUCT_NODE_SUFFIX,
+  type DeclaredKindCategory,
+  declaredKinds,
+  declaredKindsOfCategory,
+  declaredSuffixesOfCategory,
+} from "@testing/generators/spec-tree/declared-kinds";
+import {
+  FOUR_ZERO_INDEX_GENERATOR,
+  fourZeroFormExpectation,
+  THREE_X_INDEX_GENERATOR,
+  threeXFormExpectation,
+} from "@testing/generators/spec-tree/naming-schema-form";
 import {
   orderedDirectoryRecord,
   semverMaximumOracle,
@@ -39,18 +54,28 @@ import {
 
 export type FilenameGrammarTokenCase = {
   readonly name: string;
-  readonly size: number;
+  readonly actual: unknown;
+  readonly expected: unknown;
 };
 
 export type KindRegistryMappingCase = {
   readonly title: string;
   readonly kind: Kind;
-  readonly suffixPattern: RegExp;
+  readonly category: DeclaredKindCategory;
+  readonly suffix: string;
+};
+
+/** The exported kind lists one declared kind belongs to, by its declared category. */
+export type KindPartitionCase = {
+  readonly kind: Kind;
+  readonly inNodeKinds: boolean;
+  readonly inOutputKinds: boolean;
+  readonly inDecisionKinds: boolean;
 };
 
 export type KindRegistrySubsetCase = {
   readonly title: string;
-  readonly category: SpecTreeKindCategory;
+  readonly category: DeclaredKindCategory;
   readonly projectedKinds: readonly Kind[];
   readonly projectedSuffixes: readonly string[];
   readonly exportedKinds: readonly Kind[];
@@ -138,98 +163,105 @@ export type SupersededLineScenario = {
   readonly expectedVersion: string;
 };
 
-export const FILENAME_GRAMMAR_TOKEN_CASES = [
-  { name: "product suffix", size: SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX.length },
-  { name: "evidence directory", size: SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME.length },
-  { name: "evidence modes", size: SPEC_TREE_GRAMMAR.EVIDENCE.MODES.length },
-  { name: "execution levels", size: SPEC_TREE_GRAMMAR.EVIDENCE.LEVELS.length },
-  { name: "language tails", size: Object.keys(SPEC_TREE_GRAMMAR.EVIDENCE.TAILS).length },
-  { name: "evidence segment separator", size: SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR.length },
-  { name: "runner tokens", size: SPEC_TREE_GRAMMAR.RUNNERS.length },
-  { name: "order separator", size: SPEC_TREE_GRAMMAR.ORDER.SEPARATOR.length },
-  { name: "order pattern", size: SPEC_TREE_GRAMMAR.ORDER_FORMS.DIGIT_RUNS.PATTERN.source.length },
-  { name: "path separator", size: SPEC_TREE_GRAMMAR.PATH_SEPARATOR.length },
-  { name: "coordination notes", size: SPEC_TREE_GRAMMAR.COORDINATION_NOTES.length },
-  { name: "eval directory", size: SPEC_TREE_GRAMMAR.EVAL.DIRECTORY_NAME.length },
-  { name: "eval files", size: SPEC_TREE_GRAMMAR.EVAL.FILES.length },
-  { name: "eval runs directory", size: SPEC_TREE_GRAMMAR.EVAL.RUNS_DIRECTORY_NAME.length },
-  { name: "canonical spec suffix", size: SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX.length },
-  { name: "prior spec suffix", size: SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX.length },
-  { name: "prior node suffixes", size: SPEC_TREE_GRAMMAR.PRIOR_NODE_SUFFIXES.length },
-] as const satisfies readonly FilenameGrammarTokenCase[];
+/**
+ * One case per grammar token group, each paired with the value the methodology states for it: the
+ * product and spec-file suffixes, the kind suffixes the spec declares, the evidence modes, levels,
+ * and language tails, the runner tokens, the separators, the coordination-note names, and the
+ * eval-lane names. The expected values are the methodology's own literals, never a field the
+ * library resolves them through.
+ */
+export const FILENAME_GRAMMAR_TOKEN_CASES: readonly FilenameGrammarTokenCase[] = [
+  { name: "product suffix", actual: SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX, expected: ".product.md" },
+  {
+    name: "kind suffixes",
+    actual: [...NODE_SUFFIXES, ...OUTPUT_SUFFIXES, ...DECISION_SUFFIXES].sort(compareAsciiStrings),
+    expected: declaredKinds().map((kind) => DECLARED_KIND_FORMS[kind].suffix).sort(compareAsciiStrings),
+  },
+  { name: "evidence directory", actual: SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME, expected: "tests" },
+  {
+    name: "evidence modes",
+    actual: SPEC_TREE_GRAMMAR.EVIDENCE.MODES,
+    expected: ["scenario", "mapping", "conformance", "property", "compliance"],
+  },
+  { name: "execution levels", actual: SPEC_TREE_GRAMMAR.EVIDENCE.LEVELS, expected: ["l1", "l2", "l3"] },
+  {
+    name: "language tails",
+    actual: SPEC_TREE_GRAMMAR.EVIDENCE.TAILS,
+    expected: { TYPESCRIPT: ["test", "ts"], PYTHON: ["py"], RUST: ["rs"] },
+  },
+  { name: "evidence segment separator", actual: SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR, expected: "." },
+  { name: "runner tokens", actual: SPEC_TREE_GRAMMAR.RUNNERS, expected: ["vitest", "playwright", "subprocess"] },
+  { name: "order separator", actual: SPEC_TREE_GRAMMAR.ORDER.SEPARATOR, expected: "-" },
+  {
+    name: "order pattern",
+    actual: SPEC_TREE_GRAMMAR.ORDER_FORMS.DIGIT_RUNS.PATTERN.source,
+    expected: String.raw`^\d+(\.\d+)*$`,
+  },
+  { name: "path separator", actual: SPEC_TREE_GRAMMAR.PATH_SEPARATOR, expected: "/" },
+  { name: "coordination notes", actual: SPEC_TREE_GRAMMAR.COORDINATION_NOTES, expected: ["PLAN.md", "ISSUES.md"] },
+  { name: "eval directory", actual: SPEC_TREE_GRAMMAR.EVAL.DIRECTORY_NAME, expected: "evals" },
+  {
+    name: "eval files",
+    actual: SPEC_TREE_GRAMMAR.EVAL.FILES,
+    expected: ["eval.toml", "cases.jsonl", "prompt.md", "history.jsonl"],
+  },
+  { name: "eval runs directory", actual: SPEC_TREE_GRAMMAR.EVAL.RUNS_DIRECTORY_NAME, expected: "runs" },
+  { name: "canonical spec suffix", actual: SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX, expected: ".spec.md" },
+  { name: "prior spec suffix", actual: SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX, expected: ".md" },
+  { name: "prior node suffixes", actual: SPEC_TREE_GRAMMAR.PRIOR_NODE_SUFFIXES, expected: [".feature", ".story"] },
+];
 
-const NODE_SUFFIX_SHAPE = /^\.[a-z-]+$/;
-const DECISION_SUFFIX_SHAPE = /^\.[a-z-]+\.md$/;
-
-const EXPORTED_KINDS_BY_CATEGORY: Readonly<Record<SpecTreeKindCategory, readonly Kind[]>> = {
-  [SPEC_TREE_KIND_CATEGORY.NODE]: NODE_KINDS,
-  [SPEC_TREE_KIND_CATEGORY.OUTPUT]: OUTPUT_KINDS,
-  [SPEC_TREE_KIND_CATEGORY.DECISION]: DECISION_KINDS,
+const EXPORTED_KINDS_BY_CATEGORY: Readonly<Record<DeclaredKindCategory, readonly Kind[]>> = {
+  [DECLARED_KIND_CATEGORY.NODE]: NODE_KINDS,
+  [DECLARED_KIND_CATEGORY.OUTPUT]: OUTPUT_KINDS,
+  [DECLARED_KIND_CATEGORY.DECISION]: DECISION_KINDS,
 };
 
-const EXPORTED_SUFFIXES_BY_CATEGORY: Readonly<Record<SpecTreeKindCategory, readonly string[]>> = {
-  [SPEC_TREE_KIND_CATEGORY.NODE]: NODE_SUFFIXES,
-  [SPEC_TREE_KIND_CATEGORY.OUTPUT]: OUTPUT_SUFFIXES,
-  [SPEC_TREE_KIND_CATEGORY.DECISION]: DECISION_SUFFIXES,
+const EXPORTED_SUFFIXES_BY_CATEGORY: Readonly<Record<DeclaredKindCategory, readonly string[]>> = {
+  [DECLARED_KIND_CATEGORY.NODE]: NODE_SUFFIXES,
+  [DECLARED_KIND_CATEGORY.OUTPUT]: OUTPUT_SUFFIXES,
+  [DECLARED_KIND_CATEGORY.DECISION]: DECISION_SUFFIXES,
 };
 
+const DECLARED_CATEGORIES: readonly DeclaredKindCategory[] = Object.values(DECLARED_KIND_CATEGORY);
+
+/** One case per declared kind, with the category and suffix the spec declares for it. */
 export function kindRegistryMappingCases(): readonly KindRegistryMappingCase[] {
-  return (Object.keys(KIND_REGISTRY) as Kind[]).map((kind) => ({
+  return declaredKinds().map((kind) => ({
     title: `maps ${kind} to one category and suffix`,
     kind,
-    suffixPattern: KIND_REGISTRY[kind].category === SPEC_TREE_KIND_CATEGORY.DECISION
-      ? DECISION_SUFFIX_SHAPE
-      : NODE_SUFFIX_SHAPE,
+    category: DECLARED_KIND_FORMS[kind].category,
+    suffix: DECLARED_KIND_FORMS[kind].suffix,
   }));
 }
 
-export function kindRegistrySubsetCases(): readonly KindRegistrySubsetCase[] {
-  return [SPEC_TREE_KIND_CATEGORY.NODE, SPEC_TREE_KIND_CATEGORY.OUTPUT, SPEC_TREE_KIND_CATEGORY.DECISION].map(
-    (category) => {
-      const projectedKinds = (Object.keys(KIND_REGISTRY) as Kind[]).filter(
-        (kind) => KIND_REGISTRY[kind].category === category,
-      );
-      return {
-        title: `projects the ${category} registry subset`,
-        category,
-        projectedKinds,
-        projectedSuffixes: projectedKinds.map((kind) => KIND_REGISTRY[kind].suffix),
-        exportedKinds: EXPORTED_KINDS_BY_CATEGORY[category],
-        exportedSuffixes: EXPORTED_SUFFIXES_BY_CATEGORY[category],
-      };
-    },
-  );
+/** One case per declared kind, with the exported kind lists it belongs to by its declared category. */
+export function kindPartitionCases(): readonly KindPartitionCase[] {
+  return declaredKinds().map((kind) => ({
+    kind,
+    inNodeKinds: DECLARED_KIND_FORMS[kind].category === DECLARED_KIND_CATEGORY.NODE,
+    inOutputKinds: DECLARED_KIND_FORMS[kind].category === DECLARED_KIND_CATEGORY.OUTPUT,
+    inDecisionKinds: DECLARED_KIND_FORMS[kind].category === DECLARED_KIND_CATEGORY.DECISION,
+  }));
 }
 
-/**
- * The kinds the grammar declares: the 3.x `enabler` and `outcome` node kinds, the 4.0 `substrate`,
- * `capability`, `domain`, `interface`, `surface`, and `variant` output kinds, and the `adr` and
- * `pdr` decision kinds. The record is exhaustive over `Kind`, so a kind added to the registry
- * without a declaration here fails the type check, and the declarations name no registry field.
- */
-const DECLARED_KINDS: Readonly<Record<Kind, true>> = {
-  enabler: true,
-  outcome: true,
-  substrate: true,
-  capability: true,
-  domain: true,
-  interface: true,
-  surface: true,
-  variant: true,
-  adr: true,
-  pdr: true,
-};
-
-/** Every kind the grammar declares. */
-export function declaredKinds(): readonly Kind[] {
-  return Object.keys(DECLARED_KINDS) as Kind[];
+/** One case per declared category, pairing the declared kinds and suffixes with the exported sub-registries. */
+export function kindRegistrySubsetCases(): readonly KindRegistrySubsetCase[] {
+  return DECLARED_CATEGORIES.map((category) => ({
+    title: `projects the ${category} registry subset`,
+    category,
+    projectedKinds: declaredKindsOfCategory(category),
+    projectedSuffixes: declaredSuffixesOfCategory(category),
+    exportedKinds: EXPORTED_KINDS_BY_CATEGORY[category],
+    exportedSuffixes: EXPORTED_SUFFIXES_BY_CATEGORY[category],
+  }));
 }
 
 export function kindRegistrySuffixCases(): readonly KindRegistrySuffixCase[] {
   return [
-    { title: "keeps node suffixes unique", kinds: NODE_KINDS },
-    { title: "keeps decision suffixes unique", kinds: DECISION_KINDS },
-    { title: "keeps all registered suffixes unique", kinds: Object.keys(KIND_REGISTRY) as Kind[] },
+    { title: "keeps node suffixes unique", kinds: declaredKindsOfCategory(DECLARED_KIND_CATEGORY.NODE) },
+    { title: "keeps decision suffixes unique", kinds: declaredKindsOfCategory(DECLARED_KIND_CATEGORY.DECISION) },
+    { title: "keeps all registered suffixes unique", kinds: declaredKinds() },
   ];
 }
 
@@ -356,6 +388,112 @@ export function productRootRecognitionCases(): readonly ProductRootRecognitionCa
       relativePath: `${slug}${version.productSuffix}`,
       declaredKind: version.rootSpecKind,
     };
+  });
+}
+
+/** One record a naming-schema version accepts by the spec's statement, with the entry the recognizer is expected to return. */
+export type SpecFileFormCase = {
+  readonly title: string;
+  readonly line: SpecTreeMethodologyLine;
+  readonly record: {
+    readonly type: SpecTreeFilesystemRecordType;
+    readonly relativePath: string;
+    readonly parentId?: string;
+    readonly declaredKind?: string;
+  };
+  readonly expected: Readonly<Record<string, unknown>>;
+};
+
+type DeclaredNodeForm = { readonly kind: string; readonly suffix: string };
+
+function declaredNodeForms(category: DeclaredKindCategory): readonly DeclaredNodeForm[] {
+  return declaredKindsOfCategory(category).map((kind) => ({ kind, suffix: DECLARED_KIND_FORMS[kind].suffix }));
+}
+
+/**
+ * Per methodology line, one record for every form the line's naming-schema version accepts by the spec's
+ * statement: each declared node directory holding its `{slug}` spec file, the root spec file, and each
+ * declared decision form. The kinds, suffixes, and spec-file forms are the spec's own declarations.
+ */
+export function specFileFormCases(): readonly SpecFileFormCase[] {
+  const lines = [
+    {
+      line: SPEC_TREE_METHODOLOGY_LINE.THREE_TWO,
+      form: threeXFormExpectation(),
+      nodes: declaredNodeForms(DECLARED_KIND_CATEGORY.NODE),
+      index: THREE_X_INDEX_GENERATOR.accepted,
+    },
+    {
+      line: SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO,
+      form: fourZeroFormExpectation(),
+      nodes: [...declaredNodeForms(DECLARED_KIND_CATEGORY.OUTPUT), {
+        kind: DECLARED_PRODUCT_KIND,
+        suffix: DECLARED_PRODUCT_NODE_SUFFIX,
+      }],
+      index: FOUR_ZERO_INDEX_GENERATOR.accepted,
+    },
+  ];
+  let draw = 0;
+  const nextDraw = (): number => draw++;
+  return lines.flatMap(({ line, form, nodes, index }) => {
+    const nodeCases = nodes.map(({ kind, suffix }): SpecFileFormCase => {
+      const drawIndex = nextDraw();
+      const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), drawIndex);
+      const relativePath = indexedName(sampleSpecTreeTestValue(index(), drawIndex), slug, suffix);
+      return {
+        title: `${line} accepts the ${suffix} directory holding ${slug}${form.specFileSuffix}`,
+        line,
+        record: { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY, relativePath },
+        expected: {
+          type: SPEC_TREE_ENTRY_TYPE.NODE,
+          kind,
+          slug,
+          ref: {
+            path: [SPEC_TREE_CONFIG.ROOT_DIRECTORY, relativePath, `${slug}${form.specFileSuffix}`].join(
+              SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
+            ),
+          },
+        },
+      };
+    });
+    const rootDraw = nextDraw();
+    const rootName = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), rootDraw);
+    const rootCase: SpecFileFormCase = {
+      title: `${line} accepts the ${form.rootSpecSuffix} root spec`,
+      line,
+      record: {
+        type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
+        relativePath: `${rootName}${form.rootSpecSuffix}`,
+        declaredKind: form.rootSpecKind,
+      },
+      expected: { type: SPEC_TREE_ENTRY_TYPE.PRODUCT, title: rootName },
+    };
+    const parentDraw = nextDraw();
+    const parentSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), parentDraw);
+    const parentId = indexedName(
+      sampleSpecTreeTestValue(index(), parentDraw),
+      parentSlug,
+      requireFirst(nodes).suffix,
+    );
+    const decisionCases = declaredNodeForms(DECLARED_KIND_CATEGORY.DECISION).map(
+      ({ kind, suffix }): SpecFileFormCase => {
+        const drawIndex = nextDraw();
+        const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), drawIndex);
+        return {
+          title: `${line} accepts the ${suffix} decision form`,
+          line,
+          record: {
+            type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
+            relativePath: [parentId, indexedName(sampleSpecTreeTestValue(index(), drawIndex), slug, suffix)].join(
+              SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
+            ),
+            parentId,
+          },
+          expected: { type: SPEC_TREE_ENTRY_TYPE.DECISION, kind, slug, parentId },
+        };
+      },
+    );
+    return [...nodeCases, rootCase, ...decisionCases];
   });
 }
 

@@ -13,8 +13,8 @@ import { compareAsciiStrings } from "@/lib/state-store";
 import { FILENAME_GRAMMAR_TOKEN_CASES } from "@testing/generators/spec-tree/filename-grammar";
 
 describe("filename grammar token vocabulary", () => {
-  it.each(FILENAME_GRAMMAR_TOKEN_CASES)("resolves $name to a non-empty value", (testCase) => {
-    expect(testCase.size).toBeGreaterThan(0);
+  it.each(FILENAME_GRAMMAR_TOKEN_CASES)("resolves $name to the value the methodology states", (testCase) => {
+    expect(testCase.actual).toEqual(testCase.expected);
   });
 
   it("exposes the evidence-file grammar as the one shared object, not a re-declared constant", () => {

@@ -7,7 +7,7 @@ describe("variant to opening keyword", () => {
   it.each(variantParentCases())("resolves a variant to the opening keyword of its parent kind: $label", (testCase) => {
     const variantOpening = resolveKindOpening(VARIANT_KIND, testCase.parentKind);
 
-    expect(variantOpening).toBeDefined();
+    expect(variantOpening).toBe(testCase.opening);
     expect(variantOpening).toBe(resolveKindOpening(testCase.parentKind));
   });
 });
