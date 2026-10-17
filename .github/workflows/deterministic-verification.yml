@@ -134,12 +134,13 @@ jobs:
           sudo apt-get install -y --no-install-recommends ripgrep
           rg --version
 
-      # One suite run: `spx test passing` runs the configured passing scope and
-      # records per-node last-run evidence under .spx/. The status step then
-      # reuses that fresh evidence to regenerate the committed status projection
-      # without re-running any test.
-      - name: Test (passing scope)
-        run: pnpm exec tsx src/cli.ts test passing
+      # One suite run: the journaled verification run covers the configured
+      # unscoped test scope and seals a run journal under .spx/ recording each
+      # module's verdict and the paths it read. The status step then reuses that
+      # sealed journal to regenerate the committed status projection without
+      # re-running any test.
+      - name: Test (journaled verification run)
+        run: pnpm exec tsx src/cli.ts verification test run
       - name: Check committed status projection
         run: |
           pnpm exec tsx src/cli.ts spec status --update --format json > /tmp/spx-status.json
