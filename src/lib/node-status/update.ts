@@ -1,5 +1,4 @@
-import type { Dirent } from "node:fs";
-import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { defaultGitDependencies, type GitDependencies } from "@/lib/git/root";
@@ -17,6 +16,9 @@ import {
   type SpecTreeSnapshot,
 } from "@/lib/spec-tree";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { NODE_STATUS_CLAIM_SHAPE, type NodeStatusClaimVerification, serializeNodeStatusClaim } from "./claim";
+import { declaredNodeStatusClaimShape } from "./claim-shape";
+import { createClaimHistoryReader } from "./claim-state";
 import {
   createNodeStatusFile,
   createNodeStatusMechanismRecord,
@@ -27,8 +29,12 @@ import {
   type NodeStatusVerification,
   serializeNodeStatus,
 } from "./classify";
+import { createPinChangeReader } from "./currency";
 import { createNodeStatusExcludeReader } from "./exclude";
-import { NODE_STATUS_FILENAME, readNodeStatus } from "./read";
+import { foldNodeClaim, type NodeAttributedResultResolver, type NodeReadPathResolver } from "./fold";
+import { readNodeStatus } from "./read";
+import { readNodeSpecDeclaration } from "./spec-declaration";
+import { collectNodeStatusFiles, nodeStatusPath } from "./status-files";
 
 /**
  * Resolves a node's per-reference outcomes from recorded testing evidence.
@@ -43,6 +49,10 @@ export type NodeOutcomeResolver = (
 export interface UpdateNodeStatusOptions {
   readonly productDir: string;
   readonly resolveOutcome: NodeOutcomeResolver;
+  /** The paths each linked reference's recorded result read; a 4.0 result without them reads `not-run`. */
+  readonly resolveReadPaths?: NodeReadPathResolver;
+  /** The audit and evidence results sealed audit runs recorded; absent results read `not-run`. */
+  readonly resolveAttributedResults?: NodeAttributedResultResolver;
   /**
    * Git runner used to resolve which node directories are git-tracked, so status
    * is written only into tracked node directories. Defaults to the production
@@ -53,6 +63,7 @@ export interface UpdateNodeStatusOptions {
 }
 
 const NODE_STATUS_TEXT_ENCODING = "utf8";
+const NO_COMMITTED_RESULTS: NodeStatusClaimVerification = {};
 
 /**
  * Classify every spec-tree node under `productDir` and write its lifecycle state
@@ -60,14 +71,29 @@ const NODE_STATUS_TEXT_ENCODING = "utf8";
  */
 export async function updateNodeStatus(options: UpdateNodeStatusOptions): Promise<void> {
   const { productDir, resolveOutcome, gitDependencies = defaultGitDependencies } = options;
+  const claimShape = await declaredNodeStatusClaimShape(productDir);
   const snapshot = await readSpecTree({ source: createFilesystemSpecTreeSource({ productDir }) });
   const excludeReader = createNodeStatusExcludeReader(productDir);
   // The boundary is the node directory: status is written only for a git-tracked
   // node directory. A tracked node's own untracked, not-yet-staged evidence stays
   // visible, so the projection matches what CI regenerates once it is committed.
-  const isTrackedNodeDirectory = createTrackedPathInclusion(await listTrackedPaths(productDir, gitDependencies));
+  const trackedPaths = await listTrackedPaths(productDir, gitDependencies);
+  const isTrackedNodeDirectory = createTrackedPathInclusion(trackedPaths);
+  const pinChanges = createPinChangeReader({ productDir, git: gitDependencies });
+  const history = createClaimHistoryReader({ productDir, git: gitDependencies });
   const evidenceByNode = collectEvidenceByNode(snapshot);
   const liveStatusPaths = new Set<string>();
+  const claimFoldContext = {
+    productDir,
+    git: gitDependencies,
+    trackedPaths: trackedPaths ?? new Set<string>(),
+    pinChanges,
+    history,
+    ...(options.resolveReadPaths === undefined ? {} : { resolveReadPaths: options.resolveReadPaths }),
+    ...(options.resolveAttributedResults === undefined
+      ? {}
+      : { resolveAttributedResults: options.resolveAttributedResults }),
+  };
 
   for (const node of snapshot.allNodes) {
     if (!isTrackedNodeDirectory(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${TRACKED_PATH_DIRECTORY_SEPARATOR}${node.id}`)) {
@@ -75,14 +101,32 @@ export async function updateNodeStatus(options: UpdateNodeStatusOptions): Promis
     }
     const evidence = evidenceByNode.get(node.id) ?? [];
     const statusPath = nodeStatusPath(productDir, node.id);
-    const committedVerification = readNodeStatus(dirname(statusPath))?.[NODE_STATUS_FIELD.VERIFICATION];
+    const committed = readNodeStatus(dirname(statusPath));
+    liveStatusPaths.add(statusPath);
+    if (claimShape === NODE_STATUS_CLAIM_SHAPE.CURRENT) {
+      const claim = await foldNodeClaim({
+        ...claimFoldContext,
+        nodeId: node.id,
+        declaration: await readNodeSpecDeclaration(productDir, node.id),
+        evidencePaths: evidencePaths(evidence),
+        outcomes: evidence.length === 0 ? {} : await resolveOutcome(node.id, evidencePaths(evidence)),
+        committed: committed?.shape === NODE_STATUS_CLAIM_SHAPE.CURRENT
+          ? committed.claim[NODE_STATUS_FIELD.VERIFICATION]
+          : NO_COMMITTED_RESULTS,
+      });
+      await writeText(statusPath, serializeNodeStatusClaim(claim));
+      continue;
+    }
     const verification = await resolveVerification(node, {
       evidence,
       isExcluded: excludeReader.isExcluded(node),
       resolveOutcome,
-      committedOutcomes: testOutcomes(committedVerification),
+      committedOutcomes: testOutcomes(
+        committed?.shape === NODE_STATUS_CLAIM_SHAPE.VERSION_1
+          ? committed.claim[NODE_STATUS_FIELD.VERIFICATION]
+          : undefined,
+      ),
     });
-    liveStatusPaths.add(statusPath);
     await writeNodeStatus(statusPath, verification);
   }
 
@@ -171,12 +215,12 @@ async function writeNodeStatus(
   filePath: string,
   verification: NodeStatusVerification,
 ): Promise<void> {
-  await mkdir(dirname(filePath), { recursive: true });
-  await writeFile(filePath, serializeNodeStatus(createNodeStatusFile(verification)), NODE_STATUS_TEXT_ENCODING);
+  await writeText(filePath, serializeNodeStatus(createNodeStatusFile(verification)));
 }
 
-function nodeStatusPath(productDir: string, nodeId: string): string {
-  return join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodeId, NODE_STATUS_FILENAME);
+async function writeText(filePath: string, content: string): Promise<void> {
+  await mkdir(dirname(filePath), { recursive: true });
+  await writeFile(filePath, content, NODE_STATUS_TEXT_ENCODING);
 }
 
 async function removeStaleNodeStatusFiles(
@@ -185,32 +229,4 @@ async function removeStaleNodeStatusFiles(
 ): Promise<void> {
   const statusPaths = await collectNodeStatusFiles(join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY));
   await Promise.all(statusPaths.filter((path) => !liveStatusPaths.has(path)).map((path) => rm(path, { force: true })));
-}
-
-async function collectNodeStatusFiles(directory: string): Promise<readonly string[]> {
-  const entries = await readDirectoryEntries(directory);
-
-  const statusPaths: string[] = [];
-  for (const entry of entries) {
-    const entryPath = join(directory, entry.name);
-    if (entry.isDirectory()) {
-      statusPaths.push(...await collectNodeStatusFiles(entryPath));
-    } else if (entry.isFile() && entry.name === NODE_STATUS_FILENAME) {
-      statusPaths.push(entryPath);
-    }
-  }
-  return statusPaths;
-}
-
-async function readDirectoryEntries(directory: string): Promise<readonly Dirent<string>[]> {
-  try {
-    return await readdir(directory, { withFileTypes: true });
-  } catch (error) {
-    if (isNodeError(error) && error.code === "ENOENT") return [];
-    throw error;
-  }
-}
-
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && "code" in error;
 }
