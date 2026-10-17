@@ -20,9 +20,10 @@ import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   type GeneratedReadCase,
   type GeneratedReadPlan,
-  type GeneratedUnresolvedPathNames,
   locationDirectory,
   READ_STEP,
+  type ReadEncoding,
+  readStepName,
 } from "@testing/generators/testing/read-recorder";
 import { linkProductRunnerToolchain } from "@testing/harnesses/testing/journal-reporter";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
@@ -253,47 +254,6 @@ function readThrough(
   return readers[entryPoint.name](target, encoding);
 }
 
-/** What the recorder collected over a generated plan, and the real root the plan's world was created in. */
-export interface ReadPlanObservation {
-  /** The real path of the directory holding the plan's world. */
-  readonly root: string;
-  /** The sorted unique absolute paths the recorder collected, or `undefined` when it collected none. */
-  readonly recordedPaths: readonly string[] | undefined;
-}
-
-/**
- * Creates the plan's world in a real temporary directory, installs the recorder, performs the
- * plan's working-directory changes and reads through the real `node:fs` entry points, restores
- * the recorder and the working directory, and returns what the recorder collected.
- */
-export function observeReadPlan(plan: GeneratedReadPlan): Promise<ReadPlanObservation> {
-  return withTempDir(READ_RECORDER_PLAN_PREFIX, async (tempDir) => {
-    const root = await realpath(tempDir);
-    const locations = ["", ...plan.directories];
-    for (const location of locations) {
-      await mkdir(join(root, location), { recursive: true });
-      for (const fileName of plan.files) await writeFile(join(root, location, fileName), fileName);
-    }
-    const priorWorkingDirectory = process.cwd();
-    process.chdir(root);
-    let recorder: ReadRecorder | undefined;
-    try {
-      recorder = installReadRecorder();
-      for (const step of plan.steps) {
-        if (step.kind === READ_STEP.CHDIR) {
-          process.chdir(join(root, locationDirectory(plan, step.location)));
-        } else {
-          await readThrough(step.entryPoint, plan.files[step.file], undefined);
-        }
-      }
-      return { root, recordedPaths: recorder.recordedPaths() };
-    } finally {
-      recorder?.restore();
-      process.chdir(priorWorkingDirectory);
-    }
-  });
-}
-
 /** How a read ended: the content it yielded and whether it was decoded, or the error it failed with. */
 export const READ_OUTCOME_KIND = {
   READ: "read",
@@ -302,13 +262,6 @@ export const READ_OUTCOME_KIND = {
 export type ReadOutcome =
   | { readonly kind: typeof READ_OUTCOME_KIND.READ; readonly decoded: boolean; readonly content: string }
   | { readonly kind: typeof READ_OUTCOME_KIND.FAILED; readonly code: unknown; readonly message: string };
-
-/** Whether the file a delegation read targets exists. */
-export const READ_TARGET = {
-  PRESENT: "present",
-  MISSING: "missing",
-} as const;
-export type ReadTarget = (typeof READ_TARGET)[keyof typeof READ_TARGET];
 
 async function outcomeOf(
   entryPoint: ReadEntryPoint,
@@ -324,6 +277,73 @@ async function outcomeOf(
   }
 }
 
+/** What the recorder collected over a generated plan, the real root of the plan's world, and how each read ended with and without the recorder. */
+export interface ReadPlanObservation {
+  /** The real path of the directory holding the plan's world. */
+  readonly root: string;
+  /** The sorted unique absolute paths the recorder collected, or `undefined` when it collected none. */
+  readonly recordedPaths: readonly string[] | undefined;
+  /** How each of the plan's reads ended, in step order, before the recorder was installed. */
+  readonly originalOutcomes: readonly ReadOutcome[];
+  /** How each of the plan's reads ended, in step order, with the recorder installed. */
+  readonly wrappedOutcomes: readonly ReadOutcome[];
+}
+
+async function performPlan(
+  root: string,
+  plan: GeneratedReadPlan,
+): Promise<ReadOutcome[]> {
+  process.chdir(root);
+  const outcomes: ReadOutcome[] = [];
+  for (const step of plan.steps) {
+    if (step.kind === READ_STEP.CHDIR) {
+      process.chdir(join(root, locationDirectory(plan, step.location)));
+    } else {
+      outcomes.push(await outcomeOf(step.entryPoint, readStepName(plan, step), undefined));
+    }
+  }
+  return outcomes;
+}
+
+/**
+ * Creates the plan's world in a real temporary directory — every file at every location, a
+ * symbolic link to each file, and no entry under the unresolved name — performs the plan's
+ * working-directory changes and reads through the real `node:fs` entry points once without the
+ * recorder and once with it installed, restores the recorder and the working directory, and
+ * returns what the recorder collected and how every read ended in both passes.
+ */
+export function observeReadPlan(plan: GeneratedReadPlan): Promise<ReadPlanObservation> {
+  return withTempDir(READ_RECORDER_PLAN_PREFIX, async (tempDir) => {
+    const root = await realpath(tempDir);
+    const locations = ["", ...plan.directories];
+    for (const location of locations) {
+      await mkdir(join(root, location), { recursive: true });
+      for (const [index, fileName] of plan.files.entries()) {
+        await writeFile(join(root, location, fileName), fileName);
+        await symlink(join(root, location, fileName), join(root, location, plan.links[index]));
+      }
+    }
+    const priorWorkingDirectory = process.cwd();
+    let recorder: ReadRecorder | undefined;
+    try {
+      const originalOutcomes = await performPlan(root, plan);
+      recorder = installReadRecorder();
+      const wrappedOutcomes = await performPlan(root, plan);
+      return { root, recordedPaths: recorder.recordedPaths(), originalOutcomes, wrappedOutcomes };
+    } finally {
+      recorder?.restore();
+      process.chdir(priorWorkingDirectory);
+    }
+  });
+}
+
+/** Whether the file a delegation read targets exists. */
+export const READ_TARGET = {
+  PRESENT: "present",
+  MISSING: "missing",
+} as const;
+export type ReadTarget = (typeof READ_TARGET)[keyof typeof READ_TARGET];
+
 /** The same read made before the recorder is installed and while it is installed. */
 export interface DelegationObservation {
   readonly original: ReadOutcome;
@@ -332,21 +352,22 @@ export interface DelegationObservation {
 
 /**
  * Reads one generated file (present, or missing from the filesystem) through one entry point
- * with the real `node:fs` function before the recorder is installed, then again with the
+ * with the given encoding option and the real `node:fs` function before the recorder is installed, then again with the
  * recorder installed, and returns both outcomes.
  */
 export function observeEntryPointDelegation(
   entryPoint: ReadEntryPoint,
   readCase: GeneratedReadCase,
+  encoding: ReadEncoding,
   targetState: ReadTarget,
 ): Promise<DelegationObservation> {
   return withTempDir(READ_RECORDER_PLAN_PREFIX, async (tempDir) => {
     const target = join(await realpath(tempDir), readCase.fileName);
     if (targetState === READ_TARGET.PRESENT) await writeFile(target, readCase.content);
-    const original = await outcomeOf(entryPoint, target, readCase.encoding);
+    const original = await outcomeOf(entryPoint, target, encoding);
     const recorder = installReadRecorder();
     try {
-      return { original, wrapped: await outcomeOf(entryPoint, target, readCase.encoding) };
+      return { original, wrapped: await outcomeOf(entryPoint, target, encoding) };
     } finally {
       recorder.restore();
     }
@@ -396,54 +417,31 @@ export function observeFsRestoration(): RestorationObservation {
   return { before, installed, after: snapshotFs() };
 }
 
-/** What the recorder collected from reads through a symbolic link and of a path that resolves to no file. */
-export interface UnresolvedPathObservation {
-  /** The real path of the file the symbolic link points at. */
-  readonly targetPath: string;
-  /** The path of the symbolic link, as the read named it. */
-  readonly linkPath: string;
-  /** The path that resolves to no file, as the read named it. */
-  readonly missingPath: string;
+/** How a read of an invalid target ended before the recorder was installed and while it is installed, and what the recorder collected. */
+export interface InvalidTargetObservation {
+  readonly original: ReadOutcome;
+  readonly wrapped: ReadOutcome;
   /** The sorted unique absolute paths the recorder collected, or `undefined` when it collected none. */
   readonly recordedPaths: readonly string[] | undefined;
-  /** How the read of the missing path ended with the recorder installed. */
-  readonly missingReadWrapped: ReadOutcome;
-  /** How the read of the missing path ended before the recorder was installed. */
-  readonly missingReadOriginal: ReadOutcome;
 }
 
 /**
- * Creates a file, a symbolic link to it, and a name that resolves to no file in a real temporary
- * directory, then reads the link and the missing path through one entry point with the recorder
- * installed, and returns what the recorder collected and how the missing read ended with and
- * without the recorder.
+ * Reads a value that is not a valid read target through one entry point with the real `node:fs`
+ * function before the recorder is installed, then again with the recorder installed, and returns
+ * both outcomes and what the recorder collected.
  */
-export function observeUnresolvedPathReads(
+export async function observeInvalidTargetRead(
   entryPoint: ReadEntryPoint,
-  names: GeneratedUnresolvedPathNames,
-): Promise<UnresolvedPathObservation> {
-  return withTempDir(READ_RECORDER_PLAN_PREFIX, async (tempDir) => {
-    const root = await realpath(tempDir);
-    const targetPath = join(root, names.targetName);
-    const linkPath = join(root, names.linkName);
-    const missingPath = join(root, names.missingName);
-    await writeFile(targetPath, names.targetName);
-    await symlink(targetPath, linkPath);
-    const missingReadOriginal = await outcomeOf(entryPoint, missingPath, undefined);
-    const recorder = installReadRecorder();
-    try {
-      await readThrough(entryPoint, linkPath, undefined);
-      const missingReadWrapped = await outcomeOf(entryPoint, missingPath, undefined);
-      return {
-        targetPath,
-        linkPath,
-        missingPath,
-        recordedPaths: recorder.recordedPaths(),
-        missingReadWrapped,
-        missingReadOriginal,
-      };
-    } finally {
-      recorder.restore();
-    }
-  });
+  target: unknown,
+): Promise<InvalidTargetObservation> {
+  // The target is deliberately not a path: the entry points under observation receive it as the caller passed it.
+  const invalidTarget = target as never;
+  const original = await outcomeOf(entryPoint, invalidTarget, undefined);
+  const recorder = installReadRecorder();
+  try {
+    const wrapped = await outcomeOf(entryPoint, invalidTarget, undefined);
+    return { original, wrapped, recordedPaths: recorder.recordedPaths() };
+  } finally {
+    recorder.restore();
+  }
 }
