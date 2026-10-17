@@ -1,11 +1,22 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/17-language-detection.enabler/32-typescript.enabler/tests/typescript.compliance.l1.test.ts": "passed",
-      "spx/17-language-detection.enabler/32-typescript.enabler/tests/typescript.mapping.l1.test.ts": "passed",
-      "spx/17-language-detection.enabler/32-typescript.enabler/tests/typescript.scenario.l1.test.ts": "passed"
+      "tests/typescript.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/typescript.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/typescript.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

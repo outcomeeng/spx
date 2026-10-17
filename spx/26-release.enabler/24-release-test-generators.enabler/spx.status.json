@@ -1,10 +1,19 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/26-release.enabler/24-release-test-generators.enabler/tests/release-test-generators.conformance.l1.test.ts": "passed",
-      "spx/26-release.enabler/24-release-test-generators.enabler/tests/release-test-generators.property.l1.test.ts": "passed"
+      "tests/release-test-generators.conformance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/release-test-generators.property.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

@@ -1,10 +1,14 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "spec",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler/tests/context-target-resolution.compliance.l1.test.ts": "passed",
-      "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler/tests/context-target-resolution.mapping.l1.test.ts": "passed"
+      "tests/context-target-resolution.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/context-target-resolution.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      }
     }
   }
 }

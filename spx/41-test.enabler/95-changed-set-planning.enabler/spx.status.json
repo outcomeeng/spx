@@ -1,11 +1,22 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/41-test.enabler/95-changed-set-planning.enabler/tests/changed-set-planning.property.l1.test.ts": "passed",
-      "spx/41-test.enabler/95-changed-set-planning.enabler/tests/changed-set-planning.scenario.l1.test.ts": "passed",
-      "spx/41-test.enabler/95-changed-set-planning.enabler/tests/changed-set-planning.scenario.l2.test.ts": "passed"
+      "tests/changed-set-planning.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/changed-set-planning.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/changed-set-planning.scenario.l2.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

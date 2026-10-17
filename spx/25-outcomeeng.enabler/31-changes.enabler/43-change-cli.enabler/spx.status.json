@@ -1,10 +1,19 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/25-outcomeeng.enabler/31-changes.enabler/43-change-cli.enabler/tests/change-cli.property.l1.test.ts": "passed",
-      "spx/25-outcomeeng.enabler/31-changes.enabler/43-change-cli.enabler/tests/packaged-commands.mapping.l1.test.ts": "passed"
+      "tests/change-cli.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/packaged-commands.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

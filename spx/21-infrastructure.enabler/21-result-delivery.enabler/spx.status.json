@@ -1,12 +1,25 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/21-infrastructure.enabler/21-result-delivery.enabler/tests/backend-resolution.compliance.l1.test.ts": "passed",
-      "spx/21-infrastructure.enabler/21-result-delivery.enabler/tests/backend-selection.mapping.l1.test.ts": "passed",
-      "spx/21-infrastructure.enabler/21-result-delivery.enabler/tests/passthrough.conformance.l1.test.ts": "passed",
-      "spx/21-infrastructure.enabler/21-result-delivery.enabler/tests/upsert.compliance.l1.test.ts": "passed"
+      "tests/backend-resolution.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/backend-selection.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/passthrough.conformance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/upsert.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

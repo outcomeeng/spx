@@ -1,11 +1,22 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler/tests/pull-request-comment-client.scenario.l1.test.ts": "passed",
-      "spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler/tests/snapshot-projection.property.l1.test.ts": "passed",
-      "spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler/tests/surface-write.scenario.l1.test.ts": "passed"
+      "tests/pull-request-comment-client.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/snapshot-projection.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/surface-write.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }
