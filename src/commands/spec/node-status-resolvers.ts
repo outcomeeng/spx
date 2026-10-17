@@ -1,6 +1,7 @@
 import { listJournalRuns, readJournalEvents } from "@/commands/journal/runtime";
 import { JOURNAL_RUN_SEALED_FILTER } from "@/domains/journal/run-scope";
-import { buildEvidenceResults } from "@/domains/test";
+import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
+import { buildEvidenceResults, foldEvidenceVerdict } from "@/domains/test";
 import {
   AUDIT_CLAIM_ENTRY_SECTION,
   auditClaimEntry,
@@ -11,6 +12,7 @@ import {
   headCommitOf,
   projectVerifyRun,
   runJudgedPathsOf,
+  validateTestFinding,
   validateTestScope,
   VERIFY_APPEND_EVENT_FIELD,
   VERIFY_APPEND_EVENT_TYPE,
@@ -21,6 +23,7 @@ import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent
 import { defaultGitDependencies, detectGitCommonDirProductRoot, type GitDependencies } from "@/lib/git/root";
 import {
   createPinChangeReader,
+  NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_MALLEABILITY,
   type NodeAttributedRequest,
   type NodeAttributedResult,
@@ -28,10 +31,14 @@ import {
   type NodeAttributedResults,
   type NodeOutcomeResolver,
   type NodeReadPathResolver,
+  type NodeStatusEvidenceOutcome,
   type PinChangeReader,
+  readNodeSpecDeclaration,
 } from "@/lib/node-status";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { type StateStoreFileSystem } from "@/lib/state-store";
+import { type TestingLanguageDescriptor } from "@/test/languages/types";
+import { TEST_PATH_VERDICT, type TestPathVerdictValue } from "@/test/run-state";
 
 import { createNodeOutcomeResolver, type NodeOutcomeResolverDependencies } from "./node-outcome-resolver";
 
@@ -57,11 +64,16 @@ interface SealedRun {
   readonly events: readonly JournalEvent[];
   /** The head commit the run judged; a run that recorded none cannot be checked for freshness. */
   readonly headCommit: string | undefined;
+  /** The terminal status the run sealed with. */
+  readonly terminalStatus: string | undefined;
+  /** The modules a recorded finding names. */
+  readonly failedModules: ReadonlySet<string>;
 }
 
-/** A module's read paths with the run that recorded them. */
-interface ModuleReadPaths {
+/** A module's verdict and read paths, both taken from the one sealed run that covered it. */
+interface JournaledModule {
   readonly moduleId: string;
+  readonly verdict: TestPathVerdictValue;
   readonly readPaths: readonly string[];
   readonly headCommit: string | undefined;
 }
@@ -71,11 +83,13 @@ function isJsonRecord(value: JsonValue | undefined): value is { readonly [key: s
 }
 
 /**
- * Builds the resolvers `--update` injects. Outcomes come from recorded last-run evidence; the paths a
- * result read come from the scope events of the latest sealed `test` run journal that covers the
- * reference, for a language whose adapter supplies them; `evidence` results come from sealed `audit`
- * run journals. Every journal read is memoized for the pass, a run whose judged paths changed since its
- * head commit supplies nothing, and no resolver executes verification.
+ * Builds the resolvers `--update` injects. For a language whose adapter supplies read paths, a covered
+ * reference's verdict and the paths it read both come from the newest sealed `test` run journal that covers
+ * it, so a verdict never takes the read paths of another run; every other reference takes its outcome from
+ * recorded last-run evidence, which carries no read paths. `evidence` results come from sealed `audit` run
+ * journals. Every journal read is memoized for the pass, a journal that records no head commit supplies no
+ * evidence, a run whose judged paths changed since its head commit is stale, and no resolver executes
+ * verification.
  */
 export function createNodeStatusResolvers(deps: NodeStatusResolverDependencies): NodeStatusResolvers {
   const git = deps.git ?? defaultGitDependencies;
@@ -88,31 +102,81 @@ export function createNodeStatusResolvers(deps: NodeStatusResolverDependencies):
     return read;
   };
   const pinChanges = createPinChangeReader({ productDir: deps.productDir, git });
-  let moduleReadPaths: Promise<readonly ModuleReadPaths[]> | undefined;
+  let journaledModules: Promise<readonly JournaledModule[]> | undefined;
   const modules = (): Promise<
-    readonly ModuleReadPaths[]
-  > => (moduleReadPaths ??= sealedRuns(VERIFY_VERIFICATION_TYPE.TEST).then(newestModuleReadPaths));
+    readonly JournaledModule[]
+  > => (journaledModules ??= sealedRuns(VERIFY_VERIFICATION_TYPE.TEST).then(newestJournaledModules));
+  const moduleOf = async (evidencePath: string): Promise<JournaledModule | undefined> =>
+    (await modules()).find((candidate) => moduleCovers(candidate.moduleId, evidencePath));
+  const lastRunOutcomes = createNodeOutcomeResolver(deps);
+  const journals = (evidencePath: string): boolean =>
+    owningLanguages(deps, evidencePath).some((language) => language.suppliesReadPaths);
+
+  const resolveOutcome: NodeOutcomeResolver = async (nodeId, evidencePaths) => {
+    const journaled = evidencePaths.filter(journals);
+    const lastRunPaths = evidencePaths.filter((path) => !journals(path));
+    const outcomes: Record<string, NodeStatusEvidenceOutcome> = lastRunPaths.length === 0
+      ? {}
+      : { ...await lastRunOutcomes(nodeId, lastRunPaths) };
+    if (journaled.length === 0) return outcomes;
+    const { specPath } = await readNodeSpecDeclaration(deps.productDir, nodeId);
+    for (const evidencePath of journaled) {
+      const module = await moduleOf(evidencePath);
+      // A path no journal covers, or a journal that records no head commit, supplies no evidence.
+      if (module?.headCommit === undefined) {
+        outcomes[evidencePath] = NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN;
+        continue;
+      }
+      // Stale evidence stays unresolved, so the committed entry stands until a run replaces it.
+      const read = [specPath, evidencePath, ...module.readPaths];
+      if (!await unchangedSince(pinChanges, module.headCommit, read)) continue;
+      outcomes[evidencePath] = journalEvidence(deps, evidencePath, module).verdict;
+    }
+    return outcomes;
+  };
 
   return {
-    resolveOutcome: createNodeOutcomeResolver(deps),
-    resolveReadPaths: async (_nodeId, evidencePath, outcome) => {
-      const module = (await modules()).find((candidate) => moduleCovers(candidate.moduleId, evidencePath));
+    resolveOutcome,
+    resolveReadPaths: async (_nodeId, evidencePath) => {
+      const module = await moduleOf(evidencePath);
       if (module === undefined) return undefined;
       if (!await unchangedSince(pinChanges, module.headCommit, module.readPaths)) return undefined;
-      const owners = deps.registry.languages.filter((language) => language.matchesTestFile(evidencePath));
-      const results = buildEvidenceResults(
-        owners.map((language) => ({
-          runnerId: language.name,
-          pathVerdicts: [{ testPath: evidencePath, verdict: outcome }],
-        })),
-        deps.registry.languages,
-        new Map([[evidencePath, module.readPaths]]),
-      );
-      return results.find((result) => result.readPaths !== undefined)?.readPaths;
+      return journalEvidence(deps, evidencePath, module).readPaths;
     },
     resolveAttributedResults: async (nodeId, request) => ({
       evidence: await evidenceResults(await sealedRuns(VERIFY_VERIFICATION_TYPE.AUDIT), pinChanges, nodeId, request),
     }),
+  };
+}
+
+/** The languages whose test-file patterns own the evidence path. */
+function owningLanguages(
+  deps: NodeStatusResolverDependencies,
+  evidencePath: string,
+): readonly TestingLanguageDescriptor[] {
+  return deps.registry.languages.filter((language) => language.matchesTestFile(evidencePath));
+}
+
+/**
+ * The evidence contract's result for one journaled module: its verdict and, for a language whose adapter
+ * supplies them, the paths it read. Both fields come from the one module entry, so they describe one run.
+ */
+function journalEvidence(
+  deps: NodeStatusResolverDependencies,
+  evidencePath: string,
+  module: JournaledModule,
+): { readonly verdict: TestPathVerdictValue; readonly readPaths: readonly string[] | undefined } {
+  const results = buildEvidenceResults(
+    owningLanguages(deps, evidencePath).map((language) => ({
+      runnerId: language.name,
+      pathVerdicts: [{ testPath: evidencePath, verdict: module.verdict }],
+    })),
+    deps.registry.languages,
+    new Map([[evidencePath, module.readPaths]]),
+  );
+  return {
+    verdict: foldEvidenceVerdict(results),
+    readPaths: results.find((result) => result.readPaths !== undefined)?.readPaths,
   };
 }
 
@@ -152,14 +216,33 @@ async function readSealedRuns(
       JOURNAL_SEQ_BASE,
       options,
     );
-    if (events.ok) runs.push({ runToken: run.runToken, events: events.value, headCommit: headCommitOf(events.value) });
+    if (events.ok) {
+      runs.push({
+        runToken: run.runToken,
+        events: events.value,
+        headCommit: headCommitOf(events.value),
+        terminalStatus: projectVerifyRun(events.value).terminalStatus,
+        failedModules: failedModulesOf(events.value),
+      });
+    }
   }
   return runs;
 }
 
-/** The read paths of each module, taken from the newest run that covered it. */
-function newestModuleReadPaths(runs: readonly SealedRun[]): readonly ModuleReadPaths[] {
-  const newest = new Map<string, ModuleReadPaths>();
+/**
+ * The verdict a sealed run's journal supplies for a module it records a scope event for: `failed` when a
+ * finding names the module; otherwise `passed` only when the run sealed `passed`, which means every module
+ * whose scope the journal records ran; otherwise `not-run`, because a run that did not pass cannot tell a
+ * module that failed to load from one that passed.
+ */
+function journalVerdict(run: SealedRun, moduleId: string): TestPathVerdictValue {
+  if (run.failedModules.has(moduleId)) return TEST_PATH_VERDICT.FAILED;
+  return run.terminalStatus === JOURNAL_RUN_STATE_STATUS.PASSED ? TEST_PATH_VERDICT.PASSED : TEST_PATH_VERDICT.NOT_RUN;
+}
+
+/** The modules of the sealed runs, each taken whole from the newest run that covered it. */
+function newestJournaledModules(runs: readonly SealedRun[]): readonly JournaledModule[] {
+  const newest = new Map<string, JournaledModule>();
   for (const run of runs) {
     for (const event of run.events) {
       if (event.type !== VERIFY_APPEND_EVENT_TYPE.SCOPE || !isJsonRecord(event.data)) continue;
@@ -167,12 +250,24 @@ function newestModuleReadPaths(runs: readonly SealedRun[]): readonly ModuleReadP
       if (!scope.ok || newest.has(scope.value.moduleId)) continue;
       newest.set(scope.value.moduleId, {
         moduleId: scope.value.moduleId,
+        verdict: journalVerdict(run, scope.value.moduleId),
         readPaths: scope.value.readPaths ?? [],
         headCommit: run.headCommit,
       });
     }
   }
   return [...newest.values()];
+}
+
+/** The modules the run's recorded `test` findings name. */
+function failedModulesOf(events: readonly JournalEvent[]): ReadonlySet<string> {
+  const failed = new Set<string>();
+  for (const event of events) {
+    if (event.type !== VERIFY_APPEND_EVENT_TYPE.FINDING || !isJsonRecord(event.data)) continue;
+    const finding = validateTestFinding(event.data[VERIFY_APPEND_EVENT_FIELD.PAYLOAD]);
+    if (finding.ok) failed.add(finding.value.moduleId);
+  }
+  return failed;
 }
 
 const LINKED_EVIDENCE_KINDS: ReadonlySet<string> = new Set(Object.values(CLAIM_EVIDENCE_KIND));

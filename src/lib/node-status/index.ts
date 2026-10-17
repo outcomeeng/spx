@@ -75,4 +75,5 @@ export {
   readNodeStatusReports,
   type ReadNodeStatusReportsOptions,
 } from "./report";
+export { type NodeSpecDeclaration, readNodeSpecDeclaration } from "./spec-declaration";
 export { type NodeOutcomeResolver, updateNodeStatus, type UpdateNodeStatusOptions } from "./update";

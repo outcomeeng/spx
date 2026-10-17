@@ -1,0 +1,7 @@
+import { expect, test } from "vitest";
+
+import { absent } from "./file-absent-from-product";
+
+test("suite whose import cannot load", () => {
+  expect(absent).toBe(true);
+});
