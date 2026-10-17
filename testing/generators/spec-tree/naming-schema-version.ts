@@ -244,7 +244,9 @@ function arbitraryEvidenceSelfContainmentScenario(): fc.Arbitrary<EvidenceSelfCo
   return fc
     .tuple(arbitraryInjectedEvidenceGrammarScenario(), arbitraryEvidenceToken(), arbitraryEvidenceToken())
     .filter(([scenario]) =>
-      scenario.selectedVersions.every(({ evidence }) => evidence.DIRECTORY_NAME !== SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME)
+      scenario.selectedVersions.every(({ evidence }) =>
+        evidence.DIRECTORY_NAME !== SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME
+      )
     )
     .map(([scenario, parentId, subject]) => ({
       schemaVersions: scenario.schemaVersions,
@@ -253,7 +255,9 @@ function arbitraryEvidenceSelfContainmentScenario(): fc.Arbitrary<EvidenceSelfCo
       ownRelativePath: scenario.relativePath,
       foreignRelativePath: [
         SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME,
-        [subject, productionMode, productionLevel, ...productionTail].join(SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR),
+        [subject, productionMode, productionLevel, ...productionTail].join(
+          SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR,
+        ),
       ].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
     }));
 }

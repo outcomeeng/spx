@@ -9,10 +9,7 @@ import {
   SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_METHODOLOGY_LINE,
 } from "@/lib/spec-tree";
-import {
-  declarationSelectionCases,
-  majorComponent,
-} from "@testing/generators/spec-tree/grammar-selection";
+import { declarationSelectionCases, majorComponent } from "@testing/generators/spec-tree/grammar-selection";
 import { orderedDirectoryName } from "@testing/generators/spec-tree/spec-tree";
 
 describe("methodology declaration to valid naming-schema versions", () => {
