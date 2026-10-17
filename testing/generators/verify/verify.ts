@@ -35,6 +35,9 @@ import {
   type ReviewTerminalState,
   TEST_PAYLOAD_FIELD,
   type UnanchoredReviewFinding,
+  VERIFY_CHANGE_KIND,
+  VERIFY_EXPECTATIONS_FIELD,
+  VERIFY_EXPECTATIONS_SCHEMA_VERSION,
   VERIFY_FINDING_DISPOSITION,
   VERIFY_SCOPE_PAYLOAD_FIELD,
   VERIFY_SCOPE_SEPARATOR,
@@ -1114,6 +1117,9 @@ function arbitraryJudgedEvidenceTerminalCase(
   }));
 }
 
+/** A field of the expectations document. */
+export type VerifyExpectationsField = (typeof VERIFY_EXPECTATIONS_FIELD)[keyof typeof VERIFY_EXPECTATIONS_FIELD];
+
 /** The head branch and the three distinct product-relative paths a finish-reconciliation repository holds. */
 export interface VerifyFinishRepositoryPaths {
   readonly headBranch: string;
@@ -1124,6 +1130,9 @@ export interface VerifyFinishRepositoryPaths {
 
 /** The ways a declared additional path fails to be a product-relative path: it is absolute, or it climbs out of the product. */
 const NON_PRODUCT_RELATIVE_PATH_PREFIXES = ["/", "../"] as const;
+
+const UNKNOWN_CHANGE_KIND_CHARACTERS = "abcdefghijklmnopqrstuvwxyz-";
+const UNKNOWN_CHANGE_KIND_MAX_LENGTH = 12;
 
 export const VERIFY_TEST_GENERATOR = {
   verificationType: (): fc.Arbitrary<string> => fc.constantFrom(...VERIFY_VERIFICATION_TYPES),
@@ -1202,6 +1211,44 @@ export const VERIFY_TEST_GENERATOR = {
       unchangedPath: paths[1] ?? "",
       advancedPath: paths[2] ?? "",
     })),
+  /**
+   * A recorded expectations value that violates the expectations-document rule on `field` alone: an
+   * unsupported schema version for the schema-version field, a non-array value for the additional
+   * paths field, with every other field well formed.
+   */
+  malformedExpectationsOn: (field: VerifyExpectationsField): fc.Arbitrary<JsonValue> => {
+    const unsupportedSchemaVersion = fc.oneof(
+      fc.integer().filter((version) => version !== VERIFY_EXPECTATIONS_SCHEMA_VERSION),
+      fc.string(),
+    );
+    const nonArrayPaths = fc.oneof(fc.string(), fc.integer(), fc.boolean(), fc.dictionary(fc.string(), fc.string()));
+    return field === VERIFY_EXPECTATIONS_FIELD.SCHEMA_VERSION
+      ? unsupportedSchemaVersion.map((version) => ({
+        [VERIFY_EXPECTATIONS_FIELD.SCHEMA_VERSION]: version,
+        [VERIFY_EXPECTATIONS_FIELD.ADDITIONAL_PATHS]: [],
+      }))
+      : nonArrayPaths.map((paths) => ({
+        [VERIFY_EXPECTATIONS_FIELD.SCHEMA_VERSION]: VERIFY_EXPECTATIONS_SCHEMA_VERSION,
+        [VERIFY_EXPECTATIONS_FIELD.ADDITIONAL_PATHS]: paths,
+      }));
+  },
+  /** A recorded expectations value that is not an object: an array, a string, a number, a boolean, or null. */
+  nonObjectExpectations: (): fc.Arbitrary<JsonValue> =>
+    VERIFY_TEST_GENERATOR.nonObjectJsonDocument().map((document) => JSON.parse(document) as JsonValue),
+  /** A recorded change-inventory entry carrying a path and a change kind the declared change kinds do not name. */
+  unknownChangeKindEntry: (): fc.Arbitrary<{ readonly path: string; readonly changeKind: string }> => {
+    const declaredKinds: readonly string[] = Object.values(VERIFY_CHANGE_KIND);
+    return fc.record({
+      path: arbitrarySourceFilePath(),
+      changeKind: fc
+        .array(fc.constantFrom(...UNKNOWN_CHANGE_KIND_CHARACTERS), {
+          minLength: 1,
+          maxLength: UNKNOWN_CHANGE_KIND_MAX_LENGTH,
+        })
+        .map((characters) => characters.join(""))
+        .filter((kind) => !declaredKinds.includes(kind)),
+    });
+  },
   /** A product-relative path distinct from `heldPath`, the path the head commit holds. */
   absentProductPath: (heldPath: string): fc.Arbitrary<string> =>
     arbitrarySourceFilePath().filter((path) => path !== heldPath),

@@ -1,9 +1,9 @@
-import { copyFile, mkdir, readdir, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { execa } from "execa";
 
-import { journalReadCommand } from "@/commands/journal/cli";
+import { journalAppendCommand, journalOpenCommand, journalReadCommand } from "@/commands/journal/cli";
 import {
   VERIFY_CLI_EXIT_CODE,
   verifyAppendScopeCommand,
@@ -21,6 +21,8 @@ import {
   VERIFY_EXPECTATIONS_FIELD,
   VERIFY_EXPECTATIONS_SCHEMA_VERSION,
   VERIFY_INPUT_SOURCE,
+  VERIFY_RUN_CONTEXT_EVENT_FIELD,
+  VERIFY_RUN_CONTEXT_EVENT_ID_PREFIX,
   VERIFY_RUN_CONTEXT_EVENT_TYPE,
   VERIFY_SCOPE_SEPARATOR,
   VERIFY_SCOPE_TYPE,
@@ -49,6 +51,7 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const VERIFY_REPOSITORY_TEMP_PREFIX = "verify-repository-";
 const GIT_FAILURE_EXIT_CODE = 1;
+const RECORDED_INPUT_EXTENSION = ".json";
 const BASE_COMMIT_MESSAGE = "Initialize verify repository fixture";
 const HEAD_COMMIT_MESSAGE = "Add the verified file";
 
@@ -170,6 +173,10 @@ interface VerifyRunStarter {
   finish(run: StartedRepositoryRun, terminalStatus: string): Promise<CliCommandResult>;
   status(run: StartedRepositoryRun): Promise<CliCommandResult>;
   readEvents(run: StartedRepositoryRun): Promise<readonly JournalEvent[]>;
+  startRunRecordingContext(
+    template: StartedRepositoryRun,
+    recordContext: (recorded: Readonly<Record<string, JsonValue>>) => Readonly<Record<string, JsonValue>>,
+  ): Promise<StartedRepositoryRun>;
 }
 
 function createVerifyRunStarter(productDir: string, git: GitDependencies): VerifyRunStarter {
@@ -231,6 +238,63 @@ function createVerifyRunStarter(productDir: string, git: GitDependencies): Verif
         deps,
       ),
     readEvents: async (run) => readRunEvents(run.verificationType, requireRunToken(run, "journal read")),
+    startRunRecordingContext: async (template, recordContext) => {
+      const templateToken = requireRunToken(template, "recording a run context");
+      const [templateContext] = (await readRunEvents(template.verificationType, templateToken)).filter((event) =>
+        event.type === VERIFY_RUN_CONTEXT_EVENT_TYPE
+      );
+      if (templateContext === undefined || deps.journalBinding === undefined) {
+        throw new Error("verify repository harness: the template run holds no run-context event to re-record");
+      }
+      const opened = await journalOpenCommand({ type: template.verificationType }, deps);
+      if (opened.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+        throw new Error(`verify repository harness: journal open failed: ${opened.output}`);
+      }
+      const { runToken, runFile } = JSON.parse(opened.output) as {
+        readonly runToken: string;
+        readonly runFile: string;
+      };
+      const runsDir = dirname(runFile);
+      const templateRecord = (await readdir(runsDir)).find((name) =>
+        name.includes(templateToken) && name.endsWith(RECORDED_INPUT_EXTENSION)
+      );
+      if (templateRecord === undefined) {
+        throw new Error("verify repository harness: the template run holds no recorded input to carry over");
+      }
+      await writeFile(
+        join(runsDir, templateRecord.replace(templateToken, runToken)),
+        await readFile(join(runsDir, templateRecord), "utf8"),
+      );
+      const appended = await journalAppendCommand(
+        { type: template.verificationType, runToken },
+        {
+          id: `${VERIFY_RUN_CONTEXT_EVENT_ID_PREFIX}${runToken}`,
+          source: templateContext.source,
+          type: templateContext.type,
+          time: templateContext.time,
+          attempt: templateContext.attempt,
+          data: recordContext(eventDataRecord(templateContext) as Readonly<Record<string, JsonValue>>),
+        },
+        deps.journalBinding,
+        deps,
+      );
+      if (appended.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
+        throw new Error(`verify repository harness: run-context append failed: ${appended.output}`);
+      }
+      return {
+        verificationType: template.verificationType,
+        scopeType: template.scopeType,
+        scope: template.scope,
+        started: {
+          exitCode: VERIFY_CLI_EXIT_CODE.OK,
+          output: JSON.stringify({ ...JSON.parse(template.started.output), runToken }),
+        },
+        runToken,
+        runContextData: (await readRunEvents(template.verificationType, runToken))
+          .filter((event) => event.type === VERIFY_RUN_CONTEXT_EVENT_TYPE)
+          .map(eventDataRecord),
+      };
+    },
     appendScope: async (run, payload) => {
       if (run.runToken === undefined) {
         throw new Error(`verify repository harness: scope add needs a started run: ${run.started.output}`);
@@ -562,6 +626,19 @@ export interface VerifyFinishRepository {
   readonly advancedPath: string;
   startChangesetRun(verificationType: string, bound: boolean): Promise<StartedRepositoryRun>;
   startEmptyChangesetRun(verificationType: string, bound: boolean): Promise<StartedRepositoryRun>;
+  /**
+   * Open a changeset run over the changed changeset whose run-context event, appended through the
+   * production journal, carries `expectations` as its recorded expectations value.
+   */
+  startChangesetRunRecordingExpectations(
+    verificationType: string,
+    expectations: JsonValue,
+  ): Promise<StartedRepositoryRun>;
+  /**
+   * Open a changeset run over the changed changeset whose run-context event, appended through the
+   * production journal, records the changeset's real inventory followed by `entry`.
+   */
+  startChangesetRunRecordingInventoryEntry(verificationType: string, entry: JsonValue): Promise<StartedRepositoryRun>;
   appendScope(run: StartedRepositoryRun, payload: JsonValue): Promise<AppendedRepositoryScope>;
   /** Reconcile a started run's judged scope through the production reconciliation operation. */
   reconcile(run: StartedRepositoryRun): Promise<CliCommandResult>;
@@ -594,10 +671,8 @@ export async function withVerifyFinishRepository<T>(
     const headCommit = await readGit(productDir, [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
     await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CHECKOUT, GIT_TEST_FLAGS.DETACH, initial.headCommit]);
     await runGit(productDir, [GIT_TEST_SUBCOMMANDS.BRANCH, GIT_TEST_FLAGS.FORCE, layout.headBranch, headCommit]);
-    const { appendScope, finish, readEvents, reconcile, startRun, status } = createVerifyRunStarter(
-      productDir,
-      realVerifyGitDependencies(),
-    );
+    const { appendScope, finish, readEvents, reconcile, startRun, startRunRecordingContext, status } =
+      createVerifyRunStarter(productDir, realVerifyGitDependencies());
     const changedScope = `${initial.headCommit}${VERIFY_SCOPE_SEPARATOR}${layout.headBranch}`;
     const emptyScope = `${headCommit}${VERIFY_SCOPE_SEPARATOR}${layout.headBranch}`;
     const expectationsFor = (bound: boolean): string | undefined =>
@@ -614,6 +689,22 @@ export async function withVerifyFinishRepository<T>(
         startRun(VERIFY_SCOPE_TYPE.CHANGESET, changedScope, verificationType, expectationsFor(bound)),
       startEmptyChangesetRun: async (verificationType, bound) =>
         startRun(VERIFY_SCOPE_TYPE.CHANGESET, emptyScope, verificationType, expectationsFor(bound)),
+      startChangesetRunRecordingExpectations: async (verificationType, expectations) =>
+        startRunRecordingContext(
+          await startRun(VERIFY_SCOPE_TYPE.CHANGESET, changedScope, verificationType, undefined),
+          (recorded) => ({ ...recorded, [VERIFY_RUN_CONTEXT_EVENT_FIELD.EXPECTATIONS]: expectations }),
+        ),
+      startChangesetRunRecordingInventoryEntry: async (verificationType, entry) =>
+        startRunRecordingContext(
+          await startRun(VERIFY_SCOPE_TYPE.CHANGESET, changedScope, verificationType, undefined),
+          (recorded) => ({
+            ...recorded,
+            [VERIFY_RUN_CONTEXT_EVENT_FIELD.CHANGE_INVENTORY]: [
+              ...(recorded[VERIFY_RUN_CONTEXT_EVENT_FIELD.CHANGE_INVENTORY] as readonly JsonValue[]),
+              entry,
+            ],
+          }),
+        ),
       appendScope,
       reconcile,
       finish,
