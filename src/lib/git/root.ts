@@ -1,6 +1,10 @@
 import { execa } from "execa";
+import { execFileSync } from "node:child_process";
+import { accessSync, realpathSync } from "node:fs";
+import { access, realpath } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 
+import { CONFIG_FILE_DEFINITIONS, CONFIG_FILE_FORMAT_ORDER } from "@/config/filenames";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { authoredText, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
@@ -250,6 +254,117 @@ export async function detectWorktreeProductRoot(
       warning: NOT_GIT_REPO_WARNING_TEXT,
     };
   }
+}
+
+/**
+ * Synchronous counterpart of {@link detectWorktreeProductRoot}'s toplevel read: the
+ * `git rev-parse --show-toplevel` value for `cwd`, resolved under the same git-environment
+ * isolation, or undefined when `cwd` is outside a git repository or git cannot run.
+ */
+export function readWorktreeToplevelSync(cwd: string): string | undefined {
+  try {
+    const stdout = execFileSync(GIT_ROOT_COMMAND.EXECUTABLE, [...GIT_SHOW_TOPLEVEL_ARGS], { // NOSONAR - spx intentionally uses the caller's git executable.
+      cwd,
+      env: withoutGitEnvironment(process.env),
+      stdio: ["ignore", "pipe", "pipe"],
+      encoding: "utf8",
+    });
+    const toplevel = extractStdout(stdout);
+    return toplevel.length === 0 ? undefined : toplevel;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Reports whether a recognized `spx.config.*` file exists directly in a directory. */
+export type ConfigPresenceProbe = (directory: string) => Promise<boolean>;
+
+export const defaultConfigPresenceProbe: ConfigPresenceProbe = async (directory) => {
+  for (const format of CONFIG_FILE_FORMAT_ORDER) {
+    try {
+      await access(join(directory, CONFIG_FILE_DEFINITIONS[format].filename));
+      return true;
+    } catch {
+      continue;
+    }
+  }
+  return false;
+};
+
+async function realpathOrSelf(path: string): Promise<string> {
+  try {
+    return await realpath(path);
+  } catch {
+    return path;
+  }
+}
+
+/** Reports synchronously whether a recognized `spx.config.*` file exists directly in a directory. */
+export type SyncConfigPresenceProbe = (directory: string) => boolean;
+
+export const defaultSyncConfigPresenceProbe: SyncConfigPresenceProbe = (directory) => {
+  for (const format of CONFIG_FILE_FORMAT_ORDER) {
+    try {
+      accessSync(join(directory, CONFIG_FILE_DEFINITIONS[format].filename));
+      return true;
+    } catch {
+      continue;
+    }
+  }
+  return false;
+};
+
+function realpathSyncOrSelf(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
+}
+
+// Directories from the invocation directory up to the git toplevel, both included, nearest first.
+// An invocation directory outside the toplevel yields no candidates.
+function localProductRootCandidates(invocationDir: string, toplevel: string): readonly string[] {
+  const candidates: string[] = [];
+  let directory = invocationDir;
+  for (;;) {
+    candidates.push(directory);
+    if (directory === toplevel) return candidates;
+    const parent = dirname(directory);
+    if (parent === directory) return [];
+    directory = parent;
+  }
+}
+
+// Detects the local product root: the nearest directory holding a recognized
+// `spx.config.*` from the invocation directory up to the git toplevel (both
+// included), the toplevel when none does, and the invocation directory outside git.
+export async function detectLocalProductRoot(
+  cwd: string = CONFIG_PROCESS_CWD.read(),
+  deps: GitDependencies = defaultGitDependencies,
+  hasConfig: ConfigPresenceProbe = defaultConfigPresenceProbe,
+): Promise<GitProductDirResult> {
+  const worktree = await detectWorktreeProductRoot(cwd, deps);
+  if (!worktree.isGitRepo) return worktree;
+
+  const toplevel = await realpathOrSelf(worktree.productDir);
+  for (const directory of localProductRootCandidates(await realpathOrSelf(cwd), toplevel)) {
+    if (await hasConfig(directory)) return { productDir: directory, isGitRepo: true };
+  }
+  return { productDir: worktree.productDir, isGitRepo: true };
+}
+
+/** Selects the local product root for a known git toplevel, with synchronous filesystem probes. */
+export function selectLocalProductRoot(
+  cwd: string,
+  gitToplevel: string,
+  hasConfig: SyncConfigPresenceProbe = defaultSyncConfigPresenceProbe,
+): string {
+  const toplevel = realpathSyncOrSelf(gitToplevel);
+  for (const directory of localProductRootCandidates(realpathSyncOrSelf(cwd), toplevel)) {
+    if (hasConfig(directory)) return directory;
+  }
+  return gitToplevel;
 }
 
 function stripTrailingPathSeparators(value: string): string {

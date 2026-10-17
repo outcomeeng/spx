@@ -1,6 +1,6 @@
 # State Resolution and Storage
 
-spx resolves where a command runs and where its local execution state lives through one module built from pure functions and thin probes over an injected git runner and filesystem interface. Product-root resolution returns a base `GitProductDirResult` and a Git-common-dir variant that adds a required `worktreeRoot` field; `.spx/` scope addressing, branch identity and slugging, and JSONL run-record mechanics compose on those roots. Every consumer obtains roots, scopes, and records by passing its own domain noun and payload schema, never re-deriving git topology or `.spx/` layout. The two roots are those of [`spx/15-worktree-management.pdr.md`](spx/15-worktree-management.pdr.md): the local worktree root from `git rev-parse --show-toplevel`, and the Git common-dir product root from the parent of `git rev-parse --git-common-dir`.
+spx resolves where a command runs and where its local execution state lives through one module built from pure functions and thin probes over an injected git runner and filesystem interface. Product-root resolution returns a base `GitProductDirResult` and a Git-common-dir variant that adds a required `worktreeRoot` field; `.spx/` scope addressing, branch identity and slugging, and JSONL run-record mechanics compose on those roots. Every consumer obtains roots, scopes, and records by passing its own domain noun and payload schema, never re-deriving git topology or `.spx/` layout. The roots are those of [`spx/15-worktree-management.pdr.md`](spx/15-worktree-management.pdr.md): the local worktree root from `git rev-parse --show-toplevel`, the Git common-dir product root from the parent of `git rev-parse --git-common-dir`, and the local product root that decision record defines; the state module alone computes all three.
 
 ## Rationale
 
@@ -37,7 +37,7 @@ An async scope resolver returns a result struct carrying the product-root `warni
 - ALWAYS: consumers obtain roots, scopes, and records by passing their own domain noun and payload schema; payload validation stays in the consumer domain ([audit])
 - ALWAYS: branch identity and slugging are source-owned in the state module so every consumer shares one slug contract ([audit])
 - ALWAYS: the state module exports source-owned constants for the `.spx/` path tokens and run-file tokens its tests reference ([audit])
-- NEVER: a consumer re-derives git topology or composes `.spx/` paths itself — root resolution and scope layout live only in the state module ([audit])
+- NEVER: a consumer re-derives git topology, resolves the local product root, or composes `.spx/` paths itself — root resolution and scope layout live only in the state module ([audit])
 - NEVER: a scope-directory resolver that only joins an already-resolved product root wraps its return in `Result` — the `Result` shape is reserved for composition that validates an untrusted token or slug ([audit])
 - NEVER: thread the not-in-git `warning` through a scope resolver whose only consumer is presentation-free — the worktree-scope resolver returns a bare path for compact, which emits JSON or nothing, while resolvers feeding user-facing consumers return a struct carrying `warning` ([audit])
 - NEVER: the state module imports a consumer domain (release, spec, change, session, compact, testing, verification) ([audit])

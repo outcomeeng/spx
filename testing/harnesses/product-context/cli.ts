@@ -62,3 +62,12 @@ export function parseProductContextJsonConfig(raw: string, productDir: string): 
 export function productContextTestingConfig(config: Config): TestingConfig {
   return config[TESTING_SECTION] as TestingConfig;
 }
+
+/** The node ids a `spec status --json` run reports, depth-first. */
+export function specStatusNodeIds(raw: string): readonly string[] {
+  const collect = (nodes: readonly SpecStatusJsonNode[]): readonly string[] =>
+    nodes.flatMap((node) => [node.id, ...collect(node.children)]);
+  return collect((JSON.parse(raw) as { readonly nodes: readonly SpecStatusJsonNode[] }).nodes);
+}
+
+type SpecStatusJsonNode = { readonly id: string; readonly children: readonly SpecStatusJsonNode[] };

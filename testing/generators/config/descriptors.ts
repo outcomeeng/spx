@@ -1,7 +1,7 @@
 import * as fc from "fast-check";
 import { join } from "node:path";
 
-import { canonicalDescriptorJson } from "@/config/index";
+import { canonicalDescriptorJson, CONFIG_FILENAMES } from "@/config/index";
 import {
   METHODOLOGY_CONFIG_FIELDS,
   METHODOLOGY_SECTION,
@@ -139,6 +139,16 @@ export type GeneratedConfigCliDeterminismCase = {
   readonly includeDescriptor: boolean;
 };
 
+// A nested product layout inside one git repository: `productSegments` descend from the git
+// toplevel to the nested product, `invocationSegment` descends from the nested product to the
+// directory a command is invoked from, and `configFilename` is the recognized config file the
+// layout places.
+export type GeneratedLocalProductRootLayout = {
+  readonly productSegments: readonly [string, string];
+  readonly invocationSegment: string;
+  readonly configFilename: string;
+};
+
 export type GeneratedInvalidPathFilter = {
   readonly value: unknown;
   readonly path: string;
@@ -195,6 +205,7 @@ export const CONFIG_TEST_GENERATOR = {
   directoryScope: arbitraryDirectoryScope,
   resolutionScopeScenario: arbitraryResolutionScopeScenario,
   configFormatScenario: arbitraryConfigFormatScenario,
+  localProductRootLayout: arbitraryLocalProductRootLayout,
 } as const;
 
 export type GeneratedSpecTreeArrayKindsConfig = {
@@ -472,6 +483,19 @@ export function generatedSimilarHarnessMethodologyFieldConfig(): Config {
 
 function arbitraryConfigKey(): fc.Arbitrary<string> {
   return fc.stringMatching(/^[a-z][a-z0-9]{5,16}$/).filter((key) => key !== SPEC_TREE_SECTION);
+}
+
+function arbitraryLocalProductRootLayout(): fc.Arbitrary<GeneratedLocalProductRootLayout> {
+  return fc
+    .record({
+      segments: fc.uniqueArray(arbitraryConfigKey(), { minLength: 3, maxLength: 3 }),
+      configFilename: fc.constantFrom(...Object.values(CONFIG_FILENAMES)),
+    })
+    .map(({ segments: [first, second, invocationSegment], configFilename }) => ({
+      productSegments: [first, second] as const,
+      invocationSegment,
+      configFilename,
+    }));
 }
 
 function arbitraryConfigScalar(): fc.Arbitrary<string> {

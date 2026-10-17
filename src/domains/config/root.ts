@@ -1,10 +1,8 @@
-import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 
+import { readWorktreeToplevelSync, selectLocalProductRoot, type SyncConfigPresenceProbe } from "@/lib/git/root";
 import { authoredText, externalValue, terminal, type TerminalText } from "@/lib/terminal-text/terminal-text";
 
-const GIT_EXECUTABLE = "git";
-const GIT_TOPLEVEL_ARGS = ["rev-parse", "--show-toplevel"] as const;
 const GIT_NOT_REPO_MARKER = "not a git repository";
 
 export type ResolvedProductDir = {
@@ -14,6 +12,7 @@ export type ResolvedProductDir = {
 
 export type ProductDirResolverDeps = {
   readonly readGitToplevel: (cwd: string) => string | undefined;
+  readonly hasConfig?: SyncConfigPresenceProbe;
 };
 
 export function resolveProductDir(
@@ -23,7 +22,7 @@ export function resolveProductDir(
   const resolvedCwd = resolve(cwd);
   const toplevel = deps.readGitToplevel(resolvedCwd);
   if (toplevel !== undefined && toplevel.length > 0) {
-    return { productDir: resolve(toplevel) };
+    return { productDir: resolve(selectLocalProductRoot(resolvedCwd, resolve(toplevel), deps.hasConfig)) };
   }
 
   return {
@@ -37,15 +36,5 @@ export function resolveProductDir(
 }
 
 const DEFAULT_PRODUCT_DIR_RESOLVER_DEPS: ProductDirResolverDeps = {
-  readGitToplevel: (cwd) => {
-    try {
-      return execFileSync(GIT_EXECUTABLE, [...GIT_TOPLEVEL_ARGS], { // NOSONAR - spx intentionally uses the caller's git executable.
-        cwd,
-        stdio: ["ignore", "pipe", "pipe"],
-        encoding: "utf8",
-      }).trim();
-    } catch {
-      return undefined;
-    }
-  },
+  readGitToplevel: readWorktreeToplevelSync,
 };
