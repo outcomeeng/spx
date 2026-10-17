@@ -2,16 +2,11 @@ import * as fc from "fast-check";
 
 import type { Config } from "@/config/types";
 import {
-  canonicalNamingSchemaVersion,
   DECISION_KINDS,
-  DECISION_SUFFIXES,
   type Kind,
   KIND_REGISTRY,
   type NamingSchemaVersion,
   NODE_KINDS,
-  NODE_SUFFIXES,
-  OUTPUT_KINDS,
-  OUTPUT_SUFFIXES,
   SPEC_TREE_CONFIG,
   SPEC_TREE_CONFIG_FIELDS,
   SPEC_TREE_ENTRY_TYPE,
@@ -21,38 +16,13 @@ import {
   SPEC_TREE_KIND_CATEGORY,
   SPEC_TREE_METHODOLOGY_LINE,
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
-  SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION,
   type SpecTreeEntryType,
   type SpecTreeFilesystemRecordType,
+  type SpecTreeKindCategory,
   type SpecTreeMethodologyLine,
+  type SpecTreeRecognitionOptions,
 } from "@/lib/spec-tree";
-import { compareAsciiStrings } from "@/lib/state-store";
-import {
-  DECLARED_COORDINATION_NOTES,
-  DECLARED_EVAL_LANE,
-  DECLARED_EVIDENCE_FILE_GRAMMAR,
-  DECLARED_FIRST_VERSION_NODE_SUFFIXES,
-  DECLARED_ORDER_SEPARATOR,
-  DECLARED_PRODUCT_ROOT_SUFFIX,
-  DECLARED_SPEC_FILE_SUFFIX,
-  declaredPriorNodeSuffixes,
-} from "@testing/generators/spec-tree/declared-grammar";
-import {
-  DECLARED_KIND_CATEGORY,
-  DECLARED_KIND_FORMS,
-  DECLARED_PRODUCT_KIND,
-  DECLARED_PRODUCT_NODE_SUFFIX,
-  type DeclaredKindCategory,
-  declaredKinds,
-  declaredKindsOfCategory,
-  declaredSuffixesOfCategory,
-} from "@testing/generators/spec-tree/declared-kinds";
-import {
-  FOUR_ZERO_INDEX_GENERATOR,
-  fourZeroFormExpectation,
-  THREE_X_INDEX_GENERATOR,
-  threeXFormExpectation,
-} from "@testing/generators/spec-tree/naming-schema-form";
+import { FOUR_ZERO_INDEX_GENERATOR, THREE_X_INDEX_GENERATOR } from "@testing/generators/spec-tree/naming-schema-form";
 import {
   orderedDirectoryRecord,
   semverMaximumOracle,
@@ -65,41 +35,6 @@ import {
   specTreeGrammarSelectionForLine,
   supersededSuffixOracle,
 } from "@testing/generators/spec-tree/spec-tree";
-
-export type FilenameGrammarTokenCase = {
-  readonly name: string;
-  readonly actual: unknown;
-  readonly expected: unknown;
-};
-
-export type KindRegistryMappingCase = {
-  readonly title: string;
-  readonly kind: Kind;
-  readonly category: DeclaredKindCategory;
-  readonly suffix: string;
-};
-
-/** The exported kind lists one declared kind belongs to, by its declared category. */
-export type KindPartitionCase = {
-  readonly kind: Kind;
-  readonly inNodeKinds: boolean;
-  readonly inOutputKinds: boolean;
-  readonly inDecisionKinds: boolean;
-};
-
-export type KindRegistrySubsetCase = {
-  readonly title: string;
-  readonly category: DeclaredKindCategory;
-  readonly projectedKinds: readonly Kind[];
-  readonly projectedSuffixes: readonly string[];
-  readonly exportedKinds: readonly Kind[];
-  readonly exportedSuffixes: readonly string[];
-};
-
-export type KindRegistrySuffixCase = {
-  readonly title: string;
-  readonly kinds: readonly Kind[];
-};
 
 export type SpecTreeKindsFieldCase = {
   readonly title: string;
@@ -176,156 +111,6 @@ export type SupersededLineScenario = {
   /** The newest version the independent oracle names for the directory's suffix. */
   readonly expectedVersion: string;
 };
-
-/** The naming-schema version that precedes every other under semantic-version ordering. */
-function firstNamingSchemaVersion(): NamingSchemaVersion {
-  return [...SPEC_TREE_NAMING_SCHEMA_VERSIONS].sort((left, right) => semverOrderOracle(left.version, right.version))[0];
-}
-
-/**
- * One case per grammar token group a spec assertion states by value, each paired with the literal
- * that assertion states. The expected values are the declarations in the declared-grammar and
- * declared-kinds modules, never a field the library resolves them through. A token no assertion
- * states by value, such as the path separator or the order pattern's regular expression source,
- * has no row: the order forms are exercised through the index-form property evidence.
- */
-export const FILENAME_GRAMMAR_TOKEN_CASES: readonly FilenameGrammarTokenCase[] = [
-  { name: "product suffix", actual: SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX, expected: DECLARED_PRODUCT_ROOT_SUFFIX },
-  {
-    name: "kind suffixes",
-    actual: [...NODE_SUFFIXES, ...OUTPUT_SUFFIXES, ...DECISION_SUFFIXES].sort(compareAsciiStrings),
-    expected: declaredKinds().map((kind) => DECLARED_KIND_FORMS[kind].suffix).sort(compareAsciiStrings),
-  },
-  {
-    name: "evidence directory",
-    actual: SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME,
-    expected: DECLARED_EVIDENCE_FILE_GRAMMAR.evidence.DIRECTORY_NAME,
-  },
-  {
-    name: "evidence modes",
-    actual: SPEC_TREE_GRAMMAR.EVIDENCE.MODES,
-    expected: DECLARED_EVIDENCE_FILE_GRAMMAR.evidence.MODES,
-  },
-  {
-    name: "execution levels",
-    actual: SPEC_TREE_GRAMMAR.EVIDENCE.LEVELS,
-    expected: DECLARED_EVIDENCE_FILE_GRAMMAR.evidence.LEVELS,
-  },
-  {
-    name: "language tails",
-    actual: SPEC_TREE_GRAMMAR.EVIDENCE.TAILS,
-    expected: DECLARED_EVIDENCE_FILE_GRAMMAR.evidence.TAILS,
-  },
-  {
-    name: "evidence segment separator",
-    actual: SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR,
-    expected: DECLARED_EVIDENCE_FILE_GRAMMAR.evidence.SEGMENT_SEPARATOR,
-  },
-  { name: "runner tokens", actual: SPEC_TREE_GRAMMAR.RUNNERS, expected: DECLARED_EVIDENCE_FILE_GRAMMAR.runners },
-  { name: "order separator", actual: SPEC_TREE_GRAMMAR.ORDER.SEPARATOR, expected: DECLARED_ORDER_SEPARATOR },
-  { name: "coordination notes", actual: SPEC_TREE_GRAMMAR.COORDINATION_NOTES, expected: DECLARED_COORDINATION_NOTES },
-  {
-    name: "eval directory",
-    actual: SPEC_TREE_GRAMMAR.EVAL.DIRECTORY_NAME,
-    expected: DECLARED_EVAL_LANE.DIRECTORY_NAME,
-  },
-  { name: "eval files", actual: SPEC_TREE_GRAMMAR.EVAL.FILES, expected: DECLARED_EVAL_LANE.FILES },
-  {
-    name: "eval files of the 4.0 and 3.x naming-schema versions",
-    actual: [
-      SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION.eval.FILES,
-      canonicalNamingSchemaVersion(SPEC_TREE_NAMING_SCHEMA_VERSIONS).eval.FILES,
-    ],
-    expected: [DECLARED_EVAL_LANE.FILES, DECLARED_EVAL_LANE.FILES],
-  },
-  {
-    name: "evidence file grammar of the 4.0 and 3.x naming-schema versions",
-    actual: [
-      SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION,
-      canonicalNamingSchemaVersion(SPEC_TREE_NAMING_SCHEMA_VERSIONS),
-    ].map((version) => ({ evidence: version.evidence, runners: version.runners })),
-    expected: [DECLARED_EVIDENCE_FILE_GRAMMAR, DECLARED_EVIDENCE_FILE_GRAMMAR],
-  },
-  {
-    name: "node suffixes of the first naming-schema version",
-    actual: [...firstNamingSchemaVersion().nodeSuffixes].sort(compareAsciiStrings),
-    expected: [...DECLARED_FIRST_VERSION_NODE_SUFFIXES].sort(compareAsciiStrings),
-  },
-  {
-    name: "eval runs directory",
-    actual: SPEC_TREE_GRAMMAR.EVAL.RUNS_DIRECTORY_NAME,
-    expected: DECLARED_EVAL_LANE.RUNS_DIRECTORY_NAME,
-  },
-  {
-    name: "canonical spec suffix",
-    actual: SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX,
-    expected: DECLARED_SPEC_FILE_SUFFIX.CANONICAL,
-  },
-  {
-    name: "prior spec suffix",
-    actual: SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX,
-    expected: DECLARED_SPEC_FILE_SUFFIX.PRIOR,
-  },
-  {
-    name: "prior node suffixes",
-    actual: [...SPEC_TREE_GRAMMAR.PRIOR_NODE_SUFFIXES].sort(compareAsciiStrings),
-    expected: [...declaredPriorNodeSuffixes()].sort(compareAsciiStrings),
-  },
-];
-
-const EXPORTED_KINDS_BY_CATEGORY: Readonly<Record<DeclaredKindCategory, readonly Kind[]>> = {
-  [DECLARED_KIND_CATEGORY.NODE]: NODE_KINDS,
-  [DECLARED_KIND_CATEGORY.OUTPUT]: OUTPUT_KINDS,
-  [DECLARED_KIND_CATEGORY.DECISION]: DECISION_KINDS,
-};
-
-const EXPORTED_SUFFIXES_BY_CATEGORY: Readonly<Record<DeclaredKindCategory, readonly string[]>> = {
-  [DECLARED_KIND_CATEGORY.NODE]: NODE_SUFFIXES,
-  [DECLARED_KIND_CATEGORY.OUTPUT]: OUTPUT_SUFFIXES,
-  [DECLARED_KIND_CATEGORY.DECISION]: DECISION_SUFFIXES,
-};
-
-const DECLARED_CATEGORIES: readonly DeclaredKindCategory[] = Object.values(DECLARED_KIND_CATEGORY);
-
-/** One case per declared kind, with the category and suffix the spec declares for it. */
-export function kindRegistryMappingCases(): readonly KindRegistryMappingCase[] {
-  return declaredKinds().map((kind) => ({
-    title: `maps ${kind} to one category and suffix`,
-    kind,
-    category: DECLARED_KIND_FORMS[kind].category,
-    suffix: DECLARED_KIND_FORMS[kind].suffix,
-  }));
-}
-
-/** One case per declared kind, with the exported kind lists it belongs to by its declared category. */
-export function kindPartitionCases(): readonly KindPartitionCase[] {
-  return declaredKinds().map((kind) => ({
-    kind,
-    inNodeKinds: DECLARED_KIND_FORMS[kind].category === DECLARED_KIND_CATEGORY.NODE,
-    inOutputKinds: DECLARED_KIND_FORMS[kind].category === DECLARED_KIND_CATEGORY.OUTPUT,
-    inDecisionKinds: DECLARED_KIND_FORMS[kind].category === DECLARED_KIND_CATEGORY.DECISION,
-  }));
-}
-
-/** One case per declared category, pairing the declared kinds and suffixes with the exported sub-registries. */
-export function kindRegistrySubsetCases(): readonly KindRegistrySubsetCase[] {
-  return DECLARED_CATEGORIES.map((category) => ({
-    title: `projects the ${category} registry subset`,
-    category,
-    projectedKinds: declaredKindsOfCategory(category),
-    projectedSuffixes: declaredSuffixesOfCategory(category),
-    exportedKinds: EXPORTED_KINDS_BY_CATEGORY[category],
-    exportedSuffixes: EXPORTED_SUFFIXES_BY_CATEGORY[category],
-  }));
-}
-
-export function kindRegistrySuffixCases(): readonly KindRegistrySuffixCase[] {
-  return [
-    { title: "keeps node suffixes unique", kinds: declaredKindsOfCategory(DECLARED_KIND_CATEGORY.NODE) },
-    { title: "keeps decision suffixes unique", kinds: declaredKindsOfCategory(DECLARED_KIND_CATEGORY.DECISION) },
-    { title: "keeps all registered suffixes unique", kinds: declaredKinds() },
-  ];
-}
 
 /** A configuration that carries no `specTree` section, so the descriptor defaults apply. */
 export function specTreeAbsentSectionConfig(): Config {
@@ -466,44 +251,55 @@ export type SpecFileFormCase = {
   readonly expected: Readonly<Record<string, unknown>>;
 };
 
-type DeclaredNodeForm = { readonly kind: string; readonly suffix: string };
+type NodeForm = { readonly kind: string; readonly suffix: string };
 
-function declaredNodeForms(category: DeclaredKindCategory): readonly DeclaredNodeForm[] {
-  return declaredKindsOfCategory(category).map((kind) => ({ kind, suffix: DECLARED_KIND_FORMS[kind].suffix }));
+/** The registered kinds of one category, read from the registry by their category alone. */
+function registeredKindsOfCategory(category: SpecTreeKindCategory): readonly Kind[] {
+  return (Object.keys(KIND_REGISTRY) as Kind[]).filter((kind) => KIND_REGISTRY[kind].category === category);
+}
+
+function registeredForms(category: SpecTreeKindCategory): readonly NodeForm[] {
+  return registeredKindsOfCategory(category).map((kind) => ({ kind, suffix: KIND_REGISTRY[kind].suffix }));
 }
 
 /**
  * Per methodology line, one record for every form the line's naming-schema version accepts by the spec's
- * statement: each declared node directory holding its `{slug}` spec file, the root spec file, and each
- * declared decision form. The kinds, suffixes, and spec-file forms are the spec's own declarations.
+ * statement: a 3.x line accepts the `node` kinds as directories holding `{slug}.md` and a `{name}.product.md`
+ * root, a 4.0 line accepts the `output` kinds and the nested product scope as directories holding
+ * `{slug}.spec.md` and a `{name}.spec.md` root declaring the product kind, and both accept every `decision`
+ * kind as a file. The kind each form maps to follows from the registered kind that supplies its suffix.
  */
 export function specFileFormCases(): readonly SpecFileFormCase[] {
   const lines = [
     {
       line: SPEC_TREE_METHODOLOGY_LINE.THREE_TWO,
-      form: threeXFormExpectation(),
-      nodes: declaredNodeForms(DECLARED_KIND_CATEGORY.NODE),
+      nodes: registeredForms(SPEC_TREE_KIND_CATEGORY.NODE),
+      specFileSuffix: SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX,
+      rootSpecSuffix: SPEC_TREE_GRAMMAR.PRODUCT_SUFFIX,
+      rootSpecKind: undefined,
       index: THREE_X_INDEX_GENERATOR.accepted,
     },
     {
       line: SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO,
-      form: fourZeroFormExpectation(),
-      nodes: [...declaredNodeForms(DECLARED_KIND_CATEGORY.OUTPUT), {
-        kind: DECLARED_PRODUCT_KIND,
-        suffix: DECLARED_PRODUCT_NODE_SUFFIX,
+      nodes: [...registeredForms(SPEC_TREE_KIND_CATEGORY.OUTPUT), {
+        kind: SPEC_TREE_CONFIG.PRODUCT.KIND,
+        suffix: SPEC_TREE_CONFIG.PRODUCT.NODE_SUFFIX,
       }],
+      specFileSuffix: SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX,
+      rootSpecSuffix: SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX,
+      rootSpecKind: SPEC_TREE_CONFIG.PRODUCT.KIND,
       index: FOUR_ZERO_INDEX_GENERATOR.accepted,
     },
   ];
   let draw = 0;
   const nextDraw = (): number => draw++;
-  return lines.flatMap(({ line, form, nodes, index }) => {
+  return lines.flatMap(({ line, nodes, specFileSuffix, rootSpecSuffix, rootSpecKind, index }) => {
     const nodeCases = nodes.map(({ kind, suffix }): SpecFileFormCase => {
       const drawIndex = nextDraw();
       const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), drawIndex);
       const relativePath = indexedName(sampleSpecTreeTestValue(index(), drawIndex), slug, suffix);
       return {
-        title: `${line} accepts the ${suffix} directory holding ${slug}${form.specFileSuffix}`,
+        title: `${line} accepts the ${suffix} directory holding ${slug}${specFileSuffix}`,
         line,
         record: { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY, relativePath },
         expected: {
@@ -511,22 +307,21 @@ export function specFileFormCases(): readonly SpecFileFormCase[] {
           kind,
           slug,
           ref: {
-            path: [SPEC_TREE_CONFIG.ROOT_DIRECTORY, relativePath, `${slug}${form.specFileSuffix}`].join(
+            path: [SPEC_TREE_CONFIG.ROOT_DIRECTORY, relativePath, `${slug}${specFileSuffix}`].join(
               SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
             ),
           },
         },
       };
     });
-    const rootDraw = nextDraw();
-    const rootName = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), rootDraw);
+    const rootName = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), nextDraw());
     const rootCase: SpecFileFormCase = {
-      title: `${line} accepts the ${form.rootSpecSuffix} root spec`,
+      title: `${line} accepts the ${rootSpecSuffix} root spec`,
       line,
       record: {
         type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
-        relativePath: `${rootName}${form.rootSpecSuffix}`,
-        declaredKind: form.rootSpecKind,
+        relativePath: `${rootName}${rootSpecSuffix}`,
+        declaredKind: rootSpecKind,
       },
       expected: { type: SPEC_TREE_ENTRY_TYPE.PRODUCT, title: rootName },
     };
@@ -537,7 +332,7 @@ export function specFileFormCases(): readonly SpecFileFormCase[] {
       parentSlug,
       requireFirst(nodes).suffix,
     );
-    const decisionCases = declaredNodeForms(DECLARED_KIND_CATEGORY.DECISION).map(
+    const decisionCases = registeredForms(SPEC_TREE_KIND_CATEGORY.DECISION).map(
       ({ kind, suffix }): SpecFileFormCase => {
         const drawIndex = nextDraw();
         const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), drawIndex);
@@ -557,6 +352,169 @@ export function specFileFormCases(): readonly SpecFileFormCase[] {
     );
     return [...nodeCases, rootCase, ...decisionCases];
   });
+}
+
+/** One registered kind with the record its suffix names, the entry the kind's category maps it to, and the lines that category is read under. */
+export type KindRecognitionCase = {
+  readonly kind: Kind;
+  readonly lines: readonly SpecTreeMethodologyLine[];
+  readonly record: OrderedRecordInput;
+  readonly expectedType: SpecTreeEntryType;
+};
+
+/**
+ * One case per registered kind. The spec's statements of the versions' forms fix what each category
+ * maps to: `node` kinds are directories of a 3.x line, `output` kinds are directories of the 4.0
+ * line, and `decision` kinds are files of both. The registered suffix names the record.
+ */
+export function kindRecognitionCases(): readonly KindRecognitionCase[] {
+  const categoryLaw: Readonly<
+    Record<SpecTreeKindCategory, { lines: readonly SpecTreeMethodologyLine[]; type: SpecTreeEntryType }>
+  > = {
+    [SPEC_TREE_KIND_CATEGORY.NODE]: { lines: [SPEC_TREE_METHODOLOGY_LINE.THREE_TWO], type: SPEC_TREE_ENTRY_TYPE.NODE },
+    [SPEC_TREE_KIND_CATEGORY.OUTPUT]: {
+      lines: [SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO],
+      type: SPEC_TREE_ENTRY_TYPE.NODE,
+    },
+    [SPEC_TREE_KIND_CATEGORY.DECISION]: {
+      lines: [SPEC_TREE_METHODOLOGY_LINE.THREE_TWO, SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO],
+      type: SPEC_TREE_ENTRY_TYPE.DECISION,
+    },
+  };
+  return (Object.keys(KIND_REGISTRY) as Kind[]).map((kind, drawIndex) => {
+    const { category, suffix } = KIND_REGISTRY[kind];
+    const { lines, type } = categoryLaw[category];
+    const order = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), drawIndex);
+    const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), drawIndex);
+    const parentOrder = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), drawIndex + 1);
+    const parentSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), drawIndex + 1);
+    if (category !== SPEC_TREE_KIND_CATEGORY.DECISION) {
+      return { kind, lines, expectedType: type, record: orderedDirectoryRecord(order, slug, suffix) };
+    }
+    const parentId = orderedDirectoryRecord(
+      parentOrder,
+      parentSlug,
+      KIND_REGISTRY[requireFirst(registeredKindsOfCategory(SPEC_TREE_KIND_CATEGORY.NODE))].suffix,
+    ).relativePath;
+    return {
+      kind,
+      lines,
+      expectedType: type,
+      record: {
+        type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
+        relativePath: [parentId, indexedName(String(order), slug, suffix)].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+        parentId,
+      },
+    };
+  });
+}
+
+/** The evidence-file names of one language tail and runner choice, across every evidence mode and execution level. */
+export type EvidenceFileAcceptanceCase = {
+  readonly title: string;
+  readonly line: SpecTreeMethodologyLine;
+  readonly parentId: string;
+  readonly relativePaths: readonly string[];
+};
+
+/** A name that lacks, or misorders, one segment of the evidence-file form. */
+export type EvidenceFileIncompleteCase = {
+  readonly title: string;
+  readonly line: SpecTreeMethodologyLine;
+  readonly parentId: string;
+  readonly relativePath: string;
+};
+
+const EVIDENCE_SUBJECT_DRAW = 31;
+const EVIDENCE_PARENT_DRAW = 37;
+
+function evidenceParentId(line: SpecTreeMethodologyLine): string {
+  return orderedDirectoryRecord(
+    sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), EVIDENCE_PARENT_DRAW),
+    sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), EVIDENCE_PARENT_DRAW),
+    requireFirst(declaredNodeDirectoryKinds(line)).suffix,
+  ).relativePath;
+}
+
+function evidencePath(parentId: string, segments: readonly string[]): string {
+  return [parentId, SPEC_TREE_GRAMMAR.EVIDENCE.DIRECTORY_NAME, segments.join(SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR)]
+    .join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
+}
+
+/**
+ * Per methodology line, language tail, and runner choice (none, or each runner token), the files named
+ * `{subject}.{evidence}.{level}`, the optional runner token, then the tail, for every evidence mode and
+ * execution level. The tokens are the grammar registry's, and the order they compose in is the spec's.
+ */
+export function evidenceFileAcceptanceCases(): readonly EvidenceFileAcceptanceCase[] {
+  const subject = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), EVIDENCE_SUBJECT_DRAW);
+  const runnerChoices: readonly (string | undefined)[] = [undefined, ...SPEC_TREE_GRAMMAR.RUNNERS];
+  return SPEC_TREE_SOURCE_LINES.flatMap((line) => {
+    const parentId = evidenceParentId(line);
+    return Object.entries(SPEC_TREE_GRAMMAR.EVIDENCE.TAILS).flatMap(([language, tail]) =>
+      runnerChoices.map((runner): EvidenceFileAcceptanceCase => ({
+        title: `${line} ${language} files with ${runner === undefined ? "no runner token" : `the ${runner} runner token`}`,
+        line,
+        parentId,
+        relativePaths: SPEC_TREE_GRAMMAR.EVIDENCE.MODES.flatMap((mode) =>
+          SPEC_TREE_GRAMMAR.EVIDENCE.LEVELS.map((level) =>
+            evidencePath(parentId, [subject, mode, level, ...(runner === undefined ? [] : [runner]), ...tail])
+          )
+        ),
+      }))
+    );
+  });
+}
+
+/**
+ * Per methodology line, names that drop the language tail, the execution level, or the evidence mode
+ * from the form, or put the level before the mode.
+ */
+export function evidenceFileIncompleteCases(): readonly EvidenceFileIncompleteCase[] {
+  const subject = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), EVIDENCE_SUBJECT_DRAW);
+  const [mode] = SPEC_TREE_GRAMMAR.EVIDENCE.MODES;
+  const [level] = SPEC_TREE_GRAMMAR.EVIDENCE.LEVELS;
+  const [tail] = Object.values(SPEC_TREE_GRAMMAR.EVIDENCE.TAILS);
+  return SPEC_TREE_SOURCE_LINES.flatMap((line) => {
+    const parentId = evidenceParentId(line);
+    return [
+      { title: "without a language tail", segments: [subject, mode, level] },
+      { title: "without an execution level", segments: [subject, mode, ...tail] },
+      { title: "without an evidence mode", segments: [subject, level, ...tail] },
+      { title: "with the level before the mode", segments: [subject, level, mode, ...tail] },
+    ].map(({ title, segments }): EvidenceFileIncompleteCase => ({
+      title: `${line} name ${title}`,
+      line,
+      parentId,
+      relativePath: evidencePath(parentId, segments),
+    }));
+  });
+}
+
+/** Node directories the first naming-schema version accepts, each held alone under that version. */
+export type FirstVersionNodeDirectoryCase = {
+  readonly title: string;
+  readonly options: SpecTreeRecognitionOptions;
+  readonly record: { readonly type: SpecTreeFilesystemRecordType; readonly relativePath: string };
+};
+
+/** The naming-schema version that precedes every other under the independent semantic-version oracle. */
+function firstNamingSchemaVersion(): NamingSchemaVersion {
+  return [...SPEC_TREE_NAMING_SCHEMA_VERSIONS].sort((left, right) => semverOrderOracle(left.version, right.version))[0];
+}
+
+/** One node directory per node suffix of the first naming-schema version, recognized with that version alone selected. */
+export function firstVersionNodeDirectoryCases(): readonly FirstVersionNodeDirectoryCase[] {
+  const first = firstNamingSchemaVersion();
+  return first.nodeSuffixes.map((suffix, drawIndex) => ({
+    title: `the first naming-schema version accepts the ${suffix} directory`,
+    options: { schemaVersions: [first], selectedVersions: [first] },
+    record: orderedDirectoryRecord(
+      sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), drawIndex),
+      sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), drawIndex),
+      suffix,
+    ),
+  }));
 }
 
 const FIRST_SEGMENT_POSITION = 0;

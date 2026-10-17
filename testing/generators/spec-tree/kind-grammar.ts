@@ -11,7 +11,6 @@
  */
 
 import { SPEC_TREE_CONFIG, type SpecTreeContainerKind, type SpecTreeNodeKind } from "@/lib/spec-tree";
-import { DECLARED_OUTPUT_OPENINGS } from "@testing/generators/spec-tree/declared-kinds";
 
 export const VARIANT_KIND = "variant" as const;
 
@@ -23,8 +22,6 @@ type OutputFoundationKind = (typeof OUTPUT_FOUNDATION_ORDER)[number];
 export type VariantParentCase = {
   readonly label: string;
   readonly parentKind: SpecTreeNodeKind;
-  /** The opening keyword the spec states for the parent kind, which a variant takes. */
-  readonly opening: string;
 };
 
 export type KindAdmittedChildrenCase = {
@@ -51,7 +48,6 @@ export function variantParentCases(): readonly VariantParentCase[] {
   return variantParentKinds().map((parentKind) => ({
     label: [VARIANT_KIND, parentKind].join(LABEL_PARENT_JOINER),
     parentKind,
-    opening: DECLARED_OUTPUT_OPENINGS[parentKind],
   }));
 }
 

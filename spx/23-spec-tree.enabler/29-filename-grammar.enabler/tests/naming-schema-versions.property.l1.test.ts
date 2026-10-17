@@ -1,4 +1,3 @@
-import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -12,8 +11,9 @@ import {
   supersededNodeSuffixes,
 } from "@/lib/spec-tree";
 import {
-  arbitraryKnownNodeSuffix,
+  arbitraryDeclaredNodeDirectoryScenario,
   arbitraryMethodologyDeclaration,
+  arbitrarySelectedVersionDirectoryScenario,
   majorComponent,
 } from "@testing/generators/spec-tree/grammar-selection";
 import {
@@ -21,7 +21,6 @@ import {
   semverMaximumOracle,
   semverOrderOracle,
 } from "@testing/generators/spec-tree/naming-schema-version";
-import { SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 describe("naming-schema version ordering", () => {
@@ -102,34 +101,30 @@ describe("naming-schema superseded derivation", () => {
 });
 
 describe("naming-schema version self-containment", () => {
-  it("carries its own accepted filename forms on each shipped version", () => {
-    for (const version of SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS) {
-      expect(Array.isArray(version.nodeSuffixes)).toBe(true);
-      expect(Array.isArray(version.decisionSuffixes)).toBe(true);
-      expect(version.productSuffix.length).toBeGreaterThan(0);
-      expect(Array.isArray(version.runners)).toBe(true);
-      expect(version.evidence).toBeDefined();
-      expect(version.order).toBeDefined();
-      expect(Array.isArray(version.coordinationNotes)).toBe(true);
-      expect(version.eval.DIRECTORY_NAME.length).toBeGreaterThan(0);
-      expect(Array.isArray(version.eval.FILES)).toBe(true);
-      expect(version.eval.RUNS_DIRECTORY_NAME.length).toBeGreaterThan(0);
-      expect(version.specFileSuffix.length).toBeGreaterThan(0);
-    }
+  it("classifies an evidence file by the selected version's own evidence tokens alone", () => {
+    assertProperty(
+      NAMING_SCHEMA_VERSION_TEST_GENERATOR.evidenceSelfContainmentScenario(),
+      ({ schemaVersions, selectedVersions, parentId, ownRelativePath, foreignRelativePath }) => {
+        const own = recognizeSpecTreeFilesystemEntry(
+          { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE, relativePath: ownRelativePath, parentId },
+          { schemaVersions, selectedVersions },
+        );
+        const foreign = recognizeSpecTreeFilesystemEntry(
+          { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE, relativePath: foreignRelativePath, parentId },
+          { schemaVersions, selectedVersions },
+        );
+
+        expect(own?.type).toBe(SPEC_TREE_ENTRY_TYPE.EVIDENCE);
+        expect(foreign?.type).not.toBe(SPEC_TREE_ENTRY_TYPE.EVIDENCE);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
   });
 
   it("classifies a node directory as a node exactly when the selected version's own suffixes include its suffix, whatever other versions are known", () => {
     assertProperty(
-      fc.tuple(
-        NAMING_SCHEMA_VERSION_TEST_GENERATOR.selectedVersionScenario(),
-        SPEC_TREE_TEST_GENERATOR.filesystemOrder(),
-        SPEC_TREE_TEST_GENERATOR.sourceSlug(),
-      ),
-      ([{ selected, companions, suffix }, order, slug]) => {
-        const record = {
-          type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY,
-          relativePath: `${order}-${slug}${suffix}`,
-        };
+      arbitrarySelectedVersionDirectoryScenario(),
+      ({ selected, companions, suffix, record }) => {
         const alone = recognizeSpecTreeFilesystemEntry(record, {
           schemaVersions: [selected],
           selectedVersions: [selected],
@@ -173,13 +168,8 @@ describe("naming-schema declaration selection", () => {
 describe("naming-schema supersession against the declared target", () => {
   it("classifies a node directory as a node when a valid version accepts it, superseded when only an earlier version does, and invalid otherwise", () => {
     assertProperty(
-      fc.tuple(
-        arbitraryMethodologyDeclaration(),
-        SPEC_TREE_TEST_GENERATOR.filesystemOrder(),
-        SPEC_TREE_TEST_GENERATOR.sourceSlug(),
-        arbitraryKnownNodeSuffix(),
-      ),
-      ([declaration, order, slug, suffix]) => {
+      arbitraryDeclaredNodeDirectoryScenario(),
+      ({ declaration, suffix, record }) => {
         const selection = selectSpecTreeGrammar(declaration);
         const targetMajor = Math.max(...selection.selected.map(({ version }) => Number(majorComponent(version))));
         const acceptedByValid = selection.selected.some(({ nodeSuffixes }) => nodeSuffixes.includes(suffix));
@@ -187,13 +177,10 @@ describe("naming-schema supersession against the declared target", () => {
           ({ version, nodeSuffixes }) => Number(majorComponent(version)) < targetMajor && nodeSuffixes.includes(suffix),
         );
 
-        const entry = recognizeSpecTreeFilesystemEntry(
-          {
-            type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY,
-            relativePath: `${order}-${slug}${suffix}`,
-          },
-          { schemaVersions: selection.known, selectedVersions: selection.selected },
-        );
+        const entry = recognizeSpecTreeFilesystemEntry(record, {
+          schemaVersions: selection.known,
+          selectedVersions: selection.selected,
+        });
 
         expect(entry?.type === SPEC_TREE_ENTRY_TYPE.NODE).toBe(acceptedByValid);
         expect(entry?.type === SPEC_TREE_ENTRY_TYPE.SUPERSEDED).toBe(!acceptedByValid && acceptedByEarlier);
