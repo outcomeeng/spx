@@ -30,6 +30,7 @@ export interface VerifyRunSelector {
 }
 
 export const VERIFY_VERB = {
+  PATHS: "paths",
   START: "start",
   INPUT: "input",
   APPEND_SCOPE: "append-scope",

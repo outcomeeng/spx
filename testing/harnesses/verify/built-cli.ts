@@ -32,7 +32,11 @@ import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generator
 import { CLI_PATH, NODE_EXECUTABLE, PRODUCT_ROOT } from "@testing/harnesses/constants";
 import { buildGitTestEnvironment, GIT_TEST_ENVIRONMENT_KEYS } from "@testing/harnesses/git-test-constants";
 import { type StartedChangeRun, withChangeRunsRepository } from "@testing/harnesses/verify/change-runs";
-import { initializeVerifyRepository } from "@testing/harnesses/verify/repository";
+import {
+  initializeVerifyRepository,
+  type RepositoryStateEntry,
+  withVerifyHeadCommitRepository,
+} from "@testing/harnesses/verify/repository";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 /** The bundle `bin/spx.js` loads; absent until `pnpm run build` produces it. */
@@ -83,7 +87,8 @@ function builtCliEnvironment(gitDiscoveryCeiling?: string): NodeJS.ProcessEnv {
   };
 }
 
-function flagOf(optionExpression: string): string {
+/** The flag spelling of a Commander option expression such as `--run <token>`. */
+export function flagOf(optionExpression: string): string {
   const [flag] = optionExpression.split(" ");
   return flag;
 }
@@ -498,5 +503,55 @@ export async function observeBuiltRunStartChange(change: string): Promise<BuiltR
     );
     if (status.exitCode !== VERIFY_CLI_EXIT_CODE.OK) return { start, status };
     return { start, status, statusReport: JSON.parse(status.stdout) as VerifyStatusReport };
+  });
+}
+
+/** Which option an `spx verification run paths` invocation leaves out, and which extra option it carries. */
+export interface BuiltRunPathsInvocationShape {
+  /** The option expression of a required option the invocation omits. */
+  readonly omit?: string;
+  /** The option expression of an extra option the invocation carries with a generated value. */
+  readonly extra?: string;
+}
+
+/**
+ * The built `paths` run over a real Git repository's file scope, the same report the production
+ * operation returns in process, and the checkout's files and directories immediately before and
+ * after the built run, so a test reads what the command printed and whether it wrote anything.
+ */
+export interface BuiltRunPathsObservation {
+  readonly run: BuiltVerificationCliRun;
+  readonly inProcessReport: string;
+  readonly stateBefore: readonly RepositoryStateEntry[];
+  readonly stateAfter: readonly RepositoryStateEntry[];
+}
+
+/**
+ * In a real Git repository with a base and a head commit, run the built
+ * `spx verification run paths` for a file scope of a drawn verification type, leaving out the
+ * required option and adding the extra option `shape` names, with the checkout's state captured
+ * immediately before and after the run.
+ */
+export async function observeBuiltRunPaths(
+  shape: BuiltRunPathsInvocationShape = {},
+): Promise<BuiltRunPathsObservation> {
+  const verificationType = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.verificationType());
+  return withVerifyHeadCommitRepository(async (repository) => {
+    const inProcess = await repository.reportWritePaths(VERIFY_SCOPE_TYPE.FILE, verificationType);
+    const selectorOptions: ReadonlyArray<readonly [string, string]> = [
+      [VERIFY_CLI.verificationTypeOption, verificationType],
+      [VERIFY_CLI.scopeTypeOption, VERIFY_SCOPE_TYPE.FILE],
+      [VERIFY_CLI.scopeOption, repository.filePath],
+    ];
+    const extraOptions: ReadonlyArray<readonly [string, string]> = shape.extra === undefined
+      ? []
+      : [[shape.extra, sampleVerifyTestValue(VERIFY_TEST_GENERATOR.changeIdentity())]];
+    const options = [...selectorOptions, ...extraOptions]
+      .filter(([expression]) => expression !== shape.omit)
+      .flatMap(([expression, value]) => [flagOf(expression), value]);
+    const stateBefore = await repository.snapshotState();
+    const run = await runBuiltVerificationRun(repository.productDir, [VERIFY_CLI.pathsCommandName], options);
+    const stateAfter = await repository.snapshotState();
+    return { run, inProcessReport: inProcess.output, stateBefore, stateAfter };
   });
 }

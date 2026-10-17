@@ -77,6 +77,7 @@ export const VERIFY_CLI = {
   addCommandName: VERIFICATION_RUN_CLI_SURFACE.addCommandName,
   commandName: VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
   description: "Record and replay a typed verification run",
+  pathsCommandName: VERIFY_VERB.PATHS,
   startCommandName: VERIFY_VERB.START,
   startCommandDescription: "Start a changeset- or file-scoped verification run and report its run locator",
   inputCommandName: VERIFY_VERB.INPUT,

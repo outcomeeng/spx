@@ -13,7 +13,7 @@ CAN obtain its write directories before launch, start it for the Change it serve
 ### Scenarios
 
 - Given `spx verification run start --change <owner/repo#N>`, when the run starts, then the run records that Change identity ([test](tests/change-identity.scenario.l1.test.ts), [test](tests/change-identity.scenario.l2.test.ts))
-- Given `spx verification run paths --verification-type <type> --scope-type <scope-type> --scope <scope>`, when it runs, then it writes the write-path report as one JSON document on standard output carrying `resolvedScope`, `branchSlug`, and `writeDirectories`, whose entries carry `role` (`journal-runs` or `verification-context`), `path`, `exists`, and `missingDirectories`, exits zero, and creates no file or directory
+- Given `spx verification run paths --verification-type <type> --scope-type <scope-type> --scope <scope>`, when it runs, then it writes the write-path report as one JSON document on standard output carrying `resolvedScope`, `branchSlug`, and `writeDirectories`, whose entries carry `role` (`journal-runs` or `verification-context`), `path`, `exists`, and `missingDirectories`, exits zero, and creates no file or directory ([test](tests/run-paths.scenario.l2.test.ts))
 
 ### Mappings
 
@@ -24,4 +24,4 @@ CAN obtain its write directories before launch, start it for the Change it serve
 - ALWAYS: the caller-driven verification-run lifecycle is exposed under `spx verification run` ([test](tests/record-run.compliance.l1.test.ts))
 - ALWAYS: verification-run evidence resources use noun-local command paths, including `spx verification run scope add` and `spx verification run finding add` ([test](tests/record-run.compliance.l1.test.ts))
 - ALWAYS: `spx verification run scope add` and `spx verification run finding add` require a payload source and caller-supplied idempotency key ([test](tests/record-run.compliance.l1.test.ts))
-- ALWAYS: `spx verification run paths` rejects an invocation missing `--verification-type`, `--scope-type`, or `--scope`, or carrying `--run` or `--input`, before any path resolves
+- ALWAYS: `spx verification run paths` rejects an invocation missing `--verification-type`, `--scope-type`, or `--scope`, or carrying `--run` or `--input`, before any path resolves ([test](tests/run-paths.compliance.l2.test.ts))
