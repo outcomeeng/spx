@@ -1,11 +1,22 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/36-session.enabler/54-session-reconciliation.enabler/tests/session-reconciliation.compliance.l1.test.ts": "passed",
-      "spx/36-session.enabler/54-session-reconciliation.enabler/tests/session-reconciliation.mapping.l1.test.ts": "passed",
-      "spx/36-session.enabler/54-session-reconciliation.enabler/tests/session-reconciliation.property.l1.test.ts": "passed"
+      "tests/session-reconciliation.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/session-reconciliation.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/session-reconciliation.property.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

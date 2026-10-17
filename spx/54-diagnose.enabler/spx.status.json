@@ -1,21 +1,52 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/54-diagnose.enabler/tests/check-selection.mapping.l1.test.ts": "passed",
-      "spx/54-diagnose.enabler/tests/config.mapping.l1.test.ts": "passed",
-      "spx/54-diagnose.enabler/tests/determinism.property.l1.test.ts": "passed",
-      "spx/54-diagnose.enabler/tests/diagnose-cli.scenario.l2.test.ts": "passed",
-      "spx/54-diagnose.enabler/tests/error-sanitization.compliance.l2.test.ts": "passed",
-      "spx/54-diagnose.enabler/tests/exit-code.mapping.l1.test.ts": "passed",
-      "spx/54-diagnose.enabler/tests/fold.mapping.l1.test.ts": "passed",
-      "spx/54-diagnose.enabler/tests/manifest.conformance.l1.test.ts": "passed",
-      "spx/54-diagnose.enabler/tests/reading-escaping.compliance.l1.test.ts": "passed",
-      "spx/54-diagnose.enabler/tests/report.conformance.l1.test.ts": "passed",
-      "spx/54-diagnose.enabler/tests/resolve.mapping.l1.test.ts": "passed",
-      "spx/54-diagnose.enabler/tests/text-report.compliance.l1.test.ts": "passed",
-      "spx/54-diagnose.enabler/tests/worktree-status-probe.compliance.l1.test.ts": "passed"
+      "tests/check-selection.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/config.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/determinism.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/diagnose-cli.scenario.l2.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/error-sanitization.compliance.l2.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/exit-code.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/fold.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/manifest.conformance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/reading-escaping.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/report.conformance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/resolve.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/text-report.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/worktree-status-probe.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

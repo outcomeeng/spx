@@ -1,10 +1,19 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/21-infrastructure.enabler/43-code-quality-analysis.enabler/tests/eslint-mirror.compliance.l1.test.ts": "passed",
-      "spx/21-infrastructure.enabler/43-code-quality-analysis.enabler/tests/sonarcloud-project-exclusions.compliance.l1.test.ts": "passed"
+      "tests/eslint-mirror.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/sonarcloud-project-exclusions.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

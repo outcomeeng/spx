@@ -1,11 +1,17 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "spec",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/26-release.enabler/21-release-data.enabler/tests/release-data.compliance.l1.test.ts": "passed",
-      "spx/26-release.enabler/21-release-data.enabler/tests/release-data.property.l1.test.ts": "passed",
-      "spx/26-release.enabler/21-release-data.enabler/tests/release-data.scenario.l1.test.ts": "passed"
+      "tests/release-data.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/release-data.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/release-data.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      }
     }
   }
 }

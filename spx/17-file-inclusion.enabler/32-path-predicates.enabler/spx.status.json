@@ -1,12 +1,25 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/17-file-inclusion.enabler/32-path-predicates.enabler/tests/domain-path-filter.scenario.l1.test.ts": "passed",
-      "spx/17-file-inclusion.enabler/32-path-predicates.enabler/tests/git-tracking.scenario.l1.test.ts": "passed",
-      "spx/17-file-inclusion.enabler/32-path-predicates.enabler/tests/independence.property.l1.test.ts": "passed",
-      "spx/17-file-inclusion.enabler/32-path-predicates.enabler/tests/purity.property.l1.test.ts": "passed"
+      "tests/domain-path-filter.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/git-tracking.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/independence.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/purity.property.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

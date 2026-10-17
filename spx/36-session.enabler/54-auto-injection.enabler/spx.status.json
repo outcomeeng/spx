@@ -1,11 +1,22 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/36-session.enabler/54-auto-injection.enabler/tests/auto-injection.compliance.l1.test.ts": "passed",
-      "spx/36-session.enabler/54-auto-injection.enabler/tests/auto-injection.property.l1.test.ts": "passed",
-      "spx/36-session.enabler/54-auto-injection.enabler/tests/auto-injection.scenario.l1.test.ts": "passed"
+      "tests/auto-injection.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/auto-injection.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/auto-injection.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

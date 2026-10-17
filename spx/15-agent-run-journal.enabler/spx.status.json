@@ -1,15 +1,34 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/15-agent-run-journal.enabler/tests/agent-run-journal-append-only.property.l1.test.ts": "passed",
-      "spx/15-agent-run-journal.enabler/tests/agent-run-journal-concurrency.compliance.l1.test.ts": "passed",
-      "spx/15-agent-run-journal.enabler/tests/agent-run-journal-concurrency.property.l1.test.ts": "passed",
-      "spx/15-agent-run-journal.enabler/tests/agent-run-journal.compliance.l1.test.ts": "passed",
-      "spx/15-agent-run-journal.enabler/tests/agent-run-journal.conformance.l1.test.ts": "passed",
-      "spx/15-agent-run-journal.enabler/tests/agent-run-journal.property.l1.test.ts": "passed",
-      "spx/15-agent-run-journal.enabler/tests/runtime-config.compliance.l1.test.ts": "passed"
+      "tests/agent-run-journal-append-only.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/agent-run-journal-concurrency.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/agent-run-journal-concurrency.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/agent-run-journal.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/agent-run-journal.conformance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/agent-run-journal.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/runtime-config.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }
