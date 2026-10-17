@@ -239,7 +239,7 @@ export const SPEC_TREE_GRAMMAR = {
   },
   EVAL: {
     DIRECTORY_NAME: "evals",
-    FILES: ["eval.toml", "cases.jsonl", "prompt.md", "history.jsonl"],
+    FILES: ["eval.toml", "cases.jsonl", "prompt.md", "prompt.template.md", "history.jsonl"],
     RUNS_DIRECTORY_NAME: "runs",
   },
   PROBE: {
