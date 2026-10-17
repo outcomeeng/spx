@@ -1928,6 +1928,8 @@ export interface VerificationRunStartVerifierObservation {
   readonly rejectedByCommander: boolean;
   readonly startResults: readonly CliCommandResult[];
   readonly runContextData: Readonly<Record<string, unknown>>;
+  /** Whether the run's state root exists in the controlled store after the parse. */
+  readonly stateRootExists: boolean;
 }
 
 /**
@@ -1979,7 +1981,12 @@ export async function observeVerificationRunStartVerifier(
   const runContexts = started?.exitCode === VERIFY_CLI_EXIT_CODE.OK
     ? await runContextEvents(scenario, fs, parseStartReport(started.output).runToken)
     : [];
-  return { rejectedByCommander, startResults, runContextData: eventDataRecord(runContexts[0]) };
+  return {
+    rejectedByCommander,
+    startResults,
+    runContextData: eventDataRecord(runContexts[0]),
+    stateRootExists: await verifyPathExists(fs, join(scenario.productDir, STATE_STORE_SCOPE_PATH.SPX_DIR)),
+  };
 }
 
 /** Start a run with the given Change identity and report whether any `.spx/` state exists afterwards. */

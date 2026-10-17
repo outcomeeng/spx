@@ -1539,6 +1539,10 @@ export const VERIFY_TEST_GENERATOR = {
   nonCanonicalChangeIdentity: (): fc.Arbitrary<string> => arbitraryNonCanonicalChangeIdentity(),
   verifier: (): fc.Arbitrary<VerifierIdentity> => arbitraryVerifier(),
   invalidVerifier: (): fc.Arbitrary<VerifierIdentity> => arbitraryInvalidVerifier(),
+  /** A supported-kind Verifier whose id is the empty string. */
+  emptyIdVerifier: (): fc.Arbitrary<VerifierIdentity> => arbitraryEmptyIdVerifier(),
+  /** A supported-kind Verifier whose id is one or more whitespace characters and nothing else. */
+  whitespaceOnlyIdVerifier: (): fc.Arbitrary<VerifierIdentity> => arbitraryWhitespaceOnlyIdVerifier(),
 } as const;
 
 /** The Verifier a run is started with: its kind and its id. */
@@ -1558,6 +1562,28 @@ function arbitraryVerifier(): fc.Arbitrary<VerifierIdentity> {
   return fc.record({
     kind: fc.constantFrom(...Object.values(VERIFY_VERIFIER_KIND)),
     id: STATE_STORE_TEST_GENERATOR.scopeToken(),
+  });
+}
+
+const VERIFIER_ID_WHITESPACE_CHARACTERS = [" ", "\t", "\n", "\r", "\u00a0", "\u2003"] as const;
+const VERIFIER_ID_WHITESPACE_MAX_LENGTH = 12;
+
+function arbitraryEmptyIdVerifier(): fc.Arbitrary<VerifierIdentity> {
+  return fc.record({
+    kind: fc.constantFrom(...Object.values(VERIFY_VERIFIER_KIND)),
+    id: fc.constant(EMPTY_VERIFIER_ID),
+  });
+}
+
+function arbitraryWhitespaceOnlyIdVerifier(): fc.Arbitrary<VerifierIdentity> {
+  return fc.record({
+    kind: fc.constantFrom(...Object.values(VERIFY_VERIFIER_KIND)),
+    id: fc
+      .array(fc.constantFrom(...VERIFIER_ID_WHITESPACE_CHARACTERS), {
+        minLength: 1,
+        maxLength: VERIFIER_ID_WHITESPACE_MAX_LENGTH,
+      })
+      .map((characters) => characters.join("")),
   });
 }
 

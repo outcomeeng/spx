@@ -19,6 +19,19 @@ describe("verify start Verifier compliance", () => {
     );
   });
 
+  it("rejects a Verifier with a whitespace-only id before any run state exists", async () => {
+    await assertProperty(
+      VERIFY_TEST_GENERATOR.whitespaceOnlyIdVerifier(),
+      async (verifier) => {
+        const observation = await observeStartWithVerifierState(verifier);
+        expect(observation.started.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+        expect(observation.started.output).toBe(VERIFY_CLI_ERROR.VERIFIER_INVALID);
+        expect(observation.stateRootExists).toBe(false);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+
   it("accepts a person or agent Verifier with a non-empty id and creates the run state", async () => {
     await assertProperty(
       VERIFY_TEST_GENERATOR.verifier(),

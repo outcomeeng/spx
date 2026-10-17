@@ -22,6 +22,6 @@ CAN start it for the Change it serves and the Verifier that judges it, append it
 ### Compliance
 
 - ALWAYS: the caller-driven verification-run lifecycle is exposed under `spx verification run` ([test](tests/record-run.compliance.l1.test.ts))
-- ALWAYS: `spx verification run start` accepts `--verifier <kind>:<id>` only with kind `person` or `agent` and an id holding at least one non-whitespace character, and rejects an empty or whitespace-only id before a run exists
+- ALWAYS: `spx verification run start` accepts `--verifier <kind>:<id>` only with kind `person` or `agent` and an id holding at least one non-whitespace character, and rejects an empty or whitespace-only id before a run exists ([test](tests/verifier.compliance.l1.test.ts))
 - ALWAYS: verification-run evidence resources use noun-local command paths, including `spx verification run scope add` and `spx verification run finding add` ([test](tests/record-run.compliance.l1.test.ts))
 - ALWAYS: `spx verification run scope add` and `spx verification run finding add` require a payload source and caller-supplied idempotency key ([test](tests/record-run.compliance.l1.test.ts))
