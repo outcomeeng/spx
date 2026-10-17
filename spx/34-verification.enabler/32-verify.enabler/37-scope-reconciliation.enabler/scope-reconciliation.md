@@ -18,5 +18,5 @@ CAN learn whether every path the run was expected to judge was judged, and which
 
 ### Compliance
 
-- ALWAYS: reconciliation rejects a run that is not changeset-scoped, a run that recorded no change inventory, and a changeset selector that no longer resolves, naming the scope type, the missing inventory, or the selector ([test](tests/reconciliation-rejection.compliance.l1.test.ts))
+- ALWAYS: reconciliation rejects a run that is not changeset-scoped, a run that recorded no change inventory, a recorded change inventory entry that is malformed or carries an unknown change kind, and a changeset selector that no longer resolves, naming the scope type, the missing inventory, the offending entry, or the selector ([test](tests/reconciliation-rejection.compliance.l1.test.ts))
 - NEVER: reconciliation appends a journal event, seals a run, or changes the working tree, the index, or a ref ([test](tests/reconciliation-read-only.compliance.l1.test.ts))
