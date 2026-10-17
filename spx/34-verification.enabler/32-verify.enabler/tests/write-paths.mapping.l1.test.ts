@@ -10,13 +10,19 @@ import {
 } from "@/commands/verify/cli";
 import { VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
 import { branchScopesDir } from "@/lib/state-store";
-import { REPOSITORY_STATE_ENTRY_KIND, withVerifyHeadCommitRepository } from "@testing/harnesses/verify/repository";
+import {
+  REPOSITORY_STATE_ENTRY_KIND,
+  VERIFICATION_TYPE_CASE_TITLE,
+  withVerifyHeadCommitRepository,
+} from "@testing/harnesses/verify/repository";
+
+const compareText = (left: string, right: string): number => left.localeCompare(right);
 
 // A run of one verification type, scope, and branch key writes its journal into one runs directory
 // and its verification context into one contexts directory. The write-path report names those
 // directories before any run starts; the files a started run then creates are the oracle for them.
 describe("verify write-path report directories", () => {
-  describe.each(Object.values(VERIFY_VERIFICATION_TYPE))("verification type %s", (verificationType) => {
+  describe.each(Object.values(VERIFY_VERIFICATION_TYPE))(VERIFICATION_TYPE_CASE_TITLE, (verificationType) => {
     it.each(Object.values(VERIFY_SCOPE_TYPE))(
       "reports the canonical scope identity, the branch key, and the directories a %s-scope run then writes",
       async (scopeType) => {
@@ -35,11 +41,11 @@ describe("verify write-path report directories", () => {
           const branchScope = join(branchScopesDir(repository.productDir), report.branchSlug);
 
           expect(report.resolvedScope).toEqual({ scopeType, scopeIdentity: locator.scopeIdentity });
-          expect(report.writeDirectories.map((directory) => directory.role).sort()).toEqual(
-            Object.values(VERIFY_WRITE_DIRECTORY_ROLE).sort(),
+          expect(report.writeDirectories.map((directory) => directory.role).sort(compareText)).toEqual(
+            Object.values(VERIFY_WRITE_DIRECTORY_ROLE).sort(compareText),
           );
-          expect(report.writeDirectories.map((directory) => directory.path).sort()).toEqual(
-            [...new Set(writtenDirectories)].sort(),
+          expect(report.writeDirectories.map((directory) => directory.path).sort(compareText)).toEqual(
+            [...new Set(writtenDirectories)].sort(compareText),
           );
           expect(
             report.writeDirectories.find((directory) => directory.role === VERIFY_WRITE_DIRECTORY_ROLE.JOURNAL_RUNS)
@@ -59,7 +65,7 @@ describe("verify write-path report directories", () => {
 // checkout before and after a run starts is the oracle: the nearest existing ancestor exists before,
 // and every missing directory exists afterward at the reported path.
 describe("verify write-path report path resolution", () => {
-  describe.each(Object.values(VERIFY_VERIFICATION_TYPE))("verification type %s", (verificationType) => {
+  describe.each(Object.values(VERIFY_VERIFICATION_TYPE))(VERIFICATION_TYPE_CASE_TITLE, (verificationType) => {
     it.each(Object.values(VERIFY_SCOPE_TYPE))(
       "reports every directory absent from a checkout without a state store, with the directories to create, for a %s-scope run",
       async (scopeType) => {

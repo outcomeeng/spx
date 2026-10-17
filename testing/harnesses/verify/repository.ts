@@ -111,6 +111,9 @@ export interface StartedRepositoryRun {
   readonly runContextData: readonly Readonly<Record<string, unknown>>[];
 }
 
+/** The `describe.each` title format that names one verification type. */
+export const VERIFICATION_TYPE_CASE_TITLE = "verification type %s";
+
 /** The kinds of entry a repository state snapshot records. */
 export const REPOSITORY_STATE_ENTRY_KIND = {
   FILE: "file",
