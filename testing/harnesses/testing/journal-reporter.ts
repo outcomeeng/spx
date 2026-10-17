@@ -25,13 +25,14 @@ import {
   type VitestRunStartOptions,
 } from "@/test/languages/journal-reporter";
 import { READ_RECORDER_META_KEY } from "@/test/languages/read-recorder";
-import type {
-  JournalRunInvocation,
-  JournalRunRequest,
-  JournalRunTerminalStatus,
-  TestFinding,
-  TestRunEvidenceSink,
-  TestScopeUnit,
+import {
+  JOURNAL_RUN_TERMINAL_STATUS,
+  type JournalRunInvocation,
+  type JournalRunRequest,
+  type JournalRunTerminalStatus,
+  type TestFinding,
+  type TestRunEvidenceSink,
+  type TestScopeUnit,
 } from "@/test/languages/types";
 import { runTestsStreaming as descriptorRunTestsStreaming } from "@/test/languages/typescript";
 import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";
@@ -317,13 +318,16 @@ export async function observeAsyncSinkAppendTiming(
 
 // Minimal Vitest doubles carrying only the fields the reporter reads; the real
 // TestModule / TestCase cannot be constructed outside a live run (Stage 5: contract probe).
-function buildTestModuleDouble(scenario: GeneratedRunScenario): TestModule {
+function buildTestModuleDouble(
+  scenario: GeneratedRunScenario,
+  options: { readonly projectRoot?: string; readonly diagnostic?: TestModule["diagnostic"] } = {},
+): TestModule {
   return {
     moduleId: scenario.moduleId,
-    project: { config: { root: scenario.reads.productRoot } },
-    diagnostic: () => ({
+    project: { config: { root: options.projectRoot ?? scenario.reads.productRoot } },
+    diagnostic: options.diagnostic ?? (() => ({
       importDurations: Object.fromEntries(loadedReadPaths(scenario.reads).map((path) => [path, {}])),
-    }),
+    })),
     meta: () => ({ [READ_RECORDER_META_KEY]: openedReadPaths(scenario.reads) }),
   } as unknown as TestModule;
 }
@@ -350,8 +354,9 @@ export async function driveReporterOverScenario(
   reporter: Reporter,
   scenario: GeneratedRunScenario,
   reason: JournalRunTerminalStatus,
+  moduleOptions: Parameters<typeof buildTestModuleDouble>[1] = {},
 ): Promise<void> {
-  const testModule = buildTestModuleDouble(scenario);
+  const testModule = buildTestModuleDouble(scenario, moduleOptions);
   await reporter.onTestModuleStart?.(testModule);
   for (const runCase of scenario.cases) {
     await reporter.onTestCaseResult?.(buildTestCaseDouble(scenario.moduleId, runCase));
@@ -376,6 +381,89 @@ export async function observeJournalReporterMapping(
   const reporter = buildReporterForScenario(sink, scenario);
   await driveReporterOverScenario(reporter, scenario, reason);
   return { scopes: sink.scopes, findings: sink.findings, terminalStatus: reporter.terminalStatus };
+}
+
+/** The ways a module's import diagnostic is unavailable: it raises when read, or it carries no import durations. */
+export const DIAGNOSTIC_UNAVAILABILITY = {
+  RAISES: "raises",
+  NO_DURATIONS: "no-durations",
+} as const;
+export type DiagnosticUnavailability = (typeof DIAGNOSTIC_UNAVAILABILITY)[keyof typeof DIAGNOSTIC_UNAVAILABILITY];
+
+/**
+ * Drives a journal reporter over a scenario whose module's import diagnostic is unavailable in the
+ * given way while its metadata and the product lockfile still name product files, and returns what
+ * the sink recorded. The unavailable diagnostic is a controlled failure simulation of the Vitest module.
+ */
+export async function observeJournalReporterWithUnavailableDiagnostic(
+  scenario: GeneratedRunScenario,
+  unavailability: DiagnosticUnavailability,
+): Promise<readonly TestScopeUnit[]> {
+  const sink = createRecordingEvidenceSink();
+  const reporter = buildReporterForScenario(sink, scenario);
+  const diagnostic = unavailability === DIAGNOSTIC_UNAVAILABILITY.RAISES
+    ? () => {
+      throw new Error(sampleGeneratedValue(arbitraryDomainLiteral()));
+    }
+    : () => ({});
+  await driveReporterOverScenario(
+    reporter,
+    scenario,
+    JOURNAL_RUN_TERMINAL_STATUS.PASSED,
+    { diagnostic: diagnostic as unknown as TestModule["diagnostic"] },
+  );
+  return sink.scopes;
+}
+
+/** A real product directory and a symbolic link to it. */
+export interface SymlinkedProductRoots {
+  /** The real path of the product directory, the form a run reports product files in. */
+  readonly realRoot: string;
+  /** The symbolic link to the product directory, the project root a product reached through a link configures. */
+  readonly linkRoot: string;
+}
+
+const SYMLINKED_PRODUCT_DIRECTORY = "product";
+const SYMLINKED_PRODUCT_LINK = "link";
+
+/** Creates a real product directory and a symbolic link to it in a temp directory, runs the callback, and removes both. */
+export function withSymlinkedProductRoot<T>(callback: (roots: SymlinkedProductRoots) => Promise<T>): Promise<T> {
+  return withTempDir(TEMP_PRODUCT_PREFIX, async (tempDir) => {
+    const realTempDir = await realpath(tempDir);
+    const realRoot = join(realTempDir, SYMLINKED_PRODUCT_DIRECTORY);
+    const linkRoot = join(realTempDir, SYMLINKED_PRODUCT_LINK);
+    await mkdir(realRoot);
+    await symlink(realRoot, linkRoot, "dir");
+    return callback({ realRoot, linkRoot });
+  });
+}
+
+/** What the reporter recorded for a module whose project root is a symbolic link to the product, and the scenario rebased onto the product's real root. */
+export interface SymlinkedRootObservation {
+  /** The scenario with its product root replaced by the real path of the product directory the link points at. */
+  readonly realRootScenario: GeneratedRunScenario;
+  readonly scopes: readonly TestScopeUnit[];
+}
+
+/**
+ * Rebases the scenario's reads onto the product's real path (the form the run reports files in)
+ * and drives the reporter over a module whose project root is the link, the way a product reached
+ * through a symbolic link configures it.
+ */
+export async function observeJournalReporterOverSymlinkedRoot(
+  scenario: GeneratedRunScenario,
+  roots: SymlinkedProductRoots,
+): Promise<SymlinkedRootObservation> {
+  const realRootScenario: GeneratedRunScenario = {
+    ...scenario,
+    reads: { ...scenario.reads, productRoot: roots.realRoot },
+  };
+  const sink = createRecordingEvidenceSink();
+  const reporter = buildReporterForScenario(sink, realRootScenario);
+  await driveReporterOverScenario(reporter, realRootScenario, JOURNAL_RUN_TERMINAL_STATUS.PASSED, {
+    projectRoot: roots.linkRoot,
+  });
+  return { realRootScenario, scopes: sink.scopes };
 }
 
 /** The sink's findings channel as it stood right after one case's result hook returned. */
