@@ -1,13 +1,28 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/43-compact-output.enabler/tests/compact-output.compliance.l1.test.ts": "passed",
-      "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/43-compact-output.enabler/tests/compact-output.conformance.l1.test.ts": "passed",
-      "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/43-compact-output.enabler/tests/compact-output.mapping.l1.test.ts": "passed",
-      "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/43-compact-output.enabler/tests/compact-output.scenario.l1.test.ts": "passed",
-      "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/43-compact-output.enabler/tests/compact-output.scenario.l2.test.ts": "passed"
+      "tests/compact-output.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/compact-output.conformance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/compact-output.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/compact-output.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/compact-output.scenario.l2.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

@@ -1,13 +1,28 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/41-test.enabler/21-python-test.enabler/tests/python-test.compliance.l1.test.ts": "passed",
-      "spx/41-test.enabler/21-python-test.enabler/tests/python-test.compliance.l2.test.ts": "passed",
-      "spx/41-test.enabler/21-python-test.enabler/tests/python-test.mapping.l1.test.ts": "passed",
-      "spx/41-test.enabler/21-python-test.enabler/tests/python-test.scenario.l1.test.ts": "passed",
-      "spx/41-test.enabler/21-python-test.enabler/tests/python-test.scenario.l2.test.ts": "passed"
+      "tests/python-test.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/python-test.compliance.l2.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/python-test.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/python-test.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/python-test.scenario.l2.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

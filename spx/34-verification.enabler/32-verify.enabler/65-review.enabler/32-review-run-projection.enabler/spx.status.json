@@ -1,13 +1,28 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler/tests/review-comment.mapping.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler/tests/review-envelope.mapping.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler/tests/review-run-set-identity.property.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler/tests/review-run-set.property.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler/tests/review-scope.scenario.l1.test.ts": "passed"
+      "tests/review-comment.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/review-envelope.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/review-run-set-identity.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/review-run-set.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/review-scope.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

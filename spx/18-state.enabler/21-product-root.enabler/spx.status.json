@@ -1,11 +1,22 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/18-state.enabler/21-product-root.enabler/tests/env-isolation.scenario.l1.test.ts": "passed",
-      "spx/18-state.enabler/21-product-root.enabler/tests/result-shape.mapping.l1.test.ts": "passed",
-      "spx/18-state.enabler/21-product-root.enabler/tests/root-resolution.scenario.l1.test.ts": "passed"
+      "tests/env-isolation.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/result-shape.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/root-resolution.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

@@ -1,12 +1,25 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/54-output-modes.enabler/tests/output-modes.compliance.l1.test.ts": "passed",
-      "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/54-output-modes.enabler/tests/output-modes.mapping.l1.test.ts": "passed",
-      "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/54-output-modes.enabler/tests/output-modes.property.l1.test.ts": "passed",
-      "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/54-output-modes.enabler/tests/output-modes.scenario.l1.test.ts": "passed"
+      "tests/output-modes.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/output-modes.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/output-modes.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/output-modes.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }
