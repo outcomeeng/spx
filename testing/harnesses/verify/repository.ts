@@ -1,4 +1,5 @@
-import { mkdir, readdir, realpath, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, readdir, readFile, realpath, stat, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { execa } from "execa";
@@ -8,6 +9,7 @@ import {
   VERIFY_CLI_EXIT_CODE,
   verifyAppendScopeCommand,
   type VerifyCliDeps,
+  verifyPathsCommand,
   verifyStartCommand,
   type VerifyStartReport,
 } from "@/commands/verify/cli";
@@ -22,7 +24,7 @@ import {
 } from "@/domains/verify/verify";
 import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
 import { GIT_DIR_BASENAME, GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
-import { defaultStateStoreFileSystem } from "@/lib/state-store";
+import { defaultStateStoreFileSystem, STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import {
   buildGitTestEnvironment,
@@ -34,7 +36,7 @@ import {
   runGit,
 } from "@testing/harnesses/git-test-constants";
 import { createRecordingStreamSink, eventDataRecord } from "@testing/harnesses/verify/harness";
-import { withTempDir } from "@testing/harnesses/with-temp-dir";
+import { createTempDir, removeTempDir, withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const VERIFY_REPOSITORY_TEMP_PREFIX = "verify-repository-";
 const GIT_FAILURE_EXIT_CODE = 1;
@@ -109,6 +111,62 @@ export interface StartedRepositoryRun {
   readonly runContextData: readonly Readonly<Record<string, unknown>>[];
 }
 
+/** The kinds of entry a repository state snapshot records. */
+export const REPOSITORY_STATE_ENTRY_KIND = {
+  FILE: "file",
+  DIRECTORY: "directory",
+} as const;
+
+export type RepositoryStateEntryKind = (typeof REPOSITORY_STATE_ENTRY_KIND)[keyof typeof REPOSITORY_STATE_ENTRY_KIND];
+
+/**
+ * One file or directory of a repository's checkout, at its canonical path with every symbolic link
+ * resolved: its kind, its modification time, and, for a file, the digest of its content.
+ */
+export interface RepositoryStateEntry {
+  readonly path: string;
+  readonly kind: RepositoryStateEntryKind;
+  readonly mtimeMs: number;
+  readonly digest: string | undefined;
+}
+
+/**
+ * Observe every file and directory of the checkout at `productDir`, the root included and the Git
+ * directory excluded, following symbolic links so an entry below a link appears at its resolved path.
+ * Entries are ordered by path.
+ */
+async function snapshotRepositoryState(productDir: string): Promise<readonly RepositoryStateEntry[]> {
+  const root = await stat(productDir);
+  const entries: RepositoryStateEntry[] = [
+    { path: productDir, kind: REPOSITORY_STATE_ENTRY_KIND.DIRECTORY, mtimeMs: root.mtimeMs, digest: undefined },
+  ];
+  const visit = async (directory: string): Promise<void> => {
+    for (const name of await readdir(directory)) {
+      if (directory === productDir && name === GIT_DIR_BASENAME) continue;
+      const canonical = await realpath(join(directory, name));
+      const stats = await stat(canonical);
+      if (stats.isDirectory()) {
+        entries.push({
+          path: canonical,
+          kind: REPOSITORY_STATE_ENTRY_KIND.DIRECTORY,
+          mtimeMs: stats.mtimeMs,
+          digest: undefined,
+        });
+        await visit(canonical);
+      } else {
+        entries.push({
+          path: canonical,
+          kind: REPOSITORY_STATE_ENTRY_KIND.FILE,
+          mtimeMs: stats.mtimeMs,
+          digest: createHash("sha256").update(await readFile(canonical)).digest("hex"),
+        });
+      }
+    }
+  };
+  await visit(productDir);
+  return entries.sort((left, right) => left.path.localeCompare(right.path));
+}
+
 /** What one `scope add` produced: the command result and the payload of every scope event the run's journal then holds. */
 export interface AppendedRepositoryScope {
   readonly appended: CliCommandResult;
@@ -134,6 +192,18 @@ export interface VerifyHeadCommitRepository extends VerifyRepositoryCommits {
   appendScope(run: StartedRepositoryRun, payload: JsonValue): Promise<AppendedRepositoryScope>;
   /** Write a file at the product-relative `path` into the checkout without adding it to any commit. */
   writeCheckoutFile(path: string): Promise<void>;
+  /**
+   * Ask the production write-path report for the directories a run of `scopeType` and
+   * `verificationType` writes, of a drawn verification type when none is given.
+   */
+  reportWritePaths(scopeType: string, verificationType?: string): Promise<CliCommandResult>;
+  /** Observe every file and directory of the checkout, the Git directory excluded, at canonical paths. */
+  snapshotState(): Promise<readonly RepositoryStateEntry[]>;
+  /**
+   * Replace the checkout's state store location with a symbolic link to an empty directory outside
+   * the checkout, and return that directory's canonical path.
+   */
+  linkStateStore(): Promise<string>;
 }
 
 /**
@@ -145,6 +215,7 @@ export interface VerifyHeadCommitRepository extends VerifyRepositoryCommits {
 interface VerifyRunStarter {
   startRun(scopeType: string, scope: string, verificationType?: string): Promise<StartedRepositoryRun>;
   appendScope(run: StartedRepositoryRun, payload: JsonValue): Promise<AppendedRepositoryScope>;
+  reportWritePaths(scopeType: string, scope: string, verificationType?: string): Promise<CliCommandResult>;
 }
 
 function createVerifyRunStarter(productDir: string, git: GitDependencies): VerifyRunStarter {
@@ -168,6 +239,8 @@ function createVerifyRunStarter(productDir: string, git: GitDependencies): Verif
     return JSON.parse(read.output) as readonly JournalEvent[];
   };
   return {
+    reportWritePaths: async (scopeType, scope, verificationType = drawnVerificationType) =>
+      verifyPathsCommand({ verificationType, scopeType, scope }, deps),
     appendScope: async (run, payload) => {
       if (run.runToken === undefined) {
         throw new Error(`verify repository harness: scope add needs a started run: ${run.started.output}`);
@@ -230,25 +303,40 @@ export async function withVerifyHeadCommitRepository<T>(
       layout.headBranch,
       commits.headCommit,
     ]);
-    const { appendScope, startRun } = createVerifyRunStarter(productDir, realVerifyGitDependencies());
+    const { appendScope, reportWritePaths, startRun } = createVerifyRunStarter(productDir, realVerifyGitDependencies());
     const scopeFor = (scopeType: string): string =>
       scopeType === VERIFY_SCOPE_TYPE.CHANGESET
         ? `${commits.baseCommit}${VERIFY_SCOPE_SEPARATOR}${layout.headBranch}`
         : layout.filePath;
+    const linkedStoreDirectories: string[] = [];
 
-    return callback({
-      productDir,
-      filePath: layout.filePath,
-      headBranch: layout.headBranch,
-      ...commits,
-      startRun: async (scopeType, verificationType) => startRun(scopeType, scopeFor(scopeType), verificationType),
-      appendScope,
-      writeCheckoutFile: async (path) => {
-        const absoluteFile = join(productDir, path);
-        await mkdir(dirname(absoluteFile), { recursive: true });
-        await writeFile(absoluteFile, path);
-      },
-    });
+    try {
+      return await callback({
+        productDir,
+        filePath: layout.filePath,
+        headBranch: layout.headBranch,
+        ...commits,
+        startRun: async (scopeType, verificationType) => startRun(scopeType, scopeFor(scopeType), verificationType),
+        appendScope,
+        writeCheckoutFile: async (path) => {
+          const absoluteFile = join(productDir, path);
+          await mkdir(dirname(absoluteFile), { recursive: true });
+          await writeFile(absoluteFile, path);
+        },
+        reportWritePaths: async (scopeType, verificationType) =>
+          reportWritePaths(scopeType, scopeFor(scopeType), verificationType),
+        snapshotState: async () => snapshotRepositoryState(productDir),
+        linkStateStore: async () => {
+          const createdDirectory = await createTempDir(VERIFY_REPOSITORY_TEMP_PREFIX);
+          linkedStoreDirectories.push(createdDirectory);
+          const storeDirectory = await realpath(createdDirectory);
+          await symlink(storeDirectory, join(productDir, STATE_STORE_SCOPE_PATH.SPX_DIR));
+          return storeDirectory;
+        },
+      });
+    } finally {
+      await Promise.all(linkedStoreDirectories.map(async (directory) => removeTempDir(directory).catch(() => {})));
+    }
   });
 }
 
