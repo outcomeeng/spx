@@ -1,12 +1,24 @@
+import { existsSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
+import { NODE_STATUS_CLAIM_SECTION, NODE_STATUS_CURRENCY } from "@/lib/node-status";
+import { testingRunsDir } from "@/test/run-state";
+import { NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   RETIRED_SPEC_CONTEXT_OPTION_FIXTURES,
   specCliProtectedConfigFiles,
 } from "@testing/generators/spec-tree/spec-cli";
-import { addNodeTestFile, fixtureNodePath } from "@testing/harnesses/spec-tree/spec-cli-commands";
+import {
+  currentMethodologyConfig,
+  readNodeStatusFileBytes,
+  readSpecTreeWorkingChanges,
+  withPinnedNodeRepository,
+} from "@testing/harnesses/node-status/node-status";
+import { addNodeTestFile, fixtureNodePath, readStatusJsonNode } from "@testing/harnesses/spec-tree/spec-cli-commands";
 import { runSpecDescriptor, specDescriptorOptionFlags, withRichContextEnv } from "@testing/harnesses/spec/context";
 
 describe("spec context commands and retired options", () => {
@@ -69,6 +81,37 @@ describe("spec command handlers and product configuration", () => {
         expect(run.stdout.length, argv.join(" ")).toBeGreaterThan(0);
         expect(await Promise.all(protectedPaths.map((path) => env.readFile(path))), argv.join(" ")).toEqual(before);
       }
+    });
+  });
+});
+
+describe("spec status pin currency reporting", () => {
+  it("ALWAYS: reporting pin currency executes no verification and writes nothing", async () => {
+    const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
+      const productDir = repository.env.productDir;
+      const edited = repository.subjectPaths[fixture.editedSubject] ?? "";
+      await repository.writeClaim({
+        [NODE_STATUS_CLAIM_SECTION.TEST]: {
+          [repository.testKeys[0] ?? ""]: repository.passedEntry([
+            repository.specPath,
+            repository.testPaths[0] ?? "",
+            edited,
+          ]),
+        },
+      });
+      await repository.commitAll();
+      // The edit leaves the pin not current, so the report performs real currency work.
+      await repository.editSubject(fixture.editedSubject);
+      const claimsBefore = await readNodeStatusFileBytes(productDir);
+      const changesBefore = await readSpecTreeWorkingChanges(productDir);
+
+      const node = await readStatusJsonNode(productDir, repository.nodeId, repository.git);
+
+      expect(node?.claim?.results.map((result) => result.currency)).toEqual([NODE_STATUS_CURRENCY.NOT_CURRENT]);
+      expect(existsSync(testingRunsDir(productDir))).toBe(false);
+      expect(await readNodeStatusFileBytes(productDir)).toEqual(claimsBefore);
+      expect(await readSpecTreeWorkingChanges(productDir)).toEqual(changesBefore);
     });
   });
 });
