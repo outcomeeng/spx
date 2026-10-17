@@ -676,8 +676,13 @@ function matchNodeSuffixFromVersions(
   return null;
 }
 
+/** The registered kind a directory of the era before 3.0 classifies as when a selected version accepts its suffix. */
+const PRIOR_NODE_KIND: SpecTreeNodeKind = "capability";
+const PRIOR_NODE_SUFFIXES: readonly string[] = SPEC_TREE_GRAMMAR.PRIOR_NODE_SUFFIXES;
+
 function nodeKindForSuffix(suffix: string, registry: SpecTreeRegistry): SpecTreeContainerKind | null {
   if (suffix === SPEC_TREE_CONFIG.PRODUCT.NODE_SUFFIX) return SPEC_TREE_CONFIG.PRODUCT.KIND;
+  if (PRIOR_NODE_SUFFIXES.includes(suffix)) return PRIOR_NODE_KIND;
   for (const [kind, definition] of Object.entries(registry) as Array<[Kind, KindDefinition<Kind>]>) {
     if (isNodeCategory(definition.category) && definition.suffix === suffix) {
       return kind as SpecTreeNodeKind;
