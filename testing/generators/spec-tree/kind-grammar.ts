@@ -2,15 +2,16 @@
  * Cases and construction-derived expectations for the kind grammar: the kinds that can parent a
  * variant, and the child kinds each 4.0 output kind, the variant, and the product admit.
  *
- * The domain of every case is the registered output kinds, taken from the library surface. The
- * expected children come from the filename-grammar spec's containment statement and from no
+ * The domain of every case is the output kinds the spec declares, in the foundation order it
+ * states, so a registry that reclassifies a kind leaves the domain standing. The expected children come from the filename-grammar spec's containment statement and from no
  * field of the kind registry: a foundation order over the output kinds fixes what each admits,
  * and a variant takes its parent's place.
  *
  * @module generators/spec-tree/kind-grammar
  */
 
-import { OUTPUT_KINDS, SPEC_TREE_CONFIG, type SpecTreeContainerKind, type SpecTreeNodeKind } from "@/lib/spec-tree";
+import { SPEC_TREE_CONFIG, type SpecTreeContainerKind, type SpecTreeNodeKind } from "@/lib/spec-tree";
+import { DECLARED_OUTPUT_OPENINGS } from "@testing/generators/spec-tree/declared-kinds";
 
 export const VARIANT_KIND = "variant" as const;
 
@@ -22,6 +23,8 @@ type OutputFoundationKind = (typeof OUTPUT_FOUNDATION_ORDER)[number];
 export type VariantParentCase = {
   readonly label: string;
   readonly parentKind: SpecTreeNodeKind;
+  /** The opening keyword the spec states for the parent kind, which a variant takes. */
+  readonly opening: string;
 };
 
 export type KindAdmittedChildrenCase = {
@@ -33,18 +36,14 @@ export type KindAdmittedChildrenCase = {
 
 const LABEL_PARENT_JOINER = " under a ";
 
-function isFoundationKind(kind: SpecTreeNodeKind): kind is OutputFoundationKind {
-  return OUTPUT_FOUNDATION_ORDER.some((candidate) => candidate === kind);
-}
-
 function foundationChildrenOf(kind: OutputFoundationKind): readonly SpecTreeContainerKind[] {
   const index = OUTPUT_FOUNDATION_ORDER.findIndex((candidate) => candidate === kind);
   return [...OUTPUT_FOUNDATION_ORDER.slice(0, index + 1), VARIANT_KIND];
 }
 
-/** Every registered output kind that can parent a variant: each output kind except the variant itself. */
+/** Every declared output kind that can parent a variant: each output kind except the variant itself. */
 export function variantParentKinds(): readonly OutputFoundationKind[] {
-  return OUTPUT_KINDS.filter(isFoundationKind);
+  return OUTPUT_FOUNDATION_ORDER;
 }
 
 /** One case per output kind a variant can sit under. */
@@ -52,6 +51,7 @@ export function variantParentCases(): readonly VariantParentCase[] {
   return variantParentKinds().map((parentKind) => ({
     label: [VARIANT_KIND, parentKind].join(LABEL_PARENT_JOINER),
     parentKind,
+    opening: DECLARED_OUTPUT_OPENINGS[parentKind],
   }));
 }
 
