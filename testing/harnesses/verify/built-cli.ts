@@ -764,10 +764,9 @@ export async function observeBuiltUnaccountedRun(): Promise<BuiltUnaccountedRunO
 /**
  * The built invocations of the option-grammar observation over an expectations-bound run: the
  * accepted `start --expectations`, the `reconcile` and `finish` invocations that name
- * `--expectations`, and the `status` read after them, with the flag the invocations name.
+ * `--expectations`, and the `status` read after them.
  */
 export interface BuiltExpectationsOptionObservation {
-  readonly expectationsFlag: string;
   readonly start: BuiltVerificationCliRun;
   readonly reconcileWithExpectations: BuiltVerificationCliRun;
   readonly finishWithExpectations: BuiltVerificationCliRun;
@@ -801,7 +800,6 @@ export async function observeBuiltExpectationsOption(): Promise<BuiltExpectation
     );
     const status = await runBuiltVerificationRun(run.productDir, [VERIFY_CLI.statusCommandName], run.runSelectors);
     return {
-      expectationsFlag,
       start: run.start,
       reconcileWithExpectations,
       finishWithExpectations,
@@ -813,12 +811,9 @@ export async function observeBuiltExpectationsOption(): Promise<BuiltExpectation
 
 /**
  * The built `reconcile` invocations over one expectations-bound run: with every changed path
- * judged and the run named, without `--run`, and with a fresh `--input`, plus the flags the
- * rejected invocations omit or add.
+ * judged and the run named, without `--run`, and with a fresh `--input`.
  */
 export interface BuiltReconcileInvocationObservation {
-  readonly runFlag: string;
-  readonly inputFlag: string;
   readonly reconciled: BuiltVerificationCliRun;
   readonly withoutRun: BuiltVerificationCliRun;
   readonly withInput: BuiltVerificationCliRun;
@@ -845,6 +840,6 @@ export async function observeBuiltReconcileInvocations(): Promise<BuiltReconcile
       [...run.runSelectors, inputFlag, VERIFY_INPUT_SOURCE.STDIN],
       JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.inputPayload())),
     );
-    return { runFlag: flagOf(VERIFY_CLI.runOption), inputFlag, reconciled, withoutRun, withInput };
+    return { reconciled, withoutRun, withInput };
   });
 }
