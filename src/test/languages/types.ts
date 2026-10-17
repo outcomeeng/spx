@@ -8,7 +8,7 @@
  * and dispatching the `spx test` command are separate, higher-level concerns.
  */
 
-import type { TestPathVerdict } from "@/test/run-state";
+import type { TestPathVerdict, TestPathVerdictValue } from "@/test/run-state";
 
 /** Result of a single command-runner invocation. */
 export interface TestRunCommandResult {
@@ -67,6 +67,8 @@ export interface RelatedTestRequest {
 export interface TestScopeUnit {
   /** The module identity (its resolved file path). */
   readonly moduleId: string;
+  /** The product-relative paths the module read; absent when the module read no product file. */
+  readonly readPaths?: readonly string[];
 }
 
 /** A validated problem a journal-streaming run reports: one failing test case. */
@@ -164,12 +166,32 @@ export type TestRunInvocation =
     readonly output?: TestRunCommandOutput;
   };
 
+/**
+ * The language-neutral evidence contract: one recorded result maps its evidence reference (the
+ * product-relative test path it covers) to the verdict recorded for it and, when the language's
+ * adapter supplies them, the product-relative paths the result read. A consumer folds these
+ * results without naming the language that produced them.
+ */
+export interface TestEvidenceResult {
+  /** The evidence reference the result covers: the product-relative path of its test file. */
+  readonly evidenceReference: string;
+  /** The verdict recorded for that reference. */
+  readonly verdict: TestPathVerdictValue;
+  /** The product-relative paths the result read; absent when the adapter supplies none. */
+  readonly readPaths?: readonly string[];
+}
+
 /** A language's test-runner participation: detection, patterns, exclusion flags, and invocation. */
 export interface TestingLanguageDescriptor {
   /** Language identity (e.g. the language whose descriptor module this is). */
   readonly name: string;
   /** Test-file patterns this language's runner targets. */
   readonly testFilePatterns: readonly string[];
+  /**
+   * Whether this language's adapter supplies the paths a result read in its evidence results;
+   * a language that does not supply them yields results without read paths.
+   */
+  readonly suppliesReadPaths: boolean;
   /** Product-root files whose content influences this language's runner behavior. */
   readonly productInputPaths: readonly string[];
   /** Product-root files derived from covered test paths whose content influences this language's runner behavior. */

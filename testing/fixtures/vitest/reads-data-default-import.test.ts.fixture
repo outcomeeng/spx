@@ -1,0 +1,8 @@
+import fs from "node:fs";
+
+import { test } from "vitest";
+
+test("reads one data file at run time through the default import", ({ task }) => {
+  const content = fs.readFileSync(process.env.READ_RECORDER_DATA_FILE ?? "", "utf8");
+  Object.assign(task.meta, { readContent: content });
+});
