@@ -3,10 +3,7 @@ import { describe, expect, it } from "vitest";
 import { inferInvokingCodingAgent } from "@/interfaces/cli/coding-agent";
 import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import { METHODOLOGY_CODING_AGENTS } from "@/lib/methodology";
-import {
-  SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION,
-  SPEC_CONTEXT_SELECTION_REASON,
-} from "@/lib/spec-tree";
+import { SPEC_CONTEXT_MANIFEST_SCHEMA_VERSION, SPEC_CONTEXT_SELECTION_REASON } from "@/lib/spec-tree";
 import { methodologyFoundationDocumentPath } from "@testing/generators/methodology/tree";
 import { rootedSpecPath } from "@testing/generators/spec-tree/rich-context";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
