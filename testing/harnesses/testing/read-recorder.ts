@@ -2,13 +2,17 @@ import fs from "node:fs";
 import * as fsNamespace from "node:fs";
 import * as fsPromisesNamespace from "node:fs/promises";
 import { copyFile, mkdir, readdir, readFile, realpath, symlink, writeFile } from "node:fs/promises";
-import { dirname, join, relative } from "node:path";
+import { basename, dirname, extname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { Reporter, TestModule } from "vitest/node";
 
-import { productVitestNodeApiLoader, VITEST_RUN_MODE } from "@/test/languages/journal-reporter";
-import { READ_RECORDER_META_KEY, READ_RECORDER_SETUP_FILE } from "@/test/languages/read-recorder";
+import { findProductVitestEntry, productVitestNodeApiLoader, VITEST_RUN_MODE } from "@/test/languages/journal-reporter";
+import {
+  READ_RECORDER_META_KEY,
+  READ_RECORDER_SETUP_FILE,
+  READ_RECORDER_VITEST_ENTRY_ENV,
+} from "@/test/languages/read-recorder";
 import {
   installReadRecorder,
   READ_ENTRY_POINTS,
@@ -94,10 +98,48 @@ async function snapshotFiles(root: string, dir: string = root): Promise<Array<re
   return collected.sort((left, right) => left[0].localeCompare(right[0]));
 }
 
+/** The directory holding the built output, which names the setup file an installed spx runs. */
+const BUILT_OUTPUT_DIR = join(FIXTURE_DIR, "..", "..", "..", "dist");
+const DETACHED_INSTALL_PREFIX = "spx-read-recorder-install-";
+const BUILT_SCRIPT_EXTENSION = ".js";
+
+/** Where the setup file registered in a run lives: beside the running source, or in a built copy no package hierarchy surrounds. */
+export const SETUP_PLACEMENT = {
+  SOURCE: "source",
+  DETACHED_BUILD: "detached-build",
+} as const;
+export type SetupPlacement = (typeof SETUP_PLACEMENT)[keyof typeof SETUP_PLACEMENT];
+
+/** Copies the built output into a temporary directory outside every package hierarchy and runs `run` with the copied setup file's path. */
+async function withDetachedBuiltSetup<T>(run: (setupFile: string) => Promise<T>): Promise<T> {
+  return withTempDir(DETACHED_INSTALL_PREFIX, async (installDir) => {
+    for (const name of await readdir(BUILT_OUTPUT_DIR)) {
+      if (!name.endsWith(BUILT_SCRIPT_EXTENSION)) continue;
+      await copyFile(join(BUILT_OUTPUT_DIR, name), join(installDir, name));
+    }
+    return run(
+      join(installDir, basename(READ_RECORDER_SETUP_FILE, extname(READ_RECORDER_SETUP_FILE)) + BUILT_SCRIPT_EXTENSION),
+    );
+  });
+}
+
 function runReadModule(
   withRecorder: boolean,
   content: string,
   importForm: ReadImportForm,
+  placement: SetupPlacement = SETUP_PLACEMENT.SOURCE,
+): Promise<RecordedReadRunObservation> {
+  if (placement === SETUP_PLACEMENT.DETACHED_BUILD) {
+    return withDetachedBuiltSetup((setupFile) => runReadModuleWithSetup(withRecorder, content, importForm, setupFile));
+  }
+  return runReadModuleWithSetup(withRecorder, content, importForm, READ_RECORDER_SETUP_FILE);
+}
+
+function runReadModuleWithSetup(
+  withRecorder: boolean,
+  content: string,
+  importForm: ReadImportForm,
+  setupFile: string,
 ): Promise<RecordedReadRunObservation> {
   return withTempDir(TEMP_PRODUCT_PREFIX, async (productDir) => {
     await linkProductRunnerToolchain(productDir);
@@ -129,6 +171,7 @@ function runReadModule(
     const resolution = loader.resolve(productDir);
     if (!resolution.resolved) throw new Error(`No Vitest Node API resolves at ${productDir}`);
     const { startVitest } = await loader.load(resolution.specifier);
+    const vitestEntry = findProductVitestEntry(productDir);
     const priorExitCode = process.exitCode;
     const priorDataFile = process.env[DATA_FILE_ENV];
     const priorTmpdir = process.env.TMPDIR;
@@ -139,7 +182,8 @@ function runReadModule(
         root: productDir,
         watch: false,
         reporters: [reporter],
-        setupFiles: withRecorder ? [READ_RECORDER_SETUP_FILE] : [],
+        setupFiles: withRecorder ? [setupFile] : [],
+        env: vitestEntry === undefined ? {} : { [READ_RECORDER_VITEST_ENTRY_ENV]: vitestEntry },
       });
       await vitest.close();
     } finally {
@@ -168,8 +212,11 @@ function runReadModule(
  * file registered in the worker, and returns what the module's metadata, the product directory,
  * and the console held when the run finished.
  */
-export function observeRecordedReadRun(importForm: ReadImportForm): Promise<RecordedReadRunObservation> {
-  return runReadModule(true, sampleGeneratedValue(arbitraryDomainLiteral()), importForm);
+export function observeRecordedReadRun(
+  importForm: ReadImportForm,
+  placement: SetupPlacement = SETUP_PLACEMENT.SOURCE,
+): Promise<RecordedReadRunObservation> {
+  return runReadModule(true, sampleGeneratedValue(arbitraryDomainLiteral()), importForm, placement);
 }
 
 /**

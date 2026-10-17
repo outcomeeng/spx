@@ -19,7 +19,11 @@ import { pathToFileURL } from "node:url";
 
 import type { Reporter, TestCase, TestModule, TestRunEndReason } from "vitest/node";
 
-import { READ_RECORDER_META_KEY, READ_RECORDER_SETUP_FILE } from "@/test/languages/read-recorder";
+import {
+  READ_RECORDER_META_KEY,
+  READ_RECORDER_SETUP_FILE,
+  READ_RECORDER_VITEST_ENTRY_ENV,
+} from "@/test/languages/read-recorder";
 import {
   JOURNAL_RUN_TERMINAL_STATUS,
   type JournalRunRequest,
@@ -39,6 +43,8 @@ const PACKAGE_DEPENDENCIES_DIRECTORY = "node_modules";
 /** The manifest a package declares its entry points in; resolution is anchored at the product's Vitest manifest. */
 const PACKAGE_MANIFEST_FILENAME = "package.json";
 
+/** The `exports` subpath under which a Vitest package maps its main entry, the module a test file imports. */
+const MAIN_EXPORT_SUBPATH = ".";
 /** The `exports` subpath under which a Vitest package maps its Node API entry. */
 const NODE_API_EXPORT_SUBPATH = `./${VITEST_NODE_API_ENTRY}`;
 /** The manifest field declaring a package's entry points. */
@@ -232,6 +238,8 @@ export interface VitestRunStartOptions {
   readonly reporters: readonly Reporter[];
   /** Setup files each test worker of the run executes — the read recorder among them. */
   readonly setupFiles: readonly string[];
+  /** Environment variables each test worker of the run receives. */
+  readonly workerEnv: Readonly<Record<string, string>>;
 }
 
 /** Whether a start ran Vitest, or found no Vitest Node API in the product directory searched. */
@@ -286,10 +294,15 @@ function findingErrorMessages(errors: ReadonlyArray<{ readonly message?: string 
 export interface JournalReporterOptions {
   /** The absolute path of the product's dependency lockfile, absent when the product root holds none. */
   readonly lockfilePath?: string;
+  /**
+   * The product root resolved through symbolic links, the form the run reports product files in;
+   * absent, the root each module's project configuration names is used as it stands.
+   */
+  readonly realProductRoot?: string;
 }
 
 /** The product root resolved through symbolic links, the form the run reports product files in; the root itself when it does not resolve. */
-function realRootOf(productRoot: string): string {
+export function realRootOf(productRoot: string): string {
   try {
     return realpathSync(productRoot);
   } catch {
@@ -313,7 +326,7 @@ function importedPathsOf(module: TestModule): readonly string[] | undefined {
  */
 function productRelativePath(productRoot: string, absolutePath: string): string | undefined {
   if (!isAbsolute(absolutePath)) return undefined;
-  const relativePath = relative(realRootOf(productRoot), absolutePath);
+  const relativePath = relative(productRoot, absolutePath);
   if (relativePath === "" || isAbsolute(relativePath)) return undefined;
   const segments = relativePath.split(sep);
   if (segments[0] === PARENT_SEGMENT || segments.includes(DEPENDENCIES_SEGMENT)) return undefined;
@@ -330,8 +343,9 @@ function openedPathsOf(meta: object): readonly string[] {
  * The sorted unique product-relative paths a module read: the files it loaded, from its import
  * diagnostic, the files it opened, from its metadata, and the product's lockfile when it holds one.
  */
-function moduleReadPaths(module: TestModule, lockfilePath: string | undefined): readonly string[] {
-  const productRoot = module.project.config.root;
+function moduleReadPaths(module: TestModule, options: JournalReporterOptions): readonly string[] {
+  const { lockfilePath } = options;
+  const productRoot = options.realProductRoot ?? module.project.config.root;
   const importedPaths = importedPathsOf(module);
   if (importedPaths === undefined) return [];
   const candidates = [
@@ -375,7 +389,7 @@ export function createJournalReporter(
   };
   return {
     async onTestModuleEnd(module: TestModule): Promise<void> {
-      const readPaths = moduleReadPaths(module, options.lockfilePath);
+      const readPaths = moduleReadPaths(module, options);
       await forward(() =>
         sink.appendScope(
           readPaths.length === 0 ? { moduleId: module.moduleId } : { moduleId: module.moduleId, readPaths },
@@ -415,12 +429,32 @@ export function findProductLockfile(productDir: string): string | undefined {
   return present === undefined ? undefined : realpathSync(join(productDir, present));
 }
 
+/**
+ * The real absolute path of the Vitest module a test file of the product imports, resolved from
+ * the product's own installed Vitest package under the import conditions, or nothing when the
+ * product holds no such package or its manifest maps no existing main entry.
+ */
+export function findProductVitestEntry(productDir: string): string | undefined {
+  const packageDir = findProductVitestPackageDir(productDir);
+  if (packageDir === undefined) return undefined;
+  const manifest: unknown = JSON.parse(readFileSync(join(packageDir, PACKAGE_MANIFEST_FILENAME), "utf8"));
+  if (!isRecord(manifest)) return undefined;
+  const exports = manifest[MANIFEST_EXPORTS_FIELD];
+  if (!isRecord(exports)) return undefined;
+  const target = resolveExportTarget(exports[MAIN_EXPORT_SUBPATH]);
+  if (target === undefined) return undefined;
+  const entryPath = resolve(packageDir, target);
+  return existsSync(entryPath) ? realpathSync(entryPath) : undefined;
+}
+
 /** Dependencies a journal-streaming Vitest run is driven with: the evidence sink and the Vitest run-starter. */
 export interface JournalRunDependencies {
   readonly sink: TestRunEvidenceSink;
   readonly starter: VitestRunStarter;
   /** Resolves the product's dependency lockfile once, before the run starts; defaults to the product-root lookup. */
   readonly findLockfile?: (productDir: string) => string | undefined;
+  /** Resolves the product's own Vitest module once, before the run starts, for the worker setup file; defaults to the product-root lookup. */
+  readonly findVitestEntry?: (productDir: string) => string | undefined;
 }
 
 /** Outcome of a journal-streaming run: it started and yielded a terminal status, or the product directory supplied no runner. */
@@ -445,12 +479,17 @@ export async function runTestsStreaming(
   deps: JournalRunDependencies,
 ): Promise<JournalRunOutcome> {
   const lockfilePath = (deps.findLockfile ?? findProductLockfile)(request.productDir);
-  const reporter = createJournalReporter(deps.sink, lockfilePath === undefined ? {} : { lockfilePath });
+  const vitestEntry = (deps.findVitestEntry ?? findProductVitestEntry)(request.productDir);
+  const reporter = createJournalReporter(deps.sink, {
+    realProductRoot: realRootOf(request.productDir),
+    ...(lockfilePath === undefined ? {} : { lockfilePath }),
+  });
   const start = await deps.starter.start({
     productDir: request.productDir,
     testPaths: request.testPaths,
     reporters: [reporter],
     setupFiles: [READ_RECORDER_SETUP_FILE],
+    workerEnv: vitestEntry === undefined ? {} : { [READ_RECORDER_VITEST_ENTRY_ENV]: vitestEntry },
   });
   if (reporter.sinkFailure !== undefined) throw reporter.sinkFailure.failure;
   if (!start.started) return start;
@@ -485,6 +524,7 @@ export function createVitestRunStarter(loader: VitestNodeApiLoader): VitestRunSt
           watch: false,
           reporters: [...options.reporters],
           setupFiles: [...options.setupFiles],
+          env: { ...options.workerEnv },
           experimental: { importDurations: { limit: IMPORT_DIAGNOSTIC_LIMIT } },
         });
         await vitest.close();

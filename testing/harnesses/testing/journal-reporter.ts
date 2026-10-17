@@ -14,6 +14,7 @@ import {
   type JournalRunOutcome,
   LOCKFILE_NAMES,
   productVitestNodeApiLoader,
+  realRootOf,
   runTestsStreaming,
   VITEST_NODE_API_ENTRY,
   VITEST_PACKAGE_NAME,
@@ -333,12 +334,16 @@ function buildTestModuleDouble(
 }
 
 /** Builds a journal reporter over the sink, handed the scenario's product lockfile when its product root holds one. */
-function buildReporterForScenario(sink: TestRunEvidenceSink, scenario: GeneratedRunScenario): JournalReporter {
+function buildReporterForScenario(
+  sink: TestRunEvidenceSink,
+  scenario: GeneratedRunScenario,
+  realProductRoot?: string,
+): JournalReporter {
   const { lockfile } = scenario.reads;
-  return createJournalReporter(
-    sink,
-    lockfile === undefined ? {} : { lockfilePath: absoluteReadPath(scenario.reads, lockfile) },
-  );
+  return createJournalReporter(sink, {
+    ...(lockfile === undefined ? {} : { lockfilePath: absoluteReadPath(scenario.reads, lockfile) }),
+    ...(realProductRoot === undefined ? {} : { realProductRoot }),
+  });
 }
 
 function buildTestCaseDouble(moduleId: string, runCase: GeneratedRunCase): TestCase {
@@ -459,7 +464,7 @@ export async function observeJournalReporterOverSymlinkedRoot(
     reads: { ...scenario.reads, productRoot: roots.realRoot },
   };
   const sink = createRecordingEvidenceSink();
-  const reporter = buildReporterForScenario(sink, realRootScenario);
+  const reporter = buildReporterForScenario(sink, realRootScenario, realRootOf(roots.linkRoot));
   await driveReporterOverScenario(reporter, realRootScenario, JOURNAL_RUN_TERMINAL_STATUS.PASSED, {
     projectRoot: roots.linkRoot,
   });

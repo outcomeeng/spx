@@ -10,6 +10,13 @@ import { fileURLToPath } from "node:url";
 /** The module-metadata key holding the sorted absolute paths a test module opened. */
 export const READ_RECORDER_META_KEY = "openedFilePaths";
 
+/**
+ * The environment variable through which a run hands each worker the absolute path of the Vitest
+ * module of the product under test, so the setup file binds to the Vitest the worker executes
+ * rather than to whatever its own location resolves.
+ */
+export const READ_RECORDER_VITEST_ENTRY_ENV = "SPX_READ_RECORDER_VITEST_ENTRY";
+
 /** The extensionless name of the sibling module Vitest registers through `setupFiles` to install the recorder in a worker. */
 const READ_RECORDER_SETUP_BASENAME = "read-recorder-setup";
 

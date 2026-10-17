@@ -7,10 +7,20 @@
  * under the recorder's metadata key. Every wrapper delegates to the original function with its
  * original arguments, so the recorder alters no value a test reads and writes nothing itself.
  */
-import { afterAll, TestRunner } from "vitest";
+import { pathToFileURL } from "node:url";
 
-import { READ_RECORDER_META_KEY } from "./read-recorder";
+import { READ_RECORDER_META_KEY, READ_RECORDER_VITEST_ENTRY_ENV } from "./read-recorder";
 import { installReadRecorder } from "./read-recorder-install";
+
+// The setup file lives in the harness's package, so a bare `vitest` import would resolve against
+// the harness rather than the product under test. It imports the Vitest module the run named
+// through the environment, the one the worker's test files import, so `afterAll` and
+// `TestRunner` bind to the runner that executes the module.
+const vitestEntry = process.env[READ_RECORDER_VITEST_ENTRY_ENV];
+if (vitestEntry === undefined) {
+  throw new Error(`${READ_RECORDER_VITEST_ENTRY_ENV} names no Vitest module for the read recorder`);
+}
+const { afterAll, TestRunner } = await import(pathToFileURL(vitestEntry).href) as typeof import("vitest");
 
 const recorder = installReadRecorder();
 
