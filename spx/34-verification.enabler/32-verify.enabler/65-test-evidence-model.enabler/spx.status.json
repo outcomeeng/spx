@@ -5,6 +5,7 @@
       "overall": "passed",
       "spx/34-verification.enabler/32-verify.enabler/65-test-evidence-model.enabler/tests/test-evidence-validation.compliance.l1.test.ts": "passed",
       "spx/34-verification.enabler/32-verify.enabler/65-test-evidence-model.enabler/tests/test-finding.conformance.l1.test.ts": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/65-test-evidence-model.enabler/tests/test-scope-read-paths.compliance.l1.test.ts": "passed",
       "spx/34-verification.enabler/32-verify.enabler/65-test-evidence-model.enabler/tests/test-scope.conformance.l1.test.ts": "passed"
     }
   }
