@@ -232,8 +232,8 @@ export function registerVerifyCommands(
     .command(VERIFY_CLI.runCommandName)
     .description("Manage a typed verification run lifecycle");
 
-  // The report writes nothing, so it takes only the invocation directory and binds no journal event
-  // stream; it needs no input source or payload reader either.
+  // The report writes nothing: the handler reads only the invocation directory from the shared deps
+  // and never touches the journal binding or the source readers.
   runCommand
     .command(VERIFY_CLI.pathsCommandName)
     .description(VERIFY_CLI.pathsCommandDescription)
