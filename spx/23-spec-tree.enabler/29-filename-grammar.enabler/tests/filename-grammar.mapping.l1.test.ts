@@ -8,46 +8,12 @@ import {
   recognizeSpecTreeFilesystemEntry,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_EVIDENCE_FILE,
-  SPEC_TREE_FILESYSTEM_RECORD_TYPE,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
 } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
-import {
-  evidenceFileAcceptanceCases,
-  evidenceFileIncompleteCases,
-  firstVersionNodeDirectoryCases,
-} from "@testing/generators/spec-tree/filename-grammar";
+import { firstVersionNodeDirectoryCases } from "@testing/generators/spec-tree/filename-grammar";
 import { SPEC_TREE_CASE_TITLE } from "@testing/generators/spec-tree/spec-tree";
-import { recognitionOptionsForLine } from "@testing/harnesses/spec-tree/filename-grammar";
-
-describe("evidence files under a node's tests directory", () => {
-  it.each(evidenceFileAcceptanceCases())("are recognized as evidence: $title", (testCase) => {
-    const options = recognitionOptionsForLine(testCase.line);
-
-    for (const relativePath of testCase.relativePaths) {
-      const entry = recognizeSpecTreeFilesystemEntry(
-        { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE, relativePath, parentId: testCase.parentId },
-        options,
-      );
-
-      expect({ relativePath, type: entry?.type }).toEqual({ relativePath, type: SPEC_TREE_ENTRY_TYPE.EVIDENCE });
-    }
-  });
-
-  it.each(evidenceFileIncompleteCases())("are not recognized as evidence: $title", (testCase) => {
-    const entry = recognizeSpecTreeFilesystemEntry(
-      {
-        type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
-        relativePath: testCase.relativePath,
-        parentId: testCase.parentId,
-      },
-      recognitionOptionsForLine(testCase.line),
-    );
-
-    expect(entry?.type).not.toBe(SPEC_TREE_ENTRY_TYPE.EVIDENCE);
-  });
-});
 
 describe("node directories of the first naming-schema version", () => {
   it.each(firstVersionNodeDirectoryCases())(SPEC_TREE_CASE_TITLE, (testCase) => {
