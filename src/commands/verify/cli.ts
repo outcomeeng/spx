@@ -47,6 +47,8 @@ import {
   isVerifyChangeIdentity,
   isVerifyTerminalStatus,
   isVerifyVerificationType,
+  isVerifyVerifierId,
+  isVerifyVerifierKind,
   missingDirectoriesBelow,
   parseAppendPayload,
   parseChangesetScope,
@@ -82,6 +84,7 @@ import {
   verifyRunsDir,
   type VerifyRunSelector,
   type VerifyScopeType,
+  type VerifyVerifier,
 } from "@/domains/verify/verify";
 import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
 import { writeFileAtomic } from "@/lib/atomic-file-write";
@@ -138,6 +141,8 @@ export const VERIFY_CLI_ERROR = {
   FINDING_INVALID: "spx verification run finding add: evidence payload rejected",
   UNSUPPORTED_VERIFICATION_TYPE: "spx verification run verification type is not registered",
   CHANGE_IDENTITY_INVALID: "spx verification run start requires a Change identity in the canonical owner/repo#N form",
+  VERIFIER_INVALID:
+    "spx verification run start requires a Verifier in the <kind>:<id> form with kind person or agent and a non-empty id",
   SPX_DRIVEN_APPEND_REJECTED: "spx verification run cannot add caller evidence to a run spx drives",
   APPEND_FAILED: "spx verification run could not append the evidence event",
   JUDGED_PATHS_UNREADABLE: "spx verification run scope add could not read the files the run's head commit holds",
@@ -205,6 +210,8 @@ export interface VerifyStartCliOptions {
   readonly change?: string;
   /** The expectations source a changeset-scoped run is bound to: stdin or a file path holding a JSON document; absent when the run is bound to none. */
   readonly expectations?: string;
+  /** The Verifier that judges the run, in the `<kind>:<id>` form; absent when the run names none. */
+  readonly verifier?: string;
 }
 
 export interface VerifyInputCliOptions {
@@ -335,6 +342,8 @@ export interface VerifyFinishReport {
 /** The `status` report fields other consumers address by name. */
 export const VERIFY_STATUS_REPORT_FIELD = {
   CHANGE: "change",
+  VERIFIER_KIND: "verifierKind",
+  VERIFIER_ID: "verifierId",
 } as const;
 
 export interface VerifyStatusReport {
@@ -344,6 +353,8 @@ export interface VerifyStatusReport {
   readonly sealed: boolean;
   readonly driveMode: string;
   readonly change?: string;
+  readonly verifierKind?: string;
+  readonly verifierId?: string;
   readonly lastSequence: number;
   readonly terminalStatus?: string;
   readonly terminalMetadata?: JsonValue;
@@ -808,6 +819,25 @@ interface CompleteVerifyStartArgs {
   readonly contextCreated: boolean;
 }
 
+/** The separator between the kind and the id of a `--verifier <kind>:<id>` operand. */
+export const VERIFIER_OPERAND_SEPARATOR = ":";
+
+/** The Verifier a start supplies, or `undefined` when it supplies none or an invalid one. */
+function startVerifier(options: VerifyStartCliOptions): VerifyVerifier | undefined {
+  if (options.verifier === undefined) return undefined;
+  const separatorIndex = options.verifier.indexOf(VERIFIER_OPERAND_SEPARATOR);
+  if (separatorIndex < 0) return undefined;
+  const kind = options.verifier.slice(0, separatorIndex);
+  const id = options.verifier.slice(separatorIndex + VERIFIER_OPERAND_SEPARATOR.length);
+  return isVerifyVerifierKind(kind) && isVerifyVerifierId(id) ? { kind, id } : undefined;
+}
+
+/** A start supplies either no Verifier or a complete, valid one: a supported kind and a non-empty id together. */
+function isValidStartVerifierSelection(options: VerifyStartCliOptions): boolean {
+  if (options.verifier === undefined) return true;
+  return startVerifier(options) !== undefined;
+}
+
 /**
  * Record the run's drive mode and the head commit it judges on a verify-owned run-context event, so
  * status and render fold the drive mode to filter next actions. The caller path defaults to
@@ -821,6 +851,7 @@ async function recordRunContext(
 ): Promise<Result<void>> {
   const binding = deps.journalBinding;
   if (binding === undefined) return { ok: false, error: VERIFY_CLI_ERROR.RUN_CONTEXT_FAILED };
+  const verifier = startVerifier(args.options);
   const event = buildRunContextEvent({
     runToken,
     driveMode: deps.driveMode ?? VERIFY_DRIVE_MODE.CALLER,
@@ -828,6 +859,7 @@ async function recordRunContext(
     ...(args.options.change === undefined ? {} : { change: args.options.change }),
     ...(args.changeInventory === undefined ? {} : { changeInventory: args.changeInventory }),
     ...(args.expectations === undefined ? {} : { expectations: args.expectations }),
+    ...(verifier === undefined ? {} : { verifier }),
     at: deps.now?.() ?? new Date(),
   });
   const journalScope: JournalRunCliScope = {
@@ -993,6 +1025,7 @@ export async function verifyStartCommand(
   if (options.change !== undefined && !isVerifyChangeIdentity(options.change)) {
     return errorResult(VERIFY_CLI_ERROR.CHANGE_IDENTITY_INVALID);
   }
+  if (!isValidStartVerifierSelection(options)) return errorResult(VERIFY_CLI_ERROR.VERIFIER_INVALID);
   if (options.input.trim().length === 0) return errorResult(VERIFY_CLI_ERROR.INPUT_REQUIRED);
   const resolved = await resolveVerifyScope(deps);
   if (!resolved.ok) return errorResult(resolved.error);
@@ -1879,6 +1912,9 @@ export async function verifyStatusCommand(
     sealed: projection.sealed,
     driveMode: projection.driveMode,
     ...(projection.change === undefined ? {} : { change: projection.change }),
+    ...(projection.verifier === undefined
+      ? {}
+      : { verifierKind: projection.verifier.kind, verifierId: projection.verifier.id }),
     lastSequence: projection.lastSequence,
     ...(projection.terminalStatus === undefined ? {} : { terminalStatus: projection.terminalStatus }),
     ...(projection.terminalMetadata === undefined ? {} : { terminalMetadata: projection.terminalMetadata }),

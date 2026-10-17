@@ -1,6 +1,7 @@
 import * as fc from "fast-check";
 import { posix, win32 } from "node:path";
 
+import { VERIFIER_OPERAND_SEPARATOR } from "@/commands/verify/cli";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import {
   VERIFICATION_CONTEXT_FILE_SUBJECT_PATH,
@@ -43,6 +44,7 @@ import {
   VERIFY_SCOPE_SEPARATOR,
   VERIFY_SCOPE_TYPE,
   VERIFY_VERIFICATION_TYPE,
+  VERIFY_VERIFIER_KIND,
   type VerifyFindingDisposition,
   type VerifyVerificationType,
 } from "@/domains/verify/verify";
@@ -1843,7 +1845,70 @@ export const VERIFY_TEST_GENERATOR = {
       composeChangeIdentity(owner, repository, String(number))
     ),
   nonCanonicalChangeIdentity: (): fc.Arbitrary<string> => arbitraryNonCanonicalChangeIdentity(),
+  verifier: (): fc.Arbitrary<VerifierIdentity> => arbitraryVerifier(),
+  invalidVerifier: (): fc.Arbitrary<VerifierIdentity> => arbitraryInvalidVerifier(),
+  /** A supported-kind Verifier whose id is the empty string. */
+  emptyIdVerifier: (): fc.Arbitrary<VerifierIdentity> => arbitraryEmptyIdVerifier(),
+  /** A supported-kind Verifier whose id is one or more whitespace characters and nothing else. */
+  whitespaceOnlyIdVerifier: (): fc.Arbitrary<VerifierIdentity> => arbitraryWhitespaceOnlyIdVerifier(),
 } as const;
+
+/** The Verifier a run is started with: its kind and its id. */
+export interface VerifierIdentity {
+  readonly kind: string;
+  readonly id: string;
+}
+
+const EMPTY_VERIFIER_ID = "";
+
+/** The `<kind>:<id>` operand that supplies the given Verifier to `spx verification run start --verifier`. */
+export function composeVerifierOperand(verifier: VerifierIdentity): string {
+  return `${verifier.kind}${VERIFIER_OPERAND_SEPARATOR}${verifier.id}`;
+}
+
+function arbitraryVerifier(): fc.Arbitrary<VerifierIdentity> {
+  return fc.record({
+    kind: fc.constantFrom(...Object.values(VERIFY_VERIFIER_KIND)),
+    id: STATE_STORE_TEST_GENERATOR.scopeToken(),
+  });
+}
+
+const VERIFIER_ID_WHITESPACE_CHARACTERS = [" ", "\t", "\n", "\r", "\u00a0", "\u2003"] as const;
+const VERIFIER_ID_WHITESPACE_MAX_LENGTH = 12;
+
+function arbitraryEmptyIdVerifier(): fc.Arbitrary<VerifierIdentity> {
+  return fc.record({
+    kind: fc.constantFrom(...Object.values(VERIFY_VERIFIER_KIND)),
+    id: fc.constant(EMPTY_VERIFIER_ID),
+  });
+}
+
+function arbitraryWhitespaceOnlyIdVerifier(): fc.Arbitrary<VerifierIdentity> {
+  return fc.record({
+    kind: fc.constantFrom(...Object.values(VERIFY_VERIFIER_KIND)),
+    id: fc
+      .array(fc.constantFrom(...VERIFIER_ID_WHITESPACE_CHARACTERS), {
+        minLength: 1,
+        maxLength: VERIFIER_ID_WHITESPACE_MAX_LENGTH,
+      })
+      .map((characters) => characters.join("")),
+  });
+}
+
+/** A Verifier whose kind lies outside the supported kinds, or whose id is empty. */
+function arbitraryInvalidVerifier(): fc.Arbitrary<VerifierIdentity> {
+  const supportedKinds: readonly string[] = Object.values(VERIFY_VERIFIER_KIND);
+  return fc.oneof(
+    fc.record({
+      kind: STATE_STORE_TEST_GENERATOR.scopeToken().filter((kind) => !supportedKinds.includes(kind)),
+      id: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    }),
+    fc.record({
+      kind: fc.constantFrom(...Object.values(VERIFY_VERIFIER_KIND)),
+      id: fc.constant(EMPTY_VERIFIER_ID),
+    }),
+  );
+}
 
 /** The separator between a Change identity's owner and repository name, per the `owner/repo#N` form. */
 const CHANGE_IDENTITY_OWNER_SEPARATOR = "/";
