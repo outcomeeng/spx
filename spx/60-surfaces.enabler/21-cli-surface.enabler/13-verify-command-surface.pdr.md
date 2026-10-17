@@ -14,10 +14,9 @@ Verification runs share one CLI vocabulary even when their judgment and driver d
 
 ## Verification
 
-- ALWAYS: `paths` requires `--verification-type <type>`, `--scope-type <scope-type>`, and `--scope <scope>`, and rejects a `--run <run-token>` or `--input <input-source>` value
-
 ### Testing
 
+- ALWAYS: `paths` requires `--verification-type <type>`, `--scope-type <scope-type>`, and `--scope <scope>`, and rejects a `--run <run-token>` or `--input <input-source>` value ([compliance])
 - ALWAYS: `spx verification run` exposes the command paths `paths`, `start`, `input`, `scope add`, `finding add`, `finish`, `status`, `render`, `list`, and `compare` ([mapping])
 - ALWAYS: `spx verification <type> run` names the verification type as a noun carrying the `run` verb ([compliance])
 - ALWAYS: `spx verification <type> run` narrows execution through positional product path operands, per [`spx/29-verification-path-scope.pdr.md`](spx/29-verification-path-scope.pdr.md) ([compliance])
