@@ -8,7 +8,7 @@ CAN stream per-module scope and per-failing-case findings into the run journal l
 
 ### Mappings
 
-- Vitest run-lifecycle events map to scope and finding evidence: a test module records a scope event carrying the product-relative paths of the product files the module loaded or opened during its run and of the product's dependency lockfile — the first of the product's preferred lockfile names the product root holds — and carrying no lockfile path when the product root holds no lockfile, a failing test case records a finding, a passing test case records no finding, and run end yields the terminal status the executor seals the run with ([test](tests/journal-reporter.mapping.l1.test.ts))
+- Vitest run-lifecycle events map to scope and finding evidence: a test module records a scope event carrying the product-relative paths of the product files the module loaded or opened during its run and of the product's dependency lockfile — the first of the product's preferred lockfile names the product root holds — dropping every path outside the product root and every path under `node_modules`, carrying no lockfile path when the product root holds no lockfile, and carrying no read paths when the module's import diagnostic is unavailable, a failing test case records a finding, a passing test case records no finding, and run end yields the terminal status the executor seals the run with ([test](tests/journal-reporter.mapping.l1.test.ts))
 
 ### Scenarios
 
