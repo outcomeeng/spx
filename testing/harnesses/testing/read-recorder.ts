@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import * as fsNamespace from "node:fs";
 import * as fsPromisesNamespace from "node:fs/promises";
-import { copyFile, mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, readFile, realpath, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -20,6 +20,7 @@ import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   type GeneratedReadCase,
   type GeneratedReadPlan,
+  type GeneratedUnresolvedPathNames,
   locationDirectory,
   READ_STEP,
 } from "@testing/generators/testing/read-recorder";
@@ -294,9 +295,13 @@ export function observeReadPlan(plan: GeneratedReadPlan): Promise<ReadPlanObserv
 }
 
 /** How a read ended: the content it yielded and whether it was decoded, or the error it failed with. */
+export const READ_OUTCOME_KIND = {
+  READ: "read",
+  FAILED: "failed",
+} as const;
 export type ReadOutcome =
-  | { readonly kind: "read"; readonly decoded: boolean; readonly content: string }
-  | { readonly kind: "failed"; readonly code: unknown; readonly message: string };
+  | { readonly kind: typeof READ_OUTCOME_KIND.READ; readonly decoded: boolean; readonly content: string }
+  | { readonly kind: typeof READ_OUTCOME_KIND.FAILED; readonly code: unknown; readonly message: string };
 
 /** Whether the file a delegation read targets exists. */
 export const READ_TARGET = {
@@ -312,10 +317,10 @@ async function outcomeOf(
 ): Promise<ReadOutcome> {
   try {
     const content = await readThrough(entryPoint, target, encoding);
-    return { kind: "read", decoded: typeof content === "string", content: content.toString("utf8") };
+    return { kind: READ_OUTCOME_KIND.READ, decoded: typeof content === "string", content: content.toString("utf8") };
   } catch (error) {
     const failure = error as { code?: unknown; message: string };
-    return { kind: "failed", code: failure.code, message: failure.message };
+    return { kind: READ_OUTCOME_KIND.FAILED, code: failure.code, message: failure.message };
   }
 }
 
@@ -389,4 +394,56 @@ export function observeFsRestoration(): RestorationObservation {
     recorder.restore();
   }
   return { before, installed, after: snapshotFs() };
+}
+
+/** What the recorder collected from reads through a symbolic link and of a path that resolves to no file. */
+export interface UnresolvedPathObservation {
+  /** The real path of the file the symbolic link points at. */
+  readonly targetPath: string;
+  /** The path of the symbolic link, as the read named it. */
+  readonly linkPath: string;
+  /** The path that resolves to no file, as the read named it. */
+  readonly missingPath: string;
+  /** The sorted unique absolute paths the recorder collected, or `undefined` when it collected none. */
+  readonly recordedPaths: readonly string[] | undefined;
+  /** How the read of the missing path ended with the recorder installed. */
+  readonly missingReadWrapped: ReadOutcome;
+  /** How the read of the missing path ended before the recorder was installed. */
+  readonly missingReadOriginal: ReadOutcome;
+}
+
+/**
+ * Creates a file, a symbolic link to it, and a name that resolves to no file in a real temporary
+ * directory, then reads the link and the missing path through one entry point with the recorder
+ * installed, and returns what the recorder collected and how the missing read ended with and
+ * without the recorder.
+ */
+export function observeUnresolvedPathReads(
+  entryPoint: ReadEntryPoint,
+  names: GeneratedUnresolvedPathNames,
+): Promise<UnresolvedPathObservation> {
+  return withTempDir(READ_RECORDER_PLAN_PREFIX, async (tempDir) => {
+    const root = await realpath(tempDir);
+    const targetPath = join(root, names.targetName);
+    const linkPath = join(root, names.linkName);
+    const missingPath = join(root, names.missingName);
+    await writeFile(targetPath, names.targetName);
+    await symlink(targetPath, linkPath);
+    const missingReadOriginal = await outcomeOf(entryPoint, missingPath, undefined);
+    const recorder = installReadRecorder();
+    try {
+      await readThrough(entryPoint, linkPath, undefined);
+      const missingReadWrapped = await outcomeOf(entryPoint, missingPath, undefined);
+      return {
+        targetPath,
+        linkPath,
+        missingPath,
+        recordedPaths: recorder.recordedPaths(),
+        missingReadWrapped,
+        missingReadOriginal,
+      };
+    } finally {
+      recorder.restore();
+    }
+  });
 }

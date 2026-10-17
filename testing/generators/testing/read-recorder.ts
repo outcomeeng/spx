@@ -108,6 +108,19 @@ function arbitraryReadPlan(): fc.Arbitrary<GeneratedReadPlan> {
     );
 }
 
+/** The three distinct names of a world holding a file, a symbolic link to it, and a path that names nothing. */
+export interface GeneratedUnresolvedPathNames {
+  readonly targetName: string;
+  readonly linkName: string;
+  readonly missingName: string;
+}
+
+function arbitraryUnresolvedPathNames(): fc.Arbitrary<GeneratedUnresolvedPathNames> {
+  return fc
+    .uniqueArray(arbitraryDomainLiteral(), { minLength: 3, maxLength: 3 })
+    .map(([targetName, linkName, missingName]) => ({ targetName, linkName, missingName }));
+}
+
 function arbitraryReadCase(): fc.Arbitrary<GeneratedReadCase> {
   return fc.record({
     fileName: arbitraryDomainLiteral(),
@@ -119,6 +132,8 @@ function arbitraryReadCase(): fc.Arbitrary<GeneratedReadCase> {
 export const READ_RECORDER_GENERATOR = {
   /** A world of directories and files with a sequence of working-directory changes and reads, repeated reads included. */
   readPlan: arbitraryReadPlan,
+  /** Distinct names for a file, a symbolic link to it, and a path that resolves to no file. */
+  unresolvedPathNames: arbitraryUnresolvedPathNames,
   /** One file to read with a generated encoding option. */
   readCase: arbitraryReadCase,
 } as const;

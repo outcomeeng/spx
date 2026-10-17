@@ -6,6 +6,8 @@ import { READ_RECORDER_GENERATOR } from "@testing/generators/testing/read-record
 import {
   observeEntryPointDelegation,
   observeFsRestoration,
+  observeUnresolvedPathReads,
+  READ_OUTCOME_KIND,
   READ_TARGET,
 } from "@testing/harnesses/testing/read-recorder";
 
@@ -29,5 +31,20 @@ describe("read recorder wrapped entry points", () => {
       expect(after.get(key), key).toBe(originalValue);
     }
     expect([...installed].some(([key, value]) => before.get(key) !== value)).toBe(true);
+  });
+
+  it("records the file a symbolic link resolves to and not the link, and drops a path that resolves to no file while its read fails unchanged", async () => {
+    const names = sampleGeneratedValue(READ_RECORDER_GENERATOR.unresolvedPathNames());
+
+    for (const entryPoint of READ_ENTRY_POINTS) {
+      const observation = await observeUnresolvedPathReads(entryPoint, names);
+      const label = [entryPoint.surface, entryPoint.name].join(".");
+
+      expect(observation.recordedPaths, label).toEqual([observation.targetPath]);
+      expect(observation.recordedPaths, label).not.toContain(observation.linkPath);
+      expect(observation.recordedPaths, label).not.toContain(observation.missingPath);
+      expect(observation.missingReadWrapped, label).toEqual(observation.missingReadOriginal);
+      expect(observation.missingReadWrapped.kind, label).toBe(READ_OUTCOME_KIND.FAILED);
+    }
   });
 });
