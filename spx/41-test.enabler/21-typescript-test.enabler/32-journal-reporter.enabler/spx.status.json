@@ -1,11 +1,22 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/tests/journal-reporter.compliance.l1.test.ts": "passed",
-      "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/tests/journal-reporter.mapping.l1.test.ts": "passed",
-      "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/tests/journal-reporter.scenario.l2.test.ts": "passed"
+      "tests/journal-reporter.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/journal-reporter.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/journal-reporter.scenario.l2.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

@@ -1,14 +1,31 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/36-session.enabler/76-session-cli.enabler/tests/handoff-base-render.property.l1.test.ts": "passed",
-      "spx/36-session.enabler/76-session-cli.enabler/tests/list-text.mapping.l1.test.ts": "passed",
-      "spx/36-session.enabler/76-session-cli.enabler/tests/list-text.property.l1.test.ts": "passed",
-      "spx/36-session.enabler/76-session-cli.enabler/tests/session-cli.compliance.l2.test.ts": "passed",
-      "spx/36-session.enabler/76-session-cli.enabler/tests/session-cli.property.l2.test.ts": "passed",
-      "spx/36-session.enabler/76-session-cli.enabler/tests/session-cli.scenario.l1.test.ts": "passed"
+      "tests/handoff-base-render.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/list-text.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/list-text.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/session-cli.compliance.l2.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/session-cli.property.l2.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/session-cli.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

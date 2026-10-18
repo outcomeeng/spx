@@ -1,13 +1,20 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "spec",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/23-spec-tree.enabler/tests/decision-attachment.compliance.l1.test.ts": "passed",
-      "spx/23-spec-tree.enabler/tests/grammar-selection.scenario.l1.test.ts": "passed",
-      "spx/23-spec-tree.enabler/tests/spec-tree-ownership.property.l1.test.ts": "passed",
-      "spx/23-spec-tree.enabler/tests/spec-tree-surface.conformance.l1.test.ts": "passed",
-      "spx/23-spec-tree.enabler/tests/spec-tree-surface.scenario.l1.test.ts": "passed"
+      "tests/decision-attachment.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/spec-tree-ownership.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/spec-tree-surface.conformance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/spec-tree-surface.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      }
     }
   }
 }

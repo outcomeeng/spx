@@ -1,12 +1,25 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/41-test.enabler/43-last-run-evidence.enabler/tests/passing-scope.compliance.l1.test.ts": "passed",
-      "spx/41-test.enabler/43-last-run-evidence.enabler/tests/run-state.property.l1.test.ts": "passed",
-      "spx/41-test.enabler/43-last-run-evidence.enabler/tests/run-state.scenario.l1.test.ts": "passed",
-      "spx/41-test.enabler/43-last-run-evidence.enabler/tests/staleness.property.l1.test.ts": "passed"
+      "tests/passing-scope.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/run-state.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/run-state.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/staleness.property.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

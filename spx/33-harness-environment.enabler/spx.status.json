@@ -1,10 +1,19 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/33-harness-environment.enabler/tests/harness-environment-descriptor.compliance.l1.test.ts": "passed",
-      "spx/33-harness-environment.enabler/tests/harness-environment-descriptor.mapping.l1.test.ts": "passed"
+      "tests/harness-environment-descriptor.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/harness-environment-descriptor.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

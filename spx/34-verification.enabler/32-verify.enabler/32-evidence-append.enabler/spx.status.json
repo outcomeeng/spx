@@ -1,15 +1,31 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/tests/verify-drive-mode.compliance.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/tests/verify-finding.compliance.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/tests/verify-idempotency.compliance.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/tests/verify-judged-deletions.compliance.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/tests/verify-judged-paths.compliance.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/tests/verify-payload.compliance.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/tests/verify-terminal-rejection.compliance.l1.test.ts": "passed"
+      "tests/verify-drive-mode.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/verify-finding.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/verify-idempotency.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/verify-judged-paths.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/verify-payload.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/verify-terminal-rejection.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

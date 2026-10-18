@@ -1,12 +1,20 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "spec",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/41-validation.enabler/65-markdown-validation.enabler/tests/markdown-validation-command.scenario.l2.test.ts": "passed",
-      "spx/41-validation.enabler/65-markdown-validation.enabler/tests/markdown-validation.compliance.l1.test.ts": "passed",
-      "spx/41-validation.enabler/65-markdown-validation.enabler/tests/markdown-validation.mapping.l1.test.ts": "passed",
-      "spx/41-validation.enabler/65-markdown-validation.enabler/tests/markdown-validation.scenario.l1.test.ts": "passed"
+      "tests/markdown-validation-command.scenario.l2.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/markdown-validation.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/markdown-validation.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/markdown-validation.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      }
     }
   }
 }

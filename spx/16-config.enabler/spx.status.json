@@ -1,21 +1,47 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "spec",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/16-config.enabler/tests/config-ambiguity.scenario.l1.test.ts": "passed",
-      "spx/16-config.enabler/tests/config-format.mapping.l1.test.ts": "passed",
-      "spx/16-config.enabler/tests/defaults-only.scenario.l1.test.ts": "passed",
-      "spx/16-config.enabler/tests/defaults.mapping.l1.test.ts": "passed",
-      "spx/16-config.enabler/tests/determinism.property.l1.test.ts": "passed",
-      "spx/16-config.enabler/tests/format-api.mapping.l1.test.ts": "passed",
-      "spx/16-config.enabler/tests/invariants.property.l1.test.ts": "passed",
-      "spx/16-config.enabler/tests/partial-yaml.scenario.l1.test.ts": "passed",
-      "spx/16-config.enabler/tests/registry-extension.scenario.l1.test.ts": "passed",
-      "spx/16-config.enabler/tests/resolution-scope.compliance.l1.test.ts": "passed",
-      "spx/16-config.enabler/tests/typed-or-error.compliance.l1.test.ts": "passed",
-      "spx/16-config.enabler/tests/validation-failure.scenario.l1.test.ts": "passed",
-      "spx/16-config.enabler/tests/validation-isolation.compliance.l1.test.ts": "passed"
+      "tests/config-ambiguity.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/config-format.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/defaults-only.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/defaults.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/determinism.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/format-api.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/invariants.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/partial-yaml.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/registry-extension.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/resolution-scope.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/typed-or-error.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/validation-failure.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/validation-isolation.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      }
     }
   }
 }

@@ -1,10 +1,16 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/23-spec-tree.enabler/87-spec-tree-projection.enabler/tests/spec-tree-projection.conformance.l1.test.ts": "passed",
-      "spx/23-spec-tree.enabler/87-spec-tree-projection.enabler/tests/spec-tree-projection.property.l1.test.ts": "passed"
+      "tests/spec-tree-projection.conformance.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

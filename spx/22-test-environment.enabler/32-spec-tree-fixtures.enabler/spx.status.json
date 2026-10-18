@@ -1,12 +1,25 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/tests/spec-tree-env-lifecycle.scenario.l1.test.ts": "passed",
-      "spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/tests/spec-tree-env-safety.compliance.l1.test.ts": "passed",
-      "spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/tests/spec-tree-fixture-sources.mapping.l1.test.ts": "passed",
-      "spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/tests/spec-tree-fixtures.mapping.l1.test.ts": "passed"
+      "tests/spec-tree-env-lifecycle.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/spec-tree-env-safety.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/spec-tree-fixture-sources.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/spec-tree-fixtures.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

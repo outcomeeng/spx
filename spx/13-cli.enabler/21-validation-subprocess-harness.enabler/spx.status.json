@@ -1,10 +1,19 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/13-cli.enabler/21-validation-subprocess-harness.enabler/tests/validation-subprocess-harness.property.l1.test.ts": "passed",
-      "spx/13-cli.enabler/21-validation-subprocess-harness.enabler/tests/validation-subprocess-harness.scenario.l1.test.ts": "passed"
+      "tests/validation-subprocess-harness.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/validation-subprocess-harness.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

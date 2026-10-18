@@ -1,11 +1,17 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "spec",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/16-config.enabler/43-methodology-config.enabler/tests/methodology-config.compliance.l1.test.ts": "passed",
-      "spx/16-config.enabler/43-methodology-config.enabler/tests/methodology-config.mapping.l1.test.ts": "passed",
-      "spx/16-config.enabler/43-methodology-config.enabler/tests/methodology-config.scenario.l1.test.ts": "passed"
+      "tests/methodology-config.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/methodology-config.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/methodology-config.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      }
     }
   }
 }

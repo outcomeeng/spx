@@ -1,10 +1,16 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/23-spec-tree.enabler/76-node-state-derivation.enabler/tests/node-state-derivation.compliance.l1.test.ts": "passed",
-      "spx/23-spec-tree.enabler/76-node-state-derivation.enabler/tests/node-state-derivation.mapping.l1.test.ts": "passed"
+      "tests/node-state-derivation.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

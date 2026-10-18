@@ -1,11 +1,22 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/18-state.enabler/32-scope-addressing.enabler/tests/branch-identity.property.l1.test.ts": "passed",
-      "spx/18-state.enabler/32-scope-addressing.enabler/tests/scope-addressing.scenario.l1.test.ts": "passed",
-      "spx/18-state.enabler/32-scope-addressing.enabler/tests/scope-token.property.l1.test.ts": "passed"
+      "tests/branch-identity.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/scope-addressing.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/scope-token.property.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

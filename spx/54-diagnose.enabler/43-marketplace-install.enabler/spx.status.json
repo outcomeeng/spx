@@ -1,9 +1,16 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/54-diagnose.enabler/43-marketplace-install.enabler/tests/marketplace-install.mapping.l1.test.ts": "passed"
+      "tests/marketplace-install.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

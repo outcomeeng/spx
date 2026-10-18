@@ -1,11 +1,22 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/34-verification.enabler/43-execute.enabler/tests/execute.compliance.l1.test.ts": "passed",
-      "spx/34-verification.enabler/43-execute.enabler/tests/execute.mapping.l1.test.ts": "passed",
-      "spx/34-verification.enabler/43-execute.enabler/tests/execute.scenario.l1.test.ts": "passed"
+      "tests/execute.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/execute.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/execute.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

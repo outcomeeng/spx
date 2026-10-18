@@ -1,13 +1,23 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "spec",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/tests/understand-payload.compliance.l1.test.ts": "passed",
-      "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/tests/understand-payload.mapping.l1.test.ts": "passed",
-      "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/tests/understand-payload.mapping.l2.test.ts": "passed",
-      "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/tests/understand-payload.scenario.l1.test.ts": "passed",
-      "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/tests/understand-payload.scenario.l2.test.ts": "passed"
+      "tests/understand-payload.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/understand-payload.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/understand-payload.mapping.l2.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/understand-payload.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/understand-payload.scenario.l2.test.ts": {
+        "verdict": "not-run"
+      }
     }
   }
 }

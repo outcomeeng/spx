@@ -1,4 +1,5 @@
 {
-  "schemaVersion": 1,
+  "state": "declared",
+  "malleability": "implementation",
   "verification": {}
 }

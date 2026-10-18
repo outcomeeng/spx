@@ -1,10 +1,14 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "spec",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/16-config.enabler/43-domain-execution-descriptors.enabler/tests/testing-descriptor.compliance.l1.test.ts": "passed",
-      "spx/16-config.enabler/43-domain-execution-descriptors.enabler/tests/testing-descriptor.mapping.l1.test.ts": "passed"
+      "tests/testing-descriptor.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/testing-descriptor.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      }
     }
   }
 }

@@ -1,13 +1,28 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/13-cli.enabler/21-styled-output.enabler/tests/color-choice.mapping.l1.test.ts": "passed",
-      "spx/13-cli.enabler/21-styled-output.enabler/tests/content-parity.property.l1.test.ts": "passed",
-      "spx/13-cli.enabler/21-styled-output.enabler/tests/severity-styling.mapping.l1.test.ts": "passed",
-      "spx/13-cli.enabler/21-styled-output.enabler/tests/styled-output.property.l1.test.ts": "passed",
-      "spx/13-cli.enabler/21-styled-output.enabler/tests/styled-output.scenario.l1.test.ts": "passed"
+      "tests/color-choice.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/content-parity.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/severity-styling.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/styled-output.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/styled-output.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

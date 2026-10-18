@@ -1,0 +1,25 @@
+{
+  "state": "specified",
+  "malleability": "implementation",
+  "verification": {
+    "test": {
+      "tests/read-recorder.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/read-recorder.compliance.l2.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/read-recorder.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/read-recorder.scenario.l2.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
+    }
+  }
+}

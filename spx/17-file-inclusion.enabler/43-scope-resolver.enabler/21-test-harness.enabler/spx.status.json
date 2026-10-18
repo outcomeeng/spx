@@ -1,9 +1,16 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/17-file-inclusion.enabler/43-scope-resolver.enabler/21-test-harness.enabler/tests/test-harness.scenario.l1.test.ts": "passed"
+      "tests/test-harness.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

@@ -1,17 +1,40 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/22-test-environment.enabler/tests/env-generators.property.l1.test.ts": "passed",
-      "spx/22-test-environment.enabler/tests/generators.property.l1.test.ts": "passed",
-      "spx/22-test-environment.enabler/tests/helpers.scenario.l1.test.ts": "passed",
-      "spx/22-test-environment.enabler/tests/isolation.property.l1.test.ts": "passed",
-      "spx/22-test-environment.enabler/tests/lifecycle.property.l1.test.ts": "passed",
-      "spx/22-test-environment.enabler/tests/lifecycle.scenario.l1.test.ts": "passed",
-      "spx/22-test-environment.enabler/tests/nesting.scenario.l1.test.ts": "passed",
-      "spx/22-test-environment.enabler/tests/safety.compliance.l1.test.ts": "passed",
-      "spx/22-test-environment.enabler/tests/temp-dir.scenario.l1.test.ts": "passed"
+      "tests/env-generators.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/generators.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/helpers.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/isolation.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/lifecycle.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/lifecycle.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/nesting.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/safety.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/temp-dir.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

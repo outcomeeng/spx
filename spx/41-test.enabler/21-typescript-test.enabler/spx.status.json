@@ -1,15 +1,34 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test-verdicts.scenario.l2.test.ts": "passed",
-      "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.compliance.l1.test.ts": "passed",
-      "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.compliance.l2.test.ts": "passed",
-      "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.mapping.l1.test.ts": "passed",
-      "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.scenario.l1.test.ts": "passed",
-      "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.scenario.l2.test.ts": "passed",
-      "spx/41-test.enabler/21-typescript-test.enabler/tests/vitest-resolution.compliance.l1.test.ts": "passed"
+      "tests/typescript-test-verdicts.scenario.l2.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/typescript-test.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/typescript-test.compliance.l2.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/typescript-test.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/typescript-test.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/typescript-test.scenario.l2.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/vitest-resolution.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

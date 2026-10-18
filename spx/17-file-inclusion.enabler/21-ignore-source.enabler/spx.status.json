@@ -1,12 +1,25 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/17-file-inclusion.enabler/21-ignore-source.enabler/tests/ignore-source.compliance.l1.test.ts": "passed",
-      "spx/17-file-inclusion.enabler/21-ignore-source.enabler/tests/ignore-source.mapping.l1.test.ts": "passed",
-      "spx/17-file-inclusion.enabler/21-ignore-source.enabler/tests/ignore-source.property.l1.test.ts": "passed",
-      "spx/17-file-inclusion.enabler/21-ignore-source.enabler/tests/ignore-source.scenario.l1.test.ts": "passed"
+      "tests/ignore-source.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/ignore-source.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/ignore-source.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/ignore-source.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

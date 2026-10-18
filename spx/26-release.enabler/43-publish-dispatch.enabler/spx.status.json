@@ -1,10 +1,19 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/26-release.enabler/43-publish-dispatch.enabler/tests/publish-dispatch.compliance.l1.test.ts": "passed",
-      "spx/26-release.enabler/43-publish-dispatch.enabler/tests/publish-dispatch.scenario.l1.test.ts": "passed"
+      "tests/publish-dispatch.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/publish-dispatch.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

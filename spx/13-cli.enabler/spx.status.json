@@ -1,22 +1,55 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/13-cli.enabler/tests/commander-diagnostics.compliance.l1.test.ts": "passed",
-      "spx/13-cli.enabler/tests/foreground-handoff.scenario.l1.test.ts": "passed",
-      "spx/13-cli.enabler/tests/lifecycle.compliance.l1.test.ts": "passed",
-      "spx/13-cli.enabler/tests/lifecycle.mapping.l1.test.ts": "passed",
-      "spx/13-cli.enabler/tests/lifecycle.property.l1.test.ts": "passed",
-      "spx/13-cli.enabler/tests/lifecycle.scenario.l1.test.ts": "passed",
-      "spx/13-cli.enabler/tests/lifecycle.scenario.l2.test.ts": "passed",
-      "spx/13-cli.enabler/tests/package-scripts.compliance.l1.test.ts": "passed",
-      "spx/13-cli.enabler/tests/pass-through-boundary.compliance.l1.test.ts": "passed",
-      "spx/13-cli.enabler/tests/sanitize.mapping.l1.test.ts": "passed",
-      "spx/13-cli.enabler/tests/sanitize.property.l1.test.ts": "passed",
-      "spx/13-cli.enabler/tests/sanitize.scenario.l1.test.ts": "passed",
-      "spx/13-cli.enabler/tests/terminal-text.compliance.l1.test.ts": "passed",
-      "spx/13-cli.enabler/tests/terminal-text.property.l1.test.ts": "passed"
+      "tests/commander-diagnostics.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/foreground-handoff.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/lifecycle.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/lifecycle.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/lifecycle.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/lifecycle.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/lifecycle.scenario.l2.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/package-scripts.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/pass-through-boundary.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/sanitize.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/sanitize.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/sanitize.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/terminal-text.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/terminal-text.property.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

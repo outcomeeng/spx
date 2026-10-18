@@ -1,19 +1,34 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-drive-mode.compliance.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-finish-malformed-context.compliance.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-finish-reconcile.compliance.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-finish-repeat.compliance.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-finish-sealing.compliance.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-lifecycle.compliance.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-lifecycle.scenario.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-render.compliance.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-render.scenario.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-status.compliance.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/tests/verify-terminal-reason.compliance.l1.test.ts": "passed"
+      "tests/verify-drive-mode.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/verify-lifecycle.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/verify-lifecycle.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/verify-render.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/verify-render.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/verify-status.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/verify-terminal-reason.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

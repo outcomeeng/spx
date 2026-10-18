@@ -1,13 +1,23 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "spec",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/31-spec-domain.enabler/43-context-ingestion.enabler/tests/context-ingestion.compliance.l1.test.ts": "passed",
-      "spx/31-spec-domain.enabler/43-context-ingestion.enabler/tests/context-ingestion.compliance.l2.test.ts": "passed",
-      "spx/31-spec-domain.enabler/43-context-ingestion.enabler/tests/context-ingestion.mapping.l1.test.ts": "passed",
-      "spx/31-spec-domain.enabler/43-context-ingestion.enabler/tests/context-ingestion.scenario.l1.test.ts": "passed",
-      "spx/31-spec-domain.enabler/43-context-ingestion.enabler/tests/determinism.property.l1.test.ts": "passed"
+      "tests/context-ingestion.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/context-ingestion.compliance.l2.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/context-ingestion.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/context-ingestion.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/determinism.property.l1.test.ts": {
+        "verdict": "not-run"
+      }
     }
   }
 }
