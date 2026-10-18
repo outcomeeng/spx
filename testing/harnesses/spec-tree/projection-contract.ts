@@ -10,7 +10,9 @@
  * and holds no second spelling of either. Every object is strict: a key the registry does not name
  * fails.
  *
- * The harness hands the linked test the validator; the test owns every predicate over it.
+ * The harness hands the linked test the validator and the observations it asserts over: the
+ * projection of the representative tree beside the fixture that produced it, and the projection
+ * of any source entries. The test owns every predicate over them.
  *
  * @module testing/harnesses/spec-tree/projection-contract
  */
@@ -19,11 +21,16 @@ import { z } from "zod";
 
 import {
   KIND_REGISTRY,
+  projectSpecTree,
+  readSpecTree,
   SPEC_TREE_CONFIG,
   SPEC_TREE_KIND_CATEGORY,
   SPEC_TREE_NODE_STATE,
   SPEC_TREE_PROJECTION,
+  type SpecTreeProjection,
+  type SpecTreeSourceEntry,
 } from "@/lib/spec-tree";
+import { buildRepresentativeFixture, createSource } from "@testing/generators/spec-tree/spec-tree";
 
 const NODE_KIND_CATEGORIES: readonly string[] = [SPEC_TREE_KIND_CATEGORY.NODE, SPEC_TREE_KIND_CATEGORY.OUTPUT];
 
@@ -77,3 +84,15 @@ export const SPEC_TREE_PROJECTION_CONTRACT = z.strictObject({
   [KEYS.NODES]: z.array(projectedNodeSchema),
   [KEYS.DECISIONS]: z.array(projectedDecisionSchema),
 });
+
+/** Reads the entries into a snapshot and returns its projection. */
+export async function observeProjection(entries: readonly SpecTreeSourceEntry[]): Promise<SpecTreeProjection> {
+  const snapshot = await readSpecTree({ source: createSource(entries) });
+  return projectSpecTree(snapshot);
+}
+
+/** The projection of the representative tree, with the fixture it was projected from. */
+export async function observeRepresentativeProjection() {
+  const fixture = buildRepresentativeFixture(KIND_REGISTRY);
+  return { fixture, projection: await observeProjection(fixture.entries) };
+}
