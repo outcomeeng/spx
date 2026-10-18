@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import type { Reporter, TestModule } from "vitest/node";
 
+import { compareCodeUnits } from "@/outcomeeng/spec-tree/graph/source/order";
 import { findProductVitestEntry, productVitestNodeApiLoader, VITEST_RUN_MODE } from "@/test/languages/journal-reporter";
 import {
   READ_RECORDER_META_KEY,
@@ -95,7 +96,7 @@ async function snapshotFiles(root: string, dir: string = root): Promise<Array<re
       collected.push([relative(root, absolute), await readFile(absolute, "utf8")]);
     }
   }
-  return collected.sort((left, right) => left[0].localeCompare(right[0]));
+  return collected.sort((left, right) => compareCodeUnits(left[0], right[0]));
 }
 
 /** The directory holding the built output, which names the setup file an installed spx runs. */

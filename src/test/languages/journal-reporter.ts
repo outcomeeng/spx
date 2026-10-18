@@ -19,6 +19,7 @@ import { pathToFileURL } from "node:url";
 
 import type { Reporter, TestCase, TestModule, TestRunEndReason } from "vitest/node";
 
+import { compareCodeUnits } from "@/outcomeeng/spec-tree/graph/source/order";
 import {
   READ_RECORDER_META_KEY,
   READ_RECORDER_SETUP_FILE,
@@ -358,7 +359,7 @@ function moduleReadPaths(module: TestModule, options: JournalReporterOptions): r
     const relativePath = productRelativePath(productRoot, candidate);
     if (relativePath !== undefined) relativePaths.add(relativePath);
   }
-  return [...relativePaths].sort((left, right) => left.localeCompare(right));
+  return [...relativePaths].sort(compareCodeUnits);
 }
 
 /**

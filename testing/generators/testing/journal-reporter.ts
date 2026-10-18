@@ -4,6 +4,7 @@ import * as fc from "fast-check";
 
 import { TEST_PAYLOAD_FIELD } from "@/domains/verify/verify";
 import type { JsonValue } from "@/lib/agent-run-journal";
+import { compareCodeUnits } from "@/outcomeeng/spec-tree/graph/source/order";
 import { LOCKFILE_NAMES } from "@/test/languages/journal-reporter";
 import {
   JOURNAL_RUN_TERMINAL_STATUS,
@@ -103,7 +104,7 @@ export function expectedScopeForScenario(scenario: GeneratedRunScenario, product
   const readPaths = [
     ...new Set([...loadedProductFiles, ...openedProductFiles, ...(lockfile === undefined ? [] : [lockfile])]),
   ]
-    .sort((left, right) => left.localeCompare(right));
+    .sort(compareCodeUnits);
   return readPaths.length === 0 ? { moduleId: scenario.moduleId } : { moduleId: scenario.moduleId, readPaths };
 }
 
