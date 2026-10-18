@@ -2,24 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import {
   canonicalNamingSchemaVersion,
-  type NamingSchemaVersion,
   SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_NAMING_VERSION,
 } from "@/lib/spec-tree";
 import { highestPositionCases } from "@testing/generators/spec-tree/naming-version-position";
-
-// Violating implementations of the canonical-version signature, each of which the cases below reject.
-function takeFirstVersion(versions: readonly NamingSchemaVersion[]): NamingSchemaVersion {
-  return versions[0];
-}
-
-function takeLastVersion(versions: readonly NamingSchemaVersion[]): NamingSchemaVersion {
-  return versions[versions.length - 1];
-}
-
-function hardCodedVersion(versions: readonly NamingSchemaVersion[]): NamingSchemaVersion {
-  return { ...versions[0], version: SPEC_TREE_NAMING_VERSION };
-}
+import {
+  hardCodedVersion,
+  takeFirstVersion,
+  takeLastVersion,
+} from "@testing/harnesses/spec-tree/naming-version-violations";
 
 describe("dedicated naming-schema version", () => {
   it("is the exposed constant computed by the canonical function from the owned version set", () => {
