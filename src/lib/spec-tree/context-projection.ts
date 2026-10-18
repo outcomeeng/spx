@@ -3,7 +3,7 @@ import { posix } from "node:path";
 import MarkdownIt from "markdown-it";
 import { parseDocument, stringify } from "yaml";
 
-import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR, type SpecTreeNodeKind } from "./config";
+import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR, SPEC_TREE_INHERIT_FROM_PARENT, type SpecTreeNodeKind } from "./config";
 import {
   compareSpecContextOrdinal,
   SPEC_CONTEXT_MODE,
@@ -155,9 +155,20 @@ function requiredDocumentPath(path: string | undefined, owner: string): string {
   return path;
 }
 
-/** The opening keyword the given kind registry resolves for a node's kind, or none when it resolves none. */
-function resolvedKindOpening(node: SpecTreeNode, registry: SpecContextKindRegistry): string | undefined {
-  return node.kind === SPEC_TREE_CONFIG.PRODUCT.KIND ? undefined : registry[node.kind]?.opening;
+/**
+ * The opening keyword the given kind registry resolves for a node's kind, or none when it resolves none.
+ * A kind whose opening is inherited resolves its parent node's, through the ancestors the lookup holds.
+ */
+function resolvedKindOpening(
+  node: SpecTreeNode,
+  registry: SpecContextKindRegistry,
+  nodesById: ReadonlyMap<string, SpecTreeNode>,
+): string | undefined {
+  if (node.kind === SPEC_TREE_CONFIG.PRODUCT.KIND) return undefined;
+  const opening = registry[node.kind]?.opening;
+  if (opening !== SPEC_TREE_INHERIT_FROM_PARENT) return opening;
+  const parent = node.parentId === undefined ? undefined : nodesById.get(node.parentId);
+  return parent === undefined ? undefined : resolvedKindOpening(parent, registry, nodesById);
 }
 
 /**
@@ -171,6 +182,7 @@ function nodeSelection(
   reasons: readonly SpecContextTargetSelection[],
   existingPaths: ReadonlySet<string>,
   registry: SpecContextKindRegistry,
+  nodesById: ReadonlyMap<string, SpecTreeNode>,
 ): readonly SpecContextSelection[] {
   const path = node.ref?.path;
   if (path === undefined || !existingPaths.has(path)) return [];
@@ -181,7 +193,7 @@ function nodeSelection(
     digest: {
       source: SPEC_CONTEXT_DIGEST_SOURCE.OPENING,
       kind: node.kind,
-      keyword: resolvedKindOpening(node, registry),
+      keyword: resolvedKindOpening(node, registry, nodesById),
     },
     outputNode: true,
     scanCitations: true,
@@ -369,6 +381,7 @@ export function selectSpecContextDocuments(
   registry: SpecContextKindRegistry,
 ): readonly SpecContextSelection[] {
   const productPath = specContextWalkRoot(snapshot);
+  const nodesById = new Map(snapshot.allNodes.map((node) => [node.id, node]));
   const discovery = targets.length === 0;
   const reasons = specContextTargetedReasons(snapshot, targets);
   const result: SpecContextSelection[] = [];
@@ -423,7 +436,7 @@ export function selectSpecContextDocuments(
           reasons: reasons.product.get(undefined),
           scanCitations: true,
         }]
-        : nodeSelection(node, mode, reasons.nodes.get(node.id), existingPaths, registry)),
+        : nodeSelection(node, mode, reasons.nodes.get(node.id), existingPaths, registry, nodesById)),
     );
     if (discovery || reasons.containers.has(node?.id)) {
       reference(`${directory}/${ISSUE_FILENAME}`, reasons.containers.get(node?.id));
