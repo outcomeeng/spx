@@ -22,9 +22,7 @@ import {
   VERIFY_DRIVE_MODE,
   VERIFY_VERIFICATION_TYPE,
 } from "@/domains/verify/verify";
-import { getCurrentBranch, getHeadSha } from "@/lib/git/root";
-import { resolveBranchIdentity, slugBranchIdentity } from "@/lib/state-store";
-import { SPX_VERIFY_HEAD_SHA } from "@/lib/verification-env";
+import { resolveVerificationBranchSlug } from "@/lib/state-store";
 import {
   createVitestRunStarter,
   productVitestNodeApiLoader,
@@ -66,10 +64,8 @@ export interface TestJournalRecord {
 }
 
 /** The scope slug a verification run records under for the branch checked out in `productDir`. */
-async function checkedOutBranchSlug(productDir: string): Promise<string> {
-  const branchName = await getCurrentBranch(productDir);
-  const headSha = (await getHeadSha(productDir)) ?? SPX_VERIFY_HEAD_SHA.MISSING;
-  return slugBranchIdentity(resolveBranchIdentity({ ...(branchName === null ? {} : { branchName }), headSha }));
+function checkedOutBranchSlug(productDir: string): Promise<string> {
+  return resolveVerificationBranchSlug({ cwd: productDir, isGitRepo: true });
 }
 
 /** A branch scope slug other than the one checked out in `productDir`. */

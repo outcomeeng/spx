@@ -95,7 +95,6 @@ import {
   classifyRevisionCommit,
   defaultGitDependencies,
   detectGitCommonDirProductRoot,
-  getCurrentBranch,
   getHeadSha,
   type GitDependencies,
   isHeadUnborn,
@@ -107,12 +106,11 @@ import {
   defaultStateStoreRealpath,
   ERROR_CODE_NOT_FOUND,
   hasErrorCode,
-  resolveBranchIdentity,
-  slugBranchIdentity,
+  resolveVerificationBranchSlug,
   STATE_STORE_TEXT_ENCODING,
   type StateStoreFileSystem,
 } from "@/lib/state-store";
-import { SPX_VERIFY_ENV, SPX_VERIFY_HEAD_SHA } from "@/lib/verification-env";
+import { SPX_VERIFY_ENV } from "@/lib/verification-env";
 
 export const VERIFY_CLI_EXIT_CODE = {
   OK: 0,
@@ -447,10 +445,12 @@ async function resolveVerifyScope(deps: VerifyCliDeps): Promise<Result<VerifyRes
   const git = deps.git ?? defaultGitDependencies;
   const processEnv = deps.processEnv ?? process.env;
   const product = await detectGitCommonDirProductRoot(cwd, git);
-  const probedBranch = product.isGitRepo ? (await getCurrentBranch(cwd, git)) ?? undefined : undefined;
-  const headSha = (product.isGitRepo ? await getHeadSha(cwd, git) : null) ?? SPX_VERIFY_HEAD_SHA.MISSING;
-  const branchName = deps.branch ?? processEnv[VERIFY_CLI_ENV.BRANCH] ?? probedBranch;
-  const branchIdentity = resolveBranchIdentity({ ...(branchName === undefined ? {} : { branchName }), headSha });
+  const branchSlug = await resolveVerificationBranchSlug({
+    cwd,
+    isGitRepo: product.isGitRepo,
+    git,
+    branchOverride: deps.branch ?? processEnv[VERIFY_CLI_ENV.BRANCH],
+  });
   const backend = resolveJournalBackend(readJournalCliEnvironment(processEnv).backend);
   if (!backend.ok) return backend;
   return {
@@ -459,7 +459,7 @@ async function resolveVerifyScope(deps: VerifyCliDeps): Promise<Result<VerifyRes
       productDir: product.productDir,
       worktreeRoot: product.worktreeRoot,
       isGitRepo: product.isGitRepo,
-      branchSlug: slugBranchIdentity(branchIdentity),
+      branchSlug,
       backendIdentity: backend.value,
     },
   };

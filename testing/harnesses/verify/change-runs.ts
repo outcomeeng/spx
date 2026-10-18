@@ -31,8 +31,8 @@ import {
   type VerifyVerificationType,
 } from "@/domains/verify/verify";
 import type { JsonValue } from "@/lib/agent-run-journal";
-import { detectGitCommonDirProductRoot, getCurrentBranch, getHeadSha, type GitDependencies } from "@/lib/git/root";
-import { defaultStateStoreFileSystem, resolveBranchIdentity, slugBranchIdentity } from "@/lib/state-store";
+import { detectGitCommonDirProductRoot, getHeadSha, type GitDependencies } from "@/lib/git/root";
+import { defaultStateStoreFileSystem, resolveVerificationBranchSlug } from "@/lib/state-store";
 import type { ChangeRunsScenario, RunComparisonFile } from "@testing/generators/verify/change-runs";
 import { type FindingWithKey, sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import {
@@ -113,10 +113,8 @@ export interface ChangeRunsRepository {
  * slug of the checked-out branch, or of the detached head's commit.
  */
 async function branchSlugAt(cwd: string, git: GitDependencies): Promise<string> {
-  const branchName = (await getCurrentBranch(cwd, git)) ?? undefined;
-  const headSha = await getHeadSha(cwd, git);
-  if (headSha === null) throw new Error(`change-runs harness: no HEAD commit at ${cwd}`);
-  return slugBranchIdentity(resolveBranchIdentity({ ...(branchName === undefined ? {} : { branchName }), headSha }));
+  if ((await getHeadSha(cwd, git)) === null) throw new Error(`change-runs harness: no HEAD commit at ${cwd}`);
+  return resolveVerificationBranchSlug({ cwd, isGitRepo: true, git });
 }
 
 function lifecycleDeps(cwd: string, inputContent: string, driveMode: VerifyDriveMode): VerifyCliDeps {

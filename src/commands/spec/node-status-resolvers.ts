@@ -22,13 +22,7 @@ import {
   type VerifyVerificationType,
 } from "@/domains/verify/verify";
 import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
-import {
-  defaultGitDependencies,
-  detectGitCommonDirProductRoot,
-  getCurrentBranch,
-  getHeadSha,
-  type GitDependencies,
-} from "@/lib/git/root";
+import { defaultGitDependencies, detectGitCommonDirProductRoot, type GitDependencies } from "@/lib/git/root";
 import {
   createPinChangeReader,
   NODE_STATUS_EVIDENCE_OUTCOME,
@@ -44,8 +38,8 @@ import {
   readNodeSpecDeclaration,
 } from "@/lib/node-status";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
-import { resolveBranchIdentity, slugBranchIdentity, type StateStoreFileSystem } from "@/lib/state-store";
-import { SPX_VERIFY_HEAD_SHA } from "@/lib/verification-env";
+import { resolveVerificationBranchSlug, type StateStoreFileSystem } from "@/lib/state-store";
+import { SPX_VERIFY_ENV } from "@/lib/verification-env";
 import { type TestingLanguageDescriptor } from "@/test/languages/types";
 import { TEST_PATH_VERDICT, type TestPathVerdictValue } from "@/test/run-state";
 
@@ -58,6 +52,8 @@ export interface NodeStatusResolverDependencies extends NodeOutcomeResolverDepen
   /** Git runner for the journals' product root and for freshness against a run's head commit. */
   readonly git?: GitDependencies;
   readonly journalFs?: StateStoreFileSystem;
+  /** Environment the verification runs were recorded under; its branch override scopes the sealed runs read. */
+  readonly processEnv?: NodeJS.ProcessEnv;
 }
 
 /** The three resolvers `spx spec status --update` injects into the node-status orchestration. */
@@ -217,8 +213,13 @@ async function readSealedRuns(
   type: VerifyVerificationType,
 ): Promise<readonly SealedRun[]> {
   const options = deps.journalFs === undefined ? {} : { fs: deps.journalFs };
-  const { productDir } = await detectGitCommonDirProductRoot(deps.productDir, git);
-  const branchSlug = await currentBranchSlug(deps.productDir, git);
+  const { productDir, isGitRepo } = await detectGitCommonDirProductRoot(deps.productDir, git);
+  const branchSlug = await resolveVerificationBranchSlug({
+    cwd: deps.productDir,
+    isGitRepo,
+    git,
+    branchOverride: (deps.processEnv ?? process.env)[SPX_VERIFY_ENV.BRANCH],
+  });
   const listed = await listJournalRuns(
     { productDir, branchSlug, type, sealed: JOURNAL_RUN_SEALED_FILTER.SEALED, limit: Number.POSITIVE_INFINITY },
     options,
@@ -242,13 +243,6 @@ async function readSealedRuns(
     }
   }
   return runs;
-}
-
-/** The scope slug of the branch checked out in `cwd`, or of its detached head, as a verification run records it. */
-async function currentBranchSlug(cwd: string, git: GitDependencies): Promise<string> {
-  const branchName = await getCurrentBranch(cwd, git);
-  const headSha = (await getHeadSha(cwd, git)) ?? SPX_VERIFY_HEAD_SHA.MISSING;
-  return slugBranchIdentity(resolveBranchIdentity({ ...(branchName === null ? {} : { branchName }), headSha }));
 }
 
 /**
