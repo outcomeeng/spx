@@ -417,29 +417,56 @@ export async function resolveRefSha(
 /** The revision suffix that peels an object name to the commit it names, failing for an object that names none. */
 export const GIT_COMMIT_PEEL_SUFFIX = "^{commit}";
 
+/** `rev-parse --verify --quiet` reports a revision that names no object with this exit code; any other non-zero exit is a git failure. */
+export const GIT_REV_PARSE_UNRESOLVED_EXIT_CODE = 1;
+
+export const REVISION_COMMIT_OUTCOME = {
+  RESOLVED: "resolved",
+  UNRESOLVED: "unresolved",
+  FAILED: "failed",
+} as const;
+
+export type RevisionCommitOutcome =
+  | { readonly kind: typeof REVISION_COMMIT_OUTCOME.RESOLVED; readonly sha: string }
+  | { readonly kind: typeof REVISION_COMMIT_OUTCOME.UNRESOLVED }
+  | { readonly kind: typeof REVISION_COMMIT_OUTCOME.FAILED; readonly message: string };
+
 /**
- * Returns the full SHA of the commit a revision names — a branch, a tag peeled to its commit, or a
- * commit SHA — or null when the revision names no commit. `--verify` admits exactly one object and
- * `--end-of-options` keeps an option-shaped revision from being read as a flag.
+ * Classifies a revision as naming a commit, naming none, or failing in git. The commit lookup that
+ * succeeds is the whole classification; a lookup that fails is classified again with the exit code
+ * `rev-parse --verify --quiet` documents for a revision that names no object, which alone reads as
+ * unresolved. Every other non-zero exit, and a failure to run git, is a failure carrying the git error.
  */
-export async function resolveCommitSha(
+export async function classifyRevisionCommit(
   revision: string,
   cwd: string = CONFIG_PROCESS_CWD.read(),
   deps: GitDependencies = defaultGitDependencies,
-): Promise<string | null> {
-  const result = await deps.execa(
-    GIT_ROOT_COMMAND.EXECUTABLE,
-    [
-      GIT_ROOT_COMMAND.REV_PARSE,
-      GIT_ROOT_COMMAND.VERIFY,
-      GIT_ROOT_COMMAND.END_OF_OPTIONS,
-      `${revision}${GIT_COMMIT_PEEL_SUFFIX}`,
-    ],
-    { cwd, reject: false },
-  );
-  if (result.exitCode !== 0) return null;
-  const sha = extractStdout(result.stdout);
-  return sha.length === 0 ? null : sha;
+): Promise<RevisionCommitOutcome> {
+  const peeled = `${revision}${GIT_COMMIT_PEEL_SUFFIX}`;
+  try {
+    const lookup = await deps.execa(
+      GIT_ROOT_COMMAND.EXECUTABLE,
+      [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.VERIFY, GIT_ROOT_COMMAND.END_OF_OPTIONS, peeled],
+      { cwd, reject: false },
+    );
+    const sha = lookup.exitCode === 0 ? extractStdout(lookup.stdout) : "";
+    if (sha.length > 0) return { kind: REVISION_COMMIT_OUTCOME.RESOLVED, sha };
+    const probe = await deps.execa(
+      GIT_ROOT_COMMAND.EXECUTABLE,
+      [
+        GIT_ROOT_COMMAND.REV_PARSE,
+        GIT_ROOT_COMMAND.VERIFY,
+        GIT_ROOT_COMMAND.QUIET,
+        GIT_ROOT_COMMAND.END_OF_OPTIONS,
+        peeled,
+      ],
+      { cwd, reject: false },
+    );
+    if (probe.exitCode === GIT_REV_PARSE_UNRESOLVED_EXIT_CODE) return { kind: REVISION_COMMIT_OUTCOME.UNRESOLVED };
+    return { kind: REVISION_COMMIT_OUTCOME.FAILED, message: probe.stderr || lookup.stderr };
+  } catch (error) {
+    return { kind: REVISION_COMMIT_OUTCOME.FAILED, message: (error as Error).message };
+  }
 }
 
 /** `show-ref --verify --quiet` reports a missing ref with this exit code; any other non-zero exit is a git failure. */

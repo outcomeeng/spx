@@ -89,13 +89,15 @@ import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { changedPathsForCommittedRange, nameStatusForCommittedRange } from "@/lib/git/changed-paths";
 import { listCommitFiles } from "@/lib/git/commit-files";
 import {
+  classifyRevisionCommit,
   defaultGitDependencies,
   detectGitCommonDirProductRoot,
   getCurrentBranch,
   getHeadSha,
+  GIT_ROOT_COMMAND,
   type GitDependencies,
   isHeadUnborn,
-  resolveCommitSha,
+  REVISION_COMMIT_OUTCOME,
 } from "@/lib/git/root";
 import {
   defaultStateStoreFileSystem,
@@ -124,6 +126,7 @@ export const VERIFY_CLI_ERROR = {
   RUN_NOT_FOUND: "spx verification run could not locate the requested run",
   RUN_SELECTOR_MISMATCH: "spx verification run selector does not match the recorded run",
   CHANGED_SCOPE_FAILED: "spx verification run could not derive the changeset changed-file scope",
+  CHANGE_INVENTORY_FAILED: "spx verification run could not derive the changeset change inventory",
   INPUT_PERSIST_FAILED: "spx verification run could not persist the recorded run input",
   INPUT_READ_FAILED: "spx verification run could not read the recorded run input",
   PAYLOAD_REQUIRED: "spx verification run evidence-add commands require --payload <payload-source>",
@@ -473,26 +476,41 @@ async function resolveChangedScope(
   }
 }
 
+/**
+ * The outcome of deriving a changeset's change inventory. A failure flags whether the changeset's
+ * base or head names no commit; every other failure carries the git error it reports.
+ */
+type ChangeInventoryResolution =
+  | { readonly ok: true; readonly value: readonly VerifyChangeInventoryEntry[] }
+  | { readonly ok: false; readonly error: string; readonly selectorUnresolved: boolean };
+
 /** Derive the changeset's change inventory from its null-delimited name-status diff with rename and copy detection. */
 async function resolveChangeInventory(
   scope: ChangesetScope,
   productDir: string,
   deps: VerifyCliDeps,
-): Promise<Result<readonly VerifyChangeInventoryEntry[]>> {
+): Promise<ChangeInventoryResolution> {
+  const git = deps.git ?? defaultGitDependencies;
   try {
     return {
       ok: true,
       value: changeInventoryOfNameStatus(
-        await nameStatusForCommittedRange({
-          productDir,
-          base: scope.base,
-          head: scope.head,
-          git: deps.git ?? defaultGitDependencies,
-        }),
+        await nameStatusForCommittedRange({ productDir, base: scope.base, head: scope.head, git }),
       ),
     };
   } catch (error) {
-    return { ok: false, error: `${VERIFY_CLI_ERROR.CHANGED_SCOPE_FAILED}: ${(error as Error).message}` };
+    const failure = (error as Error).message;
+    for (const revision of [scope.base, scope.head]) {
+      const outcome = await classifyRevisionCommit(revision, productDir, git);
+      if (outcome.kind === REVISION_COMMIT_OUTCOME.UNRESOLVED) {
+        return {
+          ok: false,
+          error: `${VERIFY_CLI_ERROR.CHANGE_INVENTORY_FAILED}: ${failure}`,
+          selectorUnresolved: true,
+        };
+      }
+    }
+    return { ok: false, error: `${VERIFY_CLI_ERROR.CHANGE_INVENTORY_FAILED}: ${failure}`, selectorUnresolved: false };
   }
 }
 
@@ -546,7 +564,7 @@ const VERIFY_SCOPE_RESOLVERS: Readonly<Record<VerifyScopeType, VerifyScopeResolv
       const resolvedScope = await resolveChangedScope(changeset.value, worktreeRoot, deps);
       if (!resolvedScope.ok) return resolvedScope;
       const changeInventory = await resolveChangeInventory(changeset.value, worktreeRoot, deps);
-      if (!changeInventory.ok) return changeInventory;
+      if (!changeInventory.ok) return { ok: false, error: changeInventory.error };
       return {
         ok: true,
         value: {
@@ -605,13 +623,23 @@ async function resolveStartHeadCommit(
   if (!resolved.isGitRepo) return { ok: true, value: undefined };
   const git = deps.git ?? defaultGitDependencies;
   const unresolved: Result<string | undefined> = { ok: false, error: VERIFY_CLI_ERROR.HEAD_COMMIT_UNRESOLVED };
-  if (resolution.headRevision !== undefined) {
-    const revisionCommit = await resolveCommitSha(resolution.headRevision, resolved.worktreeRoot, git);
-    return revisionCommit === null ? unresolved : { ok: true, value: revisionCommit };
+  if (resolution.headRevision === undefined) {
+    const headCommit = await getHeadSha(resolved.worktreeRoot, git);
+    if (headCommit !== null) return { ok: true, value: headCommit };
   }
-  const headCommit = await getHeadSha(resolved.worktreeRoot, git);
-  if (headCommit !== null) return { ok: true, value: headCommit };
-  return await isHeadUnborn(resolved.worktreeRoot, git) ? { ok: true, value: undefined } : unresolved;
+  const outcome = await classifyRevisionCommit(
+    resolution.headRevision ?? GIT_ROOT_COMMAND.HEAD,
+    resolved.worktreeRoot,
+    git,
+  );
+  if (outcome.kind === REVISION_COMMIT_OUTCOME.RESOLVED) return { ok: true, value: outcome.sha };
+  if (outcome.kind === REVISION_COMMIT_OUTCOME.FAILED) {
+    return { ok: false, error: `${VERIFY_CLI_ERROR.HEAD_COMMIT_UNRESOLVED}: ${outcome.message}` };
+  }
+  if (resolution.headRevision === undefined && await isHeadUnborn(resolved.worktreeRoot, git)) {
+    return { ok: true, value: undefined };
+  }
+  return unresolved;
 }
 
 function canonicalizeVerifyRunSelector(scopeType: string, scopeIdentity: string): Result<VerifyRunSelector> {
@@ -1937,7 +1965,11 @@ async function reconcileRunEvidence(
   const resolvedScope = await resolveVerifyScope(deps);
   if (!resolvedScope.ok) return failed(`${VERIFY_CLI_ERROR.RECONCILE_FAILED}: ${resolvedScope.error}`);
   const resolvedInventory = await resolveChangeInventory(changeset.value, resolvedScope.value.worktreeRoot, deps);
-  if (!resolvedInventory.ok) return unresolved;
+  if (!resolvedInventory.ok) {
+    return resolvedInventory.selectorUnresolved
+      ? unresolved
+      : failed(`${VERIFY_CLI_ERROR.RECONCILE_FAILED}: ${resolvedInventory.error}`);
+  }
   return {
     ok: true,
     value: reconcileScope({
