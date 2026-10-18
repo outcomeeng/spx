@@ -6,6 +6,10 @@ CAN record audit evidence under `--verification-type audit` without adding audit
 
 ## Assertions
 
+### Mapping
+
+- A sealed audit run maps to the claim entry it yields: a run over a rule slug yields the node's `audit` entry for that slug, a unit of audit kind `tests` or `eval-evidence` over an implementation-malleable node with linked evidence of that kind yields the node's `evidence` entry of kind `test` or `eval`, and over any other node yields no entry, with the run's Verifier as actor and its run id as run ([test](tests/audit-claim-entry.mapping.l1.test.ts))
+
 ### Compliance
 
 - ALWAYS: `audit` is the public verification type for every audit run; audit class and audit kind stay inside payloads ([test](tests/audit-command-surface.compliance.l1.test.ts))

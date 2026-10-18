@@ -1,47 +1,139 @@
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
+import { dirname, join, relative } from "node:path";
 
+import { defaultGitDependencies, type GitDependencies } from "@/lib/git/root";
+import { listTrackedPaths } from "@/lib/git/tracked-paths";
 import {
   SPEC_TREE_CONFIG,
+  SPEC_TREE_GRAMMAR,
+  SPEC_TREE_NODE_STATE,
   type SpecTreeEvidenceProvider,
   type SpecTreeNodeSourceEntry,
   type SpecTreeNodeState,
 } from "@/lib/spec-tree";
+import {
+  NODE_STATUS_CLAIM_FIELD,
+  NODE_STATUS_CLAIM_SHAPE,
+  type NodeStatusClaim,
+  nodeStatusClaimResults,
+} from "./claim";
+import {
+  classifyNodeClaim,
+  classifyParentOfVariants,
+  createClaimHistoryReader,
+  governingDeclarationPaths,
+} from "./claim-state";
 import { classifyNodeStatus, hasNodeStatusVerificationReferences } from "./classify";
+import { createPinChangeReader, resultCurrency } from "./currency";
 import { createNodeStatusExcludeReader } from "./exclude";
-import { readNodeStatus } from "./read";
+import { NODE_STATUS_FILENAME, parseNodeStatusFile } from "./read";
+import { collectNodeStatusFiles } from "./status-files";
 
-/**
- * Resolve the absolute directory of a spec-tree node under `productDir`.
- *
- * A node source entry's `id` is its directory path relative to the spec-tree
- * root, so the node directory is `productDir/<root>/<id>`.
- */
-function nodeDirectory(productDir: string, node: SpecTreeNodeSourceEntry): string {
-  return join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, node.id);
+export const VARIANT_DIRECTORY_SUFFIX = ".variant";
+const PATH_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
+const ROOT_PREFIX = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${PATH_SEPARATOR}`;
+const SLUG_OF_DIRECTORY = /^\d+(?:\.\d+)?-(.+)\.[a-z]+$/;
+
+export interface NodeStatusProviderOptions {
+  /** Git runner for pin currency and claim history; defaults to the production runner. */
+  readonly gitDependencies?: GitDependencies;
 }
 
 /**
  * Build a spec-tree evidence provider that overrides each node's live-derived
- * state with the state persisted in its co-located `spx.status.json`.
+ * state with the state derived from its co-located `spx.status.json`.
  *
- * The provider closes over `productDir` because `stateForNode` receives only the
- * node source entry and in-memory evidence — no filesystem path. A node with no
+ * Each claim is read in the shape it was written: a version-1 claim classifies
+ * from spec structure and its mechanism rollups, a 4.0 claim from each result's
+ * verdict and the currency of its pin against the checkout. A parent whose
+ * `.variant` children carry claims takes its state from theirs. A node with no
  * persisted file yields `undefined`, which routes the spec-tree library back to
- * live derivation.
+ * live derivation. The factory resolves every state before it returns, so the
+ * provider itself reads nothing and writes nothing.
  *
  * @param productDir - Absolute path to the product directory.
  */
-export function createNodeStatusProvider(productDir: string): SpecTreeEvidenceProvider {
+export async function createNodeStatusProvider(
+  productDir: string,
+  options: NodeStatusProviderOptions = {},
+): Promise<SpecTreeEvidenceProvider> {
+  const { gitDependencies = defaultGitDependencies } = options;
   const excludeReader = createNodeStatusExcludeReader(productDir);
+  const pinChanges = createPinChangeReader({ productDir, git: gitDependencies });
+  const history = createClaimHistoryReader({ productDir, git: gitDependencies });
+  let trackedPaths: Promise<ReadonlySet<string>> | undefined;
+  const readTrackedPaths = (): Promise<
+    ReadonlySet<string>
+  > => (trackedPaths ??= listTrackedPaths(productDir, gitDependencies).then((paths) => paths ?? new Set<string>()));
+  const treeRoot = join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+  const statesByNode = new Map<string, SpecTreeNodeState>();
+  const variantsByParent = new Map<string, string[]>();
+
+  for (const statusPath of await collectNodeStatusFiles(treeRoot)) {
+    const nodeDir = dirname(statusPath);
+    const nodeId = relative(treeRoot, nodeDir).split(/[\\/]/).join(PATH_SEPARATOR);
+    const read = parseNodeStatusFile(JSON.parse(readFileSync(statusPath, "utf8")), statusPath);
+    if (read.shape === NODE_STATUS_CLAIM_SHAPE.VERSION_1) {
+      statesByNode.set(
+        nodeId,
+        classifyNodeStatus({
+          hasVerificationReferences: hasNodeStatusVerificationReferences(read.claim.verification),
+          isExcluded: excludeReader.isExcluded({ id: nodeId }),
+          verification: read.claim.verification,
+        }),
+      );
+      continue;
+    }
+    statesByNode.set(nodeId, await classifyClaim(nodeId, read.claim));
+    if (nodeId.endsWith(VARIANT_DIRECTORY_SUFFIX)) {
+      const parent = dirname(nodeId);
+      variantsByParent.set(parent, [...(variantsByParent.get(parent) ?? []), nodeId]);
+    }
+  }
+  for (const [parent, variants] of variantsByParent) {
+    statesByNode.set(
+      parent,
+      classifyParentOfVariants(variants.map((variant) => statesByNode.get(variant) ?? SPEC_TREE_NODE_STATE.DECLARED)),
+    );
+  }
   return {
     stateForNode(node: SpecTreeNodeSourceEntry): SpecTreeNodeState | undefined {
-      const status = readNodeStatus(nodeDirectory(productDir, node));
-      if (status === undefined) return undefined;
-      return classifyNodeStatus({
-        hasVerificationReferences: hasNodeStatusVerificationReferences(status.verification),
-        isExcluded: excludeReader.isExcluded(node),
-        verification: status.verification,
-      });
+      return statesByNode.get(node.id);
     },
   };
+
+  async function classifyClaim(nodeId: string, claim: NodeStatusClaim): Promise<SpecTreeNodeState> {
+    const results = await Promise.all(
+      nodeStatusClaimResults(claim).map(async ({ section, entry }) => ({
+        verdict: entry[NODE_STATUS_CLAIM_FIELD.VERDICT],
+        currency: await resultCurrency(section, entry, pinChanges),
+      })),
+    );
+    const nodePath = `${ROOT_PREFIX}${nodeId}`;
+    const facts = {
+      requiredArtifactsMissing: claim[NODE_STATUS_CLAIM_FIELD.STATE] === SPEC_TREE_NODE_STATE.DECLARED,
+      results,
+    };
+    const withoutHistory = classifyNodeClaim({ ...facts, recordedPassingAtOrAfterDeclaration: false });
+    if (withoutHistory === SPEC_TREE_NODE_STATE.PASSING) return withoutHistory;
+    const tracked = await readTrackedPaths();
+    const declarationPaths = governingDeclarationPaths(nodePath, specPathOf(nodePath, tracked), tracked);
+    return classifyNodeClaim({
+      ...facts,
+      recordedPassingAtOrAfterDeclaration: await history.recordedPassingAtOrAfterDeclaration(
+        `${nodePath}${PATH_SEPARATOR}${NODE_STATUS_FILENAME}`,
+        declarationPaths,
+      ),
+    });
+  }
+}
+
+/** The tracked spec file of a node: the canonical `{slug}.spec.md` or the prior `{slug}.md`. */
+function specPathOf(nodePath: string, trackedPaths: ReadonlySet<string>): string {
+  const directoryName = nodePath.slice(nodePath.lastIndexOf(PATH_SEPARATOR) + 1);
+  const slug = SLUG_OF_DIRECTORY.exec(directoryName)?.[1] ?? directoryName;
+  const canonical = `${nodePath}${PATH_SEPARATOR}${slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX}`;
+  return trackedPaths.has(canonical)
+    ? canonical
+    : `${nodePath}${PATH_SEPARATOR}${slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`;
 }

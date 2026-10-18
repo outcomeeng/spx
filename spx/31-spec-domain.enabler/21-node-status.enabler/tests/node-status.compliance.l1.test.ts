@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -7,10 +7,15 @@ import {
   createNodeStatusExcludeReader,
   createNodeStatusFile,
   createNodeStatusProvider,
+  NODE_STATUS_CLAIM_FIELD,
+  NODE_STATUS_CLAIM_SECTION,
+  NODE_STATUS_CLAIM_SHAPE,
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_FIELD,
+  NODE_STATUS_FILENAME,
   NODE_STATUS_SCHEMA_VERSION,
   NODE_STATUS_VERIFICATION_MECHANISM,
+  nodeStatusClaimResults,
   readNodeStatus,
   serializeNodeStatus,
   updateNodeStatus,
@@ -26,18 +31,72 @@ import {
   SPEC_TREE_NODE_STATE,
 } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
-import { createClaimedTestStatus, NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
+import { NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import {
-  commitSpecTree,
   createConsultationRecordingResolver,
+  currentMethodologyConfig,
   listNodeStatusFiles,
+  methodologyDeclaringConfig,
   readNodeStatusFileBytes,
   readSpecTreeWorkingChanges,
+  readVersion1NodeStatus,
   trackSpecTree,
   withClassificationTree,
+  withPinnedNodeRepository,
+  withStatusWriterTree,
+  writeProductSpec,
 } from "@testing/harnesses/node-status/node-status";
+
+describe("spx spec status --update claim shape", () => {
+  it("ALWAYS: writes each node's claim in the shape of the methodology version the product declares", async () => {
+    for (const shape of Object.values(NODE_STATUS_CLAIM_SHAPE)) {
+      const version = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.methodologyVersion(shape));
+      await withStatusWriterTree(
+        sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.statusWriterTree()),
+        async ({ env, expectations, resolveOutcome }) => {
+          await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+
+          expect(expectations.length).toBeGreaterThan(0);
+          for (const expectation of expectations) {
+            expect(readNodeStatus(join(env.productDir, dirname(expectation.statusPath)))?.shape, version).toBe(shape);
+          }
+        },
+        methodologyDeclaringConfig(version),
+      );
+    }
+  });
+
+  it("NEVER: a status read path writes a 4.0 claim — reading it, with its pins compared against git, changes no file", async () => {
+    const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
+    await withPinnedNodeRepository(
+      fixture,
+      currentMethodologyConfig(),
+      async (repository) => {
+        await repository.writeClaim(repository.passedTestClaim(0));
+        await repository.editSubject(fixture.editedSubject);
+        const before = await readNodeStatusFileBytes(repository.env.productDir);
+
+        await statusCommand({
+          cwd: repository.env.productDir,
+          gitDependencies: repository.git,
+          onWarning: () => undefined,
+        });
+        await readSpecTree({
+          source: createFilesystemSpecTreeSource({ productDir: repository.env.productDir }),
+          evidence: await createNodeStatusProvider(repository.env.productDir, { gitDependencies: repository.git }),
+        });
+
+        expect(await readNodeStatusFileBytes(repository.env.productDir)).toEqual(before);
+        expect(await readSpecTreeWorkingChanges(repository.env.productDir)).toEqual([
+          `${repository.nodePath}/${NODE_STATUS_FILENAME}`,
+          repository.subjectPaths[fixture.editedSubject],
+        ].filter((path) => path !== undefined && path.startsWith(SPEC_TREE_CONFIG.ROOT_DIRECTORY)));
+      },
+    );
+  });
+});
 
 describe("spx spec status --update write set", () => {
   it("ALWAYS: writes a schema-version-1 spx.status.json into each tracked node directory, recording only that node's linked references", async () => {
@@ -51,7 +110,9 @@ describe("spx spec status --update write set", () => {
         });
 
         for (const expectation of expectations) {
-          const recorded = readNodeStatus(join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, expectation.nodeId));
+          const recorded = readVersion1NodeStatus(
+            join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, expectation.nodeId),
+          );
           expect(recorded?.[NODE_STATUS_FIELD.SCHEMA_VERSION]).toBe(NODE_STATUS_SCHEMA_VERSION);
           expect(
             Object.keys(recorded?.[NODE_STATUS_FIELD.VERIFICATION][NODE_STATUS_VERIFICATION_MECHANISM.TEST] ?? {})
@@ -64,6 +125,31 @@ describe("spx spec status --update write set", () => {
   });
 });
 
+describe("spx spec status --update product exclusion", () => {
+  it("ALWAYS: writes a status file for each tracked output node and none for a .product, under the claim shape of each declared methodology version", async () => {
+    for (const shape of Object.values(NODE_STATUS_CLAIM_SHAPE)) {
+      const version = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.methodologyVersion(shape));
+      await withStatusWriterTree(
+        sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.statusWriterTree()),
+        async ({ env, expectations, resolveOutcome }) => {
+          await writeProductSpec(env, sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.productName()));
+
+          await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+
+          expect(expectations.length, version).toBeGreaterThan(0);
+          expect([...await listNodeStatusFiles(env.productDir)].sort(compareAsciiStrings), version).toEqual(
+            expectations.map((expectation) => expectation.statusPath).sort(compareAsciiStrings),
+          );
+          expect(await listNodeStatusFiles(env.productDir), version).not.toContain(
+            [SPEC_TREE_CONFIG.ROOT_DIRECTORY, NODE_STATUS_FILENAME].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+          );
+        },
+        methodologyDeclaringConfig(version),
+      );
+    }
+  });
+});
+
 describe("status read paths", () => {
   it("NEVER: spx spec status, the evidence provider, the EXCLUDE reader, or the status reader writes spx.status.json — neither creating one where none exists nor changing one --update wrote", async () => {
     await withClassificationTree(
@@ -73,11 +159,11 @@ describe("status read paths", () => {
           await statusCommand({ cwd: env.productDir, onWarning: () => undefined });
           await readSpecTree({
             source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
-            evidence: createNodeStatusProvider(env.productDir),
+            evidence: await createNodeStatusProvider(env.productDir),
           });
           createNodeStatusExcludeReader(env.productDir);
           for (const expectation of expectations) {
-            readNodeStatus(join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, expectation.nodeId));
+            readVersion1NodeStatus(join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, expectation.nodeId));
           }
         };
 
@@ -118,11 +204,11 @@ describe("spx spec status --update outcome source", () => {
 
         const projected = await readSpecTree({
           source: createFilesystemSpecTreeSource({ productDir: env.productDir }),
-          evidence: createNodeStatusProvider(env.productDir),
+          evidence: await createNodeStatusProvider(env.productDir),
         });
         for (const expectation of expectations.filter((candidate) => !candidate.facts.hasVerificationReferences)) {
           expect(
-            readNodeStatus(join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, expectation.nodeId))?.[
+            readVersion1NodeStatus(join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, expectation.nodeId))?.[
               NODE_STATUS_FIELD.VERIFICATION
             ],
           ).toEqual({});
@@ -143,6 +229,45 @@ describe("spx spec status --update outcome source", () => {
     );
   });
 
+  it("ALWAYS: under a 4.0 methodology, derives each audit rule slug and evidence kind outcome only from the result a recorded run produced — an unanswered slug or kind reads not-run with no pin and fabricates no pass", async () => {
+    const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
+      const subject = repository.subjectPaths[0] ?? "";
+      const [answeredSlug = "", ...unansweredSlugs] = repository.auditRuleSlugs;
+      const answeredVerdict = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.recordedVerdict());
+      const attribution = repository.attribution;
+      expect(unansweredSlugs.length).toBeGreaterThan(0);
+
+      await updateNodeStatus({
+        productDir: repository.env.productDir,
+        resolveOutcome: repository.passingOutcomes,
+        resolveReadPaths: () => Promise.resolve([subject]),
+        resolveAttributedResults: repository.attributedResultsFor({ [answeredSlug]: answeredVerdict }, [subject]),
+        gitDependencies: repository.git,
+      });
+
+      const written = readNodeStatus(join(repository.env.productDir, repository.nodePath));
+      expect(written?.shape).toBe(NODE_STATUS_CLAIM_SHAPE.CURRENT);
+      if (written?.shape !== NODE_STATUS_CLAIM_SHAPE.CURRENT) return;
+      const entryOf = (section: string, key: string) =>
+        nodeStatusClaimResults(written.claim).find((result) => result.section === section && result.key === key)
+          ?.entry;
+      const notRun = { [NODE_STATUS_CLAIM_FIELD.VERDICT]: NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN };
+
+      expect(entryOf(NODE_STATUS_CLAIM_SECTION.AUDIT, answeredSlug)).toEqual({
+        [NODE_STATUS_CLAIM_FIELD.VERDICT]: answeredVerdict,
+        [NODE_STATUS_CLAIM_FIELD.COMMIT]: repository.commit,
+        [NODE_STATUS_CLAIM_FIELD.READ]: [repository.specPath, subject].sort(compareAsciiStrings),
+        [NODE_STATUS_CLAIM_FIELD.ACTOR]: attribution.actor,
+        [NODE_STATUS_CLAIM_FIELD.RUN]: attribution.run,
+      });
+      for (const slug of unansweredSlugs) {
+        expect(entryOf(NODE_STATUS_CLAIM_SECTION.AUDIT, slug)).toEqual(notRun);
+      }
+      expect(entryOf(NODE_STATUS_CLAIM_SECTION.EVIDENCE, NODE_STATUS_CLAIM_SECTION.TEST)).toEqual(notRun);
+    });
+  });
+
   it("ALWAYS: executes no verification — a linked reference no recorded run covers reads not-run after --update", async () => {
     await withClassificationTree(
       sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.delegationTree()),
@@ -150,7 +275,9 @@ describe("spx spec status --update outcome source", () => {
         await updateNodeStatus({ productDir: env.productDir, resolveOutcome: recordedOutcomeResolver() });
 
         for (const expectation of expectations.filter((candidate) => candidate.facts.hasVerificationReferences)) {
-          const testRecord = readNodeStatus(join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, expectation.nodeId))
+          const testRecord = readVersion1NodeStatus(
+            join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, expectation.nodeId),
+          )
             ?.[NODE_STATUS_FIELD.VERIFICATION][NODE_STATUS_VERIFICATION_MECHANISM.TEST];
           for (const evidencePath of expectation.evidencePaths) {
             expect(testRecord?.[evidencePath]).toBe(NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN);
@@ -165,36 +292,27 @@ describe("spx spec status --update over a drifted committed projection", () => {
   it("ALWAYS: rewrites the committed spx.status.json to the projection of the recorded evidence, leaving spx/ changed", async () => {
     await withClassificationTree(
       sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.delegationTree()),
-      async ({ env, expectations, recordOutcomeEvidence }) => {
+      async ({ env, expectations, commitProjection, commitContradiction }) => {
         const stageNode = expectations.find((expectation) =>
           expectation.facts.hasVerificationReferences && !expectation.facts.isExcluded
         );
         expect(stageNode).toBeDefined();
         if (stageNode === undefined) return;
 
-        await trackSpecTree(env.productDir);
-        const { resolveOutcome } = await recordOutcomeEvidence();
-        await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
-        await commitSpecTree(env.productDir);
-        await env.writeRaw(
-          stageNode.statusPath,
-          serializeNodeStatus(
-            createClaimedTestStatus(
-              stageNode.evidencePaths,
-              sampleGeneratedValue(
-                NODE_STATUS_TEST_GENERATOR.contradictingEvidenceOutcome(stageNode.facts.expectedEvidenceOutcome),
-              ),
-            ),
+        const resolveOutcome = await commitProjection();
+        await commitContradiction(
+          stageNode,
+          sampleGeneratedValue(
+            NODE_STATUS_TEST_GENERATOR.contradictingEvidenceOutcome(stageNode.facts.expectedEvidenceOutcome),
           ),
         );
-        await commitSpecTree(env.productDir);
         expect(await readSpecTreeWorkingChanges(env.productDir)).toEqual([]);
 
         await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
 
         expect(await readSpecTreeWorkingChanges(env.productDir)).toEqual([stageNode.statusPath]);
         expect(
-          readNodeStatus(join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, stageNode.nodeId))?.[
+          readVersion1NodeStatus(join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, stageNode.nodeId))?.[
             NODE_STATUS_FIELD.VERIFICATION
           ],
         ).toEqual({
@@ -215,11 +333,11 @@ describe("a missing spx.status.json", () => {
     await withClassificationTree(
       sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.classificationTreeWithVerificationReferences()),
       async ({ env, expectations }) => {
-        const provider = createNodeStatusProvider(env.productDir);
+        const provider = await createNodeStatusProvider(env.productDir);
         const live = await readSpecTree({ source: createFilesystemSpecTreeSource({ productDir: env.productDir }) });
 
         for (const expectation of expectations) {
-          expect(readNodeStatus(join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, expectation.nodeId)))
+          expect(readVersion1NodeStatus(join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, expectation.nodeId)))
             .toBeUndefined();
           const sourceEntry = live.entries.find((entry) =>
             entry.type === SPEC_TREE_ENTRY_TYPE.NODE && entry.id === expectation.nodeId
@@ -281,7 +399,7 @@ describe("spx spec status --update tracked-tree boundary", () => {
 
         expect(
           Object.keys(
-            readNodeStatus(join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, trackedNode.nodeId))?.[
+            readVersion1NodeStatus(join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, trackedNode.nodeId))?.[
               NODE_STATUS_FIELD.VERIFICATION
             ][NODE_STATUS_VERIFICATION_MECHANISM.TEST] ?? {},
           ),

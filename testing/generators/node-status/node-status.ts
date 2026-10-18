@@ -3,7 +3,11 @@ import * as fc from "fast-check";
 import { SUCCESS_EXIT_CODE } from "@/domains/test";
 import { GIT_SUCCESS_EXIT_CODE, TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
 import type {
+  NodeClaimClassificationFacts,
   NodeClassificationFacts,
+  NodeStatusClaim,
+  NodeStatusClaimShape,
+  NodeStatusCurrency,
   NodeStatusEvidenceOutcome,
   NodeStatusFile,
   NodeStatusMechanismOverall,
@@ -11,14 +15,26 @@ import type {
   NodeStatusVerification,
 } from "@/lib/node-status";
 import {
+  NODE_STATUS_CLAIM_FIELD,
+  NODE_STATUS_CLAIM_SECTION,
+  NODE_STATUS_CLAIM_SHAPE,
+  NODE_STATUS_CURRENCY,
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_FIELD,
   NODE_STATUS_FILENAME,
+  NODE_STATUS_MALLEABILITY,
   NODE_STATUS_MECHANISM_OVERALL,
   NODE_STATUS_SCHEMA_VERSION,
   NODE_STATUS_VERIFICATION_MECHANISM,
 } from "@/lib/node-status";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
+import { VARIANT_DIRECTORY_SUFFIX } from "@/lib/node-status/provider";
+import {
+  KIND_REGISTRY,
+  SPEC_TREE_CONFIG,
+  SPEC_TREE_EVIDENCE_FILE,
+  SPEC_TREE_GRAMMAR,
+  SPEC_TREE_NODE_STATE,
+} from "@/lib/spec-tree";
 import { evidenceFileNameFor } from "@testing/generators/spec-tree/evidence-file-name";
 
 const NODE_STATUS_GENERATOR_OPTIONS = {
@@ -161,8 +177,353 @@ export const NODE_STATUS_TEST_GENERATOR = {
   gitRunnerFailure: arbitraryGitRunnerFailure,
   trackedFile: arbitraryTrackedFile,
   trackedFileSet: arbitraryTrackedFileSet,
+  trackedPathProbe: arbitraryTrackedPathProbe,
   untrackedNodeStatusPath: arbitraryUntrackedNodeStatusPath,
+  pinnedNode: arbitraryPinnedNode,
+  nestedPinnedNode: arbitraryNestedPinnedNode,
+  variantParent: arbitraryVariantParent,
+  methodologyVersion: arbitraryMethodologyVersion,
+  methodologyVersionWithShape: arbitraryMethodologyVersionWithShape,
+  statusWriterTreeUnderMethodology: arbitraryStatusWriterTreeUnderMethodology,
+  recordedRunSets: arbitraryRecordedRunSets,
+  trackedPathInclusionCase: arbitraryTrackedPathInclusionCase,
+  commitId: arbitraryCommitId,
+  productName: arbitraryNodeSlug,
+  recordedVerdict: arbitraryRecordedVerdict,
 } as const;
+
+/** What a recorded run reported for one result: its verdict and the subject paths it read. */
+export type RecordedRun = {
+  readonly verdict: NodeStatusEvidenceOutcome;
+  readonly read: readonly string[];
+};
+
+function arbitraryRecordedVerdict(): fc.Arbitrary<NodeStatusEvidenceOutcome> {
+  return fc.constantFrom(NODE_STATUS_EVIDENCE_OUTCOME.PASSED, NODE_STATUS_EVIDENCE_OUTCOME.FAILED);
+}
+
+/**
+ * For each of `keys`, the run a recorded verification surface reported: any verdict, and the subject paths
+ * it read as any subset of `subjectPaths`, so a run covers no subject, some, or all of them. With `optional`,
+ * a key may also have no recorded run at all.
+ */
+function arbitraryRecordedRuns(
+  subjectPaths: readonly string[],
+  keys: readonly string[],
+  optional = false,
+): fc.Arbitrary<Readonly<Record<string, RecordedRun | undefined>>> {
+  const run: fc.Arbitrary<RecordedRun> = fc.record({
+    verdict: arbitraryEvidenceOutcome(),
+    read: fc.subarray([...subjectPaths]),
+  });
+  return fc
+    .tuple(...keys.map(() => (optional ? fc.option(run, { nil: undefined }) : run)))
+    .map((runs) => Object.fromEntries(keys.map((key, index) => [key, runs[index]])));
+}
+
+/** The recorded runs of a pinned node: a run for each linked test, and for audit slugs and evidence kinds optionally. */
+export type RecordedRunSets = {
+  readonly tests: Readonly<Record<string, RecordedRun | undefined>>;
+  readonly audit: Readonly<Record<string, RecordedRun | undefined>>;
+  readonly evidence: Readonly<Record<string, RecordedRun | undefined>>;
+};
+
+/**
+ * The recorded runs a verification surface may report for a pinned node: every linked test carries a run, while
+ * each audit rule slug and each evidence kind may have no recorded run at all.
+ */
+function arbitraryRecordedRunSets(
+  subjectPaths: readonly string[],
+  testPaths: readonly string[],
+  auditRuleSlugs: readonly string[],
+  evidenceKinds: readonly string[],
+): fc.Arbitrary<RecordedRunSets> {
+  return fc.record({
+    tests: arbitraryRecordedRuns(subjectPaths, testPaths),
+    audit: arbitraryRecordedRuns(subjectPaths, auditRuleSlugs, true),
+    evidence: arbitraryRecordedRuns(subjectPaths, evidenceKinds, true),
+  });
+}
+
+/** A status-writer tree with an exact methodology version of the claim shape given. */
+export type StatusWriterTreeUnderMethodology = {
+  readonly tree: StatusWriterTreeFixture;
+  readonly version: string;
+};
+
+function arbitraryStatusWriterTreeUnderMethodology(
+  shape: NodeStatusClaimShape,
+): fc.Arbitrary<StatusWriterTreeUnderMethodology> {
+  return fc
+    .tuple(arbitraryStatusWriterTree(), arbitraryMethodologyVersion(shape))
+    .map(([tree, version]) => ({ tree, version }));
+}
+
+/** An exact methodology version together with the claim shape it belongs to, over every claim shape. */
+export type MethodologyVersionWithShape = {
+  readonly shape: NodeStatusClaimShape;
+  readonly version: string;
+};
+
+function arbitraryMethodologyVersionWithShape(): fc.Arbitrary<MethodologyVersionWithShape> {
+  return fc
+    .constantFrom(...Object.values(NODE_STATUS_CLAIM_SHAPE))
+    .chain((shape) => arbitraryMethodologyVersion(shape).map((version) => ({ shape, version })));
+}
+
+/** A tracked-file set with a probe path against it. */
+export type TrackedPathInclusionCase = {
+  readonly trackedFiles: ReadonlySet<string>;
+  readonly probe: string;
+};
+
+function arbitraryTrackedPathInclusionCase(): fc.Arbitrary<TrackedPathInclusionCase> {
+  return arbitraryTrackedFileSet().chain((trackedFiles) =>
+    arbitraryTrackedPathProbe(trackedFiles).map((probe) => ({ trackedFiles, probe }))
+  );
+}
+
+const COMMIT_ID_PATTERN = /^[0-9a-f]{40}$/;
+
+function arbitraryCommitId(): fc.Arbitrary<string> {
+  return fc.stringMatching(COMMIT_ID_PATTERN);
+}
+
+/**
+ * A 4.0 claim whose test section holds one entry per given reference carrying the given verdict: a passed or
+ * failed entry pinned to `commit` over `read`, a not-run entry unpinned.
+ */
+export function createClaimWithVerdicts(
+  verdicts: Readonly<Record<string, NodeStatusEvidenceOutcome>>,
+  commit: string,
+  read: readonly string[],
+): NodeStatusClaim {
+  return {
+    [NODE_STATUS_CLAIM_FIELD.STATE]: SPEC_TREE_NODE_STATE.SPECIFIED,
+    [NODE_STATUS_CLAIM_FIELD.MALLEABILITY]: NODE_STATUS_MALLEABILITY.IMPLEMENTATION,
+    [NODE_STATUS_CLAIM_FIELD.VERIFICATION]: {
+      [NODE_STATUS_CLAIM_SECTION.TEST]: Object.fromEntries(
+        Object.entries(verdicts).map(([reference, verdict]) => [
+          reference,
+          verdict === NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN
+            ? { [NODE_STATUS_CLAIM_FIELD.VERDICT]: verdict }
+            : {
+              [NODE_STATUS_CLAIM_FIELD.VERDICT]: verdict,
+              [NODE_STATUS_CLAIM_FIELD.COMMIT]: commit,
+              [NODE_STATUS_CLAIM_FIELD.READ]: read,
+            },
+        ]),
+      ),
+    },
+  };
+}
+
+const GENERATED_SUBJECT_DIRECTORY = "src";
+const GENERATED_SUBJECT_EXTENSION = ".ts";
+
+/**
+ * A node whose results are pinned to a committed read set: the tests it links, the source
+ * subjects those tests exercise, and the index of the one subject an edit changes.
+ */
+export type PinnedNodeFixture = {
+  readonly dirName: string;
+  readonly slug: string;
+  /** Product-relative paths of the source subjects, at least two and distinct. */
+  readonly subjectPaths: readonly string[];
+  readonly editedSubject: number;
+  /** The directory the node nests in, when it is not a top-level node. */
+  readonly ancestor?: { readonly dirName: string; readonly slug: string };
+};
+
+/**
+ * Where a decision record sits relative to a pinned node: inside the node's own directory, beside the node at the
+ * product root with a lower, equal, or higher index, or inside an unrelated sibling node's directory.
+ */
+export const DECISION_PLACEMENT = {
+  OWN_DIRECTORY: "own-directory",
+  ROOT_LOWER_INDEX: "root-lower-index",
+  ROOT_SAME_INDEX: "root-same-index",
+  ROOT_HIGHER_INDEX: "root-higher-index",
+  UNRELATED_NODE: "unrelated-node",
+} as const;
+
+/**
+ * Where a decision record sits relative to a node nested in an ancestor, beside the placements of
+ * `DECISION_PLACEMENT` (whose product-root indices then compare with the ancestor's index): inside the ancestor's
+ * directory with an index lower than, equal to, or higher than the node's.
+ */
+export const ANCESTOR_DECISION_PLACEMENT = {
+  ANCESTOR_LOWER_INDEX: "ancestor-lower-index",
+  ANCESTOR_SAME_INDEX: "ancestor-same-index",
+  ANCESTOR_HIGHER_INDEX: "ancestor-higher-index",
+} as const;
+
+export type DecisionPlacement =
+  | (typeof DECISION_PLACEMENT)[keyof typeof DECISION_PLACEMENT]
+  | (typeof ANCESTOR_DECISION_PLACEMENT)[keyof typeof ANCESTOR_DECISION_PLACEMENT];
+
+/** Every placement around a top-level node, each exactly once. */
+export function enumerateDecisionPlacements(): readonly DecisionPlacement[] {
+  return Object.values(DECISION_PLACEMENT);
+}
+
+/** Every placement around a node nested in an ancestor, each exactly once. */
+export function enumerateNestedDecisionPlacements(): readonly DecisionPlacement[] {
+  return [...Object.values(DECISION_PLACEMENT), ...Object.values(ANCESTOR_DECISION_PLACEMENT)];
+}
+
+/** A parent node with variants, each variant either passing or carrying a failed result. */
+export type VariantParentFixture = {
+  readonly parentDirName: string;
+  readonly parentSlug: string;
+  readonly variants: readonly {
+    readonly dirName: string;
+    readonly slug: string;
+    readonly passes: boolean;
+  }[];
+};
+
+function arbitraryPinnedNode(): fc.Arbitrary<PinnedNodeFixture> {
+  return fc
+    .record({
+      order: fc.integer({ min: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MIN, max: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MAX }),
+      slug: arbitraryNodeSlug(),
+      subjects: fc.uniqueArray(arbitraryNodeSlug(), { minLength: 2, maxLength: NODE_STATUS_READABLE_SLUGS.length }),
+    })
+    .chain(({ order, slug, subjects }) =>
+      fc.integer({ min: 0, max: subjects.length - 1 }).map((editedSubject): PinnedNodeFixture => ({
+        dirName: nodeDirectoryName(order, slug),
+        slug,
+        subjectPaths: subjects.map((subject) =>
+          `${GENERATED_SUBJECT_DIRECTORY}${SPEC_TREE_PATH_SEPARATOR}${subject}${GENERATED_SUBJECT_EXTENSION}`
+        ),
+        editedSubject,
+      }))
+    );
+}
+
+function arbitraryNestedPinnedNode(): fc.Arbitrary<PinnedNodeFixture> {
+  return fc
+    .tuple(
+      arbitraryPinnedNode(),
+      fc.record({
+        order: fc.integer({
+          min: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MIN,
+          max: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MAX,
+        }),
+        slug: arbitraryNodeSlug(),
+      }),
+    )
+    .map(([node, ancestor]): PinnedNodeFixture => ({
+      ...node,
+      ancestor: { dirName: nodeDirectoryName(ancestor.order, ancestor.slug), slug: ancestor.slug },
+    }));
+}
+
+/**
+ * How the variants of a parent divide between passing and failing: every variant passes, some pass while others
+ * fail, or every variant fails. The mixed partition is the one that separates "every variant passes" from "some
+ * variant passes".
+ */
+export const VARIANT_PARTITION = {
+  ALL_PASS: "all-pass",
+  SOME_FAIL: "some-fail",
+  ALL_FAIL: "all-fail",
+} as const;
+
+export type VariantPartition = (typeof VARIANT_PARTITION)[keyof typeof VARIANT_PARTITION];
+
+/**
+ * A parent with at least two variants whose passing and failing variants divide as `partition` states, with the
+ * passing variants at any positions among them; the mixed partition always holds at least one passing and at
+ * least one failing variant.
+ */
+function arbitraryVariantParent(partition: VariantPartition): fc.Arbitrary<VariantParentFixture> {
+  return fc
+    .record({
+      order: fc.integer({ min: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MIN, max: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MAX }),
+      slug: arbitraryNodeSlug(),
+      variants: fc.uniqueArray(
+        fc.record({
+          order: fc.integer({
+            min: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MIN,
+            max: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MAX,
+          }),
+          slug: arbitraryNodeSlug(),
+        }),
+        {
+          minLength: 2,
+          maxLength: NODE_STATUS_GENERATOR_OPTIONS.MAX_NODES,
+          selector: (variant) => `${variant.order}${variant.slug}`,
+        },
+      ),
+    })
+    .chain(({ order, slug, variants }) =>
+      arbitraryPassingIndices(variants.length, partition).map((passing): VariantParentFixture => ({
+        parentDirName: nodeDirectoryName(order, slug),
+        parentSlug: slug,
+        variants: variants.map((variant, index) => ({
+          dirName: `${variant.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${variant.slug}${VARIANT_DIRECTORY_SUFFIX}`,
+          slug: variant.slug,
+          passes: passing.includes(index),
+        })),
+      }))
+    );
+}
+
+function arbitraryPassingIndices(variantCount: number, partition: VariantPartition): fc.Arbitrary<readonly number[]> {
+  const indices = Array.from({ length: variantCount }, (_, index) => index);
+  switch (partition) {
+    case VARIANT_PARTITION.ALL_PASS:
+      return fc.constant(indices);
+    case VARIANT_PARTITION.ALL_FAIL:
+      return fc.constant([]);
+    case VARIANT_PARTITION.SOME_FAIL:
+      return fc.shuffledSubarray(indices, { minLength: 1, maxLength: variantCount - 1 });
+  }
+}
+
+const METHODOLOGY_CURRENT_MAJOR_MIN = 4;
+const METHODOLOGY_CURRENT_MAJOR_MAX = 9;
+const METHODOLOGY_PRIOR_MAJOR_MAX = 3;
+const METHODOLOGY_VERSION_COMPONENT_MAX = 9;
+
+/** An exact methodology version of the claim shape given, in the `MAJOR.MINOR` or `MAJOR.MINOR.PATCH` form. */
+function arbitraryMethodologyVersion(shape: NodeStatusClaimShape): fc.Arbitrary<string> {
+  const major = shape === NODE_STATUS_CLAIM_SHAPE.CURRENT
+    ? fc.integer({ min: METHODOLOGY_CURRENT_MAJOR_MIN, max: METHODOLOGY_CURRENT_MAJOR_MAX })
+    : fc.integer({ min: 0, max: METHODOLOGY_PRIOR_MAJOR_MAX });
+  const component = fc.integer({ min: 0, max: METHODOLOGY_VERSION_COMPONENT_MAX });
+  return fc
+    .record({ major, minor: component, patch: fc.option(component, { nil: undefined }) })
+    .map(({ major, minor, patch }) => [major, minor, ...(patch === undefined ? [] : [patch])].join("."));
+}
+
+/**
+ * Every combination of the 4.0 classification facts over their finite domains: required artifacts present
+ * or missing, the declaration changed after a recorded `passing` or not, and result sets of zero, one, or
+ * two results, each result any verdict at any currency.
+ */
+export function enumerateClaimClassificationFacts(): readonly NodeClaimClassificationFacts[] {
+  const currencies: readonly NodeStatusCurrency[] = Object.values(NODE_STATUS_CURRENCY);
+  const singleResults = STATUS_EVIDENCE_OUTCOMES.flatMap((verdict) =>
+    currencies.map((currency) => ({ verdict, currency }))
+  );
+  const resultSets = [
+    [],
+    ...singleResults.map((result) => [result]),
+    ...singleResults.flatMap((first) => singleResults.map((second) => [first, second])),
+  ];
+  return [false, true].flatMap((requiredArtifactsMissing) =>
+    [false, true].flatMap((recordedPassingAtOrAfterDeclaration) =>
+      resultSets.map((results): NodeClaimClassificationFacts => ({
+        requiredArtifactsMissing,
+        recordedPassingAtOrAfterDeclaration,
+        results,
+      }))
+    )
+  );
+}
 
 /**
  * Every combination of the classification facts over their finite source-owned
@@ -312,6 +673,26 @@ function arbitraryTrackedFileSet(): fc.Arbitrary<ReadonlySet<string>> {
   return fc
     .array(arbitraryTrackedFile(), { minLength: 0, maxLength: 6 })
     .map((files) => new Set(files));
+}
+
+/**
+ * A probe path for the tracked-path predicate against `trackedFiles`: an arbitrary tracked-shaped path, or a
+ * path cut inside a segment of one tracked file, so its last segment is a proper string prefix of a tracked
+ * segment at the same depth and only the directory-separator boundary separates it from an ancestor directory.
+ */
+function arbitraryTrackedPathProbe(trackedFiles: ReadonlySet<string>): fc.Arbitrary<string> {
+  const segmentPrefixProbes = [...trackedFiles].flatMap((file) => {
+    const segments = file.split(TRACKED_PATH_DIRECTORY_SEPARATOR);
+    return segments.flatMap((segment, depth) =>
+      Array.from(
+        { length: segment.length - 1 },
+        (_, index) => [...segments.slice(0, depth), segment.slice(0, index + 1)].join(TRACKED_PATH_DIRECTORY_SEPARATOR),
+      )
+    );
+  });
+  return segmentPrefixProbes.length === 0
+    ? arbitraryTrackedFile()
+    : fc.oneof(arbitraryTrackedFile(), fc.constantFrom(...segmentPrefixProbes));
 }
 
 function arbitraryUntrackedNodeStatusPath(takenNodeIds: readonly string[] = []): fc.Arbitrary<string> {

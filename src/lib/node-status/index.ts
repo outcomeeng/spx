@@ -1,4 +1,31 @@
 export {
+  NODE_STATUS_ACTOR_KIND,
+  NODE_STATUS_ATTRIBUTED_SECTIONS,
+  NODE_STATUS_CLAIM_FIELD,
+  NODE_STATUS_CLAIM_SECTION,
+  NODE_STATUS_CLAIM_SHAPE,
+  NODE_STATUS_DEFAULT_MALLEABILITY,
+  NODE_STATUS_MALLEABILITY,
+  type NodeStatusActor,
+  type NodeStatusClaim,
+  type NodeStatusClaimEntry,
+  type NodeStatusClaimResult,
+  nodeStatusClaimResults,
+  type NodeStatusClaimSection,
+  type NodeStatusClaimShape,
+  nodeStatusClaimVerdicts,
+  type NodeStatusClaimVerification,
+  type NodeStatusMalleability,
+  serializeNodeStatusClaim,
+} from "./claim";
+export { claimShapeOfMethodologyVersion, declaredNodeStatusClaimShape } from "./claim-shape";
+export {
+  classifyNodeClaim,
+  classifyParentOfVariants,
+  type NodeClaimClassificationFacts,
+  type NodeStatusResultFact,
+} from "./claim-state";
+export {
   classifyNodeStatus,
   createNodeStatusFile,
   createNodeStatusMechanismRecord,
@@ -19,6 +46,13 @@ export {
   serializeNodeStatus,
 } from "./classify";
 export {
+  createPinChangeReader,
+  NODE_STATUS_CURRENCY,
+  type NodeStatusCurrency,
+  type PinChangeReader,
+  resultCurrency,
+} from "./currency";
+export {
   createNodeStatusExcludeReader,
   NODE_STATUS_EXCLUDE_FILENAME,
   NODE_STATUS_EXCLUDE_LINE_GRAMMAR,
@@ -26,6 +60,20 @@ export {
   type NodeStatusExcludeReader,
   nodeStatusInvalidExcludeEntryMessage,
 } from "./exclude";
+export {
+  type NodeAttributedRequest,
+  type NodeAttributedResult,
+  type NodeAttributedResultResolver,
+  type NodeAttributedResults,
+  type NodeReadPathResolver,
+} from "./fold";
 export { createNodeStatusProvider } from "./provider";
-export { NODE_STATUS_FILENAME, parseNodeStatusFile, readNodeStatus } from "./read";
+export { NODE_STATUS_FILENAME, type NodeStatusRead, parseNodeStatusFile, readNodeStatus } from "./read";
+export {
+  type NodeStatusClaimReport,
+  type NodeStatusResultReport,
+  readNodeStatusReports,
+  type ReadNodeStatusReportsOptions,
+} from "./report";
+export { type NodeSpecDeclaration, readNodeSpecDeclaration } from "./spec-declaration";
 export { type NodeOutcomeResolver, updateNodeStatus, type UpdateNodeStatusOptions } from "./update";
