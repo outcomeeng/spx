@@ -425,10 +425,15 @@ function firstNamingSchemaVersion(): NamingSchemaVersion {
   return [...SPEC_TREE_NAMING_SCHEMA_VERSIONS].sort((left, right) => semverOrderOracle(left.version, right.version))[0];
 }
 
-/** One node directory per node suffix of the first naming-schema version, recognized with that version alone selected. */
+/** The node-directory suffixes the filename-grammar spec states the first naming-schema version before the live registry accepts. */
+export const FIRST_VERSION_PRIOR_SUFFIX_STATEMENT = [".feature", ".story"] as const;
+
+const FIRST_VERSION_NODE_SUFFIX_STATEMENT = [".capability", ...FIRST_VERSION_PRIOR_SUFFIX_STATEMENT] as const;
+
+/** One node directory per node suffix the spec states for the first naming-schema version, recognized with that version alone selected. */
 export function firstVersionNodeDirectoryCases(): readonly FirstVersionNodeDirectoryCase[] {
   const first = firstNamingSchemaVersion();
-  return first.nodeSuffixes.map((suffix, drawIndex) => ({
+  return FIRST_VERSION_NODE_SUFFIX_STATEMENT.map((suffix, drawIndex) => ({
     title: `the first naming-schema version accepts the ${suffix} directory`,
     options: { schemaVersions: [first], selectedVersions: [first] },
     record: orderedDirectoryRecord(
