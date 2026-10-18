@@ -1,8 +1,8 @@
 # Filename Grammar
 
-PROVIDES the single-sourced, versioned Spec-Tree filename grammar — the complete token vocabulary declared once and resolved through the spec-tree config descriptor, the dedicated naming-schema version, and the ordered naming-schema versions from which a methodology declaration selects its valid versions
+PROVIDES the single-sourced, versioned Spec-Tree filename grammar — the complete token vocabulary declared once in the grammar registry, the spec-tree config descriptor that carries no kind field, the dedicated naming-schema version, and the ordered naming-schema versions from which a methodology declaration selects its valid versions
 SO THAT entry recognition, source adapters, config resolution, and the spec-domain grammar-emit surface
-CAN resolve and validate the configured vocabulary, and classify and render filenames against one authoritative grammar, without re-declaring tokens or knowing prior naming-schema versions themselves
+CAN classify and render filenames against one authoritative grammar, without re-declaring tokens, configuring a kind vocabulary, or knowing prior naming-schema versions themselves
 
 ## Assertions
 
