@@ -1,33 +1,26 @@
 import { describe, expect, it } from "vitest";
 
-import * as fc from "fast-check";
-
-import {
-  compareSpecTreeOrder,
-  KIND_REGISTRY,
-  projectSpecTree,
-  readSpecTree,
-  SPEC_TREE_ENTRY_TYPE,
-  SPEC_TREE_PROJECTION,
-  type SpecTreeSourceEntry,
-} from "@/lib/spec-tree";
+import { KIND_REGISTRY, projectSpecTree, readSpecTree, SPEC_TREE_PROJECTION } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
-  buildRepresentativeFixture,
-  createSource,
-  sampleNodeKind,
-  sampleSpecTreeTestValue,
-  SPEC_TREE_TEST_GENERATOR,
-} from "@testing/generators/spec-tree/spec-tree";
+  arbitraryUnregisteredProjectionKey,
+  projectionKeyViolations,
+} from "@testing/generators/spec-tree/projection-contract";
+import { buildRepresentativeFixture, createSource } from "@testing/generators/spec-tree/spec-tree";
+import { SPEC_TREE_PROJECTION_CONTRACT } from "@testing/harnesses/spec-tree/projection-contract";
+
+async function projectRepresentativeTree() {
+  const fixture = buildRepresentativeFixture(KIND_REGISTRY);
+  const snapshot = await readSpecTree({
+    source: createSource(fixture.entries),
+  });
+  return { fixture, projection: projectSpecTree(snapshot) };
+}
 
 describe("spec-tree projection contract", () => {
   it("conforms to the stable projection shape consumed by commands and automation", async () => {
-    const fixture = buildRepresentativeFixture(KIND_REGISTRY);
-    const snapshot = await readSpecTree({
-      source: createSource(fixture.entries),
-    });
-
-    const projection = projectSpecTree(snapshot);
+    const { fixture, projection } = await projectRepresentativeTree();
     const root = projection.nodes.find((node) => node.id === fixture.root.id);
     const decision = projection.decisions.find((entry) => entry.id === fixture.decision.id);
     const product = projection.product;
@@ -36,6 +29,10 @@ describe("spec-tree projection contract", () => {
     expect(decision).toBeDefined();
     expect(product).not.toBeNull();
     if (root === undefined || decision === undefined || product === null) return;
+
+    const contract = SPEC_TREE_PROJECTION_CONTRACT.safeParse(projection);
+    expect(contract.error?.issues ?? []).toEqual([]);
+    expect(contract.success).toBe(true);
 
     expect(Object.keys(projection).sort(compareAsciiStrings)).toEqual(
       Object.values(SPEC_TREE_PROJECTION.KEYS).sort(compareAsciiStrings),
@@ -52,43 +49,14 @@ describe("spec-tree projection contract", () => {
     expect(decision.id).toBe(fixture.decision.id);
   });
 
-  it("projects multi-segment indices in the order compareSpecTreeOrder places them, with no two indices sharing an order", async () => {
-    // Segments of differing digit counts and equal-valued fractions: a decimal collapse reverses
-    // [20,2] against [20,10] and collides [20,5] with [20,50].
-    const orders: readonly (readonly number[])[] = [[20, 10], [20, 2], [20, 50], [20, 5], [20, 9], [3], [100]];
-    const nodeKind = sampleNodeKind(KIND_REGISTRY);
-    const ids = sampleSpecTreeTestValue(
-      fc.uniqueArray(SPEC_TREE_TEST_GENERATOR.sourceId(), {
-        minLength: orders.length + 1,
-        maxLength: orders.length + 1,
-      }),
-    );
-    const slugs = sampleSpecTreeTestValue(
-      fc.uniqueArray(SPEC_TREE_TEST_GENERATOR.sourceSlug(), {
-        minLength: orders.length,
-        maxLength: orders.length,
-      }),
-    );
-    const [productId, ...nodeIds] = ids;
-    const entries: readonly SpecTreeSourceEntry[] = [
-      { type: SPEC_TREE_ENTRY_TYPE.PRODUCT, id: productId, title: productId },
-      ...orders.map((orderSegments, index): SpecTreeSourceEntry => ({
-        type: SPEC_TREE_ENTRY_TYPE.NODE,
-        kind: nodeKind,
-        id: nodeIds[index],
-        orderSegments,
-        slug: slugs[index],
-      })),
-    ];
+  it("rejects a projection carrying a key the registry does not name or lacking one it does", async () => {
+    const { projection } = await projectRepresentativeTree();
+    const violations = projectionKeyViolations(projection, sampleGeneratedValue(arbitraryUnregisteredProjectionKey()));
 
-    const projection = projectSpecTree(await readSpecTree({ source: createSource(entries) }));
-
-    const bySegments = (left: readonly number[], right: readonly number[]) => compareSpecTreeOrder(left, right);
-    const projected = [...projection.nodes].sort((left, right) => bySegments(left.order, right.order));
-    expect(projected.map((node) => node.order)).toEqual([...orders].sort(bySegments));
-    expect(new Set(projection.nodes.map((node) => node.order.join("."))).size).toBe(orders.length);
-    expect(projection.nodes.map((node) => node.order)).toEqual(
-      projection.nodes.map((node) => orders[nodeIds.indexOf(node.id)]),
-    );
+    expect(SPEC_TREE_PROJECTION_CONTRACT.safeParse(violations.extraDocumentKey).success).toBe(false);
+    expect(SPEC_TREE_PROJECTION_CONTRACT.safeParse(violations.missingDocumentKey).success).toBe(false);
+    expect(SPEC_TREE_PROJECTION_CONTRACT.safeParse(violations.extraNodeKey).success).toBe(false);
+    expect(SPEC_TREE_PROJECTION_CONTRACT.safeParse(violations.extraDecisionKey).success).toBe(false);
+    expect(SPEC_TREE_PROJECTION_CONTRACT.safeParse(violations.extraProductKey).success).toBe(false);
   });
 });
