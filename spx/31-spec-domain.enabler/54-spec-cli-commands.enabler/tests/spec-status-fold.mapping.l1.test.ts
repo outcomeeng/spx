@@ -16,6 +16,7 @@ import {
   readRecordedStatusState,
   recordedEvidenceResolverFor,
   recordTestingRun,
+  recordTestingRunReporting,
   uniformOutcomeResolverFor,
 } from "@testing/harnesses/spec-tree/spec-cli-commands";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -80,31 +81,29 @@ describe("spx spec status --update recorded-evidence mapping", () => {
     });
   });
 
-  it("keeps the committed outcome of a covered reference whose recorded evidence is stale, though the stale run reported another", async () => {
-    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
-      await env.materialize();
-      const rootPath = fixtureNodePath(env.fixture.root);
-      const rootTestFile = await addNodeTestFile(env, rootPath);
+  for (const committed of Object.values(NODE_STATUS_EVIDENCE_OUTCOME)) {
+    for (const staleVerdict of Object.values(TEST_PATH_VERDICT)) {
+      it(`keeps a committed ${committed} outcome of a covered reference whose stale recorded run reported ${staleVerdict}`, async () => {
+        await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+          await env.materialize();
+          const rootPath = fixtureNodePath(env.fixture.root);
+          const rootTestFile = await addNodeTestFile(env, rootPath);
 
-      // The committed claim records a failure ...
-      await statusCommand({
-        cwd: env.productDir,
-        update: true,
-        resolveOutcomeFor: uniformOutcomeResolverFor(NODE_STATUS_EVIDENCE_OUTCOME.FAILED),
+          await statusCommand({
+            cwd: env.productDir,
+            update: true,
+            resolveOutcomeFor: uniformOutcomeResolverFor(committed),
+          });
+          await recordTestingRunReporting(env.productDir, rootTestFile, staleVerdict);
+          await changeNodeEvidenceContent(env, rootTestFile);
+
+          await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordedEvidenceResolverFor });
+
+          expect((await readRecordedStatusFile(env, rootPath))?.verification.test?.[rootTestFile]).toBe(committed);
+        });
       });
-      // ... while the recorded run that covers the reference passed, and the
-      // test file then changes, so that run's evidence is stale.
-      const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-      await recordTestingRun(env.productDir, runner);
-      await changeNodeEvidenceContent(env, rootTestFile);
-
-      await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordedEvidenceResolverFor });
-
-      expect((await readRecordedStatusFile(env, rootPath))?.verification.test?.[rootTestFile]).toBe(
-        NODE_STATUS_EVIDENCE_OUTCOME.FAILED,
-      );
-    });
-  });
+    }
+  }
 
   it("folds covered references and maps only uncovered references to not-run", async () => {
     await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {

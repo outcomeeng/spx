@@ -19,7 +19,12 @@ import {
 } from "@/lib/node-status";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { testingRegistry } from "@/test/registry";
-import { defaultTestRunStateFileSystem, type TestRunStateFileSystem } from "@/test/run-state";
+import {
+  defaultTestRunStateFileSystem,
+  TEST_PATH_VERDICT,
+  type TestPathVerdictValue,
+  type TestRunStateFileSystem,
+} from "@/test/run-state";
 import { evidenceFileNameFor, evidenceSubject } from "@testing/generators/spec-tree/evidence-file-name";
 import {
   type RepresentativeSpecTreeFixture,
@@ -30,7 +35,13 @@ import {
 import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import type { CurrentSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { writeTestFileFixture } from "@testing/harnesses/testing/harness";
-import { VITEST_FIXTURE, type VitestFixture, writeVitestFixture } from "@testing/harnesses/testing/typescript-runner";
+import { SIMULATED_EXIT_CODE, SIMULATED_REPORT } from "@testing/harnesses/testing/simulated-report";
+import {
+  createRecordingCommandRunner,
+  VITEST_FIXTURE,
+  type VitestFixture,
+  writeVitestFixture,
+} from "@testing/harnesses/testing/typescript-runner";
 
 /** The tree-relative directory of a fixture node at the top of the tree, in the grammar the source owns. */
 export function fixtureNodePath(node: RepresentativeSpecTreeFixture["root"]): string {
@@ -213,4 +224,26 @@ type RecordingRunnerDeps = ReturnType<NonNullable<Parameters<typeof runTestsComm
 /** Records one full testing run of `productDir` through the injected `runner`, as the `--update` path reads it back. */
 export async function recordTestingRun(productDir: string, runner: RecordingRunnerDeps): Promise<void> {
   await runTestsCommand({ productDir, passing: false }, { registry: testingRegistry, runnerDepsFor: () => runner });
+}
+
+/**
+ * Records one testing run whose report gives `testFile` the `verdict`, as the
+ * `--update` path reads it back; a `not-run` verdict leaves the file out of the
+ * report, so the run covers it without an outcome.
+ */
+export async function recordTestingRunReporting(
+  productDir: string,
+  testFile: string,
+  verdict: TestPathVerdictValue,
+): Promise<void> {
+  const reported = verdict === TEST_PATH_VERDICT.NOT_RUN ? [] : [[testFile, verdict] as const];
+  await recordTestingRun(
+    productDir,
+    createRecordingCommandRunner({
+      present: true,
+      exitCode: SIMULATED_EXIT_CODE.SUCCESS,
+      report: SIMULATED_REPORT.LISTED_FILES,
+      reportedStatuses: new Map(reported),
+    }),
+  );
 }
