@@ -14,8 +14,6 @@ Verification runs share one CLI vocabulary even when their judgment and driver d
 
 ## Verification
 
-- ALWAYS: `start` accepts `--expectations <expectations-source>`, no existing-run command path accepts it, and `reconcile` exits zero exactly when the run reconciles
-
 ### Testing
 
 - ALWAYS: `paths` requires `--verification-type <type>`, `--scope-type <scope-type>`, and `--scope <scope>`, and rejects a `--run <run-token>` or `--input <input-source>` value ([compliance])
@@ -32,6 +30,7 @@ Verification runs share one CLI vocabulary even when their judgment and driver d
 - ALWAYS: `finish` requires `--terminal-status <status>` and accepts optional `--terminal-metadata <payload-source>` ([compliance])
 - ALWAYS: a run-lookup failure on an existing-run command path — `input`, `scope add`, `finding add`, `reconcile`, `finish`, `status`, `render`, or `compare` — names the requested run selectors and searched target ([conformance])
 - NEVER: expose public verification-run command paths named `append-scope` or `append-finding` ([compliance])
+- ALWAYS: `start` accepts `--expectations <expectations-source>`, no existing-run command path accepts it, and `reconcile` exits zero exactly when the run reconciles ([compliance])
 
 ### Audit
 
