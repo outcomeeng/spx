@@ -227,6 +227,46 @@ export interface VerifyLinkedWorktree {
 }
 
 /**
+ * What one write-path report followed by one started run observed: the report command result, the
+ * started run, the checkout's paths before and after the run, and the directories of the files the
+ * run then created.
+ */
+export interface ObservedWritePathRun {
+  readonly reported: CliCommandResult;
+  readonly run: StartedRepositoryRun;
+  readonly before: ReadonlySet<string>;
+  readonly after: ReadonlySet<string>;
+  readonly writtenDirectories: readonly string[];
+}
+
+/**
+ * Ask `runner` for the write-path report of `scopeType` and `verificationType`, then start a run of
+ * the same selector through `runner` and observe the checkout's state around the run. `runner` is the
+ * repository or one of its linked worktrees; the observations are returned without any verdict.
+ */
+export async function observeWritePathRun(
+  repository: VerifyHeadCommitRepository,
+  runner: Pick<VerifyLinkedWorktree, "reportWritePaths" | "startRun">,
+  scopeType: string,
+  verificationType: string,
+): Promise<ObservedWritePathRun> {
+  const reported = await runner.reportWritePaths(scopeType, verificationType);
+  const beforeEntries = await repository.snapshotState();
+  const run = await runner.startRun(scopeType, verificationType);
+  const afterEntries = await repository.snapshotState();
+  const before = new Set(beforeEntries.map((entry) => entry.path));
+  return {
+    reported,
+    run,
+    before,
+    after: new Set(afterEntries.map((entry) => entry.path)),
+    writtenDirectories: afterEntries
+      .filter((entry) => entry.kind === REPOSITORY_STATE_ENTRY_KIND.FILE && !before.has(entry.path))
+      .map((entry) => dirname(entry.path)),
+  };
+}
+
+/**
  * The production lifecycle bound to one product directory: `startRun`, which opens a run of the
  * given scope type and scope through the production `start` operation and observes its run-context
  * events, and `appendScope`, which records scope evidence on a started run through the production

@@ -11,7 +11,7 @@ import {
 import { VERIFY_SCOPE_TYPE, VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
 import { branchScopesDir } from "@/lib/state-store";
 import {
-  REPOSITORY_STATE_ENTRY_KIND,
+  observeWritePathRun,
   VERIFICATION_TYPE_CASE_TITLE,
   withVerifyHeadCommitRepository,
 } from "@testing/harnesses/verify/repository";
@@ -27,17 +27,16 @@ describe("verify write-path report directories", () => {
       "reports the canonical scope identity, the branch key, and the directories a %s-scope run then writes",
       async (scopeType) => {
         await withVerifyHeadCommitRepository(async (repository) => {
-          const reported = await repository.reportWritePaths(scopeType, verificationType);
+          const { reported, run, writtenDirectories } = await observeWritePathRun(
+            repository,
+            repository,
+            scopeType,
+            verificationType,
+          );
           expect(reported.exitCode, reported.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
           const report = JSON.parse(reported.output) as VerifyPathsReport;
-
-          const before = new Set((await repository.snapshotState()).map((entry) => entry.path));
-          const run = await repository.startRun(scopeType, verificationType);
           expect(run.started.exitCode, run.started.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
           const { locator } = JSON.parse(run.started.output) as VerifyStartReport;
-          const writtenDirectories = (await repository.snapshotState())
-            .filter((entry) => entry.kind === REPOSITORY_STATE_ENTRY_KIND.FILE && !before.has(entry.path))
-            .map((entry) => dirname(entry.path));
           const branchScope = join(branchScopesDir(repository.productDir), report.branchSlug);
 
           expect(report.resolvedScope).toEqual({ scopeType, scopeIdentity: locator.scopeIdentity });
@@ -70,13 +69,15 @@ describe("verify write-path report path resolution", () => {
       "reports every directory absent from a checkout without a state store, with the directories to create, for a %s-scope run",
       async (scopeType) => {
         await withVerifyHeadCommitRepository(async (repository) => {
-          const reported = await repository.reportWritePaths(scopeType, verificationType);
+          const { reported, run, before, after } = await observeWritePathRun(
+            repository,
+            repository,
+            scopeType,
+            verificationType,
+          );
           expect(reported.exitCode, reported.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
           const report = JSON.parse(reported.output) as VerifyPathsReport;
-          const before = new Set((await repository.snapshotState()).map((entry) => entry.path));
-          const run = await repository.startRun(scopeType, verificationType);
           expect(run.started.exitCode, run.started.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
-          const after = new Set((await repository.snapshotState()).map((entry) => entry.path));
 
           expect(report.writeDirectories).toHaveLength(Object.values(VERIFY_WRITE_DIRECTORY_ROLE).length);
           for (const directory of report.writeDirectories) {
@@ -103,13 +104,15 @@ describe("verify write-path report path resolution", () => {
           await withVerifyHeadCommitRepository(async (repository) => {
             const started = await repository.startRun(scopeType, startedType);
             expect(started.started.exitCode, started.started.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
-            const reported = await repository.reportWritePaths(scopeType, verificationType);
+            const { reported, run, before, after } = await observeWritePathRun(
+              repository,
+              repository,
+              scopeType,
+              verificationType,
+            );
             expect(reported.exitCode, reported.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
             const report = JSON.parse(reported.output) as VerifyPathsReport;
-            const before = new Set((await repository.snapshotState()).map((entry) => entry.path));
-            const run = await repository.startRun(scopeType, verificationType);
             expect(run.started.exitCode, run.started.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
-            const after = new Set((await repository.snapshotState()).map((entry) => entry.path));
             const branchScope = join(branchScopesDir(repository.productDir), report.branchSlug);
 
             expect(report.writeDirectories.map((directory) => directory.exists)).toContain(true);
@@ -141,13 +144,15 @@ describe("verify write-path report path resolution", () => {
       async (scopeType) => {
         await withVerifyHeadCommitRepository(async (repository) => {
           const linkedStore = await repository.linkStateStore();
-          const reported = await repository.reportWritePaths(scopeType, verificationType);
+          const { reported, run, before, after } = await observeWritePathRun(
+            repository,
+            repository,
+            scopeType,
+            verificationType,
+          );
           expect(reported.exitCode, reported.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
           const report = JSON.parse(reported.output) as VerifyPathsReport;
-          const before = new Set((await repository.snapshotState()).map((entry) => entry.path));
-          const run = await repository.startRun(scopeType, verificationType);
           expect(run.started.exitCode, run.started.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
-          const after = new Set((await repository.snapshotState()).map((entry) => entry.path));
 
           expect(before.has(linkedStore)).toBe(true);
           for (const directory of report.writeDirectories) {
@@ -179,15 +184,15 @@ describe("verify write-path report in a linked worktree", () => {
       async (scopeType) => {
         await withVerifyHeadCommitRepository(async (repository) => {
           const linked = await repository.linkWorktree();
-          const reported = await linked.reportWritePaths(scopeType, verificationType);
+          const { reported, run, writtenDirectories } = await observeWritePathRun(
+            repository,
+            linked,
+            scopeType,
+            verificationType,
+          );
           expect(reported.exitCode, reported.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
           const report = JSON.parse(reported.output) as VerifyPathsReport;
-          const before = new Set((await repository.snapshotState()).map((entry) => entry.path));
-          const run = await linked.startRun(scopeType, verificationType);
           expect(run.started.exitCode, run.started.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
-          const writtenDirectories = (await repository.snapshotState())
-            .filter((entry) => entry.kind === REPOSITORY_STATE_ENTRY_KIND.FILE && !before.has(entry.path))
-            .map((entry) => dirname(entry.path));
           const branchScope = join(branchScopesDir(repository.productDir), report.branchSlug);
 
           expect(linked.worktreeDir).not.toBe(repository.productDir);
