@@ -18,6 +18,7 @@ import {
   VERIFY_VERIFICATION_TYPE,
 } from "@/domains/verify/verify";
 import type { NodeOutcomeResolver, NodeReadPathResolver } from "@/lib/node-status";
+import { resolveVerificationBranchSlug } from "@/lib/state-store";
 import { testingRegistry } from "@/test/registry";
 import {
   createTestRunFile,
@@ -29,7 +30,6 @@ import {
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
 import { sampleGeneratedValue } from "@testing/generators/sample";
-import { sampleStateStoreTestValue, STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
 import { sampleTestRunStateValue, TEST_RUN_STATE_TEST_GENERATOR } from "@testing/generators/testing/run-state";
 import { RecordingJournalStreamSink } from "@testing/harnesses/journal/harness";
 import { currentMethodologyConfig, withPinnedNodeRepository } from "@testing/harnesses/node-status/node-status";
@@ -102,7 +102,7 @@ export function withRecordedReadPaths(
   const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
   return withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
     const { productDir } = repository.env;
-    const branchSlug = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.branchSlug());
+    const branchSlug = await resolveVerificationBranchSlug({ cwd: productDir, isGitRepo: true, git: repository.git });
     const at = sampleTestRunStateValue(TEST_RUN_STATE_TEST_GENERATOR.timestampDate());
     const opened = await openJournalRun({ productDir, branchSlug, type: VERIFY_VERIFICATION_TYPE.TEST });
     if (!opened.ok) throw new Error(opened.error);

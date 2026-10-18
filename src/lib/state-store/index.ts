@@ -13,8 +13,16 @@ import {
 import { basename, dirname, join } from "node:path";
 
 import type { Result } from "@/config/types";
-import { detectGitCommonDirProductRoot, detectWorktreeProductRoot, type GitDependencies } from "@/lib/git/root";
+import {
+  defaultGitDependencies,
+  detectGitCommonDirProductRoot,
+  detectWorktreeProductRoot,
+  getCurrentBranch,
+  getHeadSha,
+  type GitDependencies,
+} from "@/lib/git/root";
 import type { TerminalText } from "@/lib/terminal-text/terminal-text";
+import { SPX_VERIFY_HEAD_SHA } from "@/lib/verification-env";
 
 export const STATE_STORE_SCOPE_PATH = {
   SPX_DIR: ".spx",
@@ -249,6 +257,24 @@ export function resolveBranchIdentity(input: {
   return `${STATE_STORE_BRANCH_IDENTITY.DETACHED_HEAD_PREFIX}${SLUG_SEPARATOR}${
     input.headSha.slice(0, STATE_STORE_BRANCH_IDENTITY.DETACHED_HEAD_SHA_HEX_LENGTH).toLowerCase()
   }`;
+}
+
+/**
+ * The branch scope slug a verification run records under, and a reader of its sealed runs lists, for the
+ * checkout at `cwd`: the `branchOverride` when one is supplied, else the checked-out branch, else the
+ * detached head's commit. Outside a Git repository no branch or head is probed.
+ */
+export async function resolveVerificationBranchSlug(input: {
+  readonly cwd: string;
+  readonly isGitRepo: boolean;
+  readonly git?: GitDependencies;
+  readonly branchOverride?: string | undefined;
+}): Promise<string> {
+  const git = input.git ?? defaultGitDependencies;
+  const probedBranch = input.isGitRepo ? (await getCurrentBranch(input.cwd, git)) ?? undefined : undefined;
+  const headSha = (input.isGitRepo ? await getHeadSha(input.cwd, git) : null) ?? SPX_VERIFY_HEAD_SHA.MISSING;
+  const branchName = input.branchOverride ?? probedBranch;
+  return slugBranchIdentity(resolveBranchIdentity({ ...(branchName === undefined ? {} : { branchName }), headSha }));
 }
 
 export function slugBranchIdentity(
