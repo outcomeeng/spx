@@ -19,6 +19,7 @@ import {
   NODE_STATUS_VERIFICATION_MECHANISM,
 } from "@/lib/node-status";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
+import { evidenceFileNameFor } from "@testing/generators/spec-tree/evidence-file-name";
 
 const NODE_STATUS_GENERATOR_OPTIONS = {
   ORDER_MIN: 10,
@@ -45,7 +46,7 @@ const GIT_QUOTED_PATH_CHARACTERS = ["\t", "\n", "\"", "\\"] as const;
 const ENABLER_SUFFIX = KIND_REGISTRY.enabler.suffix;
 const CONSULTATION_CLASS_COUNT = 3;
 export const NODE_STATUS_READABLE_SLUGS = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot"] as const;
-const STATUS_REFERENCE_NAME_PATTERN = /^[a-z][a-z0-9-]{2,12}$/;
+const STATUS_REFERENCE_NAME_PATTERN = /^[a-z][a-z0-9]{1,5}(-[a-z][a-z0-9]{1,5})?$/;
 const STATUS_VERIFICATION_MECHANISMS = Object.values(NODE_STATUS_VERIFICATION_MECHANISM);
 const STATUS_EVIDENCE_OUTCOMES: readonly NodeStatusEvidenceOutcome[] = Object.values(NODE_STATUS_EVIDENCE_OUTCOME);
 const STATUS_MECHANISM_OVERALLS: readonly NodeStatusMechanismOverall[] = Object.values(NODE_STATUS_MECHANISM_OVERALL);
@@ -257,7 +258,7 @@ function outcomesWithEnumeratedReferences(
   return Object.fromEntries(
     outcomes.map((outcome, index) => [
       evidenceReferencePath(
-        `${ENUMERATED_REFERENCE_NAME}${SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR}${index}`,
+        `${ENUMERATED_REFERENCE_NAME}${index}`,
         SPEC_TREE_EVIDENCE_FILE.MODES[index % SPEC_TREE_EVIDENCE_FILE.MODES.length],
         SPEC_TREE_EVIDENCE_FILE.LEVELS[index % SPEC_TREE_EVIDENCE_FILE.LEVELS.length],
       ),
@@ -269,7 +270,7 @@ function outcomesWithEnumeratedReferences(
 function evidenceReferencePath(name: string, mode: string, level: string): string {
   return [
     SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME,
-    [name, mode, level, ...SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT].join(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR),
+    evidenceFileNameFor([name, mode, level], SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT),
   ].join(SPEC_TREE_PATH_SEPARATOR);
 }
 

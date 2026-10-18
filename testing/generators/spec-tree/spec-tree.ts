@@ -32,6 +32,7 @@ import {
 import { PYTHON_MARKER } from "@/validation/discovery/language-finder";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { SAMPLE_GENERATOR_PARAMETERS, sampleGeneratedValue } from "@testing/generators/sample";
+import { evidenceFileNameFor, evidenceSubject } from "@testing/generators/spec-tree/evidence-file-name";
 import { semverMaximumOracle, semverOrderOracle } from "@testing/generators/spec-tree/naming-schema-version";
 
 type SpecTreeEntryDiscriminatorKey =
@@ -644,14 +645,7 @@ function arbitraryEvidenceFileName(): fc.Arbitrary<string> {
     mode: fc.constantFrom(...SPEC_TREE_EVIDENCE_FILE.MODES),
     level: fc.constantFrom(...SPEC_TREE_EVIDENCE_FILE.LEVELS),
     tail: fc.constantFrom(...Object.values(SPEC_TREE_EVIDENCE_FILE.TAILS)),
-  }).map(({ slug, mode, level, tail }) =>
-    [
-      slug,
-      mode,
-      level,
-      ...tail,
-    ].join(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR)
-  );
+  }).map(({ slug, mode, level, tail }) => evidenceFileNameFor([evidenceSubject(slug), mode, level], tail));
 }
 
 function arbitrarySourceOrderSegments(): fc.Arbitrary<readonly number[]> {
