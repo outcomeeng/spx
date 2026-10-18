@@ -1,5 +1,3 @@
-import { detectProductConfigFile } from "@/config/index";
-import { resolveMethodologyConfigFromReadResult } from "@/config/methodology-resolution";
 import {
   auditDeclarationOwners,
   changedContextTargets,
@@ -22,7 +20,7 @@ import { committedFileContent, committedPaths } from "@/lib/git/release";
 import { defaultGitDependencies, type GitDependencies } from "@/lib/git/root";
 import {
   readSpecTree,
-  selectSpecTreeGrammar,
+  resolveCommittedSpecTreeGrammarSelection,
   SPEC_TREE_ROOT_PREFIX,
   specContextAncestors,
   specContextDecisions,
@@ -209,20 +207,15 @@ async function readEndpointGrammarSelection(
   paths: readonly string[],
   endpointReader: ReleaseEndpointReader,
 ): Promise<SpecTreeGrammarSelection> {
-  const detected = await detectProductConfigFile(
-    productDir,
-    async (filename) => {
-      const raw = await endpointReader.readText(productDir, ref, filename);
-      if (raw === null) throw missingCommittedFile(filename, ref);
-      return raw;
-    },
-    paths,
-  );
-  if (!detected.ok) throw new Error(`Methodology declaration at ${ref}: ${detected.error}`);
-  const methodology = resolveMethodologyConfigFromReadResult(detected.value);
-  if (!methodology.ok) throw new Error(`Methodology declaration at ${ref}: ${methodology.error}`);
   try {
-    return selectSpecTreeGrammar(methodology.value);
+    return await resolveCommittedSpecTreeGrammarSelection(productDir, {
+      paths,
+      readText: async (filename) => {
+        const raw = await endpointReader.readText(productDir, ref, filename);
+        if (raw === null) throw missingCommittedFile(filename, ref);
+        return raw;
+      },
+    });
   } catch (error) {
     throw new Error(`Methodology declaration at ${ref}: ${error instanceof Error ? error.message : String(error)}`);
   }
