@@ -4,7 +4,8 @@ import { join } from "node:path";
 
 import { parse as parseYaml } from "yaml";
 
-import { resolveMethodologyConfig } from "@/config/methodology-resolution";
+import { resolveMethodologyConfig, resolveMethodologyConfigFromReadResult } from "@/config/methodology-resolution";
+import { detectProductConfigFile } from "@/config/product-file";
 import type { Result } from "@/config/types";
 
 import type {
@@ -510,6 +511,29 @@ export async function resolveSpecTreeGrammarSelection(
   resolveMethodology: SpecTreeMethodologyResolver = resolveMethodologyConfig,
 ): Promise<SpecTreeGrammarSelection> {
   const declaration = await resolveMethodology(productDir);
+  if (!declaration.ok) throw new Error(declaration.error);
+  return selectSpecTreeGrammar(declaration.value);
+}
+
+export type CommittedSpecTreeConfigSource = {
+  /** The committed paths of the product, which bound the configuration files the declaration is read from. */
+  readonly paths: readonly string[];
+  /** The committed text of one path, or null when the path is absent. */
+  readonly readText: (path: string) => Promise<string | null>;
+};
+
+/**
+ * The grammar selection of the methodology declaration a committed product tree carries in its
+ * product configuration. Throws when the configuration cannot be read, is ambiguous or invalid,
+ * or the declaration names no version a read accepts.
+ */
+export async function resolveCommittedSpecTreeGrammarSelection(
+  productDir: string,
+  committed: CommittedSpecTreeConfigSource,
+): Promise<SpecTreeGrammarSelection> {
+  const detected = await detectProductConfigFile(productDir, committed.readText, committed.paths);
+  if (!detected.ok) throw new Error(detected.error);
+  const declaration = resolveMethodologyConfigFromReadResult(detected.value);
   if (!declaration.ok) throw new Error(declaration.error);
   return selectSpecTreeGrammar(declaration.value);
 }
