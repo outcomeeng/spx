@@ -38,6 +38,8 @@ import {
 import { createSpecTreeLinkGrammar, type SpecTreeLinkGrammar } from "./link-grammar";
 import { compareSpecTreeOrder } from "./order";
 export {
+  acceptsEvalLaneEntry,
+  acceptsNodeLocalNote,
   canonicalNamingSchemaVersion,
   compareNamingSchemaVersions,
   compareNumericVersionIdentifiers,
@@ -55,6 +57,7 @@ export {
   SPEC_TREE_CONFIG,
   SPEC_TREE_CONFIG_FIELDS,
   SPEC_TREE_ENTRY_TYPE,
+  SPEC_TREE_EVAL_ENTRY_KIND,
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_INHERIT_FROM_PARENT,
@@ -80,6 +83,7 @@ export type {
   SpecTreeConfig,
   SpecTreeContainerKind,
   SpecTreeEntryType,
+  SpecTreeEvalEntryKind,
   SpecTreeEvidenceGrammar,
   SpecTreeKindCategory,
   SpecTreeMethodologyLine,
