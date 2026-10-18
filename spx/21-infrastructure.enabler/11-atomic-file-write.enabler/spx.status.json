@@ -4,13 +4,50 @@
   "verification": {
     "test": {
       "tests/atomic-file-write.compliance.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/21-infrastructure.enabler/11-atomic-file-write.enabler/atomic-file-write.md",
+          "spx/21-infrastructure.enabler/11-atomic-file-write.enabler/tests/atomic-file-write.compliance.l1.test.ts",
+          "src/lib/atomic-file-write.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/atomic-file-write.ts",
+          "testing/harnesses/atomic-file-write.ts"
+        ]
       },
       "tests/atomic-file-write.property.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/21-infrastructure.enabler/11-atomic-file-write.enabler/atomic-file-write.md",
+          "spx/21-infrastructure.enabler/11-atomic-file-write.enabler/tests/atomic-file-write.property.l1.test.ts",
+          "src/lib/atomic-file-write.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/atomic-file-write.ts",
+          "testing/harnesses/atomic-file-write.ts",
+          "testing/harnesses/property/property.ts"
+        ]
       },
       "tests/atomic-file-write.scenario.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/21-infrastructure.enabler/11-atomic-file-write.enabler/atomic-file-write.md",
+          "spx/21-infrastructure.enabler/11-atomic-file-write.enabler/tests/atomic-file-write.scenario.l1.test.ts",
+          "src/lib/atomic-file-write.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/atomic-file-write.ts",
+          "testing/harnesses/atomic-file-write.ts"
+        ]
       }
     },
     "evidence": {

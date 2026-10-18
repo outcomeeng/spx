@@ -4,7 +4,28 @@
   "verification": {
     "test": {
       "tests/picker-test-harness.scenario.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/36-session.enabler/87-session-pick.enabler/21-picker-test-harness.enabler/picker-test-harness.md",
+          "spx/36-session.enabler/87-session-pick.enabler/21-picker-test-harness.enabler/tests/picker-test-harness.scenario.l1.test.ts",
+          "src/domains/session/create.ts",
+          "src/domains/session/display-width.ts",
+          "src/domains/session/errors.ts",
+          "src/domains/session/handoff-base-checklist.ts",
+          "src/domains/session/list.ts",
+          "src/domains/session/pick-model.ts",
+          "src/domains/session/timestamp.ts",
+          "src/domains/session/types.ts",
+          "src/interfaces/cli/session/pick/SessionPicker.tsx",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/session/session.ts",
+          "testing/harnesses/session/picker.ts"
+        ]
       }
     },
     "evidence": {

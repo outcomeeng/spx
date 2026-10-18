@@ -4,10 +4,76 @@
   "verification": {
     "test": {
       "tests/reachability-readings.property.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/54-diagnose.enabler/43-spx-reachability.enabler/spx-reachability.md",
+          "spx/54-diagnose.enabler/43-spx-reachability.enabler/tests/reachability-readings.property.l1.test.ts",
+          "src/config/methodology.ts",
+          "src/domains/diagnose/checks/spx-reachability.ts",
+          "src/domains/diagnose/facts.ts",
+          "src/domains/diagnose/manifest.ts",
+          "src/domains/diagnose/types.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/file-system/pathContainment.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/methodology/coding-agent.ts",
+          "src/lib/methodology/compact-recovery.ts",
+          "src/lib/methodology/fetch.ts",
+          "src/lib/methodology/foundation-manifest.ts",
+          "src/lib/methodology/index.ts",
+          "src/lib/methodology/provider-match.ts",
+          "src/lib/methodology/tree-resource.ts",
+          "src/lib/methodology/tree.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/diagnose/manifest.ts",
+          "testing/generators/diagnose/reachability.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/methodology/tree.ts",
+          "testing/generators/sample.ts"
+        ]
       },
       "tests/reachability.mapping.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/54-diagnose.enabler/43-spx-reachability.enabler/spx-reachability.md",
+          "spx/54-diagnose.enabler/43-spx-reachability.enabler/tests/reachability.mapping.l1.test.ts",
+          "src/config/methodology.ts",
+          "src/domains/diagnose/checks/spx-reachability.ts",
+          "src/domains/diagnose/facts.ts",
+          "src/domains/diagnose/manifest.ts",
+          "src/domains/diagnose/types.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/file-system/pathContainment.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/methodology/coding-agent.ts",
+          "src/lib/methodology/compact-recovery.ts",
+          "src/lib/methodology/fetch.ts",
+          "src/lib/methodology/foundation-manifest.ts",
+          "src/lib/methodology/index.ts",
+          "src/lib/methodology/provider-match.ts",
+          "src/lib/methodology/tree-resource.ts",
+          "src/lib/methodology/tree.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/diagnose/manifest.ts",
+          "testing/generators/diagnose/reachability.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/methodology/tree.ts",
+          "testing/generators/sample.ts"
+        ]
       }
     },
     "evidence": {

@@ -4,13 +4,88 @@
   "verification": {
     "test": {
       "tests/artifact-journal-store.compliance.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/21-infrastructure.enabler/43-github-ci.enabler/21-artifact-journal-store.enabler/artifact-journal-store.md",
+          "spx/21-infrastructure.enabler/43-github-ci.enabler/21-artifact-journal-store.enabler/tests/artifact-journal-store.compliance.l1.test.ts",
+          "src/lib/agent-run-journal/index.ts",
+          "src/lib/appendable-journal-store/index.ts",
+          "src/lib/artifact-journal-store/index.ts",
+          "src/lib/atomic-file-write.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/state-store/index.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/lib/verification-env.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/agent-run-journal.ts",
+          "testing/generators/github-snapshot.ts",
+          "testing/generators/state-store/state-store.ts",
+          "testing/harnesses/restored-journal-artifacts.ts",
+          "testing/harnesses/state/in-memory-file-system.ts"
+        ]
       },
       "tests/artifact-journal-store.property.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/21-infrastructure.enabler/43-github-ci.enabler/21-artifact-journal-store.enabler/artifact-journal-store.md",
+          "spx/21-infrastructure.enabler/43-github-ci.enabler/21-artifact-journal-store.enabler/tests/artifact-journal-store.property.l1.test.ts",
+          "src/lib/agent-run-journal/index.ts",
+          "src/lib/appendable-journal-store/index.ts",
+          "src/lib/artifact-journal-store/index.ts",
+          "src/lib/atomic-file-write.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/state-store/index.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/lib/verification-env.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/agent-run-journal.ts",
+          "testing/generators/github-snapshot.ts",
+          "testing/generators/state-store/state-store.ts",
+          "testing/harnesses/restored-journal-artifacts.ts",
+          "testing/harnesses/state/in-memory-file-system.ts"
+        ]
       },
       "tests/artifact-journal-store.scenario.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/21-infrastructure.enabler/43-github-ci.enabler/21-artifact-journal-store.enabler/artifact-journal-store.md",
+          "spx/21-infrastructure.enabler/43-github-ci.enabler/21-artifact-journal-store.enabler/tests/artifact-journal-store.scenario.l1.test.ts",
+          "src/lib/agent-run-journal/index.ts",
+          "src/lib/appendable-journal-store/index.ts",
+          "src/lib/artifact-journal-store/index.ts",
+          "src/lib/atomic-file-write.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/state-store/index.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/lib/verification-env.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/agent-run-journal.ts",
+          "testing/generators/github-snapshot.ts",
+          "testing/generators/state-store/state-store.ts",
+          "testing/harnesses/restored-journal-artifacts.ts",
+          "testing/harnesses/state/in-memory-file-system.ts"
+        ]
       }
     },
     "evidence": {

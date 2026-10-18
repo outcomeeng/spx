@@ -4,7 +4,21 @@
   "verification": {
     "test": {
       "tests/marketplace-install.mapping.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/54-diagnose.enabler/43-marketplace-install.enabler/marketplace-install.md",
+          "spx/54-diagnose.enabler/43-marketplace-install.enabler/tests/marketplace-install.mapping.l1.test.ts",
+          "src/config/methodology.ts",
+          "src/domains/diagnose/checks/marketplace-install.ts",
+          "src/domains/diagnose/facts.ts",
+          "src/domains/diagnose/manifest.ts",
+          "src/domains/diagnose/types.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts"
+        ]
       }
     },
     "evidence": {

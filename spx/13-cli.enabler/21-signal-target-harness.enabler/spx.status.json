@@ -4,10 +4,46 @@
   "verification": {
     "test": {
       "tests/signal-target-harness.property.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/13-cli.enabler/21-signal-target-harness.enabler/signal-target-harness.md",
+          "spx/13-cli.enabler/21-signal-target-harness.enabler/tests/signal-target-harness.property.l1.test.ts",
+          "src/lib/process-lifecycle/exit-codes.ts",
+          "src/lib/process-lifecycle/foreground-handoff.ts",
+          "src/lib/process-lifecycle/handlers.ts",
+          "src/lib/process-lifecycle/index.ts",
+          "src/lib/process-lifecycle/install.ts",
+          "src/lib/process-lifecycle/managed-subprocess.ts",
+          "src/lib/process-lifecycle/registry.ts",
+          "src/lib/process-lifecycle/runner.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/harnesses/process-lifecycle/signal-target.ts"
+        ]
       },
       "tests/signal-target-harness.scenario.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/13-cli.enabler/21-signal-target-harness.enabler/signal-target-harness.md",
+          "spx/13-cli.enabler/21-signal-target-harness.enabler/tests/signal-target-harness.scenario.l1.test.ts",
+          "src/lib/process-lifecycle/exit-codes.ts",
+          "src/lib/process-lifecycle/foreground-handoff.ts",
+          "src/lib/process-lifecycle/handlers.ts",
+          "src/lib/process-lifecycle/index.ts",
+          "src/lib/process-lifecycle/install.ts",
+          "src/lib/process-lifecycle/managed-subprocess.ts",
+          "src/lib/process-lifecycle/registry.ts",
+          "src/lib/process-lifecycle/runner.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/harnesses/process-lifecycle/signal-target.ts"
+        ]
       }
     },
     "evidence": {

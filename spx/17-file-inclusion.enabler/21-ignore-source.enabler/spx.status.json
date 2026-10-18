@@ -4,16 +4,92 @@
   "verification": {
     "test": {
       "tests/ignore-source.compliance.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/17-file-inclusion.enabler/21-ignore-source.enabler/ignore-source.md",
+          "spx/17-file-inclusion.enabler/21-ignore-source.enabler/tests/ignore-source.compliance.l1.test.ts",
+          "src/lib/executable-on-path.ts",
+          "src/lib/file-inclusion/ignore-source.ts",
+          "src/lib/git/environment.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/git-worktree/git-worktree.ts",
+          "testing/harnesses/file-inclusion/ignore-source.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/spec-tree/generators.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ]
       },
       "tests/ignore-source.mapping.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/17-file-inclusion.enabler/21-ignore-source.enabler/ignore-source.md",
+          "spx/17-file-inclusion.enabler/21-ignore-source.enabler/tests/ignore-source.mapping.l1.test.ts",
+          "src/lib/executable-on-path.ts",
+          "src/lib/file-inclusion/ignore-source.ts",
+          "src/lib/git/environment.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/git-worktree/git-worktree.ts",
+          "testing/harnesses/file-inclusion/ignore-source.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/spec-tree/generators.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ]
       },
       "tests/ignore-source.property.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/17-file-inclusion.enabler/21-ignore-source.enabler/ignore-source.md",
+          "spx/17-file-inclusion.enabler/21-ignore-source.enabler/tests/ignore-source.property.l1.test.ts",
+          "src/lib/executable-on-path.ts",
+          "src/lib/file-inclusion/ignore-source.ts",
+          "src/lib/git/environment.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/git-worktree/git-worktree.ts",
+          "testing/harnesses/file-inclusion/ignore-source.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/spec-tree/generators.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ]
       },
       "tests/ignore-source.scenario.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/17-file-inclusion.enabler/21-ignore-source.enabler/ignore-source.md",
+          "spx/17-file-inclusion.enabler/21-ignore-source.enabler/tests/ignore-source.scenario.l1.test.ts",
+          "src/lib/executable-on-path.ts",
+          "src/lib/file-inclusion/ignore-source.ts",
+          "src/lib/git/environment.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/git-worktree/git-worktree.ts",
+          "testing/harnesses/file-inclusion/ignore-source.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/spec-tree/generators.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ]
       }
     },
     "evidence": {

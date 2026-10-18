@@ -4,7 +4,37 @@
   "verification": {
     "test": {
       "tests/session-test-harness.scenario.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/36-session.enabler/21-session-test-harness.enabler/session-test-harness.md",
+          "spx/36-session.enabler/21-session-test-harness.enabler/tests/session-test-harness.scenario.l1.test.ts",
+          "src/config/defaults.ts",
+          "src/domains/session/create.ts",
+          "src/domains/session/display-width.ts",
+          "src/domains/session/errors.ts",
+          "src/domains/session/handoff-base-checklist.ts",
+          "src/domains/session/list.ts",
+          "src/domains/session/timestamp.ts",
+          "src/domains/session/types.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/state-store/index.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/lib/verification-env.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/session/session.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/session/harness.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ]
       }
     },
     "evidence": {

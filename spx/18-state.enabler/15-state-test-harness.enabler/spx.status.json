@@ -4,7 +4,32 @@
   "verification": {
     "test": {
       "tests/state-test-harness.scenario.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/18-state.enabler/15-state-test-harness.enabler/state-test-harness.md",
+          "spx/18-state.enabler/15-state-test-harness.enabler/tests/state-test-harness.scenario.l1.test.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/state-store/index.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/lib/verification-env.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/main-checkout/main-checkout.ts",
+          "testing/generators/state-store/state-store.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/state/git-deps.ts",
+          "testing/harnesses/state/product-root-probe.ts",
+          "testing/harnesses/with-temp-dir.ts",
+          "testing/harnesses/worktree-layout/worktree-layout.ts"
+        ]
       }
     },
     "evidence": {

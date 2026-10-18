@@ -4,16 +4,103 @@
   "verification": {
     "test": {
       "tests/backend-resolution.compliance.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/21-infrastructure.enabler/21-result-delivery.enabler/result-delivery.md",
+          "spx/21-infrastructure.enabler/21-result-delivery.enabler/tests/backend-resolution.compliance.l1.test.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/result-delivery/backend-selection.ts",
+          "src/lib/result-delivery/index.ts",
+          "src/lib/result-delivery/local-backend.ts",
+          "src/lib/result-delivery/port.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/state-store/index.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/lib/verification-env.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/result-delivery.ts",
+          "testing/harnesses/result-delivery.ts"
+        ]
       },
       "tests/backend-selection.mapping.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/21-infrastructure.enabler/21-result-delivery.enabler/result-delivery.md",
+          "spx/21-infrastructure.enabler/21-result-delivery.enabler/tests/backend-selection.mapping.l1.test.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/result-delivery/backend-selection.ts",
+          "src/lib/result-delivery/index.ts",
+          "src/lib/result-delivery/local-backend.ts",
+          "src/lib/result-delivery/port.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/state-store/index.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/lib/verification-env.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/result-delivery.ts"
+        ]
       },
       "tests/passthrough.conformance.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/21-infrastructure.enabler/21-result-delivery.enabler/result-delivery.md",
+          "spx/21-infrastructure.enabler/21-result-delivery.enabler/tests/passthrough.conformance.l1.test.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/result-delivery/backend-selection.ts",
+          "src/lib/result-delivery/index.ts",
+          "src/lib/result-delivery/local-backend.ts",
+          "src/lib/result-delivery/port.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/state-store/index.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/lib/verification-env.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/result-delivery.ts",
+          "testing/harnesses/result-delivery.ts"
+        ]
       },
       "tests/upsert.compliance.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/21-infrastructure.enabler/21-result-delivery.enabler/result-delivery.md",
+          "spx/21-infrastructure.enabler/21-result-delivery.enabler/tests/upsert.compliance.l1.test.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/result-delivery/backend-selection.ts",
+          "src/lib/result-delivery/index.ts",
+          "src/lib/result-delivery/local-backend.ts",
+          "src/lib/result-delivery/port.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/state-store/index.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/lib/verification-env.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/result-delivery.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ]
       }
     },
     "evidence": {
