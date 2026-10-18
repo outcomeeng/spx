@@ -208,6 +208,10 @@ export const SPEC_TREE_GRAMMAR = {
       RUST: ["rs"],
     },
     SEGMENT_SEPARATOR: ".",
+    TEST_MARKER: "test",
+    AFFIX_SEPARATOR: "_",
+    WORD_SEPARATOR: "-",
+    WORD_PATTERN: /^[a-z][a-z0-9]*$/,
   },
   RUNNERS: ["vitest", "playwright", "subprocess"],
   ORDER: {
@@ -262,6 +266,10 @@ export type SpecTreeEvidenceGrammar = {
   readonly LEVELS: readonly string[];
   readonly TAILS: Readonly<Record<string, readonly string[]>>;
   readonly SEGMENT_SEPARATOR: string;
+  readonly TEST_MARKER: string;
+  readonly AFFIX_SEPARATOR: string;
+  readonly WORD_SEPARATOR: string;
+  readonly WORD_PATTERN: RegExp;
 };
 export type SpecTreeOrderGrammar = {
   readonly SEPARATOR: string;
