@@ -22,6 +22,7 @@ import {
   VERIFY_APPEND_EVENT_TYPE,
   VERIFY_EXPECTATIONS_FIELD,
   VERIFY_EXPECTATIONS_SCHEMA_VERSION,
+  VERIFY_INPUT_RECORD,
   VERIFY_INPUT_SOURCE,
   VERIFY_RUN_CONTEXT_EVENT_FIELD,
   VERIFY_RUN_CONTEXT_EVENT_ID_PREFIX,
@@ -53,7 +54,6 @@ import { createTempDir, removeTempDir, withTempDir } from "@testing/harnesses/wi
 
 const VERIFY_REPOSITORY_TEMP_PREFIX = "verify-repository-";
 const GIT_FAILURE_EXIT_CODE = 1;
-const RECORDED_INPUT_EXTENSION = ".json";
 const BASE_COMMIT_MESSAGE = "Initialize verify repository fixture";
 const HEAD_COMMIT_MESSAGE = "Add the verified file";
 const GIT_TEST_WORKTREE_ADD = "add";
@@ -392,7 +392,7 @@ function createVerifyRunStarter(cwd: string, git: GitDependencies): VerifyRunSta
       };
       const runsDir = dirname(runFile);
       const templateRecord = (await readdir(runsDir)).find((name) =>
-        name.includes(templateToken) && name.endsWith(RECORDED_INPUT_EXTENSION)
+        name.includes(templateToken) && name.endsWith(VERIFY_INPUT_RECORD.SUFFIX)
       );
       if (templateRecord === undefined) {
         throw new Error("verify repository harness: the template run holds no recorded input to carry over");
