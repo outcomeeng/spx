@@ -226,6 +226,9 @@ export interface VerifyLinkedWorktree {
   reportWritePaths(scopeType: string, verificationType?: string): Promise<CliCommandResult>;
 }
 
+/** The operations that report a selector's write paths and start a run of it. */
+export type WritePathRunner = Omit<VerifyLinkedWorktree, "worktreeDir">;
+
 /**
  * What one write-path report followed by one started run observed: the report command result, the
  * started run, the checkout's paths before and after the run, and the directories of the files the
@@ -246,7 +249,7 @@ export interface ObservedWritePathRun {
  */
 export async function observeWritePathRun(
   repository: VerifyHeadCommitRepository,
-  runner: Pick<VerifyLinkedWorktree, "reportWritePaths" | "startRun">,
+  runner: WritePathRunner,
   scopeType: string,
   verificationType: string,
 ): Promise<ObservedWritePathRun> {
