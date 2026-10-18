@@ -1,4 +1,10 @@
 {
   "schemaVersion": 1,
-  "verification": {}
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/tests/write-paths.compliance.l1.test.ts": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/tests/write-paths.mapping.l1.test.ts": "passed"
+    }
+  }
 }

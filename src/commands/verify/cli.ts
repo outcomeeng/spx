@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { dirname } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 import {
   journalAppendCommand,
@@ -18,6 +18,7 @@ import {
   normalizeVerificationContextFileSubjectPath,
   VERIFICATION_CONTEXT_SUBJECT_KIND,
 } from "@/domains/verification-context/context";
+import { verificationContextDir } from "@/domains/verification-context/path";
 import { renderVerifyRejection, VERIFY_REJECTION_TEXT } from "@/domains/verify/rejection-report";
 import {
   type AuditScopeUnit,
@@ -36,6 +37,7 @@ import {
   isVerifyChangeIdentity,
   isVerifyTerminalStatus,
   isVerifyVerificationType,
+  missingDirectoriesBelow,
   parseAppendPayload,
   parseChangesetScope,
   projectVerifyRun,
@@ -79,6 +81,7 @@ import {
 } from "@/lib/git/root";
 import {
   defaultStateStoreFileSystem,
+  defaultStateStoreRealpath,
   ERROR_CODE_NOT_FOUND,
   hasErrorCode,
   resolveBranchIdentity,
@@ -128,6 +131,7 @@ export const VERIFY_CLI_ERROR = {
   SEAL_FAILED: "spx verification run could not seal the run journal",
   STATUS_FAILED: "spx verification run could not read the run status",
   RENDER_FAILED: "spx verification run could not render the run projection",
+  PATHS_FAILED: "spx verification run paths could not resolve the run write directories",
 } as const;
 
 export const VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD = {
@@ -154,6 +158,8 @@ export interface VerifyCliDeps {
   readonly processEnv?: NodeJS.ProcessEnv;
   readonly fs?: StateStoreFileSystem;
   readonly now?: () => Date;
+  /** Resolves the symbolic links of an existing path; the write-path report reads directories through it. */
+  readonly realpath?: (path: string) => Promise<string>;
   readonly readInputSource: (source: string) => Promise<string>;
   /** Reads the append payload from its `--payload` source; the append verbs require it. */
   readonly readPayloadSource?: (source: string) => Promise<string>;
@@ -193,6 +199,48 @@ export interface VerifyStartReport {
   readonly resolvedScope: readonly string[];
   readonly input: InputDescriptor;
   readonly locator: RunLocator;
+}
+
+/** The directories a verification run writes: its journal runs directory and its verification-context directory. */
+export const VERIFY_WRITE_DIRECTORY_ROLE = {
+  JOURNAL_RUNS: "journal-runs",
+  VERIFICATION_CONTEXT: "verification-context",
+} as const;
+
+export type VerifyWriteDirectoryRole = (typeof VERIFY_WRITE_DIRECTORY_ROLE)[keyof typeof VERIFY_WRITE_DIRECTORY_ROLE];
+
+export interface VerifyPathsCliOptions {
+  readonly verificationType: string;
+  readonly scopeType: string;
+  readonly scope: string;
+}
+
+export const VERIFY_PATHS_REPORT_FIELD = {
+  RESOLVED_SCOPE: "resolvedScope",
+  BRANCH_SLUG: "branchSlug",
+  WRITE_DIRECTORIES: "writeDirectories",
+} as const;
+
+export const VERIFY_WRITE_DIRECTORY_FIELD = {
+  ROLE: "role",
+  PATH: "path",
+  EXISTS: "exists",
+  MISSING_DIRECTORIES: "missingDirectories",
+} as const;
+
+/** One directory a run writes, at its canonical path, with the directories its creation requires. */
+export interface VerifyWriteDirectory {
+  readonly [VERIFY_WRITE_DIRECTORY_FIELD.ROLE]: VerifyWriteDirectoryRole;
+  readonly [VERIFY_WRITE_DIRECTORY_FIELD.PATH]: string;
+  readonly [VERIFY_WRITE_DIRECTORY_FIELD.EXISTS]: boolean;
+  readonly [VERIFY_WRITE_DIRECTORY_FIELD.MISSING_DIRECTORIES]: readonly string[];
+}
+
+export interface VerifyPathsReport {
+  readonly verificationType: string;
+  readonly [VERIFY_PATHS_REPORT_FIELD.RESOLVED_SCOPE]: VerifyRunSelector;
+  readonly [VERIFY_PATHS_REPORT_FIELD.BRANCH_SLUG]: string;
+  readonly [VERIFY_PATHS_REPORT_FIELD.WRITE_DIRECTORIES]: readonly VerifyWriteDirectory[];
 }
 
 export interface VerifyInputReport {
@@ -862,6 +910,84 @@ export async function verifyStartCommand(
     contextPath,
     contextCreated,
   });
+}
+
+const ERROR_CODE_NOT_DIRECTORY = "ENOTDIR";
+
+/**
+ * Locate `path` with the symbolic links of its nearest existing ancestor resolved: the canonical
+ * path, whether `path` exists, and the directories missing from that ancestor down. Reads only.
+ */
+async function locateWriteDirectory(
+  role: VerifyWriteDirectoryRole,
+  path: string,
+  realpath: (path: string) => Promise<string>,
+): Promise<Result<VerifyWriteDirectory>> {
+  let ancestor = resolve(path);
+  for (;;) {
+    try {
+      const resolvedAncestor = await realpath(ancestor);
+      const missingDirectories = missingDirectoriesBelow(ancestor, resolve(path)).map((missing) =>
+        join(resolvedAncestor, missing.slice(ancestor.length))
+      );
+      const canonical = missingDirectories.at(-1) ?? resolvedAncestor;
+      return {
+        ok: true,
+        value: { role, path: canonical, exists: missingDirectories.length === 0, missingDirectories },
+      };
+    } catch (error) {
+      const missing = hasErrorCode(error, ERROR_CODE_NOT_FOUND) || hasErrorCode(error, ERROR_CODE_NOT_DIRECTORY);
+      const parent = dirname(ancestor);
+      if (!missing || parent === ancestor) {
+        return { ok: false, error: `${VERIFY_CLI_ERROR.PATHS_FAILED}: ${toMessage(error)}` };
+      }
+      ancestor = parent;
+    }
+  }
+}
+
+/**
+ * Report, without writing, the directories a run of one verification type and scope writes: the
+ * canonical scope identity, the branch key, and the journal runs directory and verification-context
+ * directory under that branch key at the Git common-dir product root. A host launching a session
+ * that records verification obtains the write paths from this report before the run starts.
+ */
+export async function verifyPathsCommand(
+  options: VerifyPathsCliOptions,
+  deps: VerifyCliDeps,
+): Promise<CliCommandResult> {
+  if (!isVerifyVerificationType(options.verificationType)) {
+    return errorResult(VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE);
+  }
+  const selector = canonicalizeVerifyRunSelector(options.scopeType, options.scope);
+  if (!selector.ok) return errorResult(selector.error);
+  const resolved = await resolveVerifyScope(deps);
+  if (!resolved.ok) return errorResult(resolved.error);
+  const { productDir, branchSlug } = resolved.value;
+  const runs = verifyRunsDir({ productDir, branchSlug, type: options.verificationType });
+  if (!runs.ok) return errorResult(runs.error);
+  const contexts = verificationContextDir({ productDir, branchSlug });
+  if (!contexts.ok) return errorResult(contexts.error);
+
+  const realpath = deps.realpath ?? defaultStateStoreRealpath;
+  const writeDirectories: VerifyWriteDirectory[] = [];
+  for (
+    const [role, path] of [
+      [VERIFY_WRITE_DIRECTORY_ROLE.JOURNAL_RUNS, runs.value],
+      [VERIFY_WRITE_DIRECTORY_ROLE.VERIFICATION_CONTEXT, contexts.value],
+    ] as const
+  ) {
+    const located = await locateWriteDirectory(role, path, realpath);
+    if (!located.ok) return errorResult(located.error);
+    writeDirectories.push(located.value);
+  }
+  const report: VerifyPathsReport = {
+    verificationType: options.verificationType,
+    resolvedScope: selector.value,
+    branchSlug,
+    writeDirectories,
+  };
+  return okResult(JSON.stringify(report));
 }
 
 /**

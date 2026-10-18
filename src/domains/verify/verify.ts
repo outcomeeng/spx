@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { join, relative, sep } from "node:path";
 
 import { digestDescriptorSection } from "@/config/descriptor-digest";
 import type { Result } from "@/config/types";
@@ -30,6 +30,7 @@ export interface VerifyRunSelector {
 }
 
 export const VERIFY_VERB = {
+  PATHS: "paths",
   START: "start",
   INPUT: "input",
   APPEND_SCOPE: "append-scope",
@@ -647,6 +648,16 @@ export function verifyRunsDir(
   const branchScope = branchScopeDir(scope.productDir, scope.branchSlug);
   if (!branchScope.ok) return branchScope;
   return runsDir(branchScope.value, scope.type);
+}
+
+/**
+ * The directories below `ancestor` that lead to `target`, nearest first, ending with `target`: the
+ * directories creating `target` under an existing `ancestor` brings into being. Empty when
+ * `target` is `ancestor`.
+ */
+export function missingDirectoriesBelow(ancestor: string, target: string): readonly string[] {
+  const segments = relative(ancestor, target).split(sep).filter((segment) => segment.length > 0);
+  return segments.map((_, index) => join(ancestor, ...segments.slice(0, index + 1)));
 }
 
 /**

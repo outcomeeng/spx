@@ -6,6 +6,7 @@ import {
   mkdir as nodeMkdir,
   open as nodeOpen,
   readdir as nodeReaddir,
+  realpath as nodeRealpath,
   rename as nodeRename,
   rm as nodeRm,
 } from "node:fs/promises";
@@ -236,6 +237,9 @@ const defaultFileSystem: StateStoreFileSystem = {
 };
 
 export { defaultFileSystem as defaultStateStoreFileSystem };
+
+/** Resolve every symbolic link of an existing path to its canonical location. */
+export const defaultStateStoreRealpath: (path: string) => Promise<string> = nodeRealpath;
 
 export function resolveBranchIdentity(input: {
   readonly branchName?: string;

@@ -1,4 +1,5 @@
-import { mkdir, readdir, realpath, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, readdir, readFile, realpath, stat, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { execa } from "execa";
@@ -8,6 +9,7 @@ import {
   VERIFY_CLI_EXIT_CODE,
   verifyAppendScopeCommand,
   type VerifyCliDeps,
+  verifyPathsCommand,
   verifyStartCommand,
   type VerifyStartReport,
 } from "@/commands/verify/cli";
@@ -22,7 +24,7 @@ import {
 } from "@/domains/verify/verify";
 import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
 import { GIT_DIR_BASENAME, GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
-import { defaultStateStoreFileSystem } from "@/lib/state-store";
+import { defaultStateStoreFileSystem, STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import {
   buildGitTestEnvironment,
@@ -34,12 +36,13 @@ import {
   runGit,
 } from "@testing/harnesses/git-test-constants";
 import { createRecordingStreamSink, eventDataRecord } from "@testing/harnesses/verify/harness";
-import { withTempDir } from "@testing/harnesses/with-temp-dir";
+import { createTempDir, removeTempDir, withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const VERIFY_REPOSITORY_TEMP_PREFIX = "verify-repository-";
 const GIT_FAILURE_EXIT_CODE = 1;
 const BASE_COMMIT_MESSAGE = "Initialize verify repository fixture";
 const HEAD_COMMIT_MESSAGE = "Add the verified file";
+const GIT_TEST_WORKTREE_ADD = "add";
 
 /** The two commits a verify repository fixture holds: an empty base commit and a head commit adding one file. */
 export interface VerifyRepositoryCommits {
@@ -109,6 +112,65 @@ export interface StartedRepositoryRun {
   readonly runContextData: readonly Readonly<Record<string, unknown>>[];
 }
 
+/** The `describe.each` title format that names one verification type. */
+export const VERIFICATION_TYPE_CASE_TITLE = "verification type %s";
+
+/** The kinds of entry a repository state snapshot records. */
+export const REPOSITORY_STATE_ENTRY_KIND = {
+  FILE: "file",
+  DIRECTORY: "directory",
+} as const;
+
+export type RepositoryStateEntryKind = (typeof REPOSITORY_STATE_ENTRY_KIND)[keyof typeof REPOSITORY_STATE_ENTRY_KIND];
+
+/**
+ * One file or directory of a repository's checkout, at its canonical path with every symbolic link
+ * resolved: its kind, its modification time, and, for a file, the digest of its content.
+ */
+export interface RepositoryStateEntry {
+  readonly path: string;
+  readonly kind: RepositoryStateEntryKind;
+  readonly mtimeMs: number;
+  readonly digest: string | undefined;
+}
+
+/**
+ * Observe every file and directory of the checkout at `productDir`, the root included and the Git
+ * directory excluded, following symbolic links so an entry below a link appears at its resolved path.
+ * Entries are ordered by path.
+ */
+async function snapshotRepositoryState(productDir: string): Promise<readonly RepositoryStateEntry[]> {
+  const root = await stat(productDir);
+  const entries: RepositoryStateEntry[] = [
+    { path: productDir, kind: REPOSITORY_STATE_ENTRY_KIND.DIRECTORY, mtimeMs: root.mtimeMs, digest: undefined },
+  ];
+  const visit = async (directory: string): Promise<void> => {
+    for (const name of await readdir(directory)) {
+      if (directory === productDir && name === GIT_DIR_BASENAME) continue;
+      const canonical = await realpath(join(directory, name));
+      const stats = await stat(canonical);
+      if (stats.isDirectory()) {
+        entries.push({
+          path: canonical,
+          kind: REPOSITORY_STATE_ENTRY_KIND.DIRECTORY,
+          mtimeMs: stats.mtimeMs,
+          digest: undefined,
+        });
+        await visit(canonical);
+      } else {
+        entries.push({
+          path: canonical,
+          kind: REPOSITORY_STATE_ENTRY_KIND.FILE,
+          mtimeMs: stats.mtimeMs,
+          digest: createHash("sha256").update(await readFile(canonical)).digest("hex"),
+        });
+      }
+    }
+  };
+  await visit(productDir);
+  return entries.sort((left, right) => left.path.localeCompare(right.path));
+}
+
 /** What one `scope add` produced: the command result and the payload of every scope event the run's journal then holds. */
 export interface AppendedRepositoryScope {
   readonly appended: CliCommandResult;
@@ -134,6 +196,77 @@ export interface VerifyHeadCommitRepository extends VerifyRepositoryCommits {
   appendScope(run: StartedRepositoryRun, payload: JsonValue): Promise<AppendedRepositoryScope>;
   /** Write a file at the product-relative `path` into the checkout without adding it to any commit. */
   writeCheckoutFile(path: string): Promise<void>;
+  /**
+   * Ask the production write-path report for the directories a run of `scopeType` and
+   * `verificationType` writes, of a drawn verification type when none is given.
+   */
+  reportWritePaths(scopeType: string, verificationType?: string): Promise<CliCommandResult>;
+  /** Observe every file and directory of the checkout, the Git directory excluded, at canonical paths. */
+  snapshotState(): Promise<readonly RepositoryStateEntry[]>;
+  /**
+   * Replace the checkout's state store location with a symbolic link to an empty directory outside
+   * the checkout, and return that directory's canonical path.
+   */
+  linkStateStore(): Promise<string>;
+  /**
+   * Add a linked Git worktree of this repository, outside the checkout and detached at the base
+   * commit, and bind the production `start` and write-path report operations to run from it.
+   */
+  linkWorktree(): Promise<VerifyLinkedWorktree>;
+}
+
+/**
+ * A linked Git worktree of a verify repository: `worktreeDir` is its canonical root, which differs
+ * from the repository's checkout directory. `startRun` and `reportWritePaths` invoke the production
+ * operations with the worktree as the working directory.
+ */
+export interface VerifyLinkedWorktree {
+  readonly worktreeDir: string;
+  startRun(scopeType: string, verificationType?: string): Promise<StartedRepositoryRun>;
+  reportWritePaths(scopeType: string, verificationType?: string): Promise<CliCommandResult>;
+}
+
+/** The operations that report a selector's write paths and start a run of it. */
+export type WritePathRunner = Omit<VerifyLinkedWorktree, "worktreeDir">;
+
+/**
+ * What one write-path report followed by one started run observed: the report command result, the
+ * started run, the checkout's paths before and after the run, and the directories of the files the
+ * run then created.
+ */
+export interface ObservedWritePathRun {
+  readonly reported: CliCommandResult;
+  readonly run: StartedRepositoryRun;
+  readonly before: ReadonlySet<string>;
+  readonly after: ReadonlySet<string>;
+  readonly writtenDirectories: readonly string[];
+}
+
+/**
+ * Ask `runner` for the write-path report of `scopeType` and `verificationType`, then start a run of
+ * the same selector through `runner` and observe the checkout's state around the run. `runner` is the
+ * repository or one of its linked worktrees; the observations are returned without any verdict.
+ */
+export async function observeWritePathRun(
+  repository: VerifyHeadCommitRepository,
+  runner: WritePathRunner,
+  scopeType: string,
+  verificationType: string,
+): Promise<ObservedWritePathRun> {
+  const reported = await runner.reportWritePaths(scopeType, verificationType);
+  const beforeEntries = await repository.snapshotState();
+  const run = await runner.startRun(scopeType, verificationType);
+  const afterEntries = await repository.snapshotState();
+  const before = new Set(beforeEntries.map((entry) => entry.path));
+  return {
+    reported,
+    run,
+    before,
+    after: new Set(afterEntries.map((entry) => entry.path)),
+    writtenDirectories: afterEntries
+      .filter((entry) => entry.kind === REPOSITORY_STATE_ENTRY_KIND.FILE && !before.has(entry.path))
+      .map((entry) => dirname(entry.path)),
+  };
 }
 
 /**
@@ -145,14 +278,15 @@ export interface VerifyHeadCommitRepository extends VerifyRepositoryCommits {
 interface VerifyRunStarter {
   startRun(scopeType: string, scope: string, verificationType?: string): Promise<StartedRepositoryRun>;
   appendScope(run: StartedRepositoryRun, payload: JsonValue): Promise<AppendedRepositoryScope>;
+  reportWritePaths(scopeType: string, scope: string, verificationType?: string): Promise<CliCommandResult>;
 }
 
-function createVerifyRunStarter(productDir: string, git: GitDependencies): VerifyRunStarter {
+function createVerifyRunStarter(cwd: string, git: GitDependencies): VerifyRunStarter {
   const inputContent = JSON.stringify(sampleVerifyTestValue(VERIFY_TEST_GENERATOR.inputPayload()));
   const drawnVerificationType = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.verificationType());
   const idempotencyKey = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
   const deps: VerifyCliDeps = {
-    cwd: productDir,
+    cwd,
     git,
     processEnv: {},
     fs: defaultStateStoreFileSystem,
@@ -168,6 +302,8 @@ function createVerifyRunStarter(productDir: string, git: GitDependencies): Verif
     return JSON.parse(read.output) as readonly JournalEvent[];
   };
   return {
+    reportWritePaths: async (scopeType, scope, verificationType = drawnVerificationType) =>
+      verifyPathsCommand({ verificationType, scopeType, scope }, deps),
     appendScope: async (run, payload) => {
       if (run.runToken === undefined) {
         throw new Error(`verify repository harness: scope add needs a started run: ${run.started.output}`);
@@ -230,25 +366,64 @@ export async function withVerifyHeadCommitRepository<T>(
       layout.headBranch,
       commits.headCommit,
     ]);
-    const { appendScope, startRun } = createVerifyRunStarter(productDir, realVerifyGitDependencies());
+    const { appendScope, reportWritePaths, startRun } = createVerifyRunStarter(productDir, realVerifyGitDependencies());
     const scopeFor = (scopeType: string): string =>
       scopeType === VERIFY_SCOPE_TYPE.CHANGESET
         ? `${commits.baseCommit}${VERIFY_SCOPE_SEPARATOR}${layout.headBranch}`
         : layout.filePath;
+    const linkedStoreDirectories: string[] = [];
+    const linkedWorktreeDirectories: string[] = [];
 
-    return callback({
-      productDir,
-      filePath: layout.filePath,
-      headBranch: layout.headBranch,
-      ...commits,
-      startRun: async (scopeType, verificationType) => startRun(scopeType, scopeFor(scopeType), verificationType),
-      appendScope,
-      writeCheckoutFile: async (path) => {
-        const absoluteFile = join(productDir, path);
-        await mkdir(dirname(absoluteFile), { recursive: true });
-        await writeFile(absoluteFile, path);
-      },
-    });
+    try {
+      return await callback({
+        productDir,
+        filePath: layout.filePath,
+        headBranch: layout.headBranch,
+        ...commits,
+        startRun: async (scopeType, verificationType) => startRun(scopeType, scopeFor(scopeType), verificationType),
+        appendScope,
+        writeCheckoutFile: async (path) => {
+          const absoluteFile = join(productDir, path);
+          await mkdir(dirname(absoluteFile), { recursive: true });
+          await writeFile(absoluteFile, path);
+        },
+        reportWritePaths: async (scopeType, verificationType) =>
+          reportWritePaths(scopeType, scopeFor(scopeType), verificationType),
+        snapshotState: async () => snapshotRepositoryState(productDir),
+        linkStateStore: async () => {
+          const createdDirectory = await createTempDir(VERIFY_REPOSITORY_TEMP_PREFIX);
+          linkedStoreDirectories.push(createdDirectory);
+          const storeDirectory = await realpath(createdDirectory);
+          await symlink(storeDirectory, join(productDir, STATE_STORE_SCOPE_PATH.SPX_DIR));
+          return storeDirectory;
+        },
+        linkWorktree: async () => {
+          const createdDirectory = await createTempDir(VERIFY_REPOSITORY_TEMP_PREFIX);
+          linkedWorktreeDirectories.push(createdDirectory);
+          const worktreeDir = await realpath(createdDirectory);
+          await runGit(productDir, [
+            GIT_TEST_SUBCOMMANDS.WORKTREE,
+            GIT_TEST_WORKTREE_ADD,
+            GIT_TEST_FLAGS.DETACH,
+            worktreeDir,
+            commits.baseCommit,
+          ]);
+          const linked = createVerifyRunStarter(worktreeDir, realVerifyGitDependencies());
+          return {
+            worktreeDir,
+            startRun: async (scopeType, verificationType) =>
+              linked.startRun(scopeType, scopeFor(scopeType), verificationType),
+            reportWritePaths: async (scopeType, verificationType) =>
+              linked.reportWritePaths(scopeType, scopeFor(scopeType), verificationType),
+          };
+        },
+      });
+    } finally {
+      await Promise.all(
+        linkedWorktreeDirectories.map(async (directory) => removeTempDir(directory).catch(() => {})),
+      );
+      await Promise.all(linkedStoreDirectories.map(async (directory) => removeTempDir(directory).catch(() => {})));
+    }
   });
 }
 

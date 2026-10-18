@@ -28,6 +28,8 @@ import {
   verifyFinishCommand,
   type VerifyInputCliOptions,
   verifyInputCommand,
+  type VerifyPathsCliOptions,
+  verifyPathsCommand,
   type VerifyRenderCliOptions,
   verifyRenderCommand,
   type VerifyStartCliOptions,
@@ -77,6 +79,8 @@ export const VERIFY_CLI = {
   addCommandName: VERIFICATION_RUN_CLI_SURFACE.addCommandName,
   commandName: VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
   description: "Record and replay a typed verification run",
+  pathsCommandName: VERIFY_VERB.PATHS,
+  pathsCommandDescription: "Report, without writing, the directories a run of one verification type and scope writes",
   startCommandName: VERIFY_VERB.START,
   startCommandDescription: "Start a changeset- or file-scoped verification run and report its run locator",
   inputCommandName: VERIFY_VERB.INPUT,
@@ -167,6 +171,7 @@ export interface VerifyCliHandlers {
   readonly finish: (options: VerifyFinishCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
   readonly input: (options: VerifyInputCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
   readonly list: (options: VerifyChangeRunsCliOptions, deps: VerifyChangeRunsDeps) => Promise<CliCommandResult>;
+  readonly paths: (options: VerifyPathsCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
   readonly render: (options: VerifyRenderCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
   readonly start: (options: VerifyStartCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
   readonly status: (options: VerifyStatusCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
@@ -180,6 +185,7 @@ const DEFAULT_VERIFY_CLI_HANDLERS: VerifyCliHandlers = {
   finish: verifyFinishCommand,
   input: verifyInputCommand,
   list: verifyChangeRunsCommand,
+  paths: verifyPathsCommand,
   render: verifyRenderCommand,
   start: verifyStartCommand,
   status: verifyStatusCommand,
@@ -225,6 +231,18 @@ export function registerVerifyCommands(
   const runCommand = command
     .command(VERIFY_CLI.runCommandName)
     .description("Manage a typed verification run lifecycle");
+
+  // The report writes nothing: the handler reads only the invocation directory from the shared deps
+  // and never touches the journal binding or the source readers.
+  runCommand
+    .command(VERIFY_CLI.pathsCommandName)
+    .description(VERIFY_CLI.pathsCommandDescription)
+    .requiredOption(VERIFY_CLI.verificationTypeOption, "Verification type of the run")
+    .requiredOption(VERIFY_CLI.scopeTypeOption, VERIFY_CLI.scopeTypeOptionDescription)
+    .requiredOption(VERIFY_CLI.scopeOption, VERIFY_CLI.scopeOptionDescription)
+    .action(async (options: VerifySharedCliOptions) => {
+      reportCliResult(await handlers.paths(options, deps()), invocation.io);
+    });
 
   runCommand
     .command(VERIFY_CLI.startCommandName)

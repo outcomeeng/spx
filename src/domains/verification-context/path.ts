@@ -23,14 +23,20 @@ export function verificationContextFileName(digest: string): string {
   return `${VERIFICATION_CONTEXT_STATE_PATH.FILE_PREFIX}${digest}${VERIFICATION_CONTEXT_STATE_PATH.JSON_EXTENSION}`;
 }
 
-export function verificationContextFilePath(scope: VerificationContextPathScope): Result<string> {
+export function verificationContextDir(
+  scope: Omit<VerificationContextPathScope, "digest">,
+): Result<string> {
   const branchScope = branchScopeDir(scope.productDir, scope.branchSlug);
   if (!branchScope.ok) return branchScope;
-  const contextsDir = composeScopeDir(
+  return composeScopeDir(
     branchScope.value,
     VERIFICATION_CONTEXT_STATE_DOMAIN,
     VERIFICATION_CONTEXT_STATE_PATH.CONTEXTS_DIR,
   );
+}
+
+export function verificationContextFilePath(scope: VerificationContextPathScope): Result<string> {
+  const contextsDir = verificationContextDir(scope);
   if (!contextsDir.ok) return contextsDir;
   const digest = validateScopeToken(scope.digest);
   if (!digest.ok) return digest;
