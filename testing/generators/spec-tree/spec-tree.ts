@@ -364,6 +364,20 @@ export function singleSegmentOrder(index: number): readonly number[] {
   return [index];
 }
 
+/** A single-node source entry whose id is composed from the grammar's order separator, slug, and kind suffix. */
+export function sampleSingleNodeSourceEntry(registry: SpecTreeRegistry): SpecTreeNodeSourceEntry {
+  const kind = sampleNodeKind(registry);
+  const order: number = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder());
+  const slug: string = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+  return {
+    type: SPEC_TREE_ENTRY_TYPE.NODE,
+    id: `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${registry[kind].suffix}`,
+    kind,
+    orderSegments: singleSegmentOrder(order),
+    slug,
+  };
+}
+
 export function orderedDirectoryName(suffix: string, drawIndex = 0): string {
   const order: number = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), drawIndex);
   const slug: string = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), drawIndex);

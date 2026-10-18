@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
+import { runTestsCommand } from "@/commands/test";
 import type { GitDependencies } from "@/lib/git/root";
 import {
   classifyNodeStatus,
@@ -205,4 +206,11 @@ export function createRecordingGitRoot(productDir: string): {
     },
     calls: () => calls,
   };
+}
+
+type RecordingRunnerDeps = ReturnType<NonNullable<Parameters<typeof runTestsCommand>[1]["runnerDepsFor"]>>;
+
+/** Records one full testing run of `productDir` through the injected `runner`, as the `--update` path reads it back. */
+export async function recordTestingRun(productDir: string, runner: RecordingRunnerDeps): Promise<void> {
+  await runTestsCommand({ productDir, passing: false }, { registry: testingRegistry, runnerDepsFor: () => runner });
 }

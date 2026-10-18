@@ -3,10 +3,8 @@ import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { statusCommand } from "@/commands/spec/status";
-import { runTestsCommand } from "@/commands/test";
 import { NODE_STATUS_EVIDENCE_OUTCOME } from "@/lib/node-status";
 import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
-import { testingRegistry } from "@/test/registry";
 import { TEST_PATH_VERDICT, testingRunsDir } from "@/test/run-state";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
@@ -17,6 +15,7 @@ import {
   readRecordedStatusFile,
   readRecordedStatusState,
   recordedEvidenceResolverFor,
+  recordTestingRun,
   uniformOutcomeResolverFor,
 } from "@testing/harnesses/spec-tree/spec-cli-commands";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
@@ -46,10 +45,7 @@ describe("spx spec status --update recorded-evidence mapping", () => {
       const rootTestFile = await addNodeTestFile(env, rootPath);
       const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
 
-      await runTestsCommand(
-        { productDir: env.productDir, passing: false },
-        { registry: testingRegistry, runnerDepsFor: () => runner },
-      );
+      await recordTestingRun(env.productDir, runner);
       const callCount = runner.calls.length;
 
       await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordedEvidenceResolverFor });
@@ -72,10 +68,7 @@ describe("spx spec status --update recorded-evidence mapping", () => {
         exitCode: sampleDispatchValue(TEST_DISPATCH_GENERATOR.nonZeroExitCode()),
       });
 
-      await runTestsCommand(
-        { productDir: env.productDir, passing: false },
-        { registry: testingRegistry, runnerDepsFor: () => runner },
-      );
+      await recordTestingRun(env.productDir, runner);
       const callCount = runner.calls.length;
 
       await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordedEvidenceResolverFor });
@@ -102,10 +95,7 @@ describe("spx spec status --update recorded-evidence mapping", () => {
       // ... while the recorded run that covers the reference passed, and the
       // test file then changes, so that run's evidence is stale.
       const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
-      await runTestsCommand(
-        { productDir: env.productDir, passing: false },
-        { registry: testingRegistry, runnerDepsFor: () => runner },
-      );
+      await recordTestingRun(env.productDir, runner);
       await changeNodeEvidenceContent(env, rootTestFile);
 
       await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordedEvidenceResolverFor });
@@ -123,10 +113,7 @@ describe("spx spec status --update recorded-evidence mapping", () => {
       const coveredTestFile = await addNodeTestFile(env, rootPath);
       const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
 
-      await runTestsCommand(
-        { productDir: env.productDir, passing: false },
-        { registry: testingRegistry, runnerDepsFor: () => runner },
-      );
+      await recordTestingRun(env.productDir, runner);
       const uncoveredTestFile = await addNodeTestFile(env, rootPath, 1);
 
       await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordedEvidenceResolverFor });
@@ -153,10 +140,7 @@ describe("spx spec status --update recorded-evidence mapping", () => {
         ]),
       });
 
-      await runTestsCommand(
-        { productDir: env.productDir, passing: false },
-        { registry: testingRegistry, runnerDepsFor: () => runner },
-      );
+      await recordTestingRun(env.productDir, runner);
 
       await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordedEvidenceResolverFor });
 
@@ -179,10 +163,7 @@ describe("spx spec status --update recorded-evidence mapping", () => {
         reportedStatuses: new Map([[passingTestFile, TEST_PATH_VERDICT.PASSED]]),
       });
 
-      await runTestsCommand(
-        { productDir: env.productDir, passing: false },
-        { registry: testingRegistry, runnerDepsFor: () => runner },
-      );
+      await recordTestingRun(env.productDir, runner);
 
       await statusCommand({ cwd: env.productDir, update: true, resolveOutcomeFor: recordedEvidenceResolverFor });
 
