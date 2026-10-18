@@ -24,6 +24,28 @@ export type VariantParentCase = {
   readonly parentKind: SpecTreeNodeKind;
 };
 
+export type KindOpeningCase = {
+  readonly label: string;
+  readonly kind: SpecTreeNodeKind;
+  readonly expectedOpening: string;
+};
+
+/** The opening keyword each non-variant node kind carries, as the methodology states it; a variant takes its parent's. */
+const KIND_OPENING_STATEMENT: readonly KindOpeningCase[] = [
+  { kind: "substrate", expectedOpening: "SUPPLIES" },
+  { kind: "capability", expectedOpening: "PROVIDES" },
+  { kind: "domain", expectedOpening: "OWNS" },
+  { kind: "interface", expectedOpening: "ADAPTS" },
+  { kind: "surface", expectedOpening: "EXPOSES" },
+  { kind: "enabler", expectedOpening: "PROVIDES" },
+  { kind: "outcome", expectedOpening: "WE BELIEVE THAT" },
+].map(({ kind, expectedOpening }) => ({ label: kind, kind: kind as SpecTreeNodeKind, expectedOpening }));
+
+/** One case per non-variant node kind of either grammar, pairing it with the opening keyword the methodology states for it. */
+export function kindOpeningCases(): readonly KindOpeningCase[] {
+  return KIND_OPENING_STATEMENT;
+}
+
 export type KindAdmittedChildrenCase = {
   readonly label: string;
   readonly kind: SpecTreeContainerKind;
@@ -51,7 +73,7 @@ export function variantParentCases(): readonly VariantParentCase[] {
   }));
 }
 
-/** One case per 4.0 output kind, the product, and the variant under each output kind it can sit under. */
+/** One case per 4.0 output kind, the 3.x enabler and outcome, the product, and the variant under each output kind it can sit under. */
 export function kindAdmittedChildrenCases(): readonly KindAdmittedChildrenCase[] {
   const productCase: KindAdmittedChildrenCase = {
     label: SPEC_TREE_CONFIG.PRODUCT.KIND,
@@ -69,5 +91,9 @@ export function kindAdmittedChildrenCases(): readonly KindAdmittedChildrenCase[]
     parentKind,
     expectedChildren: foundationChildrenOf(parentKind).filter((child) => child !== VARIANT_KIND),
   }));
-  return [...outputCases, ...variantCases, productCase];
+  const priorGrammarCases: readonly KindAdmittedChildrenCase[] = [
+    { label: "enabler", kind: "enabler", expectedChildren: ["enabler"] },
+    { label: "outcome", kind: "outcome", expectedChildren: ["enabler", "outcome"] },
+  ];
+  return [...outputCases, ...variantCases, ...priorGrammarCases, productCase];
 }
