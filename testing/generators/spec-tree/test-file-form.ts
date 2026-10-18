@@ -6,8 +6,10 @@
  * verdicts are generator-owned: each verdict is a reference reading of the spec's statement of the
  * form — `{core}.test.{ext}`, `test_{core}.{ext}`, or `{core}_test.{ext}`, where `{core}` is
  * `{subject}.{evidence}.{level}` with an optional trailing `.{runner}`, `{subject}` and `{runner}`
- * are slugs, and `{ext}` is a word — never the library's recognizer. The evidence modes and
- * execution levels are the grammar registry's.
+ * are slugs, and `{ext}` is a word — never the library's recognizer. The evidence modes are
+ * `scenario`, `mapping`, `conformance`, `property`, and `compliance`, and the execution levels are
+ * `l1`, `l2`, and `l3`, as the spec states them; the verdict and the name domains take them from the
+ * literal sets declared here, never from the grammar registry the recognizer reads.
  *
  * @module generators/spec-tree/test-file-form
  */
@@ -26,6 +28,8 @@ const WORD_SEPARATOR = "-";
 const WORD_PATTERN = /^[a-z][a-z0-9]*$/;
 const WORD_SHAPE = /^[a-z][a-z0-9]{0,5}$/;
 const SLUG_WORD_MAX_COUNT = 3;
+const EVIDENCE_MODES = ["scenario", "mapping", "conformance", "property", "compliance"] as const;
+const EXECUTION_LEVELS = ["l1", "l2", "l3"] as const;
 const CORE_BASE_SEGMENT_COUNT = 3;
 const CORE_RUNNER_SEGMENT_COUNT = 4;
 const FREE_FORM_ALPHABET = [..."ab01.-_ABtest"];
@@ -56,8 +60,8 @@ function isCore(core: string): boolean {
   const [subject = "", mode = "", level = "", runner = ""] = segments;
   return (segments.length === CORE_BASE_SEGMENT_COUNT || segments.length === CORE_RUNNER_SEGMENT_COUNT)
     && isSlug(subject)
-    && SPEC_TREE_GRAMMAR.EVIDENCE.MODES.some((candidate) => candidate === mode)
-    && SPEC_TREE_GRAMMAR.EVIDENCE.LEVELS.some((candidate) => candidate === level)
+    && (EVIDENCE_MODES as readonly string[]).includes(mode)
+    && (EXECUTION_LEVELS as readonly string[]).includes(level)
     && (segments.length === CORE_BASE_SEGMENT_COUNT || isSlug(runner));
 }
 
@@ -102,11 +106,11 @@ function arbitrarySlug(): fc.Arbitrary<string> {
 }
 
 function arbitraryMode(): fc.Arbitrary<string> {
-  return fc.constantFrom(...SPEC_TREE_GRAMMAR.EVIDENCE.MODES);
+  return fc.constantFrom(...EVIDENCE_MODES);
 }
 
 function arbitraryLevel(): fc.Arbitrary<string> {
-  return fc.constantFrom(...SPEC_TREE_GRAMMAR.EVIDENCE.LEVELS);
+  return fc.constantFrom(...EXECUTION_LEVELS);
 }
 
 type NameShape = (core: string, extension: string) => string;
