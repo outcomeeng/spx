@@ -11,12 +11,14 @@ import * as fc from "fast-check";
 
 import { METHODOLOGY_VERSION_FORM } from "@/config/methodology";
 import {
+  OUTPUT_KINDS,
   SPEC_TREE_CONFIG,
   SPEC_TREE_FRONT_MATTER_FENCE,
   SPEC_TREE_FRONT_MATTER_KIND_KEY,
   SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_METHODOLOGY_LINE,
   type SpecTreeMethodologyLine,
+  type SpecTreeRegistry,
 } from "@/lib/spec-tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
@@ -24,13 +26,18 @@ import {
   orderedDirectoryRecord,
   type SelectedVersionScenario,
 } from "@testing/generators/spec-tree/naming-schema-version";
-import { SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
+import { type RepresentativeSpecTreeFixture, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import {
   GRAMMAR_SELECTION_DECLARATION_FIELD,
   GRAMMAR_SELECTION_FIXTURE,
   type GrammarSelectionDeclaration,
   type GrammarSelectionFixture,
 } from "@testing/harnesses/spec-tree/grammar-selection";
+
+/** A representative fixture whose nodes all carry an output node kind, a suffix only the 4.0 grammar accepts. */
+export function arbitraryOutputKindFixture(registry: SpecTreeRegistry): fc.Arbitrary<RepresentativeSpecTreeFixture> {
+  return SPEC_TREE_TEST_GENERATOR.representativeFixture(registry, fc.constantFrom(...OUTPUT_KINDS));
+}
 
 const GRAMMAR_SELECTION_LINES: readonly string[] = Object.values(SPEC_TREE_METHODOLOGY_LINE);
 
