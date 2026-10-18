@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
+import { OUTPUT_FORMAT, statusCommand } from "@/commands/spec/status";
 import type { GitDependencies } from "@/lib/git/root";
 import {
   classifyNodeStatus,
@@ -19,6 +20,7 @@ import {
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { testingRegistry } from "@/test/registry";
 import { defaultTestRunStateFileSystem, type TestRunStateFileSystem } from "@/test/run-state";
+import { createClaimedTestStatus } from "@testing/generators/node-status/node-status";
 import {
   type RepresentativeSpecTreeFixture,
   sampleSpecTreeTestValue,
@@ -198,4 +200,66 @@ export function createRecordingGitRoot(productDir: string): {
     },
     calls: () => calls,
   };
+}
+
+/** A result as the `spx spec status --json` document carries it; every field is read as the document spells it. */
+export interface ReportedStatusResult {
+  readonly section: string;
+  readonly key: string;
+  readonly verdict: string;
+  readonly commit?: string;
+  readonly read?: readonly string[];
+  readonly actor?: { readonly kind: string; readonly id: string };
+  readonly run?: string;
+  readonly currency: string;
+}
+
+/** A node as the `spx spec status --json` document carries it, with the claim it reports when it has one. */
+export interface ReportedStatusNode {
+  readonly id: string;
+  readonly state: string;
+  readonly children: readonly ReportedStatusNode[];
+  readonly claim?: {
+    readonly shape: string;
+    readonly state: string;
+    readonly results: readonly ReportedStatusResult[];
+  };
+}
+
+/**
+ * Runs `spx spec status --json` through the production status command against `productDir` and returns the
+ * document's entry for `nodeId`, or `undefined` when the document holds none.
+ */
+export async function readStatusJsonNode(
+  productDir: string,
+  nodeId: string,
+  gitDependencies: GitDependencies,
+): Promise<ReportedStatusNode | undefined> {
+  const output = await statusCommand({ cwd: productDir, format: OUTPUT_FORMAT.JSON, gitDependencies });
+  const document = JSON.parse(output) as { readonly nodes: readonly ReportedStatusNode[] };
+  const search = (nodes: readonly ReportedStatusNode[]): ReportedStatusNode | undefined => {
+    for (const node of nodes) {
+      if (node.id === nodeId) return node;
+      const found = search(node.children);
+      if (found !== undefined) return found;
+    }
+    return undefined;
+  };
+  return search(document.nodes);
+}
+
+/**
+ * Writes a version-1 claim into the node directory `nodeDirectory` (product-relative), recording `evidencePath`
+ * at `verdict`.
+ */
+export async function writeVersionOneClaim(
+  env: Pick<CurrentSpecTreeEnv, "writeRaw">,
+  nodeDirectory: string,
+  evidencePath: string,
+  verdict: NodeStatusEvidenceOutcome,
+): Promise<void> {
+  await env.writeRaw(
+    [nodeDirectory, NODE_STATUS_FILENAME].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+    serializeNodeStatus(createClaimedTestStatus([evidencePath], verdict)),
+  );
 }
