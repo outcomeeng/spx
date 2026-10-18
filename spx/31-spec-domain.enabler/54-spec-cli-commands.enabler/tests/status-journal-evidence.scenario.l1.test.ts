@@ -4,7 +4,7 @@ import { runTestsCommand } from "@/commands/test";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { NODE_STATUS_EVIDENCE_OUTCOME } from "@/lib/node-status";
 import { testingRegistry } from "@/test/registry";
-import { withJournaledNode } from "@testing/harnesses/testing/status-journal";
+import { otherBranchSlug, withJournaledNode } from "@testing/harnesses/testing/status-journal";
 import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
 
 describe("a sealed test run journal supplies the verdict of each linked reference", () => {
@@ -88,6 +88,38 @@ describe("a sealed test run journal supplies the verdict of each linked referenc
 
       expect(outcomes[covered]).toBe(NODE_STATUS_EVIDENCE_OUTCOME.PASSED);
       expect(outcomes[uncovered]).toBe(NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN);
+    });
+  });
+
+  it("resolves a reference as not-run when only a module whose path shares its trailing segments is covered", async () => {
+    await withJournaledNode(async ({ repository, resolvers, moduleIdOf, record }) => {
+      const [covered] = repository.testPaths;
+      await record({
+        headCommit: repository.commit,
+        scopes: [{ moduleId: moduleIdOf(`other-module/${covered}`) }],
+        findings: [],
+        terminalStatus: JOURNAL_RUN_STATE_STATUS.PASSED,
+      });
+
+      const outcomes = await resolvers.resolveOutcome(repository.nodeId, [covered]);
+
+      expect(outcomes[covered]).toBe(NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN);
+    });
+  });
+
+  it("resolves a reference as not-run when only a sealed run of another branch covers it", async () => {
+    await withJournaledNode(async ({ repository, resolvers, moduleIdOf, record }) => {
+      const [covered] = repository.testPaths;
+      await record({
+        headCommit: repository.commit,
+        scopes: [{ moduleId: moduleIdOf(covered) }],
+        findings: [],
+        terminalStatus: JOURNAL_RUN_STATE_STATUS.PASSED,
+      }, otherBranchSlug());
+
+      const outcomes = await resolvers.resolveOutcome(repository.nodeId, [covered]);
+
+      expect(outcomes[covered]).toBe(NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN);
     });
   });
 

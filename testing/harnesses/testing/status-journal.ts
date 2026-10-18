@@ -22,6 +22,9 @@ import {
   VERIFY_DRIVE_MODE,
   VERIFY_VERIFICATION_TYPE,
 } from "@/domains/verify/verify";
+import { getCurrentBranch, getHeadSha } from "@/lib/git/root";
+import { resolveBranchIdentity, slugBranchIdentity } from "@/lib/state-store";
+import { SPX_VERIFY_HEAD_SHA } from "@/lib/verification-env";
 import {
   createVitestRunStarter,
   productVitestNodeApiLoader,
@@ -62,11 +65,27 @@ export interface TestJournalRecord {
   readonly at: Date;
 }
 
+/** The scope slug a verification run records under for the branch checked out in `productDir`. */
+async function checkedOutBranchSlug(productDir: string): Promise<string> {
+  const branchName = await getCurrentBranch(productDir);
+  const headSha = (await getHeadSha(productDir)) ?? SPX_VERIFY_HEAD_SHA.MISSING;
+  return slugBranchIdentity(resolveBranchIdentity({ ...(branchName === null ? {} : { branchName }), headSha }));
+}
+
+/** A branch scope slug other than the one checked out in `productDir`. */
+export function otherBranchSlug(): string {
+  return sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.branchSlug());
+}
+
 /** Record `journal` as one sealed `test` run in the store of `productDir`. */
-export async function recordSealedTestJournal(productDir: string, journal: TestJournalRecord): Promise<void> {
-  const branchSlug = sampleStateStoreTestValue(STATE_STORE_TEST_GENERATOR.branchSlug());
+export async function recordSealedTestJournal(
+  productDir: string,
+  journal: TestJournalRecord,
+  branchSlug?: string,
+): Promise<void> {
+  const scopeSlug = branchSlug ?? await checkedOutBranchSlug(productDir);
   const opened = await openJournalRun(
-    { productDir, branchSlug, type: VERIFY_VERIFICATION_TYPE.TEST },
+    { productDir, branchSlug: scopeSlug, type: VERIFY_VERIFICATION_TYPE.TEST },
     { now: () => journal.at },
   );
   if (!opened.ok) throw new Error(opened.error);
@@ -163,8 +182,8 @@ export interface JournaledNode {
   moduleIdOf(testPath: string): string;
   /** A failing case in the module of `testPath`, its name and messages drawn from a generator. */
   failingCaseIn(testPath: string): TestFinding;
-  /** Record one sealed `test` run, later than every run recorded before it. */
-  record(journal: Omit<TestJournalRecord, "at">): Promise<void>;
+  /** Record one sealed `test` run, later than every run recorded before it, in `branchSlug` or the checked-out branch's scope. */
+  record(journal: Omit<TestJournalRecord, "at">, branchSlug?: string): Promise<void>;
 }
 
 /**
@@ -186,12 +205,12 @@ export function withJournaledNode(callback: (node: JournaledNode) => Promise<voi
         testName: sampleGeneratedValue(arbitraryDomainLiteral()),
         errors: [sampleGeneratedValue(arbitraryDomainLiteral())],
       }),
-      record: (journal) => {
+      record: (journal, branchSlug) => {
         recorded += 1;
         return recordSealedTestJournal(productDir, {
           ...journal,
           at: new Date(NODE_RECORD_CLOCK_ORIGIN_MS + recorded * NODE_RECORD_CLOCK_STEP_MS),
-        });
+        }, branchSlug);
       },
     });
   });

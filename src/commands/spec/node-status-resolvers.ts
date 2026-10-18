@@ -1,3 +1,5 @@
+import { isAbsolute, relative, sep } from "node:path";
+
 import { listJournalRuns, readJournalEvents } from "@/commands/journal/runtime";
 import { JOURNAL_RUN_SEALED_FILTER } from "@/domains/journal/run-scope";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
@@ -20,7 +22,13 @@ import {
   type VerifyVerificationType,
 } from "@/domains/verify/verify";
 import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
-import { defaultGitDependencies, detectGitCommonDirProductRoot, type GitDependencies } from "@/lib/git/root";
+import {
+  defaultGitDependencies,
+  detectGitCommonDirProductRoot,
+  getCurrentBranch,
+  getHeadSha,
+  type GitDependencies,
+} from "@/lib/git/root";
 import {
   createPinChangeReader,
   NODE_STATUS_EVIDENCE_OUTCOME,
@@ -36,7 +44,8 @@ import {
   readNodeSpecDeclaration,
 } from "@/lib/node-status";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
-import { type StateStoreFileSystem } from "@/lib/state-store";
+import { resolveBranchIdentity, slugBranchIdentity, type StateStoreFileSystem } from "@/lib/state-store";
+import { SPX_VERIFY_HEAD_SHA } from "@/lib/verification-env";
 import { type TestingLanguageDescriptor } from "@/test/languages/types";
 import { TEST_PATH_VERDICT, type TestPathVerdictValue } from "@/test/run-state";
 
@@ -107,7 +116,7 @@ export function createNodeStatusResolvers(deps: NodeStatusResolverDependencies):
     readonly JournaledModule[]
   > => (journaledModules ??= sealedRuns(VERIFY_VERIFICATION_TYPE.TEST).then(newestJournaledModules));
   const moduleOf = async (evidencePath: string): Promise<JournaledModule | undefined> =>
-    (await modules()).find((candidate) => moduleCovers(candidate.moduleId, evidencePath));
+    (await modules()).find((candidate) => moduleCovers(deps.productDir, candidate.moduleId, evidencePath));
   const lastRunOutcomes = createNodeOutcomeResolver(deps);
   const journals = (evidencePath: string): boolean =>
     owningLanguages(deps, evidencePath).some((language) => language.suppliesReadPaths);
@@ -180,9 +189,14 @@ function journalEvidence(
   };
 }
 
-/** Whether a journaled module identity names the product-relative evidence path. */
-function moduleCovers(moduleId: string, evidencePath: string): boolean {
-  return moduleId === evidencePath || moduleId.endsWith(`${PATH_SEPARATOR}${evidencePath}`);
+/**
+ * Whether a journaled module identity names the product-relative evidence path: the module's path relative to
+ * the checkout the tests ran in is the evidence path itself, so a path that merely shares a trailing segment
+ * sequence with the evidence path names another module.
+ */
+function moduleCovers(productDir: string, moduleId: string, evidencePath: string): boolean {
+  const identity = isAbsolute(moduleId) ? relative(productDir, moduleId).split(sep).join(PATH_SEPARATOR) : moduleId;
+  return identity === evidencePath;
 }
 
 /** Whether no judged path differs between the run's head commit and the checkout; a run with no head commit has no anchor. */
@@ -196,7 +210,7 @@ async function unchangedSince(
   return changed !== undefined && paths.every((path) => !changed.has(path));
 }
 
-/** Every sealed run of the type across the branch scopes of the Git common-dir store, newest first. */
+/** Every sealed run of the type in the current branch's scope of the Git common-dir store, newest first. */
 async function readSealedRuns(
   deps: NodeStatusResolverDependencies,
   git: GitDependencies,
@@ -204,8 +218,9 @@ async function readSealedRuns(
 ): Promise<readonly SealedRun[]> {
   const options = deps.journalFs === undefined ? {} : { fs: deps.journalFs };
   const { productDir } = await detectGitCommonDirProductRoot(deps.productDir, git);
+  const branchSlug = await currentBranchSlug(deps.productDir, git);
   const listed = await listJournalRuns(
-    { productDir, type, sealed: JOURNAL_RUN_SEALED_FILTER.SEALED, limit: Number.POSITIVE_INFINITY },
+    { productDir, branchSlug, type, sealed: JOURNAL_RUN_SEALED_FILTER.SEALED, limit: Number.POSITIVE_INFINITY },
     options,
   );
   if (!listed.ok) return [];
@@ -227,6 +242,13 @@ async function readSealedRuns(
     }
   }
   return runs;
+}
+
+/** The scope slug of the branch checked out in `cwd`, or of its detached head, as a verification run records it. */
+async function currentBranchSlug(cwd: string, git: GitDependencies): Promise<string> {
+  const branchName = await getCurrentBranch(cwd, git);
+  const headSha = (await getHeadSha(cwd, git)) ?? SPX_VERIFY_HEAD_SHA.MISSING;
+  return slugBranchIdentity(resolveBranchIdentity({ ...(branchName === null ? {} : { branchName }), headSha }));
 }
 
 /**
