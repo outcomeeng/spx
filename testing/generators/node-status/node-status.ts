@@ -188,6 +188,7 @@ export const NODE_STATUS_TEST_GENERATOR = {
   recordedRunSets: arbitraryRecordedRunSets,
   trackedPathInclusionCase: arbitraryTrackedPathInclusionCase,
   commitId: arbitraryCommitId,
+  claimComparison: arbitraryClaimComparison,
   productName: arbitraryNodeSlug,
   recordedVerdict: arbitraryRecordedVerdict,
 } as const;
@@ -382,6 +383,53 @@ export type VariantParentFixture = {
     readonly passes: boolean;
   }[];
 };
+
+/**
+ * The facts a committed claim set is built from for the committed-status comparison: distinct node ids, the test
+ * keys and the audit rule slug each node's claim holds, two distinct pin commits, the subject paths a pin reads
+ * and one further subject path outside that read set, and two distinct actors and runs.
+ */
+export type ClaimComparisonFixture = {
+  readonly nodeIds: readonly string[];
+  readonly testKeys: readonly string[];
+  readonly auditSlug: string;
+  /** Two distinct commits: the pin commit of the committed claims and a different one. */
+  readonly commits: readonly [string, string];
+  readonly readPaths: readonly string[];
+  /** A subject path no committed pin reads. */
+  readonly extraReadPath: string;
+  /** Two distinct actor ids and two distinct runs. */
+  readonly actorIds: readonly [string, string];
+  readonly runs: readonly [string, string];
+};
+
+function arbitraryClaimComparison(): fc.Arbitrary<ClaimComparisonFixture> {
+  const subjectPath = (name: string) =>
+    `${GENERATED_SUBJECT_DIRECTORY}${SPEC_TREE_PATH_SEPARATOR}${name}${GENERATED_SUBJECT_EXTENSION}`;
+  return fc
+    .record({
+      nodeIds: fc.uniqueArray(arbitraryNodeSlug(), {
+        minLength: 2,
+        maxLength: NODE_STATUS_GENERATOR_OPTIONS.MAX_NODES,
+      }),
+      testKeys: fc.uniqueArray(arbitraryNodeSlug(), { minLength: 2, maxLength: 3 }),
+      auditSlug: arbitraryNodeSlug(),
+      commits: fc.uniqueArray(arbitraryCommitId(), { minLength: 2, maxLength: 2 }),
+      subjects: fc.uniqueArray(arbitraryNodeSlug(), { minLength: 3, maxLength: NODE_STATUS_READABLE_SLUGS.length }),
+      actorIds: fc.uniqueArray(arbitraryNodeSlug(), { minLength: 2, maxLength: 2 }),
+      runs: fc.uniqueArray(arbitraryCommitId(), { minLength: 2, maxLength: 2 }),
+    })
+    .map(({ nodeIds, testKeys, auditSlug, commits, subjects, actorIds, runs }): ClaimComparisonFixture => ({
+      nodeIds,
+      testKeys: testKeys.map((key) => `${key}${GENERATED_SUBJECT_EXTENSION}`),
+      auditSlug,
+      commits: [commits[0] ?? "", commits[1] ?? ""],
+      readPaths: subjects.slice(0, -1).map(subjectPath),
+      extraReadPath: subjectPath(subjects[subjects.length - 1] ?? ""),
+      actorIds: [actorIds[0] ?? "", actorIds[1] ?? ""],
+      runs: [runs[0] ?? "", runs[1] ?? ""],
+    }));
+}
 
 function arbitraryPinnedNode(): fc.Arbitrary<PinnedNodeFixture> {
   return fc

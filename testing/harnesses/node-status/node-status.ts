@@ -29,7 +29,9 @@ import {
   type NodeAttributedResultResolver,
   type NodeOutcomeResolver,
   type NodeReadPathResolver,
+  type NodeStatusClaim,
   type NodeStatusClaimEntry,
+  type NodeStatusClaimSection,
   type NodeStatusClaimVerification,
   type NodeStatusEvidenceOutcome,
   type NodeStatusFile,
@@ -57,6 +59,7 @@ import { testingRegistry } from "@/test/registry";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import {
   ANCESTOR_DECISION_PLACEMENT,
+  type ClaimComparisonFixture,
   type ClassificationFixtureFacts,
   type ClassificationTreeFixture,
   createClaimedTestStatus,
@@ -1049,4 +1052,73 @@ export async function withVariantTree(
       },
     });
   });
+}
+
+/**
+ * The committed claim set of a comparison fixture: every node holds a passing 4.0 claim whose test entries and
+ * audit entry are passed and pinned to the fixture's first commit over its read paths, the audit entry carrying
+ * the fixture's first actor and run.
+ */
+export function committedClaimSet(fixture: ClaimComparisonFixture): ReadonlyMap<string, NodeStatusClaim> {
+  const [commit] = fixture.commits;
+  const passed = (): NodeStatusClaimEntry => ({
+    [NODE_STATUS_CLAIM_FIELD.VERDICT]: NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
+    [NODE_STATUS_CLAIM_FIELD.COMMIT]: commit,
+    [NODE_STATUS_CLAIM_FIELD.READ]: fixture.readPaths,
+  });
+  return new Map(
+    fixture.nodeIds.map((nodeId): [string, NodeStatusClaim] => [nodeId, {
+      [NODE_STATUS_CLAIM_FIELD.STATE]: SPEC_TREE_NODE_STATE.PASSING,
+      [NODE_STATUS_CLAIM_FIELD.MALLEABILITY]: NODE_STATUS_DEFAULT_MALLEABILITY,
+      [NODE_STATUS_CLAIM_FIELD.VERIFICATION]: {
+        [NODE_STATUS_CLAIM_SECTION.TEST]: Object.fromEntries(fixture.testKeys.map((key) => [key, passed()])),
+        [NODE_STATUS_CLAIM_SECTION.AUDIT]: {
+          [fixture.auditSlug]: {
+            ...passed(),
+            ...nodeStatusAttribution(fixture.actorIds[0], fixture.runs[0]),
+          },
+        },
+      },
+    }]),
+  );
+}
+
+/** A copy of `claims` in which the claim of `nodeId` records `state`. */
+export function withClaimState(
+  claims: ReadonlyMap<string, NodeStatusClaim>,
+  nodeId: string,
+  state: SpecTreeNodeState,
+): ReadonlyMap<string, NodeStatusClaim> {
+  return replaceClaim(claims, nodeId, (claim) => ({ ...claim, [NODE_STATUS_CLAIM_FIELD.STATE]: state }));
+}
+
+/** A copy of `claims` in which the entry of `nodeId` at `section` and `key` is replaced by `change` applied to it. */
+export function withClaimEntry(
+  claims: ReadonlyMap<string, NodeStatusClaim>,
+  location: { readonly nodeId: string; readonly section: NodeStatusClaimSection; readonly key: string },
+  change: (entry: NodeStatusClaimEntry) => NodeStatusClaimEntry,
+): ReadonlyMap<string, NodeStatusClaim> {
+  return replaceClaim(claims, location.nodeId, (claim) => {
+    const verification = claim[NODE_STATUS_CLAIM_FIELD.VERIFICATION];
+    const entries = verification[location.section] ?? {};
+    const entry = entries[location.key];
+    if (entry === undefined) throw new Error(`No ${location.section} entry ${location.key} in node ${location.nodeId}`);
+    return {
+      ...claim,
+      [NODE_STATUS_CLAIM_FIELD.VERIFICATION]: {
+        ...verification,
+        [location.section]: { ...entries, [location.key]: change(entry) },
+      },
+    };
+  });
+}
+
+function replaceClaim(
+  claims: ReadonlyMap<string, NodeStatusClaim>,
+  nodeId: string,
+  change: (claim: NodeStatusClaim) => NodeStatusClaim,
+): ReadonlyMap<string, NodeStatusClaim> {
+  const claim = claims.get(nodeId);
+  if (claim === undefined) throw new Error(`No claim for node ${nodeId}`);
+  return new Map([...claims, [nodeId, change(claim)]]);
 }
