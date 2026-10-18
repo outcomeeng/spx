@@ -13,7 +13,14 @@ import {
 } from "@/commands/spec/status";
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import { GIT_ROOT_COMMAND, GIT_SHOW_TOPLEVEL_ARGS } from "@/lib/git/root";
-import { NODE_STATUS_EVIDENCE_OUTCOME } from "@/lib/node-status";
+import {
+  NODE_STATUS_CLAIM_FIELD,
+  NODE_STATUS_CLAIM_SECTION,
+  NODE_STATUS_CLAIM_SHAPE,
+  NODE_STATUS_CURRENCY,
+  NODE_STATUS_EVIDENCE_OUTCOME,
+  NODE_STATUS_VERIFICATION_MECHANISM,
+} from "@/lib/node-status";
 import {
   KIND_REGISTRY,
   SPEC_TREE_CONFIG,
@@ -24,6 +31,8 @@ import {
 import { testingRunsDir } from "@/test/run-state";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import { NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   buildEvidenceEntry,
   createSource,
@@ -32,6 +41,8 @@ import {
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
 } from "@testing/generators/spec-tree/spec-tree";
+import { STATUS_REPORT_TEST_GENERATOR } from "@testing/generators/spec-tree/status-report";
+import { currentMethodologyConfig, withPinnedNodeRepository } from "@testing/harnesses/node-status/node-status";
 import {
   addNodeTestFile,
   commitPathsInGit,
@@ -39,9 +50,11 @@ import {
   fixtureNodePath,
   nodeEvidencePath,
   readRecordedStatusState,
+  readStatusJsonNode,
   trackPathsInGit,
   uniformOutcomeResolverFor,
   writePassingStatusClaim,
+  writeVersionOneClaim,
 } from "@testing/harnesses/spec-tree/spec-cli-commands";
 import { withSpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
@@ -280,6 +293,79 @@ describe("spx spec status --update command", () => {
       expect(updateOutput).toBe(plainOutput);
       expect(updateOutput).toContain(`${rootPath} [${SPEC_TREE_NODE_STATE.PASSING}]`);
       expect(await readRecordedStatusState(env, rootPath)).toBe(SPEC_TREE_NODE_STATE.PASSING);
+    });
+  });
+});
+
+describe("spx spec status --json", () => {
+  it("reports a committed 4.0 claim's shape and state, and per result its verdict, pin, actor, run, and pin currency", async () => {
+    const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
+    const recorded = sampleGeneratedValue(STATUS_REPORT_TEST_GENERATOR.recordedClaimFacts());
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
+      const edited = repository.subjectPaths[fixture.editedSubject] ?? "";
+      const untouched = repository.subjectPaths.find((_, index) => index !== fixture.editedSubject) ?? "";
+      const auditKey = repository.auditRuleSlugs[0] ?? "";
+      const testEntry = {
+        ...repository.passedEntry([repository.specPath, repository.testPaths[0] ?? "", untouched]),
+        [NODE_STATUS_CLAIM_FIELD.VERDICT]: recorded.testVerdict,
+      };
+      const auditEntry = {
+        ...repository.passedEntry([repository.specPath, edited]),
+        [NODE_STATUS_CLAIM_FIELD.VERDICT]: recorded.auditVerdict,
+        [NODE_STATUS_CLAIM_FIELD.ACTOR]: recorded.actor,
+        [NODE_STATUS_CLAIM_FIELD.RUN]: recorded.run,
+      };
+      await repository.writeClaim(
+        {
+          [NODE_STATUS_CLAIM_SECTION.TEST]: { [repository.testKeys[0] ?? ""]: testEntry },
+          [NODE_STATUS_CLAIM_SECTION.AUDIT]: { [auditKey]: auditEntry },
+        },
+        recorded.state,
+      );
+      await repository.commitAll();
+      // A change to one path in the audit result's read set leaves the test result's pin current.
+      await repository.editSubject(fixture.editedSubject);
+
+      const node = await readStatusJsonNode(repository.env.productDir, repository.nodeId, repository.git);
+
+      expect(node?.claim?.shape).toBe(NODE_STATUS_CLAIM_SHAPE.CURRENT);
+      expect(node?.claim?.state).toBe(recorded.state);
+      expect(node?.claim?.results).toHaveLength(2);
+      expect(node?.claim?.results).toContainEqual({
+        section: NODE_STATUS_CLAIM_SECTION.TEST,
+        key: repository.testKeys[0],
+        ...testEntry,
+        currency: NODE_STATUS_CURRENCY.CURRENT,
+      });
+      expect(node?.claim?.results).toContainEqual({
+        section: NODE_STATUS_CLAIM_SECTION.AUDIT,
+        key: auditKey,
+        ...auditEntry,
+        currency: NODE_STATUS_CURRENCY.NOT_CURRENT,
+      });
+    });
+  });
+
+  it("reports a committed version-1 claim's shape and state, and each result's verdict as unpinned", async () => {
+    const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
+    const verdict = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.recordedVerdict());
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
+      const reference = repository.testPaths[0] ?? "";
+      await writeVersionOneClaim(repository.env, repository.nodePath, reference, verdict);
+      await repository.commitAll();
+
+      const node = await readStatusJsonNode(repository.env.productDir, repository.nodeId, repository.git);
+
+      expect(node?.claim?.shape).toBe(NODE_STATUS_CLAIM_SHAPE.VERSION_1);
+      expect(node?.claim?.state).toBe(node?.state);
+      expect(node?.claim?.results).toEqual([
+        {
+          section: NODE_STATUS_VERIFICATION_MECHANISM.TEST,
+          key: reference,
+          [NODE_STATUS_CLAIM_FIELD.VERDICT]: verdict,
+          currency: NODE_STATUS_CURRENCY.UNPINNED,
+        },
+      ]);
     });
   });
 });

@@ -36,9 +36,11 @@ CAN run spec-tree tests with a single command, honor configured passing-scope ex
 
 - Each language provides its supported test runner adapter via a leaf enabler child registered per [`spx/19-language-registration.adr.md`](spx/19-language-registration.adr.md) and [`spx/41-test.enabler/11-test-runner-environments.pdr.md`](spx/41-test.enabler/11-test-runner-environments.pdr.md) ([test](tests/test.mapping.l1.test.ts))
 - Extension-based dispatch: test files route to the testing enabler whose registered extension pattern matches ([test](tests/test.mapping.l1.test.ts))
+- ALWAYS: each registered adapter declares whether it supplies read paths, and the status fold names no language ([test](tests/test.mapping.l1.test.ts))
 
 ### Properties
 
+- The testing registry exposes one language-neutral evidence contract that maps each recorded result to its evidence reference, its verdict and, when the adapter supplies them, the paths it read ([test](tests/evidence-contract.property.l1.test.ts))
 - Test discovery is deterministic: the same spec tree structure always produces the same set of test files grouped by runner ([test](tests/test.property.l1.test.ts))
 - Exit code aggregation: `spx test` exits non-zero if any dispatched runner exits non-zero, any selected test file matches no registered runner, any target operand resolves to no discovered test file, or every selected registered-language runner is gated out by language detection, zero otherwise ([test](tests/test.property.l1.test.ts))
 - Last-run state is evidence, not product truth: deleting the state never changes which tests are in passing scope, only whether fast status has cached observations available ([audit])
