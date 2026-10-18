@@ -19,9 +19,11 @@ import {
   readSpecTree,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
+  type SpecTreeMethodologyLine,
   type SpecTreeSnapshot,
 } from "@/lib/spec-tree";
-import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import type { RepresentativeSpecTreeFixture } from "@testing/generators/spec-tree/spec-tree";
+import { withSpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 export const GRAMMAR_SELECTION_FIXTURE = {
   FOUR_LINE: "four-line",
@@ -94,4 +96,22 @@ export async function withGrammarSelectionEnv<T>(
           .map((entry) => [SPEC_TREE_CONFIG.ROOT_DIRECTORY, entry.name].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR)),
     });
   });
+}
+
+/**
+ * Materializes a generated representative fixture under a methodology declaration on the given
+ * line and returns the snapshot the filesystem source created for that directory reads.
+ */
+export async function readFixtureUnderDeclaredLine(
+  line: SpecTreeMethodologyLine,
+  fixture: RepresentativeSpecTreeFixture,
+): Promise<SpecTreeSnapshot> {
+  const declaration: GrammarSelectionDeclaration = { [GRAMMAR_SELECTION_DECLARATION_FIELD.VERSION]: line };
+  let snapshot: SpecTreeSnapshot | undefined;
+  await withSpecTreeEnv({ [METHODOLOGY_SECTION]: declaration }, async (env) => {
+    await env.materialize();
+    snapshot = await env.readFilesystemSnapshot();
+  }, { fixture });
+  if (snapshot === undefined) throw new Error("Expected the callback to read a snapshot");
+  return snapshot;
 }

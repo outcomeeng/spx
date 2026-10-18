@@ -1,48 +1,21 @@
 import { describe, expect, it } from "vitest";
 
-import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
-import {
-  KIND_REGISTRY,
-  OUTPUT_KINDS,
-  readSpecTree,
-  SPEC_TREE_METHODOLOGY_LINE,
-  type SpecTreeSnapshot,
-} from "@/lib/spec-tree";
+import { KIND_REGISTRY, SPEC_TREE_METHODOLOGY_LINE } from "@/lib/spec-tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
+  arbitraryOutputKindFixture,
   arbitraryUnsupportedVersion,
   arbitraryVersionOnLine,
   grammarSelectionLines,
   MALFORMED_ROOT_SPEC_TEXTS,
 } from "@testing/generators/spec-tree/grammar-selection";
-import {
-  orderIndexText,
-  type RepresentativeSpecTreeFixture,
-  SPEC_TREE_TEST_GENERATOR,
-} from "@testing/generators/spec-tree/spec-tree";
+import { SPEC_TREE_TEST_GENERATOR, specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
 import {
   GRAMMAR_SELECTION_DECLARATION_FIELD,
   GRAMMAR_SELECTION_FIXTURE,
+  readFixtureUnderDeclaredLine,
   withGrammarSelectionEnv,
 } from "@testing/harnesses/spec-tree/grammar-selection";
-import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
-
-function declarationOnLine(line: string) {
-  return { [METHODOLOGY_SECTION]: { [METHODOLOGY_CONFIG_FIELDS.VERSION]: line } };
-}
-
-async function readUnderDeclaration(
-  line: string,
-  fixture: RepresentativeSpecTreeFixture,
-): Promise<SpecTreeSnapshot> {
-  let snapshot: SpecTreeSnapshot | undefined;
-  await withSpecTreeEnv(declarationOnLine(line), async (env) => {
-    await env.materialize();
-    snapshot = await readSpecTree({ source: env.filesystemSource() });
-  }, { fixture });
-  if (snapshot === undefined) throw new Error("Expected the callback to read a snapshot");
-  return snapshot;
-}
 
 describe("declaration-selected grammar", () => {
   it("reads a tree in the 4.0 grammar when the declared version is on the 4.0 line", async () => {
@@ -215,11 +188,9 @@ describe("declaration-selected grammar", () => {
   it("classifies one materialized tree with a 3.x node kind as valid under a 3.2 declaration and superseded under a 4.0 declaration", async () => {
     const fixture = sampleGeneratedValue(SPEC_TREE_TEST_GENERATOR.representativeFixture(KIND_REGISTRY));
 
-    const underThreeTwo = await readUnderDeclaration(SPEC_TREE_METHODOLOGY_LINE.THREE_TWO, fixture);
-    const underFourZero = await readUnderDeclaration(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO, fixture);
-    const rootDirectory = `${orderIndexText(fixture.root.orderSegments)}-${fixture.root.slug}${
-      KIND_REGISTRY[fixture.root.kind].suffix
-    }`;
+    const underThreeTwo = await readFixtureUnderDeclaredLine(SPEC_TREE_METHODOLOGY_LINE.THREE_TWO, fixture);
+    const underFourZero = await readFixtureUnderDeclaredLine(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO, fixture);
+    const rootDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root);
 
     expect(underThreeTwo.allNodes.map(({ id }) => id)).toContain(rootDirectory);
     expect(underFourZero.allNodes.map(({ id }) => id)).not.toContain(rootDirectory);
@@ -227,14 +198,11 @@ describe("declaration-selected grammar", () => {
   });
 
   it("classifies one materialized tree with a 4.0 output node kind as invalid under a 3.2 declaration and valid under a 4.0 declaration", async () => {
-    const generated = sampleGeneratedValue(SPEC_TREE_TEST_GENERATOR.representativeFixture(KIND_REGISTRY));
-    const fixture = { ...generated, root: { ...generated.root, kind: OUTPUT_KINDS[0] } };
+    const fixture = sampleGeneratedValue(arbitraryOutputKindFixture(KIND_REGISTRY));
 
-    const underThreeTwo = await readUnderDeclaration(SPEC_TREE_METHODOLOGY_LINE.THREE_TWO, fixture);
-    const underFourZero = await readUnderDeclaration(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO, fixture);
-    const rootDirectory = `${orderIndexText(fixture.root.orderSegments)}-${fixture.root.slug}${
-      KIND_REGISTRY[fixture.root.kind].suffix
-    }`;
+    const underThreeTwo = await readFixtureUnderDeclaredLine(SPEC_TREE_METHODOLOGY_LINE.THREE_TWO, fixture);
+    const underFourZero = await readFixtureUnderDeclaredLine(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO, fixture);
+    const rootDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root);
 
     expect(underFourZero.allNodes.map(({ id }) => id)).toContain(rootDirectory);
     expect(underThreeTwo.allNodes.map(({ id }) => id)).not.toContain(rootDirectory);
