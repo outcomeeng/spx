@@ -14,9 +14,11 @@ Opaque text storage preserves incomplete drafts and keeps YAML and Change semant
 
 ## Verification
 
-- ALWAYS: draft creation preserves the supplied text and returns a unique identifier with absolute and product-relative paths.
-- ALWAYS: draft storage resolves to `.spx/worktree/change-drafts/` in the invoking working copy, independently of sibling worktrees.
-- ALWAYS: draft files use owner-only access permissions on permission-enforcing filesystems and creation refuses storage that Git would publish by default.
-- ALWAYS: listing is read-only and reports retained regular draft files in deterministic identifier order.
-- NEVER: draft creation overwrites an existing file, or draft deletion accepts an arbitrary path, traversal, or a symlink as a managed draft.
-- NEVER: draft deletion changes published Changes, verification records, or another local draft.
+### Testing
+
+- ALWAYS: draft creation preserves the supplied text and returns a unique identifier with absolute and product-relative paths ([property]).
+- ALWAYS: draft storage resolves to `.spx/worktree/change-drafts/` in the invoking working copy, independently of sibling worktrees ([property]).
+- ALWAYS: draft files use owner-only access permissions on permission-enforcing filesystems and creation refuses storage that Git would publish by default ([compliance]).
+- ALWAYS: listing is read-only and reports retained regular draft files in deterministic identifier order ([property]).
+- NEVER: draft creation overwrites an existing file, or draft deletion accepts an arbitrary path, traversal, or a symlink as a managed draft ([property]).
+- NEVER: draft deletion changes published Changes, verification records, or another local draft ([property]).
