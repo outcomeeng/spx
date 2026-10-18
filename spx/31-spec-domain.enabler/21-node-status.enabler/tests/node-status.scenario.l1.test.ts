@@ -97,6 +97,73 @@ describe("a pinned result and a change to one path in its read set", () => {
   });
 });
 
+describe("a pinned result whose commit cannot be compared with the checkout", () => {
+  it("reports the result as not current and the node as not passing when node status is read", async () => {
+    const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
+    const absentCommit = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.commitId());
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
+      const read = [repository.specPath, repository.testPaths[0] ?? "", repository.subjectPaths[0] ?? ""];
+      const claimOf = (entry: ReturnType<typeof repository.passedEntry>) => ({
+        [NODE_STATUS_CLAIM_SECTION.TEST]: { [repository.testKeys[0] ?? ""]: entry },
+      });
+
+      await repository.writeClaim(claimOf(repository.passedEntry(read)), SPEC_TREE_NODE_STATE.PASSING);
+      await repository.commitAll();
+      expect(await repository.readState()).toBe(SPEC_TREE_NODE_STATE.PASSING);
+
+      const unreachable = { ...repository.passedEntry(read), [NODE_STATUS_CLAIM_FIELD.COMMIT]: absentCommit };
+      await repository.writeClaim(claimOf(unreachable), SPEC_TREE_NODE_STATE.PASSING);
+      await repository.commitAll();
+
+      expect(await resultCurrency(NODE_STATUS_CLAIM_SECTION.TEST, unreachable, repository.pinChanges)).toBe(
+        NODE_STATUS_CURRENCY.NOT_CURRENT,
+      );
+      expect(await repository.readState()).not.toBe(SPEC_TREE_NODE_STATE.PASSING);
+    });
+  });
+
+  it("never keeps the committed entry as current when spx spec status --update folds the node", async () => {
+    const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
+    const absentCommit = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.commitId());
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
+      const subject = repository.subjectPaths[0] ?? "";
+      const unreachable = {
+        ...repository.passedEntry([repository.specPath, repository.testPaths[0] ?? "", subject]),
+        [NODE_STATUS_CLAIM_FIELD.COMMIT]: absentCommit,
+      };
+      const key = repository.testKeys[0] ?? "";
+      await repository.writeClaim({ [NODE_STATUS_CLAIM_SECTION.TEST]: { [key]: unreachable } });
+      await repository.commitAll();
+      const entryOf = () => {
+        const written = readNodeStatus(join(repository.env.productDir, repository.nodePath));
+        return written?.shape === NODE_STATUS_CLAIM_SHAPE.CURRENT ? written.claim : undefined;
+      };
+
+      await updateNodeStatus({
+        productDir: repository.env.productDir,
+        resolveOutcome: () => Promise.resolve({}),
+        gitDependencies: repository.git,
+      });
+      const kept = entryOf();
+      const keptEntry = kept?.[NODE_STATUS_CLAIM_FIELD.VERIFICATION][NODE_STATUS_CLAIM_SECTION.TEST]?.[key];
+      expect(keptEntry).toBeDefined();
+      expect(await resultCurrency(NODE_STATUS_CLAIM_SECTION.TEST, keptEntry ?? unreachable, repository.pinChanges))
+        .toBe(NODE_STATUS_CURRENCY.NOT_CURRENT);
+      expect(kept?.[NODE_STATUS_CLAIM_FIELD.STATE]).not.toBe(SPEC_TREE_NODE_STATE.PASSING);
+
+      await updateNodeStatus({
+        productDir: repository.env.productDir,
+        resolveOutcome: repository.passingOutcomes,
+        resolveReadPaths: () => Promise.resolve([subject]),
+        gitDependencies: repository.git,
+      });
+      const refolded = entryOf()?.[NODE_STATUS_CLAIM_FIELD.VERIFICATION][NODE_STATUS_CLAIM_SECTION.TEST]?.[key];
+      expect(refolded?.[NODE_STATUS_CLAIM_FIELD.COMMIT]).not.toBe(absentCommit);
+      expect(refolded).not.toEqual(unreachable);
+    });
+  });
+});
+
 describe("a pinned Audit result and a link-format edit to the node's spec", () => {
   it("keeps the Audit result current and reports every Test result whose pin reads the spec as not current", async () => {
     const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
