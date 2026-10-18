@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  acceptsEvalLaneEntry,
   canonicalNamingSchemaVersion,
   DECISION_SUFFIXES,
   KIND_REGISTRY,
@@ -12,7 +13,10 @@ import {
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
 } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
-import { firstVersionNodeDirectoryCases } from "@testing/generators/spec-tree/filename-grammar";
+import {
+  FIRST_VERSION_PRIOR_SUFFIX_STATEMENT,
+  firstVersionNodeDirectoryCases,
+} from "@testing/generators/spec-tree/filename-grammar";
 import { evalLaneCases, grammarTokenGroupCases } from "@testing/generators/spec-tree/grammar-tokens";
 import { SPEC_TREE_CASE_TITLE } from "@testing/generators/spec-tree/spec-tree";
 import { recognitionOptionsForLine } from "@testing/harnesses/spec-tree/filename-grammar";
@@ -35,12 +39,10 @@ describe("token groups of a methodology line's naming-schema version", () => {
   });
 });
 
-describe("eval-lane names of a methodology line's naming-schema version", () => {
+describe("eval-lane entries of a methodology line's naming-schema version", () => {
   it.each(evalLaneCases())(SPEC_TREE_CASE_TITLE, (testCase) => {
-    for (const { eval: evalLane } of recognitionOptionsForLine(testCase.line).selectedVersions) {
-      expect(evalLane.DIRECTORY_NAME).toBe(testCase.directory);
-      for (const file of testCase.files) expect(evalLane.FILES).toContain(file);
-      expect(evalLane.RUNS_DIRECTORY_NAME).toBe(testCase.runsDirectory);
+    for (const version of recognitionOptionsForLine(testCase.line).selectedVersions) {
+      expect(acceptsEvalLaneEntry(version, testCase.pathFromNode, testCase.entryKind)).toBe(testCase.accepted);
     }
   });
 });
@@ -62,12 +64,12 @@ describe("filename grammar token ownership", () => {
   it("keeps prior-version node suffixes out of the live kind registry", () => {
     const liveSuffixes = Object.values(KIND_REGISTRY).map((definition) => definition.suffix);
 
-    for (const suffix of SPEC_TREE_GRAMMAR.PRIOR_NODE_SUFFIXES) expect(liveSuffixes).not.toContain(suffix);
+    for (const suffix of FIRST_VERSION_PRIOR_SUFFIX_STATEMENT) expect(liveSuffixes).not.toContain(suffix);
   });
 
   it("declares the prior-version node suffixes only in the prior naming-schema versions", () => {
     const canonicalNodeSuffixes = new Set(canonicalNamingSchemaVersion(SPEC_TREE_NAMING_SCHEMA_VERSIONS).nodeSuffixes);
 
-    for (const suffix of SPEC_TREE_GRAMMAR.PRIOR_NODE_SUFFIXES) expect(canonicalNodeSuffixes.has(suffix)).toBe(false);
+    for (const suffix of FIRST_VERSION_PRIOR_SUFFIX_STATEMENT) expect(canonicalNodeSuffixes.has(suffix)).toBe(false);
   });
 });

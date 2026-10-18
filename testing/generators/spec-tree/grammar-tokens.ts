@@ -12,10 +12,14 @@
 
 import type { Arbitrary } from "fast-check";
 
-import type { NamingSchemaVersion, SpecTreeMethodologyLine } from "@/lib/spec-tree";
-import { SPEC_TREE_METHODOLOGY_LINE } from "@/lib/spec-tree";
+import type { NamingSchemaVersion, SpecTreeEvalEntryKind, SpecTreeMethodologyLine } from "@/lib/spec-tree";
+import { SPEC_TREE_EVAL_ENTRY_KIND, SPEC_TREE_GRAMMAR, SPEC_TREE_METHODOLOGY_LINE } from "@/lib/spec-tree";
 import { FOUR_ZERO_INDEX_GENERATOR, THREE_X_INDEX_GENERATOR } from "@testing/generators/spec-tree/naming-schema-form";
-import { sampleSpecTreeTestValue, SPEC_TREE_SOURCE_LINES } from "@testing/generators/spec-tree/spec-tree";
+import {
+  sampleSpecTreeTestValue,
+  SPEC_TREE_SOURCE_LINES,
+  SPEC_TREE_TEST_GENERATOR,
+} from "@testing/generators/spec-tree/spec-tree";
 
 /** One token group of a methodology line's naming-schema version: the tokens the spec states and how the version exposes them. */
 export type GrammarTokenGroupCase = {
@@ -25,21 +29,21 @@ export type GrammarTokenGroupCase = {
   readonly resolve: (version: NamingSchemaVersion) => readonly string[];
 };
 
-/** The node-local notes a methodology line's version accepts and the ones it does not. */
+/** One node-local note name and whether a methodology line's version accepts it beside a node's spec. */
 export type NodeLocalNoteCase = {
   readonly title: string;
   readonly line: SpecTreeMethodologyLine;
-  readonly accepted: readonly string[];
-  readonly rejected: readonly string[];
+  readonly name: string;
+  readonly accepted: boolean;
 };
 
-/** The eval-lane names a methodology line's version accepts under a node's eval directory. */
+/** One entry path under a node and whether a methodology line's version accepts it as eval-lane content. */
 export type EvalLaneCase = {
   readonly title: string;
   readonly line: SpecTreeMethodologyLine;
-  readonly directory: string;
-  readonly files: readonly string[];
-  readonly runsDirectory: string;
+  readonly pathFromNode: string;
+  readonly entryKind: SpecTreeEvalEntryKind;
+  readonly accepted: boolean;
 };
 
 type LineStatement = {
@@ -79,8 +83,8 @@ const LINE_STATEMENT: Readonly<Partial<Record<SpecTreeMethodologyLine, LineState
 const DECISION_SUFFIX_STATEMENT = [".adr.md", ".pdr.md"] as const;
 const EVIDENCE_MODE_STATEMENT = ["scenario", "mapping", "conformance", "property", "compliance"] as const;
 const EXECUTION_LEVEL_STATEMENT = ["l1", "l2", "l3"] as const;
-const LANGUAGE_TAIL_STATEMENT = ["test", "ts", "py", "rs"] as const;
-const RUNNER_STATEMENT = ["vitest", "playwright", "subprocess"] as const;
+const LANGUAGE_TAIL_OWNER = Object.values(SPEC_TREE_GRAMMAR.EVIDENCE.TAILS).flat();
+const RUNNER_OWNER = SPEC_TREE_GRAMMAR.RUNNERS;
 const SEGMENT_SEPARATOR_STATEMENT = "." as const;
 const ORDER_SEPARATOR_STATEMENT = "-" as const;
 const PATH_SEPARATOR_STATEMENT = "/" as const;
@@ -115,10 +119,10 @@ export function grammarTokenGroupCases(): readonly GrammarTokenGroupCase[] {
       group("execution levels", EXECUTION_LEVEL_STATEMENT, (version) => version.evidence.LEVELS),
       group(
         "language tails",
-        LANGUAGE_TAIL_STATEMENT,
+        LANGUAGE_TAIL_OWNER,
         (version) => Object.values(version.evidence.TAILS).flat(),
       ),
-      group("runner tokens", RUNNER_STATEMENT, (version) => version.runners),
+      group("runner tokens", RUNNER_OWNER, (version) => version.runners),
       group(
         "segment separator",
         [SEGMENT_SEPARATOR_STATEMENT],
@@ -142,26 +146,64 @@ export function grammarTokenGroupCases(): readonly GrammarTokenGroupCase[] {
   });
 }
 
-/** Per methodology line, the node-local notes its version accepts and the notes it does not. */
+/**
+ * Per methodology line, each note name the spec's node-local-note clause names, with its verdict:
+ * the 4.0 version accepts `ISSUES.md` as its only note, so `PLAN.md` is not accepted; the 3.x
+ * version accepts `PLAN.md` and `ISSUES.md`.
+ */
 export function nodeLocalNoteCases(): readonly NodeLocalNoteCase[] {
-  return SPEC_TREE_SOURCE_LINES.map((line) => {
+  return SPEC_TREE_SOURCE_LINES.flatMap((line) => {
     const statement = statementForLine(line);
-    return {
-      title: `${line} accepts ${statement.notes.join(" and ")}`,
-      line,
-      accepted: statement.notes,
-      rejected: statement.rejectedNotes,
-    };
+    return [
+      ...statement.notes.map((name) => ({ title: `${line} accepts ${name}`, line, name, accepted: true })),
+      ...statement.rejectedNotes.map((name) => ({
+        title: `${line} does not accept ${name}`,
+        line,
+        name,
+        accepted: false,
+      })),
+    ];
   });
 }
 
-/** Per methodology line, the eval-lane files and runs directory its version accepts under `evals/{rule-slug}/`. */
+const EVAL_LANE_DRAW_BASE = 1;
+
+/**
+ * Per methodology line, the entries the spec's eval-lane clause names, each under `evals/{rule-slug}/`
+ * with a generated rule slug: every listed file as a file and the runs directory as a directory
+ * are accepted; the runs name as a file, a listed file name as a directory, and a listed file outside that
+ * location, directly under `evals/` or under another directory, are not.
+ */
 export function evalLaneCases(): readonly EvalLaneCase[] {
-  return SPEC_TREE_SOURCE_LINES.map((line) => ({
-    title: `${line} accepts the eval-lane files and the runs directory`,
-    line,
-    directory: EVAL_DIRECTORY_STATEMENT,
-    files: EVAL_FILE_STATEMENT,
-    runsDirectory: EVAL_RUNS_STATEMENT,
-  }));
+  const joined = (...segments: readonly string[]) => segments.join(PATH_SEPARATOR_STATEMENT);
+  return SPEC_TREE_SOURCE_LINES.flatMap((line) => {
+    const slug = (drawIndex: number) => sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), drawIndex);
+    const entry = (
+      pathFromNode: string,
+      entryKind: SpecTreeEvalEntryKind,
+      accepted: boolean,
+    ): EvalLaneCase => ({
+      title: `${line} ${accepted ? "accepts" : "does not accept"} the ${entryKind} ${pathFromNode}`,
+      line,
+      pathFromNode,
+      entryKind,
+      accepted,
+    });
+    const ruleSlug = slug(EVAL_LANE_DRAW_BASE);
+    const otherDirectory = slug(EVAL_LANE_DRAW_BASE + 1);
+    return [
+      ...EVAL_FILE_STATEMENT.map((file) =>
+        entry(joined(EVAL_DIRECTORY_STATEMENT, ruleSlug, file), SPEC_TREE_EVAL_ENTRY_KIND.FILE, true)
+      ),
+      entry(joined(EVAL_DIRECTORY_STATEMENT, ruleSlug, EVAL_RUNS_STATEMENT), SPEC_TREE_EVAL_ENTRY_KIND.DIRECTORY, true),
+      entry(joined(EVAL_DIRECTORY_STATEMENT, ruleSlug, EVAL_RUNS_STATEMENT), SPEC_TREE_EVAL_ENTRY_KIND.FILE, false),
+      ...EVAL_FILE_STATEMENT.map((file) =>
+        entry(joined(EVAL_DIRECTORY_STATEMENT, ruleSlug, file), SPEC_TREE_EVAL_ENTRY_KIND.DIRECTORY, false)
+      ),
+      ...EVAL_FILE_STATEMENT.flatMap((file) => [
+        entry(joined(EVAL_DIRECTORY_STATEMENT, file), SPEC_TREE_EVAL_ENTRY_KIND.FILE, false),
+        entry(joined(otherDirectory, ruleSlug, file), SPEC_TREE_EVAL_ENTRY_KIND.FILE, false),
+      ]),
+    ];
+  });
 }
