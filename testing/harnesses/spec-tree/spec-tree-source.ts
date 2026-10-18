@@ -21,6 +21,7 @@ import {
   type SpecTreeSnapshot,
   type SpecTreeSourceEntry,
 } from "@/lib/spec-tree";
+import { evidenceFileNameFor, evidenceSubject } from "@testing/generators/spec-tree/evidence-file-name";
 import {
   orderIndexText,
   type RepresentativeSpecTreeFixture,
@@ -86,26 +87,24 @@ export function evidenceFilePath(nodePath: string, evidenceFile: string): string
 }
 
 export function evidenceFileName(tail: readonly string[]): string {
-  return [
-    sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 0),
+  return evidenceFileNameFor([
+    evidenceSubject(sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 0)),
     sampleEvidenceMode(),
     sampleEvidenceLevel(),
-    ...tail,
-  ].join(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR);
+  ], tail);
 }
 
 export function ambiguousEvidenceFileName(): string {
   const mode = sampleEvidenceMode();
   const level = sampleEvidenceLevel();
-  return [
-    sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 1),
+  return evidenceFileNameFor([
+    evidenceSubject(sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 1)),
     mode,
     level,
-    sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 2),
+    evidenceSubject(sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 2)),
     mode,
     level,
-    ...SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT,
-  ].join(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR);
+  ], SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT);
 }
 
 function sampleEvidenceMode(): string {

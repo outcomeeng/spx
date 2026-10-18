@@ -19,6 +19,7 @@ import {
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { testingRegistry } from "@/test/registry";
 import { defaultTestRunStateFileSystem, type TestRunStateFileSystem } from "@/test/run-state";
+import { evidenceFileNameFor, evidenceSubject } from "@testing/generators/spec-tree/evidence-file-name";
 import {
   type RepresentativeSpecTreeFixture,
   sampleSpecTreeTestValue,
@@ -99,8 +100,9 @@ export function nodeEvidencePath(nodePath: string, evidenceIndex = 0): string {
   const [mode] = SPEC_TREE_EVIDENCE_FILE.MODES;
   const [level] = SPEC_TREE_EVIDENCE_FILE.LEVELS;
   const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), evidenceIndex);
-  const filename = [slug, mode, level, ...SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT].join(
-    SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR,
+  const filename = evidenceFileNameFor(
+    [evidenceSubject(slug), mode, level],
+    SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT,
   );
   return [SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodePath, SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME, filename].join(
     SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
