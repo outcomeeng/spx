@@ -4,13 +4,72 @@
   "verification": {
     "test": {
       "tests/branch-identity.property.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/18-state.enabler/32-scope-addressing.enabler/scope-addressing.md",
+          "spx/18-state.enabler/32-scope-addressing.enabler/tests/branch-identity.property.l1.test.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/state-store/index.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/lib/verification-env.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/state-store/state-store.ts",
+          "testing/harnesses/crypto.ts"
+        ]
       },
       "tests/scope-addressing.scenario.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/18-state.enabler/32-scope-addressing.enabler/scope-addressing.md",
+          "spx/18-state.enabler/32-scope-addressing.enabler/tests/scope-addressing.scenario.l1.test.ts",
+          "src/config/defaults.ts",
+          "src/domains/session/create.ts",
+          "src/domains/session/types.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/state-store/index.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/lib/verification-env.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/state-store/state-store.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/session/harness.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ]
       },
       "tests/scope-token.property.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/18-state.enabler/32-scope-addressing.enabler/scope-addressing.md",
+          "spx/18-state.enabler/32-scope-addressing.enabler/tests/scope-token.property.l1.test.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/state-store/index.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/lib/verification-env.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/state-store/state-store.ts"
+        ]
       }
     },
     "evidence": {

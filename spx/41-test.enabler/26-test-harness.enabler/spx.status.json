@@ -4,7 +4,18 @@
   "verification": {
     "test": {
       "tests/test-harness.scenario.l1.test.ts": {
-        "verdict": "not-run"
+        "verdict": "passed",
+        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/41-test.enabler/26-test-harness.enabler/test-harness.md",
+          "spx/41-test.enabler/26-test-harness.enabler/tests/test-harness.scenario.l1.test.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/harnesses/testing/vitest-registration-scenarios.ts",
+          "testing/harnesses/vitest-registration.ts"
+        ]
       }
     },
     "evidence": {
