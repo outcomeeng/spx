@@ -13,6 +13,7 @@ import type {
   KindDefinition,
   NamingSchemaVersion,
   SpecTreeContainerKind,
+  SpecTreeEvidenceGrammar,
   SpecTreeKindCategory,
   SpecTreeNodeKind,
   SpecTreeNodeState,
@@ -464,9 +465,9 @@ const SPEC_TREE_ORDER_SEGMENT_RADIX = 10;
 const SPEC_TREE_TEXT_ENCODING = "utf8";
 const SPEC_TREE_EMPTY_RELATIVE_PATH = "";
 const SPEC_TREE_MIN_EVIDENCE_PATH_SEGMENTS = 2;
+const EVIDENCE_CORE_BASE_SEGMENT_COUNT = 3;
+const EVIDENCE_CORE_RUNNER_SEGMENT_COUNT = 4;
 const SPEC_TREE_PARENT_SEGMENT_OFFSET = 2;
-const SPEC_TREE_FIRST_EVIDENCE_MARKER_INDEX = 1;
-const SPEC_TREE_EXACTLY_ONE_EVIDENCE_MARKER = 1;
 
 export function getKindDefinition<K extends keyof SpecTreeRegistry>(
   kind: K,
@@ -1156,41 +1157,49 @@ function isEvidenceFile(relativePath: string, version: NamingSchemaVersion): boo
 
   const filename = segments.at(-1) ?? "";
   const directoryName = segments.at(-SPEC_TREE_PARENT_SEGMENT_OFFSET);
-  const filenameSegments = filename.split(version.evidence.SEGMENT_SEPARATOR);
-  const evidenceFileTails = Object.values(version.evidence.TAILS);
-
-  return directoryName === version.evidence.DIRECTORY_NAME
-    && evidenceFileTails.some((tail) =>
-      version.evidence.MODES.some((mode) =>
-        version.evidence.LEVELS.some((level) => filenameHasEvidenceSuffix(filenameSegments, mode, level, tail))
-      )
-    );
+  return directoryName === version.evidence.DIRECTORY_NAME && isTestFileName(filename, version.evidence);
 }
 
-function filenameHasEvidenceSuffix(
-  filenameSegments: readonly string[],
-  mode: string,
-  level: string,
-  tail: readonly string[],
-): boolean {
-  if (!segmentsEndWith(filenameSegments, tail)) return false;
-  const tailStart = filenameSegments.length - tail.length;
-  let evidenceMarkerCount = 0;
+function isEvidenceWord(text: string, evidence: SpecTreeEvidenceGrammar): boolean {
+  return evidence.WORD_PATTERN.test(text);
+}
 
-  // Exactly one mode/level pair prevents ambiguous filenames from being treated as evidence.
-  for (let index = SPEC_TREE_FIRST_EVIDENCE_MARKER_INDEX; index < tailStart - 1; index += 1) {
-    if (filenameSegments[index] === mode && filenameSegments[index + 1] === level) {
-      evidenceMarkerCount += 1;
-    }
+function isEvidenceSlug(text: string, evidence: SpecTreeEvidenceGrammar): boolean {
+  return text.split(evidence.WORD_SEPARATOR).every((word) => isEvidenceWord(word, evidence));
+}
+
+function isEvidenceCore(core: string, evidence: SpecTreeEvidenceGrammar): boolean {
+  const segments = core.split(evidence.SEGMENT_SEPARATOR);
+  if (segments.length < EVIDENCE_CORE_BASE_SEGMENT_COUNT || segments.length > EVIDENCE_CORE_RUNNER_SEGMENT_COUNT) {
+    return false;
   }
-
-  return evidenceMarkerCount === SPEC_TREE_EXACTLY_ONE_EVIDENCE_MARKER;
+  const [subject, mode, level, runner] = segments as [string, string, string, string | undefined];
+  return isEvidenceSlug(subject, evidence)
+    && evidence.MODES.includes(mode)
+    && evidence.LEVELS.includes(level)
+    && (runner === undefined || isEvidenceSlug(runner, evidence));
 }
 
-function segmentsEndWith(segments: readonly string[], suffix: readonly string[]): boolean {
-  if (segments.length <= suffix.length) return false;
-  const start = segments.length - suffix.length;
-  return suffix.every((value, index) => segments[start + index] === value);
+function splitAtLastSegmentSeparator(
+  text: string,
+  evidence: SpecTreeEvidenceGrammar,
+): { readonly head: string; readonly tail: string } | null {
+  const index = text.lastIndexOf(evidence.SEGMENT_SEPARATOR);
+  if (index <= ORDER_COMPARISON_EQUAL) return null;
+  return { head: text.slice(0, index), tail: text.slice(index + evidence.SEGMENT_SEPARATOR.length) };
+}
+
+function isTestFileName(filename: string, evidence: SpecTreeEvidenceGrammar): boolean {
+  const extension = splitAtLastSegmentSeparator(filename, evidence);
+  if (extension === null || !isEvidenceWord(extension.tail, evidence)) return false;
+
+  const prefix = `${evidence.TEST_MARKER}${evidence.AFFIX_SEPARATOR}`;
+  const suffix = `${evidence.AFFIX_SEPARATOR}${evidence.TEST_MARKER}`;
+  const infix = splitAtLastSegmentSeparator(extension.head, evidence);
+  if (infix !== null && infix.tail === evidence.TEST_MARKER && isEvidenceCore(infix.head, evidence)) return true;
+  if (extension.head.startsWith(prefix) && isEvidenceCore(extension.head.slice(prefix.length), evidence)) return true;
+  return extension.head.endsWith(suffix)
+    && isEvidenceCore(extension.head.slice(0, extension.head.length - suffix.length), evidence);
 }
 
 function shouldDescendIntoDirectory(sourceEntry: SpecTreeSourceEntry | null): boolean {

@@ -37,6 +37,8 @@ const SUFFIX_LEAD = ".";
 const SUFFIX_INITIAL_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyz"];
 const SUFFIX_REST_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyz-"];
 const SEMVER_COMPONENT_COUNT = 3;
+const INJECTED_WORD_SEPARATOR = "_";
+const INJECTED_WORD_PATTERN = /^[a-z-]+$/;
 
 export type DemotedRegistrySuffixScenario = {
   readonly schemaVersions: readonly NamingSchemaVersion[];
@@ -211,6 +213,10 @@ function arbitraryInjectedEvidenceGrammarScenario(): fc.Arbitrary<InjectedEviden
         LEVELS: [level],
         TAILS: { INJECTED: [tail] },
         SEGMENT_SEPARATOR: SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR,
+        TEST_MARKER: SPEC_TREE_GRAMMAR.EVIDENCE.TEST_MARKER,
+        AFFIX_SEPARATOR: SPEC_TREE_GRAMMAR.EVIDENCE.AFFIX_SEPARATOR,
+        WORD_SEPARATOR: INJECTED_WORD_SEPARATOR,
+        WORD_PATTERN: INJECTED_WORD_PATTERN,
       };
       const prior = buildNamingSchemaVersion(
         priorVersion,
@@ -231,7 +237,7 @@ function arbitraryInjectedEvidenceGrammarScenario(): fc.Arbitrary<InjectedEviden
         selectedVersions: [selected],
         relativePath: [
           directoryName,
-          [subject, mode, level, tail].join(evidence.SEGMENT_SEPARATOR),
+          [subject, mode, level, evidence.TEST_MARKER, tail].join(evidence.SEGMENT_SEPARATOR),
         ].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
       };
     });
