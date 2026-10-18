@@ -1,13 +1,28 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/36-session.enabler/43-session-store.enabler/tests/handoff-base-gate.property.l1.test.ts": "passed",
-      "spx/36-session.enabler/43-session-store.enabler/tests/session-store.compliance.l1.test.ts": "passed",
-      "spx/36-session.enabler/43-session-store.enabler/tests/session-store.property.l1.test.ts": "passed",
-      "spx/36-session.enabler/43-session-store.enabler/tests/session-store.scenario.l1.test.ts": "passed",
-      "spx/36-session.enabler/43-session-store.enabler/tests/session-store.scenario.l2.test.ts": "passed"
+      "tests/handoff-base-gate.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/session-store.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/session-store.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/session-store.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/session-store.scenario.l2.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

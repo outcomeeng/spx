@@ -1,13 +1,28 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/18-state.enabler/32-worktree-topology.enabler/tests/default-branch.compliance.l1.test.ts": "passed",
-      "spx/18-state.enabler/32-worktree-topology.enabler/tests/git-facts.scenario.l1.test.ts": "passed",
-      "spx/18-state.enabler/32-worktree-topology.enabler/tests/main-checkout-path.mapping.l1.test.ts": "passed",
-      "spx/18-state.enabler/32-worktree-topology.enabler/tests/main-checkout.mapping.l1.test.ts": "passed",
-      "spx/18-state.enabler/32-worktree-topology.enabler/tests/main-checkout.scenario.l1.test.ts": "passed"
+      "tests/default-branch.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/git-facts.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/main-checkout-path.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/main-checkout.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/main-checkout.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

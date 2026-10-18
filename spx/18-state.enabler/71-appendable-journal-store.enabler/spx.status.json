@@ -1,15 +1,34 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/18-state.enabler/71-appendable-journal-store.enabler/tests/appendable-journal-store-concurrency.property.l1.test.ts": "passed",
-      "spx/18-state.enabler/71-appendable-journal-store.enabler/tests/appendable-journal-store-creation-marker.scenario.l1.test.ts": "passed",
-      "spx/18-state.enabler/71-appendable-journal-store.enabler/tests/appendable-journal-store-interruption.compliance.l1.test.ts": "passed",
-      "spx/18-state.enabler/71-appendable-journal-store.enabler/tests/appendable-journal-store-read-reuse.compliance.l1.test.ts": "passed",
-      "spx/18-state.enabler/71-appendable-journal-store.enabler/tests/appendable-journal-store-sealing-race.property.l1.test.ts": "passed",
-      "spx/18-state.enabler/71-appendable-journal-store.enabler/tests/appendable-journal-store.compliance.l1.test.ts": "passed",
-      "spx/18-state.enabler/71-appendable-journal-store.enabler/tests/appendable-journal-store.property.l1.test.ts": "passed"
+      "tests/appendable-journal-store-concurrency.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/appendable-journal-store-creation-marker.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/appendable-journal-store-interruption.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/appendable-journal-store-read-reuse.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/appendable-journal-store-sealing-race.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/appendable-journal-store.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/appendable-journal-store.property.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

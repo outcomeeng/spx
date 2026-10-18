@@ -1,15 +1,34 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/tests/audit-changeset-class.mapping.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/tests/audit-changeset-root.conformance.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/tests/audit-evidence-validation.compliance.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/tests/audit-file-root.conformance.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/tests/audit-finding.conformance.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/tests/audit-order.compliance.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/tests/audit-scope.conformance.l1.test.ts": "passed"
+      "tests/audit-changeset-class.mapping.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/audit-changeset-root.conformance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/audit-evidence-validation.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/audit-file-root.conformance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/audit-finding.conformance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/audit-order.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/audit-scope.conformance.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

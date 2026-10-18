@@ -1,11 +1,22 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler/tests/review-evidence-validation.compliance.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler/tests/review-payload.conformance.l1.test.ts": "passed",
-      "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/21-review-evidence-model.enabler/tests/review-payload.property.l1.test.ts": "passed"
+      "tests/review-evidence-validation.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/review-payload.conformance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/review-payload.property.l1.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

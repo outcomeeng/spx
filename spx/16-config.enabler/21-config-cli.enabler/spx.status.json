@@ -1,14 +1,26 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "spec",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/16-config.enabler/21-config-cli.enabler/tests/defaults.scenario.l1.test.ts": "passed",
-      "spx/16-config.enabler/21-config-cli.enabler/tests/determinism.property.l1.test.ts": "passed",
-      "spx/16-config.enabler/21-config-cli.enabler/tests/invariants.compliance.l1.test.ts": "passed",
-      "spx/16-config.enabler/21-config-cli.enabler/tests/root-resolution.compliance.l1.test.ts": "passed",
-      "spx/16-config.enabler/21-config-cli.enabler/tests/show.scenario.l1.test.ts": "passed",
-      "spx/16-config.enabler/21-config-cli.enabler/tests/validate.scenario.l1.test.ts": "passed"
+      "tests/defaults.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/determinism.property.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/invariants.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/root-resolution.compliance.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/show.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      },
+      "tests/validate.scenario.l1.test.ts": {
+        "verdict": "not-run"
+      }
     }
   }
 }

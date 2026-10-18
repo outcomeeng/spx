@@ -1,9 +1,16 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/41-validation.enabler/13-validation-test-generators.enabler/tests/validation-test-generators.property.l2.test.ts": "passed"
+      "tests/validation-test-generators.property.l2.test.ts": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }
