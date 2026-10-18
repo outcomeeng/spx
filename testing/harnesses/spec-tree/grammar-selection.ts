@@ -10,7 +10,7 @@
  * @module harnesses/spec-tree/grammar-selection
  */
 
-import { cp, readdir, readFile } from "node:fs/promises";
+import { cp, readdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
@@ -65,13 +65,25 @@ const FIXTURE_TREE_DIRECTORY = "tree";
 const FIXTURE_EXPECTATION_FILE = "expected.json";
 const FIXTURE_ENCODING = "utf8";
 
+export type GrammarSelectionOptions = {
+  /** Text that replaces the content of every file directly under the tree root directory after the fixture is copied. */
+  readonly rootFileText?: string;
+};
+
 export async function withGrammarSelectionEnv<T>(
   fixture: GrammarSelectionFixture,
   declaration: GrammarSelectionDeclaration,
   callback: (env: GrammarSelectionEnv) => Promise<T>,
+  options: GrammarSelectionOptions = {},
 ): Promise<T> {
   return withTestEnv({ [METHODOLOGY_SECTION]: declaration }, async (env) => {
     await cp(join(FIXTURE_ROOT, fixture, FIXTURE_TREE_DIRECTORY), env.productDir, { recursive: true });
+    if (options.rootFileText !== undefined) {
+      const rootDirectory = join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
+      for (const entry of await readdir(rootDirectory, { withFileTypes: true })) {
+        if (entry.isFile()) await writeFile(join(rootDirectory, entry.name), options.rootFileText, FIXTURE_ENCODING);
+      }
+    }
     return callback({
       read: () => readSpecTree({ source: createFilesystemSpecTreeSource({ productDir: env.productDir }) }),
       expectation: async () =>

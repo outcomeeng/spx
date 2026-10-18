@@ -13,6 +13,7 @@ import {
   arbitraryUnsupportedVersion,
   arbitraryVersionOnLine,
   grammarSelectionLines,
+  MALFORMED_ROOT_SPEC_TEXTS,
 } from "@testing/generators/spec-tree/grammar-selection";
 import {
   orderIndexText,
@@ -187,6 +188,28 @@ describe("declaration-selected grammar", () => {
         }
       },
     );
+  });
+
+  it("fails the read naming a 4.0 root spec whose front matter is not valid YAML", async () => {
+    for (const rootFileText of MALFORMED_ROOT_SPEC_TEXTS) {
+      await withGrammarSelectionEnv(
+        GRAMMAR_SELECTION_FIXTURE.ROOT_WITHOUT_KIND,
+        {
+          [GRAMMAR_SELECTION_DECLARATION_FIELD.VERSION]: sampleGeneratedValue(
+            arbitraryVersionOnLine(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO),
+          ),
+        },
+        async (env) => {
+          const failure = await env.read().then(() => undefined, (error: unknown) => error);
+
+          expect(failure).toBeInstanceOf(Error);
+          for (const path of await env.rootFilePaths()) {
+            expect((failure as Error).message).toContain(path);
+          }
+        },
+        { rootFileText },
+      );
+    }
   });
 
   it("classifies one materialized tree with a 3.x node kind as valid under a 3.2 declaration and superseded under a 4.0 declaration", async () => {

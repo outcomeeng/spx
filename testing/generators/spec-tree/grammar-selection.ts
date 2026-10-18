@@ -12,6 +12,8 @@ import * as fc from "fast-check";
 import { METHODOLOGY_VERSION_FORM } from "@/config/methodology";
 import {
   SPEC_TREE_CONFIG,
+  SPEC_TREE_FRONT_MATTER_FENCE,
+  SPEC_TREE_FRONT_MATTER_KIND_KEY,
   SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_METHODOLOGY_LINE,
   type SpecTreeMethodologyLine,
@@ -218,3 +220,19 @@ export function declaredGrammarComplianceCases(): readonly DeclaredGrammarCompli
     },
   }));
 }
+
+const KIND_KEY = SPEC_TREE_FRONT_MATTER_KIND_KEY;
+const MALFORMED_FRONT_MATTER_LINE_BREAK = "\n";
+
+/**
+ * The texts of a root spec whose front matter between the fences is not valid YAML: an unclosed
+ * flow sequence, an unclosed flow mapping, an unterminated quoted scalar, and a repeated key.
+ */
+export const MALFORMED_ROOT_SPEC_TEXTS: readonly string[] = [
+  `${KIND_KEY}: [`,
+  `${KIND_KEY}: {`,
+  `${KIND_KEY}: "`,
+  [`${KIND_KEY}: a`, `${KIND_KEY}: b`].join(MALFORMED_FRONT_MATTER_LINE_BREAK),
+].map((body) =>
+  [SPEC_TREE_FRONT_MATTER_FENCE, body, SPEC_TREE_FRONT_MATTER_FENCE, ""].join(MALFORMED_FRONT_MATTER_LINE_BREAK)
+);
