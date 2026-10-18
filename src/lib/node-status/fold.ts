@@ -83,7 +83,8 @@ export interface NodeClaimFoldInput {
  * Fold the results recorded runs produced over the node's committed entries into the 4.0 claim the node
  * writes: a committed entry whose pin is current and whose verdict and read set equal the run's stays as
  * committed; a covered reference whose evidence is stale keeps its committed entry, or reads `not-run` with
- * no pin when none is committed; a reference no run covers reads `not-run` with no pin.
+ * no pin when none is committed; a test reference no run covers reads `not-run` with no pin, and an eval,
+ * probe, audit or evidence reference no run covers keeps its committed entry while its pin is current.
  */
 export async function foldNodeClaim(input: NodeClaimFoldInput): Promise<NodeStatusClaim> {
   const head = await headCommit(input.git, input.productDir);
@@ -92,8 +93,12 @@ export async function foldNodeClaim(input: NodeClaimFoldInput): Promise<NodeStat
   const place = (section: NodeStatusClaimSection, key: string, entry: NodeStatusClaimEntry): void => {
     (sections[section] ??= {})[key] = entry;
   };
-  const fold = (section: NodeStatusClaimSection, key: string, candidate: PinCandidate | undefined, stale: boolean) =>
-    foldEntry({ section, committed: input.committed[section]?.[key], candidate, stale, head, input });
+  const fold = (
+    section: NodeStatusClaimSection,
+    key: string,
+    candidate: PinCandidate | undefined,
+    coverage: ReferenceCoverage,
+  ) => foldEntry({ section, committed: input.committed[section]?.[key], candidate, coverage, head, input });
 
   for (const evidencePath of [...input.evidencePaths].sort(compareAsciiStrings)) {
     const section = sectionOfEvidence(evidencePath);
@@ -109,7 +114,7 @@ export async function foldNodeClaim(input: NodeClaimFoldInput): Promise<NodeStat
         section,
         key,
         candidateOf(outcome, read, [input.declaration.specPath, evidencePath]),
-        outcome === undefined,
+        coverageOfOutcome(outcome),
       ),
     );
   }
@@ -132,10 +137,8 @@ export async function foldNodeClaim(input: NodeClaimFoldInput): Promise<NodeStat
     const recorded = section === NODE_STATUS_CLAIM_SECTION.AUDIT ? attributed.audit : attributed.evidence;
     for (const key of keys) {
       const result = recorded?.[key];
-      const candidate = result === undefined
-        ? undefined
-        : candidateOf(result.verdict, result.read, [input.declaration.specPath], result);
-      place(section, key, await fold(section, key, candidate, false));
+      const { candidate, coverage } = attributedCoverage(result, input.declaration.specPath);
+      place(section, key, await fold(section, key, candidate, coverage));
     }
   }
 
@@ -192,20 +195,55 @@ function candidateOf(
   };
 }
 
+/** How recorded runs answer a reference: a result, a covered reference with stale evidence, or no run at all. */
+const REFERENCE_COVERAGE = {
+  RECORDED: "recorded",
+  STALE: "stale",
+  UNCOVERED: "uncovered",
+} as const;
+
+type ReferenceCoverage = (typeof REFERENCE_COVERAGE)[keyof typeof REFERENCE_COVERAGE];
+
+function attributedCoverage(
+  result: NodeAttributedResult | undefined,
+  specPath: string,
+): { readonly candidate: PinCandidate | undefined; readonly coverage: ReferenceCoverage } {
+  if (result === undefined) return { candidate: undefined, coverage: REFERENCE_COVERAGE.UNCOVERED };
+  return {
+    candidate: candidateOf(result.verdict, result.read, [specPath], result),
+    coverage: REFERENCE_COVERAGE.RECORDED,
+  };
+}
+
+function coverageOfOutcome(outcome: NodeStatusEvidenceOutcome | undefined): ReferenceCoverage {
+  if (outcome === undefined) return REFERENCE_COVERAGE.STALE;
+  return outcome === NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN
+    ? REFERENCE_COVERAGE.UNCOVERED
+    : REFERENCE_COVERAGE.RECORDED;
+}
+
 type FoldEntryInput = {
   readonly section: NodeStatusClaimSection;
   readonly committed: NodeStatusClaimEntry | undefined;
   readonly candidate: PinCandidate | undefined;
-  readonly stale: boolean;
+  readonly coverage: ReferenceCoverage;
   readonly head: string | undefined;
   readonly input: NodeClaimFoldInput;
 };
 
 async function foldEntry(
-  { section, committed, candidate, stale, head, input }: FoldEntryInput,
+  { section, committed, candidate, coverage, head, input }: FoldEntryInput,
 ): Promise<NodeStatusClaimEntry> {
   const notRun: NodeStatusClaimEntry = { [NODE_STATUS_CLAIM_FIELD.VERDICT]: NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN };
-  if (stale) return committed ?? notRun;
+  if (coverage === REFERENCE_COVERAGE.STALE) return committed ?? notRun;
+  if (
+    coverage === REFERENCE_COVERAGE.UNCOVERED
+    && section !== NODE_STATUS_CLAIM_SECTION.TEST
+    && committed !== undefined
+    && await resultCurrency(section, committed, input.pinChanges) === NODE_STATUS_CURRENCY.CURRENT
+  ) {
+    return committed;
+  }
   if (candidate === undefined || head === undefined) return notRun;
   const changed = await input.pinChanges.changedPaths(head);
   if (changed === undefined || candidate.read.some((path) => changed.has(path))) return notRun;

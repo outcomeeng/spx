@@ -18,6 +18,12 @@ export {
   type NodeStatusMalleability,
   serializeNodeStatusClaim,
 } from "./claim";
+export {
+  compareNodeStatusClaims,
+  NODE_STATUS_CLAIM_DIFFERENCE,
+  type NodeStatusClaimDifference,
+  type NodeStatusClaimDifferenceKind,
+} from "./claim-comparison";
 export { claimShapeOfMethodologyVersion, declaredNodeStatusClaimShape } from "./claim-shape";
 export {
   classifyNodeClaim,
