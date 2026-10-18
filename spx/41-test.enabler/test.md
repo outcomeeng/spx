@@ -36,7 +36,6 @@ CAN run spec-tree tests with a single command, honor configured passing-scope ex
 
 - Each language provides its supported test runner adapter via a leaf enabler child registered per [`spx/19-language-registration.adr.md`](spx/19-language-registration.adr.md) and [`spx/41-test.enabler/11-test-runner-environments.pdr.md`](spx/41-test.enabler/11-test-runner-environments.pdr.md) ([test](tests/test.mapping.l1.test.ts))
 - Extension-based dispatch: test files route to the testing enabler whose registered extension pattern matches ([test](tests/test.mapping.l1.test.ts))
-- ALWAYS: each registered adapter declares whether it supplies read paths, and the status fold names no language ([test](tests/test.mapping.l1.test.ts))
 
 ### Properties
 
@@ -47,6 +46,7 @@ CAN run spec-tree tests with a single command, honor configured passing-scope ex
 
 ### Compliance
 
+- ALWAYS: each registered adapter declares whether it supplies read paths, and the status fold names no language ([test](tests/test.mapping.l1.test.ts))
 - ALWAYS: `spx test passing` reads passing-scope exclusions through the config descriptor system for `spx.config.{toml,json,yaml}` — no duplicate parsing logic ([audit])
 - ALWAYS: persisted testing state records observed runner results, timestamps, input path sets, input content digests, and staleness metadata; config remains the source for passing-scope policy ([audit])
 - ALWAYS: the testing config digest is computed from config-owned canonical descriptor JSON for the resolved testing config descriptor section after defaults are applied per [`spx/16-config.enabler/21-descriptor-registration.adr.md`](spx/16-config.enabler/21-descriptor-registration.adr.md); unrelated descriptor sections and raw file formatting do not affect testing state staleness ([audit])
