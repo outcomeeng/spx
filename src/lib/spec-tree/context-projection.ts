@@ -3,7 +3,13 @@ import { posix } from "node:path";
 import MarkdownIt from "markdown-it";
 import { parseDocument, stringify } from "yaml";
 
-import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR, SPEC_TREE_INHERIT_FROM_PARENT, type SpecTreeNodeKind } from "./config";
+import {
+  DECISION_SUFFIXES,
+  SPEC_TREE_CONFIG,
+  SPEC_TREE_GRAMMAR,
+  SPEC_TREE_INHERIT_FROM_PARENT,
+  type SpecTreeNodeKind,
+} from "./config";
 import {
   compareSpecContextOrdinal,
   SPEC_CONTEXT_MODE,
@@ -636,7 +642,10 @@ export function specContextInlineDecisionCitations(content: string): readonly st
     for (const token of block.children ?? []) {
       if (token.type !== "link_open") continue;
       const href = token.attrGet("href");
-      if (href?.startsWith(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/`) === true && /\.(?:adr|pdr)\.md$/.test(href)) {
+      if (
+        href?.startsWith(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/`) === true
+        && DECISION_SUFFIXES.some((suffix) => href.endsWith(suffix))
+      ) {
         paths.add(href);
       }
     }
