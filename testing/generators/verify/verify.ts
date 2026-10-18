@@ -1131,6 +1131,26 @@ export interface VerifyFinishRepositoryPaths {
 /** The ways a declared additional path fails to be a product-relative path: it is absolute, or it climbs out of the product. */
 const NON_PRODUCT_RELATIVE_PATH_PREFIXES = ["/", "../"] as const;
 
+/**
+ * The distinct ways a recorded change-inventory entry is malformed: an entry that is not a record
+ * (one case per JSON value kind that is not an object), a record whose path is not a string, a
+ * record whose change kind is not a string, and a record whose change kind is a string no declared
+ * change kind names.
+ */
+export const VERIFY_INVENTORY_ENTRY_MALFORMATION = {
+  NULL: "null",
+  NUMBER: "number",
+  STRING: "string",
+  BOOLEAN: "boolean",
+  ARRAY: "array",
+  NON_STRING_PATH: "non-string-path",
+  NON_STRING_KIND: "non-string-kind",
+  UNKNOWN_KIND: "unknown-kind",
+} as const;
+
+export type VerifyInventoryEntryMalformation =
+  (typeof VERIFY_INVENTORY_ENTRY_MALFORMATION)[keyof typeof VERIFY_INVENTORY_ENTRY_MALFORMATION];
+
 const UNKNOWN_CHANGE_KIND_CHARACTERS = "abcdefghijklmnopqrstuvwxyz-";
 const UNKNOWN_CHANGE_KIND_MAX_LENGTH = 12;
 
@@ -1248,6 +1268,29 @@ export const VERIFY_TEST_GENERATOR = {
         .map((characters) => characters.join(""))
         .filter((kind) => !declaredKinds.includes(kind)),
     });
+  },
+  /** A recorded change-inventory entry malformed in exactly the way `malformation` names; every other part of the entry is well-formed. */
+  malformedChangeInventoryEntry: (malformation: VerifyInventoryEntryMalformation): fc.Arbitrary<JsonValue> => {
+    const declaredKinds = fc.constantFrom(...Object.values(VERIFY_CHANGE_KIND));
+    const nonString = fc.oneof(fc.integer(), fc.boolean(), fc.constant(null), fc.array(fc.string(), { maxLength: 2 }));
+    switch (malformation) {
+      case VERIFY_INVENTORY_ENTRY_MALFORMATION.NULL:
+        return fc.constant(null);
+      case VERIFY_INVENTORY_ENTRY_MALFORMATION.NUMBER:
+        return fc.integer();
+      case VERIFY_INVENTORY_ENTRY_MALFORMATION.STRING:
+        return arbitrarySourceFilePath();
+      case VERIFY_INVENTORY_ENTRY_MALFORMATION.BOOLEAN:
+        return fc.boolean();
+      case VERIFY_INVENTORY_ENTRY_MALFORMATION.ARRAY:
+        return fc.array(arbitrarySourceFilePath(), { minLength: 1, maxLength: 2 });
+      case VERIFY_INVENTORY_ENTRY_MALFORMATION.NON_STRING_PATH:
+        return fc.record({ path: nonString, changeKind: declaredKinds });
+      case VERIFY_INVENTORY_ENTRY_MALFORMATION.NON_STRING_KIND:
+        return fc.record({ path: arbitrarySourceFilePath(), changeKind: nonString });
+      case VERIFY_INVENTORY_ENTRY_MALFORMATION.UNKNOWN_KIND:
+        return VERIFY_TEST_GENERATOR.unknownChangeKindEntry();
+    }
   },
   /** A product-relative path distinct from `heldPath`, the path the head commit holds. */
   absentProductPath: (heldPath: string): fc.Arbitrary<string> =>

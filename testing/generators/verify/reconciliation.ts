@@ -410,8 +410,43 @@ function arbitraryExpectationsScenario(): fc.Arbitrary<ReconciliationExpectation
   );
 }
 
+/**
+ * The ways a checkout's working tree and index are dirtied without a commit: each acts on the
+ * path the changeset changes, the path a move or copy produces, or a path outside the changeset.
+ */
+export const RECONCILIATION_WORKING_TREE_ACTION = {
+  MODIFY_CHANGED_PATH: "modify-changed-path",
+  REMOVE_CHANGED_PATH: "remove-changed-path",
+  STAGE_REMOVAL_OF_CHANGED_PATH: "stage-removal-of-changed-path",
+  STAGE_NEW_TARGET_PATH: "stage-new-target-path",
+  WRITE_UNTRACKED_TARGET_PATH: "write-untracked-target-path",
+  WRITE_UNRELATED_UNTRACKED_PATH: "write-unrelated-untracked-path",
+} as const;
+
+export type ReconciliationWorkingTreeAction =
+  (typeof RECONCILIATION_WORKING_TREE_ACTION)[keyof typeof RECONCILIATION_WORKING_TREE_ACTION];
+
+/** One dirtying step: an action and the file content it writes where it writes one. */
+export interface ReconciliationWorkingTreeStep {
+  readonly action: ReconciliationWorkingTreeAction;
+  readonly content: string;
+}
+
+const MAX_WORKING_TREE_STEPS = 4;
+
+function arbitraryWorkingTreeDirtying(): fc.Arbitrary<readonly ReconciliationWorkingTreeStep[]> {
+  return fc.array(
+    fc.record({
+      action: fc.constantFrom(...Object.values(RECONCILIATION_WORKING_TREE_ACTION)),
+      content: fc.string({ maxLength: 40 }),
+    }),
+    { minLength: 1, maxLength: MAX_WORKING_TREE_STEPS },
+  );
+}
+
 /** Generators of the reconciliation domain: inputs with the result their construction fixes. */
 export const RECONCILIATION_TEST_GENERATOR = {
+  workingTreeDirtying: arbitraryWorkingTreeDirtying,
   scenario: arbitraryScenario,
   determinismScenario: arbitraryDeterminismScenario,
   historiesScenario: arbitraryHistoriesScenario,

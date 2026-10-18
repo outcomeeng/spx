@@ -15,7 +15,12 @@ import {
   VERIFY_CHANGE_OPERATION,
   VERIFY_TEST_GENERATOR,
 } from "@testing/generators/verify/verify";
-import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
+import {
+  assertProperty,
+  PROPERTY_CLASSIFICATION,
+  PROPERTY_LEVEL,
+  propertyTestEnvelopeTimeoutMs,
+} from "@testing/harnesses/property/property";
 import { withVerifyChangeInventoryRepository } from "@testing/harnesses/verify/repository";
 
 describe("verify scope reconciliation determinism", () => {
@@ -31,7 +36,7 @@ describe("verify scope reconciliation determinism", () => {
   });
 
   it.each(Object.values(VERIFY_VERIFICATION_TYPE))(
-    "derives the same result from a %s run whether the working tree is clean or holds modified, staged, and untracked files",
+    "derives the same result from a %s run however the working tree and index are dirtied",
     async (verificationType) => {
       await withVerifyChangeInventoryRepository(VERIFY_CHANGE_OPERATION.DELETE, async (repository) => {
         const run = await repository.startChangesetRun(verificationType);
@@ -44,12 +49,21 @@ describe("verify scope reconciliation determinism", () => {
         const clean = await repository.reconcile(run);
         expect(clean.exitCode, clean.output).toBe(VERIFY_CLI_EXIT_CODE.OK);
 
-        await repository.dirtyWorkingTree();
-        const dirty = await repository.reconcile(run);
-
-        expect(dirty).toEqual(clean);
+        await assertProperty(
+          RECONCILIATION_TEST_GENERATOR.workingTreeDirtying(),
+          async (dirtying) => {
+            await repository.dirtyWorkingTree(dirtying);
+            try {
+              expect(await repository.reconcile(run)).toEqual(clean);
+            } finally {
+              await repository.restoreWorkingTree();
+            }
+          },
+          PROPERTY_CLASSIFICATION.SMALL_L1,
+        );
       });
     },
+    propertyTestEnvelopeTimeoutMs(PROPERTY_CLASSIFICATION.SMALL_L1),
   );
 
   it("derives the same result from a run history however its scope events, coverage states, and findings are arranged", () => {

@@ -34,6 +34,10 @@ import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent
 import { GIT_DIR_BASENAME, GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 import { defaultStateStoreFileSystem, STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
 import {
+  RECONCILIATION_WORKING_TREE_ACTION,
+  type ReconciliationWorkingTreeStep,
+} from "@testing/generators/verify/reconciliation";
+import {
   sampleVerifyTestValue,
   VERIFY_CHANGE_OPERATION,
   VERIFY_TEST_GENERATOR,
@@ -669,11 +673,14 @@ export interface VerifyChangeInventoryRepository extends VerifyRepositoryCommits
   /** Remove the branch that names the changeset head, so the run's changeset selector no longer resolves. */
   removeHeadBranch(): Promise<void>;
   /**
-   * Dirty the checkout without committing: modify the source path, stage the target path as a new
-   * file, and add one untracked file. The commits and every recorded run stay as they were.
+   * Dirty the checkout without committing by applying `steps` in order: each modifies, removes, or
+   * stages the changed path, writes or stages the target path, or writes a path outside the
+   * changeset. The commits and every recorded run stay as they were.
    */
-  dirtyWorkingTree(): Promise<void>;
-  /** Observe the run's journal events and the repository's HEAD, refs, index, and working-tree status. */
+  dirtyWorkingTree(steps: readonly ReconciliationWorkingTreeStep[]): Promise<void>;
+  /** Return the checkout's index and working tree to the head of the checkout, removing every path `dirtyWorkingTree` wrote. */
+  restoreWorkingTree(): Promise<void>;
+  /** Observe the run's journal events and the repository's HEAD, refs, index, working-tree status, and every file of the checkout. */
   observe(run: StartedRepositoryRun): Promise<VerifyRepositoryObservation>;
 }
 
@@ -684,10 +691,11 @@ export interface VerifyRepositoryObservation {
   readonly refs: string;
   readonly index: string;
   readonly status: string;
+  readonly workingTree: readonly RepositoryStateEntry[];
 }
 
 const MODIFIED_CONTENT_SUFFIX = "\nmodified";
-const UNTRACKED_PATH_SUFFIX = ".untracked";
+const UNRELATED_UNTRACKED_PATH_SUFFIX = ".untracked";
 
 async function applyChangeOperation(
   productDir: string,
@@ -768,13 +776,53 @@ export async function withVerifyChangeInventoryRepository<T>(
           `${GIT_TEST_REF.LOCAL_BRANCH_PREFIX}${layout.headBranch}`,
         ]);
       },
-      dirtyWorkingTree: async () => {
-        const untrackedPath = `${layout.sourcePath}${UNTRACKED_PATH_SUFFIX}`;
-        await mkdir(dirname(join(productDir, layout.targetPath)), { recursive: true });
-        await writeFile(join(productDir, layout.sourcePath), `${HEAD_COMMIT_MESSAGE}${MODIFIED_CONTENT_SUFFIX}`);
-        await writeFile(join(productDir, layout.targetPath), layout.targetPath);
-        await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, layout.targetPath]);
-        await writeFile(join(productDir, untrackedPath), untrackedPath);
+      dirtyWorkingTree: async (steps) => {
+        const unrelatedPath = `${layout.sourcePath}${UNRELATED_UNTRACKED_PATH_SUFFIX}`;
+        const writeAt = async (path: string, content: string): Promise<void> => {
+          await mkdir(dirname(join(productDir, path)), { recursive: true });
+          await writeFile(join(productDir, path), content);
+        };
+        for (const { action, content } of steps) {
+          switch (action) {
+            case RECONCILIATION_WORKING_TREE_ACTION.MODIFY_CHANGED_PATH:
+              await writeAt(layout.sourcePath, content);
+              break;
+            case RECONCILIATION_WORKING_TREE_ACTION.REMOVE_CHANGED_PATH:
+              await rm(join(productDir, layout.sourcePath), { force: true });
+              break;
+            case RECONCILIATION_WORKING_TREE_ACTION.STAGE_REMOVAL_OF_CHANGED_PATH:
+              await runGit(productDir, [
+                GIT_TEST_SUBCOMMANDS.RM,
+                GIT_TEST_FLAGS.FORCE,
+                GIT_TEST_FLAGS.IGNORE_UNMATCH,
+                layout.sourcePath,
+              ]);
+              break;
+            case RECONCILIATION_WORKING_TREE_ACTION.STAGE_NEW_TARGET_PATH:
+              await writeAt(layout.targetPath, content);
+              await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, layout.targetPath]);
+              break;
+            case RECONCILIATION_WORKING_TREE_ACTION.WRITE_UNTRACKED_TARGET_PATH:
+              await writeAt(layout.targetPath, content);
+              break;
+            case RECONCILIATION_WORKING_TREE_ACTION.WRITE_UNRELATED_UNTRACKED_PATH:
+              await writeAt(unrelatedPath, content);
+              break;
+          }
+        }
+      },
+      restoreWorkingTree: async () => {
+        await runGit(productDir, [
+          GIT_TEST_SUBCOMMANDS.RESTORE,
+          GIT_TEST_FLAGS.SOURCE_HEAD,
+          GIT_TEST_FLAGS.STAGED,
+          GIT_TEST_FLAGS.WORKTREE,
+          GIT_TEST_FLAGS.PATHSPEC_SEPARATOR,
+          ".",
+        ]);
+        for (const path of [layout.targetPath, `${layout.sourcePath}${UNRELATED_UNTRACKED_PATH_SUFFIX}`]) {
+          await rm(join(productDir, path), { force: true });
+        }
       },
       observe: async (run) => ({
         events: await readEvents(run),
@@ -782,6 +830,7 @@ export async function withVerifyChangeInventoryRepository<T>(
         refs: await readGit(productDir, [GIT_TEST_SUBCOMMANDS.FOR_EACH_REF]),
         index: await readGit(productDir, [GIT_TEST_SUBCOMMANDS.LS_FILES, GIT_TEST_FLAGS.STAGE]),
         status: await readGit(productDir, [GIT_TEST_SUBCOMMANDS.STATUS, GIT_TEST_FLAGS.PORCELAIN]),
+        workingTree: await snapshotRepositoryState(productDir),
       }),
     });
   });
