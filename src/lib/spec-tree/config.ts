@@ -375,6 +375,41 @@ export const SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS: readonly NamingSchemaVersio
   SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION,
 ];
 
+/** Whether a version accepts `name` as a note a node directory holds beside its spec. */
+export function acceptsNodeLocalNote(version: NamingSchemaVersion, name: string): boolean {
+  return version.coordinationNotes.includes(name);
+}
+
+/** The kind of filesystem entry a path under a node's eval directory names. */
+export const SPEC_TREE_EVAL_ENTRY_KIND = {
+  FILE: "file",
+  DIRECTORY: "directory",
+} as const;
+
+export type SpecTreeEvalEntryKind = (typeof SPEC_TREE_EVAL_ENTRY_KIND)[keyof typeof SPEC_TREE_EVAL_ENTRY_KIND];
+
+/** The segments of an eval-lane entry's path from its node: `evals`, the rule slug, and the entry name. */
+const EVAL_LANE_PATH_SEGMENT_COUNT = 3;
+
+/**
+ * Whether a version accepts the entry at `pathFromNode`, a path relative to a node directory
+ * joined by the version's path separator, as eval-lane content: a file the version lists, or its
+ * runs directory, directly under `evals/{rule-slug}/`.
+ */
+export function acceptsEvalLaneEntry(
+  version: NamingSchemaVersion,
+  pathFromNode: string,
+  entryKind: SpecTreeEvalEntryKind,
+): boolean {
+  const segments = pathFromNode.split(version.pathSeparator);
+  if (segments.length !== EVAL_LANE_PATH_SEGMENT_COUNT) return false;
+  const [directory, ruleSlug, name] = segments;
+  if (directory !== version.eval.DIRECTORY_NAME || ruleSlug === "") return false;
+  return entryKind === SPEC_TREE_EVAL_ENTRY_KIND.DIRECTORY
+    ? name === version.eval.RUNS_DIRECTORY_NAME
+    : (version.eval.FILES as readonly string[]).includes(name);
+}
+
 const VERSION_COMPONENT_SEPARATOR = ".";
 const VERSION_COMPONENT_RADIX = 10;
 const VERSION_MISSING_COMPONENT = 0;
