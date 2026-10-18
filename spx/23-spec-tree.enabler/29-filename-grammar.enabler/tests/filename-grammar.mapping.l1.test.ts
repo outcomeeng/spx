@@ -13,13 +13,35 @@ import {
 } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { firstVersionNodeDirectoryCases } from "@testing/generators/spec-tree/filename-grammar";
+import { evalLaneCases, grammarTokenGroupCases } from "@testing/generators/spec-tree/grammar-tokens";
 import { SPEC_TREE_CASE_TITLE } from "@testing/generators/spec-tree/spec-tree";
+import { recognitionOptionsForLine } from "@testing/harnesses/spec-tree/filename-grammar";
 
 describe("node directories of the first naming-schema version", () => {
   it.each(firstVersionNodeDirectoryCases())(SPEC_TREE_CASE_TITLE, (testCase) => {
     const entry = recognizeSpecTreeFilesystemEntry(testCase.record, testCase.options);
 
     expect(entry?.type).toBe(SPEC_TREE_ENTRY_TYPE.NODE);
+  });
+});
+
+describe("token groups of a methodology line's naming-schema version", () => {
+  it.each(grammarTokenGroupCases())("resolves the $title through the grammar registry surface", (testCase) => {
+    for (const version of recognitionOptionsForLine(testCase.line).selectedVersions) {
+      expect([...testCase.resolve(version)].sort(compareAsciiStrings)).toEqual(
+        [...testCase.expected].sort(compareAsciiStrings),
+      );
+    }
+  });
+});
+
+describe("eval-lane names of a methodology line's naming-schema version", () => {
+  it.each(evalLaneCases())(SPEC_TREE_CASE_TITLE, (testCase) => {
+    for (const { eval: evalLane } of recognitionOptionsForLine(testCase.line).selectedVersions) {
+      expect(evalLane.DIRECTORY_NAME).toBe(testCase.directory);
+      for (const file of testCase.files) expect(evalLane.FILES).toContain(file);
+      expect(evalLane.RUNS_DIRECTORY_NAME).toBe(testCase.runsDirectory);
+    }
   });
 });
 
