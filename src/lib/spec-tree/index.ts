@@ -1107,7 +1107,13 @@ export async function readSpecTreeDeclaredRootKind(input: {
 
   const frontMatter = FRONT_MATTER_PATTERN.exec(await input.readText());
   if (frontMatter === null) return undefined;
-  const parsed: unknown = parseYaml(frontMatter[1]);
+  let parsed: unknown;
+  try {
+    parsed = parseYaml(frontMatter[1]);
+  } catch {
+    // Malformed front matter declares no kind; the caller's diagnostic names the file.
+    return undefined;
+  }
   if (typeof parsed !== "object" || parsed === null) return undefined;
   const kind = (parsed as Record<string, unknown>)[SPEC_TREE_FRONT_MATTER_KIND_KEY];
   return typeof kind === "string" ? kind : undefined;
