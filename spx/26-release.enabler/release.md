@@ -10,6 +10,8 @@ CAN reach users as a released version carrying accurate, current release informa
 
 ## Assertions
 
+- ALWAYS: a release-range endpoint that commits an `spx/` tree but no `methodology.version` fails the release product context with a diagnostic naming that endpoint, before any agent invocation
+
 ### Compliance
 
 - ALWAYS: a release derives its contents from the product's git history — commits, tags, and version — and interprets those changes through available product specifications and decisions, including governing and affected node context for changed implementation paths selected across both release-range endpoint trees; products without a spec tree remain supported ([audit])
