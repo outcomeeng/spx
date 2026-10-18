@@ -15,7 +15,7 @@ The versions and the selection are parameters so classification is verified by p
 - Every ordered `{NN}-{slug}{suffix}` directory classifies as exactly one of valid, superseded, or invalid; such an attempt is never dropped.
 - A node directory classifies valid when a selected version accepts its suffix, superseded when only a version ordered before the declared target's accepts it, and invalid when neither does.
 - The valid tree, the superseded list, and the invalid residual partition the classified entries: each appears in exactly one.
-- A superseded entry carries the newest naming-schema version it matched.
+- A superseded entry carries the naming-schema version it matched.
 - A record's classification is a function of the injected versions, the selection, and the record alone.
 
 ## Verification
