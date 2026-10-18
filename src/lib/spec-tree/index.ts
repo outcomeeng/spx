@@ -421,7 +421,7 @@ export type SpecTreeSnapshot = {
 export type SpecTreeProjectedNode = {
   readonly id: string;
   readonly kind: SpecTreeContainerKind;
-  readonly order: number;
+  readonly order: readonly number[];
   readonly slug: string;
   readonly state: SpecTreeNodeState;
   readonly children: readonly SpecTreeProjectedNode[];
@@ -430,7 +430,7 @@ export type SpecTreeProjectedNode = {
 export type SpecTreeProjectedDecision = {
   readonly id: string;
   readonly kind: DecisionKind;
-  readonly order: number;
+  readonly order: readonly number[];
   readonly slug: string;
 };
 
@@ -929,9 +929,9 @@ function flattenNodes(nodes: readonly MutableSpecTreeNode[]): readonly SpecTreeN
   return nodes.flatMap((node) => [node, ...flattenNodes(node.children)]);
 }
 
-/** The projection contract's scalar `order` field, written from the index's segments. */
-function projectedOrder(orderSegments: readonly number[]): number {
-  return Number.parseFloat(orderSegments.join(SPEC_TREE_ORDER_SEGMENT_SEPARATOR));
+/** The projection contract's `order` field: the index's segments, which `compareSpecTreeOrder` compares. */
+function projectedOrder(orderSegments: readonly number[]): readonly number[] {
+  return [...orderSegments];
 }
 
 function projectNode(node: SpecTreeNode): SpecTreeProjectedNode {

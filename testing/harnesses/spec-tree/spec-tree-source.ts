@@ -33,14 +33,14 @@ import type { CurrentSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree"
 
 export type NodeSignature = {
   readonly kind: string;
-  readonly order: number;
+  readonly order: readonly number[];
   readonly slug: string;
   readonly childCount: number;
 };
 
 export type DecisionSignature = {
   readonly kind: string;
-  readonly order: number;
+  readonly order: readonly number[];
   readonly slug: string;
 };
 
