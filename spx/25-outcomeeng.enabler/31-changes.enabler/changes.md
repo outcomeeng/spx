@@ -7,5 +7,5 @@ CAN refine and repair locally, publish approved intent through the chosen backen
 ### Compliance
 
 - ALWAYS: Change integrations distinguish the published coordination object, its local working draft, and independent verification records ([audit]).
-- ALWAYS: authoring workflows own draft semantics and publication policy; SPX draft storage preserves supplied content without applying backend-specific metadata or publication rules ([audit]).
+- ALWAYS: authoring workflows own draft semantics and publication policy ([audit]).
 - NEVER: session files under `.spx/sessions/` are treated as Change records or compatibility aliases for Changes ([audit]).
