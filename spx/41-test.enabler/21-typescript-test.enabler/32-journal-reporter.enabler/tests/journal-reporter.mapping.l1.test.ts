@@ -101,6 +101,42 @@ describe("journal reporter scope for a module whose reads are not directly obser
   });
 });
 
+describe("journal reporter scope read-path order", () => {
+  // Assertion design record
+  // - Assertion: a test module's scope event carries its product-relative read paths in ordinal code-unit order,
+  //   independent of the host locale. Quantifier: for every module, here over one fixed set of names on which
+  //   locale-aware collation and code-unit order disagree (case, hyphen against dot); evidence type mapping.
+  // - Production subject: the reporter's module-end hook; the observation is the scope the sink received.
+  // - Case provenance: names differing in letter case and in hyphen against dot weighting, the classes on which a
+  //   locale-aware comparator disagrees with code-unit order.
+  // - Oracle owner: the literal code-unit order below, written by hand and held independently of the reporter source.
+  // - Rejected mutation: the reporter orders read paths with a locale-aware comparator.
+  // - Failure observation: the lowercase names then precede the uppercase name, so the toEqual below fails.
+  const ORDINAL_READ_PATHS = ["src/B.ts", "src/a-b.ts", "src/a.b.ts", "src/a.ts"] as const;
+
+  it("orders the read paths by code unit, not by locale collation", async () => {
+    await assertProperty(
+      JOURNAL_REPORTER_TEST_GENERATOR.mixedRunScenario(),
+      async (generated) => {
+        const scenario = {
+          ...generated,
+          reads: {
+            ...generated.reads,
+            loadedProductFiles: [...ORDINAL_READ_PATHS].reverse(),
+            openedProductFiles: [],
+            foreignFiles: [],
+            dependencyFiles: [],
+            lockfile: undefined,
+          },
+        };
+        const observation = await observeJournalReporterMapping(scenario, JOURNAL_RUN_TERMINAL_STATUS.PASSED);
+        expect(observation.scopes).toEqual([{ moduleId: scenario.moduleId, readPaths: [...ORDINAL_READ_PATHS] }]);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+});
+
 describe("product dependency lockfile lookup", () => {
   // The lockfile-name domain is the source-owned LOCKFILE_NAMES, enumerated in full: each name held
   // alone resolves to itself, and the names from each position onward resolve to the name at that

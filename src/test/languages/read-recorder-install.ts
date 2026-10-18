@@ -12,6 +12,15 @@ import { syncBuiltinESMExports } from "node:module";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+/**
+ * Ordinal code-unit comparison for the recorded paths. The setup file runs in a worker of the
+ * product under test, where the `@/` alias is unresolvable, so the comparator is held here
+ * rather than imported; a locale-aware comparator would vary with the host ICU build.
+ */
+function compareCodeUnits(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
 /** The `node:fs` surfaces whose read entry points the recorder wraps. */
 export const READ_SURFACE = {
   FS: "fs",
@@ -81,7 +90,7 @@ export function installReadRecorder(): ReadRecorder {
   }
   syncBuiltinESMExports();
   return {
-    recordedPaths: () => opened.size === 0 ? undefined : [...opened].sort((left, right) => left.localeCompare(right)),
+    recordedPaths: () => opened.size === 0 ? undefined : [...opened].sort(compareCodeUnits),
     restore: () => {
       for (const restoreOne of originals) restoreOne();
       syncBuiltinESMExports();

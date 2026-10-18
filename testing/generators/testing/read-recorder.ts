@@ -2,6 +2,7 @@ import { join } from "node:path";
 
 import * as fc from "fast-check";
 
+import { compareCodeUnits } from "@/outcomeeng/spec-tree/graph/source/order";
 import { READ_ENTRY_POINTS } from "@/test/languages/read-recorder-install";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 
@@ -106,7 +107,7 @@ export function expectedRecordedPaths(root: string, plan: GeneratedReadPlan): st
       opened.add(join(root, locationDirectory(plan, location), plan.files[step.file]));
     }
   }
-  return opened.size === 0 ? undefined : [...opened].sort((left, right) => left.localeCompare(right));
+  return opened.size === 0 ? undefined : [...opened].sort(compareCodeUnits);
 }
 
 function arbitraryReadPlan(): fc.Arbitrary<GeneratedReadPlan> {
