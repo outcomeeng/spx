@@ -1,6 +1,0 @@
-{
-  "product": "gradient.product.md",
-  "valid": ["10-ledger.enabler", "20-routing.outcome"],
-  "superseded": [],
-  "invalid": ["30-console.surface", "40-archive.substrate"]
-}

@@ -7,9 +7,13 @@ import { observeRepresentativeSpecTreeSurfaceScenario } from "@testing/harnesses
 
 describe("spec-tree stable surface", () => {
   it("reads, projects, and selects the next root by tree order from a representative tree", async () => {
-    await observeRepresentativeSpecTreeSurfaceScenario(
-      sampleGeneratedValue(SPEC_TREE_TEST_GENERATOR.representativeFixture(KIND_REGISTRY)),
-    ).then((observation) => {
+    const generated = sampleGeneratedValue(SPEC_TREE_TEST_GENERATOR.representativeFixture(KIND_REGISTRY));
+    // The source yields its records in reverse tree order, so every sibling order the snapshot
+    // reports is one the read established rather than one the input already carried.
+    await observeRepresentativeSpecTreeSurfaceScenario({
+      ...generated,
+      entries: [...generated.entries].reverse(),
+    }).then((observation) => {
       expect(observation.snapshot.product?.id).toBe(observation.fixture.product.id);
       expect(observation.snapshot.nodes.map(({ id }) => id)).toEqual([
         observation.fixture.root.id,

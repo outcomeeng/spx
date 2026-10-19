@@ -13,8 +13,6 @@ import { METHODOLOGY_VERSION_FORM } from "@/config/methodology";
 import {
   OUTPUT_KINDS,
   SPEC_TREE_CONFIG,
-  SPEC_TREE_FRONT_MATTER_FENCE,
-  SPEC_TREE_FRONT_MATTER_KIND_KEY,
   SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_METHODOLOGY_LINE,
   type SpecTreeMethodologyLine,
@@ -27,12 +25,6 @@ import {
   type SelectedVersionScenario,
 } from "@testing/generators/spec-tree/naming-schema-version";
 import { type RepresentativeSpecTreeFixture, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
-import {
-  GRAMMAR_SELECTION_DECLARATION_FIELD,
-  GRAMMAR_SELECTION_FIXTURE,
-  type GrammarSelectionDeclaration,
-  type GrammarSelectionFixture,
-} from "@testing/harnesses/spec-tree/grammar-selection";
 
 /** A representative fixture whose nodes all carry an output node kind, a suffix only the 4.0 grammar accepts. */
 export function arbitraryOutputKindFixture(registry: SpecTreeRegistry): fc.Arbitrary<RepresentativeSpecTreeFixture> {
@@ -197,49 +189,3 @@ export function arbitraryDeclaredNodeDirectoryScenario(): fc.Arbitrary<DeclaredN
       record: orderedDirectoryRecord(order, slug, suffix),
     }));
 }
-
-/** A tree whose names a declaration partitions: the declaration to write and the fixture whose names it classifies. */
-export type DeclaredGrammarComplianceCase = {
-  readonly title: string;
-  readonly fixture: GrammarSelectionFixture;
-  readonly declaration: GrammarSelectionDeclaration;
-};
-
-/**
- * One case per grammar line whose fixture holds names the declared grammar does not accept,
- * each declared by a drawn exact version on its line.
- */
-export function declaredGrammarComplianceCases(): readonly DeclaredGrammarComplianceCase[] {
-  return [
-    {
-      line: SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO,
-      fixture: GRAMMAR_SELECTION_FIXTURE.FOUR_LINE,
-    },
-    {
-      line: SPEC_TREE_METHODOLOGY_LINE.THREE_TWO,
-      fixture: GRAMMAR_SELECTION_FIXTURE.THREE_LINE,
-    },
-  ].map(({ line, fixture }) => ({
-    title: `${fixture} tree declared on line ${line}`,
-    fixture,
-    declaration: {
-      [GRAMMAR_SELECTION_DECLARATION_FIELD.VERSION]: sampleGeneratedValue(arbitraryVersionOnLine(line)),
-    },
-  }));
-}
-
-const KIND_KEY = SPEC_TREE_FRONT_MATTER_KIND_KEY;
-const MALFORMED_FRONT_MATTER_LINE_BREAK = "\n";
-
-/**
- * The texts of a root spec whose front matter between the fences is not valid YAML: an unclosed
- * flow sequence, an unclosed flow mapping, an unterminated quoted scalar, and a repeated key.
- */
-export const MALFORMED_ROOT_SPEC_TEXTS: readonly string[] = [
-  `${KIND_KEY}: [`,
-  `${KIND_KEY}: {`,
-  `${KIND_KEY}: "`,
-  [`${KIND_KEY}: a`, `${KIND_KEY}: b`].join(MALFORMED_FRONT_MATTER_LINE_BREAK),
-].map((body) =>
-  [SPEC_TREE_FRONT_MATTER_FENCE, body, SPEC_TREE_FRONT_MATTER_FENCE, ""].join(MALFORMED_FRONT_MATTER_LINE_BREAK)
-);

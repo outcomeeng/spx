@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { KIND_REGISTRY, SPEC_TREE_METHODOLOGY_LINE } from "@/lib/spec-tree";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR, SPEC_TREE_METHODOLOGY_LINE } from "@/lib/spec-tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   arbitraryOutputKindFixture,
   arbitraryUnsupportedVersion,
   arbitraryVersionOnLine,
   grammarSelectionLines,
-  MALFORMED_ROOT_SPEC_TEXTS,
 } from "@testing/generators/spec-tree/grammar-selection";
 import { SPEC_TREE_TEST_GENERATOR, specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
 import {
@@ -27,13 +26,21 @@ describe("declaration-selected grammar", () => {
         ),
       },
       async (env) => {
-        const expectation = await env.expectation();
         const snapshot = await env.read();
 
-        expect(snapshot.product?.id).toBe(expectation.product);
-        expect(snapshot.allNodes.map(({ id }) => id)).toEqual(expectation.valid);
-        expect(snapshot.superseded.map(({ id }) => id)).toEqual(expectation.superseded);
-        expect(snapshot.residual.map(({ id }) => id)).toEqual(expectation.invalid);
+        expect(await env.rootFilePaths()).toEqual([
+          [SPEC_TREE_CONFIG.ROOT_DIRECTORY, snapshot.product?.id].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+        ]);
+        expect(snapshot.allNodes.map(({ id }) => id)).toEqual([
+          `10-ledger${KIND_REGISTRY.substrate.suffix}`,
+          `20-routing${KIND_REGISTRY.domain.suffix}`,
+          `30-console${KIND_REGISTRY.surface.suffix}`,
+        ]);
+        expect(snapshot.superseded.map(({ id }) => id)).toEqual([
+          `40-archive${KIND_REGISTRY.enabler.suffix}`,
+          `50-metrics${KIND_REGISTRY.outcome.suffix}`,
+        ]);
+        expect(snapshot.residual.map(({ id }) => id)).toEqual([]);
       },
     );
   });
@@ -47,13 +54,20 @@ describe("declaration-selected grammar", () => {
         ),
       },
       async (env) => {
-        const expectation = await env.expectation();
         const snapshot = await env.read();
 
-        expect(snapshot.product?.id).toBe(expectation.product);
-        expect(snapshot.allNodes.map(({ id }) => id)).toEqual(expectation.valid);
-        expect(snapshot.superseded.map(({ id }) => id)).toEqual(expectation.superseded);
-        expect(snapshot.residual.map(({ id }) => id)).toEqual(expectation.invalid);
+        expect(await env.rootFilePaths()).toEqual([
+          [SPEC_TREE_CONFIG.ROOT_DIRECTORY, snapshot.product?.id].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+        ]);
+        expect(snapshot.allNodes.map(({ id }) => id)).toEqual([
+          `10-forge${KIND_REGISTRY.enabler.suffix}`,
+          `20-relay${KIND_REGISTRY.outcome.suffix}`,
+        ]);
+        expect(snapshot.superseded.map(({ id }) => id)).toEqual([]);
+        expect(snapshot.residual.map(({ id }) => id)).toEqual([
+          `30-panel${KIND_REGISTRY.surface.suffix}`,
+          `40-vault${KIND_REGISTRY.substrate.suffix}`,
+        ]);
       },
     );
   });
@@ -70,13 +84,19 @@ describe("declaration-selected grammar", () => {
         ),
       },
       async (env) => {
-        const expectation = await env.expectation();
         const snapshot = await env.read();
 
-        expect(snapshot.product?.id).toBe(expectation.product);
-        expect(snapshot.allNodes.map(({ id }) => id)).toEqual(expectation.valid);
-        expect(snapshot.superseded.map(({ id }) => id)).toEqual(expectation.superseded);
-        expect(snapshot.residual.map(({ id }) => id)).toEqual(expectation.invalid);
+        expect(await env.rootFilePaths()).toEqual([
+          [SPEC_TREE_CONFIG.ROOT_DIRECTORY, snapshot.product?.id].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+        ]);
+        expect(snapshot.allNodes.map(({ id }) => id)).toEqual([
+          `10-anvil${KIND_REGISTRY.substrate.suffix}`,
+          `20-beacon${KIND_REGISTRY.domain.suffix}`,
+          `30-cockpit${KIND_REGISTRY.enabler.suffix}`,
+          `40-depot${KIND_REGISTRY.outcome.suffix}`,
+        ]);
+        expect(snapshot.superseded.map(({ id }) => id)).toEqual([]);
+        expect(snapshot.residual.map(({ id }) => id)).toEqual([]);
       },
     );
   });
@@ -164,25 +184,22 @@ describe("declaration-selected grammar", () => {
   });
 
   it("fails the read naming a 4.0 root spec whose front matter is not valid YAML", async () => {
-    for (const rootFileText of MALFORMED_ROOT_SPEC_TEXTS) {
-      await withGrammarSelectionEnv(
-        GRAMMAR_SELECTION_FIXTURE.ROOT_WITHOUT_KIND,
-        {
-          [GRAMMAR_SELECTION_DECLARATION_FIELD.VERSION]: sampleGeneratedValue(
-            arbitraryVersionOnLine(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO),
-          ),
-        },
-        async (env) => {
-          const failure = await env.read().then(() => undefined, (error: unknown) => error);
+    await withGrammarSelectionEnv(
+      GRAMMAR_SELECTION_FIXTURE.MALFORMED_ROOT_FRONT_MATTER,
+      {
+        [GRAMMAR_SELECTION_DECLARATION_FIELD.VERSION]: sampleGeneratedValue(
+          arbitraryVersionOnLine(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO),
+        ),
+      },
+      async (env) => {
+        const failure = await env.read().then(() => undefined, (error: unknown) => error);
 
-          expect(failure).toBeInstanceOf(Error);
-          for (const path of await env.rootFilePaths()) {
-            expect((failure as Error).message).toContain(path);
-          }
-        },
-        { rootFileText },
-      );
-    }
+        expect(failure).toBeInstanceOf(Error);
+        for (const path of await env.rootFilePaths()) {
+          expect((failure as Error).message).toContain(path);
+        }
+      },
+    );
   });
 
   it("classifies one materialized tree with a 3.x node kind as valid under a 3.2 declaration and superseded under a 4.0 declaration", async () => {
