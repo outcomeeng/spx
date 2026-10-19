@@ -444,8 +444,16 @@ function arbitraryWorkingTreeDirtying(): fc.Arbitrary<readonly ReconciliationWor
   );
 }
 
+const GIT_FAILURE_MESSAGE_PATTERN = /^[a-z]{16,32}$/;
+
+/** The error text a failing git invocation reports. */
+function arbitraryGitFailureMessage(): fc.Arbitrary<string> {
+  return fc.stringMatching(GIT_FAILURE_MESSAGE_PATTERN);
+}
+
 /** Generators of the reconciliation domain: inputs with the result their construction fixes. */
 export const RECONCILIATION_TEST_GENERATOR = {
+  gitFailureMessage: arbitraryGitFailureMessage,
   workingTreeDirtying: arbitraryWorkingTreeDirtying,
   scenario: arbitraryScenario,
   determinismScenario: arbitraryDeterminismScenario,
