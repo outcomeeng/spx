@@ -10,9 +10,9 @@ import {
 } from "@/config/methodology";
 import {
   HARNESS_ENVIRONMENT_CONFIG_FIELDS,
-  HARNESS_ENVIRONMENT_SECTION,
   harnessEnvironmentConfigDescriptor,
 } from "@/domains/agent-environment/config";
+import { HARNESS_ENVIRONMENT_SECTION } from "@/lib/harness-environment-section";
 import { methodologyLine } from "@/lib/methodology";
 import { METHODOLOGY_LOCATION_FIELD } from "@testing/generators/config/descriptors";
 import {

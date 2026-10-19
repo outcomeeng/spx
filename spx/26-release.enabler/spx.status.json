@@ -4,6 +4,7 @@
     "test": {
       "overall": "passed",
       "spx/26-release.enabler/tests/decision-citation.compliance.l1.test.ts": "passed",
+      "spx/26-release.enabler/tests/endpoint-grammar.compliance.l1.test.ts": "passed",
       "spx/26-release.enabler/tests/release-cli.compliance.l1.test.ts": "passed",
       "spx/26-release.enabler/tests/spec-less-node.compliance.l1.test.ts": "passed"
     }

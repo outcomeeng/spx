@@ -23,7 +23,10 @@ import {
   type SpecContextSelectionReason,
 } from "@/lib/spec-tree";
 import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";
-import { arbitraryAcceptedMethodologyVersion } from "@testing/generators/methodology/tree";
+import {
+  arbitraryAcceptedMethodologyVersion,
+  arbitraryFixtureAuthoredLine,
+} from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   SPEC_CONTEXT_FIXTURE_STATUS_BODY,
@@ -31,7 +34,9 @@ import {
   specContextSameIndexSiblingDirectoryName,
 } from "@testing/generators/spec-tree/context-target";
 import {
+  orderIndexText,
   type RepresentativeSpecTreeFixture,
+  singleSegmentOrder,
   SPEC_TREE_TEST_GENERATOR,
   specTreeFixtureNodeDirectoryName,
 } from "@testing/generators/spec-tree/spec-tree";
@@ -56,18 +61,30 @@ export function rootedArtifactPath(directory: string | undefined, filename: stri
 }
 
 /** A decision file under the tree root or under `directory`, named by order, slug, and kind suffix. */
-function decisionFilePath(directory: string | undefined, order: number, slug: string, suffix: string): string {
-  return rootedArtifactPath(directory, `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${suffix}`);
+function decisionFilePath(
+  directory: string | undefined,
+  orderSegments: readonly number[],
+  slug: string,
+  suffix: string,
+): string {
+  return rootedArtifactPath(
+    directory,
+    `${orderIndexText(orderSegments)}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${suffix}`,
+  );
 }
 
 /** The first index above every index the fixture's own nodes occupy, so a new sibling collides with none. */
 export function freeSiblingOrder(fixture: RepresentativeSpecTreeFixture): number {
-  return Math.max(fixture.root.order, fixture.peer.order) + 1;
+  return Math.max(...fixture.root.orderSegments, ...fixture.peer.orderSegments) + 1;
 }
 
 /** A sibling node directory at `order` carrying `slug`, in the kind the fixture's own root declares. */
 export function siblingDirectoryName(fixture: RepresentativeSpecTreeFixture, order: number, slug: string): string {
-  return specTreeFixtureNodeDirectoryName(KIND_REGISTRY, { ...fixture.root, order, slug });
+  return specTreeFixtureNodeDirectoryName(KIND_REGISTRY, {
+    ...fixture.root,
+    orderSegments: singleSegmentOrder(order),
+    slug,
+  });
 }
 
 /** The spec path of a new top-level node of `kind` at the first free index, so it collides with no fixture node. */
@@ -75,7 +92,7 @@ export function freeNodeSpecPath(fixture: RepresentativeSpecTreeFixture, kind: N
   const directory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, {
     ...fixture.root,
     kind,
-    order: freeSiblingOrder(fixture),
+    orderSegments: singleSegmentOrder(freeSiblingOrder(fixture)),
     slug,
   });
   return specFilePath(directory, slug);
@@ -83,7 +100,7 @@ export function freeNodeSpecPath(fixture: RepresentativeSpecTreeFixture, kind: N
 
 /** The path of a new product-root decision of `kind` at the first free index, so it collides with no fixture entry. */
 export function freeDecisionPath(fixture: RepresentativeSpecTreeFixture, kind: DecisionKind, slug: string): string {
-  return decisionFilePath(undefined, freeSiblingOrder(fixture), slug, KIND_REGISTRY[kind].suffix);
+  return decisionFilePath(undefined, singleSegmentOrder(freeSiblingOrder(fixture)), slug, KIND_REGISTRY[kind].suffix);
 }
 
 /** The body a fixture spec carries: its own title and the opening its kind declares. */
@@ -263,22 +280,27 @@ function richContextScenario({ fixture, tokens, evidenceFileName }: RichContextD
   const targetSpecPath = specFilePath(targetId, fixture.child.slug);
   const ancestorDecisionPath = decisionFilePath(
     rootDirectory,
-    fixture.decision.order,
+    fixture.decision.orderSegments,
     fixture.decision.slug,
     decisionSuffix,
   );
   // A decision directly contained by the depth-2 target, so targetless
   // discovery carries a decision at each declared depth.
-  const targetDecisionPath = decisionFilePath(targetId, fixture.decision.order, fixture.decision.slug, decisionSuffix);
+  const targetDecisionPath = decisionFilePath(
+    targetId,
+    fixture.decision.orderSegments,
+    fixture.decision.slug,
+    decisionSuffix,
+  );
   const higherAncestorDecisionPath = decisionFilePath(
     rootDirectory,
-    fixture.peer.order,
+    fixture.peer.orderSegments,
     fixture.decision.slug,
     decisionSuffix,
   );
   const higherProductDecisionPath = decisionFilePath(
     undefined,
-    fixture.peer.order,
+    fixture.peer.orderSegments,
     fixture.decision.slug,
     decisionSuffix,
   );
@@ -290,13 +312,13 @@ function richContextScenario({ fixture, tokens, evidenceFileName }: RichContextD
   const appendedPair = divergentOrderSlugPairFrom(pairSlug);
   const citedDecisionPath = decisionFilePath(
     peerDirectory,
-    fixture.decision.order,
+    fixture.decision.orderSegments,
     `${appendedPair.codeUnitFirst}-cited`,
     decisionSuffix,
   );
   const transitiveCitedDecisionPath = decisionFilePath(
     peerDirectory,
-    fixture.peer.order,
+    fixture.peer.orderSegments,
     `${fixture.decision.slug}-transitive`,
     decisionSuffix,
   );
@@ -305,7 +327,7 @@ function richContextScenario({ fixture, tokens, evidenceFileName }: RichContextD
   const higherIndexSiblingSpecPath = specFilePath(peerDirectory, fixture.peer.slug);
   const peerDecisionPath = decisionFilePath(
     peerDirectory,
-    fixture.decision.order,
+    fixture.decision.orderSegments,
     `${appendedPair.localeFirst}-peer`,
     decisionSuffix,
   );
@@ -453,7 +475,7 @@ function richContextScenario({ fixture, tokens, evidenceFileName }: RichContextD
   // the projection.
   const unscannedDecisionPath = decisionFilePath(
     undefined,
-    fixture.peer.order,
+    fixture.peer.orderSegments,
     unscannedSlug,
     KIND_REGISTRY.pdr.suffix,
   );
@@ -704,8 +726,8 @@ function arbitraryMethodologyIdentity(): fc.Arbitrary<MethodologyIdentity> {
   return fc
     .record({
       source: fc.tuple(CONFIG_TEST_GENERATOR.key(), CONFIG_TEST_GENERATOR.key()).map((segments) => segments.join("/")),
-      version: fc.option(arbitraryAcceptedMethodologyVersion(), { nil: undefined }),
-      migratingFrom: fc.option(arbitraryAcceptedMethodologyVersion(), { nil: undefined }),
+      version: fc.option(arbitraryAcceptedMethodologyVersion(arbitraryFixtureAuthoredLine()), { nil: undefined }),
+      migratingFrom: fc.option(arbitraryAcceptedMethodologyVersion(arbitraryFixtureAuthoredLine()), { nil: undefined }),
     })
     .map(({ source, version, migratingFrom }) => ({
       source,

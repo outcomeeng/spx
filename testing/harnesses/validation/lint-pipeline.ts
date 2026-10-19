@@ -1,39 +1,19 @@
-import { validationLintSubprocessScenarios } from "@testing/generators/validation/validation";
-import {
-  expectValidationSubprocessResult,
-  runValidationSubprocess,
-  validationSubprocessHarnessOptions,
-} from "@testing/harnesses/validation/cli";
-import { collectHarnessTestCases, describe, it } from "@testing/harnesses/vitest-registration";
-import { type FixtureName, PROJECT_FIXTURES, withValidationEnv } from "@testing/harnesses/with-validation-env";
+import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
+import { runValidationSubprocess, type ValidationCliResult } from "@testing/harnesses/validation/cli";
+import { type FixtureName, HARNESS_TIMEOUT, withValidationEnv } from "@testing/harnesses/with-validation-env";
 
-function registerLintPipelineTests(excludedFixture?: FixtureName): void {
-  describe("lint validation subprocess", () => {
-    for (const scenario of validationLintSubprocessScenarios()) {
-      const options = validationSubprocessHarnessOptions(scenario);
-      if (options.fixture === excludedFixture) continue;
-      it(
-        scenario.title,
-        async () => {
-          await withValidationEnv({ fixture: options.fixture }, async ({ path }) => {
-            const result = await runValidationSubprocess(scenario.args, {
-              cwd: path,
-              timeout: options.timeout,
-            });
+/** The timeout, in milliseconds, a lint subprocess case allows. */
+export const LINT_SUBPROCESS_TIMEOUT = HARNESS_TIMEOUT;
 
-            expectValidationSubprocessResult(result, scenario);
-          });
-        },
-        options.timeout,
-      );
-    }
+/** Runs `spx validation lint` as a subprocess inside a copy of the named fixture product and returns its observed result. */
+export async function observeLintSubprocess(fixture: FixtureName): Promise<ValidationCliResult> {
+  let observed: ValidationCliResult | undefined;
+  await withValidationEnv({ fixture }, async ({ path }) => {
+    observed = await runValidationSubprocess([validationCliDefinition.subcommands.lint.commandName], {
+      cwd: path,
+      timeout: LINT_SUBPROCESS_TIMEOUT,
+    });
   });
+  if (observed === undefined) throw new Error("The lint subprocess produced no result");
+  return observed;
 }
-
-export const lintPipelineScenarioCases = collectHarnessTestCases(() => {
-  registerLintPipelineTests();
-});
-
-export const lintPipelineComplianceCases = collectHarnessTestCases(() => {
-  registerLintPipelineTests(PROJECT_FIXTURES.CLEAN_PROJECT);
-});

@@ -1,11 +1,15 @@
 import type { ConfigDescriptor, Result } from "@/config/types";
+import {
+  formatMethodologyDeclarationVersionUndeclaredError,
+  METHODOLOGY_DECLARATION_FIELDS,
+} from "../lib/methodology/declaration-fields";
 
-export const METHODOLOGY_SECTION = "methodology";
+export const METHODOLOGY_SECTION = METHODOLOGY_DECLARATION_FIELDS.SECTION;
 
 export const METHODOLOGY_CONFIG_FIELDS = {
   SOURCE: "source",
-  VERSION: "version",
-  MIGRATING_FROM: "migratingFrom",
+  VERSION: METHODOLOGY_DECLARATION_FIELDS.VERSION,
+  MIGRATING_FROM: METHODOLOGY_DECLARATION_FIELDS.MIGRATING_FROM,
 } as const;
 
 export const DEFAULT_METHODOLOGY_SOURCE = "outcomeeng/methodology";
@@ -104,7 +108,7 @@ export const DEFAULT_METHODOLOGY_CONFIG: MethodologyConfig = {
 
 /** Diagnostic for a methodology identity requested by a product that declares no methodology version. */
 export function formatMethodologyVersionUndeclaredError(): string {
-  return `No methodology version is declared; set ${METHODOLOGY_SECTION}.${METHODOLOGY_CONFIG_FIELDS.VERSION}`;
+  return formatMethodologyDeclarationVersionUndeclaredError();
 }
 
 function validateMethodologySource(path: string, value: unknown): Result<string> {

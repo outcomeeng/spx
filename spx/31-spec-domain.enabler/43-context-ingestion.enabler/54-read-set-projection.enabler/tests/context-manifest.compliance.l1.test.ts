@@ -7,6 +7,7 @@ import {
   KIND_REGISTRY,
   SPEC_CONTEXT_MODE,
   SPEC_CONTEXT_MODE_NAME,
+  SPEC_CONTEXT_PRODUCT_ROOT_TARGET,
   SPEC_CONTEXT_SELECTION_REASON,
   SPEC_TREE_GRAMMAR,
 } from "@/lib/spec-tree";
@@ -22,7 +23,9 @@ import {
   specFilePath,
   specFixtureBody,
 } from "@testing/generators/spec-tree/rich-context";
+import { segmentOrderGovernanceCases } from "@testing/generators/spec-tree/segment-order-governance";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
+import { withSegmentOrderGovernanceEnv } from "@testing/harnesses/spec-tree/segment-order-governance";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   allManifestPaths,
@@ -33,12 +36,33 @@ import {
   entryPaths,
   manifestEntryAt,
   manifestPathsForReason,
+  methodologyDeclaredConfig,
   parseContextManifest,
-  specTreeKindsConfig,
   trackSpecTreeInGit,
   withOutsideProductDir,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
+
+/**
+ * Orders the given tree paths by the index their entry name carries: segments compare
+ * numerically, and an index that is a proper prefix of another comes first.
+ */
+function orderPathsByIndexSegments(paths: readonly string[]): readonly string[] {
+  const segmentsOf = (path: string): readonly number[] => {
+    const [, entryName = ""] = path.split(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
+    const [index = ""] = entryName.split(SPEC_TREE_GRAMMAR.ORDER.SEPARATOR);
+    return index.split(SPEC_TREE_GRAMMAR.ORDER.SEGMENT_SEPARATOR).map(Number);
+  };
+  return [...paths].sort((left, right) => {
+    const leftSegments = segmentsOf(left);
+    const rightSegments = segmentsOf(right);
+    for (let position = 0; position < Math.min(leftSegments.length, rightSegments.length); position++) {
+      const difference = leftSegments[position] - rightSegments[position];
+      if (difference !== 0) return difference;
+    }
+    return leftSegments.length - rightSegments.length;
+  });
+}
 
 describe("spec context manifest boundaries", () => {
   it("carries no entry for a document show does not select, the coordination plans on the path included", async () => {
@@ -111,7 +135,7 @@ describe("spec context manifest boundaries", () => {
   });
 
   it("keeps a harness guide whose symbolic link escapes the product directory outside list", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
@@ -162,7 +186,7 @@ describe("spec context manifest boundaries", () => {
   });
 
   it("orders equal-index siblings by code units where locale collation disagrees, tracked or not", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       const fixture = env.fixture;
       const opening = KIND_REGISTRY[fixture.root.kind].opening;
@@ -195,4 +219,21 @@ describe("spec context manifest boundaries", () => {
       expect(await pairOrderIn()).toStrictEqual(pairSpecPaths);
     });
   });
+
+  for (const governance of segmentOrderGovernanceCases()) {
+    it(`list manifest orders sibling nodes and decisions by numeric index segments, shorter prefix first, ${governance.title}`, async () => {
+      await withSegmentOrderGovernanceEnv(governance, async (env) => {
+        const delivered = allManifestPaths(
+          await contextListManifest({ targets: [SPEC_CONTEXT_PRODUCT_ROOT_TARGET], cwd: env.productDir }),
+        );
+        const nodes = [governance.higherSpecPath, governance.lowerSpecPath];
+        const decisions = [governance.higherDecisionPath, governance.lowerDecisionPath];
+        for (const group of [nodes, decisions]) {
+          expect(delivered.filter((path) => group.includes(path)), group.join(" ")).toEqual(
+            orderPathsByIndexSegments(group),
+          );
+        }
+      });
+    });
+  }
 });

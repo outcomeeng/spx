@@ -6,14 +6,14 @@ import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 type NodeSignature = {
   readonly kind: string;
-  readonly order: number;
+  readonly order: readonly number[];
   readonly slug: string;
   readonly childCount: number;
 };
 
 type DecisionSignature = {
   readonly kind: string;
-  readonly order: number;
+  readonly order: readonly number[];
   readonly slug: string;
 };
 

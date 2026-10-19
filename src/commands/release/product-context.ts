@@ -20,9 +20,12 @@ import { committedFileContent, committedPaths } from "@/lib/git/release";
 import { defaultGitDependencies, type GitDependencies } from "@/lib/git/root";
 import {
   readSpecTree,
+  resolveCommittedSpecTreeGrammarSelection,
+  SPEC_TREE_ROOT_PREFIX,
   specContextAncestors,
   specContextDecisions,
   specContextLowerIndexSiblings,
+  type SpecTreeGrammarSelection,
   type SpecTreeNode,
   type SpecTreeSnapshot,
   type SpecTreeSource,
@@ -38,6 +41,8 @@ interface ReleaseContextEndpoint {
   readonly pathSet: ReadonlySet<string>;
   readonly source: SpecTreeSource;
   readonly snapshot: SpecTreeSnapshot;
+  /** The grammar the endpoint's committed methodology declaration selects; absent when the endpoint commits no spec tree. */
+  readonly selection?: SpecTreeGrammarSelection;
 }
 
 export interface ReleaseProductContextDependencies {
@@ -177,14 +182,43 @@ async function readEndpoint(
   endpointReader: ReleaseEndpointReader,
 ): Promise<ReleaseContextEndpoint> {
   const paths = await endpointReader.listPaths(productDir, ref);
-  const source = createReleaseEndpointSpecTreeSource(productDir, ref, paths, endpointReader);
+  const selection = paths.some((path) => path.startsWith(SPEC_TREE_ROOT_PREFIX))
+    ? await readEndpointGrammarSelection(productDir, ref, paths, endpointReader)
+    : undefined;
+  const source = createReleaseEndpointSpecTreeSource(productDir, ref, paths, endpointReader, selection);
   return {
     ref,
     paths,
     pathSet: new Set(paths),
     source,
     snapshot: await readSpecTree({ source }),
+    ...(selection === undefined ? {} : { selection }),
   };
+}
+
+/**
+ * The grammar selection of the methodology declaration the endpoint commits in its product
+ * configuration. An endpoint that commits no declaration, or one the config module rejects,
+ * selects no grammar and fails the release naming the endpoint.
+ */
+async function readEndpointGrammarSelection(
+  productDir: string,
+  ref: string,
+  paths: readonly string[],
+  endpointReader: ReleaseEndpointReader,
+): Promise<SpecTreeGrammarSelection> {
+  try {
+    return await resolveCommittedSpecTreeGrammarSelection(productDir, {
+      paths,
+      readText: async (filename) => {
+        const raw = await endpointReader.readText(productDir, ref, filename);
+        if (raw === null) throw missingCommittedFile(filename, ref);
+        return raw;
+      },
+    });
+  } catch (error) {
+    throw new Error(`Methodology declaration at ${ref}: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 function createReleaseEndpointSpecTreeSource(
@@ -192,16 +226,20 @@ function createReleaseEndpointSpecTreeSource(
   ref: string,
   paths: readonly string[],
   endpointReader: ReleaseEndpointReader,
+  selection: SpecTreeGrammarSelection | undefined,
 ): SpecTreeSource {
+  const readCommittedText = async (path: string): Promise<string> => {
+    const content = await endpointReader.readText(productDir, ref, path);
+    if (content === null) throw missingCommittedFile(path, ref);
+    return content;
+  };
   return {
     async *entries() {
-      yield* committedSpecTreeEntries(paths);
+      if (selection !== undefined) yield* committedSpecTreeEntries(paths, selection, readCommittedText);
     },
-    async readText(sourceRef): Promise<string> {
+    readText: async (sourceRef): Promise<string> => {
       if (sourceRef.path === undefined) throw new Error("Committed source refs require a path");
-      const content = await endpointReader.readText(productDir, ref, sourceRef.path);
-      if (content === null) throw missingCommittedFile(sourceRef.path, ref);
-      return content;
+      return await readCommittedText(sourceRef.path);
     },
   };
 }
@@ -366,7 +404,8 @@ async function addCitedDecisions(
   const decisionsByPath = new Map(endpoint.snapshot.decisions.map((decision) => [decision.ref?.path, decision.ref]));
   for (const document of documents.values()) {
     if (documentSources.get(document.path) !== endpoint) continue;
-    for (const citation of extractDecisionLinkCitations(document.path, document.content)) {
+    if (endpoint.selection === undefined) continue;
+    for (const citation of extractDecisionLinkCitations(document.path, document.content, endpoint.selection)) {
       const ref = decisionsByPath.get(citation);
       if (ref === undefined) {
         throw new Error(`Unresolved product-context decision ${citation} cited by ${document.path}`);

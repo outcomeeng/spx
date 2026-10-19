@@ -13,9 +13,11 @@ CAN run ESLint against TypeScript products — executing style, correctness, and
 ### Compliance
 
 - ALWAYS: the executable returned by ESLint discovery is the binary the lint subprocess spawns ([test](tests/lint-args.compliance.l1.test.ts))
-- ALWAYS: tool discovery and ESLint subprocess invocation occur only after TypeScript and an ESLint flat config are present ([test](tests/lint.compliance.l2.test.ts))
+- ALWAYS: tool discovery and ESLint subprocess invocation occur only after TypeScript and an ESLint flat config are present ([test](tests/lint-preflight.compliance.l1.test.ts))
 - NEVER: invoke ESLint via `npx` against a product lacking an ESLint flat config — prevents installation prompts and ENOENT failures ([test](tests/lint.compliance.l2.test.ts))
 - ALWAYS: ESLint uses the flat config file reported by language detection ([test](tests/lint-args.compliance.l1.test.ts))
 - ALWAYS: ESLint receives only the target product's flat config, fix mode, and caller-supplied file scope — `spx` does not inject repository-specific ignore patterns or warning-budget policy into consuming products ([test](tests/lint-args.compliance.l1.test.ts))
 - ALWAYS: consecutive lint invocations execute the discovered ESLint binary and return each invocation's fresh result ([test](tests/lint-args.compliance.l1.test.ts))
 - ALWAYS: repository lint-debt manifest checks run inside `spx validation lint`, are skipped for projects without those manifests, compare additions against the branch base when available, and never run while loading `eslint.config.ts` ([test](tests/lint-policy.compliance.l1.test.ts))
+- ALWAYS: lint policy rejects a spec node directory only when no naming-schema version the product's methodology declaration selects accepts its suffix, so a `.capability` directory passes under a 4.0 declaration and fails under a 3.2 declaration ([test](tests/superseded-suffix.compliance.l1.test.ts))
+- ALWAYS: a product with no `spx/` directory passes the lint policy with no methodology declaration ([test](tests/no-spec-tree.compliance.l1.test.ts))

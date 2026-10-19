@@ -3,7 +3,14 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { withoutGitEnvironment } from "@/lib/git/environment";
-import { NODE_SUFFIXES, SPEC_TREE_CONFIG, SPEC_TREE_SUPERSEDED_NODE_SUFFIXES } from "@/lib/spec-tree";
+import {
+  NODE_SUFFIXES,
+  OUTPUT_SUFFIXES,
+  resolveSpecTreeGrammarSelection,
+  selectedSupersededNodeSuffixes,
+  SPEC_TREE_CONFIG,
+  type SpecTreeGrammarSelection,
+} from "@/lib/spec-tree";
 import { LINT_POLICY_BASE_REFS, LINT_POLICY_MANIFESTS, parseLintPolicyManifest } from "./lint-policy-constants";
 
 const TEST_LINT_DEBT_NODE_MANIFEST_FILE = LINT_POLICY_MANIFESTS.TEST_LINT_DEBT_NODES.file;
@@ -14,7 +21,7 @@ const SPEC_TREE_ROOT = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
 const BASE_BRANCH_REFS = [LINT_POLICY_BASE_REFS.REMOTE_MAIN, LINT_POLICY_BASE_REFS.LOCAL_MAIN] as const;
 
 function isSpecTreeNodePath(entry: string): boolean {
-  return NODE_SUFFIXES.some((suffix) => entry.endsWith(suffix));
+  return [...NODE_SUFFIXES, ...OUTPUT_SUFFIXES].some((suffix) => entry.endsWith(suffix));
 }
 
 export type LintPolicyResult =
@@ -33,7 +40,8 @@ function manifestExists(productDir: string, file: string): boolean {
   return existsSync(join(productDir, file));
 }
 
-function findDeprecatedSpecNodePath(productDir: string): string | undefined {
+function findDeprecatedSpecNodePath(productDir: string, selection: SpecTreeGrammarSelection): string | undefined {
+  const supersededSuffixes = selectedSupersededNodeSuffixes(selection);
   function visit(relativeDirectory: string): string | undefined {
     const absoluteDirectory = join(productDir, relativeDirectory);
     for (const entry of readdirSync(absoluteDirectory, { withFileTypes: true })) {
@@ -43,7 +51,7 @@ function findDeprecatedSpecNodePath(productDir: string): string | undefined {
 
       const childPath = `${relativeDirectory}/${entry.name}`;
 
-      if (SPEC_TREE_SUPERSEDED_NODE_SUFFIXES.some((suffix) => entry.name.endsWith(suffix))) {
+      if (supersededSuffixes.some((suffix) => entry.name.endsWith(suffix))) {
         return childPath;
       }
 
@@ -53,11 +61,6 @@ function findDeprecatedSpecNodePath(productDir: string): string | undefined {
       }
     }
 
-    return undefined;
-  }
-
-  const specTreeRootPath = join(productDir, SPEC_TREE_ROOT);
-  if (!existsSync(specTreeRootPath)) {
     return undefined;
   }
 
@@ -192,8 +195,12 @@ function assertManifestDoesNotGrow(
   }
 }
 
-function rejectDeprecatedSpecNodeSuffixes(productDir: string): void {
-  const deprecatedSpecNodePath = findDeprecatedSpecNodePath(productDir);
+async function rejectDeprecatedSpecNodeSuffixes(productDir: string): Promise<void> {
+  if (!existsSync(join(productDir, SPEC_TREE_ROOT))) {
+    return;
+  }
+  const selection = await resolveSpecTreeGrammarSelection(productDir);
+  const deprecatedSpecNodePath = findDeprecatedSpecNodePath(productDir, selection);
   if (deprecatedSpecNodePath !== undefined) {
     throw new Error(
       `Spec Tree nodes must use current suffixes only: ${deprecatedSpecNodePath}`,
@@ -233,9 +240,14 @@ function validateTestOwnedConstantDebtNodeManifest(productDir: string, entries: 
   );
 }
 
-export function validateLintPolicy(productDir: string): LintPolicyResult {
+/**
+ * Validates the lint policy of the product at `productDir`. A product with a spec tree resolves its
+ * grammar selection, and a node directory suffix is deprecated when that selection leaves it to a
+ * version ordered before the declared target. A product without a spec tree needs no selection.
+ */
+export async function validateLintPolicy(productDir: string): Promise<LintPolicyResult> {
   try {
-    rejectDeprecatedSpecNodeSuffixes(productDir);
+    await rejectDeprecatedSpecNodeSuffixes(productDir);
 
     const manifestExistence = [
       manifestExists(productDir, TEST_LINT_DEBT_NODE_MANIFEST_FILE),

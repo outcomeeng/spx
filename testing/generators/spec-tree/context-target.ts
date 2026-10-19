@@ -1,6 +1,5 @@
 import * as fc from "fast-check";
 
-import type { Config } from "@/config/types";
 import {
   arbitraryMigratingMethodology,
   type GeneratedMigratingMethodology,
@@ -20,19 +19,24 @@ import {
   type DecisionKind,
   KIND_REGISTRY,
   NODE_SUFFIXES,
+  selectedSupersededNodeSuffixes,
   SPEC_CONTEXT_OPTIONAL_ARTIFACT,
   SPEC_CONTEXT_PRODUCT_ROOT_TARGET,
   SPEC_CONTEXT_TARGET_FAILURE_KIND,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
-  SPEC_TREE_SUPERSEDED_NODE_SUFFIXES,
   type SpecContextTargetFailure,
   type SpecContextTargetFailureKind,
+  type SpecTreeGrammarSelection,
 } from "@/lib/spec-tree";
+import { arbitraryFixtureAuthoredLine } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
+  FIXTURE_SPEC_TREE_GRAMMAR_SELECTION,
+  orderIndexText,
   type RepresentativeSpecTreeFixture,
   sampleSpecTreeTestValue,
+  singleSegmentOrder,
   SPEC_TREE_TEST_GENERATOR,
   specTreeFixtureNodeDirectoryName,
 } from "@testing/generators/spec-tree/spec-tree";
@@ -132,6 +136,7 @@ const UNACCEPTED_ARTIFACTS_BY_GRAMMAR_FIELD: {
   // Naming grammar: filename segments and separators, not artifacts an operand can name.
   RUNNERS: [],
   ORDER: [],
+  ORDER_FORMS: [],
   PATH_SEPARATOR: [],
   // Node-directory suffixes, covered by the superseded-suffix unresolved shape.
   PRIOR_NODE_SUFFIXES: [],
@@ -434,8 +439,11 @@ export function specContextNonCitationShapes(fixture: RepresentativeSpecTreeFixt
 /** The vitest `it.each` title token that renders each case's own title. */
 export const SPEC_CONTEXT_CASE_TITLE = "$title";
 
-function unregisteredNodeSuffix(seed: string): string {
-  const registeredSuffixes = new Set([...NODE_SUFFIXES, ...SPEC_TREE_SUPERSEDED_NODE_SUFFIXES]);
+function unregisteredNodeSuffix(
+  seed: string,
+  selection: SpecTreeGrammarSelection = FIXTURE_SPEC_TREE_GRAMMAR_SELECTION,
+): string {
+  const registeredSuffixes = new Set([...NODE_SUFFIXES, ...selectedSupersededNodeSuffixes(selection)]);
   let candidate = `.${seed}`;
   while (registeredSuffixes.has(candidate)) candidate = `${candidate}-${seed}`;
   return candidate;
@@ -443,13 +451,14 @@ function unregisteredNodeSuffix(seed: string): string {
 
 export function specContextLowerSiblingDirectoryName(fixture: RepresentativeSpecTreeFixture): string {
   const rootDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root);
-  const orderPrefix = `${fixture.root.order}-`;
-  return `${fixture.root.order - 1}-${rootDirectory.slice(orderPrefix.length)}`;
+  const orderPrefix = `${orderIndexText(fixture.root.orderSegments)}-`;
+  const [rootIndex] = fixture.root.orderSegments;
+  return `${orderIndexText(singleSegmentOrder(rootIndex - 1))}-${rootDirectory.slice(orderPrefix.length)}`;
 }
 
 export function specContextSameIndexSiblingDirectoryName(fixture: RepresentativeSpecTreeFixture): string {
   const definition = KIND_REGISTRY[fixture.root.kind];
-  return `${fixture.root.order}-${fixture.root.slug}-same${definition.suffix}`;
+  return `${orderIndexText(fixture.root.orderSegments)}-${fixture.root.slug}-same${definition.suffix}`;
 }
 
 /** A target no accepted path matches, derived from the fixture root's directory name. */
@@ -502,7 +511,9 @@ export function specContextFixtureDocuments(fixture: RepresentativeSpecTreeFixtu
     ),
     nodeDecisionPath: rooted(
       rootDirectory,
-      `${fixture.decision.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${fixture.decision.slug}${decisionSuffix}`,
+      `${
+        orderIndexText(fixture.decision.orderSegments)
+      }${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${fixture.decision.slug}${decisionSuffix}`,
     ),
     rootTargetPath: rooted(rootDirectory),
     childTargetPath: rooted(rootDirectory, childDirectory),
@@ -512,7 +523,9 @@ export function specContextFixtureDocuments(fixture: RepresentativeSpecTreeFixtu
 /** A product-root decision written beside the fixture, of the given kind. */
 export function specContextRootDecisionPath(fixture: RepresentativeSpecTreeFixture, kind: DecisionKind): string {
   return rooted(
-    `${fixture.peer.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${fixture.decision.slug}${KIND_REGISTRY[kind].suffix}`,
+    `${orderIndexText(fixture.peer.orderSegments)}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${fixture.decision.slug}${
+      KIND_REGISTRY[kind].suffix
+    }`,
   );
 }
 
@@ -520,7 +533,7 @@ export function specContextRootDecisionPath(fixture: RepresentativeSpecTreeFixtu
 export function specContextNodeDecisionPath(fixture: RepresentativeSpecTreeFixture, kind: DecisionKind): string {
   return rooted(
     specTreeFixtureNodeDirectoryName(KIND_REGISTRY, fixture.root),
-    `${fixture.decision.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${fixture.decision.slug}${
+    `${orderIndexText(fixture.decision.orderSegments)}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${fixture.decision.slug}${
       KIND_REGISTRY[kind].suffix
     }`,
   );
@@ -744,7 +757,7 @@ export function specContextDivergentCitationDecisions(fixture: RepresentativeSpe
   const decision = (name: string) => ({
     path: rooted(
       documents.peerDirectory,
-      `${fixture.peer.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${name}${suffix}`,
+      `${orderIndexText(fixture.peer.orderSegments)}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${name}${suffix}`,
     ),
     content: decisionContent(name),
   });
@@ -812,7 +825,9 @@ export function specContextUnreadableFrontMatterBlocks(): {
  * abbreviated prefixes would resolve it to the root node.
  */
 export function specContextAbbreviatedRootPrefix(fixture: RepresentativeSpecTreeFixture): string {
-  return `${fixture.root.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${fixture.root.slug.slice(0, 1)}`;
+  return `${orderIndexText(fixture.root.orderSegments)}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${
+    fixture.root.slug.slice(0, 1)
+  }`;
 }
 
 /**
@@ -904,11 +919,15 @@ function unresolvedShapeOperand(
     case SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES.EMPTY:
       return { ...none, operand: "" };
     case SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES.UNREGISTERED_SUFFIX: {
-      const directory = `${fixture.root.order}-${fixture.root.slug}${unregisteredNodeSuffix(fixture.decision.slug)}`;
+      const directory = `${orderIndexText(fixture.root.orderSegments)}-${fixture.root.slug}${
+        unregisteredNodeSuffix(fixture.decision.slug)
+      }`;
       return { ...none, operand: directory, directories: [rooted(directory)] };
     }
     case SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES.SUPERSEDED_SUFFIX: {
-      const directory = `${fixture.root.order}-${fixture.root.slug}${SPEC_TREE_SUPERSEDED_NODE_SUFFIXES[0]}`;
+      const directory = `${orderIndexText(fixture.root.orderSegments)}-${fixture.root.slug}${
+        selectedSupersededNodeSuffixes(FIXTURE_SPEC_TREE_GRAMMAR_SELECTION)[0]
+      }`;
       return { ...none, operand: directory, directories: [rooted(directory)] };
     }
     case SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES.PARTIAL_COMPONENT: {
@@ -916,7 +935,9 @@ function unresolvedShapeOperand(
       // fragment of the component, never a complete one.
       return {
         ...none,
-        operand: documents.rootDirectory.slice(`${fixture.root.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}`.length),
+        operand: documents.rootDirectory.slice(
+          `${orderIndexText(fixture.root.orderSegments)}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}`.length,
+        ),
       };
     }
     case SPEC_CONTEXT_UNRESOLVED_SHAPE_VALUES.UNACCEPTED_PATH_SUFFIX: {
@@ -999,15 +1020,15 @@ function withDecisionStatement(entry: SpecTreeFixtureEntry): SpecTreeFixtureEntr
  * selects — a decision its statement, a node its kind's opening — so both
  * projections render it.
  */
-export function arbitraryContextDeterminismCase(config: Config): fc.Arbitrary<GeneratedContextDeterminismCase> {
+export function arbitraryContextDeterminismCase(): fc.Arbitrary<GeneratedContextDeterminismCase> {
   return fc.record({
     fixture: SPEC_TREE_TEST_GENERATOR.representativeFixture(KIND_REGISTRY),
-    extraDecision: arbitraryDecisionEntry(config).map(withDecisionStatement),
-    extraNode: arbitraryNodeEntry(config).map((entry) => {
+    extraDecision: arbitraryDecisionEntry(KIND_REGISTRY).map(withDecisionStatement),
+    extraNode: arbitraryNodeEntry(KIND_REGISTRY).map((entry) => {
       const definition = KIND_REGISTRY[entry.kind as keyof typeof KIND_REGISTRY];
       return "opening" in definition ? withOpening(entry, definition.opening) : withDecisionStatement(entry);
     }),
-    migrating: arbitraryMigratingMethodology(),
+    migrating: arbitraryMigratingMethodology(arbitraryFixtureAuthoredLine()),
     methodologySlug: SPEC_TREE_TEST_GENERATOR.sourceSlug(),
   });
 }

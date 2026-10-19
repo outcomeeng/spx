@@ -1,5 +1,7 @@
 import { posix } from "node:path";
 
+import { CONFIG_FILE_DEFINITIONS, CONFIG_FILE_FORMAT, serializeConfigFileSections } from "@/config/index";
+import { DEFAULT_METHODOLOGY_SOURCE, METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import {
   RELEASE_CONTEXT_KIND,
   type ReleaseEndpointPathOwnership,
@@ -7,10 +9,25 @@ import {
 } from "@/domains/release/product-context";
 import type { ReleaseData } from "@/domains/release/release-data";
 import { CHANGELOG_TITLE } from "@/domains/release/release-notes";
-import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR, SPEC_TREE_LINK_PARENT_SEGMENT } from "@/lib/spec-tree";
+import {
+  type Kind,
+  KIND_REGISTRY,
+  NODE_SUFFIXES,
+  renderSpecTreeRootFrontMatter,
+  SPEC_TREE_CONFIG,
+  SPEC_TREE_GRAMMAR,
+  SPEC_TREE_LINK_PARENT_SEGMENT,
+  SPEC_TREE_METHODOLOGY_LINE,
+  type SpecTreeMethodologyLine,
+} from "@/lib/spec-tree";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { arbitraryConformantChangelog } from "@testing/generators/release/changelog";
+import {
+  SPEC_TREE_TEST_GENERATOR,
+  specTreeGrammarSelectionForLine,
+  supersededSuffixOracle,
+} from "@testing/generators/spec-tree/spec-tree";
 import fc from "fast-check";
 
 import { RELEASE_TEST_GENERATOR, sampleReleaseTestValue } from "./release";
@@ -82,6 +99,8 @@ export interface ReleaseContextScenario {
   readonly product: ReleaseProductContext[number];
   readonly specification: ReleaseProductContext[number];
   readonly missingSpecificationPath: string;
+  /** The methodology declaration the committed endpoint carries beside its spec tree. */
+  readonly methodologyDeclaration: ReleaseEndpointFile;
   readonly subject: string;
   readonly body: string;
   readonly releaseData: ReleaseData;
@@ -283,8 +302,25 @@ export function arbitraryReleaseEndpointSourceScenario(
   });
 }
 
+/**
+ * The methodology declaration an endpoint commits in its product configuration. The generated
+ * trees use the 3.x naming grammar, so the declaration selects the 3.2 line.
+ */
+function releaseEndpointMethodologyDeclaration(
+  line: SpecTreeMethodologyLine = SPEC_TREE_METHODOLOGY_LINE.THREE_TWO,
+): ReleaseEndpointFile {
+  const serialized = serializeConfigFileSections(CONFIG_FILE_FORMAT.JSON, {
+    [METHODOLOGY_SECTION]: {
+      [METHODOLOGY_CONFIG_FIELDS.SOURCE]: DEFAULT_METHODOLOGY_SOURCE,
+      [METHODOLOGY_CONFIG_FIELDS.VERSION]: line,
+    },
+  });
+  return releaseEndpointFile(CONFIG_FILE_DEFINITIONS[CONFIG_FILE_FORMAT.JSON].filename, serialized.value);
+}
+
 function releaseEndpointFiles(productPath: string, productName: string): ReleaseEndpointFile[] {
   return [
+    releaseEndpointMethodologyDeclaration(),
     releaseEndpointFile(productPath, `# ${productName}\n`),
     releaseEndpointFile(TYPESCRIPT_MARKER, RELEASE_OWNERSHIP_FIXTURE_CONTENT.TYPESCRIPT_CONFIG),
   ];
@@ -398,6 +434,7 @@ export function arbitraryReleaseContextScenario(): fc.Arbitrary<ReleaseContextSc
       product,
       specification,
       missingSpecificationPath: `${specification.path}.${productName}`,
+      methodologyDeclaration: releaseEndpointMethodologyDeclaration(),
       subject,
       body,
       releaseData,
@@ -512,6 +549,7 @@ export function arbitraryReleaseDecisionCitationScenario(): fc.Arbitrary<Release
       citationDecisionFile(CITATION_UNTRACKED_DECISION_INDEX, untrackedSlug),
     );
     const files: ReleaseEndpointFile[] = [
+      releaseEndpointMethodologyDeclaration(),
       releaseEndpointFile(productPath, `# ${productSlug}\n`),
       releaseEndpointFile(
         citationSpecificationPath(siblingDirectory, siblingSlug),
@@ -598,4 +636,115 @@ function citationNodeSpec(slug: string, assertions: readonly string[]): string {
 
 function citationDecision(title: string): string {
   return `# ${title}\n\nGOVERNS ${title}\n`;
+}
+
+/**
+ * A release range whose current endpoint commits a 4.0 methodology declaration with a tree in the
+ * 4.0 grammar and whose previous endpoint commits a 3.2 declaration with a tree in the 3.x grammar.
+ * Each endpoint also commits one node directory only the other endpoint's grammar accepts. Every
+ * node's specification is a changed path, so a specification enters the context exactly when its
+ * endpoint's grammar recognizes the node directory that holds it.
+ */
+export interface ReleaseEndpointGrammarScenario {
+  readonly endpoints: readonly ReleaseEndpointSource[];
+  readonly releaseData: ReleaseData;
+  /** Specifications each endpoint's own grammar accepts. */
+  readonly ownGrammarSpecificationPaths: readonly string[];
+  /** The specification of the 3.x-only node directory committed at the 4.0 endpoint. */
+  readonly threeXNameAtFourZeroPath: string;
+  /** The specification of the 4.0-only node directory committed at the 3.2 endpoint. */
+  readonly fourZeroNameAtThreeXPath: string;
+}
+
+/** The suffixes of the output kinds a 4.0 product admits as top-level children, drawn from the product spec's child list. */
+const FOUR_ZERO_PRODUCT_CHILD_SUFFIXES: readonly string[] = SPEC_TREE_CONFIG.PRODUCT.CHILDREN
+  .filter((kind) => kind !== SPEC_TREE_CONFIG.PRODUCT.KIND)
+  .map((kind) => KIND_REGISTRY[kind as Kind].suffix);
+
+export function arbitraryReleaseEndpointGrammarScenario(): fc.Arbitrary<ReleaseEndpointGrammarScenario> {
+  return fc.record({
+    slugs: fc.uniqueArray(arbitraryPathSegment(), { minLength: 5, maxLength: 5 }),
+    tag: arbitraryPathSegment().map((segment) => `release-${segment}`),
+    releaseData: RELEASE_TEST_GENERATOR.releaseData(),
+    rootId: SPEC_TREE_TEST_GENERATOR.sourceId(),
+    fourZeroSuffix: fc.constantFrom(...FOUR_ZERO_PRODUCT_CHILD_SUFFIXES),
+    threeXAtFourZeroSuffix: fc.constantFrom(
+      ...supersededSuffixOracle(specTreeGrammarSelectionForLine(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO)).map((entry) =>
+        entry.suffix
+      ),
+    ),
+    fourZeroAtThreeXSuffix: fc.constantFrom(...FOUR_ZERO_PRODUCT_CHILD_SUFFIXES),
+    threeXSuffix: fc.constantFrom(...NODE_SUFFIXES),
+  }).filter(({ tag, releaseData }) => tag !== releaseData.releaseRef).map((drawn) => {
+    const {
+      slugs,
+      tag,
+      releaseData,
+      rootId,
+      fourZeroSuffix,
+      threeXAtFourZeroSuffix,
+      fourZeroAtThreeXSuffix,
+      threeXSuffix,
+    } = drawn;
+    const [productSlug, fourZeroSlug, threeXAtFourZeroSlug, threeXSlug, fourZeroAtThreeXSlug] = slugs;
+    const nodeDirectory = (index: number, slug: string, suffix: string) =>
+      posix.join(
+        SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+        `${index}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${suffix}`,
+      );
+    const fourZeroSpec = (slug: string, index: number, suffix: string) =>
+      posix.join(nodeDirectory(index, slug, suffix), `${slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX}`);
+    const threeXSpec = (slug: string, index: number, suffix: string) =>
+      posix.join(nodeDirectory(index, slug, suffix), `${slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`);
+    const fourZeroPath = fourZeroSpec(fourZeroSlug, 20, fourZeroSuffix);
+    const threeXAtFourZeroPath = threeXSpec(threeXAtFourZeroSlug, 30, threeXAtFourZeroSuffix);
+    const threeXPath = threeXSpec(threeXSlug, 20, threeXSuffix);
+    const fourZeroAtThreeXPath = fourZeroSpec(fourZeroAtThreeXSlug, 30, fourZeroAtThreeXSuffix);
+    const fourZeroRoot = posix.join(
+      SPEC_TREE_CONFIG.ROOT_DIRECTORY,
+      `${productSlug}${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX}`,
+    );
+    const threeXRoot = posix.join(SPEC_TREE_CONFIG.ROOT_DIRECTORY, `${productSlug}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`);
+    const node = (path: string, content: string) => releaseEndpointFile(path, content);
+    const specification = (slug: string) => citationNodeSpec(slug, []);
+    const typescriptConfig = releaseEndpointFile(
+      TYPESCRIPT_MARKER,
+      RELEASE_OWNERSHIP_FIXTURE_CONTENT.TYPESCRIPT_CONFIG,
+    );
+    return {
+      endpoints: [
+        {
+          ref: releaseData.releaseRef,
+          files: [
+            releaseEndpointMethodologyDeclaration(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO),
+            node(
+              fourZeroRoot,
+              `${renderSpecTreeRootFrontMatter({ id: rootId })}\n# ${productSlug}\n`,
+            ),
+            node(fourZeroPath, specification(fourZeroSlug)),
+            node(threeXAtFourZeroPath, specification(threeXAtFourZeroSlug)),
+            typescriptConfig,
+          ],
+        },
+        {
+          ref: tag,
+          files: [
+            releaseEndpointMethodologyDeclaration(SPEC_TREE_METHODOLOGY_LINE.THREE_TWO),
+            node(threeXRoot, `# ${productSlug}\n`),
+            node(threeXPath, specification(threeXSlug)),
+            node(fourZeroAtThreeXPath, specification(fourZeroAtThreeXSlug)),
+            typescriptConfig,
+          ],
+        },
+      ],
+      releaseData: {
+        ...releaseData,
+        previousTag: tag,
+        changedPaths: [fourZeroPath, threeXAtFourZeroPath, threeXPath, fourZeroAtThreeXPath],
+      },
+      ownGrammarSpecificationPaths: [fourZeroPath, threeXPath],
+      threeXNameAtFourZeroPath: threeXAtFourZeroPath,
+      fourZeroNameAtThreeXPath: fourZeroAtThreeXPath,
+    };
+  });
 }

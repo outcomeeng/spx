@@ -1,16 +1,19 @@
 # Public Spec-Tree Library Surface
 
-`src/lib/spec-tree/index.ts` is the single public TypeScript import boundary for reading, projecting, selecting from, and resolving product-path ownership within a spec tree; scanner, assembly, recognition, traversal, ownership reduction, and reporting modules remain internal. The boundary exports `SpecTreeSource` with `entries()` and optional `readText(ref)`, `SpecTreeOptions` with `source`, optional `registry`, and optional `evidence`, plus `readSpecTree(options): Promise<SpecTreeSnapshot>`, `projectSpecTree(snapshot): SpecTreeProjection`, `findNextSpecTreeNode(snapshot): SpecTreeNode | null`, and a backend-neutral ownership operation that accepts a snapshot, one product path, and claimed node identities, returning either the deduplicated candidates with their governing lowest common ancestor — the product root when candidates span top-level branches — or an unresolved result. Callers own claim discovery and may supply identities derived from evidence reachability, exact audit-declaration path references, or another backend-neutral source. The kind registry and spec-tree configuration descriptor remain inside the same library at `src/lib/spec-tree/config.ts` under [spx/23-spec-tree.enabler/21-kind-registry.adr.md](21-kind-registry.adr.md); no parallel `src/spec` library surface exists.
+`src/lib/spec-tree/index.ts` is the single public TypeScript import boundary for reading, projecting, selecting from, and resolving product-path ownership within a spec tree; scanner, assembly, recognition, traversal, ownership reduction, and reporting modules remain internal. The boundary exports `SpecTreeSource` with `entries()` and optional `readText(ref)`, `SpecTreeOptions` with `source`, optional `registry`, and optional `evidence`, plus `readSpecTree(options): Promise<SpecTreeSnapshot>`, `projectSpecTree(snapshot): SpecTreeProjection`, `findNextSpecTreeNode(snapshot): SpecTreeNode | null`, and a backend-neutral ownership operation that accepts a snapshot, one product path, and claimed node identities, returning either the deduplicated candidates with their governing lowest common ancestor — the product root when candidates span top-level branches — or an unresolved result. Callers own claim discovery and may supply identities derived from evidence reachability, exact audit-declaration path references, or another backend-neutral source. The kind registry and spec-tree configuration descriptor remain inside the same library at `src/lib/spec-tree/config.ts` under [spx/23-spec-tree.enabler/21-kind-registry.adr.md](21-kind-registry.adr.md); no parallel `src/spec` library surface exists. A tree source carries the grammar selection of its product's methodology declaration, per [`spx/13-agent-capability-lifecycle.pdr.md`](spx/13-agent-capability-lifecycle.pdr.md), so a read takes no methodology input and no consumer resolves the declaration itself.
 
 ## Rationale
 
 One import boundary lets domain and surface consumers depend on stable tree contracts while the library decomposes recognition, assembly, state derivation, and projection internally. Keeping configuration vocabulary inside the same library prevents command modules and adapters from forming a second source of spec-tree semantics.
+
+Carrying the selection on the source keeps it with the adapter that reads the product's records, so every reader receives it through the source it already passes.
 
 ## Invariants
 
 - Every public tree operation consumes or returns the exported source, snapshot, node, or projection contracts.
 - Internal module extraction preserves the public surface and produces the same snapshot and projection for the same source, registry, and evidence inputs.
 - Ownership resolution is ordinal and idempotent: duplicate and permuted claims produce the same result, the resolved result retains every distinct candidate and identifies their lowest common ancestor as governing owner, the product root governs candidates spanning top-level branches, and no claims produce unresolved.
+- A read's grammar is the one its source carries; the read resolves no product configuration.
 
 ## Verification
 
@@ -25,3 +28,5 @@ One import boundary lets domain and surface consumers depend on stable tree cont
 - ALWAYS: public tree operations receive source, registry, and evidence dependencies through explicit inputs rather than reading them from ambient process or filesystem state ([audit])
 - NEVER: command modules parse spec-tree records, node suffixes, decision suffixes, or hierarchy independently of the public library surface ([audit])
 - NEVER: tests replace spec-tree dependencies through module interception; explicit source, registry, and evidence inputs preserve the real library boundary ([audit])
+- ALWAYS: a read receives the grammar selection of its product's methodology declaration through its source and takes no methodology input ([audit])
+- NEVER: a consumer resolves a product's methodology declaration to choose the grammar for a read ([audit])

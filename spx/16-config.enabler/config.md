@@ -5,7 +5,7 @@ malleability: spec
 
 # Config
 
-PROVIDES typed, registry-composed configuration for the whole spx harness — spec-tree kinds, session paths, `validation` rules, `testing` scope, language markers, shared config primitives, and any other registered concern
+PROVIDES typed, registry-composed configuration for the whole spx harness — session paths, `validation` rules, `testing` scope, language markers, shared config primitives, and any other registered concern
 SO THAT every spx command and module with configurable behavior
 CAN read its configuration through a uniform, type-checked API without inline config parsing or hardcoded vocabulary
 
@@ -37,5 +37,6 @@ CAN read its configuration through a uniform, type-checked API without inline co
 - ALWAYS: each descriptor's validator receives only its own section from the config file — validators cannot read other descriptors' values or the raw file content ([test](tests/validation-isolation.compliance.l1.test.ts))
 - ALWAYS: tests for the config module and descriptors construct fixtures programmatically through the shared spec-tree harness — directory trees and config file content are generated, never hand-written, per [`spx/16-config.enabler/21-descriptor-registration.adr.md`](21-descriptor-registration.adr.md) ([audit])
 - ALWAYS: the `validation` and `testing` config sections are registered as separate domain descriptors; repeated structural shapes such as path include/exclude filters are imported from shared config primitives and exposed under each domain's own section, not parsed by commands, per [`spx/16-config.enabler/21-descriptor-registration.adr.md`](21-descriptor-registration.adr.md) ([audit])
+- ALWAYS: config-module evidence for composition, defaults application, validation, and rejection exercises generated test-scoped descriptors, so no production descriptor's field rules decide those results; production-descriptor evidence is confined to the type-completeness mapping over the complete production registry, per [`spx/22-test-environment.enabler/21-callback-scoped-environment.adr.md`](spx/22-test-environment.enabler/21-callback-scoped-environment.adr.md) ([audit])
 - NEVER: return a partial or untyped config when any descriptor's validator rejects its section — the load either returns a fully-typed `Config` or an error ([test](tests/typed-or-error.compliance.l1.test.ts))
 - NEVER: `vi.mock()`, `jest.mock()`, `memfs`, or any filesystem-mocking mechanism — tests construct real spec-tree fixtures under temp directories passed as `productDir`, per [`spx/16-config.enabler/21-descriptor-registration.adr.md`](21-descriptor-registration.adr.md) ([audit])

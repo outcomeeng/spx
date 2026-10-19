@@ -14,10 +14,10 @@ import { RETIRED_SPEC_APPLY_FIXTURE, specTreeFixtureNodeDirectoryName } from "@t
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextListManifest,
+  methodologyDeclaredConfig,
   parseContextManifest,
   runSpecCli,
   runSpecCliWithIsolation,
-  specTreeKindsConfig,
 } from "@testing/harnesses/spec/context";
 
 describe("spx spec process contract", () => {
@@ -72,7 +72,7 @@ describe("spx spec process contract", () => {
   });
 
   it("routes context list through the packaged executable as the structural manifest command", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
       const execution = await runSpecCliWithIsolation(
@@ -93,7 +93,7 @@ describe("spx spec process contract", () => {
   });
 
   it("rejects the retired --content option on show before any output", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
       const result = await runSpecCli(

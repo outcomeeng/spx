@@ -12,7 +12,7 @@ import {
   SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR,
   SPEC_CONTEXT_TARGET_FAILURE_KIND,
 } from "@/lib/spec-tree";
-import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
+import { arbitraryFixtureAuthoredLine, arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   arbitrarySpecContextInvalidUtf8Bytes,
@@ -23,9 +23,9 @@ import { sampleSpecTreeTestValue, specTreeFixtureNodeDirectoryName } from "@test
 import { shippedMethodologyVersion } from "@testing/harnesses/methodology/shipped-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
+  methodologyDeclaredConfig,
   methodologyTreeConfig,
   runSpecCli,
-  specTreeKindsConfig,
   withProductlessContextTreeEnv,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
@@ -52,7 +52,7 @@ describe("spec context no partial output", () => {
   });
 
   it("writes nothing to standard output when the product root holds no recognized product spec", async () => {
-    await withProductlessContextTreeEnv(specTreeKindsConfig(), async (env, paths) => {
+    await withProductlessContextTreeEnv(methodologyDeclaredConfig(), async (env, paths) => {
       for (
         const argv of [
           SPEC_CONTEXT_COMMAND_PATH.SHOW,
@@ -113,7 +113,9 @@ describe("spec context no partial output", () => {
     // document fails after the product entries were already resolvable.
     const shipped = await shippedMethodologyVersion();
     const declared = sampleGeneratedValue(
-      arbitraryMethodologyVersion().filter((candidate) => candidate.line !== shipped.line),
+      arbitraryMethodologyVersion(arbitraryFixtureAuthoredLine()).filter((candidate) =>
+        candidate.line !== shipped.line
+      ),
     );
     await withSpecTreeEnv(
       methodologyTreeConfig({ [METHODOLOGY_CONFIG_FIELDS.VERSION]: declared.text }),

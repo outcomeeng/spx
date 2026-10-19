@@ -17,7 +17,9 @@ import {
   specFilePath,
   specFixtureBody,
 } from "@testing/generators/spec-tree/rich-context";
+import { segmentOrderGovernanceCases } from "@testing/generators/spec-tree/segment-order-governance";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
+import { withSegmentOrderGovernanceEnv } from "@testing/harnesses/spec-tree/segment-order-governance";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextShowEntries,
@@ -26,17 +28,38 @@ import {
   documentAt,
   documentPaths,
   entryPaths,
+  methodologyDeclaredConfig,
   referencePaths,
   runSpecDescriptor,
-  specTreeKindsConfig,
   withEmptyContextTreeEnv,
   withProductlessContextTreeEnv,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
 
+/**
+ * Orders the given tree paths by the index their entry name carries: segments compare
+ * numerically, and an index that is a proper prefix of another comes first.
+ */
+function orderPathsByIndexSegments(paths: readonly string[]): readonly string[] {
+  const segmentsOf = (path: string): readonly number[] => {
+    const [, entryName = ""] = path.split(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
+    const [index = ""] = entryName.split(SPEC_TREE_GRAMMAR.ORDER.SEPARATOR);
+    return index.split(SPEC_TREE_GRAMMAR.ORDER.SEGMENT_SEPARATOR).map(Number);
+  };
+  return [...paths].sort((left, right) => {
+    const leftSegments = segmentsOf(left);
+    const rightSegments = segmentsOf(right);
+    for (let position = 0; position < Math.min(leftSegments.length, rightSegments.length); position++) {
+      const difference = leftSegments[position] - rightSegments[position];
+      if (difference !== 0) return difference;
+    }
+    return leftSegments.length - rightSegments.length;
+  });
+}
+
 describe("spec context read-set boundaries", () => {
   it("fails every targeted and targetless list and show over a product root with no recognized product spec, whatever else the root holds", async () => {
-    await withProductlessContextTreeEnv(specTreeKindsConfig(), async (env, paths) => {
+    await withProductlessContextTreeEnv(methodologyDeclaredConfig(), async (env, paths) => {
       for (
         const argv of [
           SPEC_CONTEXT_COMMAND_PATH.SHOW,
@@ -51,7 +74,7 @@ describe("spec context read-set boundaries", () => {
         expect(run.stderr, argv.join(" ")).toContain(SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR);
       }
     });
-    await withEmptyContextTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withEmptyContextTreeEnv(methodologyDeclaredConfig(), async (env) => {
       for (
         const argv of [
           SPEC_CONTEXT_COMMAND_PATH.SHOW,
@@ -173,7 +196,7 @@ describe("spec context read-set boundaries", () => {
   });
 
   it("orders selected tree entries depth-first by numeric index with the complete entry name as an ordinal tie-break", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       const fixture = env.fixture;
       const opening = KIND_REGISTRY[fixture.root.kind].opening;
@@ -218,4 +241,21 @@ describe("spec context read-set boundaries", () => {
       expect(nextSibling).toBeGreaterThan(descendant);
     });
   });
+
+  for (const governance of segmentOrderGovernanceCases()) {
+    it(`show entries order sibling nodes and decisions by numeric index segments, shorter prefix first, ${governance.title}`, async () => {
+      await withSegmentOrderGovernanceEnv(governance, async (env) => {
+        const delivered = documentPaths(
+          await contextShowEntries({ targets: [SPEC_CONTEXT_PRODUCT_ROOT_TARGET], cwd: env.productDir }),
+        );
+        const nodes = [governance.higherSpecPath, governance.lowerSpecPath];
+        const decisions = [governance.higherDecisionPath, governance.lowerDecisionPath];
+        for (const group of [nodes, decisions]) {
+          expect(delivered.filter((path) => group.includes(path)), group.join(" ")).toEqual(
+            orderPathsByIndexSegments(group),
+          );
+        }
+      });
+    });
+  }
 });

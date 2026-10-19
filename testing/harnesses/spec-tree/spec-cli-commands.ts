@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
+import { runTestsCommand } from "@/commands/test";
 import type { GitDependencies } from "@/lib/git/root";
 import {
   classifyNodeStatus,
@@ -18,7 +19,13 @@ import {
 } from "@/lib/node-status";
 import { KIND_REGISTRY, SPEC_TREE_CONFIG, SPEC_TREE_EVIDENCE_FILE, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import { testingRegistry } from "@/test/registry";
-import { defaultTestRunStateFileSystem, type TestRunStateFileSystem } from "@/test/run-state";
+import {
+  defaultTestRunStateFileSystem,
+  TEST_PATH_VERDICT,
+  type TestPathVerdictValue,
+  type TestRunStateFileSystem,
+} from "@/test/run-state";
+import { evidenceFileNameFor, evidenceSubject } from "@testing/generators/spec-tree/evidence-file-name";
 import {
   type RepresentativeSpecTreeFixture,
   sampleSpecTreeTestValue,
@@ -28,7 +35,13 @@ import {
 import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import type { CurrentSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { writeTestFileFixture } from "@testing/harnesses/testing/harness";
-import { VITEST_FIXTURE, type VitestFixture, writeVitestFixture } from "@testing/harnesses/testing/typescript-runner";
+import { SIMULATED_EXIT_CODE, SIMULATED_REPORT } from "@testing/harnesses/testing/simulated-report";
+import {
+  createRecordingCommandRunner,
+  VITEST_FIXTURE,
+  type VitestFixture,
+  writeVitestFixture,
+} from "@testing/harnesses/testing/typescript-runner";
 
 /** The tree-relative directory of a fixture node at the top of the tree, in the grammar the source owns. */
 export function fixtureNodePath(node: RepresentativeSpecTreeFixture["root"]): string {
@@ -95,12 +108,13 @@ export async function changeNodeEvidenceContent(env: CurrentSpecTreeEnv, evidenc
 }
 
 /** A TypeScript spec-tree evidence path (`<slug>.<mode>.<level>.test.ts`) under `nodePath`'s tests directory. */
-export function nodeEvidencePath(nodePath: string): string {
+export function nodeEvidencePath(nodePath: string, evidenceIndex = 0): string {
   const [mode] = SPEC_TREE_EVIDENCE_FILE.MODES;
   const [level] = SPEC_TREE_EVIDENCE_FILE.LEVELS;
-  const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-  const filename = [slug, mode, level, ...SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT].join(
-    SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR,
+  const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), evidenceIndex);
+  const filename = evidenceFileNameFor(
+    [evidenceSubject(slug), mode, level],
+    SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT,
   );
   return [SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodePath, SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME, filename].join(
     SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
@@ -112,8 +126,12 @@ export function nodeEvidencePath(nodePath: string): string {
  * the test-outcome stage and the TypeScript runner dispatches it; returns its
  * product-relative path.
  */
-export async function addNodeTestFile(env: CurrentSpecTreeEnv, nodePath: string): Promise<string> {
-  const evidenceFile = nodeEvidencePath(nodePath);
+export async function addNodeTestFile(
+  env: CurrentSpecTreeEnv,
+  nodePath: string,
+  evidenceIndex = 0,
+): Promise<string> {
+  const evidenceFile = nodeEvidencePath(nodePath, evidenceIndex);
   await writeTestFileFixture(env.productDir, evidenceFile);
   return evidenceFile;
 }
@@ -123,8 +141,9 @@ export async function addNodeVitestFixture(
   env: CurrentSpecTreeEnv,
   nodePath: string,
   fixture: VitestFixture,
+  evidenceIndex = 0,
 ): Promise<string> {
-  const evidenceFile = nodeEvidencePath(nodePath);
+  const evidenceFile = nodeEvidencePath(nodePath, evidenceIndex);
   await writeVitestFixture(env.productDir, evidenceFile, fixture);
   return evidenceFile;
 }
@@ -198,4 +217,33 @@ export function createRecordingGitRoot(productDir: string): {
     },
     calls: () => calls,
   };
+}
+
+type RecordingRunnerDeps = ReturnType<NonNullable<Parameters<typeof runTestsCommand>[1]["runnerDepsFor"]>>;
+
+/** Records one full testing run of `productDir` through the injected `runner`, as the `--update` path reads it back. */
+export async function recordTestingRun(productDir: string, runner: RecordingRunnerDeps): Promise<void> {
+  await runTestsCommand({ productDir, passing: false }, { registry: testingRegistry, runnerDepsFor: () => runner });
+}
+
+/**
+ * Records one testing run whose report gives `testFile` the `verdict`, as the
+ * `--update` path reads it back; a `not-run` verdict leaves the file out of the
+ * report, so the run covers it without an outcome.
+ */
+export async function recordTestingRunReporting(
+  productDir: string,
+  testFile: string,
+  verdict: TestPathVerdictValue,
+): Promise<void> {
+  const reported = verdict === TEST_PATH_VERDICT.NOT_RUN ? [] : [[testFile, verdict] as const];
+  await recordTestingRun(
+    productDir,
+    createRecordingCommandRunner({
+      present: true,
+      exitCode: SIMULATED_EXIT_CODE.SUCCESS,
+      report: SIMULATED_REPORT.LISTED_FILES,
+      reportedStatuses: new Map(reported),
+    }),
+  );
 }

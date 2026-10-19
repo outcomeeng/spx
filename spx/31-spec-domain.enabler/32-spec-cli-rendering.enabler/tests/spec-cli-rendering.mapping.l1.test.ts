@@ -11,6 +11,7 @@ import {
   KIND_REGISTRY,
   projectSpecTree,
   readSpecTree,
+  resolveKindLabel,
   SPEC_TREE_PROJECTION,
   type SpecTreeProjectedNode,
   type SpecTreeProjection,
@@ -62,7 +63,7 @@ describe("spec status rendering", () => {
           line.split(SPEC_STATUS_TABLE_SEPARATOR).flatMap((cell) => cell.trim().split(/\s+/)).includes(node.id)
         );
         expect(nodeLines, `${format} ${node.id}`).toHaveLength(1);
-        expect(nodeLines[0], `${format} ${node.id}`).toContain(KIND_REGISTRY[node.kind].label);
+        expect(nodeLines[0], `${format} ${node.id}`).toContain(resolveKindLabel(node.kind));
         expect(nodeLines[0], `${format} ${node.id}`).toContain(node.state);
       }
     },

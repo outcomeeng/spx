@@ -1,330 +1,121 @@
-import { expect, it } from "vitest";
+/**
+ * Observation helpers for the spec-tree source evidence: ordered-name and evidence-path
+ * construction, trees written in the form a methodology line names, and projections of snapshots
+ * into comparable signatures. The helpers return observations and names; every predicate lives in
+ * the linked test.
+ *
+ * @module harnesses/spec-tree/spec-tree-source
+ */
 
 import {
-  createFilesystemSpecTreeSource,
+  compareSpecContextOrdinal,
   getKindDefinition,
-  KIND_REGISTRY,
-  type NodeKind,
-  projectSpecTree,
-  readSpecTree,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_EVIDENCE_FILE,
-  SPEC_TREE_EVIDENCE_STATUS,
+  SPEC_TREE_GRAMMAR,
   type SpecTreeEvidenceSourceEntry,
+  type SpecTreeNodeKind,
   type SpecTreeProjectedNode,
   type SpecTreeProjection,
+  type SpecTreeSnapshot,
   type SpecTreeSourceEntry,
 } from "@/lib/spec-tree";
-import { NAMING_SCHEMA_VERSION_TEST_GENERATOR } from "@testing/generators/spec-tree/naming-schema-version";
+import { evidenceFileNameFor, evidenceSubject } from "@testing/generators/spec-tree/evidence-file-name";
 import {
-  orderedDirectoryName,
-  type RecognizedSpecTreeSourceEntryRole,
-  sampleDecisionKind,
+  orderIndexText,
+  type RepresentativeSpecTreeFixture,
   sampleSpecTreeTestValue,
-  SPEC_TREE_SOURCE_MAPPING_CASE_KIND,
   SPEC_TREE_TEST_GENERATOR,
-  type SpecTreeSourceMappingCase,
-  specTreeSourceMappingCases,
-  type SupersededNodeSuffixCase,
-  supersededNodeSuffixCases,
+  type SpecTreeSourceForm,
 } from "@testing/generators/spec-tree/spec-tree";
-import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
-import { expectPresent } from "@testing/harnesses/spec-tree/assertions";
-import { withSpecTreeEnv, writeOrderedDirectory } from "@testing/harnesses/spec-tree/spec-tree";
+import type { CurrentSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
-type NodeSignature = {
+export type NodeSignature = {
   readonly kind: string;
-  readonly order: number;
+  readonly order: readonly number[];
   readonly slug: string;
   readonly childCount: number;
 };
 
-type DecisionSignature = {
+export type DecisionSignature = {
   readonly kind: string;
-  readonly order: number;
+  readonly order: readonly number[];
   readonly slug: string;
 };
 
-type NodeDirectoryEntry = {
-  readonly kind: NodeKind;
-  readonly order: number;
+/** What links a recognized record to the rest of the tree, with every id replaced by the slug it names. */
+export type NodeLinkSignature = {
+  readonly slug: string;
+  readonly parentSlug: string | undefined;
+  readonly decisionSlugs: readonly string[];
+  readonly evidenceCount: number;
+};
+
+export type DecisionLinkSignature = {
+  readonly slug: string;
+  readonly parentSlug: string | undefined;
+};
+
+export type NodeDirectoryEntry = {
+  readonly kind: SpecTreeNodeKind;
+  readonly orderSegments: readonly number[];
   readonly slug: string;
 };
 
-const PARAMETERIZED_CASE_TITLE = "$title";
+/** The names a tree written in a methodology line's form carries. */
+export type SourceFormTree = {
+  readonly productFile: string;
+  readonly rootDirectory: string;
+  readonly childDirectory: string;
+  readonly peerDirectory: string;
+  readonly decisionFile: string;
+};
 
-export function registerSpecTreeSourceMappingEvidence(): void {
-  it.each(specTreeSourceMappingCases())(PARAMETERIZED_CASE_TITLE, assertSpecTreeSourceMappingCase);
+/** The path segments joined by the grammar's path separator. */
+export function specTreePath(...segments: readonly string[]): string {
+  return segments.join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
 }
 
-export function registerSpecTreeSourcePropertyEvidence(): void {
-  it(
-    "projects every generated valid tree equivalently from filesystem and memory sources",
-    assertFilesystemAndMemorySourcesProjectEquivalently,
-  );
-  it(
-    "rejects registered descendants below every generated invalid ordered directory",
-    assertFilesystemSourceRejectsDescendantsBelowUnregisteredDirectory,
-  );
+/** The product-root-relative path of the path segments below the tree root directory. */
+export function productRelativePath(...segments: readonly string[]): string {
+  return specTreePath(SPEC_TREE_CONFIG.ROOT_DIRECTORY, ...segments);
 }
 
-export function registerResidualRetentionMappingEvidence(): void {
-  it.each(supersededNodeSuffixCases())(PARAMETERIZED_CASE_TITLE, assertSupersededNodeSuffixCase);
+export function evidenceFilePath(nodePath: string, evidenceFile: string): string {
+  return productRelativePath(nodePath, SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME, evidenceFile);
 }
 
-export function registerResidualRetentionPropertyEvidence(): void {
-  it("retains every generated invalid ordered directory", assertInvalidOrderedDirectoryRetentionProperty);
-  it(
-    "classifies every generated demoted registry suffix through the injected version set",
-    assertInjectedVersionSetProperty,
-  );
-}
-
-export async function assertSpecTreeSourceMappingCase(testCase: SpecTreeSourceMappingCase): Promise<void> {
-  switch (testCase.kind) {
-    case SPEC_TREE_SOURCE_MAPPING_CASE_KIND.PRODUCT_RELATIVE_REFS:
-      await assertFilesystemSourceUsesProductRelativeRefsAndInclusion();
-      return;
-    case SPEC_TREE_SOURCE_MAPPING_CASE_KIND.RECOGNIZED_ENTRY_ROLE:
-      await assertFilesystemSourceMapsRecognizedEntryRole(testCase.entryType);
-      return;
-    case SPEC_TREE_SOURCE_MAPPING_CASE_KIND.DECISION_SHAPED_DESCENT:
-      await assertFilesystemSourceDescendsThroughDecisionShapedDirectories();
-  }
-}
-
-export async function assertFilesystemAndMemorySourcesProjectEquivalently(): Promise<void> {
-  await assertProperty(
-    SPEC_TREE_TEST_GENERATOR.representativeFixture(KIND_REGISTRY),
-    async (fixture) => {
-      await withSpecTreeEnv({}, async (env) => {
-        await env.materialize();
-        const filesystemProjection = projectSpecTree(await readSpecTree({ source: env.filesystemSource() }));
-        const inMemoryProjection = await env.projectMemory();
-        expect(expectPresent(filesystemProjection.product).title).toBe(
-          expectPresent(inMemoryProjection.product).title,
-        );
-        expect(nodeSignatures(filesystemProjection)).toEqual(nodeSignatures(inMemoryProjection));
-        expect(decisionSignatures(filesystemProjection)).toEqual(decisionSignatures(inMemoryProjection));
-      }, { fixture });
-    },
-    { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
-  );
-}
-
-export async function assertFilesystemSourceUsesProductRelativeRefsAndInclusion(): Promise<void> {
-  await withSpecTreeEnv({}, async (env) => {
-    await env.materialize();
-    const excludedDirectories = [
-      nodeDirectoryName(env.fixture.peer),
-      `${nodeDirectoryName(env.fixture.root)}/${nodeDirectoryName(env.fixture.child)}`,
-    ];
-    const includedDirectory = nodeDirectoryName(env.fixture.root);
-    const includedText = await env.readFile(
-      `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${includedDirectory}/${env.fixture.root.slug}.md`,
-    );
-    const source = createFilesystemSpecTreeSource({
-      productDir: env.productDir,
-      includePath: (path) => excludedDirectories.every((directory) => !path.includes(directory)),
-    });
-    const snapshot = await readSpecTree({ source });
-    const ref = expectPresent(snapshot.allNodes[0]).ref;
-    if (source.readText === undefined || ref === undefined) {
-      throw new Error("Filesystem source evidence expected a readable source ref");
-    }
-    expect(snapshot.allNodes.map((node) => node.id)).toEqual([includedDirectory]);
-    expect(ref.path).toBe(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${includedDirectory}/${env.fixture.root.slug}.md`);
-    await expect(source.readText(ref)).resolves.toBe(includedText);
-  });
-}
-
-export async function assertFilesystemSourceMapsRecognizedEntryRole(
-  entryType: RecognizedSpecTreeSourceEntryRole,
-): Promise<void> {
-  await withSpecTreeEnv({}, async (env) => {
-    await env.materialize();
-    const rootDirectory = nodeDirectoryName(env.fixture.root);
-    const snapshot = await readSpecTree({ source: env.filesystemSource() });
-    switch (entryType) {
-      case SPEC_TREE_ENTRY_TYPE.PRODUCT:
-        expect(expectPresent(snapshot.product).ref?.path).toContain(SPEC_TREE_CONFIG.PRODUCT.SUFFIX);
-        return;
-      case SPEC_TREE_ENTRY_TYPE.NODE: {
-        const root = expectPresent(snapshot.allNodes.find((node) => node.id === rootDirectory));
-        expect(root.id).toBe(rootDirectory);
-        expect(root.ref?.path).toContain(rootDirectory);
-        return;
-      }
-      case SPEC_TREE_ENTRY_TYPE.DECISION:
-        expect(expectPresent(snapshot.decisions[0])).toMatchObject({ parentId: rootDirectory });
-        expect(expectPresent(snapshot.decisions[0]).ref?.path).toContain(rootDirectory);
-        return;
-      case SPEC_TREE_ENTRY_TYPE.EVIDENCE: {
-        const evidenceFiles = Object.values(SPEC_TREE_EVIDENCE_FILE.TAILS).map((tail) => evidenceFileName(tail));
-        const firstEvidenceFile = expectPresent(evidenceFiles[0]);
-        const evidencePath = evidenceFilePath(rootDirectory, firstEvidenceFile);
-        const ambiguousEvidencePath = evidenceFilePath(rootDirectory, ambiguousEvidenceFileName());
-        for (const evidenceFile of evidenceFiles) {
-          await env.writeRaw(evidenceFilePath(rootDirectory, evidenceFile), "");
-        }
-        await env.writeRaw(`${evidencePath}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`, "");
-        await env.writeRaw(ambiguousEvidencePath, "");
-        const evidenceSnapshot = await readSpecTree({ source: env.filesystemSource() });
-        const evidence = evidenceSnapshot.entries.filter(isEvidenceEntry);
-        const expectedEvidenceIds = evidenceFiles.map((evidenceFile) =>
-          `${rootDirectory}/${SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME}/${evidenceFile}`
-        );
-        const evidenceEntry = expectPresent(evidence.find((entry) => entry.id === expectedEvidenceIds[0]));
-        expect(evidence).toHaveLength(evidenceFiles.length);
-        expect(evidence.map((entry) => entry.id)).toEqual(expect.arrayContaining(expectedEvidenceIds));
-        expect(evidenceEntry).toMatchObject({
-          id: expectedEvidenceIds[0],
-          parentId: rootDirectory,
-          status: SPEC_TREE_EVIDENCE_STATUS.LINKED,
-        });
-        expect(evidenceEntry.ref?.path).toBe(evidencePath);
-      }
-    }
-  });
-}
-
-export async function assertFilesystemSourceDescendsThroughDecisionShapedDirectories(): Promise<void> {
-  await withSpecTreeEnv({}, async (env) => {
-    await env.materialize();
-    const rootDirectory = nodeDirectoryName(env.fixture.root);
-    const childDirectory = nodeDirectoryName(env.fixture.child);
-    const decisionKind = sampleDecisionKind(KIND_REGISTRY);
-    const decisionOrder = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder());
-    const decisionSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-    const decisionDirectory = `${decisionOrder}-${decisionSlug}${KIND_REGISTRY[decisionKind].suffix}`;
-    const nestedChildId = `${rootDirectory}/${decisionDirectory}/${childDirectory}`;
-    await env.writeRaw(
-      [
-        SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-        rootDirectory,
-        decisionDirectory,
-        childDirectory,
-        `${env.fixture.child.slug}.md`,
-      ].join("/"),
-      "",
-    );
-    const snapshot = await readSpecTree({ source: env.filesystemSource() });
-    expect(snapshot.decisions.map((decision) => decision.id)).not.toContain(`${rootDirectory}/${decisionDirectory}`);
-    expect(snapshot.allNodes.map((node) => node.id)).toContain(nestedChildId);
-  });
-}
-
-export async function assertFilesystemSourceRejectsDescendantsBelowUnregisteredDirectory(): Promise<void> {
-  await assertProperty(
-    SPEC_TREE_TEST_GENERATOR.invalidOrderedDirectory(KIND_REGISTRY),
-    async (invalidDirectory) => {
-      await withSpecTreeEnv({}, async (env) => {
-        const childDirectory = nodeDirectoryName(env.fixture.child);
-        await env.writeRaw(
-          [
-            SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-            invalidDirectory,
-            childDirectory,
-            `${env.fixture.child.slug}.md`,
-          ].join("/"),
-          "",
-        );
-        const snapshot = await readSpecTree({ source: env.filesystemSource() });
-        expect(snapshot.allNodes.map((node) => node.id)).toEqual([]);
-      });
-    },
-    { level: PROPERTY_LEVEL.L1 },
-  );
-}
-
-export async function assertSupersededNodeSuffixCase(testCase: SupersededNodeSuffixCase): Promise<void> {
-  const supersededDirectory = orderedDirectoryName(testCase.suffix);
-  await withSpecTreeEnv({}, async (env) => {
-    await env.materialize();
-    await writeOrderedDirectory(env, supersededDirectory);
-    const snapshot = await readSpecTree({ source: env.filesystemSource() });
-    const superseded = expectPresent(snapshot.superseded.find((entry) => entry.id === supersededDirectory));
-    expect(superseded.version).toBe(testCase.version);
-    expect(snapshot.allNodes.map((node) => node.id)).not.toContain(supersededDirectory);
-  });
-}
-
-export async function assertInvalidOrderedDirectoryRetentionProperty(): Promise<void> {
-  await assertProperty(
-    SPEC_TREE_TEST_GENERATOR.invalidOrderedDirectory(KIND_REGISTRY),
-    async (invalidDirectory) => {
-      await withSpecTreeEnv({}, async (env) => {
-        await env.materialize();
-        await writeOrderedDirectory(env, invalidDirectory);
-        const snapshot = await readSpecTree({ source: env.filesystemSource() });
-        expect(snapshot.residual.map((entry) => entry.id)).toContain(invalidDirectory);
-        expect(snapshot.allNodes.map((node) => node.id)).not.toContain(invalidDirectory);
-      });
-    },
-    { level: PROPERTY_LEVEL.L1 },
-  );
-}
-
-export async function assertInjectedVersionSetProperty(): Promise<void> {
-  await assertProperty(
-    NAMING_SCHEMA_VERSION_TEST_GENERATOR.demotedRegistrySuffixScenario(),
-    async (scenario) => {
-      await withSpecTreeEnv({}, async (env) => {
-        const demotedDirectory = `${env.fixture.root.order}-${env.fixture.root.slug}${scenario.demotedRegistrySuffix}`;
-        await writeOrderedDirectory(env, demotedDirectory);
-        const source = createFilesystemSpecTreeSource({
-          productDir: env.productDir,
-          schemaVersions: scenario.schemaVersions,
-        });
-        const snapshot = await readSpecTree({ source });
-        const superseded = expectPresent(snapshot.superseded.find((entry) => entry.id === demotedDirectory));
-        expect(superseded.version).toBe(scenario.demotedVersion);
-        expect(snapshot.allNodes.map((node) => node.id)).not.toContain(demotedDirectory);
-      });
-    },
-    { level: PROPERTY_LEVEL.L1 },
-  );
-}
-
-function evidenceFilePath(rootDirectory: string, evidenceFile: string): string {
-  return [SPEC_TREE_CONFIG.ROOT_DIRECTORY, rootDirectory, SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME, evidenceFile].join(
-    "/",
-  );
-}
-
-function evidenceFileName(tail: readonly string[]): string {
-  return [
-    sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug()),
+export function evidenceFileName(tail: readonly string[]): string {
+  return evidenceFileNameFor([
+    evidenceSubject(sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 0)),
     sampleEvidenceMode(),
     sampleEvidenceLevel(),
-    ...tail,
-  ].join(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR);
+  ], tail);
 }
 
-function ambiguousEvidenceFileName(): string {
+export function ambiguousEvidenceFileName(): string {
   const mode = sampleEvidenceMode();
   const level = sampleEvidenceLevel();
-  return [
-    sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug()),
+  return evidenceFileNameFor([
+    evidenceSubject(sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 1)),
     mode,
     level,
-    sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug()),
+    evidenceSubject(sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 2)),
     mode,
     level,
-    ...SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT,
-  ].join(SPEC_TREE_EVIDENCE_FILE.SEGMENT_SEPARATOR);
+  ], SPEC_TREE_EVIDENCE_FILE.TAILS.TYPESCRIPT);
 }
 
 function sampleEvidenceMode(): string {
-  return expectPresent(SPEC_TREE_EVIDENCE_FILE.MODES[0]);
+  return SPEC_TREE_EVIDENCE_FILE.MODES[0];
 }
 
 function sampleEvidenceLevel(): string {
-  return expectPresent(SPEC_TREE_EVIDENCE_FILE.LEVELS[0]);
+  return SPEC_TREE_EVIDENCE_FILE.LEVELS[0];
 }
 
-function nodeSignatures(projection: SpecTreeProjection): readonly NodeSignature[] {
+export function nodeSignatures(projection: SpecTreeProjection): readonly NodeSignature[] {
   return flattenNodes(projection.nodes).map((node) => ({
     kind: node.kind,
     order: node.order,
@@ -333,11 +124,11 @@ function nodeSignatures(projection: SpecTreeProjection): readonly NodeSignature[
   }));
 }
 
-function flattenNodes(nodes: readonly SpecTreeProjectedNode[]): readonly SpecTreeProjectedNode[] {
+export function flattenNodes(nodes: readonly SpecTreeProjectedNode[]): readonly SpecTreeProjectedNode[] {
   return nodes.flatMap((node) => [node, ...flattenNodes(node.children)]);
 }
 
-function decisionSignatures(projection: SpecTreeProjection): readonly DecisionSignature[] {
+export function decisionSignatures(projection: SpecTreeProjection): readonly DecisionSignature[] {
   return projection.decisions.map((decision) => ({
     kind: decision.kind,
     order: decision.order,
@@ -345,10 +136,103 @@ function decisionSignatures(projection: SpecTreeProjection): readonly DecisionSi
   }));
 }
 
-function isEvidenceEntry(entry: SpecTreeSourceEntry): entry is SpecTreeEvidenceSourceEntry {
+/** Each recognized node's parent, decisions, and linked evidence, named by slug and sorted by slug. */
+export function nodeLinkSignatures(snapshot: SpecTreeSnapshot): readonly NodeLinkSignature[] {
+  const slugById = new Map(snapshot.allNodes.map((node) => [node.id, node.slug]));
+  const evidence = snapshot.entries.filter(isEvidenceEntry);
+  return snapshot.allNodes
+    .map((node) => ({
+      slug: node.slug,
+      parentSlug: node.parentId === undefined ? undefined : slugById.get(node.parentId),
+      decisionSlugs: node.decisions.map((decision) => decision.slug),
+      evidenceCount: evidence.filter((entry) => entry.parentId === node.id).length,
+    }))
+    .sort((left, right) => compareSpecContextOrdinal(left.slug, right.slug));
+}
+
+/** Each recognized decision's parent node, named by slug and sorted by slug. */
+export function decisionLinkSignatures(snapshot: SpecTreeSnapshot): readonly DecisionLinkSignature[] {
+  const slugById = new Map(snapshot.allNodes.map((node) => [node.id, node.slug]));
+  return snapshot.decisions
+    .map((decision) => ({
+      slug: decision.slug,
+      parentSlug: decision.parentId === undefined ? undefined : slugById.get(decision.parentId),
+    }))
+    .sort((left, right) => compareSpecContextOrdinal(left.slug, right.slug));
+}
+
+export function isEvidenceEntry(entry: SpecTreeSourceEntry): entry is SpecTreeEvidenceSourceEntry {
   return entry.type === SPEC_TREE_ENTRY_TYPE.EVIDENCE;
 }
 
-function nodeDirectoryName(node: NodeDirectoryEntry): string {
-  return `${node.order}-${node.slug}${getKindDefinition(node.kind).suffix}`;
+/** An ordered directory or file name: the index, the order separator, the slug, and the suffix. */
+export function orderedName(orderSegments: readonly number[], slug: string, suffix: string): string {
+  return `${orderIndexText(orderSegments)}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${suffix}`;
+}
+
+export function nodeDirectoryName(node: NodeDirectoryEntry): string {
+  return orderedName(node.orderSegments, node.slug, getKindDefinition(node.kind).suffix);
+}
+
+export function decisionFileName(decision: RepresentativeSpecTreeFixture["decision"]): string {
+  return orderedName(decision.orderSegments, decision.slug, getKindDefinition(decision.kind).suffix);
+}
+
+/** One evidence file under each of the fixture's child and peer nodes, as the fixture's evidence entries name them. */
+export async function writeFixtureEvidence(env: CurrentSpecTreeEnv): Promise<void> {
+  const rootDirectory = nodeDirectoryName(env.fixture.root);
+  const childPath = specTreePath(rootDirectory, nodeDirectoryName(env.fixture.child));
+  const peerPath = nodeDirectoryName(env.fixture.peer);
+  const [tail] = Object.values(SPEC_TREE_EVIDENCE_FILE.TAILS);
+  await env.writeRaw(evidenceFilePath(childPath, evidenceFileName(tail)), "");
+  await env.writeRaw(evidenceFilePath(peerPath, evidenceFileName(tail)), "");
+}
+
+/**
+ * Writes the fixture's product, root node with a nested child, peer node, and decision in the form
+ * a methodology line names: its product file suffix, its spec file suffix, its node directory
+ * suffixes, and the front matter a root spec declares its kind in when the form requires it.
+ */
+export async function writeSourceFormTree(
+  env: CurrentSpecTreeEnv,
+  form: SpecTreeSourceForm,
+): Promise<SourceFormTree> {
+  const { product, root, child, peer, decision } = env.fixture;
+  const tree: SourceFormTree = {
+    productFile: `${product.title}${form.productSuffix}`,
+    rootDirectory: orderedName(root.orderSegments, root.slug, form.rootSuffix),
+    childDirectory: orderedName(child.orderSegments, child.slug, form.childSuffix),
+    peerDirectory: orderedName(peer.orderSegments, peer.slug, form.peerSuffix),
+    decisionFile: decisionFileName(decision),
+  };
+  const body = `# ${product.title}\n`;
+  await env.writeRaw(
+    productRelativePath(tree.productFile),
+    form.productDeclaresKind ? `---\nkind: ${SPEC_TREE_CONFIG.PRODUCT.KIND}\n---\n\n${body}` : body,
+  );
+  await env.writeRaw(productRelativePath(tree.rootDirectory, `${root.slug}${form.specFileSuffix}`), body);
+  await env.writeRaw(
+    productRelativePath(tree.rootDirectory, tree.childDirectory, `${child.slug}${form.specFileSuffix}`),
+    body,
+  );
+  await env.writeRaw(productRelativePath(tree.peerDirectory, `${peer.slug}${form.specFileSuffix}`), body);
+  await env.writeRaw(productRelativePath(tree.rootDirectory, tree.decisionFile), body);
+  return tree;
+}
+
+/**
+ * Writes the environment's fixture in the form a methodology line names, each node directory
+ * taking the suffix its fixture kind carries.
+ */
+export async function writeFixtureTree(
+  env: CurrentSpecTreeEnv,
+  form: SpecTreeSourceForm,
+): Promise<SourceFormTree> {
+  const { root, child, peer } = env.fixture;
+  return writeSourceFormTree(env, {
+    ...form,
+    rootSuffix: getKindDefinition(root.kind).suffix,
+    childSuffix: getKindDefinition(child.kind).suffix,
+    peerSuffix: getKindDefinition(peer.kind).suffix,
+  });
 }

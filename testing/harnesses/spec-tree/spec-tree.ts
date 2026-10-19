@@ -1,8 +1,6 @@
 import { mkdir, readFile as readNodeFile, writeFile } from "node:fs/promises";
 import { dirname, resolve, sep } from "node:path";
 
-import type { Arbitrary } from "fast-check";
-
 import { configFileForFormat, DEFAULT_CONFIG_FILE_FORMAT, serializeConfigFileSections } from "@/config/index";
 import type { Config } from "@/config/types";
 import type { SpecTreeEnvFixtureWriterMethod } from "@/domains/spec/fixture-writer-methods";
@@ -22,14 +20,9 @@ import {
 import {
   buildRepresentativeFixture,
   createSource,
+  orderIndexText,
   type RepresentativeSpecTreeFixture,
 } from "@testing/generators/spec-tree/spec-tree";
-import {
-  arbitraryDecisionPath,
-  arbitraryNodePath,
-  arbitrarySpecTree,
-  type SpecTreeFixture,
-} from "@testing/generators/test-environment/test-environment";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 export { SPEC_TREE_ENV_FIXTURE_WRITER_METHODS } from "@/domains/spec/fixture-writer-methods";
@@ -50,9 +43,6 @@ export type SpecTreeEnv =
   & {
     readonly productDir: string;
     readFile(relativePath: string): Promise<string>;
-    readonly arbitraryNodePath: Arbitrary<string>;
-    readonly arbitraryDecisionPath: Arbitrary<string>;
-    readonly arbitrarySpecTree: Arbitrary<SpecTreeFixture>;
   }
   & {
     readonly [method in SpecTreeEnvFixtureWriterMethod]: SpecTreeEnvFixtureWriter;
@@ -76,6 +66,27 @@ export async function writeOrderedDirectory(env: SpecTreeEnv, directory: string)
   );
 }
 
+/** A generated entry the environment writes at `fixturePath`. */
+export type MaterializableEntry = {
+  readonly fixturePath: string;
+  readonly contents: string;
+};
+
+/**
+ * Writes each generated entry into the environment's product directory and returns the snapshot the
+ * spec-tree read operation produces from that directory. It returns the observation only; the
+ * linked test decides which entries the snapshot must recognize.
+ */
+export async function readMaterializedSpecTree(
+  env: SpecTreeEnv,
+  entries: readonly MaterializableEntry[],
+): Promise<SpecTreeSnapshot> {
+  for (const entry of entries) {
+    await env.writeRaw(entry.fixturePath, entry.contents);
+  }
+  return readSpecTree({ source: createFilesystemSpecTreeSource({ productDir: env.productDir }) });
+}
+
 export function withTestEnv<T>(
   config: Config,
   callback: (env: SpecTreeEnv) => Promise<T>,
@@ -97,15 +108,6 @@ export function withTestEnv<T>(
       writeDecision: (relativePath, contents) => writeAt(productDir, relativePath, contents),
       writeRaw: (relativePath, contents) => writeAt(productDir, relativePath, contents),
       readFile: (relativePath) => readAt(productDir, relativePath),
-      get arbitraryNodePath() {
-        return arbitraryNodePath(config);
-      },
-      get arbitraryDecisionPath() {
-        return arbitraryDecisionPath(config);
-      },
-      get arbitrarySpecTree() {
-        return arbitrarySpecTree(config);
-      },
     };
 
     return await callback(env);
@@ -125,7 +127,12 @@ export async function withSpecTreeEnv(
       ...Object.getOwnPropertyDescriptors(env),
       fixture: valueDescriptor(fixture),
       memorySource: valueDescriptor((sourceFixture = fixture) => createSource(sourceFixture.entries)),
-      filesystemSource: valueDescriptor(() => createFilesystemSpecTreeSource({ productDir: env.productDir, registry })),
+      filesystemSource: valueDescriptor(() =>
+        createFilesystemSpecTreeSource({
+          productDir: env.productDir,
+          registry,
+        })
+      ),
       materialize: valueDescriptor((sourceFixture = fixture) =>
         materializeSpecTreeFixture(env, registry, sourceFixture)
       ),
@@ -134,7 +141,10 @@ export async function withSpecTreeEnv(
       ),
       readFilesystemSnapshot: valueDescriptor(() =>
         readSpecTree({
-          source: createFilesystemSpecTreeSource({ productDir: env.productDir, registry }),
+          source: createFilesystemSpecTreeSource({
+            productDir: env.productDir,
+            registry,
+          }),
           registry,
         })
       ),
@@ -144,7 +154,10 @@ export async function withSpecTreeEnv(
       projectFilesystem: valueDescriptor(async () =>
         projectSpecTree(
           await readSpecTree({
-            source: createFilesystemSpecTreeSource({ productDir: env.productDir, registry }),
+            source: createFilesystemSpecTreeSource({
+              productDir: env.productDir,
+              registry,
+            }),
             registry,
           }),
         )
@@ -237,7 +250,7 @@ function decisionPath(
   return joinSpecTreeFixturePath(
     SPEC_TREE_CONFIG.ROOT_DIRECTORY,
     nodeDirectoryName(registry, parent),
-    `${decision.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${decision.slug}${definition.suffix}`,
+    `${orderIndexText(decision.orderSegments)}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${decision.slug}${definition.suffix}`,
   );
 }
 
@@ -246,7 +259,7 @@ function nodeDirectoryName(
   node: RepresentativeSpecTreeFixture["root"],
 ): string {
   const definition = getKindDefinition(node.kind, registry);
-  return `${node.order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${node.slug}${definition.suffix}`;
+  return `${orderIndexText(node.orderSegments)}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${node.slug}${definition.suffix}`;
 }
 
 function nodeTitle(node: RepresentativeSpecTreeFixture["root"]): string {

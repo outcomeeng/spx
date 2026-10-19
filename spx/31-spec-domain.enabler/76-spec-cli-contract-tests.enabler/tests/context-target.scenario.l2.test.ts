@@ -7,14 +7,14 @@ import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextShowEntries,
   documentPaths,
+  methodologyDeclaredConfig,
   parseContextEntries,
   runSpecCli,
-  specTreeKindsConfig,
 } from "@testing/harnesses/spec/context";
 
 describe("spx spec context show process contract", () => {
   it("renders targetless discovery through the packaged executable in JSON and text", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       const snapshot = await env.readFilesystemSnapshot();
       const json = await runSpecCli(
@@ -44,7 +44,7 @@ describe("spx spec context show process contract", () => {
   });
 
   it("renders targeted context for a suffix operand with a trailing separator in JSON and text", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes.find((node) => node.parentId !== undefined) ?? snapshot.allNodes[0];

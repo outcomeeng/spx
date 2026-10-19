@@ -1,21 +1,21 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { expect } from "vitest";
 
 import { lintCommand } from "@/commands/validation/lint";
-import { VALIDATION_EXIT_CODES, VALIDATION_STAGE_DISPLAY_NAMES } from "@/commands/validation/messages";
+import { VALIDATION_STAGE_DISPLAY_NAMES } from "@/commands/validation/messages";
 import { resolveConfig } from "@/config";
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
+import { SPEC_TREE_CONFIG, type SpecTreeMethodologyLine } from "@/lib/spec-tree";
 import { detectTypeScript } from "@/validation/discovery";
 import { TOOL_DISCOVERY } from "@/validation/discovery/constants";
-import { validateLintPolicy } from "@/validation/lint-policy";
+import { type LintPolicyResult, validateLintPolicy } from "@/validation/lint-policy";
 import { validateESLint } from "@/validation/steps/eslint";
 import { DEFAULT_ESLINT_CONFIG_FILE } from "@/validation/steps/eslint-contract";
 import {
+  type LintPolicyDebtCase,
   VALIDATION_LINT_POLICY_DATA,
-  VALIDATION_LINT_POLICY_SCENARIO_KIND,
   type ValidationLintPolicyManifestEntries,
-  type ValidationLintPolicyScenario,
 } from "@testing/generators/validation/lint-policy";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import {
@@ -27,40 +27,28 @@ import {
   runGit,
   runTsxEval,
 } from "@testing/harnesses/git-test-constants";
+import { withTestEnv, writeOrderedDirectory } from "@testing/harnesses/spec-tree/spec-tree";
+import { writeValidationProductDeclaration } from "@testing/harnesses/validation/product";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const LINT_POLICY_TEMP_PREFIX = "spx-lint-policy-";
 
-interface SerializedLintPolicyResult {
+export interface SerializedLintPolicyResult {
   readonly ok: boolean;
   readonly error?: string;
 }
 
-export async function runValidationLintPolicyScenario(
-  scenario: ValidationLintPolicyScenario,
-): Promise<void> {
-  switch (scenario.kind) {
-    case VALIDATION_LINT_POLICY_SCENARIO_KIND.UNRELATED_PROJECT:
-      return runUnrelatedProjectScenario();
-    case VALIDATION_LINT_POLICY_SCENARIO_KIND.EXISTING_DEBT:
-      return runExistingDebtScenario();
-    case VALIDATION_LINT_POLICY_SCENARIO_KIND.BRANCH_ADDITION:
-      return runBranchAdditionScenario();
-    case VALIDATION_LINT_POLICY_SCENARIO_KIND.BASELINE_ABSENT:
-      return runBaselineAbsentScenario();
-    case VALIDATION_LINT_POLICY_SCENARIO_KIND.HOOK_GIT_VARIABLES:
-      return runHookGitVariablesScenario();
-    case VALIDATION_LINT_POLICY_SCENARIO_KIND.CORRUPT_BASELINE:
-      return runCorruptBaselineScenario();
-    case VALIDATION_LINT_POLICY_SCENARIO_KIND.DEPRECATED_SPEC_NODE_SUFFIX:
-      return runDeprecatedSpecNodeSuffixScenario();
-    case VALIDATION_LINT_POLICY_SCENARIO_KIND.CONFIG_LOAD_BOUNDARY:
-      return runConfigLoadBoundaryScenario();
-  }
+function withPolicyProject<T>(callback: (productDir: string) => Promise<T>): Promise<T> {
+  return withTempDir(LINT_POLICY_TEMP_PREFIX, callback);
 }
 
-function withPolicyProject(callback: (productDir: string) => Promise<void>): Promise<void> {
-  return withTempDir(LINT_POLICY_TEMP_PREFIX, callback);
+/** Validates the lint policy of a fixture product whose configuration declares its methodology once the fixture holds a spec tree. */
+async function validatePolicy(
+  productDir: string,
+  line: SpecTreeMethodologyLine,
+): ReturnType<typeof validateLintPolicy> {
+  await writeValidationProductDeclaration(productDir, line);
+  return validateLintPolicy(productDir);
 }
 
 async function writePolicyManifest(
@@ -102,6 +90,7 @@ function parseSerializedLintPolicyResult(stdout: string): SerializedLintPolicyRe
 
 async function validateLintPolicyInChildProcess(
   productDir: string,
+  line: SpecTreeMethodologyLine,
   envOverrides: GitTestEnvironmentOverrides,
 ): Promise<SerializedLintPolicyResult> {
   const moduleUrl = pathToFileURL(join(process.cwd(), "src/validation/lint-policy.ts")).href;
@@ -112,8 +101,9 @@ async function validateLintPolicyInChildProcess(
     if (productDir === undefined) {
       throw new Error("Missing ${environmentKey}");
     }
-    console.log(JSON.stringify(validateLintPolicy(productDir)));
+    console.log(JSON.stringify(await validateLintPolicy(productDir)));
   `;
+  await writeValidationProductDeclaration(productDir, line);
   const stdout = await runTsxEval(process.cwd(), script, {
     ...envOverrides,
     [environmentKey]: productDir,
@@ -135,49 +125,46 @@ async function initializePolicyRepository(
   await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, "user.name", GIT_TEST_CONFIG.USER_NAME], envOverrides);
 }
 
-async function writeBaseDebtFixture(productDir: string): Promise<void> {
-  await mkdir(join(productDir, VALIDATION_LINT_POLICY_DATA.baseTestDebtPath), { recursive: true });
+async function writeBaseDebtFixture(productDir: string, debtCase: LintPolicyDebtCase): Promise<void> {
+  await mkdir(join(productDir, debtCase.baseDebtPath), { recursive: true });
   await writePolicyManifest(productDir, {
-    testLintDebtNodes: [VALIDATION_LINT_POLICY_DATA.baseTestDebtPath],
+    testLintDebtNodes: [debtCase.baseDebtPath],
   });
 }
 
-async function runUnrelatedProjectScenario(): Promise<void> {
-  await withPolicyProject(async (productDir) => {
-    const result = validateLintPolicy(productDir);
-
-    expect(result.ok).toBe(true);
+/** Observes the lint policy of a product that holds a spec tree node and neither debt manifest. */
+export function observePolicyWithoutManifests(debtCase: LintPolicyDebtCase): Promise<LintPolicyResult> {
+  return observeLintPolicyOfProduct({
+    declaredLine: debtCase.line,
+    nodeDirectories: [debtCase.baseDebtPath.slice(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/`.length)],
   });
 }
 
-async function runExistingDebtScenario(): Promise<void> {
-  await withPolicyProject(async (productDir) => {
-    await writeBaseDebtFixture(productDir);
-
-    const result = validateLintPolicy(productDir);
-
-    expect(result.ok).toBe(true);
+/** Observes the lint policy of a product, outside any Git repository, whose manifests list its existing debt node. */
+export function observePolicyWithExistingDebt(debtCase: LintPolicyDebtCase): Promise<LintPolicyResult> {
+  return withPolicyProject(async (productDir) => {
+    await writeBaseDebtFixture(productDir, debtCase);
+    return validatePolicy(productDir, debtCase.line);
   });
 }
 
-async function runBranchAdditionScenario(): Promise<void> {
-  await withPolicyProject(async (productDir) => {
-    await prepareBranchAdditionPolicyProject(productDir);
+export interface BranchAdditionObservation {
+  readonly policy: LintPolicyResult;
+  readonly command: { readonly exitCode: number; readonly output: string };
+}
 
-    const result = validateLintPolicy(productDir);
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toContain(VALIDATION_LINT_POLICY_DATA.manifests.TEST_LINT_DEBT_NODES.file);
-      expect(result.error).toContain(VALIDATION_LINT_POLICY_DATA.addedTestDebtPath);
-    }
+/** Observes the policy and the `spx validation lint` command output for a branch whose manifest lists a node the base branch lacks. */
+export function observeBranchAddition(debtCase: LintPolicyDebtCase): Promise<BranchAdditionObservation> {
+  return withPolicyProject(async (productDir) => {
+    await prepareBranchAdditionPolicyProject(productDir, debtCase);
+    const policy = await validatePolicy(productDir, debtCase.line);
 
     await writeFile(
       join(productDir, VALIDATION_PIPELINE_DATA.fullTsconfigFile),
       JSON.stringify({ include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern] }),
     );
     await writeFile(join(productDir, DEFAULT_ESLINT_CONFIG_FILE), "");
-    const commandResult = await lintCommand(
+    const command = await lintCommand(
       { cwd: productDir },
       {
         detectTypeScript,
@@ -193,29 +180,27 @@ async function runBranchAdditionScenario(): Promise<void> {
         validateESLint,
       },
     );
-    expect(commandResult.exitCode).toBe(VALIDATION_EXIT_CODES.FAILURE);
-    expect(commandResult.output).toContain(VALIDATION_LINT_POLICY_DATA.addedTestDebtPath);
+    return { policy, command: { exitCode: command.exitCode, output: command.output } };
   });
 }
 
-async function prepareBranchAdditionPolicyProject(productDir: string): Promise<void> {
+async function prepareBranchAdditionPolicyProject(productDir: string, debtCase: LintPolicyDebtCase): Promise<void> {
   await initializePolicyRepository(productDir, VALIDATION_LINT_POLICY_DATA.baseRefs.LOCAL_MAIN);
-  await writeBaseDebtFixture(productDir);
+  await writeBaseDebtFixture(productDir, debtCase);
   await commitAll(productDir, VALIDATION_LINT_POLICY_DATA.commitMessages.base);
   await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CHECKOUT, "-b", VALIDATION_LINT_POLICY_DATA.testBranch]);
-  await mkdir(join(productDir, VALIDATION_LINT_POLICY_DATA.addedTestDebtPath), { recursive: true });
+  await mkdir(join(productDir, debtCase.addedDebtPath), { recursive: true });
   await writePolicyManifest(productDir, {
-    testLintDebtNodes: [
-      VALIDATION_LINT_POLICY_DATA.baseTestDebtPath,
-      VALIDATION_LINT_POLICY_DATA.addedTestDebtPath,
-    ],
+    testLintDebtNodes: [debtCase.baseDebtPath, debtCase.addedDebtPath],
   });
   await commitAll(productDir, VALIDATION_LINT_POLICY_DATA.commitMessages.addedDebt);
+  await writeValidationProductDeclaration(productDir, debtCase.line);
 }
 
-async function runConfigLoadBoundaryScenario(): Promise<void> {
-  await withPolicyProject(async (productDir) => {
-    await prepareBranchAdditionPolicyProject(productDir);
+/** Observes the stdout of importing the repository `eslint.config.ts` from a product whose branch adds manifest debt. */
+export function observeEslintConfigLoad(debtCase: LintPolicyDebtCase): Promise<string> {
+  return withPolicyProject(async (productDir) => {
+    await prepareBranchAdditionPolicyProject(productDir, debtCase);
     await writeFile(
       join(productDir, VALIDATION_PIPELINE_DATA.fullTsconfigFile),
       JSON.stringify({ include: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern] }),
@@ -227,60 +212,56 @@ async function runConfigLoadBoundaryScenario(): Promise<void> {
       console.log(${JSON.stringify(VALIDATION_LINT_POLICY_DATA.configLoadSuccessMarker)});
     `;
 
-    await expect(runTsxEval(process.cwd(), script)).resolves.toContain(
-      VALIDATION_LINT_POLICY_DATA.configLoadSuccessMarker,
-    );
+    return runTsxEval(process.cwd(), script);
   });
 }
 
-export async function runTestOwnedConstantDebtAdditionScenario(): Promise<void> {
-  await withPolicyProject(async (productDir) => {
+/** Observes the policy for a branch whose test-owned-constant manifest lists a node the base branch lacks. */
+export function observeTestOwnedConstantDebtAddition(debtCase: LintPolicyDebtCase): Promise<LintPolicyResult> {
+  return withPolicyProject(async (productDir) => {
     await initializePolicyRepository(productDir, VALIDATION_LINT_POLICY_DATA.baseRefs.LOCAL_MAIN);
-    await mkdir(join(productDir, VALIDATION_LINT_POLICY_DATA.baseTestDebtPath), { recursive: true });
+    await mkdir(join(productDir, debtCase.baseDebtPath), { recursive: true });
     await writePolicyManifest(productDir, {
       testLintDebtNodes: [],
-      testOwnedConstantDebtNodes: [VALIDATION_LINT_POLICY_DATA.baseTestDebtPath],
+      testOwnedConstantDebtNodes: [debtCase.baseDebtPath],
     });
     await commitAll(productDir, VALIDATION_LINT_POLICY_DATA.commitMessages.base);
 
     await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CHECKOUT, "-b", VALIDATION_LINT_POLICY_DATA.testBranch]);
-    await mkdir(join(productDir, VALIDATION_LINT_POLICY_DATA.addedTestDebtPath), { recursive: true });
+    await mkdir(join(productDir, debtCase.addedDebtPath), { recursive: true });
     await writePolicyManifest(productDir, {
       testLintDebtNodes: [],
-      testOwnedConstantDebtNodes: [
-        VALIDATION_LINT_POLICY_DATA.baseTestDebtPath,
-        VALIDATION_LINT_POLICY_DATA.addedTestDebtPath,
-      ],
+      testOwnedConstantDebtNodes: [debtCase.baseDebtPath, debtCase.addedDebtPath],
     });
 
-    const result = validateLintPolicy(productDir);
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toContain(
-        VALIDATION_LINT_POLICY_DATA.manifests.TEST_OWNED_CONSTANT_DEBT_NODES.file,
-      );
-      expect(result.error).toContain(VALIDATION_LINT_POLICY_DATA.addedTestDebtPath);
-    }
+    return validatePolicy(productDir, debtCase.line);
   });
 }
 
-async function runBaselineAbsentScenario(): Promise<void> {
-  await withPolicyProject(async (productDir) => {
+/** Observes the policy for a repository with manifest debt and no base branch to compare against. */
+export function observePolicyWithoutBaseline(debtCase: LintPolicyDebtCase): Promise<LintPolicyResult> {
+  return withPolicyProject(async (productDir) => {
     await initializePolicyRepository(productDir, VALIDATION_LINT_POLICY_DATA.testBranch);
-    await mkdir(join(productDir, VALIDATION_LINT_POLICY_DATA.addedTestDebtPath), { recursive: true });
+    await mkdir(join(productDir, debtCase.addedDebtPath), { recursive: true });
     await writePolicyManifest(productDir, {
-      testLintDebtNodes: [VALIDATION_LINT_POLICY_DATA.addedTestDebtPath],
+      testLintDebtNodes: [debtCase.addedDebtPath],
     });
     await commitAll(productDir, VALIDATION_LINT_POLICY_DATA.commitMessages.baselineAbsent);
 
-    const result = validateLintPolicy(productDir);
-
-    expect(result.ok).toBe(true);
+    return validatePolicy(productDir, debtCase.line);
   });
 }
 
-async function runHookGitVariablesScenario(): Promise<void> {
-  await withPolicyProject(async (outerRoot) => {
+export interface HookGitVariablesObservation {
+  readonly policy: SerializedLintPolicyResult;
+  readonly outerBranch: string;
+  readonly outerUserEmail: string;
+  readonly outerUserName: string;
+}
+
+/** Observes the policy run under Git hook variables that point at an outer repository, and that repository's state afterwards. */
+export function observePolicyUnderHookGitVariables(debtCase: LintPolicyDebtCase): Promise<HookGitVariablesObservation> {
+  return withPolicyProject(async (outerRoot) => {
     await runGit(outerRoot, [
       GIT_TEST_SUBCOMMANDS.INIT,
       "--initial-branch",
@@ -307,13 +288,14 @@ async function runHookGitVariablesScenario(): Promise<void> {
       GIT_WORK_TREE: outerRoot,
     };
 
+    let policy: SerializedLintPolicyResult | undefined;
     await withPolicyProject(async (productDir) => {
       await initializePolicyRepository(
         productDir,
         VALIDATION_LINT_POLICY_DATA.baseRefs.LOCAL_MAIN,
         pollutedGitEnvironment,
       );
-      await writeBaseDebtFixture(productDir);
+      await writeBaseDebtFixture(productDir, debtCase);
       await commitAll(productDir, VALIDATION_LINT_POLICY_DATA.commitMessages.base, pollutedGitEnvironment);
       await runGit(
         productDir,
@@ -321,29 +303,27 @@ async function runHookGitVariablesScenario(): Promise<void> {
         pollutedGitEnvironment,
       );
 
-      const result = await validateLintPolicyInChildProcess(productDir, pollutedGitEnvironment);
-      expect(result.ok).toBe(true);
+      policy = await validateLintPolicyInChildProcess(productDir, debtCase.line, pollutedGitEnvironment);
     });
+    if (policy === undefined) throw new Error("Lint policy child process did not run");
 
-    await expect(readGit(outerRoot, [GIT_TEST_SUBCOMMANDS.BRANCH, GIT_TEST_FLAGS.SHOW_CURRENT])).resolves.toBe(
-      VALIDATION_LINT_POLICY_DATA.outerRepoBranch,
-    );
-    await expect(readGit(outerRoot, [GIT_TEST_SUBCOMMANDS.CONFIG, "--get", "user.email"])).resolves.toBe(
-      VALIDATION_LINT_POLICY_DATA.outerRepoUserEmail,
-    );
-    await expect(readGit(outerRoot, [GIT_TEST_SUBCOMMANDS.CONFIG, "--get", "user.name"])).resolves.toBe(
-      VALIDATION_LINT_POLICY_DATA.outerRepoUserName,
-    );
+    return {
+      policy,
+      outerBranch: await readGit(outerRoot, [GIT_TEST_SUBCOMMANDS.BRANCH, GIT_TEST_FLAGS.SHOW_CURRENT]),
+      outerUserEmail: await readGit(outerRoot, [GIT_TEST_SUBCOMMANDS.CONFIG, "--get", "user.email"]),
+      outerUserName: await readGit(outerRoot, [GIT_TEST_SUBCOMMANDS.CONFIG, "--get", "user.name"]),
+    };
   });
 }
 
-async function runCorruptBaselineScenario(): Promise<void> {
-  await withPolicyProject(async (productDir) => {
+/** Observes the policy for a branch whose baseline manifest is not a JSON object. */
+export function observePolicyWithCorruptBaseline(debtCase: LintPolicyDebtCase): Promise<LintPolicyResult> {
+  return withPolicyProject(async (productDir) => {
     const testDebtManifest = VALIDATION_LINT_POLICY_DATA.manifests.TEST_LINT_DEBT_NODES;
     const testOwnedConstantManifest = VALIDATION_LINT_POLICY_DATA.manifests.TEST_OWNED_CONSTANT_DEBT_NODES;
 
     await initializePolicyRepository(productDir, VALIDATION_LINT_POLICY_DATA.baseRefs.LOCAL_MAIN);
-    await mkdir(join(productDir, VALIDATION_LINT_POLICY_DATA.baseTestDebtPath), { recursive: true });
+    await mkdir(join(productDir, debtCase.baseDebtPath), { recursive: true });
     await writeFile(join(productDir, testDebtManifest.file), JSON.stringify([], null, 2));
     await writeFile(
       join(productDir, testOwnedConstantManifest.file),
@@ -353,31 +333,32 @@ async function runCorruptBaselineScenario(): Promise<void> {
 
     await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CHECKOUT, "-b", VALIDATION_LINT_POLICY_DATA.testBranch]);
     await writePolicyManifest(productDir, {
-      testLintDebtNodes: [VALIDATION_LINT_POLICY_DATA.baseTestDebtPath],
+      testLintDebtNodes: [debtCase.baseDebtPath],
     });
 
-    const result = validateLintPolicy(productDir);
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toContain(testDebtManifest.file);
-      expect(result.error).toContain(VALIDATION_LINT_POLICY_DATA.jsonObjectErrorFragment);
-    }
+    return validatePolicy(productDir, debtCase.line);
   });
 }
 
-async function runDeprecatedSpecNodeSuffixScenario(): Promise<void> {
-  await withPolicyProject(async (productDir) => {
-    await mkdir(join(productDir, VALIDATION_LINT_POLICY_DATA.deprecatedSpecNodePath), { recursive: true });
-    await writePolicyManifest(productDir, {
-      testLintDebtNodes: [],
-    });
+export interface LintPolicyProductOptions {
+  /** The methodology line the product's configuration declares; the product is undeclared when absent. */
+  readonly declaredLine?: SpecTreeMethodologyLine;
+  /** The node directory names, relative to the spec-tree root, the product holds; the product has no spec tree when empty. */
+  readonly nodeDirectories: readonly string[];
+}
 
-    const result = validateLintPolicy(productDir);
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toContain(VALIDATION_LINT_POLICY_DATA.deprecatedSpecNodePath);
+/**
+ * Builds a temporary product from the options, runs the lint policy against it, and returns the policy's
+ * result as an observation; the caller decides what the result means.
+ */
+export function observeLintPolicyOfProduct(options: LintPolicyProductOptions): Promise<LintPolicyResult> {
+  const config = options.declaredLine === undefined
+    ? {}
+    : { [METHODOLOGY_SECTION]: { [METHODOLOGY_CONFIG_FIELDS.VERSION]: options.declaredLine } };
+  return withTestEnv(config, async (env) => {
+    for (const directory of options.nodeDirectories) {
+      await writeOrderedDirectory(env, directory);
     }
+    return validateLintPolicy(env.productDir);
   });
 }

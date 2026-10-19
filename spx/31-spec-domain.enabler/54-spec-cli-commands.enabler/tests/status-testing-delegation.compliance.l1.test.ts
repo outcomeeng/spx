@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 
 import { createNodeOutcomeResolver } from "@/commands/spec/node-outcome-resolver";
 import { statusCommand } from "@/commands/spec/status";
-import { runTestsCommand } from "@/commands/test";
 import { NODE_STATUS_EVIDENCE_OUTCOME } from "@/lib/node-status";
 import { testingRegistry } from "@/test/registry";
 import { testingRunsDir } from "@/test/run-state";
@@ -16,6 +15,7 @@ import {
   fixtureNodePath,
   readRecordedStatusFile,
   recordedEvidenceResolverFor,
+  recordTestingRun,
 } from "@testing/harnesses/spec-tree/spec-cli-commands";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { createRecordingCommandRunner } from "@testing/harnesses/testing/typescript-runner";
@@ -64,10 +64,7 @@ describe("status-to-testing delegation compliance", () => {
       );
       const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
 
-      await runTestsCommand(
-        { productDir: env.productDir, passing: false },
-        { registry: testingRegistry, runnerDepsFor: () => runner },
-      );
+      await recordTestingRun(env.productDir, runner);
       await statusCommand({
         cwd: env.productDir,
         update: true,

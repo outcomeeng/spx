@@ -17,11 +17,9 @@ import { NODE_STATUS_EVIDENCE_OUTCOME } from "@/lib/node-status";
 import {
   KIND_REGISTRY,
   SPEC_TREE_CONFIG,
-  SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_EVIDENCE_STATUS,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_NODE_STATE,
-  type SpecTreeNodeSourceEntry,
 } from "@/lib/spec-tree";
 import { testingRunsDir } from "@/test/run-state";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
@@ -30,7 +28,7 @@ import {
   buildEvidenceEntry,
   createSource,
   distinctOrderedDirectoryName,
-  sampleNodeKind,
+  sampleSingleNodeSourceEntry,
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
 } from "@testing/generators/spec-tree/spec-tree";
@@ -196,16 +194,7 @@ describe("spx spec status", () => {
   });
 
   it("serializes the current projection for JSON output", async () => {
-    const nodeKind = sampleNodeKind(KIND_REGISTRY);
-    const nodeOrder = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder());
-    const nodeSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-    const node: SpecTreeNodeSourceEntry = {
-      type: SPEC_TREE_ENTRY_TYPE.NODE,
-      id: `${nodeOrder}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${nodeSlug}${KIND_REGISTRY[nodeKind].suffix}`,
-      kind: nodeKind,
-      order: nodeOrder,
-      slug: nodeSlug,
-    };
+    const node = sampleSingleNodeSourceEntry(KIND_REGISTRY);
 
     const output = await statusCommand({ format: OUTPUT_FORMAT.JSON, source: createSource([node]) });
 
@@ -254,16 +243,7 @@ describe("spx spec next", () => {
   });
 
   it("reports when every current spec-tree node is passing", async () => {
-    const nodeKind = sampleNodeKind(KIND_REGISTRY);
-    const nodeOrder = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder());
-    const nodeSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
-    const node: SpecTreeNodeSourceEntry = {
-      type: SPEC_TREE_ENTRY_TYPE.NODE,
-      id: `${nodeOrder}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${nodeSlug}${KIND_REGISTRY[nodeKind].suffix}`,
-      kind: nodeKind,
-      order: nodeOrder,
-      slug: nodeSlug,
-    };
+    const node = sampleSingleNodeSourceEntry(KIND_REGISTRY);
 
     await expect(
       nextCommand({

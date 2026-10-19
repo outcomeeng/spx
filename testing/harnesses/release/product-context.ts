@@ -88,6 +88,14 @@ export async function observeReleaseEndpointSources(
   return { context, error, producerInvocations, auditorInvocations };
 }
 
+/** The context the production assembly reads across a release range whose endpoints are supplied in memory. */
+export async function readReleaseRangeContext(
+  scenario: { readonly endpoints: readonly ReleaseEndpointSource[]; readonly releaseData: ReleaseData },
+): Promise<ReleaseProductContext> {
+  const endpointReader = createInMemoryReleaseEndpointReader(scenario.endpoints);
+  return await readReleaseProductContext(IN_MEMORY_PRODUCT_DIRECTORY, scenario.releaseData, { endpointReader });
+}
+
 /**
  * One release endpoint committed to a git repository, the release data whose product context it
  * supplies, and the uncommitted content the working tree carries once the endpoint is committed.

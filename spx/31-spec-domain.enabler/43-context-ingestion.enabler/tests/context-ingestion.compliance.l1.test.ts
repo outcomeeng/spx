@@ -4,11 +4,15 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
-import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
 import { SPEC_CONTEXT_COMMAND_PATH, SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
+import { HARNESS_ENVIRONMENT_SECTION } from "@/lib/harness-environment-section";
 import { formatMethodologyVersionName } from "@/lib/methodology";
-import { SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
+import {
+  SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR,
+  SPEC_CONTEXT_TARGET_FAILURE_KIND,
+  SPEC_TREE_CONFIG,
+} from "@/lib/spec-tree";
 import {
   CONFIG_TEST_GENERATOR,
   generatedHarnessMethodologyConfig,
@@ -17,20 +21,25 @@ import {
   generatedMethodologySection,
   sampleConfigTestValue,
 } from "@testing/generators/config/descriptors";
-import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
+import {
+  arbitraryFixtureAuthoredLine,
+  arbitraryMethodologyVersion,
+  arbitraryUnreadableMethodologyVersion,
+} from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   arbitrarySpecContextInvalidUtf8Bytes,
   specContextAbsentDecisionPath,
   specContextUnknownTarget,
 } from "@testing/generators/spec-tree/context-target";
+import { fixtureNodePath } from "@testing/harnesses/spec-tree/spec-cli-commands";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextShowEntries,
   METHODOLOGY_FIXTURE_IDENTITY,
+  methodologyDeclaredConfig,
   methodologyTreeConfig,
   runSpecDescriptor,
-  specTreeKindsConfig,
   withProductlessContextTreeEnv,
   withRichContextEnv,
   writeMethodologyTree,
@@ -58,7 +67,7 @@ describe("spec context ingestion writes nothing to standard output after a failu
   });
 
   it("returns a failure and no projection when the product root holds no recognized product spec", async () => {
-    await withProductlessContextTreeEnv(specTreeKindsConfig(), async (env, paths) => {
+    await withProductlessContextTreeEnv(methodologyDeclaredConfig(), async (env, paths) => {
       await expect(contextShowEntries({ targets: [paths.nodeTargetPath], cwd: env.productDir })).rejects.toThrow(
         SPEC_CONTEXT_MISSING_PRODUCT_SPEC_ERROR,
       );
@@ -123,9 +132,9 @@ describe("spec context ingestion writes nothing to standard output after a failu
 
   it("writes no list or show output when the methodology declaration is malformed, naming the field", async () => {
     for (const invalid of generatedInvalidMethodologyConfigs()) {
-      await withSpecTreeEnv({ ...specTreeKindsConfig(), ...invalid.config }, async (env) => {
+      await withSpecTreeEnv({ ...methodologyDeclaredConfig(), ...invalid.config }, async (env) => {
         await env.materialize();
-        const target = (await env.readFilesystemSnapshot()).allNodes[0].id;
+        const target = join(SPEC_TREE_CONFIG.ROOT_DIRECTORY, fixtureNodePath(env.fixture.root));
         for (const command of [SPEC_CONTEXT_COMMAND_PATH.LIST, SPEC_CONTEXT_COMMAND_PATH.SHOW]) {
           const run = await runSpecDescriptor({ productDir: env.productDir }, ...command, target);
           expect(run.stdout, `${invalid.field} ${command.join(" ")}`).toHaveLength(0);
@@ -136,29 +145,51 @@ describe("spec context ingestion writes nothing to standard output after a failu
     }
   });
 
+  it("writes no list or show output when the declared methodology line is one no spec-tree read accepts, naming the declared version", async () => {
+    const declared = sampleGeneratedValue(arbitraryUnreadableMethodologyVersion());
+    for (const field of [METHODOLOGY_CONFIG_FIELDS.VERSION, METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]) {
+      await withSpecTreeEnv(
+        methodologyTreeConfig({
+          [METHODOLOGY_CONFIG_FIELDS.VERSION]: METHODOLOGY_FIXTURE_IDENTITY.text,
+          [field]: declared.text,
+        }),
+        async (env) => {
+          await env.materialize();
+          const target = join(SPEC_TREE_CONFIG.ROOT_DIRECTORY, fixtureNodePath(env.fixture.root));
+          for (const command of [SPEC_CONTEXT_COMMAND_PATH.LIST, SPEC_CONTEXT_COMMAND_PATH.SHOW]) {
+            const run = await runSpecDescriptor({ productDir: env.productDir }, ...command, target);
+            expect(run.stdout, `${field} ${command.join(" ")}`).toHaveLength(0);
+            expect(run.exitCode, field).toBe(1);
+            expect(run.stderr, field).toContain(declared.text);
+          }
+        },
+      );
+    }
+  });
+
   // The two cases below witness the context commands' wiring to the shared
   // methodology resolver, whose own rules the methodology-config node owns:
   // a refactor of this command's config path can neither drop the
   // legacy-placement rejection nor start failing on unrelated config content.
   it("writes no list or show output when the methodology declaration sits in the retired harness placement", async () => {
-    await withSpecTreeEnv({ ...specTreeKindsConfig(), ...generatedHarnessMethodologyConfig() }, async (env) => {
+    await withSpecTreeEnv({ ...methodologyDeclaredConfig(), ...generatedHarnessMethodologyConfig() }, async (env) => {
       await env.materialize();
-      const target = (await env.readFilesystemSnapshot()).allNodes[0].id;
+      const target = join(SPEC_TREE_CONFIG.ROOT_DIRECTORY, fixtureNodePath(env.fixture.root));
       for (const command of [SPEC_CONTEXT_COMMAND_PATH.LIST, SPEC_CONTEXT_COMMAND_PATH.SHOW]) {
         const run = await runSpecDescriptor({ productDir: env.productDir }, ...command, target);
         expect(run.stdout, command.join(" ")).toHaveLength(0);
         expect(run.exitCode).toBe(1);
-        expect(run.stderr).toContain(`${LEGACY_METHODOLOGY_CONFIG_SECTION}.${METHODOLOGY_SECTION}`);
+        expect(run.stderr).toContain(`${HARNESS_ENVIRONMENT_SECTION}.${METHODOLOGY_SECTION}`);
       }
     });
   });
 
   it("writes the complete list output when only unrelated harness config is defective", async () => {
-    const { section, version } = generatedMethodologyIdentity();
+    const { section, version } = generatedMethodologyIdentity(arbitraryFixtureAuthoredLine());
     await withSpecTreeEnv({
-      ...specTreeKindsConfig(),
+      ...methodologyDeclaredConfig(),
       [METHODOLOGY_SECTION]: section,
-      [LEGACY_METHODOLOGY_CONFIG_SECTION]: {
+      [HARNESS_ENVIRONMENT_SECTION]: {
         [sampleConfigTestValue(CONFIG_TEST_GENERATOR.key())]: generatedMethodologySection(),
       },
     }, async (env) => {
@@ -174,7 +205,9 @@ describe("spec context ingestion writes nothing to standard output after a failu
     // The shipped fixture tree serves another line than the declared one, so
     // only the methodology document fails while every product entry resolves.
     const declared = sampleGeneratedValue(
-      arbitraryMethodologyVersion().filter((candidate) => candidate.line !== METHODOLOGY_FIXTURE_IDENTITY.line),
+      arbitraryMethodologyVersion(arbitraryFixtureAuthoredLine()).filter((candidate) =>
+        candidate.line !== METHODOLOGY_FIXTURE_IDENTITY.line
+      ),
     );
     await withSpecTreeEnv(
       methodologyTreeConfig({ [METHODOLOGY_CONFIG_FIELDS.VERSION]: declared.text }),

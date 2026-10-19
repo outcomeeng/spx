@@ -1,7 +1,7 @@
+import { formatUnrecognizedConfigFieldError } from "@/config/field-errors";
 import type { ConfigDescriptor, Result } from "@/config/types";
+import { HARNESS_ENVIRONMENT_SECTION } from "@/lib/harness-environment-section";
 import { METHODOLOGY_CODING_AGENT, type MethodologyCodingAgent } from "@/lib/methodology";
-
-export const HARNESS_ENVIRONMENT_SECTION = "harnessEnvironment";
 
 export const AGENT = {
   CODEX: "codex",
@@ -188,7 +188,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function unknownConfigFieldError(path: string, field: string): string {
-  return `${path}.${field} is not a recognized config field`;
+  return formatUnrecognizedConfigFieldError(path, field);
 }
 
 export function harnessEnvironmentUnknownConfigFieldError(field: string): string {

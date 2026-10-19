@@ -40,6 +40,7 @@ import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validat
 import { type LiteralFixtureEnv, withLiteralFixtureEnv } from "@testing/harnesses/literal/harness";
 import { validationConfigSection } from "@testing/harnesses/validation/configuration";
 import { createRecordingKnipCommandDeps, type KnipDiscoveryCall } from "@testing/harnesses/validation/knip-support";
+import { VALIDATION_PRODUCT_METHODOLOGY } from "@testing/harnesses/validation/product";
 
 type LiteralFixtureConfig = Parameters<typeof withLiteralFixtureEnv>[0];
 
@@ -53,6 +54,7 @@ function markdownValidationPathsConfig(
   paths: { readonly include?: readonly string[]; readonly exclude?: readonly string[] },
 ): LiteralFixtureConfig {
   return {
+    ...VALIDATION_PRODUCT_METHODOLOGY,
     [validationConfigDescriptor.section]: {
       [VALIDATION_PATHS_SUBSECTION]: {
         [VALIDATION_PATH_TOOL_SUBSECTIONS.MARKDOWN]: paths,
@@ -100,6 +102,7 @@ async function runMarkdownRootScopeWithExcludedDocs(
   const files = explicitProductRoot ? [markdownProductRootOperand(scenario)] : undefined;
   return await withLiteralFixtureEnv(
     {
+      ...VALIDATION_PRODUCT_METHODOLOGY,
       [validationConfigDescriptor.section]: {
         [VALIDATION_PATHS_SUBSECTION]: {
           exclude: [DOCS_DIRECTORY_NAME],
@@ -431,7 +434,7 @@ describe("resolved validation configuration", () => {
   });
 
   it("preserves explicit markdown operands through node-status excludes", async () => {
-    await withLiteralFixtureEnv({}, async (env) => {
+    await withLiteralFixtureEnv(VALIDATION_PRODUCT_METHODOLOGY, async (env) => {
       const excludedNode = specTreeExcludedNodeCase(sampleSpecTreeLinkScenario());
       const excludedNodePath = excludedNode.nodeDirectory;
       const [directMarkdownFile] = excludedNode.directFiles;

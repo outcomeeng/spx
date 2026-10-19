@@ -36,15 +36,25 @@ import {
   entryPaths,
   manifestEntryAt,
   METHODOLOGY_FIXTURE_IDENTITY,
+  methodologyDeclaredConfig,
   parseContextEntries,
   parseContextManifest,
   referencePaths,
   runSpecDescriptor,
-  specTreeKindsConfig,
   trackSpecTreeInGit,
   withEmptyContextTreeEnv,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
+
+/** Orders two segment lists numerically segment by segment; a list that extends another follows it. */
+function compareSegments(left: readonly number[], right: readonly number[]): number {
+  const shared = Math.min(left.length, right.length);
+  for (let position = 0; position < shared; position += 1) {
+    const difference = Math.sign((left[position] ?? 0) - (right[position] ?? 0));
+    if (difference !== 0) return difference;
+  }
+  return Math.sign(left.length - right.length);
+}
 
 describe("spec context list and show", () => {
   it("emits the versioned structural manifest from list and framed entries without manifest fields from show", async () => {
@@ -126,11 +136,12 @@ describe("spec context list and show", () => {
       // peer node's entries form one contiguous run in that order.
       const peerPrefix = `${paths.higherIndexSiblingPath}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}`;
       const peerDecisions = [
-        { path: paths.citedDecisionPath, order: env.fixture.decision.order },
-        { path: paths.peerDecisionPath, order: env.fixture.decision.order },
-        { path: paths.transitiveCitedDecisionPath, order: env.fixture.peer.order },
+        { path: paths.citedDecisionPath, orderSegments: env.fixture.decision.orderSegments },
+        { path: paths.peerDecisionPath, orderSegments: env.fixture.decision.orderSegments },
+        { path: paths.transitiveCitedDecisionPath, orderSegments: env.fixture.peer.orderSegments },
       ].sort((left, right) =>
-        left.order - right.order || (left.path < right.path ? -1 : left.path > right.path ? 1 : 0)
+        compareSegments(left.orderSegments, right.orderSegments)
+        || (left.path < right.path ? -1 : left.path > right.path ? 1 : 0)
       );
       const peerStart = entryPaths(entries).indexOf(paths.higherIndexSiblingSpecPath);
       expect(entryPaths(entries).slice(peerStart, peerStart + 1 + peerDecisions.length)).toEqual([
@@ -152,7 +163,7 @@ describe("spec context list and show", () => {
   });
 
   it("fails with empty stdout and a non-zero exit when show has no target over a product root holding no product spec", async () => {
-    await withEmptyContextTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withEmptyContextTreeEnv(methodologyDeclaredConfig(), async (env) => {
       const context = { productDir: env.productDir };
       for (const extra of [[], [SPEC_DOMAIN_CLI.JSON_OPTION]]) {
         const run = await runSpecDescriptor(context, ...SPEC_CONTEXT_COMMAND_PATH.SHOW, ...extra);
@@ -235,7 +246,7 @@ describe("spec context list and show", () => {
   });
 
   it("carries the manifest schema version and the snapshot-derived bootstrap flag", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       const snapshot = await env.readFilesystemSnapshot();
       const target = snapshot.allNodes[0];
@@ -249,7 +260,7 @@ describe("spec context list and show", () => {
     // reports the opposite flag, so a fixed value in place of the derivation
     // fails one of the two. The product-root target selects only the product
     // spec, and the manifest names that target by its canonical spelling.
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       const productPath = rootedArtifactPath(
         undefined,
         `${env.fixture.product.title}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`,

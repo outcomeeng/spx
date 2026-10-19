@@ -11,6 +11,7 @@ import {
   DEFAULT_CONFIG_FILENAME,
   parseConfigFileSections,
 } from "@/config/index";
+import { KIND_REGISTRY } from "@/lib/spec-tree";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { TEST_ENVIRONMENT_GENERATOR } from "@testing/generators/test-environment/test-environment";
@@ -36,7 +37,7 @@ describe("withTestEnv — startup", () => {
   });
 
   it("invokes the callback with an env object exposing productDir and write helpers", async () => {
-    const generated = sampleGeneratedValue(TEST_ENVIRONMENT_GENERATOR.helperCases(MINIMAL_SPEC_TREE_CONFIG));
+    const generated = sampleGeneratedValue(TEST_ENVIRONMENT_GENERATOR.helperCases(KIND_REGISTRY));
     await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
       await env.writeNode(generated.node.fixturePath, generated.node.contents);
       await env.writeDecision(generated.decision.fixturePath, generated.decision.contents);

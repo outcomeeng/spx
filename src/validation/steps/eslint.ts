@@ -151,7 +151,7 @@ export async function validateESLint(
   skipped?: boolean;
 }> {
   const { productDir, scope, validatedFiles, mode, eslintConfigFile, toolPath } = context;
-  const lintPolicy = validateLintPolicy(productDir);
+  const lintPolicy = await validateLintPolicy(productDir);
 
   if (!lintPolicy.ok) {
     return { success: false, error: lintPolicy.error };

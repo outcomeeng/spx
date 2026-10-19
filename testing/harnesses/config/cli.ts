@@ -27,6 +27,7 @@ import { specTreeConfigDescriptor } from "@/lib/spec-tree";
 import {
   CONFIG_TEST_GENERATOR,
   type GeneratedConfigCliDeterminismCase,
+  type GeneratedDescriptorSet,
   sampleConfigTestValue,
 } from "@testing/generators/config/descriptors";
 import { NODE_EXECUTABLE } from "@testing/harnesses/constants";
@@ -132,6 +133,10 @@ function configCliPropertyDeps(generated: GeneratedConfigCliDeterminismCase): Cl
   });
 }
 
+export function generatedResolutionError(): string {
+  return sampleConfigTestValue(CONFIG_TEST_GENERATOR.rejectedDescriptorResolution()).error;
+}
+
 export function configCliDeps(resolved: Result<Config>, overrides: ConfigCliDepsOverrides = {}): CliDeps {
   const productDir = overrides.productDir ?? sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   return {
@@ -196,7 +201,7 @@ export async function withValidateRejectionProcessEffectsObservation(
 ): Promise<void> {
   const deps = configCliDeps({
     ok: false,
-    error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
+    error: generatedResolutionError(),
   });
   await consume({ effects: await observeProcessSideEffects(async () => validateCommand({}, deps)) });
 }
@@ -255,7 +260,7 @@ export async function withConfigHandlerResultsObservation(
   const okDeps = configCliDeps({ ok: true, value: configCliDefaults() });
   const failDeps = configCliDeps({
     ok: false,
-    error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
+    error: generatedResolutionError(),
   });
 
   await consume({
@@ -282,7 +287,7 @@ export async function withFailedResolutionOutputObservation(
 ): Promise<void> {
   const deps = configCliDeps({
     ok: false,
-    error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
+    error: generatedResolutionError(),
   });
   const show = await showCommand({}, deps);
   const validate = await validateCommand({}, deps);
@@ -307,7 +312,7 @@ function parseConfigOutput(format: ConfigFileFormat, raw: string): ReturnType<ty
 }
 
 function configSubset(): Config {
-  return sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeSubsetConfig());
+  return sampleConfigTestValue(CONFIG_TEST_GENERATOR.descriptorSet()).config;
 }
 
 function defaultsOnlyDeps(descriptors: readonly ConfigDescriptor<unknown>[]): CliDeps {
@@ -408,20 +413,27 @@ export async function withShowDefaultConfigObservation(
 
 export async function withShowOverrideObservation(
   consume: ObservationConsumer<
-    ResultObservation & { readonly config: Config; readonly defaultParsed: ConfigParseResult }
+    ResultObservation & {
+      readonly defaultParsed: ConfigParseResult;
+      readonly descriptorSet: GeneratedDescriptorSet;
+    }
   >,
 ): Promise<void> {
-  const config = configSubset();
-  await withTestEnv(config, async ({ productDir }) => {
+  const descriptorSet = sampleConfigTestValue(CONFIG_TEST_GENERATOR.descriptorSet());
+  await withTestEnv(descriptorSet.config, async ({ productDir }) => {
     const deps: CliDeps = {
-      resolveConfig: (resolvedProductDir) => resolveConfig(resolvedProductDir, productionRegistry),
+      resolveConfig: (resolvedProductDir) => resolveConfig(resolvedProductDir, descriptorSet.descriptors),
       readProductConfigFile,
       resolveConfigFromReadResult,
       resolveProductDir: () => productDir,
-      descriptors: productionRegistry,
+      descriptors: descriptorSet.descriptors,
     };
     const result = await showCommand({}, deps);
-    await consume({ config, defaultParsed: parseConfigOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout), result });
+    await consume({
+      descriptorSet,
+      defaultParsed: parseConfigOutput(DEFAULT_CONFIG_FILE_FORMAT, result.stdout),
+      result,
+    });
   });
 }
 
@@ -446,16 +458,13 @@ export async function withShowFormatEquivalenceObservation(
 }
 
 export async function withShowResolutionFailureObservation(
-  consume: ObservationConsumer<ResultObservation>,
+  consume: ObservationConsumer<
+    ResultObservation & { readonly section: string; readonly validatorMessage: string }
+  >,
 ): Promise<void> {
-  const result = await showCommand(
-    {},
-    configCliDeps({
-      ok: false,
-      error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
-    }),
-  );
-  await consume({ result });
+  const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.rejectedDescriptorResolution());
+  const result = await showCommand({}, configCliDeps({ ok: false, error: generated.error }));
+  await consume({ result, section: generated.section, validatorMessage: generated.validatorMessage });
 }
 
 export async function withValidateDefaultsSuccessObservation(
@@ -494,18 +503,20 @@ export async function withValidateResolutionErrorObservation(
     {},
     configCliDeps({
       ok: false,
-      error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
+      error: generatedResolutionError(),
     }),
   );
   await consume({ result });
 }
 
 export async function withValidateDescriptorErrorObservation(
-  consume: ObservationConsumer<ResultObservation & { readonly offendingKind: string }>,
+  consume: ObservationConsumer<
+    ResultObservation & { readonly section: string; readonly validatorMessage: string }
+  >,
 ): Promise<void> {
-  const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.invalidSpecTreeConfig());
+  const generated = sampleConfigTestValue(CONFIG_TEST_GENERATOR.rejectedDescriptorResolution());
   const result = await validateCommand({}, configCliDeps({ ok: false, error: generated.error }));
-  await consume({ offendingKind: generated.offendingKind, result });
+  await consume({ result, section: generated.section, validatorMessage: generated.validatorMessage });
 }
 
 export async function withValidateRejectionCodeObservation(
@@ -515,7 +526,7 @@ export async function withValidateRejectionCodeObservation(
     {},
     configCliDeps({
       ok: false,
-      error: sampleConfigTestValue(CONFIG_TEST_GENERATOR.specTreeUnknownKindError()),
+      error: generatedResolutionError(),
     }),
   );
   await consume({ result });

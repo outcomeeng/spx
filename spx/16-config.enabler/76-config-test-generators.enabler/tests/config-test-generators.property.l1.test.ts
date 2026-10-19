@@ -1,73 +1,118 @@
-import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { validatePathFilterConfig } from "@/config/primitives/path-filter";
-import { HARNESS_ENVIRONMENT_SECTION, harnessEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
-import { DECISION_KINDS, NODE_KINDS, SPEC_TREE_KIND_CATEGORY, SPEC_TREE_SECTION } from "@/lib/spec-tree";
+import { harnessEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";
+import { HARNESS_ENVIRONMENT_SECTION } from "@/lib/harness-environment-section";
+import { KIND_REGISTRY, SPEC_TREE_CONFIG_FIELDS, SPEC_TREE_SECTION, specTreeConfigDescriptor } from "@/lib/spec-tree";
 import { TESTING_CONFIG_FIELDS, TESTING_SECTION, testingConfigDescriptor } from "@/test/config";
-import { CONFIG_GENERATOR } from "@testing/generators/config/config";
+import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";
+import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
 
 describe("config test generators properties", () => {
-  it("generates spec-tree configs with node and decision kind coverage", () => {
-    fc.assert(
-      fc.property(CONFIG_GENERATOR.validSpecTreeConfig(), (config) => {
-        const specTreeSection = config[SPEC_TREE_SECTION];
-        expect(specTreeSection).toBeDefined();
+  it("carries no kinds field in spec-tree fixtures and a source-owned kinds field in rejected sections", () => {
+    const validSection = MINIMAL_SPEC_TREE_CONFIG[SPEC_TREE_SECTION];
+    expect(Object.hasOwn(validSection as object, SPEC_TREE_CONFIG_FIELDS.KINDS)).toBe(false);
+    expect(specTreeConfigDescriptor.validate(validSection).ok).toBe(true);
 
-        const kinds = (specTreeSection as { readonly kinds?: Record<string, unknown> }).kinds ?? {};
-        expect(NODE_KINDS.some((kind) => Object.hasOwn(kinds, kind))).toBe(true);
-        expect(DECISION_KINDS.some((kind) => Object.hasOwn(kinds, kind))).toBe(true);
-      }),
+    assertProperty(
+      CONFIG_TEST_GENERATOR.specTreeRejectedKindMapConfig(),
+      (rejected) => {
+        const section = rejected[SPEC_TREE_SECTION] as { readonly [SPEC_TREE_CONFIG_FIELDS.KINDS]: object };
+        const definitions = Object.entries(section[SPEC_TREE_CONFIG_FIELDS.KINDS]);
+        expect(definitions.length).toBeGreaterThan(0);
+        for (const [name, definition] of definitions) {
+          expect(Object.hasOwn(KIND_REGISTRY, name)).toBe(true);
+          expect(definition).toEqual(KIND_REGISTRY[name as keyof typeof KIND_REGISTRY]);
+        }
+        expect(specTreeConfigDescriptor.validate(section).ok).toBe(false);
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+
+    assertProperty(
+      CONFIG_TEST_GENERATOR.specTreeArrayKindsConfig(),
+      (rejected) => {
+        const section = rejected.config[SPEC_TREE_SECTION] as { readonly [SPEC_TREE_CONFIG_FIELDS.KINDS]: unknown };
+        expect(section[SPEC_TREE_CONFIG_FIELDS.KINDS]).toEqual(rejected.selectedKinds);
+        expect(rejected.selectedKinds.length).toBeGreaterThan(0);
+        for (const name of rejected.selectedKinds) {
+          expect(Object.hasOwn(KIND_REGISTRY, name)).toBe(true);
+        }
+        expect(specTreeConfigDescriptor.validate(section).ok).toBe(false);
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
   });
 
-  it("generates kind overrides with source-owned kind categories", () => {
-    fc.assert(
-      fc.property(
-        CONFIG_TEST_GENERATOR.kindOverride(SPEC_TREE_KIND_CATEGORY.NODE),
-        CONFIG_TEST_GENERATOR.kindOverride(SPEC_TREE_KIND_CATEGORY.DECISION),
-        (nodeOverride, decisionOverride) => {
-          expect(nodeOverride.definition.category).toBe(SPEC_TREE_KIND_CATEGORY.NODE);
-          expect(decisionOverride.definition.category).toBe(SPEC_TREE_KIND_CATEGORY.DECISION);
-          expect(nodeOverride.definition.label).toBe(nodeOverride.kind);
-          expect(decisionOverride.definition.label).toBe(decisionOverride.kind);
-        },
-      ),
+  it("generates test-scoped descriptors whose sections validate to their generated expected values", () => {
+    assertProperty(
+      CONFIG_TEST_GENERATOR.tokenDescriptor(),
+      (generated) => {
+        const result = generated.descriptor.validate(generated.defaults);
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+          expect(result.value).toEqual(generated.defaults);
+        }
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
+
+    assertProperty(
+      CONFIG_TEST_GENERATOR.modeDescriptor(),
+      (generated) => {
+        expect(generated.descriptor.section).toBe(generated.section);
+        for (const accepted of [generated.defaults, generated.override]) {
+          const result = generated.descriptor.validate(accepted);
+          expect(result.ok).toBe(true);
+          if (result.ok) {
+            expect(result.value).toEqual(accepted);
+          }
+        }
+        expect(generated.descriptor.validate(generated.invalid).ok).toBe(false);
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
   });
 
   it("generates path-filter and descriptor fixtures that validate through owning contracts", () => {
-    fc.assert(
-      fc.property(
-        CONFIG_TEST_GENERATOR.pathFilter(),
-        CONFIG_TEST_GENERATOR.testingConfig(),
-        CONFIG_TEST_GENERATOR.harnessEnvironmentConfig(),
-        (pathFilter, testingConfig, harnessEnvironmentConfig) => {
-          const pathFilterResult = validatePathFilterConfig(
-            pathFilter,
-            `${TESTING_SECTION}.${TESTING_CONFIG_FIELDS.PASSING_SCOPE}`,
-          );
-          expect(pathFilterResult.ok).toBe(true);
-          if (pathFilterResult.ok) {
-            expect(pathFilterResult.value).toEqual(pathFilter);
-          }
+    assertProperty(
+      CONFIG_TEST_GENERATOR.pathFilter(),
+      (pathFilter) => {
+        const result = validatePathFilterConfig(
+          pathFilter,
+          `${TESTING_SECTION}.${TESTING_CONFIG_FIELDS.PASSING_SCOPE}`,
+        );
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+          expect(result.value).toEqual(pathFilter);
+        }
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
 
-          const testingResult = testingConfigDescriptor.validate(testingConfig.config[TESTING_SECTION]);
-          expect(testingResult.ok).toBe(true);
-          if (testingResult.ok) {
-            expect(testingResult.value).toEqual(testingConfig.expected);
-          }
+    assertProperty(
+      CONFIG_TEST_GENERATOR.testingConfig(),
+      (generated) => {
+        const result = testingConfigDescriptor.validate(generated.config[TESTING_SECTION]);
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+          expect(result.value).toEqual(generated.expected);
+        }
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+    );
 
-          const harnessEnvironmentResult = harnessEnvironmentConfigDescriptor.validate(
-            harnessEnvironmentConfig.config[HARNESS_ENVIRONMENT_SECTION],
-          );
-          expect(harnessEnvironmentResult.ok).toBe(true);
-          if (harnessEnvironmentResult.ok) {
-            expect(harnessEnvironmentResult.value).toEqual(harnessEnvironmentConfig.expected);
-          }
-        },
-      ),
+    assertProperty(
+      CONFIG_TEST_GENERATOR.harnessEnvironmentConfig(),
+      (generated) => {
+        const result = harnessEnvironmentConfigDescriptor.validate(generated.config[HARNESS_ENVIRONMENT_SECTION]);
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+          expect(result.value).toEqual(generated.expected);
+        }
+      },
+      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
     );
   });
 });

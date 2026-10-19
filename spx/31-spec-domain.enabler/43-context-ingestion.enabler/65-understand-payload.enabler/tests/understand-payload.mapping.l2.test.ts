@@ -3,17 +3,17 @@ import { describe, expect, it } from "vitest";
 import { METHODOLOGY_CONFIG_FIELDS } from "@/config/methodology";
 import { SPEC_DOMAIN_CLI } from "@/interfaces/cli/spec";
 import { METHODOLOGY_CODING_AGENTS } from "@/lib/methodology";
-import { KIND_REGISTRY, SPEC_CONTEXT_ENTRY_TYPE } from "@/lib/spec-tree";
+import { SPEC_CONTEXT_ENTRY_TYPE } from "@/lib/spec-tree";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   SPEC_CONTEXT_CASE_TITLE,
   specContextCodingAgentWitnessCases,
 } from "@testing/generators/spec-tree/context-target";
-import { specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
 import { shippedFoundationCoreBody, shippedMethodologyVersion } from "@testing/harnesses/methodology/shipped-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
+  materializeCurrentGrammarTree,
   methodologyTreeConfig,
   parseContextEntries,
   runSpecCliWithIsolationInEnv,
@@ -27,8 +27,7 @@ describe("spec context coding-agent scope through the packaged executable", () =
       await withSpecTreeEnv(
         methodologyTreeConfig({ [METHODOLOGY_CONFIG_FIELDS.VERSION]: shipped.text }),
         async (env) => {
-          await env.materialize();
-          const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
+          const { target } = await materializeCurrentGrammarTree(env);
           const execution = await runSpecCliWithIsolationInEnv(
             env.productDir,
             markers,
@@ -61,8 +60,7 @@ describe("spec context coding-agent scope through the packaged executable", () =
       await withSpecTreeEnv(
         methodologyTreeConfig({ [METHODOLOGY_CONFIG_FIELDS.VERSION]: shipped.text }),
         async (env) => {
-          await env.materialize();
-          const target = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
+          const { target } = await materializeCurrentGrammarTree(env);
           for (const agent of named) {
             const execution = await runSpecCliWithIsolationInEnv(
               env.productDir,

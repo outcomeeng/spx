@@ -51,7 +51,7 @@ describe("spec status JSON rendering", () => {
     const child = nodes.find((node) => node[SPEC_TREE_PROJECTION.NODE_KEYS.ID] === fixture.child.id);
     expect(child).toMatchObject({
       [SPEC_TREE_PROJECTION.NODE_KEYS.KIND]: fixture.child.kind,
-      [SPEC_TREE_PROJECTION.NODE_KEYS.ORDER]: fixture.child.order,
+      [SPEC_TREE_PROJECTION.NODE_KEYS.ORDER]: fixture.child.orderSegments,
       [SPEC_TREE_PROJECTION.NODE_KEYS.SLUG]: fixture.child.slug,
     });
 
@@ -61,7 +61,7 @@ describe("spec status JSON rendering", () => {
     expect(decisions[0]).toEqual({
       [SPEC_TREE_PROJECTION.DECISION_KEYS.ID]: fixture.decision.id,
       [SPEC_TREE_PROJECTION.DECISION_KEYS.KIND]: fixture.decision.kind,
-      [SPEC_TREE_PROJECTION.DECISION_KEYS.ORDER]: fixture.decision.order,
+      [SPEC_TREE_PROJECTION.DECISION_KEYS.ORDER]: fixture.decision.orderSegments,
       [SPEC_TREE_PROJECTION.DECISION_KEYS.SLUG]: fixture.decision.slug,
     });
   });

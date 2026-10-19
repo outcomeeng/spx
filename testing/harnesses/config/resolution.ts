@@ -12,8 +12,11 @@ import {
   serializeConfigFileSections,
 } from "@/config/index";
 import type { Config } from "@/config/types";
-import { specTreeConfigDescriptor } from "@/lib/spec-tree";
-import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import {
+  CONFIG_TEST_FIELDS,
+  CONFIG_TEST_GENERATOR,
+  sampleConfigTestValue,
+} from "@testing/generators/config/descriptors";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 function serializeConfig(format: ConfigFileFormat, config: Config): string {
@@ -29,7 +32,8 @@ function writeConfigPath(directory: string, format: ConfigFileFormat): string {
 }
 
 export type ResolutionScopeObservation = {
-  readonly expectedKinds: readonly string[];
+  readonly section: string;
+  readonly expectedSection: unknown;
   readonly result: Awaited<ReturnType<typeof resolveConfig>>;
 };
 
@@ -48,32 +52,44 @@ export async function forEachResolutionScopeObservation(
   consume: ObservationConsumer<ResolutionScopeObservation>,
 ): Promise<void> {
   const scenario = sampleConfigTestValue(CONFIG_TEST_GENERATOR.resolutionScopeScenario());
+  const { section, defaults } = scenario.descriptor;
+  const tokenSection = (token: string): Config => ({ [section]: { [CONFIG_TEST_FIELDS.TOKEN]: token } });
 
   for (const format of CONFIG_FILE_FORMAT_ORDER) {
-    await withTestEnv(scenario.parentConfig, async ({ productDir, writeRaw }) => {
-      await writeRaw(scenario.unrecognizedRelativePath, serializeConfig(format, scenario.nestedConfig));
+    await withTestEnv(tokenSection(scenario.parentToken), async ({ productDir, writeRaw }) => {
+      await writeRaw(
+        join(scenario.productDirectory, scenario.unrecognizedName),
+        serializeConfig(format, tokenSection(scenario.nestedToken)),
+      );
       await writeRaw(
         writeConfigPath(join(scenario.productDirectory, scenario.nestedDirectory), format),
-        serializeConfig(format, scenario.nestedConfig),
+        serializeConfig(format, tokenSection(scenario.nestedToken)),
       );
 
-      const result = await resolveConfig(join(productDir, scenario.productDirectory), [specTreeConfigDescriptor]);
-      await consume({ result, expectedKinds: scenario.expectedDefaultKinds });
+      const result = await resolveConfig(join(productDir, scenario.productDirectory), [
+        scenario.descriptor.descriptor,
+      ]);
+      await consume({ section, expectedSection: defaults, result });
     });
 
-    await withTestEnv(scenario.parentConfig, async ({ productDir, writeRaw }) => {
+    await withTestEnv(tokenSection(scenario.parentToken), async ({ productDir, writeRaw }) => {
       await writeRaw(
         writeConfigPath(scenario.productDirectory, format),
-        serializeConfig(format, scenario.rootConfig),
+        serializeConfig(format, tokenSection(scenario.rootToken)),
       );
-      await writeRaw(scenario.unrecognizedRelativePath, serializeConfig(format, scenario.nestedConfig));
+      await writeRaw(
+        join(scenario.productDirectory, scenario.unrecognizedName),
+        serializeConfig(format, tokenSection(scenario.nestedToken)),
+      );
       await writeRaw(
         writeConfigPath(join(scenario.productDirectory, scenario.nestedDirectory), format),
-        serializeConfig(format, scenario.nestedConfig),
+        serializeConfig(format, tokenSection(scenario.nestedToken)),
       );
 
-      const result = await resolveConfig(join(productDir, scenario.productDirectory), [specTreeConfigDescriptor]);
-      await consume({ result, expectedKinds: scenario.expectedRootKinds });
+      const result = await resolveConfig(join(productDir, scenario.productDirectory), [
+        scenario.descriptor.descriptor,
+      ]);
+      await consume({ section, expectedSection: tokenSection(scenario.rootToken)[section], result });
     });
   }
 }

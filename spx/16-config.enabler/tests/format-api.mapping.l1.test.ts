@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { CONFIG_FILE_READ_KIND } from "@/config";
-import { specTreeConfigDescriptor } from "@/lib/spec-tree";
 import { forEachConfigFormatObservation } from "@testing/harnesses/config/resolution";
 
 describe("config format API mapping", () => {
@@ -16,9 +15,7 @@ describe("config format API mapping", () => {
       if (parsed === null) return;
       expect(parsed.ok).toBe(true);
       if (!parsed.ok) return;
-      expect(specTreeConfigDescriptor.validate(parsed.value[specTreeConfigDescriptor.section])).toEqual(
-        specTreeConfigDescriptor.validate(expectedConfig[specTreeConfigDescriptor.section]),
-      );
+      expect(parsed.value).toEqual(expectedConfig);
       expect(serialized).not.toBeNull();
       expect(reparsed).not.toBeNull();
       if (serialized === null || reparsed === null) return;

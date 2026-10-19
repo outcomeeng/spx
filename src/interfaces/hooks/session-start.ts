@@ -6,7 +6,7 @@
 
 import { appendFile as nodeAppendFile, open as nodeOpen, realpath as nodeRealPath } from "node:fs/promises";
 
-import { resolveMethodologyConfig } from "@/config/methodology-placement";
+import { resolveMethodologyConfig } from "@/config/methodology-resolution";
 import type { Result } from "@/config/types";
 import { resolveAgentHomeDirs } from "@/domains/agent/home";
 import { AGENT_RESUME_LIMITS, AGENT_SESSION_STORE } from "@/domains/agent/protocol";

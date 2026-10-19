@@ -7,10 +7,10 @@ import {
   AGENT,
   DEFAULT_AGENT_INSTRUCTION_FILE_PATH,
   HARNESS_ENVIRONMENT_CONFIG_FIELDS,
-  HARNESS_ENVIRONMENT_SECTION,
   type HarnessEnvironmentConfig,
   harnessEnvironmentConfigDescriptor,
 } from "@/domains/agent-environment/config";
+import { HARNESS_ENVIRONMENT_SECTION } from "@/lib/harness-environment-section";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import {
   harnessEnvironmentPath,

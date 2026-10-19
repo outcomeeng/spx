@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { VALIDATE_SUCCESS_TOKENS } from "@/commands/config/validate";
 import { CONFIG_FILENAMES } from "@/config/index";
-import { specTreeConfigDescriptor } from "@/lib/spec-tree";
 import {
   withValidateDefaultsSuccessObservation,
   withValidateDescriptorErrorObservation,
@@ -38,9 +37,9 @@ describe("validateCommand", () => {
   });
 
   it("routes descriptor-qualified resolution errors to stderr", async () => {
-    await withValidateDescriptorErrorObservation(({ offendingKind, result }) => {
-      expect(result.stderr).toContain(specTreeConfigDescriptor.section);
-      expect(result.stderr).toContain(offendingKind);
+    await withValidateDescriptorErrorObservation(({ result, section, validatorMessage }) => {
+      expect(result.stderr).toContain(section);
+      expect(result.stderr).toContain(validatorMessage);
       expect(result.stdout).toHaveLength(0);
     });
   });

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { SPEC_CONTEXT_MODE, SPEC_CONTEXT_MODE_NAME, SPEC_CONTEXT_PRODUCT_ROOT_TARGET } from "@/lib/spec-tree";
+import { segmentOrderGovernanceCases } from "@testing/generators/spec-tree/segment-order-governance";
+import { withSegmentOrderGovernanceEnv } from "@testing/harnesses/spec-tree/segment-order-governance";
 import {
   allManifestPaths,
   contextListManifest,
@@ -130,4 +132,43 @@ describe("spec context read-set selection", () => {
       expect(entryPaths(discovery)).not.toContain(paths.rootKnowledgeIndexPath);
     });
   });
+
+  for (const governance of segmentOrderGovernanceCases()) {
+    it(`selects the decision at the lower index as governing the node at the higher index and not the reverse, ${governance.title}`, async () => {
+      await withSegmentOrderGovernanceEnv(governance, async (env) => {
+        const higherEntries = await contextShowEntries({ targets: [governance.higherTarget], cwd: env.productDir });
+        const higherManifest = await contextListManifest({ targets: [governance.higherTarget], cwd: env.productDir });
+        // The lower-index decision precedes the higher-index target and governs it in Full.
+        expect(documentAt(higherEntries, governance.lowerDecisionPath)?.content).toBe(
+          governance.files[governance.lowerDecisionPath],
+        );
+        expect(manifestEntryAt(higherManifest, governance.lowerDecisionPath)?.mode).toBe(
+          SPEC_CONTEXT_MODE_NAME[SPEC_CONTEXT_MODE.FULL],
+        );
+        // A decision at the target's own index is no provider of it.
+        expect(entryPaths(higherEntries)).not.toContain(governance.higherDecisionPath);
+        expect(allManifestPaths(higherManifest)).not.toContain(governance.higherDecisionPath);
+
+        const lowerEntries = await contextShowEntries({ targets: [governance.lowerTarget], cwd: env.productDir });
+        const lowerManifest = await contextListManifest({ targets: [governance.lowerTarget], cwd: env.productDir });
+        // Neither the decision at the lower target's own index nor the one above it governs the lower target.
+        for (const unselected of [governance.lowerDecisionPath, governance.higherDecisionPath]) {
+          expect(entryPaths(lowerEntries), unselected).not.toContain(unselected);
+          expect(allManifestPaths(lowerManifest), unselected).not.toContain(unselected);
+        }
+      });
+    });
+
+    it(`delivers the sibling at the other index in Digest for either target, ${governance.title}`, async () => {
+      await withSegmentOrderGovernanceEnv(governance, async (env) => {
+        const higherEntries = await contextShowEntries({ targets: [governance.higherTarget], cwd: env.productDir });
+        const lowerEntries = await contextShowEntries({ targets: [governance.lowerTarget], cwd: env.productDir });
+        expect(documentAt(higherEntries, governance.lowerSpecPath)?.content).toBeDefined();
+        expect(documentAt(lowerEntries, governance.higherSpecPath)?.content).toBeDefined();
+        const lowerSibling = (await contextListManifest({ targets: [governance.higherTarget], cwd: env.productDir }))
+          .entries.find((entry) => entry.path === governance.lowerSpecPath);
+        expect(lowerSibling?.mode).toBe(SPEC_CONTEXT_MODE_NAME[SPEC_CONTEXT_MODE.DIGEST]);
+      });
+    });
+  }
 });

@@ -3,7 +3,7 @@ import { isAbsolute, resolve } from "node:path";
 
 import { resolveConfig } from "@/config/index";
 import type { MethodologyConfig } from "@/config/methodology";
-import { resolveMethodologyConfig } from "@/config/methodology-placement";
+import { resolveMethodologyConfig } from "@/config/methodology-resolution";
 import type { Result } from "@/config/types";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { isPathContained } from "@/lib/file-system/pathContainment";
@@ -12,6 +12,7 @@ import { createTrackedPathInclusion, listTrackedPaths } from "@/lib/git/tracked-
 import {
   createFilesystemSpecTreeSource,
   decodeContextDocumentUtf8,
+  KIND_REGISTRY,
   readSpecTree,
   resolveSpecContextTarget,
   type SpecContextAcceptedPath,
@@ -22,7 +23,6 @@ import {
   type SpecContextTarget,
   type SpecContextTargetFailure,
   type SpecContextTargetPathFacts,
-  type SpecTreeConfig,
   specTreeConfigDescriptor,
   type SpecTreeSnapshot,
 } from "@/lib/spec-tree";
@@ -37,12 +37,11 @@ export interface ContextFileSystem {
   readonly resolveKindRegistry: (productDir: string) => Promise<Result<SpecContextKindRegistry>>;
 }
 
-/** The kinds the product directory's spec-tree configuration section selects. */
-export async function resolveConfiguredKindRegistry(productDir: string): Promise<Result<SpecContextKindRegistry>> {
+/** The kind registry, after the product directory's spec-tree configuration section resolves and validates. */
+export async function resolveValidatedKindRegistry(productDir: string): Promise<Result<SpecContextKindRegistry>> {
   const resolved = await resolveConfig(productDir, [specTreeConfigDescriptor]);
   if (!resolved.ok) return resolved;
-  const section = resolved.value[specTreeConfigDescriptor.section] as SpecTreeConfig;
-  return { ok: true, value: section.kinds };
+  return { ok: true, value: KIND_REGISTRY };
 }
 
 export const defaultContextFileSystem: ContextFileSystem = {
@@ -50,7 +49,7 @@ export const defaultContextFileSystem: ContextFileSystem = {
   realPath: realpath,
   readFile,
   resolveMethodologyConfig,
-  resolveKindRegistry: resolveConfiguredKindRegistry,
+  resolveKindRegistry: resolveValidatedKindRegistry,
 };
 
 export interface ContextInputOptions {
@@ -89,9 +88,11 @@ export async function readContextInput(options: ContextInputOptions): Promise<Co
   const realRoot = await fs.realPath(productDir);
   const trackedPaths = await listTrackedPaths(productDir, git);
   const includePath = createTrackedPathInclusion(trackedPaths);
-  const snapshot = await readSpecTree({ source: fs.createSpecTreeSource({ productDir, includePath }) });
   const methodology = await fs.resolveMethodologyConfig(productDir);
   if (!methodology.ok) throw new Error(methodology.error);
+  const snapshot = await readSpecTree({
+    source: fs.createSpecTreeSource({ productDir, includePath }),
+  });
   const registry = await fs.resolveKindRegistry(productDir);
   if (!registry.ok) throw new Error(registry.error);
   const acceptedPaths = specContextAcceptedPaths(snapshot);

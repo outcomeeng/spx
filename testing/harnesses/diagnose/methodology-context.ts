@@ -9,14 +9,8 @@ import {
   METHODOLOGY_SECTION,
   type MethodologyConfig,
 } from "@/config/methodology";
-import { LEGACY_METHODOLOGY_CONFIG_SECTION } from "@/config/methodology-placement";
 import { AGENT_HOME_ENV } from "@/domains/agent";
-import {
-  AGENT,
-  type Agent,
-  HARNESS_ENVIRONMENT_CONFIG_FIELDS,
-  HARNESS_ENVIRONMENT_SECTION,
-} from "@/domains/agent-environment/config";
+import { AGENT, type Agent, HARNESS_ENVIRONMENT_CONFIG_FIELDS } from "@/domains/agent-environment/config";
 import {
   type MethodologyContextObservation,
   methodologyContextRunner,
@@ -26,6 +20,7 @@ import { type CheckRegistry, runDiagnose } from "@/domains/diagnose/engine";
 import { CHECK_NAME } from "@/domains/diagnose/manifest";
 import { DIAGNOSE_FORMAT } from "@/domains/diagnose/report";
 import type { DiagnoseReport } from "@/domains/diagnose/types";
+import { HARNESS_ENVIRONMENT_SECTION } from "@/lib/harness-environment-section";
 import { METHODOLOGY_CODING_AGENTS, methodologyLine, PROVIDER_MATCH } from "@/lib/methodology";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { arbitraryMethodologyVersion } from "@testing/generators/methodology/tree";
@@ -313,7 +308,7 @@ export async function runMethodologyManifestJson(
 export async function runDiagnoseWithLegacyMethodologySection(): Promise<string> {
   let error: string | undefined;
   await withTestEnv({
-    [LEGACY_METHODOLOGY_CONFIG_SECTION]: {
+    [HARNESS_ENVIRONMENT_SECTION]: {
       [METHODOLOGY_SECTION]: methodologySection(generatedMethodology()),
     },
   }, async ({ productDir }) => {
@@ -338,7 +333,7 @@ export async function runDiagnoseWithUnrelatedLegacyDefect(
   let output: string | undefined;
   await withTestEnv({
     [METHODOLOGY_SECTION]: methodologySection(methodology),
-    [LEGACY_METHODOLOGY_CONFIG_SECTION]: {
+    [HARNESS_ENVIRONMENT_SECTION]: {
       unrelated: methodologySection(generatedMethodology()),
     },
   }, async ({ productDir }) => {
@@ -368,7 +363,7 @@ export async function runDiagnoseWithUnavailableCheck(unavailableCheck: string):
     [DIAGNOSE_SECTION]: {
       [DIAGNOSE_CONFIG_FIELDS.CHECKS]: [CHECK_NAME.METHODOLOGY_CONTEXT, unavailableCheck],
     },
-    [LEGACY_METHODOLOGY_CONFIG_SECTION]: {
+    [HARNESS_ENVIRONMENT_SECTION]: {
       [METHODOLOGY_SECTION]: methodologySection(generatedMethodology()),
     },
   }, async ({ productDir }) => {

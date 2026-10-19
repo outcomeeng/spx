@@ -1,30 +1,48 @@
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { defaultContextFileSystem } from "@/commands/spec/context-input";
 import { METHODOLOGY_SECTION } from "@/config/methodology";
-import { DECISION_KINDS, KIND_REGISTRY, NODE_KINDS, type SpecContextKindRegistry } from "@/lib/spec-tree";
+import {
+  DECISION_KINDS,
+  KIND_REGISTRY,
+  NODE_KINDS,
+  readSpecTree,
+  selectSpecContextDocuments,
+  SPEC_CONTEXT_DIGEST_SOURCE,
+  SPEC_TREE_ENTRY_TYPE,
+  type SpecContextKindRegistry,
+  type SpecTreeSourceEntry,
+} from "@/lib/spec-tree";
 import {
   generatedMethodologyVersionFormSections,
   generatedMigratingMethodology,
 } from "@testing/generators/config/descriptors";
+import { arbitraryFixtureAuthoredLine } from "@testing/generators/methodology/tree";
+import { VARIANT_KIND, variantParentCases } from "@testing/generators/spec-tree/kind-grammar";
 import {
   decisionStatementParagraph,
   freeDecisionPath,
   freeNodeSpecPath,
   openingParagraph,
 } from "@testing/generators/spec-tree/rich-context";
-import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
+import {
+  createSource,
+  sampleSpecTreeTestValue,
+  singleSegmentOrder,
+  SPEC_TREE_TEST_GENERATOR,
+} from "@testing/generators/spec-tree/spec-tree";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   contextShowEntries,
   documentAt,
-  specTreeKindsConfig,
+  methodologyDeclaredConfig,
   withRichContextEnv,
 } from "@testing/harnesses/spec/context";
 
 describe("spec context Digest paragraphs", () => {
   it.each(NODE_KINDS)("maps a %s node to the paragraph its kind registry's opening keyword opens", async (kind) => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
       const specPath = freeNodeSpecPath(env.fixture, kind, slug);
@@ -49,7 +67,7 @@ describe("spec context Digest paragraphs", () => {
   it.each(NODE_KINDS)(
     "maps a %s node to the paragraph the given kind registry's keyword opens, not the static registry's",
     async (kind) => {
-      await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+      await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
         await env.materialize();
         // The given registry rotates the openings across node kinds, so each
         // kind resolves another kind's keyword and the static keyword for this
@@ -90,17 +108,72 @@ describe("spec context Digest paragraphs", () => {
     },
   );
 
+  it.each(variantParentCases())(
+    "maps a variant node to the opening keyword of its parent kind: $label",
+    async ({ parentKind }) => {
+      const [productId, parentId, variantId] = sampleSpecTreeTestValue(
+        fc.uniqueArray(SPEC_TREE_TEST_GENERATOR.sourceId(), { minLength: 3, maxLength: 3 }),
+      );
+      const [productSlug, parentSlug, variantSlug] = sampleSpecTreeTestValue(
+        fc.uniqueArray(SPEC_TREE_TEST_GENERATOR.sourceSlug(), { minLength: 3, maxLength: 3 }),
+      );
+      const productPath = `${productId}/${productSlug}`;
+      const parentPath = `${parentId}/${parentSlug}`;
+      const variantPath = `${variantId}/${variantSlug}`;
+      const entries: readonly SpecTreeSourceEntry[] = [
+        {
+          type: SPEC_TREE_ENTRY_TYPE.PRODUCT,
+          id: productId,
+          title: productId,
+          ref: { id: productId, path: productPath },
+        },
+        {
+          type: SPEC_TREE_ENTRY_TYPE.NODE,
+          kind: parentKind,
+          id: parentId,
+          orderSegments: singleSegmentOrder(1),
+          slug: parentSlug,
+          ref: { id: parentId, path: parentPath },
+        },
+        {
+          type: SPEC_TREE_ENTRY_TYPE.NODE,
+          kind: VARIANT_KIND,
+          id: variantId,
+          orderSegments: singleSegmentOrder(1),
+          slug: variantSlug,
+          parentId,
+          ref: { id: variantId, path: variantPath },
+        },
+      ];
+      const snapshot = await readSpecTree({ source: createSource(entries) });
+
+      const selections = selectSpecContextDocuments(
+        snapshot,
+        [],
+        new Set([productPath, parentPath, variantPath]),
+        KIND_REGISTRY,
+      );
+
+      const variantSelection = selections.find((selection) => selection.path === variantPath);
+      expect(variantSelection?.digest).toEqual({
+        source: SPEC_CONTEXT_DIGEST_SOURCE.OPENING,
+        kind: VARIANT_KIND,
+        keyword: KIND_REGISTRY[parentKind].opening,
+      });
+    },
+  );
+
   it.each(DECISION_KINDS)(
     "maps a %s decision to its decision statement under every methodology version declaration",
     async (kind) => {
       // Each accepted version form, and an open migration whose source differs
       // from its target: the statement is selected the same way under each.
       const sections = [
-        ...Object.values(generatedMethodologyVersionFormSections().sections),
-        generatedMigratingMethodology().section,
+        ...Object.values(generatedMethodologyVersionFormSections(arbitraryFixtureAuthoredLine()).sections),
+        generatedMigratingMethodology(arbitraryFixtureAuthoredLine()).section,
       ];
       for (const section of sections) {
-        await withSpecTreeEnv({ ...specTreeKindsConfig(), [METHODOLOGY_SECTION]: section }, async (env) => {
+        await withSpecTreeEnv({ ...methodologyDeclaredConfig(), [METHODOLOGY_SECTION]: section }, async (env) => {
           await env.materialize();
           const slug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
           const decisionPath = freeDecisionPath(env.fixture, kind, slug);

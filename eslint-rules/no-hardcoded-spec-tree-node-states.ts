@@ -7,7 +7,7 @@
 
 import type { Rule } from "eslint";
 
-import { SPEC_TREE_NODE_STATE } from "../src/lib/spec-tree";
+import { SPEC_TREE_NODE_STATE } from "../src/lib/spec-tree/config";
 import { SPX_RULE_PREFIX } from "./import-source";
 import {
   isInTestDescription,

@@ -42,11 +42,14 @@ import {
 import {
   KIND_REGISTRY,
   renderSpecContextEntries,
+  renderSpecTreeRootFrontMatter,
   SPEC_CONTEXT_ENTRY_TYPE,
   SPEC_CONTEXT_MODE_NAME,
   SPEC_CONTEXT_SELECTION_REASON,
   SPEC_TREE_CONFIG,
-  SPEC_TREE_CONFIG_FIELDS,
+  SPEC_TREE_FRONT_MATTER_FENCE,
+  SPEC_TREE_FRONT_MATTER_ID_KEY,
+  SPEC_TREE_GRAMMAR,
   type SpecContextDocumentEntry,
   type SpecContextEntry,
   type SpecContextManifest,
@@ -547,11 +550,8 @@ export const METHODOLOGY_FIXTURE_IDENTITY: GeneratedMethodologyVersion = {
 };
 export const METHODOLOGY_FIXTURE_VERSION = METHODOLOGY_FIXTURE_IDENTITY.text;
 
-export function specTreeKindsConfig(): Config {
+export function methodologyDeclaredConfig(): Config {
   return {
-    [SPEC_TREE_CONFIG.SECTION]: {
-      [SPEC_TREE_CONFIG_FIELDS.KINDS]: KIND_REGISTRY,
-    },
     // A context projection stamps the product's methodology identity, which a
     // product declares rather than inherits, so every context fixture declares one.
     [METHODOLOGY_SECTION]: {
@@ -613,7 +613,7 @@ export async function withRichContextEnv(
   callback: (env: CurrentSpecTreeEnv, paths: RichContextPaths) => Promise<void>,
   scenario: RichContextScenario = sampleRichContextScenario(),
 ): Promise<void> {
-  await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+  await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
     await env.materialize();
     const snapshot = await env.readFilesystemSnapshot();
     if (snapshot.product?.ref?.path !== scenario.paths.productPath) {
@@ -722,7 +722,7 @@ const PACKAGE_FIXTURE_DIRECTORY = "spx-package";
 
 /** The config sections a shipped-tree test passes to `withSpecTreeEnv`. */
 export function methodologyTreeConfig(identity?: Record<string, unknown>): Config {
-  const base = specTreeKindsConfig();
+  const base = methodologyDeclaredConfig();
   return {
     ...base,
     [METHODOLOGY_SECTION]: {
@@ -730,6 +730,46 @@ export function methodologyTreeConfig(identity?: Record<string, unknown>): Confi
       ...identity,
     },
   };
+}
+
+/** The directory name of the node a current-grammar fixture tree holds. */
+export interface CurrentGrammarTree {
+  readonly target: string;
+}
+
+/**
+ * Writes a product tree authored in the 4.0 grammar: a root spec declaring `kind: product` and one
+ * substrate node. A test declaring a version on the 4.0 line reads this tree whole, where the
+ * representative fixture is authored in the 3.x grammar and is read under a 3.x line.
+ */
+export async function materializeCurrentGrammarTree(env: CurrentSpecTreeEnv): Promise<CurrentGrammarTree> {
+  const productSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 0);
+  const nodeSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 1);
+  const order = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), 2);
+  const target = `${order}-${nodeSlug}${KIND_REGISTRY.substrate.suffix}`;
+  const root = SPEC_TREE_CONFIG.ROOT_DIRECTORY;
+  await env.writeRaw(
+    `${root}/${productSlug}${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX}`,
+    `${
+      renderSpecTreeRootFrontMatter({ id: sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId(), 3) })
+    }\n# ${productSlug}\n`,
+  );
+  await env.writeRaw(
+    `${root}/${target}/${nodeSlug}${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX}`,
+    [
+      SPEC_TREE_FRONT_MATTER_FENCE,
+      `${SPEC_TREE_FRONT_MATTER_ID_KEY}: ${sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceId(), 4)}`,
+      SPEC_TREE_FRONT_MATTER_FENCE,
+      "",
+      `# ${nodeSlug}`,
+      "",
+      `${KIND_REGISTRY.substrate.opening} generated fixture content`,
+      "SO THAT spec-tree tests",
+      "CAN read current nodes",
+      "",
+    ].join("\n"),
+  );
+  return { target };
 }
 
 /** The tree root a shipped-tree test injects: a package stand-in beside the product, holding `methodology/`. */
@@ -763,7 +803,7 @@ export async function writeMethodologyTree(
   // production parser the tests judge, so a wrong parse cannot land the
   // fixture where production then finds it.
   const line = { value: (overrides?.version ?? METHODOLOGY_FIXTURE_IDENTITY).line };
-  const slug = overrides?.slug ?? sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+  const slug = overrides?.slug ?? sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 5);
   const corePath = `skills/${slug}/SKILL.md`;
   const referencePath = `skills/${slug}/references/${slug}-reference.md`;
   const templatePath = `skills/${slug}/templates/${slug}-template.md`;

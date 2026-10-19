@@ -8,18 +8,20 @@ CAN convert raw backend records into typed source entries tagged valid, supersed
 
 ### Mappings
 
-- `{NN}-{slug}{nodeSuffix}` directory names map to node kind, order, and slug when `nodeSuffix` belongs to a registered node kind ([test](tests/entry-recognition.mapping.l1.test.ts))
-- `{NN}-{slug}{decisionSuffix}` filenames map to decision kind, order, and slug when `decisionSuffix` belongs to a registered decision kind ([test](tests/entry-recognition.mapping.l1.test.ts))
-- Product filenames ending in `.product.md` map to product entries with the product title derived from the filename slug ([test](tests/entry-recognition.mapping.l1.test.ts))
+- `{index}-{slug}{nodeSuffix}` directory names map to node kind, order, and slug when `nodeSuffix` belongs to a node kind of a declaration-selected naming-schema version, the 4.0 version's `.product` kind included, and `{index}` matches that version's index form ([test](tests/entry-recognition.mapping.l1.test.ts))
+- `{index}-{slug}{decisionSuffix}` filenames map to decision kind, order, and slug when `decisionSuffix` belongs to a registered decision kind and `{index}` matches the index form of a declaration-selected naming-schema version ([test](tests/entry-recognition.mapping.l1.test.ts))
+- A product-root name accepted by a declaration-selected naming-schema version maps to the product entry carrying the title `{name}` its filename names ([test](tests/entry-recognition.mapping.l1.test.ts))
 
 ### Properties
 
-- Every filename under a `tests/` directory whose form matches the canonical evidence-naming schema maps to an evidence entry ([test](tests/evidence-recognition.property.l1.test.ts))
-- Every name matching the canonical naming-schema version maps to a valid entry of its kind ([test](tests/version-classification.property.l1.test.ts))
-- Every name matching a prior naming-schema version, but not the canonical one, maps to a superseded entry that names the version it matched ([test](tests/version-classification.property.l1.test.ts))
-- Every name matching no naming-schema version maps to an invalid entry ([test](tests/version-classification.property.l1.test.ts))
+- Every filename under a `tests/` directory whose form matches a declaration-selected naming-schema version's evidence-naming form maps to an evidence entry ([test](tests/evidence-recognition.property.l1.test.ts))
+- Every name valid under the declaration-selected naming-schema versions maps to a valid entry of its kind ([test](tests/version-classification.property.l1.test.ts))
+- Every name matching a naming-schema version ordered before the declared target's, but not valid under the declaration-selected versions, maps to a superseded entry that names the newest such version it matched ([test](tests/version-classification.property.l1.test.ts))
+- Every name neither valid under the declaration-selected versions nor matching a version ordered before the declared target's maps to an invalid entry ([test](tests/version-classification.property.l1.test.ts))
 
 ### Compliance
 
-- ALWAYS: recognition derives categories, suffixes, labels, and accepted naming forms from the versioned grammar exposed by `spx/23-spec-tree.enabler/29-filename-grammar.enabler` ([test](tests/entry-recognition.mapping.l1.test.ts))
+- ALWAYS: while `methodology.migratingFrom` is declared, a node directory named in either the target or the migration-source naming-schema version classifies valid and is traversed ([test](tests/migration-classification.compliance.l1.test.ts))
+
+- ALWAYS: recognition derives categories, suffixes, labels, and accepted naming forms from the versioned grammar exposed by `spx/23-spec-tree.enabler/29-filename-grammar.enabler` ([test](tests/version-classification.compliance.l1.test.ts))
 - NEVER: recognition hardcodes a suffix or evidence-naming form, or branches on a prior naming form outside the ordered naming-schema versions — prior-version recognition derives from the grammar's schema set ([test](tests/version-classification.compliance.l1.test.ts))

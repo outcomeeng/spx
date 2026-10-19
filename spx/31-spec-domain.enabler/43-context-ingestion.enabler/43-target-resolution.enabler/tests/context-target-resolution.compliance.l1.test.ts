@@ -28,14 +28,14 @@ import {
   contextListFailure,
   contextListManifest,
   contextShowFailure,
-  specTreeKindsConfig,
+  methodologyDeclaredConfig,
   trackSpecTreeInGit,
   withOutsideProductDir,
 } from "@testing/harnesses/spec/context";
 
 describe("spec context target resolution compliance", () => {
   it("never lets an invocation-relative match take precedence over a suffix match of another identity", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       const nested = specContextAmbiguousNestedDirectory(env.fixture);
       await env.writeRaw(nested.nestedSpecPath, nested.nestedSpecContent);
@@ -54,7 +54,7 @@ describe("spec context target resolution compliance", () => {
   });
 
   it("never resolves an operand that uniquely abbreviates one accepted component and matches no complete one", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       await trackSpecTreeInGit(env);
       // The operand prefixes the root node's directory name and no other
@@ -75,10 +75,10 @@ describe("spec context target resolution compliance", () => {
   });
 
   it("resolves a symbolic link inside the product to the identity of its canonical target", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       const rootDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
-      const alias = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+      const alias = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 0);
       await symlink(join(env.productDir, rootedSpecPath(rootDirectory)), join(env.productDir, alias));
       const manifest = await contextListManifest({ targets: [alias], cwd: env.productDir });
       expect(new Set(manifest.entries.flatMap((entry) => entry.selections.map(({ target }) => target)))).toEqual(
@@ -89,11 +89,11 @@ describe("spec context target resolution compliance", () => {
 
   it("rejects a symbolic link whose canonical target escapes the product as unresolved", async () => {
     await withOutsideProductDir(async (outsideParent) => {
-      await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+      await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
         await env.materialize();
         const outsidePath = join(outsideParent, SPEC_CONTEXT_ESCAPE_TARGET_FILENAME);
         await writeFile(outsidePath, specContextOutsideDocument());
-        const alias = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+        const alias = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 1);
         await mkdir(join(env.productDir, rootedSpecPath("")), { recursive: true });
         await symlink(outsidePath, join(env.productDir, alias));
         for (
@@ -110,7 +110,7 @@ describe("spec context target resolution compliance", () => {
   });
 
   it("never selects the first of several identities and never uses a descendant to disambiguate an ancestor", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       const nested = specContextAmbiguousNestedDirectory(env.fixture);
       await env.writeRaw(nested.nestedSpecPath, nested.nestedSpecContent);
@@ -139,7 +139,7 @@ describe("spec context target resolution compliance", () => {
   });
 
   it("collapses distinct canonical candidates that denote one node into that node's identity", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       const rootDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
       // From the product root the operand names an alias of the node's spec,
@@ -157,11 +157,11 @@ describe("spec context target resolution compliance", () => {
   });
 
   it("normalizes a candidate lexically before resolving symbolic links", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       const rootDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.root);
       const childDirectory = specTreeFixtureNodeDirectoryName(KIND_REGISTRY, env.fixture.child);
-      const alias = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug());
+      const alias = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 2);
       // The alias names the child directory, so a physical walk of the parent
       // segment lands in the root node rather than the product root.
       await symlink(
@@ -179,7 +179,7 @@ describe("spec context target resolution compliance", () => {
   });
 
   it("fails as unresolved when no candidate denotes an accepted identity", async () => {
-    await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+    await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
       await env.materialize();
       const operand = specContextUnknownTarget(env.fixture);
       for (
@@ -196,12 +196,12 @@ describe("spec context target resolution compliance", () => {
 
   it("confines a missing candidate by where it resolves, so an unknown operand from a symlinked invocation directory fails as unresolved", async () => {
     await withOutsideProductDir(async (outsideParent) => {
-      await withSpecTreeEnv(specTreeKindsConfig(), async (env) => {
+      await withSpecTreeEnv(methodologyDeclaredConfig(), async (env) => {
         await env.materialize();
         await trackSpecTreeInGit(env);
         // The invocation directory reaches the product only through a symbolic
         // link outside it, while git reports the product root canonically.
-        const invocationAlias = join(outsideParent, sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug()));
+        const invocationAlias = join(outsideParent, sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), 3));
         await symlink(env.productDir, invocationAlias);
         const operand = specContextUnknownTarget(env.fixture);
         for (

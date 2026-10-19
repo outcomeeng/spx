@@ -22,13 +22,14 @@ import { posix, relative, resolve, sep } from "node:path";
 import { createTrackedPathInclusion, TRACKED_PATH_DIRECTORY_SEPARATOR } from "@/lib/git/tracked-paths";
 import {
   admitsSpecTreeLinkText,
-  decisionPathsWrittenAsText,
-  parseSpecTreeLink,
-  resolveSpecTreeLink,
+  createSpecTreeLinkGrammar,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_LINK_KIND,
   SPEC_TREE_LINK_PARENT_SEGMENT,
   SPEC_TREE_LINK_ROOT_ANCHOR,
+  type SpecTreeGrammarSelection,
+  type SpecTreeLinkGrammar,
+  specTreeLinkGrammar,
   type SpecTreeLinkKind,
 } from "@/lib/spec-tree";
 
@@ -44,6 +45,7 @@ export const MARKDOWN_LINK_SHAPE_RULE_NAME = "spx-link-shape";
 export const MARKDOWN_LINK_SHAPE_RULE_CONFIG = {
   ROOT_PATH: "root_path",
   TRACKED_PATHS: "tracked_paths",
+  GRAMMAR_SELECTION: "grammar_selection",
 } as const;
 
 /** Diagnostic suffixes, each following the quoted offending link or path. */
@@ -156,8 +158,8 @@ const REJECTED_SHAPE_DIAGNOSTIC: Partial<Record<SpecTreeLinkKind, LinkShapeDiagn
  * Returns the diagnostic for a rejected shape, or `undefined` for a target the
  * grammar admits or does not govern (a fragment-only target or a URL).
  */
-export function classifySpecTreeLinkShape(href: string): LinkShapeDiagnostic | undefined {
-  return REJECTED_SHAPE_DIAGNOSTIC[parseSpecTreeLink(href).kind];
+export function classifySpecTreeLinkShape(href: string, grammar: SpecTreeLinkGrammar): LinkShapeDiagnostic | undefined {
+  return REJECTED_SHAPE_DIAGNOSTIC[grammar.parseSpecTreeLink(href).kind];
 }
 
 /**
@@ -167,8 +169,12 @@ export function classifySpecTreeLinkShape(href: string): LinkShapeDiagnostic | u
  * admits only node-local, or `undefined` for a link the grammar admits or does
  * not govern.
  */
-function classifySpecTreeLink(href: string, linkText: string | undefined): LinkShapeDiagnostic | undefined {
-  const link = parseSpecTreeLink(href);
+function classifySpecTreeLink(
+  href: string,
+  linkText: string | undefined,
+  grammar: SpecTreeLinkGrammar,
+): LinkShapeDiagnostic | undefined {
+  const link = grammar.parseSpecTreeLink(href);
   const shapeDiagnostic = REJECTED_SHAPE_DIAGNOSTIC[link.kind];
   if (shapeDiagnostic !== undefined || linkText === undefined || admitsSpecTreeLinkText(linkText, link)) {
     return shapeDiagnostic;
@@ -251,8 +257,8 @@ function trackedTargetScope(params: MarkdownlintRuleParams): TrackedTargetScope 
  * root and a node-local href from the citing file's directory; a target the
  * grammar does not admit and a target outside the product root are not judged here.
  */
-function targetsUntrackedPath(href: string, scope: TrackedTargetScope): boolean {
-  const resolved = resolveSpecTreeLink(scope.citingFile, parseSpecTreeLink(href));
+function targetsUntrackedPath(href: string, scope: TrackedTargetScope, grammar: SpecTreeLinkGrammar): boolean {
+  const resolved = grammar.resolveSpecTreeLink(scope.citingFile, grammar.parseSpecTreeLink(href));
   if (resolved === null) return false;
   const productRelative = resolved.replace(TRAILING_SEPARATORS_PATTERN, "");
   if (
@@ -274,6 +280,22 @@ function isTrackedDecisionPath(decisionPath: string, scope: TrackedTargetScope |
 // RULE
 // =============================================================================
 
+/** The recognition of a rule run that names no product: with no methodology declaration, no directory is judged a node. */
+const NO_PRODUCT_LINK_GRAMMAR = createSpecTreeLinkGrammar({
+  isNodeDirectoryName: () => false,
+  isDecisionFile: () => false,
+});
+
+function isGrammarSelection(value: unknown): value is SpecTreeGrammarSelection {
+  return typeof value === "object" && value !== null && "known" in value && "selected" in value;
+}
+
+/** The link grammar of the product's grammar selection that the rule configuration carries. */
+function linkGrammarOf(params: MarkdownlintRuleParams): SpecTreeLinkGrammar {
+  const selection = params.config[MARKDOWN_LINK_SHAPE_RULE_CONFIG.GRAMMAR_SELECTION];
+  return isGrammarSelection(selection) ? specTreeLinkGrammar(selection) : NO_PRODUCT_LINK_GRAMMAR;
+}
+
 /**
  * Rewrites one inline token's children for the composed relative-links check:
  * rejected-shape links are withheld, a link whose target the repository does
@@ -285,20 +307,21 @@ function presentAdmittedLinks(
   children: readonly MarkdownItToken[],
   anchoredHrefs: Map<string, string>,
   trackedScope: TrackedTargetScope | undefined,
+  grammar: SpecTreeLinkGrammar,
   onError: MarkdownlintOnError,
 ): MarkdownItToken[] {
   return children.flatMap((child, index) => {
     const href = linkTarget(child);
     if (href === undefined || !isLinkTokenType(child.type)) return [child];
-    if (classifySpecTreeLink(href, linkTextAt(children, index)) !== undefined) return [];
-    if (trackedScope !== undefined && targetsUntrackedPath(href, trackedScope)) {
+    if (classifySpecTreeLink(href, linkTextAt(children, index), grammar) !== undefined) return [];
+    if (trackedScope !== undefined && targetsUntrackedPath(href, trackedScope, grammar)) {
       onError({
         lineNumber: child.lineNumber,
         detail: `${quoted(href)} ${MARKDOWN_LINK_SHAPE_DIAGNOSTICS.UNTRACKED_TARGET}`,
       });
       return [];
     }
-    if (parseSpecTreeLink(href).kind !== SPEC_TREE_LINK_KIND.TREE_ABSOLUTE) return [child];
+    if (grammar.parseSpecTreeLink(href).kind !== SPEC_TREE_LINK_KIND.TREE_ABSOLUTE) return [child];
 
     const anchored = `${SPEC_TREE_LINK_ROOT_ANCHOR}${href}`;
     anchoredHrefs.set(quoted(anchored), quoted(href));
@@ -315,6 +338,7 @@ function presentAdmittedLinks(
 function reportShapeAndTextViolations(
   token: MarkdownItToken,
   trackedScope: TrackedTargetScope | undefined,
+  grammar: SpecTreeLinkGrammar,
   onError: MarkdownlintOnError,
 ): void {
   let linkDepth = 0;
@@ -325,20 +349,25 @@ function reportShapeAndTextViolations(
       return;
     }
 
-    reportRejectedLink(child, linkTextAt(children, index), onError);
+    reportRejectedLink(child, linkTextAt(children, index), grammar, onError);
     if (child.type === LINK_TOKEN_TYPE.LINK_OPEN) {
       linkDepth += 1;
       return;
     }
 
-    if (linkDepth === 0) reportDecisionPathText(child, trackedScope, onError);
+    if (linkDepth === 0) reportDecisionPathText(child, trackedScope, grammar, onError);
   });
 }
 
-function reportRejectedLink(child: MarkdownItToken, linkText: string | undefined, onError: MarkdownlintOnError): void {
+function reportRejectedLink(
+  child: MarkdownItToken,
+  linkText: string | undefined,
+  grammar: SpecTreeLinkGrammar,
+  onError: MarkdownlintOnError,
+): void {
   const href = linkTarget(child);
   if (href === undefined) return;
-  const diagnostic = classifySpecTreeLink(href, linkText);
+  const diagnostic = classifySpecTreeLink(href, linkText, grammar);
   if (diagnostic !== undefined) {
     onError({ lineNumber: child.lineNumber, detail: `${quoted(href)} ${diagnostic}` });
   }
@@ -348,9 +377,10 @@ function reportTrackedDecisionPaths(
   text: string,
   lineNumber: number,
   trackedScope: TrackedTargetScope | undefined,
+  grammar: SpecTreeLinkGrammar,
   onError: MarkdownlintOnError,
 ): void {
-  for (const decisionPath of decisionPathsWrittenAsText(text)) {
+  for (const decisionPath of grammar.decisionPathsWrittenAsText(text)) {
     if (!isTrackedDecisionPath(decisionPath, trackedScope)) continue;
     onError({ lineNumber, detail: `${quoted(decisionPath)} ${MARKDOWN_LINK_SHAPE_DIAGNOSTICS.DECISION_PATH_TEXT}` });
   }
@@ -360,10 +390,11 @@ function reportTrackedDecisionPaths(
 function reportDecisionPathText(
   child: MarkdownItToken,
   trackedScope: TrackedTargetScope | undefined,
+  grammar: SpecTreeLinkGrammar,
   onError: MarkdownlintOnError,
 ): void {
   if (child.type !== LINK_TOKEN_TYPE.TEXT && child.type !== LINK_TOKEN_TYPE.CODE_INLINE) return;
-  reportTrackedDecisionPaths(child.content, child.lineNumber, trackedScope, onError);
+  reportTrackedDecisionPaths(child.content, child.lineNumber, trackedScope, grammar, onError);
 }
 
 /** Blanks every HTML tag while keeping its line breaks, so only the text between tags remains. */
@@ -379,11 +410,12 @@ function withoutHtmlMarkup(content: string): string {
 function reportRawTextBlockDecisionPaths(
   token: MarkdownItToken,
   trackedScope: TrackedTargetScope | undefined,
+  grammar: SpecTreeLinkGrammar,
   onError: MarkdownlintOnError,
 ): void {
   if (!RAW_TEXT_BLOCK_TOKEN_TYPES.has(token.type)) return;
   withoutHtmlMarkup(token.content).split(BLOCK_LINE_SEPARATOR).forEach((line, offset) => {
-    reportTrackedDecisionPaths(line, token.lineNumber + offset, trackedScope, onError);
+    reportTrackedDecisionPaths(line, token.lineNumber + offset, trackedScope, grammar, onError);
   });
 }
 
@@ -412,13 +444,14 @@ export const markdownLinkShapeRule: MarkdownlintCustomRule = {
   function: (params, onError) => {
     const anchoredHrefs = new Map<string, string>();
     const trackedScope = trackedTargetScope(params);
+    const grammar = linkGrammarOf(params);
     const presentedTokens = params.parsers.markdownit.tokens.map((token) => {
-      reportRawTextBlockDecisionPaths(token, trackedScope, onError);
+      reportRawTextBlockDecisionPaths(token, trackedScope, grammar, onError);
       if (token.type !== LINK_TOKEN_TYPE.INLINE) return token;
-      reportShapeAndTextViolations(token, trackedScope, onError);
+      reportShapeAndTextViolations(token, trackedScope, grammar, onError);
       return {
         ...token,
-        children: presentAdmittedLinks(token.children ?? [], anchoredHrefs, trackedScope, onError),
+        children: presentAdmittedLinks(token.children ?? [], anchoredHrefs, trackedScope, grammar, onError),
       };
     });
 

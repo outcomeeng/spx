@@ -9,6 +9,7 @@
 
 import { compareSpecContextOrdinal } from "./context-manifest";
 import type { SpecTreeDecision, SpecTreeNode, SpecTreeSnapshot } from "./index";
+import { compareSpecTreeOrder } from "./order";
 
 /** The target's ancestor chain from the product root downward, excluding the target itself. */
 export function specContextAncestors(snapshot: SpecTreeSnapshot, target: SpecTreeNode): readonly SpecTreeNode[] {
@@ -42,7 +43,7 @@ export function specContextLowerIndexSiblings(
   const lowerSiblings: SpecTreeNode[] = [];
   for (const contextNode of contextNodes) {
     for (const sibling of specContextSiblings(snapshot, contextNode)) {
-      if (sibling.order >= contextNode.order || seen.has(sibling.id)) continue;
+      if (compareSpecTreeOrder(sibling.orderSegments, contextNode.orderSegments) >= 0 || seen.has(sibling.id)) continue;
       lowerSiblings.push(sibling);
       seen.add(sibling.id);
     }
@@ -50,7 +51,7 @@ export function specContextLowerIndexSiblings(
   lowerSiblings.sort((left, right) => {
     const parentComparison = compareSpecContextOrdinal(left.parentId ?? "", right.parentId ?? "");
     if (parentComparison !== 0) return parentComparison;
-    const orderComparison = left.order - right.order;
+    const orderComparison = compareSpecTreeOrder(left.orderSegments, right.orderSegments);
     if (orderComparison !== 0) return orderComparison;
     return compareSpecContextOrdinal(left.id, right.id);
   });
@@ -70,12 +71,12 @@ export function specContextDecisions(
   contextNodes: readonly SpecTreeNode[],
 ): readonly SpecTreeDecision[] {
   const constrainingOrderByParentId = new Map(
-    contextNodes.map((node) => [node.parentId, node.order] as const),
+    contextNodes.map((node) => [node.parentId, node.orderSegments] as const),
   );
   const targetId = contextNodes.at(-1)?.id;
   return snapshot.decisions.filter((decision) => {
     if (decision.parentId === targetId) return true;
     const constrainingOrder = constrainingOrderByParentId.get(decision.parentId);
-    return constrainingOrder !== undefined && decision.order < constrainingOrder;
+    return constrainingOrder !== undefined && compareSpecTreeOrder(decision.orderSegments, constrainingOrder) < 0;
   });
 }

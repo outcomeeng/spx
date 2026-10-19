@@ -13,7 +13,7 @@ import {
   type MethodologyConfig,
   methodologyConfigDescriptor,
 } from "@/config/methodology";
-import { resolveMethodologyConfig } from "@/config/methodology-placement";
+import { resolveMethodologyConfig } from "@/config/methodology-resolution";
 import { productionRegistry } from "@/config/registry";
 import type { Config, Result } from "@/config/types";
 import { harnessEnvironmentConfigDescriptor } from "@/domains/agent-environment/config";

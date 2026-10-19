@@ -5,6 +5,7 @@ import { basename, dirname, join } from "node:path/posix";
 
 import type { ICruiseResult, IDependency, IModule, IReporterOutput } from "dependency-cruiser";
 import type { ParsedCommandLine } from "typescript";
+import { stringify } from "yaml";
 
 import { circularCommand, type CircularCommandDeps } from "@/commands/validation/circular";
 import {
@@ -1014,14 +1015,11 @@ export function registerCircularDependencyScenarios(): void {
         );
         await writeFile(
           join(path, CONFIG_FILENAMES.yaml),
-          [
-            "validation:",
-            "  paths:",
-            "    circular:",
-            "      include:",
-            `        - ${VALIDATION_PIPELINE_DATA.sourceDirectoryName}`,
-            "",
-          ].join("\n"),
+          stringify({
+            validation: {
+              paths: { circular: { include: [VALIDATION_PIPELINE_DATA.sourceDirectoryName] } },
+            },
+          }),
         );
 
         await expectCircularCommandScopes(

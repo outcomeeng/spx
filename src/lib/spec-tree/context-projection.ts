@@ -3,7 +3,13 @@ import { posix } from "node:path";
 import MarkdownIt from "markdown-it";
 import { parseDocument, stringify } from "yaml";
 
-import { type NodeKind, SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "./config";
+import {
+  DECISION_SUFFIXES,
+  SPEC_TREE_CONFIG,
+  SPEC_TREE_GRAMMAR,
+  SPEC_TREE_INHERIT_FROM_PARENT,
+  type SpecTreeNodeKind,
+} from "./config";
 import {
   compareSpecContextOrdinal,
   SPEC_CONTEXT_MODE,
@@ -16,6 +22,7 @@ import {
 import { specContextAncestors, specContextDecisions, specContextSiblings } from "./context-read-set";
 import type { SpecContextTarget } from "./context-target";
 import type { SpecTreeDecision, SpecTreeNode, SpecTreeSnapshot } from "./index";
+import { compareSpecTreeOrder } from "./order";
 
 /**
  * The paragraph a Digest selects: an output node's opening, keyed by its
@@ -40,7 +47,7 @@ export type SpecContextDigest =
  * without an opening, resolves no opening and cannot supply a Digest.
  */
 export type SpecContextKindRegistry = {
-  readonly [K in NodeKind]?: { readonly opening?: string };
+  readonly [K in SpecTreeNodeKind]?: { readonly opening?: string };
 };
 
 /** The ways a document's required Digest paragraph fails to resolve, each failing the whole projection. */
@@ -154,9 +161,20 @@ function requiredDocumentPath(path: string | undefined, owner: string): string {
   return path;
 }
 
-/** The opening keyword the given kind registry resolves for a node's kind, or none when it resolves none. */
-function resolvedKindOpening(node: SpecTreeNode, registry: SpecContextKindRegistry): string | undefined {
-  return registry[node.kind]?.opening;
+/**
+ * The opening keyword the given kind registry resolves for a node's kind, or none when it resolves none.
+ * A kind whose opening is inherited resolves its parent node's, through the ancestors the lookup holds.
+ */
+function resolvedKindOpening(
+  node: SpecTreeNode,
+  registry: SpecContextKindRegistry,
+  nodesById: ReadonlyMap<string, SpecTreeNode>,
+): string | undefined {
+  if (node.kind === SPEC_TREE_CONFIG.PRODUCT.KIND) return undefined;
+  const opening = registry[node.kind]?.opening;
+  if (opening !== SPEC_TREE_INHERIT_FROM_PARENT) return opening;
+  const parent = node.parentId === undefined ? undefined : nodesById.get(node.parentId);
+  return parent === undefined ? undefined : resolvedKindOpening(parent, registry, nodesById);
 }
 
 /**
@@ -170,6 +188,7 @@ function nodeSelection(
   reasons: readonly SpecContextTargetSelection[],
   existingPaths: ReadonlySet<string>,
   registry: SpecContextKindRegistry,
+  nodesById: ReadonlyMap<string, SpecTreeNode>,
 ): readonly SpecContextSelection[] {
   const path = node.ref?.path;
   if (path === undefined || !existingPaths.has(path)) return [];
@@ -180,7 +199,7 @@ function nodeSelection(
     digest: {
       source: SPEC_CONTEXT_DIGEST_SOURCE.OPENING,
       kind: node.kind,
-      keyword: resolvedKindOpening(node, registry),
+      keyword: resolvedKindOpening(node, registry, nodesById),
     },
     outputNode: true,
     scanCitations: true,
@@ -205,14 +224,21 @@ export function specContextOptionalArtifactPaths(snapshot: SpecTreeSnapshot): re
   ]);
 }
 
-/** Numeric indices establish order; names break equal-index ties independently of locale. */
-export function compareSpecContextTreeEntries(
-  left: { readonly path: string },
-  right: { readonly path: string },
-): number {
+/** A context entry: its path and the index segments the ordered-name parse produced for it. */
+interface SpecContextTreeEntry {
+  readonly path: string;
+  readonly orderSegments: readonly number[];
+}
+
+/**
+ * Index segments establish order, compared segment by segment; names break equal-index ties
+ * independently of locale. An entry with no index falls through to the ordinal name comparison.
+ */
+export function compareSpecContextTreeEntries(left: SpecContextTreeEntry, right: SpecContextTreeEntry): number {
   const leftName = posix.basename(left.path);
   const rightName = posix.basename(right.path);
-  return Number.parseFloat(leftName) - Number.parseFloat(rightName)
+  const bothIndexed = left.orderSegments.length > 0 && right.orderSegments.length > 0;
+  return (bothIndexed ? compareSpecTreeOrder(left.orderSegments, right.orderSegments) : 0)
     || compareSpecContextOrdinal(leftName, rightName);
 }
 
@@ -361,6 +387,7 @@ export function selectSpecContextDocuments(
   registry: SpecContextKindRegistry,
 ): readonly SpecContextSelection[] {
   const productPath = specContextWalkRoot(snapshot);
+  const nodesById = new Map(snapshot.allNodes.map((node) => [node.id, node]));
   const discovery = targets.length === 0;
   const reasons = specContextTargetedReasons(snapshot, targets);
   const result: SpecContextSelection[] = [];
@@ -389,10 +416,14 @@ export function selectSpecContextDocuments(
   const structuralEntries = (node: SpecTreeNode | undefined, depth: number) => {
     const decisions = snapshot.decisions
       .filter((decision) => decision.parentId === node?.id && (discovery || reasons.decisions.has(decision.id)))
-      .map((decision) => ({ decision, path: requiredDocumentPath(decision.ref?.path, decision.id) }));
+      .map((decision) => ({
+        decision,
+        path: requiredDocumentPath(decision.ref?.path, decision.id),
+        orderSegments: decision.orderSegments,
+      }));
     const children = (node?.children ?? snapshot.nodes)
       .filter((child) => discovery ? depth < DISCOVERY_DEPTH : reasons.nodes.has(child.id))
-      .map((child) => ({ child, path: nodeDirectory(child) }));
+      .map((child) => ({ child, path: nodeDirectory(child), orderSegments: child.orderSegments }));
     return [...decisions, ...children].sort(compareSpecContextTreeEntries);
   };
   const walk = (node: SpecTreeNode | undefined, depth: number): void => {
@@ -411,7 +442,7 @@ export function selectSpecContextDocuments(
           reasons: reasons.product.get(undefined),
           scanCitations: true,
         }]
-        : nodeSelection(node, mode, reasons.nodes.get(node.id), existingPaths, registry)),
+        : nodeSelection(node, mode, reasons.nodes.get(node.id), existingPaths, registry, nodesById)),
     );
     if (discovery || reasons.containers.has(node?.id)) {
       reference(`${directory}/${ISSUE_FILENAME}`, reasons.containers.get(node?.id));
@@ -611,7 +642,10 @@ export function specContextInlineDecisionCitations(content: string): readonly st
     for (const token of block.children ?? []) {
       if (token.type !== "link_open") continue;
       const href = token.attrGet("href");
-      if (href?.startsWith(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/`) === true && /\.(?:adr|pdr)\.md$/.test(href)) {
+      if (
+        href?.startsWith(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/`) === true
+        && DECISION_SUFFIXES.some((suffix) => href.endsWith(suffix))
+      ) {
         paths.add(href);
       }
     }
