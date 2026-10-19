@@ -66,6 +66,8 @@ import {
   DECISION_PLACEMENT,
   type DecisionPlacement,
   NODE_STATUS_TEST_GENERATOR,
+  PIN_CHECKOUT_EDIT,
+  type PinCurrencyCheckout,
   type PinnedNodeFixture,
   type RecordedRun,
   type RecordedRunSets,
@@ -864,6 +866,32 @@ export async function withPinnedNodeRepository(
       decisionPath: (placement) => decisionPathAt(decisionPaths, placement),
       editDecision,
     });
+  });
+}
+
+/**
+ * Materialize a pinned node repository, commit a claim recording its first test passed over the spec, that test,
+ * and the subject an edit changes, apply the checkout's edit, and hand the repository to the callback.
+ */
+export async function withPinCurrencyCheckout(
+  checkout: PinCurrencyCheckout,
+  callback: (repository: PinnedNodeRepository) => Promise<void>,
+): Promise<void> {
+  const { node, edit } = checkout;
+  await withPinnedNodeRepository(node, currentMethodologyConfig(), async (repository) => {
+    await repository.writeClaim({
+      [NODE_STATUS_CLAIM_SECTION.TEST]: {
+        [repository.testKeys[0] ?? ""]: repository.passedEntry([
+          repository.specPath,
+          repository.testPaths[0] ?? "",
+          repository.subjectPaths[node.editedSubject] ?? "",
+        ]),
+      },
+    });
+    await repository.commitAll();
+    if (edit === PIN_CHECKOUT_EDIT.READ_SUBJECT) await repository.editSubject(node.editedSubject);
+    if (edit === PIN_CHECKOUT_EDIT.SPEC) await repository.editSpecText();
+    await callback(repository);
   });
 }
 

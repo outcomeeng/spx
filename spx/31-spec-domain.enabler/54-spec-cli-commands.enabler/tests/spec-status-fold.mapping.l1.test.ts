@@ -1,13 +1,23 @@
 import { existsSync } from "node:fs";
+import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import { statusCommand } from "@/commands/spec/status";
-import { NODE_STATUS_EVIDENCE_OUTCOME } from "@/lib/node-status";
+import {
+  NODE_STATUS_CLAIM_FIELD,
+  NODE_STATUS_CLAIM_SECTION,
+  NODE_STATUS_CLAIM_SHAPE,
+  NODE_STATUS_EVIDENCE_OUTCOME,
+  readNodeStatus,
+} from "@/lib/node-status";
 import { SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
 import { TEST_PATH_VERDICT, testingRunsDir } from "@/test/run-state";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
+import { NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
+import { currentMethodologyConfig, withPinnedNodeRepository } from "@testing/harnesses/node-status/node-status";
 import {
   addNodeTestFile,
   changeNodeEvidenceContent,
@@ -104,6 +114,42 @@ describe("spx spec status --update recorded-evidence mapping", () => {
       });
     }
   }
+
+  it("keeps the committed entry with its pin, commit and read paths included, of a covered reference whose recorded evidence is stale", async () => {
+    const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
+    const committedVerdict = sampleGeneratedValue(
+      NODE_STATUS_TEST_GENERATOR.contradictingEvidenceOutcome(NODE_STATUS_EVIDENCE_OUTCOME.PASSED),
+    );
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
+      const [testPath = ""] = repository.testPaths;
+      const [testKey = ""] = repository.testKeys;
+      const committedEntry = {
+        ...repository.passedEntry([repository.specPath, testPath, repository.subjectPaths[0] ?? ""]),
+        [NODE_STATUS_CLAIM_FIELD.VERDICT]: committedVerdict,
+      };
+      await repository.writeClaim({ [NODE_STATUS_CLAIM_SECTION.TEST]: { [testKey]: committedEntry } });
+      await repository.commitAll();
+      // The recorded run that covers the reference passed, and the test file then
+      // changes, so that run's evidence is stale.
+      const runner = createRecordingCommandRunner({ present: true, exitCode: 0 });
+      await recordTestingRun(repository.env.productDir, runner);
+      await changeNodeEvidenceContent(repository.env, testPath);
+
+      await statusCommand({
+        cwd: repository.env.productDir,
+        gitDependencies: repository.git,
+        update: true,
+        resolveOutcomeFor: recordedEvidenceResolverFor,
+      });
+
+      const written = readNodeStatus(join(repository.env.productDir, repository.nodePath));
+      expect(written?.shape).toBe(NODE_STATUS_CLAIM_SHAPE.CURRENT);
+      if (written?.shape !== NODE_STATUS_CLAIM_SHAPE.CURRENT) return;
+      expect(written.claim[NODE_STATUS_CLAIM_FIELD.VERIFICATION][NODE_STATUS_CLAIM_SECTION.TEST]?.[testKey]).toEqual(
+        committedEntry,
+      );
+    });
+  });
 
   it("folds covered references and maps only uncovered references to not-run", async () => {
     await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {

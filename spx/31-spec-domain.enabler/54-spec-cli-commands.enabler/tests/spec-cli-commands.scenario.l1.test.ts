@@ -460,10 +460,19 @@ describe("spx spec status --update --check command", () => {
     });
   });
 
-  it("rejects --check without --update at the type level", () => {
-    // @ts-expect-error --check is valid only beside --update
-    const checkWithoutUpdate = () => statusCommand({ check: true });
+  it("rejects --check without --update at the type level and, at runtime, reports and writes nothing exactly as a plain status read", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const rootPath = fixtureNodePath(env.fixture.root);
+      await addNodeTestFile(env, rootPath);
+      const before = await readNodeStatusFileBytes(env.productDir);
 
-    expect(checkWithoutUpdate).toBeInstanceOf(Function);
+      // @ts-expect-error --check is valid only beside --update
+      const checked = await statusCommand({ cwd: env.productDir, check: true });
+
+      expect(checked).toContain(rootPath);
+      expect(checked).toBe(await statusCommand({ cwd: env.productDir }));
+      expect(await readNodeStatusFileBytes(env.productDir)).toEqual(before);
+    });
   });
 });

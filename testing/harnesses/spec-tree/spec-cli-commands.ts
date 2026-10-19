@@ -114,7 +114,10 @@ export function createReadCountingTestRunStateFileSystem(watched: ReadonlySet<st
  * Replaces an evidence file's bytes with the committed passing Vitest suite, so
  * any run recorded against its earlier content is stale.
  */
-export async function changeNodeEvidenceContent(env: CurrentSpecTreeEnv, evidenceFile: string): Promise<void> {
+export async function changeNodeEvidenceContent(
+  env: Pick<CurrentSpecTreeEnv, "productDir">,
+  evidenceFile: string,
+): Promise<void> {
   await writeVitestFixture(env.productDir, evidenceFile, VITEST_FIXTURE.PASSING);
 }
 

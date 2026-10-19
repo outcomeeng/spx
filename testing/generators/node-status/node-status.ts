@@ -190,6 +190,7 @@ export const NODE_STATUS_TEST_GENERATOR = {
   commitId: arbitraryCommitId,
   claimComparison: arbitraryClaimComparison,
   committedClaimDrift: arbitraryCommittedClaimDrift,
+  pinCurrencyCheckout: arbitraryPinCurrencyCheckout,
   productName: arbitraryNodeSlug,
   recordedVerdict: arbitraryRecordedVerdict,
 } as const;
@@ -451,6 +452,46 @@ function arbitraryCommittedClaimDrift(): fc.Arbitrary<CommittedClaimDriftFixture
       `${GENERATED_UNREAD_DIRECTORY}${SPEC_TREE_PATH_SEPARATOR}${name}${GENERATED_SUBJECT_EXTENSION}`
     ),
   });
+}
+
+/** The edits a pinned checkout can undergo after its claim was committed, by what they change under the pin. */
+export const PIN_CHECKOUT_EDIT = {
+  NONE: "none",
+  READ_SUBJECT: "read-subject",
+  SPEC: "spec",
+} as const;
+
+export type PinCheckoutEdit = (typeof PIN_CHECKOUT_EDIT)[keyof typeof PIN_CHECKOUT_EDIT];
+
+/**
+ * One coherent pin-currency checkout: a pinned node, the edit its checkout undergoes after the claim is
+ * committed, and the currency the pin has afterwards. An unchanged checkout keeps the pin current; a change to
+ * a path the result read, or to the spec, makes it not current.
+ */
+export type PinCurrencyCheckout = {
+  readonly node: PinnedNodeFixture;
+  readonly edit: PinCheckoutEdit;
+  readonly currency: NodeStatusCurrency;
+};
+
+const PIN_CHECKOUT_EDIT_CURRENCY: Readonly<Record<PinCheckoutEdit, NodeStatusCurrency>> = {
+  [PIN_CHECKOUT_EDIT.NONE]: NODE_STATUS_CURRENCY.CURRENT,
+  [PIN_CHECKOUT_EDIT.READ_SUBJECT]: NODE_STATUS_CURRENCY.NOT_CURRENT,
+  [PIN_CHECKOUT_EDIT.SPEC]: NODE_STATUS_CURRENCY.NOT_CURRENT,
+};
+
+/** A checkout state drawn from the edit domain, or from the given edit alone. */
+function arbitraryPinCurrencyCheckout(edit?: PinCheckoutEdit): fc.Arbitrary<PinCurrencyCheckout> {
+  return fc
+    .tuple(
+      arbitraryPinnedNode(),
+      edit === undefined ? fc.constantFrom(...Object.values(PIN_CHECKOUT_EDIT)) : fc.constant(edit),
+    )
+    .map(([node, drawn]): PinCurrencyCheckout => ({
+      node,
+      edit: drawn,
+      currency: PIN_CHECKOUT_EDIT_CURRENCY[drawn],
+    }));
 }
 
 function arbitraryPinnedNode(): fc.Arbitrary<PinnedNodeFixture> {
