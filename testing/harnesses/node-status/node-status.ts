@@ -10,6 +10,7 @@ import type { Config } from "@/config/types";
 import { GIT_NULL_DELIMITED_FLAG, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
 import { GIT_ROOT_COMMAND, GIT_STATUS_PORCELAIN_ARGS, type GitDependencies } from "@/lib/git/root";
 import {
+  claimShapeOfMethodologyVersion,
   createNodeStatusFile,
   createNodeStatusMechanismRecord,
   createNodeStatusProvider,
@@ -57,6 +58,7 @@ import {
 import { compareAsciiStrings } from "@/lib/state-store";
 import { testingRegistry } from "@/test/registry";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
+import { arbitraryFixtureAuthoredLine } from "@testing/generators/methodology/tree";
 import {
   ANCESTOR_DECISION_PLACEMENT,
   type ClaimComparisonFixture,
@@ -562,11 +564,18 @@ export function readVersion1NodeStatus(nodeDir: string): NodeStatusFile | undefi
   return read.claim;
 }
 
-/** A configuration declaring `version` as the product's methodology version, beside the minimal spec-tree kinds. */
+/**
+ * A configuration declaring `version` as the product's methodology version, beside the minimal spec-tree kinds.
+ * The materialized trees are authored in the 3.x grammar, so a version of the current claim shape declares the
+ * 3.x line the tree is authored in as its migration source, and the read selects the grammar of both.
+ */
 export function methodologyDeclaringConfig(version: string): Config {
+  const migratingFrom = claimShapeOfMethodologyVersion(version) === NODE_STATUS_CLAIM_SHAPE.CURRENT
+    ? { migratingFrom: sampleGeneratedValue(arbitraryFixtureAuthoredLine()) }
+    : {};
   return {
     ...MINIMAL_SPEC_TREE_CONFIG,
-    [METHODOLOGY_SECTION]: { source: DEFAULT_METHODOLOGY_SOURCE, version },
+    [METHODOLOGY_SECTION]: { source: DEFAULT_METHODOLOGY_SOURCE, version, ...migratingFrom },
   };
 }
 

@@ -33,8 +33,10 @@ import {
   SPEC_TREE_CONFIG,
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_GRAMMAR,
+  SPEC_TREE_METHODOLOGY_LINE,
   SPEC_TREE_NODE_STATE,
 } from "@/lib/spec-tree";
+import { arbitraryAcceptedMethodologyVersion } from "@testing/generators/methodology/tree";
 import { evidenceFileNameFor } from "@testing/generators/spec-tree/evidence-file-name";
 
 const NODE_STATUS_GENERATOR_OPTIONS = {
@@ -594,20 +596,20 @@ function arbitraryPassingIndices(variantCount: number, partition: VariantPartiti
   }
 }
 
-const METHODOLOGY_CURRENT_MAJOR_MIN = 4;
-const METHODOLOGY_CURRENT_MAJOR_MAX = 9;
-const METHODOLOGY_PRIOR_MAJOR_MAX = 3;
-const METHODOLOGY_VERSION_COMPONENT_MAX = 9;
+/** The methodology lines SPX reads whose claim is the 4.0 shape. */
+const CURRENT_SHAPE_LINES: readonly string[] = [SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO];
 
-/** An exact methodology version of the claim shape given, in the `MAJOR.MINOR` or `MAJOR.MINOR.PATCH` form. */
+/** The methodology lines SPX reads whose claim is the version-1 shape. */
+const VERSION_1_SHAPE_LINES: readonly string[] = [
+  SPEC_TREE_METHODOLOGY_LINE.THREE_ZERO,
+  SPEC_TREE_METHODOLOGY_LINE.THREE_ONE,
+  SPEC_TREE_METHODOLOGY_LINE.THREE_TWO,
+];
+
+/** An exact methodology version of the claim shape given, drawn only from the lines SPX reads, in either accepted form. */
 function arbitraryMethodologyVersion(shape: NodeStatusClaimShape): fc.Arbitrary<string> {
-  const major = shape === NODE_STATUS_CLAIM_SHAPE.CURRENT
-    ? fc.integer({ min: METHODOLOGY_CURRENT_MAJOR_MIN, max: METHODOLOGY_CURRENT_MAJOR_MAX })
-    : fc.integer({ min: 0, max: METHODOLOGY_PRIOR_MAJOR_MAX });
-  const component = fc.integer({ min: 0, max: METHODOLOGY_VERSION_COMPONENT_MAX });
-  return fc
-    .record({ major, minor: component, patch: fc.option(component, { nil: undefined }) })
-    .map(({ major, minor, patch }) => [major, minor, ...(patch === undefined ? [] : [patch])].join("."));
+  const lines = shape === NODE_STATUS_CLAIM_SHAPE.CURRENT ? CURRENT_SHAPE_LINES : VERSION_1_SHAPE_LINES;
+  return arbitraryAcceptedMethodologyVersion(fc.constantFrom(...lines)).map((version) => version.text);
 }
 
 /**
