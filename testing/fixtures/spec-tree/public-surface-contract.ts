@@ -4,7 +4,12 @@ import {
   projectSpecTree,
   readSpecTree,
   resolveSpecTreePathOwnership,
+  SPEC_TREE_EVIDENCE_KEY_KIND,
+  SPEC_TREE_EVIDENCE_TARGET,
   SPEC_TREE_GRAMMAR,
+  SPEC_TREE_VERIFICATION_TYPE,
+  type SpecTreeEvidenceKey,
+  type SpecTreeEvidenceReference,
   type SpecTreeNode,
   type SpecTreeOptions,
   type SpecTreePathOwnershipResult,
@@ -26,6 +31,12 @@ export async function consumePublicSpecTreeSurface(): Promise<SpecTreeProjection
   const projection: SpecTreeProjection = projectSpecTree(read);
   const next: SpecTreeNode | null = findNextSpecTreeNode(read);
   const ownership: SpecTreePathOwnershipResult = resolveSpecTreePathOwnership(snapshot, productPath, claimedNodeIds);
+  const references: readonly SpecTreeEvidenceReference[] = snapshot.allNodes[0]?.evidenceReferences ?? [];
+  const keys: readonly SpecTreeEvidenceKey[] = references.map(({ key }) => key);
+  void keys;
+  void SPEC_TREE_EVIDENCE_KEY_KIND;
+  void SPEC_TREE_EVIDENCE_TARGET;
+  void SPEC_TREE_VERIFICATION_TYPE;
   void next;
   void ownership;
   void SPEC_TREE_GRAMMAR;
