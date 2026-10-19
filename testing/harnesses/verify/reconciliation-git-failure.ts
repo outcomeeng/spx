@@ -106,7 +106,7 @@ export async function reconcileUnderGitFailure(
     git: gitFailingWith(realVerifyGitDependencies(), failure, gitError, changeset.value.base),
     processEnv: {},
     fs: defaultStateStoreFileSystem,
-    readInputSource: async (source) => source,
+    readInputSource: async (source) => new TextEncoder().encode(source),
     journalBinding: { localSink: createRecordingStreamSink().sink },
   };
   return verifyReconcileCommand(

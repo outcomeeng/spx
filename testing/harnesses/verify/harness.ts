@@ -1251,14 +1251,26 @@ export function createRecordingGitDeps(): RecordingGitDeps {
   };
 }
 
-export function verifyDeps(scenario: VerifyRunContextScenario, fs: VerifyStateStoreFileSystem): VerifyCliDeps {
+export interface VerifyDepsOptions {
+  /** The bytes the input reader returns; the scenario's input content, UTF-8 encoded, when absent. */
+  readonly inputBytes?: Uint8Array;
+  /** The reader for a file a recorded-input replay checks, resolving the path it is handed. */
+  readonly readCheckFile?: VerifyCliDeps["readCheckFile"];
+}
+
+export function verifyDeps(
+  scenario: VerifyRunContextScenario,
+  fs: VerifyStateStoreFileSystem,
+  options: VerifyDepsOptions = {},
+): VerifyCliDeps {
   return {
     cwd: scenario.productDir,
     fs,
     git: verifyGitDeps(scenario),
     processEnv: {},
     now: () => scenario.launchedAt,
-    readInputSource: async () => scenario.inputContent,
+    readInputSource: async () => options.inputBytes ?? new TextEncoder().encode(scenario.inputContent),
+    ...(options.readCheckFile === undefined ? {} : { readCheckFile: options.readCheckFile }),
     journalBinding: { localSink: createRecordingStreamSink().sink },
   };
 }
@@ -1282,7 +1294,7 @@ export function parseInputReport(output: string): VerifyInputReport {
 
 export interface RecordingInputReader {
   /** A `readInputSource` capability that records each invocation; the input verb must never call it. */
-  readonly read: (source: string) => Promise<string>;
+  readonly read: (source: string) => Promise<Uint8Array>;
   /** How many times `read` has been invoked. */
   calls(): number;
 }
@@ -1297,7 +1309,7 @@ export function createRecordingInputReader(): RecordingInputReader {
   return {
     read: (source: string) => {
       count += 1;
-      return Promise.resolve(source);
+      return Promise.resolve(new TextEncoder().encode(source));
     },
     calls: () => count,
   };
@@ -3761,8 +3773,8 @@ export async function observeStartRecordedInputReplay(): Promise<{
 }> {
   const scenario = createVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
-  const laterInputContent = `${scenario.inputContent}${scenario.scope}`;
-  let currentInputContent = scenario.inputContent;
+  const laterInputContent = new TextEncoder().encode(`${scenario.inputContent}${scenario.scope}`);
+  let currentInputContent = new TextEncoder().encode(scenario.inputContent);
   const deps = {
     ...verifyDeps(scenario, fs),
     readInputSource: async () => currentInputContent,
