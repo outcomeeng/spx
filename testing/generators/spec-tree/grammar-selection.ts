@@ -11,10 +11,12 @@ import * as fc from "fast-check";
 
 import { METHODOLOGY_VERSION_FORM } from "@/config/methodology";
 import {
+  KIND_REGISTRY,
   OUTPUT_KINDS,
   SPEC_TREE_CONFIG,
   SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_METHODOLOGY_LINE,
+  SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION,
   type SpecTreeMethodologyLine,
   type SpecTreeRegistry,
 } from "@/lib/spec-tree";
@@ -26,9 +28,19 @@ import {
 } from "@testing/generators/spec-tree/naming-schema-version";
 import { type RepresentativeSpecTreeFixture, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 
+/** The output node kinds whose suffix no naming-schema version other than the 4.0 version accepts. */
+function fourZeroOnlyOutputKinds(): readonly (typeof OUTPUT_KINDS)[number][] {
+  const otherVersionSuffixes = new Set(
+    SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS
+      .filter((version) => version !== SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION)
+      .flatMap(({ nodeSuffixes }) => nodeSuffixes),
+  );
+  return OUTPUT_KINDS.filter((kind) => !otherVersionSuffixes.has(KIND_REGISTRY[kind].suffix));
+}
+
 /** A representative fixture whose nodes all carry an output node kind, a suffix only the 4.0 grammar accepts. */
 export function arbitraryOutputKindFixture(registry: SpecTreeRegistry): fc.Arbitrary<RepresentativeSpecTreeFixture> {
-  return SPEC_TREE_TEST_GENERATOR.representativeFixture(registry, fc.constantFrom(...OUTPUT_KINDS));
+  return SPEC_TREE_TEST_GENERATOR.representativeFixture(registry, fc.constantFrom(...fourZeroOnlyOutputKinds()));
 }
 
 const GRAMMAR_SELECTION_LINES: readonly string[] = Object.values(SPEC_TREE_METHODOLOGY_LINE);

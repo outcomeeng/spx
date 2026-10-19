@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { KIND_REGISTRY, projectSpecTree, readSpecTree } from "@/lib/spec-tree";
 import { SPEC_TREE_TEST_GENERATOR, specTreeConfigForLine } from "@testing/generators/spec-tree/spec-tree";
-import { assertProperty, PROPERTY_LEVEL, PROPERTY_SIZE } from "@testing/harnesses/property/property";
+import { assertProperty, PROPERTY_CLASSIFICATION } from "@testing/harnesses/property/property";
 import { withSpecTreeEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import {
   decisionFileName,
@@ -82,7 +82,7 @@ describe("SpecTreeSource properties", () => {
           ]);
         }, { fixture });
       },
-      { level: PROPERTY_LEVEL.L1, size: PROPERTY_SIZE.SMALL },
+      PROPERTY_CLASSIFICATION.SMALL_L1,
     );
   });
 
@@ -100,7 +100,7 @@ describe("SpecTreeSource properties", () => {
           expect(snapshot.entries.map((entry) => entry.id)).toEqual([scenario.directory]);
         });
       },
-      { level: PROPERTY_LEVEL.L1 },
+      PROPERTY_CLASSIFICATION.SMALL_L1,
     );
   });
 
@@ -119,7 +119,7 @@ describe("SpecTreeSource properties", () => {
           expect(snapshot.entries.map((entry) => entry.id)).toEqual([scenario.directory]);
         });
       },
-      { level: PROPERTY_LEVEL.L1 },
+      PROPERTY_CLASSIFICATION.SMALL_L1,
     );
   });
 });
