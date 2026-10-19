@@ -15,4 +15,4 @@ CAN key a result by the audit rule slug or the node-local evidence path its asse
 - For every generated node spec, the evidence references of its node equal its tagged assertions in order of appearance, one each
 - ALWAYS: a pathless `[audit]` tag and the legacy `[review]` tag read as unkeyed audit references
 - NEVER: a spec holding two audit tags with one rule slug reads successfully; the read fails naming the spec and the slug
-- ALWAYS: the tag and link-text vocabulary the reader matches comes from the link grammar's declarations in `src/lib/spec-tree/link-grammar.ts`
+- ALWAYS: the tag and link-text vocabulary the reader matches comes from the link grammar's declarations in `src/lib/spec-tree/link-grammar.ts` ([audit])
