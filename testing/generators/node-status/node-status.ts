@@ -189,6 +189,7 @@ export const NODE_STATUS_TEST_GENERATOR = {
   trackedPathInclusionCase: arbitraryTrackedPathInclusionCase,
   commitId: arbitraryCommitId,
   claimComparison: arbitraryClaimComparison,
+  committedClaimDrift: arbitraryCommittedClaimDrift,
   productName: arbitraryNodeSlug,
   recordedVerdict: arbitraryRecordedVerdict,
 } as const;
@@ -429,6 +430,27 @@ function arbitraryClaimComparison(): fc.Arbitrary<ClaimComparisonFixture> {
       actorIds: [actorIds[0] ?? "", actorIds[1] ?? ""],
       runs: [runs[0] ?? "", runs[1] ?? ""],
     }));
+}
+
+/**
+ * The differences injected into a committed claim of a pinned node: how far its recorded state shifts along the
+ * lifecycle states, and one source path outside every read set the node's results record.
+ */
+export type CommittedClaimDriftFixture = {
+  /** A shift of one to the count of lifecycle states less one, so the shifted state differs from the original. */
+  readonly stateShift: number;
+  readonly unreadPath: string;
+};
+
+const GENERATED_UNREAD_DIRECTORY = "unread";
+
+function arbitraryCommittedClaimDrift(): fc.Arbitrary<CommittedClaimDriftFixture> {
+  return fc.record({
+    stateShift: fc.integer({ min: 1, max: Object.values(SPEC_TREE_NODE_STATE).length - 1 }),
+    unreadPath: arbitraryNodeSlug().map((name) =>
+      `${GENERATED_UNREAD_DIRECTORY}${SPEC_TREE_PATH_SEPARATOR}${name}${GENERATED_SUBJECT_EXTENSION}`
+    ),
+  });
 }
 
 function arbitraryPinnedNode(): fc.Arbitrary<PinnedNodeFixture> {

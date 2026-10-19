@@ -14,12 +14,14 @@ import {
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import { GIT_ROOT_COMMAND, GIT_SHOW_TOPLEVEL_ARGS } from "@/lib/git/root";
 import {
+  NODE_STATUS_CLAIM_DIFFERENCE,
   NODE_STATUS_CLAIM_FIELD,
   NODE_STATUS_CLAIM_SECTION,
   NODE_STATUS_CLAIM_SHAPE,
   NODE_STATUS_CURRENCY,
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_VERIFICATION_MECHANISM,
+  nodeStatusClaimResults,
 } from "@/lib/node-status";
 import {
   KIND_REGISTRY,
@@ -28,6 +30,7 @@ import {
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_NODE_STATE,
 } from "@/lib/spec-tree";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { testingRunsDir } from "@/test/run-state";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
@@ -42,15 +45,24 @@ import {
   SPEC_TREE_TEST_GENERATOR,
 } from "@testing/generators/spec-tree/spec-tree";
 import { STATUS_REPORT_TEST_GENERATOR } from "@testing/generators/spec-tree/status-report";
-import { currentMethodologyConfig, withPinnedNodeRepository } from "@testing/harnesses/node-status/node-status";
+import {
+  currentMethodologyConfig,
+  readNodeStatusFileBytes,
+  withClaimEntry,
+  withClaimState,
+  withPinnedNodeRepository,
+} from "@testing/harnesses/node-status/node-status";
 import {
   addNodeTestFile,
+  commitNodeClaim,
   commitPathsInGit,
+  commitRegeneratedProjection,
   createRecordingGitRoot,
   fixtureNodePath,
   nodeEvidencePath,
   readRecordedStatusState,
   readStatusJsonNode,
+  runStatusCheck,
   trackPathsInGit,
   uniformOutcomeResolverFor,
   writePassingStatusClaim,
@@ -367,5 +379,91 @@ describe("spx spec status --json", () => {
         },
       ]);
     });
+  });
+});
+
+describe("spx spec status --update --check command", () => {
+  it("writes nothing, reports each node and entry that differs, and signals failure when committed claims differ from the projection", async () => {
+    const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
+    const drift = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.committedClaimDrift());
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
+      const projection = await commitRegeneratedProjection(repository);
+      const [verdictKey = "", readKey = ""] = repository.testKeys;
+      const states = Object.values(SPEC_TREE_NODE_STATE);
+      const driftedState = states[
+        (states.indexOf(projection.claim[NODE_STATUS_CLAIM_FIELD.STATE]) + drift.stateShift) % states.length
+      ] ?? SPEC_TREE_NODE_STATE.DECLARED;
+      const committed = withClaimEntry(
+        withClaimEntry(
+          withClaimState(new Map([[repository.nodeId, projection.claim]]), repository.nodeId, driftedState),
+          { nodeId: repository.nodeId, section: NODE_STATUS_CLAIM_SECTION.TEST, key: verdictKey },
+          (entry) => ({ ...entry, [NODE_STATUS_CLAIM_FIELD.VERDICT]: NODE_STATUS_EVIDENCE_OUTCOME.FAILED }),
+        ),
+        { nodeId: repository.nodeId, section: NODE_STATUS_CLAIM_SECTION.TEST, key: readKey },
+        (entry) => ({
+          ...entry,
+          [NODE_STATUS_CLAIM_FIELD.READ]: [...(entry[NODE_STATUS_CLAIM_FIELD.READ] ?? []), drift.unreadPath],
+        }),
+      ).get(repository.nodeId);
+      if (committed === undefined) throw new Error("The drifted claim is missing");
+      await commitNodeClaim(repository, committed);
+      const before = await readNodeStatusFileBytes(repository.env.productDir);
+
+      const outcome = await runStatusCheck(repository, projection.resolvers);
+
+      expect(await readNodeStatusFileBytes(repository.env.productDir)).toEqual(before);
+      const { failure } = outcome;
+      if (failure === undefined) throw new Error("The check reported no differences");
+      const { differences } = failure;
+      expect(differences).toHaveLength(3);
+      expect(differences).toContainEqual({ nodeId: repository.nodeId, kind: NODE_STATUS_CLAIM_DIFFERENCE.STATE });
+      for (const key of [verdictKey, readKey]) {
+        expect(differences).toContainEqual({
+          nodeId: repository.nodeId,
+          kind: NODE_STATUS_CLAIM_DIFFERENCE.ENTRY,
+          section: NODE_STATUS_CLAIM_SECTION.TEST,
+          key,
+        });
+      }
+      const report = renderTerminalText(failure.report);
+      for (const reported of [repository.nodeId, verdictKey, readKey, ...Object.values(NODE_STATUS_CLAIM_DIFFERENCE)]) {
+        expect(report).toContain(reported);
+      }
+    });
+  });
+
+  it("writes nothing, reports nothing, and signals success when committed claims differ from the projection only in pin commits", async () => {
+    const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
+      const projection = await commitRegeneratedProjection(repository);
+      const projected = await readNodeStatusFileBytes(repository.env.productDir);
+      const committed = nodeStatusClaimResults(projection.claim).reduce(
+        (claims, { section, key }) =>
+          withClaimEntry(claims, { nodeId: repository.nodeId, section, key }, (entry) => ({
+            ...entry,
+            [NODE_STATUS_CLAIM_FIELD.COMMIT]: repository.commit,
+          })),
+        new Map([[repository.nodeId, projection.claim]]) as ReadonlyMap<string, typeof projection.claim>,
+      ).get(repository.nodeId);
+      if (committed === undefined) throw new Error("The re-pinned claim is missing");
+      await commitNodeClaim(repository, committed);
+      const before = await readNodeStatusFileBytes(repository.env.productDir);
+      // Re-pinning must change the committed bytes, or the case would compare identical claims.
+      expect(before).not.toEqual(projected);
+
+      const outcome = await runStatusCheck(repository, projection.resolvers);
+
+      expect(await readNodeStatusFileBytes(repository.env.productDir)).toEqual(before);
+      const { output } = outcome;
+      if (output === undefined) throw new Error("The check reported differences");
+      expect(renderTerminalText(output)).toBe("");
+    });
+  });
+
+  it("rejects --check without --update at the type level", () => {
+    // @ts-expect-error --check is valid only beside --update
+    const checkWithoutUpdate = () => statusCommand({ check: true });
+
+    expect(checkWithoutUpdate).toBeTypeOf("function");
   });
 });
