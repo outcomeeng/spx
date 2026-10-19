@@ -29,4 +29,4 @@ CAN name a verification input by its content, confirm the content a run starts o
 
 ### Audit
 
-- ALWAYS: content normalization, content digesting, and operand resolution live in `src/lib/verification-input/` behind its `index.ts`, and inspection, `start`, and recorded-input replay consume them there ([audit:verification-input-module-home])
+- ALWAYS: content normalization, content digesting, and operand resolution live in `src/lib/verification-input/` behind its `index.ts` ([audit:verification-input-module-home])
