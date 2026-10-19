@@ -94,9 +94,9 @@ import {
   detectGitCommonDirProductRoot,
   getCurrentBranch,
   getHeadSha,
-  GIT_ROOT_COMMAND,
   type GitDependencies,
   isHeadUnborn,
+  resolveCommitSha,
   REVISION_COMMIT_OUTCOME,
 } from "@/lib/git/root";
 import {
@@ -623,23 +623,13 @@ async function resolveStartHeadCommit(
   if (!resolved.isGitRepo) return { ok: true, value: undefined };
   const git = deps.git ?? defaultGitDependencies;
   const unresolved: Result<string | undefined> = { ok: false, error: VERIFY_CLI_ERROR.HEAD_COMMIT_UNRESOLVED };
-  if (resolution.headRevision === undefined) {
-    const headCommit = await getHeadSha(resolved.worktreeRoot, git);
-    if (headCommit !== null) return { ok: true, value: headCommit };
+  if (resolution.headRevision !== undefined) {
+    const revisionCommit = await resolveCommitSha(resolution.headRevision, resolved.worktreeRoot, git);
+    return revisionCommit === null ? unresolved : { ok: true, value: revisionCommit };
   }
-  const outcome = await classifyRevisionCommit(
-    resolution.headRevision ?? GIT_ROOT_COMMAND.HEAD,
-    resolved.worktreeRoot,
-    git,
-  );
-  if (outcome.kind === REVISION_COMMIT_OUTCOME.RESOLVED) return { ok: true, value: outcome.sha };
-  if (outcome.kind === REVISION_COMMIT_OUTCOME.FAILED) {
-    return { ok: false, error: `${VERIFY_CLI_ERROR.HEAD_COMMIT_UNRESOLVED}: ${outcome.message}` };
-  }
-  if (resolution.headRevision === undefined && await isHeadUnborn(resolved.worktreeRoot, git)) {
-    return { ok: true, value: undefined };
-  }
-  return unresolved;
+  const headCommit = await getHeadSha(resolved.worktreeRoot, git);
+  if (headCommit !== null) return { ok: true, value: headCommit };
+  return await isHeadUnborn(resolved.worktreeRoot, git) ? { ok: true, value: undefined } : unresolved;
 }
 
 function canonicalizeVerifyRunSelector(scopeType: string, scopeIdentity: string): Result<VerifyRunSelector> {
