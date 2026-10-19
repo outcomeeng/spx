@@ -102,7 +102,7 @@ describe("every spx.status.json the writer produces under a 4.0 methodology", ()
 
 describe("every pinned entry the writer produces under a 4.0 methodology", () => {
   it(
-    "carries the checked-out commit and read paths holding the node's spec, the entry's own subjects, and its verification artifact, and every other entry reads not-run with no pin",
+    "carries the checked-out commit and read paths holding the node's spec, the entry's own subjects, and its verification artifact, a test entry otherwise reads not-run with no pin, and an audit or evidence entry no run covers stays as committed while its pin is current and reads not-run with no pin otherwise",
     async () => {
       const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
       await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
@@ -114,6 +114,10 @@ describe("every pinned entry the writer produces under a 4.0 methodology", () =>
             repository.evidenceKinds,
           ),
           async (runs) => {
+            const committedBefore = readNodeStatus(join(repository.env.productDir, repository.nodePath));
+            const committedEntries = committedBefore?.shape === NODE_STATUS_CLAIM_SHAPE.CURRENT
+              ? nodeStatusClaimResults(committedBefore.claim)
+              : [];
             await updateNodeStatus({
               productDir: repository.env.productDir,
               ...repository.resolversOfRecordedRuns(runs),
@@ -150,6 +154,13 @@ describe("every pinned entry the writer produces under a 4.0 methodology", () =>
               const pinned = run !== undefined
                 && run.verdict !== NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN
                 && run.read.length > 0;
+              const uncovered = run === undefined && section !== NODE_STATUS_CLAIM_SECTION.TEST;
+              const committed = committedEntries.find((result) => result.section === section && result.key === key)
+                ?.entry;
+              if (uncovered && committed?.[NODE_STATUS_CLAIM_FIELD.COMMIT] === repository.commit) {
+                expect(entry).toEqual(committed);
+                continue;
+              }
               if (!pinned) {
                 expect(entry).toEqual({ [NODE_STATUS_CLAIM_FIELD.VERDICT]: NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN });
                 continue;
