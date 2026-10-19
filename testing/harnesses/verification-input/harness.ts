@@ -4,21 +4,17 @@
  * before and after an inspection. It returns observations and handles, never verdicts.
  */
 import { execa } from "execa";
-import { chmod, mkdir, readdir, readFile, symlink, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { appendFile, chmod, mkdir, readdir, readFile, symlink, writeFile } from "node:fs/promises";
+import { dirname, join, relative } from "node:path";
 
-import { VERIFICATION_INPUT_REJECTION, type VerificationInputRejection } from "@/lib/verification-input";
-import {
-  referenceSha256,
-  sampleVerificationInputValue,
-  VERIFICATION_INPUT_TEST_GENERATOR,
-} from "@testing/generators/verification-input";
+import { referenceSha256 } from "@testing/generators/verification-input";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const TEMP_PREFIX = "spx-verification-input-";
 const GIT_BINARY = "git";
 const GIT_INIT_ARGS = ["init", "--quiet"] as const;
 const UNREADABLE_MODE = "000";
+const GITIGNORE_FILE = ".gitignore";
 const OUTSIDE_DIRECTORY_PREFIX = "spx-verification-input-outside-";
 
 export interface VerificationInputEnv {
@@ -30,6 +26,12 @@ export interface VerificationInputEnv {
   makeDirectory(relativePath: string): Promise<string>;
   symlink(target: string, relativeLinkPath: string): Promise<string>;
   makeUnreadable(relativePath: string): Promise<void>;
+  /** Writes a file directly under `outsideDir` and returns its absolute path. */
+  writeOutside(name: string, bytes: Uint8Array | string): Promise<string>;
+  /** Appends the path to the worktree's `.gitignore`, so git stops listing the file. */
+  ignore(relativePath: string): Promise<void>;
+  /** The path from the worktree root to an absolute path, with parent segments where it lies outside. */
+  relativeFromRoot(absolutePath: string): string;
   /** Path to digest of every file and symlink-free directory entry under the worktree, excluding `.git`. */
   snapshot(): Promise<ReadonlyMap<string, string>>;
 }
@@ -79,6 +81,17 @@ export async function withVerificationInputEnv<T>(
         async makeUnreadable(relativePath) {
           await chmod(join(root, relativePath), UNREADABLE_MODE);
         },
+        async writeOutside(name, bytes) {
+          const absolute = join(outsideDir, name);
+          await writeFile(absolute, bytes);
+          return absolute;
+        },
+        async ignore(relativePath) {
+          await appendFile(join(root, GITIGNORE_FILE), `${relativePath}\n`);
+        },
+        relativeFromRoot(absolutePath) {
+          return relative(root, absolutePath);
+        },
         async snapshot() {
           const entries = new Map<string, string>();
           await walk(root, "", entries);
@@ -87,61 +100,4 @@ export async function withVerificationInputEnv<T>(
       };
       return callback(env);
     }));
-}
-
-export interface ArrangedRejectionCase {
-  /** The operand a caller supplies; its inspection violates the rejection's rule. */
-  readonly operand: string;
-}
-
-const PARENT_TRAVERSAL = "..";
-
-/**
- * Arranges the real filesystem state whose inspection violates the named rejection rule and
- * returns the operand to inspect. The harness builds the violation; the linked test owns the verdict.
- */
-export async function arrangeRejectionCase(
-  env: VerificationInputEnv,
-  reason: VerificationInputRejection,
-  relativePath: string,
-): Promise<ArrangedRejectionCase> {
-  switch (reason) {
-    case VERIFICATION_INPUT_REJECTION.UNRESOLVED:
-      return { operand: relativePath };
-    case VERIFICATION_INPUT_REJECTION.AMBIGUOUS: {
-      const name = relativePath.split("/").pop() ?? relativePath;
-      await env.writeFile(`first/${name}`, name);
-      await env.writeFile(`second/${name}`, name);
-      return { operand: name };
-    }
-    case VERIFICATION_INPUT_REJECTION.NOT_REGULAR_FILE:
-      await env.makeDirectory(relativePath);
-      return { operand: relativePath };
-    case VERIFICATION_INPUT_REJECTION.UNREADABLE:
-      await env.writeFile(relativePath, relativePath);
-      await env.makeUnreadable(relativePath);
-      return { operand: relativePath };
-    case VERIFICATION_INPUT_REJECTION.OUTSIDE_ROOT_TRAVERSAL: {
-      const outside = await writeOutside(env, relativePath);
-      return { operand: `${PARENT_TRAVERSAL}/${outside.split("/").slice(-2).join("/")}` };
-    }
-    case VERIFICATION_INPUT_REJECTION.OUTSIDE_ROOT_SYMLINK: {
-      const outside = await writeOutside(env, relativePath);
-      await env.symlink(outside, relativePath);
-      return { operand: relativePath };
-    }
-    case VERIFICATION_INPUT_REJECTION.INVALID_UTF8:
-      await env.writeFile(
-        relativePath,
-        sampleVerificationInputValue(VERIFICATION_INPUT_TEST_GENERATOR.invalidUtf8()),
-      );
-      return { operand: relativePath };
-  }
-}
-
-async function writeOutside(env: VerificationInputEnv, relativePath: string): Promise<string> {
-  const name = relativePath.split("/").pop() ?? relativePath;
-  const target = join(env.outsideDir, name);
-  await writeFile(target, name);
-  return target;
 }
