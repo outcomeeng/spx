@@ -1,0 +1,65 @@
+/**
+ * Harness for reading generated node specs that carry evidence tags.
+ *
+ * The in-memory source serves each spec's text and each present link target's text through
+ * `readText` and yields the specs' node entries; the filesystem reader writes the same files into
+ * a temporary product directory under a 4.0 methodology declaration and reads them through the
+ * filesystem source, so an absent link target is a real missing file. Both return the snapshot
+ * the read produces, or let its rejection propagate; the linked test states what each must be.
+ *
+ * @module harnesses/spec-tree/evidence-references
+ */
+
+import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
+import {
+  createFilesystemSpecTreeSource,
+  readSpecTree,
+  SPEC_TREE_METHODOLOGY_LINE,
+  type SpecTreeSnapshot,
+  type SpecTreeSource,
+} from "@/lib/spec-tree";
+import { sampleGeneratedValue } from "@testing/generators/sample";
+import type { EvidenceSpec } from "@testing/generators/spec-tree/evidence-references";
+import { arbitraryVersionOnLine } from "@testing/generators/spec-tree/grammar-selection";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+
+/** A source that yields the specs' node entries and reads text for exactly the files the specs occupy. */
+export function createEvidenceTextSource(specs: readonly EvidenceSpec[]): SpecTreeSource {
+  const texts = new Map(specs.flatMap(({ files }) => files).map(({ path, contents }) => [path, contents]));
+  return {
+    async *entries() {
+      yield* specs.map(({ entry }) => entry);
+    },
+    async readText(ref) {
+      const text = ref.path === undefined ? undefined : texts.get(ref.path);
+      if (text === undefined) {
+        throw new Error(`The evidence text source holds no file for ref ${ref.id}`);
+      }
+      return text;
+    },
+  };
+}
+
+/** The snapshot a read of the specs through the in-memory text source produces. */
+export function readEvidenceSpecsFromMemory(specs: readonly EvidenceSpec[]): Promise<SpecTreeSnapshot> {
+  return readSpecTree({ source: createEvidenceTextSource(specs) });
+}
+
+/** The snapshot a read of the specs written into a temporary product directory produces. */
+export function readEvidenceSpecsFromFilesystem(specs: readonly EvidenceSpec[]): Promise<SpecTreeSnapshot> {
+  return withTestEnv(
+    {
+      [METHODOLOGY_SECTION]: {
+        [METHODOLOGY_CONFIG_FIELDS.VERSION]: sampleGeneratedValue(
+          arbitraryVersionOnLine(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO),
+        ),
+      },
+    },
+    async (env) => {
+      for (const { path, contents } of specs.flatMap(({ files }) => files)) {
+        await env.writeRaw(path, contents);
+      }
+      return readSpecTree({ source: createFilesystemSpecTreeSource({ productDir: env.productDir }) });
+    },
+  );
+}
