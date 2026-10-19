@@ -456,7 +456,7 @@ describe("spx spec status --update --check command", () => {
       expect(await readNodeStatusFileBytes(repository.env.productDir)).toEqual(before);
       const { output } = outcome;
       if (output === undefined) throw new Error("The check reported differences");
-      expect(renderTerminalText(output)).toBe("");
+      expect(renderTerminalText(output)).toHaveLength(0);
     });
   });
 
@@ -464,6 +464,6 @@ describe("spx spec status --update --check command", () => {
     // @ts-expect-error --check is valid only beside --update
     const checkWithoutUpdate = () => statusCommand({ check: true });
 
-    expect(checkWithoutUpdate).toBeTypeOf("function");
+    expect(checkWithoutUpdate).toBeInstanceOf(Function);
   });
 });
