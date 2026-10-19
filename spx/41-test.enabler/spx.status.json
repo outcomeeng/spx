@@ -5,7 +5,7 @@
     "test": {
       "tests/evidence-contract.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
+        "commit": "1169677d0dd097f98414f2fd6ad6f4fcba019752",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -296,7 +296,7 @@
       },
       "tests/test.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
+        "commit": "1169677d0dd097f98414f2fd6ad6f4fcba019752",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",

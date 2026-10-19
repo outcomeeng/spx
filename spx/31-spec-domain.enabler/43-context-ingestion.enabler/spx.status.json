@@ -153,7 +153,7 @@
       },
       "tests/context-ingestion.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
+        "commit": "1169677d0dd097f98414f2fd6ad6f4fcba019752",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -300,7 +300,7 @@
           "testing/harnesses/spec/spec-cli-network-guard.ts",
           "testing/harnesses/with-temp-dir.ts",
           "tsconfig.json",
-          "tsup.config.bundled_1yb89i6xae.mjs",
+          "tsup.config.bundled_28scafpnwx7.mjs",
           "tsup.config.ts"
         ]
       },
