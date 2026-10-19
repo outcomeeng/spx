@@ -5,7 +5,7 @@
     "test": {
       "tests/pin-currency.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -76,6 +76,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -160,7 +161,7 @@
       },
       "tests/spec-cli-commands.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -255,6 +256,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -343,7 +345,7 @@
       },
       "tests/spec-cli-commands.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -415,6 +417,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -500,7 +503,7 @@
       },
       "tests/spec-cli-commands.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -571,6 +574,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -652,7 +656,7 @@
       },
       "tests/spec-context-commands.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -736,6 +740,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -799,7 +804,7 @@
       },
       "tests/spec-status-fold.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -870,6 +875,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -951,7 +957,7 @@
       },
       "tests/status-journal-evidence.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -1028,6 +1034,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -1114,7 +1121,7 @@
       },
       "tests/status-journal-evidence.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -1191,6 +1198,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -1277,7 +1285,7 @@
       },
       "tests/status-testing-delegation.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -1348,6 +1356,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",

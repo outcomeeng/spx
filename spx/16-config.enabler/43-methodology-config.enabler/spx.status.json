@@ -5,7 +5,7 @@
     "test": {
       "tests/methodology-config.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/43-methodology-config.enabler/methodology-config.md",
@@ -48,6 +48,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -95,7 +96,7 @@
       },
       "tests/methodology-config.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/43-methodology-config.enabler/methodology-config.md",
@@ -138,6 +139,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -185,7 +187,7 @@
       },
       "tests/methodology-config.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/43-methodology-config.enabler/methodology-config.md",
@@ -228,6 +230,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",

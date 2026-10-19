@@ -5,7 +5,7 @@
     "test": {
       "tests/compact-output.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/43-compact-output.enabler/compact-output.md",
@@ -120,7 +120,7 @@
       },
       "tests/compact-output.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/43-compact-output.enabler/compact-output.md",
@@ -235,7 +235,7 @@
       },
       "tests/compact-output.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/43-compact-output.enabler/compact-output.md",
@@ -350,7 +350,7 @@
       },
       "tests/compact-output.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/43-compact-output.enabler/compact-output.md",
@@ -465,7 +465,7 @@
       },
       "tests/compact-output.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "methodology/4.0/claude/spec-tree/skills/understand/manifest.json",
           "methodology/4.0/codex/spec-tree/skills/understand/manifest.json",

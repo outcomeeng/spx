@@ -5,7 +5,7 @@
     "test": {
       "tests/eslint-mirror.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "eslint-rules/import-source.ts",
           "eslint-rules/index.ts",
@@ -118,7 +118,7 @@
       },
       "tests/sonarcloud-project-exclusions.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           ".sonarcloud.properties",
           "lefthook.yml",

@@ -5,7 +5,7 @@
     "test": {
       "tests/understand-payload.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "methodology/4.0/claude/spec-tree/skills/understand/SKILL.md",
           "methodology/4.0/claude/spec-tree/skills/understand/manifest.json",
@@ -103,6 +103,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -167,7 +168,7 @@
       },
       "tests/understand-payload.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/tests/understand-payload.mapping.l1.test.ts",
@@ -251,6 +252,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -314,7 +316,7 @@
       },
       "tests/understand-payload.mapping.l2.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "methodology/4.0/claude/spec-tree/skills/understand/SKILL.md",
           "methodology/4.0/claude/spec-tree/skills/understand/manifest.json",
@@ -403,6 +405,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -464,13 +467,13 @@
           "testing/harnesses/spec/spec-cli-network-guard.ts",
           "testing/harnesses/with-temp-dir.ts",
           "tsconfig.json",
-          "tsup.config.bundled_gymufy6k3k.mjs",
+          "tsup.config.bundled_m6pked8nbvo.mjs",
           "tsup.config.ts"
         ]
       },
       "tests/understand-payload.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/tests/understand-payload.scenario.l1.test.ts",
@@ -554,6 +557,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -617,7 +621,7 @@
       },
       "tests/understand-payload.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "methodology/4.0/claude/spec-tree/skills/understand/SKILL.md",
           "methodology/4.0/claude/spec-tree/skills/understand/manifest.json",
@@ -704,6 +708,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -765,7 +770,7 @@
           "testing/harnesses/spec/spec-cli-network-guard.ts",
           "testing/harnesses/with-temp-dir.ts",
           "tsconfig.json",
-          "tsup.config.bundled_u8nnsrzv5v.mjs",
+          "tsup.config.bundled_viq9wxi3ldb.mjs",
           "tsup.config.ts"
         ]
       }

@@ -5,7 +5,7 @@
     "test": {
       "tests/handoff-base-gate.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/43-session-store.enabler/session-store.md",
@@ -22,7 +22,7 @@
       },
       "tests/session-store.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "eslint-rules/import-source.ts",
           "eslint-rules/no-async-spawn-outside-lifecycle.ts",
@@ -112,6 +112,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -201,7 +202,7 @@
       },
       "tests/session-store.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/43-session-store.enabler/session-store.md",
@@ -241,7 +242,7 @@
       },
       "tests/session-store.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/43-session-store.enabler/session-store.md",
@@ -304,6 +305,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -351,7 +353,7 @@
       },
       "tests/session-store.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/43-session-store.enabler/session-store.md",

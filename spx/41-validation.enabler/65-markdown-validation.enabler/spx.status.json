@@ -5,7 +5,7 @@
     "test": {
       "tests/markdown-validation-command.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -178,6 +178,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/verify.ts",
           "src/domains/worktree/claim.ts",
@@ -266,6 +267,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -366,7 +368,7 @@
       },
       "tests/markdown-validation.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -426,6 +428,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -503,7 +506,7 @@
       },
       "tests/markdown-validation.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -546,6 +549,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -594,7 +598,7 @@
       },
       "tests/markdown-validation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/12-agent-harness.pdr.md",
@@ -759,6 +763,7 @@
           "spx/23-spec-tree.enabler/spec-tree.md",
           "spx/25-outcomeeng.enabler/31-changes.enabler/21-change-store.pdr.md",
           "spx/25-outcomeeng.enabler/31-changes.enabler/26-local-drafts.adr.md",
+          "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/21-draft-storage.pdr.md",
           "spx/25-outcomeeng.enabler/31-changes.enabler/32-change-drafts.enabler/change-drafts.md",
           "spx/25-outcomeeng.enabler/31-changes.enabler/43-change-cli.enabler/change-cli.md",
           "spx/25-outcomeeng.enabler/31-changes.enabler/ISSUES.md",
@@ -863,6 +868,7 @@
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/PLAN.md",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
           "spx/34-verification.enabler/32-verify.enabler/32-evidence-append.enabler/evidence-append.md",
+          "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/scope-reconciliation.md",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
           "spx/34-verification.enabler/32-verify.enabler/54-change-runs.enabler/ISSUES.md",
           "spx/34-verification.enabler/32-verify.enabler/54-change-runs.enabler/change-runs.md",
@@ -1119,6 +1125,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",

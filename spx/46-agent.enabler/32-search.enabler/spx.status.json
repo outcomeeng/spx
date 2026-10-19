@@ -5,7 +5,7 @@
     "test": {
       "tests/branch-association.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -178,6 +178,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/verify.ts",
           "src/domains/worktree/claim.ts",
@@ -266,6 +267,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -371,7 +373,7 @@
       },
       "tests/branch-association.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -544,6 +546,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/verify.ts",
           "src/domains/worktree/claim.ts",
@@ -632,6 +635,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -738,7 +742,7 @@
       },
       "tests/locator-availability.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -911,6 +915,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/verify.ts",
           "src/domains/worktree/claim.ts",
@@ -999,6 +1004,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -1098,7 +1104,7 @@
       },
       "tests/locator-bound.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -1271,6 +1277,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/verify.ts",
           "src/domains/worktree/claim.ts",
@@ -1359,6 +1366,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -1465,7 +1473,7 @@
       },
       "tests/locator-run.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -1638,6 +1646,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/verify.ts",
           "src/domains/worktree/claim.ts",
@@ -1726,6 +1735,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -1825,7 +1835,7 @@
       },
       "tests/locator-run.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -1946,7 +1956,7 @@
       },
       "tests/locator-runner.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -2119,6 +2129,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/verify.ts",
           "src/domains/worktree/claim.ts",
@@ -2207,6 +2218,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -2306,7 +2318,7 @@
       },
       "tests/locator.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -2479,6 +2491,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/verify.ts",
           "src/domains/worktree/claim.ts",
@@ -2567,6 +2580,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -2666,7 +2680,7 @@
       },
       "tests/reach-window.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -2839,6 +2853,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/verify.ts",
           "src/domains/worktree/claim.ts",
@@ -2927,6 +2942,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -3032,7 +3048,7 @@
       },
       "tests/reach-window.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -3205,6 +3221,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/verify.ts",
           "src/domains/worktree/claim.ts",
@@ -3293,6 +3310,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -3399,7 +3417,7 @@
       },
       "tests/scan-bound.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -3572,6 +3590,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/verify.ts",
           "src/domains/worktree/claim.ts",
@@ -3660,6 +3679,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -3765,7 +3785,7 @@
       },
       "tests/search.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -3938,6 +3958,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/verify.ts",
           "src/domains/worktree/claim.ts",
@@ -4026,6 +4047,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -4132,7 +4154,7 @@
       },
       "tests/search.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -4305,6 +4327,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/verify.ts",
           "src/domains/worktree/claim.ts",
@@ -4393,6 +4416,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -4499,7 +4523,7 @@
       },
       "tests/search.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -4672,6 +4696,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/verify.ts",
           "src/domains/worktree/claim.ts",
@@ -4760,6 +4785,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -4866,7 +4892,7 @@
       },
       "tests/selector-needle.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -5039,6 +5065,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/verify.ts",
           "src/domains/worktree/claim.ts",
@@ -5127,6 +5154,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -5227,7 +5255,7 @@
       },
       "tests/session-identity.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -5400,6 +5428,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/verify.ts",
           "src/domains/worktree/claim.ts",
@@ -5488,6 +5517,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -5594,7 +5624,7 @@
       },
       "tests/store-listing.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -5767,6 +5797,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/verify.ts",
           "src/domains/worktree/claim.ts",
@@ -5855,6 +5886,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",
@@ -5960,7 +5992,7 @@
       },
       "tests/store-placement.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -6133,6 +6165,7 @@
           "src/domains/verify/audit-claim-entry.ts",
           "src/domains/verify/change-runs.ts",
           "src/domains/verify/evidence-rejection.ts",
+          "src/domains/verify/reconciliation.ts",
           "src/domains/verify/rejection-report.ts",
           "src/domains/verify/verify.ts",
           "src/domains/worktree/claim.ts",
@@ -6221,6 +6254,7 @@
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
+          "src/lib/node-status/claim-comparison.ts",
           "src/lib/node-status/claim-shape.ts",
           "src/lib/node-status/claim-state.ts",
           "src/lib/node-status/claim.ts",

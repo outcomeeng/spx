@@ -5,7 +5,7 @@
     "test": {
       "tests/handoff-base-render.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/76-session-cli.enabler/session-cli.md",
@@ -20,7 +20,7 @@
       },
       "tests/list-text.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/76-session-cli.enabler/session-cli.md",
@@ -38,7 +38,7 @@
       },
       "tests/list-text.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/76-session-cli.enabler/session-cli.md",
@@ -60,7 +60,7 @@
       },
       "tests/session-cli.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/76-session-cli.enabler/session-cli.md",
@@ -203,7 +203,7 @@
       },
       "tests/session-cli.property.l2.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/76-session-cli.enabler/session-cli.md",
@@ -233,7 +233,7 @@
       },
       "tests/session-cli.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/76-session-cli.enabler/session-cli.md",

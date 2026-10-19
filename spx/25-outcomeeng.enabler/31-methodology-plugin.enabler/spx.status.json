@@ -5,7 +5,7 @@
     "test": {
       "tests/diagnostics.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -39,7 +39,7 @@
       },
       "tests/fetch.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -72,7 +72,7 @@
       },
       "tests/fetch.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -105,7 +105,7 @@
       },
       "tests/fetch.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -135,7 +135,7 @@
       },
       "tests/fetch.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -169,7 +169,7 @@
       },
       "tests/tree-address.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ffee252430a9cd30a6d6cf11be8c546e1f89c987",
+        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
