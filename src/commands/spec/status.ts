@@ -1,12 +1,16 @@
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { defaultGitDependencies, type GitDependencies } from "@/lib/git/root";
 import {
+  compareNodeStatusClaims,
   createNodeStatusProvider,
+  NODE_STATUS_CLAIM_DIFFERENCE,
   type NodeAttributedResultResolver,
   type NodeOutcomeResolver,
   type NodeReadPathResolver,
+  type NodeStatusClaimDifference,
   type NodeStatusClaimReport,
   readNodeStatusReports,
+  regenerateNodeStatusClaims,
   updateNodeStatus,
 } from "@/lib/node-status";
 import {
@@ -39,6 +43,10 @@ export const SPEC_STATUS_MESSAGE = {
   EMPTY: `No spec-tree nodes found in ${SPEC_TREE_CONFIG.ROOT_DIRECTORY}`,
 } as const;
 
+export const SPEC_STATUS_CHECK_MESSAGE = {
+  DIFFERENCES: "Committed node status differs from the regenerated projection",
+} as const;
+
 const DEFAULT_FORMAT: OutputFormat = OUTPUT_FORMAT.TEXT;
 const JSON_INDENTATION = 2;
 const LINE_SEPARATOR = authoredText("\n");
@@ -67,6 +75,19 @@ export class SpecStatusUpdateRequiresProductDirError extends Error {
   }
 }
 
+/** The rejection `--update --check` ends with when the committed claims differ from the regenerated ones. */
+export class SpecStatusCheckDifferencesError extends Error {
+  readonly differences: readonly NodeStatusClaimDifference[];
+  readonly report: TerminalText;
+
+  constructor(differences: readonly NodeStatusClaimDifference[]) {
+    super(SPEC_STATUS_CHECK_MESSAGE.DIFFERENCES);
+    this.name = "SpecStatusCheckDifferencesError";
+    this.differences = differences;
+    this.report = formatCheckDifferences(differences);
+  }
+}
+
 interface StatusBaseOptions {
   cwd?: string;
   format?: OutputFormat;
@@ -81,6 +102,7 @@ interface StatusBaseOptions {
 interface StatusReadOptions extends StatusBaseOptions {
   update?: false;
   resolveOutcomeFor?: never;
+  check?: never;
 }
 
 interface StatusUpdateOptions extends Omit<StatusBaseOptions, "source"> {
@@ -93,6 +115,8 @@ interface StatusUpdateOptions extends Omit<StatusBaseOptions, "source"> {
   resolveReadPathsFor?: (productDir: string) => NodeReadPathResolver;
   /** Builds the resolver of the audit and evidence results sealed audit runs recorded. */
   resolveAttributedResultsFor?: (productDir: string) => NodeAttributedResultResolver;
+  /** Compare the committed claims with the regenerated ones and write nothing. */
+  check?: boolean;
 }
 
 interface StatusInMemoryUpdateOptions extends StatusBaseOptions {
@@ -100,6 +124,7 @@ interface StatusInMemoryUpdateOptions extends StatusBaseOptions {
   /** Refresh each node's spx.status.json before reporting the rollup. */
   update: true;
   resolveOutcomeFor?: never;
+  check?: never;
 }
 
 export type StatusOptions = StatusReadOptions | StatusUpdateOptions | StatusInMemoryUpdateOptions;
@@ -124,6 +149,24 @@ export async function statusCommand(
     gitDependencies,
     options.onWarning,
   );
+  if (options.update === true && options.check === true) {
+    // --check regenerates the claims --update would write, in memory, and reports how the
+    // committed claims differ; it writes no file and sweeps none.
+    const { committed, regenerated } = await regenerateNodeStatusClaims({
+      productDir,
+      resolveOutcome: options.resolveOutcomeFor(productDir),
+      gitDependencies,
+      ...(options.resolveReadPathsFor === undefined
+        ? {}
+        : { resolveReadPaths: options.resolveReadPathsFor(productDir) }),
+      ...(options.resolveAttributedResultsFor === undefined
+        ? {}
+        : { resolveAttributedResults: options.resolveAttributedResultsFor(productDir) }),
+    });
+    const differences = compareNodeStatusClaims(committed, regenerated);
+    if (differences.length > 0) throw new SpecStatusCheckDifferencesError(differences);
+    return authoredText("");
+  }
   if (options.update === true) {
     // --update refreshes each node's spx.status.json before the read-back below, so
     // the reported rollup reflects the just-written state. The resolver and git runner
@@ -154,6 +197,17 @@ export async function statusCommand(
     options.format,
     await readNodeStatusReports(productDir, { gitDependencies }),
   );
+}
+
+function formatCheckDifferences(differences: readonly NodeStatusClaimDifference[]): TerminalText {
+  const lines = differences.map((difference) =>
+    difference.kind === NODE_STATUS_CLAIM_DIFFERENCE.ENTRY
+      ? terminal`${externalValue(difference.nodeId)} ${authoredText(difference.kind)} ${
+        externalValue(difference.section ?? "")
+      } ${externalValue(difference.key ?? "")}`
+      : terminal`${externalValue(difference.nodeId)} ${authoredText(difference.kind)}`
+  );
+  return joinTerminalText(LINE_SEPARATOR, [authoredText(SPEC_STATUS_CHECK_MESSAGE.DIFFERENCES), ...lines]);
 }
 
 /** The claim a node's JSON entry carries; `claims` is keyed by node id and absent for a node with no committed claim. */

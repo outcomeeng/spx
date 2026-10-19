@@ -16,7 +16,12 @@ import {
   type SpecTreeSnapshot,
 } from "@/lib/spec-tree";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
-import { NODE_STATUS_CLAIM_SHAPE, type NodeStatusClaimVerification, serializeNodeStatusClaim } from "./claim";
+import {
+  NODE_STATUS_CLAIM_SHAPE,
+  type NodeStatusClaim,
+  type NodeStatusClaimVerification,
+  serializeNodeStatusClaim,
+} from "./claim";
 import { declaredNodeStatusClaimShape } from "./claim-shape";
 import { createClaimHistoryReader } from "./claim-state";
 import {
@@ -72,28 +77,23 @@ const NO_COMMITTED_RESULTS: NodeStatusClaimVerification = {};
 export async function updateNodeStatus(options: UpdateNodeStatusOptions): Promise<void> {
   const { productDir, resolveOutcome, gitDependencies = defaultGitDependencies } = options;
   const claimShape = await declaredNodeStatusClaimShape(productDir);
+  const liveStatusPaths = new Set<string>();
+
+  if (claimShape === NODE_STATUS_CLAIM_SHAPE.CURRENT) {
+    for (const { nodeId, claim } of await foldTrackedNodeClaims(options)) {
+      const statusPath = nodeStatusPath(productDir, nodeId);
+      liveStatusPaths.add(statusPath);
+      await writeText(statusPath, serializeNodeStatusClaim(claim));
+    }
+    await removeStaleNodeStatusFiles(productDir, liveStatusPaths);
+    return;
+  }
+
   const snapshot = await readSpecTree({ source: createFilesystemSpecTreeSource({ productDir }) });
   const excludeReader = createNodeStatusExcludeReader(productDir);
-  // The boundary is the node directory: status is written only for a git-tracked
-  // node directory. A tracked node's own untracked, not-yet-staged evidence stays
-  // visible, so the projection matches what CI regenerates once it is committed.
   const trackedPaths = await listTrackedPaths(productDir, gitDependencies);
   const isTrackedNodeDirectory = createTrackedPathInclusion(trackedPaths);
-  const pinChanges = createPinChangeReader({ productDir, git: gitDependencies });
-  const history = createClaimHistoryReader({ productDir, git: gitDependencies });
   const evidenceByNode = collectEvidenceByNode(snapshot);
-  const liveStatusPaths = new Set<string>();
-  const claimFoldContext = {
-    productDir,
-    git: gitDependencies,
-    trackedPaths: trackedPaths ?? new Set<string>(),
-    pinChanges,
-    history,
-    ...(options.resolveReadPaths === undefined ? {} : { resolveReadPaths: options.resolveReadPaths }),
-    ...(options.resolveAttributedResults === undefined
-      ? {}
-      : { resolveAttributedResults: options.resolveAttributedResults }),
-  };
 
   for (const node of snapshot.allNodes) {
     if (!isTrackedNodeDirectory(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${TRACKED_PATH_DIRECTORY_SEPARATOR}${node.id}`)) {
@@ -103,20 +103,6 @@ export async function updateNodeStatus(options: UpdateNodeStatusOptions): Promis
     const statusPath = nodeStatusPath(productDir, node.id);
     const committed = readNodeStatus(dirname(statusPath));
     liveStatusPaths.add(statusPath);
-    if (claimShape === NODE_STATUS_CLAIM_SHAPE.CURRENT) {
-      const claim = await foldNodeClaim({
-        ...claimFoldContext,
-        nodeId: node.id,
-        declaration: await readNodeSpecDeclaration(productDir, node.id),
-        evidencePaths: evidencePaths(evidence),
-        outcomes: evidence.length === 0 ? {} : await resolveOutcome(node.id, evidencePaths(evidence)),
-        committed: committed?.shape === NODE_STATUS_CLAIM_SHAPE.CURRENT
-          ? committed.claim[NODE_STATUS_FIELD.VERIFICATION]
-          : NO_COMMITTED_RESULTS,
-      });
-      await writeText(statusPath, serializeNodeStatusClaim(claim));
-      continue;
-    }
     const verification = await resolveVerification(node, {
       evidence,
       isExcluded: excludeReader.isExcluded(node),
@@ -131,6 +117,81 @@ export async function updateNodeStatus(options: UpdateNodeStatusOptions): Promis
   }
 
   await removeStaleNodeStatusFiles(productDir, liveStatusPaths);
+}
+
+/** The claims a checkout holds and the claims `updateNodeStatus` would write over it, keyed by node id. */
+export interface NodeStatusClaimRegeneration {
+  readonly committed: ReadonlyMap<string, NodeStatusClaim>;
+  readonly regenerated: ReadonlyMap<string, NodeStatusClaim>;
+}
+
+/**
+ * Read each tracked node's committed claim and fold the claim `updateNodeStatus` would write, writing
+ * nothing. A product that declares the earlier claim shape holds no claims to regenerate and yields none.
+ */
+export async function regenerateNodeStatusClaims(
+  options: UpdateNodeStatusOptions,
+): Promise<NodeStatusClaimRegeneration> {
+  const committed = new Map<string, NodeStatusClaim>();
+  const regenerated = new Map<string, NodeStatusClaim>();
+  if (await declaredNodeStatusClaimShape(options.productDir) !== NODE_STATUS_CLAIM_SHAPE.CURRENT) {
+    return { committed, regenerated };
+  }
+  for (const { nodeId, claim, committed: committedClaim } of await foldTrackedNodeClaims(options)) {
+    regenerated.set(nodeId, claim);
+    if (committedClaim !== undefined) committed.set(nodeId, committedClaim);
+  }
+  return { committed, regenerated };
+}
+
+interface FoldedNodeClaim {
+  readonly nodeId: string;
+  readonly claim: NodeStatusClaim;
+  readonly committed: NodeStatusClaim | undefined;
+}
+
+async function foldTrackedNodeClaims(options: UpdateNodeStatusOptions): Promise<readonly FoldedNodeClaim[]> {
+  const { productDir, resolveOutcome, gitDependencies = defaultGitDependencies } = options;
+  const snapshot = await readSpecTree({ source: createFilesystemSpecTreeSource({ productDir }) });
+  // The boundary is the node directory: a claim is folded only for a git-tracked
+  // node directory. A tracked node's own untracked, not-yet-staged evidence stays
+  // visible, so the projection matches what CI regenerates once it is committed.
+  const trackedPaths = await listTrackedPaths(productDir, gitDependencies);
+  const isTrackedNodeDirectory = createTrackedPathInclusion(trackedPaths);
+  const pinChanges = createPinChangeReader({ productDir, git: gitDependencies });
+  const history = createClaimHistoryReader({ productDir, git: gitDependencies });
+  const evidenceByNode = collectEvidenceByNode(snapshot);
+  const claimFoldContext = {
+    productDir,
+    git: gitDependencies,
+    trackedPaths: trackedPaths ?? new Set<string>(),
+    pinChanges,
+    history,
+    ...(options.resolveReadPaths === undefined ? {} : { resolveReadPaths: options.resolveReadPaths }),
+    ...(options.resolveAttributedResults === undefined
+      ? {}
+      : { resolveAttributedResults: options.resolveAttributedResults }),
+  };
+
+  const folded: FoldedNodeClaim[] = [];
+  for (const node of snapshot.allNodes) {
+    if (!isTrackedNodeDirectory(`${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${TRACKED_PATH_DIRECTORY_SEPARATOR}${node.id}`)) {
+      continue;
+    }
+    const evidence = evidenceByNode.get(node.id) ?? [];
+    const read = readNodeStatus(dirname(nodeStatusPath(productDir, node.id)));
+    const committed = read?.shape === NODE_STATUS_CLAIM_SHAPE.CURRENT ? read.claim : undefined;
+    const claim = await foldNodeClaim({
+      ...claimFoldContext,
+      nodeId: node.id,
+      declaration: await readNodeSpecDeclaration(productDir, node.id),
+      evidencePaths: evidencePaths(evidence),
+      outcomes: evidence.length === 0 ? {} : await resolveOutcome(node.id, evidencePaths(evidence)),
+      committed: committed?.[NODE_STATUS_FIELD.VERIFICATION] ?? NO_COMMITTED_RESULTS,
+    });
+    folded.push({ nodeId: node.id, claim, committed });
+  }
+  return folded;
 }
 
 type VerificationInput = {

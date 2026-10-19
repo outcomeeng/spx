@@ -142,18 +142,13 @@ jobs:
       # One suite run: the journaled verification run covers the configured
       # unscoped test scope and seals a run journal under .spx/ recording each
       # module's verdict and the paths it read. The status step then reuses that
-      # sealed journal to regenerate the committed status projection without
-      # re-running any test.
+      # sealed journal to regenerate the status projection in memory, without
+      # writing a file or re-running any test, and fails when a node's state or an
+      # entry's verdict or read set differs from the committed claim.
       - name: Test (journaled verification run)
         run: pnpm exec tsx src/cli.ts verification test run
       - name: Check committed status projection
-        run: |
-          pnpm exec tsx src/cli.ts spec status --update --format json > /tmp/spx-status.json
-          if [ -n "$(git status --porcelain -- spx)" ]; then
-            git status --short -- spx
-            git diff -- spx
-            exit 1
-          fi
+        run: pnpm exec tsx src/cli.ts spec status --update --check
 
   validate-published:
     name: Validation (packaged CLI)

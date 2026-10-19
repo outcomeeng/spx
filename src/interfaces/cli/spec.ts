@@ -8,7 +8,12 @@ import {
 } from "@/commands/spec/context-show";
 import { nextCommand } from "@/commands/spec/next";
 import { createNodeStatusResolvers, type NodeStatusResolvers } from "@/commands/spec/node-status-resolvers";
-import { OUTPUT_FORMAT, type OutputFormat, statusCommand } from "@/commands/spec/status";
+import {
+  OUTPUT_FORMAT,
+  type OutputFormat,
+  SpecStatusCheckDifferencesError,
+  statusCommand,
+} from "@/commands/spec/status";
 import { inferInvokingCodingAgent } from "@/interfaces/cli/coding-agent";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
@@ -38,6 +43,7 @@ export const SPEC_DOMAIN_CLI = {
   FORMAT_OPTION_FLAG: "--format",
   FORMAT_OPTION_DEFINITION: "--format <format>",
   UPDATE_OPTION: "--update",
+  CHECK_OPTION: "--check",
 } as const;
 
 /** The command words that invoke each `spx spec context` subcommand, in invocation order. */
@@ -72,6 +78,10 @@ function writeInvocationWarning(io: CliIo, warning: string | undefined): void {
 }
 
 function handleCommandError(io: CliIo, error: unknown): never {
+  if (error instanceof SpecStatusCheckDifferencesError) {
+    io.writeStderr(terminal`${error.report}\n`);
+    return io.exit(1);
+  }
   let message: string;
   if (error instanceof Error) {
     message = error.message;
@@ -194,8 +204,15 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
     .option(SPEC_DOMAIN_CLI.JSON_OPTION, "Output as JSON")
     .option(SPEC_DOMAIN_CLI.FORMAT_OPTION_DEFINITION, "Output format (text|json|markdown|table)")
     .option(SPEC_DOMAIN_CLI.UPDATE_OPTION, "Refresh each node's spx.status.json before reporting")
-    .action(async (options: { json?: boolean; format?: string; update?: boolean }) => {
+    .option(
+      SPEC_DOMAIN_CLI.CHECK_OPTION,
+      "With --update, write nothing and fail when the committed claims differ from the projection",
+    )
+    .action(async (options: { json?: boolean; format?: string; update?: boolean; check?: boolean }) => {
       try {
+        if (options.check === true && options.update !== true) {
+          throw new Error(`${SPEC_DOMAIN_CLI.CHECK_OPTION} is valid only with ${SPEC_DOMAIN_CLI.UPDATE_OPTION}`);
+        }
         const format = resolveStatusFormat(options);
         let statusResolvers: NodeStatusResolvers | undefined;
         const statusResolversFor = (
@@ -210,6 +227,7 @@ function registerSpecCommands(specCmd: Command, invocation: CliInvocation): void
             format,
             onWarning,
             update: true,
+            ...(options.check === true ? { check: true as const } : {}),
             resolveOutcomeFor: (productDir) => statusResolversFor(productDir).resolveOutcome,
             resolveReadPathsFor: (productDir) => statusResolversFor(productDir).resolveReadPaths,
             resolveAttributedResultsFor: (productDir) => statusResolversFor(productDir).resolveAttributedResults,
