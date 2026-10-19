@@ -126,7 +126,7 @@ function lifecycleDeps(cwd: string, inputContent: string, driveMode: VerifyDrive
     git: realVerifyGitDependencies(),
     processEnv: {},
     fs: defaultStateStoreFileSystem,
-    readInputSource: async () => inputContent,
+    readInputSource: async () => new TextEncoder().encode(inputContent),
     readPayloadSource: (source: string) => Promise.resolve(source),
     journalBinding: { localSink: createRecordingStreamSink().sink },
   };
