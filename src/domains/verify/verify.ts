@@ -15,7 +15,7 @@ import {
 } from "@/domains/verify/evidence-rejection";
 import type { JournalEvent, JournalEventInput, JsonValue } from "@/lib/agent-run-journal";
 import { RUNTIME_EVENT_NAMESPACE_DEFAULT } from "@/lib/agent-run-journal/config";
-import { branchScopeDir, runsDir, validateScopeToken } from "@/lib/state-store";
+import { branchScopeDir, compareAsciiStrings, runsDir, validateScopeToken } from "@/lib/state-store";
 
 export const VERIFY_SCOPE_TYPE = {
   CHANGESET: "changeset",
@@ -35,6 +35,7 @@ export const VERIFY_VERB = {
   INPUT: "input",
   APPEND_SCOPE: "append-scope",
   APPEND_FINDING: "append-finding",
+  RECONCILE: "reconcile",
   FINISH: "finish",
   STATUS: "status",
   RENDER: "render",
@@ -1682,10 +1683,19 @@ function validateAuditScopeForRun(input: EvidenceValidationInput): EvidenceValid
  */
 export const VERIFY_SCOPE_PAYLOAD_FIELD = {
   JUDGED_PATHS: "judgedPaths",
+  JUDGED_DELETIONS: "judgedDeletions",
 } as const;
 
-/** A scope unit carrying the judged paths its payload named, normalized to product-relative form. */
-export type WithJudgedPaths<T> = T & { readonly judgedPaths?: readonly string[] };
+type VerifyScopePathListField = (typeof VERIFY_SCOPE_PAYLOAD_FIELD)[keyof typeof VERIFY_SCOPE_PAYLOAD_FIELD];
+
+/**
+ * A scope unit carrying the judged paths and judged deletions its payload named, normalized to
+ * product-relative form.
+ */
+export type WithJudgedPaths<T> = T & {
+  readonly judgedPaths?: readonly string[];
+  readonly judgedDeletions?: readonly string[];
+};
 
 /**
  * Read a scope payload's judged paths: absent when the payload names none, otherwise a non-empty
@@ -1694,7 +1704,24 @@ export type WithJudgedPaths<T> = T & { readonly judgedPaths?: readonly string[] 
  * path, or a parent-directory escape refuses the payload naming the failing field path.
  */
 export function readScopeJudgedPaths(payload: JsonValue): EvidenceValidationResult<readonly string[] | undefined> {
-  const field = VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_PATHS;
+  return readScopePathList(payload, VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_PATHS);
+}
+
+/**
+ * Read a scope payload's judged deletions with the same shape rules as its judged paths: absent
+ * when the payload names none, otherwise a non-empty array of safe product-relative paths returned
+ * normalized in payload order.
+ */
+export function readScopeJudgedDeletions(
+  payload: JsonValue,
+): EvidenceValidationResult<readonly string[] | undefined> {
+  return readScopePathList(payload, VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_DELETIONS);
+}
+
+function readScopePathList(
+  payload: JsonValue,
+  field: VerifyScopePathListField,
+): EvidenceValidationResult<readonly string[] | undefined> {
   if (!isJsonRecord(payload) || !Object.hasOwn(payload, field)) return acceptEvidence(undefined);
   const entries = payload[field];
   if (!Array.isArray(entries) || entries.length === 0) return rejectEvidenceField(field);
@@ -1713,6 +1740,15 @@ export function readScopeJudgedPaths(payload: JsonValue): EvidenceValidationResu
  */
 export function scopeJudgedPathsOf(payload: JsonValue): readonly string[] {
   const judged = readScopeJudgedPaths(payload);
+  return judged.ok && judged.value !== undefined ? judged.value : [];
+}
+
+/**
+ * The judged deletions an accepted scope payload records, in payload order, or none when it names
+ * no judged deletion.
+ */
+export function scopeJudgedDeletionsOf(payload: JsonValue): readonly string[] {
+  const judged = readScopeJudgedDeletions(payload);
   return judged.ok && judged.value !== undefined ? judged.value : [];
 }
 
@@ -1743,9 +1779,13 @@ function scopeEvidenceValidator<T extends object>(
     if (!validated.ok) return validated;
     const judged = readScopeJudgedPaths(input.payload);
     if (!judged.ok) return forwardEvidenceRejection(judged);
-    return judged.value === undefined
-      ? validated
-      : acceptEvidence({ ...validated.value, [VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_PATHS]: judged.value });
+    const deletions = readScopeJudgedDeletions(input.payload);
+    if (!deletions.ok) return forwardEvidenceRejection(deletions);
+    return acceptEvidence({
+      ...validated.value,
+      ...(judged.value === undefined ? {} : { [VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_PATHS]: judged.value }),
+      ...(deletions.value === undefined ? {} : { [VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_DELETIONS]: deletions.value }),
+    });
   };
 }
 
@@ -1766,6 +1806,31 @@ export function validateJudgedPathsAtHead(
   return unheld.length === 0
     ? acceptEvidence(judgedPaths)
     : rejectEvidenceRequirementAt(EVIDENCE_REQUIREMENT.JUDGED_PATH_HELD_AT_HEAD, unheld);
+}
+
+/**
+ * Check judged deletions against the change inventory the run recorded at start. A run with no
+ * recorded change inventory has no deletion to judge, so its judged deletions are refused;
+ * otherwise every path the inventory does not list as deleted is refused by its entry's field path.
+ */
+export function validateJudgedDeletionsAgainstInventory(
+  judgedDeletions: readonly string[],
+  changeInventory: readonly VerifyChangeInventoryEntry[] | undefined,
+): EvidenceValidationResult<readonly string[]> {
+  if (changeInventory === undefined) {
+    return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.JUDGED_DELETIONS_NEED_CHANGE_INVENTORY);
+  }
+  const deleted = new Set(
+    changeInventory
+      .filter((entry) => entry.changeKind === VERIFY_CHANGE_KIND.DELETED)
+      .map((entry) => entry.path),
+  );
+  const unlisted = judgedDeletions.flatMap((path, index) =>
+    deleted.has(path) ? [] : [[VERIFY_SCOPE_PAYLOAD_FIELD.JUDGED_DELETIONS, String(index)]]
+  );
+  return unlisted.length === 0
+    ? acceptEvidence(judgedDeletions)
+    : rejectEvidenceRequirementAt(EVIDENCE_REQUIREMENT.JUDGED_DELETION_LISTED_AS_DELETED, unlisted);
 }
 
 /**
@@ -1942,7 +2007,171 @@ export const VERIFY_RUN_CONTEXT_EVENT_FIELD = {
   DRIVE_MODE: "driveMode",
   HEAD_COMMIT: "headCommit",
   CHANGE: "change",
+  CHANGE_INVENTORY: "changeInventory",
+  EXPECTATIONS: "expectations",
 } as const;
+
+/** How a path differs between a changeset's base and head, as one change-inventory entry records it. */
+export const VERIFY_CHANGE_KIND = {
+  ADDED: "added",
+  MODIFIED: "modified",
+  DELETED: "deleted",
+  COPY_SOURCE: "copy-source",
+} as const;
+
+export type VerifyChangeKind = (typeof VERIFY_CHANGE_KIND)[keyof typeof VERIFY_CHANGE_KIND];
+
+/** The fields of one change-inventory entry. */
+export const VERIFY_CHANGE_INVENTORY_ENTRY_FIELD = {
+  PATH: "path",
+  CHANGE_KIND: "changeKind",
+} as const;
+
+/** One path a changeset changes between base and head and how it changes. */
+export interface VerifyChangeInventoryEntry {
+  readonly path: string;
+  readonly changeKind: VerifyChangeKind;
+}
+
+const NAME_STATUS_RECORD_SEPARATOR = "\0";
+const NAME_STATUS_ADDED = "A";
+const NAME_STATUS_DELETED = "D";
+const NAME_STATUS_RENAMED = "R";
+const NAME_STATUS_COPIED = "C";
+
+function nameStatusIsTwoPath(status: string): boolean {
+  return status.startsWith(NAME_STATUS_RENAMED) || status.startsWith(NAME_STATUS_COPIED);
+}
+
+function inventoryEntriesOfNameStatus(
+  status: string,
+  paths: readonly string[],
+): readonly VerifyChangeInventoryEntry[] {
+  const [first, second] = paths;
+  if (status.startsWith(NAME_STATUS_RENAMED)) {
+    return [
+      { path: first, changeKind: VERIFY_CHANGE_KIND.DELETED },
+      { path: second, changeKind: VERIFY_CHANGE_KIND.ADDED },
+    ];
+  }
+  if (status.startsWith(NAME_STATUS_COPIED)) {
+    return [
+      { path: second, changeKind: VERIFY_CHANGE_KIND.ADDED },
+      { path: first, changeKind: VERIFY_CHANGE_KIND.COPY_SOURCE },
+    ];
+  }
+  if (status === NAME_STATUS_ADDED) return [{ path: first, changeKind: VERIFY_CHANGE_KIND.ADDED }];
+  if (status === NAME_STATUS_DELETED) return [{ path: first, changeKind: VERIFY_CHANGE_KIND.DELETED }];
+  return [{ path: first, changeKind: VERIFY_CHANGE_KIND.MODIFIED }];
+}
+
+/**
+ * The change inventory of a changeset, derived from its null-delimited `--name-status` diff with
+ * rename and copy detection: an added path is `added`; a modified path and a type change are
+ * `modified`; a deleted path is `deleted`; a rename contributes its base-side path as `deleted` and
+ * its head-side path as `added`; a copy contributes its head-side path as `added` and its base-side
+ * path, which the head still holds, as `copy-source`. Entries are ordered by path, then change kind.
+ */
+export function changeInventoryOfNameStatus(stdout: string): readonly VerifyChangeInventoryEntry[] {
+  const fields = stdout.split(NAME_STATUS_RECORD_SEPARATOR).filter((field) => field.length > 0);
+  const entries: VerifyChangeInventoryEntry[] = [];
+  for (let index = 0; index < fields.length;) {
+    const status = fields[index];
+    const pathCount = nameStatusIsTwoPath(status) ? 2 : 1;
+    entries.push(...inventoryEntriesOfNameStatus(status, fields.slice(index + 1, index + 1 + pathCount)));
+    index += 1 + pathCount;
+  }
+  return entries.sort((left, right) =>
+    compareAsciiStrings(left.path, right.path) || compareAsciiStrings(left.changeKind, right.changeKind)
+  );
+}
+
+/** The supported schema version of the expectations document a changeset-scoped run is bound to. */
+export const VERIFY_EXPECTATIONS_SCHEMA_VERSION = 1;
+
+/** The fields of the expectations document. */
+export const VERIFY_EXPECTATIONS_FIELD = {
+  SCHEMA_VERSION: "schemaVersion",
+  ADDITIONAL_PATHS: "additionalPaths",
+} as const;
+
+/** The expectations a changeset-scoped run is bound to: product-relative paths beyond the changeset the run is expected to judge. */
+export interface VerifyExpectations {
+  readonly [VERIFY_EXPECTATIONS_FIELD.SCHEMA_VERSION]: typeof VERIFY_EXPECTATIONS_SCHEMA_VERSION;
+  readonly [VERIFY_EXPECTATIONS_FIELD.ADDITIONAL_PATHS]: readonly string[];
+}
+
+/** The reasons an expectations document is refused; each names the field or the path at fault. */
+export const VERIFY_EXPECTATIONS_ERROR = {
+  NOT_JSON: "the expectations document is not valid JSON",
+  NOT_OBJECT: "the expectations document is not a JSON object",
+  SCHEMA_VERSION_UNSUPPORTED:
+    `${VERIFY_EXPECTATIONS_FIELD.SCHEMA_VERSION} is missing or unsupported; the supported version is ${VERIFY_EXPECTATIONS_SCHEMA_VERSION}`,
+  ADDITIONAL_PATHS_NOT_ARRAY: `${VERIFY_EXPECTATIONS_FIELD.ADDITIONAL_PATHS} is not an array of paths`,
+  NOT_CHANGESET_SCOPED: "expectations bind only a changeset-scoped run",
+  PATH_NOT_PRODUCT_RELATIVE: "is not a product-relative path in",
+  PATH_NOT_HELD: "is not held by the head commit in",
+} as const;
+
+/** A declared additional path refused because it is not a product-relative path: `<path> is not ... in additionalPaths`. */
+export function expectationsPathError(
+  path: string,
+  reason: typeof VERIFY_EXPECTATIONS_ERROR.PATH_NOT_PRODUCT_RELATIVE | typeof VERIFY_EXPECTATIONS_ERROR.PATH_NOT_HELD,
+): string {
+  return `${path} ${reason} ${VERIFY_EXPECTATIONS_FIELD.ADDITIONAL_PATHS}`;
+}
+
+/**
+ * Parse an expectations document: a JSON object carrying `schemaVersion` `1` and an optional
+ * `additionalPaths` array of product-relative paths, absent meaning none. The accepted value holds
+ * every path in its normalized product-relative form.
+ */
+export function parseVerifyExpectations(source: string): Result<VerifyExpectations> {
+  let document: unknown;
+  try {
+    document = JSON.parse(source);
+  } catch {
+    return { ok: false, error: VERIFY_EXPECTATIONS_ERROR.NOT_JSON };
+  }
+  return validateVerifyExpectationsDocument(document);
+}
+
+/**
+ * Validate an expectations document already parsed from JSON: an object carrying `schemaVersion`
+ * `1` and an optional `additionalPaths` array of product-relative paths, absent meaning none. The
+ * rejection names the field or the path at fault.
+ */
+function validateVerifyExpectationsDocument(document: unknown): Result<VerifyExpectations> {
+  if (typeof document !== "object" || document === null || Array.isArray(document)) {
+    return { ok: false, error: VERIFY_EXPECTATIONS_ERROR.NOT_OBJECT };
+  }
+  const fields = document as Readonly<Record<string, unknown>>;
+  if (fields[VERIFY_EXPECTATIONS_FIELD.SCHEMA_VERSION] !== VERIFY_EXPECTATIONS_SCHEMA_VERSION) {
+    return { ok: false, error: VERIFY_EXPECTATIONS_ERROR.SCHEMA_VERSION_UNSUPPORTED };
+  }
+  const declared = fields[VERIFY_EXPECTATIONS_FIELD.ADDITIONAL_PATHS] ?? [];
+  if (!Array.isArray(declared)) return { ok: false, error: VERIFY_EXPECTATIONS_ERROR.ADDITIONAL_PATHS_NOT_ARRAY };
+  const additionalPaths: string[] = [];
+  for (const entry of declared) {
+    const path = typeof entry === "string" ? normalizeVerificationContextFileSubjectPath(entry) : undefined;
+    if (path === undefined) {
+      return {
+        ok: false,
+        error: typeof entry === "string"
+          ? expectationsPathError(entry, VERIFY_EXPECTATIONS_ERROR.PATH_NOT_PRODUCT_RELATIVE)
+          : VERIFY_EXPECTATIONS_ERROR.ADDITIONAL_PATHS_NOT_ARRAY,
+      };
+    }
+    additionalPaths.push(path);
+  }
+  return {
+    ok: true,
+    value: {
+      [VERIFY_EXPECTATIONS_FIELD.SCHEMA_VERSION]: VERIFY_EXPECTATIONS_SCHEMA_VERSION,
+      [VERIFY_EXPECTATIONS_FIELD.ADDITIONAL_PATHS]: additionalPaths,
+    },
+  };
+}
 
 /**
  * The canonical Change identity form `owner/repo#N`: an owner and a repository name, each one or
@@ -1971,6 +2200,8 @@ export function buildRunContextEvent(args: {
   readonly driveMode: VerifyDriveMode;
   readonly headCommit?: string;
   readonly change?: string;
+  readonly changeInventory?: readonly VerifyChangeInventoryEntry[];
+  readonly expectations?: VerifyExpectations;
   readonly at: Date;
 }): JournalEventInput {
   return {
@@ -1983,6 +2214,17 @@ export function buildRunContextEvent(args: {
       [VERIFY_RUN_CONTEXT_EVENT_FIELD.DRIVE_MODE]: args.driveMode,
       ...(args.headCommit === undefined ? {} : { [VERIFY_RUN_CONTEXT_EVENT_FIELD.HEAD_COMMIT]: args.headCommit }),
       ...(args.change === undefined ? {} : { [VERIFY_RUN_CONTEXT_EVENT_FIELD.CHANGE]: args.change }),
+      ...(args.changeInventory === undefined
+        ? {}
+        : { [VERIFY_RUN_CONTEXT_EVENT_FIELD.CHANGE_INVENTORY]: args.changeInventory.map((entry) => ({ ...entry })) }),
+      ...(args.expectations === undefined
+        ? {}
+        : {
+          [VERIFY_RUN_CONTEXT_EVENT_FIELD.EXPECTATIONS]: {
+            ...args.expectations,
+            [VERIFY_EXPECTATIONS_FIELD.ADDITIONAL_PATHS]: [...args.expectations.additionalPaths],
+          },
+        }),
     },
   };
 }
@@ -2099,6 +2341,70 @@ export function headCommitOf(events: readonly JournalEvent[]): string | undefine
   if (runContext === undefined || !isJsonRecord(runContext.data)) return undefined;
   const headCommit = runContext.data[VERIFY_RUN_CONTEXT_EVENT_FIELD.HEAD_COMMIT];
   return typeof headCommit === "string" && VERIFY_HEAD_COMMIT_PATTERN.test(headCommit) ? headCommit : undefined;
+}
+
+/** The reasons a recorded change inventory is refused; each names the field or the entry at fault. */
+export const VERIFY_CHANGE_INVENTORY_ERROR = {
+  NOT_ARRAY: `${VERIFY_RUN_CONTEXT_EVENT_FIELD.CHANGE_INVENTORY} is not an array of entries`,
+  ENTRY_MALFORMED: "is not an entry carrying a path and a known change kind in",
+} as const;
+
+/**
+ * The change inventory folded from the run's run-context event. A run that recorded none — one that
+ * is not changeset-scoped, or one opened before inventories were recorded — yields `undefined`. A
+ * recorded value that is not an array, or an entry that is not a path with a known change kind, is
+ * refused naming the field or the offending entry, so a malformed entry never shrinks the inventory.
+ */
+export function changeInventoryOfRun(
+  events: readonly JournalEvent[],
+): Result<readonly VerifyChangeInventoryEntry[] | undefined> {
+  const runContext = events.find((event) => event.type === VERIFY_RUN_CONTEXT_EVENT_TYPE);
+  if (runContext === undefined || !isJsonRecord(runContext.data)) return { ok: true, value: undefined };
+  const inventory = runContext.data[VERIFY_RUN_CONTEXT_EVENT_FIELD.CHANGE_INVENTORY];
+  if (!(VERIFY_RUN_CONTEXT_EVENT_FIELD.CHANGE_INVENTORY in runContext.data)) return { ok: true, value: undefined };
+  if (!Array.isArray(inventory)) return { ok: false, error: VERIFY_CHANGE_INVENTORY_ERROR.NOT_ARRAY };
+  const kinds: ReadonlySet<string> = new Set(Object.values(VERIFY_CHANGE_KIND));
+  const entries: VerifyChangeInventoryEntry[] = [];
+  for (const [index, entry] of inventory.entries()) {
+    const path = isJsonRecord(entry) ? entry[VERIFY_CHANGE_INVENTORY_ENTRY_FIELD.PATH] : undefined;
+    const changeKind = isJsonRecord(entry) ? entry[VERIFY_CHANGE_INVENTORY_ENTRY_FIELD.CHANGE_KIND] : undefined;
+    if (typeof path !== "string" || typeof changeKind !== "string" || !kinds.has(changeKind)) {
+      return {
+        ok: false,
+        error: `${
+          JSON.stringify(entry)
+        } ${VERIFY_CHANGE_INVENTORY_ERROR.ENTRY_MALFORMED} ${VERIFY_RUN_CONTEXT_EVENT_FIELD.CHANGE_INVENTORY}[${index}]`,
+      };
+    }
+    entries.push({ path, changeKind: changeKind as VerifyChangeKind });
+  }
+  return { ok: true, value: entries };
+}
+
+/**
+ * The expectations folded from the run's run-context event. A run-context event that carries no
+ * expectations value leaves the run unbound and yields `undefined`. A recorded value that is not a
+ * valid expectations document is refused naming the malformed field, never read as unbound.
+ */
+export function expectationsOfRun(events: readonly JournalEvent[]): Result<VerifyExpectations | undefined> {
+  const runContext = events.find((event) => event.type === VERIFY_RUN_CONTEXT_EVENT_TYPE);
+  if (runContext === undefined || !isJsonRecord(runContext.data)) return { ok: true, value: undefined };
+  const expectations = runContext.data[VERIFY_RUN_CONTEXT_EVENT_FIELD.EXPECTATIONS];
+  if (!(VERIFY_RUN_CONTEXT_EVENT_FIELD.EXPECTATIONS in runContext.data)) return { ok: true, value: undefined };
+  return validateVerifyExpectationsDocument(expectations);
+}
+
+/**
+ * Every deletion a run judged, folded from the judged deletions its recorded scope events carry:
+ * each path once, in the order the run first recorded it.
+ */
+export function runJudgedDeletionsOf(events: readonly JournalEvent[]): readonly string[] {
+  const judged = new Set<string>();
+  for (const event of events) {
+    if (event.type !== VERIFY_APPEND_EVENT_TYPE.SCOPE || !isJsonRecord(event.data)) continue;
+    for (const path of scopeJudgedDeletionsOf(event.data[VERIFY_APPEND_EVENT_FIELD.PAYLOAD])) judged.add(path);
+  }
+  return [...judged];
 }
 
 /** The last-sequence value a run with no events projects, one below the first assigned sequence. */

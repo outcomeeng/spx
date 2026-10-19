@@ -739,6 +739,7 @@ async function parseExecuteRunCommandLine(
           input: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
           list: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
           paths: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+          reconcile: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
           render: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
           start: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
           status: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),

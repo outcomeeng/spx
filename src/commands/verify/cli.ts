@@ -19,6 +19,12 @@ import {
   VERIFICATION_CONTEXT_SUBJECT_KIND,
 } from "@/domains/verification-context/context";
 import { verificationContextDir } from "@/domains/verification-context/path";
+import {
+  checkReconcilableRun,
+  reconcileScope,
+  selectorUnresolvedReason,
+  type VerifyScopeReconciliation,
+} from "@/domains/verify/reconciliation";
 import { renderVerifyRejection, VERIFY_REJECTION_TEXT } from "@/domains/verify/rejection-report";
 import {
   type AuditScopeUnit,
@@ -26,10 +32,14 @@ import {
   buildRunContextEvent,
   buildRunLocator,
   buildTerminalEvent,
+  changeInventoryOfNameStatus,
+  changeInventoryOfRun,
   type ChangesetScope,
   digestRunInput,
   driveModeOf,
   evidenceValidatorFor,
+  expectationsOfRun,
+  expectationsPathError,
   findAppendedSequence,
   findTerminalEvent,
   headCommitOf,
@@ -40,22 +50,30 @@ import {
   missingDirectoriesBelow,
   parseAppendPayload,
   parseChangesetScope,
+  parseVerifyExpectations,
   projectVerifyRun,
   type RecordedInput,
+  runJudgedDeletionsOf,
+  runJudgedPathsOf,
   type RunLocator,
+  scopeJudgedDeletionsOf,
   scopeJudgedPathsOf,
   TERMINAL_METADATA_VALIDATION_ERROR,
   terminalMetadataValidatorFor,
+  validateJudgedDeletionsAgainstInventory,
   validateJudgedPathsAtHead,
   VERIFY_APPEND_EVENT_TYPE,
   VERIFY_DRIVE_MODE,
   VERIFY_EVIDENCE_KIND,
+  VERIFY_EXPECTATIONS_ERROR,
   VERIFY_SCOPE_ERROR,
   VERIFY_SCOPE_SEPARATOR,
   VERIFY_SCOPE_TYPE,
   VERIFY_VERB,
   type VerifyAppendEventType,
+  type VerifyChangeInventoryEntry,
   type VerifyDriveMode,
+  type VerifyExpectations,
   type VerifyFindingCounts,
   type VerifyFindingsByDisposition,
   verifyInputRecordPath,
@@ -68,9 +86,10 @@ import {
 import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
 import { writeFileAtomic } from "@/lib/atomic-file-write";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
-import { changedPathsForCommittedRange } from "@/lib/git/changed-paths";
+import { changedPathsForCommittedRange, nameStatusForCommittedRange } from "@/lib/git/changed-paths";
 import { listCommitFiles } from "@/lib/git/commit-files";
 import {
+  classifyRevisionCommit,
   defaultGitDependencies,
   detectGitCommonDirProductRoot,
   getCurrentBranch,
@@ -78,6 +97,7 @@ import {
   type GitDependencies,
   isHeadUnborn,
   resolveCommitSha,
+  REVISION_COMMIT_OUTCOME,
 } from "@/lib/git/root";
 import {
   defaultStateStoreFileSystem,
@@ -106,6 +126,7 @@ export const VERIFY_CLI_ERROR = {
   RUN_NOT_FOUND: "spx verification run could not locate the requested run",
   RUN_SELECTOR_MISMATCH: "spx verification run selector does not match the recorded run",
   CHANGED_SCOPE_FAILED: "spx verification run could not derive the changeset changed-file scope",
+  CHANGE_INVENTORY_FAILED: "spx verification run could not derive the changeset change inventory",
   INPUT_PERSIST_FAILED: "spx verification run could not persist the recorded run input",
   INPUT_READ_FAILED: "spx verification run could not read the recorded run input",
   PAYLOAD_REQUIRED: "spx verification run evidence-add commands require --payload <payload-source>",
@@ -128,10 +149,16 @@ export const VERIFY_CLI_ERROR = {
   FINISH_FAILED: "spx verification run could not record terminal completion",
   HEAD_COMMIT_UNRESOLVED: "spx verification run start could not resolve the head commit the run judges",
   RUN_CONTEXT_FAILED: "spx verification run could not record the run context",
+  EXPECTATIONS_INVALID: "spx verification run start: expectations rejected",
+  EXPECTATIONS_SOURCE_UNREADABLE: "the expectations source cannot be read",
+  EXPECTATIONS_PATHS_UNREADABLE: "spx verification run start could not read the files the head commit holds",
   SEAL_FAILED: "spx verification run could not seal the run journal",
   STATUS_FAILED: "spx verification run could not read the run status",
   RENDER_FAILED: "spx verification run could not render the run projection",
   PATHS_FAILED: "spx verification run paths could not resolve the run write directories",
+  RECONCILE_FAILED: "spx verification run could not read the run for scope reconciliation",
+  RECONCILE_REJECTED: "spx verification run scope reconciliation rejected the run",
+  FINISH_EXPECTATIONS_MALFORMED: "spx verification run finish refused the run: its recorded expectations are malformed",
 } as const;
 
 export const VERIFY_RUN_NOT_FOUND_DIAGNOSTIC_FIELD = {
@@ -176,6 +203,8 @@ export interface VerifyStartCliOptions {
   readonly input: string;
   /** The Change the run serves, in the canonical `owner/repo#N` form; absent when the run belongs to no Change. */
   readonly change?: string;
+  /** The expectations source a changeset-scoped run is bound to: stdin or a file path holding a JSON document; absent when the run is bound to none. */
+  readonly expectations?: string;
 }
 
 export interface VerifyInputCliOptions {
@@ -286,6 +315,13 @@ export interface VerifyRenderCliOptions {
   readonly run: string;
 }
 
+export interface VerifyReconcileCliOptions {
+  readonly verificationType: string;
+  readonly scopeType: string;
+  readonly scope: string;
+  readonly run: string;
+}
+
 export interface VerifyFinishReport {
   readonly runToken: string;
   readonly terminalStatus?: string;
@@ -365,6 +401,15 @@ function errorResult(error: string): CliCommandResult {
   return { exitCode: VERIFY_CLI_EXIT_CODE.ERROR, output: error };
 }
 
+/** A reconciliation that does not reconcile: the structured result on standard output with a non-zero exit. */
+function unreconciledResult(reconciliation: VerifyScopeReconciliation): CliCommandResult {
+  return {
+    exitCode: VERIFY_CLI_EXIT_CODE.ERROR,
+    output: JSON.stringify(reconciliation),
+    reportOnStdout: true,
+  };
+}
+
 function toMessage(error: unknown): string {
   return error instanceof Error ? error.message : JSON.stringify(error);
 }
@@ -431,6 +476,44 @@ async function resolveChangedScope(
   }
 }
 
+/**
+ * The outcome of deriving a changeset's change inventory. A failure flags whether the changeset's
+ * base or head names no commit; every other failure carries the git error it reports.
+ */
+type ChangeInventoryResolution =
+  | { readonly ok: true; readonly value: readonly VerifyChangeInventoryEntry[] }
+  | { readonly ok: false; readonly error: string; readonly selectorUnresolved: boolean };
+
+/** Derive the changeset's change inventory from its null-delimited name-status diff with rename and copy detection. */
+async function resolveChangeInventory(
+  scope: ChangesetScope,
+  productDir: string,
+  deps: VerifyCliDeps,
+): Promise<ChangeInventoryResolution> {
+  const git = deps.git ?? defaultGitDependencies;
+  try {
+    return {
+      ok: true,
+      value: changeInventoryOfNameStatus(
+        await nameStatusForCommittedRange({ productDir, base: scope.base, head: scope.head, git }),
+      ),
+    };
+  } catch (error) {
+    const failure = (error as Error).message;
+    for (const revision of [scope.base, scope.head]) {
+      const outcome = await classifyRevisionCommit(revision, productDir, git);
+      if (outcome.kind === REVISION_COMMIT_OUTCOME.UNRESOLVED) {
+        return {
+          ok: false,
+          error: `${VERIFY_CLI_ERROR.CHANGE_INVENTORY_FAILED}: ${failure}`,
+          selectorUnresolved: true,
+        };
+      }
+    }
+    return { ok: false, error: `${VERIFY_CLI_ERROR.CHANGE_INVENTORY_FAILED}: ${failure}`, selectorUnresolved: false };
+  }
+}
+
 interface VerifyStartContextSubjectOptions {
   readonly subject: string;
   readonly path?: string;
@@ -442,6 +525,8 @@ interface VerifyStartScopeResolution {
   readonly selector: VerifyRunSelector;
   readonly context: VerifyStartContextSubjectOptions;
   readonly resolvedScope: readonly string[];
+  /** The change inventory a changeset-scoped run starts over; absent for a scope that has no base and head. */
+  readonly changeInventory?: readonly VerifyChangeInventoryEntry[];
   /**
    * The revision whose commit the run judges: a changeset run judges its range's head. Absent for a
    * scope that judges the checkout's HEAD when `start` runs, so its resolver reads no git state.
@@ -478,10 +563,13 @@ const VERIFY_SCOPE_RESOLVERS: Readonly<Record<VerifyScopeType, VerifyScopeResolv
       if (!changeset.ok) return changeset;
       const resolvedScope = await resolveChangedScope(changeset.value, worktreeRoot, deps);
       if (!resolvedScope.ok) return resolvedScope;
+      const changeInventory = await resolveChangeInventory(changeset.value, worktreeRoot, deps);
+      if (!changeInventory.ok) return { ok: false, error: changeInventory.error };
       return {
         ok: true,
         value: {
           selector,
+          changeInventory: changeInventory.value,
           context: {
             subject: VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET,
             base: changeset.value.base,
@@ -711,6 +799,8 @@ interface CompleteVerifyStartArgs {
   readonly backendIdentity: string;
   readonly resolvedScope: readonly string[];
   readonly headCommit: string | undefined;
+  readonly changeInventory: readonly VerifyChangeInventoryEntry[] | undefined;
+  readonly expectations: VerifyExpectations | undefined;
   readonly inputDigest: string;
   readonly inputContent: string;
   readonly contextDigest: string;
@@ -736,6 +826,8 @@ async function recordRunContext(
     driveMode: deps.driveMode ?? VERIFY_DRIVE_MODE.CALLER,
     ...(args.headCommit === undefined ? {} : { headCommit: args.headCommit }),
     ...(args.options.change === undefined ? {} : { change: args.options.change }),
+    ...(args.changeInventory === undefined ? {} : { changeInventory: args.changeInventory }),
+    ...(args.expectations === undefined ? {} : { expectations: args.expectations }),
     at: deps.now?.() ?? new Date(),
   });
   const journalScope: JournalRunCliScope = {
@@ -848,6 +940,44 @@ async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promis
 }
 
 /**
+ * Validate the expectations a run is started with before any run exists: the document must parse,
+ * the run must be changeset-scoped, and every declared additional path must be a file the head
+ * commit holds, so a path only the checkout holds is refused. Absent expectations bind the run to none.
+ */
+async function resolveStartExpectations(
+  source: string | undefined,
+  scopeType: string,
+  headCommit: string | undefined,
+  worktreeRoot: string,
+  deps: VerifyCliDeps,
+): Promise<Result<VerifyExpectations | undefined>> {
+  if (source === undefined) return { ok: true, value: undefined };
+  const reject = (reason: string): Result<VerifyExpectations | undefined> => ({
+    ok: false,
+    error: `${VERIFY_CLI_ERROR.EXPECTATIONS_INVALID}: ${reason}`,
+  });
+  if (scopeType !== VERIFY_SCOPE_TYPE.CHANGESET) return reject(VERIFY_EXPECTATIONS_ERROR.NOT_CHANGESET_SCOPED);
+  let document: string;
+  try {
+    document = await deps.readInputSource(source);
+  } catch {
+    return reject(VERIFY_CLI_ERROR.EXPECTATIONS_SOURCE_UNREADABLE);
+  }
+  const parsed = parseVerifyExpectations(document);
+  if (!parsed.ok) return reject(parsed.error);
+  const { additionalPaths } = parsed.value;
+  if (additionalPaths.length === 0) return parsed;
+  const held = headCommit === undefined
+    ? new Set<string>()
+    : await listCommitFiles(headCommit, additionalPaths, worktreeRoot, deps.git ?? defaultGitDependencies);
+  if (held === undefined) return { ok: false, error: VERIFY_CLI_ERROR.EXPECTATIONS_PATHS_UNREADABLE };
+  const unheld = additionalPaths.find((path) => !held.has(path));
+  return unheld === undefined
+    ? parsed
+    : reject(expectationsPathError(unheld, VERIFY_EXPECTATIONS_ERROR.PATH_NOT_HELD));
+}
+
+/**
  * Start a verification run: resolve its scope and the head commit it judges, create a canonical
  * verification context, open a run journal, record the verification input read from `--input`, and
  * report the run token, context digest, changed scope, input descriptor, and run locator a caller
@@ -870,6 +1000,14 @@ export async function verifyStartCommand(
   if (!scope.ok) return errorResult(scope.error);
   const headCommit = await resolveStartHeadCommit(scope.value, resolved.value, deps);
   if (!headCommit.ok) return errorResult(headCommit.error);
+  const expectations = await resolveStartExpectations(
+    options.expectations,
+    scope.value.selector.scopeType,
+    headCommit.value,
+    resolved.value.worktreeRoot,
+    deps,
+  );
+  if (!expectations.ok) return errorResult(expectations.error);
   const normalizedOptions: VerifyStartCliOptions = {
     ...options,
     scopeType: scope.value.selector.scopeType,
@@ -904,6 +1042,8 @@ export async function verifyStartCommand(
     backendIdentity: resolved.value.backendIdentity,
     resolvedScope: scope.value.resolvedScope,
     headCommit: headCommit.value,
+    changeInventory: scope.value.changeInventory,
+    expectations: expectations.value,
     inputDigest: inputDigest.value,
     inputContent: inputContent.value,
     contextDigest,
@@ -1263,6 +1403,44 @@ async function validateScopeJudgedPaths(
   };
 }
 
+/**
+ * Check the judged deletions an accepted scope payload names against the change inventory the run
+ * recorded on its run-context event at start. A payload naming no judged deletion reads nothing.
+ */
+function validateScopeJudgedDeletions(
+  payload: JsonValue,
+  verificationType: string,
+  prepared: PreparedAppend,
+): Result<void> {
+  const judgedDeletions = scopeJudgedDeletionsOf(payload);
+  if (judgedDeletions.length === 0) return { ok: true, value: undefined };
+  const recordedInventory = changeInventoryOfRun(prepared.existingEvents);
+  if (!recordedInventory.ok) {
+    return {
+      ok: false,
+      error: renderVerifyRejection({
+        headline: VERIFY_CLI_ERROR.SCOPE_INVALID,
+        verificationType,
+        evidenceKind: VERIFY_EVIDENCE_KIND.SCOPE,
+        reason: recordedInventory.error,
+        note: VERIFY_REJECTION_TEXT.APPEND_RETRY_NOTE,
+      }),
+    };
+  }
+  const listed = validateJudgedDeletionsAgainstInventory(judgedDeletions, recordedInventory.value);
+  if (listed.ok) return { ok: true, value: undefined };
+  return {
+    ok: false,
+    error: renderVerifyRejection({
+      headline: VERIFY_CLI_ERROR.SCOPE_INVALID,
+      verificationType,
+      evidenceKind: VERIFY_EVIDENCE_KIND.SCOPE,
+      reason: listed.reason,
+      note: VERIFY_REJECTION_TEXT.APPEND_RETRY_NOTE,
+    }),
+  };
+}
+
 /** The CloudEvents type an evidence-add command records: a finding or inspected scope. */
 function appendEventType(verb: VerifyAppendVerb): VerifyAppendEventType {
   return verb === VERIFY_VERB.APPEND_FINDING ? VERIFY_APPEND_EVENT_TYPE.FINDING : VERIFY_APPEND_EVENT_TYPE.SCOPE;
@@ -1304,6 +1482,8 @@ async function verifyAppend(
   if (verb === VERIFY_VERB.APPEND_SCOPE) {
     const judged = await validateScopeJudgedPaths(evidence.value, options.verificationType, prepared.value, deps);
     if (!judged.ok) return errorResult(judged.error);
+    const deletions = validateScopeJudgedDeletions(evidence.value, options.verificationType, prepared.value);
+    if (!deletions.ok) return errorResult(deletions.error);
   }
 
   const event = buildAppendEvent({
@@ -1578,6 +1758,25 @@ async function finishProjectionResult(run: VerifyExistingRunAddress, deps: Verif
   return okResult(JSON.stringify(verifyFinishReport(run.runToken, projectVerifyRun(events.value))));
 }
 
+/**
+ * Refuse the first finish of a run bound to expectations whose final recorded evidence does not
+ * reconcile, reporting the reconciliation result. An unbound run, and a bound run that reconciles,
+ * yield no refusal.
+ */
+async function refuseUnreconciledBoundRun(
+  run: VerifyExistingRunAddress,
+  events: readonly JournalEvent[],
+  deps: VerifyCliDeps,
+): Promise<CliCommandResult | undefined> {
+  const expectations = expectationsOfRun(events);
+  if (!expectations.ok) return errorResult(`${VERIFY_CLI_ERROR.FINISH_EXPECTATIONS_MALFORMED}: ${expectations.error}`);
+  if (expectations.value === undefined) return undefined;
+  const reconciliation = await reconcileRunEvidence(run, events, deps);
+  if (!reconciliation.ok) return reconciliation.error;
+  if (reconciliation.value.reconciled) return undefined;
+  return unreconciledResult(reconciliation.value);
+}
+
 async function retrySealForTerminalRun(
   run: VerifyExistingRunAddress,
   deps: VerifyCliDeps,
@@ -1629,6 +1828,9 @@ export async function verifyFinishCommand(
     run.value.selector,
   );
   if (!terminalMetadata.ok) return errorResult(terminalMetadata.error);
+
+  const unreconciled = await refuseUnreconciledBoundRun(run.value, before.value, deps);
+  if (unreconciled !== undefined) return unreconciled;
 
   // Only the append-and-seal path consumes the journal binding.
   const binding = deps.journalBinding;
@@ -1721,4 +1923,80 @@ export async function verifyRenderCommand(
     auditScopeUnits: projection.auditScopeUnits,
   };
   return okResult(JSON.stringify(report));
+}
+
+/**
+ * Reconcile a changeset run's recorded evidence against the inventory its changeset selector resolves
+ * to now. A rejection or read failure is carried as the command result the caller returns. The
+ * reconciliation reads the repository and appends no event.
+ */
+async function reconcileRunEvidence(
+  run: VerifyExistingRunAddress,
+  events: readonly JournalEvent[],
+  deps: VerifyCliDeps,
+): Promise<
+  { readonly ok: true; readonly value: VerifyScopeReconciliation } | {
+    readonly ok: false;
+    readonly error: CliCommandResult;
+  }
+> {
+  const failed = (message: string) => ({ ok: false as const, error: errorResult(message) });
+  const recordedContext = changeInventoryOfRun(events);
+  if (!recordedContext.ok) return failed(`${VERIFY_CLI_ERROR.RECONCILE_REJECTED}: ${recordedContext.error}`);
+  const recordedInventory = checkReconcilableRun(run.selector.scopeType, recordedContext.value);
+  if (!recordedInventory.ok) return failed(`${VERIFY_CLI_ERROR.RECONCILE_REJECTED}: ${recordedInventory.error}`);
+  const expectations = expectationsOfRun(events);
+  if (!expectations.ok) return failed(`${VERIFY_CLI_ERROR.RECONCILE_REJECTED}: ${expectations.error}`);
+  const unresolved = failed(
+    `${VERIFY_CLI_ERROR.RECONCILE_REJECTED}: ${selectorUnresolvedReason(run.selector.scopeIdentity)}`,
+  );
+  const changeset = parseChangesetScope(run.selector.scopeIdentity);
+  if (!changeset.ok) return unresolved;
+  const resolvedScope = await resolveVerifyScope(deps);
+  if (!resolvedScope.ok) return failed(`${VERIFY_CLI_ERROR.RECONCILE_FAILED}: ${resolvedScope.error}`);
+  const resolvedInventory = await resolveChangeInventory(changeset.value, resolvedScope.value.worktreeRoot, deps);
+  if (!resolvedInventory.ok) {
+    return resolvedInventory.selectorUnresolved
+      ? unresolved
+      : failed(`${VERIFY_CLI_ERROR.RECONCILE_FAILED}: ${resolvedInventory.error}`);
+  }
+  return {
+    ok: true,
+    value: reconcileScope({
+      recordedInventory: recordedInventory.value,
+      expectations: expectations.value,
+      judgedPaths: runJudgedPathsOf(events),
+      judgedDeletions: runJudgedDeletionsOf(events),
+      resolvedInventory: resolvedInventory.value,
+    }),
+  };
+}
+
+/**
+ * Reconcile a started changeset run's judged scope against the inventory its changeset selector
+ * resolves to, reporting the unaccounted, unexpected, and drifted paths as one structured result.
+ * The operation reads the run's event history and the repository and appends no event, seals no
+ * run, and changes no working tree, index, or ref.
+ */
+export async function verifyReconcileCommand(
+  options: VerifyReconcileCliOptions,
+  deps: VerifyCliDeps,
+): Promise<CliCommandResult> {
+  const run = await resolveExistingRunAddress(options, deps);
+  if (!run.ok) return errorResult(run.error);
+  const events = await readRunJournalEvents(run.value.journalScope, deps);
+  if (!events.ok) {
+    if (events.error === JOURNAL_RUNTIME_ERROR.RUN_NOT_FOUND) {
+      return errorResult(existingRunNotFound(run.value, options));
+    }
+    return errorResult(`${VERIFY_CLI_ERROR.RECONCILE_FAILED}: ${events.error}`);
+  }
+  const inputRecord = await readRecordedInputForProjection(run.value, options, events.value, deps);
+  if (!inputRecord.ok) return errorResult(inputRecord.error);
+  if (inputRecord.value === undefined && findTerminalEvent(events.value) === undefined) {
+    return errorResult(existingRunNotFound(run.value, options));
+  }
+  const report = await reconcileRunEvidence(run.value, events.value, deps);
+  if (!report.ok) return report.error;
+  return report.value.reconciled ? okResult(JSON.stringify(report.value)) : unreconciledResult(report.value);
 }

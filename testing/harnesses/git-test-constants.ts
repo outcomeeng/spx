@@ -14,11 +14,16 @@ export const GIT_TEST_SUBCOMMANDS = {
   COMMIT: "commit",
   CONFIG: "config",
   FETCH: "fetch",
+  FOR_EACH_REF: "for-each-ref",
   INIT: "init",
   LS_FILES: "ls-files",
   MERGE: "merge",
+  MV: "mv",
+  RESTORE: "restore",
   REV_PARSE: "rev-parse",
+  RM: "rm",
   SUBMODULE: "submodule",
+  STATUS: "status",
   SYMBOLIC_REF: "symbolic-ref",
   TAG: "tag",
   UPDATE_REF: "update-ref",
@@ -41,13 +46,23 @@ export const GIT_TEST_FLAGS = {
   NEW_BRANCH: "-b",
   NO_COMMIT: "--no-commit",
   NO_FAST_FORWARD: "--no-ff",
+  IGNORE_UNMATCH: "--ignore-unmatch",
   OTHERS: "--others",
+  PATHSPEC_SEPARATOR: "--",
+  PORCELAIN: "--porcelain",
   QUIET: "--quiet",
   REMOVE_SECTION: "--remove-section",
   SHOW_CURRENT: "--show-current",
+  SOURCE_HEAD: "--source=HEAD",
+  STAGE: "--stage",
+  STAGED: "--staged",
+  WORKTREE: "--worktree",
+  DELETE: "-d",
 } as const;
 
 export const GIT_TEST_REF = {
+  /** Prefix on the full ref path of a local branch. */
+  LOCAL_BRANCH_PREFIX: "refs/heads/",
   /** Prefix on the full remote-tracking ref path for the `origin` remote. */
   REMOTE_ORIGIN_PREFIX: "refs/remotes/origin/",
   /** Name component `origin/HEAD` carries — the symbolic ref naming the default branch. */

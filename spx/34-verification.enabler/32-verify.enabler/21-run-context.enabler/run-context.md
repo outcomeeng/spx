@@ -4,9 +4,9 @@ id: 01a115e6-be87-7cd9-b001-39f73f7bdd6d
 
 # Run Context
 
-PROVIDES start-time verification context creation, run-token selection, run-locator and resolved-scope reporting, changeset and file scope resolution, recorded-input replay, and recording of the run's head commit when the product is a Git repository whose HEAD names a commit and of the Change a run serves for typed verification runs
-SO THAT evidence append and terminal projection lifecycle operations
-CAN operate on one scoped verification run with a stable subject, recorded input, unambiguous run identity, the head commit the run judges whenever the product is a Git repository whose HEAD names a commit, and the Change identity the run was started for
+PROVIDES start-time verification context creation, run-token selection, run-locator and resolved-scope reporting, changeset and file scope resolution, recorded-input replay, and recording of the run's head commit when the product is a Git repository whose HEAD names a commit and of the Change a run serves for typed verification runs, the change inventory of every changeset-scoped run, and the expectations a changeset-scoped run is bound to
+SO THAT evidence append, scope reconciliation, and terminal projection lifecycle operations
+CAN operate on one scoped verification run with a stable subject, recorded input, unambiguous run identity, the head commit the run judges whenever the product is a Git repository whose HEAD names a commit, the Change identity the run was started for, the change inventory the run started over, and the expectations the run is bound to
 
 ## Assertions
 
@@ -29,9 +29,11 @@ CAN operate on one scoped verification run with a stable subject, recorded input
 
 - Supported scope types map to reconstructable verification-context subjects and `resolvedScope` reports: `changeset` maps a `<base>..<head>` selector to base/head reconstruction fields plus changed product paths, while `file` maps one normalized product-relative path to a file subject plus that path ([test](tests/verify-scope.mapping.l1.test.ts))
 - ALWAYS: when the product is a Git repository whose HEAD names a commit, `start` records the run's head commit for every scope type, the `file` scope included; where the product has no commit to name — outside a Git repository, or in a Git repository whose HEAD is unborn — a `file`-scope `start` records no head commit and still opens the run ([test](tests/verify-head-commit.mapping.l1.test.ts))
+- ALWAYS: `start` of a changeset-scoped run records on its run-context event the run's change inventory — one entry carrying `path` and `changeKind` for every path its changeset changes between base and head, where an added path is `added`, a modified path and a type change are `modified`, a deleted path is `deleted`, a rename contributes its base-side path as `deleted` and its head-side path as `added`, and a copy contributes its head-side path as `added` and its base-side path, which the head still holds, as `copy-source` — so later lifecycle operations read the inventory the run started over ([test](tests/verify-change-inventory.mapping.l1.test.ts))
 
 ### Compliance
 
+- ALWAYS: `start` given expectations — a JSON object carrying `schemaVersion` `1` and an optional `additionalPaths` array of product-relative paths, absent meaning none — records them on the run's run-context event, and rejects before any run exists an expectations document that is not such an object or whose schema version is unsupported, a run that is not changeset-scoped, or a declared additional path that is not a product-relative path the head commit holds, naming the field or the path ([test](tests/verify-expectations.compliance.l1.test.ts))
 - ALWAYS: start records caller-driven drive mode for the caller command path and records spx-driven drive mode only when spx opens the run ([test](tests/verify-drive-mode.compliance.l1.test.ts))
 - ALWAYS: start requires an input source and records the verification input for recorded-input replay ([test](tests/verify-start.compliance.l1.test.ts))
 - ALWAYS: `start` rejects an unsupported verification type before any started run exists, so an unregistered type cannot reach finding evidence and append an unvalidated finding ([test](tests/verify-start.compliance.l1.test.ts))

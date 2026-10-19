@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "verification": {
+    "test": {
+      "overall": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/tests/reconciliation-determinism.property.l1.test.ts": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/tests/reconciliation-expectations.property.l1.test.ts": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/tests/reconciliation-read-only.compliance.l1.test.ts": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/tests/reconciliation-rejection.compliance.l1.test.ts": "passed",
+      "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/tests/reconciliation-result.property.l1.test.ts": "passed"
+    }
+  }
+}

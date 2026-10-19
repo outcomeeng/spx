@@ -7,7 +7,7 @@ export const CLI_STREAM_REPORT = {
 
 export function reportCliResult(result: CliCommandResult, io: CliIo): void {
   const output = `${result.output}${CLI_STREAM_REPORT.LINE_SEPARATOR}`;
-  if (result.exitCode === 0) io.writeStdout(output);
+  if (result.exitCode === 0 || result.reportOnStdout === true) io.writeStdout(output);
   else io.writeStderr(output);
   io.setExitCode(result.exitCode);
 }
