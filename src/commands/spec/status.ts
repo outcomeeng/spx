@@ -150,22 +150,7 @@ export async function statusCommand(
     options.onWarning,
   );
   if (options.update === true && options.check === true) {
-    // --check regenerates the claims --update would write, in memory, and reports how the
-    // committed claims differ; it writes no file and sweeps none.
-    const { committed, regenerated } = await regenerateNodeStatusClaims({
-      productDir,
-      resolveOutcome: options.resolveOutcomeFor(productDir),
-      gitDependencies,
-      ...(options.resolveReadPathsFor === undefined
-        ? {}
-        : { resolveReadPaths: options.resolveReadPathsFor(productDir) }),
-      ...(options.resolveAttributedResultsFor === undefined
-        ? {}
-        : { resolveAttributedResults: options.resolveAttributedResultsFor(productDir) }),
-    });
-    const differences = compareNodeStatusClaims(committed, regenerated);
-    if (differences.length > 0) throw new SpecStatusCheckDifferencesError(differences);
-    return authoredText("");
+    return checkNodeStatusClaims(options, productDir, gitDependencies);
   }
   if (options.update === true) {
     // --update refreshes each node's spx.status.json before the read-back below, so
@@ -173,17 +158,7 @@ export async function statusCommand(
     // are injected at the command edge; updateNodeStatus restricts writes to git-tracked
     // node directories so a stale, untracked, node-shaped directory is neither written
     // nor retained by the stale-file sweep.
-    await updateNodeStatus({
-      productDir,
-      resolveOutcome: options.resolveOutcomeFor(productDir),
-      gitDependencies,
-      ...(options.resolveReadPathsFor === undefined
-        ? {}
-        : { resolveReadPaths: options.resolveReadPathsFor(productDir) }),
-      ...(options.resolveAttributedResultsFor === undefined
-        ? {}
-        : { resolveAttributedResults: options.resolveAttributedResultsFor(productDir) }),
-    });
+    await updateNodeStatus(buildNodeStatusUpdateInput(options, productDir, gitDependencies));
   }
   // Read-back: a node's committed spx.status.json overrides live derivation; a node
   // with no status file yields undefined, routing the spec-tree library back to live
@@ -197,6 +172,39 @@ export async function statusCommand(
     options.format,
     await readNodeStatusReports(productDir, { gitDependencies }),
   );
+}
+
+/** The inputs `--update` and `--update --check` share: the resolvers the command edge injects. */
+function buildNodeStatusUpdateInput(
+  options: StatusUpdateOptions,
+  productDir: string,
+  gitDependencies: GitDependencies,
+) {
+  return {
+    productDir,
+    resolveOutcome: options.resolveOutcomeFor(productDir),
+    gitDependencies,
+    ...(options.resolveReadPathsFor === undefined
+      ? {}
+      : { resolveReadPaths: options.resolveReadPathsFor(productDir) }),
+    ...(options.resolveAttributedResultsFor === undefined
+      ? {}
+      : { resolveAttributedResults: options.resolveAttributedResultsFor(productDir) }),
+  };
+}
+
+/** Regenerates the claims `--update` would write, in memory, and reports how the committed claims differ; it writes no file and sweeps none. */
+async function checkNodeStatusClaims(
+  options: StatusUpdateOptions,
+  productDir: string,
+  gitDependencies: GitDependencies,
+): Promise<TerminalText> {
+  const { committed, regenerated } = await regenerateNodeStatusClaims(
+    buildNodeStatusUpdateInput(options, productDir, gitDependencies),
+  );
+  const differences = compareNodeStatusClaims(committed, regenerated);
+  if (differences.length > 0) throw new SpecStatusCheckDifferencesError(differences);
+  return authoredText("");
 }
 
 function formatCheckDifferences(differences: readonly NodeStatusClaimDifference[]): TerminalText {
