@@ -18,7 +18,7 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 const TEMP_PREFIX = "spx-verification-input-";
 const GIT_BINARY = "git";
 const GIT_INIT_ARGS = ["init", "--quiet"] as const;
-const UNREADABLE_MODE = 0o000;
+const UNREADABLE_MODE = "000";
 const OUTSIDE_DIRECTORY_PREFIX = "spx-verification-input-outside-";
 
 export interface VerificationInputEnv {

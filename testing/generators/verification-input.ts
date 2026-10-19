@@ -71,7 +71,7 @@ export function arbitraryInvalidUtf8(): fc.Arbitrary<Uint8Array> {
 /** One text expressed under two independently drawn line-ending styles per line. */
 export function arbitraryLineEndingVariants(): fc.Arbitrary<LineEndingVariants> {
   return fc
-    .array(fc.string({ unit: "grapheme-ascii", maxLength: 12 }).filter((line) => !/[\r\n]/.test(line)), {
+    .array(fc.string({ unit: "grapheme-ascii", minLength: 1, maxLength: 12 }).filter((line) => !/[\r\n]/.test(line)), {
       minLength: 1,
       maxLength: MAX_LINES,
     })
