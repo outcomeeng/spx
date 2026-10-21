@@ -39,7 +39,7 @@ import {
   SPEC_TREE_NODE_STATE,
 } from "./config";
 import { compareSpecContextOrdinal } from "./context-manifest";
-import { readSpecEvidenceReferences, type SpecTreeEvidenceReference } from "./evidence-references";
+import { isFileNotFound, readSpecEvidenceReferences, type SpecTreeEvidenceReference } from "./evidence-references";
 import {
   priorNamingSchemaVersions,
   selectSpecTreeGrammar,
@@ -1215,7 +1215,10 @@ async function readNodeEvidenceReferences(
   const specPath = entry.ref?.path;
   if (source.readText === undefined || specPath === undefined) return [];
   const readText = source.readText.bind(source);
-  const specText = await readText(entry.ref ?? { id: specPath, path: specPath }).catch(() => null);
+  const specText = await readText(entry.ref ?? { id: specPath, path: specPath }).catch((error: unknown) => {
+    if (isFileNotFound(error)) return null;
+    throw error;
+  });
   if (specText === null) return [];
   return readSpecEvidenceReferences(
     specPath,
@@ -1543,8 +1546,4 @@ function joinSpecTreePath(...segments: readonly string[]): string {
 
 function includeEverySpecTreePath(): boolean {
   return true;
-}
-
-function isFileNotFound(error: unknown): boolean {
-  return error instanceof Error && "code" in error && (error as NodeJS.ErrnoException).code === "ENOENT";
 }
