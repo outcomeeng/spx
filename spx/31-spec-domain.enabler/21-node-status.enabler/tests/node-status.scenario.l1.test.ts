@@ -199,6 +199,29 @@ describe("a node whose claim recorded passing", () => {
   });
 });
 
+describe("a node whose committed claim lost its artifact results", () => {
+  it("derives failing while a current passed audit result remains", async () => {
+    const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
+      const auditSlug = repository.auditRuleSlugs[0];
+      expect(auditSlug).toBeDefined();
+      if (auditSlug === undefined) return;
+      await repository.recordPassingClaim();
+      await repository.writeClaim(
+        {
+          [NODE_STATUS_CLAIM_SECTION.AUDIT]: {
+            [auditSlug]: repository.passedEntry([repository.specPath]),
+          },
+        },
+        SPEC_TREE_NODE_STATE.FAILING,
+      );
+      await repository.commitAll();
+
+      expect(await repository.readState()).toBe(SPEC_TREE_NODE_STATE.FAILING);
+    });
+  });
+});
+
 describe("spx spec status --update under a 4.0 methodology over a node with linked verification", () => {
   it("records a result for each linked reference, each audit rule slug, and each evidence kind the node's malleability requires, pinned to the checked-out commit", async () => {
     const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());

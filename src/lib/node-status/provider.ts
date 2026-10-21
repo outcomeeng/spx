@@ -13,6 +13,7 @@ import {
 } from "@/lib/spec-tree";
 import {
   NODE_STATUS_CLAIM_FIELD,
+  NODE_STATUS_CLAIM_SECTION,
   NODE_STATUS_CLAIM_SHAPE,
   type NodeStatusClaim,
   nodeStatusClaimResults,
@@ -111,7 +112,7 @@ export async function createNodeStatusProvider(
     );
     const nodePath = `${ROOT_PREFIX}${nodeId}`;
     const facts = {
-      requiredArtifactsMissing: claim[NODE_STATUS_CLAIM_FIELD.STATE] === SPEC_TREE_NODE_STATE.DECLARED,
+      requiredArtifactsMissing: !claimLinksEvidenceArtifacts(claim),
       results,
     };
     const withoutHistory = classifyNodeClaim({ ...facts, recordedPassingAtOrAfterDeclaration: false });
@@ -137,3 +138,15 @@ function specPathOf(nodePath: string, trackedPaths: ReadonlySet<string>): string
     ? canonical
     : `${nodePath}${PATH_SEPARATOR}${slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`;
 }
+
+/** Whether the claim records a result for a linked test, eval or probe artifact, the entries the writer folds only from the node's evidence paths. */
+function claimLinksEvidenceArtifacts(claim: NodeStatusClaim): boolean {
+  const verification = claim[NODE_STATUS_CLAIM_FIELD.VERIFICATION];
+  return ARTIFACT_SECTIONS.some((section) => Object.keys(verification[section] ?? {}).length > 0);
+}
+
+const ARTIFACT_SECTIONS = [
+  NODE_STATUS_CLAIM_SECTION.TEST,
+  NODE_STATUS_CLAIM_SECTION.EVAL,
+  NODE_STATUS_CLAIM_SECTION.PROBE,
+] as const;
