@@ -39,6 +39,7 @@ import {
   SPEC_TREE_NODE_STATE,
 } from "./config";
 import { compareSpecContextOrdinal } from "./context-manifest";
+import { readSpecEvidenceReferences, type SpecTreeEvidenceReference } from "./evidence-references";
 import {
   priorNamingSchemaVersions,
   selectSpecTreeGrammar,
@@ -175,6 +176,19 @@ export type {
   SpecContextTargetPathFacts,
   SpecContextTargetResolution,
 } from "./context-target";
+export {
+  SPEC_TREE_AUDIT_TAG_SLUG_SEPARATOR,
+  SPEC_TREE_AUDIT_TAG_TEXT,
+  SPEC_TREE_EVIDENCE_KEY_KIND,
+  SPEC_TREE_EVIDENCE_TARGET,
+  SPEC_TREE_VERIFICATION_TYPE,
+} from "./evidence-references";
+export type {
+  SpecTreeEvidenceKey,
+  SpecTreeEvidenceReference,
+  SpecTreeEvidenceTarget,
+  SpecTreeVerificationType,
+} from "./evidence-references";
 export {
   selectedSupersededNodeSuffixes,
   selectSpecTreeGrammar,
@@ -425,6 +439,8 @@ export type SpecTreeNode = {
   readonly state: SpecTreeNodeState;
   readonly decisions: readonly SpecTreeDecision[];
   readonly children: readonly SpecTreeNode[];
+  /** The evidence each tagged assertion of the node's spec declares, in order of appearance. */
+  readonly evidenceReferences: readonly SpecTreeEvidenceReference[];
 };
 
 export type SpecTreeSnapshot = {
@@ -1025,7 +1041,11 @@ export async function readSpecTree(options: SpecTreeOptions): Promise<SpecTreeSn
   const decisionsByParent = groupDecisions(decisions);
   const nodesById = new Map<string, MutableSpecTreeNode>();
 
-  for (const entry of entries.filter(isNodeEntry)) {
+  const nodeEntries = entries.filter(isNodeEntry);
+  const nodeEvidenceReferences = await Promise.all(
+    nodeEntries.map((entry) => readNodeEvidenceReferences(entry, options.source)),
+  );
+  for (const [index, entry] of nodeEntries.entries()) {
     const state = deriveState(entry, evidenceByParent.get(entry.id) ?? [], options.evidence);
     nodesById.set(entry.id, {
       id: entry.id,
@@ -1038,6 +1058,7 @@ export async function readSpecTree(options: SpecTreeOptions): Promise<SpecTreeSn
       state,
       decisions: decisionsByParent.get(entry.id) ?? [],
       children: [],
+      evidenceReferences: nodeEvidenceReferences[index] ?? [],
     });
   }
 
@@ -1177,6 +1198,28 @@ function deriveState(
     return SPEC_TREE_NODE_STATE.PASSING;
   }
   return SPEC_TREE_NODE_STATE.SPECIFIED;
+}
+
+const KNOWN_GRAMMAR_SELECTION: SpecTreeGrammarSelection = {
+  known: SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
+  selected: SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
+};
+
+async function readNodeEvidenceReferences(
+  entry: SpecTreeNodeSourceEntry,
+  source: SpecTreeSource,
+): Promise<readonly SpecTreeEvidenceReference[]> {
+  const specPath = entry.ref?.path;
+  if (source.readText === undefined || specPath === undefined) return [];
+  const readText = source.readText.bind(source);
+  const specText = await readText(entry.ref ?? { id: specPath, path: specPath }).catch(() => null);
+  if (specText === null) return [];
+  return readSpecEvidenceReferences(
+    specPath,
+    specText,
+    specTreeLinkGrammar(KNOWN_GRAMMAR_SELECTION),
+    (path) => readText({ id: path, path }),
+  );
 }
 
 function sortNodes(nodes: MutableSpecTreeNode[]): void {
