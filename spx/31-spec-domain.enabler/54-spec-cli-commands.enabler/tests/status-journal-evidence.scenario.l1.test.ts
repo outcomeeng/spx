@@ -186,6 +186,24 @@ describe("a sealed test run journal supplies the verdict of each linked referenc
       expect(read).toEqual([newerRead]);
     });
   });
+
+  it("drops a read path git does not track from the read paths a reference resolves", async () => {
+    await withJournaledNode(async ({ repository, resolvers, moduleIdOf, record }) => {
+      const [path] = repository.testPaths;
+      const [tracked] = repository.subjectPaths;
+      const untracked = `${tracked}.untracked-scratch`;
+      await record({
+        headCommit: repository.commit,
+        scopes: [{ moduleId: moduleIdOf(path), readPaths: [tracked, untracked] }],
+        findings: [],
+        terminalStatus: JOURNAL_RUN_STATE_STATUS.PASSED,
+      });
+
+      const read = await resolvers.resolveReadPaths(repository.nodeId, path, NODE_STATUS_EVIDENCE_OUTCOME.PASSED);
+
+      expect(read).toEqual([tracked]);
+    });
+  });
 });
 
 describe("a journal-sourced entry is current while no path it read differs from the commit the run recorded", () => {

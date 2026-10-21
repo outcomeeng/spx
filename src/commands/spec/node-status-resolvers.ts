@@ -23,6 +23,7 @@ import {
 } from "@/domains/verify/verify";
 import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
 import { defaultGitDependencies, detectGitCommonDirProductRoot, type GitDependencies } from "@/lib/git/root";
+import { createTrackedPathInclusion, listTrackedPaths } from "@/lib/git/tracked-paths";
 import {
   createPinChangeReader,
   NODE_STATUS_EVIDENCE_OUTCOME,
@@ -113,6 +114,11 @@ export function createNodeStatusResolvers(deps: NodeStatusResolverDependencies):
   > => (journaledModules ??= sealedRuns(VERIFY_VERIFICATION_TYPE.TEST).then(newestJournaledModules));
   const moduleOf = async (evidencePath: string): Promise<JournaledModule | undefined> =>
     (await modules()).find((candidate) => moduleCovers(deps.productDir, candidate.moduleId, evidencePath));
+  let trackedInclusion: Promise<(path: string) => boolean> | undefined;
+  const isTracked = async (path: string): Promise<boolean> => {
+    trackedInclusion ??= listTrackedPaths(deps.productDir, git).then(createTrackedPathInclusion);
+    return (await trackedInclusion)(path);
+  };
   const lastRunOutcomes = createNodeOutcomeResolver(deps);
   const journals = (evidencePath: string): boolean =>
     owningLanguages(deps, evidencePath).some((language) => language.suppliesReadPaths);
@@ -146,7 +152,11 @@ export function createNodeStatusResolvers(deps: NodeStatusResolverDependencies):
       const module = await moduleOf(evidencePath);
       if (module === undefined) return undefined;
       if (!await unchangedSince(pinChanges, module.headCommit, module.readPaths)) return undefined;
-      return journalEvidence(deps, evidencePath, module).readPaths;
+      const readPaths = journalEvidence(deps, evidencePath, module).readPaths;
+      if (readPaths === undefined) return undefined;
+      // A pin Git cannot compare names only tracked files; a transient build artifact a test wrote and read is no pin.
+      const admitted = await Promise.all(readPaths.map(isTracked));
+      return readPaths.filter((_, index) => admitted[index]);
     },
     resolveAttributedResults: async (nodeId, request) => ({
       evidence: await evidenceResults(await sealedRuns(VERIFY_VERIFICATION_TYPE.AUDIT), pinChanges, nodeId, request),
