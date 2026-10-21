@@ -5,7 +5,7 @@
     "test": {
       "tests/helpers.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
+        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
@@ -23,7 +23,7 @@
       },
       "tests/ignore-sources.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
+        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
@@ -41,7 +41,7 @@
       },
       "tests/lifecycle.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
+        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
@@ -57,7 +57,7 @@
       },
       "tests/safety.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
+        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",

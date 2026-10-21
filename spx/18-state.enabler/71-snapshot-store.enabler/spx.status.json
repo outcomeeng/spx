@@ -5,7 +5,7 @@
     "test": {
       "tests/snapshot-store.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
+        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/71-snapshot-store.enabler/snapshot-store.md",
@@ -27,7 +27,7 @@
       },
       "tests/snapshot-store.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
+        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/71-snapshot-store.enabler/snapshot-store.md",

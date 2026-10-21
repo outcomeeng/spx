@@ -5,7 +5,7 @@
     "test": {
       "tests/launch-runner-test-harness.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
+        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/87-session-pick.enabler/21-launch-runner-test-harness.enabler/launch-runner-test-harness.md",

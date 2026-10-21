@@ -5,7 +5,7 @@
     "test": {
       "tests/marketplace-install.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
+        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/43-marketplace-install.enabler/marketplace-install.md",
@@ -15,6 +15,7 @@
           "src/domains/diagnose/facts.ts",
           "src/domains/diagnose/manifest.ts",
           "src/domains/diagnose/types.ts",
+          "src/lib/methodology/declaration-fields.ts",
           "src/test/languages/read-recorder-install.ts",
           "src/test/languages/read-recorder-setup.ts",
           "src/test/languages/read-recorder.ts"

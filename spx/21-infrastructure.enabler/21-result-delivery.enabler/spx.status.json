@@ -5,7 +5,7 @@
     "test": {
       "tests/backend-resolution.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
+        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/21-result-delivery.enabler/result-delivery.md",
@@ -30,7 +30,7 @@
       },
       "tests/backend-selection.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
+        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/21-result-delivery.enabler/result-delivery.md",
@@ -54,7 +54,7 @@
       },
       "tests/passthrough.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
+        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/21-result-delivery.enabler/result-delivery.md",
@@ -79,7 +79,7 @@
       },
       "tests/upsert.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "058cfb902c8b805c3b56d8351c7c4914b68d8021",
+        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/21-result-delivery.enabler/result-delivery.md",
