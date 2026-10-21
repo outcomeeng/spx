@@ -108,6 +108,24 @@ export const SPEC_TREE_EVIDENCE_LINK_TEXT = {
 
 export type SpecTreeEvidenceLinkText = (typeof SPEC_TREE_EVIDENCE_LINK_TEXT)[keyof typeof SPEC_TREE_EVIDENCE_LINK_TEXT];
 
+/** The tag texts that declare an audit assertion: the current spelling and the legacy one. */
+export const SPEC_TREE_AUDIT_TAG_TEXT = {
+  CURRENT: "audit",
+  LEGACY: "review",
+} as const;
+
+/** Separates an audit tag's text from its rule slug. */
+export const SPEC_TREE_AUDIT_TAG_SLUG_SEPARATOR = ":";
+
+/** The heading that opens a spec's assertions section. */
+export const SPEC_TREE_ASSERTIONS_HEADING = "## Assertions";
+
+/** The prefix every second-level section heading of a spec starts with. */
+export const SPEC_TREE_SECTION_HEADING_PREFIX = "## ";
+
+/** The prefix that opens an assertion line inside the assertions section. */
+export const SPEC_TREE_ASSERTION_BULLET_PREFIX = "- ";
+
 /** Every link text that marks an assertion evidence link. */
 export const SPEC_TREE_EVIDENCE_LINK_TEXTS: readonly SpecTreeEvidenceLinkText[] = Object.values(
   SPEC_TREE_EVIDENCE_LINK_TEXT,

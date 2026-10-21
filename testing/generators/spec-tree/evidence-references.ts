@@ -19,6 +19,8 @@ import * as fc from "fast-check";
 import {
   KIND_REGISTRY,
   OUTPUT_KINDS,
+  SPEC_TREE_ASSERTION_BULLET_PREFIX,
+  SPEC_TREE_ASSERTIONS_HEADING,
   SPEC_TREE_AUDIT_TAG_SLUG_SEPARATOR,
   SPEC_TREE_AUDIT_TAG_TEXT,
   SPEC_TREE_CONFIG,
@@ -91,9 +93,7 @@ const ASSERTION_LIMITS = {
 } as const;
 
 const SPEC_TEXT = {
-  ASSERTIONS_HEADING: "## Assertions",
   TITLE_PREFIX: "# ",
-  BULLET: "- ",
   LINE_BREAK: "\n",
 } as const;
 
@@ -209,7 +209,13 @@ function assertionOfForm(
     case EVIDENCE_ASSERTION_FORM.AUDIT_LEGACY:
       return unkeyedAuditAssertion(text, SPEC_TREE_AUDIT_TAG_TEXT.LEGACY);
     default:
-      return { line: `${SPEC_TEXT.BULLET}${text}`, reference: undefined, linkPath: undefined, slug: undefined, text };
+      return {
+        line: `${SPEC_TREE_ASSERTION_BULLET_PREFIX}${text}`,
+        reference: undefined,
+        linkPath: undefined,
+        slug: undefined,
+        text,
+      };
   }
 }
 
@@ -227,7 +233,7 @@ function unkeyedAuditAssertion(text: string, tagText: string): GeneratedAssertio
 }
 
 function assertionLine(text: string, tag: string): string {
-  return `${SPEC_TEXT.BULLET}${text} (${tag})`;
+  return `${SPEC_TREE_ASSERTION_BULLET_PREFIX}${text} (${tag})`;
 }
 
 /** The assertions of one spec: the required forms and the drawn extra forms, in a drawn order, with distinct audit slugs. */
@@ -301,7 +307,7 @@ function specFrom(
   const specText = [
     `${SPEC_TEXT.TITLE_PREFIX}${parts.title}`,
     "",
-    SPEC_TEXT.ASSERTIONS_HEADING,
+    SPEC_TREE_ASSERTIONS_HEADING,
     "",
     ...assertions.map(({ line }) => line),
     "",
