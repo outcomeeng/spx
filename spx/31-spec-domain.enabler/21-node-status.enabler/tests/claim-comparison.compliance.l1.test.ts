@@ -15,6 +15,8 @@ import {
   nodeStatusAttribution,
   withClaimEntry,
   withClaimState,
+  withoutClaim,
+  withoutClaimEntry,
 } from "@testing/harnesses/node-status/node-status";
 
 describe("ALWAYS: the committed-status comparison reports a difference exactly when a node's state or an entry's verdict or read set differs between the committed and the regenerated claim, and reports none when only pin commits differ", () => {
@@ -205,5 +207,79 @@ describe("ALWAYS: the committed-status comparison reports a difference exactly w
         { ...readLocation, kind: NODE_STATUS_CLAIM_DIFFERENCE.ENTRY },
       ]),
     );
+  });
+
+  it("reports none when only the order or the repetition of an entry's read paths differs", () => {
+    const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.claimComparison());
+    const committed = committedClaimSet(fixture);
+    const [nodeId = ""] = fixture.nodeIds;
+    const [testKey = ""] = fixture.testKeys;
+
+    for (
+      const location of [
+        { nodeId, section: NODE_STATUS_CLAIM_SECTION.TEST, key: testKey },
+        { nodeId, section: NODE_STATUS_CLAIM_SECTION.AUDIT, key: fixture.auditSlug },
+      ]
+    ) {
+      const regenerated = withClaimEntry(
+        committed,
+        location,
+        (entry) => ({
+          ...entry,
+          [NODE_STATUS_CLAIM_FIELD.READ]: [...fixture.readPaths].reverse().concat(fixture.readPaths),
+        }),
+      );
+
+      expect(compareNodeStatusClaims(committed, regenerated), location.section).toEqual([]);
+    }
+  });
+
+  it("reports the entry, in either direction, when it is present in the committed claim only or in the regenerated claim only", () => {
+    const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.claimComparison());
+    const committed = committedClaimSet(fixture);
+    const [nodeId = ""] = fixture.nodeIds;
+    const [testKey = ""] = fixture.testKeys;
+
+    for (
+      const location of [
+        { nodeId, section: NODE_STATUS_CLAIM_SECTION.TEST, key: testKey },
+        { nodeId, section: NODE_STATUS_CLAIM_SECTION.AUDIT, key: fixture.auditSlug },
+      ]
+    ) {
+      const withoutEntry = withoutClaimEntry(committed, location);
+      const expected = [{ ...location, kind: NODE_STATUS_CLAIM_DIFFERENCE.ENTRY }];
+
+      expect(compareNodeStatusClaims(committed, withoutEntry), `removed ${location.section}`).toEqual(expected);
+      expect(compareNodeStatusClaims(withoutEntry, committed), `added ${location.section}`).toEqual(expected);
+    }
+  });
+
+  it("reports the node state and every entry of a node, in either direction, when the node is present in one claim set only", () => {
+    const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.claimComparison());
+    const committed = committedClaimSet(fixture);
+    const [nodeId = ""] = fixture.nodeIds;
+    const without = withoutClaim(committed, nodeId);
+    const expected = [
+      { nodeId, kind: NODE_STATUS_CLAIM_DIFFERENCE.STATE },
+      ...fixture.testKeys.map((key) => ({
+        nodeId,
+        kind: NODE_STATUS_CLAIM_DIFFERENCE.ENTRY,
+        section: NODE_STATUS_CLAIM_SECTION.TEST,
+        key,
+      })),
+      {
+        nodeId,
+        kind: NODE_STATUS_CLAIM_DIFFERENCE.ENTRY,
+        section: NODE_STATUS_CLAIM_SECTION.AUDIT,
+        key: fixture.auditSlug,
+      },
+    ];
+
+    for (
+      const differences of [compareNodeStatusClaims(committed, without), compareNodeStatusClaims(without, committed)]
+    ) {
+      expect(differences).toHaveLength(expected.length);
+      expect(differences).toEqual(expect.arrayContaining(expected));
+    }
   });
 });

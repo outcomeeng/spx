@@ -1150,6 +1150,29 @@ export function withClaimEntry(
   });
 }
 
+/** A copy of `claims` in which the entry of `nodeId` at `section` and `key` is absent. */
+export function withoutClaimEntry(
+  claims: ReadonlyMap<string, NodeStatusClaim>,
+  location: { readonly nodeId: string; readonly section: NodeStatusClaimSection; readonly key: string },
+): ReadonlyMap<string, NodeStatusClaim> {
+  return replaceClaim(claims, location.nodeId, (claim) => {
+    const verification = claim[NODE_STATUS_CLAIM_FIELD.VERIFICATION];
+    const entries = Object.entries(verification[location.section] ?? {}).filter(([key]) => key !== location.key);
+    return {
+      ...claim,
+      [NODE_STATUS_CLAIM_FIELD.VERIFICATION]: { ...verification, [location.section]: Object.fromEntries(entries) },
+    };
+  });
+}
+
+/** A copy of `claims` without the claim of `nodeId`. */
+export function withoutClaim(
+  claims: ReadonlyMap<string, NodeStatusClaim>,
+  nodeId: string,
+): ReadonlyMap<string, NodeStatusClaim> {
+  return new Map([...claims].filter(([id]) => id !== nodeId));
+}
+
 function replaceClaim(
   claims: ReadonlyMap<string, NodeStatusClaim>,
   nodeId: string,
