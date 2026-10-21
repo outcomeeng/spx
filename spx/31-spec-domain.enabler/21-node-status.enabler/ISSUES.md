@@ -29,3 +29,13 @@
 **Impact:** the reporting the status-file contract declares — verdict, pin, actor, run and currency per result, for the version-1 and the 4.0 shape — is reached only through the command layer, so a defect in the reader's currency or shape reporting reaches no failing test in this node.
 
 **Settlement condition:** a test in this node exercises `readNodeStatusReports` over a version-1 claim and a 4.0 claim and asserts the currency it reports per result.
+
+## The read path and the write path resolve a node's spec path through different functions `src/lib/node-status/provider.ts` `specPathOf` `consistency`
+
+`specPathOf` in `src/lib/node-status/provider.ts` resolves a node's governing spec path by membership in the git-tracked path set, choosing the canonical path when tracked and the prior-form path otherwise, with no filesystem read. `readNodeSpecDeclaration` in `src/lib/node-status/spec-declaration.ts` resolves the same path by reading the candidates from disk and taking the readable one. `foldTrackedNodeClaims` in `src/lib/node-status/update.ts` (the write path) computes `governingDeclarationPaths` through `readNodeSpecDeclaration`; `classifyClaim` in `provider.ts` (the read path) ignores the claim's recorded `state`, recomputes it through `classifyNodeClaim`, and computes the same `governingDeclarationPaths` through `specPathOf`.
+
+**Evidence:** for a node whose canonical spec exists on disk and is not yet tracked, `specPathOf` returns the prior-form path, which does not exist, while `readNodeSpecDeclaration` finds the canonical file. The two paths can then disagree on `recordedPassingAtOrAfterDeclaration`. `spec status --update --check` compares two calls of the writer path and never reaches `provider.ts`, so it does not expose the disagreement. The PR body names the pairing among the candidates the blocked implementation audit named but did not record. Raised as a DEBT finding by the CI review of PR 679 on head d598cbdb48b7e9d9276843644a4db1e7aa899d71.
+
+**Impact:** for a newly authored, untracked node, the state `spx spec status` prints after `--update`, or without it, can differ from the state written to that node's `spx.status.json`.
+
+**Settlement condition:** one shared function resolves a node's spec path, `foldTrackedNodeClaims` and `classifyClaim` both consume it, and evidence shows an untracked node with an on-disk canonical spec reads the same state on both paths.
