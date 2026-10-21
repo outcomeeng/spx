@@ -157,13 +157,38 @@ export function arbitraryRuleSlug(): fc.Arbitrary<string> {
   return fc.uuid().map(evidenceSubject);
 }
 
-function arbitraryAssertionText(): fc.Arbitrary<string> {
+/** The delimiter of a code span: tag-like text between two of these is prose, never a declared tag. */
+const CODE_SPAN_DELIMITER = "`";
+
+const ASSERTION_TEXT_SEPARATOR = " ";
+
+/** Tag-like text, in the vocabulary of every tag form, that an assertion mentions inside a code span. */
+function arbitraryCodeSpanDecoy(): fc.Arbitrary<string> {
+  const linkDecoy = fc
+    .tuple(fc.constantFrom(...LINK_FORM_ORACLE.map(({ linkText }) => linkText)), arbitraryLinkPath())
+    .map(([linkText, path]) => `[${linkText}](${path})`);
+  const slugDecoy = arbitraryRuleSlug().map((slug) =>
+    `[${SPEC_TREE_AUDIT_TAG_TEXT.CURRENT}${SPEC_TREE_AUDIT_TAG_SLUG_SEPARATOR}${slug}]`
+  );
+  const unkeyedDecoy = fc
+    .constantFrom(SPEC_TREE_AUDIT_TAG_TEXT.CURRENT, SPEC_TREE_AUDIT_TAG_TEXT.LEGACY)
+    .map((tagText) => `[${tagText}]`);
   return fc
+    .oneof(linkDecoy, slugDecoy, unkeyedDecoy)
+    .map((decoy) => `${CODE_SPAN_DELIMITER}${decoy}${CODE_SPAN_DELIMITER}`);
+}
+
+/** Assertion words, followed in some draws by a code span of tag-like text that declares no evidence. */
+function arbitraryAssertionText(): fc.Arbitrary<string> {
+  const words = fc
     .array(fc.stringMatching(ASSERTION_WORD_PATTERN), {
       minLength: ASSERTION_LIMITS.MIN_WORDS,
       maxLength: ASSERTION_LIMITS.MAX_WORDS,
     })
-    .map((words) => words.join(" "));
+    .map((drawn) => drawn.join(ASSERTION_TEXT_SEPARATOR));
+  return fc
+    .tuple(words, fc.option(arbitraryCodeSpanDecoy(), { nil: undefined }))
+    .map(([prose, decoy]) => decoy === undefined ? prose : [prose, decoy].join(ASSERTION_TEXT_SEPARATOR));
 }
 
 function arbitraryLinkPath(): fc.Arbitrary<string> {
