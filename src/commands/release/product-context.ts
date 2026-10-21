@@ -26,6 +26,7 @@ import {
   specContextDecisions,
   specContextLowerIndexSiblings,
   type SpecTreeGrammarSelection,
+  specTreeLinkGrammar,
   type SpecTreeNode,
   type SpecTreeSnapshot,
   type SpecTreeSource,
@@ -241,6 +242,7 @@ function createReleaseEndpointSpecTreeSource(
       if (sourceRef.path === undefined) throw new Error("Committed source refs require a path");
       return await readCommittedText(sourceRef.path);
     },
+    ...(selection === undefined ? {} : { linkGrammar: async () => specTreeLinkGrammar(selection) }),
   };
 }
 
