@@ -146,6 +146,11 @@ export type LinkTargetScenario = EvidenceSpec & {
   readonly links: readonly LinkTargetCase[];
 };
 
+/** A spec holding one assertion line that carries two real evidence tags, and the line number of that assertion in the spec text. */
+export type TwoTagLineScenario = EvidenceSpec & {
+  readonly lineNumber: number;
+};
+
 export type EvidenceReferenceScenarioOptions = {
   /** Forms every generated spec holds at least once. */
   readonly required?: readonly EvidenceAssertionForm[];
@@ -445,4 +450,95 @@ export function arbitraryLinkTargetScenario(): fc.Arbitrary<LinkTargetScenario> 
         })),
       };
     });
+}
+
+/** The brackets-and-word forms of a pathless audit tag, which prose may mention away from the tag position. */
+const PATHLESS_TAG_TEXTS = [SPEC_TREE_AUDIT_TAG_TEXT.CURRENT, SPEC_TREE_AUDIT_TAG_TEXT.LEGACY] as const;
+
+/** Forms whose real tag is read wherever it stands on the line: every link form and the slugged audit form. */
+const ANYWHERE_TAG_FORMS: readonly EvidenceAssertionForm[] = COVERING_FORMS;
+
+/** Forms that end an assertion line with a tag other than a pathless audit tag, or with no tag. */
+const NON_PATHLESS_END_FORMS: readonly EvidenceAssertionForm[] = [
+  ...COVERING_FORMS,
+  EVIDENCE_ASSERTION_FORM.UNTAGGED,
+];
+
+function realTagOfForm(form: EvidenceAssertionForm, path: string, slug: string): string {
+  const link = LINK_FORM_ORACLE.find((candidate) => candidate.form === form);
+  return link !== undefined
+    ? `[${link.linkText}](${path})`
+    : `[${SPEC_TREE_AUDIT_TAG_TEXT.CURRENT}${SPEC_TREE_AUDIT_TAG_SLUG_SEPARATOR}${slug}]`;
+}
+
+/**
+ * A spec whose assertions mention a pathless audit or legacy review word in brackets inside the
+ * prose, away from the tag position, and end in a link tag, a slugged audit tag, or no tag. The
+ * expected references are those of the tags at the line ends alone; bracketed prose declares none.
+ */
+export function arbitraryBracketedProseScenario(): fc.Arbitrary<EvidenceReferenceScenario> {
+  return fc
+    .tuple(
+      arbitraryNodeParts(),
+      fc.array(
+        fc.tuple(
+          fc.constantFrom(...NON_PATHLESS_END_FORMS),
+          arbitraryAssertionText(),
+          fc.constantFrom(...PATHLESS_TAG_TEXTS),
+          arbitraryAssertionText(),
+          arbitraryLinkPath(),
+        ),
+        { minLength: 1, maxLength: ASSERTION_LIMITS.MAX_EXTRA_ASSERTIONS },
+      ),
+      fc.uniqueArray(arbitraryRuleSlug(), {
+        minLength: ASSERTION_LIMITS.MAX_EXTRA_ASSERTIONS,
+        maxLength: ASSERTION_LIMITS.MAX_EXTRA_ASSERTIONS,
+      }),
+    )
+    .map(([parts, drawn, slugs]) => {
+      const assertions = drawn.map(([form, before, tagText, after, path], index) =>
+        assertionOfForm(
+          form,
+          [before, `[${tagText}]`, after].join(ASSERTION_TEXT_SEPARATOR),
+          path,
+          slugs[index] ?? "",
+        )
+      );
+      return {
+        ...specFrom(parts, assertions, everyTargetPresent),
+        expected: assertions.flatMap(({ reference }) => reference === undefined ? [] : [reference]),
+      };
+    });
+}
+
+/**
+ * A spec with one assertion line that carries two real evidence tags, each a link tag or a
+ * slugged audit tag, among untagged assertions. The spec declares the line malformed.
+ */
+export function arbitraryTwoTagLineScenario(): fc.Arbitrary<TwoTagLineScenario> {
+  return fc
+    .tuple(
+      arbitraryNodeParts(),
+      arbitraryAssertionSet({ extra: [EVIDENCE_ASSERTION_FORM.UNTAGGED] }),
+      arbitraryAssertionText(),
+      fc.tuple(fc.constantFrom(...ANYWHERE_TAG_FORMS), fc.constantFrom(...ANYWHERE_TAG_FORMS)),
+      fc.uniqueArray(arbitraryLinkPath(), { minLength: 2, maxLength: 2 }),
+      fc.uniqueArray(arbitraryRuleSlug(), { minLength: 2, maxLength: 2 }),
+    )
+    .chain(([parts, assertions, text, forms, paths, slugs]) =>
+      fc.nat(assertions.length).map((position) => {
+        const tags = forms.map((form, index) => realTagOfForm(form, paths[index] ?? "", slugs[index] ?? ""));
+        const doubleTagged: GeneratedAssertion = {
+          line: tags.reduce((line, tag) => `${line} (${tag})`, `${SPEC_TREE_ASSERTION_BULLET_PREFIX}${text}`),
+          reference: undefined,
+          linkPath: undefined,
+          slug: undefined,
+          text,
+        };
+        const ordered = [...assertions.slice(0, position), doubleTagged, ...assertions.slice(position)];
+        const spec = specFrom(parts, ordered, everyTargetPresent);
+        const specText = spec.files.find(({ path }) => path === spec.specPath)?.contents ?? "";
+        return { ...spec, lineNumber: specText.split(SPEC_TEXT.LINE_BREAK).indexOf(doubleTagged.line) + 1 };
+      })
+    );
 }
