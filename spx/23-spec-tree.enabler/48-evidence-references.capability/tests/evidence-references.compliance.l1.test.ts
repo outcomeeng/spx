@@ -4,8 +4,10 @@ import { SPEC_TREE_EVIDENCE_KEY_KIND, SPEC_TREE_VERIFICATION_TYPE } from "@/lib/
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   arbitraryBracketedProseScenario,
+  arbitraryCodeSpanScenario,
   arbitraryDuplicateAuditSlugScenario,
   arbitraryRepeatedSlugAcrossSpecsScenario,
+  arbitraryTagPositionScenario,
   arbitraryTwoTagLineScenario,
   arbitraryUnkeyedAuditScenario,
 } from "@testing/generators/spec-tree/evidence-references";
@@ -32,6 +34,29 @@ describe("unkeyed audit references", () => {
 describe("tag position", () => {
   it("reads bracketed audit and review words in prose as no reference, leaving only the tags at the line ends", async () => {
     const scenario = sampleGeneratedValue(arbitraryBracketedProseScenario());
+
+    const snapshot = await readEvidenceSpecsFromFilesystem([scenario]);
+
+    const references = snapshot.allNodes.find(({ slug }) => slug === scenario.entry.slug)?.evidenceReferences ?? [];
+    expect(references).toEqual(scenario.expected);
+  });
+});
+
+describe("tag-like text inside a code span", () => {
+  it("reads tag-like text of every tag form inside a code span as no reference, whether it ends the line or precedes a real tag", async () => {
+    const scenario = sampleGeneratedValue(arbitraryCodeSpanScenario());
+
+    const snapshot = await readEvidenceSpecsFromFilesystem([scenario]);
+
+    const references = snapshot.allNodes.find(({ slug }) => slug === scenario.entry.slug)?.evidenceReferences ?? [];
+    expect(scenario.expected.length).toBeGreaterThan(0);
+    expect(references).toEqual(scenario.expected);
+  });
+});
+
+describe("tag position outside a code span", () => {
+  it("reads a link tag or a slugged audit tag followed by prose, and a bare pathless audit or review tag at the line end, as references", async () => {
+    const scenario = sampleGeneratedValue(arbitraryTagPositionScenario());
 
     const snapshot = await readEvidenceSpecsFromFilesystem([scenario]);
 
