@@ -33,16 +33,13 @@ import {
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_METHODOLOGY_LINE,
   SPEC_TREE_VERIFICATION_TYPE,
-  type SpecTreeMethodologyLine,
   type SpecTreeEvidenceReference,
+  type SpecTreeMethodologyLine,
   type SpecTreeNodeSourceEntry,
   type SpecTreeVerificationType,
 } from "@/lib/spec-tree";
-import {
-  arbitraryVersionOnLine,
-  fourZeroOnlyOutputKinds,
-} from "@testing/generators/spec-tree/grammar-selection";
 import { evidenceSubject } from "@testing/generators/spec-tree/evidence-file-name";
+import { arbitraryVersionOnLine, fourZeroOnlyOutputKinds } from "@testing/generators/spec-tree/grammar-selection";
 import { SPEC_TREE_TEST_GENERATOR, specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
 
 /** The shapes an assertion line takes with respect to evidence tagging. */
