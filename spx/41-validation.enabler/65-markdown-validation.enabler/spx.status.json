@@ -5,7 +5,7 @@
     "test": {
       "tests/markdown-validation-command.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -376,7 +376,7 @@
       },
       "tests/markdown-validation.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -522,7 +522,7 @@
       },
       "tests/markdown-validation.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -622,7 +622,7 @@
       },
       "tests/markdown-validation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx.config.yaml",

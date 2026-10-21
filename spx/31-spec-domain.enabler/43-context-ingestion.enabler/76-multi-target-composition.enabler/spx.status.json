@@ -5,7 +5,7 @@
     "test": {
       "tests/multi-target-composition.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/76-multi-target-composition.enabler/multi-target-composition.md",
@@ -169,7 +169,7 @@
       },
       "tests/multi-target-composition.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/76-multi-target-composition.enabler/multi-target-composition.md",
@@ -334,7 +334,7 @@
       },
       "tests/multi-target-composition.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/76-multi-target-composition.enabler/multi-target-composition.md",

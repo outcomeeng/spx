@@ -22,7 +22,7 @@
       },
       "tests/session-store.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "eslint-rules/import-source.ts",
           "eslint-rules/no-async-spawn-outside-lifecycle.ts",
@@ -250,7 +250,7 @@
       },
       "tests/session-store.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/43-session-store.enabler/session-store.md",

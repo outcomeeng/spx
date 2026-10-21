@@ -5,7 +5,7 @@
     "test": {
       "tests/session-start-rejection.mapping.l2.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/session-start.md",
@@ -383,7 +383,7 @@
       },
       "tests/session-start.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/session-start.md",
@@ -761,7 +761,7 @@
       },
       "tests/session-start.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/session-start.md",

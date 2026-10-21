@@ -5,7 +5,7 @@
     "test": {
       "tests/pi-resume.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/21-resume.enabler/resume.md",
@@ -375,7 +375,7 @@
       },
       "tests/pi-resume.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/21-resume.enabler/resume.md",
@@ -742,7 +742,7 @@
       },
       "tests/pi-resume.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/21-resume.enabler/resume.md",
@@ -1109,7 +1109,7 @@
       },
       "tests/record-scope.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/21-resume.enabler/resume.md",
@@ -1475,7 +1475,7 @@
       },
       "tests/record-scope.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/21-resume.enabler/resume.md",
@@ -1842,7 +1842,7 @@
       },
       "tests/record-scope.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/21-resume.enabler/resume.md",
@@ -2208,7 +2208,7 @@
       },
       "tests/resume-cli.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/21-resume.enabler/resume.md",
@@ -2574,7 +2574,7 @@
       },
       "tests/resume.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/21-resume.enabler/resume.md",
@@ -2939,7 +2939,7 @@
       },
       "tests/resume.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/21-resume.enabler/resume.md",
@@ -3305,7 +3305,7 @@
       },
       "tests/resume.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/21-resume.enabler/resume.md",

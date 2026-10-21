@@ -5,7 +5,7 @@
     "test": {
       "tests/change-cli.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-changes.enabler/43-change-cli.enabler/change-cli.md",
@@ -368,7 +368,7 @@
       },
       "tests/packaged-commands.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-changes.enabler/43-change-cli.enabler/change-cli.md",

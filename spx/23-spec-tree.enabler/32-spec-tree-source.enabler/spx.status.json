@@ -5,7 +5,7 @@
     "test": {
       "tests/residual-retention.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/32-spec-tree-source.enabler/spec-tree-source.md",
@@ -107,7 +107,7 @@
       },
       "tests/residual-retention.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/32-spec-tree-source.enabler/spec-tree-source.md",
@@ -210,7 +210,7 @@
       },
       "tests/source-selection.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/32-spec-tree-source.enabler/spec-tree-source.md",
@@ -314,7 +314,7 @@
       },
       "tests/spec-tree-source.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/32-spec-tree-source.enabler/spec-tree-source.md",
@@ -417,7 +417,7 @@
       },
       "tests/spec-tree-source.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/32-spec-tree-source.enabler/spec-tree-source.md",

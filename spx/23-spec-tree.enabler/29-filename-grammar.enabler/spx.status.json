@@ -5,7 +5,7 @@
     "test": {
       "tests/declaration-selection.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md",
@@ -105,7 +105,7 @@
       },
       "tests/filename-grammar.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md",
@@ -302,7 +302,7 @@
       },
       "tests/kind-registry-subsets.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md",
@@ -403,7 +403,7 @@
       },
       "tests/kind-registry-suffixes.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md",
@@ -534,7 +534,7 @@
       },
       "tests/kind-registry.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md",
@@ -636,7 +636,7 @@
       },
       "tests/naming-schema-versions.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md",
@@ -770,7 +770,7 @@
       },
       "tests/spec-file-form.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md",
@@ -873,7 +873,7 @@
       },
       "tests/spec-tree-config.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md",
@@ -977,7 +977,7 @@
       },
       "tests/test-file-form.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md",
