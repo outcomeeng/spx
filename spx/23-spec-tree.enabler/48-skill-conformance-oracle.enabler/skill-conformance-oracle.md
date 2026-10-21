@@ -1,6 +1,6 @@
 # Skill Conformance Oracle
 
-PROVIDES a context-aware binary recognizer that classifies every path inside `spx/` as valid (a path a skill-driven operation produces) or foreign (a path no recognized Spec-Tree form covers), covering node directories, decision records, product files, evidence files, spec files, coordination notes, eval-lane directories, and the exclusion registry
+PROVIDES a context-aware binary recognizer that classifies every path inside `spx/` as valid (a path a skill-driven operation produces) or foreign (a path no recognized Spec-Tree form covers), covering node directories, decision records, product files, evidence files, spec files, coordination notes, eval-lane directories, knowledge roots, probe directories, and the exclusion registry
 SO THAT eval-lane assertions and any consumer that validates a materialized spec tree
 CAN determine which paths are skill-produced without owning grammar vocabulary or placement rules themselves
 
@@ -8,12 +8,16 @@ CAN determine which paths are skill-produced without owning grammar vocabulary o
 
 ### Mappings
 
-- All recognized Spec-Tree path forms — node directories, decision records, product files, evidence files, spec files, coordination notes (`PLAN.md`, `ISSUES.md`), eval-lane directories (`evals/{rule}/`), and `spx/EXCLUDE` — map to the valid verdict; every path that matches no recognized form maps to foreign ([test](tests/skill-conformance-oracle.mapping.l1.test.ts))
+- All recognized Spec-Tree path forms — node directories, decision records, product files, evidence files, spec files, coordination notes (`PLAN.md`, `ISSUES.md`), eval-lane directories (`evals/{rule}/`), knowledge roots (`knowledge/`), probe directories (`probes/{probe-slug}/`), and `spx/EXCLUDE` — map to the valid verdict; every path that matches no recognized form maps to foreign ([test](tests/skill-conformance-oracle.mapping.l1.test.ts))
 - A spec file carrying the canonical spec document-kind suffix directly within a node directory is valid by its suffix, independent of the parent slug; a bare `{slug}.md` file directly within a node directory is valid when its stem matches the parent node directory slug and foreign when it differs ([test](tests/spec-file.mapping.l1.test.ts))
+- When the oracle reads the 4.0 naming-schema version, a `knowledge/` directory directly within a node directory or directly under `spx/`, and a `probes/` directory directly within an output or variant node directory, each map to valid ([test](tests/knowledge-probe.mapping.l1.test.ts))
+- When the naming-schema versions the oracle reads exclude the 4.0 version, a `knowledge/` or `probes/` directory within a node directory maps to foreign ([test](tests/knowledge-probe.mapping.l1.test.ts))
 
 ### Properties
 
 - Classification is exhaustive and binary: every path receives exactly one verdict, valid or foreign ([test](tests/skill-conformance-oracle.property.l1.test.ts))
+- When the oracle reads the 4.0 naming-schema version, every path beneath a `knowledge/` directory it admits maps to valid; under an admitted `probes/` directory, every probe directory whose name is a slug maps to valid, as do its `probe.md`, each `{slug}.{ext}` artifact file in it, and its `runs/` directory with every path beneath; and every other entry under `probes/` or under a probe directory maps to foreign ([test](tests/knowledge-probe.property.l1.test.ts))
+- When the naming-schema versions the oracle reads exclude the 4.0 version, every path beneath a `knowledge/` or `probes/` directory within a node directory maps to foreign ([test](tests/knowledge-probe.property.l1.test.ts))
 
 ### Compliance
 
