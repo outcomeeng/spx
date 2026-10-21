@@ -52,6 +52,8 @@ export type SpecTreeEvidenceTargetReader = (productRelativePath: string) => Prom
 
 const FILE_NOT_FOUND_CODE = "ENOENT";
 const LINE_BREAK_PATTERN = /\r?\n/u;
+const CODE_SPAN_PATTERN = /`[^`]*`/gu;
+const CODE_SPAN_REPLACEMENT = " ";
 
 const VERIFICATION_TYPE_OF_LINK_TEXT: Readonly<Record<SpecTreeEvidenceLinkText, SpecTreeVerificationType>> = {
   [SPEC_TREE_EVIDENCE_LINK_TEXT.TEST]: SPEC_TREE_VERIFICATION_TYPE.TEST,
@@ -76,7 +78,8 @@ function alternation(values: readonly string[]): string {
 
 /**
  * An evidence tag inside an assertion line: a link whose text names an evidence type, or an audit
- * tag with an optional rule slug that no link target follows.
+ * tag with an optional rule slug that no link target follows. Code-span content is excluded
+ * before matching.
  */
 const EVIDENCE_TAG_PATTERN = new RegExp(
   String.raw`\[(?<${LINK_TAG_GROUP.TEXT}>${
@@ -86,6 +89,10 @@ const EVIDENCE_TAG_PATTERN = new RegExp(
     + String.raw`(?:${escapeRegExp(SPEC_TREE_AUDIT_TAG_SLUG_SEPARATOR)}(?<${LINK_TAG_GROUP.SLUG}>[^\]\s]+))?\](?!\()`,
   "u",
 );
+
+function withoutCodeSpans(line: string): string {
+  return line.replaceAll(CODE_SPAN_PATTERN, CODE_SPAN_REPLACEMENT);
+}
 
 function assertionLines(specText: string): readonly string[] {
   const lines = specText.split(LINE_BREAK_PATTERN);
@@ -143,7 +150,9 @@ export async function readSpecEvidenceReferences(
   const references: SpecTreeEvidenceReference[] = [];
   const slugs = new Set<string>();
   for (const line of assertionLines(specText)) {
-    const groups: Readonly<Record<string, string | undefined>> | undefined = EVIDENCE_TAG_PATTERN.exec(line)?.groups;
+    const groups: Readonly<Record<string, string | undefined>> | undefined = EVIDENCE_TAG_PATTERN.exec(
+      withoutCodeSpans(line),
+    )?.groups;
     if (groups === undefined) continue;
     const linkText = groups[LINK_TAG_GROUP.TEXT] as SpecTreeEvidenceLinkText | undefined;
     const href = groups[LINK_TAG_GROUP.HREF];
