@@ -83,8 +83,10 @@ const THREE_X = SPEC_TREE_METHODOLOGY_LINE.THREE_TWO;
 
 const STRAY_EXTENSION_PATTERN = /^[a-z][a-z0-9]{0,5}$/;
 const PRIOR_SPEC_EXTENSION = "md";
+const PRIOR_SPEC_SUFFIX = SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX;
 const SPEC_FILE_DRAW_COUNT = 3;
 const LANE_SEGMENT_MAX_COUNT = 3;
+const NOTE_PARENT_DRAW = 7;
 
 /** The options a methodology line selects: its selected versions beside every version the recognizer knows. */
 export function conformanceOptionsForLine(line: SpecTreeMethodologyLine): SpecTreeRecognitionOptions {
@@ -203,18 +205,6 @@ function lineRecognizedCases(line: SpecTreeMethodologyLine): readonly Conformanc
     { location: LOCATION.NODE_DIRECTORY, parentSlug },
     VALID,
   );
-  const notes = [...SPEC_TREE_GRAMMAR.COORDINATION_NOTES].map((name) => ({
-    name,
-    verdict: line === FOUR_ZERO && name === SPEC_TREE_GRAMMAR.COORDINATION_NOTE.PLAN ? FOREIGN : VALID,
-  })).map(({ name, verdict }) =>
-    conformanceCase(
-      `${line} coordination note ${name}`,
-      options,
-      { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE, relativePath: name },
-      { location: LOCATION.NODE_DIRECTORY, parentSlug },
-      verdict,
-    )
-  );
   const evalLane = evalLaneCases()
     .filter((candidate) => candidate.line === line)
     .map((candidate) =>
@@ -258,7 +248,6 @@ function lineRecognizedCases(line: SpecTreeMethodologyLine): readonly Conformanc
     ...products,
     evidenceFile,
     specFile,
-    ...notes,
     ...evalLane,
     ...evalDirectories,
     exclusion,
@@ -324,10 +313,58 @@ export function knowledgeProbeMappingCases(): readonly ConformanceCase[] {
   ];
 }
 
+/** The notes each methodology line's naming-schema version accepts: 3.x both, 4.0 only the issues note. */
+function notesAcceptedByLine(line: SpecTreeMethodologyLine): readonly string[] {
+  const { PLAN, ISSUES } = SPEC_TREE_GRAMMAR.COORDINATION_NOTE;
+  return line === FOUR_ZERO ? [ISSUES] : [PLAN, ISSUES];
+}
+
+/**
+ * Every coordination note under every version set the oracle can read — each methodology line alone,
+ * and the 4.0 line migrating from 3.x, which reads both versions — with the verdict the grammar's
+ * accepted-notes statement fixes: valid when a read version accepts the note, foreign otherwise.
+ */
+export function coordinationNoteCases(): readonly ConformanceCase[] {
+  const parentSlug = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), NOTE_PARENT_DRAW);
+  const optionSets: ReadonlyArray<readonly [string, SpecTreeRecognitionOptions, readonly string[]]> = [
+    ...SPEC_TREE_SOURCE_LINES.map((line) =>
+      [line, conformanceOptionsForLine(line), notesAcceptedByLine(line)] as const
+    ),
+    [
+      "migrating",
+      conformanceMigratingOptions(),
+      [...new Set([...notesAcceptedByLine(FOUR_ZERO), ...notesAcceptedByLine(THREE_X)])],
+    ],
+  ];
+  return optionSets.flatMap(([label, options, accepted]) =>
+    [...SPEC_TREE_GRAMMAR.COORDINATION_NOTES].map((name) =>
+      conformanceCase(
+        `${label} coordination note ${name}`,
+        options,
+        { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE, relativePath: name },
+        { location: LOCATION.NODE_DIRECTORY, parentSlug },
+        accepted.includes(name) ? VALID : FOREIGN,
+      )
+    )
+  );
+}
+
+/**
+ * Every recognized-form case across the methodology lines with the verdict the spec and grammar state
+ * for it, valid and foreign alike: node directories, decision records, product files, evidence files,
+ * spec files, eval-lane entries, the exclusion registry, and coordination notes.
+ */
+export function formPathCases(): readonly ConformanceCase[] {
+  return [
+    ...SPEC_TREE_SOURCE_LINES.flatMap(lineRecognizedCases),
+    ...coordinationNoteCases(),
+  ];
+}
+
 /** Every recognized form across the methodology lines, each with the valid verdict the spec states for it. */
 export function recognizedPathCases(): readonly ConformanceCase[] {
   return [
-    ...SPEC_TREE_SOURCE_LINES.flatMap(lineRecognizedCases),
+    ...formPathCases(),
     ...knowledgeProbeMappingCases(),
   ].filter((candidate) => candidate.verdict === VALID);
 }
@@ -548,6 +585,84 @@ export const SKILL_CONFORMANCE_LANE_GENERATOR = {
           FOREIGN,
         )
       ),
+} as const;
+
+function everyOptionSet(): readonly SpecTreeRecognitionOptions[] {
+  return [...SPEC_TREE_SOURCE_LINES.map(conformanceOptionsForLine), conformanceMigratingOptions()];
+}
+
+/**
+ * Open domain of paths that match no recognized form, each foreign by construction: a `{slug}.{ext}`
+ * file whose extension is not the markdown one, in any location a file can sit, a markdown file in a
+ * node directory whose stem differs from the parent slug, a plain slug directory in a node directory,
+ * and a directory whose ordered name carries an unregistered suffix.
+ */
+export const SKILL_CONFORMANCE_FOREIGN_GENERATOR = {
+  strayPath: (): fc.Arbitrary<ConformanceCase> => {
+    const slug = SPEC_TREE_TEST_GENERATOR.sourceSlug();
+    const options = fc.constantFrom(...everyOptionSet());
+    const file = (relativePath: string): SpecTreeFilesystemRecord => ({
+      type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
+      relativePath,
+    });
+    const strayFile = fc
+      .tuple(
+        options,
+        arbitraryStrayFileName(),
+        slug,
+        slug,
+        fc.constantFrom(LOCATION.PRODUCT_ROOT, LOCATION.NODE_DIRECTORY, LOCATION.EVIDENCE_DIRECTORY),
+      )
+      .map(([option, name, parentSlug, , location]) =>
+        conformanceCase(`stray file ${name} in ${location}`, option, file(name), { location, parentSlug }, FOREIGN)
+      );
+    const strayEvalLaneFile = fc
+      .tuple(options, slug, slug, arbitraryStrayFileName())
+      .map(([option, parentSlug, rule, name]) =>
+        conformanceCase(
+          `stray eval-lane file ${name}`,
+          option,
+          file(joined(SPEC_TREE_GRAMMAR.EVAL.DIRECTORY_NAME, rule, name)),
+          { location: LOCATION.EVAL_LANE, parentSlug },
+          FOREIGN,
+        )
+      );
+    const mismatchedSpecStem = fc
+      .tuple(options, slug, slug)
+      .filter(([, parentSlug, stem]) => parentSlug !== stem)
+      .map(([option, parentSlug, stem]) =>
+        conformanceCase(
+          `markdown file ${stem}${PRIOR_SPEC_SUFFIX} within ${parentSlug}`,
+          option,
+          file(`${stem}${PRIOR_SPEC_SUFFIX}`),
+          { location: LOCATION.NODE_DIRECTORY, parentSlug },
+          FOREIGN,
+        )
+      );
+    const plainDirectory = fc
+      .tuple(options, slug, slug)
+      .map(([option, parentSlug, name]) =>
+        conformanceCase(
+          `plain directory ${name} within ${parentSlug}`,
+          option,
+          { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY, relativePath: name },
+          { location: LOCATION.NODE_DIRECTORY, parentSlug },
+          FOREIGN,
+        )
+      );
+    const unregisteredSuffix = SPEC_TREE_TEST_GENERATOR.invalidOrderedDirectoryScenario(KIND_REGISTRY).map((
+      scenario,
+    ) =>
+      conformanceCase(
+        `ordered directory ${scenario.directory} with an unregistered suffix`,
+        conformanceOptionsForLine(scenario.line),
+        { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY, relativePath: scenario.directory },
+        { location: LOCATION.PRODUCT_ROOT },
+        FOREIGN,
+      )
+    );
+    return fc.oneof(strayFile, strayEvalLaneFile, mismatchedSpecStem, plainDirectory, unregisteredSuffix);
+  },
 } as const;
 
 const ENTRY_LOCATION: Readonly<Record<string, SpecTreeConformanceContext["location"]>> = {
