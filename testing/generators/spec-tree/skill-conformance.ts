@@ -19,7 +19,6 @@
 import * as fc from "fast-check";
 
 import type {
-  Kind,
   SpecTreeConformanceContext,
   SpecTreeConformanceVerdict,
   SpecTreeEvalEntryKind,
@@ -39,6 +38,7 @@ import {
   SPEC_TREE_EVAL_ENTRY_KIND,
   SPEC_TREE_FILESYSTEM_RECORD_TYPE,
   SPEC_TREE_GRAMMAR,
+  SPEC_TREE_KIND_CATEGORY,
   SPEC_TREE_KNOWLEDGE_ROOT_HOLDER,
   SPEC_TREE_METHODOLOGY_LINE,
 } from "@/lib/spec-tree";
@@ -131,10 +131,41 @@ function arbitraryStrayFileName(): fc.Arbitrary<string> {
     .map(([slug, extension]) => [slug, extension].join(SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR));
 }
 
-function nodeKindsOfLine(
-  line: SpecTreeMethodologyLine,
-): ReadonlyArray<NonNullable<SpecTreeConformanceContext["parentKind"]>> {
+type ParentKind = NonNullable<SpecTreeConformanceContext["parentKind"]>;
+
+/** The kinds of node directory a methodology line's naming-schema version declares. */
+function nodeKindsOfLine(line: SpecTreeMethodologyLine): readonly ParentKind[] {
   return line === FOUR_ZERO ? [...OUTPUT_KINDS, SPEC_TREE_CONFIG.PRODUCT.KIND] : NODE_KINDS;
+}
+
+/** Every kind of node directory the registry declares, across both naming-schema versions. */
+function everyParentKind(): readonly ParentKind[] {
+  return [...NODE_KINDS, ...OUTPUT_KINDS, SPEC_TREE_CONFIG.PRODUCT.KIND];
+}
+
+/** A context at a location that carries the kind of its holding node directory. */
+function kindedContext(
+  location: typeof LOCATION.NODE_DIRECTORY | typeof LOCATION.PROBE_DIRECTORY,
+  parentKind: ParentKind,
+  parentSlug?: string,
+): SpecTreeConformanceContext {
+  return { location, parentKind, parentSlug };
+}
+
+function nodeDirectory(parentKind: ParentKind, parentSlug?: string): SpecTreeConformanceContext {
+  return kindedContext(LOCATION.NODE_DIRECTORY, parentKind, parentSlug);
+}
+
+/** A context at any location: the kinded locations take the kind, every other location declares none. */
+function contextAt(
+  location: SpecTreeConformanceContext["location"],
+  parentKind: ParentKind,
+  parentSlug?: string,
+): SpecTreeConformanceContext {
+  if (location === LOCATION.NODE_DIRECTORY || location === LOCATION.PROBE_DIRECTORY) {
+    return kindedContext(location, parentKind, parentSlug);
+  }
+  return { location, parentSlug };
 }
 
 function lineRecognizedCases(line: SpecTreeMethodologyLine): readonly ConformanceCase[] {
@@ -163,17 +194,19 @@ function lineRecognizedCases(line: SpecTreeMethodologyLine): readonly Conformanc
     );
   const decisions = decisionFileRecognitionCases()
     .filter((candidate) => candidate.line === line)
-    .map((candidate) =>
-      conformanceCase(
-        `${line} decision record ${candidate.relativePath}`,
-        options,
-        {
-          type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
-          relativePath: candidate.relativePath,
-          parentId: candidate.parentId,
-        },
-        { location: LOCATION.NODE_DIRECTORY },
-        VALID,
+    .flatMap((candidate) =>
+      nodeKindsOfLine(line).map((parentKind) =>
+        conformanceCase(
+          `${line} decision record ${candidate.relativePath} within a ${parentKind} node directory`,
+          options,
+          {
+            type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE,
+            relativePath: candidate.relativePath,
+            parentId: candidate.parentId,
+          },
+          nodeDirectory(parentKind),
+          VALID,
+        )
       )
     );
   const products = productRootRecognitionCases()
@@ -198,12 +231,14 @@ function lineRecognizedCases(line: SpecTreeMethodologyLine): readonly Conformanc
     { location: LOCATION.EVIDENCE_DIRECTORY },
     VALID,
   );
-  const specFile = conformanceCase(
-    `${line} spec file ${parentSlug}${specSuffix} within ${parentSlug}`,
-    options,
-    { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE, relativePath: `${parentSlug}${specSuffix}` },
-    { location: LOCATION.NODE_DIRECTORY, parentSlug },
-    VALID,
+  const specFiles = nodeKindsOfLine(line).map((parentKind) =>
+    conformanceCase(
+      `${line} spec file ${parentSlug}${specSuffix} within a ${parentKind} node directory ${parentSlug}`,
+      options,
+      { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE, relativePath: `${parentSlug}${specSuffix}` },
+      nodeDirectory(parentKind, parentSlug),
+      VALID,
+    )
   );
   const evalLane = evalLaneCases()
     .filter((candidate) => candidate.line === line)
@@ -217,12 +252,14 @@ function lineRecognizedCases(line: SpecTreeMethodologyLine): readonly Conformanc
       )
     );
   const evalDirectories = [
-    conformanceCase(
-      `${line} eval container directory`,
-      options,
-      { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY, relativePath: SPEC_TREE_GRAMMAR.EVAL.DIRECTORY_NAME },
-      { location: LOCATION.NODE_DIRECTORY, parentSlug },
-      VALID,
+    ...nodeKindsOfLine(line).map((parentKind) =>
+      conformanceCase(
+        `${line} eval container directory within a ${parentKind} node directory`,
+        options,
+        { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY, relativePath: SPEC_TREE_GRAMMAR.EVAL.DIRECTORY_NAME },
+        nodeDirectory(parentKind, parentSlug),
+        VALID,
+      )
     ),
     conformanceCase(
       `${line} eval-lane rule directory ${rule}`,
@@ -247,7 +284,7 @@ function lineRecognizedCases(line: SpecTreeMethodologyLine): readonly Conformanc
     ...decisions,
     ...products,
     evidenceFile,
-    specFile,
+    ...specFiles,
     ...evalLane,
     ...evalDirectories,
     exclusion,
@@ -264,7 +301,7 @@ function fourZeroKnowledgeProbeCases(options: SpecTreeRecognitionOptions, label:
         `${label} ${knowledge} directory within a ${parentKind} node directory`,
         options,
         { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY, relativePath: knowledge },
-        { location: LOCATION.NODE_DIRECTORY, parentKind },
+        nodeDirectory(parentKind),
         VALID,
       )
     ),
@@ -275,13 +312,13 @@ function fourZeroKnowledgeProbeCases(options: SpecTreeRecognitionOptions, label:
       { location: LOCATION.PRODUCT_ROOT },
       VALID,
     ),
-    ...OUTPUT_KINDS.map((parentKind) =>
+    ...everyParentKind().map((parentKind) =>
       conformanceCase(
         `${label} ${probes} directory within a ${parentKind} node directory`,
         options,
         { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY, relativePath: probes },
-        { location: LOCATION.NODE_DIRECTORY, parentKind },
-        VALID,
+        nodeDirectory(parentKind),
+        registryAdmitsProbeLane(parentKind) ? VALID : FOREIGN,
       )
     ),
   ];
@@ -301,7 +338,7 @@ export function knowledgeProbeMappingCases(): readonly ConformanceCase[] {
         `${THREE_X} ${name} directory within a ${parentKind} node directory`,
         threeXOptions,
         { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY, relativePath: name },
-        { location: LOCATION.NODE_DIRECTORY, parentKind },
+        nodeDirectory(parentKind),
         FOREIGN,
       )
     )
@@ -337,13 +374,15 @@ export function coordinationNoteCases(): readonly ConformanceCase[] {
     ],
   ];
   return optionSets.flatMap(([label, options, accepted]) =>
-    [...SPEC_TREE_GRAMMAR.COORDINATION_NOTES].map((name) =>
-      conformanceCase(
-        `${label} coordination note ${name}`,
-        options,
-        { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE, relativePath: name },
-        { location: LOCATION.NODE_DIRECTORY, parentSlug },
-        accepted.includes(name) ? VALID : FOREIGN,
+    [...SPEC_TREE_GRAMMAR.COORDINATION_NOTES].flatMap((name) =>
+      everyParentKind().map((parentKind) =>
+        conformanceCase(
+          `${label} coordination note ${name} within a ${parentKind} node directory`,
+          options,
+          { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE, relativePath: name },
+          nodeDirectory(parentKind, parentSlug),
+          accepted.includes(name) ? VALID : FOREIGN,
+        )
       )
     )
   );
@@ -384,12 +423,14 @@ export function unrecognizedPathCases(): readonly ConformanceCase[] {
       draw(14),
     );
     return [
-      conformanceCase(
-        `${line} stray file ${strayInNode} within a node directory`,
-        options,
-        { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE, relativePath: strayInNode },
-        { location: LOCATION.NODE_DIRECTORY, parentSlug },
-        FOREIGN,
+      ...nodeKindsOfLine(line).map((parentKind) =>
+        conformanceCase(
+          `${line} stray file ${strayInNode} within a ${parentKind} node directory`,
+          options,
+          { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE, relativePath: strayInNode },
+          nodeDirectory(parentKind, parentSlug),
+          FOREIGN,
+        )
       ),
       conformanceCase(
         `${line} stray file ${strayAtRoot} at the product root`,
@@ -436,40 +477,42 @@ export function specFileCases(): readonly ConformanceCase[] {
     { length: SPEC_FILE_DRAW_COUNT },
     (_, drawIndex) => sampleSpecTreeTestValue(slugPair, drawIndex),
   );
-  return draws.flatMap(([parentSlug, stem]) => [
-    ...optionSets.flatMap(([label, options]) => [
-      conformanceCase(
-        `${label} ${stem}${canonical} within ${parentSlug}`,
-        options,
-        fileRecord(`${stem}${canonical}`),
-        { location: LOCATION.NODE_DIRECTORY, parentSlug },
-        VALID,
-      ),
-      conformanceCase(
-        `${label} ${parentSlug}${canonical} within ${parentSlug}`,
-        options,
-        fileRecord(`${parentSlug}${canonical}`),
-        { location: LOCATION.NODE_DIRECTORY, parentSlug },
-        VALID,
-      ),
-    ]),
-    ...priorOptionSets.flatMap(([label, options]) => [
-      conformanceCase(
-        `${label} ${parentSlug}${prior} within ${parentSlug}`,
-        options,
-        fileRecord(`${parentSlug}${prior}`),
-        { location: LOCATION.NODE_DIRECTORY, parentSlug },
-        VALID,
-      ),
-      conformanceCase(
-        `${label} ${stem}${prior} within ${parentSlug}`,
-        options,
-        fileRecord(`${stem}${prior}`),
-        { location: LOCATION.NODE_DIRECTORY, parentSlug },
-        FOREIGN,
-      ),
-    ]),
-  ]);
+  return draws.flatMap(([parentSlug, stem]) =>
+    everyParentKind().flatMap((parentKind) => [
+      ...optionSets.flatMap(([label, options]) => [
+        conformanceCase(
+          `${label} ${stem}${canonical} within a ${parentKind} node directory ${parentSlug}`,
+          options,
+          fileRecord(`${stem}${canonical}`),
+          nodeDirectory(parentKind, parentSlug),
+          VALID,
+        ),
+        conformanceCase(
+          `${label} ${parentSlug}${canonical} within a ${parentKind} node directory ${parentSlug}`,
+          options,
+          fileRecord(`${parentSlug}${canonical}`),
+          nodeDirectory(parentKind, parentSlug),
+          VALID,
+        ),
+      ]),
+      ...priorOptionSets.flatMap(([label, options]) => [
+        conformanceCase(
+          `${label} ${parentSlug}${prior} within a ${parentKind} node directory ${parentSlug}`,
+          options,
+          fileRecord(`${parentSlug}${prior}`),
+          nodeDirectory(parentKind, parentSlug),
+          VALID,
+        ),
+        conformanceCase(
+          `${label} ${stem}${prior} within a ${parentKind} node directory ${parentSlug}`,
+          options,
+          fileRecord(`${stem}${prior}`),
+          nodeDirectory(parentKind, parentSlug),
+          FOREIGN,
+        ),
+      ]),
+    ])
+  );
 }
 
 function laneRecord(pathFromHolder: string, entryKind: SpecTreeEvalEntryKind): SpecTreeFilesystemRecord {
@@ -491,8 +534,14 @@ function isBeneathProbeRuns(pathFromNode: string): boolean {
     && beneath.length > 0;
 }
 
-function arbitraryProbeParentKind(): fc.Arbitrary<Kind> {
-  return fc.constantFrom(...OUTPUT_KINDS);
+/** Whether the registry declares the kind an output kind (a variant included), the kinds that admit a probes lane. */
+function registryAdmitsProbeLane(parentKind: ParentKind): boolean {
+  return parentKind !== SPEC_TREE_CONFIG.PRODUCT.KIND
+    && KIND_REGISTRY[parentKind].category === SPEC_TREE_KIND_CATEGORY.OUTPUT;
+}
+
+function arbitraryProbeParentKind(): fc.Arbitrary<ParentKind> {
+  return fc.constantFrom(...everyParentKind());
 }
 
 function arbitraryRunsDescendant(): fc.Arbitrary<{ pathFromNode: string; entryKind: SpecTreeEvalEntryKind }> {
@@ -562,8 +611,8 @@ export const SKILL_CONFORMANCE_LANE_GENERATOR = {
           `probe-lane entry ${pathFromNode}`,
           conformanceOptionsForLine(FOUR_ZERO),
           laneRecord(pathFromNode, entryKind),
-          { location: LOCATION.PROBE_DIRECTORY, parentKind },
-          valid ? VALID : FOREIGN,
+          kindedContext(LOCATION.PROBE_DIRECTORY, parentKind),
+          valid && registryAdmitsProbeLane(parentKind) ? VALID : FOREIGN,
         )
       ),
   /** Under a version set that excludes the 4.0 version: every path beneath a probes directory is foreign. */
@@ -581,7 +630,7 @@ export const SKILL_CONFORMANCE_LANE_GENERATOR = {
           `probe-lane entry ${pathFromNode}`,
           conformanceOptionsForLine(THREE_X),
           laneRecord(pathFromNode, entryKind),
-          { location: LOCATION.PROBE_DIRECTORY, parentKind },
+          kindedContext(LOCATION.PROBE_DIRECTORY, parentKind),
           FOREIGN,
         )
       ),
@@ -611,10 +660,17 @@ export const SKILL_CONFORMANCE_FOREIGN_GENERATOR = {
         arbitraryStrayFileName(),
         slug,
         slug,
+        fc.constantFrom(...everyParentKind()),
         fc.constantFrom(LOCATION.PRODUCT_ROOT, LOCATION.NODE_DIRECTORY, LOCATION.EVIDENCE_DIRECTORY),
       )
-      .map(([option, name, parentSlug, , location]) =>
-        conformanceCase(`stray file ${name} in ${location}`, option, file(name), { location, parentSlug }, FOREIGN)
+      .map(([option, name, parentSlug, , parentKind, location]) =>
+        conformanceCase(
+          `stray file ${name} in ${location}`,
+          option,
+          file(name),
+          contextAt(location, parentKind, parentSlug),
+          FOREIGN,
+        )
       );
     const strayEvalLaneFile = fc
       .tuple(options, slug, slug, arbitraryStrayFileName())
@@ -628,25 +684,25 @@ export const SKILL_CONFORMANCE_FOREIGN_GENERATOR = {
         )
       );
     const mismatchedSpecStem = fc
-      .tuple(options, slug, slug)
+      .tuple(options, slug, slug, fc.constantFrom(...everyParentKind()))
       .filter(([, parentSlug, stem]) => parentSlug !== stem)
-      .map(([option, parentSlug, stem]) =>
+      .map(([option, parentSlug, stem, parentKind]) =>
         conformanceCase(
           `markdown file ${stem}${PRIOR_SPEC_SUFFIX} within ${parentSlug}`,
           option,
           file(`${stem}${PRIOR_SPEC_SUFFIX}`),
-          { location: LOCATION.NODE_DIRECTORY, parentSlug },
+          nodeDirectory(parentKind, parentSlug),
           FOREIGN,
         )
       );
     const plainDirectory = fc
-      .tuple(options, slug, slug)
-      .map(([option, parentSlug, name]) =>
+      .tuple(options, slug, slug, fc.constantFrom(...everyParentKind()))
+      .map(([option, parentSlug, name, parentKind]) =>
         conformanceCase(
           `plain directory ${name} within ${parentSlug}`,
           option,
           { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY, relativePath: name },
-          { location: LOCATION.NODE_DIRECTORY, parentSlug },
+          nodeDirectory(parentKind, parentSlug),
           FOREIGN,
         )
       );
@@ -673,11 +729,13 @@ const ENTRY_LOCATION: Readonly<Record<string, SpecTreeConformanceContext["locati
 };
 
 function arbitraryRecognizedInput(): fc.Arbitrary<ConformanceInput> {
-  return arbitraryValidRecognitionScenario().map(({ line, record, expected }) => ({
-    options: conformanceOptionsForLine(line),
-    record,
-    context: { location: ENTRY_LOCATION[expected.type] ?? LOCATION.NODE_DIRECTORY },
-  }));
+  return arbitraryValidRecognitionScenario().chain(({ line, record, expected }) =>
+    fc.constantFrom(...nodeKindsOfLine(line)).map((parentKind) => ({
+      options: conformanceOptionsForLine(line),
+      record,
+      context: contextAt(ENTRY_LOCATION[expected.type] ?? LOCATION.NODE_DIRECTORY, parentKind),
+    }))
+  );
 }
 
 function arbitraryStrayInput(): fc.Arbitrary<ConformanceInput> {
@@ -686,11 +744,12 @@ function arbitraryStrayInput(): fc.Arbitrary<ConformanceInput> {
       fc.constantFrom(...SPEC_TREE_SOURCE_LINES),
       arbitraryStrayFileName(),
       fc.constantFrom(LOCATION.PRODUCT_ROOT, LOCATION.NODE_DIRECTORY, LOCATION.EVIDENCE_DIRECTORY, LOCATION.EVAL_LANE),
+      fc.constantFrom(...everyParentKind()),
     )
-    .map(([line, name, location]) => ({
+    .map(([line, name, location, parentKind]) => ({
       options: conformanceOptionsForLine(line),
       record: { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE, relativePath: name },
-      context: { location },
+      context: contextAt(location, parentKind),
     }));
 }
 
@@ -702,11 +761,12 @@ function arbitraryArbitraryInput(): fc.Arbitrary<ConformanceInput> {
       fc.string(),
       fc.constantFrom(...Object.values(LOCATION)),
       fc.option(SPEC_TREE_TEST_GENERATOR.sourceSlug(), { nil: undefined }),
+      fc.constantFrom(...everyParentKind()),
     )
-    .map(([line, type, relativePath, location, parentSlug]) => ({
+    .map(([line, type, relativePath, location, parentSlug, parentKind]) => ({
       options: conformanceOptionsForLine(line),
       record: { type, relativePath },
-      context: { location, parentSlug },
+      context: contextAt(location, parentKind, parentSlug),
     }));
 }
 
