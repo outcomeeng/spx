@@ -96,7 +96,7 @@
       },
       "tests/journal-cli-registry.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
+        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/journal.md",
@@ -505,7 +505,7 @@
       },
       "tests/journal-environment.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
+        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/journal.md",
@@ -610,7 +610,7 @@
       },
       "tests/journal-inspection-namespace.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
+        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/journal.md",
@@ -779,7 +779,7 @@
       },
       "tests/journal-inspection.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
+        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/journal.md",
@@ -947,7 +947,7 @@
       },
       "tests/projection.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
+        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/journal.md",
@@ -1062,7 +1062,7 @@
       },
       "tests/run-state-namespace.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
+        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/journal.md",
@@ -1152,7 +1152,7 @@
       },
       "tests/run-state.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
+        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-journal.enabler/journal.md",

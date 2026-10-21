@@ -5,7 +5,7 @@
     "test": {
       "tests/agent-config.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
+        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
         "read": [
           "pnpm-lock.yaml",
           "spx/33-harness-environment.enabler/32-agent-config.enabler/agent-config.md",
@@ -113,7 +113,7 @@
       },
       "tests/agent-config.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
+        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
         "read": [
           "pnpm-lock.yaml",
           "spx/33-harness-environment.enabler/32-agent-config.enabler/agent-config.md",

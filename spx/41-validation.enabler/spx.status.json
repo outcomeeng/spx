@@ -5,7 +5,7 @@
     "test": {
       "tests/configuration.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
+        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/tests/configuration.compliance.l1.test.ts",
@@ -379,7 +379,7 @@
       },
       "tests/registry.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
+        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/tests/registry.compliance.l1.test.ts",
@@ -752,7 +752,7 @@
       },
       "tests/scope-resolution.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
+        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/tests/scope-resolution.compliance.l1.test.ts",
@@ -1128,7 +1128,7 @@
       },
       "tests/tool-discovery.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
+        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/tests/tool-discovery.compliance.l1.test.ts",
@@ -1220,7 +1220,7 @@
       },
       "tests/validation-cli.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
+        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/tests/validation-cli.scenario.l2.test.ts",
@@ -1589,7 +1589,7 @@
       },
       "tests/validation.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
+        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/tests/validation.compliance.l2.test.ts",
@@ -1961,7 +1961,7 @@
       },
       "tests/validation.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
+        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/tests/validation.property.l1.test.ts",
@@ -2333,7 +2333,7 @@
       },
       "tests/validation.property.l2.test.ts": {
         "verdict": "passed",
-        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
+        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/tests/validation.property.l2.test.ts",
@@ -2705,7 +2705,7 @@
       },
       "tests/validation.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
+        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/tests/validation.scenario.l2.test.ts",

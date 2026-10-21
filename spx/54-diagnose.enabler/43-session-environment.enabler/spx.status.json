@@ -5,7 +5,7 @@
     "test": {
       "tests/session-environment-probe.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
+        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/43-session-environment.enabler/session-environment.md",
@@ -97,7 +97,7 @@
       },
       "tests/session-environment-snapshot.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
+        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/43-session-environment.enabler/session-environment.md",

@@ -5,7 +5,7 @@
     "test": {
       "tests/pull-request-comment-client.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
+        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-github-ci.enabler/21-snapshot-adapter.enabler/snapshot-adapter.md",
