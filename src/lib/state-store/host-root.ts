@@ -37,7 +37,7 @@ export function resolveHostStateRoot(
   dependencies: HostRootDependencies = defaultHostRootDependencies,
 ): string {
   const stateHome = dependencies.environment(XDG_STATE_HOME_VARIABLE);
-  if (stateHome !== undefined && stateHome !== "" && isAbsolute(stateHome)) {
+  if (stateHome !== undefined && isAbsolute(stateHome)) {
     return join(stateHome, HOST_STATE_DIRECTORY);
   }
   return resolveHostRendezvousRoot(dependencies);
