@@ -18,6 +18,7 @@ import * as fc from "fast-check";
 
 import {
   KIND_REGISTRY,
+  NODE_KINDS,
   OUTPUT_KINDS,
   SPEC_TREE_ASSERTION_BULLET_PREFIX,
   SPEC_TREE_ASSERTIONS_HEADING,
@@ -30,11 +31,17 @@ import {
   SPEC_TREE_EVIDENCE_LINK_TEXT,
   SPEC_TREE_EVIDENCE_TARGET,
   SPEC_TREE_GRAMMAR,
+  SPEC_TREE_METHODOLOGY_LINE,
   SPEC_TREE_VERIFICATION_TYPE,
+  type SpecTreeMethodologyLine,
   type SpecTreeEvidenceReference,
   type SpecTreeNodeSourceEntry,
   type SpecTreeVerificationType,
 } from "@/lib/spec-tree";
+import {
+  arbitraryVersionOnLine,
+  fourZeroOnlyOutputKinds,
+} from "@testing/generators/spec-tree/grammar-selection";
 import { evidenceSubject } from "@testing/generators/spec-tree/evidence-file-name";
 import { SPEC_TREE_TEST_GENERATOR, specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
 
@@ -540,5 +547,125 @@ export function arbitraryTwoTagLineScenario(): fc.Arbitrary<TwoTagLineScenario> 
         const specText = spec.files.find(({ path }) => path === spec.specPath)?.contents ?? "";
         return { ...spec, lineNumber: specText.split(SPEC_TEXT.LINE_BREAK).indexOf(doubleTagged.line) + 1 };
       })
+    );
+}
+
+/** The methodology declaration a product carries: its version and, while migrating, the version it migrates from. */
+export type EvidenceDeclaration = {
+  readonly version: string;
+  readonly migratingFrom?: string;
+};
+
+/**
+ * A product whose methodology declaration selects a grammar, with one node spec whose test link
+ * enters a directory that no declared grammar accepts as a node directory, and the target file
+ * that directory holds. Under the declared grammar the directory is an ordinary folder inside the
+ * citing node, so the spec declares the link resolved.
+ */
+export type DeclaredGrammarLinkScenario = {
+  readonly declaration: EvidenceDeclaration;
+  readonly slug: string;
+  readonly files: readonly EvidenceTreeFile[];
+  readonly expected: SpecTreeEvidenceReference;
+};
+
+const THREE_X_LINES: readonly SpecTreeMethodologyLine[] = [
+  SPEC_TREE_METHODOLOGY_LINE.THREE_ZERO,
+  SPEC_TREE_METHODOLOGY_LINE.THREE_ONE,
+  SPEC_TREE_METHODOLOGY_LINE.THREE_TWO,
+];
+
+/** The order indices a three-digit directory takes, which the 4.0 grammar's two-digit index form does not accept. */
+const THREE_DIGIT_ORDER = { MIN: 100, MAX: 999 } as const;
+
+function declaredGrammarScenario(
+  declaration: EvidenceDeclaration,
+  nodeDirectory: string,
+  specFile: string,
+  linkedDirectory: string,
+  slug: string,
+  text: string,
+  linkTail: string,
+): DeclaredGrammarLinkScenario {
+  const linkPath = [linkedDirectory, linkTail].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
+  const specPath = [SPEC_TREE_CONFIG.ROOT_DIRECTORY, nodeDirectory, specFile].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
+  const specText = [
+    `${SPEC_TEXT.TITLE_PREFIX}${slug}`,
+    "",
+    SPEC_TREE_ASSERTIONS_HEADING,
+    "",
+    assertionLine(text, `[${SPEC_TREE_EVIDENCE_LINK_TEXT.TEST}](${linkPath})`),
+    "",
+  ].join(SPEC_TEXT.LINE_BREAK);
+  return {
+    declaration,
+    slug,
+    files: [
+      { path: specPath, contents: specText },
+      { path: posix.join(posix.dirname(specPath), linkPath), contents: text },
+    ],
+    expected: {
+      verificationType: SPEC_TREE_VERIFICATION_TYPE.TEST,
+      key: { kind: SPEC_TREE_EVIDENCE_KEY_KIND.PATH, path: linkPath },
+      target: SPEC_TREE_EVIDENCE_TARGET.RESOLVED,
+    },
+  };
+}
+
+/**
+ * A product declaring a 3.x line, whose 3.x node holds a test link into a directory named for a
+ * node kind only the 4.0 grammar accepts.
+ */
+export function arbitraryThreeLineDeclaredLinkScenario(): fc.Arbitrary<DeclaredGrammarLinkScenario> {
+  return fc
+    .tuple(
+      fc.constantFrom(...THREE_X_LINES).chain((line) => arbitraryVersionOnLine(line)),
+      fc.constantFrom(...NODE_KINDS),
+      fc.constantFrom(...fourZeroOnlyOutputKinds()),
+      fc.tuple(SPEC_TREE_TEST_GENERATOR.filesystemOrder(), SPEC_TREE_TEST_GENERATOR.filesystemOrder()),
+      fc.uniqueArray(SPEC_TREE_TEST_GENERATOR.sourceSlug(), { minLength: 2, maxLength: 2 }),
+      arbitraryAssertionText(),
+      arbitraryLinkPath(),
+    )
+    .map(([version, nodeKind, linkedKind, [nodeOrder, linkedOrder], [nodeSlug, linkedSlug], text, linkTail]) =>
+      declaredGrammarScenario(
+        { version },
+        `${nodeOrder}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${nodeSlug}${KIND_REGISTRY[nodeKind].suffix}`,
+        `${nodeSlug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`,
+        `${linkedOrder}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${linkedSlug}${KIND_REGISTRY[linkedKind].suffix}`,
+        nodeSlug,
+        text,
+        linkTail,
+      )
+    );
+}
+
+/**
+ * A product declaring a 4.0 version migrating from a 3.x line, whose 4.0 node holds a test link
+ * into a capability-named directory carrying a three-digit index, a form neither declared
+ * grammar accepts.
+ */
+export function arbitraryMigratingDeclaredLinkScenario(): fc.Arbitrary<DeclaredGrammarLinkScenario> {
+  return fc
+    .tuple(
+      arbitraryVersionOnLine(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO),
+      fc.constantFrom(...THREE_X_LINES).chain((line) => arbitraryVersionOnLine(line)),
+      fc.constantFrom(...OUTPUT_KINDS),
+      SPEC_TREE_TEST_GENERATOR.filesystemOrder(),
+      fc.integer({ min: THREE_DIGIT_ORDER.MIN, max: THREE_DIGIT_ORDER.MAX }),
+      fc.uniqueArray(SPEC_TREE_TEST_GENERATOR.sourceSlug(), { minLength: 2, maxLength: 2 }),
+      arbitraryAssertionText(),
+      arbitraryLinkPath(),
+    )
+    .map(([version, migratingFrom, nodeKind, nodeOrder, linkedOrder, [nodeSlug, linkedSlug], text, linkTail]) =>
+      declaredGrammarScenario(
+        { version, migratingFrom },
+        `${nodeOrder}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${nodeSlug}${KIND_REGISTRY[nodeKind].suffix}`,
+        `${nodeSlug}${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX}`,
+        `${linkedOrder}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${linkedSlug}${KIND_REGISTRY.capability.suffix}`,
+        nodeSlug,
+        text,
+        linkTail,
+      )
     );
 }

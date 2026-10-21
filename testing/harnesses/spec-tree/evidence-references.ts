@@ -21,7 +21,7 @@ import {
   type SpecTreeSource,
 } from "@/lib/spec-tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
-import type { EvidenceSpec } from "@testing/generators/spec-tree/evidence-references";
+import type { DeclaredGrammarLinkScenario, EvidenceSpec } from "@testing/generators/spec-tree/evidence-references";
 import { arbitraryVersionOnLine } from "@testing/generators/spec-tree/grammar-selection";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
@@ -100,6 +100,29 @@ function readEvidenceSpecsFromFilesystemWith(
     async (env) => {
       for (const { path, contents } of specs.flatMap(({ files }) => files)) {
         await env.writeRaw(targetsAreDirectories && !specPaths.has(path) ? posix.join(path, path) : path, contents);
+      }
+      return readSpecTree({ source: createFilesystemSpecTreeSource({ productDir: env.productDir }) });
+    },
+  );
+}
+
+/**
+ * The snapshot a read produces when the scenario's files are written into a temporary product
+ * directory whose methodology declaration is the scenario's, and read through the filesystem
+ * source created for that directory.
+ */
+export function readDeclaredGrammarLinkScenario(scenario: DeclaredGrammarLinkScenario): Promise<SpecTreeSnapshot> {
+  const { version, migratingFrom } = scenario.declaration;
+  return withTestEnv(
+    {
+      [METHODOLOGY_SECTION]: {
+        [METHODOLOGY_CONFIG_FIELDS.VERSION]: version,
+        ...(migratingFrom === undefined ? {} : { [METHODOLOGY_CONFIG_FIELDS.MIGRATING_FROM]: migratingFrom }),
+      },
+    },
+    async (env) => {
+      for (const { path, contents } of scenario.files) {
+        await env.writeRaw(path, contents);
       }
       return readSpecTree({ source: createFilesystemSpecTreeSource({ productDir: env.productDir }) });
     },
