@@ -1,6 +1,11 @@
 import {
+  SPEC_TREE_ASSERTION_BULLET_PREFIX,
+  SPEC_TREE_ASSERTIONS_HEADING,
+  SPEC_TREE_AUDIT_TAG_SLUG_SEPARATOR,
+  SPEC_TREE_AUDIT_TAG_TEXT,
   SPEC_TREE_EVIDENCE_LINK_TEXT,
   SPEC_TREE_LINK_KIND,
+  SPEC_TREE_SECTION_HEADING_PREFIX,
   type SpecTreeEvidenceLinkText,
   type SpecTreeLinkGrammar,
 } from "./link-grammar";
@@ -14,15 +19,6 @@ export const SPEC_TREE_VERIFICATION_TYPE = {
 } as const;
 
 export type SpecTreeVerificationType = (typeof SPEC_TREE_VERIFICATION_TYPE)[keyof typeof SPEC_TREE_VERIFICATION_TYPE];
-
-/** The tag texts that declare an audit assertion: the current spelling and the legacy one. */
-export const SPEC_TREE_AUDIT_TAG_TEXT = {
-  CURRENT: "audit",
-  LEGACY: "review",
-} as const;
-
-/** Separates an audit tag's text from its rule slug. */
-export const SPEC_TREE_AUDIT_TAG_SLUG_SEPARATOR = ":";
 
 /** What identifies an evidence reference: a node-local path, an audit rule slug, or nothing. */
 export const SPEC_TREE_EVIDENCE_KEY_KIND = {
@@ -54,9 +50,6 @@ export type SpecTreeEvidenceReference = {
 /** Reads a link target's text; it rejects when the source holds no such file. */
 export type SpecTreeEvidenceTargetReader = (productRelativePath: string) => Promise<unknown>;
 
-const ASSERTIONS_HEADING = "## Assertions";
-const SECTION_HEADING_PREFIX = "## ";
-const ASSERTION_BULLET_PREFIX = "- ";
 const FILE_NOT_FOUND_CODE = "ENOENT";
 const LINE_BREAK_PATTERN = /\r?\n/u;
 
@@ -96,11 +89,13 @@ const EVIDENCE_TAG_PATTERN = new RegExp(
 
 function assertionLines(specText: string): readonly string[] {
   const lines = specText.split(LINE_BREAK_PATTERN);
-  const start = lines.findIndex((line) => line.trim() === ASSERTIONS_HEADING);
+  const start = lines.findIndex((line) => line.trim() === SPEC_TREE_ASSERTIONS_HEADING);
   if (start < 0) return [];
   const rest = lines.slice(start + 1);
-  const end = rest.findIndex((line) => line.startsWith(SECTION_HEADING_PREFIX));
-  return (end < 0 ? rest : rest.slice(0, end)).filter((line) => line.trimStart().startsWith(ASSERTION_BULLET_PREFIX));
+  const end = rest.findIndex((line) => line.startsWith(SPEC_TREE_SECTION_HEADING_PREFIX));
+  return (end < 0 ? rest : rest.slice(0, end)).filter((line) =>
+    line.trimStart().startsWith(SPEC_TREE_ASSERTION_BULLET_PREFIX)
+  );
 }
 
 function isFileNotFound(error: unknown): boolean {
