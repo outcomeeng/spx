@@ -27,7 +27,7 @@ export interface AuditClaimEntryMappingCase {
   readonly title: string;
   readonly run: AuditClaimRun;
   readonly node: AuditClaimNode;
-  readonly expected: ExpectedAuditClaimEntry | undefined;
+  readonly expected: readonly ExpectedAuditClaimEntry[];
 }
 
 /** The sealed terminal statuses an audit run seals with. */
@@ -39,6 +39,9 @@ const EVIDENCE_AUDIT_KINDS: ReadonlyMap<AuditKind, ClaimEvidenceKind> = new Map(
   [AUDIT_KIND.EVAL_EVIDENCE, CLAIM_EVIDENCE_KIND.EVAL],
 ]);
 
+/** Units covering both evidence audit kinds, one of them twice, so a run audits tests and eval evidence at once. */
+const MIXED_EVIDENCE_AUDIT_KINDS: readonly AuditKind[] = [AUDIT_KIND.TESTS, AUDIT_KIND.EVAL_EVIDENCE, AUDIT_KIND.TESTS];
+
 const LINKED_EVIDENCE_KIND_SETS: readonly (readonly ClaimEvidenceKind[])[] = [
   [],
   [CLAIM_EVIDENCE_KIND.TEST],
@@ -46,21 +49,27 @@ const LINKED_EVIDENCE_KIND_SETS: readonly (readonly ClaimEvidenceKind[])[] = [
   [CLAIM_EVIDENCE_KIND.TEST, CLAIM_EVIDENCE_KIND.EVAL],
 ];
 
-function expectedEvidenceEntry(
-  auditKind: AuditKind,
+/** One `evidence` entry per distinct required evidence kind the audit kinds cover, in first-covered order. */
+function expectedEvidenceEntries(
+  auditKinds: readonly AuditKind[],
   node: AuditClaimNode,
   identity: ExpectedIdentity,
-): ExpectedAuditClaimEntry | undefined {
-  const evidenceKind = EVIDENCE_AUDIT_KINDS.get(auditKind);
-  if (evidenceKind === undefined) return undefined;
-  if (node.malleability !== NODE_STATUS_MALLEABILITY.IMPLEMENTATION) return undefined;
-  if (!node.linkedEvidenceKinds.includes(evidenceKind)) return undefined;
-  return { section: AUDIT_CLAIM_ENTRY_SECTION.EVIDENCE, key: evidenceKind, ...identity };
+): readonly ExpectedAuditClaimEntry[] {
+  if (node.malleability !== NODE_STATUS_MALLEABILITY.IMPLEMENTATION) return [];
+  const entries: ExpectedAuditClaimEntry[] = [];
+  for (const auditKind of auditKinds) {
+    const evidenceKind = EVIDENCE_AUDIT_KINDS.get(auditKind);
+    if (evidenceKind === undefined || !node.linkedEvidenceKinds.includes(evidenceKind)) continue;
+    if (entries.some((entry) => entry.key === evidenceKind)) continue;
+    entries.push({ section: AUDIT_CLAIM_ENTRY_SECTION.EVIDENCE, key: evidenceKind, ...identity });
+  }
+  return entries;
 }
 
 /**
  * Every combination of audit kind, node malleability, linked evidence kinds, and sealed terminal
- * status beside the entry the claim records for it, verdict excluded, plus the rule-slug runs and the unsealed runs.
+ * status beside the entries the claim records for it, verdict excluded, plus the runs auditing both
+ * evidence kinds, the rule-slug runs, and the unsealed runs.
  */
 export function auditClaimEntryMappingCases(): readonly AuditClaimEntryMappingCase[] {
   const unit = sampleVerifyTestValue(arbitraryAuditScopeUnit());
@@ -80,7 +89,7 @@ export function auditClaimEntryMappingCases(): readonly AuditClaimEntryMappingCa
         title: `a ${terminalStatus} run over rule slug on a ${node.malleability} node`,
         run: { runId, sealed: true, terminalStatus, verifier, auditScopeUnits: [unit], ruleSlug },
         node,
-        expected: { section: AUDIT_CLAIM_ENTRY_SECTION.AUDIT, key: ruleSlug, ...identity },
+        expected: [{ section: AUDIT_CLAIM_ENTRY_SECTION.AUDIT, key: ruleSlug, ...identity }],
       });
       for (const auditKind of Object.values(AUDIT_KIND)) {
         cases.push({
@@ -95,9 +104,23 @@ export function auditClaimEntryMappingCases(): readonly AuditClaimEntryMappingCa
             auditScopeUnits: [{ ...unit, auditKind }],
           },
           node,
-          expected: expectedEvidenceEntry(auditKind, node, identity),
+          expected: expectedEvidenceEntries([auditKind], node, identity),
         });
       }
+      cases.push({
+        title: `a ${terminalStatus} run auditing [${
+          MIXED_EVIDENCE_AUDIT_KINDS.join(", ")
+        }] on a ${node.malleability} node linking [${node.linkedEvidenceKinds.join(", ")}]`,
+        run: {
+          runId,
+          sealed: true,
+          terminalStatus,
+          verifier,
+          auditScopeUnits: MIXED_EVIDENCE_AUDIT_KINDS.map((auditKind) => ({ ...unit, auditKind })),
+        },
+        node,
+        expected: expectedEvidenceEntries(MIXED_EVIDENCE_AUDIT_KINDS, node, identity),
+      });
     }
   }
   for (const node of nodesOverAllMalleabilities()) {
@@ -105,7 +128,7 @@ export function auditClaimEntryMappingCases(): readonly AuditClaimEntryMappingCa
       title: `an unsealed run on a ${node.malleability} node`,
       run: { runId, sealed: false, verifier, auditScopeUnits: [unit], ruleSlug },
       node,
-      expected: undefined,
+      expected: [],
     });
   }
   return cases;

@@ -6,7 +6,7 @@ import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { buildEvidenceResults, foldEvidenceVerdict } from "@/domains/test";
 import {
   AUDIT_CLAIM_ENTRY_SECTION,
-  auditClaimEntry,
+  auditClaimEntries,
   CLAIM_EVIDENCE_KIND,
   type ClaimEvidenceKind,
 } from "@/domains/verify/audit-claim-entry";
@@ -307,7 +307,7 @@ async function evidenceResults(
   const results: Record<string, NodeAttributedResult> = {};
   for (const run of runs) {
     const projection = projectVerifyRun(run.events);
-    const entry = auditClaimEntry(
+    const entries = auditClaimEntries(
       {
         runId: run.runToken,
         sealed: projection.sealed,
@@ -316,11 +316,13 @@ async function evidenceResults(
         ...(projection.verifier === undefined ? {} : { verifier: projection.verifier }),
       },
       { malleability: NODE_STATUS_MALLEABILITY.IMPLEMENTATION, linkedEvidenceKinds },
-    );
-    if (entry === undefined || entry.section !== AUDIT_CLAIM_ENTRY_SECTION.EVIDENCE || entry.key in results) continue;
+    ).filter((entry) => entry.section === AUDIT_CLAIM_ENTRY_SECTION.EVIDENCE && !(entry.key in results));
+    if (entries.length === 0) continue;
     const read = runJudgedPathsOf(run.events);
     if (!(await unchangedSince(pinChanges, run.headCommit, read))) continue;
-    results[entry.key] = { verdict: entry.verdict, read, actor: entry.actor, run: entry.run };
+    for (const entry of entries) {
+      results[entry.key] = { verdict: entry.verdict, read, actor: entry.actor, run: entry.run };
+    }
   }
   return results;
 }
