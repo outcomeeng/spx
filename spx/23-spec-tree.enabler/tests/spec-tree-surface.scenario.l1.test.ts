@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { KIND_REGISTRY, SPEC_TREE_NODE_STATE } from "@/lib/spec-tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
+import { arbitraryCoveringEvidenceReferenceScenario } from "@testing/generators/spec-tree/evidence-references";
 import { SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
+import { readEvidenceSpecsFromMemory } from "@testing/harnesses/spec-tree/evidence-references";
 import { observeRepresentativeSpecTreeSurfaceScenario } from "@testing/harnesses/spec-tree/public-surface";
 
 describe("spec-tree stable surface", () => {
@@ -47,5 +49,15 @@ describe("spec-tree stable surface", () => {
       expect(observation.projection.decisions.map(({ id }) => id)).toEqual([observation.fixture.decision.id]);
       expect(observation.nextNodeId).toBe(observation.fixture.root.id);
     });
+  });
+
+  it("carries on each node the evidence references its spec declares", async () => {
+    const scenario = sampleGeneratedValue(arbitraryCoveringEvidenceReferenceScenario());
+
+    const snapshot = await readEvidenceSpecsFromMemory([scenario]);
+
+    expect(snapshot.allNodes.find(({ slug }) => slug === scenario.entry.slug)?.evidenceReferences).toEqual(
+      scenario.expected,
+    );
   });
 });
