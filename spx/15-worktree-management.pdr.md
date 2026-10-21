@@ -1,6 +1,6 @@
 # Worktree Management
 
-spx commands resolve product roots from an effective invocation directory. Without `-C`, the invoking process directory is the effective invocation directory; with `-C <path>`, that path is the effective invocation directory and the caller's ambient directory is irrelevant to target command behavior except for resolving a relative `-C` argument. From that effective invocation directory, each state class resolves to either the Git common-dir product root or the local worktree root, and at most one worktree is the **main checkout** independent of which branch any worktree has checked out. The main checkout permanently holds the repository's default branch — `main` for this product — so Git refuses attempts to check that branch out in a linked worktree.
+spx commands resolve product roots from an effective invocation directory. Without `-C`, the invoking process directory is the effective invocation directory; with `-C <path>`, that path is the effective invocation directory and the caller's ambient directory is irrelevant to target command behavior except for resolving a relative `-C` argument. From that effective invocation directory, each repository state class resolves to either the Git common-dir product root or the local worktree root; host-scoped state resolves outside every repository. At most one worktree is the **main checkout** independent of which branch any worktree has checked out. The main checkout permanently holds the repository's default branch — `main` for this product — so Git refuses attempts to check that branch out in a linked worktree.
 
 ## Rationale
 
@@ -11,6 +11,10 @@ Git worktrees share one Git common directory while each keeps its own working co
 | `.spx/branch/`, `.spx/changes/`, `.spx/sessions/`, and `.spx/worktrees/` (gitignored, shared) | Git common-dir product root | Parent of `git rev-parse --git-common-dir` |
 | `.spx/worktree/` (gitignored, per-worktree)                                                   | Local worktree root         | `git rev-parse --show-toplevel`            |
 | `spx/` (tracked)                                                                              | Local worktree root         | `git rev-parse --show-toplevel`            |
+| Host rendezvous state                                                                         | Host rendezvous root        | OS account record's home directory         |
+| Other host-scoped state                                                                       | Host state root             | `XDG_STATE_HOME` when absolute             |
+
+Host-scoped state belongs to no repository: one OS account on one host shares it across every repository, worktree, and session. Processes that must meet — to queue for one resource, for instance — need one location that every one of them computes identically, so the host rendezvous root derives from the home directory the OS account record names and ignores `HOME`, `XDG_STATE_HOME`, the invocation directory, and every repository; sessions that differ in those values still reach one rendezvous point. Host-scoped state that no other process needs to find honors `XDG_STATE_HOME`, so an account that relocates its state directory finds that state there.
 
 Resolving every directory to a single root fails one class or another: a single common-dir root reads the wrong branch's spec tree and dirty-checkout evidence from sibling worktrees; a single worktree root strands shared session and branch state where no other worktree can see it.
 
@@ -26,7 +30,15 @@ After every merge, the shared executable is refreshed by `git pull` in the canon
 - `spx -C <path> ...` operates as if `<path>` supplied the command's invocation directory for product-root, config, worktree, and shared-state resolution, while the caller's ambient directory does not participate in target command gates.
 - At most one worktree of a repository is the main checkout: a non-bare repository's main working tree, or the pool worktree beside the bare repository whose directory name is the `origin` remote's repository name; a pool without that observed worktree has no main checkout, and the designation does not depend on the branch any worktree has checked out. The designated main checkout permanently holds the repository's default branch, which remains unavailable to linked worktrees through Git's branch-occupancy constraint.
 
+- Host-scoped state is one state class shared by every repository, worktree, and session of one OS account on one host, and it resolves outside every repository.
+- State through which processes of one OS account on one host meet resolves to the host rendezvous root `<account-home>/.local/state/spx/`, where `<account-home>` is the home directory the OS account record names, independent of `HOME`, `XDG_STATE_HOME`, the invocation directory, and any repository.
+- Other host-scoped state resolves to `$XDG_STATE_HOME/spx/` when `XDG_STATE_HOME` holds an absolute path, and to `<account-home>/.local/state/spx/` when it holds a relative or empty value or is unset.
+
 ## Verification
+
+- ALWAYS: host-scoped state is one state class shared by every repository, worktree, and session of one OS account on one host, and it resolves outside every repository
+- ALWAYS: state through which processes of one OS account on one host meet resolves to the host rendezvous root `<account-home>/.local/state/spx/`, where `<account-home>` is the home directory the OS account record names, independent of `HOME`, `XDG_STATE_HOME`, the invocation directory, and any repository
+- ALWAYS: other host-scoped state resolves to `$XDG_STATE_HOME/spx/` when `XDG_STATE_HOME` holds an absolute path, and to `<account-home>/.local/state/spx/` when it holds a relative or empty value or is unset
 
 ### Testing
 
