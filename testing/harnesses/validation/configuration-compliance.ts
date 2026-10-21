@@ -7,8 +7,8 @@ import { LITERAL_DISABLED_MESSAGE, literalCommand, type LiteralCommandDeps } fro
 import { MARKDOWN_COMMAND_OUTPUT, markdownCommand } from "@/commands/validation/markdown";
 import { VALIDATION_COMMAND_OUTPUT, VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import { resolveConfig } from "@/config/index";
-import { NODE_STATUS_EXCLUDE_FILENAME, NODE_STATUS_EXCLUDE_LINE_GRAMMAR } from "@/lib/node-status/exclude";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { NODE_STATUS_EXCLUDE_LINE_GRAMMAR } from "@/lib/node-status/exclude";
+import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 import {
   VALIDATION_KNIP_SUBSECTION,
   VALIDATION_LITERAL_SUBSECTION,
@@ -441,7 +441,7 @@ describe("resolved validation configuration", () => {
       const directMarkdownPath = directMarkdownFile.citingFile;
       const childMarkdownPath = excludedNode.childNodeFile.citingFile;
       await env.writeRaw(
-        posix.join(SPEC_TREE_CONFIG.ROOT_DIRECTORY, NODE_STATUS_EXCLUDE_FILENAME),
+        posix.join(SPEC_TREE_CONFIG.ROOT_DIRECTORY, SPEC_TREE_GRAMMAR.EXCLUSION_REGISTRY_FILENAME),
         `${excludedNode.excludeEntry}${NODE_STATUS_EXCLUDE_LINE_GRAMMAR.ENTRY_SEPARATOR}`,
       );
       for (const directFile of excludedNode.directFiles) {
