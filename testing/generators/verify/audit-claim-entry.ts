@@ -27,7 +27,7 @@ export interface AuditClaimEntryMappingCase {
   readonly title: string;
   readonly run: AuditClaimRun;
   readonly node: AuditClaimNode;
-  readonly expected: ExpectedAuditClaimEntry | undefined;
+  readonly expected: readonly ExpectedAuditClaimEntry[];
 }
 
 /** The sealed terminal statuses an audit run seals with. */
@@ -50,12 +50,12 @@ function expectedEvidenceEntry(
   auditKind: AuditKind,
   node: AuditClaimNode,
   identity: ExpectedIdentity,
-): ExpectedAuditClaimEntry | undefined {
+): readonly ExpectedAuditClaimEntry[] {
   const evidenceKind = EVIDENCE_AUDIT_KINDS.get(auditKind);
-  if (evidenceKind === undefined) return undefined;
-  if (node.malleability !== NODE_STATUS_MALLEABILITY.IMPLEMENTATION) return undefined;
-  if (!node.linkedEvidenceKinds.includes(evidenceKind)) return undefined;
-  return { section: AUDIT_CLAIM_ENTRY_SECTION.EVIDENCE, key: evidenceKind, ...identity };
+  if (evidenceKind === undefined) return [];
+  if (node.malleability !== NODE_STATUS_MALLEABILITY.IMPLEMENTATION) return [];
+  if (!node.linkedEvidenceKinds.includes(evidenceKind)) return [];
+  return [{ section: AUDIT_CLAIM_ENTRY_SECTION.EVIDENCE, key: evidenceKind, ...identity }];
 }
 
 /**
@@ -80,7 +80,7 @@ export function auditClaimEntryMappingCases(): readonly AuditClaimEntryMappingCa
         title: `a ${terminalStatus} run over rule slug on a ${node.malleability} node`,
         run: { runId, sealed: true, terminalStatus, verifier, auditScopeUnits: [unit], ruleSlug },
         node,
-        expected: { section: AUDIT_CLAIM_ENTRY_SECTION.AUDIT, key: ruleSlug, ...identity },
+        expected: [{ section: AUDIT_CLAIM_ENTRY_SECTION.AUDIT, key: ruleSlug, ...identity }],
       });
       for (const auditKind of Object.values(AUDIT_KIND)) {
         cases.push({
@@ -100,12 +100,34 @@ export function auditClaimEntryMappingCases(): readonly AuditClaimEntryMappingCa
       }
     }
   }
+  for (const terminalStatus of SEALED_TERMINAL_STATUSES) {
+    const identity = { actor: verifier, run: runId };
+    for (const node of nodesOverAllMalleabilities()) {
+      const auditKinds = [...EVIDENCE_AUDIT_KINDS.keys()];
+      for (const orderedKinds of [auditKinds, [...auditKinds].reverse()]) {
+        cases.push({
+          title: `a ${terminalStatus} run scoping ${
+            orderedKinds.join(" and ")
+          } units on a ${node.malleability} node linking [${node.linkedEvidenceKinds.join(", ")}]`,
+          run: {
+            runId,
+            sealed: true,
+            terminalStatus,
+            verifier,
+            auditScopeUnits: orderedKinds.map((auditKind) => ({ ...unit, auditKind })),
+          },
+          node,
+          expected: orderedKinds.flatMap((auditKind) => expectedEvidenceEntry(auditKind, node, identity)),
+        });
+      }
+    }
+  }
   for (const node of nodesOverAllMalleabilities()) {
     cases.push({
       title: `an unsealed run on a ${node.malleability} node`,
       run: { runId, sealed: false, verifier, auditScopeUnits: [unit], ruleSlug },
       node,
-      expected: undefined,
+      expected: [],
     });
   }
   return cases;

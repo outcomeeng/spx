@@ -8,7 +8,7 @@ CAN record audit evidence under `--verification-type audit` without adding audit
 
 ### Mappings
 
-- A sealed audit run maps to the claim entry it yields: a run over a rule slug yields the node's `audit` entry for that slug, a unit of audit kind `tests` or `eval-evidence` over an implementation-malleable node with linked evidence of that kind yields the node's `evidence` entry of kind `test` or `eval`, and over any other node yields no entry, with the run's Verifier as actor and its run id as run ([test](tests/audit-claim-entry.mapping.l1.test.ts))
+- A sealed audit run maps to the claim entry it yields: a run over a rule slug yields the node's `audit` entry for that slug, each unit of audit kind `tests` or `eval-evidence` over an implementation-malleable node with linked evidence of that kind yields the node's `evidence` entry of kind `test` or `eval`, so a run carrying units of both kinds yields both entries, and over any other node yields no entry, with the run's Verifier as actor and its run id as run ([test](tests/audit-claim-entry.mapping.l1.test.ts))
 
 ### Compliance
 
