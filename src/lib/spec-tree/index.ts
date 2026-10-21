@@ -622,15 +622,30 @@ export const SPEC_TREE_CONFORMANCE_LOCATION = {
 export type SpecTreeConformanceLocation =
   (typeof SPEC_TREE_CONFORMANCE_LOCATION)[keyof typeof SPEC_TREE_CONFORMANCE_LOCATION];
 
-export type SpecTreeConformanceContext = {
-  readonly location: SpecTreeConformanceLocation;
+type SpecTreeConformanceContextBase = {
   /** The slug of the node directory that holds the record. */
   readonly parentSlug?: string | undefined;
-  /** The kind of the node directory that holds the record. */
-  readonly parentKind?: Kind | ProductKind | undefined;
-  /** The directory that holds a knowledge root; a node directory when absent. */
-  readonly holder?: SpecTreeKnowledgeRootHolder | undefined;
 };
+
+/** The kind of the node directory that holds the record; the probe lane is decided by it. */
+type SpecTreeConformanceParentKind = Kind | ProductKind;
+
+type SpecTreeKindedConformanceLocation =
+  | typeof SPEC_TREE_CONFORMANCE_LOCATION.NODE_DIRECTORY
+  | typeof SPEC_TREE_CONFORMANCE_LOCATION.PROBE_DIRECTORY;
+
+export type SpecTreeConformanceContext =
+  | (SpecTreeConformanceContextBase & {
+    readonly location: SpecTreeKindedConformanceLocation;
+    readonly parentKind: SpecTreeConformanceParentKind;
+    readonly holder?: undefined;
+  })
+  | (SpecTreeConformanceContextBase & {
+    readonly location: Exclude<SpecTreeConformanceLocation, SpecTreeKindedConformanceLocation>;
+    readonly parentKind?: undefined;
+    /** The directory that holds a knowledge root; a node directory when absent. */
+    readonly holder?: SpecTreeKnowledgeRootHolder | undefined;
+  });
 
 const OWNED_RECOGNITION_OPTIONS: SpecTreeRecognitionOptions = {
   schemaVersions: SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
@@ -679,7 +694,7 @@ function conformsToGrammar(
         options,
       );
     case location.PROBE_DIRECTORY:
-      return conformsInProbeDirectory(record, context, options);
+      return conformsInProbeDirectory(record, context.parentKind, options);
   }
 }
 
@@ -731,13 +746,13 @@ function isSpecFileName(name: string, parentSlug: string | undefined, options: S
   });
 }
 
-function admitsProbeLane(context: SpecTreeConformanceContext): boolean {
-  return context.parentKind === undefined || (OUTPUT_KINDS as readonly string[]).includes(context.parentKind);
+function admitsProbeLane(parentKind: SpecTreeConformanceParentKind): boolean {
+  return (OUTPUT_KINDS as readonly string[]).includes(parentKind);
 }
 
 function conformsInNodeDirectory(
   record: SpecTreeFilesystemRecord,
-  context: SpecTreeConformanceContext,
+  context: SpecTreeConformanceContext & { readonly parentKind: SpecTreeConformanceParentKind },
   options: SpecTreeRecognitionOptions,
 ): boolean {
   if (isFileRecord(record)) {
@@ -752,7 +767,7 @@ function conformsInNodeDirectory(
     )
   ) return true;
   if (conformsInKnowledgeRoot(record, SPEC_TREE_KNOWLEDGE_ROOT_HOLDER.NODE_DIRECTORY, options)) return true;
-  if (admitsProbeLane(context) && conformsInProbeDirectory(record, context, options)) return true;
+  if (conformsInProbeDirectory(record, context.parentKind, options)) return true;
   return recognizedEntryTypes(record, options, [SPEC_TREE_ENTRY_TYPE.NODE]);
 }
 
@@ -782,10 +797,10 @@ function conformsInKnowledgeRoot(
 
 function conformsInProbeDirectory(
   record: SpecTreeFilesystemRecord,
-  context: SpecTreeConformanceContext,
+  parentKind: SpecTreeConformanceParentKind,
   options: SpecTreeRecognitionOptions,
 ): boolean {
-  if (!admitsProbeLane(context)) return false;
+  if (!admitsProbeLane(parentKind)) return false;
   const entryKind = entryKindOfRecord(record);
   return options.selectedVersions.some((version) => {
     if (acceptsProbeEntry(version, record.relativePath, entryKind)) return true;
