@@ -52,7 +52,7 @@ export interface AuditClaimNode {
   readonly linkedEvidenceKinds: readonly ClaimEvidenceKind[];
 }
 
-/** A claim entry a sealed audit run yields, keyed by rule slug in `audit` and by evidence kind in `evidence`. */
+/** The claim entry a sealed audit run yields, keyed by rule slug in `audit` and by evidence kind in `evidence`. */
 export interface AuditClaimEntry {
   readonly section: AuditClaimEntrySection;
   readonly key: string;
@@ -62,24 +62,24 @@ export interface AuditClaimEntry {
 }
 
 /**
- * The claim entries a sealed audit run yields for a node: one `audit` entry for a rule-slug run, or
- * one `evidence` entry per linked evidence kind its units audit, in the order the units first cover
- * each kind. None when the run is unsealed, carries no Verifier or no verdict-bearing terminal
- * status, or audits only evidence the node does not require.
+ * The claim entry a sealed audit run yields for a node, or `undefined` when it yields none: the run
+ * is unsealed, carries no Verifier or no verdict-bearing terminal status, or audits evidence the
+ * node does not require.
  */
-export function auditClaimEntries(run: AuditClaimRun, node: AuditClaimNode): readonly AuditClaimEntry[] {
-  if (!run.sealed || run.verifier === undefined || run.terminalStatus === undefined) return [];
+export function auditClaimEntry(run: AuditClaimRun, node: AuditClaimNode): AuditClaimEntry | undefined {
+  if (!run.sealed || run.verifier === undefined || run.terminalStatus === undefined) return undefined;
   const verdict = VERDICT_BY_TERMINAL_STATUS.get(run.terminalStatus);
-  if (verdict === undefined) return [];
+  if (verdict === undefined) return undefined;
   const identity = { verdict, actor: run.verifier, run: run.runId };
   if (run.ruleSlug !== undefined) {
-    return [{ section: AUDIT_CLAIM_ENTRY_SECTION.AUDIT, key: run.ruleSlug, ...identity }];
+    return { section: AUDIT_CLAIM_ENTRY_SECTION.AUDIT, key: run.ruleSlug, ...identity };
   }
-  if (node.malleability !== NODE_STATUS_MALLEABILITY.IMPLEMENTATION) return [];
-  const evidenceKinds = new Set<ClaimEvidenceKind>();
+  if (node.malleability !== NODE_STATUS_MALLEABILITY.IMPLEMENTATION) return undefined;
   for (const unit of run.auditScopeUnits) {
     const evidenceKind = EVIDENCE_KIND_BY_AUDIT_KIND.get(unit.auditKind);
-    if (evidenceKind !== undefined && node.linkedEvidenceKinds.includes(evidenceKind)) evidenceKinds.add(evidenceKind);
+    if (evidenceKind !== undefined && node.linkedEvidenceKinds.includes(evidenceKind)) {
+      return { section: AUDIT_CLAIM_ENTRY_SECTION.EVIDENCE, key: evidenceKind, ...identity };
+    }
   }
-  return [...evidenceKinds].map((key) => ({ section: AUDIT_CLAIM_ENTRY_SECTION.EVIDENCE, key, ...identity }));
+  return undefined;
 }
