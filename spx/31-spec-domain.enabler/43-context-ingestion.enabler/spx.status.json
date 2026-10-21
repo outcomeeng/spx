@@ -5,7 +5,7 @@
     "test": {
       "tests/context-ingestion.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
+        "commit": "6b0ef169c55e426f308e92d6905b66c9d646d803",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/context-ingestion.md",
@@ -197,7 +197,7 @@
       },
       "tests/context-ingestion.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
+        "commit": "6b0ef169c55e426f308e92d6905b66c9d646d803",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -360,13 +360,13 @@
           "testing/harnesses/spec/spec-cli-network-guard.ts",
           "testing/harnesses/with-temp-dir.ts",
           "tsconfig.json",
-          "tsup.config.bundled_xpysapkx3e.mjs",
+          "tsup.config.bundled_pg3ecji8t5.mjs",
           "tsup.config.ts"
         ]
       },
       "tests/context-ingestion.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
+        "commit": "6b0ef169c55e426f308e92d6905b66c9d646d803",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/context-ingestion.md",
@@ -530,7 +530,7 @@
       },
       "tests/context-ingestion.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
+        "commit": "6b0ef169c55e426f308e92d6905b66c9d646d803",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/context-ingestion.md",
@@ -694,7 +694,7 @@
       },
       "tests/determinism.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
+        "commit": "6b0ef169c55e426f308e92d6905b66c9d646d803",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/context-ingestion.md",

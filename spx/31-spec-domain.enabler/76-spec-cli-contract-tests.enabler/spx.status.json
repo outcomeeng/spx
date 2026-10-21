@@ -5,7 +5,7 @@
     "test": {
       "tests/context-failure.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
+        "commit": "6b0ef169c55e426f308e92d6905b66c9d646d803",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -168,13 +168,13 @@
           "testing/harnesses/spec/spec-cli-network-guard.ts",
           "testing/harnesses/with-temp-dir.ts",
           "tsconfig.json",
-          "tsup.config.bundled_zzvsyanhgu.mjs",
+          "tsup.config.bundled_62q9o06isrs.mjs",
           "tsup.config.ts"
         ]
       },
       "tests/context-success.mapping.l2.test.ts": {
         "verdict": "passed",
-        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
+        "commit": "6b0ef169c55e426f308e92d6905b66c9d646d803",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -336,13 +336,13 @@
           "testing/harnesses/spec/spec-cli-network-guard.ts",
           "testing/harnesses/with-temp-dir.ts",
           "tsconfig.json",
-          "tsup.config.bundled_gijueitdx54.mjs",
+          "tsup.config.bundled_l54vmy8g9p.mjs",
           "tsup.config.ts"
         ]
       },
       "tests/context-target.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
+        "commit": "6b0ef169c55e426f308e92d6905b66c9d646d803",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -506,13 +506,13 @@
           "testing/harnesses/spec/spec-cli-network-guard.ts",
           "testing/harnesses/with-temp-dir.ts",
           "tsconfig.json",
-          "tsup.config.bundled_9079jcv5o2u.mjs",
+          "tsup.config.bundled_dcgnfxklgbo.mjs",
           "tsup.config.ts"
         ]
       },
       "tests/spec-cli-contract.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
+        "commit": "6b0ef169c55e426f308e92d6905b66c9d646d803",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -676,13 +676,13 @@
           "testing/harnesses/spec/spec-cli-network-guard.ts",
           "testing/harnesses/with-temp-dir.ts",
           "tsconfig.json",
-          "tsup.config.bundled_z1yvx522ofq.mjs",
+          "tsup.config.bundled_1wodpmrwih7.mjs",
           "tsup.config.ts"
         ]
       },
       "tests/spec-cli-contract.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
+        "commit": "6b0ef169c55e426f308e92d6905b66c9d646d803",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -846,7 +846,7 @@
           "testing/harnesses/spec/spec-cli-network-guard.ts",
           "testing/harnesses/with-temp-dir.ts",
           "tsconfig.json",
-          "tsup.config.bundled_zrcfp9j2dui.mjs",
+          "tsup.config.bundled_ep0xw57ud1.mjs",
           "tsup.config.ts"
         ]
       }
