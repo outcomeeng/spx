@@ -248,3 +248,29 @@ export const PROBE_DIRECTORY_GENERATOR = {
   accepted: arbitraryAcceptedEntry,
   candidate: () => fc.oneof(arbitraryAcceptedEntry(), arbitraryNearMissEntry()),
 } as const;
+
+/** An entry path beneath the knowledge root, whose structure the bundle's author owns. */
+export type KnowledgeBundleEntry = {
+  readonly pathFromNode: string;
+  readonly entryKind: SpecTreeEvalEntryKind;
+};
+
+const BUNDLE_SEGMENT_MAX_DEPTH = 4;
+
+function arbitraryBundleSegment(): fc.Arbitrary<string> {
+  return fc.string({ minLength: 1 }).filter((segment) => !segment.includes(PATH_SEPARATOR));
+}
+
+function arbitraryBundleEntry(): fc.Arbitrary<KnowledgeBundleEntry> {
+  return fc
+    .tuple(
+      fc.array(arbitraryBundleSegment(), { minLength: 1, maxLength: BUNDLE_SEGMENT_MAX_DEPTH }),
+      fc.constantFrom(SPEC_TREE_EVAL_ENTRY_KIND.FILE, SPEC_TREE_EVAL_ENTRY_KIND.DIRECTORY),
+    )
+    .map(([beneath, entryKind]) => ({ pathFromNode: joined(KNOWLEDGE_DIRECTORY, ...beneath), entryKind }));
+}
+
+/** Generator over the open domain of paths beneath a `knowledge/` directory. */
+export const KNOWLEDGE_BUNDLE_GENERATOR = {
+  entry: arbitraryBundleEntry,
+} as const;
