@@ -57,6 +57,7 @@ export type SpecTreeEvidenceTargetReader = (productRelativePath: string) => Prom
 const ASSERTIONS_HEADING = "## Assertions";
 const SECTION_HEADING_PREFIX = "## ";
 const ASSERTION_BULLET_PREFIX = "- ";
+const FILE_NOT_FOUND_CODE = "ENOENT";
 const LINE_BREAK_PATTERN = /\r?\n/u;
 
 const VERIFICATION_TYPE_OF_LINK_TEXT: Readonly<Record<SpecTreeEvidenceLinkText, SpecTreeVerificationType>> = {
@@ -102,6 +103,14 @@ function assertionLines(specText: string): readonly string[] {
   return (end < 0 ? rest : rest.slice(0, end)).filter((line) => line.trimStart().startsWith(ASSERTION_BULLET_PREFIX));
 }
 
+function isFileNotFound(error: unknown): boolean {
+  return error instanceof Error && "code" in error && (error as NodeJS.ErrnoException).code === FILE_NOT_FOUND_CODE;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 async function targetOf(
   specPath: string,
   href: string,
@@ -111,7 +120,12 @@ async function targetOf(
   const link = grammar.parseSpecTreeLink(href);
   const resolved = link.kind === SPEC_TREE_LINK_KIND.NODE_LOCAL ? grammar.resolveSpecTreeLink(specPath, link) : null;
   if (resolved === null) return { path: link.path, target: SPEC_TREE_EVIDENCE_TARGET.DANGLING };
-  const present = await readTarget(resolved).then(() => true, () => false);
+  const present = await readTarget(resolved).then(() => true, (error: unknown) => {
+    if (isFileNotFound(error)) return false;
+    throw new Error(`${specPath} link target ${link.path} cannot be read: ${errorMessage(error)}`, {
+      cause: error,
+    });
+  });
   return {
     path: link.path,
     target: present ? SPEC_TREE_EVIDENCE_TARGET.RESOLVED : SPEC_TREE_EVIDENCE_TARGET.DANGLING,
