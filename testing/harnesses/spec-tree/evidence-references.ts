@@ -10,6 +10,8 @@
  * @module harnesses/spec-tree/evidence-references
  */
 
+import { posix } from "node:path";
+
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION } from "@/config/methodology";
 import {
   createFilesystemSpecTreeSource,
@@ -45,8 +47,30 @@ export function readEvidenceSpecsFromMemory(specs: readonly EvidenceSpec[]): Pro
   return readSpecTree({ source: createEvidenceTextSource(specs) });
 }
 
+/** The snapshot a read of the specs through a source that exposes entries and no `readText` produces. */
+export function readEvidenceSpecsWithoutReadText(specs: readonly EvidenceSpec[]): Promise<SpecTreeSnapshot> {
+  const { entries } = createEvidenceTextSource(specs);
+  return readSpecTree({ source: { entries } });
+}
+
 /** The snapshot a read of the specs written into a temporary product directory produces. */
 export function readEvidenceSpecsFromFilesystem(specs: readonly EvidenceSpec[]): Promise<SpecTreeSnapshot> {
+  return readEvidenceSpecsFromFilesystemWith(specs, false);
+}
+
+/**
+ * The snapshot a read produces when every present link target is a directory, so the filesystem
+ * source rejects reading it with a failure that is not a missing file. The rejection propagates.
+ */
+export function readEvidenceSpecsWithUnreadableTargets(specs: readonly EvidenceSpec[]): Promise<SpecTreeSnapshot> {
+  return readEvidenceSpecsFromFilesystemWith(specs, true);
+}
+
+function readEvidenceSpecsFromFilesystemWith(
+  specs: readonly EvidenceSpec[],
+  targetsAreDirectories: boolean,
+): Promise<SpecTreeSnapshot> {
+  const specPaths = new Set(specs.map(({ specPath }) => specPath));
   return withTestEnv(
     {
       [METHODOLOGY_SECTION]: {
@@ -57,7 +81,7 @@ export function readEvidenceSpecsFromFilesystem(specs: readonly EvidenceSpec[]):
     },
     async (env) => {
       for (const { path, contents } of specs.flatMap(({ files }) => files)) {
-        await env.writeRaw(path, contents);
+        await env.writeRaw(targetsAreDirectories && !specPaths.has(path) ? posix.join(path, path) : path, contents);
       }
       return readSpecTree({ source: createFilesystemSpecTreeSource({ productDir: env.productDir }) });
     },
