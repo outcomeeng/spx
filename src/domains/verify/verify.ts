@@ -1541,7 +1541,7 @@ export function validateTestScope(payload: JsonValue): EvidenceValidationResult<
 /**
  * Read a `test` scope payload's read paths: absent when the payload names none, otherwise an array
  * whose every entry is a safe product-relative path, returned normalized in payload order. A
- * non-array value, a non-string entry, an absolute path, or a parent-directory escape refuses the
+ * non-array value, an empty array, a non-string entry, an absolute path, or a parent-directory escape refuses the
  * payload naming the failing field path.
  */
 function readTestScopeReadPaths(
@@ -1550,7 +1550,7 @@ function readTestScopeReadPaths(
   const field = TEST_PAYLOAD_FIELD.READ_PATHS;
   if (!Object.hasOwn(payload, field)) return acceptEvidence(undefined);
   const entries = payload[field];
-  if (!Array.isArray(entries)) return rejectEvidenceField(field);
+  if (!Array.isArray(entries) || entries.length === 0) return rejectEvidenceField(field);
   return normalizeProductRelativePathEntries(entries, field);
 }
 
