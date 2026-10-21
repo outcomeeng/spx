@@ -13,8 +13,13 @@
 
 import * as fc from "fast-check";
 
-import type { SpecTreeEvalEntryKind, SpecTreeMethodologyLine } from "@/lib/spec-tree";
-import { SPEC_TREE_EVAL_ENTRY_KIND, SPEC_TREE_GRAMMAR, SPEC_TREE_METHODOLOGY_LINE } from "@/lib/spec-tree";
+import type { SpecTreeEvalEntryKind, SpecTreeKnowledgeRootHolder, SpecTreeMethodologyLine } from "@/lib/spec-tree";
+import {
+  SPEC_TREE_EVAL_ENTRY_KIND,
+  SPEC_TREE_GRAMMAR,
+  SPEC_TREE_KNOWLEDGE_ROOT_HOLDER,
+  SPEC_TREE_METHODOLOGY_LINE,
+} from "@/lib/spec-tree";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 
 /** One entry path under a node and whether a methodology line's version accepts it as lane content. */
@@ -25,6 +30,14 @@ export type LaneDirectoryCase = {
   readonly entryKind: SpecTreeEvalEntryKind;
   readonly accepted: boolean;
 };
+
+/** A knowledge-root entry path relative to the directory that holds the root, with that holder. */
+export type KnowledgeRootCase = LaneDirectoryCase & { readonly holder: SpecTreeKnowledgeRootHolder };
+
+/** The directories that hold a knowledge root. */
+export const KNOWLEDGE_ROOT_HOLDERS: readonly SpecTreeKnowledgeRootHolder[] = Object.values(
+  SPEC_TREE_KNOWLEDGE_ROOT_HOLDER,
+);
 
 /** A candidate entry path in the probe lane with the verdict the spec's statement of the lane gives it. */
 export type ProbeEntryCandidate = {
@@ -46,7 +59,11 @@ const WORD_SHAPE = /^[a-z][a-z0-9]{0,5}$/;
 const SLUG_WORD_MAX_COUNT = 3;
 const NON_SLUG_SEGMENT = fc.constantFrom("Upper", "under_score", "9digit", "", "has space");
 const NON_WORD_EXTENSION = fc.constantFrom("Ts", "9ts", "t_s", "", "t-s");
-const FOREIGN_LANE_ENTRY_NAME = fc.constantFrom("eval.toml", "notes", "runs");
+const FOREIGN_LANE_ENTRY_NAME = fc.constantFrom(
+  SPEC_TREE_GRAMMAR.EVAL.FILES[0],
+  SPEC_TREE_GRAMMAR.KNOWLEDGE.DIRECTORY_NAME,
+  SPEC_TREE_GRAMMAR.EVAL.RUNS_DIRECTORY_NAME,
+);
 const THREE_X_LINE = SPEC_TREE_METHODOLOGY_LINE.THREE_TWO;
 const FOUR_ZERO_LINE = SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO;
 const LANE_DRAW_BASE = 1;
@@ -98,13 +115,14 @@ function bundleAuthoredCases(): readonly LaneDirectoryCase[] {
 }
 
 /**
- * The knowledge-root entries the 4.0 clause names: the `knowledge` directory and its `index.md` and
- * `log.md` files are accepted; `knowledge` as a file, and a `knowledge` directory below another
- * directory rather than directly within the node, are not.
+ * The knowledge-root entries the 4.0 clause names, for each holder of a knowledge root — a node
+ * directory and `spx/` of the root product, as separate cases: the `knowledge` directory and its
+ * `index.md` and `log.md` files are accepted; `knowledge` as a file, and a `knowledge` directory
+ * below another directory rather than directly within the holder, are not.
  */
-export function knowledgeRootCases(): readonly LaneDirectoryCase[] {
+export function knowledgeRootCases(): readonly KnowledgeRootCase[] {
   const enclosing = sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), LANE_DRAW_BASE);
-  return [
+  const perHolder = [
     laneCase(FOUR_ZERO_LINE, KNOWLEDGE_DIRECTORY, SPEC_TREE_EVAL_ENTRY_KIND.DIRECTORY, true),
     ...KNOWLEDGE_FILES.map((file) =>
       laneCase(FOUR_ZERO_LINE, joined(KNOWLEDGE_DIRECTORY, file), SPEC_TREE_EVAL_ENTRY_KIND.FILE, true)
@@ -113,6 +131,9 @@ export function knowledgeRootCases(): readonly LaneDirectoryCase[] {
     laneCase(FOUR_ZERO_LINE, KNOWLEDGE_DIRECTORY, SPEC_TREE_EVAL_ENTRY_KIND.FILE, false),
     laneCase(FOUR_ZERO_LINE, joined(enclosing, KNOWLEDGE_DIRECTORY), SPEC_TREE_EVAL_ENTRY_KIND.DIRECTORY, false),
   ];
+  return KNOWLEDGE_ROOT_HOLDERS.flatMap((holder) =>
+    perHolder.map((testCase) => ({ ...testCase, title: `${holder}: ${testCase.title}`, holder }))
+  );
 }
 
 /**
@@ -251,6 +272,7 @@ export const PROBE_DIRECTORY_GENERATOR = {
 
 /** An entry path beneath the knowledge root, whose structure the bundle's author owns. */
 export type KnowledgeBundleEntry = {
+  readonly holder: SpecTreeKnowledgeRootHolder;
   readonly pathFromNode: string;
   readonly entryKind: SpecTreeEvalEntryKind;
 };
@@ -266,8 +288,13 @@ function arbitraryBundleEntry(): fc.Arbitrary<KnowledgeBundleEntry> {
     .tuple(
       fc.array(arbitraryBundleSegment(), { minLength: 1, maxLength: BUNDLE_SEGMENT_MAX_DEPTH }),
       fc.constantFrom(SPEC_TREE_EVAL_ENTRY_KIND.FILE, SPEC_TREE_EVAL_ENTRY_KIND.DIRECTORY),
+      fc.constantFrom(...KNOWLEDGE_ROOT_HOLDERS),
     )
-    .map(([beneath, entryKind]) => ({ pathFromNode: joined(KNOWLEDGE_DIRECTORY, ...beneath), entryKind }));
+    .map(([beneath, entryKind, holder]) => ({
+      holder,
+      pathFromNode: joined(KNOWLEDGE_DIRECTORY, ...beneath),
+      entryKind,
+    }));
 }
 
 /** Generator over the open domain of paths beneath a `knowledge/` directory. */

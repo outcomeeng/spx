@@ -31,7 +31,7 @@ CAN classify and render filenames against one authoritative grammar, without re-
 
 ### Properties
 
-- For every path beneath a `knowledge/` directory the 4.0 naming-schema version accepts, that version accepts the path, reserving only the root name and leaving the structure beneath it to the bundle's author ([test](tests/knowledge-bundle.property.l1.test.ts))
+- For every path beneath a `knowledge/` directory the 4.0 naming-schema version accepts, that version accepts the path, reserving only the root name and leaving the structure beneath it to the bundle's author ([test](tests/knowledge-root.property.l1.test.ts))
 - The 4.0 naming-schema version accepts, under an output or variant node's `probes/` directory, one directory per probe whose name is any slug, holding `probe.md`, zero or more artifact files `{slug}.{ext}` where `{slug}` is any slug and `{ext}` is any word, and a `runs/` directory ([test](tests/probe-directory.property.l1.test.ts))
 - The 4.0 naming-schema version accepts every index that is a two-digit integer from `10` to `99` followed by zero or more two-digit fractional segments, and rejects every other index ([test](tests/index-form.property.l1.test.ts))
 - The 3.x naming-schema version accepts every index that is a dot-separated run of digits, and rejects every other index ([test](tests/index-form.property.l1.test.ts))

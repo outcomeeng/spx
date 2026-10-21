@@ -8,7 +8,9 @@ import { recognitionOptionsForLine } from "@testing/harnesses/spec-tree/filename
 describe("knowledge-root entries of the 4.0 naming-schema version", () => {
   it.each(knowledgeRootCases())(SPEC_TREE_CASE_TITLE, (testCase) => {
     for (const version of recognitionOptionsForLine(testCase.line).selectedVersions) {
-      expect(acceptsKnowledgeRoot(version, testCase.pathFromNode, testCase.entryKind)).toBe(testCase.accepted);
+      expect(acceptsKnowledgeRoot(version, testCase.holder, testCase.pathFromNode, testCase.entryKind)).toBe(
+        testCase.accepted,
+      );
     }
   });
 });

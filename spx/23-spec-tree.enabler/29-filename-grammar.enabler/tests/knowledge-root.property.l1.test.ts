@@ -11,11 +11,12 @@ describe("the knowledge root of the 4.0 naming-schema version", () => {
   it("accepts every path beneath the knowledge directory, leaving its structure to the bundle's author", () => {
     assertProperty(
       KNOWLEDGE_BUNDLE_GENERATOR.entry(),
-      ({ pathFromNode, entryKind }) => {
-        expect({ pathFromNode, accepted: acceptsKnowledgeRoot(FOUR_ZERO_VERSION, pathFromNode, entryKind) }).toEqual({
-          pathFromNode,
-          accepted: true,
-        });
+      ({ holder, pathFromNode, entryKind }) => {
+        expect({ pathFromNode, accepted: acceptsKnowledgeRoot(FOUR_ZERO_VERSION, holder, pathFromNode, entryKind) })
+          .toEqual({
+            pathFromNode,
+            accepted: true,
+          });
       },
       { level: PROPERTY_LEVEL.L1 },
     );

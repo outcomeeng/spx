@@ -427,19 +427,31 @@ function isGrammarSlug(text: string, evidence: SpecTreeEvidenceGrammar): boolean
   return text.split(evidence.WORD_SEPARATOR).every((word) => evidence.WORD_PATTERN.test(word));
 }
 
+/** The directories that hold a knowledge root: a node directory, and `spx/` for the root product. */
+export const SPEC_TREE_KNOWLEDGE_ROOT_HOLDER = {
+  NODE_DIRECTORY: "node-directory",
+  ROOT_PRODUCT: "root-product",
+} as const;
+
+export type SpecTreeKnowledgeRootHolder =
+  (typeof SPEC_TREE_KNOWLEDGE_ROOT_HOLDER)[keyof typeof SPEC_TREE_KNOWLEDGE_ROOT_HOLDER];
+
+const KNOWLEDGE_ROOT_HOLDERS: readonly string[] = Object.values(SPEC_TREE_KNOWLEDGE_ROOT_HOLDER);
+
 /**
- * Whether a version accepts the entry at `pathFromNode`, a path relative to the directory that holds
- * the knowledge root joined by the version's path separator: the `knowledge` directory itself, or
- * anything beneath it, whose structure the bundle's author owns. A version that reserves no
- * knowledge root accepts nothing.
+ * Whether a version accepts the entry at `pathFromHolder`, a path relative to the directory that
+ * holds the knowledge root and joined by the version's path separator: the `knowledge` directory
+ * itself, or anything beneath it, whose structure the bundle's author owns. The holder is a node
+ * directory or `spx/` of the root product. A version that reserves no knowledge root accepts nothing.
  */
 export function acceptsKnowledgeRoot(
   version: NamingSchemaVersion,
-  pathFromNode: string,
+  holder: SpecTreeKnowledgeRootHolder,
+  pathFromHolder: string,
   entryKind: SpecTreeEvalEntryKind,
 ): boolean {
-  if (version.knowledge === undefined) return false;
-  const [root, ...beneath] = pathFromNode.split(version.pathSeparator);
+  if (version.knowledge === undefined || !KNOWLEDGE_ROOT_HOLDERS.includes(holder)) return false;
+  const [root, ...beneath] = pathFromHolder.split(version.pathSeparator);
   if (root !== version.knowledge.DIRECTORY_NAME) return false;
   if (beneath.length === 0) return entryKind === SPEC_TREE_EVAL_ENTRY_KIND.DIRECTORY;
   return beneath.every((segment) => segment !== "");
