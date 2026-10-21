@@ -175,24 +175,23 @@ function runReadModuleWithSetup(
     const vitestEntry = findProductVitestEntry(productDir);
     const priorExitCode = process.exitCode;
     const priorDataFile = process.env[DATA_FILE_ENV];
-    const priorTmpdir = process.env.TMPDIR;
     process.env[DATA_FILE_ENV] = dataFilePath;
-    process.env.TMPDIR = runTempDir;
     try {
       const vitest = await startVitest(VITEST_RUN_MODE, [SUITE_NAME], {
         root: productDir,
         watch: false,
         reporters: [reporter],
         setupFiles: withRecorder ? [setupFile] : [],
-        env: vitestEntry === undefined ? {} : { [READ_RECORDER_VITEST_ENTRY_ENV]: vitestEntry },
+        env: {
+          TMPDIR: runTempDir,
+          ...(vitestEntry === undefined ? {} : { [READ_RECORDER_VITEST_ENTRY_ENV]: vitestEntry }),
+        },
       });
       await vitest.close();
     } finally {
       process.exitCode = priorExitCode;
       if (priorDataFile === undefined) delete process.env[DATA_FILE_ENV];
       else process.env[DATA_FILE_ENV] = priorDataFile;
-      if (priorTmpdir === undefined) delete process.env.TMPDIR;
-      else process.env.TMPDIR = priorTmpdir;
     }
     const files = await snapshotFiles(productDir);
     return {
