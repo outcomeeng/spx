@@ -10,7 +10,7 @@ CAN key a result by the audit rule slug or the node-local evidence path its asse
 
 ## Assertions
 
-- Given a node spec whose assertions carry `[test](path)`, `[eval](path)`, and `[probe](path)` links and `[audit:{rule-slug}]` tags, when `readSpecTree` runs, then the node carries one evidence reference per tagged assertion, keyed by the resolved node-local path for a link and by the rule slug for an audit tag ([test](tests/evidence-references.scenario.l1.test.ts))
+- Given a node spec whose assertions carry test, eval, and probe links and keyed audit tags, when `readSpecTree` runs, then the node carries one evidence reference per tagged assertion, keyed by the resolved node-local path for a link and by the rule slug for an audit tag ([test](tests/evidence-references.scenario.l1.test.ts))
 - A link target the source reads maps to a resolved reference and an absent target maps to a dangling reference, and neither is a read failure; a `readText` rejection that is not a file-not-found rejection stays a read failure ([test](tests/evidence-references.mapping.l1.test.ts))
 - Given a source that exposes no `readText`, when `readSpecTree` runs, then every node carries no evidence references ([test](tests/evidence-references.scenario.l1.test.ts))
 - For every generated node spec, the evidence references of its node equal its tagged assertions in order of appearance, one each ([test](tests/evidence-references.property.l1.test.ts))
