@@ -6,10 +6,6 @@ CAN classify and render filenames against one authoritative grammar, without re-
 
 ## Assertions
 
-- The 4.0 naming-schema version accepts, directly within a node directory and directly under `spx/` for the root product, one `knowledge/` directory holding `index.md` and `log.md`, and reserves only that root name, leaving the structure beneath it to the bundle's author
-- The 4.0 naming-schema version accepts, under an output or variant node's `probes/` directory, one directory per probe whose name is any slug, holding `probe.md`, zero or more artifact files `{slug}.{ext}` where `{slug}` is any slug and `{ext}` is any word, and a `runs/` directory
-- The 3.x naming-schema version accepts neither a `knowledge/` nor a `probes/` directory
-
 ### Scenarios
 
 - Given the spec-tree descriptor is registered with the config module, when `resolveConfig(productDir)` runs with no yaml, then the resolved spec-tree section carries no `kinds` field ([test](tests/spec-tree-config.scenario.l1.test.ts))
@@ -17,6 +13,8 @@ CAN classify and render filenames against one authoritative grammar, without re-
 
 ### Mappings
 
+- The 4.0 naming-schema version accepts, directly within a node directory and directly under `spx/` for the root product, one `knowledge/` directory holding `index.md` and `log.md`, and reserves only that root name, leaving the structure beneath it to the bundle's author ([test](tests/knowledge-root.mapping.l1.test.ts))
+- The 3.x naming-schema version accepts neither a `knowledge/` nor a `probes/` directory ([test](tests/lane-directories-3x.mapping.l1.test.ts))
 - The first naming-schema version accepts `.capability`, `.feature`, and `.story` node directories ([test](tests/filename-grammar.mapping.l1.test.ts))
 - Both the 4.0 and the 3.x naming-schema version accept, under a node's `evals/{rule-slug}/` directory, the files `eval.toml`, `cases.jsonl`, `prompt.md`, `prompt.template.md`, and `history.jsonl`, and a `runs/` directory ([test](tests/filename-grammar.mapping.l1.test.ts))
 - Every kind key maps to exactly one category value and one suffix through `KIND_REGISTRY` ([test](tests/kind-registry.mapping.l1.test.ts))
@@ -33,6 +31,7 @@ CAN classify and render filenames against one authoritative grammar, without re-
 
 ### Properties
 
+- The 4.0 naming-schema version accepts, under an output or variant node's `probes/` directory, one directory per probe whose name is any slug, holding `probe.md`, zero or more artifact files `{slug}.{ext}` where `{slug}` is any slug and `{ext}` is any word, and a `runs/` directory ([test](tests/probe-directory.property.l1.test.ts))
 - The 4.0 naming-schema version accepts every index that is a two-digit integer from `10` to `99` followed by zero or more two-digit fractional segments, and rejects every other index ([test](tests/index-form.property.l1.test.ts))
 - The 3.x naming-schema version accepts every index that is a dot-separated run of digits, and rejects every other index ([test](tests/index-form.property.l1.test.ts))
 - Both the 4.0 and the 3.x naming-schema version accept a file under a node's `tests/` directory exactly when its name is `{core}.test.{ext}`, `test_{core}.{ext}`, or `{core}_test.{ext}`, where `{core}` is `{subject}.{evidence}.{level}` with an optional trailing `.{runner}`, `{subject}` and `{runner}` are any slug, `{evidence}` is `scenario`, `mapping`, `conformance`, `property`, or `compliance`, `{level}` is `l1`, `l2`, or `l3`, and `{ext}` is any word, a word being a lowercase letter followed by lowercase letters and digits and a slug one or more words joined by `-` ([test](tests/test-file-form.property.l1.test.ts))
