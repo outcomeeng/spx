@@ -97,17 +97,14 @@ function withoutCodeSpans(line: string): string {
 
 type TagGroups = Readonly<Record<string, string | undefined>>;
 
-type AssertionLine = { readonly number: number; readonly text: string };
-
-function assertionLines(specText: string): readonly AssertionLine[] {
+function assertionLines(specText: string): readonly string[] {
   const lines = specText.split(LINE_BREAK_PATTERN);
   const start = lines.findIndex((line) => line.trim() === SPEC_TREE_ASSERTIONS_HEADING);
   if (start < 0) return [];
   const rest = lines.slice(start + 1);
   const end = rest.findIndex((line) => line.startsWith(SPEC_TREE_SECTION_HEADING_PREFIX));
   return (end < 0 ? rest : rest.slice(0, end))
-    .map((text, offset) => ({ number: start + offset + 2, text }))
-    .filter(({ text }) => text.trimStart().startsWith(SPEC_TREE_ASSERTION_BULLET_PREFIX));
+    .filter((text) => text.trimStart().startsWith(SPEC_TREE_ASSERTION_BULLET_PREFIX));
 }
 
 /**
@@ -159,8 +156,8 @@ async function targetOf(
  * The evidence references a node spec declares, one per tagged assertion in order of appearance.
  * A link is keyed by its node-local path and reports whether its target is read; an audit tag is
  * keyed by its rule slug, or unkeyed when it carries none. Two audit tags with one rule slug in
- * one spec fail the read, naming the spec and the slug; so does an assertion line carrying two
- * real evidence tags, naming the spec and the line.
+ * one spec fail the read, naming the spec and the slug. An assertion line carrying more than one
+ * real evidence tag keeps its first tag.
  */
 export async function readSpecEvidenceReferences(
   specPath: string,
@@ -171,11 +168,7 @@ export async function readSpecEvidenceReferences(
   const references: SpecTreeEvidenceReference[] = [];
   const slugs = new Set<string>();
   for (const line of assertionLines(specText)) {
-    const tags = evidenceTagGroups(line.text);
-    if (tags.length > 1) {
-      throw new Error(`${specPath} line ${line.number} carries more than one evidence tag`);
-    }
-    const groups = tags.at(0);
+    const groups = evidenceTagGroups(line).at(0);
     if (groups === undefined) continue;
     const linkText = groups[LINK_TAG_GROUP.TEXT] as SpecTreeEvidenceLinkText | undefined;
     const href = groups[LINK_TAG_GROUP.HREF];
