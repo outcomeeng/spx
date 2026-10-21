@@ -14,7 +14,7 @@
 import * as fc from "fast-check";
 
 import type { SpecTreeEvalEntryKind, SpecTreeMethodologyLine } from "@/lib/spec-tree";
-import { SPEC_TREE_EVAL_ENTRY_KIND, SPEC_TREE_METHODOLOGY_LINE } from "@/lib/spec-tree";
+import { SPEC_TREE_EVAL_ENTRY_KIND, SPEC_TREE_GRAMMAR, SPEC_TREE_METHODOLOGY_LINE } from "@/lib/spec-tree";
 import { sampleSpecTreeTestValue, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 
 /** One entry path under a node and whether a methodology line's version accepts it as lane content. */
@@ -33,15 +33,15 @@ export type ProbeEntryCandidate = {
   readonly accepted: boolean;
 };
 
-const PATH_SEPARATOR = "/";
-const KNOWLEDGE_DIRECTORY = "knowledge";
-const KNOWLEDGE_FILES = ["index.md", "log.md"] as const;
-const PROBES_DIRECTORY = "probes";
-const PROBE_PROTOCOL_FILE = "probe.md";
-const PROBE_RUNS_DIRECTORY = "runs";
-const NAME_SEPARATOR = ".";
-const WORD_SEPARATOR = "-";
-const WORD_PATTERN = /^[a-z][a-z0-9]*$/;
+const PATH_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
+const KNOWLEDGE_DIRECTORY = SPEC_TREE_GRAMMAR.KNOWLEDGE.DIRECTORY_NAME;
+const KNOWLEDGE_FILES = [SPEC_TREE_GRAMMAR.KNOWLEDGE.INDEX_FILENAME, SPEC_TREE_GRAMMAR.KNOWLEDGE.LOG_FILENAME] as const;
+const PROBES_DIRECTORY = SPEC_TREE_GRAMMAR.PROBE.DIRECTORY_NAME;
+const PROBE_PROTOCOL_FILE = SPEC_TREE_GRAMMAR.PROBE.PROTOCOL_FILENAME;
+const PROBE_RUNS_DIRECTORY = SPEC_TREE_GRAMMAR.PROBE.RUNS_DIRECTORY_NAME;
+const NAME_SEPARATOR = SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR;
+const WORD_SEPARATOR = SPEC_TREE_GRAMMAR.EVIDENCE.WORD_SEPARATOR;
+const WORD_PATTERN = SPEC_TREE_GRAMMAR.EVIDENCE.WORD_PATTERN;
 const WORD_SHAPE = /^[a-z][a-z0-9]{0,5}$/;
 const SLUG_WORD_MAX_COUNT = 3;
 const NON_SLUG_SEGMENT = fc.constantFrom("Upper", "under_score", "9digit", "", "has space");
@@ -71,6 +71,33 @@ function laneCase(
 }
 
 /**
+ * Entries beneath the knowledge root other than `index.md` and `log.md`: the structure there belongs
+ * to the bundle's author, so a file, a directory, and a nested file under a directory are accepted.
+ * The path is relative to the directory that holds the root, so the same input stands for a node
+ * directory and for `spx/` of the root product.
+ */
+function bundleAuthoredCases(): readonly LaneDirectoryCase[] {
+  const [file, directory, nested] = [1, 2, 3].map((draw) =>
+    sampleSpecTreeTestValue(SPEC_TREE_TEST_GENERATOR.sourceSlug(), LANE_DRAW_BASE + draw)
+  ) as [string, string, string];
+  return [
+    laneCase(
+      FOUR_ZERO_LINE,
+      joined(KNOWLEDGE_DIRECTORY, file),
+      SPEC_TREE_EVAL_ENTRY_KIND.FILE,
+      true,
+    ),
+    laneCase(FOUR_ZERO_LINE, joined(KNOWLEDGE_DIRECTORY, directory), SPEC_TREE_EVAL_ENTRY_KIND.DIRECTORY, true),
+    laneCase(
+      FOUR_ZERO_LINE,
+      joined(KNOWLEDGE_DIRECTORY, directory, nested),
+      SPEC_TREE_EVAL_ENTRY_KIND.FILE,
+      true,
+    ),
+  ];
+}
+
+/**
  * The knowledge-root entries the 4.0 clause names: the `knowledge` directory and its `index.md` and
  * `log.md` files are accepted; `knowledge` as a file, and a `knowledge` directory below another
  * directory rather than directly within the node, are not.
@@ -82,6 +109,7 @@ export function knowledgeRootCases(): readonly LaneDirectoryCase[] {
     ...KNOWLEDGE_FILES.map((file) =>
       laneCase(FOUR_ZERO_LINE, joined(KNOWLEDGE_DIRECTORY, file), SPEC_TREE_EVAL_ENTRY_KIND.FILE, true)
     ),
+    ...bundleAuthoredCases(),
     laneCase(FOUR_ZERO_LINE, KNOWLEDGE_DIRECTORY, SPEC_TREE_EVAL_ENTRY_KIND.FILE, false),
     laneCase(FOUR_ZERO_LINE, joined(enclosing, KNOWLEDGE_DIRECTORY), SPEC_TREE_EVAL_ENTRY_KIND.DIRECTORY, false),
   ];
