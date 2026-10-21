@@ -8,3 +8,4 @@ Loaded by `/claim-change`, `/release-change`, `/close-change`, and `/author-chan
 - Project: owner `outcomeeng`, number `1` (`https://github.com/orgs/outcomeeng/projects/1`)
 - Product: `spx` — the `Product` field value for every Change this repository picks up or hands off
 - Fields: `Product` (methodology | spx | plugins), `Maturity` (Proposed | Framed | Sliced | Executable), `Status` projects Lifecycle (Available | Claimed | Applied | Refined | Abandoned)
+- Priority: Blocker, Urgent, Normal, Deferred
