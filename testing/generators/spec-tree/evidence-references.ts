@@ -186,14 +186,19 @@ function arbitraryCodeSpanDecoy(): fc.Arbitrary<string> {
     .map((decoy) => `${CODE_SPAN_DELIMITER}${decoy}${CODE_SPAN_DELIMITER}`);
 }
 
-/** Assertion words, followed in some draws by a code span of tag-like text that declares no evidence. */
-function arbitraryAssertionText(): fc.Arbitrary<string> {
-  const words = fc
+/** Assertion words alone. */
+function arbitraryAssertionWords(): fc.Arbitrary<string> {
+  return fc
     .array(fc.stringMatching(ASSERTION_WORD_PATTERN), {
       minLength: ASSERTION_LIMITS.MIN_WORDS,
       maxLength: ASSERTION_LIMITS.MAX_WORDS,
     })
     .map((drawn) => drawn.join(ASSERTION_TEXT_SEPARATOR));
+}
+
+/** Assertion words, followed in some draws by a code span of tag-like text that declares no evidence. */
+function arbitraryAssertionText(): fc.Arbitrary<string> {
+  const words = arbitraryAssertionWords();
   return fc
     .tuple(words, fc.option(arbitraryCodeSpanDecoy(), { nil: undefined }))
     .map(([prose, decoy]) => decoy === undefined ? prose : [prose, decoy].join(ASSERTION_TEXT_SEPARATOR));
@@ -732,4 +737,101 @@ export function arbitraryDeclaredGrammarLinkScenario(
         };
       },
     );
+}
+
+/** The tag-like texts of every tag form, each rendered from a link path and a rule slug; none is a tag inside a code span. */
+const CODE_SPAN_DECOY_TAGS: readonly ((path: string, slug: string) => string)[] = [
+  ...LINK_FORM_ORACLE.map(({ linkText }) => (path: string) => `[${linkText}](${path})`),
+  (_path, slug) => `[${SPEC_TREE_AUDIT_TAG_TEXT.CURRENT}${SPEC_TREE_AUDIT_TAG_SLUG_SEPARATOR}${slug}]`,
+  ...PATHLESS_TAG_TEXTS.map((tagText) => () => `[${tagText}]`),
+];
+
+function shuffled<T>(items: readonly T[]): fc.Arbitrary<readonly T[]> {
+  return fc.shuffledSubarray([...items], { minLength: items.length, maxLength: items.length });
+}
+
+function scenarioOfAssertions(
+  parts: NodeParts,
+  assertions: readonly GeneratedAssertion[],
+): EvidenceReferenceScenario {
+  return {
+    ...specFrom(parts, assertions, everyTargetPresent),
+    expected: assertions.flatMap(({ reference }) => reference === undefined ? [] : [reference]),
+  };
+}
+
+/**
+ * A spec holding, for every tag form, one assertion that mentions that form's tag inside a code
+ * span and carries no real tag, and one assertion that mentions it inside a code span before a
+ * real link or slugged audit tag. The expected references are those of the real tags alone; a
+ * tag-like text inside a code span declares nothing, including at the end of the line.
+ */
+export function arbitraryCodeSpanScenario(): fc.Arbitrary<EvidenceReferenceScenario> {
+  const count = CODE_SPAN_DECOY_TAGS.length;
+  return fc
+    .tuple(
+      arbitraryNodeParts(),
+      fc.array(fc.tuple(arbitraryAssertionWords(), arbitraryLinkPath(), arbitraryLinkPath()), {
+        minLength: 2 * count,
+        maxLength: 2 * count,
+      }),
+      fc.uniqueArray(arbitraryRuleSlug(), { minLength: 3 * count, maxLength: 3 * count }),
+      fc.array(fc.constantFrom(...ANYWHERE_TAG_FORMS), { minLength: count, maxLength: count }),
+    )
+    .chain(([parts, drawn, slugs, realForms]) => {
+      const mentioning = (decoyIndex: number, drawIndex: number): { text: string; realPath: string } => {
+        const [words, decoyPath, realPath] = drawn[drawIndex];
+        const decoy = CODE_SPAN_DECOY_TAGS[decoyIndex](decoyPath, slugs[drawIndex]);
+        return {
+          text: [words, `${CODE_SPAN_DELIMITER}${decoy}${CODE_SPAN_DELIMITER}`].join(ASSERTION_TEXT_SEPARATOR),
+          realPath,
+        };
+      };
+      const assertions = CODE_SPAN_DECOY_TAGS.flatMap((_decoyTag, index) => [
+        assertionOfForm(EVIDENCE_ASSERTION_FORM.UNTAGGED, mentioning(index, index).text, "", ""),
+        assertionOfForm(
+          realForms[index] ?? EVIDENCE_ASSERTION_FORM.TEST_LINK,
+          mentioning(index, count + index).text,
+          mentioning(index, count + index).realPath,
+          slugs[2 * count + index] ?? "",
+        ),
+      ]);
+      return shuffled(assertions).map((ordered) => scenarioOfAssertions(parts, ordered));
+    });
+}
+
+/**
+ * A spec holding, for every link form and the slugged audit form, one assertion whose real tag is
+ * followed by more prose, and for the pathless audit tag and the legacy review tag, one assertion
+ * that ends in the bare tag with no enclosing parenthesis. Each assertion declares the reference
+ * of its tag.
+ */
+export function arbitraryTagPositionScenario(): fc.Arbitrary<EvidenceReferenceScenario> {
+  const midLineCount = ANYWHERE_TAG_FORMS.length;
+  const bareCount = PATHLESS_TAG_TEXTS.length;
+  return fc
+    .tuple(
+      arbitraryNodeParts(),
+      fc.array(fc.tuple(arbitraryAssertionWords(), arbitraryAssertionWords(), arbitraryLinkPath()), {
+        minLength: midLineCount + bareCount,
+        maxLength: midLineCount + bareCount,
+      }),
+      fc.uniqueArray(arbitraryRuleSlug(), { minLength: midLineCount, maxLength: midLineCount }),
+    )
+    .chain(([parts, drawn, slugs]) => {
+      const midLine = ANYWHERE_TAG_FORMS.map((form, index): GeneratedAssertion => {
+        const [words, trailing, path] = drawn[index];
+        const tagged = assertionOfForm(form, words, path, slugs[index]);
+        return { ...tagged, line: [tagged.line, trailing].join(ASSERTION_TEXT_SEPARATOR) };
+      });
+      const bareEnd = PATHLESS_TAG_TEXTS.map((tagText, index): GeneratedAssertion => {
+        const [words] = drawn[midLineCount + index];
+        const tagged = unkeyedAuditAssertion(words, tagText);
+        return {
+          ...tagged,
+          line: `${SPEC_TREE_ASSERTION_BULLET_PREFIX}${words} [${tagText}]`,
+        };
+      });
+      return shuffled([...midLine, ...bareEnd]).map((ordered) => scenarioOfAssertions(parts, ordered));
+    });
 }
