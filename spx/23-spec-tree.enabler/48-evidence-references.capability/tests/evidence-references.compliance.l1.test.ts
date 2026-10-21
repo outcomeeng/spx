@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import { SPEC_TREE_EVIDENCE_KEY_KIND, SPEC_TREE_VERIFICATION_TYPE } from "@/lib/spec-tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
+  arbitraryBracketedProseScenario,
   arbitraryDuplicateAuditSlugScenario,
   arbitraryRepeatedSlugAcrossSpecsScenario,
+  arbitraryTwoTagLineScenario,
   arbitraryUnkeyedAuditScenario,
 } from "@testing/generators/spec-tree/evidence-references";
 import { readEvidenceSpecsFromFilesystem } from "@testing/harnesses/spec-tree/evidence-references";
@@ -24,6 +26,32 @@ describe("unkeyed audit references", () => {
         key: { kind: SPEC_TREE_EVIDENCE_KEY_KIND.UNKEYED },
       });
     }
+  });
+});
+
+describe("tag position", () => {
+  it("reads bracketed audit and review words in prose as no reference, leaving only the tags at the line ends", async () => {
+    const scenario = sampleGeneratedValue(arbitraryBracketedProseScenario());
+
+    const snapshot = await readEvidenceSpecsFromFilesystem([scenario]);
+
+    const references = snapshot.allNodes.find(({ slug }) => slug === scenario.entry.slug)?.evidenceReferences ?? [];
+    expect(references).toEqual(scenario.expected);
+  });
+});
+
+describe("one evidence tag per assertion line", () => {
+  it("fails the read naming the spec and the line when an assertion line carries two real evidence tags", async () => {
+    const scenario = sampleGeneratedValue(arbitraryTwoTagLineScenario());
+
+    const outcome = await readEvidenceSpecsFromFilesystem([scenario]).then(
+      (snapshot) => snapshot,
+      (error: unknown) => error,
+    );
+
+    expect(outcome).toBeInstanceOf(Error);
+    expect((outcome as Error).message).toContain(scenario.specPath);
+    expect((outcome as Error).message).toContain(String(scenario.lineNumber));
   });
 });
 
