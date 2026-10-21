@@ -5,7 +5,7 @@
     "test": {
       "tests/compact-cli-io.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6b0ef169c55e426f308e92d6905b66c9d646d803",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
         "read": [
           "pnpm-lock.yaml",
           "spx/37-compact.enabler/compact.md",
@@ -369,7 +369,7 @@
       },
       "tests/compact-cli.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
         "read": [
           "pnpm-lock.yaml",
           "spx/37-compact.enabler/compact.md",
@@ -400,7 +400,7 @@
       },
       "tests/compact.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
         "read": [
           "pnpm-lock.yaml",
           "spx/37-compact.enabler/compact.md",

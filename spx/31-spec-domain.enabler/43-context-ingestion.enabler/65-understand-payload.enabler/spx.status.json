@@ -5,7 +5,7 @@
     "test": {
       "tests/understand-payload.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6b0ef169c55e426f308e92d6905b66c9d646d803",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
         "read": [
           "methodology/4.0/claude/spec-tree/skills/understand/SKILL.md",
           "methodology/4.0/claude/spec-tree/skills/understand/manifest.json",
@@ -184,7 +184,7 @@
       },
       "tests/understand-payload.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6b0ef169c55e426f308e92d6905b66c9d646d803",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/tests/understand-payload.mapping.l1.test.ts",
@@ -348,7 +348,7 @@
       },
       "tests/understand-payload.mapping.l2.test.ts": {
         "verdict": "passed",
-        "commit": "6b0ef169c55e426f308e92d6905b66c9d646d803",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
         "read": [
           "methodology/4.0/claude/spec-tree/skills/understand/SKILL.md",
           "methodology/4.0/claude/spec-tree/skills/understand/manifest.json",
@@ -515,13 +515,12 @@
           "testing/harnesses/spec/spec-cli-network-guard.ts",
           "testing/harnesses/with-temp-dir.ts",
           "tsconfig.json",
-          "tsup.config.bundled_zulhwnostns.mjs",
           "tsup.config.ts"
         ]
       },
       "tests/understand-payload.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6b0ef169c55e426f308e92d6905b66c9d646d803",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/tests/understand-payload.scenario.l1.test.ts",
@@ -685,7 +684,7 @@
       },
       "tests/understand-payload.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "6b0ef169c55e426f308e92d6905b66c9d646d803",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
         "read": [
           "methodology/4.0/claude/spec-tree/skills/understand/SKILL.md",
           "methodology/4.0/claude/spec-tree/skills/understand/manifest.json",
@@ -850,7 +849,6 @@
           "testing/harnesses/spec/spec-cli-network-guard.ts",
           "testing/harnesses/with-temp-dir.ts",
           "tsconfig.json",
-          "tsup.config.bundled_yii13l3onx.mjs",
           "tsup.config.ts"
         ]
       }

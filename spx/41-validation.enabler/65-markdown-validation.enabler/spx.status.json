@@ -5,7 +5,7 @@
     "test": {
       "tests/markdown-validation-command.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "6b0ef169c55e426f308e92d6905b66c9d646d803",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -376,7 +376,7 @@
       },
       "tests/markdown-validation.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -522,7 +522,7 @@
       },
       "tests/markdown-validation.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -622,7 +622,7 @@
       },
       "tests/markdown-validation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6b0ef169c55e426f308e92d6905b66c9d646d803",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
         "read": [
           "pnpm-lock.yaml",
           "spx.config.yaml",
@@ -867,18 +867,6 @@
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/probes/context-fidelity/attested/run-2/t4.comparison.md",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/probes/context-fidelity/attested/run-2/t5.comparison.md",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/probes/context-fidelity/probe.md",
-          "spx/31-spec-domain.enabler/43-context-ingestion.enabler/probes/context-fidelity/runs/5c2cbd2e45308c421dd80a467c7044107b3cf407-20261010T233145Z-a28bc912/t0.comparison.md",
-          "spx/31-spec-domain.enabler/43-context-ingestion.enabler/probes/context-fidelity/runs/5c2cbd2e45308c421dd80a467c7044107b3cf407-20261010T233145Z-a28bc912/t1.comparison.md",
-          "spx/31-spec-domain.enabler/43-context-ingestion.enabler/probes/context-fidelity/runs/5c2cbd2e45308c421dd80a467c7044107b3cf407-20261010T233145Z-a28bc912/t2.comparison.md",
-          "spx/31-spec-domain.enabler/43-context-ingestion.enabler/probes/context-fidelity/runs/5c2cbd2e45308c421dd80a467c7044107b3cf407-20261010T233145Z-a28bc912/t3.comparison.md",
-          "spx/31-spec-domain.enabler/43-context-ingestion.enabler/probes/context-fidelity/runs/5c2cbd2e45308c421dd80a467c7044107b3cf407-20261010T233145Z-a28bc912/t4.comparison.md",
-          "spx/31-spec-domain.enabler/43-context-ingestion.enabler/probes/context-fidelity/runs/5c2cbd2e45308c421dd80a467c7044107b3cf407-20261010T233145Z-a28bc912/t5.comparison.md",
-          "spx/31-spec-domain.enabler/43-context-ingestion.enabler/probes/context-fidelity/runs/5c2cbd2e45308c421dd80a467c7044107b3cf407-20261010T233829Z-629cba21/t0.comparison.md",
-          "spx/31-spec-domain.enabler/43-context-ingestion.enabler/probes/context-fidelity/runs/5c2cbd2e45308c421dd80a467c7044107b3cf407-20261010T233829Z-629cba21/t1.comparison.md",
-          "spx/31-spec-domain.enabler/43-context-ingestion.enabler/probes/context-fidelity/runs/5c2cbd2e45308c421dd80a467c7044107b3cf407-20261010T233829Z-629cba21/t2.comparison.md",
-          "spx/31-spec-domain.enabler/43-context-ingestion.enabler/probes/context-fidelity/runs/5c2cbd2e45308c421dd80a467c7044107b3cf407-20261010T233829Z-629cba21/t3.comparison.md",
-          "spx/31-spec-domain.enabler/43-context-ingestion.enabler/probes/context-fidelity/runs/5c2cbd2e45308c421dd80a467c7044107b3cf407-20261010T233829Z-629cba21/t4.comparison.md",
-          "spx/31-spec-domain.enabler/43-context-ingestion.enabler/probes/context-fidelity/runs/5c2cbd2e45308c421dd80a467c7044107b3cf407-20261010T233829Z-629cba21/t5.comparison.md",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/21-status-testing-delegation.adr.md",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/ISSUES.md",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",

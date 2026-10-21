@@ -5,7 +5,7 @@
     "test": {
       "tests/auto-injection.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/54-auto-injection.enabler/auto-injection.md",
@@ -36,7 +36,7 @@
       },
       "tests/auto-injection.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/54-auto-injection.enabler/auto-injection.md",
@@ -69,7 +69,7 @@
       },
       "tests/auto-injection.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/54-auto-injection.enabler/auto-injection.md",

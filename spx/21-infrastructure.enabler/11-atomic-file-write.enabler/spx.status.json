@@ -5,7 +5,7 @@
     "test": {
       "tests/atomic-file-write.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/11-atomic-file-write.enabler/atomic-file-write.md",
@@ -20,7 +20,7 @@
       },
       "tests/atomic-file-write.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/11-atomic-file-write.enabler/atomic-file-write.md",
@@ -36,7 +36,7 @@
       },
       "tests/atomic-file-write.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "0a61de547366835a7f12872e4c8d0e4ae74693e5",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/11-atomic-file-write.enabler/atomic-file-write.md",
