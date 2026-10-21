@@ -5,7 +5,7 @@
     "test": {
       "tests/diagnostics.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -36,6 +36,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -56,7 +57,7 @@
       },
       "tests/fetch.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -87,6 +88,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -106,7 +108,7 @@
       },
       "tests/fetch.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -137,6 +139,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -156,7 +159,7 @@
       },
       "tests/fetch.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -187,6 +190,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -203,7 +207,7 @@
       },
       "tests/fetch.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -234,6 +238,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -254,7 +259,7 @@
       },
       "tests/tree-address.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
         "read": [
           "pnpm-lock.yaml",
           "spx/25-outcomeeng.enabler/31-methodology-plugin.enabler/methodology-plugin.md",
@@ -285,6 +290,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",

@@ -5,7 +5,7 @@
     "test": {
       "tests/multi-target-composition.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/76-multi-target-composition.enabler/multi-target-composition.md",
@@ -122,6 +122,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -169,7 +170,7 @@
       },
       "tests/multi-target-composition.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/76-multi-target-composition.enabler/multi-target-composition.md",
@@ -286,6 +287,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -334,7 +336,7 @@
       },
       "tests/multi-target-composition.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/76-multi-target-composition.enabler/multi-target-composition.md",
@@ -451,6 +453,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",

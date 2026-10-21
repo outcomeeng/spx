@@ -5,7 +5,7 @@
     "test": {
       "tests/release-data.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/21-release-data.enabler/release-data.md",
@@ -66,6 +66,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -99,7 +100,7 @@
       },
       "tests/release-data.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/21-release-data.enabler/release-data.md",
@@ -160,6 +161,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -195,7 +197,7 @@
       },
       "tests/release-data.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/21-release-data.enabler/release-data.md",
@@ -281,6 +283,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",

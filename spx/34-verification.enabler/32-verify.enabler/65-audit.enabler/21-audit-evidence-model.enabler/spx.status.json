@@ -5,7 +5,7 @@
     "test": {
       "tests/audit-changeset-class.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/audit-evidence-model.md",
@@ -116,6 +116,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -159,7 +160,7 @@
       },
       "tests/audit-changeset-root.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/audit-evidence-model.md",
@@ -270,6 +271,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -314,7 +316,7 @@
       },
       "tests/audit-evidence-validation.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/audit-evidence-model.md",
@@ -617,6 +619,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -696,7 +699,7 @@
       },
       "tests/audit-file-root.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/audit-evidence-model.md",
@@ -807,6 +810,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -851,7 +855,7 @@
       },
       "tests/audit-finding.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/audit-evidence-model.md",
@@ -962,6 +966,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -1006,7 +1011,7 @@
       },
       "tests/audit-order.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/audit-evidence-model.md",
@@ -1309,6 +1314,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -1386,7 +1392,7 @@
       },
       "tests/audit-scope.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "408922e40d57f6939cee8138512e8f3c195b268f",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/audit-evidence-model.md",
@@ -1497,6 +1503,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
