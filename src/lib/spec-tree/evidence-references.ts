@@ -98,7 +98,8 @@ function assertionLines(specText: string): readonly string[] {
   );
 }
 
-function isFileNotFound(error: unknown): boolean {
+/** Whether a read rejection is a file-not-found rejection. */
+export function isFileNotFound(error: unknown): boolean {
   return error instanceof Error && "code" in error && (error as NodeJS.ErrnoException).code === FILE_NOT_FOUND_CODE;
 }
 
