@@ -1,14 +1,144 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/21-infrastructure.enabler/43-precommit.enabler/tests/deps-install-gate-probe.mapping.l1.test.ts": "passed",
-      "spx/21-infrastructure.enabler/43-precommit.enabler/tests/deps-install-gate.mapping.l1.test.ts": "passed",
-      "spx/21-infrastructure.enabler/43-precommit.enabler/tests/entrypoint.mapping.l1.test.ts": "passed",
-      "spx/21-infrastructure.enabler/43-precommit.enabler/tests/hook-install.compliance.l1.test.ts": "passed",
-      "spx/21-infrastructure.enabler/43-precommit.enabler/tests/main-checkout-gate.mapping.l1.test.ts": "passed",
-      "spx/21-infrastructure.enabler/43-precommit.enabler/tests/subprocess-env.compliance.l1.test.ts": "passed"
+      "tests/deps-install-gate-probe.mapping.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/tests/deps-install-gate-probe.mapping.l1.test.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/precommit/deps-install-gate.ts",
+          "src/lib/precommit/entrypoint.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/precommit/precommit.ts",
+          "testing/harnesses/precommit/deps-install-gate.ts"
+        ]
+      },
+      "tests/deps-install-gate.mapping.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/tests/deps-install-gate.mapping.l1.test.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/precommit/deps-install-gate.ts",
+          "src/lib/precommit/entrypoint.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/precommit/precommit.ts",
+          "testing/harnesses/precommit/deps-install-gate.ts"
+        ]
+      },
+      "tests/entrypoint.mapping.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/tests/entrypoint.mapping.l1.test.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/precommit/deps-install-gate.ts",
+          "src/lib/precommit/entrypoint.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/precommit/precommit.ts",
+          "testing/harnesses/precommit/entrypoint.ts"
+        ]
+      },
+      "tests/hook-install.compliance.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "lefthook.yml",
+          "pnpm-lock.yaml",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/tests/hook-install.compliance.l1.test.ts",
+          "src/interfaces/cli/invocation.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/precommit/entrypoint.ts",
+          "src/lib/precommit/install-hooks.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/harnesses/precommit/hook-install.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ]
+      },
+      "tests/main-checkout-gate.mapping.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/tests/main-checkout-gate.mapping.l1.test.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/precommit/entrypoint.ts",
+          "src/lib/precommit/main-checkout-gate.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/main-checkout/main-checkout.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/precommit/main-checkout-gate.ts",
+          "testing/harnesses/with-temp-dir.ts",
+          "testing/harnesses/worktree-layout/worktree-layout.ts"
+        ]
+      },
+      "tests/subprocess-env.compliance.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "package.json",
+          "pnpm-lock.yaml",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
+          "spx/21-infrastructure.enabler/43-precommit.enabler/tests/subprocess-env.compliance.l1.test.ts",
+          "src/interfaces/cli/invocation.ts",
+          "src/lib/git/environment.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/precommit/subprocess-env.ts",
+          "testing/harnesses/with-git-env.ts",
+          "testing/harnesses/with-temp-dir.ts",
+          "tsconfig.json",
+          "vitest.config.ts"
+        ]
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

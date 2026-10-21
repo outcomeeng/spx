@@ -1,13 +1,91 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/13-cli.enabler/21-styled-output.enabler/tests/color-choice.mapping.l1.test.ts": "passed",
-      "spx/13-cli.enabler/21-styled-output.enabler/tests/content-parity.property.l1.test.ts": "passed",
-      "spx/13-cli.enabler/21-styled-output.enabler/tests/severity-styling.mapping.l1.test.ts": "passed",
-      "spx/13-cli.enabler/21-styled-output.enabler/tests/styled-output.property.l1.test.ts": "passed",
-      "spx/13-cli.enabler/21-styled-output.enabler/tests/styled-output.scenario.l1.test.ts": "passed"
+      "tests/color-choice.mapping.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/13-cli.enabler/21-styled-output.enabler/styled-output.md",
+          "spx/13-cli.enabler/21-styled-output.enabler/tests/color-choice.mapping.l1.test.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/styled-output/styled-output.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts"
+        ]
+      },
+      "tests/content-parity.property.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/13-cli.enabler/21-styled-output.enabler/styled-output.md",
+          "spx/13-cli.enabler/21-styled-output.enabler/tests/content-parity.property.l1.test.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/styled-output/styled-output.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/styled-output/styled-output.ts",
+          "testing/harnesses/styled-output/ansi.ts"
+        ]
+      },
+      "tests/severity-styling.mapping.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/13-cli.enabler/21-styled-output.enabler/styled-output.md",
+          "spx/13-cli.enabler/21-styled-output.enabler/tests/severity-styling.mapping.l1.test.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/styled-output/styled-output.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts"
+        ]
+      },
+      "tests/styled-output.property.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/13-cli.enabler/21-styled-output.enabler/styled-output.md",
+          "spx/13-cli.enabler/21-styled-output.enabler/tests/styled-output.property.l1.test.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/styled-output/styled-output.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/styled-output/styled-output.ts"
+        ]
+      },
+      "tests/styled-output.scenario.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/13-cli.enabler/21-styled-output.enabler/styled-output.md",
+          "spx/13-cli.enabler/21-styled-output.enabler/tests/styled-output.scenario.l1.test.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/styled-output/styled-output.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts"
+        ]
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

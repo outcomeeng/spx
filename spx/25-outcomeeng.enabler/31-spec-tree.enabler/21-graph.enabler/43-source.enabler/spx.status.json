@@ -1,10 +1,65 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler/tests/source.compliance.l1.test.ts": "passed",
-      "spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler/tests/source.mapping.l1.test.ts": "passed"
+      "tests/source.compliance.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler/source.md",
+          "spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler/tests/source.compliance.l1.test.ts",
+          "src/lib/file-system/pathContainment.ts",
+          "src/outcomeeng/spec-tree/graph/source/gc/candidates.ts",
+          "src/outcomeeng/spec-tree/graph/source/index.ts",
+          "src/outcomeeng/spec-tree/graph/source/kernel/classification.ts",
+          "src/outcomeeng/spec-tree/graph/source/kernel/classify.ts",
+          "src/outcomeeng/spec-tree/graph/source/normalize/identity.ts",
+          "src/outcomeeng/spec-tree/graph/source/order.ts",
+          "src/outcomeeng/spec-tree/graph/source/providers/descriptor.ts",
+          "src/outcomeeng/spec-tree/graph/source/providers/registry.ts",
+          "src/outcomeeng/spec-tree/graph/source/providers/typescript/coverage.ts",
+          "src/outcomeeng/spec-tree/graph/source/providers/typescript/emit.ts",
+          "src/outcomeeng/spec-tree/graph/source/providers/typescript/module-graph.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/outcomeeng/source-graph.ts",
+          "testing/harnesses/property/property.ts"
+        ]
+      },
+      "tests/source.mapping.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler/source.md",
+          "spx/25-outcomeeng.enabler/31-spec-tree.enabler/21-graph.enabler/43-source.enabler/tests/source.mapping.l1.test.ts",
+          "src/lib/file-system/pathContainment.ts",
+          "src/outcomeeng/spec-tree/graph/source/gc/candidates.ts",
+          "src/outcomeeng/spec-tree/graph/source/index.ts",
+          "src/outcomeeng/spec-tree/graph/source/kernel/classification.ts",
+          "src/outcomeeng/spec-tree/graph/source/kernel/classify.ts",
+          "src/outcomeeng/spec-tree/graph/source/normalize/identity.ts",
+          "src/outcomeeng/spec-tree/graph/source/order.ts",
+          "src/outcomeeng/spec-tree/graph/source/providers/descriptor.ts",
+          "src/outcomeeng/spec-tree/graph/source/providers/registry.ts",
+          "src/outcomeeng/spec-tree/graph/source/providers/typescript/coverage.ts",
+          "src/outcomeeng/spec-tree/graph/source/providers/typescript/emit.ts",
+          "src/outcomeeng/spec-tree/graph/source/providers/typescript/module-graph.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/outcomeeng/source-graph.ts",
+          "testing/harnesses/property/property.ts"
+        ]
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

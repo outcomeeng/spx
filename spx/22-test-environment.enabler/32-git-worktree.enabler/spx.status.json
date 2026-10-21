@@ -1,12 +1,83 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/helpers.scenario.l1.test.ts": "passed",
-      "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/ignore-sources.mapping.l1.test.ts": "passed",
-      "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/lifecycle.scenario.l1.test.ts": "passed",
-      "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/safety.compliance.l1.test.ts": "passed"
+      "tests/helpers.scenario.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/helpers.scenario.l1.test.ts",
+          "src/lib/git/environment.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/git-worktree/git-worktree.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ]
+      },
+      "tests/ignore-sources.mapping.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/ignore-sources.mapping.l1.test.ts",
+          "src/lib/git/environment.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/git-worktree/git-worktree.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ]
+      },
+      "tests/lifecycle.scenario.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/lifecycle.scenario.l1.test.ts",
+          "src/lib/git/environment.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ]
+      },
+      "tests/safety.compliance.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/safety.compliance.l1.test.ts",
+          "src/lib/git/environment.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/git-worktree/git-worktree.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ]
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

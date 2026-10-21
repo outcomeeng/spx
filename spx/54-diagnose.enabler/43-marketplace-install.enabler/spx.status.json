@@ -1,9 +1,31 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/54-diagnose.enabler/43-marketplace-install.enabler/tests/marketplace-install.mapping.l1.test.ts": "passed"
+      "tests/marketplace-install.mapping.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/54-diagnose.enabler/43-marketplace-install.enabler/marketplace-install.md",
+          "spx/54-diagnose.enabler/43-marketplace-install.enabler/tests/marketplace-install.mapping.l1.test.ts",
+          "src/config/methodology.ts",
+          "src/domains/diagnose/checks/marketplace-install.ts",
+          "src/domains/diagnose/facts.ts",
+          "src/domains/diagnose/manifest.ts",
+          "src/domains/diagnose/types.ts",
+          "src/lib/methodology/declaration-fields.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts"
+        ]
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

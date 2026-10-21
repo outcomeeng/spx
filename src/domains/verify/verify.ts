@@ -976,6 +976,7 @@ const REQUIRED_AUDIT_FINDING_STRING_FIELDS = [
 /** The field names the `test` scope and finding payload schemas declare. */
 export const TEST_PAYLOAD_FIELD = {
   MODULE_ID: "moduleId",
+  READ_PATHS: "readPaths",
   TEST_NAME: "testName",
   ERRORS: "errors",
 } as const;
@@ -1517,6 +1518,7 @@ function validateAuditFindingForRun(input: EvidenceValidationInput): EvidenceVal
 /** One inspected test module recorded as `test` scope evidence, owned by the verify domain. */
 export interface TestScopeUnit {
   readonly moduleId: string;
+  readonly readPaths?: readonly string[];
 }
 
 /** One failing test case recorded as a `test` finding, owned by the verify domain. */
@@ -1531,7 +1533,43 @@ export function validateTestScope(payload: JsonValue): EvidenceValidationResult<
   if (!isJsonRecord(payload)) return rejectEvidenceRequirement(EVIDENCE_REQUIREMENT.PAYLOAD_IS_OBJECT);
   const moduleId = readRequiredString(payload, TEST_PAYLOAD_FIELD.MODULE_ID);
   if (moduleId === undefined) return rejectEvidenceField(TEST_PAYLOAD_FIELD.MODULE_ID);
-  return acceptEvidence({ moduleId });
+  const readPaths = readTestScopeReadPaths(payload);
+  if (!readPaths.ok) return forwardEvidenceRejection(readPaths);
+  return acceptEvidence(readPaths.value === undefined ? { moduleId } : { moduleId, readPaths: readPaths.value });
+}
+
+/**
+ * Read a `test` scope payload's read paths: absent when the payload names none, otherwise an array
+ * whose every entry is a safe product-relative path, returned normalized in payload order. A
+ * non-array value, an empty array, a non-string entry, an absolute path, or a parent-directory escape refuses the
+ * payload naming the failing field path.
+ */
+function readTestScopeReadPaths(
+  payload: { readonly [key: string]: JsonValue },
+): EvidenceValidationResult<readonly string[] | undefined> {
+  const field = TEST_PAYLOAD_FIELD.READ_PATHS;
+  if (!Object.hasOwn(payload, field)) return acceptEvidence(undefined);
+  const entries = payload[field];
+  if (!Array.isArray(entries) || entries.length === 0) return rejectEvidenceField(field);
+  return normalizeProductRelativePathEntries(entries, field);
+}
+
+/**
+ * Normalize every entry of a payload path array to product-relative form, in payload order so entry
+ * indexes stay those the producer sent. A non-string entry, an absolute path, or a parent-directory
+ * escape refuses the payload naming the failing entry's field path.
+ */
+function normalizeProductRelativePathEntries(
+  entries: readonly JsonValue[],
+  field: string,
+): EvidenceValidationResult<readonly string[]> {
+  const normalized: string[] = [];
+  for (const [index, entry] of entries.entries()) {
+    const path = typeof entry === "string" ? normalizeVerificationContextFileSubjectPath(entry) : undefined;
+    if (path === undefined) return rejectEvidenceField(field, String(index));
+    normalized.push(path);
+  }
+  return acceptEvidence(normalized);
 }
 
 /** Validate a `test` finding payload as one failing test case with its error messages. */
@@ -1725,13 +1763,7 @@ function readScopePathList(
   if (!isJsonRecord(payload) || !Object.hasOwn(payload, field)) return acceptEvidence(undefined);
   const entries = payload[field];
   if (!Array.isArray(entries) || entries.length === 0) return rejectEvidenceField(field);
-  const normalized: string[] = [];
-  for (const [index, entry] of entries.entries()) {
-    const path = typeof entry === "string" ? normalizeVerificationContextFileSubjectPath(entry) : undefined;
-    if (path === undefined) return rejectEvidenceField(field, String(index));
-    normalized.push(path);
-  }
-  return acceptEvidence(normalized);
+  return normalizeProductRelativePathEntries(entries, field);
 }
 
 /**
@@ -2009,6 +2041,8 @@ export const VERIFY_RUN_CONTEXT_EVENT_FIELD = {
   CHANGE: "change",
   CHANGE_INVENTORY: "changeInventory",
   EXPECTATIONS: "expectations",
+  VERIFIER_KIND: "verifierKind",
+  VERIFIER_ID: "verifierId",
 } as const;
 
 /** How a path differs between a changeset's base and head, as one change-inventory entry records it. */
@@ -2173,6 +2207,32 @@ function validateVerifyExpectationsDocument(document: unknown): Result<VerifyExp
   };
 }
 
+/** The kinds of Verifier that can judge a run: a person or an agent. */
+export const VERIFY_VERIFIER_KIND = {
+  PERSON: "person",
+  AGENT: "agent",
+} as const;
+
+export type VerifyVerifierKind = (typeof VERIFY_VERIFIER_KIND)[keyof typeof VERIFY_VERIFIER_KIND];
+
+const VERIFY_VERIFIER_KINDS: ReadonlySet<string> = new Set(Object.values(VERIFY_VERIFIER_KIND));
+
+/** The Verifier a run is started with: its kind and its id. */
+export interface VerifyVerifier {
+  readonly kind: VerifyVerifierKind;
+  readonly id: string;
+}
+
+/** Whether a value is a Verifier kind the run lifecycle records. */
+export function isVerifyVerifierKind(value: string): value is VerifyVerifierKind {
+  return VERIFY_VERIFIER_KINDS.has(value);
+}
+
+/** Whether a Verifier id names a Verifier: a non-empty value that is not only whitespace. */
+export function isVerifyVerifierId(value: string): boolean {
+  return value.trim().length > 0;
+}
+
 /**
  * The canonical Change identity form `owner/repo#N`: an owner and a repository name, each one or
  * more ASCII letters, digits, `-`, `_`, or `.`, and a positive issue number written without a
@@ -2202,6 +2262,7 @@ export function buildRunContextEvent(args: {
   readonly change?: string;
   readonly changeInventory?: readonly VerifyChangeInventoryEntry[];
   readonly expectations?: VerifyExpectations;
+  readonly verifier?: VerifyVerifier;
   readonly at: Date;
 }): JournalEventInput {
   return {
@@ -2224,6 +2285,12 @@ export function buildRunContextEvent(args: {
             ...args.expectations,
             [VERIFY_EXPECTATIONS_FIELD.ADDITIONAL_PATHS]: [...args.expectations.additionalPaths],
           },
+        }),
+      ...(args.verifier === undefined
+        ? {}
+        : {
+          [VERIFY_RUN_CONTEXT_EVENT_FIELD.VERIFIER_KIND]: args.verifier.kind,
+          [VERIFY_RUN_CONTEXT_EVENT_FIELD.VERIFIER_ID]: args.verifier.id,
         }),
     },
   };
@@ -2295,6 +2362,7 @@ export interface VerifyRunProjection {
   readonly sealed: boolean;
   readonly driveMode: VerifyDriveMode;
   readonly change?: string;
+  readonly verifier?: VerifyVerifier;
   readonly terminalStatus?: string;
   readonly terminalMetadata?: JsonValue;
   readonly findingCount: number;
@@ -2326,6 +2394,19 @@ export function changeIdentityOf(events: readonly JournalEvent[]): string | unde
   if (runContext === undefined || !isJsonRecord(runContext.data)) return undefined;
   const change = runContext.data[VERIFY_RUN_CONTEXT_EVENT_FIELD.CHANGE];
   return typeof change === "string" ? change : undefined;
+}
+
+/**
+ * The Verifier folded from the run's run-context event, or `undefined` when the run was started
+ * without one or the recorded kind and id do not name a valid Verifier.
+ */
+export function verifierOf(events: readonly JournalEvent[]): VerifyVerifier | undefined {
+  const runContext = events.find((event) => event.type === VERIFY_RUN_CONTEXT_EVENT_TYPE);
+  if (runContext === undefined || !isJsonRecord(runContext.data)) return undefined;
+  const kind = runContext.data[VERIFY_RUN_CONTEXT_EVENT_FIELD.VERIFIER_KIND];
+  const id = runContext.data[VERIFY_RUN_CONTEXT_EVENT_FIELD.VERIFIER_ID];
+  if (typeof kind !== "string" || typeof id !== "string") return undefined;
+  return isVerifyVerifierKind(kind) && isVerifyVerifierId(id) ? { kind, id } : undefined;
 }
 
 /** A full commit object name: a SHA-1 or SHA-256 hex digest, as `start` records the run's head commit. */
@@ -2525,10 +2606,12 @@ export function projectVerifyRun(
   const sealed = terminal !== undefined;
   const driveMode = driveModeOf(events);
   const change = changeIdentityOf(events);
+  const verifier = verifierOf(events);
   return {
     sealed,
     driveMode,
     ...(change === undefined ? {} : { change }),
+    ...(verifier === undefined ? {} : { verifier }),
     ...(terminalStatus === undefined ? {} : { terminalStatus }),
     ...(terminalMetadata === undefined ? {} : { terminalMetadata }),
     findingCount: countVerifyFindings(events),

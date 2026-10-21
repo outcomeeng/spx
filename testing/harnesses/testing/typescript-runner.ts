@@ -28,6 +28,7 @@ import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generator
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import {
   expectedFindingsForScenario,
+  expectedScopeForScenario,
   JOURNAL_REPORTER_TEST_GENERATOR,
   sampleJournalReporterValue,
 } from "@testing/generators/testing/journal-reporter";
@@ -732,7 +733,7 @@ export function registerTypescriptRunnerComplianceTests(): void {
 
       expect(starter.startedRuns).toHaveLength(1);
       expect(starter.startedRuns[0]?.reporters).toHaveLength(1);
-      expect(sink.scopes).toEqual([{ moduleId: scenario.moduleId }]);
+      expect(sink.scopes).toEqual([expectedScopeForScenario(scenario, false)]);
       expect(sink.findings).toEqual(expectedFindingsForScenario(scenario));
       expect(invocation).toEqual({ invoked: true, terminalStatus: reason });
     });

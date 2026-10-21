@@ -1,10 +1,39 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.compliance.l1.test.ts": "passed",
-      "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.mapping.l1.test.ts": "passed"
+      "tests/cli-subprocess-test-harness.compliance.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/cli-subprocess-test-harness.md",
+          "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.compliance.l1.test.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/harnesses/constants.ts"
+        ]
+      },
+      "tests/cli-subprocess-test-harness.mapping.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/cli-subprocess-test-harness.md",
+          "spx/13-cli.enabler/21-cli-subprocess-test-harness.enabler/tests/cli-subprocess-test-harness.mapping.l1.test.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/harnesses/constants.ts"
+        ]
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

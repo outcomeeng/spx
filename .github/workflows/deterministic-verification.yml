@@ -3,8 +3,10 @@ name: Deterministic Verification
 # Deterministic verification (validate + test verdict modes). Mirrors
 # agentic-verification.yml, which carries the audit + review verdict modes.
 # The fast source checks group into one validation job (the validate-all
-# pipeline); circular, build, test, and packaged checks are separate jobs so
-# they run in parallel, fanning out from a single shared build artifact.
+# pipeline); circular, build, and packaged checks are separate jobs that run in
+# parallel, fanning out from a single shared build artifact. The test and status
+# job waits for Validate and the build, so the suite and the status projection
+# run only once Validate passes.
 #
 # Runner selection goes through the org-level `RUNNER_X2` / `RUNNER_X4`
 # variables so a provider outage is a variable flip, not a pull request. Unset
@@ -15,7 +17,7 @@ name: Deterministic Verification
 on:
   push:
     branches: [main]
-    paths-ignore: &instruction-docs
+    paths-ignore:
       - CLAUDE.md
       - AGENTS.md
       - README.md
@@ -23,7 +25,6 @@ on:
       - docs/**
   pull_request:
     branches: [main]
-    paths-ignore: *instruction-docs
   # Callable as a release gate by publish.yml so the publish runs the full
   # deterministic suite exactly once on the tagged commit and consumes its
   # verified build artifact.
@@ -89,12 +90,17 @@ jobs:
 
   test-and-status:
     name: Test + status projection
-    needs: build
+    needs: [validation, build]
     runs-on: ${{ vars.RUNNER_X4 || 'ubuntu-latest' }}
     permissions:
       contents: read
     steps:
+      # The pull request head commit, not the merge commit, with full history,
+      # so pin commits and claim history are comparable.
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
       - run: corepack enable
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
@@ -133,20 +139,16 @@ jobs:
           sudo apt-get install -y --no-install-recommends ripgrep
           rg --version
 
-      # One suite run: `spx test passing` runs the configured passing scope and
-      # records per-node last-run evidence under .spx/. The status step then
-      # reuses that fresh evidence to regenerate the committed status projection
-      # without re-running any test.
-      - name: Test (passing scope)
-        run: pnpm exec tsx src/cli.ts test passing
+      # One suite run: the journaled verification run covers the configured
+      # unscoped test scope and seals a run journal under .spx/ recording each
+      # module's verdict and the paths it read. The status step then reuses that
+      # sealed journal to regenerate the status projection in memory, without
+      # writing a file or re-running any test, and fails when a node's state or an
+      # entry's verdict or read set differs from the committed claim.
+      - name: Test (journaled verification run)
+        run: pnpm exec tsx src/cli.ts verification test run
       - name: Check committed status projection
-        run: |
-          pnpm exec tsx src/cli.ts spec status --update --format json > /tmp/spx-status.json
-          if [ -n "$(git status --porcelain -- spx)" ]; then
-            git status --short -- spx
-            git diff -- spx
-            exit 1
-          fi
+        run: pnpm exec tsx src/cli.ts spec status --update --check
 
   validate-published:
     name: Validation (packaged CLI)

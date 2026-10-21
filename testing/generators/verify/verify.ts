@@ -1,6 +1,7 @@
 import * as fc from "fast-check";
 import { posix, win32 } from "node:path";
 
+import { VERIFIER_OPERAND_SEPARATOR } from "@/commands/verify/cli";
 import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import {
   VERIFICATION_CONTEXT_FILE_SUBJECT_PATH,
@@ -43,6 +44,7 @@ import {
   VERIFY_SCOPE_SEPARATOR,
   VERIFY_SCOPE_TYPE,
   VERIFY_VERIFICATION_TYPE,
+  VERIFY_VERIFIER_KIND,
   type VerifyFindingDisposition,
   type VerifyVerificationType,
 } from "@/domains/verify/verify";
@@ -1154,7 +1156,80 @@ export type VerifyInventoryEntryMalformation =
 const UNKNOWN_CHANGE_KIND_CHARACTERS = "abcdefghijklmnopqrstuvwxyz-";
 const UNKNOWN_CHANGE_KIND_MAX_LENGTH = 12;
 
+/** A `test` first scope unit whose read paths hold only product-relative files, and the paths it records. */
+export interface TestReadPathsAcceptedCase {
+  /** A valid `test` scope unit whose read paths spell each recorded file with a current-directory segment. */
+  readonly payload: JsonValue;
+  /** The product-relative files the payload names, in payload order, each in canonical spelling. */
+  readonly recordedPaths: readonly string[];
+}
+
+/** A `test` first scope unit whose read paths violate the product-relative rule, and the field path a rejection names. */
+export interface TestReadPathsRejectedCase {
+  /** A `test` scope unit whose read paths are not all product-relative paths. */
+  readonly payload: JsonValue;
+  /** The field path segments of the failing read-path field or entry, as the producer reads them in `payload`. */
+  readonly failingFieldPath: readonly string[];
+  /** The field path of an entry that is product-relative and so is not named by the rejection, when one exists. */
+  readonly conformingFieldPath: readonly string[] | undefined;
+}
+
+const MAX_READ_PATHS = 3;
+
+function testScopeUnitWithReadPaths(moduleId: string, readPaths: JsonValue): JsonValue {
+  return { [TEST_PAYLOAD_FIELD.MODULE_ID]: moduleId, [TEST_PAYLOAD_FIELD.READ_PATHS]: readPaths };
+}
+
+function arbitraryTestReadPathsAcceptedCase(): fc.Arbitrary<TestReadPathsAcceptedCase> {
+  return fc
+    .record({
+      moduleId: arbitraryTestFilePath(),
+      paths: fc.array(arbitrarySourceFilePath(), { maxLength: MAX_READ_PATHS }),
+    })
+    .chain(({ moduleId, paths }) =>
+      fc.tuple(...paths.map((path) => arbitraryEquivalentPathSpelling(path))).map((spellings) => ({
+        payload: testScopeUnitWithReadPaths(moduleId, spellings),
+        recordedPaths: paths,
+      }))
+    );
+}
+
+/**
+ * Read paths a `test` scope payload must refuse: a value that is not an array, or an array holding at
+ * least one entry that is not a product-relative path — a non-string, an absolute path, or a path
+ * escaping the product directory — beside a product-relative entry at a drawn position.
+ */
+function arbitraryTestReadPathsRejectedCase(): fc.Arbitrary<TestReadPathsRejectedCase> {
+  const readPathsField = TEST_PAYLOAD_FIELD.READ_PATHS;
+  const notAnArray = fc
+    .tuple(arbitraryTestFilePath(), fc.oneof(arbitraryTestFilePath(), fc.integer(), fc.constant(null)))
+    .map(([moduleId, value]) => ({
+      payload: testScopeUnitWithReadPaths(moduleId, value),
+      failingFieldPath: [readPathsField],
+      conformingFieldPath: undefined,
+    }));
+  const badEntry = fc.oneof(arbitraryUnsafeFileScopeIdentity(), fc.integer());
+  const badEntryAmongConforming = fc
+    .record({
+      moduleId: arbitraryTestFilePath(),
+      conforming: arbitrarySourceFilePath(),
+      bad: badEntry,
+      badFirst: fc.boolean(),
+    })
+    .map(({ moduleId, conforming, bad, badFirst }) => {
+      const entries = badFirst ? [bad, conforming] : [conforming, bad];
+      return {
+        payload: testScopeUnitWithReadPaths(moduleId, entries),
+        failingFieldPath: [readPathsField, String(entries.indexOf(bad))],
+        conformingFieldPath: [readPathsField, String(entries.indexOf(conforming))],
+      };
+    });
+  return fc.oneof(notAnArray, badEntryAmongConforming);
+}
+
 export const VERIFY_TEST_GENERATOR = {
+  testReadPathsAcceptedCase: arbitraryTestReadPathsAcceptedCase,
+  testReadPathsRejectedCase: arbitraryTestReadPathsRejectedCase,
   verificationType: (): fc.Arbitrary<string> => fc.constantFrom(...VERIFY_VERIFICATION_TYPES),
   judgedPathsCase: (
     verificationType: VerifyVerificationType,
@@ -1770,7 +1845,70 @@ export const VERIFY_TEST_GENERATOR = {
       composeChangeIdentity(owner, repository, String(number))
     ),
   nonCanonicalChangeIdentity: (): fc.Arbitrary<string> => arbitraryNonCanonicalChangeIdentity(),
+  verifier: (): fc.Arbitrary<VerifierIdentity> => arbitraryVerifier(),
+  invalidVerifier: (): fc.Arbitrary<VerifierIdentity> => arbitraryInvalidVerifier(),
+  /** A supported-kind Verifier whose id is the empty string. */
+  emptyIdVerifier: (): fc.Arbitrary<VerifierIdentity> => arbitraryEmptyIdVerifier(),
+  /** A supported-kind Verifier whose id is one or more whitespace characters and nothing else. */
+  whitespaceOnlyIdVerifier: (): fc.Arbitrary<VerifierIdentity> => arbitraryWhitespaceOnlyIdVerifier(),
 } as const;
+
+/** The Verifier a run is started with: its kind and its id. */
+export interface VerifierIdentity {
+  readonly kind: string;
+  readonly id: string;
+}
+
+const EMPTY_VERIFIER_ID = "";
+
+/** The `<kind>:<id>` operand that supplies the given Verifier to `spx verification run start --verifier`. */
+export function composeVerifierOperand(verifier: VerifierIdentity): string {
+  return `${verifier.kind}${VERIFIER_OPERAND_SEPARATOR}${verifier.id}`;
+}
+
+function arbitraryVerifier(): fc.Arbitrary<VerifierIdentity> {
+  return fc.record({
+    kind: fc.constantFrom(...Object.values(VERIFY_VERIFIER_KIND)),
+    id: STATE_STORE_TEST_GENERATOR.scopeToken(),
+  });
+}
+
+const VERIFIER_ID_WHITESPACE_CHARACTERS = [" ", "\t", "\n", "\r", "\u00a0", "\u2003"] as const;
+const VERIFIER_ID_WHITESPACE_MAX_LENGTH = 12;
+
+function arbitraryEmptyIdVerifier(): fc.Arbitrary<VerifierIdentity> {
+  return fc.record({
+    kind: fc.constantFrom(...Object.values(VERIFY_VERIFIER_KIND)),
+    id: fc.constant(EMPTY_VERIFIER_ID),
+  });
+}
+
+function arbitraryWhitespaceOnlyIdVerifier(): fc.Arbitrary<VerifierIdentity> {
+  return fc.record({
+    kind: fc.constantFrom(...Object.values(VERIFY_VERIFIER_KIND)),
+    id: fc
+      .array(fc.constantFrom(...VERIFIER_ID_WHITESPACE_CHARACTERS), {
+        minLength: 1,
+        maxLength: VERIFIER_ID_WHITESPACE_MAX_LENGTH,
+      })
+      .map((characters) => characters.join("")),
+  });
+}
+
+/** A Verifier whose kind lies outside the supported kinds, or whose id is empty. */
+function arbitraryInvalidVerifier(): fc.Arbitrary<VerifierIdentity> {
+  const supportedKinds: readonly string[] = Object.values(VERIFY_VERIFIER_KIND);
+  return fc.oneof(
+    fc.record({
+      kind: STATE_STORE_TEST_GENERATOR.scopeToken().filter((kind) => !supportedKinds.includes(kind)),
+      id: STATE_STORE_TEST_GENERATOR.scopeToken(),
+    }),
+    fc.record({
+      kind: fc.constantFrom(...Object.values(VERIFY_VERIFIER_KIND)),
+      id: fc.constant(EMPTY_VERIFIER_ID),
+    }),
+  );
+}
 
 /** The separator between a Change identity's owner and repository name, per the `owner/repo#N` form. */
 const CHANGE_IDENTITY_OWNER_SEPARATOR = "/";

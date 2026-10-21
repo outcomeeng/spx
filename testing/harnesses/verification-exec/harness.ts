@@ -268,6 +268,7 @@ function createControlledLanguageDescriptor(
   return {
     name: arbitraryDomainLiteralValue(),
     testFilePatterns: [],
+    suppliesReadPaths: runTestsStreaming !== undefined,
     productInputPaths: [],
     matchesTestFile: () => false,
     excludeFlag: () => arbitraryDomainLiteralValue(),

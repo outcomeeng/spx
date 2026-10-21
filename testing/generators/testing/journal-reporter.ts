@@ -1,7 +1,11 @@
+import { join } from "node:path";
+
 import * as fc from "fast-check";
 
 import { TEST_PAYLOAD_FIELD } from "@/domains/verify/verify";
 import type { JsonValue } from "@/lib/agent-run-journal";
+import { compareCodeUnits } from "@/outcomeeng/spec-tree/graph/source/order";
+import { LOCKFILE_NAMES } from "@/test/languages/journal-reporter";
 import {
   JOURNAL_RUN_TERMINAL_STATUS,
   type JournalRunTerminalStatus,
@@ -37,10 +41,71 @@ export interface GeneratedRunCase {
   readonly errors: readonly string[];
 }
 
-/** A generated Vitest module run: a module id and the case outcomes resolved within it. */
+/**
+ * The files a generated module touches, around a generated absolute product root: product files it
+ * loaded and opened (as product-relative paths), files outside the product root, files under the
+ * installed dependencies, and the product's lockfile when the product root holds one.
+ */
+export interface GeneratedModuleReads {
+  /** The absolute product root the module runs under. */
+  readonly productRoot: string;
+  /** Product-relative paths of product files the module loaded through its imports. */
+  readonly loadedProductFiles: readonly string[];
+  /** Product-relative paths of product files the module opened at run time. */
+  readonly openedProductFiles: readonly string[];
+  /** Absolute paths outside the product root that the module both loaded and opened. */
+  readonly foreignFiles: readonly string[];
+  /** Product-relative paths under the installed dependencies that the module loaded. */
+  readonly dependencyFiles: readonly string[];
+  /** The product-relative lockfile path, absent when the product root holds no lockfile. */
+  readonly lockfile: string | undefined;
+}
+
+/** A generated Vitest module run: a module id, the files it read, and the case outcomes resolved within it. */
 export interface GeneratedRunScenario {
   readonly moduleId: string;
+  readonly reads: GeneratedModuleReads;
   readonly cases: readonly GeneratedRunCase[];
+}
+
+/** The directory segment under which a product's installed dependencies live. */
+const GENERATED_DEPENDENCIES_DIRECTORY = "node_modules";
+
+/** The absolute path of a product-relative path under the generated product root. */
+export function absoluteReadPath(reads: GeneratedModuleReads, productRelativePath: string): string {
+  return join(reads.productRoot, productRelativePath);
+}
+
+/** The absolute paths a generated module loaded through its imports: product, foreign, and dependency files. */
+export function loadedReadPaths(reads: GeneratedModuleReads): readonly string[] {
+  return [
+    ...reads.loadedProductFiles.map((file) => absoluteReadPath(reads, file)),
+    ...reads.foreignFiles,
+    ...reads.dependencyFiles.map((file) => absoluteReadPath(reads, file)),
+  ];
+}
+
+/** The absolute paths a generated module opened at run time: product and foreign files. */
+export function openedReadPaths(reads: GeneratedModuleReads): readonly string[] {
+  return [...reads.openedProductFiles.map((file) => absoluteReadPath(reads, file)), ...reads.foreignFiles];
+}
+
+/**
+ * The scope a generated scenario's module records: its id, and the sorted unique product-relative
+ * paths of the product files it loaded or opened and of the product lockfile when one exists —
+ * the construction law this generator's read vocabulary implies, held here independently of the
+ * reporter source. A module that read no product file records no read paths. A run whose product
+ * root holds no lockfile on disk hands the reporter none, whatever lockfile the scenario's reads name,
+ * and `productHoldsLockfile` false states that.
+ */
+export function expectedScopeForScenario(scenario: GeneratedRunScenario, productHoldsLockfile = true): TestScopeUnit {
+  const { loadedProductFiles, openedProductFiles } = scenario.reads;
+  const lockfile = productHoldsLockfile ? scenario.reads.lockfile : undefined;
+  const readPaths = [
+    ...new Set([...loadedProductFiles, ...openedProductFiles, ...(lockfile === undefined ? [] : [lockfile])]),
+  ]
+    .sort(compareCodeUnits);
+  return readPaths.length === 0 ? { moduleId: scenario.moduleId } : { moduleId: scenario.moduleId, readPaths };
 }
 
 /**
@@ -180,9 +245,38 @@ function arbitraryRunCase(): fc.Arbitrary<GeneratedRunCase> {
   return fc.oneof(arbitraryPassingCase(), arbitraryFailingCase());
 }
 
+const MAX_READ_FILES = 3;
+
+/** A product-relative file path: one to three generated directory segments and a file name. */
+function arbitraryProductRelativeFile(): fc.Arbitrary<string> {
+  return fc
+    .array(arbitraryDomainLiteral(), { minLength: 1, maxLength: MAX_READ_FILES })
+    .map((segments) => segments.join("/"));
+}
+
+function arbitraryModuleReads(): fc.Arbitrary<GeneratedModuleReads> {
+  return fc
+    .record({
+      rootSlug: arbitraryDomainLiteral(),
+      foreignSlug: arbitraryDomainLiteral(),
+      loadedProductFiles: fc.array(arbitraryProductRelativeFile(), { maxLength: MAX_READ_FILES }),
+      openedProductFiles: fc.array(arbitraryProductRelativeFile(), { maxLength: MAX_READ_FILES }),
+      foreignFiles: fc.array(arbitraryProductRelativeFile(), { maxLength: MAX_READ_FILES }),
+      dependencyFiles: fc.array(arbitraryProductRelativeFile(), { maxLength: MAX_READ_FILES }),
+      lockfile: fc.option(fc.constantFrom(...LOCKFILE_NAMES), { nil: undefined }),
+    })
+    .map(({ rootSlug, foreignSlug, foreignFiles, dependencyFiles, ...rest }) => ({
+      ...rest,
+      productRoot: `/${rootSlug}-product`,
+      foreignFiles: foreignFiles.map((file) => `/${foreignSlug}-outside/${file}`),
+      dependencyFiles: dependencyFiles.map((file) => `${GENERATED_DEPENDENCIES_DIRECTORY}/${file}`),
+    }));
+}
+
 function arbitraryRunScenario(): fc.Arbitrary<GeneratedRunScenario> {
   return fc.record({
     moduleId: arbitraryTestFilePath(),
+    reads: arbitraryModuleReads(),
     cases: fc.array(arbitraryRunCase(), { minLength: MIN_CASES, maxLength: MAX_CASES }),
   });
 }
@@ -204,12 +298,14 @@ function arbitraryMixedRunScenario(): fc.Arbitrary<GeneratedRunScenario> {
   return fc
     .tuple(
       arbitraryTestFilePath(),
+      arbitraryModuleReads(),
       arbitraryPassingCase(),
       arbitraryFailingCase(),
       fc.array(arbitraryRunCase(), { maxLength: MAX_EXTRA_CASES }),
     )
-    .map(([moduleId, passing, failing, extra]) => ({
+    .map(([moduleId, reads, passing, failing, extra]) => ({
       moduleId,
+      reads,
       cases: [passing, failing, ...extra],
     }));
 }

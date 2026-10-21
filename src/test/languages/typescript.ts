@@ -551,6 +551,7 @@ export async function runTestsStreaming(
 export const typescriptTestingLanguage: TestingLanguageDescriptor = {
   name: TYPESCRIPT_TESTING_LANGUAGE_NAME,
   testFilePatterns: TYPESCRIPT_TEST_FILE_PATTERNS,
+  suppliesReadPaths: true,
   productInputPaths: TYPESCRIPT_PRODUCT_INPUT_PATHS,
   matchesTestFile,
   excludeFlag,

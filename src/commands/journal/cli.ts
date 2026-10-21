@@ -17,22 +17,15 @@ import type { JournalEvent, JournalEventInput } from "@/lib/agent-run-journal";
 import { artifactJournalRunArtifactName, hydratePriorRuns } from "@/lib/artifact-journal-store";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { toMessage } from "@/lib/error-message";
-import {
-  defaultGitDependencies,
-  detectGitCommonDirProductRoot,
-  getCurrentBranch,
-  getHeadSha,
-  type GitDependencies,
-} from "@/lib/git/root";
+import { defaultGitDependencies, detectGitCommonDirProductRoot, type GitDependencies } from "@/lib/git/root";
 import type { GithubSnapshotClient } from "@/lib/github-snapshot-sink";
 import {
   defaultStateStoreFileSystem,
-  resolveBranchIdentity,
-  slugBranchIdentity,
+  resolveVerificationBranchSlug,
   type StateStoreFileSystem,
 } from "@/lib/state-store";
 import type { TerminalText } from "@/lib/terminal-text/terminal-text";
-import { SPX_VERIFY_ENV, SPX_VERIFY_HEAD_SHA } from "@/lib/verification-env";
+import { SPX_VERIFY_ENV } from "@/lib/verification-env";
 
 import { createGithubPrStreamSink } from "./github-pr-sink";
 import {
@@ -221,11 +214,12 @@ async function resolveJournalRunScope(
     // absent, which makes the probes throw, or simply not a repo), the root
     // resolver already fell back to cwd, so fall back to the caller/env branch and
     // the missing-head-sha placeholder rather than letting the probes fail the verb.
-    const probedBranch = product.isGitRepo ? (await getCurrentBranch(cwd, git)) ?? undefined : undefined;
-    const branchName = deps.branch ?? cliEnvironment.branch ?? probedBranch;
-    const headSha = (product.isGitRepo ? await getHeadSha(cwd, git) : null) ?? SPX_VERIFY_HEAD_SHA.MISSING;
-    const branchIdentity = resolveBranchIdentity({ ...(branchName === undefined ? {} : { branchName }), headSha });
-    branchSlug = slugBranchIdentity(branchIdentity);
+    branchSlug = await resolveVerificationBranchSlug({
+      cwd,
+      isGitRepo: product.isGitRepo,
+      git,
+      branchOverride: deps.branch ?? cliEnvironment.branch,
+    });
   }
   return {
     ok: true,

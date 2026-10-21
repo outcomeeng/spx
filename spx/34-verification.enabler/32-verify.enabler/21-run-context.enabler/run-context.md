@@ -4,14 +4,15 @@ id: 01a115e6-be87-7cd9-b001-39f73f7bdd6d
 
 # Run Context
 
-PROVIDES start-time verification context creation, run-token selection, run-locator and resolved-scope reporting, changeset and file scope resolution, recorded-input replay, and recording of the run's head commit when the product is a Git repository whose HEAD names a commit and of the Change a run serves for typed verification runs, the change inventory of every changeset-scoped run, and the expectations a changeset-scoped run is bound to
+PROVIDES start-time verification context creation, run-token selection, run-locator and resolved-scope reporting, changeset and file scope resolution, recorded-input replay, and recording of the run's head commit when the product is a Git repository whose HEAD names a commit, of the Change a run serves, and of the Verifier that judges the run for typed verification runs, the change inventory of every changeset-scoped run, and the expectations a changeset-scoped run is bound to
 SO THAT evidence append, scope reconciliation, and terminal projection lifecycle operations
-CAN operate on one scoped verification run with a stable subject, recorded input, unambiguous run identity, the head commit the run judges whenever the product is a Git repository whose HEAD names a commit, the Change identity the run was started for, the change inventory the run started over, and the expectations the run is bound to
+CAN operate on one scoped verification run with a stable subject, recorded input, unambiguous run identity, the head commit the run judges whenever the product is a Git repository whose HEAD names a commit, the Change identity the run was started for, the Verifier the run was started with, the change inventory the run started over, and the expectations the run is bound to
 
 ## Assertions
 
 ### Scenarios
 
+- Given a verification run started with a Verifier, when the run starts, then the run-context event records the Verifier's kind and id and `status` reports them ([test](tests/verify-verifier.scenario.l1.test.ts))
 - Given a review verification run is started for a changeset scope with standard input as the run input, then spx creates a canonical verification context, opens a run journal, and reports the run token, context digest, resolved scope, exact input descriptor, and run locator ([test](tests/verify-start.scenario.l1.test.ts))
 - Given an audit verification run is started for a file scope, then spx records a verification-context file subject and reports the normalized product-relative file as the resolved scope without requiring that path to exist or be tracked ([test](tests/verify-file-scope.scenario.l1.test.ts))
 - Given a started run, when recorded-input replay is requested with that run token, then it returns the exact verification input whose digest was recorded at start ([test](tests/verify-input.scenario.l1.test.ts))
@@ -34,6 +35,7 @@ CAN operate on one scoped verification run with a stable subject, recorded input
 ### Compliance
 
 - ALWAYS: `start` given expectations — a JSON object carrying `schemaVersion` `1` and an optional `additionalPaths` array of product-relative paths, absent meaning none — records them on the run's run-context event, and rejects before any run exists an expectations document that is not such an object or whose schema version is unsupported, a run that is not changeset-scoped, or a declared additional path that is not a product-relative path the head commit holds, naming the field or the path ([test](tests/verify-expectations.compliance.l1.test.ts))
+- ALWAYS: `start` rejects a Verifier whose kind is neither `person` nor `agent`, or whose id is empty or only whitespace, before any run exists ([test](tests/verify-verifier.compliance.l1.test.ts))
 - ALWAYS: start records caller-driven drive mode for the caller command path and records spx-driven drive mode only when spx opens the run ([test](tests/verify-drive-mode.compliance.l1.test.ts))
 - ALWAYS: start requires an input source and records the verification input for recorded-input replay ([test](tests/verify-start.compliance.l1.test.ts))
 - ALWAYS: `start` rejects an unsupported verification type before any started run exists, so an unregistered type cannot reach finding evidence and append an unvalidated finding ([test](tests/verify-start.compliance.l1.test.ts))

@@ -8,8 +8,10 @@
 ## FOLLOW-UP: the reporter's evidence model covers only passing/failing cases in cleanly-collecting modules
 
 The slice-1 reporter (`src/test/languages/journal-reporter.ts`) translates three
-Vitest lifecycle paths: a started module records a scope, a `failed` case records a
-finding, and run end captures the terminal status. Three further Vitest lifecycle
+Vitest lifecycle paths: a `failed` case records a finding as the case resolves, a
+finished module records a scope at module end, and run end captures the terminal
+status. The reporter keeps no in-flight scope for a module between its start and
+its end. Three further Vitest lifecycle
 paths are undriven, so the journal can lose a failure or leave a mapping claim
 unverified:
 
@@ -23,7 +25,7 @@ unverified:
   unverified for two of the four states the reporter's source contract names.
 - **A module whose collection fails before any case resolves.** An import or syntax
   error faults a module during collection, so it emits no `onTestCaseResult` and appends
-  no finding; if Vitest also skips `onTestModuleStart` for it, the run resolves `failed`
+  no finding; if Vitest also skips `onTestModuleEnd` for it, the run resolves `failed`
   with zero scope and zero finding, silently losing the failure from the journal.
 - **Run-level errors at `onTestRunEnd`.** Vitest passes collection/setup failures and
   unhandled async errors to `onTestRunEnd`'s `errors` argument, which the reporter

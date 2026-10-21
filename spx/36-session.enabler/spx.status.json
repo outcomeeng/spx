@@ -1,9 +1,35 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/36-session.enabler/tests/session.scenario.l1.test.ts": "passed"
+      "tests/session.scenario.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/36-session.enabler/session.md",
+          "spx/36-session.enabler/tests/session.scenario.l1.test.ts",
+          "src/commands/session/resolve-config.ts",
+          "src/config/defaults.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/state-store/index.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/lib/verification-env.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/harnesses/state/git-deps.ts"
+        ]
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

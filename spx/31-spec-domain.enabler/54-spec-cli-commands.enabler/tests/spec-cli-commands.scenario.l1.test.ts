@@ -13,7 +13,16 @@ import {
 } from "@/commands/spec/status";
 import { DEFAULT_CONFIG_FILENAME } from "@/config/index";
 import { GIT_ROOT_COMMAND, GIT_SHOW_TOPLEVEL_ARGS } from "@/lib/git/root";
-import { NODE_STATUS_EVIDENCE_OUTCOME } from "@/lib/node-status";
+import {
+  NODE_STATUS_CLAIM_DIFFERENCE,
+  NODE_STATUS_CLAIM_FIELD,
+  NODE_STATUS_CLAIM_SECTION,
+  NODE_STATUS_CLAIM_SHAPE,
+  NODE_STATUS_CURRENCY,
+  NODE_STATUS_EVIDENCE_OUTCOME,
+  NODE_STATUS_VERIFICATION_MECHANISM,
+  nodeStatusClaimResults,
+} from "@/lib/node-status";
 import {
   KIND_REGISTRY,
   SPEC_TREE_CONFIG,
@@ -21,9 +30,12 @@ import {
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_NODE_STATE,
 } from "@/lib/spec-tree";
+import { renderTerminalText } from "@/lib/terminal-text/terminal-text";
 import { testingRunsDir } from "@/test/run-state";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import { NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   buildEvidenceEntry,
   createSource,
@@ -32,16 +44,29 @@ import {
   sampleSpecTreeTestValue,
   SPEC_TREE_TEST_GENERATOR,
 } from "@testing/generators/spec-tree/spec-tree";
+import { STATUS_REPORT_TEST_GENERATOR } from "@testing/generators/spec-tree/status-report";
+import {
+  currentMethodologyConfig,
+  readNodeStatusFileBytes,
+  withClaimEntry,
+  withClaimState,
+  withPinnedNodeRepository,
+} from "@testing/harnesses/node-status/node-status";
 import {
   addNodeTestFile,
+  commitNodeClaim,
   commitPathsInGit,
+  commitRegeneratedProjection,
   createRecordingGitRoot,
   fixtureNodePath,
   nodeEvidencePath,
   readRecordedStatusState,
+  readStatusJsonNode,
+  runStatusCheck,
   trackPathsInGit,
   uniformOutcomeResolverFor,
   writePassingStatusClaim,
+  writeVersionOneClaim,
 } from "@testing/harnesses/spec-tree/spec-cli-commands";
 import { withSpecTreeEnv, withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
@@ -280,6 +305,174 @@ describe("spx spec status --update command", () => {
       expect(updateOutput).toBe(plainOutput);
       expect(updateOutput).toContain(`${rootPath} [${SPEC_TREE_NODE_STATE.PASSING}]`);
       expect(await readRecordedStatusState(env, rootPath)).toBe(SPEC_TREE_NODE_STATE.PASSING);
+    });
+  });
+});
+
+describe("spx spec status --json", () => {
+  it("reports a committed 4.0 claim's shape and state, and per result its verdict, pin, actor, run, and pin currency", async () => {
+    const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
+    const recorded = sampleGeneratedValue(STATUS_REPORT_TEST_GENERATOR.recordedClaimFacts());
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
+      const edited = repository.subjectPaths[fixture.editedSubject] ?? "";
+      const untouched = repository.subjectPaths.find((_, index) => index !== fixture.editedSubject) ?? "";
+      const auditKey = repository.auditRuleSlugs[0] ?? "";
+      const testEntry = {
+        ...repository.passedEntry([repository.specPath, repository.testPaths[0] ?? "", untouched]),
+        [NODE_STATUS_CLAIM_FIELD.VERDICT]: recorded.testVerdict,
+      };
+      const auditEntry = {
+        ...repository.passedEntry([repository.specPath, edited]),
+        [NODE_STATUS_CLAIM_FIELD.VERDICT]: recorded.auditVerdict,
+        [NODE_STATUS_CLAIM_FIELD.ACTOR]: recorded.actor,
+        [NODE_STATUS_CLAIM_FIELD.RUN]: recorded.run,
+      };
+      await repository.writeClaim(
+        {
+          [NODE_STATUS_CLAIM_SECTION.TEST]: { [repository.testKeys[0] ?? ""]: testEntry },
+          [NODE_STATUS_CLAIM_SECTION.AUDIT]: { [auditKey]: auditEntry },
+        },
+        recorded.state,
+      );
+      await repository.commitAll();
+      // A change to one path in the audit result's read set leaves the test result's pin current.
+      await repository.editSubject(fixture.editedSubject);
+
+      const node = await readStatusJsonNode(repository.env.productDir, repository.nodeId, repository.git);
+
+      expect(node?.claim?.shape).toBe(NODE_STATUS_CLAIM_SHAPE.CURRENT);
+      expect(node?.claim?.state).toBe(recorded.state);
+      expect(node?.claim?.results).toHaveLength(2);
+      expect(node?.claim?.results).toContainEqual({
+        section: NODE_STATUS_CLAIM_SECTION.TEST,
+        key: repository.testKeys[0],
+        ...testEntry,
+        currency: NODE_STATUS_CURRENCY.CURRENT,
+      });
+      expect(node?.claim?.results).toContainEqual({
+        section: NODE_STATUS_CLAIM_SECTION.AUDIT,
+        key: auditKey,
+        ...auditEntry,
+        currency: NODE_STATUS_CURRENCY.NOT_CURRENT,
+      });
+    });
+  });
+
+  it("reports a committed version-1 claim's shape and state, and each result's verdict as unpinned", async () => {
+    const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
+    const verdict = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.recordedVerdict());
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
+      const reference = repository.testPaths[0] ?? "";
+      await writeVersionOneClaim(repository.env, repository.nodePath, reference, verdict);
+      await repository.commitAll();
+
+      const node = await readStatusJsonNode(repository.env.productDir, repository.nodeId, repository.git);
+
+      expect(node?.claim?.shape).toBe(NODE_STATUS_CLAIM_SHAPE.VERSION_1);
+      expect(node?.claim?.state).toBe(node?.state);
+      expect(node?.claim?.results).toEqual([
+        {
+          section: NODE_STATUS_VERIFICATION_MECHANISM.TEST,
+          key: reference,
+          [NODE_STATUS_CLAIM_FIELD.VERDICT]: verdict,
+          currency: NODE_STATUS_CURRENCY.UNPINNED,
+        },
+      ]);
+    });
+  });
+});
+
+describe("spx spec status --update --check command", () => {
+  it("writes nothing, reports each node and entry that differs, and signals failure when committed claims differ from the projection", async () => {
+    const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
+    const drift = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.committedClaimDrift());
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
+      const projection = await commitRegeneratedProjection(repository);
+      const [verdictKey = "", readKey = ""] = repository.testKeys;
+      const states = Object.values(SPEC_TREE_NODE_STATE);
+      const driftedState = states[
+        (states.indexOf(projection.claim[NODE_STATUS_CLAIM_FIELD.STATE]) + drift.stateShift) % states.length
+      ] ?? SPEC_TREE_NODE_STATE.DECLARED;
+      const committed = withClaimEntry(
+        withClaimEntry(
+          withClaimState(new Map([[repository.nodeId, projection.claim]]), repository.nodeId, driftedState),
+          { nodeId: repository.nodeId, section: NODE_STATUS_CLAIM_SECTION.TEST, key: verdictKey },
+          (entry) => ({ ...entry, [NODE_STATUS_CLAIM_FIELD.VERDICT]: NODE_STATUS_EVIDENCE_OUTCOME.FAILED }),
+        ),
+        { nodeId: repository.nodeId, section: NODE_STATUS_CLAIM_SECTION.TEST, key: readKey },
+        (entry) => ({
+          ...entry,
+          [NODE_STATUS_CLAIM_FIELD.READ]: [...(entry[NODE_STATUS_CLAIM_FIELD.READ] ?? []), drift.unreadPath],
+        }),
+      ).get(repository.nodeId);
+      if (committed === undefined) throw new Error("The drifted claim is missing");
+      await commitNodeClaim(repository, committed);
+      const before = await readNodeStatusFileBytes(repository.env.productDir);
+
+      const outcome = await runStatusCheck(repository, projection.resolvers);
+
+      expect(await readNodeStatusFileBytes(repository.env.productDir)).toEqual(before);
+      const { failure } = outcome;
+      if (failure === undefined) throw new Error("The check reported no differences");
+      const { differences } = failure;
+      expect(differences).toHaveLength(3);
+      expect(differences).toContainEqual({ nodeId: repository.nodeId, kind: NODE_STATUS_CLAIM_DIFFERENCE.STATE });
+      for (const key of [verdictKey, readKey]) {
+        expect(differences).toContainEqual({
+          nodeId: repository.nodeId,
+          kind: NODE_STATUS_CLAIM_DIFFERENCE.ENTRY,
+          section: NODE_STATUS_CLAIM_SECTION.TEST,
+          key,
+        });
+      }
+      const report = renderTerminalText(failure.report);
+      for (const reported of [repository.nodeId, verdictKey, readKey, ...Object.values(NODE_STATUS_CLAIM_DIFFERENCE)]) {
+        expect(report).toContain(reported);
+      }
+    });
+  });
+
+  it("writes nothing, reports nothing, and signals success when committed claims differ from the projection only in pin commits", async () => {
+    const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
+      const projection = await commitRegeneratedProjection(repository);
+      const projected = await readNodeStatusFileBytes(repository.env.productDir);
+      const committed = nodeStatusClaimResults(projection.claim).reduce(
+        (claims, { section, key }) =>
+          withClaimEntry(claims, { nodeId: repository.nodeId, section, key }, (entry) => ({
+            ...entry,
+            [NODE_STATUS_CLAIM_FIELD.COMMIT]: repository.commit,
+          })),
+        new Map([[repository.nodeId, projection.claim]]) as ReadonlyMap<string, typeof projection.claim>,
+      ).get(repository.nodeId);
+      if (committed === undefined) throw new Error("The re-pinned claim is missing");
+      await commitNodeClaim(repository, committed);
+      const before = await readNodeStatusFileBytes(repository.env.productDir);
+      // Re-pinning must change the committed bytes, or the case would compare identical claims.
+      expect(before).not.toEqual(projected);
+
+      const outcome = await runStatusCheck(repository, projection.resolvers);
+
+      expect(await readNodeStatusFileBytes(repository.env.productDir)).toEqual(before);
+      const { output } = outcome;
+      if (output === undefined) throw new Error("The check reported differences");
+      expect(renderTerminalText(output)).toHaveLength(0);
+    });
+  });
+
+  it("rejects --check without --update at the type level and, at runtime, reports and writes nothing exactly as a plain status read", async () => {
+    await withSpecTreeEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+      await env.materialize();
+      const rootPath = fixtureNodePath(env.fixture.root);
+      await addNodeTestFile(env, rootPath);
+      const before = await readNodeStatusFileBytes(env.productDir);
+
+      // @ts-expect-error --check is valid only beside --update
+      const checked = await statusCommand({ cwd: env.productDir, check: true });
+
+      expect(checked).toContain(rootPath);
+      expect(checked).toBe(await statusCommand({ cwd: env.productDir }));
+      expect(await readNodeStatusFileBytes(env.productDir)).toEqual(before);
     });
   });
 });

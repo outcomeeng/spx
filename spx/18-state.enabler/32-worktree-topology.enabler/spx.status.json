@@ -1,13 +1,126 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/18-state.enabler/32-worktree-topology.enabler/tests/default-branch.compliance.l1.test.ts": "passed",
-      "spx/18-state.enabler/32-worktree-topology.enabler/tests/git-facts.scenario.l1.test.ts": "passed",
-      "spx/18-state.enabler/32-worktree-topology.enabler/tests/main-checkout-path.mapping.l1.test.ts": "passed",
-      "spx/18-state.enabler/32-worktree-topology.enabler/tests/main-checkout.mapping.l1.test.ts": "passed",
-      "spx/18-state.enabler/32-worktree-topology.enabler/tests/main-checkout.scenario.l1.test.ts": "passed"
+      "tests/default-branch.compliance.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/18-state.enabler/32-worktree-topology.enabler/tests/default-branch.compliance.l1.test.ts",
+          "spx/18-state.enabler/32-worktree-topology.enabler/worktree-topology.md",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/main-checkout/main-checkout.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/with-temp-dir.ts",
+          "testing/harnesses/worktree-layout/worktree-layout.ts"
+        ]
+      },
+      "tests/git-facts.scenario.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/18-state.enabler/32-worktree-topology.enabler/tests/git-facts.scenario.l1.test.ts",
+          "spx/18-state.enabler/32-worktree-topology.enabler/worktree-topology.md",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/main-checkout/main-checkout.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/with-temp-dir.ts",
+          "testing/harnesses/worktree-layout/worktree-layout.ts"
+        ]
+      },
+      "tests/main-checkout-path.mapping.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/18-state.enabler/32-worktree-topology.enabler/tests/main-checkout-path.mapping.l1.test.ts",
+          "spx/18-state.enabler/32-worktree-topology.enabler/worktree-topology.md",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/main-checkout/main-checkout.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/with-temp-dir.ts",
+          "testing/harnesses/worktree-layout/worktree-layout.ts"
+        ]
+      },
+      "tests/main-checkout.mapping.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/18-state.enabler/32-worktree-topology.enabler/tests/main-checkout.mapping.l1.test.ts",
+          "spx/18-state.enabler/32-worktree-topology.enabler/worktree-topology.md",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/main-checkout/main-checkout.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/with-temp-dir.ts",
+          "testing/harnesses/worktree-layout/worktree-layout.ts"
+        ]
+      },
+      "tests/main-checkout.scenario.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/18-state.enabler/32-worktree-topology.enabler/tests/main-checkout.scenario.l1.test.ts",
+          "spx/18-state.enabler/32-worktree-topology.enabler/worktree-topology.md",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/state-store/index.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/lib/verification-env.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/main-checkout/main-checkout.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/with-temp-dir.ts",
+          "testing/harnesses/worktree-layout/worktree-layout.ts"
+        ]
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

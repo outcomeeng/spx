@@ -10,7 +10,6 @@ import {
   NODE_STATUS_EXCLUDE_LINE_GRAMMAR,
   NODE_STATUS_FIELD,
   NODE_STATUS_VERIFICATION_MECHANISM,
-  readNodeStatus,
 } from "@/lib/node-status";
 import {
   recognizeSpecTreeFilesystemEntry,
@@ -24,6 +23,7 @@ import { TEST_RUN_STATE_STATUS } from "@/test/run-state";
 import { NODE_STATUS_READABLE_SLUGS, NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
 import {
   CLASSIFICATION_FIXTURE_PATHS,
+  readVersion1NodeStatus,
   withClassificationTree,
   withStatusWriterTree,
 } from "@testing/harnesses/node-status/node-status";
@@ -174,7 +174,7 @@ describe("node-status test support", () => {
                   ] as const,
                 ]),
               ];
-              const committedRecord = readNodeStatus(
+              const committedRecord = readVersion1NodeStatus(
                 join(env.productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, node.dirName),
               )?.[NODE_STATUS_FIELD.VERIFICATION][NODE_STATUS_VERIFICATION_MECHANISM.TEST];
               expect(

@@ -1,9 +1,26 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/36-session.enabler/87-session-pick.enabler/21-launch-runner-test-harness.enabler/tests/launch-runner-test-harness.property.l1.test.ts": "passed"
+      "tests/launch-runner-test-harness.property.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/36-session.enabler/87-session-pick.enabler/21-launch-runner-test-harness.enabler/launch-runner-test-harness.md",
+          "spx/36-session.enabler/87-session-pick.enabler/21-launch-runner-test-harness.enabler/tests/launch-runner-test-harness.property.l1.test.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/harnesses/session/launch-runner.ts"
+        ]
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

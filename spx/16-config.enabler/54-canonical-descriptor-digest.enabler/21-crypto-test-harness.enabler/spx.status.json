@@ -1,9 +1,21 @@
 {
-  "schemaVersion": 1,
+  "state": "passing",
+  "malleability": "spec",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/16-config.enabler/54-canonical-descriptor-digest.enabler/21-crypto-test-harness.enabler/tests/crypto-test-harness.compliance.l1.test.ts": "passed"
+      "tests/crypto-test-harness.compliance.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/16-config.enabler/54-canonical-descriptor-digest.enabler/21-crypto-test-harness.enabler/crypto-test-harness.md",
+          "spx/16-config.enabler/54-canonical-descriptor-digest.enabler/21-crypto-test-harness.enabler/tests/crypto-test-harness.compliance.l1.test.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/harnesses/crypto.ts"
+        ]
+      }
     }
   }
 }

@@ -5,4 +5,5 @@ export {
   UNSUPPORTED_TEST_SELECTION_EXIT_CODE,
 } from "./aggregation";
 export { type ChangedPathPartition, mergeChangedSetOperands, partitionChangedPaths } from "./changed-set-planning";
+export { buildEvidenceResults, type EvidenceOutcome, foldEvidenceVerdict, type ReadPathsByReference } from "./evidence";
 export { groupTestFiles, type LanguageTestGroup, type TestFileGrouping } from "./grouping";

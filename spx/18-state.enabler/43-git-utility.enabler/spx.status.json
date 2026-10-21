@@ -1,10 +1,67 @@
 {
-  "schemaVersion": 1,
+  "state": "specified",
+  "malleability": "implementation",
   "verification": {
     "test": {
-      "overall": "passed",
-      "spx/18-state.enabler/43-git-utility.enabler/tests/git-utility.conformance.l1.test.ts": "passed",
-      "spx/18-state.enabler/43-git-utility.enabler/tests/git-utility.property.l1.test.ts": "passed"
+      "tests/git-utility.conformance.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/18-state.enabler/43-git-utility.enabler/git-utility.md",
+          "spx/18-state.enabler/43-git-utility.enabler/tests/git-utility.conformance.l1.test.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/changed-paths.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/name-status.ts",
+          "src/lib/git/root.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/state-store/index.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/lib/verification-env.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/git-changed-paths/changed-paths.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/git/changed-paths.ts",
+          "testing/harnesses/property/property.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ]
+      },
+      "tests/git-utility.property.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/18-state.enabler/43-git-utility.enabler/git-utility.md",
+          "spx/18-state.enabler/43-git-utility.enabler/tests/git-utility.property.l1.test.ts",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/changed-paths.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/name-status.ts",
+          "src/lib/git/root.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/state-store/index.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/lib/verification-env.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/git-changed-paths/changed-paths.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/git/changed-paths.ts",
+          "testing/harnesses/property/property.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ]
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
     }
   }
 }

@@ -1,6 +1,18 @@
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { defaultGitDependencies, type GitDependencies } from "@/lib/git/root";
-import { createNodeStatusProvider, type NodeOutcomeResolver, updateNodeStatus } from "@/lib/node-status";
+import {
+  compareNodeStatusClaims,
+  createNodeStatusProvider,
+  NODE_STATUS_CLAIM_DIFFERENCE,
+  type NodeAttributedResultResolver,
+  type NodeOutcomeResolver,
+  type NodeReadPathResolver,
+  type NodeStatusClaimDifference,
+  type NodeStatusClaimReport,
+  readNodeStatusReports,
+  regenerateNodeStatusClaims,
+  updateNodeStatus,
+} from "@/lib/node-status";
 import {
   createFilesystemSpecTreeSource,
   projectSpecTree,
@@ -31,6 +43,10 @@ export const SPEC_STATUS_MESSAGE = {
   EMPTY: `No spec-tree nodes found in ${SPEC_TREE_CONFIG.ROOT_DIRECTORY}`,
 } as const;
 
+export const SPEC_STATUS_CHECK_MESSAGE = {
+  DIFFERENCES: "Committed node status differs from the regenerated projection",
+} as const;
+
 const DEFAULT_FORMAT: OutputFormat = OUTPUT_FORMAT.TEXT;
 const JSON_INDENTATION = 2;
 const LINE_SEPARATOR = authoredText("\n");
@@ -59,6 +75,19 @@ export class SpecStatusUpdateRequiresProductDirError extends Error {
   }
 }
 
+/** The rejection `--update --check` ends with when the committed claims differ from the regenerated ones. */
+export class SpecStatusCheckDifferencesError extends Error {
+  readonly differences: readonly NodeStatusClaimDifference[];
+  readonly report: TerminalText;
+
+  constructor(differences: readonly NodeStatusClaimDifference[]) {
+    super(SPEC_STATUS_CHECK_MESSAGE.DIFFERENCES);
+    this.name = "SpecStatusCheckDifferencesError";
+    this.differences = differences;
+    this.report = formatCheckDifferences(differences);
+  }
+}
+
 interface StatusBaseOptions {
   cwd?: string;
   format?: OutputFormat;
@@ -73,6 +102,7 @@ interface StatusBaseOptions {
 interface StatusReadOptions extends StatusBaseOptions {
   update?: false;
   resolveOutcomeFor?: never;
+  check?: never;
 }
 
 interface StatusUpdateOptions extends Omit<StatusBaseOptions, "source"> {
@@ -81,6 +111,12 @@ interface StatusUpdateOptions extends Omit<StatusBaseOptions, "source"> {
   update: true;
   /** Builds the per-node outcome resolver --update injects. */
   resolveOutcomeFor: (productDir: string) => NodeOutcomeResolver;
+  /** Builds the resolver of the paths each linked reference's recorded result read. */
+  resolveReadPathsFor?: (productDir: string) => NodeReadPathResolver;
+  /** Builds the resolver of the audit and evidence results sealed audit runs recorded. */
+  resolveAttributedResultsFor?: (productDir: string) => NodeAttributedResultResolver;
+  /** Compare the committed claims with the regenerated ones and write nothing. */
+  check?: boolean;
 }
 
 interface StatusInMemoryUpdateOptions extends StatusBaseOptions {
@@ -88,6 +124,7 @@ interface StatusInMemoryUpdateOptions extends StatusBaseOptions {
   /** Refresh each node's spx.status.json before reporting the rollup. */
   update: true;
   resolveOutcomeFor?: never;
+  check?: never;
 }
 
 export type StatusOptions = StatusReadOptions | StatusUpdateOptions | StatusInMemoryUpdateOptions;
@@ -112,27 +149,82 @@ export async function statusCommand(
     gitDependencies,
     options.onWarning,
   );
+  if (options.update === true && options.check === true) {
+    return checkNodeStatusClaims(options, productDir, gitDependencies);
+  }
   if (options.update === true) {
     // --update refreshes each node's spx.status.json before the read-back below, so
     // the reported rollup reflects the just-written state. The resolver and git runner
     // are injected at the command edge; updateNodeStatus restricts writes to git-tracked
     // node directories so a stale, untracked, node-shaped directory is neither written
     // nor retained by the stale-file sweep.
-    await updateNodeStatus({ productDir, resolveOutcome: options.resolveOutcomeFor(productDir), gitDependencies });
+    await updateNodeStatus(buildNodeStatusUpdateInput(options, productDir, gitDependencies));
   }
   // Read-back: a node's committed spx.status.json overrides live derivation; a node
   // with no status file yields undefined, routing the spec-tree library back to live
   // derivation.
   const snapshot = await readSpecTree({
     source: createFilesystemSpecTreeSource({ productDir }),
-    evidence: createNodeStatusProvider(productDir),
+    evidence: await createNodeStatusProvider(productDir, { gitDependencies }),
   });
-  return renderSpecStatus(projectSpecTree(snapshot), options.format);
+  return renderSpecStatus(
+    projectSpecTree(snapshot),
+    options.format,
+    await readNodeStatusReports(productDir, { gitDependencies }),
+  );
 }
+
+/** The inputs `--update` and `--update --check` share: the resolvers the command edge injects. */
+function buildNodeStatusUpdateInput(
+  options: StatusUpdateOptions,
+  productDir: string,
+  gitDependencies: GitDependencies,
+) {
+  return {
+    productDir,
+    resolveOutcome: options.resolveOutcomeFor(productDir),
+    gitDependencies,
+    ...(options.resolveReadPathsFor === undefined
+      ? {}
+      : { resolveReadPaths: options.resolveReadPathsFor(productDir) }),
+    ...(options.resolveAttributedResultsFor === undefined
+      ? {}
+      : { resolveAttributedResults: options.resolveAttributedResultsFor(productDir) }),
+  };
+}
+
+/** Regenerates the claims `--update` would write, in memory, and reports how the committed claims differ; it writes no file and sweeps none. */
+async function checkNodeStatusClaims(
+  options: StatusUpdateOptions,
+  productDir: string,
+  gitDependencies: GitDependencies,
+): Promise<TerminalText> {
+  const { committed, regenerated } = await regenerateNodeStatusClaims(
+    buildNodeStatusUpdateInput(options, productDir, gitDependencies),
+  );
+  const differences = compareNodeStatusClaims(committed, regenerated);
+  if (differences.length > 0) throw new SpecStatusCheckDifferencesError(differences);
+  return authoredText("");
+}
+
+function formatCheckDifferences(differences: readonly NodeStatusClaimDifference[]): TerminalText {
+  const lines = differences.map((difference) =>
+    difference.kind === NODE_STATUS_CLAIM_DIFFERENCE.ENTRY
+      ? terminal`${externalValue(difference.nodeId)} ${authoredText(difference.kind)} ${
+        externalValue(difference.section ?? "")
+      } ${externalValue(difference.key ?? "")}`
+      : terminal`${externalValue(difference.nodeId)} ${authoredText(difference.kind)}`
+  );
+  return joinTerminalText(LINE_SEPARATOR, [authoredText(SPEC_STATUS_CHECK_MESSAGE.DIFFERENCES), ...lines]);
+}
+
+/** The claim a node's JSON entry carries; `claims` is keyed by node id and absent for a node with no committed claim. */
+export type SpecStatusClaims = ReadonlyMap<string, NodeStatusClaimReport>;
 
 export function renderSpecStatus(
   projection: SpecTreeProjection,
   format: OutputFormat = DEFAULT_FORMAT,
+  claims: SpecStatusClaims = new Map(),
 ): TerminalText {
   if (projection.nodes.length === 0 && format !== OUTPUT_FORMAT.JSON) {
     return authoredText(SPEC_STATUS_MESSAGE.EMPTY);
@@ -140,7 +232,7 @@ export function renderSpecStatus(
 
   switch (format) {
     case OUTPUT_FORMAT.JSON:
-      return formatJSON(projection);
+      return formatJSON(projection, claims);
     case OUTPUT_FORMAT.MARKDOWN:
       return formatMarkdown(projection);
     case OUTPUT_FORMAT.TABLE:
@@ -154,8 +246,25 @@ export function renderSpecStatus(
   }
 }
 
-function formatJSON(projection: SpecTreeProjection): TerminalText {
-  return jsonDocument(projection, JSON_INDENTATION);
+function formatJSON(projection: SpecTreeProjection, claims: SpecStatusClaims): TerminalText {
+  return jsonDocument(
+    { ...projection, nodes: projection.nodes.map((node) => withClaim(node, claims)) },
+    JSON_INDENTATION,
+  );
+}
+
+type SpecStatusJsonNode = Omit<SpecTreeProjectedNode, "children"> & {
+  readonly claim?: NodeStatusClaimReport;
+  readonly children: readonly SpecStatusJsonNode[];
+};
+
+function withClaim(node: SpecTreeProjectedNode, claims: SpecStatusClaims): SpecStatusJsonNode {
+  const claim = claims.get(node.id);
+  return {
+    ...node,
+    ...(claim === undefined ? {} : { claim: { ...claim, state: claim.state ?? node.state } }),
+    children: node.children.map((child) => withClaim(child, claims)),
+  };
 }
 
 function formatText(projection: SpecTreeProjection): TerminalText {

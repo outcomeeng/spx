@@ -7,9 +7,7 @@ import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/prop
 describe("createTrackedPathInclusion", () => {
   it("admits a path exactly when it is a tracked file or an ancestor directory of one", () => {
     assertProperty(
-      NODE_STATUS_TEST_GENERATOR.trackedFileSet().chain((trackedFiles) =>
-        NODE_STATUS_TEST_GENERATOR.trackedFile().map((probe) => ({ probe, trackedFiles }))
-      ),
+      NODE_STATUS_TEST_GENERATOR.trackedPathInclusionCase(),
       ({ probe, trackedFiles }) => {
         expect(createTrackedPathInclusion(trackedFiles)(probe)).toBe(
           trackedFiles.has(probe)
