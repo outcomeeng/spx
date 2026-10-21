@@ -54,6 +54,7 @@ const FILE_NOT_FOUND_CODE = "ENOENT";
 const LINE_BREAK_PATTERN = /\r?\n/u;
 const CODE_SPAN_PATTERN = /`[^`]*`/gu;
 const CODE_SPAN_REPLACEMENT = " ";
+const TAG_POSITION_TAIL_PATTERN = /^\)?\s*$/u;
 
 const VERIFICATION_TYPE_OF_LINK_TEXT: Readonly<Record<SpecTreeEvidenceLinkText, SpecTreeVerificationType>> = {
   [SPEC_TREE_EVIDENCE_LINK_TEXT.TEST]: SPEC_TREE_VERIFICATION_TYPE.TEST,
@@ -87,22 +88,41 @@ const EVIDENCE_TAG_PATTERN = new RegExp(
   })\]\((?<${LINK_TAG_GROUP.HREF}>[^)]*)\)`
     + String.raw`|\[(?<${LINK_TAG_GROUP.AUDIT_TEXT}>${alternation(Object.values(SPEC_TREE_AUDIT_TAG_TEXT))})`
     + String.raw`(?:${escapeRegExp(SPEC_TREE_AUDIT_TAG_SLUG_SEPARATOR)}(?<${LINK_TAG_GROUP.SLUG}>[^\]\s]+))?\](?!\()`,
-  "u",
+  "gu",
 );
 
 function withoutCodeSpans(line: string): string {
   return line.replaceAll(CODE_SPAN_PATTERN, CODE_SPAN_REPLACEMENT);
 }
 
-function assertionLines(specText: string): readonly string[] {
+type TagGroups = Readonly<Record<string, string | undefined>>;
+
+type AssertionLine = { readonly number: number; readonly text: string };
+
+function assertionLines(specText: string): readonly AssertionLine[] {
   const lines = specText.split(LINE_BREAK_PATTERN);
   const start = lines.findIndex((line) => line.trim() === SPEC_TREE_ASSERTIONS_HEADING);
   if (start < 0) return [];
   const rest = lines.slice(start + 1);
   const end = rest.findIndex((line) => line.startsWith(SPEC_TREE_SECTION_HEADING_PREFIX));
-  return (end < 0 ? rest : rest.slice(0, end)).filter((line) =>
-    line.trimStart().startsWith(SPEC_TREE_ASSERTION_BULLET_PREFIX)
-  );
+  return (end < 0 ? rest : rest.slice(0, end))
+    .map((text, offset) => ({ number: start + offset + 2, text }))
+    .filter(({ text }) => text.trimStart().startsWith(SPEC_TREE_ASSERTION_BULLET_PREFIX));
+}
+
+/**
+ * The real evidence tags of one assertion line. A pathless audit tag counts only in the tag
+ * position at the end of the line; a link tag and a slugged audit tag count anywhere outside a code span.
+ */
+function evidenceTagGroups(line: string): readonly TagGroups[] {
+  const text = withoutCodeSpans(line);
+  return [...text.matchAll(EVIDENCE_TAG_PATTERN)]
+    .filter((match) => {
+      const groups: TagGroups = match.groups ?? {};
+      const pathless = groups[LINK_TAG_GROUP.AUDIT_TEXT] !== undefined && groups[LINK_TAG_GROUP.SLUG] === undefined;
+      return !pathless || TAG_POSITION_TAIL_PATTERN.test(text.slice(match.index + match[0].length));
+    })
+    .map((match): TagGroups => match.groups ?? {});
 }
 
 /** Whether a read rejection is a file-not-found rejection. */
@@ -139,7 +159,8 @@ async function targetOf(
  * The evidence references a node spec declares, one per tagged assertion in order of appearance.
  * A link is keyed by its node-local path and reports whether its target is read; an audit tag is
  * keyed by its rule slug, or unkeyed when it carries none. Two audit tags with one rule slug in
- * one spec fail the read, naming the spec and the slug.
+ * one spec fail the read, naming the spec and the slug; so does an assertion line carrying two
+ * real evidence tags, naming the spec and the line.
  */
 export async function readSpecEvidenceReferences(
   specPath: string,
@@ -150,9 +171,11 @@ export async function readSpecEvidenceReferences(
   const references: SpecTreeEvidenceReference[] = [];
   const slugs = new Set<string>();
   for (const line of assertionLines(specText)) {
-    const groups: Readonly<Record<string, string | undefined>> | undefined = EVIDENCE_TAG_PATTERN.exec(
-      withoutCodeSpans(line),
-    )?.groups;
+    const tags = evidenceTagGroups(line.text);
+    if (tags.length > 1) {
+      throw new Error(`${specPath} line ${line.number} carries more than one evidence tag`);
+    }
+    const groups = tags.at(0);
     if (groups === undefined) continue;
     const linkText = groups[LINK_TAG_GROUP.TEXT] as SpecTreeEvidenceLinkText | undefined;
     const href = groups[LINK_TAG_GROUP.HREF];
