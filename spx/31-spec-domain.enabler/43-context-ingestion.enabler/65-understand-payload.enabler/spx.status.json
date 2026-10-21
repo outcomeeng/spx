@@ -1,11 +1,11 @@
 {
-  "state": "failing",
+  "state": "passing",
   "malleability": "spec",
   "verification": {
     "test": {
       "tests/understand-payload.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
+        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
         "read": [
           "methodology/4.0/claude/spec-tree/skills/understand/SKILL.md",
           "methodology/4.0/claude/spec-tree/skills/understand/manifest.json",
@@ -185,7 +185,7 @@
       },
       "tests/understand-payload.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
+        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/tests/understand-payload.mapping.l1.test.ts",
@@ -350,7 +350,7 @@
       },
       "tests/understand-payload.mapping.l2.test.ts": {
         "verdict": "passed",
-        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
+        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
         "read": [
           "methodology/4.0/claude/spec-tree/skills/understand/SKILL.md",
           "methodology/4.0/claude/spec-tree/skills/understand/manifest.json",
@@ -523,7 +523,7 @@
       },
       "tests/understand-payload.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
+        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/tests/understand-payload.scenario.l1.test.ts",
@@ -688,7 +688,7 @@
       },
       "tests/understand-payload.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
+        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
         "read": [
           "methodology/4.0/claude/spec-tree/skills/understand/SKILL.md",
           "methodology/4.0/claude/spec-tree/skills/understand/manifest.json",

@@ -5,7 +5,7 @@
     "test": {
       "tests/change-identity.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
+        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -380,7 +380,7 @@
       },
       "tests/change-identity.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
+        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -763,7 +763,7 @@
       },
       "tests/file-scope.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
+        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -1138,7 +1138,7 @@
       },
       "tests/record-run.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
+        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -1513,7 +1513,7 @@
       },
       "tests/run-expectations-option.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
+        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -1896,7 +1896,7 @@
       },
       "tests/run-finish-unaccounted.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
+        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -2279,7 +2279,7 @@
       },
       "tests/run-paths.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
+        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -2662,7 +2662,7 @@
       },
       "tests/run-paths.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
+        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -3045,7 +3045,7 @@
       },
       "tests/run-reconcile.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
+        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -3428,7 +3428,7 @@
       },
       "tests/run-reconcile.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
+        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -3811,7 +3811,7 @@
       },
       "tests/verifier.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
+        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -4186,7 +4186,7 @@
       },
       "tests/verifier.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
+        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",

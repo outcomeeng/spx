@@ -5,7 +5,7 @@
     "test": {
       "tests/spec-tree-projection.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
+        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/87-spec-tree-projection.enabler/spec-tree-projection.md",
@@ -107,7 +107,7 @@
       },
       "tests/spec-tree-projection.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
+        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/87-spec-tree-projection.enabler/spec-tree-projection.md",

@@ -5,7 +5,7 @@
     "test": {
       "tests/validation-subprocess-harness.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
+        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-validation-subprocess-harness.enabler/tests/validation-subprocess-harness.property.l1.test.ts",
@@ -98,7 +98,7 @@
       },
       "tests/validation-subprocess-harness.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "aae7f24081c2e9cf0d66959255510742e06e5089",
+        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-validation-subprocess-harness.enabler/tests/validation-subprocess-harness.scenario.l1.test.ts",
