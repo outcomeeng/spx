@@ -153,11 +153,6 @@ export type LinkTargetScenario = EvidenceSpec & {
   readonly links: readonly LinkTargetCase[];
 };
 
-/** A spec holding one assertion line that carries two real evidence tags, and the line number of that assertion in the spec text. */
-export type TwoTagLineScenario = EvidenceSpec & {
-  readonly lineNumber: number;
-};
-
 export type EvidenceReferenceScenarioOptions = {
   /** Forms every generated spec holds at least once. */
   readonly required?: readonly EvidenceAssertionForm[];
@@ -520,9 +515,11 @@ export function arbitraryBracketedProseScenario(): fc.Arbitrary<EvidenceReferenc
 
 /**
  * A spec with one assertion line that carries two real evidence tags, each a link tag or a
- * slugged audit tag, among untagged assertions. The spec declares the line malformed.
+ * slugged audit tag, among untagged assertions. The spec declares that such a line keeps its
+ * first tag, so the expected references hold the first tag's reference at the line's position
+ * and none for the second tag.
  */
-export function arbitraryTwoTagLineScenario(): fc.Arbitrary<TwoTagLineScenario> {
+export function arbitraryTwoTagLineScenario(): fc.Arbitrary<EvidenceReferenceScenario> {
   return fc
     .tuple(
       arbitraryNodeParts(),
@@ -534,18 +531,14 @@ export function arbitraryTwoTagLineScenario(): fc.Arbitrary<TwoTagLineScenario> 
     )
     .chain(([parts, assertions, text, forms, paths, slugs]) =>
       fc.nat(assertions.length).map((position) => {
-        const tags = forms.map((form, index) => realTagOfForm(form, paths[index] ?? "", slugs[index] ?? ""));
-        const doubleTagged: GeneratedAssertion = {
-          line: tags.reduce((line, tag) => `${line} (${tag})`, `${SPEC_TREE_ASSERTION_BULLET_PREFIX}${text}`),
-          reference: undefined,
-          linkPath: undefined,
-          slug: undefined,
-          text,
-        };
+        const first = assertionOfForm(forms[0], text, paths[0] ?? "", slugs[0] ?? "");
+        const secondTag = realTagOfForm(forms[1], paths[1] ?? "", slugs[1] ?? "");
+        const doubleTagged: GeneratedAssertion = { ...first, line: `${first.line} (${secondTag})` };
         const ordered = [...assertions.slice(0, position), doubleTagged, ...assertions.slice(position)];
-        const spec = specFrom(parts, ordered, everyTargetPresent);
-        const specText = spec.files.find(({ path }) => path === spec.specPath)?.contents ?? "";
-        return { ...spec, lineNumber: specText.split(SPEC_TEXT.LINE_BREAK).indexOf(doubleTagged.line) + 1 };
+        return {
+          ...specFrom(parts, ordered, everyTargetPresent),
+          expected: ordered.flatMap(({ reference }) => reference === undefined ? [] : [reference]),
+        };
       })
     );
 }

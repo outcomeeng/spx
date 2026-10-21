@@ -41,17 +41,13 @@ describe("tag position", () => {
 });
 
 describe("one evidence tag per assertion line", () => {
-  it("fails the read naming the spec and the line when an assertion line carries two real evidence tags", async () => {
+  it("keeps the first tag of an assertion line carrying two real evidence tags and reads successfully", async () => {
     const scenario = sampleGeneratedValue(arbitraryTwoTagLineScenario());
 
-    const outcome = await readEvidenceSpecsFromFilesystem([scenario]).then(
-      (snapshot) => snapshot,
-      (error: unknown) => error,
-    );
+    const snapshot = await readEvidenceSpecsFromFilesystem([scenario]);
 
-    expect(outcome).toBeInstanceOf(Error);
-    expect((outcome as Error).message).toContain(scenario.specPath);
-    expect((outcome as Error).message).toContain(String(scenario.lineNumber));
+    const references = snapshot.allNodes.find(({ slug }) => slug === scenario.entry.slug)?.evidenceReferences ?? [];
+    expect(references).toEqual(scenario.expected);
   });
 });
 
