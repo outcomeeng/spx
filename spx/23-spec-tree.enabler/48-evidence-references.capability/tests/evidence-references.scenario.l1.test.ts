@@ -13,5 +13,8 @@ describe("evidence references of a source without readText", () => {
     const node = snapshot.allNodes.find(({ slug }) => slug === scenario.entry.slug);
     expect(scenario.expected.length).toBeGreaterThan(0);
     expect(node?.evidenceReferences).toEqual([]);
+    expect(snapshot.allNodes.map(({ evidenceReferences }) => evidenceReferences)).toEqual(
+      snapshot.allNodes.map(() => []),
+    );
   });
 });
