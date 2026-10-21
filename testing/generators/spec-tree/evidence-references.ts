@@ -262,7 +262,7 @@ function arbitraryAssertionSet(
         .map(([slugs, parts]) =>
           forms.map((form, index) => {
             const [text, path] = parts[index] ?? [];
-            return assertionOfForm(form, text, path, slugs[index] ?? "");
+            return assertionOfForm(form, text ?? "", path ?? "", slugs[index] ?? "");
           })
         )
     );
@@ -404,7 +404,7 @@ export function arbitraryLinkTargetScenario(): fc.Arbitrary<LinkTargetScenario> 
     .map(([parts, drawn]) => {
       const cases = domain.map((link, index) => {
         const [text, path] = drawn[index] ?? [];
-        return { link, text, path };
+        return { link, text: text ?? "", path: path ?? "" };
       });
       const presentPaths = new Set(cases.filter(({ link }) => link.present).map(({ path }) => path));
       return {
