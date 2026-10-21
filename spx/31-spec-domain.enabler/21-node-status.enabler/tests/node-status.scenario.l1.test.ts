@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { join, relative, sep } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -15,6 +15,7 @@ import {
   NODE_STATUS_VERIFICATION_MECHANISM,
   nodeStatusClaimResults,
   readNodeStatus,
+  readNodeStatusReports,
   resultCurrency,
   updateNodeStatus,
 } from "@/lib/node-status";
@@ -63,6 +64,48 @@ describe("a tree holding a version-1 claim and a 4.0 claim", () => {
           ? versionOne.claim[NODE_STATUS_FIELD.SCHEMA_VERSION]
           : undefined,
       ).toBe(NODE_STATUS_SCHEMA_VERSION);
+    });
+  });
+
+  it("reports each claim's shape and each result's verdict, pin and currency through the status report reader", async () => {
+    const fixture = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.pinnedNode());
+    await withPinnedNodeRepository(fixture, currentMethodologyConfig(), async (repository) => {
+      await repository.writeClaim(repository.passedTestClaim(0));
+      const versionOneDirectory = await repository.writeVersionOneSiblingClaim();
+      const productDir = repository.env.productDir;
+      const nodeIdOf = (directory: string) =>
+        relative(join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY), join(productDir, directory)).split(sep).join("/");
+      const currentId = nodeIdOf(repository.nodePath);
+      const versionOneId = nodeIdOf(versionOneDirectory);
+
+      const before = await readNodeStatusReports(productDir, { gitDependencies: repository.git });
+      const currentBefore = before.get(currentId);
+      const versionOne = before.get(versionOneId);
+
+      expect(currentBefore?.shape).toBe(NODE_STATUS_CLAIM_SHAPE.CURRENT);
+      expect(currentBefore?.results.map((result) => [result.section, result.key, result.currency])).toEqual([
+        [NODE_STATUS_CLAIM_SECTION.TEST, repository.testKeys[0], NODE_STATUS_CURRENCY.CURRENT],
+      ]);
+      expect(currentBefore?.results[0]?.[NODE_STATUS_CLAIM_FIELD.VERDICT]).toBe(NODE_STATUS_EVIDENCE_OUTCOME.PASSED);
+      expect(currentBefore?.results[0]?.[NODE_STATUS_CLAIM_FIELD.COMMIT]).toBe(repository.commit);
+      expect(versionOne?.shape).toBe(NODE_STATUS_CLAIM_SHAPE.VERSION_1);
+      expect(
+        versionOne?.results.map((
+          result,
+        ) => [result[NODE_STATUS_CLAIM_FIELD.VERDICT], result.currency]),
+      ).toEqual([
+        [NODE_STATUS_EVIDENCE_OUTCOME.PASSED, NODE_STATUS_CURRENCY.UNPINNED],
+      ]);
+
+      await repository.editSubject(0);
+
+      const after = await readNodeStatusReports(productDir, { gitDependencies: repository.git });
+      expect(after.get(currentId)?.results.map((result) => result.currency)).toEqual([
+        NODE_STATUS_CURRENCY.NOT_CURRENT,
+      ]);
+      expect(after.get(versionOneId)?.results.map((result) => result.currency)).toEqual([
+        NODE_STATUS_CURRENCY.UNPINNED,
+      ]);
     });
   });
 });
