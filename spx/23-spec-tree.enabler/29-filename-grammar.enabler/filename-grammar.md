@@ -6,6 +6,10 @@ CAN classify and render filenames against one authoritative grammar, without re-
 
 ## Assertions
 
+- The 4.0 naming-schema version accepts, directly within a node directory and directly under `spx/` for the root product, one `knowledge/` directory holding `index.md` and `log.md`, and reserves only that root name, leaving the structure beneath it to the bundle's author
+- The 4.0 naming-schema version accepts, under an output or variant node's `probes/` directory, one directory per probe whose name is any slug, holding `probe.md`, zero or more artifact files `{slug}.{ext}` where `{slug}` is any slug and `{ext}` is any word, and a `runs/` directory
+- The 3.x naming-schema version accepts neither a `knowledge/` nor a `probes/` directory
+
 ### Scenarios
 
 - Given the spec-tree descriptor is registered with the config module, when `resolveConfig(productDir)` runs with no yaml, then the resolved spec-tree section carries no `kinds` field ([test](tests/spec-tree-config.scenario.l1.test.ts))
