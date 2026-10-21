@@ -68,7 +68,11 @@ export type ConformanceCase = {
 };
 
 /** A record in its ancestry context under a version set, before any verdict is stated for it. */
-export type ConformanceInput = Omit<ConformanceCase, "title" | "verdict">;
+export type ConformanceInput = {
+  readonly options: SpecTreeRecognitionOptions;
+  readonly record: SpecTreeFilesystemRecord;
+  readonly context: SpecTreeConformanceContext;
+};
 
 const VALID = SPEC_TREE_CONFORMANCE_VERDICT.VALID;
 const FOREIGN = SPEC_TREE_CONFORMANCE_VERDICT.FOREIGN;
@@ -77,8 +81,6 @@ const PATH_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
 const FOUR_ZERO = SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO;
 const THREE_X = SPEC_TREE_METHODOLOGY_LINE.THREE_TWO;
 
-/** The exclusion registry directly under `spx/`, as the oracle spec names it. */
-const EXCLUSION_REGISTRY_STATEMENT = "EXCLUDE";
 const STRAY_EXTENSION_PATTERN = /^[a-z][a-z0-9]{0,5}$/;
 const PRIOR_SPEC_EXTENSION = "md";
 const SPEC_FILE_DRAW_COUNT = 3;
@@ -246,7 +248,7 @@ function lineRecognizedCases(line: SpecTreeMethodologyLine): readonly Conformanc
   const exclusion = conformanceCase(
     `${line} exclusion registry`,
     options,
-    { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE, relativePath: EXCLUSION_REGISTRY_STATEMENT },
+    { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE, relativePath: SPEC_TREE_GRAMMAR.EXCLUSION_REGISTRY_FILENAME },
     { location: LOCATION.PRODUCT_ROOT },
     VALID,
   );

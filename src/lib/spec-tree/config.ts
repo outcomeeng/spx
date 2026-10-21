@@ -229,6 +229,8 @@ export const SPEC_TREE_GRAMMAR = {
   COORDINATION_NOTES: [SPEC_TREE_COORDINATION_NOTE.PLAN, SPEC_TREE_COORDINATION_NOTE.ISSUES],
   GUIDE_FILES: ["CLAUDE.md", "AGENTS.md"],
   STATUS_FILENAME: "spx.status.json",
+  /** The exclusion registry file directly under `spx/`. */
+  EXCLUSION_REGISTRY_FILENAME: "EXCLUDE",
   KNOWLEDGE: {
     DIRECTORY_NAME: "knowledge",
     INDEX_FILENAME: "index.md",
