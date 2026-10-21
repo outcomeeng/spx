@@ -53,6 +53,24 @@ export function readEvidenceSpecsWithoutReadText(specs: readonly EvidenceSpec[])
   return readSpecTree({ source: { entries } });
 }
 
+/**
+ * The snapshot a read produces when the source rejects reading a node's own spec with a failure
+ * that is not a missing file. The rejection propagates.
+ */
+export function readEvidenceSpecsWithUnreadableSpec(specs: readonly EvidenceSpec[]): Promise<SpecTreeSnapshot> {
+  const source = createEvidenceTextSource(specs);
+  const specPaths = new Set(specs.map(({ specPath }) => specPath));
+  return readSpecTree({
+    source: {
+      entries: source.entries.bind(source),
+      readText: (ref) =>
+        ref.path !== undefined && specPaths.has(ref.path)
+          ? Promise.reject(Object.assign(new Error(`cannot read ${ref.path}`), { code: "EACCES" }))
+          : source.readText!(ref),
+    },
+  });
+}
+
 /** The snapshot a read of the specs written into a temporary product directory produces. */
 export function readEvidenceSpecsFromFilesystem(specs: readonly EvidenceSpec[]): Promise<SpecTreeSnapshot> {
   return readEvidenceSpecsFromFilesystemWith(specs, false);
