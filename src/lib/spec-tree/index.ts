@@ -39,7 +39,9 @@ import { createSpecTreeLinkGrammar, type SpecTreeLinkGrammar } from "./link-gram
 import { compareSpecTreeOrder } from "./order";
 export {
   acceptsEvalLaneEntry,
+  acceptsKnowledgeRoot,
   acceptsNodeLocalNote,
+  acceptsProbeEntry,
   canonicalNamingSchemaVersion,
   compareNamingSchemaVersions,
   compareNumericVersionIdentifiers,
