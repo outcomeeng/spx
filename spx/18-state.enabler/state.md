@@ -4,8 +4,8 @@ CAN resolve shared, per-worktree, tracked, and host-scoped roots, designate the 
 
 ## Assertions
 
-- Given an OS account record naming a home directory, when the host rendezvous root resolves under any `HOME`, `XDG_STATE_HOME`, invocation directory, and repository, then it is `<account-home>/.local/state/spx/`
-- Given `XDG_STATE_HOME` holding an absolute path, when the host state root resolves, then it is `$XDG_STATE_HOME/spx/`; given a relative or empty value or no value, then it is `<account-home>/.local/state/spx/`
+- Given an OS account record naming a home directory, when the host rendezvous root resolves under any `HOME`, `XDG_STATE_HOME`, invocation directory, and repository, then it is `<account-home>/.local/state/spx/` ([test](tests/host-root.property.l1.test.ts))
+- Given `XDG_STATE_HOME` holding an absolute path, when the host state root resolves, then it is `$XDG_STATE_HOME/spx/`; given a relative or empty value or no value, then it is `<account-home>/.local/state/spx/` ([test](tests/host-root.property.l1.test.ts))
 
 ### Compliance
 
