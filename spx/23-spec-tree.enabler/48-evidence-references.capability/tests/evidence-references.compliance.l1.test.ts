@@ -3,12 +3,14 @@ import { describe, expect, it } from "vitest";
 import { SPEC_TREE_EVIDENCE_KEY_KIND, SPEC_TREE_VERIFICATION_TYPE } from "@/lib/spec-tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
+  arbitraryAdmittedTagTailScenario,
   arbitraryBracketedProseScenario,
   arbitraryCodeSpanScenario,
   arbitraryDuplicateAuditSlugScenario,
   arbitraryRepeatedSlugAcrossSpecsScenario,
   arbitraryTagPositionScenario,
   arbitraryTwoTagLineScenario,
+  arbitraryUnadmittedTagTailScenario,
   arbitraryUnkeyedAuditScenario,
 } from "@testing/generators/spec-tree/evidence-references";
 import { readEvidenceSpecsFromFilesystem } from "@testing/harnesses/spec-tree/evidence-references";
@@ -61,6 +63,28 @@ describe("tag position outside a code span", () => {
     const snapshot = await readEvidenceSpecsFromFilesystem([scenario]);
 
     const references = snapshot.allNodes.find(({ slug }) => slug === scenario.entry.slug)?.evidenceReferences ?? [];
+    expect(references).toEqual(scenario.expected);
+  });
+});
+
+describe("tail after a pathless tag", () => {
+  it("reads a pathless audit or legacy review tag followed by nothing, a closing parenthesis, a sentence-final period, or both, each with trailing whitespace, as an unkeyed audit reference", async () => {
+    const scenario = sampleGeneratedValue(arbitraryAdmittedTagTailScenario());
+
+    const snapshot = await readEvidenceSpecsFromFilesystem([scenario]);
+
+    const references = snapshot.allNodes.find(({ slug }) => slug === scenario.entry.slug)?.evidenceReferences ?? [];
+    expect(scenario.expected.length).toBeGreaterThan(0);
+    expect(references).toEqual(scenario.expected);
+  });
+
+  it("reads a pathless audit or legacy review tag followed by any other tail as no reference", async () => {
+    const scenario = sampleGeneratedValue(arbitraryUnadmittedTagTailScenario());
+
+    const snapshot = await readEvidenceSpecsFromFilesystem([scenario]);
+
+    const references = snapshot.allNodes.find(({ slug }) => slug === scenario.entry.slug)?.evidenceReferences ?? [];
+    expect(scenario.expected).toEqual([]);
     expect(references).toEqual(scenario.expected);
   });
 });
