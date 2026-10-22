@@ -168,6 +168,38 @@ export function arbitraryRuleSlug(): fc.Arbitrary<string> {
 /** The delimiter of a code span: tag-like text between two of these is prose, never a declared tag. */
 const CODE_SPAN_DELIMITER = "`";
 
+const TAG_OPEN = "(";
+const TAG_CLOSE = ")";
+const SENTENCE_FINAL_PERIOD = ".";
+
+/** The whitespace that may trail a tag line: none, spaces, a tab. */
+const TRAILING_WHITESPACE = ["", " ", "   ", "\t"] as const;
+
+/**
+ * What the governing assertion admits after a pathless audit tag or legacy review tag: an optional
+ * closing parenthesis and an optional sentence-final period, then whitespace to the line end.
+ */
+const ADMITTED_TAG_TAILS = [
+  "",
+  SENTENCE_FINAL_PERIOD,
+  TAG_CLOSE,
+  `${TAG_CLOSE}${SENTENCE_FINAL_PERIOD}`,
+] as const;
+
+/**
+ * What the governing assertion does not admit after such a tag: a second closing parenthesis, a
+ * period ahead of the closing parenthesis, a doubled period, a character beyond the period, and
+ * prose after the tag.
+ */
+const UNADMITTED_TAG_TAILS = [
+  `${TAG_CLOSE}${TAG_CLOSE}`,
+  `${SENTENCE_FINAL_PERIOD}${TAG_CLOSE}`,
+  `${TAG_CLOSE}${SENTENCE_FINAL_PERIOD}${SENTENCE_FINAL_PERIOD}`,
+  `${TAG_CLOSE}${SENTENCE_FINAL_PERIOD}${TAG_CLOSE}`,
+  `${TAG_CLOSE},`,
+  `${TAG_CLOSE} prose`,
+] as const;
+
 const ASSERTION_TEXT_SEPARATOR = " ";
 
 /** Tag-like text, in the vocabulary of every tag form, that an assertion mentions inside a code span. */
@@ -257,9 +289,9 @@ function assertionOfForm(
   }
 }
 
-function unkeyedAuditAssertion(text: string, tagText: string): GeneratedAssertion {
+function unkeyedAuditAssertion(text: string, tagText: string, tail: string = TAG_CLOSE): GeneratedAssertion {
   return {
-    line: assertionLine(text, `[${tagText}]`),
+    line: assertionLine(text, `[${tagText}]`, tail),
     reference: {
       verificationType: SPEC_TREE_VERIFICATION_TYPE.AUDIT,
       key: { kind: SPEC_TREE_EVIDENCE_KEY_KIND.UNKEYED },
@@ -270,8 +302,20 @@ function unkeyedAuditAssertion(text: string, tagText: string): GeneratedAssertio
   };
 }
 
-function assertionLine(text: string, tag: string): string {
-  return `${SPEC_TREE_ASSERTION_BULLET_PREFIX}${text} (${tag})`;
+/** The assertion line with its closing parenthesis replaced by the given tail and trailing whitespace. */
+function withPathlessTail(line: string, tail: string, whitespace: string): string {
+  const tagEnd = line.lastIndexOf("]") + 1;
+  const head = line.slice(0, tagEnd);
+  const openIndex = head.lastIndexOf(`${TAG_OPEN}[`);
+  const opened = tail.startsWith(TAG_CLOSE) || openIndex < 0
+    ? head
+    : `${head.slice(0, openIndex)}${head.slice(openIndex + TAG_OPEN.length)}`;
+  return `${opened}${tail}${whitespace}`;
+}
+
+function assertionLine(text: string, tag: string, tail: string = TAG_CLOSE): string {
+  const opening = tail.startsWith(TAG_CLOSE) ? TAG_OPEN : "";
+  return `${SPEC_TREE_ASSERTION_BULLET_PREFIX}${text} ${opening}${tag}${tail}`;
 }
 
 /** The assertions of one spec: the required forms and the drawn extra forms, in a drawn order, with distinct audit slugs. */
@@ -292,15 +336,23 @@ function arbitraryAssertionSet(
       fc
         .tuple(
           fc.uniqueArray(arbitraryRuleSlug(), { minLength: forms.length, maxLength: forms.length }),
-          fc.array(fc.tuple(arbitraryAssertionText(), arbitraryLinkPath()), {
-            minLength: forms.length,
-            maxLength: forms.length,
-          }),
+          fc.array(
+            fc.tuple(
+              arbitraryAssertionText(),
+              arbitraryLinkPath(),
+              fc.constantFrom(...ADMITTED_TAG_TAILS),
+              fc.constantFrom(...TRAILING_WHITESPACE),
+            ),
+            { minLength: forms.length, maxLength: forms.length },
+          ),
         )
         .map(([slugs, parts]) =>
           forms.map((form, index) => {
-            const [text, path] = parts[index] ?? [];
-            return assertionOfForm(form, text, path, slugs[index] ?? "");
+            const [text, path, tail, whitespace] = parts[index] ?? [];
+            const assertion = assertionOfForm(form, text, path, slugs[index] ?? "");
+            return UNKEYED_AUDIT_FORMS.includes(form)
+              ? { ...assertion, line: withPathlessTail(assertion.line, tail, whitespace) }
+              : assertion;
           })
         )
     );
@@ -833,5 +885,53 @@ export function arbitraryTagPositionScenario(): fc.Arbitrary<EvidenceReferenceSc
         };
       });
       return shuffled([...midLine, ...bareEnd]).map((ordered) => scenarioOfAssertions(parts, ordered));
+    });
+}
+
+/**
+ * A spec holding, for every pathless audit tag and legacy review tag, one assertion per admitted
+ * tail — a bare tag, a tag then a closing parenthesis, a tag then a sentence-final period, a tag
+ * then both — each with a drawn run of trailing whitespace. The governing assertion admits each
+ * tail, so each assertion declares the unkeyed audit reference of its tag.
+ */
+export function arbitraryAdmittedTagTailScenario(): fc.Arbitrary<EvidenceReferenceScenario> {
+  return arbitraryPathlessTailScenario(ADMITTED_TAG_TAILS, true);
+}
+
+/**
+ * A spec holding, for every pathless audit tag and legacy review tag, one assertion per tail the
+ * governing assertion does not admit. A tag in no admitted position is prose, so the expected
+ * references are empty.
+ */
+export function arbitraryUnadmittedTagTailScenario(): fc.Arbitrary<EvidenceReferenceScenario> {
+  return arbitraryPathlessTailScenario(UNADMITTED_TAG_TAILS, false);
+}
+
+function arbitraryPathlessTailScenario(
+  tails: readonly string[],
+  admitted: boolean,
+): fc.Arbitrary<EvidenceReferenceScenario> {
+  const count = PATHLESS_TAG_TEXTS.length * tails.length;
+  return fc
+    .tuple(
+      arbitraryNodeParts(),
+      fc.array(fc.tuple(arbitraryAssertionWords(), fc.constantFrom(...TRAILING_WHITESPACE)), {
+        minLength: count,
+        maxLength: count,
+      }),
+    )
+    .chain(([parts, drawn]) => {
+      const assertions = PATHLESS_TAG_TEXTS.flatMap((tagText, tagIndex) =>
+        tails.map((tail, tailIndex): GeneratedAssertion => {
+          const [words, whitespace] = drawn[tagIndex * tails.length + tailIndex];
+          const tagged = unkeyedAuditAssertion(words, tagText, tail);
+          return {
+            ...tagged,
+            line: `${tagged.line}${whitespace}`,
+            reference: admitted ? tagged.reference : undefined,
+          };
+        })
+      );
+      return shuffled(assertions).map((ordered) => scenarioOfAssertions(parts, ordered));
     });
 }
