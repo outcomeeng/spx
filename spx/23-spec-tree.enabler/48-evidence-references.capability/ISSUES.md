@@ -10,8 +10,16 @@
 
 ## Tag position admits a closing parenthesis the assertion does not state `src/lib/spec-tree/evidence-references.ts` `58` `spx/23-spec-tree.enabler/48-evidence-references.capability/evidence-references.spec.md:ALWAYS:1`
 
-**Evidence:** `TAG_POSITION_TAIL_PATTERN` admits one closing parenthesis after a pathless tag, while the assertion places the tag at the end of the line.
+**Evidence:** `TAG_POSITION_TAIL_PATTERN` admits one closing parenthesis after a pathless tag without requiring an opening parenthesis that encloses the tag. The assertion states the optional closing parenthesis and does not state that it closes a parenthesis enclosing the tag.
 
-**Impact:** A line ending in `[audit])` that closes an unrelated parenthesis reads as tagged.
+**Impact:** A line ending in `[audit])` whose parenthesis closes unrelated prose reads as tagged.
 
-**Settlement condition:** The assertion states the optional enclosing parenthesis, and a tag-position case shows the parenthesized form reads as a tag.
+**Settlement condition:** The reader admits the closing parenthesis only when it closes a parenthesis enclosing the tag, or the assertion states that any closing parenthesis is admitted; a tag-position case shows the unrelated-prose form.
+
+## Evidence-link target check reads whole files `src/lib/spec-tree/index.ts` `1009` `CLAUDE.md:Spec Tree Review Workflow:Performance`
+
+**Evidence:** `readNodeEvidenceReferences` passes the evidence-link target reader a closure that calls `readText` with the link target path, and the filesystem source's `readText` reads and decodes the whole file to learn whether the target exists. `readSpecTree` performs this read for every test, eval, and probe link of every assertion of every node, on every spec-tree read. `src/validation/lint-policy.ts` line 40 answers the same kind of question with `existsSync`.
+
+**Impact:** Every spec-tree read buffers and decodes the full content of every linked evidence file where a presence check answers the question.
+
+**Settlement condition:** The `SpecTreeSource` contract gains a presence-only member, the filesystem source implements it without reading the file content, and the reader uses it for link targets.
