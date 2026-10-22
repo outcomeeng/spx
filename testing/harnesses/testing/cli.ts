@@ -1,4 +1,9 @@
-import type { RecordedTestRun, TestDispatchResult } from "@/commands/test";
+import {
+  type RecordedTestRun,
+  TEST_RESULT_KIND,
+  type TestDispatchResult,
+  type TestsCommandResult,
+} from "@/commands/test";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { createTestingDomain, type TestingCliDependencies } from "@/interfaces/cli/test";
 import type { TargetSelection } from "@/lib/test-targeting";
@@ -12,6 +17,7 @@ export interface TestingCliCall {
   readonly passing: boolean;
   readonly targets?: TargetSelection;
   readonly changed?: { readonly baseRef?: string; readonly staged?: boolean };
+  readonly requireExecution?: boolean;
 }
 
 export interface TestingCliResult {
@@ -37,6 +43,7 @@ function recordIdentity(): string {
  */
 export function recordedTestRun(dispatch: TestDispatchResult): RecordedTestRun {
   return {
+    kind: TEST_RESULT_KIND.EXECUTED,
     dispatch,
     runFile: {
       runsDir: recordIdentity(),
@@ -63,27 +70,29 @@ export function recordedTestRun(dispatch: TestDispatchResult): RecordedTestRun {
 
 export function testingCliDeps(
   productDir: string,
-  run: RecordedTestRun,
+  run: TestsCommandResult,
   agentCalls: TestingCliCall[],
   streamCalls: TestingCliCall[],
 ): TestingCliDependencies {
   return {
     resolveProductDir: () => Promise.resolve(productDir),
-    runTests: (resolvedProductDir, passing, targets, changed) => {
+    runTests: (resolvedProductDir, passing, targets, changed, requireExecution) => {
       streamCalls.push({
         productDir: resolvedProductDir,
         passing,
         ...(targets === undefined ? {} : { targets }),
         ...(changed === undefined ? {} : { changed }),
+        ...(requireExecution === true ? { requireExecution } : {}),
       });
       return Promise.resolve(run);
     },
-    runAgentTests: (resolvedProductDir, passing, targets, changed) => {
+    runAgentTests: (resolvedProductDir, passing, targets, changed, requireExecution) => {
       agentCalls.push({
         productDir: resolvedProductDir,
         passing,
         ...(targets === undefined ? {} : { targets }),
         ...(changed === undefined ? {} : { changed }),
+        ...(requireExecution === true ? { requireExecution } : {}),
       });
       return Promise.resolve(run);
     },

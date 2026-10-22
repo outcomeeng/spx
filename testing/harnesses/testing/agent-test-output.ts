@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 
 import { expect } from "vitest";
 
-import type { RecordedTestRun } from "@/commands/test";
+import { type RecordedTestRun, TEST_RESULT_KIND } from "@/commands/test";
 import {
   NO_RUNNER_INVOCATION_EXIT_CODE,
   SUCCESS_EXIT_CODE,
@@ -96,6 +96,7 @@ function passingAgentRun(productDir: string, testPaths: readonly string[] = []):
     stdoutPath,
     stderrPath,
     run: {
+      kind: TEST_RESULT_KIND.EXECUTED,
       dispatch: {
         exitCode: SUCCESS_EXIT_CODE,
         groups: [],
@@ -127,6 +128,7 @@ function failingPythonRun(
     ...(failingTestPaths === undefined ? {} : { failingTestPaths }),
   };
   return {
+    kind: TEST_RESULT_KIND.EXECUTED,
     dispatch: {
       exitCode: failingExitCode,
       groups: [],
@@ -197,6 +199,7 @@ export function observeFailingRunnerWithReportedFailingPath(): FailedRunnerDetai
   const runFilePath = join(productDir, AGENT_TEST_OUTPUT_TEXT.STATE_FILE);
   const failingExitCode = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nonZeroExitCode());
   const run: RecordedTestRun = {
+    kind: TEST_RESULT_KIND.EXECUTED,
     dispatch: {
       exitCode: failingExitCode,
       groups: [],
@@ -280,6 +283,7 @@ export function expectAgentSummaryReportsPassingCountsAndArtifacts(): void {
   const stdoutPath = join(productDir, AGENT_TEST_OUTPUT_TEXT.STDOUT);
   const stderrPath = join(productDir, AGENT_TEST_OUTPUT_TEXT.STDERR);
   const run: RecordedTestRun = {
+    kind: TEST_RESULT_KIND.EXECUTED,
     dispatch: {
       exitCode: SUCCESS_EXIT_CODE,
       groups: [],
@@ -312,6 +316,7 @@ export function expectAgentSummaryReportsNoRunnerReportsAsFailure(): void {
     TEST_DISPATCH_GENERATOR.testFileUnder(typescriptTestingLanguage, nodePath),
   );
   const run: RecordedTestRun = {
+    kind: TEST_RESULT_KIND.EXECUTED,
     dispatch: {
       exitCode: NO_RUNNER_INVOCATION_EXIT_CODE,
       groups: [{
@@ -343,6 +348,7 @@ export function expectAgentSummaryReportsUnreportedGroupWhenAnotherRunnerFails()
   const unreportedPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(pythonTestingLanguage, nodePath));
   const failingExitCode = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nonZeroExitCode());
   const run: RecordedTestRun = {
+    kind: TEST_RESULT_KIND.EXECUTED,
     dispatch: {
       exitCode: failingExitCode,
       groups: [{
@@ -382,6 +388,7 @@ export function expectAgentSummaryReportsUnreportedGroupWhenReportedRunnersPass(
   );
   const unreportedPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.testFileUnder(pythonTestingLanguage, nodePath));
   const run: RecordedTestRun = {
+    kind: TEST_RESULT_KIND.EXECUTED,
     dispatch: {
       exitCode: SUCCESS_EXIT_CODE,
       groups: [{
@@ -422,6 +429,7 @@ export async function expectAgentModeNoRunnerReportsExitCode(): Promise<void> {
   const agentCalls: TestingCliCall[] = [];
   const streamCalls: TestingCliCall[] = [];
   const run: RecordedTestRun = {
+    kind: TEST_RESULT_KIND.EXECUTED,
     dispatch: {
       exitCode: NO_RUNNER_INVOCATION_EXIT_CODE,
       groups: [{
@@ -454,6 +462,7 @@ export function expectAgentSummaryReportsUnmatchedPaths(): void {
   const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
   const unmatchedPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.unmatchedTestFileUnder(nodePath));
   const run: RecordedTestRun = {
+    kind: TEST_RESULT_KIND.EXECUTED,
     dispatch: {
       exitCode: UNSUPPORTED_TEST_SELECTION_EXIT_CODE,
       groups: [],
@@ -477,6 +486,7 @@ export function expectAgentSummaryReportsUnresolvedTargets(): void {
   const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
   const unresolvedOperand = nodeOperand(nodePath);
   const run: RecordedTestRun = {
+    kind: TEST_RESULT_KIND.EXECUTED,
     dispatch: {
       exitCode: UNSUPPORTED_TEST_SELECTION_EXIT_CODE,
       groups: [],
@@ -499,6 +509,7 @@ export function expectAgentSummaryReportsUnresolvedChangedSources(): void {
   const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   const unresolvedSourcePath = sampleLiteralTestValue(arbitrarySourceFilePath());
   const run: RecordedTestRun = {
+    kind: TEST_RESULT_KIND.EXECUTED,
     dispatch: {
       exitCode: UNSUPPORTED_TEST_SELECTION_EXIT_CODE,
       groups: [],

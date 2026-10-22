@@ -16,9 +16,12 @@ export {
   currentStalenessInputs,
   NO_GIT_IDENTITY,
   type RecordedTestRun,
+  type ReusedTestRun,
   runNodeCommand,
   type RunNodeCommandOptions,
-  runTestsCommand,
   type RunTestsCommandOptions,
+  TEST_RESULT_KIND,
   type TestCommandDependencies,
+  type TestsCommandResult,
 } from "./run-command";
+export { runTestsCommand } from "./run-tests-command";

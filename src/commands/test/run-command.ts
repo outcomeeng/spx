@@ -41,6 +41,7 @@ import {
   type TestContentEntry,
   TESTING_RUN_STATE_ERROR_CODE,
   type TestRunFile,
+  type TestRunnerOutcome,
   type TestRunState,
   type TestRunStateFileSystem,
   type TestRunStateStatus,
@@ -103,13 +104,36 @@ export interface RunTestsCommandOptions {
   readonly targets?: TargetSelection;
   /** When present, resolve changed paths to a targeted-execution operand source before dispatch. */
   readonly changed?: { readonly baseRef?: string; readonly staged?: boolean };
+  /** When true, the selection dispatches even when a recorded run satisfies the request. */
+  readonly requireExecution?: boolean;
 }
 
+/** The two kinds of result a `spx test` request returns. */
+export const TEST_RESULT_KIND = {
+  EXECUTED: "executed",
+  REUSED: "reused",
+} as const;
+
 export interface RecordedTestRun {
+  readonly kind: typeof TEST_RESULT_KIND.EXECUTED;
   readonly dispatch: TestDispatchResult;
   readonly runFile: TestRunFile;
   readonly recorded: TestRunState;
 }
+
+/**
+ * A result taken from a recorded run: the run's file coordinates, its recorded
+ * state, and its outcomes restricted to the files the request selected. No runner
+ * was invoked and no run file was written for it.
+ */
+export interface ReusedTestRun {
+  readonly kind: typeof TEST_RESULT_KIND.REUSED;
+  readonly runFile: { readonly runFileName: string; readonly runFilePath: string };
+  readonly recorded: TestRunState;
+  readonly outcomes: readonly TestRunnerOutcome[];
+}
+
+export type TestsCommandResult = RecordedTestRun | ReusedTestRun;
 
 export interface RunNodeCommandOptions {
   readonly productDir: string;
@@ -509,15 +533,28 @@ async function reserveRunFile(
 }
 
 /**
- * Runs the spec tree's tests — every discovered file, or only the configured
- * passing scope under `passing` — through the registry, then records last-run
- * evidence for the run. Reads the passing scope from the resolved testing config.
+ * What a `spx test` request resolves to before any run: the operand selection,
+ * the passing scope, the changed-set plan, the testing config digest, and the
+ * staged snapshot reader. The recorded-run lookup and the dispatch both consume it.
  */
-export async function runTestsCommand(
+export interface PlannedTestsRun {
+  readonly options: RunTestsCommandOptions;
+  readonly selectedTargets: TargetSelection | undefined;
+  readonly passingScope: PathFilterConfig | undefined;
+  readonly changedSelection: ChangedTestSelection | undefined;
+  readonly testingConfigDigest: string;
+  readonly snapshotFileReader: SnapshotFileReader | undefined;
+}
+
+/**
+ * Resolves a request's selection inputs: plans the changed set, reads the
+ * passing scope from the resolved testing config, and rejects a staged run whose
+ * selected inputs differ from the index.
+ */
+export async function planTestsRun(
   options: RunTestsCommandOptions,
   deps: TestCommandDependencies,
-): Promise<RecordedTestRun> {
-  const recording = resolveRecordingDependencies(deps);
+): Promise<PlannedTestsRun> {
   let changedSelection: Awaited<ReturnType<typeof planChangedTestSelection>> | undefined;
   const changedGit = deps.git ?? defaultGitDependencies;
   if (options.changed !== undefined) {
@@ -564,16 +601,32 @@ export async function runTestsCommand(
   const snapshotFileReader = stagedChangedRun
     ? stagedSnapshotFileReader(options.productDir, changedGit)
     : undefined;
+  return { options, selectedTargets, passingScope, changedSelection, testingConfigDigest: digest, snapshotFileReader };
+}
+
+/** The changed source files no language adapter resolved into related tests; a full-tree selection leaves none. */
+export function unresolvedChangedSourceFilesOf(plan: PlannedTestsRun): readonly string[] {
+  return plan.changedSelection?.fullTreeSelected === true ? [] : plan.changedSelection?.unresolvedSourceFiles ?? [];
+}
+
+/**
+ * Dispatches a planned request's selection through the registry, then records
+ * last-run evidence for the run. Every dispatch of `spx test` records one run.
+ */
+export async function executePlannedTestsRun(
+  plan: PlannedTestsRun,
+  deps: TestCommandDependencies,
+): Promise<RecordedTestRun> {
+  const { options } = plan;
+  const recording = resolveRecordingDependencies(deps);
   const runFile = await reserveRunFile(options.productDir, recording);
   const dispatch = await runTests(
     {
       productDir: options.productDir,
       registry: deps.registry,
-      passingScope,
-      targets: selectedTargets,
-      unresolvedChangedSourceFiles: changedSelection?.fullTreeSelected === true
-        ? []
-        : changedSelection?.unresolvedSourceFiles,
+      passingScope: plan.passingScope,
+      targets: plan.selectedTargets,
+      unresolvedChangedSourceFiles: unresolvedChangedSourceFilesOf(plan),
     },
     { runnerDepsFor: deps.runnerDepsFor },
   );
@@ -583,10 +636,10 @@ export async function runTestsCommand(
     dispatch,
     recording,
     deps.registry,
-    digest,
-    snapshotFileReader,
+    plan.testingConfigDigest,
+    plan.snapshotFileReader,
   );
-  return { dispatch, runFile, recorded };
+  return { kind: TEST_RESULT_KIND.EXECUTED, dispatch, runFile, recorded };
 }
 
 /**
@@ -605,5 +658,5 @@ export async function runNodeCommand(
     { runnerDepsFor: deps.runnerDepsFor },
   );
   const recorded = await recordRun(runFile, options.productDir, dispatch, recording, deps.registry);
-  return { dispatch, runFile, recorded };
+  return { kind: TEST_RESULT_KIND.EXECUTED, dispatch, runFile, recorded };
 }

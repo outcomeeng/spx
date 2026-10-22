@@ -1,4 +1,4 @@
-import type { RecordedTestRun } from "@/commands/test";
+import { type RecordedTestRun, type ReusedTestRun, TEST_RESULT_KIND, type TestsCommandResult } from "@/commands/test";
 import { SUCCESS_EXIT_CODE } from "@/domains/test";
 import { TEST_RUN_STATE_STATUS, type TestRunStateStatus } from "@/test/run-state";
 
@@ -7,6 +7,7 @@ export const AGENT_TEST_OUTPUT_TEXT = {
   STATUS: "status",
   EXIT_CODE: "exitCode",
   STATE_FILE: "stateFile",
+  REUSED_RUN: "reusedRun",
   RUNNER: "runner",
   TESTS: "tests",
   STDOUT: "stdout",
@@ -55,7 +56,30 @@ function summaryStatus(run: RecordedTestRun): TestRunStateStatus {
   return run.recorded.status;
 }
 
-export function formatAgentTestOutput(run: RecordedTestRun): string {
+function formatReusedAgentTestOutput(run: ReusedTestRun): string {
+  const lines = [
+    AGENT_TEST_OUTPUT_TEXT.HEADER,
+    `${AGENT_TEST_OUTPUT_TEXT.STATUS}: ${TEST_RUN_STATE_STATUS.PASSED}`,
+    `${AGENT_TEST_OUTPUT_TEXT.EXIT_CODE}: ${SUCCESS_EXIT_CODE}`,
+    `${AGENT_TEST_OUTPUT_TEXT.REUSED_RUN}: ${run.runFile.runFilePath}`,
+  ];
+  for (const outcome of run.outcomes) {
+    lines.push(
+      `${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${outcome.runnerId}`,
+      `${INDENT}${AGENT_TEST_OUTPUT_TEXT.EXIT_CODE}: ${outcome.exitCode}`,
+      `${INDENT}${AGENT_TEST_OUTPUT_TEXT.TESTS}: ${outcome.testPaths.length}`,
+    );
+  }
+  return `${lines.join(NEWLINE)}${NEWLINE}`;
+}
+
+export function formatAgentTestOutput(result: TestsCommandResult): string {
+  return result.kind === TEST_RESULT_KIND.REUSED
+    ? formatReusedAgentTestOutput(result)
+    : formatExecutedAgentTestOutput(result);
+}
+
+function formatExecutedAgentTestOutput(run: RecordedTestRun): string {
   const lines = [
     AGENT_TEST_OUTPUT_TEXT.HEADER,
     `${AGENT_TEST_OUTPUT_TEXT.STATUS}: ${summaryStatus(run)}`,

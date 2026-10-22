@@ -9,6 +9,7 @@ import {
   type RecordedTestRun,
   runTests,
   runTestsCommand,
+  TEST_RESULT_KIND,
   type TestDispatchResult,
 } from "@/commands/test";
 import { CONFIG_FILENAMES } from "@/config/index";
@@ -54,6 +55,7 @@ type TestCommandDependencies = Parameters<typeof runTestsCommand>[1];
 
 function recordedPassingRun(productDir: string, run: TestDispatchResult): RecordedTestRun {
   return {
+    kind: TEST_RESULT_KIND.EXECUTED,
     dispatch: run,
     runFile: {
       runsDir: productDir,
@@ -119,12 +121,9 @@ async function runStagedChangedTestCommand(
   request: Omit<TestCommandRequest, "changed">,
   runner: ReturnType<typeof createRecordingCommandRunner>,
   git: GitDependencies,
-): Promise<Awaited<ReturnType<typeof runTestsCommand>>> {
+): Promise<RecordedTestRun> {
   return await runTestsCommand(
-    {
-      ...request,
-      changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
-    },
+    { ...request, requireExecution: true, changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true } },
     stagedChangedCommandDeps(runner, git),
   );
 }
@@ -323,11 +322,7 @@ export function registerTestScenarioTests(): void {
         await writeTestFileFixture(productDir, testPath);
 
         const run = await runTestsCommand(
-          {
-            productDir,
-            passing: false,
-            changed: { baseRef: GIT_TEST_REF.HEAD_NAME },
-          },
+          { requireExecution: true, productDir, passing: false, changed: { baseRef: GIT_TEST_REF.HEAD_NAME } },
           {
             registry: testingRegistry,
             runnerDepsFor: () => runner,
@@ -400,6 +395,7 @@ export function registerTestScenarioTests(): void {
 
         const run = await runTestsCommand(
           {
+            requireExecution: true,
             productDir,
             passing: true,
             changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
@@ -704,6 +700,7 @@ export function registerTestScenarioTests(): void {
 
         const run = await runTestsCommand(
           {
+            requireExecution: true,
             productDir,
             passing: false,
             changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },
@@ -728,6 +725,7 @@ export function registerTestScenarioTests(): void {
         await expect(
           runTestsCommand(
             {
+              requireExecution: true,
               productDir,
               passing: false,
               changed: { baseRef: GIT_TEST_REF.HEAD_NAME, staged: true },

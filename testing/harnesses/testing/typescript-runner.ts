@@ -453,7 +453,7 @@ export function registerTypescriptRunnerScenarioL1Tests(): void {
         });
 
         await runTestsCommand(
-          { productDir, passing: true },
+          { requireExecution: true, productDir, passing: true },
           testingCommandDependencies(runner),
         );
 
@@ -481,7 +481,7 @@ export function registerTypescriptRunnerScenarioL1Tests(): void {
         await writeTestFileFixture(productDir, testPath);
 
         const result = await runTestsCommand(
-          { productDir, passing: false },
+          { requireExecution: true, productDir, passing: false },
           testingCommandDependencies(runner),
         );
 
@@ -502,7 +502,7 @@ export function registerTypescriptRunnerScenarioL1Tests(): void {
             await writeTestFileFixture(productDir, testPath);
 
             const result = await runTestsCommand(
-              { productDir, passing: false },
+              { requireExecution: true, productDir, passing: false },
               testingCommandDependencies(runner),
             );
 
@@ -533,11 +533,7 @@ export function registerTypescriptRunnerScenarioL2Tests(): void {
           );
           const runner = createRepoRootedRecordingCommandRunner();
           const result = await runTestsCommand(
-            {
-              productDir,
-              passing: false,
-              targets: { operands: [testPath], recursive: false },
-            },
+            { requireExecution: true, productDir, passing: false, targets: { operands: [testPath], recursive: false } },
             testingCommandDependencies(runner),
           );
 
@@ -557,11 +553,7 @@ export function registerTypescriptRunnerScenarioL2Tests(): void {
         async (productDir) => {
           const runner = createRepoRootedRecordingCommandRunner();
           const result = await runTestsCommand(
-            {
-              productDir,
-              passing: false,
-              targets: { operands: [testPath], recursive: false },
-            },
+            { requireExecution: true, productDir, passing: false, targets: { operands: [testPath], recursive: false } },
             testingCommandDependencies(runner),
           );
 
@@ -593,7 +585,7 @@ export function registerTypescriptRunnerMappingTests(): void {
           await writeTestFileFixture(productDir, testPath);
 
           await runTestsCommand(
-            { productDir, passing: false },
+            { requireExecution: true, productDir, passing: false },
             testingCommandDependencies(runner),
           );
 
@@ -630,7 +622,7 @@ export function registerTypescriptRunnerMappingTests(): void {
           });
 
           await runTestsCommand(
-            { productDir, passing: true },
+            { requireExecution: true, productDir, passing: true },
             testingCommandDependencies(runner),
           );
 
@@ -657,7 +649,7 @@ export function registerTypescriptRunnerComplianceTests(): void {
             await writeTestFileFixture(productDir, testPath);
 
             const result = await runTestsCommand(
-              { productDir, passing: false },
+              { requireExecution: true, productDir, passing: false },
               testingCommandDependencies(runner),
             );
 
