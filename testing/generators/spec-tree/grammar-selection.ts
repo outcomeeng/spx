@@ -29,7 +29,7 @@ import {
 import { type RepresentativeSpecTreeFixture, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 
 /** The output node kinds whose suffix no naming-schema version other than the 4.0 version accepts. */
-function fourZeroOnlyOutputKinds(): readonly (typeof OUTPUT_KINDS)[number][] {
+export function fourZeroOnlyOutputKinds(): readonly (typeof OUTPUT_KINDS)[number][] {
   const otherVersionSuffixes = new Set(
     SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS
       .filter((version) => version !== SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION)

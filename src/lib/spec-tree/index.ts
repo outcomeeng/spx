@@ -26,9 +26,11 @@ import {
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_KIND_CATEGORY,
+  SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_NODE_STATE,
 } from "./config";
 import { compareSpecContextOrdinal } from "./context-manifest";
+import { isFileNotFound, readSpecEvidenceReferences, type SpecTreeEvidenceReference } from "./evidence-references";
 import {
   priorNamingSchemaVersions,
   selectSpecTreeGrammar,
@@ -162,6 +164,17 @@ export type {
   SpecContextTargetResolution,
 } from "./context-target";
 export {
+  SPEC_TREE_EVIDENCE_KEY_KIND,
+  SPEC_TREE_EVIDENCE_TARGET,
+  SPEC_TREE_VERIFICATION_TYPE,
+} from "./evidence-references";
+export type {
+  SpecTreeEvidenceKey,
+  SpecTreeEvidenceReference,
+  SpecTreeEvidenceTarget,
+  SpecTreeVerificationType,
+} from "./evidence-references";
+export {
   selectedSupersededNodeSuffixes,
   selectSpecTreeGrammar,
   SPEC_TREE_DECLARATION_FIELD,
@@ -171,12 +184,17 @@ export {
   admitsSpecTreeLinkText,
   createSpecTreeLinkGrammar,
   isSpecTreeEvidenceLinkText,
+  SPEC_TREE_ASSERTION_BULLET_PREFIX,
+  SPEC_TREE_ASSERTIONS_HEADING,
+  SPEC_TREE_AUDIT_TAG_SLUG_SEPARATOR,
+  SPEC_TREE_AUDIT_TAG_TEXT,
   SPEC_TREE_EVIDENCE_LINK_TEXT,
   SPEC_TREE_EVIDENCE_LINK_TEXTS,
   SPEC_TREE_LINK_KIND,
   SPEC_TREE_LINK_PARENT_SEGMENT,
   SPEC_TREE_LINK_ROOT_ANCHOR,
   SPEC_TREE_ROOT_PREFIX,
+  SPEC_TREE_SECTION_HEADING_PREFIX,
 } from "./link-grammar";
 export type {
   SpecTreeEvidenceLinkText,
@@ -337,6 +355,12 @@ export type SpecTreeSourceEntry =
 export type SpecTreeSource = {
   entries(): AsyncIterable<SpecTreeSourceEntry>;
   readText?(ref: SpecTreeSourceRef): Promise<string>;
+  /**
+   * The link grammar of the grammar selection and kind registry the source reads its entries
+   * under, which evidence-reference reading judges link targets by. A source that declares none
+   * is judged by every known naming-schema version.
+   */
+  linkGrammar?(): Promise<SpecTreeLinkGrammar>;
 };
 
 export type SpecTreeFilesystemRecord = {
@@ -411,6 +435,8 @@ export type SpecTreeNode = {
   readonly state: SpecTreeNodeState;
   readonly decisions: readonly SpecTreeDecision[];
   readonly children: readonly SpecTreeNode[];
+  /** The evidence each tagged assertion of the node's spec declares, in order of appearance. */
+  readonly evidenceReferences: readonly SpecTreeEvidenceReference[];
 };
 
 export type SpecTreeSnapshot = {
@@ -498,6 +524,7 @@ export function createFilesystemSpecTreeSource(options: FilesystemSpecTreeSource
       }
       return readFile(join(options.productDir, ref.path), SPEC_TREE_TEXT_ENCODING);
     },
+    linkGrammar: async () => specTreeLinkGrammar(await resolveSelection(), registry),
   };
 }
 
@@ -744,15 +771,24 @@ function matchSupersededNodeVersion(
 
 const linkGrammarBySelection = new WeakMap<SpecTreeGrammarSelection, SpecTreeLinkGrammar>();
 
+const KNOWN_GRAMMAR_SELECTION: SpecTreeGrammarSelection = {
+  known: SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
+  selected: SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
+};
+
 /**
  * The spec-tree link grammar of a product's grammar selection: a link target is judged by the
  * node-directory and decision forms the selected versions accept, and by the forms of the
  * versions ordered before the declared target, which a migrating tree still carries.
  */
-export function specTreeLinkGrammar(selection: SpecTreeGrammarSelection): SpecTreeLinkGrammar {
-  const cached = linkGrammarBySelection.get(selection);
+export function specTreeLinkGrammar(
+  selection: SpecTreeGrammarSelection,
+  registry?: SpecTreeRegistry,
+): SpecTreeLinkGrammar {
+  const cached = registry === undefined ? linkGrammarBySelection.get(selection) : undefined;
   if (cached !== undefined) return cached;
   const recognition: SpecTreeRecognitionOptions = {
+    registry,
     schemaVersions: selection.known,
     selectedVersions: selection.selected,
   };
@@ -770,7 +806,7 @@ export function specTreeLinkGrammar(selection: SpecTreeGrammarSelection): SpecTr
         relativePath: specTreeRelativePath,
       }, recognition)?.type === SPEC_TREE_ENTRY_TYPE.DECISION,
   });
-  linkGrammarBySelection.set(selection, grammar);
+  if (registry === undefined) linkGrammarBySelection.set(selection, grammar);
   return grammar;
 }
 
@@ -792,7 +828,12 @@ export async function readSpecTree(options: SpecTreeOptions): Promise<SpecTreeSn
   const decisionsByParent = groupDecisions(decisions);
   const nodesById = new Map<string, MutableSpecTreeNode>();
 
-  for (const entry of entries.filter(isNodeEntry)) {
+  const nodeEntries = entries.filter(isNodeEntry);
+  const linkGrammar = await options.source.linkGrammar?.() ?? specTreeLinkGrammar(KNOWN_GRAMMAR_SELECTION);
+  const nodeEvidenceReferences = await Promise.all(
+    nodeEntries.map((entry) => readNodeEvidenceReferences(entry, options.source, linkGrammar)),
+  );
+  for (const [index, entry] of nodeEntries.entries()) {
     const state = deriveState(entry, evidenceByParent.get(entry.id) ?? [], options.evidence);
     nodesById.set(entry.id, {
       id: entry.id,
@@ -805,6 +846,7 @@ export async function readSpecTree(options: SpecTreeOptions): Promise<SpecTreeSn
       state,
       decisions: decisionsByParent.get(entry.id) ?? [],
       children: [],
+      evidenceReferences: nodeEvidenceReferences[index] ?? [],
     });
   }
 
@@ -944,6 +986,28 @@ function deriveState(
     return SPEC_TREE_NODE_STATE.PASSING;
   }
   return SPEC_TREE_NODE_STATE.SPECIFIED;
+}
+
+async function readNodeEvidenceReferences(
+  entry: SpecTreeNodeSourceEntry,
+  source: SpecTreeSource,
+  linkGrammar: SpecTreeLinkGrammar,
+): Promise<readonly SpecTreeEvidenceReference[]> {
+  const specRef = entry.ref;
+  const specPath = specRef?.path;
+  if (source.readText === undefined || specRef === undefined || specPath === undefined) return [];
+  const readText = source.readText.bind(source);
+  const specText = await readText(specRef).catch((error: unknown) => {
+    if (isFileNotFound(error)) return null;
+    throw error;
+  });
+  if (specText === null) return [];
+  return readSpecEvidenceReferences(
+    specPath,
+    specText,
+    linkGrammar,
+    (path) => readText({ id: path, path }),
+  );
 }
 
 function sortNodes(nodes: MutableSpecTreeNode[]): void {
@@ -1264,8 +1328,4 @@ function joinSpecTreePath(...segments: readonly string[]): string {
 
 function includeEverySpecTreePath(): boolean {
   return true;
-}
-
-function isFileNotFound(error: unknown): boolean {
-  return error instanceof Error && "code" in error && (error as NodeJS.ErrnoException).code === "ENOENT";
 }

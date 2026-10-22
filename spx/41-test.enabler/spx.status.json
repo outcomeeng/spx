@@ -5,7 +5,7 @@
     "test": {
       "tests/evidence-contract.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "01fdc6c8ac27254faf3389243b864dd4d85e79bf",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -108,6 +108,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -176,7 +177,7 @@
       },
       "tests/execution-recording.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "01fdc6c8ac27254faf3389243b864dd4d85e79bf",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -252,6 +253,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -311,7 +313,7 @@
       },
       "tests/test.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "01fdc6c8ac27254faf3389243b864dd4d85e79bf",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -414,6 +416,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -484,7 +487,7 @@
       },
       "tests/test.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "01fdc6c8ac27254faf3389243b864dd4d85e79bf",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -538,6 +541,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -571,7 +575,7 @@
       },
       "tests/test.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "01fdc6c8ac27254faf3389243b864dd4d85e79bf",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -632,6 +636,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -670,7 +675,7 @@
       },
       "tests/test.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "01fdc6c8ac27254faf3389243b864dd4d85e79bf",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -971,6 +976,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
