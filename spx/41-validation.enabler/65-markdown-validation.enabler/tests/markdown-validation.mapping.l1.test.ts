@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { markdownCommand } from "@/commands/validation/markdown";
 import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
+import { SPEC_TREE_METHODOLOGY_LINE } from "@/lib/spec-tree/config";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { MARKDOWN_VALIDATION_STAGE_PARTICIPATION } from "@/validation/languages/markdown";
 import { VALIDATION_STAGE_PARTICIPATION } from "@/validation/languages/types";
@@ -22,6 +23,11 @@ import {
   markdownRuleResolutionRows,
   markdownUncheckedLinks,
 } from "@testing/generators/validation/markdown";
+import {
+  arbitraryMalleabilityScenario,
+  canonicalNodeSpec,
+  malleabilityRows,
+} from "@testing/generators/validation/node-spec";
 import { withMarkdownTempProject } from "@testing/harnesses/validation/markdown";
 import { MARKDOWN_HARNESS_TIMEOUT } from "@testing/harnesses/with-markdown-env";
 
@@ -147,6 +153,37 @@ describe("Link type resolution for local rule behavior", () => {
         expect(result.errors).toEqual([]);
         expect(result.success).toBe(true);
       });
+    },
+    MARKDOWN_HARNESS_TIMEOUT,
+  );
+});
+
+describe("Explicit malleability declarations", () => {
+  it(
+    "map an absent malleability and each supported value to no error and every other value to an error naming the file, the line, and the value",
+    async () => {
+      const { seed, id, unsupported } = sampleGeneratedValue(arbitraryMalleabilityScenario());
+      for (const { declared, admitted } of malleabilityRows(unsupported)) {
+        const spec = canonicalNodeSpec(seed, { id, malleability: declared });
+        await withMarkdownTempProject(async ({ productDir, spxDir, write }) => {
+          const specFile = await write(spec.path, spec.content);
+
+          const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
+
+          expect(result.success).toBe(admitted);
+          if (admitted) {
+            expect(result.errors).toEqual([]);
+          } else {
+            expect(result.errors).toEqual([
+              expect.objectContaining({
+                file: specFile,
+                line: spec.malleabilityLine,
+                detail: expect.stringContaining(unsupported),
+              }),
+            ]);
+          }
+        }, SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO);
+      }
     },
     MARKDOWN_HARNESS_TIMEOUT,
   );
