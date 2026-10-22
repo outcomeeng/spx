@@ -5,7 +5,7 @@
     "test": {
       "tests/markdown-validation-command.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "f0450ec05c472f3dd63bcac9f4ecae2451c9df6f",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -376,7 +376,7 @@
       },
       "tests/markdown-validation.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "f0450ec05c472f3dd63bcac9f4ecae2451c9df6f",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -522,7 +522,7 @@
       },
       "tests/markdown-validation.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "f0450ec05c472f3dd63bcac9f4ecae2451c9df6f",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -622,7 +622,7 @@
       },
       "tests/markdown-validation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "f0450ec05c472f3dd63bcac9f4ecae2451c9df6f",
         "read": [
           "pnpm-lock.yaml",
           "spx.config.yaml",
@@ -769,6 +769,7 @@
           "spx/23-spec-tree.enabler/21-kind-registry.adr.md",
           "spx/23-spec-tree.enabler/26-filename-grammar.adr.md",
           "spx/23-spec-tree.enabler/29-filename-grammar.enabler/21-versioned-grammar-model.adr.md",
+          "spx/23-spec-tree.enabler/29-filename-grammar.enabler/ISSUES.md",
           "spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md",
           "spx/23-spec-tree.enabler/32-spec-tree-source.enabler/ISSUES.md",
           "spx/23-spec-tree.enabler/32-spec-tree-source.enabler/PLAN.md",
@@ -776,6 +777,7 @@
           "spx/23-spec-tree.enabler/43-entry-recognition.enabler/21-recognition-classification.adr.md",
           "spx/23-spec-tree.enabler/43-entry-recognition.enabler/entry-recognition.md",
           "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/21-conformance-classification.adr.md",
+          "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/ISSUES.md",
           "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/PLAN.md",
           "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/skill-conformance-oracle.md",
           "spx/23-spec-tree.enabler/54-spec-tree-assembly.enabler/spec-tree-assembly.md",

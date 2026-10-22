@@ -1,9 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree";
 
-export const NODE_STATUS_EXCLUDE_FILENAME = "EXCLUDE";
 export const NODE_STATUS_EXCLUDE_PATH_GRAMMAR = {
   SEGMENT_SEPARATOR: "/",
   CURRENT_DIRECTORY_SEGMENT: ".",
@@ -32,7 +31,7 @@ function isNodeError(err: unknown): err is NodeJS.ErrnoException {
 }
 
 function excludePath(productDir: string): string {
-  return join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, NODE_STATUS_EXCLUDE_FILENAME);
+  return join(productDir, SPEC_TREE_CONFIG.ROOT_DIRECTORY, SPEC_TREE_GRAMMAR.EXCLUSION_REGISTRY_FILENAME);
 }
 
 function parseExcludeEntries(content: string): readonly string[] {
@@ -59,7 +58,7 @@ function validateExcludeEntry(entry: string): string {
 }
 
 export function nodeStatusInvalidExcludeEntryMessage(entry: string): string {
-  return `Invalid ${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${NODE_STATUS_EXCLUDE_FILENAME} entry: ${entry}`;
+  return `Invalid ${SPEC_TREE_CONFIG.ROOT_DIRECTORY}/${SPEC_TREE_GRAMMAR.EXCLUSION_REGISTRY_FILENAME} entry: ${entry}`;
 }
 
 export function createNodeStatusExcludeReader(productDir: string): NodeStatusExcludeReader {

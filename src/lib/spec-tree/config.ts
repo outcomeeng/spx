@@ -229,9 +229,12 @@ export const SPEC_TREE_GRAMMAR = {
   COORDINATION_NOTES: [SPEC_TREE_COORDINATION_NOTE.PLAN, SPEC_TREE_COORDINATION_NOTE.ISSUES],
   GUIDE_FILES: ["CLAUDE.md", "AGENTS.md"],
   STATUS_FILENAME: "spx.status.json",
+  /** The exclusion registry file directly under `spx/`. */
+  EXCLUSION_REGISTRY_FILENAME: "EXCLUDE",
   KNOWLEDGE: {
     DIRECTORY_NAME: "knowledge",
     INDEX_FILENAME: "index.md",
+    LOG_FILENAME: "log.md",
   },
   OUTCOME_RECORD: {
     SUFFIX: ".outcome.md",
@@ -299,7 +302,10 @@ export type NamingSchemaVersion = {
   readonly pathSeparator: string;
   readonly coordinationNotes: readonly string[];
   readonly eval: typeof SPEC_TREE_GRAMMAR.EVAL;
-  readonly probe: typeof SPEC_TREE_GRAMMAR.PROBE;
+  /** The knowledge root a node may hold; absent for a version that reserves no such directory. */
+  readonly knowledge?: typeof SPEC_TREE_GRAMMAR.KNOWLEDGE;
+  /** The probe lane a node may hold; absent for a version that reserves no such directory. */
+  readonly probe?: typeof SPEC_TREE_GRAMMAR.PROBE;
   readonly specFileSuffix: string;
   /** The kind a root spec file declares in its front matter; absent when the root is a `productSuffix` file with no declared kind. */
   readonly rootSpecKind?: string;
@@ -330,7 +336,6 @@ function namingSchemaVersion(
     pathSeparator: SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
     coordinationNotes: SPEC_TREE_GRAMMAR.COORDINATION_NOTES,
     eval: SPEC_TREE_GRAMMAR.EVAL,
-    probe: SPEC_TREE_GRAMMAR.PROBE,
     specFileSuffix,
   };
 }
@@ -366,6 +371,8 @@ export const SPEC_TREE_OUTPUT_NAMING_SCHEMA_VERSION: NamingSchemaVersion = {
   ),
   productSuffix: SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX,
   coordinationNotes: [SPEC_TREE_COORDINATION_NOTE.ISSUES],
+  knowledge: SPEC_TREE_GRAMMAR.KNOWLEDGE,
+  probe: SPEC_TREE_GRAMMAR.PROBE,
   rootSpecKind: SPEC_TREE_CONFIG.PRODUCT.KIND,
 };
 
@@ -408,6 +415,76 @@ export function acceptsEvalLaneEntry(
   return entryKind === SPEC_TREE_EVAL_ENTRY_KIND.DIRECTORY
     ? name === version.eval.RUNS_DIRECTORY_NAME
     : (version.eval.FILES as readonly string[]).includes(name);
+}
+
+/** The segments of a probe-lane artifact's name: `{slug}` and `{ext}`, joined by the evidence segment separator. */
+const PROBE_ARTIFACT_NAME_SEGMENT_COUNT = 2;
+
+/** The segments of a probe-lane path that name the lane directory alone, a probe directory, or an entry in a probe directory. */
+const PROBE_LANE_PATH_SEGMENT_COUNT = 1;
+const PROBE_DIRECTORY_PATH_SEGMENT_COUNT = 2;
+const PROBE_ENTRY_PATH_SEGMENT_COUNT = 3;
+
+function isGrammarSlug(text: string, evidence: SpecTreeEvidenceGrammar): boolean {
+  return text.split(evidence.WORD_SEPARATOR).every((word) => evidence.WORD_PATTERN.test(word));
+}
+
+/** The directories that hold a knowledge root: a node directory, and `spx/` for the root product. */
+export const SPEC_TREE_KNOWLEDGE_ROOT_HOLDER = {
+  NODE_DIRECTORY: "node-directory",
+  ROOT_PRODUCT: "root-product",
+} as const;
+
+export type SpecTreeKnowledgeRootHolder =
+  (typeof SPEC_TREE_KNOWLEDGE_ROOT_HOLDER)[keyof typeof SPEC_TREE_KNOWLEDGE_ROOT_HOLDER];
+
+const KNOWLEDGE_ROOT_HOLDERS: readonly string[] = Object.values(SPEC_TREE_KNOWLEDGE_ROOT_HOLDER);
+
+/**
+ * Whether a version accepts the entry at `pathFromHolder`, a path relative to the directory that
+ * holds the knowledge root and joined by the version's path separator: the `knowledge` directory
+ * itself, or anything beneath it, whose structure the bundle's author owns. The holder is a node
+ * directory or `spx/` of the root product. A version that reserves no knowledge root accepts nothing.
+ */
+export function acceptsKnowledgeRoot(
+  version: NamingSchemaVersion,
+  holder: SpecTreeKnowledgeRootHolder,
+  pathFromHolder: string,
+  entryKind: SpecTreeEvalEntryKind,
+): boolean {
+  if (version.knowledge === undefined || !KNOWLEDGE_ROOT_HOLDERS.includes(holder)) return false;
+  const [root, ...beneath] = pathFromHolder.split(version.pathSeparator);
+  if (root !== version.knowledge.DIRECTORY_NAME) return false;
+  if (beneath.length === 0) return entryKind === SPEC_TREE_EVAL_ENTRY_KIND.DIRECTORY;
+  return beneath.every((segment) => segment !== "");
+}
+
+/**
+ * Whether a version accepts the entry at `pathFromNode`, a path relative to a node directory joined
+ * by the version's path separator, as probe-lane content: the `probes` directory, a directory named
+ * by a slug beneath it, and beneath that directory the protocol file, an artifact file
+ * `{slug}.{ext}`, or the runs directory. A version that reserves no probe lane accepts nothing.
+ */
+export function acceptsProbeEntry(
+  version: NamingSchemaVersion,
+  pathFromNode: string,
+  entryKind: SpecTreeEvalEntryKind,
+): boolean {
+  if (version.probe === undefined) return false;
+  const segments = pathFromNode.split(version.pathSeparator);
+  const [directory, probeSlug = "", name = ""] = segments;
+  if (directory !== version.probe.DIRECTORY_NAME) return false;
+  const isDirectory = entryKind === SPEC_TREE_EVAL_ENTRY_KIND.DIRECTORY;
+  if (segments.length === PROBE_LANE_PATH_SEGMENT_COUNT) return isDirectory;
+  if (!isGrammarSlug(probeSlug, version.evidence)) return false;
+  if (segments.length === PROBE_DIRECTORY_PATH_SEGMENT_COUNT) return isDirectory;
+  if (segments.length !== PROBE_ENTRY_PATH_SEGMENT_COUNT) return false;
+  if (isDirectory) return name === version.probe.RUNS_DIRECTORY_NAME;
+  const artifact = name.split(version.evidence.SEGMENT_SEPARATOR);
+  const [artifactSlug = "", extension = ""] = artifact;
+  return artifact.length === PROBE_ARTIFACT_NAME_SEGMENT_COUNT
+    && isGrammarSlug(artifactSlug, version.evidence)
+    && version.evidence.WORD_PATTERN.test(extension);
 }
 
 const VERSION_COMPONENT_SEPARATOR = ".";

@@ -13,19 +13,29 @@ import type {
   Kind,
   KindDefinition,
   NamingSchemaVersion,
+  ProductKind,
   SpecTreeContainerKind,
   SpecTreeEvidenceGrammar,
   SpecTreeKindCategory,
+  SpecTreeKnowledgeRootHolder,
   SpecTreeNodeKind,
   SpecTreeNodeState,
 } from "./config";
 import {
+  acceptsEvalLaneEntry,
+  acceptsKnowledgeRoot,
+  acceptsNodeLocalNote,
+  acceptsProbeEntry,
   canonicalNamingSchemaVersion,
   KIND_REGISTRY,
+  OUTPUT_KINDS,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
+  SPEC_TREE_EVAL_ENTRY_KIND,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_KIND_CATEGORY,
+  SPEC_TREE_KNOWLEDGE_ROOT_HOLDER,
+  SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_NODE_STATE,
 } from "./config";
 import { compareSpecContextOrdinal } from "./context-manifest";
@@ -39,7 +49,9 @@ import { createSpecTreeLinkGrammar, type SpecTreeLinkGrammar } from "./link-gram
 import { compareSpecTreeOrder } from "./order";
 export {
   acceptsEvalLaneEntry,
+  acceptsKnowledgeRoot,
   acceptsNodeLocalNote,
+  acceptsProbeEntry,
   canonicalNamingSchemaVersion,
   compareNamingSchemaVersions,
   compareNumericVersionIdentifiers,
@@ -62,6 +74,7 @@ export {
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_INHERIT_FROM_PARENT,
   SPEC_TREE_KIND_CATEGORY,
+  SPEC_TREE_KNOWLEDGE_ROOT_HOLDER,
   SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
   SPEC_TREE_METHODOLOGY_LINE,
   SPEC_TREE_NAMING_SCHEMA_VERSIONS,
@@ -86,6 +99,7 @@ export type {
   SpecTreeEvalEntryKind,
   SpecTreeEvidenceGrammar,
   SpecTreeKindCategory,
+  SpecTreeKnowledgeRootHolder,
   SpecTreeMethodologyLine,
   SpecTreeNodeKind,
   SpecTreeNodeState,
@@ -584,6 +598,225 @@ export function recognizeSpecTreeFilesystemEntry(
     parentId: record.parentId,
     ref: sourceRefForRelativePath(record.relativePath),
   };
+}
+
+/** The verdicts of the skill-conformance oracle: a path a skill operation produces, or one no recognized form covers. */
+export const SPEC_TREE_CONFORMANCE_VERDICT = {
+  VALID: "valid",
+  FOREIGN: "foreign",
+} as const;
+
+export type SpecTreeConformanceVerdict =
+  (typeof SPEC_TREE_CONFORMANCE_VERDICT)[keyof typeof SPEC_TREE_CONFORMANCE_VERDICT];
+
+/** Where a classified record sits: the ancestry context that decides which forms can contain it. */
+export const SPEC_TREE_CONFORMANCE_LOCATION = {
+  PRODUCT_ROOT: "tree-root",
+  NODE_DIRECTORY: "node-directory",
+  EVIDENCE_DIRECTORY: "evidence-directory",
+  EVAL_LANE: "eval-lane",
+  KNOWLEDGE_ROOT: "knowledge-root",
+  PROBE_DIRECTORY: "probe-directory",
+} as const;
+
+export type SpecTreeConformanceLocation =
+  (typeof SPEC_TREE_CONFORMANCE_LOCATION)[keyof typeof SPEC_TREE_CONFORMANCE_LOCATION];
+
+type SpecTreeConformanceContextBase = {
+  /** The slug of the node directory that holds the record. */
+  readonly parentSlug?: string | undefined;
+};
+
+/** The kind of the node directory that holds the record; the probe lane is decided by it. */
+type SpecTreeConformanceParentKind = Kind | ProductKind;
+
+type SpecTreeKindedConformanceLocation =
+  | typeof SPEC_TREE_CONFORMANCE_LOCATION.NODE_DIRECTORY
+  | typeof SPEC_TREE_CONFORMANCE_LOCATION.PROBE_DIRECTORY;
+
+export type SpecTreeConformanceContext =
+  | (SpecTreeConformanceContextBase & {
+    readonly location: SpecTreeKindedConformanceLocation;
+    readonly parentKind: SpecTreeConformanceParentKind;
+    readonly holder?: undefined;
+  })
+  | (SpecTreeConformanceContextBase & {
+    readonly location: Exclude<SpecTreeConformanceLocation, SpecTreeKindedConformanceLocation>;
+    readonly parentKind?: undefined;
+    /** The directory that holds a knowledge root; a node directory when absent. */
+    readonly holder?: SpecTreeKnowledgeRootHolder | undefined;
+  });
+
+const OWNED_RECOGNITION_OPTIONS: SpecTreeRecognitionOptions = {
+  schemaVersions: SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
+  selectedVersions: SPEC_TREE_KNOWN_NAMING_SCHEMA_VERSIONS,
+};
+
+const EVAL_RULE_DIRECTORY_SEGMENT_COUNT = 2;
+const PROBE_RUNS_DESCENDANT_MIN_SEGMENT_COUNT = 4;
+const PROBE_RUNS_SEGMENT_INDEX = 2;
+const PROBE_SLUG_SEGMENT_INDEX = 1;
+
+/**
+ * Classifies one path inside `spx/` as valid, a form a skill operation produces, or foreign, a path
+ * no recognized form covers. Every form derives from the grammar of the naming-schema versions the
+ * options select; product, node, decision, and evidence forms compose the entry recognizer.
+ */
+export function classifySpecTreePath(
+  record: SpecTreeFilesystemRecord,
+  context: SpecTreeConformanceContext,
+  options: SpecTreeRecognitionOptions = OWNED_RECOGNITION_OPTIONS,
+): SpecTreeConformanceVerdict {
+  return conformsToGrammar(record, context, options)
+    ? SPEC_TREE_CONFORMANCE_VERDICT.VALID
+    : SPEC_TREE_CONFORMANCE_VERDICT.FOREIGN;
+}
+
+function conformsToGrammar(
+  record: SpecTreeFilesystemRecord,
+  context: SpecTreeConformanceContext,
+  options: SpecTreeRecognitionOptions,
+): boolean {
+  const location = SPEC_TREE_CONFORMANCE_LOCATION;
+  switch (context.location) {
+    case location.PRODUCT_ROOT:
+      return conformsAtProductRoot(record, options);
+    case location.NODE_DIRECTORY:
+      return conformsInNodeDirectory(record, context, options);
+    case location.EVIDENCE_DIRECTORY:
+      return recognizedEntryTypes(record, options, [SPEC_TREE_ENTRY_TYPE.EVIDENCE]);
+    case location.EVAL_LANE:
+      return conformsInEvalLane(record, options);
+    case location.KNOWLEDGE_ROOT:
+      return conformsInKnowledgeRoot(
+        record,
+        context.holder ?? SPEC_TREE_KNOWLEDGE_ROOT_HOLDER.NODE_DIRECTORY,
+        options,
+      );
+    case location.PROBE_DIRECTORY:
+      return conformsInProbeDirectory(record, context.parentKind, options);
+  }
+}
+
+function recognizedEntryTypes(
+  record: SpecTreeFilesystemRecord,
+  options: SpecTreeRecognitionOptions,
+  types: readonly string[],
+): boolean {
+  try {
+    const entry = recognizeSpecTreeFilesystemEntry(record, options);
+    return entry !== null && types.includes(entry.type);
+  } catch {
+    return false;
+  }
+}
+
+function isFileRecord(record: SpecTreeFilesystemRecord): boolean {
+  return record.type === SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE;
+}
+
+function entryKindOfRecord(record: SpecTreeFilesystemRecord) {
+  return isFileRecord(record) ? SPEC_TREE_EVAL_ENTRY_KIND.FILE : SPEC_TREE_EVAL_ENTRY_KIND.DIRECTORY;
+}
+
+function acceptsNote(record: SpecTreeFilesystemRecord, options: SpecTreeRecognitionOptions): boolean {
+  return isFileRecord(record)
+    && options.selectedVersions.some((version) => acceptsNodeLocalNote(version, record.relativePath));
+}
+
+function conformsAtProductRoot(record: SpecTreeFilesystemRecord, options: SpecTreeRecognitionOptions): boolean {
+  if (isFileRecord(record) && record.relativePath === SPEC_TREE_GRAMMAR.EXCLUSION_REGISTRY_FILENAME) return true;
+  if (acceptsNote(record, options)) return true;
+  if (conformsInKnowledgeRoot(record, SPEC_TREE_KNOWLEDGE_ROOT_HOLDER.ROOT_PRODUCT, options)) return true;
+  return recognizedEntryTypes(record, options, [
+    SPEC_TREE_ENTRY_TYPE.PRODUCT,
+    SPEC_TREE_ENTRY_TYPE.NODE,
+    SPEC_TREE_ENTRY_TYPE.DECISION,
+  ]);
+}
+
+function isSpecFileName(name: string, parentSlug: string | undefined, options: SpecTreeRecognitionOptions): boolean {
+  const selection = { known: options.schemaVersions, selected: options.selectedVersions };
+  const versions = [...options.selectedVersions, ...priorNamingSchemaVersions(selection)];
+  return versions.some((version) => {
+    if (!name.endsWith(version.specFileSuffix)) return false;
+    const stem = stripSuffix(name, version.specFileSuffix);
+    if (stem === "") return false;
+    return version.specFileSuffix === SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX ? stem === parentSlug : true;
+  });
+}
+
+function admitsProbeLane(parentKind: SpecTreeConformanceParentKind): boolean {
+  return (OUTPUT_KINDS as readonly string[]).includes(parentKind);
+}
+
+function conformsInNodeDirectory(
+  record: SpecTreeFilesystemRecord,
+  context: SpecTreeConformanceContext & { readonly parentKind: SpecTreeConformanceParentKind },
+  options: SpecTreeRecognitionOptions,
+): boolean {
+  if (isFileRecord(record)) {
+    return isSpecFileName(record.relativePath, context.parentSlug, options)
+      || acceptsNote(record, options)
+      || recognizedEntryTypes(record, options, [SPEC_TREE_ENTRY_TYPE.DECISION]);
+  }
+  const name = record.relativePath;
+  if (
+    options.selectedVersions.some((version) =>
+      name === version.eval.DIRECTORY_NAME || name === version.evidence.DIRECTORY_NAME
+    )
+  ) return true;
+  if (conformsInKnowledgeRoot(record, SPEC_TREE_KNOWLEDGE_ROOT_HOLDER.NODE_DIRECTORY, options)) return true;
+  if (conformsInProbeDirectory(record, context.parentKind, options)) return true;
+  return recognizedEntryTypes(record, options, [SPEC_TREE_ENTRY_TYPE.NODE]);
+}
+
+function conformsInEvalLane(record: SpecTreeFilesystemRecord, options: SpecTreeRecognitionOptions): boolean {
+  const entryKind = entryKindOfRecord(record);
+  return options.selectedVersions.some((version) => {
+    if (acceptsEvalLaneEntry(version, record.relativePath, entryKind)) return true;
+    const segments = record.relativePath.split(version.pathSeparator);
+    const [directory, ruleSlug = ""] = segments;
+    return entryKind === SPEC_TREE_EVAL_ENTRY_KIND.DIRECTORY
+      && segments.length === EVAL_RULE_DIRECTORY_SEGMENT_COUNT
+      && directory === version.eval.DIRECTORY_NAME
+      && ruleSlug !== "";
+  });
+}
+
+function conformsInKnowledgeRoot(
+  record: SpecTreeFilesystemRecord,
+  holder: SpecTreeKnowledgeRootHolder,
+  options: SpecTreeRecognitionOptions,
+): boolean {
+  const entryKind = entryKindOfRecord(record);
+  return options.selectedVersions.some((version) =>
+    acceptsKnowledgeRoot(version, holder, record.relativePath, entryKind)
+  );
+}
+
+function conformsInProbeDirectory(
+  record: SpecTreeFilesystemRecord,
+  parentKind: SpecTreeConformanceParentKind,
+  options: SpecTreeRecognitionOptions,
+): boolean {
+  if (!admitsProbeLane(parentKind)) return false;
+  const entryKind = entryKindOfRecord(record);
+  return options.selectedVersions.some((version) => {
+    if (acceptsProbeEntry(version, record.relativePath, entryKind)) return true;
+    if (version.probe === undefined) return false;
+    const segments = record.relativePath.split(version.pathSeparator);
+    return segments.length >= PROBE_RUNS_DESCENDANT_MIN_SEGMENT_COUNT
+      && segments[0] === version.probe.DIRECTORY_NAME
+      && segments[PROBE_RUNS_SEGMENT_INDEX] === version.probe.RUNS_DIRECTORY_NAME
+      && acceptsProbeEntry(
+        version,
+        segments.slice(0, PROBE_RUNS_SEGMENT_INDEX).join(version.pathSeparator),
+        SPEC_TREE_EVAL_ENTRY_KIND.DIRECTORY,
+      )
+      && segments.slice(PROBE_RUNS_SEGMENT_INDEX + 1).every((segment) => segment !== "")
+      && segments[PROBE_SLUG_SEGMENT_INDEX] !== "";
+  });
 }
 
 /** Whether a selected version reads its root spec from the file's front matter rather than from its name alone. */

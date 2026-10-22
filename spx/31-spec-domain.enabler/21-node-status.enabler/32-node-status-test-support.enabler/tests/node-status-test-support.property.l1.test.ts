@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
 import { defaultGitDependencies, detectWorktreeProductRoot } from "@/lib/git/root";
 import {
   NODE_STATUS_EVIDENCE_OUTCOME,
-  NODE_STATUS_EXCLUDE_FILENAME,
   NODE_STATUS_EXCLUDE_LINE_GRAMMAR,
   NODE_STATUS_FIELD,
   NODE_STATUS_VERIFICATION_MECHANISM,
@@ -80,7 +79,9 @@ describe("node-status test support", () => {
           const excludedNodeIds = fixture.nodes.filter((node) => node.facts.isExcluded).map((node) => node.dirName);
           if (excludedNodeIds.length > 0) {
             const excludeFile = await env.readFile(
-              [SPEC_TREE_CONFIG.ROOT_DIRECTORY, NODE_STATUS_EXCLUDE_FILENAME].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+              [SPEC_TREE_CONFIG.ROOT_DIRECTORY, SPEC_TREE_GRAMMAR.EXCLUSION_REGISTRY_FILENAME].join(
+                SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
+              ),
             );
             expect(
               excludeFile.split(NODE_STATUS_EXCLUDE_LINE_GRAMMAR.ENTRY_SEPARATOR).filter((line) => line.length > 0)
@@ -204,7 +205,9 @@ describe("node-status test support", () => {
             const excludedNodeIds = fixture.nodes.filter((node) => node.isExcluded).map((node) => node.dirName);
             if (excludedNodeIds.length > 0) {
               const excludeFile = await env.readFile(
-                [SPEC_TREE_CONFIG.ROOT_DIRECTORY, NODE_STATUS_EXCLUDE_FILENAME].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR),
+                [SPEC_TREE_CONFIG.ROOT_DIRECTORY, SPEC_TREE_GRAMMAR.EXCLUSION_REGISTRY_FILENAME].join(
+                  SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
+                ),
               );
               expect(
                 excludeFile.split(NODE_STATUS_EXCLUDE_LINE_GRAMMAR.ENTRY_SEPARATOR).filter((line) => line.length > 0)

@@ -169,6 +169,12 @@ const UNACCEPTED_ARTIFACTS_BY_GRAMMAR_FIELD: {
   STATUS_FILENAME: [
     unacceptedFile("node-status-claim", ({ node }) => joinArtifactPath(node, SPEC_TREE_GRAMMAR.STATUS_FILENAME)),
   ],
+  EXCLUSION_REGISTRY_FILENAME: [
+    unacceptedFile(
+      "tree-root-exclusion-registry",
+      ({ tree }) => joinArtifactPath(tree, SPEC_TREE_GRAMMAR.EXCLUSION_REGISTRY_FILENAME),
+    ),
+  ],
   LOCAL_OVERLAYS: [
     unacceptedDirectory(
       "local-overlay-directory",

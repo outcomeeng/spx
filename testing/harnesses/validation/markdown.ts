@@ -3,8 +3,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
-import { NODE_STATUS_EXCLUDE_FILENAME, NODE_STATUS_EXCLUDE_LINE_GRAMMAR } from "@/lib/node-status/exclude";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { NODE_STATUS_EXCLUDE_LINE_GRAMMAR } from "@/lib/node-status/exclude";
+import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree/config";
 import { MARKDOWN_DEFAULT_DIRECTORY_NAMES } from "@/validation/steps/markdown";
 import type { MarkdownLinkShapeCase } from "@testing/generators/validation/markdown";
 import { GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
@@ -67,7 +67,7 @@ export function withMarkdownTempProject<T>(callback: (project: MarkdownTempProje
     };
     const writeNodeStatusExclude = (nodeDirectories: readonly string[]): Promise<string> =>
       write(
-        join(SPEC_TREE_CONFIG.ROOT_DIRECTORY, NODE_STATUS_EXCLUDE_FILENAME),
+        join(SPEC_TREE_CONFIG.ROOT_DIRECTORY, SPEC_TREE_GRAMMAR.EXCLUSION_REGISTRY_FILENAME),
         nodeDirectories
           .map((nodeDirectory) => `${nodeDirectory}${NODE_STATUS_EXCLUDE_LINE_GRAMMAR.ENTRY_SEPARATOR}`)
           .join(""),

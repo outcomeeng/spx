@@ -2,7 +2,7 @@ import * as fc from "fast-check";
 
 import { METHODOLOGY_CONFIG_FIELDS, METHODOLOGY_SECTION, validateMethodologyConfig } from "@/config/methodology";
 import type { Config } from "@/config/types";
-import { NODE_STATUS_EXCLUDE_FILENAME, NODE_STATUS_EXCLUDE_PATH_GRAMMAR } from "@/lib/node-status";
+import { NODE_STATUS_EXCLUDE_PATH_GRAMMAR } from "@/lib/node-status";
 import {
   type DecisionKind,
   type NodeKind,
@@ -220,7 +220,7 @@ const SPEC_TREE_TEST_SUFFIX_REST_CHARACTERS = [..."abcdefghijklmnopqrstuvwxyz-"]
 const UNREGISTERED_SUFFIX_DISAMBIGUATOR = "-candidate";
 
 export const RETIRED_SPEC_APPLY_FIXTURE = {
-  excludeFile: [SPEC_TREE_CONFIG.ROOT_DIRECTORY, NODE_STATUS_EXCLUDE_FILENAME].join(
+  excludeFile: [SPEC_TREE_CONFIG.ROOT_DIRECTORY, SPEC_TREE_GRAMMAR.EXCLUSION_REGISTRY_FILENAME].join(
     NODE_STATUS_EXCLUDE_PATH_GRAMMAR.SEGMENT_SEPARATOR,
   ),
   pythonConfigFile: PYTHON_MARKER,

@@ -21,7 +21,6 @@ import {
   NODE_STATUS_CLAIM_SHAPE,
   NODE_STATUS_DEFAULT_MALLEABILITY,
   NODE_STATUS_EVIDENCE_OUTCOME,
-  NODE_STATUS_EXCLUDE_FILENAME,
   NODE_STATUS_EXCLUDE_LINE_GRAMMAR,
   NODE_STATUS_FILENAME,
   NODE_STATUS_MALLEABILITY,
@@ -270,7 +269,7 @@ async function materializeNodes(
   const excludedDirs = nodes.filter((node) => node.isExcluded).map((node) => node.dirName);
   if (excludedDirs.length > 0) {
     await env.writeRaw(
-      nodeTreePath(NODE_STATUS_EXCLUDE_FILENAME),
+      nodeTreePath(SPEC_TREE_GRAMMAR.EXCLUSION_REGISTRY_FILENAME),
       `${excludedDirs.join(EXCLUDE_ENTRY_SEPARATOR)}${EXCLUDE_ENTRY_SEPARATOR}`,
     );
   }

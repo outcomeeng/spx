@@ -60,7 +60,6 @@ export {
 } from "./currency";
 export {
   createNodeStatusExcludeReader,
-  NODE_STATUS_EXCLUDE_FILENAME,
   NODE_STATUS_EXCLUDE_LINE_GRAMMAR,
   NODE_STATUS_EXCLUDE_PATH_GRAMMAR,
   type NodeStatusExcludeReader,
