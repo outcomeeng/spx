@@ -5,7 +5,7 @@
     "test": {
       "tests/domain-path-filter.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
+        "commit": "01fdc6c8ac27254faf3389243b864dd4d85e79bf",
         "read": [
           "pnpm-lock.yaml",
           "spx/17-file-inclusion.enabler/32-path-predicates.enabler/path-predicates.md",
@@ -100,7 +100,7 @@
       },
       "tests/git-tracking.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
+        "commit": "01fdc6c8ac27254faf3389243b864dd4d85e79bf",
         "read": [
           "pnpm-lock.yaml",
           "spx/17-file-inclusion.enabler/32-path-predicates.enabler/path-predicates.md",
@@ -123,7 +123,7 @@
       },
       "tests/independence.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
+        "commit": "01fdc6c8ac27254faf3389243b864dd4d85e79bf",
         "read": [
           "pnpm-lock.yaml",
           "spx/17-file-inclusion.enabler/32-path-predicates.enabler/path-predicates.md",
@@ -218,7 +218,7 @@
       },
       "tests/purity.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "931338b5a09bb98e80c0c2b9f4f253cd0dfd22e7",
+        "commit": "01fdc6c8ac27254faf3389243b864dd4d85e79bf",
         "read": [
           "pnpm-lock.yaml",
           "spx/17-file-inclusion.enabler/32-path-predicates.enabler/path-predicates.md",
