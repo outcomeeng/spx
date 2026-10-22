@@ -27,6 +27,13 @@ import {
   markdownLinkShapeRule,
   type MarkdownlintCustomRule,
 } from "./markdown-link-shape-rule";
+import { readNodeSpecIdentities } from "./markdown-node-spec-index";
+import {
+  MARKDOWN_NODE_SPEC_RULE_CONFIG,
+  markdownNodeSpecRule,
+  type NodeSpecIdentity,
+  restoreFrontMatterLine,
+} from "./markdown-node-spec-rule";
 
 // =============================================================================
 // CONSTANTS
@@ -135,6 +142,8 @@ interface MarkdownTargetScope {
   readonly trackedPaths: readonly string[] | undefined;
   /** The grammar selection of the product's methodology declaration, which the link-shape rule judges links by. */
   readonly grammarSelection: SpecTreeGrammarSelection | undefined;
+  /** The identity of every node spec in the tree, which the node-spec rule judges `id` uniqueness by. */
+  readonly nodeSpecs: readonly NodeSpecIdentity[] | undefined;
 }
 
 export interface MarkdownValidationTarget {
@@ -208,7 +217,9 @@ export function buildMarkdownlintConfig(directoryName: string): {
     ...MARKDOWN_ENABLED_BUILTIN_RULES,
     [MARKDOWN_CONFIG_CONTROL_KEYS.DUPLICATE_HEADINGS]: md024Disabled ? false : { siblings_only: true },
     [MARKDOWN_CONFIG_CONTROL_KEYS.CUSTOM_RULES]: [
-      directoryName === SPEC_TREE_CONFIG.ROOT_DIRECTORY ? markdownLinkShapeRule : relativeLinksRule,
+      ...(directoryName === SPEC_TREE_CONFIG.ROOT_DIRECTORY
+        ? [markdownLinkShapeRule, markdownNodeSpecRule]
+        : [relativeLinksRule]),
     ],
   };
 }
@@ -318,8 +329,7 @@ function parseErrorLine(line: string): MarkdownError | null {
   if (parsed === null) return null;
   return {
     file: parsed.file,
-    line: Number.parseInt(parsed.line, 10),
-    detail: parsed.detail,
+    ...restoreFrontMatterLine({ line: Number.parseInt(parsed.line, 10), detail: parsed.detail }),
   };
 }
 
@@ -429,6 +439,7 @@ export async function validateMarkdown(
   const specTreeExcludeEntries = applyNodeStatusExcludes ? getExcludeEntries(productDir) : [];
   let specTreeTrackedPaths: Promise<readonly string[] | undefined> | undefined;
   let specTreeSelection: Promise<SpecTreeGrammarSelection | Error> | undefined;
+  let specTreeNodeSpecs: Promise<readonly NodeSpecIdentity[] | Error> | undefined;
 
   for (const target of targets) {
     const directory = targetDirectory(target);
@@ -448,11 +459,19 @@ export async function validateMarkdown(
       errors.push({ file: directory, line: 1, detail: grammarSelection.message });
       continue;
     }
+    const nodeSpecs = grammarSelection !== undefined && productDir !== undefined
+      ? await (specTreeNodeSpecs ??= readNodeSpecs(productDir, grammarSelection, trackedPaths))
+      : undefined;
+    if (nodeSpecs instanceof Error) {
+      errors.push({ file: directory, line: 1, detail: nodeSpecs.message });
+      continue;
+    }
     const dirErrors = await validateTarget(target, config, deps, {
       productDir,
       ignoreGlobs: excludeGlobs,
       trackedPaths,
       grammarSelection,
+      nodeSpecs,
     });
     errors.push(...dirErrors);
   }
@@ -486,6 +505,19 @@ async function readSpecTreeTrackedPaths(
   return [...trackedPaths].filter((path) => path.startsWith(specTreePrefix));
 }
 
+/** The node-spec identities of the tree, or the error that keeps the tree from being read. */
+async function readNodeSpecs(
+  productDir: string,
+  selection: SpecTreeGrammarSelection,
+  trackedPaths: readonly string[] | undefined,
+): Promise<readonly NodeSpecIdentity[] | Error> {
+  try {
+    return await readNodeSpecIdentities(productDir, selection, trackedPaths);
+  } catch (error) {
+    return new Error(toMessage(error));
+  }
+}
+
 function getExcludeEntries(productDir: string | undefined): readonly string[] {
   if (productDir === undefined) return [];
   return createNodeStatusExcludeReader(productDir).entries();
@@ -506,7 +538,7 @@ async function validateTarget(
   deps: MarkdownValidationDeps,
   scope: MarkdownTargetScope,
 ): Promise<MarkdownError[]> {
-  const { productDir, ignoreGlobs, trackedPaths, grammarSelection } = scope;
+  const { productDir, ignoreGlobs, trackedPaths, grammarSelection, nodeSpecs } = scope;
   const errors: MarkdownError[] = [];
   const directory = targetDirectory(target);
   const argv = target.kind === MARKDOWN_VALIDATION_TARGET_KIND.FILE
@@ -518,6 +550,12 @@ async function validateTarget(
   const linkRuleConfig = (rule: MarkdownlintRule): true | Record<string, unknown> => {
     if (!productDir) return true;
     const rootConfig = { [MARKDOWN_LINK_SHAPE_RULE_CONFIG.ROOT_PATH]: productDir };
+    if (rule === markdownNodeSpecRule) {
+      return {
+        ...rootConfig,
+        ...(nodeSpecs === undefined ? {} : { [MARKDOWN_NODE_SPEC_RULE_CONFIG.NODE_SPECS]: nodeSpecs }),
+      };
+    }
     if (rule !== markdownLinkShapeRule) return rootConfig;
     return {
       ...rootConfig,
