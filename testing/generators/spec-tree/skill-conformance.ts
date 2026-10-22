@@ -728,58 +728,32 @@ const ENTRY_LOCATION: Readonly<Record<string, SpecTreeConformanceContext["locati
   [SPEC_TREE_ENTRY_TYPE.EVIDENCE]: LOCATION.EVIDENCE_DIRECTORY,
 };
 
-function arbitraryRecognizedInput(): fc.Arbitrary<ConformanceInput> {
+function arbitraryRecognizedCase(): fc.Arbitrary<ConformanceCase> {
   return arbitraryValidRecognitionScenario().chain(({ line, record, expected }) =>
-    fc.constantFrom(...nodeKindsOfLine(line)).map((parentKind) => ({
-      options: conformanceOptionsForLine(line),
-      record,
-      context: contextAt(ENTRY_LOCATION[expected.type] ?? LOCATION.NODE_DIRECTORY, parentKind),
-    }))
+    fc.constantFrom(...nodeKindsOfLine(line)).map((parentKind) =>
+      conformanceCase(
+        `recognized ${expected.type} ${record.relativePath}`,
+        conformanceOptionsForLine(line),
+        record,
+        contextAt(ENTRY_LOCATION[expected.type] ?? LOCATION.NODE_DIRECTORY, parentKind),
+        VALID,
+      )
+    )
   );
 }
 
-function arbitraryStrayInput(): fc.Arbitrary<ConformanceInput> {
-  return fc
-    .tuple(
-      fc.constantFrom(...SPEC_TREE_SOURCE_LINES),
-      arbitraryStrayFileName(),
-      fc.constantFrom(LOCATION.PRODUCT_ROOT, LOCATION.NODE_DIRECTORY, LOCATION.EVIDENCE_DIRECTORY, LOCATION.EVAL_LANE),
-      fc.constantFrom(...everyParentKind()),
-    )
-    .map(([line, name, location, parentKind]) => ({
-      options: conformanceOptionsForLine(line),
-      record: { type: SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE, relativePath: name },
-      context: contextAt(location, parentKind),
-    }));
-}
-
-function arbitraryArbitraryInput(): fc.Arbitrary<ConformanceInput> {
-  return fc
-    .tuple(
-      fc.constantFrom(...SPEC_TREE_SOURCE_LINES),
-      fc.constantFrom(SPEC_TREE_FILESYSTEM_RECORD_TYPE.FILE, SPEC_TREE_FILESYSTEM_RECORD_TYPE.DIRECTORY),
-      fc.string(),
-      fc.constantFrom(...Object.values(LOCATION)),
-      fc.option(SPEC_TREE_TEST_GENERATOR.sourceSlug(), { nil: undefined }),
-      fc.constantFrom(...everyParentKind()),
-    )
-    .map(([line, type, relativePath, location, parentSlug, parentKind]) => ({
-      options: conformanceOptionsForLine(line),
-      record: { type, relativePath },
-      context: contextAt(location, parentKind, parentSlug),
-    }));
-}
-
 /**
- * Any record in any ancestry context under any methodology line's version set: recognized forms by
- * construction, stray files, lane entries, and unconstrained paths. No verdict is stated for them.
+ * Any record in any ancestry context under any methodology line's version set whose verdict the
+ * spec fixes by construction: recognized forms are valid, stray paths that match no recognized form
+ * are foreign, and the knowledge-root and probe-lane entries carry the verdict their lane states.
+ * Each verdict derives from how the case was built, never from the classifier.
  */
-export function arbitraryConformanceInput(): fc.Arbitrary<ConformanceInput> {
+export function arbitraryConformanceInput(): fc.Arbitrary<ConformanceCase> {
   return fc.oneof(
-    arbitraryRecognizedInput(),
-    arbitraryStrayInput(),
-    arbitraryArbitraryInput(),
+    arbitraryRecognizedCase(),
+    SKILL_CONFORMANCE_FOREIGN_GENERATOR.strayPath(),
     SKILL_CONFORMANCE_LANE_GENERATOR.probeLaneFourZero(),
     SKILL_CONFORMANCE_LANE_GENERATOR.knowledgeBeneathFourZero(),
+    SKILL_CONFORMANCE_LANE_GENERATOR.knowledgeBeneathThreeX(),
   );
 }
