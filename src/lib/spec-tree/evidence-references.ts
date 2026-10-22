@@ -54,7 +54,7 @@ const FILE_NOT_FOUND_CODE = "ENOENT";
 const LINE_BREAK_PATTERN = /\r?\n/u;
 const CODE_SPAN_PATTERN = /`[^`]*`/gu;
 const CODE_SPAN_REPLACEMENT = " ";
-const TAG_POSITION_TAIL_PATTERN = /^\)?\s*$/u;
+const TAG_POSITION_TAIL_PATTERN = /^\)?\.?\s*$/u;
 
 const VERIFICATION_TYPE_OF_LINK_TEXT: Readonly<Record<SpecTreeEvidenceLinkText, SpecTreeVerificationType>> = {
   [SPEC_TREE_EVIDENCE_LINK_TEXT.TEST]: SPEC_TREE_VERIFICATION_TYPE.TEST,
