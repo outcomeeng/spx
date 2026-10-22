@@ -4,7 +4,7 @@ import { dirname, join, relative } from "node:path";
 
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { NODE_STATUS_EXCLUDE_LINE_GRAMMAR } from "@/lib/node-status/exclude";
-import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR } from "@/lib/spec-tree/config";
+import { SPEC_TREE_CONFIG, SPEC_TREE_GRAMMAR, type SpecTreeMethodologyLine } from "@/lib/spec-tree/config";
 import { MARKDOWN_DEFAULT_DIRECTORY_NAMES } from "@/validation/steps/markdown";
 import type { MarkdownLinkShapeCase } from "@testing/generators/validation/markdown";
 import { GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
@@ -22,7 +22,7 @@ export interface MarkdownTempProject {
   /** Absolute path of the docs directory under the product root. */
   readonly docsDir: string;
   /** Writes content at a product-relative path, creating parent directories, and returns its absolute path. */
-  readonly write: (relativePath: string, content: string) => Promise<string>;
+  readonly write: (relativePath: string, content: string | Uint8Array) => Promise<string>;
   /**
    * Writes a link case's supporting files and then its citing file, makes the product root a git repository
    * tracking the case's tracked paths when it names any, and returns the citing file's absolute path.
@@ -44,15 +44,19 @@ export interface RepositoryMarkdownProject {
 
 /**
  * Runs the callback against a temporary product directory that declares its methodology and has no
- * pre-created spec-tree or docs directory; cleanup is owned by `withTempDir`.
+ * pre-created spec-tree or docs directory; cleanup is owned by `withTempDir`. The declaration names the
+ * given methodology line, or the 3.2 line when none is given.
  */
-export function withMarkdownTempProject<T>(callback: (project: MarkdownTempProject) => Promise<T>): Promise<T> {
+export function withMarkdownTempProject<T>(
+  callback: (project: MarkdownTempProject) => Promise<T>,
+  methodologyLine?: SpecTreeMethodologyLine,
+): Promise<T> {
   return withTempDir(MARKDOWN_TEMP_PROJECT_PREFIX, async (productDir) => {
-    const write = async (relativePath: string, content: string): Promise<string> => {
+    const write = async (relativePath: string, content: string | Uint8Array): Promise<string> => {
       const absolutePath = join(productDir, relativePath);
       await mkdir(dirname(absolutePath), { recursive: true });
       await writeFile(absolutePath, content);
-      await writeValidationProductDeclaration(productDir);
+      await writeValidationProductDeclaration(productDir, methodologyLine);
       return absolutePath;
     };
     const track = async (relativePaths: readonly string[]): Promise<void> => {
