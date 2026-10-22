@@ -11,7 +11,14 @@ CAN catch broken cross-references and structural defects before they reach the r
 ## Assertions
 
 - A product spec carries no required opening, every ADR and PDR carries its decision statement — the first prose paragraph after its title — at every methodology version, and every output-node spec carries the opening resolved from its registered kind or parent kind.
-- Context-renderable Markdown fails validation when an ADR or PDR has no decision statement, a required output-node opening is absent or malformed, an admitted output-node kind has no resolvable opening, front matter is malformed, an explicit `malleability` value is unsupported, strict UTF-8 decoding fails, a Markdown decision citation is unresolved, or an outcome-record filename differs from its owning node slug.
+- Context-renderable Markdown fails validation when an ADR or PDR has no decision statement, a required output-node opening is absent or malformed, an admitted output-node kind has no resolvable opening, front matter is malformed, a node spec's `id` is absent from a canonical-form spec, is not a UUIDv7 in canonical lowercase hyphenated form, or repeats another node spec's `id`, an explicit `malleability` value is unsupported, strict UTF-8 decoding fails, a Markdown decision citation is unresolved, or an outcome-record filename differs from its owning node slug.
+- Given a canonical-form node spec inside `spx/` whose front matter carries no `id`, when validation runs, then an error is reported naming the file
+- Given a node spec inside `spx/` whose `id` is not a UUIDv7 in canonical lowercase hyphenated form, when validation runs, then an error is reported naming the file, the line of the `id`, and the value
+- Given two node specs inside `spx/` that carry one `id`, when validation runs, then an error is reported for each spec naming the file, the line of the `id`, and the other spec's path
+- Given a prior-form node spec with no `id`, when validation runs, then no error is reported for the missing `id`
+- An explicit `malleability` of `spec`, `verification`, or `implementation` and an absent `malleability` map to no error; any other value maps to an error naming the file, the line, and the value
+- For every generated UUID, validation admits the `id` exactly when the UUID is version 7 in the RFC 9562 variant and written in lowercase hyphenated form
+- ALWAYS: `id` uniqueness is judged across every node spec under `spx/` whichever paths a run validates, and a spec listed in `spx/EXCLUDE` contributes its `id` without being reported itself
 
 ### Scenarios
 
