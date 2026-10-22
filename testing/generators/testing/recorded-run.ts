@@ -7,6 +7,7 @@ import {
 } from "@/commands/test/recorded-run";
 import {
   extractStalenessInputs,
+  type ProductInputDigest,
   type StalenessInputs,
   TEST_PATH_VERDICT,
   TEST_RUN_STATE_FIELDS,
@@ -26,10 +27,11 @@ export const JUDGED_UNSATISFIED_REASONS: readonly RecordedRunUnsatisfiedReason[]
   RECORDED_RUN_UNSATISFIED_REASON,
 ).filter((reason) => reason !== RECORDED_RUN_UNSATISFIED_REASON.NO_COVERING_RUN);
 
-type MutableStalenessDigestField =
+type StalenessViolationField =
   | typeof TEST_RUN_STATE_FIELDS.TESTING_CONFIG_DIGEST
   | typeof TEST_RUN_STATE_FIELDS.DISCOVERED_TEST_PATHS_DIGEST
-  | typeof TEST_RUN_STATE_FIELDS.DISCOVERED_TEST_CONTENT_DIGEST;
+  | typeof TEST_RUN_STATE_FIELDS.DISCOVERED_TEST_CONTENT_DIGEST
+  | typeof TEST_RUN_STATE_FIELDS.PRODUCT_INPUT_DIGESTS;
 
 export interface RecordedRunScenario {
   readonly run: TestTerminalRun;
@@ -41,7 +43,8 @@ interface ViolationDraws {
   readonly scenario: RecordedRunScenario;
   readonly otherHeadSha: string;
   readonly otherDigest: string;
-  readonly digestField: MutableStalenessDigestField;
+  readonly stalenessField: StalenessViolationField;
+  readonly extraProductInput: ProductInputDigest;
   readonly unpassedStatus: TestRunStateStatus;
   readonly unpassedVerdict: TestPathVerdictValue;
 }
@@ -91,13 +94,18 @@ function arbitraryViolatedScenario(reason: RecordedRunUnsatisfiedReason): fc.Arb
       scenario: arbitrarySatisfyingScenario(),
       otherHeadSha: TEST_RUN_STATE_TEST_GENERATOR.headSha(),
       otherDigest: TEST_RUN_STATE_TEST_GENERATOR.digest(),
-      digestField: TEST_RUN_STATE_TEST_GENERATOR.mutableStalenessDigestField(),
+      stalenessField: fc.oneof(
+        TEST_RUN_STATE_TEST_GENERATOR.mutableStalenessDigestField(),
+        fc.constant(TEST_RUN_STATE_FIELDS.PRODUCT_INPUT_DIGESTS),
+      ),
+      extraProductInput: TEST_RUN_STATE_TEST_GENERATOR.productInputDigest(),
       unpassedStatus: fc.constantFrom(TEST_RUN_STATE_STATUS.FAILED, TEST_RUN_STATE_STATUS.INTERRUPTED),
       unpassedVerdict: fc.constantFrom(TEST_PATH_VERDICT.FAILED, TEST_PATH_VERDICT.NOT_RUN),
     })
     .filter((draws) =>
       draws.otherHeadSha !== draws.scenario.current.headSha
-      && draws.otherDigest !== draws.scenario.current.staleness[draws.digestField]
+      && (draws.stalenessField === TEST_RUN_STATE_FIELDS.PRODUCT_INPUT_DIGESTS
+        || draws.otherDigest !== draws.scenario.current.staleness[draws.stalenessField])
     )
     .map((draws) => violate(reason, draws));
 }
@@ -125,12 +133,19 @@ function violate(reason: RecordedRunUnsatisfiedReason, draws: ViolationDraws): R
     case RECORDED_RUN_UNSATISFIED_REASON.WORKTREE_DIRTY:
       return { ...scenario, current: { ...scenario.current, worktreeClean: false } };
     case RECORDED_RUN_UNSATISFIED_REASON.STALE: {
-      const staleness: StalenessInputs = { ...scenario.current.staleness, [draws.digestField]: draws.otherDigest };
+      const staleness = staleCurrentInputs(scenario.current.staleness, draws);
       return { ...scenario, current: { ...scenario.current, staleness } };
     }
     default:
       return scenario;
   }
+}
+
+function staleCurrentInputs(current: StalenessInputs, draws: ViolationDraws): StalenessInputs {
+  if (draws.stalenessField === TEST_RUN_STATE_FIELDS.PRODUCT_INPUT_DIGESTS) {
+    return { ...current, productInputDigests: [...current.productInputDigests, draws.extraProductInput] };
+  }
+  return { ...current, [draws.stalenessField]: draws.otherDigest };
 }
 
 function withState(
