@@ -23,3 +23,11 @@
 **Impact:** Every spec-tree read buffers and decodes the full content of every linked evidence file where a presence check answers the question.
 
 **Settlement condition:** The `SpecTreeSource` contract gains a presence-only member, the filesystem source implements it without reading the file content, and the reader uses it for link targets.
+
+## Repeated audit slug on a line with two tags passes the read `src/lib/spec-tree/evidence-references.ts` `193` `spx/23-spec-tree.enabler/48-evidence-references.capability/evidence-references.spec.md:NEVER:1`
+
+**Evidence:** `readSpecEvidenceReferences` checks audit-slug uniqueness only for the first real tag of each assertion line, because it takes `evidenceTagGroups(line).at(0)` and continues. A line ending in `[audit:a] ([audit:a])` holds two audit tags with slug `a` and reads successfully with one reference. The duplicate-slug test generates duplicates only on separate lines, and the two-tag-line test draws unique slugs, so the case is unexercised.
+
+**Impact:** The assertion that a spec holding two audit tags with one rule slug fails the read does not hold for a repeated slug on one line.
+
+**Settlement condition:** The reader checks every real audit slug on a line against the set of slugs before it drops all but the first tag, and a two-tag-line case with a repeated slug covers it. The follow-up for lines that carry two tags takes this class too.
