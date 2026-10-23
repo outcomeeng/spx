@@ -88,3 +88,15 @@ The caught-error branch at `src/interfaces/cli/session.ts:381` composes a litera
 **Skills:** `/apply`, `/author-typescript-test`, `/audit-typescript-test`.
 
 **Revisit condition:** when the node's foreground-handoff evidence is next changed.
+
+## The guarded-supervision case never reaches the production wiring: `spx/13-cli.enabler/tests/guarded-supervision.scenario.l1.test.ts` `never holds the child in the lifecycle registry` `spx/13-cli.enabler/cli.md`
+
+The case `never holds the child in the lifecycle registry` samples `lifecycleRegistry.size` around a supervisor built over a recording spawn double that never receives the registry. The sizes are 0 whatever production does: routing the production `guardedSupervisor` through `lifecycleProcessRunner` would leave the test green, because `createProcessGuardedSupervisor` and `guardedSpawn` in `src/lib/process-lifecycle/install.ts` are never exercised. The stream and descriptor assertions are likewise checked only through the recorded spawn options. The production adapters that signal the group (`process.kill(-pid, signal)`) and close the real descriptor are not reached.
+
+**Impact:** the guarded-supervision assertions of [spx/13-cli.enabler/cli.md](spx/13-cli.enabler/cli.md) are unevidenced against the production wiring: registering the child or signalling a single process instead of its group passes the suite.
+
+**Resolution:** exercise the production `guardedSupervisor` and `guardedSpawn` wiring through injected process primitives, so that a registered child or a non-group signal fails the test. Nothing in the suite starts a real process, takes a real lock, or sends a real signal.
+
+**Skills:** `/apply`, `/author-typescript-test`, `/audit-typescript-test`.
+
+**Revisit condition:** when the node's guarded-supervision evidence is next changed.
