@@ -1,10 +1,17 @@
 # CLI
 
-PROVIDES the SPX command-line interface boundary — sanitization of user-supplied bytes for diagnostic echo, a package-script invocation contract that distinguishes development sources from published distributions, and process-lifecycle handling that forwards termination signals to spawned children and exits cleanly under pipe-close
-SO THAT every domain handler that echoes user input back to a terminal, every consumer of `package.json` scripts, and every long-running subprocess spawned during a CLI invocation
-CAN render diagnostics with no unprintable bytes and bounded length, CAN invoke the CLI through `tsx src/cli.ts` in development and `node bin/spx.js` after `pnpm run build`, and CAN trust that closing stdout, sending SIGINT, sending SIGTERM, or hitting an uncaught exception terminates every spawned child before the parent exits
+PROVIDES the SPX command-line interface boundary — sanitization of user-supplied bytes for diagnostic echo, a package-script invocation contract that distinguishes development sources from published distributions, process-lifecycle handling that forwards termination signals to spawned children and exits cleanly under pipe-close, and a guarded supervision that runs one child in its own process group with an inherited lock descriptor and forwards termination signals to that group
+SO THAT every domain handler that echoes user input back to a terminal, every consumer of `package.json` scripts, every long-running subprocess spawned during a CLI invocation, and every command that holds a descriptor open across a supervised child
+CAN render diagnostics with no unprintable bytes and bounded length, CAN invoke the CLI through `tsx src/cli.ts` in development and `node bin/spx.js` after `pnpm run build`, and CAN trust that closing stdout, sending SIGINT, sending SIGTERM, or hitting an uncaught exception terminates every spawned child before the parent exits, and CAN hand a caller-supplied descriptor to a supervised child that keeps its own process group and reports its exit status
 
 ## Assertions
+
+- Given a guarded supervision of a child that exits with code `n`, when the child exits, then the runner reports `n`, and the child's standard output and standard error reach the parent's streams unchanged
+- Given a guarded supervision with a caller-supplied open descriptor, when the child runs, then the child holds an open copy of that descriptor at the reserved descriptor number and leads its own process group
+- Given a guarded supervision whose parent receives SIGINT, SIGTERM, or SIGHUP, when the forwarder runs, then the child's process group receives that signal once, and the runner reports 128 plus its number for a child the signal ends
+- Given a guarded supervision, when the child exits, then the supervisor's copy of the descriptor is closed, the parent's SIGINT, SIGTERM, and SIGHUP listeners are restored, and the lifecycle registry never held the child
+- The guarded-supervision exit mapping is: child exit code `n` → `n`, child ended by signal `s` → 128 plus the number of `s`, child exit with no code and no signal → a failure that never reads as 0
+- ALWAYS: the guarded-supervision runner is the only production spawn that sets `detached: true`
 
 ### Scenarios
 
