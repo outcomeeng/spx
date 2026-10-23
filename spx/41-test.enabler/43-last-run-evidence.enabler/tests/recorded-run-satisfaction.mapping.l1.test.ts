@@ -28,7 +28,10 @@ describe("recorded run satisfaction", () => {
       await assertProperty(
         RECORDED_RUN_TEST_GENERATOR.violatedScenario(violationCase),
         ({ run, selectedPaths, current }) => {
-          expect(judgeRecordedRun(run, selectedPaths, current)).toEqual({ satisfied: false, reason: violationCase.reason });
+          expect(judgeRecordedRun(run, selectedPaths, current)).toEqual({
+            satisfied: false,
+            reason: violationCase.reason,
+          });
         },
         PROPERTY_CLASSIFICATION.SMALL_L1,
       );
