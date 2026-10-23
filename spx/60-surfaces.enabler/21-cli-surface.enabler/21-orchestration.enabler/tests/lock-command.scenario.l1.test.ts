@@ -24,9 +24,6 @@ const cpuCount = sampleGeneratedValue(arbitraryCpuCount());
 const [runId] = sampleGeneratedValue(arbitraryDistinctLabels(1));
 const command = sampleGeneratedValue(arbitraryCommand());
 
-const RUN_ID_OPTION = "--run-id";
-const ARGUMENT_SEPARATOR = "--";
-
 describe("spx orchestration lock -- <command>", () => {
   it("runs exactly one child under the host command lock and writes the terminal result to standard error", async () => {
     const host = new MemoryHost({ cpuCount, samples: [quietSample()] });
@@ -43,9 +40,9 @@ describe("spx orchestration lock -- <command>", () => {
       [
         ORCHESTRATION_CLI.commandName,
         ORCHESTRATION_CLI.lockCommandName,
-        RUN_ID_OPTION,
+        ORCHESTRATION_CLI.runIdFlag,
         runId,
-        ARGUMENT_SEPARATOR,
+        ORCHESTRATION_CLI.argumentSeparator,
         ...command,
       ],
       { from: SPX_COMMANDER_PARSE_SOURCE },
