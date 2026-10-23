@@ -402,8 +402,8 @@ Do not prescribe exact code, documentation, or template changes. Record the mist
 
 The four Spec Tree phases the router names resolve to these product commands:
 
-- **author** — `pnpm run build` after a change that a CLI level-2 test reaches, because those tests run the built `dist/cli.js`; no other artifact is regenerated.
-- **verify** — `pnpm run validate`, then `spx test --agent --changed [--base origin/main]`, or `tsx src/cli.ts test --agent --changed [--base origin/main]` when the branch changes `spx test` itself; the test command runs behind the `/wait-for-load` waiter, and `spx/local/merging.md` scopes and escalates both.
+- **author** — `pnpm run build` after a change that a CLI level-2 test reaches, because those tests run the built `dist/cli.js`; the build is a compiling build, so it runs behind the `/wait-for-load` waiter; no other artifact is regenerated.
+- **verify** — the validation command `spx/local/merging.md` selects for the changeset (`pnpm run validate`, or `tsx src/cli.ts validation markdown <paths>` for a Markdown-only changeset), then `spx test --agent --changed [--base origin/main]`, or `tsx src/cli.ts test --agent --changed [--base origin/main]` when the branch changes `spx test` itself; the test command runs behind the `/wait-for-load` waiter, and `spx/local/merging.md` scopes and escalates the test command.
 - **gate** — the CI deterministic verification in `.github/workflows/deterministic-verification.yml`; no full deterministic gate runs locally.
 - **merge** — the merge command and cleanup sequence `spx/local/merging.md` declares.
 
