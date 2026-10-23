@@ -32,6 +32,7 @@ const ASSUME_UNCHANGED_FLAG = "--assume-unchanged";
 const PASSING_RUNNER_EXIT_CODE = 0;
 const FAILING_RUNNER_EXIT_CODE = 1;
 const GIT_UNRESOLVED_EXIT_CODE = 128;
+const CLOCK_STEP_MILLIS = 1000;
 
 /** A real git checkout holding one committed test file, with the run state directory ignored. */
 export interface RecordedRunRepository {
@@ -61,10 +62,31 @@ export function withRecordedRunRepository(
     await callback({
       productDir,
       testFile,
-      deps: { registry: testingRegistry, runnerDepsFor: () => runner, git: realVerifyGitDependencies() },
+      deps: {
+        registry: testingRegistry,
+        runnerDepsFor: () => runner,
+        git: realVerifyGitDependencies(),
+        now: strictlyIncreasingClock(),
+      },
       runner,
     });
   });
+}
+
+// Successive runs recorded within one millisecond would tie on their timestamps and fall back
+// to the random run-file-name order, so each clock reading advances past the previous one.
+function strictlyIncreasingClock(): () => Date {
+  let millis = Date.now();
+  return () => {
+    millis += CLOCK_STEP_MILLIS;
+    return new Date(millis);
+  };
+}
+
+/** Commits one more empty test file, so a later recorded run covers it beside the repository's test file. */
+export async function commitAdditionalTestFile(repository: RecordedRunRepository, testFile: string): Promise<void> {
+  await writeProductFile(repository.productDir, testFile, "");
+  await commitAll(repository.productDir, FIXTURE_COMMIT_MESSAGE);
 }
 
 /** Executes the checkout's tests through the command, which records one passed run. */
@@ -116,10 +138,14 @@ export async function arrangeUnsatisfiedRequest(
   switch (reason) {
     case RECORDED_RUN_UNSATISFIED_REASON.NO_COVERING_RUN:
       return repository.deps;
+    // A passed run precedes the failed and the omitted-verdict run, so the later covering
+    // run alone decides the request and the earlier passed run never stands in for it.
     case RECORDED_RUN_UNSATISFIED_REASON.RUN_NOT_PASSED:
+      await recordPassedRun(repository);
       await recordFailedRun(repository);
       return repository.deps;
     case RECORDED_RUN_UNSATISFIED_REASON.FILE_NOT_PASSED:
+      await recordPassedRun(repository);
       await recordRunWithOmittedVerdicts(repository);
       return repository.deps;
     case RECORDED_RUN_UNSATISFIED_REASON.GIT_IDENTITY_UNRESOLVED:

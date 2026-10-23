@@ -8,6 +8,7 @@ import { TEST_PATH_VERDICT } from "@/test/run-state";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { runTestingCli, testingCliDeps } from "@testing/harnesses/testing/cli";
 import {
+  commitAdditionalTestFile,
   recordPassedRun,
   snapshotRunDirectory,
   withRecordedRunRepository,
@@ -28,6 +29,31 @@ describe("reusing a recorded passed run", () => {
       if (result.kind !== TEST_RESULT_KIND.REUSED) return;
       expect(result.outcomes.flatMap((outcome) => outcome.pathVerdicts)).toEqual([
         { testPath: file, verdict: TEST_PATH_VERDICT.PASSED },
+      ]);
+    });
+  });
+
+  it("reports only the selected file's verdict when the recorded passed run covers more files", async () => {
+    const { ownFile, descendantFile } = sampleDispatchValue(
+      TEST_DISPATCH_GENERATOR.nestedFiles(typescriptTestingLanguage),
+    );
+
+    await withRecordedRunRepository(ownFile, async (repository) => {
+      await commitAdditionalTestFile(repository, descendantFile);
+      await recordPassedRun(repository);
+      const invocationsAfterRecording = repository.runner.calls.length;
+
+      const result = await runTestsCommand(
+        { productDir: repository.productDir, passing: false, targets: { operands: [ownFile], recursive: false } },
+        repository.deps,
+      );
+
+      expect(repository.runner.calls).toHaveLength(invocationsAfterRecording);
+      expect(result.kind).toBe(TEST_RESULT_KIND.REUSED);
+      if (result.kind !== TEST_RESULT_KIND.REUSED) return;
+      expect(result.outcomes.flatMap((outcome) => outcome.testPaths)).toEqual([ownFile]);
+      expect(result.outcomes.flatMap((outcome) => outcome.pathVerdicts)).toEqual([
+        { testPath: ownFile, verdict: TEST_PATH_VERDICT.PASSED },
       ]);
     });
   });
