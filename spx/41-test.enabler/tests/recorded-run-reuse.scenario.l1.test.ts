@@ -79,6 +79,33 @@ describe("reusing a recorded passed run", () => {
     });
   });
 
+  it("prints each selected file's path and recorded verdict in the default-mode report of a reused run", async () => {
+    const { ownFile, descendantFile } = sampleDispatchValue(
+      TEST_DISPATCH_GENERATOR.nestedFiles(typescriptTestingLanguage),
+    );
+
+    await withRecordedRunRepository(ownFile, async (repository) => {
+      await commitAdditionalTestFile(repository, descendantFile);
+      await recordPassedRun(repository);
+
+      const result = await runTestsCommand({ productDir: repository.productDir, passing: false }, repository.deps);
+      const printed = await runTestingCli(
+        [TESTING_CLI.commandName],
+        testingCliDeps(repository.productDir, result, [], []),
+      );
+
+      expect(result.kind).toBe(TEST_RESULT_KIND.REUSED);
+      if (result.kind !== TEST_RESULT_KIND.REUSED) return;
+      const reportedVerdicts = result.outcomes.flatMap((outcome) => outcome.pathVerdicts);
+      expect(reportedVerdicts.map((entry) => entry.testPath).sort()).toEqual([ownFile, descendantFile].sort());
+      const printedLines = printed.stdout.split("\n");
+      for (const { testPath, verdict } of reportedVerdicts) {
+        expect(printedLines.some((line) => line.includes(testPath) && line.includes(verdict))).toBe(true);
+      }
+      expect(printed.exitCodes).toEqual([SUCCESS_EXIT_CODE]);
+    });
+  });
+
   it("dispatches the selection and records a new run when the caller requires execution", async () => {
     const { file } = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodeWithOwnFile(typescriptTestingLanguage));
 
