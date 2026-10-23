@@ -14,9 +14,14 @@ A passed run over identical selection and inputs establishes nothing a repeat ru
 
 ## Verification
 
-- ALWAYS: when a terminal run with status `passed` covers every test file `spx test` selects, its four staleness digests equal the current values, its head commit equals the current head commit, and the worktree holds no uncommitted change to a git-visible product file, `spx test` reports that run's verdicts as its result and invokes no runner
-- ALWAYS: a failed, interrupted, incomplete, or stale run never satisfies a request, and a request that no single run satisfies executes its selection
-- ALWAYS: a result taken from a recorded run names that run, so a reader tells a reused result from a fresh one
-- NEVER: a result taken from a recorded run writes a run file, so every run file records an execution and the latest covering run that status reads is unchanged by a reuse
-- ALWAYS: a caller can require execution of the selection, and the request then dispatches the selection whether or not a recorded run satisfies it
-- NEVER: a command other than `spx test` consults a recorded run to skip execution, so the sealed run journal that status folds and CI reproduces holds only executions
+### Testing
+
+- ALWAYS: when a terminal run with status `passed` covers every test file `spx test` selects, its four staleness digests equal the current values, its head commit equals the current head commit, and the worktree holds no uncommitted change to a git-visible product file, `spx test` reports that run's verdicts as its result and invokes no runner ([compliance])
+- ALWAYS: a failed, interrupted, incomplete, or stale run never satisfies a request, and a request that no single run satisfies executes its selection ([mapping])
+- ALWAYS: a result taken from a recorded run names that run, so a reader tells a reused result from a fresh one ([compliance])
+- NEVER: a result taken from a recorded run writes a run file, so every run file records an execution and the latest covering run that status reads is unchanged by a reuse ([compliance])
+- ALWAYS: a caller can require execution of the selection, and the request then dispatches the selection whether or not a recorded run satisfies it ([compliance])
+
+### Audit
+
+- NEVER: a command other than `spx test` consults a recorded run to skip execution, so the sealed run journal that status folds and CI reproduces holds only executions ([audit])

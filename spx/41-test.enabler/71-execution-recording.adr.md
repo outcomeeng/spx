@@ -25,17 +25,20 @@ Reuse inside the journaled verification run was rejected because the sealed jour
 
 ## Verification
 
-- ALWAYS: the recording path resolves the selection's current staleness inputs through the shared current-staleness-inputs function before dispatch, and returns the satisfying recorded run in place of dispatching, with no run file written, when one exists
-- ALWAYS: the files a request selects — discovery, operand targeting, and the passing scope — resolve through one selection function under `src/commands/test/` that the reuse lookup and the dispatch both consume, so a lookup and a dispatch address one file set
-- ALWAYS: the reuse lookup considers only the latest terminal run that covers every selected file, ordered as the per-node selection of the last-run evidence orders runs, so an older passed run never stands in for a later failed or stale run that covers the same files
-- ALWAYS: the candidate's recorded staleness inputs compare with the current inputs the shared current-staleness-inputs function derives over the candidate's own covered set, so a passed run that covers a superset of the selection satisfies it
-- ALWAYS: the candidate satisfies the request only when its head commit equals the current head commit, git identity resolves for both, the recorded verdict of every selected file is `passed` because a file the runner's report omitted is incomplete evidence, and the worktree holds no staged, unstaged, or untracked git-visible change
-- ALWAYS: a satisfied request returns a result kind distinct from an executed run, carrying the reused run's file coordinates and its outcomes restricted to the selected files, and the command descriptor reports it
-- NEVER: reserve or write a run file for a result taken from a recorded run
-- ALWAYS: a request that requires execution skips the lookup
-- NEVER: the per-node run that serves the status resolver consults a recorded run
+### Testing
+
+- ALWAYS: the reuse lookup considers only the latest terminal run that covers every selected file, ordered as the per-node selection of the last-run evidence orders runs, so an older passed run never stands in for a later failed or stale run that covers the same files ([compliance])
+- ALWAYS: the candidate's recorded staleness inputs compare with the current inputs the shared current-staleness-inputs function derives over the candidate's own covered set, so a passed run that covers a superset of the selection satisfies it ([property])
+- ALWAYS: the candidate satisfies the request only when its head commit equals the current head commit, git identity resolves for both, the recorded verdict of every selected file is `passed` because a file the runner's report omitted is incomplete evidence, and the worktree holds no staged, unstaged, or untracked git-visible change ([mapping])
+- ALWAYS: a satisfied request returns a result kind distinct from an executed run, carrying the reused run's file coordinates and its outcomes restricted to the selected files, and the command descriptor reports it ([compliance])
+- NEVER: reserve or write a run file for a result taken from a recorded run ([compliance])
+- ALWAYS: a request that requires execution skips the lookup ([compliance])
 
 ### Audit
+
+- ALWAYS: the recording path resolves the selection's current staleness inputs through the shared current-staleness-inputs function before dispatch, and returns the satisfying recorded run in place of dispatching, with no run file written, when one exists ([audit])
+- ALWAYS: the files a request selects — discovery, operand targeting, and the passing scope — resolve through one selection function under `src/commands/test/` that the reuse lookup and the dispatch both consume, so a lookup and a dispatch address one file set ([audit])
+- NEVER: the per-node run that serves the status resolver consults a recorded run ([audit])
 
 - ALWAYS: evidence recording and the per-node run live under `src/commands/test/` as handlers that return results and accept filesystem, clock, and git access as injected parameters — so they verify against temporary fixtures without mocking ([audit])
 - ALWAYS: the full-suite run and the per-node run assemble and persist their `TestRunState` through one shared recording function — so per-node and full-run evidence are identical in shape and staleness inputs ([audit])
