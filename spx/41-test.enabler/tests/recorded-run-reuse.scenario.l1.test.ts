@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import { runTestsCommand, TEST_RESULT_KIND } from "@/commands/test";
+import { SUCCESS_EXIT_CODE } from "@/domains/test";
 import { TESTING_CLI } from "@/interfaces/cli/test";
-import { AGENT_TEST_OUTPUT_TEXT, formatAgentTestOutput } from "@/interfaces/cli/test-agent-output";
+import { AGENT_TEST_OUTPUT_TEXT } from "@/interfaces/cli/test-agent-output";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { TEST_PATH_VERDICT } from "@/test/run-state";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { runTestingCli, testingCliDeps } from "@testing/harnesses/testing/cli";
 import {
   commitAdditionalTestFile,
+  recordedRunCliDependencies,
   recordPassedRun,
   snapshotRunDirectory,
   withRecordedRunRepository,
@@ -102,13 +104,18 @@ describe("reusing a recorded passed run", () => {
     await withRecordedRunRepository(file, async (repository) => {
       const recordedRun = await recordPassedRun(repository);
       const invocationsAfterRecording = repository.runner.calls.length;
+      const runFilesAfterRecording = await snapshotRunDirectory(repository.productDir);
 
-      const result = await runTestsCommand({ productDir: repository.productDir, passing: false }, repository.deps);
-      const summary = formatAgentTestOutput(result);
+      const printed = await runTestingCli(
+        [TESTING_CLI.commandName, TESTING_CLI.agentOption],
+        recordedRunCliDependencies(repository),
+      );
 
       expect(repository.runner.calls).toHaveLength(invocationsAfterRecording);
-      expect(summary).toContain(`${AGENT_TEST_OUTPUT_TEXT.REUSED_RUN}: ${recordedRun.runFile.runFilePath}`);
-      expect(summary).toContain(`${AGENT_TEST_OUTPUT_TEXT.TESTS}: 1`);
+      expect(printed.stdout).toContain(`${AGENT_TEST_OUTPUT_TEXT.REUSED_RUN}: ${recordedRun.runFile.runFilePath}`);
+      expect(printed.stdout).toContain(`${AGENT_TEST_OUTPUT_TEXT.TESTS}: 1`);
+      expect(printed.exitCodes).toEqual([SUCCESS_EXIT_CODE]);
+      expect(await snapshotRunDirectory(repository.productDir)).toEqual(runFilesAfterRecording);
     });
   });
 });

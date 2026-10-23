@@ -1,24 +1,32 @@
 import { describe, expect, it } from "vitest";
 
-import { RECORDED_RUN_UNSATISFIED_REASON, runTestsCommand, TEST_RESULT_KIND } from "@/commands/test";
+import { runTestsCommand, TEST_RESULT_KIND } from "@/commands/test";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import {
   arrangeUnsatisfiedRequest,
   snapshotRunDirectory,
+  UNSATISFIED_REQUEST_CASE,
   withRecordedRunRepository,
 } from "@testing/harnesses/testing/recorded-run";
 
 describe("a request no recorded run satisfies", () => {
-  it.each(Object.values(RECORDED_RUN_UNSATISFIED_REASON))(
-    "dispatches its selection and records a new run when the unsatisfied reason is %s",
-    async (reason) => {
-      const { file } = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodeWithOwnFile(typescriptTestingLanguage));
+  it.each(Object.values(UNSATISFIED_REQUEST_CASE))(
+    "dispatches its selection and records a new run when the recorded runs are in the state %s",
+    async (unsatisfiedCase) => {
+      const { ownFile, descendantFile } = sampleDispatchValue(
+        TEST_DISPATCH_GENERATOR.nestedFiles(typescriptTestingLanguage),
+      );
       const changedContent = sampleLiteralTestValue(arbitraryDomainLiteral());
 
-      await withRecordedRunRepository(file, async (repository) => {
-        const deps = await arrangeUnsatisfiedRequest(repository, reason, changedContent);
+      await withRecordedRunRepository(ownFile, async (repository) => {
+        const deps = await arrangeUnsatisfiedRequest(
+          repository,
+          unsatisfiedCase,
+          changedContent,
+          descendantFile,
+        );
         const invocationsBeforeRequest = repository.runner.calls.length;
         const runFilesBeforeRequest = await snapshotRunDirectory(repository.productDir);
 

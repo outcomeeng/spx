@@ -3,15 +3,24 @@ import { dirname, join } from "node:path";
 
 import {
   RECORDED_RUN_UNSATISFIED_REASON,
-  type RecordedRunUnsatisfiedReason,
   runTestsCommand,
+  TEST_RESULT_KIND,
   type TestCommandDependencies,
   type TestsCommandResult,
 } from "@/commands/test";
+import type { TestingCliDependencies } from "@/interfaces/cli/test";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
-import { compareAsciiStrings } from "@/lib/state-store";
+import { compareAsciiStrings, STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
+import type { TargetSelection } from "@/lib/test-targeting";
 import { testingRegistry } from "@/test/registry";
-import { testingRunsDir } from "@/test/run-state";
+import {
+  createTestRunFile,
+  formatTestRunTimestamp,
+  TEST_RUN_STATE_STATUS,
+  TESTING_RUN_STATE_ERROR_CODE,
+  testingRunsDir,
+  writeTerminalTestRunState,
+} from "@/test/run-state";
 import { GIT_TEST_CONFIG, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { withTestingTempProductDir } from "@testing/harnesses/testing/harness";
 import { SIMULATED_REPORT } from "@testing/harnesses/testing/simulated-report";
@@ -21,13 +30,12 @@ import {
 } from "@testing/harnesses/testing/typescript-runner";
 import { realVerifyGitDependencies } from "@testing/harnesses/verify/repository";
 
-const STATE_DIRECTORY_IGNORE_ENTRY = ".spx/\n";
+const STATE_DIRECTORY_IGNORE_ENTRY = `${STATE_STORE_SCOPE_PATH.SPX_DIR}/\n`;
 const GITIGNORE_FILENAME = ".gitignore";
 const FIXTURE_COMMIT_MESSAGE = "Record the test file fixture";
 const CHANGE_COMMIT_MESSAGE = "Change the test file fixture";
 const UNTRACKED_FILENAME = "untracked-change.txt";
 const FILE_ENCODING = "utf8";
-const MISSING_DIRECTORY_CODE = "ENOENT";
 const ASSUME_UNCHANGED_FLAG = "--assume-unchanged";
 const PASSING_RUNNER_EXIT_CODE = 0;
 const FAILING_RUNNER_EXIT_CODE = 1;
@@ -39,9 +47,31 @@ export interface RecordedRunRepository {
   readonly productDir: string;
   readonly testFile: string;
   readonly deps: TestCommandDependencies;
+  /** The strictly increasing clock `deps` records runs by. */
+  readonly now: () => Date;
   /** The recording runner every dispatch through `deps` reaches; its calls show whether a runner was invoked. */
   readonly runner: RecordingCommandRunner;
 }
+
+/**
+ * The states a request's recorded runs can be in while none of them satisfies the request. The failed,
+ * interrupted, incomplete, and partial-coverage members are the states the evidence-reuse rule names;
+ * the remaining members are the further conditions under which a recorded passed run is not reused.
+ */
+export const UNSATISFIED_REQUEST_CASE = {
+  NO_RECORDED_RUN: RECORDED_RUN_UNSATISFIED_REASON.NO_COVERING_RUN,
+  PARTIAL_COVERAGE: "partial-coverage",
+  FAILED_RUN: TEST_RUN_STATE_STATUS.FAILED,
+  INTERRUPTED_RUN: TEST_RUN_STATE_STATUS.INTERRUPTED,
+  INCOMPLETE_RUN: "incomplete-run",
+  FILE_NOT_PASSED: RECORDED_RUN_UNSATISFIED_REASON.FILE_NOT_PASSED,
+  GIT_IDENTITY_UNRESOLVED: RECORDED_RUN_UNSATISFIED_REASON.GIT_IDENTITY_UNRESOLVED,
+  HEAD_DIFFERS: RECORDED_RUN_UNSATISFIED_REASON.HEAD_DIFFERS,
+  WORKTREE_DIRTY: RECORDED_RUN_UNSATISFIED_REASON.WORKTREE_DIRTY,
+  STALE_RUN: RECORDED_RUN_UNSATISFIED_REASON.STALE,
+} as const;
+
+export type UnsatisfiedRequestCase = (typeof UNSATISFIED_REQUEST_CASE)[keyof typeof UNSATISFIED_REQUEST_CASE];
 
 /** Run file name to run file content for every file under the run directory. */
 export type RunDirectorySnapshot = ReadonlyMap<string, string>;
@@ -59,6 +89,7 @@ export function withRecordedRunRepository(
     await writeProductFile(productDir, testFile, "");
     await commitAll(productDir, FIXTURE_COMMIT_MESSAGE);
     const runner = createRecordingCommandRunner({ present: true, exitCode: PASSING_RUNNER_EXIT_CODE });
+    const now = strictlyIncreasingClock();
     await callback({
       productDir,
       testFile,
@@ -66,8 +97,9 @@ export function withRecordedRunRepository(
         registry: testingRegistry,
         runnerDepsFor: () => runner,
         git: realVerifyGitDependencies(),
-        now: strictlyIncreasingClock(),
+        now,
       },
+      now,
       runner,
     });
   });
@@ -90,11 +122,35 @@ export async function commitAdditionalTestFile(repository: RecordedRunRepository
 }
 
 /** Executes the checkout's tests through the command, which records one passed run. */
-export async function recordPassedRun(repository: RecordedRunRepository): Promise<TestsCommandResult> {
+export async function recordPassedRun(
+  repository: RecordedRunRepository,
+  targets?: TargetSelection,
+): Promise<TestsCommandResult> {
   return await runTestsCommand(
-    { productDir: repository.productDir, passing: false, requireExecution: true },
+    { productDir: repository.productDir, passing: false, targets, requireExecution: true },
     repository.deps,
   );
+}
+
+/**
+ * The testing CLI's dependencies wired to the real command over the repository's recording runner,
+ * so an invocation through the CLI reaches the same dispatch a caller's does. Each call a CLI action
+ * makes is recorded with the execution requirement it carried.
+ */
+export function recordedRunCliDependencies(repository: RecordedRunRepository): TestingCliDependencies {
+  const run: TestingCliDependencies["runTests"] = (productDir, passing, targets, changed, requireExecution) =>
+    runTestsCommand({ productDir, passing, targets, changed, requireExecution }, repository.deps);
+  return {
+    resolveProductDir: () => Promise.resolve(repository.productDir),
+    runTests: run,
+    runAgentTests: run,
+    writeStdout: () => undefined,
+    writeWarning: () => undefined,
+    setExitCode: () => undefined,
+    exit: () => {
+      throw new Error("Unexpected testing CLI process exit in recorded run fixture");
+    },
+  };
 }
 
 /** Records one run in which the runner exits non-zero, so the run's status is `failed`. */
@@ -119,6 +175,38 @@ async function recordRunWithOmittedVerdicts(repository: RecordedRunRepository): 
   );
 }
 
+/** Records a run that executed the selection and ended `interrupted`, later than every run recorded before it. */
+async function recordInterruptedRun(repository: RecordedRunRepository): Promise<void> {
+  const executed = await recordPassedRun(repository);
+  if (executed.kind !== TEST_RESULT_KIND.EXECUTED) throw new Error("Expected the required execution to run");
+  const runFile = await createTestRunFile(repository.productDir, { now: repository.now });
+  if (!runFile.ok) throw new Error(runFile.error);
+  const written = await writeTerminalTestRunState(runFile.value.runFilePath, {
+    ...executed.recorded,
+    startedAt: runFile.value.startedAt,
+    completedAt: formatTestRunTimestamp(repository.now()),
+    status: TEST_RUN_STATE_STATUS.INTERRUPTED,
+  });
+  if (!written.ok) throw new Error(written.error);
+}
+
+/** Leaves a run file that no terminal state was ever written to, as a run that ended before it completed. */
+async function recordIncompleteRun(repository: RecordedRunRepository): Promise<void> {
+  const runFile = await createTestRunFile(repository.productDir, { now: repository.now });
+  if (!runFile.ok) throw new Error(runFile.error);
+}
+
+/** Records one passed run per file, so each file is covered by a run and no run covers both. */
+async function recordPassedRunPerFile(
+  repository: RecordedRunRepository,
+  additionalFile: string,
+): Promise<void> {
+  await commitAdditionalTestFile(repository, additionalFile);
+  for (const operand of [repository.testFile, additionalFile]) {
+    await recordPassedRun(repository, { operands: [operand], recursive: false });
+  }
+}
+
 function unresolvedGitDependencies(): GitDependencies {
   return { execa: async () => ({ exitCode: GIT_UNRESOLVED_EXIT_CODE, stdout: "", stderr: "" }) };
 }
@@ -130,39 +218,50 @@ async function changeTestFileHiddenFromGit(repository: RecordedRunRepository, co
 }
 
 /**
- * Brings the checkout to the one state in which a recorded run fails to satisfy a request for the
- * test file for the stated reason alone, and returns the dependencies the request runs under.
+ * Brings the checkout to the one state in which the recorded runs fail to satisfy a request for the
+ * checkout's test files in the stated way alone, and returns the dependencies the request runs under.
+ * `additionalFile` is a second test file, committed only where the state needs one.
  */
 export async function arrangeUnsatisfiedRequest(
   repository: RecordedRunRepository,
-  reason: RecordedRunUnsatisfiedReason,
+  unsatisfiedCase: UnsatisfiedRequestCase,
   changedContent: string,
+  additionalFile: string,
 ): Promise<TestCommandDependencies> {
-  switch (reason) {
-    case RECORDED_RUN_UNSATISFIED_REASON.NO_COVERING_RUN:
+  switch (unsatisfiedCase) {
+    case UNSATISFIED_REQUEST_CASE.NO_RECORDED_RUN:
       return repository.deps;
-    // A passed run precedes the failed and the omitted-verdict run, so the later covering
+    case UNSATISFIED_REQUEST_CASE.PARTIAL_COVERAGE:
+      await recordPassedRunPerFile(repository, additionalFile);
+      return repository.deps;
+    // A passed run precedes the failed, interrupted, and omitted-verdict run, so the later covering
     // run alone decides the request and the earlier passed run never stands in for it.
-    case RECORDED_RUN_UNSATISFIED_REASON.RUN_NOT_PASSED:
+    case UNSATISFIED_REQUEST_CASE.FAILED_RUN:
       await recordPassedRun(repository);
       await recordFailedRun(repository);
       return repository.deps;
-    case RECORDED_RUN_UNSATISFIED_REASON.FILE_NOT_PASSED:
+    case UNSATISFIED_REQUEST_CASE.INTERRUPTED_RUN:
+      await recordInterruptedRun(repository);
+      return repository.deps;
+    case UNSATISFIED_REQUEST_CASE.INCOMPLETE_RUN:
+      await recordIncompleteRun(repository);
+      return repository.deps;
+    case UNSATISFIED_REQUEST_CASE.FILE_NOT_PASSED:
       await recordPassedRun(repository);
       await recordRunWithOmittedVerdicts(repository);
       return repository.deps;
-    case RECORDED_RUN_UNSATISFIED_REASON.GIT_IDENTITY_UNRESOLVED:
+    case UNSATISFIED_REQUEST_CASE.GIT_IDENTITY_UNRESOLVED:
       await recordPassedRun(repository);
       return { ...repository.deps, git: unresolvedGitDependencies() };
-    case RECORDED_RUN_UNSATISFIED_REASON.HEAD_DIFFERS:
+    case UNSATISFIED_REQUEST_CASE.HEAD_DIFFERS:
       await recordPassedRun(repository);
       await commitTestFileChange(repository, changedContent);
       return repository.deps;
-    case RECORDED_RUN_UNSATISFIED_REASON.WORKTREE_DIRTY:
+    case UNSATISFIED_REQUEST_CASE.WORKTREE_DIRTY:
       await recordPassedRun(repository);
       await leaveUntrackedFile(repository);
       return repository.deps;
-    case RECORDED_RUN_UNSATISFIED_REASON.STALE:
+    case UNSATISFIED_REQUEST_CASE.STALE_RUN:
       await recordPassedRun(repository);
       await changeTestFileHiddenFromGit(repository, changedContent);
       return repository.deps;
@@ -184,7 +283,7 @@ export async function commitTestFileChange(repository: RecordedRunRepository, co
 export async function snapshotRunDirectory(productDir: string): Promise<RunDirectorySnapshot> {
   const runsDir = testingRunsDir(productDir);
   const names = await readdir(runsDir).catch((error: NodeJS.ErrnoException) => {
-    if (error.code === MISSING_DIRECTORY_CODE) return [];
+    if (error.code === TESTING_RUN_STATE_ERROR_CODE.NOT_FOUND) return [];
     throw error;
   });
   const entries = await Promise.all(
