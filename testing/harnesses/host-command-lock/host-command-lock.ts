@@ -27,7 +27,9 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const TEMP_PREFIX = "host-command-lock-";
 const LOCK_FILE_NAME = "orchestration.lock";
-const TSX_BIN = join("node_modules", ".bin", "tsx");
+// One Node process runs the supervisor, so its process id and descriptors are the supervisor's own.
+const NODE_BIN = process.execPath;
+const TSX_LOADER_ARGS = ["--import", "tsx"];
 const SUPERVISOR_ENTRY = join("testing", "harnesses", "host-command-lock", "supervisor-process.ts");
 const POLL_MS = 25;
 const WAIT_TIMEOUT_MS = 20_000;
@@ -108,7 +110,12 @@ export const RECORD_WRITE_AFTER_SPAWN = 2;
 
 /** Starts one real supervisor process in its own process group, as an agent tool would. */
 export function startSupervisor(lock: LockEnv, request: RunRequest, options: SupervisorOptions = {}): SupervisorRun {
-  const child = spawn(TSX_BIN, [SUPERVISOR_ENTRY, JSON.stringify(request), String(options.killOnRecordWrite ?? 0)], {
+  const child = spawn(NODE_BIN, [
+    ...TSX_LOADER_ARGS,
+    SUPERVISOR_ENTRY,
+    JSON.stringify(request),
+    String(options.killOnRecordWrite ?? 0),
+  ], {
     env: options.env ?? lock.env,
     detached: true,
     stdio: ["ignore", "pipe", "pipe", ...(options.inheritedFds ?? [])],
@@ -137,7 +144,7 @@ function parseResultLine(stderr: string): ResultLine | undefined {
 
 /** The argv that starts a nested supervisor as a guarded command's workload. */
 export function nestedSupervisorWorkload(request: RunRequest): readonly string[] {
-  return [TSX_BIN, SUPERVISOR_ENTRY, JSON.stringify(request)];
+  return [NODE_BIN, ...TSX_LOADER_ARGS, SUPERVISOR_ENTRY, JSON.stringify(request)];
 }
 
 /** Signals a supervisor's whole process group, as a harness tool timeout does. */
@@ -184,7 +191,7 @@ export function leavingWorkload(markerDir: string): readonly string[] {
   const worker = workerWorkload(markerDir).slice(1);
   const source = [
     "const {spawn}=require('child_process');",
-    `spawn(process.execPath,${JSON.stringify(worker)},{stdio:'inherit'}).unref();`,
+    `spawn(process.execPath,${JSON.stringify(worker)},{stdio:['inherit','inherit','inherit',3]}).unref();`,
   ].join("");
   return [process.execPath, "-e", source];
 }
@@ -197,8 +204,8 @@ export function exitingWorkload(code: number): readonly string[] {
 /** A workload that appends its start and end instants to `<markerDir>/<label>.interval`. */
 export function intervalWorkload(markerDir: string, label: string, durationMs: number): readonly string[] {
   const file = JSON.stringify(join(markerDir, `${label}.interval`));
-  const source = `const fs=require('fs');fs.appendFileSync(${file},'start '+Date.now()+'\\n');`
-    + `setTimeout(()=>{fs.appendFileSync(${file},'end '+Date.now()+'\\n')},${durationMs});`;
+  const source = String.raw`const fs=require('fs');fs.appendFileSync(${file},'start '+Date.now()+'\n');`
+    + String.raw`setTimeout(()=>{fs.appendFileSync(${file},'end '+Date.now()+'\n')},${durationMs});`;
   return [process.execPath, "-e", source];
 }
 

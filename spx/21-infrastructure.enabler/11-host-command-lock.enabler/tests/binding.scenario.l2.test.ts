@@ -27,7 +27,7 @@ describe("the pinned lock binding", () => {
         stdio: ["ignore", "pipe", "inherit", parentFd],
       });
       let ready = false;
-      child.stdout.on("data", () => {
+      child.stdout?.on("data", () => {
         ready = true;
       });
       await waitUntil(() => ready);

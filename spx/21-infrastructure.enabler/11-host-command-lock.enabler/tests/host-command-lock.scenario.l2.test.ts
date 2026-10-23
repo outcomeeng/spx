@@ -122,7 +122,6 @@ describe("a supervisor killed while it holds the slot", () => {
 
       const { result } = await createHostCommandLock(dilatedDeps(lock.lockPath)).run({
         command: exitingWorkload(0),
-        waitSeconds: 1,
       });
 
       expect(result?.started).toBe(true);

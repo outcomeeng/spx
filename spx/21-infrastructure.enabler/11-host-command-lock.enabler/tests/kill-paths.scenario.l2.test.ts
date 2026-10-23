@@ -42,7 +42,6 @@ describe("a running guarded command receiving a harness kill path's signal", () 
         await waitUntil(() => !isAlive(worker));
         const { result } = await createHostCommandLock(dilatedDeps(lock.lockPath)).run({
           command: intervalWorkload(lock.dir, WAITER, 1),
-          waitSeconds: 1,
         });
 
         expect(exit.code).toBe(SIGNAL_EXIT_CODE_BASE + osConstants.signals[signal]);
