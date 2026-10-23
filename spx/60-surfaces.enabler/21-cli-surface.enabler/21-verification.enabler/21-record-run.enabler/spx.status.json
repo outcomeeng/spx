@@ -5,7 +5,7 @@
     "test": {
       "tests/change-identity.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -62,7 +62,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -389,7 +392,7 @@
       },
       "tests/change-identity.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -446,7 +449,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -781,7 +787,7 @@
       },
       "tests/file-scope.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -838,7 +844,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -1165,7 +1174,7 @@
       },
       "tests/record-run.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -1222,7 +1231,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -1549,7 +1561,7 @@
       },
       "tests/run-expectations-option.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -1606,7 +1618,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -1941,7 +1956,7 @@
       },
       "tests/run-finish-unaccounted.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -1998,7 +2013,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -2333,7 +2351,7 @@
       },
       "tests/run-paths.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -2390,7 +2408,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -2725,7 +2746,7 @@
       },
       "tests/run-paths.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -2782,7 +2803,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -3117,7 +3141,7 @@
       },
       "tests/run-reconcile.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -3174,7 +3198,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -3509,7 +3536,7 @@
       },
       "tests/run-reconcile.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -3566,7 +3593,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -3901,7 +3931,7 @@
       },
       "tests/verifier.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -3958,7 +3988,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -4285,7 +4318,7 @@
       },
       "tests/verifier.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
@@ -4342,7 +4375,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",

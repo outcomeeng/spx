@@ -1,7 +1,7 @@
-import { applyPathFilter, normalizePathPrefix, type PathFilterConfig } from "@/config/primitives/path-filter";
+import { normalizePathPrefix, type PathFilterConfig } from "@/config/primitives/path-filter";
 import { aggregateTestExitCode, groupTestFiles, type LanguageTestGroup } from "@/domains/test";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
-import { resolveTargetedTestFiles, type TargetSelection } from "@/lib/test-targeting";
+import type { TargetSelection } from "@/lib/test-targeting";
 import type {
   TestingLanguageDescriptor,
   TestRunCommandOutput,
@@ -11,7 +11,7 @@ import type {
 import type { TestingRegistry } from "@/test/registry";
 import { TEST_PATH_VERDICT, type TestPathVerdict, type TestRunnerOutcome } from "@/test/run-state";
 
-import { discoverTestFiles } from "./discovery";
+import { selectTestFiles, type TestSelection } from "./selection";
 
 /**
  * Outcome of a `spx test` dispatch: aggregate exit code, the dispatched groups,
@@ -80,15 +80,19 @@ export async function runTests(
   options: TestDispatchOptions,
   deps: TestDispatchDependencies,
 ): Promise<TestDispatchResult> {
-  const discovered = await discoverTestFiles(options.productDir);
-  // Explicit operands narrow the discovered set before passing-scope; with no
-  // operands the full discovered set carries through unchanged.
-  const targeted = options.targets === undefined
-    ? { selected: discovered, unresolved: [] as readonly string[] }
-    : resolveTargetedTestFiles(discovered, options.targets, { productDir: options.productDir });
-  const testFiles = options.passingScope === undefined
-    ? targeted.selected
-    : applyPathFilter(targeted.selected, options.passingScope);
+  return await dispatchSelectedTests(await selectTestFiles(options), options, deps);
+}
+
+/**
+ * Dispatches a selection a caller already resolved, so a request that consulted
+ * its selection before dispatching discovers its files once.
+ */
+export async function dispatchSelectedTests(
+  selection: TestSelection,
+  options: TestDispatchOptions,
+  deps: TestDispatchDependencies,
+): Promise<TestDispatchResult> {
+  const testFiles = selection.selected;
   const { groups, unmatched } = groupTestFiles(testFiles, options.registry.languages);
   const runnerExcludedNodePaths = excludedNodePaths(options.passingScope);
 
@@ -125,11 +129,11 @@ export async function runTests(
   return {
     exitCode: aggregateTestExitCode(
       invocations,
-      unmatched.length + targeted.unresolved.length,
+      unmatched.length + selection.unresolvedTargets.length,
     ),
     groups,
     unmatched,
-    unresolvedTargets: targeted.unresolved,
+    unresolvedTargets: selection.unresolvedTargets,
     unresolvedChangedSourceFiles: options.unresolvedChangedSourceFiles ?? [],
     reports,
     outcomes,

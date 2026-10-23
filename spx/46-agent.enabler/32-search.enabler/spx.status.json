@@ -5,7 +5,7 @@
     "test": {
       "tests/branch-association.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -62,7 +62,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -390,7 +393,7 @@
       },
       "tests/branch-association.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -447,7 +450,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -776,7 +782,7 @@
       },
       "tests/locator-availability.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -833,7 +839,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -1155,7 +1164,7 @@
       },
       "tests/locator-bound.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -1212,7 +1221,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -1541,7 +1553,7 @@
       },
       "tests/locator-run.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -1598,7 +1610,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -2049,7 +2064,7 @@
       },
       "tests/locator-runner.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -2106,7 +2121,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -2428,7 +2446,7 @@
       },
       "tests/locator.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -2485,7 +2503,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -2807,7 +2828,7 @@
       },
       "tests/reach-window.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -2864,7 +2885,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -3192,7 +3216,7 @@
       },
       "tests/reach-window.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -3249,7 +3273,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -3578,7 +3605,7 @@
       },
       "tests/scan-bound.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -3635,7 +3662,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -3963,7 +3993,7 @@
       },
       "tests/search.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -4020,7 +4050,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -4349,7 +4382,7 @@
       },
       "tests/search.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -4406,7 +4439,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -4735,7 +4771,7 @@
       },
       "tests/search.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -4792,7 +4828,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -5121,7 +5160,7 @@
       },
       "tests/selector-needle.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -5178,7 +5217,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -5501,7 +5543,7 @@
       },
       "tests/session-identity.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -5558,7 +5600,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -5887,7 +5932,7 @@
       },
       "tests/store-listing.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -5944,7 +5989,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -6272,7 +6320,7 @@
       },
       "tests/store-placement.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -6329,7 +6377,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",

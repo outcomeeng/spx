@@ -1,4 +1,9 @@
-import type { RecordedTestRun, TestDispatchResult } from "@/commands/test";
+import {
+  type RecordedTestRun,
+  TEST_RESULT_KIND,
+  type TestDispatchResult,
+  type TestsCommandResult,
+} from "@/commands/test";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { createTestingDomain, type TestingCliDependencies } from "@/interfaces/cli/test";
 import type { TargetSelection } from "@/lib/test-targeting";
@@ -37,6 +42,7 @@ function recordIdentity(): string {
  */
 export function recordedTestRun(dispatch: TestDispatchResult): RecordedTestRun {
   return {
+    kind: TEST_RESULT_KIND.EXECUTED,
     dispatch,
     runFile: {
       runsDir: recordIdentity(),
@@ -63,7 +69,7 @@ export function recordedTestRun(dispatch: TestDispatchResult): RecordedTestRun {
 
 export function testingCliDeps(
   productDir: string,
-  run: RecordedTestRun,
+  run: TestsCommandResult,
   agentCalls: TestingCliCall[],
   streamCalls: TestingCliCall[],
 ): TestingCliDependencies {

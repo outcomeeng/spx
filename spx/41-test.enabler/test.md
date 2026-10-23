@@ -1,20 +1,25 @@
 # Test
 
-PROVIDES the `spx test` command and a registry-based per-node run surface — discovers test files by walking `spx/**/tests/`, groups them by file extension, dispatches each group to the supported runner adapter registered for that language, runs a single node's tests through the same registry on request, records last-run evidence for status reporting, offers agent output capture without changing runner selection, and selects a focused subset of the suite from explicit caller operands
+PROVIDES the `spx test` command and a registry-based per-node run surface — discovers test files by walking `spx/**/tests/`, groups them by file extension, dispatches each group to the supported runner adapter registered for that language, runs a single node's tests through the same registry on request, records last-run evidence for status reporting, reports a recorded passed run's verdicts in place of re-running identical selection and inputs, offers agent output capture without changing runner selection, and selects a focused subset of the suite from explicit caller operands
 SO THAT developers, agents, and recorded-evidence consumers
-CAN run spec-tree tests with a single command, honor configured passing-scope exclusions declared in `spx.config.{toml,json,yaml}`, obtain a node's pass/fail outcome through the multi-language registry without naming a runner, read recorded status without re-running tests, run only the tests for a named node or file through the same dispatch pipeline, and inspect failures through compact agent summaries and captured output artifacts
+CAN run spec-tree tests with a single command, honor configured passing-scope exclusions declared in `spx.config.{toml,json,yaml}`, obtain a node's pass/fail outcome through the multi-language registry without naming a runner, read recorded status without re-running tests, receive a repeat request's recorded result without a runner invocation, run only the tests for a named node or file through the same dispatch pipeline, and inspect failures through compact agent summaries and captured output artifacts
 
 ## Assertions
 
 ### Scenarios
 
+- Given a terminal run with status `passed` covers every test file `spx test` selects with a `passed` verdict for each, its four staleness digests and head commit equal the current values, git identity resolves for both the run and the checkout, and the worktree holds no staged, unstaged, or untracked git-visible change, when `spx test` runs, then it invokes no runner and reports that run's verdicts as its result ([test](tests/recorded-run-reuse.scenario.l1.test.ts))
+- Given `spx test` reports a result taken from a recorded run, then the report names that run ([test](tests/recorded-run-reuse.scenario.l1.test.ts))
+- Given the command API requires execution of the selection while a recorded run satisfies it, when `spx test` runs, then it dispatches the selection and records a new run ([test](tests/recorded-run-reuse.scenario.l1.test.ts))
+- Given `spx test --agent` selects files a recorded run satisfies, when it runs, then it reports the reused result in its compact summary and invokes no runner ([test](tests/recorded-run-reuse.scenario.l1.test.ts))
+- Given a test file appears in the spec tree after a request began reading its recorded runs, when `spx test` runs, then a dispatch covers only the files the request selected before the file appeared, and a reused result reports only those files ([test](tests/recorded-run-reuse.scenario.l1.test.ts))
 - Given a spec tree with tests in multiple languages, when `spx test` runs, then each language's testing enabler is invoked on the files matching its registered extension pattern ([test](tests/test.scenario.l1.test.ts))
 - Given `spx.config.{toml,json,yaml}` excludes a node path from the passing test scope, when `spx test passing` runs, then test files under that node are filtered out before any runner invocation ([test](tests/execution-recording.scenario.l1.test.ts))
 - Given `spx.config.{toml,json,yaml}` excludes a node path from the passing test scope, when `spx test` runs without `passing`, then test files under that node are still invoked ([test](tests/execution-recording.scenario.l1.test.ts))
 - Given a passing-scope exclusion that is not a full product-root path (a bare node path), when `spx test passing` runs, then it matches no discovered file and excludes nothing ([test](tests/execution-recording.scenario.l1.test.ts))
 - Given a passing scope that excludes a node path, when the test dispatch applies that scope, then files under that node are filtered out before runner invocation while files outside it are dispatched, and with no scope supplied every discovered file is dispatched ([test](tests/test.scenario.l1.test.ts))
 - Given a run in which one test file fails and another passes, when `spx test` records the run, then the recorded run holds `failed` for the first file and `passed` for the second ([test](tests/execution-recording.scenario.l1.test.ts))
-- Given `spx test` runs, then it records last-run evidence covering the dispatched files for fast status reporting ([test](tests/execution-recording.scenario.l1.test.ts))
+- Given `spx test` dispatches test files, then it records last-run evidence covering the dispatched files for fast status reporting ([test](tests/execution-recording.scenario.l1.test.ts))
 - Given a testing language descriptor declares a root product input path or a covered-path-derived product input path, when `spx test` records a run before and after that path appears or changes, then the recorded product input digest changes ([test](tests/execution-recording.scenario.l1.test.ts))
 - Given `spx test --changed --staged` records a run while the worktree product input differs from the staged product input, then the recorded product input digest reflects the staged snapshot ([test](tests/execution-recording.scenario.l1.test.ts))
 - Given `spx test` records a run before and after a covered test file's content changes, when staleness is checked against recomputed current inputs, then the first recorded run is stale and the second recorded run is fresh ([test](tests/execution-recording.scenario.l1.test.ts))
@@ -34,6 +39,7 @@ CAN run spec-tree tests with a single command, honor configured passing-scope ex
 
 ### Mappings
 
+- Given a recorded run that is `failed`, `interrupted`, incomplete or stale, or a selection that no single recorded run covers, when `spx test` runs, then it dispatches its selection ([test](tests/recorded-run-reuse.mapping.l1.test.ts))
 - Each language provides its supported test runner adapter via a leaf enabler child registered per [`spx/19-language-registration.adr.md`](spx/19-language-registration.adr.md) and [`spx/41-test.enabler/11-test-runner-environments.pdr.md`](spx/41-test.enabler/11-test-runner-environments.pdr.md) ([test](tests/test.mapping.l1.test.ts))
 - Extension-based dispatch: test files route to the testing enabler whose registered extension pattern matches ([test](tests/test.mapping.l1.test.ts))
 

@@ -1,6 +1,7 @@
 import type { Command } from "commander";
 
-import { type RecordedTestRun, runTestsCommand, type TestDispatchResult } from "@/commands/test";
+import { runTestsCommand, TEST_RESULT_KIND, type TestDispatchResult, type TestsCommandResult } from "@/commands/test";
+import { SUCCESS_EXIT_CODE } from "@/domains/test";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { formatAgentTestOutput } from "@/interfaces/cli/test-agent-output";
@@ -42,6 +43,7 @@ const UNMATCHED_TEST_FILES_WARNING = "Skipped test files with no registered runn
 const GATED_TEST_RUNNERS_WARNING = "Skipped test files because their registered runner was gated out";
 const UNRESOLVED_TARGETS_WARNING = "No tests matched these operands";
 const UNRESOLVED_CHANGED_SOURCE_WARNING = "No related-test capability resolved these changed source files";
+export const REUSED_RUN_REPORT = "Reported the result of recorded run";
 
 const TESTING_PRODUCT_DIR_WARNING = {
   NOT_GIT_REPOSITORY:
@@ -65,10 +67,11 @@ async function runTestsThroughCommand(
   io: CliIo,
   targets?: TargetSelection,
   changed?: TestingChangedSelection,
-): Promise<RecordedTestRun> {
+  requireExecution?: boolean,
+): Promise<TestsCommandResult> {
   try {
     return await runTestsCommand(
-      { productDir, passing, targets, changed },
+      { productDir, passing, targets, changed, requireExecution },
       {
         registry: testingRegistry,
         runnerDepsFor: createRunnerDepsFor(productDir),
@@ -87,10 +90,11 @@ async function runAgentTestsThroughCommand(
   io: CliIo,
   targets?: TargetSelection,
   changed?: TestingChangedSelection,
-): Promise<RecordedTestRun> {
+  requireExecution?: boolean,
+): Promise<TestsCommandResult> {
   try {
     return await runTestsCommand(
-      { productDir, passing, targets, changed },
+      { productDir, passing, targets, changed, requireExecution },
       {
         registry: testingRegistry,
         runnerDepsFor: createAgentRunnerDepsFor(productDir),
@@ -188,13 +192,15 @@ export interface TestingCliDependencies {
     passing: boolean,
     targets?: TargetSelection,
     changed?: TestingChangedSelection,
-  ) => Promise<RecordedTestRun>;
+    requireExecution?: boolean,
+  ) => Promise<TestsCommandResult>;
   readonly runAgentTests: (
     productDir: string,
     passing: boolean,
     targets?: TargetSelection,
     changed?: TestingChangedSelection,
-  ) => Promise<RecordedTestRun>;
+    requireExecution?: boolean,
+  ) => Promise<TestsCommandResult>;
   readonly writeStdout: (output: string) => void;
   readonly writeWarning: (warning: string | undefined) => void;
   readonly setExitCode: (exitCode: number) => void;
@@ -209,10 +215,10 @@ function defaultTestingCliDependencies(invocation: CliInvocation): TestingCliDep
   };
   return {
     resolveProductDir: () => resolveTestProductDir(invocation.resolveEffectiveInvocationDir(), writeWarning),
-    runTests: (productDir, passing, targets, changed) =>
-      runTestsThroughCommand(productDir, passing, invocation.io, targets, changed),
-    runAgentTests: (productDir, passing, targets, changed) =>
-      runAgentTestsThroughCommand(productDir, passing, invocation.io, targets, changed),
+    runTests: (productDir, passing, targets, changed, requireExecution) =>
+      runTestsThroughCommand(productDir, passing, invocation.io, targets, changed, requireExecution),
+    runAgentTests: (productDir, passing, targets, changed, requireExecution) =>
+      runAgentTestsThroughCommand(productDir, passing, invocation.io, targets, changed, requireExecution),
     writeStdout: (output) => invocation.io.writeStdout(output),
     writeWarning,
     setExitCode: (exitCode) => invocation.io.setExitCode(exitCode),
@@ -226,15 +232,23 @@ async function runTestingAction(
   options: TestingCliActionOptions,
   targets: TargetSelection | undefined,
   changed: TestingChangedSelection | undefined,
+  requireExecution: boolean,
 ): Promise<void> {
   const productDir = await deps.resolveProductDir();
   if (options.agent === true) {
-    const result = await deps.runAgentTests(productDir, passing, targets, changed);
+    const result = await deps.runAgentTests(productDir, passing, targets, changed, requireExecution);
     deps.writeStdout(formatAgentTestOutput(result));
-    deps.setExitCode(result.dispatch.exitCode);
+    deps.setExitCode(result.kind === TEST_RESULT_KIND.REUSED ? SUCCESS_EXIT_CODE : result.dispatch.exitCode);
     return;
   }
-  const result = await deps.runTests(productDir, passing, targets, changed);
+  const result = await deps.runTests(productDir, passing, targets, changed, requireExecution);
+  if (result.kind === TEST_RESULT_KIND.REUSED) {
+    deps.writeStdout(`${REUSED_RUN_REPORT}: ${result.runFile.runFilePath}\n`);
+    for (const { testPath, verdict } of result.outcomes.flatMap((outcome) => outcome.pathVerdicts)) {
+      deps.writeStdout(`${testPath}: ${verdict}\n`);
+    }
+    deps.exit(SUCCESS_EXIT_CODE);
+  }
   reportAndExit(result.dispatch, deps);
 }
 
@@ -259,6 +273,7 @@ export function createTestingDomain(deps?: TestingCliDependencies): Domain {
           { agent: requestsAgentMode(options, command) },
           targetSelection(targets, options, command),
           changedSelection(options, command),
+          false,
         );
       });
 
@@ -278,6 +293,7 @@ export function createTestingDomain(deps?: TestingCliDependencies): Domain {
             { agent: requestsAgentMode(options, command) },
             targetSelection(targets, options, command),
             changedSelection(options, command),
+            false,
           );
         });
     },
