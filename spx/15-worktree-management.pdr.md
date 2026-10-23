@@ -1,6 +1,6 @@
 # Worktree Management
 
-spx commands resolve product roots from an effective invocation directory. Without `-C`, the invoking process directory is the effective invocation directory; with `-C <path>`, that path is the effective invocation directory and the caller's ambient directory is irrelevant to target command behavior except for resolving a relative `-C` argument. From that effective invocation directory, each repository-scoped state class resolves to either the Git common-dir product root or the local worktree root, host-scoped state resolves outside every repository, and at most one worktree is the **main checkout** independent of which branch any worktree has checked out. The main checkout permanently holds the repository's default branch — `main` for this product — so Git refuses attempts to check that branch out in a linked worktree.
+spx commands resolve product roots from an effective invocation directory. Without `-C`, the invoking process directory is the effective invocation directory; with `-C <path>`, that path is the effective invocation directory and the caller's ambient directory is irrelevant to target command behavior except for resolving a relative `-C` argument. From that effective invocation directory, each repository-scoped state class resolves to either the Git common-dir product root or the local worktree root, host-scoped state resolves by default outside every repository, and at most one worktree is the **main checkout** independent of which branch any worktree has checked out. The main checkout permanently holds the repository's default branch — `main` for this product — so Git refuses attempts to check that branch out in a linked worktree.
 
 ## Rationale
 
@@ -11,9 +11,9 @@ Git worktrees share one Git common directory while each keeps its own working co
 | `.spx/branch/`, `.spx/changes/`, `.spx/sessions/`, and `.spx/worktrees/` (gitignored, shared) | Git common-dir product root | Parent of `git rev-parse --git-common-dir` |
 | `.spx/worktree/` (gitignored, per-worktree)                                                   | Local worktree root         | `git rev-parse --show-toplevel`            |
 | `spx/` (tracked)                                                                              | Local worktree root         | `git rev-parse --show-toplevel`            |
-| Host-scoped state (outside every repository)                                                  | Account state directory     | Environment and `$HOME`, no Git            |
+| Host-scoped state (outside every repository by default)                                       | Account state directory     | Environment and `$HOME`, no Git            |
 
-Host-scoped state serves work that spans repositories: a resource that every session of one OS account on one host contends for must be one object whichever repository, worktree, or session reaches it. Any repository-scoped root would split it into one object per repository, and a location under `.spx/` would tie it to a repository's lifetime, so it resolves to a fixed per-account state directory outside every repository. A command that serves only host-scoped state needs no product root, so it resolves none, reads no product configuration, and runs the same inside or outside a git repository; `-C` then sets only the working directory of the command it launches.
+Host-scoped state serves work that spans repositories: a resource that every session of one OS account on one host contends for must be one object whichever repository, worktree, or session reaches it. Any repository-scoped root would split it into one object per repository, and a location under `.spx/` would tie it to a repository's lifetime, so its default location is a fixed per-account state directory outside every repository, and an explicit override names the absolute path the caller chooses and is taken as given. A command that serves only host-scoped state needs no product root, so it resolves none, reads no product configuration, and runs the same inside or outside a git repository; `-C` then sets only the working directory of the command it launches.
 
 Resolving every repository-scoped directory to a single root fails one class or another: a single common-dir root reads the wrong branch's spec tree and dirty-checkout evidence from sibling worktrees; a single worktree root strands shared session and branch state where no other worktree can see it.
 
@@ -25,14 +25,13 @@ After every merge, the shared executable is refreshed by `git pull` in the canon
 
 ## Product properties
 
-- Host-scoped state is one state class shared by every repository, worktree, and session of one OS account on one host; it resolves outside every repository and never under `.spx/`.
-- Shared session, change, worktree-occupancy, and branch-scoped state are visible from every worktree of a repository, while tracked `spx/` files and `.spx/worktree/` state stay local to the current worktree.
-- `spx -C <path> ...` operates as if `<path>` supplied the command's invocation directory for product-root, config, worktree, and shared-state resolution, while the caller's ambient directory does not participate in target command gates.
+- Shared session, change, worktree-occupancy, and branch-scoped state are visible from every worktree of a repository, while tracked `spx/` files and `.spx/worktree/` state stay local to the current worktree; host-scoped state is one state class shared by every repository, worktree, and session of one OS account on one host, whose default location is outside every repository and never under `.spx/`, and whose explicit override is the absolute path the caller names.
+- `spx -C <path> ...` operates as if `<path>` supplied the command's invocation directory for product-root, config, worktree, and shared-state resolution, while the caller's ambient directory does not participate in target command gates; a command that serves only host-scoped state resolves none of those paths and uses that directory only as its child's working directory.
 - At most one worktree of a repository is the main checkout: a non-bare repository's main working tree, or the pool worktree beside the bare repository whose directory name is the `origin` remote's repository name; a pool without that observed worktree has no main checkout, and the designation does not depend on the branch any worktree has checked out. The designated main checkout permanently holds the repository's default branch, which remains unavailable to linked worktrees through Git's branch-occupancy constraint.
 
 ## Verification
 
-- ALWAYS: the orchestration lock file resolves to `$SPX_ORCHESTRATION_LOCK_PATH` when that variable holds an absolute path, otherwise to `$XDG_STATE_HOME/engineering.outcome/orchestration.lock` when `XDG_STATE_HOME` holds an absolute path, and otherwise to `$HOME/.local/state/engineering.outcome/orchestration.lock`
+- ALWAYS: absent an explicit override, host-scoped state resolves outside every repository and never under `.spx/`; the orchestration lock file resolves to `$SPX_ORCHESTRATION_LOCK_PATH` when that variable holds an absolute path, otherwise to `$XDG_STATE_HOME/engineering.outcome/orchestration.lock` when `XDG_STATE_HOME` holds an absolute path, and otherwise to `$HOME/.local/state/engineering.outcome/orchestration.lock`
 - NEVER: an empty or relative `SPX_ORCHESTRATION_LOCK_PATH` is used or silently replaced; it fails before any command starts
 - ALWAYS: `spx orchestration lock` resolves no product root and reads no product configuration, runs outside a git repository without a product-root warning, and applies `-C <path>` only as its child's working directory
 
@@ -40,7 +39,7 @@ After every merge, the shared executable is refreshed by `git pull` in the canon
 
 - ALWAYS: in a non-bare repository — with or without linked worktrees — the main checkout is the main working tree, the parent of the Git common directory, reachable from any worktree and independent of the branch checked out ([mapping])
 - ALWAYS: in a bare-repository worktree pool, a worktree is the main checkout exactly when it sits beside the bare repository (`dirname(git-common-dir)` equals the worktree root's parent) and its directory basename equals the `origin` remote's repository name; a pool with no such worktree has no main checkout, whatever branch any worktree holds ([mapping])
-- ALWAYS: a command invoked with `-C <path>` resolves product-root, config, worktree, main-checkout, and shared-state paths from `<path>` exactly as the same command invoked from `<path>` without `-C` ([mapping])
+- ALWAYS: a command invoked with `-C <path>` that resolves product-root, config, worktree, main-checkout, or shared-state paths resolves them from `<path>` exactly as the same command invoked from `<path>` without `-C` ([mapping])
 - ALWAYS: when `-C <path>` is present, target command gates inspect the worktree and shared state reached from `<path>`, not the caller's ambient directory or its dirty state ([compliance])
 - ALWAYS: when `-C` is absent, command root resolution starts from the invoking process directory and target command gates inspect that worktree ([mapping])
 
@@ -48,7 +47,7 @@ After every merge, the shared executable is refreshed by `git pull` in the canon
 
 - ALWAYS: product instructions refresh the shared local executable after every merge using SPX's reported canonical identity, with ownership, cleanliness, and fast-forward standing checked before the pull and the hook outcome and resulting executable checked afterward ([audit])
 - NEVER: product instructions authorize canonical-checkout mutation beyond `git pull` and its dependency-install/build hook effects and the one-time bootstrap of a checkout that carries no hook or no `dist/`, including release preparation, commits, tags, explicit builds, or automatic recovery after a failed hook; operational recovery requires operator direction ([audit])
-- ALWAYS: expose `-C <path>` as a global CLI option whose resolved path becomes the effective invocation directory for every command domain ([audit])
+- ALWAYS: expose `-C <path>` as a global CLI option whose resolved path becomes the effective invocation directory for every command domain, where a command that resolves no product-root, worktree, or shared-state path uses it only as its child's working directory ([audit])
 - ALWAYS: resolve `.spx/branch/`, `.spx/changes/`, `.spx/sessions/`, `.spx/worktrees/`, and other shared `.spx/` state to the Git common-dir product root — the parent of `git rev-parse --git-common-dir` ([audit])
 - ALWAYS: resolve `.spx/worktree/` per-worktree state and tracked `spx/` files to the local worktree root via `git rev-parse --show-toplevel` ([audit])
 - ALWAYS: a command that resolves a product root falls back to the current working directory with a warning when it runs outside a git repository ([audit])
