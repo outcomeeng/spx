@@ -1,13 +1,14 @@
 /**
- * Supervisor death: the slot belongs to the descriptor the child inherited, so a killed supervisor
- * leaves the slot held until the last process holding the descriptor exits.
+ * Guarded run scenarios: commands sharing an orchestration lock file never overlap, the slot
+ * belongs to the descriptor the child inherited so a killed supervisor leaves it held until the
+ * last holder exits, and a child's exit 3 is a completed run.
  */
 
 import { setTimeout as delay } from "node:timers/promises";
 
 import { describe, expect, it } from "vitest";
 
-import { createHostCommandLock, readHolderRecord } from "@/lib/host-command-lock";
+import { createHostCommandLock, readHolderRecord, RESULT_SCHEMA, RESULT_STATUS } from "@/lib/host-command-lock";
 import {
   dilatedDeps,
   exitingWorkload,
@@ -16,6 +17,7 @@ import {
   isAlive,
   leavingWorkload,
   OBSERVATION_MS,
+  readInterval,
   RECORD_WRITE_AFTER_SPAWN,
   RECORD_WRITE_BEFORE_SPAWN,
   startSupervisor,
@@ -26,10 +28,36 @@ import {
   workerPidRecorded,
   workerWorkload,
 } from "@testing/harnesses/host-command-lock/host-command-lock";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
+const REPOSITORY_PREFIX = "host-command-lock-repo-";
+const FIRST = "first";
+const SECOND = "second";
 const WAITER = "waiter";
 const RUN_ID = "orphaned-run";
 const SIGKILL = "SIGKILL";
+
+describe("guarded commands that share an orchestration lock file", () => {
+  it("run in intervals that never overlap", async () => {
+    await withLockEnv(async (lock) => {
+      await withTempDir(REPOSITORY_PREFIX, async (repositoryA) => {
+        await withTempDir(REPOSITORY_PREFIX, async (repositoryB) => {
+          const guard = createHostCommandLock(dilatedDeps(lock.lockPath));
+
+          const reports = await Promise.all([
+            guard.run({ command: intervalWorkload(lock.dir, FIRST, OBSERVATION_MS), cwd: repositoryA }),
+            guard.run({ command: intervalWorkload(lock.dir, SECOND, OBSERVATION_MS), cwd: repositoryB }),
+          ]);
+          const first = readInterval(lock.dir, FIRST);
+          const second = readInterval(lock.dir, SECOND);
+
+          expect(reports.map((report) => report.result?.started)).toEqual([true, true]);
+          expect(first.endMs <= second.startMs || second.endMs <= first.startMs).toBe(true);
+        });
+      });
+    });
+  });
+});
 
 describe("a supervisor killed while it holds the slot", () => {
   it("keeps the slot until the child exits and names the orphaned run in the holder record", async () => {
@@ -120,6 +148,24 @@ describe("a supervisor killed while it holds the slot", () => {
       expect(workerAliveAtObservation).toBe(true);
       expect(admittedWhileWorkerAlive).toBe(false);
       expect(intervalStarted(lock.dir, WAITER)).toBe(true);
+    });
+  });
+});
+
+describe("terminal result of a child that exits 3", () => {
+  it("reports started true, status completed, childExitCode 3, and exits 3", async () => {
+    await withLockEnv(async (lock) => {
+      const supervisor = startSupervisor(lock, { command: exitingWorkload(3) });
+
+      const exit = await supervisor.exit;
+
+      expect(exit.code).toBe(3);
+      expect(supervisor.resultLine()).toMatchObject({
+        schema: RESULT_SCHEMA,
+        started: true,
+        status: RESULT_STATUS.COMPLETED,
+        childExitCode: 3,
+      });
     });
   });
 });
