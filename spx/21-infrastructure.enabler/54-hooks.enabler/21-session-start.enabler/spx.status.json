@@ -5,7 +5,7 @@
     "test": {
       "tests/session-start-rejection.mapping.l2.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/session-start.md",
@@ -62,7 +62,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -393,7 +396,7 @@
       },
       "tests/session-start.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/session-start.md",
@@ -450,7 +453,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
@@ -781,7 +787,7 @@
       },
       "tests/session-start.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/session-start.md",
@@ -838,7 +844,10 @@
           "src/commands/test/discovery.ts",
           "src/commands/test/dispatch.ts",
           "src/commands/test/index.ts",
+          "src/commands/test/recorded-run.ts",
           "src/commands/test/run-command.ts",
+          "src/commands/test/run-tests-command.ts",
+          "src/commands/test/selection.ts",
           "src/commands/validation/all.ts",
           "src/commands/validation/circular.ts",
           "src/commands/validation/format.ts",
