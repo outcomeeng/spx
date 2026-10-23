@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { runTestsCommand, TEST_RESULT_KIND } from "@/commands/test";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
-import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
+import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import {
   arrangeUnsatisfiedRequest,
@@ -18,7 +19,7 @@ describe("a request no recorded run satisfies", () => {
       const { ownFile, descendantFile } = sampleDispatchValue(
         TEST_DISPATCH_GENERATOR.nestedFiles(typescriptTestingLanguage),
       );
-      const changedContent = sampleLiteralTestValue(arbitraryDomainLiteral());
+      const changedContent = sampleGeneratedValue(arbitraryDomainLiteral());
 
       await withRecordedRunRepository(ownFile, async (repository) => {
         const deps = await arrangeUnsatisfiedRequest(

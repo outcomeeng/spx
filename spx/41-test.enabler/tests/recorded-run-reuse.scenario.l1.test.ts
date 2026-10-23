@@ -10,6 +10,7 @@ import { TEST_PATH_VERDICT } from "@/test/run-state";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { runTestingCli, testingCliDeps } from "@testing/harnesses/testing/cli";
 import {
+  arrangeLateArrivingTestFile,
   commitAdditionalTestFile,
   recordedRunCliDependencies,
   recordPassedRun,
@@ -146,6 +147,43 @@ describe("reusing a recorded passed run", () => {
       expect(printed.stdout).toContain(`${AGENT_TEST_OUTPUT_TEXT.TESTS}: 1`);
       expect(printed.exitCodes).toEqual([SUCCESS_EXIT_CODE]);
       expect(await snapshotRunDirectory(repository.productDir)).toEqual(runFilesAfterRecording);
+    });
+  });
+});
+
+describe("one discovery per request", () => {
+  it("dispatches only the files the recorded-run lookup selected when no recorded run satisfies the request", async () => {
+    const { ownFile, descendantFile } = sampleDispatchValue(
+      TEST_DISPATCH_GENERATOR.nestedFiles(typescriptTestingLanguage),
+    );
+
+    await withRecordedRunRepository(ownFile, async (repository) => {
+      const deps = await arrangeLateArrivingTestFile(repository, descendantFile);
+
+      const result = await runTestsCommand({ productDir: repository.productDir, passing: false }, deps);
+
+      expect(result.kind).toBe(TEST_RESULT_KIND.EXECUTED);
+      const dispatchedPaths = repository.runner.calls.flatMap((call) => call.args);
+      expect(dispatchedPaths).toContain(ownFile);
+      expect(dispatchedPaths).not.toContain(descendantFile);
+    });
+  });
+
+  it("reports only the files the recorded-run lookup selected when a recorded run satisfies the request", async () => {
+    const { ownFile, descendantFile } = sampleDispatchValue(
+      TEST_DISPATCH_GENERATOR.nestedFiles(typescriptTestingLanguage),
+    );
+
+    await withRecordedRunRepository(ownFile, async (repository) => {
+      await recordPassedRun(repository);
+      const invocationsAfterRecording = repository.runner.calls.length;
+      const deps = await arrangeLateArrivingTestFile(repository, descendantFile);
+
+      const result = await runTestsCommand({ productDir: repository.productDir, passing: false }, deps);
+
+      expect(result.kind).toBe(TEST_RESULT_KIND.REUSED);
+      expect(repository.runner.calls).toHaveLength(invocationsAfterRecording);
+      expect(result.outcomes.flatMap((outcome) => outcome.testPaths)).toEqual([ownFile]);
     });
   });
 });

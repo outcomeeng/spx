@@ -7,7 +7,8 @@ import {
   TEST_RESULT_KIND,
 } from "@/commands/test";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
-import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
+import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import {
   commitTestFileChange,
@@ -20,7 +21,7 @@ import {
 describe("taking a result from a recorded run", () => {
   it("adds, rewrites, and removes no run file whether or not the run satisfies the request", async () => {
     const { file } = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodeWithOwnFile(typescriptTestingLanguage));
-    const changedContent = sampleLiteralTestValue(arbitraryDomainLiteral());
+    const changedContent = sampleGeneratedValue(arbitraryDomainLiteral());
 
     await withRecordedRunRepository(file, async (repository) => {
       await recordPassedRun(repository);

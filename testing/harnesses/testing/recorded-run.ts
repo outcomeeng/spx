@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import {
@@ -15,13 +15,14 @@ import type { TargetSelection } from "@/lib/test-targeting";
 import { testingRegistry } from "@/test/registry";
 import {
   createTestRunFile,
+  defaultTestRunStateFileSystem,
   formatTestRunTimestamp,
   TEST_RUN_STATE_STATUS,
   TESTING_RUN_STATE_ERROR_CODE,
   testingRunsDir,
   writeTerminalTestRunState,
 } from "@/test/run-state";
-import { GIT_TEST_CONFIG, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
+import { GIT_TEST_CONFIG, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { withTestingTempProductDir } from "@testing/harnesses/testing/harness";
 import { SIMULATED_REPORT } from "@testing/harnesses/testing/simulated-report";
 import {
@@ -34,6 +35,8 @@ const STATE_DIRECTORY_IGNORE_ENTRY = `${STATE_STORE_SCOPE_PATH.SPX_DIR}/\n`;
 const GITIGNORE_FILENAME = ".gitignore";
 const FIXTURE_COMMIT_MESSAGE = "Record the test file fixture";
 const CHANGE_COMMIT_MESSAGE = "Change the test file fixture";
+const EMPTY_COMMIT_MESSAGE = "Move the head commit without changing a file";
+const GIT_EXCLUDE_FILE_PATH = join(".git", "info", "exclude");
 const UNTRACKED_FILENAME = "untracked-change.txt";
 const FILE_ENCODING = "utf8";
 const ASSUME_UNCHANGED_FLAG = "--assume-unchanged";
@@ -254,7 +257,7 @@ export async function arrangeUnsatisfiedRequest(
       return { ...repository.deps, git: unresolvedGitDependencies() };
     case UNSATISFIED_REQUEST_CASE.HEAD_DIFFERS:
       await recordPassedRun(repository);
-      await commitTestFileChange(repository, changedContent);
+      await commitWithoutFileChange(repository);
       return repository.deps;
     case UNSATISFIED_REQUEST_CASE.WORKTREE_DIRTY:
       await recordPassedRun(repository);
@@ -276,6 +279,47 @@ export async function leaveUntrackedFile(repository: RecordedRunRepository): Pro
 export async function commitTestFileChange(repository: RecordedRunRepository, content: string): Promise<void> {
   await writeProductFile(repository.productDir, repository.testFile, content);
   await commitAll(repository.productDir, CHANGE_COMMIT_MESSAGE);
+}
+
+/** Moves the head commit by an empty commit, so no file the four staleness digests read changes. */
+export async function commitWithoutFileChange(repository: RecordedRunRepository): Promise<void> {
+  await runGit(repository.productDir, [
+    GIT_TEST_SUBCOMMANDS.COMMIT,
+    GIT_TEST_FLAGS.ALLOW_EMPTY,
+    GIT_TEST_FLAGS.COMMIT_MESSAGE,
+    EMPTY_COMMIT_MESSAGE,
+  ]);
+}
+
+/**
+ * Returns the dependencies of a request during which `lateFile` appears in the spec tree once the
+ * request first reads the recorded runs, which follows the discovery that selected the request's files.
+ * The file is excluded from git, so the worktree stays clean for the request. A second discovery within
+ * the request lists the file; a single discovery never does. Every read and write reaches the real
+ * filesystem.
+ */
+export async function arrangeLateArrivingTestFile(
+  repository: RecordedRunRepository,
+  lateFile: string,
+): Promise<TestCommandDependencies> {
+  const excludeFile = join(repository.productDir, GIT_EXCLUDE_FILE_PATH);
+  await mkdir(dirname(excludeFile), { recursive: true });
+  await appendFile(excludeFile, `${lateFile}\n`);
+  const runsDir = testingRunsDir(repository.productDir);
+  let arrived = false;
+  return {
+    ...repository.deps,
+    fs: {
+      ...defaultTestRunStateFileSystem,
+      readdir: async (path, options) => {
+        if (!arrived && path === runsDir) {
+          arrived = true;
+          await writeProductFile(repository.productDir, lateFile, "");
+        }
+        return await defaultTestRunStateFileSystem.readdir(path, options);
+      },
+    },
+  };
 }
 
 /** Reads every file under the run directory, keyed by file name; a run directory not yet created holds none. */
