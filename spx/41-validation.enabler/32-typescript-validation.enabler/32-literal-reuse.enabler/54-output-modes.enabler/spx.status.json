@@ -5,7 +5,7 @@
     "test": {
       "tests/output-modes.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/54-output-modes.enabler/output-modes.md",
@@ -100,7 +100,7 @@
       },
       "tests/output-modes.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/54-output-modes.enabler/output-modes.md",
@@ -195,7 +195,7 @@
       },
       "tests/output-modes.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/54-output-modes.enabler/output-modes.md",
@@ -287,7 +287,7 @@
       },
       "tests/output-modes.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/54-output-modes.enabler/output-modes.md",
@@ -487,6 +487,7 @@
           "src/interfaces/cli/lib/journal-stream-binding.ts",
           "src/interfaces/cli/lib/path-operands.ts",
           "src/interfaces/cli/lib/stream-report.ts",
+          "src/interfaces/cli/orchestration.ts",
           "src/interfaces/cli/product-context.ts",
           "src/interfaces/cli/program.ts",
           "src/interfaces/cli/registry.ts",
@@ -545,6 +546,14 @@
           "src/lib/github-snapshot-sink/index.ts",
           "src/lib/github-snapshot-sink/pull-request-comment-client.ts",
           "src/lib/harness-environment-section.ts",
+          "src/lib/host-command-lock/binding.ts",
+          "src/lib/host-command-lock/constants.ts",
+          "src/lib/host-command-lock/filesystem.ts",
+          "src/lib/host-command-lock/host-command-lock.ts",
+          "src/lib/host-command-lock/index.ts",
+          "src/lib/host-command-lock/load-gate.ts",
+          "src/lib/host-command-lock/lock-path.ts",
+          "src/lib/host-command-lock/result.ts",
           "src/lib/methodology/coding-agent.ts",
           "src/lib/methodology/compact-recovery.ts",
           "src/lib/methodology/declaration-fields.ts",
@@ -572,6 +581,7 @@
           "src/lib/node-status/update.ts",
           "src/lib/process-lifecycle/exit-codes.ts",
           "src/lib/process-lifecycle/foreground-handoff.ts",
+          "src/lib/process-lifecycle/guarded-supervision.ts",
           "src/lib/process-lifecycle/handlers.ts",
           "src/lib/process-lifecycle/index.ts",
           "src/lib/process-lifecycle/install.ts",

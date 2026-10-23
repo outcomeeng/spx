@@ -5,7 +5,7 @@
     "test": {
       "tests/methodology-config.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/43-methodology-config.enabler/methodology-config.md",
@@ -111,7 +111,7 @@
       },
       "tests/methodology-config.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/43-methodology-config.enabler/methodology-config.md",
@@ -217,7 +217,7 @@
       },
       "tests/methodology-config.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/43-methodology-config.enabler/methodology-config.md",

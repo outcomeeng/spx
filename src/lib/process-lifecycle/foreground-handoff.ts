@@ -44,12 +44,18 @@ export interface SignalSuspender {
   suspend(): () => void;
 }
 
-/** Builds a signal suspender over `target` — `process` in production, a double in tests. */
-export function createSignalSuspender(target: SignalTarget): SignalSuspender {
+/**
+ * Builds a signal suspender over `target` — `process` in production, a double in tests.
+ * The suspender covers the foreground signals unless the caller names another set.
+ */
+export function createSignalSuspender(
+  target: SignalTarget,
+  signals: readonly NodeJS.Signals[] = FOREGROUND_SIGNALS,
+): SignalSuspender {
   return {
     suspend() {
       const ignore: SignalListener = () => {};
-      const restorers = FOREGROUND_SIGNALS.map((signal) => {
+      const restorers = signals.map((signal) => {
         const originals = target.listeners(signal);
         for (const listener of originals) target.removeListener(signal, listener);
         target.on(signal, ignore);
