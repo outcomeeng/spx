@@ -33,8 +33,6 @@ export const TESTING_CLI = {
   baseLongFlag: "--base",
   baseOperand: "<ref>",
   baseDescription: "Base ref for --changed; defaults to origin of the default branch",
-  noReuseFlag: "--no-reuse",
-  noReuseDescription: "Run the selection even when a recorded passed run satisfies it",
   targetsArgument: "[targets...]",
   targetsDescription: "Node paths or test-file paths to run; omit to run the full discovered suite",
   passingSubcommand: "passing",
@@ -152,8 +150,6 @@ interface TestingCliActionOptions {
   readonly changed?: boolean;
   readonly staged?: boolean;
   readonly base?: string;
-  /** False when the caller passed `--no-reuse`; Commander defaults it to true. */
-  readonly reuse?: boolean;
 }
 
 interface TestingChangedSelection {
@@ -177,11 +173,6 @@ function targetSelection(
   if (targets.length === 0) return undefined;
   const parentOptions = command.parent?.opts<TestingCliActionOptions>() ?? {};
   return { operands: targets, recursive: options.recursive === true || parentOptions.recursive === true };
-}
-
-function requiresExecution(options: TestingCliActionOptions, command: Command): boolean {
-  const parentOptions = command.parent?.opts<TestingCliActionOptions>() ?? {};
-  return options.reuse === false || parentOptions.reuse === false;
 }
 
 function changedSelection(options: TestingCliActionOptions, command: Command): TestingChangedSelection | undefined {
@@ -270,7 +261,6 @@ export function createTestingDomain(deps?: TestingCliDependencies): Domain {
       testCmd.option(TESTING_CLI.changedLongFlag, TESTING_CLI.changedDescription);
       testCmd.option(TESTING_CLI.stagedLongFlag, TESTING_CLI.stagedDescription);
       testCmd.option(`${TESTING_CLI.baseLongFlag} ${TESTING_CLI.baseOperand}`, TESTING_CLI.baseDescription);
-      testCmd.option(TESTING_CLI.noReuseFlag, TESTING_CLI.noReuseDescription);
       testCmd.argument(TESTING_CLI.targetsArgument, TESTING_CLI.targetsDescription);
 
       testCmd.action(async (targets: readonly string[], options: TestingCliActionOptions, command: Command) => {
@@ -280,7 +270,7 @@ export function createTestingDomain(deps?: TestingCliDependencies): Domain {
           { agent: requestsAgentMode(options, command) },
           targetSelection(targets, options, command),
           changedSelection(options, command),
-          requiresExecution(options, command),
+          false,
         );
       });
 
@@ -292,7 +282,6 @@ export function createTestingDomain(deps?: TestingCliDependencies): Domain {
         .option(TESTING_CLI.changedLongFlag, TESTING_CLI.changedDescription)
         .option(TESTING_CLI.stagedLongFlag, TESTING_CLI.stagedDescription)
         .option(`${TESTING_CLI.baseLongFlag} ${TESTING_CLI.baseOperand}`, TESTING_CLI.baseDescription)
-        .option(TESTING_CLI.noReuseFlag, TESTING_CLI.noReuseDescription)
         .argument(TESTING_CLI.targetsArgument, TESTING_CLI.targetsDescription)
         .action(async (targets: readonly string[], options: TestingCliActionOptions, command: Command) => {
           await runTestingAction(
@@ -301,7 +290,7 @@ export function createTestingDomain(deps?: TestingCliDependencies): Domain {
             { agent: requestsAgentMode(options, command) },
             targetSelection(targets, options, command),
             changedSelection(options, command),
-            requiresExecution(options, command),
+            false,
           );
         });
     },
