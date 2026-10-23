@@ -91,14 +91,17 @@ export async function commitAdditionalTestFile(repository: RecordedRunRepository
 
 /** Executes the checkout's tests through the command, which records one passed run. */
 export async function recordPassedRun(repository: RecordedRunRepository): Promise<TestsCommandResult> {
-  return await runTestsCommand({ productDir: repository.productDir, passing: false }, repository.deps);
+  return await runTestsCommand(
+    { productDir: repository.productDir, passing: false, requireExecution: true },
+    repository.deps,
+  );
 }
 
 /** Records one run in which the runner exits non-zero, so the run's status is `failed`. */
 async function recordFailedRun(repository: RecordedRunRepository): Promise<void> {
   const failing = createRecordingCommandRunner({ present: true, exitCode: FAILING_RUNNER_EXIT_CODE });
   await runTestsCommand(
-    { productDir: repository.productDir, passing: false },
+    { productDir: repository.productDir, passing: false, requireExecution: true },
     { ...repository.deps, runnerDepsFor: () => failing },
   );
 }
@@ -111,7 +114,7 @@ async function recordRunWithOmittedVerdicts(repository: RecordedRunRepository): 
     report: SIMULATED_REPORT.MISSING,
   });
   await runTestsCommand(
-    { productDir: repository.productDir, passing: false },
+    { productDir: repository.productDir, passing: false, requireExecution: true },
     { ...repository.deps, runnerDepsFor: () => omitting },
   );
 }
