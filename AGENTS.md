@@ -398,6 +398,15 @@ Do not prescribe exact code, documentation, or template changes. Record the mist
 
 **NEVER commit without passing source validation.**
 
+### Spec Tree Phase Commands
+
+The four Spec Tree phases the router names resolve to these product commands:
+
+- **author** — `pnpm run build` after a change that a CLI level-2 test reaches, because those tests run the built `dist/cli.js`; no other artifact is regenerated.
+- **verify** — `pnpm run validate`, then `spx test --agent --changed --base origin/main`, or `tsx src/cli.ts test --agent --changed --base origin/main` when the branch changes `spx test` itself; the test command runs behind the `/wait-for-load` waiter, and `spx/local/merging.md` scopes and escalates both.
+- **gate** — the CI deterministic verification in `.github/workflows/deterministic-verification.yml`; no full deterministic gate runs locally.
+- **merge** — the merge command and cleanup sequence `spx/local/merging.md` declares.
+
 ```bash
 # Quick verification before committing
 # Source validation for current TypeScript source
