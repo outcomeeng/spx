@@ -169,7 +169,7 @@ The spec-tree fixture support now lives in `testing/generators/spec-tree.ts`; au
 
 Observed while verifying the spec-tree boundary correction on May 1, 2026: `pnpm run validate` passed and reported 231 `spx/no-test-owned-domain-constants` warnings from the existing debt manifest.
 
-**Skills:** `typescript:testing-typescript`, `typescript:auditing-typescript-tests`, and `spec-tree:testing`.
+**Skills:** `typescript:author-typescript-test`, `typescript:audit-typescript-test`, and `spec-tree:test`.
 
 **Resolution:** Convert each case to source-owned constants, source-side test-data generators, or inline assertion data as required by the testing guidance, then remove the owning node from `eslint.test-owned-constant-debt-nodes.json`.
 
@@ -181,7 +181,7 @@ One concern remains:
 
 1. **ADR-21 test literal ownership** — Some findings reflect test-owned semantic constants per [21-typescript-conventions.adr.md](spx/41-validation.enabler/32-typescript-validation.enabler/21-typescript-conventions.adr.md): output markers, CLI flag strings, and spec-tree file-extension constants. ADR-21 requires source-owned values or generated fixture data instead of duplicated test-owned constants.
 
-**Skills:** `/typescript:testing-typescript`, `/typescript:auditing-typescript-tests`, `/spec-tree:testing`.
+**Skills:** `/typescript:author-typescript-test`, `/typescript:audit-typescript-test`, `/spec-tree:test`.
 
 **Scope:** Multi-node; clean up one owning subtree at a time.
 
@@ -213,7 +213,7 @@ The verification-subtree instance, its related canned Git responses, repair scop
 
 **Impact:** Each node's `tests/` directory no longer carries the node's evidence; assertion titles and structure sit one indirection away from the node. Cross-file duplication analysis reads test-suite duplication as harness duplication.
 
-**Skills:** `/test-typescript`, `/audit-typescript-tests`, `/apply`.
+**Skills:** `/author-typescript-test`, `/audit-typescript-test`, `/apply`.
 
 **Scope:** Product-wide, repaired one owning subtree at a time. Move each `register*()` or `assert*()` function's behavioral predicates into the node's executed `tests/*.test.ts` callbacks. Keep resource lifecycle, operation observations, and seed and run-count machinery in the harness; inspect expected-value construction for independent ownership. Retire redundant scenario/compliance duplicates as encountered, and run each node's tests plus its test-evidence audit after the move. Recount the affected callers when selecting a subtree rather than treating an earlier inventory as the current scope.
 
