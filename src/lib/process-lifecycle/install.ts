@@ -11,6 +11,7 @@
  */
 
 import { spawn } from "node:child_process";
+import { closeSync } from "node:fs";
 
 import {
   createSignalSuspender,
@@ -18,6 +19,7 @@ import {
   type SignalSuspender,
   type SignalTarget,
 } from "./foreground-handoff";
+import { createGuardedSupervisor, GUARDED_SIGNALS, type GuardedSupervisor } from "./guarded-supervision";
 import { createHandlers } from "./handlers";
 import { createRegistry } from "./registry";
 import { createLifecycleRunner } from "./runner";
@@ -57,6 +59,21 @@ const processSignalTarget: SignalTarget = {
 
 /** Production signal suspender: ignores the foreground signals on `process` during a handoff. */
 export const lifecycleSignalSuspender: SignalSuspender = createSignalSuspender(processSignalTarget);
+
+/**
+ * Production guarded supervisor: spawns the guarded child outside the lifecycle
+ * registry, suspends and forwards the parent's SIGINT, SIGTERM, and SIGHUP, and
+ * closes the supervisor's copy of the caller's descriptor when the child ends.
+ */
+export const guardedSupervisor: GuardedSupervisor = createGuardedSupervisor({
+  spawn,
+  signalTarget: processSignalTarget,
+  signalSuspender: createSignalSuspender(processSignalTarget, GUARDED_SIGNALS),
+  killProcessGroup: (pid, signal) => {
+    process.kill(-pid, signal);
+  },
+  closeDescriptor: closeSync,
+});
 
 export const EPIPE_CODE = "EPIPE";
 export const UNCAUGHT_EVENT_NAME = "uncaughtException";

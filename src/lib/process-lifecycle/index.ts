@@ -8,7 +8,14 @@
  * @module lib/process-lifecycle
  */
 
-export { EPIPE_EXIT_CODE, SIGINT_EXIT_CODE, SIGTERM_EXIT_CODE, UNCAUGHT_EXIT_CODE } from "./exit-codes";
+export {
+  EPIPE_EXIT_CODE,
+  SIGINT_EXIT_CODE,
+  SIGNAL_EXIT_CODE_BASE,
+  SIGTERM_EXIT_CODE,
+  UNCAUGHT_EXIT_CODE,
+  UNKNOWN_CHILD_EXIT_CODE,
+} from "./exit-codes";
 export {
   createSignalSuspender,
   FOREGROUND_SIGNALS,
@@ -16,10 +23,24 @@ export {
   type SignalSuspender,
   type SignalTarget,
 } from "./foreground-handoff";
+export {
+  createGuardedSupervisor,
+  GUARDED_DESCRIPTOR_NUMBER,
+  GUARDED_SIGNALS,
+  type GuardedChild,
+  type GuardedExitListener,
+  guardedExitStatus,
+  type GuardedSpawn,
+  type GuardedSupervisionDeps,
+  type GuardedSupervisionRequest,
+  type GuardedSupervisor,
+  INHERITED_STDIO,
+} from "./guarded-supervision";
 export { createHandlers, SIGINT_NAME, SIGTERM_NAME } from "./handlers";
 export {
   EPIPE_CODE,
   foregroundProcessRunner,
+  guardedSupervisor,
   installLifecycle,
   lifecycleProcessRunner,
   lifecycleSignalSuspender,
