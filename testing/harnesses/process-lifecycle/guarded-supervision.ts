@@ -12,13 +12,12 @@
 
 import { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
-import { closeSync, mkdtempSync, openSync, readdirSync, readFileSync } from "node:fs";
+import { closeSync, mkdtempSync, openSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
+import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
 import * as fc from "fast-check";
-import ts from "typescript";
 
 import {
   createGuardedSupervisor,
@@ -216,44 +215,4 @@ export async function superviseRealChild(program: string, options: RealChildOpti
 export function parseIdentityReport(report: string): { readonly pid: number; readonly pgid: number } {
   const [pid, pgid] = report.split(REPORT_SEPARATOR).map(Number);
   return { pid, pgid };
-}
-
-const PRODUCTION_SOURCE_DIR = "src";
-
-/** Repository-relative path of the guarded runner, the one module allowed to set `detached: true`. */
-export const GUARDED_RUNNER_SOURCE_PATH = "src/lib/process-lifecycle/guarded-supervision.ts";
-const TYPESCRIPT_SOURCE_SUFFIX = ".ts";
-const DETACHED_PROPERTY = "detached";
-
-function sourceFilesUnder(directory: string): string[] {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(directory, entry.name);
-    if (entry.isDirectory()) return sourceFilesUnder(path);
-    return entry.name.endsWith(TYPESCRIPT_SOURCE_SUFFIX) ? [path] : [];
-  });
-}
-
-function setsDetachedTrue(path: string): boolean {
-  const source = ts.createSourceFile(path, readFileSync(path, "utf8"), ts.ScriptTarget.Latest, true);
-  let found = false;
-  const visit = (node: ts.Node): void => {
-    if (
-      ts.isPropertyAssignment(node)
-      && node.name.getText(source) === DETACHED_PROPERTY
-      && node.initializer.kind === ts.SyntaxKind.TrueKeyword
-    ) {
-      found = true;
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(source);
-  return found;
-}
-
-/** Repository-relative paths of production modules that set `detached: true` on a spawn. */
-export function productionDetachedSpawnSites(root: string = process.cwd()): string[] {
-  return sourceFilesUnder(join(root, PRODUCTION_SOURCE_DIR))
-    .filter(setsDetachedTrue)
-    .map((path) => relative(root, path))
-    .sort((a, b) => a.localeCompare(b));
 }

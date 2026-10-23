@@ -11,7 +11,7 @@ CAN render diagnostics with no unprintable bytes and bounded length, CAN invoke 
 - Given a guarded supervision whose parent receives SIGINT, SIGTERM, or SIGHUP, when the forwarder runs, then the child's process group receives that signal once, and the runner reports 128 plus its number for a child the signal ends ([test](tests/guarded-supervision.scenario.l1.test.ts))
 - Given a guarded supervision, when the child exits, then the supervisor's copy of the descriptor is closed, the parent's SIGINT, SIGTERM, and SIGHUP listeners are restored, and the lifecycle registry never held the child ([test](tests/guarded-supervision.scenario.l1.test.ts))
 - The guarded-supervision exit mapping is: child exit code `n` → `n`, child ended by signal `s` → 128 plus the number of `s`, child exit with no code and no signal → a failure that never reads as 0 ([test](tests/guarded-supervision.mapping.l1.test.ts))
-- ALWAYS: the guarded-supervision runner is the only production spawn that sets `detached: true` ([test](tests/guarded-supervision.compliance.l1.test.ts))
+- ALWAYS: the guarded-supervision runner is the only production spawn that sets `detached: true` ([audit])
 
 ### Scenarios
 
