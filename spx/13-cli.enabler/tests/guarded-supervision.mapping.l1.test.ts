@@ -8,7 +8,7 @@ import { constants as osConstants } from "node:os";
 import { describe, expect, it } from "vitest";
 
 import { guardedExitStatus, SIGNAL_EXIT_CODE_BASE } from "@/lib/process-lifecycle";
-import { EXIT_CODE_DOMAIN } from "@testing/harnesses/process-lifecycle/guarded-supervision";
+import { EXIT_CODE_DOMAIN } from "@testing/generators/process-lifecycle/guarded-supervision";
 
 describe("guarded-supervision exit mapping", () => {
   it.each(Object.entries(osConstants.signals) as Array<[NodeJS.Signals, number]>)(

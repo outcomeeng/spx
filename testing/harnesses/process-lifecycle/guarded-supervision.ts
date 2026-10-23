@@ -17,8 +17,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
-import * as fc from "fast-check";
-
 import {
   createGuardedSupervisor,
   createSignalSuspender,
@@ -30,6 +28,11 @@ import {
   guardedSupervisor,
   lifecycleRegistry,
 } from "@/lib/process-lifecycle";
+import {
+  arbitraryChildPid,
+  arbitraryGuardedRequest,
+  arbitraryListenerCounts,
+} from "@testing/generators/process-lifecycle/guarded-supervision";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { RecordingSignalTarget } from "@testing/harnesses/process-lifecycle/signal-target";
 
@@ -46,19 +49,12 @@ const PS_GROUP_ARGS = ["-o", "pgid=", "-p"] as const;
 const GONE_POLL_MS = 20;
 const GONE_TIMEOUT_MS = 3_000;
 const NO_SUCH_PROCESS_CODE = "ESRCH";
-const EXIT_CODE_COUNT = 256;
 const GRANDCHILD_REPORT = /^ready (\d+)$/;
 const GRANDCHILD_SOURCE = "setInterval(() => {}, 1000);";
 
-/** The signals the specification names for forwarding, independent of the production constant. */
-export const SPEC_GUARDED_SIGNALS: readonly NodeJS.Signals[] = ["SIGINT", "SIGTERM", "SIGHUP"];
-
-/** Every status a child process can exit with: the complete 8-bit domain. */
-export const EXIT_CODE_DOMAIN: readonly number[] = Array.from({ length: EXIT_CODE_COUNT }, (_, code) => code);
-
 /** A recording child whose exit the test drives. */
 export class RecordingGuardedChild extends EventEmitter implements GuardedChild {
-  constructor(readonly pid: number | undefined = sampleGeneratedValue(fc.integer({ min: 2, max: 99_999 }))) {
+  constructor(readonly pid: number | undefined = sampleGeneratedValue(arbitraryChildPid())) {
     super();
   }
 
@@ -99,12 +95,7 @@ export interface RecordingGuardedContext {
 
 /** Builds a supervisor over recording doubles, with generated parent listeners and request. */
 export function createRecordingGuardedContext(): RecordingGuardedContext {
-  const counts = sampleGeneratedValue(
-    fc.array(fc.integer({ min: 1, max: 3 }), {
-      minLength: GUARDED_SIGNALS.length,
-      maxLength: GUARDED_SIGNALS.length,
-    }),
-  );
+  const counts = sampleGeneratedValue(arbitraryListenerCounts());
   const initialListeners = new Map(
     GUARDED_SIGNALS.map((signal, index) => {
       return [signal, Array.from({ length: counts[index] }, () => () => {})] as const;
@@ -133,11 +124,7 @@ export function createRecordingGuardedContext(): RecordingGuardedContext {
     },
   });
 
-  const request: GuardedSupervisionRequest = {
-    command: sampleGeneratedValue(fc.stringMatching(/^[a-z]{3,10}$/)),
-    args: sampleGeneratedValue(fc.array(fc.stringMatching(/^[a-z]{1,8}$/), { maxLength: 3 })),
-    descriptor: sampleGeneratedValue(fc.integer({ min: 4, max: 200 })),
-  };
+  const request: GuardedSupervisionRequest = sampleGeneratedValue(arbitraryGuardedRequest());
 
   return {
     supervisor,
@@ -150,10 +137,6 @@ export function createRecordingGuardedContext(): RecordingGuardedContext {
     initialListeners,
     request,
   };
-}
-
-export function arbitraryExitCode(): fc.Arbitrary<number> {
-  return fc.integer({ min: 0, max: 125 });
 }
 
 /** The child programs a real-child run executes, each written to report through descriptor 3. */
