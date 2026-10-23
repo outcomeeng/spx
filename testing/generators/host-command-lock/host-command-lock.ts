@@ -1,72 +1,24 @@
 /**
  * Generators for the host command lock.
  *
- * Load series and CPU counts draw from the open numeric domain the load gate judges; the factors
- * that bound a series come from the production `LOAD_WINDOW`, so a change to a limit is an
- * intentional behavior change the cases follow. The oracle that decides admission lives in the
- * linked property test, never in a generator.
+ * CPU counts and load samples draw from the domain the load gate judges; the factors that bound a
+ * sample come from the production `LOAD_WINDOW`, so a change to a limit is an intentional behavior
+ * change the cases follow. The oracle that decides admission lives in the linked tests, never in a
+ * generator.
  */
+import { join } from "node:path";
+
 import * as fc from "fast-check";
 
-import { LOAD_WINDOW, type LoadSample, SUPPORTED_PLATFORM } from "@/lib/host-command-lock";
+import { LOAD_WINDOW, type LoadSample, LOCK_FILE_SEGMENTS, SUPPORTED_PLATFORM } from "@/lib/host-command-lock";
 
 const MIN_CPU_COUNT = 1;
 const MAX_CPU_COUNT = 64;
-const MIN_SERIES_LENGTH = 2;
-const MAX_SERIES_LENGTH = 14;
-const MAX_LOAD_PER_CPU = 1.6;
-const MAX_STEP_FACTOR = 1.6;
 const PATH_SEGMENT = /^[a-z]{2,8}$/;
 const MS_PER_SECOND = 1_000;
-const INVALID_SAMPLE_PROBABILITY_WEIGHT = 1;
-const VALID_SAMPLE_PROBABILITY_WEIGHT = 12;
 
 export function arbitraryCpuCount(): fc.Arbitrary<number> {
   return fc.integer({ min: MIN_CPU_COUNT, max: MAX_CPU_COUNT });
-}
-
-/** One sample whose loads scale with the CPU count; an occasional sample is invalid (not finite). */
-function arbitrarySample(cpuCount: number, atMs: number): fc.Arbitrary<LoadSample> {
-  const load = fc.double({ min: 0, max: MAX_LOAD_PER_CPU * cpuCount, noNaN: true });
-  const valid = fc.record({ atMs: fc.constant(atMs), one: load, five: load, fifteen: load });
-  const invalid = fc.record({
-    atMs: fc.constant(atMs),
-    one: fc.constant(Number.NaN),
-    five: load,
-    fifteen: load,
-  });
-  return fc.oneof(
-    { weight: VALID_SAMPLE_PROBABILITY_WEIGHT, arbitrary: valid },
-    { weight: INVALID_SAMPLE_PROBABILITY_WEIGHT, arbitrary: invalid },
-  );
-}
-
-/** A series of timestamped samples whose gaps straddle the production gap limit and sample interval. */
-export function arbitraryLoadSeries(cpuCount: number): fc.Arbitrary<LoadSample[]> {
-  const gapMs = fc.integer({
-    min: LOAD_WINDOW.SAMPLE_INTERVAL_MS,
-    max: Math.round(LOAD_WINDOW.MAX_GAP_MS * MAX_STEP_FACTOR),
-  });
-  return fc
-    .array(gapMs, { minLength: MIN_SERIES_LENGTH, maxLength: MAX_SERIES_LENGTH })
-    .chain((gaps) => {
-      const times = gaps.reduce<number[]>((acc, gap) => [...acc, acc[acc.length - 1] + gap], [0]);
-      return fc.tuple(...times.map((atMs) => arbitrarySample(cpuCount, atMs)));
-    });
-}
-
-/** A series that is long enough, evenly spaced, and quiet: the shape of an admitted window. */
-export function arbitraryQuietWindow(cpuCount: number): fc.Arbitrary<LoadSample[]> {
-  const count = LOAD_WINDOW.MIN_SAMPLES + 1;
-  const quiet = fc.double({ min: 0, max: LOAD_WINDOW.ONE_MINUTE_FACTOR * cpuCount * 0.5, noNaN: true });
-  return fc.tuple(...Array.from({ length: count }, () => quiet)).map((loads) =>
-    loads.map((load, index) => ({
-      atMs: index * LOAD_WINDOW.SAMPLE_INTERVAL_MS,
-      one: load,
-      five: load,
-      fifteen: load,
-    }))
-  );
 }
 
 /** Seconds a wait cap may take in cap-expiry cases. */
@@ -141,4 +93,100 @@ export function overGapStallMs(): number {
 
 export function secondsToMs(seconds: number): number {
   return seconds * MS_PER_SECOND;
+}
+
+const FIVE_MINUTE_MARGIN = 0.5;
+const RISE_STEP_FACTOR = 0.1;
+const MIN_PROCESS_ID = 1_000;
+const MAX_PROCESS_ID = 99_999;
+const HOST_PROCESS_COUNT = 9;
+const MIN_DESCRIPTOR_NUMBER = 10;
+const MAX_DESCRIPTOR_NUMBER = 200;
+const MIN_DEVICE_NUMBER = 1;
+const MAX_DEVICE_NUMBER = 1_048_576;
+const MIN_INODE_NUMBER = 1;
+const MAX_INODE_NUMBER = 1_073_741_824;
+const MIN_EPOCH_MS = 1_500_000_000_000;
+const MAX_EPOCH_MS = 1_900_000_000_000;
+const MAX_COMMAND_WORDS = 3;
+const RETRY_JITTER_LIMIT_MS = 500;
+
+/** The identities one in-memory host reports: lock file, inodes, process ids, descriptor numbers, and instants. */
+export interface HostIdentity {
+  readonly lockPath: string;
+  readonly fileId: string;
+  readonly otherFileId: string;
+  readonly supervisorPid: number;
+  readonly childPids: readonly number[];
+  readonly firstDescriptor: number;
+  readonly workingDirectory: string;
+  readonly generatedRunId: string;
+  readonly startedAtMs: number;
+}
+
+function arbitraryFileId(): fc.Arbitrary<string> {
+  return fc
+    .tuple(
+      fc.integer({ min: MIN_DEVICE_NUMBER, max: MAX_DEVICE_NUMBER }),
+      fc.integer({ min: MIN_INODE_NUMBER, max: MAX_INODE_NUMBER }),
+    )
+    .map(([device, inode]) => `${device}:${inode}`);
+}
+
+export function arbitraryHostIdentity(): fc.Arbitrary<HostIdentity> {
+  return fc
+    .record({
+      lockDirectory: arbitraryAbsoluteDirectory(),
+      fileIds: fc.uniqueArray(arbitraryFileId(), { minLength: 2, maxLength: 2 }),
+      processIds: fc.uniqueArray(fc.integer({ min: MIN_PROCESS_ID, max: MAX_PROCESS_ID }), {
+        minLength: HOST_PROCESS_COUNT,
+        maxLength: HOST_PROCESS_COUNT,
+      }),
+      firstDescriptor: fc.integer({ min: MIN_DESCRIPTOR_NUMBER, max: MAX_DESCRIPTOR_NUMBER }),
+      workingDirectory: arbitraryAbsoluteDirectory(),
+      generatedRunId: arbitraryPathSegment(),
+      startedAtMs: fc.integer({ min: MIN_EPOCH_MS, max: MAX_EPOCH_MS }),
+    })
+    .map((drawn) => ({
+      lockPath: join(drawn.lockDirectory, ...LOCK_FILE_SEGMENTS),
+      fileId: drawn.fileIds[0],
+      otherFileId: drawn.fileIds[1],
+      supervisorPid: drawn.processIds[0],
+      childPids: drawn.processIds.slice(1),
+      firstDescriptor: drawn.firstDescriptor,
+      workingDirectory: drawn.workingDirectory,
+      generatedRunId: drawn.generatedRunId,
+      startedAtMs: drawn.startedAtMs,
+    }));
+}
+
+/** A command and its arguments. */
+export function arbitraryCommand(): fc.Arbitrary<readonly string[]> {
+  return fc.array(arbitraryPathSegment(), { minLength: 1, maxLength: MAX_COMMAND_WORDS });
+}
+
+/** `count` pairwise different randomized delays, each below the jitter bound of a busy retry. */
+export function arbitraryRetryJitters(count: number): fc.Arbitrary<number[]> {
+  return fc.uniqueArray(fc.integer({ min: 0, max: RETRY_JITTER_LIMIT_MS - 1 }), {
+    minLength: count,
+    maxLength: count,
+  });
+}
+
+/** A sample whose five-minute load exceeds the five-minute limit for the CPU count. */
+export function loudFiveMinuteSample(cpuCount: number): Omit<LoadSample, "atMs"> {
+  const load = cpuCount * (LOAD_WINDOW.FIVE_MINUTE_FACTOR + FIVE_MINUTE_MARGIN);
+  return { one: 0, five: load, fifteen: 0 };
+}
+
+/**
+ * Samples whose one-minute load climbs by a tenth of the CPU count per sample across a full window,
+ * without any sample breaking a limit, then stays flat at its last value.
+ */
+export function risingThenFlatSamples(cpuCount: number): Array<Omit<LoadSample, "atMs">> {
+  return Array.from({ length: LOAD_WINDOW.MIN_SAMPLES }, (_, step) => ({
+    one: step * RISE_STEP_FACTOR * cpuCount,
+    five: 0,
+    fifteen: 0,
+  }));
 }

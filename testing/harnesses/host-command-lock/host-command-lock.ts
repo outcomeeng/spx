@@ -1,445 +1,445 @@
 /**
- * Harness for the host command lock.
+ * Harness for the host command lock: one in-memory host.
  *
- * Owns the resources the linked tests share: a temporary orchestration lock file location, real
- * supervisor processes that run the production library, real worker processes that report activity
- * through files, a dilated clock that runs the load window and the wait cap fast over real
- * contention, and a fake clock with a scripted load source and a recording lock binding for
- * deterministic admission. Every member returns handles and observations; the linked tests own
- * every predicate.
+ * The host stands in for every outside dependency of the guard: a fake monotonic clock that sleeps
+ * advance, a scripted load source, an in-memory orchestration lock file and filesystem, a recording
+ * lock primitive over a model of open file descriptions, a process spawner whose children the test
+ * exits, and the supervisor's signal listeners. Nothing here starts a process, takes a kernel lock,
+ * sends a signal, or reads host load. The lock primitive double models the one property the guard
+ * relies on, that a slot lasts while any open description of the locked file lives, so the evidence
+ * covers the guard's own handling of that property and says nothing about the kernel's.
+ *
+ * Every member returns handles and observations; the linked tests own every predicate.
  *
  * @module host-command-lock/testing/host-command-lock
  */
-import { type ChildProcess, spawn } from "node:child_process";
+import type { SpawnOptions } from "node:child_process";
 import {
-  closeSync,
-  existsSync,
-  fstatSync,
-  openSync,
-  readFileSync,
-  renameSync,
-  statSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
-import { join } from "node:path";
-import { setTimeout as delay } from "node:timers/promises";
-
-import {
+  type Environment,
+  type HolderRecord,
   type HostCommandLockDeps,
+  type HostCommandLockFilesystem,
   type LoadSample,
   LOCK_ENV,
-  LOCK_FILE_SEGMENTS,
   type LockBinding,
-  type ResultLine,
-  type RunRequest,
+  type Platform,
+  SUPPORTED_PLATFORM,
 } from "@/lib/host-command-lock";
-import { withTempDir } from "@testing/harnesses/with-temp-dir";
+import {
+  createGuardedSupervisor,
+  createSignalSuspender,
+  GUARDED_DESCRIPTOR_NUMBER,
+  GUARDED_SIGNALS,
+  type GuardedSpawn,
+  type GuardedSupervisionRequest,
+  type GuardedSupervisor,
+  INHERITED_STDIO,
+} from "@/lib/process-lifecycle";
+import { arbitraryHostIdentity, type HostIdentity } from "@testing/generators/host-command-lock/host-command-lock";
+import { sampleGeneratedValue } from "@testing/generators/sample";
+import {
+  DeliveringSignalTarget,
+  RecordingGuardedChild,
+} from "@testing/harnesses/process-lifecycle/guarded-supervision";
 
-const TEMP_PREFIX = "host-command-lock-";
-const REPOSITORY_PREFIX = "host-command-lock-repo-";
-const KEEPER_READY_MARK = "ready";
-const KEEPER_INTERVAL_MS = 1_000;
-const PERMISSION_BITS = 0o777;
-const SYMLINK_TARGET_NAME = "target";
-const SYMLINK_NAME = "link";
-const LOCK_FILE_NAME = "orchestration.lock";
-// One Node process runs the supervisor, so its process id and descriptors are the supervisor's own.
-const NODE_BIN = process.execPath;
-const TSX_LOADER_ARGS = ["--import", "tsx"];
-const SUPERVISOR_ENTRY = join("testing", "harnesses", "host-command-lock", "supervisor-process.ts");
-const POLL_MS = 25;
-const WAIT_TIMEOUT_MS = 20_000;
-const HEARTBEAT_MS = 40;
-const ACTIVITY_WINDOW_MS = 400;
-const WORKER_PID_FILE = "worker.pid";
-const WORKER_HEARTBEAT_FILE = "worker.heartbeat";
-const RESULT_LINE_START = "{";
-const TIME_DILATION = 1_000;
-const QUIET_CPU_COUNT = 8;
-const QUIET_LOAD = 0;
+const SETTLE_TURNS = 2_000;
+const UNOPENED_DESCRIPTOR_OFFSET = 10_000;
 
-/** How long a test observes a waiter that must stay unadmitted while a worker is active. */
-export const OBSERVATION_MS = 600;
+/** What the host observed, in the order it happened. */
+export const EVENT_KIND = {
+  ENSURE_DIRECTORY: "ensure-directory",
+  OPEN_LOCK_FILE: "open-lock-file",
+  LOCK_TAKEN: "lock-taken",
+  SAMPLE: "sample",
+  RECORD_WRITE: "record-write",
+  SPAWN: "spawn",
+  CHILD_EXIT: "child-exit",
+} as const;
 
-export interface LockEnv {
-  readonly dir: string;
-  readonly lockPath: string;
-  readonly env: Record<string, string>;
+export type EventKind = (typeof EVENT_KIND)[keyof typeof EVENT_KIND];
+
+export interface HostEvent {
+  readonly kind: EventKind;
+  readonly pid?: number;
 }
 
-/** A fresh orchestration lock location; the environment names it through the production override variable. */
-export async function withLockEnv<T>(callback: (lock: LockEnv) => Promise<T>): Promise<T> {
-  return withTempDir(TEMP_PREFIX, async (dir) => {
-    const lockPath = join(dir, LOCK_FILE_NAME);
-    return callback({ dir, lockPath, env: { ...inheritedEnv(), [LOCK_ENV.PATH_OVERRIDE]: lockPath } });
-  });
-}
+/** The point at which a supervisor stops forever, as a killed process does. */
+export const SUPERVISOR_DEATH = {
+  BEFORE_SPAWN: "before-spawn",
+  BEFORE_GROUP_RECORD: "before-group-record",
+  AFTER_GROUP_RECORD: "after-group-record",
+} as const;
 
-function inheritedEnv(): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined),
-  );
-}
+export type SupervisorDeath = (typeof SUPERVISOR_DEATH)[keyof typeof SUPERVISOR_DEATH];
 
-/**
- * Production dependencies with a dilated monotonic clock and a quiet load source: real contention
- * and real children, with a 30-second load window that passes in milliseconds.
- */
-export function dilatedDeps(lockPath: string): Partial<HostCommandLockDeps> {
-  const origin = performance.now();
-  const nowMs = (): number => (performance.now() - origin) * TIME_DILATION;
-  return {
-    lockPath,
-    clock: { nowMs },
-    sleep: (ms: number) => delay(ms / TIME_DILATION),
-    loadSource: {
-      cpuCount: QUIET_CPU_COUNT,
-      sample: () => ({ atMs: nowMs(), one: QUIET_LOAD, five: QUIET_LOAD, fifteen: QUIET_LOAD }),
-    },
-  };
-}
+/** Thrown inside a supervisor that stops at the point its script names. */
+class SupervisorDied extends Error {}
 
-export interface ExitObservation {
-  readonly code: number | null;
-  readonly signal: NodeJS.Signals | null;
-}
+const GROUP_RECORD_WRITE_ORDINAL = 2;
 
-export interface SupervisorRun {
-  readonly child: ChildProcess;
-  readonly pid: number;
-  readonly exit: Promise<ExitObservation>;
-  stderr(): string;
-  resultLine(): ResultLine | undefined;
-}
-
-export interface SupervisorOptions {
-  readonly env?: Record<string, string>;
-  readonly inheritedFds?: readonly number[];
-  /** The supervisor kills itself with SIGKILL at the holder-record write with this 1-based ordinal. */
-  readonly killOnRecordWrite?: number;
-}
-
-/** The record write that precedes the spawn: the child's process group is still unknown. */
-export const RECORD_WRITE_BEFORE_SPAWN = 1;
-/** The record write that follows the spawn: it carries the child's process group. */
-export const RECORD_WRITE_AFTER_SPAWN = 2;
-
-/** Starts one real supervisor process in its own process group, as an agent tool would. */
-export function startSupervisor(lock: LockEnv, request: RunRequest, options: SupervisorOptions = {}): SupervisorRun {
-  const child = spawn(NODE_BIN, [
-    ...TSX_LOADER_ARGS,
-    SUPERVISOR_ENTRY,
-    JSON.stringify(request),
-    String(options.killOnRecordWrite ?? 0),
-  ], {
-    env: options.env ?? lock.env,
-    detached: true,
-    stdio: ["ignore", "pipe", "pipe", ...(options.inheritedFds ?? [])],
-  });
-  let stderr = "";
-  child.stderr?.on("data", (chunk: Buffer) => {
-    stderr += chunk.toString();
-  });
-  const exit = new Promise<ExitObservation>((resolve) => {
-    child.on("exit", (code, signal) => resolve({ code, signal }));
-  });
-  return {
-    child,
-    pid: child.pid as number,
-    exit,
-    stderr: () => stderr,
-    resultLine: () => parseResultLine(stderr),
-  };
-}
-
-function parseResultLine(stderr: string): ResultLine | undefined {
-  const last = stderr.trimEnd().split("\n").pop();
-  if (last === undefined || !last.startsWith(RESULT_LINE_START)) return undefined;
-  return JSON.parse(last) as ResultLine;
-}
-
-/** The argv that starts a nested supervisor as a guarded command's workload. */
-export function nestedSupervisorWorkload(request: RunRequest): readonly string[] {
-  return [NODE_BIN, ...TSX_LOADER_ARGS, SUPERVISOR_ENTRY, JSON.stringify(request)];
-}
-
-/** Signals a supervisor's whole process group, as a harness tool timeout does. */
-export function signalGroup(run: SupervisorRun, signal: NodeJS.Signals): void {
-  process.kill(-run.pid, signal);
-}
-
-/** Signals the supervisor process alone. */
-export function signalSupervisor(run: SupervisorRun, signal: NodeJS.Signals): void {
-  process.kill(run.pid, signal);
-}
-
-export function isAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export async function waitUntil(condition: () => boolean, timeoutMs: number = WAIT_TIMEOUT_MS): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (!condition()) {
-    if (Date.now() > deadline) throw new Error("Timed out waiting for an observable condition");
-    await delay(POLL_MS);
-  }
-}
-
-/** A workload: a Node worker that records its pid, then heartbeats into a file until killed. */
-export function workerWorkload(markerDir: string): readonly string[] {
-  const source = [
-    "const fs=require('fs'),path=require('path');",
-    `fs.writeFileSync(path.join(${JSON.stringify(markerDir)},${JSON.stringify(WORKER_PID_FILE)}),String(process.pid));`,
-    `setInterval(()=>fs.writeFileSync(path.join(${JSON.stringify(markerDir)},${
-      JSON.stringify(WORKER_HEARTBEAT_FILE)
-    }),String(Date.now())),${HEARTBEAT_MS});`,
-  ].join("");
-  return [process.execPath, "-e", source];
-}
-
-/** A workload that starts a worker inheriting every descriptor, then exits at once. */
-export function leavingWorkload(markerDir: string): readonly string[] {
-  const worker = workerWorkload(markerDir).slice(1);
-  const source = [
-    "const {spawn}=require('child_process');",
-    `spawn(process.execPath,${JSON.stringify(worker)},{stdio:['inherit','inherit','inherit',3]}).unref();`,
-  ].join("");
-  return [process.execPath, "-e", source];
-}
-
-/** A workload that exits with the given status. */
-export function exitingWorkload(code: number): readonly string[] {
-  return [process.execPath, "-e", `process.exit(${code})`];
-}
-
-/** A workload that appends its start and end instants to `<markerDir>/<label>.interval`. */
-export function intervalWorkload(markerDir: string, label: string, durationMs: number): readonly string[] {
-  const file = JSON.stringify(join(markerDir, `${label}.interval`));
-  const source = String.raw`const fs=require('fs');fs.appendFileSync(${file},'start '+Date.now()+'\n');`
-    + String.raw`setTimeout(()=>{fs.appendFileSync(${file},'end '+Date.now()+'\n')},${durationMs});`;
-  return [process.execPath, "-e", source];
-}
-
-export interface Interval {
-  readonly startMs: number;
-  readonly endMs: number;
-}
-
-export function readInterval(markerDir: string, label: string): Interval {
-  const lines = readFileSync(join(markerDir, `${label}.interval`), "utf8").trim().split("\n");
-  const at = (name: string): number => Number(lines.find((line) => line.startsWith(name))?.split(" ")[1]);
-  return { startMs: at("start"), endMs: at("end") };
-}
-
-export function intervalStarted(markerDir: string, label: string): boolean {
-  return existsSync(join(markerDir, `${label}.interval`));
-}
-
-export function workerPid(markerDir: string): number {
-  return Number(readFileSync(join(markerDir, WORKER_PID_FILE), "utf8"));
-}
-
-export function workerPidRecorded(markerDir: string): boolean {
-  return existsSync(join(markerDir, WORKER_PID_FILE));
-}
-
-/** The worker is active when its heartbeat file changed within the activity window: a signal independent of any descriptor. */
-export function workerActive(markerDir: string): boolean {
-  const heartbeat = join(markerDir, WORKER_HEARTBEAT_FILE);
-  return existsSync(heartbeat) && Date.now() - statSync(heartbeat).mtimeMs < ACTIVITY_WINDOW_MS;
-}
-
-/** Observations of a deterministic admission run over a fake clock, a scripted load source, and a recording binding. */
-export interface ScriptedAdmission {
-  readonly deps: Partial<HostCommandLockDeps>;
-  /** Fake-clock readings at which the load source was sampled. */
-  readonly sampleTimesMs: number[];
-  /** Fake-clock readings at which a lock attempt succeeded. */
-  readonly lockTakenAtMs: number[];
-  /** Fake-clock readings of every explicit unlock the binding received. */
-  readonly unlockAtMs: number[];
-  /** Fake-clock readings of lock attempts that found the lock busy. */
-  readonly busyAttemptsAtMs: number[];
-  nowMs(): number;
-}
-
-export interface AdmissionScript {
+export interface MemoryHostOptions {
+  readonly cpuCount: number;
   /** Samples served in order from the first sample after the slot is held; the last repeats. */
   readonly samples: readonly Omit<LoadSample, "atMs">[];
-  readonly cpuCount: number;
-  /** Fake-clock reading at which the slot becomes free; `Number.POSITIVE_INFINITY` keeps it busy. */
-  readonly slotFreeAtMs: number;
   /** Extra fake-clock milliseconds that pass before the sample at the given index is taken. */
   readonly stallBeforeSampleMs?: Readonly<Record<number, number>>;
+  /** Fake-clock reading until which a run outside this host holds the slot; infinity holds it for good. */
+  readonly externalHolderUntilMs?: number;
+  /** Randomized delays served in order to busy retries; the last repeats. */
+  readonly retryJitters?: readonly number[];
+  readonly ownerUid?: number;
+  readonly regularFile?: boolean;
+  readonly localStorage?: boolean;
+  /** The failure opening the lock file reports, such as a refused symbolic link. */
+  readonly openFailure?: Error;
+  /** The lock file at the path becomes a different inode at the moment the lock is taken. */
+  readonly pathReplacedOnLock?: boolean;
 }
 
-/** The lock binding double answers busy until the script frees the slot, and records every unlock. */
-export function scriptedAdmission(script: AdmissionScript, lockFile: Pick<LockEnv, "lockPath">): ScriptedAdmission {
-  let clock = 0;
-  let sampleIndex = 0;
-  const sampleTimesMs: number[] = [];
-  const lockTakenAtMs: number[] = [];
-  const unlockAtMs: number[] = [];
-  const busyAttemptsAtMs: number[] = [];
-  const binding: LockBinding = {
-    tryLock: () => {
-      if (clock >= script.slotFreeAtMs) {
-        lockTakenAtMs.push(clock);
-        return true;
-      }
-      busyAttemptsAtMs.push(clock);
-      return false;
-    },
-    unlock: () => {
-      unlockAtMs.push(clock);
-    },
-  };
-  const deps: Partial<HostCommandLockDeps> = {
-    binding,
-    clock: { nowMs: () => clock },
-    sleep: async (ms: number) => {
-      clock += ms;
-    },
-    randomDelayMs: () => 0,
-    loadSource: {
-      cpuCount: script.cpuCount,
-      sample: () => {
-        clock += script.stallBeforeSampleMs?.[sampleIndex] ?? 0;
-        sampleTimesMs.push(clock);
-        const sample = script.samples[Math.min(sampleIndex, script.samples.length - 1)];
-        sampleIndex += 1;
-        return { ...sample, atMs: clock };
-      },
-    },
-    lockPath: lockFile.lockPath,
-  };
-  return { deps, sampleTimesMs, lockTakenAtMs, unlockAtMs, busyAttemptsAtMs, nowMs: () => clock };
+/** What differs from one guarded run to the next on the same host. */
+export interface RunScript {
+  readonly environment?: Environment;
+  readonly platform?: Platform;
+  readonly runId?: string;
+  /** Children of this run exit at once with this code; without it the test exits them. */
+  readonly childExitCode?: number;
+  readonly loadFailure?: Error;
+  readonly sleepFailure?: Error;
+  readonly spawnFailure?: Error;
+  readonly supervisorDeath?: SupervisorDeath;
 }
 
-const PGID_FILE = "pgids.json";
-
-/** A workload that records its own process group and its parent's process group. */
-export function pgidWorkload(markerDir: string): readonly string[] {
-  const source = "const cp=require('child_process'),fs=require('fs');"
-    + "const g=(p)=>Number(cp.execFileSync('ps',['-o','pgid=','-p',String(p)]).toString().trim());"
-    + `fs.writeFileSync(${
-      JSON.stringify(join(markerDir, PGID_FILE))
-    },JSON.stringify({own:g(process.pid),parent:g(process.ppid)}));`;
-  return [process.execPath, "-e", source];
+export interface SpawnedChild {
+  readonly command: string;
+  readonly args: readonly string[];
+  readonly options: SpawnOptions;
+  readonly child: RecordingGuardedChild;
 }
 
-export interface RecordedGroups {
-  readonly own: number;
-  readonly parent: number;
+/** A descriptor an outer guarded command passes down, as a nested call finds it. */
+export interface OuterSlot {
+  readonly descriptor: number;
+  readonly environment: Record<string, string>;
 }
 
-export function readGroups(markerDir: string): RecordedGroups {
-  return JSON.parse(readFileSync(join(markerDir, PGID_FILE), "utf8")) as RecordedGroups;
+export interface OuterSlotOptions {
+  /** Whether the outer description still holds the lock; defaults to true. */
+  readonly holdsLock?: boolean;
+  /** The file the descriptor refers to; defaults to the orchestration lock file. */
+  readonly descriptorFileId?: string;
 }
 
-/** A lock binding over the production one that replaces the lock file's inode at the moment the lock is taken. */
-export function replacingBinding(lockPath: string, production: LockBinding): LockBinding {
-  return {
-    ...production,
-    tryLock: (fd: number) => {
-      const taken = production.tryLock(fd);
-      renameSync(lockPath, `${lockPath}.replaced`);
-      writeFileSync(lockPath, "");
-      return taken;
-    },
-  };
-}
-
-/** A descriptor opened on a file, closed by the returned callback. */
-export interface OpenDescriptor {
-  readonly fd: number;
+interface Description {
+  copies: number;
   readonly fileId: string;
-  close(): void;
 }
 
-export function openDescriptor(path: string): OpenDescriptor {
-  const fd = openSync(path, "a+");
-  const stat = fstatSync(fd);
-  return { fd, fileId: `${stat.dev}:${stat.ino}`, close: () => closeSync(fd) };
+export class MemoryHost {
+  readonly identity: HostIdentity;
+  readonly events: HostEvent[] = [];
+  readonly sleeps: number[] = [];
+  readonly sampleTimesMs: number[] = [];
+  readonly lockTakenAtMs: number[] = [];
+  readonly busyAttemptsAtMs: number[] = [];
+  readonly unlocks: number[] = [];
+  readonly directoriesEnsured: string[] = [];
+  readonly lockFilesOpened: number[] = [];
+  readonly recordWrites: HolderRecord[] = [];
+  readonly spawns: SpawnedChild[] = [];
+  readonly groupKills: Array<{ readonly pid: number; readonly signal: NodeJS.Signals }> = [];
+  readonly signals = new DeliveringSignalTarget();
+  /** Called after every sleep with the number of sleeps so far. */
+  onSleep: ((count: number) => void) | undefined;
+  /** The number of spawned children at the moment a scheduled child exit fired. */
+  spawnsAtScheduledExit: number | undefined;
+
+  private clockMs = 0;
+  private nextDescriptor: number;
+  private nextDescription = 0;
+  private slotHolder: number | undefined;
+  private pathFileId: string;
+  private recordAttempts = 0;
+  private dieOnRecordAttempt: number | undefined;
+  private jitterIndex = 0;
+  private readonly descriptions = new Map<number, Description>();
+  private readonly descriptors = new Map<number, number>();
+  private readonly supervisorDescriptors = new Set<number>();
+
+  constructor(private readonly options: MemoryHostOptions) {
+    this.identity = sampleGeneratedValue(arbitraryHostIdentity());
+    this.nextDescriptor = this.identity.firstDescriptor;
+    this.pathFileId = this.identity.fileId;
+  }
+
+  /** A descriptor number no description holds. */
+  get unopenedDescriptor(): number {
+    return this.identity.firstDescriptor + UNOPENED_DESCRIPTOR_OFFSET;
+  }
+
+  nowMs(): number {
+    return this.clockMs;
+  }
+
+  /** The kinds of events in order, a run of the same kind counted once. */
+  kinds(): EventKind[] {
+    return this.events
+      .map((event) => event.kind)
+      .filter((kind, index, kinds) => index === 0 || kinds[index - 1] !== kind);
+  }
+
+  /** The most recent holder record written through a locked descriptor. */
+  holderRecord(): HolderRecord | undefined {
+    return this.recordWrites[this.recordWrites.length - 1];
+  }
+
+  slotHeld(): boolean {
+    return this.slotHolder !== undefined;
+  }
+
+  /** The number of descriptors the guard itself still holds open. */
+  openSupervisorDescriptors(): number {
+    return this.supervisorDescriptors.size;
+  }
+
+  /** The descriptor numbers of the lock file opens, in order. */
+  lockDescriptors(): number[] {
+    return [...this.lockFilesOpened];
+  }
+
+  /** Dependencies for one guarded run over this host. */
+  deps(script: RunScript = {}): Partial<HostCommandLockDeps> {
+    this.dieOnRecordAttempt = script.supervisorDeath === SUPERVISOR_DEATH.BEFORE_GROUP_RECORD
+      ? GROUP_RECORD_WRITE_ORDINAL
+      : this.dieOnRecordAttempt;
+    let sampleIndex = 0;
+    return {
+      lockPath: this.identity.lockPath,
+      environment: script.environment ?? {},
+      platform: script.platform ?? SUPPORTED_PLATFORM,
+      clock: { nowMs: () => this.clockMs },
+      wallClockMs: () => this.identity.startedAtMs,
+      sleep: async (ms) => {
+        if (script.sleepFailure !== undefined) throw script.sleepFailure;
+        this.clockMs += ms;
+        this.sleeps.push(ms);
+        this.onSleep?.(this.sleeps.length);
+        await settle();
+      },
+      randomDelayMs: () => this.nextJitter(),
+      loadSource: {
+        cpuCount: this.options.cpuCount,
+        sample: () => {
+          if (script.loadFailure !== undefined) throw script.loadFailure;
+          this.clockMs += this.options.stallBeforeSampleMs?.[sampleIndex] ?? 0;
+          this.sampleTimesMs.push(this.clockMs);
+          this.events.push({ kind: EVENT_KIND.SAMPLE });
+          const sample = this.options.samples[Math.min(sampleIndex, this.options.samples.length - 1)];
+          sampleIndex += 1;
+          return { ...sample, atMs: this.clockMs };
+        },
+      },
+      binding: this.binding,
+      filesystem: this.filesystem,
+      spawn: this.spawnFor(script),
+      createSupervisor: (spawnChild) => this.supervisorFor(script.supervisorDeath, spawnChild),
+      generateRunId: () => script.runId ?? this.identity.generatedRunId,
+      processId: this.identity.supervisorPid,
+      workingDirectory: this.identity.workingDirectory,
+    };
+  }
+
+  /** Resolves once at least `count` children have been spawned. */
+  async untilSpawned(count: number): Promise<void> {
+    for (let turn = 0; turn < SETTLE_TURNS; turn += 1) {
+      if (this.spawns.length >= count) return;
+      await settle();
+    }
+    throw new Error(`Expected ${count} spawned children, saw ${this.spawns.length}`);
+  }
+
+  /** Lets queued work run, so a test can observe a run that has not settled. */
+  async settle(turns: number): Promise<void> {
+    for (let turn = 0; turn < turns; turn += 1) await settle();
+  }
+
+  exitChild(index: number, code: number | null, signal: NodeJS.Signals | null = null): void {
+    this.spawns[index].child.emitExit(code, signal);
+  }
+
+  /** Exits the child at `index` with `code` when the host has slept `sleeps` more times. */
+  scheduleChildExit(index: number, code: number, sleeps: number): void {
+    const target = this.sleeps.length + sleeps;
+    this.onSleep = (count) => {
+      if (count !== target) return;
+      this.spawnsAtScheduledExit = this.spawns.length;
+      this.exitChild(index, code);
+    };
+  }
+
+  /** The supervisor process dies: the kernel closes every descriptor it still holds. */
+  killSupervisor(): void {
+    for (const descriptor of [...this.supervisorDescriptors]) this.closeDescriptor(descriptor);
+  }
+
+  /** An outer guarded command's description of the lock file, as a nested call inherits it. */
+  holdOuterSlot(options: OuterSlotOptions = {}): OuterSlot {
+    const descriptor = this.openDescription(options.descriptorFileId ?? this.identity.fileId);
+    this.supervisorDescriptors.delete(descriptor);
+    if (options.holdsLock ?? true) this.slotHolder = this.descriptors.get(descriptor);
+    return {
+      descriptor,
+      environment: {
+        [LOCK_ENV.FD]: String(descriptor),
+        [LOCK_ENV.FILE_ID]: this.identity.fileId,
+      },
+    };
+  }
+
+  private nextJitter(): number {
+    const jitters = this.options.retryJitters ?? [0];
+    const jitter = jitters[Math.min(this.jitterIndex, jitters.length - 1)];
+    this.jitterIndex += 1;
+    return jitter;
+  }
+
+  private openDescription(fileId: string): number {
+    const descriptor = this.nextDescriptor;
+    this.nextDescriptor += 1;
+    const description = this.nextDescription;
+    this.nextDescription += 1;
+    this.descriptions.set(description, { copies: 1, fileId });
+    this.descriptors.set(descriptor, description);
+    this.supervisorDescriptors.add(descriptor);
+    return descriptor;
+  }
+
+  private descriptionOf(descriptor: number): number {
+    const description = this.descriptors.get(descriptor);
+    if (description === undefined) throw new Error(`Bad descriptor ${descriptor}`);
+    return description;
+  }
+
+  private releaseCopy(description: number): void {
+    const held = this.descriptions.get(description) as Description;
+    held.copies -= 1;
+    if (held.copies === 0 && this.slotHolder === description) this.slotHolder = undefined;
+  }
+
+  private closeDescriptor(descriptor: number): void {
+    const description = this.descriptors.get(descriptor);
+    if (description === undefined) return;
+    this.descriptors.delete(descriptor);
+    this.supervisorDescriptors.delete(descriptor);
+    this.releaseCopy(description);
+  }
+
+  private readonly binding: LockBinding = {
+    tryLock: (descriptor) => {
+      const description = this.descriptionOf(descriptor);
+      if (this.slotHolder === description) return true;
+      const external = this.clockMs < (this.options.externalHolderUntilMs ?? 0);
+      if (this.slotHolder !== undefined || external) {
+        this.busyAttemptsAtMs.push(this.clockMs);
+        return false;
+      }
+      this.slotHolder = description;
+      this.lockTakenAtMs.push(this.clockMs);
+      this.events.push({ kind: EVENT_KIND.LOCK_TAKEN });
+      if (this.options.pathReplacedOnLock) this.pathFileId = this.identity.otherFileId;
+      return true;
+    },
+    unlock: (descriptor) => {
+      this.unlocks.push(descriptor);
+    },
+  };
+
+  private readonly filesystem: HostCommandLockFilesystem = {
+    ensureDirectory: (path) => {
+      this.directoriesEnsured.push(path);
+      this.events.push({ kind: EVENT_KIND.ENSURE_DIRECTORY });
+    },
+    openLockFile: () => {
+      this.events.push({ kind: EVENT_KIND.OPEN_LOCK_FILE });
+      if (this.options.openFailure !== undefined) throw this.options.openFailure;
+      const descriptor = this.openDescription(this.pathFileId);
+      this.lockFilesOpened.push(descriptor);
+      return descriptor;
+    },
+    openProbe: () => this.openDescription(this.pathFileId),
+    close: (descriptor) => {
+      this.closeDescriptor(descriptor);
+    },
+    ownerOf: () => this.options.ownerUid ?? (process.getuid?.() as number),
+    isRegularFile: () => this.options.regularFile ?? true,
+    fileIdOfDescriptor: (descriptor) => {
+      const description = this.descriptions.get(this.descriptionOf(descriptor)) as Description;
+      return description.fileId;
+    },
+    fileIdOfPath: (path) => (path === this.identity.lockPath ? this.pathFileId : undefined),
+    isLocalStorage: () => this.options.localStorage ?? true,
+    writeHolderRecord: (_descriptor, record) => {
+      this.recordAttempts += 1;
+      if (this.recordAttempts === this.dieOnRecordAttempt) throw new SupervisorDied();
+      this.recordWrites.push(record);
+      this.events.push({ kind: EVENT_KIND.RECORD_WRITE });
+    },
+  };
+
+  private spawnFor(script: RunScript): GuardedSpawn {
+    return (command, args, options) => {
+      if (script.spawnFailure !== undefined) throw script.spawnFailure;
+      const pid = this.identity.childPids[this.spawns.length];
+      const child = new RecordingGuardedChild(pid);
+      const stdio = Array.isArray(options.stdio) ? options.stdio : [];
+      const inherited = stdio[GUARDED_DESCRIPTOR_NUMBER];
+      const description = typeof inherited === "number" ? this.descriptors.get(inherited) : undefined;
+      if (description !== undefined) (this.descriptions.get(description) as Description).copies += 1;
+      child.once("exit", () => {
+        this.events.push({ kind: EVENT_KIND.CHILD_EXIT, pid });
+        if (description !== undefined) this.releaseCopy(description);
+      });
+      this.spawns.push({ command, args, options, child });
+      this.events.push({ kind: EVENT_KIND.SPAWN, pid });
+      if (script.childExitCode !== undefined) {
+        const code = script.childExitCode;
+        setImmediate(() => child.emitExit(code, null));
+      }
+      return child;
+    };
+  }
+
+  private supervisorFor(death: SupervisorDeath | undefined, spawnChild: GuardedSpawn): GuardedSupervisor {
+    if (death === undefined) {
+      return createGuardedSupervisor({
+        spawn: spawnChild,
+        signalTarget: this.signals,
+        signalSuspender: createSignalSuspender(this.signals, GUARDED_SIGNALS),
+        killProcessGroup: (pid, signal) => {
+          this.groupKills.push({ pid, signal });
+        },
+        closeDescriptor: (descriptor) => {
+          this.closeDescriptor(descriptor);
+        },
+      });
+    }
+    return {
+      run: async (request: GuardedSupervisionRequest) => {
+        if (death !== SUPERVISOR_DEATH.BEFORE_SPAWN) {
+          try {
+            spawnChild(request.command, request.args, {
+              stdio: [INHERITED_STDIO, INHERITED_STDIO, INHERITED_STDIO, request.descriptor],
+              detached: true,
+            });
+          } catch (error) {
+            if (!(error instanceof SupervisorDied)) throw error;
+          }
+        }
+        return new Promise<number>(() => undefined);
+      },
+    };
+  }
 }
 
-/** Creates an empty file at `path` when none exists, and returns its device and inode as `<device>:<inode>`. */
-export function touchedFileId(path: string): string {
-  const descriptor = openDescriptor(path);
-  descriptor.close();
-  return descriptor.fileId;
-}
-
-/** The argv that starts a nested supervisor under `env`, so the nested call resolves its own environment. */
-export function nestedSupervisorWorkloadWithEnv(
-  request: RunRequest,
-  overrides: Readonly<Record<string, string>>,
-): readonly string[] {
-  return [
-    "env",
-    ...Object.entries(overrides).map(([key, value]) => `${key}=${value}`),
-    ...nestedSupervisorWorkload(request),
-  ];
-}
-
-/** The signals the evidence delivers or observes. */
-export const SIGNAL = { KILL: "SIGKILL", TERM: "SIGTERM", HUP: "SIGHUP" } as const satisfies Record<
-  string,
-  NodeJS.Signals
->;
-
-/** The signals a harness kill path delivers to a running guarded command's group, which the supervisor forwards. */
-export const FORWARDED_SIGNALS: readonly NodeJS.Signals[] = [SIGNAL.TERM, SIGNAL.HUP];
-
-/** A fresh directory standing for one repository's working directory. */
-export async function withRepositoryDir<T>(callback: (dir: string) => Promise<T>): Promise<T> {
-  return withTempDir(REPOSITORY_PREFIX, callback);
-}
-
-/** A running process that inherits one descriptor and stays alive until killed. */
-export interface DescriptorKeeper {
-  readonly pid: number;
-  ready(): boolean;
-  kill(): void;
-}
-
-/** Starts a Node process that keeps `inheritedFd` as its descriptor 3 and reports readiness on its standard output. */
-export function startDescriptorKeeper(inheritedFd: number): DescriptorKeeper {
-  const source = `process.stdout.write('${KEEPER_READY_MARK}');setInterval(()=>{},${KEEPER_INTERVAL_MS})`;
-  const child = spawn(NODE_BIN, ["-e", source], { stdio: ["ignore", "pipe", "inherit", inheritedFd] });
-  let ready = false;
-  child.stdout?.on("data", () => {
-    ready = true;
-  });
-  return { pid: child.pid as number, ready: () => ready, kill: () => child.kill(SIGNAL.KILL) };
-}
-
-/** The permission bits of the file or directory at `path`. */
-export function permissionsOf(path: string): number {
-  return statSync(path).mode & PERMISSION_BITS;
-}
-
-/** The size in bytes of the file at `path`. */
-export function sizeOf(path: string): number {
-  return statSync(path).size;
-}
-
-/** The orchestration lock file below `dir`, inside directories named by `segments` that do not exist yet. */
-export function missingDirectoryLockPath(dir: string, segments: readonly string[]): string {
-  return join(dir, ...segments, LOCK_FILE_SEGMENTS[LOCK_FILE_SEGMENTS.length - 1]);
-}
-
-/** An empty file and a symbolic link to it, both below `dir`. */
-export function symlinkedLockPath(dir: string): { readonly target: string; readonly link: string } {
-  const target = join(dir, SYMLINK_TARGET_NAME);
-  const link = join(dir, SYMLINK_NAME);
-  writeFileSync(target, "");
-  symlinkSync(target, link);
-  return { target, link };
+function settle(): Promise<void> {
+  return new Promise<void>((resolve) => setImmediate(resolve));
 }
