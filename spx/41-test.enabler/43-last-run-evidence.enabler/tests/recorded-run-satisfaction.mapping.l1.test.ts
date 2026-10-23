@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import { findSatisfyingRecordedRun, RECORDED_RUN_UNSATISFIED_REASON } from "@/commands/test";
 import { judgeRecordedRun } from "@/commands/test/recorded-run";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
-import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
-import { JUDGED_UNSATISFIED_REASONS, RECORDED_RUN_TEST_GENERATOR } from "@testing/generators/testing/recorded-run";
-import { sampleTestRunStateValue, TEST_RUN_STATE_TEST_GENERATOR } from "@testing/generators/testing/run-state";
+import {
+  RECORDED_RUN_TEST_GENERATOR,
+  RECORDED_RUN_VIOLATION_CASES,
+  sampleRecordedRunValue,
+} from "@testing/generators/testing/recorded-run";
 import { assertProperty, PROPERTY_CLASSIFICATION } from "@testing/harnesses/property/property";
 import { recordPassedRun, withRecordedRunRepository } from "@testing/harnesses/testing/recorded-run";
 
@@ -20,13 +22,13 @@ describe("recorded run satisfaction", () => {
     );
   });
 
-  it.each(JUDGED_UNSATISFIED_REASONS)(
-    "is unsatisfied with reason %s when only that condition is violated",
-    async (reason) => {
+  it.each(RECORDED_RUN_VIOLATION_CASES)(
+    "is unsatisfied with reason $label when only that condition is violated",
+    async (violationCase) => {
       await assertProperty(
-        RECORDED_RUN_TEST_GENERATOR.violatedScenario(reason),
+        RECORDED_RUN_TEST_GENERATOR.violatedScenario(violationCase),
         ({ run, selectedPaths, current }) => {
-          expect(judgeRecordedRun(run, selectedPaths, current)).toEqual({ satisfied: false, reason });
+          expect(judgeRecordedRun(run, selectedPaths, current)).toEqual({ satisfied: false, reason: violationCase.reason });
         },
         PROPERTY_CLASSIFICATION.SMALL_L1,
       );
@@ -34,11 +36,9 @@ describe("recorded run satisfaction", () => {
   );
 
   it("is unsatisfied with reason no-covering-run when the request selects a file the recorded run does not cover", async () => {
-    const { file } = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodeWithOwnFile(typescriptTestingLanguage));
-    const [coveredPaths, uncoveredPaths] = sampleTestRunStateValue(
-      TEST_RUN_STATE_TEST_GENERATOR.disjointTestPathsPair(),
+    const { file, uncoveredFile } = sampleRecordedRunValue(
+      RECORDED_RUN_TEST_GENERATOR.uncoveredRequestFiles(typescriptTestingLanguage),
     );
-    const uncoveredFile = [coveredPaths[0], uncoveredPaths[0]].find((path) => path !== file) ?? uncoveredPaths[0];
 
     await withRecordedRunRepository(file, async (repository) => {
       await recordPassedRun(repository);

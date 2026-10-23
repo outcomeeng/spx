@@ -5,6 +5,8 @@ import {
   RECORDED_RUN_UNSATISFIED_REASON,
   type RecordedRunUnsatisfiedReason,
 } from "@/commands/test/recorded-run";
+import { NO_GIT_IDENTITY } from "@/commands/test/run-command";
+import type { TestingLanguageDescriptor } from "@/test/languages/types";
 import {
   extractStalenessInputs,
   type ProductInputDigest,
@@ -17,21 +19,94 @@ import {
   type TestRunStateStatus,
   type TestTerminalRun,
 } from "@/test/run-state";
+import { sampleGeneratedValue } from "@testing/generators/sample";
+import { TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
 import { TEST_RUN_STATE_TEST_GENERATOR } from "@testing/generators/testing/run-state";
 
 const SUCCESS_RUNNER_EXIT_CODE = 0;
 const MIN_SELECTED_PATHS = 1;
-
-/** The reasons a judged run can be unsatisfied; a run no lookup finds is judged by no one. */
-export const JUDGED_UNSATISFIED_REASONS: readonly RecordedRunUnsatisfiedReason[] = Object.values(
-  RECORDED_RUN_UNSATISFIED_REASON,
-).filter((reason) => reason !== RECORDED_RUN_UNSATISFIED_REASON.NO_COVERING_RUN);
 
 type StalenessViolationField =
   | typeof TEST_RUN_STATE_FIELDS.TESTING_CONFIG_DIGEST
   | typeof TEST_RUN_STATE_FIELDS.DISCOVERED_TEST_PATHS_DIGEST
   | typeof TEST_RUN_STATE_FIELDS.DISCOVERED_TEST_CONTENT_DIGEST
   | typeof TEST_RUN_STATE_FIELDS.PRODUCT_INPUT_DIGESTS;
+
+/** The four staleness digests a recorded run must match, each violated by its own case. */
+const STALENESS_VIOLATION_FIELDS: readonly StalenessViolationField[] = [
+  TEST_RUN_STATE_FIELDS.TESTING_CONFIG_DIGEST,
+  TEST_RUN_STATE_FIELDS.DISCOVERED_TEST_PATHS_DIGEST,
+  TEST_RUN_STATE_FIELDS.DISCOVERED_TEST_CONTENT_DIGEST,
+  TEST_RUN_STATE_FIELDS.PRODUCT_INPUT_DIGESTS,
+];
+
+const UNPASSED_RUN_STATUSES: readonly TestRunStateStatus[] = Object.values(TEST_RUN_STATE_STATUS).filter((status) =>
+  status !== TEST_RUN_STATE_STATUS.PASSED
+);
+
+const UNPASSED_FILE_VERDICTS: readonly TestPathVerdictValue[] = Object.values(TEST_PATH_VERDICT).filter((verdict) =>
+  verdict !== TEST_PATH_VERDICT.PASSED
+);
+
+/** The one way a case violates the satisfying scenario's conditions. */
+type Violation =
+  | { readonly kind: "run-status"; readonly status: TestRunStateStatus }
+  | { readonly kind: "file-verdict"; readonly verdict: TestPathVerdictValue }
+  | { readonly kind: "run-git-identity" }
+  | { readonly kind: "checkout-git-identity" }
+  | { readonly kind: "head-differs" }
+  | { readonly kind: "worktree-dirty" }
+  | { readonly kind: "stale"; readonly field: StalenessViolationField };
+
+export interface RecordedRunViolationCase {
+  readonly label: string;
+  readonly reason: RecordedRunUnsatisfiedReason;
+  readonly violation: Violation;
+}
+
+/**
+ * Every judged way a recorded run fails to satisfy a request, enumerated: each non-passed terminal
+ * status, each non-passed file verdict, git identity unresolved on the run side and on the checkout
+ * side, a differing head, a dirty worktree, and each of the four staleness digests. A run no lookup
+ * finds is judged by no one.
+ */
+export const RECORDED_RUN_VIOLATION_CASES: readonly RecordedRunViolationCase[] = [
+  ...UNPASSED_RUN_STATUSES.map((status): RecordedRunViolationCase => ({
+    label: `${RECORDED_RUN_UNSATISFIED_REASON.RUN_NOT_PASSED} (${status})`,
+    reason: RECORDED_RUN_UNSATISFIED_REASON.RUN_NOT_PASSED,
+    violation: { kind: "run-status", status },
+  })),
+  ...UNPASSED_FILE_VERDICTS.map((verdict): RecordedRunViolationCase => ({
+    label: `${RECORDED_RUN_UNSATISFIED_REASON.FILE_NOT_PASSED} (${verdict})`,
+    reason: RECORDED_RUN_UNSATISFIED_REASON.FILE_NOT_PASSED,
+    violation: { kind: "file-verdict", verdict },
+  })),
+  {
+    label: `${RECORDED_RUN_UNSATISFIED_REASON.GIT_IDENTITY_UNRESOLVED} (run)`,
+    reason: RECORDED_RUN_UNSATISFIED_REASON.GIT_IDENTITY_UNRESOLVED,
+    violation: { kind: "run-git-identity" },
+  },
+  {
+    label: `${RECORDED_RUN_UNSATISFIED_REASON.GIT_IDENTITY_UNRESOLVED} (checkout)`,
+    reason: RECORDED_RUN_UNSATISFIED_REASON.GIT_IDENTITY_UNRESOLVED,
+    violation: { kind: "checkout-git-identity" },
+  },
+  {
+    label: RECORDED_RUN_UNSATISFIED_REASON.HEAD_DIFFERS,
+    reason: RECORDED_RUN_UNSATISFIED_REASON.HEAD_DIFFERS,
+    violation: { kind: "head-differs" },
+  },
+  {
+    label: RECORDED_RUN_UNSATISFIED_REASON.WORKTREE_DIRTY,
+    reason: RECORDED_RUN_UNSATISFIED_REASON.WORKTREE_DIRTY,
+    violation: { kind: "worktree-dirty" },
+  },
+  ...STALENESS_VIOLATION_FIELDS.map((field): RecordedRunViolationCase => ({
+    label: `${RECORDED_RUN_UNSATISFIED_REASON.STALE} (${field})`,
+    reason: RECORDED_RUN_UNSATISFIED_REASON.STALE,
+    violation: { kind: "stale", field },
+  })),
+];
 
 export interface RecordedRunScenario {
   readonly run: TestTerminalRun;
@@ -43,16 +118,38 @@ interface ViolationDraws {
   readonly scenario: RecordedRunScenario;
   readonly otherHeadSha: string;
   readonly otherDigest: string;
-  readonly stalenessField: StalenessViolationField;
   readonly extraProductInput: ProductInputDigest;
-  readonly unpassedStatus: TestRunStateStatus;
-  readonly unpassedVerdict: TestPathVerdictValue;
+}
+
+/** A request's selected file that sits beside the node's own file and that no recorded run covers. */
+export interface UncoveredRequestFiles {
+  readonly file: string;
+  readonly uncoveredFile: string;
 }
 
 export const RECORDED_RUN_TEST_GENERATOR = {
   satisfyingScenario: arbitrarySatisfyingScenario,
   violatedScenario: arbitraryViolatedScenario,
+  uncoveredRequestFiles: arbitraryUncoveredRequestFiles,
 } as const;
+
+/** One deterministic draw from a recorded-run generator, pinned to the shared sampler's seed. */
+export function sampleRecordedRunValue<T>(arbitrary: fc.Arbitrary<T>): T {
+  return sampleGeneratedValue(arbitrary);
+}
+
+// A node's own test file and a second file drawn from a path set disjoint from the covered one,
+// distinct from the node's file.
+function arbitraryUncoveredRequestFiles(descriptor: TestingLanguageDescriptor): fc.Arbitrary<UncoveredRequestFiles> {
+  return fc
+    .tuple(
+      TEST_DISPATCH_GENERATOR.nodeWithOwnFile(descriptor),
+      TEST_RUN_STATE_TEST_GENERATOR.disjointTestPathsPair(),
+    )
+    .map(([{ file }, [, uncoveredPaths]]) => ({ file, uncoveredPaths }))
+    .filter(({ file, uncoveredPaths }) => uncoveredPaths[0] !== file)
+    .map(({ file, uncoveredPaths }) => ({ file, uncoveredFile: uncoveredPaths[0] }));
+}
 
 // A passed run whose single outcome records `passed` for every path it covers, a request that
 // selects a non-empty subset of those paths, and current facts equal to the run's own record.
@@ -87,65 +184,65 @@ function arbitrarySatisfyingScenario(): fc.Arbitrary<RecordedRunScenario> {
     );
 }
 
-// The satisfying scenario with exactly one condition violated, the one the reason names.
-function arbitraryViolatedScenario(reason: RecordedRunUnsatisfiedReason): fc.Arbitrary<RecordedRunScenario> {
+// The satisfying scenario with exactly one condition violated, the one the case names.
+function arbitraryViolatedScenario(violationCase: RecordedRunViolationCase): fc.Arbitrary<RecordedRunScenario> {
+  const { violation } = violationCase;
   return fc
     .record({
       scenario: arbitrarySatisfyingScenario(),
       otherHeadSha: TEST_RUN_STATE_TEST_GENERATOR.headSha(),
       otherDigest: TEST_RUN_STATE_TEST_GENERATOR.digest(),
-      stalenessField: fc.oneof(
-        TEST_RUN_STATE_TEST_GENERATOR.mutableStalenessDigestField(),
-        fc.constant(TEST_RUN_STATE_FIELDS.PRODUCT_INPUT_DIGESTS),
-      ),
       extraProductInput: TEST_RUN_STATE_TEST_GENERATOR.productInputDigest(),
-      unpassedStatus: fc.constantFrom(TEST_RUN_STATE_STATUS.FAILED, TEST_RUN_STATE_STATUS.INTERRUPTED),
-      unpassedVerdict: fc.constantFrom(TEST_PATH_VERDICT.FAILED, TEST_PATH_VERDICT.NOT_RUN),
     })
     .filter((draws) =>
       draws.otherHeadSha !== draws.scenario.current.headSha
-      && (draws.stalenessField === TEST_RUN_STATE_FIELDS.PRODUCT_INPUT_DIGESTS
-        || draws.otherDigest !== draws.scenario.current.staleness[draws.stalenessField])
+      && (violation.kind !== "stale"
+        || violation.field === TEST_RUN_STATE_FIELDS.PRODUCT_INPUT_DIGESTS
+        || draws.otherDigest !== draws.scenario.current.staleness[violation.field])
     )
-    .map((draws) => violate(reason, draws));
+    .map((draws) => violate(violation, draws));
 }
 
-function violate(reason: RecordedRunUnsatisfiedReason, draws: ViolationDraws): RecordedRunScenario {
+function violate(violation: Violation, draws: ViolationDraws): RecordedRunScenario {
   const { scenario } = draws;
-  switch (reason) {
-    case RECORDED_RUN_UNSATISFIED_REASON.RUN_NOT_PASSED:
-      return withState(scenario, { status: draws.unpassedStatus });
-    case RECORDED_RUN_UNSATISFIED_REASON.FILE_NOT_PASSED:
+  switch (violation.kind) {
+    case "run-status":
+      return withState(scenario, { status: violation.status });
+    case "file-verdict":
       return withState(scenario, {
         runnerOutcomes: scenario.run.state.runnerOutcomes.map((outcome) => ({
           ...outcome,
           pathVerdicts: outcome.pathVerdicts.map((pathVerdict) =>
             pathVerdict.testPath === scenario.selectedPaths[0]
-              ? { ...pathVerdict, verdict: draws.unpassedVerdict }
+              ? { ...pathVerdict, verdict: violation.verdict }
               : pathVerdict
           ),
         })),
       });
-    case RECORDED_RUN_UNSATISFIED_REASON.GIT_IDENTITY_UNRESOLVED:
+    case "run-git-identity":
+      return withState(scenario, { headSha: NO_GIT_IDENTITY });
+    case "checkout-git-identity":
       return { ...scenario, current: { ...scenario.current, headSha: null } };
-    case RECORDED_RUN_UNSATISFIED_REASON.HEAD_DIFFERS:
+    case "head-differs":
       return { ...scenario, current: { ...scenario.current, headSha: draws.otherHeadSha } };
-    case RECORDED_RUN_UNSATISFIED_REASON.WORKTREE_DIRTY:
+    case "worktree-dirty":
       return { ...scenario, current: { ...scenario.current, worktreeClean: false } };
-    case RECORDED_RUN_UNSATISFIED_REASON.STALE: {
-      const staleness = staleCurrentInputs(scenario.current.staleness, draws);
+    case "stale": {
+      const staleness = staleCurrentInputs(scenario.current.staleness, violation.field, draws);
       return { ...scenario, current: { ...scenario.current, staleness } };
     }
-    default:
-      return scenario;
   }
 }
 
-function staleCurrentInputs(current: StalenessInputs, draws: ViolationDraws): StalenessInputs {
-  if (draws.stalenessField === TEST_RUN_STATE_FIELDS.PRODUCT_INPUT_DIGESTS) {
+function staleCurrentInputs(
+  current: StalenessInputs,
+  field: StalenessViolationField,
+  draws: ViolationDraws,
+): StalenessInputs {
+  if (field === TEST_RUN_STATE_FIELDS.PRODUCT_INPUT_DIGESTS) {
     return { ...current, productInputDigests: [...current.productInputDigests, draws.extraProductInput] };
   }
-  return { ...current, [draws.stalenessField]: draws.otherDigest };
+  return { ...current, [field]: draws.otherDigest };
 }
 
 function withState(
