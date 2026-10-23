@@ -1,6 +1,6 @@
 # Evidence Reuse
 
-`spx test` reports the verdicts of a recorded passed run, and invokes no runner, when that run covers every selected test file and its recorded inputs equal the current inputs of a clean checkout. A result taken from a recorded run names that run and writes no run file; a caller can require execution of the selection instead.
+`spx test` reports the verdicts of a recorded passed run, and invokes no runner, when that run covers every selected test file and its recorded inputs equal the current inputs of a clean checkout. A result taken from a recorded run names that run and writes no run file; the command API can require execution of the selection instead.
 
 ## Rationale
 
@@ -16,11 +16,11 @@ A passed run over identical selection and inputs establishes nothing a repeat ru
 
 ### Testing
 
-- ALWAYS: when a terminal run with status `passed` covers every test file `spx test` selects, its four staleness digests equal the current values, its head commit equals the current head commit, and the worktree holds no uncommitted change to a git-visible product file, `spx test` reports that run's verdicts as its result and invokes no runner ([compliance])
+- ALWAYS: when a terminal run with status `passed` covers every test file `spx test` selects with a `passed` verdict for each, its four staleness digests equal the current values, its head commit equals the current head commit, git identity resolves for both the run and the checkout, and the worktree holds no staged, unstaged, or untracked git-visible change, `spx test` reports that run's verdicts as its result and invokes no runner ([compliance])
 - ALWAYS: a failed, interrupted, incomplete, or stale run never satisfies a request, and a request that no single run satisfies executes its selection ([mapping])
 - ALWAYS: a result taken from a recorded run names that run, so a reader tells a reused result from a fresh one ([compliance])
 - NEVER: a result taken from a recorded run writes a run file, so every run file records an execution and the latest covering run that status reads is unchanged by a reuse ([compliance])
-- ALWAYS: a caller can require execution of the selection, and the request then dispatches the selection whether or not a recorded run satisfies it ([compliance])
+- ALWAYS: the command API can require execution of the selection, and a request that requires it dispatches the selection whether or not a recorded run satisfies it ([compliance])
 
 ### Audit
 

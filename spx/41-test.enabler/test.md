@@ -8,9 +8,9 @@ CAN run spec-tree tests with a single command, honor configured passing-scope ex
 
 ### Scenarios
 
-- Given a terminal run with status `passed` covers every test file `spx test` selects, its four staleness digests and head commit equal the current values, and the worktree holds no uncommitted change to a git-visible product file, when `spx test` runs, then it invokes no runner and reports that run's verdicts as its result ([test](tests/recorded-run-reuse.scenario.l1.test.ts))
+- Given a terminal run with status `passed` covers every test file `spx test` selects with a `passed` verdict for each, its four staleness digests and head commit equal the current values, git identity resolves for both the run and the checkout, and the worktree holds no staged, unstaged, or untracked git-visible change, when `spx test` runs, then it invokes no runner and reports that run's verdicts as its result ([test](tests/recorded-run-reuse.scenario.l1.test.ts))
 - Given `spx test` reports a result taken from a recorded run, then the report names that run ([test](tests/recorded-run-reuse.scenario.l1.test.ts))
-- Given a caller requires execution of the selection while a recorded run satisfies it, when `spx test` runs, then it dispatches the selection and records a new run ([test](tests/recorded-run-reuse.scenario.l1.test.ts))
+- Given the command API requires execution of the selection while a recorded run satisfies it, when `spx test` runs, then it dispatches the selection and records a new run ([test](tests/recorded-run-reuse.scenario.l1.test.ts))
 - Given `spx test --agent` selects files a recorded run satisfies, when it runs, then it reports the reused result in its compact summary and invokes no runner ([test](tests/recorded-run-reuse.scenario.l1.test.ts))
 - Given a spec tree with tests in multiple languages, when `spx test` runs, then each language's testing enabler is invoked on the files matching its registered extension pattern ([test](tests/test.scenario.l1.test.ts))
 - Given `spx.config.{toml,json,yaml}` excludes a node path from the passing test scope, when `spx test passing` runs, then test files under that node are filtered out before any runner invocation ([test](tests/execution-recording.scenario.l1.test.ts))

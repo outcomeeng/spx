@@ -12,7 +12,7 @@ CAN report observed results and staleness without invoking test runners
 
 ### Mappings
 
-- A recorded run satisfies a request only when its terminal status is `passed`, it covers every selected test file, all four staleness digests equal the current values, its recorded head commit equals the current head commit, and the worktree holds no uncommitted change to a git-visible product file; any other recorded run satisfies no request ([test](tests/recorded-run-satisfaction.mapping.l1.test.ts))
+- A recorded run satisfies a request only when its terminal status is `passed`, it covers every selected test file with a `passed` verdict for each, all four staleness digests equal the current values, its recorded head commit equals the current head commit, git identity resolves for both the run and the checkout, and the worktree holds no staged, unstaged, or untracked git-visible change; any other recorded run satisfies no request ([test](tests/recorded-run-satisfaction.mapping.l1.test.ts))
 
 ### Properties
 
