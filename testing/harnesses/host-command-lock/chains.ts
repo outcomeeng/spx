@@ -35,6 +35,8 @@ const VITEST_TIMEOUT_MS = 120_000;
 const PS_COMMAND = "ps";
 const PS_ARGS = ["-A", "-o", "pid=,ppid="] as const;
 const LSOF_COMMAND = "lsof";
+const UV_COMMAND = "uv";
+const PYTEST_UV_ARGS = ["run", "--with", "pytest-xdist", "pytest", "-n", "2", "-p", "no:cacheprovider"] as const;
 
 const WORKER_SOURCE = `const fs=require('fs'),path=require('path');
 const dir=process.env.${MARKER_ENV};
@@ -77,6 +79,8 @@ const JUSTFILE_SOURCE = `run:\n    node ${WORKER_FILE}\n`;
 
 export interface Chain {
   readonly name: string;
+  /** Whether the chain's workers can outlive their runner's main process. */
+  readonly workersOutliveRunner: boolean;
   /** Writes the chain's project files into `dir`. */
   prepare(dir: string): void;
   /** The guarded command's argv, run with `dir` as its working directory. */
@@ -86,11 +90,13 @@ export interface Chain {
 export const SUPPORTED_CHAINS: readonly Chain[] = [
   {
     name: "vitest",
+    workersOutliveRunner: false,
     prepare: (dir) => writeFileSync(join(dir, "worker.test.ts"), VITEST_SOURCE),
     command: () => [join(process.cwd(), "node_modules", ".bin", "vitest"), "run", "--pool=forks"],
   },
   {
     name: "shell script",
+    workersOutliveRunner: true,
     prepare: (dir) => {
       writeFileSync(join(dir, WORKER_FILE), WORKER_SOURCE);
       writeFileSync(join(dir, "run.sh"), SHELL_SOURCE);
@@ -99,6 +105,7 @@ export const SUPPORTED_CHAINS: readonly Chain[] = [
   },
   {
     name: "just recipe",
+    workersOutliveRunner: true,
     prepare: (dir) => {
       writeFileSync(join(dir, WORKER_FILE), WORKER_SOURCE);
       writeFileSync(join(dir, "justfile"), JUSTFILE_SOURCE);
@@ -107,10 +114,14 @@ export const SUPPORTED_CHAINS: readonly Chain[] = [
   },
   {
     name: "pytest -n 2",
+    workersOutliveRunner: true,
     prepare: (dir) => writeFileSync(join(dir, "test_worker.py"), PYTEST_SOURCE),
-    command: () => ["pytest", "-n", "2", "-p", "no:cacheprovider"],
+    command: () => [UV_COMMAND, ...PYTEST_UV_ARGS],
   },
 ];
+
+/** The chains whose workers can outlive their runner's main process. */
+export const ORPHANING_CHAINS: readonly Chain[] = SUPPORTED_CHAINS.filter((chain) => chain.workersOutliveRunner);
 
 /** Vitest envelope for a chain test: the runner's startup and a window pass over real processes. */
 export const CHAIN_TEST_TIMEOUT_MS = 120_000;

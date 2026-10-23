@@ -1,7 +1,8 @@
 /**
  * Supported launch chains: for each of the four real chains, the slot stays held from admission
  * until the last process exits — at normal completion, at the supervisor's death, at the runner's
- * death with workers surviving, and at the loss of every wrapper with workers remaining. A
+ * death with workers surviving, and at the loss of every wrapper with workers remaining, the last two
+ * on the chains whose workers outlive their runner. A
  * competing admission is attempted while a worker is observed active through its own heartbeat.
  */
 
@@ -16,6 +17,7 @@ import {
   competitorStarted,
   descendantPids,
   holdersOf,
+  ORPHANING_CHAINS,
   startChain,
   startCompetitor,
   stopWorkers,
@@ -81,7 +83,7 @@ describe("supported launch chains", () => {
     CHAIN_TEST_TIMEOUT_MS,
   );
 
-  it.each(SUPPORTED_CHAINS)(
+  it.each(ORPHANING_CHAINS)(
     "$name keeps a competing admission out while workers survive the runner's main process",
     async (chain) => {
       await withLockEnv(async (lock) => {
@@ -107,7 +109,7 @@ describe("supported launch chains", () => {
     CHAIN_TEST_TIMEOUT_MS,
   );
 
-  it.each(SUPPORTED_CHAINS)(
+  it.each(ORPHANING_CHAINS)(
     "$name keeps a competing admission out when only workers remain, with no wrapper holding the slot",
     async (chain) => {
       await withLockEnv(async (lock) => {
