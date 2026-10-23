@@ -5,13 +5,14 @@
     "test": {
       "tests/signal-target-harness.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-signal-target-harness.enabler/signal-target-harness.md",
           "spx/13-cli.enabler/21-signal-target-harness.enabler/tests/signal-target-harness.property.l1.test.ts",
           "src/lib/process-lifecycle/exit-codes.ts",
           "src/lib/process-lifecycle/foreground-handoff.ts",
+          "src/lib/process-lifecycle/guarded-supervision.ts",
           "src/lib/process-lifecycle/handlers.ts",
           "src/lib/process-lifecycle/index.ts",
           "src/lib/process-lifecycle/install.ts",
@@ -26,13 +27,14 @@
       },
       "tests/signal-target-harness.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-signal-target-harness.enabler/signal-target-harness.md",
           "spx/13-cli.enabler/21-signal-target-harness.enabler/tests/signal-target-harness.scenario.l1.test.ts",
           "src/lib/process-lifecycle/exit-codes.ts",
           "src/lib/process-lifecycle/foreground-handoff.ts",
+          "src/lib/process-lifecycle/guarded-supervision.ts",
           "src/lib/process-lifecycle/handlers.ts",
           "src/lib/process-lifecycle/index.ts",
           "src/lib/process-lifecycle/install.ts",

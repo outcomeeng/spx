@@ -5,7 +5,7 @@
     "test": {
       "tests/canonical-json.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "b3b67fc4f7f90f3bbbb49c6202224310eba6d921",
+        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/54-canonical-descriptor-digest.enabler/canonical-descriptor-digest.md",
@@ -75,7 +75,7 @@
       },
       "tests/descriptor-digest.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "8658021aeb91f2346bdab81b7782fb186bc98d03",
+        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/54-canonical-descriptor-digest.enabler/canonical-descriptor-digest.md",
