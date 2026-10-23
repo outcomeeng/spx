@@ -183,6 +183,7 @@ describe("one discovery per request", () => {
 
       expect(result.kind).toBe(TEST_RESULT_KIND.REUSED);
       expect(repository.runner.calls).toHaveLength(invocationsAfterRecording);
+      if (result.kind !== TEST_RESULT_KIND.REUSED) return;
       expect(result.outcomes.flatMap((outcome) => outcome.testPaths)).toEqual([ownFile]);
     });
   });
