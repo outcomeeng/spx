@@ -10,14 +10,14 @@ Heavy runs from every session on a host — test suites, builds, evals — compe
 
 1. Guarded command trees that resolve the same orchestration lock file never run at the same time, whichever repository or session starts them; a guarded command started inside a running guarded command belongs to that command's tree and runs under its slot.
 2. An outermost guarded command starts only after a quiet load window and within its wait cap; otherwise it does not start and reports `not_ready`. A guarded command nested inside a running guarded command is admitted by the outer command's admission.
-3. Every outermost invocation that reaches admission ends with one terminal result line, and a missing result line reads as an interrupted run with an unknown outcome, never as success. A nested pass-through writes no result line, and invalid arguments and unsupported environments exit nonzero before admission with their own status.
+3. Every outermost invocation that reaches admission and whose supervisor survives to report ends with one terminal result line, and a missing result line reads as an interrupted run with an unknown outcome, never as success. A nested pass-through writes no result line, and invalid arguments and unsupported environments exit nonzero before admission with their own status.
 
 ## Verification
 
 Authoring form: the rules below carry no verification tag until verification selection.
 
 - ALWAYS: the slot admits one guarded command tree at a time among the commands run through `spx orchestration lock` that resolve the same orchestration lock file; it bounds outer command trees, not a runner's workers, memory, or I/O
-- ALWAYS: work that does not run through the guard stays outside the slot — indexing, backups, other host work, and another tool's own waiter until that tool adopts the guard — and adopting the guard changes no setting of the adopting tool
+- ALWAYS: work that does not run through the guard stays outside the slot — indexing, backups, other host work, and another tool's own waiter that does not run through the guard — and adopting the guard changes no setting of the adopting tool
 - ALWAYS: a guarded command holds the slot from admission until the last process holding its inherited lock descriptor exits, whether or not the supervisor exits first
 - ALWAYS: after admission and before it spawns the command, the supervisor writes an advisory holder record into the orchestration lock file through its locked descriptor, naming the run id, the supervisor's process id, the working directory, the start time, and the child's process group as unknown; immediately after the spawn it rewrites the record in place with the child's process group, so a supervisor that dies between the spawn and that rewrite leaves the group unknown
 - NEVER: admission or release reads the holder record; it serves diagnosis only
@@ -34,6 +34,6 @@ Authoring form: the rules below carry no verification tag until verification sel
 - ALWAYS: invalid arguments and unsupported environments exit nonzero before any start with their own status
 - NEVER: a missing exit code reads as zero, and a run whose result line is missing reads as `not_ready` or success; it is interrupted with an unknown outcome
 - ALWAYS: the slot protects foreground commands that keep their inherited lock descriptor open and wait for their workers; a process that closes the descriptor and outlives every holder runs outside the slot
-- NEVER: a surviving wrapper process is the only reason a launch path holds the slot; a chain that releases the slot in any case is repaired or returned for an explicit scope decision
+- NEVER: a surviving wrapper process is the only process holding a guarded command tree's slot
 - ALWAYS: the one supported platform is macOS on arm64 with local storage; any other platform fails before the command starts with its own status
 - NEVER: the guard starts its command on Linux, macOS on x64, Windows, unsupported or network storage, through a lock path that is a symbolic link, with a lock file another account owns, or after any open or lock error; each fails before the command starts, and no alternate path is tried
