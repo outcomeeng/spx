@@ -70,22 +70,6 @@ describe("reusing a recorded passed run", () => {
     });
   });
 
-  it("requires execution when the command line carries the no-reuse flag", async () => {
-    const { file } = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodeWithOwnFile(typescriptTestingLanguage));
-
-    await withRecordedRunRepository(file, async (repository) => {
-      const run = await recordPassedRun(repository);
-      const streamCalls: Parameters<typeof testingCliDeps>[3] = [];
-
-      await runTestingCli(
-        [TESTING_CLI.commandName, TESTING_CLI.noReuseFlag],
-        testingCliDeps(repository.productDir, run, [], streamCalls),
-      );
-
-      expect(streamCalls).toEqual([{ productDir: repository.productDir, passing: false, requireExecution: true }]);
-    });
-  });
-
   it("reports the reused result in the compact agent summary and invokes no runner", async () => {
     const { file } = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodeWithOwnFile(typescriptTestingLanguage));
 

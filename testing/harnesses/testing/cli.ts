@@ -17,7 +17,6 @@ export interface TestingCliCall {
   readonly passing: boolean;
   readonly targets?: TargetSelection;
   readonly changed?: { readonly baseRef?: string; readonly staged?: boolean };
-  readonly requireExecution?: boolean;
 }
 
 export interface TestingCliResult {
@@ -76,23 +75,21 @@ export function testingCliDeps(
 ): TestingCliDependencies {
   return {
     resolveProductDir: () => Promise.resolve(productDir),
-    runTests: (resolvedProductDir, passing, targets, changed, requireExecution) => {
+    runTests: (resolvedProductDir, passing, targets, changed) => {
       streamCalls.push({
         productDir: resolvedProductDir,
         passing,
         ...(targets === undefined ? {} : { targets }),
         ...(changed === undefined ? {} : { changed }),
-        ...(requireExecution === true ? { requireExecution } : {}),
       });
       return Promise.resolve(run);
     },
-    runAgentTests: (resolvedProductDir, passing, targets, changed, requireExecution) => {
+    runAgentTests: (resolvedProductDir, passing, targets, changed) => {
       agentCalls.push({
         productDir: resolvedProductDir,
         passing,
         ...(targets === undefined ? {} : { targets }),
         ...(changed === undefined ? {} : { changed }),
-        ...(requireExecution === true ? { requireExecution } : {}),
       });
       return Promise.resolve(run);
     },
