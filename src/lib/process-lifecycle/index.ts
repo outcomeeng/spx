@@ -38,8 +38,10 @@ export {
 } from "./guarded-supervision";
 export { createHandlers, SIGINT_NAME, SIGTERM_NAME } from "./handlers";
 export {
+  createProcessGuardedSupervisor,
   EPIPE_CODE,
   foregroundProcessRunner,
+  guardedSpawn,
   guardedSupervisor,
   installLifecycle,
   lifecycleProcessRunner,

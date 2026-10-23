@@ -19,7 +19,12 @@ import {
   type SignalSuspender,
   type SignalTarget,
 } from "./foreground-handoff";
-import { createGuardedSupervisor, GUARDED_SIGNALS, type GuardedSupervisor } from "./guarded-supervision";
+import {
+  createGuardedSupervisor,
+  GUARDED_SIGNALS,
+  type GuardedSpawn,
+  type GuardedSupervisor,
+} from "./guarded-supervision";
 import { createHandlers } from "./handlers";
 import { createRegistry } from "./registry";
 import { createLifecycleRunner } from "./runner";
@@ -61,19 +66,29 @@ const processSignalTarget: SignalTarget = {
 export const lifecycleSignalSuspender: SignalSuspender = createSignalSuspender(processSignalTarget);
 
 /**
- * Production guarded supervisor: spawns the guarded child outside the lifecycle
- * registry, suspends and forwards the parent's SIGINT, SIGTERM, and SIGHUP, and
- * closes the supervisor's copy of the caller's descriptor when the child ends.
+ * A guarded supervisor over a caller-chosen spawn: it suspends and forwards the parent's SIGINT,
+ * SIGTERM, and SIGHUP and closes the supervisor's copy of the caller's descriptor when the child
+ * ends. A caller that records the child's exit passes a spawn that observes it.
  */
-export const guardedSupervisor: GuardedSupervisor = createGuardedSupervisor({
-  spawn,
-  signalTarget: processSignalTarget,
-  signalSuspender: createSignalSuspender(processSignalTarget, GUARDED_SIGNALS),
-  killProcessGroup: (pid, signal) => {
-    process.kill(-pid, signal);
-  },
-  closeDescriptor: closeSync,
-});
+export function createProcessGuardedSupervisor(guardedSpawn: GuardedSpawn): GuardedSupervisor {
+  return createGuardedSupervisor({
+    spawn: guardedSpawn,
+    signalTarget: processSignalTarget,
+    signalSuspender: createSignalSuspender(processSignalTarget, GUARDED_SIGNALS),
+    killProcessGroup: (pid, signal) => {
+      process.kill(-pid, signal);
+    },
+    closeDescriptor: closeSync,
+  });
+}
+
+/**
+ * Production guarded supervisor: spawns the guarded child outside the lifecycle registry.
+ */
+export const guardedSupervisor: GuardedSupervisor = createProcessGuardedSupervisor(spawn);
+
+/** The raw child-process spawn, for guarded commands that supervise their own child. */
+export const guardedSpawn: GuardedSpawn = spawn;
 
 export const EPIPE_CODE = "EPIPE";
 export const UNCAUGHT_EVENT_NAME = "uncaughtException";
