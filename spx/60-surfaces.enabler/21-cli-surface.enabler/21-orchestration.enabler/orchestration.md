@@ -1,5 +1,6 @@
 ---
 id: 01a16911-762c-7935-b477-12fdd8bc4fa9
+malleability: spec
 ---
 
 # Orchestration
