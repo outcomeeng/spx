@@ -31,3 +31,5 @@ Authoring form: the rules below carry no verification tag until verification sel
 - ALWAYS: a busy lock is retried after a bounded randomized delay until the wait cap expires
 - ALWAYS: the orchestration lock file is created once with mode 0600 inside directories created with mode 0700, opened without following a symbolic link, and checked for the invoking account's ownership and for local storage
 - ALWAYS: the orchestration lock file is rewritten in place through the locked descriptor for the holder record, and is never unlinked, renamed, or replaced while in use
+- ALWAYS: the public surface of the host command lock receives the `fs-native-extensions` lock binding, the monotonic clock, the sleep and randomized-delay source, the load sample source, and the filesystem as injected dependencies, with the production implementations as defaults, so that every admission, wait-cap, and load-gate path is exercised in isolation through the public surface
+- NEVER: `vi.mock()`, `jest.mock()`, or any module replacement substitutes for the lock binding, the clock, the load source, or the filesystem; tests inject controlled implementations through the public injection API
