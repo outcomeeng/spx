@@ -25,7 +25,7 @@ import { createRegistry } from "./registry";
 import { createLifecycleRunner } from "./runner";
 import type { ChildRegistry, ExitController, LifecycleHandlers, ProcessRunner } from "./types";
 
-const moduleRegistry: ChildRegistry = createRegistry();
+export const lifecycleRegistry: ChildRegistry = createRegistry();
 const moduleExitController: ExitController = {
   exit(code: number): void {
     process.exit(code);
@@ -35,13 +35,13 @@ const moduleExitController: ExitController = {
 let installed = false;
 
 export const lifecycleProcessRunner = createLifecycleRunner({
-  registry: moduleRegistry,
+  registry: lifecycleRegistry,
   spawn,
 });
 
 /**
  * Non-registering runner for the foreground exec-handoff: spawns the
- * terminal-owning child directly, without adding it to `moduleRegistry`, so the
+ * terminal-owning child directly, without adding it to `lifecycleRegistry`, so the
  * lifecycle signal cleanup never touches a child the operator drives.
  */
 export const foregroundProcessRunner: ProcessRunner = { spawn };
@@ -104,7 +104,7 @@ export function installLifecycle(): void {
   installed = true;
 
   const handlers: LifecycleHandlers = createHandlers({
-    registry: moduleRegistry,
+    registry: lifecycleRegistry,
     exitController: moduleExitController,
   });
 

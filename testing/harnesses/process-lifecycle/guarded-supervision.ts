@@ -4,15 +4,15 @@
  * Two contexts serve the linked tests. The recording context drives the
  * supervisor over doubles for the spawn, the parent's signal listener set, the
  * process-group kill, and the descriptor close, and returns the observations.
- * The real-child context runs the supervisor over a real Node child with a real
- * descriptor and returns what the child reported through that descriptor.
+ * The real-child context runs the production `guardedSupervisor` over a real
+ * Node child with a real descriptor and returns what the child reported through
+ * that descriptor together with the state the run left in this process.
  *
  * @module process-lifecycle/testing/guarded-supervision
  */
 
-import { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
-import { closeSync, mkdtempSync, openSync, readFileSync } from "node:fs";
+import { fstatSync, mkdtempSync, openSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -27,7 +27,10 @@ import {
   type GuardedSpawn,
   type GuardedSupervisionRequest,
   type GuardedSupervisor,
+  guardedSupervisor,
+  lifecycleRegistry,
 } from "@/lib/process-lifecycle";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import { RecordingSignalTarget } from "@testing/harnesses/process-lifecycle/signal-target";
 
 const EXIT_EVENT = "exit";
@@ -40,10 +43,22 @@ const READY_TIMEOUT_MS = 10_000;
 const REPORT_SEPARATOR = " ";
 const PS_COMMAND = "ps";
 const PS_GROUP_ARGS = ["-o", "pgid=", "-p"] as const;
+const GONE_POLL_MS = 20;
+const GONE_TIMEOUT_MS = 3_000;
+const NO_SUCH_PROCESS_CODE = "ESRCH";
+const EXIT_CODE_COUNT = 256;
+const GRANDCHILD_REPORT = /^ready (\d+)$/;
+const GRANDCHILD_SOURCE = "setInterval(() => {}, 1000);";
+
+/** The signals the specification names for forwarding, independent of the production constant. */
+export const SPEC_GUARDED_SIGNALS: readonly NodeJS.Signals[] = ["SIGINT", "SIGTERM", "SIGHUP"];
+
+/** Every status a child process can exit with: the complete 8-bit domain. */
+export const EXIT_CODE_DOMAIN: readonly number[] = Array.from({ length: EXIT_CODE_COUNT }, (_, code) => code);
 
 /** A recording child whose exit the test drives. */
 export class RecordingGuardedChild extends EventEmitter implements GuardedChild {
-  constructor(readonly pid: number | undefined = fc.sample(fc.integer({ min: 2, max: 99_999 }), 1)[0]) {
+  constructor(readonly pid: number | undefined = sampleGeneratedValue(fc.integer({ min: 2, max: 99_999 }))) {
     super();
   }
 
@@ -84,10 +99,15 @@ export interface RecordingGuardedContext {
 
 /** Builds a supervisor over recording doubles, with generated parent listeners and request. */
 export function createRecordingGuardedContext(): RecordingGuardedContext {
+  const counts = sampleGeneratedValue(
+    fc.array(fc.integer({ min: 1, max: 3 }), {
+      minLength: GUARDED_SIGNALS.length,
+      maxLength: GUARDED_SIGNALS.length,
+    }),
+  );
   const initialListeners = new Map(
-    GUARDED_SIGNALS.map((signal) => {
-      const count = fc.sample(fc.integer({ min: 1, max: 3 }), 1)[0];
-      return [signal, Array.from({ length: count }, () => () => {})] as const;
+    GUARDED_SIGNALS.map((signal, index) => {
+      return [signal, Array.from({ length: counts[index] }, () => () => {})] as const;
     }),
   );
   const target = new DeliveringSignalTarget(initialListeners);
@@ -114,9 +134,9 @@ export function createRecordingGuardedContext(): RecordingGuardedContext {
   });
 
   const request: GuardedSupervisionRequest = {
-    command: fc.sample(fc.stringMatching(/^[a-z]{3,10}$/), 1)[0],
-    args: fc.sample(fc.array(fc.stringMatching(/^[a-z]{1,8}$/), { maxLength: 3 }), 1)[0],
-    descriptor: fc.sample(fc.integer({ min: 4, max: 200 }), 1)[0],
+    command: sampleGeneratedValue(fc.stringMatching(/^[a-z]{3,10}$/)),
+    args: sampleGeneratedValue(fc.array(fc.stringMatching(/^[a-z]{1,8}$/), { maxLength: 3 })),
+    descriptor: sampleGeneratedValue(fc.integer({ min: 4, max: 200 })),
   };
 
   return {
@@ -132,15 +152,6 @@ export function createRecordingGuardedContext(): RecordingGuardedContext {
   };
 }
 
-/** Every exit signal a child can be ended by, drawn from the guarded set and others. */
-export function arbitraryEndingSignal(): fc.Arbitrary<NodeJS.Signals> {
-  return fc.constantFrom<NodeJS.Signals>("SIGINT", "SIGTERM", "SIGHUP", "SIGKILL", "SIGUSR1");
-}
-
-export function arbitraryGuardedSignal(): fc.Arbitrary<NodeJS.Signals> {
-  return fc.constantFrom(...GUARDED_SIGNALS);
-}
-
 export function arbitraryExitCode(): fc.Arbitrary<number> {
   return fc.integer({ min: 0, max: 125 });
 }
@@ -154,17 +165,27 @@ export const REAL_CHILD_PROGRAM = {
     }, String(process.pid)]).toString().trim();`
     + `writeSync(3, process.pid + "${REPORT_SEPARATOR}" + pgid);`,
   awaitSignal: `require("node:fs").writeSync(3, "${READY_REPORT}");setInterval(() => {}, 1000);`,
+  awaitSignalWithGrandchild: `const { spawn } = require("node:child_process");`
+    + `const grandchild = spawn(process.execPath, ["-e", ${JSON.stringify(GRANDCHILD_SOURCE)}], { stdio: "ignore" });`
+    + `require("node:fs").writeSync(3, "${READY_REPORT} " + grandchild.pid);setInterval(() => {}, 1000);`,
 } as const;
 
 export interface RealChildRun {
   readonly status: number;
   readonly report: string;
-  readonly parentListeners: ReadonlyMap<NodeJS.Signals, number>;
-  readonly closedDescriptors: number[];
+  /** The descriptor the caller handed to the supervisor. */
+  readonly descriptor: number;
+  /** Whether that descriptor is still open in this process after the run. */
+  readonly descriptorOpen: boolean;
+  readonly listenersBefore: ReadonlyMap<NodeJS.Signals, readonly unknown[]>;
+  readonly listenersAfter: ReadonlyMap<NodeJS.Signals, readonly unknown[]>;
+  /** The lifecycle registry's size immediately after the child was spawned. */
+  readonly registrySizeWhileRunning: number;
+  readonly registrySizeAfter: number;
 }
 
 export interface RealChildOptions {
-  /** A signal delivered to the supervisor's target once the child reports ready. */
+  /** A signal delivered to the parent's listeners once the child reports ready. */
   readonly deliverWhenReady?: NodeJS.Signals;
 }
 
@@ -176,38 +197,45 @@ async function untilReady(reportPath: string): Promise<void> {
   }
 }
 
-/** Runs the supervisor over a real Node child executing `program`, with a real descriptor. */
+function guardedListeners(): Map<NodeJS.Signals, readonly unknown[]> {
+  return new Map(GUARDED_SIGNALS.map((signal) => [signal, process.listeners(signal)]));
+}
+
+function isDescriptorOpen(descriptor: number): boolean {
+  try {
+    fstatSync(descriptor);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Runs the production `guardedSupervisor` over a real Node child executing `program`, with a real
+ * descriptor. A delivered signal reaches the supervisor through the listeners installed on `process`.
+ */
 export async function superviseRealChild(program: string, options: RealChildOptions = {}): Promise<RealChildRun> {
   const reportPath = join(mkdtempSync(join(tmpdir(), REPORT_DIR_PREFIX)), REPORT_FILE_NAME);
   const descriptor = openSync(reportPath, "w+");
-  const target = new DeliveringSignalTarget();
-  const closedDescriptors: number[] = [];
+  const listenersBefore = guardedListeners();
 
-  const supervisor = createGuardedSupervisor({
-    spawn: (command, args, spawnOptions) => spawn(command, [...args], spawnOptions),
-    signalTarget: target,
-    signalSuspender: createSignalSuspender(target, GUARDED_SIGNALS),
-    killProcessGroup: (pid, signal) => {
-      process.kill(-pid, signal);
-    },
-    closeDescriptor: (fd) => {
-      closedDescriptors.push(fd);
-      closeSync(fd);
-    },
-  });
-
-  const running = supervisor.run({ command: process.execPath, args: ["-e", program], descriptor });
+  const running = guardedSupervisor.run({ command: process.execPath, args: ["-e", program], descriptor });
+  const registrySizeWhileRunning = lifecycleRegistry.size;
   if (options.deliverWhenReady !== undefined) {
     await untilReady(reportPath);
-    target.deliver(options.deliverWhenReady);
+    process.emit(options.deliverWhenReady);
   }
   const status = await running;
 
   return {
     status,
     report: readFileSync(reportPath, "utf8"),
-    parentListeners: new Map(GUARDED_SIGNALS.map((signal) => [signal, target.listeners(signal).length])),
-    closedDescriptors,
+    descriptor,
+    descriptorOpen: isDescriptorOpen(descriptor),
+    listenersBefore,
+    listenersAfter: guardedListeners(),
+    registrySizeWhileRunning,
+    registrySizeAfter: lifecycleRegistry.size,
   };
 }
 
@@ -215,4 +243,30 @@ export async function superviseRealChild(program: string, options: RealChildOpti
 export function parseIdentityReport(report: string): { readonly pid: number; readonly pgid: number } {
   const [pid, pgid] = report.split(REPORT_SEPARATOR).map(Number);
   return { pid, pgid };
+}
+
+/** Reads the grandchild's pid from the report of `awaitSignalWithGrandchild`. */
+export function parseGrandchildPid(report: string): number {
+  const match = GRANDCHILD_REPORT.exec(report.trim());
+  if (match === null) throw new Error(`no grandchild pid in report: ${report}`);
+  return Number(match[1]);
+}
+
+/**
+ * Whether the process ends within the wait. A process still alive at the deadline is killed so a
+ * failing run leaves nothing behind.
+ */
+export async function processEnds(pid: number): Promise<boolean> {
+  const deadline = Date.now() + GONE_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    try {
+      process.kill(pid, 0);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === NO_SUCH_PROCESS_CODE) return true;
+      throw error;
+    }
+    await delay(GONE_POLL_MS);
+  }
+  process.kill(pid, "SIGKILL");
+  return false;
 }

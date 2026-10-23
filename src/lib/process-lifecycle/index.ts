@@ -43,6 +43,7 @@ export {
   guardedSupervisor,
   installLifecycle,
   lifecycleProcessRunner,
+  lifecycleRegistry,
   lifecycleSignalSuspender,
   UNCAUGHT_EVENT_NAME,
 } from "./install";

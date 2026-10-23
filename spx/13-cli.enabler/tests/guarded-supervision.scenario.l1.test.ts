@@ -1,9 +1,10 @@
 /**
  * Guarded supervision scenarios.
  *
- * Real-child scenarios run the supervisor over a real Node child and a real
- * descriptor; recording scenarios run it over doubles for the spawn, the
- * parent's signal listeners, the process-group kill, and the descriptor close.
+ * Real-child scenarios run the production guarded supervisor over a real Node
+ * child and a real descriptor; recording scenarios run a supervisor over
+ * doubles for the spawn, the parent's signal listeners, the process-group
+ * kill, and the descriptor close.
  */
 
 import { constants as osConstants } from "node:os";
@@ -13,27 +14,25 @@ import { describe, expect, it } from "vitest";
 import {
   GUARDED_DESCRIPTOR_NUMBER,
   GUARDED_SIGNALS,
-  guardedExitStatus,
   INHERITED_STDIO,
   SIGNAL_EXIT_CODE_BASE,
 } from "@/lib/process-lifecycle";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   arbitraryExitCode,
-  arbitraryGuardedSignal,
   createRecordingGuardedContext,
+  parseGrandchildPid,
   parseIdentityReport,
+  processEnds,
   REAL_CHILD_PROGRAM,
+  SPEC_GUARDED_SIGNALS,
   superviseRealChild,
 } from "@testing/harnesses/process-lifecycle/guarded-supervision";
 import * as fc from "fast-check";
 
-function sample<T>(arbitrary: fc.Arbitrary<T>): T {
-  return fc.sample(arbitrary, 1)[0];
-}
-
 describe("guarded supervision", () => {
   it("reports the child's exit code", async () => {
-    const code = sample(arbitraryExitCode());
+    const code = sampleGeneratedValue(arbitraryExitCode());
 
     const run = await superviseRealChild(REAL_CHILD_PROGRAM.exitWith(code));
 
@@ -67,9 +66,8 @@ describe("guarded supervision", () => {
     expect(pgid).toBe(pid);
   });
 
-  it("forwards a received signal to the child's process group once", async () => {
+  it.each(SPEC_GUARDED_SIGNALS)("forwards a received %s to the child's process group once", async (signal) => {
     const context = createRecordingGuardedContext();
-    const signal = sample(arbitraryGuardedSignal());
 
     const running = context.supervisor.run(context.request);
     context.target.deliver(signal);
@@ -79,12 +77,25 @@ describe("guarded supervision", () => {
     expect(context.groupKills).toEqual([{ pid: context.child.pid, signal }]);
   });
 
-  it("reports 128 plus the signal number for a child the forwarded signal ends", async () => {
-    const signal = sample(arbitraryGuardedSignal());
+  it.each(SPEC_GUARDED_SIGNALS)(
+    "reaches the whole process group of the production supervisor's child when it receives %s",
+    async (signal) => {
+      const run = await superviseRealChild(REAL_CHILD_PROGRAM.awaitSignalWithGrandchild, {
+        deliverWhenReady: signal,
+      });
 
+      expect(await processEnds(parseGrandchildPid(run.report))).toBe(true);
+    },
+  );
+
+  it.each(SPEC_GUARDED_SIGNALS)("reports 128 plus the signal number for a child %s ends", async (signal) => {
     const run = await superviseRealChild(REAL_CHILD_PROGRAM.awaitSignal, { deliverWhenReady: signal });
 
     expect(run.status).toBe(SIGNAL_EXIT_CODE_BASE + osConstants.signals[signal]);
+  });
+
+  it("forwards every signal the specification names", () => {
+    expect(new Set(GUARDED_SIGNALS)).toEqual(new Set(SPEC_GUARDED_SIGNALS));
   });
 
   it("suspends the parent's listeners while the child runs and restores them when it exits", async () => {
@@ -102,17 +113,39 @@ describe("guarded supervision", () => {
     }
   });
 
-  it("closes the supervisor's copy of the descriptor when the child exits", async () => {
-    const run = await superviseRealChild(REAL_CHILD_PROGRAM.exitWith(sample(arbitraryExitCode())));
+  it("restores the production parent's listeners when the child exits", async () => {
+    const run = await superviseRealChild(REAL_CHILD_PROGRAM.exitWith(sampleGeneratedValue(arbitraryExitCode())));
 
-    expect(run.closedDescriptors).toHaveLength(1);
+    expect(run.listenersAfter).toEqual(run.listenersBefore);
+  });
+
+  it("closes the supervisor's copy of the descriptor when the child exits", async () => {
+    const context = createRecordingGuardedContext();
+
+    const running = context.supervisor.run(context.request);
+    context.child.emitExit(0, null);
+    await running;
+
+    expect(context.closedDescriptors).toEqual([context.request.descriptor]);
+  });
+
+  it("closes the production supervisor's descriptor when the child exits", async () => {
+    const run = await superviseRealChild(REAL_CHILD_PROGRAM.exitWith(sampleGeneratedValue(arbitraryExitCode())));
+
+    expect(run.descriptorOpen).toBe(false);
+  });
+
+  it("never holds the child in the lifecycle registry", async () => {
+    const run = await superviseRealChild(REAL_CHILD_PROGRAM.exitWith(sampleGeneratedValue(arbitraryExitCode())));
+
+    expect([run.registrySizeWhileRunning, run.registrySizeAfter]).toEqual([0, 0]);
   });
 
   it("closes the descriptor and restores the listeners when the child cannot be started", async () => {
     const context = createRecordingGuardedContext();
 
     const running = context.supervisor.run(context.request);
-    const failure = new Error(sample(fc.string()));
+    const failure = new Error(sampleGeneratedValue(fc.string()));
     context.child.emitError(failure);
 
     await expect(running).rejects.toBe(failure);
@@ -120,9 +153,5 @@ describe("guarded supervision", () => {
     for (const signal of GUARDED_SIGNALS) {
       expect(context.target.listeners(signal)).toEqual(context.initialListeners.get(signal));
     }
-  });
-
-  it("maps a child that ends with neither a code nor a signal to a non-zero status", () => {
-    expect(guardedExitStatus(null, null)).not.toBe(0);
   });
 });
