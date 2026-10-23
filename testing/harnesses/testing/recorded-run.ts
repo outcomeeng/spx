@@ -134,8 +134,7 @@ export async function recordPassedRun(
 
 /**
  * The testing CLI's dependencies wired to the real command over the repository's recording runner,
- * so an invocation through the CLI reaches the same dispatch a caller's does. Each call a CLI action
- * makes is recorded with the execution requirement it carried.
+ * so an invocation through the CLI reaches the same dispatch a caller's does.
  */
 export function recordedRunCliDependencies(repository: RecordedRunRepository): TestingCliDependencies {
   const run: TestingCliDependencies["runTests"] = (productDir, passing, targets, changed, requireExecution) =>
