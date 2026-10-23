@@ -8,9 +8,9 @@ Heavy runs from every session on a host — test suites, builds, evals — compe
 
 ## Product properties
 
-1. Guarded commands that resolve the same orchestration lock file never run at the same time, whichever repository or session starts them.
-2. A guarded command starts only after a quiet load window and within its wait cap; otherwise it does not start and reports `not_ready`.
-3. Every invocation ends with one terminal result line, and a missing result line reads as an interrupted run with an unknown outcome, never as success.
+1. Guarded command trees that resolve the same orchestration lock file never run at the same time, whichever repository or session starts them; a guarded command started inside a running guarded command belongs to that command's tree and runs under its slot.
+2. An outermost guarded command starts only after a quiet load window and within its wait cap; otherwise it does not start and reports `not_ready`. A guarded command nested inside a running guarded command is admitted by the outer command's admission.
+3. Every outermost invocation that reaches admission ends with one terminal result line, and a missing result line reads as an interrupted run with an unknown outcome, never as success. A nested pass-through writes no result line, and invalid arguments and unsupported environments exit nonzero before admission with their own status.
 
 ## Verification
 
