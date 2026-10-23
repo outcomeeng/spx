@@ -38,7 +38,7 @@ Governance surfaces the reviewer judges against, so a base delta touching one re
 
 - Mention-reviewer trigger phrase: `@spec-tree` (the default).
 - The `spec-tree-review` bot at times cites a comment-style rule ("Default to writing no comments", "never write multi-line comment blocks", "one short line max") as `CLAUDE.md` or `AGENTS.md`. Neither file carries such a rule, so the citation is unbacked and the finding is dropped. Multi-line comments that capture a non-obvious WHY are permitted here.
-- A finding that exposes weak test evidence is fixed by rearchitecting the evidence through `/test-typescript` before merge.
+- A finding that exposes weak test evidence is fixed by rearchitecting the evidence through `/author-typescript-test` before merge.
 
 ## Merge command
 
