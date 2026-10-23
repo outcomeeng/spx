@@ -13,7 +13,6 @@
  *
  * @module host-command-lock/testing/host-command-lock
  */
-import type { SpawnOptions } from "node:child_process";
 import {
   type Environment,
   type HolderRecord,
@@ -23,6 +22,7 @@ import {
   LOCK_ENV,
   type LockBinding,
   type Platform,
+  RESULT_STATUS,
   SUPPORTED_PLATFORM,
 } from "@/lib/host-command-lock";
 import {
@@ -36,11 +36,13 @@ import {
   INHERITED_STDIO,
 } from "@/lib/process-lifecycle";
 import { arbitraryHostIdentity, type HostIdentity } from "@testing/generators/host-command-lock/host-command-lock";
+import { arbitrarySpawnFailureMessage } from "@testing/generators/process-lifecycle/guarded-supervision";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   DeliveringSignalTarget,
   RecordingGuardedChild,
 } from "@testing/harnesses/process-lifecycle/guarded-supervision";
+import type { SpawnOptions } from "node:child_process";
 
 const SETTLE_TURNS = 2_000;
 const UNOPENED_DESCRIPTOR_OFFSET = 10_000;
@@ -443,3 +445,51 @@ export class MemoryHost {
 function settle(): Promise<void> {
   return new Promise<void>((resolve) => setImmediate(resolve));
 }
+
+const OTHER_ACCOUNT_UID_OFFSET = 1;
+
+/** Lock files that violate the discipline, each paired with the host options that model the violation. */
+export const VIOLATING_LOCK_FILES: ReadonlyArray<readonly [string, Partial<MemoryHostOptions>]> = [
+  ["fails to open", { openFailure: new Error(sampleGeneratedValue(arbitrarySpawnFailureMessage())) }],
+  ["is owned by another account", { ownerUid: (process.getuid?.() as number) + OTHER_ACCOUNT_UID_OFFSET }],
+  ["is not a regular file", { regularFile: false }],
+  ["lies on storage that is not local", { localStorage: false }],
+  ["is replaced by a different inode when the lock is taken", { pathReplacedOnLock: true }],
+];
+
+/** A nested call's context: a name, the environment it inherits from a host, and the status it fails with. */
+export type NestedContextCase = readonly [string, (host: MemoryHost) => Record<string, string>, string];
+
+/** Nested contexts that must never start their command. */
+export const UNUSABLE_NESTED_CONTEXTS: readonly NestedContextCase[] = [
+  [
+    "a descriptor variable that is absent",
+    (host) => ({ [LOCK_ENV.FILE_ID]: host.identity.fileId }),
+    RESULT_STATUS.NESTED_CONTEXT_INVALID,
+  ],
+  [
+    "a descriptor that is not open",
+    (host) => ({ [LOCK_ENV.FD]: String(host.unopenedDescriptor), [LOCK_ENV.FILE_ID]: host.identity.fileId }),
+    RESULT_STATUS.NESTED_CONTEXT_INVALID,
+  ],
+  [
+    "a file identity variable that is absent",
+    (host) => ({ [LOCK_ENV.FD]: String(host.holdOuterSlot().descriptor) }),
+    RESULT_STATUS.NESTED_CONTEXT_INVALID,
+  ],
+  [
+    "a descriptor that refers to another file",
+    (host) => host.holdOuterSlot({ descriptorFileId: host.identity.otherFileId }).environment,
+    RESULT_STATUS.NESTED_CONTEXT_INVALID,
+  ],
+  [
+    "a descriptor whose description no longer holds the lock",
+    (host) => host.holdOuterSlot({ holdsLock: false }).environment,
+    RESULT_STATUS.NESTED_CONTEXT_INVALID,
+  ],
+  [
+    "a lock file other than the one it resolves",
+    (host) => ({ ...host.holdOuterSlot().environment, [LOCK_ENV.FILE_ID]: host.identity.otherFileId }),
+    RESULT_STATUS.NESTED_LOCK_MISMATCH,
+  ],
+];

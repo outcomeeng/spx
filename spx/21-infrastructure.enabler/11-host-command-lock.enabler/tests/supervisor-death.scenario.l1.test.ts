@@ -11,14 +11,18 @@ import {
   arbitraryCommand,
   arbitraryCpuCount,
   arbitraryDistinctLabels,
+  BUSY_RETRY_COUNT,
+  CLEAN_EXIT_CODE,
   quietSample,
+  SUPERVISOR_SETTLE_TURNS,
 } from "@testing/generators/host-command-lock/host-command-lock";
 import { sampleGeneratedValue } from "@testing/generators/sample";
-import { MemoryHost, SUPERVISOR_DEATH, type SupervisorDeath } from "@testing/harnesses/host-command-lock/host-command-lock";
+import {
+  MemoryHost,
+  SUPERVISOR_DEATH,
+  type SupervisorDeath,
+} from "@testing/harnesses/host-command-lock/host-command-lock";
 
-const CLEAN_EXIT = 0;
-const WAITER_RETRIES = 3;
-const SETTLE_TURNS = 50;
 const cpuCount = sampleGeneratedValue(arbitraryCpuCount());
 const [runId, waiterRunId] = sampleGeneratedValue(arbitraryDistinctLabels(2));
 const command = sampleGeneratedValue(arbitraryCommand());
@@ -27,7 +31,7 @@ const waiterCommand = sampleGeneratedValue(arbitraryCommand());
 /** Starts a run whose supervisor stops at `death`, then kills that supervisor. */
 async function killedRun(death: SupervisorDeath, host: MemoryHost): Promise<void> {
   void createHostCommandLock(host.deps({ runId, supervisorDeath: death })).run({ command, runId });
-  await host.settle(SETTLE_TURNS);
+  await host.settle(SUPERVISOR_SETTLE_TURNS);
   host.killSupervisor();
 }
 
@@ -38,8 +42,8 @@ describe("a supervisor killed while it holds the slot", () => {
     const record = host.holderRecord();
     const slotHeldAfterKill = host.slotHeld();
 
-    host.scheduleChildExit(0, CLEAN_EXIT, WAITER_RETRIES);
-    const waiter = await createHostCommandLock(host.deps({ runId: waiterRunId, childExitCode: CLEAN_EXIT })).run({
+    host.scheduleChildExit(0, CLEAN_EXIT_CODE, BUSY_RETRY_COUNT);
+    const waiter = await createHostCommandLock(host.deps({ runId: waiterRunId, childExitCode: CLEAN_EXIT_CODE })).run({
       command: waiterCommand,
       runId: waiterRunId,
     });
@@ -63,8 +67,8 @@ describe("a supervisor killed while it holds the slot", () => {
     const record = host.holderRecord();
     const slotHeldAfterKill = host.slotHeld();
 
-    host.scheduleChildExit(0, CLEAN_EXIT, WAITER_RETRIES);
-    const waiter = await createHostCommandLock(host.deps({ runId: waiterRunId, childExitCode: CLEAN_EXIT })).run({
+    host.scheduleChildExit(0, CLEAN_EXIT_CODE, BUSY_RETRY_COUNT);
+    const waiter = await createHostCommandLock(host.deps({ runId: waiterRunId, childExitCode: CLEAN_EXIT_CODE })).run({
       command: waiterCommand,
       runId: waiterRunId,
     });
@@ -81,7 +85,7 @@ describe("a supervisor killed while it holds the slot", () => {
     await killedRun(SUPERVISOR_DEATH.BEFORE_SPAWN, host);
     const slotHeldAfterKill = host.slotHeld();
 
-    const waiter = await createHostCommandLock(host.deps({ runId: waiterRunId, childExitCode: CLEAN_EXIT })).run({
+    const waiter = await createHostCommandLock(host.deps({ runId: waiterRunId, childExitCode: CLEAN_EXIT_CODE })).run({
       command: waiterCommand,
       runId: waiterRunId,
     });
@@ -102,9 +106,9 @@ describe("a supervisor killed before it reports", () => {
       .then(() => {
         reported = true;
       });
-    await host.settle(SETTLE_TURNS);
+    await host.settle(SUPERVISOR_SETTLE_TURNS);
     host.killSupervisor();
-    await host.settle(SETTLE_TURNS);
+    await host.settle(SUPERVISOR_SETTLE_TURNS);
 
     expect(reported).toBe(false);
     expect(host.holderRecord()?.runId).toBe(runId);

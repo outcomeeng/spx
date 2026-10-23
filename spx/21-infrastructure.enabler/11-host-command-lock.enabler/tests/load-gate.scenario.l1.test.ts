@@ -11,6 +11,7 @@ import {
   arbitraryCommand,
   arbitraryCpuCount,
   capInsideWindowSeconds,
+  CLEAN_EXIT_CODE,
   invalidSample,
   loudFiveMinuteSample,
   loudSample,
@@ -21,7 +22,6 @@ import {
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { MemoryHost } from "@testing/harnesses/host-command-lock/host-command-lock";
 
-const CLEAN_EXIT = 0;
 const badSampleIndex = sampleGeneratedValue(arbitraryBadSampleIndex());
 const command = sampleGeneratedValue(arbitraryCommand());
 
@@ -30,7 +30,7 @@ describe("load gate", () => {
     const cpuCount = sampleGeneratedValue(arbitraryCpuCount());
     const host = new MemoryHost({ cpuCount, samples: [quietSample()] });
 
-    const { result } = await createHostCommandLock(host.deps({ childExitCode: CLEAN_EXIT })).run({ command });
+    const { result } = await createHostCommandLock(host.deps({ childExitCode: CLEAN_EXIT_CODE })).run({ command });
 
     expect(result?.started).toBe(true);
     expect(host.sampleTimesMs).toHaveLength(LOAD_WINDOW.MIN_SAMPLES);
@@ -43,7 +43,7 @@ describe("load gate", () => {
     const cpuCount = sampleGeneratedValue(arbitraryCpuCount());
     const host = new MemoryHost({ cpuCount, samples: [quietSample()] });
 
-    const { result } = await createHostCommandLock(host.deps({ childExitCode: CLEAN_EXIT })).run({
+    const { result } = await createHostCommandLock(host.deps({ childExitCode: CLEAN_EXIT_CODE })).run({
       command,
       waitSeconds: capInsideWindowSeconds(),
     });
@@ -65,7 +65,7 @@ describe("load gate", () => {
     ];
     const host = new MemoryHost({ cpuCount, samples });
 
-    const { result } = await createHostCommandLock(host.deps({ childExitCode: CLEAN_EXIT })).run({ command });
+    const { result } = await createHostCommandLock(host.deps({ childExitCode: CLEAN_EXIT_CODE })).run({ command });
 
     expect(result?.started).toBe(true);
     expect(
@@ -81,7 +81,7 @@ describe("load gate", () => {
       stallBeforeSampleMs: { [badSampleIndex]: overGapStallMs() },
     });
 
-    const { result } = await createHostCommandLock(host.deps({ childExitCode: CLEAN_EXIT })).run({ command });
+    const { result } = await createHostCommandLock(host.deps({ childExitCode: CLEAN_EXIT_CODE })).run({ command });
 
     expect(result?.started).toBe(true);
     expect(
@@ -93,7 +93,7 @@ describe("load gate", () => {
     const cpuCount = sampleGeneratedValue(arbitraryCpuCount());
     const host = new MemoryHost({ cpuCount, samples: risingThenFlatSamples(cpuCount) });
 
-    const { result } = await createHostCommandLock(host.deps({ childExitCode: CLEAN_EXIT })).run({ command });
+    const { result } = await createHostCommandLock(host.deps({ childExitCode: CLEAN_EXIT_CODE })).run({ command });
 
     expect(result?.started).toBe(true);
     expect(host.sampleTimesMs.length).toBeGreaterThan(LOAD_WINDOW.MIN_SAMPLES);
@@ -104,7 +104,7 @@ describe("load gate", () => {
     const externalHolderUntilMs = LOAD_WINDOW.MIN_SPAN_MS * 2;
     const host = new MemoryHost({ cpuCount, samples: [quietSample()], externalHolderUntilMs });
 
-    await createHostCommandLock(host.deps({ childExitCode: CLEAN_EXIT })).run({ command });
+    await createHostCommandLock(host.deps({ childExitCode: CLEAN_EXIT_CODE })).run({ command });
 
     expect(host.lockTakenAtMs).toHaveLength(1);
     expect(host.lockTakenAtMs[0]).toBeGreaterThanOrEqual(externalHolderUntilMs);

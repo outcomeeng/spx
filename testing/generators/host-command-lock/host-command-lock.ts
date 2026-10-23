@@ -190,3 +190,12 @@ export function risingThenFlatSamples(cpuCount: number): Array<Omit<LoadSample, 
     fifteen: 0,
   }));
 }
+
+/** The exit code of a child that completes cleanly. */
+export const CLEAN_EXIT_CODE = 0;
+
+/** Busy retries a waiting run makes before the holder's child exits in the contention cases. */
+export const BUSY_RETRY_COUNT = 3;
+
+/** Event-loop turns the host lets pass so a scripted supervisor reaches its death point. */
+export const SUPERVISOR_SETTLE_TURNS = 50;

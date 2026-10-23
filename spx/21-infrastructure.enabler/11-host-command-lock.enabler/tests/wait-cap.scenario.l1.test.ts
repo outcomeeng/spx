@@ -12,12 +12,12 @@ import {
   arbitraryCpuCount,
   capAtWindowEndSeconds,
   capInsideWindowSeconds,
+  CLEAN_EXIT_CODE,
   quietSample,
 } from "@testing/generators/host-command-lock/host-command-lock";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { MemoryHost } from "@testing/harnesses/host-command-lock/host-command-lock";
 
-const CLEAN_EXIT = 0;
 const command = sampleGeneratedValue(arbitraryCommand());
 
 describe("wait cap", () => {
@@ -29,7 +29,7 @@ describe("wait cap", () => {
       externalHolderUntilMs: Number.POSITIVE_INFINITY,
     });
 
-    const { exitCode, result } = await createHostCommandLock(host.deps({ childExitCode: CLEAN_EXIT })).run({
+    const { exitCode, result } = await createHostCommandLock(host.deps({ childExitCode: CLEAN_EXIT_CODE })).run({
       command,
       waitSeconds: capInsideWindowSeconds(),
     });
@@ -48,7 +48,7 @@ describe("wait cap", () => {
     const cpuCount = sampleGeneratedValue(arbitraryCpuCount());
     const host = new MemoryHost({ cpuCount, samples: [quietSample()] });
 
-    const { result } = await createHostCommandLock(host.deps({ childExitCode: CLEAN_EXIT })).run({
+    const { result } = await createHostCommandLock(host.deps({ childExitCode: CLEAN_EXIT_CODE })).run({
       command,
       waitSeconds: capAtWindowEndSeconds(),
     });
@@ -61,7 +61,7 @@ describe("wait cap", () => {
     const cpuCount = sampleGeneratedValue(arbitraryCpuCount());
     const host = new MemoryHost({ cpuCount, samples: [quietSample()] });
 
-    const { exitCode, result } = await createHostCommandLock(host.deps({ childExitCode: CLEAN_EXIT })).run({
+    const { exitCode, result } = await createHostCommandLock(host.deps({ childExitCode: CLEAN_EXIT_CODE })).run({
       command,
       waitSeconds: capInsideWindowSeconds(),
     });

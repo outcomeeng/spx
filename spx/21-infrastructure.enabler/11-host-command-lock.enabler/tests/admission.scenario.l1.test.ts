@@ -20,14 +20,14 @@ import {
   arbitraryCpuCount,
   arbitraryDistinctLabels,
   arbitraryRetryJitters,
+  BUSY_RETRY_COUNT,
+  CLEAN_EXIT_CODE,
   quietSample,
 } from "@testing/generators/host-command-lock/host-command-lock";
 import { arbitrarySpawnFailureMessage } from "@testing/generators/process-lifecycle/guarded-supervision";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { EVENT_KIND, MemoryHost } from "@testing/harnesses/host-command-lock/host-command-lock";
 
-const CLEAN_EXIT = 0;
-const BUSY_RETRIES = 3;
 const cpuCount = sampleGeneratedValue(arbitraryCpuCount());
 const [firstRunId, secondRunId] = sampleGeneratedValue(arbitraryDistinctLabels(2));
 const command = sampleGeneratedValue(arbitraryCommand());
@@ -41,7 +41,7 @@ describe("a guarded command on a free slot and a quiet host", () => {
     const running = createHostCommandLock(host.deps()).run({ command, runId: firstRunId });
     await host.untilSpawned(1);
     const [lockDescriptor] = host.lockDescriptors();
-    host.exitChild(0, CLEAN_EXIT);
+    host.exitChild(0, CLEAN_EXIT_CODE);
     const { exitCode, result } = await running;
 
     expect(host.kinds()).toEqual([
@@ -80,33 +80,33 @@ describe("a guarded command on a free slot and a quiet host", () => {
     });
     expect(host.unlocks).toEqual([]);
     expect(host.slotHeld()).toBe(false);
-    expect(exitCode).toBe(CLEAN_EXIT);
+    expect(exitCode).toBe(CLEAN_EXIT_CODE);
     expect(result).toEqual({
       schema: RESULT_SCHEMA,
       runId: firstRunId,
       started: true,
       status: RESULT_STATUS.COMPLETED,
-      childExitCode: CLEAN_EXIT,
+      childExitCode: CLEAN_EXIT_CODE,
     });
   });
 });
 
 describe("a guarded command whose slot another run holds", () => {
   it("retries after a base delay plus a randomized one and starts only after the holder's child exits", async () => {
-    const jitters = sampleGeneratedValue(arbitraryRetryJitters(BUSY_RETRIES));
+    const jitters = sampleGeneratedValue(arbitraryRetryJitters(BUSY_RETRY_COUNT));
     const host = new MemoryHost({ cpuCount, samples: [quietSample()], retryJitters: jitters });
 
     const first = createHostCommandLock(host.deps({ runId: firstRunId })).run({ command, runId: firstRunId });
     await host.untilSpawned(1);
     const sleepsBeforeSecond = host.sleeps.length;
-    host.scheduleChildExit(0, CLEAN_EXIT, BUSY_RETRIES);
-    const second = createHostCommandLock(host.deps({ runId: secondRunId, childExitCode: CLEAN_EXIT })).run({
+    host.scheduleChildExit(0, CLEAN_EXIT_CODE, BUSY_RETRY_COUNT);
+    const second = createHostCommandLock(host.deps({ runId: secondRunId, childExitCode: CLEAN_EXIT_CODE })).run({
       command: otherCommand,
       runId: secondRunId,
     });
     const reports = await Promise.all([first, second]);
 
-    const busySleeps = host.sleeps.slice(sleepsBeforeSecond, sleepsBeforeSecond + BUSY_RETRIES);
+    const busySleeps = host.sleeps.slice(sleepsBeforeSecond, sleepsBeforeSecond + BUSY_RETRY_COUNT);
     expect(busySleeps.map((ms) => ms - busySleeps[0])).toEqual(jitters.map((jitter) => jitter - jitters[0]));
     expect(host.spawnsAtScheduledExit).toBe(1);
     const firstExit = host.events.findIndex((event) =>
@@ -149,19 +149,22 @@ describe("a guarded command whose collaborator fails before the command runs", (
       { externalHolderUntilMs: Number.POSITIVE_INFINITY },
       RESULT_STATUS.LOCK_FILE_ERROR,
     ],
-    ["spawn", { spawnFailure: new Error(failureMessage) }, {}, RESULT_STATUS.SPAWN_FAILED],
-  ])("ends with its own status when the %s fails, and releases the descriptor", async (_name, script, hostOptions, status) => {
-    const host = new MemoryHost({ cpuCount, samples: [quietSample()], ...hostOptions });
+    [EVENT_KIND.SPAWN, { spawnFailure: new Error(failureMessage) }, {}, RESULT_STATUS.SPAWN_FAILED],
+  ])(
+    "ends with its own status when the %s fails, and releases the descriptor",
+    async (_name, script, hostOptions, status) => {
+      const host = new MemoryHost({ cpuCount, samples: [quietSample()], ...hostOptions });
 
-    const { exitCode, result } = await createHostCommandLock(host.deps({ ...script, runId: firstRunId })).run({
-      command,
-      runId: firstRunId,
-    });
+      const { exitCode, result } = await createHostCommandLock(host.deps({ ...script, runId: firstRunId })).run({
+        command,
+        runId: firstRunId,
+      });
 
-    expect(result).toMatchObject({ runId: firstRunId, started: false, status });
-    expect(exitCode).not.toBe(CLEAN_EXIT);
-    expect(host.spawns).toEqual([]);
-    expect(host.openSupervisorDescriptors()).toBe(0);
-    expect(host.slotHeld()).toBe(false);
-  });
+      expect(result).toMatchObject({ runId: firstRunId, started: false, status });
+      expect(exitCode).not.toBe(CLEAN_EXIT_CODE);
+      expect(host.spawns).toEqual([]);
+      expect(host.openSupervisorDescriptors()).toBe(0);
+      expect(host.slotHeld()).toBe(false);
+    },
+  );
 });
