@@ -18,18 +18,21 @@ A supervisor that never unlocks gives up its share only by closing its descripto
 
 ## Verification
 
-Authoring form: the rules below carry no verification tag until verification selection.
+### Testing
 
-- ALWAYS: the slot is an exclusive whole-file `flock` lock held by one open file description of the orchestration lock file, and a child that inherits the descriptor shares that description and its lock
-- NEVER: a process-owned `fcntl` record lock, a PID record, a journal, or a queue file decides admission or release
-- ALWAYS: the lock is taken through `fs-native-extensions` pinned at exactly 1.5.2 as a production dependency, whose `tryLock` takes a nonblocking exclusive whole-file lock and whose prebuilt binary loads under Node 24 on macOS arm64 with no install script and no native build toolchain
-- NEVER: the product owns or builds a native addon
-- ALWAYS: the supervisor passes its locked descriptor to the child through the guarded supervision of [spx/13-cli.enabler/15-cli-architecture.adr.md](spx/13-cli.enabler/15-cli-architecture.adr.md), and exports in the child's environment, for nested calls, `SPX_ORCHESTRATION_LOCK_FD` holding the descriptor number and `SPX_ORCHESTRATION_LOCK_FILE_ID` holding the orchestration lock file's device and inode as `<device>:<inode>`
-- ALWAYS: the host command lock is a shared capability library under `src/lib/host-command-lock/` behind one public surface, which owns slot admission, the load gate, the wait cap, the holder record, nested pass-through, and the terminal result
-- NEVER: the `spx orchestration` command domain owns slot, load, wait-cap, holder-record, nested pass-through, or terminal-result semantics; it consumes the public surface through its three layers
-- NEVER: a code path calls the binding's unlock or otherwise releases the lock explicitly; a supervisor gives up its share only by closing its descriptor after its child exits
-- ALWAYS: a busy lock is retried after a bounded randomized delay until the wait cap expires
-- ALWAYS: the orchestration lock file is created once with mode 0600 inside directories created with mode 0700, opened without following a symbolic link, and checked for the invoking account's ownership and for local storage
-- ALWAYS: the orchestration lock file is rewritten in place through the locked descriptor for the holder record, and is never unlinked, renamed, or replaced while in use
-- ALWAYS: the public surface of the host command lock receives the `fs-native-extensions` lock binding, the monotonic clock, the sleep and randomized-delay source, the load sample source, and the filesystem as injected dependencies, with the production implementations as defaults, so that every admission, wait-cap, and load-gate path is exercised in isolation through the public surface
-- NEVER: `vi.mock()`, `jest.mock()`, or any module replacement substitutes for the lock binding, the clock, the load source, or the filesystem; tests inject controlled implementations through the public injection API
+- ALWAYS: the slot is an exclusive whole-file `flock` lock held by one open file description of the orchestration lock file, and a child that inherits the descriptor shares that description and its lock ([conformance])
+- ALWAYS: the supervisor passes its locked descriptor to the child through the guarded supervision of [spx/13-cli.enabler/15-cli-architecture.adr.md](spx/13-cli.enabler/15-cli-architecture.adr.md), and exports in the child's environment, for nested calls, `SPX_ORCHESTRATION_LOCK_FD` holding the descriptor number and `SPX_ORCHESTRATION_LOCK_FILE_ID` holding the orchestration lock file's device and inode as `<device>:<inode>` ([scenario])
+- NEVER: a code path calls the binding's unlock or otherwise releases the lock explicitly; a supervisor gives up its share only by closing its descriptor after its child exits ([compliance])
+- ALWAYS: a busy lock is retried after a bounded randomized delay until the wait cap expires ([property])
+- ALWAYS: the orchestration lock file is created once with mode 0600 inside directories created with mode 0700, opened without following a symbolic link, and checked for the invoking account's ownership and for local storage ([compliance])
+- ALWAYS: the orchestration lock file is rewritten in place through the locked descriptor for the holder record, and is never unlinked, renamed, or replaced while in use ([compliance])
+
+### Audit
+
+- NEVER: a process-owned `fcntl` record lock, a PID record, a journal, or a queue file decides admission or release ([audit])
+- ALWAYS: the lock is taken through `fs-native-extensions` pinned at exactly 1.5.2 as a production dependency, whose `tryLock` takes a nonblocking exclusive whole-file lock and whose prebuilt binary loads under Node 24 on macOS arm64 with no install script and no native build toolchain ([audit])
+- NEVER: the product owns or builds a native addon ([audit])
+- ALWAYS: the host command lock is a shared capability library under `src/lib/host-command-lock/` behind one public surface, which owns slot admission, the load gate, the wait cap, the holder record, nested pass-through, and the terminal result ([audit])
+- NEVER: the `spx orchestration` command domain owns slot, load, wait-cap, holder-record, nested pass-through, or terminal-result semantics; it consumes the public surface through its three layers ([audit])
+- ALWAYS: the public surface of the host command lock receives the `fs-native-extensions` lock binding, the monotonic clock, the sleep and randomized-delay source, the load sample source, and the filesystem as injected dependencies, with the production implementations as defaults, so that every admission, wait-cap, and load-gate path is exercised in isolation through the public surface ([audit])
+- NEVER: `vi.mock()`, `jest.mock()`, or any module replacement substitutes for the lock binding, the clock, the load source, or the filesystem; tests inject controlled implementations through the public injection API ([audit])
