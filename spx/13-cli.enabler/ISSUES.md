@@ -40,3 +40,51 @@ The caught-error branch at `src/interfaces/cli/session.ts:381` composes a litera
 **Resolution:** compose the name segment only when it differs from the literal prefix — emit `error.name` when the error is a subclass and omit it for the base class — and compose the caught message as an external segment through `src/lib/terminal-text/`, then cover the composition with evidence under the node's existing Commander-diagnostics compliance assertion, which already governs what these handlers echo to stderr.
 
 **Skills:** `/apply`, `/author-typescript-test`, `/audit-typescript-code`.
+
+## The lifecycle signal-to-exit-code mapping keeps its predicate in the harness: spx/13-cli.enabler/tests/lifecycle.mapping.l1.test.ts, the lifecycle signal-to-exit-code mapping, assertion-seam
+
+`spx/13-cli.enabler/tests/lifecycle.mapping.l1.test.ts` only calls `registerLifecycleMappingEvidence()`. The `describe`/`it` blocks, the `signalCases` table, and every `expect` live in `testing/harnesses/process-lifecycle/mapping.ts`, so the predicate and its cases sit in test infrastructure instead of the linked test.
+
+**Impact:** the executed test file owns no assertion, so the audit cannot judge the predicate from the file the spec links.
+
+**Resolution:** the linked test file declares the cases and every `expect`, and the harness supplies only resources and doubles.
+
+**Skills:** `/apply`, `/author-typescript-test`, `/audit-typescript-test`.
+
+**Revisit condition:** when the node's lifecycle evidence is next changed.
+
+## The managed-subprocess stdio rule keeps its expectations in the harness: spx/13-cli.enabler/tests/lifecycle.compliance.l1.test.ts, managed long-running subprocesses expose parent-piped stdout and stderr, assertion-seam
+
+`spx/13-cli.enabler/tests/lifecycle.compliance.l1.test.ts` only calls `registerLifecycleComplianceEvidence()`. The `expect` calls over the `stdio` value `pipe`, the output chunks, and the diagnostics live in `testing/harnesses/process-lifecycle/compliance.ts`.
+
+**Impact:** the executed test file owns no assertion, so the audit cannot judge the compliance predicate from the file the spec links.
+
+**Resolution:** the linked test file declares the violating fixtures and every `expect`, and the harness supplies only resources and doubles.
+
+**Skills:** `/apply`, `/author-typescript-test`, `/audit-typescript-test`.
+
+**Revisit condition:** when the node's lifecycle evidence is next changed.
+
+## The registry properties call fast-check directly and own their generator domain: spx/13-cli.enabler/tests/lifecycle.property.l1.test.ts, registry conservation, missing property seed reporting
+
+`spx/13-cli.enabler/tests/lifecycle.property.l1.test.ts` calls `fc.assert` directly and declares `registryOpArbitrary`, `childPoolSize`, `maxOperationCount`, `maxHandlerInvocations`, and `maxSpawnCount` itself. It uses no seed-reporting property harness, so a failing run carries no replay seed. The cleanup-idempotence and spawn-registration properties in the same file share the defect.
+
+**Impact:** a failing property run cannot be replayed from its output, and the generator domain sits in the assertion file.
+
+**Resolution:** the generator domain moves to `testing/generators/` and each property runs through the seed-reporting property harness with `assertProperty`.
+
+**Skills:** `/apply`, `/author-typescript-test`, `/audit-typescript-test`.
+
+**Revisit condition:** when the node's lifecycle evidence is next changed.
+
+## The foreground-handoff scenario draws its listeners without a pinned seed: spx/13-cli.enabler/tests/foreground-handoff.scenario.l1.test.ts, a signal target holding the parent's SIGINT and SIGTERM listeners, test-owned configuration
+
+`spx/13-cli.enabler/tests/foreground-handoff.scenario.l1.test.ts` draws through a local `sample()` helper and `generatedListeners()` over `fc.sample` with no pinned seed, so the case differs per run and cannot be replayed from a failure report.
+
+**Impact:** a failing draw in the foreground-handoff scenario carries no replay path.
+
+**Resolution:** the scenario draws through `sampleGeneratedValue` from `testing/generators/sample.ts`, which owns the seed.
+
+**Skills:** `/apply`, `/author-typescript-test`, `/audit-typescript-test`.
+
+**Revisit condition:** when the node's foreground-handoff evidence is next changed.
