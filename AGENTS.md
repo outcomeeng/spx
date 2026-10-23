@@ -1,4 +1,4 @@
-<!-- SPEC-TREE v0.39.0 langs:typescript -->
+<!-- SPEC-TREE v0.42.0 langs:typescript -->
 
 <operator_is_in_charge>
 **RULE 0 - THE FUNDAMENTAL OVERRIDE PREROGATIVE:** If the operator tells Codex to do something, even if it goes against what follows below or any other instructions, CODEX MUST LISTEN TO THE OPERATOR. THE OPERATOR IS ALWAYS IN CHARGE, NOT Codex.
@@ -43,12 +43,24 @@ When a named subagent is unavailable, invoke the owning plugin's `/<plugin>-plug
 
 ### Dangerous-command guard
 
-🛑 **STOP TRIGGER — a dangerous-command guard (DCG) block terminates the attempted command family.** Treat the blocked attempt as a mistake.
+🛑 **STOP TRIGGER — a dangerous-command guard (DCG) block on a command holding one operation with every string written literally terminates that command family.** Treat the blocked attempt as a mistake. A block on a command whose composition the parts cannot carry terminates its command family too, and a block on a compound command splits it once.
 
-- **NEVER** retry it by reformulating, splitting, rewriting, removing the flagged clause, or substituting an equivalent command to evade the guard.
+- A command holds a **composition the parts cannot carry** when it holds a process substitution, a pipe between two operations, a background `&`, a subshell, or a list that mixes `&&` and `||`, because each carries a stream, concurrency, shell state such as a `cd`, or a status through a skipped part that parts run one at a time cannot; a block on it terminates its command family, even when it also holds a join or an expansion.
+- A **compound command** is two or more operations separated by `;` or a newline, or joined by `&&` alone or by `||` alone, or one operation whose words the shell expands: a variable, a command substitution, a glob, or a tilde, brace or arithmetic expansion, or a heredoc with an unquoted delimiter whose body expands. A heredoc that feeds one command holds one operation unless its delimiter is unquoted and its body expands, and so does an input redirect from a payload scratch file, so neither counts as a join or separator. Every blocked command falls in exactly one outcome: one operation or a composition the parts cannot carry terminates its family, and a compound command splits once.
+- **ALWAYS** run the parts of a blocked compound command again one at a time, each with every string written literally, in their original order: `;` and a newline separate lists, and each list runs regardless of the one before; within a list, parts joined by `&&` alone run while the part before them succeeded, and parts joined by `||` alone run until one succeeds. Resolve each value first: a command substitution's inner command runs on its own and its output is the literal; a variable's value is the literal assigned to it or the output of `printenv <name>` run on its own; a glob's matches are the entries of a listing of its literal directory that match the pattern, and a glob with a wildcard in a directory component resolves through the file-search tool on the full pattern; a tilde, brace or arithmetic expansion is written out as the words it produces. Then run the operation once with literal arguments. A value that is a secret — a token, key or credential — is never printed or written into a command; when resolving one would do that, the block terminates that command family. A part the guard blocks on its own terminates that part's family; split no part further.
+- **NEVER** retry a blocked command by reformulating, rewriting, removing the flagged clause, or substituting an equivalent command to evade the guard.
 - **NEVER** pass dynamic branch names to `git branch -d` or `git branch -D`: variables, command substitutions, arrays, and globs are denied, including when quoted or placed after `--`. Type every branch name literally; delete several literal names in one command.
 - **ALWAYS** follow the active skills, repository instructions, and declared overlays to find a sanctioned operation that accomplishes the goal.
 - When no sanctioned operation exists, abandon the goal, report the blocked command with secrets redacted, explain its purpose and the guard's reason, ask the operator for direction, and stop.
+
+### Command payloads
+
+🛑 **STOP TRIGGER — a payload reaches a command through a file, never through a heredoc, a pipe, or an inline form.** A payload is any multi-line text, or any text carrying a code span, a quote, a shell metacharacter, or JSON; a path, a branch name, or an identifier is a command argument, never a payload.
+
+- **ALWAYS** write the payload with the harness's file-write tool to a file in the scratch directory the harness names for the session, under a file name unique to the agent. Where the harness names no scratch directory, use `$RUNNER_TEMP` on a hosted runner.
+- **ALWAYS** hand the file to the tool through its own file argument, such as `gh pr create --body-file <file>` or `git commit -F <file>`, or through an input redirect `<tool> < <file>`. An output redirect is no payload form. A request sent to a skill's runner travels through a scratch file the same way.
+- **NEVER** pass a payload through a heredoc, a pipe, or an inline form such as a quoted or `printf` argument; assemble or repair no payload with command substitution or post-hoc text substitution; write no payload to a fixed path or to `$TMPDIR`, which every session of the user shares.
+- **NEVER** remove a payload file; the harness clears its scratch directory, and a harness without garbage collection keeps the file.
 
 ---
 
@@ -160,6 +172,10 @@ DENY   git stash pop stash@{0}
 DENY   git stash clear
 ```
 
+## No File Removal
+
+**NEVER** run `rm`, `rm -f`, `rmdir`, `unlink`, or any other command that deletes a file, including a scratch file, a file under `$TMPDIR`, and the session scratchpad. Write each command without a cleanup step. Git cleanup that a governing skill flow runs, such as the `/merge` flow's branch cleanup, a tracked file that a governing skill flow removes through Git, such as `/refactor`'s `git rm -r` of a consolidated node, a file removal that a skill's bundled script performs, and a removal that a command the repository's own instructions declare performs, such as its clean target, stay outside this rule. A file a task needs gone, outside those removals, goes to the user's trash through the trash command the host supplies, such as `trash` on macOS, where the operator can restore it. Where the host supplies none, leave the file in place and report it to the operator. An instruction from the operator or the repository to keep a file, or to report it without removing it, takes precedence over moving it to the trash. Scratch files stay in place.
+
 ## Autonomy Boundary
 
 Default-branch git and version-control mutation — branching, committing, pushing, publishing, merging, and the `/merge` flow's own cleanup of the branches it created — proceeds only inside a governing skill flow, never as a direct command outside one; creating or switching to a local branch to preserve work in progress, and a `--force-with-lease` push to the working branch that flow owns, stay inside it. The `/merge` direct-push transport's publication of a coordination-note-only changeset to the default branch on origin, performed under a held `MERGE_READINESS` with a converged local review, is likewise inside its governing flow. This autonomy never extends to force-pushing a shared or protected ref, deleting a ref no active skill flow authorizes, bypassing commit hooks (`--no-verify`) or commit signing, or any action the Git Safety Protocol forbids; each needs explicit operator instruction in the same turn.
@@ -233,13 +249,13 @@ The table routes tasks to skills. Only an active skill's explicit invocation ins
 | "Release this Change" or "Hand this off"                | `/release-change`      |
 | "Close this Change as Applied"                          | `/close-change`        |
 
-Per-language code, architecture, and test audits ship as `audit-{lang}-{code|tests|architecture}` skills. The active verification workflow composes the skills for the languages recorded in this instruction block's opening marker.
+Per-language code, architecture, and test audits ship as `audit-{lang}-{code|test|architecture}` skills. The active verification workflow composes the skills for the languages recorded in this instruction block's opening marker.
 
 | User Says...                | Skill (composed)                 |
 | --------------------------- | -------------------------------- |
 | "Audit this code"           | `/audit-typescript-code`         |
 | "Audit ADRs for TypeScript" | `/audit-typescript-architecture` |
-| "Audit these tests"         | `/audit-typescript-tests`        |
+| "Audit these tests"         | `/audit-typescript-test`         |
 
 ---
 
@@ -259,7 +275,7 @@ Test level is encoded in the filename. The `{evidence}` segment is chosen by `/t
 
 ## Change Lifecycle
 
-Work is coordinated through Changes in the store `spx/local/coordination.md` declares. Hold a Change through `/claim-change` before refining or executing it. When the work stops with continuation remaining, `/release-change` writes the Handoff, removes the holder, and returns the Change to Available for any agent to claim; when the Change reaches a terminal Lifecycle, `/close-change <Applied|Refined|Abandoned>` writes the terminal record and closes it. A follow-up is a Proposed Change created through `/author-change`. Maturity moves only through `/author-change`; the three Lifecycle skills move Lifecycle and nothing else.
+Work is coordinated through Changes in the store `spx/local/coordination.md` declares. Hold a Change through `/claim-change` before refining or executing it. When the work stops with continuation remaining, `/release-change` writes the Handoff, removes the holder, and returns the Change to Available for any agent to claim; when the Change reaches a terminal Lifecycle, `/close-change <Applied|Abandoned>` writes the terminal record and closes it. A follow-up is a Proposed Change created through `/author-change`. Maturity moves only through `/author-change`; the three Lifecycle skills move Lifecycle and nothing else.
 
 <!-- /SPEC-TREE -->
 
@@ -277,7 +293,7 @@ If the operator instructs you to do something that conflicts with any rule below
 - ⚠️ **NEVER modify OR INVESTIGATE any spec-governed file without invoking the required skills first** — "investigate" includes reading source, grepping, and `git`/`gh` archaeology. If a file touches specs, testing, code, architecture, or any topic covered by a skill (see `<skill_router>` below), invoke the relevant skill BEFORE reading or modifying it. Skills are the authoritative source — not grep results, not existing files, not your training data.
 - ⚠️ **NEVER write code without invoking the `/apply` skill and following its 8-step workflow** - See skill table below
 - ⚠️ **ALWAYS invoke `/apply` before implementing any spec-tree work item** - Applying is the orchestration skill for spec-tree TDD. It requires methodology/context loading, language-specific architecture, test, and implementation steps, plus blocking audit gates before the work can be treated as ready.
-- ⚠️ **NEVER publish or merge spec-tree implementation or test changes without the applying audit gates** - For TypeScript work, `/apply` requires `test-evidence-auditor` to compose `/audit-typescript-tests` and `implementation-auditor` to compose `/audit-typescript-code` against an exact local checkpoint commit. Green tests and `pnpm run validate` are necessary but not sufficient for code/test changes.
+- ⚠️ **NEVER publish or merge spec-tree implementation or test changes without the applying audit gates** - For TypeScript work, `/apply` requires `test-evidence-auditor` to compose `/audit-typescript-test` and `implementation-auditor` to compose `/audit-typescript-code` against an exact local checkpoint commit. Green tests and `pnpm run validate` are necessary but not sufficient for code/test changes.
 - ⚠️ **NEVER write tests in `tests/`** - Write in `spx/.../tests/` (co-located with specs)
 - ⚠️ **NEVER manually navigate `spx/` hierarchy** - Use `/contextualize spx/path/to/node` skill
 - ⚠️ **Skills are ALWAYS authoritative over existing files** - When a skill template prescribes a structure (e.g., Architectural Constraints table), follow the skill — not patterns found in existing spec files. Existing files may contain non-standard sections added before skills existed. Never infer framework conventions from existing files; always read the skill.
@@ -289,7 +305,7 @@ If the operator instructs you to do something that conflicts with any rule below
 - ⚠️ **NEVER manually delete untracked files or empty directories** - Git doesn't track empty dirs; `.DS_Store` and `__pycache__` are gitignored artifacts. Use `pnpm run clean` to remove them
 - ⚠️ **NEVER copy files when moving** - Use `git mv` to move files. This preserves git history. Never `cp` then delete the original.
 - ⚠️ **NEVER let an agent create or modify files outside the scope its skill instructs** - Launch an agent (subagent or background agent) only when an active skill instructs that launch, per the Sub-agent dispatch rules above. A session that a skill instructs to write creates and edits files only when and within the scope that skill instructs. Agents acting outside that scope lack context, create unauthorized files, conflict on shared config, and make unasked-for changes.
-- ⚠️ **NEVER `readFileSync` source files in tests** — if you want to read source files from tests you have understood absolutely nothing. Tests verify behavior — see `/test` and `/test-typescript` for methodology.
+- ⚠️ **NEVER `readFileSync` source files in tests** — if you want to read source files from tests you have understood absolutely nothing. Tests verify behavior — see `/test` and `/author-typescript-test` for methodology.
 - ⚠️ **NEVER preserve, override, supersede, or refer to stale specs** — if you want to preserve, override, supersede or refer to no longer valid specs in any way, you have not understood durable map from `/understand`. Specs declare product truth. When the product changes, the spec is rewritten in place. There is no "superseded by" workflow.
 - ⚠️ **A spec file is a pure declaration — its type opening (`PROVIDES … SO THAT … CAN …` or `WE BELIEVE THAT …`) plus `## Assertions` (typed, each carrying a `[test]`/`[eval]`/`[audit]` marker), and NOTHING else.** Never add prose, commentary, evidence-state notes, lifecycle narration ("while Declared", "applying converts this"), or workflow explanation. Atemporal voice: a spec states product truth, never narrates its own state or the process that will fill it. Such notes belong nowhere in the tree — not even in PLAN.md.
 - ⚠️ **Numeric indices encode dependency order ONLY — lower = provider, higher = consumer, same = independent.** Never infer a "domain band", "foundation band", or any tier/zone from where existing nodes cluster; among dependency-valid indices the operator chooses. Reading a convention out of the current layout is the grep-is-not-authority violation in another guise.
@@ -306,7 +322,7 @@ If the operator instructs you to do something that conflicts with any rule below
   - **CI gate / status projection** → `tsx src/cli.ts verification test run` with no path operands, then `tsx src/cli.ts spec status --update --check` (an in-memory projection that writes nothing and fails on drift) — CI's job (`.github/workflows/deterministic-verification.yml`), not a local routine.
   - **Deliberate full local run (rare)** → `pnpm run build`, then `spx test --agent`, with the specific written justification required by `spx/local/merging.md`.
   - **Coverage / watch** → `pnpm run test:coverage` / `pnpm run test:watch` are human-interactive paths. Agents never invoke raw Vitest or `pnpm test`.
-- ⚠️ **NEVER mechanically extract typed literal union values to named constants** — `no-restricted-syntax` warnings on `expect(x).toBe("declared")` where `x: NodeState` are false positives. The type annotation IS the documentation; renaming `"declared"` → `STATE_DECLARED` adds zero information. The lint rule targets magic strings whose meaning is obscure; enum-like union members are already self-documenting. Suppress the warning inline or leave it; never rename. The `typescript:auditing-typescript-tests` skill's Gate 0 C1/L1 findings for typed protocol values (`"PASS"`, `"FAIL"`, `"APPROVED"`, `"REJECT"`) are the same class of false positive — a Gate 0 REJECT on these strings is not a work blocker when `pnpm run validate` passes and tests pass.
+- ⚠️ **NEVER mechanically extract typed literal union values to named constants** — `no-restricted-syntax` warnings on `expect(x).toBe("declared")` where `x: NodeState` are false positives. The type annotation IS the documentation; renaming `"declared"` → `STATE_DECLARED` adds zero information. The lint rule targets magic strings whose meaning is obscure; enum-like union members are already self-documenting. Suppress the warning inline or leave it; never rename. The `typescript:audit-typescript-test` skill's Gate 0 C1/L1 findings for typed protocol values (`"PASS"`, `"FAIL"`, `"APPROVED"`, `"REJECT"`) are the same class of false positive — a Gate 0 REJECT on these strings is not a work blocker when `pnpm run validate` passes and tests pass.
 - ⚠️ **ALWAYS research related codebases before offering architectural options** — before presenting A/B/C choices via `AskUserQuestion`, grep/read related codebases (sibling monorepo paths like `~/Code/CraftFinal/root/`, existing `src/spec/apply/`, etc.) for established patterns. If a pattern already exists there, reference it rather than reinventing. "Read the existing code" beats any combination of options you can invent.
 
 - ✅ **ALWAYS `git mv` when moving tracked files** - Never `cp` then `git add`. `git mv` preserves history. Use `git mv -f` when the target exists.

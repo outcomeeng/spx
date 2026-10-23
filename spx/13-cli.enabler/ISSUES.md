@@ -10,7 +10,7 @@
 
 **Resolution:** after those nodes migrate to `src/lib/terminal-text/`, narrow both `CliIo` write signatures to `TerminalText`, unwrap once inside `DEFAULT_CLI_IO`, and add the compliance assertion and evidence that no write site accepts an unescaped string.
 
-**Skills:** `/apply`, `/test-typescript`, `/audit-typescript-code`.
+**Skills:** `/apply`, `/author-typescript-test`, `/audit-typescript-code`.
 
 **Revisit condition:** once the per-node terminal-escaping issues are cleared.
 
@@ -39,4 +39,4 @@ The caught-error branch at `src/interfaces/cli/session.ts:381` composes a litera
 
 **Resolution:** compose the name segment only when it differs from the literal prefix — emit `error.name` when the error is a subclass and omit it for the base class — and compose the caught message as an external segment through `src/lib/terminal-text/`, then cover the composition with evidence under the node's existing Commander-diagnostics compliance assertion, which already governs what these handlers echo to stderr.
 
-**Skills:** `/apply`, `/test-typescript`, `/audit-typescript-code`.
+**Skills:** `/apply`, `/author-typescript-test`, `/audit-typescript-code`.
