@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.10.0]
+
+### Added
+
+- `spx orchestration lock -- <command> [arguments...]` runs a command under one host-wide slot. Only one guarded command tree runs at a time across every repository, worktree and session that uses the same lock file. A command starts after it holds the slot and host load stays quiet for a fresh sampling window of at least 30 seconds. The slot stays held until the last process that inherited the lock exits, even if the supervisor dies first. The command's own output and exit code pass through, and the last line on standard error is a JSON result line. `--run-id` sets the run id, and `--wait-seconds` shortens the default 14400-second wait cap. When the cap expires the command does not start, the result reports `not_ready`, and the exit code is 3. A guarded command started inside a running one runs under the outer slot without a second admission. The lock file is `$SPX_ORCHESTRATION_LOCK_PATH` when that holds an absolute path, otherwise `$XDG_STATE_HOME/engineering.outcome/orchestration.lock`, otherwise `~/.local/state/engineering.outcome/orchestration.lock`. The only supported platform is macOS on arm64 with local storage. Every other platform fails before the command starts.
+- `spx verification run paths --verification-type <type> --scope-type <scope-type> --scope <scope>` reports, as JSON, the canonical scope, the branch key, and the journal and verification-context directories a run of that type and scope will write. For each directory it gives the resolved path, whether the directory exists, and which missing directories would need to be created. A host can grant write access before it launches a verification session. The command creates nothing.
+- `spx verification run start --expectations <source>` binds a changeset run to the paths it must judge. Changeset runs now record their change inventory at start. Scope evidence can name judged deletions next to judged files. The new `spx verification run reconcile --run <token>` reports unaccounted, unexpected and drifted paths as one JSON result and exits zero only when the run reconciles. The first `finish` of a bound run seals it only when it reconciles. Otherwise it reports the reconciliation result and leaves the run unsealed.
+- `spx verification run start --verifier <person|agent>:<id>` records who judges a run, and `status` reports it.
+- Review findings can be unanchored: tied to a path or to the whole changeset, without a line, side or diff hunk. A finding that carries only part of an anchor is rejected, and the rejection names the missing field.
+- `spx test` records a verdict for each test file (`passed`, `failed` or `not-run`), read from Vitest's JSON report or pytest's JUnit XML. A failing file no longer marks the files that ran beside it as failed. A missing report records every path as `not-run`. TypeScript test runs also record which product files each test module read.
+- `spx spec status --update` writes `spx.status.json` in the 4.0 claim shape when the product declares methodology 4.0. Each result carries its verdict, a pin of the commit and the paths it read, and its verifier and run where applicable. Sealed audit runs contribute audit and evidence entries. Version-1 claims remain readable. `spx spec status --json` reports each claim's shape and state, plus every result's verdict, pin, actor, run, and whether its pin is still current against the checkout.
+- `spx spec status --update --check` compares committed status claims with the regenerated projection without writing anything. It reports differing node states, verdicts or read sets and exits non-zero, and it ignores differences in pin commits alone.
+- `spx worktree release --session-id <id>` removes the claim that recorded that session id, even when a different live process holds it.
+
+### Changed
+
+- The spec tree is read with the grammar the product's methodology declaration selects. `methodology.version` on the 4.0 line selects the 4.0 grammar: substrate, capability, domain, interface, surface and variant nodes, `{slug}.spec.md` spec files, and a root `{name}.spec.md` whose front matter declares `kind: product`. A version on the 3.0–3.2 lines selects the 3.x grammar. A declared `methodology.migratingFrom` adds the source grammar for as long as it is declared. A declared version on any other line fails the read and names the lines spx reads. So does a tree with more than one root spec. Lint and release product context judge names by the same declaration, and release reads each endpoint with the grammar declared at that endpoint.
+- A `kinds` field in the `specTree` configuration section is now rejected. Kind vocabulary comes from the methodology declaration.
+- The `order` field of the spec-tree projection is now the list of an index's numeric segments (for example `20.10` projects as `[20, 10]`). Sibling, decision and context ordering compare indices segment by segment.
+- `spx agent resume --since` and `spx agent search --since` name the missing unit when given a bare number, suggest an accepted form such as `120m`, and print a single `Error:` prefix.
+
+### Fixed
+
+- `spx spec context list` and `show` fail with a diagnostic and empty standard output when the product root holds no recognized product spec, instead of succeeding with no output.
+- The methodology foundation that `spx spec context show --methodology` delivers resolves its reference paths against the shipped bundle, so no skill-directory placeholder reaches the agent.
+- Context entries and decision selection order indices numerically, so `2.9` precedes `2.10`.
+- A variant node's Digest uses its parent kind's opening. A 4.0 root spec with malformed front matter fails the read and names the file.
+- `spx test --agent` no longer lists a failing runner group's requested paths as failing tests when the runner reported none. It states that no failed paths were reported and names the group's artifacts.
+- Python test runs pin pytest's rootdir to the product directory, so an ini-file nearer to the test files no longer turns every verdict into `not-run`.
+- `spx agent resume` escapes control bytes in error messages written to standard error.
+
 ## [0.9.0] - 2026-10-09
 
 ### Added
