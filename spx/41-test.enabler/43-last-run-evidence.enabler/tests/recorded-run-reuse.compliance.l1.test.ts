@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { findSatisfyingRecordedRun, RECORDED_RUN_UNSATISFIED_REASON } from "@/commands/test";
+import {
+  findSatisfyingRecordedRun,
+  RECORDED_RUN_UNSATISFIED_REASON,
+  runTestsCommand,
+  TEST_RESULT_KIND,
+} from "@/commands/test";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
@@ -25,6 +30,12 @@ describe("taking a result from a recorded run", () => {
 
       const satisfied = await findSatisfyingRecordedRun(request, repository.deps);
       expect(satisfied.satisfied).toBe(true);
+      expect(await snapshotRunDirectory(repository.productDir)).toEqual(recorded);
+
+      const invocationsAfterRecording = repository.runner.calls.length;
+      const reused = await runTestsCommand({ productDir: repository.productDir, passing: false }, repository.deps);
+      expect(reused.kind).toBe(TEST_RESULT_KIND.REUSED);
+      expect(repository.runner.calls).toHaveLength(invocationsAfterRecording);
       expect(await snapshotRunDirectory(repository.productDir)).toEqual(recorded);
 
       await leaveUntrackedFile(repository);
