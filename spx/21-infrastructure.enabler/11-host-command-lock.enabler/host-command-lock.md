@@ -1,3 +1,8 @@
+---
+id: 01a1691b-0b03-74e3-aaa8-043494a0177f
+malleability: spec
+---
+
 # Host Command Lock
 
 PROVIDES one host-wide slot that a guarded command holds for its whole process tree, admitted after a quiet load window and within a wait cap, and ended by one terminal result line
