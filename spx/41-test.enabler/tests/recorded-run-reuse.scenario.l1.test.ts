@@ -4,6 +4,7 @@ import { runTestsCommand, TEST_RESULT_KIND } from "@/commands/test";
 import { SUCCESS_EXIT_CODE } from "@/domains/test";
 import { TESTING_CLI } from "@/interfaces/cli/test";
 import { AGENT_TEST_OUTPUT_TEXT } from "@/interfaces/cli/test-agent-output";
+import { compareAsciiStrings } from "@/lib/state-store";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { TEST_PATH_VERDICT } from "@/test/run-state";
 import { sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
@@ -97,7 +98,9 @@ describe("reusing a recorded passed run", () => {
       expect(result.kind).toBe(TEST_RESULT_KIND.REUSED);
       if (result.kind !== TEST_RESULT_KIND.REUSED) return;
       const reportedVerdicts = result.outcomes.flatMap((outcome) => outcome.pathVerdicts);
-      expect(reportedVerdicts.map((entry) => entry.testPath).sort()).toEqual([ownFile, descendantFile].sort());
+      expect(reportedVerdicts.map((entry) => entry.testPath).sort(compareAsciiStrings)).toEqual(
+        [ownFile, descendantFile].sort(compareAsciiStrings),
+      );
       const printedLines = printed.stdout.split("\n");
       for (const { testPath, verdict } of reportedVerdicts) {
         expect(printedLines.some((line) => line.includes(testPath) && line.includes(verdict))).toBe(true);
