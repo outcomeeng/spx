@@ -8,6 +8,8 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { createHostCommandLock, LOCK_ENV, RESULT_STATUS } from "@/lib/host-command-lock";
+import { arbitraryDistinctLabels } from "@testing/generators/host-command-lock/host-command-lock";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   dilatedDeps,
   intervalStarted,
@@ -19,8 +21,9 @@ import {
   withLockEnv,
 } from "@testing/harnesses/host-command-lock/host-command-lock";
 
-const PROBE = "probe";
-const OTHER_FILE_NAME = "other-file";
+const labels = sampleGeneratedValue(arbitraryDistinctLabels(2));
+const probeLabel = labels[0];
+const otherFileName = labels[1];
 
 describe("a nested guarded call with an invalid context", () => {
   it("fails nested_context_invalid when its descriptor is absent", async () => {
@@ -30,27 +33,27 @@ describe("a nested guarded call with an invalid context", () => {
         environment: { ...lock.env, [LOCK_ENV.FILE_ID]: touchedFileId(lock.lockPath) },
       });
 
-      const { result } = await guard.run({ command: intervalWorkload(lock.dir, PROBE, 1) });
+      const { result } = await guard.run({ command: intervalWorkload(lock.dir, probeLabel, 1) });
 
       expect(result).toMatchObject({ started: false, status: RESULT_STATUS.NESTED_CONTEXT_INVALID });
-      expect(intervalStarted(lock.dir, PROBE)).toBe(false);
+      expect(intervalStarted(lock.dir, probeLabel)).toBe(false);
     });
   });
 
   it("fails nested_context_invalid when its descriptor is a different file than the lock file", async () => {
     await withLockEnv(async (lock) => {
       const lockFileId = touchedFileId(lock.lockPath);
-      const other = openDescriptor(join(lock.dir, OTHER_FILE_NAME));
+      const other = openDescriptor(join(lock.dir, otherFileName));
       const guard = createHostCommandLock({
         ...dilatedDeps(lock.lockPath),
         environment: { ...lock.env, [LOCK_ENV.FD]: String(other.fd), [LOCK_ENV.FILE_ID]: lockFileId },
       });
 
-      const { result } = await guard.run({ command: intervalWorkload(lock.dir, PROBE, 1) });
+      const { result } = await guard.run({ command: intervalWorkload(lock.dir, probeLabel, 1) });
       other.close();
 
       expect(result).toMatchObject({ started: false, status: RESULT_STATUS.NESTED_CONTEXT_INVALID });
-      expect(intervalStarted(lock.dir, PROBE)).toBe(false);
+      expect(intervalStarted(lock.dir, probeLabel)).toBe(false);
     });
   });
 
@@ -63,11 +66,11 @@ describe("a nested guarded call with an invalid context", () => {
         environment: { ...lock.env, [LOCK_ENV.FD]: String(unlocked.fd), [LOCK_ENV.FILE_ID]: unlocked.fileId },
       });
 
-      const { result } = await guard.run({ command: intervalWorkload(lock.dir, PROBE, 1) });
+      const { result } = await guard.run({ command: intervalWorkload(lock.dir, probeLabel, 1) });
       unlocked.close();
 
       expect(result).toMatchObject({ started: false, status: RESULT_STATUS.NESTED_CONTEXT_INVALID });
-      expect(intervalStarted(lock.dir, PROBE)).toBe(false);
+      expect(intervalStarted(lock.dir, probeLabel)).toBe(false);
     });
   });
 
@@ -76,7 +79,7 @@ describe("a nested guarded call with an invalid context", () => {
       await withLockEnv(async (otherLock) => {
         const outer = startSupervisor(outerLock, {
           command: nestedSupervisorWorkloadWithEnv(
-            { command: intervalWorkload(otherLock.dir, PROBE, 1), waitSeconds: 1 },
+            { command: intervalWorkload(otherLock.dir, probeLabel, 1), waitSeconds: 1 },
             { [LOCK_ENV.PATH_OVERRIDE]: otherLock.lockPath },
           ),
         });
@@ -85,7 +88,7 @@ describe("a nested guarded call with an invalid context", () => {
 
         expect(exit.code).not.toBe(0);
         expect(outer.stderr()).toContain(RESULT_STATUS.NESTED_LOCK_MISMATCH);
-        expect(intervalStarted(otherLock.dir, PROBE)).toBe(false);
+        expect(intervalStarted(otherLock.dir, probeLabel)).toBe(false);
       });
     });
   });

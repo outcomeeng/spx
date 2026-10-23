@@ -22,7 +22,9 @@ import {
   type SupervisorRun,
   waitUntil,
 } from "@testing/harnesses/host-command-lock/host-command-lock";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
+const CHAIN_TEMP_PREFIX = "host-command-lock-chain-";
 const HEARTBEAT_PREFIX = "hb-";
 const STOP_FILE = "stop";
 const MARKER_ENV = "HOST_LOCK_MARKER_DIR";
@@ -209,4 +211,9 @@ export function holdersOf(path: string): number[] {
   } catch {
     return [];
   }
+}
+
+/** A fresh directory that holds one chain's markers. */
+export async function withChainDir<T>(callback: (dir: string) => Promise<T>): Promise<T> {
+  return withTempDir(CHAIN_TEMP_PREFIX, callback);
 }

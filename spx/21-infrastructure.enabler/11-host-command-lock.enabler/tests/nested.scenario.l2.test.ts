@@ -8,6 +8,8 @@ import { setTimeout as delay } from "node:timers/promises";
 import { describe, expect, it } from "vitest";
 
 import { createHostCommandLock } from "@/lib/host-command-lock";
+import { arbitraryPathSegment } from "@testing/generators/host-command-lock/host-command-lock";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   dilatedDeps,
   intervalStarted,
@@ -17,6 +19,7 @@ import {
   OBSERVATION_MS,
   pgidWorkload,
   readGroups,
+  SIGNAL,
   signalGroup,
   startSupervisor,
   waitUntil,
@@ -27,7 +30,7 @@ import {
   workerWorkload,
 } from "@testing/harnesses/host-command-lock/host-command-lock";
 
-const WAITER = "waiter";
+const waiterLabel = sampleGeneratedValue(arbitraryPathSegment());
 
 describe("a nested guarded call", () => {
   it("stops every inner process when the outer supervisor is interrupted, and admits no second outer command while a worker keeps its descriptor", async () => {
@@ -37,18 +40,18 @@ describe("a nested guarded call", () => {
       const worker = workerPid(lock.dir);
 
       const waiter = createHostCommandLock(dilatedDeps(lock.lockPath)).run({
-        command: intervalWorkload(lock.dir, WAITER, 1),
+        command: intervalWorkload(lock.dir, waiterLabel, 1),
       });
       await delay(OBSERVATION_MS);
-      const admittedWhileWorkerRuns = intervalStarted(lock.dir, WAITER);
-      signalGroup(outer, "SIGTERM");
+      const admittedWhileWorkerRuns = intervalStarted(lock.dir, waiterLabel);
+      signalGroup(outer, SIGNAL.TERM);
       await outer.exit;
       await waitUntil(() => !isAlive(worker));
       await waiter;
 
       expect(admittedWhileWorkerRuns).toBe(false);
       expect(isAlive(worker)).toBe(false);
-      expect(intervalStarted(lock.dir, WAITER)).toBe(true);
+      expect(intervalStarted(lock.dir, waiterLabel)).toBe(true);
     });
   });
 

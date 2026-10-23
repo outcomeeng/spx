@@ -9,12 +9,16 @@ import { setTimeout as delay } from "node:timers/promises";
 import { describe, expect, it } from "vitest";
 
 import { createHostCommandLock, readHolderRecord, SIGNAL_EXIT_CODE_BASE } from "@/lib/host-command-lock";
+import { arbitraryPathSegment } from "@testing/generators/host-command-lock/host-command-lock";
+import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
   dilatedDeps,
+  FORWARDED_SIGNALS,
   intervalStarted,
   intervalWorkload,
   isAlive,
   OBSERVATION_MS,
+  SIGNAL,
   signalGroup,
   signalSupervisor,
   startSupervisor,
@@ -26,10 +30,10 @@ import {
   workerWorkload,
 } from "@testing/harnesses/host-command-lock/host-command-lock";
 
-const WAITER = "waiter";
+const waiterLabel = sampleGeneratedValue(arbitraryPathSegment());
 
 describe("a running guarded command receiving a harness kill path's signal", () => {
-  it.each(["SIGTERM", "SIGHUP"] as const)(
+  it.each(FORWARDED_SIGNALS)(
     "stops the guarded tree and releases the slot when its supervisor's group receives %s",
     async (signal) => {
       await withLockEnv(async (lock) => {
@@ -41,7 +45,7 @@ describe("a running guarded command receiving a harness kill path's signal", () 
         const exit = await supervisor.exit;
         await waitUntil(() => !isAlive(worker));
         const { result } = await createHostCommandLock(dilatedDeps(lock.lockPath)).run({
-          command: intervalWorkload(lock.dir, WAITER, 1),
+          command: intervalWorkload(lock.dir, waiterLabel, 1),
         });
 
         expect(exit.code).toBe(SIGNAL_EXIT_CODE_BASE + osConstants.signals[signal]);
@@ -56,16 +60,16 @@ describe("a running guarded command receiving a harness kill path's signal", () 
       await waitUntil(() => workerPidRecorded(lock.dir) && workerActive(lock.dir));
       const worker = workerPid(lock.dir);
 
-      signalSupervisor(supervisor, "SIGKILL");
+      signalSupervisor(supervisor, SIGNAL.KILL);
       await supervisor.exit;
       const waiter = createHostCommandLock(dilatedDeps(lock.lockPath)).run({
-        command: intervalWorkload(lock.dir, WAITER, 1),
+        command: intervalWorkload(lock.dir, waiterLabel, 1),
       });
       await delay(OBSERVATION_MS);
       const record = readHolderRecord(lock.lockPath);
-      const admittedWhileWorkerAlive = intervalStarted(lock.dir, WAITER);
+      const admittedWhileWorkerAlive = intervalStarted(lock.dir, waiterLabel);
       const workerAliveAtObservation = isAlive(worker);
-      process.kill(worker, "SIGKILL");
+      process.kill(worker, SIGNAL.KILL);
       await waiter;
 
       expect(workerAliveAtObservation).toBe(true);

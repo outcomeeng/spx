@@ -20,18 +20,21 @@ import {
   startCompetitor,
   stopWorkers,
   SUPPORTED_CHAINS,
+  withChainDir,
 } from "@testing/harnesses/host-command-lock/chains";
-import { OBSERVATION_MS, signalSupervisor, withLockEnv } from "@testing/harnesses/host-command-lock/host-command-lock";
-import { withTempDir } from "@testing/harnesses/with-temp-dir";
-
-const CHAIN_PREFIX = "host-command-lock-chain-";
+import {
+  OBSERVATION_MS,
+  SIGNAL,
+  signalSupervisor,
+  withLockEnv,
+} from "@testing/harnesses/host-command-lock/host-command-lock";
 
 describe("supported launch chains", () => {
   it.each(SUPPORTED_CHAINS)(
     "$name holds the slot from admission until the run's last process exits",
     async (chain) => {
       await withLockEnv(async (lock) => {
-        await withTempDir(CHAIN_PREFIX, async (dir) => {
+        await withChainDir(async (dir) => {
           const running = startChain(lock, chain, dir);
           await running.workersActive();
 
@@ -56,11 +59,11 @@ describe("supported launch chains", () => {
     "$name keeps a competing admission out while workers run after its supervisor receives SIGKILL",
     async (chain) => {
       await withLockEnv(async (lock) => {
-        await withTempDir(CHAIN_PREFIX, async (dir) => {
+        await withChainDir(async (dir) => {
           const running = startChain(lock, chain, dir);
           await running.workersActive();
 
-          signalSupervisor(running.supervisor, "SIGKILL");
+          signalSupervisor(running.supervisor, SIGNAL.KILL);
           await running.supervisor.exit;
           const competitor = startCompetitor(lock, dir);
           await delay(OBSERVATION_MS);
@@ -82,12 +85,12 @@ describe("supported launch chains", () => {
     "$name keeps a competing admission out while workers survive the runner's main process",
     async (chain) => {
       await withLockEnv(async (lock) => {
-        await withTempDir(CHAIN_PREFIX, async (dir) => {
+        await withChainDir(async (dir) => {
           const running = startChain(lock, chain, dir);
           await running.workersActive();
 
           const [runner] = childPids(running.supervisor.pid);
-          process.kill(runner, "SIGKILL");
+          process.kill(runner, SIGNAL.KILL);
           const competitor = startCompetitor(lock, dir);
           await delay(OBSERVATION_MS);
           const admittedWhileActive = competitorStarted(dir);
@@ -108,7 +111,7 @@ describe("supported launch chains", () => {
     "$name keeps a competing admission out when only workers remain, with no wrapper holding the slot",
     async (chain) => {
       await withLockEnv(async (lock) => {
-        await withTempDir(CHAIN_PREFIX, async (dir) => {
+        await withChainDir(async (dir) => {
           const running = startChain(lock, chain, dir);
           await running.workersActive();
 
@@ -118,7 +121,7 @@ describe("supported launch chains", () => {
           );
           wrappers.forEach((pid) => {
             try {
-              process.kill(pid, "SIGKILL");
+              process.kill(pid, SIGNAL.KILL);
             } catch {
               // a wrapper that already exited needs no signal
             }

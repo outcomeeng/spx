@@ -78,6 +78,16 @@ export function arbitraryPathSegment(): fc.Arbitrary<string> {
   return fc.stringMatching(PATH_SEGMENT);
 }
 
+/** `count` pairwise different labels, such as the names of concurrent guarded runs. */
+export function arbitraryDistinctLabels(count: number): fc.Arbitrary<string[]> {
+  return fc.uniqueArray(arbitraryPathSegment(), { minLength: count, maxLength: count });
+}
+
+/** The index of a sample in a scripted series that a window can lose and regain: after the first, before the last two. */
+export function arbitraryBadSampleIndex(): fc.Arbitrary<number> {
+  return fc.integer({ min: 1, max: LOAD_WINDOW.MIN_SAMPLES - 2 });
+}
+
 /** Absolute directory paths used as environment values for the lock-path mapping. */
 export function arbitraryAbsoluteDirectory(): fc.Arbitrary<string> {
   return fc.array(arbitraryPathSegment(), { minLength: 1, maxLength: 4 }).map((parts) => `/${parts.join("/")}`);

@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import { createHostCommandLock, LOAD_WINDOW, RESULT_STATUS } from "@/lib/host-command-lock";
 import {
+  arbitraryBadSampleIndex,
   arbitraryCpuCount,
   capInsideWindowSeconds,
   invalidSample,
@@ -21,7 +22,7 @@ import {
   withLockEnv,
 } from "@testing/harnesses/host-command-lock/host-command-lock";
 
-const BAD_SAMPLE_INDEX = 3;
+const badSampleIndex = sampleGeneratedValue(arbitraryBadSampleIndex());
 
 describe("load gate", () => {
   it("starts the command when the window passes on its seventh sample after 30 seconds", async () => {
@@ -60,7 +61,7 @@ describe("load gate", () => {
     await withLockEnv(async (lock) => {
       const cpuCount = sampleGeneratedValue(arbitraryCpuCount());
       const samples = [
-        ...Array.from({ length: BAD_SAMPLE_INDEX }, () => quietSample()),
+        ...Array.from({ length: badSampleIndex }, () => quietSample()),
         bad(cpuCount),
         quietSample(),
       ];
@@ -70,7 +71,7 @@ describe("load gate", () => {
 
       expect(result?.started).toBe(true);
       expect(
-        run.sampleTimesMs[run.sampleTimesMs.length - 1] - run.sampleTimesMs[BAD_SAMPLE_INDEX + 1],
+        run.sampleTimesMs[run.sampleTimesMs.length - 1] - run.sampleTimesMs[badSampleIndex + 1],
       ).toBeGreaterThanOrEqual(LOAD_WINDOW.MIN_SPAN_MS);
     });
   });
@@ -82,14 +83,14 @@ describe("load gate", () => {
         samples: [quietSample()],
         cpuCount,
         slotFreeAtMs: 0,
-        stallBeforeSampleMs: { [BAD_SAMPLE_INDEX]: overGapStallMs() },
+        stallBeforeSampleMs: { [badSampleIndex]: overGapStallMs() },
       }, lock);
 
       const { result } = await createHostCommandLock(run.deps).run({ command: exitingWorkload(0) });
 
       expect(result?.started).toBe(true);
       expect(
-        run.sampleTimesMs[run.sampleTimesMs.length - 1] - run.sampleTimesMs[BAD_SAMPLE_INDEX],
+        run.sampleTimesMs[run.sampleTimesMs.length - 1] - run.sampleTimesMs[badSampleIndex],
       ).toBeGreaterThanOrEqual(LOAD_WINDOW.MIN_SPAN_MS);
     });
   });

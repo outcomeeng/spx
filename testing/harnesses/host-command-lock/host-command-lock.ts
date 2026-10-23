@@ -11,7 +11,17 @@
  * @module host-command-lock/testing/host-command-lock
  */
 import { type ChildProcess, spawn } from "node:child_process";
-import { closeSync, existsSync, fstatSync, openSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  fstatSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
@@ -19,6 +29,7 @@ import {
   type HostCommandLockDeps,
   type LoadSample,
   LOCK_ENV,
+  LOCK_FILE_SEGMENTS,
   type LockBinding,
   type ResultLine,
   type RunRequest,
@@ -26,6 +37,12 @@ import {
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const TEMP_PREFIX = "host-command-lock-";
+const REPOSITORY_PREFIX = "host-command-lock-repo-";
+const KEEPER_READY_MARK = "ready";
+const KEEPER_INTERVAL_MS = 1_000;
+const PERMISSION_BITS = 0o777;
+const SYMLINK_TARGET_NAME = "target";
+const SYMLINK_NAME = "link";
 const LOCK_FILE_NAME = "orchestration.lock";
 // One Node process runs the supervisor, so its process id and descriptors are the supervisor's own.
 const NODE_BIN = process.execPath;
@@ -369,4 +386,60 @@ export function nestedSupervisorWorkloadWithEnv(
     ...Object.entries(overrides).map(([key, value]) => `${key}=${value}`),
     ...nestedSupervisorWorkload(request),
   ];
+}
+
+/** The signals the evidence delivers or observes. */
+export const SIGNAL = { KILL: "SIGKILL", TERM: "SIGTERM", HUP: "SIGHUP" } as const satisfies Record<
+  string,
+  NodeJS.Signals
+>;
+
+/** The signals a harness kill path delivers to a running guarded command's group, which the supervisor forwards. */
+export const FORWARDED_SIGNALS: readonly NodeJS.Signals[] = [SIGNAL.TERM, SIGNAL.HUP];
+
+/** A fresh directory standing for one repository's working directory. */
+export async function withRepositoryDir<T>(callback: (dir: string) => Promise<T>): Promise<T> {
+  return withTempDir(REPOSITORY_PREFIX, callback);
+}
+
+/** A running process that inherits one descriptor and stays alive until killed. */
+export interface DescriptorKeeper {
+  readonly pid: number;
+  ready(): boolean;
+  kill(): void;
+}
+
+/** Starts a Node process that keeps `inheritedFd` as its descriptor 3 and reports readiness on its standard output. */
+export function startDescriptorKeeper(inheritedFd: number): DescriptorKeeper {
+  const source = `process.stdout.write('${KEEPER_READY_MARK}');setInterval(()=>{},${KEEPER_INTERVAL_MS})`;
+  const child = spawn(NODE_BIN, ["-e", source], { stdio: ["ignore", "pipe", "inherit", inheritedFd] });
+  let ready = false;
+  child.stdout?.on("data", () => {
+    ready = true;
+  });
+  return { pid: child.pid as number, ready: () => ready, kill: () => child.kill(SIGNAL.KILL) };
+}
+
+/** The permission bits of the file or directory at `path`. */
+export function permissionsOf(path: string): number {
+  return statSync(path).mode & PERMISSION_BITS;
+}
+
+/** The size in bytes of the file at `path`. */
+export function sizeOf(path: string): number {
+  return statSync(path).size;
+}
+
+/** The orchestration lock file below `dir`, inside directories named by `segments` that do not exist yet. */
+export function missingDirectoryLockPath(dir: string, segments: readonly string[]): string {
+  return join(dir, ...segments, LOCK_FILE_SEGMENTS[LOCK_FILE_SEGMENTS.length - 1]);
+}
+
+/** An empty file and a symbolic link to it, both below `dir`. */
+export function symlinkedLockPath(dir: string): { readonly target: string; readonly link: string } {
+  const target = join(dir, SYMLINK_TARGET_NAME);
+  const link = join(dir, SYMLINK_NAME);
+  writeFileSync(target, "");
+  symlinkSync(target, link);
+  return { target, link };
 }
