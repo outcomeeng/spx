@@ -59,7 +59,8 @@ import {
   isStagedSnapshotMissing,
   planChangedTestSelection,
 } from "./changed-set-planning";
-import { runTests, type TestDispatchResult } from "./dispatch";
+import { dispatchSelectedTests, runTests, type TestDispatchResult } from "./dispatch";
+import { selectTestFiles, type TestSelection } from "./selection";
 
 // Non-empty sentinel for branch/head-SHA when git resolution returns null (no
 // repo, detached HEAD, or no commits) — the recorded state's identity fields must
@@ -542,6 +543,8 @@ export interface PlannedTestsRun {
   readonly selectedTargets: TargetSelection | undefined;
   readonly passingScope: PathFilterConfig | undefined;
   readonly changedSelection: ChangedTestSelection | undefined;
+  /** The files the request selects, resolved once for the lookup and the dispatch. */
+  readonly selection: TestSelection;
   readonly testingConfigDigest: string;
   readonly snapshotFileReader: SnapshotFileReader | undefined;
 }
@@ -601,7 +604,16 @@ export async function planTestsRun(
   const snapshotFileReader = stagedChangedRun
     ? stagedSnapshotFileReader(options.productDir, changedGit)
     : undefined;
-  return { options, selectedTargets, passingScope, changedSelection, testingConfigDigest: digest, snapshotFileReader };
+  const selection = await selectTestFiles({ productDir: options.productDir, passingScope, targets: selectedTargets });
+  return {
+    options,
+    selectedTargets,
+    passingScope,
+    changedSelection,
+    selection,
+    testingConfigDigest: digest,
+    snapshotFileReader,
+  };
 }
 
 /** The changed source files no language adapter resolved into related tests; a full-tree selection leaves none. */
@@ -620,7 +632,8 @@ export async function executePlannedTestsRun(
   const { options } = plan;
   const recording = resolveRecordingDependencies(deps);
   const runFile = await reserveRunFile(options.productDir, recording);
-  const dispatch = await runTests(
+  const dispatch = await dispatchSelectedTests(
+    plan.selection,
     {
       productDir: options.productDir,
       registry: deps.registry,

@@ -11,7 +11,7 @@ import type {
 import type { TestingRegistry } from "@/test/registry";
 import { TEST_PATH_VERDICT, type TestPathVerdict, type TestRunnerOutcome } from "@/test/run-state";
 
-import { selectTestFiles } from "./selection";
+import { selectTestFiles, type TestSelection } from "./selection";
 
 /**
  * Outcome of a `spx test` dispatch: aggregate exit code, the dispatched groups,
@@ -80,7 +80,18 @@ export async function runTests(
   options: TestDispatchOptions,
   deps: TestDispatchDependencies,
 ): Promise<TestDispatchResult> {
-  const selection = await selectTestFiles(options);
+  return await dispatchSelectedTests(await selectTestFiles(options), options, deps);
+}
+
+/**
+ * Dispatches a selection a caller already resolved, so a request that consulted
+ * its selection before dispatching discovers its files once.
+ */
+export async function dispatchSelectedTests(
+  selection: TestSelection,
+  options: TestDispatchOptions,
+  deps: TestDispatchDependencies,
+): Promise<TestDispatchResult> {
   const testFiles = selection.selected;
   const { groups, unmatched } = groupTestFiles(testFiles, options.registry.languages);
   const runnerExcludedNodePaths = excludedNodePaths(options.passingScope);

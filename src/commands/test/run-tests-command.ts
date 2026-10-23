@@ -13,7 +13,6 @@ import {
   type TestsCommandResult,
   unresolvedChangedSourceFilesOf,
 } from "./run-command";
-import { selectTestFiles } from "./selection";
 
 /**
  * Runs the spec tree's tests — every discovered file, or only the configured
@@ -49,12 +48,7 @@ async function reuseRecordedRun(
   plan: PlannedTestsRun,
   deps: TestCommandDependencies,
 ): Promise<ReusedTestRun | undefined> {
-  const { options } = plan;
-  const selection = await selectTestFiles({
-    productDir: options.productDir,
-    passingScope: plan.passingScope,
-    targets: plan.selectedTargets,
-  });
+  const { options, selection } = plan;
   if (selection.selected.length === 0 || selection.unresolvedTargets.length > 0) return undefined;
   if (unresolvedChangedSourceFilesOf(plan).length > 0) return undefined;
   if (groupTestFiles(selection.selected, deps.registry.languages).unmatched.length > 0) return undefined;
