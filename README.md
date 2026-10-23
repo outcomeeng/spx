@@ -2,7 +2,7 @@
 
 Developer CLI for code validation and session management.
 
-Current release: 0.9.0
+Current release: 0.10.0
 
 ## What is spx?
 
@@ -78,8 +78,17 @@ spx verification <type> run <path...>
 Record and inspect the runs that serve one Change:
 
 ```bash
+# Report, without writing, the directories a run of this type and scope writes
+spx verification run paths --verification-type <type> --scope-type <scope-type> --scope <scope>
+
 # Record the Change a run serves, alongside the options every run start takes
 spx verification run start --verification-type <type> --scope-type <scope-type> --scope <scope> --input <input-source> --change <owner/repo#N>
+
+# Optionally record the Verifier (person or agent) and bind a changeset run to its expectations
+spx verification run start ... --verifier agent:<id> --expectations <expectations-source>
+
+# Report unaccounted, unexpected, and drifted paths; exits zero only when the run reconciles
+spx verification run reconcile --run <token>
 
 # List the runs recorded for a Change as JSON
 spx verification run list --change <owner/repo#N>
@@ -89,6 +98,18 @@ spx verification run compare --change <owner/repo#N> --run <token> --run <token>
 ```
 
 Operands resolve from the product root using the same vocabulary as `spx test`; a product-root operand selects the whole tree. The run is rooted at the worktree, warns when that root lies outside a repository, and reports a verification type without a runner instead of opening a run.
+
+A run started with `--expectations` is sealed by its first `finish` only when its recorded scope evidence reconciles.
+
+### Host Command Lock
+
+Run a heavy command under one host-wide slot shared by every repository, worktree, and session on the machine:
+
+```bash
+spx orchestration lock [--run-id <id>] [--wait-seconds <n>] -- <command> [arguments...]
+```
+
+The command starts once it holds the slot and the host load has stayed quiet through a fresh sampling window. Its standard streams and exit code pass through, and the final standard-error line is a JSON result. When the wait cap expires the command does not start and the exit code is 3. Supported only on macOS arm64 with local storage.
 
 ### Session Management
 
