@@ -244,6 +244,9 @@ async function runTestingAction(
   const result = await deps.runTests(productDir, passing, targets, changed, requireExecution);
   if (result.kind === TEST_RESULT_KIND.REUSED) {
     deps.writeStdout(`${REUSED_RUN_REPORT}: ${result.runFile.runFilePath}\n`);
+    for (const { testPath, verdict } of result.outcomes.flatMap((outcome) => outcome.pathVerdicts)) {
+      deps.writeStdout(`${testPath}: ${verdict}\n`);
+    }
     deps.exit(SUCCESS_EXIT_CODE);
   }
   reportAndExit(result.dispatch, deps);
