@@ -5,10 +5,13 @@ import { describe, expect, it } from "vitest";
 
 import { defaultGitDependencies, detectWorktreeProductRoot } from "@/lib/git/root";
 import {
+  NODE_STATUS_DEFAULT_MALLEABILITY,
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_EXCLUDE_LINE_GRAMMAR,
   NODE_STATUS_FIELD,
+  NODE_STATUS_SOURCE_AUDIT_TAG_FORM,
   NODE_STATUS_VERIFICATION_MECHANISM,
+  readNodeSpecDeclaration,
 } from "@/lib/node-status";
 import {
   recognizeSpecTreeFilesystemEntry,
@@ -24,6 +27,7 @@ import {
   CLASSIFICATION_FIXTURE_PATHS,
   readVersion1NodeStatus,
   withClassificationTree,
+  withSourceGrammarTree,
   withStatusWriterTree,
 } from "@testing/harnesses/node-status/node-status";
 import {
@@ -213,6 +217,39 @@ describe("node-status test support", () => {
                 excludeFile.split(NODE_STATUS_EXCLUDE_LINE_GRAMMAR.ENTRY_SEPARATOR).filter((line) => line.length > 0)
                   .sort(compareAsciiStrings),
               ).toEqual(excludedNodeIds.sort(compareAsciiStrings));
+            }
+          });
+        },
+        PROPERTY_CLASSIFICATION.SMALL_L1,
+      );
+    },
+    propertyTestEnvelopeTimeoutMs(PROPERTY_CLASSIFICATION.SMALL_L1),
+  );
+
+  it(
+    "materializes generated source-grammar nodes with each audit-tag form and declared malleability read back from their specs",
+    async () => {
+      await assertProperty(
+        NODE_STATUS_TEST_GENERATOR.sourceGrammarTree(),
+        async (fixture) => {
+          await withSourceGrammarTree(fixture, async ({ env }) => {
+            expect(new Set(fixture.nodes.map((node) => node.facts.auditTagForm))).toEqual(
+              new Set(Object.values(NODE_STATUS_SOURCE_AUDIT_TAG_FORM)),
+            );
+
+            for (const node of fixture.nodes) {
+              const declaration = await readNodeSpecDeclaration(env.productDir, node.dirName);
+              expect(declaration.malleability).toBe(
+                node.facts.declaredMalleability ?? NODE_STATUS_DEFAULT_MALLEABILITY,
+              );
+              expect(declaration.auditTagForms).toEqual(
+                node.facts.auditTagForm === NODE_STATUS_SOURCE_AUDIT_TAG_FORM.NONE
+                  ? []
+                  : [node.facts.auditTagForm],
+              );
+              expect(declaration.auditRuleSlugs).toEqual(
+                node.facts.auditTagForm === NODE_STATUS_SOURCE_AUDIT_TAG_FORM.LINKED ? [node.facts.auditRuleSlug] : [],
+              );
             }
           });
         },
