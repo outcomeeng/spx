@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   NODE_STATUS_MALLEABILITY,
-  type NodeStatusMalleability,
   NODE_STATUS_SOURCE_AUDIT_TAG_FORM,
+  type NodeStatusMalleability,
   type NodeStatusSourceAuditTagForm,
   updateNodeStatus,
 } from "@/lib/node-status";
@@ -20,9 +20,14 @@ const PATHLESS_AUDIT_TAG_FORMS: readonly NodeStatusSourceAuditTagForm[] = [
   NODE_STATUS_SOURCE_AUDIT_TAG_FORM.AUDIT,
 ];
 
-const MALLEABILITIES: readonly (NodeStatusMalleability | undefined)[] = [...Object.values(NODE_STATUS_MALLEABILITY), undefined];
+const MALLEABILITIES: readonly (NodeStatusMalleability | undefined)[] = [
+  ...Object.values(NODE_STATUS_MALLEABILITY),
+  undefined,
+];
 const { node, facts: drawn } = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.sourceGrammarRepository());
-const PAIRS: readonly SourceGrammarFixtureFacts[] = Object.values(NODE_STATUS_SOURCE_AUDIT_TAG_FORM).flatMap((auditTagForm) =>
+const PAIRS: readonly SourceGrammarFixtureFacts[] = Object.values(NODE_STATUS_SOURCE_AUDIT_TAG_FORM).flatMap((
+  auditTagForm,
+) =>
   MALLEABILITIES.map((declaredMalleability): SourceGrammarFixtureFacts => ({
     auditTagForm,
     auditRuleSlug: drawn.auditRuleSlug,
