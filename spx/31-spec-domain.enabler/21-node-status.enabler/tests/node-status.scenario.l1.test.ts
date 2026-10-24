@@ -12,6 +12,7 @@ import {
   NODE_STATUS_FIELD,
   NODE_STATUS_MALLEABILITY,
   NODE_STATUS_SCHEMA_VERSION,
+  NODE_STATUS_SOURCE_AUDIT_TAG_FORM,
   NODE_STATUS_VERIFICATION_MECHANISM,
   nodeStatusClaimResults,
   readNodeStatus,
@@ -33,6 +34,7 @@ import {
   createConsultationRecordingResolver,
   currentMethodologyConfig,
   listNodeStatusFiles,
+  migratingMethodologyConfig,
   PINNED_SPEC_FIXTURE,
   readVersion1NodeStatus,
   withClassificationTree,
@@ -535,5 +537,28 @@ describe("spx spec status --update over a node with linked verification referenc
         }
       },
     );
+  });
+});
+
+describe("given a product migrating from 3.2 and a source-grammar node that declares no malleability, whose linked tests pass and whose claim carries no evidence-audit result", () => {
+  it("when node status is read, does not derive passing", async () => {
+    const { node, facts: drawn } = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.sourceGrammarRepository());
+    const facts = {
+      auditTagForm: NODE_STATUS_SOURCE_AUDIT_TAG_FORM.NONE,
+      auditRuleSlug: drawn.auditRuleSlug,
+      declaredMalleability: undefined,
+    };
+    await withPinnedNodeRepository(node, migratingMethodologyConfig(), async (repository) => {
+      const subject = repository.subjectPaths[0] ?? "";
+      await updateNodeStatus({
+        productDir: repository.env.productDir,
+        resolveOutcome: repository.passingOutcomes,
+        resolveReadPaths: () => Promise.resolve([subject]),
+        gitDependencies: repository.git,
+      });
+      await repository.commitAll();
+
+      expect(await repository.readState()).not.toBe(SPEC_TREE_NODE_STATE.PASSING);
+    }, facts);
   });
 });
