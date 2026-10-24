@@ -309,11 +309,25 @@ function sourceGrammarAssertionLines(facts: SourceGrammarFixtureFacts): readonly
 }
 
 /** A source-grammar spec: front matter only when it declares a malleability, then the assertion its audit-tag form tags. */
-function sourceGrammarSpecText(facts: SourceGrammarFixtureFacts): string {
+function sourceGrammarSpecText(facts: SourceGrammarFixtureFacts, linkedTestReference?: string): string {
   const frontMatter = facts.declaredMalleability === undefined
     ? []
     : [FRONT_MATTER_FENCE, `${SPEC_CONTEXT_SELECTED_METADATA_KEY}: ${facts.declaredMalleability}`, FRONT_MATTER_FENCE];
-  return [...frontMatter, ...SOURCE_GRAMMAR_SPEC_OPENING, ...sourceGrammarAssertionLines(facts), ""].join("\n");
+  const linkedTestLines = linkedTestReference === undefined
+    ? []
+    : [
+      "",
+      "### Scenarios",
+      "",
+      `- Given an input, when it is processed, then the output is produced ([test](${linkedTestReference}))`,
+    ];
+  return [
+    ...frontMatter,
+    ...SOURCE_GRAMMAR_SPEC_OPENING,
+    ...sourceGrammarAssertionLines(facts),
+    ...linkedTestLines,
+    "",
+  ].join("\n");
 }
 
 export type SourceGrammarTreeEnv = {
@@ -698,6 +712,7 @@ const UNRELATED_FILE_PATH = "unrelated.txt";
 const AUDIT_RULE_TAG_PATTERN = /\[audit:([a-z0-9-]+)\]/g;
 const AUDIT_RULE_TAG_GROUP = 1;
 const VARIANT_SUBJECT_DIRECTORY = "src";
+const GENERATED_LINKED_TEST_SUFFIX = ".scenario.l1.test.ts";
 
 /** A committed single-node repository whose results can be pinned to its spec, tests, and source subjects. */
 export type PinnedNodeRepository = {
@@ -776,17 +791,24 @@ export type PinnedNodeRepository = {
 
 /**
  * Materialize and commit a node with a spec linking two tests and tagging two audit rules, the tests, and the
- * source subjects of `fixture`, in a temporary product directory under the methodology `config` declares.
+ * source subjects of `fixture`, in a temporary product directory under the methodology `config` declares. The spec
+ * is read from the fixture file `spec` names, or, given source-grammar facts, written in that grammar with each
+ * fact's audit-tag form and malleability and a link to one test named for the node's slug.
  */
 export async function withPinnedNodeRepository(
   fixture: PinnedNodeFixture,
   config: Config,
   callback: (repository: PinnedNodeRepository) => Promise<void>,
-  specFixturePath: string = PINNED_SPEC_FIXTURE.DEFAULT,
+  spec: string | SourceGrammarFixtureFacts = PINNED_SPEC_FIXTURE.DEFAULT,
 ): Promise<void> {
   await withTestEnv(config, async (env) => {
     const [specContent, testContent] = await Promise.all([
-      readFixture(specFixturePath),
+      typeof spec === "string"
+        ? readFixture(spec)
+        : sourceGrammarSpecText(
+          spec,
+          [EVIDENCE_DIRECTORY, `${fixture.slug}${GENERATED_LINKED_TEST_SUFFIX}`].join(PATH_SEPARATOR),
+        ),
       readFixture(CLASSIFICATION_FIXTURE_PATHS.test),
     ]);
     const ancestorSegments = fixture.ancestor === undefined ? [] : [fixture.ancestor.dirName];
@@ -886,10 +908,14 @@ export async function withPinnedNodeRepository(
       subjectPaths: fixture.subjectPaths,
       commit,
       git: isolatedFixtureGitDependencies,
-      auditRuleSlugs: [...specContent.matchAll(AUDIT_RULE_TAG_PATTERN)].flatMap((match) => {
-        const slug = match.at(AUDIT_RULE_TAG_GROUP);
-        return slug === undefined ? [] : [slug];
-      }),
+      auditRuleSlugs: typeof spec === "string"
+        ? [...specContent.matchAll(AUDIT_RULE_TAG_PATTERN)].flatMap((match) => {
+          const slug = match.at(AUDIT_RULE_TAG_GROUP);
+          return slug === undefined ? [] : [slug];
+        })
+        : spec.auditTagForm === NODE_STATUS_SOURCE_AUDIT_TAG_FORM.LINKED
+        ? [spec.auditRuleSlug]
+        : [],
       get pinChanges() {
         return createPinChangeReader({ productDir: env.productDir, git: isolatedFixtureGitDependencies });
       },

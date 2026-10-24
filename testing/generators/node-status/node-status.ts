@@ -142,6 +142,12 @@ export type SourceGrammarTreeFixture = {
   readonly nodes: readonly SourceGrammarTreeNode[];
 };
 
+/** A pinned node whose spec is written in the migration source's grammar from `facts`. */
+export type SourceGrammarRepositoryFixture = {
+  readonly node: PinnedNodeFixture;
+  readonly facts: SourceGrammarFixtureFacts;
+};
+
 /**
  * One linked evidence reference of a status-writer-tree node: the node-relative
  * reference path, the outcome the injected resolver reports for it — absent when a
@@ -195,6 +201,7 @@ export const NODE_STATUS_TEST_GENERATOR = {
   classificationTreeWithVerificationReferences: arbitraryClassificationTreeWithVerificationReferences,
   delegationTree: arbitraryDelegationTree,
   sourceGrammarTree: arbitrarySourceGrammarTree,
+  sourceGrammarRepository: arbitrarySourceGrammarRepository,
   statusReference: arbitraryStatusReference,
   evidenceOutcome: arbitraryEvidenceOutcome,
   contradictingEvidenceOutcome: arbitraryContradictingEvidenceOutcome,
@@ -982,6 +989,17 @@ function arbitrarySourceGrammarTree(): fc.Arbitrary<SourceGrammarTreeFixture> {
       )
     )
     .map((nodes) => ({ nodes }));
+}
+
+// A pinned node paired with the facts of one node of a generated source-grammar tree, so a drawn repository
+// carries any audit-tag form crossed with any declared malleability or none.
+function arbitrarySourceGrammarRepository(): fc.Arbitrary<SourceGrammarRepositoryFixture> {
+  return fc
+    .tuple(
+      arbitraryPinnedNode(),
+      arbitrarySourceGrammarTree().chain((tree) => fc.constantFrom(...tree.nodes.map((node) => node.facts))),
+    )
+    .map(([node, facts]) => ({ node, facts }));
 }
 
 function delegationNode(
