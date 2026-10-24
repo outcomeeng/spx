@@ -14,11 +14,16 @@ import {
   type NodeStatusClaimSection,
   type NodeStatusClaimVerification,
 } from "./claim";
-import { type ClaimHistoryReader, classifyNodeClaim, governingDeclarationPaths } from "./claim-state";
+import {
+  type ClaimHistoryReader,
+  classifyNodeClaim,
+  governingDeclarationPaths,
+  type NodeStatusResultFact,
+} from "./claim-state";
 import { NODE_STATUS_EVIDENCE_OUTCOME, type NodeStatusEvidenceOutcome } from "./classify";
 import { NODE_STATUS_CURRENCY, type PinChangeReader, resultCurrency } from "./currency";
 import { NODE_STATUS_FILENAME } from "./read";
-import type { NodeSpecDeclaration } from "./spec-declaration";
+import { NODE_STATUS_SOURCE_AUDIT_TAG_FORM, type NodeSpecDeclaration } from "./spec-declaration";
 
 const PATH_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
 const ROOT_PREFIX = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${PATH_SEPARATOR}`;
@@ -153,7 +158,7 @@ export async function foldNodeClaim(input: NodeClaimFoldInput): Promise<NodeStat
   );
   const facts = {
     requiredArtifactsMissing: input.evidencePaths.length === 0,
-    results,
+    results: [...results, ...unrecordableResults(input.declaration)],
   };
   let state = classifyNodeClaim({ ...facts, recordedPassingAtOrAfterDeclaration: false });
   if (state !== SPEC_TREE_NODE_STATE.PASSING) {
@@ -170,6 +175,18 @@ export async function foldNodeClaim(input: NodeClaimFoldInput): Promise<NodeStat
     [NODE_STATUS_CLAIM_FIELD.MALLEABILITY]: input.declaration.malleability,
     [NODE_STATUS_CLAIM_FIELD.VERIFICATION]: verification,
   };
+}
+
+/**
+ * A pathless source-grammar audit tag keys no claim entry, so the result it requires can never be recorded:
+ * each such tag contributes one required result that is not run and carries no pin.
+ */
+export function unrecordableResults(declaration: NodeSpecDeclaration): readonly NodeStatusResultFact[] {
+  return declaration.auditTagForms
+    .filter((form) =>
+      form === NODE_STATUS_SOURCE_AUDIT_TAG_FORM.REVIEW || form === NODE_STATUS_SOURCE_AUDIT_TAG_FORM.AUDIT
+    )
+    .map(() => ({ verdict: NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN, currency: NODE_STATUS_CURRENCY.UNPINNED }));
 }
 
 type PinCandidate = {

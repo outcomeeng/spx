@@ -27,7 +27,9 @@ import {
 import { classifyNodeStatus, hasNodeStatusVerificationReferences } from "./classify";
 import { createPinChangeReader, resultCurrency } from "./currency";
 import { createNodeStatusExcludeReader } from "./exclude";
+import { unrecordableResults } from "./fold";
 import { NODE_STATUS_FILENAME, parseNodeStatusFile } from "./read";
+import { readNodeSpecDeclaration } from "./spec-declaration";
 import { collectNodeStatusFiles } from "./status-files";
 
 export const VARIANT_DIRECTORY_SUFFIX = ".variant";
@@ -104,12 +106,13 @@ export async function createNodeStatusProvider(
   };
 
   async function classifyClaim(nodeId: string, claim: NodeStatusClaim): Promise<SpecTreeNodeState> {
-    const results = await Promise.all(
+    const recorded = await Promise.all(
       nodeStatusClaimResults(claim).map(async ({ section, entry }) => ({
         verdict: entry[NODE_STATUS_CLAIM_FIELD.VERDICT],
         currency: await resultCurrency(section, entry, pinChanges),
       })),
     );
+    const results = [...recorded, ...unrecordableResults(await readNodeSpecDeclaration(productDir, nodeId))];
     const nodePath = `${ROOT_PREFIX}${nodeId}`;
     const facts = {
       requiredArtifactsMissing: !claimLinksEvidenceArtifacts(claim),
