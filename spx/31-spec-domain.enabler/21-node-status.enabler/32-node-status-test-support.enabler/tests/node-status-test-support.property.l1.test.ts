@@ -58,6 +58,7 @@ describe("node-status test support", () => {
       NODE_STATUS_TEST_GENERATOR.classificationTree(),
       async (fixture) => {
         await withClassificationTree(fixture, async ({ env, expectations, recordOutcomeEvidence }) => {
+          expect((await detectWorktreeProductRoot(env.productDir, defaultGitDependencies)).isGitRepo).toBe(false);
           expect(expectations.map((expectation) => expectation.nodeId)).toEqual(
             fixture.nodes.map((node) => node.dirName),
           );
@@ -162,6 +163,7 @@ describe("node-status test support", () => {
           await withClassificationTree(fixture, async ({ env }) => {
             const rootConfigFile = configFileForFormat(env.productDir, DEFAULT_CONFIG_FILE_FORMAT).filename;
             await readFile(join(env.productDir, rootConfigFile));
+            expect((await detectWorktreeProductRoot(env.productDir, defaultGitDependencies)).isGitRepo).toBe(false);
             await trackSpecTree(env.productDir);
             const indexed = await readIndex(env.productDir);
             expect(sortedPaths(indexed)).toEqual(sortedPaths(declaredPaths));
