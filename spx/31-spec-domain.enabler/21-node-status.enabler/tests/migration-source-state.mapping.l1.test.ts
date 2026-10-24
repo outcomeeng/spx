@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   NODE_STATUS_MALLEABILITY,
+  type NodeStatusMalleability,
   NODE_STATUS_SOURCE_AUDIT_TAG_FORM,
   type NodeStatusSourceAuditTagForm,
   updateNodeStatus,
@@ -19,37 +20,39 @@ const PATHLESS_AUDIT_TAG_FORMS: readonly NodeStatusSourceAuditTagForm[] = [
   NODE_STATUS_SOURCE_AUDIT_TAG_FORM.AUDIT,
 ];
 
+const MALLEABILITIES: readonly (NodeStatusMalleability | undefined)[] = [...Object.values(NODE_STATUS_MALLEABILITY), undefined];
+const { node, facts: drawn } = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.sourceGrammarRepository());
+const PAIRS: readonly SourceGrammarFixtureFacts[] = Object.values(NODE_STATUS_SOURCE_AUDIT_TAG_FORM).flatMap((auditTagForm) =>
+  MALLEABILITIES.map((declaredMalleability): SourceGrammarFixtureFacts => ({
+    auditTagForm,
+    auditRuleSlug: drawn.auditRuleSlug,
+    declaredMalleability,
+  }))
+);
+
 describe("classification of a source-grammar node under a declaration migrating from 3.2, over every audit-tag form crossed with every declared malleability", () => {
-  it("maps a node with no audit tag or a linked tag to passing and a node with a pathless tag to specified, at any malleability", async () => {
-    const { node, facts: drawn } = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.sourceGrammarRepository());
-    const malleabilities = [...Object.values(NODE_STATUS_MALLEABILITY), undefined];
-    const pairs = Object.values(NODE_STATUS_SOURCE_AUDIT_TAG_FORM).flatMap((auditTagForm) =>
-      malleabilities.map((declaredMalleability): SourceGrammarFixtureFacts => ({
-        auditTagForm,
-        auditRuleSlug: drawn.auditRuleSlug,
-        declaredMalleability,
-      }))
-    );
-    expect(pairs).toHaveLength(Object.values(NODE_STATUS_SOURCE_AUDIT_TAG_FORM).length * malleabilities.length);
+  it("covers every audit-tag form crossed with every declared malleability", () => {
+    expect(PAIRS).toHaveLength(Object.values(NODE_STATUS_SOURCE_AUDIT_TAG_FORM).length * MALLEABILITIES.length);
+  });
 
-    for (const facts of pairs) {
-      await withPinnedNodeRepository(node, migratingMethodologyConfig(), async (repository) => {
-        const subject = repository.subjectPaths[0] ?? "";
-        await updateNodeStatus({
-          productDir: repository.env.productDir,
-          resolveOutcome: repository.passingOutcomes,
-          resolveReadPaths: () => Promise.resolve([subject]),
-          resolveAttributedResults: repository.passedAttributedResults([subject]),
-          gitDependencies: repository.git,
-        });
-        await repository.commitAll();
+  it.each(PAIRS.map((facts) => ({
+    facts,
+    expected: PATHLESS_AUDIT_TAG_FORMS.includes(facts.auditTagForm)
+      ? SPEC_TREE_NODE_STATE.SPECIFIED
+      : SPEC_TREE_NODE_STATE.PASSING,
+  })))("$facts.auditTagForm × $facts.declaredMalleability → $expected", async ({ facts, expected }) => {
+    await withPinnedNodeRepository(node, migratingMethodologyConfig(), async (repository) => {
+      const subject = repository.subjectPaths[0] ?? "";
+      await updateNodeStatus({
+        productDir: repository.env.productDir,
+        resolveOutcome: repository.passingOutcomes,
+        resolveReadPaths: () => Promise.resolve([subject]),
+        resolveAttributedResults: repository.passedAttributedResults([subject]),
+        gitDependencies: repository.git,
+      });
+      await repository.commitAll();
 
-        expect(await repository.readState(), JSON.stringify(facts)).toBe(
-          PATHLESS_AUDIT_TAG_FORMS.includes(facts.auditTagForm)
-            ? SPEC_TREE_NODE_STATE.SPECIFIED
-            : SPEC_TREE_NODE_STATE.PASSING,
-        );
-      }, facts);
-    }
+      expect(await repository.readState(), JSON.stringify(facts)).toBe(expected);
+    }, facts);
   });
 });
