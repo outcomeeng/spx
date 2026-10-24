@@ -10,8 +10,10 @@ import type {
   NodeStatusCurrency,
   NodeStatusEvidenceOutcome,
   NodeStatusFile,
+  NodeStatusMalleability,
   NodeStatusMechanismOverall,
   NodeStatusMechanismRecord,
+  NodeStatusSourceAuditTagForm,
   NodeStatusVerification,
 } from "@/lib/node-status";
 import {
@@ -25,6 +27,7 @@ import {
   NODE_STATUS_MALLEABILITY,
   NODE_STATUS_MECHANISM_OVERALL,
   NODE_STATUS_SCHEMA_VERSION,
+  NODE_STATUS_SOURCE_AUDIT_TAG_FORM,
   NODE_STATUS_VERIFICATION_MECHANISM,
 } from "@/lib/node-status";
 import { VARIANT_DIRECTORY_SUFFIX } from "@/lib/node-status/provider";
@@ -44,6 +47,8 @@ const NODE_STATUS_GENERATOR_OPTIONS = {
   ORDER_MAX: 99,
   MIN_NODES: 1,
   MAX_NODES: 5,
+  /** Most nodes a source-grammar tree adds beyond the one per form-and-malleability pair. */
+  MAX_EXTRA_SOURCE_GRAMMAR_NODES: 4,
   FAILURE_EXIT_CODE: 1,
   /** Most linked evidence references a status-writer-tree node carries. */
   MAX_LINKED_REFERENCES: 4,
@@ -118,6 +123,25 @@ export type ClassificationTreeFixture = {
   readonly nodes: readonly ClassificationTreeNode[];
 };
 
+/** What a source-grammar node's spec declares: its audit-tag form, the rule slug a linked tag names, and its malleability. */
+export type SourceGrammarFixtureFacts = {
+  readonly auditTagForm: NodeStatusSourceAuditTagForm;
+  /** The rule slug a linked audit tag names; carried by every node and written only under the linked form. */
+  readonly auditRuleSlug: string;
+  /** The malleability the spec's front matter declares; absent when the spec declares none. */
+  readonly declaredMalleability: NodeStatusMalleability | undefined;
+};
+
+export type SourceGrammarTreeNode = {
+  readonly dirName: string;
+  readonly slug: string;
+  readonly facts: SourceGrammarFixtureFacts;
+};
+
+export type SourceGrammarTreeFixture = {
+  readonly nodes: readonly SourceGrammarTreeNode[];
+};
+
 /**
  * One linked evidence reference of a status-writer-tree node: the node-relative
  * reference path, the outcome the injected resolver reports for it — absent when a
@@ -170,6 +194,7 @@ export const NODE_STATUS_TEST_GENERATOR = {
   classificationTree: arbitraryClassificationTree,
   classificationTreeWithVerificationReferences: arbitraryClassificationTreeWithVerificationReferences,
   delegationTree: arbitraryDelegationTree,
+  sourceGrammarTree: arbitrarySourceGrammarTree,
   statusReference: arbitraryStatusReference,
   evidenceOutcome: arbitraryEvidenceOutcome,
   contradictingEvidenceOutcome: arbitraryContradictingEvidenceOutcome,
@@ -911,6 +936,49 @@ export function arbitraryDelegationTree(): fc.Arbitrary<ClassificationTreeFixtur
         delegationNode(stageOrder, true, false),
         delegationNode(declaredOrder, false, false),
         delegationNode(specifiedOrder, true, true),
+      )
+    )
+    .map((nodes) => ({ nodes }));
+}
+
+/** Every audit-tag form crossed with every declared malleability and the absent declaration. */
+const SOURCE_GRAMMAR_FACT_PAIRS: readonly Omit<SourceGrammarFixtureFacts, "auditRuleSlug">[] = Object.values(
+  NODE_STATUS_SOURCE_AUDIT_TAG_FORM,
+).flatMap((auditTagForm) =>
+  [...Object.values(NODE_STATUS_MALLEABILITY), undefined].map((declaredMalleability) => ({
+    auditTagForm,
+    declaredMalleability,
+  }))
+);
+
+// A source-grammar tree whose nodes always include one node for every pair of audit-tag form and declared
+// malleability (or none declared); only the slugs, rule slugs, orders, and any extra nodes vary by draw.
+function arbitrarySourceGrammarTree(): fc.Arbitrary<SourceGrammarTreeFixture> {
+  return fc
+    .integer({ min: 0, max: NODE_STATUS_GENERATOR_OPTIONS.MAX_EXTRA_SOURCE_GRAMMAR_NODES })
+    .chain((extraCount) =>
+      fc.tuple(
+        fc.uniqueArray(
+          fc.integer({ min: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MIN, max: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MAX }),
+          {
+            minLength: SOURCE_GRAMMAR_FACT_PAIRS.length + extraCount,
+            maxLength: SOURCE_GRAMMAR_FACT_PAIRS.length + extraCount,
+          },
+        ),
+        fc.array(fc.constantFrom(...SOURCE_GRAMMAR_FACT_PAIRS), { minLength: extraCount, maxLength: extraCount }),
+      )
+    )
+    .chain(([orders, extraPairs]) =>
+      fc.tuple(
+        ...[...SOURCE_GRAMMAR_FACT_PAIRS, ...extraPairs].map((pair, index) =>
+          fc.record({ slug: arbitraryNodeSlug(), auditRuleSlug: arbitraryNodeSlug() }).map(
+            ({ slug, auditRuleSlug }) => ({
+              dirName: nodeDirectoryName(orders[index] ?? NODE_STATUS_GENERATOR_OPTIONS.ORDER_MIN, slug),
+              slug,
+              facts: { ...pair, auditRuleSlug },
+            }),
+          )
+        ),
       )
     )
     .map((nodes) => ({ nodes }));
