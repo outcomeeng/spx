@@ -21,6 +21,8 @@ import {
   recognizeSpecTreeFilesystemEntry,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
+  SPEC_TREE_EVIDENCE_FILE,
+  SPEC_TREE_EVIDENCE_LINK_TEXT,
   SPEC_TREE_FILESYSTEM_RECORD_TYPE,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_METHODOLOGY_LINE,
@@ -28,14 +30,16 @@ import {
 import { compareAsciiStrings } from "@/lib/state-store";
 import { TEST_RUN_STATE_STATUS } from "@/test/run-state";
 import { NODE_STATUS_READABLE_SLUGS, NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
-import { GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
+import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import {
   CLASSIFICATION_FIXTURE_PATHS,
   listNodeStatusFiles,
+  migratingMethodologyConfig,
   readVersion1NodeStatus,
   runFixtureGit,
   trackSpecTree,
   withClassificationTree,
+  withPinnedNodeRepository,
   withSourceGrammarTree,
   withStatusWriterTree,
 } from "@testing/harnesses/node-status/node-status";
@@ -325,6 +329,68 @@ describe("node-status test support", () => {
               );
             }
           });
+        },
+        PROPERTY_CLASSIFICATION.SMALL_L1,
+      );
+    },
+    propertyTestEnvelopeTimeoutMs(PROPERTY_CLASSIFICATION.SMALL_L1),
+  );
+
+  it(
+    "commits generated source-grammar node repositories with their declared audit-tag form, malleability, linked test and subjects, and resolvers that answer every requirement as passed",
+    async () => {
+      await assertProperty(
+        NODE_STATUS_TEST_GENERATOR.sourceGrammarRepository(),
+        async ({ node, facts }) => {
+          await withPinnedNodeRepository(node, migratingMethodologyConfig(), async (repository) => {
+            const declaration = await readNodeSpecDeclaration(repository.env.productDir, repository.nodeId);
+            expect(declaration.malleability).toBe(facts.declaredMalleability ?? NODE_STATUS_DEFAULT_MALLEABILITY);
+            expect(declaration.auditTagForms).toEqual(
+              facts.auditTagForm === NODE_STATUS_SOURCE_AUDIT_TAG_FORM.NONE ? [] : [facts.auditTagForm],
+            );
+            const requiredAuditSlugs = facts.auditTagForm === NODE_STATUS_SOURCE_AUDIT_TAG_FORM.LINKED
+              ? [facts.auditRuleSlug]
+              : [];
+            expect(declaration.auditRuleSlugs).toEqual(requiredAuditSlugs);
+
+            const tracked =
+              (await runFixtureGit(repository.env.productDir, [GIT_TEST_SUBCOMMANDS.LS_FILES, GIT_NULL_DELIMITED_FLAG]))
+                .split(GIT_NULL_RECORD_SEPARATOR)
+                .filter((line) => line.length > 0);
+            expect(
+              await runFixtureGit(repository.env.productDir, [
+                GIT_TEST_SUBCOMMANDS.STATUS,
+                GIT_TEST_FLAGS.PORCELAIN,
+              ]),
+            ).toHaveLength(0);
+            expect(tracked).toContain(declaration.specPath);
+            for (const subjectPath of node.subjectPaths) expect(tracked).toContain(subjectPath);
+
+            const evidencePrefix = [repository.nodePath, SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME, ""].join(
+              SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
+            );
+            const committedTests = tracked.filter((path) => path.startsWith(evidencePrefix));
+            expect(committedTests).toHaveLength(1);
+            const [committedTest = ""] = committedTests;
+            const specText = await repository.env.readFile(declaration.specPath);
+            expect(specText).toContain(
+              `[${SPEC_TREE_EVIDENCE_LINK_TEXT.TEST}](${posix.relative(repository.nodePath, committedTest)})`,
+            );
+
+            await expect(repository.passingOutcomes(repository.nodeId, [committedTest])).resolves.toEqual({
+              [committedTest]: NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
+            });
+            const requiredEvidenceKinds = [SPEC_TREE_EVIDENCE_LINK_TEXT.TEST];
+            const answered = await repository.passedAttributedResults([declaration.specPath, committedTest])(
+              repository.nodeId,
+              { auditRuleSlugs: requiredAuditSlugs, evidenceKinds: requiredEvidenceKinds },
+            );
+            expect(Object.keys(answered.audit ?? {})).toEqual(requiredAuditSlugs);
+            expect(Object.keys(answered.evidence ?? {})).toEqual(requiredEvidenceKinds);
+            for (const result of [...Object.values(answered.audit ?? {}), ...Object.values(answered.evidence ?? {})]) {
+              expect(result.verdict).toBe(NODE_STATUS_EVIDENCE_OUTCOME.PASSED);
+            }
+          }, facts);
         },
         PROPERTY_CLASSIFICATION.SMALL_L1,
       );
