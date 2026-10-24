@@ -3,6 +3,7 @@ import { join, posix } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { resolveMethodologyConfig } from "@/config/methodology-resolution";
 import { defaultGitDependencies, detectWorktreeProductRoot } from "@/lib/git/root";
 import {
   NODE_STATUS_DEFAULT_MALLEABILITY,
@@ -20,6 +21,7 @@ import {
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_FILESYSTEM_RECORD_TYPE,
   SPEC_TREE_GRAMMAR,
+  SPEC_TREE_METHODOLOGY_LINE,
 } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { TEST_RUN_STATE_STATUS } from "@/test/run-state";
@@ -234,6 +236,11 @@ describe("node-status test support", () => {
         NODE_STATUS_TEST_GENERATOR.sourceGrammarTree(),
         async (fixture) => {
           await withSourceGrammarTree(fixture, async ({ env }) => {
+            const declared = await resolveMethodologyConfig(env.productDir);
+            expect(declared.ok && [declared.value.version, declared.value.migratingFrom]).toEqual([
+              SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO,
+              SPEC_TREE_METHODOLOGY_LINE.THREE_TWO,
+            ]);
             const declaredMalleabilities = [...Object.values(NODE_STATUS_MALLEABILITY), undefined];
             expect(
               new Set(
