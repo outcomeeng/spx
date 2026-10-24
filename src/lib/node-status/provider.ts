@@ -35,7 +35,6 @@ import { collectNodeStatusFiles } from "./status-files";
 export const VARIANT_DIRECTORY_SUFFIX = ".variant";
 const PATH_SEPARATOR = SPEC_TREE_GRAMMAR.PATH_SEPARATOR;
 const ROOT_PREFIX = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${PATH_SEPARATOR}`;
-const SLUG_OF_DIRECTORY = /^\d+(?:\.\d+)?-(.+)\.[a-z]+$/;
 
 export interface NodeStatusProviderOptions {
   /** Git runner for pin currency and claim history; defaults to the production runner. */
@@ -112,7 +111,8 @@ export async function createNodeStatusProvider(
         currency: await resultCurrency(section, entry, pinChanges),
       })),
     );
-    const results = [...recorded, ...unrecordableResults(await readNodeSpecDeclaration(productDir, nodeId))];
+    const declaration = await readNodeSpecDeclaration(productDir, nodeId);
+    const results = [...recorded, ...unrecordableResults(declaration)];
     const nodePath = `${ROOT_PREFIX}${nodeId}`;
     const facts = {
       requiredArtifactsMissing: !claimLinksEvidenceArtifacts(claim),
@@ -121,7 +121,7 @@ export async function createNodeStatusProvider(
     const withoutHistory = classifyNodeClaim({ ...facts, recordedPassingAtOrAfterDeclaration: false });
     if (withoutHistory === SPEC_TREE_NODE_STATE.PASSING) return withoutHistory;
     const tracked = await readTrackedPaths();
-    const declarationPaths = governingDeclarationPaths(nodePath, specPathOf(nodePath, tracked), tracked);
+    const declarationPaths = governingDeclarationPaths(nodePath, declaration.specPath, tracked);
     return classifyNodeClaim({
       ...facts,
       recordedPassingAtOrAfterDeclaration: await history.recordedPassingAtOrAfterDeclaration(
@@ -130,16 +130,6 @@ export async function createNodeStatusProvider(
       ),
     });
   }
-}
-
-/** The tracked spec file of a node: the canonical `{slug}.spec.md` or the prior `{slug}.md`. */
-function specPathOf(nodePath: string, trackedPaths: ReadonlySet<string>): string {
-  const directoryName = nodePath.slice(nodePath.lastIndexOf(PATH_SEPARATOR) + 1);
-  const slug = SLUG_OF_DIRECTORY.exec(directoryName)?.[1] ?? directoryName;
-  const canonical = `${nodePath}${PATH_SEPARATOR}${slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX}`;
-  return trackedPaths.has(canonical)
-    ? canonical
-    : `${nodePath}${PATH_SEPARATOR}${slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`;
 }
 
 /** Whether the claim records a result for a linked test, eval or probe artifact, the entries the writer folds only from the node's evidence paths. */
