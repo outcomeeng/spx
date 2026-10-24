@@ -312,7 +312,11 @@ function sourceGrammarAssertionLines(facts: SourceGrammarFixtureFacts): readonly
 function sourceGrammarSpecText(facts: SourceGrammarFixtureFacts, linkedTestReference?: string): string {
   const frontMatter = facts.declaredMalleability === undefined
     ? []
-    : [SPEC_TREE_FRONT_MATTER_FENCE, `${SPEC_CONTEXT_SELECTED_METADATA_KEY}: ${facts.declaredMalleability}`, SPEC_TREE_FRONT_MATTER_FENCE];
+    : [
+      SPEC_TREE_FRONT_MATTER_FENCE,
+      `${SPEC_CONTEXT_SELECTED_METADATA_KEY}: ${facts.declaredMalleability}`,
+      SPEC_TREE_FRONT_MATTER_FENCE,
+    ];
   const linkedTestLines = linkedTestReference === undefined
     ? []
     : [
