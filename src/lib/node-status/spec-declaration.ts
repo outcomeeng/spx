@@ -14,8 +14,25 @@ import { NODE_STATUS_DEFAULT_MALLEABILITY, NODE_STATUS_MALLEABILITY, type NodeSt
 
 const SLUG_OF_DIRECTORY = /^\d+(?:\.\d+)?-(.+)\.[a-z]+$/;
 const AUDIT_RULE_TAG = /\[audit:([^\]\s]+)\]/g;
+const LINKED_AUDIT_TAG = /\[audit\]\(audits\/([^)\s]+)\.md\)/g;
+const PATHLESS_REVIEW_TAG = /\(\[review\]\)/;
+const PATHLESS_AUDIT_TAG = /\(\[audit\]\)/;
 const AUDIT_RULE_SLUG_GROUP = 1;
 const TEXT_ENCODING = "utf8";
+
+/** The audit-tag forms a spec written in the migration source's grammar carries. */
+export const NODE_STATUS_SOURCE_AUDIT_TAG_FORM = {
+  NONE: "none",
+  /** `[audit](audits/{rule-slug}.md)`, which keys an audit entry by its rule slug. */
+  LINKED: "linked",
+  /** `([review])`, which carries no rule slug. */
+  REVIEW: "review",
+  /** `([audit])`, which carries no rule slug. */
+  AUDIT: "audit",
+} as const;
+
+export type NodeStatusSourceAuditTagForm =
+  (typeof NODE_STATUS_SOURCE_AUDIT_TAG_FORM)[keyof typeof NODE_STATUS_SOURCE_AUDIT_TAG_FORM];
 
 /** What a node's spec declares that its claim is measured against. */
 export interface NodeSpecDeclaration {
@@ -24,6 +41,8 @@ export interface NodeSpecDeclaration {
   readonly malleability: NodeStatusMalleability;
   /** The rule slugs of the spec's `[audit:{rule-slug}]` assertions, in document order. */
   readonly auditRuleSlugs: readonly string[];
+  /** The source-grammar audit-tag forms the spec carries; empty when it carries none. */
+  readonly auditTagForms: readonly NodeStatusSourceAuditTagForm[];
 }
 
 const MALLEABILITIES: ReadonlySet<string> = new Set(Object.values(NODE_STATUS_MALLEABILITY));
@@ -47,12 +66,18 @@ export async function readNodeSpecDeclaration(productDir: string, nodeId: string
     } catch {
       continue;
     }
-    return { specPath, malleability: declaredMalleability(source, specPath), auditRuleSlugs: auditSlugsOf(source) };
+    return {
+      specPath,
+      malleability: declaredMalleability(source, specPath),
+      auditRuleSlugs: auditSlugsOf(source),
+      auditTagForms: auditTagFormsOf(source),
+    };
   }
   return {
     specPath: candidates[candidates.length - 1] ?? nodePath,
     malleability: NODE_STATUS_DEFAULT_MALLEABILITY,
     auditRuleSlugs: [],
+    auditTagForms: [],
   };
 }
 
@@ -70,9 +95,17 @@ function declaredMalleability(source: string, specPath: string): NodeStatusMalle
 
 function auditSlugsOf(source: string): readonly string[] {
   const slugs = new Set<string>();
-  for (const match of source.matchAll(AUDIT_RULE_TAG)) {
+  for (const match of [...source.matchAll(AUDIT_RULE_TAG), ...source.matchAll(LINKED_AUDIT_TAG)]) {
     const slug = match.at(AUDIT_RULE_SLUG_GROUP);
     if (slug !== undefined) slugs.add(slug);
   }
   return [...slugs];
+}
+
+function auditTagFormsOf(source: string): readonly NodeStatusSourceAuditTagForm[] {
+  const forms: NodeStatusSourceAuditTagForm[] = [];
+  if (source.matchAll(LINKED_AUDIT_TAG).next().done === false) forms.push(NODE_STATUS_SOURCE_AUDIT_TAG_FORM.LINKED);
+  if (PATHLESS_REVIEW_TAG.test(source)) forms.push(NODE_STATUS_SOURCE_AUDIT_TAG_FORM.REVIEW);
+  if (PATHLESS_AUDIT_TAG.test(source)) forms.push(NODE_STATUS_SOURCE_AUDIT_TAG_FORM.AUDIT);
+  return forms;
 }
