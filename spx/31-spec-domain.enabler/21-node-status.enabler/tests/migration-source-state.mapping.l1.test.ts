@@ -15,20 +15,20 @@ import {
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { migratingMethodologyConfig, withPinnedNodeRepository } from "@testing/harnesses/node-status/node-status";
 
-const PATHLESS_AUDIT_TAG_FORMS: readonly NodeStatusSourceAuditTagForm[] = [
+const pathlessAuditTagForms: readonly NodeStatusSourceAuditTagForm[] = [
   NODE_STATUS_SOURCE_AUDIT_TAG_FORM.REVIEW,
   NODE_STATUS_SOURCE_AUDIT_TAG_FORM.AUDIT,
 ];
 
-const MALLEABILITIES: readonly (NodeStatusMalleability | undefined)[] = [
+const malleabilities: readonly (NodeStatusMalleability | undefined)[] = [
   ...Object.values(NODE_STATUS_MALLEABILITY),
   undefined,
 ];
 const { node, facts: drawn } = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.sourceGrammarRepository());
-const PAIRS: readonly SourceGrammarFixtureFacts[] = Object.values(NODE_STATUS_SOURCE_AUDIT_TAG_FORM).flatMap((
+const pairs: readonly SourceGrammarFixtureFacts[] = Object.values(NODE_STATUS_SOURCE_AUDIT_TAG_FORM).flatMap((
   auditTagForm,
 ) =>
-  MALLEABILITIES.map((declaredMalleability): SourceGrammarFixtureFacts => ({
+  malleabilities.map((declaredMalleability): SourceGrammarFixtureFacts => ({
     auditTagForm,
     auditRuleSlug: drawn.auditRuleSlug,
     declaredMalleability,
@@ -37,12 +37,12 @@ const PAIRS: readonly SourceGrammarFixtureFacts[] = Object.values(NODE_STATUS_SO
 
 describe("classification of a source-grammar node under a declaration migrating from 3.2, over every audit-tag form crossed with every declared malleability", () => {
   it("covers every audit-tag form crossed with every declared malleability", () => {
-    expect(PAIRS).toHaveLength(Object.values(NODE_STATUS_SOURCE_AUDIT_TAG_FORM).length * MALLEABILITIES.length);
+    expect(pairs).toHaveLength(Object.values(NODE_STATUS_SOURCE_AUDIT_TAG_FORM).length * malleabilities.length);
   });
 
-  it.each(PAIRS.map((facts) => ({
+  it.each(pairs.map((facts) => ({
     facts,
-    expected: PATHLESS_AUDIT_TAG_FORMS.includes(facts.auditTagForm)
+    expected: pathlessAuditTagForms.includes(facts.auditTagForm)
       ? SPEC_TREE_NODE_STATE.SPECIFIED
       : SPEC_TREE_NODE_STATE.PASSING,
   })))("$facts.auditTagForm × $facts.declaredMalleability → $expected", async ({ facts, expected }) => {
