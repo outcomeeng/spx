@@ -52,6 +52,7 @@ import {
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_EVIDENCE_LINK_TEXT,
   SPEC_TREE_GRAMMAR,
+  SPEC_TREE_METHODOLOGY_LINE,
   SPEC_TREE_NODE_STATE,
   type SpecTreeNodeState,
 } from "@/lib/spec-tree";
@@ -327,7 +328,7 @@ export async function withSourceGrammarTree(
   fixture: SourceGrammarTreeFixture,
   callback: (tree: SourceGrammarTreeEnv) => Promise<void>,
 ): Promise<void> {
-  await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+  await withTestEnv(migratingMethodologyConfig(), async (env) => {
     for (const node of fixture.nodes) {
       await env.writeNode(
         nodeTreePath(node.dirName, `${node.slug}${SPEC_FILE_SUFFIX}`),
@@ -637,6 +638,18 @@ export function methodologyDeclaringConfig(version: string): Config {
   return {
     ...MINIMAL_SPEC_TREE_CONFIG,
     [METHODOLOGY_SECTION]: { source: DEFAULT_METHODOLOGY_SOURCE, version, ...migratingFrom },
+  };
+}
+
+/** A configuration declaring the 4.0 methodology line while migrating from the 3.2 line the materialized trees are authored in. */
+export function migratingMethodologyConfig(): Config {
+  return {
+    ...MINIMAL_SPEC_TREE_CONFIG,
+    [METHODOLOGY_SECTION]: {
+      source: DEFAULT_METHODOLOGY_SOURCE,
+      version: SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO,
+      migratingFrom: SPEC_TREE_METHODOLOGY_LINE.THREE_TWO,
+    },
   };
 }
 
