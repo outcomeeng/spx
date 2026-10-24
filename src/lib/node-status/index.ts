@@ -80,7 +80,12 @@ export {
   readNodeStatusReports,
   type ReadNodeStatusReportsOptions,
 } from "./report";
-export { type NodeSpecDeclaration, readNodeSpecDeclaration } from "./spec-declaration";
+export {
+  NODE_STATUS_SOURCE_AUDIT_TAG_FORM,
+  type NodeSpecDeclaration,
+  type NodeStatusSourceAuditTagForm,
+  readNodeSpecDeclaration,
+} from "./spec-declaration";
 export {
   type NodeOutcomeResolver,
   type NodeStatusClaimRegeneration,
