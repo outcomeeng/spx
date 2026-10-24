@@ -24,6 +24,7 @@ import {
   NODE_STATUS_EXCLUDE_LINE_GRAMMAR,
   NODE_STATUS_FILENAME,
   NODE_STATUS_MALLEABILITY,
+  NODE_STATUS_SOURCE_AUDIT_TAG_FORM,
   NODE_STATUS_VERIFICATION_MECHANISM,
   type NodeAttributedRequest,
   type NodeAttributedResultResolver,
@@ -72,6 +73,8 @@ import {
   type PinnedNodeFixture,
   type RecordedRun,
   type RecordedRunSets,
+  type SourceGrammarFixtureFacts,
+  type SourceGrammarTreeFixture,
   type StatusWriterTreeFixture,
   type StatusWriterTreeNode,
   type VariantParentFixture,
@@ -274,6 +277,65 @@ async function materializeNodes(
     );
   }
   return materialized;
+}
+
+const FRONT_MATTER_FENCE = "---";
+const SOURCE_GRAMMAR_SPEC_OPENING = [
+  "# Fixture",
+  "",
+  "PROVIDES fixture infrastructure",
+  "SO THAT node-status tests",
+  "CAN read source-grammar declarations",
+  "",
+  "## Assertions",
+  "",
+  "### Compliance",
+  "",
+];
+
+/** The assertion line a source-grammar spec carries for its audit-tag form; none under the absent form. */
+function sourceGrammarAssertionLines(facts: SourceGrammarFixtureFacts): readonly string[] {
+  switch (facts.auditTagForm) {
+    case NODE_STATUS_SOURCE_AUDIT_TAG_FORM.NONE:
+      return [];
+    case NODE_STATUS_SOURCE_AUDIT_TAG_FORM.LINKED:
+      return [`- ALWAYS: the rule holds [audit](audits/${facts.auditRuleSlug}.md)`];
+    case NODE_STATUS_SOURCE_AUDIT_TAG_FORM.REVIEW:
+      return ["- ALWAYS: the rule holds ([review])"];
+    case NODE_STATUS_SOURCE_AUDIT_TAG_FORM.AUDIT:
+      return ["- ALWAYS: the rule holds ([audit])"];
+  }
+}
+
+/** A source-grammar spec: front matter only when it declares a malleability, then the assertion its audit-tag form tags. */
+function sourceGrammarSpecText(facts: SourceGrammarFixtureFacts): string {
+  const frontMatter = facts.declaredMalleability === undefined
+    ? []
+    : [FRONT_MATTER_FENCE, `${SPEC_CONTEXT_SELECTED_METADATA_KEY}: ${facts.declaredMalleability}`, FRONT_MATTER_FENCE];
+  return [...frontMatter, ...SOURCE_GRAMMAR_SPEC_OPENING, ...sourceGrammarAssertionLines(facts), ""].join("\n");
+}
+
+export type SourceGrammarTreeEnv = {
+  readonly env: SpecTreeEnv;
+};
+
+/**
+ * Materialize a generated source-grammar tree into a temporary product directory: each node becomes a
+ * prior-form spec file whose front matter and audit tag its facts dictate.
+ */
+export async function withSourceGrammarTree(
+  fixture: SourceGrammarTreeFixture,
+  callback: (tree: SourceGrammarTreeEnv) => Promise<void>,
+): Promise<void> {
+  await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
+    for (const node of fixture.nodes) {
+      await env.writeNode(
+        nodeTreePath(node.dirName, `${node.slug}${SPEC_FILE_SUFFIX}`),
+        sourceGrammarSpecText(node.facts),
+      );
+    }
+    await callback({ env });
+  });
 }
 
 export type StatusWriterTreeNodeExpectation = {
