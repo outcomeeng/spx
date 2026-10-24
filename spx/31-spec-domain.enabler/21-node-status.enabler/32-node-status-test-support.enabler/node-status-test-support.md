@@ -2,14 +2,15 @@
 
 PROVIDES a generated classification-tree fixture harness and readable node-status generator data for node-status evidence
 SO THAT `spx/31-spec-domain.enabler/21-node-status.enabler`
-CAN verify lifecycle classification, persisted status projections, and resolver delegation against real tracked spec-tree fixtures without hand-authored fixture paths
+CAN verify lifecycle classification, persisted status projections, and resolver delegation against real spec-tree fixtures, git-tracked on request, without hand-authored fixture paths
 
 ## Assertions
 
 ### Properties
 
 - Generated source-grammar node fixtures, under a declaration migrating from 3.2, materialize each audit-tag form — none, linked `[audit](audits/{rule-slug}.md)`, pathless `([review])`, and pathless `([audit])` — with each declared malleability or none declared, from each generated node's facts ([test](tests/node-status-test-support.property.l1.test.ts))
-- Generated classification-tree fixtures materialize tracked node specs and linked evidence from inert payloads, derive EXCLUDE membership from each generated node's facts, record test outcomes through the testing command, and resolve those recorded outcomes through the production node-outcome resolver ([test](tests/node-status-test-support.property.l1.test.ts))
+- Generated classification-tree fixtures materialize node specs and linked evidence from inert payloads in a temporary product directory that is no git repository, derive EXCLUDE membership from each generated node's facts, record test outcomes through the testing command, and resolve those recorded outcomes through the production node-outcome resolver ([test](tests/node-status-test-support.property.l1.test.ts))
+- Tracking a generated classification tree, through `trackSpecTree` and through `commitProjection` alike, adds to the git index every node spec, linked evidence file and `spx/EXCLUDE` file the fixture's nodes declare, and no file outside the product's `spx/` tree ([test](tests/node-status-test-support.property.l1.test.ts))
 - Generated delegation-tree fixtures contain one test-outcome-stage node, one declared node, and one specified node, so status-update delegation evidence always spans every consultation class ([test](tests/node-status-test-support.property.l1.test.ts))
 - Generated status-writer-tree fixtures materialize node specs, linked evidence, `spx/EXCLUDE` membership, and committed test claims from each generated node's facts in a product directory outside any git repository, and the controlled node-outcome resolver reports each consulted reference's generated outcome and omits every reference the fixture marks covered but stale ([test](tests/node-status-test-support.property.l1.test.ts))
 - Generated node slugs come from the generator-owned readable slug domain, so counterexamples avoid arbitrary punctuation and consecutive hyphens ([test](tests/node-status-test-support.property.l1.test.ts))
