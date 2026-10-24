@@ -51,6 +51,7 @@ import {
   SPEC_TREE_CONFIG,
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_EVIDENCE_LINK_TEXT,
+  SPEC_TREE_FRONT_MATTER_FENCE,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_METHODOLOGY_LINE,
   SPEC_TREE_NODE_STATE,
@@ -280,11 +281,10 @@ async function materializeNodes(
   return materialized;
 }
 
-const FRONT_MATTER_FENCE = "---";
 const SOURCE_GRAMMAR_SPEC_OPENING = [
   "# Fixture",
   "",
-  "PROVIDES fixture infrastructure",
+  `${SPEC_TREE_CONFIG.KINDS.enabler.opening} fixture infrastructure`,
   "SO THAT node-status tests",
   "CAN read source-grammar declarations",
   "",
@@ -312,14 +312,14 @@ function sourceGrammarAssertionLines(facts: SourceGrammarFixtureFacts): readonly
 function sourceGrammarSpecText(facts: SourceGrammarFixtureFacts, linkedTestReference?: string): string {
   const frontMatter = facts.declaredMalleability === undefined
     ? []
-    : [FRONT_MATTER_FENCE, `${SPEC_CONTEXT_SELECTED_METADATA_KEY}: ${facts.declaredMalleability}`, FRONT_MATTER_FENCE];
+    : [SPEC_TREE_FRONT_MATTER_FENCE, `${SPEC_CONTEXT_SELECTED_METADATA_KEY}: ${facts.declaredMalleability}`, SPEC_TREE_FRONT_MATTER_FENCE];
   const linkedTestLines = linkedTestReference === undefined
     ? []
     : [
       "",
       "### Scenarios",
       "",
-      `- Given an input, when it is processed, then the output is produced ([test](${linkedTestReference}))`,
+      `- Given an input, when it is processed, then the output is produced ([${SPEC_TREE_EVIDENCE_LINK_TEXT.TEST}](${linkedTestReference}))`,
     ];
   return [
     ...frontMatter,
@@ -712,7 +712,12 @@ const UNRELATED_FILE_PATH = "unrelated.txt";
 const AUDIT_RULE_TAG_PATTERN = /\[audit:([a-z0-9-]+)\]/g;
 const AUDIT_RULE_TAG_GROUP = 1;
 const VARIANT_SUBJECT_DIRECTORY = "src";
-const GENERATED_LINKED_TEST_SUFFIX = ".scenario.l1.test.ts";
+const GENERATED_LINKED_TEST_SUFFIX = [
+  "",
+  SPEC_TREE_GRAMMAR.EVIDENCE.MODES[0],
+  SPEC_TREE_GRAMMAR.EVIDENCE.LEVELS[0],
+  ...SPEC_TREE_GRAMMAR.EVIDENCE.TAILS.TYPESCRIPT,
+].join(SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR);
 
 /** A committed single-node repository whose results can be pinned to its spec, tests, and source subjects. */
 export type PinnedNodeRepository = {
