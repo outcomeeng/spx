@@ -9,6 +9,7 @@ import {
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_EXCLUDE_LINE_GRAMMAR,
   NODE_STATUS_FIELD,
+  NODE_STATUS_MALLEABILITY,
   NODE_STATUS_SOURCE_AUDIT_TAG_FORM,
   NODE_STATUS_VERIFICATION_MECHANISM,
   readNodeSpecDeclaration,
@@ -233,8 +234,19 @@ describe("node-status test support", () => {
         NODE_STATUS_TEST_GENERATOR.sourceGrammarTree(),
         async (fixture) => {
           await withSourceGrammarTree(fixture, async ({ env }) => {
-            expect(new Set(fixture.nodes.map((node) => node.facts.auditTagForm))).toEqual(
-              new Set(Object.values(NODE_STATUS_SOURCE_AUDIT_TAG_FORM)),
+            const declaredMalleabilities = [...Object.values(NODE_STATUS_MALLEABILITY), undefined];
+            expect(
+              new Set(
+                fixture.nodes.map((node) =>
+                  JSON.stringify([node.facts.auditTagForm, node.facts.declaredMalleability ?? null])
+                ),
+              ),
+            ).toEqual(
+              new Set(
+                Object.values(NODE_STATUS_SOURCE_AUDIT_TAG_FORM).flatMap((form) =>
+                  declaredMalleabilities.map((malleability) => JSON.stringify([form, malleability ?? null]))
+                ),
+              ),
             );
 
             for (const node of fixture.nodes) {
