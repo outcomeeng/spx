@@ -9,7 +9,6 @@ CAN verify lifecycle classification, persisted status projections, and resolver 
 ### Properties
 
 - Generated source-grammar node fixtures, under a declaration migrating from 3.2, materialize each audit-tag form — none, linked `[audit](audits/{rule-slug}.md)`, pathless `([review])`, and pathless `([audit])` — with each declared malleability or none declared, from each generated node's facts ([test](tests/node-status-test-support.property.l1.test.ts))
-
 - Generated classification-tree fixtures materialize tracked node specs and linked evidence from inert payloads, derive EXCLUDE membership from each generated node's facts, record test outcomes through the testing command, and resolve those recorded outcomes through the production node-outcome resolver ([test](tests/node-status-test-support.property.l1.test.ts))
 - Generated delegation-tree fixtures contain one test-outcome-stage node, one declared node, and one specified node, so status-update delegation evidence always spans every consultation class ([test](tests/node-status-test-support.property.l1.test.ts))
 - Generated status-writer-tree fixtures materialize node specs, linked evidence, `spx/EXCLUDE` membership, and committed test claims from each generated node's facts in a product directory outside any git repository, and the controlled node-outcome resolver reports each consulted reference's generated outcome and omits every reference the fixture marks covered but stale ([test](tests/node-status-test-support.property.l1.test.ts))
