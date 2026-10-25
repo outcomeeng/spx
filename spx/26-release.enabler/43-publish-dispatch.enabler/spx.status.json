@@ -5,7 +5,7 @@
     "test": {
       "tests/publish-dispatch.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
         "read": [
           ".github/workflows/publish.yml",
           "pnpm-lock.yaml",
@@ -156,7 +156,7 @@
       },
       "tests/publish-dispatch.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/43-publish-dispatch.enabler/publish-dispatch.md",

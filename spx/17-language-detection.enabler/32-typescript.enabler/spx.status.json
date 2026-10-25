@@ -5,7 +5,7 @@
     "test": {
       "tests/typescript.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
         "read": [
           "pnpm-lock.yaml",
           "spx/17-language-detection.enabler/32-typescript.enabler/tests/typescript.compliance.l1.test.ts",
@@ -96,7 +96,7 @@
       },
       "tests/typescript.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
         "read": [
           "pnpm-lock.yaml",
           "spx/17-language-detection.enabler/32-typescript.enabler/tests/typescript.mapping.l1.test.ts",
@@ -187,7 +187,7 @@
       },
       "tests/typescript.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
         "read": [
           "pnpm-lock.yaml",
           "spx/17-language-detection.enabler/32-typescript.enabler/tests/typescript.scenario.l1.test.ts",

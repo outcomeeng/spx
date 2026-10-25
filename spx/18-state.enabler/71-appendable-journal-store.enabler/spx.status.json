@@ -5,7 +5,7 @@
     "test": {
       "tests/appendable-journal-store-concurrency.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/71-appendable-journal-store.enabler/appendable-journal-store.md",
@@ -33,7 +33,7 @@
       },
       "tests/appendable-journal-store-creation-marker.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/71-appendable-journal-store.enabler/appendable-journal-store.md",
@@ -60,7 +60,7 @@
       },
       "tests/appendable-journal-store-interruption.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/71-appendable-journal-store.enabler/appendable-journal-store.md",
@@ -87,7 +87,7 @@
       },
       "tests/appendable-journal-store-read-reuse.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/71-appendable-journal-store.enabler/appendable-journal-store.md",
@@ -114,7 +114,7 @@
       },
       "tests/appendable-journal-store-sealing-race.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/71-appendable-journal-store.enabler/appendable-journal-store.md",
@@ -142,7 +142,7 @@
       },
       "tests/appendable-journal-store.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/71-appendable-journal-store.enabler/appendable-journal-store.md",
@@ -169,7 +169,7 @@
       },
       "tests/appendable-journal-store.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/71-appendable-journal-store.enabler/appendable-journal-store.md",
