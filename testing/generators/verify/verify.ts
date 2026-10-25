@@ -695,6 +695,18 @@ function arbitraryAuditScopeUnitWithoutOptionalFields(): fc.Arbitrary<AuditScope
   );
 }
 
+/** The prefix a command-line parser reads as an option when it opens a separate argv element. */
+const ARGV_OPTION_PREFIX = "-";
+
+/**
+ * A scope token that never opens with the option prefix, for every generated value a caller passes
+ * as its own argv element, where a leading option prefix is an argument-parsing case and not a member
+ * of the value's domain.
+ */
+export function arbitraryArgvSafeToken(): fc.Arbitrary<string> {
+  return STATE_STORE_TEST_GENERATOR.scopeToken().filter((value) => !value.startsWith(ARGV_OPTION_PREFIX));
+}
+
 const SAMPLE_SEED = 0x5645524659;
 const CHANGED_PATH_MIN = 1;
 const CHANGED_PATH_MAX = 5;
@@ -761,7 +773,7 @@ export function arbitrarySafeFileScopeIdentity(): fc.Arbitrary<string> {
 export function arbitraryFileScopeIdentityScenario(): fc.Arbitrary<FileScopeIdentityScenario> {
   return fc.oneof(
     arbitrarySourceFilePath().map((path) => ({ input: path, normalized: path })),
-    fc.tuple(STATE_STORE_TEST_GENERATOR.scopeToken(), arbitrarySourceFilePath()).map(([segment, path]) => ({
+    fc.tuple(arbitraryArgvSafeToken(), arbitrarySourceFilePath()).map(([segment, path]) => ({
       input: `${segment}/${path}`,
       normalized: `${segment}/${path}`,
     })),
@@ -849,7 +861,7 @@ export function arbitraryUnsafeFileScopeIdentity(): fc.Arbitrary<string> {
     arbitrarySourceFilePath().map(
       (path) => `${VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY.PREFIX}${path}`,
     ),
-    fc.tuple(STATE_STORE_TEST_GENERATOR.scopeToken(), arbitrarySourceFilePath()).map(([segment, path]) =>
+    fc.tuple(arbitraryArgvSafeToken(), arbitrarySourceFilePath()).map(([segment, path]) =>
       [
         segment,
         VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY.SEGMENT,
@@ -1266,9 +1278,8 @@ export const VERIFY_TEST_GENERATOR = {
   unsupportedScopeType: (): fc.Arbitrary<string> =>
     fc
       .oneof(fc.constantFrom(...Object.getOwnPropertyNames(Object.prototype)), fc.string())
-      .filter((value) => !SUPPORTED_SCOPE_TYPES.has(value)),
-  changesetRef: (): fc.Arbitrary<string> =>
-    STATE_STORE_TEST_GENERATOR.scopeToken().filter((value) => !value.startsWith("-")),
+      .filter((value) => !SUPPORTED_SCOPE_TYPES.has(value) && !value.startsWith(ARGV_OPTION_PREFIX)),
+  changesetRef: (): fc.Arbitrary<string> => arbitraryArgvSafeToken(),
   changesetRange: (): fc.Arbitrary<{ readonly base: string; readonly head: string }> =>
     fc
       .tuple(VERIFY_TEST_GENERATOR.changesetRef(), VERIFY_TEST_GENERATOR.changesetRef())
@@ -1440,10 +1451,10 @@ export const VERIFY_TEST_GENERATOR = {
       range,
       scopeIdentity: `${range.base}${VERIFY_SCOPE_SEPARATOR}${range.head}`,
     })),
-  malformedChangesetScope: (): fc.Arbitrary<string> => STATE_STORE_TEST_GENERATOR.scopeToken(),
+  malformedChangesetScope: (): fc.Arbitrary<string> => arbitraryArgvSafeToken(),
   overlappingChangesetScope: (): fc.Arbitrary<string> =>
     fc
-      .tuple(STATE_STORE_TEST_GENERATOR.scopeToken(), STATE_STORE_TEST_GENERATOR.scopeToken())
+      .tuple(arbitraryArgvSafeToken(), arbitraryArgvSafeToken())
       .map(([base, head]) => `${base}${VERIFY_SCOPE_SEPARATOR}${VERIFY_SCOPE_SEPARATOR.slice(0, 1)}${head}`),
   runToken: (): fc.Arbitrary<string> => STATE_STORE_TEST_GENERATOR.runToken(),
   blankInputSource: (): fc.Arbitrary<string> => arbitraryBlankArgument(),
@@ -1479,10 +1490,10 @@ export const VERIFY_TEST_GENERATOR = {
       range: VERIFY_TEST_GENERATOR.changesetRange(),
       paths: VERIFY_TEST_GENERATOR.changedPathsPair(),
     }),
-  idempotencyKey: (): fc.Arbitrary<string> => STATE_STORE_TEST_GENERATOR.scopeToken(),
+  idempotencyKey: (): fc.Arbitrary<string> => arbitraryArgvSafeToken(),
   idempotencyKeyPair: (): fc.Arbitrary<{ readonly first: string; readonly second: string }> =>
     fc
-      .tuple(STATE_STORE_TEST_GENERATOR.scopeToken(), STATE_STORE_TEST_GENERATOR.scopeToken())
+      .tuple(arbitraryArgvSafeToken(), arbitraryArgvSafeToken())
       .filter(([first, second]) => first !== second)
       .map(([first, second]) => ({ first, second })),
   blankIdempotencyKey: (): fc.Arbitrary<string> => arbitraryBlankArgument(),
@@ -1495,11 +1506,11 @@ export const VERIFY_TEST_GENERATOR = {
       .filter(([first, second]) => first !== second)
       .map(([first, second]) => ({ first, second })),
   invalidTerminalStatus: (): fc.Arbitrary<string> =>
-    STATE_STORE_TEST_GENERATOR.scopeToken().filter((value) => !TERMINAL_STATUSES.includes(value)),
+    arbitraryArgvSafeToken().filter((value) => !TERMINAL_STATUSES.includes(value)),
   blankTerminalStatus: (): fc.Arbitrary<string> => arbitraryBlankArgument(),
   reviewFindingBatch: (): fc.Arbitrary<readonly FindingWithKey[]> =>
     fc.uniqueArray(
-      fc.record({ finding: arbitraryDefectReviewFinding(), idempotencyKey: STATE_STORE_TEST_GENERATOR.scopeToken() }),
+      fc.record({ finding: arbitraryDefectReviewFinding(), idempotencyKey: arbitraryArgvSafeToken() }),
       { selector: (entry) => entry.idempotencyKey, minLength: FINDING_BATCH_MIN, maxLength: FINDING_BATCH_MAX },
     ),
   mixedDispositionReviewFindingBatches: (): fc.Arbitrary<MixedDispositionReviewFindingBatches> =>
@@ -1507,7 +1518,7 @@ export const VERIFY_TEST_GENERATOR = {
       .uniqueArray(
         fc.record({
           finding: fc.oneof(arbitraryDefectReviewFinding(), arbitraryFiledOrStaleReviewFinding()),
-          idempotencyKey: STATE_STORE_TEST_GENERATOR.scopeToken(),
+          idempotencyKey: arbitraryArgvSafeToken(),
         }),
         {
           selector: (entry) => entry.idempotencyKey,
@@ -1531,7 +1542,7 @@ export const VERIFY_TEST_GENERATOR = {
     fc.uniqueArray(
       fc.record({
         finding: arbitraryFiledOrStaleReviewFinding(),
-        idempotencyKey: STATE_STORE_TEST_GENERATOR.scopeToken(),
+        idempotencyKey: arbitraryArgvSafeToken(),
       }),
       { selector: (entry) => entry.idempotencyKey, minLength: FINDING_BATCH_MIN, maxLength: FINDING_BATCH_MAX },
     ),
@@ -1540,7 +1551,7 @@ export const VERIFY_TEST_GENERATOR = {
       .tuple(
         arbitraryUnanchoredReviewFinding().filter((finding) => finding.path !== undefined),
         arbitraryUnanchoredReviewFinding().filter((finding) => finding.path === undefined),
-        fc.uniqueArray(STATE_STORE_TEST_GENERATOR.scopeToken(), { minLength: 2, maxLength: 2 }),
+        fc.uniqueArray(arbitraryArgvSafeToken(), { minLength: 2, maxLength: 2 }),
       )
       .map(([pathed, pathless, keys]) => [
         { finding: pathed, idempotencyKey: keys[0] },
@@ -1839,7 +1850,7 @@ export const VERIFY_TEST_GENERATOR = {
     ),
   scopePayload: (): fc.Arbitrary<ReviewScopeUnit> => arbitraryReviewScopeUnit(),
   unsupportedVerificationType: (): fc.Arbitrary<string> =>
-    STATE_STORE_TEST_GENERATOR.scopeToken().filter((value) => !VERIFY_VERIFICATION_TYPES.includes(value)),
+    arbitraryArgvSafeToken().filter((value) => !VERIFY_VERIFICATION_TYPES.includes(value)),
   changeIdentity: (): fc.Arbitrary<string> =>
     arbitraryChangeIdentityParts().map(({ owner, repository, number }) =>
       composeChangeIdentity(owner, repository, String(number))
@@ -1900,7 +1911,7 @@ function arbitraryInvalidVerifier(): fc.Arbitrary<VerifierIdentity> {
   const supportedKinds: readonly string[] = Object.values(VERIFY_VERIFIER_KIND);
   return fc.oneof(
     fc.record({
-      kind: STATE_STORE_TEST_GENERATOR.scopeToken().filter((kind) => !supportedKinds.includes(kind)),
+      kind: arbitraryArgvSafeToken().filter((kind) => !supportedKinds.includes(kind)),
       id: STATE_STORE_TEST_GENERATOR.scopeToken(),
     }),
     fc.record({
