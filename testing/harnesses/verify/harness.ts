@@ -349,9 +349,20 @@ function verificationRunArgs(commandPath: readonly string[], options: readonly s
   ];
 }
 
+const OPTION_ASSIGNMENT_SEPARATOR = "=";
+
 function requiredFlag(optionExpression: string): string {
   const [flag] = optionExpression.split(" ");
   return flag;
+}
+
+/**
+ * One argv element carrying an option and its value in the `--flag=value` form, so the program
+ * reads the value as the option's operand whatever characters it begins with; a value passed as
+ * a separate element that begins with `-` is parsed as an option of the program instead.
+ */
+export function optionAssignment(optionExpression: string, value: string): string {
+  return `${requiredFlag(optionExpression)}${OPTION_ASSIGNMENT_SEPARATOR}${value}`;
 }
 
 function requiredOptionDescription(command: Command | undefined, optionExpression: string): string | undefined {
@@ -539,26 +550,18 @@ export async function recordVerificationRunHandlerOptions(): Promise<{
   const runToken = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken());
   const idempotencyKeys = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKeyPair());
   const sharedExistingRunOptions = [
-    requiredFlag(VERIFY_CLI.verificationTypeOption),
-    scenario.verificationType,
-    requiredFlag(VERIFY_CLI.scopeTypeOption),
-    VERIFY_SCOPE_TYPE.CHANGESET,
-    requiredFlag(VERIFY_CLI.scopeOption),
-    scenario.scope,
-    requiredFlag(VERIFY_CLI.runOption),
-    runToken,
+    optionAssignment(VERIFY_CLI.verificationTypeOption, scenario.verificationType),
+    optionAssignment(VERIFY_CLI.scopeTypeOption, VERIFY_SCOPE_TYPE.CHANGESET),
+    optionAssignment(VERIFY_CLI.scopeOption, scenario.scope),
+    optionAssignment(VERIFY_CLI.runOption, runToken),
   ];
 
   await program.parseAsync(
     verificationRunArgs([VERIFY_CLI.startCommandName], [
-      requiredFlag(VERIFY_CLI.verificationTypeOption),
-      scenario.verificationType,
-      requiredFlag(VERIFY_CLI.scopeTypeOption),
-      VERIFY_SCOPE_TYPE.CHANGESET,
-      requiredFlag(VERIFY_CLI.scopeOption),
-      scenario.scope,
-      requiredFlag(VERIFY_CLI.inputOption),
-      inputSource,
+      optionAssignment(VERIFY_CLI.verificationTypeOption, scenario.verificationType),
+      optionAssignment(VERIFY_CLI.scopeTypeOption, VERIFY_SCOPE_TYPE.CHANGESET),
+      optionAssignment(VERIFY_CLI.scopeOption, scenario.scope),
+      optionAssignment(VERIFY_CLI.inputOption, inputSource),
     ]),
     { from: SPX_COMMANDER_PARSE_SOURCE },
   );
@@ -567,10 +570,8 @@ export async function recordVerificationRunHandlerOptions(): Promise<{
       [VERIFICATION_RUN_CLI_SURFACE.scopeResourceCommandName, VERIFICATION_RUN_CLI_SURFACE.addCommandName],
       [
         ...sharedExistingRunOptions,
-        requiredFlag(VERIFY_CLI.payloadOption),
-        scopePayloadSource,
-        requiredFlag(VERIFY_CLI.idempotencyKeyOption),
-        idempotencyKeys.first,
+        optionAssignment(VERIFY_CLI.payloadOption, scopePayloadSource),
+        optionAssignment(VERIFY_CLI.idempotencyKeyOption, idempotencyKeys.first),
       ],
     ),
     { from: SPX_COMMANDER_PARSE_SOURCE },
@@ -580,10 +581,8 @@ export async function recordVerificationRunHandlerOptions(): Promise<{
       [VERIFICATION_RUN_CLI_SURFACE.findingResourceCommandName, VERIFICATION_RUN_CLI_SURFACE.addCommandName],
       [
         ...sharedExistingRunOptions,
-        requiredFlag(VERIFY_CLI.payloadOption),
-        findingPayloadSource,
-        requiredFlag(VERIFY_CLI.idempotencyKeyOption),
-        idempotencyKeys.second,
+        optionAssignment(VERIFY_CLI.payloadOption, findingPayloadSource),
+        optionAssignment(VERIFY_CLI.idempotencyKeyOption, idempotencyKeys.second),
       ],
     ),
     { from: SPX_COMMANDER_PARSE_SOURCE },
@@ -593,10 +592,8 @@ export async function recordVerificationRunHandlerOptions(): Promise<{
       [VERIFY_CLI.finishCommandName],
       [
         ...sharedExistingRunOptions,
-        requiredFlag(VERIFY_CLI.terminalStatusOption),
-        terminalStatus,
-        requiredFlag(VERIFY_CLI.terminalMetadataOption),
-        terminalMetadataSource,
+        optionAssignment(VERIFY_CLI.terminalStatusOption, terminalStatus),
+        optionAssignment(VERIFY_CLI.terminalMetadataOption, terminalMetadataSource),
       ],
     ),
     { from: SPX_COMMANDER_PARSE_SOURCE },
@@ -633,14 +630,10 @@ export async function recordVerifyStartOptions(
   const program = createRecordingVerifyProgram(recording, scenario.productDir);
   await program.parseAsync(
     verificationRunArgs([VERIFY_CLI.startCommandName], [
-      requiredFlag(VERIFY_CLI.verificationTypeOption),
-      scenario.verificationType,
-      requiredFlag(VERIFY_CLI.scopeTypeOption),
-      scopeType,
-      requiredFlag(VERIFY_CLI.scopeOption),
-      scope,
-      requiredFlag(VERIFY_CLI.inputOption),
-      sampleLiteralTestValue(arbitrarySourceFilePath()),
+      optionAssignment(VERIFY_CLI.verificationTypeOption, scenario.verificationType),
+      optionAssignment(VERIFY_CLI.scopeTypeOption, scopeType),
+      optionAssignment(VERIFY_CLI.scopeOption, scope),
+      optionAssignment(VERIFY_CLI.inputOption, sampleLiteralTestValue(arbitrarySourceFilePath())),
     ]),
     { from: SPX_COMMANDER_PARSE_SOURCE },
   );
@@ -679,20 +672,16 @@ export async function observeMissingEvidenceRequiredOptionRejection(
   const payloadSource = sampleLiteralTestValue(arbitrarySourceFilePath());
   const idempotencyKey = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
   const options = [
-    requiredFlag(VERIFY_CLI.verificationTypeOption),
-    scenario.verificationType,
-    requiredFlag(VERIFY_CLI.scopeTypeOption),
-    VERIFY_SCOPE_TYPE.CHANGESET,
-    requiredFlag(VERIFY_CLI.scopeOption),
-    scenario.scope,
-    requiredFlag(VERIFY_CLI.runOption),
-    runToken,
+    optionAssignment(VERIFY_CLI.verificationTypeOption, scenario.verificationType),
+    optionAssignment(VERIFY_CLI.scopeTypeOption, VERIFY_SCOPE_TYPE.CHANGESET),
+    optionAssignment(VERIFY_CLI.scopeOption, scenario.scope),
+    optionAssignment(VERIFY_CLI.runOption, runToken),
     ...(testCase.omittedOption === VERIFY_CLI.payloadOption
       ? []
-      : [requiredFlag(VERIFY_CLI.payloadOption), payloadSource]),
+      : [optionAssignment(VERIFY_CLI.payloadOption, payloadSource)]),
     ...(testCase.omittedOption === VERIFY_CLI.idempotencyKeyOption
       ? []
-      : [requiredFlag(VERIFY_CLI.idempotencyKeyOption), idempotencyKey]),
+      : [optionAssignment(VERIFY_CLI.idempotencyKeyOption, idempotencyKey)]),
   ];
   return observeRejectedVerificationArgs(
     verificationRunArgs(
@@ -741,10 +730,9 @@ export async function observeVerificationRunComparisonParse(
     writeOut: () => undefined,
   });
   const args = verificationRunArgs([VERIFY_CLI.compareCommandName], [
-    requiredFlag(VERIFY_CLI.changeOption),
-    invocation.change,
-    ...invocation.runTokens.flatMap((runToken) => [requiredFlag(VERIFY_CLI.runOption), runToken]),
-    ...(withFreshInput ? [requiredFlag(VERIFY_CLI.inputOption), invocation.inputSource] : []),
+    optionAssignment(VERIFY_CLI.changeOption, invocation.change),
+    ...invocation.runTokens.map((runToken) => optionAssignment(VERIFY_CLI.runOption, runToken)),
+    ...(withFreshInput ? [optionAssignment(VERIFY_CLI.inputOption, invocation.inputSource)] : []),
   ]);
   const observe = (rejected: boolean, exitCode: number): VerificationRunComparisonParseObservation => ({
     rejected,
@@ -1929,16 +1917,11 @@ export async function observeVerificationRunStartChange(
   try {
     await program.parseAsync(
       verificationRunArgs([VERIFY_CLI.startCommandName], [
-        requiredFlag(VERIFY_CLI.verificationTypeOption),
-        scenario.verificationType,
-        requiredFlag(VERIFY_CLI.scopeTypeOption),
-        scenario.scopeType,
-        requiredFlag(VERIFY_CLI.scopeOption),
-        scenario.scope,
-        requiredFlag(VERIFY_CLI.inputOption),
-        VERIFY_INPUT_SOURCE.STDIN,
-        requiredFlag(VERIFY_CLI.changeOption),
-        change,
+        optionAssignment(VERIFY_CLI.verificationTypeOption, scenario.verificationType),
+        optionAssignment(VERIFY_CLI.scopeTypeOption, scenario.scopeType),
+        optionAssignment(VERIFY_CLI.scopeOption, scenario.scope),
+        optionAssignment(VERIFY_CLI.inputOption, VERIFY_INPUT_SOURCE.STDIN),
+        optionAssignment(VERIFY_CLI.changeOption, change),
       ]),
       { from: SPX_COMMANDER_PARSE_SOURCE },
     );
@@ -1990,16 +1973,11 @@ export async function observeVerificationRunStartVerifier(
   try {
     await program.parseAsync(
       verificationRunArgs([VERIFY_CLI.startCommandName], [
-        requiredFlag(VERIFY_CLI.verificationTypeOption),
-        scenario.verificationType,
-        requiredFlag(VERIFY_CLI.scopeTypeOption),
-        scenario.scopeType,
-        requiredFlag(VERIFY_CLI.scopeOption),
-        scenario.scope,
-        requiredFlag(VERIFY_CLI.inputOption),
-        VERIFY_INPUT_SOURCE.STDIN,
-        requiredFlag(VERIFY_CLI.verifierOption),
-        composeVerifierOperand(verifier),
+        optionAssignment(VERIFY_CLI.verificationTypeOption, scenario.verificationType),
+        optionAssignment(VERIFY_CLI.scopeTypeOption, scenario.scopeType),
+        optionAssignment(VERIFY_CLI.scopeOption, scenario.scope),
+        optionAssignment(VERIFY_CLI.inputOption, VERIFY_INPUT_SOURCE.STDIN),
+        optionAssignment(VERIFY_CLI.verifierOption, composeVerifierOperand(verifier)),
       ]),
       { from: SPX_COMMANDER_PARSE_SOURCE },
     );
@@ -2088,14 +2066,10 @@ export async function observeCallerDriveModeOverrideRejection(): Promise<VerifyC
   const forbiddenOption = "--drive-mode";
   return observeRejectedVerificationArgs(
     verificationRunArgs([VERIFY_CLI.startCommandName], [
-      requiredFlag(VERIFY_CLI.verificationTypeOption),
-      scenario.verificationType,
-      requiredFlag(VERIFY_CLI.scopeTypeOption),
-      VERIFY_SCOPE_TYPE.CHANGESET,
-      requiredFlag(VERIFY_CLI.scopeOption),
-      scenario.scope,
-      requiredFlag(VERIFY_CLI.inputOption),
-      sampleLiteralTestValue(arbitrarySourceFilePath()),
+      optionAssignment(VERIFY_CLI.verificationTypeOption, scenario.verificationType),
+      optionAssignment(VERIFY_CLI.scopeTypeOption, VERIFY_SCOPE_TYPE.CHANGESET),
+      optionAssignment(VERIFY_CLI.scopeOption, scenario.scope),
+      optionAssignment(VERIFY_CLI.inputOption, sampleLiteralTestValue(arbitrarySourceFilePath())),
       forbiddenOption,
       VERIFY_DRIVE_MODE.SPX,
     ]),
