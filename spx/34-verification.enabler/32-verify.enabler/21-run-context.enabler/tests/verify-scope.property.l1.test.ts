@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
 import { VERIFICATION_CONTEXT_SUBJECT_KIND } from "@/domains/verification-context/context";
 import { parseChangesetScope, VERIFY_SCOPE_ERROR } from "@/domains/verify/verify";
-import { arbitraryFileScopeIdentityScenario, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
+import { arbitraryArgvSafeFileScopeIdentityScenario, VERIFY_TEST_GENERATOR } from "@testing/generators/verify/verify";
 import { assertProperty, PROPERTY_LEVEL } from "@testing/harnesses/property/property";
 
 import {
@@ -96,7 +96,7 @@ describe("verify scope properties", () => {
 
   it("preserves every file selector in its run locator", async () => {
     await assertProperty(
-      arbitraryFileScopeIdentityScenario(),
+      arbitraryArgvSafeFileScopeIdentityScenario(),
       async (scope) => {
         const started = await startFileScopeRun(scope.input);
         expect(started.report.locator).toStrictEqual(started.expectedLocator);

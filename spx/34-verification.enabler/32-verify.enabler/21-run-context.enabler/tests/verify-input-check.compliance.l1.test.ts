@@ -16,15 +16,17 @@ describe("verify input check compliance", () => {
     await assertProperty(
       VERIFY_CONTENT_IDENTITY_TEST_GENERATOR.checkFileScenario(CHECK_FILE_RELATION.IDENTICAL),
       async (scenario) => {
-        const absent = await observeInputCheck({
-          recordedBytes: scenario.recorded.bytes,
-          checkedFile: { path: scenario.path, bytes: scenario.checked.bytes },
-          contentNormalization: CONTENT_NORMALIZATION.UTF8_UNIVERSAL_NEWLINES,
-          omitRecordedContentDigests: true,
-        });
-        expect(absent.command.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-        expect(absent.command.output).toContain(VERIFY_INPUT_CHECK_FAILURE.CONTENT_IDENTITY_UNAVAILABLE);
-        expect(absent.command.output).not.toContain(VERIFY_INPUT_CHECK_RESULT.DIFFERENT);
+        for (const contentNormalization of [undefined, ...Object.values(CONTENT_NORMALIZATION)]) {
+          const absent = await observeInputCheck({
+            recordedBytes: scenario.recorded.bytes,
+            checkedFile: { path: scenario.path, bytes: scenario.checked.bytes },
+            ...(contentNormalization === undefined ? {} : { contentNormalization }),
+            omitRecordedContentDigests: true,
+          });
+          expect(absent.command.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+          expect(absent.command.output).toContain(VERIFY_INPUT_CHECK_FAILURE.CONTENT_IDENTITY_UNAVAILABLE);
+          expect(absent.command.output).not.toContain(VERIFY_INPUT_CHECK_RESULT.DIFFERENT);
+        }
       },
       { level: PROPERTY_LEVEL.L1 },
     );

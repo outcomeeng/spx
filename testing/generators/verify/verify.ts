@@ -770,10 +770,10 @@ export function arbitrarySafeFileScopeIdentity(): fc.Arbitrary<string> {
   return arbitrarySourceFilePath();
 }
 
-export function arbitraryFileScopeIdentityScenario(): fc.Arbitrary<FileScopeIdentityScenario> {
+function fileScopeIdentityScenario(segments: fc.Arbitrary<string>): fc.Arbitrary<FileScopeIdentityScenario> {
   return fc.oneof(
     arbitrarySourceFilePath().map((path) => ({ input: path, normalized: path })),
-    fc.tuple(arbitraryArgvSafeToken(), arbitrarySourceFilePath()).map(([segment, path]) => ({
+    fc.tuple(segments, arbitrarySourceFilePath()).map(([segment, path]) => ({
       input: `${segment}/${path}`,
       normalized: `${segment}/${path}`,
     })),
@@ -785,6 +785,16 @@ export function arbitraryFileScopeIdentityScenario(): fc.Arbitrary<FileScopeIden
       normalized: path,
     })),
   );
+}
+
+/** File-scope identities for a caller that hands the identity straight to the normalizer, with no argv parsing. */
+export function arbitraryFileScopeIdentityScenario(): fc.Arbitrary<FileScopeIdentityScenario> {
+  return fileScopeIdentityScenario(STATE_STORE_TEST_GENERATOR.scopeToken());
+}
+
+/** File-scope identities for a caller that passes the identity as its own argv element. */
+export function arbitraryArgvSafeFileScopeIdentityScenario(): fc.Arbitrary<FileScopeIdentityScenario> {
+  return fileScopeIdentityScenario(arbitraryArgvSafeToken());
 }
 
 export function arbitraryFileScopeCanonicalizationScenario(): fc.Arbitrary<FileScopeCanonicalizationScenario> {
@@ -805,7 +815,7 @@ export function arbitraryFileScopeCanonicalizationScenario(): fc.Arbitrary<FileS
 
 export function verifyScopeMappingCases(): readonly VerifyScopeMappingCase[] {
   const changeset = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.changesetScopeScenario());
-  const file = sampleVerifyTestValue(arbitraryFileScopeIdentityScenario());
+  const file = sampleVerifyTestValue(arbitraryArgvSafeFileScopeIdentityScenario());
   return [
     {
       scopeType: VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET,
@@ -861,7 +871,7 @@ export function arbitraryUnsafeFileScopeIdentity(): fc.Arbitrary<string> {
     arbitrarySourceFilePath().map(
       (path) => `${VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY.PREFIX}${path}`,
     ),
-    fc.tuple(arbitraryArgvSafeToken(), arbitrarySourceFilePath()).map(([segment, path]) =>
+    fc.tuple(STATE_STORE_TEST_GENERATOR.scopeToken(), arbitrarySourceFilePath()).map(([segment, path]) =>
       [
         segment,
         VERIFICATION_CONTEXT_FILE_SUBJECT_PATH.PARENT_DIRECTORY.SEGMENT,

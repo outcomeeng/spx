@@ -1,3 +1,4 @@
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
@@ -45,19 +46,15 @@ describe("verify start expected content digest compliance", () => {
   it("rejects a difference under the named normalization, naming both digests, before any run state exists", async () => {
     await assertProperty(
       VERIFY_CONTENT_IDENTITY_TEST_GENERATOR.textInput().chain((input) =>
-        VERIFY_CONTENT_IDENTITY_TEST_GENERATOR.digestOtherThan(
-          referenceDigestUnder(CONTENT_NORMALIZATION.NONE, input),
-        ).chain((otherThanNone) =>
-          VERIFY_CONTENT_IDENTITY_TEST_GENERATOR.digestOtherThan(
-            referenceDigestUnder(CONTENT_NORMALIZATION.UTF8_UNIVERSAL_NEWLINES, input),
-          ).map((otherThanNormalized) => ({ input, otherThanNone, otherThanNormalized }))
-        )
+        fc.tuple(
+          ...Object.values(CONTENT_NORMALIZATION).map((normalization) =>
+            VERIFY_CONTENT_IDENTITY_TEST_GENERATOR.digestOtherThan(referenceDigestUnder(normalization, input)).map(
+              (expected) => ({ normalization, expected }),
+            )
+          ),
+        ).map((rows) => ({ input, rows }))
       ),
-      async ({ input, otherThanNone, otherThanNormalized }) => {
-        const rows = [
-          { normalization: CONTENT_NORMALIZATION.NONE, expected: otherThanNone },
-          { normalization: CONTENT_NORMALIZATION.UTF8_UNIVERSAL_NEWLINES, expected: otherThanNormalized },
-        ];
+      async ({ input, rows }) => {
         for (const { normalization, expected } of rows) {
           const observation = await observeStartOverInputBytes(input.bytes, {
             expectedContentSha256: expected,
