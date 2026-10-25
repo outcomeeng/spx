@@ -40,7 +40,13 @@ import {
   verifyStatusCommand,
 } from "@/commands/verify/cli";
 import type { CliCommandResult } from "@/config/types";
-import { VERIFY_INPUT_SOURCE, VERIFY_SCOPE_TYPE, VERIFY_VERB, VERIFY_VERIFIER_KIND } from "@/domains/verify/verify";
+import {
+  VERIFY_CONTENT_OPTION,
+  VERIFY_INPUT_SOURCE,
+  VERIFY_SCOPE_TYPE,
+  VERIFY_VERB,
+  VERIFY_VERIFIER_KIND,
+} from "@/domains/verify/verify";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { jsonDocument, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
@@ -108,6 +114,15 @@ export const VERIFY_CLI = {
   expectationsOption: "--expectations <expectations-source>",
   expectationsOptionDescription:
     "Expectations source a changeset-scoped run is bound to; stdin or a file path holding a JSON document carrying schemaVersion and optional additionalPaths",
+  expectedContentSha256Option: `${VERIFY_CONTENT_OPTION.EXPECTED_SHA256} <sha256>`,
+  expectedContentSha256OptionDescription:
+    "Lowercase hexadecimal SHA-256 the input's bytes must have under the content normalization; the run is not opened when they differ",
+  contentNormalizationOption: `${VERIFY_CONTENT_OPTION.CONTENT_NORMALIZATION} <normalization>`,
+  contentNormalizationOptionDescription:
+    "Content normalization the digest is taken under; none or utf8-universal-newlines, none when omitted",
+  checkFileOption: `${VERIFY_CONTENT_OPTION.CHECK_FILE} <file>`,
+  checkFileOptionDescription:
+    "File whose content identity is set against the digest recorded at start, resolved against the invocation directory",
   verifierOption: "--verifier <kind:id>",
   verifierOptionDescription:
     `Verifier that judges the run, as <kind>:<id> with kind ${VERIFY_VERIFIER_KIND.PERSON} or ${VERIFY_VERIFIER_KIND.AGENT}; omit when none is named`,
@@ -141,10 +156,14 @@ interface VerifyStartActionOptions extends VerifySharedCliOptions {
   readonly change?: string;
   readonly expectations?: string;
   readonly verifier?: string;
+  readonly expectedContentSha256?: string;
+  readonly contentNormalization?: string;
 }
 
 interface VerifyInputActionOptions extends VerifySharedCliOptions {
   readonly run: string;
+  readonly checkFile?: string;
+  readonly contentNormalization?: string;
 }
 
 interface VerifyAppendActionOptions extends VerifySharedCliOptions {
@@ -206,18 +225,23 @@ const DEFAULT_VERIFY_CLI_HANDLERS: VerifyCliHandlers = {
   status: verifyStatusCommand,
 };
 
-async function readStdinText(): Promise<string> {
+async function readStdinBytes(): Promise<Uint8Array> {
   const chunks: Buffer[] = [];
   for await (const chunk of process.stdin) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string));
   }
-  return Buffer.concat(chunks).toString(CLI_SOURCE_ENCODING);
+  return Buffer.concat(chunks);
 }
 
-/** Read a verification input or append payload from stdin when the source is `stdin`, otherwise a file path. */
+/** Read a verification input from stdin when the source is `stdin`, otherwise a file path, as the bytes it holds. */
+async function readCliInputBytes(source: string): Promise<Uint8Array> {
+  if (source === VERIFY_INPUT_SOURCE.STDIN) return readStdinBytes();
+  return readFile(source);
+}
+
+/** Read an append payload from stdin when the source is `stdin`, otherwise a file path. */
 async function readCliSource(source: string): Promise<string> {
-  if (source === VERIFY_INPUT_SOURCE.STDIN) return readStdinText();
-  return readFile(source, CLI_SOURCE_ENCODING);
+  return new TextDecoder(CLI_SOURCE_ENCODING, { ignoreBOM: true }).decode(await readCliInputBytes(source));
 }
 
 export const verifyDomain: Domain = {
@@ -237,7 +261,8 @@ export function registerVerifyCommands(
     createJournalStreamBinding(invocation.io, stderrStreamSink(invocation.io));
   const deps = () => ({
     cwd: invocation.resolveEffectiveInvocationDir(),
-    readInputSource: readCliSource,
+    readInputSource: readCliInputBytes,
+    readCheckFile: (path: string) => readFile(path),
     readPayloadSource: readCliSource,
     journalBinding: journalBinding(),
   });
@@ -269,6 +294,8 @@ export function registerVerifyCommands(
     .option(VERIFY_CLI.changeOption, VERIFY_CLI.changeOptionDescription)
     .option(VERIFY_CLI.expectationsOption, VERIFY_CLI.expectationsOptionDescription)
     .option(VERIFY_CLI.verifierOption, VERIFY_CLI.verifierOptionDescription)
+    .option(VERIFY_CLI.expectedContentSha256Option, VERIFY_CLI.expectedContentSha256OptionDescription)
+    .option(VERIFY_CLI.contentNormalizationOption, VERIFY_CLI.contentNormalizationOptionDescription)
     .action(async (options: VerifyStartActionOptions) => {
       reportCliResult(await handlers.start(options, deps()), invocation.io);
     });
@@ -280,6 +307,8 @@ export function registerVerifyCommands(
     .requiredOption(VERIFY_CLI.scopeTypeOption, VERIFY_CLI.scopeTypeOptionDescription)
     .requiredOption(VERIFY_CLI.scopeOption, VERIFY_CLI.scopeOptionDescription)
     .requiredOption(VERIFY_CLI.runOption, "Run token reported by start")
+    .option(VERIFY_CLI.checkFileOption, VERIFY_CLI.checkFileOptionDescription)
+    .option(VERIFY_CLI.contentNormalizationOption, VERIFY_CLI.contentNormalizationOptionDescription)
     .action(async (options: VerifyInputActionOptions) => {
       reportCliResult(await handlers.input(options, deps()), invocation.io);
     });

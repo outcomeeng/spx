@@ -28,6 +28,14 @@ export interface ContentDigests {
   readonly [CONTENT_NORMALIZATION.UTF8_UNIVERSAL_NEWLINES]: UniversalNewlineDigest;
 }
 
+/** The content digests available for bytes: always `none`, and the universal-newline digest only when the bytes are valid UTF-8. */
+export interface AvailableContentDigests {
+  readonly [CONTENT_NORMALIZATION.NONE]: RawBytesDigest;
+  readonly [CONTENT_NORMALIZATION.UTF8_UNIVERSAL_NEWLINES]?: UniversalNewlineDigest;
+}
+
+const UTF8_LABEL = "utf-8";
+
 function sha256Hex(content: Uint8Array | string): string {
   return createHash(SHA256_ALGORITHM).update(content).digest(HEX_ENCODING);
 }
@@ -55,4 +63,32 @@ export function computeContentDigests(bytes: Uint8Array, text: string): ContentD
       sha256: digestUniversalNewlineText(text),
     },
   };
+}
+
+/** The text strict UTF-8 decoding yields for the bytes, keeping a byte-order mark; `undefined` when the bytes are not valid UTF-8. */
+export function decodeStrictUtf8(bytes: Uint8Array): string | undefined {
+  try {
+    return new TextDecoder(UTF8_LABEL, { fatal: true, ignoreBOM: true }).decode(bytes);
+  } catch {
+    return undefined;
+  }
+}
+
+/** The text a lenient UTF-8 decoding yields for the bytes, keeping a byte-order mark and replacing each invalid sequence. */
+export function decodeLenientUtf8(bytes: Uint8Array): string {
+  return new TextDecoder(UTF8_LABEL, { fatal: false, ignoreBOM: true }).decode(bytes);
+}
+
+/** Digests of the bytes under every normalization that applies to them. */
+export function computeAvailableContentDigests(bytes: Uint8Array): AvailableContentDigests {
+  const text = decodeStrictUtf8(bytes);
+  if (text === undefined) return { [CONTENT_NORMALIZATION.NONE]: { sha256: digestRawBytes(bytes) } };
+  return computeContentDigests(bytes, text);
+}
+
+/** The digest of the bytes under a normalization, or `undefined` when the normalization does not apply to them. */
+export function digestUnderNormalization(bytes: Uint8Array, normalization: ContentNormalization): string | undefined {
+  if (normalization === CONTENT_NORMALIZATION.NONE) return digestRawBytes(bytes);
+  const text = decodeStrictUtf8(bytes);
+  return text === undefined ? undefined : digestUniversalNewlineText(text);
 }

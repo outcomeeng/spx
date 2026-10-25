@@ -196,7 +196,11 @@ export async function executeRunCommand(
   };
   const recorder = createRecorderOperations({
     input: EXECUTE_RUN_INPUT_SOURCE,
-    deps: { ...deps.recorder, cwd: productDir, readInputSource: () => Promise.resolve(JSON.stringify(inputDocument)) },
+    deps: {
+      ...deps.recorder,
+      cwd: productDir,
+      readInputSource: () => Promise.resolve(new TextEncoder().encode(JSON.stringify(inputDocument))),
+    },
   });
   const result = await executeVerificationRun(request, {
     resolveRunner: deps.resolveRunner ?? resolveVerificationRunner,
