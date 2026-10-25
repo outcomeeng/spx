@@ -5,7 +5,7 @@
     "test": {
       "tests/node-state-derivation.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "c2d6355e71fdc1ee45316cbb014d7e8a6a825a50",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/76-node-state-derivation.enabler/node-state-derivation.md",
@@ -105,7 +105,7 @@
       },
       "tests/node-state-derivation.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "c2d6355e71fdc1ee45316cbb014d7e8a6a825a50",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/76-node-state-derivation.enabler/node-state-derivation.md",

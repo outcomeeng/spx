@@ -5,7 +5,7 @@
     "test": {
       "tests/node-status-test-support.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "c2d6355e71fdc1ee45316cbb014d7e8a6a825a50",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/21-node-status.enabler/32-node-status-test-support.enabler/node-status-test-support.md",
@@ -167,6 +167,11 @@
           "testing/harnesses/vitest-registration.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
+      }
+    },
+    "audit": {
+      "{rule-slug}": {
+        "verdict": "not-run"
       }
     },
     "evidence": {

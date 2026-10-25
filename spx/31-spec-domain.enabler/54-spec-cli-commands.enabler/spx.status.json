@@ -1,11 +1,11 @@
 {
-  "state": "passing",
+  "state": "failing",
   "malleability": "spec",
   "verification": {
     "test": {
       "tests/pin-currency.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "c2d6355e71fdc1ee45316cbb014d7e8a6a825a50",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -172,7 +172,7 @@
       },
       "tests/spec-cli-commands.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "c2d6355e71fdc1ee45316cbb014d7e8a6a825a50",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -369,7 +369,7 @@
       },
       "tests/spec-cli-commands.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "c2d6355e71fdc1ee45316cbb014d7e8a6a825a50",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -538,7 +538,7 @@
       },
       "tests/spec-cli-commands.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "c2d6355e71fdc1ee45316cbb014d7e8a6a825a50",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -739,7 +739,7 @@
       },
       "tests/spec-context-commands.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "c2d6355e71fdc1ee45316cbb014d7e8a6a825a50",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -906,7 +906,7 @@
       },
       "tests/spec-status-fold.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "c2d6355e71fdc1ee45316cbb014d7e8a6a825a50",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -1073,7 +1073,7 @@
       },
       "tests/status-journal-evidence.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "c2d6355e71fdc1ee45316cbb014d7e8a6a825a50",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -1248,7 +1248,7 @@
       },
       "tests/status-journal-evidence.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "c2d6355e71fdc1ee45316cbb014d7e8a6a825a50",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -1423,7 +1423,7 @@
       },
       "tests/status-testing-delegation.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "c2d6355e71fdc1ee45316cbb014d7e8a6a825a50",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
