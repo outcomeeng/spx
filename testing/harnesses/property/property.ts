@@ -54,7 +54,8 @@ export const PROPERTY_TIMEOUTS_MS: Record<PropertyLevel, number> = {
   [PROPERTY_LEVEL.L3]: 120_000,
 };
 
-const PROPERTY_TEST_ENVELOPE_MARGIN_MS = 5_000;
+/** Margin in milliseconds added to the product of run count and per-run timeout in the whole-run envelope. */
+export const PROPERTY_TEST_ENVELOPE_MARGIN_MS = 5_000;
 
 /** Vitest envelope for evidence that exercises the L1 fast-check timeout. */
 export const PROPERTY_L1_TEST_ENVELOPE_TIMEOUT_MS = PROPERTY_TIMEOUTS_MS[PROPERTY_LEVEL.L1]

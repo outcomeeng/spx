@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { PROPERTY_LEVEL, PROPERTY_SIZE, resolveRunCount, resolveTimeout } from "@testing/harnesses/property/property";
+import {
+  PROPERTY_LEVEL,
+  PROPERTY_RUN_COUNTS,
+  PROPERTY_SIZE,
+  PROPERTY_TEST_ENVELOPE_MARGIN_MS,
+  PROPERTY_TIMEOUTS_MS,
+  propertyTestEnvelopeTimeoutMs,
+  resolveRunCount,
+  resolveTimeout,
+} from "@testing/harnesses/property/property";
 
 describe("classification resolves to harness-owned execution policy", () => {
   it("maps each size to one positive integer run count that does not vary with level", () => {
@@ -35,5 +44,23 @@ describe("classification resolves to harness-owned execution policy", () => {
     expect(new Set(Object.values(PROPERTY_LEVEL).map((level) => resolveTimeout({ level }))).size).toBe(
       Object.values(PROPERTY_LEVEL).length,
     );
+  });
+
+  it("maps each classification to the product of its run count and its per-run timeout plus the margin", () => {
+    for (const size of Object.values(PROPERTY_SIZE)) {
+      for (const level of Object.values(PROPERTY_LEVEL)) {
+        expect(propertyTestEnvelopeTimeoutMs({ level, size })).toBe(
+          PROPERTY_RUN_COUNTS[size] * PROPERTY_TIMEOUTS_MS[level] + PROPERTY_TEST_ENVELOPE_MARGIN_MS,
+        );
+      }
+    }
+  });
+
+  it("defaults an omitted size to the envelope of the standard size", () => {
+    for (const level of Object.values(PROPERTY_LEVEL)) {
+      expect(propertyTestEnvelopeTimeoutMs({ level })).toBe(
+        propertyTestEnvelopeTimeoutMs({ level, size: PROPERTY_SIZE.STANDARD }),
+      );
+    }
   });
 });
