@@ -2,14 +2,13 @@
  * Node-spec identity index for the markdown node-spec rule.
  *
  * Reads the `id` of every spec the spec-tree library recognizes under the
- * spec-tree root, from the paths git tracks when the product is a git
- * repository and from the directory otherwise, so a run that validates a
- * subset of the tree still sees every identity.
+ * spec-tree root from the directory, tracked or not, so a run that validates a
+ * subset of the tree still sees every identity and a newly authored spec
+ * git has not yet seen is judged like any other.
  *
  * @module validation/steps/markdown-node-spec-index
  */
 
-import { createTrackedPathInclusion } from "@/lib/git/tracked-paths";
 import {
   createFilesystemSpecTreeSource,
   SPEC_TREE_ENTRY_TYPE,
@@ -39,12 +38,10 @@ function declaredId(text: string, path: string): string | undefined {
 export async function readNodeSpecIdentities(
   productDir: string,
   selection: SpecTreeGrammarSelection,
-  trackedPaths: readonly string[] | undefined,
 ): Promise<readonly NodeSpecIdentity[]> {
   const source = createFilesystemSpecTreeSource({
     productDir,
     selection,
-    includePath: createTrackedPathInclusion(trackedPaths === undefined ? undefined : new Set(trackedPaths)),
   });
   const identities: NodeSpecIdentity[] = [];
   for await (const entry of source.entries()) {

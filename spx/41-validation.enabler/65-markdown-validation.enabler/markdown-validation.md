@@ -16,8 +16,11 @@ CAN catch broken cross-references and structural defects before they reach the r
 ### Scenarios
 
 - Given a canonical-form node spec inside `spx/` whose front matter carries no `id`, when validation runs, then an error is reported naming the file ([test](tests/markdown-validation.scenario.l1.test.ts))
+- Given a canonical-form node spec inside `spx/` that git does not track and whose front matter carries no `id`, when validation runs in a git repository, then an error is reported naming the file ([test](tests/markdown-validation.scenario.l1.test.ts))
+- Given a node spec inside `spx/` that git does not track and whose `id` is not a UUIDv7 in canonical lowercase hyphenated form, when validation runs in a git repository, then an error is reported naming the file, the line of the `id`, and the value ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given a node spec inside `spx/` whose `id` is not a UUIDv7 in canonical lowercase hyphenated form, when validation runs, then an error is reported naming the file, the line of the `id`, and the value ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given two node specs inside `spx/` that carry one `id`, when validation runs, then an error is reported for each spec naming the file, the line of the `id`, and the other spec's path ([test](tests/markdown-validation.scenario.l1.test.ts))
+- Given two node specs inside `spx/` that carry one `id` and of which git tracks only one, when validation runs in a git repository, then an error is reported for each spec naming the file, the line of the `id`, and the other spec's path ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given a prior-form node spec with no `id`, when validation runs, then no error is reported for the missing `id` ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given a markdown file with a valid relative link to an existing file, when validation runs, then no error is reported for that link ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given a markdown file with a relative link to a non-existent file, when validation runs, then an error is reported identifying the file, line number, and broken target ([test](tests/markdown-validation.scenario.l1.test.ts))

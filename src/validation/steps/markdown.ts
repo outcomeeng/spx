@@ -460,7 +460,7 @@ export async function validateMarkdown(
       continue;
     }
     const nodeSpecs = grammarSelection !== undefined && productDir !== undefined
-      ? await (specTreeNodeSpecs ??= readNodeSpecs(productDir, grammarSelection, trackedPaths))
+      ? await (specTreeNodeSpecs ??= readNodeSpecs(productDir, grammarSelection))
       : undefined;
     if (nodeSpecs instanceof Error) {
       errors.push({ file: directory, line: 1, detail: nodeSpecs.message });
@@ -509,10 +509,9 @@ async function readSpecTreeTrackedPaths(
 async function readNodeSpecs(
   productDir: string,
   selection: SpecTreeGrammarSelection,
-  trackedPaths: readonly string[] | undefined,
 ): Promise<readonly NodeSpecIdentity[] | Error> {
   try {
-    return await readNodeSpecIdentities(productDir, selection, trackedPaths);
+    return await readNodeSpecIdentities(productDir, selection);
   } catch (error) {
     return new Error(toMessage(error));
   }
