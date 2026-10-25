@@ -26,8 +26,10 @@ typescript`, `session list`, and the absent `-C` fallback link
 `tests/product-context.mapping.l1.test.ts`. Only the `config show --json` case
 keeps a generated property sweep through the injected resolver. The `session
 list`, absent `-C` fallback, and `validation typescript` cases each run one
-fixed-seed draw from `sampleGeneratedValue(arbitraryProductContextCase())`, and
-each also spawns real Git. The CI review of pull request 701 at head
+fixed-seed draw from `sampleGeneratedValue(arbitraryProductContextCase())`. The
+`session list` and absent `-C` fallback cases also spawn real Git, while the
+`validation typescript` case resolves through the injected resolver and spawns
+no Git. The CI review of pull request 701 at head
 `6d9c8286133db3ac206b374afae20bc19dad28c4` raised this finding.
 
 **Impact:** three of four universal mapping assertions are backed by a single
