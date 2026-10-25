@@ -5,13 +5,7 @@
     "test": {
       "tests/lock-command.scenario.l1.test.ts": {
         "verdict": "passed",
-<<<<<<< HEAD
         "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
-||||||| parent of 3f0ffeef4 (spec(node-status): re-project status onto the advanced base)
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
-=======
-        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
->>>>>>> 3f0ffeef4 (spec(node-status): re-project status onto the advanced base)
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-orchestration.enabler/orchestration.md",
