@@ -1,10 +1,11 @@
 import { copyFile, mkdir, writeFile } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { basename, join, relative, resolve, sep } from "node:path";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { configFileForFormat, DEFAULT_CONFIG_FILE_FORMAT, serializeConfigFileSections } from "@/config/index";
 import { SESSION_STATUSES } from "@/domains/session/types";
-import { validationCliDefinition } from "@/interfaces/cli/validation-contract";
+import { CONFIG_CLI } from "@/interfaces/cli/config";
+import { SESSION_CLI } from "@/interfaces/cli/session";
 import { sessionsScopeDir } from "@/lib/state-store";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import type {
@@ -26,6 +27,22 @@ export const PRODUCT_CONTEXT_TEST_OPTIONS = {
   timeout: propertyTestEnvelopeTimeoutMs(PRODUCT_CONTEXT_CLASSIFICATION),
 } as const;
 
+/** The command domains whose `-C` equivalence claim is the Git contract; every other domain receives the injected resolver. */
+const GIT_CONTRACT_DOMAINS: readonly string[] = [CONFIG_CLI.commandName, SESSION_CLI.commandName];
+
+/**
+ * Resolves the product directory from the directory it receives: a directory inside the product
+ * resolves to the product, any other directory resolves to itself, as the fallback of the real
+ * resolver does. A directory flag that fails to reach the resolver changes the result.
+ */
+function resolverWithinProduct(productDir: string): (cwd: string) => { readonly productDir: string } {
+  return (cwd) => {
+    const relativePath = relative(productDir, resolve(cwd));
+    const inside = relativePath === "" || (!relativePath.startsWith("..") && !relativePath.startsWith(sep));
+    return { productDir: inside ? productDir : resolve(cwd) };
+  };
+}
+
 export interface ProductContextMappingObservation {
   readonly productDir: string;
   readonly direct: ProductContextCliRun;
@@ -40,9 +57,9 @@ export async function observeProductContextMapping(
     const productDir = join(env.productDir, scenario.target.productDirectory);
     const nestedProductDir = join(productDir, scenario.target.nestedDirectory);
     await mkdir(nestedProductDir, { recursive: true });
-    const claimsGitContract = command.domain !== validationCliDefinition.domain.commandName;
+    const claimsGitContract = GIT_CONTRACT_DOMAINS.includes(command.domain);
     if (claimsGitContract) await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
-    const cliOptions = claimsGitContract ? {} : { resolveProductDir: () => ({ productDir }) };
+    const cliOptions = claimsGitContract ? {} : { resolveProductDir: resolverWithinProduct(productDir) };
     const configFile = configFileForFormat(productDir, DEFAULT_CONFIG_FILE_FORMAT);
     const serialized = serializeConfigFileSections(configFile.format, scenario.testing.config);
     if (!serialized.ok) throw new Error(serialized.error);
