@@ -1,11 +1,11 @@
 {
-  "state": "passing",
+  "state": "failing",
   "malleability": "spec",
   "verification": {
     "test": {
       "tests/context-ingestion.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ecdbee663b14d0bfa8d5508c679f99854ebaa6c0",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/context-ingestion.md",
@@ -201,7 +201,7 @@
       },
       "tests/context-ingestion.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ecdbee663b14d0bfa8d5508c679f99854ebaa6c0",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -373,7 +373,7 @@
       },
       "tests/context-ingestion.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ecdbee663b14d0bfa8d5508c679f99854ebaa6c0",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/context-ingestion.md",
@@ -541,7 +541,7 @@
       },
       "tests/context-ingestion.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ecdbee663b14d0bfa8d5508c679f99854ebaa6c0",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/context-ingestion.md",
@@ -709,7 +709,7 @@
       },
       "tests/determinism.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ecdbee663b14d0bfa8d5508c679f99854ebaa6c0",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/context-ingestion.md",

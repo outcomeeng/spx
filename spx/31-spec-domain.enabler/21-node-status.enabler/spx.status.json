@@ -5,7 +5,7 @@
     "test": {
       "tests/claim-comparison.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d950e6e3d838e80295c32a5d79e0ccfd27bcecae",
+        "commit": "ecdbee663b14d0bfa8d5508c679f99854ebaa6c0",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md",
@@ -168,7 +168,7 @@
       },
       "tests/migration-source-state.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d950e6e3d838e80295c32a5d79e0ccfd27bcecae",
+        "commit": "ecdbee663b14d0bfa8d5508c679f99854ebaa6c0",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md",
@@ -332,7 +332,7 @@
       },
       "tests/node-status.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d950e6e3d838e80295c32a5d79e0ccfd27bcecae",
+        "commit": "ecdbee663b14d0bfa8d5508c679f99854ebaa6c0",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md",
@@ -500,7 +500,7 @@
       },
       "tests/node-status.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d950e6e3d838e80295c32a5d79e0ccfd27bcecae",
+        "commit": "ecdbee663b14d0bfa8d5508c679f99854ebaa6c0",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md",
@@ -665,7 +665,7 @@
       },
       "tests/node-status.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d950e6e3d838e80295c32a5d79e0ccfd27bcecae",
+        "commit": "ecdbee663b14d0bfa8d5508c679f99854ebaa6c0",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md",
@@ -831,7 +831,7 @@
       },
       "tests/node-status.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d950e6e3d838e80295c32a5d79e0ccfd27bcecae",
+        "commit": "ecdbee663b14d0bfa8d5508c679f99854ebaa6c0",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md",
@@ -1100,7 +1100,7 @@
       },
       "tests/tracked-paths.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d950e6e3d838e80295c32a5d79e0ccfd27bcecae",
+        "commit": "ecdbee663b14d0bfa8d5508c679f99854ebaa6c0",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/21-node-status.enabler/node-status.md",
