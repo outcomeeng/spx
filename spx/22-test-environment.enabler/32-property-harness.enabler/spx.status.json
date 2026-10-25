@@ -5,7 +5,7 @@
     "test": {
       "tests/property-harness.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
+        "commit": "432a2f47a45c8edc0b57336d13c50fdd9b626110",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
@@ -18,7 +18,7 @@
       },
       "tests/property-harness.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
+        "commit": "432a2f47a45c8edc0b57336d13c50fdd9b626110",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
@@ -32,7 +32,7 @@
       },
       "tests/property-harness.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
+        "commit": "432a2f47a45c8edc0b57336d13c50fdd9b626110",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",
@@ -47,7 +47,7 @@
       },
       "tests/sampler.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
+        "commit": "432a2f47a45c8edc0b57336d13c50fdd9b626110",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-property-harness.enabler/property-harness.md",

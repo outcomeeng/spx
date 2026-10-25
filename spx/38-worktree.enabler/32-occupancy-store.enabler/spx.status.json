@@ -5,7 +5,7 @@
     "test": {
       "tests/occupancy-store.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
+        "commit": "432a2f47a45c8edc0b57336d13c50fdd9b626110",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/32-occupancy-store.enabler/occupancy-store.md",
@@ -42,7 +42,7 @@
       },
       "tests/occupancy-store.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
+        "commit": "432a2f47a45c8edc0b57336d13c50fdd9b626110",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/32-occupancy-store.enabler/occupancy-store.md",
@@ -73,7 +73,7 @@
       },
       "tests/occupancy-store.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
+        "commit": "432a2f47a45c8edc0b57336d13c50fdd9b626110",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/32-occupancy-store.enabler/occupancy-store.md",
@@ -103,7 +103,7 @@
       },
       "tests/occupancy-store.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
+        "commit": "432a2f47a45c8edc0b57336d13c50fdd9b626110",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/32-occupancy-store.enabler/occupancy-store.md",

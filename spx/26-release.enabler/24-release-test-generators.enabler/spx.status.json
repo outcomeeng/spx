@@ -5,7 +5,7 @@
     "test": {
       "tests/release-test-generators.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
+        "commit": "432a2f47a45c8edc0b57336d13c50fdd9b626110",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/24-release-test-generators.enabler/release-test-generators.md",
@@ -137,7 +137,7 @@
       },
       "tests/release-test-generators.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
+        "commit": "432a2f47a45c8edc0b57336d13c50fdd9b626110",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/24-release-test-generators.enabler/release-test-generators.md",

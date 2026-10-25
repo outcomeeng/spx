@@ -5,7 +5,7 @@
     "test": {
       "tests/admission.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
+        "commit": "432a2f47a45c8edc0b57336d13c50fdd9b626110",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/11-host-command-lock.enabler/host-command-lock.md",
@@ -41,7 +41,7 @@
       },
       "tests/load-gate.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
+        "commit": "432a2f47a45c8edc0b57336d13c50fdd9b626110",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/11-host-command-lock.enabler/host-command-lock.md",
@@ -77,7 +77,7 @@
       },
       "tests/lock-file.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
+        "commit": "432a2f47a45c8edc0b57336d13c50fdd9b626110",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/11-host-command-lock.enabler/host-command-lock.md",
@@ -113,7 +113,7 @@
       },
       "tests/lock-path.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
+        "commit": "432a2f47a45c8edc0b57336d13c50fdd9b626110",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/11-host-command-lock.enabler/host-command-lock.md",
@@ -145,7 +145,7 @@
       },
       "tests/nested.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
+        "commit": "432a2f47a45c8edc0b57336d13c50fdd9b626110",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/11-host-command-lock.enabler/host-command-lock.md",
@@ -181,7 +181,7 @@
       },
       "tests/nested.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
+        "commit": "432a2f47a45c8edc0b57336d13c50fdd9b626110",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/11-host-command-lock.enabler/host-command-lock.md",
@@ -217,7 +217,7 @@
       },
       "tests/supervisor-death.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
+        "commit": "432a2f47a45c8edc0b57336d13c50fdd9b626110",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/11-host-command-lock.enabler/host-command-lock.md",
@@ -253,7 +253,7 @@
       },
       "tests/terminal-result.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
+        "commit": "432a2f47a45c8edc0b57336d13c50fdd9b626110",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/11-host-command-lock.enabler/host-command-lock.md",
@@ -284,7 +284,7 @@
       },
       "tests/wait-cap.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "00ba4c01286b7ea659254dbc76994fab4ed66535",
+        "commit": "432a2f47a45c8edc0b57336d13c50fdd9b626110",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/11-host-command-lock.enabler/host-command-lock.md",
