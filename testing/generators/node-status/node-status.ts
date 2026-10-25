@@ -974,6 +974,19 @@ export const SOURCE_GRAMMAR_EXPECTED_STATE: Readonly<Record<NodeStatusSourceAudi
   [NODE_STATUS_SOURCE_AUDIT_TAG_FORM.AUDIT]: SPEC_TREE_NODE_STATE.SPECIFIED,
 };
 
+/**
+ * The state a source-grammar node whose recorded results all pass is expected to take under a declaration on the
+ * 4.0 line with no migration source, per audit-tag form: the 3.x tag text selects no grammar there, so every form
+ * derives the state the same node derives with no tag, at every declared malleability.
+ */
+export const NON_MIGRATING_SOURCE_GRAMMAR_EXPECTED_STATE: Readonly<
+  Record<NodeStatusSourceAuditTagForm, SpecTreeNodeState>
+> = Object.fromEntries(
+  Object.values(NODE_STATUS_SOURCE_AUDIT_TAG_FORM).map((form) =>
+    [form, SOURCE_GRAMMAR_EXPECTED_STATE[NODE_STATUS_SOURCE_AUDIT_TAG_FORM.NONE]] as const
+  ),
+) as Record<NodeStatusSourceAuditTagForm, SpecTreeNodeState>;
+
 // A source-grammar tree whose nodes always include one node for every pair of audit-tag form and declared
 // malleability (or none declared); only the slugs, rule slugs, orders, and any extra nodes vary by draw.
 function arbitrarySourceGrammarTree(): fc.Arbitrary<SourceGrammarTreeFixture> {
