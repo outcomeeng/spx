@@ -7,6 +7,7 @@
     "sonarqube@claude-plugins-official": true,
     "coding-agents@outcomeeng": true
   },
+  "disabledMcpjsonServers": ["sonarqube"],
   "extraKnownMarketplaces": {
     "outcomeeng": {
       "source": {
