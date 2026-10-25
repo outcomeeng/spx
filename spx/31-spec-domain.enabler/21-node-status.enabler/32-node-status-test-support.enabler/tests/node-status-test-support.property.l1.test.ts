@@ -39,6 +39,7 @@ import {
   readTrackedIndex,
   readVersion1NodeStatus,
   readWorkingTreeStatus,
+  resolveFixtureGrammarSelection,
   SOURCE_GRAMMAR_TAG_FORMS_LINE,
   trackSpecTree,
   withClassificationTree,
@@ -304,7 +305,11 @@ describe("node-status test support", () => {
             );
 
             for (const node of fixture.nodes) {
-              const declaration = await readNodeSpecDeclaration(env.productDir, node.dirName);
+              const declaration = await readNodeSpecDeclaration(
+                env.productDir,
+                node.dirName,
+                await resolveFixtureGrammarSelection(env.productDir),
+              );
               expect(declaration.malleability).toBe(
                 node.facts.declaredMalleability ?? NODE_STATUS_DEFAULT_MALLEABILITY,
               );
@@ -331,7 +336,11 @@ describe("node-status test support", () => {
         NODE_STATUS_TEST_GENERATOR.sourceGrammarRepository(),
         async ({ node, facts }) => {
           await withPinnedNodeRepository(node, migratingMethodologyConfig(), async (repository) => {
-            const declaration = await readNodeSpecDeclaration(repository.env.productDir, repository.nodeId);
+            const declaration = await readNodeSpecDeclaration(
+              repository.env.productDir,
+              repository.nodeId,
+              await resolveFixtureGrammarSelection(repository.env.productDir),
+            );
             expect(declaration.malleability).toBe(facts.declaredMalleability ?? NODE_STATUS_DEFAULT_MALLEABILITY);
             expect(declaration.auditTagForms).toEqual(
               facts.auditTagForm === NODE_STATUS_SOURCE_AUDIT_TAG_FORM.NONE ? [] : [facts.auditTagForm],
