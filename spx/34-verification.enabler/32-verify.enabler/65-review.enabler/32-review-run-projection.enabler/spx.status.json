@@ -5,7 +5,7 @@
     "test": {
       "tests/review-comment.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler/review-run-projection.md",
@@ -321,6 +321,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -392,7 +393,7 @@
       },
       "tests/review-envelope.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler/review-run-projection.md",
@@ -708,6 +709,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -779,7 +781,7 @@
       },
       "tests/review-run-set-identity.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler/review-run-projection.md",
@@ -892,6 +894,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -935,7 +938,7 @@
       },
       "tests/review-run-set.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler/review-run-projection.md",
@@ -1048,6 +1051,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -1091,7 +1095,7 @@
       },
       "tests/review-scope.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-review.enabler/32-review-run-projection.enabler/review-run-projection.md",
@@ -1407,6 +1411,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",

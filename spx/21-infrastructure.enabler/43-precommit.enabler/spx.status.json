@@ -5,7 +5,7 @@
     "test": {
       "tests/deps-install-gate-probe.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
@@ -27,7 +27,7 @@
       },
       "tests/deps-install-gate.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
@@ -49,7 +49,7 @@
       },
       "tests/entrypoint.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
@@ -71,7 +71,7 @@
       },
       "tests/hook-install.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "lefthook.yml",
           "pnpm-lock.yaml",
@@ -90,7 +90,7 @@
       },
       "tests/main-checkout-gate.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
@@ -115,7 +115,7 @@
       },
       "tests/subprocess-env.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "package.json",
           "pnpm-lock.yaml",

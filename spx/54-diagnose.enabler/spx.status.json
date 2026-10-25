@@ -5,7 +5,7 @@
     "test": {
       "tests/check-selection.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -41,6 +41,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -58,7 +59,7 @@
       },
       "tests/config.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -75,7 +76,7 @@
       },
       "tests/determinism.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -111,6 +112,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -129,7 +131,7 @@
       },
       "tests/diagnose-cli.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -269,6 +271,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -322,7 +325,7 @@
       },
       "tests/error-sanitization.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -466,6 +469,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -529,7 +533,7 @@
       },
       "tests/exit-code.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -543,7 +547,7 @@
       },
       "tests/fold.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -557,7 +561,7 @@
       },
       "tests/manifest.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -590,6 +594,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -607,7 +612,7 @@
       },
       "tests/reading-escaping.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -655,6 +660,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -684,7 +690,7 @@
       },
       "tests/report.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -728,6 +734,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -748,7 +755,7 @@
       },
       "tests/resolve.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -870,6 +877,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -918,7 +926,7 @@
       },
       "tests/text-report.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -966,6 +974,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -995,7 +1004,7 @@
       },
       "tests/worktree-status-probe.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -1066,6 +1075,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",

@@ -5,7 +5,7 @@
     "test": {
       "tests/release-notes.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-release-notes.enabler/release-notes.md",
@@ -103,6 +103,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -163,7 +164,7 @@
       },
       "tests/release-notes.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-release-notes.enabler/release-notes.md",
@@ -241,6 +242,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -289,7 +291,7 @@
       },
       "tests/release-notes.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-release-notes.enabler/release-notes.md",
@@ -367,6 +369,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -416,7 +419,7 @@
       },
       "tests/release-notes.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-release-notes.enabler/release-notes.md",
@@ -514,6 +517,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -572,7 +576,7 @@
       },
       "tests/release-notes.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-release-notes.enabler/release-notes.md",
@@ -650,6 +654,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",

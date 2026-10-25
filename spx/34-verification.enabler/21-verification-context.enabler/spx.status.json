@@ -5,7 +5,7 @@
     "test": {
       "tests/verification-context-cli-registry.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/21-verification-context.enabler/tests/verification-context-cli-registry.scenario.l1.test.ts",
@@ -319,6 +319,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -377,7 +378,7 @@
       },
       "tests/verification-context-cli.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -442,6 +443,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -482,7 +484,7 @@
       },
       "tests/verification-context-digest.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/21-verification-context.enabler/tests/verification-context-digest.property.l1.test.ts",
@@ -542,6 +544,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -576,7 +579,7 @@
       },
       "tests/verification-context-path.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -641,6 +644,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -682,7 +686,7 @@
       },
       "tests/verification-context-shape.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -747,6 +751,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",

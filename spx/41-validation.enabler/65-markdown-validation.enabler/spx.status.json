@@ -5,7 +5,7 @@
     "test": {
       "tests/markdown-validation-command.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -319,6 +319,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -389,7 +390,7 @@
       },
       "tests/markdown-validation.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -485,6 +486,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -536,7 +538,7 @@
       },
       "tests/markdown-validation.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -606,6 +608,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -636,7 +639,7 @@
       },
       "tests/markdown-validation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx.config.yaml",
@@ -794,6 +797,8 @@
           "spx/23-spec-tree.enabler/32-spec-tree-source.enabler/spec-tree-source.md",
           "spx/23-spec-tree.enabler/43-entry-recognition.enabler/21-recognition-classification.adr.md",
           "spx/23-spec-tree.enabler/43-entry-recognition.enabler/entry-recognition.md",
+          "spx/23-spec-tree.enabler/48-evidence-references.capability/ISSUES.md",
+          "spx/23-spec-tree.enabler/48-evidence-references.capability/evidence-references.spec.md",
           "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/21-conformance-classification.adr.md",
           "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/ISSUES.md",
           "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/PLAN.md",
@@ -1205,6 +1210,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
