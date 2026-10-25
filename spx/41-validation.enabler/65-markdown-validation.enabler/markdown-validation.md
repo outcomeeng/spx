@@ -11,10 +11,17 @@ CAN catch broken cross-references and structural defects before they reach the r
 ## Assertions
 
 - A product spec carries no required opening, every ADR and PDR carries its decision statement — the first prose paragraph after its title — at every methodology version, and every output-node spec carries the opening resolved from its registered kind or parent kind.
-- Context-renderable Markdown fails validation when an ADR or PDR has no decision statement, a required output-node opening is absent or malformed, an admitted output-node kind has no resolvable opening, front matter is malformed, an explicit `malleability` value is unsupported, strict UTF-8 decoding fails, a Markdown decision citation is unresolved, or an outcome-record filename differs from its owning node slug.
+- Context-renderable Markdown fails validation when an ADR or PDR has no decision statement, a required output-node opening is absent or malformed, an admitted output-node kind has no resolvable opening, front matter is malformed, a node spec's `id` is absent from a canonical-form spec, is not a UUIDv7 in canonical lowercase hyphenated form, or repeats another node spec's `id`, an explicit `malleability` value is unsupported, strict UTF-8 decoding fails, a Markdown decision citation is unresolved, or an outcome-record filename differs from its owning node slug.
 
 ### Scenarios
 
+- Given a canonical-form node spec inside `spx/` whose front matter carries no `id`, when validation runs, then an error is reported naming the file ([test](tests/markdown-validation.scenario.l1.test.ts))
+- Given a canonical-form node spec inside `spx/` that git does not track and whose front matter carries no `id`, when validation runs in a git repository, then an error is reported naming the file ([test](tests/markdown-validation.scenario.l1.test.ts))
+- Given a node spec inside `spx/` that git does not track and whose `id` is not a UUIDv7 in canonical lowercase hyphenated form, when validation runs in a git repository, then an error is reported naming the file, the line of the `id`, and the value ([test](tests/markdown-validation.scenario.l1.test.ts))
+- Given a node spec inside `spx/` whose `id` is not a UUIDv7 in canonical lowercase hyphenated form, when validation runs, then an error is reported naming the file, the line of the `id`, and the value ([test](tests/markdown-validation.scenario.l1.test.ts))
+- Given two node specs inside `spx/` that carry one `id`, when validation runs, then an error is reported for each spec naming the file, the line of the `id`, and the other spec's path ([test](tests/markdown-validation.scenario.l1.test.ts))
+- Given two node specs inside `spx/` that carry one `id` and of which git tracks only one, when validation runs in a git repository, then an error is reported for each spec naming the file, the line of the `id`, and the other spec's path ([test](tests/markdown-validation.scenario.l1.test.ts))
+- Given a prior-form node spec with no `id`, when validation runs, then no error is reported for the missing `id` ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given a markdown file with a valid relative link to an existing file, when validation runs, then no error is reported for that link ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given a markdown file with a relative link to a non-existent file, when validation runs, then an error is reported identifying the file, line number, and broken target ([test](tests/markdown-validation.scenario.l1.test.ts))
 - Given a markdown file with a valid heading fragment reference (e.g., `./file.md#heading`), when validation runs, then no error is reported ([test](tests/markdown-validation.scenario.l1.test.ts))
@@ -41,13 +48,19 @@ CAN catch broken cross-references and structural defects before they reach the r
 
 ### Mappings
 
+- An explicit `malleability` of `spec`, `verification`, or `implementation` and an absent `malleability` map to no error; any other value maps to an error naming the file, the line, and the value ([test](tests/markdown-validation.mapping.l1.test.ts))
 - Enabled built-in rules: MD001 (heading increment), MD003 (heading style), MD009 (no trailing spaces), MD010 (no hard tabs), MD024 (no duplicate headings — `siblings_only` for `spx/`, disabled for `docs/`), MD025 (single top-level heading), MD047 (file ends with newline). All other built-in rules are disabled ([test](tests/markdown-validation.mapping.l1.test.ts))
 - Markdown full-pipeline participation defaults to run ([test](tests/markdown-validation.mapping.l1.test.ts))
 - Link type resolution for command behavior: inside `spx/`, a tree-absolute link (`spx/foo.md`) resolves from the product root; in `docs/`, a product-absolute link (`/spx/foo.md`) resolves from the product root ([test](tests/markdown-validation.mapping.l1.test.ts))
 - Link type resolution for local rule behavior: inside `spx/`, a node-local relative link (`tests/foo.md`) resolves from the citing file's directory to a target inside the citing node; in `docs/`, a relative link (`./foo.md`) resolves from the file's directory; an external URL (`https://...`) is not checked; an HTML link (`<a href="...">`) is not checked ([test](tests/markdown-validation.mapping.l1.test.ts))
 
+### Properties
+
+- For every generated UUID, validation admits the `id` exactly when the UUID is version 7 in the RFC 9562 variant and written in lowercase hyphenated form ([test](tests/markdown-validation.property.l1.test.ts))
+
 ### Compliance
 
+- ALWAYS: `id` uniqueness is judged across every node spec under `spx/` whichever paths a run validates, and a spec listed in `spx/EXCLUDE` contributes its `id` without being reported itself ([test](tests/markdown-validation.compliance.l1.test.ts))
 - ALWAYS: broken links fail `spx validation all` ([test](tests/markdown-validation.compliance.l1.test.ts))
 - ALWAYS: markdown validation is available in every `spx` installation — no optional dependency, no runtime discovery, no skip path ([audit])
 - NEVER: validate directories outside `spx/` and `docs/` by default — these are the well-known spec tree directories coupled to Claude skills ([test](tests/markdown-validation.compliance.l1.test.ts))

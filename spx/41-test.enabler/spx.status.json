@@ -5,7 +5,7 @@
     "test": {
       "tests/evidence-contract.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -180,7 +180,7 @@
       },
       "tests/execution-recording.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -319,7 +319,7 @@
       },
       "tests/recorded-run-reuse.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -686,6 +686,8 @@
           "src/validation/steps/formatting.ts",
           "src/validation/steps/knip.ts",
           "src/validation/steps/markdown-link-shape-rule.ts",
+          "src/validation/steps/markdown-node-spec-index.ts",
+          "src/validation/steps/markdown-node-spec-rule.ts",
           "src/validation/steps/markdown.ts",
           "src/validation/steps/subprocess-output.ts",
           "src/validation/steps/typescript.ts",
@@ -721,7 +723,7 @@
       },
       "tests/recorded-run-reuse.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -1088,6 +1090,8 @@
           "src/validation/steps/formatting.ts",
           "src/validation/steps/knip.ts",
           "src/validation/steps/markdown-link-shape-rule.ts",
+          "src/validation/steps/markdown-node-spec-index.ts",
+          "src/validation/steps/markdown-node-spec-rule.ts",
           "src/validation/steps/markdown.ts",
           "src/validation/steps/subprocess-output.ts",
           "src/validation/steps/typescript.ts",
@@ -1124,7 +1128,7 @@
       },
       "tests/test.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -1301,7 +1305,7 @@
       },
       "tests/test.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -1389,7 +1393,7 @@
       },
       "tests/test.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -1492,7 +1496,7 @@
       },
       "tests/test.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -1857,6 +1861,8 @@
           "src/validation/steps/formatting.ts",
           "src/validation/steps/knip.ts",
           "src/validation/steps/markdown-link-shape-rule.ts",
+          "src/validation/steps/markdown-node-spec-index.ts",
+          "src/validation/steps/markdown-node-spec-rule.ts",
           "src/validation/steps/markdown.ts",
           "src/validation/steps/subprocess-output.ts",
           "src/validation/steps/typescript.ts",

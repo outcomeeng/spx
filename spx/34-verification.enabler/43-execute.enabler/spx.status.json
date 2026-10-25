@@ -5,7 +5,7 @@
     "test": {
       "tests/execute.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/43-execute.enabler/execute.md",
@@ -372,6 +372,8 @@
           "src/validation/steps/formatting.ts",
           "src/validation/steps/knip.ts",
           "src/validation/steps/markdown-link-shape-rule.ts",
+          "src/validation/steps/markdown-node-spec-index.ts",
+          "src/validation/steps/markdown-node-spec-rule.ts",
           "src/validation/steps/markdown.ts",
           "src/validation/steps/subprocess-output.ts",
           "src/validation/steps/typescript.ts",
@@ -396,7 +398,7 @@
       },
       "tests/execute.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/43-execute.enabler/execute.md",
@@ -763,6 +765,8 @@
           "src/validation/steps/formatting.ts",
           "src/validation/steps/knip.ts",
           "src/validation/steps/markdown-link-shape-rule.ts",
+          "src/validation/steps/markdown-node-spec-index.ts",
+          "src/validation/steps/markdown-node-spec-rule.ts",
           "src/validation/steps/markdown.ts",
           "src/validation/steps/subprocess-output.ts",
           "src/validation/steps/typescript.ts",
@@ -787,7 +791,7 @@
       },
       "tests/execute.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/43-execute.enabler/execute.md",
@@ -1154,6 +1158,8 @@
           "src/validation/steps/formatting.ts",
           "src/validation/steps/knip.ts",
           "src/validation/steps/markdown-link-shape-rule.ts",
+          "src/validation/steps/markdown-node-spec-index.ts",
+          "src/validation/steps/markdown-node-spec-rule.ts",
           "src/validation/steps/markdown.ts",
           "src/validation/steps/subprocess-output.ts",
           "src/validation/steps/typescript.ts",

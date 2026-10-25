@@ -5,7 +5,7 @@
     "test": {
       "tests/verify-drive-mode.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -372,6 +372,8 @@
           "src/validation/steps/formatting.ts",
           "src/validation/steps/knip.ts",
           "src/validation/steps/markdown-link-shape-rule.ts",
+          "src/validation/steps/markdown-node-spec-index.ts",
+          "src/validation/steps/markdown-node-spec-rule.ts",
           "src/validation/steps/markdown.ts",
           "src/validation/steps/subprocess-output.ts",
           "src/validation/steps/typescript.ts",
@@ -393,7 +395,7 @@
       },
       "tests/verify-finish-malformed-context.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -760,6 +762,8 @@
           "src/validation/steps/formatting.ts",
           "src/validation/steps/knip.ts",
           "src/validation/steps/markdown-link-shape-rule.ts",
+          "src/validation/steps/markdown-node-spec-index.ts",
+          "src/validation/steps/markdown-node-spec-rule.ts",
           "src/validation/steps/markdown.ts",
           "src/validation/steps/subprocess-output.ts",
           "src/validation/steps/typescript.ts",
@@ -786,7 +790,7 @@
       },
       "tests/verify-finish-reconcile.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -1153,6 +1157,8 @@
           "src/validation/steps/formatting.ts",
           "src/validation/steps/knip.ts",
           "src/validation/steps/markdown-link-shape-rule.ts",
+          "src/validation/steps/markdown-node-spec-index.ts",
+          "src/validation/steps/markdown-node-spec-rule.ts",
           "src/validation/steps/markdown.ts",
           "src/validation/steps/subprocess-output.ts",
           "src/validation/steps/typescript.ts",
@@ -1180,7 +1186,7 @@
       },
       "tests/verify-finish-repeat.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -1547,6 +1553,8 @@
           "src/validation/steps/formatting.ts",
           "src/validation/steps/knip.ts",
           "src/validation/steps/markdown-link-shape-rule.ts",
+          "src/validation/steps/markdown-node-spec-index.ts",
+          "src/validation/steps/markdown-node-spec-rule.ts",
           "src/validation/steps/markdown.ts",
           "src/validation/steps/subprocess-output.ts",
           "src/validation/steps/typescript.ts",
@@ -1573,7 +1581,7 @@
       },
       "tests/verify-finish-sealing.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -1940,6 +1948,8 @@
           "src/validation/steps/formatting.ts",
           "src/validation/steps/knip.ts",
           "src/validation/steps/markdown-link-shape-rule.ts",
+          "src/validation/steps/markdown-node-spec-index.ts",
+          "src/validation/steps/markdown-node-spec-rule.ts",
           "src/validation/steps/markdown.ts",
           "src/validation/steps/subprocess-output.ts",
           "src/validation/steps/typescript.ts",
@@ -1966,7 +1976,7 @@
       },
       "tests/verify-lifecycle.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -2333,6 +2343,8 @@
           "src/validation/steps/formatting.ts",
           "src/validation/steps/knip.ts",
           "src/validation/steps/markdown-link-shape-rule.ts",
+          "src/validation/steps/markdown-node-spec-index.ts",
+          "src/validation/steps/markdown-node-spec-rule.ts",
           "src/validation/steps/markdown.ts",
           "src/validation/steps/subprocess-output.ts",
           "src/validation/steps/typescript.ts",
@@ -2354,7 +2366,7 @@
       },
       "tests/verify-lifecycle.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -2721,6 +2733,8 @@
           "src/validation/steps/formatting.ts",
           "src/validation/steps/knip.ts",
           "src/validation/steps/markdown-link-shape-rule.ts",
+          "src/validation/steps/markdown-node-spec-index.ts",
+          "src/validation/steps/markdown-node-spec-rule.ts",
           "src/validation/steps/markdown.ts",
           "src/validation/steps/subprocess-output.ts",
           "src/validation/steps/typescript.ts",
@@ -2742,7 +2756,7 @@
       },
       "tests/verify-render.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -3109,6 +3123,8 @@
           "src/validation/steps/formatting.ts",
           "src/validation/steps/knip.ts",
           "src/validation/steps/markdown-link-shape-rule.ts",
+          "src/validation/steps/markdown-node-spec-index.ts",
+          "src/validation/steps/markdown-node-spec-rule.ts",
           "src/validation/steps/markdown.ts",
           "src/validation/steps/subprocess-output.ts",
           "src/validation/steps/typescript.ts",
@@ -3130,7 +3146,7 @@
       },
       "tests/verify-render.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -3497,6 +3513,8 @@
           "src/validation/steps/formatting.ts",
           "src/validation/steps/knip.ts",
           "src/validation/steps/markdown-link-shape-rule.ts",
+          "src/validation/steps/markdown-node-spec-index.ts",
+          "src/validation/steps/markdown-node-spec-rule.ts",
           "src/validation/steps/markdown.ts",
           "src/validation/steps/subprocess-output.ts",
           "src/validation/steps/typescript.ts",
@@ -3518,7 +3536,7 @@
       },
       "tests/verify-status.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -3885,6 +3903,8 @@
           "src/validation/steps/formatting.ts",
           "src/validation/steps/knip.ts",
           "src/validation/steps/markdown-link-shape-rule.ts",
+          "src/validation/steps/markdown-node-spec-index.ts",
+          "src/validation/steps/markdown-node-spec-rule.ts",
           "src/validation/steps/markdown.ts",
           "src/validation/steps/subprocess-output.ts",
           "src/validation/steps/typescript.ts",
@@ -3906,7 +3926,7 @@
       },
       "tests/verify-terminal-reason.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/43-terminal-projection.enabler/terminal-projection.md",
@@ -4273,6 +4293,8 @@
           "src/validation/steps/formatting.ts",
           "src/validation/steps/knip.ts",
           "src/validation/steps/markdown-link-shape-rule.ts",
+          "src/validation/steps/markdown-node-spec-index.ts",
+          "src/validation/steps/markdown-node-spec-rule.ts",
           "src/validation/steps/markdown.ts",
           "src/validation/steps/subprocess-output.ts",
           "src/validation/steps/typescript.ts",

@@ -5,7 +5,7 @@
     "test": {
       "tests/release-notes.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-release-notes.enabler/release-notes.md",
@@ -164,7 +164,7 @@
       },
       "tests/release-notes.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-release-notes.enabler/release-notes.md",
@@ -291,7 +291,7 @@
       },
       "tests/release-notes.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-release-notes.enabler/release-notes.md",
@@ -419,7 +419,7 @@
       },
       "tests/release-notes.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-release-notes.enabler/release-notes.md",
@@ -576,7 +576,7 @@
       },
       "tests/release-notes.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
+        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-release-notes.enabler/release-notes.md",
