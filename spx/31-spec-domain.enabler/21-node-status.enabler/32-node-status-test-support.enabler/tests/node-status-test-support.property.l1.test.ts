@@ -11,10 +11,10 @@ import {
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_EXCLUDE_LINE_GRAMMAR,
   NODE_STATUS_FIELD,
-  NODE_STATUS_MALLEABILITY,
   NODE_STATUS_SOURCE_AUDIT_TAG_FORM,
   NODE_STATUS_VERIFICATION_MECHANISM,
   readNodeSpecDeclaration,
+  renderNodeStatusSourceAuditTag,
 } from "@/lib/node-status";
 import {
   recognizeSpecTreeFilesystemEntry,
@@ -28,7 +28,11 @@ import {
 } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
 import { TEST_RUN_STATE_STATUS } from "@/test/run-state";
-import { NODE_STATUS_READABLE_SLUGS, NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
+import {
+  enumerateSourceGrammarFactPairs,
+  NODE_STATUS_READABLE_SLUGS,
+  NODE_STATUS_TEST_GENERATOR,
+} from "@testing/generators/node-status/node-status";
 import {
   CLASSIFICATION_FIXTURE_PATHS,
   declaredClassificationPaths,
@@ -289,7 +293,6 @@ describe("node-status test support", () => {
               SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO,
               SPEC_TREE_METHODOLOGY_LINE.THREE_TWO,
             ]);
-            const declaredMalleabilities = [...Object.values(NODE_STATUS_MALLEABILITY), undefined];
             expect(
               new Set(
                 fixture.nodes.map((node) =>
@@ -298,8 +301,8 @@ describe("node-status test support", () => {
               ),
             ).toEqual(
               new Set(
-                Object.values(NODE_STATUS_SOURCE_AUDIT_TAG_FORM).flatMap((form) =>
-                  declaredMalleabilities.map((malleability) => JSON.stringify([form, malleability ?? null]))
+                enumerateSourceGrammarFactPairs().map((pair) =>
+                  JSON.stringify([pair.auditTagForm, pair.declaredMalleability ?? null])
                 ),
               ),
             );
@@ -406,6 +409,15 @@ describe("node-status test support", () => {
             const [committedTest = ""] = committedTests;
             const specText = await repository.env.readFile(repository.specPath);
             expect(specText).toContain(SOURCE_GRAMMAR_TAG_FORMS_LINE);
+            const assertionText = specText.replace(SOURCE_GRAMMAR_TAG_FORMS_LINE, "");
+            if (facts.auditTagForm === NODE_STATUS_SOURCE_AUDIT_TAG_FORM.NONE) {
+              for (const form of Object.values(NODE_STATUS_SOURCE_AUDIT_TAG_FORM)) {
+                const tag = renderNodeStatusSourceAuditTag(form, facts.auditRuleSlug);
+                if (tag !== "") expect(assertionText).not.toContain(tag);
+              }
+            } else {
+              expect(assertionText).toContain(renderNodeStatusSourceAuditTag(facts.auditTagForm, facts.auditRuleSlug));
+            }
             expect(specText).toContain(
               `[${SPEC_TREE_EVIDENCE_LINK_TEXT.TEST}](${posix.relative(repository.nodePath, committedTest)})`,
             );
