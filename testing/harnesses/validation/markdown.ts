@@ -12,6 +12,7 @@ import { writeValidationProductDeclaration } from "@testing/harnesses/validation
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const MARKDOWN_TEMP_PROJECT_PREFIX = "mdlint-project-";
+const UNRELATED_TRACKED_FILE_NAME = "tracked.txt";
 const [, DOCS_DIRECTORY_NAME] = MARKDOWN_DEFAULT_DIRECTORY_NAMES;
 
 export interface MarkdownTempProject {
@@ -32,6 +33,8 @@ export interface MarkdownTempProject {
   readonly writeNodeStatusExclude: (nodeDirectories: readonly string[]) => Promise<string>;
   /** Makes the product root a git repository whose index tracks exactly the given product-relative paths. */
   readonly track: (relativePaths: readonly string[]) => Promise<void>;
+  /** Makes the product root a git repository whose index tracks one empty file under the spec-tree directory. */
+  readonly trackUnrelatedFile: () => Promise<void>;
 }
 
 /** The repository the test process runs from, with its spec-tree directory. */
@@ -63,6 +66,11 @@ export function withMarkdownTempProject<T>(
       await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
       await runGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, ...relativePaths]);
     };
+    const trackUnrelatedFile = async (): Promise<void> => {
+      const unrelatedFile = join(SPEC_TREE_CONFIG.ROOT_DIRECTORY, UNRELATED_TRACKED_FILE_NAME);
+      await write(unrelatedFile, "");
+      await track([unrelatedFile]);
+    };
     const writeLinkCase = async ({ link, supportingFiles, trackedPaths }: MarkdownLinkShapeCase): Promise<string> => {
       for (const supportingFile of supportingFiles) await write(supportingFile.path, supportingFile.content);
       const citingFile = await write(link.citingFile, link.content);
@@ -84,6 +92,7 @@ export function withMarkdownTempProject<T>(
       writeLinkCase,
       writeNodeStatusExclude,
       track,
+      trackUnrelatedFile,
     });
   });
 }

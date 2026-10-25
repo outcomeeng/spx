@@ -354,99 +354,60 @@ describe("Given a validated markdown directory", () => {
   }, MARKDOWN_HARNESS_TIMEOUT);
 });
 
-describe("Given a canonical-form node spec inside spx/ whose front matter carries no id", () => {
-  it("reports an error naming the file", async () => {
-    const { spec } = sampleGeneratedValue(arbitraryIdAbsentScenario());
-    await withMarkdownTempProject(async ({ productDir, spxDir, write }) => {
-      const specFile = await write(spec.path, spec.content);
+const GIT_TRACKING_CASES = [
+  { tracking: "git does not track any file", tracksUnrelatedFile: false },
+  { tracking: "git tracks an unrelated file", tracksUnrelatedFile: true },
+] as const;
 
-      const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
+describe.each(GIT_TRACKING_CASES)(
+  "Given a canonical-form node spec whose front matter carries no id and $tracking",
+  ({ tracksUnrelatedFile }) => {
+    it("reports an error naming the file", async () => {
+      const { spec } = sampleGeneratedValue(arbitraryIdAbsentScenario());
+      await withMarkdownTempProject(async ({ productDir, spxDir, write, trackUnrelatedFile }) => {
+        if (tracksUnrelatedFile) await trackUnrelatedFile();
+        const specFile = await write(spec.path, spec.content);
 
-      expect(result.success).toBe(false);
-      expect(result.errors).toEqual([expect.objectContaining({ file: specFile })]);
-    }, SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO);
-  }, MARKDOWN_HARNESS_TIMEOUT);
-});
+        const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
 
-describe("Given a canonical-form node spec with no id that git does not yet track", () => {
-  it("reports an error naming the file", async () => {
-    const { spec } = sampleGeneratedValue(arbitraryIdAbsentScenario());
-    await withMarkdownTempProject(async ({ productDir, spxDir, write, track }) => {
-      const trackedFile = join(relative(productDir, spxDir), "tracked.txt");
-      await write(trackedFile, "");
-      await track([trackedFile]);
-      const specFile = await write(spec.path, spec.content);
+        expect(result.success).toBe(false);
+        expect(result.errors).toEqual([expect.objectContaining({ file: specFile })]);
+      }, SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO);
+    }, MARKDOWN_HARNESS_TIMEOUT);
+  },
+);
 
-      const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
+describe.each(GIT_TRACKING_CASES)(
+  "Given a node spec whose id is not a UUIDv7 in canonical lowercase hyphenated form and $tracking",
+  ({ tracksUnrelatedFile }) => {
+    it("reports an error naming the file, the line of the id, and the value", async () => {
+      const { spec, id } = sampleGeneratedValue(arbitraryIdMalformedScenario());
+      await withMarkdownTempProject(async ({ productDir, spxDir, write, trackUnrelatedFile }) => {
+        if (tracksUnrelatedFile) await trackUnrelatedFile();
+        const specFile = await write(spec.path, spec.content);
 
-      expect(result.success).toBe(false);
-      expect(result.errors).toEqual([expect.objectContaining({ file: specFile })]);
-    }, SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO);
-  }, MARKDOWN_HARNESS_TIMEOUT);
-});
+        const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
 
-describe("Given a node spec inside spx/ whose id is not a UUIDv7 in canonical lowercase hyphenated form", () => {
-  it("reports an error naming the file, the line of the id, and the value", async () => {
-    const { spec, id } = sampleGeneratedValue(arbitraryIdMalformedScenario());
-    await withMarkdownTempProject(async ({ productDir, spxDir, write }) => {
-      const specFile = await write(spec.path, spec.content);
+        expect(result.success).toBe(false);
+        expect(result.errors).toEqual([
+          expect.objectContaining({ file: specFile, line: spec.idLine, detail: expect.stringContaining(id) }),
+        ]);
+      }, SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO);
+    }, MARKDOWN_HARNESS_TIMEOUT);
+  },
+);
 
-      const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
-
-      expect(result.success).toBe(false);
-      expect(result.errors).toEqual([
-        expect.objectContaining({ file: specFile, line: spec.idLine, detail: expect.stringContaining(id) }),
-      ]);
-    }, SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO);
-  }, MARKDOWN_HARNESS_TIMEOUT);
-});
-
-describe("Given two node specs inside spx/ that carry one id", () => {
-  it("reports an error for each spec naming the file, the line of the id, and the other spec's path", async () => {
-    const { first, second } = sampleGeneratedValue(arbitraryIdDuplicateScenario());
-    await withMarkdownTempProject(async ({ productDir, spxDir, write }) => {
-      const firstFile = await write(first.path, first.content);
-      const secondFile = await write(second.path, second.content);
-
-      const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
-
-      expect(result.success).toBe(false);
-      expect(result.errors).toHaveLength(2);
-      expect(result.errors).toContainEqual(
-        expect.objectContaining({ file: firstFile, line: first.idLine, detail: expect.stringContaining(second.path) }),
-      );
-      expect(result.errors).toContainEqual(
-        expect.objectContaining({ file: secondFile, line: second.idLine, detail: expect.stringContaining(first.path) }),
-      );
-    }, SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO);
-  }, MARKDOWN_HARNESS_TIMEOUT);
-});
-
-describe("Given a node spec with a malformed id that git does not yet track", () => {
-  it("reports an error naming the file, the line of the id, and the value", async () => {
-    const { spec, id } = sampleGeneratedValue(arbitraryIdMalformedScenario());
-    await withMarkdownTempProject(async ({ productDir, spxDir, write, track }) => {
-      const trackedFile = join(relative(productDir, spxDir), "tracked.txt");
-      await write(trackedFile, "");
-      await track([trackedFile]);
-      const specFile = await write(spec.path, spec.content);
-
-      const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
-
-      expect(result.success).toBe(false);
-      expect(result.errors).toEqual([
-        expect.objectContaining({ file: specFile, line: spec.idLine, detail: expect.stringContaining(id) }),
-      ]);
-    }, SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO);
-  }, MARKDOWN_HARNESS_TIMEOUT);
-});
-
-describe("Given two node specs that carry one id and only one of which git tracks", () => {
+describe.each(
+  [
+    { tracking: "git tracks neither spec", tracksFirstSpec: false },
+    { tracking: "git tracks only one of them", tracksFirstSpec: true },
+  ] as const,
+)("Given two node specs inside spx/ that carry one id and $tracking", ({ tracksFirstSpec }) => {
   it("reports an error for each spec naming the file, the line of the id, and the other spec's path", async () => {
     const { first, second } = sampleGeneratedValue(arbitraryIdDuplicateScenario());
     await withMarkdownTempProject(async ({ productDir, spxDir, write, track }) => {
       const firstFile = await write(first.path, first.content);
-      await track([first.path]);
+      if (tracksFirstSpec) await track([first.path]);
       const secondFile = await write(second.path, second.content);
 
       const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });

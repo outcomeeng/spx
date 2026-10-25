@@ -12,12 +12,7 @@ import * as fc from "fast-check";
 import { NODE_STATUS_MALLEABILITY } from "@/lib/node-status/claim";
 import { KIND_REGISTRY, OUTPUT_KINDS, SPEC_TREE_CONFIG, SPEC_TREE_INHERIT_FROM_PARENT } from "@/lib/spec-tree/config";
 import type { OutputKind } from "@/lib/spec-tree/config";
-
-/** The front-matter keys a node spec declares for its identity and its malleability. */
-export const NODE_SPEC_FRONT_MATTER_KEY = {
-  ID: "id",
-  MALLEABILITY: "malleability",
-} as const;
+import { NODE_SPEC_FRONT_MATTER_KEY } from "@/validation/steps/markdown-node-spec-rule";
 
 export const FRONT_MATTER_FENCE = "---";
 export const SPEC_SUFFIX_CANONICAL = ".spec.md";
