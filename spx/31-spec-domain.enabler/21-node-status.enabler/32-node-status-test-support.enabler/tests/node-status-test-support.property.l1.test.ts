@@ -11,6 +11,7 @@ import {
   NODE_STATUS_EVIDENCE_OUTCOME,
   NODE_STATUS_EXCLUDE_LINE_GRAMMAR,
   NODE_STATUS_FIELD,
+  NODE_STATUS_MALLEABILITY,
   NODE_STATUS_SOURCE_AUDIT_TAG_FORM,
   NODE_STATUS_VERIFICATION_MECHANISM,
   readNodeSpecDeclaration,
@@ -29,7 +30,6 @@ import {
 import { compareAsciiStrings } from "@/lib/state-store";
 import { TEST_RUN_STATE_STATUS } from "@/test/run-state";
 import {
-  enumerateSourceGrammarFactPairs,
   expectedSourceGrammarAuditKeys,
   NODE_STATUS_READABLE_SLUGS,
   NODE_STATUS_TEST_GENERATOR,
@@ -301,8 +301,10 @@ describe("node-status test support", () => {
               ),
             ).toEqual(
               new Set(
-                enumerateSourceGrammarFactPairs().map((pair) =>
-                  JSON.stringify([pair.auditTagForm, pair.declaredMalleability ?? null])
+                Object.values(NODE_STATUS_SOURCE_AUDIT_TAG_FORM).flatMap((auditTagForm) =>
+                  [...Object.values(NODE_STATUS_MALLEABILITY), null].map((declaredMalleability) =>
+                    JSON.stringify([auditTagForm, declaredMalleability])
+                  )
                 ),
               ),
             );
@@ -468,6 +470,16 @@ describe("node-status test support", () => {
         NODE_STATUS_TEST_GENERATOR.classificationTree().map((fixture) => fixture.nodes.map((node) => node.slug)),
         NODE_STATUS_TEST_GENERATOR.delegationTree().map((fixture) => fixture.nodes.map((node) => node.slug)),
         NODE_STATUS_TEST_GENERATOR.statusWriterTree().map((fixture) => fixture.nodes.map((node) => node.slug)),
+        NODE_STATUS_TEST_GENERATOR.sourceGrammarTree().map((fixture) =>
+          fixture.nodes.flatMap((node) => [node.slug, node.facts.auditRuleSlug])
+        ),
+        NODE_STATUS_TEST_GENERATOR.sourceGrammarRepository().map(({ node, facts }) => [node.slug, facts.auditRuleSlug]),
+        NODE_STATUS_TEST_GENERATOR.pinnedNode().map((node) => [node.slug]),
+        NODE_STATUS_TEST_GENERATOR.nestedPinnedNode().map((node) => [
+          node.slug,
+          ...(node.ancestor === undefined ? [] : [node.ancestor.slug]),
+        ]),
+        NODE_STATUS_TEST_GENERATOR.claimComparison().map((fixture) => [fixture.auditSlug]),
       ]
     ) {
       assertProperty(
