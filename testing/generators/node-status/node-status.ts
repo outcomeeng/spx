@@ -203,6 +203,7 @@ export const NODE_STATUS_TEST_GENERATOR = {
   delegationTree: arbitraryDelegationTree,
   sourceGrammarTree: arbitrarySourceGrammarTree,
   sourceGrammarRepository: arbitrarySourceGrammarRepository,
+  untaggedUndeclaredSourceGrammarRepository: arbitraryUntaggedUndeclaredSourceGrammarRepository,
   statusReference: arbitraryStatusReference,
   evidenceOutcome: arbitraryEvidenceOutcome,
   contradictingEvidenceOutcome: arbitraryContradictingEvidenceOutcome,
@@ -962,6 +963,11 @@ export function enumerateSourceGrammarFactPairs(): readonly SourceGrammarFactPai
   );
 }
 
+/** The facts of every audit-tag form crossed with every declared malleability and the absent declaration, each carrying `auditRuleSlug`. */
+export function enumerateSourceGrammarFixtureFacts(auditRuleSlug: string): readonly SourceGrammarFixtureFacts[] {
+  return enumerateSourceGrammarFactPairs().map((pair) => ({ ...pair, auditRuleSlug }));
+}
+
 /**
  * The state a source-grammar node whose recorded results all pass is expected to take, per audit-tag form, at
  * every declared malleability: no tag or a linked tag leaves nothing unanswered, while a pathless review or audit
@@ -1032,6 +1038,18 @@ function arbitrarySourceGrammarRepository(): fc.Arbitrary<SourceGrammarRepositor
       arbitrarySourceGrammarTree().chain((tree) => fc.constantFrom(...tree.nodes.map((node) => node.facts))),
     )
     .map(([node, facts]) => ({ node, facts }));
+}
+
+// A drawn source-grammar repository whose spec carries no audit tag and declares no malleability.
+function arbitraryUntaggedUndeclaredSourceGrammarRepository(): fc.Arbitrary<SourceGrammarRepositoryFixture> {
+  return arbitrarySourceGrammarRepository().map(({ node, facts }) => ({
+    node,
+    facts: {
+      auditTagForm: NODE_STATUS_SOURCE_AUDIT_TAG_FORM.NONE,
+      auditRuleSlug: facts.auditRuleSlug,
+      declaredMalleability: undefined,
+    },
+  }));
 }
 
 function delegationNode(

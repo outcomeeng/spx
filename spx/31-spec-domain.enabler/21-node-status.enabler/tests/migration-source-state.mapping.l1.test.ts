@@ -2,11 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { updateNodeStatus } from "@/lib/node-status";
 import {
-  enumerateSourceGrammarFactPairs,
+  enumerateSourceGrammarFixtureFacts,
   NODE_STATUS_TEST_GENERATOR,
   NON_MIGRATING_SOURCE_GRAMMAR_EXPECTED_STATE,
   SOURCE_GRAMMAR_EXPECTED_STATE,
-  type SourceGrammarFixtureFacts,
 } from "@testing/generators/node-status/node-status";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
@@ -19,10 +18,7 @@ import {
 } from "@testing/harnesses/node-status/node-status";
 
 const { node, facts: drawn } = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.sourceGrammarRepository());
-const cases = enumerateSourceGrammarFactPairs().map((pair): SourceGrammarFixtureFacts => ({
-  ...pair,
-  auditRuleSlug: drawn.auditRuleSlug,
-}));
+const cases = enumerateSourceGrammarFixtureFacts(drawn.auditRuleSlug);
 
 describe("classification of a source-grammar node under a declaration migrating from 3.2, over every audit-tag form crossed with every declared malleability", () => {
   it.each(cases.map((facts) => ({ facts, expected: SOURCE_GRAMMAR_EXPECTED_STATE[facts.auditTagForm] })))(

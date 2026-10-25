@@ -12,7 +12,6 @@ import {
   NODE_STATUS_FIELD,
   NODE_STATUS_MALLEABILITY,
   NODE_STATUS_SCHEMA_VERSION,
-  NODE_STATUS_SOURCE_AUDIT_TAG_FORM,
   NODE_STATUS_VERIFICATION_MECHANISM,
   nodeStatusClaimResults,
   readNodeStatus,
@@ -542,12 +541,9 @@ describe("spx spec status --update over a node with linked verification referenc
 
 describe("given a product migrating from 3.2 and a source-grammar node that declares no malleability, whose linked tests pass and whose claim carries no evidence-audit result", () => {
   it("when node status is read, does not derive passing", async () => {
-    const { node, facts: drawn } = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.sourceGrammarRepository());
-    const facts = {
-      auditTagForm: NODE_STATUS_SOURCE_AUDIT_TAG_FORM.NONE,
-      auditRuleSlug: drawn.auditRuleSlug,
-      declaredMalleability: undefined,
-    };
+    const { node, facts } = sampleGeneratedValue(
+      NODE_STATUS_TEST_GENERATOR.untaggedUndeclaredSourceGrammarRepository(),
+    );
     await withPinnedNodeRepository(node, migratingMethodologyConfig(), async (repository) => {
       const subject = repository.subjectPaths[0] ?? "";
       await updateNodeStatus({
