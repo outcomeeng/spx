@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 
 import { configFileForFormat, DEFAULT_CONFIG_FILE_FORMAT } from "@/config/index";
 import { resolveMethodologyConfig } from "@/config/methodology-resolution";
-import { GIT_NULL_DELIMITED_FLAG, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
 import { defaultGitDependencies, detectWorktreeProductRoot } from "@/lib/git/root";
 import {
   NODE_STATUS_DEFAULT_MALLEABILITY,
@@ -30,13 +29,16 @@ import {
 import { compareAsciiStrings } from "@/lib/state-store";
 import { TEST_RUN_STATE_STATUS } from "@/test/run-state";
 import { NODE_STATUS_READABLE_SLUGS, NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node-status";
-import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import {
   CLASSIFICATION_FIXTURE_PATHS,
+  declaredClassificationPaths,
+  expectedSourceGrammarAuditKeys,
   listNodeStatusFiles,
   migratingMethodologyConfig,
+  readTrackedIndex,
   readVersion1NodeStatus,
-  runFixtureGit,
+  readWorkingTreeStatus,
+  SOURCE_GRAMMAR_TAG_FORMS_LINE,
   trackSpecTree,
   withClassificationTree,
   withPinnedNodeRepository,
@@ -143,30 +145,13 @@ describe("node-status test support", () => {
       await assertProperty(
         NODE_STATUS_TEST_GENERATOR.classificationTree(),
         async (fixture) => {
-          const sortedPaths = (paths: readonly string[]) => [...paths].sort(compareAsciiStrings);
-          const treePath = (...segments: readonly string[]) =>
-            [SPEC_TREE_CONFIG.ROOT_DIRECTORY, ...segments].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
-          const declaredPaths = [
-            ...fixture.nodes.flatMap((node) => [
-              treePath(node.dirName, `${node.slug}${SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX}`),
-              ...(node.evidenceReference === undefined ? [] : [treePath(node.dirName, node.evidenceReference)]),
-            ]),
-            ...(fixture.nodes.some((node) => node.facts.isExcluded)
-              ? [treePath(SPEC_TREE_GRAMMAR.EXCLUSION_REGISTRY_FILENAME)]
-              : []),
-          ];
-          const readIndex = async (productDir: string) =>
-            (await runFixtureGit(productDir, [GIT_TEST_SUBCOMMANDS.LS_FILES, GIT_NULL_DELIMITED_FLAG]))
-              .split(GIT_NULL_RECORD_SEPARATOR)
-              .filter((line) => line.length > 0);
-
           await withClassificationTree(fixture, async ({ env }) => {
             const rootConfigFile = configFileForFormat(env.productDir, DEFAULT_CONFIG_FILE_FORMAT).filename;
             await readFile(join(env.productDir, rootConfigFile));
             expect((await detectWorktreeProductRoot(env.productDir, defaultGitDependencies)).isGitRepo).toBe(false);
             await trackSpecTree(env.productDir);
-            const indexed = await readIndex(env.productDir);
-            expect(sortedPaths(indexed)).toEqual(sortedPaths(declaredPaths));
+            const indexed = await readTrackedIndex(env.productDir);
+            expect(indexed).toEqual(declaredClassificationPaths(fixture));
             expect(indexed).not.toContain(rootConfigFile);
           });
 
@@ -174,9 +159,10 @@ describe("node-status test support", () => {
             const rootConfigFile = configFileForFormat(env.productDir, DEFAULT_CONFIG_FILE_FORMAT).filename;
             await readFile(join(env.productDir, rootConfigFile));
             await commitProjection();
-            const indexed = await readIndex(env.productDir);
-            const statusFiles = await listNodeStatusFiles(env.productDir);
-            expect(sortedPaths(indexed)).toEqual(sortedPaths([...declaredPaths, ...statusFiles]));
+            const indexed = await readTrackedIndex(env.productDir);
+            expect(indexed).toEqual(
+              declaredClassificationPaths(fixture, await listNodeStatusFiles(env.productDir)),
+            );
             expect(indexed).not.toContain(rootConfigFile);
           });
         },
@@ -326,9 +312,8 @@ describe("node-status test support", () => {
                   ? []
                   : [node.facts.auditTagForm],
               );
-              expect(declaration.auditRuleSlugs).toEqual(
-                node.facts.auditTagForm === NODE_STATUS_SOURCE_AUDIT_TAG_FORM.LINKED ? [node.facts.auditRuleSlug] : [],
-              );
+              expect(declaration.auditRuleSlugs).toEqual(expectedSourceGrammarAuditKeys(node.facts));
+              expect(await env.readFile(declaration.specPath)).toContain(SOURCE_GRAMMAR_TAG_FORMS_LINE);
             }
           });
         },
@@ -350,21 +335,11 @@ describe("node-status test support", () => {
             expect(declaration.auditTagForms).toEqual(
               facts.auditTagForm === NODE_STATUS_SOURCE_AUDIT_TAG_FORM.NONE ? [] : [facts.auditTagForm],
             );
-            const requiredAuditSlugs = facts.auditTagForm === NODE_STATUS_SOURCE_AUDIT_TAG_FORM.LINKED
-              ? [facts.auditRuleSlug]
-              : [];
+            const requiredAuditSlugs = expectedSourceGrammarAuditKeys(facts);
             expect(declaration.auditRuleSlugs).toEqual(requiredAuditSlugs);
 
-            const tracked =
-              (await runFixtureGit(repository.env.productDir, [GIT_TEST_SUBCOMMANDS.LS_FILES, GIT_NULL_DELIMITED_FLAG]))
-                .split(GIT_NULL_RECORD_SEPARATOR)
-                .filter((line) => line.length > 0);
-            expect(
-              await runFixtureGit(repository.env.productDir, [
-                GIT_TEST_SUBCOMMANDS.STATUS,
-                GIT_TEST_FLAGS.PORCELAIN,
-              ]),
-            ).toHaveLength(0);
+            const tracked = await readTrackedIndex(repository.env.productDir);
+            expect(await readWorkingTreeStatus(repository.env.productDir)).toHaveLength(0);
             expect(tracked).toContain(declaration.specPath);
             for (const subjectPath of node.subjectPaths) expect(tracked).toContain(subjectPath);
 
@@ -375,6 +350,7 @@ describe("node-status test support", () => {
             expect(committedTests).toHaveLength(1);
             const [committedTest = ""] = committedTests;
             const specText = await repository.env.readFile(declaration.specPath);
+            expect(specText).toContain(SOURCE_GRAMMAR_TAG_FORMS_LINE);
             expect(specText).toContain(
               `[${SPEC_TREE_EVIDENCE_LINK_TEXT.TEST}](${posix.relative(repository.nodePath, committedTest)})`,
             );

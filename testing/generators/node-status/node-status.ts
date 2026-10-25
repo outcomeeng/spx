@@ -38,6 +38,7 @@ import {
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_METHODOLOGY_LINE,
   SPEC_TREE_NODE_STATE,
+  type SpecTreeNodeState,
 } from "@/lib/spec-tree";
 import { arbitraryAcceptedMethodologyVersion } from "@testing/generators/methodology/tree";
 import { evidenceFileNameFor } from "@testing/generators/spec-tree/evidence-file-name";
@@ -948,15 +949,30 @@ export function arbitraryDelegationTree(): fc.Arbitrary<ClassificationTreeFixtur
     .map((nodes) => ({ nodes }));
 }
 
+/** The facts of a source-grammar node that vary independently of its slugs: an audit-tag form and a declared malleability or none. */
+export type SourceGrammarFactPair = Omit<SourceGrammarFixtureFacts, "auditRuleSlug">;
+
 /** Every audit-tag form crossed with every declared malleability and the absent declaration. */
-const SOURCE_GRAMMAR_FACT_PAIRS: readonly Omit<SourceGrammarFixtureFacts, "auditRuleSlug">[] = Object.values(
-  NODE_STATUS_SOURCE_AUDIT_TAG_FORM,
-).flatMap((auditTagForm) =>
-  [...Object.values(NODE_STATUS_MALLEABILITY), undefined].map((declaredMalleability) => ({
-    auditTagForm,
-    declaredMalleability,
-  }))
-);
+export function enumerateSourceGrammarFactPairs(): readonly SourceGrammarFactPair[] {
+  return Object.values(NODE_STATUS_SOURCE_AUDIT_TAG_FORM).flatMap((auditTagForm) =>
+    [...Object.values(NODE_STATUS_MALLEABILITY), undefined].map((declaredMalleability) => ({
+      auditTagForm,
+      declaredMalleability,
+    }))
+  );
+}
+
+/**
+ * The state a source-grammar node whose recorded results all pass is expected to take, per audit-tag form, at
+ * every declared malleability: no tag or a linked tag leaves nothing unanswered, while a pathless review or audit
+ * tag names no rule a result can answer.
+ */
+export const SOURCE_GRAMMAR_EXPECTED_STATE: Readonly<Record<NodeStatusSourceAuditTagForm, SpecTreeNodeState>> = {
+  [NODE_STATUS_SOURCE_AUDIT_TAG_FORM.NONE]: SPEC_TREE_NODE_STATE.PASSING,
+  [NODE_STATUS_SOURCE_AUDIT_TAG_FORM.LINKED]: SPEC_TREE_NODE_STATE.PASSING,
+  [NODE_STATUS_SOURCE_AUDIT_TAG_FORM.REVIEW]: SPEC_TREE_NODE_STATE.SPECIFIED,
+  [NODE_STATUS_SOURCE_AUDIT_TAG_FORM.AUDIT]: SPEC_TREE_NODE_STATE.SPECIFIED,
+};
 
 // A source-grammar tree whose nodes always include one node for every pair of audit-tag form and declared
 // malleability (or none declared); only the slugs, rule slugs, orders, and any extra nodes vary by draw.
@@ -968,16 +984,19 @@ function arbitrarySourceGrammarTree(): fc.Arbitrary<SourceGrammarTreeFixture> {
         fc.uniqueArray(
           fc.integer({ min: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MIN, max: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MAX }),
           {
-            minLength: SOURCE_GRAMMAR_FACT_PAIRS.length + extraCount,
-            maxLength: SOURCE_GRAMMAR_FACT_PAIRS.length + extraCount,
+            minLength: enumerateSourceGrammarFactPairs().length + extraCount,
+            maxLength: enumerateSourceGrammarFactPairs().length + extraCount,
           },
         ),
-        fc.array(fc.constantFrom(...SOURCE_GRAMMAR_FACT_PAIRS), { minLength: extraCount, maxLength: extraCount }),
+        fc.array(fc.constantFrom(...enumerateSourceGrammarFactPairs()), {
+          minLength: extraCount,
+          maxLength: extraCount,
+        }),
       )
     )
     .chain(([orders, extraPairs]) =>
       fc.tuple(
-        ...[...SOURCE_GRAMMAR_FACT_PAIRS, ...extraPairs].map((pair, index) =>
+        ...[...enumerateSourceGrammarFactPairs(), ...extraPairs].map((pair, index) =>
           fc.record({ slug: arbitraryNodeSlug(), auditRuleSlug: arbitraryNodeSlug() }).map(
             ({ slug, auditRuleSlug }) => ({
               dirName: nodeDirectoryName(orders[index] ?? NODE_STATUS_GENERATOR_OPTIONS.ORDER_MIN, slug),
