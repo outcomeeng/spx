@@ -4,9 +4,11 @@ import { join } from "node:path";
 import { parse } from "yaml";
 
 import {
+  canonicalNamingSchemaVersion,
   SPEC_CONTEXT_SELECTED_METADATA_KEY,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
+  type SpecTreeGrammarSelection,
   splitSpecContextFrontMatter,
 } from "@/lib/spec-tree";
 
@@ -105,10 +107,19 @@ export interface NodeSpecDeclaration {
 const MALLEABILITIES: ReadonlySet<string> = new Set(Object.values(NODE_STATUS_MALLEABILITY));
 
 /**
- * Read a node's spec: the malleability its front matter declares (the absent field means the implementation
- * layer) and the audit rule slugs its assertions tag. A spec that cannot be read declares the defaults.
+ * Whether the selection names a migration source: a selected version older than the declared target, so the
+ * source grammar's audit-tag forms are accepted. A selection of the declared target alone accepts none of them.
  */
-export async function readNodeSpecDeclaration(productDir: string, nodeId: string): Promise<NodeSpecDeclaration> {
+function selectsMigrationSource(selection: SpecTreeGrammarSelection): boolean {
+  const target = canonicalNamingSchemaVersion(selection.selected);
+  return selection.selected.some((version) => version !== target);
+}
+
+/** A node's spec file located under the product: its product-relative path and its text, or no text when unreadable. */
+async function locateNodeSpec(
+  productDir: string,
+  nodeId: string,
+): Promise<{ readonly specPath: string; readonly source: string | undefined }> {
   const nodePath = `${SPEC_TREE_CONFIG.ROOT_DIRECTORY}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}${nodeId}`;
   const directoryName = nodeId.slice(nodeId.lastIndexOf(SPEC_TREE_GRAMMAR.PATH_SEPARATOR) + 1);
   const slug = SLUG_OF_DIRECTORY.exec(directoryName)?.[1] ?? directoryName;
@@ -117,24 +128,42 @@ export async function readNodeSpecDeclaration(productDir: string, nodeId: string
     SPEC_TREE_GRAMMAR.SPEC_FILE.PRIOR_SUFFIX,
   ].map((suffix) => `${nodePath}${SPEC_TREE_GRAMMAR.PATH_SEPARATOR}${slug}${suffix}`);
   for (const specPath of candidates) {
-    let source: string;
     try {
-      source = await readFile(join(productDir, specPath), TEXT_ENCODING);
+      return { specPath, source: await readFile(join(productDir, specPath), TEXT_ENCODING) };
     } catch {
       continue;
     }
-    return {
-      specPath,
-      malleability: declaredMalleability(source, specPath),
-      auditRuleSlugs: auditSlugsOf(source),
-      auditTagForms: auditTagFormsOf(source),
-    };
   }
+  return { specPath: candidates[candidates.length - 1] ?? nodePath, source: undefined };
+}
+
+/** The product-relative path of a node's spec file; the prior-suffix path when no spec file exists. */
+export async function readNodeSpecPath(productDir: string, nodeId: string): Promise<string> {
+  return (await locateNodeSpec(productDir, nodeId)).specPath;
+}
+
+/**
+ * Read a node's spec: the malleability its front matter declares (the absent field means the implementation
+ * layer) and the audit rule slugs its assertions tag. The source grammar's audit-tag text keys an entry and
+ * contributes an audit-tag form only when the grammar selection names a migration source; a read given no
+ * selection reads the source grammar, as the test-support harness does. A spec that cannot be
+ * read declares the defaults.
+ */
+export async function readNodeSpecDeclaration(
+  productDir: string,
+  nodeId: string,
+  selection?: SpecTreeGrammarSelection,
+): Promise<NodeSpecDeclaration> {
+  const { specPath, source } = await locateNodeSpec(productDir, nodeId);
+  if (source === undefined) {
+    return { specPath, malleability: NODE_STATUS_DEFAULT_MALLEABILITY, auditRuleSlugs: [], auditTagForms: [] };
+  }
+  const acceptsSourceGrammar = selection === undefined || selectsMigrationSource(selection);
   return {
-    specPath: candidates[candidates.length - 1] ?? nodePath,
-    malleability: NODE_STATUS_DEFAULT_MALLEABILITY,
-    auditRuleSlugs: [],
-    auditTagForms: [],
+    specPath,
+    malleability: declaredMalleability(source, specPath),
+    auditRuleSlugs: auditSlugsOf(source, acceptsSourceGrammar),
+    auditTagForms: acceptsSourceGrammar ? auditTagFormsOf(source) : [],
   };
 }
 
@@ -150,10 +179,13 @@ function declaredMalleability(source: string, specPath: string): NodeStatusMalle
     : NODE_STATUS_DEFAULT_MALLEABILITY;
 }
 
-function auditSlugsOf(source: string): readonly string[] {
+function auditSlugsOf(source: string, acceptsSourceGrammar: boolean): readonly string[] {
   const slugs = new Set<string>();
   const prose = withoutCodeSpans(source);
-  for (const match of [...prose.matchAll(AUDIT_RULE_TAG), ...prose.matchAll(LINKED_AUDIT_TAG)]) {
+  const tags = acceptsSourceGrammar
+    ? [...prose.matchAll(AUDIT_RULE_TAG), ...prose.matchAll(LINKED_AUDIT_TAG)]
+    : [...prose.matchAll(AUDIT_RULE_TAG)];
+  for (const match of tags) {
     const slug = match.at(AUDIT_RULE_SLUG_GROUP);
     if (slug !== undefined) slugs.add(slug);
   }

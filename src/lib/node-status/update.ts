@@ -15,7 +15,7 @@ import {
   type SpecTreeNode,
   type SpecTreeSnapshot,
 } from "@/lib/spec-tree";
-import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { resolveSpecTreeGrammarSelection, SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import {
   NODE_STATUS_CLAIM_SHAPE,
   type NodeStatusClaim,
@@ -161,6 +161,7 @@ async function foldTrackedNodeClaims(options: UpdateNodeStatusOptions): Promise<
   const pinChanges = createPinChangeReader({ productDir, git: gitDependencies });
   const history = createClaimHistoryReader({ productDir, git: gitDependencies });
   const evidenceByNode = collectEvidenceByNode(snapshot);
+  const selection = await resolveSpecTreeGrammarSelection(productDir);
   const claimFoldContext = {
     productDir,
     git: gitDependencies,
@@ -184,7 +185,7 @@ async function foldTrackedNodeClaims(options: UpdateNodeStatusOptions): Promise<
     const claim = await foldNodeClaim({
       ...claimFoldContext,
       nodeId: node.id,
-      declaration: await readNodeSpecDeclaration(productDir, node.id),
+      declaration: await readNodeSpecDeclaration(productDir, node.id, selection),
       evidencePaths: evidencePaths(evidence),
       outcomes: evidence.length === 0 ? {} : await resolveOutcome(node.id, evidencePaths(evidence)),
       committed: committed?.[NODE_STATUS_FIELD.VERIFICATION] ?? NO_COMMITTED_RESULTS,

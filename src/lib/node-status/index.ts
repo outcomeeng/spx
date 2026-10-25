@@ -85,6 +85,7 @@ export {
   type NodeSpecDeclaration,
   type NodeStatusSourceAuditTagForm,
   readNodeSpecDeclaration,
+  readNodeSpecPath,
   renderNodeStatusSourceAuditTag,
 } from "./spec-declaration";
 export {

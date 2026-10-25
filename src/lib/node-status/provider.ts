@@ -4,10 +4,12 @@ import { dirname, join, relative } from "node:path";
 import { defaultGitDependencies, type GitDependencies } from "@/lib/git/root";
 import { listTrackedPaths } from "@/lib/git/tracked-paths";
 import {
+  resolveSpecTreeGrammarSelection,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_NODE_STATE,
   type SpecTreeEvidenceProvider,
+  type SpecTreeGrammarSelection,
   type SpecTreeNodeSourceEntry,
   type SpecTreeNodeState,
 } from "@/lib/spec-tree";
@@ -63,6 +65,10 @@ export async function createNodeStatusProvider(
   const excludeReader = createNodeStatusExcludeReader(productDir);
   const pinChanges = createPinChangeReader({ productDir, git: gitDependencies });
   const history = createClaimHistoryReader({ productDir, git: gitDependencies });
+  let grammarSelection: Promise<SpecTreeGrammarSelection> | undefined;
+  const resolveSelection = (): Promise<
+    SpecTreeGrammarSelection
+  > => (grammarSelection ??= resolveSpecTreeGrammarSelection(productDir));
   let trackedPaths: Promise<ReadonlySet<string>> | undefined;
   const readTrackedPaths = (): Promise<
     ReadonlySet<string>
@@ -111,7 +117,7 @@ export async function createNodeStatusProvider(
         currency: await resultCurrency(section, entry, pinChanges),
       })),
     );
-    const declaration = await readNodeSpecDeclaration(productDir, nodeId);
+    const declaration = await readNodeSpecDeclaration(productDir, nodeId, await resolveSelection());
     const results = [...recorded, ...unrecordableResults(declaration)];
     const nodePath = `${ROOT_PREFIX}${nodeId}`;
     const facts = {
