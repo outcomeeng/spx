@@ -52,6 +52,7 @@ import {
   resolveSpecTreeGrammarSelection,
   selectSpecTreeGrammar,
   SPEC_CONTEXT_SELECTED_METADATA_KEY,
+  SPEC_TREE_ASSERTIONS_HEADING,
   SPEC_TREE_CONFIG,
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_EVIDENCE_LINK_TEXT,
@@ -322,7 +323,7 @@ const SOURCE_GRAMMAR_SPEC_OPENING = [
   "",
   SOURCE_GRAMMAR_TAG_FORMS_LINE,
   "",
-  "## Assertions",
+  SPEC_TREE_ASSERTIONS_HEADING,
   "",
   "### Compliance",
   "",
@@ -358,11 +359,6 @@ function sourceGrammarSpecText(facts: SourceGrammarFixtureFacts, linkedTestRefer
     ...linkedTestLines,
     "",
   ].join("\n");
-}
-
-/** The audit rule slugs a source-grammar node's claim keys by: exactly its rule slug under the linked tag, none under any other form. */
-export function expectedSourceGrammarAuditKeys(facts: SourceGrammarFixtureFacts): readonly string[] {
-  return facts.auditTagForm === NODE_STATUS_SOURCE_AUDIT_TAG_FORM.LINKED ? [facts.auditRuleSlug] : [];
 }
 
 /** The audit keys of the current-shape claim written for the node at product-relative `nodePath`; none when no such claim is written. */

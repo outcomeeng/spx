@@ -3,13 +3,14 @@ import { describe, expect, it } from "vitest";
 import { updateNodeStatus } from "@/lib/node-status";
 import {
   enumerateSourceGrammarFixtureFacts,
+  expectedSourceGrammarAuditKeys,
   NODE_STATUS_TEST_GENERATOR,
   NON_MIGRATING_SOURCE_GRAMMAR_EXPECTED_STATE,
+  NON_MIGRATING_SOURCE_GRAMMAR_RECORDED_STATE,
   SOURCE_GRAMMAR_EXPECTED_STATE,
 } from "@testing/generators/node-status/node-status";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import {
-  expectedSourceGrammarAuditKeys,
   migratingMethodologyConfig,
   nonMigratingMethodologyConfig,
   readClaimAuditKeys,
@@ -65,11 +66,17 @@ describe("classification of a source-grammar node under a declaration on the 4.0
     },
   );
 
-  it.each(cases.map((facts) => ({ facts, expected: NON_MIGRATING_SOURCE_GRAMMAR_EXPECTED_STATE[facts.auditTagForm] })))(
-    "read path: $facts.auditTagForm × $facts.declaredMalleability re-derives $expected from a committed claim with no audit entry",
-    async ({ facts, expected }) => {
+  it.each(
+    cases.map((facts) => ({
+      facts,
+      expected: NON_MIGRATING_SOURCE_GRAMMAR_EXPECTED_STATE[facts.auditTagForm],
+      recorded: NON_MIGRATING_SOURCE_GRAMMAR_RECORDED_STATE[facts.auditTagForm],
+    })),
+  )(
+    "read path: $facts.auditTagForm × $facts.declaredMalleability re-derives $expected from a committed claim recording $recorded with no audit entry",
+    async ({ facts, expected, recorded }) => {
       await withPinnedNodeRepository(node, nonMigratingMethodologyConfig(), async (repository) => {
-        await repository.writeClaim(repository.passedTestClaim(0), expected);
+        await repository.writeClaim(repository.passedTestClaim(0), recorded);
         await repository.commitAll();
 
         expect(await repository.readState(), JSON.stringify(facts)).toBe(expected);

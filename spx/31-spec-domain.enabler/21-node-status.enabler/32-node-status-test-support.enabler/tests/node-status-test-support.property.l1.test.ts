@@ -30,13 +30,13 @@ import { compareAsciiStrings } from "@/lib/state-store";
 import { TEST_RUN_STATE_STATUS } from "@/test/run-state";
 import {
   enumerateSourceGrammarFactPairs,
+  expectedSourceGrammarAuditKeys,
   NODE_STATUS_READABLE_SLUGS,
   NODE_STATUS_TEST_GENERATOR,
 } from "@testing/generators/node-status/node-status";
 import {
   CLASSIFICATION_FIXTURE_PATHS,
   declaredClassificationPaths,
-  expectedSourceGrammarAuditKeys,
   listNodeStatusFiles,
   migratingMethodologyConfig,
   nonMigratingMethodologyConfig,
