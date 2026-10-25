@@ -49,6 +49,7 @@ import {
   createFilesystemSpecTreeSource,
   KIND_REGISTRY,
   readSpecTree,
+  resolveSpecTreeGrammarSelection,
   selectSpecTreeGrammar,
   SPEC_CONTEXT_SELECTED_METADATA_KEY,
   SPEC_TREE_CONFIG,
@@ -58,6 +59,7 @@ import {
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_METHODOLOGY_LINE,
   SPEC_TREE_NODE_STATE,
+  type SpecTreeGrammarSelection,
   type SpecTreeMethodologyDeclaration,
   type SpecTreeNodeState,
 } from "@/lib/spec-tree";
@@ -734,6 +736,14 @@ export function methodologyDeclaringConfig(version: string): Config {
     ...MINIMAL_SPEC_TREE_CONFIG,
     [METHODOLOGY_SECTION]: { source: DEFAULT_METHODOLOGY_SOURCE, version, ...migratingFrom },
   };
+}
+
+/**
+ * The grammar selection the methodology declaration committed in a generated product directory yields,
+ * resolved the way production resolves it.
+ */
+export function resolveFixtureGrammarSelection(productDir: string): Promise<SpecTreeGrammarSelection> {
+  return resolveSpecTreeGrammarSelection(productDir);
 }
 
 /** A configuration declaring the 4.0 methodology line while migrating from the 3.2 line the materialized trees are authored in. */
