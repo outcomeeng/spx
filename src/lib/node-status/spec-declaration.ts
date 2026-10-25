@@ -145,20 +145,19 @@ export async function readNodeSpecPath(productDir: string, nodeId: string): Prom
 /**
  * Read a node's spec: the malleability its front matter declares (the absent field means the implementation
  * layer) and the audit rule slugs its assertions tag. The source grammar's audit-tag text keys an entry and
- * contributes an audit-tag form only when the grammar selection names a migration source; a read given no
- * selection reads the source grammar, as the test-support harness does. A spec that cannot be
+ * contributes an audit-tag form only when the grammar selection names a migration source. A spec that cannot be
  * read declares the defaults.
  */
 export async function readNodeSpecDeclaration(
   productDir: string,
   nodeId: string,
-  selection?: SpecTreeGrammarSelection,
+  selection: SpecTreeGrammarSelection,
 ): Promise<NodeSpecDeclaration> {
   const { specPath, source } = await locateNodeSpec(productDir, nodeId);
   if (source === undefined) {
     return { specPath, malleability: NODE_STATUS_DEFAULT_MALLEABILITY, auditRuleSlugs: [], auditTagForms: [] };
   }
-  const acceptsSourceGrammar = selection === undefined || selectsMigrationSource(selection);
+  const acceptsSourceGrammar = selectsMigrationSource(selection);
   return {
     specPath,
     malleability: declaredMalleability(source, specPath),
