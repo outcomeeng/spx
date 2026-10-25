@@ -24,6 +24,7 @@ import {
   NODE_STATUS_EXCLUDE_LINE_GRAMMAR,
   NODE_STATUS_FILENAME,
   NODE_STATUS_MALLEABILITY,
+  NODE_STATUS_SOURCE_AUDIT_TAG_FORM,
   NODE_STATUS_VERIFICATION_MECHANISM,
   type NodeAttributedRequest,
   type NodeAttributedResultResolver,
@@ -36,8 +37,10 @@ import {
   type NodeStatusEvidenceOutcome,
   type NodeStatusFile,
   type NodeStatusMalleability,
+  type NodeStatusSourceAuditTagForm,
   type PinChangeReader,
   readNodeStatus,
+  renderNodeStatusSourceAuditTag,
   serializeNodeStatus,
   serializeNodeStatusClaim,
   updateNodeStatus,
@@ -50,7 +53,9 @@ import {
   SPEC_TREE_CONFIG,
   SPEC_TREE_EVIDENCE_FILE,
   SPEC_TREE_EVIDENCE_LINK_TEXT,
+  SPEC_TREE_FRONT_MATTER_FENCE,
   SPEC_TREE_GRAMMAR,
+  SPEC_TREE_METHODOLOGY_LINE,
   SPEC_TREE_NODE_STATE,
   type SpecTreeNodeState,
 } from "@/lib/spec-tree";
@@ -72,6 +77,8 @@ import {
   type PinnedNodeFixture,
   type RecordedRun,
   type RecordedRunSets,
+  type SourceGrammarFixtureFacts,
+  type SourceGrammarTreeFixture,
   type StatusWriterTreeFixture,
   type StatusWriterTreeNode,
   type VariantParentFixture,
@@ -274,6 +281,115 @@ async function materializeNodes(
     );
   }
   return materialized;
+}
+
+/** The rule slug placeholder the fixed forms line writes inside the linked tag. */
+const SOURCE_GRAMMAR_RULE_SLUG_PLACEHOLDER = "{rule-slug}";
+
+/** The one spelling of each audit-tag form: the production renderer, empty under the absent form. */
+function sourceGrammarAuditTag(form: NodeStatusSourceAuditTagForm, ruleSlug: string): string {
+  return renderNodeStatusSourceAuditTag(form, ruleSlug);
+}
+
+const SOURCE_GRAMMAR_AUDIT_TAG_FORM_ORDER = [
+  NODE_STATUS_SOURCE_AUDIT_TAG_FORM.NONE,
+  NODE_STATUS_SOURCE_AUDIT_TAG_FORM.LINKED,
+  NODE_STATUS_SOURCE_AUDIT_TAG_FORM.REVIEW,
+  NODE_STATUS_SOURCE_AUDIT_TAG_FORM.AUDIT,
+] as const;
+
+/**
+ * The fixed line every source-grammar spec carries, quoting all four audit-tag forms — none as no tag, the linked
+ * form, the pathless review form and the pathless audit form — each inside an inline code span, each rendered from
+ * the spelling the assertion lines use.
+ */
+export const SOURCE_GRAMMAR_TAG_FORMS_LINE = `The audit-tag forms are ${
+  SOURCE_GRAMMAR_AUDIT_TAG_FORM_ORDER.map((form) =>
+    `\`${sourceGrammarAuditTag(form, SOURCE_GRAMMAR_RULE_SLUG_PLACEHOLDER) || "no tag"}\``
+  ).join(", ").replace(/, ([^,]*)$/, " and $1")
+}.`;
+
+const SOURCE_GRAMMAR_SPEC_OPENING = [
+  "# Fixture",
+  "",
+  `${SPEC_TREE_CONFIG.KINDS.enabler.opening} fixture infrastructure`,
+  "SO THAT node-status tests",
+  "CAN read source-grammar declarations",
+  "",
+  SOURCE_GRAMMAR_TAG_FORMS_LINE,
+  "",
+  "## Assertions",
+  "",
+  "### Compliance",
+  "",
+];
+
+/** The assertion line a source-grammar spec carries for its audit-tag form; none under the absent form. */
+function sourceGrammarAssertionLines(facts: SourceGrammarFixtureFacts): readonly string[] {
+  const tag = sourceGrammarAuditTag(facts.auditTagForm, facts.auditRuleSlug);
+  return tag === "" ? [] : [`- ALWAYS: the rule holds ${tag}`];
+}
+
+/** A source-grammar spec: front matter only when it declares a malleability, then the assertion its audit-tag form tags. */
+function sourceGrammarSpecText(facts: SourceGrammarFixtureFacts, linkedTestReference?: string): string {
+  const frontMatter = facts.declaredMalleability === undefined
+    ? []
+    : [
+      SPEC_TREE_FRONT_MATTER_FENCE,
+      `${SPEC_CONTEXT_SELECTED_METADATA_KEY}: ${facts.declaredMalleability}`,
+      SPEC_TREE_FRONT_MATTER_FENCE,
+    ];
+  const linkedTestLines = linkedTestReference === undefined
+    ? []
+    : [
+      "",
+      "### Scenarios",
+      "",
+      `- Given an input, when it is processed, then the output is produced ([${SPEC_TREE_EVIDENCE_LINK_TEXT.TEST}](${linkedTestReference}))`,
+    ];
+  return [
+    ...frontMatter,
+    ...SOURCE_GRAMMAR_SPEC_OPENING,
+    ...sourceGrammarAssertionLines(facts),
+    ...linkedTestLines,
+    "",
+  ].join("\n");
+}
+
+/** The audit rule slugs a source-grammar node's claim keys by: exactly its rule slug under the linked tag, none under any other form. */
+export function expectedSourceGrammarAuditKeys(facts: SourceGrammarFixtureFacts): readonly string[] {
+  return facts.auditTagForm === NODE_STATUS_SOURCE_AUDIT_TAG_FORM.LINKED ? [facts.auditRuleSlug] : [];
+}
+
+/** The audit keys of the current-shape claim written for the node at product-relative `nodePath`; none when no such claim is written. */
+export function readClaimAuditKeys(productDir: string, nodePath: string): readonly string[] {
+  const read = readNodeStatus(join(productDir, nodePath));
+  return read?.shape === NODE_STATUS_CLAIM_SHAPE.CURRENT
+    ? Object.keys(read.claim[NODE_STATUS_CLAIM_FIELD.VERIFICATION][NODE_STATUS_CLAIM_SECTION.AUDIT] ?? {})
+    : [];
+}
+
+export type SourceGrammarTreeEnv = {
+  readonly env: SpecTreeEnv;
+};
+
+/**
+ * Materialize a generated source-grammar tree into a temporary product directory: each node becomes a
+ * prior-form spec file whose front matter and audit tag its facts dictate.
+ */
+export async function withSourceGrammarTree(
+  fixture: SourceGrammarTreeFixture,
+  callback: (tree: SourceGrammarTreeEnv) => Promise<void>,
+): Promise<void> {
+  await withTestEnv(migratingMethodologyConfig(), async (env) => {
+    for (const node of fixture.nodes) {
+      await env.writeNode(
+        nodeTreePath(node.dirName, `${node.slug}${SPEC_FILE_SUFFIX}`),
+        sourceGrammarSpecText(node.facts),
+      );
+    }
+    await callback({ env });
+  });
 }
 
 export type StatusWriterTreeNodeExpectation = {
@@ -492,6 +608,40 @@ export async function trackSpecTree(productDir: string): Promise<void> {
   await runFixtureGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, ROOT]);
 }
 
+/** The porcelain working-tree status of `productDir`; empty when nothing is modified, staged or untracked. */
+export async function readWorkingTreeStatus(productDir: string): Promise<string> {
+  return runFixtureGit(productDir, [GIT_TEST_SUBCOMMANDS.STATUS, GIT_TEST_FLAGS.PORCELAIN]);
+}
+
+/** Every path in the git index of `productDir`, sorted in ASCII order. */
+export async function readTrackedIndex(productDir: string): Promise<readonly string[]> {
+  return (await runFixtureGit(productDir, [GIT_TEST_SUBCOMMANDS.LS_FILES, GIT_NULL_DELIMITED_FLAG]))
+    .split(GIT_NULL_RECORD_SEPARATOR)
+    .filter((line) => line.length > 0)
+    .sort(compareAsciiStrings);
+}
+
+/**
+ * The product-relative paths a generated classification tree declares — each node spec, each linked evidence
+ * file and, when any node is excluded, the exclusion file — plus `additionalPaths`, sorted in ASCII order.
+ */
+export function declaredClassificationPaths(
+  fixture: ClassificationTreeFixture,
+  additionalPaths: readonly string[] = [],
+): readonly string[] {
+  const treePath = (...segments: readonly string[]) => [ROOT, ...segments].join(PATH_SEPARATOR);
+  return [
+    ...fixture.nodes.flatMap((node) => [
+      treePath(node.dirName, `${node.slug}${SPEC_FILE_SUFFIX}`),
+      ...(node.evidenceReference === undefined ? [] : [treePath(node.dirName, node.evidenceReference)]),
+    ]),
+    ...(fixture.nodes.some((node) => node.facts.isExcluded)
+      ? [treePath(SPEC_TREE_GRAMMAR.EXCLUSION_REGISTRY_FILENAME)]
+      : []),
+    ...additionalPaths,
+  ].sort(compareAsciiStrings);
+}
+
 /** Stage and commit the spec tree in an initialized repository under a fixed test identity. */
 export async function commitSpecTree(productDir: string): Promise<void> {
   await commitPaths(productDir, [ROOT]);
@@ -578,6 +728,18 @@ export function methodologyDeclaringConfig(version: string): Config {
   };
 }
 
+/** A configuration declaring the 4.0 methodology line while migrating from the 3.2 line the materialized trees are authored in. */
+export function migratingMethodologyConfig(): Config {
+  return {
+    ...MINIMAL_SPEC_TREE_CONFIG,
+    [METHODOLOGY_SECTION]: {
+      source: DEFAULT_METHODOLOGY_SOURCE,
+      version: SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO,
+      migratingFrom: SPEC_TREE_METHODOLOGY_LINE.THREE_TWO,
+    },
+  };
+}
+
 /** A configuration declaring a methodology version of the current claim shape, drawn from the node-status generator. */
 export function currentMethodologyConfig(): Config {
   return methodologyDeclaringConfig(
@@ -623,6 +785,12 @@ const UNRELATED_FILE_PATH = "unrelated.txt";
 const AUDIT_RULE_TAG_PATTERN = /\[audit:([a-z0-9-]+)\]/g;
 const AUDIT_RULE_TAG_GROUP = 1;
 const VARIANT_SUBJECT_DIRECTORY = "src";
+const GENERATED_LINKED_TEST_SUFFIX = [
+  "",
+  SPEC_TREE_GRAMMAR.EVIDENCE.MODES[0],
+  SPEC_TREE_GRAMMAR.EVIDENCE.LEVELS[0],
+  ...SPEC_TREE_GRAMMAR.EVIDENCE.TAILS.TYPESCRIPT,
+].join(SPEC_TREE_GRAMMAR.EVIDENCE.SEGMENT_SEPARATOR);
 
 /** A committed single-node repository whose results can be pinned to its spec, tests, and source subjects. */
 export type PinnedNodeRepository = {
@@ -701,17 +869,24 @@ export type PinnedNodeRepository = {
 
 /**
  * Materialize and commit a node with a spec linking two tests and tagging two audit rules, the tests, and the
- * source subjects of `fixture`, in a temporary product directory under the methodology `config` declares.
+ * source subjects of `fixture`, in a temporary product directory under the methodology `config` declares. The spec
+ * is read from the fixture file `spec` names, or, given source-grammar facts, written in that grammar with each
+ * fact's audit-tag form and malleability and a link to one test named for the node's slug.
  */
 export async function withPinnedNodeRepository(
   fixture: PinnedNodeFixture,
   config: Config,
   callback: (repository: PinnedNodeRepository) => Promise<void>,
-  specFixturePath: string = PINNED_SPEC_FIXTURE.DEFAULT,
+  spec: string | SourceGrammarFixtureFacts = PINNED_SPEC_FIXTURE.DEFAULT,
 ): Promise<void> {
   await withTestEnv(config, async (env) => {
     const [specContent, testContent] = await Promise.all([
-      readFixture(specFixturePath),
+      typeof spec === "string"
+        ? readFixture(spec)
+        : sourceGrammarSpecText(
+          spec,
+          [EVIDENCE_DIRECTORY, `${fixture.slug}${GENERATED_LINKED_TEST_SUFFIX}`].join(PATH_SEPARATOR),
+        ),
       readFixture(CLASSIFICATION_FIXTURE_PATHS.test),
     ]);
     const ancestorSegments = fixture.ancestor === undefined ? [] : [fixture.ancestor.dirName];
@@ -811,10 +986,14 @@ export async function withPinnedNodeRepository(
       subjectPaths: fixture.subjectPaths,
       commit,
       git: isolatedFixtureGitDependencies,
-      auditRuleSlugs: [...specContent.matchAll(AUDIT_RULE_TAG_PATTERN)].flatMap((match) => {
-        const slug = match.at(AUDIT_RULE_TAG_GROUP);
-        return slug === undefined ? [] : [slug];
-      }),
+      auditRuleSlugs: typeof spec === "string"
+        ? [...specContent.matchAll(AUDIT_RULE_TAG_PATTERN)].flatMap((match) => {
+          const slug = match.at(AUDIT_RULE_TAG_GROUP);
+          return slug === undefined ? [] : [slug];
+        })
+        : spec.auditTagForm === NODE_STATUS_SOURCE_AUDIT_TAG_FORM.LINKED
+        ? [spec.auditRuleSlug]
+        : [],
       get pinChanges() {
         return createPinChangeReader({ productDir: env.productDir, git: isolatedFixtureGitDependencies });
       },

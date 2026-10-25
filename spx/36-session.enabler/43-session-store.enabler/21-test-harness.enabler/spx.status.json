@@ -5,7 +5,7 @@
     "test": {
       "tests/test-harness.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "c2d6355e71fdc1ee45316cbb014d7e8a6a825a50",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/43-session-store.enabler/21-test-harness.enabler/test-harness.md",

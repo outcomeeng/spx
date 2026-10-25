@@ -10,8 +10,10 @@ import type {
   NodeStatusCurrency,
   NodeStatusEvidenceOutcome,
   NodeStatusFile,
+  NodeStatusMalleability,
   NodeStatusMechanismOverall,
   NodeStatusMechanismRecord,
+  NodeStatusSourceAuditTagForm,
   NodeStatusVerification,
 } from "@/lib/node-status";
 import {
@@ -25,6 +27,7 @@ import {
   NODE_STATUS_MALLEABILITY,
   NODE_STATUS_MECHANISM_OVERALL,
   NODE_STATUS_SCHEMA_VERSION,
+  NODE_STATUS_SOURCE_AUDIT_TAG_FORM,
   NODE_STATUS_VERIFICATION_MECHANISM,
 } from "@/lib/node-status";
 import { VARIANT_DIRECTORY_SUFFIX } from "@/lib/node-status/provider";
@@ -35,6 +38,7 @@ import {
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_METHODOLOGY_LINE,
   SPEC_TREE_NODE_STATE,
+  type SpecTreeNodeState,
 } from "@/lib/spec-tree";
 import { arbitraryAcceptedMethodologyVersion } from "@testing/generators/methodology/tree";
 import { evidenceFileNameFor } from "@testing/generators/spec-tree/evidence-file-name";
@@ -44,6 +48,8 @@ const NODE_STATUS_GENERATOR_OPTIONS = {
   ORDER_MAX: 99,
   MIN_NODES: 1,
   MAX_NODES: 5,
+  /** Most nodes a source-grammar tree adds beyond the one per form-and-malleability pair. */
+  MAX_EXTRA_SOURCE_GRAMMAR_NODES: 4,
   FAILURE_EXIT_CODE: 1,
   /** Most linked evidence references a status-writer-tree node carries. */
   MAX_LINKED_REFERENCES: 4,
@@ -118,6 +124,31 @@ export type ClassificationTreeFixture = {
   readonly nodes: readonly ClassificationTreeNode[];
 };
 
+/** What a source-grammar node's spec declares: its audit-tag form, the rule slug a linked tag names, and its malleability. */
+export type SourceGrammarFixtureFacts = {
+  readonly auditTagForm: NodeStatusSourceAuditTagForm;
+  /** The rule slug a linked audit tag names; carried by every node and written only under the linked form. */
+  readonly auditRuleSlug: string;
+  /** The malleability the spec's front matter declares; absent when the spec declares none. */
+  readonly declaredMalleability: NodeStatusMalleability | undefined;
+};
+
+export type SourceGrammarTreeNode = {
+  readonly dirName: string;
+  readonly slug: string;
+  readonly facts: SourceGrammarFixtureFacts;
+};
+
+export type SourceGrammarTreeFixture = {
+  readonly nodes: readonly SourceGrammarTreeNode[];
+};
+
+/** A pinned node whose spec is written in the migration source's grammar from `facts`. */
+export type SourceGrammarRepositoryFixture = {
+  readonly node: PinnedNodeFixture;
+  readonly facts: SourceGrammarFixtureFacts;
+};
+
 /**
  * One linked evidence reference of a status-writer-tree node: the node-relative
  * reference path, the outcome the injected resolver reports for it — absent when a
@@ -170,6 +201,8 @@ export const NODE_STATUS_TEST_GENERATOR = {
   classificationTree: arbitraryClassificationTree,
   classificationTreeWithVerificationReferences: arbitraryClassificationTreeWithVerificationReferences,
   delegationTree: arbitraryDelegationTree,
+  sourceGrammarTree: arbitrarySourceGrammarTree,
+  sourceGrammarRepository: arbitrarySourceGrammarRepository,
   statusReference: arbitraryStatusReference,
   evidenceOutcome: arbitraryEvidenceOutcome,
   contradictingEvidenceOutcome: arbitraryContradictingEvidenceOutcome,
@@ -914,6 +947,78 @@ export function arbitraryDelegationTree(): fc.Arbitrary<ClassificationTreeFixtur
       )
     )
     .map((nodes) => ({ nodes }));
+}
+
+/** The facts of a source-grammar node that vary independently of its slugs: an audit-tag form and a declared malleability or none. */
+export type SourceGrammarFactPair = Omit<SourceGrammarFixtureFacts, "auditRuleSlug">;
+
+/** Every audit-tag form crossed with every declared malleability and the absent declaration. */
+export function enumerateSourceGrammarFactPairs(): readonly SourceGrammarFactPair[] {
+  return Object.values(NODE_STATUS_SOURCE_AUDIT_TAG_FORM).flatMap((auditTagForm) =>
+    [...Object.values(NODE_STATUS_MALLEABILITY), undefined].map((declaredMalleability) => ({
+      auditTagForm,
+      declaredMalleability,
+    }))
+  );
+}
+
+/**
+ * The state a source-grammar node whose recorded results all pass is expected to take, per audit-tag form, at
+ * every declared malleability: no tag or a linked tag leaves nothing unanswered, while a pathless review or audit
+ * tag names no rule a result can answer.
+ */
+export const SOURCE_GRAMMAR_EXPECTED_STATE: Readonly<Record<NodeStatusSourceAuditTagForm, SpecTreeNodeState>> = {
+  [NODE_STATUS_SOURCE_AUDIT_TAG_FORM.NONE]: SPEC_TREE_NODE_STATE.PASSING,
+  [NODE_STATUS_SOURCE_AUDIT_TAG_FORM.LINKED]: SPEC_TREE_NODE_STATE.PASSING,
+  [NODE_STATUS_SOURCE_AUDIT_TAG_FORM.REVIEW]: SPEC_TREE_NODE_STATE.SPECIFIED,
+  [NODE_STATUS_SOURCE_AUDIT_TAG_FORM.AUDIT]: SPEC_TREE_NODE_STATE.SPECIFIED,
+};
+
+// A source-grammar tree whose nodes always include one node for every pair of audit-tag form and declared
+// malleability (or none declared); only the slugs, rule slugs, orders, and any extra nodes vary by draw.
+function arbitrarySourceGrammarTree(): fc.Arbitrary<SourceGrammarTreeFixture> {
+  return fc
+    .integer({ min: 0, max: NODE_STATUS_GENERATOR_OPTIONS.MAX_EXTRA_SOURCE_GRAMMAR_NODES })
+    .chain((extraCount) =>
+      fc.tuple(
+        fc.uniqueArray(
+          fc.integer({ min: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MIN, max: NODE_STATUS_GENERATOR_OPTIONS.ORDER_MAX }),
+          {
+            minLength: enumerateSourceGrammarFactPairs().length + extraCount,
+            maxLength: enumerateSourceGrammarFactPairs().length + extraCount,
+          },
+        ),
+        fc.array(fc.constantFrom(...enumerateSourceGrammarFactPairs()), {
+          minLength: extraCount,
+          maxLength: extraCount,
+        }),
+      )
+    )
+    .chain(([orders, extraPairs]) =>
+      fc.tuple(
+        ...[...enumerateSourceGrammarFactPairs(), ...extraPairs].map((pair, index) =>
+          fc.record({ slug: arbitraryNodeSlug(), auditRuleSlug: arbitraryNodeSlug() }).map(
+            ({ slug, auditRuleSlug }) => ({
+              dirName: nodeDirectoryName(orders[index] ?? NODE_STATUS_GENERATOR_OPTIONS.ORDER_MIN, slug),
+              slug,
+              facts: { ...pair, auditRuleSlug },
+            }),
+          )
+        ),
+      )
+    )
+    .map((nodes) => ({ nodes }));
+}
+
+// A pinned node paired with the facts of one node of a generated source-grammar tree, so a drawn repository
+// carries any audit-tag form crossed with any declared malleability or none.
+function arbitrarySourceGrammarRepository(): fc.Arbitrary<SourceGrammarRepositoryFixture> {
+  return fc
+    .tuple(
+      arbitraryPinnedNode(),
+      arbitrarySourceGrammarTree().chain((tree) => fc.constantFrom(...tree.nodes.map((node) => node.facts))),
+    )
+    .map(([node, facts]) => ({ node, facts }));
 }
 
 function delegationNode(

@@ -1,0 +1,45 @@
+import { describe, expect, it } from "vitest";
+
+import { updateNodeStatus } from "@/lib/node-status";
+import {
+  enumerateSourceGrammarFactPairs,
+  NODE_STATUS_TEST_GENERATOR,
+  SOURCE_GRAMMAR_EXPECTED_STATE,
+  type SourceGrammarFixtureFacts,
+} from "@testing/generators/node-status/node-status";
+import { sampleGeneratedValue } from "@testing/generators/sample";
+import {
+  expectedSourceGrammarAuditKeys,
+  migratingMethodologyConfig,
+  readClaimAuditKeys,
+  withPinnedNodeRepository,
+} from "@testing/harnesses/node-status/node-status";
+
+const { node, facts: drawn } = sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.sourceGrammarRepository());
+const cases = enumerateSourceGrammarFactPairs().map((pair): SourceGrammarFixtureFacts => ({
+  ...pair,
+  auditRuleSlug: drawn.auditRuleSlug,
+}));
+
+describe("classification of a source-grammar node under a declaration migrating from 3.2, over every audit-tag form crossed with every declared malleability", () => {
+  it.each(cases.map((facts) => ({ facts, expected: SOURCE_GRAMMAR_EXPECTED_STATE[facts.auditTagForm] })))(
+    "$facts.auditTagForm × $facts.declaredMalleability → $expected",
+    async ({ facts, expected }) => {
+      await withPinnedNodeRepository(node, migratingMethodologyConfig(), async (repository) => {
+        const subject = repository.subjectPaths[0] ?? "";
+        await updateNodeStatus({
+          productDir: repository.env.productDir,
+          resolveOutcome: repository.passingOutcomes,
+          resolveReadPaths: () => Promise.resolve([subject]),
+          resolveAttributedResults: repository.passedAttributedResults([subject]),
+          gitDependencies: repository.git,
+        });
+        await repository.commitAll();
+
+        expect(await repository.readState(), JSON.stringify(facts)).toBe(expected);
+        expect(readClaimAuditKeys(repository.env.productDir, repository.nodePath), JSON.stringify(facts))
+          .toEqual(expectedSourceGrammarAuditKeys(facts));
+      }, facts);
+    },
+  );
+});

@@ -5,7 +5,7 @@
     "test": {
       "tests/branch-association.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "731ccc6c8d014a234649d38966f4d6417b2db7bc",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -393,7 +393,7 @@
       },
       "tests/branch-association.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "731ccc6c8d014a234649d38966f4d6417b2db7bc",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -782,7 +782,7 @@
       },
       "tests/locator-availability.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "731ccc6c8d014a234649d38966f4d6417b2db7bc",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -1164,7 +1164,7 @@
       },
       "tests/locator-bound.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "731ccc6c8d014a234649d38966f4d6417b2db7bc",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -1553,7 +1553,7 @@
       },
       "tests/locator-run.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "731ccc6c8d014a234649d38966f4d6417b2db7bc",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -1935,7 +1935,7 @@
       },
       "tests/locator-run.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "c2d6355e71fdc1ee45316cbb014d7e8a6a825a50",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -2064,7 +2064,7 @@
       },
       "tests/locator-runner.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "731ccc6c8d014a234649d38966f4d6417b2db7bc",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -2446,7 +2446,7 @@
       },
       "tests/locator.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "731ccc6c8d014a234649d38966f4d6417b2db7bc",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -2828,7 +2828,7 @@
       },
       "tests/reach-window.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "731ccc6c8d014a234649d38966f4d6417b2db7bc",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -3216,7 +3216,7 @@
       },
       "tests/reach-window.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "731ccc6c8d014a234649d38966f4d6417b2db7bc",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -3605,7 +3605,7 @@
       },
       "tests/scan-bound.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "731ccc6c8d014a234649d38966f4d6417b2db7bc",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -3993,7 +3993,7 @@
       },
       "tests/search.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "731ccc6c8d014a234649d38966f4d6417b2db7bc",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -4382,7 +4382,7 @@
       },
       "tests/search.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "731ccc6c8d014a234649d38966f4d6417b2db7bc",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -4771,7 +4771,7 @@
       },
       "tests/search.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "731ccc6c8d014a234649d38966f4d6417b2db7bc",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -5160,7 +5160,7 @@
       },
       "tests/selector-needle.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "731ccc6c8d014a234649d38966f4d6417b2db7bc",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -5543,7 +5543,7 @@
       },
       "tests/session-identity.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "731ccc6c8d014a234649d38966f4d6417b2db7bc",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -5932,7 +5932,7 @@
       },
       "tests/store-listing.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "731ccc6c8d014a234649d38966f4d6417b2db7bc",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
@@ -6320,7 +6320,7 @@
       },
       "tests/store-placement.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "731ccc6c8d014a234649d38966f4d6417b2db7bc",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/32-search.enabler/search.md",
