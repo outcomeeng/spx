@@ -21,7 +21,7 @@ Scope to the touched evidence:
 - Validation: `pnpm run validate`. For a Markdown-only changeset, `tsx src/cli.ts validation markdown <paths>` suffices.
 - Testing: `spx test --changed --base origin/main`, or `tsx src/cli.ts test --changed --base origin/main` when the branch changes `spx test` itself. Run `pnpm run build` first whenever the changed scope reaches an L2 CLI scenario, because those shell out to `node bin/spx.js` → `dist/cli.js`.
 - Escalation to `pnpm run validate` plus `pnpm test`: validation infrastructure, test runner wiring, generated distribution, `package.json` or `pnpm-lock.yaml`, shared runtime code, or a refactor whose touched-scope commands cannot cover the contract.
-- Circular dependency detection and full status projection belong to CI (`.github/workflows/deterministic-verification.yml`). No terminal full deterministic gate runs locally.
+- Circular dependency detection belongs to CI (`.github/workflows/deterministic-verification.yml`). Its status job runs `tsx src/cli.ts spec status --update --check`, which fails on drift and writes nothing. A branch whose change moves any node's projection therefore commits the full projection made on fresh `dist`: `pnpm run build`, then `tsx src/cli.ts verification test run` with no path operands, then `tsx src/cli.ts spec status --update`. No other terminal full deterministic gate runs locally.
 
 Lane mapping for a `/sync-base` `preservation.base_delta_paths` set after a rebase:
 
