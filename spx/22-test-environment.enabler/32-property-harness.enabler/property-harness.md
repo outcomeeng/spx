@@ -1,6 +1,6 @@
 # Property Test Harness
 
-PROVIDES a fast-check property runner that takes an arbitrary, a property callback, and a classification, owning the run count, seed selection, and the per-run timeout that fast-check enforces for asynchronous predicates
+PROVIDES a fast-check property runner that takes an arbitrary, a property callback, and a classification, owning the run count, seed selection, the per-run timeout that fast-check enforces for asynchronous predicates, and the whole-run envelope a caller passes as the test-level timeout
 SO THAT property tests across the spec tree
 CAN assert invariants over generated inputs without declaring test-owned run counts, seeds, or timeouts, and can replay a failing run deterministically
 
@@ -19,6 +19,7 @@ CAN assert invariants over generated inputs without declaring test-owned run cou
 
 - Classification size maps to run count: `standard` to the standard run count and `small` to the reduced run count ([test](tests/property-harness.mapping.l1.test.ts))
 - Classification level maps to the harness-owned per-run timeout, one timeout per execution level ([test](tests/property-harness.mapping.l1.test.ts))
+- Classification maps to the whole-run envelope, the product of its run count and its per-run timeout plus the harness-owned margin, exported for a caller to pass as the test-level timeout ([test](tests/property-harness.mapping.l1.test.ts))
 
 ### Properties
 

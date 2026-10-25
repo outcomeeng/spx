@@ -1,7 +1,5 @@
-import * as fc from "fast-check";
-import { randomInt } from "node:crypto";
 import { copyFile, mkdir, writeFile } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { basename, join, relative, resolve, sep } from "node:path";
 
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { configFileForFormat, DEFAULT_CONFIG_FILE_FORMAT, serializeConfigFileSections } from "@/config/index";
@@ -14,37 +12,39 @@ import type {
 } from "@testing/generators/config/product-context";
 import { GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { type ProductContextCliRun, runProductContextCli } from "@testing/harnesses/product-context/cli";
-import { PROPERTY_LEVEL, PROPERTY_TIMEOUTS_MS, resolveSeed } from "@testing/harnesses/property/property";
+import { PROPERTY_CLASSIFICATION, propertyTestEnvelopeTimeoutMs } from "@testing/harnesses/property/property";
 import { createSessionHarness } from "@testing/harnesses/session/harness";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
-const PRODUCT_CONTEXT_MAPPING_CASE_COUNT = 3;
-const PRODUCT_CONTEXT_SEED_BOUND = 2 ** 32;
 const PRODUCT_CONTEXT_TEMP_PREFIX = "spx-product-context-";
 
-export const PRODUCT_CONTEXT_MAPPING_TEST_OPTIONS = {
-  timeout: PRODUCT_CONTEXT_MAPPING_CASE_COUNT * PROPERTY_TIMEOUTS_MS[PROPERTY_LEVEL.L1],
+export const PRODUCT_CONTEXT_CLASSIFICATION = PROPERTY_CLASSIFICATION.SMALL_L1;
+
+export const PRODUCT_CONTEXT_TEST_OPTIONS = {
+  timeout: propertyTestEnvelopeTimeoutMs(PRODUCT_CONTEXT_CLASSIFICATION),
 } as const;
 
-export async function runProductContextCases<T>(
-  arbitrary: fc.Arbitrary<T>,
-  predicate: (scenario: T) => Promise<void>,
-): Promise<void> {
-  const seed = resolveSeed(process.env, () => randomInt(PRODUCT_CONTEXT_SEED_BOUND));
-  const result = await fc.check(fc.asyncProperty(arbitrary, predicate), {
-    seed,
-    numRuns: PRODUCT_CONTEXT_MAPPING_CASE_COUNT,
-    timeout: PROPERTY_TIMEOUTS_MS[PROPERTY_LEVEL.L1],
-  });
-  if (result.failed) {
-    throw new Error(
-      `Product-context mapping failed after ${result.numRuns} runs; seed ${seed}; replay path ${result.counterexamplePath}; counterexample ${
-        JSON.stringify(result.counterexample)
-      }`,
-      { cause: result.errorInstance },
-    );
-  }
+export const PRODUCT_CONTEXT_RESOLUTION = {
+  /** The real Git resolver: the observation spawns Git, so a case claims the Git contract once. */
+  GIT: "git",
+  /** The injected resolver: the observation spawns no Git, so a case may run as a property. */
+  INJECTED: "injected",
+} as const;
+
+export type ProductContextResolution = (typeof PRODUCT_CONTEXT_RESOLUTION)[keyof typeof PRODUCT_CONTEXT_RESOLUTION];
+
+/**
+ * Resolves the product directory from the directory it receives: a directory inside the product
+ * resolves to the product, any other directory resolves to itself, as the fallback of the real
+ * resolver does. A directory flag that fails to reach the resolver changes the result.
+ */
+function resolverWithinProduct(productDir: string): (cwd: string) => { readonly productDir: string } {
+  return (cwd) => {
+    const relativePath = relative(productDir, resolve(cwd));
+    const inside = relativePath === "" || (!relativePath.startsWith("..") && !relativePath.startsWith(sep));
+    return { productDir: inside ? productDir : resolve(cwd) };
+  };
 }
 
 export interface ProductContextMappingObservation {
@@ -56,12 +56,15 @@ export interface ProductContextMappingObservation {
 export async function observeProductContextMapping(
   command: RedirectedProductContextCommand,
   scenario: GeneratedProductContextCase,
+  resolution: ProductContextResolution,
 ): Promise<ProductContextMappingObservation> {
   return withTestEnv(DEFAULT_CONFIG, async (env) => {
     const productDir = join(env.productDir, scenario.target.productDirectory);
     const nestedProductDir = join(productDir, scenario.target.nestedDirectory);
     await mkdir(nestedProductDir, { recursive: true });
-    await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
+    const claimsGitContract = resolution === PRODUCT_CONTEXT_RESOLUTION.GIT;
+    if (claimsGitContract) await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
+    const cliOptions = claimsGitContract ? {} : { resolveProductDir: resolverWithinProduct(productDir) };
     const configFile = configFileForFormat(productDir, DEFAULT_CONFIG_FILE_FORMAT);
     const serialized = serializeConfigFileSections(configFile.format, scenario.testing.config);
     if (!serialized.ok) throw new Error(serialized.error);
@@ -85,10 +88,10 @@ export async function observeProductContextMapping(
       return await withTempDir(PRODUCT_CONTEXT_TEMP_PREFIX, async (callerRoot) => {
         const callerDir = join(callerRoot, scenario.caller.productDirectory, scenario.caller.nestedDirectory);
         await mkdir(callerDir, { recursive: true });
-        const direct = await runProductContextCli(command.args, { processCwd: nestedProductDir });
+        const direct = await runProductContextCli(command.args, { processCwd: nestedProductDir, ...cliOptions });
         const redirected = await runProductContextCli(
           [command.directoryOption, nestedProductDir, ...command.args],
-          { processCwd: callerDir },
+          { processCwd: callerDir, ...cliOptions },
         );
         return { productDir, direct, redirected };
       });

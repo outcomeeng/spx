@@ -24,5 +24,6 @@ One product context keeps root-affecting behavior independent of the command int
 - ALWAYS: config-owned product-context APIs carry root-directory inputs into commands and domains as typed values; command handlers and domain modules do not re-read `process.cwd()` to decide product roots ([audit])
 - ALWAYS: root-resolution helper names distinguish effective invocation directory, tracked `productDir`, worktree-local product root, and Git common-dir product root vocabulary ([audit])
 - ALWAYS: product-context resolution uses injected git and filesystem dependencies so command behavior is observable through supplied dependency implementations ([audit])
+- ALWAYS: product-context evidence spawns Git only in the cases whose claim is the Git contract — the `-C` equivalence of `config show --json`, the `-C` equivalence of `session list --json`, the absent-`-C` fallback, and the dirty unrelated worktree — and every other case supplies the product-directory resolver through the injected dependency ([audit])
 - NEVER: implement `-C` with `process.chdir()` — the process directory is not mutated to carry product context ([audit])
 - NEVER: add domain-local `-C` parsing or command-specific root overrides; the global product context is the only CLI path override ([audit])
