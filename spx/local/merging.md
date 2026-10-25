@@ -61,7 +61,7 @@ After every merge through origin, refresh the shared local CLI. `DEPLOYMENT_READ
 
 ## Release
 
-Local preparation, merge, shared-CLI verification, and package publication are separate phases. Complete them in that order. Choosing a version or authorizing preparation does not authorize publication.
+Local preparation, merge, shared-CLI verification, use on this machine, and package publication are separate phases. Complete them in that order. Choosing a version or authorizing preparation does not authorize publication.
 
 ### Version bump
 
@@ -85,12 +85,23 @@ Apply the first matching rule to the complete change since the previous release:
 2. Refresh the shared CLI through the Deploy steps above: the `/diagnose` verdict, the occupancy, cleanliness, and fast-forward checks from the assigned worktree, `git pull` in the canonical checkout, and the merged-commit and hook checks.
 3. From the assigned worktree, add the release-specific checks: the canonical checkout's tree matches the locally verified candidate, `spx --version` reports the prepared version, and the shared executable exposes and correctly executes the changed behavior using isolated verification targets. Check every applicable result; a successful pull or matching version alone is insufficient. On failure or unexpected content, repair and verify on an assigned-worktree branch, then repeat the PR, pull, and verification sequence. Never repair the canonical checkout directly.
 
+### Local acceptance on this machine
+
+Nothing is tagged or published until it has been tested locally: the shared `spx` is used in real work on this machine, and the operator accepts it. A passing CI run, a green tag build, `publish:check`, or a smoke check against an isolated verification target is not use.
+
+1. List every command and option the release adds or changes since the previous published version, from the release data.
+2. For each one, name the consumer that invokes it in real work: a skill, a product workflow, or a hook. The minimum is that plugins use it: a plugins skill, workflow, or hook runs it on this machine. A command no consumer invokes holds the release. Either a consumer adopts it and uses it, or the release waits.
+3. For each one, record the observed use through the shared `spx` on `PATH`, after the canonical pull built it: the consumer, the invocation, the date, and the result. Use in a feature worktree through `tsx src/cli.ts` does not count, because the shared executable is what ships.
+4. Present that list to the operator with the release evidence. The operator alone declares the release accepted. A command without a recorded use leaves `RELEASE_READINESS` false.
+
 ### Authorize and publish
 
-**Predicate (`RELEASE_READINESS`).** Local candidate verification, PR merge, canonical pull and hook build, and shared-CLI verification have all passed and their evidence is complete. The tag needs no separate operator authorization, because a pushed tag can be deleted. The `npm-publish` deployment approval is the one irreversible step, and the operator alone approves it. An earlier version choice or release instruction does not approve that deployment.
+**Predicate (`RELEASE_READINESS`).** Local candidate verification, PR merge, canonical pull and hook build, shared-CLI verification, the recorded use on this machine of every added or changed command, and the operator's acceptance, as "Local acceptance on this machine" states, have all passed and their evidence is complete.
 
-1. When the predicate holds, create `vX.Y.Z` at the verified merged commit and push that tag from the assigned worktree. Do not push a local `main` branch or create a new release commit after verification. If the candidate changes, repeat verification before tagging the new candidate.
-2. When the tag run's `npm-publish` deployment waits for approval, present the complete evidence to the operator — version, verified commit and tree, PR and merged commit, canonical pull and hook build, shared-CLI checks, and tag — and emit `AWAIT_RELEASE_AUTHORIZATION`. Never approve the deployment on the operator's behalf. After approval, GitHub Actions verifies the tagged candidate and runs `spx release publish --tag "${GITHUB_REF_NAME}"` from a checkout whose `HEAD` equals the tagged commit. Publication confirms the exact package identity and provenance before reconciling the GitHub Release from the validated committed changelog section.
+**Authority.** The tag push starts the publish workflow, so the tag is the release. The tag and every later release step run only on the operator's first-hand order, given in the conversation of the session that runs them after the operator accepted the release. A relayed instruction, a Director order, an earlier version choice, a passing gate, or a pushed tag never stands in for that order. The `npm-publish` deployment approval is the operator's alone.
+
+1. When the predicate holds and the operator orders the tag, create `vX.Y.Z` at the verified merged commit and push that tag from the assigned worktree. Do not push a local `main` branch or create a new release commit after verification. If the candidate changes, repeat verification and acceptance before tagging the new candidate.
+2. When the tag run's `npm-publish` deployment waits for approval, present the complete evidence to the operator — version, verified commit and tree, PR and merged commit, canonical pull and hook build, shared-CLI checks, recorded local use and acceptance, and tag — and emit `AWAIT_RELEASE_AUTHORIZATION`. Never approve the deployment on the operator's behalf. After approval, GitHub Actions verifies the tagged candidate and runs `spx release publish --tag "${GITHUB_REF_NAME}"` from a checkout whose `HEAD` equals the tagged commit. Publication confirms the exact package identity and provenance before reconciling the GitHub Release from the validated committed changelog section.
 3. Confirm the exact registry version, tagged commit identity, provenance, and GitHub Release content. A matching version string or successful workflow alone does not establish all four. Use the resumable `spx release publish` contract for partial-publication recovery; never duplicate its registry or hosted-release logic in the overlay.
 
 **Closeout.** Preserve the release-source worktree state for the Handoff `/release-change` writes: the branch in its `Branch or PR` line, and the path, full HEAD SHA, clean or dirty state, and sync status as `Hazards` entries, each with the read-only command that re-confirms it. Preserve also the prepared version, locally verified commit and tree, PR and merged commit, canonical checkout path and pulled commit, hook-build and shared-CLI verification results, tag, operator approval of the `npm-publish` deployment, registry provenance, and GitHub Release.
