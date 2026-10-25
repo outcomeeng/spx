@@ -18,7 +18,7 @@ describe("verify input check mapping", () => {
 
   for (const spelled of CHECK_NORMALIZATION_SPELLINGS) {
     for (const relation of relations) {
-      it(`maps a ${relation} file to its result under ${spelled ?? "an omitted normalization"}`, async () => {
+      it(`reports the result of checking a ${relation} file under ${spelled ?? "an omitted normalization"}`, async () => {
         const scenario = sampleGeneratedValue(VERIFY_CONTENT_IDENTITY_TEST_GENERATOR.checkFileScenario(relation));
         const normalization = spelled ?? CONTENT_NORMALIZATION.NONE;
 
