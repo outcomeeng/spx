@@ -5,7 +5,7 @@
     "test": {
       "tests/decision-citation.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/release.md",
@@ -152,7 +152,7 @@
       },
       "tests/endpoint-grammar.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/release.md",
@@ -302,7 +302,7 @@
       },
       "tests/release-cli.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/release.md",
@@ -435,7 +435,7 @@
       },
       "tests/spec-less-node.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/release.md",

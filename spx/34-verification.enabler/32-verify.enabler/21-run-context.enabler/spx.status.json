@@ -5,7 +5,7 @@
     "test": {
       "tests/verify-change-identity.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -393,7 +393,7 @@
       },
       "tests/verify-change-identity.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -781,7 +781,7 @@
       },
       "tests/verify-change-inventory.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -1173,7 +1173,7 @@
       },
       "tests/verify-drive-mode.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -1561,7 +1561,7 @@
       },
       "tests/verify-expectations.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -1953,7 +1953,7 @@
       },
       "tests/verify-file-scope.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -2110,7 +2110,7 @@
       },
       "tests/verify-file-scope.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -2498,7 +2498,7 @@
       },
       "tests/verify-head-commit.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -2890,7 +2890,7 @@
       },
       "tests/verify-input.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -3278,7 +3278,7 @@
       },
       "tests/verify-input.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -3666,7 +3666,7 @@
       },
       "tests/verify-scope.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -4054,7 +4054,7 @@
       },
       "tests/verify-scope.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -4442,7 +4442,7 @@
       },
       "tests/verify-start.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -4830,7 +4830,7 @@
       },
       "tests/verify-start.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -5218,7 +5218,7 @@
       },
       "tests/verify-verifier.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -5606,7 +5606,7 @@
       },
       "tests/verify-verifier.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",

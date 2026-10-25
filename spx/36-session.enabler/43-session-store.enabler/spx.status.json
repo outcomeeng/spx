@@ -5,7 +5,7 @@
     "test": {
       "tests/handoff-base-gate.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/43-session-store.enabler/session-store.md",
@@ -22,7 +22,7 @@
       },
       "tests/session-store.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "eslint-rules/import-source.ts",
           "eslint-rules/no-async-spawn-outside-lifecycle.ts",
@@ -212,7 +212,7 @@
       },
       "tests/session-store.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/43-session-store.enabler/session-store.md",
@@ -252,7 +252,7 @@
       },
       "tests/session-store.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/43-session-store.enabler/session-store.md",
@@ -381,7 +381,7 @@
       },
       "tests/session-store.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
+        "commit": "a207a2538fdb6fdaa78b58bb9bbc79949fd18898",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/43-session-store.enabler/session-store.md",
