@@ -5,7 +5,7 @@
     "test": {
       "tests/commander-diagnostics.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/cli.md",
@@ -383,7 +383,7 @@
       },
       "tests/foreground-handoff.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/cli.md",
@@ -405,7 +405,7 @@
       },
       "tests/guarded-supervision.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/cli.md",
@@ -427,7 +427,7 @@
       },
       "tests/guarded-supervision.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/cli.md",
@@ -452,7 +452,7 @@
       },
       "tests/lifecycle.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "eslint.test-lint-debt-nodes.json",
           "eslint.test-owned-constant-debt-nodes.json",
@@ -577,7 +577,7 @@
       },
       "tests/lifecycle.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/cli.md",
@@ -638,7 +638,7 @@
       },
       "tests/lifecycle.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/cli.md",
@@ -660,7 +660,7 @@
       },
       "tests/lifecycle.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/cli.md",
@@ -682,7 +682,7 @@
       },
       "tests/lifecycle.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/cli.md",
@@ -704,7 +704,7 @@
       },
       "tests/package-scripts.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -718,7 +718,7 @@
       },
       "tests/pass-through-boundary.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/cli.md",
@@ -1094,7 +1094,7 @@
       },
       "tests/sanitize.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/cli.md",
@@ -1108,7 +1108,7 @@
       },
       "tests/sanitize.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/cli.md",
@@ -1123,7 +1123,7 @@
       },
       "tests/sanitize.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/cli.md",
@@ -1136,7 +1136,7 @@
       },
       "tests/terminal-text.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/cli.md",
@@ -1152,7 +1152,7 @@
       },
       "tests/terminal-text.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/cli.md",

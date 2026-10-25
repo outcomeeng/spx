@@ -5,7 +5,7 @@
     "test": {
       "tests/knowledge-probe.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/skill-conformance-oracle.md",
@@ -110,7 +110,7 @@
       },
       "tests/knowledge-probe.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/skill-conformance-oracle.md",
@@ -216,7 +216,7 @@
       },
       "tests/skill-conformance-oracle.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/skill-conformance-oracle.md",
@@ -321,7 +321,7 @@
       },
       "tests/skill-conformance-oracle.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/skill-conformance-oracle.md",
@@ -426,7 +426,7 @@
       },
       "tests/skill-conformance-oracle.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/skill-conformance-oracle.md",
@@ -532,7 +532,7 @@
       },
       "tests/spec-file.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/48-skill-conformance-oracle.enabler/skill-conformance-oracle.md",

@@ -5,7 +5,7 @@
     "test": {
       "tests/context-rendering.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/32-spec-cli-rendering.enabler/spec-cli-rendering.md",
@@ -122,7 +122,7 @@
       },
       "tests/context-rendering.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/32-spec-cli-rendering.enabler/spec-cli-rendering.md",
@@ -241,7 +241,7 @@
       },
       "tests/context-rendering.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/32-spec-cli-rendering.enabler/spec-cli-rendering.md",
@@ -316,7 +316,7 @@
       },
       "tests/spec-cli-rendering.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/32-spec-cli-rendering.enabler/spec-cli-rendering.md",
@@ -418,7 +418,7 @@
       },
       "tests/spec-cli-rendering.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
+        "commit": "6e8e4dca64d85b046bfe6c49f106f7de5c5a5d7e",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/32-spec-cli-rendering.enabler/spec-cli-rendering.md",
