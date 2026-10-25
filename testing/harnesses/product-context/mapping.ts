@@ -4,8 +4,6 @@ import { basename, join, relative, resolve, sep } from "node:path";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { configFileForFormat, DEFAULT_CONFIG_FILE_FORMAT, serializeConfigFileSections } from "@/config/index";
 import { SESSION_STATUSES } from "@/domains/session/types";
-import { CONFIG_CLI } from "@/interfaces/cli/config";
-import { SESSION_CLI } from "@/interfaces/cli/session";
 import { sessionsScopeDir } from "@/lib/state-store";
 import { TSCONFIG_FILES } from "@/validation/config/scope";
 import type {
@@ -27,8 +25,14 @@ export const PRODUCT_CONTEXT_TEST_OPTIONS = {
   timeout: propertyTestEnvelopeTimeoutMs(PRODUCT_CONTEXT_CLASSIFICATION),
 } as const;
 
-/** The command domains whose `-C` equivalence claim is the Git contract; every other domain receives the injected resolver. */
-const GIT_CONTRACT_DOMAINS: readonly string[] = [CONFIG_CLI.commandName, SESSION_CLI.commandName];
+export const PRODUCT_CONTEXT_RESOLUTION = {
+  /** The real Git resolver: the observation spawns Git, so a case claims the Git contract once. */
+  GIT: "git",
+  /** The injected resolver: the observation spawns no Git, so a case may run as a property. */
+  INJECTED: "injected",
+} as const;
+
+export type ProductContextResolution = (typeof PRODUCT_CONTEXT_RESOLUTION)[keyof typeof PRODUCT_CONTEXT_RESOLUTION];
 
 /**
  * Resolves the product directory from the directory it receives: a directory inside the product
@@ -52,12 +56,13 @@ export interface ProductContextMappingObservation {
 export async function observeProductContextMapping(
   command: RedirectedProductContextCommand,
   scenario: GeneratedProductContextCase,
+  resolution: ProductContextResolution,
 ): Promise<ProductContextMappingObservation> {
   return withTestEnv(DEFAULT_CONFIG, async (env) => {
     const productDir = join(env.productDir, scenario.target.productDirectory);
     const nestedProductDir = join(productDir, scenario.target.nestedDirectory);
     await mkdir(nestedProductDir, { recursive: true });
-    const claimsGitContract = GIT_CONTRACT_DOMAINS.includes(command.domain);
+    const claimsGitContract = resolution === PRODUCT_CONTEXT_RESOLUTION.GIT;
     if (claimsGitContract) await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET]);
     const cliOptions = claimsGitContract ? {} : { resolveProductDir: resolverWithinProduct(productDir) };
     const configFile = configFileForFormat(productDir, DEFAULT_CONFIG_FILE_FORMAT);
