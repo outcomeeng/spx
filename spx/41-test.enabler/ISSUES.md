@@ -223,3 +223,23 @@ The per-file verdict rule of [`spx/41-test.enabler/43-last-run-evidence.enabler/
 **Resolution:** outcomeeng/changes#422 decides the rule for such a file. Amend the record named above with that rule, align both adapters to it, and add a case per adapter for a file whose tests are all skipped or pending.
 
 **Evidence:** `src/test/languages/typescript.ts` `reportedFileVerdicts` and `verdictForPath`; `src/test/languages/python.ts` `pathVerdictsFromReport`.
+
+## A property seed override is served from a recorded run instead of executing
+
+`spx test` reuses the latest recorded run when every condition of [`spx/41-test.enabler/71-execution-recording.adr.md`](spx/41-test.enabler/71-execution-recording.adr.md) holds: the run covers every selected file, its head commit equals the current head, every selected verdict is `passed`, the worktree is clean, and the four staleness digests are equal. The process environment is not among those conditions, so a request that sets `SPX_PROPERTY_SEED` finds the same recorded run as a request that sets none. `runTestsCommand` in `src/commands/test/run-tests-command.ts` skips the reuse lookup only when the request sets `requireExecution`, and a seed override does not set it. The property harness reads the seed from `SPX_PROPERTY_SEED` at execution time (`testing/harnesses/property/property.ts`), so a reused run never reads the seed.
+
+The command below reported `passed` for seed 728871692 without executing any test with it:
+
+```bash
+SPX_PROPERTY_SEED=728871692 tsx src/cli.ts test --agent spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler
+```
+
+The output named `reusedRun: .../run-2026-10-25_12-32-51-037-eaa1a5e7c7e5.jsonl` and reported 12 tests passed. That recorded run came from a different seed. The run had been started at head `379fd8f3f`, where the property test `verifier.compliance.l1.test.ts` ("rejects a Verifier with an unsupported kind") had failed once at seed 728871692 and passed at a fresh seed.
+
+**Impact:** a replay of a failing property seed through `spx test` reports the verdict of a different seed, so a seed that reproduces a defect reads as passing and the defect reads as fixed or as not reproducible. Every seed-reproduction instruction in a finding, such as the one in [`spx/ISSUES.md`](spx/ISSUES.md), gives the wrong answer whenever a passed recorded run covers the node.
+
+**Scope:** the reuse decision of `spx test` for a request whose environment sets `SPX_PROPERTY_SEED`, in `src/commands/test/run-tests-command.ts` and the reuse conditions of the record named above. The reuse conditions for requests without the override stay unchanged.
+
+**Settlement condition:** a request that sets `SPX_PROPERTY_SEED` executes the selected tests with that seed or is refused with a diagnostic, and never reports a `reusedRun`. The record named above states the rule, and a scenario in `tests/recorded-run-reuse.scenario.l1.test.ts` proves it with a passed recorded run covering the selected node.
+
+**Evidence:** `src/commands/test/run-tests-command.ts` `runTestsCommand` and `reuseRecordedRun`; `src/commands/test/run-command.ts` `ReusedTestRun`; `src/interfaces/cli/test-agent-output.ts` `reusedRun`; `testing/harnesses/property/property.ts` `SPX_PROPERTY_SEED_ENV`; recorded run `run-2026-10-25_12-32-51-037-eaa1a5e7c7e5.jsonl`.
