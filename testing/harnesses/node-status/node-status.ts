@@ -281,12 +281,21 @@ async function materializeNodes(
   return materialized;
 }
 
+/**
+ * The fixed line every source-grammar spec carries, quoting all four audit-tag forms — none as no tag, the linked
+ * form, the pathless review form and the pathless audit form — each inside an inline code span.
+ */
+export const SOURCE_GRAMMAR_TAG_FORMS_LINE =
+  "The audit-tag forms are `no tag`, `[audit](audits/{rule-slug}.md)`, `([review])` and `([audit])`.";
+
 const SOURCE_GRAMMAR_SPEC_OPENING = [
   "# Fixture",
   "",
   `${SPEC_TREE_CONFIG.KINDS.enabler.opening} fixture infrastructure`,
   "SO THAT node-status tests",
   "CAN read source-grammar declarations",
+  "",
+  SOURCE_GRAMMAR_TAG_FORMS_LINE,
   "",
   "## Assertions",
   "",
@@ -332,6 +341,19 @@ function sourceGrammarSpecText(facts: SourceGrammarFixtureFacts, linkedTestRefer
     ...linkedTestLines,
     "",
   ].join("\n");
+}
+
+/** The audit rule slugs a source-grammar node's claim keys by: exactly its rule slug under the linked tag, none under any other form. */
+export function expectedSourceGrammarAuditKeys(facts: SourceGrammarFixtureFacts): readonly string[] {
+  return facts.auditTagForm === NODE_STATUS_SOURCE_AUDIT_TAG_FORM.LINKED ? [facts.auditRuleSlug] : [];
+}
+
+/** The audit keys of the current-shape claim written for the node at product-relative `nodePath`; none when no such claim is written. */
+export function readClaimAuditKeys(productDir: string, nodePath: string): readonly string[] {
+  const read = readNodeStatus(join(productDir, nodePath));
+  return read?.shape === NODE_STATUS_CLAIM_SHAPE.CURRENT
+    ? Object.keys(read.claim[NODE_STATUS_CLAIM_FIELD.VERIFICATION][NODE_STATUS_CLAIM_SECTION.AUDIT] ?? {})
+    : [];
 }
 
 export type SourceGrammarTreeEnv = {
@@ -571,6 +593,40 @@ export async function runFixtureGit(
 export async function trackSpecTree(productDir: string): Promise<void> {
   await runFixtureGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
   await runFixtureGit(productDir, [GIT_TEST_SUBCOMMANDS.ADD, ROOT]);
+}
+
+/** The porcelain working-tree status of `productDir`; empty when nothing is modified, staged or untracked. */
+export async function readWorkingTreeStatus(productDir: string): Promise<string> {
+  return runFixtureGit(productDir, [GIT_TEST_SUBCOMMANDS.STATUS, GIT_TEST_FLAGS.PORCELAIN]);
+}
+
+/** Every path in the git index of `productDir`, sorted in ASCII order. */
+export async function readTrackedIndex(productDir: string): Promise<readonly string[]> {
+  return (await runFixtureGit(productDir, [GIT_TEST_SUBCOMMANDS.LS_FILES, GIT_NULL_DELIMITED_FLAG]))
+    .split(GIT_NULL_RECORD_SEPARATOR)
+    .filter((line) => line.length > 0)
+    .sort(compareAsciiStrings);
+}
+
+/**
+ * The product-relative paths a generated classification tree declares — each node spec, each linked evidence
+ * file and, when any node is excluded, the exclusion file — plus `additionalPaths`, sorted in ASCII order.
+ */
+export function declaredClassificationPaths(
+  fixture: ClassificationTreeFixture,
+  additionalPaths: readonly string[] = [],
+): readonly string[] {
+  const treePath = (...segments: readonly string[]) => [ROOT, ...segments].join(PATH_SEPARATOR);
+  return [
+    ...fixture.nodes.flatMap((node) => [
+      treePath(node.dirName, `${node.slug}${SPEC_FILE_SUFFIX}`),
+      ...(node.evidenceReference === undefined ? [] : [treePath(node.dirName, node.evidenceReference)]),
+    ]),
+    ...(fixture.nodes.some((node) => node.facts.isExcluded)
+      ? [treePath(SPEC_TREE_GRAMMAR.EXCLUSION_REGISTRY_FILENAME)]
+      : []),
+    ...additionalPaths,
+  ].sort(compareAsciiStrings);
 }
 
 /** Stage and commit the spec tree in an initialized repository under a fixed test identity. */
