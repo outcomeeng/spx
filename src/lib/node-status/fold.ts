@@ -179,7 +179,8 @@ export async function foldNodeClaim(input: NodeClaimFoldInput): Promise<NodeStat
 
 /**
  * A pathless source-grammar audit tag keys no claim entry, so the result it requires can never be recorded:
- * each such tag contributes one required result that is not run and carries no pin.
+ * each pathless form present contributes one not-run result that carries no pin, so a node carrying a pathless
+ * tag cannot derive passing however many such tags it carries.
  */
 export function unrecordableResults(declaration: NodeSpecDeclaration): readonly NodeStatusResultFact[] {
   return declaration.auditTagForms
