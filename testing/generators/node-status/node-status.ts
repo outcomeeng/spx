@@ -980,6 +980,11 @@ export const SOURCE_GRAMMAR_EXPECTED_STATE: Readonly<Record<NodeStatusSourceAudi
   [NODE_STATUS_SOURCE_AUDIT_TAG_FORM.AUDIT]: SPEC_TREE_NODE_STATE.SPECIFIED,
 };
 
+/** The audit rule slugs a source-grammar node's claim keys by: exactly its rule slug under the linked tag, none under any other form. */
+export function expectedSourceGrammarAuditKeys(facts: SourceGrammarFixtureFacts): readonly string[] {
+  return facts.auditTagForm === NODE_STATUS_SOURCE_AUDIT_TAG_FORM.LINKED ? [facts.auditRuleSlug] : [];
+}
+
 /**
  * The state a source-grammar node whose recorded results all pass is expected to take under a declaration on the
  * 4.0 line with no migration source, per audit-tag form: the 3.x tag text selects no grammar there, so every form
@@ -990,6 +995,24 @@ export const NON_MIGRATING_SOURCE_GRAMMAR_EXPECTED_STATE: Readonly<
 > = Object.fromEntries(
   Object.values(NODE_STATUS_SOURCE_AUDIT_TAG_FORM).map((form) =>
     [form, SOURCE_GRAMMAR_EXPECTED_STATE[NODE_STATUS_SOURCE_AUDIT_TAG_FORM.NONE]] as const
+  ),
+) as Record<NodeStatusSourceAuditTagForm, SpecTreeNodeState>;
+
+/**
+ * The state a committed claim records for a source-grammar node under a declaration on the 4.0 line with no
+ * migration source, per audit-tag form: a state that differs from the one the node derives, so a reader that
+ * echoes the record rather than re-deriving the state returns a state other than the expected one.
+ */
+export const NON_MIGRATING_SOURCE_GRAMMAR_RECORDED_STATE: Readonly<
+  Record<NodeStatusSourceAuditTagForm, SpecTreeNodeState>
+> = Object.fromEntries(
+  Object.values(NODE_STATUS_SOURCE_AUDIT_TAG_FORM).map((form) =>
+    [
+      form,
+      NON_MIGRATING_SOURCE_GRAMMAR_EXPECTED_STATE[form] === SPEC_TREE_NODE_STATE.SPECIFIED
+        ? SPEC_TREE_NODE_STATE.PASSING
+        : SPEC_TREE_NODE_STATE.SPECIFIED,
+    ] as const
   ),
 ) as Record<NodeStatusSourceAuditTagForm, SpecTreeNodeState>;
 
