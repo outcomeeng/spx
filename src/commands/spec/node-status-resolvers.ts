@@ -36,7 +36,7 @@ import {
   type NodeReadPathResolver,
   type NodeStatusEvidenceOutcome,
   type PinChangeReader,
-  readNodeSpecDeclaration,
+  readNodeSpecPath,
 } from "@/lib/node-status";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { resolveVerificationBranchSlug, type StateStoreFileSystem } from "@/lib/state-store";
@@ -130,7 +130,7 @@ export function createNodeStatusResolvers(deps: NodeStatusResolverDependencies):
       ? {}
       : { ...await lastRunOutcomes(nodeId, lastRunPaths) };
     if (journaled.length === 0) return outcomes;
-    const { specPath } = await readNodeSpecDeclaration(deps.productDir, nodeId);
+    const specPath = await readNodeSpecPath(deps.productDir, nodeId);
     for (const evidencePath of journaled) {
       const module = await moduleOf(evidencePath);
       // A path no journal covers, or a journal that records no head commit, supplies no evidence.
