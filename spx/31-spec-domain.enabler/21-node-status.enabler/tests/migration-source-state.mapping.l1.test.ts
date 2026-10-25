@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { updateNodeStatus } from "@/lib/node-status";
 import {
   enumerateSourceGrammarFixtureFacts,
   expectedSourceGrammarAuditKeys,
@@ -26,15 +25,7 @@ describe("classification of a source-grammar node under a declaration migrating 
     "$facts.auditTagForm × $facts.declaredMalleability → $expected",
     async ({ facts, expected }) => {
       await withPinnedNodeRepository(node, migratingMethodologyConfig(), async (repository) => {
-        const subject = repository.subjectPaths[0] ?? "";
-        await updateNodeStatus({
-          productDir: repository.env.productDir,
-          resolveOutcome: repository.passingOutcomes,
-          resolveReadPaths: () => Promise.resolve([subject]),
-          resolveAttributedResults: repository.passedAttributedResults([subject]),
-          gitDependencies: repository.git,
-        });
-        await repository.commitAll();
+        await repository.updateStatusAndCommit(true);
 
         expect(await repository.readState(), JSON.stringify(facts)).toBe(expected);
         expect(readClaimAuditKeys(repository.env.productDir, repository.nodePath), JSON.stringify(facts))
@@ -49,15 +40,7 @@ describe("classification of a source-grammar node under a declaration on the 4.0
     "write path: $facts.auditTagForm × $facts.declaredMalleability keys no audit entry and derives $expected",
     async ({ facts, expected }) => {
       await withPinnedNodeRepository(node, nonMigratingMethodologyConfig(), async (repository) => {
-        const subject = repository.subjectPaths[0] ?? "";
-        await updateNodeStatus({
-          productDir: repository.env.productDir,
-          resolveOutcome: repository.passingOutcomes,
-          resolveReadPaths: () => Promise.resolve([subject]),
-          resolveAttributedResults: repository.passedAttributedResults([subject]),
-          gitDependencies: repository.git,
-        });
-        await repository.commitAll();
+        await repository.updateStatusAndCommit(true);
 
         expect(readClaimAuditKeys(repository.env.productDir, repository.nodePath), JSON.stringify(facts)).toEqual([]);
         expect(readClaimState(repository.env.productDir, repository.nodePath), JSON.stringify(facts)).toBe(expected);

@@ -545,14 +545,7 @@ describe("given a product migrating from 3.2 and a source-grammar node that decl
       NODE_STATUS_TEST_GENERATOR.untaggedUndeclaredSourceGrammarRepository(),
     );
     await withPinnedNodeRepository(node, migratingMethodologyConfig(), async (repository) => {
-      const subject = repository.subjectPaths[0] ?? "";
-      await updateNodeStatus({
-        productDir: repository.env.productDir,
-        resolveOutcome: repository.passingOutcomes,
-        resolveReadPaths: () => Promise.resolve([subject]),
-        gitDependencies: repository.git,
-      });
-      await repository.commitAll();
+      await repository.updateStatusAndCommit(false);
 
       expect(await repository.readState()).toBe(SPEC_TREE_NODE_STATE.SPECIFIED);
     }, facts);

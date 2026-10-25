@@ -879,6 +879,12 @@ export type PinnedNodeRepository = {
   writeClaim(verification: NodeStatusClaimVerification, state?: SpecTreeNodeState): Promise<void>;
   /** Commit every change in the repository and return the new head. */
   commitAll(): Promise<string>;
+  /**
+   * Run `updateNodeStatus` over the node with every outcome passing and its first subject as the sole read path, then
+   * commit the written claim. The run supplies the passing attributed results of that subject when
+   * `withAttributedResults` is true and supplies none when it is false.
+   */
+  updateStatusAndCommit(withAttributedResults: boolean): Promise<void>;
   /** Commit a file no node reads and return the new head. */
   commitUnrelatedFile(): Promise<string>;
   editSubject(index: number): Promise<void>;
@@ -1005,6 +1011,26 @@ export async function withPinnedNodeRepository(
       await commitPaths(env.productDir, REPOSITORY_ROOT_PATHS);
       return runFixtureGit(env.productDir, [GIT_ROOT_COMMAND.REV_PARSE, GIT_ROOT_COMMAND.HEAD]);
     };
+    const passedAttributedResults = (read: readonly string[]): NodeAttributedResultResolver => (_nodeId, request) =>
+      Promise.resolve({
+        audit: answeredBy(passedFor(request.auditRuleSlugs), read),
+        evidence: answeredBy(passedFor(request.evidenceKinds), read),
+      });
+    const updateStatusAndCommit = async (withAttributedResults: boolean): Promise<void> => {
+      const subject = fixture.subjectPaths[0] ?? "";
+      await updateNodeStatus({
+        productDir: env.productDir,
+        resolveOutcome: (_nodeId, evidencePaths) => Promise.resolve(passedFor(evidencePaths)),
+        resolveReadPaths: () => Promise.resolve([subject]),
+        ...(withAttributedResults
+          ? {
+            resolveAttributedResults: passedAttributedResults([subject]),
+          }
+          : {}),
+        gitDependencies: isolatedFixtureGitDependencies,
+      });
+      await commitAll();
+    };
     const editSubject = async (index: number): Promise<void> => {
       const path = fixture.subjectPaths.at(index);
       if (path === undefined) throw new Error(`No subject at index ${index}`);
@@ -1058,11 +1084,7 @@ export async function withPinnedNodeRepository(
       passedEntry,
       passedTestClaim,
       passingOutcomes: (_nodeId, evidencePaths) => Promise.resolve(passedFor(evidencePaths)),
-      passedAttributedResults: (read) => (_nodeId, request) =>
-        Promise.resolve({
-          audit: answeredBy(passedFor(request.auditRuleSlugs), read),
-          evidence: answeredBy(passedFor(request.evidenceKinds), read),
-        }),
+      passedAttributedResults,
       attributedResultsFor: (audit, read) => () => Promise.resolve({ audit: answeredBy(audit, read) }),
       resolversOfRecordedRuns: (runs) => ({
         resolveOutcome: (_nodeId, evidencePaths) =>
@@ -1094,6 +1116,7 @@ export async function withPinnedNodeRepository(
         return readState();
       },
       commitAll,
+      updateStatusAndCommit,
       commitUnrelatedFile: async () => {
         await env.writeRaw(UNRELATED_FILE_PATH, testContent);
         return commitAll();
