@@ -23,10 +23,9 @@ The methodology states the state rule of its own version and leaves a migration'
 
 ## Verification
 
-- `migration-source-state-mapping`: ALWAYS: under a declaration migrating from a 3.x line, each source-grammar node shape — its audit-tag forms and its declared malleability, an absent declaration reading as `implementation` — maps to the state the target version's rule gives it, and a pathless source-grammar audit tag never maps to `passing`
-
 ### Testing
 
+- `migration-source-state-mapping`: ALWAYS: under a declaration migrating from a 3.x line, each source-grammar node shape — its audit-tag forms and its declared malleability, an absent declaration reading as `implementation` — maps to the state the target version's rule gives it, and a pathless source-grammar audit tag never maps to `passing` ([mapping])
 - ALWAYS: a generated `spx.status.json` conforms to the shape of the methodology version the product declares ([conformance])
 - ALWAYS: `spx spec status` derives lifecycle state from committed verification results when `spx.status.json` exists and falls back to live structural derivation when it is absent ([mapping])
 - ALWAYS: regenerating the status projection over a checkout whose committed `spx.status.json` differs from the projection of the recorded evidence rewrites that file to the projection, so the regeneration leaves `spx/` changed ([compliance])
