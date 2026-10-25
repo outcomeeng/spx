@@ -1,5 +1,6 @@
 import { CONFIG_FILE_FORMAT, configFileForFormat, parseConfigFileSections } from "@/config/index";
 import type { Config } from "@/config/types";
+import type { ResolvedProductDir } from "@/domains/config/root";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { createCliProgram } from "@/interfaces/cli/program";
 import { TESTING_SECTION, type TestingConfig } from "@/test/config";
@@ -12,6 +13,8 @@ export type ProductContextCliRun = {
 
 export type ProductContextCliRunOptions = {
   readonly processCwd: string;
+  /** Supplies the product directory in place of the Git-backed resolver, for cases whose claim is not the Git contract. */
+  readonly resolveProductDir?: (cwd: string) => ResolvedProductDir;
 };
 
 class ProductContextCliRunExit extends Error {
@@ -29,6 +32,7 @@ export async function runProductContextCli(
   const exitCodes: number[] = [];
   const program = createCliProgram({
     processCwd: () => options.processCwd,
+    ...(options.resolveProductDir === undefined ? {} : { resolveProductDir: options.resolveProductDir }),
     writeStdout: (output) => stdout.push(output),
     writeStderr: (output) => stderr.push(output),
     setExitCode: (exitCode) => exitCodes.push(exitCode),

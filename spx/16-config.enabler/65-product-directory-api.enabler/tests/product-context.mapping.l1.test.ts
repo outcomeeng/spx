@@ -13,16 +13,17 @@ import { parseProductContextJsonConfig, productContextTestingConfig } from "@tes
 import {
   observeAbsentProductContext,
   observeProductContextMapping,
-  PRODUCT_CONTEXT_MAPPING_TEST_OPTIONS,
-  runProductContextCases,
+  PRODUCT_CONTEXT_CLASSIFICATION,
+  PRODUCT_CONTEXT_TEST_OPTIONS,
 } from "@testing/harnesses/product-context/mapping";
+import { assertProperty } from "@testing/harnesses/property/property";
 
 describe("product context mapping", () => {
   it.each(PRODUCT_CONTEXT_MAPPING_COMMANDS)(
     "maps product context for $args with directory option $directoryOption",
-    PRODUCT_CONTEXT_MAPPING_TEST_OPTIONS,
+    PRODUCT_CONTEXT_TEST_OPTIONS,
     async (command) => {
-      await runProductContextCases(arbitraryProductContextCase(), async (scenario) => {
+      await assertProperty(arbitraryProductContextCase(), async (scenario) => {
         if (command.directoryOption === undefined) {
           const { processDir, result } = await observeAbsentProductContext(command.args, scenario);
 
@@ -58,7 +59,7 @@ describe("product context mapping", () => {
           expect(redirected.exitCodes).toEqual([]);
           expect(redirected.stdout).toContain(scenario.sessionId);
         }
-      });
+      }, PRODUCT_CONTEXT_CLASSIFICATION);
     },
   );
 });

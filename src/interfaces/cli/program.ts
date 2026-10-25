@@ -1,6 +1,6 @@
 import { type Argument, Command, InvalidArgumentError, type Option } from "commander";
 
-import { resolveProductDir } from "@/domains/config/root";
+import { type ResolvedProductDir, resolveProductDir } from "@/domains/config/root";
 import type { Domain } from "@/interfaces/cli/domain";
 import { CONFIG_PROCESS_CWD } from "@/lib/config/cwd";
 import { methodologyTreeRootDir } from "@/lib/methodology";
@@ -15,6 +15,8 @@ const SPX_PROGRAM_DESCRIPTION = "Fast, deterministic CLI tool for spec workflow 
 export type CliProgramOptions = Partial<CliIo> & {
   readonly domains?: readonly Domain[];
   readonly processCwd?: () => string;
+  /** Maps the effective invocation directory to the product context; defaults to the Git-backed resolver. */
+  readonly resolveProductDir?: (cwd: string) => ResolvedProductDir;
   /** Absolute path of spx's package root; the shipped methodology trees resolve beneath it. */
   readonly packageRoot?: string;
   readonly version?: string;
@@ -161,7 +163,7 @@ export function createCliProgram(options: CliProgramOptions = {}): Command {
       ? {}
       : { methodologyTreeRoot: methodologyTreeRootDir(options.packageRoot) }),
     processCwd: options.processCwd ?? CONFIG_PROCESS_CWD.read,
-    resolveProductDir,
+    resolveProductDir: options.resolveProductDir ?? resolveProductDir,
     writeWarning: (warning) => {
       if (warning !== undefined) {
         io.writeStderr(renderTerminalText(terminal`${warning}\n`));
