@@ -37,6 +37,7 @@ import {
   type NodeStatusEvidenceOutcome,
   type NodeStatusFile,
   type NodeStatusMalleability,
+  type NodeStatusSourceAuditTagForm,
   type PinChangeReader,
   readNodeStatus,
   serializeNodeStatus,
@@ -281,12 +282,40 @@ async function materializeNodes(
   return materialized;
 }
 
+/** The rule slug placeholder the fixed forms line writes inside the linked tag. */
+const SOURCE_GRAMMAR_RULE_SLUG_PLACEHOLDER = "{rule-slug}";
+
+/** The one spelling of each audit-tag form: the tag text a spec carries, empty under the absent form. */
+function sourceGrammarAuditTag(form: NodeStatusSourceAuditTagForm, ruleSlug: string): string {
+  switch (form) {
+    case NODE_STATUS_SOURCE_AUDIT_TAG_FORM.NONE:
+      return "";
+    case NODE_STATUS_SOURCE_AUDIT_TAG_FORM.LINKED:
+      return `[audit](audits/${ruleSlug}.md)`;
+    case NODE_STATUS_SOURCE_AUDIT_TAG_FORM.REVIEW:
+      return "([review])";
+    case NODE_STATUS_SOURCE_AUDIT_TAG_FORM.AUDIT:
+      return "([audit])";
+  }
+}
+
+const SOURCE_GRAMMAR_AUDIT_TAG_FORM_ORDER = [
+  NODE_STATUS_SOURCE_AUDIT_TAG_FORM.NONE,
+  NODE_STATUS_SOURCE_AUDIT_TAG_FORM.LINKED,
+  NODE_STATUS_SOURCE_AUDIT_TAG_FORM.REVIEW,
+  NODE_STATUS_SOURCE_AUDIT_TAG_FORM.AUDIT,
+] as const;
+
 /**
  * The fixed line every source-grammar spec carries, quoting all four audit-tag forms — none as no tag, the linked
- * form, the pathless review form and the pathless audit form — each inside an inline code span.
+ * form, the pathless review form and the pathless audit form — each inside an inline code span, each rendered from
+ * the spelling the assertion lines use.
  */
-export const SOURCE_GRAMMAR_TAG_FORMS_LINE =
-  "The audit-tag forms are `no tag`, `[audit](audits/{rule-slug}.md)`, `([review])` and `([audit])`.";
+export const SOURCE_GRAMMAR_TAG_FORMS_LINE = `The audit-tag forms are ${
+  SOURCE_GRAMMAR_AUDIT_TAG_FORM_ORDER.map((form) =>
+    `\`${sourceGrammarAuditTag(form, SOURCE_GRAMMAR_RULE_SLUG_PLACEHOLDER) || "no tag"}\``
+  ).join(", ").replace(/, ([^,]*)$/, " and $1")
+}.`;
 
 const SOURCE_GRAMMAR_SPEC_OPENING = [
   "# Fixture",
@@ -305,16 +334,8 @@ const SOURCE_GRAMMAR_SPEC_OPENING = [
 
 /** The assertion line a source-grammar spec carries for its audit-tag form; none under the absent form. */
 function sourceGrammarAssertionLines(facts: SourceGrammarFixtureFacts): readonly string[] {
-  switch (facts.auditTagForm) {
-    case NODE_STATUS_SOURCE_AUDIT_TAG_FORM.NONE:
-      return [];
-    case NODE_STATUS_SOURCE_AUDIT_TAG_FORM.LINKED:
-      return [`- ALWAYS: the rule holds [audit](audits/${facts.auditRuleSlug}.md)`];
-    case NODE_STATUS_SOURCE_AUDIT_TAG_FORM.REVIEW:
-      return ["- ALWAYS: the rule holds ([review])"];
-    case NODE_STATUS_SOURCE_AUDIT_TAG_FORM.AUDIT:
-      return ["- ALWAYS: the rule holds ([audit])"];
-  }
+  const tag = sourceGrammarAuditTag(facts.auditTagForm, facts.auditRuleSlug);
+  return tag === "" ? [] : [`- ALWAYS: the rule holds ${tag}`];
 }
 
 /** A source-grammar spec: front matter only when it declares a malleability, then the assertion its audit-tag form tags. */

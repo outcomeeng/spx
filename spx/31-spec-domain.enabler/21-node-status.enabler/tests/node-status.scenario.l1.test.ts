@@ -558,7 +558,7 @@ describe("given a product migrating from 3.2 and a source-grammar node that decl
       });
       await repository.commitAll();
 
-      expect(await repository.readState()).not.toBe(SPEC_TREE_NODE_STATE.PASSING);
+      expect(await repository.readState()).toBe(SPEC_TREE_NODE_STATE.SPECIFIED);
     }, facts);
   });
 });
