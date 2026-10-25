@@ -1,11 +1,11 @@
 {
-  "state": "failing",
+  "state": "passing",
   "malleability": "spec",
   "verification": {
     "test": {
       "tests/path-filter-apply.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/32-shared-config-primitives.enabler/shared-config-primitives.md",
@@ -53,6 +53,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -73,7 +74,7 @@
       },
       "tests/path-filter-config.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/32-shared-config-primitives.enabler/shared-config-primitives.md",
@@ -149,6 +150,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -178,7 +180,7 @@
       },
       "tests/path-filter.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/32-shared-config-primitives.enabler/shared-config-primitives.md",
@@ -226,6 +228,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -246,7 +249,7 @@
       },
       "tests/path-filter.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/32-shared-config-primitives.enabler/shared-config-primitives.md",
@@ -294,6 +297,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",

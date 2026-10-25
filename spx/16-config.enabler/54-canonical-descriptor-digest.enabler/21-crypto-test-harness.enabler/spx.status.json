@@ -5,7 +5,7 @@
     "test": {
       "tests/crypto-test-harness.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "004d963f0838ecfe5d2e14bde4aa6b6797d12ac8",
+        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/54-canonical-descriptor-digest.enabler/21-crypto-test-harness.enabler/crypto-test-harness.md",

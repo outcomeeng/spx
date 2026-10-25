@@ -5,7 +5,7 @@
     "test": {
       "tests/session-id.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/21-session-id.enabler/session-id.md",
@@ -319,6 +319,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -396,7 +397,7 @@
       },
       "tests/session-id.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/21-session-id.enabler/session-id.md",
@@ -710,6 +711,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",
@@ -787,7 +789,7 @@
       },
       "tests/session-id.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/54-hooks.enabler/21-session-start.enabler/21-session-id.enabler/session-id.md",
@@ -1101,6 +1103,7 @@
           "src/lib/spec-tree/context-projection.ts",
           "src/lib/spec-tree/context-read-set.ts",
           "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
           "src/lib/spec-tree/grammar-selection.ts",
           "src/lib/spec-tree/index.ts",
           "src/lib/spec-tree/link-grammar.ts",

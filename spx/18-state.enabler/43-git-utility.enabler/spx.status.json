@@ -5,7 +5,7 @@
     "test": {
       "tests/git-utility.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/43-git-utility.enabler/git-utility.md",
@@ -32,7 +32,7 @@
       },
       "tests/git-utility.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "43ea9d0d1b964c5880c9f7293581ea5bdaf0987e",
+        "commit": "cc00ffa93a38d2c8b61da6ab8984e1e8844d2a0f",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/43-git-utility.enabler/git-utility.md",
