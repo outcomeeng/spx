@@ -31,3 +31,11 @@
 **Impact:** The assertion that a spec holding two audit tags with one rule slug fails the read does not hold for a repeated slug on one line.
 
 **Settlement condition:** The reader checks every real audit slug on a line against the set of slugs before it drops all but the first tag, and a two-tag-line case with a repeated slug covers it. The follow-up for lines that carry two tags takes this class too.
+
+## Audit rule slugs derived by two readers that disagree `src/lib/spec-tree/evidence-references.ts` `readSpecEvidenceReferences` `consistency`
+
+**Evidence:** `readSpecEvidenceReferences` (`src/lib/spec-tree/evidence-references.ts` lines 100-112 and 162-197) derives the audit rule slugs a spec declares within the Assertions section only, with code span text stripped first, and throws when one spec repeats a slug. `src/lib/node-status/spec-declaration.ts` line 16 and lines 71-77 derive the same fact by matching an audit tag pattern over the whole spec source, with no section restriction and no code-span exclusion, and fold repeated slugs into a Set. The two disagree whenever an audit tag appears outside the Assertions section, inside a code span, or is repeated. `auditRuleSlugs` feeds node-status claim coverage in `src/lib/node-status/fold.ts`. The CI review of 2026-10-25T02:23:06Z on pull request 680 reported this as DEBT [consistency], and the SPX Maintainer accepted it at reviewed head 87913c5c958cf753123a5ba6bb9a018de6b52bfd in https://github.com/outcomeeng/spx/pull/680#issuecomment-6392531645.
+
+**Impact:** Node-status claim coverage counts an audit slug that the spec-tree reader excludes, and accepts a repeated slug that the spec-tree reader rejects, so the status projection and the spec-tree snapshot report different audit rules for one spec.
+
+**Settlement condition:** Both derivations read through the one spec-tree reader, which is the scope of outcomeeng/changes#776 ("spx reads audit and evidence tags outside code spans through one spec-tree reader"). That Change is blocked by outcomeeng/changes#317, which rewrites `src/lib/node-status/spec-declaration.ts`, and by outcomeeng/changes#480.
