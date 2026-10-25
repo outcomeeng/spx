@@ -35,6 +35,7 @@ import {
   expectedSourceGrammarAuditKeys,
   listNodeStatusFiles,
   migratingMethodologyConfig,
+  nonMigratingMethodologyConfig,
   readTrackedIndex,
   readVersion1NodeStatus,
   readWorkingTreeStatus,
@@ -368,6 +369,50 @@ describe("node-status test support", () => {
             for (const result of [...Object.values(answered.audit ?? {}), ...Object.values(answered.evidence ?? {})]) {
               expect(result.verdict).toBe(NODE_STATUS_EVIDENCE_OUTCOME.PASSED);
             }
+          }, facts);
+        },
+        PROPERTY_CLASSIFICATION.SMALL_L1,
+      );
+    },
+    propertyTestEnvelopeTimeoutMs(PROPERTY_CLASSIFICATION.SMALL_L1),
+  );
+
+  it(
+    "commits generated source-grammar node repositories under a declaration on the 4.0 line with no migration source, with their declared audit-tag form and malleability, linked test and subjects, and resolvers that answer the test as passed and key no audit rule slug",
+    async () => {
+      await assertProperty(
+        NODE_STATUS_TEST_GENERATOR.sourceGrammarRepository(),
+        async ({ node, facts }) => {
+          await withPinnedNodeRepository(node, nonMigratingMethodologyConfig(), async (repository) => {
+            const tracked = await readTrackedIndex(repository.env.productDir);
+            expect(await readWorkingTreeStatus(repository.env.productDir)).toHaveLength(0);
+            expect(tracked).toContain(repository.specPath);
+            for (const subjectPath of node.subjectPaths) expect(tracked).toContain(subjectPath);
+
+            const evidencePrefix = [repository.nodePath, SPEC_TREE_EVIDENCE_FILE.DIRECTORY_NAME, ""].join(
+              SPEC_TREE_GRAMMAR.PATH_SEPARATOR,
+            );
+            const committedTests = tracked.filter((path) => path.startsWith(evidencePrefix));
+            expect(committedTests).toHaveLength(1);
+            const [committedTest = ""] = committedTests;
+            const specText = await repository.env.readFile(repository.specPath);
+            expect(specText).toContain(SOURCE_GRAMMAR_TAG_FORMS_LINE);
+            expect(specText).toContain(
+              `[${SPEC_TREE_EVIDENCE_LINK_TEXT.TEST}](${posix.relative(repository.nodePath, committedTest)})`,
+            );
+            expect(repository.declaredMalleability).toBe(
+              facts.declaredMalleability ?? NODE_STATUS_DEFAULT_MALLEABILITY,
+            );
+
+            await expect(repository.passingOutcomes(repository.nodeId, [committedTest])).resolves.toEqual({
+              [committedTest]: NODE_STATUS_EVIDENCE_OUTCOME.PASSED,
+            });
+            const answered = await repository.passedAttributedResults([repository.specPath, committedTest])(
+              repository.nodeId,
+              { auditRuleSlugs: [], evidenceKinds: [SPEC_TREE_EVIDENCE_LINK_TEXT.TEST] },
+            );
+            expect(Object.keys(answered.audit ?? {})).toEqual([]);
+            expect(Object.keys(answered.evidence ?? {})).toEqual([SPEC_TREE_EVIDENCE_LINK_TEXT.TEST]);
           }, facts);
         },
         PROPERTY_CLASSIFICATION.SMALL_L1,

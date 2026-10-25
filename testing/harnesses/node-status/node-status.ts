@@ -49,6 +49,7 @@ import {
   createFilesystemSpecTreeSource,
   KIND_REGISTRY,
   readSpecTree,
+  selectSpecTreeGrammar,
   SPEC_CONTEXT_SELECTED_METADATA_KEY,
   SPEC_TREE_CONFIG,
   SPEC_TREE_EVIDENCE_FILE,
@@ -57,6 +58,7 @@ import {
   SPEC_TREE_GRAMMAR,
   SPEC_TREE_METHODOLOGY_LINE,
   SPEC_TREE_NODE_STATE,
+  type SpecTreeMethodologyDeclaration,
   type SpecTreeNodeState,
 } from "@/lib/spec-tree";
 import { compareAsciiStrings } from "@/lib/state-store";
@@ -367,6 +369,12 @@ export function readClaimAuditKeys(productDir: string, nodePath: string): readon
   return read?.shape === NODE_STATUS_CLAIM_SHAPE.CURRENT
     ? Object.keys(read.claim[NODE_STATUS_CLAIM_FIELD.VERIFICATION][NODE_STATUS_CLAIM_SECTION.AUDIT] ?? {})
     : [];
+}
+
+/** The derived state the current-shape claim written for the node at product-relative `nodePath` records; nothing when no such claim is written. */
+export function readClaimState(productDir: string, nodePath: string): string | undefined {
+  const read = readNodeStatus(join(productDir, nodePath));
+  return read?.shape === NODE_STATUS_CLAIM_SHAPE.CURRENT ? read.claim[NODE_STATUS_CLAIM_FIELD.STATE] : undefined;
 }
 
 export type SourceGrammarTreeEnv = {
@@ -740,6 +748,17 @@ export function migratingMethodologyConfig(): Config {
   };
 }
 
+/** A configuration declaring the 4.0 methodology line with no migration source, so no 3.x grammar is selected. */
+export function nonMigratingMethodologyConfig(): Config {
+  return {
+    ...MINIMAL_SPEC_TREE_CONFIG,
+    [METHODOLOGY_SECTION]: {
+      source: DEFAULT_METHODOLOGY_SOURCE,
+      version: SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO,
+    },
+  };
+}
+
 /** A configuration declaring a methodology version of the current claim shape, drawn from the node-status generator. */
 export function currentMethodologyConfig(): Config {
   return methodologyDeclaringConfig(
@@ -867,6 +886,36 @@ export type PinnedNodeRepository = {
   editDecision(placement: DecisionPlacement): Promise<void>;
 };
 
+/** The grammar a pinned node repository authors its nodes in: the one the configuration's methodology declaration selects. */
+type PinnedNodeAuthoringGrammar = {
+  readonly specFileSuffix: string;
+  readonly fixture: (fixture: PinnedNodeFixture) => PinnedNodeFixture;
+};
+
+/**
+ * A declaration naming a 3.x migration source selects the 3.x grammar the generated fixtures are authored in, with
+ * its `.enabler` directories and `{slug}.md` specs. A declaration on the 4.0 line with no migration source selects
+ * only the 4.0 grammar, so the same fixtures are authored there: capability directories and `{slug}.spec.md` specs.
+ */
+function pinnedNodeAuthoringGrammar(config: Config): PinnedNodeAuthoringGrammar {
+  const selection = selectSpecTreeGrammar(config[METHODOLOGY_SECTION] as SpecTreeMethodologyDeclaration);
+  if (selection.selected.some((version) => version.specFileSuffix === SPEC_FILE_SUFFIX)) {
+    return { specFileSuffix: SPEC_FILE_SUFFIX, fixture: (fixture) => fixture };
+  }
+  const reauthored = (dirName: string): string =>
+    `${dirName.slice(0, dirName.length - KIND_REGISTRY.enabler.suffix.length)}${KIND_REGISTRY.capability.suffix}`;
+  return {
+    specFileSuffix: SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX,
+    fixture: (fixture) => ({
+      ...fixture,
+      dirName: reauthored(fixture.dirName),
+      ...(fixture.ancestor === undefined
+        ? {}
+        : { ancestor: { ...fixture.ancestor, dirName: reauthored(fixture.ancestor.dirName) } }),
+    }),
+  };
+}
+
 /**
  * Materialize and commit a node with a spec linking two tests and tagging two audit rules, the tests, and the
  * source subjects of `fixture`, in a temporary product directory under the methodology `config` declares. The spec
@@ -874,11 +923,14 @@ export type PinnedNodeRepository = {
  * fact's audit-tag form and malleability and a link to one test named for the node's slug.
  */
 export async function withPinnedNodeRepository(
-  fixture: PinnedNodeFixture,
+  declaredFixture: PinnedNodeFixture,
   config: Config,
   callback: (repository: PinnedNodeRepository) => Promise<void>,
   spec: string | SourceGrammarFixtureFacts = PINNED_SPEC_FIXTURE.DEFAULT,
 ): Promise<void> {
+  const authoring = pinnedNodeAuthoringGrammar(config);
+  const fixture = authoring.fixture(declaredFixture);
+  const specFileSuffix = authoring.specFileSuffix;
   await withTestEnv(config, async (env) => {
     const [specContent, testContent] = await Promise.all([
       typeof spec === "string"
@@ -891,7 +943,7 @@ export async function withPinnedNodeRepository(
     ]);
     const ancestorSegments = fixture.ancestor === undefined ? [] : [fixture.ancestor.dirName];
     const nodePath = nodeTreePath(...ancestorSegments, fixture.dirName);
-    const specPath = `${nodePath}${PATH_SEPARATOR}${fixture.slug}${SPEC_FILE_SUFFIX}`;
+    const specPath = `${nodePath}${PATH_SEPARATOR}${fixture.slug}${specFileSuffix}`;
     const links = [...specContent.matchAll(SPEC_LINK_PATTERN)].flatMap((match) => {
       const text = match.at(SPEC_LINK_TEXT_GROUP);
       const target = match.at(SPEC_LINK_TARGET_GROUP);
@@ -906,7 +958,7 @@ export async function withPinnedNodeRepository(
       ?? NODE_STATUS_DEFAULT_MALLEABILITY) as NodeStatusMalleability;
     if (fixture.ancestor !== undefined) {
       await env.writeNode(
-        nodeTreePath(fixture.ancestor.dirName, `${fixture.ancestor.slug}${SPEC_FILE_SUFFIX}`),
+        nodeTreePath(fixture.ancestor.dirName, `${fixture.ancestor.slug}${specFileSuffix}`),
         specContent,
       );
     }
