@@ -40,6 +40,7 @@ import {
   type NodeStatusSourceAuditTagForm,
   type PinChangeReader,
   readNodeStatus,
+  renderNodeStatusSourceAuditTag,
   serializeNodeStatus,
   serializeNodeStatusClaim,
   updateNodeStatus,
@@ -285,18 +286,9 @@ async function materializeNodes(
 /** The rule slug placeholder the fixed forms line writes inside the linked tag. */
 const SOURCE_GRAMMAR_RULE_SLUG_PLACEHOLDER = "{rule-slug}";
 
-/** The one spelling of each audit-tag form: the tag text a spec carries, empty under the absent form. */
+/** The one spelling of each audit-tag form: the production renderer, empty under the absent form. */
 function sourceGrammarAuditTag(form: NodeStatusSourceAuditTagForm, ruleSlug: string): string {
-  switch (form) {
-    case NODE_STATUS_SOURCE_AUDIT_TAG_FORM.NONE:
-      return "";
-    case NODE_STATUS_SOURCE_AUDIT_TAG_FORM.LINKED:
-      return `[audit](audits/${ruleSlug}.md)`;
-    case NODE_STATUS_SOURCE_AUDIT_TAG_FORM.REVIEW:
-      return "([review])";
-    case NODE_STATUS_SOURCE_AUDIT_TAG_FORM.AUDIT:
-      return "([audit])";
-  }
+  return renderNodeStatusSourceAuditTag(form, ruleSlug);
 }
 
 const SOURCE_GRAMMAR_AUDIT_TAG_FORM_ORDER = [
