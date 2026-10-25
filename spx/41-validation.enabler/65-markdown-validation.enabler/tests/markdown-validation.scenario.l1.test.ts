@@ -33,6 +33,7 @@ import {
   arbitraryIdDuplicateScenario,
   arbitraryIdMalformedScenario,
   arbitraryPriorFormIdAbsentScenario,
+  gitTrackingRows,
 } from "@testing/generators/validation/node-spec";
 import {
   listTreeEntries,
@@ -354,18 +355,13 @@ describe("Given a validated markdown directory", () => {
   }, MARKDOWN_HARNESS_TIMEOUT);
 });
 
-const GIT_TRACKING_CASES = [
-  { tracking: "git does not track any file", tracksUnrelatedFile: false },
-  { tracking: "git tracks an unrelated file", tracksUnrelatedFile: true },
-] as const;
-
-describe.each(GIT_TRACKING_CASES)(
+describe.each(gitTrackingRows())(
   "Given a canonical-form node spec whose front matter carries no id and $tracking",
-  ({ tracksUnrelatedFile }) => {
+  ({ tracked }) => {
     it("reports an error naming the file", async () => {
       const { spec } = sampleGeneratedValue(arbitraryIdAbsentScenario());
       await withMarkdownTempProject(async ({ productDir, spxDir, write, trackUnrelatedFile }) => {
-        if (tracksUnrelatedFile) await trackUnrelatedFile();
+        if (tracked) await trackUnrelatedFile();
         const specFile = await write(spec.path, spec.content);
 
         const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
@@ -377,13 +373,13 @@ describe.each(GIT_TRACKING_CASES)(
   },
 );
 
-describe.each(GIT_TRACKING_CASES)(
+describe.each(gitTrackingRows())(
   "Given a node spec whose id is not a UUIDv7 in canonical lowercase hyphenated form and $tracking",
-  ({ tracksUnrelatedFile }) => {
+  ({ tracked }) => {
     it("reports an error naming the file, the line of the id, and the value", async () => {
       const { spec, id } = sampleGeneratedValue(arbitraryIdMalformedScenario());
       await withMarkdownTempProject(async ({ productDir, spxDir, write, trackUnrelatedFile }) => {
-        if (tracksUnrelatedFile) await trackUnrelatedFile();
+        if (tracked) await trackUnrelatedFile();
         const specFile = await write(spec.path, spec.content);
 
         const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });
@@ -397,17 +393,12 @@ describe.each(GIT_TRACKING_CASES)(
   },
 );
 
-describe.each(
-  [
-    { tracking: "git tracks neither spec", tracksFirstSpec: false },
-    { tracking: "git tracks only one of them", tracksFirstSpec: true },
-  ] as const,
-)("Given two node specs inside spx/ that carry one id and $tracking", ({ tracksFirstSpec }) => {
+describe.each(gitTrackingRows())("Given two node specs inside spx/ that carry one id and $tracking", ({ tracked }) => {
   it("reports an error for each spec naming the file, the line of the id, and the other spec's path", async () => {
     const { first, second } = sampleGeneratedValue(arbitraryIdDuplicateScenario());
     await withMarkdownTempProject(async ({ productDir, spxDir, write, track }) => {
       const firstFile = await write(first.path, first.content);
-      if (tracksFirstSpec) await track([first.path]);
+      if (tracked) await track([first.path]);
       const secondFile = await write(second.path, second.content);
 
       const result = await validateMarkdown({ targets: [markdownDirectoryTarget(spxDir)], productDir });

@@ -273,6 +273,20 @@ export function malleabilityRows(unsupported: string): readonly MalleabilityRow[
   ];
 }
 
+/** Whether git tracks any other file in the product beside the spec under validation. */
+export interface GitTrackingRow {
+  readonly tracking: string;
+  readonly tracked: boolean;
+}
+
+/** Both git tracking states of the product, so a verdict is shown independent of tracking. */
+export function gitTrackingRows(): readonly GitTrackingRow[] {
+  return [false, true].map((tracked) => ({
+    tracked,
+    tracking: tracked ? "git tracks another file" : "git tracks no other file",
+  }));
+}
+
 export interface MalleabilityScenario {
   readonly seed: NodeSpecSeed;
   readonly id: string;
