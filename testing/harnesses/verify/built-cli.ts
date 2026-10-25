@@ -34,7 +34,6 @@ import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generator
 import { CLI_PATH, NODE_EXECUTABLE, PRODUCT_ROOT } from "@testing/harnesses/constants";
 import { buildGitTestEnvironment, GIT_TEST_ENVIRONMENT_KEYS } from "@testing/harnesses/git-test-constants";
 import { type StartedChangeRun, withChangeRunsRepository } from "@testing/harnesses/verify/change-runs";
-import { optionAssignment } from "@testing/harnesses/verify/harness";
 import {
   initializeVerifyRepository,
   type RepositoryStateEntry,
@@ -705,7 +704,8 @@ async function withBuiltBoundRun<T>(
         ...runSelectors,
         flagOf(VERIFY_CLI.payloadOption),
         VERIFY_INPUT_SOURCE.STDIN,
-        optionAssignment(VERIFY_CLI.idempotencyKeyOption, idempotencyKey),
+        flagOf(VERIFY_CLI.idempotencyKeyOption),
+        idempotencyKey,
       ],
       JSON.stringify(evidence.payload),
     );
