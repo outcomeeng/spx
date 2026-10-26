@@ -22,7 +22,7 @@ Authoring form: state new ALWAYS/NEVER rules directly here without tags or subse
 
 ### Testing
 
-{Verified by a deterministic test. `/verify` selects test from the real subject's verdict; `/test` then selects each rule's assertion type — one of `scenario`, `mapping`, `conformance`, `property`, `compliance` — from the rule's quantifier before `/test-{language}` supplies language expression. The heading never determines the assertion type. Do not include test files; these belong to the specs implementing this PDR.}
+{Verified by a deterministic test. `/verify` selects test from the real subject's verdict; `/test` then selects each rule's assertion type — one of `scenario`, `mapping`, `conformance`, `property`, `compliance` — from the rule's quantifier before `/author-{language}-test` supplies language expression. The heading never determines the assertion type. Do not include test files; these belong to the specs implementing this PDR.}
 
 - ALWAYS: {rule} ([{assertion type}])
 - NEVER: {prohibition} ([{assertion type}])
@@ -36,7 +36,7 @@ Authoring form: state new ALWAYS/NEVER rules directly here without tags or subse
 
 ### Audit
 
-{Verified by an audit skill's judgment against this decision — the subject (a Spec Tree decision, spec, skill, or agent) admits no deterministic test or graded eval.}
+{Verified by an audit skill's judgment against this decision — the subject (a Spec Tree decision, spec, skill, or agent) admits no deterministic test or graded eval. Each rule's slug is unique within this record.}
 
-- ALWAYS: {rule} ([audit])
-- NEVER: {prohibition} ([audit])
+- ALWAYS: {rule} ([audit:{rule-slug}])
+- NEVER: {prohibition} ([audit:{rule-slug}])

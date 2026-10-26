@@ -22,5 +22,5 @@ Machine-written claims retain inspectable verification results without making a 
 
 ### Audit
 
-- ALWAYS: the projector alone writes the committed `spx.status.json` claim ([audit])
-- NEVER: a manually assigned label overrides evidence-derived state ([audit])
+- ALWAYS: the projector alone writes the committed `spx.status.json` claim ([audit:projector-sole-writer])
+- NEVER: a manually assigned label overrides evidence-derived state ([audit:no-manual-state])

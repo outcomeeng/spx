@@ -55,3 +55,9 @@ An initial failed or unrun result leaves Specified; Failing records a regression
 A toolchain that has not adopted the claim may read a passing-scope list — a committed file naming nodes whose evidence exists while their implementation is absent, so the deterministic gate skips them. The list is operational configuration the skill that declares it reads without the foundation marker; it declares no state, and the claim supersedes it: a reference without an open-lifetime pass is already unscheduled, so the claim needs no exclusion list. Never present the list as the current design, and never infer from its presence that the claim is unsupported.
 
 </passing_scope_list>
+
+<gate_composition>
+
+The claim records each result as `passed`, `failed`, or `not-run`, keyed by tagged path (audit by rule slug), with a pin and, for Agentic and Attested results, actor provenance and a run. Merge gates a changeset by the least malleable node it touches: Validate always; Review for a verification-malleable node; the evidence audits before Review for an implementation-malleable node; product and outcome-record changes run Validate and Review regardless. A passing consumer's dependency change may neither raise a malleability nor make any node in its closure cease Passing.
+
+</gate_composition>
