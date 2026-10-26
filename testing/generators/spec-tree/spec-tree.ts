@@ -6,6 +6,7 @@ import { NODE_STATUS_EXCLUDE_PATH_GRAMMAR } from "@/lib/node-status";
 import {
   type DecisionKind,
   type NodeKind,
+  resolveAdmittedChildren,
   selectSpecTreeGrammar,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
@@ -17,6 +18,7 @@ import {
   SPEC_TREE_METHODOLOGY_LINE,
   SPEC_TREE_SECTION,
   SPEC_TREE_SOURCE_ENTRY_KEYS,
+  type SpecTreeContainerKind,
   type SpecTreeDecisionSourceEntry,
   type SpecTreeEvidenceSourceEntry,
   type SpecTreeGrammarSelection,
@@ -290,7 +292,7 @@ function arbitraryRepresentativeFixtureScenario(
       .map(([kind]) => kind as SpecTreeNodeKind);
     return arbitraryRepresentativeFixture(
       registry,
-      fc.constantFrom(...requireNonEmpty(kinds, `node kind of methodology ${line}`)),
+      requireNonEmpty(kinds, `node kind of methodology ${line}`),
     ).map((fixture) => ({ form: sourceFormForLine(line), fixture }));
   });
 }
@@ -464,7 +466,11 @@ export function buildEvidenceEntry(
 
 function arbitraryRepresentativeFixture(
   registry: SpecTreeRegistry,
-  nodeKind: fc.Arbitrary<SpecTreeNodeKind> = arbitraryNodeKind(registry),
+  kindPool: readonly [SpecTreeNodeKind, ...SpecTreeNodeKind[]] = readKinds<NodeKind>(
+    registry,
+    SPEC_TREE_KIND_CATEGORY.NODE,
+    "node kind",
+  ),
 ): fc.Arbitrary<RepresentativeSpecTreeFixture> {
   return fc
     .record({
@@ -492,7 +498,7 @@ function arbitraryRepresentativeFixture(
       ),
       productRef: arbitrarySourceRef(),
       rootRef: arbitrarySourceRef(),
-      nodeKinds: fc.tuple(nodeKind, nodeKind, nodeKind),
+      nodeKinds: arbitraryRepresentativeNodeKinds(kindPool),
       decisionKind: arbitraryDecisionKind(registry),
     })
     .map(({ ids, slugs, titles, orders, productRef, rootRef, nodeKinds, decisionKind }) => {
@@ -590,7 +596,11 @@ function arbitraryRepresentativeFixtureWithGrandchild(
         id: arbitrarySourceId().filter((id) => !takenIds.has(id)),
         orderSegments: arbitraryChildSourceOrderSegmentsAbove(fixture.child.orderSegments),
         slug: arbitrarySourceSlug(),
-        kind: arbitraryNodeKind(registry),
+        kind: arbitraryAdmittedChildKind(
+          readKinds<NodeKind>(registry, SPEC_TREE_KIND_CATEGORY.NODE, "node kind"),
+          fixture.child.kind,
+          fixture.root.kind,
+        ),
       })
       .map(({ id, orderSegments, slug, kind }) => ({
         fixture,
@@ -600,6 +610,8 @@ function arbitraryRepresentativeFixtureWithGrandchild(
 }
 
 function arbitraryAssemblyScenario(registry: SpecTreeRegistry): fc.Arbitrary<AssemblyScenario> {
+  const nodeKinds = readKinds<NodeKind>(registry, SPEC_TREE_KIND_CATEGORY.NODE, "node kind");
+  const productKind = SPEC_TREE_CONFIG.PRODUCT.KIND;
   return fc
     .uniqueArray(arbitrarySourceOrderSegments(), {
       minLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_ORDER_POOL_MIN,
@@ -610,14 +622,19 @@ function arbitraryAssemblyScenario(registry: SpecTreeRegistry): fc.Arbitrary<Ass
       const sibling = fc.record({
         id: arbitrarySourceId(),
         slug: arbitrarySourceSlug(),
-        kind: arbitraryNodeKind(registry),
         orderSegments: fc.constantFrom(...pool),
       });
       return fc.record({
-        topLevel: fc.array(sibling, {
-          minLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_TOP_LEVEL_MIN,
-          maxLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_TOP_LEVEL_MAX,
-        }),
+        topLevel: fc.array(
+          fc.tuple(sibling, arbitraryAdmittedChildKind(nodeKinds, productKind)).map(([entry, kind]) => ({
+            ...entry,
+            kind,
+          })),
+          {
+            minLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_TOP_LEVEL_MIN,
+            maxLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_TOP_LEVEL_MAX,
+          },
+        ),
         children: fc.array(sibling, {
           minLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_CHILD_MIN,
           maxLength: SPEC_TREE_TEST_GENERATOR_OPTIONS.ASSEMBLY_CHILD_MAX,
@@ -627,6 +644,13 @@ function arbitraryAssemblyScenario(registry: SpecTreeRegistry): fc.Arbitrary<Ass
     .filter(({ topLevel, children }) => {
       const ids = [...topLevel, ...children].map((node) => node.id);
       return new Set(ids).size === ids.length;
+    })
+    .chain(({ topLevel, children }) => {
+      const childKind = arbitraryAdmittedChildKind(nodeKinds, topLevel[0].kind);
+      return fc.tuple(...children.map(() => childKind)).map((kinds) => ({
+        topLevel,
+        children: children.map((child, position) => ({ ...child, kind: kinds[position] })),
+      }));
     })
     .map(({ topLevel, children }): AssemblyScenario => {
       const parentId = topLevel[0].id;
@@ -639,6 +663,35 @@ function arbitraryAssemblyScenario(registry: SpecTreeRegistry): fc.Arbitrary<Ass
         childIds: children.map((node) => node.id),
       };
     });
+}
+
+/**
+ * The kinds of `pool` that a container admits as children under the kind registry: the product's
+ * when `parentKind` is the product kind, otherwise the parent kind's, resolved through
+ * `grandparentKind` for a variant.
+ */
+function arbitraryAdmittedChildKind(
+  pool: readonly SpecTreeNodeKind[],
+  parentKind: SpecTreeContainerKind,
+  grandparentKind?: SpecTreeNodeKind,
+): fc.Arbitrary<SpecTreeNodeKind> {
+  const admitted: readonly SpecTreeContainerKind[] = resolveAdmittedChildren(parentKind, grandparentKind) ?? [];
+  return fc.constantFrom(
+    ...requireNonEmpty(pool.filter((kind) => admitted.includes(kind)), `child kind admitted under ${parentKind}`),
+  );
+}
+
+/** The root, child, and peer kinds of a representative fixture: the root and peer under the product, the child under the root. */
+function arbitraryRepresentativeNodeKinds(
+  pool: readonly [SpecTreeNodeKind, ...SpecTreeNodeKind[]],
+): fc.Arbitrary<readonly [SpecTreeNodeKind, SpecTreeNodeKind, SpecTreeNodeKind]> {
+  const productKind = SPEC_TREE_CONFIG.PRODUCT.KIND;
+  return fc.tuple(arbitraryAdmittedChildKind(pool, productKind), arbitraryAdmittedChildKind(pool, productKind))
+    .chain(([rootKind, peerKind]) =>
+      arbitraryAdmittedChildKind(pool, rootKind).map(
+        (childKind): readonly [SpecTreeNodeKind, SpecTreeNodeKind, SpecTreeNodeKind] => [rootKind, childKind, peerKind],
+      )
+    );
 }
 
 function arbitrarySourceId(): fc.Arbitrary<string> {
