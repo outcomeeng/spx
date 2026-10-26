@@ -90,7 +90,11 @@ async function observeLevel(rootDir: string, relativePath: string): Promise<Obse
   };
 }
 
-async function observeGitDir(rootDir: string): Promise<string | null> {
+/**
+ * The git directory git reports for `rootDir` when discovery stops at its parent, so a repository
+ * above `rootDir` is never seen; null when no repository is rooted at `rootDir`.
+ */
+export async function observeGitDir(rootDir: string): Promise<string | null> {
   try {
     return await readGit(rootDir, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_TEST_FLAGS.GIT_DIR], {
       [GIT_TEST_ENVIRONMENT_KEYS.CEILING_DIRECTORIES]: dirname(rootDir),
