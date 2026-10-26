@@ -1,0 +1,116 @@
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
+import { CONFIG_FILE_FORMAT, CONFIG_FILENAMES, serializeConfigFileSections } from "@/config";
+import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import type { NestedProductLayout } from "@testing/generators/state/nested-product-layout";
+import { GIT_TEST_CONFIG, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
+import { withTempDir } from "@testing/harnesses/with-temp-dir";
+
+const TEMP_DIR_PREFIX = "spx-nested-product-layout-";
+const SPEC_TREE_DIRECTORY = "spx";
+const PRODUCT_SPEC_STEM = "layout";
+const TITLE_HEADING_PREFIX = "# ";
+const NOT_FOUND_ERROR_CODE = "ENOENT";
+
+/** Section key under which a placed level's configuration value is written and read back. */
+export const NESTED_LAYOUT_CONFIG_SECTION = "layout";
+/** Field inside {@link NESTED_LAYOUT_CONFIG_SECTION} holding the level's configuration value. */
+export const NESTED_LAYOUT_CONFIG_VALUE_FIELD = "value";
+
+/** What the filesystem holds at one level after materialization. */
+export interface ObservedProductLevel {
+  readonly relativePath: string;
+  readonly configFile: { readonly value: string } | null;
+  readonly specFile: { readonly title: string } | null;
+}
+
+/** The materialized layout: the temporary root, the invocation directory, and every level's observed files. */
+export interface ObservedNestedProductLayout {
+  readonly rootDir: string;
+  readonly invocationDir: string;
+  readonly levels: readonly ObservedProductLevel[];
+}
+
+function levelDirectory(rootDir: string, relativePath: string): string {
+  return join(rootDir, relativePath);
+}
+
+async function readIfPresent(path: string): Promise<string | null> {
+  try {
+    return await readFile(path, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === NOT_FOUND_ERROR_CODE) return null;
+    throw error;
+  }
+}
+
+async function placeLevel(
+  rootDir: string,
+  relativePath: string,
+  placed: { readonly title: string; readonly configValue: string },
+): Promise<void> {
+  const directory = levelDirectory(rootDir, relativePath);
+  const specDirectory = join(directory, SPEC_TREE_DIRECTORY);
+  await mkdir(specDirectory, { recursive: true });
+  const serialized = serializeConfigFileSections(CONFIG_FILE_FORMAT.JSON, {
+    [NESTED_LAYOUT_CONFIG_SECTION]: { [NESTED_LAYOUT_CONFIG_VALUE_FIELD]: placed.configValue },
+  });
+  await writeFile(join(directory, CONFIG_FILENAMES.json), serialized.value);
+  await writeFile(
+    join(specDirectory, `${PRODUCT_SPEC_STEM}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`),
+    `${TITLE_HEADING_PREFIX}${placed.title}\n`,
+  );
+}
+
+async function observeLevel(rootDir: string, relativePath: string): Promise<ObservedProductLevel> {
+  const directory = levelDirectory(rootDir, relativePath);
+  const rawConfig = await readIfPresent(join(directory, CONFIG_FILENAMES.json));
+  const rawSpec = await readIfPresent(
+    join(directory, SPEC_TREE_DIRECTORY, `${PRODUCT_SPEC_STEM}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`),
+  );
+  const parsedConfig = rawConfig === null
+    ? null
+    : (JSON.parse(rawConfig) as Record<string, Record<string, string>>);
+  const heading = rawSpec?.split("\n")[0] ?? null;
+  return {
+    relativePath,
+    configFile: parsedConfig === null
+      ? null
+      : { value: parsedConfig[NESTED_LAYOUT_CONFIG_SECTION][NESTED_LAYOUT_CONFIG_VALUE_FIELD] },
+    specFile: heading === null ? null : { title: heading.slice(TITLE_HEADING_PREFIX.length) },
+  };
+}
+
+/**
+ * Materializes a generated layout in a temporary directory — initialized as a git repository when
+ * the layout lies inside one — and hands the callback what each level holds on disk. The directory
+ * is removed after the callback returns or throws.
+ */
+export async function materializeNestedProductLayout<T>(
+  layout: NestedProductLayout,
+  callback: (observation: ObservedNestedProductLayout) => Promise<T>,
+): Promise<T> {
+  return withTempDir(TEMP_DIR_PREFIX, async (rootDir) => {
+    if (layout.insideRepository) {
+      await runGit(rootDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+      await runGit(rootDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY, GIT_TEST_CONFIG.EMAIL]);
+      await runGit(rootDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.USER_NAME_KEY, GIT_TEST_CONFIG.USER_NAME]);
+    }
+    for (const level of layout.levels) {
+      await mkdir(levelDirectory(rootDir, level.relativePath), { recursive: true });
+      if (level.placed !== null) {
+        await placeLevel(rootDir, level.relativePath, level.placed);
+      }
+    }
+    const observed: ObservedProductLevel[] = [];
+    for (const level of layout.levels) {
+      observed.push(await observeLevel(rootDir, level.relativePath));
+    }
+    return callback({
+      rootDir,
+      invocationDir: levelDirectory(rootDir, layout.invocationPath),
+      levels: observed,
+    });
+  });
+}
