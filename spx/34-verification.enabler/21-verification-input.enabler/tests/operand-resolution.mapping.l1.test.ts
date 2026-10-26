@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { inspectVerificationInput, OPERAND_SPELLING } from "@/lib/verification-input";
+import { inspectVerificationInput, OPERAND_SPELLING, VERIFICATION_INPUT_REJECTION } from "@/lib/verification-input";
 import {
   operandForSpelling,
   sampleVerificationInputValue,
@@ -31,4 +31,119 @@ describe("verification input operand resolution", () => {
       });
     },
   );
+  it("collapses the candidates every source yields for one file to its one identity", async () => {
+    const relativePath = sampleVerificationInputValue(VERIFICATION_INPUT_TEST_GENERATOR.nestedProductRelativePath());
+
+    await withVerificationInputEnv(async (env) => {
+      await env.writeFile(relativePath, relativePath);
+
+      const result = await inspectVerificationInput({
+        operand: relativePath,
+        invocationDir: env.root,
+        worktreeRoot: env.root,
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.path).toBe(relativePath);
+    });
+  });
+
+  it("discards a candidate outside the worktree root and accepts the one identity inside it", async () => {
+    const relativePath = sampleVerificationInputValue(VERIFICATION_INPUT_TEST_GENERATOR.nestedProductRelativePath());
+    const name = relativePath.split("/").at(-1) ?? relativePath;
+
+    await withVerificationInputEnv(async (env) => {
+      await env.writeFile(relativePath, relativePath);
+      await env.writeOutside(name, name);
+
+      const result = await inspectVerificationInput({
+        operand: name,
+        invocationDir: env.outsideDir,
+        worktreeRoot: env.root,
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.path).toBe(relativePath);
+    });
+  });
+
+  it("resolves a symbolic link inside the worktree root to the identity of the file it names", async () => {
+    const scenario = sampleVerificationInputValue(VERIFICATION_INPUT_TEST_GENERATOR.rejectionScenario());
+    const targetPath = `${scenario.firstDirectory}/${scenario.name}`;
+    const linkPath = `${scenario.secondDirectory}/${scenario.name}`;
+
+    await withVerificationInputEnv(async (env) => {
+      const target = await env.writeFile(targetPath, scenario.name);
+      await env.symlink(target, linkPath);
+
+      const result = await inspectVerificationInput({
+        operand: linkPath,
+        invocationDir: env.root,
+        worktreeRoot: env.root,
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.path).toBe(targetPath);
+    });
+  });
+
+  it("matches a suffix only on complete path components", async () => {
+    const relativePath = sampleVerificationInputValue(VERIFICATION_INPUT_TEST_GENERATOR.nestedProductRelativePath());
+    const name = relativePath.split("/").at(-1) ?? relativePath;
+
+    await withVerificationInputEnv(async (env) => {
+      await env.writeFile(relativePath, relativePath);
+
+      const result = await inspectVerificationInput({
+        operand: name.slice(1),
+        invocationDir: env.root,
+        worktreeRoot: env.root,
+      });
+
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.diagnostic.reason).toBe(VERIFICATION_INPUT_REJECTION.UNRESOLVED);
+    });
+  });
+
+  it("matches a suffix over a file git lists as tracked", async () => {
+    const relativePath = sampleVerificationInputValue(VERIFICATION_INPUT_TEST_GENERATOR.nestedProductRelativePath());
+
+    await withVerificationInputEnv(async (env) => {
+      await env.writeFile(relativePath, relativePath);
+      await env.track(relativePath);
+
+      const result = await inspectVerificationInput({
+        operand: relativePath.split("/").slice(1).join("/"),
+        invocationDir: env.outsideDir,
+        worktreeRoot: env.root,
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.path).toBe(relativePath);
+    });
+  });
+
+  it("matches no suffix over a file git ignores", async () => {
+    const relativePath = sampleVerificationInputValue(VERIFICATION_INPUT_TEST_GENERATOR.nestedProductRelativePath());
+
+    await withVerificationInputEnv(async (env) => {
+      await env.writeFile(relativePath, relativePath);
+      await env.ignore(relativePath);
+
+      const result = await inspectVerificationInput({
+        operand: relativePath.split("/").slice(1).join("/"),
+        invocationDir: env.root,
+        worktreeRoot: env.root,
+      });
+
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.diagnostic.reason).toBe(VERIFICATION_INPUT_REJECTION.UNRESOLVED);
+    });
+  });
 });

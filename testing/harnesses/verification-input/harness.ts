@@ -13,6 +13,7 @@ import { withTempDir } from "@testing/harnesses/with-temp-dir";
 const TEMP_PREFIX = "spx-verification-input-";
 const GIT_BINARY = "git";
 const GIT_INIT_ARGS = ["init", "--quiet"] as const;
+const GIT_ADD_ARGS = ["add", "--"] as const;
 const UNREADABLE_MODE = "000";
 const GITIGNORE_FILE = ".gitignore";
 const OUTSIDE_DIRECTORY_PREFIX = "spx-verification-input-outside-";
@@ -30,6 +31,8 @@ export interface VerificationInputEnv {
   writeOutside(name: string, bytes: Uint8Array | string): Promise<string>;
   /** Appends the path to the worktree's `.gitignore`, so git stops listing the file. */
   ignore(relativePath: string): Promise<void>;
+  /** Adds the file to the Git index, so git lists it as tracked rather than as untracked. */
+  track(relativePath: string): Promise<void>;
   /** The path from the worktree root to an absolute path, with parent segments where it lies outside. */
   relativeFromRoot(absolutePath: string): string;
   /** Path to digest of every file and symlink-free directory entry under the worktree, excluding `.git`. */
@@ -88,6 +91,9 @@ export async function withVerificationInputEnv<T>(
         },
         async ignore(relativePath) {
           await appendFile(join(root, GITIGNORE_FILE), `${relativePath}\n`);
+        },
+        async track(relativePath) {
+          await execa(GIT_BINARY, [...GIT_ADD_ARGS, relativePath], { cwd: root });
         },
         relativeFromRoot(absolutePath) {
           return relative(root, absolutePath);
