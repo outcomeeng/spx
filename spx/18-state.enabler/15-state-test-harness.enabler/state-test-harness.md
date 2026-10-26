@@ -1,10 +1,14 @@
 # State Test Harness
 
-PROVIDES controlled git plumbing for the state subtree's tests — a controlled-response `GitDependencies` double (a configurable git runner returning a scripted sequence of command outputs and simulating the non-git and git-error failure modes) and a child-process product-root probe that runs the real resolvers under supplied environment overrides
-SO THAT the product-root resolver tests, and other state tests needing controlled git plumbing
-CAN exercise the resolvers' result-shape mapping over generated git outputs, their non-git and error paths, and their git-environment isolation without constructing a real repository per case or leaking environment mutation across tests
+PROVIDES controlled git plumbing and nested-product layouts for the state subtree's tests — a controlled-response `GitDependencies` double (a configurable git runner returning a scripted sequence of command outputs and simulating the non-git and git-error failure modes), a child-process product-root probe that runs the real resolvers under supplied environment overrides, a generator of nested-product layouts that records each layout's declared local product root, and a harness that materializes a layout in a temporary git repository
+SO THAT the product-root resolver tests, and other state tests needing controlled git plumbing or nested-product layouts
+CAN exercise the resolvers' result-shape mapping over generated git outputs, their non-git and error paths, their git-environment isolation, and their resolution of a product nested inside a repository over generated layouts, with no environment mutation leaking across tests
 
 ## Assertions
+
+- Given a generated nested-product layout with `spx.config.*` at the invocation level and at the repository root, when it is materialized in a temporary git repository, then each placed `spx.config.*` and product spec exists at its declared level carrying that level's title and configuration value, and no other level holds one
+- For every generated nested-product layout, its declared local product root is the invocation directory when the layout lies outside any repository, and otherwise the nearest level holding a placed `spx.config.*` from the invocation directory up to the repository root, or the repository root when no level holds one
+- For every generated nested-product layout, the product titles and configuration values of its placed levels are pairwise distinct
 
 ### Scenarios
 
