@@ -19,6 +19,9 @@ import {
 import type { CliCommandResult } from "@/config/types";
 import type { RecordedInput } from "@/domains/verify/verify";
 import { STATE_STORE_SCOPE_PATH, STATE_STORE_TEXT_ENCODING } from "@/lib/state-store";
+import { sampleGeneratedValue } from "@testing/generators/sample";
+import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
+import { VERIFY_CONTENT_IDENTITY_TEST_GENERATOR } from "@testing/generators/verify/content-identity";
 import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
 
 import {
@@ -87,16 +90,28 @@ export interface CheckedFile {
   readonly bytes: Uint8Array | undefined;
 }
 
+interface CheckFileReaderDouble {
+  readonly read: NonNullable<VerifyCliDeps["readCheckFile"]>;
+  /** Every path the double was asked to read, in order. */
+  readonly reads: readonly string[];
+}
+
 /**
  * The check-file reader double: it returns the file's bytes only for the path the file's name
- * resolves to against the invocation directory, and fails as a missing file for any other path
- * and for a file declared unreadable (Stage-5 exception 1, failure simulation).
+ * resolves to against the invocation directory, fails as a missing file for any other path
+ * and for a file declared unreadable (Stage-5 exception 1, failure simulation), and records every
+ * path it is asked to read (Stage-5 exception 6, observability).
  */
-function createCheckFileReader(invocationDir: string, file: CheckedFile | undefined): VerifyCliDeps["readCheckFile"] {
+function createCheckFileReader(invocationDir: string, file: CheckedFile | undefined): CheckFileReaderDouble {
   const resolvedPath = file === undefined ? undefined : resolve(invocationDir, file.path);
-  return async (path: string) => {
-    if (file?.bytes !== undefined && path === resolvedPath) return file.bytes;
-    throw Object.assign(new Error(`${ENOENT}: no such file ${path}`), { code: ENOENT });
+  const reads: string[] = [];
+  return {
+    reads,
+    read: async (path: string) => {
+      reads.push(path);
+      if (file?.bytes !== undefined && path === resolvedPath) return file.bytes;
+      throw Object.assign(new Error(`${ENOENT}: no such file ${path}`), { code: ENOENT });
+    },
   };
 }
 
@@ -111,6 +126,14 @@ export interface InputCheckRequest {
 
 export interface InputCheckObservation {
   readonly scenario: VerifyRunContextScenario;
+  /** The product root, the worktree root, and the directory the commands are invoked from: three distinct paths. */
+  readonly roots: {
+    readonly productDir: string;
+    readonly worktreeRoot: string;
+    readonly invocationDir: string;
+  };
+  /** Every path the check-file reader was asked to read. */
+  readonly checkFileReads: readonly string[];
   readonly startReport: VerifyStartReport;
   readonly recordedInput: RecordedInput;
   readonly command: CliCommandResult;
@@ -120,9 +143,15 @@ export interface InputCheckObservation {
 export async function observeInputCheck(request: InputCheckRequest): Promise<InputCheckObservation> {
   const scenario = createVerifyRunContextScenario();
   const fs = createInMemoryStateStoreFileSystem();
+  const worktreeRoot = sampleGeneratedValue(STATE_STORE_TEST_GENERATOR.linkedWorktreeRoot(scenario.productDir));
+  const invocationDir = sampleGeneratedValue(
+    VERIFY_CONTENT_IDENTITY_TEST_GENERATOR.invocationDirectory(worktreeRoot),
+  );
+  const checkFileReader = createCheckFileReader(invocationDir, request.checkedFile);
   const deps = verifyDeps(scenario, fs, {
     inputBytes: request.recordedBytes,
-    readCheckFile: createCheckFileReader(scenario.productDir, request.checkedFile),
+    readCheckFile: checkFileReader.read,
+    invocation: { cwd: invocationDir, worktreeRoot },
   });
   const started = await verifyStartCommand(verifyStartOptions(scenario), deps);
   if (started.exitCode !== VERIFY_CLI_EXIT_CODE.OK) {
@@ -138,11 +167,14 @@ export async function observeInputCheck(request: InputCheckRequest): Promise<Inp
     ...(request.checkedFile === undefined ? {} : { checkFile: request.checkedFile.path }),
     ...(request.contentNormalization === undefined ? {} : { contentNormalization: request.contentNormalization }),
   };
+  const command = await verifyInputCommand(options, deps);
   return {
     scenario,
+    roots: { productDir: scenario.productDir, worktreeRoot, invocationDir },
+    checkFileReads: [...checkFileReader.reads],
     startReport,
     recordedInput: await readRecordedInput(scenario, startReport.runToken, fs),
-    command: await verifyInputCommand(options, deps),
+    command,
   };
 }
 

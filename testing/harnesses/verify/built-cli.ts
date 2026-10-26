@@ -650,7 +650,7 @@ async function withBuiltBoundRun<T>(
 ): Promise<T> {
   const scenario = sampleVerifyTestValue(CHANGE_RUNS_TEST_GENERATOR.scenario());
   const comparison = sampleVerifyTestValue(CHANGE_RUNS_TEST_GENERATOR.runComparison());
-  const idempotencyKey = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
+  const idempotencyKey = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.argvIdempotencyKey());
   const unaccountedPath = comparison.secondOnlyPath;
   return withChangeRunsRepository(scenario, async (repository) => {
     const headCommit = await repository.commitFiles(comparison.files);

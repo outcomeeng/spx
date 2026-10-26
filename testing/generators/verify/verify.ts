@@ -46,6 +46,7 @@ import {
   VERIFY_VERIFICATION_TYPE,
   VERIFY_VERIFIER_KIND,
   type VerifyFindingDisposition,
+  type VerifyScopeType,
   type VerifyVerificationType,
 } from "@/domains/verify/verify";
 import { VERIFICATION_RUN_CLI_SURFACE, VERIFY_CLI } from "@/interfaces/cli/verify";
@@ -707,6 +708,15 @@ export function arbitraryArgvSafeToken(): fc.Arbitrary<string> {
   return STATE_STORE_TEST_GENERATOR.scopeToken().filter((value) => !value.startsWith(ARGV_OPTION_PREFIX));
 }
 
+function idempotencyKeyPair(
+  key: fc.Arbitrary<string>,
+): fc.Arbitrary<{ readonly first: string; readonly second: string }> {
+  return fc
+    .tuple(key, key)
+    .filter(([first, second]) => first !== second)
+    .map(([first, second]) => ({ first, second }));
+}
+
 const SAMPLE_SEED = 0x5645524659;
 const CHANGED_PATH_MIN = 1;
 const CHANGED_PATH_MAX = 5;
@@ -740,7 +750,7 @@ export interface FileScopeCanonicalizationScenario {
 
 export type VerifyScopeMappingCase =
   | {
-    readonly scopeType: typeof VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET;
+    readonly scopeType: typeof VERIFY_SCOPE_TYPE.CHANGESET;
     readonly scope: string;
     readonly range: { readonly base: string; readonly head: string };
     readonly changedPaths: readonly string[];
@@ -748,7 +758,7 @@ export type VerifyScopeMappingCase =
     readonly expectedSubject: VerificationContextSubject;
   }
   | {
-    readonly scopeType: typeof VERIFICATION_CONTEXT_SUBJECT_KIND.FILE;
+    readonly scopeType: typeof VERIFY_SCOPE_TYPE.FILE;
     readonly scope: string;
     readonly path: string;
     readonly expectedResolvedScope: readonly string[];
@@ -813,12 +823,18 @@ export function arbitraryFileScopeCanonicalizationScenario(): fc.Arbitrary<FileS
   });
 }
 
-export function verifyScopeMappingCases(): readonly VerifyScopeMappingCase[] {
-  const changeset = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.changesetScopeScenario());
-  const file = sampleVerifyTestValue(arbitraryArgvSafeFileScopeIdentityScenario());
-  return [
-    {
-      scopeType: VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET,
+/**
+ * One mapping case per scope type, keyed by the source-owned scope-type registry: a scope type the
+ * registry gains without an entry here fails the type check, and `verifyScopeMappingCases`
+ * enumerates the registry rather than naming its members.
+ */
+const SCOPE_MAPPING_CASE_BY_SCOPE_TYPE: Readonly<
+  Record<VerifyScopeType, (fileIdentity: fc.Arbitrary<FileScopeIdentityScenario>) => VerifyScopeMappingCase>
+> = {
+  [VERIFY_SCOPE_TYPE.CHANGESET]: () => {
+    const changeset = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.changesetScopeScenario());
+    return {
+      scopeType: VERIFY_SCOPE_TYPE.CHANGESET,
       scope: `${changeset.range.base}${VERIFY_SCOPE_SEPARATOR}${changeset.range.head}`,
       range: changeset.range,
       changedPaths: changeset.changedPaths,
@@ -828,9 +844,12 @@ export function verifyScopeMappingCases(): readonly VerifyScopeMappingCase[] {
         base: changeset.range.base,
         head: changeset.range.head,
       },
-    },
-    {
-      scopeType: VERIFICATION_CONTEXT_SUBJECT_KIND.FILE,
+    };
+  },
+  [VERIFY_SCOPE_TYPE.FILE]: (fileIdentity) => {
+    const file = sampleVerifyTestValue(fileIdentity);
+    return {
+      scopeType: VERIFY_SCOPE_TYPE.FILE,
       scope: file.input,
       path: file.input,
       expectedResolvedScope: [file.normalized],
@@ -838,8 +857,19 @@ export function verifyScopeMappingCases(): readonly VerifyScopeMappingCase[] {
         kind: VERIFICATION_CONTEXT_SUBJECT_KIND.FILE,
         path: file.normalized,
       },
-    },
-  ];
+    };
+  },
+};
+
+/**
+ * The mapping case of every supported scope type. `fileIdentity` draws the file-scope identity; a
+ * caller that hands the identity to a command parser as its own argv element passes
+ * `arbitraryArgvSafeFileScopeIdentityScenario()`, and a direct caller takes the unrestricted default.
+ */
+export function verifyScopeMappingCases(
+  fileIdentity: fc.Arbitrary<FileScopeIdentityScenario> = arbitraryFileScopeIdentityScenario(),
+): readonly VerifyScopeMappingCase[] {
+  return VERIFY_SCOPE_TYPES.map((scopeType) => SCOPE_MAPPING_CASE_BY_SCOPE_TYPE[scopeType](fileIdentity));
 }
 
 export function verifyNonNounLocalEvidenceCases(): readonly VerifyNonNounLocalEvidenceCase[] {
@@ -1288,7 +1318,7 @@ export const VERIFY_TEST_GENERATOR = {
   unsupportedScopeType: (): fc.Arbitrary<string> =>
     fc
       .oneof(fc.constantFrom(...Object.getOwnPropertyNames(Object.prototype)), fc.string())
-      .filter((value) => !SUPPORTED_SCOPE_TYPES.has(value) && !value.startsWith(ARGV_OPTION_PREFIX)),
+      .filter((value) => !SUPPORTED_SCOPE_TYPES.has(value)),
   changesetRef: (): fc.Arbitrary<string> => arbitraryArgvSafeToken(),
   changesetRange: (): fc.Arbitrary<{ readonly base: string; readonly head: string }> =>
     fc
@@ -1461,10 +1491,10 @@ export const VERIFY_TEST_GENERATOR = {
       range,
       scopeIdentity: `${range.base}${VERIFY_SCOPE_SEPARATOR}${range.head}`,
     })),
-  malformedChangesetScope: (): fc.Arbitrary<string> => arbitraryArgvSafeToken(),
+  malformedChangesetScope: (): fc.Arbitrary<string> => STATE_STORE_TEST_GENERATOR.scopeToken(),
   overlappingChangesetScope: (): fc.Arbitrary<string> =>
     fc
-      .tuple(arbitraryArgvSafeToken(), arbitraryArgvSafeToken())
+      .tuple(STATE_STORE_TEST_GENERATOR.scopeToken(), STATE_STORE_TEST_GENERATOR.scopeToken())
       .map(([base, head]) => `${base}${VERIFY_SCOPE_SEPARATOR}${VERIFY_SCOPE_SEPARATOR.slice(0, 1)}${head}`),
   runToken: (): fc.Arbitrary<string> => STATE_STORE_TEST_GENERATOR.runToken(),
   blankInputSource: (): fc.Arbitrary<string> => arbitraryBlankArgument(),
@@ -1500,12 +1530,14 @@ export const VERIFY_TEST_GENERATOR = {
       range: VERIFY_TEST_GENERATOR.changesetRange(),
       paths: VERIFY_TEST_GENERATOR.changedPathsPair(),
     }),
-  idempotencyKey: (): fc.Arbitrary<string> => arbitraryArgvSafeToken(),
+  idempotencyKey: (): fc.Arbitrary<string> => STATE_STORE_TEST_GENERATOR.scopeToken(),
   idempotencyKeyPair: (): fc.Arbitrary<{ readonly first: string; readonly second: string }> =>
-    fc
-      .tuple(arbitraryArgvSafeToken(), arbitraryArgvSafeToken())
-      .filter(([first, second]) => first !== second)
-      .map(([first, second]) => ({ first, second })),
+    idempotencyKeyPair(STATE_STORE_TEST_GENERATOR.scopeToken()),
+  /** An idempotency key for a caller that passes it as its own argv element to a command parser. */
+  argvIdempotencyKey: (): fc.Arbitrary<string> => arbitraryArgvSafeToken(),
+  /** Two idempotency keys for a caller that passes each as its own argv element to a command parser. */
+  argvIdempotencyKeyPair: (): fc.Arbitrary<{ readonly first: string; readonly second: string }> =>
+    idempotencyKeyPair(arbitraryArgvSafeToken()),
   blankIdempotencyKey: (): fc.Arbitrary<string> => arbitraryBlankArgument(),
   blankPayloadSource: (): fc.Arbitrary<string> => arbitraryBlankArgument(),
   reviewFinding: (): fc.Arbitrary<ReviewFinding> => arbitraryReviewFinding(),
@@ -1516,11 +1548,11 @@ export const VERIFY_TEST_GENERATOR = {
       .filter(([first, second]) => first !== second)
       .map(([first, second]) => ({ first, second })),
   invalidTerminalStatus: (): fc.Arbitrary<string> =>
-    arbitraryArgvSafeToken().filter((value) => !TERMINAL_STATUSES.includes(value)),
+    STATE_STORE_TEST_GENERATOR.scopeToken().filter((value) => !TERMINAL_STATUSES.includes(value)),
   blankTerminalStatus: (): fc.Arbitrary<string> => arbitraryBlankArgument(),
   reviewFindingBatch: (): fc.Arbitrary<readonly FindingWithKey[]> =>
     fc.uniqueArray(
-      fc.record({ finding: arbitraryDefectReviewFinding(), idempotencyKey: arbitraryArgvSafeToken() }),
+      fc.record({ finding: arbitraryDefectReviewFinding(), idempotencyKey: STATE_STORE_TEST_GENERATOR.scopeToken() }),
       { selector: (entry) => entry.idempotencyKey, minLength: FINDING_BATCH_MIN, maxLength: FINDING_BATCH_MAX },
     ),
   mixedDispositionReviewFindingBatches: (): fc.Arbitrary<MixedDispositionReviewFindingBatches> =>
@@ -1528,7 +1560,7 @@ export const VERIFY_TEST_GENERATOR = {
       .uniqueArray(
         fc.record({
           finding: fc.oneof(arbitraryDefectReviewFinding(), arbitraryFiledOrStaleReviewFinding()),
-          idempotencyKey: arbitraryArgvSafeToken(),
+          idempotencyKey: STATE_STORE_TEST_GENERATOR.scopeToken(),
         }),
         {
           selector: (entry) => entry.idempotencyKey,
@@ -1552,7 +1584,7 @@ export const VERIFY_TEST_GENERATOR = {
     fc.uniqueArray(
       fc.record({
         finding: arbitraryFiledOrStaleReviewFinding(),
-        idempotencyKey: arbitraryArgvSafeToken(),
+        idempotencyKey: STATE_STORE_TEST_GENERATOR.scopeToken(),
       }),
       { selector: (entry) => entry.idempotencyKey, minLength: FINDING_BATCH_MIN, maxLength: FINDING_BATCH_MAX },
     ),
@@ -1561,7 +1593,7 @@ export const VERIFY_TEST_GENERATOR = {
       .tuple(
         arbitraryUnanchoredReviewFinding().filter((finding) => finding.path !== undefined),
         arbitraryUnanchoredReviewFinding().filter((finding) => finding.path === undefined),
-        fc.uniqueArray(arbitraryArgvSafeToken(), { minLength: 2, maxLength: 2 }),
+        fc.uniqueArray(STATE_STORE_TEST_GENERATOR.scopeToken(), { minLength: 2, maxLength: 2 }),
       )
       .map(([pathed, pathless, keys]) => [
         { finding: pathed, idempotencyKey: keys[0] },
@@ -1860,14 +1892,17 @@ export const VERIFY_TEST_GENERATOR = {
     ),
   scopePayload: (): fc.Arbitrary<ReviewScopeUnit> => arbitraryReviewScopeUnit(),
   unsupportedVerificationType: (): fc.Arbitrary<string> =>
-    arbitraryArgvSafeToken().filter((value) => !VERIFY_VERIFICATION_TYPES.includes(value)),
+    STATE_STORE_TEST_GENERATOR.scopeToken().filter((value) => !VERIFY_VERIFICATION_TYPES.includes(value)),
   changeIdentity: (): fc.Arbitrary<string> =>
     arbitraryChangeIdentityParts().map(({ owner, repository, number }) =>
       composeChangeIdentity(owner, repository, String(number))
     ),
   nonCanonicalChangeIdentity: (): fc.Arbitrary<string> => arbitraryNonCanonicalChangeIdentity(),
   verifier: (): fc.Arbitrary<VerifierIdentity> => arbitraryVerifier(),
-  invalidVerifier: (): fc.Arbitrary<VerifierIdentity> => arbitraryInvalidVerifier(),
+  invalidVerifier: (): fc.Arbitrary<VerifierIdentity> =>
+    arbitraryInvalidVerifier(STATE_STORE_TEST_GENERATOR.scopeToken()),
+  /** A Verifier whose kind lies outside the supported kinds, for a caller that passes `kind:id` as its own argv element to a command parser. */
+  argvInvalidVerifier: (): fc.Arbitrary<VerifierIdentity> => arbitraryInvalidVerifier(arbitraryArgvSafeToken()),
   /** A supported-kind Verifier whose id is the empty string. */
   emptyIdVerifier: (): fc.Arbitrary<VerifierIdentity> => arbitraryEmptyIdVerifier(),
   /** A supported-kind Verifier whose id is one or more whitespace characters and nothing else. */
@@ -1917,11 +1952,11 @@ function arbitraryWhitespaceOnlyIdVerifier(): fc.Arbitrary<VerifierIdentity> {
 }
 
 /** A Verifier whose kind lies outside the supported kinds, or whose id is empty. */
-function arbitraryInvalidVerifier(): fc.Arbitrary<VerifierIdentity> {
+function arbitraryInvalidVerifier(kindToken: fc.Arbitrary<string>): fc.Arbitrary<VerifierIdentity> {
   const supportedKinds: readonly string[] = Object.values(VERIFY_VERIFIER_KIND);
   return fc.oneof(
     fc.record({
-      kind: arbitraryArgvSafeToken().filter((kind) => !supportedKinds.includes(kind)),
+      kind: kindToken.filter((kind) => !supportedKinds.includes(kind)),
       id: STATE_STORE_TEST_GENERATOR.scopeToken(),
     }),
     fc.record({

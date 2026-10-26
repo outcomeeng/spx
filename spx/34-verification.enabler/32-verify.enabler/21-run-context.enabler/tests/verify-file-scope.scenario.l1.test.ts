@@ -5,8 +5,8 @@ import { JOURNAL_RUN_STATE_STATUS } from "@/domains/journal/run-state";
 import { VERIFICATION_CONTEXT_SUBJECT_KIND } from "@/domains/verification-context/context";
 import { VERIFY_SCOPE_TYPE } from "@/domains/verify/verify";
 import {
-  arbitraryArgvSafeFileScopeIdentityScenario,
   arbitraryFileScopeCanonicalizationScenario,
+  arbitraryFileScopeIdentityScenario,
   sampleVerifyTestValue,
 } from "@testing/generators/verify/verify";
 import { runFileScopeExistingCommandsScenario, startFileScopeRun } from "@testing/harnesses/verify/harness";
@@ -14,16 +14,16 @@ import { runFileScopeExistingCommandsScenario, startFileScopeRun } from "@testin
 describe("verify file scope", () => {
   it("records and reports a file subject without diff discovery", async () => {
     await expect(
-      startFileScopeRun(sampleVerifyTestValue(arbitraryArgvSafeFileScopeIdentityScenario()).input),
+      startFileScopeRun(sampleVerifyTestValue(arbitraryFileScopeIdentityScenario()).input),
     ).resolves.toMatchObject({
       report: {
-        resolvedScope: [sampleVerifyTestValue(arbitraryArgvSafeFileScopeIdentityScenario()).normalized],
+        resolvedScope: [sampleVerifyTestValue(arbitraryFileScopeIdentityScenario()).normalized],
       },
       context: {
         context: {
           subject: {
             kind: VERIFICATION_CONTEXT_SUBJECT_KIND.FILE,
-            path: sampleVerifyTestValue(arbitraryArgvSafeFileScopeIdentityScenario()).normalized,
+            path: sampleVerifyTestValue(arbitraryFileScopeIdentityScenario()).normalized,
           },
         },
       },

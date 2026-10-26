@@ -4,6 +4,8 @@
  * whose expected digests and results derive from node:crypto and a construction law over line
  * endings, never from the production digest path.
  */
+import { dirname, join } from "node:path";
+
 import * as fc from "fast-check";
 
 import { CONTENT_NORMALIZATION, type ContentNormalization } from "@/lib/verification-input";
@@ -11,6 +13,7 @@ import {
   arbitraryByteSequence,
   arbitraryInvalidUtf8,
   arbitraryLineEndingVariants,
+  arbitraryNestedProductRelativePath,
   arbitraryProductRelativePath,
   referenceSha256,
 } from "@testing/generators/verification-input";
@@ -200,6 +203,14 @@ export function expectedEqualUnder(relation: CheckFileRelation, normalization: C
   }
 }
 
+/**
+ * A directory a replay is invoked from, strictly below `worktreeRoot`, so it differs from the
+ * worktree root and from the product root the worktree belongs to.
+ */
+export function arbitraryInvocationDirectory(worktreeRoot: string): fc.Arbitrary<string> {
+  return arbitraryNestedProductRelativePath().map((path) => join(worktreeRoot, dirname(path)));
+}
+
 export const VERIFY_CONTENT_IDENTITY_TEST_GENERATOR = {
   startInput: arbitraryStartInput,
   textInput: arbitraryTextInput,
@@ -209,4 +220,5 @@ export const VERIFY_CONTENT_IDENTITY_TEST_GENERATOR = {
   digestOtherThan: arbitraryDigestOtherThan,
   checkFileScenario: arbitraryCheckFileScenario,
   productRelativePath: arbitraryProductRelativePath,
+  invocationDirectory: arbitraryInvocationDirectory,
 } as const;

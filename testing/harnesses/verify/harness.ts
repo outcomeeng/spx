@@ -131,6 +131,7 @@ import {
 } from "@testing/generators/verify/audit";
 import type { RunComparisonInvocation } from "@testing/generators/verify/change-runs";
 import {
+  arbitraryArgvSafeFileScopeIdentityScenario,
   composeVerifierOperand,
   type FileScopeCanonicalizationScenario,
   type FindingWithKey,
@@ -537,7 +538,7 @@ export async function recordVerificationRunHandlerOptions(): Promise<{
   const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewTerminalStatus());
   const terminalMetadataSource = sampleLiteralTestValue(arbitrarySourceFilePath());
   const runToken = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken());
-  const idempotencyKeys = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKeyPair());
+  const idempotencyKeys = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.argvIdempotencyKeyPair());
   const sharedExistingRunOptions = [
     requiredFlag(VERIFY_CLI.verificationTypeOption),
     scenario.verificationType,
@@ -1093,26 +1094,29 @@ export async function observeScopeTypeMapping(
   readonly subject: VerificationContextSubject;
   readonly reportFields: readonly string[];
 }> {
-  if (mapping.scopeType === VERIFICATION_CONTEXT_SUBJECT_KIND.CHANGESET) {
-    const started = await startChangesetScopeRun(
-      withChangedPaths(
-        withScope(createVerifyRunContextScenario(), mapping.range.base, mapping.range.head),
-        mapping.changedPaths,
-      ),
-    );
-    return {
-      resolvedScope: started.report.resolvedScope,
-      subject: started.context.context.subject,
-      reportFields: Object.keys(started.report),
-    };
+  switch (mapping.scopeType) {
+    case VERIFY_SCOPE_TYPE.CHANGESET: {
+      const started = await startChangesetScopeRun(
+        withChangedPaths(
+          withScope(createVerifyRunContextScenario(), mapping.range.base, mapping.range.head),
+          mapping.changedPaths,
+        ),
+      );
+      return {
+        resolvedScope: started.report.resolvedScope,
+        subject: started.context.context.subject,
+        reportFields: Object.keys(started.report),
+      };
+    }
+    case VERIFY_SCOPE_TYPE.FILE: {
+      const started = await startFileScopeRun(mapping.path);
+      return {
+        resolvedScope: started.report.resolvedScope,
+        subject: started.context.context.subject,
+        reportFields: Object.keys(started.report),
+      };
+    }
   }
-
-  const started = await startFileScopeRun(mapping.path);
-  return {
-    resolvedScope: started.report.resolvedScope,
-    subject: started.context.context.subject,
-    reportFields: Object.keys(started.report),
-  };
 }
 
 export async function observeVerificationScopeOptionMapping(
@@ -1136,7 +1140,7 @@ export function observeVerificationScopeOptionMappings(): Promise<
   readonly VerificationScopeOptionMappingObservation[]
 > {
   return Promise.all(
-    verifyScopeMappingCases().map(async (mapping) => ({
+    verifyScopeMappingCases(arbitraryArgvSafeFileScopeIdentityScenario()).map(async (mapping) => ({
       ...await observeVerificationScopeOptionMapping(mapping),
       expectedResolvedScope: mapping.expectedResolvedScope,
       expectedSubject: mapping.expectedSubject,
@@ -1200,11 +1204,15 @@ function isCommitPeelQueryFor(args: readonly string[], revision: string): boolea
   ].join(" ");
 }
 
-export function verifyGitDeps(scenario: VerifyRunContextScenario): GitDependencies {
+/** The Git double answers a worktree root of `worktreeRoot`, the product root when none is given. */
+export function verifyGitDeps(
+  scenario: VerifyRunContextScenario,
+  worktreeRoot: string = scenario.productDir,
+): GitDependencies {
   return {
     execa: async (_command, args) => {
       const argLine = args.join(" ");
-      if (argLine === GIT_SHOW_TOPLEVEL_ARGS.join(" ")) return gitSuccess(scenario.productDir);
+      if (argLine === GIT_SHOW_TOPLEVEL_ARGS.join(" ")) return gitSuccess(worktreeRoot);
       if (argLine === GIT_COMMON_DIR_ARGS.join(" ")) return gitSuccess(join(scenario.productDir, GIT_DIR_BASENAME));
       if (argLine === GIT_CURRENT_BRANCH_ARGS.join(" ")) return gitSuccess(scenario.branchIdentity);
       if (argLine === GIT_HEAD_SHA_ARGS.join(" ")) return gitSuccess(scenario.headSha);
@@ -1256,6 +1264,8 @@ export interface VerifyDepsOptions {
   readonly inputBytes?: Uint8Array;
   /** The reader for a file a recorded-input replay checks, resolving the path it is handed. */
   readonly readCheckFile?: VerifyCliDeps["readCheckFile"];
+  /** Invoke from `cwd` inside a worktree rooted at `worktreeRoot`, both distinct from the product root; the product root when absent. */
+  readonly invocation?: { readonly cwd: string; readonly worktreeRoot: string };
 }
 
 export function verifyDeps(
@@ -1264,9 +1274,9 @@ export function verifyDeps(
   options: VerifyDepsOptions = {},
 ): VerifyCliDeps {
   return {
-    cwd: scenario.productDir,
+    cwd: options.invocation?.cwd ?? scenario.productDir,
     fs,
-    git: verifyGitDeps(scenario),
+    git: verifyGitDeps(scenario, options.invocation?.worktreeRoot),
     processEnv: {},
     now: () => scenario.launchedAt,
     readInputSource: async () => options.inputBytes ?? new TextEncoder().encode(scenario.inputContent),

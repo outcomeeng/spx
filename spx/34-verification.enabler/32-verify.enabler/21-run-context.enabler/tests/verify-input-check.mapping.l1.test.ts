@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
@@ -28,6 +30,8 @@ describe("verify input check mapping", () => {
           ...(spelled === undefined ? {} : { contentNormalization: spelled }),
         });
 
+        expect(new Set(Object.values(observation.roots)).size).toBe(Object.keys(observation.roots).length);
+        expect(observation.checkFileReads).toStrictEqual([resolve(observation.roots.invocationDir, scenario.path)]);
         expect(observation.command.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
         const report = parseInputCheckReport(observation.command.output);
         expect(report.result).toBe(
