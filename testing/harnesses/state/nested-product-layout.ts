@@ -1,10 +1,17 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { CONFIG_FILE_FORMAT, CONFIG_FILENAMES, serializeConfigFileSections } from "@/config";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import type { NestedProductLayout } from "@testing/generators/state/nested-product-layout";
-import { GIT_TEST_CONFIG, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
+import {
+  GIT_TEST_CONFIG,
+  GIT_TEST_ENVIRONMENT_KEYS,
+  GIT_TEST_FLAGS,
+  GIT_TEST_SUBCOMMANDS,
+  readGit,
+  runGit,
+} from "@testing/harnesses/git-test-constants";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const TEMP_DIR_PREFIX = "spx-nested-product-layout-";
@@ -28,6 +35,8 @@ export interface ObservedProductLevel {
 export interface ObservedNestedProductLayout {
   readonly rootDir: string;
   readonly invocationDir: string;
+  /** The git directory git reports for the temporary root, or null when git finds no repository rooted there. */
+  readonly gitDir: string | null;
   readonly levels: readonly ObservedProductLevel[];
 }
 
@@ -81,6 +90,16 @@ async function observeLevel(rootDir: string, relativePath: string): Promise<Obse
   };
 }
 
+async function observeGitDir(rootDir: string): Promise<string | null> {
+  try {
+    return await readGit(rootDir, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_TEST_FLAGS.GIT_DIR], {
+      [GIT_TEST_ENVIRONMENT_KEYS.CEILING_DIRECTORIES]: dirname(rootDir),
+    });
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Materializes a generated layout in a temporary directory — initialized as a git repository when
  * the layout lies inside one — and hands the callback what each level holds on disk. The directory
@@ -109,6 +128,7 @@ export async function materializeNestedProductLayout<T>(
     return callback({
       rootDir,
       invocationDir: levelDirectory(rootDir, layout.invocationPath),
+      gitDir: await observeGitDir(rootDir),
       levels: observed,
     });
   });

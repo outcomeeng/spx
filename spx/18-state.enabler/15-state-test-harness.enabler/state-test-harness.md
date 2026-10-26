@@ -8,7 +8,7 @@ CAN exercise the resolvers' result-shape mapping over generated git outputs, the
 
 ### Scenarios
 
-- Given a generated nested-product layout with `spx.config.*` at the invocation level and at the repository root, when it is materialized in a temporary git repository, then each placed `spx.config.*` and product spec exists at its declared level carrying that level's title and configuration value, and no other level holds one ([test](tests/nested-product-layout.scenario.l2.test.ts))
+- Given a generated nested-product layout with `spx.config.*` at the invocation level and at the repository root, when it is materialized in a temporary git repository, then each placed `spx.config.*` and product spec exists at its declared level carrying that level's title and configuration value, and no other level holds one ([test](tests/nested-product-layout.scenario.l1.test.ts))
 - Given a scripted sequence of git command outputs, when the double runs successive git commands, then each invocation returns the next scripted output in order ([test](tests/state-test-harness.scenario.l1.test.ts))
 - Given a non-git or git-error failure mode, when a git command runs, then the double returns the configured non-zero exit or rejects the invocation, so a resolver under test reaches its fallback and catch paths ([test](tests/state-test-harness.scenario.l1.test.ts))
 - Given a working directory inside a git repository, when the product-root probe runs the resolvers in a child process, then it returns both the worktree and Git-common-dir product roots resolved there ([test](tests/state-test-harness.scenario.l1.test.ts))

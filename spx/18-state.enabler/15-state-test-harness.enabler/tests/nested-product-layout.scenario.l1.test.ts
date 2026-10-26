@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { GIT_DIR_BASENAME } from "@/lib/git/root";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { arbitraryLayoutWithConfigAtInvocationAndRoot } from "@testing/generators/state/nested-product-layout";
 import { materializeNestedProductLayout } from "@testing/harnesses/state/nested-product-layout";
@@ -9,6 +10,7 @@ describe("state test harness — nested-product layout materialization", () => {
     const layout = sampleGeneratedValue(arbitraryLayoutWithConfigAtInvocationAndRoot());
 
     await materializeNestedProductLayout(layout, async (observation) => {
+      expect(observation.gitDir).toBe(GIT_DIR_BASENAME);
       expect(observation.levels.map((level) => level.relativePath)).toEqual(
         layout.levels.map((level) => level.relativePath),
       );

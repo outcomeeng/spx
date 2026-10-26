@@ -42,6 +42,7 @@ export const GIT_TEST_FLAGS = {
   EXCLUDE_STANDARD: "--exclude-standard",
   FORCE: "--force",
   FULL_NAME: "--full-name",
+  GIT_DIR: "--git-dir",
   IS_INSIDE_WORK_TREE: "--is-inside-work-tree",
   MOVE: "--move",
   NEW_BRANCH: "-b",
