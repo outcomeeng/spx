@@ -1,15 +1,18 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
+import { execa } from "execa";
+
 import { CONFIG_FILE_FORMAT, CONFIG_FILENAMES, serializeConfigFileSections } from "@/config";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
 import type { NestedProductLayout } from "@testing/generators/state/nested-product-layout";
 import {
+  buildGitTestEnvironment,
+  GIT_TEST_COMMAND,
   GIT_TEST_CONFIG,
   GIT_TEST_ENVIRONMENT_KEYS,
   GIT_TEST_FLAGS,
   GIT_TEST_SUBCOMMANDS,
-  readGit,
   runGit,
 } from "@testing/harnesses/git-test-constants";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
@@ -96,9 +99,12 @@ async function observeLevel(rootDir: string, relativePath: string): Promise<Obse
  */
 export async function observeGitDir(rootDir: string): Promise<string | null> {
   try {
-    return await readGit(rootDir, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_TEST_FLAGS.GIT_DIR], {
-      [GIT_TEST_ENVIRONMENT_KEYS.CEILING_DIRECTORIES]: dirname(rootDir),
+    const result = await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_TEST_FLAGS.GIT_DIR], {
+      cwd: rootDir,
+      env: { ...buildGitTestEnvironment(), [GIT_TEST_ENVIRONMENT_KEYS.CEILING_DIRECTORIES]: dirname(rootDir) },
+      extendEnv: false,
     });
+    return result.stdout.trim();
   } catch {
     return null;
   }

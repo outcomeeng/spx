@@ -120,14 +120,7 @@ export function gitArgsEqual(actual: readonly string[], expected: readonly strin
 export function buildGitTestEnvironment(
   envOverrides: GitTestEnvironmentOverrides = {},
 ): NodeJS.ProcessEnv {
-  const cleaned = cleanGitTestEnvironment({ ...process.env, ...envOverrides });
-  // The discovery ceiling is an explicit bound the caller places on repository discovery, not
-  // inherited redirection context; every other GIT_ override stays excluded with the inherited ones.
-  const ceiling = envOverrides[GIT_TEST_ENVIRONMENT_KEYS.CEILING_DIRECTORIES];
-  if (ceiling !== undefined) {
-    cleaned[GIT_TEST_ENVIRONMENT_KEYS.CEILING_DIRECTORIES] = ceiling;
-  }
-  return cleaned;
+  return cleanGitTestEnvironment({ ...process.env, ...envOverrides });
 }
 
 export async function runGit(
