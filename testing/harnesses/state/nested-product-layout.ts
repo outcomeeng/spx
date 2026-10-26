@@ -8,7 +8,6 @@ import { GIT_TEST_CONFIG, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesse
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const TEMP_DIR_PREFIX = "spx-nested-product-layout-";
-const SPEC_TREE_DIRECTORY = "spx";
 const PRODUCT_SPEC_STEM = "layout";
 const TITLE_HEADING_PREFIX = "# ";
 const NOT_FOUND_ERROR_CODE = "ENOENT";
@@ -51,7 +50,7 @@ async function placeLevel(
   placed: { readonly title: string; readonly configValue: string },
 ): Promise<void> {
   const directory = levelDirectory(rootDir, relativePath);
-  const specDirectory = join(directory, SPEC_TREE_DIRECTORY);
+  const specDirectory = join(directory, SPEC_TREE_CONFIG.ROOT_DIRECTORY);
   await mkdir(specDirectory, { recursive: true });
   const serialized = serializeConfigFileSections(CONFIG_FILE_FORMAT.JSON, {
     [NESTED_LAYOUT_CONFIG_SECTION]: { [NESTED_LAYOUT_CONFIG_VALUE_FIELD]: placed.configValue },
@@ -67,7 +66,7 @@ async function observeLevel(rootDir: string, relativePath: string): Promise<Obse
   const directory = levelDirectory(rootDir, relativePath);
   const rawConfig = await readIfPresent(join(directory, CONFIG_FILENAMES.json));
   const rawSpec = await readIfPresent(
-    join(directory, SPEC_TREE_DIRECTORY, `${PRODUCT_SPEC_STEM}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`),
+    join(directory, SPEC_TREE_CONFIG.ROOT_DIRECTORY, `${PRODUCT_SPEC_STEM}${SPEC_TREE_CONFIG.PRODUCT.SUFFIX}`),
   );
   const parsedConfig = rawConfig === null
     ? null
