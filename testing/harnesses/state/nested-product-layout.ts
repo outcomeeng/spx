@@ -18,6 +18,8 @@ import {
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const TEMP_DIR_PREFIX = "spx-nested-product-layout-";
+const ANCESTOR_TEMP_DIR_PREFIX = "spx-git-observation-ancestor-";
+const CHILD_DIRECTORY_NAME = "root";
 const PRODUCT_SPEC_STEM = "layout";
 const TITLE_HEADING_PREFIX = "# ";
 const NOT_FOUND_ERROR_CODE = "ENOENT";
@@ -97,7 +99,7 @@ async function observeLevel(rootDir: string, relativePath: string): Promise<Obse
  * The git directory git reports for `rootDir` when discovery stops at its parent, so a repository
  * above `rootDir` is never seen; null when no repository is rooted at `rootDir`.
  */
-export async function observeGitDir(rootDir: string): Promise<string | null> {
+async function observeGitDir(rootDir: string): Promise<string | null> {
   try {
     const result = await execa(GIT_TEST_COMMAND, [GIT_TEST_SUBCOMMANDS.REV_PARSE, GIT_TEST_FLAGS.GIT_DIR], {
       cwd: rootDir,
@@ -108,6 +110,37 @@ export async function observeGitDir(rootDir: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/** Handles and operations over a layout root that lies beneath an ancestor git repository. */
+export interface AncestorRepositoryChild {
+  readonly rootDir: string;
+  /** Initializes a git repository rooted at {@link AncestorRepositoryChild.rootDir}. */
+  readonly initializeRepository: () => Promise<void>;
+  /** The git directory git reports for the root, stopping discovery at the root's parent; null when none is rooted there. */
+  readonly observeGitDir: () => Promise<string | null>;
+}
+
+/**
+ * Arranges a child directory beneath an initialized ancestor git repository in a temporary
+ * directory and hands the callback the child's handles and operations. The directory is removed
+ * after the callback returns or throws.
+ */
+export async function withAncestorRepositoryChild<T>(
+  callback: (child: AncestorRepositoryChild) => Promise<T>,
+): Promise<T> {
+  return withTempDir(ANCESTOR_TEMP_DIR_PREFIX, async (ancestorDir) => {
+    await runGit(ancestorDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+    const rootDir = join(ancestorDir, CHILD_DIRECTORY_NAME);
+    await mkdir(rootDir);
+    return callback({
+      rootDir,
+      initializeRepository: async () => {
+        await runGit(rootDir, [GIT_TEST_SUBCOMMANDS.INIT]);
+      },
+      observeGitDir: () => observeGitDir(rootDir),
+    });
+  });
 }
 
 /**
