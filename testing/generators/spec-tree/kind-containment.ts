@@ -10,6 +10,8 @@
  * @module generators/spec-tree/kind-containment
  */
 
+import * as fc from "fast-check";
+
 import {
   KIND_REGISTRY,
   type NamingSchemaVersion,
@@ -166,4 +168,31 @@ export function containmentLayoutEntries(layout: ContainmentLayout): readonly Sp
     slug: node.slug,
     parentId: node.parentSlug,
   }));
+}
+
+/**
+ * Two layouts under a 4.0 declaration whose parents have different kinds, each placing a child
+ * its parent's kind does not admit directly below a top-level parent. The parent kinds differ so
+ * the two layouts share no directory.
+ */
+export function arbitraryRejectedLayoutPair(): fc.Arbitrary<readonly [ContainmentLayout, ContainmentLayout]> {
+  const versions = specTreeGrammarSelectionForLine(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO).selected;
+  const groups = kindAdmittedChildrenCases()
+    .filter((parentCase) => parentCase.parentKind === undefined)
+    .flatMap((parentCase) =>
+      versions.flatMap((version) => {
+        const accepted = kindsAcceptedBy(version);
+        const rejected = accepted.filter((childKind) => !parentCase.expectedChildren.includes(childKind));
+        return accepted.includes(parentCase.kind) && rejected.length > 0
+          ? [rejected.map((childKind) => layoutFor(parentCase, childKind))]
+          : [];
+      })
+    );
+  return fc
+    .shuffledSubarray(groups, { minLength: 2, maxLength: 2 })
+    .chain(([first, second]) =>
+      fc.tuple(fc.constantFrom(...first), fc.constantFrom(...second)) as fc.Arbitrary<
+        readonly [ContainmentLayout, ContainmentLayout]
+      >
+    );
 }
