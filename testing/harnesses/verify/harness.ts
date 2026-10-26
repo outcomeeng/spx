@@ -132,6 +132,7 @@ import {
 import type { RunComparisonInvocation } from "@testing/generators/verify/change-runs";
 import {
   arbitraryArgvSafeFileScopeIdentityScenario,
+  arbitraryArgvSafeToken,
   composeVerifierOperand,
   type FileScopeCanonicalizationScenario,
   type FindingWithKey,
@@ -534,7 +535,7 @@ export async function recordVerificationRunHandlerOptions(): Promise<{
   const program = createRecordingVerifyProgram(recording, scenario.productDir);
   const inputSource = sampleLiteralTestValue(arbitrarySourceFilePath());
   const scopePayloadSource = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken());
-  const findingPayloadSource = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
+  const findingPayloadSource = sampleVerifyTestValue(arbitraryArgvSafeToken());
   const terminalStatus = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.reviewTerminalStatus());
   const terminalMetadataSource = sampleLiteralTestValue(arbitrarySourceFilePath());
   const runToken = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken());
@@ -678,7 +679,7 @@ export async function observeMissingEvidenceRequiredOptionRejection(
   const scenario = createVerifyRunContextScenario();
   const runToken = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.runToken());
   const payloadSource = sampleLiteralTestValue(arbitrarySourceFilePath());
-  const idempotencyKey = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey());
+  const idempotencyKey = sampleVerifyTestValue(VERIFY_TEST_GENERATOR.argvIdempotencyKey());
   const options = [
     requiredFlag(VERIFY_CLI.verificationTypeOption),
     scenario.verificationType,
