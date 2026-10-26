@@ -10,9 +10,9 @@ import {
 import type { ReleaseData } from "@/domains/release/release-data";
 import { CHANGELOG_TITLE } from "@/domains/release/release-notes";
 import {
-  type Kind,
   KIND_REGISTRY,
   NODE_SUFFIXES,
+  OUTPUT_KINDS,
   renderSpecTreeRootFrontMatter,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
@@ -657,9 +657,9 @@ export interface ReleaseEndpointGrammarScenario {
 }
 
 /** The suffixes of the output kinds a 4.0 product admits as top-level children, drawn from the product spec's child list. */
-const FOUR_ZERO_PRODUCT_CHILD_SUFFIXES: readonly string[] = SPEC_TREE_CONFIG.PRODUCT.CHILDREN
-  .filter((kind) => kind !== SPEC_TREE_CONFIG.PRODUCT.KIND)
-  .map((kind) => KIND_REGISTRY[kind as Kind].suffix);
+const FOUR_ZERO_PRODUCT_CHILD_SUFFIXES: readonly string[] = OUTPUT_KINDS
+  .filter((kind) => (SPEC_TREE_CONFIG.PRODUCT.CHILDREN as readonly string[]).includes(kind))
+  .map((kind) => KIND_REGISTRY[kind].suffix);
 
 export function arbitraryReleaseEndpointGrammarScenario(): fc.Arbitrary<ReleaseEndpointGrammarScenario> {
   return fc.record({

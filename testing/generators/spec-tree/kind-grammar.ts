@@ -78,7 +78,7 @@ export function kindAdmittedChildrenCases(): readonly KindAdmittedChildrenCase[]
   const productCase: KindAdmittedChildrenCase = {
     label: SPEC_TREE_CONFIG.PRODUCT.KIND,
     kind: SPEC_TREE_CONFIG.PRODUCT.KIND,
-    expectedChildren: [...OUTPUT_FOUNDATION_ORDER, SPEC_TREE_CONFIG.PRODUCT.KIND],
+    expectedChildren: [...OUTPUT_FOUNDATION_ORDER, SPEC_TREE_CONFIG.PRODUCT.KIND, "enabler", "outcome"],
   };
   const outputCases = variantParentKinds().map((kind): KindAdmittedChildrenCase => ({
     label: kind,
