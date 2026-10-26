@@ -21,6 +21,8 @@ import {
 const ENCODER = new TextEncoder();
 const LOWERCASE_HEX_DIGEST_LENGTH = 64;
 const LINE_TERMINATOR = /[\r\n]/;
+const CRLF_OR_LONE_CR = /\r\n?/g;
+const LF = "\n";
 const MAX_EDIT_LENGTH = 6;
 const BOM_AWARE_UTF8_LABEL = "utf-8";
 
@@ -48,14 +50,26 @@ export interface DigestedContent {
   readonly canonicalText?: string;
 }
 
-/** The runtime's own strict UTF-8 decoder: the oracle for whether bytes are valid UTF-8. */
-export function decodesAsUtf8(bytes: Uint8Array): boolean {
+/**
+ * The runtime's own strict UTF-8 decoder, keeping a byte-order mark: the oracle for the text of
+ * bytes and for whether they are valid UTF-8. `undefined` when the bytes are not valid UTF-8.
+ */
+export function referenceStrictText(bytes: Uint8Array): string | undefined {
   try {
-    new TextDecoder(BOM_AWARE_UTF8_LABEL, { fatal: true, ignoreBOM: true }).decode(bytes);
-    return true;
+    return new TextDecoder(BOM_AWARE_UTF8_LABEL, { fatal: true, ignoreBOM: true }).decode(bytes);
   } catch {
-    return false;
+    return undefined;
   }
+}
+
+/** The runtime's own lenient UTF-8 decoder, keeping a byte-order mark and replacing each invalid sequence: the oracle for the recorded content. */
+export function referenceLenientText(bytes: Uint8Array): string {
+  return new TextDecoder(BOM_AWARE_UTF8_LABEL, { fatal: false, ignoreBOM: true }).decode(bytes);
+}
+
+/** Universal-newline normalization by construction: each CRLF and each lone CR becomes LF. */
+export function referenceUniversalNewlineText(text: string): string {
+  return text.replace(CRLF_OR_LONE_CR, LF);
 }
 
 export function encodeUtf8(text: string): Uint8Array {
@@ -83,6 +97,11 @@ export function arbitraryStartInput(): fc.Arbitrary<StartInputScenario> {
 /** A start input of valid UTF-8 text under any line-ending style. */
 export function arbitraryTextInput(): fc.Arbitrary<StartInputScenario> {
   return arbitraryTextStartInput();
+}
+
+/** A start input of valid UTF-8 text whose raw bytes differ from its text under universal-newline normalization. */
+export function arbitraryLineEndingChangedTextInput(): fc.Arbitrary<StartInputScenario> {
+  return arbitraryTextStartInput().filter((input) => input.text !== input.canonicalText);
 }
 
 /** A start input whose bytes strict UTF-8 decoding rejects. */
@@ -214,6 +233,7 @@ export function arbitraryInvocationDirectory(worktreeRoot: string): fc.Arbitrary
 export const VERIFY_CONTENT_IDENTITY_TEST_GENERATOR = {
   startInput: arbitraryStartInput,
   textInput: arbitraryTextInput,
+  lineEndingChangedTextInput: arbitraryLineEndingChangedTextInput,
   invalidUtf8Input: arbitraryInvalidUtf8Input,
   malformedExpectedDigest: arbitraryMalformedExpectedDigest,
   wellFormedDigest: arbitraryWellFormedDigest,

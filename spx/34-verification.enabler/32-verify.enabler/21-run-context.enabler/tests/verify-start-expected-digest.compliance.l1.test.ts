@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
 import { VERIFY_CONTENT_OPTION } from "@/domains/verify/verify";
 import { CONTENT_NORMALIZATION, UNIVERSAL_NEWLINE_DIGEST_VERSION } from "@/lib/verification-input";
+import { referenceSha256 } from "@testing/generators/verification-input";
 import {
   referenceDigestUnder,
   VERIFY_CONTENT_IDENTITY_TEST_GENERATOR,
@@ -85,6 +86,39 @@ describe("verify start expected content digest compliance", () => {
         expect(observation.command.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
         expect(observation.command.output).toContain(CONTENT_NORMALIZATION.UTF8_UNIVERSAL_NEWLINES);
         expect(observation.command.output).toContain(String(UNIVERSAL_NEWLINE_DIGEST_VERSION));
+        expect(observation.stateRootExists).toBe(false);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+
+  it("compares the expected digest with the digest of the raw bytes when no normalization is named, opening the run for any bytes", async () => {
+    await assertProperty(
+      VERIFY_CONTENT_IDENTITY_TEST_GENERATOR.startInput(),
+      async (input) => {
+        const observation = await observeStartOverInputBytes(input.bytes, {
+          expectedContentSha256: referenceSha256(input.bytes),
+        });
+
+        expect(observation.command.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+        expect(observation.stateRootExists).toBe(true);
+      },
+      { level: PROPERTY_LEVEL.L1 },
+    );
+  });
+
+  it("rejects, when no normalization is named, an expected digest that equals the digest under universal-newline normalization and differs from the raw bytes' digest, naming both digests, before any run state exists", async () => {
+    await assertProperty(
+      VERIFY_CONTENT_IDENTITY_TEST_GENERATOR.lineEndingChangedTextInput(),
+      async (input) => {
+        const normalizedDigest = referenceDigestUnder(CONTENT_NORMALIZATION.UTF8_UNIVERSAL_NEWLINES, input);
+        const observation = await observeStartOverInputBytes(input.bytes, {
+          expectedContentSha256: normalizedDigest,
+        });
+
+        expect(observation.command.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+        expect(observation.command.output).toContain(normalizedDigest);
+        expect(observation.command.output).toContain(referenceDigestUnder(CONTENT_NORMALIZATION.NONE, input));
         expect(observation.stateRootExists).toBe(false);
       },
       { level: PROPERTY_LEVEL.L1 },
