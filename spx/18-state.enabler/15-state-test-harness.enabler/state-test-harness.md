@@ -6,12 +6,14 @@ CAN exercise the resolvers' result-shape mapping over generated git outputs, the
 
 ## Assertions
 
-- Given a generated nested-product layout with `spx.config.*` at the invocation level and at the repository root, when it is materialized in a temporary git repository, then each placed `spx.config.*` and product spec exists at its declared level carrying that level's title and configuration value, and no other level holds one
-- For every generated nested-product layout, its declared local product root is the invocation directory when the layout lies outside any repository, and otherwise the nearest level holding a placed `spx.config.*` from the invocation directory up to the repository root, or the repository root when no level holds one
-- For every generated nested-product layout, the product titles and configuration values of its placed levels are pairwise distinct
-
 ### Scenarios
 
+- Given a generated nested-product layout with `spx.config.*` at the invocation level and at the repository root, when it is materialized in a temporary git repository, then each placed `spx.config.*` and product spec exists at its declared level carrying that level's title and configuration value, and no other level holds one ([test](tests/nested-product-layout.scenario.l1.test.ts))
 - Given a scripted sequence of git command outputs, when the double runs successive git commands, then each invocation returns the next scripted output in order ([test](tests/state-test-harness.scenario.l1.test.ts))
 - Given a non-git or git-error failure mode, when a git command runs, then the double returns the configured non-zero exit or rejects the invocation, so a resolver under test reaches its fallback and catch paths ([test](tests/state-test-harness.scenario.l1.test.ts))
 - Given a working directory inside a git repository, when the product-root probe runs the resolvers in a child process, then it returns both the worktree and Git-common-dir product roots resolved there ([test](tests/state-test-harness.scenario.l1.test.ts))
+
+### Properties
+
+- For every generated nested-product layout, its declared local product root is the invocation directory when the layout lies outside any repository, and otherwise the nearest level holding a placed `spx.config.*` from the invocation directory up to the repository root, or the repository root when no level holds one ([test](tests/nested-product-layout.property.l1.test.ts))
+- For every generated nested-product layout, the product titles and configuration values of its placed levels are pairwise distinct ([test](tests/nested-product-layout.property.l1.test.ts))
