@@ -16,11 +16,10 @@ Verification runs share one CLI vocabulary even when their judgment and driver d
 
 ## Verification
 
-- ALWAYS: `spx verification input` exposes the command path `inspect`, which takes one positional product path operand, per [`spx/29-verification-path-scope.pdr.md`](spx/29-verification-path-scope.pdr.md)
-- ALWAYS: `start` given `--expect-content-sha256` rejects an input whose content digest differs before any run exists, and `input --check-file` exits zero exactly when the file's content equals the recorded input
-
 ### Testing
 
+- ALWAYS: `spx verification input` exposes the command path `inspect`, which takes one positional product path operand, per [`spx/29-verification-path-scope.pdr.md`](spx/29-verification-path-scope.pdr.md) ([mapping])
+- ALWAYS: `start` given `--expect-content-sha256` rejects an input whose content digest differs before any run exists, and `input --check-file` exits zero exactly when the file's content equals the recorded input ([compliance])
 - ALWAYS: `paths` requires `--verification-type <type>`, `--scope-type <scope-type>`, and `--scope <scope>`, and rejects a `--run <run-token>` or `--input <input-source>` value ([compliance])
 - ALWAYS: `start` accepts `--verifier <kind>:<id>` only with kind `person` or `agent` and an id holding at least one non-whitespace character, and rejects any other value, an empty or whitespace-only id included, before a run exists ([compliance])
 - ALWAYS: `spx verification run` exposes the command paths `paths`, `start`, `input`, `scope add`, `finding add`, `reconcile`, `finish`, `status`, `render`, `list`, and `compare` ([mapping])
