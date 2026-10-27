@@ -17,13 +17,13 @@ import { fileURLToPath } from "node:url";
 import { execa } from "execa";
 
 import { TEMP_DIRECTORY_ENV_VAR } from "@/lib/temp-directory";
+import { PRODUCT_ROOT } from "@testing/harnesses/constants";
 import { buildGitTestEnvironment, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 import type { TempDirectoryChildMode, TempDirectoryChildReport } from "./child-protocol";
 
 const FIXTURE_TEMP_DIR_PREFIX = "spx-temp-directory-process-";
-const PRODUCT_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const RUNNER_RELATIVE_PATH = ["node_modules", ".bin", "tsx"] as const;
 const TSCONFIG_FILE_NAME = "tsconfig.json";
 const TSCONFIG_FLAG = "--tsconfig";
