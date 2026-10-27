@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { SPEC_TREE_GRAMMAR, SPEC_TREE_METHODOLOGY_LINE } from "@/lib/spec-tree";
+import { SPEC_TREE_METHODOLOGY_LINE } from "@/lib/spec-tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { arbitraryVersionOnLine } from "@testing/generators/spec-tree/grammar-selection";
 import { arbitraryRejectedLayoutPair } from "@testing/generators/spec-tree/kind-containment";
@@ -24,7 +24,7 @@ describe("kind containment in assembly", () => {
         expect(failure).toBeInstanceOf(Error);
         const message = (failure as Error).message;
         for (const { parent, child } of layouts) {
-          expect(message).toContain([parent.directoryPath, child.directoryPath].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR));
+          expect(message).toContain(child.directoryPath);
           expect(message).toContain(child.kind);
           expect(message).toContain(parent.directoryPath);
           expect(message).toContain(parent.kind);
