@@ -5,6 +5,15 @@
 [[relation]]
 # Each node's status claim, written only by `spx spec status --update`.
 outputs = ["spx/**/spx.status.json"]
-sources = ["spx/**/*.md", "spx/**/tests/**", "spx/EXCLUDE", "src/**", "testing/**"]
+sources = [
+  "spx/**/*.md",
+  "spx/**/tests/**",
+  "spx/**/evals/**",
+  "spx/**/probes/**",
+  "spx/EXCLUDE",
+  "spx.config.*",
+  "src/**",
+  "testing/**",
+]
 generator = ["src/lib/node-status/**", "src/commands/spec/status.ts"]
 regenerate = "pnpm run build && tsx src/cli.ts verification test run && tsx src/cli.ts spec status --update"
