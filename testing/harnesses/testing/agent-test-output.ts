@@ -1,4 +1,5 @@
-import { readdir, readFile, realpath } from "node:fs/promises";
+import { readdirSync } from "node:fs";
+import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Writable } from "node:stream";
 import { pathToFileURL } from "node:url";
@@ -13,11 +14,7 @@ import {
 } from "@/domains/test";
 import { TESTING_CLI } from "@/interfaces/cli/test";
 import { AGENT_TEST_OUTPUT_TEXT, formatAgentTestOutput } from "@/interfaces/cli/test-agent-output";
-import {
-  AGENT_ARTIFACT_DIR_PREFIX,
-  createAgentOutputCommandRunner,
-  PROCESS_FAILURE_EXIT_CODE,
-} from "@/interfaces/cli/test-runner-deps";
+import type { AgentRunnerOptions } from "@/interfaces/cli/test-runner-deps";
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
 import { pythonTestingLanguage } from "@/test/languages/python";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
@@ -33,6 +30,7 @@ import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generator
 import {
   arbitraryDomainLiteral,
   arbitrarySourceFilePath,
+  sampleIndependentDomainLiterals,
   sampleLiteralTestValue,
 } from "@testing/generators/literal/literal";
 import { nodeOperand, sampleDispatchValue, TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
@@ -51,7 +49,7 @@ interface SpawnResult {
   readonly exitCode: number;
 }
 
-interface RecordedProcessSpawn {
+export interface RecordedProcessSpawn {
   readonly command: string;
   readonly args: readonly string[];
   readonly env?: NodeJS.ProcessEnv;
@@ -337,7 +335,7 @@ export function expectAgentSummaryReportsNoRunnerReportsAsFailure(): void {
   expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.STATUS}: ${TEST_RUN_STATE_STATUS.FAILED}`);
   expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.EXIT_CODE}: ${NO_RUNNER_INVOCATION_EXIT_CODE}`);
   expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${typescriptTestingLanguage.name}`);
-  expect(output).toContain("skippedTests");
+  expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.SKIPPED_TESTS);
   expect(output).toContain(selectedPath);
 }
 
@@ -477,7 +475,7 @@ export function expectAgentSummaryReportsUnmatchedPaths(): void {
 
   const output = formatAgentTestOutput(run);
 
-  expect(output).toContain("unmatched");
+  expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.UNMATCHED);
   expect(output).toContain(unmatchedPath);
 }
 
@@ -501,7 +499,7 @@ export function expectAgentSummaryReportsUnresolvedTargets(): void {
 
   const output = formatAgentTestOutput(run);
 
-  expect(output).toContain("unresolvedTargets");
+  expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.UNRESOLVED_TARGETS);
   expect(output).toContain(unresolvedOperand);
 }
 
@@ -525,137 +523,152 @@ export function expectAgentSummaryReportsUnresolvedChangedSources(): void {
 
   const output = formatAgentTestOutput(run);
 
-  expect(output).toContain("unresolvedChangedSourceFiles");
+  expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.UNRESOLVED_CHANGED_SOURCE_FILES);
   expect(output).toContain(unresolvedSourcePath);
 }
 
-export async function expectAgentOutputDependencySurface(): Promise<void> {
-  const runnerDeps = await import("@/interfaces/cli/test-runner-deps");
+/** Cross-assertion resource setup for the agent-output compliance evidence. */
+const AGENT_OUTPUT_PRODUCT_DIR_PREFIX = "spx-agent-output-product-";
+const USER_TEMP_SENTINEL_PREFIX = "spx-agent-output-user-temp-";
+const USER_TEMP_ENV_NAMES = ["TMPDIR", "TEMP", "TMP"] as const;
+const AGENT_RUNNER_MODULE_PATH = "src/interfaces/cli/test-runner-deps.ts";
 
-  expect(runnerDeps).not.toHaveProperty("AGENT_TEST_OUTPUT_COMMAND");
-  expect(runnerDeps).not.toHaveProperty("AGENT_TEST_OUTPUT_PROCESS_EVENT");
-  expect(runnerDeps).not.toHaveProperty("AGENT_TEST_OUTPUT_STREAM_METHOD");
-  expect(runnerDeps).not.toHaveProperty("AGENT_TEST_OUTPUT_TEXT_ENCODING");
+export interface ChildOutputCase {
+  readonly stdoutContent: string;
+  readonly stderrContent: string;
+  readonly envKey: string;
+  readonly envValue: string;
 }
 
-export async function expectAgentArtifactDirectoryCreationDeferred(): Promise<void> {
-  await withTempDir(AGENT_ARTIFACT_DIR_PREFIX, async (productDir) => {
-    createAgentOutputCommandRunner(productDir, { tmpDir: productDir });
+export interface NodeCommand {
+  readonly command: string;
+  readonly args: readonly string[];
+}
 
-    expect(await readdir(productDir)).toEqual([]);
+export interface OffTerminalObservation {
+  readonly exitCode: number;
+  readonly terminalStdout: string;
+  readonly terminalStderr: string;
+  readonly stdoutContent: string;
+  readonly stderrContent: string;
+  readonly serializedResult: string;
+}
+
+/** Runs the callback with a fresh product directory that stands in for one worktree root. */
+export function withAgentOutputProduct<T>(callback: (productDir: string) => Promise<T>): Promise<T> {
+  return withTempDir(AGENT_OUTPUT_PRODUCT_DIR_PREFIX, callback);
+}
+
+/** Four mutually independent child-output values: the contents the child writes and the env pair it reads. */
+export function sampleChildOutputCase(): ChildOutputCase {
+  const [stdoutContent, stderrContent, envKey, envValue] = sampleIndependentDomainLiterals(4);
+  return { stdoutContent, stderrContent, envKey, envValue };
+}
+
+/** Two independent opaque runner operands for a runner command that is recorded or never executed. */
+export function sampleRunnerOperands(): { readonly command: string; readonly arg: string } {
+  const [command, arg] = sampleIndependentDomainLiterals(2);
+  return { command, arg };
+}
+
+/** The command line of a child that writes the case's stdout and stderr and echoes its cwd and env value. */
+export function nodeOutputCommand(output: ChildOutputCase): NodeCommand {
+  return {
+    command: process.execPath,
+    args: [NODE_EVAL_ARG, outputScript(output.stdoutContent, output.stderrContent, output.envKey)],
+  };
+}
+
+/** Records every spawn's command, arguments, and environment, then starts an inert node child. */
+export function recordingSpawnRunner(calls: RecordedProcessSpawn[]): ProcessRunner {
+  return recordingProcessRunner(calls);
+}
+
+/**
+ * Records the entries of the artifacts directory at the moment each runner command is spawned, then
+ * starts an inert node child. A missing directory records as an empty listing.
+ */
+export function artifactListingSpawnRunner(artifactsDir: string, listings: string[][]): ProcessRunner {
+  return {
+    spawn(_command, _args, options) {
+      listings.push(listDirectoryOrEmpty(artifactsDir));
+      return spawnManagedSubprocess(lifecycleProcessRunner, process.execPath, [NODE_EVAL_ARG, ""], {
+        cwd: options?.cwd,
+        env: options?.env,
+      });
+    },
+  };
+}
+
+/** Runner options whose artifact write stream fails and whose child never exits on its own. */
+export function artifactWriteFailureOptions(failureMessage: string): AgentRunnerOptions {
+  return {
+    env: {},
+    processRunner: persistentProcessRunner(),
+    createArtifactWriteStream: () => failingArtifactWriteStream(failureMessage),
+  };
+}
+
+/**
+ * Points the user temp folder at a fresh empty directory while the callback runs, then returns every
+ * entry found in that directory. A write under `os.tmpdir()` during the callback lands in it.
+ */
+export async function observeUserTempFolderDuring(run: () => Promise<void>): Promise<readonly string[]> {
+  return withTempDir(USER_TEMP_SENTINEL_PREFIX, async (sentinelDir) => {
+    const previous = USER_TEMP_ENV_NAMES.map((name) => [name, process.env[name]] as const);
+    for (const name of USER_TEMP_ENV_NAMES) process.env[name] = sentinelDir;
+    try {
+      await run();
+    } finally {
+      for (const [name, value] of previous) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+    }
+    return readdir(sentinelDir, { recursive: true });
   });
 }
 
-export async function expectAgentOutputCapturesStreamsAndEnv(): Promise<void> {
-  const stdoutContent = sampleLiteralTestValue(arbitraryDomainLiteral());
-  const stderrContent = sampleLiteralTestValue(arbitraryDomainLiteral());
-  const envKey = sampleLiteralTestValue(arbitraryDomainLiteral());
-  const envValue = sampleLiteralTestValue(arbitraryDomainLiteral());
-
-  await withTempDir(AGENT_ARTIFACT_DIR_PREFIX, async (productDir) => {
-    const runCommand = createAgentOutputCommandRunner(productDir, {
-      tmpDir: productDir,
-      env: { [envKey]: envValue },
-    });
-    const result = await runCommand(process.execPath, [
-      NODE_EVAL_ARG,
-      outputScript(stdoutContent, stderrContent, envKey),
-    ]);
-
-    expect(result.output).toBeDefined();
-    if (result.output === undefined) throw new Error("Expected captured runner output");
-    expect(String(await readFile(result.output.stdoutPath))).toBe(
-      `${stdoutContent}${await realpath(productDir)}`,
-    );
-    expect(String(await readFile(result.output.stderrPath))).toBe(
-      `${stderrContent}${envValue}`,
-    );
-  });
-}
-
-export async function expectAgentOutputPreservesCommandAndArgs(): Promise<void> {
-  await withTempDir(AGENT_ARTIFACT_DIR_PREFIX, async (productDir) => {
-    const runnerCommand = sampleLiteralTestValue(arbitraryDomainLiteral());
-    const runnerArg = sampleLiteralTestValue(arbitraryDomainLiteral());
-    const envKey = sampleLiteralTestValue(arbitraryDomainLiteral());
-    const envValue = sampleLiteralTestValue(arbitraryDomainLiteral());
-    const calls: RecordedProcessSpawn[] = [];
-    const runCommand = createAgentOutputCommandRunner(productDir, {
-      tmpDir: productDir,
-      processRunner: recordingProcessRunner(calls),
-      env: { [envKey]: envValue },
-    });
-
-    const result = await runCommand(runnerCommand, [
-      NODE_EVAL_ARG,
-      runnerArg,
-    ]);
-
-    expect(result.exitCode).toBe(0);
-    expect(calls).toEqual([{
-      command: runnerCommand,
-      args: [
-        NODE_EVAL_ARG,
-        runnerArg,
-      ],
-      env: { [envKey]: envValue },
-    }]);
-  });
-}
-
-export async function expectAgentOutputArtifactWriteFailure(): Promise<void> {
-  const failureMessage = sampleLiteralTestValue(arbitraryDomainLiteral());
-
-  await withTempDir(AGENT_ARTIFACT_DIR_PREFIX, async (productDir) => {
-    const runCommand = createAgentOutputCommandRunner(productDir, {
-      tmpDir: productDir,
-      env: {},
-      processRunner: persistentProcessRunner(),
-      createArtifactWriteStream: () => failingArtifactWriteStream(failureMessage),
-    });
-
-    const result = await runCommand(
-      sampleLiteralTestValue(arbitraryDomainLiteral()),
-      [sampleLiteralTestValue(arbitraryDomainLiteral())],
-    );
-
-    expect(result).toEqual({ exitCode: PROCESS_FAILURE_EXIT_CODE });
-  });
-}
-
-export async function expectAgentOutputKeepsChildStreamsOffTerminal(): Promise<void> {
-  const stdoutContent = sampleLiteralTestValue(arbitraryDomainLiteral());
-  const stderrContent = sampleLiteralTestValue(arbitraryDomainLiteral());
-  const envKey = sampleLiteralTestValue(arbitraryDomainLiteral());
-
-  await withTempDir(AGENT_ARTIFACT_DIR_PREFIX, async (productDir) => {
+/**
+ * Runs the agent-output runner in a separate node process so the invoking terminal streams are real
+ * process streams, and returns what reached them together with the captured result.
+ */
+export async function observeChildStreamsOffTerminal(): Promise<OffTerminalObservation> {
+  const output = sampleChildOutputCase();
+  return withAgentOutputProduct(async (productDir) => {
     const resultPath = join(productDir, AGENT_TEST_OUTPUT_TEXT.STATE_FILE);
     const repoDir = process.cwd();
-    const moduleUrl = pathToFileURL(join(repoDir, "src/interfaces/cli/test-runner-deps.ts")).href;
+    const moduleUrl = pathToFileURL(join(repoDir, AGENT_RUNNER_MODULE_PATH)).href;
+    const { command, args } = nodeOutputCommand(output);
     const script = [
       `const productDir = ${JSON.stringify(productDir)};`,
       `const resultPath = ${JSON.stringify(resultPath)};`,
       `const { createAgentOutputCommandRunner } = await import(${JSON.stringify(moduleUrl)});`,
       `const { writeFile } = await import(${JSON.stringify("node:fs/promises")});`,
-      `const runCommand = createAgentOutputCommandRunner(productDir, { tmpDir: productDir, env: {} });`,
-      `const result = await runCommand(process.execPath, [${JSON.stringify(NODE_EVAL_ARG)}, ${
-        JSON.stringify(outputScript(stdoutContent, stderrContent, envKey))
-      }]);`,
+      `const runCommand = createAgentOutputCommandRunner(productDir, { env: {} });`,
+      `const result = await runCommand(${JSON.stringify(command)}, ${JSON.stringify(args)});`,
       "await writeFile(resultPath, Buffer.from(JSON.stringify(result)));",
     ].join("");
 
-    const result = await runNodeProcess([
-      "--import",
-      "tsx",
-      NODE_EVAL_ARG,
-      script,
-    ], repoDir);
+    const result = await runNodeProcess(["--import", "tsx", NODE_EVAL_ARG, script], repoDir);
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout).not.toContain(stdoutContent);
-    expect(result.stderr).not.toContain(stderrContent);
-    expect(String(await readFile(resultPath))).toContain(AGENT_TEST_OUTPUT_TEXT.STDOUT);
+    return {
+      exitCode: result.exitCode,
+      terminalStdout: result.stdout,
+      terminalStderr: result.stderr,
+      stdoutContent: output.stdoutContent,
+      stderrContent: output.stderrContent,
+      serializedResult: String(await readFile(resultPath)),
+    };
   });
+}
+
+function listDirectoryOrEmpty(dir: string): string[] {
+  try {
+    return readdirSync(dir);
+  } catch {
+    return [];
+  }
 }
 
 function recordingProcessRunner(calls: RecordedProcessSpawn[]): ProcessRunner {
