@@ -10,8 +10,6 @@ CAN first locate relevant subtrees and then load only the product truth required
 
 ## Assertions
 
-- ALWAYS: each context-walk fixture product holds nested levels, an `ISSUES.md` on a probed path, decision records indexed below and above the child each probed path continues through, a probed target with its own decision records and with immediate children, a probed target whose `knowledge/` holds `index.md` and a knowledge body, a resolvable and an unresolvable cross-subtree decision citation, and a sibling holding an outcome record, the 3.2 fixture also holding a lower-index, a same-index, and a higher-index sibling of a probed target and a decision record above a path child, and records for each probed target the read set the walk its declaration selects computes, in walk order
-
 ### Scenarios
 
 - Given a Product Tree, when `spx spec context list <targets...>` runs, then it emits the versioned structural manifest ([test](tests/context-ingestion.scenario.l1.test.ts))
@@ -30,6 +28,7 @@ CAN first locate relevant subtrees and then load only the product truth required
 
 ### Compliance
 
+- ALWAYS: each context-walk fixture product holds nested levels, an `ISSUES.md` on a probed path, decision records indexed below and above the child each probed path continues through, a probed target with its own decision records and with immediate children, a probed target whose `knowledge/` holds `index.md` and a knowledge body, a resolvable and an unresolvable cross-subtree decision citation, and a sibling holding an outcome record, the 3.2 fixture also holding a lower-index, a same-index, and a higher-index sibling of a probed target and a decision record above a path child, and records for each probed target the read set the walk its declaration selects computes, in walk order ([test](tests/context-walk-fixtures.compliance.l1.test.ts))
 - ALWAYS: the executable writes no partial context to stdout after any target, product-spec, source, citation, or methodology failure ([test](tests/context-ingestion.compliance.l2.test.ts))
 - ALWAYS: context ingestion resolves the complete projection before output, so any target, product-spec, selected-document, source, citation, or methodology failure returns a failure carrying no partial projection ([test](tests/context-ingestion.compliance.l1.test.ts))
 - ALWAYS: a declared `methodology.version` or `methodology.migratingFrom` on a line other than the lines the spec-tree read accepts fails every `list` and `show`, naming the declared version and writing nothing to stdout ([test](tests/context-ingestion.compliance.l1.test.ts))
