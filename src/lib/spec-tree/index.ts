@@ -29,6 +29,7 @@ import {
   canonicalNamingSchemaVersion,
   KIND_REGISTRY,
   OUTPUT_KINDS,
+  resolveAdmittedChildren,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_EVAL_ENTRY_KIND,
@@ -1149,7 +1150,7 @@ function assertKindContainment(
     if (parent === undefined) continue;
     const grandparent = parent.parentId === undefined ? undefined : nodesById.get(parent.parentId);
     const grandparentKind = grandparent?.kind === SPEC_TREE_CONFIG.PRODUCT.KIND ? undefined : grandparent?.kind;
-    const admitted = resolveAdmittedChildren(parent.kind, grandparentKind as SpecTreeNodeKind | undefined);
+    const admitted = resolveAdmittedChildren(parent.kind, grandparentKind);
     if (admitted === undefined || admitted.includes(node.kind)) continue;
     if (!acceptedTogether(selected, parent.kind, node.kind)) continue;
     violations.push(
