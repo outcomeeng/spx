@@ -7,8 +7,7 @@
  */
 
 import fc from "fast-check";
-import { mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { execa } from "execa";
@@ -19,6 +18,7 @@ import { DIAGNOSE_CLI } from "@/interfaces/cli/diagnose";
 import { arbitraryManifestFacts, arbitrarySpxFloor, manifestJson } from "@testing/generators/diagnose/manifest";
 import { CLI_PATH, NODE_EXECUTABLE } from "@testing/harnesses/constants";
 import { METHODOLOGY_FIXTURE_VERSION } from "@testing/harnesses/spec/context";
+import { createTempDir } from "@testing/harnesses/with-temp-dir";
 
 export interface DiagnoseCliRun {
   readonly stdout: string;
@@ -50,8 +50,10 @@ export interface SpxReachabilityManifestFixture {
   readonly spxFloor: string;
 }
 
+const DIAGNOSE_TEMP_DIR_PREFIX = "diagnose-cli-";
+
 async function diagnoseTempDir(): Promise<string> {
-  return mkdtemp(join(tmpdir(), "diagnose-cli-"));
+  return createTempDir(DIAGNOSE_TEMP_DIR_PREFIX);
 }
 
 /** Writes a minimal spx-reachability manifest to a fresh temp dir and returns its path and generated facts. */
