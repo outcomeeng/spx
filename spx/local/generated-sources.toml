@@ -1,0 +1,19 @@
+# Generated-source relations the changeset review reads at the scope's base ref.
+# A changed file an `outputs` pattern matches is generator output: the review
+# judges it through the relation's `sources` and `generator` and owes it no read.
+
+[[relation]]
+# Each node's status claim, written only by `spx spec status --update`.
+outputs = ["spx/**/spx.status.json"]
+sources = [
+  "spx/**/*.md",
+  "spx/**/tests/**",
+  "spx/**/evals/**",
+  "spx/**/probes/**",
+  "spx/EXCLUDE",
+  "spx.config.*",
+  "src/**",
+  "testing/**",
+]
+generator = ["src/lib/node-status/**", "src/commands/spec/status.ts"]
+regenerate = "pnpm run build && tsx src/cli.ts verification test run && tsx src/cli.ts spec status --update"
