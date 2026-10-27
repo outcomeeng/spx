@@ -5,7 +5,7 @@
  */
 
 import { existsSync, readdirSync } from "node:fs";
-import { join, sep } from "node:path";
+import { basename, dirname, join, sep } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -87,7 +87,7 @@ describe("the primitive's reads and removals", () => {
     });
   });
 
-  it("neither list nor remove anything in another worktree", async () => {
+  it("neither list nor remove anything in another worktree, and add only the requested scratch directory there", async () => {
     await withTempDirectoryHost(async (host) => {
       const run = host.openRun();
       const otherWorktree = host.createWorktree();
@@ -104,12 +104,17 @@ describe("the primitive's reads and removals", () => {
       }
 
       await run.tempDirectory.createDirectory();
-      await run.tempDirectory.createScratchDirectory(otherProduct);
+      const created = await run.tempDirectory.createScratchDirectory(otherProduct);
 
       expect(readdirSync(otherRunRoots)).toHaveLength(otherRunRootEntries.length);
       expect(readdirSync(otherRunRoots)).toEqual(expect.arrayContaining(otherRunRootEntries));
-      expect(readdirSync(otherScratchParent)).toHaveLength(otherScratchEntries.length);
-      expect(readdirSync(otherScratchParent)).toEqual(expect.arrayContaining(otherScratchEntries));
+      expect(dirname(created)).toBe(otherScratchParent);
+      expect(basename(created).startsWith(TEMP_DIRECTORY_PATH.SCRATCH_PREFIX)).toBe(true);
+      expect(existsSync(created)).toBe(true);
+      expect(readdirSync(otherScratchParent)).toHaveLength(otherScratchEntries.length + 1);
+      expect(readdirSync(otherScratchParent)).toEqual(
+        expect.arrayContaining([...otherScratchEntries, basename(created)]),
+      );
       expect(run.listed).not.toContain(otherRunRoots);
       expect(run.listed).not.toContain(otherScratchParent);
       expect(run.removed.some((removed) => removed.startsWith(otherWorktree))).toBe(false);
