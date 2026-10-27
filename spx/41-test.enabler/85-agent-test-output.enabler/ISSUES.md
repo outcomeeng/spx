@@ -6,19 +6,15 @@ The linked test files call exported functions of `testing/harnesses/testing/agen
 
 The functions in this shape, linked from `tests/agent-test-output.scenario.l1.test.ts`: `expectAgentSummaryReportsPassingCountsAndArtifacts`, `expectAgentSummaryReportsNoRunnerReportsAsFailure`, `expectAgentSummaryReportsUnreportedGroupWhenAnotherRunnerFails`, `expectAgentSummaryReportsUnreportedGroupWhenReportedRunnersPass`, `expectAgentModeNoRunnerReportsExitCode`, `expectAgentSummaryReportsUnmatchedPaths`, `expectAgentSummaryReportsUnresolvedTargets`, `expectAgentSummaryReportsUnresolvedChangedSources`, `expectPassingAgentModeUsesCapturedOutput`, and `expectParentAgentModeUsesCapturedOutput`.
 
-The functions in this shape, linked from `tests/agent-test-output.compliance.l1.test.ts`: `expectAgentOutputDependencySurface`, `expectAgentOutputCapturesStreamsAndEnv`, `expectAgentOutputPreservesCommandAndArgs`, `expectAgentArtifactDirectoryCreationDeferred`, `expectAgentOutputArtifactWriteFailure`, and `expectAgentOutputKeepsChildStreamsOffTerminal`.
-
 The failing-runner scenarios follow the settled shape: the harness exports the observation functions `observeFailingRunnerWithReportedFailingPath`, `observeFailingRunnerWithoutFailureMetadata`, and `observeFailingRunnerWithEmptyFailureMetadata`, and `tests/agent-test-output.scenario.l1.test.ts` owns the predicates over each observation.
 
-No assertion checks that artifact directories exist after a runner command executes. The compliance claim that agent-output runner execution creates artifact directories only when a runner command executes is exercised for its negative half alone, through `expectAgentArtifactDirectoryCreationDeferred`.
-
-**Evidence:** the audits' findings cover thirteen of the sixteen functions; `expectPassingAgentModeUsesCapturedOutput`, `expectParentAgentModeUsesCapturedOutput`, and `expectAgentOutputDependencySurface` come from the sweep for this note, not from an audit finding. Test-evidence audits of this node returned `REJECTED` twice on the changeset merged as PR 648. The first audit raised `f-001`, `f-003`, `f-004`, and `f-006` to `f-014`, and `f-012` states the missing directory-exists assertion. The second audit raised `f-001`, `f-003`, `f-004`, and `f-006` to `f-014`.
+**Evidence:** the audits' findings cover eight of the ten functions; `expectPassingAgentModeUsesCapturedOutput` and `expectParentAgentModeUsesCapturedOutput` come from the sweep for this note, not from an audit finding. Test-evidence audits of this node returned `REJECTED` twice on the changeset merged as PR 648. The first audit raised `f-001`, `f-003`, `f-004`, and `f-006` to `f-014`, and `f-012` states the missing directory-exists assertion. The second audit raised `f-001`, `f-003`, `f-004`, and `f-006` to `f-014`.
 
 **Impact:** the node's `tests/` files carry no predicate for these claims, so a reader of a linked test sees none of what it proves, and the test-evidence audit judges predicate ownership in harness code.
 
-**Scope:** the sixteen functions named above and the linked test callbacks that call them, together with the creation clause of the compliance assertions. The failing-runner scenarios and their observation functions are outside it.
+**Scope:** the ten functions named above and the linked test callbacks that call them. The failing-runner scenarios and their observation functions are outside it.
 
-**Settlement condition:** each listed function returns observations or a handle, the linked test callbacks own the predicates, the directory-exists half of the creation clause has an assertion, and a new test-evidence audit of the node raises no predicate-ownership finding.
+**Settlement condition:** each listed function returns observations or a handle, the linked test callbacks own the predicates, and a new test-evidence audit of the node raises no predicate-ownership finding.
 
 ## Harness checks copy summary label literals
 
@@ -47,6 +43,18 @@ When artifact writing fails, `runCapturedCommand` in `src/interfaces/cli/test-ru
 **Scope:** the summary text for a failing runner without an output field in `src/interfaces/cli/test-agent-output.ts`, the failing-runner scenarios of the decision and the node spec named above, and the tests of that text.
 
 **Settlement condition:** the summary names a runner whose output capture failed distinctly from a runner that reported no failed paths, the decision and the node spec each state a scenario for both cases, and the tests assert each text.
+
+## Production-surface absence test evidences no compliance assertion `spx/41-test.enabler/85-agent-test-output.enabler/tests/agent-test-output.compliance.l1.test.ts` `does not expose child-process helper constants on the production dependency surface` `alignment: misaligned`
+
+The test is linked from the node's compliance file and asserts with `not.toHaveProperty` that `src/interfaces/cli/test-runner-deps` exports none of `AGENT_TEST_OUTPUT_COMMAND`, `AGENT_TEST_OUTPUT_PROCESS_EVENT`, `AGENT_TEST_OUTPUT_STREAM_METHOD`, and `AGENT_TEST_OUTPUT_TEXT_ENCODING`. None of the node's compliance assertions states a claim about those export names, so the test proves the absence of four retired names and evidences no assertion.
+
+**Evidence:** the test-evidence audit of committed head `1be4e89c7b9f281065638e78e387c59f1ccfa4b7`, finding `f-003`, severity WARNING.
+
+**Impact:** a reader of the compliance file sees a test that proves nothing the node declares, and four retired export names persist as literals in test code.
+
+**Scope:** the one test named in the heading.
+
+**Settlement condition:** the test is either linked to an assertion that states the production-surface rule or absent from the node's compliance evidence.
 
 ## The node's evidence chain is not fully read by its audit
 
