@@ -18,7 +18,9 @@ CAN detect failures from one run without streaming passing-test noise into the t
 
 ### Compliance
 
-- ALWAYS: agent-output runner execution writes child stdout and stderr to files and returns those file paths with the runner result ([test](tests/agent-test-output.compliance.l1.test.ts))
+- ALWAYS: agent-output runner execution writes child stdout and stderr to files under `.spx/worktree/test/artifacts/` at the local worktree root and returns those file paths with the runner result ([test](tests/agent-test-output.compliance.l1.test.ts))
+- ALWAYS: an agent-output run that executes a runner command replaces the previous run's artifacts before its first runner command starts, so only the latest executing run's artifacts remain ([test](tests/agent-test-output.compliance.l1.test.ts))
+- NEVER: agent-output runner execution writes an artifact under the user temp folder ([test](tests/agent-test-output.compliance.l1.test.ts))
 - ALWAYS: agent-output runner execution preserves the supplied child environment while preserving the product directory as the child working directory ([test](tests/agent-test-output.compliance.l1.test.ts))
 - ALWAYS: agent-output runner execution preserves the selected runner adapter, its command and arguments, and the selected test files while changing only output handling, per [`spx/41-test.enabler/11-test-runner-environments.pdr.md`](spx/41-test.enabler/11-test-runner-environments.pdr.md) ([test](tests/agent-test-output.compliance.l1.test.ts))
 - ALWAYS: agent-output runner execution creates artifact directories only when a runner command executes ([test](tests/agent-test-output.compliance.l1.test.ts))
