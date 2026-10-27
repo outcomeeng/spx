@@ -1,0 +1,14 @@
+{
+  "spx/30-berth.enabler/30-cradle.enabler": [
+    { "path": "spx/harbor.product.md", "mode": "full" },
+    { "path": "spx/20-tide-rules.adr.md", "mode": "full" },
+    { "path": "spx/50-mooring.adr.md", "mode": "full" },
+    { "path": "spx/10-chart.enabler/chart.md", "mode": "full" },
+    { "path": "spx/30-berth.enabler/berth.md", "mode": "full" },
+    { "path": "spx/30-berth.enabler/20-draft-limits.adr.md", "mode": "full" },
+    { "path": "spx/30-berth.enabler/50-quay-layout.adr.md", "mode": "full" },
+    { "path": "spx/30-berth.enabler/10-pier.enabler/pier.md", "mode": "full" },
+    { "path": "spx/30-berth.enabler/30-cradle.enabler/40-keel.adr.md", "mode": "full" },
+    { "path": "spx/30-berth.enabler/30-cradle.enabler/cradle.md", "mode": "full" }
+  ]
+}

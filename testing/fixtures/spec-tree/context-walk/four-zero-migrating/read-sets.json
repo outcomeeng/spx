@@ -1,0 +1,19 @@
+{
+  "spx/30-berth.capability/30-cradle.capability": [
+    { "path": "spx/harbor.spec.md", "mode": "full" },
+    { "path": "spx/10-chart.enabler/chart.md", "mode": "digest" },
+    { "path": "spx/20-tide-rules.adr.md", "mode": "full" },
+    { "path": "spx/30-berth.capability/berth.spec.md", "mode": "full" },
+    { "path": "spx/30-berth.capability/ISSUES.md", "mode": "reference" },
+    { "path": "spx/30-berth.capability/10-pier.enabler/pier.md", "mode": "digest" },
+    { "path": "spx/30-berth.capability/20-draft-limits.adr.md", "mode": "full" },
+    { "path": "spx/30-berth.capability/30-cradle.capability/cradle.spec.md", "mode": "full" },
+    { "path": "spx/30-berth.capability/30-cradle.capability/knowledge/index.md", "mode": "reference" },
+    { "path": "spx/30-berth.capability/30-cradle.capability/10-hull.capability/hull.spec.md", "mode": "digest" },
+    { "path": "spx/30-berth.capability/30-cradle.capability/40-keel.adr.md", "mode": "full" },
+    { "path": "spx/30-berth.capability/30-wharf.enabler/wharf.md", "mode": "digest" },
+    { "path": "spx/30-berth.capability/50-davit.capability/davit.spec.md", "mode": "digest" },
+    { "path": "spx/70-anchorage.capability/anchorage.spec.md", "mode": "digest" },
+    { "path": "spx/70-anchorage.capability/40-pilot.capability/20-signals.adr.md", "mode": "full" }
+  ]
+}

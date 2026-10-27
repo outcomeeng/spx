@@ -5,7 +5,7 @@
     "test": {
       "tests/context-ingestion.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
+        "commit": "0b0f1647d7981e063c30c735df6a7c268e478499",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/context-ingestion.md",
@@ -205,7 +205,7 @@
       },
       "tests/context-ingestion.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
+        "commit": "0b0f1647d7981e063c30c735df6a7c268e478499",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -381,7 +381,7 @@
       },
       "tests/context-ingestion.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
+        "commit": "0b0f1647d7981e063c30c735df6a7c268e478499",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/context-ingestion.md",
@@ -553,7 +553,7 @@
       },
       "tests/context-ingestion.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
+        "commit": "0b0f1647d7981e063c30c735df6a7c268e478499",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/context-ingestion.md",
@@ -723,9 +723,50 @@
           "testing/harnesses/with-temp-dir.ts"
         ]
       },
+      "tests/context-walk-fixtures.compliance.l2.test.ts": {
+        "verdict": "passed",
+        "commit": "0b0f1647d7981e063c30c735df6a7c268e478499",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/31-spec-domain.enabler/43-context-ingestion.enabler/context-ingestion.md",
+          "spx/31-spec-domain.enabler/43-context-ingestion.enabler/tests/context-walk-fixtures.compliance.l2.test.ts",
+          "src/config/field-errors.ts",
+          "src/config/filenames.ts",
+          "src/config/methodology-resolution.ts",
+          "src/config/methodology.ts",
+          "src/config/product-file.ts",
+          "src/lib/error-message.ts",
+          "src/lib/harness-environment-section.ts",
+          "src/lib/methodology/declaration-fields.ts",
+          "src/lib/spec-tree/config.ts",
+          "src/lib/spec-tree/context-manifest.ts",
+          "src/lib/spec-tree/context-projection.ts",
+          "src/lib/spec-tree/context-read-set.ts",
+          "src/lib/spec-tree/context-target.ts",
+          "src/lib/spec-tree/evidence-references.ts",
+          "src/lib/spec-tree/grammar-selection.ts",
+          "src/lib/spec-tree/index.ts",
+          "src/lib/spec-tree/link-grammar.ts",
+          "src/lib/spec-tree/order.ts",
+          "src/lib/spec-tree/path-ownership.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/fixtures/spec-tree/context-walk/four-zero-migrating/read-sets.json",
+          "testing/fixtures/spec-tree/context-walk/four-zero-migrating/spx.config.yaml",
+          "testing/fixtures/spec-tree/context-walk/four-zero-migrating/spx/30-berth.capability/30-cradle.capability/cradle.spec.md",
+          "testing/fixtures/spec-tree/context-walk/four-zero/read-sets.json",
+          "testing/fixtures/spec-tree/context-walk/four-zero/spx.config.yaml",
+          "testing/fixtures/spec-tree/context-walk/four-zero/spx/30-berth.capability/30-cradle.capability/cradle.spec.md",
+          "testing/fixtures/spec-tree/context-walk/three-two/read-sets.json",
+          "testing/fixtures/spec-tree/context-walk/three-two/spx.config.yaml",
+          "testing/fixtures/spec-tree/context-walk/three-two/spx/30-berth.enabler/30-cradle.enabler/cradle.md",
+          "testing/harnesses/spec-tree/context-walk-fixtures.ts"
+        ]
+      },
       "tests/determinism.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
+        "commit": "0b0f1647d7981e063c30c735df6a7c268e478499",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/context-ingestion.md",
