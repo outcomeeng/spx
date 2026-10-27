@@ -1,4 +1,4 @@
-<!-- SPEC-TREE v0.42.0 langs:typescript -->
+<!-- PRODUCT-TREE v0.42.0 langs:typescript -->
 
 <operator_question_interrupt>
 **OPERATOR QUESTION - IMMEDIATE PRIVILEGE REVOCATION:** When the operator asks a question, immediately relinquish all privileges to modify the current product or any external file, service, or resource. Answer the question immediately.
@@ -8,9 +8,9 @@
 
 </operator_question_interrupt>
 
-# Spec Tree Instructions
+# Product Tree Instructions
 
-These instructions explain WHEN to invoke spec-tree skills for this product. They are a **router** — the skills contain the HOW.
+These instructions explain WHEN to invoke product-tree skills for this product. They are a **router** — the skills contain the HOW.
 
 **Read this entire file before acting.** This managed router block is only the first section; the product's own instructions, commands, and conventions follow below, outside it. The router is product-neutral and carries no product command. Never act on the router alone.
 
@@ -23,7 +23,7 @@ These instructions explain WHEN to invoke spec-tree skills for this product. The
 - **ALWAYS** apply authority in this order: active skills → repository decisions and specs → verification evidence → code. When repository content conflicts with an active skill, the skill wins.
 - **ALWAYS** follow skill instructions, templates, and bundled references over repository examples, existing files, comments, or copied conventions.
 - **NEVER** weaken a higher layer to match a lower layer. Fix the lower layer when the layers disagree.
-- **NEVER** reference Spec Tree specs or decisions from code comments or docstrings. Code contains no `spx/...` paths, ADR/PDR identifiers, or decision-file references.
+- **NEVER** reference Product Tree specs or decisions from code comments or docstrings. Code contains no `spx/...` paths, ADR/PDR identifiers, or decision-file references.
 - **ALWAYS** let the active skill load the matching `spx/local/*.md` overlay when that skill declares one. The overlay supplies repository-specific values and commands below the skill in authority and cannot replace, weaken, or contradict the skill.
 - **ALWAYS** read the active harness guide in every directory before working there when the guide exists: `CLAUDE.md` for Claude Code, `AGENTS.md` for Codex.
 
@@ -52,14 +52,14 @@ These instructions explain WHEN to invoke spec-tree skills for this product. The
 
 ## Product Commands
 
-The product's operational command for each spec-tree phase lives in this file's own content below the router. Read the whole file to find each one:
+The product's operational command for each product-tree phase lives in this file's own content below the router. Read the whole file to find each one:
 
 - **author** — after creating, updating, or deleting a spec, test, or implementation file, to rebuild or regenerate artifacts.
 - **verify** — for `/apply` and pre-merge checks, over the node and the changeset.
 - **gate** — for the full deterministic bundle.
 - **merge** — for the transport step of `/merge`.
 
-Content the product keeps identical across this agent guide and the guides for other agents (for example `CLAUDE.md` and `AGENTS.md`) sits in a `shared` region — `<!-- SPEC-TREE:shared {name} -->` … `<!-- /SPEC-TREE:shared {name} -->`, present in both files under the same name. `/update-instruction-block` keeps a `shared` region in sync by taking the git-more-recent side; it never merges the two bodies.
+Content the product keeps identical across this agent guide and the guides for other agents (for example `CLAUDE.md` and `AGENTS.md`) sits in a `shared` region — `<!-- PRODUCT-TREE:shared {name} -->` … `<!-- /PRODUCT-TREE:shared {name} -->`, present in both files under the same name. `/update-instruction-block` keeps a `shared` region in sync by taking the git-more-recent side; it never merges the two bodies.
 
 ---
 
@@ -69,7 +69,7 @@ Content the product keeps identical across this agent guide and the guides for o
 
 **BLOCKING REQUIREMENT**
 
-Require a live `<SPEC_TREE_FOUNDATION>` marker before directly reading, searching, listing, or changing anything under `spx/` or any other product content — source or test files, generated output, evals, and spec-declared configuration. Invoke `/understand` when the marker is absent. This includes repository-content access through Read, Edit, Write, Glob, Grep, `rg`, `grep`, `find`, `cat`, `sed`, and Git commands that emit file contents or patches.
+Require a live `<PRODUCT_TREE_FOUNDATION>` marker before directly reading, searching, listing, or changing anything under `spx/` or any other product content — source or test files, generated output, evals, and spec-declared configuration. Invoke `/understand` when the marker is absent. This includes repository-content access through Read, Edit, Write, Glob, Grep, `rg`, `grep`, `find`, `cat`, `sed`, and Git commands that emit file contents or patches.
 
 `spx session` operations — including inspection, archive, and release — plus `spx worktree status`, `spx diagnose`, no-patch Git status, history, and topology, and a skill's read of the `spx/local/` overlay or exclusion mechanism it declares are exempt. Never follow paths from their output into repository content without the marker.
 
@@ -83,7 +83,7 @@ The methodology a repository follows is declared in `spx.config.yaml` at the rep
 
 **ALWAYS** invoke `/contextualize` on a spec node before discussing it and before reading or modifying any product content it governs.
 
-`/contextualize` MUST invoke `/sync-base` and receive `already_current` or `rebased` before reading product truth. `/sync-base` owns the complete currency operation: fetch, clean rebase or detached advance, session-authorized dirty-tree checkpointing through `/commit-changes`, and same-invocation retry. Callers consume its final result; they never duplicate branch creation, commit, stash, or retry logic, and they never reinterpret `dirty_tree` as a rebase conflict.
+`/contextualize` reads the checkout as it stands. It never runs `/sync-base`, fetches, rebases, or otherwise moves the checkout, so a Verifier's context load leaves the head it judges in place.
 
 **🛑 STOP TRIGGER — after every compaction event:** the set of contextualized nodes is empty. **NEVER** read or modify product content whose governing spec node has not been contextualized since that compaction, and **NEVER** discuss a node before contextualizing it. Product content is every product artifact a spec node governs or must govern: source, tests, evals, generated output, specs, decisions, coordination notes, and spec-declared configuration. Operational configuration — the `spx/local/` overlays and the exclusion mechanism, read by the skill that declares them without the marker — and the agent harness's own instruction and settings files it is told to read, tool and command output, the session store, and scratch space are not product content. Product content's governing node is found by search under the live foundation marker: a path under `spx/<node>/` belongs to that node; any other path belongs to the node whose `spx/**/tests/` file names it and whose spec links that test, or whose spec or decision names that path in an `[audit]` assertion; several matching nodes resolve to their lowest common ancestor. Product content with no governing spec is not read or modified; record the gap. An operational continuation — PR inspection, check wait, merge, deploy, release, `spx session` operations, occupancy proof — touches no product content and triggers neither `/understand` nor `/contextualize`.
 
@@ -105,9 +105,11 @@ Review, audit, or quality check specs. Find contradictions or gaps.
 
 ### Before a resource-intensive command -> `/wait-for-load`
 
-🛑 **STOP TRIGGER — Before any resource-intensive command, ALWAYS invoke `/wait-for-load` and run its waiter chained ahead of that command on the same shell line.**
-A resource-intensive command is a test suite, an eval, a full gate, a compiling build, or an install verification; a lightweight command — formatting, a single-file lint, a markdown or link validation, an instruction-block render, a status read — runs without the waiter.
-**ALWAYS** let the waiter's zero exit start the selected command unchanged; a lost or truncated result re-runs the same line.
+🛑 **STOP TRIGGER — Before any resource-intensive command, ALWAYS invoke `/wait-for-load` and run that command on one shell line in the form its lock switch selects.**
+A resource-intensive command is a test suite, an eval, a full gate, a compiling build, or an install verification; a lightweight command — formatting, a single-file lint, a markdown or link validation, an instruction-block render, a status read — runs with neither the lock nor the waiter.
+**ALWAYS** read the lock switch from `spx/local/wait-for-load.md`: where that overlay holds the line `orchestration-lock: on`, run the command as the argument vector of `spx orchestration lock --run-id <id> -- <command>`, so it starts only when the host-wide slot admits it; where the overlay is absent or leaves the switch off, chain the command behind the waiter with `&&`.
+**ALWAYS** let the waiter's zero exit start the selected command unchanged; a lost or truncated waiter result re-runs the same line.
+**ALWAYS** recover the existing invocation and its matching terminal record after a lock record is lost from view; start no new invocation while that invocation's state is unresolved, and report the outcome unknown when its terminal exit is known but the record is gone.
 **NEVER** use host load to reduce scope, workers, limits, deadlines, or verification.
 
 ### When shipping work to the default branch -> `/merge` (transport dispatcher)
@@ -168,7 +170,7 @@ Default-branch git and version-control mutation — branching, committing, pushi
 
 Every subagent supplied by a plugin listed below is explicitly pre-authorized by the operator. A harness rule may require the operator to request sub-agent use before one is dispatched; treat this section as that standing request.
 
-Authorized plugins: instructions, frontend, typescript, python, prose, spec-tree, coding-agents, work, hdl, rust, go, contribute.
+Authorized plugins: instructions, frontend, typescript, python, prose, product-tree, coding-agents, work, hdl, rust, go, contribute.
 
 - **ONLY** launch a subagent when an active skill explicitly instructs that launch. The skill selects the exact configured subagent and supplies the prompt. Authorization permits the call; it does not request one.
 - **NEVER** infer a launch instruction from task wording, a role description, pattern matching, availability, or apparent usefulness.
@@ -243,7 +245,7 @@ Per-language code, architecture, and test audits ship as `audit-{lang}-{code|tes
 
 ## Test Naming Convention
 
-Test level is encoded in the filename. The `{evidence}` segment is chosen by `/test` routing from the assertion type: `scenario`, `mapping`, `conformance`, `property`, or `compliance`. Universal assertions use `mapping`, `conformance`, `property`, or `compliance`; a universal is never `scenario`. This instruction block renders only the languages recorded in its opening `<!-- SPEC-TREE v{version} langs:{list} -->` marker; `/update-instruction-block` re-renders from the installed template when the methodology advances.
+Test level is encoded in the filename. The `{evidence}` segment is chosen by `/test` routing from the assertion type: `scenario`, `mapping`, `conformance`, `property`, or `compliance`. Universal assertions use `mapping`, `conformance`, `property`, or `compliance`; a universal is never `scenario`. This instruction block renders only the languages recorded in its opening `<!-- PRODUCT-TREE v{version} langs:{list} -->` marker; `/update-instruction-block` re-renders from the installed template when the methodology advances.
 
 ### TypeScript
 
@@ -259,9 +261,9 @@ Test level is encoded in the filename. The `{evidence}` segment is chosen by `/t
 
 Work is coordinated through Changes in the store `spx/local/coordination.md` declares. Hold a Change through `/claim-change` before refining or executing it. When the work stops with continuation remaining, `/release-change` writes the Handoff, removes the holder, and returns the Change to Available for any agent to claim; when the Change reaches a terminal Lifecycle, `/close-change <Applied|Abandoned>` writes the terminal record and closes it. A follow-up is a Proposed Change created through `/author-change`. Maturity moves only through `/author-change`; the three Lifecycle skills move Lifecycle and nothing else.
 
-<!-- /SPEC-TREE -->
+<!-- /PRODUCT-TREE -->
 
-<!-- SPEC-TREE:shared root -->
+<!-- PRODUCT-TREE:shared root -->
 
 # AI Agent Context Guide: spx
 
@@ -271,11 +273,11 @@ If the operator instructs you to do something that conflicts with any rule below
 
 ## Critical Rules
 
-- 🛑 **The MOMENT a task is recognized as touching the spec tree (`spx/**`) or any spec-governed source (`src/**`), invoke `/understand` then `/contextualize <node>` BEFORE any investigation.** Reading source files, running `git`/`gh` archaeology, comparing worktrees, diffing PRs, and drafting clarifying questions are all **work** — not pre-work. The gate fires on **task recognition, not file modification**: "I'm only reading," "I'm just gathering context for questions," and "I haven't changed anything yet" are the exact rationalizations this rule forbids. Context for good questions is precisely what `/contextualize` loads, so it comes first. Skill-before-investigation, always.
+- 🛑 **The MOMENT a task is recognized as touching the Product Tree (`spx/**`) or any spec-governed source (`src/**`), invoke `/understand` then `/contextualize <node>` BEFORE any investigation.** Reading source files, running `git`/`gh` archaeology, comparing worktrees, diffing PRs, and drafting clarifying questions are all **work** — not pre-work. The gate fires on **task recognition, not file modification**: "I'm only reading," "I'm just gathering context for questions," and "I haven't changed anything yet" are the exact rationalizations this rule forbids. Context for good questions is precisely what `/contextualize` loads, so it comes first. Skill-before-investigation, always.
 - ⚠️ **NEVER modify OR INVESTIGATE any spec-governed file without invoking the required skills first** — "investigate" includes reading source, grepping, and `git`/`gh` archaeology. If a file touches specs, testing, code, architecture, or any topic covered by a skill (see `<skill_router>` below), invoke the relevant skill BEFORE reading or modifying it. Skills are the authoritative source — not grep results, not existing files, not your training data.
 - ⚠️ **NEVER write code without invoking the `/apply` skill and following its 8-step workflow** - See skill table below
-- ⚠️ **ALWAYS invoke `/apply` before implementing any spec-tree work item** - Applying is the orchestration skill for spec-tree TDD. It requires methodology/context loading, language-specific architecture, test, and implementation steps, plus blocking audit gates before the work can be treated as ready.
-- ⚠️ **NEVER publish or merge spec-tree implementation or test changes without the applying audit gates** - For TypeScript work, `/apply` requires `test-evidence-auditor` to compose `/audit-typescript-test` and `implementation-auditor` to compose `/audit-typescript-code` against an exact local checkpoint commit. Green tests and `pnpm run validate` are necessary but not sufficient for code/test changes.
+- ⚠️ **ALWAYS invoke `/apply` before implementing any product-tree work item** - Applying is the orchestration skill for product-tree TDD. It requires methodology/context loading, language-specific architecture, test, and implementation steps, plus blocking audit gates before the work can be treated as ready.
+- ⚠️ **NEVER publish or merge product-tree implementation or test changes without the applying audit gates** - For TypeScript work, `/apply` requires `test-evidence-auditor` to compose `/audit-typescript-test` and `implementation-auditor` to compose `/audit-typescript-code` against an exact local checkpoint commit. Green tests and `pnpm run validate` are necessary but not sufficient for code/test changes.
 - ⚠️ **NEVER write tests in `tests/`** - Write in `spx/.../tests/` (co-located with specs)
 - ⚠️ **NEVER manually navigate `spx/` hierarchy** - Use `/contextualize spx/path/to/node` skill
 - ⚠️ **Skills are ALWAYS authoritative over existing files** - When a skill template prescribes a structure (e.g., Architectural Constraints table), follow the skill — not patterns found in existing spec files. Existing files may contain non-standard sections added before skills existed. Never infer framework conventions from existing files; always read the skill.
@@ -293,7 +295,7 @@ If the operator instructs you to do something that conflicts with any rule below
 - ⚠️ **A spec file is a pure declaration — its type opening (`PROVIDES … SO THAT … CAN …` or `WE BELIEVE THAT …`) plus `## Assertions` (typed, each carrying a `[test]`/`[eval]`/`[audit]` marker), and NOTHING else.** Never add prose, commentary, evidence-state notes, lifecycle narration ("while Declared", "applying converts this"), or workflow explanation. Atemporal voice: a spec states product truth, never narrates its own state or the process that will fill it. Such notes belong nowhere in the tree — not even in PLAN.md.
 - ⚠️ **Numeric indices encode dependency order ONLY — lower = provider, higher = consumer, same = independent.** Never infer a "domain band", "foundation band", or any tier/zone from where existing nodes cluster; among dependency-valid indices the operator chooses. Reading a convention out of the current layout is the grep-is-not-authority violation in another guise.
 - ⚠️ **A dependency edge B→A must rest on a recognized ordering-evidence type and be verified from the *consumer's* own spec — never inferred from directory clustering or a provider's `SO THAT X CAN …` prose alone.** The bases `/decompose` recognizes are provider/consumer service flow, logical prerequisite, **vertical-slice value delivery**, shared substrate, feature extension, and ADR/PDR constraint. Vertical-slice value delivery is first-class and load-bearing: a node depends on whatever its value cannot be delivered without — so release sits below every domain, because no capability reaches users unreleased. A verification-coupling check ("can B be verified WITHOUT A") diagnoses substrate/prerequisite edges but is NOT required of every edge; a vertical-slice edge holds even when B verifies fine in isolation. Reach for `/decompose` to settle any edge.
-- ⚠️ **spx applied to spx is excluded from the dependency graph.** spx running its own domains on its own source (CI, `publish.yml`, `pnpm validate`/`test`) is self-application/dogfooding, not a spec-tree edge — encoding it makes a domain depend on itself through publishing (circular). Distinguish "a domain spx offers" from "spx applied to spx."
+- ⚠️ **spx applied to spx is excluded from the dependency graph.** spx running its own domains on its own source (CI, `publish.yml`, `pnpm validate`/`test`) is self-application/dogfooding, not a product-tree edge — encoding it makes a domain depend on itself through publishing (circular). Distinguish "a domain spx offers" from "spx applied to spx."
 - ⚠️ **`[audit]` vs `[test]` is the verification MECHANISM, not a lifecycle marker.** In a spec file's `## Assertions`, a testable assertion carries `[test]` (its co-located test is written via `/apply`), `[eval]` for LLM-driven behavior with a structurally scoreable verdict, or `[audit]` (legacy spelling `[review]`) for judgment constraints no automated test can verify — never an `[audit]` "placeholder" for something testable. PDR and ADR `## Verification` rules instead carry the tag their template prescribes: under `### Testing` the evidence type (`[scenario]`/`[mapping]`/`[conformance]`/`[property]`/`[compliance]`), under `### Eval` `[eval]`, under `### Audit` `[audit]`.
 - ⚠️ **NEVER discard or displace uncommitted work with `git checkout -- <path>`, `git restore`, `git reset --hard`, `git clean -f`, or `git stash`** — `git checkout -- <path>`, `git restore`, `git reset --hard`, and `git clean -f` discard uncommitted local changes irrecoverably; `git stash` hides them in the stash stack (recoverable, but it conceals in-progress state from concurrent agents). Hand these off to the user; if you need to discard changes, ask the user to do it.
 - ⚠️ **NEVER `git reset` onto a remote-tracking ref (`origin/<base>`) — neither to rewrite your own commits nor to integrate the latest base** — `origin/<base>` moves as concurrent branches in the worktree pool merge, so resetting onto it silently re-bases your branch onto whatever it became; with `--soft` the working tree is left on the old basis while HEAD jumps forward, desyncing the tree (files present in HEAD show as deleted, files the new base changed show as modified, none of it your work). To reword or re-split your own commits, reset to a FIXED ancestor on your own branch — `git reset --soft HEAD~N` where N is the count of your own commits, or the fork-point SHA (`git merge-base HEAD origin/<base>`). To integrate the latest base, use `git rebase origin/<base>` (which updates the working tree), never a reset. After any history rewrite, verify `git diff --stat origin/<base>...HEAD` shows ONLY your intended files and `git status` has no surprise deletions; surprise files mean the base moved under you — STOP, do not commit.
@@ -316,14 +318,14 @@ If the operator instructs you to do something that conflicts with any rule below
 
 ## Product Language
 
-- ✅ **Refer to this repository as the product, not a project** — Spec Tree is a durable map of product truth, while "project" language implies a temporary effort whose purpose is completion. In prose, prefer "product", "product repository", "product root", and "product directory".
+- ✅ **Refer to this repository as the product, not a project** — Product Tree is a durable map of product truth, while "project" language implies a temporary effort whose purpose is completion. In prose, prefer "product", "product repository", "product root", and "product directory".
 - ✅ **Prefer `productDir` for new root-directory variables and harness APIs** — do not introduce `projectDir` for the repository/product root in new code, tests, fixtures, or documentation. When already editing an owning harness or API, rename `projectDir` to `productDir` as part of that coherent change.
 
 ---
 
 ## Spec Management
 
-The **spec-tree** plugin is the active system for managing specification trees. Core skills:
+The **product-tree** plugin is the active system for managing Product Trees. Core skills:
 
 <skill_router>
 
@@ -334,12 +336,12 @@ The **spec-tree** plugin is the active system for managing specification trees. 
 | `/author`        | Create specs, ADRs, PDRs, enablers, outcomes                       |
 | `/decompose`     | Break nodes into children with proper ordering                     |
 | `/test`          | Manage spec-test lock file lifecycle                               |
-| `/apply`         | Orchestrate spec-tree implementation and audit gates               |
-| `/refactor`      | Restructure the spec tree (move, consolidate, extract)             |
+| `/apply`         | Orchestrate product-tree implementation and audit gates               |
+| `/refactor`      | Restructure the Product Tree (move, consolidate, extract)             |
 | `/align`         | Review for gaps, contradictions, and consistency                   |
 | `/merge`         | Route PR lifecycle work through opening, managing, and merge gates |
 
-Additional skills ship with the plugin and are invoked by name: `/commit-changes`, `/interview`, `/audit-tests`, `/audit-pdr`, `/audit-adr`, `/audit-specs`, `/claim-change`, `/release-change`, `/close-change`, `/author-change`, `/refocus`, `/bootstrap`, `/open-pr`, `/manage-pr`, `/merge`, `/sync-base`, `/merging-standards`, `/diagnose`. See the spec-tree plugin's `skills/` directory for the full list.
+Additional skills ship with the plugin and are invoked by name: `/commit-changes`, `/interview`, `/audit-tests`, `/audit-pdr`, `/audit-adr`, `/audit-specs`, `/claim-change`, `/release-change`, `/close-change`, `/author-change`, `/refocus`, `/bootstrap`, `/open-pr`, `/manage-pr`, `/merge`, `/sync-base`, `/merging-standards`, `/diagnose`. See the product-tree plugin's `skills/` directory for the full list.
 
 </skill_router>
 
@@ -369,7 +371,7 @@ Do not prescribe exact code, documentation, or template changes. Record the mist
 
 ### Decision records: the decision-first ADR/PDR template
 
-**Legacy verbose decision records are no longer valid.** Any ADR or PDR carrying `## Purpose`, `## Context`, a `## Decision` heading, `## Trade-offs accepted`, a `## Compliance` block, or the PDR-specific `## Product invariants` heading (the template's heading is `## Product properties`) — or blanket `[review]` tags — is in violation of the current template and slated for migration to the decision-first shape. It is NOT precedent: do not copy its structure, and never cite it to justify a new or migrated decision record's shape. When the spec-tree reviewer compares a decision-first file against a still-legacy sibling, the legacy sibling is the file in violation.
+**Legacy verbose decision records are no longer valid.** Any ADR or PDR carrying `## Purpose`, `## Context`, a `## Decision` heading, `## Trade-offs accepted`, a `## Compliance` block, or the PDR-specific `## Product invariants` heading (the template's heading is `## Product properties`) — or blanket `[review]` tags — is in violation of the current template and slated for migration to the decision-first shape. It is NOT precedent: do not copy its structure, and never cite it to justify a new or migrated decision record's shape. When the product-tree reviewer compares a decision-first file against a still-legacy sibling, the legacy sibling is the file in violation.
 
 **Decision records carry the detail their reach requires — they are placed so contextualization reads them as a node's governing context.** `/contextualize` loads the product spec plus the ADRs and PDRs along the path to a target node as that node's governing context, and by numeric-index order a decision record reaches its higher-index siblings and their descendants (lower index = provider, read by the higher-index consumers — see the numeric-index dependency-order rule in **Critical Rules** above). A decision record must therefore carry the specific detail the nodes in its reach need to do their work, including mechanism, path, and command detail that, read in isolation, can look like implementation belonging in a node or in code. That detail is governing context, and reach follows index placement: a record is indexed below the nodes that consume it so they read it, so pushing such detail down into a node narrows its reach to that node's own subtree, and removing it starves the dependent nodes' context. Do not flag a decision record's detail as misplaced merely because it names a git command, a file path, or a module; judge whether the nodes in its reach need that detail as context.
 
@@ -382,9 +384,9 @@ Do not prescribe exact code, documentation, or template changes. Record the mist
 
 **NEVER commit without passing source validation.**
 
-### Spec Tree Phase Commands
+### Product Tree Phase Commands
 
-The four Spec Tree phases the router names resolve to these product commands:
+The four Product Tree phases the router names resolve to these product commands:
 
 - **author** — `pnpm run build` after a change that a CLI level-2 test reaches, because those tests run the built `dist/cli.js`; the build is a compiling build, so it runs behind the `/wait-for-load` waiter; no other artifact is regenerated.
 - **verify** — the validation command `spx/local/merging.md` selects for the changeset (`pnpm run validate`, or `tsx src/cli.ts validation markdown <paths>` for a Markdown-only changeset), then `spx test --agent --changed [--base origin/main]`, or `tsx src/cli.ts test --agent --changed [--base origin/main]` when the branch changes `spx test` itself; the test command runs behind the `/wait-for-load` waiter, and `spx/local/merging.md` scopes and escalates the test command.
@@ -523,7 +525,7 @@ These recur on feature worktrees and have cost real debugging time and machine s
 - **`spec status --update` reprojects *every* node from recorded test evidence, so on a stale-`dist` feature worktree it flips sibling `spx.status.json` files `passed`→`failed` for nodes you never touched** — the same stale-`dist` L2 artifact as above, now propagated into committed status files. NEVER restore, discard, or commit such a flip on the assumption it is spurious, and NEVER ask the operator to discard it. Rebuild with `pnpm run build`, re-run the affected nodes' tests through the journaled suite (`tsx src/cli.ts verification test run spx/<node> …`), then re-run `spec status --update`. A fresh-`dist` re-run is the only arbiter: if a node still projects `failed` after it, the failure is real and the change broke it. The CI job `Test + status projection` runs the full suite on fresh `dist`, then `spec status --update --check`, which fails on drift and writes nothing, so a branch whose change moves any node's projection commits the full projection it made on fresh `dist`; locally, treat cross-node status drift as a build-staleness signal to re-run, not a set of files to revert.
 - **`spx.status.json` is a DERIVED artifact — its only writer is `spec status --update` (`src/lib/node-status/update.ts`). NEVER hand-edit its `passed`/`failed`/`not-run` outcome values.** Typing an outcome by hand fabricates the projection — the quality-gate-cheating anti-pattern — and the CI `Test + status projection` job re-derives the projection in memory and fails on any drift from the committed file, so a hand-written value is both dishonest and futile. Producing a status means running the projector, never editing the file. Graduating a node out of `spx/EXCLUDE` is therefore NOT a one-line change: in this product `spx/EXCLUDE` gates markdown validation of the node's own spec file AND the `isExcluded` classification fact, and `spec status --update` writes every outcome as `not-run` for an excluded node (`update.ts` `resolveVerification`) but the node's REAL outcomes once it is unexcluded. Because the CI gate fails on any drift between the committed `spx.status.json` and the fresh projection, graduation is: remove the `spx/EXCLUDE` entry, then REGENERATE the committed status by deriving it on fresh `dist` over the full suite through the current-worktree entry point — never the global `spx` shim, which runs `main`'s stale build and would record status from the wrong source (`pnpm run build` → `tsx src/cli.ts verification test run` → `tsx src/cli.ts spec status --update`; CI's `Test + status projection` runs the same suite, then `spec status --update --check` to fail on drift instead of writing) — and verify the diff touches only the graduated node's `spx.status.json` (`not-run` → `passed`) plus the `spx/EXCLUDE` line. Never hand-write the `passed` values to skip the projector.
 
-<!-- /SPEC-TREE:shared root -->
+<!-- /PRODUCT-TREE:shared root -->
 
 ## Architecture
 
