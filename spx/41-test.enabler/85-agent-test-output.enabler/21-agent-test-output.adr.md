@@ -1,6 +1,6 @@
 # Agent Test Output Architecture
 
-Agent test output implements the `agent` runner environment from [`spx/41-test.enabler/11-test-runner-environments.pdr.md`](spx/41-test.enabler/11-test-runner-environments.pdr.md) by swapping the normal streaming command dependency for a captured-output command dependency. The captured-output dependency invokes the same selected runner command and selected test files as operator mode, writes each child process's stdout and stderr to OS-temp artifact files, returns those paths and any adapter-reported failing test paths in the live dispatch result, and leaves persisted last-run state on the schema governed by [`spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md`](spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md).
+Agent test output implements the `agent` runner environment from [`spx/41-test.enabler/11-test-runner-environments.pdr.md`](spx/41-test.enabler/11-test-runner-environments.pdr.md) by swapping the normal streaming command dependency for a captured-output command dependency. The captured-output dependency invokes the same selected runner command and selected test files as operator mode, writes each child process's stdout and stderr to artifact files in the local worktree's `.spx/worktree/test/artifacts/`, outside the run-scoped temp root of [`spx/13-temp-directory.substrate/21-run-scoped-temp-root.adr.md`](spx/13-temp-directory.substrate/21-run-scoped-temp-root.adr.md), returns those paths and any adapter-reported failing test paths in the live dispatch result, and leaves persisted last-run state on the schema governed by [`spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md`](spx/41-test.enabler/43-last-run-evidence.enabler/11-last-run-file.adr.md).
 
 ## Rationale
 
@@ -12,6 +12,8 @@ The normal `spx test` path stays useful for developers who want the runner's nat
 - Agent mode changes only runner I/O handling and terminal formatting; runner selection, runner command construction, test selection, exit-code aggregation, and last-run evidence recording remain identical.
 
 ## Verification
+
+- ALWAYS: `spx test --agent` writes each child process's stdout and stderr artifact files under `.spx/worktree/test/artifacts/` at the local worktree root, addressed through the state module's worktree scope, replaces the previous run's artifacts before its first runner command starts, and writes none under the user temp folder; a run that executes no runner command creates and replaces nothing, per [`spx/12-test-infrastructure.adr.md`](spx/12-test-infrastructure.adr.md)
 
 ### Testing
 
