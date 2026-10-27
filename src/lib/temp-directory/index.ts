@@ -133,21 +133,19 @@ export function createTempDirectory(deps: TempDirectoryDeps): TempDirectory {
     return runRoot;
   };
 
-  const createInRunRoot = async (namePrefix: string): Promise<string> => {
-    const root = resolve(await ensureRunRoot());
-    const path = resolve(join(root, `${namePrefix}${deps.randomToken()}`));
-    if (!isInside(root, path)) throw new TempDirectoryBoundError(path);
-    fileSystem.makeDirectory(path);
-    return path;
-  };
-
   const releaseInsideRunRoot = (path: string): boolean => {
     const root = environment.get(TEMP_DIRECTORY_ENV_VAR.RUN_ROOT);
     return root !== undefined && isInside(resolve(root), path);
   };
 
   return {
-    createDirectory: (namePrefix = NO_NAME_PREFIX) => createInRunRoot(namePrefix),
+    async createDirectory(namePrefix = NO_NAME_PREFIX) {
+      const root = resolve(await ensureRunRoot());
+      const path = resolve(join(root, `${namePrefix}${deps.randomToken()}`));
+      if (!isInside(root, path)) throw new TempDirectoryBoundError(path);
+      fileSystem.makeDirectory(path);
+      return path;
+    },
 
     releaseDirectory(path) {
       const target = resolve(path);

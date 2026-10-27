@@ -87,13 +87,6 @@ interface TypeScriptCommandInvocation {
  */
 const TEMPORARY_TSCONFIG_COMPILER_OPTIONS = { noEmit: true } as const;
 
-/**
- * Create the scratch directory that holds one validation `tsconfig.json`.
- */
-function createTemporaryTsconfigDir(productDir: string, deps: TypeScriptDeps): Promise<string> {
-  return deps.tempDirectory.createScratchDirectory(productDir);
-}
-
 // =============================================================================
 // PURE ARGUMENT BUILDER
 // =============================================================================
@@ -135,8 +128,8 @@ export async function createFileSpecificTsconfig(
   productDir: string,
   deps: TypeScriptDeps = defaultTypeScriptDeps,
 ): Promise<{ configPath: string; tempDir: string; cleanup: () => void }> {
-  // Create temporary directory
-  const tempDir = await createTemporaryTsconfigDir(productDir, deps);
+  // Create the scratch directory that holds one validation `tsconfig.json`
+  const tempDir = await deps.tempDirectory.createScratchDirectory(productDir);
   const configPath = join(tempDir, "tsconfig.json");
 
   // Get base config file
@@ -168,7 +161,7 @@ async function createScopeFilteredTsconfig(
   scopeConfig: ScopeConfig,
   deps: TypeScriptDeps = defaultTypeScriptDeps,
 ): Promise<{ configPath: string; tempDir: string; cleanup: () => void }> {
-  const tempDir = await createTemporaryTsconfigDir(productDir, deps);
+  const tempDir = await deps.tempDirectory.createScratchDirectory(productDir);
   const configPath = join(tempDir, "tsconfig.json");
   const baseConfigFile = TSCONFIG_FILES[scope];
   const toTemporaryConfigPathPattern = (pattern: string) => {
