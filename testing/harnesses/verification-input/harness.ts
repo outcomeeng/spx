@@ -7,13 +7,14 @@ import { execa } from "execa";
 import { appendFile, chmod, mkdir, readdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 
+import { GIT_DIR_BASENAME } from "@/lib/git/root";
 import { referenceSha256 } from "@testing/generators/verification-input";
+import { GIT_TEST_COMMAND, GIT_TEST_FLAGS, GIT_TEST_SUBCOMMANDS } from "@testing/harnesses/git-test-constants";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const TEMP_PREFIX = "spx-verification-input-";
-const GIT_BINARY = "git";
-const GIT_INIT_ARGS = ["init", "--quiet"] as const;
-const GIT_ADD_ARGS = ["add", "--"] as const;
+const GIT_INIT_ARGS = [GIT_TEST_SUBCOMMANDS.INIT, GIT_TEST_FLAGS.QUIET] as const;
+const GIT_ADD_ARGS = [GIT_TEST_SUBCOMMANDS.ADD, GIT_TEST_FLAGS.PATHSPEC_SEPARATOR] as const;
 const UNREADABLE_MODE = "000";
 const GITIGNORE_FILE = ".gitignore";
 const OUTSIDE_DIRECTORY_PREFIX = "spx-verification-input-outside-";
@@ -43,7 +44,7 @@ async function walk(root: string, relative: string, entries: Map<string, string>
   const directory = join(root, relative);
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const child = relative === "" ? entry.name : `${relative}/${entry.name}`;
-    if (child === ".git") continue;
+    if (child === GIT_DIR_BASENAME) continue;
     if (entry.isDirectory()) {
       entries.set(child, "directory");
       await walk(root, child, entries);
@@ -60,7 +61,7 @@ export async function withVerificationInputEnv<T>(
 ): Promise<T> {
   return withTempDir(TEMP_PREFIX, async (root) =>
     withTempDir(OUTSIDE_DIRECTORY_PREFIX, async (outsideDir) => {
-      await execa(GIT_BINARY, [...GIT_INIT_ARGS], { cwd: root });
+      await execa(GIT_TEST_COMMAND, [...GIT_INIT_ARGS], { cwd: root });
       const env: VerificationInputEnv = {
         root,
         outsideDir,
@@ -93,7 +94,7 @@ export async function withVerificationInputEnv<T>(
           await appendFile(join(root, GITIGNORE_FILE), `${relativePath}\n`);
         },
         async track(relativePath) {
-          await execa(GIT_BINARY, [...GIT_ADD_ARGS, relativePath], { cwd: root });
+          await execa(GIT_TEST_COMMAND, [...GIT_ADD_ARGS, relativePath], { cwd: root });
         },
         relativeFromRoot(absolutePath) {
           return relative(root, absolutePath);

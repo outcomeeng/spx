@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
-import { CONTENT_NORMALIZATION } from "@/lib/verification-input";
+import { CONTENT_NORMALIZATION, UNIVERSAL_NEWLINE_DIGEST_VERSION } from "@/lib/verification-input";
 import {
   referenceSha256,
   sampleVerificationInputValue,
@@ -28,7 +28,7 @@ describe("verification input inspect through the built executable", () => {
           contentDigests: {
             [CONTENT_NORMALIZATION.NONE]: { sha256: referenceSha256(scenario.variants.first) },
             [CONTENT_NORMALIZATION.UTF8_UNIVERSAL_NEWLINES]: {
-              version: 1,
+              version: UNIVERSAL_NEWLINE_DIGEST_VERSION,
               sha256: referenceSha256(scenario.variants.canonical),
             },
           },
