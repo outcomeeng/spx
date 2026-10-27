@@ -21,6 +21,7 @@ import {
   KIND_REGISTRY,
   NODE_KINDS,
   OUTPUT_KINDS,
+  resolveAdmittedChildren,
   SPEC_TREE_ASSERTION_BULLET_PREFIX,
   SPEC_TREE_ASSERTIONS_HEADING,
   SPEC_TREE_AUDIT_TAG_SLUG_SEPARATOR,
@@ -35,6 +36,7 @@ import {
   SPEC_TREE_METHODOLOGY_LINE,
   SPEC_TREE_VERIFICATION_TYPE,
   type SpecTreeEvidenceReference,
+  type SpecTreeNodeKind,
   type SpecTreeNodeSourceEntry,
   type SpecTreeVerificationType,
 } from "@/lib/spec-tree";
@@ -667,7 +669,7 @@ export function declaredGrammarLinkCases(): readonly DeclaredGrammarLinkCase[] {
 
 type DirectoryNaming = {
   /** The suffixes of the kinds the citing node takes, which the declared grammar reads as nodes. */
-  readonly citingKinds: readonly Kind[];
+  readonly citingKinds: readonly SpecTreeNodeKind[];
   readonly specFileSuffix: string;
   /** The suffixes of the directories the declared grammar accepts as node directories. */
   readonly nodeKinds: readonly Kind[];
@@ -701,16 +703,28 @@ function directoryName(order: number | string, slug: string, kind: Kind): string
   return `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${KIND_REGISTRY[kind].suffix}`;
 }
 
+/**
+ * The directory kinds of `naming` that a citing node of `citingKind` admits as children, so a
+ * directory a link enters nests only a kind the citing node's kind admits. A kind that resolves
+ * no admitted children places no limit.
+ */
+function admittedNodeKinds(citingKind: SpecTreeNodeKind, naming: DirectoryNaming): readonly Kind[] {
+  const admitted: readonly string[] | undefined = resolveAdmittedChildren(citingKind);
+  return admitted === undefined ? naming.nodeKinds : naming.nodeKinds.filter((kind) => admitted.includes(kind));
+}
+
 function linkedDirectoryName(
   linkCase: DeclaredGrammarLinkCase,
   naming: DirectoryNaming,
+  citingKind: SpecTreeNodeKind,
   slug: string,
   order: number | string,
   threeDigitOrder: number,
   kindIndex: number,
 ): string {
   if (linkCase.directory === LINKED_DIRECTORY_CLASS.NODE) {
-    return directoryName(order, slug, naming.nodeKinds[kindIndex % naming.nodeKinds.length]);
+    const admitted = admittedNodeKinds(citingKind, naming);
+    return directoryName(order, slug, admitted[kindIndex % admitted.length]);
   }
   if (naming.folderKinds.length > 0) {
     return directoryName(order, slug, naming.folderKinds[kindIndex % naming.folderKinds.length]);
@@ -750,9 +764,11 @@ export function arbitraryDeclaredGrammarLinkScenario(
           linkTail,
         ],
       ) => {
+        const citingKind = naming.citingKinds[citingIndex];
         const linkedDirectory = linkedDirectoryName(
           linkCase,
           naming,
+          citingKind,
           linkedSlug,
           linkedOrder,
           threeDigitOrder,
@@ -761,7 +777,7 @@ export function arbitraryDeclaredGrammarLinkScenario(
         const linkPath = [linkedDirectory, linkTail].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
         const specPath = [
           SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-          directoryName(nodeOrder, nodeSlug, naming.citingKinds[citingIndex]),
+          directoryName(nodeOrder, nodeSlug, citingKind),
           `${nodeSlug}${naming.specFileSuffix}`,
         ].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
         const specText = [
