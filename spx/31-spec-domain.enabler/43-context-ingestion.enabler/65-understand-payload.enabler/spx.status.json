@@ -5,7 +5,7 @@
     "test": {
       "tests/understand-payload.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "methodology/4.0/claude/spec-tree/skills/understand/SKILL.md",
           "methodology/4.0/claude/spec-tree/skills/understand/manifest.json",
@@ -192,7 +192,7 @@
       },
       "tests/understand-payload.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/tests/understand-payload.mapping.l1.test.ts",
@@ -364,7 +364,7 @@
       },
       "tests/understand-payload.mapping.l2.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "methodology/4.0/claude/spec-tree/skills/understand/SKILL.md",
           "methodology/4.0/claude/spec-tree/skills/understand/manifest.json",
@@ -544,7 +544,7 @@
       },
       "tests/understand-payload.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/65-understand-payload.enabler/tests/understand-payload.scenario.l1.test.ts",
@@ -716,7 +716,7 @@
       },
       "tests/understand-payload.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "methodology/4.0/claude/spec-tree/skills/understand/SKILL.md",
           "methodology/4.0/claude/spec-tree/skills/understand/manifest.json",

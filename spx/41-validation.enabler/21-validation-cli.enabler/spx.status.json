@@ -5,7 +5,7 @@
     "test": {
       "tests/dispatch.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/21-validation-cli.enabler/tests/dispatch.compliance.l2.test.ts",
@@ -399,7 +399,7 @@
       },
       "tests/dispatch.mapping.l2.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/21-validation-cli.enabler/tests/dispatch.mapping.l2.test.ts",
@@ -791,7 +791,7 @@
       },
       "tests/dispatch.property.l2.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/21-validation-cli.enabler/tests/dispatch.property.l2.test.ts",
@@ -1183,7 +1183,7 @@
       },
       "tests/dispatch.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/21-validation-cli.enabler/tests/dispatch.scenario.l2.test.ts",
@@ -1577,7 +1577,7 @@
       },
       "tests/full-pipeline-skip.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/21-validation-cli.enabler/tests/full-pipeline-skip.scenario.l2.test.ts",

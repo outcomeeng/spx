@@ -290,7 +290,7 @@
       },
       "tests/output-modes.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/32-typescript-validation.enabler/32-literal-reuse.enabler/54-output-modes.enabler/output-modes.md",
