@@ -23,3 +23,14 @@
 **Impact:** the violating case data is test-owned rather than generated, the compliance rule lacks a conforming case, and a change to the harness message breaks the test through a duplicated literal.
 
 **Settlement condition:** the violating and conforming path cases come from a generator or an inert whole-payload fixture, and the expected error message is imported from the harness module that owns it.
+
+## The spec-tree environment lifecycle evidence checks helper presence only
+
+**Evidence:** [`32-spec-tree-fixtures.enabler/tests/spec-tree-env-lifecycle.scenario.l1.test.ts`](spx/22-test-environment.enabler/32-spec-tree-fixtures.enabler/tests/spec-tree-env-lifecycle.scenario.l1.test.ts) evidences the assertion that `withSpecTreeEnv`, given a Config and a callback, passes the callback `productDir`, a representative fixture, source helpers, snapshot helpers, and materialization helpers.
+
+- `expect(env.memorySource()).toBeDefined()`, `expect(env.materialize).toBeDefined()`, and the other `toBeDefined` checks on helper members establish that a member exists. No check calls a helper or inspects what it returns.
+- The fixture entries are checked with `toBeDefined` as well, so a helper replaced by a non-functional function and a fixture whose entries hold no content both pass.
+
+**Impact:** the lifecycle scenario passes while any helper is non-functional, so the assertion that the callback receives working source, snapshot, and materialization helpers is unfulfilled.
+
+**Settlement condition:** the lifecycle scenario calls each helper the callback receives and checks the result it returns, including the fixture entries, so replacing a helper with a non-functional function fails it.
