@@ -14,7 +14,15 @@ Domain ownership keeps generated values and harness behavior aligned with the pr
 
 ## Verification
 
+- ALWAYS: every temp directory a test, harness, generator, or spx command creates lives under one run root in `.spx/worktree/test-runs/` at the local worktree root of the run, or, where a tool resolves configuration against the product, under the product-local scratch parent `node_modules/.cache/spx/`; one central temp-directory primitive owns both placements, the run that creates a directory removes it at its end, and before its first use a run removes every run root left in its own worktree, so a killed or timed-out run leaves nothing once the next run in that worktree starts
+
+### Testing
+
+- ALWAYS: a completed test run leaves no entry it created in the user temp folder, in its worktree's `.spx/worktree/test-runs/`, or in the product-local scratch parent, and a starting run removes every run root an earlier run left in its own worktree's `.spx/worktree/test-runs/` ([compliance])
+
 ### Audit
+
+- NEVER: a test, harness, generator, or spx command creates or removes a temp directory itself through `mkdtemp`, `mkdtempSync`, or a temp-directory `rm`; it obtains and releases every temp directory through the central temp-directory primitive, while composing path text that is never created stays outside this rule ([audit])
 
 - ALWAYS: every reusable generator, harness, and fixture is governed by a domain spec that declares its observable contract and ownership boundary ([audit])
 - ALWAYS: generators are pure, side-effect-free functions over meaningful variable domains with shrinking and replay supplied by the property harness ([audit])
