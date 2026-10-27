@@ -5,7 +5,7 @@
     "test": {
       "tests/launch-agent.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/87-session-pick.enabler/session-pick.md",
@@ -30,7 +30,7 @@
       },
       "tests/picker-cli.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/87-session-pick.enabler/session-pick.md",
@@ -65,7 +65,7 @@
       },
       "tests/picker-model.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/87-session-pick.enabler/session-pick.md",
@@ -84,7 +84,7 @@
       },
       "tests/picker-model.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/87-session-pick.enabler/session-pick.md",
@@ -106,7 +106,7 @@
       },
       "tests/picker-render.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/87-session-pick.enabler/session-pick.md",
@@ -130,7 +130,7 @@
       },
       "tests/picker-render.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/87-session-pick.enabler/session-pick.md",
@@ -154,7 +154,7 @@
       },
       "tests/run-picker.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/87-session-pick.enabler/session-pick.md",

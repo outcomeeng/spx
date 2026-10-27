@@ -5,7 +5,7 @@
     "test": {
       "tests/evidence-contract.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -121,6 +121,10 @@
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
           "src/outcomeeng/spec-tree/graph/source/order.ts",
           "src/test/config.ts",
           "src/test/languages/journal-reporter.ts",
@@ -180,7 +184,7 @@
       },
       "tests/execution-recording.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -269,6 +273,10 @@
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
           "src/outcomeeng/spec-tree/graph/source/order.ts",
           "src/test/config.ts",
           "src/test/languages/journal-reporter.ts",
@@ -319,7 +327,7 @@
       },
       "tests/recorded-run-reuse.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -403,6 +411,7 @@
           "src/commands/verification-exec/test-runner.ts",
           "src/commands/verify/change-runs.ts",
           "src/commands/verify/cli.ts",
+          "src/commands/verify/input-inspect.ts",
           "src/commands/worktree/claim.ts",
           "src/commands/worktree/index.ts",
           "src/commands/worktree/release.ts",
@@ -646,6 +655,10 @@
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
           "src/lib/worktree-occupancy-file-system.ts",
           "src/lib/worktree-path-info.ts",
           "src/lib/worktree-process-table.ts",
@@ -723,7 +736,7 @@
       },
       "tests/recorded-run-reuse.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -807,6 +820,7 @@
           "src/commands/verification-exec/test-runner.ts",
           "src/commands/verify/change-runs.ts",
           "src/commands/verify/cli.ts",
+          "src/commands/verify/input-inspect.ts",
           "src/commands/worktree/claim.ts",
           "src/commands/worktree/index.ts",
           "src/commands/worktree/release.ts",
@@ -1050,6 +1064,10 @@
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
           "src/lib/worktree-occupancy-file-system.ts",
           "src/lib/worktree-path-info.ts",
           "src/lib/worktree-process-table.ts",
@@ -1128,7 +1146,7 @@
       },
       "tests/test.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -1244,6 +1262,10 @@
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
           "src/outcomeeng/spec-tree/graph/source/order.ts",
           "src/test/config.ts",
           "src/test/languages/journal-reporter.ts",
@@ -1305,7 +1327,7 @@
       },
       "tests/test.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -1393,7 +1415,7 @@
       },
       "tests/test.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -1496,7 +1518,7 @@
       },
       "tests/test.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -1580,6 +1602,7 @@
           "src/commands/verification-exec/test-runner.ts",
           "src/commands/verify/change-runs.ts",
           "src/commands/verify/cli.ts",
+          "src/commands/verify/input-inspect.ts",
           "src/commands/worktree/claim.ts",
           "src/commands/worktree/index.ts",
           "src/commands/worktree/release.ts",
@@ -1821,6 +1844,10 @@
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
           "src/lib/worktree-occupancy-file-system.ts",
           "src/lib/worktree-path-info.ts",
           "src/lib/worktree-process-table.ts",

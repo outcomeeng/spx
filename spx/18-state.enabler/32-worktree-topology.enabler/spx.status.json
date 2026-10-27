@@ -5,7 +5,7 @@
     "test": {
       "tests/default-branch.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/32-worktree-topology.enabler/tests/default-branch.compliance.l1.test.ts",
@@ -28,7 +28,7 @@
       },
       "tests/git-facts.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/32-worktree-topology.enabler/tests/git-facts.scenario.l1.test.ts",
@@ -50,7 +50,7 @@
       },
       "tests/main-checkout-path.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/32-worktree-topology.enabler/tests/main-checkout-path.mapping.l1.test.ts",
@@ -72,7 +72,7 @@
       },
       "tests/main-checkout.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/32-worktree-topology.enabler/tests/main-checkout.mapping.l1.test.ts",
@@ -94,7 +94,7 @@
       },
       "tests/main-checkout.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/32-worktree-topology.enabler/tests/main-checkout.scenario.l1.test.ts",

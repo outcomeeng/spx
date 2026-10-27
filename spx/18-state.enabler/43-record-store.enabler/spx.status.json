@@ -5,7 +5,7 @@
     "test": {
       "tests/atomic-jsonl-publication.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/43-record-store.enabler/record-store.md",
@@ -27,7 +27,7 @@
       },
       "tests/atomic-jsonl-publication.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/43-record-store.enabler/record-store.md",
@@ -49,7 +49,7 @@
       },
       "tests/atomic-jsonl-publication.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/43-record-store.enabler/record-store.md",
@@ -71,7 +71,7 @@
       },
       "tests/jsonl-records.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/43-record-store.enabler/record-store.md",
@@ -92,7 +92,7 @@
       },
       "tests/record-store.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/43-record-store.enabler/record-store.md",
@@ -114,7 +114,7 @@
       },
       "tests/run-file.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/43-record-store.enabler/record-store.md",
@@ -135,7 +135,7 @@
       },
       "tests/run-record.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/43-record-store.enabler/record-store.md",
