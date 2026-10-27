@@ -39,6 +39,7 @@ import {
   type VerifyStatusCliOptions,
   verifyStatusCommand,
 } from "@/commands/verify/cli";
+import { verifyInputInspectCommand } from "@/commands/verify/input-inspect";
 import type { CliCommandResult } from "@/config/types";
 import {
   VERIFY_CONTENT_OPTION,
@@ -69,7 +70,11 @@ export const VERIFICATION_RUN_CLI_SURFACE = {
 /** The `spx verification input inspect <path>` command path, beside the run-producing command paths. */
 export const VERIFICATION_INPUT_CLI_SURFACE = {
   inspectCommandName: "inspect",
+  inspectDescription: "Report one product file's canonical product-relative path and content digests",
+  operand: "<path>",
+  operandDescription: "Product file to inspect, as a path the invocation directory or the worktree root resolves",
   resourceCommandName: "input",
+  resourceDescription: "Inspect a verification input before any run exists",
 } as const;
 
 /**
@@ -429,6 +434,21 @@ export function registerVerifyCommands(
           { change: options.change, firstRun, secondRun },
           { cwd: invocation.resolveEffectiveInvocationDir() },
         ),
+        invocation.io,
+      );
+    });
+
+  // The inspection reads one product file and appends to no journal, so it takes only the
+  // invocation directory and binds no journal event stream.
+  command
+    .command(VERIFICATION_INPUT_CLI_SURFACE.resourceCommandName)
+    .description(VERIFICATION_INPUT_CLI_SURFACE.resourceDescription)
+    .command(VERIFICATION_INPUT_CLI_SURFACE.inspectCommandName)
+    .description(VERIFICATION_INPUT_CLI_SURFACE.inspectDescription)
+    .argument(VERIFICATION_INPUT_CLI_SURFACE.operand, VERIFICATION_INPUT_CLI_SURFACE.operandDescription)
+    .action(async (operand: string) => {
+      reportCliResult(
+        await verifyInputInspectCommand({ operand }, { cwd: invocation.resolveEffectiveInvocationDir() }),
         invocation.io,
       );
     });
