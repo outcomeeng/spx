@@ -336,8 +336,8 @@ The **product-tree** plugin is the active system for managing Product Trees. Cor
 | `/author`        | Create specs, ADRs, PDRs, enablers, outcomes                       |
 | `/decompose`     | Break nodes into children with proper ordering                     |
 | `/test`          | Manage spec-test lock file lifecycle                               |
-| `/apply`         | Orchestrate product-tree implementation and audit gates               |
-| `/refactor`      | Restructure the Product Tree (move, consolidate, extract)             |
+| `/apply`         | Orchestrate product-tree implementation and audit gates            |
+| `/refactor`      | Restructure the Product Tree (move, consolidate, extract)          |
 | `/align`         | Review for gaps, contradictions, and consistency                   |
 | `/merge`         | Route PR lifecycle work through opening, managing, and merge gates |
 
