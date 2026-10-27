@@ -5,6 +5,7 @@ import { execa } from "execa";
 
 import { CONFIG_FILE_FORMAT, CONFIG_FILENAMES, serializeConfigFileSections } from "@/config";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree/config";
+import { ERROR_CODE_NOT_FOUND } from "@/lib/state-store";
 import type { NestedProductLayout } from "@testing/generators/state/nested-product-layout";
 import {
   buildGitTestEnvironment,
@@ -22,7 +23,6 @@ const ANCESTOR_TEMP_DIR_PREFIX = "spx-git-observation-ancestor-";
 const CHILD_DIRECTORY_NAME = "root";
 const PRODUCT_SPEC_STEM = "layout";
 const TITLE_HEADING_PREFIX = "# ";
-const NOT_FOUND_ERROR_CODE = "ENOENT";
 
 /** Section key under which a placed level's configuration value is written and read back. */
 export const NESTED_LAYOUT_CONFIG_SECTION = "layout";
@@ -53,7 +53,7 @@ async function readIfPresent(path: string): Promise<string | null> {
   try {
     return await readFile(path, "utf8");
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === NOT_FOUND_ERROR_CODE) return null;
+    if ((error as NodeJS.ErrnoException).code === ERROR_CODE_NOT_FOUND) return null;
     throw error;
   }
 }
