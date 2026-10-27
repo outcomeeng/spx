@@ -77,6 +77,8 @@ const OBSERVED_NODE_DIRECTORY = "21-observed.capability";
 const OBSERVED_TESTS_DIRECTORY = "tests";
 const OBSERVED_SUITE_FILE_NAME = "observe.scenario.l1.test.ts";
 const EMPTY_TSCONFIG_TEXT = "{}";
+const PACKAGE_MANIFEST_FILE_NAME = "package.json";
+const EMPTY_PACKAGE_MANIFEST_TEXT = "{}";
 const BUILT_CLI_BUNDLE = join(PRODUCT_ROOT, "dist", "cli.js");
 const TOOL_RUNNER_RELATIVE_PATH = ["node_modules", ".bin", "tsx"] as const;
 const TSCONFIG_FLAG = "--tsconfig";
@@ -120,6 +122,7 @@ export async function runSpxTestWithRunRootObserver(mode: SpxTestRunMode): Promi
     await runGit(productDir, [GIT_TEST_SUBCOMMANDS.INIT]);
     await linkProductRunnerToolchain(productDir);
     await writeFile(join(productDir, TYPESCRIPT_MARKER), EMPTY_TSCONFIG_TEXT);
+    await writeFile(join(productDir, PACKAGE_MANIFEST_FILE_NAME), EMPTY_PACKAGE_MANIFEST_TEXT);
     await copyFile(OBSERVER_FIXTURE_PATH, join(testsDir, OBSERVED_SUITE_FILE_NAME));
     const worktreeRoot = await realpath(productDir);
 
