@@ -1,6 +1,6 @@
 # Issues: Verification input
 
-## Two realizations of the verification path scope exist: `src/lib/verification-input/resolve-operand.ts`, `the candidate classification of resolveOperand`, [`spx/29-verification-path-scope.pdr.md consistency`](spx/29-verification-path-scope.pdr.md)
+## Two realizations of the verification path scope exist: `src/lib/verification-input/resolve-operand.ts`, `the candidate classification of resolveOperand`, `consistency`
 
 [`spx/29-verification-path-scope.pdr.md`](spx/29-verification-path-scope.pdr.md) governs how product commands resolve caller-supplied product paths. Its first product property collects candidates from the effective invocation directory, and its second normalizes candidates lexically, resolves them through symbolic links, and discards a candidate whose resolved location lies outside the resolved product root. Its audited rule rejects a path operand that escapes the resolved product root through lexical traversal or symbolic-link resolution. [`spx/41-test.enabler/90-targeted-execution.enabler/targeted-execution.md`](spx/41-test.enabler/90-targeted-execution.enabler/targeted-execution.md) cites the same decision and asserts that operand selection is one pure library under `src/lib/test-targeting/`, consumed by every verification surface that narrows work by product path.
 
