@@ -1,7 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { constants, type Stats } from "node:fs";
-import { lstat, mkdir, mkdtemp, open, realpath, rename, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { lstat, mkdir, open, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import { normalizeDocumentationPathSeparators, RELEASE_DOCUMENTATION_PATH_SEPARATOR } from "@/domains/release/config";
@@ -18,6 +17,7 @@ import {
   isResolvedPathContained,
   PATH_CONTAINMENT_ROOT_CANDIDATE,
 } from "@/lib/file-system/pathContainment";
+import { getProcessTempDirectory, type TempDirectory } from "@/lib/temp-directory";
 
 export const DOCUMENTATION_TEXT_ENCODING = "utf8";
 const DOCUMENTATION_OPEN_FLAGS = constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK;
@@ -60,6 +60,7 @@ export interface DocumentationSyncFilesystemDependencies {
   readonly openDocumentationFile: DocumentationFileOpener;
   readonly resolveCanonicalDocumentationPath: DocumentationCanonicalPathResolver;
   readonly writeDocumentAtomic: DocumentationAtomicWriter;
+  readonly tempDirectory: TempDirectory;
 }
 
 interface VerifiedDocumentationPath {
@@ -93,7 +94,10 @@ const DOCUMENTATION_PATH_OPERATIONS: DocumentationPathOperations = {
   sep,
 };
 
-const DEFAULT_DOCUMENTATION_SYNC_FILESYSTEM_DEPENDENCIES: DocumentationSyncFilesystemDependencies = {
+const DEFAULT_DOCUMENTATION_SYNC_FILESYSTEM_DEPENDENCIES: Omit<
+  DocumentationSyncFilesystemDependencies,
+  "tempDirectory"
+> = {
   openDocumentationFile: async (path) => {
     assertRegularDocumentationPath(path, await lstat(path));
     const handle = await open(path, DOCUMENTATION_OPEN_FLAGS);
@@ -133,7 +137,11 @@ export function createDocumentationAtomicWriter(
 export function createDocumentationSyncFilesystem(
   overrides: Partial<DocumentationSyncFilesystemDependencies> = {},
 ): DocumentationSyncFilesystem {
-  const dependencies = { ...DEFAULT_DOCUMENTATION_SYNC_FILESYSTEM_DEPENDENCIES, ...overrides };
+  const dependencies: DocumentationSyncFilesystemDependencies = {
+    ...DEFAULT_DOCUMENTATION_SYNC_FILESYSTEM_DEPENDENCIES,
+    tempDirectory: getProcessTempDirectory(),
+    ...overrides,
+  };
   return {
     stageDocumentation: async (productDir, paths) => await stageDocumentationSet(productDir, paths, dependencies),
     readDocument: async (workingDirectory, path) => await readStagedDocumentation(workingDirectory, path, dependencies),
@@ -166,7 +174,7 @@ async function stageDocumentationSet(
     paths.map(async (sourcePath) => await verifyDocumentationPath(canonicalProductDir, sourcePath, dependencies)),
   );
   assertUniqueDocumentationTargets(verified);
-  const workingDirectory = await mkdtemp(join(tmpdir(), DOCUMENTATION_STAGE_DIRECTORY_PREFIX));
+  const workingDirectory = await dependencies.tempDirectory.createDirectory(DOCUMENTATION_STAGE_DIRECTORY_PREFIX);
   try {
     const documents = await Promise.all(verified.map(async ({
       sourcePath,
@@ -182,10 +190,10 @@ async function stageDocumentationSet(
     return {
       workingDirectory,
       documents,
-      cleanup: async () => await rm(workingDirectory, { recursive: true, force: true }),
+      cleanup: async () => dependencies.tempDirectory.releaseDirectory(workingDirectory),
     };
   } catch (error) {
-    await rm(workingDirectory, { recursive: true, force: true });
+    dependencies.tempDirectory.releaseDirectory(workingDirectory);
     throw error;
   }
 }

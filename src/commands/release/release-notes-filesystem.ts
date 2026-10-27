@@ -2,8 +2,7 @@ import { randomBytes } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
 import type { Stats } from "node:fs";
 import type { FileHandle } from "node:fs/promises";
-import { lstat, mkdir, mkdtemp, open, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { lstat, mkdir, open, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, relative, sep } from "node:path";
 
 import {
@@ -17,6 +16,7 @@ import {
   ReleaseNotesError,
 } from "@/domains/release/release-notes";
 import { type AtomicWriteFileSystem, type RandomBytes, writeFileAtomic } from "@/lib/atomic-file-write";
+import { getProcessTempDirectory, type TempDirectory } from "@/lib/temp-directory";
 
 const FILE_NOT_FOUND_ERROR_CODE = "ENOENT";
 const NOT_DIRECTORY_ERROR_CODE = "ENOTDIR";
@@ -58,6 +58,7 @@ export interface ReleaseNotesFilesystemOptions {
   readonly beforeArtifactPromotion?: (path: string) => Promise<void>;
   readonly beforeFinalArtifactWrite?: (path: string) => Promise<void>;
   readonly beforeStageArtifactRead?: (path: string) => Promise<void>;
+  readonly tempDirectory?: TempDirectory;
 }
 
 export function createReleaseNotesFilesystem(options: ReleaseNotesFilesystemOptions = {}): ReleaseNotesFilesystem {
@@ -70,7 +71,7 @@ export function createReleaseNotesFilesystem(options: ReleaseNotesFilesystemOpti
         path === expectedCanonicalPath ? options.beforeStageArtifactRead : undefined,
       ),
     createArtifactStage: async (_targetCanonicalPath, existingContent) => {
-      return await createReleaseNotesArtifactStage(existingContent);
+      return await createReleaseNotesArtifactStage(options.tempDirectory ?? getProcessTempDirectory(), existingContent);
     },
     promoteArtifact: (stagedCanonicalPath, targetCanonicalPath, content) =>
       promoteReleaseNotesArtifact(
@@ -86,9 +87,10 @@ export function createReleaseNotesFilesystem(options: ReleaseNotesFilesystemOpti
 }
 
 async function createReleaseNotesArtifactStage(
+  tempDirectory: TempDirectory,
   existingContent?: string,
 ): Promise<ArtifactStage> {
-  const stageWorkingDirectory = await mkdtemp(join(tmpdir(), STAGING_DIRECTORY_PREFIX));
+  const stageWorkingDirectory = await tempDirectory.createDirectory(STAGING_DIRECTORY_PREFIX);
   const canonicalStageDirectory = await canonicalizeExistingPath(stageWorkingDirectory);
   if (canonicalStageDirectory === undefined) {
     throw new ReleaseNotesError(
@@ -108,7 +110,7 @@ async function createReleaseNotesArtifactStage(
     workingDirectory: canonicalStageDirectory,
     path: stagePath,
     cleanup: async () => {
-      await rm(canonicalStageDirectory, { force: true, recursive: true });
+      tempDirectory.releaseDirectory(canonicalStageDirectory);
     },
   };
 }
