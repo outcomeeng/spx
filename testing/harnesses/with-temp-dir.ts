@@ -1,14 +1,9 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join, resolve, sep } from "node:path";
-
-const TEMP_ROOT = resolve(tmpdir());
-const TEMP_ROOT_WITH_SEP = TEMP_ROOT.endsWith(sep) ? TEMP_ROOT : TEMP_ROOT + sep;
+import { getProcessTempDirectory } from "@/lib/temp-directory";
 
 /**
- * The base cleanup-owning temp-directory primitive: creates a fresh directory under
- * `os.tmpdir()`, invokes the callback with its path, removes the directory on both the
- * return and throw paths, and returns the callback's result. A cleanup failure is swallowed
+ * The base cleanup-owning temp-directory primitive: creates a fresh directory under the run root
+ * of the temp-directory library, invokes the callback with its path, removes the directory on both
+ * the return and throw paths, and returns the callback's result. A cleanup failure is swallowed
  * so it never masks the callback's own result or error. Callback-scoped harnesses compose
  * on this primitive.
  */
@@ -25,25 +20,17 @@ export async function withTempDir<T>(
 }
 
 /**
- * Creates a fresh directory under `os.tmpdir()` for harnesses whose lifecycle cannot use the
+ * Creates a fresh directory under the run root for harnesses whose lifecycle cannot use the
  * callback-scoped `withTempDir` — a factory harness that returns a handle creates here and
  * removes through `removeTempDir`.
  */
 export async function createTempDir(prefix: string): Promise<string> {
-  const target = resolve(join(TEMP_ROOT, prefix));
-  if (!target.startsWith(TEMP_ROOT_WITH_SEP)) {
-    throw new Error(`Refusing to create temp directory outside os.tmpdir(): ${prefix}`);
-  }
-  return mkdtemp(join(TEMP_ROOT, prefix));
+  return getProcessTempDirectory().createDirectory(prefix);
 }
 
 /**
- * Removes a temp directory, refusing any resolved path that does not live under `os.tmpdir()`.
+ * Removes a temp directory, refusing any path that does not live under the run root.
  */
 export async function removeTempDir(dir: string): Promise<void> {
-  const resolved = resolve(dir);
-  if (!resolved.startsWith(TEMP_ROOT_WITH_SEP)) {
-    throw new Error(`Refusing to remove path outside os.tmpdir(): ${resolved}`);
-  }
-  await rm(resolved, { recursive: true, force: true });
+  getProcessTempDirectory().releaseDirectory(dir);
 }
