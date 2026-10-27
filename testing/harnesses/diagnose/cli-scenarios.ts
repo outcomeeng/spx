@@ -31,6 +31,7 @@ import { METHODOLOGY_CODING_AGENTS } from "@/lib/methodology";
 import { CLI_TIMEOUTS_MS } from "@testing/harnesses/constants";
 import {
   isolatedDiagnoseEnvironment,
+  repositoryFreeWorkingDirectory,
   runDiagnoseCli,
   writeAllChecksManifest,
   writeSpxReachabilityManifest,
@@ -275,8 +276,9 @@ export function registerDiagnoseCliScenarios(): void {
     });
 
     it("runs bare with no manifest and no diagnose config, rendering every registered check with a verdict-keyed exit", async () => {
-      await withTempDir("diagnose-bare", async (cwd) => {
-        const environment = isolatedDiagnoseEnvironment(cwd);
+      await withTempDir("diagnose-bare", async (home) => {
+        const cwd = repositoryFreeWorkingDirectory();
+        const environment = isolatedDiagnoseEnvironment(home);
         const result = await runDiagnoseCli(
           [DIAGNOSE_CLI.FORMAT_FLAG, DIAGNOSE_FORMAT.JSON],
           { cwd, env: environment },

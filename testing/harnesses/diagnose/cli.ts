@@ -8,6 +8,7 @@
 
 import fc from "fast-check";
 import { writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { execa } from "execa";
@@ -36,6 +37,16 @@ export async function runDiagnoseCli(
     cwd: options?.cwd,
   });
   return { stdout: result.stdout, exitCode: result.exitCode ?? 1 };
+}
+
+/**
+ * A working directory outside every repository. The product's git reads drop `GIT_CEILING_DIRECTORIES`,
+ * so a directory inside the run root, which lies in the worktree's own checkout, cannot hide the
+ * enclosing repository from the diagnosed process; the user temp folder holds none. The directory is
+ * only read as a working directory, never created or removed.
+ */
+export function repositoryFreeWorkingDirectory(): string {
+  return tmpdir();
 }
 
 export function isolatedDiagnoseEnvironment(home: string): NodeJS.ProcessEnv {

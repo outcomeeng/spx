@@ -258,7 +258,7 @@ export async function assertWorktreeTouchingProbesAvoidStatus(): Promise<void> {
       executablePath,
       [
         "#!/usr/bin/env node",
-        "const { appendFileSync } = require('node:fs');",
+        "const { appendFileSync } = process.getBuiltinModule('node:fs');",
         "appendFileSync(process.env.SPX_DIAGNOSE_RECORD_ARGS, `${JSON.stringify(process.argv.slice(2))}\\n`);",
       ].join("\n"),
     );
