@@ -35,11 +35,13 @@ import { NODE_STATUS_TEST_GENERATOR } from "@testing/generators/node-status/node
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
 import {
+  backdateNodeStatusFiles,
   createConsultationRecordingResolver,
   currentMethodologyConfig,
   listNodeStatusFiles,
   methodologyDeclaringConfig,
   readNodeStatusFileBytes,
+  readNodeStatusFileModificationTimes,
   readSpecTreeWorkingChanges,
   readVersion1NodeStatus,
   trackSpecTree,
@@ -283,6 +285,30 @@ describe("spx spec status --update outcome source", () => {
             expect(testRecord?.[evidencePath]).toBe(NODE_STATUS_EVIDENCE_OUTCOME.NOT_RUN);
           }
         }
+      },
+    );
+  });
+});
+
+describe("spx spec status --update over a current committed projection", () => {
+  it("NEVER: writes spx.status.json into a node directory whose file already equals the projection byte for byte — every file's modification time and bytes stay as they were", async () => {
+    await withClassificationTree(
+      sampleGeneratedValue(NODE_STATUS_TEST_GENERATOR.delegationTree()),
+      async ({ env, expectations, commitProjection }) => {
+        const resolveOutcome = await commitProjection();
+        await backdateNodeStatusFiles(env.productDir);
+        const timesBefore = await readNodeStatusFileModificationTimes(env.productDir);
+        const bytesBefore = await readNodeStatusFileBytes(env.productDir);
+        expect(Object.keys(timesBefore).sort(compareAsciiStrings)).toEqual(
+          expectations.map((expectation) => expectation.statusPath).sort(compareAsciiStrings),
+        );
+        expect(expectations.length).toBeGreaterThan(0);
+
+        await updateNodeStatus({ productDir: env.productDir, resolveOutcome });
+
+        expect(await readNodeStatusFileModificationTimes(env.productDir)).toEqual(timesBefore);
+        expect(await readNodeStatusFileBytes(env.productDir)).toEqual(bytesBefore);
+        expect(await readSpecTreeWorkingChanges(env.productDir)).toEqual([]);
       },
     );
   });

@@ -5,7 +5,7 @@
     "test": {
       "tests/write-paths.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
+        "commit": "69bcc2a0d43b1ea49da671bef9150cec2e02da0e",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/tests/write-paths.compliance.l1.test.ts",
@@ -405,7 +405,7 @@
       },
       "tests/write-paths.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
+        "commit": "69bcc2a0d43b1ea49da671bef9150cec2e02da0e",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/tests/write-paths.mapping.l1.test.ts",

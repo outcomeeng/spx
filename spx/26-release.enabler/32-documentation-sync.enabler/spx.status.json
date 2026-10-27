@@ -278,7 +278,7 @@
       },
       "tests/documentation-sync.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
+        "commit": "69bcc2a0d43b1ea49da671bef9150cec2e02da0e",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-documentation-sync.enabler/documentation-sync.md",

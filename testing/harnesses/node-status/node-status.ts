@@ -1,5 +1,5 @@
 import { execa } from "execa";
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, stat, utimes } from "node:fs/promises";
 import { dirname, join, posix, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -550,6 +550,27 @@ export async function readNodeStatusFileBytes(productDir: string): Promise<Reado
   const paths = await listNodeStatusFiles(productDir);
   return Object.fromEntries(
     await Promise.all(paths.map(async (path) => [path, await readFile(join(productDir, path))] as const)),
+  );
+}
+
+/** How far before the present `backdateNodeStatusFiles` moves each file's modification time. */
+const NODE_STATUS_BACKDATE_MILLISECONDS = 60 * 60 * 1000;
+
+/** Move the modification time of every `spx.status.json` under the spec tree of `productDir` to an earlier instant. */
+export async function backdateNodeStatusFiles(productDir: string): Promise<void> {
+  const earlier = new Date(Date.now() - NODE_STATUS_BACKDATE_MILLISECONDS);
+  for (const path of await listNodeStatusFiles(productDir)) {
+    await utimes(join(productDir, path), earlier, earlier);
+  }
+}
+
+/** The modification time in milliseconds of every `spx.status.json` under the spec tree of `productDir`, keyed by product-relative path. */
+export async function readNodeStatusFileModificationTimes(
+  productDir: string,
+): Promise<Readonly<Record<string, number>>> {
+  const paths = await listNodeStatusFiles(productDir);
+  return Object.fromEntries(
+    await Promise.all(paths.map(async (path) => [path, (await stat(join(productDir, path))).mtimeMs] as const)),
   );
 }
 
