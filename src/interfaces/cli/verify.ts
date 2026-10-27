@@ -66,6 +66,12 @@ export const VERIFICATION_RUN_CLI_SURFACE = {
   scopeResourceCommandName: "scope",
 } as const;
 
+/** The `spx verification input inspect <path>` command path, beside the run-producing command paths. */
+export const VERIFICATION_INPUT_CLI_SURFACE = {
+  inspectCommandName: "inspect",
+  resourceCommandName: "input",
+} as const;
+
 /**
  * The spx-driven `spx verification <type> run [paths…]` command surface. Each executable verification
  * type is a noun command carrying the `run` verb; positional path operands narrow the run, and the
