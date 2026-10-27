@@ -42,14 +42,6 @@ The other three `[audit]` Compliance rules keep that mechanism correctly. Two as
 
 **Resolution:** repoint each per-module sampler's call sites at `sampleGeneratedValue` and delete the sampler, in its owning node's changeset, taking the unseeded ones first.
 
-## The sibling-survival safety test owns directory setup inline
-
-**Evidence:** `tests/safety.compliance.l1.test.ts` line 27 creates and removes a directory directly (`mkdirSync`, `rmSync`, and a `Date.now` and `randomBytes` name under `os.tmpdir()`) inside the test body. The rule is cross-assertion setup and lifecycle policy that `spx/22-test-environment.enabler/test-environment.md` assigns to the shared temp-directory primitive and its harnesses.
-
-**Impact:** the test carries the directory policy the primitive exists to own, and a later test copies the inline form.
-
-**Settlement condition:** a harness composing on `createTempDir` and `removeTempDir` supplies the sibling directory handle, and the test receives the handle and states only its survival predicate.
-
 ## The nesting scenario hand-picks its thrown error message
 
 **Evidence:** `tests/nesting.scenario.l1.test.ts` line 50 throws the literal `"outer-fail"` and line 52 repeats it, while the lifecycle cases draw their values from a generator.

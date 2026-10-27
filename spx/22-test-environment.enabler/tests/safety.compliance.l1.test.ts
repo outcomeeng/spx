@@ -3,7 +3,7 @@ import { relative, resolve, sep } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { getProcessTempDirectory, TEMP_DIRECTORY_ENV_VAR } from "@/lib/temp-directory";
+import { TEMP_DIRECTORY_ENV_VAR } from "@/lib/temp-directory";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
@@ -24,9 +24,9 @@ describe("withTestEnv — filesystem safety", () => {
   });
 
   it("removes the temp directory it created but leaves sibling directories under the run root untouched", async () => {
-    const sibling = await getProcessTempDirectory().createDirectory();
+    const prefix = sampleConfigTestValue(CONFIG_TEST_GENERATOR.tempPrefix());
 
-    try {
+    await withTempDir(prefix, async (sibling) => {
       let productDir = "";
       await withTestEnv(MINIMAL_SPEC_TREE_CONFIG, async (env) => {
         productDir = env.productDir;
@@ -35,9 +35,7 @@ describe("withTestEnv — filesystem safety", () => {
 
       expect(existsSync(productDir)).toBe(false);
       expect(existsSync(sibling)).toBe(true);
-    } finally {
-      getProcessTempDirectory().releaseDirectory(sibling);
-    }
+    });
   });
 
   it("never exposes a product directory that resolves outside the run root", async () => {
