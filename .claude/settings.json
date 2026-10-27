@@ -3,7 +3,6 @@
     "prose@outcomeeng": true,
     "instructions@outcomeeng": true,
     "typescript@outcomeeng": true,
-    "spec-tree@outcomeeng": true,
     "product-tree@outcomeeng": true,
     "coding-agents@outcomeeng": true
   },
