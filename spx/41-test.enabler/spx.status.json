@@ -5,7 +5,7 @@
     "test": {
       "tests/evidence-contract.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -184,7 +184,7 @@
       },
       "tests/execution-recording.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -327,7 +327,7 @@
       },
       "tests/recorded-run-reuse.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -736,7 +736,7 @@
       },
       "tests/recorded-run-reuse.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -1146,7 +1146,7 @@
       },
       "tests/test.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
@@ -1518,7 +1518,7 @@
       },
       "tests/test.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/test.md",
