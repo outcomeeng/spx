@@ -10,6 +10,11 @@ CAN name a verification input by its content, and learn the digests that `spx ve
 
 ## Assertions
 
-- Given a product file, when `spx verification input inspect <path>` runs, then it writes one JSON result carrying `path`, the canonical product-relative path, and `contentDigests` to standard output through the terminal-text JSON composition and exits 0
-- ALWAYS: an operand inspection rejects exits 1 with a diagnostic on standard error naming the operand, escaped through terminal text, and empty standard output
-- NEVER: `spx verification input inspect` opens a verification run or writes a file
+### Scenarios
+
+- Given a product file, when `spx verification input inspect <path>` runs, then it writes one JSON result carrying `path`, the canonical product-relative path, and `contentDigests` to standard output through the terminal-text JSON composition and exits 0 ([test](tests/inspect.scenario.l2.test.ts))
+
+### Compliance
+
+- ALWAYS: an operand inspection rejects exits 1 with a diagnostic on standard error naming the operand, escaped through terminal text, and empty standard output ([test](tests/rejection.compliance.l2.test.ts))
+- NEVER: `spx verification input inspect` opens a verification run or writes a file ([test](tests/read-only.compliance.l2.test.ts))

@@ -178,7 +178,28 @@ export function arbitraryRejectionScenario(): fc.Arbitrary<RejectionScenario> {
     }));
 }
 
+/** An operand spelled from printable segments around one control byte, resolving to no product file. */
+export interface ControlByteOperandScenario {
+  readonly operand: string;
+  readonly controlByte: string;
+  readonly printablePrefix: string;
+}
+
+const CONTROL_BYTES = ["\u001b", "\u0007", "\u0008", "\u007f"] as const;
+
+/** An operand carrying a control byte that a terminal would act on, so an unescaped echo is observable. */
+export function arbitraryControlByteOperand(): fc.Arbitrary<ControlByteOperandScenario> {
+  return fc
+    .tuple(arbitrarySegment(), fc.constantFrom(...CONTROL_BYTES), arbitrarySegment())
+    .map(([printablePrefix, controlByte, suffix]) => ({
+      operand: `${printablePrefix}${controlByte}${suffix}`,
+      controlByte,
+      printablePrefix,
+    }));
+}
+
 export const VERIFICATION_INPUT_TEST_GENERATOR = {
+  controlByteOperand: arbitraryControlByteOperand,
   byteSequence: arbitraryByteSequence,
   invalidUtf8: arbitraryInvalidUtf8,
   lineEndingVariants: arbitraryLineEndingVariants,
