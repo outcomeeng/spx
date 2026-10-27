@@ -750,7 +750,7 @@
       },
       "tests/markdown-validation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
+        "commit": "58647952b9a72608fbdb5f1309e562be893cafcd",
         "read": [
           "pnpm-lock.yaml",
           "spx.config.yaml",
