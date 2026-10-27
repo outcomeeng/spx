@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { VERIFY_CLI_ERROR, VERIFY_CLI_EXIT_CODE } from "@/commands/verify/cli";
-import { VERIFY_INPUT_CHECK_FAILURE, VERIFY_INPUT_CHECK_RESULT } from "@/domains/verify/verify";
+import { VERIFY_CLI_ERROR, VERIFY_CLI_EXIT_CODE, type VerifyInputCheckReport } from "@/commands/verify/cli";
+import {
+  VERIFY_INPUT_CHECK_FAILURE,
+  VERIFY_INPUT_CHECK_RESULT,
+  type VerifyInputCheckFailureReport,
+} from "@/domains/verify/verify";
 import { CONTENT_NORMALIZATION } from "@/lib/verification-input";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { STATE_STORE_TEST_GENERATOR } from "@testing/generators/state-store/state-store";
@@ -31,7 +35,7 @@ describe("record-run input --check-file through the built executable", () => {
           expect(observation.check.exitCode, observation.check.stderr).toBe(
             equal ? VERIFY_CLI_EXIT_CODE.OK : VERIFY_CLI_EXIT_CODE.ERROR,
           );
-          expect((JSON.parse(observation.check.stdout) as { result: string }).result).toBe(
+          expect((JSON.parse(observation.check.stdout) as VerifyInputCheckReport).result).toBe(
             equal ? VERIFY_INPUT_CHECK_RESULT.EQUAL : VERIFY_INPUT_CHECK_RESULT.DIFFERENT,
           );
         }
@@ -52,9 +56,10 @@ describe("record-run input --check-file through the built executable", () => {
         bytes: undefined,
       });
 
-      expect(observation.check.exitCode).toBe(2);
-      expect(JSON.parse(observation.check.stdout)).toBeTruthy();
-      expect(observation.check.stdout).toContain(VERIFY_INPUT_CHECK_FAILURE.CHECK_FILE_UNREADABLE);
+      expect(observation.check.exitCode).toBe(VERIFY_CLI_EXIT_CODE.CHECK_UNAVAILABLE);
+      expect((JSON.parse(observation.check.stdout) as VerifyInputCheckFailureReport).result).toBe(
+        VERIFY_INPUT_CHECK_FAILURE.CHECK_FILE_UNREADABLE,
+      );
     },
     CLI_TIMEOUTS_MS.E2E_BATCH,
   );
@@ -73,9 +78,10 @@ describe("record-run input --check-file through the built executable", () => {
         CONTENT_NORMALIZATION.UTF8_UNIVERSAL_NEWLINES,
       );
 
-      expect(observation.check.exitCode).toBe(2);
-      expect(JSON.parse(observation.check.stdout)).toBeTruthy();
-      expect(observation.check.stdout).toContain(VERIFY_INPUT_CHECK_FAILURE.NORMALIZATION_FAILED);
+      expect(observation.check.exitCode).toBe(VERIFY_CLI_EXIT_CODE.CHECK_UNAVAILABLE);
+      expect((JSON.parse(observation.check.stdout) as VerifyInputCheckFailureReport).result).toBe(
+        VERIFY_INPUT_CHECK_FAILURE.NORMALIZATION_FAILED,
+      );
     },
     CLI_TIMEOUTS_MS.E2E_BATCH,
   );
@@ -94,9 +100,10 @@ describe("record-run input --check-file through the built executable", () => {
         CONTENT_NORMALIZATION.UTF8_UNIVERSAL_NEWLINES,
       );
 
-      expect(observation.check.exitCode).toBe(2);
-      expect(JSON.parse(observation.check.stdout)).toBeTruthy();
-      expect(observation.check.stdout).toContain(VERIFY_INPUT_CHECK_FAILURE.CONTENT_IDENTITY_UNAVAILABLE);
+      expect(observation.check.exitCode).toBe(VERIFY_CLI_EXIT_CODE.CHECK_UNAVAILABLE);
+      expect((JSON.parse(observation.check.stdout) as VerifyInputCheckFailureReport).result).toBe(
+        VERIFY_INPUT_CHECK_FAILURE.CONTENT_IDENTITY_UNAVAILABLE,
+      );
     },
     CLI_TIMEOUTS_MS.E2E_BATCH,
   );
@@ -109,7 +116,7 @@ describe("record-run input --check-file through the built executable", () => {
 
       const run = await observeBuiltInputCheckOfUnknownRun(runToken, path);
 
-      expect(run.exitCode).toBe(2);
+      expect(run.exitCode).toBe(VERIFY_CLI_EXIT_CODE.CHECK_UNAVAILABLE);
       expect(run.stdout).toHaveLength(0);
       expect(run.stderr).toContain(VERIFY_CLI_ERROR.RUN_NOT_FOUND);
     },

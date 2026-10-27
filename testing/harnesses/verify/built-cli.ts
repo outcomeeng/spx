@@ -844,9 +844,9 @@ export async function observeBuiltReconcileInvocations(): Promise<BuiltReconcile
   });
 }
 
-/** The content expectation a built `start` carries: the expected digest and, when named, the normalization it is taken under. */
+/** The content expectation a built `start` carries: the expected digest, when given, and, when named, the normalization it is taken under. */
 export interface BuiltContentExpectation {
-  readonly sha256: string;
+  readonly sha256?: string;
   readonly normalization?: string;
 }
 
@@ -867,8 +867,7 @@ export async function observeBuiltStartContentExpectation(
         ...changesetReviewSelectors(repository),
         flagOf(VERIFY_CLI.inputOption),
         VERIFY_INPUT_SOURCE.STDIN,
-        flagOf(VERIFY_CLI.expectContentSha256Option),
-        expectation.sha256,
+        ...(expectation.sha256 === undefined ? [] : [flagOf(VERIFY_CLI.expectContentSha256Option), expectation.sha256]),
         ...(expectation.normalization === undefined
           ? []
           : [flagOf(VERIFY_CLI.contentNormalizationOption), expectation.normalization]),
