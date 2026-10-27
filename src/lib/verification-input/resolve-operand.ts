@@ -69,7 +69,8 @@ export type OperandResolution =
 
 function isInside(root: string, candidate: string): boolean {
   const rel = relative(root, candidate);
-  return rel === "" || (!rel.startsWith(PARENT_SEGMENT) && !isAbsolute(rel));
+  const escapesRoot = rel === PARENT_SEGMENT || rel.startsWith(PARENT_SEGMENT + sep) || isAbsolute(rel);
+  return !escapesRoot;
 }
 
 function hasComponentSuffix(file: string, operandComponents: readonly string[]): boolean {
