@@ -652,15 +652,15 @@ export interface RecordedInput {
 
 /** The option spellings the content-identity diagnostics name. */
 export const VERIFY_CONTENT_OPTION = {
-  EXPECTED_SHA256: "--expected-content-sha256",
+  EXPECT_SHA256: "--expect-content-sha256",
   CHECK_FILE: "--check-file",
   CONTENT_NORMALIZATION: "--content-normalization",
 } as const;
 
 export const VERIFY_CONTENT_ERROR = {
-  EXPECTED_DIGEST_MALFORMED: `${VERIFY_CONTENT_OPTION.EXPECTED_SHA256} must be 64 lowercase hexadecimal characters`,
+  EXPECTED_DIGEST_MALFORMED: `${VERIFY_CONTENT_OPTION.EXPECT_SHA256} must be 64 lowercase hexadecimal characters`,
   NORMALIZATION_WITHOUT_DIGEST:
-    `${VERIFY_CONTENT_OPTION.CONTENT_NORMALIZATION} requires ${VERIFY_CONTENT_OPTION.EXPECTED_SHA256}`,
+    `${VERIFY_CONTENT_OPTION.CONTENT_NORMALIZATION} requires ${VERIFY_CONTENT_OPTION.EXPECT_SHA256}`,
   NORMALIZATION_WITHOUT_FILE:
     `${VERIFY_CONTENT_OPTION.CONTENT_NORMALIZATION} requires ${VERIFY_CONTENT_OPTION.CHECK_FILE}`,
   NORMALIZATION_UNSUPPORTED: `${VERIFY_CONTENT_OPTION.CONTENT_NORMALIZATION} must be one of`,
@@ -680,6 +680,12 @@ export const VERIFY_INPUT_CHECK_FAILURE = {
   NORMALIZATION_FAILED: "normalization-failed",
   CHECK_FILE_UNREADABLE: "check-file-unreadable",
 } as const;
+
+/** The reason a recorded-input check cannot report a result, with the diagnostic that names it. */
+export interface VerifyInputCheckFailureReport {
+  readonly result: (typeof VERIFY_INPUT_CHECK_FAILURE)[keyof typeof VERIFY_INPUT_CHECK_FAILURE];
+  readonly detail: string;
+}
 
 /** A checked file's digest set against the digest recorded at start, under one normalization. */
 export interface VerifyInputCheckOutcome {
@@ -704,7 +710,7 @@ function normalizationVersionOf(normalization: ContentNormalization): { readonly
 }
 
 function normalizationFailure(normalization: ContentNormalization): string {
-  return `${VERIFY_INPUT_CHECK_FAILURE.NORMALIZATION_FAILED}: the bytes are not valid UTF-8 under ${normalization} version ${UNIVERSAL_NEWLINE_DIGEST_VERSION}`;
+  return `the bytes are not valid UTF-8 under ${normalization} version ${UNIVERSAL_NEWLINE_DIGEST_VERSION}`;
 }
 
 /** The content normalization a request names, `none` when it names none; a name outside the supported normalizations is rejected. */
@@ -747,7 +753,12 @@ export function checkStartContentExpectation(
   expectation: StartContentExpectation,
 ): Result<void> {
   const observed = digestUnderNormalization(bytes, expectation.normalization);
-  if (observed === undefined) return { ok: false, error: normalizationFailure(expectation.normalization) };
+  if (observed === undefined) {
+    return {
+      ok: false,
+      error: `${VERIFY_INPUT_CHECK_FAILURE.NORMALIZATION_FAILED}: ${normalizationFailure(expectation.normalization)}`,
+    };
+  }
   if (observed === expectation.expectedSha256) return { ok: true, value: undefined };
   return {
     ok: false,
@@ -761,17 +772,24 @@ export function checkRecordedContentIdentity(
   record: RecordedInput,
   normalization: ContentNormalization,
   checkedBytes: Uint8Array,
-): Result<VerifyInputCheckOutcome> {
+): Result<VerifyInputCheckOutcome, VerifyInputCheckFailureReport> {
   const expected = record.contentDigests?.[normalization]?.sha256;
   if (expected === undefined) {
     return {
       ok: false,
-      error:
-        `${VERIFY_INPUT_CHECK_FAILURE.CONTENT_IDENTITY_UNAVAILABLE}: the run recorded no digest of its input under ${normalization}`,
+      error: {
+        result: VERIFY_INPUT_CHECK_FAILURE.CONTENT_IDENTITY_UNAVAILABLE,
+        detail: `the run recorded no digest of its input under ${normalization}`,
+      },
     };
   }
   const observed = digestUnderNormalization(checkedBytes, normalization);
-  if (observed === undefined) return { ok: false, error: normalizationFailure(normalization) };
+  if (observed === undefined) {
+    return {
+      ok: false,
+      error: { result: VERIFY_INPUT_CHECK_FAILURE.NORMALIZATION_FAILED, detail: normalizationFailure(normalization) },
+    };
+  }
   return {
     ok: true,
     value: {

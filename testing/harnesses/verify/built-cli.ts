@@ -844,7 +844,6 @@ export async function observeBuiltReconcileInvocations(): Promise<BuiltReconcile
   });
 }
 
-
 /** The content expectation a built `start` carries: the expected digest and, when named, the normalization it is taken under. */
 export interface BuiltContentExpectation {
   readonly sha256: string;
@@ -868,15 +867,14 @@ export async function observeBuiltStartContentExpectation(
         ...changesetReviewSelectors(repository),
         flagOf(VERIFY_CLI.inputOption),
         VERIFY_INPUT_SOURCE.STDIN,
-        flagOf(VERIFY_CLI.expectedContentSha256Option),
+        flagOf(VERIFY_CLI.expectContentSha256Option),
         expectation.sha256,
         ...(expectation.normalization === undefined
           ? []
           : [flagOf(VERIFY_CLI.contentNormalizationOption), expectation.normalization]),
       ],
       input,
-    )
-  );
+    ));
 }
 
 /** A file a built `input --check-file` checks: its product-relative path and its bytes, or `undefined` bytes when the file does not exist. */
@@ -934,13 +932,15 @@ export async function observeBuiltInputCheckOfUnknownRun(
   checkedFilePath: string,
 ): Promise<BuiltVerificationCliRun> {
   const scenario = sampleVerifyTestValue(CHANGE_RUNS_TEST_GENERATOR.scenario());
-  return withChangeRunsRepository(scenario, async (repository) =>
-    runBuiltVerificationRun(repository.productDir, [VERIFY_CLI.inputCommandName], [
-      ...changesetReviewSelectors(repository),
-      flagOf(VERIFY_CLI.runOption),
-      runToken,
-      flagOf(VERIFY_CLI.checkFileOption),
-      checkedFilePath,
-    ])
+  return withChangeRunsRepository(
+    scenario,
+    async (repository) =>
+      runBuiltVerificationRun(repository.productDir, [VERIFY_CLI.inputCommandName], [
+        ...changesetReviewSelectors(repository),
+        flagOf(VERIFY_CLI.runOption),
+        runToken,
+        flagOf(VERIFY_CLI.checkFileOption),
+        checkedFilePath,
+      ]),
   );
 }

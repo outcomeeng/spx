@@ -16,11 +16,11 @@ describe("verify start expected content digest compliance", () => {
   it("rejects an expected digest that is not 64 lowercase hexadecimal characters, naming the option, before any run state exists", async () => {
     await assertProperty(
       VERIFY_CONTENT_IDENTITY_TEST_GENERATOR.malformedExpectedDigest(),
-      async (expectedContentSha256) => {
-        const observation = await observeStartOverInputBytes(new Uint8Array(), { expectedContentSha256 });
+      async (expectContentSha256) => {
+        const observation = await observeStartOverInputBytes(new Uint8Array(), { expectContentSha256 });
 
         expect(observation.command.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-        expect(observation.command.output).toContain(VERIFY_CONTENT_OPTION.EXPECTED_SHA256);
+        expect(observation.command.output).toContain(VERIFY_CONTENT_OPTION.EXPECT_SHA256);
         expect(observation.stateRootExists).toBe(false);
       },
       { level: PROPERTY_LEVEL.L1 },
@@ -35,7 +35,7 @@ describe("verify start expected content digest compliance", () => {
           const observation = await observeStartOverInputBytes(input.bytes, { contentNormalization });
 
           expect(observation.command.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
-          expect(observation.command.output).toContain(VERIFY_CONTENT_OPTION.EXPECTED_SHA256);
+          expect(observation.command.output).toContain(VERIFY_CONTENT_OPTION.EXPECT_SHA256);
           expect(observation.command.output).toContain(VERIFY_CONTENT_OPTION.CONTENT_NORMALIZATION);
           expect(observation.stateRootExists).toBe(false);
         }
@@ -58,7 +58,7 @@ describe("verify start expected content digest compliance", () => {
       async ({ input, rows }) => {
         for (const { normalization, expected } of rows) {
           const observation = await observeStartOverInputBytes(input.bytes, {
-            expectedContentSha256: expected,
+            expectContentSha256: expected,
             contentNormalization: normalization,
           });
 
@@ -79,7 +79,7 @@ describe("verify start expected content digest compliance", () => {
       ),
       async ({ input, expected }) => {
         const observation = await observeStartOverInputBytes(input.bytes, {
-          expectedContentSha256: expected,
+          expectContentSha256: expected,
           contentNormalization: CONTENT_NORMALIZATION.UTF8_UNIVERSAL_NEWLINES,
         });
 
@@ -97,7 +97,7 @@ describe("verify start expected content digest compliance", () => {
       VERIFY_CONTENT_IDENTITY_TEST_GENERATOR.startInput(),
       async (input) => {
         const observation = await observeStartOverInputBytes(input.bytes, {
-          expectedContentSha256: referenceSha256(input.bytes),
+          expectContentSha256: referenceSha256(input.bytes),
         });
 
         expect(observation.command.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
@@ -113,7 +113,7 @@ describe("verify start expected content digest compliance", () => {
       async (input) => {
         const normalizedDigest = referenceDigestUnder(CONTENT_NORMALIZATION.UTF8_UNIVERSAL_NEWLINES, input);
         const observation = await observeStartOverInputBytes(input.bytes, {
-          expectedContentSha256: normalizedDigest,
+          expectContentSha256: normalizedDigest,
         });
 
         expect(observation.command.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
@@ -131,7 +131,7 @@ describe("verify start expected content digest compliance", () => {
       async (input) => {
         for (const normalization of Object.values(CONTENT_NORMALIZATION)) {
           const observation = await observeStartOverInputBytes(input.bytes, {
-            expectedContentSha256: referenceDigestUnder(normalization, input),
+            expectContentSha256: referenceDigestUnder(normalization, input),
             contentNormalization: normalization,
           });
 

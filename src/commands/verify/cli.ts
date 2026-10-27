@@ -75,6 +75,8 @@ import {
   VERIFY_DRIVE_MODE,
   VERIFY_EVIDENCE_KIND,
   VERIFY_EXPECTATIONS_ERROR,
+  VERIFY_INPUT_CHECK_FAILURE,
+  VERIFY_INPUT_CHECK_RESULT,
   VERIFY_SCOPE_ERROR,
   VERIFY_SCOPE_SEPARATOR,
   VERIFY_SCOPE_TYPE,
@@ -85,6 +87,7 @@ import {
   type VerifyExpectations,
   type VerifyFindingCounts,
   type VerifyFindingsByDisposition,
+  type VerifyInputCheckFailureReport,
   type VerifyInputCheckOutcome,
   verifyInputRecordPath,
   type VerifyRunProjection,
@@ -129,6 +132,7 @@ import {
 export const VERIFY_CLI_EXIT_CODE = {
   OK: 0,
   ERROR: 1,
+  CHECK_UNAVAILABLE: 2,
 } as const;
 
 export const VERIFY_CLI_ENV = {
@@ -169,7 +173,7 @@ export const VERIFY_CLI_ERROR = {
   EXPECTATIONS_INVALID: "spx verification run start: expectations rejected",
   CONTENT_IDENTITY_REJECTED: "spx verification run start: input content identity rejected",
   INPUT_CHECK_REJECTED: "spx verification run input: content identity check rejected",
-  CHECK_FILE_UNREADABLE: "check-file-unreadable: the file to check cannot be read:",
+  CHECK_FILE_UNREADABLE: "the file to check cannot be read:",
   EXPECTATIONS_SOURCE_UNREADABLE: "the expectations source cannot be read",
   EXPECTATIONS_PATHS_UNREADABLE: "spx verification run start could not read the files the head commit holds",
   SEAL_FAILED: "spx verification run could not seal the run journal",
@@ -231,7 +235,7 @@ export interface VerifyStartCliOptions {
   /** The Verifier that judges the run, in the `<kind>:<id>` form; absent when the run names none. */
   readonly verifier?: string;
   /** The SHA-256 the input's bytes are expected to have under the content normalization; absent expects none. */
-  readonly expectedContentSha256?: string;
+  readonly expectContentSha256?: string;
   /** The content normalization the expected digest is taken under; `none` when absent. */
   readonly contentNormalization?: string;
 }
@@ -1088,7 +1092,7 @@ export async function verifyStartCommand(
   }
   if (!isValidStartVerifierSelection(options)) return errorResult(VERIFY_CLI_ERROR.VERIFIER_INVALID);
   if (options.input.trim().length === 0) return errorResult(VERIFY_CLI_ERROR.INPUT_REQUIRED);
-  const contentExpectation = parseStartContentExpectation(options.expectedContentSha256, options.contentNormalization);
+  const contentExpectation = parseStartContentExpectation(options.expectContentSha256, options.contentNormalization);
   if (!contentExpectation.ok) {
     return errorResult(`${VERIFY_CLI_ERROR.CONTENT_IDENTITY_REJECTED}: ${contentExpectation.error}`);
   }
@@ -1227,6 +1231,15 @@ export async function verifyPathsCommand(
   return okResult(JSON.stringify(report));
 }
 
+/** A check that cannot report equal or different: the structured failure on standard output with the unavailable exit code. */
+function checkUnavailableResult(failure: VerifyInputCheckFailureReport): CliCommandResult {
+  return {
+    exitCode: VERIFY_CLI_EXIT_CODE.CHECK_UNAVAILABLE,
+    output: JSON.stringify(failure),
+    reportOnStdout: true,
+  };
+}
+
 /** Set a file's content identity against the digest a run recorded at start, reading the file from its path resolved against the invocation directory. */
 async function checkRecordedInputFile(
   record: RecordedInput,
@@ -1239,12 +1252,19 @@ async function checkRecordedInputFile(
   try {
     bytes = await read(resolve(deps.cwd ?? CONFIG_PROCESS_CWD.read(), checkFile));
   } catch {
-    return errorResult(`${VERIFY_CLI_ERROR.CHECK_FILE_UNREADABLE} ${checkFile}`);
+    return checkUnavailableResult({
+      result: VERIFY_INPUT_CHECK_FAILURE.CHECK_FILE_UNREADABLE,
+      detail: `${VERIFY_CLI_ERROR.CHECK_FILE_UNREADABLE} ${checkFile}`,
+    });
   }
   const outcome = checkRecordedContentIdentity(record, normalization, bytes);
-  if (!outcome.ok) return errorResult(`${VERIFY_CLI_ERROR.INPUT_CHECK_REJECTED}: ${outcome.error}`);
+  if (!outcome.ok) return checkUnavailableResult(outcome.error);
   const report: VerifyInputCheckReport = outcome.value;
-  return okResult(JSON.stringify(report));
+  return {
+    exitCode: report.result === VERIFY_INPUT_CHECK_RESULT.EQUAL ? VERIFY_CLI_EXIT_CODE.OK : VERIFY_CLI_EXIT_CODE.ERROR,
+    output: JSON.stringify(report),
+    reportOnStdout: true,
+  };
 }
 
 /**
@@ -1262,7 +1282,11 @@ export async function verifyInputCommand(
   const normalization = parseContentNormalization(options.contentNormalization);
   if (!normalization.ok) return errorResult(`${VERIFY_CLI_ERROR.INPUT_CHECK_REJECTED}: ${normalization.error}`);
   const run = await resolveExistingRun(options, deps);
-  if (!run.ok) return errorResult(run.error);
+  if (!run.ok) {
+    return options.checkFile === undefined
+      ? errorResult(run.error)
+      : { exitCode: VERIFY_CLI_EXIT_CODE.CHECK_UNAVAILABLE, output: run.error };
+  }
   const record = run.value.recordedInput;
   if (options.checkFile !== undefined) {
     return checkRecordedInputFile(record, options.checkFile, normalization.value, deps);

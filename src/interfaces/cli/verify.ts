@@ -125,8 +125,8 @@ export const VERIFY_CLI = {
   expectationsOption: "--expectations <expectations-source>",
   expectationsOptionDescription:
     "Expectations source a changeset-scoped run is bound to; stdin or a file path holding a JSON document carrying schemaVersion and optional additionalPaths",
-  expectedContentSha256Option: `${VERIFY_CONTENT_OPTION.EXPECTED_SHA256} <sha256>`,
-  expectedContentSha256OptionDescription:
+  expectContentSha256Option: `${VERIFY_CONTENT_OPTION.EXPECT_SHA256} <sha256>`,
+  expectContentSha256OptionDescription:
     "Lowercase hexadecimal SHA-256 the input's bytes must have under the content normalization; the run is not opened when they differ",
   contentNormalizationOption: `${VERIFY_CONTENT_OPTION.CONTENT_NORMALIZATION} <normalization>`,
   contentNormalizationOptionDescription:
@@ -167,7 +167,7 @@ interface VerifyStartActionOptions extends VerifySharedCliOptions {
   readonly change?: string;
   readonly expectations?: string;
   readonly verifier?: string;
-  readonly expectedContentSha256?: string;
+  readonly expectContentSha256?: string;
   readonly contentNormalization?: string;
 }
 
@@ -305,7 +305,7 @@ export function registerVerifyCommands(
     .option(VERIFY_CLI.changeOption, VERIFY_CLI.changeOptionDescription)
     .option(VERIFY_CLI.expectationsOption, VERIFY_CLI.expectationsOptionDescription)
     .option(VERIFY_CLI.verifierOption, VERIFY_CLI.verifierOptionDescription)
-    .option(VERIFY_CLI.expectedContentSha256Option, VERIFY_CLI.expectedContentSha256OptionDescription)
+    .option(VERIFY_CLI.expectContentSha256Option, VERIFY_CLI.expectContentSha256OptionDescription)
     .option(VERIFY_CLI.contentNormalizationOption, VERIFY_CLI.contentNormalizationOptionDescription)
     .action(async (options: VerifyStartActionOptions) => {
       reportCliResult(await handlers.start(options, deps()), invocation.io);

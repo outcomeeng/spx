@@ -38,7 +38,7 @@ const ENOENT = "ENOENT";
 
 /** The content-identity options a `start` request can carry. */
 export interface StartContentOptions {
-  readonly expectedContentSha256?: string;
+  readonly expectContentSha256?: string;
   readonly contentNormalization?: string;
 }
 

@@ -32,7 +32,9 @@ describe("verify input check mapping", () => {
 
         expect(new Set(Object.values(observation.roots)).size).toBe(Object.keys(observation.roots).length);
         expect(observation.checkFileReads).toStrictEqual([resolve(observation.roots.invocationDir, scenario.path)]);
-        expect(observation.command.exitCode).toBe(VERIFY_CLI_EXIT_CODE.OK);
+        expect(observation.command.exitCode).toBe(
+          expectedEqualUnder(relation, normalization) ? VERIFY_CLI_EXIT_CODE.OK : VERIFY_CLI_EXIT_CODE.ERROR,
+        );
         const report = parseInputCheckReport(observation.command.output);
         expect(report.result).toBe(
           expectedEqualUnder(relation, normalization)

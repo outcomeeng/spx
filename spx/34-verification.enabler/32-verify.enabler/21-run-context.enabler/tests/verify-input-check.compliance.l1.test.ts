@@ -23,7 +23,7 @@ describe("verify input check compliance", () => {
             ...(contentNormalization === undefined ? {} : { contentNormalization }),
             omitRecordedContentDigests: true,
           });
-          expect(absent.command.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+          expect(absent.command.exitCode).toBe(VERIFY_CLI_EXIT_CODE.CHECK_UNAVAILABLE);
           expect(absent.command.output).toContain(VERIFY_INPUT_CHECK_FAILURE.CONTENT_IDENTITY_UNAVAILABLE);
           expect(absent.command.output).not.toContain(VERIFY_INPUT_CHECK_RESULT.DIFFERENT);
         }
@@ -47,7 +47,7 @@ describe("verify input check compliance", () => {
           contentNormalization: CONTENT_NORMALIZATION.UTF8_UNIVERSAL_NEWLINES,
         });
 
-        expect(observation.command.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+        expect(observation.command.exitCode).toBe(VERIFY_CLI_EXIT_CODE.CHECK_UNAVAILABLE);
         expect(observation.command.output).toContain(VERIFY_INPUT_CHECK_FAILURE.CONTENT_IDENTITY_UNAVAILABLE);
         expect(observation.command.output).not.toContain(VERIFY_INPUT_CHECK_RESULT.DIFFERENT);
       },
@@ -67,7 +67,7 @@ describe("verify input check compliance", () => {
           contentNormalization: CONTENT_NORMALIZATION.UTF8_UNIVERSAL_NEWLINES,
         });
 
-        expect(observation.command.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+        expect(observation.command.exitCode).toBe(VERIFY_CLI_EXIT_CODE.CHECK_UNAVAILABLE);
         expect(observation.command.output).toContain(VERIFY_INPUT_CHECK_FAILURE.NORMALIZATION_FAILED);
         expect(observation.command.output).toContain(CONTENT_NORMALIZATION.UTF8_UNIVERSAL_NEWLINES);
         expect(observation.command.output).toContain(String(UNIVERSAL_NEWLINE_DIGEST_VERSION));
@@ -88,7 +88,7 @@ describe("verify input check compliance", () => {
             ...(contentNormalization === undefined ? {} : { contentNormalization }),
           });
 
-          expect(observation.command.exitCode).toBe(VERIFY_CLI_EXIT_CODE.ERROR);
+          expect(observation.command.exitCode).toBe(VERIFY_CLI_EXIT_CODE.CHECK_UNAVAILABLE);
           expect(observation.command.output).toContain(VERIFY_INPUT_CHECK_FAILURE.CHECK_FILE_UNREADABLE);
           expect(observation.command.output).toContain(file.path);
           expect(observation.command.output).not.toContain(VERIFY_INPUT_CHECK_RESULT.DIFFERENT);
