@@ -6,13 +6,12 @@
  * @module validation/steps/typescript
  */
 
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { mkdtemp } from "node:fs/promises";
+import { existsSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, relative } from "node:path";
 
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
+import { getProcessTempDirectory, type TempDirectory } from "@/lib/temp-directory";
 import {
-  TEMPORARY_TSCONFIG_PARENT_SEGMENTS,
   TSCONFIG_FILES,
   TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX,
   TYPESCRIPT_SCOPE_PROJECT_ROOT,
@@ -39,10 +38,8 @@ export const defaultTypeScriptProcessRunner: ProcessRunner = lifecycleProcessRun
  * Dependencies for file-specific TypeScript validation.
  */
 export interface TypeScriptDeps {
-  mkdtemp: typeof mkdtemp;
-  mkdirSync: typeof mkdirSync;
+  tempDirectory: TempDirectory;
   writeFileSync: typeof writeFileSync;
-  rmSync: typeof rmSync;
   existsSync: typeof existsSync;
 }
 
@@ -50,10 +47,8 @@ export interface TypeScriptDeps {
  * Default production dependencies.
  */
 export const defaultTypeScriptDeps: TypeScriptDeps = {
-  mkdtemp,
-  mkdirSync,
+  tempDirectory: getProcessTempDirectory(),
   writeFileSync,
-  rmSync,
   existsSync,
 };
 
@@ -93,17 +88,10 @@ interface TypeScriptCommandInvocation {
 const TEMPORARY_TSCONFIG_COMPILER_OPTIONS = { noEmit: true } as const;
 
 /**
- * Directory-name prefix for temporary validation configs.
+ * Create the scratch directory that holds one validation `tsconfig.json`.
  */
-const TEMPORARY_TSCONFIG_DIR_PREFIX = "validate-ts-";
-
-/**
- * Create the temporary directory that holds one validation `tsconfig.json`.
- */
-async function createTemporaryTsconfigDir(productDir: string, deps: TypeScriptDeps): Promise<string> {
-  const parent = join(productDir, ...TEMPORARY_TSCONFIG_PARENT_SEGMENTS);
-  deps.mkdirSync(parent, { recursive: true });
-  return deps.mkdtemp(join(parent, TEMPORARY_TSCONFIG_DIR_PREFIX));
+function createTemporaryTsconfigDir(productDir: string, deps: TypeScriptDeps): Promise<string> {
+  return deps.tempDirectory.createScratchDirectory(productDir);
 }
 
 // =============================================================================
@@ -219,7 +207,7 @@ function typeScriptDirectoryIncludePattern(directory: string): string {
 function createTemporaryTsconfigCleanup(tempDir: string, deps: TypeScriptDeps): () => void {
   return () => {
     try {
-      deps.rmSync(tempDir, { recursive: true, force: true });
+      deps.tempDirectory.releaseScratchDirectory(tempDir);
     } catch {
       // Cleanup error - don't fail validation
     }

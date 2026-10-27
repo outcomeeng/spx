@@ -7,15 +7,12 @@
  */
 
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
-import {
-  TEMPORARY_TSCONFIG_PARENT_SEGMENTS,
-  TSCONFIG_FILES,
-  TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS,
-} from "@/validation/config/scope";
+import { getProcessTempDirectory, type TempDirectory } from "@/lib/temp-directory";
+import { TSCONFIG_FILES, TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS } from "@/validation/config/scope";
 import type { ScopeConfig } from "../types";
 import {
   defaultValidationSubprocessOutputStreams,
@@ -41,17 +38,13 @@ export const KNIP_LOCAL_BIN_SEGMENTS = ["node_modules", ".bin", KNIP_COMMAND_TOK
 
 export interface KnipDeps {
   readonly existsSync: typeof existsSync;
-  readonly mkdir: typeof mkdir;
-  readonly mkdtemp: typeof mkdtemp;
-  readonly rm: typeof rm;
+  readonly tempDirectory: TempDirectory;
   readonly writeFile: typeof writeFile;
 }
 
 const defaultKnipDeps: KnipDeps = {
   existsSync,
-  mkdir,
-  mkdtemp,
-  rm,
+  tempDirectory: getProcessTempDirectory(),
   writeFile,
 };
 
@@ -189,9 +182,7 @@ async function createScopedKnipTsconfig(
   typescriptScope: ScopeConfig,
   deps: KnipDeps,
 ): Promise<{ configPath: string; cleanup: () => Promise<void> }> {
-  const tempParentDir = join(productDir, ...TEMPORARY_TSCONFIG_PARENT_SEGMENTS);
-  await deps.mkdir(tempParentDir, { recursive: true });
-  const tempDir = await deps.mkdtemp(join(tempParentDir, "validate-knip-"));
+  const tempDir = await deps.tempDirectory.createScratchDirectory(productDir);
   const configPath = join(tempDir, TSCONFIG_FILES.full);
   const toProjectPathPattern = (pattern: string) => isAbsolute(pattern) ? pattern : join(productDir, pattern);
   const project = [
@@ -208,6 +199,6 @@ async function createScopedKnipTsconfig(
   await deps.writeFile(configPath, JSON.stringify(config, null, 2));
   return {
     configPath,
-    cleanup: () => deps.rm(tempDir, { recursive: true, force: true }),
+    cleanup: async () => deps.tempDirectory.releaseScratchDirectory(tempDir),
   };
 }

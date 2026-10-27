@@ -53,7 +53,6 @@ export const TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS = [
   "**/*.mts",
   "**/*.cts",
 ] as const;
-export const TEMPORARY_TSCONFIG_PARENT_SEGMENTS = ["node_modules", ".cache", "spx"] as const;
 
 // =============================================================================
 // DEPENDENCY INJECTION INTERFACES
