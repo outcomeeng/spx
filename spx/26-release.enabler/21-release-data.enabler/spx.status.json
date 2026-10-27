@@ -197,7 +197,7 @@
       },
       "tests/release-data.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/21-release-data.enabler/release-data.md",

@@ -90,7 +90,7 @@
       },
       "tests/main-checkout-gate.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
         "read": [
           "pnpm-lock.yaml",
           "spx/21-infrastructure.enabler/43-precommit.enabler/precommit.md",
@@ -115,7 +115,7 @@
       },
       "tests/subprocess-env.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
         "read": [
           "package.json",
           "pnpm-lock.yaml",

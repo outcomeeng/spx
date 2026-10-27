@@ -5,7 +5,7 @@
     "test": {
       "tests/session-reconciliation.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/54-session-reconciliation.enabler/session-reconciliation.md",
@@ -119,7 +119,7 @@
       },
       "tests/session-reconciliation.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/54-session-reconciliation.enabler/session-reconciliation.md",
@@ -233,7 +233,7 @@
       },
       "tests/session-reconciliation.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
         "read": [
           "pnpm-lock.yaml",
           "spx/36-session.enabler/54-session-reconciliation.enabler/session-reconciliation.md",
