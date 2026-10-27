@@ -10,6 +10,8 @@ CAN first locate relevant subtrees and then load only the product truth required
 
 ## Assertions
 
+- ALWAYS: each context-walk fixture product holds nested levels, an `ISSUES.md` on a probed path, decision records indexed below and above the child each probed path continues through, a probed target with its own decision records and with immediate children, a probed target whose `knowledge/` holds `index.md` and a knowledge body, a resolvable and an unresolvable cross-subtree decision citation, and a sibling holding an outcome record, the 3.2 fixture also holding a lower-index, a same-index, and a higher-index sibling of a probed target and a decision record above a path child, and records for each probed target the read set the walk its declaration selects computes, in walk order
+
 ### Scenarios
 
 - Given a Product Tree, when `spx spec context list <targets...>` runs, then it emits the versioned structural manifest ([test](tests/context-ingestion.scenario.l1.test.ts))
