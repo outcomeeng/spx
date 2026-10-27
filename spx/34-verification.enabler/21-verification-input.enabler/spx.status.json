@@ -1,0 +1,149 @@
+{
+  "state": "specified",
+  "malleability": "implementation",
+  "verification": {
+    "test": {
+      "tests/digests.property.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/34-verification.enabler/21-verification-input.enabler/tests/digests.property.l1.test.ts",
+          "spx/34-verification.enabler/21-verification-input.enabler/verification-input.md",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/sample.ts",
+          "testing/generators/verification-input.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/property/property.ts",
+          "testing/harnesses/verification-input/harness.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ]
+      },
+      "tests/inspection-effects.compliance.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/34-verification.enabler/21-verification-input.enabler/tests/inspection-effects.compliance.l1.test.ts",
+          "spx/34-verification.enabler/21-verification-input.enabler/verification-input.md",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/sample.ts",
+          "testing/generators/verification-input.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/verification-input/harness.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ]
+      },
+      "tests/inspection.scenario.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/34-verification.enabler/21-verification-input.enabler/tests/inspection.scenario.l1.test.ts",
+          "spx/34-verification.enabler/21-verification-input.enabler/verification-input.md",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/sample.ts",
+          "testing/generators/verification-input.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/verification-input/harness.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ]
+      },
+      "tests/operand-resolution.mapping.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/34-verification.enabler/21-verification-input.enabler/tests/operand-resolution.mapping.l1.test.ts",
+          "spx/34-verification.enabler/21-verification-input.enabler/verification-input.md",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/sample.ts",
+          "testing/generators/verification-input.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/verification-input/harness.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ]
+      },
+      "tests/rejection.compliance.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/34-verification.enabler/21-verification-input.enabler/tests/rejection.compliance.l1.test.ts",
+          "spx/34-verification.enabler/21-verification-input.enabler/verification-input.md",
+          "src/lib/config/cwd.ts",
+          "src/lib/git/environment.ts",
+          "src/lib/git/root.ts",
+          "src/lib/sanitize-cli-argument.ts",
+          "src/lib/terminal-text/terminal-text.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/sample.ts",
+          "testing/generators/verification-input.ts",
+          "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/verification-input/harness.ts",
+          "testing/harnesses/with-temp-dir.ts"
+        ]
+      }
+    },
+    "audit": {
+      "verification-input-module-home": {
+        "verdict": "not-run"
+      }
+    },
+    "evidence": {
+      "test": {
+        "verdict": "not-run"
+      }
+    }
+  }
+}
