@@ -86,6 +86,23 @@ export function arbitraryNestedProductRelativePath(): fc.Arbitrary<string> {
   return arbitraryProductRelativePathWithin(1);
 }
 
+const LEADING_DOTS = "..";
+
+/**
+ * A product-relative path inside the root whose first component merely begins with two dots, never
+ * the parent segment itself: a file under such a directory when `nested`, otherwise a file so named
+ * directly under the root.
+ */
+export function arbitraryLeadingDotsProductRelativePath(nested: boolean): fc.Arbitrary<string> {
+  return fc
+    .tuple(arbitrarySegment(), arbitrarySegment(), fc.stringMatching(/^[a-z]{2,4}$/))
+    .map(([dotted, name, extension]) =>
+      nested
+        ? `${LEADING_DOTS}${dotted}/${name}.${extension}`
+        : `${LEADING_DOTS}${dotted}.${extension}`
+    );
+}
+
 /** Arbitrary byte sequences, valid UTF-8 or not. */
 export function arbitraryByteSequence(): fc.Arbitrary<Uint8Array> {
   return fc.uint8Array({ minLength: 0, maxLength: MAX_BYTES });
@@ -208,6 +225,7 @@ export const VERIFICATION_INPUT_TEST_GENERATOR = {
   byteOrderMarkScenario: arbitraryByteOrderMarkScenario,
   rejectionScenario: arbitraryRejectionScenario,
   nestedProductRelativePath: arbitraryNestedProductRelativePath,
+  leadingDotsProductRelativePath: arbitraryLeadingDotsProductRelativePath,
   productRelativePath: arbitraryProductRelativePath,
 } as const;
 

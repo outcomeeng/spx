@@ -31,6 +31,60 @@ describe("verification input operand resolution", () => {
       });
     },
   );
+  it.each(Object.values(OPERAND_SPELLING))(
+    "keeps a file inside the root whose first path component begins with two dots when spelled by %s",
+    async (spelling) => {
+      const relativePath = sampleVerificationInputValue(
+        VERIFICATION_INPUT_TEST_GENERATOR.leadingDotsProductRelativePath(true),
+      );
+
+      await withVerificationInputEnv(async (env) => {
+        await env.writeFile(relativePath, relativePath);
+        const { operand, invocationDir, listedByGit } = operandForSpelling(
+          spelling,
+          { root: env.root, elsewhere: env.outsideDir },
+          relativePath,
+        );
+        if (!listedByGit) await env.ignore(relativePath);
+
+        const result = await inspectVerificationInput({ operand, invocationDir, worktreeRoot: env.root });
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.value.path).toBe(relativePath);
+      });
+    },
+  );
+
+  it.each([
+    OPERAND_SPELLING.ABSOLUTE,
+    OPERAND_SPELLING.FROM_INVOCATION_DIRECTORY,
+    OPERAND_SPELLING.FROM_WORKTREE_ROOT,
+  ])(
+    "keeps a file named with two leading dots directly under the root when spelled by %s",
+    async (spelling) => {
+      const relativePath = sampleVerificationInputValue(
+        VERIFICATION_INPUT_TEST_GENERATOR.leadingDotsProductRelativePath(false),
+      );
+
+      await withVerificationInputEnv(async (env) => {
+        await env.writeFile(relativePath, relativePath);
+        const { operand, invocationDir, listedByGit } = operandForSpelling(
+          spelling,
+          { root: env.root, elsewhere: env.outsideDir },
+          relativePath,
+        );
+        if (!listedByGit) await env.ignore(relativePath);
+
+        const result = await inspectVerificationInput({ operand, invocationDir, worktreeRoot: env.root });
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.value.path).toBe(relativePath);
+      });
+    },
+  );
+
   it("collapses the candidates every source yields for one file to its one identity", async () => {
     const relativePath = sampleVerificationInputValue(VERIFICATION_INPUT_TEST_GENERATOR.nestedProductRelativePath());
 
