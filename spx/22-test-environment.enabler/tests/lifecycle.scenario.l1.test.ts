@@ -1,7 +1,6 @@
 import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -12,13 +11,14 @@ import {
   parseConfigFileSections,
 } from "@/config/index";
 import { KIND_REGISTRY } from "@/lib/spec-tree";
+import { TEMP_DIRECTORY_ENV_VAR } from "@/lib/temp-directory";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { TEST_ENVIRONMENT_GENERATOR } from "@testing/generators/test-environment/test-environment";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 
 describe("withTestEnv — startup", () => {
-  it("creates a fresh temp directory under os.tmpdir() and materializes the product config from the Config", async () => {
+  it("creates a fresh temp directory under the run root and materializes the product config from the Config", async () => {
     let observedProductDir = "";
     let observedConfig: unknown = null;
 
@@ -32,7 +32,8 @@ describe("withTestEnv — startup", () => {
       }
     });
 
-    expect(observedProductDir.startsWith(tmpdir())).toBe(true);
+    expect(resolve(observedProductDir).startsWith(resolve(process.env[TEMP_DIRECTORY_ENV_VAR.RUN_ROOT] ?? "") + sep))
+      .toBe(true);
     expect(observedConfig).toEqual(MINIMAL_SPEC_TREE_CONFIG);
   });
 
@@ -46,7 +47,8 @@ describe("withTestEnv — startup", () => {
       expect(await env.readFile(generated.node.fixturePath)).toBe(generated.node.contents);
       expect(await env.readFile(generated.decision.fixturePath)).toBe(generated.decision.contents);
       expect(await env.readFile(generated.raw.fixturePath)).toBe(generated.raw.contents);
-      expect(env.productDir.startsWith(tmpdir())).toBe(true);
+      expect(resolve(env.productDir).startsWith(resolve(process.env[TEMP_DIRECTORY_ENV_VAR.RUN_ROOT] ?? "") + sep))
+        .toBe(true);
     });
   });
 
