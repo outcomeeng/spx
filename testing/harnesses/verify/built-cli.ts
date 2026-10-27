@@ -104,7 +104,7 @@ export async function runBuiltVerificationRun(
   cwd: string,
   commandPath: readonly string[],
   options: readonly string[],
-  input?: string,
+  input?: string | Uint8Array,
   gitDiscoveryCeiling?: string,
 ): Promise<BuiltVerificationCliRun> {
   await requireBuiltCli();
@@ -842,4 +842,105 @@ export async function observeBuiltReconcileInvocations(): Promise<BuiltReconcile
     );
     return { reconciled, withoutRun, withInput };
   });
+}
+
+
+/** The content expectation a built `start` carries: the expected digest and, when named, the normalization it is taken under. */
+export interface BuiltContentExpectation {
+  readonly sha256: string;
+  readonly normalization?: string;
+}
+
+/**
+ * In a real Git repository, run the built changeset-scoped `start` over `input` on stdin with the
+ * content expectation given.
+ */
+export async function observeBuiltStartContentExpectation(
+  input: Uint8Array,
+  expectation: BuiltContentExpectation,
+): Promise<BuiltVerificationCliRun> {
+  const scenario = sampleVerifyTestValue(CHANGE_RUNS_TEST_GENERATOR.scenario());
+  return withChangeRunsRepository(scenario, async (repository) =>
+    runBuiltVerificationRun(
+      repository.productDir,
+      [VERIFY_CLI.startCommandName],
+      [
+        ...changesetReviewSelectors(repository),
+        flagOf(VERIFY_CLI.inputOption),
+        VERIFY_INPUT_SOURCE.STDIN,
+        flagOf(VERIFY_CLI.expectedContentSha256Option),
+        expectation.sha256,
+        ...(expectation.normalization === undefined
+          ? []
+          : [flagOf(VERIFY_CLI.contentNormalizationOption), expectation.normalization]),
+      ],
+      input,
+    )
+  );
+}
+
+/** A file a built `input --check-file` checks: its product-relative path and its bytes, or `undefined` bytes when the file does not exist. */
+export interface BuiltCheckedFile {
+  readonly path: string;
+  readonly bytes: Uint8Array | undefined;
+}
+
+/** The built `start` that recorded the input and the built `input --check-file` that replayed it. */
+export interface BuiltInputCheckObservation {
+  readonly start: BuiltVerificationCliRun;
+  readonly check: BuiltVerificationCliRun;
+}
+
+/**
+ * In a real Git repository, run the built changeset-scoped `start` over `recordedInput` on stdin,
+ * write `checkedFile` under the product directory when it has bytes, then run the built
+ * `input --check-file` for the started run, under `normalization` when named.
+ */
+export async function observeBuiltInputCheck(
+  recordedInput: Uint8Array,
+  checkedFile: BuiltCheckedFile,
+  normalization?: string,
+): Promise<BuiltInputCheckObservation> {
+  const scenario = sampleVerifyTestValue(CHANGE_RUNS_TEST_GENERATOR.scenario());
+  return withChangeRunsRepository(scenario, async (repository) => {
+    const selectors = changesetReviewSelectors(repository);
+    const start = await runBuiltVerificationRun(
+      repository.productDir,
+      [VERIFY_CLI.startCommandName],
+      [...selectors, flagOf(VERIFY_CLI.inputOption), VERIFY_INPUT_SOURCE.STDIN],
+      recordedInput,
+    );
+    const { runToken } = startedRunReport(start, "start over the recorded input");
+    if (checkedFile.bytes !== undefined) {
+      const absolutePath = join(repository.productDir, checkedFile.path);
+      await mkdir(dirname(absolutePath), { recursive: true });
+      await writeFile(absolutePath, checkedFile.bytes);
+    }
+    const check = await runBuiltVerificationRun(repository.productDir, [VERIFY_CLI.inputCommandName], [
+      ...selectors,
+      flagOf(VERIFY_CLI.runOption),
+      runToken,
+      flagOf(VERIFY_CLI.checkFileOption),
+      checkedFile.path,
+      ...(normalization === undefined ? [] : [flagOf(VERIFY_CLI.contentNormalizationOption), normalization]),
+    ]);
+    return { start, check };
+  });
+}
+
+/** In a real Git repository, run the built `input --check-file` for `runToken`, which names no run. */
+export async function observeBuiltInputCheckOfUnknownRun(
+  runToken: string,
+  checkedFilePath: string,
+): Promise<BuiltVerificationCliRun> {
+  const scenario = sampleVerifyTestValue(CHANGE_RUNS_TEST_GENERATOR.scenario());
+  return withChangeRunsRepository(scenario, async (repository) =>
+    runBuiltVerificationRun(repository.productDir, [VERIFY_CLI.inputCommandName], [
+      ...changesetReviewSelectors(repository),
+      flagOf(VERIFY_CLI.runOption),
+      runToken,
+      flagOf(VERIFY_CLI.checkFileOption),
+      checkedFilePath,
+    ])
+  );
 }
