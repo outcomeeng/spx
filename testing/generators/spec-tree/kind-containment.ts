@@ -25,7 +25,7 @@ import {
   type SpecTreeNodeSourceEntry,
 } from "@/lib/spec-tree";
 import { type KindAdmittedChildrenCase, kindAdmittedChildrenCases } from "@testing/generators/spec-tree/kind-grammar";
-import { specTreeGrammarSelectionForLine } from "@testing/generators/spec-tree/spec-tree";
+import { requireNonEmpty, specTreeGrammarSelectionForLine } from "@testing/generators/spec-tree/spec-tree";
 
 const CONTAINMENT_ORDER = 10;
 const ORDER_SEPARATOR = SPEC_TREE_GRAMMAR.ORDER.SEPARATOR;
@@ -172,8 +172,10 @@ export function containmentLayoutEntries(layout: ContainmentLayout): readonly Sp
 
 /**
  * Two layouts under a 4.0 declaration whose parents have different kinds, each placing a child
- * its parent's kind does not admit directly below a top-level parent. The parent kinds differ so
- * the two layouts share no directory.
+ * its parent's kind does not admit directly below a top-level parent. The four kinds of the two
+ * parents and the two children are pairwise distinct, and neither child's kind is admitted by the
+ * other layout's parent, so a diagnostic text that names one node's kind is not satisfied by the
+ * kind of another node of the pair. The parent kinds differ so the two layouts share no directory.
  */
 export function arbitraryRejectedLayoutPair(): fc.Arbitrary<readonly [ContainmentLayout, ContainmentLayout]> {
   const versions = specTreeGrammarSelectionForLine(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO).selected;
@@ -184,15 +186,25 @@ export function arbitraryRejectedLayoutPair(): fc.Arbitrary<readonly [Containmen
         const accepted = kindsAcceptedBy(version);
         const rejected = accepted.filter((childKind) => !parentCase.expectedChildren.includes(childKind));
         return accepted.includes(parentCase.kind) && rejected.length > 0
-          ? [rejected.map((childKind) => layoutFor(parentCase, childKind))]
+          ? [{ parentCase, layouts: rejected.map((childKind) => layoutFor(parentCase, childKind)) }]
           : [];
       })
     );
-  return fc
-    .shuffledSubarray(groups, { minLength: 2, maxLength: 2 })
-    .chain(([first, second]) =>
-      fc.tuple(fc.constantFrom(...first), fc.constantFrom(...second)) as fc.Arbitrary<
-        readonly [ContainmentLayout, ContainmentLayout]
-      >
-    );
+  const pairs = groups.flatMap((first, position) =>
+    groups.slice(position + 1).flatMap((second) =>
+      first.parentCase.kind === second.parentCase.kind
+        ? []
+        : first.layouts.flatMap((left) =>
+          second.layouts.flatMap((right): (readonly [ContainmentLayout, ContainmentLayout])[] => {
+            const kinds = [left.parent.kind, right.parent.kind, left.child.kind, right.child.kind];
+            return new Set(kinds).size === kinds.length
+                && !second.parentCase.expectedChildren.includes(left.child.kind)
+                && !first.parentCase.expectedChildren.includes(right.child.kind)
+              ? [[left, right]]
+              : [];
+          })
+        )
+    )
+  );
+  return fc.constantFrom(...requireNonEmpty(pairs, "rejected layout pair"));
 }

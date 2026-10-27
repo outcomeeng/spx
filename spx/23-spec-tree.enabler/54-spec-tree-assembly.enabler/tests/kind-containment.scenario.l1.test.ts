@@ -23,11 +23,16 @@ describe("kind containment in assembly", () => {
 
         expect(failure).toBeInstanceOf(Error);
         const message = (failure as Error).message;
+        const withoutChildPaths = layouts.reduce((text, { child }) => text.replaceAll(child.directoryPath, ""), message);
+        const withoutPaths = layouts.reduce(
+          (text, { parent }) => text.replaceAll(parent.directoryPath, ""),
+          withoutChildPaths,
+        );
         for (const { parent, child } of layouts) {
           expect(message).toContain(child.directoryPath);
-          expect(message).toContain(child.kind);
-          expect(message).toContain(parent.directoryPath);
-          expect(message).toContain(parent.kind);
+          expect(withoutChildPaths).toContain(parent.directoryPath);
+          expect(withoutPaths).toContain(child.kind);
+          expect(withoutPaths).toContain(parent.kind);
         }
       },
     );
