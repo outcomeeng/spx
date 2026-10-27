@@ -40,6 +40,7 @@ import {
   composeDocumentationSync,
   type ComposeDocumentationSyncOptions,
   createDocumentationFaithfulnessAuditor,
+  DOCUMENTATION_SYNC_AUDIT_APPROVED,
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN,
   DOCUMENTATION_SYNC_PROMPT_INSTRUCTION,
@@ -92,6 +93,7 @@ import {
   type ReleaseContextTransportObservation,
   releaseSourceFromPrompt,
 } from "@testing/harnesses/release/agent-runner";
+import { createStageRecorder, type ReleaseStagingObservation } from "@testing/harnesses/release/release-staging";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const PRODUCT_DIRECTORY_PREFIX = "spx-documentation-sync-";
@@ -926,6 +928,34 @@ async function observeDefaultDocumentationSync(
   respondToAudit: AgentAuditor["audit"],
 ): Promise<DocumentationContentObservation> {
   return await observeDocumentationSync(scenario, respondToAudit);
+}
+
+/**
+ * Runs a completed documentation sync for `scenario` through the production documentation filesystem
+ * and observes the staging directories the sync created. The scripted producer and an approving
+ * auditor stand in for the agent boundary, which would otherwise start a billed agent session.
+ */
+async function observeDocumentationSyncStaging(
+  scenario: DocumentationSyncScenario,
+): Promise<ReleaseStagingObservation> {
+  const recorder = createStageRecorder();
+  let observation: ReleaseStagingObservation | undefined;
+  await withDocumentationScenario(
+    scenario,
+    async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
+    async (options, _readProductDocument, agent) => {
+      const filesystem = createDocumentationSyncFilesystem();
+      await composeWithDocumentationFilesystem(
+        { ...options, agentRunner: agent },
+        { ...filesystem, stageDocumentation: recorder.record(filesystem.stageDocumentation) },
+      );
+      observation = await recorder.observe();
+    },
+  );
+  if (observation === undefined) {
+    throw new Error("Documentation sync produced no staging observation");
+  }
+  return observation;
 }
 
 async function observeConfiguredDocumentationSync(
@@ -2257,6 +2287,7 @@ export {
   observeDocumentationPromotionFailure,
   observeDocumentationPrompt,
   observeDocumentationRollback,
+  observeDocumentationSyncStaging,
   observeDocumentationVersionPreservation,
   observeDocumentationVersionValidation,
   observeFirstReleaseDocumentationSync,
