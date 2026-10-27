@@ -1,4 +1,4 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { defaultGitDependencies, type GitDependencies } from "@/lib/git/root";
@@ -16,6 +16,7 @@ import {
   type SpecTreeSnapshot,
 } from "@/lib/spec-tree";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { ERROR_CODE_NOT_FOUND, hasErrorCode } from "@/lib/state-store";
 import {
   NODE_STATUS_CLAIM_SHAPE,
   type NodeStatusClaim,
@@ -280,8 +281,18 @@ async function writeNodeStatus(
 }
 
 async function writeText(filePath: string, content: string): Promise<void> {
+  if (await readExistingText(filePath) === content) return;
   await mkdir(dirname(filePath), { recursive: true });
   await writeFile(filePath, content, NODE_STATUS_TEXT_ENCODING);
+}
+
+async function readExistingText(filePath: string): Promise<string | undefined> {
+  try {
+    return await readFile(filePath, NODE_STATUS_TEXT_ENCODING);
+  } catch (error) {
+    if (hasErrorCode(error, ERROR_CODE_NOT_FOUND)) return undefined;
+    throw error;
+  }
 }
 
 async function removeStaleNodeStatusFiles(
