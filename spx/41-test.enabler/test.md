@@ -36,6 +36,7 @@ CAN run spec-tree tests with a single command, honor configured passing-scope ex
 - Given `spx test --changed --staged` runs while a staged changed path has additional worktree edits, an unstaged/untracked test file falls under an explicit selected target, or a product-input change selects the recursive root while a spec-tree test file is dirty, then it rejects before runner execution; unrelated dirty files outside the selected execution scope do not prevent runner execution ([test](tests/test.scenario.l1.test.ts))
 - Given `spx test --changed` runs through the command entrypoint, when related-test dependencies are absent, then the command rejects before changed-set planning runs ([test](tests/test.scenario.l1.test.ts))
 - Given selected registered-language test groups include a runner gated out by language detection, when `spx test` runs in operator mode, then the command reports the skipped runner group and selected files even when another selected runner makes the aggregate exit code zero ([test](tests/test.scenario.l1.test.ts))
+- Given `spx test` runs, when its runner processes create temp directories, then every such directory lies under the one run root the invocation owns, and the root is gone once the command exits ([test](tests/test.scenario.l2.test.ts))
 
 ### Mappings
 

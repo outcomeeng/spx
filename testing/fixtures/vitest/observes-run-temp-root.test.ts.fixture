@@ -1,0 +1,30 @@
+import { execFileSync } from "node:child_process";
+import { readdirSync, realpathSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
+
+import { test } from "vitest";
+
+// An inert suite for the run-root scenario: when `spx test` dispatches it, the suite reports what
+// its runner process inherited and what a child process of that runner creates. It asserts nothing;
+// the harness that stages it names the observation file and the child command through the
+// environment variable read below.
+test("observes the run root the invocation owns", () => {
+  const config = JSON.parse(process.env.RUN_TEMP_OBSERVER_CONFIG ?? "{}");
+  const inheritedRoot = process.env[config.runRootEnvVar];
+  const childOutput = execFileSync(config.childCommand, config.childArguments, {
+    cwd: process.cwd(),
+    env: { ...process.env, ...config.childEnvironment },
+    encoding: "utf8",
+  });
+  const inheritedRootParent = inheritedRoot === undefined ? undefined : realpathSync(dirname(inheritedRoot));
+  const runRootsListing = inheritedRootParent === undefined ? [] : readdirSync(inheritedRootParent);
+  writeFileSync(
+    config.observationPath,
+    JSON.stringify({
+      inheritedRoot,
+      inheritedRootParent,
+      runRootsListing,
+      child: JSON.parse(childOutput),
+    }),
+  );
+});
