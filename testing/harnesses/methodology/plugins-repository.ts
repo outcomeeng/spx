@@ -21,6 +21,8 @@ import {
   INSTRUCTION_TEMPLATE_RELATIVE_PATH,
   type MethodologyFetchDependencies,
   methodologyMigrationDir,
+  type MethodologySourceMigration,
+  type MethodologySourceRecord,
   MIGRATION_ENTRY_FILE_NAME,
   PLUGIN_MANIFEST_FIELDS,
   UNDERSTAND_SKILL_RELATIVE_DIR,
@@ -123,7 +125,7 @@ async function publish(repositoryDir: string, content: GeneratedPluginsContent):
     await writeRepositoryFile(
       repositoryDir,
       join(layout.distRelativeDir, INSTRUCTION_TEMPLATE_RELATIVE_PATH),
-      instructionTemplateText(agentContent.templateVersion),
+      agentContent.templateText ?? instructionTemplateText(agentContent.templateVersion),
     );
     for (const [relativePath, text] of agentContent.skillFiles) {
       await writeRepositoryFile(
@@ -206,4 +208,16 @@ export async function readDirectoryTree(dir: string): Promise<ReadonlyMap<string
   }
   await walk(dir);
   return new Map([...entries].sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0)));
+}
+
+/** The record with one coding agent's migration lists replaced; every other field and agent unchanged. */
+export function recordWithMigration(
+  record: MethodologySourceRecord,
+  codingAgent: string,
+  migration: MethodologySourceMigration,
+): MethodologySourceRecord {
+  return {
+    ...record,
+    plugins: { ...record.plugins, [codingAgent]: { ...record.plugins[codingAgent], migration } },
+  };
 }

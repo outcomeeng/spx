@@ -238,6 +238,8 @@ export interface GeneratedPluginContent {
   readonly supports?: string;
   /** The `template_version` of the plugin's instruction-block template. */
   readonly templateVersion: string;
+  /** When supplied, the exact text published as the instruction-block template instead of one carrying `templateVersion`. */
+  readonly templateText?: string;
   /** Files under the understand skill directory, keyed by skill-relative path. */
   readonly skillFiles: ReadonlyMap<string, string>;
 }
@@ -318,7 +320,37 @@ export function arbitraryPluginsContent(provides?: string): fc.Arbitrary<Generat
     fc.tuple(...agents.map(() => arbitraryPluginContent(provides, templateVersion.text))).map((contents) => ({
       agents: new Map(agents.map((agent, index) => [agent, contents[index]])),
     }))
+  ).filter((content) =>
+    // The template version is its own value: it equals neither the methodology version the plugins provide
+    // nor any plugin's distribution version, so a record that substituted one for it would differ.
+    [...content.agents.values()].every((agentContent) =>
+      agentContent.templateVersion !== provides
+      && [...content.agents.values()].every((other) => other.pluginVersion !== agentContent.templateVersion)
+    )
   );
+}
+
+/** Plugins content whose coding agents carry different `template_version` values, every agent declaring `provides` when supplied. */
+export function arbitraryTemplateDisagreeingPluginsContent(provides?: string): fc.Arbitrary<GeneratedPluginsContent> {
+  const agents = Object.keys(FETCH_CODING_AGENTS);
+  return fc.tuple(arbitraryMethodologyVersion(), arbitraryMethodologyVersion())
+    .filter(([first, second]) => first.text !== second.text)
+    .chain(([first, second]) =>
+      fc.tuple(...agents.map((_, index) => arbitraryPluginContent(provides, index === 0 ? first.text : second.text)))
+        .map((contents) => ({
+          agents: new Map(agents.map((agent, index) => [agent, contents[index]])),
+        }))
+    );
+}
+
+/** Plugins content whose first coding agent publishes a template with no front matter, hence no `template_version`. */
+export function arbitraryTemplateLessPluginsContent(provides?: string): fc.Arbitrary<GeneratedPluginsContent> {
+  return fc.tuple(arbitraryPluginsContent(provides), arbitraryMarkdownBody()).map(([content, body]) => {
+    const [first, ...rest] = [...content.agents];
+    return {
+      agents: new Map([[first[0], { ...first[1], templateText: body }], ...rest]),
+    };
+  });
 }
 
 /** Plugins content whose agents disagree on `provides`, with the distinct versions each side declares. */

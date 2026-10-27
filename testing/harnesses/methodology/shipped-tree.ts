@@ -7,7 +7,7 @@
  * @module harnesses/methodology/shipped-tree
  */
 
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { join, posix } from "node:path";
 
 import {
@@ -16,9 +16,12 @@ import {
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   FOUNDATION_PLUGIN_NAME,
   FOUNDATION_SKILL_DIR_PLACEHOLDERS,
+  METHODOLOGY_MIGRATION_ROOT,
   METHODOLOGY_RESOURCE_ENCODING,
   methodologyTreeRelativeDir,
   methodologyTreeRootDir,
+  SOURCE_RECORD_FIELDS,
+  SOURCE_RECORD_RELATIVE_PATH,
 } from "@/lib/methodology";
 import { PRODUCT_ROOT } from "@testing/harnesses/constants";
 
@@ -110,4 +113,86 @@ export function shippedTreeRelativeDir(line: string, codingAgent: string): strin
   const relative = methodologyTreeRelativeDir(line, codingAgent);
   if (!relative.ok) throw new Error(relative.error);
   return relative.value;
+}
+
+/** What this checkout's shipped `source.json` records for one coding agent's migration, with what the package holds for it. */
+export interface ShippedMigrationObservation {
+  /** The package-relative directory the entry and instructions belong in: `migration/{line}/{coding-agent}`. */
+  readonly directory: string;
+  readonly entries: readonly string[];
+  readonly instructions: readonly string[];
+  /** Whether each recorded path, entry then instruction, names a regular file in the package. */
+  readonly recordedFileExists: ReadonlyMap<string, boolean>;
+  /** The text of each recorded entry, keyed by its recorded path. */
+  readonly entryText: ReadonlyMap<string, string>;
+}
+
+/** Plain JSON access to a field of an object value, independent of the production record parser. */
+function jsonField(value: unknown, key: string): unknown {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>)[key] : undefined;
+}
+
+function stringList(value: unknown, what: string): readonly string[] {
+  if (!Array.isArray(value) || !value.every((item) => typeof item === "string")) {
+    throw new Error(`${what} is not a list of strings`);
+  }
+  return value;
+}
+
+async function regularFileExists(absolutePath: string): Promise<boolean> {
+  try {
+    return (await stat(absolutePath)).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/** The package root of this checkout, the parent of its shipped `methodology/` and `migration/` directories. */
+export function shippedPackageRoot(): string {
+  return PRODUCT_ROOT;
+}
+
+/** The lines this checkout ships under `methodology/`. */
+export async function shippedMethodologyLines(): Promise<readonly string[]> {
+  return defaultMethodologyTreeFileSystem.readDirectoryNames(shippedMethodologyTreeRoot());
+}
+
+/**
+ * Reads the migration record of one coding agent from the shipped `source.json`
+ * by plain JSON access, and observes the package files it names.
+ */
+export async function shippedMigrationObservation(
+  line: string,
+  codingAgent: string,
+): Promise<ShippedMigrationObservation> {
+  const recordPath = join(shippedMethodologyTreeRoot(), line, SOURCE_RECORD_RELATIVE_PATH);
+  const record: unknown = JSON.parse(await readFile(recordPath, METHODOLOGY_RESOURCE_ENCODING));
+  const migration = jsonField(
+    jsonField(jsonField(record, SOURCE_RECORD_FIELDS.PLUGINS), codingAgent),
+    SOURCE_RECORD_FIELDS.MIGRATION,
+  );
+  const entries = stringList(
+    jsonField(migration, SOURCE_RECORD_FIELDS.ENTRIES),
+    `${recordPath} ${codingAgent} entries`,
+  );
+  const instructions = stringList(
+    jsonField(migration, SOURCE_RECORD_FIELDS.INSTRUCTIONS),
+    `${recordPath} ${codingAgent} instructions`,
+  );
+  const recordedFileExists = new Map<string, boolean>();
+  const entryText = new Map<string, string>();
+  for (const path of [...entries, ...instructions]) {
+    const exists = await regularFileExists(join(PRODUCT_ROOT, path));
+    recordedFileExists.set(path, exists);
+    if (exists && entries.includes(path)) {
+      entryText.set(path, await readFile(join(PRODUCT_ROOT, path), METHODOLOGY_RESOURCE_ENCODING));
+    }
+  }
+  return {
+    directory: posix.join(METHODOLOGY_MIGRATION_ROOT, line, codingAgent),
+    entries,
+    instructions,
+    recordedFileExists,
+    entryText,
+  };
 }
