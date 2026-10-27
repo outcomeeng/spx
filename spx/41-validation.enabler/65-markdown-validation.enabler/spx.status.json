@@ -750,7 +750,7 @@
       },
       "tests/markdown-validation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "b7c3feb9c0b97dd1b047a9dc9fa4426cafc24808",
         "read": [
           "pnpm-lock.yaml",
           "spx.config.yaml",
@@ -1026,6 +1026,7 @@
           "spx/34-verification.enabler/21-verification-context.enabler/13-verification-context-module-structure.adr.md",
           "spx/34-verification.enabler/21-verification-context.enabler/ISSUES.md",
           "spx/34-verification.enabler/21-verification-context.enabler/verification-context.md",
+          "spx/34-verification.enabler/21-verification-input.enabler/ISSUES.md",
           "spx/34-verification.enabler/21-verification-input.enabler/verification-input.md",
           "spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md",
           "spx/34-verification.enabler/32-verify.enabler/17-drive-mode.adr.md",
