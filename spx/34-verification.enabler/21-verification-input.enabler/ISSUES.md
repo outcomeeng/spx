@@ -16,3 +16,15 @@
 **Settlement condition:** one realization of the decision's candidate collection and containment exists, and every path-taking verification surface consumes it.
 
 **Evidence:** `src/lib/verification-input/resolve-operand.ts` lines 70-117; `src/lib/test-targeting/index.ts` `canonicalizeOperand`; `src/lib/file-system/pathContainment.ts` lines 25-34; the CI review of pull request outcomeeng/spx#710.
+
+## Dot-slash operands never reach the suffix match: `src/lib/verification-input/resolve-operand.ts`, `collectCandidates`, `consistency`
+
+The mapping assertion of [`spx/34-verification.enabler/21-verification-input.enabler/verification-input.md`](spx/34-verification.enabler/21-verification-input.enabler/verification-input.md) maps a relative operand to the candidates its join with the effective invocation directory and with the local worktree root yield, plus its complete-path-component suffix matches over the files `git ls-files --cached --others --exclude-standard` lists from that root.
+
+`collectCandidates` in `src/lib/verification-input/resolve-operand.ts` derives the suffix-match components by splitting the operand on the path separator and filtering out empty segments only. A literal single-dot segment stays in the components, so an operand spelled with a leading dot-slash, such as `./bar.ts`, yields the components `.` and `bar.ts`. The parent-segment guard rejects only components that include the two-dot parent segment, not the single dot. `hasComponentSuffix` compares the components with the trailing components of each git-listed file, and no listed path carries a literal single-dot segment, so no file matches. The direct-join candidates still resolve a dot-slash operand because `resolve` normalizes the leading single dot away. No test in `tests/operand-resolution.mapping.l1.test.ts` and no case of the `operandForSpelling` generator in `testing/generators/verification-input.ts` exercises a dot-slash-prefixed operand.
+
+**Impact:** an operand reachable only through the complete-path-component suffix match resolves to `UNRESOLVED` when written with a leading dot-slash, and to the file when written without it. The mapping assertion states one candidate set for a relative operand, and the spelling of the same operand changes that set.
+
+**Settlement condition:** the suffix-match components exclude single-dot segments, and a test covers a dot-slash-prefixed operand that only a suffix match resolves.
+
+**Evidence:** `src/lib/verification-input/resolve-operand.ts` lines 105-109 and 76-81; `spx/34-verification.enabler/21-verification-input.enabler/tests/operand-resolution.mapping.l1.test.ts`; `testing/generators/verification-input.ts`; the CI review of pull request outcomeeng/spx#710 at head 3caed65169dbcc89abb1cc0d84b9a6b66feac406.
