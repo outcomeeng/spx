@@ -18,11 +18,14 @@ import { defaultGitDependencies } from "@/lib/git/root";
 import {
   defaultMethodologyFetchFileSystem,
   FETCH_CODING_AGENTS,
+  INSTRUCTION_TEMPLATE_RELATIVE_PATH,
   type MethodologyFetchDependencies,
+  methodologyMigrationDir,
+  MIGRATION_ENTRY_FILE_NAME,
   PLUGIN_MANIFEST_FIELDS,
   UNDERSTAND_SKILL_RELATIVE_DIR,
 } from "@/lib/methodology";
-import type { GeneratedPluginsContent } from "@testing/generators/methodology/tree";
+import { type GeneratedPluginsContent, instructionTemplateText } from "@testing/generators/methodology/tree";
 import {
   GIT_TEST_CONFIG,
   GIT_TEST_FLAGS,
@@ -44,6 +47,10 @@ const INITIAL_BRANCH_FLAG = "--initial-branch";
 export const PUBLISHED_BRANCH = "main";
 const ADD_ALL_FLAG = "--all";
 
+const MIGRATION_INSTRUCTIONS_FILE_NAME = "instructions.md";
+const MIGRATION_ENTRY_TEXT = `Start with ${MIGRATION_INSTRUCTIONS_FILE_NAME}.\n`;
+const MIGRATION_INSTRUCTIONS_TEXT = "Migrate the product.\n";
+
 /** A published plugins repository: where it lives, the revision it holds, and what it carries. */
 export interface PluginsRepository {
   /** Absolute path of the repository working tree; usable as a clone URL. */
@@ -55,6 +62,12 @@ export interface PluginsRepository {
   readonly content: GeneratedPluginsContent;
   /** Absolute path of an empty directory standing in for spx's package root. */
   readonly packageRoot: string;
+  /**
+   * Writes an entry and one instruction file for every coding agent under the
+   * package root's `migration/{line}/{coding-agent}/` directories, standing in
+   * for the spx-owned assets a shipped line carries beside its tree.
+   */
+  readonly seedMigration: (line: string) => Promise<void>;
   /** Fetch dependencies wired to real git and the real filesystem, cloning under the harness temp root. */
   readonly dependencies: MethodologyFetchDependencies;
 }
@@ -107,6 +120,11 @@ async function publish(repositoryDir: string, content: GeneratedPluginsContent):
       join(layout.distRelativeDir, layout.pluginManifestRelativePath),
       pluginManifestText(agentContent),
     );
+    await writeRepositoryFile(
+      repositoryDir,
+      join(layout.distRelativeDir, INSTRUCTION_TEMPLATE_RELATIVE_PATH),
+      instructionTemplateText(agentContent.templateVersion),
+    );
     for (const [relativePath, text] of agentContent.skillFiles) {
       await writeRepositoryFile(
         repositoryDir,
@@ -141,6 +159,14 @@ export async function withPluginsRepository<T>(
       branch: PUBLISHED_BRANCH,
       content,
       packageRoot,
+      seedMigration: async (line) => {
+        for (const agent of Object.keys(FETCH_CODING_AGENTS)) {
+          const directory = methodologyMigrationDir(packageRoot, line, agent);
+          if (!directory.ok) throw new Error(directory.error);
+          await writeRepositoryFile(directory.value, MIGRATION_ENTRY_FILE_NAME, MIGRATION_ENTRY_TEXT);
+          await writeRepositoryFile(directory.value, MIGRATION_INSTRUCTIONS_FILE_NAME, MIGRATION_INSTRUCTIONS_TEXT);
+        }
+      },
       dependencies: {
         git: defaultGitDependencies,
         fs: defaultMethodologyFetchFileSystem,

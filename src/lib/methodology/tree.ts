@@ -24,6 +24,12 @@ export const METHODOLOGY_TREE_ROOT = "methodology";
 /** The plugin whose shipped tree carries the foundation-resource manifest. */
 export const FOUNDATION_PLUGIN_NAME = "spec-tree";
 
+/** Package-relative root holding every shipped migration directory, beside `METHODOLOGY_TREE_ROOT`. */
+export const METHODOLOGY_MIGRATION_ROOT = "migration";
+
+/** The one file in a migration directory that is the entry. */
+export const MIGRATION_ENTRY_FILE_NAME = "entry.md";
+
 /** Line-relative location of the record naming where a line's bytes were fetched from. */
 export const SOURCE_RECORD_RELATIVE_PATH = "source.json";
 
@@ -38,12 +44,24 @@ const METHODOLOGY_VERSION_NAME_PREFIX = "methodology ";
 export const SOURCE_RECORD_FIELDS = {
   REPOSITORY: "repository",
   REVISION: "revision",
+  TEMPLATE: "template",
+  PATH: "path",
+  COMMIT: "commit",
   PLUGINS: "plugins",
   NAME: "name",
   VERSION: "version",
   PROVIDES: "provides",
   SUPPORTS: "supports",
+  MIGRATION: "migration",
+  ENTRIES: "entries",
+  INSTRUCTIONS: "instructions",
 } as const;
+
+/** The packaged migration files of one coding agent for one line, as package-relative POSIX paths. */
+export interface MethodologySourceMigration {
+  readonly entries: readonly string[];
+  readonly instructions: readonly string[];
+}
 
 /** One coding agent's plugin identity at the fetched revision. */
 export interface MethodologySourcePlugin {
@@ -53,12 +71,22 @@ export interface MethodologySourcePlugin {
   readonly provides?: string;
   /** The methodology-version range the plugin declares it supports, when declared. */
   readonly supports?: string;
+  readonly migration: MethodologySourceMigration;
+}
+
+/** The instruction-template version a line's managed markers carry, with its provenance. */
+export interface MethodologySourceTemplate {
+  readonly version: string;
+  readonly repository: string;
+  readonly path: string;
+  readonly commit: string;
 }
 
 /** What a shipped line records about where its bytes came from. */
 export interface MethodologySourceRecord {
   readonly repository: string;
   readonly revision: string;
+  readonly template: MethodologySourceTemplate;
   readonly plugins: Readonly<Record<string, MethodologySourcePlugin>>;
 }
 
@@ -168,6 +196,20 @@ export function methodologyTreeDir(
   return { ok: true, value: join(treeRoot, line, codingAgent, plugin) };
 }
 
+/** Package-relative directory of one shipped migration: `migration/{line}/{codingAgent}`. */
+export function methodologyMigrationRelativeDir(line: string, codingAgent: string): Result<string> {
+  const segments = validateSegments([line, codingAgent]);
+  if (!segments.ok) return segments;
+  return { ok: true, value: join(METHODOLOGY_MIGRATION_ROOT, line, codingAgent) };
+}
+
+/** Absolute directory of one shipped migration under the supplied spx package root. */
+export function methodologyMigrationDir(packageRoot: string, line: string, codingAgent: string): Result<string> {
+  const relative = methodologyMigrationRelativeDir(line, codingAgent);
+  if (!relative.ok) return relative;
+  return { ok: true, value: join(packageRoot, relative.value) };
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -189,6 +231,48 @@ function readOptionalString(record: Record<string, unknown>, field: string, path
   return { ok: true, value: raw };
 }
 
+function readStringList(record: Record<string, unknown>, field: string, path: string): Result<readonly string[]> {
+  const raw = record[field];
+  if (!Array.isArray(raw) || raw.some((item) => typeof item !== "string" || item.length === 0)) {
+    return { ok: false, error: `${path}.${field} must be an array of non-empty strings` };
+  }
+  return { ok: true, value: raw as readonly string[] };
+}
+
+function parseSourceMigration(raw: unknown, path: string): Result<MethodologySourceMigration> {
+  if (!isRecord(raw)) {
+    return { ok: false, error: `${path} must be an object` };
+  }
+  const entries = readStringList(raw, SOURCE_RECORD_FIELDS.ENTRIES, path);
+  if (!entries.ok) return entries;
+  const instructions = readStringList(raw, SOURCE_RECORD_FIELDS.INSTRUCTIONS, path);
+  if (!instructions.ok) return instructions;
+  return { ok: true, value: { entries: entries.value, instructions: instructions.value } };
+}
+
+function parseSourceTemplate(raw: unknown, path: string): Result<MethodologySourceTemplate> {
+  if (!isRecord(raw)) {
+    return { ok: false, error: `${path} must be an object` };
+  }
+  const version = readRequiredString(raw, SOURCE_RECORD_FIELDS.VERSION, path);
+  if (!version.ok) return version;
+  const repository = readRequiredString(raw, SOURCE_RECORD_FIELDS.REPOSITORY, path);
+  if (!repository.ok) return repository;
+  const templatePath = readRequiredString(raw, SOURCE_RECORD_FIELDS.PATH, path);
+  if (!templatePath.ok) return templatePath;
+  const commit = readRequiredString(raw, SOURCE_RECORD_FIELDS.COMMIT, path);
+  if (!commit.ok) return commit;
+  return {
+    ok: true,
+    value: {
+      version: version.value,
+      repository: repository.value,
+      path: templatePath.value,
+      commit: commit.value,
+    },
+  };
+}
+
 function parseSourcePlugin(raw: unknown, path: string): Result<MethodologySourcePlugin> {
   if (!isRecord(raw)) {
     return { ok: false, error: `${path} must be an object` };
@@ -201,11 +285,17 @@ function parseSourcePlugin(raw: unknown, path: string): Result<MethodologySource
   if (!provides.ok) return provides;
   const supports = readOptionalString(raw, SOURCE_RECORD_FIELDS.SUPPORTS, path);
   if (!supports.ok) return supports;
+  const migration = parseSourceMigration(
+    raw[SOURCE_RECORD_FIELDS.MIGRATION],
+    `${path}.${SOURCE_RECORD_FIELDS.MIGRATION}`,
+  );
+  if (!migration.ok) return migration;
   return {
     ok: true,
     value: {
       name: name.value,
       version: version.value,
+      migration: migration.value,
       ...(provides.value === undefined ? {} : { provides: provides.value }),
       ...(supports.value === undefined ? {} : { supports: supports.value }),
     },
@@ -228,6 +318,11 @@ export function parseMethodologySourceRecord(text: string): Result<MethodologySo
   if (!repository.ok) return repository;
   const revision = readRequiredString(parsed, SOURCE_RECORD_FIELDS.REVISION, path);
   if (!revision.ok) return revision;
+  const template = parseSourceTemplate(
+    parsed[SOURCE_RECORD_FIELDS.TEMPLATE],
+    `${path}.${SOURCE_RECORD_FIELDS.TEMPLATE}`,
+  );
+  if (!template.ok) return template;
   const pluginsRaw = parsed[SOURCE_RECORD_FIELDS.PLUGINS];
   if (!isRecord(pluginsRaw)) {
     return { ok: false, error: `${path}.${SOURCE_RECORD_FIELDS.PLUGINS} must be an object keyed by coding agent` };
@@ -238,7 +333,10 @@ export function parseMethodologySourceRecord(text: string): Result<MethodologySo
     if (!plugin.ok) return plugin;
     plugins[codingAgent] = plugin.value;
   }
-  return { ok: true, value: { repository: repository.value, revision: revision.value, plugins } };
+  return {
+    ok: true,
+    value: { repository: repository.value, revision: revision.value, template: template.value, plugins },
+  };
 }
 
 const SOURCE_RECORD_INDENTATION = 2;
@@ -258,6 +356,10 @@ export function formatMethodologySourceRecord(record: MethodologySourceRecord): 
         [SOURCE_RECORD_FIELDS.VERSION]: plugin.version,
         ...(plugin.provides === undefined ? {} : { [SOURCE_RECORD_FIELDS.PROVIDES]: plugin.provides }),
         ...(plugin.supports === undefined ? {} : { [SOURCE_RECORD_FIELDS.SUPPORTS]: plugin.supports }),
+        [SOURCE_RECORD_FIELDS.MIGRATION]: {
+          [SOURCE_RECORD_FIELDS.ENTRIES]: [...plugin.migration.entries],
+          [SOURCE_RECORD_FIELDS.INSTRUCTIONS]: [...plugin.migration.instructions].sort(compareCodeUnitOrder),
+        },
       }];
     }),
   );
@@ -266,6 +368,12 @@ export function formatMethodologySourceRecord(record: MethodologySourceRecord): 
       {
         [SOURCE_RECORD_FIELDS.REPOSITORY]: record.repository,
         [SOURCE_RECORD_FIELDS.REVISION]: record.revision,
+        [SOURCE_RECORD_FIELDS.TEMPLATE]: {
+          [SOURCE_RECORD_FIELDS.VERSION]: record.template.version,
+          [SOURCE_RECORD_FIELDS.REPOSITORY]: record.template.repository,
+          [SOURCE_RECORD_FIELDS.PATH]: record.template.path,
+          [SOURCE_RECORD_FIELDS.COMMIT]: record.template.commit,
+        },
         [SOURCE_RECORD_FIELDS.PLUGINS]: plugins,
       },
       null,
