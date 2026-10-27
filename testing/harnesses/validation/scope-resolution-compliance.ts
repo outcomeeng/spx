@@ -8,6 +8,7 @@ import { stringify } from "yaml";
 import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import { TYPESCRIPT_VALIDATION_MESSAGES, typescriptCommand } from "@/commands/validation/typescript";
 import type { ProcessRunner } from "@/lib/process-lifecycle";
+import { getProcessTempDirectory, TEMP_DIRECTORY_PATH } from "@/lib/temp-directory";
 import {
   VALIDATION_PATH_TOOL_SUBSECTIONS,
   VALIDATION_PATHS_SUBSECTION,
@@ -21,7 +22,6 @@ import {
   getTypeScriptScope,
   pathPassesTypeScriptScope,
   resolveTypeScriptValidationScope,
-  TEMPORARY_TSCONFIG_PARENT_SEGMENTS,
   TSCONFIG_FILES,
   TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS,
   TYPESCRIPT_SCOPE_DIRECTORY_PATTERN_SUFFIX,
@@ -54,6 +54,7 @@ import { VALIDATION_SCOPES } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
+import { withValidationScratchRun } from "@testing/harnesses/validation/scratch-directories";
 import { RecordingSpawnOptionsRunner, RecordingValidationChild } from "@testing/harnesses/validation/subprocess";
 import {
   PROJECT_FIXTURES,
@@ -124,9 +125,7 @@ function createRecordingKnipDeps(): RecordingKnipDepsContext {
     writtenConfigPaths,
     deps: {
       existsSync: () => false,
-      mkdir,
-      mkdtemp: defaultTypeScriptDeps.mkdtemp,
-      rm: async () => {},
+      tempDirectory: getProcessTempDirectory(),
       writeFile: async (path, data) => {
         writtenConfigPaths.push(path.toString());
         writtenConfigs.push(data.toString());
@@ -159,7 +158,7 @@ function expectTemporaryConfigPathInsideNodeModules(
   expect(configPath?.startsWith(join(productDir, "node_modules"))).toBe(true);
   expect(
     configPath?.startsWith(
-      join(productDir, ...TEMPORARY_TSCONFIG_PARENT_SEGMENTS),
+      join(productDir, ...TEMP_DIRECTORY_PATH.SCRATCH_PARENT_SEGMENTS),
     ),
   ).toBe(true);
 }
@@ -1210,22 +1209,12 @@ describe("ALWAYS: TypeScript scope resolution uses the requested product directo
     const errorMessage = sampleLiteralTestValue(
       LITERAL_TEST_GENERATOR.domainLiteral(),
     );
-    await withTestEnv({}, async (env) => {
+    await withValidationScratchRun(async (scratch) => {
       const runner = new ErrorThenCloseRunner(errorMessage);
-      const cleanupTargets: string[] = [];
-      const deps: KnipDeps = {
-        existsSync: () => false,
-        mkdir,
-        mkdtemp: defaultTypeScriptDeps.mkdtemp,
-        rm: async (path) => {
-          cleanupTargets.push(path.toString());
-        },
-        writeFile: async () => {},
-      };
 
       const result = await validateKnip(
         {
-          productDir: env.productDir,
+          productDir: scratch.productDirectory,
           typescriptScope: {
             directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
             filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
@@ -1236,13 +1225,14 @@ describe("ALWAYS: TypeScript scope resolution uses the requested product directo
           },
         },
         runner,
-        deps,
+        scratch.knipDeps,
       );
 
       expect(result).toEqual({ success: false, error: errorMessage });
-      expect(cleanupTargets).toHaveLength(1);
+      expect(scratch.removed).toHaveLength(1);
+      expect(scratch.scratchEntries()).toEqual([]);
       expect(
-        runner.options.every((options) => options.cwd === env.productDir),
+        runner.options.every((options) => options.cwd === scratch.productDirectory),
       ).toBe(true);
     });
   });
