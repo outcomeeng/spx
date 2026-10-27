@@ -26,7 +26,11 @@ import {
   orderedDirectoryRecord,
   type SelectedVersionScenario,
 } from "@testing/generators/spec-tree/naming-schema-version";
-import { type RepresentativeSpecTreeFixture, SPEC_TREE_TEST_GENERATOR } from "@testing/generators/spec-tree/spec-tree";
+import {
+  type RepresentativeSpecTreeFixture,
+  requireNonEmpty,
+  SPEC_TREE_TEST_GENERATOR,
+} from "@testing/generators/spec-tree/spec-tree";
 
 /** The output node kinds whose suffix no naming-schema version other than the 4.0 version accepts. */
 export function fourZeroOnlyOutputKinds(): readonly (typeof OUTPUT_KINDS)[number][] {
@@ -40,7 +44,10 @@ export function fourZeroOnlyOutputKinds(): readonly (typeof OUTPUT_KINDS)[number
 
 /** A representative fixture whose nodes all carry an output node kind, a suffix only the 4.0 grammar accepts. */
 export function arbitraryOutputKindFixture(registry: SpecTreeRegistry): fc.Arbitrary<RepresentativeSpecTreeFixture> {
-  return SPEC_TREE_TEST_GENERATOR.representativeFixture(registry, fc.constantFrom(...fourZeroOnlyOutputKinds()));
+  return SPEC_TREE_TEST_GENERATOR.representativeFixture(
+    registry,
+    requireNonEmpty(fourZeroOnlyOutputKinds(), "output node kind accepted only by the 4.0 grammar"),
+  );
 }
 
 const GRAMMAR_SELECTION_LINES: readonly string[] = Object.values(SPEC_TREE_METHODOLOGY_LINE);

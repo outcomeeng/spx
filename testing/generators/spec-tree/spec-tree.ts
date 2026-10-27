@@ -902,7 +902,7 @@ function readKinds<K extends NodeKind | DecisionKind>(
   return requireNonEmpty(kinds, description);
 }
 
-function requireNonEmpty<T>(values: readonly T[], description: string): [T, ...T[]] {
+export function requireNonEmpty<T>(values: readonly T[], description: string): [T, ...T[]] {
   const [first, ...rest] = values;
   if (first === undefined) {
     throw new Error(`Spec-tree registry has no ${description}`);
