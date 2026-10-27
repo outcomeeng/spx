@@ -13,10 +13,10 @@ describe("verification input inspect is read-only through the built executable",
   it(
     "leaves the worktree, run store included, exactly as it was after inspecting a product file",
     async () => {
-      const scenario = sampleVerificationInputValue(VERIFICATION_INPUT_TEST_GENERATOR.fileScenario());
+      const scenario = sampleVerificationInputValue(VERIFICATION_INPUT_TEST_GENERATOR.textFileScenario());
 
       await withVerificationInputEnv(async (env) => {
-        await env.writeFile(scenario.path, scenario.bytes);
+        await env.writeFile(scenario.path, scenario.variants.first);
         const before = await env.snapshot();
 
         const run = await runBuiltInputInspect(env.root, scenario.path);
