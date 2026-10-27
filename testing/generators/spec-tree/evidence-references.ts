@@ -21,7 +21,6 @@ import {
   KIND_REGISTRY,
   NODE_KINDS,
   OUTPUT_KINDS,
-  resolveAdmittedChildren,
   SPEC_TREE_ASSERTION_BULLET_PREFIX,
   SPEC_TREE_ASSERTIONS_HEADING,
   SPEC_TREE_AUDIT_TAG_SLUG_SEPARATOR,
@@ -46,6 +45,7 @@ import {
   fourZeroOnlyOutputKinds,
   lineComponent,
 } from "@testing/generators/spec-tree/grammar-selection";
+import { admittedChildKindsOracle } from "@testing/generators/spec-tree/kind-grammar";
 import { SPEC_TREE_TEST_GENERATOR, specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
 
 /** The shapes an assertion line takes with respect to evidence tagging. */
@@ -706,11 +706,12 @@ function directoryName(order: number | string, slug: string, kind: Kind): string
 /**
  * The directory kinds of `naming` that a citing node of `citingKind` admits as children, so a
  * directory a link enters nests only a kind the citing node's kind admits. A kind that resolves
- * no admitted children places no limit.
+ * no admitted children in the independent cases places no limit. The admitted kinds come from the
+ * independent admitted-children cases, never from the kind registry assembly enforces.
  */
 function admittedNodeKinds(citingKind: SpecTreeNodeKind, naming: DirectoryNaming): readonly Kind[] {
-  const admitted: readonly string[] | undefined = resolveAdmittedChildren(citingKind);
-  return admitted === undefined ? naming.nodeKinds : naming.nodeKinds.filter((kind) => admitted.includes(kind));
+  const admitted: readonly string[] = admittedChildKindsOracle(citingKind);
+  return admitted.length === 0 ? naming.nodeKinds : naming.nodeKinds.filter((kind) => admitted.includes(kind));
 }
 
 function linkedDirectoryName(

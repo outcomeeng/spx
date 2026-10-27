@@ -6,7 +6,6 @@ import { NODE_STATUS_EXCLUDE_PATH_GRAMMAR } from "@/lib/node-status";
 import {
   type DecisionKind,
   type NodeKind,
-  resolveAdmittedChildren,
   selectSpecTreeGrammar,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
@@ -35,6 +34,7 @@ import { PYTHON_MARKER } from "@/validation/discovery/language-finder";
 import { MINIMAL_SPEC_TREE_CONFIG } from "@testing/generators/config/config";
 import { SAMPLE_GENERATOR_PARAMETERS, sampleGeneratedValue } from "@testing/generators/sample";
 import { evidenceFileNameFor, evidenceSubject } from "@testing/generators/spec-tree/evidence-file-name";
+import { admittedChildKindsOracle } from "@testing/generators/spec-tree/kind-grammar";
 import { semverMaximumOracle, semverOrderOracle } from "@testing/generators/spec-tree/naming-schema-version";
 
 type SpecTreeEntryDiscriminatorKey =
@@ -666,16 +666,16 @@ function arbitraryAssemblyScenario(registry: SpecTreeRegistry): fc.Arbitrary<Ass
 }
 
 /**
- * The kinds of `pool` that a container admits as children under the kind registry: the product's
- * when `parentKind` is the product kind, otherwise the parent kind's, resolved through
- * `grandparentKind` for a variant.
+ * The kinds of `pool` that a container admits as children under the independent admitted-children
+ * law: the product's when `parentKind` is the product kind, otherwise the parent kind's, resolved
+ * through `grandparentKind` for a variant.
  */
 function arbitraryAdmittedChildKind(
   pool: readonly SpecTreeNodeKind[],
   parentKind: SpecTreeContainerKind,
   grandparentKind?: SpecTreeNodeKind,
 ): fc.Arbitrary<SpecTreeNodeKind> {
-  const admitted: readonly SpecTreeContainerKind[] = resolveAdmittedChildren(parentKind, grandparentKind) ?? [];
+  const admitted = admittedChildKindsOracle(parentKind, grandparentKind);
   return fc.constantFrom(
     ...requireNonEmpty(pool.filter((kind) => admitted.includes(kind)), `child kind admitted under ${parentKind}`),
   );
