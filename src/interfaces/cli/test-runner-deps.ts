@@ -1,12 +1,12 @@
 import type { ChildProcess } from "node:child_process";
 import { createWriteStream } from "node:fs";
-import { mkdtemp, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { Writable } from "node:stream";
 import { finished } from "node:stream/promises";
 
 import { lifecycleProcessRunner, type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
+import { STATE_STORE_DOMAIN, worktreeScopeDir } from "@/lib/state-store";
 import type {
   RelatedTestCommandResult,
   RelatedTestDependencies,
@@ -16,7 +16,7 @@ import type {
 } from "@/test/languages/types";
 
 export const PROCESS_FAILURE_EXIT_CODE = 1;
-export const AGENT_ARTIFACT_DIR_PREFIX = "spx-test-agent-";
+export const AGENT_TEST_ARTIFACTS_DIR_NAME = "artifacts";
 
 const STDOUT_FILE_SUFFIX = "stdout.log";
 const STDERR_FILE_SUFFIX = "stderr.log";
@@ -43,7 +43,6 @@ interface CapturedCommandRequest {
 }
 
 export interface AgentRunnerOptions {
-  readonly tmpDir?: string;
   readonly processRunner?: ProcessRunner;
   readonly env?: NodeJS.ProcessEnv;
   readonly createArtifactWriteStream?: (path: string) => Writable;
@@ -186,6 +185,14 @@ function runCapturedCommand(request: CapturedCommandRequest): Promise<TestRunCom
   });
 }
 
+// Replaces the previous run's artifacts with an empty directory under the worktree's test state.
+async function resetArtifactsDirectory(productDir: string): Promise<string> {
+  const artifactsDir = join(worktreeScopeDir(productDir), STATE_STORE_DOMAIN.TEST, AGENT_TEST_ARTIFACTS_DIR_NAME);
+  await rm(artifactsDir, { recursive: true, force: true });
+  await mkdir(artifactsDir, { recursive: true });
+  return artifactsDir;
+}
+
 function createAgentOutputCommandRunner(
   productDir: string,
   options: AgentRunnerOptions = {},
@@ -199,7 +206,7 @@ function createAgentOutputCommandRunner(
 
   return async (command, args = EMPTY_RUNNER_ARGS) => {
     nextArtifactIndex += 1;
-    artifactRoot ??= mkdtemp(join(options.tmpDir ?? tmpdir(), AGENT_ARTIFACT_DIR_PREFIX));
+    artifactRoot ??= resetArtifactsDirectory(productDir);
     const root = await artifactRoot;
     return runCapturedCommand({
       productDir,

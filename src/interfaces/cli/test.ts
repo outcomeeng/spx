@@ -7,6 +7,7 @@ import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
 import { formatAgentTestOutput } from "@/interfaces/cli/test-agent-output";
 import { detectWorktreeProductRoot } from "@/lib/git/root";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
+import { getProcessTempDirectory } from "@/lib/temp-directory";
 import type { TargetSelection } from "@/lib/test-targeting";
 import { testingRegistry } from "@/test/registry";
 
@@ -59,6 +60,12 @@ async function resolveTestProductDir(
   return productDir;
 }
 
+// Takes the invocation's run root before any runner process starts, so Vitest and its
+// workers inherit it through the process environment; the exit hook removes it with the process.
+async function takeRunRoot(): Promise<void> {
+  await getProcessTempDirectory().createDirectory();
+}
+
 // Runs the testing command, surfacing its dispatch result; a config or recording
 // failure exits here, where the descriptor owns the process boundary.
 async function runTestsThroughCommand(
@@ -70,6 +77,7 @@ async function runTestsThroughCommand(
   requireExecution?: boolean,
 ): Promise<TestsCommandResult> {
   try {
+    await takeRunRoot();
     return await runTestsCommand(
       { productDir, passing, targets, changed, requireExecution },
       {
@@ -93,6 +101,7 @@ async function runAgentTestsThroughCommand(
   requireExecution?: boolean,
 ): Promise<TestsCommandResult> {
   try {
+    await takeRunRoot();
     return await runTestsCommand(
       { productDir, passing, targets, changed, requireExecution },
       {

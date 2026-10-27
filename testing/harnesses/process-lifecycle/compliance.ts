@@ -7,12 +7,7 @@ import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
-import {
-  AGENT_ARTIFACT_DIR_PREFIX,
-  createAgentRunnerDepsFor,
-  createRelatedDepsFor,
-  createRunnerDepsFor,
-} from "@/interfaces/cli/test-runner-deps";
+import { createAgentRunnerDepsFor, createRelatedDepsFor, createRunnerDepsFor } from "@/interfaces/cli/test-runner-deps";
 import { type ProcessRunner, spawnManagedSubprocess } from "@/lib/process-lifecycle";
 import { typescriptTestingLanguage } from "@/test/languages/typescript";
 import { validateESLint } from "@/validation/steps/eslint";
@@ -28,6 +23,8 @@ import { EXECUTION_MODES, type ScopeConfig, VALIDATION_SCOPES, type ValidationCo
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { RecordingSpawnOptionsRunner, RecordingValidationChild } from "@testing/harnesses/validation/subprocess";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
+
+const AGENT_RUNNER_PRODUCT_TEMP_PREFIX = "process-lifecycle-agent-product-";
 
 const CALLER_OWNED_STDIO_FIXTURE_PATH = join(
   process.cwd(),
@@ -263,13 +260,13 @@ export function registerLifecycleComplianceEvidence(): void {
     });
 
     it("agent test subprocess output is owned by parent-owned pipes", async () => {
-      await withTempDir(AGENT_ARTIFACT_DIR_PREFIX, async (tmpDir) => {
+      await withTempDir(AGENT_RUNNER_PRODUCT_TEMP_PREFIX, async (productDir) => {
         const stdoutChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
         const stderrChunk = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
         const runner = new EmittingSpawnOptionsRunner(stdoutChunk, stderrChunk);
         const command = sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral());
         const args = [sampleLiteralTestValue(LITERAL_TEST_GENERATOR.domainLiteral())];
-        const dependencies = createAgentRunnerDepsFor(process.cwd(), { processRunner: runner, tmpDir })(
+        const dependencies = createAgentRunnerDepsFor(productDir, { processRunner: runner })(
           typescriptTestingLanguage,
         );
 
