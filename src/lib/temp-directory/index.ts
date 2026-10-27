@@ -26,12 +26,12 @@ const EXIT_EVENT = "exit";
 const NO_NAME_PREFIX = "";
 const BOUND_ERROR_NAME = "TempDirectoryBoundError";
 
-/** Raised when a release names a path outside the run root and the scratch parents the primitive resolved. */
+/** Raised when a creation or release names a path outside the run root and the scratch parents the primitive resolved. */
 export class TempDirectoryBoundError extends Error {
   readonly path: string;
 
   constructor(path: string) {
-    super(`Refusing to release a path outside the run root and scratch parents: ${path}`);
+    super(`Refusing a path outside the run root and scratch parents: ${path}`);
     this.name = BOUND_ERROR_NAME;
     this.path = path;
   }
@@ -134,7 +134,9 @@ export function createTempDirectory(deps: TempDirectoryDeps): TempDirectory {
   };
 
   const createInRunRoot = async (namePrefix: string): Promise<string> => {
-    const path = join(await ensureRunRoot(), `${namePrefix}${deps.randomToken()}`);
+    const root = resolve(await ensureRunRoot());
+    const path = resolve(join(root, `${namePrefix}${deps.randomToken()}`));
+    if (!isInside(root, path)) throw new TempDirectoryBoundError(path);
     fileSystem.makeDirectory(path);
     return path;
   };
