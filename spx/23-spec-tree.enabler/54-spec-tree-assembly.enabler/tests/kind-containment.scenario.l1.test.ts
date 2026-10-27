@@ -23,7 +23,10 @@ describe("kind containment in assembly", () => {
 
         expect(failure).toBeInstanceOf(Error);
         const message = (failure as Error).message;
-        const withoutChildPaths = layouts.reduce((text, { child }) => text.replaceAll(child.directoryPath, ""), message);
+        const withoutChildPaths = layouts.reduce(
+          (text, { child }) => text.replaceAll(child.directoryPath, ""),
+          message,
+        );
         const withoutPaths = layouts.reduce(
           (text, { parent }) => text.replaceAll(parent.directoryPath, ""),
           withoutChildPaths,
