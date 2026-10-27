@@ -1,27 +1,30 @@
 import { existsSync } from "node:fs";
 import { stat } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { resolve, sep } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { TEMP_DIRECTORY_ENV_VAR } from "@/lib/temp-directory";
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
 import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 describe("withTempDir — lifecycle", () => {
-  it("creates a fresh directory under os.tmpdir() and passes it to the callback", async () => {
+  it("creates a fresh directory under the run root and passes it to the callback", async () => {
     const prefix = sampleConfigTestValue(CONFIG_TEST_GENERATOR.tempPrefix());
     let observed = "";
+    let runRoot = "";
 
     await withTempDir(prefix, async (dir) => {
       observed = dir;
+      runRoot = process.env[TEMP_DIRECTORY_ENV_VAR.RUN_ROOT] ?? "";
       const info = await stat(dir);
       expect(info.isDirectory()).toBe(true);
-      expect(resolve(dir).startsWith(resolve(tmpdir()) + sep)).toBe(true);
+      expect(process.env[TEMP_DIRECTORY_ENV_VAR.RUN_ROOT]).toBeDefined();
+      expect(resolve(dir).startsWith(resolve(runRoot) + sep)).toBe(true);
     });
 
-    expect(resolve(observed).startsWith(resolve(tmpdir()) + sep)).toBe(true);
+    expect(resolve(observed).startsWith(resolve(runRoot) + sep)).toBe(true);
   });
 
   it("returns the callback's result unchanged", async () => {
