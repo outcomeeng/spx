@@ -23,9 +23,13 @@ import {
   FOUNDATION_MANIFEST_RELATIVE_PATH,
   FOUNDATION_MANIFEST_SCHEMA_VERSION,
   FOUNDATION_PLUGIN_NAME,
+  INSTRUCTION_TEMPLATE_RELATIVE_PATH,
   METHODOLOGY_CODING_AGENTS,
+  METHODOLOGY_MIGRATION_ROOT,
   METHODOLOGY_TREE_ROOT,
+  type MethodologySourceMigration,
   type MethodologySourceRecord,
+  MIGRATION_ENTRY_FILE_NAME,
   RANGE_ALTERNATIVE_SEPARATOR,
   RANGE_COMPARATOR,
   UNDERSTAND_SKILL_RELATIVE_DIR,
@@ -232,6 +236,10 @@ export interface GeneratedPluginContent {
   readonly pluginVersion: string;
   readonly provides?: string;
   readonly supports?: string;
+  /** The `template_version` of the plugin's instruction-block template. */
+  readonly templateVersion: string;
+  /** When supplied, the exact text published as the instruction-block template instead of one carrying `templateVersion`. */
+  readonly templateText?: string;
   /** Files under the understand skill directory, keyed by skill-relative path. */
   readonly skillFiles: ReadonlyMap<string, string>;
 }
@@ -280,22 +288,69 @@ function skillFiles(): fc.Arbitrary<ReadonlyMap<string, string>> {
 }
 
 /** One agent's plugin content; `provides` is the line every agent agrees on when supplied. */
-export function arbitraryPluginContent(provides?: string): fc.Arbitrary<GeneratedPluginContent> {
-  return fc.tuple(arbitraryPathSegment(), arbitraryMethodologyVersion(), skillFiles(), arbitraryMethodologyLine())
-    .map(([pluginName, pluginVersion, files, supportsLine]) => ({
+export function arbitraryPluginContent(
+  provides?: string,
+  templateVersion?: string,
+): fc.Arbitrary<GeneratedPluginContent> {
+  return fc.tuple(
+    arbitraryPathSegment(),
+    arbitraryMethodologyVersion(),
+    skillFiles(),
+    arbitraryMethodologyLine(),
+    arbitraryMethodologyVersion(),
+  )
+    .map(([pluginName, pluginVersion, files, supportsLine, drawnTemplateVersion]) => ({
       pluginName,
       pluginVersion: pluginVersion.text,
       ...(provides === undefined ? {} : { provides, supports: `>=${supportsLine}` }),
+      templateVersion: templateVersion ?? drawnTemplateVersion.text,
       skillFiles: files,
     }));
+}
+
+/** The text of an instruction-block template whose front matter carries `templateVersion` as a double-quoted scalar. */
+export function instructionTemplateText(templateVersion: string): string {
+  return `---\ntemplate_version: ${JSON.stringify(templateVersion)}\n---\n\n# Instruction block\n`;
 }
 
 /** Plugins content for every fetched coding agent, all declaring the same `provides` when one is supplied. */
 export function arbitraryPluginsContent(provides?: string): fc.Arbitrary<GeneratedPluginsContent> {
   const agents = Object.keys(FETCH_CODING_AGENTS);
-  return fc.tuple(...agents.map(() => arbitraryPluginContent(provides))).map((contents) => ({
-    agents: new Map(agents.map((agent, index) => [agent, contents[index]])),
-  }));
+  return arbitraryMethodologyVersion().chain((templateVersion) =>
+    fc.tuple(...agents.map(() => arbitraryPluginContent(provides, templateVersion.text))).map((contents) => ({
+      agents: new Map(agents.map((agent, index) => [agent, contents[index]])),
+    }))
+  ).filter((content) =>
+    // The template version is its own value: it equals neither the methodology version the plugins provide
+    // nor any plugin's distribution version, so a record that substituted one for it would differ.
+    [...content.agents.values()].every((agentContent) =>
+      agentContent.templateVersion !== provides
+      && [...content.agents.values()].every((other) => other.pluginVersion !== agentContent.templateVersion)
+    )
+  );
+}
+
+/** Plugins content whose coding agents carry different `template_version` values, every agent declaring `provides` when supplied. */
+export function arbitraryTemplateDisagreeingPluginsContent(provides?: string): fc.Arbitrary<GeneratedPluginsContent> {
+  const agents = Object.keys(FETCH_CODING_AGENTS);
+  return fc.tuple(arbitraryMethodologyVersion(), arbitraryMethodologyVersion())
+    .filter(([first, second]) => first.text !== second.text)
+    .chain(([first, second]) =>
+      fc.tuple(...agents.map((_, index) => arbitraryPluginContent(provides, index === 0 ? first.text : second.text)))
+        .map((contents) => ({
+          agents: new Map(agents.map((agent, index) => [agent, contents[index]])),
+        }))
+    );
+}
+
+/** Plugins content whose first coding agent publishes a template with no front matter, hence no `template_version`. */
+export function arbitraryTemplateLessPluginsContent(provides?: string): fc.Arbitrary<GeneratedPluginsContent> {
+  return fc.tuple(arbitraryPluginsContent(provides), arbitraryMarkdownBody()).map(([content, body]) => {
+    const [first, ...rest] = [...content.agents];
+    return {
+      agents: new Map([[first[0], { ...first[1], templateText: body }], ...rest]),
+    };
+  });
 }
 
 /** Plugins content whose agents disagree on `provides`, with the distinct versions each side declares. */
@@ -310,11 +365,17 @@ export function arbitraryDisagreeingPluginsContent(): fc.Arbitrary<GeneratedDisa
   return fc.tuple(arbitraryMethodologyVersion(), arbitraryMethodologyVersion())
     .filter(([first, second]) => first.line !== second.line)
     .chain(([first, second]) =>
-      fc.tuple(...agents.map((_, index) => arbitraryPluginContent(index === 0 ? first.text : second.text)))
-        .map((contents) => ({
-          agents: new Map(agents.map((agent, index) => [agent, contents[index]])),
-          provided: [first, second] as const,
-        }))
+      arbitraryMethodologyVersion().chain((templateVersion) =>
+        fc.tuple(
+          ...agents.map((_, index) =>
+            arbitraryPluginContent(index === 0 ? first.text : second.text, templateVersion.text)
+          ),
+        )
+          .map((contents) => ({
+            agents: new Map(agents.map((agent, index) => [agent, contents[index]])),
+            provided: [first, second] as const,
+          }))
+      )
     );
 }
 
@@ -354,6 +415,24 @@ export function supportsRangeAlternatives(version: string): string {
   ].join(`${COMPARATOR_JOINER}${RANGE_ALTERNATIVE_SEPARATOR}${COMPARATOR_JOINER}`);
 }
 
+function generatedSourceTemplate(): MethodologySourceRecord["template"] {
+  return {
+    version: sampleGeneratedValue(arbitraryMethodologyVersion()).text,
+    repository: sampleGeneratedValue(arbitraryPathSegment()),
+    path: INSTRUCTION_TEMPLATE_RELATIVE_PATH,
+    commit: sampleGeneratedValue(arbitraryPathSegment()),
+  };
+}
+
+function generatedSourceMigration(codingAgent: string): MethodologySourceMigration {
+  const directory = [METHODOLOGY_MIGRATION_ROOT, sampleGeneratedValue(arbitraryMethodologyLine()), codingAgent];
+  const path = (fileName: string): string => [...directory, fileName].join(RESOURCE_ADDRESS_SEPARATOR);
+  return {
+    entries: [path(MIGRATION_ENTRY_FILE_NAME)],
+    instructions: [path(`${sampleGeneratedValue(arbitraryPathSegment())}.md`)],
+  };
+}
+
 function generatedSourcePlugins(
   plugin: (codingAgent: string) => MethodologySourceRecord["plugins"][string],
 ): MethodologySourceRecord["plugins"] {
@@ -365,9 +444,11 @@ export function generatedSourceRecordProviding(provides: string, supports?: stri
   return {
     repository: sampleGeneratedValue(arbitraryPathSegment()),
     revision: sampleGeneratedValue(arbitraryPathSegment()),
-    plugins: generatedSourcePlugins(() => ({
+    template: generatedSourceTemplate(),
+    plugins: generatedSourcePlugins((codingAgent) => ({
       name: FOUNDATION_PLUGIN_NAME,
       version: sampleGeneratedValue(arbitraryMethodologyVersion()).text,
+      migration: generatedSourceMigration(codingAgent),
       provides,
       ...(supports === undefined ? {} : { supports }),
     })),
@@ -379,6 +460,11 @@ export function generatedSourceRecordWithPluginVersion(pluginVersion: string): M
   return {
     repository: sampleGeneratedValue(arbitraryPathSegment()),
     revision: sampleGeneratedValue(arbitraryPathSegment()),
-    plugins: generatedSourcePlugins(() => ({ name: FOUNDATION_PLUGIN_NAME, version: pluginVersion })),
+    template: generatedSourceTemplate(),
+    plugins: generatedSourcePlugins((codingAgent) => ({
+      name: FOUNDATION_PLUGIN_NAME,
+      version: pluginVersion,
+      migration: generatedSourceMigration(codingAgent),
+    })),
   };
 }

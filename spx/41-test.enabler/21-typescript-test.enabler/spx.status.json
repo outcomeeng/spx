@@ -5,7 +5,7 @@
     "test": {
       "tests/typescript-test-verdicts.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test-verdicts.scenario.l2.test.ts",
@@ -75,6 +75,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -144,7 +145,7 @@
       },
       "tests/typescript-test.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.compliance.l1.test.ts",
@@ -214,6 +215,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -283,7 +285,7 @@
       },
       "tests/typescript-test.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.compliance.l2.test.ts",
@@ -353,6 +355,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -422,7 +425,7 @@
       },
       "tests/typescript-test.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.mapping.l1.test.ts",
@@ -492,6 +495,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -561,7 +565,7 @@
       },
       "tests/typescript-test.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.scenario.l1.test.ts",
@@ -631,6 +635,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -700,7 +705,7 @@
       },
       "tests/typescript-test.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.scenario.l2.test.ts",
@@ -770,6 +775,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -839,7 +845,7 @@
       },
       "tests/vitest-resolution.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -910,6 +916,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",

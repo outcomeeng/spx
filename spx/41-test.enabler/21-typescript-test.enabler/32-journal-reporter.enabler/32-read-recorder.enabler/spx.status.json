@@ -5,7 +5,7 @@
     "test": {
       "tests/read-recorder.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/32-read-recorder.enabler/read-recorder.md",
@@ -60,6 +60,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -119,7 +120,7 @@
       },
       "tests/read-recorder.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/32-read-recorder.enabler/read-recorder.md",
@@ -174,6 +175,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -232,7 +234,7 @@
       },
       "tests/read-recorder.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/32-read-recorder.enabler/read-recorder.md",
@@ -287,6 +289,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -346,7 +349,7 @@
       },
       "tests/read-recorder.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/32-read-recorder.enabler/read-recorder.md",
@@ -401,6 +404,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",

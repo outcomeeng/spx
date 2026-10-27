@@ -1,7 +1,8 @@
 /**
  * The methodology fetch: reads `outcomeeng/plugins` at one revision and
  * writes each coding agent's built understand skill into spx's shipped layout
- * under `methodology/{MAJOR.MINOR}/`, beside a record naming the revision.
+ * under `methodology/{MAJOR.MINOR}/`, beside a record naming the revision, the
+ * instruction-template version, and the spx-owned migration files.
  *
  * Planning — argument parsing, line derivation from the fetched plugin
  * manifests, the copy set, and the source record — is pure over supplied
@@ -13,8 +14,9 @@
  * @module lib/methodology/fetch
  */
 
-import { cp, mkdir, readFile as nodeReadFile, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import type { Dirent } from "node:fs";
+import { cp, mkdir, readdir, readFile as nodeReadFile, rm, stat, writeFile } from "node:fs/promises";
+import { join, sep } from "node:path";
 
 import { Command, CommanderError } from "commander";
 
@@ -23,7 +25,9 @@ import type { Result } from "@/config/types";
 import { GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
 
 import { METHODOLOGY_CODING_AGENT, METHODOLOGY_CODING_AGENTS, type MethodologyCodingAgent } from "./coding-agent";
+import { type MethodologyPackagingFileSystem, validateMethodologyPackaging } from "./packaging";
 import {
+  compareCodeUnitOrder,
   formatMethodologyLineInvalidError,
   formatMethodologySourceRecord,
   formatMethodologyVersionName,
@@ -33,9 +37,12 @@ import {
   METHODOLOGY_TREE_ROOT,
   methodologyLine,
   methodologyLineRelativeDir,
+  methodologyMigrationDir,
+  methodologyMigrationRelativeDir,
   type MethodologySourcePlugin,
   type MethodologySourceRecord,
   methodologyTreeRelativeDir,
+  MIGRATION_ENTRY_FILE_NAME,
   SOURCE_RECORD_RELATIVE_PATH,
 } from "./tree";
 
@@ -50,6 +57,16 @@ export const FETCH_DEFAULT_REVISION = "main";
 
 /** Plugin-relative directory of the understand skill, the one directory the fetch copies per coding agent. */
 export const UNDERSTAND_SKILL_RELATIVE_DIR = "skills/understand";
+
+/** Plugin-relative path of the instruction-block template, the one value both coding agents' builds share. */
+export const INSTRUCTION_TEMPLATE_RELATIVE_PATH = "skills/update-instruction-block/templates/instruction-block.md";
+
+const TEMPLATE_VERSION_KEY = "template_version";
+const FRONT_MATTER_DELIMITER = "---";
+const TEMPLATE_VERSION_PATTERN = new RegExp(String.raw`^${TEMPLATE_VERSION_KEY}:\s*(.*?)\s*$`);
+const DOUBLE_QUOTE = "\"";
+const POSIX_SEPARATOR = "/";
+const ERROR_CODE_ABSENT = "ENOENT";
 
 /** Where one coding agent's built plugin lives in the plugins repository, and where its manifest sits inside it. */
 export interface FetchCodingAgentLocations {
@@ -99,8 +116,8 @@ const COMMANDER_PARSE_FROM = "user";
 /** The token a package-script boundary forwards before the fetch arguments; it separates nothing here. */
 export const FETCH_ARGUMENT_TERMINATOR = "--";
 
-/** What the fetch reads from one coding agent's plugin manifest. */
-export type PluginManifest = MethodologySourcePlugin;
+/** What the fetch reads from one coding agent's plugin manifest; a manifest carries no migration. */
+export type PluginManifest = Omit<MethodologySourcePlugin, "migration">;
 
 export interface MethodologyFetchArguments {
   readonly revision: string;
@@ -151,6 +168,30 @@ export function parsePluginManifest(text: string): Result<PluginManifest> {
     };
   }
   return { ok: true, value: { name, version, provides, ...(supports === undefined ? {} : { supports }) } };
+}
+
+/**
+ * Reads `template_version` from the front matter between the first two `---`
+ * lines of the instruction-block template, without its quotes.
+ */
+export function parseInstructionTemplateVersion(text: string): Result<string> {
+  const lines = text.split("\n").map((line) => line.replace(/\r$/, ""));
+  const delimiters = lines.flatMap((line, index) => (line === FRONT_MATTER_DELIMITER ? [index] : []));
+  if (delimiters.length < 2) {
+    return { ok: false, error: "instruction template carries no front matter" };
+  }
+  for (const line of lines.slice(delimiters[0] + 1, delimiters[1])) {
+    const match = TEMPLATE_VERSION_PATTERN.exec(line);
+    if (match === null) continue;
+    const raw = match[1];
+    const value = raw.length >= 2 && raw.startsWith(DOUBLE_QUOTE) && raw.endsWith(DOUBLE_QUOTE)
+      ? raw.slice(1, -1)
+      : raw;
+    return value.length === 0
+      ? { ok: false, error: `instruction template ${TEMPLATE_VERSION_KEY} is empty` }
+      : { ok: true, value };
+  }
+  return { ok: false, error: `instruction template carries no ${TEMPLATE_VERSION_KEY}` };
 }
 
 /** Parses the fetch's command line through the repository's canonical parser. */
@@ -206,6 +247,10 @@ export interface MethodologyFetchPlanInput {
   readonly line?: string;
   /** Each coding agent's plugin-manifest text at the revision. */
   readonly manifests: Readonly<Record<MethodologyCodingAgent, string>>;
+  /** Each coding agent's instruction-template file text at the revision. */
+  readonly templates: Readonly<Record<MethodologyCodingAgent, string>>;
+  /** The file names directly inside each coding agent's migration directory. */
+  readonly migrationFiles: Readonly<Record<MethodologyCodingAgent, readonly string[]>>;
 }
 
 /** Diagnostic for a fetch that can take its line from no manifest and no argument. */
@@ -234,13 +279,13 @@ function fetchCodingAgents(): readonly MethodologyCodingAgent[] {
 }
 
 interface ParsedManifests {
-  readonly plugins: Readonly<Record<string, MethodologySourcePlugin>>;
+  readonly plugins: Readonly<Record<string, PluginManifest>>;
   /** The line each coding agent's manifest provides, for those that declare one. */
   readonly providedLines: Readonly<Record<string, string>>;
 }
 
 function parseManifests(manifests: Readonly<Record<MethodologyCodingAgent, string>>): Result<ParsedManifests> {
-  const plugins: Record<string, MethodologySourcePlugin> = {};
+  const plugins: Record<string, PluginManifest> = {};
   const providedLines: Record<string, string> = {};
   for (const codingAgent of fetchCodingAgents()) {
     const manifest = parsePluginManifest(manifests[codingAgent]);
@@ -273,7 +318,38 @@ function selectLine(providedLines: Readonly<Record<string, string>>, argumentLin
   return line === undefined ? { ok: false, error: formatFetchLineUndeclaredError() } : { ok: true, value: line };
 }
 
-/** Derives the line, the copy set, and the source record from the fetched manifests and arguments. */
+/** The line a plan over these manifests and this argument selects. */
+export function selectMethodologyFetchLine(
+  manifests: Readonly<Record<MethodologyCodingAgent, string>>,
+  argumentLine?: string,
+): Result<string> {
+  const parsed = parseManifests(manifests);
+  if (!parsed.ok) return parsed;
+  return selectLine(parsed.value.providedLines, argumentLine);
+}
+
+/** The one template version every coding agent's build carries, or a failure naming the template source. */
+function selectTemplateVersion(templates: Readonly<Record<MethodologyCodingAgent, string>>): Result<string> {
+  const versions: Record<string, string> = {};
+  for (const codingAgent of fetchCodingAgents()) {
+    const version = parseInstructionTemplateVersion(templates[codingAgent]);
+    if (!version.ok) {
+      return { ok: false, error: `${INSTRUCTION_TEMPLATE_RELATIVE_PATH} (${codingAgent}): ${version.error}` };
+    }
+    versions[codingAgent] = version.value;
+  }
+  const distinct = [...new Set(Object.values(versions))];
+  if (distinct.length > 1) {
+    const detail = Object.entries(versions).map(([agent, version]) => `${agent} ${version}`).join(", ");
+    return {
+      ok: false,
+      error: `${INSTRUCTION_TEMPLATE_RELATIVE_PATH} carries different ${TEMPLATE_VERSION_KEY} values: ${detail}`,
+    };
+  }
+  return { ok: true, value: distinct[0] };
+}
+
+/** Derives the line, the copy set, and the source record from the fetched manifests, templates, and arguments. */
 export function planMethodologyFetch(input: MethodologyFetchPlanInput): Result<MethodologyFetchPlan> {
   if (input.line !== undefined && !isMethodologyLine(input.line)) {
     return { ok: false, error: formatMethodologyLineInvalidError(input.line) };
@@ -282,12 +358,30 @@ export function planMethodologyFetch(input: MethodologyFetchPlanInput): Result<M
   if (!parsed.ok) return parsed;
   const line = selectLine(parsed.value.providedLines, input.line);
   if (!line.ok) return line;
+  const templateVersion = selectTemplateVersion(input.templates);
+  if (!templateVersion.ok) return templateVersion;
   const lineRelativeDir = methodologyLineRelativeDir(line.value);
   if (!lineRelativeDir.ok) return lineRelativeDir;
+  const plugins: Record<string, MethodologySourcePlugin> = {};
   const copies: MethodologyFetchCopy[] = [];
   for (const codingAgent of fetchCodingAgents()) {
     const treeRelativeDir = methodologyTreeRelativeDir(line.value, codingAgent, FOUNDATION_PLUGIN_NAME);
     if (!treeRelativeDir.ok) return treeRelativeDir;
+    const migrationRelativeDir = methodologyMigrationRelativeDir(line.value, codingAgent);
+    if (!migrationRelativeDir.ok) return migrationRelativeDir;
+    const migrationPath = (fileName: string): string =>
+      [...migrationRelativeDir.value.split(sep), fileName].join(POSIX_SEPARATOR);
+    const files = input.migrationFiles[codingAgent];
+    plugins[codingAgent] = {
+      ...parsed.value.plugins[codingAgent],
+      migration: {
+        entries: files.includes(MIGRATION_ENTRY_FILE_NAME) ? [migrationPath(MIGRATION_ENTRY_FILE_NAME)] : [],
+        instructions: files
+          .filter((file) => file !== MIGRATION_ENTRY_FILE_NAME)
+          .sort(compareCodeUnitOrder)
+          .map(migrationPath),
+      },
+    };
     copies.push({
       codingAgent,
       from: join(FETCH_CODING_AGENTS[codingAgent].distRelativeDir, UNDERSTAND_SKILL_RELATIVE_DIR),
@@ -300,18 +394,34 @@ export function planMethodologyFetch(input: MethodologyFetchPlanInput): Result<M
       line: line.value,
       lineRelativeDir: lineRelativeDir.value,
       copies,
-      sourceRecord: { repository: input.repository, revision: input.revision, plugins: parsed.value.plugins },
+      sourceRecord: {
+        repository: input.repository,
+        revision: input.revision,
+        template: {
+          version: templateVersion.value,
+          repository: input.repository,
+          path: INSTRUCTION_TEMPLATE_RELATIVE_PATH,
+          commit: input.revision,
+        },
+        plugins,
+      },
     },
   };
 }
 
-export interface MethodologyFetchFileSystem {
+export interface MethodologyFetchFileSystem extends MethodologyPackagingFileSystem {
+  /** File names, not paths, of the regular files directly inside `directory`, in code-unit order; empty when absent. */
+  listFiles(directory: string): Promise<readonly string[]>;
   readFile(path: string): Promise<string>;
   /** Removes `path` and everything under it; an absent path is not an error. */
   removeTree(path: string): Promise<void>;
   /** Copies the directory at `from` to `to`, creating parents. */
   copyTree(from: string, to: string): Promise<void>;
   writeFile(path: string, text: string): Promise<void>;
+}
+
+function isAbsentError(error: unknown): boolean {
+  return (error as NodeJS.ErrnoException).code === ERROR_CODE_ABSENT;
 }
 
 export const defaultMethodologyFetchFileSystem: MethodologyFetchFileSystem = {
@@ -324,6 +434,24 @@ export const defaultMethodologyFetchFileSystem: MethodologyFetchFileSystem = {
   writeFile: async (path, text) => {
     await mkdir(join(path, ".."), { recursive: true });
     await writeFile(path, text);
+  },
+  listFiles: async (directory) => {
+    let entries: Dirent[];
+    try {
+      entries = await readdir(directory, { withFileTypes: true });
+    } catch (error) {
+      if (isAbsentError(error)) return [];
+      throw error;
+    }
+    return entries.filter((entry) => entry.isFile()).map((entry) => entry.name).sort(compareCodeUnitOrder);
+  },
+  isFile: async (path) => {
+    try {
+      return (await stat(path)).isFile();
+    } catch (error) {
+      if (isAbsentError(error)) return false;
+      throw error;
+    }
   },
 };
 
@@ -391,25 +519,37 @@ async function cloneAtRevision(
   return git(gitDependencies, cloneDir, [GIT_REV_PARSE.COMMAND, GIT_REV_PARSE.HEAD]);
 }
 
-async function readPluginManifests(
+async function readPluginFiles(
   cloneDir: string,
   fs: MethodologyFetchFileSystem,
+  subject: string,
+  relativePath: (layout: FetchCodingAgentLocations) => string,
 ): Promise<Result<Readonly<Record<MethodologyCodingAgent, string>>>> {
-  const manifests: Partial<Record<MethodologyCodingAgent, string>> = {};
+  const texts: Partial<Record<MethodologyCodingAgent, string>> = {};
   for (const codingAgent of fetchCodingAgents()) {
     const layout = FETCH_CODING_AGENTS[codingAgent];
+    const path = relativePath(layout);
     try {
-      manifests[codingAgent] = await fs.readFile(
-        join(cloneDir, layout.distRelativeDir, layout.pluginManifestRelativePath),
-      );
+      texts[codingAgent] = await fs.readFile(join(cloneDir, layout.distRelativeDir, path));
     } catch (error) {
-      return {
-        ok: false,
-        error: `${codingAgent}: plugin manifest unreadable at ${layout.pluginManifestRelativePath}: ${String(error)}`,
-      };
+      return { ok: false, error: `${codingAgent}: ${subject} unreadable at ${path}: ${String(error)}` };
     }
   }
-  return { ok: true, value: manifests as Readonly<Record<MethodologyCodingAgent, string>> };
+  return { ok: true, value: texts as Readonly<Record<MethodologyCodingAgent, string>> };
+}
+
+async function listMigrationFiles(
+  packageRoot: string,
+  line: string,
+  fs: MethodologyFetchFileSystem,
+): Promise<Result<Readonly<Record<MethodologyCodingAgent, readonly string[]>>>> {
+  const files: Partial<Record<MethodologyCodingAgent, readonly string[]>> = {};
+  for (const codingAgent of fetchCodingAgents()) {
+    const directory = methodologyMigrationDir(packageRoot, line, codingAgent);
+    if (!directory.ok) return directory;
+    files[codingAgent] = await fs.listFiles(directory.value);
+  }
+  return { ok: true, value: files as Readonly<Record<MethodologyCodingAgent, readonly string[]>> };
 }
 
 async function applyFetchPlan(
@@ -429,26 +569,57 @@ async function applyFetchPlan(
 
 /**
  * Clones the plugins repository at the named revision, plans the copy from the
- * fetched manifests, replaces the target line directory, and writes the source
- * record. A line named on the command line is validated before any clone.
+ * fetched manifests and templates and the packaged migration files, validates
+ * the planned record's packaging, replaces the target line directory, and
+ * writes the source record. A line named on the command line is validated
+ * before any clone, and nothing is removed or written before packaging
+ * validation passes.
  */
 export async function runMethodologyFetch(options: MethodologyFetchOptions): Promise<Result<MethodologyFetchOutcome>> {
   if (options.line !== undefined && (!isMethodologyLine(options.line) || !isPlainSegment(options.line))) {
     return { ok: false, error: formatMethodologyLineInvalidError(options.line) };
   }
+  const { fs } = options.dependencies;
   const cloneDir = await options.dependencies.createCloneDir();
   const revision = await cloneAtRevision(options, cloneDir);
   if (!revision.ok) return revision;
-  const manifests = await readPluginManifests(cloneDir, options.dependencies.fs);
+  const manifests = await readPluginFiles(
+    cloneDir,
+    fs,
+    "plugin manifest",
+    (layout) => layout.pluginManifestRelativePath,
+  );
   if (!manifests.ok) return manifests;
+  const line = selectMethodologyFetchLine(manifests.value, options.line);
+  if (!line.ok) return line;
+  const templates = await readPluginFiles(
+    cloneDir,
+    fs,
+    "instruction template",
+    () => INSTRUCTION_TEMPLATE_RELATIVE_PATH,
+  );
+  if (!templates.ok) return templates;
+  const migrationFiles = await listMigrationFiles(options.packageRoot, line.value, fs);
+  if (!migrationFiles.ok) return migrationFiles;
   const plan = planMethodologyFetch({
     repository: options.repository,
     revision: revision.value,
     ...(options.line === undefined ? {} : { line: options.line }),
     manifests: manifests.value,
+    templates: templates.value,
+    migrationFiles: migrationFiles.value,
   });
   if (!plan.ok) return plan;
-  const lineDir = await applyFetchPlan(plan.value, cloneDir, options.packageRoot, options.dependencies.fs);
+  const packaging = await validateMethodologyPackaging(
+    options.packageRoot,
+    plan.value.line,
+    plan.value.sourceRecord,
+    fs,
+  );
+  if (!packaging.ok) {
+    return { ok: false, error: packaging.failures.map((entry) => entry.message).join("\n") };
+  }
+  const lineDir = await applyFetchPlan(plan.value, cloneDir, options.packageRoot, fs);
   return { ok: true, value: { line: plan.value.line, revision: revision.value, lineDir } };
 }
 

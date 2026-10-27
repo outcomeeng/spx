@@ -16,9 +16,12 @@ import {
 describe("methodology fetch determinism", () => {
   it("produces byte-identical line content and source record for the same revision and line", async () => {
     await assertProperty(
-      arbitraryMethodologyVersion().chain((version) => arbitraryPluginsContent(version.text)),
-      async (content) => {
+      arbitraryMethodologyVersion().chain((version) =>
+        arbitraryPluginsContent(version.text).map((content) => ({ line: version.line, content }))
+      ),
+      async ({ line, content }) => {
         await withPluginsRepository(content, async (repository) => {
+          await repository.seedMigration(line);
           const fetchOnce = async (): Promise<ReadonlyMap<string, string>> => {
             const outcome = await runMethodologyFetch({
               repository: PLUGINS_REPOSITORY,

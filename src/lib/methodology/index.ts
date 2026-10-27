@@ -12,6 +12,7 @@ export * from "./coding-agent";
 export * from "./compact-recovery";
 export * from "./fetch";
 export * from "./foundation-manifest";
+export * from "./packaging";
 export * from "./provider-match";
 export * from "./tree";
 export * from "./tree-resource";

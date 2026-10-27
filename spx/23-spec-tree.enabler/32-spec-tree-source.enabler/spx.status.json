@@ -5,7 +5,7 @@
     "test": {
       "tests/residual-retention.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/32-spec-tree-source.enabler/spec-tree-source.md",
@@ -56,6 +56,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -108,7 +109,7 @@
       },
       "tests/residual-retention.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/32-spec-tree-source.enabler/spec-tree-source.md",
@@ -159,6 +160,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -212,7 +214,7 @@
       },
       "tests/source-selection.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/32-spec-tree-source.enabler/spec-tree-source.md",
@@ -263,6 +265,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -317,7 +320,7 @@
       },
       "tests/spec-tree-source.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/32-spec-tree-source.enabler/spec-tree-source.md",
@@ -368,6 +371,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -421,7 +425,7 @@
       },
       "tests/spec-tree-source.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/32-spec-tree-source.enabler/spec-tree-source.md",
@@ -472,6 +476,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",

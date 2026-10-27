@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   FETCH_ARGUMENT_FLAGS,
+  INSTRUCTION_TEMPLATE_RELATIVE_PATH,
   METHODOLOGY_RESOURCE_ENCODING,
   METHODOLOGY_TREE_ROOT,
   PLUGINS_REPOSITORY,
@@ -17,6 +18,8 @@ import {
   arbitraryMethodologyLine,
   arbitraryMethodologyVersion,
   arbitraryPluginsContent,
+  arbitraryTemplateDisagreeingPluginsContent,
+  arbitraryTemplateLessPluginsContent,
   arbitraryUnsafeTreeSegment,
 } from "@testing/generators/methodology/tree";
 import { sampleGeneratedValue } from "@testing/generators/sample";
@@ -41,6 +44,7 @@ describe("methodology fetch compliance", () => {
         await writeFile(path, bystanderText);
       }
 
+      await repository.seedMigration(version.line);
       const outcome = await runMethodologyFetch({
         repository: PLUGINS_REPOSITORY,
         repositoryUrl: repository.repositoryDir,
@@ -59,6 +63,7 @@ describe("methodology fetch compliance", () => {
   it("takes the line from methodology.provides when the fetched plugin manifests declare it", async () => {
     const version = sampleGeneratedValue(arbitraryMethodologyVersion());
     await withPluginsRepository(sampleGeneratedValue(arbitraryPluginsContent(version.text)), async (repository) => {
+      await repository.seedMigration(version.line);
       const outcome = await runMethodologyFetch({
         repository: PLUGINS_REPOSITORY,
         repositoryUrl: repository.repositoryDir,
@@ -89,6 +94,7 @@ describe("methodology fetch compliance", () => {
   it("takes the line from the argument when no manifest declares one", async () => {
     const line = sampleGeneratedValue(arbitraryMethodologyLine());
     await withPluginsRepository(sampleGeneratedValue(arbitraryPluginsContent()), async (repository) => {
+      await repository.seedMigration(line);
       const outcome = await runMethodologyFetch({
         repository: PLUGINS_REPOSITORY,
         repositoryUrl: repository.repositoryDir,
@@ -148,5 +154,48 @@ describe("methodology fetch compliance", () => {
       expect(outcome.ok).toBe(false);
       await expect(readdir(join(repository.packageRoot, METHODOLOGY_TREE_ROOT))).rejects.toThrow();
     });
+  });
+
+  it("fails naming the template source and writes nothing when a coding agent's built plugin carries no template_version", async () => {
+    const version = sampleGeneratedValue(arbitraryMethodologyVersion());
+    await withPluginsRepository(
+      sampleGeneratedValue(arbitraryTemplateLessPluginsContent(version.text)),
+      async (repository) => {
+        await repository.seedMigration(version.line);
+        const outcome = await runMethodologyFetch({
+          repository: PLUGINS_REPOSITORY,
+          repositoryUrl: repository.repositoryDir,
+          revision: repository.revision,
+          packageRoot: repository.packageRoot,
+          dependencies: repository.dependencies,
+        });
+        expect(outcome.ok).toBe(false);
+        expect(outcome.ok ? "" : outcome.error).toContain(INSTRUCTION_TEMPLATE_RELATIVE_PATH);
+        await expect(readdir(join(repository.packageRoot, METHODOLOGY_TREE_ROOT))).rejects.toThrow();
+      },
+    );
+  });
+
+  it("fails naming the template source and each disagreeing version, and writes nothing, when the built plugins disagree on template_version", async () => {
+    const version = sampleGeneratedValue(arbitraryMethodologyVersion());
+    await withPluginsRepository(
+      sampleGeneratedValue(arbitraryTemplateDisagreeingPluginsContent(version.text)),
+      async (repository) => {
+        await repository.seedMigration(version.line);
+        const outcome = await runMethodologyFetch({
+          repository: PLUGINS_REPOSITORY,
+          repositoryUrl: repository.repositoryDir,
+          revision: repository.revision,
+          packageRoot: repository.packageRoot,
+          dependencies: repository.dependencies,
+        });
+        expect(outcome.ok).toBe(false);
+        expect(outcome.ok ? "" : outcome.error).toContain(INSTRUCTION_TEMPLATE_RELATIVE_PATH);
+        for (const agentContent of repository.content.agents.values()) {
+          expect(outcome.ok ? "" : outcome.error).toContain(agentContent.templateVersion);
+        }
+        await expect(readdir(join(repository.packageRoot, METHODOLOGY_TREE_ROOT))).rejects.toThrow();
+      },
+    );
   });
 });

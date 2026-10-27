@@ -5,7 +5,7 @@
     "test": {
       "tests/check-selection.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -32,6 +32,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -76,7 +77,7 @@
       },
       "tests/determinism.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -103,6 +104,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -131,7 +133,7 @@
       },
       "tests/diagnose-cli.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -246,6 +248,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -329,7 +332,7 @@
       },
       "tests/error-sanitization.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -448,6 +451,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -569,7 +573,7 @@
       },
       "tests/manifest.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -593,6 +597,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -620,7 +625,7 @@
       },
       "tests/reading-escaping.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -659,6 +664,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -698,7 +704,7 @@
       },
       "tests/report.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -733,6 +739,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -763,7 +770,7 @@
       },
       "tests/resolve.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -860,6 +867,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -938,7 +946,7 @@
       },
       "tests/text-report.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -977,6 +985,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -1016,7 +1025,7 @@
       },
       "tests/worktree-status-probe.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -1078,6 +1087,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",

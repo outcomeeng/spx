@@ -1,14 +1,36 @@
 {
   "repository": "outcomeeng/plugins",
   "revision": "39d028747bc38610adb6d74d4bba5488a861b65f",
+  "template": {
+    "version": "0.42.0",
+    "repository": "outcomeeng/plugins",
+    "path": "skills/update-instruction-block/templates/instruction-block.md",
+    "commit": "39d028747bc38610adb6d74d4bba5488a861b65f"
+  },
   "plugins": {
     "claude": {
       "name": "spec-tree",
-      "version": "0.107.2"
+      "version": "0.107.2",
+      "migration": {
+        "entries": [
+          "migration/4.0/claude/entry.md"
+        ],
+        "instructions": [
+          "migration/4.0/claude/instructions.md"
+        ]
+      }
     },
     "codex": {
       "name": "spec-tree",
-      "version": "0.107.2"
+      "version": "0.107.2",
+      "migration": {
+        "entries": [
+          "migration/4.0/codex/entry.md"
+        ],
+        "instructions": [
+          "migration/4.0/codex/instructions.md"
+        ]
+      }
     }
   }
 }

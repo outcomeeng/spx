@@ -11,7 +11,8 @@
     "dist/**/*.js.map",
     "dist/**/*.d.ts",
     "bin",
-    "methodology"
+    "methodology",
+    "migration"
   ],
   "engines": {
     "node": ">=24.0.0"

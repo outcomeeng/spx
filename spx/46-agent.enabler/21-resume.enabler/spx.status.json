@@ -5,7 +5,7 @@
     "test": {
       "tests/pi-resume.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/21-resume.enabler/resume.md",
@@ -282,6 +282,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -396,7 +397,7 @@
       },
       "tests/pi-resume.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/21-resume.enabler/resume.md",
@@ -673,6 +674,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -784,7 +786,7 @@
       },
       "tests/pi-resume.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/21-resume.enabler/resume.md",
@@ -1061,6 +1063,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -1172,7 +1175,7 @@
       },
       "tests/record-scope.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/21-resume.enabler/resume.md",
@@ -1449,6 +1452,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -1559,7 +1563,7 @@
       },
       "tests/record-scope.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/21-resume.enabler/resume.md",
@@ -1836,6 +1840,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -1947,7 +1952,7 @@
       },
       "tests/record-scope.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/21-resume.enabler/resume.md",
@@ -2224,6 +2229,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -2334,7 +2340,7 @@
       },
       "tests/resume-cli.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/21-resume.enabler/resume.md",
@@ -2611,6 +2617,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -2721,7 +2728,7 @@
       },
       "tests/resume.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/21-resume.enabler/resume.md",
@@ -2998,6 +3005,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -3107,7 +3115,7 @@
       },
       "tests/resume.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/21-resume.enabler/resume.md",
@@ -3384,6 +3392,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
@@ -3494,7 +3503,7 @@
       },
       "tests/resume.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
+        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
         "read": [
           "pnpm-lock.yaml",
           "spx/46-agent.enabler/21-resume.enabler/resume.md",
@@ -3771,6 +3780,7 @@
           "src/lib/methodology/fetch.ts",
           "src/lib/methodology/foundation-manifest.ts",
           "src/lib/methodology/index.ts",
+          "src/lib/methodology/packaging.ts",
           "src/lib/methodology/provider-match.ts",
           "src/lib/methodology/tree-resource.ts",
           "src/lib/methodology/tree.ts",
