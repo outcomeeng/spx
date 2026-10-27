@@ -1100,7 +1100,7 @@ export async function readSpecTree(options: SpecTreeOptions): Promise<SpecTreeSn
   }
 
   const grammarSelection = await options.source.grammarSelection?.() ?? KNOWN_GRAMMAR_SELECTION;
-  assertKindContainment(nodesById, grammarSelection.selected);
+  assertKindContainment(nodesById, grammarSelection.selected, product);
 
   sortNodes(roots);
   const allNodes = flattenNodes(roots);
@@ -1135,22 +1135,48 @@ function acceptedTogether(
   return versions.some((version) => suffixes.every((suffix) => version.nodeSuffixes.includes(suffix)));
 }
 
+type ContainmentParent = {
+  readonly id: string;
+  readonly kind: SpecTreeContainerKind;
+  readonly parentId?: string;
+};
+
+/** The parent a node is judged against: the root product for a top-level node, else its parent node. */
+function resolveContainmentParent(
+  node: MutableSpecTreeNode,
+  nodesById: ReadonlyMap<string, MutableSpecTreeNode>,
+  product: SpecTreeProductSourceEntry | null,
+): ContainmentParent | undefined {
+  if (node.parentId !== undefined) return nodesById.get(node.parentId);
+  if (product === null) return undefined;
+  return { id: product.ref?.path ?? product.id, kind: SPEC_TREE_CONFIG.PRODUCT.KIND };
+}
+
+/** The kind of the parent's own parent node, which a variant parent resolves its admitted children through. */
+function resolveGrandparentKind(
+  parent: ContainmentParent,
+  nodesById: ReadonlyMap<string, MutableSpecTreeNode>,
+): SpecTreeNodeKind | undefined {
+  const grandparent = parent.parentId === undefined ? undefined : nodesById.get(parent.parentId);
+  return grandparent?.kind === SPEC_TREE_CONFIG.PRODUCT.KIND ? undefined : grandparent?.kind;
+}
+
 /**
- * Fails when a node's kind is not among the kinds its parent's kind admits. A pair no single
- * selected naming-schema version accepts is never judged, so a migrating tree assembles a
- * kind of one version under a kind of another. The failure names every violating child and parent.
+ * Fails when a node's kind is not among the kinds its parent's kind admits. A top-level node's
+ * parent is the root product, whose kind is the product kind. A pair no single selected
+ * naming-schema version accepts is never judged, so a migrating tree assembles a kind of one
+ * version under a kind of another. The failure names every violating child and parent.
  */
 function assertKindContainment(
   nodesById: ReadonlyMap<string, MutableSpecTreeNode>,
   selected: readonly NamingSchemaVersion[],
+  product: SpecTreeProductSourceEntry | null,
 ): void {
   const violations: string[] = [];
   for (const node of nodesById.values()) {
-    const parent = node.parentId === undefined ? undefined : nodesById.get(node.parentId);
+    const parent = resolveContainmentParent(node, nodesById, product);
     if (parent === undefined) continue;
-    const grandparent = parent.parentId === undefined ? undefined : nodesById.get(parent.parentId);
-    const grandparentKind = grandparent?.kind === SPEC_TREE_CONFIG.PRODUCT.KIND ? undefined : grandparent?.kind;
-    const admitted = resolveAdmittedChildren(parent.kind, grandparentKind);
+    const admitted = resolveAdmittedChildren(parent.kind, resolveGrandparentKind(parent, nodesById));
     if (admitted === undefined || admitted.includes(node.kind)) continue;
     if (!acceptedTogether(selected, parent.kind, node.kind)) continue;
     violations.push(

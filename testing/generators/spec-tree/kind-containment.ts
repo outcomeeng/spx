@@ -23,6 +23,7 @@ import {
   SPEC_TREE_METHODOLOGY_LINE,
   type SpecTreeContainerKind,
   type SpecTreeNodeSourceEntry,
+  type SpecTreeSourceEntry,
 } from "@/lib/spec-tree";
 import { type KindAdmittedChildrenCase, kindAdmittedChildrenCases } from "@testing/generators/spec-tree/kind-grammar";
 import { requireNonEmpty, specTreeGrammarSelectionForLine } from "@testing/generators/spec-tree/spec-tree";
@@ -156,6 +157,73 @@ export function crossVersionContainmentCases(): readonly KindContainmentCase[] {
           admitted: false,
         }))
     );
+}
+
+/** A top-level node directly under the root product, judged against the product row of the admitted-children law. */
+export type RootContainmentCase = {
+  readonly label: string;
+  readonly rootId: string;
+  readonly child: ContainmentLayoutNode;
+  readonly admitted: boolean;
+};
+
+const ROOT_ID = "root-product";
+
+function productAdmittedChildren(): readonly SpecTreeContainerKind[] {
+  const productCase = kindAdmittedChildrenCases().find((candidate) => candidate.kind === SPEC_TREE_CONFIG.PRODUCT.KIND);
+  return requireNonEmpty(productCase === undefined ? [] : [productCase], "product admitted-children case")[0]
+    .expectedChildren;
+}
+
+function rootChildNode(kind: SpecTreeContainerKind): ContainmentLayoutNode {
+  return { kind, slug: ROLE_SLUG.CHILD, directoryPath: directoryName(kind, ROLE_SLUG.CHILD) };
+}
+
+/**
+ * One case per child kind a single naming-schema version accepts together with the product, for
+ * each version a single methodology line selects. The expected outcome is the product row of the
+ * admitted-children law in `kind-grammar`.
+ */
+export function rootContainmentCases(): readonly RootContainmentCase[] {
+  const admittedByProduct = productAdmittedChildren();
+  return [SPEC_TREE_METHODOLOGY_LINE.THREE_TWO, SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO].flatMap((line) =>
+    specTreeGrammarSelectionForLine(line).selected.flatMap((version) => {
+      const accepted = kindsAcceptedBy(version);
+      return accepted.includes(SPEC_TREE_CONFIG.PRODUCT.KIND)
+        ? accepted.map((childKind): RootContainmentCase => ({
+          label:
+            `${childKind}${LABEL_PARENT_JOINER}${SPEC_TREE_CONFIG.PRODUCT.KIND} root${LABEL_VERSION_JOINER}${version.version}`,
+          rootId: ROOT_ID,
+          child: rootChildNode(childKind),
+          admitted: admittedByProduct.includes(childKind),
+        }))
+        : [];
+    })
+  );
+}
+
+/** The entries a memory source yields for a root containment case: the root product and its one top-level node. */
+export function rootContainmentEntries(testCase: RootContainmentCase): readonly SpecTreeSourceEntry[] {
+  return [
+    { type: SPEC_TREE_ENTRY_TYPE.PRODUCT, id: testCase.rootId, title: testCase.rootId },
+    ...containmentLayoutEntries({ nodes: [testCase.child], parent: testCase.child, child: testCase.child }),
+  ];
+}
+
+/**
+ * A top-level node of a kind the product does not admit, drawn from the kinds a 4.0 naming-schema
+ * version accepts together with the product.
+ */
+export function arbitraryRootRejectedChild(): fc.Arbitrary<ContainmentLayoutNode> {
+  const admittedByProduct = productAdmittedChildren();
+  const versions = specTreeGrammarSelectionForLine(SPEC_TREE_METHODOLOGY_LINE.FOUR_ZERO).selected;
+  const rejected = versions.flatMap((version) => {
+    const accepted = kindsAcceptedBy(version);
+    return accepted.includes(SPEC_TREE_CONFIG.PRODUCT.KIND)
+      ? accepted.filter((kind) => !admittedByProduct.includes(kind))
+      : [];
+  });
+  return fc.constantFrom(...requireNonEmpty(rejected, "rejected top-level kind")).map(rootChildNode);
 }
 
 /** The node entries a memory source yields for a layout, each node's id being its slug. */

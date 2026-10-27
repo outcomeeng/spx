@@ -25,7 +25,9 @@ export type KindContainmentEnv = {
   read(): Promise<SpecTreeSnapshot>;
 };
 
-const LAYOUT_ROOT_SPEC = [SPEC_TREE_CONFIG.ROOT_DIRECTORY, `gradient${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX}`]
+/** The file name of the root spec the layout materializes, which a failure names as the root's path. */
+export const KIND_CONTAINMENT_ROOT_SPEC_FILE = `gradient${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX}`;
+const LAYOUT_ROOT_SPEC = [SPEC_TREE_CONFIG.ROOT_DIRECTORY, KIND_CONTAINMENT_ROOT_SPEC_FILE]
   .join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
 const LAYOUT_ROOT_SPEC_CONTENTS = ["---", `kind: ${SPEC_TREE_CONFIG.PRODUCT.KIND}`, "---", "", "# Gradient", ""].join(
   "\n",

@@ -368,10 +368,15 @@ type NodeParts = {
   readonly title: string;
 };
 
+/** The output kinds a product admits as a top-level node, by the independent admitted-children cases. */
+const TOP_LEVEL_OUTPUT_KINDS = OUTPUT_KINDS.filter((kind) =>
+  (admittedChildKindsOracle(SPEC_TREE_CONFIG.PRODUCT.KIND) as readonly string[]).includes(kind)
+);
+
 function arbitraryNodeParts(): fc.Arbitrary<NodeParts> {
   return fc.record({
     id: SPEC_TREE_TEST_GENERATOR.sourceId(),
-    kind: fc.constantFrom(...OUTPUT_KINDS),
+    kind: fc.constantFrom(...TOP_LEVEL_OUTPUT_KINDS),
     order: SPEC_TREE_TEST_GENERATOR.filesystemOrder(),
     slug: SPEC_TREE_TEST_GENERATOR.sourceSlug(),
     title: SPEC_TREE_TEST_GENERATOR.sourceTitle(),
@@ -692,7 +697,7 @@ function directoryNaming({ version, migratingFrom }: EvidenceDeclaration): Direc
     };
   }
   return {
-    citingKinds: OUTPUT_KINDS,
+    citingKinds: TOP_LEVEL_OUTPUT_KINDS,
     specFileSuffix: SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX,
     nodeKinds: OUTPUT_KINDS,
     folderKinds: [],

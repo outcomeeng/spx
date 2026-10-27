@@ -23,6 +23,7 @@ import {
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { arbitraryConformantChangelog } from "@testing/generators/release/changelog";
+import { admittedChildKindsOracle } from "@testing/generators/spec-tree/kind-grammar";
 import {
   SPEC_TREE_TEST_GENERATOR,
   specTreeGrammarSelectionForLine,
@@ -656,9 +657,9 @@ export interface ReleaseEndpointGrammarScenario {
   readonly fourZeroNameAtThreeXPath: string;
 }
 
-/** The suffixes of the output kinds a 4.0 product admits as top-level children, drawn from the product spec's child list. */
+/** The suffixes of the output kinds a 4.0 product admits as top-level children, drawn from the independent admitted-children oracle. */
 const FOUR_ZERO_PRODUCT_CHILD_SUFFIXES: readonly string[] = OUTPUT_KINDS
-  .filter((kind) => (SPEC_TREE_CONFIG.PRODUCT.CHILDREN as readonly string[]).includes(kind))
+  .filter((kind) => (admittedChildKindsOracle(SPEC_TREE_CONFIG.PRODUCT.KIND) as readonly string[]).includes(kind))
   .map((kind) => KIND_REGISTRY[kind].suffix);
 
 export function arbitraryReleaseEndpointGrammarScenario(): fc.Arbitrary<ReleaseEndpointGrammarScenario> {

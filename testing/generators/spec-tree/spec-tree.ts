@@ -5,7 +5,10 @@ import type { Config } from "@/config/types";
 import { NODE_STATUS_EXCLUDE_PATH_GRAMMAR } from "@/lib/node-status";
 import {
   type DecisionKind,
+  KIND_REGISTRY,
+  NODE_KINDS,
   type NodeKind,
+  OUTPUT_KINDS,
   selectSpecTreeGrammar,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
@@ -259,17 +262,35 @@ export const SPEC_TREE_TEST_GENERATOR = {
   traversalFixture: arbitraryTraversalFixture,
 } as const;
 
+/**
+ * The source form of a methodology line. The root and peer directories take kinds the product
+ * admits, and the child directory takes a kind the root's kind admits, each by the admitted-children
+ * oracle, so the form assembles.
+ */
 function sourceFormForLine(line: SpecTreeMethodologyLine): SpecTreeSourceForm {
   const target = semverMaximumOracle(specTreeGrammarSelectionForLine(line).selected);
-  const suffixes = fc.constantFrom(...target.nodeSuffixes);
+  const accepted: readonly SpecTreeContainerKind[] = [...NODE_KINDS, ...OUTPUT_KINDS]
+    .filter((kind) => target.nodeSuffixes.includes(KIND_REGISTRY[kind].suffix));
+  const suffixOfKind = (kind: SpecTreeContainerKind): string =>
+    kind === SPEC_TREE_CONFIG.PRODUCT.KIND ? SPEC_TREE_CONFIG.PRODUCT.NODE_SUFFIX : KIND_REGISTRY[kind].suffix;
+  const productChildren = admittedChildKindsOracle(SPEC_TREE_CONFIG.PRODUCT.KIND);
+  const topLevel = requireNonEmpty(
+    accepted.filter((kind) => productChildren.includes(kind)),
+    `top-level node kind of methodology ${line}`,
+  );
+  const rootKind = sampleSpecTreeTestValue(fc.constantFrom(...topLevel), 0);
+  const childKinds = requireNonEmpty(
+    accepted.filter((kind) => admittedChildKindsOracle(rootKind).includes(kind)),
+    `child node kind under ${rootKind} of methodology ${line}`,
+  );
   return {
     line,
     productSuffix: target.productSuffix,
     specFileSuffix: target.specFileSuffix,
     productDeclaresKind: target.rootSpecKind !== undefined,
-    rootSuffix: sampleSpecTreeTestValue(suffixes, 0),
-    childSuffix: sampleSpecTreeTestValue(suffixes, 1),
-    peerSuffix: sampleSpecTreeTestValue(suffixes, 2),
+    rootSuffix: suffixOfKind(rootKind),
+    childSuffix: suffixOfKind(sampleSpecTreeTestValue(fc.constantFrom(...childKinds), 1)),
+    peerSuffix: suffixOfKind(sampleSpecTreeTestValue(fc.constantFrom(...topLevel), 2)),
   };
 }
 
