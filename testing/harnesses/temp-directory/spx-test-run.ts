@@ -84,6 +84,12 @@ const TOOL_RUNNER_RELATIVE_PATH = ["node_modules", ".bin", "tsx"] as const;
 const TSCONFIG_FLAG = "--tsconfig";
 const CHILD_SCRIPT_PATH = fileURLToPath(new URL("./child.ts", import.meta.url));
 const TEMP_FOLDER_ENV_KEY = "TMPDIR";
+/**
+ * Node's own module compile cache writes `node-compile-cache` into the process temp folder. Disabling it for
+ * the staged command keeps that third-party cache out of the observed user temp folder, so every entry found
+ * there was created by the product.
+ */
+const NODE_COMPILE_CACHE_DISABLE_ENV = { NODE_DISABLE_COMPILE_CACHE: "1" } as const;
 /** The environment variable through which the inert suite learns its configuration. */
 const OBSERVER_CONFIG_ENV_KEY = "RUN_TEMP_OBSERVER_CONFIG";
 const NO_EXIT_CODE_MESSAGE = "spx test ended without an exit code";
@@ -128,6 +134,7 @@ export async function runSpxTestWithRunRootObserver(mode: SpxTestRunMode): Promi
 
     const env = buildGitTestEnvironment({
       [TEMP_FOLDER_ENV_KEY]: userTempDir,
+      ...NODE_COMPILE_CACHE_DISABLE_ENV,
       [OBSERVER_CONFIG_ENV_KEY]: JSON.stringify({
         runRootEnvVar: TEMP_DIRECTORY_ENV_VAR.RUN_ROOT,
         observationPath,
