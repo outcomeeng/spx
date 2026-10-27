@@ -5,7 +5,7 @@
     "test": {
       "tests/markdown-validation-command.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "a0b17cb7a86aaa3b2fb15e09eb459f6dee85ec0e",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -89,6 +89,7 @@
           "src/commands/verification-exec/test-runner.ts",
           "src/commands/verify/change-runs.ts",
           "src/commands/verify/cli.ts",
+          "src/commands/verify/input-inspect.ts",
           "src/commands/worktree/claim.ts",
           "src/commands/worktree/index.ts",
           "src/commands/worktree/release.ts",
@@ -330,6 +331,10 @@
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
           "src/lib/worktree-occupancy-file-system.ts",
           "src/lib/worktree-path-info.ts",
           "src/lib/worktree-process-table.ts",
@@ -392,7 +397,7 @@
       },
       "tests/markdown-validation.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a0b17cb7a86aaa3b2fb15e09eb459f6dee85ec0e",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -543,7 +548,7 @@
       },
       "tests/markdown-validation.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a0b17cb7a86aaa3b2fb15e09eb459f6dee85ec0e",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -647,7 +652,7 @@
       },
       "tests/markdown-validation.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a0b17cb7a86aaa3b2fb15e09eb459f6dee85ec0e",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -745,7 +750,7 @@
       },
       "tests/markdown-validation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a0b17cb7a86aaa3b2fb15e09eb459f6dee85ec0e",
+        "commit": "e2a582bb9b8038f5482880d90775302da9db4764",
         "read": [
           "pnpm-lock.yaml",
           "spx.config.yaml",
@@ -1021,6 +1026,8 @@
           "spx/34-verification.enabler/21-verification-context.enabler/13-verification-context-module-structure.adr.md",
           "spx/34-verification.enabler/21-verification-context.enabler/ISSUES.md",
           "spx/34-verification.enabler/21-verification-context.enabler/verification-context.md",
+          "spx/34-verification.enabler/21-verification-input.enabler/ISSUES.md",
+          "spx/34-verification.enabler/21-verification-input.enabler/verification-input.md",
           "spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md",
           "spx/34-verification.enabler/32-verify.enabler/17-drive-mode.adr.md",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/ISSUES.md",
@@ -1235,6 +1242,7 @@
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-execute-run.enabler/execute-run.md",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/ISSUES.md",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-record-run.enabler/record-run.md",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-verification-input.enabler/verification-input.md",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/ISSUES.md",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/PLAN.md",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/verification.md",

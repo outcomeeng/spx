@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 import {
@@ -35,6 +36,8 @@ import {
   changeInventoryOfNameStatus,
   changeInventoryOfRun,
   type ChangesetScope,
+  checkRecordedContentIdentity,
+  checkStartContentExpectation,
   digestRunInput,
   driveModeOf,
   evidenceValidatorFor,
@@ -52,6 +55,8 @@ import {
   missingDirectoriesBelow,
   parseAppendPayload,
   parseChangesetScope,
+  parseContentNormalization,
+  parseStartContentExpectation,
   parseVerifyExpectations,
   projectVerifyRun,
   type RecordedInput,
@@ -60,14 +65,18 @@ import {
   type RunLocator,
   scopeJudgedDeletionsOf,
   scopeJudgedPathsOf,
+  type StartContentExpectation,
   TERMINAL_METADATA_VALIDATION_ERROR,
   terminalMetadataValidatorFor,
   validateJudgedDeletionsAgainstInventory,
   validateJudgedPathsAtHead,
   VERIFY_APPEND_EVENT_TYPE,
+  VERIFY_CONTENT_ERROR,
   VERIFY_DRIVE_MODE,
   VERIFY_EVIDENCE_KIND,
   VERIFY_EXPECTATIONS_ERROR,
+  VERIFY_INPUT_CHECK_FAILURE,
+  VERIFY_INPUT_CHECK_RESULT,
   VERIFY_SCOPE_ERROR,
   VERIFY_SCOPE_SEPARATOR,
   VERIFY_SCOPE_TYPE,
@@ -78,6 +87,8 @@ import {
   type VerifyExpectations,
   type VerifyFindingCounts,
   type VerifyFindingsByDisposition,
+  type VerifyInputCheckFailureReport,
+  type VerifyInputCheckOutcome,
   verifyInputRecordPath,
   type VerifyRunProjection,
   type VerifyRunScope,
@@ -111,10 +122,17 @@ import {
   type StateStoreFileSystem,
 } from "@/lib/state-store";
 import { SPX_VERIFY_ENV } from "@/lib/verification-env";
+import {
+  type AvailableContentDigests,
+  computeAvailableContentDigests,
+  type ContentNormalization,
+  decodeLenientUtf8,
+} from "@/lib/verification-input";
 
 export const VERIFY_CLI_EXIT_CODE = {
   OK: 0,
   ERROR: 1,
+  CHECK_UNAVAILABLE: 2,
 } as const;
 
 export const VERIFY_CLI_ENV = {
@@ -153,6 +171,9 @@ export const VERIFY_CLI_ERROR = {
   HEAD_COMMIT_UNRESOLVED: "spx verification run start could not resolve the head commit the run judges",
   RUN_CONTEXT_FAILED: "spx verification run could not record the run context",
   EXPECTATIONS_INVALID: "spx verification run start: expectations rejected",
+  CONTENT_IDENTITY_REJECTED: "spx verification run start: input content identity rejected",
+  INPUT_CHECK_REJECTED: "spx verification run input: content identity check rejected",
+  CHECK_FILE_UNREADABLE: "the file to check cannot be read:",
   EXPECTATIONS_SOURCE_UNREADABLE: "the expectations source cannot be read",
   EXPECTATIONS_PATHS_UNREADABLE: "spx verification run start could not read the files the head commit holds",
   SEAL_FAILED: "spx verification run could not seal the run journal",
@@ -190,7 +211,10 @@ export interface VerifyCliDeps {
   readonly now?: () => Date;
   /** Resolves the symbolic links of an existing path; the write-path report reads directories through it. */
   readonly realpath?: (path: string) => Promise<string>;
-  readonly readInputSource: (source: string) => Promise<string>;
+  /** Reads the verification input or expectations source as the bytes it holds. */
+  readonly readInputSource: (source: string) => Promise<Uint8Array>;
+  /** Reads a file a recorded-input replay checks, as the bytes it holds; absent means the file system. */
+  readonly readCheckFile?: (path: string) => Promise<Uint8Array>;
   /** Reads the append payload from its `--payload` source; the append verbs require it. */
   readonly readPayloadSource?: (source: string) => Promise<string>;
   /** The journal streaming binding the descriptor injects; the append verbs and start stream through it. */
@@ -210,6 +234,10 @@ export interface VerifyStartCliOptions {
   readonly expectations?: string;
   /** The Verifier that judges the run, in the `<kind>:<id>` form; absent when the run names none. */
   readonly verifier?: string;
+  /** The SHA-256 the input's bytes are expected to have under the content normalization; absent expects none. */
+  readonly expectContentSha256?: string;
+  /** The content normalization the expected digest is taken under; `none` when absent. */
+  readonly contentNormalization?: string;
 }
 
 export interface VerifyInputCliOptions {
@@ -217,6 +245,10 @@ export interface VerifyInputCliOptions {
   readonly scopeType: string;
   readonly scope: string;
   readonly run: string;
+  /** A file whose content identity the replay sets against the digest recorded at start; absent replays the recorded input. */
+  readonly checkFile?: string;
+  /** The content normalization the check is made under; `none` when absent. */
+  readonly contentNormalization?: string;
 }
 
 export const VERIFY_START_REPORT_FIELD = {
@@ -282,6 +314,9 @@ export interface VerifyInputReport {
   readonly digest: string;
   readonly content: string;
 }
+
+/** What a recorded-input replay reports for a checked file. */
+export type VerifyInputCheckReport = VerifyInputCheckOutcome;
 
 export interface VerifyAppendCliOptions {
   readonly verificationType: string;
@@ -680,15 +715,42 @@ async function persistInputRecord(
   }
 }
 
-async function readStartInputContent(
+async function readStartInputBytes(
   source: string,
   deps: VerifyCliDeps,
-): Promise<Result<string>> {
+): Promise<Result<Uint8Array>> {
   try {
     return { ok: true, value: await deps.readInputSource(source) };
   } catch (error) {
     return { ok: false, error: `${VERIFY_CLI_ERROR.INPUT_READ_FAILED}: ${toMessage(error)}` };
   }
+}
+
+interface CapturedStartInput {
+  readonly content: string;
+  readonly digest: string;
+  readonly contentDigests: AvailableContentDigests;
+}
+
+/** Read the start input's bytes, hold them to the expected content identity, and derive the recorded content and digests. */
+async function captureStartInput(
+  source: string,
+  expectation: StartContentExpectation | undefined,
+  deps: VerifyCliDeps,
+): Promise<Result<CapturedStartInput>> {
+  const bytes = await readStartInputBytes(source, deps);
+  if (!bytes.ok) return bytes;
+  if (expectation !== undefined) {
+    const checked = checkStartContentExpectation(bytes.value, expectation);
+    if (!checked.ok) return { ok: false, error: `${VERIFY_CLI_ERROR.CONTENT_IDENTITY_REJECTED}: ${checked.error}` };
+  }
+  const content = decodeLenientUtf8(bytes.value);
+  const digest = digestRunInput(source, content);
+  if (!digest.ok) return digest;
+  return {
+    ok: true,
+    value: { content, digest: digest.value, contentDigests: computeAvailableContentDigests(bytes.value) },
+  };
 }
 
 async function removeStartedRunArtifact(
@@ -750,6 +812,7 @@ function isStoredRecordedInput(value: unknown): value is RecordedInput {
     && typeof record.source === "string"
     && typeof record.digest === "string"
     && typeof record.content === "string"
+    && (record.contentDigests === undefined || typeof record.contentDigests === "object")
   );
 }
 
@@ -814,6 +877,7 @@ interface CompleteVerifyStartArgs {
   readonly expectations: VerifyExpectations | undefined;
   readonly inputDigest: string;
   readonly inputContent: string;
+  readonly inputContentDigests: AvailableContentDigests;
   readonly contextDigest: string;
   readonly contextPath: string;
   readonly contextCreated: boolean;
@@ -921,6 +985,7 @@ async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promis
     source: options.input,
     digest: args.inputDigest,
     content: args.inputContent,
+    contentDigests: args.inputContentDigests,
   };
 
   // Resolve the recorded-input path up front so the rollback set is known before any local write:
@@ -965,7 +1030,7 @@ async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promis
     runToken,
     contextDigest: args.contextDigest,
     resolvedScope: args.resolvedScope,
-    input: { source: options.input, digest: args.inputDigest },
+    input: { source: options.input, digest: args.inputDigest, contentDigests: args.inputContentDigests },
     locator,
   };
   return okResult(JSON.stringify(report));
@@ -991,7 +1056,7 @@ async function resolveStartExpectations(
   if (scopeType !== VERIFY_SCOPE_TYPE.CHANGESET) return reject(VERIFY_EXPECTATIONS_ERROR.NOT_CHANGESET_SCOPED);
   let document: string;
   try {
-    document = await deps.readInputSource(source);
+    document = decodeLenientUtf8(await deps.readInputSource(source));
   } catch {
     return reject(VERIFY_CLI_ERROR.EXPECTATIONS_SOURCE_UNREADABLE);
   }
@@ -1027,6 +1092,10 @@ export async function verifyStartCommand(
   }
   if (!isValidStartVerifierSelection(options)) return errorResult(VERIFY_CLI_ERROR.VERIFIER_INVALID);
   if (options.input.trim().length === 0) return errorResult(VERIFY_CLI_ERROR.INPUT_REQUIRED);
+  const contentExpectation = parseStartContentExpectation(options.expectContentSha256, options.contentNormalization);
+  if (!contentExpectation.ok) {
+    return errorResult(`${VERIFY_CLI_ERROR.CONTENT_IDENTITY_REJECTED}: ${contentExpectation.error}`);
+  }
   const resolved = await resolveVerifyScope(deps);
   if (!resolved.ok) return errorResult(resolved.error);
   const scope = await resolveVerifyStartScope(options.scopeType, options.scope, resolved.value.worktreeRoot, deps);
@@ -1047,10 +1116,8 @@ export async function verifyStartCommand(
     scope: scope.value.selector.scopeIdentity,
   };
 
-  const inputContent = await readStartInputContent(options.input, deps);
-  if (!inputContent.ok) return errorResult(inputContent.error);
-  const inputDigest = digestRunInput(options.input, inputContent.value);
-  if (!inputDigest.ok) return errorResult(inputDigest.error);
+  const input = await captureStartInput(options.input, contentExpectation.value, deps);
+  if (!input.ok) return errorResult(input.error);
 
   const context = await verificationContextCreateCommand(
     {
@@ -1077,8 +1144,9 @@ export async function verifyStartCommand(
     headCommit: headCommit.value,
     changeInventory: scope.value.changeInventory,
     expectations: expectations.value,
-    inputDigest: inputDigest.value,
-    inputContent: inputContent.value,
+    inputDigest: input.value.digest,
+    inputContent: input.value.content,
+    inputContentDigests: input.value.contentDigests,
     contextDigest,
     contextPath,
     contextCreated,
@@ -1163,6 +1231,42 @@ export async function verifyPathsCommand(
   return okResult(JSON.stringify(report));
 }
 
+/** A check that cannot report equal or different: the structured failure on standard output with the unavailable exit code. */
+function checkUnavailableResult(failure: VerifyInputCheckFailureReport): CliCommandResult {
+  return {
+    exitCode: VERIFY_CLI_EXIT_CODE.CHECK_UNAVAILABLE,
+    output: JSON.stringify(failure),
+    reportOnStdout: true,
+  };
+}
+
+/** Set a file's content identity against the digest a run recorded at start, reading the file from its path resolved against the invocation directory. */
+async function checkRecordedInputFile(
+  record: RecordedInput,
+  checkFile: string,
+  normalization: ContentNormalization,
+  deps: VerifyCliDeps,
+): Promise<CliCommandResult> {
+  const read = deps.readCheckFile ?? ((path: string) => readFile(path));
+  let bytes: Uint8Array;
+  try {
+    bytes = await read(resolve(deps.cwd ?? CONFIG_PROCESS_CWD.read(), checkFile));
+  } catch {
+    return checkUnavailableResult({
+      result: VERIFY_INPUT_CHECK_FAILURE.CHECK_FILE_UNREADABLE,
+      detail: `${VERIFY_CLI_ERROR.CHECK_FILE_UNREADABLE} ${checkFile}`,
+    });
+  }
+  const outcome = checkRecordedContentIdentity(record, normalization, bytes);
+  if (!outcome.ok) return checkUnavailableResult(outcome.error);
+  const report: VerifyInputCheckReport = outcome.value;
+  return {
+    exitCode: report.result === VERIFY_INPUT_CHECK_RESULT.EQUAL ? VERIFY_CLI_EXIT_CODE.OK : VERIFY_CLI_EXIT_CODE.ERROR,
+    output: JSON.stringify(report),
+    reportOnStdout: true,
+  };
+}
+
 /**
  * Replay the verification input recorded at start for the run named by `--run`, reporting the
  * exact input content and the digest recorded at start rather than reading a fresh input. A
@@ -1172,9 +1276,21 @@ export async function verifyInputCommand(
   options: VerifyInputCliOptions,
   deps: VerifyCliDeps,
 ): Promise<CliCommandResult> {
+  if (options.checkFile === undefined && options.contentNormalization !== undefined) {
+    return errorResult(`${VERIFY_CLI_ERROR.INPUT_CHECK_REJECTED}: ${VERIFY_CONTENT_ERROR.NORMALIZATION_WITHOUT_FILE}`);
+  }
+  const normalization = parseContentNormalization(options.contentNormalization);
+  if (!normalization.ok) return errorResult(`${VERIFY_CLI_ERROR.INPUT_CHECK_REJECTED}: ${normalization.error}`);
   const run = await resolveExistingRun(options, deps);
-  if (!run.ok) return errorResult(run.error);
+  if (!run.ok) {
+    return options.checkFile === undefined
+      ? errorResult(run.error)
+      : { exitCode: VERIFY_CLI_EXIT_CODE.CHECK_UNAVAILABLE, output: run.error };
+  }
   const record = run.value.recordedInput;
+  if (options.checkFile !== undefined) {
+    return checkRecordedInputFile(record, options.checkFile, normalization.value, deps);
+  }
   const report: VerifyInputReport = {
     source: record.source,
     digest: record.digest,

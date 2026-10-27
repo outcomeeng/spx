@@ -5,7 +5,7 @@
     "test": {
       "tests/context-failure.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -136,6 +136,10 @@
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
           "src/outcomeeng/spec-tree/graph/source/order.ts",
           "src/test/config.ts",
           "src/test/languages/journal-reporter.ts",
@@ -177,7 +181,7 @@
       },
       "tests/context-success.mapping.l2.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -308,6 +312,10 @@
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
           "src/outcomeeng/spec-tree/graph/source/order.ts",
           "src/test/config.ts",
           "src/test/languages/journal-reporter.ts",
@@ -348,7 +356,7 @@
       },
       "tests/context-target.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -480,6 +488,10 @@
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
           "src/outcomeeng/spec-tree/graph/source/order.ts",
           "src/test/config.ts",
           "src/test/languages/journal-reporter.ts",
@@ -521,7 +533,7 @@
       },
       "tests/spec-cli-contract.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -653,6 +665,10 @@
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
           "src/outcomeeng/spec-tree/graph/source/order.ts",
           "src/test/config.ts",
           "src/test/languages/journal-reporter.ts",
@@ -694,7 +710,7 @@
       },
       "tests/spec-cli-contract.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -826,6 +842,10 @@
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
           "src/outcomeeng/spec-tree/graph/source/order.ts",
           "src/test/config.ts",
           "src/test/languages/journal-reporter.ts",

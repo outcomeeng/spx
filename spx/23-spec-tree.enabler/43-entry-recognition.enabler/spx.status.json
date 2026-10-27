@@ -5,7 +5,7 @@
     "test": {
       "tests/entry-recognition.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/43-entry-recognition.enabler/entry-recognition.md",
@@ -108,7 +108,7 @@
       },
       "tests/evidence-recognition.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/43-entry-recognition.enabler/entry-recognition.md",
@@ -212,7 +212,7 @@
       },
       "tests/migration-classification.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/43-entry-recognition.enabler/entry-recognition.md",
@@ -319,7 +319,7 @@
       },
       "tests/version-classification.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/43-entry-recognition.enabler/entry-recognition.md",
@@ -420,7 +420,7 @@
       },
       "tests/version-classification.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/43-entry-recognition.enabler/entry-recognition.md",

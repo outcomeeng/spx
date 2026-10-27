@@ -95,7 +95,7 @@ export async function withVerificationFixtureRun<T>(
       },
       processEnv: {},
       fs: defaultStateStoreFileSystem,
-      readInputSource: async () => scenario.inputContent,
+      readInputSource: async () => new TextEncoder().encode(scenario.inputContent),
       readPayloadSource: (path) => readFile(path, "utf8"),
       journalBinding: { localSink: createRecordingStreamSink().sink },
     };

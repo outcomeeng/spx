@@ -5,7 +5,7 @@
     "test": {
       "tests/reconciliation-determinism.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/scope-reconciliation.md",
@@ -89,6 +89,7 @@
           "src/commands/verification-exec/test-runner.ts",
           "src/commands/verify/change-runs.ts",
           "src/commands/verify/cli.ts",
+          "src/commands/verify/input-inspect.ts",
           "src/commands/worktree/claim.ts",
           "src/commands/worktree/index.ts",
           "src/commands/worktree/release.ts",
@@ -332,6 +333,10 @@
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
           "src/lib/worktree-occupancy-file-system.ts",
           "src/lib/worktree-path-info.ts",
           "src/lib/worktree-process-table.ts",
@@ -399,7 +404,7 @@
       },
       "tests/reconciliation-expectations.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/scope-reconciliation.md",
@@ -473,6 +478,10 @@
           "src/lib/state-store/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
           "src/test/config.ts",
           "src/test/languages/read-recorder-install.ts",
           "src/test/languages/read-recorder-setup.ts",
@@ -498,7 +507,7 @@
       },
       "tests/reconciliation-read-only.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/scope-reconciliation.md",
@@ -582,6 +591,7 @@
           "src/commands/verification-exec/test-runner.ts",
           "src/commands/verify/change-runs.ts",
           "src/commands/verify/cli.ts",
+          "src/commands/verify/input-inspect.ts",
           "src/commands/worktree/claim.ts",
           "src/commands/worktree/index.ts",
           "src/commands/worktree/release.ts",
@@ -825,6 +835,10 @@
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
           "src/lib/worktree-occupancy-file-system.ts",
           "src/lib/worktree-path-info.ts",
           "src/lib/worktree-process-table.ts",
@@ -892,7 +906,7 @@
       },
       "tests/reconciliation-rejection.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/scope-reconciliation.md",
@@ -976,6 +990,7 @@
           "src/commands/verification-exec/test-runner.ts",
           "src/commands/verify/change-runs.ts",
           "src/commands/verify/cli.ts",
+          "src/commands/verify/input-inspect.ts",
           "src/commands/worktree/claim.ts",
           "src/commands/worktree/index.ts",
           "src/commands/worktree/release.ts",
@@ -1219,6 +1234,10 @@
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
           "src/lib/worktree-occupancy-file-system.ts",
           "src/lib/worktree-path-info.ts",
           "src/lib/worktree-process-table.ts",
@@ -1287,7 +1306,7 @@
       },
       "tests/reconciliation-result.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/37-scope-reconciliation.enabler/scope-reconciliation.md",
@@ -1361,6 +1380,10 @@
           "src/lib/state-store/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
           "src/test/config.ts",
           "src/test/languages/read-recorder-install.ts",
           "src/test/languages/read-recorder-setup.ts",

@@ -11,7 +11,7 @@ describe("record-run start Verifier compliance", () => {
   //   (universal over every Verifier whose kind lies outside those two), rejecting it before a run exists.
   // - Production subject: the `--verifier` operand validation of `spx verification run start`, crossed at the CLI command
   //   path through the commander program; the observation is the start result, the state root, and the run-context data.
-  // - Case provenance: the invalid-Verifier generator the run-context node owns (`VERIFY_TEST_GENERATOR.invalidVerifier`),
+  // - Case provenance: the invalid-Verifier generator the run-context node owns (`VERIFY_TEST_GENERATOR.argvInvalidVerifier`),
   //   imported and not copied; its kind branch draws kinds outside the production kind registry, its id branch draws the
   //   empty id the same assertion rejects. The spec sentence selects the violation class.
   // - Oracle owner: the spec sentence (rejected, exit code ERROR, no run exists) with the source-owned
@@ -21,7 +21,7 @@ describe("record-run start Verifier compliance", () => {
   //   run-context data holds the Verifier, so the first three expectations below fail.
   it("rejects a Verifier with an unsupported kind through spx verification run start before a run exists", async () => {
     await assertProperty(
-      VERIFY_TEST_GENERATOR.invalidVerifier(),
+      VERIFY_TEST_GENERATOR.argvInvalidVerifier(),
       async (verifier) => {
         const observation = await observeVerificationRunStartVerifier(verifier);
         expect(observation.startResults.map((result) => result.exitCode)).toStrictEqual([VERIFY_CLI_EXIT_CODE.ERROR]);

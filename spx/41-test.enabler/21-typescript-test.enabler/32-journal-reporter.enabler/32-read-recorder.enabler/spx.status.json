@@ -5,7 +5,7 @@
     "test": {
       "tests/read-recorder.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/32-read-recorder.enabler/read-recorder.md",
@@ -78,6 +78,10 @@
           "src/lib/state-store/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
           "src/outcomeeng/spec-tree/graph/source/order.ts",
           "src/test/config.ts",
           "src/test/languages/journal-reporter.ts",
@@ -115,7 +119,7 @@
       },
       "tests/read-recorder.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/32-read-recorder.enabler/read-recorder.md",
@@ -188,6 +192,10 @@
           "src/lib/state-store/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
           "src/outcomeeng/spec-tree/graph/source/order.ts",
           "src/test/config.ts",
           "src/test/languages/journal-reporter.ts",
@@ -224,7 +232,7 @@
       },
       "tests/read-recorder.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/32-read-recorder.enabler/read-recorder.md",
@@ -297,6 +305,10 @@
           "src/lib/state-store/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
           "src/outcomeeng/spec-tree/graph/source/order.ts",
           "src/test/config.ts",
           "src/test/languages/journal-reporter.ts",
@@ -334,7 +346,7 @@
       },
       "tests/read-recorder.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "45e27e764783128f5735ad7d7c7b5d6aeaef2803",
+        "commit": "6a8a87f611d6238b6939b7d7f5820ec28b1684d5",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/32-read-recorder.enabler/read-recorder.md",
@@ -407,6 +419,10 @@
           "src/lib/state-store/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
+          "src/lib/verification-input/digests.ts",
+          "src/lib/verification-input/index.ts",
+          "src/lib/verification-input/inspect.ts",
+          "src/lib/verification-input/resolve-operand.ts",
           "src/outcomeeng/spec-tree/graph/source/order.ts",
           "src/test/config.ts",
           "src/test/languages/journal-reporter.ts",
