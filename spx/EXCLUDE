@@ -19,4 +19,3 @@
 33-harness-environment.enabler/21-agent-instructions.enabler
 33-harness-environment.enabler/43-plugin-bootstrap.enabler
 34-verification.enabler/21-verification-input.enabler
-60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/21-verification-input.enabler
