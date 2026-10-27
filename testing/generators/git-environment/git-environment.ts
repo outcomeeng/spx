@@ -8,9 +8,8 @@
 
 import * as fc from "fast-check";
 
-import { GIT_TEST_ENVIRONMENT_KEYS } from "@testing/harnesses/git-test-constants";
+import { GIT_CEILING_DIRECTORIES_KEY, GIT_ENVIRONMENT_PREFIX } from "@/lib/git/environment";
 
-const GIT_VARIABLE_PREFIX = "GIT_";
 const VARIABLE_SUFFIX_PATTERN = /^[A-Z][A-Z0-9_]{0,10}$/;
 const MAX_VARIABLES_PER_PART = 6;
 
@@ -27,13 +26,13 @@ function arbitraryVariableValue(): fc.Arbitrary<string> {
 
 function arbitraryGitVariableName(): fc.Arbitrary<string> {
   return fc.stringMatching(VARIABLE_SUFFIX_PATTERN)
-    .map((suffix) => `${GIT_VARIABLE_PREFIX}${suffix}`)
-    .filter((name) => name !== GIT_TEST_ENVIRONMENT_KEYS.CEILING_DIRECTORIES);
+    .map((suffix) => `${GIT_ENVIRONMENT_PREFIX}${suffix}`)
+    .filter((name) => name !== GIT_CEILING_DIRECTORIES_KEY);
 }
 
 function arbitraryUnrelatedVariableName(): fc.Arbitrary<string> {
   return fc.stringMatching(VARIABLE_SUFFIX_PATTERN)
-    .filter((name) => !name.startsWith(GIT_VARIABLE_PREFIX));
+    .filter((name) => !name.startsWith(GIT_ENVIRONMENT_PREFIX));
 }
 
 export function arbitraryGitEnvironment(): fc.Arbitrary<GitEnvironmentSample> {
@@ -48,7 +47,7 @@ export function arbitraryGitEnvironment(): fc.Arbitrary<GitEnvironmentSample> {
   }).map(({ gitVariables, unrelatedVariables, ceiling }) => {
     const ceilingEntry: Record<string, string> = ceiling === undefined
       ? {}
-      : { [GIT_TEST_ENVIRONMENT_KEYS.CEILING_DIRECTORIES]: ceiling };
+      : { [GIT_CEILING_DIRECTORIES_KEY]: ceiling };
     return {
       environment: { ...unrelatedVariables, ...gitVariables, ...ceilingEntry },
       retained: { ...unrelatedVariables, ...ceilingEntry },
