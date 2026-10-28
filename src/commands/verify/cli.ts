@@ -259,6 +259,7 @@ export const VERIFY_START_REPORT_FIELD = {
   RESOLVED_SCOPE: "resolvedScope",
   INPUT: "input",
   LOCATOR: "locator",
+  PAYLOAD_DIRECTORY: "payloadDirectory",
 } as const;
 
 export interface VerifyStartReport {
@@ -277,7 +278,7 @@ export const VERIFY_WRITE_DIRECTORY_ROLE = {
 } as const;
 
 /** The path segments below the worktree state directory that address a run's payload directory. */
-const VERIFY_PAYLOAD_PATH = {
+export const VERIFY_PAYLOAD_PATH = {
   ROOT_SEGMENT: "payloads",
   RUN_DIRECTORY_PREFIX: "run-",
 } as const;

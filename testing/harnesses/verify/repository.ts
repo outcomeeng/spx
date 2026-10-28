@@ -4,9 +4,16 @@ import { dirname, join } from "node:path";
 
 import { execa } from "execa";
 
-import { journalAppendCommand, journalOpenCommand, journalReadCommand } from "@/commands/journal/cli";
+import {
+  journalAppendCommand,
+  journalOpenCommand,
+  journalReadCommand,
+  journalSealCommand,
+} from "@/commands/journal/cli";
+import { createRecorderOperations } from "@/commands/verification-exec/recorder-operations";
 import {
   VERIFY_CLI_EXIT_CODE,
+  VERIFY_PAYLOAD_PATH,
   verifyAppendScopeCommand,
   type VerifyCliDeps,
   verifyFinishCommand,
@@ -18,6 +25,7 @@ import {
 } from "@/commands/verify/cli";
 import type { CliCommandResult } from "@/config/types";
 import {
+  type RunLocator,
   VERIFY_APPEND_EVENT_FIELD,
   VERIFY_APPEND_EVENT_TYPE,
   VERIFY_EXPECTATIONS_FIELD,
@@ -32,7 +40,7 @@ import {
 } from "@/domains/verify/verify";
 import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
 import { GIT_DIR_BASENAME, GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
-import { defaultStateStoreFileSystem, STATE_STORE_SCOPE_PATH } from "@/lib/state-store";
+import { defaultStateStoreFileSystem, STATE_STORE_SCOPE_PATH, worktreeScopeDir } from "@/lib/state-store";
 import {
   RECONCILIATION_WORKING_TREE_ACTION,
   type ReconciliationWorkingTreeStep,
@@ -215,6 +223,18 @@ export interface VerifyHeadCommitRepository extends VerifyRepositoryCommits {
   startRun(scopeType: string, verificationType?: string, expectations?: string): Promise<StartedRepositoryRun>;
   /** Append `payload` as scope evidence to a started run through the production `scope add` operation. */
   appendScope(run: StartedRepositoryRun, payload: JsonValue): Promise<AppendedRepositoryScope>;
+  /** Start a run of `scopeType` through the executor's recorder operations, the path on which spx opens a run. */
+  startSpxRun(scopeType: string, verificationType?: string): Promise<RunLocator>;
+  /** Finish a started run with `terminalStatus` through the production `finish` operation. */
+  finish(run: StartedRepositoryRun, terminalStatus: string): Promise<CliCommandResult>;
+  /** Seal a started run's journal through the production journal seal operation. */
+  sealJournal(run: StartedRepositoryRun): Promise<CliCommandResult>;
+  /** The payload directory the specified layout gives the run `runToken` of `verificationType` at the checkout's worktree root. */
+  payloadDirectory(verificationType: string, runToken: string): string;
+  /** Write a file named `name` into `directory`, creating the directory, as a caller stages a payload. */
+  stagePayloadFile(directory: string, name: string): Promise<void>;
+  /** Detach the checkout's HEAD at `ref`, which moves the branch scope later runs record into. */
+  detachHead(ref: string): Promise<void>;
   /** Write a file at the product-relative `path` into the checkout without adding it to any commit. */
   writeCheckoutFile(path: string): Promise<void>;
   /** Reconcile a started run's judged scope through the production reconciliation operation. */
@@ -246,13 +266,15 @@ export interface VerifyHeadCommitRepository extends VerifyRepositoryCommits {
 export interface VerifyLinkedWorktree {
   readonly worktreeDir: string;
   startRun(scopeType: string, verificationType?: string): Promise<StartedRepositoryRun>;
+  /** Start a run of `scopeType` through the executor's recorder operations, the path on which spx opens a run. */
+  startSpxRun(scopeType: string, verificationType?: string): Promise<RunLocator>;
   reportWritePaths(scopeType: string, verificationType?: string): Promise<CliCommandResult>;
   /** Observe every file and directory of this worktree, the Git file excluded, at canonical paths. */
   snapshotState(): Promise<readonly RepositoryStateEntry[]>;
 }
 
 /** The operations that report a selector's write paths and start a run of it. */
-export type WritePathRunner = Omit<VerifyLinkedWorktree, "worktreeDir">;
+export type WritePathRunner = Pick<VerifyLinkedWorktree, "startRun" | "reportWritePaths" | "snapshotState">;
 
 /**
  * What one write-path report followed by one started run observed: the report command result, the
@@ -318,6 +340,8 @@ interface VerifyRunStarter {
   reportWritePaths(scopeType: string, scope: string, verificationType?: string): Promise<CliCommandResult>;
   reconcile(run: StartedRepositoryRun): Promise<CliCommandResult>;
   finish(run: StartedRepositoryRun, terminalStatus: string): Promise<CliCommandResult>;
+  sealJournal(run: StartedRepositoryRun): Promise<CliCommandResult>;
+  startSpxRun(scopeType: string, scope: string, verificationType?: string): Promise<RunLocator>;
   status(run: StartedRepositoryRun): Promise<CliCommandResult>;
   readEvents(run: StartedRepositoryRun): Promise<readonly JournalEvent[]>;
   startRunRecordingContext(
@@ -356,6 +380,16 @@ function createVerifyRunStarter(cwd: string, git: GitDependencies): VerifyRunSta
   return {
     reportWritePaths: async (scopeType, scope, verificationType = drawnVerificationType) =>
       verifyPathsCommand({ verificationType, scopeType, scope }, deps),
+    sealJournal: async (run) =>
+      journalSealCommand({ type: run.verificationType, runToken: requireRunToken(run, "seal") }, deps),
+    startSpxRun: async (scopeType, scope, verificationType = drawnVerificationType) =>
+      createRecorderOperations({ input: VERIFY_INPUT_SOURCE.STDIN, deps }).open({
+        verificationType,
+        scopeType,
+        scope,
+        productDir: cwd,
+        testPaths: [],
+      }),
     finish: async (run, terminalStatus) =>
       verifyFinishCommand(
         {
@@ -513,10 +547,8 @@ export async function withVerifyHeadCommitRepository<T>(
       layout.headBranch,
       commits.headCommit,
     ]);
-    const { appendScope, reconcile, reportWritePaths, startRun } = createVerifyRunStarter(
-      productDir,
-      realVerifyGitDependencies(),
-    );
+    const { appendScope, finish, reconcile, reportWritePaths, sealJournal, startRun, startSpxRun } =
+      createVerifyRunStarter(productDir, realVerifyGitDependencies());
     const scopeFor = (scopeType: string): string =>
       scopeType === VERIFY_SCOPE_TYPE.CHANGESET
         ? `${commits.baseCommit}${VERIFY_SCOPE_SEPARATOR}${layout.headBranch}`
@@ -534,6 +566,24 @@ export async function withVerifyHeadCommitRepository<T>(
           startRun(scopeType, scopeFor(scopeType), verificationType, expectations),
         appendScope,
         reconcile,
+        finish,
+        sealJournal,
+        startSpxRun: async (scopeType, verificationType) =>
+          startSpxRun(scopeType, scopeFor(scopeType), verificationType),
+        payloadDirectory: (verificationType, runToken) =>
+          join(
+            worktreeScopeDir(productDir),
+            verificationType,
+            VERIFY_PAYLOAD_PATH.ROOT_SEGMENT,
+            `${VERIFY_PAYLOAD_PATH.RUN_DIRECTORY_PREFIX}${runToken}`,
+          ),
+        stagePayloadFile: async (directory, name) => {
+          await mkdir(directory, { recursive: true });
+          await writeFile(join(directory, name), name);
+        },
+        detachHead: async (ref) => {
+          await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CHECKOUT, GIT_TEST_FLAGS.DETACH, ref]);
+        },
         writeCheckoutFile: async (path) => {
           const absoluteFile = join(productDir, path);
           await mkdir(dirname(absoluteFile), { recursive: true });
@@ -565,6 +615,8 @@ export async function withVerifyHeadCommitRepository<T>(
             worktreeDir,
             startRun: async (scopeType, verificationType) =>
               linked.startRun(scopeType, scopeFor(scopeType), verificationType),
+            startSpxRun: async (scopeType, verificationType) =>
+              linked.startSpxRun(scopeType, scopeFor(scopeType), verificationType),
             reportWritePaths: async (scopeType, verificationType) =>
               linked.reportWritePaths(scopeType, scopeFor(scopeType), verificationType),
             snapshotState: async () => snapshotRepositoryState(worktreeDir),
