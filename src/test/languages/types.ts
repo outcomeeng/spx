@@ -10,6 +10,8 @@
 
 import type { TestPathVerdict, TestPathVerdictValue } from "@/test/run-state";
 
+import type { VitestRunStarter } from "@/test/languages/vitest-run-starter";
+
 /** Result of a single command-runner invocation. */
 export interface TestRunCommandResult {
   readonly exitCode: number;
@@ -139,6 +141,8 @@ export interface JournalStreamRunDependencies {
   readonly sink: TestRunEvidenceSink;
   /** Optional test override for descriptor-owned language presence detection. */
   readonly isLanguagePresent?: (productDir: string) => boolean;
+  /** Optional Vitest run starter; absent selects the production starter over the product-resolving loader. */
+  readonly starter?: VitestRunStarter;
 }
 
 /** A request to run a language's tests over a set of discovered paths. */

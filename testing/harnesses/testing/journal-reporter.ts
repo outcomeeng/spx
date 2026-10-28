@@ -21,9 +21,6 @@ import {
   type VitestNodeApi,
   type VitestNodeApiLoader,
   type VitestNodeApiResolution,
-  type VitestRunStart,
-  type VitestRunStarter,
-  type VitestRunStartOptions,
 } from "@/test/languages/journal-reporter";
 import { READ_RECORDER_META_KEY } from "@/test/languages/read-recorder";
 import {
@@ -36,6 +33,7 @@ import {
   type TestScopeUnit,
 } from "@/test/languages/types";
 import { runTestsStreaming as descriptorRunTestsStreaming } from "@/test/languages/typescript";
+import type { VitestRunStart, VitestRunStarter, VitestRunStartOptions } from "@/test/languages/vitest-run-starter";
 import { CONFIG_TEST_GENERATOR } from "@testing/generators/config/descriptors";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
 import { sampleGeneratedValue } from "@testing/generators/sample";

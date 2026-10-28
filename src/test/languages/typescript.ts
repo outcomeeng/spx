@@ -18,7 +18,6 @@ import {
   createVitestRunStarter,
   productVitestNodeApiLoader,
   runTestsStreaming as reporterRunTestsStreaming,
-  type VitestRunStarter,
 } from "@/test/languages/journal-reporter";
 import type {
   JournalRunInvocation,
@@ -527,13 +526,12 @@ async function relatedTestPaths(
  * the run's terminal status — or the unresolved-runner outcome naming the product directory
  * when that directory supplies no Vitest Node API. The production run-starter over the
  * product-resolving loader is the default; an injected starter lets `l1` tests drive synthetic
- * lifecycle events without a real Vitest run. Widening the descriptor's `{ sink }` dependency
- * to `{ sink, starter? }` conforms to the neutral `TestingLanguageDescriptor` contract while
- * exposing the starter seam TypeScript verification needs.
+ * lifecycle events without a real Vitest run; the starter is an optional field of the
+ * journal-streaming dependencies.
  */
 export async function runTestsStreaming(
   request: JournalRunRequest,
-  deps: JournalStreamRunDependencies & { readonly starter?: VitestRunStarter },
+  deps: JournalStreamRunDependencies,
 ): Promise<JournalRunInvocation> {
   if (!detect(request.productDir, deps)) {
     return { invoked: false };

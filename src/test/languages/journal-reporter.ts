@@ -31,6 +31,7 @@ import {
   type JournalRunTerminalStatus,
   type TestRunEvidenceSink,
 } from "@/test/languages/types";
+import type { VitestRunStart, VitestRunStarter, VitestRunStartOptions } from "@/test/languages/vitest-run-starter";
 
 /** The package the journal-streaming run resolves from the product under test. */
 export const VITEST_PACKAGE_NAME = "vitest";
@@ -228,38 +229,6 @@ export const productVitestNodeApiLoader: VitestNodeApiLoader = {
     return import(pathToFileURL(specifier).href) as Promise<VitestNodeApi>;
   },
 };
-
-/** How a journal-streaming run starts Vitest: the scope to run and the reporters registered on it. */
-export interface VitestRunStartOptions {
-  /** Product directory the run executes against. */
-  readonly productDir: string;
-  /** Test file paths the run covers; empty runs the runner's full scope. */
-  readonly testPaths: readonly string[];
-  /** Reporters registered on the run — the journal reporter among them. */
-  readonly reporters: readonly Reporter[];
-  /** Setup files each test worker of the run executes — the read recorder among them. */
-  readonly setupFiles: readonly string[];
-  /** Environment variables each test worker of the run receives. */
-  readonly workerEnv: Readonly<Record<string, string>>;
-}
-
-/** Whether a start ran Vitest, or found no Vitest Node API in the product directory searched. */
-export type VitestRunStart =
-  | { readonly started: true }
-  | {
-    readonly started: false;
-    /** The product directory searched for the Node API. */
-    readonly unresolvedProductDir: string;
-  };
-
-/**
- * Starts a programmatic Vitest run with the given reporters registered through the
- * Node API. Production wires the product-resolved `startVitest`; tests inject a spy
- * that records the options without spawning Vitest.
- */
-export interface VitestRunStarter {
-  start(options: VitestRunStartOptions): Promise<VitestRunStart>;
-}
 
 /** The Vitest case-result state the reporter records as a finding. */
 const VITEST_FAILED_CASE_STATE = "failed";

@@ -22,6 +22,7 @@ import {
   type TestRunEvidenceSink,
   type TestScopeUnit,
 } from "@/test/languages/types";
+import type { VitestRunStarter } from "@/test/languages/vitest-run-starter";
 
 /**
  * A verification type's streaming runner: drives a run over a scope, streaming per-module scope and
@@ -64,6 +65,8 @@ export interface ExecutorRunRequest {
 export interface ExecutorDependencies {
   readonly resolveRunner: (verificationType: string) => JournalStreamingRunner | undefined;
   readonly recorder: ExecutorRecorderOperations;
+  /** Optional Vitest run starter forwarded to the runner; absent selects the production starter. */
+  readonly starter?: VitestRunStarter;
 }
 
 /** The product directory a runner searched and found no runner in. */
@@ -158,7 +161,7 @@ export async function executeVerificationRun(
   try {
     invocation = await runner.runTestsStreaming(
       { productDir: request.productDir, testPaths: request.testPaths },
-      { sink },
+      { sink, starter: deps.starter },
     );
   } catch (failure) {
     // The executor owns the open-stream-seal lifecycle, so a runner failure finishes the opened run
