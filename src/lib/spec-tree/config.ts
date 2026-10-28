@@ -20,8 +20,8 @@ export const SPEC_TREE_CONFIG = {
     KIND: "product",
     /** The directory suffix of a nested product scope, which holds children without being a registered node kind. */
     NODE_SUFFIX: ".product",
-    /** The kinds a product admits as children: the 4.0 output kinds a variant does not take the place of, and a nested product. */
-    CHILDREN: ["substrate", "capability", "domain", "interface", "surface", "product"],
+    /** The kinds a product admits as children: the 4.0 output kinds a variant does not take the place of, a nested product, and the 3.x enabler and outcome. */
+    CHILDREN: ["substrate", "capability", "domain", "interface", "surface", "product", "enabler", "outcome"],
   },
   CATEGORY: SPEC_TREE_KIND_CATEGORY_VALUES,
   KINDS: {

@@ -5,7 +5,7 @@
     "test": {
       "tests/context-failure.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -163,6 +163,7 @@
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/context-target.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/rich-context.ts",
           "testing/generators/spec-tree/spec-tree.ts",
@@ -182,7 +183,7 @@
       },
       "tests/context-success.mapping.l2.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -340,6 +341,7 @@
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/context-target.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/rich-context.ts",
           "testing/generators/spec-tree/spec-tree.ts",
@@ -358,7 +360,7 @@
       },
       "tests/context-target.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -517,6 +519,7 @@
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/context-target.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/rich-context.ts",
           "testing/generators/spec-tree/spec-cli.ts",
@@ -536,7 +539,7 @@
       },
       "tests/spec-cli-contract.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -695,6 +698,7 @@
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/context-target.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/rich-context.ts",
           "testing/generators/spec-tree/spec-cli.ts",
@@ -714,7 +718,7 @@
       },
       "tests/spec-cli-contract.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -873,6 +877,7 @@
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/context-target.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/rich-context.ts",
           "testing/generators/spec-tree/spec-cli.ts",

@@ -35,6 +35,7 @@ import {
   SPEC_TREE_METHODOLOGY_LINE,
   SPEC_TREE_VERIFICATION_TYPE,
   type SpecTreeEvidenceReference,
+  type SpecTreeNodeKind,
   type SpecTreeNodeSourceEntry,
   type SpecTreeVerificationType,
 } from "@/lib/spec-tree";
@@ -44,6 +45,7 @@ import {
   fourZeroOnlyOutputKinds,
   lineComponent,
 } from "@testing/generators/spec-tree/grammar-selection";
+import { admittedChildKindsOracle } from "@testing/generators/spec-tree/kind-grammar";
 import { SPEC_TREE_TEST_GENERATOR, specTreeFixtureNodeDirectoryName } from "@testing/generators/spec-tree/spec-tree";
 
 /** The shapes an assertion line takes with respect to evidence tagging. */
@@ -366,10 +368,15 @@ type NodeParts = {
   readonly title: string;
 };
 
+/** The output kinds a product admits as a top-level node, by the independent admitted-children cases. */
+const TOP_LEVEL_OUTPUT_KINDS = OUTPUT_KINDS.filter((kind) =>
+  (admittedChildKindsOracle(SPEC_TREE_CONFIG.PRODUCT.KIND) as readonly string[]).includes(kind)
+);
+
 function arbitraryNodeParts(): fc.Arbitrary<NodeParts> {
   return fc.record({
     id: SPEC_TREE_TEST_GENERATOR.sourceId(),
-    kind: fc.constantFrom(...OUTPUT_KINDS),
+    kind: fc.constantFrom(...TOP_LEVEL_OUTPUT_KINDS),
     order: SPEC_TREE_TEST_GENERATOR.filesystemOrder(),
     slug: SPEC_TREE_TEST_GENERATOR.sourceSlug(),
     title: SPEC_TREE_TEST_GENERATOR.sourceTitle(),
@@ -667,7 +674,7 @@ export function declaredGrammarLinkCases(): readonly DeclaredGrammarLinkCase[] {
 
 type DirectoryNaming = {
   /** The suffixes of the kinds the citing node takes, which the declared grammar reads as nodes. */
-  readonly citingKinds: readonly Kind[];
+  readonly citingKinds: readonly SpecTreeNodeKind[];
   readonly specFileSuffix: string;
   /** The suffixes of the directories the declared grammar accepts as node directories. */
   readonly nodeKinds: readonly Kind[];
@@ -690,7 +697,7 @@ function directoryNaming({ version, migratingFrom }: EvidenceDeclaration): Direc
     };
   }
   return {
-    citingKinds: OUTPUT_KINDS,
+    citingKinds: TOP_LEVEL_OUTPUT_KINDS,
     specFileSuffix: SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX,
     nodeKinds: OUTPUT_KINDS,
     folderKinds: [],
@@ -701,16 +708,29 @@ function directoryName(order: number | string, slug: string, kind: Kind): string
   return `${order}${SPEC_TREE_GRAMMAR.ORDER.SEPARATOR}${slug}${KIND_REGISTRY[kind].suffix}`;
 }
 
+/**
+ * The directory kinds of `naming` that a citing node of `citingKind` admits as children, so a
+ * directory a link enters nests only a kind the citing node's kind admits. A kind that resolves
+ * no admitted children in the independent cases places no limit. The admitted kinds come from the
+ * independent admitted-children cases, never from the kind registry assembly enforces.
+ */
+function admittedNodeKinds(citingKind: SpecTreeNodeKind, naming: DirectoryNaming): readonly Kind[] {
+  const admitted: readonly string[] = admittedChildKindsOracle(citingKind);
+  return admitted.length === 0 ? naming.nodeKinds : naming.nodeKinds.filter((kind) => admitted.includes(kind));
+}
+
 function linkedDirectoryName(
   linkCase: DeclaredGrammarLinkCase,
   naming: DirectoryNaming,
+  citingKind: SpecTreeNodeKind,
   slug: string,
   order: number | string,
   threeDigitOrder: number,
   kindIndex: number,
 ): string {
   if (linkCase.directory === LINKED_DIRECTORY_CLASS.NODE) {
-    return directoryName(order, slug, naming.nodeKinds[kindIndex % naming.nodeKinds.length]);
+    const admitted = admittedNodeKinds(citingKind, naming);
+    return directoryName(order, slug, admitted[kindIndex % admitted.length]);
   }
   if (naming.folderKinds.length > 0) {
     return directoryName(order, slug, naming.folderKinds[kindIndex % naming.folderKinds.length]);
@@ -750,9 +770,11 @@ export function arbitraryDeclaredGrammarLinkScenario(
           linkTail,
         ],
       ) => {
+        const citingKind = naming.citingKinds[citingIndex];
         const linkedDirectory = linkedDirectoryName(
           linkCase,
           naming,
+          citingKind,
           linkedSlug,
           linkedOrder,
           threeDigitOrder,
@@ -761,7 +783,7 @@ export function arbitraryDeclaredGrammarLinkScenario(
         const linkPath = [linkedDirectory, linkTail].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
         const specPath = [
           SPEC_TREE_CONFIG.ROOT_DIRECTORY,
-          directoryName(nodeOrder, nodeSlug, naming.citingKinds[citingIndex]),
+          directoryName(nodeOrder, nodeSlug, citingKind),
           `${nodeSlug}${naming.specFileSuffix}`,
         ].join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
         const specText = [

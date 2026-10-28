@@ -5,7 +5,7 @@
     "test": {
       "tests/evidence-references.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/48-evidence-references.capability/evidence-references.spec.md",
@@ -103,6 +103,7 @@
           "testing/generators/spec-tree/evidence-file-name.ts",
           "testing/generators/spec-tree/evidence-references.ts",
           "testing/generators/spec-tree/grammar-selection.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/spec-tree.ts",
           "testing/harnesses/spec-tree/evidence-references.ts",
@@ -112,7 +113,7 @@
       },
       "tests/evidence-references.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/48-evidence-references.capability/evidence-references.spec.md",
@@ -210,6 +211,7 @@
           "testing/generators/spec-tree/evidence-file-name.ts",
           "testing/generators/spec-tree/evidence-references.ts",
           "testing/generators/spec-tree/grammar-selection.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/spec-tree.ts",
           "testing/harnesses/spec-tree/evidence-references.ts",
@@ -219,7 +221,7 @@
       },
       "tests/evidence-references.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/48-evidence-references.capability/evidence-references.spec.md",
@@ -317,6 +319,7 @@
           "testing/generators/spec-tree/evidence-file-name.ts",
           "testing/generators/spec-tree/evidence-references.ts",
           "testing/generators/spec-tree/grammar-selection.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/spec-tree.ts",
           "testing/harnesses/property/property.ts",
@@ -327,7 +330,7 @@
       },
       "tests/evidence-references.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/48-evidence-references.capability/evidence-references.spec.md",
@@ -425,6 +428,7 @@
           "testing/generators/spec-tree/evidence-file-name.ts",
           "testing/generators/spec-tree/evidence-references.ts",
           "testing/generators/spec-tree/grammar-selection.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/spec-tree.ts",
           "testing/harnesses/spec-tree/evidence-references.ts",

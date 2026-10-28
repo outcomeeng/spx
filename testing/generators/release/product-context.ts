@@ -10,9 +10,9 @@ import {
 import type { ReleaseData } from "@/domains/release/release-data";
 import { CHANGELOG_TITLE } from "@/domains/release/release-notes";
 import {
-  type Kind,
   KIND_REGISTRY,
   NODE_SUFFIXES,
+  OUTPUT_KINDS,
   renderSpecTreeRootFrontMatter,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
@@ -23,6 +23,7 @@ import {
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { arbitraryPathSegment } from "@testing/generators/git-name/git-name";
 import { arbitraryConformantChangelog } from "@testing/generators/release/changelog";
+import { admittedChildKindsOracle } from "@testing/generators/spec-tree/kind-grammar";
 import {
   SPEC_TREE_TEST_GENERATOR,
   specTreeGrammarSelectionForLine,
@@ -656,10 +657,10 @@ export interface ReleaseEndpointGrammarScenario {
   readonly fourZeroNameAtThreeXPath: string;
 }
 
-/** The suffixes of the output kinds a 4.0 product admits as top-level children, drawn from the product spec's child list. */
-const FOUR_ZERO_PRODUCT_CHILD_SUFFIXES: readonly string[] = SPEC_TREE_CONFIG.PRODUCT.CHILDREN
-  .filter((kind) => kind !== SPEC_TREE_CONFIG.PRODUCT.KIND)
-  .map((kind) => KIND_REGISTRY[kind as Kind].suffix);
+/** The suffixes of the output kinds a 4.0 product admits as top-level children, drawn from the independent admitted-children oracle. */
+const FOUR_ZERO_PRODUCT_CHILD_SUFFIXES: readonly string[] = OUTPUT_KINDS
+  .filter((kind) => (admittedChildKindsOracle(SPEC_TREE_CONFIG.PRODUCT.KIND) as readonly string[]).includes(kind))
+  .map((kind) => KIND_REGISTRY[kind].suffix);
 
 export function arbitraryReleaseEndpointGrammarScenario(): fc.Arbitrary<ReleaseEndpointGrammarScenario> {
   return fc.record({

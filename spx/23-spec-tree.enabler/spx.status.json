@@ -5,7 +5,7 @@
     "test": {
       "tests/decision-attachment.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/spec-tree.md",
@@ -101,6 +101,7 @@
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/decision-attachment.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/spec-tree.ts",
           "testing/harnesses/property/property.ts"
@@ -108,7 +109,7 @@
       },
       "tests/grammar-selection.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/spec-tree.md",
@@ -205,6 +206,7 @@
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
           "testing/generators/spec-tree/grammar-selection.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/spec-tree.ts",
           "testing/harnesses/spec-tree/grammar-selection.ts",
@@ -214,7 +216,7 @@
       },
       "tests/spec-tree-ownership.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/spec-tree.md",
@@ -325,6 +327,7 @@
           "testing/generators/literal/snippets.ts",
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/path-ownership.ts",
           "testing/generators/spec-tree/spec-tree.ts",
@@ -333,7 +336,7 @@
       },
       "tests/spec-tree-surface.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -369,7 +372,7 @@
       },
       "tests/spec-tree-surface.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/spec-tree.md",
@@ -467,6 +470,7 @@
           "testing/generators/spec-tree/evidence-file-name.ts",
           "testing/generators/spec-tree/evidence-references.ts",
           "testing/generators/spec-tree/grammar-selection.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/spec-tree.ts",
           "testing/harnesses/spec-tree/evidence-references.ts",

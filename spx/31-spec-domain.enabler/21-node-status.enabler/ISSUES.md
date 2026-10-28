@@ -39,3 +39,23 @@
 **Impact:** for a newly authored, untracked node, the state `spx spec status` prints after `--update`, or without it, can differ from the state written to that node's `spx.status.json`.
 
 **Settlement condition:** one shared function resolves a node's spec path, `foldTrackedNodeClaims` and `classifyClaim` both consume it, and evidence shows an untracked node with an on-disk canonical spec reads the same state on both paths.
+
+## The node-status modules hand-code the order-prefix and slug pattern outside the versioned grammar assertion:ordinal-25:spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md:constraint-unmet
+
+`src/lib/node-status/provider.ts` (lines 36 and 135), `src/lib/node-status/spec-declaration.ts` (line 15), `src/lib/node-status/link-format.ts` (line 10), and `src/lib/node-status/claim-state.ts` (line 59) each declare the order-prefix and slug pattern of a node directory name, for example `/^\d+(?:\.\d+)?-(.+)\.[a-z]+$/`, and apply it in state derivation. The versioned filename grammar in `spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md` owns that pattern, and the node-status modules do not read it from the grammar's exports.
+
+**Evidence:** the assertion audit run 2026-10-27_18-42-54-635-6e4d085c4e67 of `spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md` reported rule `constraint-unmet`, severity `debt`, for the assertion at ordinal 25 at the five locations above.
+
+**Impact:** each hand-coded pattern changes independently of the versioned grammar, so a grammar change reaches state derivation only where a module is edited to match, and the four sites can disagree with each other and with the grammar.
+
+**Settlement condition:** the node-status modules read the order pattern from the filename-grammar exports of `spx/23-spec-tree.enabler/29-filename-grammar.enabler`, and no module under `src/` declares it again.
+
+## The node-status modules declare grammar token constants outside the registry surface assertion:ordinal-27:spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md:constraint-unmet
+
+`src/lib/node-status/provider.ts` declares `export const VARIANT_DIRECTORY_SUFFIX = ".variant"` at line 33 and uses it at line 89. The constant duplicates `KIND_REGISTRY.variant.suffix`. The four order-pattern regexes at `src/lib/node-status/provider.ts` (lines 36 and 135), `src/lib/node-status/spec-declaration.ts` (line 15), `src/lib/node-status/link-format.ts` (line 10), and `src/lib/node-status/claim-state.ts` (line 59) are further module-local grammar tokens.
+
+**Evidence:** the assertion audit run 2026-10-27_18-42-54-635-6e4d085c4e67 of `spx/23-spec-tree.enabler/29-filename-grammar.enabler/filename-grammar.md` reported rule `constraint-unmet`, severity `debt`, for the assertion at ordinal 27 at these locations.
+
+**Impact:** grammar tokens declared outside the registry surface can drift from the registry's values, so the variant suffix and the order pattern have more than one source of truth.
+
+**Settlement condition:** the node-status modules read the order pattern and the variant suffix from the filename-grammar exports of `spx/23-spec-tree.enabler/29-filename-grammar.enabler`, and no module under `src/` declares them again.

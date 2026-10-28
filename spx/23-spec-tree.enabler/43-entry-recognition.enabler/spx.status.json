@@ -5,7 +5,7 @@
     "test": {
       "tests/entry-recognition.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/43-entry-recognition.enabler/entry-recognition.md",
@@ -101,6 +101,7 @@
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
           "testing/generators/spec-tree/filename-grammar.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-form.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/spec-tree.ts",
@@ -109,7 +110,7 @@
       },
       "tests/evidence-recognition.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/43-entry-recognition.enabler/entry-recognition.md",
@@ -205,6 +206,7 @@
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
           "testing/generators/spec-tree/filename-grammar.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-form.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/spec-tree.ts",
@@ -214,7 +216,7 @@
       },
       "tests/migration-classification.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/43-entry-recognition.enabler/entry-recognition.md",
@@ -310,6 +312,7 @@
           "testing/generators/config/config.ts",
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/migration-classification.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/spec-tree.ts",
@@ -322,7 +325,7 @@
       },
       "tests/version-classification.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/43-entry-recognition.enabler/entry-recognition.md",
@@ -417,6 +420,7 @@
           "testing/generators/config/config.ts",
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/spec-tree.ts",
           "testing/harnesses/property/property.ts"
@@ -424,7 +428,7 @@
       },
       "tests/version-classification.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/43-entry-recognition.enabler/entry-recognition.md",
@@ -520,6 +524,7 @@
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
           "testing/generators/spec-tree/filename-grammar.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-form.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/spec-tree.ts",

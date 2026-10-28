@@ -5,7 +5,7 @@
     "test": {
       "tests/release-notes.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-release-notes.enabler/release-notes.md",
@@ -150,6 +150,7 @@
           "testing/generators/release/release.ts",
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/spec-tree.ts",
           "testing/harnesses/git-test-constants.ts",
@@ -165,7 +166,7 @@
       },
       "tests/release-notes.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-release-notes.enabler/release-notes.md",
@@ -293,7 +294,7 @@
       },
       "tests/release-notes.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-release-notes.enabler/release-notes.md",
@@ -422,7 +423,7 @@
       },
       "tests/release-notes.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-release-notes.enabler/release-notes.md",
@@ -564,6 +565,7 @@
           "testing/generators/release/release.ts",
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/spec-tree.ts",
           "testing/harnesses/git-test-constants.ts",
@@ -580,7 +582,7 @@
       },
       "tests/release-notes.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-release-notes.enabler/release-notes.md",

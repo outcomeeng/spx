@@ -5,7 +5,7 @@
     "test": {
       "tests/check-selection.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -77,7 +77,7 @@
       },
       "tests/determinism.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -133,7 +133,7 @@
       },
       "tests/diagnose-cli.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -314,6 +314,7 @@
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/context-target.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/rich-context.ts",
           "testing/generators/spec-tree/spec-tree.ts",
@@ -332,7 +333,7 @@
       },
       "tests/error-sanitization.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -528,6 +529,7 @@
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/context-target.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/rich-context.ts",
           "testing/generators/spec-tree/spec-tree.ts",
@@ -573,7 +575,7 @@
       },
       "tests/manifest.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -625,7 +627,7 @@
       },
       "tests/reading-escaping.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -704,7 +706,7 @@
       },
       "tests/report.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -770,7 +772,7 @@
       },
       "tests/resolve.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -930,6 +932,7 @@
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/context-target.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/rich-context.ts",
           "testing/generators/spec-tree/spec-tree.ts",
@@ -946,7 +949,7 @@
       },
       "tests/text-report.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",
@@ -1025,7 +1028,7 @@
       },
       "tests/worktree-status-probe.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/54-diagnose.enabler/diagnose.md",

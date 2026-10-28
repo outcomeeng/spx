@@ -73,12 +73,28 @@ export function variantParentCases(): readonly VariantParentCase[] {
   }));
 }
 
+/**
+ * The child kinds a container of `parentKind` admits, read from the independent admitted-children
+ * cases above and never from the kind registry. A variant resolves through `grandparentKind`, the
+ * kind it takes the place of; every other kind ignores it. A kind the cases do not name admits none.
+ */
+export function admittedChildKindsOracle(
+  parentKind: SpecTreeContainerKind,
+  grandparentKind?: SpecTreeNodeKind,
+): readonly SpecTreeContainerKind[] {
+  const resolvedParent = parentKind === VARIANT_KIND ? grandparentKind : undefined;
+  const match = kindAdmittedChildrenCases().find((candidate) =>
+    candidate.kind === parentKind && candidate.parentKind === resolvedParent
+  );
+  return match?.expectedChildren ?? [];
+}
+
 /** One case per 4.0 output kind, the 3.x enabler and outcome, the product, and the variant under each output kind it can sit under. */
 export function kindAdmittedChildrenCases(): readonly KindAdmittedChildrenCase[] {
   const productCase: KindAdmittedChildrenCase = {
     label: SPEC_TREE_CONFIG.PRODUCT.KIND,
     kind: SPEC_TREE_CONFIG.PRODUCT.KIND,
-    expectedChildren: [...OUTPUT_FOUNDATION_ORDER, SPEC_TREE_CONFIG.PRODUCT.KIND],
+    expectedChildren: [...OUTPUT_FOUNDATION_ORDER, SPEC_TREE_CONFIG.PRODUCT.KIND, "enabler", "outcome"],
   };
   const outputCases = variantParentKinds().map((kind): KindAdmittedChildrenCase => ({
     label: kind,

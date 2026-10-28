@@ -29,6 +29,7 @@ import {
   canonicalNamingSchemaVersion,
   KIND_REGISTRY,
   OUTPUT_KINDS,
+  resolveAdmittedChildren,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_EVAL_ENTRY_KIND,
@@ -374,6 +375,11 @@ export type SpecTreeSource = {
    * is judged by every known naming-schema version.
    */
   linkGrammar?(): Promise<SpecTreeLinkGrammar>;
+  /**
+   * The grammar selection the source reads its entries under, which kind containment is judged
+   * by. A source that declares none is judged by every known naming-schema version.
+   */
+  grammarSelection?(): Promise<SpecTreeGrammarSelection>;
 };
 
 export type SpecTreeFilesystemRecord = {
@@ -538,6 +544,7 @@ export function createFilesystemSpecTreeSource(options: FilesystemSpecTreeSource
       return readFile(join(options.productDir, ref.path), SPEC_TREE_TEXT_ENCODING);
     },
     linkGrammar: async () => specTreeLinkGrammar(await resolveSelection(), registry),
+    grammarSelection: resolveSelection,
   };
 }
 
@@ -1092,6 +1099,9 @@ export async function readSpecTree(options: SpecTreeOptions): Promise<SpecTreeSn
     }
   }
 
+  const grammarSelection = await options.source.grammarSelection?.() ?? KNOWN_GRAMMAR_SELECTION;
+  assertKindContainment(nodesById, grammarSelection.selected, product);
+
   sortNodes(roots);
   const allNodes = flattenNodes(roots);
 
@@ -1110,6 +1120,72 @@ export async function readSpecTree(options: SpecTreeOptions): Promise<SpecTreeSn
     residual,
     entries,
   };
+}
+
+function suffixOfContainerKind(kind: SpecTreeContainerKind): string {
+  return kind === SPEC_TREE_CONFIG.PRODUCT.KIND ? SPEC_TREE_CONFIG.PRODUCT.NODE_SUFFIX : KIND_REGISTRY[kind].suffix;
+}
+
+function acceptedTogether(
+  versions: readonly NamingSchemaVersion[],
+  left: SpecTreeContainerKind,
+  right: SpecTreeContainerKind,
+): boolean {
+  const suffixes = [suffixOfContainerKind(left), suffixOfContainerKind(right)];
+  return versions.some((version) => suffixes.every((suffix) => version.nodeSuffixes.includes(suffix)));
+}
+
+type ContainmentParent = {
+  readonly id: string;
+  readonly kind: SpecTreeContainerKind;
+  readonly parentId?: string;
+};
+
+/** The parent a node is judged against: the root product for a top-level node, else its parent node. */
+function resolveContainmentParent(
+  node: MutableSpecTreeNode,
+  nodesById: ReadonlyMap<string, MutableSpecTreeNode>,
+  product: SpecTreeProductSourceEntry | null,
+): ContainmentParent | undefined {
+  if (node.parentId !== undefined) return nodesById.get(node.parentId);
+  if (product === null) return undefined;
+  return { id: product.ref?.path ?? product.id, kind: SPEC_TREE_CONFIG.PRODUCT.KIND };
+}
+
+/** The kind of the parent's own parent node, which a variant parent resolves its admitted children through. */
+function resolveGrandparentKind(
+  parent: ContainmentParent,
+  nodesById: ReadonlyMap<string, MutableSpecTreeNode>,
+): SpecTreeNodeKind | undefined {
+  const grandparent = parent.parentId === undefined ? undefined : nodesById.get(parent.parentId);
+  return grandparent?.kind === SPEC_TREE_CONFIG.PRODUCT.KIND ? undefined : grandparent?.kind;
+}
+
+/**
+ * Fails when a node's kind is not among the kinds its parent's kind admits. A top-level node's
+ * parent is the root product, whose kind is the product kind. A pair no single selected
+ * naming-schema version accepts is never judged, so a migrating tree assembles a kind of one
+ * version under a kind of another. The failure names every violating child and parent.
+ */
+function assertKindContainment(
+  nodesById: ReadonlyMap<string, MutableSpecTreeNode>,
+  selected: readonly NamingSchemaVersion[],
+  product: SpecTreeProductSourceEntry | null,
+): void {
+  const violations: string[] = [];
+  for (const node of nodesById.values()) {
+    const parent = resolveContainmentParent(node, nodesById, product);
+    if (parent === undefined) continue;
+    const admitted = resolveAdmittedChildren(parent.kind, resolveGrandparentKind(parent, nodesById));
+    if (admitted === undefined || admitted.includes(node.kind)) continue;
+    if (!acceptedTogether(selected, parent.kind, node.kind)) continue;
+    violations.push(
+      `${node.id} (${node.kind}) under ${parent.id} (${parent.kind}): a ${parent.kind} admits ${admitted.join(", ")}`,
+    );
+  }
+  if (violations.length > 0) {
+    throw new Error(`Spec tree nodes nest a kind their parent's kind does not admit: ${violations.join("; ")}`);
+  }
 }
 
 export function projectSpecTree(snapshot: SpecTreeSnapshot): SpecTreeProjection {

@@ -5,7 +5,7 @@
     "test": {
       "tests/nested-product-layout-git-observation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/15-state-test-harness.enabler/state-test-harness.md",
@@ -91,7 +91,7 @@
       },
       "tests/nested-product-layout.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/15-state-test-harness.enabler/state-test-harness.md",
