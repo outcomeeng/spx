@@ -3,6 +3,7 @@ import { isAbsolute } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
 import { GIT_TEST_ENVIRONMENT_KEYS } from "@testing/harnesses/git-test-constants";
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 
@@ -38,6 +39,56 @@ describe("worktree layout test harness", () => {
         expect(process.env[key]).toBeUndefined();
       });
       expect(process.env[key]).toBe(sentinel);
+    } finally {
+      if (prior === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = prior;
+      }
+    }
+  });
+
+  it("keeps GIT_CEILING_DIRECTORIES at the caller's value during and after a returning callback", async () => {
+    const key = GIT_TEST_ENVIRONMENT_KEYS.CEILING_DIRECTORIES;
+    const ceiling = sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.ceilingDirectory());
+    const name = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const prior = process.env[key];
+    process.env[key] = ceiling;
+
+    try {
+      let observedInside: string | undefined;
+      await withWorktreeLayoutEnv({ bare: false, worktrees: [{ name }] }, async () => {
+        observedInside = process.env[key];
+      });
+      expect(observedInside).toBe(ceiling);
+      expect(process.env[key]).toBe(ceiling);
+    } finally {
+      if (prior === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = prior;
+      }
+    }
+  });
+
+  it("keeps GIT_CEILING_DIRECTORIES at the caller's value during and after a throwing callback", async () => {
+    const key = GIT_TEST_ENVIRONMENT_KEYS.CEILING_DIRECTORIES;
+    const ceiling = sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.ceilingDirectory());
+    const name = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const thrown = new Error(ceiling);
+    const prior = process.env[key];
+    process.env[key] = ceiling;
+
+    try {
+      let observedInside: string | undefined;
+      await expect(
+        withWorktreeLayoutEnv({ bare: false, worktrees: [{ name }] }, () => {
+          observedInside = process.env[key];
+          return Promise.reject(thrown);
+        }),
+      ).rejects.toBe(thrown);
+      expect(observedInside).toBe(ceiling);
+      expect(process.env[key]).toBe(ceiling);
     } finally {
       if (prior === undefined) {
         delete process.env[key];
