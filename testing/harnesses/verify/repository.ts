@@ -18,8 +18,10 @@ import {
   verifyAppendScopeCommand,
   type VerifyCliDeps,
   verifyFinishCommand,
+  verifyInputCommand,
   verifyPathsCommand,
   verifyReconcileCommand,
+  verifyRenderCommand,
   verifyStartCommand,
   type VerifyStartReport,
   verifyStatusCommand,
@@ -41,7 +43,12 @@ import {
 } from "@/domains/verify/verify";
 import { JOURNAL_SEQ_BASE, type JournalEvent, type JsonValue } from "@/lib/agent-run-journal";
 import { GIT_DIR_BASENAME, GIT_ROOT_COMMAND, type GitDependencies } from "@/lib/git/root";
-import { defaultStateStoreFileSystem, STATE_STORE_SCOPE_PATH, worktreeScopeDir } from "@/lib/state-store";
+import {
+  defaultStateStoreFileSystem,
+  STATE_STORE_SCOPE_PATH,
+  type StateStoreFileSystem,
+  worktreeScopeDir,
+} from "@/lib/state-store";
 import {
   RECONCILIATION_WORKING_TREE_ACTION,
   type ReconciliationWorkingTreeStep,
@@ -215,6 +222,29 @@ export interface AppendedRepositoryEvidence {
   readonly readPaths: readonly string[];
 }
 
+/**
+ * One `finish` request: the terminal status, at most one terminal-metadata source — an
+ * invocation-relative source or a run-relative payload name — and, for a failure simulation, the payload
+ * directory whose removal through the injected filesystem fails.
+ */
+export interface RepositoryFinishRequest {
+  readonly terminalStatus: string;
+  readonly terminalMetadata?: string;
+  readonly terminalMetadataRunPayload?: string;
+  readonly failRemovalOf?: string;
+}
+
+/**
+ * What one `finish` produced: the command result, every path the command read and every path it
+ * removed through its injected filesystem in call order, and the text it wrote to standard error.
+ */
+export interface ObservedRepositoryFinish {
+  readonly finished: CliCommandResult;
+  readonly readPaths: readonly string[];
+  readonly removedPaths: readonly string[];
+  readonly stderr: string;
+}
+
 /** The evidence kinds an append names: scope evidence or finding evidence. */
 export type RepositoryEvidenceKind = typeof VERIFY_APPEND_EVENT_TYPE.SCOPE | typeof VERIFY_APPEND_EVENT_TYPE.FINDING;
 
@@ -251,6 +281,21 @@ export interface VerifyHeadCommitRepository extends VerifyRepositoryCommits {
   startSpxRun(scopeType: string, verificationType?: string): Promise<RunLocator>;
   /** Finish a started run with `terminalStatus` through the production `finish` operation. */
   finish(run: StartedRepositoryRun, terminalStatus: string): Promise<CliCommandResult>;
+  /**
+   * Finish a started run through the production `finish` operation with the injected filesystem
+   * recording the paths it reads and removes and the standard-error sink recording what it writes.
+   */
+  observeFinish(run: StartedRepositoryRun, request: RepositoryFinishRequest): Promise<ObservedRepositoryFinish>;
+  /** Report a started run's status through the production `status` operation. */
+  status(run: StartedRepositoryRun): Promise<CliCommandResult>;
+  /** Render a started run's journal projection through the production `render` operation. */
+  render(run: StartedRepositoryRun): Promise<CliCommandResult>;
+  /** Replay a started run's recorded input through the production `input` operation. */
+  input(run: StartedRepositoryRun): Promise<CliCommandResult>;
+  /** Read the events a started run's journal holds. */
+  readEvents(run: StartedRepositoryRun): Promise<readonly JournalEvent[]>;
+  /** Whether a directory exists at `path`. */
+  directoryExists(path: string): Promise<boolean>;
   /** Seal a started run's journal through the production journal seal operation. */
   sealJournal(run: StartedRepositoryRun): Promise<CliCommandResult>;
   /** The payload directory the specified layout gives the run `runToken` of `verificationType` at the checkout's worktree root. */
@@ -387,6 +432,9 @@ interface VerifyRunStarter {
   reportWritePaths(scopeType: string, scope: string, verificationType?: string): Promise<CliCommandResult>;
   reconcile(run: StartedRepositoryRun): Promise<CliCommandResult>;
   finish(run: StartedRepositoryRun, terminalStatus: string): Promise<CliCommandResult>;
+  observeFinish(run: StartedRepositoryRun, request: RepositoryFinishRequest): Promise<ObservedRepositoryFinish>;
+  render(run: StartedRepositoryRun): Promise<CliCommandResult>;
+  input(run: StartedRepositoryRun): Promise<CliCommandResult>;
   sealJournal(run: StartedRepositoryRun): Promise<CliCommandResult>;
   startSpxRun(scopeType: string, scope: string, verificationType?: string): Promise<RunLocator>;
   status(run: StartedRepositoryRun): Promise<CliCommandResult>;
@@ -455,6 +503,61 @@ function createVerifyRunStarter(cwd: string, git: GitDependencies): VerifyRunSta
           scopeType: run.scopeType,
           scope: run.scope,
           run: requireRunToken(run, "status"),
+        },
+        deps,
+      ),
+    observeFinish: async (run, request) => {
+      const runToken = requireRunToken(run, "finish");
+      // Interaction protocol (recording collaborator): the filesystem records every read and removal and
+      // leaves them unchanged. Failure simulation: a removal of `failRemovalOf` fails, the one condition
+      // the real filesystem cannot produce cheaply and portably.
+      const readPaths: string[] = [];
+      const removedPaths: string[] = [];
+      const stderr: string[] = [];
+      const recordingFs: StateStoreFileSystem = {
+        ...defaultStateStoreFileSystem,
+        readFile: async (path, encoding) => {
+          readPaths.push(path);
+          return defaultStateStoreFileSystem.readFile(path, encoding);
+        },
+        rm: async (path, options) => {
+          removedPaths.push(path);
+          if (path === request.failRemovalOf) throw new Error(`removal of ${path} failed`);
+          return defaultStateStoreFileSystem.rm(path, options);
+        },
+      };
+      const recordingDeps = { ...deps, fs: recordingFs, writeStderr: (text: string) => void stderr.push(text) };
+      const options = {
+        verificationType: run.verificationType,
+        scopeType: run.scopeType,
+        scope: run.scope,
+        run: runToken,
+        terminalStatus: request.terminalStatus,
+        ...(request.terminalMetadata === undefined ? {} : { terminalMetadata: request.terminalMetadata }),
+        ...(request.terminalMetadataRunPayload === undefined
+          ? {}
+          : { terminalMetadataRunPayload: request.terminalMetadataRunPayload }),
+      };
+      const finished = await verifyFinishCommand(options, recordingDeps);
+      return { finished, readPaths, removedPaths, stderr: stderr.join("") };
+    },
+    render: async (run) =>
+      verifyRenderCommand(
+        {
+          verificationType: run.verificationType,
+          scopeType: run.scopeType,
+          scope: run.scope,
+          run: requireRunToken(run, "render"),
+        },
+        deps,
+      ),
+    input: async (run) =>
+      verifyInputCommand(
+        {
+          verificationType: run.verificationType,
+          scopeType: run.scopeType,
+          scope: run.scope,
+          run: requireRunToken(run, "input"),
         },
         deps,
       ),
@@ -635,6 +738,10 @@ async function linkPayload(directory: string, name: string, target: string): Pro
   await symlink(target, join(directory, name));
 }
 
+async function directoryExists(path: string): Promise<boolean> {
+  return stat(path).then((stats) => stats.isDirectory(), () => false);
+}
+
 async function detachHeadAt(worktreeRoot: string, ref: string): Promise<void> {
   await runGit(worktreeRoot, [GIT_TEST_SUBCOMMANDS.CHECKOUT, GIT_TEST_FLAGS.DETACH, ref]);
 }
@@ -662,11 +769,16 @@ export async function withVerifyHeadCommitRepository<T>(
       appendFromRunPayload,
       appendScope,
       finish,
+      input,
+      observeFinish,
+      readEvents,
       reconcile,
+      render,
       reportWritePaths,
       sealJournal,
       startRun,
       startSpxRun,
+      status,
     } = createVerifyRunStarter(productDir, realVerifyGitDependencies());
     const scopeFor = (scopeType: string): string =>
       scopeType === VERIFY_SCOPE_TYPE.CHANGESET
@@ -687,6 +799,12 @@ export async function withVerifyHeadCommitRepository<T>(
         appendFromRunPayload,
         reconcile,
         finish,
+        observeFinish,
+        status,
+        render,
+        input,
+        readEvents,
+        directoryExists,
         sealJournal,
         startSpxRun: async (scopeType, verificationType) =>
           startSpxRun(scopeType, scopeFor(scopeType), verificationType),
