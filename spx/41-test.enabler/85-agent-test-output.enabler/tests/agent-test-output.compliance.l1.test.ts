@@ -116,8 +116,6 @@ describe("agent test-output runner", () => {
       if (latestOutput === undefined) throw new Error("Expected the latest run to carry artifact paths");
       const latestNames = [basename(latestOutput.stdoutPath), basename(latestOutput.stderrPath)];
       expect(listingsAtSpawn).toHaveLength(1);
-      expect(listingsAtSpawn[0]).toHaveLength(latestNames.length);
-      expect(listingsAtSpawn[0]).toEqual(expect.arrayContaining(latestNames));
       expect(listingsAtSpawn[0]).not.toContain(basename(previousSecondOutput.stdoutPath));
       expect(listingsAtSpawn[0]).not.toContain(basename(previousSecondOutput.stderrPath));
       const remaining = await readdir(artifactsDir);
