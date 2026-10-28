@@ -6,6 +6,10 @@ CAN have spx run a verification over selected product paths and read the resulti
 
 ## Assertions
 
+### Scenarios
+
+- Given `spx verification test run` runs, when its runner processes create temp directories, then every such directory lies under the one run root the invocation owns, and the root is gone once the command exits ([test](tests/execute-run.scenario.l2.test.ts))
+
 ### Compliance
 
 - ALWAYS: spx-driven verification execution is exposed as `spx verification <type> run`, a verification-type noun carrying the `run` verb ([test](tests/execute-run.compliance.l1.test.ts))
