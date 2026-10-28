@@ -28,6 +28,7 @@ import {
   runGit,
 } from "@testing/harnesses/git-test-constants";
 import { withTestingTempProductDir } from "@testing/harnesses/testing/harness";
+import { writeVitestFixtureConfig } from "@testing/harnesses/testing/vitest-fixture-config";
 
 const changedSetContent = CHANGED_SET_PLANNING_GENERATOR.content();
 
@@ -98,6 +99,7 @@ async function writeChangedSetCommandFixture(productDir: string, paths: ChangedS
   const tsconfigPath = TYPESCRIPT_MARKER;
   await writeFileFixture(productDir, packageJsonPath, changedSetContent.packageJson);
   await writeFileFixture(productDir, tsconfigPath, changedSetContent.tsconfigJson);
+  await writeVitestFixtureConfig(productDir);
 
   const selectedTestContent = `import { expect, it } from 'vitest'; import { value } from '${
     importPath(paths.selectedTestPath, paths.sourcePath)
