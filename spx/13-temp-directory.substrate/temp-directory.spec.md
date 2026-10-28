@@ -14,8 +14,8 @@ CAN obtain and release temp directories without leaving entries behind, however 
 
 - Given a process with no inherited root, when it first requests a temp directory, then the primitive removes every directory in its worktree's `.spx/worktree/test-runs/`, creates one `run-<token>` root there, and creates the directory inside it ([test](tests/run-root.scenario.l1.test.ts))
 - Given a root exported through `SPX_RUN_TEMP_ROOT` by a parent process, when a child process requests a temp directory, then the directory is created inside the inherited root, no new root is created, and no other directory in `.spx/worktree/test-runs/` is removed ([test](tests/run-root.scenario.l1.test.ts))
-- Given a process that created a root, when it exits normally, then the root and everything inside it is removed ([test](tests/run-root.scenario.l2.test.ts))
-- Given a directory inside a run root that holds no repository of its own, when git runs there under the environment the primitive exports, then git finds no repository ([test](tests/git-ceiling.scenario.l2.test.ts))
+- Given a process that created a root, when it exits normally, then the root and everything inside it is removed ([test](tests/run-root.scenario.l1.test.ts))
+- Given a directory inside a run root that holds no repository of its own, when git runs there under the environment the primitive exports, then git finds no repository ([test](tests/git-ceiling.scenario.l1.test.ts))
 - Given a product directory, when a caller requests a product-local scratch directory, then the primitive creates it under `node_modules/.cache/spx/` with the `spx-run-` prefix and removes it at release ([test](tests/scratch.scenario.l1.test.ts))
 
 ### Properties

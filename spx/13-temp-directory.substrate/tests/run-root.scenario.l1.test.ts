@@ -1,7 +1,8 @@
 /**
- * Run-root scenarios over a real filesystem: the first request in a process with no inherited root
- * sweeps the worktree's run-root directory and creates one root, and a request in a process that
- * inherits an exported root creates inside it and removes nothing.
+ * Run-root scenarios: the first request in a process with no inherited root sweeps the worktree's
+ * run-root directory and creates one root, a request in a process that inherits an exported root
+ * creates inside it and removes nothing, and a real child process that created a root removes the
+ * root and everything inside it when it ends normally.
  */
 
 import { existsSync, readdirSync } from "node:fs";
@@ -13,6 +14,8 @@ import { worktreeScopeDir } from "@/lib/state-store";
 import { TEMP_DIRECTORY_ENV_VAR, TEMP_DIRECTORY_PATH } from "@/lib/temp-directory";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { arbitraryEntryName, arbitraryLeftoverRunRootNames } from "@testing/generators/temp-directory/temp-directory";
+import { TEMP_DIRECTORY_CHILD_MODE } from "@testing/harnesses/temp-directory/child-protocol";
+import { runTempDirectoryChild } from "@testing/harnesses/temp-directory/process";
 import { withTempDirectoryHost } from "@testing/harnesses/temp-directory/temp-directory";
 
 describe("a process with no inherited root", () => {
@@ -62,5 +65,18 @@ describe("a child process that inherits a root exported by its parent", () => {
       expect(existsSync(join(runRoots, otherName))).toBe(true);
       expect(child.removed).toEqual([]);
     });
+  });
+});
+
+describe("a process that created a run root and ends normally", () => {
+  it("leaves neither the root nor anything inside it", async () => {
+    const run = await runTempDirectoryChild(TEMP_DIRECTORY_CHILD_MODE.CREATE);
+
+    expect(run.exitCode).toBe(0);
+    expect(run.report.root).toBeDefined();
+    expect(run.report.rootExistedWhileRunning).toBe(true);
+    expect(run.report.contentExistedWhileRunning).toBe(true);
+    expect(run.rootExistsAfterExit).toBe(false);
+    expect(run.directoryExistsAfterExit).toBe(false);
   });
 });
