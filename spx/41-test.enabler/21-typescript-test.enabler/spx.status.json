@@ -5,7 +5,7 @@
     "test": {
       "tests/typescript-test-verdicts.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test-verdicts.scenario.l2.test.ts",
@@ -145,7 +145,7 @@
       },
       "tests/typescript-test.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.compliance.l1.test.ts",
@@ -285,7 +285,7 @@
       },
       "tests/typescript-test.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.compliance.l2.test.ts",
@@ -425,7 +425,7 @@
       },
       "tests/typescript-test.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.mapping.l1.test.ts",
@@ -565,7 +565,7 @@
       },
       "tests/typescript-test.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.scenario.l1.test.ts",
@@ -705,7 +705,7 @@
       },
       "tests/typescript-test.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/tests/typescript-test.scenario.l2.test.ts",
@@ -845,7 +845,7 @@
       },
       "tests/vitest-resolution.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
