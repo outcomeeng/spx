@@ -10,13 +10,17 @@ import { describe, expect, it } from "vitest";
 import { worktreeScopeDir } from "@/lib/state-store";
 import { TEMP_DIRECTORY_PATH } from "@/lib/temp-directory";
 import { CLI_TIMEOUTS_MS } from "@testing/harnesses/constants";
-import { runSpxTestWithRunRootObserver, SPX_TEST_RUN_MODE } from "@testing/harnesses/temp-directory/spx-test-run";
+import {
+  runSpxWithRunRootObserver,
+  SPX_TEST_RUN_MODE,
+  spxTestCommandArguments,
+} from "@testing/harnesses/temp-directory/spx-test-run";
 
 describe("spx test run with a runner process that requests a temp directory", () => {
   it.each(Object.values(SPX_TEST_RUN_MODE))(
     "keeps every created directory under the invocation's one run root and removes the root at exit in %s mode",
     async (mode) => {
-      const run = await runSpxTestWithRunRootObserver(mode);
+      const run = await runSpxWithRunRootObserver(spxTestCommandArguments(mode));
       const { observed } = run;
       const rootName = basename(observed.inheritedRoot ?? "");
 

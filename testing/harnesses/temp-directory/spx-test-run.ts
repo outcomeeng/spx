@@ -1,8 +1,8 @@
 /**
- * Built-executable harness for the run-root evidence of `spx test`: it stages a product that holds one
- * inert Vitest suite, runs `node bin/spx.js test` against it as its own process, and returns what the
- * suite observed in its runner process together with the filesystem state observed after the command
- * exited.
+ * Built-executable harness for the run-root evidence of the commands that run Vitest over a product:
+ * it stages a product that holds one inert Vitest suite, runs `node bin/spx.js` with the command the
+ * caller names against it as its own process, and returns what the suite observed in its runner process
+ * together with the filesystem state observed after the command exited.
  *
  * The product is a freshly initialized Git repository that stands in for one worktree. The command starts
  * from a Git-clean environment that carries no inherited run root, and its user temp folder is an empty
@@ -19,7 +19,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { VERIFY_VERIFICATION_TYPE } from "@/domains/verify/verify";
 import { TESTING_CLI } from "@/interfaces/cli/test";
+import { EXECUTE_RUN_CLI_SURFACE, VERIFICATION_RUN_CLI_SURFACE } from "@/interfaces/cli/verify";
 import { SPEC_TREE_CONFIG } from "@/lib/spec-tree";
 import { worktreeScopeDir } from "@/lib/state-store";
 import { TEMP_DIRECTORY_ENV_VAR, TEMP_DIRECTORY_PATH } from "@/lib/temp-directory";
@@ -27,6 +29,7 @@ import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { CLI_PATH, NODE_EXECUTABLE, PRODUCT_ROOT } from "@testing/harnesses/constants";
 import { buildGitTestEnvironment, GIT_TEST_SUBCOMMANDS, runGit } from "@testing/harnesses/git-test-constants";
 import { linkProductRunnerToolchain } from "@testing/harnesses/testing/journal-reporter";
+import { writeVitestFixtureConfig } from "@testing/harnesses/testing/vitest-fixture-config";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 import { TEMP_DIRECTORY_CHILD_MODE, type TempDirectoryChildReport } from "./child-protocol";
@@ -38,6 +41,20 @@ export const SPX_TEST_RUN_MODE = {
 } as const;
 
 export type SpxTestRunMode = (typeof SPX_TEST_RUN_MODE)[keyof typeof SPX_TEST_RUN_MODE];
+
+/** The arguments after the executable that start `spx test`, in the output mode given. */
+export function spxTestCommandArguments(mode: SpxTestRunMode): readonly string[] {
+  return [TESTING_CLI.commandName, ...(mode === SPX_TEST_RUN_MODE.AGENT ? [TESTING_CLI.agentOption] : [])];
+}
+
+/** The arguments after the executable that start `spx verification test run` over the whole spec tree. */
+export function spxVerificationTestRunCommandArguments(): readonly string[] {
+  return [
+    VERIFICATION_RUN_CLI_SURFACE.rootCommandName,
+    VERIFY_VERIFICATION_TYPE.TEST,
+    EXECUTE_RUN_CLI_SURFACE.runVerbName,
+  ];
+}
 
 /** What the inert suite observed in its runner process, written as one JSON document. */
 export interface RunRootObservation {
@@ -92,18 +109,18 @@ const TEMP_FOLDER_ENV_KEY = "TMPDIR";
 const NODE_COMPILE_CACHE_DISABLE_ENV = { NODE_DISABLE_COMPILE_CACHE: "1" } as const;
 /** The environment variable through which the inert suite learns its configuration. */
 const OBSERVER_CONFIG_ENV_KEY = "RUN_TEMP_OBSERVER_CONFIG";
-const NO_EXIT_CODE_MESSAGE = "spx test ended without an exit code";
+const NO_EXIT_CODE_MESSAGE = "spx ended without an exit code";
 
 async function entriesOf(directory: string): Promise<string[]> {
   return readdir(directory).catch(() => []);
 }
 
 /**
- * Runs `node bin/spx.js test` (with `--agent` in agent mode) over a staged product that holds the inert
+ * Runs `node bin/spx.js` with the given command arguments over a staged product that holds the inert
  * run-root suite, and observes the filesystem after the command exits. Throws when the executable is not
  * built, the TypeScript runner is not installed, or the suite wrote no observation.
  */
-export async function runSpxTestWithRunRootObserver(mode: SpxTestRunMode): Promise<SpxTestRun> {
+export async function runSpxWithRunRootObserver(commandArguments: readonly string[]): Promise<SpxTestRun> {
   await access(BUILT_CLI_BUNDLE).catch(() => {
     throw new Error(`built spx executable not found at ${BUILT_CLI_BUNDLE}; run \`pnpm run build\` first`);
   });
@@ -129,6 +146,7 @@ export async function runSpxTestWithRunRootObserver(mode: SpxTestRunMode): Promi
     await linkProductRunnerToolchain(productDir);
     await writeFile(join(productDir, TYPESCRIPT_MARKER), EMPTY_TSCONFIG_TEXT);
     await writeFile(join(productDir, PACKAGE_MANIFEST_FILE_NAME), EMPTY_PACKAGE_MANIFEST_TEXT);
+    await writeVitestFixtureConfig(productDir);
     await copyFile(OBSERVER_FIXTURE_PATH, join(testsDir, OBSERVED_SUITE_FILE_NAME));
     const worktreeRoot = await realpath(productDir);
 
@@ -153,7 +171,7 @@ export async function runSpxTestWithRunRootObserver(mode: SpxTestRunMode): Promi
 
     const result = await execa(
       NODE_EXECUTABLE,
-      [CLI_PATH, TESTING_CLI.commandName, ...(mode === SPX_TEST_RUN_MODE.AGENT ? [TESTING_CLI.agentOption] : [])],
+      [CLI_PATH, ...commandArguments],
       { cwd: productDir, env, extendEnv: false, reject: false },
     );
 
