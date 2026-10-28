@@ -247,6 +247,8 @@ export interface VerifyLinkedWorktree {
   readonly worktreeDir: string;
   startRun(scopeType: string, verificationType?: string): Promise<StartedRepositoryRun>;
   reportWritePaths(scopeType: string, verificationType?: string): Promise<CliCommandResult>;
+  /** Observe every file and directory of this worktree, the Git file excluded, at canonical paths. */
+  snapshotState(): Promise<readonly RepositoryStateEntry[]>;
 }
 
 /** The operations that report a selector's write paths and start a run of it. */
@@ -254,8 +256,9 @@ export type WritePathRunner = Omit<VerifyLinkedWorktree, "worktreeDir">;
 
 /**
  * What one write-path report followed by one started run observed: the report command result, the
- * started run, the checkout's paths before and after the run, and the directories of the files the
- * run then created.
+ * started run, the common-dir checkout's paths before and after the run, the directories of the files
+ * the run then created there, and the paths of the worktree the runner works from before and after
+ * the run, which are the checkout's own paths when the runner is the repository.
  */
 export interface ObservedWritePathRun {
   readonly reported: CliCommandResult;
@@ -263,6 +266,8 @@ export interface ObservedWritePathRun {
   readonly before: ReadonlySet<string>;
   readonly after: ReadonlySet<string>;
   readonly writtenDirectories: readonly string[];
+  readonly worktreeBefore: ReadonlySet<string>;
+  readonly worktreeAfter: ReadonlySet<string>;
 }
 
 /**
@@ -278,10 +283,14 @@ export async function observeWritePathRun(
 ): Promise<ObservedWritePathRun> {
   const reported = await runner.reportWritePaths(scopeType, verificationType);
   const beforeEntries = await repository.snapshotState();
+  const worktreeBeforeEntries = await runner.snapshotState();
   const run = await runner.startRun(scopeType, verificationType);
   const afterEntries = await repository.snapshotState();
+  const worktreeAfterEntries = await runner.snapshotState();
   const before = new Set(beforeEntries.map((entry) => entry.path));
   return {
+    worktreeBefore: new Set(worktreeBeforeEntries.map((entry) => entry.path)),
+    worktreeAfter: new Set(worktreeAfterEntries.map((entry) => entry.path)),
     reported,
     run,
     before,
@@ -558,6 +567,7 @@ export async function withVerifyHeadCommitRepository<T>(
               linked.startRun(scopeType, scopeFor(scopeType), verificationType),
             reportWritePaths: async (scopeType, verificationType) =>
               linked.reportWritePaths(scopeType, scopeFor(scopeType), verificationType),
+            snapshotState: async () => snapshotRepositoryState(worktreeDir),
           };
         },
       });
