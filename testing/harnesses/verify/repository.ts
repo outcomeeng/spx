@@ -14,6 +14,7 @@ import { createRecorderOperations } from "@/commands/verification-exec/recorder-
 import {
   VERIFY_CLI_EXIT_CODE,
   VERIFY_PAYLOAD_PATH,
+  verifyAppendFindingCommand,
   verifyAppendScopeCommand,
   type VerifyCliDeps,
   verifyFinishCommand,
@@ -203,6 +204,15 @@ export interface AppendedRepositoryScope {
   readonly scopePayloads: readonly JsonValue[];
 }
 
+/** What one evidence append by run-relative payload name produced: the command result and the payload of every event of that kind the run's journal then holds. */
+export interface AppendedRepositoryEvidence {
+  readonly appended: CliCommandResult;
+  readonly payloads: readonly JsonValue[];
+}
+
+/** The evidence kinds an append names: scope evidence or finding evidence. */
+export type RepositoryEvidenceKind = typeof VERIFY_APPEND_EVENT_TYPE.SCOPE | typeof VERIFY_APPEND_EVENT_TYPE.FINDING;
+
 /**
  * A real Git repository whose checkout is detached at the base commit while the head commit stays
  * reachable through the branch `headBranch`, so the commit a changeset range names differs from the
@@ -223,6 +233,15 @@ export interface VerifyHeadCommitRepository extends VerifyRepositoryCommits {
   startRun(scopeType: string, verificationType?: string, expectations?: string): Promise<StartedRepositoryRun>;
   /** Append `payload` as scope evidence to a started run through the production `scope add` operation. */
   appendScope(run: StartedRepositoryRun, payload: JsonValue): Promise<AppendedRepositoryScope>;
+  /**
+   * Append evidence of `kind` to a started run through the production `scope add` or `finding add`
+   * operation, selecting the payload by the run-relative `name` instead of by an invocation-relative source.
+   */
+  appendFromRunPayload(
+    run: StartedRepositoryRun,
+    kind: RepositoryEvidenceKind,
+    name: string,
+  ): Promise<AppendedRepositoryEvidence>;
   /** Start a run of `scopeType` through the executor's recorder operations, the path on which spx opens a run. */
   startSpxRun(scopeType: string, verificationType?: string): Promise<RunLocator>;
   /** Finish a started run with `terminalStatus` through the production `finish` operation. */
@@ -233,6 +252,10 @@ export interface VerifyHeadCommitRepository extends VerifyRepositoryCommits {
   payloadDirectory(verificationType: string, runToken: string): string;
   /** Write a file named `name` into `directory`, creating the directory, as a caller stages a payload. */
   stagePayloadFile(directory: string, name: string): Promise<void>;
+  /** Write a file named `name` holding `content` into `directory`, creating the directory. */
+  stagePayloadContent(directory: string, name: string, content: string): Promise<void>;
+  /** Create a symbolic link named `name` in `directory`, creating the directory, that points at the path `target`. */
+  linkPayload(directory: string, name: string, target: string): Promise<void>;
   /** Detach the checkout's HEAD at `ref`, which moves the branch scope later runs record into. */
   detachHead(ref: string): Promise<void>;
   /** Write a file at the product-relative `path` into the checkout without adding it to any commit. */
@@ -351,6 +374,11 @@ interface VerifyRunStarter {
     expectations?: string,
   ): Promise<StartedRepositoryRun>;
   appendScope(run: StartedRepositoryRun, payload: JsonValue): Promise<AppendedRepositoryScope>;
+  appendFromRunPayload(
+    run: StartedRepositoryRun,
+    kind: RepositoryEvidenceKind,
+    name: string,
+  ): Promise<AppendedRepositoryEvidence>;
   reportWritePaths(scopeType: string, scope: string, verificationType?: string): Promise<CliCommandResult>;
   reconcile(run: StartedRepositoryRun): Promise<CliCommandResult>;
   finish(run: StartedRepositoryRun, terminalStatus: string): Promise<CliCommandResult>;
@@ -515,6 +543,28 @@ function createVerifyRunStarter(cwd: string, git: GitDependencies): VerifyRunSta
           .map((event) => eventDataRecord(event)[VERIFY_APPEND_EVENT_FIELD.PAYLOAD] as JsonValue),
       };
     },
+    appendFromRunPayload: async (run, kind, name) => {
+      const runToken = requireRunToken(run, "evidence append by run-relative name");
+      // The run-relative name travels in its own option, apart from the invocation-relative `payload` source.
+      const options = {
+        verificationType: run.verificationType,
+        scopeType: run.scopeType,
+        scope: run.scope,
+        run: runToken,
+        payload: "",
+        runPayload: name,
+        idempotencyKey,
+      };
+      const appended = kind === VERIFY_APPEND_EVENT_TYPE.SCOPE
+        ? await verifyAppendScopeCommand(options, deps)
+        : await verifyAppendFindingCommand(options, deps);
+      return {
+        appended,
+        payloads: (await readRunEvents(run.verificationType, runToken))
+          .filter((event) => event.type === kind)
+          .map((event) => eventDataRecord(event)[VERIFY_APPEND_EVENT_FIELD.PAYLOAD] as JsonValue),
+      };
+    },
     startRun: async (scopeType, scope, verificationType = drawnVerificationType, expectations) => {
       const started = await verifyStartCommand(
         {
@@ -557,6 +607,16 @@ async function stagePayloadFile(directory: string, name: string): Promise<void> 
   await writeFile(join(directory, name), name);
 }
 
+async function stagePayloadContent(directory: string, name: string, content: string): Promise<void> {
+  await mkdir(directory, { recursive: true });
+  await writeFile(join(directory, name), content);
+}
+
+async function linkPayload(directory: string, name: string, target: string): Promise<void> {
+  await mkdir(directory, { recursive: true });
+  await symlink(target, join(directory, name));
+}
+
 async function detachHeadAt(worktreeRoot: string, ref: string): Promise<void> {
   await runGit(worktreeRoot, [GIT_TEST_SUBCOMMANDS.CHECKOUT, GIT_TEST_FLAGS.DETACH, ref]);
 }
@@ -580,8 +640,16 @@ export async function withVerifyHeadCommitRepository<T>(
       layout.headBranch,
       commits.headCommit,
     ]);
-    const { appendScope, finish, reconcile, reportWritePaths, sealJournal, startRun, startSpxRun } =
-      createVerifyRunStarter(productDir, realVerifyGitDependencies());
+    const {
+      appendFromRunPayload,
+      appendScope,
+      finish,
+      reconcile,
+      reportWritePaths,
+      sealJournal,
+      startRun,
+      startSpxRun,
+    } = createVerifyRunStarter(productDir, realVerifyGitDependencies());
     const scopeFor = (scopeType: string): string =>
       scopeType === VERIFY_SCOPE_TYPE.CHANGESET
         ? `${commits.baseCommit}${VERIFY_SCOPE_SEPARATOR}${layout.headBranch}`
@@ -598,6 +666,7 @@ export async function withVerifyHeadCommitRepository<T>(
         startRun: async (scopeType, verificationType, expectations) =>
           startRun(scopeType, scopeFor(scopeType), verificationType, expectations),
         appendScope,
+        appendFromRunPayload,
         reconcile,
         finish,
         sealJournal,
@@ -605,6 +674,8 @@ export async function withVerifyHeadCommitRepository<T>(
           startSpxRun(scopeType, scopeFor(scopeType), verificationType),
         payloadDirectory: (verificationType, runToken) => payloadDirectoryAt(productDir, verificationType, runToken),
         stagePayloadFile,
+        stagePayloadContent,
+        linkPayload,
         detachHead: async (ref) => detachHeadAt(productDir, ref),
         writeCheckoutFile: async (path) => {
           const absoluteFile = join(productDir, path);
