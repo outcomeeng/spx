@@ -637,7 +637,8 @@ export async function withVerifyHeadCommitRepository<T>(
             worktreeDir,
             finish: linked.finish,
             sealJournal: linked.sealJournal,
-            payloadDirectory: (verificationType, runToken) => payloadDirectoryAt(worktreeDir, verificationType, runToken),
+            payloadDirectory: (verificationType, runToken) =>
+              payloadDirectoryAt(worktreeDir, verificationType, runToken),
             stagePayloadFile,
             detachHead: async (ref) => detachHeadAt(worktreeDir, ref),
             startRun: async (scopeType, verificationType) =>
