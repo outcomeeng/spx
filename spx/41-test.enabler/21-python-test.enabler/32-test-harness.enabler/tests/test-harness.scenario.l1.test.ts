@@ -1,7 +1,7 @@
-import { tmpdir } from "node:os";
 import { resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { TEMP_DIRECTORY_ENV_VAR } from "@/lib/temp-directory";
 import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
   observeTempPytestProductAfterThrow,
@@ -10,10 +10,12 @@ import {
 } from "@testing/harnesses/testing/python-runner";
 
 describe("withTempPytestProduct", () => {
-  it("materializes the fixture suite under the OS temp root and removes the product after the callback returns", async () => {
+  it("materializes the fixture suite under the run root and removes the product after the callback returns", async () => {
     const observation = await observeTempPytestProductLifecycle(PYTEST_FIXTURE.PASSING);
 
-    expect(resolve(observation.productDir).startsWith(resolve(tmpdir()) + sep)).toBe(true);
+    expect(
+      resolve(observation.productDir).startsWith(resolve(process.env[TEMP_DIRECTORY_ENV_VAR.RUN_ROOT] ?? "") + sep),
+    ).toBe(true);
     expect(observation.suitePath.startsWith(observation.productDir)).toBe(true);
     expect(observation.suiteExistedDuringCallback).toBe(true);
     expect(observation.productExistsAfterCallback).toBe(false);

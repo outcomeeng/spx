@@ -1,7 +1,7 @@
-import { tmpdir } from "node:os";
 import { resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { TEMP_DIRECTORY_ENV_VAR } from "@/lib/temp-directory";
 import { arbitraryDomainLiteral, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import {
   COPIED_SUITE_NAME,
@@ -11,10 +11,10 @@ import {
 } from "@testing/harnesses/testing/typescript-runner";
 
 describe("withTempVitestProduct", () => {
-  it("materializes the Vitest fixture suite under the OS temp root and removes the product after the callback returns", async () => {
+  it("materializes the Vitest fixture suite under the run root and removes the product after the callback returns", async () => {
     const observation = await observeTempVitestProductLifecycle(VITEST_FIXTURE.PASSING);
 
-    expect(resolve(observation.productDir).startsWith(resolve(tmpdir()) + sep)).toBe(true);
+    expect(resolve(observation.productDir).startsWith(resolve(String(process.env[TEMP_DIRECTORY_ENV_VAR.RUN_ROOT])) + sep)).toBe(true);
     expect(observation.entriesDuringCallback).toEqual([COPIED_SUITE_NAME]);
     expect(observation.entryContentsDuringCallback).toEqual([observation.committedFixtureContent]);
     expect(observation.existsAfterCallback).toBe(false);
