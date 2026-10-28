@@ -4,31 +4,17 @@
 
 The linked test files call exported functions of `testing/harnesses/testing/agent-test-output.ts`; each function owns every `expect()` call and the pass or fail predicate for its claim, and the linked test body only calls it. This is the class [`spx/ISSUES.md`](spx/ISSUES.md) records under "Test assertion flow lives in harnesses instead of executed test files", which [`spx/12-test-infrastructure.adr.md`](spx/12-test-infrastructure.adr.md) rules out.
 
-The functions in this shape, linked from `tests/agent-test-output.scenario.l1.test.ts`: `expectAgentSummaryReportsPassingCountsAndArtifacts`, `expectAgentSummaryReportsNoRunnerReportsAsFailure`, `expectAgentSummaryReportsUnreportedGroupWhenAnotherRunnerFails`, `expectAgentSummaryReportsUnreportedGroupWhenReportedRunnersPass`, `expectAgentModeNoRunnerReportsExitCode`, `expectAgentSummaryReportsUnmatchedPaths`, `expectAgentSummaryReportsUnresolvedTargets`, `expectAgentSummaryReportsUnresolvedChangedSources`, `expectPassingAgentModeUsesCapturedOutput`, and `expectParentAgentModeUsesCapturedOutput`.
+The functions in this shape, linked from `tests/agent-test-output.scenario.l1.test.ts`: `expectAgentSummaryReportsPassingCountsAndArtifacts`, `expectAgentSummaryReportsUnreportedGroupWhenAnotherRunnerFails`, `expectAgentSummaryReportsUnreportedGroupWhenReportedRunnersPass`, `expectAgentModeNoRunnerReportsExitCode`, `expectPassingAgentModeUsesCapturedOutput`, and `expectParentAgentModeUsesCapturedOutput`.
 
-The failing-runner scenarios follow the settled shape: the harness exports the observation functions `observeFailingRunnerWithReportedFailingPath`, `observeFailingRunnerWithoutFailureMetadata`, and `observeFailingRunnerWithEmptyFailureMetadata`, and `tests/agent-test-output.scenario.l1.test.ts` owns the predicates over each observation.
+The failing-runner scenarios, the no-runner-reports scenario, and the unmatched, unresolved-target, and unresolved changed-source scenarios follow the settled shape: the harness exports the observation functions `observeFailingRunnerWithReportedFailingPath`, `observeFailingRunnerWithoutFailureMetadata`, `observeFailingRunnerWithEmptyFailureMetadata`, `observeSelectedGroupWithoutRunnerReports`, `observeUnmatchedPaths`, `observeUnresolvedTargets`, and `observeUnresolvedChangedSources`, and `tests/agent-test-output.scenario.l1.test.ts` owns the predicates over each observation.
 
-**Evidence:** the audits' findings cover eight of the ten functions; `expectPassingAgentModeUsesCapturedOutput` and `expectParentAgentModeUsesCapturedOutput` come from the sweep for this note, not from an audit finding. Test-evidence audits of this node returned `REJECTED` twice on the changeset merged as PR 648. The first audit raised `f-001`, `f-003`, `f-004`, and `f-006` to `f-014`, and `f-012` states the missing directory-exists assertion. The second audit raised `f-001`, `f-003`, `f-004`, and `f-006` to `f-014`.
+**Evidence:** the audits' findings cover four of the six functions; `expectPassingAgentModeUsesCapturedOutput` and `expectParentAgentModeUsesCapturedOutput` come from the sweep for this note, not from an audit finding. Test-evidence audits of this node returned `REJECTED` twice on the changeset merged as PR 648. The first audit raised `f-001`, `f-003`, `f-004`, and `f-006` to `f-014`, and `f-012` states the missing directory-exists assertion. The second audit raised `f-001`, `f-003`, `f-004`, and `f-006` to `f-014`.
 
 **Impact:** the node's `tests/` files carry no predicate for these claims, so a reader of a linked test sees none of what it proves, and the test-evidence audit judges predicate ownership in harness code.
 
-**Scope:** the ten functions named above and the linked test callbacks that call them. The failing-runner scenarios and their observation functions are outside it.
+**Scope:** the six functions named above and the linked test callbacks that call them. The scenarios served by observation functions are outside it.
 
 **Settlement condition:** each listed function returns observations or a handle, the linked test callbacks own the predicates, and a new test-evidence audit of the node raises no predicate-ownership finding.
-
-## Harness checks copy summary label literals
-
-`testing/harnesses/testing/agent-test-output.ts` asserts the string literals `"skippedTests"`, `"unmatched"`, `"unresolvedTargets"`, and `"unresolvedChangedSourceFiles"`, in `expectAgentSummaryReportsNoRunnerReportsAsFailure`, `expectAgentSummaryReportsUnmatchedPaths`, `expectAgentSummaryReportsUnresolvedTargets`, and `expectAgentSummaryReportsUnresolvedChangedSources`. `AGENT_TEST_OUTPUT_TEXT` in `src/interfaces/cli/test-agent-output.ts` owns `SKIPPED_TESTS`, `UNMATCHED`, `UNRESOLVED_TARGETS`, and `UNRESOLVED_CHANGED_SOURCE_FILES`, and sibling checks in the same harness file import the constant.
-
-The unmatched check asserts the bare label word with `toContain`, not that the path is listed under it.
-
-**Evidence:** the second test-evidence audit's `f-005` and `f-006`; the first audit's `f-005` to `f-008`.
-
-**Impact:** a label rename in production leaves these checks green or fails them for the wrong reason, and a path printed outside its label satisfies the unmatched check.
-
-**Scope:** the four checks named above and any other literal copy of a summary label under `testing/`.
-
-**Settlement condition:** the checks import `AGENT_TEST_OUTPUT_TEXT`, assert each path under its label, and no literal copy of a label remains in `testing/`.
 
 ## The summary does not distinguish a runner whose output capture failed
 

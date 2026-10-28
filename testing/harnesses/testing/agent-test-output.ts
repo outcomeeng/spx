@@ -307,7 +307,14 @@ export function expectAgentSummaryReportsPassingCountsAndArtifacts(): void {
   expect(output).not.toContain(passingPath);
 }
 
-export function expectAgentSummaryReportsNoRunnerReportsAsFailure(): void {
+export interface UnreportedGroupObservation {
+  readonly output: string;
+  readonly runnerName: string;
+  readonly exitCode: number;
+  readonly selectedPath: string;
+}
+
+export function observeSelectedGroupWithoutRunnerReports(): UnreportedGroupObservation {
   const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
   const selectedPath = sampleDispatchValue(
@@ -330,13 +337,12 @@ export function expectAgentSummaryReportsNoRunnerReportsAsFailure(): void {
     recorded: testRunState(TEST_RUN_STATE_STATUS.PASSED),
   };
 
-  const output = formatAgentTestOutput(run);
-
-  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.STATUS}: ${TEST_RUN_STATE_STATUS.FAILED}`);
-  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.EXIT_CODE}: ${NO_RUNNER_INVOCATION_EXIT_CODE}`);
-  expect(output).toContain(`${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${typescriptTestingLanguage.name}`);
-  expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.SKIPPED_TESTS);
-  expect(output).toContain(selectedPath);
+  return {
+    output: formatAgentTestOutput(run),
+    runnerName: typescriptTestingLanguage.name,
+    exitCode: NO_RUNNER_INVOCATION_EXIT_CODE,
+    selectedPath,
+  };
 }
 
 export function expectAgentSummaryReportsUnreportedGroupWhenAnotherRunnerFails(): void {
@@ -455,7 +461,12 @@ export async function expectAgentModeNoRunnerReportsExitCode(): Promise<void> {
   expect(result.stdout).toContain(selectedPath);
 }
 
-export function expectAgentSummaryReportsUnmatchedPaths(): void {
+export interface ListedPathObservation {
+  readonly output: string;
+  readonly path: string;
+}
+
+export function observeUnmatchedPaths(): ListedPathObservation {
   const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
   const unmatchedPath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.unmatchedTestFileUnder(nodePath));
@@ -473,13 +484,10 @@ export function expectAgentSummaryReportsUnmatchedPaths(): void {
     recorded: testRunState(TEST_RUN_STATE_STATUS.FAILED),
   };
 
-  const output = formatAgentTestOutput(run);
-
-  expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.UNMATCHED);
-  expect(output).toContain(unmatchedPath);
+  return { output: formatAgentTestOutput(run), path: unmatchedPath };
 }
 
-export function expectAgentSummaryReportsUnresolvedTargets(): void {
+export function observeUnresolvedTargets(): ListedPathObservation {
   const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   const nodePath = sampleDispatchValue(TEST_DISPATCH_GENERATOR.nodePath());
   const unresolvedOperand = nodeOperand(nodePath);
@@ -497,13 +505,10 @@ export function expectAgentSummaryReportsUnresolvedTargets(): void {
     recorded: testRunState(TEST_RUN_STATE_STATUS.FAILED),
   };
 
-  const output = formatAgentTestOutput(run);
-
-  expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.UNRESOLVED_TARGETS);
-  expect(output).toContain(unresolvedOperand);
+  return { output: formatAgentTestOutput(run), path: unresolvedOperand };
 }
 
-export function expectAgentSummaryReportsUnresolvedChangedSources(): void {
+export function observeUnresolvedChangedSources(): ListedPathObservation {
   const productDir = sampleConfigTestValue(CONFIG_TEST_GENERATOR.productDir());
   const unresolvedSourcePath = sampleLiteralTestValue(arbitrarySourceFilePath());
   const run: RecordedTestRun = {
@@ -521,10 +526,7 @@ export function expectAgentSummaryReportsUnresolvedChangedSources(): void {
     recorded: testRunState(TEST_RUN_STATE_STATUS.FAILED),
   };
 
-  const output = formatAgentTestOutput(run);
-
-  expect(output).toContain(AGENT_TEST_OUTPUT_TEXT.UNRESOLVED_CHANGED_SOURCE_FILES);
-  expect(output).toContain(unresolvedSourcePath);
+  return { output: formatAgentTestOutput(run), path: unresolvedSourcePath };
 }
 
 /** Cross-assertion resource setup for the agent-output compliance evidence. */

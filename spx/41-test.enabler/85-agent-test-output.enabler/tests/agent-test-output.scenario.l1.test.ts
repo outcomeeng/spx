@@ -1,12 +1,8 @@
 import {
   expectAgentModeNoRunnerReportsExitCode,
-  expectAgentSummaryReportsNoRunnerReportsAsFailure,
   expectAgentSummaryReportsPassingCountsAndArtifacts,
-  expectAgentSummaryReportsUnmatchedPaths,
   expectAgentSummaryReportsUnreportedGroupWhenAnotherRunnerFails,
   expectAgentSummaryReportsUnreportedGroupWhenReportedRunnersPass,
-  expectAgentSummaryReportsUnresolvedChangedSources,
-  expectAgentSummaryReportsUnresolvedTargets,
   expectParentAgentModeUsesCapturedOutput,
   expectPassingAgentModeUsesCapturedOutput,
   type FailedRunnerDetailsObservation,
@@ -14,6 +10,10 @@ import {
   observeFailingRunnerWithEmptyFailureMetadata,
   observeFailingRunnerWithoutFailureMetadata,
   observeFailingRunnerWithReportedFailingPath,
+  observeSelectedGroupWithoutRunnerReports,
+  observeUnmatchedPaths,
+  observeUnresolvedChangedSources,
+  observeUnresolvedTargets,
 } from "@testing/harnesses/testing/agent-test-output";
 import { describe, expect, it } from "vitest";
 
@@ -78,7 +78,11 @@ describe("agent test-output summary", () => {
   });
 
   it("reports failed status and requested paths when selected runner groups produce no reports", () => {
-    expectAgentSummaryReportsNoRunnerReportsAsFailure();
+    const observed = observeSelectedGroupWithoutRunnerReports();
+    expect(observed.output).toContain(`${AGENT_TEST_OUTPUT_TEXT.STATUS}: ${TEST_RUN_STATE_STATUS.FAILED}`);
+    expect(observed.output).toContain(`${AGENT_TEST_OUTPUT_TEXT.EXIT_CODE}: ${observed.exitCode}`);
+    expect(observed.output).toContain(`${AGENT_TEST_OUTPUT_TEXT.RUNNER}: ${observed.runnerName}`);
+    expectPathListedUnderLabel(observed.output, AGENT_TEST_OUTPUT_TEXT.SKIPPED_TESTS, observed.selectedPath);
   });
 
   it("reports unreported selected groups when another runner fails", () => {
@@ -94,14 +98,21 @@ describe("agent test-output summary", () => {
   });
 
   it("reports unmatched test paths under the unmatched label", () => {
-    expectAgentSummaryReportsUnmatchedPaths();
+    const observed = observeUnmatchedPaths();
+    expectPathListedUnderLabel(observed.output, AGENT_TEST_OUTPUT_TEXT.UNMATCHED, observed.path);
   });
 
   it("reports unresolved target operands under the unresolved-targets label", () => {
-    expectAgentSummaryReportsUnresolvedTargets();
+    const observed = observeUnresolvedTargets();
+    expectPathListedUnderLabel(observed.output, AGENT_TEST_OUTPUT_TEXT.UNRESOLVED_TARGETS, observed.path);
   });
 
   it("reports unresolved changed source files under the changed-source label", () => {
-    expectAgentSummaryReportsUnresolvedChangedSources();
+    const observed = observeUnresolvedChangedSources();
+    expectPathListedUnderLabel(
+      observed.output,
+      AGENT_TEST_OUTPUT_TEXT.UNRESOLVED_CHANGED_SOURCE_FILES,
+      observed.path,
+    );
   });
 });
