@@ -5,7 +5,7 @@
     "test": {
       "tests/change-runs.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
+        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/54-change-runs.enabler/change-runs.md",
@@ -407,7 +407,7 @@
       },
       "tests/change-runs.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
+        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/54-change-runs.enabler/change-runs.md",
@@ -809,7 +809,7 @@
       },
       "tests/change-runs.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
+        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/54-change-runs.enabler/change-runs.md",
@@ -1211,7 +1211,7 @@
       },
       "tests/change-runs.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
+        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/54-change-runs.enabler/change-runs.md",
@@ -1613,7 +1613,7 @@
       },
       "tests/run-comparison.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
+        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/54-change-runs.enabler/change-runs.md",

@@ -5,7 +5,7 @@
     "test": {
       "tests/product-context.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
+        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/65-product-directory-api.enabler/product-directory-api.md",
@@ -407,7 +407,7 @@
       },
       "tests/product-context.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
+        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/65-product-directory-api.enabler/product-directory-api.md",
@@ -808,7 +808,7 @@
       },
       "tests/product-directory-api.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
+        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/65-product-directory-api.enabler/product-directory-api.md",

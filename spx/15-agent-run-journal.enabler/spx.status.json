@@ -5,7 +5,7 @@
     "test": {
       "tests/agent-run-journal-append-only.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
         "read": [
           "pnpm-lock.yaml",
           "spx/15-agent-run-journal.enabler/agent-run-journal.md",
@@ -21,7 +21,7 @@
       },
       "tests/agent-run-journal-concurrency.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
         "read": [
           "pnpm-lock.yaml",
           "spx/15-agent-run-journal.enabler/agent-run-journal.md",
@@ -37,7 +37,7 @@
       },
       "tests/agent-run-journal-concurrency.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
         "read": [
           "pnpm-lock.yaml",
           "spx/15-agent-run-journal.enabler/agent-run-journal.md",
@@ -53,7 +53,7 @@
       },
       "tests/agent-run-journal.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "ac09603fe3a8da46c0e06dd23535cbb41bd81ae2",
+        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
         "read": [
           "pnpm-lock.yaml",
           "spx/15-agent-run-journal.enabler/agent-run-journal.md",
@@ -69,7 +69,7 @@
       },
       "tests/agent-run-journal.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
         "read": [
           "pnpm-lock.yaml",
           "spx/15-agent-run-journal.enabler/agent-run-journal.md",
@@ -99,7 +99,7 @@
       },
       "tests/agent-run-journal.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
         "read": [
           "pnpm-lock.yaml",
           "spx/15-agent-run-journal.enabler/agent-run-journal.md",
@@ -126,7 +126,7 @@
       },
       "tests/runtime-config.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
+        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
         "read": [
           "pnpm-lock.yaml",
           "spx/15-agent-run-journal.enabler/agent-run-journal.md",

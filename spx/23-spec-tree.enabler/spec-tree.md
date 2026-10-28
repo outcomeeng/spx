@@ -4,7 +4,7 @@ malleability: spec
 
 # Spec Tree
 
-PROVIDES a backend-neutral spec-tree library with a single public TypeScript surface for source records, tree snapshots, node state, projections, next-node selection, and product-path ownership resolution, plus kind vocabulary owned by `KIND_REGISTRY`
+PROVIDES a backend-neutral spec-tree library with a single public TypeScript surface for source records, tree snapshots, node state, projections, next-node selection, product-path ownership resolution, and link-target classification with decision-citation resolution, plus kind vocabulary owned by `KIND_REGISTRY`
 SO THAT spec commands, spec application, validation, testing, release context selection, session handoff, and adapters for filesystem, Linear, GitHub Issues, ORM-backed records, or paper ledgers
 CAN consume the product's spec tree through stable contracts without owning traversal, suffix parsing, hierarchy assembly, state derivation, ownership reduction, or registry vocabulary themselves
 
@@ -19,6 +19,10 @@ CAN consume the product's spec tree through stable contracts without owning trav
 - Given a product directory whose `methodology.version` or `methodology.migratingFrom` is on a line other than 3.0, 3.1, 3.2, and 4.0, such as `3.3.0`, when `readSpecTree` reads the source `createFilesystemSpecTreeSource({ productDir })` creates for that directory, then the read fails naming the declared version and the methodology lines spx reads ([test](tests/grammar-selection.scenario.l1.test.ts))
 - Given a tree holding more than one root product spec, or a 4.0 root spec whose front matter does not declare `kind: product`, when `readSpecTree` runs, then the read fails naming each offending file ([test](tests/grammar-selection.scenario.l1.test.ts))
 
+### Mappings
+
+- Each link target maps to one link kind: a URL scheme to `url`, a fragment or query alone to `no-path`, a leading slash to `root-anchored`, a `..` segment to `parent-climb`, a relative path whose first segment names a node directory to `descendant-node`, a backslash separator to `backslash-separated`, a path from `spx/` to `tree-absolute`, and any other relative path to `node-local`; only `tree-absolute` and `node-local` resolve to a product-relative path ([test](tests/link-grammar.mapping.l1.test.ts))
+
 ### Conformance
 
 - `src/lib/spec-tree/index.ts` exports the declared source, options, snapshot, node, read, projection, next-node, ownership, registry, and grammar contracts ([test](tests/spec-tree-surface.conformance.l1.test.ts))
@@ -30,6 +34,8 @@ CAN consume the product's spec tree through stable contracts without owning trav
 ### Compliance
 
 - ALWAYS: decisions with a parent id attach to that parent node and remain available in the snapshot's flat decision list ([test](tests/decision-attachment.compliance.l1.test.ts))
+- ALWAYS: a decision citation binds only through a `tree-absolute` or `node-local` link whose resolved path names a decision record the selection recognizes; a decision path written as text, bare or in an inline code span, binds none ([test](tests/link-grammar.compliance.l1.test.ts))
+- NEVER: a `test`, `eval`, or `probe` evidence link is admitted `tree-absolute` ([test](tests/link-grammar.compliance.l1.test.ts))
 - ALWAYS: source consumers import spec-tree contracts through `src/lib/spec-tree/index.ts`; internal modules stay behind this boundary ([audit])
 - NEVER: parse spec-tree source records, directory suffixes, or decision suffixes inside CLI command modules; commands consume snapshots and projections from the public surface ([audit])
 - NEVER: use `vi.mock()`, `jest.mock()`, `memfs`, or module interception for spec-tree registry or source tests, per [spx/23-spec-tree.enabler/15-public-library-surface.adr.md](15-public-library-surface.adr.md) and [spx/23-spec-tree.enabler/21-kind-registry.adr.md](21-kind-registry.adr.md) ([audit])
