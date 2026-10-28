@@ -27,6 +27,7 @@ import type { Config } from "@/config/types";
 import { SPX_COMMANDER_PARSE_SOURCE } from "@/interfaces/cli/product-context";
 import { formatSpecContextTargetFailure, specDomain } from "@/interfaces/cli/spec";
 import { GIT_LS_FILES_COMMAND } from "@/lib/git/changed-paths";
+import { GIT_CEILING_DIRECTORIES_KEY } from "@/lib/git/environment";
 import { GIT_ROOT_COMMAND } from "@/lib/git/root";
 import {
   formatMethodologySourceRecord,
@@ -414,6 +415,9 @@ async function createSpecCliIsolation(productDir: string): Promise<SpecCliIsolat
     env: {
       HOME: homeDir,
       PATH: process.env.PATH as string,
+      ...(process.env[GIT_CEILING_DIRECTORIES_KEY] === undefined
+        ? {}
+        : { [GIT_CEILING_DIRECTORIES_KEY]: process.env[GIT_CEILING_DIRECTORIES_KEY] }),
       [SPEC_CLI_ISOLATION.GIT_EXECUTABLE_ENV]: GIT_ROOT_COMMAND.EXECUTABLE,
       [SPEC_CLI_ISOLATION.GIT_READ_SUBCOMMANDS_ENV]: JSON.stringify([
         GIT_ROOT_COMMAND.REV_PARSE,
