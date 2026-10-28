@@ -5,7 +5,7 @@
     "test": {
       "tests/context-ingestion.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/context-ingestion.md",
@@ -178,6 +178,7 @@
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/context-target.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/rich-context.ts",
           "testing/generators/spec-tree/spec-tree.ts",
@@ -206,7 +207,7 @@
       },
       "tests/context-ingestion.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -364,6 +365,7 @@
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/context-target.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/rich-context.ts",
           "testing/generators/spec-tree/spec-tree.ts",
@@ -383,7 +385,7 @@
       },
       "tests/context-ingestion.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/context-ingestion.md",
@@ -540,6 +542,7 @@
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/context-target.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/rich-context.ts",
           "testing/generators/spec-tree/spec-tree.ts",
@@ -556,7 +559,7 @@
       },
       "tests/context-ingestion.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/context-ingestion.md",
@@ -713,6 +716,7 @@
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/context-target.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/rich-context.ts",
           "testing/generators/spec-tree/spec-tree.ts",
@@ -729,7 +733,7 @@
       },
       "tests/context-walk-fixtures.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "0b0f1647d7981e063c30c735df6a7c268e478499",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/context-ingestion.md",
@@ -770,7 +774,7 @@
       },
       "tests/determinism.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/context-ingestion.md",
@@ -927,6 +931,7 @@
           "testing/generators/sample.ts",
           "testing/generators/spec-tree/context-target.ts",
           "testing/generators/spec-tree/evidence-file-name.ts",
+          "testing/generators/spec-tree/kind-grammar.ts",
           "testing/generators/spec-tree/naming-schema-version.ts",
           "testing/generators/spec-tree/rich-context.ts",
           "testing/generators/spec-tree/spec-tree.ts",
