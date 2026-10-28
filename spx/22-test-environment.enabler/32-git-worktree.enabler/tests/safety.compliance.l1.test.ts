@@ -1,7 +1,9 @@
-import { tmpdir } from "node:os";
+import { existsSync } from "node:fs";
+import { dirname, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { GIT_CEILING_DIRECTORIES_KEY } from "@/lib/git/environment";
+import { TEMP_DIRECTORY_ENV_VAR, TempDirectoryBoundError } from "@/lib/temp-directory";
 import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
 import {
   GIT_TEST_ENVIRONMENT_KEYS,
@@ -13,11 +15,20 @@ import {
 } from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 import { withProcessEnv } from "@testing/harnesses/process-env/process-env";
+import { removeTempDir } from "@testing/harnesses/with-temp-dir";
 
 describe("withGitWorktreeEnv — safety and GIT_* isolation", () => {
-  it("ALWAYS: productDir is rooted under os.tmpdir()", async () => {
+  it("ALWAYS: temp directories live under the run root and their removal is constrained to that root", async () => {
     await withGitWorktreeEnv(async (env) => {
-      expect(env.productDir.startsWith(tmpdir())).toBe(true);
+      const runRoot = process.env[TEMP_DIRECTORY_ENV_VAR.RUN_ROOT];
+      expect(runRoot).toBeDefined();
+      expect(env.productDir.startsWith(`${runRoot}${sep}`)).toBe(true);
+
+      const outsideRunRoot = dirname(runRoot as string);
+      await expect(removeTempDir(outsideRunRoot)).rejects.toBeInstanceOf(TempDirectoryBoundError);
+      await expect(removeTempDir(runRoot as string)).rejects.toBeInstanceOf(TempDirectoryBoundError);
+      expect(existsSync(outsideRunRoot)).toBe(true);
+      expect(existsSync(env.productDir)).toBe(true);
     });
   });
 

@@ -1,8 +1,9 @@
 import { existsSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { GIT_CEILING_DIRECTORIES_KEY } from "@/lib/git/environment";
+import { TEMP_DIRECTORY_ENV_VAR } from "@/lib/temp-directory";
 import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
 import {
   GIT_TEST_CONFIG,
@@ -15,11 +16,12 @@ import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree
 import { withProcessEnv } from "@testing/harnesses/process-env/process-env";
 
 describe("withGitWorktreeEnv — startup", () => {
-  it("initializes productDir under os.tmpdir() as a git repo with configured identity and strips GIT_* variables except the ceiling", async () => {
+  it("initializes productDir under the run root as a git repo with configured identity and strips GIT_* variables except the ceiling", async () => {
     const callerValues = sampleGitWorktreeTestValue(
       GIT_WORKTREE_TEST_GENERATOR.environmentValues(Object.values(GIT_TEST_ENVIRONMENT_KEYS)),
     );
     let observedProductDir = "";
+    let observedRunRoot: string | undefined;
     let observedEmail = "";
     let observedUserName = "";
     const observedInside: Record<string, string | undefined> = {};
@@ -27,6 +29,7 @@ describe("withGitWorktreeEnv — startup", () => {
     await withProcessEnv(callerValues, async () => {
       await withGitWorktreeEnv(async (env) => {
         observedProductDir = env.productDir;
+        observedRunRoot = process.env[TEMP_DIRECTORY_ENV_VAR.RUN_ROOT];
         observedEmail = await readGit(env.productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.EMAIL_KEY]);
         observedUserName = await readGit(env.productDir, [GIT_TEST_SUBCOMMANDS.CONFIG, GIT_TEST_CONFIG.USER_NAME_KEY]);
         for (const key of Object.keys(callerValues)) {
@@ -35,7 +38,8 @@ describe("withGitWorktreeEnv — startup", () => {
       });
     });
 
-    expect(observedProductDir.startsWith(tmpdir())).toBe(true);
+    expect(observedRunRoot).toBeDefined();
+    expect(observedProductDir.startsWith(`${observedRunRoot}${sep}`)).toBe(true);
     expect(observedEmail).toBe(GIT_TEST_CONFIG.EMAIL);
     expect(observedUserName).toBe(GIT_TEST_CONFIG.USER_NAME);
     for (const key of GIT_TEST_STRIPPED_ENVIRONMENT_KEYS) {
