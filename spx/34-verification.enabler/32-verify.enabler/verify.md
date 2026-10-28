@@ -8,7 +8,7 @@ CAN learn the directories a run will write before it starts, start one scoped ru
 
 ### Mapping
 
-- Given a verification type and a changeset or file scope, when the write-path report runs, then it returns the canonical scope identity, the branch key, and the journal runs directory and verification-context directory, at the Git common-dir product root, into which a run started for that type, scope, and branch key writes ([test](tests/write-paths.mapping.l1.test.ts))
+- Given a verification type and a changeset or file scope, when the write-path report runs, then it returns the canonical scope identity, the branch key, the journal runs directory and verification-context directory at the Git common-dir product root into which a run started for that type, scope, and branch key writes, and the payload root `.spx/worktree/<verification-type>/payloads/` at the local worktree root ([test](tests/write-paths.mapping.l1.test.ts))
 - Given a reported directory below a symbolic link, or a directory that does not exist, when the write-path report runs, then the directory's path resolves the link of its nearest existing ancestor, and a missing directory reports itself absent with the missing directories from that ancestor down ([test](tests/write-paths.mapping.l1.test.ts))
 
 ### Compliance
