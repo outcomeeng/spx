@@ -31,7 +31,6 @@ import {
   VERIFY_VERIFICATION_TYPE,
 } from "@/domains/verify/verify";
 import type { JournalEvent } from "@/lib/agent-run-journal";
-import type { VitestNodeApiLoader } from "@/test/languages/journal-reporter";
 import { createVitestRunStarter } from "@/test/languages/journal-reporter";
 import {
   JOURNAL_RUN_TERMINAL_STATUS,
@@ -44,10 +43,6 @@ import {
   type TestRunEvidenceSink,
   type TestScopeUnit,
 } from "@/test/languages/types";
-import {
-  runTestsStreaming as runTypescriptTestsStreaming,
-  typescriptTestingLanguage,
-} from "@/test/languages/typescript";
 import type { TestingRegistry } from "@/test/registry";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { arbitraryDomainLiteral } from "@testing/generators/literal/literal";
@@ -55,6 +50,7 @@ import { sampleGeneratedValue } from "@testing/generators/sample";
 import { type GeneratedAppendMix, JOURNAL_REPORTER_TEST_GENERATOR } from "@testing/generators/testing/journal-reporter";
 import { createInMemoryStateStoreFileSystem } from "@testing/harnesses/state/in-memory-file-system";
 import { withTestingTempProductDir } from "@testing/harnesses/testing/harness";
+import { createUnresolvableVitestNodeApiLoader } from "@testing/harnesses/testing/journal-reporter";
 import {
   createVerifyRunContextScenario,
   parseRenderReport,
@@ -380,39 +376,31 @@ export interface ProductionRegistryDriveObservation {
 const EMPTY_TYPESCRIPT_MARKER = "{}";
 
 /**
- * A Vitest Node API loader that resolves no runner for any product directory and names the
- * directory it was asked about, so the observation holds on every host regardless of the
- * module-resolution ancestors the product directory sits under.
- */
-const UNRESOLVABLE_VITEST_LOADER: VitestNodeApiLoader = {
-  resolve: (productDir) => ({ resolved: false, productDir }),
-  load: () => Promise.reject(new Error("an unresolvable loader loads no module")),
-};
-
-/**
- * Drives the `test` type's runner over a registry holding the production TypeScript language
- * descriptor, with the descriptor's run starter built over an unresolvable Vitest Node API loader,
- * on a temp product carrying the TypeScript marker. The registry's own TypeScript language is the
- * one that reports the product directory it searched.
+ * Drives the executor over the production verification-type registry's `test` runner, with the
+ * Vitest run starter built over an unresolvable Vitest Node API loader and supplied through the
+ * executor's starter dependency, on a temp product carrying the TypeScript marker. The runner the
+ * registry resolves is observed, not replaced: the observation records the invocation it folded.
  */
 export async function observeProductionRegistryDrive(): Promise<ProductionRegistryDriveObservation> {
   let observation: ProductionRegistryDriveObservation | undefined;
-  const registry: TestingRegistry = {
-    languages: [{
-      ...typescriptTestingLanguage,
-      runTestsStreaming: (request, deps) =>
-        runTypescriptTestsStreaming(request, {
-          ...deps,
-          starter: createVitestRunStarter(UNRESOLVABLE_VITEST_LOADER),
-        }),
-    }],
-  };
   await withTestingTempProductDir(async (productDir) => {
     await writeFile(join(productDir, TYPESCRIPT_MARKER), EMPTY_TYPESCRIPT_MARKER);
-    const invocation = await resolveTestRunner(registry).runTestsStreaming(
-      { ...sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()), productDir },
-      { sink: { appendScope: () => undefined, appendFinding: () => undefined } },
-    );
+    const harness = createExecutorHarness();
+    let invocation: JournalRunInvocation | undefined;
+    await executeVerificationRun({ ...harness.request, productDir }, {
+      resolveRunner: (verificationType) => {
+        const resolved = resolveVerificationRunner(verificationType);
+        if (resolved === undefined) return undefined;
+        return {
+          runTestsStreaming: async (request, deps) => {
+            invocation = await resolved.runTestsStreaming(request, deps);
+            return invocation;
+          },
+        };
+      },
+      recorder: harness.recorder,
+      starter: createVitestRunStarter(createUnresolvableVitestNodeApiLoader()),
+    });
     observation = { productDir, invocation };
   });
   if (observation === undefined) throw new Error("executor harness produced no production registry observation");
