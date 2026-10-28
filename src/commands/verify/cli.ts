@@ -120,6 +120,7 @@ import {
   resolveVerificationBranchSlug,
   STATE_STORE_TEXT_ENCODING,
   type StateStoreFileSystem,
+  worktreeScopeDir,
 } from "@/lib/state-store";
 import { SPX_VERIFY_ENV } from "@/lib/verification-env";
 import {
@@ -147,6 +148,7 @@ export const VERIFY_CLI_ERROR = {
   CHANGED_SCOPE_FAILED: "spx verification run could not derive the changeset changed-file scope",
   CHANGE_INVENTORY_FAILED: "spx verification run could not derive the changeset change inventory",
   INPUT_PERSIST_FAILED: "spx verification run could not persist the recorded run input",
+  PAYLOAD_DIRECTORY_FAILED: "spx verification run could not create the run payload directory",
   INPUT_READ_FAILED: "spx verification run could not read the recorded run input",
   PAYLOAD_REQUIRED: "spx verification run evidence-add commands require --payload <payload-source>",
   IDEMPOTENCY_KEY_REQUIRED: "spx verification run evidence-add commands require --idempotency-key <key>",
@@ -267,11 +269,31 @@ export interface VerifyStartReport {
   readonly locator: RunLocator;
 }
 
-/** The directories a verification run writes: its journal runs directory and its verification-context directory. */
+/** The directories a verification run writes: its journal runs directory, its verification-context directory, and the payload root holding its payload directory. */
 export const VERIFY_WRITE_DIRECTORY_ROLE = {
   JOURNAL_RUNS: "journal-runs",
   VERIFICATION_CONTEXT: "verification-context",
+  PAYLOADS: "payloads",
 } as const;
+
+/** The path segments below the worktree state directory that address a run's payload directory. */
+const VERIFY_PAYLOAD_PATH = {
+  ROOT_SEGMENT: "payloads",
+  RUN_DIRECTORY_PREFIX: "run-",
+} as const;
+
+/** The payload root of one verification type at the local worktree root: `.spx/worktree/<type>/payloads/`. */
+function verifyPayloadRoot(worktreeRoot: string, verificationType: string): string {
+  return join(worktreeScopeDir(worktreeRoot), verificationType, VERIFY_PAYLOAD_PATH.ROOT_SEGMENT);
+}
+
+/** The payload directory of one run: the payload root of its verification type joined with `run-<run-token>`. */
+function verifyRunPayloadDirectory(worktreeRoot: string, verificationType: string, runToken: string): string {
+  return join(
+    verifyPayloadRoot(worktreeRoot, verificationType),
+    `${VERIFY_PAYLOAD_PATH.RUN_DIRECTORY_PREFIX}${runToken}`,
+  );
+}
 
 export type VerifyWriteDirectoryRole = (typeof VERIFY_WRITE_DIRECTORY_ROLE)[keyof typeof VERIFY_WRITE_DIRECTORY_ROLE];
 
@@ -869,6 +891,7 @@ interface CompleteVerifyStartArgs {
   readonly options: VerifyStartCliOptions;
   readonly deps: VerifyCliDeps;
   readonly productDir: string;
+  readonly worktreeRoot: string;
   readonly branchSlug: string;
   readonly backendIdentity: string;
   readonly resolvedScope: readonly string[];
@@ -1000,6 +1023,17 @@ async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promis
   const persisted = await persistInputRecord(runScope, recorded, deps);
   if (!persisted.ok) {
     return rollbackStartAndError(startedRunArtifacts(args, runFile), persisted.error, deps);
+  }
+
+  const payloadDirectory = verifyRunPayloadDirectory(args.worktreeRoot, options.verificationType, runToken);
+  try {
+    await (deps.fs ?? defaultStateStoreFileSystem).mkdir(payloadDirectory, { recursive: true });
+  } catch (error) {
+    return rollbackStartAndError(
+      { ...startedRunArtifacts(args, runFile), inputRecordPath: inputRecordPath.value },
+      `${VERIFY_CLI_ERROR.PAYLOAD_DIRECTORY_FAILED}: ${toMessage(error)}`,
+      deps,
+    );
   }
 
   // Record the run context — drive mode and head commit — last: the append streams to the backend, and a rollback cannot
@@ -1138,6 +1172,7 @@ export async function verifyStartCommand(
     options: normalizedOptions,
     deps,
     productDir: resolved.value.productDir,
+    worktreeRoot: resolved.value.worktreeRoot,
     branchSlug: resolved.value.branchSlug,
     backendIdentity: resolved.value.backendIdentity,
     resolvedScope: scope.value.resolvedScope,
@@ -1189,8 +1224,9 @@ async function locateWriteDirectory(
 
 /**
  * Report, without writing, the directories a run of one verification type and scope writes: the
- * canonical scope identity, the branch key, and the journal runs directory and verification-context
- * directory under that branch key at the Git common-dir product root. A host launching a session
+ * canonical scope identity, the branch key, the journal runs directory and verification-context
+ * directory under that branch key at the Git common-dir product root, and the payload root at the
+ * local worktree root. A host launching a session
  * that records verification obtains the write paths from this report before the run starts.
  */
 export async function verifyPathsCommand(
@@ -1204,7 +1240,7 @@ export async function verifyPathsCommand(
   if (!selector.ok) return errorResult(selector.error);
   const resolved = await resolveVerifyScope(deps);
   if (!resolved.ok) return errorResult(resolved.error);
-  const { productDir, branchSlug } = resolved.value;
+  const { productDir, branchSlug, worktreeRoot } = resolved.value;
   const runs = verifyRunsDir({ productDir, branchSlug, type: options.verificationType });
   if (!runs.ok) return errorResult(runs.error);
   const contexts = verificationContextDir({ productDir, branchSlug });
@@ -1216,6 +1252,7 @@ export async function verifyPathsCommand(
     const [role, path] of [
       [VERIFY_WRITE_DIRECTORY_ROLE.JOURNAL_RUNS, runs.value],
       [VERIFY_WRITE_DIRECTORY_ROLE.VERIFICATION_CONTEXT, contexts.value],
+      [VERIFY_WRITE_DIRECTORY_ROLE.PAYLOADS, verifyPayloadRoot(worktreeRoot, options.verificationType)],
     ] as const
   ) {
     const located = await locateWriteDirectory(role, path, realpath);
