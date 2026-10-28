@@ -11,6 +11,11 @@ CAN read its configuration through a uniform, type-checked API without inline co
 
 ## Assertions
 
+- A repository declares its Product and Change Store in its selected `spx.config.toml`, `spx.config.yaml`, or `spx.config.json`. The formats express the same binding and follow SPX's configuration-file selection rules.
+- SPX resolves the Product and canonical Change Store identity for the effective checkout and reports the configuration source. A skill obtains that binding through SPX and keeps no independent binding in an overlay.
+- `spx config show --json` exposes the resolved Product and Change Store binding for consumers. Missing, malformed, or conflicting binding produces an explicit diagnostic for an operation that needs it; resolution never guesses a store from a directory name or mail identity.
+- The orchestration and Change coordination contract uses this resolved binding. `spx/local/coordination.md` supplies no binding or fallback; consumer specifications move their store and Product reads to SPX before that overlay is retired.
+
 ### Scenarios
 
 - Given no config file exists in the product directory, when the config loads, then every registered descriptor resolves to its declared defaults ([test](tests/defaults-only.scenario.l1.test.ts))
