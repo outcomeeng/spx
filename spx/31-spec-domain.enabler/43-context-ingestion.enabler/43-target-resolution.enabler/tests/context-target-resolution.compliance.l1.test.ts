@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
+import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { KIND_REGISTRY, SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
 import {
   specContextAbbreviatedRootPrefix,
@@ -69,7 +70,7 @@ describe("spec context target resolution compliance", () => {
         ]
       ) {
         expect(failure).toContain(SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED]);
-        expect(failure).toContain(operand);
+        expect(failure).toContain(sanitizeCliArgument(operand));
       }
     });
   });
@@ -103,7 +104,7 @@ describe("spec context target resolution compliance", () => {
           ]
         ) {
           expect(failure).toContain(SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED]);
-          expect(failure).toContain(alias);
+          expect(failure).toContain(sanitizeCliArgument(alias));
         }
       });
     });
@@ -189,7 +190,7 @@ describe("spec context target resolution compliance", () => {
         ]
       ) {
         expect(failure).toContain(SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED]);
-        expect(failure).toContain(operand);
+        expect(failure).toContain(sanitizeCliArgument(operand));
       }
     });
   });
@@ -213,7 +214,7 @@ describe("spec context target resolution compliance", () => {
           expect(failure).toContain(
             SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[SPEC_CONTEXT_TARGET_FAILURE_KIND.UNRESOLVED],
           );
-          expect(failure).toContain(operand);
+          expect(failure).toContain(sanitizeCliArgument(operand));
         }
       });
     });

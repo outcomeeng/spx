@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { formatSpecContextTargetFailure } from "@/interfaces/cli/spec";
 import { SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX } from "@/interfaces/cli/spec-context-contract";
+import { sanitizeCliArgument } from "@/lib/sanitize-cli-argument";
 import { SPEC_CONTEXT_TARGET_FAILURE_KIND } from "@/lib/spec-tree";
 import {
   SPEC_CONTEXT_CASE_TITLE,
@@ -57,7 +58,7 @@ describe("spec context target resolution mapping", () => {
         const cwd = join(env.productDir, rejected.invocationDir);
         const failure = await contextListFailure({ targets: [rejected.operand], cwd });
         expect(failure).toContain(SPEC_CONTEXT_TARGET_DIAGNOSTIC_PREFIX[rejected.expectedKind]);
-        expect(failure).toContain(rejected.operand);
+        expect(failure).toContain(sanitizeCliArgument(rejected.operand));
         for (const candidate of rejected.expectedCandidates) {
           expect(failure).toContain(candidate);
         }
