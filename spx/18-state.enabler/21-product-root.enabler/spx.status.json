@@ -5,7 +5,7 @@
     "test": {
       "tests/env-isolation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/21-product-root.enabler/product-root.md",
@@ -22,7 +22,7 @@
       },
       "tests/result-shape.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/21-product-root.enabler/product-root.md",
@@ -43,7 +43,7 @@
       },
       "tests/root-resolution.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/21-product-root.enabler/product-root.md",

@@ -5,7 +5,7 @@
     "test": {
       "tests/config-test-generators.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
+        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/76-config-test-generators.enabler/config-test-generators.md",
@@ -76,7 +76,7 @@
       },
       "tests/config-test-generators.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "f114813d9fcf9c789706525b73a785ab7fc4903d",
+        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/76-config-test-generators.enabler/config-test-generators.md",
