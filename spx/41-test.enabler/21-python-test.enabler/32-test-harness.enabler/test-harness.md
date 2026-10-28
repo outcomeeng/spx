@@ -10,7 +10,7 @@ CAN verify command construction, the detection gate, and exclusion-flag generati
 
 ### Scenarios
 
-- Given a committed pytest fixture suite, when `withTempPytestProduct` runs a callback, then the suite is copied into a fresh temporary product under the OS temp root rather than the repository, the suite path resolves inside that product, and the product directory is removed after the callback settles ([test](tests/test-harness.scenario.l1.test.ts))
+- Given a committed pytest fixture suite, when `withTempPytestProduct` runs a callback, then the suite is copied into a fresh temporary product under the run root rather than the repository, the suite path resolves inside that product, and the product directory is removed after the callback settles ([test](tests/test-harness.scenario.l1.test.ts))
 
 ### Properties
 
