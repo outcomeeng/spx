@@ -50,6 +50,7 @@ import {
 } from "@/domains/verify/verify";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
+import { takeInvocationRunRoot } from "@/lib/temp-directory";
 import { jsonDocument, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 
 import { createJournalStreamBinding, stderrStreamSink } from "./lib/journal-stream-binding";
@@ -510,6 +511,7 @@ async function executeRunOrFailure(
   deps: ExecuteRunCliDeps,
 ): Promise<ExecuteRunCommandResult> {
   try {
+    await takeInvocationRunRoot();
     return await handlers.executeRun(options, deps);
   } catch (error) {
     return { exitCode: VERIFY_CLI_EXIT_CODE.ERROR, diagnostic: executeRunFailureDiagnostic(error) };

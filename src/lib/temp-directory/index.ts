@@ -202,3 +202,10 @@ export function getProcessTempDirectory(): TempDirectory {
   });
   return processTempDirectory;
 }
+
+// Takes the invocation's one run root before any runner process starts, so Vitest and its
+// workers inherit it through the process environment instead of each creating a root that
+// removes the roots of its siblings; the exit hook removes it with the process.
+export async function takeInvocationRunRoot(): Promise<void> {
+  await getProcessTempDirectory().createDirectory();
+}
