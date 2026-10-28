@@ -1,6 +1,7 @@
 import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { GIT_CEILING_DIRECTORIES_KEY } from "@/lib/git/environment";
 import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
 import {
   GIT_TEST_ENVIRONMENT_KEYS,
@@ -18,8 +19,10 @@ describe("withGitWorktreeEnv — safety and GIT_* isolation", () => {
     });
   });
 
-  describe("strip-and-restore covers every GIT_* variable the caller sets", () => {
-    const gitEnvKeys: readonly string[] = Object.values(GIT_TEST_ENVIRONMENT_KEYS);
+  describe("strip-and-restore covers every GIT_* variable except GIT_CEILING_DIRECTORIES the caller sets", () => {
+    const gitEnvKeys: readonly string[] = Object.values(GIT_TEST_ENVIRONMENT_KEYS).filter(
+      (key) => key !== GIT_CEILING_DIRECTORIES_KEY,
+    );
     const priorValues = new Map<string, string | undefined>();
     const sentinelValues = new Map<string, string>();
 

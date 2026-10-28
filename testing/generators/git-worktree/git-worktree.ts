@@ -17,6 +17,7 @@ export const GIT_WORKTREE_TEST_GENERATOR = {
   fileContent: arbitraryFileContent,
   gitignorePattern: arbitraryGitignorePattern,
   bogusGitDir: arbitraryBogusGitDir,
+  ceilingDirectory: arbitraryCeilingDirectory,
 } as const;
 
 export function sampleGitWorktreeTestValue<T>(arbitrary: fc.Arbitrary<T>): T {
@@ -63,4 +64,8 @@ function arbitraryGitignorePattern(): fc.Arbitrary<string> {
 
 function arbitraryBogusGitDir(): fc.Arbitrary<string> {
   return arbitraryPathSegment().map((slug) => `/nonexistent-${slug}-from-test`);
+}
+
+function arbitraryCeilingDirectory(): fc.Arbitrary<string> {
+  return arbitraryPathSegment().map((slug) => `/ceiling-${slug}-from-test`);
 }

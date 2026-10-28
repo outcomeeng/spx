@@ -9,7 +9,7 @@ CAN exercise git's native ignore-resolution behavior against real worktrees, wit
 ### Scenarios
 
 - Given the callback starts, when the env is delivered, then `productDir` exists under `os.tmpdir()`, is initialized as a git repository, has `user.email` and `user.name` configured, and every `GIT_*` variable except `GIT_CEILING_DIRECTORIES` is stripped from `process.env` for the callback's duration ([test](tests/lifecycle.scenario.l1.test.ts))
-- Given `GIT_CEILING_DIRECTORIES` is set in the caller's `process.env`, when the callback runs, then it holds the caller's value for the callback's duration and holds it again after the callback returns or throws
+- Given `GIT_CEILING_DIRECTORIES` is set in the caller's `process.env`, when the callback runs, then it holds the caller's value for the callback's duration and holds it again after the callback returns or throws ([test](tests/lifecycle.scenario.l1.test.ts))
 - Given the callback returns normally, when the harness completes, then the temp `productDir` and its contents are removed ([test](tests/lifecycle.scenario.l1.test.ts)) and every prior `process.env.GIT_*` value is restored ([test](tests/safety.compliance.l1.test.ts))
 - Given the callback throws, when the harness completes, then the temp `productDir` is removed and the original error is rethrown unchanged ([test](tests/lifecycle.scenario.l1.test.ts)) and every prior `process.env.GIT_*` value is restored ([test](tests/safety.compliance.l1.test.ts))
 - Given the callback invokes `writeTracked(path, content)` then `commit(message)`, when `git ls-files --cached` runs against `productDir`, then the path appears in the output ([test](tests/helpers.scenario.l1.test.ts))

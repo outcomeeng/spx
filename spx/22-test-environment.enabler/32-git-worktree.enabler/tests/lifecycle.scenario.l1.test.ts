@@ -1,8 +1,14 @@
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { GIT_TEST_CONFIG, GIT_TEST_SUBCOMMANDS, readGit } from "@testing/harnesses/git-test-constants";
+import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
+import {
+  GIT_TEST_CONFIG,
+  GIT_TEST_ENVIRONMENT_KEYS,
+  GIT_TEST_SUBCOMMANDS,
+  readGit,
+} from "@testing/harnesses/git-test-constants";
 import { withGitWorktreeEnv } from "@testing/harnesses/git-worktree/git-worktree";
 
 describe("withGitWorktreeEnv — startup", () => {
@@ -50,5 +56,51 @@ describe("withGitWorktreeEnv — cleanup", () => {
 
     expect(existsSync(observedProductDir)).toBe(false);
     expect(process.env.GIT_CONFIG_GLOBAL).toBe(priorGitConfigGlobal);
+  });
+});
+
+describe("withGitWorktreeEnv — GIT_CEILING_DIRECTORIES", () => {
+  const ceilingKey = GIT_TEST_ENVIRONMENT_KEYS.CEILING_DIRECTORIES;
+  let priorCeiling: string | undefined;
+  let callerCeiling = "";
+
+  beforeEach(() => {
+    priorCeiling = process.env[ceilingKey];
+    callerCeiling = sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.ceilingDirectory());
+    process.env[ceilingKey] = callerCeiling;
+  });
+
+  afterEach(() => {
+    if (priorCeiling === undefined) {
+      delete process.env[ceilingKey];
+    } else {
+      process.env[ceilingKey] = priorCeiling;
+    }
+  });
+
+  it("holds the caller's value during the callback and after it returns", async () => {
+    let observedInside: string | undefined;
+
+    await withGitWorktreeEnv(async () => {
+      observedInside = process.env[ceilingKey];
+    });
+
+    expect(observedInside).toBe(callerCeiling);
+    expect(process.env[ceilingKey]).toBe(callerCeiling);
+  });
+
+  it("holds the caller's value during the callback and after it throws", async () => {
+    let observedInside: string | undefined;
+    const thrownError = new Error("intentional ceiling failure");
+
+    await expect(
+      withGitWorktreeEnv(async () => {
+        observedInside = process.env[ceilingKey];
+        throw thrownError;
+      }),
+    ).rejects.toBe(thrownError);
+
+    expect(observedInside).toBe(callerCeiling);
+    expect(process.env[ceilingKey]).toBe(callerCeiling);
   });
 });
