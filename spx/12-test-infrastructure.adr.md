@@ -22,7 +22,7 @@ Domain ownership keeps generated values and harness behavior aligned with the pr
 
 ### Audit
 
-- NEVER: a test, harness, generator, or spx command creates or removes a temp directory itself through `mkdtemp`, `mkdtempSync`, or a temp-directory `rm`; it obtains and releases every temp directory through the central temp-directory primitive, while composing path text that is never created stays outside this rule ([audit])
+- NEVER: a test, harness, generator, or spx command creates or removes a temp directory itself through `mkdtemp`, `mkdtempSync`, or a temp-directory `rm`; it obtains and releases every temp directory through the central temp-directory primitive, while composing path text that is never created stays outside this rule ([audit:no-direct-temp-directory])
 
 - ALWAYS: every reusable generator, harness, and fixture is governed by a domain spec that declares its observable contract and ownership boundary ([audit])
 - ALWAYS: generators are pure, side-effect-free functions over meaningful variable domains with shrinking and replay supplied by the property harness ([audit])
