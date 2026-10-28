@@ -81,9 +81,8 @@ describe("spx-driven verification executor compliance", () => {
     expect(observation.receivedUnits).toEqual([observation.streamedUnit]);
     expect(observation.invocation).toEqual({ invoked: true, terminalStatus: JOURNAL_RUN_TERMINAL_STATUS.PASSED });
 
-    // The production registry, not an injected one, is what the `test` type resolves: over a product
-    // that declares TypeScript and installs no runner, the registry's own TypeScript language is the
-    // one that reports the product directory it searched.
+    // Over a product that declares TypeScript whose runner resolves nowhere, the registry's own
+    // TypeScript language is the one that reports the product directory it searched.
     const production = await observeProductionRegistryDrive();
     expect(production.invocation).toEqual({
       invoked: false,
