@@ -8,7 +8,7 @@ CAN exercise git's native ignore-resolution behavior against real worktrees, wit
 
 ### Scenarios
 
-- Given the callback starts, when the env is delivered, then `productDir` exists under `os.tmpdir()`, is initialized as a git repository, has `user.email` and `user.name` configured, and every `GIT_*` variable except `GIT_CEILING_DIRECTORIES` is stripped from `process.env` for the callback's duration ([test](tests/lifecycle.scenario.l1.test.ts))
+- Given the callback starts, when the env is delivered, then `productDir` exists under the run root, is initialized as a git repository, has `user.email` and `user.name` configured, and every `GIT_*` variable except `GIT_CEILING_DIRECTORIES` is stripped from `process.env` for the callback's duration ([test](tests/lifecycle.scenario.l1.test.ts))
 - Given `GIT_CEILING_DIRECTORIES` is set in the caller's `process.env`, when the callback runs, then it holds the caller's value for the callback's duration and holds it again after the callback returns or throws ([test](tests/lifecycle.scenario.l1.test.ts))
 - Given the callback returns normally, when the harness completes, then the temp `productDir` and its contents are removed ([test](tests/lifecycle.scenario.l1.test.ts)) and every prior `process.env.GIT_*` value is restored ([test](tests/safety.compliance.l1.test.ts))
 - Given the callback throws, when the harness completes, then the temp `productDir` is removed and the original error is rethrown unchanged ([test](tests/lifecycle.scenario.l1.test.ts)) and every prior `process.env.GIT_*` value is restored ([test](tests/safety.compliance.l1.test.ts))
@@ -25,7 +25,7 @@ CAN exercise git's native ignore-resolution behavior against real worktrees, wit
 
 ### Compliance
 
-- ALWAYS: temp directories live under `os.tmpdir()` and their removal is constrained to that root ([test](tests/safety.compliance.l1.test.ts))
+- ALWAYS: temp directories live under the run root and their removal is constrained to that root ([test](tests/safety.compliance.l1.test.ts))
 - ALWAYS: every `GIT_*` variable except `GIT_CEILING_DIRECTORIES` is stripped from `process.env` for the callback's duration, so consumer git invocations that inherit `process.env` resolve from `productDir` rather than the caller's environment while the ceiling still bounds discovery ([test](tests/safety.compliance.l1.test.ts))
 - ALWAYS: cleanup runs on both the return and throw paths of the callback — no caller can opt out, no cleanup call appears in user test code ([test](tests/lifecycle.scenario.l1.test.ts))
 - ALWAYS: the harness's git invocations consume `runGit`, `readGit`, and `buildGitTestEnvironment` from `testing/harnesses/git-test-constants.ts` — git subprocess invocation logic is not duplicated inside the harness module ([review](21-git-worktree-shape.adr.md))
