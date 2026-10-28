@@ -1477,6 +1477,19 @@ function isExternalAppendToSpxDrivenRun(events: readonly JournalEvent[], deps: V
 }
 
 /**
+ * Report the diagnostic for an append request whose payload source or idempotency key is missing or
+ * conflicting. A request names exactly one payload source: the explicit source or a run-relative name.
+ */
+function appendRequestError(options: VerifyAppendCliOptions): string | undefined {
+  const hasPayloadSource = options.payload.trim().length > 0;
+  const hasRunPayload = (options.runPayload ?? "").trim().length > 0;
+  if (hasPayloadSource === hasRunPayload) {
+    return hasPayloadSource ? VERIFY_CLI_ERROR.PAYLOAD_SOURCE_CONFLICT : VERIFY_CLI_ERROR.PAYLOAD_REQUIRED;
+  }
+  return options.idempotencyKey.trim().length === 0 ? VERIFY_CLI_ERROR.IDEMPOTENCY_KEY_REQUIRED : undefined;
+}
+
+/**
  * Validate the append request's required selectors and injected capabilities, then resolve the
  * run's journal scope and storage namespace, so `verifyAppend` orchestrates a prepared run.
  */
@@ -1485,13 +1498,8 @@ async function prepareAppend(options: VerifyAppendCliOptions, deps: VerifyCliDep
   if (!isVerifyVerificationType(options.verificationType)) {
     return { ok: false, error: VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE };
   }
-  const hasPayloadSource = options.payload.trim().length > 0;
-  const hasRunPayload = (options.runPayload ?? "").trim().length > 0;
-  if (hasPayloadSource && hasRunPayload) return { ok: false, error: VERIFY_CLI_ERROR.PAYLOAD_SOURCE_CONFLICT };
-  if (!hasPayloadSource && !hasRunPayload) return { ok: false, error: VERIFY_CLI_ERROR.PAYLOAD_REQUIRED };
-  if (options.idempotencyKey.trim().length === 0) {
-    return { ok: false, error: VERIFY_CLI_ERROR.IDEMPOTENCY_KEY_REQUIRED };
-  }
+  const requestError = appendRequestError(options);
+  if (requestError !== undefined) return { ok: false, error: requestError };
   const selector = canonicalizeVerifyRunSelector(options.scopeType, options.scope);
   if (!selector.ok) return selector;
 
@@ -1739,6 +1747,22 @@ function validateScopeJudgedDeletions(
   };
 }
 
+/** Read the raw evidence payload from the explicit payload source or the run-relative payload name. */
+async function readAppendPayload(
+  options: VerifyAppendCliOptions,
+  prepared: PreparedAppend,
+  deps: VerifyCliDeps,
+): Promise<Result<string>> {
+  if (options.payload.trim().length === 0) {
+    return readRunPayload(prepared.runPayloadDirectory, options.runPayload ?? "", deps);
+  }
+  try {
+    return { ok: true, value: await prepared.readPayload(options.payload) };
+  } catch (error) {
+    return { ok: false, error: `${VERIFY_CLI_ERROR.PAYLOAD_READ_FAILED}: ${toMessage(error)}` };
+  }
+}
+
 /** The CloudEvents type an evidence-add command records: a finding or inspected scope. */
 function appendEventType(verb: VerifyAppendVerb): VerifyAppendEventType {
   return verb === VERIFY_VERB.APPEND_FINDING ? VERIFY_APPEND_EVENT_TYPE.FINDING : VERIFY_APPEND_EVENT_TYPE.SCOPE;
@@ -1758,7 +1782,7 @@ async function verifyAppend(
 ): Promise<CliCommandResult> {
   const prepared = await prepareAppend(options, deps);
   if (!prepared.ok) return errorResult(prepared.error);
-  const { readPayload, binding, journalScope, existingEvents, selector } = prepared.value;
+  const { binding, journalScope, existingEvents, selector } = prepared.value;
   const eventType = appendEventType(verb);
 
   const existing = findAppendedSequence(existingEvents, options.idempotencyKey, eventType);
@@ -1767,19 +1791,9 @@ async function verifyAppend(
     return okResult(JSON.stringify(report));
   }
 
-  let rawPayload: string;
-  if (options.payload.trim().length === 0) {
-    const named = await readRunPayload(prepared.value.runPayloadDirectory, options.runPayload ?? "", deps);
-    if (!named.ok) return errorResult(named.error);
-    rawPayload = named.value;
-  } else {
-    try {
-      rawPayload = await readPayload(options.payload);
-    } catch (error) {
-      return errorResult(`${VERIFY_CLI_ERROR.PAYLOAD_READ_FAILED}: ${toMessage(error)}`);
-    }
-  }
-  const parsed = parseAppendPayload(rawPayload);
+  const rawPayload = await readAppendPayload(options, prepared.value, deps);
+  if (!rawPayload.ok) return errorResult(rawPayload.error);
+  const parsed = parseAppendPayload(rawPayload.value);
   if (parsed === undefined) return errorResult(VERIFY_CLI_ERROR.PAYLOAD_INVALID);
   const evidence = validateAppendEvidence(verb, options.verificationType, parsed, existingEvents, selector);
   if (!evidence.ok) return errorResult(evidence.error);
