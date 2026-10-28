@@ -46,6 +46,7 @@ import {
   loadedReadPaths,
   openedReadPaths,
 } from "@testing/generators/testing/journal-reporter";
+import { writeVitestFixtureConfig } from "@testing/harnesses/testing/vitest-fixture-config";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 /** The directory a product's installed runner toolchain resolves from. */
@@ -665,7 +666,8 @@ const TEMP_PRODUCT_PREFIX = "spx-journal-reporter-";
 /**
  * Links this repository's installed runner toolchain into a temp product, so the product
  * directory resolves the Vitest Node API the way an installed product would — from its own
- * `node_modules` — without copying the install and without inheriting any product configuration.
+ * `node_modules` — without copying the install and without inheriting any product configuration:
+ * the product carries the fixture Vitest config at its root, which stops Vitest's config walk there.
  */
 export async function linkProductRunnerToolchain(productDir: string): Promise<void> {
   await symlink(
@@ -673,6 +675,7 @@ export async function linkProductRunnerToolchain(productDir: string): Promise<vo
     join(productDir, PACKAGE_DEPENDENCIES_DIRECTORY),
     "dir",
   );
+  await writeVitestFixtureConfig(productDir);
 }
 
 /**

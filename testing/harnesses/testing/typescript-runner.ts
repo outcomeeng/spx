@@ -58,6 +58,7 @@ import {
   simulatedReportedPaths,
 } from "@testing/harnesses/testing/simulated-report";
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
+import { VITEST_FIXTURE_CONFIG_FILENAME, writeVitestFixtureConfig } from "@testing/harnesses/testing/vitest-fixture-config";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const VITEST_FIXTURE_DIR = join(
@@ -251,6 +252,7 @@ export function withTempVitestProductAt(
 ): Promise<void> {
   return withTempDir(TEMP_PRODUCT_PREFIX, async (productDir) => {
     const targetPath = join(productDir, relativeTestPath);
+    await writeVitestFixtureConfig(productDir);
     await mkdir(dirname(targetPath), { recursive: true });
     await copyFile(join(VITEST_FIXTURE_DIR, fixture), targetPath);
     await callback(productDir);
@@ -273,6 +275,7 @@ export function withTempVitestSuites(
   callback: (product: TempVitestSuites) => Promise<void>,
 ): Promise<void> {
   return withTempDir(TEMP_PRODUCT_PREFIX, async (productDir) => {
+    await writeVitestFixtureConfig(productDir);
     const suitePaths: string[] = [];
     for (const [index, fixture] of fixtures.entries()) {
       const suitePath = `${COPIED_SUITES_BASENAME_PREFIX}${index}${COPIED_SUITE_NAME}`;
@@ -307,7 +310,9 @@ export async function observeTempVitestProductLifecycle(
 
   await withTempVitestProduct(fixture, async (receivedProductDir) => {
     productDir = receivedProductDir;
-    entriesDuringCallback = await readdir(receivedProductDir);
+    entriesDuringCallback = (await readdir(receivedProductDir)).filter((entry) =>
+      entry !== VITEST_FIXTURE_CONFIG_FILENAME
+    );
     entryContentsDuringCallback = await Promise.all(
       entriesDuringCallback.map((entry) => readFile(join(receivedProductDir, entry), "utf8")),
     );
