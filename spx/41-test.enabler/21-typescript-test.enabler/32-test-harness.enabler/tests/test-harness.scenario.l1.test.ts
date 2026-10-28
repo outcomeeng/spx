@@ -14,7 +14,9 @@ describe("withTempVitestProduct", () => {
   it("materializes the Vitest fixture suite under the run root and removes the product after the callback returns", async () => {
     const observation = await observeTempVitestProductLifecycle(VITEST_FIXTURE.PASSING);
 
-    expect(resolve(observation.productDir).startsWith(resolve(String(process.env[TEMP_DIRECTORY_ENV_VAR.RUN_ROOT])) + sep)).toBe(true);
+    expect(
+      resolve(observation.productDir).startsWith(resolve(String(process.env[TEMP_DIRECTORY_ENV_VAR.RUN_ROOT])) + sep),
+    ).toBe(true);
     expect(observation.entriesDuringCallback).toEqual([COPIED_SUITE_NAME]);
     expect(observation.entryContentsDuringCallback).toEqual([observation.committedFixtureContent]);
     expect(observation.existsAfterCallback).toBe(false);

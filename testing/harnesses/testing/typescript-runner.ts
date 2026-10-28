@@ -57,8 +57,11 @@ import {
   type SimulatedReport,
   simulatedReportedPaths,
 } from "@testing/harnesses/testing/simulated-report";
+import {
+  VITEST_FIXTURE_CONFIG_FILENAME,
+  writeVitestFixtureConfig,
+} from "@testing/harnesses/testing/vitest-fixture-config";
 import { collectHarnessTestCases, describe, expect, it } from "@testing/harnesses/vitest-registration";
-import { VITEST_FIXTURE_CONFIG_FILENAME, writeVitestFixtureConfig } from "@testing/harnesses/testing/vitest-fixture-config";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const VITEST_FIXTURE_DIR = join(
