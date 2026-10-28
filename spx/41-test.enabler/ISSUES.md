@@ -243,3 +243,11 @@ The output named `reusedRun: .../run-2026-10-25_12-32-51-037-eaa1a5e7c7e5.jsonl`
 **Settlement condition:** a request that sets `SPX_PROPERTY_SEED` executes the selected tests with that seed or is refused with a diagnostic, and never reports a `reusedRun`. The record named above states the rule, and a scenario in `tests/recorded-run-reuse.scenario.l1.test.ts` proves it with a passed recorded run covering the selected node.
 
 **Evidence:** `src/commands/test/run-tests-command.ts` `runTestsCommand` and `reuseRecordedRun`; `src/commands/test/run-command.ts` `ReusedTestRun`; `src/interfaces/cli/test-agent-output.ts` `reusedRun`; `testing/harnesses/property/property.ts` `SPX_PROPERTY_SEED_ENV`; recorded run `run-2026-10-25_12-32-51-037-eaa1a5e7c7e5.jsonl`.
+
+## A Given/when/then scenario sits under the Mappings heading of the spec
+
+**Evidence:** the spec audit of head `10ff4056eecbe36281a04ac06e68f75f02cf45df` filed finding `heading-mismatch` on unchanged text of `test.md`. Under `### Mappings` the first assertion ("Given a recorded run that is failed, interrupted, incomplete or stale, or a selection that no single recorded run covers, when spx test runs, then it dispatches its selection") is a Given/when/then scenario under a heading that holds finite-domain correspondence claims.
+
+**Impact:** the assertion is classified as a scenario while it sits under the heading for mappings, so the heading and the evidence type a reader expects for it disagree.
+
+**Settlement condition:** the assertion sits under `### Scenarios`, or is reworded as a mapping claim over its finite domain.

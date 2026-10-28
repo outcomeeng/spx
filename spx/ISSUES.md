@@ -330,3 +330,11 @@ product's declarations.
 **Impact:** a change to a testing module can read as judged when the approval that judged it belonged to a different node and to an earlier content of the module, and a module under a spec-malleable node is judged by no evidence audit.
 
 **Settlement condition:** each changed `testing/` module names the node whose audit judges it, the spec-malleable config node either carries evidence audited under its own node or its generators are recorded as judged by the changes review, and an approval records which module contents it judged.
+
+## Seven Audit rules of the test-infrastructure ADR carry the pathless audit tag
+
+**Evidence:** the ADR audit of head `10ff4056eecbe36281a04ac06e68f75f02cf45df` filed finding `invalid-tag` on unchanged text of [`spx/12-test-infrastructure.adr.md`](12-test-infrastructure.adr.md). Seven `### Audit` rules carry the pathless `([audit])` tag where the template requires `([audit:{rule-slug}])` with a slug unique within the ADR. The seven begin: "ALWAYS: every reusable generator, harness, and fixture is governed by a domain spec", "ALWAYS: generators are pure, side-effect-free functions", "ALWAYS: harnesses use real local systems whenever they are reliable", "ALWAYS: executed test files import source-owned contracts", "NEVER: test infrastructure redeclares production protocol values", "NEVER: a generic literal generator substitutes for a domain generator", "NEVER: vi.mock(), jest.mock(), framework module replacement".
+
+**Impact:** audit results for these seven rules key to no slug, so a status claim cannot attribute a verdict to an individual rule.
+
+**Settlement condition:** each of the seven rules carries `([audit:{rule-slug}])` with a slug that no other `### Audit` rule in the ADR repeats.
