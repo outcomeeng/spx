@@ -754,7 +754,7 @@
       },
       "tests/markdown-validation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a97ac02fe1c01977affde7e1f7b2dc308517316a",
+        "commit": "eaf0ff085170ebef5c5cc7082ab087c3874f1b17",
         "read": [
           "pnpm-lock.yaml",
           "spx.config.yaml",
@@ -798,6 +798,7 @@
           "spx/16-config.enabler/65-product-directory-api.enabler/21-product-context-resolution.adr.md",
           "spx/16-config.enabler/65-product-directory-api.enabler/ISSUES.md",
           "spx/16-config.enabler/65-product-directory-api.enabler/product-directory-api.md",
+          "spx/16-config.enabler/71-orchestration-configuration.enabler/orchestration-configuration.md",
           "spx/16-config.enabler/76-config-test-generators.enabler/config-test-generators.md",
           "spx/16-config.enabler/ISSUES.md",
           "spx/16-config.enabler/PLAN.md",
