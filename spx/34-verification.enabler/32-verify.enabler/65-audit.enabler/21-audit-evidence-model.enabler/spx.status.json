@@ -5,7 +5,7 @@
     "test": {
       "tests/audit-changeset-class.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/audit-evidence-model.md",
@@ -169,7 +169,7 @@
       },
       "tests/audit-changeset-root.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/audit-evidence-model.md",
@@ -334,7 +334,7 @@
       },
       "tests/audit-evidence-validation.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "69bcc2a0d43b1ea49da671bef9150cec2e02da0e",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/audit-evidence-model.md",
@@ -738,7 +738,7 @@
       },
       "tests/audit-file-root.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/audit-evidence-model.md",
@@ -903,7 +903,7 @@
       },
       "tests/audit-finding.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/audit-evidence-model.md",
@@ -1068,7 +1068,7 @@
       },
       "tests/audit-order.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "69bcc2a0d43b1ea49da671bef9150cec2e02da0e",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/audit-evidence-model.md",
@@ -1470,7 +1470,7 @@
       },
       "tests/audit-scope.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "dec8dcabad5fbff3f38030523c823bb3f3cccd23",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/65-audit.enabler/21-audit-evidence-model.enabler/audit-evidence-model.md",

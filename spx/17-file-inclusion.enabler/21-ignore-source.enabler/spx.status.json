@@ -5,7 +5,7 @@
     "test": {
       "tests/ignore-source.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/17-file-inclusion.enabler/21-ignore-source.enabler/ignore-source.md",
@@ -27,7 +27,7 @@
       },
       "tests/ignore-source.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/17-file-inclusion.enabler/21-ignore-source.enabler/ignore-source.md",
@@ -49,7 +49,7 @@
       },
       "tests/ignore-source.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/17-file-inclusion.enabler/21-ignore-source.enabler/ignore-source.md",
@@ -71,7 +71,7 @@
       },
       "tests/ignore-source.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/17-file-inclusion.enabler/21-ignore-source.enabler/ignore-source.md",

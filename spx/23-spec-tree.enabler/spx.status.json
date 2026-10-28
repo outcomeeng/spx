@@ -5,7 +5,7 @@
     "test": {
       "tests/decision-attachment.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "69bcc2a0d43b1ea49da671bef9150cec2e02da0e",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/spec-tree.md",
@@ -108,7 +108,7 @@
       },
       "tests/grammar-selection.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "69bcc2a0d43b1ea49da671bef9150cec2e02da0e",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/spec-tree.md",
@@ -214,7 +214,7 @@
       },
       "tests/spec-tree-ownership.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "69bcc2a0d43b1ea49da671bef9150cec2e02da0e",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/spec-tree.md",
@@ -369,7 +369,7 @@
       },
       "tests/spec-tree-surface.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "69bcc2a0d43b1ea49da671bef9150cec2e02da0e",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/spec-tree.md",

@@ -5,7 +5,7 @@
     "test": {
       "tests/context-target-resolution.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "69bcc2a0d43b1ea49da671bef9150cec2e02da0e",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler/target-resolution.md",
@@ -178,7 +178,7 @@
       },
       "tests/context-target-resolution.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "69bcc2a0d43b1ea49da671bef9150cec2e02da0e",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/43-context-ingestion.enabler/43-target-resolution.enabler/target-resolution.md",

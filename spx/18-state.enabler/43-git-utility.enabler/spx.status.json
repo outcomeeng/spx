@@ -3,9 +3,24 @@
   "malleability": "implementation",
   "verification": {
     "test": {
+      "tests/git-environment.property.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/18-state.enabler/43-git-utility.enabler/git-utility.md",
+          "spx/18-state.enabler/43-git-utility.enabler/tests/git-environment.property.l1.test.ts",
+          "src/lib/git/environment.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/git-environment/git-environment.ts",
+          "testing/harnesses/property/property.ts"
+        ]
+      },
       "tests/git-utility.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/43-git-utility.enabler/git-utility.md",
@@ -32,7 +47,7 @@
       },
       "tests/git-utility.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "d26aa32687bafd500d009cd0c38252d3bc8f3118",
+        "commit": "c97c01b47d584f2415b013148c0bc0f59601bf5c",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/43-git-utility.enabler/git-utility.md",
