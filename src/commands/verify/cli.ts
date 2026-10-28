@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 import {
   journalAppendCommand,
@@ -160,6 +160,10 @@ export const VERIFY_CLI_ERROR = {
   IDEMPOTENCY_KEY_REQUIRED: "spx verification run evidence-add commands require --idempotency-key <key>",
   PAYLOAD_READ_FAILED: "spx verification run could not read the evidence payload",
   PAYLOAD_INVALID: "spx verification run evidence payload is not valid JSON",
+  PAYLOAD_SOURCE_CONFLICT:
+    "spx verification run evidence-add commands accept either a payload source or a run-relative payload name, not both",
+  PAYLOAD_OUTSIDE_RUN_DIRECTORY:
+    "spx verification run evidence payload name resolves outside the run payload directory",
   RUN_FINISHED: "spx verification run cannot add evidence to a finished run",
   SCOPE_INVALID: "spx verification run scope add: evidence payload rejected",
   FINDING_INVALID: "spx verification run finding add: evidence payload rejected",
@@ -414,6 +418,8 @@ export interface VerifyAppendCliOptions {
   readonly scope: string;
   readonly run: string;
   readonly payload: string;
+  /** A name in the run's payload directory that selects the evidence payload in place of `payload`. */
+  readonly runPayload?: string;
   readonly idempotencyKey: string;
 }
 
@@ -1424,6 +1430,7 @@ interface PreparedAppend {
   readonly readPayload: (source: string) => Promise<string>;
   readonly binding: JournalStreamBinding;
   readonly journalScope: JournalRunCliScope;
+  readonly runPayloadDirectory: string;
   readonly namespace: string;
   readonly backendIdentity: string;
   readonly worktreeRoot: string;
@@ -1478,7 +1485,10 @@ async function prepareAppend(options: VerifyAppendCliOptions, deps: VerifyCliDep
   if (!isVerifyVerificationType(options.verificationType)) {
     return { ok: false, error: VERIFY_CLI_ERROR.UNSUPPORTED_VERIFICATION_TYPE };
   }
-  if (options.payload.trim().length === 0) return { ok: false, error: VERIFY_CLI_ERROR.PAYLOAD_REQUIRED };
+  const hasPayloadSource = options.payload.trim().length > 0;
+  const hasRunPayload = (options.runPayload ?? "").trim().length > 0;
+  if (hasPayloadSource && hasRunPayload) return { ok: false, error: VERIFY_CLI_ERROR.PAYLOAD_SOURCE_CONFLICT };
+  if (!hasPayloadSource && !hasRunPayload) return { ok: false, error: VERIFY_CLI_ERROR.PAYLOAD_REQUIRED };
   if (options.idempotencyKey.trim().length === 0) {
     return { ok: false, error: VERIFY_CLI_ERROR.IDEMPOTENCY_KEY_REQUIRED };
   }
@@ -1551,6 +1561,11 @@ async function prepareAppend(options: VerifyAppendCliOptions, deps: VerifyCliDep
       readPayload,
       binding,
       journalScope,
+      runPayloadDirectory: verifyRunPayloadDirectory(
+        resolved.value.worktreeRoot,
+        options.verificationType,
+        options.run,
+      ),
       namespace: namespace.value,
       backendIdentity: resolved.value.backendIdentity,
       worktreeRoot: resolved.value.worktreeRoot,
@@ -1558,6 +1573,32 @@ async function prepareAppend(options: VerifyAppendCliOptions, deps: VerifyCliDep
       selector: selector.value,
     },
   };
+}
+
+/**
+ * Read the file a run-relative name selects in the run's payload directory. The name and the directory
+ * resolve through symbolic links first, and a file whose resolved path lies outside the resolved
+ * directory is rejected before any read.
+ */
+async function readRunPayload(directory: string, name: string, deps: VerifyCliDeps): Promise<Result<string>> {
+  const realpath = deps.realpath ?? defaultStateStoreRealpath;
+  const fs = deps.fs ?? defaultStateStoreFileSystem;
+  let resolvedFile: string;
+  try {
+    const resolvedDirectory = await realpath(directory);
+    resolvedFile = await realpath(resolve(resolvedDirectory, name));
+    const fromDirectory = relative(resolvedDirectory, resolvedFile);
+    if (fromDirectory === "" || fromDirectory.startsWith("..") || isAbsolute(fromDirectory)) {
+      return { ok: false, error: VERIFY_CLI_ERROR.PAYLOAD_OUTSIDE_RUN_DIRECTORY };
+    }
+  } catch (error) {
+    return { ok: false, error: `${VERIFY_CLI_ERROR.PAYLOAD_READ_FAILED}: ${toMessage(error)}` };
+  }
+  try {
+    return { ok: true, value: await fs.readFile(resolvedFile, "utf8") };
+  } catch (error) {
+    return { ok: false, error: `${VERIFY_CLI_ERROR.PAYLOAD_READ_FAILED}: ${toMessage(error)}` };
+  }
 }
 
 /** Report the run-not-found diagnostic for an append whose run the journal store does not hold. */
@@ -1727,10 +1768,16 @@ async function verifyAppend(
   }
 
   let rawPayload: string;
-  try {
-    rawPayload = await readPayload(options.payload);
-  } catch (error) {
-    return errorResult(`${VERIFY_CLI_ERROR.PAYLOAD_READ_FAILED}: ${toMessage(error)}`);
+  if (options.payload.trim().length === 0) {
+    const named = await readRunPayload(prepared.value.runPayloadDirectory, options.runPayload ?? "", deps);
+    if (!named.ok) return errorResult(named.error);
+    rawPayload = named.value;
+  } else {
+    try {
+      rawPayload = await readPayload(options.payload);
+    } catch (error) {
+      return errorResult(`${VERIFY_CLI_ERROR.PAYLOAD_READ_FAILED}: ${toMessage(error)}`);
+    }
   }
   const parsed = parseAppendPayload(rawPayload);
   if (parsed === undefined) return errorResult(VERIFY_CLI_ERROR.PAYLOAD_INVALID);
