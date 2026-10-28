@@ -74,5 +74,5 @@ function arbitraryCeilingDirectory(): fc.Arbitrary<string> {
 function arbitraryEnvironmentValues(keys: readonly string[]): fc.Arbitrary<Record<string, string>> {
   return fc
     .uniqueArray(arbitraryBogusGitDir(), { minLength: keys.length, maxLength: keys.length })
-    .map((values) => Object.fromEntries(keys.map((key, index) => [key, values[index] as string])));
+    .map((values) => Object.fromEntries(keys.map((key, index) => [key, values[index]])));
 }
