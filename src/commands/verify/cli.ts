@@ -11,7 +11,12 @@ import {
   type JournalStreamBinding,
   readJournalCliEnvironment,
 } from "@/commands/journal/cli";
-import { isJournalRunSealed, JOURNAL_RUNTIME_ERROR } from "@/commands/journal/runtime";
+import {
+  isJournalRunSealed,
+  JOURNAL_RUNTIME_ERROR,
+  listJournalRuns,
+  readJournalEvents,
+} from "@/commands/journal/runtime";
 import { verificationContextCreateCommand } from "@/commands/verification-context/cli";
 import type { CliCommandResult, Result } from "@/config/types";
 import { type JournalEdgeBackend, resolveJournalBackend } from "@/domains/journal/backend-selection";
@@ -81,6 +86,7 @@ import {
   VERIFY_SCOPE_SEPARATOR,
   VERIFY_SCOPE_TYPE,
   VERIFY_VERB,
+  VERIFY_VERIFICATION_TYPE,
   type VerifyAppendEventType,
   type VerifyChangeInventoryEntry,
   type VerifyDriveMode,
@@ -268,6 +274,8 @@ export interface VerifyStartReport {
   readonly resolvedScope: readonly string[];
   readonly input: InputDescriptor;
   readonly locator: RunLocator;
+  /** The run's payload directory at the local worktree root, created by `start`. */
+  readonly payloadDirectory: string;
 }
 
 /** The directories a verification run writes: its journal runs directory, its verification-context directory, and the payload root holding its payload directory. */
@@ -294,6 +302,65 @@ function verifyRunPayloadDirectory(worktreeRoot: string, verificationType: strin
     verifyPayloadRoot(worktreeRoot, verificationType),
     `${VERIFY_PAYLOAD_PATH.RUN_DIRECTORY_PREFIX}${runToken}`,
   );
+}
+
+/** The run tokens whose payload directories sit under one verification type's payload root of the worktree. */
+async function stagedPayloadRunTokens(
+  worktreeRoot: string,
+  verificationType: string,
+  fs: StateStoreFileSystem,
+): Promise<readonly string[]> {
+  try {
+    const entries = await fs.readdir(verifyPayloadRoot(worktreeRoot, verificationType), { withFileTypes: true });
+    return entries
+      .filter((entry) => !entry.isFile() && entry.name.startsWith(VERIFY_PAYLOAD_PATH.RUN_DIRECTORY_PREFIX))
+      .map((entry) => entry.name.slice(VERIFY_PAYLOAD_PATH.RUN_DIRECTORY_PREFIX.length));
+  } catch (error) {
+    if (hasErrorCode(error, ERROR_CODE_NOT_FOUND) || hasErrorCode(error, ERROR_CODE_NOT_DIRECTORY)) return [];
+    throw error;
+  }
+}
+
+/** The run tokens of one verification type whose journal, in any branch scope of the repository, is still open. */
+async function openRunTokens(
+  productDir: string,
+  verificationType: string,
+  fs: StateStoreFileSystem,
+): Promise<ReadonlySet<string>> {
+  const runs = await listJournalRuns({ productDir, type: verificationType, limit: Number.POSITIVE_INFINITY }, { fs });
+  if (!runs.ok) throw new Error(runs.error);
+  const open = new Set<string>();
+  for (const run of runs.value) {
+    if (run.sealed) continue;
+    const ref = { productDir, branchSlug: run.branchSlug, type: verificationType, runToken: run.runToken };
+    const events = await readJournalEvents(ref, JOURNAL_SEQ_BASE, { fs });
+    if (!events.ok) throw new Error(events.error);
+    if (findTerminalEvent(events.value) === undefined) open.add(run.runToken);
+  }
+  return open;
+}
+
+/**
+ * Remove the payload directory of every run of the worktree whose journal is closed, by a terminal-completion
+ * event or a seal, or that no branch scope of the repository holds a journal for; the directory of an open run stays.
+ */
+async function sweepClosedPayloadDirectories(
+  productDir: string,
+  worktreeRoot: string,
+  fs: StateStoreFileSystem,
+): Promise<void> {
+  for (const verificationType of Object.values(VERIFY_VERIFICATION_TYPE)) {
+    const staged = await stagedPayloadRunTokens(worktreeRoot, verificationType, fs);
+    if (staged.length === 0) continue;
+    const open = await openRunTokens(productDir, verificationType, fs);
+    for (const runToken of staged) {
+      if (open.has(runToken)) continue;
+      await fs.rm(verifyRunPayloadDirectory(worktreeRoot, verificationType, runToken), {
+        force: true,
+        recursive: true,
+      });
+    }
+  }
 }
 
 export type VerifyWriteDirectoryRole = (typeof VERIFY_WRITE_DIRECTORY_ROLE)[keyof typeof VERIFY_WRITE_DIRECTORY_ROLE];
@@ -1028,7 +1095,9 @@ async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promis
 
   const payloadDirectory = verifyRunPayloadDirectory(args.worktreeRoot, options.verificationType, runToken);
   try {
-    await (deps.fs ?? defaultStateStoreFileSystem).mkdir(payloadDirectory, { recursive: true });
+    const fs = deps.fs ?? defaultStateStoreFileSystem;
+    await sweepClosedPayloadDirectories(args.productDir, args.worktreeRoot, fs);
+    await fs.mkdir(payloadDirectory, { recursive: true });
   } catch (error) {
     return rollbackStartAndError(
       { ...startedRunArtifacts(args, runFile), inputRecordPath: inputRecordPath.value },
@@ -1067,6 +1136,7 @@ async function completeVerifyStartCommand(args: CompleteVerifyStartArgs): Promis
     resolvedScope: args.resolvedScope,
     input: { source: options.input, digest: args.inputDigest, contentDigests: args.inputContentDigests },
     locator,
+    payloadDirectory,
   };
   return okResult(JSON.stringify(report));
 }

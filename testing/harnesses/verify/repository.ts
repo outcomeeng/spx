@@ -274,7 +274,11 @@ export interface VerifyLinkedWorktree {
 }
 
 /** The operations that report a selector's write paths and start a run of it. */
-export type WritePathRunner = Pick<VerifyLinkedWorktree, "startRun" | "reportWritePaths" | "snapshotState">;
+export interface WritePathRunner {
+  startRun: VerifyLinkedWorktree["startRun"];
+  reportWritePaths: VerifyLinkedWorktree["reportWritePaths"];
+  snapshotState: VerifyLinkedWorktree["snapshotState"];
+}
 
 /**
  * What one write-path report followed by one started run observed: the report command result, the
