@@ -15,23 +15,20 @@ import { observeDocumentationSyncStaging } from "@testing/harnesses/release/docu
 import {
   observeReleaseNotesStaging,
   RELEASE_STAGING_OUTCOME,
+  RELEASE_STAGING_SETTLEMENT,
   type ReleaseStagingObservation,
   type ReleaseStagingOutcome,
 } from "@testing/harnesses/release/release-staging";
-
-const EXPECTED_SETTLEMENT: Record<ReleaseStagingOutcome, ReleaseStagingObservation["settled"]> = {
-  [RELEASE_STAGING_OUTCOME.COMPLETED]: "resolved",
-  [RELEASE_STAGING_OUTCOME.AGENT_FAILURE]: "rejected",
-  [RELEASE_STAGING_OUTCOME.AUDIT_REJECTION]: "rejected",
-};
-
-const OUTCOMES = Object.values(RELEASE_STAGING_OUTCOME);
 
 function expectStagedInsideRunRootAndRemoved(
   observation: ReleaseStagingObservation,
   outcome: ReleaseStagingOutcome,
 ): void {
-  expect(observation.settled).toBe(EXPECTED_SETTLEMENT[outcome]);
+  expect(observation.settled).toBe(
+    outcome === RELEASE_STAGING_OUTCOME.COMPLETED
+      ? RELEASE_STAGING_SETTLEMENT.RESOLVED
+      : RELEASE_STAGING_SETTLEMENT.REJECTED,
+  );
   expect(observation.runRoot).toBeDefined();
   expect(observation.stages.length).toBeGreaterThan(0);
   for (const stage of observation.stages) {
@@ -42,7 +39,7 @@ function expectStagedInsideRunRootAndRemoved(
   expect(observation.strayEntries).toEqual([]);
 }
 
-describe.each(OUTCOMES)("release-notes composition that ends as %s", (outcome) => {
+describe.each(Object.values(RELEASE_STAGING_OUTCOME))("release-notes composition that ends as %s", (outcome) => {
   it("stages in a directory inside the run root and leaves no staging directory behind", async () => {
     const observation = await observeReleaseNotesStaging(sampleReleaseNotesCompositionFixture(), outcome);
 
@@ -50,7 +47,7 @@ describe.each(OUTCOMES)("release-notes composition that ends as %s", (outcome) =
   });
 });
 
-describe.each(OUTCOMES)("documentation sync that ends as %s", (outcome) => {
+describe.each(Object.values(RELEASE_STAGING_OUTCOME))("documentation sync that ends as %s", (outcome) => {
   it("stages in a directory inside the run root and leaves no staging directory behind", async () => {
     const observation = await observeDocumentationSyncStaging(
       sampleReleaseTestValue(arbitraryDefaultDocumentationSyncScenario()),

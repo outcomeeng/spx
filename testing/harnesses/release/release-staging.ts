@@ -40,6 +40,14 @@ export const RELEASE_STAGING_OUTCOME = {
 
 export type ReleaseStagingOutcome = (typeof RELEASE_STAGING_OUTCOME)[keyof typeof RELEASE_STAGING_OUTCOME];
 
+/** How a staged release settled: its composition resolved, or it rejected. */
+export const RELEASE_STAGING_SETTLEMENT = {
+  RESOLVED: "resolved",
+  REJECTED: "rejected",
+} as const;
+
+export type ReleaseStagingSettlement = (typeof RELEASE_STAGING_SETTLEMENT)[keyof typeof RELEASE_STAGING_SETTLEMENT];
+
 const INJECTED_AGENT_FAILURE_MESSAGE = "Injected agent failure while the staging directory exists";
 
 /** An agent runner whose run fails, so the release ends after staging and before promotion. */
@@ -62,7 +70,7 @@ export interface ReleaseStagingObservation {
   readonly runRoot: string | undefined;
   readonly stages: readonly ObservedStage[];
   /** Whether the release resolved or rejected. */
-  readonly settled: "resolved" | "rejected";
+  readonly settled: ReleaseStagingSettlement;
   /** Directories present in the run root after the release that were absent before it, by any route. */
   readonly strayEntries: readonly string[];
 }
@@ -80,7 +88,7 @@ export interface StageRecorder {
   /** Snapshots the run root's entries; call it before the release starts. */
   begin(): Promise<void>;
   /** Reads the recorded stages' current state; call it once the release has finished. */
-  observe(settled: "resolved" | "rejected"): Promise<ReleaseStagingObservation>;
+  observe(settled: ReleaseStagingSettlement): Promise<ReleaseStagingObservation>;
 }
 
 async function canonicalOrSelf(path: string): Promise<string> {
@@ -139,7 +147,7 @@ export async function observeReleaseNotesStaging(
     const recorder = createStageRecorder();
     const resolvedPath = resolveReleaseNotesPath(env.workingDirectory, {});
     await recorder.begin();
-    let settled: "resolved" | "rejected" = "resolved";
+    let settled: ReleaseStagingSettlement = RELEASE_STAGING_SETTLEMENT.RESOLVED;
     try {
       await composeReleaseNotes({
         releaseData: fixture.releaseData,
@@ -159,7 +167,7 @@ export async function observeReleaseNotesStaging(
         isFile: env.isFile,
       });
     } catch {
-      settled = "rejected";
+      settled = RELEASE_STAGING_SETTLEMENT.REJECTED;
     }
     observation = await recorder.observe(settled);
   });

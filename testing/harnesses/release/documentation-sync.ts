@@ -98,8 +98,10 @@ import {
   createStageRecorder,
   failingStagingAgentRunner,
   RELEASE_STAGING_OUTCOME,
+  RELEASE_STAGING_SETTLEMENT,
   type ReleaseStagingObservation,
   type ReleaseStagingOutcome,
+  type ReleaseStagingSettlement,
 } from "@testing/harnesses/release/release-staging";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
@@ -957,7 +959,7 @@ async function observeDocumentationSyncStaging(
     async (options, _readProductDocument, agent) => {
       const filesystem = createDocumentationSyncFilesystem();
       await recorder.begin();
-      let settled: "resolved" | "rejected" = "resolved";
+      let settled: ReleaseStagingSettlement = RELEASE_STAGING_SETTLEMENT.RESOLVED;
       try {
         await composeWithDocumentationFilesystem(
           {
@@ -967,7 +969,7 @@ async function observeDocumentationSyncStaging(
           { ...filesystem, stageDocumentation: recorder.record(filesystem.stageDocumentation) },
         );
       } catch {
-        settled = "rejected";
+        settled = RELEASE_STAGING_SETTLEMENT.REJECTED;
       }
       observation = await recorder.observe(settled);
     },
