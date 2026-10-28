@@ -276,6 +276,7 @@ export function registerVerifyCommands(
     readCheckFile: (path: string) => readFile(path),
     readPayloadSource: readCliSource,
     journalBinding: journalBinding(),
+    writeStderr: (text: string) => invocation.io.writeStderr(text),
   });
   const command = program.command(VERIFY_CLI.commandName).description(VERIFY_CLI.description);
   registerExecuteRunCommands(command, invocation, handlers, journalBinding);

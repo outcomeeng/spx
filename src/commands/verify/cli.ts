@@ -128,6 +128,7 @@ import {
   type StateStoreFileSystem,
   worktreeScopeDir,
 } from "@/lib/state-store";
+import { authoredText, externalValue, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
 import { SPX_VERIFY_ENV } from "@/lib/verification-env";
 import {
   type AvailableContentDigests,
@@ -155,6 +156,7 @@ export const VERIFY_CLI_ERROR = {
   CHANGE_INVENTORY_FAILED: "spx verification run could not derive the changeset change inventory",
   INPUT_PERSIST_FAILED: "spx verification run could not persist the recorded run input",
   PAYLOAD_DIRECTORY_FAILED: "spx verification run could not create the run payload directory",
+  PAYLOAD_DIRECTORY_REMOVAL_FAILED: "spx verification run could not remove the run payload directory",
   INPUT_READ_FAILED: "spx verification run could not read the recorded run input",
   PAYLOAD_REQUIRED: "spx verification run evidence-add commands require --payload <payload-source>",
   IDEMPOTENCY_KEY_REQUIRED: "spx verification run evidence-add commands require --idempotency-key <key>",
@@ -233,6 +235,8 @@ export interface VerifyCliDeps {
   readonly journalBinding?: JournalStreamBinding;
   /** The run's drive mode recorded at start; the caller path defaults to caller-driven, spx execution supplies spx-driven. */
   readonly driveMode?: VerifyDriveMode;
+  /** Writes a diagnostic to standard error; the command layer writes no process stream itself. */
+  readonly writeStderr?: (text: string) => void;
 }
 
 export interface VerifyStartCliOptions {
@@ -435,6 +439,8 @@ export interface VerifyFinishCliOptions {
   readonly run: string;
   readonly terminalStatus: string;
   readonly terminalMetadata?: string;
+  /** A name in the run's payload directory that selects the terminal metadata in place of `terminalMetadata`. */
+  readonly terminalMetadataRunPayload?: string;
 }
 
 export interface VerifyStatusCliOptions {
@@ -1847,6 +1853,7 @@ interface VerifyExistingRun {
   readonly namespace: string;
   readonly backendIdentity: string;
   readonly inputRecordPath: string;
+  readonly payloadDirectory: string;
   readonly recordedInput: RecordedInput;
   readonly selector: VerifyRunSelector;
 }
@@ -1929,6 +1936,7 @@ async function resolveExistingRunAddress(
       namespace: namespace.value,
       backendIdentity: resolved.value.backendIdentity,
       inputRecordPath: inputPath.value,
+      payloadDirectory: verifyRunPayloadDirectory(resolved.value.worktreeRoot, options.verificationType, options.run),
       selector: selector.value,
     },
   };
@@ -2024,21 +2032,35 @@ function finishReadFailure(
   return errorResult(`${VERIFY_CLI_ERROR.FINISH_FAILED}: ${error}`);
 }
 
-async function readTerminalMetadata(
+/** The raw terminal metadata text its run-relative name or its explicit source selects; absent when neither is given. */
+async function readTerminalMetadataText(
   options: VerifyFinishCliOptions,
+  payloadDirectory: string,
   deps: VerifyCliDeps,
-): Promise<Result<JsonValue | undefined>> {
+): Promise<Result<string | undefined>> {
+  if (options.terminalMetadataRunPayload !== undefined) {
+    return readRunPayload(payloadDirectory, options.terminalMetadataRunPayload, deps);
+  }
   if (options.terminalMetadata === undefined) return { ok: true, value: undefined };
   const readPayload = deps.readPayloadSource;
   if (readPayload === undefined) return { ok: false, error: VERIFY_CLI_ERROR.TERMINAL_METADATA_INVALID };
   try {
-    const rawMetadata = await readPayload(options.terminalMetadata);
-    const parsed = parseAppendPayload(rawMetadata);
-    if (parsed === undefined) return { ok: false, error: VERIFY_CLI_ERROR.PAYLOAD_INVALID };
-    return { ok: true, value: parsed };
+    return { ok: true, value: await readPayload(options.terminalMetadata) };
   } catch (error) {
     return { ok: false, error: `${VERIFY_CLI_ERROR.PAYLOAD_READ_FAILED}: ${toMessage(error)}` };
   }
+}
+
+async function readTerminalMetadata(
+  options: VerifyFinishCliOptions,
+  payloadDirectory: string,
+  deps: VerifyCliDeps,
+): Promise<Result<JsonValue | undefined>> {
+  const rawMetadata = await readTerminalMetadataText(options, payloadDirectory, deps);
+  if (!rawMetadata.ok || rawMetadata.value === undefined) return rawMetadata;
+  const parsed = parseAppendPayload(rawMetadata.value);
+  if (parsed === undefined) return { ok: false, error: VERIFY_CLI_ERROR.PAYLOAD_INVALID };
+  return { ok: true, value: parsed };
 }
 
 function validateTerminalMetadata(
@@ -2068,6 +2090,25 @@ function validateTerminalMetadata(
       note: VERIFY_REJECTION_TEXT.FINISH_RETRY_NOTE,
     }),
   };
+}
+
+/**
+ * Remove a sealed run's payload directory. A failed removal leaves the run sealed and the directory for
+ * the next `start` sweep, and is reported as a diagnostic naming the directory.
+ */
+async function removeSealedRunPayloadDirectory(directory: string, deps: VerifyCliDeps): Promise<void> {
+  const fs = deps.fs ?? defaultStateStoreFileSystem;
+  try {
+    await fs.rm(directory, { force: true, recursive: true });
+  } catch (error) {
+    deps.writeStderr?.(
+      renderTerminalText(
+        terminal`${authoredText(VERIFY_CLI_ERROR.PAYLOAD_DIRECTORY_REMOVAL_FAILED)}: ${externalValue(directory)}: ${
+          externalValue(toMessage(error))
+        }\n`,
+      ),
+    );
+  }
 }
 
 async function finishProjectionResult(run: VerifyExistingRunAddress, deps: VerifyCliDeps): Promise<CliCommandResult> {
@@ -2136,7 +2177,7 @@ export async function verifyFinishCommand(
   if (inputRecord.value === undefined) {
     return errorResult(existingRunNotFound(run.value, options));
   }
-  const rawTerminalMetadata = await readTerminalMetadata(options, deps);
+  const rawTerminalMetadata = await readTerminalMetadata(options, run.value.payloadDirectory, deps);
   if (!rawTerminalMetadata.ok) return errorResult(rawTerminalMetadata.error);
   const terminalMetadata = validateTerminalMetadata(
     options.verificationType,
@@ -2166,6 +2207,7 @@ export async function verifyFinishCommand(
   }
   const sealResult = await sealExistingRun(run.value, deps);
   if (sealResult !== undefined) return sealResult;
+  await removeSealedRunPayloadDirectory(run.value.payloadDirectory, deps);
 
   return finishProjectionResult(run.value, deps);
 }
