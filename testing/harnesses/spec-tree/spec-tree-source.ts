@@ -10,6 +10,7 @@
 import {
   compareSpecContextOrdinal,
   getKindDefinition,
+  renderSpecTreeRootFrontMatter,
   SPEC_TREE_CONFIG,
   SPEC_TREE_ENTRY_TYPE,
   SPEC_TREE_EVIDENCE_FILE,
@@ -208,7 +209,7 @@ export async function writeSourceFormTree(
   const body = `# ${product.title}\n`;
   await env.writeRaw(
     productRelativePath(tree.productFile),
-    form.productDeclaresKind ? `---\nkind: ${SPEC_TREE_CONFIG.PRODUCT.KIND}\n---\n\n${body}` : body,
+    form.productDeclaresKind ? `${renderSpecTreeRootFrontMatter()}\n${body}` : body,
   );
   await env.writeRaw(productRelativePath(tree.rootDirectory, `${root.slug}${form.specFileSuffix}`), body);
   await env.writeRaw(

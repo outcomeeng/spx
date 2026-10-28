@@ -13,6 +13,7 @@ import { METHODOLOGY_SECTION } from "@/config/methodology";
 import {
   createFilesystemSpecTreeSource,
   readSpecTree,
+  renderSpecTreeRootFrontMatter,
   SPEC_TREE_CONFIG,
   SPEC_TREE_GRAMMAR,
   type SpecTreeSnapshot,
@@ -29,9 +30,7 @@ export type KindContainmentEnv = {
 export const KIND_CONTAINMENT_ROOT_SPEC_FILE = `gradient${SPEC_TREE_GRAMMAR.SPEC_FILE.CANONICAL_SUFFIX}`;
 const LAYOUT_ROOT_SPEC = [SPEC_TREE_CONFIG.ROOT_DIRECTORY, KIND_CONTAINMENT_ROOT_SPEC_FILE]
   .join(SPEC_TREE_GRAMMAR.PATH_SEPARATOR);
-const LAYOUT_ROOT_SPEC_CONTENTS = ["---", `kind: ${SPEC_TREE_CONFIG.PRODUCT.KIND}`, "---", "", "# Gradient", ""].join(
-  "\n",
-);
+const LAYOUT_ROOT_SPEC_CONTENTS = `${renderSpecTreeRootFrontMatter()}\n# Gradient\n`;
 
 function readerFor(productDir: string): KindContainmentEnv {
   return { read: () => readSpecTree({ source: createFilesystemSpecTreeSource({ productDir }) }) };
