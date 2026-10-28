@@ -1089,28 +1089,71 @@ export function observeHoistedVitestRun(): Promise<ProductSuppliedVitestRunObser
   });
 }
 
-/** What a descriptor streaming run over a product supplying no runner exposes for inspection. */
+/**
+ * A contract Vitest Node API loader (Stage 5 exception 7, contract probe) that reports the Node
+ * API unresolvable for every product directory it is asked about, independent of the host
+ * filesystem above the product, and records each `resolve` and `load` call.
+ */
+export interface UnresolvableVitestNodeApiLoader extends VitestNodeApiLoader {
+  /** Every product directory `resolve` was asked to resolve against, in call order. */
+  readonly resolvedProductDirs: readonly string[];
+  /** Every resolution `resolve` returned, in call order. */
+  readonly resolutions: readonly VitestNodeApiResolution[];
+  /** Every specifier `load` was asked to import, in call order. */
+  readonly loadedSpecifiers: readonly string[];
+}
+
+/** Builds a loader whose `resolve` reports the searched product directory as supplying no Node API. */
+export function createUnresolvableVitestNodeApiLoader(): UnresolvableVitestNodeApiLoader {
+  const resolvedProductDirs: string[] = [];
+  const resolutions: VitestNodeApiResolution[] = [];
+  const loadedSpecifiers: string[] = [];
+  return {
+    resolve(productDir: string): VitestNodeApiResolution {
+      resolvedProductDirs.push(productDir);
+      const resolution: VitestNodeApiResolution = { resolved: false, productDir };
+      resolutions.push(resolution);
+      return resolution;
+    },
+    load(specifier: string): Promise<VitestNodeApi> {
+      loadedSpecifiers.push(specifier);
+      return Promise.reject(new Error(`unexpected load of ${specifier}`));
+    },
+    get resolvedProductDirs(): readonly string[] {
+      return resolvedProductDirs;
+    },
+    get resolutions(): readonly VitestNodeApiResolution[] {
+      return resolutions;
+    },
+    get loadedSpecifiers(): readonly string[] {
+      return loadedSpecifiers;
+    },
+  };
+}
+
+/** What a descriptor streaming run over a loader that resolves no Node API exposes for inspection. */
 export interface RunnerlessStreamingRunObservation {
   readonly request: JournalRunRequest;
-  /** The production loader's resolution against the runnerless product directory. */
-  readonly resolution: VitestNodeApiResolution;
+  readonly loader: UnresolvableVitestNodeApiLoader;
   readonly sink: RecordingEvidenceSink;
   readonly invocation: JournalRunInvocation;
 }
 
 /**
- * Drives the descriptor's streaming run, with only a sink, over an empty temp product that
- * supplies no Vitest, and returns the production loader's resolution and the run's outcome.
+ * Drives the descriptor's streaming run with the production run-starter built over a loader
+ * that reports the Node API unresolvable for the product directory it is asked about, and
+ * returns the loader's recorded calls, the sink's recorded evidence, and the run's outcome.
  */
-export function observeRunnerlessStreamingRun(): Promise<RunnerlessStreamingRunObservation> {
-  const testPaths = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest()).testPaths;
-  return withTempDir(RUNNERLESS_PREFIX, async (productDir) => {
-    const request: JournalRunRequest = { productDir, testPaths };
-    const resolution = productVitestNodeApiLoader.resolve(productDir);
-    const sink = createRecordingEvidenceSink();
-    const invocation = await descriptorRunTestsStreaming(request, { sink, isLanguagePresent: () => true });
-    return { request, resolution, sink, invocation };
+export async function observeRunnerlessStreamingRun(): Promise<RunnerlessStreamingRunObservation> {
+  const request = sampleGeneratedValue(JOURNAL_REPORTER_TEST_GENERATOR.runRequest());
+  const loader = createUnresolvableVitestNodeApiLoader();
+  const sink = createRecordingEvidenceSink();
+  const invocation = await descriptorRunTestsStreaming(request, {
+    sink,
+    starter: createVitestRunStarter(loader),
+    isLanguagePresent: () => true,
   });
+  return { request, loader, sink, invocation };
 }
 
 /** What the production lockfile lookup returns over a temp product root holding a chosen set of lockfile names. */

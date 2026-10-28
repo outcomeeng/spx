@@ -95,10 +95,11 @@ describe("journal-streaming run resolves the Vitest Node API from the product un
 describe("journal-streaming run over a product that supplies no runner", () => {
   it("reports the unresolvable Vitest Node API as a runner outcome naming the product directory searched", async () => {
     await observeRunnerlessStreamingRun().then((observation) => {
-      expect(observation.resolution).toEqual({
-        resolved: false,
-        productDir: observation.request.productDir,
-      });
+      expect(observation.loader.resolvedProductDirs).toEqual([observation.request.productDir]);
+      expect(observation.loader.resolutions).toEqual([
+        { resolved: false, productDir: observation.request.productDir },
+      ]);
+      expect(observation.loader.loadedSpecifiers).toEqual([]);
       expect(observation.invocation).toEqual({
         invoked: false,
         unresolvedRunner: { productDir: observation.request.productDir },
