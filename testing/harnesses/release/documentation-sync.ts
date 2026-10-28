@@ -41,6 +41,7 @@ import {
   type ComposeDocumentationSyncOptions,
   createDocumentationFaithfulnessAuditor,
   DOCUMENTATION_SYNC_AUDIT_APPROVED,
+  DOCUMENTATION_SYNC_AUDIT_REJECTED,
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_CLOSE,
   DOCUMENTATION_SYNC_PROMPT_DATA_BLOCK_OPEN,
   DOCUMENTATION_SYNC_PROMPT_INSTRUCTION,
@@ -93,7 +94,13 @@ import {
   type ReleaseContextTransportObservation,
   releaseSourceFromPrompt,
 } from "@testing/harnesses/release/agent-runner";
-import { createStageRecorder, type ReleaseStagingObservation } from "@testing/harnesses/release/release-staging";
+import {
+  createStageRecorder,
+  failingStagingAgentRunner,
+  RELEASE_STAGING_OUTCOME,
+  type ReleaseStagingObservation,
+  type ReleaseStagingOutcome,
+} from "@testing/harnesses/release/release-staging";
 import { withTempDir } from "@testing/harnesses/with-temp-dir";
 
 const PRODUCT_DIRECTORY_PREFIX = "spx-documentation-sync-";
@@ -937,19 +944,32 @@ async function observeDefaultDocumentationSync(
  */
 async function observeDocumentationSyncStaging(
   scenario: DocumentationSyncScenario,
+  outcome: ReleaseStagingOutcome = RELEASE_STAGING_OUTCOME.COMPLETED,
 ): Promise<ReleaseStagingObservation> {
   const recorder = createStageRecorder();
   let observation: ReleaseStagingObservation | undefined;
   await withDocumentationScenario(
     scenario,
-    async () => DOCUMENTATION_SYNC_AUDIT_APPROVED,
+    async () =>
+      outcome === RELEASE_STAGING_OUTCOME.AUDIT_REJECTION
+        ? DOCUMENTATION_SYNC_AUDIT_REJECTED
+        : DOCUMENTATION_SYNC_AUDIT_APPROVED,
     async (options, _readProductDocument, agent) => {
       const filesystem = createDocumentationSyncFilesystem();
-      await composeWithDocumentationFilesystem(
-        { ...options, agentRunner: agent },
-        { ...filesystem, stageDocumentation: recorder.record(filesystem.stageDocumentation) },
-      );
-      observation = await recorder.observe();
+      await recorder.begin();
+      let settled: "resolved" | "rejected" = "resolved";
+      try {
+        await composeWithDocumentationFilesystem(
+          {
+            ...options,
+            agentRunner: outcome === RELEASE_STAGING_OUTCOME.AGENT_FAILURE ? failingStagingAgentRunner : agent,
+          },
+          { ...filesystem, stageDocumentation: recorder.record(filesystem.stageDocumentation) },
+        );
+      } catch {
+        settled = "rejected";
+      }
+      observation = await recorder.observe(settled);
     },
   );
   if (observation === undefined) {

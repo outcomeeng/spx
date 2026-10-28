@@ -10,8 +10,10 @@
  */
 
 import { existsSync } from "node:fs";
-import { realpath } from "node:fs/promises";
+import { readdir, realpath } from "node:fs/promises";
+import { join } from "node:path";
 
+import type { AgentRunner } from "@/agent/agent-runner";
 import { composeReleaseNotes, resolveReleaseNotesPath } from "@/domains/release/release-notes";
 import { TEMP_DIRECTORY_ENV_VAR } from "@/lib/temp-directory";
 import type { ReleaseNotesCompositionFixture } from "@testing/generators/release/release-notes";
@@ -29,11 +31,40 @@ export interface ObservedStage {
   readonly existsAfterRelease: boolean;
 }
 
-/** The staging directories of one completed release and the run root of the process that ran it. */
+/** How a release ends: it completes, or a stage of it fails after the staging directory exists. */
+export const RELEASE_STAGING_OUTCOME = {
+  COMPLETED: "completed",
+  AGENT_FAILURE: "agent-failure",
+  AUDIT_REJECTION: "audit-rejection",
+} as const;
+
+export type ReleaseStagingOutcome = (typeof RELEASE_STAGING_OUTCOME)[keyof typeof RELEASE_STAGING_OUTCOME];
+
+const INJECTED_AGENT_FAILURE_MESSAGE = "Injected agent failure while the staging directory exists";
+
+/** An agent runner whose run fails, so the release ends after staging and before promotion. */
+export const failingStagingAgentRunner: AgentRunner = {
+  run: async () => {
+    throw new Error(INJECTED_AGENT_FAILURE_MESSAGE);
+  },
+};
+
+const INJECTED_AUDIT_REJECTION_MESSAGE = "Injected faithfulness rejection while the staging directory exists";
+
+const rejectingReleaseNotesFaithfulnessAuditor: Parameters<typeof composeReleaseNotes>[0]["faithfulnessAuditor"] =
+  async () => {
+    throw new Error(INJECTED_AUDIT_REJECTION_MESSAGE);
+  };
+
+/** The staging directories of one release, how it ended, and the run root of the process that ran it. */
 export interface ReleaseStagingObservation {
   /** The canonical run root the temp-directory primitive exported to this process, when it exported one. */
   readonly runRoot: string | undefined;
   readonly stages: readonly ObservedStage[];
+  /** Whether the release resolved or rejected. */
+  readonly settled: "resolved" | "rejected";
+  /** Directories present in the run root after the release that were absent before it, by any route. */
+  readonly strayEntries: readonly string[];
 }
 
 interface RecordedStage {
@@ -46,25 +77,41 @@ export interface StageRecorder {
   record<Args extends unknown[], Stage extends { readonly workingDirectory: string }>(
     stager: (...args: Args) => Promise<Stage>,
   ): (...args: Args) => Promise<Stage>;
+  /** Snapshots the run root's entries; call it before the release starts. */
+  begin(): Promise<void>;
   /** Reads the recorded stages' current state; call it once the release has finished. */
-  observe(): Promise<ReleaseStagingObservation>;
+  observe(settled: "resolved" | "rejected"): Promise<ReleaseStagingObservation>;
 }
 
 async function canonicalOrSelf(path: string): Promise<string> {
   return realpath(path).catch(() => path);
 }
 
+async function runRootEntries(): Promise<ReadonlySet<string>> {
+  const exportedRunRoot = process.env[TEMP_DIRECTORY_ENV_VAR.RUN_ROOT];
+  if (exportedRunRoot === undefined) return new Set();
+  const entries = await readdir(exportedRunRoot, { recursive: true, withFileTypes: true }).catch(() => []);
+  return new Set(
+    entries.filter((entry) => entry.isDirectory()).map((entry) => join(entry.parentPath, entry.name)),
+  );
+}
+
 export function createStageRecorder(): StageRecorder {
   const recorded: RecordedStage[] = [];
+  let baseline: ReadonlySet<string> = new Set();
   return {
+    begin: async () => {
+      baseline = await runRootEntries();
+    },
     record: (stager) => async (...args) => {
       const stage = await stager(...args);
       const existedWhileStaged = existsSync(stage.workingDirectory);
       recorded.push({ workingDirectory: await canonicalOrSelf(stage.workingDirectory), existedWhileStaged });
       return stage;
     },
-    observe: async () => {
+    observe: async (settled) => {
       const exportedRunRoot = process.env[TEMP_DIRECTORY_ENV_VAR.RUN_ROOT];
+      const after = await runRootEntries();
       return {
         runRoot: exportedRunRoot === undefined ? undefined : await canonicalOrSelf(exportedRunRoot),
         stages: recorded.map(({ workingDirectory, existedWhileStaged }) => ({
@@ -72,36 +119,49 @@ export function createStageRecorder(): StageRecorder {
           existedWhileStaged,
           existsAfterRelease: existsSync(workingDirectory),
         })),
+        settled,
+        strayEntries: [...after].filter((entry) => !baseline.has(entry)),
       };
     },
   };
 }
 
 /**
- * Composes release notes for `fixture` through the production release-notes filesystem and observes
- * the staging directories the composition created.
+ * Composes release notes for `fixture` through the production release-notes filesystem, ending as
+ * `outcome` says, and observes the staging directories the composition created.
  */
 export async function observeReleaseNotesStaging(
   fixture: ReleaseNotesCompositionFixture,
+  outcome: ReleaseStagingOutcome = RELEASE_STAGING_OUTCOME.COMPLETED,
 ): Promise<ReleaseStagingObservation> {
   let observation: ReleaseStagingObservation | undefined;
   await withReleaseNotesEnv(async (env) => {
     const recorder = createStageRecorder();
     const resolvedPath = resolveReleaseNotesPath(env.workingDirectory, {});
-    await composeReleaseNotes({
-      releaseData: fixture.releaseData,
-      config: {},
-      workingDirectory: env.workingDirectory,
-      agentRunner: releaseDataDrivenAgentRunner(env.workingDirectory, resolvedPath),
-      readArtifact: env.readArtifact,
-      createArtifactStage: recorder.record(env.createArtifactStage),
-      promoteArtifact: env.promoteArtifact,
-      faithfulnessAuditor: approvingReleaseNotesFaithfulnessAuditor,
-      canonicalizePath: env.canonicalizePath,
-      isSymbolicLink: env.isSymbolicLink,
-      isFile: env.isFile,
-    });
-    observation = await recorder.observe();
+    await recorder.begin();
+    let settled: "resolved" | "rejected" = "resolved";
+    try {
+      await composeReleaseNotes({
+        releaseData: fixture.releaseData,
+        config: {},
+        workingDirectory: env.workingDirectory,
+        agentRunner: outcome === RELEASE_STAGING_OUTCOME.AGENT_FAILURE
+          ? failingStagingAgentRunner
+          : releaseDataDrivenAgentRunner(env.workingDirectory, resolvedPath),
+        readArtifact: env.readArtifact,
+        createArtifactStage: recorder.record(env.createArtifactStage),
+        promoteArtifact: env.promoteArtifact,
+        faithfulnessAuditor: outcome === RELEASE_STAGING_OUTCOME.AUDIT_REJECTION
+          ? rejectingReleaseNotesFaithfulnessAuditor
+          : approvingReleaseNotesFaithfulnessAuditor,
+        canonicalizePath: env.canonicalizePath,
+        isSymbolicLink: env.isSymbolicLink,
+        isFile: env.isFile,
+      });
+    } catch {
+      settled = "rejected";
+    }
+    observation = await recorder.observe(settled);
   });
   if (observation === undefined) {
     throw new Error("Release-notes composition produced no staging observation");
