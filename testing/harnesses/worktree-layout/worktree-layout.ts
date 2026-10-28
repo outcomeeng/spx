@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { GIT_CEILING_DIRECTORIES_KEY, GIT_ENVIRONMENT_PREFIX } from "@/lib/git/environment";
 import {
   GIT_TEST_CONFIG,
   GIT_TEST_FLAGS,
@@ -14,7 +15,6 @@ const CONTAINER_PREFIX = "spx-worktree-layout-";
 const SOURCE_PREFIX = "spx-worktree-layout-source-";
 const BARE_REPO_SUFFIX = ".git";
 const DEFAULT_BARE_NAME = "repo";
-const GIT_ENV_PREFIX = "GIT_";
 /** Commit message for the harness's seed commit — a fixture value, not a git CLI token. */
 const INITIAL_COMMIT_MESSAGE = "init";
 /**
@@ -69,7 +69,8 @@ type CapturedGitEnv = ReadonlyMap<string, string>;
  * Provisions a real git worktree layout in temp directories, invokes the callback
  * with the container and each worktree's path, and removes the temp directories on
  * both the return and throw paths (composing on `withTempDir`). `GIT_*` process env
- * is stripped for the duration so a developer's git context cannot leak in.
+ * is stripped for the duration so a developer's git context cannot leak in, except
+ * `GIT_CEILING_DIRECTORIES`, which keeps the caller's value so repository discovery stays bounded.
  */
 export async function withWorktreeLayoutEnv(
   spec: WorktreeLayoutSpec,
@@ -193,7 +194,7 @@ async function addWorktree(
 function captureAndStripProcessGitEnv(): CapturedGitEnv {
   const captured = new Map<string, string>();
   for (const [key, value] of Object.entries(process.env)) {
-    if (value !== undefined && key.startsWith(GIT_ENV_PREFIX)) {
+    if (value !== undefined && key.startsWith(GIT_ENVIRONMENT_PREFIX) && key !== GIT_CEILING_DIRECTORIES_KEY) {
       captured.set(key, value);
       delete process.env[key];
     }

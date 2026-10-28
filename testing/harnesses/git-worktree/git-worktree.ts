@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
+import { GIT_CEILING_DIRECTORIES_KEY, GIT_ENVIRONMENT_PREFIX } from "@/lib/git/environment";
 import {
   GIT_TEST_CONFIG,
   GIT_TEST_FLAGS,
@@ -19,7 +20,6 @@ const CORE_EXCLUDES_FILE_KEY = "core.excludesFile";
 const SUBMODULE_ADD_SUBCOMMAND = "add";
 const PROTOCOL_FILE_ALLOW_CONFIG = "protocol.file.allow=always";
 const INITIAL_SUBMODULE_COMMIT_MESSAGE = "init submodule";
-const GIT_ENV_PREFIX = "GIT_";
 const TOP_LEVEL_DIRECTORY_DOT = ".";
 const TOP_LEVEL_DIRECTORY_EMPTY = "";
 
@@ -165,7 +165,7 @@ async function addLocalSubmodule(
 function captureAndStripProcessGitEnv(): CapturedGitEnv {
   const captured = new Map<string, string | undefined>();
   for (const key of Object.keys(process.env)) {
-    if (key.startsWith(GIT_ENV_PREFIX)) {
+    if (key.startsWith(GIT_ENVIRONMENT_PREFIX) && key !== GIT_CEILING_DIRECTORIES_KEY) {
       captured.set(key, process.env[key]);
       delete process.env[key];
     }

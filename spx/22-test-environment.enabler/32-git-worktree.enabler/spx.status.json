@@ -5,7 +5,7 @@
     "test": {
       "tests/helpers.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
+        "commit": "a97ac02fe1c01977affde7e1f7b2dc308517316a",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
@@ -23,7 +23,7 @@
       },
       "tests/ignore-sources.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
+        "commit": "a97ac02fe1c01977affde7e1f7b2dc308517316a",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
@@ -41,7 +41,7 @@
       },
       "tests/lifecycle.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
+        "commit": "a97ac02fe1c01977affde7e1f7b2dc308517316a",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
@@ -50,14 +50,32 @@
           "src/test/languages/read-recorder-install.ts",
           "src/test/languages/read-recorder-setup.ts",
           "src/test/languages/read-recorder.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/git-worktree/git-worktree.ts",
           "testing/harnesses/git-test-constants.ts",
           "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/process-env/process-env.ts",
           "testing/harnesses/with-temp-dir.ts"
+        ]
+      },
+      "tests/process-env.scenario.l1.test.ts": {
+        "verdict": "passed",
+        "commit": "a97ac02fe1c01977affde7e1f7b2dc308517316a",
+        "read": [
+          "pnpm-lock.yaml",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
+          "spx/22-test-environment.enabler/32-git-worktree.enabler/tests/process-env.scenario.l1.test.ts",
+          "src/test/languages/read-recorder-install.ts",
+          "src/test/languages/read-recorder-setup.ts",
+          "src/test/languages/read-recorder.ts",
+          "testing/generators/git-name/git-name.ts",
+          "testing/generators/git-worktree/git-worktree.ts",
+          "testing/harnesses/process-env/process-env.ts"
         ]
       },
       "tests/safety.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
+        "commit": "a97ac02fe1c01977affde7e1f7b2dc308517316a",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-git-worktree.enabler/git-worktree.md",
@@ -70,6 +88,7 @@
           "testing/generators/git-worktree/git-worktree.ts",
           "testing/harnesses/git-test-constants.ts",
           "testing/harnesses/git-worktree/git-worktree.ts",
+          "testing/harnesses/process-env/process-env.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
       }

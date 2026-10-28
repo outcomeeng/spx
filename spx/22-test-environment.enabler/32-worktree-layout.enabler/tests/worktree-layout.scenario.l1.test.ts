@@ -3,7 +3,9 @@ import { isAbsolute } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { CONFIG_TEST_GENERATOR, sampleConfigTestValue } from "@testing/generators/config/descriptors";
+import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
 import { GIT_TEST_ENVIRONMENT_KEYS } from "@testing/harnesses/git-test-constants";
+import { withProcessEnv } from "@testing/harnesses/process-env/process-env";
 import { withWorktreeLayoutEnv } from "@testing/harnesses/worktree-layout/worktree-layout";
 
 describe("worktree layout test harness", () => {
@@ -28,46 +30,76 @@ describe("worktree layout test harness", () => {
 
   it("strips a GIT_* variable for the callback and restores it afterward", async () => {
     const key = GIT_TEST_ENVIRONMENT_KEYS.DIR;
-    const sentinel = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const callerValues = sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.environmentValues([key]));
     const name = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
-    const prior = process.env[key];
-    process.env[key] = sentinel;
+    let observedInside: string | undefined = callerValues[key];
+    let observedAfter: string | undefined;
 
-    try {
+    await withProcessEnv(callerValues, async () => {
       await withWorktreeLayoutEnv({ bare: false, worktrees: [{ name }] }, async () => {
-        expect(process.env[key]).toBeUndefined();
+        observedInside = process.env[key];
       });
-      expect(process.env[key]).toBe(sentinel);
-    } finally {
-      if (prior === undefined) {
-        delete process.env[key];
-      } else {
-        process.env[key] = prior;
-      }
-    }
+      observedAfter = process.env[key];
+    });
+
+    expect(observedInside).toBeUndefined();
+    expect(observedAfter).toBe(callerValues[key]);
+  });
+
+  it("keeps GIT_CEILING_DIRECTORIES at the caller's value during and after a returning callback", async () => {
+    const key = GIT_TEST_ENVIRONMENT_KEYS.CEILING_DIRECTORIES;
+    const callerValues = sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.environmentValues([key]));
+    const name = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    let observedInside: string | undefined;
+    let observedAfter: string | undefined;
+
+    await withProcessEnv(callerValues, async () => {
+      await withWorktreeLayoutEnv({ bare: false, worktrees: [{ name }] }, async () => {
+        observedInside = process.env[key];
+      });
+      observedAfter = process.env[key];
+    });
+
+    expect(observedInside).toBe(callerValues[key]);
+    expect(observedAfter).toBe(callerValues[key]);
+  });
+
+  it("keeps GIT_CEILING_DIRECTORIES at the caller's value during and after a throwing callback", async () => {
+    const key = GIT_TEST_ENVIRONMENT_KEYS.CEILING_DIRECTORIES;
+    const callerValues = sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.environmentValues([key]));
+    const name = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const thrown = new Error(name);
+    let observedInside: string | undefined;
+    let observedAfter: string | undefined;
+
+    await withProcessEnv(callerValues, async () => {
+      await expect(
+        withWorktreeLayoutEnv({ bare: false, worktrees: [{ name }] }, () => {
+          observedInside = process.env[key];
+          return Promise.reject(thrown);
+        }),
+      ).rejects.toBe(thrown);
+      observedAfter = process.env[key];
+    });
+
+    expect(observedInside).toBe(callerValues[key]);
+    expect(observedAfter).toBe(callerValues[key]);
   });
 
   it("restores a GIT_* variable after the callback throws", async () => {
     const key = GIT_TEST_ENVIRONMENT_KEYS.DIR;
-    const sentinel = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
+    const callerValues = sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.environmentValues([key]));
     const name = sampleConfigTestValue(CONFIG_TEST_GENERATOR.key());
-    const prior = process.env[key];
-    process.env[key] = sentinel;
+    const thrown = new Error(name);
+    let observedAfter: string | undefined;
 
-    try {
+    await withProcessEnv(callerValues, async () => {
       await expect(
-        withWorktreeLayoutEnv(
-          { bare: false, worktrees: [{ name }] },
-          () => Promise.reject(new Error(sentinel)),
-        ),
-      ).rejects.toThrow();
-      expect(process.env[key]).toBe(sentinel);
-    } finally {
-      if (prior === undefined) {
-        delete process.env[key];
-      } else {
-        process.env[key] = prior;
-      }
-    }
+        withWorktreeLayoutEnv({ bare: false, worktrees: [{ name }] }, () => Promise.reject(thrown)),
+      ).rejects.toBe(thrown);
+      observedAfter = process.env[key];
+    });
+
+    expect(observedAfter).toBe(callerValues[key]);
   });
 });

@@ -5,7 +5,7 @@
     "test": {
       "tests/scope-resolver.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
+        "commit": "a97ac02fe1c01977affde7e1f7b2dc308517316a",
         "read": [
           "pnpm-lock.yaml",
           "spx/17-file-inclusion.enabler/43-scope-resolver.enabler/scope-resolver.md",
@@ -108,7 +108,7 @@
       },
       "tests/scope-resolver.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
+        "commit": "a97ac02fe1c01977affde7e1f7b2dc308517316a",
         "read": [
           "pnpm-lock.yaml",
           "spx/17-file-inclusion.enabler/43-scope-resolver.enabler/scope-resolver.md",
@@ -210,7 +210,7 @@
       },
       "tests/scope-resolver.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
+        "commit": "a97ac02fe1c01977affde7e1f7b2dc308517316a",
         "read": [
           "pnpm-lock.yaml",
           "spx/17-file-inclusion.enabler/43-scope-resolver.enabler/scope-resolver.md",

@@ -2,7 +2,7 @@ import { join } from "node:path";
 
 import { execa } from "execa";
 
-import { withoutGitEnvironment } from "@/lib/git/environment";
+import { GIT_CEILING_DIRECTORIES_KEY, withoutGitEnvironment } from "@/lib/git/environment";
 
 export const GIT_TEST_COMMAND = "git";
 
@@ -91,11 +91,16 @@ export const GIT_TEST_CONFIG = {
 
 export const GIT_TEST_ENVIRONMENT_KEYS = {
   AUTHOR_NAME: "GIT_AUTHOR_NAME",
-  CEILING_DIRECTORIES: "GIT_CEILING_DIRECTORIES",
+  CEILING_DIRECTORIES: GIT_CEILING_DIRECTORIES_KEY,
   COMMITTER_EMAIL: "GIT_COMMITTER_EMAIL",
   DIR: "GIT_DIR",
   WORK_TREE: "GIT_WORK_TREE",
 } as const;
+
+/** Every `GIT_*` key the harnesses cover that a worktree callback strips from `process.env`; the ceiling keeps the caller's value. */
+export const GIT_TEST_STRIPPED_ENVIRONMENT_KEYS: readonly string[] = Object.values(GIT_TEST_ENVIRONMENT_KEYS).filter(
+  (key) => key !== GIT_CEILING_DIRECTORIES_KEY,
+);
 
 const TEST_TYPESCRIPT_RUNNER_RELATIVE_PATH = ["node_modules", ".bin", "tsx"] as const;
 const TEST_TYPESCRIPT_EXECUTION_ARGS = ["--input-type=module", "--eval"] as const;

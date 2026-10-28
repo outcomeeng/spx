@@ -5,7 +5,7 @@
     "test": {
       "tests/worktree-layout.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "7aecf4092df96df5ca06dd54a3bf654a7db0a176",
+        "commit": "a97ac02fe1c01977affde7e1f7b2dc308517316a",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-worktree-layout.enabler/tests/worktree-layout.scenario.l1.test.ts",
@@ -69,9 +69,11 @@
           "src/validation/literal/config.ts",
           "testing/generators/config/descriptors.ts",
           "testing/generators/git-name/git-name.ts",
+          "testing/generators/git-worktree/git-worktree.ts",
           "testing/generators/methodology/tree.ts",
           "testing/generators/sample.ts",
           "testing/harnesses/git-test-constants.ts",
+          "testing/harnesses/process-env/process-env.ts",
           "testing/harnesses/with-temp-dir.ts",
           "testing/harnesses/worktree-layout/worktree-layout.ts"
         ]
