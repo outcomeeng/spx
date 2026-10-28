@@ -22,8 +22,6 @@ Directory access granted through writable roots is prompt-bounded operation with
 
 ## Verification
 
-Draft rules, untagged until verification selection:
-
 - ALWAYS: before `start` creates its run's payload directory, no payload directory remains in the worktree for a run whose journal is closed or absent from every branch scope, while the payload directory of a run whose journal is open remains, whichever branch the worktree has checked out
 - ALWAYS: the payload directory `start` reports lies under `.spx/worktree/` at the local worktree root, inside the payload root the write-path report names for the same verification type and scope
 - ALWAYS: once `finish` seals a run, its payload directory no longer exists, and `render` and `input` for that run succeed
