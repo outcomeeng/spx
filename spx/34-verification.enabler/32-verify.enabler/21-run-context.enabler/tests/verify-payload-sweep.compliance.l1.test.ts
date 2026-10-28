@@ -12,10 +12,13 @@ import { withVerifyHeadCommitRepository } from "@testing/harnesses/verify/reposi
 // holds a journal for, under every verification type's payload root, and keeps the payload directory of a
 // run whose journal is open. The violating cases are directories staged for runs of each closed or absent
 // kind, with a file inside each; the conforming cases are the directory of an open run and the directory of
-// the run `start` creates. The checkout's paths before and after the starting run are the oracle.
+// the run `start` creates. Every run starts from a linked worktree whose root differs from the repository's
+// checkout, so a sweep that scans another root leaves the worktree's staged directories in place. The
+// worktree's paths before and after the starting run are the oracle.
 describe("verify start payload directory sweep", () => {
   it("removes the payload directories of closed and absent runs under every verification type and keeps those of open runs", async () => {
-    await withVerifyHeadCommitRepository(async (repository) => {
+    await withVerifyHeadCommitRepository(async (checkout) => {
+      const repository = await checkout.linkWorktree();
       const finishedRun = await repository.startRun(VERIFY_SCOPE_TYPE.FILE, VERIFY_VERIFICATION_TYPE.AUDIT);
       const sealedRun = await repository.startRun(VERIFY_SCOPE_TYPE.FILE, VERIFY_VERIFICATION_TYPE.REVIEW);
       const openRun = await repository.startRun(VERIFY_SCOPE_TYPE.FILE, VERIFY_VERIFICATION_TYPE.TEST);
@@ -58,8 +61,9 @@ describe("verify start payload directory sweep", () => {
     });
   });
 
-  it("removes the payload directory of a run closed on another branch and keeps that of a run open on another branch after the checkout's head moves", async () => {
-    await withVerifyHeadCommitRepository(async (repository) => {
+  it("removes the payload directory of a run closed on another branch and keeps that of a run open on another branch after the worktree's head moves", async () => {
+    await withVerifyHeadCommitRepository(async (checkout) => {
+      const repository = await checkout.linkWorktree();
       const closedRun = await repository.startRun(VERIFY_SCOPE_TYPE.FILE, VERIFY_VERIFICATION_TYPE.AUDIT);
       const openRun = await repository.startRun(VERIFY_SCOPE_TYPE.FILE, VERIFY_VERIFICATION_TYPE.AUDIT);
       const sealed = await repository.sealJournal(closedRun);
@@ -68,7 +72,7 @@ describe("verify start payload directory sweep", () => {
       const openDirectory = repository.payloadDirectory(VERIFY_VERIFICATION_TYPE.AUDIT, openRun.runToken ?? "");
       await repository.stagePayloadFile(closedDirectory, stagedName);
       await repository.stagePayloadFile(openDirectory, stagedName);
-      await repository.detachHead(repository.headCommit);
+      await repository.detachHead(checkout.headCommit);
       const before = new Set((await repository.snapshotState()).map((entry) => entry.path));
 
       const starting = await repository.startRun(VERIFY_SCOPE_TYPE.FILE, VERIFY_VERIFICATION_TYPE.AUDIT);

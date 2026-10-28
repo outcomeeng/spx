@@ -268,6 +268,16 @@ export interface VerifyLinkedWorktree {
   startRun(scopeType: string, verificationType?: string): Promise<StartedRepositoryRun>;
   /** Start a run of `scopeType` through the executor's recorder operations, the path on which spx opens a run. */
   startSpxRun(scopeType: string, verificationType?: string): Promise<RunLocator>;
+  /** Finish a run started from this worktree with `terminalStatus` through the production `finish` operation. */
+  finish(run: StartedRepositoryRun, terminalStatus: string): Promise<CliCommandResult>;
+  /** Seal the journal of a run started from this worktree through the production journal seal operation. */
+  sealJournal(run: StartedRepositoryRun): Promise<CliCommandResult>;
+  /** The payload directory the specified layout gives the run `runToken` of `verificationType` at this worktree's root. */
+  payloadDirectory(verificationType: string, runToken: string): string;
+  /** Write a file named `name` into `directory`, creating the directory, as a caller stages a payload. */
+  stagePayloadFile(directory: string, name: string): Promise<void>;
+  /** Detach this worktree's HEAD at `ref`, which moves the branch scope later runs from it record into. */
+  detachHead(ref: string): Promise<void>;
   reportWritePaths(scopeType: string, verificationType?: string): Promise<CliCommandResult>;
   /** Observe every file and directory of this worktree, the Git file excluded, at canonical paths. */
   snapshotState(): Promise<readonly RepositoryStateEntry[]>;
@@ -532,6 +542,25 @@ function createVerifyRunStarter(cwd: string, git: GitDependencies): VerifyRunSta
   };
 }
 
+/** The payload directory the specified layout gives the run `runToken` of `verificationType` at the worktree root `worktreeRoot`. */
+function payloadDirectoryAt(worktreeRoot: string, verificationType: string, runToken: string): string {
+  return join(
+    worktreeScopeDir(worktreeRoot),
+    verificationType,
+    VERIFY_PAYLOAD_PATH.ROOT_SEGMENT,
+    `${VERIFY_PAYLOAD_PATH.RUN_DIRECTORY_PREFIX}${runToken}`,
+  );
+}
+
+async function stagePayloadFile(directory: string, name: string): Promise<void> {
+  await mkdir(directory, { recursive: true });
+  await writeFile(join(directory, name), name);
+}
+
+async function detachHeadAt(worktreeRoot: string, ref: string): Promise<void> {
+  await runGit(worktreeRoot, [GIT_TEST_SUBCOMMANDS.CHECKOUT, GIT_TEST_FLAGS.DETACH, ref]);
+}
+
 /**
  * Create the head-commit repository in a temporary directory and hand it to the callback. The
  * directory and every run recorded under its `.spx/` store are removed when the callback settles.
@@ -574,20 +603,9 @@ export async function withVerifyHeadCommitRepository<T>(
         sealJournal,
         startSpxRun: async (scopeType, verificationType) =>
           startSpxRun(scopeType, scopeFor(scopeType), verificationType),
-        payloadDirectory: (verificationType, runToken) =>
-          join(
-            worktreeScopeDir(productDir),
-            verificationType,
-            VERIFY_PAYLOAD_PATH.ROOT_SEGMENT,
-            `${VERIFY_PAYLOAD_PATH.RUN_DIRECTORY_PREFIX}${runToken}`,
-          ),
-        stagePayloadFile: async (directory, name) => {
-          await mkdir(directory, { recursive: true });
-          await writeFile(join(directory, name), name);
-        },
-        detachHead: async (ref) => {
-          await runGit(productDir, [GIT_TEST_SUBCOMMANDS.CHECKOUT, GIT_TEST_FLAGS.DETACH, ref]);
-        },
+        payloadDirectory: (verificationType, runToken) => payloadDirectoryAt(productDir, verificationType, runToken),
+        stagePayloadFile,
+        detachHead: async (ref) => detachHeadAt(productDir, ref),
         writeCheckoutFile: async (path) => {
           const absoluteFile = join(productDir, path);
           await mkdir(dirname(absoluteFile), { recursive: true });
@@ -617,6 +635,11 @@ export async function withVerifyHeadCommitRepository<T>(
           const linked = createVerifyRunStarter(worktreeDir, realVerifyGitDependencies());
           return {
             worktreeDir,
+            finish: linked.finish,
+            sealJournal: linked.sealJournal,
+            payloadDirectory: (verificationType, runToken) => payloadDirectoryAt(worktreeDir, verificationType, runToken),
+            stagePayloadFile,
+            detachHead: async (ref) => detachHeadAt(worktreeDir, ref),
             startRun: async (scopeType, verificationType) =>
               linked.startRun(scopeType, scopeFor(scopeType), verificationType),
             startSpxRun: async (scopeType, verificationType) =>
