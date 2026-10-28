@@ -1,4 +1,3 @@
-import type { ChildProcess, SpawnOptions } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative } from "node:path";
 
@@ -7,8 +6,6 @@ import { stringify } from "yaml";
 
 import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
 import { TYPESCRIPT_VALIDATION_MESSAGES, typescriptCommand } from "@/commands/validation/typescript";
-import type { ProcessRunner } from "@/lib/process-lifecycle";
-import { getProcessTempDirectory, TEMP_DIRECTORY_PATH } from "@/lib/temp-directory";
 import {
   VALIDATION_PATH_TOOL_SUBSECTIONS,
   VALIDATION_PATHS_SUBSECTION,
@@ -42,8 +39,7 @@ import {
   DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_PATTERN,
   validateCircularDependencies,
 } from "@/validation/steps/circular";
-import { KNIP_COMMAND_TOKENS, type KnipDeps, validateKnip } from "@/validation/steps/knip";
-import { VALIDATION_SUBPROCESS_EVENTS } from "@/validation/steps/subprocess-output";
+import { KNIP_COMMAND_TOKENS, validateKnip } from "@/validation/steps/knip";
 import {
   defaultTypeScriptDeps,
   formatTypeScriptExitCodeError,
@@ -54,8 +50,8 @@ import { VALIDATION_SCOPES } from "@/validation/types";
 import { LITERAL_TEST_GENERATOR, sampleLiteralTestValue } from "@testing/generators/literal/literal";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
 import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
-import { withValidationScratchRun } from "@testing/harnesses/validation/scratch-directories";
-import { RecordingSpawnOptionsRunner, RecordingValidationChild } from "@testing/harnesses/validation/subprocess";
+import { createRecordingKnipDeps } from "@testing/harnesses/validation/scratch-directories";
+import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
 import {
   PROJECT_FIXTURES,
   VALIDATION_FIXTURE_TEXT_ENCODING,
@@ -101,68 +97,6 @@ function expectedDependencyCruiserSourcePatterns(directory: string): string[] {
   return DEPENDENCY_CRUISER_TYPESCRIPT_SOURCE_GLOB_SUFFIXES.map((suffix) => join(directory, suffix));
 }
 
-function expectedKnipDirectorySourcePatterns(directory: string): string[] {
-  return TYPESCRIPT_FALLBACK_INCLUDE_PATTERNS.map((pattern) => join(directory, pattern));
-}
-
-interface RecordingKnipDepsContext {
-  readonly writtenConfigs: string[];
-  readonly writtenConfigPaths: string[];
-  readonly deps: KnipDeps;
-}
-
-interface RecordingTypeScriptDepsContext {
-  readonly writtenConfigs: string[];
-  readonly writtenConfigPaths: string[];
-  readonly deps: TypeScriptDeps;
-}
-
-function createRecordingKnipDeps(): RecordingKnipDepsContext {
-  const writtenConfigs: string[] = [];
-  const writtenConfigPaths: string[] = [];
-  return {
-    writtenConfigs,
-    writtenConfigPaths,
-    deps: {
-      existsSync: () => false,
-      tempDirectory: getProcessTempDirectory(),
-      writeFile: async (path, data) => {
-        writtenConfigPaths.push(path.toString());
-        writtenConfigs.push(data.toString());
-      },
-    },
-  };
-}
-
-function createRecordingTypeScriptDeps(): RecordingTypeScriptDepsContext {
-  const writtenConfigs: string[] = [];
-  const writtenConfigPaths: string[] = [];
-  return {
-    writtenConfigs,
-    writtenConfigPaths,
-    deps: {
-      ...defaultTypeScriptDeps,
-      writeFileSync(path, data) {
-        writtenConfigPaths.push(path.toString());
-        writtenConfigs.push(data.toString());
-        defaultTypeScriptDeps.writeFileSync(path, data);
-      },
-    },
-  };
-}
-
-function expectTemporaryConfigPathInsideNodeModules(
-  productDir: string,
-  configPath: string | undefined,
-): void {
-  expect(configPath?.startsWith(join(productDir, "node_modules"))).toBe(true);
-  expect(
-    configPath?.startsWith(
-      join(productDir, ...TEMP_DIRECTORY_PATH.SCRATCH_PARENT_SEGMENTS),
-    ),
-  ).toBe(true);
-}
-
 type TypeScriptValidationRequest = Parameters<typeof validateTypeScript>[0];
 
 interface ProductDirValidationRun {
@@ -186,29 +120,6 @@ async function runTypeScriptValidationFromProductDir(
     );
 
     return { productDir: env.productDir, checkedPaths, runner, result };
-  });
-}
-
-interface TemporaryTypeScriptConfigRun {
-  readonly productDir: string;
-  readonly writtenConfigs: readonly string[];
-  readonly writtenConfigPaths: readonly string[];
-  readonly result: Awaited<ReturnType<typeof validateTypeScript>>;
-}
-
-async function runTypeScriptValidationWithRecordedConfig(
-  request: Omit<TypeScriptValidationRequest, "productDir">,
-): Promise<TemporaryTypeScriptConfigRun> {
-  return await withTestEnv({}, async (env) => {
-    const runner = new RecordingSpawnOptionsRunner();
-    const { deps, writtenConfigs, writtenConfigPaths } = createRecordingTypeScriptDeps();
-
-    const result = await validateTypeScript(
-      { ...request, productDir: env.productDir },
-      { runner, deps },
-    );
-
-    return { productDir: env.productDir, writtenConfigs, writtenConfigPaths, result };
   });
 }
 
@@ -237,32 +148,6 @@ const extensionlessNestedPath = join(
   VALIDATION_PIPELINE_DATA.sourceDirectoryName,
   VALIDATION_PIPELINE_DATA.extensionlessSourceFileName,
 );
-
-class ErrorThenCloseRunner implements ProcessRunner {
-  readonly options: SpawnOptions[] = [];
-
-  constructor(private readonly errorMessage: string) {}
-
-  spawn(
-    _command: string,
-    _args: readonly string[],
-    options?: SpawnOptions,
-  ): ChildProcess {
-    this.options.push(options ?? {});
-    const child = new RecordingValidationChild();
-    queueMicrotask(() => {
-      child.emit(
-        VALIDATION_SUBPROCESS_EVENTS.ERROR,
-        new Error(this.errorMessage),
-      );
-      child.emit(
-        VALIDATION_SUBPROCESS_EVENTS.CLOSE,
-        VALIDATION_EXIT_CODES.FAILURE,
-      );
-    });
-    return child.asChildProcess();
-  }
-}
 
 describe("ALWAYS: TypeScript scope resolution uses the requested product directory", () => {
   it("discovers TypeScript directories under the requested product directory", async () => {
@@ -1149,94 +1034,6 @@ describe("ALWAYS: TypeScript scope resolution uses the requested product directo
     });
   });
 
-  it("runs config-filtered Knip validation through a scoped temporary config", async () => {
-    await withTestEnv({}, async (env) => {
-      const runner = new RecordingSpawnOptionsRunner();
-      const { deps, writtenConfigs, writtenConfigPaths } = createRecordingKnipDeps();
-
-      const result = await validateKnip(
-        {
-          productDir: env.productDir,
-          typescriptScope: {
-            directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
-            filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
-            excludePatterns: [
-              VALIDATION_PIPELINE_DATA.productionScopeExcludePattern,
-            ],
-            filteredByValidationPaths: true,
-          },
-        },
-        runner,
-        deps,
-      );
-
-      expect(result.success).toBe(true);
-      expect(
-        runner.options.every((options) => options.cwd === env.productDir),
-      ).toBe(true);
-      expect(runner.args[0]?.slice(0, 3)).toEqual([
-        KNIP_COMMAND_TOKENS.COMMAND,
-        KNIP_COMMAND_TOKENS.USE_TSCONFIG_FILES_FLAG,
-        KNIP_COMMAND_TOKENS.TSCONFIG_FLAG,
-      ]);
-      expectTemporaryConfigPathInsideNodeModules(
-        env.productDir,
-        writtenConfigPaths[0],
-      );
-      expect(writtenConfigs).toHaveLength(1);
-      expect(JSON.parse(writtenConfigs[0] ?? "{}")).toEqual({
-        extends: join(env.productDir, TSCONFIG_FILES.full),
-        include: [
-          ...expectedKnipDirectorySourcePatterns(
-            VALIDATION_PIPELINE_DATA.sourceDirectoryName,
-          ).map((pattern) => join(env.productDir, pattern)),
-          join(
-            env.productDir,
-            VALIDATION_PIPELINE_DATA.productionScopeFilePattern,
-          ),
-        ],
-        exclude: [
-          join(
-            env.productDir,
-            VALIDATION_PIPELINE_DATA.productionScopeExcludePattern,
-          ),
-        ],
-      });
-    });
-  });
-
-  it("cleans config-filtered Knip temporary config once when error and close both fire", async () => {
-    const errorMessage = sampleLiteralTestValue(
-      LITERAL_TEST_GENERATOR.domainLiteral(),
-    );
-    await withValidationScratchRun(async (scratch) => {
-      const runner = new ErrorThenCloseRunner(errorMessage);
-
-      const result = await validateKnip(
-        {
-          productDir: scratch.productDirectory,
-          typescriptScope: {
-            directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
-            filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
-            excludePatterns: [
-              VALIDATION_PIPELINE_DATA.productionScopeExcludePattern,
-            ],
-            filteredByValidationPaths: true,
-          },
-        },
-        runner,
-        scratch.knipDeps,
-      );
-
-      expect(result).toEqual({ success: false, error: errorMessage });
-      expect(scratch.removed).toHaveLength(1);
-      expect(scratch.scratchEntries()).toEqual([]);
-      expect(
-        runner.options.every((options) => options.cwd === scratch.productDirectory),
-      ).toBe(true);
-    });
-  });
-
   it("runs file-scoped Knip validation through a scoped temporary config", async () => {
     await withTestEnv({}, async (env) => {
       const runner = new RecordingSpawnOptionsRunner();
@@ -1282,43 +1079,6 @@ describe("ALWAYS: TypeScript scope resolution uses the requested product directo
             VALIDATION_PIPELINE_DATA.productionScopeExcludePattern,
           ),
         ],
-      });
-    });
-  });
-
-  it("runs directory-scoped Knip validation with fallback patterns and retained literal file patterns", async () => {
-    await withTestEnv({}, async (env) => {
-      const runner = new RecordingSpawnOptionsRunner();
-      const { deps, writtenConfigs, writtenConfigPaths } = createRecordingKnipDeps();
-
-      const result = await validateKnip(
-        {
-          productDir: env.productDir,
-          typescriptScope: {
-            directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
-            filePatterns: [nestedSourceFile],
-            excludePatterns: [],
-            filteredByValidationPaths: true,
-          },
-        },
-        runner,
-        deps,
-      );
-
-      expect(result).toEqual({ success: true, output: "" });
-      expectTemporaryConfigPathInsideNodeModules(
-        env.productDir,
-        writtenConfigPaths[0],
-      );
-      expect(JSON.parse(writtenConfigs[0] ?? "{}")).toEqual({
-        extends: join(env.productDir, TSCONFIG_FILES.full),
-        include: [
-          ...expectedKnipDirectorySourcePatterns(
-            VALIDATION_PIPELINE_DATA.sourceDirectoryName,
-          ).map((pattern) => join(env.productDir, pattern)),
-          join(env.productDir, nestedSourceFile),
-        ],
-        exclude: [],
       });
     });
   });
@@ -1437,48 +1197,5 @@ describe("ALWAYS: TypeScript scope resolution uses the requested product directo
         join(env.productDir, TSCONFIG_FILES.full),
       ]);
     });
-  });
-});
-
-describe("ALWAYS: the temporary tsconfig reproduces the project's TypeScript resolution", () => {
-  it("writes the scope-filtered temporary config inside the project's node_modules and fabricates no compiler options", async () => {
-    const { productDir, result, writtenConfigs, writtenConfigPaths } = await runTypeScriptValidationWithRecordedConfig({
-      scope: VALIDATION_SCOPES.FULL,
-      scopeConfig: {
-        directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
-        filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
-        excludePatterns: [VALIDATION_PIPELINE_DATA.productionScopeExcludePattern],
-        filteredByValidationPaths: true,
-      },
-    });
-
-    expect(result.success).toBe(true);
-    expect(writtenConfigPaths).toHaveLength(1);
-    expectTemporaryConfigPathInsideNodeModules(productDir, writtenConfigPaths[0]);
-    const writtenConfig = JSON.parse(writtenConfigs[0] ?? "{}");
-    expect(writtenConfig.extends).toBe(join(productDir, TSCONFIG_FILES.full));
-    expect(writtenConfig.compilerOptions).toEqual({ noEmit: true });
-    expect(writtenConfig).not.toHaveProperty("typeRoots");
-    expect(writtenConfig).not.toHaveProperty("types");
-    expect(writtenConfig.compilerOptions).not.toHaveProperty("typeRoots");
-    expect(writtenConfig.compilerOptions).not.toHaveProperty("types");
-  });
-
-  it("writes the file-specific temporary config inside the project's node_modules and fabricates no compiler options", async () => {
-    const { productDir, result, writtenConfigs, writtenConfigPaths } = await runTypeScriptValidationWithRecordedConfig({
-      scope: VALIDATION_SCOPES.FULL,
-      files: [VALIDATION_PIPELINE_DATA.scopeResolutionSourceFile],
-    });
-
-    expect(result.success).toBe(true);
-    expect(writtenConfigPaths).toHaveLength(1);
-    expectTemporaryConfigPathInsideNodeModules(productDir, writtenConfigPaths[0]);
-    const writtenConfig = JSON.parse(writtenConfigs[0] ?? "{}");
-    expect(writtenConfig.extends).toBe(join(productDir, TSCONFIG_FILES.full));
-    expect(writtenConfig.compilerOptions).toEqual({ noEmit: true });
-    expect(writtenConfig).not.toHaveProperty("typeRoots");
-    expect(writtenConfig).not.toHaveProperty("types");
-    expect(writtenConfig.compilerOptions).not.toHaveProperty("typeRoots");
-    expect(writtenConfig.compilerOptions).not.toHaveProperty("types");
   });
 });

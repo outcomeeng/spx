@@ -16,15 +16,19 @@ import { existsSync, readdirSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { TEMP_DIRECTORY_PATH } from "@/lib/temp-directory";
+import { VALIDATION_EXIT_CODES } from "@/commands/validation/messages";
+import type { ProcessRunner } from "@/lib/process-lifecycle";
+import { getProcessTempDirectory, TEMP_DIRECTORY_PATH } from "@/lib/temp-directory";
 import { type KnipDeps, validateKnip } from "@/validation/steps/knip";
+import { VALIDATION_SUBPROCESS_EVENTS } from "@/validation/steps/subprocess-output";
 import { defaultTypeScriptDeps, type TypeScriptDeps, validateTypeScript } from "@/validation/steps/typescript";
 import { VALIDATION_SCOPES } from "@/validation/types";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { arbitraryProductSegments } from "@testing/generators/temp-directory/temp-directory";
 import { VALIDATION_PIPELINE_DATA } from "@testing/generators/validation/validation";
+import { withTestEnv } from "@testing/harnesses/spec-tree/spec-tree";
 import { withTempDirectoryHost } from "@testing/harnesses/temp-directory/temp-directory";
-import { RecordingSpawnOptionsRunner } from "@testing/harnesses/validation/subprocess";
+import { RecordingSpawnOptionsRunner, RecordingValidationChild } from "@testing/harnesses/validation/subprocess";
 
 /** The validation stages that write a temporary `tsconfig.json` into a scratch directory. */
 export const VALIDATION_SCRATCH_STAGE = {
@@ -58,8 +62,118 @@ export interface ValidationScratchRun {
   seedEntry(name: string): void;
   /** Entry names currently in the scratch parent; empty while the parent does not exist. */
   scratchEntries(): string[];
+  /** Runs config-filtered Knip validation on `runner` in this run's product directory and returns its result. */
+  runKnip(runner: ProcessRunner): ReturnType<typeof validateKnip>;
   /** Runs `stage` with a tool process that exits with `exitCode`, and returns what the stage left behind. */
   runStage(stage: ValidationScratchStage, exitCode: number): Promise<ValidationScratchStageObservation>;
+}
+
+/** A tool process that emits an error and then a close event with the failure exit code. */
+export class ErrorThenCloseRunner implements ProcessRunner {
+  readonly options: SpawnOptions[] = [];
+
+  constructor(private readonly errorMessage: string) {}
+
+  spawn(
+    _command: string,
+    _args: readonly string[],
+    options?: SpawnOptions,
+  ): ChildProcess {
+    this.options.push(options ?? {});
+    const child = new RecordingValidationChild();
+    queueMicrotask(() => {
+      child.emit(
+        VALIDATION_SUBPROCESS_EVENTS.ERROR,
+        new Error(this.errorMessage),
+      );
+      child.emit(
+        VALIDATION_SUBPROCESS_EVENTS.CLOSE,
+        VALIDATION_EXIT_CODES.FAILURE,
+      );
+    });
+    return child.asChildProcess();
+  }
+}
+
+export interface RecordingKnipDepsContext {
+  readonly writtenConfigs: string[];
+  readonly writtenConfigPaths: string[];
+  readonly deps: KnipDeps;
+}
+
+/** Knip dependencies that record each temporary config the stage writes and write nothing. */
+export function createRecordingKnipDeps(): RecordingKnipDepsContext {
+  const writtenConfigs: string[] = [];
+  const writtenConfigPaths: string[] = [];
+  return {
+    writtenConfigs,
+    writtenConfigPaths,
+    deps: {
+      existsSync: () => false,
+      tempDirectory: getProcessTempDirectory(),
+      writeFile: async (path, data) => {
+        writtenConfigPaths.push(path.toString());
+        writtenConfigs.push(data.toString());
+      },
+    },
+  };
+}
+
+type KnipValidationRequest = Parameters<typeof validateKnip>[0];
+type TypeScriptValidationRequest = Parameters<typeof validateTypeScript>[0];
+
+/** What a Knip run against a fresh product directory wrote and spawned. */
+export interface RecordedKnipRun {
+  readonly productDir: string;
+  readonly runner: RecordingSpawnOptionsRunner;
+  readonly result: Awaited<ReturnType<typeof validateKnip>>;
+  readonly writtenConfigs: readonly string[];
+  readonly writtenConfigPaths: readonly string[];
+}
+
+/** Runs Knip validation in a fresh product directory and returns the config it wrote, without a verdict. */
+export async function runKnipValidationWithRecordedConfig(
+  request: Omit<KnipValidationRequest, "productDir">,
+): Promise<RecordedKnipRun> {
+  return await withTestEnv({}, async (env) => {
+    const runner = new RecordingSpawnOptionsRunner();
+    const { deps, writtenConfigs, writtenConfigPaths } = createRecordingKnipDeps();
+
+    const result = await validateKnip({ ...request, productDir: env.productDir }, runner, deps);
+
+    return { productDir: env.productDir, runner, result, writtenConfigs, writtenConfigPaths };
+  });
+}
+
+/** What a TypeScript validation run against a fresh product directory wrote. */
+export interface RecordedTypeScriptRun {
+  readonly productDir: string;
+  readonly writtenConfigs: readonly string[];
+  readonly writtenConfigPaths: readonly string[];
+  readonly result: Awaited<ReturnType<typeof validateTypeScript>>;
+}
+
+/** Runs TypeScript validation in a fresh product directory and returns the config it wrote, without a verdict. */
+export async function runTypeScriptValidationWithRecordedConfig(
+  request: Omit<TypeScriptValidationRequest, "productDir">,
+): Promise<RecordedTypeScriptRun> {
+  return await withTestEnv({}, async (env) => {
+    const runner = new RecordingSpawnOptionsRunner();
+    const writtenConfigs: string[] = [];
+    const writtenConfigPaths: string[] = [];
+    const deps: TypeScriptDeps = {
+      ...defaultTypeScriptDeps,
+      writeFileSync(path, data) {
+        writtenConfigPaths.push(path.toString());
+        writtenConfigs.push(data.toString());
+        defaultTypeScriptDeps.writeFileSync(path, data);
+      },
+    };
+
+    const result = await validateTypeScript({ ...request, productDir: env.productDir }, { runner, deps });
+
+    return { productDir: env.productDir, writtenConfigs, writtenConfigPaths, result };
+  });
 }
 
 class ScratchObservingRunner extends RecordingSpawnOptionsRunner {
@@ -109,6 +223,20 @@ export async function withValidationScratchRun<T>(
       knipDeps,
       seedEntry: (name) => host.seedLeftover(join(scratchParent, name)),
       scratchEntries,
+      runKnip: (runner) =>
+        validateKnip(
+          {
+            productDir: productDirectory,
+            typescriptScope: {
+              directories: [VALIDATION_PIPELINE_DATA.sourceDirectoryName],
+              filePatterns: [VALIDATION_PIPELINE_DATA.productionScopeFilePattern],
+              excludePatterns: [VALIDATION_PIPELINE_DATA.productionScopeExcludePattern],
+              filteredByValidationPaths: true,
+            },
+          },
+          runner,
+          knipDeps,
+        ),
       async runStage(stage, exitCode) {
         const runner = new ScratchObservingRunner(exitCode, scratchEntries);
         const configDirectories: string[] = [];
