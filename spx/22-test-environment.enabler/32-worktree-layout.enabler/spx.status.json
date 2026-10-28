@@ -5,7 +5,7 @@
     "test": {
       "tests/worktree-layout.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "a97ac02fe1c01977affde7e1f7b2dc308517316a",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/22-test-environment.enabler/32-worktree-layout.enabler/tests/worktree-layout.scenario.l1.test.ts",
@@ -60,7 +60,10 @@
           "src/lib/spec-tree/link-grammar.ts",
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
+          "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
+          "src/lib/verification-env.ts",
           "src/test/config.ts",
           "src/test/languages/read-recorder-install.ts",
           "src/test/languages/read-recorder-setup.ts",

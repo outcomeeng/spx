@@ -5,7 +5,7 @@
     "test": {
       "tests/read-recorder.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/32-read-recorder.enabler/read-recorder.md",
@@ -77,6 +77,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/lib/verification-input/digests.ts",
@@ -115,13 +116,15 @@
           "testing/harnesses/property/property.ts",
           "testing/harnesses/testing/journal-reporter.ts",
           "testing/harnesses/testing/read-recorder.ts",
+          "testing/harnesses/testing/vitest-fixture-config.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
       },
       "tests/read-recorder.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
+          "package.json",
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/32-read-recorder.enabler/read-recorder.md",
           "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/32-read-recorder.enabler/tests/read-recorder.compliance.l2.test.ts",
@@ -192,6 +195,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/lib/verification-input/digests.ts",
@@ -229,12 +233,13 @@
           "testing/generators/testing/read-recorder.ts",
           "testing/harnesses/testing/journal-reporter.ts",
           "testing/harnesses/testing/read-recorder.ts",
+          "testing/harnesses/testing/vitest-fixture-config.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
       },
       "tests/read-recorder.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/32-read-recorder.enabler/read-recorder.md",
@@ -306,6 +311,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/lib/verification-input/digests.ts",
@@ -344,13 +350,15 @@
           "testing/harnesses/property/property.ts",
           "testing/harnesses/testing/journal-reporter.ts",
           "testing/harnesses/testing/read-recorder.ts",
+          "testing/harnesses/testing/vitest-fixture-config.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
       },
       "tests/read-recorder.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
+          "package.json",
           "pnpm-lock.yaml",
           "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/32-read-recorder.enabler/read-recorder.md",
           "spx/41-test.enabler/21-typescript-test.enabler/32-journal-reporter.enabler/32-read-recorder.enabler/tests/read-recorder.scenario.l2.test.ts",
@@ -421,6 +429,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/lib/verification-input/digests.ts",
@@ -458,6 +467,7 @@
           "testing/generators/testing/read-recorder.ts",
           "testing/harnesses/testing/journal-reporter.ts",
           "testing/harnesses/testing/read-recorder.ts",
+          "testing/harnesses/testing/vitest-fixture-config.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
       }

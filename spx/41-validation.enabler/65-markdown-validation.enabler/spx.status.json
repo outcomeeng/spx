@@ -5,7 +5,7 @@
     "test": {
       "tests/markdown-validation-command.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -329,6 +329,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -398,7 +399,7 @@
       },
       "tests/markdown-validation.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -502,6 +503,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/test/config.ts",
@@ -550,7 +552,7 @@
       },
       "tests/markdown-validation.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -628,6 +630,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/test/config.ts",
@@ -655,7 +658,7 @@
       },
       "tests/markdown-validation.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -731,6 +734,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/test/config.ts",
@@ -754,7 +758,7 @@
       },
       "tests/markdown-validation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "89061e88070f3387ae1ff1d2e6e64459839f70bc",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx.config.yaml",
@@ -773,6 +777,9 @@
           "spx/13-cli.enabler/21-validation-subprocess-harness.enabler/validation-subprocess-harness.md",
           "spx/13-cli.enabler/ISSUES.md",
           "spx/13-cli.enabler/cli.md",
+          "spx/13-temp-directory.substrate/21-run-scoped-temp-root.adr.md",
+          "spx/13-temp-directory.substrate/ISSUES.md",
+          "spx/13-temp-directory.substrate/temp-directory.spec.md",
           "spx/14-cli-composition.adr.md",
           "spx/15-agent-run-journal.enabler/21-event-sourced-journal.adr.md",
           "spx/15-agent-run-journal.enabler/32-journal-module-structure.adr.md",
@@ -1339,6 +1346,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/test/config.ts",

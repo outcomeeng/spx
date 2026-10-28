@@ -5,7 +5,7 @@
     "test": {
       "tests/release-test-generators.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/24-release-test-generators.enabler/release-test-generators.md",
@@ -99,6 +99,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/outcomeeng/spec-tree/graph/source/order.ts",
@@ -138,7 +139,7 @@
       },
       "tests/release-test-generators.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/24-release-test-generators.enabler/release-test-generators.md",
@@ -232,6 +233,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/outcomeeng/spec-tree/graph/source/order.ts",

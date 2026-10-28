@@ -5,7 +5,7 @@
     "test": {
       "tests/lock-command.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "eaf0ff085170ebef5c5cc7082ab087c3874f1b17",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-orchestration.enabler/orchestration.md",
@@ -329,6 +329,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",

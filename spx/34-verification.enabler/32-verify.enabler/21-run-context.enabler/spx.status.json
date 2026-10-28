@@ -5,7 +5,7 @@
     "test": {
       "tests/verify-change-identity.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -331,6 +331,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -401,7 +402,7 @@
       },
       "tests/verify-change-identity.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -727,6 +728,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -797,7 +799,7 @@
       },
       "tests/verify-change-inventory.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -1123,6 +1125,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -1197,7 +1200,7 @@
       },
       "tests/verify-drive-mode.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -1523,6 +1526,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -1593,7 +1597,7 @@
       },
       "tests/verify-expectations.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -1919,6 +1923,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -1993,7 +1998,7 @@
       },
       "tests/verify-file-scope.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -2115,6 +2120,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -2156,7 +2162,7 @@
       },
       "tests/verify-file-scope.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -2482,6 +2488,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -2552,7 +2559,7 @@
       },
       "tests/verify-head-commit.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -2878,6 +2885,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -2952,7 +2960,7 @@
       },
       "tests/verify-input-check.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -3278,6 +3286,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -3351,7 +3360,7 @@
       },
       "tests/verify-input-check.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -3677,6 +3686,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -3750,7 +3760,7 @@
       },
       "tests/verify-input.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -4076,6 +4086,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -4146,7 +4157,7 @@
       },
       "tests/verify-input.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -4472,6 +4483,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -4542,7 +4554,7 @@
       },
       "tests/verify-scope.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -4868,6 +4880,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -4938,7 +4951,7 @@
       },
       "tests/verify-scope.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -5264,6 +5277,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -5334,7 +5348,7 @@
       },
       "tests/verify-start-content-identity.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -5660,6 +5674,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -5733,7 +5748,7 @@
       },
       "tests/verify-start-expected-digest.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -6059,6 +6074,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -6132,7 +6148,7 @@
       },
       "tests/verify-start.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -6458,6 +6474,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -6528,7 +6545,7 @@
       },
       "tests/verify-start.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -6854,6 +6871,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -6924,7 +6942,7 @@
       },
       "tests/verify-verifier.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -7250,6 +7268,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -7320,7 +7339,7 @@
       },
       "tests/verify-verifier.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -7646,6 +7665,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",

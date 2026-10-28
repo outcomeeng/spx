@@ -5,7 +5,7 @@
     "test": {
       "tests/passing-scope.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/43-last-run-evidence.enabler/last-run-evidence.md",
@@ -92,6 +92,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -140,13 +141,14 @@
           "testing/harnesses/testing/journal-reporter.ts",
           "testing/harnesses/testing/simulated-report.ts",
           "testing/harnesses/testing/typescript-runner.ts",
+          "testing/harnesses/testing/vitest-fixture-config.ts",
           "testing/harnesses/vitest-registration.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
       },
       "tests/recorded-run-reuse.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/43-last-run-evidence.enabler/last-run-evidence.md",
@@ -472,6 +474,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -548,6 +551,7 @@
           "testing/harnesses/testing/recorded-run.ts",
           "testing/harnesses/testing/simulated-report.ts",
           "testing/harnesses/testing/typescript-runner.ts",
+          "testing/harnesses/testing/vitest-fixture-config.ts",
           "testing/harnesses/verify/harness.ts",
           "testing/harnesses/verify/repository.ts",
           "testing/harnesses/vitest-registration.ts",
@@ -556,7 +560,7 @@
       },
       "tests/recorded-run-satisfaction.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/43-last-run-evidence.enabler/last-run-evidence.md",
@@ -882,6 +886,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -960,6 +965,7 @@
           "testing/harnesses/testing/recorded-run.ts",
           "testing/harnesses/testing/simulated-report.ts",
           "testing/harnesses/testing/typescript-runner.ts",
+          "testing/harnesses/testing/vitest-fixture-config.ts",
           "testing/harnesses/verify/harness.ts",
           "testing/harnesses/verify/repository.ts",
           "testing/harnesses/vitest-registration.ts",
@@ -968,7 +974,7 @@
       },
       "tests/run-state.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/43-last-run-evidence.enabler/last-run-evidence.md",
@@ -1035,6 +1041,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/test/config.ts",
@@ -1068,7 +1075,7 @@
       },
       "tests/run-state.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/43-last-run-evidence.enabler/last-run-evidence.md",
@@ -1135,6 +1142,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/test/config.ts",
@@ -1167,7 +1175,7 @@
       },
       "tests/staleness.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-test.enabler/43-last-run-evidence.enabler/last-run-evidence.md",

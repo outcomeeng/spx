@@ -5,7 +5,7 @@
     "test": {
       "tests/dispatch.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/21-validation-cli.enabler/tests/dispatch.compliance.l2.test.ts",
@@ -329,6 +329,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -400,7 +401,7 @@
       },
       "tests/dispatch.mapping.l2.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/21-validation-cli.enabler/tests/dispatch.mapping.l2.test.ts",
@@ -724,6 +725,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -793,7 +795,7 @@
       },
       "tests/dispatch.property.l2.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/21-validation-cli.enabler/tests/dispatch.property.l2.test.ts",
@@ -1117,6 +1119,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -1186,7 +1189,7 @@
       },
       "tests/dispatch.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/21-validation-cli.enabler/tests/dispatch.scenario.l2.test.ts",
@@ -1510,6 +1513,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -1581,7 +1585,7 @@
       },
       "tests/full-pipeline-skip.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/21-validation-cli.enabler/tests/full-pipeline-skip.scenario.l2.test.ts",
@@ -1905,6 +1909,7 @@
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
           "src/lib/styled-output/styled-output.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",

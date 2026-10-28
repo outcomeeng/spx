@@ -5,7 +5,7 @@
     "test": {
       "tests/pin-currency.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -114,6 +114,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -173,13 +174,14 @@
           "testing/harnesses/testing/journal-reporter.ts",
           "testing/harnesses/testing/simulated-report.ts",
           "testing/harnesses/testing/typescript-runner.ts",
+          "testing/harnesses/testing/vitest-fixture-config.ts",
           "testing/harnesses/vitest-registration.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
       },
       "tests/spec-cli-commands.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -312,6 +314,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -377,13 +380,14 @@
           "testing/harnesses/testing/journal-reporter.ts",
           "testing/harnesses/testing/simulated-report.ts",
           "testing/harnesses/testing/typescript-runner.ts",
+          "testing/harnesses/testing/vitest-fixture-config.ts",
           "testing/harnesses/vitest-registration.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
       },
       "tests/spec-cli-commands.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -493,6 +497,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -553,13 +558,14 @@
           "testing/harnesses/testing/journal-reporter.ts",
           "testing/harnesses/testing/simulated-report.ts",
           "testing/harnesses/testing/typescript-runner.ts",
+          "testing/harnesses/testing/vitest-fixture-config.ts",
           "testing/harnesses/vitest-registration.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
       },
       "tests/spec-cli-commands.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -697,6 +703,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -761,13 +768,14 @@
           "testing/harnesses/testing/simulated-report.ts",
           "testing/harnesses/testing/status-journal.ts",
           "testing/harnesses/testing/typescript-runner.ts",
+          "testing/harnesses/testing/vitest-fixture-config.ts",
           "testing/harnesses/vitest-registration.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
       },
       "tests/spec-context-commands.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -895,6 +903,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -941,7 +950,7 @@
       },
       "tests/spec-status-fold.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -1050,6 +1059,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -1109,13 +1119,14 @@
           "testing/harnesses/testing/journal-reporter.ts",
           "testing/harnesses/testing/simulated-report.ts",
           "testing/harnesses/testing/typescript-runner.ts",
+          "testing/harnesses/testing/vitest-fixture-config.ts",
           "testing/harnesses/vitest-registration.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
       },
       "tests/status-journal-evidence.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -1230,6 +1241,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -1291,14 +1303,16 @@
           "testing/harnesses/testing/simulated-report.ts",
           "testing/harnesses/testing/status-journal.ts",
           "testing/harnesses/testing/typescript-runner.ts",
+          "testing/harnesses/testing/vitest-fixture-config.ts",
           "testing/harnesses/vitest-registration.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
       },
       "tests/status-journal-evidence.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
+          "package.json",
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/tests/status-journal-evidence.scenario.l2.test.ts",
@@ -1412,6 +1426,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -1473,13 +1488,14 @@
           "testing/harnesses/testing/simulated-report.ts",
           "testing/harnesses/testing/status-journal.ts",
           "testing/harnesses/testing/typescript-runner.ts",
+          "testing/harnesses/testing/vitest-fixture-config.ts",
           "testing/harnesses/vitest-registration.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
       },
       "tests/status-testing-delegation.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/31-spec-domain.enabler/54-spec-cli-commands.enabler/spec-cli-commands.md",
@@ -1588,6 +1604,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/test-targeting/index.ts",
           "src/lib/verification-env.ts",
@@ -1644,6 +1661,7 @@
           "testing/harnesses/testing/journal-reporter.ts",
           "testing/harnesses/testing/simulated-report.ts",
           "testing/harnesses/testing/typescript-runner.ts",
+          "testing/harnesses/testing/vitest-fixture-config.ts",
           "testing/harnesses/vitest-registration.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]

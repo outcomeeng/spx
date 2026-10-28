@@ -5,7 +5,7 @@
     "test": {
       "tests/config-ambiguity.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "eaf0ff085170ebef5c5cc7082ab087c3874f1b17",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/config.md",
@@ -89,6 +89,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/test/config.ts",
@@ -113,7 +114,7 @@
       },
       "tests/config-format.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "eaf0ff085170ebef5c5cc7082ab087c3874f1b17",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/config.md",
@@ -197,6 +198,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/test/config.ts",
@@ -221,7 +223,7 @@
       },
       "tests/defaults-only.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "eaf0ff085170ebef5c5cc7082ab087c3874f1b17",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/config.md",
@@ -305,6 +307,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/test/config.ts",
@@ -394,7 +397,7 @@
       },
       "tests/determinism.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "eaf0ff085170ebef5c5cc7082ab087c3874f1b17",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/config.md",
@@ -478,6 +481,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/test/config.ts",
@@ -503,7 +507,7 @@
       },
       "tests/format-api.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "eaf0ff085170ebef5c5cc7082ab087c3874f1b17",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/config.md",
@@ -587,6 +591,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/test/config.ts",
@@ -612,7 +617,7 @@
       },
       "tests/invariants.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "eaf0ff085170ebef5c5cc7082ab087c3874f1b17",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/config.md",
@@ -696,6 +701,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/test/config.ts",
@@ -721,7 +727,7 @@
       },
       "tests/partial-yaml.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "eaf0ff085170ebef5c5cc7082ab087c3874f1b17",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/config.md",
@@ -805,6 +811,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/test/config.ts",
@@ -829,7 +836,7 @@
       },
       "tests/registry-extension.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "eaf0ff085170ebef5c5cc7082ab087c3874f1b17",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/config.md",
@@ -913,6 +920,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/test/config.ts",
@@ -937,7 +945,7 @@
       },
       "tests/resolution-scope.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "eaf0ff085170ebef5c5cc7082ab087c3874f1b17",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/config.md",
@@ -1021,6 +1029,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/test/config.ts",
@@ -1046,7 +1055,7 @@
       },
       "tests/typed-or-error.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "eaf0ff085170ebef5c5cc7082ab087c3874f1b17",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/config.md",
@@ -1131,6 +1140,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/test/config.ts",
@@ -1155,7 +1165,7 @@
       },
       "tests/validation-failure.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "eaf0ff085170ebef5c5cc7082ab087c3874f1b17",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/config.md",
@@ -1240,6 +1250,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/test/config.ts",
@@ -1264,7 +1275,7 @@
       },
       "tests/validation-isolation.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "eaf0ff085170ebef5c5cc7082ab087c3874f1b17",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/16-config.enabler/config.md",
@@ -1348,6 +1359,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/test/config.ts",

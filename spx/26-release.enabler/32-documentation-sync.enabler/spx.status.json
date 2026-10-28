@@ -5,7 +5,7 @@
     "test": {
       "tests/documentation-sync.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-documentation-sync.enabler/documentation-sync.md",
@@ -101,6 +101,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/outcomeeng/spec-tree/graph/source/order.ts",
@@ -136,12 +137,15 @@
           "testing/generators/sample.ts",
           "testing/harnesses/release/agent-runner.ts",
           "testing/harnesses/release/documentation-sync.ts",
+          "testing/harnesses/release/release-notes-env.ts",
+          "testing/harnesses/release/release-notes.ts",
+          "testing/harnesses/release/release-staging.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
       },
       "tests/documentation-sync.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-documentation-sync.enabler/documentation-sync.md",
@@ -237,6 +241,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/outcomeeng/spec-tree/graph/source/order.ts",
@@ -273,12 +278,15 @@
           "testing/generators/sample.ts",
           "testing/harnesses/release/agent-runner.ts",
           "testing/harnesses/release/documentation-sync.ts",
+          "testing/harnesses/release/release-notes-env.ts",
+          "testing/harnesses/release/release-notes.ts",
+          "testing/harnesses/release/release-staging.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
       },
       "tests/documentation-sync.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-documentation-sync.enabler/documentation-sync.md",
@@ -394,6 +402,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/outcomeeng/spec-tree/graph/source/order.ts",
@@ -439,12 +448,15 @@
           "testing/harnesses/release/agent-runner.ts",
           "testing/harnesses/release/documentation-sync.ts",
           "testing/harnesses/release/product-context.ts",
+          "testing/harnesses/release/release-notes-env.ts",
+          "testing/harnesses/release/release-notes.ts",
+          "testing/harnesses/release/release-staging.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
       },
       "tests/documentation-sync.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/32-documentation-sync.enabler/documentation-sync.md",
@@ -540,6 +552,7 @@
           "src/lib/spec-tree/order.ts",
           "src/lib/spec-tree/path-ownership.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/outcomeeng/spec-tree/graph/source/order.ts",
@@ -575,6 +588,9 @@
           "testing/generators/sample.ts",
           "testing/harnesses/release/agent-runner.ts",
           "testing/harnesses/release/documentation-sync.ts",
+          "testing/harnesses/release/release-notes-env.ts",
+          "testing/harnesses/release/release-notes.ts",
+          "testing/harnesses/release/release-staging.ts",
           "testing/harnesses/with-temp-dir.ts"
         ]
       }

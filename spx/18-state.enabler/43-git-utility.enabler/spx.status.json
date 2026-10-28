@@ -20,7 +20,7 @@
       },
       "tests/git-utility.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/43-git-utility.enabler/git-utility.md",
@@ -32,6 +32,7 @@
           "src/lib/git/root.ts",
           "src/lib/sanitize-cli-argument.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/test/languages/read-recorder-install.ts",
@@ -47,7 +48,7 @@
       },
       "tests/git-utility.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "985fa2daf9843477a2a91dc657c57465a69b7fdb",
+        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
         "read": [
           "pnpm-lock.yaml",
           "spx/18-state.enabler/43-git-utility.enabler/git-utility.md",
@@ -59,6 +60,7 @@
           "src/lib/git/root.ts",
           "src/lib/sanitize-cli-argument.ts",
           "src/lib/state-store/index.ts",
+          "src/lib/temp-directory/index.ts",
           "src/lib/terminal-text/terminal-text.ts",
           "src/lib/verification-env.ts",
           "src/test/languages/read-recorder-install.ts",
