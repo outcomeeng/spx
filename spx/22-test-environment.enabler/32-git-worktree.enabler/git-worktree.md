@@ -16,6 +16,9 @@ CAN exercise git's native ignore-resolution behavior against real worktrees, wit
 - Given the callback invokes `writeUntracked(path, content)`, when `git ls-files --others --exclude-standard --full-name` runs against `productDir`, then the path appears in the output ([test](tests/helpers.scenario.l1.test.ts))
 - Given the callback invokes `addSubmodule(relativePath)`, when `git ls-files --cached --full-name` runs against `productDir`, then the submodule path appears once as a single entry and the submodule's contained files do not appear ([test](tests/helpers.scenario.l1.test.ts))
 
+- Given `process.env` holds a value for one key and has no entry for another, when the callback passed to the shared `withProcessEnv` harness sets both keys and returns, then the first key holds its prior value and the second key has no entry ([test](tests/process-env.scenario.l1.test.ts))
+- Given `process.env` holds a value for one key and has no entry for another, when the callback passed to the shared `withProcessEnv` harness sets both keys and rejects, then the first key holds its prior value, the second key has no entry, and the rejection reaches the caller unchanged ([test](tests/process-env.scenario.l1.test.ts))
+
 ### Mappings
 
 - For each git ignore source — top-level `.gitignore` via `writeGitignore(".", pattern)`, nested `.gitignore` via `writeGitignore(directory, pattern)`, repo-local exclude via `writeInfoExclude(pattern)`, and the `core.excludesFile`-referenced excludes file via `configureGlobalExcludes(pattern)` — a path matching the pattern is excluded from `git ls-files --cached --others --exclude-standard --full-name` ([test](tests/ignore-sources.mapping.l1.test.ts))
