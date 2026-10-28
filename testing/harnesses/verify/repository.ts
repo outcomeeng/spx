@@ -204,10 +204,15 @@ export interface AppendedRepositoryScope {
   readonly scopePayloads: readonly JsonValue[];
 }
 
-/** What one evidence append by run-relative payload name produced: the command result and the payload of every event of that kind the run's journal then holds. */
+/**
+ * What one evidence append by run-relative payload name produced: the command result, the payload of
+ * every event of that kind the run's journal then holds, and every path the command read through its
+ * injected filesystem, in read order.
+ */
 export interface AppendedRepositoryEvidence {
   readonly appended: CliCommandResult;
   readonly payloads: readonly JsonValue[];
+  readonly readPaths: readonly string[];
 }
 
 /** The evidence kinds an append names: scope evidence or finding evidence. */
@@ -555,14 +560,27 @@ function createVerifyRunStarter(cwd: string, git: GitDependencies): VerifyRunSta
         runPayload: name,
         idempotencyKey,
       };
+      // The recording filesystem observes the paths the command reads and leaves every read unchanged.
+      const readPaths: string[] = [];
+      const recordingDeps: VerifyCliDeps = {
+        ...deps,
+        fs: {
+          ...defaultStateStoreFileSystem,
+          readFile: async (path, encoding) => {
+            readPaths.push(path);
+            return defaultStateStoreFileSystem.readFile(path, encoding);
+          },
+        },
+      };
       const appended = kind === VERIFY_APPEND_EVENT_TYPE.SCOPE
-        ? await verifyAppendScopeCommand(options, deps)
-        : await verifyAppendFindingCommand(options, deps);
+        ? await verifyAppendScopeCommand(options, recordingDeps)
+        : await verifyAppendFindingCommand(options, recordingDeps);
       return {
         appended,
         payloads: (await readRunEvents(run.verificationType, runToken))
           .filter((event) => event.type === kind)
           .map((event) => eventDataRecord(event)[VERIFY_APPEND_EVENT_FIELD.PAYLOAD] as JsonValue),
+        readPaths,
       };
     },
     startRun: async (scopeType, scope, verificationType = drawnVerificationType, expectations) => {

@@ -1497,6 +1497,9 @@ export const VERIFY_TEST_GENERATOR = {
       .tuple(STATE_STORE_TEST_GENERATOR.scopeToken(), STATE_STORE_TEST_GENERATOR.scopeToken())
       .map(([base, head]) => `${base}${VERIFY_SCOPE_SEPARATOR}${VERIFY_SCOPE_SEPARATOR.slice(0, 1)}${head}`),
   runToken: (): fc.Arbitrary<string> => STATE_STORE_TEST_GENERATOR.runToken(),
+  /** Two distinct file names for a caller that stages a payload and a symbolic link beside it. */
+  payloadNamePair: (): fc.Arbitrary<{ readonly first: string; readonly second: string }> =>
+    idempotencyKeyPair(STATE_STORE_TEST_GENERATOR.runToken()),
   blankInputSource: (): fc.Arbitrary<string> => arbitraryBlankArgument(),
   blankRunToken: (): fc.Arbitrary<string> => arbitraryBlankArgument(),
   launchedAt: (): fc.Arbitrary<Date> =>
