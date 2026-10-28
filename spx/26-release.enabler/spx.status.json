@@ -443,7 +443,7 @@
       },
       "tests/release-staging.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "2d4d77d7a88f4f15e8ec264edb2a4f5ffab375e2",
+        "commit": "ca9358a22507860eca881c1db1368316248ba07c",
         "read": [
           "pnpm-lock.yaml",
           "spx/26-release.enabler/release.md",
