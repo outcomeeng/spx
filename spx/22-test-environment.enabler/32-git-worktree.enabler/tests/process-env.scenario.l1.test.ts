@@ -1,45 +1,36 @@
 import { describe, expect, it } from "vitest";
 
 import { GIT_WORKTREE_TEST_GENERATOR, sampleGitWorktreeTestValue } from "@testing/generators/git-worktree/git-worktree";
-import { GIT_TEST_ENVIRONMENT_KEYS } from "@testing/harnesses/git-test-constants";
 import { withProcessEnv } from "@testing/harnesses/process-env/process-env";
 
-const PRESENT_BEFORE_KEY = GIT_TEST_ENVIRONMENT_KEYS.DIR;
-
 function sampleEnvironmentCase() {
-  const drawn = Object.values(
-    sampleGitWorktreeTestValue(
-      GIT_WORKTREE_TEST_GENERATOR.environmentValues(Object.values(GIT_TEST_ENVIRONMENT_KEYS)),
-    ),
+  const keys = sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.environmentKeys(3));
+  const [presentBeforeKey, absentBeforeKey] = keys;
+  const [priorValue, duringPresentValue, duringAbsentValue] = Object.values(
+    sampleGitWorktreeTestValue(GIT_WORKTREE_TEST_GENERATOR.environmentValues(keys)),
   );
-  const [priorValue, duringPresentValue, duringAbsentValue] = drawn;
-  const absentBeforeKey = Object.values(GIT_TEST_ENVIRONMENT_KEYS).find(
-    (key) => key !== PRESENT_BEFORE_KEY && process.env[key] === undefined,
-  );
-  if (absentBeforeKey === undefined) {
-    throw new Error("No GIT_* key is absent from process.env to exercise the unset-before case");
-  }
-  return { priorValue, duringPresentValue, duringAbsentValue, absentBeforeKey };
+  return { presentBeforeKey, absentBeforeKey, priorValue, duringPresentValue, duringAbsentValue };
 }
 
 describe("withProcessEnv — restoration at its own callback boundary", () => {
   it("restores a key set before and unsets a key absent before when its callback returns", async () => {
-    const { priorValue, duringPresentValue, duringAbsentValue, absentBeforeKey } = sampleEnvironmentCase();
+    const { presentBeforeKey, absentBeforeKey, priorValue, duringPresentValue, duringAbsentValue } =
+      sampleEnvironmentCase();
     let observedInsidePresent: string | undefined;
     let observedInsideAbsent: string | undefined;
     let observedAfterPresent: string | undefined;
     let observedAfterAbsent: string | undefined;
     let absentKeyHasEntryAfter = true;
 
-    await withProcessEnv({ [PRESENT_BEFORE_KEY]: priorValue }, async () => {
+    await withProcessEnv({ [presentBeforeKey]: priorValue }, async () => {
       await withProcessEnv(
-        { [PRESENT_BEFORE_KEY]: duringPresentValue, [absentBeforeKey]: duringAbsentValue },
+        { [presentBeforeKey]: duringPresentValue, [absentBeforeKey]: duringAbsentValue },
         async () => {
-          observedInsidePresent = process.env[PRESENT_BEFORE_KEY];
+          observedInsidePresent = process.env[presentBeforeKey];
           observedInsideAbsent = process.env[absentBeforeKey];
         },
       );
-      observedAfterPresent = process.env[PRESENT_BEFORE_KEY];
+      observedAfterPresent = process.env[presentBeforeKey];
       observedAfterAbsent = process.env[absentBeforeKey];
       absentKeyHasEntryAfter = absentBeforeKey in process.env;
     });
@@ -52,7 +43,8 @@ describe("withProcessEnv — restoration at its own callback boundary", () => {
   });
 
   it("restores a key set before and unsets a key absent before when its callback rejects", async () => {
-    const { priorValue, duringPresentValue, duringAbsentValue, absentBeforeKey } = sampleEnvironmentCase();
+    const { presentBeforeKey, absentBeforeKey, priorValue, duringPresentValue, duringAbsentValue } =
+      sampleEnvironmentCase();
     const thrownError = new Error(duringAbsentValue);
     let observedInsidePresent: string | undefined;
     let observedInsideAbsent: string | undefined;
@@ -60,18 +52,18 @@ describe("withProcessEnv — restoration at its own callback boundary", () => {
     let observedAfterAbsent: string | undefined;
     let absentKeyHasEntryAfter = true;
 
-    await withProcessEnv({ [PRESENT_BEFORE_KEY]: priorValue }, async () => {
+    await withProcessEnv({ [presentBeforeKey]: priorValue }, async () => {
       await expect(
         withProcessEnv(
-          { [PRESENT_BEFORE_KEY]: duringPresentValue, [absentBeforeKey]: duringAbsentValue },
+          { [presentBeforeKey]: duringPresentValue, [absentBeforeKey]: duringAbsentValue },
           async () => {
-            observedInsidePresent = process.env[PRESENT_BEFORE_KEY];
+            observedInsidePresent = process.env[presentBeforeKey];
             observedInsideAbsent = process.env[absentBeforeKey];
             throw thrownError;
           },
         ),
       ).rejects.toBe(thrownError);
-      observedAfterPresent = process.env[PRESENT_BEFORE_KEY];
+      observedAfterPresent = process.env[presentBeforeKey];
       observedAfterAbsent = process.env[absentBeforeKey];
       absentKeyHasEntryAfter = absentBeforeKey in process.env;
     });
