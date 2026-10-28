@@ -10,6 +10,9 @@ CAN operate on one scoped verification run with a stable subject, recorded input
 
 ## Assertions
 
+- Given a verification run started at a local worktree root by a caller or by spx, when the run starts, then `start` creates the run's payload directory `.spx/worktree/<verification-type>/payloads/run-<run-token>/` under that root, inside the payload root the write-path report names for the same verification type and scope, and reports it as `payloadDirectory`
+- ALWAYS: before `start` creates its run's payload directory, it removes the payload directory of every run in the worktree whose journal is closed, by a terminal-completion event or a seal, or that no branch scope of the repository holds a journal for, and keeps the payload directory of every run whose journal is open, whichever branch or head the worktree has checked out
+
 ### Scenarios
 
 - Given a verification run started with a Verifier, when the run starts, then the run-context event records the Verifier's kind and id and `status` reports them ([test](tests/verify-verifier.scenario.l1.test.ts))
