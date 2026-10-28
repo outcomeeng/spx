@@ -183,9 +183,10 @@ describe("execute run compliance", () => {
 
     // The whole production command path — the descriptor's own dependency composition and default
     // handler binding, the real recorder over the product's store, and the production runner
-    // registry — settles on the product root from a nested invocation directory with nothing
-    // beneath the program injected: the registry's runner finds no Vitest in that product, so the
-    // sealed run names the root the command resolved.
+    // registry — settles on the product root from a nested invocation directory with only the
+    // Vitest Node API loader injected as one that resolves nothing: the registry's runner then
+    // finds no Vitest whatever the host holds above the product, so the sealed run names the root
+    // the command resolved.
     const production = await observeExecuteRunThroughProduction(invokeFromFirstTestDir);
     expect(production.invocationDir).not.toBe(production.product.productDir);
     expect(production.report?.unresolvedRunner?.productDir).toBe(production.product.productDir);

@@ -23,6 +23,7 @@ import {
   type ExecuteRunCommandResult,
   type ExecuteRunReport,
   type JournalStreamingRunner,
+  resolveTestRunner,
   resolveVerificationRunner,
 } from "@/commands/verification-exec";
 import { verifyInputCommand, type VerifyInputReport } from "@/commands/verify/cli";
@@ -46,8 +47,13 @@ import {
   type StateStoreFileSystem,
 } from "@/lib/state-store";
 import type { TerminalText } from "@/lib/terminal-text/terminal-text";
+import { createVitestRunStarter, type VitestNodeApiLoader } from "@/test/languages/journal-reporter";
 import { JOURNAL_RUN_TERMINAL_STATUS, type JournalRunInvocation, type JournalRunRequest } from "@/test/languages/types";
-import { typescriptTestingLanguage } from "@/test/languages/typescript";
+import {
+  runTestsStreaming as runTypescriptTestsStreaming,
+  typescriptTestingLanguage,
+} from "@/test/languages/typescript";
+import { testingRegistry } from "@/test/registry";
 import { TYPESCRIPT_MARKER } from "@/validation/discovery/language-finder";
 import { sampleGeneratedValue } from "@testing/generators/sample";
 import { TEST_DISPATCH_GENERATOR } from "@testing/generators/testing/dispatch";
@@ -583,13 +589,65 @@ export interface ExecuteRunProductionObservation {
 
 const EMPTY_TYPESCRIPT_MARKER = "{}";
 
+const UNRESOLVABLE_LOADER_NEVER_LOADS = "an unresolvable Vitest Node API loader resolves nothing, so it loads nothing";
+
+/** A Vitest Node API loader that resolves no module against any product directory, wherever that directory sits on the host. */
+const UNRESOLVABLE_VITEST_NODE_API_LOADER: VitestNodeApiLoader = {
+  resolve: (productDir) => ({ resolved: false, productDir }),
+  load: () => Promise.reject(new Error(UNRESOLVABLE_LOADER_NEVER_LOADS)),
+};
+
+/**
+ * The production verify domain — the default handler for every command except execute-run — with
+ * the execute-run handler's runner resolved through the production testing registry whose
+ * TypeScript language starts Vitest through the unresolvable loader. The product root a run settles
+ * on is then observable on the unresolved-runner report without depending on which ancestors of
+ * the product directory hold a Vitest package.
+ */
+function unresolvableRunnerVerifyDomain(): Domain {
+  const runner: JournalStreamingRunner = resolveTestRunner({
+    languages: testingRegistry.languages.map((language) =>
+      language === typescriptTestingLanguage
+        ? {
+          ...language,
+          runTestsStreaming: (request, deps) =>
+            runTypescriptTestsStreaming(request, {
+              ...deps,
+              starter: createVitestRunStarter(UNRESOLVABLE_VITEST_NODE_API_LOADER),
+            }),
+        }
+        : language
+    ),
+  });
+  return {
+    name: verifyDomain.name,
+    description: verifyDomain.description,
+    register: (program, invocation) => {
+      registerVerifyCommands(program, invocation, {
+        appendFinding: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+        appendScope: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+        compare: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+        executeRun: (options, deps) => executeRunCommand(options, { ...deps, resolveRunner: () => runner }),
+        finish: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+        input: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+        list: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+        paths: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+        reconcile: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+        render: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+        start: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+        status: () => Promise.reject(new Error(RECORD_RUN_HANDLER_NOT_UNDER_TEST)),
+      });
+    },
+  };
+}
+
 /**
  * Parses `spx verification test run` on a program carrying the production verify domain — its
  * default handler map, its own dependency composition, the real recorder over the product's own
  * store, and the production runner registry — started from the given directory of a generated
- * product that declares TypeScript but installs no runner. Nothing beneath the program is
- * injected: the descriptor forwards the invocation directory it resolves, the handler resolves the
- * product root from it, and the registry's `test` runner resolves no Vitest in that product, so
+ * product that declares TypeScript. The only injection beneath the program is a Vitest Node API
+ * loader that resolves nothing: the descriptor forwards the invocation directory it resolves, the
+ * handler resolves the product root from it, and the registry's `test` runner finds no Vitest, so
  * the run seals as unresolved and the result names the root the command settled on.
  */
 export async function observeExecuteRunThroughProduction(
@@ -604,7 +662,7 @@ export async function observeExecuteRunThroughProduction(
     await writeFile(join(product.productDir, TYPESCRIPT_MARKER), EMPTY_TYPESCRIPT_MARKER);
     const invocationDir = selectInvocationDir(product);
     const program = createCliProgram({
-      domains: [verifyDomain],
+      domains: [unresolvableRunnerVerifyDomain()],
       processCwd: () => invocationDir,
       writeStdout: (output) => stdout.push(output),
       writeStderr: (output) => stderr.push(output),
@@ -658,7 +716,7 @@ const GIT_IDENTITY_OVERRIDES = ["user.name=spx", "user.email=spx@example.invalid
 /**
  * Parses `spx verification test run` on a program carrying the production verify domain, started
  * from a nested directory of a linked worktree of a generated product that declares TypeScript and
- * installs no runner. Discovery and the runner root at the linked worktree, while the recorder's
+ * installs no runner, with the runner resolved through a loader that resolves nothing. Discovery and the runner root at the linked worktree, while the recorder's
  * branch-scoped store resolves to the Git common-dir product root the worktrees share, so the run
  * file lands under the main checkout and not under the linked one.
  */
@@ -683,7 +741,7 @@ export async function observeExecuteRunThroughLinkedWorktree(): Promise<ExecuteR
       const invocationDir = join(linkedDir, posix.dirname(product.testPaths[0]));
       const stdout: string[] = [];
       const program = createCliProgram({
-        domains: [verifyDomain],
+        domains: [unresolvableRunnerVerifyDomain()],
         processCwd: () => invocationDir,
         writeStdout: (output) => stdout.push(output),
         writeStderr: () => undefined,
