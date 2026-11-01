@@ -105,7 +105,7 @@
     "dprint": "0.64.3",
     "eslint-visitor-keys": "^5.0.1",
     "execa": "^9.6.1",
-    "fs-native-extensions": "1.5.2",
+    "fs-native-extensions": "1.5.3",
     "ink": "^7.0.6",
     "markdown-it": "^14.3.2",
     "markdownlint-cli2": "^0.24.0",
