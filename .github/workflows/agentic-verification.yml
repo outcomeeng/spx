@@ -3,12 +3,12 @@
 # Required setup:
 # 1. Add CLAUDE_CODE_OAUTH_TOKEN to repository secrets.
 # 2. (Optional) Provide a `REVIEW.md` at the repository root. The
-#    spec-tree-review prompt reads it as the finding-classification
+#    product-tree-review prompt reads it as the finding-classification
 #    taxonomy and comment shape; absent the file, the embedded
-#    BLOCKING/DEBT/FOLLOW-UP taxonomy is used.
+#    BLOCKING/DEBT taxonomy is used.
 # 3. (Optional) Tune behavior via repo variables in Settings → Secrets and
 #    variables → Actions → Variables. See the `with:` block below — every
-#    entry reads a `vars.SPEC_TREE_REVIEW_*` value and falls back to the
+#    entry reads a `vars.PRODUCT_TREE_REVIEW_*` value and falls back to the
 #    reusable's default when the variable is unset. No edits to this file
 #    are needed to change runner, timeout, model, etc.
 
@@ -37,7 +37,7 @@ jobs:
     # (Documented exception subsection). Renovate cannot advance this
     # reference; that is the point — pin it back to a SHA when this repo
     # graduates to production usage.
-    uses: outcomeeng/gh-actions/.github/workflows/spec-tree-review.yml@main
+    uses: outcomeeng/gh-actions/.github/workflows/product-tree-review.yml@main
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
@@ -74,53 +74,53 @@ jobs:
 
       # Trigger phrase forwarded to the action. The review fires on every
       # `pull_request` event regardless of this value; it is used for
-      # content matching inside the action prompt. Defaults to `@spec-tree`.
-      trigger_phrase: ${{ vars.SPEC_TREE_REVIEW_TRIGGER_PHRASE || '@spec-tree' }}
+      # content matching inside the action prompt. Defaults to `@product-tree`.
+      trigger_phrase: ${{ vars.PRODUCT_TREE_REVIEW_TRIGGER_PHRASE || '@product-tree' }}
 
       # Cancel in-progress reviews when the PR is updated. Reusable default:
-      # true. Set `vars.SPEC_TREE_REVIEW_CONCURRENCY_CANCEL='false'` to let
+      # true. Set `vars.PRODUCT_TREE_REVIEW_CONCURRENCY_CANCEL='false'` to let
       # in-flight reviews complete on push; any other value (or unset)
       # preserves cancel.
-      concurrency_cancel: ${{ vars.SPEC_TREE_REVIEW_CONCURRENCY_CANCEL != 'false' }}
+      concurrency_cancel: ${{ vars.PRODUCT_TREE_REVIEW_CONCURRENCY_CANCEL != 'false' }}
 
       # Wall-clock budget (minutes) for the Run Claude Code Review step.
       # Reusable default: 30. Minimum 1; GitHub Actions silently rejects
       # '0' at runtime. Typed as a string so quoted forms pass through
       # unchanged.
-      timeout_minutes: ${{ vars.SPEC_TREE_REVIEW_TIMEOUT_MINUTES || '30' }}
+      timeout_minutes: ${{ vars.PRODUCT_TREE_REVIEW_TIMEOUT_MINUTES || '30' }}
 
       # Claude model id (e.g. `claude-opus-4-7`). Empty = action default.
       # Folded into claude_args as `--model <id>`.
-      model: ${{ vars.SPEC_TREE_REVIEW_MODEL || '' }}
+      model: ${{ vars.PRODUCT_TREE_REVIEW_MODEL || '' }}
 
       # Extra Claude Code CLI args OTHER than `--allowed-tools` (use
       # append_allow_list / override_allow_list below for tool restrictions).
       # Examples: `--max-turns 20`, `--debug`.
-      claude_args: ${{ vars.SPEC_TREE_REVIEW_CLAUDE_ARGS || '' }}
+      claude_args: ${{ vars.PRODUCT_TREE_REVIEW_CLAUDE_ARGS || '' }}
 
       # Comma-separated tool patterns appended to the baked-in baseline
       # allowlist (`Bash(gh issue|pr ...)` + `Bash(sed:*),Bash(grep:*),Bash(head:*)`).
       # Example: `Read,Grep,Glob,Bash(git:*)` when opting in to project
       # plugins that need those tools.
-      append_allow_list: ${{ vars.SPEC_TREE_REVIEW_APPEND_ALLOW_LIST || '' }}
+      append_allow_list: ${{ vars.PRODUCT_TREE_REVIEW_APPEND_ALLOW_LIST || '' }}
 
       # Install plugins declared in `.claude/settings.json`. Reusable
       # default: false because this workflow's baseline allowlist is
       # narrow; opt in only when you've also widened `append_allow_list`
       # (above) to match the tools the project plugins demand.
-      use_project_plugins: ${{ vars.SPEC_TREE_REVIEW_USE_PROJECT_PLUGINS == 'true' }}
+      use_project_plugins: ${{ vars.PRODUCT_TREE_REVIEW_USE_PROJECT_PLUGINS == 'true' }}
 
       # Stream full per-turn JSON output to the job log. WARNING: may
       # expose secrets in tool outputs. Set
-      # `vars.SPEC_TREE_REVIEW_SHOW_FULL_OUTPUT='true'` only when debugging
+      # `vars.PRODUCT_TREE_REVIEW_SHOW_FULL_OUTPUT='true'` only when debugging
       # in a non-sensitive context.
-      show_full_output: ${{ vars.SPEC_TREE_REVIEW_SHOW_FULL_OUTPUT == 'true' }}
+      show_full_output: ${{ vars.PRODUCT_TREE_REVIEW_SHOW_FULL_OUTPUT == 'true' }}
 
       # Comma-separated tool patterns that REPLACE the baked-in baseline
       # allowlist (uncomment to set):
-      # override_allow_list: ${{ vars.SPEC_TREE_REVIEW_OVERRIDE_ALLOW_LIST || '' }}
+      # override_allow_list: ${{ vars.PRODUCT_TREE_REVIEW_OVERRIDE_ALLOW_LIST || '' }}
       # WARNING: override_allow_list silently drops the
-      # `Bash(sed:*),Bash(grep:*),Bash(head:*)` spec-tree defaults that the
+      # `Bash(sed:*),Bash(grep:*),Bash(head:*)` product-tree defaults that the
       # baked-in prompt depends on for diff chunking and comment
       # composition. Use append_allow_list unless you have a hard reason to
       # start from zero.
@@ -131,13 +131,13 @@ jobs:
       # extra_plugins: "internal-style@acme-corp"  # plugins to install
 
       # Cloud-provider routing (uncomment all three together):
-      # use_bedrock: ${{ vars.SPEC_TREE_REVIEW_USE_BEDROCK == 'true' }}
-      # use_vertex: ${{ vars.SPEC_TREE_REVIEW_USE_VERTEX == 'true' }}
-      # additional_env: ${{ vars.SPEC_TREE_REVIEW_ADDITIONAL_ENV || '{}' }}
+      # use_bedrock: ${{ vars.PRODUCT_TREE_REVIEW_USE_BEDROCK == 'true' }}
+      # use_vertex: ${{ vars.PRODUCT_TREE_REVIEW_USE_VERTEX == 'true' }}
+      # additional_env: ${{ vars.PRODUCT_TREE_REVIEW_ADDITIONAL_ENV || '{}' }}
       # Caller is responsible for AWS/GCP auth in the calling workflow.
       # See README "Review workflow inputs" for the full contract.
 
-    # `spec-tree-review.yml` bakes in a REVIEW.md-aware review prompt;
+    # `product-tree-review.yml` bakes in a REVIEW.md-aware review prompt;
     # `custom_prompt` is deliberately NOT exposed as an input.
     #
     # The baseline allowlist combines `Bash(gh issue|pr ...)` patterns for
@@ -145,5 +145,5 @@ jobs:
     # Bash(head:*)` for diff chunking.
     #
     # See README "Per-environment overrides via repo variables" for the
-    # complete vars.SPEC_TREE_REVIEW_* table and README "Plugins and
+    # complete vars.PRODUCT_TREE_REVIEW_* table and README "Plugins and
     # marketplaces" for the full rationale on plugin installation.

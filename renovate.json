@@ -35,7 +35,7 @@
       "dependencyDashboardApproval": true
     },
     {
-      "description": "Leave outcomeeng/gh-actions referenced at @main without SHA-pinning — the spec-tree workflows deliberately track the branch to surface upstream changes early during beta, and pin to a digest only when the product graduates to production usage.",
+      "description": "Leave outcomeeng/gh-actions referenced at @main without SHA-pinning — the product-tree workflows deliberately track the branch to surface upstream changes early during beta, and pin to a digest only when the product graduates to production usage.",
       "matchDepNames": ["outcomeeng/gh-actions"],
       "pinDigests": false
     }

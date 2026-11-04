@@ -174,7 +174,7 @@ Authors use the authoring workflow to publish approved drafts to a remote Change
 
 ### Spec Management
 
-The `spx spec` CLI provides deterministic inspection and evidence-projection commands such as `status`, `next`, and `context`. Spec authoring and tree-management workflows live in the **spec-tree** Claude Code plugin, available at [`outcomeeng/plugins`](https://github.com/outcomeeng/plugins). The plugin provides skills for understanding, authoring, decomposing, contextualizing, testing, refactoring, and aligning specification trees.
+The `spx spec` CLI provides deterministic inspection and evidence-projection commands such as `status`, `next`, and `context`. Spec authoring and tree-management workflows live in the **product-tree** Claude Code plugin, available at [`outcomeeng/plugins`](https://github.com/outcomeeng/plugins). The plugin provides skills for understanding, authoring, decomposing, contextualizing, testing, refactoring, and aligning specification trees.
 
 ### Release Preparation
 
@@ -261,7 +261,7 @@ The project uses GitHub Actions for continuous integration and publishing:
 - `publish.yml` — Triggered by `v*` tags. Gates on `deterministic-verification.yml` and publishes its verified build via OIDC Trusted Publishing (no stored npm tokens) with Sigstore provenance attestation. Requires manual approval via the `npm-publish` GitHub Environment.
 - `scorecard.yml` — Weekly OpenSSF Scorecard assessment, results published to the GitHub Security tab.
 - `methodology-fetch.yml` — Refreshes the shipped methodology trees from the plugins repository and proposes the refresh as a pull request.
-- `spec-tree.yml` — Runs the Spec Tree agent on issue, pull request, and review comments, assignments, and review submissions.
+- `product-tree.yml` — Runs the Product Tree agent on issue, pull request, and review comments, assignments, and review submissions.
 
 ### Publishing a Release
 
