@@ -1,14 +1,14 @@
-# Copy this file to .github/workflows/spec-tree.yml in your repository
+# Copy this file to .github/workflows/product-tree.yml in your repository
 #
 # Required setup:
 # 1. Add CLAUDE_CODE_OAUTH_TOKEN to repository secrets.
 # 2. (Optional) Tune behavior via repo variables in Settings → Secrets and
 #    variables → Actions → Variables. See the `with:` block below — every
-#    entry reads a `vars.SPEC_TREE_*` value and falls back to the reusable's
+#    entry reads a `vars.PRODUCT_TREE_*` value and falls back to the reusable's
 #    default when the variable is unset. No edits to this file are needed
 #    to change runner, timeout, model, etc.
 
-name: Spec Tree
+name: Product Tree
 
 on:
   issue_comment:
@@ -28,14 +28,14 @@ permissions:
   actions: read
 
 jobs:
-  spec-tree:
+  product-tree:
     # BETA TESTER: deliberately tracks outcomeeng/gh-actions @main to surface
     # upstream changes early without a per-release follow-up PR. Production
     # callers must SHA-pin per the gh-actions README "Security" section
     # (Documented exception subsection). Renovate cannot advance this
     # reference; that is the point — pin it back to a SHA when this repo
     # graduates to production usage.
-    uses: outcomeeng/gh-actions/.github/workflows/spec-tree.yml@main
+    uses: outcomeeng/gh-actions/.github/workflows/product-tree.yml@main
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
@@ -64,44 +64,47 @@ jobs:
       # that accept pull requests or comments from untrusted contributors.
       runner: ${{ vars.RUNNER_X2 || 'ubuntu-latest' }}
 
-      # Mention trigger phrase. Defaults to `@spec-tree`.
-      trigger_phrase: ${{ vars.SPEC_TREE_TRIGGER_PHRASE || '@spec-tree' }}
+      # Mention trigger phrase. Defaults to `@product-tree`. The reusable's
+      # authorize job rejects empty or whitespace-only values with a clear
+      # error (defends against `vars.PRODUCT_TREE_TRIGGER_PHRASE=' '` causing
+      # `contains(comment, ' ')` to match nearly every comment).
+      trigger_phrase: ${{ vars.PRODUCT_TREE_TRIGGER_PHRASE || '@product-tree' }}
 
       # Cancel in-progress mention runs when a new mention arrives. Reusable
-      # default: true. Set `vars.SPEC_TREE_CONCURRENCY_CANCEL='false'` to let
+      # default: true. Set `vars.PRODUCT_TREE_CONCURRENCY_CANCEL='false'` to let
       # in-flight runs complete; any other value (or unset) preserves cancel.
-      concurrency_cancel: ${{ vars.SPEC_TREE_CONCURRENCY_CANCEL != 'false' }}
+      concurrency_cancel: ${{ vars.PRODUCT_TREE_CONCURRENCY_CANCEL != 'false' }}
 
       # Wall-clock budget (minutes) for the Run Claude Code step. Reusable
-      # default: 15. Minimum 1; GitHub Actions silently rejects '0' at
+      # default: 30. Minimum 1; GitHub Actions silently rejects '0' at
       # runtime. Typed as a string so quoted forms pass through unchanged.
-      timeout_minutes: ${{ vars.SPEC_TREE_TIMEOUT_MINUTES || '15' }}
+      timeout_minutes: ${{ vars.PRODUCT_TREE_TIMEOUT_MINUTES || '30' }}
 
       # Claude model id (e.g. `claude-opus-4-7`). Empty = action default.
       # Folded into claude_args as `--model <id>`.
-      model: ${{ vars.SPEC_TREE_MODEL || '' }}
+      model: ${{ vars.PRODUCT_TREE_MODEL || '' }}
 
       # Extra Claude Code CLI args appended verbatim. Examples:
       # `--max-turns 20`, `--debug`, `--allowed-tools "Read,Grep,Bash(gh pr:*)"`.
-      claude_args: ${{ vars.SPEC_TREE_CLAUDE_ARGS || '' }}
+      claude_args: ${{ vars.PRODUCT_TREE_CLAUDE_ARGS || '' }}
 
       # Custom prompt to override the action's default behavior. Set
-      # `vars.SPEC_TREE_CUSTOM_PROMPT` to a single-line string (multi-line
+      # `vars.PRODUCT_TREE_CUSTOM_PROMPT` to a single-line string (multi-line
       # prompts are not well supported by repo vars; edit this file
       # directly for those).
-      custom_prompt: ${{ vars.SPEC_TREE_CUSTOM_PROMPT || '' }}
+      custom_prompt: ${{ vars.PRODUCT_TREE_CUSTOM_PROMPT || '' }}
 
       # Install plugins declared in `.claude/settings.json`. Reusable
       # default: false (plugin skills with ALWAYS-invoke mandates can pull
-      # mention runs off-task). Set `vars.SPEC_TREE_USE_PROJECT_PLUGINS='true'`
+      # mention runs off-task). Set `vars.PRODUCT_TREE_USE_PROJECT_PLUGINS='true'`
       # to opt in; requires marketplaces to be registered under
       # `extraKnownMarketplaces`.
-      use_project_plugins: ${{ vars.SPEC_TREE_USE_PROJECT_PLUGINS == 'true' }}
+      use_project_plugins: ${{ vars.PRODUCT_TREE_USE_PROJECT_PLUGINS == 'true' }}
 
       # Stream full per-turn JSON output to the job log. WARNING: may
-      # expose secrets in tool outputs. Set `vars.SPEC_TREE_SHOW_FULL_OUTPUT='true'`
+      # expose secrets in tool outputs. Set `vars.PRODUCT_TREE_SHOW_FULL_OUTPUT='true'`
       # only when debugging in a non-sensitive context.
-      show_full_output: ${{ vars.SPEC_TREE_SHOW_FULL_OUTPUT == 'true' }}
+      show_full_output: ${{ vars.PRODUCT_TREE_SHOW_FULL_OUTPUT == 'true' }}
 
       # Plugin install lists (rarely change per-environment; uncomment and
       # set directly to opt in without using vars):
@@ -109,13 +112,13 @@ jobs:
       # extra_plugins: "internal-style@acme-corp"  # plugins to install
 
       # Cloud-provider routing (uncomment all three together):
-      # use_bedrock: ${{ vars.SPEC_TREE_USE_BEDROCK == 'true' }}
-      # use_vertex: ${{ vars.SPEC_TREE_USE_VERTEX == 'true' }}
-      # additional_env: ${{ vars.SPEC_TREE_ADDITIONAL_ENV || '{}' }}
+      # use_bedrock: ${{ vars.PRODUCT_TREE_USE_BEDROCK == 'true' }}
+      # use_vertex: ${{ vars.PRODUCT_TREE_USE_VERTEX == 'true' }}
+      # additional_env: ${{ vars.PRODUCT_TREE_ADDITIONAL_ENV || '{}' }}
       # Caller is responsible for AWS/GCP auth in the calling workflow (e.g.
       # aws-actions/configure-aws-credentials before this job). See README
       # "Mention workflow inputs" for the full contract.
 
     # See README "Per-environment overrides via repo variables" for the
-    # complete vars.SPEC_TREE_* table and README "Plugins and marketplaces"
+    # complete vars.PRODUCT_TREE_* table and README "Plugins and marketplaces"
     # for the full rationale on plugin installation.
