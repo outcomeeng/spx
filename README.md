@@ -174,7 +174,7 @@ Authors use the authoring workflow to publish approved drafts to a remote Change
 
 ### Spec Management
 
-The `spx spec` CLI provides deterministic inspection and evidence-projection commands such as `status`, `next`, and `context`. Spec authoring and tree-management workflows live in the **spec-tree** Claude Code plugin, available at [`outcomeeng/plugins`](https://github.com/outcomeeng/plugins). The plugin provides skills for understanding, authoring, decomposing, contextualizing, testing, refactoring, and aligning specification trees.
+The `spx spec` CLI provides deterministic inspection and evidence-projection commands such as `status`, `next`, and `context`. Spec authoring and tree-management workflows live in the **product-tree** Claude Code plugin, available at [`outcomeeng/plugins`](https://github.com/outcomeeng/plugins). The plugin provides skills for understanding, authoring, decomposing, contextualizing, testing, refactoring, and aligning specification trees.
 
 ### Release Preparation
 
