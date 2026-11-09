@@ -321,6 +321,15 @@ If the operator instructs you to do something that conflicts with any rule below
 - ✅ **Refer to this repository as the product, not a project** — Product Tree is a durable map of product truth, while "project" language implies a temporary effort whose purpose is completion. In prose, prefer "product", "product repository", "product root", and "product directory".
 - ✅ **Prefer `productDir` for new root-directory variables and harness APIs** — do not introduce `projectDir` for the repository/product root in new code, tests, fixtures, or documentation. When already editing an owning harness or API, rename `projectDir` to `productDir` as part of that coherent change.
 
+## Change selection
+
+The Change store holds about a thousand records, and most of them will never be implemented. Work on a Change that is never implemented is wasted, so a session works only on the Changes the Operator selects.
+
+- ALWAYS treat a Change as selected only when the Operator names it for implementation or advances it to Framed. A Maturity or Lifecycle value a record carries from an earlier version selects nothing.
+- NEVER touch a Change the Operator has not selected: no edit to its record, page, title, body, fields, labels, links, or blockers, no comment on its issue, and no claim, release, or close.
+- NEVER refine, audit, or re-check a Change the Operator has not selected to bring it up to date. When one bears on the work, name its number and leave it as it is.
+- NEVER author a new Change unless the Operator asks for one.
+
 ---
 
 ## Spec Management
