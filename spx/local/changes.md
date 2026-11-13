@@ -1,6 +1,6 @@
-# Change Coordination
+# Changes
 
-Loaded by `/claim-change`, `/release-change`, `/close-change`, and `/author-change` when present. It names where this repository's Changes and Handoffs live, per methodology `versions/4.0/methodology/change/changes.md` and the GitHub realization it cites. Values only; the workflow is the skill's.
+Loaded by `/author-change`, `/manage-change`, `/audit-change`, `/apply-change`, `/report-changes`, and `/orchestrate-change` when present. It names where this repository's Changes and Handoffs live, per methodology `versions/4.0/methodology/change/changes.md` and the GitHub realization it cites. Values only; the workflow is the skill's.
 
 ## Change store
 

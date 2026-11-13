@@ -388,7 +388,7 @@ If a file under that resolved repository, or a generated/cache copy of those plu
 
 Instead, file the follow-up as a Proposed Change for the plugins product:
 
-1. Read that repository's `spx/local/coordination.md` for the store and the Product value.
+1. Read that repository's `spx/local/changes.md` for the store and the Product value.
 2. From its designated main checkout, without changing its branch or its tracked files, run `/author-change` for a Proposed Change with Product `plugins` that describes what happened, what was unclear, what you checked, and what facts would help the future plugin workflow.
 3. Publish it to the declared store and record nothing else there.
 
