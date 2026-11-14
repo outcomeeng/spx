@@ -272,7 +272,7 @@ If the operator instructs you to do something that conflicts with any rule below
 
 - 🛑 **The MOMENT a task is recognized as touching the Product Tree (`spx/**`) or any spec-governed source (`src/**`), invoke `/understand` then `/contextualize <node>` BEFORE any investigation.** Reading source files, running `git`/`gh` archaeology, comparing worktrees, diffing PRs, and drafting clarifying questions are all **work** — not pre-work. The gate fires on **task recognition, not file modification**: "I'm only reading," "I'm just gathering context for questions," and "I haven't changed anything yet" are the exact rationalizations this rule forbids. Context for good questions is precisely what `/contextualize` loads, so it comes first. Skill-before-investigation, always.
 - ⚠️ **NEVER modify OR INVESTIGATE any spec-governed file without invoking the required skills first** — "investigate" includes reading source, grepping, and `git`/`gh` archaeology. If a file touches specs, testing, code, architecture, or any topic covered by a skill (see `<skill_router>` below), invoke the relevant skill BEFORE reading or modifying it. Skills are the authoritative source — not grep results, not existing files, not your training data.
-- ⚠️ **NEVER write code without invoking the `/apply` skill and following its 8-step workflow** - See skill table below
+- ⚠️ **NEVER write code without invoking the `/apply` skill and following its workflow** - See skill table below
 - ⚠️ **ALWAYS invoke `/apply` before implementing any product-tree work item** - Applying is the orchestration skill for product-tree TDD. It requires methodology/context loading, language-specific architecture, test, and implementation steps, plus blocking audit gates before the work can be treated as ready.
 - ⚠️ **NEVER publish or merge product-tree implementation or test changes without the applying audit gates** - For TypeScript work, `/apply` requires `test-evidence-auditor` to compose `/audit-typescript-test` and `implementation-auditor` to compose `/audit-typescript-code` against an exact local checkpoint commit. Green tests and `pnpm run validate` are necessary but not sufficient for code/test changes.
 - ⚠️ **NEVER write tests in `tests/`** - Write in `spx/.../tests/` (co-located with specs)
@@ -280,8 +280,8 @@ If the operator instructs you to do something that conflicts with any rule below
 - ⚠️ **Skills are ALWAYS authoritative over existing files** - When a skill template prescribes a structure (e.g., Architectural Constraints table), follow the skill — not patterns found in existing spec files. Existing files may contain non-standard sections added before skills existed. Never infer framework conventions from existing files; always read the skill.
 - 🛑 **SKILLS DOMINATE. NOTHING BELOW THEM VOTES.** Skills > PDR/ADR > Spec > Test > Code. If a skill's examples are extensionless, imports are extensionless — even if 100% of the existing codebase has `.js` suffixes. Those files are in violation; they do NOT constitute precedent. Existing code is the LOWEST layer of truth and decides NOTHING about convention. Before citing "the existing codebase does X" as justification for anything, STOP. That sentence is never an answer to "why did you write it this way?" — the only valid answers are "the skill says so", "the ADR says so", "the spec says so", or "I was wrong." Grep is a research tool, never an authority.
 - ⚠️ **NEVER maintain backward compatibility** - When rewriting a module, replace it entirely. No legacy aliases, no re-exports of old names, no shims. Update all imports across the codebase to use the new API.
-- ⚠️ **NEVER reference specs or decisions from code** - No `ADR-21`, `PDR-13`, or similar in Python comments or docstrings. Specs are the source of truth; code should not duplicate or point to them. The `semgrep` rule enforces this.
-- ⚠️ **NEVER edit `package.json` for dependency changes** - Use `pnpm add`/`pnpm remove` — they update package.json, lockfile, and venv atomically
+- ⚠️ **NEVER reference specs or decisions from code** - No `ADR-21`, `PDR-13`, or similar in code comments or docstrings. Specs are the source of truth; code should not duplicate or point to them. The `semgrep` rule enforces this.
+- ⚠️ **NEVER edit `package.json` for dependency changes** - Use `pnpm add`/`pnpm remove` — they update `package.json`, the lockfile, and `node_modules` together
 - ⚠️ **NEVER use Husky for Git hooks** - Lefthook is the only hook runner for this repo. Do not run `husky`, add `husky`, create `.husky/`, or change `core.hooksPath` for Husky. `prepare` must install Lefthook, and `lefthook.yml` is the hook source of truth.
 - ⚠️ **NEVER merge, close, rebase, or schedule a Renovate pull request** - Renovate merges its own pull requests automatically. A Renovate pull request takes no heavy-run slot, no `/merge` run, and no place in any delivery plan.
 - ⚠️ **NEVER manually delete untracked files or empty directories** - Git doesn't track empty dirs; `.DS_Store` and `__pycache__` are gitignored artifacts. Use `pnpm run clean` to remove them
@@ -306,7 +306,7 @@ If the operator instructs you to do something that conflicts with any rule below
   - **Deliberate full local run (rare)** → `pnpm run build`, then `spx test --agent`, with the specific written justification required by `spx/local/merging.md`.
   - **Coverage / watch** → `pnpm run test:coverage` / `pnpm run test:watch` are human-interactive paths. Agents never invoke raw Vitest or `pnpm test`.
 - ⚠️ **NEVER mechanically extract typed literal union values to named constants** — `no-restricted-syntax` warnings on `expect(x).toBe("declared")` where `x: NodeState` are false positives. The type annotation IS the documentation; renaming `"declared"` → `STATE_DECLARED` adds zero information. The lint rule targets magic strings whose meaning is obscure; enum-like union members are already self-documenting. Suppress the warning inline or leave it; never rename. The `typescript:audit-typescript-test` skill's Gate 0 C1/L1 findings for typed protocol values (`"PASS"`, `"FAIL"`, `"APPROVED"`, `"REJECT"`) are the same class of false positive — a Gate 0 REJECT on these strings is not a work blocker when `pnpm run validate` passes and tests pass.
-- ⚠️ **ALWAYS research related codebases before offering architectural options** — before presenting A/B/C choices via `AskUserQuestion`, grep/read related codebases (sibling monorepo paths like `~/Code/CraftFinal/root/`, existing `src/spec/apply/`, etc.) for established patterns. If a pattern already exists there, reference it rather than reinventing. "Read the existing code" beats any combination of options you can invent.
+- ⚠️ **ALWAYS research related codebases before offering architectural options** — before presenting A/B/C choices via `AskUserQuestion`, grep/read related codebases (sibling monorepo paths like `~/Code/CraftFinal/root/`, existing modules under `src/`, etc.) for established patterns. If a pattern already exists there, reference it rather than reinventing. "Read the existing code" beats any combination of options you can invent.
 
 - ✅ **ALWAYS `git mv` when moving tracked files** - Never `cp` then `git add`. `git mv` preserves history. Use `git mv -f` when the target exists.
 - ✅ **When uncertain, ASK STRUCTURED QUESTIONS. Never guess implementation patterns, test methodology or requirements.**
@@ -339,7 +339,7 @@ The **product-tree** plugin is the active system for managing Product Trees. Cor
 | `/contextualize` | Load context for a specific node (walks tree to target)            |
 | `/author`        | Create specs, ADRs, PDRs, enablers, outcomes                       |
 | `/decompose`     | Break nodes into children with proper ordering                     |
-| `/test`          | Manage spec-test lock file lifecycle                               |
+| `/test`          | Write or repair deterministic tests for a spec assertion           |
 | `/apply`         | Orchestrate product-tree implementation and audit gates            |
 | `/refactor`      | Restructure the Product Tree (move, consolidate, extract)          |
 | `/align`         | Review for gaps, contradictions, and consistency                   |
@@ -348,30 +348,6 @@ The **product-tree** plugin is the active system for managing Product Trees. Cor
 Additional skills ship with the plugin and are invoked by name: `/commit-changes`, `/interview`, `/audit-tests`, `/audit-pdr`, `/audit-adr`, `/audit-specs`, `/manage-change`, `/author-change`, `/refocus`, `/bootstrap`, `/open-pr`, `/manage-pr`, `/merge`, `/sync-base`, `/merging-standards`, `/diagnose`. See the product-tree plugin's `skills/` directory for the full list.
 
 </skill_router>
-
-<skill_sources>
-
-HARD STOP: Like every directory outside the current `$CWD`, the Outcome Engineering plugin repository is OFF LIMITS.
-Access it read-only only to inspect plugin behavior and form improvement suggestions. The writes it admits are a Change draft in that repository's untracked `.spx/` change store and the verification-run journal of that draft's Change audit, and nothing else.
-Never edit, branch, commit, test, audit, PR, or merge its product content there; a separate session in that repository has its own instructions.
-
-Outcome Engineering plugin skills live in the plugin repository resolved by:
-
-```bash
-claude plugin marketplace list | sed -nEe 's#.*Directory.*\((.*outcomeeng.*)\).*#\1#p'
-```
-
-If a file under that resolved repository, or a generated/cache copy of those plugin files, appears wrong, stale, incomplete, unsafe, confusing, or responsible for incorrect workflow behavior, do not edit it from this product workflow.
-
-Instead, file the follow-up as a Proposed Change for the plugins product:
-
-1. Read that repository's `spx/local/changes.md` for the store and the Product value.
-2. From its designated main checkout, without changing its branch or its tracked files, run `/author-change` for a Proposed Change with Product `plugins` that describes what happened, what was unclear, what you checked, and what facts would help the future plugin workflow.
-3. Publish it to the declared store and record nothing else there.
-
-Do not prescribe exact code, documentation, or template changes. Record the mistaken assumption, the trigger that led to it, and the facts that would help the plugin-repository workflow target the misconception precisely.
-
-</skill_sources>
 
 ### Decision records: the ADR/PDR templates
 
@@ -536,29 +512,16 @@ These recur on feature worktrees and have cost real debugging time and machine s
 ```
 src/
 
+├── cli.ts         # CLI entry point
+├── index.ts       # Package entry point
 ├── agent/         # Agent SDK boundary (injected AgentRunner for agent-authored artifacts)
-├── commands/      # CLI command implementations
-│   ├── session/     # spx session subcommands
-│   ├── spec/        # spx spec subcommands
-│   └── validation/  # spx validation subcommands
+├── commands/      # Process-agnostic command handlers, one directory per command domain
 ├── interfaces/
 │   └── cli/         # Commander registration descriptors and CLI boundary primitives
-├── domains/       # Domain logic
-│   ├── agent-environment/
-│   ├── audit/
-│   ├── config/
-│   ├── release/         # Release data and agent-authored release notes
-│   ├── session/
-│   ├── spec/
-│   └── validation/
-├── validation/    # Lint, typecheck, circular dep logic
-├── session/       # Session lifecycle and storage
-├── config/        # Configuration loading
-├── git/           # Git integration utilities
-├── scanner/       # Directory walking, pattern matching
-├── status/        # Status state machine
-├── reporter/      # Output formatting
-├── tree/          # Hierarchical tree building
-├── precommit/     # Pre-commit hook orchestration
-└── lib/           # Shared utilities
+├── domains/       # Command-local pure computation, one directory per command domain
+├── lib/           # Shared capability libraries: spec-tree, state-store, node-status, and others
+├── config/        # Configuration loading and the descriptor registry
+├── test/          # Test dispatch: language registry and run state
+├── validation/    # Validation pipeline: language registry, steps, and lint policy
+└── outcomeeng/    # Outcome Engineering spec-tree graph
 ```
