@@ -5,7 +5,7 @@
     "test": {
       "tests/color-choice.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-styled-output.enabler/styled-output.md",
@@ -20,7 +20,7 @@
       },
       "tests/content-parity.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-styled-output.enabler/styled-output.md",
@@ -37,7 +37,7 @@
       },
       "tests/severity-styling.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-styled-output.enabler/styled-output.md",
@@ -52,7 +52,7 @@
       },
       "tests/styled-output.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-styled-output.enabler/styled-output.md",
@@ -68,7 +68,7 @@
       },
       "tests/styled-output.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "pnpm-lock.yaml",
           "spx/13-cli.enabler/21-styled-output.enabler/styled-output.md",

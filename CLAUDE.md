@@ -320,12 +320,10 @@ If the operator instructs you to do something that conflicts with any rule below
 
 ## Change selection
 
-The Change store holds about a thousand records, and most of them will never be implemented. Work on a Change that is never implemented is wasted, so a session works only on the Changes the Operator selects.
+The Change store holds about a thousand records, and most of them will never be implemented. The Change Lifecycle section admits work only on a Change the Operator selects and a new record only when the Operator asks for one; in this store:
 
-- ALWAYS treat a Change as selected only when the Operator names it for implementation or advances it to Framed. A Maturity or Lifecycle value a record carries from an earlier version selects nothing.
-- NEVER touch a Change the Operator has not selected: no edit to its record, page, title, body, fields, labels, links, or blockers, no comment on its issue, and no claim, release, or close.
-- NEVER refine, audit, or re-check a Change the Operator has not selected to bring it up to date. When one bears on the work, name its number and leave it as it is.
-- NEVER author a new Change unless the Operator asks for one.
+- ALWAYS treat a Maturity or Lifecycle value a record carries from an earlier version as selecting nothing.
+- NEVER edit, comment on, claim, release, close, refine, audit, or re-check a Change the Operator has not selected, including to bring it up to date. When one bears on the work, name its number and leave it as it is.
 
 ---
 
