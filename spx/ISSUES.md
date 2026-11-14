@@ -76,7 +76,7 @@ the template text.
 
 **Evidence:** the installed spec-tree plugin ships neither `/handoff` nor
 `/pickup`; the router's Change Lifecycle section routes continuation through
-`/claim-change`, `/release-change`, `/close-change`, and `/author-change`.
+the Transitions of `/manage-change` and through `/author-change`.
 Specs, a decision, and tests under `spx/36-session.enabler` and
 `spx/38-worktree.enabler` still name the two skills as the flows the product
 serves: `spx/36-session.enabler/session.md` and
@@ -99,8 +99,8 @@ reader of either surface receives a different account of how a session hands
 off and resumes.
 
 **Settlement condition:** the session and worktree nodes declare their
-handoff and resume behavior against the Change lifecycle and the Handoff
-`/release-change` writes, or against an SPX-owned session flow named without
+handoff and resume behavior against the Change lifecycle and the Handoff the
+`release` Transition of `/manage-change` writes, or against an SPX-owned session flow named without
 the retired skills, and their tests follow.
 
 ## Source-graph containment property fails on some generated inputs
