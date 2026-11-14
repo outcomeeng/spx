@@ -367,26 +367,6 @@ Additional skills ship with the plugin and are invoked by name: `/commit-changes
 
 </skill_router>
 
-<skill_sources>
-
-HARD STOP: Like every directory outside the current `$CWD`, the Outcome Engineering plugin repository is OFF LIMITS.
-Access it read-only only to inspect plugin behavior and form improvement suggestions. The writes it admits are a Change draft in that repository's untracked `.spx/` change store and the verification-run journal of that draft's Change audit, and nothing else.
-Never edit, branch, commit, test, audit, PR, or merge its product content there; a separate session in that repository has its own instructions.
-
-Outcome Engineering plugin skills are published from the GitHub repository `outcomeeng/plugins`, the source that `claude plugin marketplace list` reports for the `outcomeeng` marketplace. The coding agent runs the installed copy under its plugin cache. A local checkout of that repository, where the machine has one, is the directory the orchestration file `$XDG_CONFIG_HOME/engineering.outcome/*/*/orchestration.toml` names in the `[[products]]` entry whose `repository` is `outcomeeng/plugins`, under its `workspace_root`.
-
-If a file under that repository, or an installed or cached copy of those plugin files, appears wrong, stale, incomplete, unsafe, confusing, or responsible for incorrect workflow behavior, do not edit it from this product workflow.
-
-Instead, file the follow-up as a Proposed Change for the plugins product:
-
-1. Read that repository's `spx/local/changes.md` for the store and the Product value.
-2. From its designated main checkout, without changing its branch or its tracked files, run `/author-change` for a Proposed Change with Product `plugins` that describes what happened, what was unclear, what you checked, and what facts would help the future plugin workflow.
-3. Publish it to the declared store and record nothing else there.
-
-Do not prescribe exact code, documentation, or template changes. Record the mistaken assumption, the trigger that led to it, and the facts that would help the plugin-repository workflow target the misconception precisely.
-
-</skill_sources>
-
 ### Decision records: the ADR/PDR templates
 
 **A decision record takes the shape of the template `/understand` ships, and nothing else.** Read `decisions/decision-name.pdr.md` or `decisions/decision-name.adr.md` beneath the `Template root` the `<PRODUCT_TREE_FOUNDATION>` marker records before writing a decision record or the Declarations of a Change that touches one. The shape is a title, a `DEFINES … AS …` line for each term the decision owns, a keyword opening — `GOVERNS … SO THAT … CAN RELY ON …` for a PDR, `CONSTRAINS … TO … SO THAT …` for an ADR — and `## Verification` with slugged rules. An ADR or PDR that carries a prose decision paragraph, `## Rationale`, `## Product properties`, `## Invariants`, a `### Testing` subsection, a tag on a rule, or the older `## Purpose`, `## Context`, `## Decision`, `## Trade-offs accepted`, `## Compliance`, or `## Product invariants` headings is in a retired shape. It is NOT precedent: do not copy its structure, never cite it to justify a decision record's shape, and leave a record in the template shape whenever a change touches it. When the product-tree reviewer compares a template-shaped file against a sibling in a retired shape, the sibling is the file in violation.
