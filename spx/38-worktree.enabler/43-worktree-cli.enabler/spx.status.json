@@ -5,7 +5,7 @@
     "test": {
       "tests/output-escaping.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/output-escaping.compliance.l1.test.ts",
@@ -48,7 +48,7 @@
       },
       "tests/worktree-cli.compliance.l2.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-cli.compliance.l2.test.ts",
@@ -90,7 +90,7 @@
       },
       "tests/worktree-cli.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-cli.scenario.l1.test.ts",
@@ -138,7 +138,7 @@
       },
       "tests/worktree-cli.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-cli.scenario.l2.test.ts",
@@ -180,7 +180,7 @@
       },
       "tests/worktree-controlling-process.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-controlling-process.scenario.l1.test.ts",
@@ -210,7 +210,7 @@
       },
       "tests/worktree-name-resolution.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-name-resolution.compliance.l1.test.ts",
@@ -250,7 +250,7 @@
       },
       "tests/worktree-name-resolution.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-name-resolution.mapping.l1.test.ts",
@@ -290,7 +290,7 @@
       },
       "tests/worktree-name.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "pnpm-lock.yaml",
           "spx/38-worktree.enabler/43-worktree-cli.enabler/tests/worktree-name.property.l1.test.ts",

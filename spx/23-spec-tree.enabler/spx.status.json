@@ -5,7 +5,7 @@
     "test": {
       "tests/decision-attachment.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/spec-tree.md",
@@ -109,7 +109,7 @@
       },
       "tests/grammar-selection.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/spec-tree.md",
@@ -216,7 +216,7 @@
       },
       "tests/link-grammar.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/spec-tree.md",
@@ -319,7 +319,7 @@
       },
       "tests/link-grammar.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/spec-tree.md",
@@ -422,7 +422,7 @@
       },
       "tests/spec-tree-ownership.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/spec-tree.md",
@@ -542,7 +542,7 @@
       },
       "tests/spec-tree-surface.conformance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -578,7 +578,7 @@
       },
       "tests/spec-tree-surface.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "pnpm-lock.yaml",
           "spx/23-spec-tree.enabler/spec-tree.md",

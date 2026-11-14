@@ -5,7 +5,7 @@
     "test": {
       "tests/verification-context-cli-registry.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/21-verification-context.enabler/tests/verification-context-cli-registry.scenario.l1.test.ts",
@@ -386,7 +386,7 @@
       },
       "tests/verification-context-cli.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -493,7 +493,7 @@
       },
       "tests/verification-context-digest.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "pnpm-lock.yaml",
           "spx/34-verification.enabler/21-verification-context.enabler/tests/verification-context-digest.property.l1.test.ts",
@@ -589,7 +589,7 @@
       },
       "tests/verification-context-path.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
@@ -697,7 +697,7 @@
       },
       "tests/verification-context-shape.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "1727c4a1d859470c03bb7275a135c74f70e92bec",
         "read": [
           "package.json",
           "pnpm-lock.yaml",
