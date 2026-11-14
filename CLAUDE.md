@@ -1,4 +1,4 @@
-<!-- PRODUCT-TREE v0.42.0 langs:typescript -->
+<!-- PRODUCT-TREE v0.43.0 langs:typescript -->
 
 <operator_question_interrupt>
 **OPERATOR QUESTION - IMMEDIATE PRIVILEGE REVOCATION:** When the operator asks a question, immediately relinquish all privileges to modify the current product or any external file, service, or resource. Answer the question immediately.
@@ -85,7 +85,7 @@ The methodology a repository follows is declared in `spx.config.yaml` at the rep
 
 `/contextualize` reads the checkout as it stands. It never runs `/sync-base`, fetches, rebases, or otherwise moves the checkout, so a Verifier's context load leaves the head it judges in place.
 
-**🛑 STOP TRIGGER — after every compaction event:** the set of contextualized nodes is empty. **NEVER** read or modify product content whose governing spec node has not been contextualized since that compaction, and **NEVER** discuss a node before contextualizing it. Product content is every product artifact a spec node governs or must govern: source, tests, evals, generated output, specs, decisions, coordination notes, and spec-declared configuration. Operational configuration — the `spx/local/` overlays and the exclusion mechanism, read by the skill that declares them without the marker — and the agent harness's own instruction and settings files it is told to read, tool and command output, the session store, and scratch space are not product content. Product content's governing node is found by search under the live foundation marker: a path under `spx/<node>/` belongs to that node; any other path belongs to the node whose `spx/**/tests/` file names it and whose spec links that test, or whose spec or decision names that path in an `[audit]` assertion; several matching nodes resolve to their lowest common ancestor. Product content with no governing spec is not read or modified; record the gap. An operational continuation — PR inspection, check wait, merge, deploy, release, `spx session` operations, occupancy proof — touches no product content and triggers neither `/understand` nor `/contextualize`.
+**🛑 STOP TRIGGER — after every compaction event:** the set of contextualized nodes is empty. **NEVER** read or modify product content whose governing spec node has not been contextualized since that compaction, and **NEVER** discuss a node before contextualizing it. Product content is every product artifact a spec node governs or must govern: source, tests, evals, generated output, specs, decisions, `ISSUES.md` files, and spec-declared configuration. Operational configuration — the `spx/local/` overlays and the exclusion mechanism, read by the skill that declares them without the marker — and the agent harness's own instruction and settings files it is told to read, tool and command output, the session store, and scratch space are not product content. Product content's governing node is found by search under the live foundation marker: a path under `spx/<node>/` belongs to that node; any other path belongs to the node whose `spx/**/tests/` file names it and whose spec links that test, or whose spec or decision names that path in an `[audit]` assertion; several matching nodes resolve to their lowest common ancestor. Product content with no governing spec is not read or modified; record the gap. An operational continuation — PR inspection, check wait, merge, deploy, release, `spx session` operations, occupancy proof — touches no product content and triggers neither `/understand` nor `/contextualize`.
 
 ### When creating specs or nodes -> `/author`
 
@@ -105,10 +105,8 @@ Review, audit, or quality check specs. Find contradictions or gaps.
 
 ### Before a resource-intensive command -> `/wait-for-load`
 
-🛑 **STOP TRIGGER — Before any resource-intensive command, ALWAYS invoke `/wait-for-load` and run that command on one shell line in the form its lock switch selects.**
-A resource-intensive command is a test suite, an eval, a full gate, a compiling build, or an install verification; a lightweight command — formatting, a single-file lint, a markdown or link validation, an instruction-block render, a status read — runs with neither the lock nor the waiter.
-**ALWAYS** read the lock switch from `spx/local/wait-for-load.md`: where that overlay holds the line `orchestration-lock: on`, run the command as the argument vector of `spx orchestration lock --run-id <id> -- <command>`, so it starts only when the host-wide slot admits it; where the overlay is absent or leaves the switch off, chain the command behind the waiter with `&&`.
-**ALWAYS** let the waiter's zero exit start the selected command unchanged; a lost or truncated waiter result re-runs the same line.
+🛑 **STOP TRIGGER — Before any resource-intensive command, ALWAYS invoke `/wait-for-load` and run that command on one shell line as the argument vector of `spx orchestration lock --run-id <id> -- <command>`, so it starts only when the host-wide slot admits it.**
+A resource-intensive command is a test suite, an eval, a full gate, a compiling build, or an install verification; a lightweight command — formatting, a single-file lint, a markdown or link validation, an instruction-block render, a status read — runs without the lock.
 **ALWAYS** recover the existing invocation and its matching terminal record after a lock record is lost from view; start no new invocation while that invocation's state is unresolved, and report the outcome unknown when its terminal exit is known but the record is gone.
 **NEVER** use host load to reduce scope, workers, limits, deadlines, or verification.
 
@@ -164,7 +162,7 @@ DENY   git stash clear
 
 ## Autonomy Boundary
 
-Default-branch git and version-control mutation — branching, committing, pushing, publishing, merging, and the `/merge` flow's own cleanup of the branches it created — proceeds only inside a governing skill flow, never as a direct command outside one; creating or switching to a local branch to preserve work in progress, and a `--force-with-lease` push to the working branch that flow owns, stay inside it. The `/merge` direct-push transport's publication of a coordination-note-only changeset to the default branch on origin, performed under a held `MERGE_READINESS` with a converged local review, is likewise inside its governing flow. This autonomy never extends to force-pushing a shared or protected ref, deleting a ref no active skill flow authorizes, bypassing commit hooks (`--no-verify`) or commit signing, or any action the Git Safety Protocol forbids; each needs explicit operator instruction in the same turn.
+Default-branch git and version-control mutation — branching, committing, pushing, publishing, merging, and the `/merge` flow's own cleanup of the branches it created — proceeds only inside a governing skill flow, never as a direct command outside one; creating or switching to a local branch to preserve work in progress, and a `--force-with-lease` push to the working branch that flow owns, stay inside it. The `/merge` direct-push transport's publication of a notes-only changeset to the default branch on origin, performed under a held `MERGE_READINESS` with a converged local review, is likewise inside its governing flow. This autonomy never extends to force-pushing a shared or protected ref, deleting a ref no active skill flow authorizes, bypassing commit hooks (`--no-verify`) or commit signing, or any action the Git Safety Protocol forbids; each needs explicit operator instruction in the same turn.
 
 ### Sub-agent dispatch
 
@@ -229,9 +227,8 @@ The table routes tasks to skills. Only an active skill's explicit invocation ins
 | "Audit eval evidence"                                   | `/audit-eval-evidence` |
 | "Audit this spec node"                                  | `/audit-specs`         |
 | "Diagnose the spx environment"                          | `/diagnose`            |
-| "Claim this Change"                                     | `/claim-change`        |
-| "Release this Change" or "Hand this off"                | `/release-change`      |
-| "Close this Change as Applied"                          | `/close-change`        |
+| "Claim this Change" or "Hand this off"                  | `/manage-change`       |
+| "Close this Change as Applied"                          | `/manage-change`       |
 
 Per-language code, architecture, and test audits ship as `audit-{lang}-{code|test|architecture}` skills. The active verification workflow composes the skills for the languages recorded in this instruction block's opening marker.
 
@@ -259,7 +256,7 @@ Test level is encoded in the filename. The `{evidence}` segment is chosen by `/t
 
 ## Change Lifecycle
 
-Work is coordinated through Changes in the store `spx/local/coordination.md` declares. Hold a Change through `/claim-change` before refining or executing it. When the work stops with continuation remaining, `/release-change` writes the Handoff, removes the holder, and returns the Change to Available for any agent to claim; when the Change reaches a terminal Lifecycle, `/close-change <Applied|Abandoned>` writes the terminal record and closes it. A follow-up is a Proposed Change created through `/author-change`. Maturity moves only through `/author-change`; the three Lifecycle skills move Lifecycle and nothing else.
+The Changes of this Product live in the Change Store `spx/local/changes.md` names. A session works only on a Change the Operator selects, by naming it for implementation or by advancing it to Framed, and holds it through the `claim` Transition of `/manage-change` before refining or applying it. When the work stops with continuation remaining, its `release` Transition writes the Handoff, removes the holder, and returns the Change to Available for any agent to claim; when the Change meets the close condition of its type, its `applied` Transition closes it; when the work ends before it produces its Output, or a merge absorbs the Change into another, its `abandoned` Transition closes it. A session reports remaining work to the Operator and records it as a Proposed Change through `/author-change` only when the Operator asks for one; `/author-change` writes every record body.
 
 <!-- /PRODUCT-TREE -->
 
@@ -350,7 +347,7 @@ The **product-tree** plugin is the active system for managing Product Trees. Cor
 | `/align`         | Review for gaps, contradictions, and consistency                   |
 | `/merge`         | Route PR lifecycle work through opening, managing, and merge gates |
 
-Additional skills ship with the plugin and are invoked by name: `/commit-changes`, `/interview`, `/audit-tests`, `/audit-pdr`, `/audit-adr`, `/audit-specs`, `/claim-change`, `/release-change`, `/close-change`, `/author-change`, `/refocus`, `/bootstrap`, `/open-pr`, `/manage-pr`, `/merge`, `/sync-base`, `/merging-standards`, `/diagnose`. See the product-tree plugin's `skills/` directory for the full list.
+Additional skills ship with the plugin and are invoked by name: `/commit-changes`, `/interview`, `/audit-tests`, `/audit-pdr`, `/audit-adr`, `/audit-specs`, `/manage-change`, `/author-change`, `/refocus`, `/bootstrap`, `/open-pr`, `/manage-pr`, `/merge`, `/sync-base`, `/merging-standards`, `/diagnose`. See the product-tree plugin's `skills/` directory for the full list.
 
 </skill_router>
 
@@ -370,7 +367,7 @@ If a file under that resolved repository, or a generated/cache copy of those plu
 
 Instead, file the follow-up as a Proposed Change for the plugins product:
 
-1. Read that repository's `spx/local/coordination.md` for the store and the Product value.
+1. Read that repository's `spx/local/changes.md` for the store and the Product value.
 2. From its designated main checkout, without changing its branch or its tracked files, run `/author-change` for a Proposed Change with Product `plugins` that describes what happened, what was unclear, what you checked, and what facts would help the future plugin workflow.
 3. Publish it to the declared store and record nothing else there.
 
