@@ -7,18 +7,20 @@
 findings fall on `testing/harnesses/verify/harness.ts`, at lines outside the
 `origin/main..HEAD` diff of that head:
 
-- Class: harness-owned expected diagnostic token. Lines 344, 618, 627, 642 —
-  `observeRejectedVerificationArgs` takes an `expectedDiagnosticToken`
-  parameter, and `observeVerificationLifecycleOutsideRunRejection`,
-  `observeNonNounLocalEvidenceRejection`, and
-  `observeMissingEvidenceRequiredOptionRejection` each choose the token. The
-  observation returns the token beside `stderr`, so the three rejection cases of
-  `tests/record-run.compliance.l1.test.ts` (lines 23–30, 58–67, 69–78) assert
-  `stderr` against an expected value the harness supplies rather than one the
-  test derives.
-- Class: assertion code in test infrastructure. Line 146 — the module imports
-  `expect` from `vitest`. Every test file of this node except
-  `tests/change-identity.scenario.l2.test.ts` imports from this module.
+- Class: harness-owned expected diagnostic token. `observeRejectedVerificationArgs`
+  takes an `expectedDiagnosticToken` parameter, and
+  `observeVerificationLifecycleOutsideRunRejection` and
+  `observeNonNounLocalEvidenceRejection` each choose the token. The observation
+  returns the token beside `stderr`, so the two rejection cases of
+  `tests/record-run.compliance.l1.test.ts` — "rejects a caller-driven lifecycle
+  verb outside the verification run noun group" and "rejects every
+  non-noun-local evidence command" — assert `stderr` against an expected value
+  the harness supplies rather than one the test derives.
+- Class: assertion code in test infrastructure. The module imports `expect`
+  from `vitest`, and five test files of this node import it directly:
+  `tests/file-scope.mapping.l1.test.ts`, `tests/record-run.compliance.l1.test.ts`,
+  `tests/verifier.scenario.l1.test.ts`, `tests/verifier.compliance.l1.test.ts`,
+  and `tests/change-identity.scenario.l1.test.ts`.
 
 The subtree-wide form of the class, covering the same module, is recorded in
 [`spx/34-verification.enabler/32-verify.enabler/ISSUES.md`](spx/34-verification.enabler/32-verify.enabler/ISSUES.md)
@@ -26,10 +28,10 @@ under "Shared verification harness owns test predicates and unclassified Git
 doubles". The facts above are the record-run instance: the token-supplying
 observations and the test cases that consume them.
 
-The line that takes the oracle from the harness is line 27 of
-`tests/record-run.compliance.l1.test.ts`: `expect(observation.stderr).toContain(observation.expectedDiagnosticToken)`
-in the case "rejects a caller-driven lifecycle verb outside the verification run
-noun group". `observeVerificationLifecycleOutsideRunRejection` returns
+The assertion that takes the oracle from the harness is
+`expect(observation.stderr).toContain(observation.expectedDiagnosticToken)` in
+the case "rejects a caller-driven lifecycle verb outside the verification run
+noun group" of `tests/record-run.compliance.l1.test.ts`. `observeVerificationLifecycleOutsideRunRejection` returns
 `expectedDiagnosticToken` with the observation, so the expected value comes from
 the shared harness and not from the test.
 
