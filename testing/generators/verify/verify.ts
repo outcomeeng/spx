@@ -49,7 +49,7 @@ import {
   type VerifyScopeType,
   type VerifyVerificationType,
 } from "@/domains/verify/verify";
-import { VERIFICATION_RUN_CLI_SURFACE, VERIFY_CLI } from "@/interfaces/cli/verify";
+import { VERIFICATION_RUN_CLI_SURFACE } from "@/interfaces/cli/verify";
 import type { JsonValue } from "@/lib/agent-run-journal";
 import { GIT_MODIFY_STATUS_EXAMPLE, GIT_NULL_RECORD_SEPARATOR } from "@/lib/git/name-status";
 import { GIT_ROOT_COMMAND } from "@/lib/git/root";
@@ -769,13 +769,6 @@ export interface VerifyNonNounLocalEvidenceCase {
   readonly rejectedCommandName: (typeof VERIFICATION_RUN_CLI_SURFACE.forbiddenRunCommandNames)[number];
 }
 
-export interface VerifyEvidenceRequiredOptionCase {
-  readonly resourceCommandName:
-    | typeof VERIFICATION_RUN_CLI_SURFACE.scopeResourceCommandName
-    | typeof VERIFICATION_RUN_CLI_SURFACE.findingResourceCommandName;
-  readonly omittedOption: typeof VERIFY_CLI.payloadOption | typeof VERIFY_CLI.idempotencyKeyOption;
-}
-
 export function arbitrarySafeFileScopeIdentity(): fc.Arbitrary<string> {
   return arbitrarySourceFilePath();
 }
@@ -876,18 +869,6 @@ export function verifyNonNounLocalEvidenceCases(): readonly VerifyNonNounLocalEv
   return VERIFICATION_RUN_CLI_SURFACE.forbiddenRunCommandNames.map((rejectedCommandName) => ({
     rejectedCommandName,
   }));
-}
-
-export function verifyEvidenceRequiredOptionCases(): readonly VerifyEvidenceRequiredOptionCase[] {
-  return [
-    VERIFICATION_RUN_CLI_SURFACE.scopeResourceCommandName,
-    VERIFICATION_RUN_CLI_SURFACE.findingResourceCommandName,
-  ].flatMap((resourceCommandName) =>
-    [VERIFY_CLI.payloadOption, VERIFY_CLI.idempotencyKeyOption].map((omittedOption) => ({
-      resourceCommandName,
-      omittedOption,
-    }))
-  );
 }
 
 export function arbitraryUnsafeFileScopeIdentity(): fc.Arbitrary<string> {
