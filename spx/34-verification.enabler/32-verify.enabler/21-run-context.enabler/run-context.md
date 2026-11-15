@@ -36,8 +36,6 @@ CAN operate on one scoped verification run with a stable subject, recorded input
 
 ### Compliance
 
-- [payload-directory-created](tests/verify-payload-directory.compliance.l1.test.ts): ALWAYS: `start` of a run, whichever party drives it, creates the run's payload directory `.spx/branch/<branch-slug>/<verification-type>/payloads/run-<run-token>/` under the branch key its journal opened in after that journal exists, and reports it as `payloadDirectory`
-- [payload-sweep-at-start](tests/verify-payload-directory.compliance.l1.test.ts): ALWAYS: before `start` creates its run's payload directory, it removes the payload directory of every run whose journal carries a terminal-completion event or a seal, and keeps every other payload directory
 - ALWAYS: `start` given an expected content SHA-256 compares it, under the named content normalization, `none` when none is named, with the digest of the bytes it captures, and before any verification context, run journal, or run-context event exists rejects an expected digest that is not 64 lowercase hexadecimal characters naming the option, a content normalization named without an expected digest naming both options, a difference naming both digests, and captured bytes that are not valid UTF-8 under `utf8-universal-newlines` naming that normalization and its version ([test](tests/verify-start-expected-digest.compliance.l1.test.ts))
 - ALWAYS: recorded-input replay given a file to check reports `content-identity-unavailable` for a run whose start recorded no content digest under the named normalization, `normalization-failed` naming the normalization and its version for a checked file that is not valid UTF-8 under `utf8-universal-newlines`, and `check-file-unreadable` naming the path for a file it cannot read, never `different`; a content normalization named without a file to check is rejected; and replay without a file to check returns the recorded input unchanged ([test](tests/verify-input-check.compliance.l1.test.ts))
 - ALWAYS: `start` given expectations — a JSON object carrying `schemaVersion` `1` and an optional `additionalPaths` array of product-relative paths, absent meaning none — records them on the run's run-context event, and rejects before any run exists an expectations document that is not such an object or whose schema version is unsupported, a run that is not changeset-scoped, or a declared additional path that is not a product-relative path the head commit holds, naming the field or the path ([test](tests/verify-expectations.compliance.l1.test.ts))
@@ -49,6 +47,11 @@ CAN operate on one scoped verification run with a stable subject, recorded input
 - ALWAYS: recorded-input replay requires a run token and rejects ambiguous type/scope-only selection ([test](tests/verify-input.compliance.l1.test.ts))
 - ALWAYS: when `input` cannot locate a run, the diagnostic names the requested run token, verification type, scope type, scope identity, backend identity, storage namespace, searched target, and selector inputs needed to address it ([test](tests/verify-input.compliance.l1.test.ts))
 - NEVER: recorded-input replay reads a fresh input value instead of replaying the input recorded at start ([test](tests/verify-input.compliance.l1.test.ts))
+
+### Test.Compliance: payload directory
+
+- [payload-directory-created](tests/verify-payload-directory.compliance.l1.test.ts): ALWAYS: `start` of a run, whichever party drives it, creates the run's payload directory `.spx/branch/<branch-slug>/<verification-type>/payloads/run-<run-token>/` under the branch key its journal opened in after that journal exists, and reports it as `payloadDirectory`
+- [payload-sweep-at-start](tests/verify-payload-directory.compliance.l1.test.ts): ALWAYS: before `start` creates its run's payload directory, it removes the payload directory of every run whose journal carries a terminal-completion event or a seal, and keeps every other payload directory
 
 ### Audit: payload directory
 
