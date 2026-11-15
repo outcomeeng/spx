@@ -1,6 +1,8 @@
 # Run Payload Directory
 
-- one-payload-directory-per-run: A verification run's staged payloads live in one payload directory per run, which the command layer addresses through the state module's branch scope under the run's opening namespace, creates at `start` after the run's journal, sweeps at each `start`, and removes when `finish` seals the run, so that every worktree that continues a run resolves the same payload directory, a run-relative payload name never reads outside it, and no sealed run's payloads remain on disk.
+CONSTRAINS where a verification run's staged payloads live and when their directory exists
+TO one payload directory per run that the command layer addresses through the state module's branch scope under the run's opening namespace, creates at `start` after the run's journal, sweeps at each `start`, and removes when `finish` seals the run
+SO THAT every worktree that continues a run resolves the same payload directory, a run-relative payload name never reads outside it, and no sealed run's payloads remain on disk
 
 ## Verification
 
