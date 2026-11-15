@@ -96,7 +96,7 @@ describe("verify finish payload-directory removal", () => {
       const added = await payloads.addScopeUnit(run);
       const finishOptions = { ...run.selectors, terminalStatus: JOURNAL_RUN_STATE_STATUS.REJECTED };
 
-      const finished = await verifyFinishCommand(finishOptions, payloads.refusingRemovalDeps());
+      const finished = await verifyFinishCommand(finishOptions, payloads.payloadRemovalRefusingDeps());
       const status = await payloads.status(run);
       const repeated = await verifyFinishCommand(finishOptions, payloads.deps());
       const leftBehind = await isDirectory(payloadDirectoryOf(run));
