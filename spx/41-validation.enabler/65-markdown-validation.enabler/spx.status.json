@@ -5,7 +5,7 @@
     "test": {
       "tests/markdown-validation-command.scenario.l2.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "b190e7af977fd24e31ebea7a5acf6727881424ad",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -398,7 +398,7 @@
       },
       "tests/markdown-validation.compliance.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "b190e7af977fd24e31ebea7a5acf6727881424ad",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -550,7 +550,7 @@
       },
       "tests/markdown-validation.mapping.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "b190e7af977fd24e31ebea7a5acf6727881424ad",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -655,7 +655,7 @@
       },
       "tests/markdown-validation.property.l1.test.ts": {
         "verdict": "passed",
-        "commit": "019d55f35ea6bbaffc00190b14b85646d9bd9cb2",
+        "commit": "b190e7af977fd24e31ebea7a5acf6727881424ad",
         "read": [
           "pnpm-lock.yaml",
           "spx/41-validation.enabler/65-markdown-validation.enabler/markdown-validation.md",
@@ -754,7 +754,7 @@
       },
       "tests/markdown-validation.scenario.l1.test.ts": {
         "verdict": "passed",
-        "commit": "da0c02f96e823741bb4ac402a07eac77a7311f7b",
+        "commit": "b190e7af977fd24e31ebea7a5acf6727881424ad",
         "read": [
           "pnpm-lock.yaml",
           "spx.config.yaml",
@@ -1037,6 +1037,7 @@
           "spx/34-verification.enabler/21-verification-input.enabler/verification-input.md",
           "spx/34-verification.enabler/32-verify.enabler/13-verify-module-structure.adr.md",
           "spx/34-verification.enabler/32-verify.enabler/17-drive-mode.adr.md",
+          "spx/34-verification.enabler/32-verify.enabler/17-run-payload-directory.adr.md",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/ISSUES.md",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/PLAN.md",
           "spx/34-verification.enabler/32-verify.enabler/21-run-context.enabler/run-context.md",
@@ -1066,10 +1067,16 @@
           "spx/34-verification.enabler/32-verify.enabler/65-test-evidence-model.enabler/test-evidence-model.md",
           "spx/34-verification.enabler/32-verify.enabler/ISSUES.md",
           "spx/34-verification.enabler/32-verify.enabler/PLAN.md",
+          "spx/34-verification.enabler/32-verify.enabler/knowledge/index.md",
+          "spx/34-verification.enabler/32-verify.enabler/knowledge/log.md",
+          "spx/34-verification.enabler/32-verify.enabler/knowledge/run-payload-directory.md",
           "spx/34-verification.enabler/32-verify.enabler/verify.md",
           "spx/34-verification.enabler/43-execute.enabler/21-executor-architecture.adr.md",
           "spx/34-verification.enabler/43-execute.enabler/execute.md",
           "spx/34-verification.enabler/PLAN.md",
+          "spx/34-verification.enabler/knowledge/index.md",
+          "spx/34-verification.enabler/knowledge/log.md",
+          "spx/34-verification.enabler/knowledge/run-write-paths.md",
           "spx/34-verification.enabler/verification.md",
           "spx/36-session.enabler/11-session-frontmatter.pdr.md",
           "spx/36-session.enabler/21-atomic-claiming.adr.md",
@@ -1253,9 +1260,11 @@
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/ISSUES.md",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/PLAN.md",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/21-verification.enabler/verification.md",
-          "spx/60-surfaces.enabler/21-cli-surface.enabler/ISSUES.md",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/PLAN.md",
           "spx/60-surfaces.enabler/21-cli-surface.enabler/cli-surface.md",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/knowledge/index.md",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/knowledge/log.md",
+          "spx/60-surfaces.enabler/21-cli-surface.enabler/knowledge/verification-command-surface.md",
           "spx/60-surfaces.enabler/PLAN.md",
           "spx/60-surfaces.enabler/surfaces.md",
           "spx/EXCLUDE",
