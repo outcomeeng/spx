@@ -34,6 +34,7 @@ import { sampleVerifyTestValue, VERIFY_TEST_GENERATOR } from "@testing/generator
 import { CLI_PATH, NODE_EXECUTABLE, PRODUCT_ROOT } from "@testing/harnesses/constants";
 import { buildGitTestEnvironment, GIT_TEST_ENVIRONMENT_KEYS } from "@testing/harnesses/git-test-constants";
 import { type StartedChangeRun, withChangeRunsRepository } from "@testing/harnesses/verify/change-runs";
+import { sampleDirectoryName, samplePayloadFileName } from "@testing/harnesses/verify/payload-directory";
 import {
   initializeVerifyRepository,
   type RepositoryStateEntry,
@@ -942,4 +943,89 @@ export async function observeBuiltInputCheckOfUnknownRun(
         checkedFilePath,
       ]),
   );
+}
+
+/**
+ * A review run of the repository's file started through the built executable, with what a payload-source
+ * case needs: the captured `start`, its report when it succeeded, the run's command-line selectors, a
+ * generated scope unit the run accepts, and the runner for the run's later command paths. The harness
+ * returns every captured run without a verdict; the caller judges it.
+ */
+export interface BuiltPayloadRun {
+  readonly productDir: string;
+  readonly start: BuiltVerificationCliRun;
+  readonly report: VerifyStartReport | undefined;
+  readonly runSelectors: readonly string[];
+  readonly scopeUnit: string;
+  /** The `--idempotency-key` option with a freshly generated key. */
+  idempotencyOption(): readonly string[];
+  /** Write the scope unit as a generated file name in the run's payload directory, and return that run-relative name. */
+  stageRunPayload(): Promise<string>;
+  /**
+   * Write the scope unit as `name` in a new directory of the checkout, and return that directory, so a
+   * command run from it names the file by a relative path.
+   */
+  stageInvocationDirectoryPayload(name: string): Promise<string>;
+  /** Run a command path of the run from `cwd`, the checkout when none is named, piping `input` to stdin. */
+  run(
+    commandPath: readonly string[],
+    options: readonly string[],
+    input?: string,
+    cwd?: string,
+  ): Promise<BuiltVerificationCliRun>;
+}
+
+/**
+ * In a real Git repository, start a review run of the repository's file through the built executable and
+ * hand the started run to the callback. The repository and every run under its `.spx/` store are removed
+ * when the callback settles.
+ */
+export async function withBuiltPayloadRun<T>(callback: (run: BuiltPayloadRun) => Promise<T>): Promise<T> {
+  return withVerifyHeadCommitRepository(async (repository) => {
+    const verificationType = VERIFY_VERIFICATION_TYPE.REVIEW;
+    const selectors = [
+      flagOf(VERIFY_CLI.verificationTypeOption),
+      verificationType,
+      flagOf(VERIFY_CLI.scopeTypeOption),
+      VERIFY_SCOPE_TYPE.FILE,
+      flagOf(VERIFY_CLI.scopeOption),
+      repository.filePath,
+    ];
+    const start = await runBuiltVerificationRun(
+      repository.productDir,
+      [VERIFY_CLI.startCommandName],
+      [...selectors, flagOf(VERIFY_CLI.inputOption), VERIFY_INPUT_SOURCE.STDIN],
+      repository.filePath,
+    );
+    const report = start.exitCode === VERIFY_CLI_EXIT_CODE.OK
+      ? (JSON.parse(start.stdout) as VerifyStartReport)
+      : undefined;
+    const scopeUnit = JSON.stringify(
+      sampleVerifyTestValue(VERIFY_TEST_GENERATOR.unjudgedScopeUnit(verificationType, repository.filePath)),
+    );
+    return callback({
+      productDir: repository.productDir,
+      start,
+      report,
+      runSelectors: [...selectors, flagOf(VERIFY_CLI.runOption), report?.runToken ?? ""],
+      scopeUnit,
+      stageRunPayload: async () => {
+        const name = samplePayloadFileName();
+        await writeFile(join(report?.payloadDirectory ?? "", name), scopeUnit);
+        return name;
+      },
+      stageInvocationDirectoryPayload: async (name) => {
+        const directory = join(repository.productDir, sampleDirectoryName());
+        await mkdir(directory);
+        await writeFile(join(directory, name), scopeUnit);
+        return directory;
+      },
+      idempotencyOption: () => [
+        flagOf(VERIFY_CLI.idempotencyKeyOption),
+        sampleVerifyTestValue(VERIFY_TEST_GENERATOR.idempotencyKey()),
+      ],
+      run: async (commandPath, options, input, cwd = repository.productDir) =>
+        runBuiltVerificationRun(cwd, commandPath, options, input),
+    });
+  });
 }
