@@ -85,7 +85,7 @@ Caller-driven scope options map each scope type to the selector supplied through
 
 ### Audit
 
-- family-not-top-level: ALWAYS: a verification activity is exposed under the `spx verification` command family rather than as a type-specific top-level command, as [verification command surface](knowledge/verification-command-surface.md) records.
+- family-not-top-level: ALWAYS: a verification activity is exposed under the `spx verification` command family rather than as a type-specific top-level command.
 - replayable-structured: ALWAYS: `spx verification` presents replayable command paths and agent-readable structured results.
 - harness-driven-same-slot: NEVER: the verification-type noun slot admits only the types SPX executes directly — a verification SPX drives through an agent harness occupies the same slot.
 - no-top-level-verb: NEVER: a top-level verb command such as `spx verify` manages verification runs.
