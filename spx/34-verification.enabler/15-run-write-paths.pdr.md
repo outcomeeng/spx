@@ -48,4 +48,7 @@ A reported directory's path follows from whether the directory exists.
 
 - host-reads-write-paths: ALWAYS: a host that launches a session recording verification obtains the write paths from SPX for each launch and supplies them through the harness's supported parent-session permission configuration, and no agent definition contains an installation-specific store path.
 - writable-root-boundary: NEVER: a writable root granted over the reported directories is treated as a guarantee that only the caller's run can be changed.
+
+### Audit: payloads
+
 - payload-working-input: NEVER: a payload source staged in a payload directory is committed.
