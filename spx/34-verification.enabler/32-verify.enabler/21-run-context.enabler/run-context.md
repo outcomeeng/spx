@@ -49,3 +49,8 @@ CAN operate on one scoped verification run with a stable subject, recorded input
 - ALWAYS: recorded-input replay requires a run token and rejects ambiguous type/scope-only selection ([test](tests/verify-input.compliance.l1.test.ts))
 - ALWAYS: when `input` cannot locate a run, the diagnostic names the requested run token, verification type, scope type, scope identity, backend identity, storage namespace, searched target, and selector inputs needed to address it ([test](tests/verify-input.compliance.l1.test.ts))
 - NEVER: recorded-input replay reads a fresh input value instead of replaying the input recorded at start ([test](tests/verify-input.compliance.l1.test.ts))
+
+### Audit: payload directory
+
+- payload-directory-addressing: ALWAYS: `start` obtains the run's payload directory from the state module's branch scope addressing under the run's opening namespace, keyed by the verification type and the run token, and creates it after the run's journal exists for every run whichever party drives it; a `start` that composes the payload directory's path itself, or creates the directory before the journal, fails.
+- payload-directory-sweep: ALWAYS: `start` sweeps before its own run's directory exists: it lists the payload directories under every verification type's payload root, finds each run token's journal across every branch scope of the repository-shared store, and removes through the injected filesystem only the directories whose journal carries a terminal-completion event or a seal; a sweep that removes through any other filesystem access, or removes the directory of a run whose journal carries neither, fails.

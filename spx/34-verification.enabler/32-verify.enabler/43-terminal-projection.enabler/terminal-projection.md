@@ -32,3 +32,7 @@ CAN close a scoped verification run with a terminal status and optional terminal
 - ALWAYS: `finish`, `status`, and `render` report the run token and, from the journal projection of every sealed run, audit and review alike, the finding count per disposition — `blocking`, `debt`, `filed`, `stale` — with the authoritative total beside them ([test](tests/verify-status.compliance.l1.test.ts))
 - ALWAYS: `render` projects an unsealed run read-only — reporting `sealed: false` with no terminal status, appending no journal event, and sealing no run ([test](tests/verify-render.compliance.l1.test.ts))
 - ALWAYS: status and render next actions filter by the recorded drive mode, so an unsealed spx-driven run advertises no caller evidence-append action such as `scope add` or `finding add` ([test](tests/verify-drive-mode.compliance.l1.test.ts))
+
+### Audit: payload directory
+
+- seal-removes-payload-directory: ALWAYS: `finish` removes the run's payload directory through the injected filesystem after it seals the run journal, removes nothing when it records no terminal completion, and returns a failed removal, naming the directory, in its result; a `finish` that removes the directory before the seal, or through any other filesystem access, fails.
