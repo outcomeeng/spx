@@ -1,5 +1,5 @@
 import { chmod, mkdir, readdir, readFile, stat, symlink, writeFile } from "node:fs/promises";
-import { dirname, join, sep } from "node:path";
+import { basename, dirname, join, sep } from "node:path";
 
 import { journalAppendCommand, journalSealCommand } from "@/commands/journal/cli";
 import type { JournalStreamSink } from "@/commands/journal/runtime";
@@ -141,6 +141,26 @@ function journalRefusingFileSystem(): StateStoreFileSystem {
 }
 
 /**
+ * The production file system, except that every removal of a run payload directory refuses with a
+ * generated reason, so a sealed run's payload directory stays while every other store operation proceeds.
+ */
+function payloadRemovalRefusingFileSystem(): StateStoreFileSystem {
+  const isPayloadDirectory = (path: string): boolean =>
+    basename(dirname(path)) === VERIFY_PAYLOAD_PATH.ROOT
+    && basename(path).startsWith(VERIFY_PAYLOAD_PATH.RUN_DIRECTORY_PREFIX);
+  const fs = defaultStateStoreFileSystem;
+  return {
+    ...fs,
+    rm: async (path, options) => {
+      if (isPayloadDirectory(path)) {
+        throw new Error(`${sampleVerifyTestValue(STATE_STORE_TEST_GENERATOR.scopeToken())}: ${path}`);
+      }
+      return fs.rm(path, options);
+    },
+  };
+}
+
+/**
  * Make `directory` read-only for the callback, so no entry inside it can be removed or added, and restore
  * its write permission when the callback settles.
  */
@@ -244,8 +264,8 @@ export interface PayloadDirectoryRepository {
   readonly repository: VerifyHeadCommitRepository;
   /** The production lifecycle dependencies rooted at the checkout, with `overrides` applied. */
   deps(overrides?: Partial<VerifyCliDeps>): VerifyCliDeps;
-  /** Lifecycle dependencies whose payload-directory removal refuses with a generated reason. */
-  refusingRemovalDeps(): VerifyCliDeps;
+  /** Lifecycle dependencies whose file system refuses every removal of a run payload directory. */
+  payloadRemovalRefusingDeps(): VerifyCliDeps;
   /** Lifecycle dependencies whose file system refuses every write into a journal runs directory. */
   journalRefusingDeps(): VerifyCliDeps;
   /** Start a file-scoped run of the repository's file, a review run unless another type is named. */
@@ -286,12 +306,7 @@ export async function withPayloadDirectoryRepository<T>(
     return callback({
       repository,
       deps,
-      refusingRemovalDeps: () =>
-        deps({
-          removePayloadDirectory: async () => {
-            throw new Error(sampleVerifyTestValue(STATE_STORE_TEST_GENERATOR.scopeToken()));
-          },
-        }),
+      payloadRemovalRefusingDeps: () => deps({ fs: payloadRemovalRefusingFileSystem() }),
       journalRefusingDeps: () => deps({ fs: journalRefusingFileSystem() }),
       startRun: async ({ verificationType = VERIFY_VERIFICATION_TYPE.REVIEW, branch, deps: overrides } = {}) => {
         const started = await verifyStartCommand(
