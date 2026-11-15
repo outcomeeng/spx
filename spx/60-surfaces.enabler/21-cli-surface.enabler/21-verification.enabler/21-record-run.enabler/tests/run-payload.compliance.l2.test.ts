@@ -107,6 +107,46 @@ describe("record-run payload sources through the built executable", () => {
   );
 
   it(
+    "accepts --run-payload alone on finding add and on finish, and finish records the terminal metadata the run-relative file holds",
+    async () => {
+      await withBuiltPayloadRun(async (run) => {
+        const scopeName = await run.stageRunPayload();
+        const findingName = await run.stageRunPayload(run.finding);
+        const metadataName = await run.stageRunPayload(run.terminalMetadata);
+
+        const scopeAdded = await run.run([VERIFY_CLI.scopeCommandName, VERIFY_CLI.addCommandName], [
+          ...run.runSelectors,
+          flagOf(VERIFY_CLI.runPayloadOption),
+          scopeName,
+          ...run.idempotencyOption(),
+        ]);
+        const findingAdded = await run.run([VERIFY_CLI.findingCommandName, VERIFY_CLI.addCommandName], [
+          ...run.runSelectors,
+          flagOf(VERIFY_CLI.runPayloadOption),
+          findingName,
+          ...run.idempotencyOption(),
+        ]);
+        const finished = await run.run([VERIFY_CLI.finishCommandName], [
+          ...run.runSelectors,
+          flagOf(VERIFY_CLI.terminalStatusOption),
+          JOURNAL_RUN_STATE_STATUS.REJECTED,
+          flagOf(VERIFY_CLI.runPayloadOption),
+          metadataName,
+        ]);
+
+        expect(run.start.exitCode, run.start.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
+        expect(scopeAdded.exitCode, scopeAdded.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
+        expect(findingAdded.exitCode, findingAdded.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
+        expect(finished.exitCode, finished.stderr).toBe(VERIFY_CLI_EXIT_CODE.OK);
+        const report = JSON.parse(finished.stdout) as VerifyFinishReport;
+        expect(report.sealed).toBe(true);
+        expect(report.terminalMetadata).toEqual(JSON.parse(run.terminalMetadata));
+      });
+    },
+    CLI_TIMEOUTS_MS.E2E_BATCH,
+  );
+
+  it(
     "writes a diagnostic naming the payload directory to standard error when its removal fails, and the structured result to standard output with the exit it has without the failure",
     async () => {
       await withBuiltPayloadRun(async (run) => {
