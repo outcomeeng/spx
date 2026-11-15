@@ -25,10 +25,11 @@ CAN RELY ON SPX reporting those directories without writing before a run starts,
 
 Each reported directory equals the directory into which a run started for the same verification type, scope, and branch key writes.
 
-| Case                 | Reported directory                                   |
-| -------------------- | ---------------------------------------------------- |
-| journal-runs         | the directory into which that run writes its journal |
-| verification-context | the directory into which that run writes its context |
+| Case                 | Reported directory                                       |
+| -------------------- | -------------------------------------------------------- |
+| journal-runs         | the directory into which that run writes its journal     |
+| verification-context | the directory into which that run writes its context     |
+| payloads             | the payload root that holds that run's payload directory |
 
 ### Test.Mapping: reported-path-resolution
 

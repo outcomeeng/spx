@@ -26,3 +26,7 @@ For a verification type and a changeset or file scope, the write-path report ret
 - NEVER: a caller hand-formats the journal event envelope for a verification run; verification-run lifecycle operations construct journal events from typed lifecycle inputs ([audit])
 - ALWAYS: verification-run lifecycle operations record and render a run whichever party drives it — an agent, a launcher, or spx executing a runner ([audit])
 - NEVER: verification-run lifecycle operations launch, configure, or select a verification agent — an agentic verification is judged by an agent the agent harness launches, per [`spx/12-agent-harness.pdr.md`](spx/12-agent-harness.pdr.md) ([audit])
+
+### Audit: payloads
+
+- payload-working-input: NEVER: a payload source staged in a run's payload directory is committed; a tracked file under `.spx/`, or a repository ignore rule that admits a file under `.spx/branch/`, fails.
