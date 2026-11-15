@@ -991,6 +991,11 @@ export interface BuiltPayloadRun {
    */
   stageInvocationDirectoryPayload(name: string): Promise<string>;
   /**
+   * Write `content`, the scope unit when none is given, as a generated file name at the checkout root,
+   * and return that name, so a command whose process runs from the checkout names it by a relative path.
+   */
+  stageCheckoutPayload(content?: string): Promise<string>;
+  /**
    * Write the scope unit to a generated file of the checkout outside the run's payload directory, plus a
    * symbolic link to it inside the payload directory, and return the outside file's absolute path and the
    * link's run-relative name.
@@ -1064,6 +1069,11 @@ export async function withBuiltPayloadRun<T>(callback: (run: BuiltPayloadRun) =>
         await mkdir(directory);
         await writeFile(join(directory, name), scopeUnit);
         return directory;
+      },
+      stageCheckoutPayload: async (content = scopeUnit) => {
+        const name = samplePayloadFileName();
+        await writeFile(join(repository.productDir, name), content);
+        return name;
       },
       idempotencyOption: () => [flagOf(VERIFY_CLI.idempotencyKeyOption), sampleIdempotencyKey()],
       payloadDirectory,
