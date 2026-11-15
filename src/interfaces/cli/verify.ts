@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 
 import { type Command, InvalidArgumentError } from "commander";
 
@@ -26,6 +27,7 @@ import {
   type VerifyCliDeps,
   type VerifyFinishCliOptions,
   verifyFinishCommand,
+  type VerifyFinishCommandResult,
   type VerifyInputCliOptions,
   verifyInputCommand,
   type VerifyPathsCliOptions,
@@ -50,7 +52,13 @@ import {
 } from "@/domains/verify/verify";
 import type { Domain } from "@/interfaces/cli/domain";
 import type { CliInvocation, CliIo } from "@/interfaces/cli/product-context";
-import { jsonDocument, renderTerminalText, terminal } from "@/lib/terminal-text/terminal-text";
+import {
+  authoredText,
+  externalValue,
+  jsonDocument,
+  renderTerminalText,
+  terminal,
+} from "@/lib/terminal-text/terminal-text";
 
 import { createJournalStreamBinding, stderrStreamSink } from "./lib/journal-stream-binding";
 import { PATH_OPERAND_CLI_SURFACE, recursiveOptionFlags } from "./lib/path-operands";
@@ -147,7 +155,15 @@ export const VERIFY_CLI = {
   compareRunCountError: "spx verification run compare requires --run exactly twice, naming two runs of the Change",
   runOption: "--run <token>",
   payloadOption: "--payload <payload-source>",
-  payloadOptionDescription: "Evidence payload source; stdin or a file path",
+  payloadOptionDescription:
+    "Evidence payload source; stdin or a file path from the invocation directory; exactly one of it and --run-payload",
+  runPayloadOption: "--run-payload <name>",
+  runPayloadOptionDescription:
+    "Name of a file in the run's payload directory holding the evidence payload; exactly one of it and --payload",
+  finishRunPayloadOptionDescription:
+    "Name of a file in the run's payload directory holding the terminal metadata; at most one of it and --terminal-metadata",
+  payloadRemovalDiagnostic:
+    "spx verification run finish: the sealed run's payload directory remains until the next start removes it:",
   idempotencyKeyOption: "--idempotency-key <key>",
   idempotencyKeyOptionDescription: "Caller-supplied idempotency key for the evidence add",
   terminalMetadataOption: "--terminal-metadata <payload-source>",
@@ -179,7 +195,8 @@ interface VerifyInputActionOptions extends VerifySharedCliOptions {
 
 interface VerifyAppendActionOptions extends VerifySharedCliOptions {
   readonly run: string;
-  readonly payload: string;
+  readonly payload?: string;
+  readonly runPayload?: string;
   readonly idempotencyKey: string;
 }
 
@@ -187,6 +204,7 @@ interface VerifyFinishActionOptions extends VerifySharedCliOptions {
   readonly run: string;
   readonly terminalStatus: string;
   readonly terminalMetadata?: string;
+  readonly runPayload?: string;
 }
 
 interface VerifyRunActionOptions extends VerifySharedCliOptions {
@@ -211,7 +229,7 @@ export interface VerifyCliHandlers {
   readonly appendScope: (options: VerifyAppendCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
   readonly compare: (options: VerifyRunComparisonCliOptions, deps: VerifyChangeRunsDeps) => Promise<CliCommandResult>;
   readonly executeRun: (options: ExecuteRunCliOptions, deps: ExecuteRunCliDeps) => Promise<ExecuteRunCommandResult>;
-  readonly finish: (options: VerifyFinishCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
+  readonly finish: (options: VerifyFinishCliOptions, deps: VerifyCliDeps) => Promise<VerifyFinishCommandResult>;
   readonly input: (options: VerifyInputCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
   readonly list: (options: VerifyChangeRunsCliOptions, deps: VerifyChangeRunsDeps) => Promise<CliCommandResult>;
   readonly paths: (options: VerifyPathsCliOptions, deps: VerifyCliDeps) => Promise<CliCommandResult>;
@@ -270,13 +288,19 @@ export function registerVerifyCommands(
   // event stream goes to stderr under the local backend rather than sharing the result channel.
   const journalBinding = (): JournalStreamBinding =>
     createJournalStreamBinding(invocation.io, stderrStreamSink(invocation.io));
-  const deps = () => ({
-    cwd: invocation.resolveEffectiveInvocationDir(),
-    readInputSource: readCliInputBytes,
-    readCheckFile: (path: string) => readFile(path),
-    readPayloadSource: readCliSource,
-    journalBinding: journalBinding(),
-  });
+  // A payload file path is read from the effective invocation directory, so `-C <path>` addresses the
+  // same file a caller names from `<path>`; `stdin` and absolute paths read as written.
+  const deps = () => {
+    const cwd = invocation.resolveEffectiveInvocationDir();
+    return {
+      cwd,
+      readInputSource: readCliInputBytes,
+      readCheckFile: (path: string) => readFile(path),
+      readPayloadSource: (source: string) =>
+        readCliSource(source === VERIFY_INPUT_SOURCE.STDIN ? source : resolve(cwd, source)),
+      journalBinding: journalBinding(),
+    };
+  };
   const command = program.command(VERIFY_CLI.commandName).description(VERIFY_CLI.description);
   registerExecuteRunCommands(command, invocation, handlers, journalBinding);
   const runCommand = command
@@ -335,7 +359,8 @@ export function registerVerifyCommands(
     .requiredOption(VERIFY_CLI.scopeTypeOption, VERIFY_CLI.scopeTypeOptionDescription)
     .requiredOption(VERIFY_CLI.scopeOption, VERIFY_CLI.scopeOptionDescription)
     .requiredOption(VERIFY_CLI.runOption, "Run token reported by start")
-    .requiredOption(VERIFY_CLI.payloadOption, VERIFY_CLI.payloadOptionDescription)
+    .option(VERIFY_CLI.payloadOption, VERIFY_CLI.payloadOptionDescription)
+    .option(VERIFY_CLI.runPayloadOption, VERIFY_CLI.runPayloadOptionDescription)
     .requiredOption(VERIFY_CLI.idempotencyKeyOption, VERIFY_CLI.idempotencyKeyOptionDescription)
     .action(async (options: VerifyAppendActionOptions) => {
       reportCliResult(await handlers.appendScope(options, deps()), invocation.io);
@@ -352,7 +377,8 @@ export function registerVerifyCommands(
     .requiredOption(VERIFY_CLI.scopeTypeOption, VERIFY_CLI.scopeTypeOptionDescription)
     .requiredOption(VERIFY_CLI.scopeOption, VERIFY_CLI.scopeOptionDescription)
     .requiredOption(VERIFY_CLI.runOption, "Run token reported by start")
-    .requiredOption(VERIFY_CLI.payloadOption, VERIFY_CLI.payloadOptionDescription)
+    .option(VERIFY_CLI.payloadOption, VERIFY_CLI.payloadOptionDescription)
+    .option(VERIFY_CLI.runPayloadOption, VERIFY_CLI.runPayloadOptionDescription)
     .requiredOption(VERIFY_CLI.idempotencyKeyOption, VERIFY_CLI.idempotencyKeyOptionDescription)
     .action(async (options: VerifyAppendActionOptions) => {
       reportCliResult(await handlers.appendFinding(options, deps()), invocation.io);
@@ -378,8 +404,20 @@ export function registerVerifyCommands(
     .requiredOption(VERIFY_CLI.runOption, "Run token reported by start")
     .requiredOption(VERIFY_CLI.terminalStatusOption, "Terminal status recorded before sealing")
     .option(VERIFY_CLI.terminalMetadataOption, "Verification-type terminal metadata source; stdin or a file path")
+    .option(VERIFY_CLI.runPayloadOption, VERIFY_CLI.finishRunPayloadOptionDescription)
     .action(async (options: VerifyFinishActionOptions) => {
-      reportCliResult(await handlers.finish(options, deps()), invocation.io);
+      const result = await handlers.finish(options, deps());
+      reportCliResult(result, invocation.io);
+      if (result.payloadRemovalFailure !== undefined) {
+        const { directory, reason } = result.payloadRemovalFailure;
+        invocation.io.writeStderr(
+          renderTerminalText(
+            terminal`${authoredText(VERIFY_CLI.payloadRemovalDiagnostic)} ${externalValue(directory)}: ${
+              externalValue(reason)
+            }\n`,
+          ),
+        );
+      }
     });
 
   runCommand
